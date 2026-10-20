@@ -21559,6 +21559,1766 @@
           ]
         }
       ]
+    },
+    {
+      "src": "({ a }) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 6,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 4,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 7,
+                  "end": 10
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a, b }) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 4,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 10,
+                  "end": 13
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "([a, b]) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 1,
+                      "end": 7,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 3,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 3,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 4,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 4,
+                              "end": 6,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 8,
+                  "end": 11
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a: c }) => c;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 10,
+                  "end": 13
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a = 1 }) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 8,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 6,
+                              "end": 8,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 11,
+                  "end": 14
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "([a = 1]) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 1,
+                      "end": 8,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 3,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a, ...rest }) => rest;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 4,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "DotDotDotToken",
+                              "pos": 5,
+                              "end": 9
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 9,
+                              "end": 13,
+                              "text": "rest"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 16,
+                  "end": 19
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 24,
+                  "text": "rest"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "([...rest]) => rest;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 1,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 9,
+                          "children": [
+                            {
+                              "kind": "DotDotDotToken",
+                              "pos": 2,
+                              "end": 5
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 9,
+                              "text": "rest"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 11,
+                  "end": 14
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 19,
+                  "text": "rest"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function ({ a }) { return a; });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "ObjectBindingPattern",
+                          "pos": 11,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "BindingElement",
+                              "pos": 12,
+                              "end": 14,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 12,
+                                  "end": 14,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 17,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 19,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function ([a, b]) { return a; });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "ArrayBindingPattern",
+                          "pos": 11,
+                          "end": 17,
+                          "children": [
+                            {
+                              "kind": "BindingElement",
+                              "pos": 12,
+                              "end": 13,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 12,
+                                  "end": 13,
+                                  "text": "a"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "BindingElement",
+                              "pos": 14,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "text": "b"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 18,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 20,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 27,
+                              "end": 29,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function ({ a = 1 }) { return a; });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "ObjectBindingPattern",
+                          "pos": 11,
+                          "end": 20,
+                          "children": [
+                            {
+                              "kind": "BindingElement",
+                              "pos": 12,
+                              "end": 18,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 12,
+                                  "end": 14,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "FirstLiteralToken",
+                                  "pos": 16,
+                                  "end": 18,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 21,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 23,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 32,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function ({ a }: A) { return a; });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "ObjectBindingPattern",
+                          "pos": 11,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "BindingElement",
+                              "pos": 12,
+                              "end": 14,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 12,
+                                  "end": 14,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 17,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 17,
+                              "end": 19,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 20,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 22,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "<T>(a: T) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 1,
+                  "end": 2,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 4,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 6,
+                      "end": 8,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 6,
+                          "end": 8,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "<T, U>(a: T, b: U) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 1,
+                  "end": 2,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeParameter",
+                  "pos": 3,
+                  "end": 5,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 7,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 8,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 9,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 11,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 12,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 15,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "U"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 18,
+                  "end": 21
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(a = 1) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 4,
+                      "end": 6,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 7,
+                  "end": 10
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(a?: A) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "QuestionToken",
+                      "pos": 2,
+                      "end": 3
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 4,
+                      "end": 6,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 4,
+                          "end": 6,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 7,
+                  "end": 10
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(a, b = 2) => b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 2,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 3,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "2"
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 10,
+                  "end": 13
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "( { a } ) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 7,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 3,
+                          "end": 5,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 3,
+                              "end": 5,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ /* c */ a }) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 12,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 12,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 15,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a /* c */ }) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 4,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 15,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "([ /* c */ a, b ]) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 1,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 12,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 12,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 13,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 13,
+                              "end": 15,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 18,
+                  "end": 21
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a, /* c */ b }) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 4,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 15,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 18,
+                  "end": 21
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a, b = 1 }) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 4,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 11,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "b"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 9,
+                              "end": 11,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 14,
+                  "end": 17
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a: c = 1 }) => c;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 1,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 1,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 2,
+                          "end": 11,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 4,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "c"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 9,
+                              "end": 11,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 14,
+                  "end": 17
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "<T, U>(a: T, /* c */ b: U) => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 1,
+                  "end": 2,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeParameter",
+                  "pos": 3,
+                  "end": 5,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 7,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 8,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 9,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 11,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 12,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 22,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 23,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "U"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 26,
+                  "end": 29
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

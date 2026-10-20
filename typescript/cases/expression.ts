@@ -614,3 +614,35 @@ a = b, c = d;
 //   ← CanStart / 语句候选与 builder 都还没有 AwaitExpression / YieldExpression
 // new.target / import.meta   ← MetaProperty 尚未实现（import 候选侧另见 docs/expression-ast-analysis.md）
 
+// ===== base 29：参数绑定模式 / 默认值 / 可选 / 泛型箭头 =====
+// a) 解构参数（箭头）：Parameter 的第一个 child 是 ObjectBindingPattern / ArrayBindingPattern
+({ a }) => a;
+({ a, b }) => a;
+([a, b]) => a;
+({ a: c }) => c;
+({ a = 1 }) => a;
+([a = 1]) => a;
+({ a, ...rest }) => rest;
+([...rest]) => rest;
+// b) 函数表达式里的解构参数
+(function ({ a }) { return a; });
+(function ([a, b]) { return a; });
+(function ({ a = 1 }) { return a; });
+(function ({ a }: A) { return a; });
+// c) 泛型箭头：TypeParameter 在 Parameter 之前
+<T>(a: T) => a;
+<T, U>(a: T, b: U) => a;
+// d) 默认值 / 可选参数
+(a = 1) => a;
+(a?: A) => a;
+(a, b = 2) => b;
+// e) trivia
+( { a } ) => a;
+({ /* c */ a }) => a;
+({ a /* c */ }) => a;
+([ /* c */ a, b ]) => a;
+({ a, /* c */ b }) => a;
+({ a, b = 1 }) => a;
+({ a: c = 1 }) => c;
+<T, U>(a: T, /* c */ b: U) => a;
+
