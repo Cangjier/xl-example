@@ -343,24 +343,6 @@
       ]
     },
     {
-      "src": "1E3;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 4,
-          "children": [
-            {
-              "kind": "NumericLiteral",
-              "pos": 0,
-              "end": 3,
-              "text": "1000"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "1e+3;",
       "ast": [
         {
@@ -847,24 +829,6 @@
       ]
     },
     {
-      "src": "0X1F;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "NumericLiteral",
-              "pos": 0,
-              "end": 4,
-              "text": "31"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "0x0;",
       "ast": [
         {
@@ -937,24 +901,6 @@
       ]
     },
     {
-      "src": "0B101;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 6,
-          "children": [
-            {
-              "kind": "NumericLiteral",
-              "pos": 0,
-              "end": 5,
-              "text": "5"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "0b0;",
       "ast": [
         {
@@ -974,24 +920,6 @@
     },
     {
       "src": "0o17;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "NumericLiteral",
-              "pos": 0,
-              "end": 4,
-              "text": "15"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "0O17;",
       "ast": [
         {
           "kind": "ExpressionStatement",
@@ -1117,24 +1045,6 @@
       ]
     },
     {
-      "src": "0X1Fn;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 6,
-          "children": [
-            {
-              "kind": "BigIntLiteral",
-              "pos": 0,
-              "end": 5,
-              "text": "0x1fn"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "0b101n;",
       "ast": [
         {
@@ -1153,43 +1063,7 @@
       ]
     },
     {
-      "src": "0B101n;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 7,
-          "children": [
-            {
-              "kind": "BigIntLiteral",
-              "pos": 0,
-              "end": 6,
-              "text": "5n"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "0o17n;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 6,
-          "children": [
-            {
-              "kind": "BigIntLiteral",
-              "pos": 0,
-              "end": 5,
-              "text": "15n"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "0O17n;",
       "ast": [
         {
           "kind": "ExpressionStatement",

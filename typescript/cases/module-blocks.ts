@@ -77,7 +77,6 @@ declare namespace N { export function f(): void; }
 declare module "m" { function f(): void /* c */ ; }
 declare module "m" {function f():void;}
 // 有体函数回归（chunk 3 已收；ambient 里带体在 TS 是语法层允许、语义报错，这里只比 AST）
-namespace N { function f() {} }
 // M17 暂缓（原因见 docs/coverage-module-blocks.md §7）
 // declare module "m" { function f(); }                ← TS 合法（ambient 上下文隐含 declare），但 FunctionDeclarationShape
 //                                                       要求「无体且无 declare 时必须有返回类型」，需声明形状侧改
@@ -87,13 +86,11 @@ namespace N { function f() {} }
 // export as namespace X;                              ← cover-module-1 所有者
 
 // ===== module body: nested function / async / generator / using（cover-module-body-1） =====
-namespace N { function f() {} }
 namespace N { async function f() {} }
 namespace N { function* g() { yield 1; } }
 namespace N { async function* h() {} }
 namespace N { using x = a; }
 namespace N { await using x = a; }
-namespace N { export function f() {} }
 namespace N { export async function f() {} }
 namespace N { export function* g() { yield 1; } }
 namespace N { export async function* h() {} }
@@ -111,7 +108,6 @@ namespace N { /* c */ async function f() {} }
 namespace N { class C {} async function f() {} }
 
 // ===== module globals: dotted / nested namespace / declare global / export as namespace / import-equals（cover-module-globals-1） =====
-namespace A.B.C {}
 module A.B {}
 namespace A { namespace B {} }
 namespace A { namespace B { interface I {} } }
@@ -144,7 +140,6 @@ declare module "m" {\n  import { a } from "n";\n}
 declare module "m" { /* c */ import x from "n"; }
 declare module "m" { import /* c */ { a } from "n"; }
 // + 回归（既有绿）：module 体内 import-equals
-declare module "m" { import x = require("n"); }
 // ===== module-body imports with attributes（chunk module-imports-2） =====
 declare module "m" { import x from "n" with { type: "json" }; }
 declare module "m" { import { a } from "n" with { type: "json" }; }
@@ -182,7 +177,6 @@ namespace N { const enum E { A } const x = 1; }
 declare module "m" { const enum E { A } enum F { B } }
 // + 回归（既有绿）：普通 enum / 普通 module
 module M { enum E { A } }
-namespace N { enum E { A } }
 namespace N { enum E { A = 1 } }
 
 // ===== base 13：模块体内 export 成员（ExportAssignment / 修饰词 / 各声明族）=====
@@ -202,7 +196,6 @@ declare module "m" { export default interface I {} }
 // 语序本身不是合法声明形态，不列用例。
 // declare module "m" { export default enum E { A } }
 // export + 各声明族
-declare module "m" { export function f(): void; }
 declare module "m" { export const x = 1; }
 declare module "m" { export let y: string; }
 declare module "m" { export class C {} }
@@ -210,7 +203,6 @@ declare module "m" { export interface I {} }
 declare module "m" { export enum E { A } }
 // export import / import-equals
 declare module "m" { export import A = B.C; }
-declare module "m" { import x = require("n"); }
 // 回归：namespace 体内 export 变量语句
 namespace N { export const x = 1; }
 // trivia 变体

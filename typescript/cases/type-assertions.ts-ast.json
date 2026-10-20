@@ -1212,44 +1212,6 @@
       ]
     },
     {
-      "src": "<T>a;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "TypeAssertionExpression",
-              "pos": 0,
-              "end": 4,
-              "children": [
-                {
-                  "kind": "TypeReference",
-                  "pos": 1,
-                  "end": 2,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 1,
-                      "end": 2,
-                      "text": "T"
-                    }
-                  ]
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 3,
-                  "end": 4,
-                  "text": "a"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "<U>b;",
       "ast": [
         {

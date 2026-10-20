@@ -543,52 +543,6 @@
       ]
     },
     {
-      "src": "import { a } from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclaration",
-          "pos": 0,
-          "end": 22,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 6,
-              "end": 12,
-              "children": [
-                {
-                  "kind": "NamedImports",
-                  "pos": 6,
-                  "end": 12,
-                  "children": [
-                    {
-                      "kind": "ImportSpecifier",
-                      "pos": 8,
-                      "end": 10,
-                      "name": "a",
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 8,
-                          "end": 10,
-                          "text": "a"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 17,
-              "end": 21,
-              "text": "m"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "import /* c */ { a } from \"m\";",
       "ast": [
         {
@@ -1158,45 +1112,6 @@
               "kind": "StringLiteral",
               "pos": 35,
               "end": 39,
-              "text": "m"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "import * as ns from \"m\";",
-      "ast": [
-        {
-          "kind": "ImportDeclaration",
-          "pos": 0,
-          "end": 24,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 6,
-              "end": 14,
-              "children": [
-                {
-                  "kind": "NamespaceImport",
-                  "pos": 6,
-                  "end": 14,
-                  "name": "ns",
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 11,
-                      "end": 14,
-                      "text": "ns"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 19,
-              "end": 23,
               "text": "m"
             }
           ]

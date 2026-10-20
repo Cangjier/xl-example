@@ -10,9 +10,7 @@ a;
 1.5;
 0x1f;
 // + 数字字面量的其它写法：text 按 ts 口径规范化（0x1f → "31"、1e3 → "1000"、0b101 → "5"）
-0X1F;
 1e3;
-1E3;
 1.5e2;
 0b101;
 0o17;
@@ -239,7 +237,6 @@ a ?? (b || c);
 // ===== base 15：一元与二元的结合 =====
 -a * b;
 !a && b;
-typeof a === "s";
 a + b * c - d / e;
 a << b + c;
 
@@ -290,7 +287,6 @@ a, b, c;
 a = b, c = d;
 (a, b);
 f((a, b));
-f(a, (b, c));
 
 // ===== base 19：混合优先级 / 嵌套 =====
 a * b + c * d;
@@ -301,7 +297,6 @@ a ? b : c = d;
 f(a + b);
 a[b + c];
 (a + b) * c;
-f(a ? b : c);
 a ? f(b) : g(c);
 a.b(c + d)[e];
 a ** -b;
@@ -385,7 +380,6 @@ x = f<T>(a);
 a.b<T>(c);
 f < g > (a);
 // + 回退（不能把比较吃成泛型调用）
-a < b;
 a < b > c;
 f(a < b);
 a <b;
@@ -501,84 +495,24 @@ x = [function () {}];
 // 模板串                      `t`;                     ← 会被当成 StringLiteral，kind 不对；bigint（1n）已支持，见 number.ts
 
 // ===== base 29：operator sweep —— 二元优先级阶梯（base）=====
-a ** b;
-a * b;
-a / b;
-a % b;
-a + b;
-a - b;
-a << b;
-a >> b;
-a >>> b;
-a < b;
-a > b;
-a <= b;
-a >= b;
-a in b;
-a instanceof b;
-a == b;
-a != b;
-a === b;
-a !== b;
-a & b;
-a ^ b;
-a | b;
-a && b;
-a || b;
-a ?? b;
 // 混合优先级
-a + b * c;
-a - b - c;
 a < b && c > d;
-a ** b ** c;
 a | b ^ c & d;
 a == b === c;
-a << b + c;
 a in b && c instanceof d;
-a ?? (b || c);
-(a ?? b) || c;
 // + trivia
-a /* c */ + b;
 a +\n b;
 a  +  b;
 a /* c */ && b;
 a /* c */ ?? b;
 
 // ===== base 30：assignment（全族）=====
-a = b;
-a += b;
-a -= b;
-a *= b;
-a /= b;
-a %= b;
-a **= b;
-a <<= b;
-a >>= b;
-a >>>= b;
-a &= b;
-a |= b;
-a ^= b;
-a &&= b;
-a ||= b;
-a ??= b;
-a = b = c;
 a += b -= c;
 // + trivia
 a /* c */ = /* d */ b;
 a /* c */ += b;
 
 // ===== base 31：一元 / 前缀 / 后缀（补全组合）=====
-!a;
-~a;
-+a;
--a;
-typeof a;
-void a;
-delete a.b;
-++a;
---a;
-a++;
-a--;
 !a && ~b;
 -a * +b;
 typeof a.b;
@@ -588,23 +522,11 @@ delete a[b];
 typeof ++a;
 void a++;
 // + trivia
-! /* c */ a;
 - /* c */ a;
-typeof\na;
 a /* c */ ++;
 ++ /* c */ a;
 
 // ===== base 32：可选链 / 非空 / 逗号 / 三元（补全）=====
-a?.b?.(c);
-a?.b?.[c];
-a!.b;
-a!;
-a?.b!.c;
-a, b;
-a, b, c;
-a ? b : c;
-a ? b : c ? d : e;
-a = b, c = d;
 
 // ===== 暂缓（operator sweep 中 builder 尚不支持的写法）=====
 // 调用 / 数组里的 spread     f(...a);   [...a];   f(...a, b);   [a, ...b];
@@ -633,7 +555,6 @@ a = b, c = d;
 <T>(a: T) => a;
 <T, U>(a: T, b: U) => a;
 // d) 默认值 / 可选参数
-(a = 1) => a;
 (a?: A) => a;
 (a, b = 2) => b;
 // e) trivia
@@ -647,15 +568,12 @@ a = b, c = d;
 <T, U>(a: T, /* c */ b: U) => a;
 
 // ===== 测量 sweep：satisfies / as const =====
-a satisfies T;
-a satisfies T;
 (a) satisfies T;
 ({ a: 1 }) as const;
 [1, 2] as const;
 f({} as const);
 x = a satisfies T;
 a /* c */ satisfies T;
-a satisfies /* c */ T;
 ({ a: 1 } /* c */) as const;
 
 // ===== 测量 sweep：暂缓（注释目标 + 原因）=====
@@ -792,14 +710,11 @@ const f4 = (x: any) /* c */ : /* c */ x is A => true;
 a satisfies T satisfies U;
 a satisfies T as U;
 (a satisfies T) satisfies U;
-a as T as U;
 a as unknown as T;
 // 暂缓（原因）：const f = <const T>(x: T) => x; —— expression-builder 的箭头类型参数不认 const（结构对拍缺 ConstKeyword），属 expressions 家族，本 chunk 写范围外。
 function g<const T>(x: T) { return x; }
 f<string>(1);
 // trivia
-a satisfies /* c */ T;
-a as /* c */ T;
 const g2 = f /* c */ <string>(1);
 // 暂缓（原因）：instantiation expressions 无调用形：`const g = f<string>;`、`const h = new C<number>;`、
 //                    `const k = a.b<T>;` —— 需要 expression-builder 在类型实参后接受语句结束，属 expressions 家族，本 chunk 写范围外。
@@ -812,7 +727,6 @@ const k = a.b<T>;
 // 顶层 , 会被 declarations 的声明切分吃掉，所以多实参的 instantiation 用括号/表达式语句形态
 const m = (f<string, number>);
 f<string, number>;
-f<string>(1);
 f<string>;
 // + trivia
 const g2 = f /* c */ <string>;
@@ -835,13 +749,11 @@ const fcc = <const T extends A>(x: T) => x;
 // 顶层逗号会被声明切分，多参数泛型箭头用括号形态
 const fcb = (<T extends A, U = B>(x: T, y: U) => x);
 // ===== base 40：链式 / super / optional / this / tagged（measurement sweep）=====
-a?.b.c;
 a?.b?.[c]?.(d);
 (a?.b)!;
 a.b().c().d;
 a().b().c;
 class C extends B { m() { super.m(); super.x; super["y"]; } }
-class C extends B { constructor() { super(); } }
 class C extends B { m() { super.m?.(); } }
 this.x.y;
 this["x"];

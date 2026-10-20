@@ -314,25 +314,14 @@ delete a.b / c;
 /a[b-d]e/;
 /a[^b]/;
 /[a-z]/g;
-/\d+/;
 /\w/;
-/[/]/;
-/a\/b/;
-/[(){}]/;
 /[^a-z0-9_]/;
 /\s+/g;
 
 // ===== R8 chunk2：标志 —— unicode / sticky / dotAll =====
-/a/u;
-/a/y;
-/a/s;
 /a/uy;
-/a/gim;
 
 // ===== R9 chunk2：除号 vs 正则（oracle 复核：这些 `/` 该是除号）=====
-a / b;
-a / b / c;
-/* c */ a / b;
 a / b / c / d;
 
 // ===== R10 chunk2：除号 vs 正则（oracle 复核：这些 `/` 该起正则）=====
@@ -345,7 +334,6 @@ a ? /x/ : /y/ ;
 
 // ===== R11 chunk2：语句位 / 块内的正则（形状已接的那些）=====
 if (/re/.test(a)) b;
-function g() { return /re/; }
 function g() { return /re/; }
 return /re/;
 

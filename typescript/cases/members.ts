@@ -264,7 +264,6 @@ class C { async *m() {} }
 class C { static async *g() {} }
 class C { public async *m() {} }
 class C { async m(a: A): Promise<B> { return b; } }
-({ async *m() {} });
 class C { #x = 1; m() { this.#x; } }
 class C { #m() {} m2() { this.#m(); } }
 class C { #p = 1; m() { this.#p.q; } }

@@ -26,7 +26,6 @@ import { a, b } from "m";
 import { a as b } from "m";
 import { a, b as c } from "m";
 import {} from "m";
-import { a } from "m";
 import /* c */ { a } from "m";
 import {\n  a,\n  b,\n} from "m";
 // + 重复形：三个元素
@@ -43,7 +42,6 @@ import {\n  a,\n  b,\n  c,\n} from "m";
 import {\n  a, // c\n  b,\n  c,\n} from "m";
 
 // ===== base 3：命名空间导入 =====
-import * as ns from "m";
 import * as ns from "m";
 import  *  as  ns  from  "m";
 

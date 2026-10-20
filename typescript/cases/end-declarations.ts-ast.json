@@ -3598,57 +3598,6 @@
       ]
     },
     {
-      "src": "declare function f(): void\ndeclare function g(): void",
-      "ast": [
-        {
-          "kind": "FunctionDeclaration",
-          "pos": 0,
-          "end": 26,
-          "children": [
-            {
-              "kind": "DeclareKeyword",
-              "pos": 0,
-              "end": 7
-            },
-            {
-              "kind": "Identifier",
-              "pos": 16,
-              "end": 18,
-              "text": "f"
-            },
-            {
-              "kind": "VoidKeyword",
-              "pos": 21,
-              "end": 26
-            }
-          ]
-        },
-        {
-          "kind": "FunctionDeclaration",
-          "pos": 26,
-          "end": 53,
-          "children": [
-            {
-              "kind": "DeclareKeyword",
-              "pos": 26,
-              "end": 34
-            },
-            {
-              "kind": "Identifier",
-              "pos": 43,
-              "end": 45,
-              "text": "g"
-            },
-            {
-              "kind": "VoidKeyword",
-              "pos": 48,
-              "end": 53
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "declare function f(): void\nclass C {}\ninterface I {}",
       "ast": [
         {
@@ -4440,37 +4389,6 @@
       ]
     },
     {
-      "src": "import x = require(\"m\")",
-      "ast": [
-        {
-          "kind": "ImportEqualsDeclaration",
-          "pos": 0,
-          "end": 23,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 6,
-              "end": 8,
-              "text": "x"
-            },
-            {
-              "kind": "ExternalModuleReference",
-              "pos": 10,
-              "end": 23,
-              "children": [
-                {
-                  "kind": "StringLiteral",
-                  "pos": 19,
-                  "end": 22,
-                  "text": "m"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "export function f() {}",
       "ast": [
         {
@@ -4789,67 +4707,6 @@
                   ]
                 }
               ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "export const x = 1",
-      "ast": [
-        {
-          "kind": "VariableStatement",
-          "pos": 0,
-          "end": 18,
-          "children": [
-            {
-              "kind": "ExportKeyword",
-              "pos": 0,
-              "end": 6
-            },
-            {
-              "kind": "VariableDeclarationList",
-              "pos": 6,
-              "end": 18,
-              "children": [
-                {
-                  "kind": "VariableDeclaration",
-                  "pos": 12,
-                  "end": 18,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 12,
-                      "end": 14,
-                      "text": "x"
-                    },
-                    {
-                      "kind": "FirstLiteralToken",
-                      "pos": 16,
-                      "end": 18,
-                      "text": "1"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "class C {}",
-      "ast": [
-        {
-          "kind": "ClassDeclaration",
-          "pos": 0,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "C"
             }
           ]
         }
@@ -5403,29 +5260,6 @@
       ]
     },
     {
-      "src": "namespace N {}",
-      "ast": [
-        {
-          "kind": "ModuleDeclaration",
-          "pos": 0,
-          "end": 14,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 9,
-              "end": 11,
-              "text": "N"
-            },
-            {
-              "kind": "ModuleBlock",
-              "pos": 11,
-              "end": 14
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "declare namespace N {}",
       "ast": [
         {
@@ -5448,34 +5282,6 @@
               "kind": "ModuleBlock",
               "pos": 19,
               "end": 22
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "declare module \"m\" {}",
-      "ast": [
-        {
-          "kind": "ModuleDeclaration",
-          "pos": 0,
-          "end": 21,
-          "children": [
-            {
-              "kind": "DeclareKeyword",
-              "pos": 0,
-              "end": 7
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 14,
-              "end": 18,
-              "text": "m"
-            },
-            {
-              "kind": "ModuleBlock",
-              "pos": 18,
-              "end": 21
             }
           ]
         }
@@ -6022,42 +5828,6 @@
       ]
     },
     {
-      "src": "class C { m() {} }",
-      "ast": [
-        {
-          "kind": "ClassDeclaration",
-          "pos": 0,
-          "end": 18,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "C"
-            },
-            {
-              "kind": "MethodDeclaration",
-              "pos": 9,
-              "end": 16,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 9,
-                  "end": 11,
-                  "text": "m"
-                },
-                {
-                  "kind": "Block",
-                  "pos": 13,
-                  "end": 16
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "class C { x = 1; y = 2; }",
       "ast": [
         {
@@ -6106,42 +5876,6 @@
                   "pos": 20,
                   "end": 22,
                   "text": "2"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "interface I { a: number } // c",
-      "ast": [
-        {
-          "kind": "InterfaceDeclaration",
-          "pos": 0,
-          "end": 25,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 9,
-              "end": 11,
-              "text": "I"
-            },
-            {
-              "kind": "PropertySignature",
-              "pos": 13,
-              "end": 23,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 13,
-                  "end": 15,
-                  "text": "a"
-                },
-                {
-                  "kind": "NumberKeyword",
-                  "pos": 16,
-                  "end": 23
                 }
               ]
             }
@@ -6362,29 +6096,6 @@
               "kind": "Identifier",
               "pos": 14,
               "end": 16,
-              "text": "C"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "declare class C {}",
-      "ast": [
-        {
-          "kind": "ClassDeclaration",
-          "pos": 0,
-          "end": 18,
-          "children": [
-            {
-              "kind": "DeclareKeyword",
-              "pos": 0,
-              "end": 7
-            },
-            {
-              "kind": "Identifier",
-              "pos": 13,
-              "end": 15,
               "text": "C"
             }
           ]

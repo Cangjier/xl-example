@@ -196,14 +196,10 @@ export { "a-b" as c } from "m"; export { "x-y" as z } from "n";
 export { };
 export { a, b, c };
 export { a as b, c as d };
-export { a as b } from "m";
-export type { T } from "m";
 // export { type T } from "m";        —— 已支持（chunk typespec）：见 base 16
 export * as ns from "m" with { type: "json" };
 export * as ns from "m" with { type: "json", other: "x" };
-export { a as default };
 export { default as a };
-export {};
 export { a }; export { b }; /* c */\n export * from "m"; // d
 export {\n};\n
 export\n{\n  a,\n  b,\n};
@@ -278,9 +274,6 @@ export declare type T = A; export declare const x: number;
 // ===== base 15（import-attrs chunk）：re-export attributes sweep =====
 export * from "m" with { type: "json", a: "b" };
 export * as ns from "m" with { a: "b", c: "d" };
-export { a } from "m" with { type: "json", other: "x" };
-export * as ns from "m" with { type: "json" };
-export { a } from "m" assert { type: "json", other: "x" };
 export * as ns from "m" with { type: "json" }; // c
 // export { a } from "m"\nwith { type: "json" };  —— TS 在 from 之后换行即 ASI：`with{…}` 是独立 WithStatement；本仓把 attributes 续上了（ASI 语义差），暂缓
 // ===== base 16：inline type-only export specifiers（chunk typespec） =====
@@ -310,10 +303,6 @@ export import E = B.C;
 // export * from "m" // c   —— EOF 处尾注释/无分号 ASI 的 End 口径：core EOF 收尾把注释算进 End，需 core 侧修正，暂缓
 
 // ===== export combos: decorator / default / abstract / 泛型（chunk export-combos） =====
-export default abstract class C {}
-export declare abstract class C {}
-export abstract class C {}
-export declare class C {}
 export @dec class C {}
 export default @dec class C {}
 export class C<T> {}
@@ -328,6 +317,4 @@ export @dec class C {} // c
 export default (a, b);
 declare module "m" { export import A = B.C; }
 namespace N { export import A = B.C; }
-export default function () {}
-export default function f() {}
 // @dec export default class C {}   —— TS 6.0.3 合法（Decorator 在 ExportKeyword 前），但根候选归 class-declaration 家族（需 class possible 支持 decorator+export+default），本 chunk 暂缓

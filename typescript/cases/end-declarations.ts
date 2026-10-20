@@ -173,7 +173,6 @@ type T = A\nclass C {}
 // BuildTrailingDeclaration 的返回约定，当前实现只保证「一条前缀」的递归；写成目标行等后续 chunk。
 // declare function f(): void\nclass C {}\ninterface I {}
 // 回归：两条无体函数背靠背（chunk3 已绿，保留对照）
-declare function f(): void\ndeclare function g(): void
 
 // ===== ASI boundary 2: 3-declaration EOF mixes（无尾分号）=====
 declare function f(): void\nclass C {}\ninterface I {}
@@ -196,7 +195,6 @@ export * from "m"
 export { a } from "m"
 import x from "m"
 import "m"
-import x = require("m")
 export function f() {}
 export class C {}
 export interface I {}
@@ -220,8 +218,6 @@ export type T = A // c
 // ===== export var / export default 无分号 EOF（chunk import-export-eof） =====
 export const x = 1
 export const x = 1 // c
-export const x = 1
-class C {}
 export default 1
 export default 1 // c
 export var v = 1
@@ -242,9 +238,7 @@ class C<T> {}
 interface I<T> {}
 function f<T>() {}
 // namespace / module
-namespace N {}
 declare namespace N {}
-declare module "m" {}
 declare module "m";
 module N.M {}
 // type / import type
@@ -269,10 +263,8 @@ type T<U> = U // c\n
 @a @b class C {}
 // class 体 ASI 成员（无分号到 EOF）
 class C { x = 1 }
-class C { m() {} }
 class C { x = 1; y = 2; }
 // interface/type/enum + 尾注释
-interface I { a: number } // c
 type T = A // c
 enum E { A } // c
 interface I { a: number } /* c */
@@ -281,7 +273,6 @@ export default class C { x = 1 }
 export default class C { m(): void {} }
 // abstract / declare
 abstract class C {}
-declare class C {}
 declare abstract class C {}
 // 无末尾换行变体（上面这些本身即无尾换行；下面补「有尾换行 + 尾注释」的对照）
 @dec class C {} // c\n

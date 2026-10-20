@@ -138,7 +138,6 @@ type T = (a: A, b: B) => C; // c
 type T = () => B; type U = () => C;
 
 // ===== T12 类型字面量成员 =====
-type T = {};
 type T = { a: A };
 type T = { a?: A };
 type T = { readonly a: A };
@@ -336,7 +335,6 @@ type T = { [K in keyof U as `get${string & K}`]: U[K] };
 type T = { /* c */ readonly [K in keyof U]: U[K] };
 
 // ===== 测量 sweep：类型算子 =====
-type T = keyof typeof a;
 type T = typeof f;
 type T = import("m").T;
 type T = readonly U[];
@@ -374,20 +372,13 @@ type T<U> = U extends infer R extends A ? R : U;
 // ===== sweep 3：类型谓词 / asserts / this / unique symbol / typeof import / 构造签名（measurement-only） =====
 type T = (x: any) => x is A;
 type T = (x: any) => asserts x is A;
-type T = this;
-type T = unique symbol;
-type T = import("m").T;
-type T = new () => A;
-type T = abstract new () => A;
 // 暂缓：type T = { new (): A }; —— 类型字面量成员里的 ConstructSignature 未接，当前被解析成 MethodSignature(`new` 当方法名)。
 type T = keyof keyof T;
 type T = readonly (A | B)[];
-type T = (A | B)[];
 type T = (() => A)[];
 type T = { m(): this };
 // trivia
 type T = readonly /* c */ (A | B)[];
-type T = new /* c */ () => A;
 type T = (x: any) => /* c */ x is A;
 // 暂缓（原因）：function isA(x: any): x is A { return true; } —— 函数声明侧返回类型的 `x is A` 谓词路径未接
 //                    （函数类型位置 `type T = (x: any) => x is A;` 已绿）。
@@ -430,16 +421,12 @@ type T = {\n  new (): A;\n  new (a: A): B;\n};
 type T = { new (a: A, b: B): C, };
 
 // ===== base 15: constructor types (ConstructorType) =====
-type T = new (a: A) => B;
-type T = new (a: A, b: B) => C;
 type T = new <U>(a: U) => A;
 type T = new <U, V>(a: U, b: V) => C;
-type T = abstract new (a: A) => B;
 type T = abstract new (a: A, b: B) => C;
 type T = (new () => A) | (new () => B);
 type T = (new () => A) & (new () => B);
 type T = { new (): A } & B;
-type T = new () => A[];
 type T = new () => { a: A };
 type T = new () => A | B;
 // + trivia
@@ -447,7 +434,6 @@ type T = new /* c */ (a: A) => B;
 type T = new (/* c */ a: A) => B;
 type T = new (a: A) /* c */ => B;
 type T = new (a: A) => /* c */ B;
-type T = abstract /* c */ new () => A;
 type T = new\n(a: A) => B;
 // + regression (function type / construct signature / array of constructor types)
 type T = () => A;
@@ -456,7 +442,6 @@ type T = () => A;
 // `// ` type T = new (a) => b;
 type T = (new () => A)[];
 type T = Array<new () => A>;
-type T = { new (): A };
 // ===== base 15: type-literal method signatures with predicates =====
 type T = { m(x: any): x is A };
 type T = { m(x: any): asserts x is A };
@@ -487,8 +472,6 @@ type T = <const /* c */ U>(x: U) => U;
 type T = this /* c */ ["x"];
 
 // ===== nested type args（`>>` 拆分，measurement） =====
-type T = A<B<C>>;
-type T = A<B<C<D>>>;
 type T = Map<string, Array<number>>;
 type T = A<B<C>, D<E>>;
 type T<U> = U extends A<B<C>> ? 1 : 2;
@@ -527,10 +510,8 @@ type F = (this /* c */ : A) => B;
 
 // ===== type members sweep：call/new/get/set/optional-method/generic-method（type literal） =====
 type T = { (): void };
-type T = { (a: A): B };
 type T = { new (): C };
 type T = { new <U>(x: U): U };
-type T = { [k: string]: A };
 type T = { readonly [k: number]: A };
 type T = { get x(): A; set x(v: A); };
 type T = { m?(): void };

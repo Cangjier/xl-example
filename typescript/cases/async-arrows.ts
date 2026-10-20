@@ -24,8 +24,6 @@ async (a) => a + b;
 async a => a * b;
 
 // ── 重复形：一条语句里多个 async 箭头 / 与普通语句连排 ──
-async (a) => a;
-async a => a;
 async (a) => a, async b => b;
 a; async (a) => a;
 async (a) => a; b;

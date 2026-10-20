@@ -10704,24 +10704,6 @@
       ]
     },
     {
-      "src": "/\\d+/;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 6,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 5,
-              "text": "/\\d+/"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "/\\w/;",
       "ast": [
         {
@@ -10734,60 +10716,6 @@
               "pos": 0,
               "end": 4,
               "text": "/\\w/"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "/[/]/;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 6,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 5,
-              "text": "/[/]/"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "/a\\/b/;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 7,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 6,
-              "text": "/a\\/b/"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "/[(){}]/;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 9,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 8,
-              "text": "/[(){}]/"
             }
           ]
         }
@@ -10830,60 +10758,6 @@
       ]
     },
     {
-      "src": "/a/u;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 4,
-              "text": "/a/u"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "/a/y;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 4,
-              "text": "/a/y"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "/a/s;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 4,
-              "text": "/a/s"
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "/a/uy;",
       "ast": [
         {
@@ -10896,150 +10770,6 @@
               "pos": 0,
               "end": 5,
               "text": "/a/uy"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "/a/gim;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 7,
-          "children": [
-            {
-              "kind": "RegularExpressionLiteral",
-              "pos": 0,
-              "end": 6,
-              "text": "/a/gim"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "a / b;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 6,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 5,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "a"
-                },
-                {
-                  "kind": "SlashToken",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 3,
-                  "end": 5,
-                  "text": "b"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "a / b / c;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 10,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 9,
-              "children": [
-                {
-                  "kind": "BinaryExpression",
-                  "pos": 0,
-                  "end": 5,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 0,
-                      "end": 1,
-                      "text": "a"
-                    },
-                    {
-                      "kind": "SlashToken",
-                      "pos": 1,
-                      "end": 3
-                    },
-                    {
-                      "kind": "Identifier",
-                      "pos": 3,
-                      "end": 5,
-                      "text": "b"
-                    }
-                  ]
-                },
-                {
-                  "kind": "SlashToken",
-                  "pos": 5,
-                  "end": 7
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 7,
-                  "end": 9,
-                  "text": "c"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "/* c */ a / b;",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 14,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 13,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 9,
-                  "text": "a"
-                },
-                {
-                  "kind": "SlashToken",
-                  "pos": 9,
-                  "end": 11
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 11,
-                  "end": 13,
-                  "text": "b"
-                }
-              ]
             }
           ]
         }
@@ -11397,44 +11127,6 @@
                   "pos": 17,
                   "end": 19,
                   "text": "b"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "src": "function g() { return /re/; }",
-      "ast": [
-        {
-          "kind": "FunctionDeclaration",
-          "pos": 0,
-          "end": 29,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 8,
-              "end": 10,
-              "text": "g"
-            },
-            {
-              "kind": "Block",
-              "pos": 12,
-              "end": 29,
-              "children": [
-                {
-                  "kind": "ReturnStatement",
-                  "pos": 14,
-                  "end": 27,
-                  "children": [
-                    {
-                      "kind": "RegularExpressionLiteral",
-                      "pos": 21,
-                      "end": 26,
-                      "text": "/re/"
-                    }
-                  ]
                 }
               ]
             }

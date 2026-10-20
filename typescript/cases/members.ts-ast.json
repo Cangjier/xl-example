@@ -12123,60 +12123,6 @@
       ]
     },
     {
-      "src": "({ async *m() {} });",
-      "ast": [
-        {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 20,
-          "children": [
-            {
-              "kind": "ParenthesizedExpression",
-              "pos": 0,
-              "end": 19,
-              "children": [
-                {
-                  "kind": "ObjectLiteralExpression",
-                  "pos": 1,
-                  "end": 18,
-                  "children": [
-                    {
-                      "kind": "MethodDeclaration",
-                      "pos": 2,
-                      "end": 16,
-                      "children": [
-                        {
-                          "kind": "AsyncKeyword",
-                          "pos": 2,
-                          "end": 8
-                        },
-                        {
-                          "kind": "AsteriskToken",
-                          "pos": 8,
-                          "end": 10
-                        },
-                        {
-                          "kind": "Identifier",
-                          "pos": 10,
-                          "end": 11,
-                          "text": "m"
-                        },
-                        {
-                          "kind": "Block",
-                          "pos": 13,
-                          "end": 16
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
       "src": "class C { #x = 1; m() { this.#x; } }",
       "ast": [
         {
