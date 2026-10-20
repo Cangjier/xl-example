@@ -11,7 +11,6 @@
 //   D5 heritage：class/interface 的 extends、class 的 implements、单/多个父类型、泛型实参（1~2 个）；
 //   D6 trivia：前导注释、关键字与名字之间、名字与括号之间、参数间、heritage 各位置、体前注释、块内、多行；
 //   D7 同一文件多条声明（重复形，含不同声明混排）。
-//
 // 暂缓（不写进本用例集；原因见 docs/coverage-declarations.md）：
 //   类成员                   class C { a = 1; }      <- 需要 types 家族的 class element shapes
 //   接口成员                 interface I { a: A }    <- 同上
@@ -22,7 +21,6 @@
 //   类型别名                 type T = number;         <- 已有 types.ts，不重复造
 //   体前换行                 class C\n{ }   function f()\n{ }   <- 根终结候选的 ASI 判据把换行后的 `{`
 //                               当成上一条表达式结束（cover-end-1 的范围）；块内换行已绿。
-
 // ===== base 1：ClassDeclaration（空类体）=====
 class C {}
 class A {}
@@ -53,14 +51,11 @@ declare class C { /* c */ }
 abstract /* c */ class C {}
 abstract class /* c */ C {}
 abstract class C { /* c */ }
-
 // ===== base 2：InterfaceDeclaration（空接口体）=====
 interface I {}
 interface A {}
 interface ABC {}
-// + declare 修饰符
 declare interface I {}
-// + trivia
 /* c */ interface I {}
 interface /* c */ I {}
 interface I /* c */ {}
@@ -68,7 +63,6 @@ interface I { /* c */ }
 interface I {}\ninterface J {}
 /* c */ declare interface I {}
 declare interface I { /* c */ }
-
 // ===== base 3：EnumDeclaration =====
 enum E {}
 enum E { A }
@@ -82,11 +76,9 @@ enum E { A = "x", B = "y" }
 enum E { A = 1 + 2 }
 enum E { A = 1, }
 enum E { A = "x", }
-// + declare 修饰符
 declare enum E {}
 declare enum E { A }
 declare enum E { A = 1 }
-// + trivia
 /* c */ enum E {}
 enum /* c */ E {}
 enum E /* c */ {}
@@ -99,7 +91,6 @@ enum\nE {}
 enum E {\nA\n}
 enum E {\nA,\nB\n}
 enum E { A = 1 /* c */ }
-
 // ===== base 4：FunctionDeclaration =====
 function f() {}
 function g() {}
@@ -116,7 +107,6 @@ function f() { return; }
 function f(a) { return a; }
 function f(a: A) { return a; }
 function f(a: A, b: B): C { let x = a; return x; }
-// + trivia
 /* c */ function f() {}
 function /* c */ f() {}
 function f /* c */ () {}
@@ -138,7 +128,6 @@ class C {} function f() {}
 function f() {} interface I {}
 interface I {} function f() {}
 function f() {} enum E { A }
-
 // ===== base 5：heritage（extends / implements / 泛型实参）=====
 class C extends D {}
 class C extends D<E> {}
@@ -153,7 +142,6 @@ interface I extends J<K> {}
 interface I extends J<K, L> {}
 abstract class C extends D implements I {}
 abstract class C extends D<E> implements I {}
-// + trivia
 /* c */ class C extends D {}
 class C /* c */ extends D {}
 class C extends /* c */ D {}
@@ -167,12 +155,10 @@ interface I /* c */ extends J {}
 interface I extends /* c */ J {}
 interface I extends J /* c */, K {}
 interface I extends J<K /* c */> {}
-// + 与其它声明混排（重复形）
 class C extends D {} class E extends F {}
 class C extends D {} interface I extends J {}
 interface I extends J {} class C extends D {}
 class C extends D implements I {} enum E { A }
-
 // ===== base 6：同一文件多条声明（重复形 / 混排）=====
 class C {} class D {}
 class C {}\nclass D {}
@@ -183,7 +169,6 @@ class C {} interface I {}
 interface I {} enum E {}
 enum E { A } class C {}
 class C {}\ninterface I {}\nenum E { A }\n
-
 // ===== base 6：无函数体声明（declare function / 重载签名）=====
 declare function f(): void;
 declare function f(a: A): B;
@@ -208,3 +193,84 @@ declare\nfunction f(): void;
 declare function f(): void;\ndeclare function g(a: A): B;
 declare function f(): void; function f(): void;
 declare function\nf(): void;
+// declarations 鐢ㄤ緥闆嗭細class / interface / enum / function 澹版槑銆?// 涓€琛屼竴涓敤渚嬶紱琛屽唴 \n 鐢?ast-json.mjs 杩樺師鎴愮湡瀹炴崲琛岋紱娉ㄩ噴蹇呴』鐙珛鎴愯銆?// 瀵规媿鍙ｅ緞锛歍S 渚?ts.createSourceFile 鐨?AST锛涙湰浠撲晶 SourceFileRunner.Parse 鐨勫舰鐘舵爲銆?// 蹇収锛歯ode typescript/cases/ast-json.mjs declarations && node typescript/cases/ast-json-diff.mjs declarations
+// 瑕嗙洊鑼冨洿锛?//   D1 ClassDeclaration 绌虹被浣擄細鍚嶅瓧銆乨eclare / abstract 淇グ绗︼紱鍖洪棿 / 鍚嶅瓧涓庝慨楗扮 Pos 涓?TS 涓€鑷达紱
+//   D2 InterfaceDeclaration 绌烘帴鍙ｄ綋锛氬悕瀛椼€乨eclare 淇グ绗︼紱
+//   D3 EnumDeclaration锛氱┖鏋氫妇銆?~3 涓垚鍛樸€佹暟瀛?/ 瀛楃涓?/ 浜屽厓鍒濆鍖栧櫒銆佸熬闅忛€楀彿锛?//   D4 FunctionDeclaration锛氱┖浣?/ 鏃犵被鍨嬪弬鏁?/ 甯︾被鍨嬪弬鏁?/ 鍙€夊弬鏁?/ 杩斿洖绫诲瀷 / 浣撳唴 return锛?//   D5 trivia锛氬墠瀵兼敞閲娿€佸叧閿瓧涓庡悕瀛椾箣闂淬€佸悕瀛椾笌鎷彿涔嬮棿銆佸弬鏁伴棿銆佷綋鍓嶆敞閲娿€佸潡鍐呫€佸琛岋紱
+//   D6 鍚屼竴鏂囦欢澶氭潯澹版槑锛堥噸澶嶅舰锛屽惈涓嶅悓澹版槑娣锋帓锛夈€?//
+// 鏆傜紦锛堜笉鍐欒繘鏈敤渚嬮泦锛涘師鍥犺 docs/coverage-declarations.md锛夛細
+//   绫绘垚鍛?                  class C { a = 1; }      <- 闇€瑕?types 瀹舵棌鐨?class element shapes
+//   鎺ュ彛鎴愬憳                 interface I { a: A }    <- 鍚屼笂
+//   缁ф壙 / implements        class C extends D {}    interface I extends J {}   class C implements I {}
+//                            <- HeritageClause / ExpressionWithTypeArguments 褰㈢姸鍦?members/ 涓?expressions/ 瀹舵棌锛?//                               涓嶅湪鏈潡 write scope
+//   娉涘瀷澹版槑                 class C<T> {}   function f<T>() {}   <- TypeParameterShape锛坱ypes 瀹舵棌锛?//   瑁呴グ鍣?/ 閲嶈浇 / declare function f(): void;        <- 鍚勮嚜瀹舵棌 / 澹版槑 end 鍊欓€?//   鏋氫妇鎴愬憳鏄?computed 鍚?   enum E { [k] = 1 }      <- 闇€瑕?ComputedPropertyName
+//   绫诲瀷鍒悕                 type T = number;         <- 宸叉湁 types.ts锛屼笉閲嶅閫?//   浣撳墠鎹㈣                 class C\n{ }   function f()\n{ }   <- 鏍圭粓缁撳€欓€夌殑 ASI 鍒ゆ嵁鎶婃崲琛屽悗鐨?`{`
+//                               褰撴垚涓婁竴鏉¤〃杈惧紡缁撴潫锛坈over-end-1 鐨勮寖鍥达級锛涘潡鍐呮崲琛屽凡缁裤€?
+// ===== base 1锛欳lassDeclaration锛堢┖绫讳綋锛?====
+// + declare 淇グ绗?declare class C {}
+// + abstract 淇グ绗︼紙TS kind 鍙嶆煡鏄?FirstContextualKeyword锛宧arness 鍒悕褰掍竴鍒?AbstractKeyword锛?abstract class C {}
+// ===== base 2锛欼nterfaceDeclaration锛堢┖鎺ュ彛浣擄級=====
+// + declare 淇グ绗?declare interface I {}
+// ===== base 3锛欵numDeclaration =====
+// + declare 淇グ绗?declare enum E {}
+// ===== base 4锛欶unctionDeclaration =====
+// + 涓庡叾瀹冨０鏄庢贩鎺掞紙閲嶅褰級
+// ===== base 5锛氬悓涓€鏂囦欢澶氭潯澹版槑锛堥噸澶嶅舰 / 娣锋帓锛?====
+// ===== base 7锛歝lass 鎴愬憳锛坈lass elements锛?====
+class C { x = 1; }
+class C { x: number = 1; }
+class C { x; }
+class C { x = a; }
+class C { readonly x = 1; }
+class C { static x = 1; }
+class C { private x = 1; }
+class C { public x; }
+class C { protected x = 1; }
+class C { x; y; }
+class C { m() {} }
+class C { m(a) {} }
+class C { m(a: A) {} }
+class C { m(a: A, b: B) {} }
+class C { m(): C {} }
+class C { m(a: A): B { return a; } }
+class C { static m() {} }
+class C { private m() {} }
+class C { public m(a: A): B { return a; } }
+class C { m() {} n() {} }
+class C { constructor() {} }
+class C { constructor(a: A) {} }
+class C { constructor(a, b) {} }
+class C { private constructor() {} }
+class C { get x() { return 1; } }
+class C { set x(v) {} }
+class C { get x() { return 1; } set x(v) {} }
+class C { static get x() { return 1; } }
+class C { [k] = 1; }
+class C { [k]() {} }
+class C { x = 1; y = 2; m() {} }
+class C { /* c */ x = 1; }
+class C { x /* c */ = 1; }
+class C { x = /* c */ 1; }
+class C { x = 1 /* c */; }
+class C { readonly /* c */ x = 1; }
+class C {\nx = 1;\n}
+class C {\n m(a: A): B {\n return a;\n }\n}
+class C { x = 1; /* c */ y = 2; }
+// ===== base 8锛歩nterface 鎴愬憳锛坱ype members锛?====
+interface I { a: number; }
+interface I { a?: number; }
+interface I { readonly b: string; }
+interface I { a?: number; readonly b: string; }
+interface I { m(): void; }
+interface I { m(a: A): B; }
+interface I { [k: string]: A; }
+interface I { a: number; b: A; }
+interface I {\na: number;\nb: A;\n}
+interface I { /* c */ a: number; }
+interface I { a /* c */ : number; }
+interface I { m(): void; n(): A; }
+interface I { a: number; readonly b: A; m(): void; }
+// ===== 鏆傜紦锛歝lass 琛ㄨ揪寮忓甫鎴愬憳锛堥渶瑕佹敼 expression-builder 鐨?ParseClassExpression锛屾湰鍧椾笉纰?expressions锛?====
+// (class { x = 1; });
+// (class { m() {} });
+// 瑁呴グ鍣?/ static block / overloads / abstract 鏂规硶锛氬悗缁?chunk

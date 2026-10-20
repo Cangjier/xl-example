@@ -109,20 +109,10 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 3) {
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
-      let empty = true;
-      for (const item of (unit as Bracket).Data) {
-        if (!item.IsTriviaToken) {
-          empty = false;
-          break;
-        }
-      }
+      // 非空类体不再 Reject：成员由 ClassDeclarationShape.BuildMembers 逐个建。
       state.Stage = 4;
-      if (empty) {
-        state.Done = true;
-        state.DoneAt = at;
-      } else {
-        state.Rejected = true;
-      }
+      state.Done = true;
+      state.DoneAt = at;
       continue;
     }
     // 名字与类体之间的 heritage：`extends` / `implements` 关键字与类型内容都是 Common / Symbol
