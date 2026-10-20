@@ -34,6 +34,8 @@ import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 
 ## field Rejected:bool = false
 
+## field AsyncStage:int = 0
+
 # class ExpressionStatementPossibleShape extends PossibleShape
 
 ```txt
@@ -76,6 +78,11 @@ if (unit instanceof Common) {
     return true;
   }
   if (text === "typeof" || text === "void" || text === "delete" || text === "new") {
+    return true;
+  }
+  // `async` 只在真的起始一个 async 箭头时才放行；是不是箭头由 ComputeByIndex 的
+  // 累积状态机（AsyncStage）在后续单元上确认，确认不了就 Reject。
+  if (text === "async") {
     return true;
   }
   if ((unit as Common).CanStartNumber()) {
@@ -340,6 +347,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
+  state.AsyncStage = 0;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -354,6 +362,25 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (!state.Admitted) {
     state.Admitted = true;
     if (!this.CanStart(unit)) {
+      state.Rejected = true;
+    } else if (unit instanceof Common && (unit as Common).TempToString() === "async") {
+      // async 箭头要累积确认：下一格必须是 `(` 或标识符，再下一格必须是 `=>`。
+      state.AsyncStage = 1;
+    }
+  } else if (state.AsyncStage === 1) {
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+      state.AsyncStage = 2;
+    } else if (unit instanceof Common && !(unit as Common).CanStartNumber()) {
+      state.AsyncStage = 2;
+    } else {
+      // `async function` / `async;` / `async` + 别的代码：不是 async 箭头，候选退出，
+      // 别把函数声明的头劫持成表达式语句（function 声明候选还没进 root，保持「无候选」）。
+      state.Rejected = true;
+    }
+  } else if (state.AsyncStage === 2) {
+    if (unit instanceof Symbol && (unit as Symbol).Is("=>")) {
+      state.AsyncStage = 3;
+    } else {
       state.Rejected = true;
     }
   }
