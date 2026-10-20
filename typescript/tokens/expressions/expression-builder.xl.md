@@ -105,6 +105,7 @@ import { SetAccessorShape } from "../types/set-accessor-shape.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
 import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
+import { PrivateIdentifierShape } from "../names/private-identifier-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
@@ -1659,6 +1660,22 @@ const start = this.At;
 const unit = this.Peek(0);
 if (unit === null) {
   throw new Error("表达式意外结束");
+}
+if (unit instanceof Symbol && (unit as Symbol).Is("#")) {
+  // PrivateIdentifier: the token layer splits `#x` into Symbol "#" + Common "x".
+  // No Text field is set: TS PrivateIdentifier carries no `text` in the AST projection.
+  this.At++;
+  const privateNameUnit = this.Peek(0);
+  if (privateNameUnit === null || !(privateNameUnit instanceof Common)) {
+    throw new Error("私有标识符缺少名字");
+  }
+  const shape = new PrivateIdentifierShape(this.Template);
+  shape.SignInToken(unit);
+  shape.SignOutToken(privateNameUnit);
+  shape.Pos = this.Positions[start];
+  shape.TryToClose(this.Context);
+  this.At++;
+  return shape;
 }
 if (unit instanceof RegexToken) {
   this.At++;
