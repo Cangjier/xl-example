@@ -393,3 +393,29 @@ class-expressions   17 / 17      # 空体/名字/属性/方法/constructor/计�
 - decorators（`@dec`）、static block（`static {}`）、private `#x` alias fields ← class extras 分支；
 - heritage 里放 class 表达式（`class extends (class {})`）← heritage 目前走 TypeBuilder，需要 ParseExpression 分支；
 - 对象字面量里的 rest 之外的更多修饰组合、以及 class 表达式 type parameters 未收。
+
+## chunk 11（cover-expr-sweep-1，从 origin/integration @c5cf9a25）：expression measurement sweep
+
+measurement-only：只 append `expression.ts` / `expression-chains.ts` + 本节，未改任何 shape / builder。
+
+### 新增（全绿，oracle 先验）
+
+- 模板字面量：`` `a` ``、`` `a${b}c` ``、`` `${a}${b}` ``、嵌套 `` `a${`b${c}`}d` ``、tagged `` tag`a${b}` `` / `` tag`x` `` / `` tag`${a}` ``，以及 `` `a${ /* c */ b}c` ``、`` tag /* c */ `a${b}` ``、`` `a${b /* c */}c` ``、`` tag\n`x` `` trivia。
+- 逻辑链：`a ?? b ?? c;`、`a ?? b ?? c ?? d;`（`a ?? b` / `a && b || c` 已在前面的 base）。
+- optional chain 组合（expression-chains §7）：`a?.[b]?.(c)`、`a?.b?.[c].d`、`a?.(b)?.[c]`、`a?.[b]?.(c)?.[d]` + trivia。
+- class 上下文：`class C { m() { return new.target; } }`（MetaProperty 已可测）。
+- unary/binary/logical-assign/sequence/new 组：检查后确认既有 base 已覆盖（`typeof a`、`void a`、`delete a.b`、`a in b`、`a instanceof B`、`a ** b`、`a **= b`、`~a`、`!a`、`-a`、`+a`、`a >>> b`、`a <<= b`、`a &&= b`、`a ||= b`、`a ??= b`、`(a, b, c)`、`new C()` 等），本 sweep 不重复。
+
+### 读数
+
+```
+expression        542 / 542      # 529 + 13（base 33：模板 11 + 逻辑链 2 + new.target 1，super 行暂缓）
+expression-chains  42 / 42       # 36 + 6（§7 optional chain 组合）
+全量             2899 / 2899     # 30 个构造；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓（已写成注释目标 + 原因）
+
+- `super.m();` / `super.a;`（class 内）：builder 的 ParsePrimary 把 `super` 当 Identifier，没有 SuperKeyword 产生式；
+  属 expression-builder 改动，本 sweep 是 measurement-only，先记目标。
+- `a as const` 等语义错误形态、`super()` 构造器调用不入语料（TS 只报诊断/语义错）。

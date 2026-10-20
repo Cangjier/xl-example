@@ -53,3 +53,12 @@ a?.b ?? c;
 -a.b;
 typeof a.b;
 a.b /* c */ + c.d;
+
+// ===== 7. optional chain 组合（measurement sweep）=====
+a?.[b]?.(c);
+a?.b?.[c].d;
+a?.(b)?.[c];
+a?.[b]?.(c)?.[d];
+// + trivia
+a?.[ /* c */ b]?.(c);
+a?.b?.[c] /* c */ .d;

@@ -664,3 +664,30 @@ a satisfies /* c */ T;
 // `satisfies` 链式（`a satisfies T satisfies U`）：TS 解析为嵌套 SatisfiesExpression，
 //   本仓 ParseBinary 的 satisfies 分支是否吃两层待后续 sweep 确认。
 
+// ===== base 33：模板字面量 / 逻辑链 / super / new.target（measurement sweep）=====
+// 模板：无替换 / 单替换 / 多替换 / 嵌套 / tagged
+`a`;
+`a${b}c`;
+`${a}${b}`;
+`a${`b${c}`}d`;
+tag`a${b}`;
+tag`x`;
+tag`${a}`;
+// + trivia
+`a${ /* c */ b}c`;
+tag /* c */ `a${b}`;
+`a${b /* c */}c`;
+tag\n`x`;
+// 逻辑链（`a ?? b` 已在 base 14）
+a ?? b ?? c;
+a ?? b ?? c ?? d;
+// class 上下文：new.target 已可测；super 暂缓（builder 的 ParsePrimary 把 `super` 当 Identifier，
+// 没有 SuperKeyword 产生式 —— 属 expression-builder 改动，本 sweep 是 measurement-only，先记目标）
+class C { m() { return new.target; } }
+// class C extends B { m() { super.m(); } }        ← 需要 SuperKeywordShape 分派
+// class C extends B { m() { return super.a; } }   ← 同上
+
+// ===== 测量 sweep：暂缓（注释目标 + 原因）=====
+// `super()` 构造器调用 / `super` 在非 class 上下文 ← TS 语义非法，本 sweep 不收
+// `new.target` 若 builder 的 ParseNew/MetaProperty 未接，则本 base 的对应行会在 diff 里显形，按实测调整
+
