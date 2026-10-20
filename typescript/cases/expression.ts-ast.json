@@ -30647,6 +30647,797 @@
           ]
         }
       ]
+    },
+    {
+      "src": "(function (@dec x: A) {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "Decorator",
+                          "pos": 11,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 15,
+                              "text": "dec"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 18,
+                          "end": 20,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 20,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 21,
+                      "end": 24
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function (@a @b x: A) {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Decorator",
+                          "pos": 11,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Decorator",
+                          "pos": 13,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 16,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 19,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 21,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 22,
+                      "end": 25
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function (x: A, @dec y: B) {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 13,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 13,
+                              "end": 15,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 16,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Decorator",
+                          "pos": 16,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 21,
+                              "text": "dec"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "y"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 24,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "B"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 27,
+                      "end": 30
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function (@dec /* c */ x: A) {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Decorator",
+                          "pos": 11,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 15,
+                              "text": "dec"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 25,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 26,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 29,
+                      "end": 32
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const fca = <T extends A>(x: T) => x;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "fca"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 11,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 13,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 13,
+                              "end": 14,
+                              "text": "T"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 22,
+                              "end": 24,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 22,
+                                  "end": 24,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Parameter",
+                          "pos": 26,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 27,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 28,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 28,
+                                  "end": 30,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 31,
+                          "end": 34
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 34,
+                          "end": 36,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const fcd = <T = A>(x: T) => x;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "fcd"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 11,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 13,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 13,
+                              "end": 14,
+                              "text": "T"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 16,
+                              "end": 18,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 16,
+                                  "end": 18,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Parameter",
+                          "pos": 20,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 21,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 22,
+                              "end": 24,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 22,
+                                  "end": 24,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 25,
+                          "end": 28
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 28,
+                          "end": 30,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const fcc = <const T extends A>(x: T) => x;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "fcc"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 11,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 13,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "ConstKeyword",
+                              "pos": 13,
+                              "end": 18
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 20,
+                              "text": "T"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 28,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 28,
+                                  "end": 30,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Parameter",
+                          "pos": 32,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 33,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 34,
+                              "end": 36,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 34,
+                                  "end": 36,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 37,
+                          "end": 40
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 40,
+                          "end": 42,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const fcb = (<T extends A, U = B>(x: T, y: U) => x);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "fcb"
+                    },
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 11,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "ArrowFunction",
+                          "pos": 13,
+                          "end": 50,
+                          "children": [
+                            {
+                              "kind": "TypeParameter",
+                              "pos": 14,
+                              "end": 25,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 14,
+                                  "end": 15,
+                                  "text": "T"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 23,
+                                  "end": 25,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 23,
+                                      "end": 25,
+                                      "text": "A"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "TypeParameter",
+                              "pos": 26,
+                              "end": 32,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 26,
+                                  "end": 28,
+                                  "text": "U"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 30,
+                                  "end": 32,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 30,
+                                      "end": 32,
+                                      "text": "B"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Parameter",
+                              "pos": 34,
+                              "end": 38,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 34,
+                                  "end": 35,
+                                  "text": "x"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 36,
+                                  "end": 38,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 36,
+                                      "end": 38,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Parameter",
+                              "pos": 39,
+                              "end": 44,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 39,
+                                  "end": 41,
+                                  "text": "y"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 42,
+                                  "end": 44,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 42,
+                                      "end": 44,
+                                      "text": "U"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "EqualsGreaterThanToken",
+                              "pos": 45,
+                              "end": 48
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 48,
+                              "end": 50,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

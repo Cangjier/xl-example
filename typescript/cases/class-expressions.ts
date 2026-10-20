@@ -40,3 +40,8 @@ const D = (class<T, U> { a: T; b: U; });
 (class /* c */ <T> {});
 (class<T> /* c */ {});
 // 暂缓：`class<T extends A> {}`（ParseAngleTypeParameters 还不吃 extends）
+// ===== 类型参数约束 / 默认值（class 表达式）=====
+const CE1 = class<T extends A> { m(x: T): T { return x; } };
+const CE2 = class<T = A> { m(x: T): T { return x; } };
+(class<T extends A, U = B> {});
+(class /* c */ <T extends A> {});

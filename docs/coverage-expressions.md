@@ -567,3 +567,38 @@ members           187 / 187      # 181 + 6（对象泛型方法 / const / async 
   括号 / 表达式语句形态（`(f<string, number>)`、`(<const T, U>(...) => ...)`、`(class<T, U> {...})`）；行为本身已支持。
 - `<const T, U extends A>` / `class<T extends A>`：`ParseAngleTypeParameters` 只收名字（extends/默认值留给 types 家族）；
 - `f<string> + 1` 在 TS 里是**比较链**而不是 instantiation，故不按 instantiation 收（既有比较语料覆盖）。
+## chunk 17（cover-fnexpr-decorators-1）：函数表达式参数装饰器 / 表达式类型参数约束与默认值
+
+### 实现落点（只改 expression-builder）
+
+- **函数表达式参数装饰器**：`ParseFunctionParameters` 在每个参数起点先探测 `@`，有则用
+  `TypeBuilder.ParseDecorators()`（复用 `DecoratorShape`，不复制语义）读装饰器，再照旧读 `...` / 名字 / `?` / 类型 / 默认值。
+  `Parameter` children 顺序与 TS 一致：Decorator(s) → DotDotDotToken? → Identifier/pattern → QuestionToken? → Type → initializer。
+- **类型参数约束 / 默认值**：`ParseAngleTypeParameters` 不再自己按名字手搓，改为把 `<...>` 单元交给
+  `TypeBuilder.ParseTypeParameterList()`（types 家族已有的完整 `[in][out][const] 名字 [extends 约束] [= 默认值]` 逻辑）。
+  箭头、class 表达式、对象字面量方法三处因此一次性获得 `extends` / `= 默认` / `const ... extends`。
+
+### AST 口径（TS 实测）
+
+| 构造 | TypeParameter children |
+| --- | --- |
+| `<T extends A>` | Identifier T、TypeReference A |
+| `<T = A>` | Identifier T、TypeReference A（默认值） |
+| `<const T extends A>` | ConstKeyword、Identifier T、TypeReference A |
+| `<T extends A, U = B>` | 两个 TypeParameter，各自带约束/默认 |
+| `(function (@dec x: A) {})` | Parameter → Decorator、Identifier x、TypeReference A |
+
+### 读数
+
+```
+expression        638 / 638      # 630 + 8（参数装饰器 4 + 箭头约束/默认 4）
+class-expressions  26 / 26       # 22 + 4（class<T extends A> / class<T = A> / 组合 + trivia）
+members           191 / 191      # 187 + 4（对象方法约束 / 默认 / const / 组合）
+全量             3768 / 3768     # 3752 + 16；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓（注释目标 + 原因）
+
+- 顶层逗号形态（`const fcb = <T extends A, U = B>(...) => ...;`）受 declarations/statements 的声明切分限制，
+  语料改用括号形态 `(<T extends A, U = B>(...) => ...)`；行为本身已支持。
+- 箭头参数装饰器（`<T>(@dec x: T) => x`）TS 解析可接受与否未收；类成员装饰器仍归 class 家族。
