@@ -9,6 +9,14 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
+import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
+import { BindingElementShape } from "../bindings/binding-element-shape.xl.md"
+import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
+import { CaseClauseShape } from "../members/case-clause-shape.xl.md"
+import { CatchClauseShape } from "../members/catch-clause-shape.xl.md"
+import { DefaultClauseShape } from "../members/default-clause-shape.xl.md"
+import { CaseBlockShape } from "../declarations/case-block-shape.xl.md"
 import { VariableDeclarationListShape } from "../declarations/variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
@@ -24,9 +32,12 @@ import { ForStatementShape } from "./for-statement-shape.xl.md"
 import { IfStatementShape } from "./if-statement-shape.xl.md"
 import { LabeledStatementShape } from "./labeled-statement-shape.xl.md"
 import { ReturnStatementShape } from "./return-statement-shape.xl.md"
+import { SwitchStatementShape } from "./switch-statement-shape.xl.md"
 import { ThrowStatementShape } from "./throw-statement-shape.xl.md"
+import { TryStatementShape } from "./try-statement-shape.xl.md"
 import { VariableStatementShape } from "./variable-statement-shape.xl.md"
 import { WhileStatementShape } from "./while-statement-shape.xl.md"
+import { WithStatementShape } from "./with-statement-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -217,6 +228,15 @@ if (unit instanceof Common) {
   if (text === "for") {
     return this.BuildFor();
   }
+  if (text === "switch") {
+    return this.BuildSwitch();
+  }
+  if (text === "try") {
+    return this.BuildTry();
+  }
+  if (text === "with") {
+    return this.BuildWith();
+  }
   if (text === "return") {
     return this.BuildReturnOrThrow(false);
   }
@@ -329,15 +349,51 @@ let lastUnit = keywordIndex;
 while (at < endExclusive) {
   const nameIndex = at;
   const nameUnit = this.Units[nameIndex];
-  if (!(nameUnit instanceof Common)) {
+  const declaration = new VariableDeclarationShape(this.Template);
+  let name:Token;
+  if (nameUnit instanceof Bracket) {
+    const bracket = nameUnit as Bracket;
+    if (bracket.StartBracketChar === "[") {
+      name = this.NormalizeBindingPattern(ArrayBindingPatternShape.FromBracket(bracket, this.Context), bracket);
+    } else if (bracket.StartBracketChar === "{") {
+      name = this.NormalizeBindingPattern(ObjectBindingPatternShape.FromBracket(bracket, this.Context), bracket);
+    } else {
+      throw new Error("变量声明缺少标识符");
+    }
+    (name as ShapeToken).Pos = this.Positions[nameIndex];
+  } else if (nameUnit instanceof Common) {
+    const identifier = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
+    identifier.Pos = this.Positions[nameIndex];
+    name = identifier;
+  } else {
     throw new Error("变量声明缺少标识符");
   }
-  const declaration = new VariableDeclarationShape(this.Template);
-  const name = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
-  name.Pos = this.Positions[nameIndex];
   declaration.Add(name);
   at++;
   let declarationLast = nameIndex;
+  if (at < endExclusive && this.IsSymbol(this.Units[at], ":")) {
+    const typeFirst = at + 1;
+    let typeEnd = typeFirst;
+    while (typeEnd < endExclusive && !this.IsSymbol(this.Units[typeEnd], "=") && !this.IsSymbol(this.Units[typeEnd], ",")) {
+      typeEnd++;
+    }
+    if (typeEnd <= typeFirst) {
+      throw new Error("类型注解为空");
+    }
+    const typeUnits:Array<Token> = [];
+    for (let cursor = typeFirst; cursor < typeEnd; cursor++) {
+      typeUnits.push(this.Units[cursor]);
+    }
+    const typeBuilder = new TypeBuilder(this.Template, this.Context);
+    typeBuilder.Load(typeUnits, this.Positions[typeFirst]);
+    const typeNode = typeBuilder.ParseType();
+    if (typeBuilder.At !== typeBuilder.Units.length) {
+      throw new Error("类型注解没有读完");
+    }
+    declaration.Add(typeNode);
+    declarationLast = typeEnd - 1;
+    at = typeEnd;
+  }
   if (at < endExclusive && this.IsSymbol(this.Units[at], "=")) {
     const initializerFirst = at + 1;
     let initializerEnd = initializerFirst;
@@ -648,3 +704,263 @@ shape.Add(name);
 shape.Add(statement);
 return this.Finish(shape, first, this.At - 1);
 ```
+
+## method IsKeywordUnit:(unit:Token, text:string)=>bool
+
+```ts
+return unit instanceof Common && (unit as Common).Is(text);
+```
+
+## method IsClauseKeyword:(unit:Token)=>bool
+
+```ts
+return this.IsKeywordUnit(unit, "case") || this.IsKeywordUnit(unit, "default");
+```
+
+## method NormalizeBindingPattern:(pattern:ShapeToken, bracket:Bracket)=>Token
+
+`ArrayBindingPatternShape.FromBracket` / `ObjectBindingPatternShape.FromBracket` 把元素建出来时，
+元素的 `Data` 只留了名字 token（`:` / `,` 这类分隔符被 FromTokens 吃掉了），而 AST 投影要的是 `Identifier` 且
+`Pos` 要按「前一个代码单元 `End+1`」算。这里按括号里的原始单元重新走一遍：按逗号分组，组内逐个 token 补
+`IdentifierShape` 的 `Pos`（分隔符也参与推进 `pos`），再把元素孩子换成标识符。
+
+```ts
+let elements:Array<Token> = [];
+if (pattern instanceof ArrayBindingPatternShape) {
+  elements = (pattern as ArrayBindingPatternShape).Elements;
+} else if (pattern instanceof ObjectBindingPatternShape) {
+  elements = (pattern as ObjectBindingPatternShape).Elements;
+}
+const groups:Array<Array<Token>> = [];
+let group:Array<Token> = [];
+for (const item of bracket.Data) {
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (item instanceof Symbol && (item as Symbol).Is(",")) {
+    groups.push(group);
+    group = [];
+    continue;
+  }
+  group.push(item);
+}
+groups.push(group);
+let elementIndex = 0;
+for (const tokens of groups) {
+  if (tokens.length === 0) {
+    continue;
+  }
+  if (elementIndex >= elements.length) {
+    break;
+  }
+  const element = elements[elementIndex];
+  elementIndex++;
+  if (!(element instanceof BindingElementShape)) {
+    continue;
+  }
+  const binding = element as BindingElementShape;
+  binding.Data = [];
+  let pos = binding.Pos;
+  for (const token of tokens) {
+    if (token instanceof Common) {
+      const identifier = IdentifierShape.FromBasicToken(token as Common, this.Context);
+      identifier.Pos = pos;
+      binding.Add(identifier);
+    }
+    if (token.SourceRange.End !== null) {
+      pos = token.SourceRange.End.Index + 1;
+    }
+  }
+}
+return pattern;
+```
+
+## method BuildSwitch:()=>Token
+
+```ts
+const first = this.At;
+this.At++;
+const headerUnit = this.Units[this.At];
+if (!(headerUnit instanceof Bracket) || (headerUnit as Bracket).StartBracketChar !== "(") {
+  throw new Error("switch 缺少头部括号");
+}
+this.At++;
+const condition = this.ParseBracketExpression(headerUnit as Bracket);
+const blockIndex = this.At;
+const blockUnit = this.Units[blockIndex];
+if (!(blockUnit instanceof Bracket) || (blockUnit as Bracket).StartBracketChar !== "{") {
+  throw new Error("switch 缺少 case 块");
+}
+this.At++;
+const shape = new SwitchStatementShape(this.Template);
+shape.Add(condition);
+shape.Add(this.BuildCaseBlock(blockUnit as Bracket, blockIndex));
+return this.Finish(shape, first, blockIndex);
+```
+
+## method BuildCaseBlock:(bracket:Bracket, bracketIndex:int)=>Token
+
+```ts
+const caseBlock = new CaseBlockShape(this.Template);
+const inner = new StatementBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+while (inner.At < inner.Units.length) {
+  const unit = inner.Units[inner.At];
+  if (inner.IsKeywordUnit(unit, "case")) {
+    const clauseFirst = inner.At;
+    inner.At++;
+    let colonAt = inner.At;
+    while (colonAt < inner.Units.length && !inner.IsSymbol(inner.Units[colonAt], ":")) {
+      colonAt++;
+    }
+    if (colonAt >= inner.Units.length) {
+      throw new Error("case 缺少冒号");
+    }
+    if (colonAt <= inner.At) {
+      throw new Error("case 缺少表达式");
+    }
+    const value = inner.BuildExpressionRange(inner.At, colonAt - 1);
+    inner.At = colonAt + 1;
+    const clause = new CaseClauseShape(this.Template);
+    clause.Add(value);
+    while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
+      clause.Add(inner.BuildStatement());
+    }
+    inner.Finish(clause, clauseFirst, inner.At - 1);
+    caseBlock.Add(clause);
+    continue;
+  }
+  if (inner.IsKeywordUnit(unit, "default")) {
+    const clauseFirst = inner.At;
+    inner.At++;
+    if (inner.At >= inner.Units.length || !inner.IsSymbol(inner.Units[inner.At], ":")) {
+      throw new Error("default 缺少冒号");
+    }
+    inner.At++;
+    const clause = new DefaultClauseShape(this.Template);
+    while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
+      clause.Add(inner.BuildStatement());
+    }
+    inner.Finish(clause, clauseFirst, inner.At - 1);
+    caseBlock.Add(clause);
+    continue;
+  }
+  throw new Error("switch 块里出现了 case / default 之外的单元");
+}
+if (bracket.SourceRange.Start !== null) {
+  caseBlock.SignIn(bracket.SourceRange.Start);
+}
+if (bracket.SourceRange.End !== null) {
+  caseBlock.SignOut(bracket.SourceRange.End);
+}
+caseBlock.Pos = this.Positions[bracketIndex];
+caseBlock.TryToClose(this.Context);
+return caseBlock;
+```
+
+## method BuildTry:()=>Token
+
+```ts
+const first = this.At;
+this.At++;
+const tryBlock = this.BuildStatement();
+if (!(tryBlock instanceof BlockShape)) {
+  throw new Error("try 后面不是块");
+}
+const shape = new TryStatementShape(this.Template);
+shape.Add(tryBlock);
+if (this.At < this.Units.length && this.IsText(this.Units[this.At], "catch")) {
+  shape.Add(this.BuildCatchClause());
+}
+if (this.At < this.Units.length && this.IsText(this.Units[this.At], "finally")) {
+  this.At++;
+  const finallyBlock = this.BuildStatement();
+  if (!(finallyBlock instanceof BlockShape)) {
+    throw new Error("finally 后面不是块");
+  }
+  shape.Add(finallyBlock);
+}
+return this.Finish(shape, first, this.At - 1);
+```
+
+## method BuildCatchClause:()=>Token
+
+```ts
+const first = this.At;
+this.At++;
+const clause = new CatchClauseShape(this.Template);
+if (this.At < this.Units.length && this.Units[this.At] instanceof Bracket && (this.Units[this.At] as Bracket).StartBracketChar === "(") {
+  const bracket = this.Units[this.At] as Bracket;
+  this.At++;
+  const inner = new StatementBuilder(this.Template, this.Context);
+  let base = 0;
+  if (bracket.SourceRange.Start !== null) {
+    base = bracket.SourceRange.Start.Index + 1;
+  }
+  inner.Load(bracket.Data, base);
+  if (inner.Units.length === 0) {
+    throw new Error("catch 绑定为空");
+  }
+  let binding:Token;
+  const head = inner.Units[0];
+  if (head instanceof Bracket && (head as Bracket).StartBracketChar === "[") {
+    binding = inner.NormalizeBindingPattern(ArrayBindingPatternShape.FromBracket(head as Bracket, this.Context), head as Bracket);
+    (binding as ShapeToken).Pos = inner.Positions[0];
+    inner.At = 1;
+  } else if (head instanceof Bracket && (head as Bracket).StartBracketChar === "{") {
+    binding = inner.NormalizeBindingPattern(ObjectBindingPatternShape.FromBracket(head as Bracket, this.Context), head as Bracket);
+    (binding as ShapeToken).Pos = inner.Positions[0];
+    inner.At = 1;
+  } else if (head instanceof Common) {
+    const identifier = IdentifierShape.FromBasicToken(head as Common, this.Context);
+    identifier.Pos = inner.Positions[0];
+    binding = identifier;
+    inner.At = 1;
+  } else {
+    throw new Error("catch 绑定不是标识符");
+  }
+  if (inner.At !== inner.Units.length) {
+    throw new Error("catch 绑定没有读完");
+  }
+  const declaration = new VariableDeclarationShape(this.Template);
+  declaration.Add(binding);
+  if (binding.SourceRange.Start !== null) {
+    declaration.SignIn(binding.SourceRange.Start);
+  }
+  if (binding.SourceRange.End !== null) {
+    declaration.SignOut(binding.SourceRange.End);
+  }
+  declaration.Pos = (binding as ShapeToken).Pos;
+  declaration.TryToClose(this.Context);
+  clause.Add(declaration);
+}
+const block = this.BuildStatement();
+if (!(block instanceof BlockShape)) {
+  throw new Error("catch 后面不是块");
+}
+clause.Add(block);
+return this.Finish(clause, first, this.At - 1);
+```
+
+## method BuildWith:()=>Token
+
+```ts
+const first = this.At;
+this.At++;
+const conditionBracket = this.Units[this.At];
+if (!(conditionBracket instanceof Bracket) || (conditionBracket as Bracket).StartBracketChar !== "(") {
+  throw new Error("with 缺少头部括号");
+}
+this.At++;
+const condition = this.ParseBracketExpression(conditionBracket as Bracket);
+const body = this.BuildStatement();
+const shape = new WithStatementShape(this.Template);
+shape.Add(condition);
+shape.Add(body);
+return this.Finish(shape, first, this.At - 1);
+```
+

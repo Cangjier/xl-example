@@ -3,6 +3,7 @@
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
@@ -120,8 +121,11 @@ if (first instanceof Common) {
   if (text === "while") {
     return StatementScanner.ScanLoop(code, 0);
   }
-  if (text === "for") {
+  if (text === "for" || text === "switch" || text === "with") {
     return StatementScanner.ScanLoop(code, 0);
+  }
+  if (text === "try") {
+    return StatementScanner.ScanTry(code, 0);
   }
   if (text === "do") {
     return StatementScanner.ScanDo(code, 0);
@@ -169,8 +173,11 @@ if (unit instanceof Common) {
   if (text === "if") {
     return StatementScanner.ScanIf(code, at);
   }
-  if (text === "while" || text === "for") {
+  if (text === "while" || text === "for" || text === "switch" || text === "with") {
     return StatementScanner.ScanLoop(code, at);
+  }
+  if (text === "try") {
+    return StatementScanner.ScanTry(code, at);
   }
   if (text === "do") {
     return StatementScanner.ScanDo(code, at);
@@ -274,7 +281,7 @@ return StatementScanner.NeedMore();
 
 ## static method ScanIf:(code:Array<Token>, at:int)=>StatementScanResult
 
-`else` 的歧义在这里处理：体到齐之后如果后面还没有单元，就是「还要等」（可能是 `else`）；来了 `else` 就跟它；来的是文件末尾或别的单元，就收在体的末尾。
+`else` 的歧义在这里处理：体到齐那一刻，如果**文档里**紧随的下一个词是 `else`（还没被 token 化也算），就继续等；否则收在体的末尾。这样 `if (a) {}` 在文件末尾能就地建，不会把「还差 else」拖到 EOF 哨兵上与根终结候选打架。
 
 ```ts
 if (at + 1 >= code.length) {
@@ -288,18 +295,18 @@ if (body.Status !== 1) {
   return body;
 }
 const next = body.End + 1;
-if (next >= code.length) {
-  if (StatementScanner.AtEOF) {
-    return StatementScanner.Complete(body.End);
+if (next < code.length) {
+  if (StatementScanner.IsKeyword(code[next], "else")) {
+    const elseBody = StatementScanner.ScanBody(code, next + 1);
+    if (elseBody.Status !== 1) {
+      return elseBody;
+    }
+    return StatementScanner.Complete(elseBody.End);
   }
-  return StatementScanner.NeedMore();
+  return StatementScanner.Complete(body.End);
 }
-if (StatementScanner.IsKeyword(code[next], "else")) {
-  const elseBody = StatementScanner.ScanBody(code, next + 1);
-  if (elseBody.Status !== 1) {
-    return elseBody;
-  }
-  return StatementScanner.Complete(elseBody.End);
+if (StatementScanner.NextWord(code[body.End].SourceRange.End) === "else") {
+  return StatementScanner.NeedMore();
 }
 return StatementScanner.Complete(body.End);
 ```
@@ -349,4 +356,130 @@ if (StatementScanner.IsEOF(code[semiAt])) {
   return StatementScanner.Complete(semiAt - 1);
 }
 return StatementScanner.Mismatch();
+```
+
+## static method NextWord:(last:Source | null)=>string
+
+从 `last` 之后的下一个位置起，跳过空白与注释，读一个标识符词；读不到（越界 / 非标识符字符）返回空串。
+
+它只服务「可选关键字是不是还在文档后面」这一种判据（`else` / `catch` / `finally`），不看 token 层：`catch` 之类的关键字还没被 token 化时，扫描器仍要能回答「还要不要等」。
+
+```ts
+if (last === null) {
+  return "";
+}
+const document = last.Document;
+const count = document.GetCount();
+let at = last.Index + 1;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  break;
+}
+const word:Array<string> = [];
+while (at < count) {
+  const ch = document.At(at).Value;
+  if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_" || ch === "$") {
+    word.push(ch);
+    at++;
+    continue;
+  }
+  break;
+}
+return word.join("");
+```
+
+## static method ScanTry:(code:Array<Token>, at:int)=>StatementScanResult
+
+`try` 的可选部分（`catch` / `finally`）用同一个「文档里下一个词」判据等：块到齐时下一个词是它们就继续等，否则收尾。
+
+```ts
+if (at + 1 >= code.length) {
+  return StatementScanner.NeedMore();
+}
+if (!StatementScanner.IsBracket(code[at + 1], "{")) {
+  return StatementScanner.Mismatch();
+}
+const tryBlock = at + 1;
+const next = tryBlock + 1;
+if (next < code.length) {
+  if (StatementScanner.IsKeyword(code[next], "catch")) {
+    return StatementScanner.ScanCatch(code, next);
+  }
+  if (StatementScanner.IsKeyword(code[next], "finally")) {
+    return StatementScanner.ScanFinally(code, next);
+  }
+  return StatementScanner.Complete(tryBlock);
+}
+const word = StatementScanner.NextWord(code[tryBlock].SourceRange.End);
+if (word === "catch" || word === "finally") {
+  return StatementScanner.NeedMore();
+}
+return StatementScanner.Complete(tryBlock);
+```
+
+## static method ScanCatch:(code:Array<Token>, catchAt:int)=>StatementScanResult
+
+`catch` 后面可以跟一个 `( 绑定 )`，然后必须是一个 `{ … }` 块；块到齐后再看 `finally`。
+
+```ts
+let cursor = catchAt + 1;
+if (cursor >= code.length) {
+  return StatementScanner.NeedMore();
+}
+if (StatementScanner.IsBracket(code[cursor], "(")) {
+  cursor++;
+}
+if (cursor >= code.length) {
+  return StatementScanner.NeedMore();
+}
+if (!StatementScanner.IsBracket(code[cursor], "{")) {
+  return StatementScanner.Mismatch();
+}
+const catchBlock = cursor;
+const next = catchBlock + 1;
+if (next < code.length) {
+  if (StatementScanner.IsKeyword(code[next], "finally")) {
+    return StatementScanner.ScanFinally(code, next);
+  }
+  return StatementScanner.Complete(catchBlock);
+}
+if (StatementScanner.NextWord(code[catchBlock].SourceRange.End) === "finally") {
+  return StatementScanner.NeedMore();
+}
+return StatementScanner.Complete(catchBlock);
+```
+
+## static method ScanFinally:(code:Array<Token>, finallyAt:int)=>StatementScanResult
+
+```ts
+const blockAt = finallyAt + 1;
+if (blockAt >= code.length) {
+  return StatementScanner.NeedMore();
+}
+if (!StatementScanner.IsBracket(code[blockAt], "{")) {
+  return StatementScanner.Mismatch();
+}
+return StatementScanner.Complete(blockAt);
 ```
