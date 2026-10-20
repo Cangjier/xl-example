@@ -6290,6 +6290,1124 @@
           ]
         }
       ]
+    },
+    {
+      "src": "a",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 1,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a.b",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PropertyAccessExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 2,
+                  "end": 3,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f()",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a + b",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a ? b : c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "ConditionalExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                },
+                {
+                  "kind": "ColonToken",
+                  "pos": 5,
+                  "end": 7
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "-a",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "typeof a",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "TypeOfExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "new C()",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "NewExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a => a",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 0,
+                  "end": 1,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a, b",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "CommaToken",
+                  "pos": 1,
+                  "end": 2
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 2,
+                  "end": 4,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a = b",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "FirstAssignment",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "x ** y",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "x"
+                },
+                {
+                  "kind": "AsteriskAsteriskToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "y"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a instanceof B",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "InstanceOfKeyword",
+                  "pos": 1,
+                  "end": 12
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`t`",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/re/",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/re/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 1,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 1,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"s\"",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 1,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a.b // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PropertyAccessExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 2,
+                  "end": 3,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f() // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a + b // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a => a // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 0,
+                  "end": 1,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`t` // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/re/ // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/re/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1 // c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 1,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 1,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a /* c */",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 1,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f() /* c */",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a + b /* c */",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`t` /* c */",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1 /* c */",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 1,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 1,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const f = () => {}",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 9,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 12,
+                          "end": 15
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 15,
+                          "end": 18
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const f = () => { return 1; }",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 9,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 12,
+                          "end": 15
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 15,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 17,
+                              "end": 27,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 24,
+                                  "end": 26,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(a)",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(a + b)",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 2,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "PlusToken",
+                      "pos": 2,
+                      "end": 4
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 6,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a; b",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 2,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 2,
+              "end": 4,
+              "text": "b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a; b; c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 2,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 2,
+              "end": 4,
+              "text": "b"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 7,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a; b + c",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 2,
+          "end": 8,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 2,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 2,
+                  "end": 4,
+                  "text": "b"
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 4,
+                  "end": 6
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
