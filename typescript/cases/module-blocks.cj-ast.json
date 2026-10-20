@@ -1052,6 +1052,654 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare module \"m\" { let x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 24,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 27,
+                              "end": 34
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export let x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 27,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 31,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 33,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 34,
+                              "end": 41
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { const x = 1; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 26,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 30,
+                              "end": 32,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { let x: number; let y: string; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 24,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 27,
+                              "end": 34
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableStatement",
+                  "pos": 35,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 35,
+                      "end": 49,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 39,
+                          "end": 49,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 39,
+                              "end": 41,
+                              "text": "y"
+                            },
+                            {
+                              "kind": "StringKeyword",
+                              "pos": 42,
+                              "end": 49
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { let x: number;\nlet y: string; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 24,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 27,
+                              "end": 34
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableStatement",
+                  "pos": 35,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 35,
+                      "end": 49,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 39,
+                          "end": 49,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 39,
+                              "end": 41,
+                              "text": "y"
+                            },
+                            {
+                              "kind": "StringKeyword",
+                              "pos": 42,
+                              "end": 49
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare global { let x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 14,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 14,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 16,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 16,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 20,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 22,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 23,
+                              "end": 30
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare global { const y = 2; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 14,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 14,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 16,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 16,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 22,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "y"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "2"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { interface I {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { interface I {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 13,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { // c\nlet x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 29,
+                          "end": 39,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 32,
+                              "end": 39
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

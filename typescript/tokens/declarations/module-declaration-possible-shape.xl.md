@@ -56,9 +56,13 @@ if (code.length === 0) {
   return new StatementScanResult(0, -1);
 }
 let at = 0;
+let hasDeclare = false;
 while (at < code.length) {
   const unit = code[at];
   if (unit instanceof Common && ((unit as Common).Is("export") || (unit as Common).Is("declare"))) {
+    if ((unit as Common).Is("declare")) {
+      hasDeclare = true;
+    }
     at++;
     continue;
   }
@@ -72,6 +76,21 @@ if (!(head instanceof Common)) {
   return new StatementScanResult(2, -1);
 }
 const keyword = (head as Common).TempToString();
+if (keyword === "global") {
+  // `declare global { … }`：TS 节点仍是 ModuleDeclaration，名字直接就是 `global`（没有 namespace/module 关键字）。
+  if (!hasDeclare) {
+    return new StatementScanResult(2, -1);
+  }
+  at++;
+  if (at >= code.length) {
+    return new StatementScanResult(0, -1);
+  }
+  const globalBody = code[at];
+  if (globalBody instanceof Bracket && (globalBody as Bracket).StartBracketChar === "{") {
+    return new StatementScanResult(1, at);
+  }
+  return new StatementScanResult(2, -1);
+}
 if (!(keyword === "namespace" || keyword === "module")) {
   return new StatementScanResult(2, -1);
 }
