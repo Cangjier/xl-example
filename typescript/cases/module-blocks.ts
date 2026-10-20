@@ -145,3 +145,15 @@ declare module "m" { /* c */ import x from "n"; }
 declare module "m" { import /* c */ { a } from "n"; }
 // + 回归（既有绿）：module 体内 import-equals
 declare module "m" { import x = require("n"); }
+// ===== module-body imports with attributes（chunk module-imports-2） =====
+declare module "m" { import x from "n" with { type: "json" }; }
+declare module "m" { import { a } from "n" with { type: "json" }; }
+declare module "m" { import "n" with { type: "json" }; }
+declare module "m" { import x from "n" assert { type: "json" }; }
+declare module "m" { import type { T } from "n" with { type: "json" }; }
+declare module "m" { import { a } from "n" with { type: "json", other: "x" }; }
+// + 行尾注释 / 换行 / 词间块注释
+declare module "m" { import x from "n" with { type: "json" }; } // c
+declare module "m" {\n  import { a } from "n"\n    with { type: "json" };\n}
+declare module "m" { import /* c */ { a } from "n" with { type: "json" }; }
+namespace N { export import A = B.C; }

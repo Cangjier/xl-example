@@ -168,3 +168,17 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
   回归：module 体内 `import x = require("n")` 仍绿。
 - 暂缓：module 体内带 attributes 的 import（`import x from "n" with {…}`）需要 FromUnits 再接 attributes 段；
   `export import x = require(...)` 之外的 export+import 组合不在本 chunk。
+## module-body imports 2：attributes + entity-name aliases（chunk module-imports-2）
+
+- `ImportDeclarationShape.FromUnits` 现在解析尾随 attributes 段：module StringLiteral 之后可跟 `with`/`assert` +
+  `{ … }`，用既有 `ImportAttributesShape.FromBracket(bracket, "with"|"assert", context)` 建（Pos =
+  模块字符串 Token End+1），side-effect 形（`import "n" with {…};`）同样接上；`Close` 原有 assert/attributes 分派继续生效。
+  TS children：ImportDeclaration > [ImportClause?] + StringLiteral + AssertClause/ImportAttributes。
+- 新增全绿用例（module-blocks.ts，+10）：`declare module "m" { import x from "n" with { type: "json" }; }`、
+  `{ import { a } from "n" with {…}; }`、`{ import "n" with {…}; }`、legacy `assert`、`{ import type { T } from "n" with {…}; }`、
+  多属性，以及行尾注释/多行 `with`/词间块注释变体；另加 `namespace N { export import A = B.C; }`（绿）。
+- entity-name import alias（import.ts，+2 全绿）：`import A = B.C;`（ImportEqualsDeclaration → Identifier +
+  QualifiedName（harness 侧 TS 反查名 FirstNode 已有别名））、回归 `import A = require("n")`。
+- 暂缓（超出本 chunk 写范围）：根级 `export import A = B.C;` —— 根 `import` 候选在 `export` 前缀下先建
+  ImportDeclarationShape shell 并在 Close 报「缺少模块说明符」；要修需要改 import 候选分派 / export-import 组合
+  （import-declaration-possible / export 侧），按任务边界只记录不硬改。
