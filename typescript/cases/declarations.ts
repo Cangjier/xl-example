@@ -671,3 +671,37 @@ class C {\n  m(x: any): x is A {\n    return true;\n  }\n}
 // constructor return predicates / assertions on setters: invalid TypeScript, skipped.
 // parameter decorators (`constructor(@dec x: A)`, `m(@dec x: A)`): DEFERRED -- needs TypeBuilder.ParseParameter surgery
 // (decorator prefix consumes tokens before the parameter name; planned for a later chunk).
+// ===== base 16: generic class/interface declarations =====
+class C<T> {}
+class C<T extends A> {}
+class C<T = A> {}
+class C<T extends A = B> {}
+class C<T, U> {}
+class C<T, U extends A = B> {}
+class C<T> extends B<T> {}
+class C<T> implements I<T> {}
+class C<T> extends B<T> implements I<T> {}
+class C<T> { m(x: T): T { return x; } }
+class C<T extends A> { x: T; m(a: T, b: U): V { return a; } }
+interface I<T> {}
+interface I<T extends A> {}
+interface I<T = A> {}
+interface I<T> extends J<T> {}
+interface I<T> { m(x: T): T; }
+interface I<T, U> extends J<T>, K<U> {}
+namespace N { class C<T> {} }
+namespace N { interface I<T> { m(x: T): T; } }
+// + trivia
+class C /* c */ <T> {}
+class C< /* c */ T> {}
+class C<T /* c */> {}
+class C<T extends /* c */ A> {}
+class C<T> /* c */ extends B<T> {}
+interface I /* c */ <T> {}
+interface I< /* c */ T> {}
+interface I<T> /* c */ extends J<T> {}
+class C<\n  T extends A,\n  U = B\n> {}
+
+// ===== deferred =====
+// class expression with type parameters `(class<T> {})`: expression-builder class-expression path has no type parameter list; expressions family scope.
+// `class C<T<U>> {}` nested type parameter: TypeBuilder.ParseTypeParameterList splits the combined `>>` token only in some paths; deferred until a focused type-parameter chunk.

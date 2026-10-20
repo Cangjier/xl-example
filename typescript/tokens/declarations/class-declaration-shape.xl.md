@@ -156,6 +156,24 @@ if (!(nameUnit instanceof Common)) {
 if (index >= code.length) {
   throw new Error("类声明缺少类体");
 }
+let heritageBasePos = nameUnit.SourceRange.End === null ? 0 : nameUnit.SourceRange.End.Index + 1;
+const typeParameters:Array<Token> = [];
+if (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("<")) {
+  const typeParameterBuilder = new TypeBuilder(host.Template, context);
+  typeParameterBuilder.Load(code.slice(index), heritageBasePos);
+  const parsedTypeParameters = typeParameterBuilder.ParseTypeParameterList();
+  for (const parsedTypeParameter of parsedTypeParameters) {
+    typeParameters.push(parsedTypeParameter);
+  }
+  index += typeParameterBuilder.At;
+  if (index > 0) {
+    const lastTypeUnit = code[index - 1];
+    const lastTypeEnd = lastTypeUnit.SourceRange.End;
+    if (lastTypeEnd !== null) {
+      heritageBasePos = lastTypeEnd.Index + 1;
+    }
+  }
+}
 const heritageUnits:Array<Token> = code.slice(index, code.length - 1);
 const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
@@ -163,7 +181,7 @@ if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !==
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
-const heritageBase = nameUnit.SourceRange.End === null ? name.Pos : nameUnit.SourceRange.End.Index + 1;
+const heritageBase = heritageBasePos;
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
   : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
@@ -197,6 +215,9 @@ for (let at = decoratorUnitCount; at < decoratorUnitCount + modifierCount; at++)
   }
 }
 shape.Add(name);
+for (const typeParameter of typeParameters) {
+  shape.Add(typeParameter);
+}
 for (const clause of clauses) {
   shape.Add(clause);
 }

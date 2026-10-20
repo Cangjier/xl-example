@@ -9,6 +9,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
@@ -78,6 +79,24 @@ if (!(nameUnit instanceof Common)) {
 if (index >= code.length) {
   throw new Error("接口声明缺少接口体");
 }
+let heritageBasePos = nameUnit.SourceRange.End === null ? 0 : nameUnit.SourceRange.End.Index + 1;
+const typeParameters:Array<Token> = [];
+if (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("<")) {
+  const typeParameterBuilder = new TypeBuilder(host.Template, context);
+  typeParameterBuilder.Load(code.slice(index), heritageBasePos);
+  const parsedTypeParameters = typeParameterBuilder.ParseTypeParameterList();
+  for (const parsedTypeParameter of parsedTypeParameters) {
+    typeParameters.push(parsedTypeParameter);
+  }
+  index += typeParameterBuilder.At;
+  if (index > 0) {
+    const lastTypeUnit = code[index - 1];
+    const lastTypeEnd = lastTypeUnit.SourceRange.End;
+    if (lastTypeEnd !== null) {
+      heritageBasePos = lastTypeEnd.Index + 1;
+    }
+  }
+}
 const heritageUnits:Array<Token> = code.slice(index, code.length - 1);
 const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
@@ -95,7 +114,7 @@ for (let at = start - 1; at >= 0; at--) {
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
-const heritageBase = nameUnit.SourceRange.End === null ? name.Pos : nameUnit.SourceRange.End.Index + 1;
+const heritageBase = heritageBasePos;
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
   : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
@@ -111,6 +130,9 @@ if (declareUnit !== null) {
   shape.Add(modifier);
 }
 shape.Add(name);
+for (const typeParameter of typeParameters) {
+  shape.Add(typeParameter);
+}
 for (const clause of clauses) {
   shape.Add(clause);
 }

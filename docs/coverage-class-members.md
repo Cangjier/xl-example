@@ -173,3 +173,21 @@
   to keep the suite green; belongs to a later parameter-decorator chunk.
 - object literal method predicates `({ m(x: any): x is A { ... } })`: needs expression-builder object-literal method support;
   expression family scope.
+
+## chunk 9 (generic class/interface declarations, branch cover-generic-class-1 @ origin/integration f1ebc831)
+
+- generic classes: `class C<T>`, `<T extends A>`, `<T = A>`, `<T extends A = B>`, `<T, U>`, `<T, U extends A = B>`,
+  `class C<T> extends B<T>`, `class C<T> implements I<T>`, both clauses, member types `m(x: T): T`, generic member bodies.
+- generic interfaces: `interface I<T>`, `<T extends A>`, `<T = A>`, `interface I<T> extends J<T>`, members using T,
+  `interface I<T, U> extends J<T>, K<U>`.
+- namespace bodies: `namespace N { class C<T> {} }` and `namespace N { interface I<T> { ... } }`.
+- trivia: comments around `<`, inside parameter list, around `extends`, and a multi-line parameter list.
+- implementation: Class/InterfaceDeclarationShape.FromUnits parse the type parameter list with
+  `TypeBuilder.ParseTypeParameterList()` right after the name (children order = Identifier, TypeParameter[], HeritageClause[], members),
+  and compute the heritage base from the last consumed type-parameter token; possible-shape stages needed no change (`<`/`>` are Symbols).
+- readings: declarations 524/524 (baseline 496 + 28); full suite 3551/3551 (baseline 3523); tsc 0 error.
+
+### deferred
+- class expression with type parameters `(class<T> {})`: expression-builder class-expression path has no type parameter list; expressions family.
+- nested type parameter `class C<T<U>> {}`: TypeBuilder.ParseTypeParameterList splits the combined `>>` token only in some paths;
+  deferred to a focused type-parameter chunk (regular `<T, U>` lists are covered).
