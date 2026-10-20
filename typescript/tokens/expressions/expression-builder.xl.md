@@ -84,6 +84,7 @@ import { InKeywordShape } from "../keywords/in-keyword-shape.xl.md"
 import { InstanceOfKeywordShape } from "../keywords/instance-of-keyword-shape.xl.md"
 import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
+import { SuperKeywordShape } from "../keywords/super-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
@@ -1728,6 +1729,11 @@ if (unit instanceof Common) {
   }
   if (text === "function") {
     return this.ParseFunctionExpression();
+  }
+  if (text === "super") {
+    // SuperKeyword (not Identifier): postfix chain / call then wrap it as usual.
+    this.At++;
+    return this.MakeKeywordLeaf(new SuperKeywordShape(this.Template), start);
   }
   if (text === "async") {
     // async 箭头：`async (…) => …` / `async a => …`。确认不了是箭头就不吃 `async`（退回标识符路径），

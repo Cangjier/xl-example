@@ -393,3 +393,38 @@ class-expressions   17 / 17      # 空体/名字/属性/方法/constructor/计�
 - decorators（`@dec`）、static block（`static {}`）、private `#x` alias fields ← class extras 分支；
 - heritage 里放 class 表达式（`class extends (class {})`）← heritage 目前走 TypeBuilder，需要 ParseExpression 分支；
 - 对象字面量里的 rest 之外的更多修饰组合、以及 class 表达式 type parameters 未收。
+
+## chunk 12（cover-super-1）：SuperKeyword（class 体内的 super 调用 / 属性访问）
+
+本块只改 `expression-builder.xl.md`（ParsePrimary 的 `Common` 分派补 `super`）+ 追加 `expression.ts`；未改 class-declaration / statements / core。
+
+### 实现落点
+
+- `ParsePrimary` 的 `Common` 分支在 `new` / `class` / `function` 之后新增：
+  `if (text === "super") { this.At++; return this.MakeKeywordLeaf(new SuperKeywordShape(this.Template), start); }`
+  —— `super` 从此是 `SuperKeyword`（不是 `Identifier`），后续 `.` / `[]` / `(` 由 ParsePostfix 照常组装成
+  `PropertyAccessExpression` / `ElementAccessExpression` / `CallExpression`。
+- `MakeKeywordLeaf` 负责区间与 `Pos`（含前导 trivia），与 this / true 等关键字同口径；未新增字段。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children |
+| --- | --- |
+| `super.m();` | `CallExpression` → `PropertyAccessExpression`（`SuperKeyword`、`Identifier m`） |
+| `super.x` | `PropertyAccessExpression` → `SuperKeyword`、`Identifier x` |
+| `super();` | `CallExpression` → `SuperKeyword`（无实参节点） |
+| `super(a);` | `CallExpression` → `SuperKeyword`、`Identifier a` |
+| `super.m().n` | `PropertyAccessExpression` 的 expression 是 `CallExpression`（callee 为 `super.m`） |
+| `super["m"]` | `ElementAccessExpression` → `SuperKeyword`、`StringLiteral "m"` |
+
+### 读数
+
+```
+expression  550 / 550      # base 34：super 调用/属性/链/计算访问 8 条 + trivia 3 条
+全量       2909 / 2909     # 30 个构造；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓
+
+- class 外的 `super`（TS 语义错误）；object method 里的 `super`（语义依赖 home object，语法可解析但语义侧不收）；
+- `super` 出现在 heritage（`class C extends super.X`）等非法形态不入语料。

@@ -682,3 +682,18 @@ class C { #x = 1; m() { return !(#x in this); } }
 class D { #a = 1; #b = 2; m() { return #a in this && #b in this; } }
 // 暂缓：语句首裸 `#x in obj;`（依赖 statements 的 CanStart 放行 `#`）；class 外的私有标识符单独使用 /
 // private method reference（TS 语义错误或尚未实现）
+
+// ===== base 34：super 关键字（class 体内；TS kind = SuperKeyword）=====
+class C extends B { m() { return super.m(); } }
+class C extends B { m() { super.m(a); } }
+class C extends B { get x() { return super.x; } }
+class C extends B { constructor() { super(); } }
+class C extends B { constructor(a) { super(a); } }
+class C extends B { m() { return super.m().n; } }
+class C extends B { m() { return super.a.b; } }
+class C extends B { m() { return super["m"]; } }
+// + trivia：super 与 `.` / `(` 之间注释
+class C extends B { m() { return super /* c */ . m(); } }
+class C extends B { m() { return super. /* c */ m(); } }
+class C extends B { constructor() { super /* c */ (); } }
+// 暂缓：class 外的 `super`（TS 语义错误）；object method 里的 `super`（语义依赖 home object，暂不收）
