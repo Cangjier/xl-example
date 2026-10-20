@@ -407,3 +407,15 @@ children = Identifier("this") + 类型；函数声明 / 方法 / 接口方法 / 
 - `cover-types-sweep-1` @ `df06c913` — (types +29, expression +10 measurement)；cases +63/-0（expression,types）；impl: 
 - `cover-types-5` @ `35819dd7` — (generic type parameters + variance)；cases +27/-7（types）；impl: type-alias-declaration-shape,type-builder,type-parameter-shape
 - `cover-type-assert-1` @ `ef5b1092` — (type assertions)；cases +45/-0（type-assertions）；impl: expression-builder,expression-statement-possible-shape
+## gap closure（cover-gap-types-1）
+
+**GAP 1（红→绿）**：`type T = new (a) => b;` 等——类型位置的参数可以没有类型标注（TS: `new (a) => b`、`(a) => void`、
+`(...a) => b` 均合法，无标注参数在 AST 里只有 Identifier）。修法：`ParseParameter` 的冒号改为可选（有 `:` 才 ParseType，
+`Type` 允许为 null、null 时不 Add child）；同时覆盖 `new (a, b) => c`、`new (...a) => b`、`abstract new (a) => b`、
+`(a?) => void`，以及基础回归 `new (a: A) => B` / `new () => A` / `(a: A) => B`。
+
+**GAP 2（审计误报，未改代码）**：`type T = [first: A, second?: B];` 在 ff728771 上实测 **CJ 已绿**：
+- oracle：ts.createSourceFile parseDiagnostics 为空，AST = NamedTupleMember → [Identifier, QuestionToken, TypeReference]；
+- CJ：SourceFileRunner.Parse 不抛，且该行已在 types.ts（task-327 tuple chunk 加入），ast-json-diff 完全一致；
+- 代码证据：type-builder 里 `?:` 组合 Symbol 分支仍在（ParseOptionalMark + colonConsumed），是 tuple chunk 的修复已合入。
+结论：审计 (task-337) 的 GAP 2 是**误报**（可能基于旧 baseline 或未刷新产物）。

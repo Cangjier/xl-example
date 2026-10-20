@@ -1281,14 +1281,18 @@ if (markUnit !== null) {
     colonNeeded = markText === "?";
   }
 }
-if (colonNeeded) {
+// 类型位置的参数可以没有类型标注（TS: `new (a) => b` / `(a) => void` / `(...a) => b` 都合法，
+// 无标注参数在 AST 里只有 Identifier）。有冒号才解析类型。
+let type:Token | null = null;
+if (!colonNeeded) {
+  type = this.ParseType();
+} else {
   const colon = this.Peek(0);
-  if (colon === null || !this.IsText(colon, ":")) {
-    throw new Error("参数缺少类型标注");
+  if (colon !== null && this.IsText(colon, ":")) {
+    this.At++;
+    type = this.ParseType();
   }
-  this.At++;
 }
-const type = this.ParseType();
 const parameter = new ParameterShape(this.Template);
 parameter.ParameterName = name;
 parameter.QuestionToken = question;
@@ -1305,7 +1309,9 @@ parameter.Add(name);
 if (question !== null) {
   parameter.Add(question);
 }
-parameter.Add(type);
+if (type !== null) {
+  parameter.Add(type);
+}
 return this.SpanNode(parameter, paramStart, this.At - 1);
 ```
 
