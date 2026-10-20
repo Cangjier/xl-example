@@ -379,3 +379,27 @@ declarations 尚未收）；带成员的体前换行（�?cover-members-1）；
 **读数（本分支�?*：`declarations` **315 / 315 完全一�?*；全�?ast-json / diff **3053 / 3053**
 （基�?3043 + 10），结构�?0 / 位置�?0 / 字段�?0，无回归（decorator / using-declarations / end-declarations 109 全绿）；tsc 0 error�?
 **仍暂�?*：`@dec` 与声明之间插�?*其他语句**的写法（TS 本来非法，不列用例）；装饰器元数�?/ 参数装饰�?/ 接口·枚举上的装饰�?仍是 declarations 家族后续 chunk；chunk 11 的两条暂缓（三条声明混排、`a\nimport …` 共存边界）不变�?
+## 14. end-declarations chunk 6：export / import 声明在 EOF（measurement-first）
+
+**探针先量（20 条）**：本批只修真红项；已绿项只补用例固化，不改 shape。
+
+**已经绿（不改 shape，补用例）**：`export {}`、`export * from "m"`、`export { a } from "m"`、
+`import x from "m"`、`import "m"`、`import x = require("m")`、`export function f() {}`、`export class C {}`、
+`export interface I {}`、`export enum E { A }`、`export namespace N {}`、`export function f() {}\n`。
+
+**修红（只改 `source-file-end-possible-shape.xl.md`）**：`export type T = A`（无分号到 EOF）与
+`export type T = A // c` 原本报「表达式语句没有读完」——EOF 兜底只认 `type` 开头，不认 `export type`；
+把 `export` + `type` 也纳入 `isType` 族（`TypeAliasDeclarationShape` 本来就支持 `[export] [declare] type` 前缀），
+补零宽合成 `;` 后按类型别名正常建，两条转绿。
+
+**读数（本分支）**：`end-declarations` **135 / 135 完全一致**（121 → 135，+14）；全量 ast-json / diff
+**3537 / 3537**（基线 3523 + 14），结构差 0 / 位置差 0 / 字段差 0，无回归（end 53 / export / import 族不变）；tsc 0 error。
+
+**仍红（写成用例里的 `//` 目标 + 归属，不静默跳过）**：
+- `export const x = 1`、`export const x = 1 // c\n`、`export const x = 1\nclass C {}`：
+  归属 **export / statement 族**——export 变量语句候选在 EOF 仍 `Accept`，与根终结候选同时成立；
+  需要 export 侧像 declare-var 那样在 EOF 让位（`stopAtEof` 同款），end 兜底目前也不建 export 变量语句。
+- `export default 1`、`export default 1 // c\n`：归属 **export 族**（`ExportAssignment` 候选在 EOF 仍活），同上。
+- `import x from "m"\nclass C {}`：归属 **import 族**——`ImportDeclarationShape.Close` 把 class 单元当成未识别单元。
+- `import x from "m" // c` / `export { a } from "m" // c`：归属 **import / export 族位置口径**——
+  尾注释被算进声明的 `End`（TS 到字符串/大括号为止）；无注释的形态全绿。
