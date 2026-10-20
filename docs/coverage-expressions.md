@@ -602,3 +602,31 @@ members           191 / 191      # 187 + 4（对象方法约束 / 默认 / const
 - 顶层逗号形态（`const fcb = <T extends A, U = B>(...) => ...;`）受 declarations/statements 的声明切分限制，
   语料改用括号形态 `(<T extends A, U = B>(...) => ...)`；行为本身已支持。
 - 箭头参数装饰器（`<T>(@dec x: T) => x`）TS 解析可接受与否未收；类成员装饰器仍归 class 家族。
+## chunk 18（cover-chain-sweep-1）：链式 / super / optional / this / tagged（measurement-first）
+
+**未改 builder**：20 条候选先 append 再对拍，全部一次转绿（既有产生式组合已覆盖），因此 expression-builder 一行未改。
+
+### 新增（全绿，base 40）
+
+- optional chain 深链：`a?.b.c`、`a?.b?.[c]?.(d)`、`(a?.b)!`
+- 调用 / 索引链：`a.b().c().d`、`a().b().c`
+- `super` 组合：方法体内 `super.m(); super.x; super["y"];`、构造函数 `super()`、`super.m?.()`
+- `this` 链：`this.x.y`、`this["x"]`、`this.m()`、`this.#p`（class 内 `#p` 字段 + 读取）
+- tagged template：`a`x``、`a.b`x``、`a?.b`x``
+- trivia：`a?. /* c */ b.c`、`a.b /* c */ ().c()`、`this. /* c */ x.y`、`a /* c */ `x``
+
+### 读数
+
+```
+expression  658 / 658      # 638 + 20
+全量       3882 / 3882     # 3862 + 20；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 红→绿清单
+
+无：全部候选形态测量前已支持。
+
+### 暂缓（注释目标 + 原因）
+
+- `a?.b = c`：TS 语法层可解析，但语义禁止（optional chain 不能作赋值目标），不入 AST 对拍语料；
+- `this.#x` / `a.#x` 已在 base 35 覆盖，本块只补 `this.#p` 与 class 内读取组合。
