@@ -35933,6 +35933,1309 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C { accessor x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x: A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x: A = b; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static accessor y = 2; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 16,
+                  "end": 25
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "y"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor #z = 3; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 18,
+                  "end": 21
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "3"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public accessor x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 16,
+                  "end": 25
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { protected accessor x: A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ProtectedKeyword",
+                  "pos": 9,
+                  "end": 19
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 19,
+                  "end": 28
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 30,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 31,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { private static accessor y: A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "PrivateKeyword",
+                  "pos": 9,
+                  "end": 17
+                },
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 17,
+                  "end": 24
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 24,
+                  "end": 33
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "y"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 36,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { readonly accessor z = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 18,
+                  "end": 27
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 29,
+                  "text": "z"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 31,
+                  "end": 33,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "abstract class C { abstract accessor w: A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "AbstractKeyword",
+              "pos": 0,
+              "end": 8
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "AbstractKeyword",
+                  "pos": 18,
+                  "end": 27
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 27,
+                  "end": 36
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 36,
+                  "end": 38,
+                  "text": "w"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 39,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 41,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { declare accessor v: A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "DeclareKeyword",
+                  "pos": 9,
+                  "end": 17
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 17,
+                  "end": 26
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "v"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 29,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec accessor y = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 14,
+                  "end": 23
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "y"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 27,
+                  "end": 29,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec public accessor y = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 14,
+                  "end": 21
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 21,
+                  "end": 30
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "y"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x = 1; accessor y = 2; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 25,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 25,
+                  "end": 34
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "y"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x = 1; m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 25,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { get x() { return 1; } set x(v) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 9,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "x"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 17,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 19,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 26,
+                          "end": 28,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "SetAccessor",
+              "pos": 31,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 35,
+                  "end": 37,
+                  "text": "x"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 38,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 39,
+                      "text": "v"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 40,
+                  "end": 43
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public static readonly x: A = b; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 16,
+                  "end": 23
+                },
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 23,
+                  "end": 32
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 34,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 35,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 39,
+                  "end": 41,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { /* c */ accessor x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 26
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor /* c */ x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 28,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x /* c */ = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public /* c */ accessor x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 16,
+                  "end": 33
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 37,
+                  "end": 39,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static /* c */ accessor y = 2; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 16,
+                  "end": 33
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "y"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 37,
+                  "end": 39,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec /* c */ accessor y = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 14,
+                  "end": 31
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 31,
+                  "end": 33,
+                  "text": "y"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 35,
+                  "end": 37,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x: /* c */ A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 31,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

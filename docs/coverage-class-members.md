@@ -227,3 +227,24 @@
 ### deferred
 - parameter property definite assignment `constructor(public x!: A)`: invalid TypeScript; the oracle recovery AST contains
   degenerate empty Parameter nodes (e.g. `Parameter [30,30) Identifier [30,30)`), so matching it byte-for-byte has no value.
+
+## chunk 12 (auto-accessor members, branch cover-accessor-1 @ origin/integration 4fa193e7)
+
+- auto-accessors: `accessor x = 1;`, `accessor x: A;`, `accessor x: A = b;`, `static accessor y = 2;`,
+  `accessor #z = 3;`, two accessors in one class, accessor next to a method.
+- modifier combinations: `public accessor x = 1;`, `protected accessor x: A;`, `private static accessor y: A;`,
+  `readonly accessor z = 1;` (oracle AST keeps ReadonlyKeyword + AccessorKeyword), `abstract accessor w: A;`,
+  `declare accessor v: A;`, decorated `@dec accessor y = 1;`, `@dec public accessor y = 1;`.
+- regression: get/set accessors, plain property, modifier order property.
+- trivia: comments before `accessor`, between `accessor` and name, before `=`, after modifiers, after decorator.
+- FINDING: no implementation change was needed. Auto-accessors already parse through the existing member modifier loop
+  (BuildModifier maps `accessor` to AccessorKeywordShape) + property branch; the probe with ts.createSourceFile confirmed
+  TS child order modifiers -> AccessorKeyword -> name -> type -> initializer, and every probe form was structurally
+  identical before any edit. This chunk is pure regression coverage (25 cases) + oracle verification.
+- readings: declarations 676/676 (baseline 651 + 25); full suite 3887/3887 (baseline 3862); tsc 0 error.
+
+### deferred
+- none: all requested forms (including `readonly accessor`, `abstract accessor`, `declare accessor`, `@dec accessor`)
+  are covered and green.
+  note: `readonly accessor` / `declare accessor` are semantically questionable TypeScript but the oracle AST is stable,
+  and AST-shape equality is what this suite measures.
