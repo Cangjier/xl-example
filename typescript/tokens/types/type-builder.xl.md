@@ -8,6 +8,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { DotDotDotTokenShape } from "../punctuation/dot-dot-dot-token-shape.xl.md"
 import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { AnyKeywordShape } from "../keywords/any-keyword-shape.xl.md"
 import { BigIntKeywordShape } from "../keywords/big-int-keyword-shape.xl.md"
@@ -30,8 +31,12 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ArrayTypeShape } from "./array-type-shape.xl.md"
 import { CallSignatureShape } from "./call-signature-shape.xl.md"
+import { ConditionalTypeShape } from "./conditional-type-shape.xl.md"
+import { ConstructorTypeShape } from "./constructor-type-shape.xl.md"
 import { FunctionTypeShape } from "./function-type-shape.xl.md"
 import { IndexSignatureShape } from "./index-signature-shape.xl.md"
+import { IndexedAccessTypeShape } from "./indexed-access-type-shape.xl.md"
+import { InferTypeShape } from "./infer-type-shape.xl.md"
 import { IntersectionTypeShape } from "./intersection-type-shape.xl.md"
 import { LiteralTypeShape } from "./literal-type-shape.xl.md"
 import { MethodSignatureShape } from "./method-signature-shape.xl.md"
@@ -42,6 +47,9 @@ import { QualifiedNameShape } from "./qualified-name-shape.xl.md"
 import { ThisTypeShape } from "./this-type-shape.xl.md"
 import { TupleTypeShape } from "./tuple-type-shape.xl.md"
 import { TypeLiteralShape } from "./type-literal-shape.xl.md"
+import { TypeOperatorShape } from "./type-operator-shape.xl.md"
+import { TypeParameterShape } from "./type-parameter-shape.xl.md"
+import { TypeQueryShape } from "./type-query-shape.xl.md"
 import { TypeReferenceShape } from "./type-reference-shape.xl.md"
 import { UnionTypeShape } from "./union-type-shape.xl.md"
 ```
@@ -102,6 +110,10 @@ this.Context = context;
 
 把一段单元装进来：跳过 trivia，记下每个单元**含前导 trivia 的起点**（`Positions[i]`），`At` 归零。
 
+`>>` / `>>>` 这种连续闭合尖括号在基本 token 层是一个 `Symbol`；这里按字符拆成若干个只含一个 `>` 的虚拟符号单元
+（`Document.At` 取那个字符的 `Source`，各占一个字符区间），这样嵌套泛型实参的区间才能与 TS 对齐
+（`A<B<C>>` 的内层 `TypeReference` 结束在第一个 `>`，外层结束在第二个）。
+
 ```ts
 this.Units = [];
 this.Positions = [];
@@ -110,6 +122,22 @@ let pos = basePos;
 for (const unit of units) {
   if (unit.IsTriviaToken) {
     continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (this.IsSplitClose(text) && unit.SourceRange.Start !== null) {
+      const head = unit.SourceRange.Start;
+      for (let index = 0; index < text.length; index++) {
+        const pieceSource = head.Document.At(head.Index + index);
+        const piece = new Symbol(unit.Template);
+        piece.AppendAndSignOut(pieceSource);
+        piece.SignIn(pieceSource);
+        this.Units.push(piece);
+        this.Positions.push(pos);
+        pos = pieceSource.Index + 1;
+      }
+      continue;
+    }
   }
   this.Units.push(unit);
   this.Positions.push(pos);
@@ -204,7 +232,46 @@ return shape;
 
 ## method ParseType:()=>Token
 
-类型的最外层：**union 优先级**。读 `A | B | …`，成员交给 `ParseIntersection`；只有一个成员就原样返回。
+类型的最外层：**条件类型**（`A extends B ? C : D`）。`extends` / `?` / `:` 都不进 AST，
+children 依次是 checkType / extendsType / trueType / falseType；trueType 与 falseType 都按 `ParseType` 读，
+所以 falseType 自然右结合（`D extends E ? F : G`）。没有 `extends` 时退回 union 层。
+
+```ts
+const start = this.At;
+const checkType = this.ParseUnionType();
+const extendsUnit = this.Peek(0);
+if (extendsUnit === null || !this.IsText(extendsUnit, "extends")) {
+  return checkType;
+}
+this.At++;
+const extendsType = this.ParseUnionType();
+const questionUnit = this.Peek(0);
+if (questionUnit === null || !this.IsText(questionUnit, "?")) {
+  throw new Error("条件类型缺少 ?");
+}
+this.At++;
+const trueType = this.ParseType();
+const colonUnit = this.Peek(0);
+if (colonUnit === null || !this.IsText(colonUnit, ":")) {
+  throw new Error("条件类型缺少 :");
+}
+this.At++;
+const falseType = this.ParseType();
+const shape = new ConditionalTypeShape(this.Template);
+shape.CheckType = checkType;
+shape.ExtendsType = extendsType;
+shape.TrueType = trueType;
+shape.FalseType = falseType;
+shape.Add(checkType);
+shape.Add(extendsType);
+shape.Add(trueType);
+shape.Add(falseType);
+return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseUnionType:()=>Token
+
+`A | B | …`：条件类型两侧的分支各要能读 union，所以从 `ParseType` 里单独拆出一层。
 
 ```ts
 const start = this.At;
@@ -264,9 +331,11 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ## method ParsePostfixType:()=>Token
 
-后缀 `[]`：只认**空**的 `[ ]` 括号单元（非空的那个是 tuple，只在主表达式位置出现）。可叠加（`A[][]`）。
+后缀两种，都在主类型之后、都靠方括号单元区分：
 
-区间口径：`ArrayType` 与它的元素同起点，终点是 `]`；`Pos` 取元素的 `Pos`（TS 也是这个口径）。
+- **空** `[ ]` → 数组类型（可叠加 `A[][]`），区间与元素同起点、终点是 `]`，`Pos` 取元素的 `Pos`；
+- **非空** `[B]` → 索引访问类型（`A[B]`、`A[B][C]`），children = 对象类型 + 索引类型；
+  索引类型在里面按 `ParseType` 读（括号内容从 `[` 之后起算），`Pos` 仍取对象的 `Pos`（实测 `IndexedAccessType[8,13)`）。
 
 ```ts
 let type = this.ParsePrimaryType();
@@ -279,13 +348,40 @@ while (true) {
     break;
   }
   const bracket = unit as Bracket;
-  if (this.HasCode(bracket.Data)) {
-    break;
-  }
   this.At++;
-  const shape = new ArrayTypeShape(this.Template);
-  shape.ElementType = type;
+  if (!this.HasCode(bracket.Data)) {
+    const arrayShape = new ArrayTypeShape(this.Template);
+    arrayShape.ElementType = type;
+    arrayShape.Add(type);
+    if (type.SourceRange.Start !== null) {
+      arrayShape.SignIn(type.SourceRange.Start);
+    }
+    if (bracket.SourceRange.End !== null) {
+      arrayShape.SignOut(bracket.SourceRange.End);
+    }
+    arrayShape.Pos = (type as ShapeToken).Pos;
+    arrayShape.TryToClose(this.Context);
+    type = arrayShape;
+    continue;
+  }
+  const inner = new TypeBuilder(this.Template, this.Context);
+  let base = 0;
+  if (bracket.SourceRange.Start !== null) {
+    base = bracket.SourceRange.Start.Index + 1;
+  }
+  inner.Load(bracket.Data, base);
+  if (inner.Units.length === 0) {
+    throw new Error("索引访问类型缺少索引");
+  }
+  const indexType = inner.ParseType();
+  if (inner.At !== inner.Units.length) {
+    throw new Error("索引访问类型的索引没有读完");
+  }
+  const shape = new IndexedAccessTypeShape(this.Template);
+  shape.ObjectType = type;
+  shape.IndexType = indexType;
   shape.Add(type);
+  shape.Add(indexType);
   if (type.SourceRange.Start !== null) {
     shape.SignIn(type.SourceRange.Start);
   }
@@ -301,7 +397,9 @@ return type;
 
 ## method ParsePrimaryType:()=>Token
 
-原子类型：括号家族（`( )` / `[ ]` / `{ }`）、字符串字面量、关键字体 / 字面量体、类型引用（含 `A.B` 限定名与 `A<B>` 泛型实参）。
+原子类型与前缀类型：括号家族（`( )` / `[ ]` / `{ }`）、字符串 / 数字 / 布尔 / null 字面量、
+原始类型关键字、`this`、`infer`、`keyof` / `readonly` / `unique`（`TypeOperator`）、`typeof`（`TypeQuery`）、
+`new (…) => R`（`ConstructorType`）、最后是类型引用（限定名 / 泛型实参）。
 
 ```ts
 const start = this.At;
@@ -343,6 +441,33 @@ if (unit instanceof Common) {
   if (text === "true" || text === "false" || text === "null") {
     this.At++;
     return this.ParseBooleanOrNullLiteralType(text, start);
+  }
+  if (text === "keyof" || text === "readonly" || text === "unique") {
+    this.At++;
+    const operand = this.ParsePostfixType();
+    const shape = new TypeOperatorShape(this.Template);
+    shape.Operand = operand;
+    shape.Add(operand);
+    if (unit.SourceRange.Start !== null) {
+      shape.SignIn(unit.SourceRange.Start);
+    }
+    if (operand.SourceRange.End !== null) {
+      shape.SignOut(operand.SourceRange.End);
+    }
+    shape.Pos = this.Positions[start];
+    shape.TryToClose(this.Context);
+    return shape;
+  }
+  if (text === "typeof") {
+    this.At++;
+    return this.ParseTypeQuery(start);
+  }
+  if (text === "infer") {
+    this.At++;
+    return this.ParseInferType(start);
+  }
+  if (text === "new") {
+    return this.ParseConstructorType(start);
   }
   if (text === "any") {
     this.At++;
@@ -717,12 +842,20 @@ return parameters;
 
 ## method ParseParameter:()=>Token
 
-一个参数：`名字 [?] : 类型`。children 顺序与 TS 一致（Identifier、可选 QuestionToken、类型）。
+一个参数：`[...] 名字 [?] : 类型`。children 顺序与 TS 一致（可选 DotDotDotToken、Identifier、可选 QuestionToken、类型）。
 
 基本 token 会把连写的 `?:` 收成一个 `Symbol`，所以 `?` 与 `?:` 都认：`?:` 时冒号已随符号消费。
+rest 的 `...` 是一个 `Symbol`（`SymbolTemplate` 组合符号表里有 `...`），它进 children 成为 `DotDotDotToken`。
 
 ```ts
-const nameIndex = this.At;
+const paramStart = this.At;
+let rest:Token | null = null;
+const restUnit = this.Peek(0);
+if (restUnit !== null && this.IsText(restUnit, "...")) {
+  const restIndex = this.At;
+  this.At++;
+  rest = this.SpanLeaf(new DotDotDotTokenShape(this.Template), restIndex);
+}
 const name = this.ParseName();
 const markUnit = this.Peek(0);
 let question:Token | null = null;
@@ -746,12 +879,16 @@ const parameter = new ParameterShape(this.Template);
 parameter.ParameterName = name;
 parameter.QuestionToken = question;
 parameter.Type = type;
+if (rest !== null) {
+  parameter.RestToken = rest;
+  parameter.Add(rest);
+}
 parameter.Add(name);
 if (question !== null) {
   parameter.Add(question);
 }
 parameter.Add(type);
-return this.SpanNode(parameter, nameIndex, this.At - 1);
+return this.SpanNode(parameter, paramStart, this.At - 1);
 ```
 
 ## method ParseIndexParameter:(bracket:Bracket)=>Token
@@ -921,4 +1058,115 @@ if (right.SourceRange.End !== null) {
 shape.Pos = (left as ShapeToken).Pos;
 shape.TryToClose(this.Context);
 return shape;
+```
+
+## method IsSplitClose:(text:string)=>bool
+
+是不是「连续闭合尖括号」：长度 ≥ 2 且每个字符都是 `>`（`>>` / `>>>`）。这种 `Symbol` 要拆成多个单元。
+
+```ts
+if (text.length < 2) {
+  return false;
+}
+for (const item of text) {
+  if (item !== ">") {
+    return false;
+  }
+}
+return true;
+```
+
+## method ParseTypeQuery:(start:int)=>Token
+
+`typeof a` / `typeof a.b`：`typeof` 不进 AST，children 只有一个实体名（Identifier 或限定名）。
+实测 `typeof a` → `TypeQuery[8,17) → Identifier[15,17)`（标识符 `pos` 是 `typeof` 之后）。
+
+调用前 `At` 已越过 `typeof`。
+
+```ts
+const operatorUnit = this.Units[start];
+const name = this.ParseEntityName();
+const shape = new TypeQueryShape(this.Template);
+shape.ExprName = name;
+shape.Add(name);
+if (operatorUnit.SourceRange.Start !== null) {
+  shape.SignIn(operatorUnit.SourceRange.Start);
+}
+if (name.SourceRange.End !== null) {
+  shape.SignOut(name.SourceRange.End);
+}
+shape.Pos = this.Positions[start];
+shape.TryToClose(this.Context);
+return shape;
+```
+
+## method ParseInferType:(start:int)=>Token
+
+`infer U`：children 只有一个 `TypeParameter`（`infer` 不进 AST）。
+实测 `(infer U)` 里：`InferType[20,27) → TypeParameter[25,27) → Identifier[25,27)`。
+
+调用前 `At` 已越过 `infer`。
+
+```ts
+const nameIndex = this.At;
+const name = this.ParseName();
+const parameter = new TypeParameterShape(this.Template);
+parameter.TypeParameterName = name;
+parameter.Add(name);
+this.SpanNode(parameter, nameIndex, nameIndex);
+const shape = new InferTypeShape(this.Template);
+shape.TypeParameter = parameter;
+shape.Add(parameter);
+return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseEntityName:()=>Token
+
+`typeof` 后面的实体名：标识符，或 `a.b` 这样的限定名（左结合嵌套，复用 `MakeQualifiedName`）。
+
+```ts
+let name = this.ParseName();
+while (true) {
+  const unit = this.Peek(0);
+  if (unit === null || !this.IsText(unit, ".")) {
+    break;
+  }
+  this.At++;
+  const right = this.ParseName();
+  name = this.MakeQualifiedName(name, right);
+}
+return name;
+```
+
+## method ParseConstructorType:(start:int)=>Token
+
+`new (参数) => 返回类型`：`new` 不进 AST，children = 参数们 + 返回类型。
+实测 `new () => A` 没有参数孩子；`new (a: A) => B` 的 `Parameter` 从 `(` 之后起算。
+`abstract new` 暂缓（TS 侧会多一个 `FirstContextualKeyword` 修饰节点，需要单独的别名与形状）。
+
+调用前 `At` 停在 `new` 上。
+
+```ts
+this.At++;
+const bracketUnit = this.Peek(0);
+if (bracketUnit === null || !this.IsBracket(bracketUnit, "(", ")")) {
+  throw new Error("构造类型缺少参数表");
+}
+const bracket = bracketUnit as Bracket;
+this.At++;
+const parameters = this.ParseParameterList(bracket);
+const arrowUnit = this.Peek(0);
+if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
+  throw new Error("构造类型缺少 =>");
+}
+this.At++;
+const returnType = this.ParseType();
+const shape = new ConstructorTypeShape(this.Template);
+shape.Parameters = parameters;
+shape.ReturnType = returnType;
+for (const parameter of parameters) {
+  shape.Add(parameter);
+}
+shape.Add(returnType);
+return this.SpanNode(shape, start, this.At - 1);
 ```

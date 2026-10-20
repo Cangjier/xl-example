@@ -136,3 +136,49 @@ AST 的 `End` 由 `ParseFromShape` 换算成 `SourceRange.End.Index + 1`。
 constructor type / 构造签名、rest 与解构参数、默认值、对象类型里的 \`readonly [k: string]\` / 可选方法 / get set、
 conditional / mapped / infer / keyof / typeof / indexed / import type / template literal type / type predicate / 类型算子、
 泛型参数声明与 export / declare 修饰词、\`A<B<C>>\` 连写闭合（\`>>\` 被 basic token 收成一个 Symbol）。
+
+## 7. chunk 3：条件类型 / infer / 类型算子 / 索引访问 / 构造类型 / rest / 嵌套泛型
+
+起点：\`origin/integration cbb8dc0f\` + merge \`origin/cover-types-2\` = 1234/1234（aliases 两处并集保留，merge 无冲突）；
+本 chunk 后 types 127→185（全量 1292）。
+
+### 7.1 条件类型（\`ConditionalType\`）
+
+\`ParseType\` 变成「条件层」：先 \`ParseUnionType\` 读 checkType；遇到 \`extends\` 就继续读 extendsType、\`?\`、trueType、\`:\`、falseType。
+children 顺序 = [checkType, extendsType, trueType, falseType]；四个关键字都不是节点。
+trueType / falseType 都递归调 \`ParseType\`，所以 falseType 天然右结合（\`D extends E ? F : G\`）。
+条件类型可以出现在任何 \`ParseType\` 的调用点（类型实参、tuple、返回类型、括号里）。
+
+### 7.2 infer / TypeParameter
+
+\`ParseInferType\`：children 只有一个 \`TypeParameter\`（\`infer\` 不进 AST）；\`TypeParameter\` 的 children 是名字 Identifier。
+实测 \`(infer U)\` 是 \`InferType[20,27) → TypeParameter[25,27) → Identifier[25,27)\`。
+
+### 7.3 类型算子 / 类型查询（\`TypeOperator\` / \`TypeQuery\`）
+
+- \`keyof\` / \`readonly\` / \`unique\` → \`TypeOperator\`，children 只有操作数（算子关键字不进 AST）；
+- \`typeof a\` / \`typeof a.b\` → \`TypeQuery\`，children 只有一个实体名（Identifier / 限定名，\`ParseEntityName\`）；
+- \`keyof typeof a\` 自然组合（TypeOperator 的操作数走 \`ParsePostfixType\`，会再落到 TypeQuery）。
+
+### 7.4 索引访问类型（\`IndexedAccessType\`）
+
+\`ParsePostfixType\` 的后缀方括号分两种：**空** \`[ ]\` 是数组类型（既有），**非空** \`[B]\` 是索引访问（新增，children = [对象类型, 索引类型]，索引在括号内按 \`ParseType\` 读）。
+左结合可叠加 \`A[B][C]\`。
+
+### 7.5 构造类型 / rest 参数
+
+- \`new (参数) => R\` → \`ConstructorType\`：\`new\` 与 \`=>\` 不进 AST，children = 参数们 + 返回类型（\`new () => A\` 没有参数孩子）；
+  \`abstract new\` **暂缓**：TS 侧会多一个 \`FirstContextualKeyword\` 修饰节点，需要单独的别名与形状。
+- rest 参数 \`(...a: A[])\`：\`Parameter\` 的 children 顺序补上 \`DotDotDotToken\`（\`...\` 是 \`Symbol\`，进 AST），
+  顺序 = DotDotDotToken、Identifier、可选 QuestionToken、类型；\`ParameterShape\` 新增 \`RestToken\` 字段。
+
+### 7.6 嵌套泛型实参 \`A<B<C>>\`（\`>>\` 拆分）
+
+基本 token 把连续闭合尖括号收成一个 \`Symbol\`（\`>>\` / \`>>>\`）。\`TypeBuilder.Load\` 把这种单元按字符拆成多个只含一个 \`>\` 的虚拟 \`Symbol\`：
+用 \`Document.At(start.Index + k)\` 取每个字符的 \`Source\`，各自 \`AppendAndSignOut\` + \`SignIn\`，区间各占一个字符。
+这样 \`A<B<C>>\` 的内层 \`TypeReference\` 结束在第一个 \`>\`、外层结束在第二个，与 TS 完全对齐。
+
+### 7.7 仍然暂缓（\`types.ts\` 末尾 \`//\` 目标）
+
+mapped type、template literal type、type predicate、import type、\`abstract new\`、解构 / 默认值参数、
+泛型参数声明与 export / declare 修饰词。
