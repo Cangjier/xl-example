@@ -56,4 +56,4 @@ class C<T> {}
 class C<T extends A> {}
 // 误报证据（不收）：`class<T> {}` / `class<T extends A> {}` 裸形态 oracle parseDiagnostics 为空，但 TS 产出的是
 //   缺 Identifier 与 Block 的 ClassDeclaration 恢复节点（`class {}` 同样），不是可对拍的合法 AST。
-// 暂缓：`export default class<T> {}` —— 属 export 家族（export-declaration-shape），本块 WRITE SCOPE 之外。
+// export default class<T> {}  —— 已由 cover-default-generic-class-1 在 export 家族实现（FromUnitsAllowAnonymous）；此处仅保留历史注记。
