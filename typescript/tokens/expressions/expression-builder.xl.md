@@ -91,6 +91,7 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { TypeParameterShape } from "../types/type-parameter-shape.xl.md"
 import { TypeAssertionExpressionShape } from "./type-assertion-expression-shape.xl.md"
 import { MetaPropertyShape } from "./meta-property-shape.xl.md"
+import { AwaitExpressionShape } from "./await-expression-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
@@ -554,10 +555,18 @@ if (unit instanceof Symbol) {
 } else if (unit instanceof Common) {
   text = (unit as Common).TempToString();
 }
-if (!this.IsPrefixOperator(text)) {
+if (!this.IsPrefixOperator(text) && !(unit instanceof Common && (unit as Common).Is("await"))) {
   return this.ParsePostfix();
 }
 this.At++;
+if (unit instanceof Common && (unit as Common).Is("await")) {
+  // `await` 是一元前缀：操作数交给 ParseUnary，所以它比二元运算符绑得紧
+  // （`await a + b` = `(await a) + b`），`await` token 本身不进 AST。
+  const awaitOperand = this.ParseUnary();
+  const awaitShape = new AwaitExpressionShape(this.Template);
+  awaitShape.Add(awaitOperand);
+  return this.SpanNode(awaitShape, start, this.At - 1);
+}
 const operand = this.ParseUnary();
 if (text === "typeof") {
   const shape = new TypeOfExpressionShape(this.Template);

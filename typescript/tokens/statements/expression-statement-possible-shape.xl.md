@@ -93,6 +93,11 @@ if (unit instanceof Common) {
   if (text === "import") {
     return true;
   }
+  // `await` 是一元前缀（ts 的 parseDiagnostics 视角下顶层 `await x;` 也是合法语句），
+  // builder 的 ParseUnary 已经能建 AwaitExpression，所以语句首放行。
+  if (text === "await") {
+    return true;
+  }
   if ((unit as Common).CanStartNumber()) {
     return true;
   }
