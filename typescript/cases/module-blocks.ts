@@ -1,4 +1,4 @@
-// module / namespace 块 chunk 2：augmentation + global + 嵌套声明，base + trivia 变体。
+// module / namespace 块 chunk 3：模块体里带体声明（class/interface/enum/function）+ export 修饰。
 // 一行一个用例；行内 \n 由 ast-json.mjs 还原成真实换行。以 // 开头的行是暂缓目标，不照进用例。
 // M1 namespace 基形
 namespace N {}
@@ -37,9 +37,26 @@ declare module "m" { let x: number;\nlet y: string; }
 // M9 global augmentation（TS 节点仍是 ModuleDeclaration，名字是 global）
 declare global { let x: number; }
 declare global { const y = 2; }
-// M10 模块体里的接口声明（空体；interface 形状已合入）
+// M10 模块体里的接口声明（空体）
 declare module "m" { interface I {} }
 namespace N { interface I {} }
 // M11 augmentation 的 trivia
 declare module "m" { // c\nlet x: number; }
-// M12 暂缓：`declare module "m" { function f(): void; }`（FunctionDeclaration 未合）、`export as namespace X;`（cover-module-1 所有者）
+// M12 暂缓：`declare module "m" { function f(): void; }`（无体函数要声明 end 候选）、`export as namespace X;`（cover-module-1 所有者）
+// M13 带体声明进 namespace（class / interface / function / enum，chunk 3）
+namespace N { class C {} }
+namespace N { function f() {} }
+namespace N { enum E { A } }
+namespace N { function f(a: A): B { return a; } }
+namespace N { class C {}\nfunction f() {} }
+namespace N { const x = 1;\nclass C {} }
+// M14 export 修饰的带体成员
+namespace N { export class C {} }
+namespace N { export function f() {} }
+namespace N { export enum E { A } }
+namespace N { export interface I {} }
+// M15 declare module 里的带体声明（ambient 模块内 class/enum 合法）
+declare module "m" { class C {} }
+declare module "m" { enum E { A } }
+declare module "m" { interface I {}\nclass C {} }
+// M16 暂缓：`declare module "m" { function f(): void; }`（ambient 无体函数）、`namespace N { function f(): void; }`、`export as namespace X;`
