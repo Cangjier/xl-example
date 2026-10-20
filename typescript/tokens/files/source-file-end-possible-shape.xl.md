@@ -7,6 +7,7 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
@@ -14,23 +15,22 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 
 # namespace cangjie
 
-# class SourceFileEndScan
-
-## field Checked:int = 0
-
-## field LastCode:int = -1
-
 # class SourceFileEndPossibleShape extends PossibleShape
 
 ```txt
-const x = 1;
-           ^ 文件在这里结束
+a
+++b;
+^ 换行这里上一条就到齐了
 ```
 
-根单元的终结候选：只认 EOF 哨兵。
+根单元的终结候选：认两种「这条语句到这里该结束了」。
 
-它在 `EndOfFileTokenShape.Close` 触发的那一次重算里 `Accept`；那一刻普通候选（import / export / expression statement）
-都已经在 EOF 单元上 `Reject`，所以 `Candidates == 0`，按 `CatalogGuide` 的契约由本候选结束根。
+- **EOF 哨兵**：`EndOfFileTokenShape` 关闭触发的那一次重算里 `Accept`；
+- **ASI 边界**：换行之后到来的代码单元接不上前一条表达式时 `Accept`（判据由
+  `ExpressionStatementPossibleShape.IsAsiBoundary` 给出，与普通候选**读同一个函数**）。
+
+两种情况下普通候选（import / export / expression statement）都已在同一处 `Reject`，
+所以 `Candidates == 0`，按 `CatalogGuide` 的契约由本候选结束这一条语句。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -38,27 +38,11 @@ const x = 1;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
-let state = cache.GetState<SourceFileEndScan>(name);
-if (state === null) {
-  state = new SourceFileEndScan();
-  cache.SetState(name, state);
+const current = units[tokenIndex];
+if (current instanceof EndOfFileTokenShape) {
+  return ShapeStates.Accept;
 }
-if (state.Checked > tokenIndex + 1) {
-  state.Checked = 0;
-  state.LastCode = -1;
-}
-for (let at = state.Checked; at <= tokenIndex; at++) {
-  if (!units[at].IsTriviaToken) {
-    state.LastCode = at;
-  }
-}
-state.Checked = tokenIndex + 1;
-const last = state.LastCode;
-if (last < 0) {
-  return ShapeStates.Uncertain;
-}
-if (units[last] instanceof EndOfFileTokenShape) {
+if (ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Reject;
@@ -66,12 +50,28 @@ return ShapeStates.Reject;
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
-文件到尾：先看有没有「还没建完的最后一条语句」——从 `ItemUtil.ItemStart` 到最后一个真实代码单元如果还是 basic token，
-就说明这条语句的 `;` 永远等不到了，按「边界收尾」建一条 `ExpressionStatementShape`（不要求 `;`）。
-然后签出根（`SyntaxContext.Process` 在最后一个真实位置已经签过一次，这里只在没签时补）、关闭根。
+两条路各走各的：
+
+- **ASI**：只把「换行处结束的那一条」按边界收尾建出来（不要求 `;`），根继续吃后面的单元；
+- **EOF**：建最后一条等不到 `;` 的语句，签出根（`SyntaxContext.Process` 在最后一个真实位置已经签过一次，
+  这里只在没签时补），关闭根。
 
 ```ts
 const unit = host as UnitToken;
+if (!(host.Data[tokenIndex] instanceof EndOfFileTokenShape)) {
+  // ASI：当前代码单元接不上上一条表达式，上一条在换行处就结束了。
+  let end = tokenIndex - 1;
+  while (end >= 0 && host.Data[end].IsTriviaToken) {
+    end--;
+  }
+  const asiStart = ItemUtil.ItemStart(host.Data);
+  if (end >= asiStart && host.Data[end].IsBasicToken) {
+    const built = ExpressionStatementShape.FromUnits(host, asiStart, end, context, false);
+    host.Data.splice(asiStart, end - asiStart + 1, built);
+    built.Parent = host;
+  }
+  return host;
+}
 let at = tokenIndex;
 while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOfFileTokenShape)) {
   at--;
