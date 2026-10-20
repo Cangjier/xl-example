@@ -311,3 +311,38 @@ spread-forms  30 / 30            # spread 实参 14 + spread 数组元素 10 + �
 1. 语句首 `[`（`CanStart` 放行）后，spread 数组元素可直接改成语句首写法，与 `expression.ts` 的数组用例合流；
 2. 可选链 + spread（`f?.(...a)`）、`new` 的 `?.`/非空 callee 组合可顺带补测；
 3. spread 在对象字面量 / 解构里已有独立路径（`SpreadAssignmentShape` / BindingElement），本块不重复。
+
+## chunk 7（cover-generators-1，从 origin/integration @1a241388）：yield / yield*
+
+本块改 `expression-builder.xl.md`：`ParseUnary` 在进入普通前缀运算符之前识别 Common `yield`，交给新方法 `ParseYield`。
+FunctionDeclaration 的 `function*` 侧见 `docs/coverage-declarations.md`（generators 节）。
+
+### 实现落点
+
+- `ParseYield`：`yield` 单元之后若跟 `*`（Symbol）就建 `AsteriskTokenShape`（Pos = `yield` end+1）；
+  再判断是否有 operand：下一个单元不是 `,` / `;` / `:` 就 `ParseAssign()`。children 顺序 = `AsteriskToken?`、operand?；
+  `SpanNode` 从 `yield` 单元起算，`yield;` 无 children。
+- 递归：`yield yield 1` 合法（operand 的 `ParseAssign` 再进 `ParseYield`）。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children / 区间 |
+| --- | --- |
+| `yield;` | `YieldExpression[15,21)`，无 children |
+| `yield 1;` | `YieldExpression[15,23)` → `NumericLiteral[21,23)` |
+| `yield a + b;` | 一个 child：`BinaryExpression[21,27)`（operand 是赋值表达式层） |
+| `yield* h();` | `AsteriskToken[21,22)`、`CallExpression[22,26)` |
+| `x = yield;` | `BinaryExpression` 的右操作数是 `YieldExpression[19,25)` |
+| `yield yield 1;` | 外层 `YieldExpression` 的 child 是内层 `YieldExpression` |
+
+### 读数
+
+```
+generator-functions  27 / 27      # 与 function* 声明同表；本块新增 yield/yield* 共 14 条 + 优先级 3 条
+全量                2271 / 2271   # 23 个构造；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓
+
+- 顶层 `yield`（TS 视为标识符 / 诊断；`CanStart` 也不放行）、`async function*`、generator 表达式 / 方法、
+  `yield` 后换行（受限产生式需 ASI 换行断句）——同 `docs/coverage-declarations.md` 的 generators 节。
