@@ -630,6 +630,7 @@ while (inner.At < inner.Units.length) {
   const afterMark = inner.At + 2 < inner.Units.length ? inner.Units[inner.At + 2] : null;
   const named = nameUnit !== null && nameUnit instanceof Common && afterName !== null
     && (inner.IsText(afterName, ":")
+      || inner.IsText(afterName, "?:")
       || (inner.IsText(afterName, "?") && afterMark !== null && inner.IsText(afterMark, ":")));
   if (named) {
     // [name: A] / [name?: A] / [...name: A[]] -- TS children: DotDotDotToken?, Identifier, QuestionToken?, Type.
@@ -639,15 +640,25 @@ while (inner.At < inner.Units.length) {
     }
     member.Add(inner.ParseName());
     const questionUnit = inner.Peek(0);
-    if (questionUnit !== null && inner.IsText(questionUnit, "?")) {
-      member.Add(inner.SpanLeaf(new QuestionTokenShape(inner.Template), inner.At));
+    let colonConsumed = false;
+    if (questionUnit !== null) {
+      const questionText = inner.TextOf(questionUnit);
+      if (questionText === "?" || questionText === "?:") {
+        // `?:` 是组合 Symbol：QuestionToken 只覆盖 `?` 一个字符，冒号算已被它消费。
+        const question = inner.ParseOptionalMark();
+        if (question !== null) {
+          member.Add(question);
+        }
+        colonConsumed = questionText === "?:";
+      }
+    }
+    if (!colonConsumed) {
+      const colonUnit = inner.Peek(0);
+      if (colonUnit === null || !inner.IsText(colonUnit, ":")) {
+        throw new Error("labeled tuple member 缺少冒号");
+      }
       inner.At++;
     }
-    const colonUnit = inner.Peek(0);
-    if (colonUnit === null || !inner.IsText(colonUnit, ":")) {
-      throw new Error("labeled tuple member 缺少冒号");
-    }
-    inner.At++;
     member.Add(inner.ParseType());
     shape.Add(inner.SpanNode(member, elementStart, inner.At - 1));
     continue;
