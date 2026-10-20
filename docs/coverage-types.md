@@ -300,3 +300,17 @@ legacy `assert` 写法、字符串键（`{ "type": "json" }`），以及 4 条�
 暂缓（原因）：instantiation expressions 无调用形 `const g = f<string>;`、`const h = new C<number>;`、`const k = a.b<T>;`
 —— 当前 expression-builder 在类型实参后要求 `(`（调用）或运算符，语句结束会报「表达式意外结束」；修它要改 expressions 家族，
 本 chunk 写范围只有 type-builder。带调用的 `f<string>(1)` 原已绿。
+
+## nested type args（cover-nested-typeargs-1）
+
+`>>` / `>>>` 在基本 token 层是一个组合 `Symbol`；`TypeBuilder.Load` 早已按字符把它拆成多个 `>` 虚拟单元，
+所以类型位置的嵌套实参（`A<B<C>>`、`A<B<C<D>>>`、`Map<string, Array<number>>`、`A<B<C>, D<E>>`、
+条件类型 extendee、heritage、返回类型）本来就绿；本 chunk 只补测量。
+
+**红→绿**：`function f<T extends A<B>>()` —— `FunctionDeclarationShape.FromUnits` 用 `angleBuilder.At`（虚拟单元数）
+直接加到原始 code 下标上，`>>` 拆分会多出单元导致越界、报「缺少参数表」。修法：按原 `code` 逐格还原宽度
+（`>>` 计 2、`>>>` 计 3）再把 `paramIndex` 映射回原始下标；class/interface 的泛型头不受影响（本来绿）。
+
+已绿清单：`class/interface C<T extends A<B>>`、`class C<T = A<B>>`、`function f<T extends A<B>>()`、
+`A<B<C>>` / `A<B<C<D>>>` / `Map<string, Array<number>>` / `A<B<C>, D<E>>`、`class C extends A<B<C>>`、
+`interface I extends A<B<C>>`、`function f(): A<B<C>>`、方法返回 `A<B<C>>`、条件 extendee，以及注释 trivia。
