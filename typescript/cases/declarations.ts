@@ -733,3 +733,28 @@ enum E { A = -1, B = ~0 }
 // 修法需让变量/statement 候选在 `const` 后跟 `enum` 时退出（属 statements 家族，本块 WRITE SCOPE 之外），或
 // 给候选优先级（属 core CatalogGuide）。本块已把 enum 名字（StringLiteral/NumericLiteral）与初始化器全部收绿，
 // const enum 待 statements/core 侧提供优先级或让位规则后再补。
+// ===== base 16: parameter decorators (TS Parameter children: Decorator(s), [modifiers], Identifier, Type) =====
+class C { constructor(@dec x: A) {} }
+class C { constructor(@dec x: A, y: B) {} }
+class C { m(@dec x: A) {} }
+class C { m(@a @b x: A) {} }
+class C { m(x: A, @dec y: B) {} }
+class C { m(@dec x: A, y: B) {} }
+// + parameter properties with decorators
+class C { constructor(@dec private x: A) {} }
+class C { constructor(@dec readonly x: A) {} }
+class C { constructor(@dec public x: A) {} }
+class C { constructor(@dec private readonly x: A) {} }
+// + decorator expression shapes
+class C { constructor(@dec() x: A) {} }
+class C { constructor(@a.b x: A) {} }
+class C { constructor(/* c */ @dec x: A) {} }
+class C { constructor(@dec /* c */ x: A) {} }
+class C { constructor(@ /* c */ dec x: A) {} }
+class C { constructor(@dec\nx: A) {} }
+class C { m(@dec x?: A) {} }
+// function parameter decorators (`function f(@dec x: A) {}`/: `(function (@dec x: A) {})`): TS parser accepts them,
+// but function-declaration-shape has its OWN BuildParameters head dispatch (not class BuildParameters) and is out of
+// this chunk's write scope -> reported as deferred owner: declarations/function-declaration-shape BuildParameters.
+// `// ` function f(@dec x: A) {}
+// `// ` (function (@dec x: A) { return x; });

@@ -280,6 +280,11 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     continue;
   }
+  // Parameter decorators come before modifiers: `constructor(@dec private x: A) {}`. The prefix is
+  // consumed here (reusing TypeBuilder.ParseDecorators -> DecoratorShape) so both the property-parameter
+  // path and the plain parameter path see a clean head.
+  const groupStart = inner.At;
+  const decorators:Array<Token> = inner.ParseDecorators();
   const headText = inner.TextOf(inner.Units[inner.At]);
   if (headText === "public" || headText === "private" || headText === "protected" || headText === "readonly") {
     const firstIndex = inner.At;
@@ -295,6 +300,9 @@ while (inner.At < inner.Units.length) {
       modifiers.push(ClassDeclarationShape.BuildModifier(host.Template, modifierText, modifierUnit, inner.Positions[modifierIndex], context));
     }
     const parameter = new ParameterShape(host.Template);
+    for (const decorator of decorators) {
+      parameter.Add(decorator);
+    }
     for (const modifier of modifiers) {
       parameter.Add(modifier);
     }
@@ -308,7 +316,43 @@ while (inner.At < inner.Units.length) {
       parameter.Type = typeShape;
       parameter.Add(typeShape);
     }
-    parameters.push(inner.SpanNode(parameter, firstIndex, inner.At - 1));
+    parameters.push(inner.SpanNode(parameter, groupStart, inner.At - 1));
+    continue;
+  }
+  if (decorators.length > 0) {
+    // Decorated plain parameter: children = Decorator(s), Identifier, [QuestionToken], Type;
+    // the Parameter range starts at the first `@` (TS口径).
+    const parameter = new ParameterShape(host.Template);
+    for (const decorator of decorators) {
+      parameter.Add(decorator);
+    }
+    const name = inner.ParseName();
+    parameter.ParameterName = name;
+    parameter.Add(name);
+    const mark = inner.Peek(0);
+    let colonConsumed = false;
+    if (mark !== null) {
+      const markText = inner.TextOf(mark);
+      if (markText === "?" || markText === "?:") {
+        const question = inner.ParseOptionalMark();
+        if (question !== null) {
+          parameter.QuestionToken = question;
+          parameter.Add(question);
+        }
+        colonConsumed = markText === "?:";
+      }
+    }
+    if (!colonConsumed) {
+      const colonMark = inner.Peek(0);
+      if (colonMark === null || !inner.IsText(colonMark, ":")) {
+        throw new Error("装饰过的类成员参数缺少类型标注");
+      }
+      inner.At++;
+    }
+    const typeShape = inner.ParseType();
+    parameter.Type = typeShape;
+    parameter.Add(typeShape);
+    parameters.push(inner.SpanNode(parameter, groupStart, inner.At - 1));
     continue;
   }
   const headUnit = inner.Units[inner.At];
