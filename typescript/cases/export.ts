@@ -308,3 +308,26 @@ export import E = B.C;
 // export { a } from "m" // c   —— EOF 处尾注释/无分号 ASI 的 End 口径：core EOF 收尾把注释算进 End，需 core 侧修正，暂缓
 // export { a } from "m"\nexport { b } from "n"   —— 无分号连续 export：ASI 边界未接，暂缓
 // export * from "m" // c   —— EOF 处尾注释/无分号 ASI 的 End 口径：core EOF 收尾把注释算进 End，需 core 侧修正，暂缓
+
+// ===== export combos: decorator / default / abstract / 泛型（chunk export-combos） =====
+export default abstract class C {}
+export declare abstract class C {}
+export abstract class C {}
+export declare class C {}
+export @dec class C {}
+export default @dec class C {}
+export class C<T> {}
+export interface I<T> {}
+export function f<T>() {}
+export type T<U> = U
+export default class C<T> {}
+export default @dec class C<T> {}
+export @dec() class C {}
+export default abstract /* c */ class C {}
+export @dec class C {} // c
+export default (a, b);
+declare module "m" { export import A = B.C; }
+namespace N { export import A = B.C; }
+export default function () {}
+export default function f() {}
+// @dec export default class C {}   —— TS 6.0.3 合法（Decorator 在 ExportKeyword 前），但根候选归 class-declaration 家族（需 class possible 支持 decorator+export+default），本 chunk 暂缓

@@ -160,3 +160,24 @@ InterfaceDeclarationShape / ClassDeclarationShape 提供（本 chunk 未改任�
   type-star 本体（`export type * from "m";`、`export type * as ns from "m";`）在 base 4 已绿，本次只补
   `export type *\nfrom "m";` 与多空格变体。
 - 回归：export 194/194（182 + 12）、export-functions 全绿、全量无回归。
+## export 组合形态：decorator / default / abstract / 泛型（chunk export-combos）
+
+- **Probe（TS 6.0.3）**：`export @dec class C {}`、`export default @dec class C {}`、`@dec export default class C {}` 全部
+  parseDiagnostics=0（decorator 与 export/default 同属一个 ClassDeclaration；`@dec` 在 `export` 前时 TS children 顺序是
+  Decorator → ExportKeyword → DefaultKeyword）。`export class C<T>`、`export interface I<T>`、`export default class C<T>` 也合法。
+- 修法（只在 `export-declaration-possible-shape.xl.md` 的候选扫描里，BuildByIndex 既有分支够用）：
+  - Second 分派新增 `@` → 新 Stage 34（decorator 前缀）→ 遇到 `class` 后进 Stage 10（Kind 1）；
+  - Stage 20（`export default …`）新增 `@` → Stage 34（Kind 5）→ 遇到 `class` 后进 Stage 21；
+  - class/interface/enum/default-class 的头阶段（10/11/12/21）允许 Symbol 单元：`<T>`、heritage 类型实参
+    （`extends D<E>`）里的 `<` `>` `,` `.` 不再把候选打回 Stage 3；body `{` 仍是唯一 Done 点，EOF 仍由既有 EOF 让位逻辑收尾；
+  - BuildByIndex：Kind 1 从 `@` 起调 `ClassDeclarationShape.FromUnits`（其 decorator loop 已在最前），再 unshift Export；
+    Kind 5 先跳过 `default`，从 `@`/`class` 起建 class，再 unshift Default + Export（children 顺序 = Export, Default, Decorator）。
+- 新增全绿用例（export.ts，+20）：`export default abstract class C {}`、`export declare abstract class C {}`（回归
+  `export abstract class C {}` / `export declare class C {}`）、`export @dec class C {}`、`export default @dec class C {}`、
+  `export class C<T> {}`、`export interface I<T> {}`、`export function f<T>() {}`、`export type T<U> = U`、
+  `export default class C<T> {}`、`export default @dec class C<T> {}`、`export @dec() class C {}`、
+  `export default abstract /* c */ class C {}`、`export @dec class C {} // c`，以及 module 体内
+  `declare module "m" { export import A = B.C; }` / `namespace N { export import A = B.C; }`（回归）、
+  `export default function () {}`、`export default function f() {}`、`export default (a, b);`。
+- 暂缓：`@dec export default class C {}`（TS 6.0.3 合法）—— 根候选是 class-declaration 家族，需要在
+  class-declaration-possible-shape 里让 decorator 前缀后接受 `export`+`default`，不属于本 chunk 的 write scope；已写注释目标。
