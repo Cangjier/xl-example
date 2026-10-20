@@ -16,9 +16,16 @@ import { BindingElementShape } from "./binding-element-shape.xl.md"
 ```txt
 const { a } = o;
 const { a: b } = o;
+const { a = 1 } = o;
 ```
 
+`{...}` 对象绑定模式：与 `ArrayBindingPatternShape` 同构——结构由括号承载，逗号不进 AST；
+元素一律交给 `BindingElementShape.FromTokens`（`a` / `a: b` / `a = 1` / `...a` 都在那里建）。
+
 ## field Elements:Array<Token> = []
+
+**本块固定留空**：理由与 `ArrayBindingPatternShape.Elements` 完全相同——元素直接 `Add` 进 `Data`，
+`statement-builder` 的旧 `NormalizeBindingPattern` 会按 `Elements` 重写 `Data`；留空即让它成为 no-op。
 
 ## constructor:(template:Template)=>void
 
@@ -29,33 +36,36 @@ super(template);
 ## static method FromBracket:(bracket:Bracket, context:SyntaxContext)=>ObjectBindingPatternShape
 
 ```ts
-// `{ a, b: c }`：与 ArrayBindingPatternShape.FromBracket 同构——结构由括号承载，逗号不进 AST。
-// 元素在单元层一样是「名字 / 名字:名字 / ...名字」，区别只在元素内部怎么解释（见 BindingElementShape.FromTokens）。
-// computed name（`{ [k]: a }`）依赖类型家族的 ComputedPropertyNameShape，本块不越界（见 docs/coverage-members.md）。
 const shape = new ObjectBindingPatternShape(bracket.Template);
+const groups:Array<Array<Token>> = [];
+const positions:Array<number> = [];
 let group:Array<Token> = [];
-let pos = bracket.SourceRange.Start === null ? -1 : bracket.SourceRange.Start.Index + 1;
+let groupPos = bracket.SourceRange.Start === null ? 0 : bracket.SourceRange.Start.Index + 1;
 for (const item of bracket.Data) {
   if (item.IsTriviaToken) {
     continue;
   }
   if (item instanceof Symbol && (item as Symbol).Is(",")) {
-    const element = BindingElementShape.FromTokens(group, context, pos);
-    if (element !== null) {
-      shape.Elements.push(element);
-    }
+    groups.push(group);
+    positions.push(groupPos);
     group = [];
-    pos = item.SourceRange.End === null ? -1 : item.SourceRange.End.Index + 1;
+    groupPos = item.SourceRange.End === null ? groupPos : item.SourceRange.End.Index + 1;
     continue;
   }
   group.push(item);
 }
-const tail = BindingElementShape.FromTokens(group, context, pos);
-if (tail !== null) {
-  shape.Elements.push(tail);
-}
-for (const item of shape.Elements) {
-  shape.Add(item);
+groups.push(group);
+positions.push(groupPos);
+for (let at = 0; at < groups.length; at++) {
+  const tokens = groups[at];
+  if (tokens.length === 0) {
+    // 对象模式的行尾逗号（`{ a, }`）与空模式 `{}` 都不是元素。
+    continue;
+  }
+  const element = BindingElementShape.FromTokens(tokens, context, positions[at]);
+  if (element !== null) {
+    shape.Add(element);
+  }
 }
 shape.SignInToken(bracket);
 shape.SignOutToken(bracket);

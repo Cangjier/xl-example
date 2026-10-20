@@ -2,6 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { OmittedExpressionShape } from "../expressions/omitted-expression-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -16,9 +17,18 @@ import { BindingElementShape } from "./binding-element-shape.xl.md"
 ```txt
 const [a] = xs;
 const [a, b] = xs;
+const [a, , b] = xs;
 ```
 
+`[...]` 数组绑定模式：结构由括号承载，逗号不进 AST，逐个元素建 `BindingElementShape`；
+空位（`[a, , b]` / `[, a]`）建零宽的 `OmittedExpressionShape`（TS 的 `ArrayBindingPattern` children 里有它）。
+
 ## field Elements:Array<Token> = []
+
+**本块固定留空**：元素直接 `Add` 进 `Data`（AST 只读 `Data`）。`statement-builder` 里旧的
+`NormalizeBindingPattern` workaround 会按 `Elements` 逐组重写 `Data`（只留 Common token），
+`Elements` 为空时它在第一个非空组就 `break`，等于 no-op —— 这样 statements 家族不用改一行，
+真正正确的子节点也不会被它覆盖。待 statements 家族删掉那条 workaround 后，可把本字段回填。
 
 ## constructor:(template:Template)=>void
 
@@ -28,34 +38,57 @@ super(template);
 
 ## static method FromBracket:(bracket:Bracket, context:SyntaxContext)=>ArrayBindingPatternShape
 
+按 `,` 切组：每组交给 `BindingElementShape.FromTokens`（嵌套 pattern / 默认值 / rest 都在里面建）；
+组位置 = 前一个非 trivia 单元 `End+1`（第一个组是 `[` 之后），与 TS 的 `pos` 同口径。
+
 ```ts
-// `[a, b]`：结构由括号承载，逗号不进 AST，逐个元素建 BindingElementShape。
-// TS 的 ArrayBindingPattern 子节点是 BindingElement 或 OmittedExpression（`[a, , b]` 里的空位）；
-// **空位暂时跳过**：OmittedExpressionShape 在 expressions 家族，本块不越界去建它（见 docs/coverage-members.md）。
 const shape = new ArrayBindingPatternShape(bracket.Template);
+const groups:Array<Array<Token>> = [];
+const positions:Array<number> = [];
 let group:Array<Token> = [];
-let pos = bracket.SourceRange.Start === null ? -1 : bracket.SourceRange.Start.Index + 1;
+let groupPos = bracket.SourceRange.Start === null ? 0 : bracket.SourceRange.Start.Index + 1;
 for (const item of bracket.Data) {
   if (item.IsTriviaToken) {
     continue;
   }
   if (item instanceof Symbol && (item as Symbol).Is(",")) {
-    const element = BindingElementShape.FromTokens(group, context, pos);
-    if (element !== null) {
-      shape.Elements.push(element);
-    }
+    groups.push(group);
+    positions.push(groupPos);
     group = [];
-    pos = item.SourceRange.End === null ? -1 : item.SourceRange.End.Index + 1;
+    groupPos = item.SourceRange.End === null ? groupPos : item.SourceRange.End.Index + 1;
     continue;
   }
   group.push(item);
 }
-const tail = BindingElementShape.FromTokens(group, context, pos);
-if (tail !== null) {
-  shape.Elements.push(tail);
-}
-for (const element of shape.Elements) {
-  shape.Add(element);
+groups.push(group);
+positions.push(groupPos);
+for (let at = 0; at < groups.length; at++) {
+  const tokens = groups[at];
+  const position = positions[at];
+  if (tokens.length > 0) {
+    const element = BindingElementShape.FromTokens(tokens, context, position);
+    if (element !== null) {
+      shape.Add(element);
+    }
+    continue;
+  }
+  if (at === groups.length - 1) {
+    // 行尾逗号（`[a,]`）不是空位；空模式 `[]` 也走这里。
+    continue;
+  }
+  const reference = bracket.SourceRange.Start;
+  if (reference === null || position <= 0) {
+    continue;
+  }
+  // 空位是零宽节点：TS 的 OmittedExpression pos == end == position；
+  // cjAst 的 end = SourceRange.End.Index + 1，所以终点点在 position - 1 上。
+  const atSource = reference.Document.At(position - 1);
+  const omitted = new OmittedExpressionShape(bracket.Template);
+  omitted.SourceRange.Start = atSource;
+  omitted.SourceRange.End = atSource;
+  omitted.Pos = position;
+  omitted.TryToClose(context);
+  shape.Add(omitted);
 }
 shape.SignInToken(bracket);
 shape.SignOutToken(bracket);
