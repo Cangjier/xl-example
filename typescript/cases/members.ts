@@ -207,3 +207,24 @@ f({ a: 1 } /* c */);
 ({ async /* c */ *m() {} });
 ({ async * /* c */ m() {} });
 ({ async *m /* c */ () {} });
+
+// ===== base 12：对象方法里的 super / class generator+async 方法体内的 yield+await =====
+// object method 里的 super（TS 语法合法；home object 语义不在 AST 对拍范围）
+({ m() { return super.x; } });
+({ m() { super.m(); } });
+({ get x() { return super.y; } });
+({ m() { return super.m().n; } });
+({ m() { return super["x"]; } });
+({ m() { return super /* c */ . x; } });
+// class generator / async 方法：body 经 StatementBuilder + ExpressionBuilder
+class C { *m() { yield 1; } }
+class C { async *m() { yield* g(); } }
+class C { *m() { const x = yield; } }
+class C { async m() { await g(); } }
+class C { async *m() { await g(); yield 1; } }
+class C { *m() { yield yield 1; } }
+class C { *m() { /* c */ yield 1; } }
+class C { async m() { await /* c */ g(); } }
+// class static block（oracle parse-legal；能否建树由本行实测决定）
+class C { static { } }
+class C extends B { static { super.x; } }
