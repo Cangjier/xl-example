@@ -473,3 +473,15 @@ type T = typeof import("m", /* c */ { with: { type: "json" } });
 type T = typeof import("m", { with: /* c */ { type: "json" } });
 type T = typeof import("m", { with: { type /* c */ : "json" } });
 type T = typeof import("m", { with: { type: /* c */ "json" } });
+
+// ===== sweep 4：const 类型参数（类型位置）/ 泛型函数类型 / this 扩展（measurement-first） =====
+type T = <const U>(x: U) => U;
+type T = <U>(x: U) => U;
+type T = <const U, V>(x: U, y: V) => U;
+type T = <U extends A>(x: U) => U;
+type T = this["x"];
+type T = this extends A ? B : C;
+type T = this & A;
+// trivia
+type T = <const /* c */ U>(x: U) => U;
+type T = this /* c */ ["x"];

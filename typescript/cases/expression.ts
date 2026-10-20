@@ -787,3 +787,19 @@ f((x: any): x is A => true);
 // + trivia：`:` 两侧注释
 const f4 = (x: any) /* c */ : /* c */ x is A => true;
 (function (x: any) /* c */ : /* c */ asserts x is A {});
+
+// ===== sweep 4：satisfies / as 链、const 类型参数箭头（measurement-first） =====
+a satisfies T satisfies U;
+a satisfies T as U;
+(a satisfies T) satisfies U;
+a as T as U;
+a as unknown as T;
+// 暂缓（原因）：const f = <const T>(x: T) => x; —— expression-builder 的箭头类型参数不认 const（结构对拍缺 ConstKeyword），属 expressions 家族，本 chunk 写范围外。
+function g<const T>(x: T) { return x; }
+f<string>(1);
+// trivia
+a satisfies /* c */ T;
+a as /* c */ T;
+const g2 = f /* c */ <string>(1);
+// 暂缓（原因）：instantiation expressions 无调用形：`const g = f<string>;`、`const h = new C<number>;`、
+//                    `const k = a.b<T>;` —— 需要 expression-builder 在类型实参后接受语句结束，属 expressions 家族，本 chunk 写范围外。
