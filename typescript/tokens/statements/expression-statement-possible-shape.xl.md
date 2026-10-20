@@ -50,10 +50,7 @@ a = b, c = d;
 
 ```ts
 if (unit instanceof Bracket) {
-  // 本批只放开 `[`（数组字面量）：builder 的 ParsePrimary `[` 分支已就绪（`f([1, 2])` 已绿）。
-  // 目标（本批不放，各有依赖）：`<`（尖括号断言 / 泛型箭头，缺 ParseType）、
-  // `async`（缺箭头产生式）、`import`（import.meta，缺 MetaProperty 分支）、
-  // `{`（块 / 对象二义，需要先有块候选）。
+  // 本批放开 `(` 与 `[`；`{` 仍不放（块 / 对象二义，需要先有块候选）。
   return (unit as Bracket).StartBracketChar === "("
     || (unit as Bracket).StartBracketChar === "[";
 }
@@ -65,7 +62,10 @@ if (unit instanceof String) {
 }
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
-  return text === "!"
+  // 语句首的 `<` 在 TS（ScriptKind=TS，无 JSX 二义）只可能是尖括号断言或泛型箭头：
+  // 两者由 builder 的 ParseAngleStart 再区分；类型读不完会抛明确错误，不静默错树。
+  return text === "<"
+    || text === "!"
     || text === "~"
     || text === "+"
     || text === "-"

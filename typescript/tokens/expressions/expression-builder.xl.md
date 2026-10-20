@@ -88,6 +88,8 @@ import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { TypeParameterShape } from "../types/type-parameter-shape.xl.md"
+import { TypeAssertionExpressionShape } from "./type-assertion-expression-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
@@ -1058,17 +1060,23 @@ shape.TryToClose(this.Context);
 return shape;
 ```
 
-## method ParseArrowFromBracket:(bracket:Bracket, start:int, asyncKeyword?:Token | null)=>Token
+## method ParseArrowFromBracket:(bracket:Bracket, start:int, asyncKeyword?:Token | null, typeParameters?:Array<Token> | null)=>Token
 
 `(…) => body` 的箭头：参数括号与函数表达式共用 `ParseFunctionParameters`（支持类型标注 / 默认值 / rest / 可选），
 `=>` 走 `EqualsGreaterThanToken`，body 交给 `ParseArrowBody`（表达式体或块体）。
 TS 的 children 顺序是 Parameter 们、EqualsGreaterThanToken、body；无参箭头没有 Parameter。
-带 `async` 前缀时 `AsyncKeywordShape` 在最前（`async (a) => a`），由调用方建好传进来。
+`async` 前缀时 `AsyncKeywordShape` 在最前，泛型箭头时 `TypeParameter` 们紧随其后
+（`async <T>(…) => …` 的 TS 口径也是 AsyncKeyword 在前、TypeParameter 之后），两者都由调用方建好传进来。
 
 ```ts
 const arrow = new ArrowFunctionShape(this.Template);
 if (asyncKeyword !== undefined && asyncKeyword !== null) {
   arrow.Add(asyncKeyword);
+}
+if (typeParameters !== undefined && typeParameters !== null) {
+  for (const typeParameter of typeParameters) {
+    arrow.Add(typeParameter);
+  }
 }
 const parameters = this.ParseFunctionParameters(bracket);
 for (const parameter of parameters) {
@@ -1240,6 +1248,126 @@ while (inner.At < inner.Units.length) {
 return parameters;
 ```
 
+## method MatchAngleClose:(openIndex:int)=>int
+
+从 `openIndex`（必须是 `<`）扫到与它配对的 `>`，返回 `>` 的下标；扫不到返回 `-1`。
+只把 `Symbol` 的 `<` / `>` 当结构符（类型里的 `,` `|` `&` 等原样跳过）；`>>` 是组合符号，
+拆它需要 basic token 决策（见本块暂缓），这里**返回 `-1` 让调用方抛明确错误，不静默错树**。
+
+```ts
+let depth = 0;
+for (let at = openIndex; at < this.Units.length; at++) {
+  const unit = this.Units[at];
+  if (!(unit instanceof Symbol)) {
+    if (depth === 0) {
+      return -1;
+    }
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    depth++;
+    continue;
+  }
+  if (text === ">") {
+    depth--;
+    if (depth === 0) {
+      return at;
+    }
+    continue;
+  }
+  if (text === ">>" || text === ">>>") {
+    return -1;
+  }
+}
+return -1;
+```
+
+## method ParseAngleType:(first:int, last:int)=>Token
+
+把 `Units[first..last]` 交给 `TypeBuilder.ParseType()` 读一个**完整**类型，读不完就抛错
+（尖括号断言里 `<` / `>` 不投影，只有类型节点与表达式节点进 AST）。
+`basePos` 取 `Positions[first]`，与 TypeBuilder 的 `Pos` 口径一致。
+
+```ts
+if (first > last) {
+  throw new Error("尖括号里没有类型");
+}
+const builder = new TypeBuilder(this.Template, this.Context);
+builder.Load(this.Units.slice(first, last + 1), this.Positions[first]);
+const type = builder.ParseType();
+if (builder.At !== last - first + 1) {
+  throw new Error("尖括号断言里的类型没有读完");
+}
+return type;
+```
+
+## method ParseAngleTypeParameters:(openIndex:int, closeIndex:int)=>Array<Token>
+
+泛型箭头的 `<T>` / `<T, U>`：只收**名字**形态的类型参数（`extends` / 默认值 / `const` / 变体标注
+留给 types 家族）；每个 `TypeParameter` 的 children 是名字 `Identifier`，区间到名字结束、`Pos` 取名字含前导 trivia 的起点。
+
+```ts
+const parameters:Array<Token> = [];
+let at = openIndex + 1;
+while (at < closeIndex) {
+  const unit = this.Units[at];
+  if (unit instanceof Symbol && (unit as Symbol).Is(",")) {
+    at++;
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
+    throw new Error("泛型箭头的类型参数暂不支持嵌套类型参数");
+  }
+  if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
+    throw new Error("泛型箭头的类型参数只支持名字");
+  }
+  const name = IdentifierShape.FromBasicToken(unit as Common, this.Context);
+  name.Pos = this.Positions[at];
+  const parameter = new TypeParameterShape(this.Template);
+  parameter.TypeParameterName = name;
+  parameter.Add(name);
+  this.SpanNode(parameter, at, at);
+  parameters.push(parameter);
+  at++;
+}
+if (parameters.length === 0) {
+  throw new Error("泛型箭头缺少类型参数");
+}
+return parameters;
+```
+
+## method ParseAngleStart:()=>Token
+
+语句 / 表达式起点是 `<`：先扫配对 `>`。`>` 之后紧跟 `(…) =>` 的按**泛型箭头**解析
+（TypeParameter 们走 `ParseArrowFromBracket`）；否则按**尖括号断言**解析（children = [Type, expression]，
+`<` / `>` 不投影）。类型解析失败会让 `TypeBuilder` / `ParseAngleType` 抛明确错误。
+
+```ts
+const start = this.At;
+const close = this.MatchAngleClose(start);
+if (close < 0) {
+  throw new Error("尖括号断言/泛型箭头缺少配对的 >");
+}
+const afterBracket = this.Units[close + 1];
+const afterArrow = this.Units.length > close + 2 ? this.Units[close + 2] : null;
+if (afterBracket !== undefined && this.IsBracketStart(afterBracket, "(")
+  && afterArrow !== null && this.IsText(afterArrow, "=>")) {
+  const typeParameters = this.ParseAngleTypeParameters(start, close);
+  this.At = close + 1;
+  const bracket = this.Peek(0) as Bracket;
+  this.At++;
+  return this.ParseArrowFromBracket(bracket, start, null, typeParameters);
+}
+const type = this.ParseAngleType(start + 1, close - 1);
+this.At = close + 1;
+const shape = new TypeAssertionExpressionShape(this.Template);
+shape.Add(type);
+const operand = this.ParseUnary();
+shape.Add(operand);
+return this.SpanNode(shape, start, this.At - 1);
+```
+
 ## method ParsePrimary:()=>Token
 
 ```ts
@@ -1368,6 +1496,9 @@ if (unit instanceof Common) {
   const shape = IdentifierShape.FromBasicToken(unit as Common, this.Context);
   shape.Pos = this.Positions[start];
   return shape;
+}
+if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
+  return this.ParseAngleStart();
 }
 throw new Error("不支持的表达式起点");
 ```
