@@ -281,3 +281,47 @@ export default class C { x = 1 } // c\n
 abstract class C {} // c\n
 declare class C {} // c\n
 
+// ===== chunk 9: expression statements at EOF without trailing semicolon（measurement-first） =====
+a
+a.b
+f()
+a + b
+a ? b : c
+-a
+typeof a
+new C()
+a => a
+a, b
+a = b
+x ** y
+a instanceof B
+`t`
+/re/
+1
+"s"
+// + trailing line comment
+a // c
+a.b // c
+f() // c
+a + b // c
+a => a // c
+`t` // c
+/re/ // c
+1 // c
+// + trailing block comment
+a /* c */
+f() /* c */
+a + b /* c */
+`t` /* c */
+1 /* c */
+// + EOF right after arrow block body
+const f = () => {}
+const f = () => { return 1; }
+// + EOF after parenthesized
+(a)
+(a + b)
+// + multi-statement file where the last statement lacks a semicolon
+a; b
+a; b; c
+a; b + c
+
