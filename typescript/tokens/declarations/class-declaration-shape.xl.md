@@ -10,6 +10,7 @@ import { ClassStaticBlockDeclarationShape } from "../types/class-static-block-de
 import { ConstructorShape } from "../types/constructor-shape.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
+import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
@@ -708,6 +709,21 @@ while (at < code.length) {
   }
   let typeShape:Token | null = null;
   let initializer:Token | null = null;
+  let exclamationToken:Token | null = null;
+  if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("!")) {
+    const exclamationUnit = code[at];
+    const exclamationPos = previousEnd + 1;
+    if (exclamationUnit.SourceRange.End !== null) {
+      previousEnd = exclamationUnit.SourceRange.End.Index;
+    }
+    at++;
+    const exclamationShape = new ExclamationTokenShape(host.Template);
+    exclamationShape.SignInToken(exclamationUnit);
+    exclamationShape.SignOutToken(exclamationUnit);
+    exclamationShape.Pos = exclamationPos;
+    exclamationShape.TryToClose(context);
+    exclamationToken = exclamationShape;
+  }
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(":")) {
     const colon = code[at];
     const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
@@ -782,6 +798,9 @@ while (at < code.length) {
     property.Add(modifier);
   }
   property.Add(nameShape);
+  if (exclamationToken !== null) {
+    property.Add(exclamationToken);
+  }
   if (typeShape !== null) {
     property.Add(typeShape);
   }

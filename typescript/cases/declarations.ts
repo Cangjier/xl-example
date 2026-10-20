@@ -792,3 +792,32 @@ const /* c */ x = 1;
 // 分派，`const` 直接落到 StatementBuilder.BuildStatement → BuildVariableStatement，看不到后面的 `enum`；
 // 需 module-block-shape 的 BuildMember 认 `[declare] const enum` 并调 EnumDeclarationShape.FromUnits
 // （属 module 文件，本块 WRITE SCOPE 之外）；语料已按任务要求先试，确认只差这一处分派。
+// ===== base 17: class member modifiers 2 (definite assignment, declare, override, abstract accessors) =====
+class C { x!: A; }
+class C { y!: A = b; }
+class C { static x!: A; }
+class C { #x!: A; }
+class C { public x!: A; }
+class C { readonly x!: A; }
+class C { x!: A; y!: B; }
+class C { declare x: A; }
+class C { declare x: A = b; }
+class C { declare /* c */ x: A; }
+class C extends B { override m() {} }
+class C extends B { override x = 1; }
+class C extends B { override get x() { return 1; } }
+class C extends B { override /* c */ m() {} }
+abstract class C { abstract get x(): A; }
+abstract class C { abstract set x(v: A); }
+abstract class C { abstract get x(): A; abstract set x(v: A); }
+class C { public override readonly x = 1; }
+class C { protected static readonly y: A; }
+class C { private override m() {} }
+class C { public static override readonly z: A = b; }
+class C { x /* c */ !: A; }
+class C { x! /* c */: A; }
+class C { /* c */ x!: A; }
+class C { #x /* c */ !: A; }
+class C { static /* c */ x!: A; }
+class C { y! /* c */ : A = b; }
+abstract class C { abstract /* c */ get x(): A; }
