@@ -760,3 +760,12 @@ const s: unique symbol = Symbol();
 // trivia
 function assertA /* c */ (x: any): asserts /* c */ x is A {}
 class C { m /* c */ (): /* c */ this { return this; } }
+
+// ===== base 36：function 上下文里的 new.target =====
+function f() { return new.target; }
+function f() { function g() { return new.target; } }
+function f() { return () => new.target; }
+function f() { return function () { return new.target; }; }
+// + trivia
+function f() { return new.target /* c */; }
+function f /* c */ () { return new.target; }

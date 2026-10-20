@@ -28185,6 +28185,329 @@
           ]
         }
       ]
+    },
+    {
+      "src": "function f() { return new.target; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "MetaProperty",
+                      "pos": 21,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 26,
+                          "end": 32,
+                          "text": "target"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { function g() { return new.target; } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 14,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 27,
+                      "end": 50,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 29,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "MetaProperty",
+                              "pos": 36,
+                              "end": 47,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 41,
+                                  "end": 47,
+                                  "text": "target"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { return () => new.target; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 21,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 24,
+                          "end": 27
+                        },
+                        {
+                          "kind": "MetaProperty",
+                          "pos": 27,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 38,
+                              "text": "target"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { return function () { return new.target; }; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "FunctionExpression",
+                      "pos": 21,
+                      "end": 56,
+                      "children": [
+                        {
+                          "kind": "Block",
+                          "pos": 33,
+                          "end": 56,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 35,
+                              "end": 54,
+                              "children": [
+                                {
+                                  "kind": "MetaProperty",
+                                  "pos": 42,
+                                  "end": 53,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 47,
+                                      "end": 53,
+                                      "text": "target"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { return new.target /* c */; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "MetaProperty",
+                      "pos": 21,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 26,
+                          "end": 32,
+                          "text": "target"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f /* c */ () { return new.target; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 21,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 23,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "MetaProperty",
+                      "pos": 30,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 41,
+                          "text": "target"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

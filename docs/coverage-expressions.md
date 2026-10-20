@@ -469,3 +469,31 @@ expression  575 / 575      # base 35：read/write/+1 / #m() / #m(a) / #m().n / s
 
 - optional private access `obj?.#x`（`?.` 分支还未接 private 名字，语法合法）；
 - `#x in obj` brand check 已由 base 30 覆盖；`super`/`new.target` 回归由既有 base 覆盖。
+## chunk 14（cover-expr-sweep-3）：成员体内的 super / new.target / yield / await（measurement-first）
+
+本块 **未改任何 builder / shape**：先把每个候选形态加进 members.ts / expression.ts 并对拍，结果全部一次转绿，
+因此不需要动 `expression-builder`。只 append 用例 + 本节。
+
+### 新增（全绿）
+
+- object literal 方法里的 `super`：`({ m() { return super.x; } })`、`({ m() { super.m(); } })`、getter 里的
+  `super.y`、链式 `super.m().n`、计算访问 `super["x"]`、以及 `super /* c */ . x` trivia。
+- class generator / async 方法体内的 yield / await：`class C { *m() { yield 1; } }`、
+  `class C { async *m() { yield* g(); } }`、`class C { *m() { const x = yield; } }`、
+  `class C { async m() { await g(); } }`、`class C { async *m() { await g(); yield 1; } }`、
+  `class C { *m() { yield yield 1; } }` + 注释 trivia。
+- class static block：`class C { static { } }`、`class C extends B { static { super.x; } }`（该 integration 上已能建树）。
+- function 上下文里的 `new.target`：`function f() { return new.target; }`、嵌套函数、函数内箭头、函数表达式、
+  `new.target /* c */`、`function /* c */ f()` trivia。
+
+### 读数
+
+```
+members     169 / 169      # 153 + 16（object super 6 + class generator/async 8 + static block 2）
+expression  598 / 598      # 592 + 6（function 内的 new.target 4 + trivia 2）
+全量       3309 / 3309     # 3287 + 22；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 红→绿清单
+
+无：全部候选形态在测量前已支持（super / yield / await / new.target / static block 的既有产生式组合即可覆盖）。
