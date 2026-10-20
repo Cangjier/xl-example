@@ -77,3 +77,21 @@ IdentifierShape.EscapedText，harness 缺该语义 → 报告不硬改）；`exp
 暂缓（不支持，未改 token 源）：`export { type T } from "m";` —— TS 置 `ExportSpecifier.isTypeOnly=true` 且
 children 为 `[Identifier T]`；本仓 `ExportSpecifierShape.FromTokens` 把 `type` 当 Identifier 名（pos 8..13 vs ts 13..15），
 需要给 specifier 增加 inline `type` 修饰词语义，属 token 源改动，按任务要求只记目标。
+## chunk 5 新增（base 13，全部逐条对拍 TS）
+
+| 形态 | TS children | 实现 |
+| --- | --- | --- |
+| `export default class D extends B {}` / `implements I` / 两者 | `ClassDeclaration` → `ExportKeyword` + `DefaultKeyword` + `Identifier` + `HeritageClause`… | 既有 Kind 5 路径；heritage 由 `ClassDeclarationShape.FromUnits` 建 |
+| `export abstract class C {}` | `ClassDeclaration` → `ExportKeyword` + `AbstractKeyword` + `Identifier` | Stage 24 / Kind 14（`FromUnits` 认 abstract） |
+| `export default abstract class C {}` | … + `DefaultKeyword` + `AbstractKeyword` | Stage 20→25→21 / Kind 15 |
+| `export declare abstract class C {}` | … + `DeclareKeyword` + `AbstractKeyword` | Stage 14→24 / Kind 16 |
+| `export abstract class C extends D {}` | … + `HeritageClause` | Kind 14 + heritage |
+| `export class C extends D implements I {}` | … + 两个 `HeritageClause` | 既有 Kind 1 路径 |
+| `export interface I extends J {}` | `InterfaceDeclaration` → `ExportKeyword` + `Identifier` + `HeritageClause` | 既有 Kind 2 路径 |
+| `export default class C { m() {} }` | … + `MethodDeclaration` | Kind 5；类体非空放行（class 成员已合入；interface 体仍要求空） |
+| `export const enum E { A }` | `EnumDeclaration` → `ExportKeyword` + `ConstKeyword` + `Identifier` + `EnumMember` | Stage 27→12 / Kind 17：`EnumDeclarationShape.FromUnits` 不认 const，手工补 `ConstKeywordShape` |
+| `export declare const enum E { A }` | … + `DeclareKeyword` + `ConstKeyword` | Stage 14→26→12 / Kind 18 |
+
+暂缓（ruler 口径问题，未硬改）：`export abstract\nclass C {}` / `export default abstract\nclass C {}` —— modifier 与 `class`
+之间换行时 TS 的 ClassDeclaration `pos` 是换行位置（15 / 23）而不是 0，与之前 `export declare\ntype` 同类。
+同批保留了 `export\ndefault class …`、`export\ndefault…` 等换行变体且全绿。
