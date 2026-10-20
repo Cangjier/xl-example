@@ -1,32 +1,28 @@
-// declarations 用例集：class / interface / enum 声明（chunk 1 只收空类体 / 空接口体 / 枚举成员）。
+// declarations 用例集：class / interface / enum / function 声明。
 // 一行一个用例；行内 \n 由 ast-json.mjs 还原成真实换行；注释必须独立成行。
 // 对拍口径：TS 侧 ts.createSourceFile 的 AST；本仓侧 SourceFileRunner.Parse 的形状树。
 // 快照：node typescript/cases/ast-json.mjs declarations && node typescript/cases/ast-json-diff.mjs declarations
 //
 // 覆盖范围：
-//   D1 ClassDeclaration 空类体：名字、`declare` 修饰符；区间 / 名字 Pos / 修饰符 Pos 与 TS 一致；
-//   D2 InterfaceDeclaration 空接口体：名字、`declare` 修饰符；
-//   D3 EnumDeclaration：空枚举、1~3 个成员、数字 / 字符串 / 二元 / 一元初始化器、尾随逗号；
-//   D4 trivia：前导注释、关键字与名字之间、名字与 `{` 之间、`{` 之后、成员之间、初始化器等号后、多行；
-//   D5 同一文件多条声明（重复形，含不同声明混排）。
+//   D1 ClassDeclaration 空类体：名字、declare / abstract 修饰符；区间 / 名字与修饰符 Pos 与 TS 一致；
+//   D2 InterfaceDeclaration 空接口体：名字、declare 修饰符；
+//   D3 EnumDeclaration：空枚举、1~3 个成员、数字 / 字符串 / 二元初始化器、尾随逗号；
+//   D4 FunctionDeclaration：空体 / 无类型参数 / 带类型参数 / 可选参数 / 返回类型 / 体内 return；
+//   D5 trivia：前导注释、关键字与名字之间、名字与括号之间、参数间、体前注释、块内、多行；
+//   D6 同一文件多条声明（重复形，含不同声明混排）。
 //
 // 暂缓（不写进本用例集；原因见 docs/coverage-declarations.md）：
-//   函数声明                 function f() {}          <- 需要 statements 家族的 BlockShape
-//   类成员                   class C { a = 1; }      <- 需要 types 家族的 class element shapes（types-2）
+//   类成员                   class C { a = 1; }      <- 需要 types 家族的 class element shapes
 //   接口成员                 interface I { a: A }    <- 同上
-//   接口继承                 interface I extends J {}<- 需要 HeritageClauseShape + ExpressionWithTypeArguments
-//   abstract 修饰符          abstract class C {}     <- TS 把 abstract 印成 FirstContextualKeyword（别名口径），
-//                                                        要 ast-json.mjs + diff 的 TS_KIND_ALIASES 加一条别名（harness 不在本块范围）
-//   泛型 / 继承 / implements  class C<T> extends B {}<- 需要 TypeParameter / HeritageClause
-//   装饰器 / 重载 / declare module                     <- 各自家族，后续 chunk
-//   枚举成员是 computed   名  enum E { [k] = 1 }      <- 需要 ComputedPropertyName
-//   类型别名                 type T = number;         <- 已有 types.ts（types chunk 1 合并），不重复造
-//   体前换行（本块唯一没绿的 trivia 变体）
-//                            class C\n{ }   interface I\n{ }   enum E\n{ A }
-//                            <- 根终结候选按 IsAsiBoundary 把「换行后的 `{`」当成上一条表达式到此结束，
-//                               与声明候选同时 Accept 触发 CatalogGuide 的歧义抛错。修点在
-//                               files/source-file-end-possible-shape 或 IsAsiBoundary 的「声明开头不算表达式」判据
-//                               （cover-end-1 的范围）；`class\nC {}`、块内换行等其余 trivia 变体已绿。
+//   继承 / implements        class C extends D {}    interface I extends J {}   class C implements I {}
+//                            <- HeritageClause / ExpressionWithTypeArguments 形状在 members/ 与 expressions/ 家族，
+//                               不在本块 write scope
+//   泛型声明                 class C<T> {}   function f<T>() {}   <- TypeParameterShape（types 家族）
+//   装饰器 / 重载 / declare function f(): void;        <- 各自家族 / 声明 end 候选
+//   枚举成员是 computed 名    enum E { [k] = 1 }      <- 需要 ComputedPropertyName
+//   类型别名                 type T = number;         <- 已有 types.ts，不重复造
+//   体前换行                 class C\n{ }   function f()\n{ }   <- 根终结候选的 ASI 判据把换行后的 `{`
+//                               当成上一条表达式结束（cover-end-1 的范围）；块内换行已绿。
 
 // ===== base 1：ClassDeclaration（空类体）=====
 class C {}
@@ -36,6 +32,12 @@ class C1 {}
 // + declare 修饰符
 declare class C {}
 declare class D {}
+// + abstract 修饰符（TS kind 反查是 FirstContextualKeyword，harness 别名归一到 AbstractKeyword）
+abstract class C {}
+abstract class D {}
+abstract class ABC {}
+declare abstract class C {}
+abstract declare class C {}
 // + trivia
 /* c */ class C {}
 class /* c */ C {}
@@ -48,6 +50,10 @@ class C {}\ninterface I {}
 declare /* c */ class C {}
 declare class /* c */ C {}
 declare class C { /* c */ }
+/* c */ abstract class C {}
+abstract /* c */ class C {}
+abstract class /* c */ C {}
+abstract class C { /* c */ }
 
 // ===== base 2：InterfaceDeclaration（空接口体）=====
 interface I {}
@@ -95,7 +101,46 @@ enum E {\nA\n}
 enum E {\nA,\nB\n}
 enum E { A = 1 /* c */ }
 
-// ===== base 4：同一文件多条声明（重复形 / 混排）=====
+// ===== base 4：FunctionDeclaration =====
+function f() {}
+function g() {}
+function f(a) {}
+function f(a, b) {}
+function f(a, b, c) {}
+function f(a: A) {}
+function f(a: A, b: B) {}
+function f(): void {}
+function f(a?: A) {}
+function f(a: A): C {}
+function f(a: A, b: B): C { return a; }
+function f() { return; }
+function f(a) { return a; }
+function f(a: A) { return a; }
+function f(a: A, b: B): C { let x = a; return x; }
+// + trivia
+/* c */ function f() {}
+function /* c */ f() {}
+function f /* c */ () {}
+function f(/* c */ a) {}
+function f(a /* c */) {}
+function f(a: A /* c */) {}
+function f(a /* c */ : A) {}
+function f(a: /* c */ A) {}
+function f() /* c */ {}
+function f() { /* c */ }
+function f() { /* c */ return; }
+function\nf() {}
+function f() {}\n
+// + 与其它声明混排（重复形）
+function f() {} function g() {}
+function f() {}\nfunction g() {}
+function f() {} class C {}
+class C {} function f() {}
+function f() {} interface I {}
+interface I {} function f() {}
+function f() {} enum E { A }
+
+// ===== base 5：同一文件多条声明（重复形 / 混排）=====
 class C {} class D {}
 class C {}\nclass D {}
 interface I {} interface J {}
