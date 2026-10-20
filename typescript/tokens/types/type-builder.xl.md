@@ -61,6 +61,9 @@ import { PropertySignatureShape } from "./property-signature-shape.xl.md"
 import { QualifiedNameShape } from "./qualified-name-shape.xl.md"
 import { ThisTypeShape } from "./this-type-shape.xl.md"
 import { TupleTypeShape } from "./tuple-type-shape.xl.md"
+import { RestTypeShape } from "./rest-type-shape.xl.md"
+import { OptionalTypeShape } from "./optional-type-shape.xl.md"
+import { NamedTupleMemberShape } from "./named-tuple-member-shape.xl.md"
 import { MappedTypeShape } from "./mapped-type-shape.xl.md"
 import { TemplateLiteralTypeShape } from "./template-literal-type-shape.xl.md"
 import { TemplateLiteralTypeSpanShape } from "./template-literal-type-span-shape.xl.md"
@@ -605,7 +608,57 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     continue;
   }
-  shape.Add(inner.ParseType());
+  const elementStart = inner.At;
+  let restToken:Token | null = null;
+  if (inner.IsText(unit, "...")) {
+    restToken = inner.SpanLeaf(new DotDotDotTokenShape(inner.Template), inner.At);
+    inner.At++;
+  }
+  const nameUnit = inner.At < inner.Units.length ? inner.Units[inner.At] : null;
+  const afterName = inner.At + 1 < inner.Units.length ? inner.Units[inner.At + 1] : null;
+  const afterMark = inner.At + 2 < inner.Units.length ? inner.Units[inner.At + 2] : null;
+  const named = nameUnit !== null && nameUnit instanceof Common && afterName !== null
+    && (inner.IsText(afterName, ":")
+      || (inner.IsText(afterName, "?") && afterMark !== null && inner.IsText(afterMark, ":")));
+  if (named) {
+    // [name: A] / [name?: A] / [...name: A[]] -- TS children: DotDotDotToken?, Identifier, QuestionToken?, Type.
+    const member = new NamedTupleMemberShape(inner.Template);
+    if (restToken !== null) {
+      member.Add(restToken);
+    }
+    member.Add(inner.ParseName());
+    const questionUnit = inner.Peek(0);
+    if (questionUnit !== null && inner.IsText(questionUnit, "?")) {
+      member.Add(inner.SpanLeaf(new QuestionTokenShape(inner.Template), inner.At));
+      inner.At++;
+    }
+    const colonUnit = inner.Peek(0);
+    if (colonUnit === null || !inner.IsText(colonUnit, ":")) {
+      throw new Error("labeled tuple member 缺少冒号");
+    }
+    inner.At++;
+    member.Add(inner.ParseType());
+    shape.Add(inner.SpanNode(member, elementStart, inner.At - 1));
+    continue;
+  }
+  if (restToken !== null) {
+    // [...A] / [...A[]] -- RestType 的 child 就是元素类型（`...` 不投影）。
+    const rest = new RestTypeShape(inner.Template);
+    rest.Add(inner.ParseType());
+    shape.Add(inner.SpanNode(rest, elementStart, inner.At - 1));
+    continue;
+  }
+  const elementType = inner.ParseType();
+  const markUnit = inner.Peek(0);
+  if (markUnit !== null && inner.IsText(markUnit, "?")) {
+    // [A?] -- OptionalType 的 child 是元素类型（`?` 不投影），区间含 `?`。
+    inner.At++;
+    const optional = new OptionalTypeShape(inner.Template);
+    optional.Add(elementType);
+    shape.Add(inner.SpanNode(optional, elementStart, inner.At - 1));
+    continue;
+  }
+  shape.Add(elementType);
 }
 shape.Elements = shape.Data;
 if (bracket.SourceRange.Start !== null) {
@@ -1149,7 +1202,18 @@ const name = this.ParseName();
 const parameter = new TypeParameterShape(this.Template);
 parameter.TypeParameterName = name;
 parameter.Add(name);
-this.SpanNode(parameter, nameIndex, nameIndex);
+let last = nameIndex;
+// TS 4.7 constrained infer: `infer R extends A` -- the constraint type is the TypeParameter's
+// second child (Identifier, Constraint); `extends` itself is not projected.
+const extendsUnit = this.Peek(0);
+if (extendsUnit !== null && this.IsText(extendsUnit, "extends")) {
+  this.At++;
+  const constraint = this.ParseType();
+  parameter.Type = constraint;
+  parameter.Add(constraint);
+  last = this.At - 1;
+}
+this.SpanNode(parameter, nameIndex, last);
 const shape = new InferTypeShape(this.Template);
 shape.TypeParameter = parameter;
 shape.Add(parameter);
