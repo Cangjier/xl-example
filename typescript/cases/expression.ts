@@ -646,3 +646,21 @@ a = b, c = d;
 ({ a: c = 1 }) => c;
 <T, U>(a: T, /* c */ b: U) => a;
 
+// ===== 测量 sweep：satisfies / as const =====
+a satisfies T;
+a satisfies T;
+(a) satisfies T;
+({ a: 1 }) as const;
+[1, 2] as const;
+f({} as const);
+x = a satisfies T;
+a /* c */ satisfies T;
+a satisfies /* c */ T;
+({ a: 1 } /* c */) as const;
+
+// ===== 测量 sweep：暂缓（注释目标 + 原因）=====
+// `a as const`：TS 语义错误（const 断言只许用在字面量/数组/对象上），oracle 侧只报诊断，
+//   本 sweep 不收语义非法形态。
+// `satisfies` 链式（`a satisfies T satisfies U`）：TS 解析为嵌套 SatisfiesExpression，
+//   本仓 ParseBinary 的 satisfies 分支是否吃两层待后续 sweep 确认。
+
