@@ -22,6 +22,9 @@ import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { NumberKeywordShape } from "../keywords/number-keyword-shape.xl.md"
 import { ObjectKeywordShape } from "../keywords/object-keyword-shape.xl.md"
 import { AbstractKeywordShape } from "../keywords/abstract-keyword-shape.xl.md"
+import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
+import { InKeywordShape } from "../keywords/in-keyword-shape.xl.md"
+import { OutKeywordShape } from "../keywords/out-keyword-shape.xl.md"
 import { AssertsKeywordShape } from "../keywords/asserts-keyword-shape.xl.md"
 import { ReadonlyKeywordShape } from "../keywords/readonly-keyword-shape.xl.md"
 import { StringKeywordShape } from "../keywords/string-keyword-shape.xl.md"
@@ -1678,4 +1681,96 @@ parameter.Add(name);
 parameter.Add(constraint);
 this.MappedNameType = inner.MappedNameType;
 return inner.SpanNode(parameter, nameIndex, constraintEnd);
+```
+
+## method ParseTypeParameterList:()=>Array<Token>
+
+泛型参数表：`At` 停在 `<` 上时读 `<U, V, …>`，返回 `TypeParameter` 数组，`At` 推到 `>` 之后。
+`>>` 已在 `Load` 里拆成两个单字符 `>`，所以嵌套泛型约束（`U extends A<B>`）的闭合也能逐个消费。
+
+```ts
+const parameters:Array<Token> = [];
+const open = this.Peek(0);
+if (open === null || !this.IsText(open, "<")) {
+  return parameters;
+}
+this.At++;
+while (true) {
+  const unit = this.Peek(0);
+  if (unit === null) {
+    throw new Error("类型参数表缺少 >");
+  }
+  if (this.IsText(unit, ">")) {
+    this.At++;
+    break;
+  }
+  if (this.IsText(unit, ",")) {
+    this.At++;
+    continue;
+  }
+  parameters.push(this.ParseTypeParameter());
+}
+return parameters;
+```
+
+## method ParseTypeParameter:()=>Token
+
+一个泛型参数：`[in] [out] [const] 名字 [extends 约束] [= 默认值]`。
+children 顺序与 TS 一致：variance / const 关键字（`InKeyword` / `OutKeyword` / `ConstKeyword`）、
+`Identifier`、可选约束类型、可选默认类型。`extends` / `=` 不进 AST。
+
+实测 `type T<in out U>` 是 `TypeParameter[7,15) → [InKeyword[7,9), OutKeyword[9,13), Identifier[13,15)]`；
+`type T<U extends A = B>` 是 `TypeParameter[7,22) → [Identifier[7,8), A[16,18), B[20,22)]`。
+
+```ts
+const start = this.At;
+const modifiers:Array<Token> = [];
+while (true) {
+  const unit = this.Peek(0);
+  if (unit === null) {
+    break;
+  }
+  const text = this.TextOf(unit);
+  if (text !== "in" && text !== "out" && text !== "const") {
+    break;
+  }
+  const index = this.At;
+  this.At++;
+  if (text === "in") {
+    modifiers.push(this.SpanLeaf(new InKeywordShape(this.Template), index));
+  } else if (text === "out") {
+    modifiers.push(this.SpanLeaf(new OutKeywordShape(this.Template), index));
+  } else {
+    modifiers.push(this.SpanLeaf(new ConstKeywordShape(this.Template), index));
+  }
+}
+const name = this.ParseName();
+let constraint:Token | null = null;
+const extendsUnit = this.Peek(0);
+if (extendsUnit !== null && this.IsText(extendsUnit, "extends")) {
+  this.At++;
+  constraint = this.ParseType();
+}
+let defaultValue:Token | null = null;
+const equalUnit = this.Peek(0);
+if (equalUnit !== null && this.IsText(equalUnit, "=")) {
+  this.At++;
+  defaultValue = this.ParseType();
+}
+const shape = new TypeParameterShape(this.Template);
+shape.TypeParameterName = name;
+shape.Type = constraint;
+shape.DefaultType = defaultValue;
+shape.VarianceTokens = modifiers;
+for (const modifier of modifiers) {
+  shape.Add(modifier);
+}
+shape.Add(name);
+if (constraint !== null) {
+  shape.Add(constraint);
+}
+if (defaultValue !== null) {
+  shape.Add(defaultValue);
+}
+return this.SpanNode(shape, start, this.At - 1);
 ```
