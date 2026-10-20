@@ -472,8 +472,7 @@ function* g<T>(a: T): T { return a; }
 export function h<T>(a: T): T { return a; }
 // + multiple declarations
 function f<T>(a: T) {}\nfunction g<U>(b: U) {}
-// async generic function: `async function f<T>(a: T): T {}` -- async + generic combination, verify after the
-// async function declaration chunk lands (possible shape Stage 6/1 order needs checking there).
+// async generic function: implemented in base 13 below (AsyncKeyword -> Identifier -> TypeParameter[] -> Parameter[]).
 // generic arrow / generic function expression 已由 expression 家族覆盖（<T>(a) => a）。
 // ===== base 12: newline between a decorator and its declaration (root end candidate no longer steals the boundary) =====
 @dec\nclass C {}
@@ -486,3 +485,30 @@ function f<T>(a: T) {}\nfunction g<U>(b: U) {}
 @dec /* c */\nclass C {}
 @dec\nclass C {}\nclass D {}
 class C { @dec\n x = 1; }
+
+// ===== base 13: async function with type parameters (AsyncKeyword -> [*] -> Identifier -> TypeParameter[] -> Parameter[]) =====
+async function f<T>(a: T): T { return a; }
+async function f<T, U>(a: T, b: U) {}
+async function f<T extends A>(a: T) {}
+async function f<T = A>(a: T): T { return a; }
+async function f<T extends A = B>(a: T) {}
+async function f<T>(): T { return a; }
+// + async generator with type parameters
+async function* g<T>() {}
+async function* g<T>(a: T) { yield a; }
+// + declare / export combos
+declare async function f<T>(a: T): T;
+export async function f<T>(a: T): T { return a; }
+export async function* g<T>(a: T) { yield a; }
+// + trivia
+async /* c */ function f<T>(a: T) {}
+async function /* c */ f<T>(a: T) {}
+async function f /* c */ <T>(a: T) {}
+async function f<T /* c */>(a: T) {}
+async function f<T>(/* c */ a: T) {}
+async function f<T>(a: T): /* c */ T { return a; }
+// + multiple declarations
+async function f<T>(a: T) {}\nasync function g<U>(b: U) {}
+// ===== deferred =====
+// async generic overload signature without body: `async function f<T>(a: T): T;` -- not legal TS without
+// declare (async overload signatures are rejected); the declare form above covers the signature path.
