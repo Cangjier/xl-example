@@ -157,3 +157,30 @@ declare module "m" { import x from "n" with { type: "json" }; } // c
 declare module "m" {\n  import { a } from "n"\n    with { type: "json" };\n}
 declare module "m" { import /* c */ { a } from "n" with { type: "json" }; }
 namespace N { export import A = B.C; }
+
+// ===== module-body const enum（chunk module-const-enum-1）=====
+namespace N { const enum E { A } }
+namespace N { const enum E { A = 1, B = 2 } }
+namespace N { const enum E { A = 1, B = A + 1 } }
+declare namespace N { const enum E { A } }
+declare module "m" { const enum E { A } }
+namespace N { export const enum E { A } }
+namespace N { export const enum E { A = 1 } }
+namespace N { declare const enum E { A } }
+// + trivia
+namespace N { /* c */ const enum E { A } }
+namespace N { const /* c */ enum E { A } }
+namespace N { const enum /* c */ E { A } }
+namespace N { const enum E { /* c */ A } }
+namespace N { const enum E { A /* c */ } }
+declare module "m" { /* c */ const enum E { A } }
+declare module "m" {\n  const enum E { A }\n}
+// + 多条成员连排 / 混合
+namespace N { const enum E { A } enum F { B } }
+namespace N { const enum E { A } const enum G { B } }
+namespace N { const enum E { A } const x = 1; }
+declare module "m" { const enum E { A } enum F { B } }
+// + 回归（既有绿）：普通 enum / 普通 module
+module M { enum E { A } }
+namespace N { enum E { A } }
+namespace N { enum E { A = 1 } }

@@ -9,6 +9,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
+import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
+import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.xl.md"
 import { ImportDeclarationShape } from "./import-declaration-shape.xl.md"
@@ -117,6 +119,19 @@ let keyword = "";
 if (unit !== null && unit instanceof Common) {
   keyword = (unit as Common).TempToString();
 }
+// `const enum` / `declare const enum` member heads (enum shapes already accept the modifiers):
+// detect them here so the member is routed to EnumDeclarationShape.FromUnits instead of
+// StatementBuilder (statements never see the `const` + `enum` combination).
+let constEnumMember = false;
+if (keyword === "const") {
+  const nextUnit = declStart + 1 < inner.Units.length ? inner.Units[declStart + 1] : null;
+  constEnumMember = nextUnit !== null && nextUnit instanceof Common && (nextUnit as Common).Is("enum");
+} else if (keyword === "declare") {
+  const secondUnit = declStart + 1 < inner.Units.length ? inner.Units[declStart + 1] : null;
+  const thirdUnit = declStart + 2 < inner.Units.length ? inner.Units[declStart + 2] : null;
+  constEnumMember = secondUnit !== null && secondUnit instanceof Common && (secondUnit as Common).Is("const")
+    && thirdUnit !== null && thirdUnit instanceof Common && (thirdUnit as Common).Is("enum");
+}
 let special:Token | null = null;
 let specialEnd = -1;
 if (keyword === "as") {
@@ -179,7 +194,7 @@ let bodyInner = -1;
 let semiInner = -1;
 if (special === null
   && (keyword === "class" || keyword === "interface" || keyword === "enum" || keyword === "function"
-    || keyword === "namespace" || keyword === "module")) {
+    || keyword === "namespace" || keyword === "module" || constEnumMember)) {
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
     const scanned = inner.Units[scan];
     if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{") {
@@ -204,8 +219,25 @@ if (special !== null) {
     member = ClassDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
   } else if (keyword === "interface") {
     member = InterfaceDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
-  } else if (keyword === "enum") {
+  } else if (keyword === "enum" || constEnumMember) {
     member = EnumDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+    if (constEnumMember) {
+      // EnumDeclarationShape computes modifier Pos from the PREVIOUS unit inside the bracket Data;
+      // for the first member of a module body that scan finds nothing and falls back to 0, which is
+      // wrong for `const` / `declare` (TS pos = previous non-trivia unit end + 1 in file全局口径).
+      // Re-anchor the leading modifier children from this layer's Positions.
+      let modifierPos = inner.Positions[declStart];
+      for (const child of member.Data) {
+        if (child instanceof ConstKeywordShape || child instanceof DeclareKeywordShape) {
+          (child as ShapeToken).Pos = modifierPos;
+          if (child.SourceRange.End !== null) {
+            modifierPos = child.SourceRange.End.Index + 1;
+          }
+          continue;
+        }
+        break;
+      }
+    }
   } else if (keyword === "namespace" || keyword === "module") {
     member = ModuleDeclarationShape.FromUnits(
       inner.Units.slice(declStart, bodyInner + 1),
