@@ -719,3 +719,17 @@ class C extends B { m() { return super /* c */ . m(); } }
 class C extends B { m() { return super. /* c */ m(); } }
 class C extends B { constructor() { super /* c */ (); } }
 // 暂缓：class 外的 `super`（TS 语义错误）；object method 里的 `super`（语义依赖 home object，暂不收）
+// ===== statement-start private brand check（private-in 合入主线后；CanStart 放行 Symbol "#"）=====
+#x in obj;
+/* c */ #x in obj;
+#x in obj; // tail
+#x /* c */ in obj;
+#x in obj;\n#y in obj;
+function f() { #x in obj; }
+function f() { return #x in obj; }
+class C { m() { return #x in this; } }
+class C { m() { #x in this; } }
+// 红：private 成员访问 `this.#x` / `this.#m()` —— ExpressionBuilder 的 `.` 成员分派不认 `#`+名字
+// （属 expressions 家族后续；本块只放行语句首 `#`，不改 expressions 源）
+// class C { #x = 1; m() { return this.#x; } }
+// class C { #m() {} m2() { return this.#m(); } }

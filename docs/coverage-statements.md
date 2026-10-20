@@ -1,5 +1,25 @@
 # statements family 覆盖（chunk 1 + chunk 2 + trivia chunk + chunk 3 + labeled chunk）
 
+> **statement-start private brand check**（分支 `cover-hash-start-2`，起点 `origin/integration @890e3b0a`，
+> private-in 已合入主线）：`expression.ts` 追加 10 条，**563/563** 完全一致（结构差/位置差/字段差均 0）；
+> 全量 **2996 → 3006** 全绿；tsc 0 error。
+>
+> 根因与修法（最小改动）：private-in 合入后 `ExpressionBuilder` 已有 `#` 分派（`Symbol "#" + Common name`
+> → `PrivateIdentifierShape`），但语句首仍被 `ExpressionStatementPossibleShape.CanStart` 拦下：Symbol 白名单
+> 不含 `#`，候选 Reject 后根终结候选把整段（含 `;`）当表达式收尾 → 「表达式语句没有读完」。
+> 本轮在 `CanStart` 的 Symbol 分支加一行 `text === "#"`（注释说明 `#x` 在 token 层是 Symbol "#" + Common "x"，
+> 语句首只可能是 brand check），其它候选/文件未动。
+>
+> 绿（10 条）：`#x in obj;`（语句首）、`/* c */ #x in obj;`、`#x in obj; // tail`、`#x /* c */ in obj;`、
+> 同文件两条（`#x in obj;\n#y in obj;`）、括号内 `(#x in obj);`、函数体内 `function f() { #x in obj; }` /
+> `return #x in obj;`、class 方法体 `return #x in this;` / `#x in this;` 语句。
+> 体内与 class 方法体本来就走 ExpressionBuilder（private-in 合入后已绿），本轮一并纳入测量。
+>
+> 红 / 暂缓（写成 `//` 目标行，属 expressions 家族后续）：**private 成员访问** `this.#x` / `this.#m()` ——
+> ExpressionBuilder 的 `.` 成员分派只认 Common 名字，不认 `#` + 名字（`class C { #x = 1; m() { return this.#x; } }`
+> 与 `class C { #m() {} m2() { return this.#m(); } }` 实测仍红）。本块 WRITE SCOPE 不含 expressions 源，故只记目标。
+>
+
 > **labeled chunk**（分支 `cover-label-root-1`，起点 `origin/integration @26dd9b3b`）：
 > 新 stem `typescript/cases/labeled-statements.ts` **42/42** 完全一致；全量 **2337 → 2379** 全绿；tsc 0 error。
 >

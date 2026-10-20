@@ -74,7 +74,10 @@ if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
   // 语句首的 `<` 在 TS（ScriptKind=TS，无 JSX 二义）只可能是尖括号断言或泛型箭头：
   // 两者由 builder 的 ParseAngleStart 再区分；类型读不完会抛明确错误，不静默错树。
+  // `#` = private identifier 的起始 token（`#x` 在 token 层是 Symbol "#" + Common "x"），
+  // 语句首只可能是 `#x in obj` 这种 brand check，放行后由 ExpressionBuilder 建 PrivateIdentifier。
   return text === "<"
+    || text === "#"
     || text === "!"
     || text === "~"
     || text === "+"
