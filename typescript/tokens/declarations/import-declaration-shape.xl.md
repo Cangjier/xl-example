@@ -305,7 +305,7 @@ if (item.IsTriviaToken) {
 }
 if (item instanceof Common) {
   const text = (item as Common).TempToString();
-  return text === "import" || text === "from" || text === "type" || text === "as";
+  return text === "import" || text === "from" || text === "type" || text === "as" || text === "defer";
 }
 if (item instanceof Symbol) {
   const text = (item as Symbol).TempToString();
