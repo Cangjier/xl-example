@@ -1,4 +1,59 @@
-# declarations 覆盖报告（chunk 1 + chunk 2）
+# declarations 覆盖报告（chunk 1 + chunk 2 + chunk 3）
+
+> **chunk 3（heritage）**（分支 `cover-declarations-3`，起点 `origin/integration @0a02bda2`，合并
+> `origin/cover-declarations-2 @b8499967`；`source-file-shape.xl.md` 候选表有冲突，按并集手工去重后提交）：
+> ast-json 全量 **1554 / 1554**（合并后基线 1524 零回归），declarations.ts **138 / 138**，tsc 0 error，xl_build 0 error。
+>
+> chunk 3 新增（30 条，全部完全一致）：
+> - `class C extends D {}`、`extends D<E>`、`extends D<E, F>`；
+> - `class C implements I {}`、`implements I, J`、`extends D implements I`、`extends D<E> implements I<J>, K`；
+> - `interface I extends J {}`、`extends J, K`、`extends J<K>`、`extends J<K, L>`；
+> - `abstract class C extends D implements I {}`、`abstract class C extends D<E> implements I {}`；
+> - trivia：前导注释、类名后、`extends`/`implements` 后、类型名后、泛型实参内注释、`D < E >` 带空格、实参换行、
+>   heritage 与其它声明混排（`class … {} class … {}` / `interface … {} class … {}` / `enum`）。
+>
+> 实现（三页）：
+> - `members/heritage-clause-shape.xl.md`：`HeritageClauseShape`（`ClauseKind` / `Types`，Data 只有
+>   `ExpressionWithTypeArguments`，关键字不进 Data）+ `BuildClauses(host, units, basePos, context)`：
+>   用 `TypeBuilder` 逐个解析 `名字 [<类型实参>]`，`extends`/`implements` 关键字切子句；
+> - `expressions/expression-with-type-arguments-shape.xl.md`：`FromParts(name, typeArguments, endToken, pos, context)`，
+>   区间从名字起点到 `>`（`endToken` = 最后一个 `>`，没有实参就是名字），类型实参用
+>   `TypeBuilder.ParseTypeArguments()`；
+> - `class/interface-declaration-{shape,possible-shape}`：名字之后、体之前识别 heritage 单元（Common/Symbol），
+>   `FromUnits` 调 `HeritageClauseShape.BuildClauses` 并把子句按顺序 Add；Pos = 名字终点 + 1。
+> 踩坑记录：候选里 `unit instanceof Symbol` 必须 import 了 `symbol.xl.md`（漏 import 时生成物引用全局 `Symbol`，
+> 会静默全部 Reject，进而被根终结候选当成 ASI 边界去建表达式语句）。
+>
+> chunk 3 仍未做：限定名父类型（`extends a.B`，需要 QualifiedName/PropertyAccess 接入）、class/interface 带成员
+> （class element shapes）、`export default class`、装饰器、泛型声明、体前换行（根终结候选 ASI 判据，cover-end-1 范围）。
+# declarations 覆盖报告（chunk 1 + chunk 2 + chunk 4）
+
+> **chunk 4**（分支 `cover-declarations-4`，起点 `origin/integration @2ceafb28`，含 declarations-2 的函数声明）：
+> declarations.ts **128 / 128**，全量 **1661 / 1661**（基线 1641 零回归），tsc 0 error，xl_check 0 error。
+>
+> chunk 4 新增（20 条）：**无函数体声明**——`declare function f(): void;`、`declare function f(a: A): B;`、
+> `declare function f();`、重载签名 `function f(a: A): B;` / `function f(): void;`、2 个重载 + implementation、
+> 3 个重载 + implementation（`function f(a: A): A; … function f(a: any): any { return a; }`）、同文件多条；
+> trivia：返回类型与 `;` 之间的注释 / 换行、`declare` 与 `function` 之间注释、`declare function f(): /* c */ void;`、
+> 尾注释、`declare\nfunction f(): void;`（TS 按 ASI 拆成 ExpressionStatement + FunctionDeclaration）。
+>
+> 实现：
+> - `FunctionDeclarationPossibleShape`：Stage 机扩展——0 等 `declare`/`function`，6 见过 `declare` 等 `function`，
+>   3 参数表之后可接受 `;`（仅 `declare` 形），4 返回类型之后可接受 `{` 或 `;`；`DoneAt` 记函数体 `Bracket` 或 `;`。
+>   仍是**原子建法**：在 `;` / 函数体那一格 `BuildByIndex` 一次建完整条，不新增 end 候选、不用 `ExitOrPre`、
+>   不覆盖 `ComputePossibleShapes`（IMPORTANCE §3.3）。
+> - `declare` 与 `function` 之间**换行**时 TS 走 ASI：`declare` 是独立 ExpressionStatement，`function` 另起声明。
+>   候选用 `NoNewlineBefore` 判这一格；`SplitDeclare` 为真时 `BuildByIndex` 一次往 `host.Data` 里放两条形状
+>   （ExpressionStatement(declare) + FunctionDeclaration），区间 / Pos 与 TS 对齐（`FunctionDeclaration.Pos` = `declare.End+1`）。
+> - `FunctionDeclarationShape.FromUnits`：Data 顺序变成「可选 DeclareKeyword → 名字 → 参数 → 可选返回类型 → 可选 Block」；
+>   无体时最后一块是 `;`（AST 的 End 含分号），`Data` 里没有 Block；`function f();` 仍被拒（无 `declare` 且无返回类型）。
+>
+> chunk 4 暂缓：`export declare function`（export 前缀归 cover-export-decls-2）、泛型函数声明、装饰器、
+> `declare const`；`declare` 独立成句（`declare\nfunction` 已按 TS 的 ASI 拆分建出，靠的是候选侧的拆分建法，
+> 不依赖 expression 候选放开 `declare`）。
+>
+> chunk 4 新增 trivia 用例里值得一提的是 `declare function\nf(): void;`（换行在 `function` 与名字之间）：
+> TS 仍算同一 FunctionDeclaration；本实现也是同一候选扫描，已绿。
 
 > **chunk 2**（分支 `cover-declarations-2`，起点 `origin/integration @89413f7d`，已合并
 > `origin/cover-expressions-3 @8e09dbf4` 与 `origin/cover-declarations-1 @f0040127`）：

@@ -7,6 +7,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -122,6 +123,11 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       } else {
         state.Rejected = true;
       }
+      continue;
+    }
+    // 名字与类体之间的 heritage：`extends` / `implements` 关键字与类型内容都是 Common / Symbol
+    //（泛型实参用 `<` `>` `,` 这些 Symbol），具体解析交给 ClassDeclarationShape.FromUnits。
+    if (unit instanceof Common || unit instanceof Symbol) {
       continue;
     }
     state.Rejected = true;
