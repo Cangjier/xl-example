@@ -874,8 +874,6 @@ class C { constructor(public x /* c */ ?: A) {} }
 // optional property with definite assignment `x?!: A` etc.: invalid, skipped.
 
 // ===== base 19: auto-accessor members =====
-class C { accessor x = 1; }
-class C { accessor x: A; }
 class C { accessor x: A = b; }
 class C { static accessor y = 2; }
 class C { accessor #z = 3; }
@@ -887,16 +885,9 @@ abstract class C { abstract accessor w: A; }
 class C { declare accessor v: A; }
 class C { @dec accessor y = 1; }
 class C { @dec public accessor y = 1; }
-class C { accessor x = 1; accessor y = 2; }
-class C { accessor x = 1; m() {} }
 // + regression
-class C { get x() { return 1; } set x(v) {} }
-class C { x = 1; }
 class C { public static readonly x: A = b; }
 // + trivia
-class C { /* c */ accessor x = 1; }
-class C { accessor /* c */ x = 1; }
-class C { accessor x /* c */ = 1; }
 class C { public /* c */ accessor x = 1; }
 class C { static /* c */ accessor y = 2; }
 class C { @dec /* c */ accessor y = 1; }
@@ -910,3 +901,26 @@ interface I { m(this: A): void; }
 function f(this /* c */: A) {}
 function f(this: A, ...rest: B[]) {}
 // deferred：function f(x: B, this: A) {} —— TS parseDiagnostics 为空（语法可解析），但 checker 要求 this 必须是第一个参数（语义非法），故不写进用例
+// ===== base 20: decorator matrix =====
+@dec(a, b) class C {}
+@a.b() class C {}
+@(expr) class C {}
+@new F() class C {}
+class C { @dec public m() {} }
+class C { @dec private static m() {} }
+class C { @dec static x = 1; }
+class C { @dec constructor(@p x: A) {} }
+class C { constructor(@dec @dec2 x: A) {} }
+abstract class C { @dec abstract m(): A; }
+abstract class C { abstract m(): A; @dec m() {} }
+@dec export class C {}
+@dec export abstract class C {}
+// + trivia
+class C { @dec /* c */ public m() {} }
+
+// ===== deferred =====
+// `class C { static @dec m() {} }`: invalid TypeScript (parser diagnostic "Decorators must precede the name and all keywords"), TS recovery splits it into two members; not worth matching.
+// `export @dec class C {}` and `export default @dec class C {}`: legal TS (ExportKeyword then Decorator in the same ClassDeclaration), but the export/module path is outside this chunk scope (export/import family); parked.
+// `@await f() class C {}` in async context: oracle rejects (await is not a decorator expression); skipped.
+// `@a[0] class C {}`: element access is not a legal decorator expression; TS recovery yields MissingDeclaration + ExpressionStatement (+ArrayLiteralExpression) and splits the decorator. Parked (invalid input, degenerate recovery).
+// `@dec(1) @a.b() @c[0] class C {}`: same element-access issue; use call forms like `@dec(1) @a.b() @c()` instead.

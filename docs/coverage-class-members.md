@@ -248,3 +248,28 @@
   are covered and green.
   note: `readonly accessor` / `declare accessor` are semantically questionable TypeScript but the oracle AST is stable,
   and AST-shape equality is what this suite measures.
+
+## chunk 13 (decorator matrix, branch cover-decorators-matrix-1 @ origin/integration f5294c44)
+
+- decorator expressions (probe + final): `@dec`, `@dec()`, `@dec(a, b)`, `@a.b`, `@a.b()`, `@(expr)`, `@new F()` all already green
+  before this chunk; no expression-shape change was needed.
+- RED -> GREEN (one fix): `@dec export class C {}` and `@dec export abstract class C {}` were red ("class keyword missing").
+  TS oracle: legal, one ClassDeclaration whose children are Decorator(s), ExportKeyword, AbstractKeyword?, Identifier.
+  Fix in ClassDeclarationShape.FromUnits: the modifier run now also accepts `export` (single occurrence) between the
+  decorator prefix and declare/abstract, and the construction loop emits ExportKeywordShape in the same child order.
+- stacking: `@a @b @c class C {}`, member `@a @b m() {}`, `@a /* c */ @b class C {}`.
+- target matrix: class, abstract class, method, static method, get, set, property, static property, accessor,
+  parameter (`constructor(@p x: A)`), multiple parameter decorators (`@dec @dec2 x`), decorated abstract overload
+  signature (`@dec abstract m(): A;`), decorated implementation after an abstract signature.
+- ordering: `@dec public m() {}` green; `@dec /* c */ public m() {}` green.
+- trivia: `@ /* c */ dec`, `@dec /* c */ class C {}`, `@dec\\nclass C {}` (now green after the ASI edge work), comments between decorators.
+- readings: declarations 688/688 (baseline 683 + 5 net after dedupe/removals); full suite 4017/4017 (baseline 4012); tsc 0 error.
+
+### deferred
+- `class C { static @dec m() {} }`: invalid TypeScript (diagnostic "Decorators must precede the name and all keywords"),
+  recovery splits it into two members; not worth matching.
+- `@a[0] class C {}` / `@c[0]` in a stack: element access is not a legal decorator expression; TS recovery produces
+  MissingDeclaration + ExpressionStatement + ArrayLiteralExpression and splits the decorator; parked.
+- `export @dec class C {}` and `export default @dec class C {}`: legal TS (ExportKeyword then Decorator inside one
+  ClassDeclaration) but the export/module path is outside this chunk (export/import family); parked with comments.
+- `@await f() class C {}`: oracle rejects (await is not a decorator expression).
