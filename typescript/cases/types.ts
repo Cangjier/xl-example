@@ -120,20 +120,54 @@ type T = A;\ntype U = B; type V = C;
 type T = A; type U = B; // c
 type T = A; type U = {}; type V = [A, B];
 
-// ===== 暂缓：chunk 2 / 依赖 harness 的 TS kind 别名（不实现，写注释目标） =====
-// 限定名 A.B / A.B.C / A.B<C>：TS 反查名是 FirstNode，ast-json.mjs 缺 ["FirstNode","QualifiedName"] 别名
-// type T = A.B;
-// type T = A.B.C;
-// type T = A.B<C>;
-// 函数类型 / 构造类型 / 参数（依赖 cover-expressions-1 的 ParameterShape 与 `=>`）
-// type T = () => void;
-// type T = (a: A) => B;
+// ===== T11 函数类型 =====
+type T = () => B;
+type T = (a: A) => B;
+type T = (a: A, b: B) => C;
+type T = ( a : A ) => B;
+type T = (a?: A) => B;
+type T = (a: A,) => B;
+type T = (/* c */ a: A) => B;
+type T = (a: A) => B[];
+type T = () => void;
+type T = (a: A) =>\nB;
+type T = (a: A)\n=> B;
+type T = /* c */ (a: A) => B;
+type T = (a: A) => (b: B) => C;
+type T = (a: A, b: B) => C; // c
+type T = () => B; type U = () => C;
+
+// ===== T12 类型字面量成员 =====
+type T = {};
+type T = { a: A };
+type T = { a?: A };
+type T = { readonly a: A };
+type T = { a(): B };
+type T = { [k: string]: A };
+type T = { (a: A): B };
+type T = { a: A; b: B };
+type T = { a: A, b: B };
+type T = { readonly a?: A };
+type T = { m(a: A, b: B): C };
+type T = { a: A }[];
+type T = { a: A }; type U = { b: B };
+type T = {  a : A  };
+type T = {\n  a: A;\n  b: B;\n};
+type T = { /* c */ a: A };
+type T = { a: /* c */ A };
+type T = { a: A; b: B; c: C };
+type T = { a(): B; b: C };
+
+// ===== 暂缓（chunk 3 / 其它家族，注释目标） =====
+// constructor type / 构造签名
 // type T = new () => A;
-// 对象类型成员（类型字面量非空）
-// type T = { a: number };
-// type T = { a: number; b: string };
-// type T = { [k: string]: number };
-// type T = { readonly a?: A };
+// rest 参数 / 解构参数 / 默认值
+// type T = (a: A, ...b: B) => C;
+// type T = ({ a }: A) => B;
+// 对象类型里暂缓的成员形态
+// type T = { readonly [k: string]: A };
+// type T = { a?(): B };
+// type T = { get a(): A };
 // conditional / mapped / infer / keyof / typeof / indexed / import type / template literal type / predicate / 类型算子
 // type T = A extends B ? C : D;
 // type T = { [K in keyof A]: A[K] };
@@ -146,7 +180,9 @@ type T = A; type U = {}; type V = [A, B];
 // type T = (x: A) => x is B;
 // type T = -1;
 // type T = readonly A[];
-// 泛型参数声明（type T<U> = U[];）与修饰词（export / declare）留给 declarations chunk
+// A<B<C>> 连写闭合（>> 被 basic token 收成一个 Symbol）
+// type T = A<B<C>>;
+// 泛型参数声明与修饰词（留给 declarations chunk）
 // type T<U> = U[];
 // export type T = A;
 // declare type T = A;
