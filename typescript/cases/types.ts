@@ -528,3 +528,19 @@ type F<T = A<B<C>>> = T;
 type F<T = { a: A }> = T;
 type F<in T> = T;
 type F<T extends A, U extends T> = T;
+
+// ===== sweep 6：import/typeof / unique symbol / keyof typeof 链 / 构造类型边界（measurement） =====
+const x: import("m").A = a;
+declare const s6: unique symbol;
+type T = typeof s6;
+interface I { [s]: A }
+interface I { [s]?: A }
+interface I { [s](): A }
+interface I { readonly [s]: A }
+type T = keyof typeof a.b;
+type T = typeof a[0];
+type T = (() => void) | (new () => A);
+type T = `${A}` extends `${infer U}` ? U : never;
+const a6 = { x: 1 } satisfies A;
+f({ x: 1 } satisfies A);
+type T = keyof /* c */ typeof a;

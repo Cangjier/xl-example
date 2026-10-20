@@ -368,3 +368,17 @@ children = Identifier("this") + 类型；函数声明 / 方法 / 接口方法 / 
 已绿清单：class/interface/function/arrow/type-alias 的 `<T extends A = B, U = C>`、`class C<in T>`、`class C<out T>`、
 `class C<in out T>`、`function f<const T>`、`T extends keyof X`、`T extends a.B<C>`、`T extends (a: A) => B`、
 `T = A<B<C>>>`、`T = { a: A }`、`T extends A, U extends T`，以及注释 trivia。
+
+## sweep 6（measurement-first）
+
+| 形态 | 结果 | 说明 |
+| --- | --- | --- |
+| `type T = import("m").A<B>;` / `const x: import("m").A = a;` | 绿 | import 类型（带泛型实参 / 变量标注位置） |
+| `declare const s: unique symbol;` | 绿 | declare 变量声明（earlier chunk 已支持） |
+| `interface I { [s]: A }` | **红→绿** | 计算属性名成员：TypeBuilder.ParseTypeMember 新增 ComputedPropertyName 分支（children = ComputedPropertyName → Identifier，再接 `?` / `:` 类型或参数表） |
+| `interface I { [s]?: A }` / `[s](): A` / `readonly [s]: A` | 绿 | 同一分支的可选/方法/只读变体 |
+| `keyof typeof a` / `keyof typeof a.b` / `typeof a[0]` | 绿 | TypeOperator/TypeQuery 链，`[0]` 索引访问落在 TypeQuery 之后 |
+| `abstract new () => A` / `new () => A` / `(() => void) \| (new () => A)` | 绿 | 构造类型边界（含括号联合） |
+| `` `${A}` extends `${infer U}` ? U : never `` | 绿 | 模板字面量 + infer |
+| `const a = { x: 1 } satisfies A;` / `f({ x: 1 } satisfies A);` | 绿 | satisfies 回归 |
+| trivia（`typeof /* c */ import(...)`、`keyof /* c */ typeof a`） | 绿 | 逐条测 |
