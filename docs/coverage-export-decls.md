@@ -64,3 +64,16 @@ TypeAliasDeclaration 的 pos 是 14 而不是 0，属 ruler 口径问题，留�
 暂缓：`export { a as "b-c" }` / `export { "a-b" }`（TS 的 ExportSpecifier.name 是字符串文本，cjAst 只认
 IdentifierShape.EscapedText，harness 缺该语义 → 报告不硬改）；`export declare const`（statements 侧 declare）；
 `export default function*`（generator `*`）；类/接口成员与 decorators。
+
+## export forms sweep（measurement-only，不改 token 源）
+
+新增 21 条 base+trivia 全绿用例（export stem 119 -> 141，其中仅 `export { type T } from "m";` 为暂缓目标）：
+`export { };`（空具名导出，含 `export {}` 模块标记）、`export { a, b, c };`、`export { a as b, c as d };`、
+`export { a as b } from "m";`、`export type { T } from "m";`、`export { a as default };`、`export { default as a };`、
+`export * as ns from "m";`、`export * as ns from "m" with { type: "json" };`（及双属性）、
+同文件多语句 + 语句间块注释/换行/行尾注释、`export {\n};`、`export\n{\n  a,\n  b,\n};`、
+`export *\nas\nns\nfrom "m";` 等换行/前导空格变体。全部先经 `ts.createSourceFile(...).parseDiagnostics` = 0 验证。
+
+暂缓（不支持，未改 token 源）：`export { type T } from "m";` —— TS 置 `ExportSpecifier.isTypeOnly=true` 且
+children 为 `[Identifier T]`；本仓 `ExportSpecifierShape.FromTokens` 把 `type` 当 Identifier 名（pos 8..13 vs ts 13..15），
+需要给 specifier 增加 inline `type` 修饰词语义，属 token 源改动，按任务要求只记目标。
