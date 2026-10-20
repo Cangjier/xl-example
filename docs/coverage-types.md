@@ -273,3 +273,13 @@ class / interface / function 的泛型参数（declarations chunk），语义层
 已绿：`typeof import("m")`、`typeof import("m").a`、`typeof import("m").default`、`keyof typeof import("m")`、`typeof import("m")[K]`，以及注释 trivia；回归 `typeof a`、`typeof a.b.c`、`import("m").T` 不变。
 
 暂缓（原因）：`typeof import("m", { with: { type: "json" } })` —— 合法，但 ImportType 多一个 `AssertClause` 孩子，需扩 import-type-shape（不在本 chunk 写范围）。
+
+## import 类型 attributes（cover-import-type-attrs-1）
+
+`ImportType` 的 children 顺序 = 模块字符串（`LiteralType`）→ 可选 `ImportAttributes`（TS 反查名 `AssertClause`）→ 限定名 → 可选泛型实参。
+`with` / `assert` 关键字与括号不进 AST；`ImportAttributes` 的 children 是若干 `ImportAttribute`（反查名 `AssertEntry`，key + 字符串值）。
+实现：`ImportTypeShape` 增加 `AssertClause` 字段；`TypeBuilder.ParseImportTypeAttributes()` 在模块字符串之后解析 `with` / `assert`
+（两种写法在 AST 上是同一个 kind）；`ParseImportType` 与 `typeof import` 分支共用它。
+
+已绿：`typeof import("m", { with: { type: "json" } })`、`import("m", { with: { type: "json" } }).X`、带泛型实参、
+legacy `assert` 写法、字符串键（`{ "type": "json" }`），以及 4 条注释 trivia；回归 `import("m").X`、`typeof import("m")` 不变。

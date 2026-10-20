@@ -428,3 +428,15 @@ interface I { /* c */ new (): A; }
 interface I { new (): A; /* c */ m(): void; }
 type T = {\n  new (): A;\n  new (a: A): B;\n};
 type T = { new (a: A, b: B): C, };
+
+// ===== import 类型 attributes（with / assert，TS 反查名 AssertClause） =====
+type T = typeof import("m", { with: { type: "json" } });
+type T = import("m", { with: { type: "json" } }).X;
+type T = import("m", { with: { type: "json" } }).X<B>;
+type T = import("m", { assert: { type: "json" } }).X;
+type T = typeof import("m", { with: { "type": "json" } });
+// trivia
+type T = typeof import("m", /* c */ { with: { type: "json" } });
+type T = typeof import("m", { with: /* c */ { type: "json" } });
+type T = typeof import("m", { with: { type /* c */ : "json" } });
+type T = typeof import("m", { with: { type: /* c */ "json" } });
