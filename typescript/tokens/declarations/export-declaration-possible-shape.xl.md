@@ -20,6 +20,7 @@ import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
+import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
@@ -149,6 +150,11 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       // export function [*] name(… {…}: body-bearing export function (generator `*` handled in Stage 16).
       state.Stage = 16;
       state.Kind = 14;
+    } else if (unit instanceof Common && (unit as Common).Is("async")) {
+      // export async function [*] …: wait for `function`, then reuse the body-bearing stage.
+      // The declaration start stays at the `async` unit (secondIndex), so FromUnits can build the modifier.
+      state.Stage = 29;
+      state.Kind = 14;
     } else if (unit instanceof Common && (unit as Common).Is("default")) {
       state.Stage = 20;
       state.Kind = 6;
@@ -189,6 +195,12 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       }
       if (text === "function") {
         state.Stage = 15;
+        state.Kind = 11;
+        continue;
+      }
+      if (text === "async") {
+        // export declare async function …;  —— wait for `function`, then the `;`-terminated stage.
+        state.Stage = 33;
         state.Kind = 11;
         continue;
       }
@@ -288,6 +300,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     } else if (unit instanceof Common && (unit as Common).Is("function")) {
       state.Stage = 23;
       state.Kind = 10;
+    } else if (unit instanceof Common && (unit as Common).Is("async")) {
+      // export default async function [*] …: wait for `function`, then the default-function stage.
+      state.Stage = 32;
+      state.Kind = 23;
     } else if (unit instanceof Common && (unit as Common).Is("interface")) {
       // export default interface …：默认导出接口（interface 体在 Stage 28 收尾）。
       state.Stage = 28;
@@ -299,8 +315,11 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     continue;
   }
   if (state.Stage === 23) {
-    // `export default function [名] (…) {…}`：名字与参数表先过去，等函数体那个 `{`。
+    // `export default function [*] [名] (…) {…}`：名字 / `*` / 参数表先过去，等函数体那个 `{`。
     if (unit instanceof Common) {
+      continue;
+    }
+    if (unit instanceof Symbol && (unit as Symbol).Is("*")) {
       continue;
     }
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
@@ -313,6 +332,33 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Done = true;
       state.DoneAt = index;
       state.Stage = 4;
+      continue;
+    }
+    state.Stage = 3;
+    continue;
+  }
+  if (state.Stage === 29) {
+    // after `export async`: must be `function`, then fall through to the body-bearing stage.
+    if (unit instanceof Common && (unit as Common).Is("function")) {
+      state.Stage = 16;
+      continue;
+    }
+    state.Stage = 3;
+    continue;
+  }
+  if (state.Stage === 32) {
+    // after `export default async`: must be `function`, then the default-function stage.
+    if (unit instanceof Common && (unit as Common).Is("function")) {
+      state.Stage = 23;
+      continue;
+    }
+    state.Stage = 3;
+    continue;
+  }
+  if (state.Stage === 33) {
+    // after `export declare async`: must be `function`, then wait for the terminating `;`.
+    if (unit instanceof Common && (unit as Common).Is("function")) {
+      state.Stage = 15;
       continue;
     }
     state.Stage = 3;
@@ -748,9 +794,21 @@ if (kind === 10) {
     return host;
   }
   let built:ShapeToken;
-  if (host.Data[firstAfter] instanceof Common) {
+  let nameCandidate = firstAfter;
+  if (host.Data[nameCandidate] instanceof Symbol && (host.Data[nameCandidate] as Symbol).Is("*")) {
+    // generator: `function * name` — the name follows the asterisk.
+    let shifted = -1;
+    for (let at = nameCandidate + 1; at <= tokenIndex; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        shifted = at;
+        break;
+      }
+    }
+    nameCandidate = shifted;
+  }
+  if (nameCandidate >= 0 && host.Data[nameCandidate] instanceof Common) {
     let bodyIndex = -1;
-    for (let at = firstAfter + 1; at <= tokenIndex; at++) {
+    for (let at = nameCandidate + 1; at <= tokenIndex; at++) {
       if (!host.Data[at].IsTriviaToken) {
         bodyIndex = at;
       }
@@ -814,6 +872,122 @@ if (kind === 10) {
   built.Parent = host;
   return built;
 }
+if (kind === 23) {
+  // export default async function [*] [name](…) {…}: the declaration starts at `async` (secondIndex),
+  // so FunctionDeclarationShape.FromUnits builds the AsyncKeyword itself; Default/Export are prepended.
+  const defaultUnit = host.Data[secondIndex];
+  let asyncIndex = -1;
+  for (let at = secondIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      asyncIndex = at;
+      break;
+    }
+  }
+  if (asyncIndex < 0) {
+    return host;
+  }
+  const asyncUnit = host.Data[asyncIndex];
+  let functionIndex = -1;
+  for (let at = asyncIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      functionIndex = at;
+      break;
+    }
+  }
+  if (functionIndex < 0) {
+    return host;
+  }
+  let firstAfter = -1;
+  for (let at = functionIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      firstAfter = at;
+      break;
+    }
+  }
+  if (firstAfter < 0) {
+    return host;
+  }
+  let built:ShapeToken;
+  let nameCandidate = firstAfter;
+  if (host.Data[nameCandidate] instanceof Symbol && (host.Data[nameCandidate] as Symbol).Is("*")) {
+    // default async generator: `async function * name` — the name follows the asterisk.
+    let shifted = -1;
+    for (let at = nameCandidate + 1; at <= tokenIndex; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        shifted = at;
+        break;
+      }
+    }
+    nameCandidate = shifted;
+  }
+  if (nameCandidate >= 0 && host.Data[nameCandidate] instanceof Common) {
+    let bodyIndex = tokenIndex;
+    while (bodyIndex > nameCandidate && host.Data[bodyIndex].IsTriviaToken) {
+      bodyIndex--;
+    }
+    built = FunctionDeclarationShape.FromUnits(host, asyncIndex, bodyIndex, context);
+  } else {
+    // anonymous default async function: children = AsyncKeyword, Block (Export/Default unshifted below).
+    const paramsUnit = host.Data[firstAfter];
+    if (!(paramsUnit instanceof Bracket) || (paramsUnit as Bracket).StartBracketChar !== "(") {
+      return host;
+    }
+    let bodyIndex = -1;
+    for (let at = firstAfter + 1; at <= tokenIndex; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        bodyIndex = at;
+        break;
+      }
+    }
+    const bodyUnit = host.Data[bodyIndex];
+    if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
+      return host;
+    }
+    const asyncShape = new AsyncKeywordShape(host.Template);
+    asyncShape.SignInToken(asyncUnit);
+    asyncShape.SignOutToken(asyncUnit);
+    asyncShape.Pos = defaultUnit.SourceRange.End === null ? pos : defaultUnit.SourceRange.End.Index + 1;
+    asyncShape.TryToClose(context);
+    const paramsEnd = (paramsUnit as Bracket).SourceRange.End;
+    const bodyPos = paramsEnd === null ? pos : paramsEnd.Index + 1;
+    const bodyBuilder = new StatementBuilder(host.Template, context);
+    bodyBuilder.Load([bodyUnit], bodyPos);
+    const body = bodyBuilder.BuildStatement();
+    if (bodyBuilder.At !== bodyBuilder.Units.length) {
+      throw new Error("export default async function 的函数体没有读完");
+    }
+    const anonymous = new FunctionDeclarationShape(host.Template);
+    anonymous.FunctionName = null;
+    anonymous.Parameters = [];
+    anonymous.ReturnType = null;
+    anonymous.Body = body;
+    anonymous.Add(asyncShape);
+    anonymous.Add(body);
+    anonymous.SignInToken(exportUnit);
+    if (bodyUnit.SourceRange.End !== null) {
+      anonymous.SignOut(bodyUnit.SourceRange.End);
+    }
+    anonymous.TryToClose(context);
+    built = anonymous;
+  }
+  const defaultModifier = new DefaultKeywordShape(host.Template);
+  if (defaultUnit.SourceRange.Start !== null) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  }
+  if (defaultUnit.SourceRange.End !== null) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  }
+  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.TryToClose(context);
+  built.Data.unshift(defaultModifier);
+  defaultModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
 if (kind === 14) {
   // `export function [*] name(…) {…}`：声明从 `function`（secondIndex）起，体是闭合 `{ }`（tokenIndex）。
   // children 顺序与 TS 一致：ExportKeyword、[AsteriskToken]、Identifier、Parameter 们、[返回类型]、Block。
@@ -843,6 +1017,24 @@ if (kind === 11) {
       functionIndex = at;
       break;
     }
+  }
+  let asyncUnit:Token | null = null;
+  if (functionIndex >= 0
+    && host.Data[functionIndex] instanceof Common
+    && (host.Data[functionIndex] as Common).Is("async")) {
+    // export declare async function …: the async modifier sits between declare and function.
+    asyncUnit = host.Data[functionIndex];
+    let shifted = -1;
+    for (let at = functionIndex + 1; at <= tokenIndex; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        shifted = at;
+        break;
+      }
+    }
+    functionIndex = shifted;
+  }
+  if (functionIndex < 0) {
+    return host;
   }
   let nameIndex = -1;
   for (let at = functionIndex + 1; at <= tokenIndex; at++) {
@@ -905,6 +1097,14 @@ if (kind === 11) {
   built.Body = null;
   built.Add(exportModifier);
   built.Add(declareModifier);
+  if (asyncUnit !== null) {
+    const asyncShape = new AsyncKeywordShape(host.Template);
+    asyncShape.SignInToken(asyncUnit);
+    asyncShape.SignOutToken(asyncUnit);
+    asyncShape.Pos = declareUnit.SourceRange.End === null ? pos : declareUnit.SourceRange.End.Index + 1;
+    asyncShape.TryToClose(context);
+    built.Add(asyncShape);
+  }
   built.Add(name);
   if (returnType !== null) {
     built.Add(returnType);

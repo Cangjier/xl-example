@@ -1,5 +1,42 @@
 # export declarations chunk 2 覆盖记录
 
+> **export async / generator functions**（分支 `cover-export-async-fn-1`，起点 `origin/integration @c5cf9a25`）：
+> `export-functions.ts` **25 → 49**（+24），**49/49** 完全一致；全量 **2879 → 2903** 全绿；`export` stem 182/182 无回归；tsc 0 error。
+>
+> Oracle（TS `createSourceFile` 实测 children 顺序；ExportKeyword/DefaultKeyword/AsyncKeyword/AsteriskToken 都在 children 里）：
+> - `export async function f() {}` → `FunctionDeclaration`：ExportKeyword, AsyncKeyword, Identifier, Block
+> - `export default async function f() {}` → ExportKeyword, DefaultKeyword, AsyncKeyword, Identifier, Block
+> - `export function* g() {}` → ExportKeyword, AsteriskToken, Identifier, Block
+> - `export default function* g() {}` → ExportKeyword, DefaultKeyword, AsteriskToken, Identifier, Block
+> - `export async function* h() {}` → ExportKeyword, AsyncKeyword, AsteriskToken, Identifier, Block
+> - `export default async function* g() {}` → ExportKeyword, DefaultKeyword, AsyncKeyword, AsteriskToken, Identifier, Block
+> - `export declare async function f(): void;` → ExportKeyword, DeclareKeyword, AsyncKeyword, Identifier, VoidKeyword
+> - 匿名 `export default async function () {}` → ExportKeyword, DefaultKeyword, AsyncKeyword, Block（无名字）
+>
+> 实现（只改 `export-declaration-possible-shape.xl.md`）：
+> - 第二格分派新增 `async` → Stage 29（等 `function` 后转 Stage 16 的「体到齐」），Kind 仍用 **14**：
+>   Build 的声明起点就是 `secondIndex`（= `async`），`FunctionDeclarationShape.FromUnits` 自己认 async / `*`，
+>   所以 `export async function` 与 `export async function*` 共用同一条 build 分支；普通 `export function`（Kind 14）
+>   路径不变。
+> - `default` 之后新增 `async` → Stage 32（等 `function` 后转 Stage 23），**新 Kind 23**：
+>   声明起点 = `async` 单元；有名字走 `FunctionDeclarationShape.FromUnits(asyncIndex, bodyIndex)`，
+>   匿名走手工建（AsyncKeyword + Block）；最后 unshift Default/Export。
+> - `declare` 之后新增 `async` → Stage 33（等 `function` 后转 Stage 15 的 `;` 收尾），Kind 仍 11：
+>   Build 在 declare 与 name 之间插 `AsyncKeywordShape`。
+> - Stage 23（default function）放行 `*`；Kind 10 的有名判定改成「`function` 后可选 `*` 再找名字」，
+>   于是 `export default function* g() {}` 也转绿（原来 `*` 会让 Stage 23 退出）。
+> - Kind 23 的有名判定同样先跳过 `*`（`async function * name`），修复 `export default async function*` 的崩溃。
+>
+> 24 条覆盖：`export async function`（空体 / await 体 / 参数与返回类型）、`export default async function`（有名 / 匿名）、
+> `export async function*`（空体 / yield / await+yield）、`export default async function*`、`export default function*`、
+> `export function*`（带 yield）、`export declare async function f(): void;`；
+> trivia：`export /* c */ async`、`async /* c */ function`、`function /* c */ f`、体前注释、
+> `export async function\nf() {}`、`export default /* c */ function*`；重复形（两条连排、`a\n` 后接 async 导出）。
+>
+> 仍未做（沿用既有 limitation，未新增注释目标）：`export declare async function f(a: A): B;`（Kind 11 的无体签名
+> 只建名字 + 返回类型，参数表未建——与既有 `export declare function` 同一条限制）；匿名带参数的
+> `export default async function (a: A) {}`（匿名手工 build 不含 Parameter，与既有同步匿名 default 同一限制）。
+>
 分支 `cover-export-decls-1`（从 `origin/integration` @4054100e 起，含 statements/class/interface/enum/types chunk1）。
 产物：`node typescript/cases/ast-json.mjs export` + `ast-json-diff.mjs export`。
 
