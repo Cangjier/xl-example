@@ -7,6 +7,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
@@ -75,8 +76,17 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 0) {
-    state.Stage = unit instanceof Common && (unit as Common).Is("import") ? 1 : -1;
+    const isImport = unit instanceof Common && (unit as Common).Is("import");
+    state.Stage = isImport ? 1 : -1;
     if (state.Stage < 0) {
+      state.Rejected = true;
+      continue;
+    }
+    // Decide at the first trigger. Right after "import" the raw text decides whether this is an
+    // import-equals declaration: <name> followed by "=". Anything else (from / "," / "{" / quote / "*")
+    // rejects now, so ImportDeclarationPossibleShape stays the only candidate and mounts its shell
+    // at exactly the same token as before this candidate existed.
+    if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange.End) !== "=") {
       state.Rejected = true;
     }
     continue;
@@ -84,6 +94,19 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (state.Stage === 1) {
     state.Stage = unit instanceof Common ? 2 : -1;
     if (state.Stage < 0) {
+      state.Rejected = true;
+      continue;
+    }
+    // The next raw character decides: import-equals must be followed by "=".
+    // If it is "from" / "," / "{" / ";" etc, reject now so the import-declaration candidate is not kept ambiguous.
+    let hasLaterCode = false;
+    for (let later = at + 1; later < units.length; later++) {
+      if (!units[later].IsTriviaToken) {
+        hasLaterCode = true;
+        break;
+      }
+    }
+    if (!hasLaterCode && ImportEqualsDeclarationPossibleShape.NextChar(unit.SourceRange.End) !== "=") {
       state.Rejected = true;
     }
     continue;
@@ -165,3 +188,115 @@ host.Data.splice(start, tokenIndex - start + 1, built);
 built.Parent = host;
 return built;
 ```
+
+## static method NextAfterName:(last:Source | null)=>string
+
+从 `last` 之后跳过空白与注释，读一个标识符词，再跳过空白与注释，返回它后面的那个字符；读不到返回空串。
+
+`= ` 还没被 token 化时用它回答「`import <名字>` 后面是不是 `=`」。
+
+```ts
+if (last === null) {
+  return "";
+}
+const document = last.Document;
+const count = document.GetCount();
+let at = last.Index + 1;
+at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
+let wordLength = 0;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
+    wordLength++;
+    at++;
+    continue;
+  }
+  break;
+}
+if (wordLength === 0) {
+  return "";
+}
+at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
+if (at >= count) {
+  return "";
+}
+return document.At(at).Value;
+```
+
+## static method SkipTrivia:(document:any, from:int, count:int)=>int
+
+跳过空白与 `//` / `/* */` 注释，返回第一个非 trivia 字符的下标（越界返回 `count`）。
+
+```ts
+let at = from;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  return at;
+}
+return at;
+```
+
+## static method NextChar:(last:Source | null)=>string
+
+从 `last` 之后的下一个位置起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
+
+它只服务「名字后面是不是 `=`」这一条判据：`=` 还没被 token 化时，候选仍要能当场决定退不退出。
+
+```ts
+if (last === null) {
+  return "";
+}
+const document = last.Document;
+const count = document.GetCount();
+let at = last.Index + 1;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  return ch;
+}
+return "";
+```
+

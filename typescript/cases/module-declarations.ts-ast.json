@@ -55,6 +55,155 @@
       ]
     },
     {
+      "src": "import x = require(\"m\");",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 22,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import y = require('other');",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "y"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 26,
+                  "text": "other"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import z = A.B;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "z"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 10,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "A"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import w = A.B.C;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "w"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 10,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "QualifiedName",
+                  "pos": 10,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "A"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 14,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 16,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "export = x; // trailing",
       "ast": [
         {
@@ -85,6 +234,37 @@
               "pos": 19,
               "end": 21,
               "text": "N"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x = require(\"m\"); // trailing",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 22,
+                  "text": "m"
+                }
+              ]
             }
           ]
         }
@@ -127,6 +307,68 @@
       ]
     },
     {
+      "src": "import /* c */ x = require(\"m\");",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 16,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 18,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 27,
+                  "end": 30,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x /* c */ = require(\"m\");",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 18,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 27,
+                  "end": 30,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "export =\nx;",
       "ast": [
         {
@@ -157,6 +399,68 @@
               "pos": 19,
               "end": 21,
               "text": "N"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x =\nrequire(\"m\");",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 22,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x = require(\n\"m\"\n);",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 23,
+                  "text": "m"
+                }
+              ]
             }
           ]
         }
@@ -199,6 +503,37 @@
       ]
     },
     {
+      "src": "import x = require(\"m\");",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 22,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "export = x; export as namespace N;",
       "ast": [
         {
@@ -224,6 +559,69 @@
               "pos": 31,
               "end": 33,
               "text": "N"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x = require(\"m\"); import y = A.B;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 22,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 24,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "y"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 35,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 35,
+                  "end": 37,
+                  "text": "A"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 38,
+                  "end": 39,
+                  "text": "B"
+                }
+              ]
             }
           ]
         }

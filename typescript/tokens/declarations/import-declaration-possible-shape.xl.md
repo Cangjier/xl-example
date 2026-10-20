@@ -10,6 +10,7 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ImportDeclarationShape } from "./import-declaration-shape.xl.md"
 ```
@@ -68,6 +69,12 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     continue;
   }
   if (state.Stage === 1) {
+    // `import x = ...` is an import-equals declaration, not an import declaration:
+    // "=" right after the name kills this candidate so the import-equals candidate is the only one left.
+    if (unit instanceof Symbol && (unit as Symbol).Is("=")) {
+      state.Stage = 3;
+      continue;
+    }
     if (unit instanceof Bracket && unit.Is("(", ")")) {
       state.Stage = 3;
     } else if (unit instanceof Bracket && unit.Is("{", "}")) {
