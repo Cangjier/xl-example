@@ -145,7 +145,7 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new NamespaceExportDeclarationPossibleShape(),
     // new ClassDeclarationPossibleShape(),
     // new InterfaceDeclarationPossibleShape(),
-    // new FunctionDeclarationPossibleShape(),
+    new FunctionDeclarationPossibleShape(),
     new EnumDeclarationPossibleShape(),
     // new ModuleDeclarationPossibleShape(),
     // new EnumDeclarationPossibleShape(),
