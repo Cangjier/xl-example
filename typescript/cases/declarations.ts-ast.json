@@ -1,0 +1,1947 @@
+{
+  "cases": [
+    {
+      "src": "class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class A {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class ABC {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "ABC"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C1 {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare class D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "D"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class /* c */ C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 15,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C /* c */ {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { /* c */ }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class\nC {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {}\n",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {}\ninterface I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 10,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ declare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 21,
+              "end": 23,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare /* c */ class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 21,
+              "end": 23,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare class /* c */ C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 23,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare class C { /* c */ }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface A {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface ABC {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 13,
+              "text": "ABC"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface /* c */ I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 19,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I /* c */ {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I { /* c */ }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {}\ninterface J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 14,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "J"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ declare interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare interface I { /* c */ }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A, B }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 11,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A, B, C }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 11,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "B"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 14,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1, B = 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 15,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "B"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 0, B = 1, C = 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "0"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 15,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "B"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 22,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "C"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = \"x\" }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "StringLiteral",
+                  "pos": 12,
+                  "end": 16,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = \"x\", B = \"y\" }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "StringLiteral",
+                  "pos": 12,
+                  "end": 16,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 17,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                },
+                {
+                  "kind": "StringLiteral",
+                  "pos": 21,
+                  "end": 25,
+                  "text": "y"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 + 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "PlusToken",
+                      "pos": 14,
+                      "end": 16
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1, }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = \"x\", }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "StringLiteral",
+                  "pos": 12,
+                  "end": 16,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare enum E {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 16,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare enum E { A = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 16,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 20,
+                  "end": 22,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ enum E {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum /* c */ E {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 14,
+              "text": "E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E /* c */ {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { /* c */ A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 18,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A /* c */ }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A, /* c */ B }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 11,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 21,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = /* c */ 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 12,
+                  "end": 22,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1, /* c */ B = 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 15,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 25,
+                  "text": "B"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 27,
+                  "end": 29,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum\nE {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E {\nA\n}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E {\nA,\nB\n}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 11,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 /* c */ }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {} class D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "D"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {}\nclass D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "D"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {} interface J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 14,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "J"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E {} enum F {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            }
+          ]
+        },
+        {
+          "kind": "EnumDeclaration",
+          "pos": 9,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "F"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A } enum F { B }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "EnumDeclaration",
+          "pos": 12,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "F"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 21,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {} interface I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 10,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {} enum E {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "EnumDeclaration",
+          "pos": 14,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "E"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A } class C {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 12,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {}\ninterface I {}\nenum E { A }\n",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 10,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "EnumDeclaration",
+          "pos": 25,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 34,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
