@@ -189,7 +189,7 @@ export { "a-b" as c } from "m"; export { "x-y" as z } from "n";
 
 // ===== 暂缓（不在本用例集） =====
 // export default class D extends B {};  —— heritage（extends）未合并：类声明形状报「类表达式缺少类体」
-// export default function* f() {};     —— generator `*` 未处理
+// export default function* f() {};     —— 已覆盖：见 base 22（export default function / generator / async）
 // export declare\ntype T = A;          —— declare 与 type 之间换行时 TS 侧 TypeAliasDeclaration 的 pos 是 14 而不是 0
 // export declare const x;              —— declare 变量必须有类型或初始化式（TS 语义）
 // ===== base 12：export forms sweep（measurement-only，不改 token 源） =====
@@ -348,3 +348,28 @@ export default abstract class D<T> extends B implements I {}
 export default class D<T> extends B<C> implements I, J {}
 export default class D /* c */ extends B {}
 export default class D<T> extends B {} // c
+
+// ===== base 22: export default function / generator / async（task-354，oracle diag=0 全合法） =====
+export default function () {}
+export default function f() {}
+export default function g() { return 1; }
+export default function* f() {}
+export default function* () {}
+export default function* h(): Generator<number> { yield 1; }
+export default async function f() {}
+export default async function () {}
+export default async function f() { return 1; }
+// + trivia
+export default /* c */ function f() {}
+export default function /* c */ f() {}
+export default function f /* c */ () {}
+export default function\nf() {}
+export default function* /* c */ f() {}
+export default function* f /* c */ () {}
+export default async /* c */ function f() {}
+export default function f() {} // c
+export default function* f() {} // c
+export default async function f() {} // c
+// ===== deferred =====
+// `export default async function* f() {}`: TS 6.0.3 语法上合法，但本仓 export 前缀的 async+generator 组合
+// 组合还没收（async 分支在 function-declaration 侧，export 前缀分派只做 function/function*）；报告归属 export-declaration。
