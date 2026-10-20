@@ -671,3 +671,31 @@ class C {\n  m(x: any): x is A {\n    return true;\n  }\n}
 // constructor return predicates / assertions on setters: invalid TypeScript, skipped.
 // parameter decorators (`constructor(@dec x: A)`, `m(@dec x: A)`): DEFERRED -- needs TypeBuilder.ParseParameter surgery
 // (decorator prefix consumes tokens before the parameter name; planned for a later chunk).
+// ===== enum member initializers（EnumMember children = name + initializer；= 与 , 不进 Data）=====
+enum E { A = 1 << 2 }
+enum E { A = -1 }
+enum E { A = ~0 }
+enum E { A = 1 | 2 }
+enum E { A = 1 & 2 }
+enum E { A = 1 + 2 * 3 }
+enum E { A = 'a' }
+enum E { A = "a" }
+enum E { A = `x` }
+enum E { A, B = 1, C }
+enum E { A = 1, B = A + 1 }
+enum E { A = 1, B, C = 3 }
+enum E { 'a' = 1 }
+enum E { "a" = 1 }
+enum E { 1 = 1 }
+enum E { A /* c */ = 1 }
+enum E { A = 1 /* c */, B = 2 }
+enum E { /* c */ A = 1 }
+enum E { A = (1) }
+enum E { A = 1 + 2, B = 3 }
+enum E { A = -1, B = ~0 }
+// 暂缓：`const enum` / `declare const enum` —— root 候选 coexist 问题：`const` 同时被 statements 的变量声明候选吃掉
+// （变量候选 ScanToSemicolon 一直活到 EOF），enum 候选虽在枚举体 `}` 处 Done，但 Candidates>1 不能建；
+// 到 EOF 时 enum 候选先 Reject（尾随单元规则），只剩变量候选，于是报「变量声明里有无法识别的单元」。
+// 修法需让变量/statement 候选在 `const` 后跟 `enum` 时退出（属 statements 家族，本块 WRITE SCOPE 之外），或
+// 给候选优先级（属 core CatalogGuide）。本块已把 enum 名字（StringLiteral/NumericLiteral）与初始化器全部收绿，
+// const enum 待 statements/core 侧提供优先级或让位规则后再补。
