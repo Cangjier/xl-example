@@ -2797,6 +2797,946 @@
           ]
         }
       ]
+    },
+    {
+      "src": "1;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 1,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1_000;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "1000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1_000_000;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 9,
+              "text": "1000000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1e10;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "10000000000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1E10;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "10000000000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1.5e-3;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "0.0015"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": ".5;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 2,
+              "text": "0.5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0.5;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "0.5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0xFF;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "255"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0o17;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "15"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0b1010;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "10"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0xFF_FF;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "65535"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1n;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 2,
+              "text": "1n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1_000n;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "1000n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0xFFn;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "0xffn"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0b1010n;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "10n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "0o17n;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "15n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'a';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 2,
+              "text": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\u000A\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 8,
+              "text": "\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'\\u0041';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 8,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\u{1F600}\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 11,
+              "text": "😀"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'\\x41';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\0\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "\u0000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"it's\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "it's"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`t`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${b}c`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`\\u000A`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 8,
+              "text": "\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "tag`\\u{41}`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "TaggedTemplateExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 3,
+                  "text": "tag"
+                },
+                {
+                  "kind": "NoSubstitutionTemplateLiteral",
+                  "pos": 3,
+                  "end": 11,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a\nb`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "a\nb"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`a${`b${c}`}d`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "TemplateExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "TemplateHead",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "a"
+                },
+                {
+                  "kind": "TemplateSpan",
+                  "pos": 4,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "TemplateExpression",
+                      "pos": 4,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "TemplateHead",
+                          "pos": 4,
+                          "end": 8,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "TemplateSpan",
+                          "pos": 8,
+                          "end": 11,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 9,
+                              "text": "c"
+                            },
+                            {
+                              "kind": "TemplateTail",
+                              "pos": 9,
+                              "end": 11,
+                              "text": ""
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TemplateTail",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "d"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/g;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/g"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/gi;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "/a/gi"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/u;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/u"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/s;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/d;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/d"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/v;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/v"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/[/]/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "/[/]/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/\\//;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/\\//"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "-0;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "+1;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "- 1;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 1,
+                  "end": 3,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1_000 /* c */;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "1000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"a\" /* c */;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/g /* c */;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/g"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
