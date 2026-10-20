@@ -956,3 +956,23 @@ interface I { m(a: A): B; m(a: C): D; }
 interface I { m?(): void; }
 interface I { m<T>(x: T): T; }
 interface I { m /* c */ (a: A): B; }
+// ===== base 20: decorator matrix =====
+@dec(a, b) class C {}
+@a.b() class C {}
+@(expr) class C {}
+@new F() class C {}
+class C { @dec public m() {} }
+class C { @dec private static m() {} }
+class C { @dec static x = 1; }
+class C { @dec constructor(@p x: A) {} }
+class C { constructor(@dec @dec2 x: A) {} }
+abstract class C { @dec abstract m(): A; }
+abstract class C { abstract m(): A; @dec m() {} }
+@dec export class C {}
+@dec export abstract class C {}
+class C { @dec /* c */ public m() {} }
+// `class C { static @dec m() {} }`: invalid TypeScript (parser diagnostic "Decorators must precede the name and all keywords"), TS recovery splits it into two members; not worth matching.
+// `export @dec class C {}` and `export default @dec class C {}`: legal TS (ExportKeyword then Decorator in the same ClassDeclaration), but the export/module path is outside this chunk scope (export/import family); parked.
+// `@await f() class C {}` in async context: oracle rejects (await is not a decorator expression); skipped.
+// `@a[0] class C {}`: element access is not a legal decorator expression; TS recovery yields MissingDeclaration + ExpressionStatement (+ArrayLiteralExpression) and splits the decorator. Parked (invalid input, degenerate recovery).
+// `@dec(1) @a.b() @c[0] class C {}`: same element-access issue; use call forms like `@dec(1) @a.b() @c()` instead.

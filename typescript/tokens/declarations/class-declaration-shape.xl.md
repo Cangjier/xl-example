@@ -13,6 +13,7 @@ import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
 import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
@@ -122,10 +123,17 @@ while (index < code.length && code[index] instanceof Symbol && (code[index] as S
 }
 const decoratorUnitCount = index;
 const decoratorCount = decorators.length;
+let exportUnit:Token | null = null;
 let declareUnit:Token | null = null;
 let abstractUnit:Token | null = null;
 while (index < code.length && code[index] instanceof Common) {
   const text = (code[index] as Common).TempToString();
+  if (text === "export" && exportUnit === null) {
+    // `@dec export class C {}` is legal TS: decorators precede `export` inside the same ClassDeclaration.
+    exportUnit = code[index];
+    index++;
+    continue;
+  }
   if (text === "declare" && declareUnit === null) {
     declareUnit = code[index];
     index++;
@@ -201,7 +209,14 @@ for (let at = decoratorUnitCount; at < decoratorUnitCount + modifierCount; at++)
   if (!(modifierUnit instanceof Common)) {
     continue;
   }
-  if ((modifierUnit as Common).Is("declare")) {
+  if ((modifierUnit as Common).Is("export")) {
+    const modifier = new ExportKeywordShape(host.Template);
+    modifier.SignInToken(modifierUnit);
+    modifier.SignOutToken(modifierUnit);
+    modifier.Pos = modifierPos;
+    modifier.TryToClose(context);
+    shape.Add(modifier);
+  } else if ((modifierUnit as Common).Is("declare")) {
     const modifier = DeclareKeywordShape.FromBasicToken(modifierUnit as Common, context);
     modifier.Pos = modifierPos;
     shape.DeclareKeyword = modifier;
