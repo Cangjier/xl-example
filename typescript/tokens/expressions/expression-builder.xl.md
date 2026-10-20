@@ -90,9 +90,11 @@ import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { TypeParameterShape } from "../types/type-parameter-shape.xl.md"
 import { TypeAssertionExpressionShape } from "./type-assertion-expression-shape.xl.md"
+import { MetaPropertyShape } from "./meta-property-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
+import { SpreadElementShape } from "./spread-element-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
@@ -737,6 +739,20 @@ return expression;
 ```ts
 const start = this.At;
 this.At++;
+// `new.target`：MetaProperty，children 只有 Identifier "target"。
+const targetDot = this.Peek(0);
+const targetUnit = this.Peek(1);
+if (targetDot !== null && this.IsText(targetDot, ".")
+  && targetUnit !== null && targetUnit instanceof Common && (targetUnit as Common).Is("target")) {
+  this.At++;
+  const targetIndex = this.At;
+  const targetShape = new MetaPropertyShape(this.Template);
+  const targetName = IdentifierShape.FromBasicToken(targetUnit as Common, this.Context);
+  targetName.Pos = this.Positions[targetIndex];
+  this.At++;
+  targetShape.Add(targetName);
+  return this.SpanNode(targetShape, start, this.At - 1);
+}
 const chainStart = this.At;
 let callee = this.ParsePrimary();
 while (true) {
@@ -767,6 +783,12 @@ while (true) {
 }
 const shape = new NewExpressionShape(this.Template);
 shape.Add(callee);
+if (this.CanStartTypeArgumentCall(this.At)) {
+  const typeArguments = this.ParseTypeArgumentsAtCurrent();
+  for (const typeArgument of typeArguments) {
+    shape.Add(typeArgument);
+  }
+}
 const argsUnit = this.Peek(0);
 if (argsUnit !== null && this.IsBracketStart(argsUnit, "(")) {
   const bracket = argsUnit as Bracket;
@@ -1045,6 +1067,15 @@ while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
   if (inner.IsText(unit, ",")) {
     inner.At++;
+    continue;
+  }
+  if (inner.IsText(unit, "...")) {
+    const spreadIndex = inner.At;
+    inner.At++;
+    const expression = inner.ParseAssign();
+    const spread = new SpreadElementShape(this.Template);
+    spread.Add(expression);
+    shape.Add(inner.SpanNode(spread, spreadIndex, inner.At - 1));
     continue;
   }
   shape.Add(inner.ParseAssign());
@@ -1471,6 +1502,24 @@ if (unit instanceof Common) {
     }
   }
   this.At++;
+  if (text === "import") {
+    // `import.meta`：MetaProperty，children 只有 Identifier "meta"（`import` 是 token，不投影）。
+    // `At` 此时已越过 `import`：Peek(0) 应是 `.`、Peek(1) 应是 `meta`；
+    // 不满足就不吃 import，退回普通标识符路径（`import x from "m"` 由声明候选处理）。
+    const metaDot = this.Peek(0);
+    const metaUnit = this.Peek(1);
+    if (metaDot !== null && this.IsText(metaDot, ".")
+      && metaUnit !== null && metaUnit instanceof Common && (metaUnit as Common).Is("meta")) {
+      const metaShape = new MetaPropertyShape(this.Template);
+      this.At++;
+      const metaIndex = this.At;
+      const metaShapeName = IdentifierShape.FromBasicToken(metaUnit as Common, this.Context);
+      metaShapeName.Pos = this.Positions[metaIndex];
+      this.At++;
+      metaShape.Add(metaShapeName);
+      return this.SpanNode(metaShape, start, this.At - 1);
+    }
+  }
   if (text === "true") {
     return this.MakeKeywordLeaf(new TrueKeywordShape(this.Template), start);
   }
@@ -1562,6 +1611,15 @@ while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
   if (inner.IsText(unit, ",")) {
     inner.At++;
+    continue;
+  }
+  if (inner.IsText(unit, "...")) {
+    const spreadIndex = inner.At;
+    inner.At++;
+    const expression = inner.ParseAssign();
+    const spread = new SpreadElementShape(this.Template);
+    spread.Add(expression);
+    args.push(inner.SpanNode(spread, spreadIndex, inner.At - 1));
     continue;
   }
   const arg = inner.ParseAssign();
