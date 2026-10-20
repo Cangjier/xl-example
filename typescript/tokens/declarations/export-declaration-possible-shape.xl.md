@@ -16,11 +16,15 @@ import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 import { ExportDeclarationShape } from "./export-declaration-shape.xl.md"
+import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
+import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -58,15 +62,18 @@ export interface I {}
 export enum E { A }
 export default 1;
 export default class D {}
+export declare class C {}
+export default function f() {}
+export declare function f(): void;
 ```
 
-`Stage` 0 = 首格 `export`；1 = 见 `type`；2 = 子句形（`{…}` / `*`，建 mounted shell）；
-3 = 退出。声明前缀形（`export <decl>`）走 10..22：10 `class`、11 `interface`、12 `enum`、13 `const/let/var`、
-20 等 `default` 之后的单元、21 `default class`、22 `default <表达式>`；到类体 / 枚举体 / 接口体那个 `{` 或 `;` 时置
-`Done` 与 `DoneAt`，只有 `DoneAt === tokenIndex` 才建。声明形建完**不挂载** shell：直接把根级声明形状（带
-`ExportKeyword`/`DefaultKeyword`）放回宿主。
-`export default <表达式>` 的节点是 `ExportAssignment`（`isExportEquals=false`，不在比较字段里），
-这里直接建 `ExportAssignmentShape`，不碰 module-1 的 export-assignment 候选/文件。
+`Stage` 0 = 首格 `export`；1 = 见 `type`；2 = 子句形（`{…}` / `*`，建 mounted shell）；3 = 退出。
+声明前缀形（`export <decl>`）：10 `class`、11 `interface`、12 `enum`、13 `const/let/var`、14 等 `declare` 之后的声明词、
+15 `declare function`（等 `;`）、20 等 `default` 之后的单元、21 `default class`、22 `default <表达式>`、23 `default function`。
+到类体 / 枚举体 / 接口体那个 `{`、或 `;` 时置 `Done`/`DoneAt`，只有 `DoneAt === tokenIndex` 才建。声明形建完**不挂载** shell：
+直接把根级声明形状（带 `ExportKeyword` / `DefaultKeyword` / `DeclareKeyword`）放回宿主。
+`export default <表达式>` 的节点是 `ExportAssignment`（`isExportEquals=false`，不在比较字段里），这里直接建
+`ExportAssignmentShape`，不碰 module-1 的 export-assignment 候选/文件。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -126,6 +133,9 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     } else if (unit instanceof Common && (unit as Common).Is("default")) {
       state.Stage = 20;
       state.Kind = 6;
+    } else if (unit instanceof Common && (unit as Common).Is("declare")) {
+      state.Stage = 14;
+      state.Kind = 0;
     } else {
       state.Stage = 3;
     }
@@ -139,17 +149,65 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     }
     continue;
   }
+  if (state.Stage === 14) {
+    // `export declare <decl>`：declare 已在 Second 收下，这里看声明词。
+    if (unit instanceof Common) {
+      const text = (unit as Common).TempToString();
+      if (text === "class") {
+        state.Stage = 10;
+        state.Kind = 7;
+        continue;
+      }
+      if (text === "interface") {
+        state.Stage = 11;
+        state.Kind = 8;
+        continue;
+      }
+      if (text === "enum") {
+        state.Stage = 12;
+        state.Kind = 9;
+        continue;
+      }
+      if (text === "function") {
+        state.Stage = 15;
+        state.Kind = 11;
+        continue;
+      }
+    }
+    state.Stage = 3;
+    continue;
+  }
   if (state.Stage === 20) {
     if (unit instanceof Common && (unit as Common).Is("class")) {
       state.Stage = 21;
       state.Kind = 5;
     } else if (unit instanceof Common && (unit as Common).Is("function")) {
-      // 函数声明还没合并：`export default function` 先退出，交给 `//` 目标。
-      state.Stage = 3;
+      state.Stage = 23;
+      state.Kind = 10;
     } else {
       state.Stage = 22;
       state.Kind = 6;
     }
+    continue;
+  }
+  if (state.Stage === 23) {
+    // `export default function [名] (…) {…}`：名字与参数表先过去，等函数体那个 `{`。
+    if (unit instanceof Common) {
+      continue;
+    }
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+      continue;
+    }
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+      if (!(unit as Bracket).Closed) {
+        continue;
+      }
+      state.Done = true;
+      state.DoneAt = index;
+      state.Stage = 4;
+      continue;
+    }
+    state.Stage = 3;
     continue;
   }
   if (state.Stage === 10 || state.Stage === 11 || state.Stage === 12 || state.Stage === 21) {
@@ -181,7 +239,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     state.Stage = 4;
     continue;
   }
-  if (state.Stage === 13 || state.Stage === 22) {
+  if (state.Stage === 13 || state.Stage === 15 || state.Stage === 22) {
     if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
       state.Done = true;
       if (state.DoneAt < 0) {
@@ -306,8 +364,8 @@ if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== nu
   exportModifier.SignOut(exportUnit.SourceRange.End);
 }
 let declIndex = secondIndex;
-if (kind === 5) {
-  // default class：跳过 `default`，声明从 `class` 起。
+if (kind === 5 || kind === 10) {
+  // default class / default function：跳过 `default`，声明从声明词起。
   for (let at = secondIndex + 1; at <= tokenIndex; at++) {
     if (!host.Data[at].IsTriviaToken) {
       declIndex = at;
@@ -315,11 +373,11 @@ if (kind === 5) {
     }
   }
 }
-if (kind === 1 || kind === 2 || kind === 3) {
+if (kind === 1 || kind === 2 || kind === 3 || kind === 7 || kind === 8 || kind === 9) {
   let built:ShapeToken;
-  if (kind === 1) {
+  if (kind === 1 || kind === 7) {
     built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
-  } else if (kind === 2) {
+  } else if (kind === 2 || kind === 8) {
     built = InterfaceDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
   } else {
     built = EnumDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
@@ -368,6 +426,187 @@ if (kind === 5) {
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 10) {
+  // export default function [名] (…) {…}：有名字走 FunctionDeclarationShape.FromUnits（它要求名字），
+  // 匿名 default 手工建：children 只有 Block（TS：`ExportKeyword | DefaultKeyword | Block`）。
+  const defaultUnit = host.Data[secondIndex];
+  let functionIndex = -1;
+  for (let at = secondIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      functionIndex = at;
+      break;
+    }
+  }
+  let firstAfter = -1;
+  for (let at = functionIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      firstAfter = at;
+      break;
+    }
+  }
+  if (functionIndex < 0 || firstAfter < 0) {
+    return host;
+  }
+  let built:ShapeToken;
+  if (host.Data[firstAfter] instanceof Common) {
+    let bodyIndex = -1;
+    for (let at = firstAfter + 1; at <= tokenIndex; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        bodyIndex = at;
+      }
+    }
+    built = FunctionDeclarationShape.FromUnits(host, functionIndex, bodyIndex, context);
+  } else {
+    const paramsUnit = host.Data[firstAfter];
+    if (!(paramsUnit instanceof Bracket) || (paramsUnit as Bracket).StartBracketChar !== "(") {
+      return host;
+    }
+    let bodyIndex = -1;
+    for (let at = firstAfter + 1; at <= tokenIndex; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        bodyIndex = at;
+        break;
+      }
+    }
+    const bodyUnit = host.Data[bodyIndex];
+    if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
+      return host;
+    }
+    const paramsEnd = (paramsUnit as Bracket).SourceRange.End;
+    const bodyPos = paramsEnd === null ? pos : paramsEnd.Index + 1;
+    const bodyBuilder = new StatementBuilder(host.Template, context);
+    bodyBuilder.Load([bodyUnit], bodyPos);
+    const body = bodyBuilder.BuildStatement();
+    if (bodyBuilder.At !== bodyBuilder.Units.length) {
+      throw new Error("export default function 的函数体没有读完");
+    }
+    const anonymous = new FunctionDeclarationShape(host.Template);
+    anonymous.FunctionName = null;
+    anonymous.Parameters = [];
+    anonymous.ReturnType = null;
+    anonymous.Body = body;
+    anonymous.Add(body);
+    const functionUnit = host.Data[functionIndex];
+    if (functionUnit.SourceRange.Start !== null) {
+      anonymous.SignIn(functionUnit.SourceRange.Start);
+    }
+    if (bodyUnit.SourceRange.End !== null) {
+      anonymous.SignOut(bodyUnit.SourceRange.End);
+    }
+    anonymous.TryToClose(context);
+    built = anonymous;
+  }
+  const defaultModifier = new DefaultKeywordShape(host.Template);
+  if (defaultUnit.SourceRange.Start !== null) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  }
+  if (defaultUnit.SourceRange.End !== null) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  }
+  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.TryToClose(context);
+  built.Data.unshift(defaultModifier);
+  defaultModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 11) {
+  // export declare function f(): void;  —— 无函数体，children: ExportKeyword | DeclareKeyword | Identifier | 返回类型。
+  const declareUnit = host.Data[secondIndex];
+  const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
+  declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
+    declareModifier.SignOut(declareUnit.SourceRange.End);
+  }
+  let functionIndex = -1;
+  for (let at = secondIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      functionIndex = at;
+      break;
+    }
+  }
+  let nameIndex = -1;
+  for (let at = functionIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      nameIndex = at;
+      break;
+    }
+  }
+  let paramsIndex = -1;
+  for (let at = nameIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      paramsIndex = at;
+      break;
+    }
+  }
+  const functionUnit = host.Data[functionIndex];
+  const nameUnit = host.Data[nameIndex];
+  const paramsUnit = host.Data[paramsIndex];
+  if (!(functionUnit instanceof Common) || !(functionUnit as Common).Is("function")) {
+    return host;
+  }
+  if (!(nameUnit instanceof Common)) {
+    return host;
+  }
+  if (!(paramsUnit instanceof Bracket) || (paramsUnit as Bracket).StartBracketChar !== "(") {
+    return host;
+  }
+  let colonIndex = -1;
+  for (let at = paramsIndex + 1; at < tokenIndex; at++) {
+    const candidate = host.Data[at];
+    if (candidate.IsTriviaToken) {
+      continue;
+    }
+    if (candidate instanceof Symbol && (candidate as Symbol).Is(":")) {
+      colonIndex = at;
+    }
+    break;
+  }
+  let returnType:Token | null = null;
+  if (colonIndex >= 0) {
+    const colon = host.Data[colonIndex];
+    const typeUnits:Array<Token> = host.Data.slice(colonIndex + 1, tokenIndex);
+    const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
+    const typeBuilder = new TypeBuilder(host.Template, context);
+    typeBuilder.Load(typeUnits, typePos);
+    returnType = typeBuilder.ParseType();
+    if (typeBuilder.At !== typeBuilder.Units.length) {
+      throw new Error("export declare function 的返回类型没有读完");
+    }
+  }
+  const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
+  name.Pos = functionUnit.SourceRange.End === null ? pos : functionUnit.SourceRange.End.Index + 1;
+  if (name.SourceRange.End === null && nameUnit.SourceRange.End !== null) {
+    name.SignOut(nameUnit.SourceRange.End);
+  }
+  const built = new FunctionDeclarationShape(host.Template);
+  built.FunctionName = name;
+  built.Parameters = [];
+  built.ReturnType = returnType;
+  built.Body = null;
+  built.Add(exportModifier);
+  built.Add(declareModifier);
+  built.Add(name);
+  if (returnType !== null) {
+    built.Add(returnType);
+  }
+  if (exportUnit.SourceRange.Start !== null) {
+    built.SignIn(exportUnit.SourceRange.Start);
+  }
+  const lastUnit = host.Data[tokenIndex];
+  if (lastUnit.SourceRange.End !== null) {
+    built.SignOut(lastUnit.SourceRange.End);
+  }
+  built.Pos = pos;
+  built.TryToClose(context);
   host.Data.splice(start, tokenIndex - start + 1, built);
   built.Parent = host;
   return built;
