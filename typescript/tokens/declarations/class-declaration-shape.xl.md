@@ -11,6 +11,7 @@ import { ConstructorShape } from "../types/constructor-shape.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
+import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
@@ -311,11 +312,36 @@ while (inner.At < inner.Units.length) {
     parameter.ParameterName = propertyName;
     parameter.Add(propertyName);
     const mark = inner.Peek(0);
-    if (mark !== null && inner.IsText(mark, ":")) {
+    const markText = mark === null ? "" : inner.TextOf(mark);
+    let parameterColonConsumed = false;
+    if (markText === "?" || markText === "?:") {
+      const questionShape = inner.ParseOptionalMark();
+      if (questionShape !== null) {
+        parameter.QuestionToken = questionShape;
+        parameter.Add(questionShape);
+        parameterColonConsumed = markText === "?:";
+      }
+    }
+    const colonMark = inner.Peek(0);
+    let hasParameterType = parameterColonConsumed;
+    if (!hasParameterType && colonMark !== null && inner.IsText(colonMark, ":")) {
       inner.At++;
+      hasParameterType = true;
+    }
+    if (hasParameterType) {
       const typeShape = inner.ParseType();
       parameter.Type = typeShape;
       parameter.Add(typeShape);
+    }
+    const initializerMark = inner.Peek(0);
+    if (initializerMark !== null && inner.IsText(initializerMark, "=")) {
+      inner.At++;
+      const initializerPos = inner.Positions[inner.At];
+      const initializerBuilder = new ExpressionBuilder(host.Template, context);
+      initializerBuilder.Load(inner.Units.slice(inner.At), initializerPos);
+      const initializer = initializerBuilder.ParseAssign();
+      parameter.Add(initializer);
+      inner.At += initializerBuilder.At;
     }
     parameters.push(inner.SpanNode(parameter, groupStart, inner.At - 1));
     continue;
@@ -709,6 +735,26 @@ while (at < code.length) {
   }
   let typeShape:Token | null = null;
   let initializer:Token | null = null;
+  let questionToken:Token | null = null;
+  let questionColonConsumed = false;
+  if (at < code.length && code[at] instanceof Symbol && ((code[at] as Symbol).Is("?") || (code[at] as Symbol).Is("?:"))) {
+    const questionUnit = code[at];
+    const questionText = (questionUnit as Symbol).TempToString();
+    const questionPos = previousEnd + 1;
+    const questionShape = new QuestionTokenShape(host.Template);
+    if (questionUnit.SourceRange.Start !== null) {
+      questionShape.SignIn(questionUnit.SourceRange.Start);
+      questionShape.SignOut(questionUnit.SourceRange.Start);
+    }
+    questionShape.Pos = questionPos;
+    questionShape.TryToClose(context);
+    questionToken = questionShape;
+    questionColonConsumed = questionText === "?:";
+    if (questionUnit.SourceRange.End !== null) {
+      previousEnd = questionUnit.SourceRange.End.Index;
+    }
+    at++;
+  }
   let exclamationToken:Token | null = null;
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("!")) {
     const exclamationUnit = code[at];
@@ -724,13 +770,16 @@ while (at < code.length) {
     exclamationShape.TryToClose(context);
     exclamationToken = exclamationShape;
   }
-  if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(":")) {
-    const colon = code[at];
-    const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
-    if (colon.SourceRange.End !== null) {
-      previousEnd = colon.SourceRange.End.Index;
+  if (questionColonConsumed || (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(":"))) {
+    let typePos = previousEnd + 1;
+    if (!questionColonConsumed) {
+      const colon = code[at];
+      if (colon.SourceRange.End !== null) {
+        previousEnd = colon.SourceRange.End.Index;
+      }
+      at++;
+      typePos = previousEnd + 1;
     }
-    at++;
     const typeStart = at;
     while (at < code.length) {
       const probe = code[at];
@@ -800,6 +849,9 @@ while (at < code.length) {
   property.Add(nameShape);
   if (exclamationToken !== null) {
     property.Add(exclamationToken);
+  }
+  if (questionToken !== null) {
+    property.Add(questionToken);
   }
   if (typeShape !== null) {
     property.Add(typeShape);

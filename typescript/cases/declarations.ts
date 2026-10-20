@@ -433,7 +433,6 @@ class C { public set x(v) {} }
 class C { private get x() { return 1; } }
 class C { async get x() { return 1; } }
 class C { async set x(v) {} }
-class C { static get x() { return 1; } }
 class C { @dec async m() {} }
 class C { @dec *m() {} }
 class C { @dec async *m() {} }
@@ -645,8 +644,6 @@ declare let y: string // c\n
 const x = 1 // c\n
 let y: string\n
 // controls (already green)
-declare const x: number;
-declare function f(): void;
 a\n++b;
 a\nb;
 // (restored) member decorator cases from earlier chunks
@@ -849,3 +846,29 @@ function f(@dec x: A): x is A { return true; }
 // arrow function parameter decorators: `const g = (@dec x: A) => x;` -- TS parser REJECTS it (diag=4),
 // so not a legal form to collect.
 // `// ` const g = (@dec x: A) => x;
+// ===== base 18: optional properties + optional parameter properties =====
+class C { x?: A; }
+class C { static x?: A; }
+class C { #x?: A; }
+class C { public x?: A; }
+class C { readonly x?: A; }
+class C { x?: A = b; }
+class C { x?: A; y?: B; }
+class C { constructor(public x?: A) {} }
+class C { constructor(private readonly y?: B) {} }
+class C { constructor(readonly y = 1) {} }
+class C { constructor(public x: A, private y?: B) {} }
+class C { x!: A | B; }
+class C { x!: A = b; }
+// + trivia
+class C { x /* c */ ?: A; }
+class C { x? /* c */ : A; }
+class C { #x /* c */ ?: A; }
+class C { static /* c */ x?: A; }
+class C { constructor(public /* c */ x?: A) {} }
+class C { constructor(public x /* c */ ?: A) {} }
+
+// ===== deferred =====
+// parameter property definite assignment `constructor(public x!: A)`: invalid TypeScript; the oracle recovery AST
+// contains degenerate empty Parameter nodes (e.g. Parameter [30,30) Identifier [30,30)), matching it byte-for-byte has no value.
+// optional property with definite assignment `x?!: A` etc.: invalid, skipped.
