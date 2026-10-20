@@ -821,3 +821,31 @@ class C { #x /* c */ !: A; }
 class C { static /* c */ x!: A; }
 class C { y! /* c */ : A = b; }
 abstract class C { abstract /* c */ get x(): A; }
+// ===== base 17: function parameter decorators (function-declaration shape BuildParameters) =====
+function f(@dec x: A) {}
+function f(@a @b x: A) {}
+function f(x: A, @dec y: B) {}
+function f(@dec x: A, y: B) {}
+function f(@dec x: A, @dec2 y: B) {}
+function f(@dec() x: A) {}
+function f(@a.b x: A) {}
+function f(@dec x?: A) {}
+function f(@dec ...x: A[]) {}
+// + declare / async / generator combos
+declare function f(@dec x: A): void;
+async function f(@dec x: A) {}
+function* f(@dec x: A) {}
+async function* f(@dec x: A) {}
+function f(/* c */ @dec x: A) {}
+function f(@dec /* c */ x: A) {}
+function f(@ /* c */ dec x: A) {}
+function f(@dec\nx: A) {}
+function f(@dec x: A /* c */) {}
+// + return type predicates coexist
+function f(@dec x: A): x is A { return true; }
+// function EXPRESSION parameter decorators: `(function (@dec x: A) { return x; });` -- TS parse-legal (diag=0),
+// but function expressions are built by expression-builder ParseFunctionParameters (expressions family scope),
+// not by function-declaration-shape BuildParameters; reported owner: expressions family.
+// arrow function parameter decorators: `const g = (@dec x: A) => x;` -- TS parser REJECTS it (diag=4),
+// so not a legal form to collect.
+// `// ` const g = (@dec x: A) => x;
