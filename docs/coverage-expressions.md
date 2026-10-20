@@ -497,3 +497,30 @@ expression  598 / 598      # 592 + 6（function 内的 new.target 4 + trivia 2�
 ### 红→绿清单
 
 无：全部候选形态在测量前已支持（super / yield / await / new.target / static block 的既有产生式组合即可覆盖）。
+## chunk 15（cover-arrow-predicates-1）：箭头 / 函数表达式的返回类型（含 TypePredicate）
+
+### 实现落点
+
+- `ParsePrimary` 的 `(` 前瞻从「下一颗是 `=>`」扩成「下一颗是 `=>`，或下一颗是 `:` 且后面能找到 `=>`」：
+  这样 `(x: any): x is A => true` 和 `() : void => {}` 才走箭头路线；单独 `:` 仍回退到括号表达式
+  （避免把 `a ? (b, c) : d` 误判成箭头）。
+- `ParseArrowFromBracket`：参数之后可选 `: 返回类型`，类型单元交给 `TypeBuilder.ParseReturnType()`
+  （内部会把 `x is A` / `asserts x is A` 分流成 `TypePredicate`，其余走 `ParseType`），按 TS children 顺序
+  插在 Parameter 之后、`EqualsGreaterThanToken` 之前。
+- `ParseFunctionExpression`：参数之后、函数体 `{` 之前同样可选 `: 返回类型`，同样走 `ParseReturnType()`。
+
+### AST 口径（TS 实测）
+
+| 构造 | children |
+| --- | --- |
+| `(x: any): x is A => true` | `ArrowFunction` → `Parameter`、`TypePredicate`（Identifier x + TypeReference A）、`EqualsGreaterThanToken`、body |
+| `(x: any): asserts x is A => {}` | TypePredicate 前面多一个 `AssertsKeyword` |
+| `(function (x: any): x is A { return true; })` | `FunctionExpression` → `Parameter`、`TypePredicate`、`Block` |
+| `(a): A => a` | ArrowFunction → Parameter、`TypeReference`、`EqualsGreaterThanToken`、body |
+
+### 读数
+
+```
+expression  609 / 609      # 598 + 11（base 37：谓词箭头/函数表达式 + 普通返回类型 + 嵌套 + trivia）
+全量       3430 / 3430     # 3419 + 11；结构差 0 / 位置差 0 / 字段差 0
+```
