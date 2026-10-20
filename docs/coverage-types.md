@@ -352,3 +352,19 @@ children = Identifier("this") + 类型；函数声明 / 方法 / 接口方法 / 
 原本已绿（只补测量）：call signature（`{ (): void }`、`{ (a: A): B }`）、construct signature（`{ new (): C }`、
 `{ new <U>(x: U): U }`、interface 内 `new`）、索引签名（string / readonly number / symbol）、方法重载、
 `readonly a: A; b?: B`、以及注释 trivia。
+
+## type params full（cover-typeparams-full-1）
+
+红→绿（两处根因都在「下标/体扫描」，不是 TypeParameter 形状）：
+
+1. `class C<T = A<B<C>>> {}` / `class C<T = { a: A }> {}`：
+   - class/interface 的 `FromUnits` 用 `typeParameterBuilder.At`（`>>` 拆分后的虚拟单元数）直接加原始下标 → 越界；
+     改为按原 code 还原宽度（`>>` 计 2、`>>>` 计 3）再映射回原始下标（同 function-declaration-shape 的修法）。
+   - class/interface 的 possible shape 在 Stage 3 把**第一个 `{`** 当类体，`{ a: A }` 类型字面量默认值会被误认；
+     新增 `AngleDepth`：`<` 加一、`>` 减一，只有深度 0 的 `{` 才算类/接口体。
+2. TypeParameter children 顺序（variance → Identifier → 约束 → 默认值）本来已对；`in`/`out`/`const`、
+   `keyof`/限定名/函数类型约束、复杂默认（嵌套泛型 / 类型字面量）、多形参引用约束、注释 trivia 全部只补测量。
+
+已绿清单：class/interface/function/arrow/type-alias 的 `<T extends A = B, U = C>`、`class C<in T>`、`class C<out T>`、
+`class C<in out T>`、`function f<const T>`、`T extends keyof X`、`T extends a.B<C>`、`T extends (a: A) => B`、
+`T = A<B<C>>>`、`T = { a: A }`、`T extends A, U extends T`，以及注释 trivia。

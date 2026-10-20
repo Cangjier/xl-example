@@ -976,3 +976,22 @@ class C { @dec /* c */ public m() {} }
 // `@await f() class C {}` in async context: oracle rejects (await is not a decorator expression); skipped.
 // `@a[0] class C {}`: element access is not a legal decorator expression; TS recovery yields MissingDeclaration + ExpressionStatement (+ArrayLiteralExpression) and splits the decorator. Parked (invalid input, degenerate recovery).
 // `@dec(1) @a.b() @c[0] class C {}`: same element-access issue; use call forms like `@dec(1) @a.b() @c()` instead.
+
+// ===== type params full：class/interface/function/arrow 的约束+默认+修饰（measurement） =====
+class C<T extends A = B, U = C> {}
+interface I<T extends A = B> {}
+function f<T extends A = B, U = C>() {}
+const g = <T extends A = B>(x: T) => x;
+class C<in T> {}
+class C<out T> {}
+class C<in out T> {}
+function f<const T>(x: T) {}
+class C<T extends keyof X> {}
+interface I<T extends a.B<C>> {}
+function f<T extends (a: A) => B>() {}
+class C<T = A<B<C>>> {}
+class C<T = { a: A }> {}
+class C<T extends A, U extends T> {}
+// trivia
+class C<T /* c */ extends A = B> {}
+interface I<in /* c */ T> {}

@@ -27,6 +27,8 @@ import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 
 ## field Stage:int = 0
 
+## field AngleDepth:int = 0
+
 ## field Done:bool = false
 
 ## field DoneAt:int = -1
@@ -61,6 +63,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Start = ItemUtil.ItemStart(units);
   state.Checked = state.Start;
   state.Stage = 0;
+  state.AngleDepth = 0;
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
@@ -106,7 +109,21 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 3) {
-    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    // 类型形参 / 泛型实参里的 `{ a: A }`（类型字面量）不是类/接口体：用尖括号深度区分。
+    if (unit instanceof Symbol) {
+      const angleText = (unit as Symbol).TempToString();
+      if (angleText === "<") {
+        state.AngleDepth++;
+        continue;
+      }
+      if (angleText === ">") {
+        if (state.AngleDepth > 0) {
+          state.AngleDepth--;
+        }
+        continue;
+      }
+    }
+    if (state.AngleDepth === 0 && unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
       // 非空接口体不再 Reject：成员由 InterfaceDeclarationShape.BuildMembers 逐个建。
       state.Stage = 4;
       state.Done = true;
