@@ -407,3 +407,49 @@ for (let i = 0; i < 3; i++) a;
 for (i = 0; ; ) {}
 for (;;) { break; }
 for (;;) { continue; }
+// ===== expression-statement 起始 token 矩阵（ExpressionStatement children = expression only）=====
+!a;
+-a;
++a;
+~a;
+typeof a;
+void a;
+delete a.b;
+await x;
+new A();
+this.x;
+(a);
+[a, b];
+({});
+`x`;
+/re/;
+1;
+'s';
+a => a;
+#x in obj;
+import.meta;
+function f() { new.target; }
+function* g() { yield; }
+class C { m() { super.x; } }
+async function f() { await x; }
+// 块内同形态
+{ !a; }
+{ typeof a; }
+{ void a; }
+{ delete a.b; }
+{ await x; }
+{ new A(); }
+{ this.x; }
+{ (a); }
+{ [a, b]; }
+{ ({}); }
+{ `x`; }
+{ /re/; }
+{ 1; }
+{ 's'; }
+{ a => a; }
+{ import.meta; }
+// 非法（oracle：TS parseDiagnostics，不进基准）：`function () {};`（函数声明缺名）、`class {};`（类声明缺名，TS 用错误恢复产出 ClassDeclaration + EmptyStatement）
+// 暂缓：块内 class 声明 `{ class D {} }`（TS: Block -> ClassDeclaration；cj StatementBuilder 把 class 走成
+// ExpressionStatement(ClassExpression)）——块内 class 声明分派属 statements builder / class 家族，本块 WRITE SCOPE 只含
+// expression-statement-possible，故写成目标；root 的 class 声明与 method 内 super.x 已绿。
