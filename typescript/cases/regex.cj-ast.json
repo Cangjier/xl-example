@@ -10648,6 +10648,855 @@
           ]
         }
       ]
+    },
+    {
+      "src": "/a[b-d]e/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 9,
+              "text": "/a[b-d]e/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a[^b]/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "/a[^b]/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/[a-z]/g;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 8,
+              "text": "/[a-z]/g"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/\\d+/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "/\\d+/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/\\w/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/\\w/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/[/]/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "/[/]/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a\\/b/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "/a\\/b/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/[(){}]/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 8,
+              "text": "/[(){}]/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/[^a-z0-9_]/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 12,
+              "text": "/[^a-z0-9_]/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/\\s+/g;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "/\\s+/g"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/u;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/u"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/y;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/y"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/s;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/a/s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/uy;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "/a/uy"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/a/gim;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "/a/gim"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a / b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "SlashToken",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a / b / c;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 0,
+                  "end": 5,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "SlashToken",
+                      "pos": 1,
+                      "end": 3
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "SlashToken",
+                  "pos": 5,
+                  "end": 7
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ a / b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 9,
+                  "text": "a"
+                },
+                {
+                  "kind": "SlashToken",
+                  "pos": 9,
+                  "end": 11
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a / b / c / d;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 0,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 0,
+                      "end": 5,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 0,
+                          "end": 1,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "SlashToken",
+                          "pos": 1,
+                          "end": 3
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 3,
+                          "end": 5,
+                          "text": "b"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "SlashToken",
+                      "pos": 5,
+                      "end": 7
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "c"
+                    }
+                  ]
+                },
+                {
+                  "kind": "SlashToken",
+                  "pos": 9,
+                  "end": 11
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "d"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a = /re/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "FirstAssignment",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 3,
+                  "end": 8,
+                  "text": "/re/"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f(/re/);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 2,
+                  "end": 6,
+                  "text": "/re/"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a ? /x/ : /y/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "ConditionalExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 3,
+                  "end": 7,
+                  "text": "/x/"
+                },
+                {
+                  "kind": "ColonToken",
+                  "pos": 7,
+                  "end": 9
+                },
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 9,
+                  "end": 13,
+                  "text": "/y/"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "typeof /re/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "TypeOfExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 6,
+                  "end": 11,
+                  "text": "/re/"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a ? /x/ : /y/ ;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "ConditionalExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 3,
+                  "end": 7,
+                  "text": "/x/"
+                },
+                {
+                  "kind": "ColonToken",
+                  "pos": 7,
+                  "end": 9
+                },
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 9,
+                  "end": 13,
+                  "text": "/y/"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/re/.test(a);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 0,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "RegularExpressionLiteral",
+                      "pos": 0,
+                      "end": 4,
+                      "text": "/re/"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "test"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 11,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (/re/.test(a)) b;",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 4,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 4,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "RegularExpressionLiteral",
+                      "pos": 4,
+                      "end": 8,
+                      "text": "/re/"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 13,
+                      "text": "test"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 15,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 17,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function g() { return /re/; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "g"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "RegularExpressionLiteral",
+                      "pos": 21,
+                      "end": 26,
+                      "text": "/re/"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function g() { return /re/; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "g"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "RegularExpressionLiteral",
+                      "pos": 21,
+                      "end": 26,
+                      "text": "/re/"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "return /re/;",
+      "ast": [
+        {
+          "kind": "ReturnStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 6,
+              "end": 11,
+              "text": "/re/"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
