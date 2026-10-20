@@ -834,3 +834,26 @@ const fcd = <T = A>(x: T) => x;
 const fcc = <const T extends A>(x: T) => x;
 // 顶层逗号会被声明切分，多参数泛型箭头用括号形态
 const fcb = (<T extends A, U = B>(x: T, y: U) => x);
+// ===== base 40：链式 / super / optional / this / tagged（measurement sweep）=====
+a?.b.c;
+a?.b?.[c]?.(d);
+(a?.b)!;
+a.b().c().d;
+a().b().c;
+class C extends B { m() { super.m(); super.x; super["y"]; } }
+class C extends B { constructor() { super(); } }
+class C extends B { m() { super.m?.(); } }
+this.x.y;
+this["x"];
+this.m();
+this.#p;
+class C { #p = 1; m() { this.#p; } }
+a`x`;
+a.b`x`;
+a?.b`x`;
+// + trivia
+a?. /* c */ b.c;
+a.b /* c */ ().c();
+this. /* c */ x.y;
+a /* c */ `x`;
+// 暂缓：a?.b = c（TS 语法层可解析但语义禁止：optional chain 不能作赋值目标），不入语料
