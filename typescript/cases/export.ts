@@ -301,3 +301,6 @@ export { type\nT } from "m";
 // + type-star 的 trivia（type-star 本体在 base 4 已绿，仅补对抗变体）
 export type *\nfrom "m";
 export  type  *  as  ns  from  "m";
+
+// ===== root export import aliases（chunk export-import-alias，export.ts 侧记录） =====
+export import E = B.C;

@@ -115,3 +115,13 @@ import { a } from "m" with\n{ type: "json" };
 // ===== entity-name import aliases（chunk module-imports-2） =====
 import A = B.C;
 import A = require("n");
+// ===== root export import aliases（chunk export-import-alias） =====
+export import A = B.C;
+export import A = require("n");
+export import A = B.C.D;
+// export import type A = B.C;   —— type-only import-equals：ImportEquals 候选的 `type` 前瞻未接（oracle 合法），暂缓
+// + 前导空格 / 行尾注释 / 词间块注释 / 换行
+  export import A = B.C;
+export import A = B.C; // c
+export /* c */ import A = B.C;
+export import A = B.C.D; export import D = require("n");

@@ -36,3 +36,18 @@
   `import("m", { with: { type: "json" } });`、`import("m", { assert: { type: "json" } });`、`f(import("m"));`、
   `await import("m");`、`(await import("m")).default;`、`import("m").T;`，以及前导空格/词间块注释/行尾注释/换行变体。
 - 回归：import-meta 30 条与 import 64 条保持全绿；全量无回归。
+## root `export import A = ...` aliases（chunk export-import-alias）
+
+- 归属：root 级 `export import` 交给 **import-equals 候选**（不是 export-declaration）：`ImportEqualsDeclarationPossibleShape`
+  的 Stage 0 接受可选前导 `export`（新 Stage 30 等 `import`，再复用原有 `NextAfterName(...) === "="` 前瞻），
+  这样在 `import` 之后 `A =` 的模式下候选不 Reject，根 import 候选因「候选不唯一」不会提前 mount
+  ImportDeclarationShape shell（原来的 `缺少模块说明符` 错误来源），到 `;` 时唯一候选 Done 后建树。
+- `ImportEqualsDeclarationShape.FromUnits`：支持可选的 `export` 前缀（`base` / `exportUnit`），子形状顺序与 TS 一致
+  `[ExportKeyword, Identifier, ExternalModuleReference|QualifiedName]`；ExportKeyword Pos = `export` 前一个非 trivia 的
+  End+1；新增 `IsTypeOnly` 字段（`import ... type` 形保留能力，但候选前瞻暂未接，见暂缓）。
+- 新增全绿（import.ts +7 / export.ts +1）：`export import A = B.C;`、`export import A = require("n");`、
+  `export import A = B.C.D;`、`export import E = B.C;`（export.ts 侧），以及前导空格/行尾注释/词间块注释/重复语句 trivia；
+  回归 `import A = B.C;`、`import A = require("n")`、`namespace N { export import A = B.C; }` 全绿。
+- 暂缓：`export import type A = B.C;` —— oracle 合法（ImportEqualsDeclaration.isTypeOnly），但
+  ImportEquals 候选的 `type` 前瞻未接（会退到 import 候选并 shell 报错），需要改候选前瞻的 NextAfterName 逻辑，
+  本 chunk 只记录不硬改。
