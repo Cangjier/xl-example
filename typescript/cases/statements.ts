@@ -453,3 +453,22 @@ async function f() { await x; }
 // 暂缓：块内 class 声明 `{ class D {} }`（TS: Block -> ClassDeclaration；cj StatementBuilder 把 class 走成
 // ExpressionStatement(ClassExpression)）——块内 class 声明分派属 statements builder / class 家族，本块 WRITE SCOPE 只含
 // expression-statement-possible，故写成目标；root 的 class 声明与 method 内 super.x 已绿。
+// ===== 块级 class / function 声明（TS: Block -> ClassDeclaration / FunctionDeclaration）=====
+{ class D {} }
+{ class D { m() {} } }
+{ class D { m() { return 1; } } }
+{ class D extends B {} }
+{ class D { constructor() {} } }
+{ function f() {} }
+{ function f(a) { return a; } }
+function g() { function h() {} }
+{ class D {} function f() {} }
+{ async function f() {} }
+{ function f() { class D {} } }
+if (a) { class D {} }
+for (;;) { function f() {} }
+try { class D {} } catch (e) {}
+namespace N { function f() {} }
+namespace N { class D {} }
+{ /* c */ class D {} }
+{ class D {} /* c */ function f() {} }

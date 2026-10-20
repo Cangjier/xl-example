@@ -10,6 +10,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
+import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
@@ -223,6 +224,11 @@ if (unit instanceof Common) {
   if (text === "function") {
     return this.BuildFunctionDeclaration();
   }
+  if (text === "class") {
+    // Block-level class declaration: TS keeps a ClassDeclaration as a direct block member,
+    // so it must not fall through to ExpressionStatement(ClassExpression).
+    return this.BuildClassDeclaration();
+  }
   if (text === "async") {
     const afterAsync = this.Peek(1);
     if (afterAsync !== null && this.IsText(afterAsync, "function")) {
@@ -360,6 +366,39 @@ if (this.IsText(this.Units[first], "async") || this.IsText(this.Units[first], "d
     head.Pos = this.Positions[first];
   }
 }
+this.At = end + 1;
+return shape;
+```
+
+## method BuildClassDeclaration:()=>Token
+
+Nested `class` declaration inside a body. Delegates to `ClassDeclarationShape.FromUnits` through the
+same host-like adapter as `BuildFunctionDeclaration` (FromUnits only reads `host.Data` /
+`host.Template`); the declaration end is the class body `{...}` bracket.
+
+```ts
+const first = this.At;
+let cursor = this.At;
+if (!this.IsText(this.Units[cursor], "class")) {
+  throw new Error("类声明缺少 class 关键字");
+}
+cursor++;
+cursor++;
+let end = -1;
+while (cursor < this.Units.length) {
+  const unit = this.Units[cursor];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    end = cursor;
+    break;
+  }
+  cursor++;
+}
+if (end < 0) {
+  throw new Error("类声明缺少类体");
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = ClassDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+shape.Pos = this.Positions[first];
 this.At = end + 1;
 return shape;
 ```

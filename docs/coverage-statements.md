@@ -1,5 +1,30 @@
 # statements family 瑕嗙洊锛坈hunk 1 + chunk 2 + trivia chunk + chunk 3 + labeled chunk锛?
 
+> **块级 class / function 声明分派**（分支 `cover-block-decls-1`，起点 `origin/integration @96a1c024`）：
+> `statements.ts` **388 → 406**（+18），**406/406** 完全一致；全量 **4134 → 4152** 全绿；tsc 0 error；
+> `module-blocks` 141/141 无回归。
+>
+> 根因：`StatementBuilder.BuildStatement` 对 `function` / `async function` 已有声明分派（nested-async chunk），
+> 但 `class` 没有——块体里的 `class D {}` 会一路退回 `BuildExpressionStatement`，被建成
+> `ExpressionStatement(ClassExpression)`；TS 则是 `Block → ClassDeclaration` 直接子节点。
+>
+> 修法（只改 `statement-builder.xl.md`，未动 class shape 文件）：
+> - `BuildStatement` 在 `function` 分派旁新增 `class` → `BuildClassDeclaration()`；
+> - `BuildClassDeclaration` 复用 `BuildFunctionDeclaration` 的 **host-like 适配器**（`{ Data: this.Units,
+>   Template: this.Template }`，`FromUnits` 只读这两个字段），从 `class` 扫到本层类体 `{…}` 括号为声明终点，
+>   调 `ClassDeclarationShape.FromUnits(hostLike, first, end, context)`，再用 `Positions[first]` 修正 `Pos`
+>   （块内首条语句的 base offset 适配器不知道），`At = end + 1`。
+> - `namespace` / module 体的成员由 `module-block-shape.BuildMember` 落到 `StatementBuilder.BuildStatement`，
+>   所以同一处修复也让 `namespace N { class D {} }` / `{ function f() {} }` 全部转绿（无需改 module 文件）。
+>
+> 18 条覆盖：`{ class D {} }` / `{ class D { m() {} } }` / `{ class D extends B {} }` / `{ class D { constructor() {} } }`、
+> `{ function f() {} }` / `{ function f(a) { return a; } }`、`function g() { function h() {} }`、块内混排
+> `{ class D {} function f() {} }`、`{ async function f() {} }`、函数体内再嵌 class `{ function f() { class D {} } }`、
+> `if (a) { class D {} }`、`for (;;) { function f() {} }`、`try { class D {} } catch (e) {}`，
+> 以及 namespace 回归 `namespace N { function f() {} }` / `namespace N { class D {} }` + 注释 trivia。
+>
+> 暂缓：无（本块无需新 root 候选，全部复用既有 declaration shape）。
+>
 > **expression-statement 起始 token 矩阵**（分支 `cover-stmt-start-1`，起点 `origin/integration @f5294c44`）：
 > `statements.ts` **348 → 388**（+40），**388/388** 完全一致；全量 **4012 → 4052** 全绿；tsc 0 error；
 > **源码零改动**（所有合法形态原地已绿，只补测量）。
