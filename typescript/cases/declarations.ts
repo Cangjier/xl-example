@@ -329,3 +329,46 @@ class C { static { a(); } /* c */ }
 // class C { @dec m() {} }
 // class C { @dec x = 1; }
 // private fields (#x) / parameter properties / accessor keyword / abstract accessors：各自需要的形状未就绪
+
+// ===== base 10: private identifiers, parameter properties, accessor keyword =====
+class C { #x = 1; }
+class C { #x; }
+class C { #x = a; }
+class C { #x: A; }
+class C { #m() {} }
+class C { #m(a: A): B { return a; } }
+class C { get #x() { return 1; } }
+class C { set #x(v) {} }
+class C { #x = 1; #y = 2; }
+class C { #m() {} #n() {} }
+class C { #x = 1; m() {} }
+class C { constructor(private x: A) {} }
+class C { constructor(public x: A) {} }
+class C { constructor(readonly x: A) {} }
+class C { constructor(protected x: A) {} }
+class C { constructor(private readonly x: A) {} }
+class C { constructor(private x) {} }
+class C { constructor(a, private b) {} }
+class C { constructor(a: A, private b: B) {} }
+class C { constructor(private x: A, b) {} }
+class C { constructor(private x: A) {} m() {} }
+class C { accessor x = 1; }
+class C { accessor x: A; }
+class C { accessor x; }
+class C { static accessor x = 1; }
+class C { accessor x = 1; accessor y = 2; }
+class C { accessor x = 1; m() {} }
+// + trivia
+class C { /* c */ #x = 1; }
+class C { #x /* c */ = 1; }
+class C { #m(/* c */ a) {} }
+class C { constructor(/* c */ private x: A) {} }
+class C { constructor(private /* c */ x: A) {} }
+class C { /* c */ accessor x = 1; }
+class C { accessor /* c */ x = 1; }
+class C { accessor x /* c */ = 1; }
+
+// ===== deferred =====
+// private-in expression: #x in obj  (needs expressions/expression-builder ParsePrimary dispatch for Symbol "#"; not in this write scope)
+// decorators: @dec class C {} / class C { @dec m() {} } / @dec x = 1 (needs class candidate "@"+decorator prefix + Decorator shape)
+// abstract accessors, parameter decorators, decorator metadata

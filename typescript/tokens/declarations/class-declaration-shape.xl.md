@@ -16,6 +16,8 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { MethodDeclarationShape } from "../types/method-declaration-shape.xl.md"
 import { OverrideKeywordShape } from "../keywords/override-keyword-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
+import { PrivateIdentifierShape } from "../names/private-identifier-shape.xl.md"
+import { AccessorKeywordShape } from "../keywords/accessor-keyword-shape.xl.md"
 import { PrivateKeywordShape } from "../keywords/private-keyword-shape.xl.md"
 import { PropertyDeclarationShape } from "../types/property-declaration-shape.xl.md"
 import { ProtectedKeywordShape } from "../keywords/protected-keyword-shape.xl.md"
@@ -195,6 +197,8 @@ if (text === "readonly") {
   shape = new DeclareKeywordShape(template);
 } else if (text === "override") {
   shape = new OverrideKeywordShape(template);
+} else if (text === "accessor") {
+  shape = new AccessorKeywordShape(template);
 } else {
   shape = new AsyncKeywordShape(template);
 }
@@ -220,6 +224,37 @@ inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
   if (inner.IsText(inner.Units[inner.At], ",")) {
     inner.At++;
+    continue;
+  }
+  const headText = inner.TextOf(inner.Units[inner.At]);
+  if (headText === "public" || headText === "private" || headText === "protected" || headText === "readonly") {
+    const firstIndex = inner.At;
+    const modifiers:Array<Token> = [];
+    while (inner.At < inner.Units.length) {
+      const modifierText = inner.TextOf(inner.Units[inner.At]);
+      if (modifierText !== "public" && modifierText !== "private" && modifierText !== "protected" && modifierText !== "readonly") {
+        break;
+      }
+      const modifierIndex = inner.At;
+      const modifierUnit = inner.Units[modifierIndex];
+      inner.At++;
+      modifiers.push(ClassDeclarationShape.BuildModifier(host.Template, modifierText, modifierUnit, inner.Positions[modifierIndex], context));
+    }
+    const parameter = new ParameterShape(host.Template);
+    for (const modifier of modifiers) {
+      parameter.Add(modifier);
+    }
+    const propertyName = inner.ParseName();
+    parameter.ParameterName = propertyName;
+    parameter.Add(propertyName);
+    const mark = inner.Peek(0);
+    if (mark !== null && inner.IsText(mark, ":")) {
+      inner.At++;
+      const typeShape = inner.ParseType();
+      parameter.Type = typeShape;
+      parameter.Add(typeShape);
+    }
+    parameters.push(inner.SpanNode(parameter, firstIndex, inner.At - 1));
     continue;
   }
   const nameIndex = inner.At;
@@ -293,7 +328,7 @@ while (at < code.length) {
     const text = (code[at] as Common).TempToString();
     if (text !== "readonly" && text !== "static" && text !== "private" && text !== "public"
       && text !== "protected" && text !== "abstract" && text !== "declare" && text !== "override"
-      && text !== "async" && text !== "get" && text !== "set") {
+      && text !== "async" && text !== "accessor" && text !== "get" && text !== "set") {
       break;
     }
     if (text === "static") {
@@ -369,6 +404,28 @@ while (at < code.length) {
     if (nameUnit.SourceRange.End !== null) {
       previousEnd = nameUnit.SourceRange.End.Index;
     }
+    at++;
+  } else if (nameUnit instanceof Symbol && (nameUnit as Symbol).Is("#")) {
+    const hashUnit = nameUnit;
+    const privatePos = previousEnd + 1;
+    if (hashUnit.SourceRange.End !== null) {
+      previousEnd = hashUnit.SourceRange.End.Index;
+    }
+    at++;
+    if (at >= code.length || !(code[at] instanceof Common)) {
+      throw new Error("private member name is not an identifier");
+    }
+    const privateNameUnit = code[at];
+    const privateIdentifier = new PrivateIdentifierShape(host.Template);
+    privateIdentifier.SignInToken(hashUnit);
+    if (privateNameUnit.SourceRange.End !== null) {
+      previousEnd = privateNameUnit.SourceRange.End.Index;
+    }
+    privateIdentifier.SignOutToken(privateNameUnit);
+    privateIdentifier.Pos = privatePos;
+    privateIdentifier.TryToClose(context);
+    nameShape = privateIdentifier;
+    nameText = "#" + (privateNameUnit as Common).TempToString();
     at++;
   } else if (nameUnit instanceof Common) {
     const namePos = previousEnd + 1;
