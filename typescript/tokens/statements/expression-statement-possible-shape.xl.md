@@ -38,6 +38,12 @@ import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 
 ## field ImportStage:int = 0
 
+## field CodeCount:int = 0
+
+## field FirstIdentifier:bool = false
+
+## field SawQuestion:bool = false
+
 # class ExpressionStatementPossibleShape extends PossibleShape
 
 ```txt
@@ -362,6 +368,9 @@ if (state.Checked > tokenIndex + 1) {
   state.Rejected = false;
   state.AsyncStage = 0;
   state.ImportStage = 0;
+  state.CodeCount = 0;
+  state.FirstIdentifier = false;
+  state.SawQuestion = false;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -370,6 +379,20 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (unit instanceof EndOfFileTokenShape) {
     // 文件到头了：本条语句不可能再补 `;`。候选退出，把「建到边界为止」交给终结候选。
+    state.Rejected = true;
+    continue;
+  }
+  state.CodeCount++;
+  if (state.CodeCount === 1 && unit instanceof Common) {
+    state.FirstIdentifier = true;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("?")) {
+    state.SawQuestion = true;
+  } else if (unit instanceof Symbol && (unit as Symbol).Is(":")
+    && !state.SawQuestion && state.FirstIdentifier && state.CodeCount === 2) {
+    // "Identifier :" at statement start can only be a labeled statement (a legal ternary
+    // needs "?" first, and object literals / type contexts start with brackets or keywords).
+    // Reject here so the statement candidate becomes unique and builds the LabeledStatement.
     state.Rejected = true;
     continue;
   }

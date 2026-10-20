@@ -1,0 +1,33 @@
+// class-expressions 用例集：带成员 / 名字 / extends 的 class 表达式。
+// 一行一个用例；行内 \n 由 ast-json.mjs 还原成真实换行。
+// 快照：node typescript/cases/ast-json.mjs class-expressions && node typescript/cases/ast-json-diff.mjs class-expressions
+//
+// 口径（TS 实测）：ClassExpression children = 名字? → HeritageClause 们 → 成员；
+// 成员与类声明完全同构（PropertyDeclaration / MethodDeclaration / GetAccessor / SetAccessor / Constructor）。
+
+// ===== 1. class 表达式：空体 / 名字 / 成员 =====
+(class {});
+(class C {});
+(class { x = 1; });
+(class C { m() {} });
+(class { constructor() {} });
+(class { m(a: A): B { return a; } });
+(class { [k]() {} });
+(class { [k]: 1; });
+(class C { x = 1; m() {} });
+// + extends（heritage 已合入）
+(class extends B { m() {} });
+(class C extends B { m() {} });
+(class extends B {});
+// + trivia
+(class /* c */ { x = 1; });
+(class { /* c */ x = 1; });
+(class C /* c */ { m() {} });
+(class {\nx = 1;\nm() {}\n});
+(class extends /* c */ B { m() {} });
+
+// ===== 暂缓（不在本批）=====
+// decorators            (class { @dec m() {} });      ← decorator 家族
+// static block          (class { static {} });         ← class extras（另一分支）
+// private field         (class { #x = 1; });           ← class extras（另一分支）
+// class 表达式做 heritage  (class extends (class {}) {}) ← 需要 heritage 里 ParseExpression，暂缓

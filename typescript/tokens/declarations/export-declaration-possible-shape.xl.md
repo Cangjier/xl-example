@@ -144,6 +144,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Kind = 4;
     } else if (unit instanceof Common && (unit as Common).Is("abstract")) {
       state.Stage = 24;
+      state.Kind = 15;
+    } else if (unit instanceof Common && (unit as Common).Is("function")) {
+      // export function [*] name(… {…}: body-bearing export function (generator `*` handled in Stage 16).
+      state.Stage = 16;
       state.Kind = 14;
     } else if (unit instanceof Common && (unit as Common).Is("default")) {
       state.Stage = 20;
@@ -201,7 +205,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       }
       if (text === "abstract") {
         state.Stage = 24;
-        state.Kind = 16;
+        state.Kind = 17;
         continue;
       }
       if (text === "type") {
@@ -214,7 +218,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     continue;
   }
   if (state.Stage === 24) {
-    // export [declare] abstract class …（Kind 14 / 16 保留在分派处）。
+    // export [declare] abstract class …（Kind 15 / 17 保留在分派处）。
     if (unit instanceof Common && (unit as Common).Is("abstract")) {
       continue;
     }
@@ -229,7 +233,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     // export default abstract class …。
     if (unit instanceof Common && (unit as Common).Is("class")) {
       state.Stage = 21;
-      state.Kind = 15;
+      state.Kind = 16;
       continue;
     }
     state.Stage = 3;
@@ -239,7 +243,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     // export declare const …：enum 走 const enum，其余按 declare 变量语句。
     if (unit instanceof Common && (unit as Common).Is("enum")) {
       state.Stage = 12;
-      state.Kind = 18;
+      state.Kind = 19;
       continue;
     }
     state.Stage = 13;
@@ -250,7 +254,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     // export const …：enum 走 const enum，其余按变量语句。
     if (unit instanceof Common && (unit as Common).Is("enum")) {
       state.Stage = 12;
-      state.Kind = 17;
+      state.Kind = 18;
       continue;
     }
     state.Stage = 13;
@@ -291,6 +295,21 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       continue;
     }
     state.Stage = 3;
+    continue;
+  }
+  if (state.Stage === 16) {
+    // `export function [*] name(…): Ret {…}`：名字 / `*` / 参数表 / 返回类型都先过去，
+    // 等函数体那个**已闭合**的 `{ }` 括号单元：Done 只落在它上面，BuildByIndex 一次建好整条声明
+    // （这样函数体内的语句不会在根层被当成表达式语句，ASI 边界也不会插进来）。
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+      if (!(unit as Bracket).Closed) {
+        continue;
+      }
+      state.Done = true;
+      state.DoneAt = index;
+      state.Stage = 4;
+      continue;
+    }
     continue;
   }
   if (state.Stage === 10 || state.Stage === 11 || state.Stage === 12 || state.Stage === 21) {
@@ -447,7 +466,7 @@ if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== nu
   exportModifier.SignOut(exportUnit.SourceRange.End);
 }
 let declIndex = secondIndex;
-if (kind === 5 || kind === 10 || kind === 15) {
+if (kind === 5 || kind === 10 || kind === 16) {
   // default class / default function：跳过 `default`，声明从声明词起。
   for (let at = secondIndex + 1; at <= tokenIndex; at++) {
     if (!host.Data[at].IsTriviaToken) {
@@ -559,7 +578,7 @@ if (kind === 13) {
   built.Parent = host;
   return built;
 }
-if (kind === 14 || kind === 16) {
+if (kind === 15 || kind === 17) {
   // export [declare] abstract class …：ClassDeclarationShape.FromUnits 认 abstract/declare 修饰词。
   const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
   built.Data.unshift(exportModifier);
@@ -569,7 +588,7 @@ if (kind === 14 || kind === 16) {
   built.Parent = host;
   return built;
 }
-if (kind === 15) {
+if (kind === 16) {
   // export default abstract class …：ClassDeclarationShape 自带 abstract child，再补 Default/Export。
   const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
@@ -591,10 +610,10 @@ if (kind === 15) {
   built.Parent = host;
   return built;
 }
-if (kind === 17 || kind === 18) {
+if (kind === 18 || kind === 19) {
   // export [declare] const enum …：EnumDeclarationShape 不认 const，手工补 ConstKeyword。
   let constIndex = secondIndex;
-  if (kind === 18) {
+  if (kind === 19) {
     for (let at = secondIndex + 1; at <= tokenIndex; at++) {
       if (!host.Data[at].IsTriviaToken) {
         constIndex = at;
@@ -621,12 +640,12 @@ if (kind === 17 || kind === 18) {
   if (constToken.SourceRange.End !== null) {
     constModifier.SignOut(constToken.SourceRange.End);
   }
-  const constPrev = kind === 18 ? host.Data[secondIndex] : exportUnit;
+  const constPrev = kind === 19 ? host.Data[secondIndex] : exportUnit;
   constModifier.Pos = constPrev.SourceRange.End === null ? pos : constPrev.SourceRange.End.Index + 1;
   constModifier.TryToClose(context);
   built.Data.unshift(constModifier);
   constModifier.Parent = built;
-  if (kind === 18) {
+  if (kind === 19) {
     const declareUnit = host.Data[secondIndex];
     const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
     declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
@@ -745,6 +764,21 @@ if (kind === 10) {
   defaultModifier.TryToClose(context);
   built.Data.unshift(defaultModifier);
   defaultModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 14) {
+  // `export function [*] name(…) {…}`：声明从 `function`（secondIndex）起，体是闭合 `{ }`（tokenIndex）。
+  // children 顺序与 TS 一致：ExportKeyword、[AsteriskToken]、Identifier、Parameter 们、[返回类型]、Block。
+  let bodyIndex = tokenIndex;
+  while (bodyIndex > secondIndex && host.Data[bodyIndex].IsTriviaToken) {
+    bodyIndex--;
+  }
+  const built = FunctionDeclarationShape.FromUnits(host, secondIndex, bodyIndex, context);
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;

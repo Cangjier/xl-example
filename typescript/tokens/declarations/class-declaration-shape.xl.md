@@ -6,6 +6,7 @@ import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
+import { ClassStaticBlockDeclarationShape } from "../types/class-static-block-declaration-shape.xl.md"
 import { ConstructorShape } from "../types/constructor-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
@@ -286,6 +287,7 @@ while (at < code.length) {
   const firstIndex = at;
   const firstUnit = code[firstIndex];
   const modifiers:Array<Token> = [];
+  let hasStatic = false;
   let accessorKind = "";
   while (at < code.length && code[at] instanceof Common) {
     const text = (code[at] as Common).TempToString();
@@ -293,6 +295,9 @@ while (at < code.length) {
       && text !== "protected" && text !== "abstract" && text !== "declare" && text !== "override"
       && text !== "async" && text !== "get" && text !== "set") {
       break;
+    }
+    if (text === "static") {
+      hasStatic = true;
     }
     if (text === "get" || text === "set") {
       accessorKind = text;
@@ -310,6 +315,28 @@ while (at < code.length) {
     }
     at++;
     modifiers.push(ClassDeclarationShape.BuildModifier(host.Template, text, modifierUnit, modifierPos, context));
+  }
+  if (hasStatic && at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "{") {
+    const staticBody = code[at] as Bracket;
+    const staticBodyPos = previousEnd + 1;
+    if (staticBody.SourceRange.End !== null) {
+      previousEnd = staticBody.SourceRange.End.Index;
+    }
+    at++;
+    const staticBuilder = new StatementBuilder(host.Template, context);
+    staticBuilder.Load([staticBody], staticBodyPos);
+    const staticBlock = staticBuilder.BuildStatement();
+    if (staticBuilder.At !== staticBuilder.Units.length) {
+      throw new Error("static 块没有读完");
+    }
+    const staticShape = new ClassStaticBlockDeclarationShape(host.Template);
+    staticShape.Add(staticBlock);
+    staticShape.SignInToken(firstUnit);
+    staticShape.SignOutToken(staticBody);
+    staticShape.Pos = startPos;
+    staticShape.TryToClose(context);
+    members.push(staticShape);
+    continue;
   }
   if (at >= code.length) {
     throw new Error("类成员不完整");
@@ -380,6 +407,9 @@ while (at < code.length) {
         if (probe instanceof Bracket && (probe as Bracket).StartBracketChar === "{") {
           break;
         }
+        if (probe instanceof Symbol && (probe as Symbol).Is(";")) {
+          break;
+        }
         if (probe.SourceRange.End !== null) {
           previousEnd = probe.SourceRange.End.Index;
         }
@@ -396,20 +426,30 @@ while (at < code.length) {
         throw new Error("方法的返回类型没有读完");
       }
     }
-    if (at >= code.length || !(code[at] instanceof Bracket) || (code[at] as Bracket).StartBracketChar !== "{") {
+    let body:Token | null = null;
+    let bodyUnit:Token | null = null;
+    let signatureEnd:Token | null = null;
+    if (at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "{") {
+      bodyUnit = code[at] as Bracket;
+      const bodyPos = previousEnd + 1;
+      if (bodyUnit.SourceRange.End !== null) {
+        previousEnd = bodyUnit.SourceRange.End.Index;
+      }
+      at++;
+      const bodyBuilder = new StatementBuilder(host.Template, context);
+      bodyBuilder.Load([bodyUnit], bodyPos);
+      body = bodyBuilder.BuildStatement();
+      if (bodyBuilder.At !== bodyBuilder.Units.length) {
+        throw new Error("类成员函数体没有读完");
+      }
+    } else if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(";")) {
+      signatureEnd = code[at];
+      if (signatureEnd.SourceRange.End !== null) {
+        previousEnd = signatureEnd.SourceRange.End.Index;
+      }
+      at++;
+    } else {
       throw new Error("类成员缺少函数体");
-    }
-    const bodyUnit = code[at] as Bracket;
-    const bodyPos = previousEnd + 1;
-    if (bodyUnit.SourceRange.End !== null) {
-      previousEnd = bodyUnit.SourceRange.End.Index;
-    }
-    at++;
-    const bodyBuilder = new StatementBuilder(host.Template, context);
-    bodyBuilder.Load([bodyUnit], bodyPos);
-    const body = bodyBuilder.BuildStatement();
-    if (bodyBuilder.At !== bodyBuilder.Units.length) {
-      throw new Error("类成员函数体没有读完");
     }
     let memberShape:ShapeToken;
     if (accessorKind === "get") {
@@ -433,9 +473,18 @@ while (at < code.length) {
     if (returnType !== null) {
       memberShape.Add(returnType);
     }
-    memberShape.Add(body);
+    if (body !== null) {
+      memberShape.Add(body);
+    }
+    let memberEnd:Token | null = bodyUnit;
+    if (memberEnd === null) {
+      memberEnd = signatureEnd;
+    }
+    if (memberEnd === null) {
+      memberEnd = code[at - 1];
+    }
     memberShape.SignInToken(firstUnit);
-    memberShape.SignOutToken(bodyUnit);
+    memberShape.SignOutToken(memberEnd);
     memberShape.Pos = startPos;
     memberShape.TryToClose(context);
     members.push(memberShape);
