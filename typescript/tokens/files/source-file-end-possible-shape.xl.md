@@ -13,6 +13,7 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ImportEqualsDeclarationShape } from "../declarations/import-equals-declaration-shape.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
+import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
@@ -182,7 +183,8 @@ for (let index = 1; index < code.length; index++) {
     continue;
   }
   const unitText = (unit as Common).TempToString();
-  if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "class" || unitText === "interface")) {
+  if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "class" || unitText === "interface"
+    || unitText === "const" || unitText === "let" || unitText === "var" || unitText === "using")) {
     continue;
   }
   let lineBreak = false;
@@ -222,6 +224,33 @@ if (!(head instanceof Common)) {
 }
 const text = (head as Common).TempToString();
 const lastUnit = code[code.length - 1];
+// 变量语句（`const/let/var/using` 开头，或 ambient 的 `declare const/let/var` 开头）：
+// EOF 时 statement 候选按 stopAtEof 主动退让（避免与终结候选同时成立），由这里用
+// StatementBuilder 按正常语句路径补建——declare 修饰与 DeclareKeyword 子节点都由它负责。
+const isVariableKeyword = text === "let" || text === "const" || text === "var" || text === "using";
+const isDeclareVariable = text === "declare"
+  && code.length >= 2
+  && code[1] instanceof Common
+  && ((code[1] as Common).Is("let") || (code[1] as Common).Is("const")
+    || (code[1] as Common).Is("var") || (code[1] as Common).Is("using"));
+if (isVariableKeyword || isDeclareVariable) {
+  let basePos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        basePos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const builder = new StatementBuilder(host.Template, context);
+  builder.Load(host.Data.slice(start, at + 1), basePos);
+  const statement = builder.BuildStatement();
+  host.Data.splice(start, at - start + 1, statement);
+  statement.Parent = host;
+  return true;
+}
 // 紧邻的 class / interface 声明（体是闭合括号单元，tokenIndex 落在 `}` 上）；允许前置 declare。
 const isClass = text === "class"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("class"));

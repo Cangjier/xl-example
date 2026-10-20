@@ -246,3 +246,26 @@ chunk 3 加的「紧邻 class（以 `}` 为 tokenIndex）」兜底在本批也�
 **仍暂缓**：`@dec` 与声明之间插入**其他语句**的写法（TS 本来非法，不列用例）；装饰器元数据 / 参数装饰器 / 接口·枚举上的装饰器
 仍是 declarations 家族后续 chunk；chunk 11 的两条暂缓（三条声明混排、`a\nimport …` 共存边界）不变。
 
+## 13. declare ASI 拆句 + 尾注释 EOF（declare-var 的两条 deferred）
+
+**根因（探针定位）**
+1. `declare\nconst x: number;`：TS 拆成 2 条（`ExpressionStatement(declare)` + `VariableStatement`）。
+   本仓语句候选在 `declare` 后换行时已 `Mismatch`，但根终结候选的 `IsAsiBoundary` 也不成立
+   （`declare` 是 statement word、`CanEndExpression` 为假），于是到 EOF 落进 `ExpressionStatement` 兜底 → 「表达式语句没有读完」。
+2. `declare const x: number // c\n`：变量语句没有分号、到 EOF 时语句候选仍 `Accept`（`ScanToSemicolon` 的 AtEOF 收口），
+   与终结候选同时成立 → `CatalogGuide` 抛「终结候选与其它候选同时成立」。同族现象在普通 `const x = 1 // c\n` 上也存在（既有 quirk）。
+
+**修法（只改 statement-scanner + source-file-end，未动 core）**
+- `statement-scanner`：`ScanToSemicolon` 增加可选 `stopAtEof`；`let/const/var` 与 `declare + 变量关键字` 两个入口传 `true`，
+  EOF 时 `Mismatch` 而不是按 ASI 自收——把 EOF 尾部的变量语句让给根终结候选。
+- `source-file-end` `BuildTrailingDeclaration`：新增变量语句族兜底（`const/let/var/using` 开头，或 `declare` + 变量关键字开头），
+  用 `StatementBuilder` 按正常语句路径补建（`DeclareKeyword` 子节点与 `Pos` 由 builder 处理）；
+  多条连排的边界关键字补 `const/let/var/using`，于是 `declare\nconst …` 被拆成两条语句，与 TS 逐节点一致。
+
+**用例**（`declarations.ts` append-only，+13）：`declare\nconst x: number;`、`declare\nconst x = 1;`、`declare\n\nconst x: number;`、
+`declare /* c */\nconst x: number;`、`declare const x: number // c\n`、`declare const x: number /* c */`、`declare let y: string // c\n`；
+同族既有 quirk 一并转绿：`const x = 1 // c\n`、`let y: string\n`；controls：`declare const x: number;`、`declare function f(): void;`、`a\n++b;`、`a\nb;`。
+
+**读数（本分支）**：`declarations` **481 / 481 完全一致**；全量 ast-json / diff **3432 / 3432**
+（基线 3419 + 13），结构差 0 / 位置差 0 / 字段差 0，无回归（statements / end-declarations / expressions 等 stem 全绿）；tsc 0 error。
+

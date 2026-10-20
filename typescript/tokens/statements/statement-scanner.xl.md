@@ -124,13 +124,13 @@ if (first instanceof Common) {
       const secondText = (second as Common).TempToString();
       if ((secondText === "let" || secondText === "const" || secondText === "var" || secondText === "using")
         && StatementScanner.NoLineBreakBetween(first, second)) {
-        return StatementScanner.ScanToSemicolon(code, 2);
+        return StatementScanner.ScanToSemicolon(code, 2, true);
       }
     }
     return StatementScanner.Mismatch();
   }
   if (text === "let" || text === "const" || text === "var") {
-    return StatementScanner.ScanToSemicolon(code, 1);
+    return StatementScanner.ScanToSemicolon(code, 1, true);
   }
   if (text === "if") {
     return StatementScanner.ScanIf(code, 0);
@@ -258,13 +258,18 @@ if (unit instanceof Common) {
 return StatementScanner.ScanExpressionBody(code, at);
 ```
 
-## static method ScanToSemicolon:(code:Array<Token>, from:int)=>StatementScanResult
+## static method ScanToSemicolon:(code:Array<Token>, from:int, stopAtEof?:bool)=>StatementScanResult
 
 从 `from` 起找本层的 `;`（本层里括号是整单元，所以 `;` 只可能是语句分隔符）；文件末尾没有 `;` 时按 ASI 收在最后一个代码单元。
+`stopAtEof` 为真时文件末尾**不**按 ASI 收口，而是 `Mismatch`——变量语句在 EOF 交给根终结候选的
+`BuildTrailingDeclaration` 兜底（避免 statement 候选与终结候选在 EOF 同时成立）。
 
 ```ts
 for (let at = from; at < code.length; at++) {
   if (StatementScanner.IsEOF(code[at])) {
+    if (stopAtEof ?? false) {
+      return StatementScanner.Mismatch();
+    }
     if (at > 0) {
       return StatementScanner.Complete(at - 1);
     }
@@ -275,6 +280,9 @@ for (let at = from; at < code.length; at++) {
   }
 }
 if (StatementScanner.AtEOF && code.length > 0) {
+  if (stopAtEof ?? false) {
+    return StatementScanner.Mismatch();
+  }
   return StatementScanner.Complete(code.length - 1);
 }
 return StatementScanner.NeedMore();
