@@ -411,3 +411,16 @@ class C { @dec /* c */ x = 1; }
 // decorators on interfaces / enums
 // newline between a decorator and its declaration: @dec\nclass C {} is blocked by the root end candidate ASI rule
 // (IsAsiBoundary sees an expression-complete `dec` at the newline; same family as newline-before-body, source-file-end-possible-shape scope)
+
+// ===== base 12: newline between a decorator and its declaration (root end candidate no longer steals the boundary) =====
+@dec\nclass C {}
+@a @b\nclass C {}
+@dec()\nclass C {}
+@dec(a)\nclass C {}
+@dec\nabstract class C {}
+@a\nclass A {}\n@b\nclass B {}
+@dec\n\nclass C {}
+@dec /* c */\nclass C {}
+@dec\nclass C {}\nclass D {}
+class C { @dec\n x = 1; }
+

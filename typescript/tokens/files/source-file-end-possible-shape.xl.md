@@ -51,9 +51,50 @@ if (current instanceof EndOfFileTokenShape) {
   return ShapeStates.Accept;
 }
 if (ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
+  // 前导装饰器属于**下一条声明**，不是换行处结束的表达式语句：`@dec\nclass C {}`。
+  // 类候选还在吃这串装饰器时，终结候选不许 Accept，否则 CatalogGuide 会报「终结候选与其它候选同时成立」。
+  if (SourceFileEndPossibleShape.HasDecoratorPrefix(units, tokenIndex)) {
+    return ShapeStates.Uncertain;
+  }
   return ShapeStates.Accept;
 }
 return ShapeStates.Reject;
+```
+
+## static method HasDecoratorPrefix:(units:Array<Token>, tokenIndex:int)=>bool
+
+自 `tokenIndex` 往前看：这段开头的代码单元是否属于**装饰器前缀**（`@dec` / `@dec()` / `@a @b` / `@a.b`）。
+是的话 `tokenIndex` 处不是一条表达式语句的结尾，而是带装饰器声明的内部——终结候选不许把它当 ASI 边界。
+
+做法：从 `tokenIndex` 前一个代码单元起往回走，把「`.` / Common / `(…)` 括号单元」当成装饰器表达式的一部分，
+碰到 `@` 就成立；碰到别的（`;` / `}` / 二元运算符等）就说明不是装饰器前缀。
+
+```ts
+const start = ItemUtil.ItemStart(units);
+let at = tokenIndex - 1;
+while (at >= start && units[at].IsTriviaToken) {
+  at--;
+}
+for (let index = at; index >= start; index--) {
+  const unit = units[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+    return true;
+  }
+  if (unit instanceof Common) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is(".")) {
+    continue;
+  }
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+    continue;
+  }
+  return false;
+}
+return false;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
