@@ -348,13 +348,65 @@ a\n=>\na;
 ( class {} );
 /* c */ (class {});
 
+// ===== base 23：as / satisfies（右操作数交给 TypeBuilder.ParseType）=====
+a as T;
+a satisfies T;
+a as A<B>;
+a as A[];
+a as (A | B);
+a as A & B;
+a as "s";
+a satisfies A<B>;
+a as T as U;
+a + b as T;
+a as T + b;
+x = a as T;
+f(a as T);
+f(a as T, b as U);
+({ a: b as T });
+[a as T];
+a ? b as T : c;
+// + trivia：前导 / 词间 / 类型前 / 类型后注释、换行、多语句
+/* c */ a as T;
+a /* c */ as T;
+a as /* c */ T;
+a as T /* c */;
+a satisfies /* c */ T;
+f(a as /* c */ T);
+({\na as T\n});
+
+// ===== base 24：泛型实参调用（`<` 配对的 `>` 后随 `(` 才走泛型，否则回退二元比较）=====
+f<T>(a);
+f<T, U>(a, b);
+f<T>();
+f<T>(a).b;
+f<T<U> >(a);
+x = f<T>(a);
+a.b<T>(c);
+f < g > (a);
+// + 回退（不能把比较吃成泛型调用）
+a < b;
+a < b > c;
+f(a < b);
+a <b;
+a< b;
+// + trivia：`<` 前 / 实参前 / 实参后注释
+f /* c */ <T>(a);
+f< /* c */ T>(a);
+f<T /* c */>(a);
+f<T>(/* c */ a);
+
 // ===== 暂缓（不在这张用例集里）=====
 // 箭头函数：base 21 只收「表达式体 + 参数只收标识符 + 无类型标注」；以下依赖后续块：
 //   async 箭头                  async (a) => a;        ← 依赖 cover-end-1：ExpressionStatementPossibleShape.CanStart 放行 async
 //   块体箭头 / 函数表达式        (a) => { return a; };   (function () {});   ← 依赖 cover-statements-1 的 BlockShape
-//   泛型箭头 / 参数类型标注      <T>(a) => a;   (a: T) => a;   ← 依赖 cover-types-1 的 ParseType
-// 泛型调用 / 尖括号断言         f<T>(a);   <T>a;   ← 依赖 cover-types-1 的 ParseType
-// as / satisfies              a as T;   a satisfies T;   f(a as T);   ← 依赖 cover-types-1 的 ParseType
+//   参数类型标注 / 默认参数      (a: T) => a;   (a = 1) => a;   ← 依赖 parameter-shape（types-2 家族）
+// 泛型调用：base 24 已收 `f<T>(a)` / `f<T, U>(a, b)` / `f<T<U> >(a)`；仍暂缓：
+//   泛型箭头 / 尖括号断言        <T>(a) => a;   <T>a;   ← 依赖 cover-end-1 的 CanStart 放行 `<`
+//   `f<T<U>>(a)`                连写的 `>>` 是单个组合 Symbol，要拆它属 basic token 用户决策项
+// as / satisfies：base 23 已收；类型体系本身（函数类型 / 映射类型 / 条件类型等）随 types 家族继续
+// 限定类型名                  a as A.B;   a as A.B.C;   ← 与 types.ts 同口径：TS 反查名是 FirstNode，
+//                              ast-json.mjs 缺 ["FirstNode","QualifiedName"] 别名（harness 缺口，不是 shape 缺口）
 // 类表达式：base 22 只收空类体；带类体成员的 class 表达式 ← 依赖 members/statements 家族的成员形状
 // 数组 / 对象字面量             [a, b];   ({ a: b });   ← 语句首的 { } 与块歧义
 // 模板 / 标签模板               `t`;   tag`t`;
