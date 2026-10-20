@@ -665,3 +665,43 @@ expression  685 / 685      # 658 + 27
 ### 红→绿清单
 
 无：全部候选形态测量前已支持（statements.ts 未追加：yield/await 只能出现在函数体内，语料已由 expression.ts 的函数声明覆盖）。
+## chunk 20（cover-asyncgen-methods-1）：async generator 方法 / 私有成员访问链（measurement-first）
+
+**未改 builder / class shape**：15 条候选先 append 再对拍，全部一次转绿（既有 class 成员修饰符、PrivateIdentifier
+后缀与 expression 的 `#` 分派组合已覆盖），因此 expression-builder 与 class-declaration-shape 一行未改。
+
+### 新增（全绿）
+
+- members.ts base 16（13 条）：`class C { async *m() {} }`、`static async *g()`、`public async *m()`、
+  `async m(a: A): Promise<B> { return b; }`、对象字面量 `({ async *m() {} })`；
+  私有访问链 `this.#x;`、`this.#m();`、`this.#p.q;`；
+  私有声明回归 `#m()` + `get #g(): A` + `set #s(v: A)`、`static #s = 1; static #m() {}`；
+  trivia：方法名后 / `static` 后 / `this.` 与 `#p` 之间注释。
+- expression.ts base 42（2 条）：`a.#x;`（class 外 parse-legal）、`this.#p.q` 链。
+
+### AST 口径（TS 实测）
+
+| 构造 | children |
+| --- | --- |
+| `async *m() {}` | MethodDeclaration → `AsyncKeyword`、`AsteriskToken`、`Identifier m`、`Block` |
+| `static async *g()` | `StaticKeyword`、`AsyncKeyword`、`AsteriskToken`、名字、`Block` |
+| `this.#x` | `PropertyAccessExpression` → `ThisKeyword`、`PrivateIdentifier` |
+| `this.#p.q` | `PropertyAccessExpression` → 内层 `PropertyAccessExpression`（this + #p）、`Identifier q` |
+| `get #g(): A` | GetAccessor → `PrivateIdentifier`、`TypeReference A`、`Block` |
+
+### 读数
+
+```
+members     204 / 204      # 191 + 13（base 16 的 13 条）
+expression  687 / 687      # 685 + 2（base 42 的 2 条）
+全量       4149 / 4149     # 4134 + 15；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 红→绿清单
+
+无：全部候选形态测量前已支持。
+
+### 暂缓（注释目标 + 原因）
+
+- `obj?.x.#y`、`this?.#x`：oracle 实测 `ts.createSourceFile` 直接报诊断（`?.#` 非法），不入语料；
+  optional private access 的非法性已在 chunk 13 记录。

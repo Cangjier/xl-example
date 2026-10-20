@@ -259,3 +259,18 @@ class C extends B { static { super.x; } }
 ({ m<T = A>(x: T): T { return x; } });
 ({ m<const T extends A>(x: T) { return x; } });
 ({ m<T extends A, U = B>(x: T, y: U): T { return x; } });
+// ===== base 16：async generator 方法 / 私有成员链（measurement sweep）=====
+class C { async *m() {} }
+class C { static async *g() {} }
+class C { public async *m() {} }
+class C { async m(a: A): Promise<B> { return b; } }
+({ async *m() {} });
+class C { #x = 1; m() { this.#x; } }
+class C { #m() {} m2() { this.#m(); } }
+class C { #p = 1; m() { this.#p.q; } }
+class C { #m() {} get #g(): A { return a; } set #s(v: A) {} }
+class C { static #s = 1; static #m() {} }
+// + trivia
+class C { async *m /* c */ () {} }
+class C { static /* c */ async *g() {} }
+class C { #p = 1; m() { this. /* c */ #p.q; } }

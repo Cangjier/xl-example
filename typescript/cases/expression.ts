@@ -886,3 +886,7 @@ function* g1() { async function f() { await x; } yield 1; }
 function* g1() { yield /* c */ 1; }
 function* g1() { yield* /* c */ xs; }
 async function f1() { await /* c */ x; }
+// ===== base 42：私有成员访问链（class 外 / 链式，measurement sweep）=====
+a.#x;
+class C { #p = 1; m() { return this.#p.q; } }
+// 暂缓：`obj?.x.#y` / `this?.#x` —— TS 解析器直接报诊断（`?.#` 非法）

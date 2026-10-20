@@ -11865,6 +11865,951 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C { async *m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 9,
+                  "end": 15
+                },
+                {
+                  "kind": "AsteriskToken",
+                  "pos": 15,
+                  "end": 17
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static async *g() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 16,
+                  "end": 22
+                },
+                {
+                  "kind": "AsteriskToken",
+                  "pos": 22,
+                  "end": 24
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 25,
+                  "text": "g"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 27,
+                  "end": 30
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public async *m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 16,
+                  "end": 22
+                },
+                {
+                  "kind": "AsteriskToken",
+                  "pos": 22,
+                  "end": 24
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 25,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 27,
+                  "end": 30
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { async m(a: A): Promise<B> { return b; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 51,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 9,
+                  "end": 15
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 18,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 19,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 20,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 32,
+                      "text": "Promise"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 33,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 34,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 35,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 37,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 44,
+                          "end": 46,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ async *m() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "AsyncKeyword",
+                          "pos": 2,
+                          "end": 8
+                        },
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 8,
+                          "end": 10
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 11,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 13,
+                          "end": 16
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = 1; m() { this.#x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 23,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 23,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "ThisKeyword",
+                              "pos": 23,
+                              "end": 28
+                            },
+                            {
+                              "kind": "PrivateIdentifier",
+                              "pos": 29,
+                              "end": 31
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m() {} m2() { this.#m(); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 20,
+                  "text": "m2"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 24,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 24,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 24,
+                              "end": 32,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 24,
+                                  "end": 29
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 30,
+                                  "end": 32
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #p = 1; m() { this.#p.q; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 23,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 23,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 23,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 23,
+                                  "end": 28
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 29,
+                                  "end": 31
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 33,
+                              "text": "q"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m() {} get #g(): A { return a; } set #s(v: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 61,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 17,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 21,
+                  "end": 24
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 27,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 31,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 40,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "SetAccessor",
+              "pos": 43,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 47,
+                  "end": 50
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 51,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 51,
+                      "end": 52,
+                      "text": "v"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 53,
+                      "end": 55,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 53,
+                          "end": 55,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 56,
+                  "end": 59
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static #s = 1; static #m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 16,
+                  "end": 19
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 24,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 24,
+                  "end": 31
+                },
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 31,
+                  "end": 34
+                },
+                {
+                  "kind": "Block",
+                  "pos": 36,
+                  "end": 39
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { async *m /* c */ () {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 9,
+                  "end": 15
+                },
+                {
+                  "kind": "AsteriskToken",
+                  "pos": 15,
+                  "end": 17
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static /* c */ async *g() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 16,
+                  "end": 30
+                },
+                {
+                  "kind": "AsteriskToken",
+                  "pos": 30,
+                  "end": 32
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "g"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 35,
+                  "end": 38
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #p = 1; m() { this. /* c */ #p.q; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 23,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 23,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 23,
+                              "end": 40,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 23,
+                                  "end": 28
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 29,
+                                  "end": 40
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 41,
+                              "end": 42,
+                              "text": "q"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
