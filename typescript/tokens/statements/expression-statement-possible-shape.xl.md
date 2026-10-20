@@ -261,12 +261,15 @@ return false;
 
 ## static method IsAsiBoundary:(units:Array<Token>, tokenIndex:int)=>bool
 
-**ASI 判据**：`tokenIndex` 这个代码单元到得太晚——上一条表达式已经在换行处结束了。四条同时成立：
+**ASI 判据**：`tokenIndex` 这个代码单元到得太晚——上一条表达式已经在换行处结束了。五条同时成立：
 
 1. 当前单元是代码（trivia 与 EOF 哨兵都不算）；
 2. 它前面还有代码单元 `prev`，且 `prev` 能收住一条完整表达式；
 3. `prev` 与它之间至少有一个换行 trivia（注释里的换行也算）；
-4. 当前单元接不上上一条表达式（不是延续符）。
+4. 当前单元接不上上一条表达式（不是延续符）；
+5. **本条语句是表达式语句**：以语句 / 声明关键字开头的条目（`class` / `interface` / `enum` / `declare` / …）
+   后面的换行不是 ASI 边界——`class C\n{}` 的 `{` 是类体，`C` 只是声明头的一部分，
+   那里根本不存在「上一条表达式」。
 
 它只回答「该断句」，不建形状：普通候选靠它 `Reject`，终结候选靠它 `Accept`，
 两侧读的是同一个函数，所以不会一边断、一边不断。
@@ -299,6 +302,18 @@ if (prev < 0 || !lineBreak) {
   return false;
 }
 if (!ExpressionStatementPossibleShape.CanEndExpression(units[prev])) {
+  return false;
+}
+// 本条语句的起点：从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。
+let head = prev;
+while (head > 0 && units[head - 1].IsBasicToken) {
+  head--;
+}
+while (head < prev && units[head].IsTriviaToken) {
+  head++;
+}
+if (units[head] instanceof Common
+  && ExpressionStatementPossibleShape.IsStatementWord((units[head] as Common).TempToString())) {
   return false;
 }
 return !ExpressionStatementPossibleShape.IsContinuation(current);

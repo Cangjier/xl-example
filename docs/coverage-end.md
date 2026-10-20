@@ -70,3 +70,25 @@ xl check（paths: core + typescript）→ 0 error（2175 warning，与基线同�
 fresh clone 里 `xl_build` **不传 paths** 会因 `cjcli.xl.md` 的 dead import（`dawn/text/*`）中止、写 0 个产物。
 本批用的命令是 `xl_build({ cwd: <clone>, targets: ["ts"], paths: ["core", "typescript"] })`（854 files / 0 error），
 再 `node .\node_modules\typescript\bin\tsc -p .\tsconfig.json`。改单个文件时 `paths` 只给改过的文件即可。
+
+## 8. chunk 2（cover-end-2）：声明条目的体前换行不是 ASI 边界
+
+**修点**：`ExpressionStatementPossibleShape.IsAsiBoundary` 增加第 5 条——先找出**本条语句的起点**（从 `prev` 往回跳过属于自己的 basic token，遇到建好的形状就停），
+若起点是语句 / 声明关键字（复用 `IsStatementWord`：`class` / `interface` / `enum` / `declare` / `function` / …），则该处换行**不是** ASI 边界。
+`class C\n{}` 的 `{` 是类体、`C` 只是声明头，那里不存在「上一条表达式」，根终结候选不再 `Accept`，声明候选照常把 `{` 吃进声明。
+`CatalogGuide` 契约未改，无 `ExitOrPre`，未覆盖 `ComputePossibleShapes`。
+
+**证据**：新 stem `typescript/cases/end-declarations.ts`（37 条）37/37 完全一致：
+class / interface / enum / declare class / declare interface 的空体、`{ }`、多行体、多行枚举成员；
+声明头与 `{` 之间的块注释 / 行注释 / 空行；多条声明连排；以及表达式 ASI 回归（`a\n++b;`、`a\nb;`、`a\n+b;`、`a\n(b);`、`[a, b];`、`a\nb\nc;`）。
+
+**读数（本分支）**：全量 ast-json / diff **1376/1376**（1339 + 37），结构差 0 / 位置差 0 / 字段差 0；xl_check 0 error。
+
+**明确未收（原因写在用例里，不是静默跳过）**：带成员的体前换行
+（`class C\n{\nx: number;\n}`、`interface I\n{\na: number;\n}`、`declare class C\n{\nx: number;\n}`、`declare interface I\n{\na: number;\n}`）
+——类 / 接口成员需要 types 家族的 class element shapes（declarations chunk 1 已明确暂缓，见 `docs/coverage-declarations.md`）；
+同行写法 `class C { x: number; }`、`interface I { a: number; }` 同样红，说明红点与「体前换行」无关。
+`end-declarations.ts` 里以 ``// `` 目标 + 原因保留。
+
+**仍然存在（chunk 1 记录的通用边界）**：`a\nimport b from "m";` 会抛「终结候选与其它候选同时成立」
+（import / export 候选在边界那一刻仍活，`CatalogGuide` 不许改，需要 `core` 之外的独立通道）；本块未处理。
