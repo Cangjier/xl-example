@@ -81,6 +81,7 @@ import { DecoratorShape } from "./decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "./get-accessor-shape.xl.md"
 import { SetAccessorShape } from "./set-accessor-shape.xl.md"
+import { ComputedPropertyNameShape } from "./computed-property-name-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -843,6 +844,102 @@ if (unit instanceof Bracket) {
     return this.SpanTypeMember(shape, start);
   }
   if (bracket.Is("[", "]")) {
+    const innerCode:Array<Token> = [];
+    for (const innerItem of bracket.Data) {
+      if (!innerItem.IsTriviaToken) {
+        innerCode.push(innerItem);
+      }
+    }
+    let indexSignature = false;
+    if (innerCode.length >= 2 && this.TextOf(innerCode[1]) === ":") {
+      indexSignature = true;
+    }
+    if (!indexSignature) {
+      // 计算属性名成员：`[s]: A` / `[s]?: A` / `[s](): A` —— TS 的 name 是 ComputedPropertyName([ … ])。
+      if (innerCode.length !== 1 || !(innerCode[0] instanceof Common)) {
+        throw new Error("计算属性名只支持简单标识符");
+      }
+      const computed = new ComputedPropertyNameShape(this.Template);
+      const expressionUnit = innerCode[0] as Common;
+      const expression = IdentifierShape.FromBasicToken(expressionUnit, this.Context);
+      let expressionPos = 0;
+      if (bracket.SourceRange.Start !== null) {
+        expressionPos = bracket.SourceRange.Start.Index + 1;
+      }
+      expression.Pos = expressionPos;
+      computed.Add(expression);
+      expression.Parent = computed;
+      if (bracket.SourceRange.Start !== null) {
+        computed.SignIn(bracket.SourceRange.Start);
+      }
+      if (bracket.SourceRange.End !== null) {
+        computed.SignOut(bracket.SourceRange.End);
+      }
+      computed.Pos = this.Positions[this.At];
+      computed.TryToClose(this.Context);
+      this.At++;
+      let computedQuestion:Token | null = null;
+      let computedColonConsumed = false;
+      const computedMark = this.Peek(0);
+      if (computedMark !== null) {
+        const computedMarkText = this.TextOf(computedMark);
+        if (computedMarkText === "?" || computedMarkText === "?:") {
+          computedQuestion = this.ParseOptionalMark();
+          computedColonConsumed = computedMarkText === "?:";
+        }
+      }
+      const computedAfterMark = this.Peek(0);
+      if (computedAfterMark !== null && computedAfterMark instanceof Bracket
+        && (computedAfterMark as Bracket).Is("(", ")")) {
+        this.At++;
+        const computedParameters = this.ParseParameterList(computedAfterMark as Bracket);
+        const computedColon = this.Peek(0);
+        if (computedColon === null || !this.IsText(computedColon, ":")) {
+          throw new Error("计算属性方法缺少返回类型");
+        }
+        this.At++;
+        const computedReturnType = this.ParseReturnType();
+        const computedMethod = new MethodSignatureShape(this.Template);
+        computedMethod.SignatureName = computed;
+        computedMethod.Parameters = computedParameters;
+        computedMethod.ReturnType = computedReturnType;
+        computedMethod.MemberModifiers = modifiers;
+        for (const computedModifier of modifiers) {
+          computedMethod.Add(computedModifier);
+        }
+        computedMethod.Add(computed);
+        if (computedQuestion !== null) {
+          computedMethod.Add(computedQuestion);
+        }
+        for (const computedParameter of computedParameters) {
+          computedMethod.Add(computedParameter);
+        }
+        computedMethod.Add(computedReturnType);
+        return this.SpanTypeMember(computedMethod, start);
+      }
+      if (!computedColonConsumed) {
+        const computedTypeColon = this.Peek(0);
+        if (computedTypeColon === null || !this.IsText(computedTypeColon, ":")) {
+          throw new Error("计算属性签名缺少类型");
+        }
+        this.At++;
+      }
+      const computedType = this.ParseType();
+      const computedProperty = new PropertySignatureShape(this.Template);
+      computedProperty.SignatureName = computed;
+      computedProperty.QuestionToken = computedQuestion;
+      computedProperty.Type = computedType;
+      computedProperty.MemberModifiers = modifiers;
+      for (const computedModifier of modifiers) {
+        computedProperty.Add(computedModifier);
+      }
+      computedProperty.Add(computed);
+      if (computedQuestion !== null) {
+        computedProperty.Add(computedQuestion);
+      }
+      computedProperty.Add(computedType);
+      return this.SpanTypeMember(computedProperty, start);
+    }
     this.At++;
     const parameter = this.ParseIndexParameter(bracket);
     const colon = this.Peek(0);
