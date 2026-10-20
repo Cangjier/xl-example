@@ -626,6 +626,75 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare module \"m\";",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"; // c",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare /* c */ module \"m2\" ;",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 27,
+              "text": "m2"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -109,3 +109,24 @@ namespace N { export  async  function  f  ( )  { } }
 namespace N { using  x  =  a ; }
 namespace N { /* c */ async function f() {} }
 namespace N { class C {} async function f() {} }
+
+// ===== module globals: dotted / nested namespace / declare global / export as namespace / import-equals（cover-module-globals-1） =====
+namespace A.B.C {}
+module A.B {}
+namespace A { namespace B {} }
+namespace A { namespace B { interface I {} } }
+namespace A.B { function f() {} }
+declare namespace Global { namespace Inner { class C {} } }
+declare global {}
+declare global { interface Window {} }
+declare module "m" { export as namespace X; }
+declare module "m" { import x = require("n"); }
+declare module "m" { export import x = require("n"); }
+module M { export namespace N {} }
+// trivia
+namespace A . B { }
+namespace A { /* c */ namespace B {} }
+declare global { /* c */ interface Window {} }
+declare module "m" { /* c */ export as namespace X; }
+declare module "m" { import /* c */ x = require("n"); }
+declare module "m" { import x = require("n") /* c */ ; }
