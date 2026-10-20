@@ -217,6 +217,23 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     state.Stage = 3;
     continue;
   }
+  if (state.Stage === 28) {
+    // export default interface …：名字与 heritage 先过去，等接口体 `{ }` 闭合时建。
+    if (unit instanceof Common) {
+      continue;
+    }
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+      if (!(unit as Bracket).Closed) {
+        continue;
+      }
+      state.Done = true;
+      state.DoneAt = index;
+      state.Stage = 4;
+      continue;
+    }
+    state.Stage = 3;
+    continue;
+  }
   if (state.Stage === 24) {
     // export [declare] abstract class …（Kind 15 / 17 保留在分派处）。
     if (unit instanceof Common && (unit as Common).Is("abstract")) {
@@ -271,6 +288,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     } else if (unit instanceof Common && (unit as Common).Is("function")) {
       state.Stage = 23;
       state.Kind = 10;
+    } else if (unit instanceof Common && (unit as Common).Is("interface")) {
+      // export default interface …：默认导出接口（interface 体在 Stage 28 收尾）。
+      state.Stage = 28;
+      state.Kind = 20;
     } else {
       state.Stage = 22;
       state.Kind = 6;
@@ -466,7 +487,7 @@ if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== nu
   exportModifier.SignOut(exportUnit.SourceRange.End);
 }
 let declIndex = secondIndex;
-if (kind === 5 || kind === 10 || kind === 16) {
+if (kind === 5 || kind === 10 || kind === 16 || kind === 20) {
   // default class / default function：跳过 `default`，声明从声明词起。
   for (let at = secondIndex + 1; at <= tokenIndex; at++) {
     if (!host.Data[at].IsTriviaToken) {
@@ -655,6 +676,28 @@ if (kind === 18 || kind === 19) {
     built.Data.unshift(declareModifier);
     declareModifier.Parent = built;
   }
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 20) {
+  // export default interface …：InterfaceDeclarationShape 自带名字/heritage，再补 Default/Export。
+  const built = InterfaceDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  const defaultUnit = host.Data[secondIndex];
+  const defaultModifier = new DefaultKeywordShape(host.Template);
+  if (defaultUnit.SourceRange.Start !== null) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  }
+  if (defaultUnit.SourceRange.End !== null) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  }
+  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.TryToClose(context);
+  built.Data.unshift(defaultModifier);
+  defaultModifier.Parent = built;
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;

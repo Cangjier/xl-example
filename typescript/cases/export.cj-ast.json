@@ -6941,6 +6941,642 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export declare interface I extends J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 26,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default interface I extends J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 26,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class C { m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 33,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 37,
+                  "end": 40
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare interface I extends J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 26,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare interface I extends J {} // c",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 26,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default interface I {} // c",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class C { m() {} } // c",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 33,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 37,
+                  "end": 40
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare /* c */ interface I extends J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 32,
+              "end": 34,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 34,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 42,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 42,
+                      "end": 44,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default /* c */ interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 32,
+              "end": 34,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export\ndefault interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare interface I extends J {} export default interface J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 26,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 39,
+          "end": 69,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 39,
+              "end": 46
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 46,
+              "end": 54
+            },
+            {
+              "kind": "Identifier",
+              "pos": 64,
+              "end": 66,
+              "text": "J"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare type T = A; export declare const x: number;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 23,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 26,
+          "end": 58,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 26,
+              "end": 33
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 33,
+              "end": 41
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 41,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 47,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 47,
+                      "end": 49,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 50,
+                      "end": 57
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

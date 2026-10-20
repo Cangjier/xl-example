@@ -95,3 +95,19 @@ children 为 `[Identifier T]`；本仓 `ExportSpecifierShape.FromTokens` 把 `ty
 暂缓（ruler 口径问题，未硬改）：`export abstract\nclass C {}` / `export default abstract\nclass C {}` —— modifier 与 `class`
 之间换行时 TS 的 ClassDeclaration `pos` 是换行位置（15 / 23）而不是 0，与之前 `export declare\ntype` 同类。
 同批保留了 `export\ndefault class …`、`export\ndefault…` 等换行变体且全绿。
+## chunk 6 新增（base 14，全部逐条对拍 TS）
+
+| 形态 | TS children | 实现/归属 |
+| --- | --- | --- |
+| `export declare interface I extends J {}` | `InterfaceDeclaration` → `ExportKeyword` + `DeclareKeyword` + `Identifier` + `HeritageClause` | 既有 Kind 8 路径（`InterfaceDeclarationShape.FromUnits` 认 declare + heritage）；本 chunk 只加用例 |
+| `export default interface I {}` / `extends J` | `InterfaceDeclaration` → `ExportKeyword` + `DefaultKeyword` + `Identifier`（+ HeritageClause） | 新增 Stage 28 / Kind 20：`InterfaceDeclarationShape.FromUnits` 从 `interface` 起建，再补 `DefaultKeyword` + `ExportKeyword`，整体 Pos 改到 `export` 前边界；接口体闭合时收尾 |
+| `export default abstract class C { m() {} }` | `ClassDeclaration` → `ExportKeyword` + `DefaultKeyword` + `AbstractKeyword` + `Identifier` + `MethodDeclaration` | 既有 Kind 16 路径 + class 成员（成员/抽象已由 declarations 侧提供；export-decl 只调 FromUnits） |
+
+记录（已在此前 chunk 全绿，本次仅复核，未重复添加）：`export declare const/let/var …;`（Kind 12）、
+`export declare type T = A;`（Kind 13）、`export declare function f(): void;`（Kind 11）、`export declare interface I {}`。
+
+暂缓（ruler 口径，未硬改）：`export declare\ninterface I extends J {}` —— declare 与 interface 之间换行时
+TS 的 InterfaceDeclaration `pos` 是 14 而不是 0；与 `export declare\ntype`、`export abstract\nclass` 同类。
+
+归属说明：export-decl 只负责 `export` 前缀形与修饰词拼装；`declare`/heritage/成员语义由 declarations 侧的
+InterfaceDeclarationShape / ClassDeclarationShape 提供（本 chunk 未改任何 interface/class/function declaration 文件）。

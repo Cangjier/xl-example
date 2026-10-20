@@ -253,3 +253,25 @@ export\ndefault class D extends B {}
 // + 重复形
 export class C extends D implements I {} export interface I extends J {}
 export const enum E { A } export declare const enum F { B }
+
+// ===== base 14：ambient export interface / default interface / default abstract class with members（chunk6） =====
+export declare interface I extends J {}
+export default interface I {}
+export default interface I extends J {}
+export default abstract class C { m() {} }
+// + 前导空格
+  export declare interface I extends J {}
+  export default interface I {}
+// + 行尾注释
+export declare interface I extends J {} // c
+export default interface I {} // c
+export default abstract class C { m() {} } // c
+// + 词间块注释
+export declare /* c */ interface I extends J {}
+export default /* c */ interface I {}
+// + 换行
+// export declare\ninterface I extends J {}   —— declare 与 interface 之间换行时 TS 的 InterfaceDeclaration pos=14（非 0），ruler 口径问题，暂缓
+export\ndefault interface I {}
+// + 重复形
+export declare interface I extends J {} export default interface J {}
+export declare type T = A; export declare const x: number;
