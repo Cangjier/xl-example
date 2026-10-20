@@ -25363,6 +25363,969 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C extends B { m() { return super.m(); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 19,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 25,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 32,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 32,
+                              "end": 40,
+                              "children": [
+                                {
+                                  "kind": "SuperKeyword",
+                                  "pos": 32,
+                                  "end": 38
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 39,
+                                  "end": 40,
+                                  "text": "m"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { m() { super.m(a); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 19,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 25,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 25,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 25,
+                              "end": 33,
+                              "children": [
+                                {
+                                  "kind": "SuperKeyword",
+                                  "pos": 25,
+                                  "end": 31
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 32,
+                                  "end": 33,
+                                  "text": "m"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 35,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { get x() { return super.x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 19,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "x"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 27,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 29,
+                      "end": 45,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 36,
+                          "end": 44,
+                          "children": [
+                            {
+                              "kind": "SuperKeyword",
+                              "pos": 36,
+                              "end": 42
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 43,
+                              "end": 44,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { constructor() { super(); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Constructor",
+              "pos": 19,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 33,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 35,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 35,
+                          "end": 43,
+                          "children": [
+                            {
+                              "kind": "SuperKeyword",
+                              "pos": 35,
+                              "end": 41
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { constructor(a) { super(a); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Constructor",
+              "pos": 19,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 32,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 33,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 34,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 36,
+                      "end": 46,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 36,
+                          "end": 45,
+                          "children": [
+                            {
+                              "kind": "SuperKeyword",
+                              "pos": 36,
+                              "end": 42
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 43,
+                              "end": 44,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { m() { return super.m().n; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 19,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 25,
+                      "end": 45,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 32,
+                          "end": 44,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 32,
+                              "end": 42,
+                              "children": [
+                                {
+                                  "kind": "PropertyAccessExpression",
+                                  "pos": 32,
+                                  "end": 40,
+                                  "children": [
+                                    {
+                                      "kind": "SuperKeyword",
+                                      "pos": 32,
+                                      "end": 38
+                                    },
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 39,
+                                      "end": 40,
+                                      "text": "m"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 43,
+                              "end": 44,
+                              "text": "n"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { m() { return super.a.b; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 19,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 25,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 32,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 32,
+                              "end": 40,
+                              "children": [
+                                {
+                                  "kind": "SuperKeyword",
+                                  "pos": 32,
+                                  "end": 38
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 39,
+                                  "end": 40,
+                                  "text": "a"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 41,
+                              "end": 42,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { m() { return super[\"m\"]; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 19,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 25,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "ElementAccessExpression",
+                          "pos": 32,
+                          "end": 43,
+                          "children": [
+                            {
+                              "kind": "SuperKeyword",
+                              "pos": 32,
+                              "end": 38
+                            },
+                            {
+                              "kind": "StringLiteral",
+                              "pos": 39,
+                              "end": 42,
+                              "text": "m"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { m() { return super /* c */ . m(); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 57,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 19,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 25,
+                      "end": 53,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 32,
+                          "end": 52,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 32,
+                              "end": 50,
+                              "children": [
+                                {
+                                  "kind": "SuperKeyword",
+                                  "pos": 32,
+                                  "end": 38
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 48,
+                                  "end": 50,
+                                  "text": "m"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { m() { return super. /* c */ m(); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 19,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 25,
+                      "end": 52,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 32,
+                          "end": 51,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 32,
+                              "end": 49,
+                              "children": [
+                                {
+                                  "kind": "SuperKeyword",
+                                  "pos": 32,
+                                  "end": 38
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 39,
+                                  "end": 49,
+                                  "text": "m"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { constructor() { super /* c */ (); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 57,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Constructor",
+              "pos": 19,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 33,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 35,
+                      "end": 53,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 35,
+                          "end": 52,
+                          "children": [
+                            {
+                              "kind": "SuperKeyword",
+                              "pos": 35,
+                              "end": 41
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

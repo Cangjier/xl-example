@@ -705,3 +705,17 @@ class C { m() { return new.target; } }
 // class C extends B { m() { return super.a; } }   ← 同上
 // `super()` 构造器调用 / `super` 在非 class 上下文 ← TS 语义非法，本 sweep 不收
 // `new.target` 若 builder 的 ParseNew/MetaProperty 未接，则本 base 的对应行会在 diff 里显形，按实测调整
+// ===== base 34：super 关键字（class 体内；TS kind = SuperKeyword）=====
+class C extends B { m() { return super.m(); } }
+class C extends B { m() { super.m(a); } }
+class C extends B { get x() { return super.x; } }
+class C extends B { constructor() { super(); } }
+class C extends B { constructor(a) { super(a); } }
+class C extends B { m() { return super.m().n; } }
+class C extends B { m() { return super.a.b; } }
+class C extends B { m() { return super["m"]; } }
+// + trivia：super 与 `.` / `(` 之间注释
+class C extends B { m() { return super /* c */ . m(); } }
+class C extends B { m() { return super. /* c */ m(); } }
+class C extends B { constructor() { super /* c */ (); } }
+// 暂缓：class 外的 `super`（TS 语义错误）；object method 里的 `super`（语义依赖 home object，暂不收）
