@@ -733,3 +733,19 @@ class C { m() { #x in this; } }
 // （属 expressions 家族后续；本块只放行语句首 `#`，不改 expressions 源）
 // class C { #x = 1; m() { return this.#x; } }
 // class C { #m() {} m2() { return this.#m(); } }
+// ===== base 35：private 成员访问（this.#x / this.#m()）=====
+class C { #x = 1; m() { return this.#x; } }
+class C { #x = 1; m() { this.#x = 2; } }
+class C { #x = 1; m() { return this.#x + 1; } }
+class C { #m() {} m2() { return this.#m(); } }
+class C { #m(a) {} m2() { return this.#m(1); } }
+class C { #m() {} m2() { return this.#m().n; } }
+class C { static #x = 1; static m() { return C.#x; } }
+// + trivia：`.` 两侧 / private 名后注释
+class C { #x = 1; m() { return this /* c */ . #x; } }
+class C { #x = 1; m() { return this. /* c */ #x; } }
+class C { #m() {} m2() { return this.#m /* c */ (); } }
+// class 外（parse-legal，语义错误由 ts 语义检查报；AST 对拍只看语法）
+obj.#x;
+// 暂缓：optional private access `obj?.#x`（TS 语法允许但本块未接 `?.` 的 private 分支）、
+// brand check `#x in obj` 已由 base 30 覆盖

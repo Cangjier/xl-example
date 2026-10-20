@@ -436,3 +436,36 @@ expression  550 / 550      # base 34：super 调用/属性/链/计算访问 8 �
 全量       2909 / 2909     # 30 个构造；结构差 0 / 位置差 0 / 字段差 0
 - class 外的 `super`（TS 语义错误）；object method 里的 `super`（语义依赖 home object，语法可解析但语义侧不收）；
 - `super` 出现在 heritage（`class C extends super.X`）等非法形态不入语料。
+## chunk 13（cover-private-access-1）：private 成员访问 `this.#x` / `this.#m()`
+
+本块只改 `expression-builder.xl.md` 的成员访问后缀（`.` 分支）+ 追加 `expression.ts`；未碰 class-declaration / statements / core。
+
+### 实现落点
+
+- `ParsePostfix` 的 `text === "."` 分支在 `ParseName()` 之前先看下一颗单元：
+  如果是 `Symbol "#"`，就把 `#` + Common name 折成 `PrivateIdentifierShape`（SignIn 用 `#` token、SignOut 用名字 token、
+  `Pos` = `#` 的含前导 trivia 起点），否则沿用原来的 `ParseName()` 路径（Identifier / 字面量名不受影响）。
+- 之后的 `.` / `[]` / `(` 后缀逻辑完全复用：`this.#x` → PropertyAccessExpression(ThisKeyword, PrivateIdentifier)；
+  `this.#m()` → CallExpression(PropertyAccessExpression(this, #m))。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children |
+| --- | --- |
+| `this.#x` | `PropertyAccessExpression` → `ThisKeyword`、`PrivateIdentifier` |
+| `this.#x = 2` | `BinaryExpression` → `PropertyAccessExpression`、`FirstAssignment`、`NumericLiteral` |
+| `this.#m()` | `CallExpression` → `PropertyAccessExpression`（`this`、`#m`） |
+| `C.#x`（static private） | `PropertyAccessExpression` → `Identifier C`、`PrivateIdentifier #x` |
+| `obj.#x`（class 外） | 语法上同为 `PropertyAccessExpression`（TS 解析无诊断；语义检查才报错） |
+
+### 读数
+
+```
+expression  575 / 575      # base 35：read/write/+1 / #m() / #m(a) / #m().n / static C.#x / obj.#x + 3 trivia
+全量       3054 / 3054     # 30 个构造；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓
+
+- optional private access `obj?.#x`（`?.` 分支还未接 private 名字，语法合法）；
+- `#x in obj` brand check 已由 base 30 覆盖；`super`/`new.target` 回归由既有 base 覆盖。

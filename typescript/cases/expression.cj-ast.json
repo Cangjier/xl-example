@@ -26775,6 +26775,939 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C { #x = 1; m() { return this.#x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 23,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 30,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "ThisKeyword",
+                              "pos": 30,
+                              "end": 35
+                            },
+                            {
+                              "kind": "PrivateIdentifier",
+                              "pos": 36,
+                              "end": 38
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = 1; m() { this.#x = 2; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 23,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 23,
+                          "end": 35,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 23,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 23,
+                                  "end": 28
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 29,
+                                  "end": 31
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstAssignment",
+                              "pos": 31,
+                              "end": 33
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 33,
+                              "end": 35,
+                              "text": "2"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = 1; m() { return this.#x + 1; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 23,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 30,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 30,
+                              "end": 38,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 30,
+                                  "end": 35
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 36,
+                                  "end": 38
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "PlusToken",
+                              "pos": 38,
+                              "end": 40
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 40,
+                              "end": 42,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m() {} m2() { return this.#m(); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 20,
+                  "text": "m2"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 24,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 31,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 31,
+                              "end": 39,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 31,
+                                  "end": 36
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 37,
+                                  "end": 39
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m(a) {} m2() { return this.#m(1); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 13,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 14,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 15,
+                  "end": 18
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 18,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 21,
+                  "text": "m2"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 25,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 32,
+                          "end": 43,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 32,
+                              "end": 40,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 32,
+                                  "end": 37
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 38,
+                                  "end": 40
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 41,
+                              "end": 42,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m() {} m2() { return this.#m().n; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 20,
+                  "text": "m2"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 24,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 31,
+                          "end": 43,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 31,
+                              "end": 41,
+                              "children": [
+                                {
+                                  "kind": "PropertyAccessExpression",
+                                  "pos": 31,
+                                  "end": 39,
+                                  "children": [
+                                    {
+                                      "kind": "ThisKeyword",
+                                      "pos": 31,
+                                      "end": 36
+                                    },
+                                    {
+                                      "kind": "PrivateIdentifier",
+                                      "pos": 37,
+                                      "end": 39
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 42,
+                              "end": 43,
+                              "text": "n"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static #x = 1; static m() { return C.#x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 54,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 16,
+                  "end": 19
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 24,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 24,
+                  "end": 31
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 31,
+                  "end": 33,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 35,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 37,
+                      "end": 50,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 44,
+                          "end": 49,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 44,
+                              "end": 46,
+                              "text": "C"
+                            },
+                            {
+                              "kind": "PrivateIdentifier",
+                              "pos": 47,
+                              "end": 49
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = 1; m() { return this /* c */ . #x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 23,
+                      "end": 49,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 30,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "ThisKeyword",
+                              "pos": 30,
+                              "end": 35
+                            },
+                            {
+                              "kind": "PrivateIdentifier",
+                              "pos": 45,
+                              "end": 48
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = 1; m() { return this. /* c */ #x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 23,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 30,
+                          "end": 47,
+                          "children": [
+                            {
+                              "kind": "ThisKeyword",
+                              "pos": 30,
+                              "end": 35
+                            },
+                            {
+                              "kind": "PrivateIdentifier",
+                              "pos": 36,
+                              "end": 47
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m() {} m2() { return this.#m /* c */ (); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 55,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 20,
+                  "text": "m2"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 24,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 31,
+                          "end": 50,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 31,
+                              "end": 39,
+                              "children": [
+                                {
+                                  "kind": "ThisKeyword",
+                                  "pos": 31,
+                                  "end": 36
+                                },
+                                {
+                                  "kind": "PrivateIdentifier",
+                                  "pos": 37,
+                                  "end": 39
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "obj.#x;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "PropertyAccessExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 3,
+                  "text": "obj"
+                },
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 4,
+                  "end": 6
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -712,7 +712,27 @@ while (true) {
     const text = (unit as Symbol).TempToString();
     if (text === ".") {
       this.At++;
-      const name = this.ParseName();
+      let name:Token;
+      const nameUnit = this.Peek(0);
+      if (nameUnit !== null && nameUnit instanceof Symbol && (nameUnit as Symbol).Is("#")) {
+        // Private member access (`this.#x`): the suffix accepts Symbol "#" + Common name as
+        // a PrivateIdentifier, in addition to the usual ParseName paths.
+        const hashIndex = this.At;
+        this.At++;
+        const privateNameUnit = this.Peek(0);
+        if (privateNameUnit === null || !(privateNameUnit instanceof Common)) {
+          throw new Error("private member name is not an identifier");
+        }
+        const privateShape = new PrivateIdentifierShape(this.Template);
+        privateShape.SignInToken(nameUnit);
+        privateShape.SignOutToken(privateNameUnit);
+        privateShape.Pos = this.Positions[hashIndex];
+        privateShape.TryToClose(this.Context);
+        this.At++;
+        name = privateShape;
+      } else {
+        name = this.ParseName();
+      }
       const shape = new PropertyAccessExpressionShape(this.Template);
       shape.Add(expression);
       shape.Add(name);
