@@ -1,5 +1,28 @@
-# statements family 覆盖（chunk 1 + chunk 2）
+# statements family 覆盖（chunk 1 + chunk 2 + chunk 3）
 
+> **chunk 3**（分支 `cover-statements-3`，起点 `origin/integration @c49f394b`）：
+> statements.ts **91 → 127**（新增 36 条），**127/127** 完全一致；全量 **1893 → 1929** 全绿；tsc 0 error。
+>
+> chunk 3 唯一改动的源文件：`statement-builder.xl.md` 的 `BuildCaseBlock` —— case 标签的终结 `:` 改为
+> **按三元深度 0 判定**：扫描时 `Symbol "?"` 让深度 +1、`Symbol ":"` 在深度 >0 时 -1 并继续，深度 0 的 `:`
+> 才是 case 标签结束符（括号 / 逗号 / 运算符在本层都是整单元，挡不住 `:` 的只有三元）。
+> 这样 `case a ? b : c:`、嵌套三元 `case a ? b : c ? d : e:`、`case (a, b):`、`case a || b:`、`case a = b:`
+> 都能切出完整 case 表达式。
+>
+> 新增 36 条：
+> - case 表达式：三元 / 嵌套三元 / 括号逗号 / `||` / 赋值 / 三元后接多语句或 default 前 / default 后再 case /
+>   空 case（`case a ? b : c: case d: e();`）+ 终结符前后注释、三元中间换行；
+> - switch：块内嵌套 switch、if 体内嵌套、case 体多语句、fallthrough（注释分隔）、case 体为块 / if；
+> - catch 解构绑定：`catch ({ message })`、`catch ([a, b])`、`catch ({ a, b })`、`catch ({ a: c })`、
+>   带 finally、空 try 体、catch 括号内绑定前注释（builder 的 `BuildCatchClause` 在 chunk 2 已按 brackets
+>   分支接好 bindings，本轮只补测量，未改代码）；
+> - for-of/for-in 解构 trivia：`for (const [a, b] of xs)`、`for (const { a } of xs)`、`for (const {a: c} of xs)`、
+>   `for (const [ a , b ] of xs)`、头体间换行、体多语句、行尾注释；
+> - 混排：switch + for-of、try/catch 解构 + let。
+>
+> 暂缓：根级标签（expression 候选配合，见 §3）、`for await`、end 家族 ASI 边界。
+> `catch` 绑定的 rest / 默认值（bindings 未测量）仍未收。
+>
 本页记 `typescript/cases/statements.ts` 收了什么、怎么实现、还差什么。口径是
 `node typescript/cases/ast-json.mjs` + `node typescript/cases/ast-json-diff.mjs`（本分支唯一权威 AST 尺子）。
 
@@ -42,7 +65,7 @@
 ## 2. 用例
 
 `statements.ts`：base + trivia 变体（前导 / 词间注释、词间多空格、词间换行、行尾注释）+ 重复形（同文件多语句）。
-`\n` 由生成器还原成真实换行。
+`\n` 由生成器还原成真实换行。当前 **127 条**（chunk 1 的 55 + chunk 2 的 36 + chunk 3 的 36）。
 
 ## 3. 暂缓（写成 `//` 目标行）
 
@@ -51,7 +74,7 @@
 | ASI（无分号断句） | 属 cover-end-1 |
 | 函数 / 类声明 | 后续 declarations 成员 |
 | **根级标签语句** `lbl: b;` | 与 expression 候选在「标识符起头」上无法共存：`ExpressionStatementPossibleShape.CanStart` 接受标识符且整段不 Reject，两个候选会一直同时存活、`CatalogGuide` 永远等不到唯一候选。块 / 体内已可建（`{ lbl: b; }`）。要收根级标签需要 expression 候选侧配合（属 cover-end-1 的文件）。 |
-| case 里的三元表达式 `case a ? b : c:` | `case` 条件按本层第一个 `:` 切分，三元里的 `:` 需要类型 / 条件层的配合，本块不越界 |
+| `for await` | 语句候选不认 `await` 前缀；属 end / expressions 家族后续 |
 | catch 绑定的 `...` / 默认值 | bindings 的 rest 元素尚未测量，本块只收名字 / 改名 |
 
 ## 4. 依赖与注意事项
@@ -67,5 +90,6 @@
 
 ## 5. 读数
 
-- `statements`：见提交报告（本轮实测条数与全量合计）。
-- 全量：integration 基线 1152/1152 → 本轮 `1152 + 新增` 全绿；其余构造无回归。
+- `statements`：127 / 127 完全一致（chunk 3 新增 36 条）。
+- 全量：chunk 3 起点 1893 / 1893 → 本轮 1929 / 1929 全绿；其余构造无回归。
+- tsc 0 error；xl_check（statement-builder 改动文件）0 error。

@@ -814,7 +814,25 @@ while (inner.At < inner.Units.length) {
     const clauseFirst = inner.At;
     inner.At++;
     let colonAt = inner.At;
-    while (colonAt < inner.Units.length && !inner.IsSymbol(inner.Units[colonAt], ":")) {
+    // The ":" that closes a case label is the first one at ternary depth 0:
+    // "case a ? b : c:" -- '?' raises depth, the matching ':' lowers it again.
+    // Brackets/commas/operators are atomic units here, so nothing else can hide a ":".
+    let ternaryDepth = 0;
+    while (colonAt < inner.Units.length) {
+      const candidate = inner.Units[colonAt];
+      if (inner.IsSymbol(candidate, "?")) {
+        ternaryDepth++;
+        colonAt++;
+        continue;
+      }
+      if (inner.IsSymbol(candidate, ":")) {
+        if (ternaryDepth > 0) {
+          ternaryDepth--;
+          colonAt++;
+          continue;
+        }
+        break;
+      }
       colonAt++;
     }
     if (colonAt >= inner.Units.length) {

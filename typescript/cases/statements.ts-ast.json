@@ -4742,6 +4742,3174 @@
           ]
         }
       ]
+    },
+    {
+      "src": "switch (x) { case a ? b : c: break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "c"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 28,
+                      "end": 35
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a ? b : c ? d : e: break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "ConditionalExpression",
+                          "pos": 25,
+                          "end": 35,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 27,
+                              "text": "c"
+                            },
+                            {
+                              "kind": "QuestionToken",
+                              "pos": 27,
+                              "end": 29
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "d"
+                            },
+                            {
+                              "kind": "ColonToken",
+                              "pos": 31,
+                              "end": 33
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 33,
+                              "end": 35,
+                              "text": "e"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 36,
+                      "end": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case (a, b): break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 17,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 19,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 20,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "CommaToken",
+                              "pos": 20,
+                              "end": 21
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 25,
+                      "end": 32
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a || b: break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 17,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "BarBarToken",
+                          "pos": 19,
+                          "end": 22
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "b"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 25,
+                      "end": 32
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a = b: break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 17,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "FirstAssignment",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 24,
+                      "end": 31
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a ? b : c: a(); break; default: d(); }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "c"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 28,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 28,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 28,
+                              "end": 30,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 33,
+                      "end": 40
+                    }
+                  ]
+                },
+                {
+                  "kind": "DefaultClause",
+                  "pos": 40,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 49,
+                      "end": 54,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 49,
+                          "end": 53,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 49,
+                              "end": 51,
+                              "text": "d"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { default: a(); case a ? b : c: b(); }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "DefaultClause",
+                  "pos": 12,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 21,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 21,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "CaseClause",
+                  "pos": 26,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 31,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 31,
+                          "end": 33,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 33,
+                          "end": 35
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 37,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 37,
+                          "end": 39
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 39,
+                          "end": 41,
+                          "text": "c"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 42,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 42,
+                          "end": 46,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 42,
+                              "end": 44,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a ? b : c: case d: e(); }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "CaseClause",
+                  "pos": 28,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "d"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 36,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 36,
+                          "end": 40,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 36,
+                              "end": 38,
+                              "text": "e"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case /* c */ a ? b : c /* c */ : break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 54,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 27,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 27,
+                          "end": 29
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 31,
+                          "end": 33
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 35,
+                          "text": "c"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 45,
+                      "end": 52
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a ? b : c: /* c */ break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "c"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 28,
+                      "end": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a ? b :\nc: break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "c"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 28,
+                      "end": 35
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ switch (x) { case 1: a(); } }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "SwitchStatement",
+              "pos": 1,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 11,
+                  "text": "x"
+                },
+                {
+                  "kind": "CaseBlock",
+                  "pos": 12,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "CaseClause",
+                      "pos": 14,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "1"
+                        },
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 22,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 22,
+                              "end": 26,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 22,
+                                  "end": 24,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) { switch (x) { case 1: b(); } }",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "SwitchStatement",
+                  "pos": 8,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 18,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "CaseBlock",
+                      "pos": 19,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "CaseClause",
+                          "pos": 21,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "1"
+                            },
+                            {
+                              "kind": "ExpressionStatement",
+                              "pos": 29,
+                              "end": 34,
+                              "children": [
+                                {
+                                  "kind": "CallExpression",
+                                  "pos": 29,
+                                  "end": 33,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 29,
+                                      "end": 31,
+                                      "text": "b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case 1: a(); b(); c(); }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 20,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 20,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 22,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 25,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 25,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 27,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 30,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 30,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 32,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case 1: a();\ncase 2: b();\nbreak;\ndefault: c(); }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 61,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 61,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 20,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 20,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 22,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "CaseClause",
+                  "pos": 25,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "2"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 33,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 33,
+                          "end": 37,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 33,
+                              "end": 35,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 38,
+                      "end": 45
+                    }
+                  ]
+                },
+                {
+                  "kind": "DefaultClause",
+                  "pos": 45,
+                  "end": 59,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 54,
+                      "end": 59,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 54,
+                          "end": 58,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 54,
+                              "end": 56,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case 1: /* c */ case 2: a(); break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "CaseClause",
+                  "pos": 20,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "2"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 36,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 36,
+                          "end": 40,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 36,
+                              "end": 38,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 41,
+                      "end": 48
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case 1: { a(); b(); } }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 20,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 22,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 22,
+                              "end": 26,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 22,
+                                  "end": 24,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 27,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 27,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 27,
+                                  "end": 29,
+                                  "text": "b"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case 1: if (a) b; else c; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "IfStatement",
+                      "pos": 20,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 26,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 27,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 27,
+                              "end": 29,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 35,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 35,
+                              "end": 37,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case 1: { a(); }\ncase 2: b(); }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 20,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 22,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 22,
+                              "end": 26,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 22,
+                                  "end": 24,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "CaseClause",
+                  "pos": 29,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "2"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 37,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 37,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 37,
+                              "end": 39,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { a(); } catch ({ message }) { b(); }",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 5,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 5,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 12,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 20,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 21,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 29,
+                              "text": "message"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 32,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 34,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 34,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 36,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { a(); } catch ([a, b]) { c(); }",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 5,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 5,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 12,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 20,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 21,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 22,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 23,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 25,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 27,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 29,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 29,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { a(); } catch ({ a, b }) { c(); }",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 5,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 5,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 12,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 20,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 24,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 31,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 31,
+                          "end": 35,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 33,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { a(); } catch ({ a: c }) { b(); }",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 5,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 5,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 12,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 20,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 21,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 31,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 31,
+                          "end": 35,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 33,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { a(); } catch ([a]) { b(); } finally { c(); }",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 5,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 5,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 12,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 20,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 21,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 22,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 24,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 26,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 26,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 41,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 43,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 43,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 43,
+                          "end": 45,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try {} catch ({ message }) {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 6
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 6,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 14,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 14,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 15,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 23,
+                              "text": "message"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 26,
+                  "end": 29
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try {} catch ([a, b]) {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 6
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 6,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 14,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 14,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 15,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 16,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 17,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 17,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 24
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { a(); } catch (/* c */ { a }) { b(); }",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 5,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 5,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 12,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 20,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 29,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 34,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 36,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 36,
+                          "end": 40,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 36,
+                              "end": 38,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const [a, b] of xs) a;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 10,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 14,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 14,
+                              "end": 16,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 23,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 24,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const { a } of xs) a;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 10,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 14,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 22,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 23,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const {a: c} of xs) c;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 10,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 14,
+                              "end": 16,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 23,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 24,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const [ a , b ] of xs) a;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 10,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 14,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 16,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 18,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 26,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 27,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 29,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const [a] of xs)\na;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 10,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 20,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 21,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const { a } of xs) { a; b; }",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 10,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 14,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 22,
+              "text": "xs"
+            },
+            {
+              "kind": "Block",
+              "pos": 23,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 25,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 28,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const [a] of xs) /* c */ a;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 10,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 20,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 21,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 31,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (x) { case a ? b : c: break; }\nfor (const [a] of xs) a;",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "x"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 17,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 19,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "c"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 28,
+                      "end": 35
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ForOfStatement",
+          "pos": 37,
+          "end": 62,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 43,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 48,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 48,
+                      "end": 52,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 50,
+                          "end": 51,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 50,
+                              "end": 51,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 55,
+              "end": 58,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 59,
+              "end": 62,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 59,
+                  "end": 61,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { a(); } catch ({ message }) { b(); }\nlet z = 1;",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 5,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 5,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 12,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 20,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 21,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 29,
+                              "text": "message"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 32,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 34,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 34,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 36,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FirstStatement",
+          "pos": 41,
+          "end": 52,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 41,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 45,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 45,
+                      "end": 47,
+                      "text": "z"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
