@@ -490,7 +490,7 @@ x = [function () {}];
 // 正则字面量                  /a/;   /a/g;             ← RegexToken.Transit 被 ts 模板 Ban（a / b 会被误判）；用例见 regex.ts
 // 指数带符号 / 数字分隔符 / 前导点  1e-3;   1_000;   .5;    ← 已支持，用例迁到 number.ts（basic token 会把它们收进同一个 Common）
 // 字符串里的 \u / \x 转义      "\u0041";   "\x41";       ← String basic token 不解码这两种转义
-// 字符串里的 \n 转义           "a\nb";                 ← 用例生成器把行内 \n 还原成真换行，写不进用例
+// 字符串里的 \n 转义           "a\nb";                 ← 已由 ast-json.mjs 的引号感知解码支持（见 docs/coverage-literals.md）
 // 空串                      "";                     ← 投影已能输出 text==""，加进用例即可（本轮沿用原计数）
 // 模板串                      `t`;                     ← 会被当成 StringLiteral，kind 不对；bigint（1n）已支持，见 number.ts
 

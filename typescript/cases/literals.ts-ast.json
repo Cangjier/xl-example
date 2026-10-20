@@ -3378,17 +3378,17 @@
       ]
     },
     {
-      "src": "`a\nb`;",
+      "src": "`a\\nb`;",
       "ast": [
         {
           "kind": "ExpressionStatement",
           "pos": 0,
-          "end": 6,
+          "end": 7,
           "children": [
             {
               "kind": "NoSubstitutionTemplateLiteral",
               "pos": 0,
-              "end": 5,
+              "end": 6,
               "text": "a\nb"
             }
           ]
@@ -3733,6 +3733,78 @@
               "pos": 0,
               "end": 4,
               "text": "/a/g"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\n\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'\\t';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "\t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`\\n`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "\n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "\"\\u{1F600}\";",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 11,
+              "text": "😀"
             }
           ]
         }
