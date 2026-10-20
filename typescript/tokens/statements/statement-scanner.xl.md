@@ -122,6 +122,10 @@ if (first instanceof Common) {
     const second = code[1];
     if (second instanceof Common) {
       const secondText = (second as Common).TempToString();
+      // `declare const enum …`: the enum declaration candidate owns it, so yield here too.
+      if (secondText === "const" && StatementScanner.NextWord(second.SourceRange.End) === "enum") {
+        return StatementScanner.Mismatch();
+      }
       if ((secondText === "let" || secondText === "const" || secondText === "var" || secondText === "using")
         && StatementScanner.NoLineBreakBetween(first, second)) {
         return StatementScanner.ScanToSemicolon(code, 2, true);
@@ -130,6 +134,12 @@ if (first instanceof Common) {
     return StatementScanner.Mismatch();
   }
   if (text === "let" || text === "const" || text === "var") {
+    // `const enum E {…}` (also `const\tenum` / `const\nenum`): the enum declaration candidate owns
+    // this form, so the variable-statement candidate must yield instead of scanning to `;`.
+    // Raw lookahead, because `enum` may not be tokenized yet when `const` arrives.
+    if (text === "const" && StatementScanner.NextWord(first.SourceRange.End) === "enum") {
+      return StatementScanner.Mismatch();
+    }
     return StatementScanner.ScanToSemicolon(code, 1, true);
   }
   if (text === "if") {
@@ -216,6 +226,10 @@ if (unit instanceof Symbol) {
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   if (text === "let" || text === "const" || text === "var") {
+    // Same yield as the root dispatch: `const enum …` belongs to the enum declaration candidate.
+    if (text === "const" && StatementScanner.NextWord(code[at].SourceRange.End) === "enum") {
+      return StatementScanner.Mismatch();
+    }
     return StatementScanner.ScanToSemicolon(code, at + 1);
   }
   if (text === "if") {

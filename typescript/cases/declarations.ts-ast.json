@@ -30591,6 +30591,709 @@
           ]
         }
       ]
+    },
+    {
+      "src": "const enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 14,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const enum E { A = 1, B = 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 14,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 21,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "B"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const enum E { A = 1 << 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 14,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "A"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 18,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "LessThanLessThanToken",
+                      "pos": 20,
+                      "end": 23
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const enum E { A, B }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 14,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const  enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 11,
+              "end": 13,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 15,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const\nenum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 14,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const /* c */ enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 22,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare const enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "ConstKeyword",
+              "pos": 7,
+              "end": 13
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 22,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare const enum E { A = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "ConstKeyword",
+              "pos": 7,
+              "end": 13
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 22,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "A"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare /* c */ const enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "ConstKeyword",
+              "pos": 7,
+              "end": 21
+            },
+            {
+              "kind": "Identifier",
+              "pos": 26,
+              "end": 28,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 30,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "ConstKeyword",
+              "pos": 6,
+              "end": 12
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 21,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const enum E { A }\nconst enum F { B }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 14,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "EnumDeclaration",
+          "pos": 18,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ConstKeyword",
+              "pos": 18,
+              "end": 24
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "F"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 33,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const enumx = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 11,
+                      "text": "enumx"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let enumy = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 9,
+                      "text": "enumy"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "var enumz = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 9,
+                      "text": "enumz"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const /* c */ x = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 15,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

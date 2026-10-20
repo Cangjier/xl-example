@@ -82,6 +82,12 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
         state.Stage = 1;
         continue;
       }
+      if (text === "const") {
+        // `const enum E {…}`: the statement candidate yields on `const` + `enum` (raw lookahead),
+        // so this candidate is the only one left for that form.
+        state.Stage = 5;
+        continue;
+      }
       if (text === "enum") {
         state.Stage = 2;
         continue;
@@ -91,6 +97,23 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 1) {
+    if (unit instanceof Common) {
+      const text = (unit as Common).TempToString();
+      if (text === "const") {
+        // `declare const enum E {…}`.
+        state.Stage = 5;
+        continue;
+      }
+      if (text === "enum") {
+        state.Stage = 2;
+        continue;
+      }
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 5) {
+    // `const` / `declare const` must be followed by `enum`.
     if (unit instanceof Common && (unit as Common).Is("enum")) {
       state.Stage = 2;
       continue;

@@ -1,5 +1,27 @@
 # declarations 瑕嗙洊鎶ュ憡锛坈hunk 1 + chunk 2 + chunk 3锛?
 
+> **const enum 共存修复**（分支 `cover-const-enum-1`，起点 `origin/integration @938105f1`）：
+> `declarations.ts` **562 → 578**（+16），**578/578** 完全一致；全量 **3641 → 3657** 全绿；tsc 0 error。
+>
+> 根因与修法（候选共存让位，未改 core）：`const enum E {…}` 里 `const` 先被 statements 的变量声明候选认领
+> （`ScanToSemicolon` 活到 EOF），enum 候选虽在枚举体 `}` 处 Done，但 `Candidates > 1` 不建；EOF 时 enum 候选先
+> 因尾随单元 Reject，只剩变量候选 → 「变量声明里有无法识别的单元」。
+> - `statement-scanner`：root 与 body 的 `let/const/var` 分派加 **raw lookahead**——`const` 之后
+>   `NextWord(...) === "enum"` 时直接 `Mismatch()`（enum 未 token 化也能判；`const\tenum` / `const\nenum` 都算，
+>   与 TS 一致；`const enumx = 1` 不受影响）；`declare` + 变量关键字分派同样处理 `declare const enum`。
+> - `enum-declaration-possible-shape`：恢复 `const` 阶段（Stage 0 `const`→5、Stage 1 `declare const`→5、Stage 5 等 `enum`），
+>   让 enum 候选成为唯一活着的候选；`enum-declaration-shape` 上一块已能建 `ConstKeyword` 修饰词。
+>
+> 16 条覆盖：`const enum E { A }`、`{ A = 1, B = 2 }`、`{ A = 1 << 2 }`、`{ A, B }`、`const  enum`（双空格）、
+> `const\tenum` 外的 `const\nenum`、`const /* c */ enum`；`declare const enum`（空体/带初始化器/注释）；
+> 回归 `export const enum E { A }`、`enum` / `declare enum`、普通 `const x = 1;`、`const enumx = 1;`、
+> `let enumy = 1;`、`var enumz = 1;`、`const /* c */ x = 1;`、两条 const enum 连排。
+>
+> 暂缓（`//` 目标 + 理由）：**namespace / module 体内的 `const enum`**（`namespace N { const enum E { A } }` 与
+> `declare namespace N { … }`，oracle 合法）。body 成员由 `module-block-shape.BuildMember` 分派，`const` 直接落到
+> `StatementBuilder.BuildStatement` → `BuildVariableStatement`，看不到后面的 `enum`；需 module-block-shape 认
+> `[declare] const enum` 并调 `EnumDeclarationShape.FromUnits`——属 module 文件，本块 WRITE SCOPE 之外。
+>
 > **enum member initializers**（分支 `cover-enum-init-1`，起点 `origin/integration @f1ebc831`）：
 > `declarations.ts` **496 → 517**（+21），**517/517** 完全一致；全量 **3523 → 3544** 全绿；tsc 0 error。
 >
