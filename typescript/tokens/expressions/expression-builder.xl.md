@@ -79,6 +79,7 @@ import { TemplateSpanShape } from "./template-span-shape.xl.md"
 import { TypeOfExpressionShape } from "./type-of-expression-shape.xl.md"
 import { VoidExpressionShape } from "./void-expression-shape.xl.md"
 import { FalseKeywordShape } from "../keywords/false-keyword-shape.xl.md"
+import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { InKeywordShape } from "../keywords/in-keyword-shape.xl.md"
 import { InstanceOfKeywordShape } from "../keywords/instance-of-keyword-shape.xl.md"
 import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
@@ -1057,14 +1058,18 @@ shape.TryToClose(this.Context);
 return shape;
 ```
 
-## method ParseArrowFromBracket:(bracket:Bracket, start:int)=>Token
+## method ParseArrowFromBracket:(bracket:Bracket, start:int, asyncKeyword?:Token | null)=>Token
 
 `(…) => body` 的箭头：参数括号与函数表达式共用 `ParseFunctionParameters`（支持类型标注 / 默认值 / rest / 可选），
 `=>` 走 `EqualsGreaterThanToken`，body 交给 `ParseArrowBody`（表达式体或块体）。
 TS 的 children 顺序是 Parameter 们、EqualsGreaterThanToken、body；无参箭头没有 Parameter。
+带 `async` 前缀时 `AsyncKeywordShape` 在最前（`async (a) => a`），由调用方建好传进来。
 
 ```ts
 const arrow = new ArrowFunctionShape(this.Template);
+if (asyncKeyword !== undefined && asyncKeyword !== null) {
+  arrow.Add(asyncKeyword);
+}
 const parameters = this.ParseFunctionParameters(bracket);
 for (const parameter of parameters) {
   arrow.Add(parameter);
@@ -1294,6 +1299,48 @@ if (unit instanceof Common) {
   }
   if (text === "function") {
     return this.ParseFunctionExpression();
+  }
+  if (text === "async") {
+    // async 箭头：`async (…) => …` / `async a => …`。确认不了是箭头就不吃 `async`（退回标识符路径），
+    // `async function f(){}` 因此不会被表达式语句劫持成静默错树。
+    const next = this.Peek(1);
+    if (next !== null && this.IsBracketStart(next, "(")) {
+      const after = this.Peek(2);
+      if (after !== null && this.IsText(after, "=>")) {
+        const keyword = this.MakeKeywordLeaf(new AsyncKeywordShape(this.Template), start);
+        this.At++;
+        const bracket = this.Peek(0) as Bracket;
+        this.At++;
+        return this.ParseArrowFromBracket(bracket, start, keyword);
+      }
+    }
+    if (next !== null && next instanceof Common && !(next as Common).CanStartNumber()) {
+      const after = this.Peek(2);
+      if (after !== null && this.IsText(after, "=>")) {
+        const keyword = this.MakeKeywordLeaf(new AsyncKeywordShape(this.Template), start);
+        this.At++;
+        const nameIndex = this.At;
+        const name = IdentifierShape.FromBasicToken(next as Common, this.Context);
+        name.Pos = this.Positions[nameIndex];
+        this.At++;
+        const parameter = new ParameterShape(this.Template);
+        parameter.Add(name);
+        this.SpanNode(parameter, nameIndex, nameIndex);
+        const arrowUnit = this.Peek(0);
+        if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
+          throw new Error("async 箭头缺少 =>");
+        }
+        const arrowIndex = this.At;
+        this.At++;
+        const body = this.ParseArrowBody();
+        const arrow = new ArrowFunctionShape(this.Template);
+        arrow.Add(keyword);
+        arrow.Add(parameter);
+        arrow.Add(this.MakeOperatorToken(arrowUnit, arrowIndex));
+        arrow.Add(body);
+        return this.SpanNode(arrow, start, this.At - 1);
+      }
+    }
   }
   this.At++;
   if (text === "true") {
