@@ -62,3 +62,25 @@
 - 新增全绿（import.ts +7）：`export import type A = B.C;`、`import type A = B.C;`、`export import type D = require("n");`、
   `import type A = require("n");`，以及前导空格/行尾注释/词间块注释/`export import type A = B.C.D;` trivia；
   回归：`export import A = B.C;`、`import A = B.C;`、`import A = require("n")`、namespace 形式全绿。
+## import phase modifiers：`import defer`（TS 6.0.3，chunk import-modifiers）
+
+- **Probe 结论（安装版本 TS 6.0.3，`ts.createSourceFile(...).parseDiagnostics`）**：
+  - `import defer * as ns from "m";`、`import defer { a } from "m";`、`import defer a from "m";`、
+    `import defer a, { b } from "m";`、`import defer * as ns from "m" with { x: "y" };`、`import defer { a } from "m" assert {…};`
+    全部 diag=0 → 实现。
+  - `import source * as ns from "m";` diag=3、`import source { a } from "m";` diag=2 → **不合法**（source 不是 import phase modifier），
+    写成 `//` 目标 + 版本与 diag 数，不静默跳过。
+- **TS AST 口径**：`defer` **不是 child 节点**，而是 `ImportClause.phaseModifier`（数值 166）。
+  TS children 与普通 import 相同：`ImportDeclaration > ImportClause > NamespaceImport / NamedImports / Identifier` + StringLiteral；
+  `import defer from "m"` 里 `defer` 是默认导入名（no phaseModifier），两者按「`defer` 后面第一个词是不是 `from`」区分。
+- 实现（`declarations/import-clause-possible-shape.xl.md` + `import-declaration-shape.xl.md`）：
+  - `ComputeByIndex` 与 `IsBuildable`：`defer` 作为 phase modifier 时**不允许立即收子句**（原实现会在 `defer` 这一格就把
+    `defer` 建成 default name 并挂载 clause；现在 raw lookahead 判 phase 时返回 Uncertain / false，等真正的绑定到来）。
+  - 新增 `IsDeferPhaseModifier(unit)`：跳过 trivia 后读第一个词，`from` → 不是 phase（默认名），其余 → phase。
+  - `BuildByIndex`：识别到 phase 后置 `ImportClauseShape.PhaseModifier = "defer"` 并跳过 `defer`，从真正的
+    名字 / `*` / `{` 起按既有分支建子形状（Pos 口径不变）。
+  - `ImportDeclarationShape.IsLegalResidue` 白名单加 `defer`（clause 延后收尾时 `defer` 会作为挂载壳里的合法残留）。
+- 新增全绿用例（import.ts，+13）：上述 defer 各族 + `import defer a, { b }` + 带 attributes/assert + 前导空格 / 词间块注释 /
+  行尾注释 / `defer` 与绑定之间换行；`import defer from "m"`（默认名）也在内。
+- 回归：`export type * from "m";` / `export type * as ns from "m";` 已绿（本次只记录）；`import a from "m" with { type: "json" }`
+  已绿；import 93/93、export 全绿、全量无回归。

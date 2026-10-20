@@ -108,6 +108,11 @@ if (afterStar && (tail as Common).Is("as")) {
 if ((tail as Common).Is("import") || (tail as Common).Is("from")) {
   return ShapeStates.Uncertain;
 }
+if ((tail as Common).Is("defer") && ImportClausePossibleShape.IsDeferPhaseModifier(tail)) {
+  // `import defer …`: `defer` is the phase modifier, the clause is not complete yet — wait for the
+  // default name / named bindings / namespace binding that follows it.
+  return ShapeStates.Uncertain;
+}
 return ShapeStates.Accept;
 ```
 
@@ -135,6 +140,23 @@ if (cursor < host.Data.length && host.Data[cursor] instanceof Common && (host.Da
   cursor++;
   while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
     cursor++;
+  }
+}
+let phaseModifier = "";
+if (cursor < host.Data.length && host.Data[cursor] instanceof Common && (host.Data[cursor] as Common).Is("defer")) {
+  // `import defer ...` (TS 6.0.3): `defer` is a phase modifier, not a child node and not the default name.
+  // If the next code unit is `from`, `defer` is the default import name instead (`import defer from "m"`).
+  let after = cursor + 1;
+  while (after < host.Data.length && host.Data[after].IsTriviaToken) {
+    after++;
+  }
+  const afterUnit = after < host.Data.length ? host.Data[after] : null;
+  if (afterUnit !== null && !(afterUnit instanceof Common && (afterUnit as Common).Is("from"))) {
+    phaseModifier = "defer";
+    cursor = after;
+    while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
+      cursor++;
+    }
   }
 }
 if (cursor >= host.Data.length) {
@@ -221,6 +243,7 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   clause.Data.push(identifier);
 }
 clause.IsTypeOnly = typeOnly;
+clause.PhaseModifier = phaseModifier;
 if (firstUnit.SourceRange.Start !== null) {
   clause.SignIn(firstUnit.SourceRange.Start);
 }
@@ -230,6 +253,60 @@ host.MountedUnit = clause;
 return clause;
 ```
 
+## static method IsDeferPhaseModifier:(unit:Token)=>bool
+
+Raw lookahead after `defer`: `import defer from "m"` is a default import named `defer`, every other
+continuation (`*`, `{`, or a name) makes `defer` a phase modifier (TS 6.0.3: ImportClause.phaseModifier).
+
+```ts
+const end = unit.SourceRange.End;
+if (end === null) {
+  return false;
+}
+const document = end.Document;
+const count = document.GetCount();
+let at = end.Index + 1;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  break;
+}
+if (at >= count) {
+  return false;
+}
+let word = "";
+while (at < count) {
+  const ch = document.At(at).Value;
+  if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
+    word += ch;
+    at++;
+    continue;
+  }
+  break;
+}
+return !(word === "from");
+```
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
@@ -248,6 +325,10 @@ if (tail instanceof Symbol && (tail as Symbol).Is("*")) {
 const previous = ItemUtil.PreviousCode(units, last - 1);
 const afterStar = previous >= 0 && units[previous] instanceof Symbol && (units[previous] as Symbol).Is("*");
 if (afterStar && tail instanceof Common && (tail as Common).Is("as")) {
+  return false;
+}
+if (tail instanceof Common && (tail as Common).Is("defer") && ImportClausePossibleShape.IsDeferPhaseModifier(tail)) {
+  // `import defer …`: not buildable yet, the phase modifier is followed by the actual binding.
   return false;
 }
 return true;

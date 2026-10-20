@@ -4175,6 +4175,626 @@
           ]
         }
       ]
+    },
+    {
+      "src": "import defer * as ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 20,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 20,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer { a, b } from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 12,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 14,
+                      "end": 16,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 17,
+                      "end": 19,
+                      "name": "b",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 26,
+              "end": 30,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer a from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 14,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 19,
+              "end": 23,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer a, { b } from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 21,
+              "name": "a",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "a"
+                },
+                {
+                  "kind": "NamedImports",
+                  "pos": 15,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 17,
+                      "end": 19,
+                      "name": "b",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 26,
+              "end": 30,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer * as ns from \"m\" with { type: \"json\" };",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 20,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 20,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 29,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 36,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 41,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 42,
+                      "end": 49,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer * as ns from \"m\" with { x: \"y\" };",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 20,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 20,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 29,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 36,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 39,
+                      "end": 43,
+                      "text": "y"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer { a } from \"m\" assert { type: \"json\" };",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 14,
+                      "end": 16,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 23,
+              "end": 27,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 27,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 36,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 41,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 42,
+                      "end": 49,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 12,
+              "name": "defer",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 12,
+                  "text": "defer"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer * as ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 20,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 20,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer /* c */ * as ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 28,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 28,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 33,
+              "end": 37,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer * as ns from \"m\"; // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 20,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 20,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer\n* as ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 20,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 20,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer\n{ a } from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 14,
+                      "end": 16,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 23,
+              "end": 27,
+              "text": "m"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

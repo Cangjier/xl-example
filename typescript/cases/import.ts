@@ -136,3 +136,21 @@ export import type A = B.C.D;
 // ===== import 声明的尾注释 End 口径（chunk import-export-eof） =====
 // import x from "m" // c   —— EOF 处尾注释/无分号 ASI 的 End 口径：core EOF 收尾把注释算进 End，需 core 侧修正，暂缓
 // import x from "m"\nimport y from "n"   —— 无分号连续 import：ASI 边界未接，暂缓
+
+// ===== import phase modifiers（chunk import-modifiers；TS 6.0.3） =====
+import defer * as ns from "m";
+import defer { a, b } from "m";
+import defer a from "m";
+import defer a, { b } from "m";
+import defer * as ns from "m" with { type: "json" };
+import defer * as ns from "m" with { x: "y" };
+import defer { a } from "m" assert { type: "json" };
+import defer from "m";
+// 前导空格 / 词间块注释 / 行尾注释 / 换行
+  import defer * as ns from "m";
+import defer /* c */ * as ns from "m";
+import defer * as ns from "m"; // c
+import defer\n* as ns from "m";
+import defer\n{ a } from "m";
+// import source * as ns from "m";   —— TS 6.0.3 parseDiagnostics=3（source 不是合法 import phase modifier），暂缓
+// import source { a } from "m";    —— TS 6.0.3 parseDiagnostics=2，暂缓
