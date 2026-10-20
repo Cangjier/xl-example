@@ -20164,6 +20164,749 @@
           ]
         }
       ]
+    },
+    {
+      "src": "{ class D {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "D"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ class D { m() {} } }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "D"
+                },
+                {
+                  "kind": "MethodDeclaration",
+                  "pos": 11,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "m"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 15,
+                      "end": 18
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ class D { m() { return 1; } } }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "D"
+                },
+                {
+                  "kind": "MethodDeclaration",
+                  "pos": 11,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "m"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 15,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 17,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ class D extends B {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "D"
+                },
+                {
+                  "kind": "HeritageClause",
+                  "pos": 9,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ExpressionWithTypeArguments",
+                      "pos": 17,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ class D { constructor() {} } }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "D"
+                },
+                {
+                  "kind": "Constructor",
+                  "pos": 11,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Block",
+                      "pos": 25,
+                      "end": 28
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ function f() {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 1,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "f"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ function f(a) { return a; } }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 1,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "f"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 13,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 14,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 15,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 17,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 26,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function g() { function h() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "g"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 14,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "h"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 27,
+                      "end": 30
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ class D {} function f() {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "D"
+                }
+              ]
+            },
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 12,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "f"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 25,
+                  "end": 28
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ async function f() {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 1,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 1,
+                  "end": 7
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "f"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ function f() { class D {} } }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 1,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "f"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "ClassDeclaration",
+                      "pos": 16,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "D"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) { class D {} }",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 8,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (;;) { function f() {} }",
+      "ast": [
+        {
+          "kind": "ForStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 8,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 10,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 23,
+                      "end": 26
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { class D {} } catch (e) {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 5,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 18,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 26,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 27,
+                      "text": "e"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 28,
+                  "end": 31
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 26,
+                      "end": 29
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { class D {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 13,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ /* c */ class D {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "D"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ class D {} /* c */ function f() {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "ClassDeclaration",
+              "pos": 1,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "D"
+                }
+              ]
+            },
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 12,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "f"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 33,
+                  "end": 36
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
