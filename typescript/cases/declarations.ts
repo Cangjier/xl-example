@@ -570,3 +570,33 @@ class C extends mixin(B) { m() {} }
 // `extends null`: TS parses it as Identifier named "null" (syntax-error recovery); our name path gives the same kind, kept as a case above.
 // heritage with generic call `extends mixin<T>(B)` and decorator-like expressions: needs more expression grammar/tuple args; deferred.
 // expression carriers that need statements/arrow/object-literal grammar (e.g. extends (() => B)): deferred.
+
+// ===== base 14: return type predicates on function declarations (TypePredicate) =====
+function isA(x: any): x is A { return true; }
+function isB(x: any): x is B { return false; }
+function isA(x: any): x is A;
+function assertA(x: any): asserts x is A {}
+function assertB(x: any): asserts x {}
+declare function isA(x: any): x is A;
+declare function assertA(x: any): asserts x is A;
+export function isA(x: any): x is A { return true; }
+export function assertB(x: any): asserts x {}
+// + trivia
+function isA(x: any): /* c */ x is A { return true; }
+function isA(x: any): x /* c */ is A { return true; }
+function isA(x: any): x is /* c */ A { return true; }
+function assertA(x: any): asserts /* c */ x is A {}
+function isA(\n x: any\n): x is A { return true; }
+// + arrow / function expression / method carriers
+class C { m(x: any): asserts x is A {} }
+// ===== deferred =====
+// TypePredicate 在别的载体上仍红（不是 function-declaration 的返回类型分派问题；各自家族负责）：
+//   `const f = (x: any): x is A => true;`                  <- expression 家族：箭头返回类型分派（ParseArrowBody）
+//   `(function (x: any): x is A { return true; });`         <- expression 家族：函数表达式返回类型分派
+//   `class C { m(x: any): x is A { return true; } }`        <- members/class 家族：方法返回类型走自己的解析
+// `// ` const f = (x: any): x is A => true;
+// `// ` (function (x: any): x is A { return true; });
+// `// ` class C { m(x: any): x is A { return true; } }
+// 对照：`class C { m(x: any): asserts x is A {} }` 已绿（asserts 方法走的是参数解析后的同一条 TypeBuilder 谓词口）。
+// arrow with `asserts` return type: `const f = (x: any): asserts x is A => {};` 同上属 expression 家族。
+

@@ -22111,6 +22111,1131 @@
           ]
         }
       ]
+    },
+    {
+      "src": "function isA(x: any): x is A { return true; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 12,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 13,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 15,
+                  "end": 19
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 21,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 26,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 28,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 30,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 37,
+                      "end": 42
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function isB(x: any): x is B { return false; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 12,
+              "text": "isB"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 13,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 15,
+                  "end": 19
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 21,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 26,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 28,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 30,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "FalseKeyword",
+                      "pos": 37,
+                      "end": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function isA(x: any): x is A;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 12,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 13,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 15,
+                  "end": 19
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 21,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 26,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function assertA(x: any): asserts x is A {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 16,
+              "text": "assertA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 17,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 19,
+                  "end": 23
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 25,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "AssertsKeyword",
+                  "pos": 25,
+                  "end": 33
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 38,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 40,
+              "end": 43
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function assertB(x: any): asserts x {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 16,
+              "text": "assertB"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 17,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 19,
+                  "end": 23
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 25,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "AssertsKeyword",
+                  "pos": 25,
+                  "end": 33
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 35,
+              "end": 38
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function isA(x: any): x is A;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 20,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 21,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 23,
+                  "end": 27
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 29,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function assertA(x: any): asserts x is A;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 24,
+              "text": "assertA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 25,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 27,
+                  "end": 31
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 33,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "AssertsKeyword",
+                  "pos": 33,
+                  "end": 41
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 41,
+                  "end": 43,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 46,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 46,
+                      "end": 48,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export function isA(x: any): x is A { return true; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 19,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 20,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 21,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 22,
+                  "end": 26
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 28,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 30,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 33,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 35,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 37,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 44,
+                      "end": 49
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export function assertB(x: any): asserts x {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 23,
+              "text": "assertB"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 24,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 25,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 26,
+                  "end": 30
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 32,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "AssertsKeyword",
+                  "pos": 32,
+                  "end": 40
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 40,
+                  "end": 42,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 42,
+              "end": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function isA(x: any): /* c */ x is A { return true; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 12,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 13,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 15,
+                  "end": 19
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 21,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 31,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 36,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 38,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 45,
+                      "end": 50
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function isA(x: any): x /* c */ is A { return true; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 12,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 13,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 15,
+                  "end": 19
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 21,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 36,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 38,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 45,
+                      "end": 50
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function isA(x: any): x is /* c */ A { return true; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 12,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 13,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 15,
+                  "end": 19
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 21,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 26,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 36,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 38,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 45,
+                      "end": 50
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function assertA(x: any): asserts /* c */ x is A {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 51,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 16,
+              "text": "assertA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 17,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 19,
+                  "end": 23
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 25,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "AssertsKeyword",
+                  "pos": 25,
+                  "end": 33
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 43,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 46,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 46,
+                      "end": 48,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 48,
+              "end": 51
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function isA(\n x: any\n): x is A { return true; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 12,
+              "text": "isA"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 13,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 16,
+                  "text": "x"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 17,
+                  "end": 21
+                }
+              ]
+            },
+            {
+              "kind": "TypePredicate",
+              "pos": 24,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 29,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 31,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 33,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 40,
+                      "end": 45
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m(x: any): asserts x is A {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 13,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AnyKeyword",
+                      "pos": 14,
+                      "end": 18
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypePredicate",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "AssertsKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 33,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 35,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 35,
+                  "end": 38
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

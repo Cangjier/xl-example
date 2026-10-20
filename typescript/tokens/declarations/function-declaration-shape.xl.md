@@ -156,7 +156,9 @@ if (afterParams < tailIndex) {
   const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
   const typeBuilder = new TypeBuilder(host.Template, context);
   typeBuilder.Load(typeUnits, typePos);
-  returnType = typeBuilder.ParseType();
+  // 返回类型可以是类型谓词（`x is A` / `asserts x is A` / `asserts x`）：走 ParseReturnType 分流，
+  // 其余类型仍由 ParseType 读（与函数类型位置同一套口子）。
+  returnType = typeBuilder.ParseReturnType();
   if (typeBuilder.At !== typeBuilder.Units.length) {
     throw new Error("函数声明的返回类型没有读完");
   }
