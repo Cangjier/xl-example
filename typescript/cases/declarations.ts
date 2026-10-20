@@ -874,8 +874,6 @@ class C { constructor(public x /* c */ ?: A) {} }
 // optional property with definite assignment `x?!: A` etc.: invalid, skipped.
 
 // ===== base 19: auto-accessor members =====
-class C { accessor x = 1; }
-class C { accessor x: A; }
 class C { accessor x: A = b; }
 class C { static accessor y = 2; }
 class C { accessor #z = 3; }
@@ -887,16 +885,9 @@ abstract class C { abstract accessor w: A; }
 class C { declare accessor v: A; }
 class C { @dec accessor y = 1; }
 class C { @dec public accessor y = 1; }
-class C { accessor x = 1; accessor y = 2; }
-class C { accessor x = 1; m() {} }
 // + regression
-class C { get x() { return 1; } set x(v) {} }
-class C { x = 1; }
 class C { public static readonly x: A = b; }
 // + trivia
-class C { /* c */ accessor x = 1; }
-class C { accessor /* c */ x = 1; }
-class C { accessor x /* c */ = 1; }
 class C { public /* c */ accessor x = 1; }
 class C { static /* c */ accessor y = 2; }
 class C { @dec /* c */ accessor y = 1; }
@@ -912,7 +903,6 @@ function f(this: A, ...rest: B[]) {}
 // deferred：function f(x: B, this: A) {} —— TS parseDiagnostics 为空（语法可解析），但 checker 要求 this 必须是第一个参数（语义非法），故不写进用例
 
 // ===== base 20: class static initialization blocks (ClassStaticBlockDeclaration) =====
-class C { static {} }
 class C { static { let x = 1; } }
 class C { static { this.x = 1; } }
 class C { static { f(); } }
@@ -936,10 +926,6 @@ class C { static {\n let x = 1;\n} }
 class C { static {} /* c */ }
 class C { static { this /* c */ .x = 1; } }
 // + regression（方法 / 访问器 / 明确赋值 / 装饰器不变）
-class C { m() {} }
-class C { get x() { return 1; } set x(v) {} }
-class C { x!: A; }
-class C { @dec m() {} }
 // ===== deferred =====
 // `public static {}` / `declare static {}`: the TS **parser** accepts them (parseDiagnostics = 0) and yields
 // ClassStaticBlockDeclaration children = [PublicKeyword|DeclareKeyword, Block] (the plain `static` keyword is
@@ -976,3 +962,31 @@ class C { @dec /* c */ public m() {} }
 // `@await f() class C {}` in async context: oracle rejects (await is not a decorator expression); skipped.
 // `@a[0] class C {}`: element access is not a legal decorator expression; TS recovery yields MissingDeclaration + ExpressionStatement (+ArrayLiteralExpression) and splits the decorator. Parked (invalid input, degenerate recovery).
 // `@dec(1) @a.b() @c[0] class C {}`: same element-access issue; use call forms like `@dec(1) @a.b() @c()` instead.
+// ===== base 21: member modifier/decorator orders + qualified heritage =====
+class C extends B { public static override readonly x = 1; }
+class C extends B { public /* c */ static override readonly x = 1; }
+abstract class C { protected abstract m(): void; }
+class C { declare readonly x: A; }
+class C { private static readonly y = 1; }
+class C { static async *g() {} }
+class C { public async m() {} }
+class C extends B { override async m() {} }
+class C extends B { override async *m() {} }
+class C { @dec public static readonly x = 1; }
+class C { @a @b public m() {} }
+class C { @a @b /* c */ public m() {} }
+class C extends a.B<X> {}
+class C extends /* c */ a.B<X> {}
+class C implements a.I<X> {}
+class C implements a.I< /* c */ X> {}
+interface I extends a.J<K> {}
+class C extends a.b.C<X, Y> implements I<Z> {}
+abstract class C { abstract m(): void; abstract x: A; abstract get g(): A; }
+abstract class C { public abstract x: A; protected abstract m(): void; }
+
+// ===== deferred =====
+// `class C { public @dec m() {} }` and `class C { static @dec m() {} }`: invalid TypeScript.
+//   oracle diagnostics: "Decorators must precede the name and all keywords of property declarations." /
+//   "Declaration expected."; recovery splits the member. Not worth matching, parked.
+// `protected abstract get g(): A;` / `abstract set s(v: A);` within one abstract class: covered partially elsewhere;
+//   the full abstract-accessor matrix stays in the earlier accessor chunk.
