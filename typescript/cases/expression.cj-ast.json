@@ -32568,6 +32568,1796 @@
           ]
         }
       ]
+    },
+    {
+      "src": "function* g1() { yield; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 22
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield a + b; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 22,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "PlusToken",
+                              "pos": 24,
+                              "end": 26
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield* xs; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 22,
+                          "end": 23
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 26,
+                          "text": "xs"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield* yield* xs; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 22,
+                          "end": 23
+                        },
+                        {
+                          "kind": "YieldExpression",
+                          "pos": 23,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "AsteriskToken",
+                              "pos": 29,
+                              "end": 30
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 33,
+                              "text": "xs"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { const x = yield 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 16,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 16,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 22,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 26,
+                              "end": 34,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 32,
+                                  "end": 34,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { { yield 1; } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 16,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 18,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "YieldExpression",
+                          "pos": 18,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { while (a) { yield 1; } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "WhileStatement",
+                  "pos": 16,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 25,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 26,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 28,
+                          "end": 37,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 28,
+                              "end": 36,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 34,
+                                  "end": 36,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield 1 + 2; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 22,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "1"
+                            },
+                            {
+                              "kind": "PlusToken",
+                              "pos": 24,
+                              "end": 26
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "2"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { (yield 1) + 2; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 16,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 16,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 18,
+                              "end": 25,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 23,
+                                  "end": 25,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "PlusToken",
+                          "pos": 26,
+                          "end": 28
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 28,
+                          "end": 30,
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield (1 + 2); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 22,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "BinaryExpression",
+                              "pos": 24,
+                              "end": 29,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 24,
+                                  "end": 25,
+                                  "text": "1"
+                                },
+                                {
+                                  "kind": "PlusToken",
+                                  "pos": 25,
+                                  "end": 27
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 27,
+                                  "end": 29,
+                                  "text": "2"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield* a.b; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 22,
+                          "end": 23
+                        },
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 23,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 25,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 27,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { x = yield y; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 16,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "FirstAssignment",
+                          "pos": 18,
+                          "end": 20
+                        },
+                        {
+                          "kind": "YieldExpression",
+                          "pos": 20,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "y"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { await x; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 21,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { await f(); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 21,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 27,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 27,
+                              "end": 29,
+                              "text": "f"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { await a + b; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 21,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "AwaitExpression",
+                          "pos": 21,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 27,
+                              "end": 29,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "PlusToken",
+                          "pos": 29,
+                          "end": 31
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 31,
+                          "end": 33,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { const y = await x; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 21,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 21,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 27,
+                          "end": 39,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 27,
+                              "end": 29,
+                              "text": "y"
+                            },
+                            {
+                              "kind": "AwaitExpression",
+                              "pos": 31,
+                              "end": 39,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 37,
+                                  "end": 39,
+                                  "text": "x"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { await await x; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 21,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "AwaitExpression",
+                          "pos": 27,
+                          "end": 35,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 33,
+                              "end": 35,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { await (await x); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 21,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 27,
+                          "end": 37,
+                          "children": [
+                            {
+                              "kind": "AwaitExpression",
+                              "pos": 29,
+                              "end": 36,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 34,
+                                  "end": 36,
+                                  "text": "x"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { f(await x); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 21,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "AwaitExpression",
+                          "pos": 24,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { x ? await a : await b; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 21,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 23,
+                          "end": 25
+                        },
+                        {
+                          "kind": "AwaitExpression",
+                          "pos": 25,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 33,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 33,
+                          "end": 35
+                        },
+                        {
+                          "kind": "AwaitExpression",
+                          "pos": 35,
+                          "end": 43,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 41,
+                              "end": 43,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { function g() { return 1; } await g(); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 61,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 61,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 21,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 34,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 36,
+                          "end": 46,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 43,
+                              "end": 45,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 48,
+                  "end": 59,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 48,
+                      "end": 58,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 54,
+                          "end": 58,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 54,
+                              "end": 56,
+                              "text": "g"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { function* g() { yield 1; } await g(); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 61,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 61,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 21,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 30,
+                      "end": 31
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 35,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 37,
+                          "end": 46,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 37,
+                              "end": 45,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 43,
+                                  "end": 45,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 48,
+                  "end": 59,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 48,
+                      "end": 58,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 54,
+                          "end": 58,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 54,
+                              "end": 56,
+                              "text": "g"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { async function f() { await x; } yield 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 16,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 16,
+                      "end": 22
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 35,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 37,
+                          "end": 46,
+                          "children": [
+                            {
+                              "kind": "AwaitExpression",
+                              "pos": 37,
+                              "end": 45,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 43,
+                                  "end": 45,
+                                  "text": "x"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 48,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 48,
+                      "end": 56,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 54,
+                          "end": 56,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield /* c */ 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 32,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g1() { yield* /* c */ xs; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 22,
+                          "end": 23
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 34,
+                          "text": "xs"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f1() { await /* c */ x; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 21,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 37,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

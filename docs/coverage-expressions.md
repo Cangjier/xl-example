@@ -630,3 +630,38 @@ expression  658 / 658      # 638 + 20
 
 - `a?.b = c`：TS 语法层可解析，但语义禁止（optional chain 不能作赋值目标），不入 AST 对拍语料；
 - `this.#x` / `a.#x` 已在 base 35 覆盖，本块只补 `this.#p` 与 class 内读取组合。
+## chunk 19（cover-yield-await-1）：yield / await 表达式 sweep（measurement-first）
+
+**未改 builder**：27 条候选先 append 再对拍，全部一次转绿（既有 `ParseYield` / `AwaitExpression` 与 statements 的
+函数体路径组合已覆盖），因此 expression-builder 一行未改。
+
+### 新增（expression.ts base 41，全绿）
+
+- yield：`yield;`、`yield 1;`、`yield a + b;`、`yield* xs;`、`yield* yield* xs;`、`const x = yield 1;`、
+  `{ yield 1; }`、`while (a) { yield 1; }`
+- yield 优先级矩阵：`yield 1 + 2`（操作数含二元）、`(yield 1) + 2`、`yield (1 + 2)`、`yield* a.b`、`x = yield y`
+- await：`await x`、`await f()`、`await a + b`、`const y = await x`、`await await x`、`await (await x)`、
+  `f(await x)`、`x ? await a : await b`
+- 嵌套上下文：async 内的普通函数声明后 await、async 内声明 generator、generator 内声明 async 函数
+- trivia：`yield /* c */ 1`、`yield* /* c */ xs`、`await /* c */ x`
+
+### AST 口径（TS 实测）
+
+| 构造 | children |
+| --- | --- |
+| `yield;` | `YieldExpression`，无 children（`yield` 关键字不投影） |
+| `yield 1;` | `YieldExpression` → 操作数 |
+| `yield* xs;` | `YieldExpression` → `AsteriskToken`、操作数 |
+| `yield* yield* xs;` | 外层 YieldExpression → AsteriskToken + 内层 YieldExpression |
+| `await x;` | `AwaitExpression` → 操作数（`await` 关键字不投影） |
+
+### 读数
+
+```
+expression  685 / 685      # 658 + 27
+全量       4039 / 4039     # 4012 + 27；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 红→绿清单
+
+无：全部候选形态测量前已支持（statements.ts 未追加：yield/await 只能出现在函数体内，语料已由 expression.ts 的函数声明覆盖）。
