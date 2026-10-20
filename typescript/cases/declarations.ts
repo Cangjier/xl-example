@@ -150,3 +150,28 @@ class C {} interface I {}
 interface I {} enum E {}
 enum E { A } class C {}
 class C {}\ninterface I {}\nenum E { A }\n
+
+// ===== base 6：无函数体声明（declare function / 重载签名）=====
+declare function f(): void;
+declare function f(a: A): B;
+declare function f();
+function f(a: A): B;
+function f(): void;
+// + 重载签名 + implementation
+function f(a: A): B; function f(a: A): B { return a; }
+function f(a: A): A; function f(a: B): B; function f(a): C; function f(a: any): any { return a; }
+function f(a: A): B;\nfunction f(a: A): B { return a; }
+// + trivia（返回类型与 ; 之间注释 / 换行、declare 与 function 之间）
+/* c */ declare function f(): void;
+declare /* c */ function f(): void;
+declare function /* c */ f(): void;
+declare function f(): /* c */ void;
+declare function f(): void /* c */ ;
+function f(): void /* c */ ;
+function f(a: A):\nB;
+declare function f(): void; // tail
+declare\nfunction f(): void;
+// + 同一文件多条声明（重复形）
+declare function f(): void;\ndeclare function g(a: A): B;
+declare function f(): void; function f(): void;
+declare function\nf(): void;
