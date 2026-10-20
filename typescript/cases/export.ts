@@ -339,3 +339,12 @@ export default class<T> /* c */ {}
 export default class /* c */ <T> {}
 export default class<T>\n{ m(x: T): T { return x; } }
 export default class<T> {} // c
+// + named default class with type params / heritage 组合（task-351 复核补充）
+export default class D<T> extends B {}
+export default abstract class D extends B {}
+export default class D<T extends A> extends B<C> implements I {}
+export default class D extends mixin<T>(B) {}
+export default abstract class D<T> extends B implements I {}
+export default class D<T> extends B<C> implements I, J {}
+export default class D /* c */ extends B {}
+export default class D<T> extends B {} // c

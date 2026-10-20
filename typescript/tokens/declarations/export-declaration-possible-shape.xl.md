@@ -410,6 +410,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       // type parameters (`class C<T>`) / heritage type arguments (`extends D<E>`) 里的符号先过去。
       continue;
     }
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar !== "{") {
+      // heritage call arguments (`extends mixin<T>(B)`) 里的 `(` / `[` 等括号先过去；`{` 仍是唯一类体终结点。
+      continue;
+    }
     if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "{") {
       state.Stage = 3;
       continue;
