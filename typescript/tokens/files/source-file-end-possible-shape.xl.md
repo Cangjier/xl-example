@@ -203,18 +203,19 @@ if (boundary > 0) {
     host.Data.splice(start, prefixEnd - start + 1, prefix);
     prefix.Parent = host;
   }
-  // 前缀可能建出多条声明（它自己也会继续拆），所以后缀起点要从 Data 里现数：
-  // 从 start 起连续的 non-trivia 单元就是刚建出的形状。
-  let inserted = 0;
+  // 前缀可能建出多条声明（它自己也会继续拆）：splice 进来的是非 basic 的形状 token，
+  // 形状之间还可能夹 trivia，所以「后缀起点」必须跳过所有 trivia **和已建形状**，直到下一个 basic 单元。
   let cursor = start;
-  while (cursor < host.Data.length && !host.Data[cursor].IsTriviaToken) {
-    inserted++;
+  while (cursor < host.Data.length
+    && (host.Data[cursor].IsTriviaToken || !host.Data[cursor].IsBasicToken)) {
     cursor++;
   }
-  while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
-    cursor++;
-  }
-  return SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, at + inserted - (prefixEnd - start + 1), context);
+  // 后缀终点不能用「前缀消费了几个原单元」的算术：前缀若走无体签名/type/import 的路径，
+  // BuildTrailingDeclaration 内部会先插一个零宽合成 `;` 再 splice（净删 C+1 个槽位、换回 1 条形状），
+  // 原来 `at + inserted - (prefixEnd - start + 1)` 会偏一格，递归的第二个边界就落到合成形状上。
+  // 后缀自己的单元（含其间 trivia）在 splice 后是连续平移的，所以用「后缀起点 + 相对长度」直接定位。
+  const suffixAt = cursor + (at - codeAt[boundary]);
+  return SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, suffixAt, context);
 }
 const head = code[0];
 if (!(head instanceof Common)) {

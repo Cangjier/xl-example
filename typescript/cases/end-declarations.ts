@@ -175,3 +175,16 @@ type T = A\nclass C {}
 // 回归：两条无体函数背靠背（chunk3 已绿，保留对照）
 declare function f(): void\ndeclare function g(): void
 
+// ===== ASI boundary 2: 3-declaration EOF mixes（无尾分号）=====
+declare function f(): void\nclass C {}\ninterface I {}
+interface I {}\nclass C {}\ndeclare function f(): void
+class A {}\nclass B {}\nclass C {}
+declare function f(): void\ntype T = A\nclass C {}
+type T = A\nclass C {}\ninterface I {}
+declare function f(): void\nclass C {}\nclass D {}
+declare function f(): void\ninterface I {}\nclass C {}
+interface I {}\ndeclare function f(): void\nclass C {}
+class A {}\ninterface I {}\ntype T = A
+declare function f(): void\n/* c */ class C {}\ninterface I {}
+declare function f(): void\nclass C {}\n// c\ninterface I {}
+declare function f(): void\ndeclare function g(): void\nclass C {}

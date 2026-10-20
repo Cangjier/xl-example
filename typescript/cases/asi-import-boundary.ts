@@ -44,3 +44,13 @@ a\nb;
 a\n+b;
 [a, b];
 a\n(b);
+// ===== a / import·export 边界（import 候选演进后重测）=====
+a\nimport b from 'm';
+a\nimport { b } from 'm';
+a\nimport * as ns from 'm';
+a\nimport b from 'm';\nc;
+a\nexport function f() {}
+a\nexport default function f() {}
+a\nimport b from 'm';\nimport c from 'n';
+a /* c */\nimport b from 'm';
+a\n// c\nimport b from 'm';
