@@ -319,3 +319,27 @@ if (a) {} else /* c */ if (b) {} else {}
 // 暂缓：`throw\na;`（throw 后换行）——TS 做错误恢复：ThrowStatement 子节点是一个 **zero-width Identifier**
 // (Pos==End 同一点)，且 ThrowStatement 的 End 取下一 token 的起点；cj 的 Shape/SourceRange 模型表达不了 zero-width 节点，
 // 属核心形状/错误恢复范围，本 sweep 只收正常 throw 形态（`throw a;` 等已绿）。
+// ===== ASI continuation edges（oracle: 单条 / 两条 / 非法三类）=====
+// 继续成一条表达式（不应 ASI 断）
+a\n[b]
+a\n(b)
+a\n[b](c)
+a\n`x`
+a\n+b
+a\n-b
+a\n/b/g
+a\n?.b
+// ++ / -- 是受限产生式：换行后 ASI 断成两条
+a\n++b
+a\n--b
+// return / break / continue 的 ASI 断
+function f() { return\na; }
+function f() { return\n(a); }
+function f() { break\nlbl; }
+lbl: for (;;) { break\nlbl; }
+lbl: for (;;) { continue\nlbl; }
+// 初始化器里的换行继续
+const x = a\n+b
+const x = a\n(b)
+// 暂缓：`throw\na` —— TS 错误恢复产生 zero-width Identifier 子节点 + End 取下一 token 起点，cj Shape 表达不了（core-blocked，见 statements 覆盖文档）
+// 非法（TS parseDiagnostics，不进基准）：`a\nas T`、`a\nsatisfies T`、`a\n=`
