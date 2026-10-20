@@ -114,7 +114,23 @@ const nameUnit = code[cursor + nameOffset];
 if (!(nameUnit instanceof Common)) {
   throw new Error("函数声明的名字不是标识符");
 }
-const paramUnit = code[cursor + nameOffset + 1];
+let paramIndex = cursor + nameOffset + 1;
+let typeParameters:Array<Token> = [];
+if (paramIndex < code.length && code[paramIndex] instanceof Symbol && (code[paramIndex] as Symbol).Is("<")) {
+  // Generic function: "<...>" right after the name; TypeBuilder parses the list (same shape as
+  // type alias parameters, including extends/default), and the list goes between Identifier and
+  // Parameter[] in the AST children to match TS.
+  const angleUnit = code[paramIndex] as Symbol;
+  const angleBuilder = new TypeBuilder(host.Template, context);
+  const angleStart = angleUnit.SourceRange.Start === null ? 0 : angleUnit.SourceRange.Start.Index;
+  angleBuilder.Load(code.slice(paramIndex), angleStart);
+  typeParameters = angleBuilder.ParseTypeParameterList();
+  if (typeParameters.length === 0) {
+    throw new Error("函数声明的泛型参数为空");
+  }
+  paramIndex += angleBuilder.At;
+}
+const paramUnit = code[paramIndex];
 if (!(paramUnit instanceof Bracket) || (paramUnit as Bracket).StartBracketChar !== "(") {
   throw new Error("函数声明缺少参数表");
 }
@@ -127,7 +143,7 @@ if (last instanceof Bracket && (last as Bracket).StartBracketChar === "{") {
   throw new Error("函数声明缺少函数体或分号");
 }
 let returnType:Token | null = null;
-const afterParams = cursor + nameOffset + 2;
+const afterParams = paramIndex + 1;
 if (afterParams < tailIndex) {
   const colon = code[afterParams];
   if (!(colon instanceof Symbol) || !(colon as Symbol).Is(":")) {
@@ -213,6 +229,9 @@ shape.Parameters = parameters;
 shape.ReturnType = returnType;
 shape.Body = body;
 shape.Add(name);
+for (const typeParameter of typeParameters) {
+  shape.Add(typeParameter);
+}
 for (const parameter of parameters) {
   shape.Add(parameter);
 }

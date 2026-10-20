@@ -14285,6 +14285,1485 @@
           ]
         }
       ]
+    },
+    {
+      "src": "function f<T>(a: T): T { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 15,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 20,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 22,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 24,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T, U>(a: T, b: U): T { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 13,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 17,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 22,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "b"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 25,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 29,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 31,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 33,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 40,
+                      "end": 42,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T extends A>(a: T) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 20,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 24,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 25,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 26,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 29,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T = A>(a: T) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 14,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 18,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 19,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 20,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 23,
+              "end": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T extends A = B>(a: T) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 20,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 28,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 29,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 30,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 33,
+              "end": 36
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T extends A, U extends B>(a: T, b: U): A { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 65,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 20,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 23,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "U"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 33,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 37,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 37,
+                  "end": 38,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 39,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 41,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 42,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 42,
+                  "end": 44,
+                  "text": "b"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 45,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 45,
+                      "end": 47,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 49,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 49,
+                  "end": 51,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 51,
+              "end": 65,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 53,
+                  "end": 63,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 60,
+                      "end": 62,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T>(a: T): T;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 15,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 20,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 22,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T>(): A { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 16,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 20,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T /* c */>(a: T) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 22,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 23,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f< T >(a: T) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 16,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 17,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 18,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 21,
+              "end": 24
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T, /* c */ U>(a: T, b: U) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 13,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 23,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 25,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 27,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 30,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "b"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 33,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 36,
+              "end": 39
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ function f<T>(a: T) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 19,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 22,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 23,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T>(/* c */ a: T) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 14,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 23,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f<T>(a: T): T;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 19,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 22,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 23,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 28,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 30,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g<T>(a: T): T { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "g"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 12,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 15,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 17,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 21,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 23,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 25,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export function h<T>(a: T): T { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "h"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 18,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 19,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 21,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 22,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 23,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 27,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 29,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 29,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 31,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T>(a: T) {}\nfunction g<U>(b: U) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 15,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 22,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "g"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 34,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 35,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 37,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 37,
+                  "end": 38,
+                  "text": "b"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 39,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 41,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 42,
+              "end": 45
+            }
+          ]
+        }
+      ]
     }
   ]
 }

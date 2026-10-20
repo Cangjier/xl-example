@@ -411,3 +411,30 @@ class C { @dec /* c */ x = 1; }
 // decorators on interfaces / enums
 // newline between a decorator and its declaration: @dec\nclass C {} is blocked by the root end candidate ASI rule
 // (IsAsiBoundary sees an expression-complete `dec` at the newline; same family as newline-before-body, source-file-end-possible-shape scope)
+
+// ===== base 12: generic function declarations (TypeParameter[] between Identifier and Parameter[]) =====
+function f<T>(a: T): T { return a; }
+function f<T, U>(a: T, b: U): T { return a; }
+function f<T extends A>(a: T) {}
+function f<T = A>(a: T) {}
+function f<T extends A = B>(a: T) {}
+function f<T extends A, U extends B>(a: T, b: U): A { return a; }
+function f<T>(a: T): T;
+function f<T>(): A { return a; }
+// + trivia
+function f<T /* c */>(a: T) {}
+function f< T >(a: T) {}
+function f<T, /* c */ U>(a: T, b: U) {}
+/* c */ function f<T>(a: T) {}
+function f<T>(/* c */ a: T) {}
+declare function f<T>(a: T): T;
+// + generator / export combos
+function* g<T>(a: T): T { return a; }
+export function h<T>(a: T): T { return a; }
+// + multiple declarations
+function f<T>(a: T) {}\nfunction g<U>(b: U) {}
+// ===== deferred =====
+// async generic function: `async function f<T>(a: T): T {}` -- async + generic combination, verify after the
+// async function declaration chunk lands (possible shape Stage 6/1 order needs checking there).
+// generic arrow / generic function expression 已由 expression 家族覆盖（<T>(a) => a）。
+
