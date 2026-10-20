@@ -228,3 +228,21 @@ class C { async m() { await /* c */ g(); } }
 // class static block（oracle parse-legal；能否建树由本行实测决定）
 class C { static { } }
 class C extends B { static { super.x; } }
+
+// ===== base 13：对象字面量方法的返回类型（含 TypePredicate）=====
+({ m(x: any): x is A { return true; } });
+({ m(x: any): asserts x is A {} });
+({ m(): A { return a; } });
+({ get x(): A { return a; } });
+({ set x(v: A) {} });
+// `this` 作为返回类型（TS 是 ThisType 节点）
+({ m(): this { return this; } });
+({ get x(): this { return this; } });
+// `this is A` / `asserts this is A` 谓词（TS 的 TypePredicate.parameterName 是 ThisType）
+({ m(x: any): this is A { return true; } });
+({ m(): asserts this is A {} });
+({ get x(): asserts this is A { return true; } });
+// + trivia：`:` 两侧注释
+({ m(x: any) /* c */ : /* c */ x is A { return true; } });
+({ m /* c */ (): /* c */ A { return a; } });
+// 暂缓：对象方法的 type parameters（`({ m<T>(x: T): T { return x; } })`）—— object literal 泛型方法未接

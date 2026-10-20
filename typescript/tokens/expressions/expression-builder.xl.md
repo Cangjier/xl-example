@@ -1152,7 +1152,10 @@ while (inner.At < inner.Units.length) {
       }
       const typeBuilder = new TypeBuilder(this.Template, this.Context);
       typeBuilder.Load(typeUnits, inner.Positions[typeStart]);
-      returnType = typeBuilder.ParseType();
+      // Return types of object literal methods can be type predicates (`x is A`,
+      // `asserts x is A`), same as class methods and function types: route through
+      // ParseReturnType so the predicate becomes a TypePredicate node like TS.
+      returnType = typeBuilder.ParseReturnType();
       if (typeBuilder.At !== typeBuilder.Units.length) {
         throw new Error("方法的返回类型没有读完");
       }
