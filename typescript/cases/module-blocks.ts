@@ -1,4 +1,4 @@
-// module / namespace 块 chunk 1：base + trivia 变体。
+// module / namespace 块 chunk 2：augmentation + global + 嵌套声明，base + trivia 变体。
 // 一行一个用例；行内 \n 由 ast-json.mjs 还原成真实换行。以 // 开头的行是暂缓目标，不照进用例。
 // M1 namespace 基形
 namespace N {}
@@ -27,4 +27,19 @@ namespace A.B {}
 namespace A.B.C {}
 namespace A.B { let x = 1; }
 declare namespace N {}
-// M7 暂缓：module augmentation（chunk 2）、export as namespace、global augmentation、函数声明进 namespace
+// M7 暂缓：module-block-possible-shape（挂载型）、组合修饰（export declare module）
+// M8 module augmentation：typed 变量 / export 修饰 / 普通 const
+declare module "m" { let x: number; }
+declare module "m" { export let x: number; }
+declare module "m" { const x = 1; }
+declare module "m" { let x: number; let y: string; }
+declare module "m" { let x: number;\nlet y: string; }
+// M9 global augmentation（TS 节点仍是 ModuleDeclaration，名字是 global）
+declare global { let x: number; }
+declare global { const y = 2; }
+// M10 模块体里的接口声明（空体；interface 形状已合入）
+declare module "m" { interface I {} }
+namespace N { interface I {} }
+// M11 augmentation 的 trivia
+declare module "m" { // c\nlet x: number; }
+// M12 暂缓：`declare module "m" { function f(): void; }`（FunctionDeclaration 未合）、`export as namespace X;`（cover-module-1 所有者）
