@@ -354,3 +354,19 @@ STILL RED（本 chunk 未解，已注释进用例文件并写明原因）
 
 **读数（本分支）**：`end-declarations` **188 / 188 完全一致**；全量 ast-json / diff **3884 / 3884**
 （基线 3862 + 22），结构差 0 / 位置差 0 / 字段差 0，无回归（end 53 等既有 stem 全绿）；tsc 0 error。
+
+## 分支合并补记（docs 补全，数据由 git 推导）
+
+> 用例行增量取 `git diff <merge>^1 <merge> -- typescript/cases/*.ts` 的 numstat（仅 .ts）；
+> 实现文件取 `git diff --name-only <merge>^1 <merge> -- typescript/tokens`；tip = `git rev-parse <merge>^2`。
+> 合并提交未记录 deferred，详见对应分支提交与报告。
+
+- `cover-end-expressions-1` @ `8c60adef` — (expression statement EOF forms)；cases +44/-0（end-declarations）；impl: 
+- `cover-end-declarations-7` @ `0ac602a4` — (EOF decorator/class/namespace measurement)；cases +31/-0（end-declarations）；impl: 
+- `cover-asi-edges-1` @ `32182a78` — (ASI continuation edges)；cases +24/-0（statements）；impl: statement-builder
+- `cover-end-declarations-6` @ `672f9ad1` — (EOF export/default/generic/namespace forms)；cases +33/-1（end-declarations）；impl: 
+- `cover-end-declarations-5` @ `81303140` — (export/import EOF declarations)；cases +28/-0（end-declarations）；impl: source-file-end-possible-shape
+- `cover-end-declarations-4` @ `17283951` — (EOF declaration measurement +14)；cases +22/-0（end-declarations）；impl: 
+- `cover-asi-import-1` @ `a34acfa3` — (ASI x import boundary)；cases +46/-0（asi-import-boundary）；impl: export-declaration-possible-shape
+- `cover-end-declarations-3` @ `3373ce9a` — (EOF multi-declaration + function family)；cases +22/-0（end-declarations）；impl: source-file-end-possible-shape
+- `cover-end-declarations-2` @ `34d25aac` — (declaration body ASI chunk 2)；cases +57/-0（end-declarations）；impl: source-file-end-possible-shape

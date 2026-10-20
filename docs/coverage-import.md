@@ -84,3 +84,15 @@
   行尾注释 / `defer` 与绑定之间换行；`import defer from "m"`（默认名）也在内。
 - 回归：`export type * from "m";` / `export type * as ns from "m";` 已绿（本次只记录）；`import a from "m" with { type: "json" }`
   已绿；import 93/93、export 全绿、全量无回归。
+
+## 分支合并补记（docs 补全，数据由 git 推导）
+
+> 用例行增量取 `git diff <merge>^1 <merge> -- typescript/cases/*.ts` 的 numstat（仅 .ts）；
+> 实现文件取 `git diff --name-only <merge>^1 <merge> -- typescript/tokens`；tip = `git rev-parse <merge>^2`。
+> 合并提交未记录 deferred，详见对应分支提交与报告。
+
+- `cover-import-modifiers-1` @ `1e33a323` — (import defer phase modifier)；cases +18/-0（import）；impl: import-clause-possible-shape,import-declaration-shape
+- `cover-import-export-eof-1` @ `9127dbbe` — (export/import declarations at EOF)；cases +21/-2（end-declarations,export,import）；impl: export-declaration-end-possible-shape,export-declaration-possible-shape,import-declaration-end-possible-shape,source-file-end-possible-shape
+- `cover-import-type-attrs-1` @ `bb98f6d3` — (import type attributes)；cases +11/-1（types）；impl: import-type-shape,type-builder
+- `cover-import-meta-1` @ `17592028` — (import.meta / new.target)；cases +44/-0（import-meta）；impl: import-declaration-possible-shape,import-declaration-shape,expression-builder,expression-statement-possible-shape
+- `cover-import-equals-1` @ `af5556d7` — (import x = require())；cases +12/-6（module-declarations）；impl: import-declaration-possible-shape,import-equals-declaration-possible-shape,source-file-shape

@@ -382,3 +382,22 @@ children = Identifier("this") + 类型；函数声明 / 方法 / 接口方法 / 
 | `` `${A}` extends `${infer U}` ? U : never `` | 绿 | 模板字面量 + infer |
 | `const a = { x: 1 } satisfies A;` / `f({ x: 1 } satisfies A);` | 绿 | satisfies 回归 |
 | trivia（`typeof /* c */ import(...)`、`keyof /* c */ typeof a`） | 绿 | 逐条测 |
+
+
+## 分支合并补记（docs 补全，数据由 git 推导）
+
+> 用例行增量取 `git diff <merge>^1 <merge> -- typescript/cases/*.ts` 的 numstat（仅 .ts）；
+> 实现文件取 `git diff --name-only <merge>^1 <merge> -- typescript/tokens`；tip = `git rev-parse <merge>^2`。
+> 合并提交未记录 deferred，详见对应分支提交与报告。
+
+- `cover-types-sweep-6` @ `369f637a` — (computed property names + types sweep 6)；cases +16/-0（types）；impl: type-builder
+- `cover-types-sweep-5` @ `b579fd6e` — (types measurement sweep 5)；cases +20/-0（types）；impl: 
+- `cover-types-sweep-4` @ `fac3583e` — (generic function types + measurement)；cases +30/-2（expression,types）；impl: type-builder
+- `cover-constructor-types-1` @ `66a7f5f5` — (generic constructor types)；cases +30/-1（types）；impl: type-builder
+- `cover-construct-sig-1` @ `55520db3` — (construct signatures + generic heritage calls)；cases +34/-1（declarations,types）；impl: heritage-clause-shape,construct-signature-shape,type-builder
+- `cover-type-predicates-1` @ `9a1b519f` — (x is A / asserts x return types)；cases +31/-1（declarations）；impl: function-declaration-shape,type-builder
+- `cover-types-sweep-2` @ `2860d332` — (types/expression measurement sweep 2)；cases +35/-1（expression,types）；impl: 
+- `cover-tuple-rest-1` @ `1e12951b` — (tuple rest/optional/labeled + infer)；cases +20/-2（types）；impl: type-builder
+- `cover-types-sweep-1` @ `df06c913` — (types +29, expression +10 measurement)；cases +63/-0（expression,types）；impl: 
+- `cover-types-5` @ `35819dd7` — (generic type parameters + variance)；cases +27/-7（types）；impl: type-alias-declaration-shape,type-builder,type-parameter-shape
+- `cover-type-assert-1` @ `ef5b1092` — (type assertions)；cases +45/-0（type-assertions）；impl: expression-builder,expression-statement-possible-shape

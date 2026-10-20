@@ -316,3 +316,16 @@
 ### deferred
 - none for the target family; all requested forms are green. `@dec export default` with a class body/type params/heritage
   was included and stayed green with the same child order.
+
+
+## 分支合并补记（docs 补全，数据由 git 推导）
+
+> 用例行增量取 `git diff <merge>^1 <merge> -- typescript/cases/*.ts` 的 numstat（仅 .ts）；
+> 实现文件取 `git diff --name-only <merge>^1 <merge> -- typescript/tokens`；tip = `git rev-parse <merge>^2`。
+> 合并提交未记录 deferred，详见对应分支提交与报告。
+
+- `cover-static-mods-1` @ `fa802f67` — (static block modifiers)；cases +16/-0（declarations）；impl: class-declaration-shape
+- `cover-static-block-1` @ `86c7816f` — (class static blocks measurement)；cases +38/-1（declarations）；impl: 
+- `cover-fn-param-decorators-1` @ `afcfea7d` — (function parameter decorators)；cases +29/-1（declarations）；impl: function-declaration-shape
+- `cover-param-decorators-1` @ `d7d8a97f` — (parameter decorators)；cases +26/-1（declarations）；impl: class-declaration-shape,type-builder
+- `cover-obj-method-preds-1` @ `c990383a` — (object literal method predicates)；cases +18/-0（members）；impl: expression-builder
