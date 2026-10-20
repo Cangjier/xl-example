@@ -4,6 +4,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -29,6 +30,8 @@ declare interface I {}
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
+
+## field HeritageClauses:Array<Token> = []
 
 ## constructor:(template:Template)=>void
 
@@ -70,13 +73,10 @@ if (!(nameUnit instanceof Common)) {
 if (index >= code.length) {
   throw new Error("接口声明缺少接口体");
 }
-const bodyUnit = code[index];
-index++;
+const heritageUnits:Array<Token> = code.slice(index, code.length - 1);
+const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("接口声明的接口体不是花括号");
-}
-if (index !== code.length) {
-  throw new Error("接口声明有多余单元");
 }
 for (const item of (bodyUnit as Bracket).Data) {
   if (!item.IsTriviaToken) {
@@ -95,8 +95,13 @@ for (let at = start - 1; at >= 0; at--) {
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+const heritageBase = nameUnit.SourceRange.End === null ? name.Pos : nameUnit.SourceRange.End.Index + 1;
+const clauses:Array<Token> = heritageUnits.length === 0
+  ? []
+  : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
 const shape = new InterfaceDeclarationShape(host.Template);
 shape.NameToken = name;
+shape.HeritageClauses = clauses;
 if (declareUnit !== null) {
   const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
   // 与 ClassDeclarationShape 同口径：modifier 的 pos 含前导 trivia。
@@ -105,6 +110,9 @@ if (declareUnit !== null) {
   shape.Add(modifier);
 }
 shape.Add(name);
+for (const clause of clauses) {
+  shape.Add(clause);
+}
 if (declareUnit !== null) {
   shape.SignInToken(declareUnit);
 } else {
