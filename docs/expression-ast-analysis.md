@@ -15,6 +15,9 @@
 > **本轮复核（模板 AST 落地之后，2026-10-21 01:10）**：`\uXXXX` / `\xNN` 在 string token 轮修好；
 > **模板 AST（S3–S6）已在形状层落地**，`string.ts` 75/75 全绿；§0.2 的 36 条探针读数为 **14 条一致 / 22 条对不上**
 > （模板 ×4 与对象字面量 ×2 转绿）。其余结论不变。
+>
+> **复跑确认（2026-10-21 01:30）**：全量 782/782 完全一致（expression 265/265、string 75/75、import 54/54、
+> export 62/62、number 70/70、regex 256/256）；36 条探针仍为 14 一致 / 22 不对，EOF 族 23/23，无回归。
 
 ```bash
 node typescript/cases/ast-json.mjs            # 重新生成 6 份快照（含 string）
@@ -122,7 +125,7 @@ expression 265 / 265       regex  256 / 256       string  75 / 75
 
 ---
 
-## 3. 实测：36 条探针 → 28 条对不上
+## 3. 实测：36 条探针 → 14 条一致 / 22 条对不上
 
 探针与 `ast-json.mjs` 同口径（`tsAst` / `cjAst` 逐字段比 kind、pos、end、text、name）。
 
@@ -245,8 +248,10 @@ token 层复核（`tmp/verify-string-tokens.mjs` 18/18）：
    `<`（尖括号断言 / 泛型箭头）、`async`、`import`（`import.meta`）、`{`（块/对象二义）。
    于是 `[a];`、`<T>a;`、`async (a) => a;` 也在下标 0 抛。
 
-**注意「放开就抛」**：`CanStart` 与 `ExpressionBuilder` 必须**同一批**放开。只放开 `CanStart` 认 `[`，
-`builder.ParsePrimary` 仍会抛「表达式里出现了不支持的括号」——错误只是从「没有候选」变成「括号不支持」。
+**注意「放开就抛」**：`CanStart` 与 `ExpressionBuilder` 必须**同一批**放开。`[` 的 builder 分支已就绪
+（`ParseArrayLiteral`），现在 `[a, b];` 仍报「表达式语句没有读完」是另一回事：`CanStart` 拒绝 `[` 后候选全灭，
+EOF 终结候选用 `FromUnits(..., requireSemicolon=false)` 把**带 `;` 的整段**交进去（该分支不减尾分号），
+数组读完后剩下 `;`；`CanStart` 一放开这条就消失。`<` / `async` / `import` 的 builder 分支则确实还没有。
 
 ### 4.3 缺少 end（EOF 已补，ASI 仍缺）
 
@@ -316,6 +321,11 @@ ASI 需要在「换行后第一个代码单元到来时」判「上一个语句�
 - ~~Tier 1.5（模板）~~ ✅ **本轮已落地**；
 - **Tier 2（依赖类型解析 `ParseType`）**：`as` / `satisfies` / 泛型实参 / 尖括号断言 / 泛型箭头；
 - **Tier 3（依赖语句级候选）**：函数 / 类表达式、`await` / `yield` / `new.target`。
+
+**实现提示（本轮审计）**：`ArrowFunction` / `AsExpression` / `SatisfiesExpression` / `FunctionExpression` /
+`ClassExpression` 五类 shape 目前**只有构造器（空壳）**，`Parameter` / `Block` / `TypeReference` 同样是空壳；
+`MakeOperatorToken` 没有 `=>` 分支（会在那里抛「未知运算符」）。补产生式时 builder 分支与 shape 的子节点 / 字段
+必须同批补，否则 kind 能对上、`pos` / `end` 仍差。
 
 ### 4.6 end compute 不对 / 4.7 end build 不对
 
@@ -426,6 +436,9 @@ basic token 在 `Close` 过滤，且必须**断言不残留**。
 - **现在实现的偏差**：`ImportDeclarationShape.Close` 把「不认识的单元」静默丢弃，然后才对**过滤后的**
   `kept` 自检「Data 里还有 basic token」——这条自检恒过，于是 `import.meta` 变成空 `ImportDeclaration`。
   close 的正确姿态是：**未识别的单元必须报错**，不是丢。
+  **但自检不能写成「有 basic token 就炸」**：合法 import 的挂载壳在 `BuildByIndex` 里就把 `import` / `from` / `;`
+  这些 basic token 原样收进了 `Data`，必须按**白名单**放行（`import` / `from` / `type` / `as` / `;` / 修饰词），
+  只对白名单外的单元报错，并补一条 `ModuleSpecifier` 非空的完整性检查。
 
 ---
 
@@ -435,8 +448,8 @@ basic token 在 `Close` 过滤，且必须**断言不残留**。
 | --- | --- | --- | --- |
 | ✅ | `core/syntax/source.xl.md` + `core/syntax/syntax-context.xl.md` + `typescript/tokens/trivia/end-of-file-token-shape.xl.md` + `typescript/tokens/files/source-file-end-possible-shape.xl.md`（新增）+ `typescript/tokens/files/source-file-shape.xl.md` + `typescript/tokens/statements/expression-statement-shape.xl.md` | EOF 哨兵（`Source.EOF` / `IsEOF` / `Value=="\0"`）；删掉文档结束后的 `Root.TryToClose`；EOF 单元关闭 → 根终结候选建最后一句（`FromUnits(..., false)`）→ 签出并关闭根 | **EOF 的缺少 end（§4.3-1）✅ 本轮已落地，实测 23/23** |
 | 1 | `typescript/tokens/statements/expression-statement-possible-shape.xl.md`（或新增 ASI 终结候选） | ASI 判据：换行 + 下一个代码单元不能延续 → 普通候选 `Reject`，由终结候选按边界建那一句 | 缺少 end（§4.3-2） |
-| 3 | `typescript/tokens/declarations/import-declaration-possible-shape.xl.md` | `Stage 1` 遇紧邻 `Symbol "."` → `Reject` | possible compute（§4.4） |
-| 4 | `typescript/tokens/declarations/import-declaration-shape.xl.md` | `Close` 的「Data 里还有 basic token」自检放到过滤**之前**；未识别单元报错 | possible build 的静默丢弃（§4.5） |
+| 3 | `typescript/tokens/declarations/import-declaration-possible-shape.xl.md` | `Stage 1` 对「不可能跟在 `import` 后面」的单元一律 `Reject`：`Symbol` 只放行 `*`（`.` / `;` / `,` / `=` 都拒），别只盯 `.` 一个字符 | possible compute（§4.4） |
+| 4 | `typescript/tokens/declarations/import-declaration-shape.xl.md` | `Close` 的自检放到过滤**之前**，但按**白名单**判：合法 import 的 `Data` 里本来就有 `import` / `from` / `type` / `as` / `;`（挂载壳在 `BuildByIndex` 里原样收进来），白名单外才报错；再要求 `ModuleSpecifier` 非空 | possible build 的静默丢弃（§4.5） |
 | ✅ | `typescript/tokens/expressions/expression-builder.xl.md` + `typescript/tokens/{literals,expressions,members}/*template*-shape.xl.md`（7 页）+ `property-assignment-shape.xl.md` + `object-literal-expression-shape.xl.md` + `array-literal-expression-shape.xl.md` | 模板七页补 `Text` / `FromBasicToken`；builder 补 `IsTemplateToken` / `ParseTemplateToken`（head/span/tail 切分）、`ParsePostfix` 收标签模板、`ParsePrimary` 认 `{` / `[`（对象 / 数组字面量）。**只动 shape / builder 层，core 一行没改** | **模板（S3–S6）✅ 本轮已落地：`string.ts` 75/75；对象字面量同时转绿** |
 | 5 | `typescript/tokens/expressions/expression-builder.xl.md` | Tier 1 剩余：`import.meta`（`MetaProperty`）；`ParsePostfix` 认箭头（`(params) => body` / `a => body` / `async` 前缀） | possible build（§4.5） |
 | 6 | `typescript/tokens/statements/expression-statement-possible-shape.xl.md` | `CanStart` 放开 `[`（数组字面量；builder 已就绪）/ `<` / `async` / `import` | 缺少 possible（§4.2-2） |
@@ -510,11 +523,12 @@ a   （无分号，EOF）   a; b   （末条无分号）   a\nb;   （ASI）
 ```
 
 **怎么重跑**：`node tmp/probe-expression-gaps.mjs`（口径 = `ast-json.mjs` 的 `tsAst` / `cjAst` + `ast-json-diff.mjs` 的三段比较）。
-它把上面 36 条加上 EOF / ASI / 对照族一起打出来，每行是「判定 | 分类 | 源码 | 差异」。
+它把上面 36 条加上 EOF / ASI / 对照族一起打出来（现在共 45 行，没有汇总行），每行是「判定 | 分类 | 源码 | 差异」。
 额外写法（模板 / 对象 / 数组 / 标签模板 / 链式标签）用 `node tmp/probe-template-extra.mjs`（27 条，全绿）。
 EOF 边界另有一份专用探针：`node tmp/probe-eof.mjs`（23 条：空文件 / 只有空白或注释 / 无分号表达式 / 无分号 import-export）。
-注意该探针的 `tsAst` 是精简版（没有 import 子句的 `name` 提取），`import { a } from "m";` 这类对照行会假报字段差——
-以 `ast-json-diff.mjs` 的 54/54 为准。
+注意 `tmp/probe-expression-gaps.mjs` 的 `tsAst` 是精简版（只给 Identifier / String / Numeric / BigInt / Regex
+取 `text`，没有 `ImportSpecifier` / `ImportClause` / `NamedBindings` 的 `name`），`import { a } from "m";` 这类对照行会假报字段差——
+那是探针口径，不是仓里的缺口（`probe-eof.mjs` 的 `tsAst` 取得到 `name`，它那一行是绿的）。以 `ast-json-diff.mjs` 的 54/54 为准。
 
 写这批用例时的注意：`ast-json.mjs` 的 `readCases` 会把行内任何 `\n` 还原成真换行，
 所以「模板 / 字符串里的 `\n` 转义」写不进语料（正则那一轮同样的限制）。
