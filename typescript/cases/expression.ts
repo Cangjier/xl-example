@@ -499,3 +499,118 @@ x = [function () {}];
 // 字符串里的 \n 转义           "a\nb";                 ← 用例生成器把行内 \n 还原成真换行，写不进用例
 // 空串                      "";                     ← 投影已能输出 text==""，加进用例即可（本轮沿用原计数）
 // 模板串                      `t`;                     ← 会被当成 StringLiteral，kind 不对；bigint（1n）已支持，见 number.ts
+
+// ===== base 29：operator sweep —— 二元优先级阶梯（base）=====
+a ** b;
+a * b;
+a / b;
+a % b;
+a + b;
+a - b;
+a << b;
+a >> b;
+a >>> b;
+a < b;
+a > b;
+a <= b;
+a >= b;
+a in b;
+a instanceof b;
+a == b;
+a != b;
+a === b;
+a !== b;
+a & b;
+a ^ b;
+a | b;
+a && b;
+a || b;
+a ?? b;
+// 混合优先级
+a + b * c;
+a - b - c;
+a < b && c > d;
+a ** b ** c;
+a | b ^ c & d;
+a == b === c;
+a << b + c;
+a in b && c instanceof d;
+a ?? (b || c);
+(a ?? b) || c;
+// + trivia
+a /* c */ + b;
+a +\n b;
+a  +  b;
+a /* c */ && b;
+a /* c */ ?? b;
+
+// ===== base 30：assignment（全族）=====
+a = b;
+a += b;
+a -= b;
+a *= b;
+a /= b;
+a %= b;
+a **= b;
+a <<= b;
+a >>= b;
+a >>>= b;
+a &= b;
+a |= b;
+a ^= b;
+a &&= b;
+a ||= b;
+a ??= b;
+a = b = c;
+a += b -= c;
+// + trivia
+a /* c */ = /* d */ b;
+a /* c */ += b;
+
+// ===== base 31：一元 / 前缀 / 后缀（补全组合）=====
+!a;
+~a;
++a;
+-a;
+typeof a;
+void a;
+delete a.b;
+++a;
+--a;
+a++;
+a--;
+!a && ~b;
+-a * +b;
+typeof a.b;
+delete a[b];
++a + -b;
+~a ^ !b;
+typeof ++a;
+void a++;
+// + trivia
+! /* c */ a;
+- /* c */ a;
+typeof\na;
+a /* c */ ++;
+++ /* c */ a;
+
+// ===== base 32：可选链 / 非空 / 逗号 / 三元（补全）=====
+a?.b?.(c);
+a?.b?.[c];
+a!.b;
+a!;
+a?.b!.c;
+a, b;
+a, b, c;
+a ? b : c;
+a ? b : c ? d : e;
+a = b, c = d;
+
+// ===== 暂缓（operator sweep 中 builder 尚不支持的写法）=====
+// 调用 / 数组里的 spread     f(...a);   [...a];   f(...a, b);   [a, ...b];
+//   ← ExpressionBuilder 的 ParseBracketArguments / ParseArrayLiteral 不吃 `...`
+//     （对象字面量里的 SpreadAssignment 已支持，见 expression-builder 的 ParseObjectLiteral）
+// await / yield              await a;   function* f() { yield 1; }
+//   ← CanStart / 语句候选与 builder 都还没有 AwaitExpression / YieldExpression
+// new.target / import.meta   ← MetaProperty 尚未实现（import 候选侧另见 docs/expression-ast-analysis.md）
+
