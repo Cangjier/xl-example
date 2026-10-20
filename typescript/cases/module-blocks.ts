@@ -239,4 +239,19 @@ declare module "m" { /* c */ class C {} }
 declare module "m" { class C {} // c\n }
 declare module "m" { type /* c */ T = A; }
 declare module "m" { class /* c */ C {} }
-
+// ===== module-body export declarations（chunk export-build） =====
+declare module "m" { export * from "n"; }
+declare module "m" { export { a }; }
+declare module "m" { export { a as b }; }
+declare module "m" { export * as ns from "n"; }
+declare module "m" { export { a } from "n"; }
+declare module "m" { export {}; }
+declare module "m" { export { a, b as c } from "n"; }
+declare module "m" { export type { T } from "n"; }
+namespace N { export * from "n"; }
+namespace N { export { a }; }
+namespace N { export * as ns from "n"; }
+declare module "m" { export /* c */ * from "n"; }
+declare module "m" { export { a } /* c */; }
+declare module "m" { export\n{ a }; }
+declare module "m" { export * from "n"; } // c

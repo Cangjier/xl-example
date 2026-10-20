@@ -14,6 +14,7 @@ import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.xl.md"
 import { ImportDeclarationShape } from "./import-declaration-shape.xl.md"
+import { ExportDeclarationShape } from "./export-declaration-shape.xl.md"
 import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 import { NamespaceExportDeclarationShape } from "./namespace-export-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
@@ -215,6 +216,27 @@ if (keyword === "as") {
       special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
       (special as ShapeToken).Pos = inner.Positions[declStart];
     }
+  }
+} else if (modifier !== null && headUnit instanceof Common && (headUnit as Common).Is("export")
+  && (unit instanceof Symbol && (unit as Symbol).Is("*")
+    || unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{"
+    || unit instanceof Common && (unit as Common).Is("type")
+      && declStart + 1 < inner.Units.length
+      && (inner.IsSymbol(inner.Units[declStart + 1], "*")
+        || (inner.Units[declStart + 1] instanceof Bracket && (inner.Units[declStart + 1] as Bracket).StartBracketChar === "{")))) {
+  // export * from "n"; / export { a }; / export * as ns from "n"; / export { a } from "n"; / export type * ...
+  for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+    if (inner.IsSymbol(inner.Units[scan], ";")) {
+      specialEnd = scan;
+      break;
+    }
+  }
+  if (specialEnd > declStart) {
+    const dataStart = bracket.Data.indexOf(inner.Units[first]);
+    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    special = ExportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+    (special as ShapeToken).Pos = inner.Positions[first];
+    skipModifier = true;
   }
 } else if (keyword === "type" || (keyword === "declare" && declStart + 1 < inner.Units.length
   && inner.Units[declStart + 1] instanceof Common && (inner.Units[declStart + 1] as Common).Is("type"))) {
