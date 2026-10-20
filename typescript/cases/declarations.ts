@@ -910,3 +910,40 @@ interface I { m(this: A): void; }
 function f(this /* c */: A) {}
 function f(this: A, ...rest: B[]) {}
 // deferred：function f(x: B, this: A) {} —— TS parseDiagnostics 为空（语法可解析），但 checker 要求 this 必须是第一个参数（语义非法），故不写进用例
+
+// ===== base 20: class static initialization blocks (ClassStaticBlockDeclaration) =====
+class C { static {} }
+class C { static { let x = 1; } }
+class C { static { this.x = 1; } }
+class C { static { f(); } }
+class C { static {} static {} }
+class C { x = 1; static {} m() {} }
+class C { static {} x = 1; }
+class C extends B { static { super.x; } }
+// 暂缓：`class C { static { class D {} } }` —— 静态块体交给 StatementBuilder，而「类声明」不是
+// statement 候选（root/class 成员层才有），块内 `class D {}` 会被当成 ExpressionStatement + ClassExpression。
+// 归属：statements 家族（StatementBuilder/block-shape）；同一限制对普通块 `{ class D {} }` 也成立。
+// `// ` class C { static { class D {} } }
+class C { static { if (a) b; } }
+// + EOF / trailing comment
+class C { static {} }\n
+class C { static {} } // c
+// + trivia
+class C { /* c */ static {} }
+class C { static /* c */ {} }
+class C { static { /* c */ } }
+class C { static {\n let x = 1;\n} }
+class C { static {} /* c */ }
+class C { static { this /* c */ .x = 1; } }
+// + regression（方法 / 访问器 / 明确赋值 / 装饰器不变）
+class C { m() {} }
+class C { get x() { return 1; } set x(v) {} }
+class C { x!: A; }
+class C { @dec m() {} }
+// ===== deferred =====
+// `public static {}` / `declare static {}`: the TS **parser** accepts them (parseDiagnostics = 0) and yields
+// ClassStaticBlockDeclaration children = [PublicKeyword|DeclareKeyword, Block] (the plain `static` keyword is
+// not projected). This repo's static-block path builds only the Block child, so the modifier children are
+// missing -> not collected yet; owner: class-declaration-shape BuildMembers static-block branch (next chunk).
+// `// ` class C { public static {} }
+// `// ` class C { declare static {} }
