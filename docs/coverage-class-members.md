@@ -273,3 +273,24 @@
 - `export @dec class C {}` and `export default @dec class C {}`: legal TS (ExportKeyword then Decorator inside one
   ClassDeclaration) but the export/module path is outside this chunk (export/import family); parked with comments.
 - `@await f() class C {}`: oracle rejects (await is not a decorator expression).
+
+## chunk 14 (member modifier/decorator orders + qualified heritage, branch cover-member-orders-1 @ origin/integration 96a1c024)
+
+- FINDING: no implementation change was needed this round. The probe (21 forms) showed only 2 red entries and both are
+  invalid TypeScript; every legal form asked for was already structurally identical before any edit.
+- modifier order matrix (all green pre-existing): `public static override readonly x = 1;`, `protected abstract m(): void;`,
+  `declare readonly x: A;`, `private static readonly y = 1;`, `async *m()`, `static async *g()`, `public async m()`,
+  `override async m()`, `override async *m()`.
+- decorator placement: `@dec public static readonly x = 1;`, `@dec private m()`, `@a @b public m()`, trivia between
+  decorator and modifiers.
+- qualified heritage + type args: `extends a.B`, `extends a.B<X>`, `implements a.I<X>`, `interface I extends a.J<K>`,
+  `extends a.b.C<X, Y> implements I<Z>` (uses the heritage expression-carrier path from chunk 6).
+- abstract members in one class: `abstract m(): void; abstract x: A; abstract get g(): A;`, plus
+  `public abstract x: A; protected abstract m(): void;`.
+- trivia: comments after decorators, between modifiers, before qualified heritage names, inside type arguments.
+- readings: declarations 732/732 (baseline 726 + 6 net after dedupe); full suite 4140/4140 (baseline 4134); tsc 0 error.
+
+### deferred
+- `class C { public @dec m() {} }` and `class C { static @dec m() {} }`: invalid TypeScript
+  (diagnostic "Decorators must precede the name and all keywords of property declarations."); recovery splits the member, parked.
+- full abstract-accessor matrix (abstract set, protected abstract get) stays with the earlier accessor chunk.
