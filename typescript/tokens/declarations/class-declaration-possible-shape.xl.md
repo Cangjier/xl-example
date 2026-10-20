@@ -76,6 +76,25 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     state.Rejected = true;
     continue;
   }
+  if (state.Stage === 6) {
+    if (unit instanceof Common) {
+      const text = (unit as Common).TempToString();
+      if (text === "class") {
+        state.Stage = 2;
+        continue;
+      }
+      if (text === "declare" || text === "abstract") {
+        state.Stage = 1;
+        continue;
+      }
+      continue;
+    }
+    if (unit instanceof Symbol || unit instanceof Bracket) {
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
   if (state.Stage === 0) {
     if (unit instanceof Common) {
       const text = (unit as Common).TempToString();
@@ -87,6 +106,10 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
         state.Stage = 2;
         continue;
       }
+    }
+    if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+      state.Stage = 6;
+      continue;
     }
     state.Rejected = true;
     continue;

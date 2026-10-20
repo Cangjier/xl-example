@@ -8,6 +8,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { ClassStaticBlockDeclarationShape } from "../types/class-static-block-declaration-shape.xl.md"
 import { ConstructorShape } from "../types/constructor-shape.xl.md"
+import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
@@ -79,7 +80,45 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
+let pos = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.End;
+    if (end !== null) {
+      pos = end.Index + 1;
+    }
+    break;
+  }
+}
+const decorators:Array<Token> = [];
+let decoratorEnd = pos;
 let index = 0;
+while (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("@")) {
+  const atUnit = code[index];
+  const decoratorPos = decoratorEnd;
+  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  index++;
+  const decoratorBuilder = new ExpressionBuilder(host.Template, context);
+  decoratorBuilder.Load(code.slice(index), expressionBase);
+  if (decoratorBuilder.Units.length === 0) {
+    throw new Error("decorator expression is empty");
+  }
+  const decoratorExpression = decoratorBuilder.ParseExpression();
+  if (decoratorBuilder.At === 0) {
+    throw new Error("decorator expression was not read");
+  }
+  const consumed = decoratorBuilder.At;
+  for (let cursor = index; cursor < index + consumed; cursor++) {
+    const cursorEnd = code[cursor].SourceRange.End;
+    if (cursorEnd !== null) {
+      decoratorEnd = cursorEnd.Index + 1;
+    }
+  }
+  index += consumed;
+  decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
+}
+const decoratorUnitCount = index;
+const decoratorCount = decorators.length;
 let declareUnit:Token | null = null;
 let abstractUnit:Token | null = null;
 while (index < code.length && code[index] instanceof Common) {
@@ -99,7 +138,7 @@ while (index < code.length && code[index] instanceof Common) {
 if (index >= code.length) {
   throw new Error("类声明不完整");
 }
-const modifierCount = index;
+const modifierCount = index - decoratorUnitCount;
 const keyword = code[index];
 index++;
 if (!(keyword instanceof Common) || !(keyword as Common).Is("class")) {
@@ -121,16 +160,6 @@ const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("类声明的类体不是花括号");
 }
-let pos = 0;
-for (let at = start - 1; at >= 0; at--) {
-  if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
-    }
-    break;
-  }
-}
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
 const heritageBase = nameUnit.SourceRange.End === null ? name.Pos : nameUnit.SourceRange.End.Index + 1;
@@ -142,8 +171,11 @@ const shape = new ClassDeclarationShape(host.Template);
 shape.NameToken = name;
 shape.HeritageClauses = clauses;
 shape.Members = members;
-let modifierPos = pos;
-for (let at = 0; at < modifierCount; at++) {
+let modifierPos = decoratorUnitCount === 0 ? pos : decoratorEnd;
+for (const decorator of decorators) {
+  shape.Add(decorator);
+}
+for (let at = decoratorUnitCount; at < decoratorUnitCount + modifierCount; at++) {
   const modifierUnit = code[at];
   if (!(modifierUnit instanceof Common)) {
     continue;
@@ -321,6 +353,34 @@ while (at < code.length) {
   const startPos = previousEnd + 1;
   const firstIndex = at;
   const firstUnit = code[firstIndex];
+  const decorators:Array<Token> = [];
+  while (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("@")) {
+    const atUnit = code[at];
+    const decoratorPos = previousEnd + 1;
+    const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+    if (atUnit.SourceRange.End !== null) {
+      previousEnd = atUnit.SourceRange.End.Index;
+    }
+    at++;
+    const decoratorBuilder = new ExpressionBuilder(host.Template, context);
+    decoratorBuilder.Load(code.slice(at), expressionBase);
+    if (decoratorBuilder.Units.length === 0) {
+      throw new Error("decorator expression is empty");
+    }
+    const decoratorExpression = decoratorBuilder.ParseExpression();
+    if (decoratorBuilder.At === 0) {
+      throw new Error("decorator expression was not read");
+    }
+    const consumed = decoratorBuilder.At;
+    for (let cursor = at; cursor < at + consumed; cursor++) {
+      const cursorEnd = code[cursor].SourceRange.End;
+      if (cursorEnd !== null) {
+        previousEnd = cursorEnd.Index;
+      }
+    }
+    at += consumed;
+    decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
+  }
   const modifiers:Array<Token> = [];
   let hasStatic = false;
   let accessorKind = "";
@@ -518,6 +578,9 @@ while (at < code.length) {
     } else {
       memberShape = new MethodDeclarationShape(host.Template);
     }
+    for (const decorator of decorators) {
+      memberShape.Add(decorator);
+    }
     for (const modifier of modifiers) {
       memberShape.Add(modifier);
     }
@@ -616,6 +679,9 @@ while (at < code.length) {
     at++;
   }
   const property = new PropertyDeclarationShape(host.Template);
+  for (const decorator of decorators) {
+    property.Add(decorator);
+  }
   for (const modifier of modifiers) {
     property.Add(modifier);
   }

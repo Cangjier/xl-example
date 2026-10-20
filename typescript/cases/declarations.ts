@@ -372,3 +372,42 @@ class C { accessor x /* c */ = 1; }
 // private-in expression: #x in obj  (needs expressions/expression-builder ParsePrimary dispatch for Symbol "#"; not in this write scope)
 // decorators: @dec class C {} / class C { @dec m() {} } / @dec x = 1 (needs class candidate "@"+decorator prefix + Decorator shape)
 // abstract accessors, parameter decorators, decorator metadata
+
+// ===== base 11: decorators (class + member) =====
+@dec class C {}
+@a @b class C {}
+@a @b @c class C {}
+@dec() class C {}
+@dec(a) class C {}
+@a.b class C {}
+@dec abstract class C {}
+@dec declare class C {}
+@dec class C {} @dec2 class D {}
+class C { @dec m() {} }
+class C { @dec x = 1; }
+class C { @a @b m() {} }
+class C { @dec get x() { return 1; } }
+class C { @dec set x(v) {} }
+class C { @dec m(a: A): B { return a; } }
+class C { @dec() m() {} }
+class C { @dec() x = 1; }
+class C { @a.b m() {} }
+class C { @dec x = 1; @dec2 y = 2; }
+class C { @dec x; }
+// + trivia
+@dec /* c */ class C {}
+@ /* c */ dec class C {}
+@a /* c */ @b class C {}
+class C { @dec /* c */ m() {} }
+class C { @ /* c */ dec m() {} }
+class C { @a /* c */ @b m() {} }
+class C { @dec\nm() {} }
+class C { @dec /* c */ x = 1; }
+@dec class C { @m2 dec() {} }
+
+// ===== deferred =====
+// parameter decorators: constructor(@dec x: A)  (needs parameter prefix dispatch)
+// decorator metadata / emitDecoratorMetadata
+// decorators on interfaces / enums
+// newline between a decorator and its declaration: @dec\nclass C {} is blocked by the root end candidate ASI rule
+// (IsAsiBoundary sees an expression-complete `dec` at the newline; same family as newline-before-body, source-file-end-possible-shape scope)
