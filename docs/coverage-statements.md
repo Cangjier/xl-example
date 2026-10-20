@@ -91,3 +91,32 @@
 - `statements`：174 / 174 完全一致（trivia chunk 新增 83 条，零红项）。
 - 全量：trivia chunk 起点 1734 / 1734 → 本轮 1817 / 1817 全绿；其余构造无回归。
 - tsc 0 error；xl_check 0 error（本轮未改 xl 源文件）。
+
+## chunk 3：case 表达式 / catch 解构用例（来自 cover-statements-3，APPEND UNION 合并）
+
+语句用例按 APPEND UNION 合并：base 1..91 + trivia 块 + case/catch 块；合并后 statements = 210 条（174+36，无重复行）。
+
+> **chunk 3**（分支 `cover-statements-3`，起点 `origin/integration @c49f394b`）：
+> statements.ts **91 → 127**（新增 36 条），**127/127** 完全一致；全量 **1893 → 1929** 全绿；tsc 0 error。
+>
+> chunk 3 唯一改动的源文件：`statement-builder.xl.md` 的 `BuildCaseBlock` —— case 标签的终结 `:` 改为
+> **按三元深度 0 判定**：扫描时 `Symbol "?"` 让深度 +1、`Symbol ":"` 在深度 >0 时 -1 并继续，深度 0 的 `:`
+> 才是 case 标签结束符（括号 / 逗号 / 运算符在本层都是整单元，挡不住 `:` 的只有三元）。
+> 这样 `case a ? b : c:`、嵌套三元 `case a ? b : c ? d : e:`、`case (a, b):`、`case a || b:`、`case a = b:`
+> 都能切出完整 case 表达式。
+>
+> 新增 36 条：
+> - case 表达式：三元 / 嵌套三元 / 括号逗号 / `||` / 赋值 / 三元后接多语句或 default 前 / default 后再 case /
+>   空 case（`case a ? b : c: case d: e();`）+ 终结符前后注释、三元中间换行；
+> - switch：块内嵌套 switch、if 体内嵌套、case 体多语句、fallthrough（注释分隔）、case 体为块 / if；
+> - catch 解构绑定：`catch ({ message })`、`catch ([a, b])`、`catch ({ a, b })`、`catch ({ a: c })`、
+>   带 finally、空 try 体、catch 括号内绑定前注释（builder 的 `BuildCatchClause` 在 chunk 2 已按 brackets
+>   分支接好 bindings，本轮只补测量，未改代码）；
+> - for-of/for-in 解构 trivia：`for (const [a, b] of xs)`、`for (const { a } of xs)`、`for (const {a: c} of xs)`、
+>   `for (const [ a , b ] of xs)`、头体间换行、体多语句、行尾注释；
+> - 混排：switch + for-of、try/catch 解构 + let。
+>
+> 暂缓：根级标签（expression 候选配合，见 §3）、`for await`、end 家族 ASI 边界。
+> `catch` 绑定的 rest / 默认值（bindings 未测量）仍未收。
+>
+

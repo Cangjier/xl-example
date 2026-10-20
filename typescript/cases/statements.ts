@@ -207,3 +207,47 @@ switch (x) { case 1: a(); }\ntry { b(); } catch (e) { c(); }\nlet z = 1;
 /* c */ let x = 1;\n/* c */ if (a) b;\n/* c */ while (c) d;
 let x = 1; if (a) b; while (c) d; for (;;) {}
 with (x) a();\ndo b; while (c);\ndebugger;
+
+
+// ===== 来自 cover-statements-3 的 case 表达式 / catch 解构用例（APPEND UNION 合并） =====
+// S17 case expression terminator (colon at ternary depth 0)
+switch (x) { case a ? b : c: break; }
+switch (x) { case a ? b : c ? d : e: break; }
+switch (x) { case (a, b): break; }
+switch (x) { case a || b: break; }
+switch (x) { case a = b: break; }
+switch (x) { case a ? b : c: a(); break; default: d(); }
+switch (x) { default: a(); case a ? b : c: b(); }
+switch (x) { case a ? b : c: case d: e(); }
+switch (x) { case /* c */ a ? b : c /* c */ : break; }
+switch (x) { case a ? b : c: /* c */ break; }
+switch (x) { case a ? b :\nc: break; }
+// S18 switch nesting / multiple statements / fallthrough
+{ switch (x) { case 1: a(); } }
+if (a) { switch (x) { case 1: b(); } }
+switch (x) { case 1: a(); b(); c(); }
+switch (x) { case 1: a();\ncase 2: b();\nbreak;\ndefault: c(); }
+switch (x) { case 1: /* c */ case 2: a(); break; }
+switch (x) { case 1: { a(); b(); } }
+switch (x) { case 1: if (a) b; else c; }
+switch (x) { case 1: { a(); }\ncase 2: b(); }
+// S19 catch destructuring bindings
+try { a(); } catch ({ message }) { b(); }
+try { a(); } catch ([a, b]) { c(); }
+try { a(); } catch ({ a, b }) { c(); }
+try { a(); } catch ({ a: c }) { b(); }
+try { a(); } catch ([a]) { b(); } finally { c(); }
+try {} catch ({ message }) {}
+try {} catch ([a, b]) {}
+try { a(); } catch (/* c */ { a }) { b(); }
+// S20 for-of / for-in destructuring trivia
+for (const [a, b] of xs) a;
+for (const { a } of xs) a;
+for (const {a: c} of xs) c;
+for (const [ a , b ] of xs) a;
+for (const [a] of xs)\na;
+for (const { a } of xs) { a; b; }
+for (const [a] of xs) /* c */ a;
+// S21 mixed statements
+switch (x) { case a ? b : c: break; }\nfor (const [a] of xs) a;
+try { a(); } catch ({ message }) { b(); }\nlet z = 1;
