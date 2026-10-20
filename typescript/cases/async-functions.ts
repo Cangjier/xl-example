@@ -12,9 +12,28 @@ async function f() { return await g(); }
 async function f() { await g(); return await g(); }
 declare async function f(): void;
 
-// ===== 嵌套 async function（暂缓：见文件末尾）=====
-// async function f() { async function g() {} }
-// async function f() { async function g() { await h(); } }
+// ===== 嵌套 async function（体内声明；StatementBuilder 分派 async + function）=====
+async function f() { async function g() {} }
+async function f() { async function g() { await h(); } }
+async function f() { async function g() { await h(); } return g; }
+async function f() { async function g(): void {} }
+async function f() { async function g(a: A): B { return a; } }
+async function f() { async function g(a: A): B; }
+function f() { function g() {} }
+function f() { function g(a: A): B { return a; } }
+async function f() { function g() {} }
+function f() { async function g() {} }
+async function f() { let x = 1; async function g() {} return g; }
+async function f() { async function g() { async function h() {} } }
+{ async function f() {} }
+if (a) { async function f() {} }
+while (a) { async function f() {} }
+{ async function f() {} let x = 1; }
+async function f() { /* c */ async function g() {} }
+async function f() { async /* c */ function g() {} }
+class C { m() { async function f() {} } }
+class C { async m() { async function f() { await g(); } } }
+class C { m() { function g() {} async function f() {} } }
 
 // ===== trivia =====
 /* c */ async function f() {}
@@ -37,10 +56,9 @@ let x = 1;\nasync function f() {}
 async function f() {}\nlet x = 1;
 declare async function f(): void;\nasync function g() {}
 
-// 暂缓：嵌套 async function（`async function f() { async function g() {} }`）——同步嵌套
-//   `function f() { function g() {} }` 已经能建，但函数体语句由 statements 的 StatementBuilder 分派，
-//   它认 `function` 关键字、不认 `async` 前缀；async 分支属 statements/**（本块写范围之外），需那边补分派。
 // 暂缓：async generator（`async function*`，需要 AsteriskToken + generator 语义）
 // 暂缓：async method（class 成员，属 class extras 分支）
 // 暂缓：泛型 async function（`async function f<T>() {}`，TypeParameter 在 types 家族后续）
 // 暂缓：export 侧 `export async function`（cover-export-decls-2）
+// 说明：class 方法体内的嵌套 async function 依赖 class 方法体是否走 StatementBuilder（本块不改 class 文件）；
+//   module/namespace 块体由 module-block builder 负责，同样不在本块范围。
