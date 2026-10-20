@@ -254,3 +254,8 @@ class C extends B { static { super.x; } }
 ({ async m<T>(x: T): T { return x; } });
 ({ *m<T>(x: T) {} });
 ({ m<T> /* c */ (x: T): T { return x; } });
+// ===== base 15：对象字面量方法类型参数约束 / 默认值 =====
+({ m<T extends A>(x: T): T { return x; } });
+({ m<T = A>(x: T): T { return x; } });
+({ m<const T extends A>(x: T) { return x; } });
+({ m<T extends A, U = B>(x: T, y: U): T { return x; } });

@@ -1646,6 +1646,15 @@ while (inner.At < inner.Units.length) {
     continue;
   }
   const parameterIndex = inner.At;
+  let parameterDecorators:Array<Token> = [];
+  const decoratorProbe = inner.Peek(0);
+  if (decoratorProbe !== null && inner.IsText(decoratorProbe, "@")) {
+    // Function expression parameter decorators: reuse TypeBuilder.ParseDecorators (DecoratorShape).
+    const decoratorBuilder = new TypeBuilder(this.Template, this.Context);
+    decoratorBuilder.Load(inner.Units.slice(inner.At), inner.Positions[inner.At]);
+    parameterDecorators = decoratorBuilder.ParseDecorators();
+    inner.At += decoratorBuilder.At;
+  }
   let restUnit:Token | null = null;
   let restIndex = -1;
   if (inner.IsText(unit, "...")) {
@@ -1676,6 +1685,9 @@ while (inner.At < inner.Units.length) {
     throw new Error("函数参数只支持标识符或绑定模式");
   }
   const parameter = new ParameterShape(this.Template);
+  for (const decorator of parameterDecorators) {
+    parameter.Add(decorator);
+  }
   if (restUnit !== null) {
     parameter.Add(inner.MakeOperatorToken(restUnit, restIndex));
   }
@@ -1776,44 +1788,12 @@ return type;
 留给 types 家族）；每个 `TypeParameter` 的 children 是名字 `Identifier`，区间到名字结束、`Pos` 取名字含前导 trivia 的起点。
 
 ```ts
-const parameters:Array<Token> = [];
-let at = openIndex + 1;
-while (at < closeIndex) {
-  let unit = this.Units[at];
-  if (unit instanceof Symbol && (unit as Symbol).Is(",")) {
-    at++;
-    continue;
-  }
-  if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
-    throw new Error("泛型箭头的类型参数暂不支持嵌套类型参数");
-  }
-  const parameterStart = at;
-  let constKeyword:Token | null = null;
-  if (unit instanceof Common && (unit as Common).Is("const")) {
-    // `const T` (TS 5.0 const type parameters): ConstKeyword is a child of TypeParameter.
-    constKeyword = this.MakeKeywordLeaf(new ConstKeywordShape(this.Template), at);
-    at++;
-    if (at >= closeIndex) {
-      throw new Error("const 类型参数缺少名字");
-    }
-    unit = this.Units[at];
-  }
-  if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
-    throw new Error("泛型箭头的类型参数只支持名字");
-  }
-  const name = IdentifierShape.FromBasicToken(unit as Common, this.Context);
-  name.Pos = this.Positions[at];
-  const parameter = new TypeParameterShape(this.Template);
-  parameter.TypeParameterName = name;
-  if (constKeyword !== null) {
-    parameter.Add(constKeyword);
-  }
-  parameter.Add(name);
-  this.SpanNode(parameter, parameterStart, at);
-  parameters.push(parameter);
-  at++;
-}
-if (parameters.length === 0) {
+const builder = new TypeBuilder(this.Template, this.Context);
+builder.Load(this.Units.slice(openIndex), this.Positions[openIndex]);
+// Full TypeParameter grammar (variance / const / `extends` constraint / `= default`) lives in
+// TypeBuilder.ParseTypeParameterList; reuse it instead of a names-only reimplementation.
+const parameters = builder.ParseTypeParameterList();
+if (parameters.length === 0 || builder.At === 0) {
   throw new Error("泛型箭头缺少类型参数");
 }
 return parameters;

@@ -823,3 +823,14 @@ const cf = <const T>(x: T) => x;
 const cf2 = (<const T, U>(x: T, y: U) => x);
 // 暂缓：`<const T, U extends A>`（ParseAngleTypeParameters 还不吃 extends）；`f<string> + 1`
 //   在 TS 里解析成比较链而不是 instantiation，故不按 instantiation 收。
+// ===== base 39：函数表达式参数装饰器 / 类型参数约束与默认值 =====
+(function (@dec x: A) {});
+(function (@a @b x: A) {});
+(function (x: A, @dec y: B) {});
+(function (@dec /* c */ x: A) {});
+// + 类型参数约束 / 默认值（箭头）
+const fca = <T extends A>(x: T) => x;
+const fcd = <T = A>(x: T) => x;
+const fcc = <const T extends A>(x: T) => x;
+// 顶层逗号会被声明切分，多参数泛型箭头用括号形态
+const fcb = (<T extends A, U = B>(x: T, y: U) => x);
