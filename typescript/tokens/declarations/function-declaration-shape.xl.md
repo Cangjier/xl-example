@@ -4,6 +4,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
@@ -74,10 +75,15 @@ if (code.length < 3) {
   throw new Error("函数声明不完整");
 }
 let cursor = 0;
-let declareUnit:Token | null = null;
-if (code[0] instanceof Common && (code[0] as Common).Is("declare")) {
-  declareUnit = code[0];
+let exportUnit:Token | null = null;
+if (code[0] instanceof Common && (code[0] as Common).Is("export")) {
+  exportUnit = code[0];
   cursor = 1;
+}
+let declareUnit:Token | null = null;
+if (code[cursor] instanceof Common && (code[cursor] as Common).Is("declare")) {
+  declareUnit = code[cursor];
+  cursor++;
 }
 if (code.length < cursor + 3) {
   throw new Error("函数声明不完整");
@@ -141,6 +147,11 @@ for (let at = start - 1; at >= 0; at--) {
   }
 }
 const shape = new FunctionDeclarationShape(host.Template);
+if (exportUnit !== null) {
+  const modifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
+  modifier.Pos = pos;
+  shape.Add(modifier);
+}
 if (declareUnit !== null) {
   const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
   modifier.Pos = pos;
@@ -187,7 +198,9 @@ if (returnType !== null) {
 if (body !== null) {
   shape.Add(body);
 }
-if (declareUnit !== null) {
+if (exportUnit !== null) {
+  shape.SignInToken(exportUnit);
+} else if (declareUnit !== null) {
   shape.SignInToken(declareUnit);
 } else {
   shape.SignInToken(keyword);

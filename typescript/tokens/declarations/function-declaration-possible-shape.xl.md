@@ -94,11 +94,24 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 0) {
+    if (unit instanceof Common && (unit as Common).Is("export")) {
+      // `export function …`（后面直接是 function）；`export declare …` 交给 export 声明候选。
+      state.Stage = 7;
+      continue;
+    }
     if (unit instanceof Common && (unit as Common).Is("declare")) {
       state.HasDeclare = true;
       state.Stage = 6;
       continue;
     }
+    if (unit instanceof Common && (unit as Common).Is("function")) {
+      state.Stage = 1;
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 7) {
     if (unit instanceof Common && (unit as Common).Is("function")) {
       state.Stage = 1;
       continue;

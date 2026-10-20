@@ -273,4 +273,30 @@ interface I { a: number; readonly b: A; m(): void; }
 // ===== 鏆傜紦锛歝lass 琛ㄨ揪寮忓甫鎴愬憳锛堥渶瑕佹敼 expression-builder 鐨?ParseClassExpression锛屾湰鍧椾笉纰?expressions锛?====
 // (class { x = 1; });
 // (class { m() {} });
+
+// ===== chunk M：声明修饰词（declare / export on type alias + export declare function）=====
+// `declare` / `export` 现在由声明形状自己收（Data 最前是 ExportKeyword / DeclareKeyword 子节点）。
+declare type T = A;
+declare type T<U> = U;
+declare type T = A | B;
+declare type T<U extends A = B> = [U, B];
+declare type T = A; // tail
+declare /* c */ type T = A;
+declare type /* c */ T = A;
+declare type T = /* c */ A;
+export type T = A;
+export type T<U> = U;
+// export + declare 两个修饰词的组合暂红：根候选在 EOF 共存（CatalogGuide「终结候选与其它候选同时成立」），
+// 不是 type-alias / function 声明形状的问题（两个形状已能收 export+declare 修饰，见 FromUnits）。
+// export declare type T = A;
+// export declare type T<U> = U;
+// export declare type T = A | B;
+// export declare function f(): void;
+// export declare function f(a: A): B;
+export function g() {}
+export function h(a: A): B { return a; }
+// 对照（已绿，只记录、不重复）：declare class C {} / declare interface I {} / declare enum E { A } / declare function f(): void;
+// 暂缓：declare const x: number; / declare let y: string; / declare var z = 1;  ← 属 statements / variable-declaration 家族
+//       export declare interface I {}  ← interface 声明形状文件不在本块 write scope（export 侧同样需要它接受修饰词）
+
 // 瑁呴グ鍣?/ static block / overloads / abstract 鏂规硶锛氬悗缁?chunk
