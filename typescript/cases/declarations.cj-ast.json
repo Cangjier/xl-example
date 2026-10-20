@@ -28175,6 +28175,1078 @@
           ]
         }
       ]
+    },
+    {
+      "src": "enum E { A = 1 << 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 12,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "LessThanLessThanToken",
+                      "pos": 14,
+                      "end": 17
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = -1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "PrefixUnaryExpression",
+                  "pos": 12,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = ~0 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "PrefixUnaryExpression",
+                  "pos": 12,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "0"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 | 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "BarToken",
+                      "pos": 14,
+                      "end": 16
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 & 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "AmpersandToken",
+                      "pos": 14,
+                      "end": 16
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 + 2 * 3 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 12,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "PlusToken",
+                      "pos": 14,
+                      "end": 16
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 16,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "2"
+                        },
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 18,
+                          "end": 20
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "3"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 'a' }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "StringLiteral",
+                  "pos": 12,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = \"a\" }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "StringLiteral",
+                  "pos": 12,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = `x` }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "NoSubstitutionTemplateLiteral",
+                  "pos": 12,
+                  "end": 16,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A, B = 1, C }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 11,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "B"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 18,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1, B = A + 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 15,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "B"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 19,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "A"
+                    },
+                    {
+                      "kind": "PlusToken",
+                      "pos": 21,
+                      "end": 23
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1, B, C = 3 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 15,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "B"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 18,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "C"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "3"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { 'a' = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 8,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { \"a\" = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 8,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { 1 = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A /* c */ = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 20,
+                  "end": 22,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 /* c */, B = 2 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 23,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "B"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 27,
+                  "end": 29,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { /* c */ A = 1 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 18,
+                  "text": "A"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 20,
+                  "end": 22,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = (1) }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 12,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = 1 + 2, B = 3 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "PlusToken",
+                      "pos": 14,
+                      "end": 16
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 19,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "B"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "3"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "enum E { A = -1, B = ~0 }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 8,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "PrefixUnaryExpression",
+                  "pos": 12,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 16,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "B"
+                },
+                {
+                  "kind": "PrefixUnaryExpression",
+                  "pos": 20,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 22,
+                      "end": 23,
+                      "text": "0"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
