@@ -47,13 +47,87 @@ function selectedStems(args) {
   return [...picked];
 }
 
+// Case text may ENCODE a newline as the two characters backslash + `n`, so a multi-line
+// statement still fits on one physical line (every physical line is one case). That decode
+// must NOT run inside a string / template / regex literal: there `\n` is a real escape
+// sequence belonging to the case (`"\n";`, `` `\n`; ``), and decoding it would turn the case
+// into a broken multi-line literal (TS then splits it into different statements).
+// So scan the line, track literal state, and only expand backslash+`n` in ordinary code.
+function decodeCaseText(line) {
+  let out = "";
+  const stack = [];
+  let i = 0;
+  while (i < line.length) {
+    const ch = line[i];
+    const top = stack.length === 0 ? "code" : stack[stack.length - 1];
+    if (top === "code") {
+      if (ch === "/" && line[i + 1] === "/") {
+        out += line.slice(i).replace(/\\n/g, "\n");
+        break;
+      }
+      if (ch === "/" && line[i + 1] === "*") {
+        const end = line.indexOf("*/", i + 2);
+        const stop = end < 0 ? line.length : end + 2;
+        out += line.slice(i, stop).replace(/\\n/g, "\n");
+        i = stop;
+        continue;
+      }
+      if (ch === '"') { stack.push("dq"); out += ch; i++; continue; }
+      if (ch === "'") { stack.push("sq"); out += ch; i++; continue; }
+      if (ch === "`") { stack.push("tpl"); out += ch; i++; continue; }
+      if (ch === "/") {
+        let p = out.length - 1;
+        while (p >= 0 && (out[p] === " " || out[p] === "\t")) p--;
+        const prev = p >= 0 ? out[p] : "";
+        if (prev === "" || "([{,;:!&|?=+-*%^~<>".includes(prev)) {
+          stack.push("regex");
+          out += ch; i++; continue;
+        }
+        out += ch; i++; continue;
+      }
+      if (ch === "\\" && line[i + 1] === "n") { out += "\n"; i += 2; continue; }
+      out += ch; i++; continue;
+    }
+    if (top === "regex" || top === "class") {
+      if (ch === "\\") { out += line.slice(i, i + 2); i += 2; continue; }
+      if (top === "regex" && ch === "[") { stack.push("class"); out += ch; i++; continue; }
+      if (top === "regex" && ch === "/") { stack.pop(); out += ch; i++; continue; }
+      if (top === "class" && ch === "]") { stack.pop(); out += ch; i++; continue; }
+      out += ch; i++; continue;
+    }
+    if (top === "sq" || top === "dq") {
+      if (ch === "\\") { out += line.slice(i, i + 2); i += 2; continue; }
+      if ((top === "sq" && ch === "'") || (top === "dq" && ch === '"')) {
+        stack.pop(); out += ch; i++; continue;
+      }
+      out += ch; i++; continue;
+    }
+    if (top === "tpl") {
+      if (ch === "\\") { out += line.slice(i, i + 2); i += 2; continue; }
+      if (ch === "`") { stack.pop(); out += ch; i++; continue; }
+      if (ch === "$" && line[i + 1] === "{") { stack.push("expr"); out += "${"; i += 2; continue; }
+      out += ch; i++; continue;
+    }
+    if (top === "expr") {
+      if (ch === "}") { stack.pop(); out += ch; i++; continue; }
+      if (ch === '"') { stack.push("dq"); out += ch; i++; continue; }
+      if (ch === "'") { stack.push("sq"); out += ch; i++; continue; }
+      if (ch === "`") { stack.push("tpl"); out += ch; i++; continue; }
+      if (ch === "\\" && line[i + 1] === "n") { out += "\n"; i += 2; continue; }
+      out += ch; i++; continue;
+    }
+    out += ch; i++;
+  }
+  return out;
+}
+
 function readCases(stem) {
   const source = fs.readFileSync(path.join(here, `${stem}.ts`), "utf8");
   return source
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("//"))
-    .map((line) => line.replace(/\\n/g, "\n"));
+    .map((line) => decodeCaseText(line));
 }
 
 // TS 的 SyntaxKind 301/302 在本版里反查出来印的是旧名 AssertClause / AssertEntry，

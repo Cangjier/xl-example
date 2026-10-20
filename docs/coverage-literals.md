@@ -39,3 +39,36 @@ literals  116 / 116      # 70 + 46
 
 数字带分隔符/进制前缀的 kind 仍是 NumericLiteral（text 保留分隔符写法）；bigint 是 BigIntLiteral；
 `-0` / `+1` / `- 1` 都是 PrefixUnaryExpression（操作数 NumericLiteral），不是负字面量。
+## chunk 3（cover-harness-newline-1）：修掉 ast-json 的 `\n` 反转义，转义字面量可以直测
+
+### 根因
+
+`typescript/cases/ast-json.mjs` 的 `readCases()` 对每条用例做了 `.replace(/\\n/g, "\n")`：
+用例文件是「一行一个用例」，多行语句靠字面 `\n` 编码成一行，再由 harness 还原成真实换行。
+但这条替换是**上下文无关**的：字符串/模板/正则字面量里的 `\n` 本来就是一个转义序列，也被还原成真换行，
+于是 `"\n";` 变成 `"`↵`"`（TS 切成两条语句），`` `\n` `` 变成跨行模板——转义字面量因此无法测量。
+
+### 修复（只改 ast-json.mjs，快照格式不变）
+
+新增 `decodeCaseText(line)`：逐字符扫描，跟踪 `'…'` / `"…"` / `` `…` ``（含 `${…}` 嵌套 / 正则 `/…/` 与字符类）
+状态；**只在普通代码与注释里**把「反斜杠 + n」展开成换行，字面量内部原样保留（`\` 后跟任意字符直接跳过两字符）。
+`readCases()` 改用该函数。`ast-json-diff.mjs` 只读两份 JSON 快照，不读用例源文本，无需改动，快照格式也未变。
+
+### 快照 churn
+
+- 全量重生成后只有 **4 个快照文件变化**：`literals.{ts,cj}-ast.json`、`string.{ts,cj}-ast.json`。
+- 原因只有一个：`string.ts` / `literals.ts` 里原有的 `` `a\nb` `` 模板用例，之前被转成跨行模板，现在保留为
+  「单行源码 + 转义换行」，`src` 与 pos/end 因此变化；其余 4300+ 条用例的文本没有被这段逻辑影响（顶层多行用例
+  的编码换行行为保持不变）。
+- 之前 build/ts 未随 integration 重建导致的 declarations 假红已排除（先 `xl_build` + `tsc` 再重生成）。
+
+### 新增用例（literals.ts）
+
+- `"\n";`、`'\t';`、`` `\n`; ``、`"\u{1F600}";`（`\u000A` 的旧用例保留，两种写法都在）
+
+### 读数
+
+```
+literals  120 / 120      # 116 + 4
+全量     4312 / 4312     # 4308 + 4；结构差 0 / 位置差 0 / 字段差 0
+```

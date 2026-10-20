@@ -1,7 +1,8 @@
 // literals 用例集：字面量的「非语句首」出现位置，补 string / number / regex 三张用例集之外的测量口径。
 // 三张字面量用例集（string.ts / number.ts / regex.ts）只把字面量放在语句首（`1;` `/a/;` `"s";`），
 // 这里补它在语句可解析的其它位置上的投影：赋值右值、调用实参、数组字面量元素、对象字面量属性值。
-// 一行一个用例；行内 \n 由 ast-json.mjs 还原成真实换行；注释必须独立成行。
+// 一行一个用例；行内 \n 由 ast-json.mjs 在「字符串/模板/正则之外」还原成真实换行；
+// 字面量里的 \n 保持原样（引号感知解码，见 ast-json.mjs decodeCaseText）；注释必须独立成行。
 // 对拍口径：TS 侧 ts.createSourceFile 的 AST；本仓侧 SourceFileRunner.Parse 的形状树。
 // 快照：node typescript/cases/ast-json.mjs literals && node typescript/cases/ast-json-diff.mjs literals
 //
@@ -147,3 +148,9 @@ tag`\u{41}`;
 1_000 /* c */;
 "a" /* c */;
 /a/g /* c */;
+
+// ===== 转义序列（harness 修复后可直接测量） =====
+"\n";
+'\t';
+`\n`;
+"\u{1F600}";
