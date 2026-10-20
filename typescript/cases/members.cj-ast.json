@@ -6637,6 +6637,1003 @@
           ]
         }
       ]
+    },
+    {
+      "src": "({ m() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 6,
+                          "end": 9
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ m(a: A): B { return a; } });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Parameter",
+                          "pos": 5,
+                          "end": 9,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 7,
+                              "end": 9,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 7,
+                                  "end": 9,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 11,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 11,
+                              "end": 13,
+                              "text": "B"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 13,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 15,
+                              "end": 25,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 22,
+                                  "end": 24,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ get x() { return 1; } });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "GetAccessor",
+                      "pos": 2,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 6,
+                          "end": 8,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 10,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 12,
+                              "end": 22,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 19,
+                                  "end": 21,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ set x(v) {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "SetAccessor",
+                      "pos": 2,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 6,
+                          "end": 8,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "Parameter",
+                          "pos": 9,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 9,
+                              "end": 10,
+                              "text": "v"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 11,
+                          "end": 14
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ [k]: 1 });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "PropertyAssignment",
+                      "pos": 2,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "ComputedPropertyName",
+                          "pos": 2,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 4,
+                              "end": 5,
+                              "text": "k"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 7,
+                          "end": 9,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ [k]() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "ComputedPropertyName",
+                          "pos": 2,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 4,
+                              "end": 5,
+                              "text": "k"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 8,
+                          "end": 11
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ *m() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 2,
+                          "end": 4
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 4,
+                          "end": 5,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 7,
+                          "end": 10
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ async m() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "AsyncKeyword",
+                          "pos": 2,
+                          "end": 8
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 8,
+                          "end": 10,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 12,
+                          "end": 15
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ m() {}, get x() { return 1; }, [k]: 2 });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 6,
+                          "end": 9
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "GetAccessor",
+                      "pos": 10,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 18,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 20,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 27,
+                                  "end": 29,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "PropertyAssignment",
+                      "pos": 33,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "ComputedPropertyName",
+                          "pos": 33,
+                          "end": 37,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 35,
+                              "end": 36,
+                              "text": "k"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 38,
+                          "end": 40,
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ a: 1, m() {}, set x(v) {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "PropertyAssignment",
+                      "pos": 2,
+                      "end": 7,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 5,
+                          "end": 7,
+                          "text": "1"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 8,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 8,
+                          "end": 10,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 12,
+                          "end": 15
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "SetAccessor",
+                      "pos": 16,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "Parameter",
+                          "pos": 23,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 24,
+                              "text": "v"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 25,
+                          "end": 28
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ /* c */ m() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 12,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 14,
+                          "end": 17
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ m /* c */ () {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 15,
+                          "end": 18
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ get /* c */ x() { return 1; } });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "GetAccessor",
+                      "pos": 2,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 6,
+                          "end": 16,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 18,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 20,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 27,
+                                  "end": 29,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ * /* c */ m() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "AsteriskToken",
+                          "pos": 2,
+                          "end": 4
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 4,
+                          "end": 14,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 16,
+                          "end": 19
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ [ /* c */ k ]: 1 });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "PropertyAssignment",
+                      "pos": 2,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "ComputedPropertyName",
+                          "pos": 2,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 4,
+                              "end": 14,
+                              "text": "k"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ async /* c */ m() {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "AsyncKeyword",
+                          "pos": 2,
+                          "end": 8
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 8,
+                          "end": 18,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 20,
+                          "end": 23
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({\nm() {}\n});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 6,
+                          "end": 9
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
