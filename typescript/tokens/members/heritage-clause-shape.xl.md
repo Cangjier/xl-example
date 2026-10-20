@@ -1,7 +1,10 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ExpressionWithTypeArgumentsShape } from "../expressions/expression-with-type-arguments-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -88,15 +91,62 @@ while (builder.At < builder.Units.length) {
     continue;
   }
   const nameIndex = builder.At;
-  const name = builder.ParseName();
-  let typeArguments:Array<Token> = [];
-  const mark = builder.Peek(0);
-  if (mark !== null && builder.IsText(mark, "<")) {
-    typeArguments = builder.ParseTypeArguments();
+  const headUnit = builder.Units[nameIndex];
+  const secondUnit:Token | null = nameIndex + 1 < builder.Units.length ? builder.Units[nameIndex + 1] : null;
+  // Expression carrier cases: `(expr)`, `name.member` (property access), `name(...)` (call).
+  // They are parsed with ExpressionBuilder; the plain name + optional `<type args>` form keeps TypeBuilder.
+  const headText = builder.TextOf(headUnit);
+  let startsWithAccess = headText === "null";
+  if (secondUnit !== null) {
+    if (builder.IsText(secondUnit, ".")) {
+      startsWithAccess = true;
+    }
+    if (secondUnit instanceof Bracket && (secondUnit as Bracket).StartBracketChar === "(") {
+      startsWithAccess = true;
+    }
   }
-  // ParseTypeArguments 之后 At 已经越过 `>`，那一格才是这一项的终点（TS 的 end = `>` 之后）。
-  const endToken:Token | null = typeArguments.length === 0 ? name : builder.Units[builder.At - 1];
-  const expression = ExpressionWithTypeArgumentsShape.FromParts(name, typeArguments, endToken, builder.Positions[nameIndex], context);
+  let expression:Token;
+  if (headUnit instanceof Bracket || startsWithAccess) {
+    // Expression limit: stop before `<` so `A.B<C>` parses `A.B` as the expression and `<C>` as type arguments
+    // (ExpressionBuilder would otherwise try generic-call type arguments on the `<` and fail without `(`).
+    let expressionLimit = nameIndex;
+    while (expressionLimit < builder.Units.length) {
+      const probe = builder.Units[expressionLimit];
+      if (probe instanceof Symbol && (probe as Symbol).Is("<")) {
+        break;
+      }
+      expressionLimit++;
+    }
+    const expressionBuilder = new ExpressionBuilder(host.Template, context);
+    expressionBuilder.Load(builder.Units.slice(nameIndex, expressionLimit), builder.Positions[nameIndex]);
+    const parsed = expressionBuilder.ParseExpression();
+    if (expressionBuilder.At === 0) {
+      throw new Error("heritage expression was not read");
+    }
+    const consumed = expressionBuilder.At;
+    const endIndex = nameIndex + consumed - 1;
+    builder.At = nameIndex + consumed;
+    let expressionTypeArguments:Array<Token> = [];
+    const expressionMark = builder.Peek(0);
+    if (expressionMark !== null && builder.IsText(expressionMark, "<")) {
+      expressionTypeArguments = builder.ParseTypeArguments();
+    }
+    // `A.B<C>` / `(expr)<T>`: type arguments follow the expression, end is `>` when present.
+    const expressionEndUnit:Token = expressionTypeArguments.length === 0
+      ? builder.Units[endIndex]
+      : builder.Units[builder.At - 1];
+    expression = ExpressionWithTypeArgumentsShape.FromParts(parsed, expressionTypeArguments, expressionEndUnit, builder.Positions[nameIndex], context);
+  } else {
+    const name = builder.ParseName();
+    let typeArguments:Array<Token> = [];
+    const mark = builder.Peek(0);
+    if (mark !== null && builder.IsText(mark, "<")) {
+      typeArguments = builder.ParseTypeArguments();
+    }
+    // ParseTypeArguments 之后 At 已经越过 `>`，那一格才是这一项的终点（TS 的 end = `>` 之后）。
+    const endToken:Token | null = typeArguments.length === 0 ? name : builder.Units[builder.At - 1];
+    expression = ExpressionWithTypeArgumentsShape.FromParts(name, typeArguments, endToken, builder.Positions[nameIndex], context);
+  }
   if (keyword === null) {
     // 没有 `extends` / `implements` 关键字却来了一个类型：调用方把边界传错了，直接报出来。
     throw new Error("继承子句缺少 extends / implements 关键字");

@@ -533,3 +533,40 @@ declare namespace N { function f();\ninterface I {} }
 // function f(a: A): B;             <- non-declare overload signature (root) still requires a return type
 // deferred: non-ambient `namespace N { function f(); }` -> module-block passes ambient=false, shape rejects;
 // that spelling is a TS semantic error (implementation missing), not a parse-level gap.
+// ===== base 13: heritage expression carriers + qualified/generic names =====
+class C extends mixin(B) {}
+class C extends a.b {}
+class C extends a.b.c {}
+class C extends f() {}
+class C extends f(a.b) {}
+class C extends mixin(B).x {}
+class C extends (a) {}
+class C extends (a, b) {}
+class C extends (a ? B : C) {}
+class C extends null {}
+class C extends A<B> {}
+class C extends A implements I.J {}
+class C implements I.J {}
+class C implements I.J.K {}
+class C implements I<J> {}
+class C implements A, B<C> {}
+class C implements mixin(B) {}
+class C implements A, B, C<D> {}
+interface I extends A.B {}
+interface I extends A<B> {}
+interface I extends A, B<C> {}
+interface I extends A.B<C> {}
+class C extends /* c */ mixin(B) {}
+class C extends mixin(/* c */ B) {}
+class C extends a /* c */ . b {}
+class C extends a.b /* c */ {}
+class C implements /* c */ I.J {}
+class C implements I /* c */ . J {}
+class C implements I<J /* c */> {}
+interface I extends /* c */ A.B {}
+interface I extends A /* c */ . B {}
+interface I extends A<B /* c */> {}
+class C extends mixin(B) { m() {} }
+// `extends null`: TS parses it as Identifier named "null" (syntax-error recovery); our name path gives the same kind, kept as a case above.
+// heritage with generic call `extends mixin<T>(B)` and decorator-like expressions: needs more expression grammar/tuple args; deferred.
+// expression carriers that need statements/arrow/object-literal grammar (e.g. extends (() => B)): deferred.
