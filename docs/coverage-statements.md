@@ -1,5 +1,29 @@
 # statements family 瑕嗙洊锛坈hunk 1 + chunk 2 + trivia chunk + chunk 3 + labeled chunk锛?
 
+> **expression-statement 起始 token 矩阵**（分支 `cover-stmt-start-1`，起点 `origin/integration @f5294c44`）：
+> `statements.ts` **348 → 388**（+40），**388/388** 完全一致；全量 **4012 → 4052** 全绿；tsc 0 error；
+> **源码零改动**（所有合法形态原地已绿，只补测量）。
+>
+> Oracle（ts.createSourceFile）：ExpressionStatement 的 children **只有表达式**（`pos/end` 到 `;` 前）；
+> 合法起始 token —— `!a` / `-a` / `+a` / `~a`（PrefixUnaryExpression）、`typeof` / `void` / `delete`
+> （TypeOf/Void/DeleteExpression）、顶层 `await x`（AwaitExpression）、`new A()`（NewExpression）、
+> `new.target`（函数内，MetaProperty）、`import.meta`（MetaProperty）、`this.x`（PropertyAccess）、
+> 方法内 `super.x`（SuperKeyword + PropertyAccess）、`(a)`（ParenthesizedExpression）、`[a,b]`（ArrayLiteral）、
+> `({})`（Paren → ObjectLiteral）、模板 / 正则 / 数字 / 字符串字面量、`a => a`（ArrowFunction）、
+> `#x in obj`（BinaryExpression + PrivateIdentifier）、生成器内 `yield;`（YieldExpression）。
+> 非法（不进基准）：`function () {};`（TS parseDiagnostics「Identifier expected」，恢复成缺名 FunctionDeclaration +
+> EmptyStatement）；`class {};`（TS 无 parseDiagnostics 但同样走缺名 ClassDeclaration + EmptyStatement 的错误恢复，
+> cj Shape 表达不了缺名恢复，未收）。
+>
+> 40 条覆盖：20 个 root 形态 + 17 个块内同形态（`{ !a; }`、`{ await x; }`、`{ ({}); }`、`{ /re/; }`、
+> `{ a => a; }`、`{ import.meta; }` …）+ 函数内 `new.target`、生成器内 `yield;`、方法内 `super.x`、
+> async 函数内 `await x;`。
+>
+> 暂缓（`//` 目标 + 理由）：**块内 class 声明** `{ class D { m() { super.x; } } }` —— TS 是 `Block → ClassDeclaration`，
+> cj 的 StatementBuilder 把 `class` 走成 `ExpressionStatement(ClassExpression)`；块内 class 声明分派属
+> statements builder / class 家族，本块 WRITE SCOPE 只有 expression-statement-possible，故留目标。
+> 注：root 的 class 声明与 method 内 `super.x` 已绿。
+>
 > **using / await using**（分支 `cover-using-1`，起点 `origin/integration @4fa193e7`）：`statements.ts` **290 → 314**
 > （+24），**314/314** 完全一致；全量 **3862 → 3886** 全绿；tsc 0 error；**源码零改动**（全部形态原地已绿，只补测量）。
 >

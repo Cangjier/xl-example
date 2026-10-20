@@ -18916,6 +18916,1254 @@
           ]
         }
       ]
+    },
+    {
+      "src": "!a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "-a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "+a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "~a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "typeof a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "TypeOfExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "void a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "VoidExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "delete a.b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "DeleteExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 6,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 8,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 10,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "await x;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "AwaitExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 7,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "new A();",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "NewExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "this.x;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "PropertyAccessExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "ThisKeyword",
+                  "pos": 0,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 6,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(a);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 3,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "[a, b];",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 3
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "`x`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "x"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/re/;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "/re/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "1;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 1,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "'s';",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "s"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a => a;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 0,
+                  "end": 1,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "#x in obj;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 0,
+                  "end": 2
+                },
+                {
+                  "kind": "InKeyword",
+                  "pos": 2,
+                  "end": 5
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 9,
+                  "text": "obj"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import.meta;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "MetaProperty",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 11,
+                  "text": "meta"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { new.target; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 14,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "MetaProperty",
+                      "pos": 14,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 25,
+                          "text": "target"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g() { yield; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "g"
+            },
+            {
+              "kind": "Block",
+              "pos": 13,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 15,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 15,
+                      "end": 21
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() { super.x; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 15,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 15,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "SuperKeyword",
+                              "pos": 15,
+                              "end": 21
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 23,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { await x; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 20,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 20,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 26,
+                          "end": 28,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ !a; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "PrefixUnaryExpression",
+                  "pos": 1,
+                  "end": 4,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ typeof a; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "TypeOfExpression",
+                  "pos": 1,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ void a; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "VoidExpression",
+                  "pos": 1,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 8,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ delete a.b; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "DeleteExpression",
+                  "pos": 1,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 8,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 8,
+                          "end": 10,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ await x; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "AwaitExpression",
+                  "pos": 1,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ new A(); }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "NewExpression",
+                  "pos": 1,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ this.x; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 1,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "ThisKeyword",
+                      "pos": 1,
+                      "end": 6
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 8,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ (a); }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 1,
+                  "end": 5,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ [a, b]; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "ArrayLiteralExpression",
+                  "pos": 1,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ ({}); }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 3,
+                      "end": 5
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ `x`; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "NoSubstitutionTemplateLiteral",
+                  "pos": 1,
+                  "end": 5,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ /re/; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 1,
+                  "end": 6,
+                  "text": "/re/"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ 1; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 1,
+                  "end": 3,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ 's'; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 1,
+                  "end": 5,
+                  "text": "s"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ a => a; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "ArrowFunction",
+                  "pos": 1,
+                  "end": 8,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 1,
+                      "end": 3,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 1,
+                          "end": 3,
+                          "text": "a"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "EqualsGreaterThanToken",
+                      "pos": 3,
+                      "end": 6
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 8,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ import.meta; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "MetaProperty",
+                  "pos": 1,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 13,
+                      "text": "meta"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
