@@ -314,3 +314,22 @@ STILL RED（本 chunk 未解，已注释进用例文件并写明原因）
 
 **读数（本分支）**：`end-declarations` **166 / 166 完全一致**；全量 ast-json / diff **3774 / 3774**
 （基线 3752 + 22），结构差 0 / 位置差 0 / 字段差 0，无回归（end 53 等既有 stem 全绿）；tsc 0 error。
+## 历史 chunk 记录补遗：ASI boundary 2（据 git 历史重建，原文件乱码）
+> 本段原在 `8600e768`（fix(end): ASI boundary 2）的乱码版本里，修复时随全文重建丢失；
+> 以下按乱码原文与 git 历史转写，分支名、数值、路径、代码 span 均照原文保留。
+- 分支 `cover-asi-boundary-2`，起点 `origin/integration @d8077d98`。
+- `end-declarations.ts` **109 → 121**（+12）；`asi-import-boundary.ts` **31 → 40**（+9）；两个 stem 全绿，
+  全量 **3419 → 3440** 全绿，tsc 0 error，`import` 66/66 无回归。
+- **A. EOF 声明混排（前缀/后缀递归）**：`SourceFileEndPossibleShape.BuildTrailingDeclaration` 的前缀/后缀递归里，
+  前缀递归可能一次建出**多条**形状（如 `declare function f(): void\nclass C {}` 前缀先建 declare function、再建 class）；
+  后缀定位不能再用 `at + inserted - (prefixEnd - start + 1)`：前缀在 shape / type / import 形里会补合成 `;` 再 splice 造成错位，
+  且 `inserted` 只数 start 之后的 non-trivia 单元，前缀与形状之间有 trivia 时会落到第二个形状。
+  改成：后缀起点 `cursor` 跳过 trivia 与已建形状（非 basic token），后缀终点 `cursor + (at - codeAt[boundary])`；
+  前缀建出多条也不影响，递归可继续处理 N 段。
+- **B. `a\nimport …` / `a\nexport …` 边界（切分模型）**：import/export 候选的切分与 TS 一致
+  （ExpressionStatement + ImportDeclaration / ExportDeclaration / `export const`），`a\nimport b from 'm';\nc;` 也成立；
+  本轮只覆盖 `asi-import-boundary` 的切分模型（前导注释、后续 import 声明、`export function` / `export default function`、多 import、注释位置）。
+- 新增用例：`end-declarations` +12（六种声明顺序：class、declare+type+class、type+class+interface、declare+class+class、
+  declare+interface+class、interface+declare+class、class+interface+type；注释在中间 / 行注释；declare+declare+class）；
+  `asi-import-boundary` +9（`a\nimport b` / `{ b }` / `* as ns`、`a\nexport const`、import 后语句、`export function`、
+  `export default function`、多 import、注释位置）。
