@@ -682,3 +682,26 @@ class C { #x = 1; m() { return !(#x in this); } }
 class D { #a = 1; #b = 2; m() { return #a in this && #b in this; } }
 // 暂缓：语句首裸 `#x in obj;`（依赖 statements 的 CanStart 放行 `#`）；class 外的私有标识符单独使用 /
 // private method reference（TS 语义错误或尚未实现）
+// ===== base 33：模板字面量 / 逻辑链 / super / new.target（measurement sweep）=====
+// 模板：无替换 / 单替换 / 多替换 / 嵌套 / tagged
+`a`;
+`a${b}c`;
+`${a}${b}`;
+`a${`b${c}`}d`;
+tag`a${b}`;
+tag`x`;
+tag`${a}`;
+`a${ /* c */ b}c`;
+tag /* c */ `a${b}`;
+`a${b /* c */}c`;
+tag\n`x`;
+// 逻辑链（`a ?? b` 已在 base 14）
+a ?? b ?? c;
+a ?? b ?? c ?? d;
+// class 上下文：new.target 已可测；super 暂缓（builder 的 ParsePrimary 把 `super` 当 Identifier，
+// 没有 SuperKeyword 产生式 —— 属 expression-builder 改动，本 sweep 是 measurement-only，先记目标）
+class C { m() { return new.target; } }
+// class C extends B { m() { super.m(); } }        ← 需要 SuperKeywordShape 分派
+// class C extends B { m() { return super.a; } }   ← 同上
+// `super()` 构造器调用 / `super` 在非 class 上下文 ← TS 语义非法，本 sweep 不收
+// `new.target` 若 builder 的 ParseNew/MetaProperty 未接，则本 base 的对应行会在 diff 里显形，按实测调整
