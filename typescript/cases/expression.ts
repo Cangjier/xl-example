@@ -857,3 +857,32 @@ a.b /* c */ ().c();
 this. /* c */ x.y;
 a /* c */ `x`;
 // 暂缓：a?.b = c（TS 语法层可解析但语义禁止：optional chain 不能作赋值目标），不入语料
+// ===== base 41：yield / await（measurement sweep）=====
+function* g1() { yield; }
+function* g1() { yield 1; }
+function* g1() { yield a + b; }
+function* g1() { yield* xs; }
+function* g1() { yield* yield* xs; }
+function* g1() { const x = yield 1; }
+function* g1() { { yield 1; } }
+function* g1() { while (a) { yield 1; } }
+function* g1() { yield 1 + 2; }
+function* g1() { (yield 1) + 2; }
+function* g1() { yield (1 + 2); }
+function* g1() { yield* a.b; }
+function* g1() { x = yield y; }
+async function f1() { await x; }
+async function f1() { await f(); }
+async function f1() { await a + b; }
+async function f1() { const y = await x; }
+async function f1() { await await x; }
+async function f1() { await (await x); }
+async function f1() { f(await x); }
+async function f1() { x ? await a : await b; }
+async function f1() { function g() { return 1; } await g(); }
+async function f1() { function* g() { yield 1; } await g(); }
+function* g1() { async function f() { await x; } yield 1; }
+// + trivia
+function* g1() { yield /* c */ 1; }
+function* g1() { yield* /* c */ xs; }
+async function f1() { await /* c */ x; }
