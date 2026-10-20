@@ -141,3 +141,25 @@ class C {}\nfunction f() {}
 // export declare function f(): void     ← FunctionDeclarationShape 只认 declare，不认 export 修饰
 // declare type T = A / declare type T = A;   ← TypeAliasDeclarationShape 不认 declare 修饰
 
+// ── chunk 4：带成员的 class / interface 在 EOF 的收尾（成员形状已合入） ──
+// class：单成员 / 属性成员 / 尾随换行 / 尾随注释
+class C { m() {} }
+class C {\n  x = 1;\n}
+class C { m() {} }\n
+class C { m() {} } // c
+class C { m() {} } /* c */
+// interface：无分号成员 / 多行成员 / 尾随注释
+interface I { a: number }
+interface I {\n  a: number;\n}
+interface I { a: number } // c
+// declare class 带体
+declare class C { m(): void; }
+// 两条声明到 EOF（class+interface / interface+class）
+class C { m() {} }\ninterface I { a: number }
+interface I { a: number }\nclass C {}
+// 体前换行 + 成员
+class C\n{ m() {} }
+interface I\n{ a: number }
+class C\n{\n  m() {}\n}
+// 暂缓（原因见 docs/coverage-end.md §10）：declare function 无体在前、带体声明在后的多条连排仍红（chunk3 已记录）
+

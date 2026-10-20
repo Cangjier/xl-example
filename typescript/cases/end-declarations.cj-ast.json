@@ -2756,6 +2756,560 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C { m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {\n  x = 1;\n}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 13,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() {} }\n",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() {} } // c",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() {} } /* c */",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I { a: number }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 13,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 16,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {\n  a: number;\n}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 13,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 17,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 18,
+                  "end": 25
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I { a: number } // c",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 13,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 16,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare class C { m(): void; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "VoidKeyword",
+                  "pos": 22,
+                  "end": 27
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() {} }\ninterface I { a: number }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 18,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 28,
+              "end": 30,
+              "text": "I"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 32,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 34,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 35,
+                  "end": 42
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I { a: number }\nclass C {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 13,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 16,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 25,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C\n{ m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I\n{ a: number }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 13,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 16,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C\n{\n  m() {}\n}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 13,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 15,
+                  "end": 18
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

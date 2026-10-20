@@ -167,3 +167,27 @@ declarations 尚未收）；带成员的体前换行（归 cover-members-1）；
 - `export declare function f(): void`（`FunctionDeclarationShape` 不认 `export` 修饰）、
   `declare type T = A`（`TypeAliasDeclarationShape` 不认 `declare` 修饰）——同属声明形状侧的修饰支持。
 
+## 10. end-declarations chunk 4：带成员的 class / interface 在 EOF 的收尾
+
+**落地**（`end-declarations.ts` 89 → 103，+14；全部 green，**无需改动任何 shape**）：
+
+- class 带成员到 EOF：`class C { m() {} }`、`class C {\n  x = 1;\n}`、尾随换行 `… }\n`、
+  尾随行注释 `… } // c`、尾随块注释 `… } /* c */`；
+- interface 带成员到 EOF（成员无分号也合法）：`interface I { a: number }`、
+  `interface I {\n  a: number;\n}`、尾随注释 `interface I { a: number } // c`；
+- `declare class C { m(): void; }` 到 EOF；
+- 两条声明到 EOF：`class C { m() {} }\ninterface I { a: number }`、反向 `interface I { a: number }\nclass C {}`；
+- 体前换行 + 成员：`class C\n{ m() {} }`、`interface I\n{ a: number }`、`class C\n{\n  m() {}\n}`。
+
+**为什么不需要改 `source-file-end-possible-shape`**：这 14 条都在**声明候选自己的建树路径**上收尾——
+类体 / 接口体是一个已经闭合的魔号单元，候选在体闭合后直接 `Accept`/建树，不落到根终结候选的 EOF 兜底；
+chunk 3 加的「紧邻 class（以 `}` 为 tokenIndex）」兜底在本批也没有被触发。也就是说 chunk 2/3 记录的
+「带成员的体前换行/EOF」红点是**成员形状未合入**造成的，成员形状合入后自然转绿，不属于 end 层缺口。
+
+**读数（本分支）**：`end-declarations` **103 / 103 完全一致**；全量 ast-json / diff **2667 / 2667**
+（基线 2653 + 14），结构差 0 / 位置差 0 / 字段差 0，无回归；tsc 0 error；本轮没有改 xl 源文件（xl_check 与基线一致）。
+
+**仍暂缓**（TS 合法；写成用例里的 `//` 目标）：chunk 3 记录的「无体声明在前、带体声明在后」多条连排
+（`declare function f(): void\nclass C {}` 等，归 declarations 侧让候选在 EOF `Reject`）；
+`a\nimport …` 的「终结候选与其它候选同时成立」通用边界（chunk 1 记录，需 core 之外的独立通道）。
+
