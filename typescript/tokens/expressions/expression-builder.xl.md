@@ -1102,7 +1102,8 @@ while (inner.At < inner.Units.length) {
   const afterFirst = memberIndex + 1 < inner.Units.length ? inner.Units[memberIndex + 1] : null;
   const looksLikeMemberName = afterFirst !== null
     && (afterFirst instanceof Common || inner.IsBracketStart(afterFirst, "["));
-  if (inner.IsText(firstUnit, "async") && looksLikeMemberName) {
+  const asyncFollowedByGenerator = afterFirst !== null && inner.IsText(afterFirst, "*");
+  if (inner.IsText(firstUnit, "async") && (looksLikeMemberName || asyncFollowedByGenerator)) {
     asyncUnit = firstUnit;
     inner.At++;
   } else if (inner.IsText(firstUnit, "get") && looksLikeMemberName) {

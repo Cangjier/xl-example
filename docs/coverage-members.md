@@ -113,3 +113,35 @@ rest 元素里的嵌套 pattern 作为名字（`...{a}`）暂按「名字单元�
 
 读数：members 141/141（base 10 新增 17 条）、class-expressions 17/17；全量 2495/2495，结构/位置/字段差 0。
 暂缓：decorators、static block、private `#x`（class extras 分支）、heritage 里放 class 表达式。
+
+## chunk 3（cover-obj-methods-2）：async / generator / async generator 方法 + optional private access
+
+只改 `expression-builder.xl.md` 的对象字面量成员分派 + 追加 `members.ts` / `expression.ts`；未碰 class-declaration / statements / core。
+
+### 实现落点
+
+- `ParseObjectLiteral` 的 async 判定原本只认「后随名字 / `[computed]`」；新增 `asyncFollowedByGenerator`：
+  当 `async` 后面紧跟 `*` 时也算方法修饰，这样 `({ async *m() {} })` / `({ async *m() { yield 1; } })` 能进
+  MethodDeclaration 分支（children = `AsyncKeyword` → `AsteriskToken` → 名字 → 参数 → 返回类型 → Block）。
+- `({ *[k]() {} })` / `({ async [k]() {} })` / `({ async *[k]() {} })` 由既有的 `*` / computed 分支直接覆盖。
+- 回归：`({ async m() {} })`、`({ *m() {} })`、`({ async m(a: A): B {...} })`、get/set 组合均已绿。
+
+### optional private access：oracle 判非法
+
+`this?.#x` 与 `obj?.#x` 在 `ts.createSourceFile` 下**直接报诊断**（`?.#` 不是合法语法），
+因此不进 AST 对拍语料；`expression.ts` 末尾以注释目标记录了原因。private 成员访问由 base 35 的
+`this.#x` / `this.#m()` / `static C.#x` 覆盖。
+
+### 读数
+
+```
+members            153 / 153      # base 11 新增 12 条（async generator / 带参返回类型 / computed 组合 / 混合 / trivia）
+expression         584 / 584      # 不变（optional private access 非法，只留注释目标）
+class-expressions   17 / 17       # 不变
+全量              3156 / 3156     # 3144 + 12；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓
+
+- object literal parameter properties / decorators（非法或属 decorator 家族）；
+- `this?.#x` / `obj?.#x`：TS 语法直接拒（parse diagnostics），不收入语料。
