@@ -323,3 +323,19 @@ export * from "m";
 export { a };
 export * as ns from "m";
 export { a } from "m";
+// ===== anonymous default class with type parameters（chunk default-generic-class） =====
+export default class<T> {}
+export default class<T extends A> {}
+export default class<T = A> {}
+export default class<T, U> extends B {}
+export default class extends B {}
+export default class implements I {}
+export default abstract class {}
+export default abstract class<T> {}
+export default class<T> { m(x: T): T { return x; } }
+export default class {}
+// + trivia
+export default class<T> /* c */ {}
+export default class /* c */ <T> {}
+export default class<T>\n{ m(x: T): T { return x; } }
+export default class<T> {} // c

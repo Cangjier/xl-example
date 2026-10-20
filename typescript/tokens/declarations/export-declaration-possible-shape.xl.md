@@ -683,7 +683,7 @@ if (kind === 15 || kind === 17) {
 }
 if (kind === 16) {
   // export default abstract class …：ClassDeclarationShape 自带 abstract child，再补 Default/Export。
-  const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  const built = ClassDeclarationShape.FromUnitsAllowAnonymous(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
   const defaultModifier = new DefaultKeywordShape(host.Template);
   if (defaultUnit.SourceRange.Start !== null) {
@@ -778,7 +778,7 @@ if (kind === 20) {
   return built;
 }
 if (kind === 5) {
-  const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  const built = ClassDeclarationShape.FromUnitsAllowAnonymous(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
   const defaultModifier = new DefaultKeywordShape(host.Template);
   if (defaultUnit.SourceRange.Start !== null) {
