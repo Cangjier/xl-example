@@ -2,6 +2,7 @@
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -107,11 +108,17 @@ if (unit !== null && unit instanceof Common) {
   keyword = (unit as Common).TempToString();
 }
 let bodyInner = -1;
+let semiInner = -1;
 if (keyword === "class" || keyword === "interface" || keyword === "enum" || keyword === "function") {
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
     const scanned = inner.Units[scan];
     if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{") {
       bodyInner = scan;
+      break;
+    }
+    // 无体函数声明（ambient / 重载签名）：本层终结符是 `;`，`FunctionDeclarationShape.FromUnits` 认它以 `;` 收尾。
+    if (keyword === "function" && scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
+      semiInner = scan;
       break;
     }
   }
@@ -131,6 +138,13 @@ if (bodyInner > declStart) {
   }
   (member as ShapeToken).Pos = inner.Positions[declStart];
   inner.At = bodyInner + 1;
+} else if (keyword === "function" && semiInner > declStart) {
+  const dataStart = bracket.Data.indexOf(unit as Token);
+  const dataEnd = bracket.Data.indexOf(inner.Units[semiInner]);
+  const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+  declared.Pos = inner.Positions[declStart];
+  inner.At = semiInner + 1;
+  member = declared;
 } else {
   member = inner.BuildStatement();
 }
