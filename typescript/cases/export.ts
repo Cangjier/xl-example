@@ -142,9 +142,30 @@ export default class D {} // c
 // + 词间块注释
 export /* c */ default 1;
 
+// ===== base 10：export declare 变量语句 / type 别名 + 字符串导出名 =====
+export declare const x: number;
+export declare let y: string;
+export declare var z = 1;
+export declare type T = A;
+export { a as "b-c" } from "m";
+export { "a-b" } from "m";
+// + 前导空格
+  export declare const x: number;
+// + 词间块注释
+export /* c */ declare const x: number;
+export declare /* c */ const x: number;
+// + 行尾注释
+export declare const x: number; // c
+export { a as "b-c" } from "m"; // c
+// + 换行
+export\ndeclare const x: number;
+// + 重复形
+export declare const x: number; export declare type T = A;
+export { a as "b-c" } from "m"; export { "a-b" } from "n";
+
 // ===== 暂缓（不在本用例集） =====
-// export default function f() {};   —— 函数声明未合并
-// export declare class C {}         —— declare 修饰词属 declarations 侧，本 chunk 不扩
-// export as namespace NS;           —— NamespaceExportDeclaration，cover-module-1 已实现
-// export = a;                       —— ExportAssignment(isExportEquals)，cover-module-1 的文件
-// export { "a-b" as c };            —— 引号导出名，TS 4.5 起的任意模块名
+// export default class D extends B {};  —— heritage（extends）未合并：类声明形状报「类表达式缺少类体」
+// export declare class C {};            —— declare 的 class/interface/enum 属 chunk 3 分支，未并入本 base
+// export default function f() {};       —— 同上（chunk 3）
+// export default function* f() {};      —— generator `*` 未处理
+// export declare const x;               —— declare 变量必须有类型或初始化式（TS 语义）

@@ -17,6 +17,8 @@ import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 import { ExportDeclarationShape } from "./export-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
+import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
+import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
@@ -126,6 +128,9 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     } else if (unit instanceof Common && (unit as Common).Is("default")) {
       state.Stage = 20;
       state.Kind = 6;
+    } else if (unit instanceof Common && (unit as Common).Is("declare")) {
+      state.Stage = 14;
+      state.Kind = 0;
     } else {
       state.Stage = 3;
     }
@@ -137,6 +142,24 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     } else {
       state.Stage = 3;
     }
+    continue;
+  }
+  if (state.Stage === 14) {
+    // `export declare <decl>`：declare 已在 Second 收下，这里看声明词（chunk 4：变量语句 / type 别名）。
+    if (unit instanceof Common) {
+      const text = (unit as Common).TempToString();
+      if (text === "const" || text === "let" || text === "var") {
+        state.Stage = 13;
+        state.Kind = 12;
+        continue;
+      }
+      if (text === "type") {
+        state.Stage = 13;
+        state.Kind = 13;
+        continue;
+      }
+    }
+    state.Stage = 3;
     continue;
   }
   if (state.Stage === 20) {
@@ -344,6 +367,73 @@ if (kind === 4) {
     throw new Error("export 变量语句没有读完");
   }
   const built = statement as ShapeToken;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 12) {
+  // export declare const/let/var …;  —— 变量语句前有 ExportKeyword + DeclareKeyword 两个修饰词。
+  const declareUnit = host.Data[secondIndex];
+  const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
+  declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
+    declareModifier.SignOut(declareUnit.SourceRange.End);
+  }
+  let keywordIndex = -1;
+  for (let at = secondIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      keywordIndex = at;
+      break;
+    }
+  }
+  if (keywordIndex < 0) {
+    return host;
+  }
+  const consumed:Array<Token> = host.Data.slice(keywordIndex, tokenIndex + 1);
+  let basePos = pos;
+  if (declareUnit.SourceRange.End !== null) {
+    basePos = declareUnit.SourceRange.End.Index + 1;
+  }
+  const builder = new StatementBuilder(host.Template, context);
+  builder.Load(consumed, basePos);
+  const statement = builder.BuildStatement();
+  if (builder.At !== builder.Units.length) {
+    throw new Error("export declare 变量语句没有读完");
+  }
+  const built = statement as ShapeToken;
+  built.Data.unshift(declareModifier);
+  declareModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 13) {
+  // export declare type T = A;  —— TypeAliasDeclaration 自带名字/类型两个 child，前面补两个修饰词。
+  const declareUnit = host.Data[secondIndex];
+  const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
+  declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
+    declareModifier.SignOut(declareUnit.SourceRange.End);
+  }
+  let typeIndex = -1;
+  for (let at = secondIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      typeIndex = at;
+      break;
+    }
+  }
+  if (typeIndex < 0) {
+    return host;
+  }
+  const built = TypeAliasDeclarationShape.FromUnits(host, typeIndex, tokenIndex, context);
+  built.Data.unshift(declareModifier);
+  declareModifier.Parent = built;
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;
