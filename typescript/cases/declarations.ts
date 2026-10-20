@@ -433,7 +433,6 @@ class C { public set x(v) {} }
 class C { private get x() { return 1; } }
 class C { async get x() { return 1; } }
 class C { async set x(v) {} }
-class C { static get x() { return 1; } }
 class C { @dec async m() {} }
 class C { @dec *m() {} }
 class C { @dec async *m() {} }
@@ -645,8 +644,6 @@ declare let y: string // c\n
 const x = 1 // c\n
 let y: string\n
 // controls (already green)
-declare const x: number;
-declare function f(): void;
 a\n++b;
 a\nb;
 // (restored) member decorator cases from earlier chunks
@@ -758,3 +755,33 @@ class C { m(@dec x?: A) {} }
 // this chunk's write scope -> reported as deferred owner: declarations/function-declaration-shape BuildParameters.
 // `// ` function f(@dec x: A) {}
 // `// ` (function (@dec x: A) { return x; });
+// ===== base 17: class member modifiers 2 (definite assignment, declare, override, abstract accessors) =====
+class C { x!: A; }
+class C { y!: A = b; }
+class C { static x!: A; }
+class C { #x!: A; }
+class C { public x!: A; }
+class C { readonly x!: A; }
+class C { x!: A; y!: B; }
+class C { declare x: A; }
+class C { declare x: A = b; }
+class C { declare /* c */ x: A; }
+class C extends B { override m() {} }
+class C extends B { override x = 1; }
+class C extends B { override get x() { return 1; } }
+class C extends B { override /* c */ m() {} }
+abstract class C { abstract get x(): A; }
+abstract class C { abstract set x(v: A); }
+abstract class C { abstract get x(): A; abstract set x(v: A); }
+class C { public override readonly x = 1; }
+class C { protected static readonly y: A; }
+class C { private override m() {} }
+class C { public static override readonly z: A = b; }
+// + trivia
+class C { x /* c */ !: A; }
+class C { x! /* c */: A; }
+class C { /* c */ x!: A; }
+class C { #x /* c */ !: A; }
+class C { static /* c */ x!: A; }
+class C { y! /* c */ : A = b; }
+abstract class C { abstract /* c */ get x(): A; }

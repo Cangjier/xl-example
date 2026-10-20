@@ -191,3 +191,22 @@
 - class expression with type parameters `(class<T> {})`: expression-builder class-expression path has no type parameter list; expressions family.
 - nested type parameter `class C<T<U>> {}`: TypeBuilder.ParseTypeParameterList splits the combined `>>` token only in some paths;
   deferred to a focused type-parameter chunk (regular `<T, U>` lists are covered).
+
+## chunk 10 (class member modifiers 2, branch cover-member-mods-2 @ origin/integration 938105f1)
+
+- definite assignment assertions: `x!: A;`, `y!: A = b;`, `static x!: A;`, `#x!: A;`, `public x!: A;`, `readonly x!: A;`,
+  two such members in one class, and trivia around `!` (the `!` is ExclamationToken, not a keyword; TS pos/end verified).
+- `declare` fields: `declare x: A;`, `declare x: A = b;`, trivia.
+- `override`: `override m() {}`, `override x = 1;`, `override get x() { return 1; }`, trivia.
+- abstract accessors: `abstract get x(): A;`, `abstract set x(v: A);`, both in one class, trivia.
+- modifier order combos: `public override readonly x = 1;`, `protected static readonly y: A;`, `private override m() {}`,
+  `public static override readonly z: A = b;`.
+- implementation: property branch in ClassDeclarationShape.BuildMembers consumes a `!` symbol after the name and builds
+  `ExclamationTokenShape` (punctuation family, existing class) as a child between the name and the type annotation;
+  modifier loop/order needed no change (declare/override/abstract/modifiers were already accepted and ordered by TS),
+  abstract accessors were already green via the existing accessor branch.
+- readings: declarations 587/587 (baseline 562 + 25); full suite 3666/3666 (baseline 3641); tsc 0 error.
+
+### deferred
+- optional property question token `x?: A` (QuestionToken child): same pattern as `!`, not in this round scope.
+- definite assignment on parameter properties (`constructor(public x!: A)`): parameter-property path separate; later chunk.
