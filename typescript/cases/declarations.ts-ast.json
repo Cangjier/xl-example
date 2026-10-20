@@ -23992,6 +23992,548 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare const x: number;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 13,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 16,
+                      "end": 23
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare let y: string;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 11,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 14,
+                      "end": 21
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare var z = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 11,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "z"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare const a: number, b: string;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 13,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 16,
+                      "end": 23
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 24,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 27,
+                      "end": 34
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare const x: number",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 13,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 16,
+                      "end": 23
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare /* c */ const x: number;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 21,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 24,
+                      "end": 31
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare const /* c */ x: number;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 13,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 23,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 24,
+                      "end": 31
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { declare const x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 28,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 34,
+                          "end": 44,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 36,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 37,
+                              "end": 44
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ declare const x: number; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "DeclareKeyword",
+                  "pos": 1,
+                  "end": 9
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 9,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 15,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumberKeyword",
+                          "pos": 18,
+                          "end": 25
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let y: string;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 6,
+                      "end": 13
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "var z = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "z"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
