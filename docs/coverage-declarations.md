@@ -148,3 +148,40 @@
    `Reject` 改成构造成员）。
 3. **statements 的 BlockShape** 落地后接函数声明与 namespace/module（`declare module` 的 body 是 module-block）。
 4. 若 harness 允许补别名（`FirstContextualKeyword`），把 `abstract` 修饰符补上；同类还有 `AccessorKeyword` 等上下文关键字。
+
+## generators：function* 声明（cover-generators-1）
+
+分支 `cover-generators-1`，基线 `origin/integration @1a241388`。本块改
+`declarations/function-declaration-shape.xl.md` + `function-declaration-possible-shape.xl.md`
+与 `expressions/expression-builder.xl.md`（yield），新增 `typescript/cases/generator-functions.ts`。
+
+### 实现落点
+
+- `FunctionDeclarationPossibleShape`：Stage 1（等名字）接受 `Symbol "*"` 并保持 Stage 1，`function*` 不再被 Reject。
+- `FunctionDeclarationShape.FromUnits`：`function` 之后可有一颗 `*`（`nameOffset` / `afterParams` 随之 +1）；
+  新增 `AsteriskToken` 字段，`AsteriskTokenShape` 插在 `DeclareKeyword?` 与名字之间（TS children 顺序）。
+  名字 `Pos` 改为 `*` 之后；星号 `Pos` = `function` 之后（含 trivia）。
+- 无体声明 / 返回类型 / 参数的既有逻辑不动。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children / 区间 |
+| --- | --- |
+| `function* f() {}` | `FunctionDeclaration[0,16)` → `AsteriskToken[8,9)`、`Identifier[9,11)`、`Block[13,16)` |
+| `function* f(a: A): B { return a; }` | `AsteriskToken[8,9)`、`Identifier[9,11)`、`Parameter[12,16)`、`TypeReference[18,20)`、`Block[20,34)` |
+| `function /* c */ * /* d */ f() {}` | `AsteriskToken[8,18)`（pos 含 trivia）、`Identifier[18,28)` |
+| `function\n* f() {}` / `function *f() {}` | 星号与名字照常；`AsteriskToken[8,10)`、`Identifier[10,12)` |
+
+### 读数
+
+```
+generator-functions  27 / 27      # function* 声明 9 + yield/yield* 14 + 优先级 3 + 暂缓目标 0
+全量                2271 / 2271   # 23 个构造；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓（附原因）
+
+- `async function* f() {}` ← async/await 家族；
+- generator 表达式 / 方法（`(function* () {})`、`({ *m() {} })`）← function-expression / class element shapes；
+- 顶层 `yield` ← TS 视为标识符/诊断，且 `CanStart` 不收 `yield`；
+- `yield` 后换行（受限产生式，TS 拆成「yield 无操作数 + 下一句」）← 需 ASI/换行断句，本块未做。

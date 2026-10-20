@@ -94,6 +94,7 @@ import { MetaPropertyShape } from "./meta-property-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
+import { YieldExpressionShape } from "./yield-expression-shape.xl.md"
 import { SpreadElementShape } from "./spread-element-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
@@ -540,6 +541,43 @@ if (unit instanceof Common) {
 return "";
 ```
 
+## method ParseYield:()=>Token
+
+`yield` / `yield*`：TS 的 `YieldExpression` children 是 `AsteriskToken`（仅 `yield*`，`yield` 关键字本身不是节点）
+和可选的 operand（赋值表达式）。没有 operand 时 `yield` 是完整表达式，`Pos` 含前导 trivia、区间到 `yield` 结尾。
+终止符（`,` / `;` / `:`）说明这是无 operand 的 yield（例如实参、逗号表达式、三元分支里）。
+
+```ts
+const start = this.At;
+const yieldUnit = this.Units[start];
+this.At++;
+const shape = new YieldExpressionShape(this.Template);
+let afterYieldPos = 0;
+if (yieldUnit.SourceRange.End !== null) {
+  afterYieldPos = yieldUnit.SourceRange.End.Index + 1;
+}
+const next = this.Peek(0);
+let asterisk:Token | null = null;
+if (next !== null && next instanceof Symbol && (next as Symbol).Is("*")) {
+  const ast = new AsteriskTokenShape(this.Template);
+  ast.SignInToken(next);
+  ast.SignOutToken(next);
+  ast.Pos = afterYieldPos;
+  ast.TryToClose(this.Context);
+  asterisk = ast;
+  shape.Add(ast);
+  this.At++;
+}
+const operandUnit = this.Peek(0);
+const hasOperand = operandUnit !== null
+  && !(operandUnit instanceof Symbol
+    && ((operandUnit as Symbol).Is(",") || (operandUnit as Symbol).Is(";") || (operandUnit as Symbol).Is(":")));
+if (hasOperand) {
+  shape.Add(this.ParseAssign());
+}
+return this.SpanNode(shape, start, this.At - 1);
+```
+
 ## method ParseUnary:()=>Token
 
 ```ts
@@ -553,6 +591,9 @@ if (unit instanceof Symbol) {
   text = (unit as Symbol).TempToString();
 } else if (unit instanceof Common) {
   text = (unit as Common).TempToString();
+}
+if (text === "yield") {
+  return this.ParseYield();
 }
 if (!this.IsPrefixOperator(text)) {
   return this.ParsePostfix();

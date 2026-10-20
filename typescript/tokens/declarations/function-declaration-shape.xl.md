@@ -5,6 +5,7 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
@@ -29,7 +30,8 @@ declare function f(): void;
 function f(a: A): B;
 ```
 
-TS 的 children 顺序：修饰符（可选 `DeclareKeyword`）→ 名字 → 每个 `Parameter` →（可选）返回类型 →（可选）`Block` 函数体；
+TS 的 children 顺序：修饰符（可选 `DeclareKeyword`）→ 生成器的 `AsteriskToken`（可选，`function*`）→ 名字 →
+每个 `Parameter` →（可选）返回类型 →（可选）`Block` 函数体；
 `function` 关键字、参数表的括号、`:`、无体声明的 `;` 之外的分隔符都不进 Data。
 
 参数表由 `Bracket.Data` 逐组建：带类型标注的组交给 `TypeBuilder.ParseParameter()`（与函数类型同一口径），
@@ -42,6 +44,8 @@ Data 里没有 Block，区间到 `;` 为止（AST 的 End 含分号）。
 名字 `Pos` = `function` 之后；参数 `Pos` = `(` 或 `,` 之后；返回类型 `Pos` = `:` 之后；函数体 `Pos` = `)` 或返回类型之后。
 
 ## field DeclareKeyword:Token | null = null
+
+## field AsteriskToken:Token | null = null
 
 ## field FunctionName:Token | null = null
 
@@ -82,11 +86,17 @@ const keyword = code[cursor];
 if (!(keyword instanceof Common) || !(keyword as Common).Is("function")) {
   throw new Error("函数声明缺少 function 关键字");
 }
-const nameUnit = code[cursor + 1];
+let asteriskUnit:Token | null = null;
+let nameOffset = 1;
+if (code[cursor + 1] instanceof Symbol && (code[cursor + 1] as Symbol).Is("*")) {
+  asteriskUnit = code[cursor + 1];
+  nameOffset = 2;
+}
+const nameUnit = code[cursor + nameOffset];
 if (!(nameUnit instanceof Common)) {
   throw new Error("函数声明的名字不是标识符");
 }
-const paramUnit = code[cursor + 2];
+const paramUnit = code[cursor + nameOffset + 1];
 if (!(paramUnit instanceof Bracket) || (paramUnit as Bracket).StartBracketChar !== "(") {
   throw new Error("函数声明缺少参数表");
 }
@@ -99,7 +109,7 @@ if (last instanceof Bracket && (last as Bracket).StartBracketChar === "{") {
   throw new Error("函数声明缺少函数体或分号");
 }
 let returnType:Token | null = null;
-const afterParams = cursor + 3;
+const afterParams = cursor + nameOffset + 2;
 if (afterParams < tailIndex) {
   const colon = code[afterParams];
   if (!(colon instanceof Symbol) || !(colon as Symbol).Is(":")) {
@@ -137,8 +147,21 @@ if (declareUnit !== null) {
   shape.DeclareKeyword = modifier;
   shape.Add(modifier);
 }
+if (asteriskUnit !== null) {
+  const asterisk = new AsteriskTokenShape(host.Template);
+  asterisk.SignInToken(asteriskUnit);
+  asterisk.SignOutToken(asteriskUnit);
+  asterisk.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+  asterisk.TryToClose(context);
+  shape.AsteriskToken = asterisk;
+  shape.Add(asterisk);
+}
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+if (asteriskUnit === null) {
+  name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+} else {
+  name.Pos = asteriskUnit.SourceRange.End === null ? pos : asteriskUnit.SourceRange.End.Index + 1;
+}
 const parameters = FunctionDeclarationShape.BuildParameters(host, paramUnit as Bracket, context);
 let body:Token | null = null;
 if (bodyUnit !== null) {

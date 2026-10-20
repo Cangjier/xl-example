@@ -57,7 +57,7 @@ declare function f(): void;
 根候选：条目可以从 `declare` 起（同一行紧跟 `function` 才算修饰符），名字、参数表 `(…)` 之后可以跟 `: 类型`，
 最后一块是函数体 `{…}` 的 `Bracket` 或（无函数体声明）顶层 `;`。函数体内容由 `StatementBuilder` 建。
 无体的 `;` 要求「有 `declare`」或「有返回类型」，所以根级的 `function f();` 会被拒绝。
-`function*` / `async function` / 泛型函数不在本批范围：`*` / `async` / `<` 会让扫描在对应 Stage 直接 `Reject`。
+`function*` 生成器的 `*` 在 Stage 1 被接受（仍等名字）；`async function` / 泛型函数不在本批范围：`async` / `<` 会让扫描在对应 Stage 直接 `Reject`。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -122,6 +122,10 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 1) {
+    if (unit instanceof Symbol && (unit as Symbol).Is("*")) {
+      // 生成器：`function*` 的星号不改变「还在等名字」的状态。
+      continue;
+    }
     if (unit instanceof Common) {
       state.Stage = 2;
       continue;
