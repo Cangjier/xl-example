@@ -160,6 +160,13 @@ if (keyword === "const") {
   constEnumMember = secondUnit !== null && secondUnit instanceof Common && (secondUnit as Common).Is("const")
     && thirdUnit !== null && thirdUnit instanceof Common && (thirdUnit as Common).Is("enum");
 }
+// `[export] declare function f(...): R;` 成员头：FunctionDeclarationShape.FromUnits 接受 declare 修饰词，
+// 但它的无体形态要求 ambience；这里识别出来走 semiInner 分支（FunctionDeclarationShape 自己的 declare 路径）。
+let declareFunctionMember = false;
+if (keyword === "declare") {
+  const afterDeclare = declStart + 1 < inner.Units.length ? inner.Units[declStart + 1] : null;
+  declareFunctionMember = afterDeclare !== null && afterDeclare instanceof Common && (afterDeclare as Common).Is("function");
+}
 let special:Token | null = null;
 let specialEnd = -1;
 if (keyword === "as") {
@@ -275,7 +282,7 @@ let bodyInner = -1;
 let semiInner = -1;
 if (special === null
   && (keyword === "class" || keyword === "interface" || keyword === "enum" || keyword === "function"
-    || keyword === "namespace" || keyword === "module" || constEnumMember)) {
+    || keyword === "namespace" || keyword === "module" || constEnumMember || declareFunctionMember)) {
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
     const scanned = inner.Units[scan];
     if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{") {
@@ -283,7 +290,7 @@ if (special === null
       break;
     }
     // 无体函数声明（ambient / 重载签名）：本层终结符是分号。
-    if (keyword === "function" && scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
+    if ((keyword === "function" || declareFunctionMember) && scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
       semiInner = scan;
       break;
     }
@@ -330,10 +337,23 @@ if (special !== null) {
   }
   (member as ShapeToken).Pos = inner.Positions[declStart];
   inner.At = bodyInner + 1;
-} else if (keyword === "function" && semiInner > declStart) {
+} else if ((keyword === "function" || declareFunctionMember) && semiInner > declStart) {
   const dataStart = bracket.Data.indexOf(unit as Token);
   const dataEnd = bracket.Data.indexOf(inner.Units[semiInner]);
   const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, ModuleBlockShape.InAmbientDeclaration(bracket));
+  // 同 const enum：FunctionDeclarationShape 按「括号 Data 里前一个单元」推 modifier Pos，
+  // 模块体首个成员会落到 0；这里用本层 Positions 把开头的 DeclareKeyword 重锚到 declare 起点。
+  let declarePos = inner.Positions[declStart];
+  for (const child of declared.Data) {
+    if (child instanceof DeclareKeywordShape) {
+      (child as ShapeToken).Pos = declarePos;
+      if (child.SourceRange.End !== null) {
+        declarePos = child.SourceRange.End.Index + 1;
+      }
+      continue;
+    }
+    break;
+  }
   declared.Pos = inner.Positions[declStart];
   inner.At = semiInner + 1;
   member = declared;
