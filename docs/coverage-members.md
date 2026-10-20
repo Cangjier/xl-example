@@ -145,3 +145,30 @@ class-expressions   17 / 17       # 不变
 
 - object literal parameter properties / decorators（非法或属 decorator 家族）；
 - `this?.#x` / `obj?.#x`：TS 语法直接拒（parse diagnostics），不收入语料。
+## chunk 4（cover-obj-method-preds-1）：对象字面量方法的返回类型 / TypePredicate
+
+### 实现落点
+
+- `ParseObjectLiteral` 的 method / get / set / async / generator 分支：返回类型原本走 `TypeBuilder.ParseType()`，
+  改为 `TypeBuilder.ParseReturnType()`（与 class 方法、函数类型同一口径）。`ParseReturnType` 会把
+  `x is A` / `asserts x is A` / `asserts this is A` 分流成 `TypePredicate`，其余仍走 `ParseType()`。
+- children 顺序不变：名字 → Parameter 们 → 返回类型 → Block（与 TS 的 MethodDeclaration / GetAccessor 一致）。
+- object method 的 type parameters（`({ m<T>(x: T): T {...} })`）仍未接：oracle parse 合法，但 object literal
+  泛型方法属另一条产生式，留作 `//` 目标。
+
+### AST 口径（TS 实测）
+
+| 构造 | children |
+| --- | --- |
+| `m(x: any): x is A` | MethodDeclaration → Identifier、Parameter、TypePredicate(Identifier x + TypeReference A)、Block |
+| `m(x: any): asserts x is A` | TypePredicate 前多 AssertsKeyword，无名字时也可以只有 `asserts this is A` |
+| `m(): this` | MethodDeclaration → Identifier、ThisType、Block |
+| `get x(): asserts this is A` | GetAccessor → Identifier x、TypePredicate(AssertsKeyword + ThisType + TypeReference)…、Block |
+
+### 读数
+
+```
+members     181 / 181      # 169 + 12（谓词/this/普通返回类型/访问器 + trivia）
+expression  609 / 609      # 不变
+全量       3535 / 3535     # 3523 + 12；结构差 0 / 位置差 0 / 字段差 0
+```
