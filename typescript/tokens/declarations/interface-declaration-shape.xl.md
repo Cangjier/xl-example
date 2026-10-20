@@ -8,6 +8,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -15,20 +16,24 @@ import { Token } from "../../../core/syntax/token.xl.md"
 # class InterfaceDeclarationShape extends ShapeToken
 
 ```txt
-interface I {}
-declare interface I {}
+interface I { a: number; }
+interface I { a?: number; readonly b: string; }
+interface I { m(): void; }
+interface I { [k: string]: A; }
 ```
 
-`interface I {}` 的 TS children 只有名字：InterfaceDeclaration → [Identifier I]；
-`declare interface I {}` 多一个修饰符子节点：InterfaceDeclaration → [DeclareKeyword, Identifier I]。
-`extends` 先不做（要 HeritageClauseShape + ExpressionWithTypeArguments，见 docs/coverage-declarations.md）；
-接口体是 basic token `Bracket`，本批只收空体。
+TS 的 children 顺序：名字 → 每个成员。成员就是**对象类型成员**的同一套语法
+（PropertySignature / MethodSignature / IndexSignature / CallSignature / 可选的 readonly 修饰符），
+所以这里直接复用 `TypeBuilder.ParseTypeMember()`：接口体 `Bracket.Data` 与类型字面量 `{…}` 的内容同口径，
+成员区间（含其后的 `;` / `,`）与 `Pos` 都由 TypeBuilder 算好。
 
 区间：从修饰符（没有就从 `interface`）的起点到 `}`；`Pos` 与名字 `Pos` 的口径同 ClassDeclarationShape。
 
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
+
+## field Members:Array<Token> = []
 
 ## constructor:(template:Template)=>void
 
@@ -70,18 +75,9 @@ if (!(nameUnit instanceof Common)) {
 if (index >= code.length) {
   throw new Error("接口声明缺少接口体");
 }
-const bodyUnit = code[index];
-index++;
+const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("接口声明的接口体不是花括号");
-}
-if (index !== code.length) {
-  throw new Error("接口声明有多余单元");
-}
-for (const item of (bodyUnit as Bracket).Data) {
-  if (!item.IsTriviaToken) {
-    throw new Error("接口体非空：接口成员未实现");
-  }
 }
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
@@ -95,16 +91,20 @@ for (let at = start - 1; at >= 0; at--) {
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+const members = InterfaceDeclarationShape.BuildMembers(host, bodyUnit as Bracket, context);
 const shape = new InterfaceDeclarationShape(host.Template);
 shape.NameToken = name;
+shape.Members = members;
 if (declareUnit !== null) {
   const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  // 与 ClassDeclarationShape 同口径：modifier 的 pos 含前导 trivia。
   modifier.Pos = pos;
   shape.DeclareKeyword = modifier;
   shape.Add(modifier);
 }
 shape.Add(name);
+for (const member of members) {
+  shape.Add(member);
+}
 if (declareUnit !== null) {
   shape.SignInToken(declareUnit);
 } else {
@@ -114,4 +114,22 @@ shape.SignOutToken(bodyUnit);
 shape.Pos = pos;
 shape.TryToClose(context);
 return shape;
+```
+
+## static method BuildMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
+
+接口体成员逐个交给 `TypeBuilder.ParseTypeMember()`（`readonly` / 可选 `?` / 方法签名 / 索引签名 / 调用签名都覆盖）。
+
+```ts
+const members:Array<Token> = [];
+const builder = new TypeBuilder(host.Template, context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+builder.Load(bracket.Data, base);
+while (builder.At < builder.Units.length) {
+  members.push(builder.ParseTypeMember());
+}
+return members;
 ```

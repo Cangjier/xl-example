@@ -2,13 +2,31 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { AbstractKeywordShape } from "../keywords/abstract-keyword-shape.xl.md"
+import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
+import { ConstructorShape } from "../types/constructor-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { MethodDeclarationShape } from "../types/method-declaration-shape.xl.md"
+import { OverrideKeywordShape } from "../keywords/override-keyword-shape.xl.md"
+import { ParameterShape } from "../types/parameter-shape.xl.md"
+import { PrivateKeywordShape } from "../keywords/private-keyword-shape.xl.md"
+import { PropertyDeclarationShape } from "../types/property-declaration-shape.xl.md"
+import { ProtectedKeywordShape } from "../keywords/protected-keyword-shape.xl.md"
+import { PublicKeywordShape } from "../keywords/public-keyword-shape.xl.md"
+import { ReadonlyKeywordShape } from "../keywords/readonly-keyword-shape.xl.md"
+import { SetAccessorShape } from "../types/set-accessor-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { StatementBuilder } from "../statements/statement-builder.xl.md"
+import { StaticKeywordShape } from "../keywords/static-keyword-shape.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -16,27 +34,29 @@ import { Token } from "../../../core/syntax/token.xl.md"
 # class ClassDeclarationShape extends ShapeToken
 
 ```txt
-class C {}
-declare class C {}
-abstract class C {}
-abstract declare class C {}
+class C { x = 1; }
+class C { readonly x = 1; }
+class C { m(a: A): B { return a; } }
+class C { constructor() {} }
+class C { get x() { return 1; } }
+class C { [k] = 1; }
 ```
 
-`class C {}` 的 TS children 只有名字（`modifiers` 为空时）：ClassDeclaration → [Identifier C]。
-修饰符会按源码顺序出现在名字前面：`declare` → DeclareKeyword，`abstract` → AbstractKeyword
-（TS 的 SyntaxKind 反查把 `abstract` 印成 FirstContextualKeyword，harness 别名归一到 AbstractKeyword）。
-类体是 basic token `Bracket`（`{…}` 整块），本批只收空体；关键字本身不进 Data。
+TS 的 children 顺序：修饰符 → 名字 → 每个 `Parameter` →（可选）返回类型 → `Block` 函数体；
+`class` 关键字、参数表括号、`:`、`=`、`;` 都不进 Data。成员由 `BuildMembers` 从类体 `Bracket.Data` 逐个建：
+PropertyDeclaration / MethodDeclaration / Constructor / GetAccessor / SetAccessor，名字可以是 Identifier 或
+ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` 的名字**不投影**（TS 的 Constructor 只有参数与函数体）。
 
-区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`（没有就是 `0`）。
-修饰符与名字的 `Pos` 都含前导 trivia（与 TS 一致）。
-
-字段不叫 `Name`：`cjAst` 会把 `Name` 读成 AST 的 `name`，而尺子里 ClassDeclaration 只比 children。
+区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`。
+成员的 `Pos` = 前一个成员（或 `{`）的 `End.Index + 1`，`end` = 函数体 `}` / 属性末尾的 `;`。
 
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
 
 ## field AbstractKeyword:Token | null = null
+
+## field Members:Array<Token> = []
 
 ## constructor:(template:Template)=>void
 
@@ -45,8 +65,6 @@ super(template);
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ClassDeclarationShape
-
-从根单元 `host.Data[start..tokenIndex]` 建一条类声明；`tokenIndex` 必须落在类体那个 `Bracket` 上。
 
 ```ts
 const code:Array<Token> = [];
@@ -92,18 +110,9 @@ if (!(nameUnit instanceof Common)) {
 if (index >= code.length) {
   throw new Error("类声明缺少类体");
 }
-const bodyUnit = code[index];
-index++;
+const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("类声明的类体不是花括号");
-}
-if (index !== code.length) {
-  throw new Error("类声明有多余单元");
-}
-for (const item of (bodyUnit as Bracket).Data) {
-  if (!item.IsTriviaToken) {
-    throw new Error("类体非空：类成员未实现");
-  }
 }
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
@@ -117,10 +126,10 @@ for (let at = start - 1; at >= 0; at--) {
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+const members = ClassDeclarationShape.BuildMembers(host, bodyUnit as Bracket, context);
 const shape = new ClassDeclarationShape(host.Template);
 shape.NameToken = name;
-// 修饰符按源码顺序建（`declare` / `abstract` 任意顺序、可只出现一个）。
-// Pos 口径：第一个修饰符 = 整个声明的 Pos（含前导 trivia），后面的 = 前一个修饰符的 End+1。
+shape.Members = members;
 let modifierPos = pos;
 for (let at = 0; at < modifierCount; at++) {
   const modifierUnit = code[at];
@@ -143,9 +152,367 @@ for (let at = 0; at < modifierCount; at++) {
   }
 }
 shape.Add(name);
+for (const member of members) {
+  shape.Add(member);
+}
 shape.SignInToken(code[0]);
 shape.SignOutToken(bodyUnit);
 shape.Pos = pos;
 shape.TryToClose(context);
 return shape;
+```
+
+## static method BuildModifier:(template:Template, text:string, unit:Token, pos:int, context:SyntaxContext)=>Token
+
+```ts
+let shape:ShapeToken;
+if (text === "readonly") {
+  shape = new ReadonlyKeywordShape(template);
+} else if (text === "static") {
+  shape = new StaticKeywordShape(template);
+} else if (text === "private") {
+  shape = new PrivateKeywordShape(template);
+} else if (text === "public") {
+  shape = new PublicKeywordShape(template);
+} else if (text === "protected") {
+  shape = new ProtectedKeywordShape(template);
+} else if (text === "abstract") {
+  shape = new AbstractKeywordShape(template);
+} else if (text === "declare") {
+  shape = new DeclareKeywordShape(template);
+} else if (text === "override") {
+  shape = new OverrideKeywordShape(template);
+} else {
+  shape = new AsyncKeywordShape(template);
+}
+shape.SignInToken(unit);
+shape.SignOutToken(unit);
+shape.Pos = pos;
+shape.TryToClose(context);
+return shape;
+```
+
+## static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
+
+参数表按逗号切组；带 `:` / `?:` 的组交给 `TypeBuilder.ParseParameter()`，不带类型的组只建 `Identifier`。
+
+```ts
+const parameters:Array<Token> = [];
+const inner = new TypeBuilder(host.Template, context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+while (inner.At < inner.Units.length) {
+  if (inner.IsText(inner.Units[inner.At], ",")) {
+    inner.At++;
+    continue;
+  }
+  const nameIndex = inner.At;
+  let typed = false;
+  if (nameIndex + 1 < inner.Units.length) {
+    const next = inner.TextOf(inner.Units[nameIndex + 1]);
+    if (next === "?:") {
+      typed = true;
+    } else if (next === "?") {
+      typed = nameIndex + 2 < inner.Units.length && inner.TextOf(inner.Units[nameIndex + 2]) === ":";
+    } else if (next === ":") {
+      typed = true;
+    }
+  }
+  if (typed) {
+    parameters.push(inner.ParseParameter());
+    continue;
+  }
+  const nameUnit = inner.Units[nameIndex];
+  if (!(nameUnit instanceof Common)) {
+    throw new Error("类成员参数不是标识符");
+  }
+  inner.At++;
+  const parameter = new ParameterShape(host.Template);
+  const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
+  name.Pos = inner.Positions[nameIndex];
+  parameter.ParameterName = name;
+  parameter.Add(name);
+  parameter.SignInToken(nameUnit);
+  parameter.SignOutToken(nameUnit);
+  parameter.Pos = inner.Positions[nameIndex];
+  parameter.TryToClose(context);
+  parameters.push(parameter);
+}
+return parameters;
+```
+
+## static method BuildMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
+
+类体逐个成员：先吃修饰符（readonly/static/private/public/protected/abstract/declare/override/async 进 Data，
+`get`/`set` 只作访问器标志不进 Data），再名字（Identifier 或 `[expr]` ComputedPropertyName），
+然后按后面的单元分派：`(` → 方法 / 构造 / 访问器（可带 `: 返回类型` 与 `{…}` 函数体）；
+`:` / `=` / `;` → 属性。
+
+```ts
+const code:Array<Token> = [];
+for (const item of bracket.Data) {
+  if (!item.IsTriviaToken) {
+    code.push(item);
+  }
+}
+const members:Array<Token> = [];
+let at = 0;
+let previousEnd = bracket.SourceRange.Start === null ? -1 : bracket.SourceRange.Start.Index;
+while (at < code.length) {
+  const unit = code[at];
+  if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+    if (unit.SourceRange.End !== null) {
+      previousEnd = unit.SourceRange.End.Index;
+    }
+    at++;
+    continue;
+  }
+  const startPos = previousEnd + 1;
+  const firstIndex = at;
+  const firstUnit = code[firstIndex];
+  const modifiers:Array<Token> = [];
+  let accessorKind = "";
+  while (at < code.length && code[at] instanceof Common) {
+    const text = (code[at] as Common).TempToString();
+    if (text !== "readonly" && text !== "static" && text !== "private" && text !== "public"
+      && text !== "protected" && text !== "abstract" && text !== "declare" && text !== "override"
+      && text !== "async" && text !== "get" && text !== "set") {
+      break;
+    }
+    if (text === "get" || text === "set") {
+      accessorKind = text;
+      const accessorUnit = code[at];
+      if (accessorUnit.SourceRange.End !== null) {
+        previousEnd = accessorUnit.SourceRange.End.Index;
+      }
+      at++;
+      continue;
+    }
+    const modifierPos = previousEnd + 1;
+    const modifierUnit = code[at];
+    if (modifierUnit.SourceRange.End !== null) {
+      previousEnd = modifierUnit.SourceRange.End.Index;
+    }
+    at++;
+    modifiers.push(ClassDeclarationShape.BuildModifier(host.Template, text, modifierUnit, modifierPos, context));
+  }
+  if (at >= code.length) {
+    throw new Error("类成员不完整");
+  }
+  let nameShape:Token | null = null;
+  let nameText = "";
+  const nameUnit = code[at];
+  if (nameUnit instanceof Bracket && (nameUnit as Bracket).StartBracketChar === "[") {
+    const computedBracket = nameUnit as Bracket;
+    const inner = new ExpressionBuilder(host.Template, context);
+    let innerBase = 0;
+    if (computedBracket.SourceRange.Start !== null) {
+      innerBase = computedBracket.SourceRange.Start.Index + 1;
+    }
+    inner.Load(computedBracket.Data, innerBase);
+    if (inner.Units.length === 0) {
+      throw new Error("computed 成员名是空的");
+    }
+    const expression = inner.ParseExpression();
+    if (inner.At !== inner.Units.length) {
+      throw new Error("computed 成员名没有读完");
+    }
+    const computed = new ComputedPropertyNameShape(host.Template);
+    computed.Add(expression);
+    computed.SignInToken(computedBracket);
+    computed.SignOutToken(computedBracket);
+    computed.Pos = startPos;
+    computed.TryToClose(context);
+    nameShape = computed;
+    if (nameUnit.SourceRange.End !== null) {
+      previousEnd = nameUnit.SourceRange.End.Index;
+    }
+    at++;
+  } else if (nameUnit instanceof Common) {
+    const namePos = previousEnd + 1;
+    const ident = IdentifierShape.FromBasicToken(nameUnit as Common, context);
+    ident.Pos = namePos;
+    nameShape = ident;
+    nameText = (nameUnit as Common).TempToString();
+    if (nameUnit.SourceRange.End !== null) {
+      previousEnd = nameUnit.SourceRange.End.Index;
+    }
+    at++;
+  } else {
+    throw new Error("类成员名字不是标识符");
+  }
+  if (nameShape === null) {
+    throw new Error("类成员缺少名字");
+  }
+  if (at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "(") {
+    const paramBracket = code[at] as Bracket;
+    if (paramBracket.SourceRange.End !== null) {
+      previousEnd = paramBracket.SourceRange.End.Index;
+    }
+    at++;
+    const parameters = ClassDeclarationShape.BuildParameters(host, paramBracket, context);
+    let returnType:Token | null = null;
+    if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(":")) {
+      const colon = code[at];
+      const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
+      if (colon.SourceRange.End !== null) {
+        previousEnd = colon.SourceRange.End.Index;
+      }
+      at++;
+      const typeStart = at;
+      while (at < code.length) {
+        const probe = code[at];
+        if (probe instanceof Bracket && (probe as Bracket).StartBracketChar === "{") {
+          break;
+        }
+        if (probe.SourceRange.End !== null) {
+          previousEnd = probe.SourceRange.End.Index;
+        }
+        at++;
+      }
+      const typeUnits:Array<Token> = code.slice(typeStart, at);
+      if (typeUnits.length === 0) {
+        throw new Error("方法的返回类型为空");
+      }
+      const typeBuilder = new TypeBuilder(host.Template, context);
+      typeBuilder.Load(typeUnits, typePos);
+      returnType = typeBuilder.ParseType();
+      if (typeBuilder.At !== typeBuilder.Units.length) {
+        throw new Error("方法的返回类型没有读完");
+      }
+    }
+    if (at >= code.length || !(code[at] instanceof Bracket) || (code[at] as Bracket).StartBracketChar !== "{") {
+      throw new Error("类成员缺少函数体");
+    }
+    const bodyUnit = code[at] as Bracket;
+    const bodyPos = previousEnd + 1;
+    if (bodyUnit.SourceRange.End !== null) {
+      previousEnd = bodyUnit.SourceRange.End.Index;
+    }
+    at++;
+    const bodyBuilder = new StatementBuilder(host.Template, context);
+    bodyBuilder.Load([bodyUnit], bodyPos);
+    const body = bodyBuilder.BuildStatement();
+    if (bodyBuilder.At !== bodyBuilder.Units.length) {
+      throw new Error("类成员函数体没有读完");
+    }
+    let memberShape:ShapeToken;
+    if (accessorKind === "get") {
+      memberShape = new GetAccessorShape(host.Template);
+    } else if (accessorKind === "set") {
+      memberShape = new SetAccessorShape(host.Template);
+    } else if (accessorKind === "" && nameText === "constructor" && nameShape instanceof IdentifierShape) {
+      memberShape = new ConstructorShape(host.Template);
+    } else {
+      memberShape = new MethodDeclarationShape(host.Template);
+    }
+    for (const modifier of modifiers) {
+      memberShape.Add(modifier);
+    }
+    if (!(memberShape instanceof ConstructorShape)) {
+      memberShape.Add(nameShape);
+    }
+    for (const parameter of parameters) {
+      memberShape.Add(parameter);
+    }
+    if (returnType !== null) {
+      memberShape.Add(returnType);
+    }
+    memberShape.Add(body);
+    memberShape.SignInToken(firstUnit);
+    memberShape.SignOutToken(bodyUnit);
+    memberShape.Pos = startPos;
+    memberShape.TryToClose(context);
+    members.push(memberShape);
+    continue;
+  }
+  let typeShape:Token | null = null;
+  let initializer:Token | null = null;
+  if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(":")) {
+    const colon = code[at];
+    const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
+    if (colon.SourceRange.End !== null) {
+      previousEnd = colon.SourceRange.End.Index;
+    }
+    at++;
+    const typeStart = at;
+    while (at < code.length) {
+      const probe = code[at];
+      if (probe instanceof Symbol && ((probe as Symbol).Is("=") || (probe as Symbol).Is(";"))) {
+        break;
+      }
+      if (probe.SourceRange.End !== null) {
+        previousEnd = probe.SourceRange.End.Index;
+      }
+      at++;
+    }
+    const typeUnits:Array<Token> = code.slice(typeStart, at);
+    if (typeUnits.length === 0) {
+      throw new Error("属性的类型为空");
+    }
+    const typeBuilder = new TypeBuilder(host.Template, context);
+    typeBuilder.Load(typeUnits, typePos);
+    typeShape = typeBuilder.ParseType();
+    if (typeBuilder.At !== typeBuilder.Units.length) {
+      throw new Error("属性的类型没有读完");
+    }
+  }
+  if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("=")) {
+    const equal = code[at];
+    const valuePos = equal.SourceRange.End === null ? 0 : equal.SourceRange.End.Index + 1;
+    if (equal.SourceRange.End !== null) {
+      previousEnd = equal.SourceRange.End.Index;
+    }
+    at++;
+    const valueStart = at;
+    while (at < code.length) {
+      const probe = code[at];
+      if (probe instanceof Symbol && (probe as Symbol).Is(";")) {
+        break;
+      }
+      if (probe.SourceRange.End !== null) {
+        previousEnd = probe.SourceRange.End.Index;
+      }
+      at++;
+    }
+    const valueUnits:Array<Token> = code.slice(valueStart, at);
+    if (valueUnits.length === 0) {
+      throw new Error("属性初始化器为空");
+    }
+    const valueBuilder = new ExpressionBuilder(host.Template, context);
+    valueBuilder.Load(valueUnits, valuePos);
+    initializer = valueBuilder.ParseAssign();
+    if (valueBuilder.At !== valueBuilder.Units.length) {
+      throw new Error("属性初始化器没有读完");
+    }
+  }
+  let endUnit:Token = code[at - 1];
+  if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(";")) {
+    endUnit = code[at];
+    if (endUnit.SourceRange.End !== null) {
+      previousEnd = endUnit.SourceRange.End.Index;
+    }
+    at++;
+  }
+  const property = new PropertyDeclarationShape(host.Template);
+  for (const modifier of modifiers) {
+    property.Add(modifier);
+  }
+  property.Add(nameShape);
+  if (typeShape !== null) {
+    property.Add(typeShape);
+  }
+  if (initializer !== null) {
+    property.Add(initializer);
+  }
+  property.SignInToken(firstUnit);
+  property.SignOutToken(endUnit);
+  property.Pos = startPos;
+  property.TryToClose(context);
+  members.push(property);
+}
+return members;
 ```

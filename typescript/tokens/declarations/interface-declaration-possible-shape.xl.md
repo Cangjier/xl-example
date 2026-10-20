@@ -106,20 +106,10 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 3) {
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
-      let empty = true;
-      for (const item of (unit as Bracket).Data) {
-        if (!item.IsTriviaToken) {
-          empty = false;
-          break;
-        }
-      }
+      // 非空接口体不再 Reject：成员由 InterfaceDeclarationShape.BuildMembers 逐个建。
       state.Stage = 4;
-      if (empty) {
-        state.Done = true;
-        state.DoneAt = at;
-      } else {
-        state.Rejected = true;
-      }
+      state.Done = true;
+      state.DoneAt = at;
       continue;
     }
     state.Rejected = true;
