@@ -264,12 +264,42 @@ if (unit instanceof Common) {
       return StatementScanner.ScanToSemicolon(code, at + 2);
     }
   }
+  // Annex-B: a labeled statement may wrap a function / class declaration (`lbl: function f() {}`).
+  // Those are declaration statements: scan to the closed body `{…}` bracket instead of an expression.
+  if (text === "function" || text === "class") {
+    return StatementScanner.ScanDeclarationBody(code, at);
+  }
+  if (text === "async" && at + 1 < code.length
+    && StatementScanner.IsKeyword(code[at + 1], "function")) {
+    return StatementScanner.ScanDeclarationBody(code, at);
+  }
   // Nested labeled statement inside a body: Identifier ":" statement.
   if (at + 1 < code.length && StatementScanner.IsSymbol(code[at + 1], ":")) {
     return StatementScanner.ScanBody(code, at + 2);
   }
 }
 return StatementScanner.ScanExpressionBody(code, at);
+```
+
+## static method ScanDeclarationBody:(code:Array<Token>, at:int)=>StatementScanResult
+
+声明语句（函数 / 类，含 `function*`、泛型参数、参数表、`extends` 等）的体是一个闭合的 `{…}` 括号单元：
+从 `at` 起找本层第一个 `{` 括号，到它为止。找不到且已到 EOF 则 mismatch。
+
+```ts
+for (let index = at; index < code.length; index++) {
+  const unit = code[index];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    return StatementScanner.Complete(index);
+  }
+  if (StatementScanner.IsEOF(code[index])) {
+    return StatementScanner.Mismatch();
+  }
+}
+if (StatementScanner.AtEOF && code.length > 0) {
+  return StatementScanner.Complete(code.length - 1);
+}
+return StatementScanner.NeedMore();
 ```
 
 ## static method ScanToSemicolon:(code:Array<Token>, from:int, stopAtEof?:bool)=>StatementScanResult

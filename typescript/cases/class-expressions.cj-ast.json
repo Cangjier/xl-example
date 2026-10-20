@@ -1681,6 +1681,485 @@
           ]
         }
       ]
+    },
+    {
+      "src": "const C = class<T extends A> {};",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "C"
+                    },
+                    {
+                      "kind": "ClassExpression",
+                      "pos": 9,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 16,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 17,
+                              "text": "T"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 25,
+                              "end": 27,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 25,
+                                  "end": 27,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const C = class<T extends A = B> {};",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "C"
+                    },
+                    {
+                      "kind": "ClassExpression",
+                      "pos": 9,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 16,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 17,
+                              "text": "T"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 25,
+                              "end": 27,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 25,
+                                  "end": 27,
+                                  "text": "A"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 29,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 29,
+                                  "end": 31,
+                                  "text": "B"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(class<T, U> {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "ClassExpression",
+                  "pos": 1,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 7,
+                      "end": 8,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 7,
+                          "end": 8,
+                          "text": "T"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 9,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 9,
+                          "end": 11,
+                          "text": "U"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(class<T extends A> {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ClassExpression",
+                  "pos": 1,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 7,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 7,
+                          "end": 8,
+                          "text": "T"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 16,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 18,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const C = class<T> extends B {};",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "C"
+                    },
+                    {
+                      "kind": "ClassExpression",
+                      "pos": 9,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 16,
+                          "end": 17,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 17,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "HeritageClause",
+                          "pos": 18,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "ExpressionWithTypeArguments",
+                              "pos": 26,
+                              "end": 28,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 26,
+                                  "end": 28,
+                                  "text": "B"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const C = class<T, U> extends B {};",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "C"
+                    },
+                    {
+                      "kind": "ClassExpression",
+                      "pos": 9,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 16,
+                          "end": 17,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 17,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 18,
+                          "end": 20,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 20,
+                              "text": "U"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "HeritageClause",
+                          "pos": 21,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "ExpressionWithTypeArguments",
+                              "pos": 29,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 29,
+                                  "end": 31,
+                                  "text": "B"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C<T> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 8,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C<T extends A> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 8,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 17,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
