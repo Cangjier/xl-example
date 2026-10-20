@@ -184,3 +184,40 @@ declare module "m" { const enum E { A } enum F { B } }
 module M { enum E { A } }
 namespace N { enum E { A } }
 namespace N { enum E { A = 1 } }
+
+// ===== base 13：模块体内 export 成员（ExportAssignment / 修饰词 / 各声明族）=====
+// export default 值形态：TS = ExportAssignment（children 只有表达式）
+declare module "m" { export default x; }
+declare module "m" { export default f(); }
+declare module "m" { export default x + y; }
+// export = 值形态
+declare module "m" { export = x; }
+declare module "m" { export = a.b; }
+declare module "m" { export = f(); }
+// export default + 声明形态：TS children = [ExportKeyword, DefaultKeyword, …声明]
+declare module "m" { export default class C {} }
+declare module "m" { export default function f() {} }
+declare module "m" { export default interface I {} }
+// 暂缓（TS 口径怪异）：`export default enum E { A }` —— TS 把 `enum` 恢复成 ExportAssignment 的标识符表达式，
+// 语序本身不是合法声明形态，不列用例。
+// declare module "m" { export default enum E { A } }
+// export + 各声明族
+declare module "m" { export function f(): void; }
+declare module "m" { export const x = 1; }
+declare module "m" { export let y: string; }
+declare module "m" { export class C {} }
+declare module "m" { export interface I {} }
+declare module "m" { export enum E { A } }
+// export import / import-equals
+declare module "m" { export import A = B.C; }
+declare module "m" { import x = require("n"); }
+// 回归：namespace 体内 export 变量语句
+namespace N { export const x = 1; }
+// trivia 变体
+declare module "m" { export default /* c */ x; }
+declare module "m" { export = /* c */ x; }
+declare module "m" { export /* c */ default class C {} }
+// 暂缓（红，归属 export-declaration 族）：模块体内的 `export * from "n";` ——
+// module-block 走 StatementBuilder，ExportDeclaration 只有 possible-shape（无 FromUnits），
+// 需要 export-declaration 家族暴露可复用建树入口；`export { a };` 的 AST 待该入口一并核对。
+// declare module "m" { export * from "n"; }

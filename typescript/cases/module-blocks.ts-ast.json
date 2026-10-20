@@ -8441,6 +8441,1143 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare module \"m\" { export default x; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export default f(); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 35,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 37,
+                          "text": "f"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export default x + y; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 35,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 37,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "PlusToken",
+                          "pos": 37,
+                          "end": 39
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 39,
+                          "end": 41,
+                          "text": "y"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export = x; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export = a.b; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 29,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 33,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export = f(); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 29,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "f"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export default class C {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "DefaultKeyword",
+                      "pos": 27,
+                      "end": 35
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 41,
+                      "end": 43,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export default function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "DefaultKeyword",
+                      "pos": 27,
+                      "end": 35
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 44,
+                      "end": 46,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 48,
+                      "end": 51
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export default interface I {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 20,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "DefaultKeyword",
+                      "pos": 27,
+                      "end": 35
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 45,
+                      "end": 47,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 41,
+                      "end": 46
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export const x = 1; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 27,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 33,
+                          "end": 39,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 33,
+                              "end": 35,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 37,
+                              "end": 39,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export let y: string; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 27,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 31,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 33,
+                              "text": "y"
+                            },
+                            {
+                              "kind": "StringKeyword",
+                              "pos": 34,
+                              "end": 41
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export class C {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export interface I {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 20,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export enum E { A } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "EnumDeclaration",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "E"
+                    },
+                    {
+                      "kind": "EnumMember",
+                      "pos": 36,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 36,
+                          "end": 38,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export import A = B.C; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 20,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    },
+                    {
+                      "kind": "QualifiedName",
+                      "pos": 38,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 40,
+                          "text": "B"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 41,
+                          "end": 42,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import x = require(\"n\"); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 20,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ExternalModuleReference",
+                      "pos": 31,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 40,
+                          "end": 43,
+                          "text": "n"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { export const x = 1; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 13,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 13,
+                      "end": 20
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 26,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 30,
+                              "end": 32,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export default /* c */ x; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 45,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export = /* c */ x; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 39,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export /* c */ default class C {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "DefaultKeyword",
+                      "pos": 27,
+                      "end": 43
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
