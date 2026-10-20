@@ -320,11 +320,42 @@ a; // c\nb;
 f(a); b;
 a = 1; b = 2;
 
+// ===== base 21：箭头函数（表达式体；参数只收标识符）=====
+() => 1;
+(a) => a;
+(a, b) => a;
+a => a;
+(a) => ({ x: a });
+a => a + b;
+(a) => (a);
+(a) => a ? b : c;
+x = (a) => a;
+f((a) => a);
+(a, b) => a + b;
+// + trivia：前导 / 词间 / 行尾 / 换行 / 多空格
+/* c */ (a) => a;
+(a) => a /* c */;
+a /* c */ => a;
+(a, /* c */ b) => a;
+(\na\n) => a;
+( a ) => a;
+a  =>  a;
+a\n=>\na;
+(a) => a; // c
+
+// ===== base 22：类表达式（空类体）=====
+(class {});
+( class {} );
+/* c */ (class {});
+
 // ===== 暂缓（不在这张用例集里）=====
-// 箭头函数 / async 箭头        (a) => a;   (a, b) => a;   async (a) => a;
-// 泛型调用 / 泛型箭头 / 尖括号断言  f<T>(a);   <T>(a) => a;   <T>a;
-// as / satisfies              a as T;   a satisfies T;   f(a as T);
-// 函数 / 类表达式               (function () {});   (class {});
+// 箭头函数：base 21 只收「表达式体 + 参数只收标识符 + 无类型标注」；以下依赖后续块：
+//   async 箭头                  async (a) => a;        ← 依赖 cover-end-1：ExpressionStatementPossibleShape.CanStart 放行 async
+//   块体箭头 / 函数表达式        (a) => { return a; };   (function () {});   ← 依赖 cover-statements-1 的 BlockShape
+//   泛型箭头 / 参数类型标注      <T>(a) => a;   (a: T) => a;   ← 依赖 cover-types-1 的 ParseType
+// 泛型调用 / 尖括号断言         f<T>(a);   <T>a;   ← 依赖 cover-types-1 的 ParseType
+// as / satisfies              a as T;   a satisfies T;   f(a as T);   ← 依赖 cover-types-1 的 ParseType
+// 类表达式：base 22 只收空类体；带类体成员的 class 表达式 ← 依赖 members/statements 家族的成员形状
 // 数组 / 对象字面量             [a, b];   ({ a: b });   ← 语句首的 { } 与块歧义
 // 模板 / 标签模板               `t`;   tag`t`;
 // 正则 / bigint               /a/;   1n;              ← 正则单独立表：regex.ts（改造方案见 docs/regex-token-analysis.md）
