@@ -396,11 +396,52 @@ f< /* c */ T>(a);
 f<T /* c */>(a);
 f<T>(/* c */ a);
 
+// ===== base 25：块体箭头（children = Parameters、=>、Block）=====
+() => {};
+(a) => { return a; };
+(a) => { let x = 1; };
+(a) => { let x = 1; return x; };
+(a) => { { } };
+(a) => { { let x = 1; } };
+(a) => { if (a) { return a; } };
+(a, b) => { return a; };
+(a) => { return a + b; };
+f(() => {});
+x = () => {};
+(() => {})();
+// + trivia：`=>` 后 / 块内注释、换行、前导注释
+(a) => /* c */ { return a; };
+() =>\n{};
+/* c */ (a) => { return a; };
+(a) => { /* c */ return a; };
+(a) => { return /* c */ a; };
+
+// ===== base 26：函数表达式（children = name?、Parameter 们、Block）=====
+(function () {});
+(function f() {});
+(function f(a) { return a; });
+(function () { let x = 1; });
+(function (a, b) {});
+(function (a: T) {});
+(function f(a: T) { return a; });
+(function () { return 1; });
+f(function () {});
+({ a: function () {} });
+x = function () {};
+x = [function () {}];
+(function () {})();
+// + trivia
+(function /* c */ () {});
+(function f /* c */ () {});
+(function (/* c */ a) {});
+(function () /* c */ {});
+/* c */ (function () {});
+
 // ===== 暂缓（不在这张用例集里）=====
-// 箭头函数：base 21 只收「表达式体 + 参数只收标识符 + 无类型标注」；以下依赖后续块：
-//   async 箭头                  async (a) => a;        ← 依赖 cover-end-1：ExpressionStatementPossibleShape.CanStart 放行 async
-//   块体箭头 / 函数表达式        (a) => { return a; };   (function () {});   ← 依赖 cover-statements-1 的 BlockShape
-//   参数类型标注 / 默认参数      (a: T) => a;   (a = 1) => a;   ← 依赖 parameter-shape（types-2 家族）
+// 箭头函数：base 21 收表达式体；base 25 收块体；以下依赖后续块：
+//   async 箭头                  async (a) => a;   async () => {};   ← 依赖 cover-end-1：CanStart 放行 async
+//   默认参数 / 可选参数 / rest   (a = 1) => a;   (a?) => a;   (function (a = 1) {})   ← 参数默认值 / 可选参数 / rest 未做
+//   箭头参数类型标注            (a: T) => a;   ← 箭头参数目前只收标识符（函数表达式参数已收 `a: T`）
 // 泛型调用：base 24 已收 `f<T>(a)` / `f<T, U>(a, b)` / `f<T<U> >(a)`；仍暂缓：
 //   泛型箭头 / 尖括号断言        <T>(a) => a;   <T>a;   ← 依赖 cover-end-1 的 CanStart 放行 `<`
 //   `f<T<U>>(a)`                连写的 `>>` 是单个组合 Symbol，要拆它属 basic token 用户决策项
