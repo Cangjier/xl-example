@@ -10845,6 +10845,373 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export default async function* f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 29,
+              "end": 30
+            },
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 34,
+              "end": 37
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async function* () {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 29,
+              "end": 30
+            },
+            {
+              "kind": "Block",
+              "pos": 33,
+              "end": 36
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async function* g(): AsyncGenerator<number> { yield 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 71,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 29,
+              "end": 30
+            },
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "g"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 35,
+              "end": 58,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 35,
+                  "end": 50,
+                  "text": "AsyncGenerator"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 51,
+                  "end": 57
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 58,
+              "end": 71,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 60,
+                  "end": 69,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 60,
+                      "end": 68,
+                      "children": [
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 66,
+                          "end": 68,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export async function* f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 6,
+              "end": 12
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 21,
+              "end": 22
+            },
+            {
+              "kind": "Identifier",
+              "pos": 22,
+              "end": 24,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 26,
+              "end": 29
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async /* c */ function* f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 37,
+              "end": 38
+            },
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 42,
+              "end": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async function* /* c */ f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 29,
+              "end": 30
+            },
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 40,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 42,
+              "end": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async function* f() {} // c",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 29,
+              "end": 30
+            },
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 34,
+              "end": 37
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async function* /* c */ () {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 29,
+              "end": 30
+            },
+            {
+              "kind": "Block",
+              "pos": 41,
+              "end": 44
+            }
+          ]
+        }
+      ]
     }
   ]
 }
