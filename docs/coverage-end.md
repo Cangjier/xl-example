@@ -130,3 +130,40 @@ class / interface / enum / declare class / declare interface 的空体、`{ }`�
 declarations 尚未收）；带成员的体前换行（归 cover-members-1）；`a\nimport …` 的「终结候选与其它候选同时成立」
 仍是 chunk 1 记录的通用边界，本块未处理。
 
+## 9. end-declarations chunk 3：无体函数声明的 EOF 收口
+
+**落地**（`end-declarations.ts` 76 → 89，+13）：
+
+- 无体函数声明在 EOF（无分号）：`declare function f(): void`、`declare function f(a: A): B`、
+  `declare function f()`（无返回类型，只有 declare 允许）、重载签名 `function f(a: A): B`；
+- 带分号 / 尾注释 / 尾换行 / `declare` 与 `function` 之间换行：`declare function f(): void;`、
+  `declare function f(): void // c`、`declare function f(): void\n`、`declare\nfunction f(): void`
+  （后者 TS 是「ExpressionStatement`declare` + FunctionDeclaration」两条，靠下面的连排拆分对齐）；
+- 两条无体声明背靠背（无分号 / 带分号）；与其它声明相邻：`class C {}\ndeclare function f(): void`、
+  `function f() {}\ndeclare function g(): void`、`class C {}\nfunction f() {}`。
+
+**修法**（`source-file-end-possible-shape.xl.md` 的 `BuildTrailingDeclaration`）：
+
+1. 函数族：`function` 开头或 `declare function` 开头；无体时在最后一个代码单元后补**零宽合成 `Symbol ";"`**
+   （`SignIn(End)` + `AppendValueAndSignOut(";", End)`，与 chunk 2 同款）再调
+   `FunctionDeclarationShape.FromUnits`——该形状本来就支持「最后一块是 `;`」的形态；
+   有体时直接以 `}` 为 `tokenIndex` 调 `FromUnits`。
+2. 多条无分号声明连排：找**最后一个换行后出现的声明起点**，前缀递归建（建不出来按
+   `ExpressionStatement(…, false)` 收尾），后缀递归建。`declare function f(): void\ndeclare function g(): void`
+   与 `declare\nfunction f(): void` 都靠这条转绿。
+3. 紧邻的 `class … {}`（作为后缀/单条）：以 `}` 为 `tokenIndex` 调 `ClassDeclarationShape.FromUnits`。
+   未改任何 declaration shape 文件，未碰 `core/**`。
+
+**读数（本分支）**：`end-declarations` **89/89 完全一致**；全量 ast-json / diff **2100/2100**
+（基线 2087 + 13），结构差 0 / 位置差 0 / 字段差 0，无回归；tsc 0 error；xl_check 0 error
+（仅仓库既有 W3102/W3103 文档类 warning）。
+
+**chunk 3 仍红（TS 合法；写成用例里的 `//` 目标，不静默跳过）**：
+
+- `declare function f(): void\nclass C {}`、`function f(a: A): B\nfunction f(a: A): B { return a; }`
+  ——「无体声明在前、带体声明在后」的多条连排：`FunctionDeclarationPossibleShape` 在 EOF 边界仍活，
+  先于根终结候选建，报「函数声明的返回类型没有读完」。修法在 declarations 侧（让该候选在 EOF `Reject`
+  或给声明自身加 end 候选），不属于本块 write scope。
+- `export declare function f(): void`（`FunctionDeclarationShape` 不认 `export` 修饰）、
+  `declare type T = A`（`TypeAliasDeclarationShape` 不认 `declare` 修饰）——同属声明形状侧的修饰支持。
+

@@ -119,3 +119,25 @@ class C {}\ntype T = A;
 // declare function f()\n{}           ← 同上
 // 带成员的体前换行 class C\n{\nx: number;\n}   ← 类成员归 cover-members-1（与「体前换行」无关）
 
+// ── chunk 3：无体函数声明在 EOF（声明形状已支持「最后一块是 ;」，这里补零宽合成 ; 收口）──
+declare function f(): void
+declare function f(a: A): B
+declare function f()
+function f(a: A): B
+declare function f(): void;
+declare function f(): void // c
+declare function f(): void\n
+declare\nfunction f(): void
+// 两条无体声明背靠背 / 与其它声明相邻
+declare function f(): void\ndeclare function g(): void
+declare function f(): void;\ndeclare function g(): void;
+class C {}\ndeclare function f(): void
+function f() {}\ndeclare function g(): void
+class C {}\nfunction f() {}
+// 暂缓（TS 合法，但本仓在「无体函数声明在前、带体声明在后」的多条连排上仍红；原因见 docs/coverage-end.md §9）
+// declare function f(): void\nclass C {}        ← FunctionDeclaration 候选在 EOF 仍活，先于根终结候选建，报「返回类型没有读完」
+// function f(a: A): B\nfunction f(a: A): B { return a; }   ← 同上（重载签名 + 实现体）
+// 暂缓（TS 合法，但对应声明形状不支持这些修饰/形态；不静默跳过，写在这里）
+// export declare function f(): void     ← FunctionDeclarationShape 只认 declare，不认 export 修饰
+// declare type T = A / declare type T = A;   ← TypeAliasDeclarationShape 不认 declare 修饰
+
