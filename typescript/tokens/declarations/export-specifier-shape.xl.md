@@ -28,6 +28,8 @@ TS 4.5 起导出名可以是字符串字面量：`export { "a-b" as c }` 的 chi
 
 ## field Name:Token | null = null
 
+## field IsTypeOnly:bool = false
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -49,35 +51,48 @@ if (code.length === 0) {
 const shape = new ExportSpecifierShape(code[0].Template);
 // pos 由调用方给：它前面那个非 trivia 单元（`{` 或 `,`）的 End+1，组内看不到那一格。
 shape.Pos = pos;
+// inline type-only specifier: `export { type T } ...` — leading `type` is the isTypeOnly modifier
+// when another name follows; a lone `{ type }` still exports an identifier literally named `type`.
+let base = 0;
+let typeUnit:Token | null = null;
+if (code.length >= 2 && code[0] instanceof Common && (code[0] as Common).Is("type")) {
+  typeUnit = code[0];
+  shape.IsTypeOnly = true;
+  base = 1;
+}
 let first:ShapeToken;
-if (code[0] instanceof Common) {
-  first = IdentifierShape.FromBasicToken(code[0] as Common, context);
-} else if (code[0] instanceof String) {
-  first = StringLiteralShape.FromBasicToken(code[0] as String, context);
+if (code[base] instanceof Common) {
+  first = IdentifierShape.FromBasicToken(code[base] as Common, context);
+} else if (code[base] instanceof String) {
+  first = StringLiteralShape.FromBasicToken(code[base] as String, context);
 } else {
   return null;
 }
-first.Pos = pos;
+if (typeUnit !== null && typeUnit.SourceRange.End !== null) {
+  first.Pos = typeUnit.SourceRange.End.Index + 1;
+} else {
+  first.Pos = pos;
+}
 shape.PropertyName = first;
 shape.Data.push(first);
 first.Parent = shape;
-let last:Token = code[0];
-if (code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("as")) {
+let last:Token = code[base];
+if (code.length >= base + 3 && code[base + 1] instanceof Common && (code[base + 1] as Common).Is("as")) {
   let second:ShapeToken | null = null;
-  if (code[2] instanceof Common) {
-    second = IdentifierShape.FromBasicToken(code[2] as Common, context);
-  } else if (code[2] instanceof String) {
-    second = StringLiteralShape.FromBasicToken(code[2] as String, context);
+  if (code[base + 2] instanceof Common) {
+    second = IdentifierShape.FromBasicToken(code[base + 2] as Common, context);
+  } else if (code[base + 2] instanceof String) {
+    second = StringLiteralShape.FromBasicToken(code[base + 2] as String, context);
   }
   if (second === null) {
     return null;
   }
-  const asEnd = code[1].SourceRange.End;
+  const asEnd = code[base + 1].SourceRange.End;
   second.Pos = asEnd !== null ? asEnd.Index + 1 : -1;
   shape.Name = second;
   shape.Data.push(second);
   second.Parent = shape;
-  last = code[2];
+  last = code[base + 2];
 }
 if (shape.Name === null && shape.PropertyName !== null) {
   shape.Name = shape.PropertyName;
