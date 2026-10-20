@@ -463,3 +463,13 @@ type T = { m(x: any): asserts x is A };
 type T = { m(): this is A };
 type T = { m(x: any): x is A; n(): void };
 type T = { m(x: any): x /* c */ is A };
+// ===== import 类型 attributes（with / assert，TS 反查名 AssertClause） =====
+type T = typeof import("m", { with: { type: "json" } });
+type T = import("m", { with: { type: "json" } }).X;
+type T = import("m", { with: { type: "json" } }).X<B>;
+type T = import("m", { assert: { type: "json" } }).X;
+type T = typeof import("m", { with: { "type": "json" } });
+type T = typeof import("m", /* c */ { with: { type: "json" } });
+type T = typeof import("m", { with: /* c */ { type: "json" } });
+type T = typeof import("m", { with: { type /* c */ : "json" } });
+type T = typeof import("m", { with: { type: /* c */ "json" } });

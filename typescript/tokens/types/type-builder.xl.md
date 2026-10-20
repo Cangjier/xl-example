@@ -51,6 +51,8 @@ import { ConstructorTypeShape } from "./constructor-type-shape.xl.md"
 import { FunctionTypeShape } from "./function-type-shape.xl.md"
 import { IndexSignatureShape } from "./index-signature-shape.xl.md"
 import { ImportTypeShape } from "./import-type-shape.xl.md"
+import { ImportAttributeShape } from "../members/import-attribute-shape.xl.md"
+import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
 import { IndexedAccessTypeShape } from "./indexed-access-type-shape.xl.md"
 import { InferTypeShape } from "./infer-type-shape.xl.md"
 import { IntersectionTypeShape } from "./intersection-type-shape.xl.md"
@@ -1293,6 +1295,7 @@ if (importUnit !== null && this.IsText(importUnit, "import")) {
   }
   argument.Pos = pathPos;
   argument.TryToClose(this.Context);
+  const typeofAttributes = this.ParseImportTypeAttributes(bracket);
   let qualifier:Token | null = null;
   const dot = this.Peek(0);
   if (dot !== null && this.IsText(dot, ".")) {
@@ -1301,8 +1304,12 @@ if (importUnit !== null && this.IsText(importUnit, "import")) {
   }
   const imported = new ImportTypeShape(this.Template);
   imported.Argument = argument;
+  imported.AssertClause = typeofAttributes;
   imported.Qualifier = qualifier;
   imported.Add(argument);
+  if (typeofAttributes !== null) {
+    imported.Add(typeofAttributes);
+  }
   if (qualifier !== null) {
     imported.Add(qualifier);
   }
@@ -1503,6 +1510,142 @@ if (type !== null) {
 return this.SpanNode(shape, start, this.At - 1);
 ```
 
+## method ParseImportTypeAttributes:(bracket:Bracket)=>Token | null
+
+`typeof import("m", { with: { type: "json" } })` / `import("m", { with: { … } }).X`：attributes 在**参数括号的 Data 里**
+（`"m" , { with: { … } }`）。`with` / `assert` 之后的花括号是 TS 的 `ImportAttributes`（反查名 `AssertClause`），
+children 是若干 `ImportAttribute`（反查名 `AssertEntry`，key + 字符串值）。没有 attributes 时返回 `null`。
+Pos：Attributes 从 `with` 的 `End+1` 算，Attribute 从内层 `{` 或 `,` 的 `End+1` 算。
+
+```ts
+const code:Array<Token> = [];
+for (const item of bracket.Data) {
+  if (!item.IsTriviaToken) {
+    code.push(item);
+  }
+}
+if (code.length < 3) {
+  return null;
+}
+if (!(code[1] instanceof Symbol) || !(code[1] as Symbol).Is(",")) {
+  return null;
+}
+const objectUnit = code[2];
+if (!(objectUnit instanceof Bracket) || (objectUnit as Bracket).StartBracketChar !== "{") {
+  throw new Error("import 类型 attributes 缺少对象参数");
+}
+const objectBracket = objectUnit as Bracket;
+let withUnit:Token | null = null;
+let innerUnit:Token | null = null;
+for (const item of objectBracket.Data) {
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (withUnit === null) {
+    if (item instanceof Common && (this.TextOf(item) === "with" || this.TextOf(item) === "assert")) {
+      withUnit = item;
+      continue;
+    }
+    throw new Error("import 类型 attributes 缺少 with / assert");
+  }
+  if (item instanceof Bracket && (item as Bracket).StartBracketChar === "{") {
+    innerUnit = item;
+    break;
+  }
+}
+if (withUnit === null || innerUnit === null) {
+  throw new Error("import 类型 attributes 不完整");
+}
+const inner = innerUnit as Bracket;
+const attributes = new ImportAttributesShape(this.Template);
+attributes.Token = this.TextOf(withUnit);
+let attributesPos = 0;
+if (withUnit.SourceRange.End !== null) {
+  attributesPos = withUnit.SourceRange.End.Index + 2;
+}
+let group:Array<Token> = [];
+let pos = inner.SourceRange.Start === null ? 0 : inner.SourceRange.Start.Index + 1;
+for (const item of inner.Data) {
+  if (!item.IsTriviaToken && item instanceof Symbol && (item as Symbol).Is(",")) {
+    const entry = this.BuildImportTypeAttribute(group, pos);
+    if (entry !== null) {
+      attributes.Elements.push(entry);
+    }
+    group = [];
+    pos = item.SourceRange.End === null ? 0 : item.SourceRange.End.Index + 1;
+    continue;
+  }
+  group.push(item);
+}
+const tail = this.BuildImportTypeAttribute(group, pos);
+if (tail !== null) {
+  attributes.Elements.push(tail);
+}
+for (const entry of attributes.Elements) {
+  entry.Parent = attributes;
+  attributes.Data.push(entry);
+}
+attributes.Pos = attributesPos;
+if (inner.SourceRange.Start !== null) {
+  attributes.SignIn(inner.SourceRange.Start);
+}
+if (inner.SourceRange.End !== null) {
+  attributes.SignOut(inner.SourceRange.End);
+}
+attributes.TryToClose(this.Context);
+return attributes;
+```
+## method BuildImportTypeAttribute:(units:Array<Token>, pos:int)=>ImportAttributeShape | null
+
+把 `key : "value"` 一组建成 `ImportAttribute`：children = key（Identifier / StringLiteral）+ 字符串值。
+
+```ts
+const code:Array<Token> = [];
+for (const item of units) {
+  if (!item.IsTriviaToken) {
+    code.push(item);
+  }
+}
+if (code.length === 0) {
+  return null;
+}
+if (code.length < 3) {
+  throw new Error("import 类型 attribute 不完整");
+}
+const attribute = new ImportAttributeShape(this.Template);
+const keyUnit = code[0];
+let key:IdentifierShape | StringLiteralShape;
+if (keyUnit instanceof Common) {
+  key = IdentifierShape.FromBasicToken(keyUnit as Common, this.Context);
+} else if (keyUnit instanceof String) {
+  key = StringLiteralShape.FromBasicToken(keyUnit as String, this.Context);
+} else {
+  throw new Error("import 类型 attribute 的键不是标识符或字符串");
+}
+key.Pos = pos;
+attribute.Key = key;
+attribute.Data.push(key);
+key.Parent = attribute;
+const valueUnit = code[2];
+if (!(valueUnit instanceof String)) {
+  throw new Error("import 类型 attribute 的值不是字符串");
+}
+const value = StringLiteralShape.FromBasicToken(valueUnit as String, this.Context);
+value.Pos = code[1].SourceRange.End === null ? 0 : code[1].SourceRange.End.Index + 1;
+attribute.Value = value;
+attribute.Data.push(value);
+value.Parent = attribute;
+attribute.Pos = pos;
+if (keyUnit.SourceRange.Start !== null) {
+  attribute.SignIn(keyUnit.SourceRange.Start);
+}
+if (valueUnit.SourceRange.End !== null) {
+  attribute.SignOut(valueUnit.SourceRange.End);
+}
+attribute.TryToClose(this.Context);
+return attribute;
+```
+
 ## method ParseImportType:(start:int)=>Token
 
 `import("m").A`：`import` 与 `.` 不进 AST，children = 模块字符串（`LiteralType → StringLiteral`）、
@@ -1544,6 +1687,7 @@ if (pathToken.SourceRange.End !== null) {
 }
 argument.Pos = pathPos;
 argument.TryToClose(this.Context);
+const attributes = this.ParseImportTypeAttributes(bracket);
 const dot = this.Peek(0);
 if (dot === null || !this.IsText(dot, ".")) {
   throw new Error("import 类型缺少限定名");
@@ -1553,9 +1697,13 @@ const qualifier = this.ParseEntityName();
 const typeArguments = this.ParseTypeArguments();
 const shape = new ImportTypeShape(this.Template);
 shape.Argument = argument;
+shape.AssertClause = attributes;
 shape.Qualifier = qualifier;
 shape.TypeArguments = typeArguments;
 shape.Add(argument);
+if (attributes !== null) {
+  shape.Add(attributes);
+}
 shape.Add(qualifier);
 for (const argumentType of typeArguments) {
   shape.Add(argumentType);
