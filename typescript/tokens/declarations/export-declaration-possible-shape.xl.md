@@ -111,6 +111,13 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     continue;
   }
   if (state.Second < 0) {
+    // 首格不是 `export` 的条目已经以 Stage = 3 退出：后面的单元不许再把 Stage 改写回合法档。
+    // 以前这里没有这道闸，`import { b } from "m"`（在 ASI 边界之后剩下的一整条 import）会被
+    // 第二个单元 `{` 误判成 `export { … }` 子句形，于是 import 与 export 两个候选同时 Accept，
+    // 根终结候选在 EOF 上 Accept 时触发 CatalogGuide 的「终结候选与其它候选同时成立」。
+    if (state.Stage === 3) {
+      continue;
+    }
     state.Second = index;
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
       state.Stage = 2;
