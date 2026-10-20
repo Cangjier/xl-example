@@ -1,5 +1,32 @@
 # declarations 覆盖报告（chunk 1 + chunk 2 + chunk 3）
 
+> **async generator / for-await chunk**（分支 `cover-async-gen-1`，起点 `origin/integration @d3c27487`）：
+> `async-functions.ts` **43 → 63**（+20），**63/63** 完全一致；全量 **2791 → 2811** 全绿；tsc 0 error；
+> `generator-functions` 27/27、`statements` 210/210 等无回归。
+>
+> Oracle（TS `createSourceFile`，实测）：
+> - `async function* f()` 的 `FunctionDeclaration` children = **`AsyncKeyword` → `AsteriskToken` → `Identifier` →（参数）
+>   →（返回类型）→ `Block`**；`AsteriskToken` 区间就是 `*`（`Pos` = `function` 关键字 `End+1`），名字 `Pos` = `*` 的 `End+1`。
+> - `for await (…)` 是 `ForOfStatement`（不是新 kind），children = **`AwaitKeyword` → initializer → expression → statement**；
+>   `AwaitKeyword` 区间就是 `await` token（`Pos` = `for` 的 `End+1`）；顶层 `for await` TS 只用 checker 报语义错，parser 照样产出同一 AST。
+>
+> 实现（只改 statements 两页；**function-declaration 两页无需改动**——上一轮 async + 既有 generator 支持已覆盖
+> `async function*` 的候选/形状，本轮只补测量）：
+> - `statement-scanner.xl.md`：`for` 从 `ScanLoop` 拆出 `ScanFor`，允许 `for` 与头部括号之间有一个 `await`；
+>   `ScanRoot` / `ScanBody` 的 `for` 分派都走 `ScanFor`。
+> - `statement-builder.xl.md`：`BuildFor` 在 `for` 之后吸收可选 `await`（记 `awaitPos`），把
+>   `BuildForInOrOf(..., awaitUnit, awaitPos)` 扩参；`ForOfStatement` 的 Data 最前面 Add 一个 `AwaitKeywordShape`
+>   （区间 = await token、Pos = builder 的 `Positions[awaitIndex]`），顺序与 TS 一致；三子句 `for` 带 await 直接抛错。
+>
+> 20 条新增：`async function* f() {}`、`yield 1;`、`await g(); yield await h();`、两个 yield、注释（async/function 间、
+> function 与 `*` 间、体内）、两条 async generator 并列、async function 体内嵌 async generator、async generator 体内嵌
+> async generator；`for await (const x of xs)`（空体 / await 体）、`for await (const [a] of xs)`、`for await (const {a} of xs)`、
+> `for await (x of xs)`、`for /* c */ await`、`for await /* c */ (…)`、体前注释、async generator 体内 `for await … yield x;`，
+> 以及顶层 `for await (const x of xs) {}`（parser 合法，AST 与 TS 一致）。
+>
+> 暂缓：async generator **方法/表达式**（class / object 成员文件不在本块）；async method；泛型 async generator；
+> `export async function*`（export 侧）。
+>
 > **async chunk**（分支 `cover-async-fn-1`，起点 `origin/integration @9f7be57b`）：
 > 新 stem `typescript/cases/async-functions.ts` **22 / 22** 完全一致；全量 **2503 → 2525** 全绿；tsc 0 error。
 >

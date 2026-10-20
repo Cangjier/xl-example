@@ -56,7 +56,30 @@ let x = 1;\nasync function f() {}
 async function f() {}\nlet x = 1;
 declare async function f(): void;\nasync function g() {}
 
-// 暂缓：async generator（`async function*`，需要 AsteriskToken + generator 语义）
+// ===== async generators（`async function*`；children = AsyncKeyword, AsteriskToken, Identifier, …）=====
+async function* f() {}
+async function* f() { yield 1; }
+async function* f() { await g(); yield await h(); }
+async function* f() { yield 1; yield 2; }
+async /* c */ function* f() {}
+async function /* c */ * f() {}
+async function* f() { /* c */ yield 1; }
+async function* f() {}\nasync function* g() {}
+async function f() { async function* g() {} }
+async function* f() { async function* g() { yield 1; } }
+
+// ===== for await（ForOfStatement 的 AwaitKeyword）=====
+async function f() { for await (const x of xs) {} }
+async function f() { for await (const x of xs) { await g(); } }
+async function f() { for await (const [a] of xs) a; }
+async function f() { for await (const {a} of xs) a; }
+async function f() { for await (x of xs) {} }
+async function f() { for /* c */ await (const x of xs) {} }
+async function f() { for await /* c */ (const x of xs) {} }
+async function f() { for await (const x of xs) /* c */ {} }
+async function* f() { for await (const x of xs) yield x; }
+for await (const x of xs) {}
+
 // 暂缓：async method（class 成员，属 class extras 分支）
 // 暂缓：泛型 async function（`async function f<T>() {}`，TypeParameter 在 types 家族后续）
 // 暂缓：export 侧 `export async function`（cover-export-decls-2）

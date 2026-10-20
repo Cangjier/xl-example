@@ -121,7 +121,10 @@ if (first instanceof Common) {
   if (text === "while") {
     return StatementScanner.ScanLoop(code, 0);
   }
-  if (text === "for" || text === "switch" || text === "with") {
+  if (text === "for") {
+    return StatementScanner.ScanFor(code, 0);
+  }
+  if (text === "switch" || text === "with") {
     return StatementScanner.ScanLoop(code, 0);
   }
   if (text === "try") {
@@ -197,8 +200,11 @@ if (unit instanceof Common) {
   if (text === "if") {
     return StatementScanner.ScanIf(code, at);
   }
-  if (text === "while" || text === "for" || text === "switch" || text === "with") {
+  if (text === "while" || text === "switch" || text === "with") {
     return StatementScanner.ScanLoop(code, at);
+  }
+  if (text === "for") {
+    return StatementScanner.ScanFor(code, at);
   }
   if (text === "try") {
     return StatementScanner.ScanTry(code, at);
@@ -345,6 +351,27 @@ if (StatementScanner.NextWord(code[body.End].SourceRange.End) === "else") {
   return StatementScanner.NeedMore();
 }
 return StatementScanner.Complete(body.End);
+```
+
+## static method ScanFor:(code:Array<Token>, at:int)=>StatementScanResult
+
+`for` 头可选一个 `await`（`for await (…)`，ForOfStatement 的 AwaitKeyword），后面才是 `( … )` 括号单元。
+
+```ts
+if (at + 1 >= code.length) {
+  return StatementScanner.NeedMore();
+}
+let bracketAt = at + 1;
+if (StatementScanner.IsKeyword(code[bracketAt], "await")) {
+  bracketAt++;
+  if (bracketAt >= code.length) {
+    return StatementScanner.NeedMore();
+  }
+}
+if (!StatementScanner.IsBracket(code[bracketAt], "(")) {
+  return StatementScanner.Mismatch();
+}
+return StatementScanner.ScanBody(code, bracketAt + 1);
 ```
 
 ## static method ScanLoop:(code:Array<Token>, at:int)=>StatementScanResult
