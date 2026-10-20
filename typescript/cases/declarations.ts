@@ -771,3 +771,24 @@ class C { m(): A<B<C>> { return x; } }
 // trivia
 class C<T extends A<B> /* c */> {}
 function f<T extends A<B> >() {}
+// ===== const enum / declare const enum（root 候选共存：const 后 raw lookahead 见 enum 时变量候选让位）=====
+const enum E { A }
+const enum E { A = 1, B = 2 }
+const enum E { A = 1 << 2 }
+const enum E { A, B }
+const  enum E { A }
+const\nenum E { A }
+const /* c */ enum E { A }
+declare const enum E { A }
+declare const enum E { A = 1 }
+declare /* c */ const enum E { A }
+export const enum E { A }
+const enum E { A }\nconst enum F { B }
+const enumx = 1;
+let enumy = 1;
+var enumz = 1;
+const /* c */ x = 1;
+// 暂缓：namespace / module 体内的 `const enum`（本块只修 root）：body 成员由 module-block-shape.BuildMember
+// 分派，`const` 直接落到 StatementBuilder.BuildStatement → BuildVariableStatement，看不到后面的 `enum`；
+// 需 module-block-shape 的 BuildMember 认 `[declare] const enum` 并调 EnumDeclarationShape.FromUnits
+// （属 module 文件，本块 WRITE SCOPE 之外）；语料已按任务要求先试，确认只差这一处分派。
