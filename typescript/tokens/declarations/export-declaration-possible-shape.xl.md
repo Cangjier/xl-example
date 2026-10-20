@@ -9,9 +9,18 @@ import { NamedExportsShape } from "./named-exports-shape.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
+import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
+import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 import { ExportDeclarationShape } from "./export-declaration-shape.xl.md"
+import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
+import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { StatementBuilder } from "../statements/statement-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -28,6 +37,12 @@ import { ExportDeclarationShape } from "./export-declaration-shape.xl.md"
 
 ## field Stage:int = 0
 
+## field Kind:int = 0
+
+## field Done:bool = false
+
+## field DoneAt:int = -1
+
 # class ExportDeclarationPossibleShape extends PossibleShape
 
 ```txt
@@ -37,7 +52,21 @@ export * from "m";
 export * as ns from "m";
 export type { T };
 export type * from "m";
+export const x = 1;
+export class C {}
+export interface I {}
+export enum E { A }
+export default 1;
+export default class D {}
 ```
+
+`Stage` 0 = 首格 `export`；1 = 见 `type`；2 = 子句形（`{…}` / `*`，建 mounted shell）；
+3 = 退出。声明前缀形（`export <decl>`）走 10..22：10 `class`、11 `interface`、12 `enum`、13 `const/let/var`、
+20 等 `default` 之后的单元、21 `default class`、22 `default <表达式>`；到类体 / 枚举体 / 接口体那个 `{` 或 `;` 时置
+`Done` 与 `DoneAt`，只有 `DoneAt === tokenIndex` 才建。声明形建完**不挂载** shell：直接把根级声明形状（带
+`ExportKeyword`/`DefaultKeyword`）放回宿主。
+`export default <表达式>` 的节点是 `ExportAssignment`（`isExportEquals=false`，不在比较字段里），
+这里直接建 `ExportAssignmentShape`，不碰 module-1 的 export-assignment 候选/文件。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -58,6 +87,9 @@ if (state.At > tokenIndex) {
   state.Head = -1;
   state.Second = -1;
   state.Stage = 0;
+  state.Kind = 0;
+  state.Done = false;
+  state.DoneAt = -1;
 }
 for (let index = state.At + 1; index <= tokenIndex; index++) {
   state.At = index;
@@ -78,6 +110,22 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 2;
     } else if (unit instanceof Common && (unit as Common).Is("type")) {
       state.Stage = 1;
+    } else if (unit instanceof Common && (unit as Common).Is("class")) {
+      state.Stage = 10;
+      state.Kind = 1;
+    } else if (unit instanceof Common && (unit as Common).Is("interface")) {
+      state.Stage = 11;
+      state.Kind = 2;
+    } else if (unit instanceof Common && (unit as Common).Is("enum")) {
+      state.Stage = 12;
+      state.Kind = 3;
+    } else if (unit instanceof Common
+      && ((unit as Common).Is("const") || (unit as Common).Is("let") || (unit as Common).Is("var"))) {
+      state.Stage = 13;
+      state.Kind = 4;
+    } else if (unit instanceof Common && (unit as Common).Is("default")) {
+      state.Stage = 20;
+      state.Kind = 6;
     } else {
       state.Stage = 3;
     }
@@ -89,12 +137,67 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     } else {
       state.Stage = 3;
     }
+    continue;
+  }
+  if (state.Stage === 20) {
+    if (unit instanceof Common && (unit as Common).Is("class")) {
+      state.Stage = 21;
+      state.Kind = 5;
+    } else if (unit instanceof Common && (unit as Common).Is("function")) {
+      // 函数声明还没合并：`export default function` 先退出，交给 `//` 目标。
+      state.Stage = 3;
+    } else {
+      state.Stage = 22;
+      state.Kind = 6;
+    }
+    continue;
+  }
+  if (state.Stage === 10 || state.Stage === 11 || state.Stage === 12 || state.Stage === 21) {
+    if (unit instanceof Common) {
+      // 声明名（`class C` / `enum E`）先过去，等类体 / 枚举体那个 `{`。
+      continue;
+    }
+    if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "{") {
+      state.Stage = 3;
+      continue;
+    }
+    if (!(unit as Bracket).Closed) {
+      continue;
+    }
+    let empty = true;
+    for (const item of (unit as Bracket).Data) {
+      if (!item.IsTriviaToken) {
+        empty = false;
+        break;
+      }
+    }
+    // class / interface 的类体、接口体成员未实现：非空就先退出（不静默丢成员）。
+    if ((state.Stage === 10 || state.Stage === 11 || state.Stage === 21) && !empty) {
+      state.Stage = 3;
+      continue;
+    }
+    state.Done = true;
+    state.DoneAt = index;
+    state.Stage = 4;
+    continue;
+  }
+  if (state.Stage === 13 || state.Stage === 22) {
+    if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+      state.Done = true;
+      if (state.DoneAt < 0) {
+        state.DoneAt = index;
+      }
+    }
+    continue;
   }
 }
 if (state.Stage === 3) {
   return ShapeStates.Reject;
 }
 if (state.Stage === 2) {
+  return ShapeStates.Accept;
+}
+if (state.Done) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;
@@ -108,62 +211,193 @@ const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;
 }
-const consumed:Array<Token> = host.Data.slice(start, tokenIndex + 1);
-const built = new ExportDeclarationShape(host.Template);
-for (const unit of consumed) {
-  built.Add(unit);
-}
-for (let at = 0; at < built.Data.length; at++) {
-  const unit = built.Data[at];
-  if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "{" || !(unit as Bracket).Closed) {
-    continue;
+const kind = state === null ? 0 : state.Kind;
+if (kind === 0) {
+  const consumed0:Array<Token> = host.Data.slice(start, tokenIndex + 1);
+  const built0 = new ExportDeclarationShape(host.Template);
+  for (const unit of consumed0) {
+    built0.Add(unit);
   }
-  let previous = -1;
-  for (let back = at - 1; back >= 0; back--) {
-    if (!built.Data[back].IsTriviaToken) {
-      previous = back;
+  for (let at = 0; at < built0.Data.length; at++) {
+    const unit = built0.Data[at];
+    if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "{" || !(unit as Bracket).Closed) {
+      continue;
+    }
+    let previous = -1;
+    for (let back = at - 1; back >= 0; back--) {
+      if (!built0.Data[back].IsTriviaToken) {
+        previous = back;
+        break;
+      }
+    }
+    if (previous >= 0) {
+      const before = built0.Data[previous];
+      if (before instanceof Common && ((before as Common).Is("with") || (before as Common).Is("assert"))) {
+        continue;
+      }
+    }
+    const named = NamedExportsShape.FromBracket(unit as Bracket, context);
+    if (previous >= 0) {
+      const previousEnd = built0.Data[previous].SourceRange.End;
+      if (previousEnd !== null) {
+        named.Pos = previousEnd.Index + 1;
+      }
+    } else if (unit.SourceRange.Start !== null) {
+      named.Pos = unit.SourceRange.Start.Index;
+    }
+    built0.Data.splice(at, 1, named);
+    named.Parent = built0;
+  }
+  const begin0 = consumed0[0].SourceRange.Start;
+  if (begin0 !== null) {
+    built0.SignIn(begin0);
+  }
+  let previousCode0 = -1;
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      previousCode0 = at;
       break;
     }
   }
-  if (previous >= 0) {
-    const before = built.Data[previous];
-    if (before instanceof Common && ((before as Common).Is("with") || (before as Common).Is("assert"))) {
-      continue;
+  built0.Pos = begin0 !== null ? begin0.Index : -1;
+  if (previousCode0 >= 0) {
+    const previousUnit = host.Data[previousCode0];
+    if (previousUnit.SourceRange.End !== null) {
+      built0.Pos = previousUnit.SourceRange.End.Index + 1;
     }
   }
-  const named = NamedExportsShape.FromBracket(unit as Bracket, context);
-  if (previous >= 0) {
-    const previousEnd = built.Data[previous].SourceRange.End;
-    if (previousEnd !== null) {
-      named.Pos = previousEnd.Index + 1;
-    }
-  } else if (unit.SourceRange.Start !== null) {
-    named.Pos = unit.SourceRange.Start.Index;
-  }
-  built.Data.splice(at, 1, named);
-  named.Parent = built;
+  host.Data.splice(start, tokenIndex - start + 1, built0);
+  built0.Parent = host;
+  host.MountedUnit = built0;
+  return built0;
 }
-const begin = consumed[0].SourceRange.Start;
-if (begin !== null) {
-  built.SignIn(begin);
-}
-let previousCode = -1;
-for (let at = start - 1; at >= 0; at--) {
+// 声明前缀形：export <decl>。
+let exportIndex = -1;
+for (let at = start; at <= tokenIndex; at++) {
   if (!host.Data[at].IsTriviaToken) {
-    previousCode = at;
+    exportIndex = at;
     break;
   }
 }
-built.Pos = begin !== null ? begin.Index : -1;
-if (previousCode >= 0) {
-  const previousUnit = host.Data[previousCode];
-  if (previousUnit.SourceRange.End !== null) {
-    built.Pos = previousUnit.SourceRange.End.Index + 1;
+let secondIndex = -1;
+for (let at = exportIndex + 1; at <= tokenIndex; at++) {
+  if (!host.Data[at].IsTriviaToken) {
+    secondIndex = at;
+    break;
   }
 }
-host.Data.splice(start, consumed.length, built);
+if (exportIndex < 0 || secondIndex < 0) {
+  return host;
+}
+let pos = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.End;
+    if (end !== null) {
+      pos = end.Index + 1;
+    }
+    break;
+  }
+}
+const exportUnit = host.Data[exportIndex];
+const exportModifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
+exportModifier.Pos = pos;
+if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== null) {
+  exportModifier.SignOut(exportUnit.SourceRange.End);
+}
+let declIndex = secondIndex;
+if (kind === 5) {
+  // default class：跳过 `default`，声明从 `class` 起。
+  for (let at = secondIndex + 1; at <= tokenIndex; at++) {
+    if (!host.Data[at].IsTriviaToken) {
+      declIndex = at;
+      break;
+    }
+  }
+}
+if (kind === 1 || kind === 2 || kind === 3) {
+  let built:ShapeToken;
+  if (kind === 1) {
+    built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  } else if (kind === 2) {
+    built = InterfaceDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  } else {
+    built = EnumDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  }
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 4) {
+  const consumed:Array<Token> = host.Data.slice(declIndex, tokenIndex + 1);
+  let basePos = pos;
+  if (exportUnit.SourceRange.End !== null) {
+    basePos = exportUnit.SourceRange.End.Index + 1;
+  }
+  const builder = new StatementBuilder(host.Template, context);
+  builder.Load(consumed, basePos);
+  const statement = builder.BuildStatement();
+  if (builder.At !== builder.Units.length) {
+    throw new Error("export 变量语句没有读完");
+  }
+  const built = statement as ShapeToken;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 5) {
+  const built = ClassDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
+  const defaultUnit = host.Data[secondIndex];
+  const defaultModifier = new DefaultKeywordShape(host.Template);
+  if (defaultUnit.SourceRange.Start !== null) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  }
+  if (defaultUnit.SourceRange.End !== null) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  }
+  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.TryToClose(context);
+  built.Data.unshift(defaultModifier);
+  defaultModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+// kind === 6：export default <表达式>;
+const defaultUnit = host.Data[secondIndex];
+const lastIndex = tokenIndex;
+let basePos = pos;
+if (defaultUnit.SourceRange.End !== null) {
+  basePos = defaultUnit.SourceRange.End.Index + 1;
+}
+const expressionUnits:Array<Token> = host.Data.slice(secondIndex + 1, tokenIndex);
+const builder = new ExpressionBuilder(host.Template, context);
+builder.Load(expressionUnits, basePos);
+const expression = builder.ParseExpression();
+if (builder.At !== builder.Units.length) {
+  throw new Error("export default 的表达式没有读完");
+}
+const built = new ExportAssignmentShape(host.Template);
+built.Add(expression);
+if (exportUnit.SourceRange.Start !== null) {
+  built.SignIn(exportUnit.SourceRange.Start);
+}
+if (host.Data[lastIndex].SourceRange.End !== null) {
+  built.SignOut(host.Data[lastIndex].SourceRange.End);
+}
+built.Pos = pos;
+built.TryToClose(context);
+host.Data.splice(start, tokenIndex - start + 1, built);
 built.Parent = host;
-host.MountedUnit = built;
 return built;
 ```
 
@@ -171,5 +405,11 @@ return built;
 
 ```ts
 const state = cache.GetState<ExportDeclarationScan>(this.constructor.name);
-return state !== null && state.Stage === 2;
+if (state === null) {
+  return false;
+}
+if (state.Stage === 2) {
+  return true;
+}
+return state.Done && state.DoneAt === tokenIndex;
 ```
