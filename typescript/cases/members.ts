@@ -189,3 +189,21 @@ f({ a: 1 } /* c */);
 ({ [ /* c */ k ]: 1 });
 ({ async /* c */ m() {} });
 ({\nm() {}\n});
+
+// ===== base 11：async / generator / async generator 方法 =====
+// base 10 已有 `({ async m() {} })` 与 `({ *m() {} })`，这里补组合与带参/返回类型形态。
+({ async *m() {} });
+({ async *m() { yield 1; } });
+({ async m(a: A): B { return a; } });
+({ async *m(a: A): B { return a; } });
+// + computed 名字与修饰组合
+({ *[k]() {} });
+({ async [k]() {} });
+({ async *[k]() {} });
+// + 混合成员列表
+({ async m() {}, *n() {}, async *o() {} });
+({ get x() { return 1; }, set x(v) {}, async *m() {} });
+// + trivia：async / `*` / 名字之间注释
+({ async /* c */ *m() {} });
+({ async * /* c */ m() {} });
+({ async *m /* c */ () {} });
