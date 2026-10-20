@@ -411,3 +411,44 @@ class C { @dec /* c */ x = 1; }
 // decorators on interfaces / enums
 // newline between a decorator and its declaration: @dec\nclass C {} is blocked by the root end candidate ASI rule
 // (IsAsiBoundary sees an expression-complete `dec` at the newline; same family as newline-before-body, source-file-end-possible-shape scope)
+
+// ===== base 12: method modifiers (async / generator / async-generator) =====
+class C { async m() {} }
+class C { async m(a: A): B { return a; } }
+class C { static async m() {} }
+class C { private async m() {} }
+class C { async m() {} async n() {} }
+class C { *m() {} }
+class C { *m() { yield 1; } }
+class C { *m(a: A): B { yield a; } }
+class C { static *m() {} }
+class C { private *m() {} }
+class C { *m() {} *n() {} }
+class C { async *m() {} }
+class C { async *m() { yield 1; } }
+class C { static async *m() {} }
+class C { async *m(a: A): B { yield a; } }
+class C { public get x() { return 1; } }
+class C { public set x(v) {} }
+class C { private get x() { return 1; } }
+class C { async get x() { return 1; } }
+class C { async set x(v) {} }
+class C { static get x() { return 1; } }
+class C { @dec async m() {} }
+class C { @dec *m() {} }
+class C { @dec async *m() {} }
+class C { @a @b *m() {} }
+// + trivia
+class C { async /* c */ m() {} }
+class C { /* c */ *m() {} }
+class C { * /* c */ m() {} }
+class C { async * /* c */ m() {} }
+class C { static /* c */ *m() {} }
+class C { @dec /* c */ async m() {} }
+class C { public /* c */ get x() { return 1; } }
+class C { *m() { /* c */ yield 1; } }
+
+// ===== deferred =====
+// abstract accessors: abstract class C { abstract get x(): A; }
+// overload + async / generator combos: async m(): A; async m() {}
+// object literal methods with async/generator: expressions family scope

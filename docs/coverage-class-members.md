@@ -103,3 +103,20 @@
   expression-complete item at the newline (IsAsiBoundary) and conflicts with the class candidate;
   same family as newline-before-body, fix belongs to files/source-file-end-possible-shape scope.
 - parameter decorators, decorator metadata, decorators on interfaces/enums.
+
+## chunk 5 (method modifiers, branch cover-method-mods-1 @ origin/integration 890e3b0a)
+
+- async methods: `async m() {}`, `async m(a: A): B { return a; }`, `static async`, `private async`, two async methods.
+- generator methods: `*m() {}`, `*m() { yield 1; }`, `*m(a: A): B { yield a; }`, `static *m()`, `private *m()`, two generators.
+- async generator: `async *m() {}`, `async *m() { yield 1; }`, `static async *m()`, `async *m(a: A): B { yield a; }`.
+- accessor modifiers: `public get x()`, `public set x(v)`, `private get x()`, `async get x()`, `async set x(v)`, `static get x()`.
+- decorator combinations: `@dec async m()`, `@dec *m()`, `@dec async *m()`, `@a @b *m()`, + trivia.
+- implementation: BuildMembers now consumes a `*` (Symbol) after modifiers and before the name,
+  builds AsteriskTokenShape (punctuation/asterisk-token-shape, pos = previous token end+1, sign in/out on the `*`),
+  and adds it between modifiers and name (TS order: decorators, modifiers, AsteriskToken, name, params, return type, body).
+  Fix needed for decorated generators: the member decorator expression parser is truncated at a `*` symbol,
+  otherwise `@dec *m()` parses `dec * m` as a BinaryExpression.
+- readings: declarations 338/338 (baseline 305 + 33); full suite 3029/3029 (baseline 2996); tsc 0 error.
+
+### deferred
+- abstract accessors, overload + async / generator combos, object-literal async/generator methods (expressions family).

@@ -9,6 +9,7 @@ import { ComputedPropertyNameShape } from "../types/computed-property-name-shape
 import { ClassStaticBlockDeclarationShape } from "../types/class-static-block-declaration-shape.xl.md"
 import { ConstructorShape } from "../types/constructor-shape.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
+import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
@@ -362,8 +363,15 @@ while (at < code.length) {
       previousEnd = atUnit.SourceRange.End.Index;
     }
     at++;
+    let expressionLimit = at;
+    while (expressionLimit < code.length) {
+      if (code[expressionLimit] instanceof Symbol && (code[expressionLimit] as Symbol).Is("*")) {
+        break;
+      }
+      expressionLimit++;
+    }
     const decoratorBuilder = new ExpressionBuilder(host.Template, context);
-    decoratorBuilder.Load(code.slice(at), expressionBase);
+    decoratorBuilder.Load(code.slice(at, expressionLimit), expressionBase);
     if (decoratorBuilder.Units.length === 0) {
       throw new Error("decorator expression is empty");
     }
@@ -381,6 +389,7 @@ while (at < code.length) {
     at += consumed;
     decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
   }
+  let asteriskToken:Token | null = null;
   const modifiers:Array<Token> = [];
   let hasStatic = false;
   let accessorKind = "";
@@ -410,6 +419,20 @@ while (at < code.length) {
     }
     at++;
     modifiers.push(ClassDeclarationShape.BuildModifier(host.Template, text, modifierUnit, modifierPos, context));
+  }
+  if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("*")) {
+    const asteriskUnit = code[at];
+    const asteriskPos = previousEnd + 1;
+    if (asteriskUnit.SourceRange.End !== null) {
+      previousEnd = asteriskUnit.SourceRange.End.Index;
+    }
+    at++;
+    const asteriskShape = new AsteriskTokenShape(host.Template);
+    asteriskShape.SignInToken(asteriskUnit);
+    asteriskShape.SignOutToken(asteriskUnit);
+    asteriskShape.Pos = asteriskPos;
+    asteriskShape.TryToClose(context);
+    asteriskToken = asteriskShape;
   }
   if (hasStatic && at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "{") {
     const staticBody = code[at] as Bracket;
@@ -583,6 +606,9 @@ while (at < code.length) {
     }
     for (const modifier of modifiers) {
       memberShape.Add(modifier);
+    }
+    if (asteriskToken !== null) {
+      memberShape.Add(asteriskToken);
     }
     if (!(memberShape instanceof ConstructorShape)) {
       memberShape.Add(nameShape);
