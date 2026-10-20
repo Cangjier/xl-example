@@ -343,3 +343,65 @@ const x = a\n+b
 const x = a\n(b)
 // 暂缓：`throw\na` —— TS 错误恢复产生 zero-width Identifier 子节点 + End 取下一 token 起点，cj Shape 表达不了（core-blocked，见 statements 覆盖文档）
 // 非法（TS parseDiagnostics，不进基准）：`a\nas T`、`a\nsatisfies T`、`a\n=`
+
+// ===== sweep 7: with / debugger / labels =====
+with (x) { a(); }
+with (x) a;
+with (x) {}
+/* c */ with (x) a;
+with /* c */ (x) a;
+debugger;
+debugger
+debugger\n;
+lbl: { a(); }
+lbl: a;
+lbl: ;
+outer: for (;;) { break outer; }
+outer: while (x) { continue outer; }
+outer: for (;;) { inner: while (x) { break outer; } }
+outer: for (;;) { inner: while (x) { continue inner; } }
+/* c */ lbl: a;
+
+// ===== sweep 7: dangling else =====
+if (a) if (b) x(); else y();
+if (a) { if (b) x(); } else y();
+if (a) if (b) if (c) x(); else y; else z;
+if (a) if (b) x(); else if (c) y(); else z;
+
+// ===== sweep 7: switch variants =====
+switch (x) {}
+switch (x) { default: a(); case 1: b(); }
+switch (x) { case 1: a(); case 2: b(); }
+switch (x) { case 1: a(); break; }
+switch (x) { case 1: {} }
+switch (x) { case 1: { a(); } break; }
+switch (x) { case 1: switch (y) { case 2: a(); } break; }
+switch (x) { case 1: a(); default: b(); }
+switch (x) { default: }
+switch /* c */ (x) { case 1: a(); }
+
+// ===== sweep 7: try variants =====
+try {} catch {}
+try {} finally {}
+try {} catch (e) {}
+try { a(); } catch (e) { b(); }
+try {} catch (e) {} finally {}
+try { try {} catch {} } finally {}
+try { a(); } finally { b(); }
+try {} catch ({ a }) {}
+try {} catch ([a, b]) {}
+try {} catch (e) {} finally { c(); }
+/* c */ try {} catch {}
+
+// ===== sweep 7: for variants =====
+for (;;) {}
+for (;;) ;
+for (;;) a;
+for (let i = 0; ; ) {}
+for (let i = 0; i < 3; i++) a;
+for (i = 0; ; ) {}
+for (;;) { break; }
+for (;;) { continue; }
+for /* c */ (;;) {}
+for (;;) /* c */ {}
+
