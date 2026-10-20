@@ -132,6 +132,9 @@ function cjAst(shape) {
   if (typeof shape.Text === "string") out.text = shape.Text;
   if (shape.Name && shape.Name.text !== undefined) out.name = shape.Name.text;
   if (shape.Name && shape.Name.EscapedText) out.name = shape.Name.EscapedText;
+  // 字符串导出名（`export { "a-b" as c }` / `export { a as "b-c" }` / `export { "a-b" }`）：
+  // TS 的 ExportSpecifier.name 是字符串文本；本仓 StringLiteralShape 把它放在 Text 字段（IdentifierShape 用 EscapedText）。
+  if (shape.Name && typeof shape.Name.Text === "string") out.name = shape.Name.Text;
   if (shape.IsTypeOnly === true) out.isTypeOnly = true;
   for (const field of ["ImportClause", "ModuleSpecifier", "Name", "NamedBindings", "Attributes", "AssertClause"]) {
     const value = shape[field];
