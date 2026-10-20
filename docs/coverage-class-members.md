@@ -120,3 +120,21 @@
 
 ### deferred
 - abstract accessors, overload + async / generator combos, object-literal async/generator methods (expressions family).
+
+## chunk 6 (heritage expressions, branch cover-heritage-2 @ origin/integration 5a230659)
+
+- class extends expression carriers: `extends mixin(B)`, `extends a.b`, `extends a.b.c`, `extends f()`, `extends f(a.b)`,
+  `extends mixin(B).x`, `extends (a)`, `extends (a, b)`, `extends (a ? B : C)`, `extends null`, `extends A<B>` regression,
+  `extends A implements I.J` (mixed clauses).
+- implements: `implements I.J`, `I.J.K`, `I<J>`, `A, B<C>`, `A, B, C<D>`, `implements mixin(B)`.
+- interface extends: `extends A.B`, `A<B>`, `A, B<C>`, `A.B<C>`.
+- trivia: comments around the expression, inside call args, around `.`, around type arguments, and a decorated member body.
+- implementation (members/heritage-clause-shape BuildClauses): expression carrier branch for
+  `(expr)` / `name.member` / `name(...)`, parsed with ExpressionBuilder (limited at `<` so `A.B<C>` yields
+  PropertyAccessExpression + TypeReference type args); plain `name` + optional `<type args>` keeps the TypeBuilder path;
+  `null` goes through the expression path so the child kind matches TS NullKeyword.
+- readings: declarations 398/398 (baseline 365 + 33); full suite 3177/3177 (baseline 3144); tsc 0 error.
+
+### deferred
+- generic call in heritage (`extends mixin<T>(B)`), arrow/object-literal expressions in heritage, heritage with
+  type arguments on call expressions beyond `A.B<C>`: needs more expression grammar; deferred.

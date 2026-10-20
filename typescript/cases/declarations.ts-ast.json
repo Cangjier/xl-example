@@ -18050,6 +18050,1853 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C extends mixin(B) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 21,
+                          "text": "mixin"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends a.b {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 15,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends a.b.c {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 15,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 15,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 17,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends f() {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "f"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends f(a.b) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 18,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 21,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends mixin(B).x {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 15,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 15,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 21,
+                              "text": "mixin"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 23,
+                              "text": "B"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 26,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends (a) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 15,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 18,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends (a, b) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 15,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 17,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 17,
+                              "end": 18,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "CommaToken",
+                              "pos": 18,
+                              "end": 19
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 21,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends (a ? B : C) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 15,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "ConditionalExpression",
+                          "pos": 17,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 17,
+                              "end": 18,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "QuestionToken",
+                              "pos": 18,
+                              "end": 20
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 22,
+                              "text": "B"
+                            },
+                            {
+                              "kind": "ColonToken",
+                              "pos": 22,
+                              "end": 24
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "C"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends null {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "NullKeyword",
+                      "pos": 15,
+                      "end": 20
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends A<B> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "A"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends A implements I.J {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 17,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 28,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 28,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 28,
+                          "end": 30,
+                          "text": "I"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 31,
+                          "end": 32,
+                          "text": "J"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements I.J {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 18,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "I"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 22,
+                          "text": "J"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements I.J.K {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 18,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 18,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 20,
+                              "text": "I"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 22,
+                              "text": "J"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 24,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements I<J> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "I"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 21,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 22,
+                          "text": "J"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements A, B<C> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 21,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 24,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 25,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements mixin(B) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 18,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 24,
+                          "text": "mixin"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 26,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements A, B, C<D> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 24,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "C"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 27,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 28,
+                          "text": "D"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends A.B {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 19,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "A"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends A<B> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "A"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 22,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends A, B<C> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 22,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 25,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 26,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends A.B<C> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 19,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "A"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "B"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 24,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 25,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends /* c */ mixin(B) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 29,
+                          "text": "mixin"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 31,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends mixin(/* c */ B) {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 21,
+                          "text": "mixin"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 31,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends a /* c */ . b {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 15,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends a.b /* c */ {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 15,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements /* c */ I.J {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 18,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 28,
+                          "text": "I"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 30,
+                          "text": "J"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements I /* c */ . J {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 18,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "I"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 32,
+                          "text": "J"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements I<J /* c */> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "I"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 21,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 22,
+                          "text": "J"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends /* c */ A.B {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 19,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 29,
+                          "text": "A"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 31,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends A /* c */ . B {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 19,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "A"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 31,
+                          "end": 33,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends A<B /* c */> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "A"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 22,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends mixin(B) { m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 21,
+                          "text": "mixin"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 26,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 30,
+                  "end": 33
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
