@@ -1,4 +1,31 @@
-# declarations 覆盖报告（chunk 1 + chunk 2）
+# declarations 覆盖报告（chunk 1 + chunk 2 + chunk 3）
+
+> **chunk 3（heritage）**（分支 `cover-declarations-3`，起点 `origin/integration @0a02bda2`，合并
+> `origin/cover-declarations-2 @b8499967`；`source-file-shape.xl.md` 候选表有冲突，按并集手工去重后提交）：
+> ast-json 全量 **1554 / 1554**（合并后基线 1524 零回归），declarations.ts **138 / 138**，tsc 0 error，xl_build 0 error。
+>
+> chunk 3 新增（30 条，全部完全一致）：
+> - `class C extends D {}`、`extends D<E>`、`extends D<E, F>`；
+> - `class C implements I {}`、`implements I, J`、`extends D implements I`、`extends D<E> implements I<J>, K`；
+> - `interface I extends J {}`、`extends J, K`、`extends J<K>`、`extends J<K, L>`；
+> - `abstract class C extends D implements I {}`、`abstract class C extends D<E> implements I {}`；
+> - trivia：前导注释、类名后、`extends`/`implements` 后、类型名后、泛型实参内注释、`D < E >` 带空格、实参换行、
+>   heritage 与其它声明混排（`class … {} class … {}` / `interface … {} class … {}` / `enum`）。
+>
+> 实现（三页）：
+> - `members/heritage-clause-shape.xl.md`：`HeritageClauseShape`（`ClauseKind` / `Types`，Data 只有
+>   `ExpressionWithTypeArguments`，关键字不进 Data）+ `BuildClauses(host, units, basePos, context)`：
+>   用 `TypeBuilder` 逐个解析 `名字 [<类型实参>]`，`extends`/`implements` 关键字切子句；
+> - `expressions/expression-with-type-arguments-shape.xl.md`：`FromParts(name, typeArguments, endToken, pos, context)`，
+>   区间从名字起点到 `>`（`endToken` = 最后一个 `>`，没有实参就是名字），类型实参用
+>   `TypeBuilder.ParseTypeArguments()`；
+> - `class/interface-declaration-{shape,possible-shape}`：名字之后、体之前识别 heritage 单元（Common/Symbol），
+>   `FromUnits` 调 `HeritageClauseShape.BuildClauses` 并把子句按顺序 Add；Pos = 名字终点 + 1。
+> 踩坑记录：候选里 `unit instanceof Symbol` 必须 import 了 `symbol.xl.md`（漏 import 时生成物引用全局 `Symbol`，
+> 会静默全部 Reject，进而被根终结候选当成 ASI 边界去建表达式语句）。
+>
+> chunk 3 仍未做：限定名父类型（`extends a.B`，需要 QualifiedName/PropertyAccess 接入）、class/interface 带成员
+> （class element shapes）、`export default class`、装饰器、泛型声明、体前换行（根终结候选 ASI 判据，cover-end-1 范围）。
 
 > **chunk 2**（分支 `cover-declarations-2`，起点 `origin/integration @89413f7d`，已合并
 > `origin/cover-expressions-3 @8e09dbf4` 与 `origin/cover-declarations-1 @f0040127`）：
