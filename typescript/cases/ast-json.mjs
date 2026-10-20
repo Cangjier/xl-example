@@ -62,6 +62,8 @@ function readCases(stem) {
 // 模板的两个 kind 同理：别名枚举值反查印 FirstTemplateToken / LastTemplateToken，
 // 产物侧按规范名叫 NoSubstitutionTemplateLiteral / TemplateTail。
 const TS_KIND_ALIASES = new Map([
+  // SyntaxKind.VariableStatement 的反查名被别名 FirstStatement 盖掉。
+  ["FirstStatement", "VariableStatement"],
   // TypePredicate / ImportType / abstract 修饰的反查名被别名盖掉（FirstTypeNode / LastTypeNode / FirstContextualKeyword）。
   ["FirstTypeNode", "TypePredicate"],
   ["LastTypeNode", "ImportType"],

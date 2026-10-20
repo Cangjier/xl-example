@@ -142,3 +142,20 @@
 > `catch` 绑定的 rest / 默认值（bindings 未测量）仍未收。
 >
 
+
+## using 声明（cover-using-1）
+
+TS 5.2+ 的 `using` / `await using`：oracle 用 `ts.createSourceFile` 逐条验过（parseDiagnostics 为空）。
+
+- 合法形式：`using x = a;`、`using x: A = a;`、`using x = f();`、`using a = x, b = y;`、`using { a } = x;`（对象解构合法）、
+  块内 / `switch` case 体内 / `for (using x of xs)` 都合法；**`using [a] = x;` 不合法**（被解析成 `using[a] = x` 表达式），
+  `using` 后不能跟数组解构。
+- AST：`VariableStatement`（TS 反查名是别名 `FirstStatement`）→ children 只有 `VariableDeclarationList`；
+  List → `VariableDeclaration`（Identifier [+ Type] [+ initializer]）；`using` / `await using` 关键字不进 AST
+  （TS 只记在 List 的 flags 上）。List 的 `Pos`：`using` 从 `using` 起算，`await using` 从 `await` 起算；
+  Declaration 的 `Pos` 从 `using` 之后算。
+- 实现：`StatementScanner` 的 ScanRoot / ScanBody 接受 `using`（`ScanToSemicolon`）与 `await using`（仅当 await 后紧跟 using，
+  其余 `await …` 交回表达式候选）；`StatementBuilder.BuildStatement` 分派到 `BuildVariableStatement`（支持 await 前缀、
+  List 的 listStart 口径）；`IsVariableKeyword` 加 `using` 使 `for (using x of xs)` 复用声明列表构建。
+- harness 增加别名 `["FirstStatement","VariableStatement"]`（diff 侧原本就有，ast-json 侧补齐）。
+- 暂缓：顶层 `await using`（与表达式语句候选抢同一格）、`for (await using x of xs)`、`using` 作 if/while 单语句体（未测量）。

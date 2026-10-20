@@ -139,6 +139,17 @@ if (first instanceof Common) {
   if (text === "debugger") {
     return StatementScanner.ScanSimpleSemicolon(code, 1);
   }
+  // using 声明：声明列表到本层 ; 为止（本层括号是整单元，不数深度）。
+  if (text === "using") {
+    return StatementScanner.ScanToSemicolon(code, 1);
+  }
+  // await using：只认「await 后紧跟 using」，其余 await … 交回表达式候选。
+  if (text === "await") {
+    if (code.length > 1 && StatementScanner.IsKeyword(code[1], "using")) {
+      return StatementScanner.ScanToSemicolon(code, 2);
+    }
+    return StatementScanner.Mismatch();
+  }
   // Root-level labeled statement: Identifier ":" statement.
   // A plain identifier start keeps this candidate alive only when the raw text after it
   // (skipping trivia) is ":"; anything else is an expression statement, handled by the
@@ -203,6 +214,14 @@ if (unit instanceof Common) {
   }
   if (text === "debugger") {
     return StatementScanner.ScanSimpleSemicolon(code, at + 1);
+  }
+  if (text === "using") {
+    return StatementScanner.ScanToSemicolon(code, at + 1);
+  }
+  if (text === "await") {
+    if (at + 1 < code.length && StatementScanner.IsKeyword(code[at + 1], "using")) {
+      return StatementScanner.ScanToSemicolon(code, at + 2);
+    }
   }
   // Nested labeled statement inside a body: Identifier ":" statement.
   if (at + 1 < code.length && StatementScanner.IsSymbol(code[at + 1], ":")) {
