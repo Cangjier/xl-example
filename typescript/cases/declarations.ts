@@ -599,4 +599,15 @@ class C { m(x: any): asserts x is A {} }
 // `// ` class C { m(x: any): x is A { return true; } }
 // 对照：`class C { m(x: any): asserts x is A {} }` 已绿（asserts 方法走的是参数解析后的同一条 TypeBuilder 谓词口）。
 // arrow with `asserts` return type: `const f = (x: any): asserts x is A => {};` 同上属 expression 家族。
-
+// ===== base 14: heritage generic call =====
+class C extends mixin<T>(B) {}
+class C extends (mixin<T>(B)) {}
+class C extends mixin<T, U>(B) {}
+class C extends mixin<T>(B, C2) {}
+class C extends a.b<T>(B) {}
+class C extends mixin<T>(B).x {}
+interface I extends mixin<T>(B) {}
+class C extends /* c */ mixin<T>(B) {}
+class C extends mixin<T>(/* c */ B) {}
+class C extends mixin /* c */ <T>(B) {}
+interface I extends /* c */ mixin<T>(B) {}

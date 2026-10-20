@@ -45,6 +45,7 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ArrayTypeShape } from "./array-type-shape.xl.md"
 import { CallSignatureShape } from "./call-signature-shape.xl.md"
+import { ConstructSignatureShape } from "./construct-signature-shape.xl.md"
 import { ConditionalTypeShape } from "./conditional-type-shape.xl.md"
 import { ConstructorTypeShape } from "./constructor-type-shape.xl.md"
 import { FunctionTypeShape } from "./function-type-shape.xl.md"
@@ -730,9 +731,87 @@ while (true) {
   this.At++;
   modifiers.push(this.SpanLeaf(new ReadonlyKeywordShape(this.Template), index));
 }
+const abstractCandidate = this.Peek(0);
+if (abstractCandidate !== null && this.IsText(abstractCandidate, "abstract")) {
+  const abstractNext = this.Peek(1);
+  if (abstractNext !== null && this.IsText(abstractNext, "new")) {
+    const abstractIndex = this.At;
+    this.At++;
+    modifiers.push(this.SpanLeaf(new AbstractKeywordShape(this.Template), abstractIndex));
+  }
+}
 const unit = this.Peek(0);
 if (unit === null) {
   throw new Error("对象类型成员意外结束");
+}
+if (unit instanceof Common && this.IsText(unit, "new")) {
+  const newNextUnit = this.Peek(1);
+  const isConstructSignature = newNextUnit !== null && (this.IsText(newNextUnit, "<") || (newNextUnit instanceof Bracket && (newNextUnit as Bracket).StartBracketChar === "("));
+  if (isConstructSignature) {
+    const newIndex = this.At;
+    if (modifiers.length > 0) {
+      // TS recovery for `abstract new (...)`: MethodSignature named "new" with AbstractKeyword child.
+      const newUnit = this.Peek(0) as Common;
+      this.At++;
+      const methodName = IdentifierShape.FromBasicToken(newUnit, this.Context);
+      methodName.Pos = this.Positions[newIndex];
+      const methodBracket = this.Peek(0);
+      if (methodBracket === null || !(methodBracket instanceof Bracket) || !(methodBracket as Bracket).Is("(", ")")) {
+        throw new Error("construct signature missing parameter list");
+      }
+      this.At++;
+      const methodParameters = this.ParseParameterList(methodBracket as Bracket);
+      const methodColon = this.Peek(0);
+      if (methodColon === null || !this.IsText(methodColon, ":")) {
+        throw new Error("construct signature missing return type");
+      }
+      this.At++;
+      const methodReturnType = this.ParseType();
+      const recoveryShape = new MethodSignatureShape(this.Template);
+      recoveryShape.SignatureName = methodName;
+      recoveryShape.Parameters = methodParameters;
+      recoveryShape.ReturnType = methodReturnType;
+      for (const existingModifier of modifiers) {
+        recoveryShape.Add(existingModifier);
+      }
+      recoveryShape.Add(methodName);
+      for (const methodParameter of methodParameters) {
+        recoveryShape.Add(methodParameter);
+      }
+      recoveryShape.Add(methodReturnType);
+      return this.SpanTypeMember(recoveryShape, start);
+    }
+    this.At++;
+    let typeParameters:Array<Token> = [];
+    const typeMark = this.Peek(0);
+    if (typeMark !== null && this.IsText(typeMark, "<")) {
+      typeParameters = this.ParseTypeParameterList();
+    }
+    const paramBracket = this.Peek(0);
+    if (paramBracket === null || !(paramBracket instanceof Bracket) || !(paramBracket as Bracket).Is("(", ")")) {
+      throw new Error("construct signature missing parameter list");
+    }
+    this.At++;
+    const constructParameters = this.ParseParameterList(paramBracket as Bracket);
+    const returnColon = this.Peek(0);
+    if (returnColon === null || !this.IsText(returnColon, ":")) {
+      throw new Error("construct signature missing return type");
+    }
+    this.At++;
+    const constructReturnType = this.ParseType();
+    const constructShape = new ConstructSignatureShape(this.Template);
+    constructShape.TypeParameters = typeParameters;
+    constructShape.Parameters = constructParameters;
+    constructShape.ReturnType = constructReturnType;
+    for (const typeParameter of typeParameters) {
+      constructShape.Add(typeParameter);
+    }
+    for (const constructParameter of constructParameters) {
+      constructShape.Add(constructParameter);
+    }
+    constructShape.Add(constructReturnType);
+    return this.SpanTypeMember(constructShape, start);
+  }
 }
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;

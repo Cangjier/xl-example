@@ -106,11 +106,47 @@ while (builder.At < builder.Units.length) {
     }
   }
   let expression:Token;
-  if (headUnit instanceof Bracket || startsWithAccess) {
+  let genericCall = false;
+  let genericCursor = nameIndex + 1;
+  while (genericCursor < builder.Units.length) {
+    const genericProbe = builder.Units[genericCursor];
+    if (genericProbe instanceof Symbol && (genericProbe as Symbol).Is("<")) {
+      break;
+    }
+    genericCursor++;
+  }
+  if (genericCursor < builder.Units.length) {
+    let depth = 0;
+    let cursor = genericCursor;
+    let closing = -1;
+    while (cursor < builder.Units.length) {
+      const scanUnit = builder.Units[cursor];
+      if (scanUnit instanceof Symbol) {
+        if ((scanUnit as Symbol).Is("<")) {
+          depth++;
+        }
+        if ((scanUnit as Symbol).Is(">")) {
+          depth--;
+          if (depth === 0) {
+            closing = cursor;
+            break;
+          }
+        }
+      }
+      cursor++;
+    }
+    if (closing >= 0 && closing + 1 < builder.Units.length) {
+      const afterClose = builder.Units[closing + 1];
+      if (afterClose instanceof Bracket && (afterClose as Bracket).StartBracketChar === "(") {
+        genericCall = true;
+      }
+    }
+  }
+  if (headUnit instanceof Bracket || startsWithAccess || genericCall) {
     // Expression limit: stop before `<` so `A.B<C>` parses `A.B` as the expression and `<C>` as type arguments
     // (ExpressionBuilder would otherwise try generic-call type arguments on the `<` and fail without `(`).
-    let expressionLimit = nameIndex;
-    while (expressionLimit < builder.Units.length) {
+    let expressionLimit = genericCall ? builder.Units.length : nameIndex;
+    while (!genericCall && expressionLimit < builder.Units.length) {
       const probe = builder.Units[expressionLimit];
       if (probe instanceof Symbol && (probe as Symbol).Is("<")) {
         break;
