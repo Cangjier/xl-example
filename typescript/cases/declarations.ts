@@ -630,3 +630,22 @@ var z = 1;
 // end candidate's IsAsiBoundary does not fire at a non-statement-word `declare` prefix.
 // deferred: `declare const x: number // c\n` (trailing comment, no semicolon) -- statement candidate and
 // root end candidate both stay live at EOF (CatalogGuide conflict); needs an EOF-aware end-candidate tweak.
+
+// ===== base 15: declare ASI split + trailing-trivia EOF (root end candidate owns the tail) =====
+// standalone `declare` line then a variable statement: TS = ExpressionStatement(declare) + VariableStatement
+declare\nconst x: number;
+declare\nconst x = 1;
+declare\n\nconst x: number;
+declare /* c */\nconst x: number;
+// variable statement ends at EOF with trailing trivia (no semicolon): end fallback builds it via StatementBuilder
+declare const x: number // c\n
+declare const x: number /* c */
+declare let y: string // c\n
+// same family for ordinary variable statements (previous behavior was a CatalogGuide conflict)
+const x = 1 // c\n
+let y: string\n
+// controls (already green)
+declare const x: number;
+declare function f(): void;
+a\n++b;
+a\nb;
