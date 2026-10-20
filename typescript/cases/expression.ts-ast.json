@@ -25363,6 +25363,497 @@
           ]
         }
       ]
+    },
+    {
+      "src": "#x in obj;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 0,
+                  "end": 2
+                },
+                {
+                  "kind": "InKeyword",
+                  "pos": 2,
+                  "end": 5
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 9,
+                  "text": "obj"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ #x in obj;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 0,
+                  "end": 10
+                },
+                {
+                  "kind": "InKeyword",
+                  "pos": 10,
+                  "end": 13
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 17,
+                  "text": "obj"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "#x in obj; // tail",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 0,
+                  "end": 2
+                },
+                {
+                  "kind": "InKeyword",
+                  "pos": 2,
+                  "end": 5
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 9,
+                  "text": "obj"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "#x /* c */ in obj;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 0,
+                  "end": 2
+                },
+                {
+                  "kind": "InKeyword",
+                  "pos": 2,
+                  "end": 13
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 17,
+                  "text": "obj"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "#x in obj;\n#y in obj;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 0,
+                  "end": 2
+                },
+                {
+                  "kind": "InKeyword",
+                  "pos": 2,
+                  "end": 5
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 9,
+                  "text": "obj"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 10,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 10,
+                  "end": 13
+                },
+                {
+                  "kind": "InKeyword",
+                  "pos": 13,
+                  "end": 16
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 20,
+                  "text": "obj"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(#x in obj);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 1,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "PrivateIdentifier",
+                      "pos": 1,
+                      "end": 3
+                    },
+                    {
+                      "kind": "InKeyword",
+                      "pos": 3,
+                      "end": 6
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 10,
+                      "text": "obj"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { #x in obj; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 14,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 14,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "PrivateIdentifier",
+                          "pos": 14,
+                          "end": 17
+                        },
+                        {
+                          "kind": "InKeyword",
+                          "pos": 17,
+                          "end": 20
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 24,
+                          "text": "obj"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { return #x in obj; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 21,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "PrivateIdentifier",
+                          "pos": 21,
+                          "end": 24
+                        },
+                        {
+                          "kind": "InKeyword",
+                          "pos": 24,
+                          "end": 27
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 31,
+                          "text": "obj"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() { return #x in this; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 15,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 22,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "PrivateIdentifier",
+                              "pos": 22,
+                              "end": 25
+                            },
+                            {
+                              "kind": "InKeyword",
+                              "pos": 25,
+                              "end": 28
+                            },
+                            {
+                              "kind": "ThisKeyword",
+                              "pos": 28,
+                              "end": 33
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() { #x in this; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 15,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 15,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "PrivateIdentifier",
+                              "pos": 15,
+                              "end": 18
+                            },
+                            {
+                              "kind": "InKeyword",
+                              "pos": 18,
+                              "end": 21
+                            },
+                            {
+                              "kind": "ThisKeyword",
+                              "pos": 21,
+                              "end": 26
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

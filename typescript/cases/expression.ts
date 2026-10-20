@@ -705,3 +705,18 @@ class C { m() { return new.target; } }
 // class C extends B { m() { return super.a; } }   ← 同上
 // `super()` 构造器调用 / `super` 在非 class 上下文 ← TS 语义非法，本 sweep 不收
 // `new.target` 若 builder 的 ParseNew/MetaProperty 未接，则本 base 的对应行会在 diff 里显形，按实测调整
+// ===== statement-start private brand check（private-in 合入主线后；CanStart 放行 Symbol "#"）=====
+#x in obj;
+/* c */ #x in obj;
+#x in obj; // tail
+#x /* c */ in obj;
+#x in obj;\n#y in obj;
+(#x in obj);
+function f() { #x in obj; }
+function f() { return #x in obj; }
+class C { m() { return #x in this; } }
+class C { m() { #x in this; } }
+// 红：private 成员访问 `this.#x` / `this.#m()` —— ExpressionBuilder 的 `.` 成员分派不认 `#`+名字
+// （属 expressions 家族后续；本块只放行语句首 `#`，不改 expressions 源）
+// class C { #x = 1; m() { return this.#x; } }
+// class C { #m() {} m2() { return this.#m(); } }
