@@ -671,3 +671,31 @@ class C {\n  m(x: any): x is A {\n    return true;\n  }\n}
 // constructor return predicates / assertions on setters: invalid TypeScript, skipped.
 // parameter decorators (`constructor(@dec x: A)`, `m(@dec x: A)`): DEFERRED -- needs TypeBuilder.ParseParameter surgery
 // (decorator prefix consumes tokens before the parameter name; planned for a later chunk).
+
+// ===== base 16: parameter decorators (TS Parameter children: Decorator(s), [modifiers], Identifier, Type) =====
+class C { constructor(@dec x: A) {} }
+class C { constructor(@dec x: A, y: B) {} }
+class C { m(@dec x: A) {} }
+class C { m(@a @b x: A) {} }
+class C { m(x: A, @dec y: B) {} }
+class C { m(@dec x: A, y: B) {} }
+// + parameter properties with decorators
+class C { constructor(@dec private x: A) {} }
+class C { constructor(@dec readonly x: A) {} }
+class C { constructor(@dec public x: A) {} }
+class C { constructor(@dec private readonly x: A) {} }
+// + decorator expression shapes
+class C { constructor(@dec() x: A) {} }
+class C { constructor(@a.b x: A) {} }
+// + trivia
+class C { constructor(/* c */ @dec x: A) {} }
+class C { constructor(@dec /* c */ x: A) {} }
+class C { constructor(@ /* c */ dec x: A) {} }
+class C { constructor(@dec\nx: A) {} }
+class C { m(@dec x?: A) {} }
+// ===== deferred =====
+// function parameter decorators (`function f(@dec x: A) {}`/: `(function (@dec x: A) {})`): TS parser accepts them,
+// but function-declaration-shape has its OWN BuildParameters head dispatch (not class BuildParameters) and is out of
+// this chunk's write scope -> reported as deferred owner: declarations/function-declaration-shape BuildParameters.
+// `// ` function f(@dec x: A) {}
+// `// ` (function (@dec x: A) { return x; });

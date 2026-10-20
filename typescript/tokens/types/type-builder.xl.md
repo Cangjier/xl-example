@@ -77,6 +77,8 @@ import { TypePredicateShape } from "./type-predicate-shape.xl.md"
 import { TypeQueryShape } from "./type-query-shape.xl.md"
 import { TypeReferenceShape } from "./type-reference-shape.xl.md"
 import { UnionTypeShape } from "./union-type-shape.xl.md"
+import { DecoratorShape } from "./decorator-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -1010,6 +1012,38 @@ while (inner.At < inner.Units.length) {
 return parameters;
 ```
 
+## method ParseDecorators:()=>Array<Token>
+
+参数装饰器前缀：`@` + 表达式，复用 `DecoratorShape`（与类成员装饰器同一形态，`@` 不进 children）。
+只在 `At` 停在 `@` 上时消费，否则返回空数组；表达式用 `ExpressionBuilder` 读（支持 `dec` / `dec()` / `a.b`）。
+
+```ts
+const decorators:Array<Token> = [];
+while (true) {
+  const unit = this.Peek(0);
+  if (unit === null || !(unit instanceof Symbol) || !(unit as Symbol).Is("@")) {
+    break;
+  }
+  const atIndex = this.At;
+  const atToken = unit as Symbol;
+  const decoratorPos = this.Positions[atIndex];
+  this.At++;
+  const expressionBase = atToken.SourceRange.End === null ? decoratorPos : atToken.SourceRange.End.Index + 1;
+  const decoratorBuilder = new ExpressionBuilder(this.Template, this.Context);
+  decoratorBuilder.Load(this.Units.slice(this.At), expressionBase);
+  if (decoratorBuilder.Units.length === 0) {
+    throw new Error("参数装饰器缺少表达式");
+  }
+  const expression = decoratorBuilder.ParseExpression();
+  if (decoratorBuilder.At === 0) {
+    throw new Error("参数装饰器的表达式没有读完");
+  }
+  this.At += decoratorBuilder.At;
+  decorators.push(DecoratorShape.FromParts(atToken, expression, decoratorPos, this.Context));
+}
+return decorators;
+```
+
 ## method ParseParameter:()=>Token
 
 一个参数：`[...] 名字 [?] : 类型`。children 顺序与 TS 一致（可选 DotDotDotToken、Identifier、可选 QuestionToken、类型）。
@@ -1019,6 +1053,9 @@ rest 的 `...` 是一个 `Symbol`（`SymbolTemplate` 组合符号表里有 `...`
 
 ```ts
 const paramStart = this.At;
+// Parameter decorators come first in TS Parameter children (`@dec x: A`; TS parser accepts them on
+// class/constructor parameters and on plain function parameters). Reuses DecoratorShape.
+const decorators:Array<Token> = this.ParseDecorators();
 let rest:Token | null = null;
 const restUnit = this.Peek(0);
 if (restUnit !== null && this.IsText(restUnit, "...")) {
@@ -1049,6 +1086,10 @@ const parameter = new ParameterShape(this.Template);
 parameter.ParameterName = name;
 parameter.QuestionToken = question;
 parameter.Type = type;
+// TS Parameter children order: Decorator(s), DotDotDotToken?, Identifier, QuestionToken?, Type.
+for (const decorator of decorators) {
+  parameter.Add(decorator);
+}
 if (rest !== null) {
   parameter.RestToken = rest;
   parameter.Add(rest);
