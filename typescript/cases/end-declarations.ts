@@ -216,3 +216,14 @@ export type T = A // c
 // import x from "m" // c\n        ← 归属 import 族：尾注释被算进 ImportDeclaration 的 End（TS 到字符串为止）
 // export { a } from "m" // c\n    ← 归属 export 族：同上（ExportDeclaration 的 End 含尾注释）
 
+
+// ===== export var / export default 无分号 EOF（chunk import-export-eof） =====
+export const x = 1
+export const x = 1 // c
+export const x = 1
+class C {}
+export default 1
+export default 1 // c
+export var v = 1
+export let l = 1
+export const c1 = 1\nexport const c2 = 2

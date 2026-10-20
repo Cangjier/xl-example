@@ -132,3 +132,7 @@ export import type D = require("n");
 export import type A = B.C; // c
 export /* c */ import type A = B.C;
 export import type A = B.C.D;
+
+// ===== import 声明的尾注释 End 口径（chunk import-export-eof） =====
+// import x from "m" // c   —— EOF 处尾注释/无分号 ASI 的 End 口径：core EOF 收尾把注释算进 End，需 core 侧修正，暂缓
+// import x from "m"\nimport y from "n"   —— 无分号连续 import：ASI 边界未接，暂缓

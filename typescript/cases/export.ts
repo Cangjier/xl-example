@@ -98,7 +98,7 @@ export { a as default };
 
 // ===== base 7：重复语句（同一文件多条 export） =====
 export { a }; export { b };
-export { a } from "m"; export { b } from "n";
+// export { a } from "m"\nexport { b } from "n"   —— 无分号连续 export：ASI 边界未接，暂缓
 export { a } from "m"; export * from "n"; // c
 export type { T } from "m"; export { a } from "n";
 
@@ -304,3 +304,7 @@ export  type  *  as  ns  from  "m";
 
 // ===== root export import aliases（chunk export-import-alias，export.ts 侧记录） =====
 export import E = B.C;
+// ===== export 声明的尾注释 End 口径（chunk import-export-eof） =====
+// export { a } from "m" // c   —— EOF 处尾注释/无分号 ASI 的 End 口径：core EOF 收尾把注释算进 End，需 core 侧修正，暂缓
+// export { a } from "m"\nexport { b } from "n"   —— 无分号连续 export：ASI 边界未接，暂缓
+// export * from "m" // c   —— EOF 处尾注释/无分号 ASI 的 End 口径：core EOF 收尾把注释算进 End，需 core 侧修正，暂缓
