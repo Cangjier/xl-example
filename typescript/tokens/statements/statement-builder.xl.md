@@ -4,6 +4,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -756,6 +757,18 @@ return this.Finish(shape, first, this.At - 1);
 ```ts
 const first = this.At;
 this.At++;
+const keyword = this.Units[first];
+// `return` is a restricted production: a line break right after it ends the statement (ASI),
+// so the following token starts a NEW statement (`return\na;` = return; a;).
+// TS sets the ReturnStatement End to the next token's Pos (keyword end + 1); throw is left as is
+// (core-blocked: TS recovery emits a zero-width Identifier child).
+const split = !isThrow
+  && this.At < this.Units.length
+  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.End);
+if (split) {
+  const shape = new ReturnStatementShape(this.Template);
+  return this.Finish(shape, first, first);
+}
 let endExclusive = this.At;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {
   endExclusive++;
@@ -780,11 +793,71 @@ if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
 return this.Finish(shape, first, this.At - 1);
 ```
 
+## private static method HasLineBreakAfter:(last:Source | null)=>bool
+
+关键字后面（跳过空格与注释）是否先出现换行。注释里的换行也算：ASI 把注释中的 LineTerminator 视作换行。
+
+```ts
+if (last === null) {
+  return false;
+}
+const document = last.Document;
+const count = document.GetCount();
+let at = last.Index + 1;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === "\n" || ch === "\r") {
+    return true;
+  }
+  if (ch === " " || ch === "\t") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      return at < count;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        if (document.At(at).Value === "\n" || document.At(at).Value === "\r") {
+          return true;
+        }
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  return false;
+}
+return false;
+```
+
 ## method BuildBreakOrContinue:(isContinue:bool)=>Token
 
 ```ts
 const first = this.At;
 this.At++;
+const keyword = this.Units[first];
+// Newline after `break` / `continue` = no label (ASI): `break\nlbl` = break; lbl; and the
+// BreakStatement End is the next token's Pos (keyword end + 1).
+const split = this.At < this.Units.length
+  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.End);
+if (split) {
+  let shape:ShapeToken;
+  if (isContinue) {
+    shape = new ContinueStatementShape(this.Template);
+  } else {
+    shape = new BreakStatementShape(this.Template);
+  }
+  return this.Finish(shape, first, first);
+}
 let label:Token | null = null;
 if (this.At < this.Units.length && !this.IsSymbol(this.Units[this.At], ";")) {
   const labelUnit = this.Units[this.At];
