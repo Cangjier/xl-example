@@ -213,3 +213,21 @@ declare module "m" { export /* c */ default class C {} }
 // module-block 走 StatementBuilder，ExportDeclaration 只有 possible-shape（无 FromUnits），
 // 需要 export-declaration 家族暴露可复用建树入口；`export { a };` 的 AST 待该入口一并核对。
 // declare module "m" { export * from "n"; }
+
+// ===== module-body export declarations（chunk export-build） =====
+declare module "m" { export * from "n"; }
+declare module "m" { export { a }; }
+declare module "m" { export { a as b }; }
+declare module "m" { export * as ns from "n"; }
+declare module "m" { export { a } from "n"; }
+declare module "m" { export {}; }
+declare module "m" { export { a, b as c } from "n"; }
+declare module "m" { export type { T } from "n"; }
+namespace N { export * from "n"; }
+namespace N { export { a }; }
+namespace N { export * as ns from "n"; }
+// trivia
+declare module "m" { export /* c */ * from "n"; }
+declare module "m" { export { a } /* c */; }
+declare module "m" { export\n{ a }; }
+declare module "m" { export * from "n"; } // c

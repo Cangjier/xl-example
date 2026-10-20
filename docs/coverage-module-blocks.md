@@ -182,3 +182,21 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
 - 暂缓（超出本 chunk 写范围）：根级 `export import A = B.C;` —— 根 `import` 候选在 `export` 前缀下先建
   ImportDeclarationShape shell 并在 Close 报「缺少模块说明符」；要修需要改 import 候选分派 / export-import 组合
   （import-declaration-possible / export 侧），按任务边界只记录不硬改。
+## module-body export declarations：`export *` / `export { … }`（chunk export-build）
+
+- 背景：`ExportDeclarationShape` 之前只有 Possible（根级挂载壳 + end 候选），没有 `FromUnits`，所以 module/namespace 体内
+  `export * from "n"` / `export { a }` / `export * as ns from "n"` 建不出来（module-block 只能退回 StatementBuilder）。
+- 实现（两页）：
+  - `declarations/export-declaration-shape.xl.md` 新增 `FromUnits(host, start, end, context)`：切片首格必须是 `export`、末格必须是
+    `;`；可选 `type` → `IsTypeOnly`；clause 两种 —— `*`（可选 `as` + 名字 → `NamespaceExportShape.FromTokens`）或
+    `{ … }` → `NamedExportsShape.FromBracket`；可选 `from` + module `StringLiteral`；可选 `with`/`assert` attributes；
+    Data = [ExportClause?, StringLiteral?, ImportAttributes?]（`export` / `type` / `from` **不是** TS children，不进 Data）；
+    Pos = 前一个非 trivia 单元 End+1，SignIn 到 `export`、SignOut 到 `;`，最后 `TryToClose` 复用既有 Close 抽字段。
+  - `declarations/module-block-shape.xl.md` 的 `BuildMember`：`export` 修饰词后若 declStart 是 `*` / `{`，或 `type` + `*`/`{`，
+    就扫到该成员 `;`，调 `ExportDeclarationShape.FromUnits`（dataStart 取 `export` 格），`Pos = inner.Positions[first]`，
+    并 `skipModifier = true`（export 不是 ExportDeclaration 的 child，不能再插 ExportKeyword）。
+- 新增全绿用例（module-blocks.ts，+15）：`declare module "m" { export * from "n"; }`、`{ export { a }; }`、
+  `{ export { a as b }; }`、`{ export * as ns from "n"; }`、`{ export { a } from "n"; }`、`{ export {}; }`、
+  `{ export { a, b as c } from "n"; }`、`{ export type { T } from "n"; }`、namespace 三形，以及
+  词间注释 / `;` 前注释 / `export` 后换行 / 行尾注释 trivia；根级 `export * from "m";`、`export { a };`、
+  `export * as ns from "m";`、`export { a } from "m";` 回归（export.ts +4）。
