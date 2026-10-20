@@ -85,6 +85,8 @@ import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
+import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
+import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
@@ -785,7 +787,9 @@ return expression;
 
 ## method ParseObjectLiteral:(bracket:Bracket, start:int)=>Token
 
-`{…}` 对象字面量：逐个属性解析（`名字 : 值`），逗号不进 AST。TS 的 `PropertyAssignment` 只有两个子节点（名 / 值），冒号不是节点。
+`{…}` 对象字面量：逐个成员分派，逗号不进 AST。成员四种写法：`名字 : 值`（PropertyAssignment，两个子节点）、
+`名字` / `名字 = 值`（ShorthandPropertyAssignment，`=` 是中间那个子节点）、`...expr`（SpreadAssignment，`...` 只进区间）、
+以及字面量名（StringLiteral / NumericLiteral / BigIntLiteral 作为名字节点，不是 Identifier）。
 
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
@@ -801,19 +805,39 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     continue;
   }
-  const nameIndex = inner.At;
-  const name = inner.ParseName();
-  const colon = inner.Peek(0);
-  if (colon === null || !inner.IsText(colon, ":")) {
-    throw new Error("对象字面量缺少冒号");
+  const memberIndex = inner.At;
+  if (inner.IsText(unit, "...")) {
+    inner.At++;
+    const expression = inner.ParseAssign();
+    const spread = SpreadAssignmentShape.FromExpression(unit, expression, this.Context);
+    spread.Pos = inner.Positions[memberIndex];
+    shape.Add(spread);
+    continue;
   }
-  inner.At++;
-  const value = inner.ParseAssign();
-  const property = new PropertyAssignmentShape(this.Template);
-  property.Add(name);
-  property.Add(value);
-  inner.SpanNode(property, nameIndex, inner.At - 1);
-  shape.Add(property);
+  const nameIndex = inner.At;
+  const name = inner.ParsePropertyName();
+  const next = inner.Peek(0);
+  if (next !== null && inner.IsText(next, ":")) {
+    inner.At++;
+    const value = inner.ParseAssign();
+    const property = PropertyAssignmentShape.FromParts(name, value, this.Context);
+    property.Pos = inner.Positions[nameIndex];
+    shape.Add(property);
+    continue;
+  }
+  if (next !== null && inner.IsText(next, "=")) {
+    const equalsIndex = inner.At;
+    inner.At++;
+    const initializer = inner.ParseAssign();
+    const shorthand = ShorthandPropertyAssignmentShape.FromParts(name, initializer, this.Context);
+    shorthand.Pos = inner.Positions[nameIndex];
+    shorthand.Data.splice(1, 0, inner.MakeOperatorToken(next, equalsIndex));
+    shape.Add(shorthand);
+    continue;
+  }
+  const shorthand = ShorthandPropertyAssignmentShape.FromParts(name, null, this.Context);
+  shorthand.Pos = inner.Positions[nameIndex];
+  shape.Add(shorthand);
 }
 if (bracket.SourceRange.Start !== null) {
   shape.SignIn(bracket.SourceRange.Start);
@@ -824,6 +848,44 @@ if (bracket.SourceRange.End !== null) {
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
 return shape;
+```
+
+## method ParsePropertyName:()=>Token
+
+对象字面量的属性名：`PropertyName` 可以是 `IdentifierName` | `StringLiteral` | `NumericLiteral` | `BigIntLiteral`。
+标识符名（含关键字名）走 `ParseName`；字符串 / 数字 / bigint 走各自字面量的 `FromBasicToken`。
+`Pos` 一律按「前一个非 trivia 单元 End+1」赋值，与 TS 的 `pos` 同口径。
+
+```ts
+const start = this.At;
+const unit = this.Peek(0);
+if (unit === null) {
+  throw new Error("对象字面量缺少属性名");
+}
+if (unit instanceof String) {
+  if (this.IsTemplateToken(unit)) {
+    throw new Error("对象字面量的属性名不支持模板串");
+  }
+  this.At++;
+  const shape = StringLiteralShape.FromBasicToken(unit as String, this.Context);
+  shape.Pos = this.Positions[start];
+  return shape;
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  if (this.StartsNumber(text)) {
+    this.At++;
+    if ((unit as Common).IsBigInt()) {
+      const bigIntShape = BigIntLiteralShape.FromBasicToken(unit as Common, this.Context);
+      bigIntShape.Pos = this.Positions[start];
+      return bigIntShape;
+    }
+    const numericShape = NumericLiteralShape.FromBasicToken(unit as Common, this.Context);
+    numericShape.Pos = this.Positions[start];
+    return numericShape;
+  }
+}
+return this.ParseName();
 ```
 
 ## method ParseArrayLiteral:(bracket:Bracket, start:int)=>Token
