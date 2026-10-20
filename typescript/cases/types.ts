@@ -496,3 +496,23 @@ type T<U> = U extends A<B<C>> ? 1 : 2;
 type T = A<B /* c */ <C>>;
 type T = A /* c */ <B<C>>;
 type T = A<B<C> >;
+
+// ===== sweep 5：keyof/索引链 / 模板字面量类型 / infer 位置 / 递归分发（measurement） =====
+type T = keyof A["b"];
+type T = A["b"]["c"];
+type T = (A | B)["x"];
+type T = A[B["c"]];
+type T = `${A}${B}`;
+type T = `${A}-${B}-${C}`;
+type T = `${number}`;
+type T = `${string & K}`;
+type T<U> = U extends A<infer R> ? R : never;
+type T = Generator<infer R, infer S>;
+type T = () => infer R;
+type T<U> = U extends A ? U extends B<infer R> ? R : never : never;
+type F<T> = T extends object ? { [K in keyof T]: F<T[K]> } : T;
+type T = typeof a["b"];
+type T = (typeof a)["b"];
+// trivia
+type T = `${A /* c */}${B}`;
+type T = keyof /* c */ A["b"];
