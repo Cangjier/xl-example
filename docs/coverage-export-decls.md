@@ -111,3 +111,15 @@ TS 的 InterfaceDeclaration `pos` 是 14 而不是 0；与 `export declare\ntype
 
 归属说明：export-decl 只负责 `export` 前缀形与修饰词拼装；`declare`/heritage/成员语义由 declarations 侧的
 InterfaceDeclarationShape / ClassDeclarationShape 提供（本 chunk 未改任何 interface/class/function declaration 文件）。
+## inline type-only export specifiers + type-star（chunk typespec）
+
+- `ExportSpecifierShape.FromTokens`：组首 `type` 且后面还有名字时置 `IsTypeOnly = true`（TS 的
+  ExportSpecifier.isTypeOnly），名字/别名照旧从下一个 token 起解析；组首单独一个 `{ type }` 仍是导出名为
+  `type` 的标识符（TS 口径）。名字 `Pos`：inline 形为 `type.End+1`；`as` 别名 `Pos` 为 `as.End+1`；
+  复合区间/整体 `Pos` 与既有一致。has no children for `type` keyword（与 TS 一致：keyword 不投影）。
+- 新增全绿用例（export.ts，+12）：`export { type T } from "m";`、`export { type T, a } from "m";`、
+  `export { type T };`、`export { type T as U } from "m";`、`export { a, type T } from "m";`，以及前导空格/
+  行尾注释/词间块注释（`{ /* c */ type T }`、`{ type /* c */ T }`）/换行（`type\nT`）变体；
+  type-star 本体（`export type * from "m";`、`export type * as ns from "m";`）在 base 4 已绿，本次只补
+  `export type *\nfrom "m";` 与多空格变体。
+- 回归：export 194/194（182 + 12）、export-functions 全绿、全量无回归。

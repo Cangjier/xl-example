@@ -198,7 +198,7 @@ export { a, b, c };
 export { a as b, c as d };
 export { a as b } from "m";
 export type { T } from "m";
-// export { type T } from "m";        —— inline type specifier：TS 置 ExportSpecifier.isTypeOnly=true 且 name=T；本仓把 `type` 当 Identifier（pos 8..13 vs ts 13..15），未支持
+// export { type T } from "m";        —— 已支持（chunk typespec）：见 base 16
 export * as ns from "m" with { type: "json" };
 export * as ns from "m" with { type: "json", other: "x" };
 export { a as default };
@@ -221,7 +221,6 @@ export\n{\n  a,\n  b,\n  c,\n};
 export *\nas\nns\nfrom "m";
 
 // ===== sweep 暂缓（measurement-only，未改 token 源） =====
-// export { type T } from "m";  —— inline type-only specifier（见上方注释；不支持）
 
 // ===== base 13：export default/abstract/extends/implements/const enum（chunk5） =====
 export default class D extends B {}
@@ -284,3 +283,21 @@ export * as ns from "m" with { type: "json" };
 export { a } from "m" assert { type: "json", other: "x" };
 export * as ns from "m" with { type: "json" }; // c
 // export { a } from "m"\nwith { type: "json" };  —— TS 在 from 之后换行即 ASI：`with{…}` 是独立 WithStatement；本仓把 attributes 续上了（ASI 语义差），暂缓
+// ===== base 16：inline type-only export specifiers（chunk typespec） =====
+export { type T } from "m";
+export { type T, a } from "m";
+export { type T };
+export { type T as U } from "m";
+export { a, type T } from "m";
+// + 前导空格
+  export { type T } from "m";
+// + 行尾注释
+export { type T } from "m"; // c
+// + 词间块注释
+export { /* c */ type T } from "m";
+export { type /* c */ T } from "m";
+// + 换行
+export { type\nT } from "m";
+// + type-star 的 trivia（type-star 本体在 base 4 已绿，仅补对抗变体）
+export type *\nfrom "m";
+export  type  *  as  ns  from  "m";
