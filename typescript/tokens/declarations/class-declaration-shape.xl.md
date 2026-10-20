@@ -290,6 +290,11 @@ while (inner.At < inner.Units.length) {
     parameters.push(inner.SpanNode(parameter, firstIndex, inner.At - 1));
     continue;
   }
+  const headUnit = inner.Units[inner.At];
+  if (headUnit instanceof Symbol && (headUnit as Symbol).Is("@")) {
+    parameters.push(inner.ParseParameter());
+    continue;
+  }
   const nameIndex = inner.At;
   let typed = false;
   if (nameIndex + 1 < inner.Units.length) {
@@ -561,7 +566,7 @@ while (at < code.length) {
       }
       const typeBuilder = new TypeBuilder(host.Template, context);
       typeBuilder.Load(typeUnits, typePos);
-      returnType = typeBuilder.ParseType();
+      returnType = typeBuilder.ParseReturnType();
       if (typeBuilder.At !== typeBuilder.Units.length) {
         throw new Error("方法的返回类型没有读完");
       }

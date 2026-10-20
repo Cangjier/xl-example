@@ -155,3 +155,21 @@
 ### deferred
 - constructor types with abstract (`abstract new () => A`), construct signature with modifiers other than abstract,
   heritage generic call with explicit type arguments on parenthesized member access: deferred.
+
+## chunk 8 (method return predicates, branch cover-method-predicates-1 @ origin/integration d8077d98)
+
+- class methods: `m(x: any): x is A`, `asserts x is A`, untyped param `x is A`, `static m`, two-param predicate,
+  `m(): this is A`, `get x(): asserts this is A`, two methods (predicate + assert) in one class + trivia.
+- interface method signatures: `m(x: any): x is A`, `asserts x is A`, mixed with normal methods.
+- type-literal method signatures: `{ m(x: any): x is A }`, `asserts`, `this is A`, mixed, trivia.
+- implementation: class-declaration-shape method return type uses TypeBuilder.ParseReturnType();
+  TypeBuilder method-signature return type likewise; ParseTypePredicate now emits ThisTypeShape for `this`
+  (it previously produced Identifier, so `this is A` did not match TS ThisType).
+- readings: types 336/336 (baseline 331 + 5); declarations 482/482; full suite 3438/3438; tsc 0 error.
+
+### deferred
+- parameter decorators `constructor(@dec x: A)` / `m(@dec x: A)`: needs decorator-prefix handling inside
+  TypeBuilder.ParseParameter (decorator expression delimiting before the parameter name). Patch attempted then reverted
+  to keep the suite green; belongs to a later parameter-decorator chunk.
+- object literal method predicates `({ m(x: any): x is A { ... } })`: needs expression-builder object-literal method support;
+  expression family scope.

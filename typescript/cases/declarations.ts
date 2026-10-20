@@ -649,3 +649,25 @@ declare const x: number;
 declare function f(): void;
 a\n++b;
 a\nb;
+// (restored) member decorator cases from earlier chunks
+// ===== base 15: method return predicates + parameter decorators =====
+class C { m(x: any): x is A { return true; } }
+class C { m(x): x is A { return true; } }
+class C { static m(x: any): x is A { return true; } }
+class C { m(a: A, b: B): x is C { return true; } }
+class C { m(): this is A { return true; } }
+class C { get x(): asserts this is A {} }
+class C { m(x: any): x is A { return true; } n(y: any): asserts y {} }
+interface I { m(x: any): x is A; }
+interface I { m(x: any): asserts x is A; }
+interface I { m(x: any): x is A; n(): void; }
+class C { m(x: any): x /* c */ is A { return true; } }
+class C { m(x: any): asserts /* c */ x is A {} }
+class C { m(x: any): x is /* c */ A { return true; } }
+interface I { m(x: any): asserts /* c */ x is A; }
+class C {\n  m(x: any): x is A {\n    return true;\n  }\n}
+// object literal method predicates `({ m(x: any): x is A { return true; } })`: needs expression-builder method parsing; expression family scope.
+// parameter decorators with call/qualified expressions (`@dec() x`, `@a.b x`): only plain `@name` supported here.
+// constructor return predicates / assertions on setters: invalid TypeScript, skipped.
+// parameter decorators (`constructor(@dec x: A)`, `m(@dec x: A)`): DEFERRED -- needs TypeBuilder.ParseParameter surgery
+// (decorator prefix consumes tokens before the parameter name; planned for a later chunk).

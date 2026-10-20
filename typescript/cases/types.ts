@@ -457,3 +457,9 @@ type T = () => A;
 type T = (new () => A)[];
 type T = Array<new () => A>;
 type T = { new (): A };
+// ===== base 15: type-literal method signatures with predicates =====
+type T = { m(x: any): x is A };
+type T = { m(x: any): asserts x is A };
+type T = { m(): this is A };
+type T = { m(x: any): x is A; n(): void };
+type T = { m(x: any): x /* c */ is A };
