@@ -990,3 +990,19 @@ abstract class C { public abstract x: A; protected abstract m(): void; }
 //   "Declaration expected."; recovery splits the member. Not worth matching, parked.
 // `protected abstract get g(): A;` / `abstract set s(v: A);` within one abstract class: covered partially elsewhere;
 //   the full abstract-accessor matrix stays in the earlier accessor chunk.
+// ===== base 21: static block modifier children（public/protected/private/declare/@dec 在 Block 前） =====
+class C { public static {} }
+class C { protected static {} }
+class C { private static {} }
+class C { declare static {} }
+class C { @dec static {} }
+class C { public static { x = 1; } }
+class C { public static {} static {} }
+class C { public static { a(); } protected static { b(); } }
+class C { public /* c */ static {} }
+class C { /* c */ public static {} }
+class C { public static /* c */ {} }
+class C { @dec /* c */ static {} }
+class C { public static {\n let x = 1;\n} }
+// + regression：plain static 块 / 普通成员
+// `class C { static readonly {} }` 等修饰词组合：TS parseDiagnostics = 3（非法组合），不收。
