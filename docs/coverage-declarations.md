@@ -23,11 +23,30 @@
 > `async function\nf() {}`、`async\nfunction f() {}`（ASI 拆分，TS 语义即 ExpressionStatement(async) + FunctionDeclaration）、
 > 重复形与和 `function` / `let` / `declare` 混排。
 >
-> 暂缓：**嵌套 async function**（`async function f() { async function g() {} }`）——同步嵌套
-> `function f() { function g() {} }` 已经是绿的，但函数体里的语句由 statements 的 `StatementBuilder` 分派，
-> 它认 `function` 关键字、不认 `async` 前缀；async 分支属 `typescript/tokens/statements/**`（本块写范围之外），
-> 需要 statements 侧补分派 + 复用 `FunctionDeclarationShape.FromUnits`。另暂缓：async generator（`async function*`）、
-> async method（class extras 分支）、泛型 async function（types 家族）、`export async function`（export 侧）。
+> **nested async chunk**（分支 `cover-nested-async-1`，起点 `origin/integration @895a4ba5`）：
+> 把上面「暂缓：嵌套 async function」收掉。`async-functions.ts` **22 → 43**（+21），**43/43** 完全一致；
+> 全量 **2653 → 2674** 全绿；tsc 0 error。
+>
+> 实测还发现：修复前同步嵌套 `function f() { function g() {} }` 被建成了 **ExpressionStatement(FunctionExpression)**，
+> 与 TS 的 FunctionDeclaration 结构不符（只是没有 stem 测到它）；本次分派修复后它也一并转绿。
+>
+> 修法（`typescript/tokens/statements/statement-builder.xl.md`，唯一源改动）：
+> - `BuildStatement` 的 Common 分派新增 `function` 与 `async`+`function` 对 → `BuildFunctionDeclaration`；
+> - `BuildFunctionDeclaration` 找声明结尾（体 `{…}` 括号或重载签名 `;`），用 **host-like 适配器**
+>   `{ Data: this.Units, Template: this.Template }` 调 `FunctionDeclarationShape.FromUnits`（该函数只读
+>   `host.Data` / `host.Template`，所以体外嵌套声明也能复用同一套构造，不重复归属）；
+> - 适配器不知道「块内第一条语句的 base offset」，所以事后把 shape 的 `Pos` 与**第一个修饰词**
+>   （`AsyncKeyword`/`DeclareKeyword`）的 `Pos` 用本 builder 的 `Positions[first]` 修正。
+>
+> 21 条新增：体内嵌套 async（空体 / await 体 / `return g;` / 带返回类型 / 带参数 / 重载签名 `async function g(a: A): B;`）、
+> 三层嵌套、async 里套同步 function、同步 function 里套 async、`{ async function f() {} }`、
+> `if (a) { async function f() {} }`、`while (a) { async function f() {} }`、块内 async + `let`、
+> async/function 之间的注释、以及 class 方法体里的嵌套 async function（`class C { m() { async function f() {} } }`、
+> async 方法体两种）；同步嵌套 `function f() { function g() {} }` 回归也计入。
+>
+> 仍未做：module / namespace **块体**里的嵌套 async function（块体由 module-block builder 负责，本块不改 module 文件，
+> 故未测试）；async generator（`async function*`）、async method（class extras）、泛型 async function（types 家族）、
+> `export async function`（export 侧）。
 >
 > **chunk 3（heritage）**（分支 `cover-declarations-3`，起点 `origin/integration @0a02bda2`，合并
 > `origin/cover-declarations-2 @b8499967`；`source-file-shape.xl.md` 候选表有冲突，按并集手工去重后提交）：

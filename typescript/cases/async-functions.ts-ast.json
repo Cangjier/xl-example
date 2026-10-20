@@ -370,6 +370,1441 @@
       ]
     },
     {
+      "src": "async function f() { async function g() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 39,
+                      "end": 42
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async function g() { await h(); } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 39,
+                      "end": 54,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 41,
+                          "end": 52,
+                          "children": [
+                            {
+                              "kind": "AwaitExpression",
+                              "pos": 41,
+                              "end": 51,
+                              "children": [
+                                {
+                                  "kind": "CallExpression",
+                                  "pos": 47,
+                                  "end": 51,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 47,
+                                      "end": 49,
+                                      "text": "h"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async function g() { await h(); } return g; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 66,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 66,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 39,
+                      "end": 54,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 41,
+                          "end": 52,
+                          "children": [
+                            {
+                              "kind": "AwaitExpression",
+                              "pos": 41,
+                              "end": 51,
+                              "children": [
+                                {
+                                  "kind": "CallExpression",
+                                  "pos": 47,
+                                  "end": 51,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 47,
+                                      "end": 49,
+                                      "text": "h"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 54,
+                  "end": 64,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 61,
+                      "end": 63,
+                      "text": "g"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async function g(): void {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 40,
+                      "end": 45
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 45,
+                      "end": 48
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async function g(a: A): B { return a; } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 62,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 62,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 60,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 38,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 39,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 40,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 40,
+                              "end": 42,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 44,
+                      "end": 46,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 44,
+                          "end": 46,
+                          "text": "B"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 46,
+                      "end": 60,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 48,
+                          "end": 58,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 55,
+                              "end": 57,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async function g(a: A): B; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 38,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 39,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 40,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 40,
+                              "end": 42,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 44,
+                      "end": 46,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 44,
+                          "end": 46,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { function g() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 14,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 27,
+                      "end": 30
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { function g(a: A): B { return a; } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 14,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 26,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 26,
+                          "end": 27,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 28,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 28,
+                              "end": 30,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 32,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 34,
+                          "text": "B"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 34,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 36,
+                          "end": 46,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 43,
+                              "end": 45,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { function g() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 33,
+                      "end": 36
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { async function g() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 14,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 14,
+                      "end": 20
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 33,
+                      "end": 36
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { let x = 1; async function g() {} return g; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 65,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 65,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 24,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 28,
+                              "end": 30,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 31,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 31,
+                      "end": 37
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 46,
+                      "end": 48,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 50,
+                      "end": 53
+                    }
+                  ]
+                },
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 53,
+                  "end": 63,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 60,
+                      "end": 62,
+                      "text": "g"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async function g() { async function h() {} } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 67,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 67,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 65,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 39,
+                      "end": 65,
+                      "children": [
+                        {
+                          "kind": "FunctionDeclaration",
+                          "pos": 41,
+                          "end": 63,
+                          "children": [
+                            {
+                              "kind": "AsyncKeyword",
+                              "pos": 41,
+                              "end": 47
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 56,
+                              "end": 58,
+                              "text": "h"
+                            },
+                            {
+                              "kind": "Block",
+                              "pos": 60,
+                              "end": 63
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ async function f() {} }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 1,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 1,
+                  "end": 7
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "f"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) { async function f() {} }",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 8,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 8,
+                      "end": 14
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 27,
+                      "end": 30
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "while (a) { async function f() {} }",
+      "ast": [
+        {
+          "kind": "WhileStatement",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 8,
+              "text": "a"
+            },
+            {
+              "kind": "Block",
+              "pos": 9,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 11,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 11,
+                      "end": 17
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 30,
+                      "end": 33
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ async function f() {} let x = 1; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "FunctionDeclaration",
+              "pos": 1,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 1,
+                  "end": 7
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "f"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            },
+            {
+              "kind": "VariableStatement",
+              "pos": 23,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 23,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 27,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 31,
+                          "end": 33,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { /* c */ async function g() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 34
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 47,
+                      "end": 50
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async /* c */ function g() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 47,
+                      "end": 50
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() { async function f() {} } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "FunctionDeclaration",
+                      "pos": 15,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "AsyncKeyword",
+                          "pos": 15,
+                          "end": 21
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 32,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 34,
+                          "end": 37
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { async m() { async function f() { await g(); } } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 9,
+                  "end": 15
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 19,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "FunctionDeclaration",
+                      "pos": 21,
+                      "end": 55,
+                      "children": [
+                        {
+                          "kind": "AsyncKeyword",
+                          "pos": 21,
+                          "end": 27
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 36,
+                          "end": 38,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 40,
+                          "end": 55,
+                          "children": [
+                            {
+                              "kind": "ExpressionStatement",
+                              "pos": 42,
+                              "end": 53,
+                              "children": [
+                                {
+                                  "kind": "AwaitExpression",
+                                  "pos": 42,
+                                  "end": 52,
+                                  "children": [
+                                    {
+                                      "kind": "CallExpression",
+                                      "pos": 48,
+                                      "end": 52,
+                                      "children": [
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 48,
+                                          "end": 50,
+                                          "text": "g"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() { function g() {} async function f() {} } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 57,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "FunctionDeclaration",
+                      "pos": 15,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 26,
+                          "text": "g"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 28,
+                          "end": 31
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "FunctionDeclaration",
+                      "pos": 31,
+                      "end": 53,
+                      "children": [
+                        {
+                          "kind": "AsyncKeyword",
+                          "pos": 31,
+                          "end": 37
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 46,
+                          "end": 48,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 50,
+                          "end": 53
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "/* c */ async function f() {}",
       "ast": [
         {

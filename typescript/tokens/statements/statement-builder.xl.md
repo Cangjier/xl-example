@@ -8,6 +8,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
@@ -213,6 +214,17 @@ if (unit instanceof Symbol) {
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
+  // Nested function declarations: "function" or "async function" at statement position.
+  // The declaration itself is built by FunctionDeclarationShape.FromUnits (no duplicate ownership).
+  if (text === "function") {
+    return this.BuildFunctionDeclaration();
+  }
+  if (text === "async") {
+    const afterAsync = this.Peek(1);
+    if (afterAsync !== null && this.IsText(afterAsync, "function")) {
+      return this.BuildFunctionDeclaration();
+    }
+  }
   if (text === "let" || text === "const" || text === "var") {
     return this.BuildVariableStatement();
   }
@@ -267,6 +279,66 @@ if (unit instanceof Common) {
   }
 }
 return this.BuildExpressionStatement();
+```
+
+## method BuildFunctionDeclaration:()=>Token
+
+Nested `function` / `async function` declaration inside a body. Delegates to
+`FunctionDeclarationShape.FromUnits` with a host-like adapter over this builder's code units
+(FromUnits only reads `host.Data` / `host.Template`), then fixes the shape `Pos` to this
+builder's `Positions[first]` (the first statement of a block has a base offset that the
+adapter cannot know). End of the declaration is the body `{...}` bracket or the `;` of an
+overload signature.
+
+```ts
+const first = this.At;
+let cursor = this.At;
+if (this.IsText(this.Units[cursor], "async")) {
+  cursor++;
+}
+if (cursor >= this.Units.length || !this.IsText(this.Units[cursor], "function")) {
+  throw new Error("函数声明缺少 function 关键字");
+}
+cursor++;
+if (cursor < this.Units.length && this.IsSymbol(this.Units[cursor], "*")) {
+  cursor++;
+}
+cursor++;
+if (cursor >= this.Units.length
+  || !(this.Units[cursor] instanceof Bracket)
+  || (this.Units[cursor] as Bracket).StartBracketChar !== "(") {
+  throw new Error("函数声明缺少参数表");
+}
+cursor++;
+let end = -1;
+while (cursor < this.Units.length) {
+  const unit = this.Units[cursor];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    end = cursor;
+    break;
+  }
+  if (this.IsSymbol(unit, ";")) {
+    end = cursor;
+    break;
+  }
+  cursor++;
+}
+if (end < 0) {
+  throw new Error("函数声明缺少函数体或分号");
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = FunctionDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+shape.Pos = this.Positions[first];
+// FromUnits cannot know this builder's base offset, so the FIRST modifier (async / declare)
+// would get Pos 0. Repair it from this builder's Positions (later modifiers are chained off it).
+if (this.IsText(this.Units[first], "async") || this.IsText(this.Units[first], "declare")) {
+  if (shape.Data.length > 0) {
+    const head = shape.Data[0] as ShapeToken;
+    head.Pos = this.Positions[first];
+  }
+}
+this.At = end + 1;
+return shape;
 ```
 
 ## method BuildBlock:()=>Token
