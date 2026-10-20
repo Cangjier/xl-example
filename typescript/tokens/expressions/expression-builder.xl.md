@@ -33,6 +33,7 @@ import { ColonTokenShape } from "../punctuation/colon-token-shape.xl.md"
 import { CommaTokenShape } from "../punctuation/comma-token-shape.xl.md"
 import { EqualsEqualsEqualsTokenShape } from "../punctuation/equals-equals-equals-token-shape.xl.md"
 import { EqualsEqualsTokenShape } from "../punctuation/equals-equals-token-shape.xl.md"
+import { EqualsGreaterThanTokenShape } from "../punctuation/equals-greater-than-token-shape.xl.md"
 import { ExclamationEqualsEqualsTokenShape } from "../punctuation/exclamation-equals-equals-token-shape.xl.md"
 import { ExclamationEqualsTokenShape } from "../punctuation/exclamation-equals-token-shape.xl.md"
 import { GreaterThanEqualsTokenShape } from "../punctuation/greater-than-equals-token-shape.xl.md"
@@ -56,8 +57,10 @@ import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { SlashEqualsTokenShape } from "../punctuation/slash-equals-token-shape.xl.md"
 import { SlashTokenShape } from "../punctuation/slash-token-shape.xl.md"
 import { ArrayLiteralExpressionShape } from "./array-literal-expression-shape.xl.md"
+import { ArrowFunctionShape } from "./arrow-function-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { CallExpressionShape } from "./call-expression-shape.xl.md"
+import { ClassExpressionShape } from "./class-expression-shape.xl.md"
 import { ConditionalExpressionShape } from "./conditional-expression-shape.xl.md"
 import { DeleteExpressionShape } from "./delete-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "./element-access-expression-shape.xl.md"
@@ -80,6 +83,7 @@ import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
@@ -462,6 +466,24 @@ while (true) {
   if (unit === null) {
     break;
   }
+  if (this.IsText(unit, "=>")) {
+    // 单标识符参数的箭头（`a => a`）：此时 expression 就是那个 Identifier。
+    if (!(expression instanceof IdentifierShape)) {
+      throw new Error("箭头函数的参数只支持标识符");
+    }
+    const arrowIndex = this.At;
+    const parameter = new ParameterShape(this.Template);
+    parameter.Add(expression);
+    this.SpanNode(parameter, start, start);
+    this.At++;
+    const body = this.ParseAssign();
+    const shape = new ArrowFunctionShape(this.Template);
+    shape.Add(parameter);
+    shape.Add(this.MakeOperatorToken(unit, arrowIndex));
+    shape.Add(body);
+    expression = this.SpanNode(shape, start, this.At - 1);
+    continue;
+  }
   if (this.IsTemplateToken(unit)) {
     const template = this.ParseTemplateToken();
     const shape = new TaggedTemplateExpressionShape(this.Template);
@@ -835,6 +857,70 @@ shape.TryToClose(this.Context);
 return shape;
 ```
 
+## method ParseArrowFromBracket:(bracket:Bracket, start:int)=>Token
+
+`(…) => body` 的箭头：`bracket.Data` 里只允许「标识符 (`,` 标识符)*」，每个标识符产出一个 `Parameter`（子节点是 `Identifier`）；`=>` 走 `EqualsGreaterThanToken`，body 按赋值表达式解析。TS 的 children 顺序是 Parameter 们、EqualsGreaterThanToken、body；无参箭头没有 Parameter。
+
+```ts
+const arrow = new ArrowFunctionShape(this.Template);
+const inner = new ExpressionBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+while (inner.At < inner.Units.length) {
+  const unit = inner.Units[inner.At];
+  if (inner.IsText(unit, ",")) {
+    inner.At++;
+    continue;
+  }
+  if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
+    throw new Error("箭头函数的参数只支持标识符");
+  }
+  const nameIndex = inner.At;
+  const name = IdentifierShape.FromBasicToken(unit as Common, this.Context);
+  name.Pos = inner.Positions[nameIndex];
+  inner.At++;
+  const parameter = new ParameterShape(this.Template);
+  parameter.Add(name);
+  inner.SpanNode(parameter, nameIndex, nameIndex);
+  arrow.Add(parameter);
+}
+const arrowUnit = this.Peek(0);
+if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
+  throw new Error("箭头函数缺少 =>");
+}
+const arrowIndex = this.At;
+this.At++;
+const body = this.ParseAssign();
+arrow.Add(this.MakeOperatorToken(arrowUnit, arrowIndex));
+arrow.Add(body);
+return this.SpanNode(arrow, start, this.At - 1);
+```
+
+## method ParseClassExpression:()=>Token
+
+`class {}` 类表达式：本批只收空类体（这种情况下 ClassExpression 没有 children）。类体成员依赖后续块，先显式报错，不静默建错树。
+
+```ts
+const start = this.At;
+this.At++;
+const bodyUnit = this.Peek(0);
+if (bodyUnit === null || !this.IsBracketStart(bodyUnit, "{")) {
+  throw new Error("类表达式缺少类体");
+}
+const bracket = bodyUnit as Bracket;
+for (const item of bracket.Data) {
+  if (!item.IsTriviaToken) {
+    throw new Error("类表达式暂不支持类体成员");
+  }
+}
+this.At++;
+const shape = new ClassExpressionShape(this.Template);
+return this.SpanNode(shape, start, this.At - 1);
+```
+
 ## method ParsePrimary:()=>Token
 
 ```ts
@@ -851,6 +937,13 @@ if (unit instanceof RegexToken) {
 }
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
+  if (bracket.StartBracketChar === "(") {
+    const next = this.Peek(1);
+    if (next !== null && this.IsText(next, "=>")) {
+      this.At++;
+      return this.ParseArrowFromBracket(bracket, start);
+    }
+  }
   if (bracket.StartBracketChar === "{") {
     this.At++;
     return this.ParseObjectLiteral(bracket, start);
@@ -881,6 +974,9 @@ if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   if (text === "new") {
     return this.ParseNew();
+  }
+  if (text === "class") {
+    return this.ParseClassExpression();
   }
   this.At++;
   if (text === "true") {
@@ -986,6 +1082,8 @@ const text = this.TextOf(unit);
 let shape:ShapeToken;
 if (text === "=") {
   shape = new FirstAssignmentShape(this.Template);
+} else if (text === "=>") {
+  shape = new EqualsGreaterThanTokenShape(this.Template);
 } else if (text === "+=") {
   shape = new FirstCompoundAssignmentShape(this.Template);
 } else if (text === "^=") {
