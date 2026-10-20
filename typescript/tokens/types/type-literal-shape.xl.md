@@ -11,10 +11,15 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 
 ```txt
 type T = {};
+type T = { a: A };
+type T = { a?: A; b: B };
 ```
 
-本块只支持**空**对象类型 `{}`：children 为空，区间含花括号（`{}` → `TypeLiteral[8,11)`）。
-非空成员（`{ a: number }`）由 chunk 2 补；在那之前 `TypeBuilder` 会对非空花括号报错，保证不静默错树。
+对象类型（类型字面量）：children 是成员签名，按源码顺序；`;` / `,` 分隔符不进 AST。
+
+区间含花括号：`{ a: A }` → `TypeLiteral[8,17)`；`Pos` 是前一个非 trivia 单元的口径（`{` 之前）。
+成员形态见 `PropertySignatureShape` / `MethodSignatureShape` / `IndexSignatureShape` / `CallSignatureShape`；
+rest / get-set / 可选方法等留给后续块。
 
 ## field Members:Array<Token> = []
 
