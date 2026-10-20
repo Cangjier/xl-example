@@ -213,3 +213,30 @@ declare module "m" { export /* c */ default class C {} }
 // module-block 走 StatementBuilder，ExportDeclaration 只有 possible-shape（无 FromUnits），
 // 需要 export-declaration 家族暴露可复用建树入口；`export { a };` 的 AST 待该入口一并核对。
 // declare module "m" { export * from "n"; }
+
+// ===== base 14：模块体 / namespace 体内的声明（无体声明 + 类型别名；measurement-first） =====
+// 模块体内的 class / interface / enum / function / 变量声明
+declare module "m" { class C {} }
+declare module "m" { interface I { a: A } }
+declare module "m" { enum E { A } }
+declare module "m" { function f(): void; }
+declare module "m" { function f(a: A): B; }
+declare module "m" { let x: number; }
+declare module "m" { const x: 1; }
+declare module "m" { var x: number; }
+// 模块体内的类型别名（新支持：ModuleBlockShape.BuildMember 消费 TypeAliasDeclarationShape.FromUnits）
+declare module "m" { type T = A; }
+declare module "m" { type T<U> = U; }
+declare module "m" { export type T = A; }
+declare module "m" { class C {} type T = A; }
+// namespace 体对照（回归）
+namespace N { class C {} }
+namespace N { interface I {} }
+namespace N { enum E { A } }
+// 混合体 / trivia
+declare module "m" { class C {} interface I {} }
+declare module "m" { /* c */ class C {} }
+declare module "m" { class C {} // c\n }
+declare module "m" { type /* c */ T = A; }
+declare module "m" { class /* c */ C {} }
+

@@ -182,3 +182,45 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
 - 暂缓（超出本 chunk 写范围）：根级 `export import A = B.C;` —— 根 `import` 候选在 `export` 前缀下先建
   ImportDeclarationShape shell 并在 Close 报「缺少模块说明符」；要修需要改 import 候选分派 / export-import 组合
   （import-declaration-possible / export 侧），按任务边界只记录不硬改。
+
+## module-body const enum（chunk module-blocks-4）
+
+- 模块体 / namespace 体内的 `const enum E { A }`、`declare const enum E { A }`：`ModuleBlockShape.BuildMember` 在
+  按关键字分派前先识别「`const` + `enum`」/「`declare` + `const` + `enum`」两个成员头（`constEnumMember`），
+  把 `Data` 下标交给 `EnumDeclarationShape.FromUnits`（该形状本来就接受这些修饰词）；随后把成员 Data 开头的
+  `ConstKeyword` / `DeclareKeyword` 子节点 Pos 用本层 `Positions` 重锚（形状内部按「括号 Data 里前一个单元」
+  推 Pos，模块体首个成员会算成 0）。
+- 用例（module-blocks.ts，全绿）：`{ const enum E { A } }`、`{ declare const enum E { A } }`、
+  `namespace N { const enum E { A } }`、多条成员连排、trivia 变体；回归普通 `enum` / `module` 不变。
+
+## module-body export members（chunk cover-module-exports-1）
+
+- **崩溃/红点**：`declare module "m" { export default x; }`（以及 `export = x;`、`export * from "n";`、
+  `export default class/function`）原先报「表达式没有读完」/「不支持的表达式起点」，审计里记为 CJ 崩溃路径。
+- **根因**：`ModuleBlockShape.BuildMember` 先吞掉 `export` 修饰词、再按**下一个**关键字分派；`default` / `=` / `*`
+  不是声明关键字，于是落到 `StatementBuilder.BuildStatement()`，把 `default x` / `= x` / `* from "n"`
+  当表达式语句解析。
+- **修复（两个文件）**：
+  1. `export-assignment-shape.xl.md`：`FromUnits` 同时接受 `export = <expr>;` 与 `export default <expr>;`
+     （第二个 token 可以是 `=` 或 `default`；children 仍只有表达式，与 TS 投影一致）。
+  2. `module-block-shape.xl.md` `BuildMember`：`export default` 后接 class/interface/enum/function 时把 `default`
+     当第二个修饰词（内联构造 `DefaultKeywordShape`，Data 变 `[ExportKeyword, DefaultKeyword, …]`）；
+     `export default <expr>` / `export = <expr>` 直接 `ExportAssignmentShape.FromUnits`，不再插回修饰词
+     （`skipModifier`）。
+- 用例（module-blocks.ts，+21，全绿）：`export default x/f()/x+y`、`export = x/a.b/f()`、
+  `export default class/function/interface`、`export function/const/let/class/interface/enum`、
+  `export import A = B.C`、`import x = require("n")`、`namespace N { export const x = 1; }`、trivia 变体。
+- 暂缓：模块体 `export * from "n";` —— `ExportDeclarationShape` 是 PossibleShape（只有 `CreatePossibleShapes`，
+  没有 `FromUnits`），需要 export-declaration 家族暴露可复用建树入口；`export { a };` 的 AST 尚未冻结。
+
+## 模块体声明 + 类型别名（chunk cover-module-bodies-2）
+
+- **measurement-first 结论**：`declare module "m" { class C {} }`、`{ interface I { a: A } }`、`{ enum E { A } }`、
+  `{ function f(): void; }`、`{ function f(a: A): B; }`、`{ let x: number; }`、`{ const x: 1; }`、`{ var x: number; }`
+  以及 `namespace N { class/interface/enum }` 在基线 f62fca13 上**本来已绿**（声明族形状 + 无体函数 ambient 路径已合入），
+  本 chunk 只补用例固化；唯一红点是模块体内 `type T = A;`（落到 StatementBuilder 当表达式解析 → 表达式没有读完）。
+- **修复**：`ModuleBlockShape.BuildMember` 增加 `type` 分支（含 `declare type`），消费既有
+  `TypeAliasDeclarationShape.FromUnits`（它已接受 `[export] [declare] type` 前缀），`export` 修饰词仍由本类插回
+  Data 最前；未新增任何 shape、未改 core/class/function/statement。
+- 用例（module-blocks.ts，+21，全绿）：上述声明形态、`type T = A;` / `type T<U> = U;` / `export type T = A;`、
+  class+type 混合体、`/* c */` 与行尾注释 trivia；module-blocks 141 → 174 全绿。

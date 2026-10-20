@@ -20,6 +20,7 @@ import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
+import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 ```
 
@@ -214,6 +215,22 @@ if (keyword === "as") {
       special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
       (special as ShapeToken).Pos = inner.Positions[declStart];
     }
+  }
+} else if (keyword === "type" || (keyword === "declare" && declStart + 1 < inner.Units.length
+  && inner.Units[declStart + 1] instanceof Common && (inner.Units[declStart + 1] as Common).Is("type"))) {
+  // 模块体内的类型别名：TypeAliasDeclarationShape.FromUnits 已接受 `[export] [declare] type` 前缀；
+  // `export` 修饰词仍由本类在成员建好后插回 Data 最前（所以这里从 export 之后的 type 起始格开始）。
+  for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+    if (inner.IsSymbol(inner.Units[scan], ";")) {
+      specialEnd = scan;
+      break;
+    }
+  }
+  if (specialEnd > declStart) {
+    const dataStart = bracket.Data.indexOf(unit as Token);
+    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    special = TypeAliasDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+    (special as ShapeToken).Pos = inner.Positions[declStart];
   }
 } else if (modifier !== null && (keyword === "default" || (unit instanceof Symbol && (unit as Symbol).Is("=")))) {
   // `export = <expr>;` / `export default <expr>;` —— TS 的 ExportAssignment children 只有表达式，
