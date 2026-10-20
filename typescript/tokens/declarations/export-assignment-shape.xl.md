@@ -46,12 +46,14 @@ if (code.length < 4) {
   throw new Error("export = 声明不完整");
 }
 const keyword = code[0];
-const equal = code[1];
+const separator = code[1];
 const last = code[code.length - 1];
 if (!(keyword instanceof Common) || !(keyword as Common).Is("export")) {
   throw new Error("export = 声明缺少 export 关键字");
 }
-if (!(equal instanceof Symbol) || !(equal as Symbol).Is("=")) {
+// 两种形态：`export = <expr>;`（等号）与 `export default <expr>;`（default 关键字）。
+const isDefault = separator instanceof Common && (separator as Common).Is("default");
+if (!isDefault && (!(separator instanceof Symbol) || !(separator as Symbol).Is("="))) {
   throw new Error("export = 声明缺少等号");
 }
 if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
@@ -68,8 +70,8 @@ for (let at = start - 1; at >= 0; at--) {
   }
 }
 let expressionPos = 0;
-if (equal.SourceRange.End !== null) {
-  expressionPos = equal.SourceRange.End.Index + 1;
+if (separator.SourceRange.End !== null) {
+  expressionPos = separator.SourceRange.End.Index + 1;
 }
 const expressionUnits:Array<Token> = code.slice(2, code.length - 1);
 const builder = new ExpressionBuilder(host.Template, context);

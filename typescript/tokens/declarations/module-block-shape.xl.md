@@ -18,6 +18,8 @@ import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 import { NamespaceExportDeclarationShape } from "./namespace-export-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
+import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 ```
 
@@ -113,11 +115,35 @@ if (headUnit !== null && headUnit instanceof Common && (headUnit as Common).Is("
   (modifier as ShapeToken).Pos = inner.Positions[first];
   inner.At++;
 }
-const declStart = inner.At;
-const unit = declStart < inner.Units.length ? inner.Units[declStart] : null;
+let declStart = inner.At;
+let unit = declStart < inner.Units.length ? inner.Units[declStart] : null;
 let keyword = "";
 if (unit !== null && unit instanceof Common) {
   keyword = (unit as Common).TempToString();
+}
+// `export default …` members: when `default` precedes a declaration keyword it is a second modifier
+// (TS children: [ExportKeyword, DefaultKeyword, …]); when it precedes an expression the member is an
+// ExportAssignment (children: just the expression). `export = <expr>` is an ExportAssignment too.
+let defaultModifier:Token | null = null;
+if (keyword === "default" && modifier !== null) {
+  const afterDefault = declStart + 1 < inner.Units.length ? inner.Units[declStart + 1] : null;
+  const afterText = afterDefault !== null && afterDefault instanceof Common ? (afterDefault as Common).TempToString() : "";
+  if (afterText === "class" || afterText === "function" || afterText === "interface" || afterText === "enum") {
+    const defaultUnit = unit as Common;
+    defaultModifier = new DefaultKeywordShape(bracket.Template);
+    if (defaultUnit.SourceRange.Start !== null) {
+      (defaultModifier as ShapeToken).SignIn(defaultUnit.SourceRange.Start);
+    }
+    if (defaultUnit.SourceRange.End !== null) {
+      (defaultModifier as ShapeToken).SignOut(defaultUnit.SourceRange.End);
+    }
+    (defaultModifier as ShapeToken).Pos = inner.Positions[declStart];
+    defaultModifier.TryToClose(context);
+    inner.At++;
+    declStart = inner.At;
+    unit = declStart < inner.Units.length ? inner.Units[declStart] : null;
+    keyword = unit !== null && unit instanceof Common ? (unit as Common).TempToString() : "";
+  }
 }
 // `const enum` / `declare const enum` member heads (enum shapes already accept the modifiers):
 // detect them here so the member is routed to EnumDeclarationShape.FromUnits instead of
@@ -188,6 +214,22 @@ if (keyword === "as") {
       special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
       (special as ShapeToken).Pos = inner.Positions[declStart];
     }
+  }
+} else if (modifier !== null && (keyword === "default" || (unit instanceof Symbol && (unit as Symbol).Is("=")))) {
+  // `export = <expr>;` / `export default <expr>;` —— TS 的 ExportAssignment children 只有表达式，
+  // export / default / `=` / `;` 都不投影，所以修饰词也不再插回 Data（skipModifier）。
+  for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+    if (inner.IsSymbol(inner.Units[scan], ";")) {
+      specialEnd = scan;
+      break;
+    }
+  }
+  if (specialEnd > declStart) {
+    const dataStart = bracket.Data.indexOf(inner.Units[first]);
+    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    special = ExportAssignmentShape.FromUnits(bracket, dataStart, dataEnd, context);
+    (special as ShapeToken).Pos = inner.Positions[first];
+    skipModifier = true;
   }
 }
 let bodyInner = -1;
@@ -262,6 +304,10 @@ if (special !== null) {
 if (modifier !== null && !skipModifier) {
   member.Data.splice(0, 0, modifier);
   modifier.Parent = member;
+  if (defaultModifier !== null) {
+    member.Data.splice(1, 0, defaultModifier);
+    defaultModifier.Parent = member;
+  }
   (member as ShapeToken).Pos = inner.Positions[first];
 }
 block.Add(member);
