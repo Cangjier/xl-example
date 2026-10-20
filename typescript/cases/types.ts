@@ -230,17 +230,59 @@ type T = A<B<C>, D>;
 type T = A<B<C>>[];
 type T = A<B<C>>; // c
 
-// ===== 暂缓（chunk 4 / 其它家族，注释目标） =====
-// mapped type / template literal type / type predicate / import type
-// type T = { [K in keyof A]: A[K] };
-// type T = { readonly [K in keyof A]?: A[K] };
-// type T = `a${B}c`;
-// type T = (x: A) => x is B;
-// type T = import("m").A;
-// abstract new（TS 会多一个 FirstContextualKeyword 修饰节点，需要单独别名与形状）
-// type T = abstract new () => A;
-// rest / 可选 的组合形态（默认值、解构参数）
-// type T = ({ a }: A) => B;
+// ===== T20 mapped type =====
+type T = { [K in A]: B };
+type T = { readonly [K in keyof A]?: A[K] };
+type T = { -readonly [K in keyof A]-?: A[K] };
+type T = { +readonly [K in keyof A]+?: A[K] };
+type T = { [K in A as X]: B };
+type T = { [K in A]: B; };
+type T = { [K in A | C]: B };
+type T = { /* c */ [K in A]: B };
+type T = { [K in /* c */ A]: B };
+type T = { [K in A]: B }; // c
+type T = { [K in A]: B }; type U = { [K in C]: D };
+
+// ===== T21 模板字面量类型 =====
+type T = `a`;
+type T = `a${B}`;
+type T = `a${B}c`;
+type T = `${A}-${B}`;
+type T = `a${B}c${D}e`;
+type T = `a${B}c` | `d`;
+type T = `a${keyof B}c`;
+type T = `a${B}c[]`;
+type T = `a${B}c`[];
+type T = /* c */ `a${B}c`;
+type T = `a${B}c`; // c
+
+// ===== T22 类型谓词 =====
+type T = (x: A) => x is B;
+type T = (x: A) => asserts x is B;
+type T = asserts x is B;
+type T = (x: A) => x is B[];
+type T = (x: A) => /* c */ x is B;
+type T = (x: A) => x /* c */ is B;
+type T = (x: A) => asserts x is B; // c
+
+// ===== T23 abstract new =====
+type T = abstract new () => A;
+type T = abstract new (a: A) => B;
+type T = abstract /* c */ new () => A;
+type T = abstract new\n() => A;
+type T = abstract new () => A; // c
+
+// ===== T24 import type =====
+type T = import("m").A;
+type T = import("m").A<B>;
+type T = import("m").a.b;
+type T = import("m").A[];
+type T = import("m").A | B;
+type T = import("m").A; // c
+
+// ===== 暂缓（chunk 5 / 其它家族，注释目标） =====
+// 模板字面量里的 mapped 名字展开等高级形态
+// type T = { [K in keyof A as `get${K}`]: A[K] };
 // 泛型参数声明与修饰词（留给 declarations chunk）
 // type T<U> = U[];
 // export type T = A;

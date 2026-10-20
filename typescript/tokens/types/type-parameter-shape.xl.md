@@ -20,6 +20,10 @@ type T = A extends (infer U)[] ? U : never;
 
 ## field TypeParameterName:Token | null = null
 
+## field Type:Token | null = null
+
+约束类型（mapped type 的 `K in 约束`）；infer 的 TypeParameter 没有约束时为 `null`。
+
 ## constructor:(template:Template)=>void
 
 ```ts
