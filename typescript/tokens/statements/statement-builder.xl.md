@@ -11,7 +11,9 @@ import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { StatementScanner } from "./statement-scanner.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
 import { BindingElementShape } from "../bindings/binding-element-shape.xl.md"
 import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
@@ -224,6 +226,25 @@ if (unit instanceof Common) {
     const afterAsync = this.Peek(1);
     if (afterAsync !== null && this.IsText(afterAsync, "function")) {
       return this.BuildFunctionDeclaration();
+    }
+  }
+  if (text === "declare") {
+    // Ambient variable statement (`declare const x: number;`): TS keeps a DeclareKeyword CHILD node
+    // (ast-json compares it), so build the normal variable statement after skipping the keyword,
+    // prepend the modifier shape, and rewind the statement Pos to the declare keyword.
+    const afterDeclare = this.Peek(1);
+    if (afterDeclare !== null && this.IsVariableKeyword(afterDeclare)
+      && StatementScanner.NoLineBreakBetween(unit, afterDeclare)) {
+      const declarePos = this.Positions[this.At];
+      const declareIndex = this.At;
+      this.At++;
+      const ambient = this.BuildVariableStatement();
+      (ambient as ShapeToken).Pos = declarePos;
+      const modifier = DeclareKeywordShape.FromBasicToken(unit as Common, this.Context);
+      modifier.Pos = this.Positions[declareIndex];
+      ambient.Data.splice(0, 0, modifier);
+      modifier.Parent = ambient;
+      return ambient;
     }
   }
   if (text === "let" || text === "const" || text === "var") {

@@ -570,3 +570,23 @@ class C extends mixin(B) { m() {} }
 // `extends null`: TS parses it as Identifier named "null" (syntax-error recovery); our name path gives the same kind, kept as a case above.
 // heritage with generic call `extends mixin<T>(B)` and decorator-like expressions: needs more expression grammar/tuple args; deferred.
 // expression carriers that need statements/arrow/object-literal grammar (e.g. extends (() => B)): deferred.
+
+// ===== base 14: ambient variable statements (declare const/let/var) =====
+declare const x: number;
+declare let y: string;
+declare var z = 1;
+declare const a: number, b: string;
+declare const x: number
+declare /* c */ const x: number;
+declare const /* c */ x: number;
+declare module "m" { declare const x: number; }
+{ declare const x: number; }
+// controls (already green, kept for ownership clarity)
+const x = 1;
+let y: string;
+var z = 1;
+// deferred: `declare\nconst x: number;` -- TS ASI splits it into ExpressionStatement(`declare`) +
+// VariableStatement; the repo still falls into the EOF ExpressionStatement fallback here because the root
+// end candidate's IsAsiBoundary does not fire at a non-statement-word `declare` prefix.
+// deferred: `declare const x: number // c\n` (trailing comment, no semicolon) -- statement candidate and
+// root end candidate both stay live at EOF (CatalogGuide conflict); needs an EOF-aware end-candidate tweak.

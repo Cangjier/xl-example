@@ -112,6 +112,23 @@ if (first instanceof Symbol) {
 }
 if (first instanceof Common) {
   const text = (first as Common).TempToString();
+  // Ambient variable statement: `declare` + variable keyword on the SAME line.
+  // A line break between them means TS ASI splits it (`declare` expression statement + `const …`),
+  // so this candidate answers Mismatch there and lets the expression / end candidates take over.
+  if (text === "declare") {
+    if (code.length === 1) {
+      return StatementScanner.NeedMore();
+    }
+    const second = code[1];
+    if (second instanceof Common) {
+      const secondText = (second as Common).TempToString();
+      if ((secondText === "let" || secondText === "const" || secondText === "var" || secondText === "using")
+        && StatementScanner.NoLineBreakBetween(first, second)) {
+        return StatementScanner.ScanToSemicolon(code, 2);
+      }
+    }
+    return StatementScanner.Mismatch();
+  }
   if (text === "let" || text === "const" || text === "var") {
     return StatementScanner.ScanToSemicolon(code, 1);
   }
@@ -431,6 +448,29 @@ if (StatementScanner.IsEOF(code[semiAt])) {
   return StatementScanner.Complete(semiAt - 1);
 }
 return StatementScanner.Mismatch();
+```
+
+## static method NoLineBreakBetween:(left:Token, right:Token)=>bool
+
+两个 token 的原始文本之间（`left.End.Index + 1` 到 `right.Start.Index - 1`）有没有换行；
+块注释里的换行也算换行。用于 `declare` 与变量关键字之间：同一行才是同一个 ambient 变量语句。
+
+```ts
+const from = left.SourceRange.End;
+const to = right.SourceRange.Start;
+if (from === null || to === null) {
+  return true;
+}
+const document = from.Document;
+let cursor = from.Index + 1;
+while (cursor < to.Index) {
+  const ch = document.At(cursor).Value;
+  if (ch === "\n" || ch === "\r") {
+    return false;
+  }
+  cursor++;
+}
+return true;
 ```
 
 ## static method NextChar:(last:Source | null)=>string
