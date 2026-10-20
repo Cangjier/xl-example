@@ -134,6 +134,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 2;
     } else if (unit instanceof Common && (unit as Common).Is("type")) {
       state.Stage = 1;
+    } else if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+      // `export @dec class C {}`: decorators precede the class keyword.
+      state.Stage = 34;
+      state.Kind = 1;
     } else if (unit instanceof Common && (unit as Common).Is("class")) {
       state.Stage = 10;
       state.Kind = 1;
@@ -170,6 +174,13 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Kind = 0;
     } else {
       state.Stage = 3;
+    }
+    continue;
+  }
+  if (state.Stage === 34) {
+    // decorator prefix before the declaration keyword (only classes may carry decorators on an export).
+    if (unit instanceof Common && (unit as Common).Is("class")) {
+      state.Stage = state.Kind === 5 ? 21 : 10;
     }
     continue;
   }
@@ -311,6 +322,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       // export default async function [*] …: wait for `function`, then the default-function stage.
       state.Stage = 32;
       state.Kind = 23;
+    } else if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+      // `export default @dec class C {}`
+      state.Stage = 34;
+      state.Kind = 5;
     } else if (unit instanceof Common && (unit as Common).Is("interface")) {
       // export default interface …：默认导出接口（interface 体在 Stage 28 收尾）。
       state.Stage = 28;
@@ -389,6 +404,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
   if (state.Stage === 10 || state.Stage === 11 || state.Stage === 12 || state.Stage === 21) {
     if (unit instanceof Common) {
       // 声明名（`class C` / `enum E`）先过去，等类体 / 枚举体那个 `{`。
+      continue;
+    }
+    if (unit instanceof Symbol) {
+      // type parameters (`class C<T>`) / heritage type arguments (`extends D<E>`) 里的符号先过去。
       continue;
     }
     if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "{") {
