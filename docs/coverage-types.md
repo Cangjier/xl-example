@@ -240,3 +240,28 @@ children 顺序与 TS 一致：variance / const 关键字（`InKeyword` / `OutKe
 
 `export type …` / `declare type …`（与 export/declare 声明候选抢同一格，需要先让根候选放行修饰词），
 class / interface / function 的泛型参数（declarations chunk），语义层的默认值约束检查。
+
+## sweep 3（measurement-only）
+
+| 形态 | 结果 | 说明 |
+| --- | --- | --- |
+| `type T = (x: any) => x is A;` | 绿 | 函数类型位置的谓词 |
+| `type T = (x: any) => asserts x is A;` | 绿 | asserts + is |
+| `function assertA(x: any): asserts x is A {}` | 绿 | 函数声明 asserts + is |
+| `class C { m(): this {...} }` / `interface I { m(): this; }` / `type T = { m(): this }` | 绿 | this 类型 |
+| `type T = this;` / `interface I { readonly x: this; }` | 绿 | this 类型独立/属性位置 |
+| `const s: unique symbol = Symbol();` | 绿 | statement，已放进 expression.ts |
+| `type T = unique symbol;` | 绿 | 类型位置（语义由 ts 检查，语法层可解析） |
+| `type U = import("m").T;` | 绿（原有） | import 类型 |
+| `type T = new () => A;` / `abstract new () => A` | 绿 | 函数类型位置的构造签名 |
+| `type T = keyof keyof T;` | 绿 | 类型运算符链 |
+| `type T = readonly (A | B)[];` / `(A | B)[]` / `(() => A)[]` | 绿 | readonly/括号/函数数组 |
+| trivia（运算符后注释、谓词前注释、成员名后注释） | 绿 | 逐条测 |
+
+暂缓（原因）：
+
+- `function isA(x: any): x is A { … }`：函数声明侧返回类型的 `x is A` 谓词路径未接（函数类型位置已绿）。
+- `function assertB(x: any): asserts x {}`：无 is 的 asserts 谓词（TypePredicate 缺 is 分支）。
+- `declare const t: unique symbol;`：变量声明不接受 declare 修饰。
+- `type T = typeof import("m");`：ParseTypeQuery 只认实体名，`import(...)` 形式未接。
+- `type T = { new (): A };`：类型字面量成员里的 ConstructSignature 未接（现被解析成 MethodSignature，`new` 当方法名）。

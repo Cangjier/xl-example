@@ -370,3 +370,27 @@ type T<U> = U extends infer R extends A ? R : never;
 type T<U> = U extends infer R extends string ? R : never;
 type T<U> = U extends { a: infer K extends string } ? K : never;
 type T<U> = U extends infer R extends A ? R : U;
+
+// ===== sweep 3：类型谓词 / asserts / this / unique symbol / typeof import / 构造签名（measurement-only） =====
+type T = (x: any) => x is A;
+type T = (x: any) => asserts x is A;
+type T = this;
+type T = unique symbol;
+type T = import("m").T;
+type T = new () => A;
+type T = abstract new () => A;
+// 暂缓：type T = { new (): A }; —— 类型字面量成员里的 ConstructSignature 未接，当前被解析成 MethodSignature(`new` 当方法名)。
+type T = keyof keyof T;
+type T = readonly (A | B)[];
+type T = (A | B)[];
+type T = (() => A)[];
+type T = { m(): this };
+// trivia
+type T = readonly /* c */ (A | B)[];
+type T = new /* c */ () => A;
+type T = (x: any) => /* c */ x is A;
+// 暂缓（原因）：function isA(x: any): x is A { return true; } —— 函数声明侧返回类型的 `x is A` 谓词路径未接
+//                    （函数类型位置 `type T = (x: any) => x is A;` 已绿）。
+// 暂缓：function assertB(x: any): asserts x {} —— 无 is 的 asserts 谓词（TypePredicate 缺 is 分支）。
+// 暂缓：declare const t: unique symbol; —— 变量声明不接受 declare 修饰。
+// 暂缓：type T = typeof import("m"); —— ParseTypeQuery 只认实体名，`import(...)` 形式未接。

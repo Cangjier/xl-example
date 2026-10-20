@@ -750,3 +750,13 @@ obj.#x;
 // 暂缓：optional private access `this?.#x` / `obj?.#x` —— oracle 实测 TS 解析器直接报诊断
 //   （`?.#` 不是合法语法），因此不进 AST 对拍语料；private 成员访问由 base 35 覆盖。
 // brand check `#x in obj` 已由 base 30 覆盖
+// ===== sweep 3：断言函数 / this 返回类型 / unique symbol 声明（measurement-only） =====
+function assertA(x: any): asserts x is A {}
+const f: (x: any) => x is A = g;
+class C { m(): this { return this; } }
+interface I { m(): this; }
+interface I { readonly x: this; }
+const s: unique symbol = Symbol();
+// trivia
+function assertA /* c */ (x: any): asserts /* c */ x is A {}
+class C { m /* c */ (): /* c */ this { return this; } }
