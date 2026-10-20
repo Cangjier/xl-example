@@ -9179,6 +9179,1121 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare module \"m\" { class C {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { interface I { a: A } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 20,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "I"
+                    },
+                    {
+                      "kind": "PropertySignature",
+                      "pos": 34,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 34,
+                          "end": 36,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 37,
+                          "end": 39,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 37,
+                              "end": 39,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { enum E { A } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "EnumDeclaration",
+                  "pos": 20,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "E"
+                    },
+                    {
+                      "kind": "EnumMember",
+                      "pos": 29,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 34,
+                      "end": 39
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f(a: A): B; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 32,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 33,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 34,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 36,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 38,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 40,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { let x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 24,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 27,
+                              "end": 34
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { const x: 1; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 26,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "LiteralType",
+                              "pos": 29,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 29,
+                                  "end": 31,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { var x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 20,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 24,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 27,
+                              "end": 34
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { type T = A; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "TypeAliasDeclaration",
+                  "pos": 20,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 29,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { type T<U> = U; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "TypeAliasDeclaration",
+                  "pos": 20,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 28,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 28,
+                          "end": 29,
+                          "text": "U"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 32,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 34,
+                          "text": "U"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export type T = A; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "TypeAliasDeclaration",
+                  "pos": 20,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 36,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 36,
+                          "end": 38,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { class C {} type T = A; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "C"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeAliasDeclaration",
+                  "pos": 31,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 40,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 40,
+                          "end": 42,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { class C {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 13,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { interface I {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 13,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { enum E { A } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "EnumDeclaration",
+                  "pos": 13,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "E"
+                    },
+                    {
+                      "kind": "EnumMember",
+                      "pos": 22,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { class C {} interface I {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "C"
+                    }
+                  ]
+                },
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 31,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 41,
+                      "end": 43,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { /* c */ class C {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { class C {} // c\n }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { type /* c */ T = A; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "TypeAliasDeclaration",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 35,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 37,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 37,
+                          "end": 39,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { class /* c */ C {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 20,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 36,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
