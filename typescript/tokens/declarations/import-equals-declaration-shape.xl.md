@@ -11,6 +11,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { QualifiedNameShape } from "../types/qualified-name-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ExternalModuleReferenceShape } from "./external-module-reference-shape.xl.md"
 ```
 
@@ -32,6 +33,8 @@ measurement 载体：`import <名字> = <引用>;`。TS 的 children **不含** 
 
 ## field Reference:Token | null = null
 
+## field IsTypeOnly:bool = false
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -52,10 +55,24 @@ for (let at = start; at <= tokenIndex; at++) {
 if (code.length < 6) {
   throw new Error("import equals 声明不完整");
 }
-const keyword = code[0];
-const nameUnit = code[1];
-const equal = code[2];
 const last = code[code.length - 1];
+let base = 0;
+let exportUnit:Token | null = null;
+if (code[0] instanceof Common && (code[0] as Common).Is("export")) {
+  exportUnit = code[0];
+  base = 1;
+}
+const keyword = code[base];
+let index = base + 1;
+let isTypeOnly = false;
+if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("type")) {
+  isTypeOnly = true;
+  index++;
+}
+const nameUnit = code[index];
+index++;
+const equal = code[index];
+index++;
 if (!(keyword instanceof Common) || !(keyword as Common).Is("import")) {
   throw new Error("import equals 声明缺少 import 关键字");
 }
@@ -80,8 +97,9 @@ for (let at = start - 1; at >= 0; at--) {
 }
 const shape = new ImportEqualsDeclarationShape(host.Template);
 const name = IdentifierShape.FromBasicToken(nameUnit, context);
-if (keyword.SourceRange.End !== null) {
-  name.Pos = keyword.SourceRange.End.Index + 1;
+const nameSource = isTypeOnly ? code[base + 1] : keyword;
+if (nameSource.SourceRange.End !== null) {
+  name.Pos = nameSource.SourceRange.End.Index + 1;
 }
 if (name.SourceRange.End === null && nameUnit.SourceRange.End !== null) {
   name.SignOut(nameUnit.SourceRange.End);
@@ -92,10 +110,10 @@ let referencePos = 0;
 if (equal.SourceRange.End !== null) {
   referencePos = equal.SourceRange.End.Index + 1;
 }
-const target = code[3];
+const target = code[index];
 let reference:Token;
 if (target instanceof Common && (target as Common).Is("require")) {
-  const bracket = code[4];
+  const bracket = code[index + 1];
   if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "(") {
     throw new Error("import equals 的 require 缺少括号");
   }
@@ -135,7 +153,7 @@ if (target instanceof Common && (target as Common).Is("require")) {
   }
   let current:ShapeToken = IdentifierShape.FromBasicToken(target, context);
   current.Pos = referencePos;
-  let at = 4;
+  let at = index + 1;
   while (at < code.length - 1) {
     const dot = code[at];
     if (!(dot instanceof Symbol) || !(dot as Symbol).Is(".")) {
@@ -172,8 +190,20 @@ if (target instanceof Common && (target as Common).Is("require")) {
   reference = current;
 }
 shape.Reference = reference;
+shape.IsTypeOnly = isTypeOnly;
 shape.Add(reference);
-if (keyword.SourceRange.Start !== null) {
+if (exportUnit !== null) {
+  const exportModifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
+  exportModifier.Pos = pos;
+  if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== null) {
+    exportModifier.SignOut(exportUnit.SourceRange.End);
+  }
+  shape.Data.unshift(exportModifier);
+  exportModifier.Parent = shape;
+  if (exportUnit.SourceRange.Start !== null) {
+    shape.SignIn(exportUnit.SourceRange.Start);
+  }
+} else if (keyword.SourceRange.Start !== null) {
   shape.SignIn(keyword.SourceRange.Start);
 }
 if (last.SourceRange.End !== null) {

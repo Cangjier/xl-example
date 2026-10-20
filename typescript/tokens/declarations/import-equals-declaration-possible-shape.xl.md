@@ -76,6 +76,11 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 0) {
+    if (unit instanceof Common && (unit as Common).Is("export")) {
+      // root `export import A = ...`: export prefix is owned by this candidate.
+      state.Stage = 30;
+      continue;
+    }
     const isImport = unit instanceof Common && (unit as Common).Is("import");
     state.Stage = isImport ? 1 : -1;
     if (state.Stage < 0) {
@@ -87,6 +92,18 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     // rejects now, so ImportDeclarationPossibleShape stays the only candidate and mounts its shell
     // at exactly the same token as before this candidate existed.
     if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange.End) !== "=") {
+      state.Rejected = true;
+    }
+    continue;
+  }
+  if (state.Stage === 30) {
+    // after `export`: the next code unit must be `import`, then the same "=" lookahead decides.
+    if (unit instanceof Common && (unit as Common).Is("import")) {
+      state.Stage = 1;
+      if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange.End) !== "=") {
+        state.Rejected = true;
+      }
+    } else {
       state.Rejected = true;
     }
     continue;
