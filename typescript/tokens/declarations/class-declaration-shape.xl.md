@@ -175,7 +175,32 @@ if (index < code.length && code[index] instanceof Symbol && (code[index] as Symb
   for (const parsedTypeParameter of parsedTypeParameters) {
     typeParameters.push(parsedTypeParameter);
   }
-  index += typeParameterBuilder.At;
+  // Load 会把 `>>` / `>>>` 拆成多个只含 `>` 的虚拟单元：At 是虚拟单元数，要按原 code 还原宽度
+  // （`>>` 计 2、`>>>` 计 3）再映射回原始下标。
+  let consumedUnits = 0;
+  let mappedIndex = index;
+  while (consumedUnits < typeParameterBuilder.At && mappedIndex < code.length) {
+    const mappedUnit = code[mappedIndex];
+    let width = 1;
+    if (mappedUnit instanceof Symbol) {
+      const mappedText = (mappedUnit as Symbol).TempToString();
+      if (mappedText.length > 1) {
+        let allClose = true;
+        for (let ci = 0; ci < mappedText.length; ci++) {
+          if (mappedText[ci] !== ">") {
+            allClose = false;
+            break;
+          }
+        }
+        if (allClose) {
+          width = mappedText.length;
+        }
+      }
+    }
+    consumedUnits += width;
+    mappedIndex++;
+  }
+  index = mappedIndex;
   if (index > 0) {
     const lastTypeUnit = code[index - 1];
     const lastTypeEnd = lastTypeUnit.SourceRange.End;

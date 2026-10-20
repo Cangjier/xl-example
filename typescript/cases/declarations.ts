@@ -1006,3 +1006,20 @@ class C { @dec /* c */ static {} }
 class C { public static {\n let x = 1;\n} }
 // + regression：plain static 块 / 普通成员
 // `class C { static readonly {} }` 等修饰词组合：TS parseDiagnostics = 3（非法组合），不收。
+// ===== type params full：class/interface/function/arrow 的约束+默认+修饰（measurement） =====
+class C<T extends A = B, U = C> {}
+interface I<T extends A = B> {}
+function f<T extends A = B, U = C>() {}
+const g = <T extends A = B>(x: T) => x;
+class C<in T> {}
+class C<out T> {}
+class C<in out T> {}
+function f<const T>(x: T) {}
+class C<T extends keyof X> {}
+interface I<T extends a.B<C>> {}
+function f<T extends (a: A) => B>() {}
+class C<T = A<B<C>>> {}
+class C<T = { a: A }> {}
+class C<T extends A, U extends T> {}
+class C<T /* c */ extends A = B> {}
+interface I<in /* c */ T> {}

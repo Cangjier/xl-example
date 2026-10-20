@@ -539,3 +539,11 @@ type T = { readonly a: A; b?: B };
 // trivia
 type T = { readonly /* c */ a: A };
 type T = { get /* c */ x(): A };
+
+// ===== type params full：约束/默认值/修饰（type alias + 泛型函数类型，measurement） =====
+type F<T extends A = B> = T;
+type F<T extends keyof X> = T;
+type F<T = A<B<C>>> = T;
+type F<T = { a: A }> = T;
+type F<in T> = T;
+type F<T extends A, U extends T> = T;
