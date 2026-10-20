@@ -115,3 +115,95 @@ try { a(); } catch (e) { b(); }\nlet w = 3;
 // 暂缓：函数 / 类声明（后续 declarations 成员）
 // function f() {}
 // class C {}
+// S17 if/else 链 trivia 与重复形
+if /* c */ (a) b;
+if ( /* c */ a /* c */ ) b;
+if (a) /* c */ b;
+if (a) /* c */ ;
+if (a) { /* c */ }
+if (a) {\nb;\n} else {\nc;\n}
+if (a) b;\nelse c;
+if (a) { b; } else /* c */ { c; }
+if (a) b; else if /* c */ (c) d; else e;
+if (a) { } else if (b) { } else { }
+if (a)\n{ b; }
+if (a) { b; c; } else { d; }
+// S18 while / do-while trivia 与重复形
+while /* c */ (a) b;
+while (a) /* c */ b;
+while (a)\n{ b; }
+while (a) { /* c */ }
+while (a) { b; c; }
+while (a) {\nb;\nc;\n}
+do /* c */ b; while (a);
+do { b; c; } while (a);
+do { /* c */ } while (a);
+do b;\nwhile (a);
+// S19 for / for-in / for-of trivia 与重复形
+for /* c */ (;;) {}
+for (;;) /* c */ {}
+for (let i = 0; i < 3; i++)\n{ b; }
+for (let i = 0; i < 3; i++) { /* c */ }
+for (;;) { b; c; }
+for (let i = 0; i < 3; i++) { let x = 1; b; }
+for (x in o) /* c */ b;
+for (x in o)\n{ b; }
+for (x of o) { b; c; }
+for (const k in o) { /* c */ }
+for (const k of o)\n{ b; }
+for (x of o) /* c */ { b; }
+// S20 变量语句 trivia 与重复形
+let a = 1, b, c = 2;
+var a, b, c;
+let /* c */ a = 1, /* c */ b = 2;
+let a = 1, /* c */ b = 2;
+let a = f(1), b = g(2);
+var a = 1, b = 2; // tail
+let x = 1; /* c */
+let x = 1;\nlet y = 2;\nlet z = 3;
+let x = 1, y = 2;\nvar z;
+const a = 1, b = 2, c = 3;
+// S21 switch trivia 与重复形
+switch /* c */ (x) { case 1: a(); }
+switch (x) /* c */ { case 1: a(); }
+switch (x) { /* c */ case 1: a(); }
+switch (x) { case /* c */ 1: a(); }
+switch (x) { case 1 /* c */ : a(); }
+switch (x) { case 1: /* c */ a(); }
+switch (x) { case 1: a(); /* c */ break; }
+switch (x) { default: /* c */ b(); }
+switch (x) { case 1: a();\ncase 2: b();\ndefault: c(); }
+// S22 try / catch / finally trivia 与嵌套
+try /* c */ { a(); } catch (e) { b(); }
+try { a(); } /* c */ catch (e) { b(); }
+try { a(); } catch /* c */ (e) { b(); }
+try { a(); } catch ( /* c */ e /* c */ ) { b(); }
+try { a(); } catch (e) /* c */ { b(); }
+try { a(); } catch (e) { /* c */ }
+try { a(); } catch (e) { b(); } /* c */ finally { c(); }
+try { a(); } catch { b(); } finally { c(); }
+try { a(); } finally { /* c */ }
+try {\na();\n} catch (e) {\nb();\n} finally {\nc();\n}
+try { try { a(); } catch (e) { b(); } } catch { c(); }
+// S23 with trivia 与重复形
+with /* c */ (x) { a(); }
+with (x) /* c */ { a(); }
+with (x) { /* c */ }
+with (x) { a(); b(); }
+// S24 labeled / break / continue / throw / return / debugger trivia
+{ lbl /* c */ : b; }
+{ lbl: /* c */ b; }
+{ lbl: b; /* c */ }
+break /* c */ lbl;
+continue /* c */ lbl;
+return /* c */ a;
+return /* c */ ;
+throw /* c */ e;
+debugger /* c */ ;
+throw e /* c */ ;
+// S25 混排（同文件 3~5 条语句 + 注释）
+let x = 1;\nif (a) {\nb;\n}\nwhile (c) d;
+switch (x) { case 1: a(); }\ntry { b(); } catch (e) { c(); }\nlet z = 1;
+/* c */ let x = 1;\n/* c */ if (a) b;\n/* c */ while (c) d;
+let x = 1; if (a) b; while (c) d; for (;;) {}
+with (x) a();\ndo b; while (c);\ndebugger;

@@ -1,4 +1,25 @@
-# statements family 覆盖（chunk 1 + chunk 2）
+# statements family 覆盖（chunk 1 + chunk 2 + trivia chunk）
+
+> **trivia chunk**（分支 `cover-statements-trivia-1`，起点 `origin/integration @ebbbacab`）：
+> 纯测量轮——**只 append `typescript/cases/statements.ts`**，没有改任何 token 源文件 / shape / candidate。
+> statements.ts **91 → 174**（新增 83 条 trivia / 重复形），全量 **1734 → 1817** 完全一致，
+> 结构差 / 位置差 / 字段差均 0；**无意外红项**（所有新增行一次通过 TS oracle）。
+>
+> 新增覆盖（base 已在 chunk 1/2 有过，这里只叠 trivia 与重复形）：
+> - if/else 链：头与体之间注释、`if ( /* c */ a /* c */ )`、空体带注释（`if (a) /* c */ ;`）、
+>   `} else {` 多行变体、`if (a)\n{ b; }`、else 前/后注释、`if (a) { } else if (b) { } else { }`；
+> - 循环：while / do-while / for / for-in / for-of 的头与体之间注释与换行、空体带注释、
+>   体内多语句（`{ b; c; }`）、`do b;\nwhile (a);`、for 体里再放一条变量语句；
+> - 变量语句：多 declarator（有无 init 混排）、declarator 之间注释、`var a = 1, b = 2; // tail`、
+>   `let x = 1; /* c */`、同文件 2~3 条；
+> - switch/try/with：`switch` 头/块/case 值/case 冒号前后/子句语句前后注释、多 case 换行、
+>   try 头注释、`} /* c */ catch`、catch 绑定括号内外注释、空 catch 块、finally 前注释、嵌套 try、
+>   with 头/体注释与体内多语句；
+> - labeled/break/continue/throw/return/debugger 的标签/表达式前注释与行尾注释；
+> - 混排：同文件 3~5 条语句（if + while、switch + try + let、with + do + debugger 等）。
+>
+> 结论：statements 家族的 trivia 口径（Pos / 区间 / trivia 过滤 / 可选关键字前视）在既有 shape 上全部成立，
+> 本轮没有需要报给 statements 源文件 owner 的红项。
 
 本页记 `typescript/cases/statements.ts` 收了什么、怎么实现、还差什么。口径是
 `node typescript/cases/ast-json.mjs` + `node typescript/cases/ast-json-diff.mjs`（本分支唯一权威 AST 尺子）。
@@ -42,7 +63,7 @@
 ## 2. 用例
 
 `statements.ts`：base + trivia 变体（前导 / 词间注释、词间多空格、词间换行、行尾注释）+ 重复形（同文件多语句）。
-`\n` 由生成器还原成真实换行。
+`\n` 由生成器还原成真实换行。当前 **174 条**（chunk 1 的 55 + chunk 2 的 36 + trivia chunk 的 83）。
 
 ## 3. 暂缓（写成 `//` 目标行）
 
@@ -67,5 +88,6 @@
 
 ## 5. 读数
 
-- `statements`：见提交报告（本轮实测条数与全量合计）。
-- 全量：integration 基线 1152/1152 → 本轮 `1152 + 新增` 全绿；其余构造无回归。
+- `statements`：174 / 174 完全一致（trivia chunk 新增 83 条，零红项）。
+- 全量：trivia chunk 起点 1734 / 1734 → 本轮 1817 / 1817 全绿；其余构造无回归。
+- tsc 0 error；xl_check 0 error（本轮未改 xl 源文件）。
