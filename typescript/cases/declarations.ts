@@ -1023,3 +1023,24 @@ class C<T = { a: A }> {}
 class C<T extends A, U extends T> {}
 class C<T /* c */ extends A = B> {}
 interface I<in /* c */ T> {}
+// ===== base 22: decorated export default class =====
+@dec export default class C {}
+@dec export default abstract class C {}
+@a @b export default class C {}
+@a @b export default abstract class C {}
+@dec export default class C<T> {}
+@dec export default class C<T extends A> implements I {}
+@dec export class C<T> extends B {}
+@dec export default class C extends B {}
+@dec export default class C { x = 1 }
+@dec export default class C { m() {} }
+// + regression (export-family forms)
+export @dec class C {}
+export default @dec class C {}
+// + trivia
+@ /* c */ dec export default class C {}
+@dec /* c */ export default class C {}
+@a\n@b export default class C {}
+@dec export /* c */ default class C {}
+@dec export default /* c */ class C {}
+@dec export default /* c */ abstract class C {}

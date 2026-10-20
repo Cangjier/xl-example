@@ -294,3 +294,25 @@
 - `class C { public @dec m() {} }` and `class C { static @dec m() {} }`: invalid TypeScript
   (diagnostic "Decorators must precede the name and all keywords of property declarations."); recovery splits the member, parked.
 - full abstract-accessor matrix (abstract set, protected abstract get) stays with the earlier accessor chunk.
+
+## chunk 15 (decorated export default class, branch cover-class-export-decorators-1 @ origin/integration f62fca13)
+
+- RED -> GREEN: `@dec export default class C {}`, `@dec export default abstract class C {}`,
+  `@a @b export default class C {}`, `@a @b export default abstract class C {}`, `@dec export default class C<T> {}`,
+  `@dec export default class C<T extends A> implements I {}`, `@dec export default class C extends B {}`,
+  `@dec export default class C { x = 1 }`, `@dec export default class C { m() {} }` (9 forms).
+  Before the fix they all failed inside the class shape with "class keyword missing".
+- TS oracle (diagnostics=0): one ClassDeclaration; children = Decorator(s) -> ExportKeyword -> DefaultKeyword?
+  -> AbstractKeyword? -> Identifier -> (type params | heritage | body).
+- Fix (class-declaration-shape only): the modifier run now also accepts one `default` after `export`, and the
+  construction loop emits DefaultKeywordShape between ExportKeyword and Declare/Abstract; class possible-shape needed
+  no change (its decorator Stage 6 already continues over `export`/`default` until `class`).
+- regression kept green: `export @dec class C {}`, `export default @dec class C {}`, `@dec class C {}`,
+  `@dec export class C {}`, `@dec export abstract class C {}`, `@dec export class C<T> extends B {}`.
+- trivia: comments between decorator/export, between export/default, between default/class, between default/abstract,
+  stacked decorators across a newline.
+- readings: declarations 779/779 (baseline 761 + 18 net after dedupe); full suite 4105/4105 (baseline 4087); tsc 0 error.
+
+### deferred
+- none for the target family; all requested forms are green. `@dec export default` with a class body/type params/heritage
+  was included and stayed green with the same child order.
