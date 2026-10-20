@@ -566,3 +566,17 @@ type T = unknown[];
 type T = never[];
 type T = [/* c */ A, /* c */ B];
 type T = [first /* c */: A];
+
+// ===== gap closure：类型位置无标注参数（ctor/function type） + GAP2 证据（measurement） =====
+type T = new (a) => b;
+type T = new (a, b) => c;
+type T = new (...a) => b;
+type T = abstract new (a) => b;
+type T = (a) => void;
+type T = (a, b) => c;
+type T = (...a) => b;
+type T = (a?) => void;
+// GAP2（审计报红，实测已绿：tuple chunk 已修 `?:` 组合 Symbol）
+type T = [first?: A, second?: B];
+type T = new (/* c */ a) => b;
+type T = (a /* c */) => void;
