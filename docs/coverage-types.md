@@ -382,3 +382,13 @@ children = Identifier("this") + 类型；函数声明 / 方法 / 接口方法 / 
 | `` `${A}` extends `${infer U}` ? U : never `` | 绿 | 模板字面量 + infer |
 | `const a = { x: 1 } satisfies A;` / `f({ x: 1 } satisfies A);` | 绿 | satisfies 回归 |
 | trivia（`typeof /* c */ import(...)`、`keyof /* c */ typeof a`） | 绿 | 逐条测 |
+
+## tuple edges（cover-tuples-1）
+
+红→绿：可选命名元组成员 `[a?: A]`、`[first: A, second?: B]` —— 基本 token 把 `?` 与 `:` 收成一个组合 `?:` Symbol，
+原实现只认分开的 `?` + `:`。修法：`ParseTupleType` 的命名成员判定加 `?:`；问号统一走 `ParseOptionalMark`（QuestionToken 只覆盖 `?`，
+冒号算已消费），`?:` 时跳过冒号检查。
+
+已绿清单（measurement）：`[]`、`[A]`、`[A, B]`、`[A?]`、`[A?, B?]`、`[A, B?]`、`[...A[]]`、`[A, ...B[]]`、
+`[first: A, second: B]`、`[first: A, ...rest: B[]]`、`readonly [A, B]`、`readonly []`；位置：变量标注 / 函数返回 / 属性 / 嵌套 `[[A], [B]]`；
+`A | B | C`、`A & B & C`、`(A | B) & C`、`(A)`；`keyof any`、`keyof unknown`、`unknown[]`、`never[]`；注释 trivia。

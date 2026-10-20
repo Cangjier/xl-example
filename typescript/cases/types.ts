@@ -544,3 +544,25 @@ type T = `${A}` extends `${infer U}` ? U : never;
 const a6 = { x: 1 } satisfies A;
 f({ x: 1 } satisfies A);
 type T = keyof /* c */ typeof a;
+
+// ===== tuple edges：label/optional/rest/readonly + 位置 + 联合交叉（measurement） =====
+type T = [A?];
+type T = [A?, B?];
+type T = [A, B?];
+type T = [A, ...B[]];
+type T = [first: A, second: B];
+type T = [a?: A];
+type T = [first: A, second?: B];
+type T = readonly [A, B];
+type T = readonly [];
+const x: [A, B] = y;
+function f(): [A, B] {}
+type T = { a: [A] };
+type T = [[A], [B]];
+type T = (A | B) & C;
+type T = keyof any;
+type T = keyof unknown;
+type T = unknown[];
+type T = never[];
+type T = [/* c */ A, /* c */ B];
+type T = [first /* c */: A];
