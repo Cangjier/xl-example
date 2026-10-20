@@ -317,7 +317,7 @@ export @dec class C {} // c
 export default (a, b);
 declare module "m" { export import A = B.C; }
 namespace N { export import A = B.C; }
-// @dec export default class C {}   —— TS 6.0.3 合法（Decorator 在 ExportKeyword 前），但根候选归 class-declaration 家族（需 class possible 支持 decorator+export+default），本 chunk 暂缓
+// @dec export default class C {}   —— 已覆盖：class-declaration 家族（chunk class-export-decorators + 本 chunk），用例统一放在 declarations.ts「base 24」段；export.ts 只保留 export 家族形态。
 // ===== root export regressions for chunk export-build =====
 export * from "m";
 export { a };

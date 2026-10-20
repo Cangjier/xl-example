@@ -1085,3 +1085,9 @@ class C { ; /* c */ }
 class C { ; /* c */ ; }
 class C {\n  ;\n}
 class C { x = 1; /* c */ ; m() { } }
+
+// ===== base 24: @dec export default class (closed form-level deferral; old export.ts:320 note) =====
+@dec export default class C<T> extends B<T> implements I {}
+@dec export default class C {} // c
+// + trivia
+@dec export default class /* c */ C {}

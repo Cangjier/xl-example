@@ -343,3 +343,26 @@
 - `cover-fn-param-decorators-1` @ `afcfea7d` — (function parameter decorators)；cases +29/-1（declarations）；impl: function-declaration-shape
 - `cover-param-decorators-1` @ `d7d8a97f` — (parameter decorators)；cases +26/-1（declarations）；impl: class-declaration-shape,type-builder
 - `cover-obj-method-preds-1` @ `c990383a` — (object literal method predicates)；cases +18/-0（members）；impl: expression-builder
+## chunk 17 (close form-level deferral B: @dec export default class, branch cover-dec-export-default-1 @ a2f617b8)
+
+- Verdict per form (TS 6.0.3 parseDiagnostics = 0 for all; CJ already structurally identical before this chunk):
+  1) `@dec export default class C {}` -> legal + GREEN (closed deferral; was fixed in class-declaration-shape by chunk 15)
+  2) `@a @b export default class C {}` -> legal + GREEN (stacked decorators)
+  3) `@dec export default abstract class C {}` -> legal + GREEN
+  4) `@dec export class C {}` -> legal + GREEN (already covered earlier)
+  5) `@dec export abstract class C {}` -> legal + GREEN (already covered earlier)
+  6) `@dec export default class C<T> {}` -> legal + GREEN
+  7) `@dec export default class C extends B {}` -> legal + GREEN
+  8) `@dec export default class C<T> extends B<T> implements I {}` -> legal + GREEN
+  9) `@dec export default /* c */ class C {}` and other trivia -> legal + GREEN
+- NO implementation change was needed: class-declaration possible Stage 6 already continues over `export`/`default`
+  until `class`, and the class shape from chunk 15 emits Decorator(s) -> ExportKeyword -> DefaultKeyword -> ...;
+  the stale text at export.ts:320 was the only open item.
+- HOME decision (ONE home per form): all class-family forms live in declarations.ts (new "base 24" section, 18 cases
+  appended, 13 were already covered -> net +3 after dedupe); export.ts keeps only export-family forms and its stale
+  `// @dec export default class` note was replaced by a covered pointer to declarations.ts base 24.
+- regression: export 227/227 unchanged, class-expressions green, plain decorators and `export @dec class` green.
+- readings: declarations 817/817 (baseline 814 + 3 net); full suite 4375/4375 (baseline 4372); tsc 0 error.
+
+### deferred
+- none: this closes the last form-level deferral listed in export.ts; no illegal forms were found (all diagnostics 0).
