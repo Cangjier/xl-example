@@ -42396,6 +42396,1447 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare function f(...a: A[]): B;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "DotDotDotToken",
+                  "pos": 19,
+                  "end": 22
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 23,
+                  "text": "a"
+                },
+                {
+                  "kind": "ArrayType",
+                  "pos": 24,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 24,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 26,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 30,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(a: A, b: B): C;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 24,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "b"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 27,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 31,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 31,
+                  "end": 33,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(a?: A): B;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 20,
+                  "end": 21
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 22,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 26,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): B;\nfunction f(a: A): B { return b; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 20,
+          "end": 54,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 32,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 38,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "B"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 40,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 42,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): B;\nfunction f(a: A, c: C): D;\nfunction f(a: A): B { return b; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 20,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 32,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 37,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 37,
+                  "end": 39,
+                  "text": "c"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 40,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 40,
+                      "end": 42,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 44,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 44,
+                  "end": 46,
+                  "text": "D"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 47,
+          "end": 81,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 56,
+              "end": 58,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 59,
+              "end": 63,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 59,
+                  "end": 60,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 61,
+                  "end": 63,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 61,
+                      "end": 63,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 65,
+              "end": 67,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 65,
+                  "end": 67,
+                  "text": "B"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 67,
+              "end": 81,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 69,
+                  "end": 79,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 76,
+                      "end": 78,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(): void;\nfunction f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 13,
+              "end": 18
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 19,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 28,
+              "end": 30,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 32,
+              "end": 35
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): /* c */ void /* c */ ;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void;\ndeclare function g(): number;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 27,
+          "end": 57,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 27,
+              "end": 35
+            },
+            {
+              "kind": "Identifier",
+              "pos": 44,
+              "end": 46,
+              "text": "g"
+            },
+            {
+              "kind": "NumberKeyword",
+              "pos": 49,
+              "end": 56
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(/* c */ a: A): B;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 28,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 29,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 33,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): B;\nfunction f(a: A, b: B): C;\nfunction f(a: A): B { return b; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 20,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 32,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 37,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 37,
+                  "end": 39,
+                  "text": "b"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 40,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 40,
+                      "end": 42,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 44,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 44,
+                  "end": 46,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 47,
+          "end": 81,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 56,
+              "end": 58,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 59,
+              "end": 63,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 59,
+                  "end": 60,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 61,
+                  "end": 63,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 61,
+                      "end": 63,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 65,
+              "end": 67,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 65,
+                  "end": 67,
+                  "text": "B"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 67,
+              "end": 81,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 69,
+                  "end": 79,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 76,
+                      "end": 78,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void;\nconst x = 1;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 27,
+          "end": 40,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 27,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 33,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\nclass C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 26,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 32,
+              "end": 34,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\ntype T = A",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 26,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 35,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 35,
+                  "end": 37,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(): void;\nclass C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 13,
+              "end": 18
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 19,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void;\ndeclare function g(): number;\ndeclare function h(): string;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 27,
+          "end": 57,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 27,
+              "end": 35
+            },
+            {
+              "kind": "Identifier",
+              "pos": 44,
+              "end": 46,
+              "text": "g"
+            },
+            {
+              "kind": "NumberKeyword",
+              "pos": 49,
+              "end": 56
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 57,
+          "end": 87,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 57,
+              "end": 65
+            },
+            {
+              "kind": "Identifier",
+              "pos": 74,
+              "end": 76,
+              "text": "h"
+            },
+            {
+              "kind": "StringKeyword",
+              "pos": 79,
+              "end": 86
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(a: A, ...rest: B[]): C;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 24,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "DotDotDotToken",
+                  "pos": 24,
+                  "end": 28
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 32,
+                  "text": "rest"
+                },
+                {
+                  "kind": "ArrayType",
+                  "pos": 33,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 33,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 35,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 39,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 39,
+                  "end": 41,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void // c\n;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(a: A): B\ndeclare function g(): C",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 25,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 27,
+          "end": 51,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 27,
+              "end": 35
+            },
+            {
+              "kind": "Identifier",
+              "pos": 44,
+              "end": 46,
+              "text": "g"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 49,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 49,
+                  "end": 51,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
