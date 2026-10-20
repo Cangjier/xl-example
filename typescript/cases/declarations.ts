@@ -1065,3 +1065,23 @@ export default @dec class C {}
 @dec export /* c */ default class C {}
 @dec export default /* c */ class C {}
 @dec export default /* c */ abstract class C {}
+// ===== base 23: SemicolonClassElement =====
+class C { ; }
+class C { ; ; }
+class C { ; ; ; }
+class C { ; x = 1; }
+class C { x = 1; ; m() {} }
+class C { x = 1; ; }
+class C { m() {} ; }
+class C extends B { ; }
+class C { static { } ; }
+class C { static { } ; static { } }
+class C { constructor() {} ; }
+// + regression
+class C { // c\n}
+// + trivia
+class C { /* c */ ; }
+class C { ; /* c */ }
+class C { ; /* c */ ; }
+class C {\n  ;\n}
+class C { x = 1; /* c */ ; m() { } }

@@ -10,6 +10,7 @@ import { ClassStaticBlockDeclarationShape } from "../types/class-static-block-de
 import { ConstructorShape } from "../types/constructor-shape.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
+import { SemicolonClassElementShape } from "../expressions/semicolon-class-element-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
@@ -497,6 +498,14 @@ let previousEnd = bracket.SourceRange.Start === null ? -1 : bracket.SourceRange.
 while (at < code.length) {
   const unit = code[at];
   if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+    // Bare semicolon in a class body is a SemicolonClassElement node (TS AST kind, no children).
+    // Its range starts right after the previous token (leading trivia) and ends after the `;`.
+    const semicolonShape = new SemicolonClassElementShape(host.Template);
+    semicolonShape.SignInToken(unit);
+    semicolonShape.SignOutToken(unit);
+    semicolonShape.Pos = previousEnd + 1;
+    semicolonShape.TryToClose(context);
+    members.push(semicolonShape);
     if (unit.SourceRange.End !== null) {
       previousEnd = unit.SourceRange.End.Index;
     }

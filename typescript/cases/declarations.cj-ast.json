@@ -44768,6 +44768,610 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C { ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 11
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { ; ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 11
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 11,
+              "end": 13
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { ; ; ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 11
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 11,
+              "end": 13
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 13,
+              "end": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { ; x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 11
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { x = 1; ; m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 16,
+              "end": 18
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 18,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 25
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { x = 1; ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 16,
+              "end": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() {} ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 16,
+              "end": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends B { ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 19,
+              "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static { } ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 16,
+                  "end": 20
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 20,
+              "end": 22
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static { } ; static { } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 16,
+                  "end": 20
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 20,
+              "end": 22
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 22,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 33
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor() {} ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 26
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 26,
+              "end": 28
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { // c\n}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { /* c */ ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 19
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { ; /* c */ }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 11
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { ; /* c */ ; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 11
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 11,
+              "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C {\n  ;\n}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 9,
+              "end": 13
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { x = 1; /* c */ ; m() { } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "SemicolonClassElement",
+              "pos": 16,
+              "end": 26
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 26,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 30,
+                  "end": 34
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
