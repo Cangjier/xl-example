@@ -1318,12 +1318,16 @@ if (this.IsText(firstUnit, "asserts")) {
   asserts = this.SpanLeaf(new AssertsKeywordShape(this.Template), start);
 }
 const name = this.ParseName();
+// "x is A" has IsKeyword + Type; "asserts x" has neither (TS allows the bare assertion form).
+let type:Token | null = null;
 const isUnit = this.Peek(0);
-if (isUnit === null || !this.IsText(isUnit, "is")) {
+if (isUnit !== null && this.IsText(isUnit, "is")) {
+  this.At++;
+  type = this.ParseType();
+}
+if (type === null && asserts === null) {
   throw new Error("类型谓词缺少 is");
 }
-this.At++;
-const type = this.ParseType();
 const shape = new TypePredicateShape(this.Template);
 shape.AssertsToken = asserts;
 shape.ParameterName = name;
@@ -1332,7 +1336,9 @@ if (asserts !== null) {
   shape.Add(asserts);
 }
 shape.Add(name);
-shape.Add(type);
+if (type !== null) {
+  shape.Add(type);
+}
 return this.SpanNode(shape, start, this.At - 1);
 ```
 
