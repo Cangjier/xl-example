@@ -97,6 +97,12 @@ import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
 import { SpreadElementShape } from "./spread-element-shape.xl.md"
+import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
+import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
+import { MethodDeclarationShape } from "../types/method-declaration-shape.xl.md"
+import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
+import { SetAccessorShape } from "../types/set-accessor-shape.xl.md"
+import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
@@ -1000,6 +1006,41 @@ expression.TryToClose(this.Context);
 return expression;
 ```
 
+## method ParseComputedPropertyName:()=>Token
+
+`[expr]` 计算属性名（object literal 成员 / class 成员共用）：括号单元内部交给子 ExpressionBuilder，
+名字节点是 `ComputedPropertyName`（children 只有那个表达式），区间覆盖整个 `[...]`，`Pos` 含前导 trivia。
+
+```ts
+const index = this.At;
+const unit = this.Peek(0);
+if (unit === null || !this.IsBracketStart(unit, "[")) {
+  throw new Error("缺少计算属性名");
+}
+const bracket = unit as Bracket;
+this.At++;
+const inner = new ExpressionBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+if (inner.Units.length === 0) {
+  throw new Error("计算属性名是空的");
+}
+const expression = inner.ParseExpression();
+if (inner.At !== inner.Units.length) {
+  throw new Error("计算属性名没有读完");
+}
+const shape = new ComputedPropertyNameShape(this.Template);
+shape.Add(expression);
+shape.SignInToken(bracket);
+shape.SignOutToken(bracket);
+shape.Pos = this.Positions[index];
+shape.TryToClose(this.Context);
+return shape;
+```
+
 ## method ParseObjectLiteral:(bracket:Bracket, start:int)=>Token
 
 `{…}` 对象字面量：逐个成员分派，逗号不进 AST。成员四种写法：`名字 : 值`（PropertyAssignment，两个子节点）、
@@ -1029,14 +1070,113 @@ while (inner.At < inner.Units.length) {
     shape.Add(spread);
     continue;
   }
+  let accessorKind = "";
+  let asyncUnit:Token | null = null;
+  let asteriskUnit:Token | null = null;
+  const firstUnit = inner.Units[memberIndex];
+  const afterFirst = memberIndex + 1 < inner.Units.length ? inner.Units[memberIndex + 1] : null;
+  const looksLikeMemberName = afterFirst !== null
+    && (afterFirst instanceof Common || inner.IsBracketStart(afterFirst, "["));
+  if (inner.IsText(firstUnit, "async") && looksLikeMemberName) {
+    asyncUnit = firstUnit;
+    inner.At++;
+  } else if (inner.IsText(firstUnit, "get") && looksLikeMemberName) {
+    accessorKind = "get";
+    inner.At++;
+  } else if (inner.IsText(firstUnit, "set") && looksLikeMemberName) {
+    accessorKind = "set";
+    inner.At++;
+  }
   const nameIndex = inner.At;
-  const name = inner.ParsePropertyName();
+  const generatedUnit = inner.Peek(0);
+  let asteriskIndex = -1;
+  if (generatedUnit !== null && inner.IsText(generatedUnit, "*")) {
+    asteriskUnit = generatedUnit;
+    asteriskIndex = inner.At;
+    inner.At++;
+  }
+  const nameUnit = inner.Peek(0);
+  if (nameUnit === null) {
+    throw new Error("对象字面量缺少属性名");
+  }
+  let name:Token;
+  if (inner.IsBracketStart(nameUnit, "[")) {
+    name = inner.ParseComputedPropertyName();
+  } else {
+    name = inner.ParsePropertyName();
+  }
   const next = inner.Peek(0);
+  if (next !== null && inner.IsBracketStart(next, "(")) {
+    // method / get / set / async / generator：与 class element 同一套子节点建法（消费 declarations 的静态助手）。
+    const host = inner.Units[memberIndex];
+    const parameterBracket = next as Bracket;
+    inner.At++;
+    const parameters = ClassDeclarationShape.BuildParameters(host, parameterBracket, this.Context);
+    let returnType:Token | null = null;
+    const colonUnit = inner.Peek(0);
+    if (colonUnit !== null && inner.IsText(colonUnit, ":")) {
+      inner.At++;
+      const typeStart = inner.At;
+      while (inner.At < inner.Units.length && !inner.IsBracketStart(inner.Units[inner.At], "{")) {
+        inner.At++;
+      }
+      const typeUnits:Array<Token> = inner.Units.slice(typeStart, inner.At);
+      if (typeUnits.length === 0) {
+        throw new Error("方法的返回类型为空");
+      }
+      const typeBuilder = new TypeBuilder(this.Template, this.Context);
+      typeBuilder.Load(typeUnits, inner.Positions[typeStart]);
+      returnType = typeBuilder.ParseType();
+      if (typeBuilder.At !== typeBuilder.Units.length) {
+        throw new Error("方法的返回类型没有读完");
+      }
+    }
+    const bodyUnit = inner.Peek(0);
+    if (bodyUnit === null || !inner.IsBracketStart(bodyUnit, "{")) {
+      throw new Error("对象字面量成员缺少函数体");
+    }
+    const bodyIndex = inner.At;
+    const bodyBuilder = new StatementBuilder(this.Template, this.Context);
+    bodyBuilder.Load([bodyUnit], inner.Positions[bodyIndex]);
+    const body = bodyBuilder.BuildStatement();
+    inner.At++;
+    let memberShape:ShapeToken;
+    if (accessorKind === "get") {
+      memberShape = new GetAccessorShape(this.Template);
+    } else if (accessorKind === "set") {
+      memberShape = new SetAccessorShape(this.Template);
+    } else {
+      memberShape = new MethodDeclarationShape(this.Template);
+    }
+    if (asyncUnit !== null) {
+      memberShape.Add(inner.MakeKeywordLeaf(new AsyncKeywordShape(this.Template), memberIndex));
+    }
+    if (asteriskUnit !== null) {
+      memberShape.Add(inner.MakeOperatorToken(asteriskUnit, asteriskIndex));
+    }
+    memberShape.Add(name);
+    for (const parameter of parameters) {
+      memberShape.Add(parameter);
+    }
+    if (returnType !== null) {
+      memberShape.Add(returnType);
+    }
+    memberShape.Add(body);
+    memberShape.SignInToken(inner.Units[memberIndex]);
+    memberShape.SignOutToken(inner.Units[bodyIndex]);
+    memberShape.Pos = inner.Positions[memberIndex];
+    memberShape.TryToClose(this.Context);
+    shape.Add(memberShape);
+    continue;
+  }
+  if (asyncUnit !== null || accessorKind !== "" || asteriskUnit !== null) {
+    throw new Error("对象字面量成员缺少函数体");
+  }
   if (next !== null && inner.IsText(next, ":")) {
     inner.At++;
     const value = inner.ParseAssign();
     const property = PropertyAssignmentShape.FromParts(name, value, this.Context);
-    property.Pos = inner.Positions[nameIndex];
+    property.Pos = inner.Positions[memberIndex];
     shape.Add(property);
     continue;
   }
@@ -1045,13 +1185,13 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     const initializer = inner.ParseAssign();
     const shorthand = ShorthandPropertyAssignmentShape.FromParts(name, initializer, this.Context);
-    shorthand.Pos = inner.Positions[nameIndex];
+    shorthand.Pos = inner.Positions[memberIndex];
     shorthand.Data.splice(1, 0, inner.MakeOperatorToken(next, equalsIndex));
     shape.Add(shorthand);
     continue;
   }
   const shorthand = ShorthandPropertyAssignmentShape.FromParts(name, null, this.Context);
-  shorthand.Pos = inner.Positions[nameIndex];
+  shorthand.Pos = inner.Positions[memberIndex];
   shape.Add(shorthand);
 }
 if (bracket.SourceRange.Start !== null) {
@@ -1179,24 +1319,53 @@ return this.SpanNode(arrow, start, this.At - 1);
 
 ## method ParseClassExpression:()=>Token
 
-`class {}` 类表达式：本批只收空类体（这种情况下 ClassExpression 没有 children）。类体成员依赖后续块，先显式报错，不静默建错树。
+`class` 类表达式：可选名字、可选 `extends` 遗产子句、类体成员。成员与遗产子句**消费** declarations 家族的
+静态助手（`ClassDeclarationShape.BuildMembers` / `HeritageClauseShape.BuildClauses`，不编辑 declarations 文件）；
+TS 的 `ClassExpression` children 顺序：名字? → `HeritageClause` 们 → 成员。
 
 ```ts
 const start = this.At;
-this.At++;
-const bodyUnit = this.Peek(0);
-if (bodyUnit === null || !this.IsBracketStart(bodyUnit, "{")) {
-  throw new Error("类表达式缺少类体");
-}
-const bracket = bodyUnit as Bracket;
-for (const item of bracket.Data) {
-  if (!item.IsTriviaToken) {
-    throw new Error("类表达式暂不支持类体成员");
-  }
-}
+const keywordUnit = this.Units[start];
 this.At++;
 const shape = new ClassExpressionShape(this.Template);
-return this.SpanNode(shape, start, this.At - 1);
+let name:Token | null = null;
+let heritageBase = keywordUnit.SourceRange.End === null ? 0 : keywordUnit.SourceRange.End.Index + 1;
+const nameUnit = this.Peek(0);
+if (nameUnit !== null && nameUnit instanceof Common
+    && !(nameUnit as Common).Is("extends") && !(nameUnit as Common).Is("implements")) {
+  const nameIndex = this.At;
+  const identifier = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
+  identifier.Pos = heritageBase;
+  name = identifier;
+  if (nameUnit.SourceRange.End !== null) {
+    heritageBase = nameUnit.SourceRange.End.Index + 1;
+  }
+  this.At++;
+}
+let bodyIndex = this.At;
+while (bodyIndex < this.Units.length && !this.IsBracketStart(this.Units[bodyIndex], "{")) {
+  bodyIndex++;
+}
+if (bodyIndex >= this.Units.length) {
+  throw new Error("类表达式缺少类体");
+}
+if (name !== null) {
+  shape.Add(name);
+}
+if (bodyIndex > this.At) {
+  const heritageUnits:Array<Token> = this.Units.slice(this.At, bodyIndex);
+  const clauses = HeritageClauseShape.BuildClauses(keywordUnit, heritageUnits, heritageBase, this.Context);
+  for (const clause of clauses) {
+    shape.Add(clause);
+  }
+}
+const bodyBracket = this.Units[bodyIndex] as Bracket;
+const members = ClassDeclarationShape.BuildMembers(keywordUnit, bodyBracket, this.Context);
+for (const member of members) {
+  shape.Add(member);
+}
+this.At = bodyIndex + 1;
+return this.SpanNode(shape, start, bodyIndex);
 ```
 
 ## method ParseArrowBody:()=>Token

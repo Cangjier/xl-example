@@ -95,3 +95,21 @@ rest 元素里的嵌套 pattern 作为名字（`...{a}`）暂按「名字单元�
    顺序建议：shorthand → spread → 字面量名（这三个不依赖别的家族），method / accessor / computed 等 types 家族就绪后再接。
 2. statements 成员接变量声明时优先用 bindings 的三页（`FromBracket` + `FromTokens`），一次能带出 array/object pattern 的绿色用例。
 3. `$` 名字是 basic token 缺口，需要用户决策（与 `string.ts` 的 `\u` / `\x` 同类）。
+
+## chunk 2（cover-obj-members-1，从 origin/integration @22e87cfe）：method / accessor / computed / generator 成员
+
+只改 `expression-builder.xl.md`（+ 新增 `class-expressions.ts`），未改 members 家族 shape、未改 declarations / statements。
+
+- `ParseObjectLiteral` 的成员分派扩成：`async`? / `get` / `set` / `*` 前缀 → 名字（标识符 / 字面量 / `[computed]`）→ 若是 `(` 则按
+  `MethodDeclaration` / `GetAccessor` / `SetAccessor` 建（参数用 `ClassDeclarationShape.BuildParameters`、返回类型用
+  `TypeBuilder`、函数体用 `StatementBuilder`，children 顺序 = 修饰符→`*`→名字→参数们→返回类型→Block）；否则仍走
+  PropertyAssignment / Shorthand / SpreadAssignment。
+- get/set 的判定带前瞻：`({ get: 1 })` / `({ get() {} })` 不会被误判成 accessor；`async` 同理。
+- 新增 `ParseComputedPropertyName`：`[expr]` → `ComputedPropertyName`（children 只有表达式）。
+- `ParseClassExpression` 改为完整类表达式：名字? → `extends` 的 `HeritageClause`（`HeritageClauseShape.BuildClauses`）→
+  成员（`ClassDeclarationShape.BuildMembers`），全部是**消费** declarations 的静态助手、不编辑它；
+  `class` 后是 `extends` 时不当名字处理。
+- 新增 `class-expressions.ts`（17 条）：空体 / 名字 / 属性 / 方法 / constructor / 计算名 / extends / trivia。
+
+读数：members 141/141（base 10 新增 17 条）、class-expressions 17/17；全量 2495/2495，结构/位置/字段差 0。
+暂缓：decorators、static block、private `#x`（class extras 分支）、heritage 里放 class 表达式。
