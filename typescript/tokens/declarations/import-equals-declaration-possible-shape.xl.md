@@ -109,6 +109,11 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 1) {
+    if (unit instanceof Common && (unit as Common).Is("type")) {
+      // `import type A = ...`: the `type` modifier is followed by the real name.
+      state.Stage = 7;
+      continue;
+    }
     state.Stage = unit instanceof Common ? 2 : -1;
     if (state.Stage < 0) {
       state.Rejected = true;
@@ -124,6 +129,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       }
     }
     if (!hasLaterCode && ImportEqualsDeclarationPossibleShape.NextChar(unit.SourceRange.End) !== "=") {
+      state.Rejected = true;
+    }
+    continue;
+  }
+  if (state.Stage === 7) {
+    state.Stage = unit instanceof Common ? 2 : -1;
+    if (state.Stage < 0) {
       state.Rejected = true;
     }
     continue;
@@ -220,6 +232,7 @@ const document = last.Document;
 const count = document.GetCount();
 let at = last.Index + 1;
 at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
+const wordStart = at;
 let wordLength = 0;
 while (at < count) {
   const ch = document.At(at).Value;
@@ -232,6 +245,28 @@ while (at < count) {
 }
 if (wordLength === 0) {
   return "";
+}
+// type-only import-equals: `import type A = ...` — the first word is the `type` modifier, the real
+// name is the next word; the `=` check must look past both.
+if (wordLength === 4
+  && document.At(wordStart).Value === "t"
+  && document.At(wordStart + 1).Value === "y"
+  && document.At(wordStart + 2).Value === "p"
+  && document.At(wordStart + 3).Value === "e") {
+  at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
+  let nameLength = 0;
+  while (at < count) {
+    const ch = document.At(at).Value;
+    if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
+      nameLength++;
+      at++;
+      continue;
+    }
+    break;
+  }
+  if (nameLength === 0) {
+    return "";
+  }
 }
 at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
 if (at >= count) {
