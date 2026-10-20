@@ -29,7 +29,9 @@ new C();
 super(template);
 ```
 
-## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ExpressionStatementShape
+## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, requireSemicolon?:bool)=>ExpressionStatementShape
+
+`requireSemicolon` 缺省为 `true`；终结候选在文件末尾（EOF）建最后一条语句时传 `false`，此时最后一个代码单元就是表达式的末尾，不再要求 `Symbol ";"`。
 
 ```ts
 const code:Array<Token> = [];
@@ -38,12 +40,19 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
-if (code.length < 2) {
-  throw new Error("表达式语句缺少表达式或分号");
-}
+const hasSemicolon = requireSemicolon ?? true;
 const last = code[code.length - 1];
-if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
-  throw new Error("表达式语句缺少分号");
+let expressionUnits:Array<Token> = code;
+if (hasSemicolon) {
+  if (code.length < 2) {
+    throw new Error("表达式语句缺少表达式或分号");
+  }
+  if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
+    throw new Error("表达式语句缺少分号");
+  }
+  expressionUnits = code.slice(0, code.length - 1);
+} else if (code.length < 1) {
+  throw new Error("表达式语句缺少表达式");
 }
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
@@ -55,7 +64,6 @@ for (let at = start - 1; at >= 0; at--) {
     break;
   }
 }
-const expressionUnits:Array<Token> = code.slice(0, code.length - 1);
 const builder = new ExpressionBuilder(host.Template, context);
 builder.Load(expressionUnits, pos);
 const expression = builder.ParseExpression();

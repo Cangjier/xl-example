@@ -107,7 +107,7 @@ return this;
 
 ## method Process:(documents:Document)=>void
 
-处理整个文档：逐位置处理，最后一个位置处理完后给根签出，最后把根关掉。
+处理整个文档：逐位置处理，最后一个真实位置处理完后给根签出，**再把一个 EOF 哨兵位置交给根**——根单元的关闭由 EOF 单元的关闭驱动（见 `SourceFileShape.Process`），这里不再手动关闭根。
 
 `documents.At(i)` 每次访问都新建一个 `Source`，不要依赖对象身份。
 
@@ -119,7 +119,7 @@ for (let i = 0; i < count; i++) {
     this.Root.SignOut(documents.At(i));
   }
 }
-this.Root.TryToClose(this);
+this.ProcessSingle(Source.EOF(documents));
 ```
 
 ## method ProcessSingle:(item:Source)=>void

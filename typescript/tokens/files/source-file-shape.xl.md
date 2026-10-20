@@ -30,6 +30,7 @@ import { LabeledStatementPossibleShape } from "../statements/labeled-statement-p
 import { ModuleDeclarationPossibleShape } from "../declarations/module-declaration-possible-shape.xl.md"
 import { NamespaceExportDeclarationPossibleShape } from "../declarations/namespace-export-declaration-possible-shape.xl.md"
 import { ReturnStatementPossibleShape } from "../statements/return-statement-possible-shape.xl.md"
+import { SourceFileEndPossibleShape } from "./source-file-end-possible-shape.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
 import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
 import { TryStatementPossibleShape } from "../statements/try-statement-possible-shape.xl.md"
@@ -37,6 +38,7 @@ import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-de
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { WhileStatementPossibleShape } from "../statements/while-statement-possible-shape.xl.md"
 import { WithStatementPossibleShape } from "../statements/with-statement-possible-shape.xl.md"
+import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -59,7 +61,7 @@ const queue = template.BranchTemplate.Get(this.constructor);
 if (queue !== null) {
   this.ProcessQueue = queue;
 }
-this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes());
+this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileEndPossibleShape());
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
@@ -81,15 +83,42 @@ for (const item of this.Data) {
     throw new Error("SourceFileShape.Close: 有子单元无法关闭");
   }
 }
-// AST 的 children 只有子形状：文件末尾没人认领的 trivia（空格 / 行尾注释 / 换行）在收尾时丢掉。
-this.Data = this.Data.filter((item) => !item.IsTriviaToken);
+// AST 的 children 只有子形状：文件末尾没人认领的 trivia（空格 / 行尾注释 / 换行）与 EOF 哨兵在收尾时丢掉。
+this.Data = this.Data.filter((item) => !item.IsTriviaToken && !(item instanceof EndOfFileTokenShape));
 return CloseStates.Nothing;
 ```
 
 
 ## method Process:(context:SyntaxContext, source:Source)=>void
 
+处理一个位置。`Source.IsEOF` 是文件末尾哨兵（下标 `-1`、`Value` 为 `"\0"`），走一条单独的收尾路径：
+
+1. 还有挂载单元就先关掉它（没有分号的 import / export 也在这一刻收口）；
+2. 关掉最后一个还开着的子单元——文件末尾不会再有下一个字符来关它，标识符 / 符号 / 字符串 / 空白 / 注释谁开着就关谁；
+3. 造一个 `EndOfFileTokenShape`，签入签出同一个 EOF 位置、加进根，再 `TryToClose`。
+   它关闭时会问父单元重算候选，根单元的终结候选 `SourceFileEndPossibleShape` 随即签出根并关闭根。
+
 ```ts
+if (source.IsEOF) {
+  if (this.SourceRange.Start === null) {
+    this.SourceRange.Start = source;
+  }
+  if (this.MountedUnit !== null) {
+    const mounted = this.MountedUnit;
+    mounted.TryToClose(context);
+    mounted.Quit();
+  }
+  const last = this.Last();
+  if (last !== null && !last.Closed) {
+    last.TryToClose(context);
+  }
+  const eof = new EndOfFileTokenShape(this.Template);
+  eof.SignIn(source);
+  eof.SignOut(source);
+  this.Add(eof);
+  eof.TryToClose(context);
+  return;
+}
 if (this.SourceRange.Start === null) {
   this.SourceRange.Start = source;
 }

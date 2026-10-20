@@ -22,6 +22,12 @@ import { SourceRange } from "./source-range.xl.md"
 
 该位置在文档里的下标。
 
+## field IsEOF:bool = false
+
+是不是文件末尾的哨兵位置：下标 `-1` 就是 EOF（构造器按这一格置位），`Value` 恒为 `"\0"`，由静态方法 `EOF` 构造。
+
+它不是文档里的真实字符位置：`Pre` 从它再往前是越界，文档的 `GetCount` / `At` 也不会给出它。
+
 ## property Parent:SourceRange | null
 
 文档的父范围，直接透传 `Document.Parent`。
@@ -36,19 +42,25 @@ return this.Document.Parent;
 
 该位置上的值。
 
+EOF 哨兵没有文档字符可读，固定返回 `"\0"`。
+
 ### get
 
 ```ts
+if (this.Index === -1) {
+  return "\0";
+}
 return this.Document.GetValue(this.Index);
 ```
 
 ## constructor:(document:Document, index:int)=>void
 
-以文档与下标创建。
+以文档与下标创建。下标 `-1` 是 EOF 哨兵，`IsEOF` 按这一格置位。
 
 ```ts
 this.Document = document;
 this.Index = index;
+this.IsEOF = index === -1;
 ```
 
 ## method Pre:(skipChars?:Array<string>)=>Source | null
@@ -96,6 +108,14 @@ if (right === null || right === undefined) {
   return false;
 }
 return left.Equals(right);
+```
+
+## static method EOF:(document:Document)=>Source
+
+构造文件末尾的哨兵位置：下标 `-1`，`IsEOF` 由构造器置为 `true`，`Value` 读出来是 `"\0"`。
+
+```ts
+return new Source(document, -1);
 ```
 
 ## method GetHashCode:()=>int

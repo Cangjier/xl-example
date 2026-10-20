@@ -12,6 +12,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 ```
 
@@ -144,6 +145,11 @@ if (state.Checked > tokenIndex + 1) {
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
   if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof EndOfFileTokenShape) {
+    // 文件到头了：本条语句不可能再补 `;`。候选退出，把「建到边界为止」交给终结候选。
+    state.Rejected = true;
     continue;
   }
   if (!state.Admitted) {
