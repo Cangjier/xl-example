@@ -9,17 +9,17 @@
 //      值覆盖字面量 / 前缀一元 / 属性访问 / 元素访问 / 调用 / 括号 / 二元 / 三元 / 赋值 / 数组 / 对象嵌套；
 //   M2 空对象字面量、嵌套、重复形（2~4 条）、行尾逗号；
 //   M3 trivia：前导注释、名后 / 冒号后 / 值后注释、行内换行、多行、逗号前后注释；
-//   M4 语句可解析的其它出现位置：括号内、逗号表达式、调用实参、后缀链起点、行尾注释。
+//   M4 语句可解析的其它出现位置：括号内、逗号表达式、调用实参、后缀链起点、行尾注释；
+//   M7 ShorthandPropertyAssignment（`{ a }`）与默认值写法（`{ a = 1 }`）；
+//   M8 SpreadAssignment（`{ ...expr }`，`...` 只进区间）；
+//   M9 字面量属性名（StringLiteral / NumericLiteral / BigIntLiteral）。
 //
-// 暂缓（不写进本用例集；原因见 docs/coverage-members.md）：
-//   shorthand-property-assignment   ({ a });    ({ a, b });      <- ParseObjectLiteral 只认 `名字 : 值`
-//   spread-assignment               ({ ...a });                 <- ParseObjectLiteral 不认 `...`
-//   object method                   ({ m() {} });               <- 同上，且要 MethodDeclarationShape（types 家族）
-//   get / set accessor              ({ get a() {} });           <- 同上，且要 Get/SetAccessorDeclarationShape
-//   computed property name          ({ [a]: 1 });               <- 同上，且要 ComputedPropertyNameShape
-//   shorthand with initializer      ({ a = 1 });                <- 同上
-//   字面量名                        ({ "s": 1 });   ({ 1: 2 }); <- ParseName 不认字面量名（后者还被当成 Identifier）
+// 暂缓（不写进本用例集；原因见 docs/coverage-members.md / docs/coverage-expressions.md）：
+//   object method                   ({ m() {} });               <- 要 MethodDeclarationShape（types 家族）+ BlockShape（statements 家族）
+//   get / set accessor              ({ get a() {} });           <- 要 Get/SetAccessorDeclarationShape（types 家族）
+//   computed property name          ({ [a]: 1 });               <- 要 ComputedPropertyNameShape（types 家族）
 //   `$` 开头的名字                  ({ $a: 1 });    ({ a$b: 1 });<- basic token（Common）不收 `$`，属用户决策项
+// 已收（base 7~9）：shorthand / shorthand with initializer / spread / 字面量名。
 
 // ===== base 1：PropertyAssignment 的 base（标识符名 + 字面量值）=====
 ({ a: 1 });
@@ -109,3 +109,62 @@ f({ a: 1 });
 f({ a: 1 }, { b: 2 });
 f(/* c */ { a: 1 });
 f({ a: 1 } /* c */);
+
+// ===== base 7：ShorthandPropertyAssignment（名字无 `:`，子节点只有 name）=====
+({ a });
+({ a, b });
+({ a, b, c });
+({ a, b, });
+// + 与 PropertyAssignment 混排
+({ a: 1, b });
+({ a, b: 2 });
+({ a: 1, b, c: 2 });
+// + 默认值写法：ShorthandPropertyAssignment 的三个子节点（name / EqualsToken / initializer）
+({ a = 1 });
+({ a = 1, b });
+({ a = 1, b = 2 });
+({ a: 1, b = 2 });
+// + trivia
+({ /* c */ a });
+({ a /* c */ });
+({ a /* c */, b });
+({ a /* c */ = 1 });
+({ a = /* c */ 1 });
+({ a\n});
+({\na\n});
+({ a, /* c */ b });
+
+// ===== base 8：SpreadAssignment（`...` 不进 children，区间从 `...` 起）=====
+({ ...a });
+({ ...a, ...b });
+({ ...a, b });
+({ a, ...b });
+({ ...a, b: 2 });
+({ ...(a) });
+({ ...f() });
+({ ...a.b });
+({ ...a[0] });
+({ ...{ a: 1 } });
+// + trivia
+({ ... a });
+({ ...a /* c */ });
+({ /* c */ ...a });
+({ ...a, /* c */ ...b });
+({\n...a\n});
+
+// ===== base 9：字面量属性名（StringLiteral / NumericLiteral / BigIntLiteral）=====
+({ "s": 1 });
+({ 's': 1 });
+({ "": 1 });
+({ 1: 2 });
+({ 1n: 2 });
+({ 0x1f: 2 });
+({ "s": 1, 2: 3 });
+({ a: 1, "s": 2 });
+({ 1: 2, a: 4 });
+// + trivia
+({ /* c */ "s": 1 });
+({ "s" /* c */ : 1 });
+({ 1 /* c */ : 2 });
+({\n"s": 1\n});
+({ "s": 1, 1n: 2 });
