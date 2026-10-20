@@ -368,3 +368,42 @@ async function f() { await  using x = g(); }
 using x = f(); // c
 using x = f();\nconst y = 1;
 for (using x of xs) { using y = f(); }
+// ===== sweep 7: with / debugger / labels =====
+with (x) a;
+with (x) {}
+/* c */ with (x) a;
+with /* c */ (x) a;
+debugger\n;
+lbl: { a(); }
+lbl: a;
+outer: for (;;) { break outer; }
+outer: while (x) { continue outer; }
+outer: for (;;) { inner: while (x) { break outer; } }
+outer: for (;;) { inner: while (x) { continue inner; } }
+/* c */ lbl: a;
+// ===== sweep 7: dangling else =====
+if (a) if (b) x(); else y();
+if (a) { if (b) x(); } else y();
+if (a) if (b) if (c) x(); else y; else z;
+if (a) if (b) x(); else if (c) y(); else z;
+// ===== sweep 7: switch variants =====
+switch (x) { case 1: a(); case 2: b(); }
+switch (x) { case 1: a(); break; }
+switch (x) { case 1: {} }
+switch (x) { case 1: { a(); } break; }
+switch (x) { case 1: switch (y) { case 2: a(); } break; }
+switch (x) { case 1: a(); default: b(); }
+// ===== sweep 7: try variants =====
+try {} catch (e) {}
+try { try {} catch {} } finally {}
+try {} catch ({ a }) {}
+try {} catch (e) {} finally { c(); }
+/* c */ try {} catch {}
+// ===== sweep 7: for variants =====
+for (;;) ;
+for (;;) a;
+for (let i = 0; ; ) {}
+for (let i = 0; i < 3; i++) a;
+for (i = 0; ; ) {}
+for (;;) { break; }
+for (;;) { continue; }
