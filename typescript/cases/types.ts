@@ -485,3 +485,14 @@ type T = this & A;
 // trivia
 type T = <const /* c */ U>(x: U) => U;
 type T = this /* c */ ["x"];
+
+// ===== nested type args（`>>` 拆分，measurement） =====
+type T = A<B<C>>;
+type T = A<B<C<D>>>;
+type T = Map<string, Array<number>>;
+type T = A<B<C>, D<E>>;
+type T<U> = U extends A<B<C>> ? 1 : 2;
+// trivia
+type T = A<B /* c */ <C>>;
+type T = A /* c */ <B<C>>;
+type T = A<B<C> >;

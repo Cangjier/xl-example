@@ -758,3 +758,16 @@ class C { m(@dec x?: A) {} }
 // this chunk's write scope -> reported as deferred owner: declarations/function-declaration-shape BuildParameters.
 // `// ` function f(@dec x: A) {}
 // `// ` (function (@dec x: A) { return x; });
+
+// ===== nested type args in declaration heads / heritage / returns（`>>` 拆分） =====
+class C<T extends A<B>> {}
+interface I<T extends A<B>> {}
+function f<T extends A<B>>() {}
+class C<T = A<B>> {}
+class C extends A<B<C>> {}
+interface I extends A<B<C>> {}
+function f(): A<B<C>> {}
+class C { m(): A<B<C>> { return x; } }
+// trivia
+class C<T extends A<B> /* c */> {}
+function f<T extends A<B> >() {}

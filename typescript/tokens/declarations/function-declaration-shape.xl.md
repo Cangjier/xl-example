@@ -128,7 +128,32 @@ if (paramIndex < code.length && code[paramIndex] instanceof Symbol && (code[para
   if (typeParameters.length === 0) {
     throw new Error("函数声明的泛型参数为空");
   }
-  paramIndex += angleBuilder.At;
+  // `Load` 会把 `>>` / `>>>` 拆成多个只含 `>` 的虚拟单元，`angleBuilder.At` 是虚拟单元数，
+  // 不能直接加到原始 code 下标上：按原 code 逐格还原「消费了几个原始单元」（`>>` 计 2、`>>>` 计 3）。
+  let consumedUnits = 0;
+  let mappedIndex = paramIndex;
+  while (consumedUnits < angleBuilder.At && mappedIndex < code.length) {
+    const mappedUnit = code[mappedIndex];
+    let width = 1;
+    if (mappedUnit instanceof Symbol) {
+      const mappedText = (mappedUnit as Symbol).TempToString();
+      if (mappedText.length > 1) {
+        let allClose = true;
+        for (let ci = 0; ci < mappedText.length; ci++) {
+          if (mappedText[ci] !== ">") {
+            allClose = false;
+            break;
+          }
+        }
+        if (allClose) {
+          width = mappedText.length;
+        }
+      }
+    }
+    consumedUnits += width;
+    mappedIndex++;
+  }
+  paramIndex = mappedIndex;
 }
 const paramUnit = code[paramIndex];
 if (!(paramUnit instanceof Bracket) || (paramUnit as Bracket).StartBracketChar !== "(") {
