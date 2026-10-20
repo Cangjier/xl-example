@@ -20,6 +20,8 @@ type T = new (a: A) => B;
 
 `abstract new` 暂缓：TS 侧会多一个 `FirstContextualKeyword` 修饰节点，需要单独的 TS kind 别名与形状。
 
+## field AbstractToken:Token | null = null
+
 ## field Parameters:Array<Token> = []
 
 ## field ReturnType:Token | null = null

@@ -48,6 +48,10 @@ function selectedStems(args) {
 }
 
 const TS_KIND_ALIASES = new Map([
+  // TypePredicate / ImportType / abstract 修饰的反查名被别名盖掉（FirstTypeNode / LastTypeNode / FirstContextualKeyword）。
+  ["FirstTypeNode", "TypePredicate"],
+  ["LastTypeNode", "ImportType"],
+  ["FirstContextualKeyword", "AbstractKeyword"],
   // SyntaxKind.QualifiedName 的反查名被别名 FirstNode 盖掉（与 tests/parse/ts-ast.mjs 同款）。
   ["FirstNode", "QualifiedName"],
   ["FirstStatement", "VariableStatement"],
