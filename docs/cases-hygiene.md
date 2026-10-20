@@ -1,4 +1,3 @@
-
 # cases 去重记录（cases-hygiene）
 
 - **task-309 / commit `f62fca13`**（"chore(cases): dedupe exact duplicate case lines"）：删除 `typescript/cases/*.ts` 中的精确重复用例行。
