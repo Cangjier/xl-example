@@ -22,6 +22,7 @@ import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
 import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
+import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
@@ -356,7 +357,9 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 4;
       continue;
     }
-    state.Stage = 3;
+    // Anything else in the header (return type `:` / generic type names / `<` `>`) is tolerated;
+    // only the closed body `{ }` above settles Done. Rejecting here killed the whole
+    // export-default-function candidate for `function* h(): Generator<number> {…}`.
     continue;
   }
   if (state.Stage === 29) {
@@ -845,22 +848,46 @@ if (kind === 10) {
     }
     built = FunctionDeclarationShape.FromUnits(host, functionIndex, bodyIndex, context);
   } else {
-    const paramsUnit = host.Data[firstAfter];
-    if (!(paramsUnit instanceof Bracket) || (paramsUnit as Bracket).StartBracketChar !== "(") {
+    let paramsIndex = firstAfter;
+    let asteriskShape:Token | null = null;
+    if (host.Data[paramsIndex] instanceof Symbol && (host.Data[paramsIndex] as Symbol).Is("*")) {
+      // Anonymous generator `export default function* () {}`: TS projects the asterisk
+      // (children: ExportKeyword, DefaultKeyword, AsteriskToken, Block), so build it.
+      const asteriskUnit = host.Data[paramsIndex];
+      const functionUnitForAsterisk = host.Data[functionIndex];
+      const asteriskPos = functionUnitForAsterisk.SourceRange.End === null ? pos : functionUnitForAsterisk.SourceRange.End.Index + 1;
+      const asterisk = new AsteriskTokenShape(host.Template);
+      asterisk.SignInToken(asteriskUnit);
+      asterisk.SignOutToken(asteriskUnit);
+      asterisk.Pos = asteriskPos;
+      asterisk.TryToClose(context);
+      asteriskShape = asterisk;
+      let shifted = -1;
+      for (let at = paramsIndex + 1; at <= tokenIndex; at++) {
+        if (!host.Data[at].IsTriviaToken) {
+          shifted = at;
+          break;
+        }
+      }
+      paramsIndex = shifted;
+    }
+    if (paramsIndex < 0 || !(host.Data[paramsIndex] instanceof Bracket) || (host.Data[paramsIndex] as Bracket).StartBracketChar !== "(") {
       return host;
     }
+    const paramsUnit = host.Data[paramsIndex] as Bracket;
     let bodyIndex = -1;
-    for (let at = firstAfter + 1; at <= tokenIndex; at++) {
-      if (!host.Data[at].IsTriviaToken) {
+    for (let at = paramsIndex + 1; at <= tokenIndex; at++) {
+      // Anonymous default function may carry a return type between `)` and the body.
+      if (host.Data[at] instanceof Bracket && (host.Data[at] as Bracket).StartBracketChar === "{" && (host.Data[at] as Bracket).Closed) {
         bodyIndex = at;
         break;
       }
     }
-    const bodyUnit = host.Data[bodyIndex];
-    if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
+    if (bodyIndex < 0) {
       return host;
     }
-    const paramsEnd = (paramsUnit as Bracket).SourceRange.End;
+    const bodyUnit = host.Data[bodyIndex] as Bracket;
+    const paramsEnd = paramsUnit.SourceRange.End;
     const bodyPos = paramsEnd === null ? pos : paramsEnd.Index + 1;
     const bodyBuilder = new StatementBuilder(host.Template, context);
     bodyBuilder.Load([bodyUnit], bodyPos);
@@ -874,6 +901,10 @@ if (kind === 10) {
     anonymous.ReturnType = null;
     anonymous.Body = body;
     anonymous.Add(body);
+    if (asteriskShape !== null) {
+      asteriskShape.Parent = anonymous;
+      anonymous.Data.unshift(asteriskShape);
+    }
     const functionUnit = host.Data[functionIndex];
     if (functionUnit.SourceRange.Start !== null) {
       anonymous.SignIn(functionUnit.SourceRange.Start);
