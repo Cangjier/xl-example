@@ -719,3 +719,20 @@ class C extends B { m() { return super /* c */ . m(); } }
 class C extends B { m() { return super. /* c */ m(); } }
 class C extends B { constructor() { super /* c */ (); } }
 // 暂缓：class 外的 `super`（TS 语义错误）；object method 里的 `super`（语义依赖 home object，暂不收）
+
+// ===== base 35：private 成员访问（this.#x / this.#m()）=====
+class C { #x = 1; m() { return this.#x; } }
+class C { #x = 1; m() { this.#x = 2; } }
+class C { #x = 1; m() { return this.#x + 1; } }
+class C { #m() {} m2() { return this.#m(); } }
+class C { #m(a) {} m2() { return this.#m(1); } }
+class C { #m() {} m2() { return this.#m().n; } }
+class C { static #x = 1; static m() { return C.#x; } }
+// + trivia：`.` 两侧 / private 名后注释
+class C { #x = 1; m() { return this /* c */ . #x; } }
+class C { #x = 1; m() { return this. /* c */ #x; } }
+class C { #m() {} m2() { return this.#m /* c */ (); } }
+// class 外（parse-legal，语义错误由 ts 语义检查报；AST 对拍只看语法）
+obj.#x;
+// 暂缓：optional private access `obj?.#x`（TS 语法允许但本块未接 `?.` 的 private 分支）、
+// brand check `#x in obj` 已由 base 30 覆盖
