@@ -284,3 +284,38 @@ do {} while (b) a;
 do {} while (b) // c\na;
 do {} while (b) /* c */ ;
 do {} while (b)\n;
+// ===== sweep5: switch lexical/decl bodies, try/finally, throw, labeled jumps, else-if chains =====
+switch (a) { case 1: let x = 1; break; }
+switch (a) { case 1: const y = 2; }
+switch (a) { case 1: var z = 3; }
+switch (a) { case 1: function f() {} }
+switch (a) { case 1: { let x = 1; } }
+switch (a) { default: let x = 1; }
+switch (a) { case 1: let x = 1; case 2: let y = 2; }
+switch (a) { case 1: /* c */ let x = 1; }
+switch (a) { case /* c */ 1: }
+try {} finally {}
+try {} catch (e) {} finally {}
+try {} catch {} finally {}
+try { try {} finally {} } finally {}
+try {} finally { try {} finally {} }
+try /* c */ {} finally /* c */ {}
+throw a;
+throw new E();
+throw a.b;
+throw /* c */ a;
+throw (a);
+throw a;\nthrow b;
+throw a;\nlet x = 1;
+lbl: for (;;) { continue lbl; }
+lbl: switch (a) { case 1: break lbl; }
+lbl: for (;;) { break lbl; }
+outer: for (;;) { inner: for (;;) { continue outer; } }
+lbl /* c */ : for (;;) { continue lbl; }
+if (a) {} else if (b) {} else {}
+if (a) ; else if (b) ; else ;
+if (a) {} else if (b) {} else if (c) {} else {}
+if (a) {} else /* c */ if (b) {} else {}
+// 暂缓：`throw\na;`（throw 后换行）——TS 做错误恢复：ThrowStatement 子节点是一个 **zero-width Identifier**
+// (Pos==End 同一点)，且 ThrowStatement 的 End 取下一 token 的起点；cj 的 Shape/SourceRange 模型表达不了 zero-width 节点，
+// 属核心形状/错误恢复范围，本 sweep 只收正常 throw 形态（`throw a;` 等已绿）。

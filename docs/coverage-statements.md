@@ -1,5 +1,25 @@
 # statements family 瑕嗙洊锛坈hunk 1 + chunk 2 + trivia chunk + chunk 3 + labeled chunk锛?
 
+> **statements sweep 5**（分支 `cover-statements-5`，起点 `origin/integration @3168b495`）：`statements.ts` **242 → 273**（+31），
+> **273/273** 完全一致；全量 **3287 → 3318** 全绿；tsc 0 error；**本块源码零改动**（只在 cases/docs 追加，全部形态原地已绿）。
+>
+> Oracle（TS createSourceFile 实测）：
+> - switch case 里 `let/const/var`、`function f() {}`、`case: { … }`、`default:` 全 parse-legal；
+> - try/finally 组合（`try {} finally {}`、catch+finally、嵌套 try）合法；
+> - `throw a;` / `throw new E();` / `throw a.b;` / `throw /* c */ a;` 合法；
+> - `lbl: for (;;) { continue lbl; }`、`lbl: switch … { case 1: break lbl; }` 合法；
+> - else-if 链（空体/分号体）合法。
+>
+> 31 条覆盖：switch 词法/声明体 9 条（let/const/var/function/case 块/default/多 case 连排/两处注释位置）、
+> try/finally 7 条（纯 finally、catch(e)+finally、catch{}+finally、嵌套、双层 finally、关键字间注释）、
+> throw 7 条（普通/`new E()`/成员/注释/(a)/两条连排/后接 let）、labeled 5 条（continue/break lbl、嵌套 outer/inner、
+> 标签与冒号间注释）、else-if 3 条（空体、分号体、三层），全部逐条对拍。
+>
+> 暂缓（写成 `//` 目标行 + 原因）：**`throw` 后换行**（`throw\na;`）。TS parse-legal，但做错误恢复：
+> ThrowStatement 的子节点是一个 **zero-width Identifier**（Pos==End 同一点），且 ThrowStatement 的 End 取下一 token 起点；
+> cj 的 Shape/SourceRange 模型表达不了 zero-width 节点，属核心形状/错误恢复范围，本 sweep 只收正常 throw 形态。
+> 试过 scanner 的 throw-newline 分支，只能把语句终点改对、补不出 zero-width 子节点，仍红，故整体回退（源码零改动）。
+>
 > **statements sweep 4**（分支 `cover-statements-4`，起点 `origin/integration @5a230659`）：`statements.ts` **210 → 242**（+32），
 > **242/242** 完全一致；全量 **3144 → 3176** 全绿；tsc 0 error。
 >

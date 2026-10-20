@@ -13461,6 +13461,1528 @@
           ]
         }
       ]
+    },
+    {
+      "src": "switch (a) { case 1: let x = 1; break; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 20,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 20,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 24,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 24,
+                                  "end": 26,
+                                  "text": "x"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 28,
+                                  "end": 30,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 31,
+                      "end": 38
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { case 1: const y = 2; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 20,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 20,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 26,
+                              "end": 32,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 26,
+                                  "end": 28,
+                                  "text": "y"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 30,
+                                  "end": 32,
+                                  "text": "2"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { case 1: var z = 3; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 20,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 20,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 24,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 24,
+                                  "end": 26,
+                                  "text": "z"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 28,
+                                  "end": 30,
+                                  "text": "3"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { case 1: function f() {} }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "FunctionDeclaration",
+                      "pos": 20,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 33,
+                          "end": 36
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { case 1: { let x = 1; } }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 20,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "VariableStatement",
+                          "pos": 22,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "VariableDeclarationList",
+                              "pos": 22,
+                              "end": 32,
+                              "children": [
+                                {
+                                  "kind": "VariableDeclaration",
+                                  "pos": 26,
+                                  "end": 32,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 26,
+                                      "end": 28,
+                                      "text": "x"
+                                    },
+                                    {
+                                      "kind": "NumericLiteral",
+                                      "pos": 30,
+                                      "end": 32,
+                                      "text": "1"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { default: let x = 1; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "DefaultClause",
+                  "pos": 12,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 21,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 21,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 25,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 25,
+                                  "end": 27,
+                                  "text": "x"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 29,
+                                  "end": 31,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { case 1: let x = 1; case 2: let y = 2; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 20,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 20,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 24,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 24,
+                                  "end": 26,
+                                  "text": "x"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 28,
+                                  "end": 30,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "CaseClause",
+                  "pos": 31,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "2"
+                    },
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 39,
+                      "end": 50,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 39,
+                          "end": 49,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 43,
+                              "end": 49,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 43,
+                                  "end": 45,
+                                  "text": "y"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 47,
+                                  "end": 49,
+                                  "text": "2"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { case 1: /* c */ let x = 1; }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 20,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 20,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 32,
+                              "end": 38,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 32,
+                                  "end": 34,
+                                  "text": "x"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 36,
+                                  "end": 38,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "switch (a) { case /* c */ 1: }",
+      "ast": [
+        {
+          "kind": "SwitchStatement",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 9,
+              "text": "a"
+            },
+            {
+              "kind": "CaseBlock",
+              "pos": 10,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "CaseClause",
+                  "pos": 12,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 27,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try {} finally {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 6
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 17
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try {} catch (e) {} finally {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 6
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 6,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 14,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "e"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 16,
+                  "end": 19
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try {} catch {} finally {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 6
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 6,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 12,
+                  "end": 15
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 23,
+              "end": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { try {} finally {} } finally {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "TryStatement",
+                  "pos": 5,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Block",
+                      "pos": 9,
+                      "end": 12
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 20,
+                      "end": 23
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 33,
+              "end": 36
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try {} finally { try {} finally {} }",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 6
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "TryStatement",
+                  "pos": 16,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Block",
+                      "pos": 20,
+                      "end": 23
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 31,
+                      "end": 34
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try /* c */ {} finally /* c */ {}",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 14
+            },
+            {
+              "kind": "Block",
+              "pos": 22,
+              "end": 33
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw a;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw new E();",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "NewExpression",
+              "pos": 5,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "E"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw a.b;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "PropertyAccessExpression",
+              "pos": 5,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 7,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw /* c */ a;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 15,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw (a);",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 5,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw a;\nthrow b;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ThrowStatement",
+          "pos": 8,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "b"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw a;\nlet x = 1;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 8,
+          "end": 19,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 8,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "lbl: for (;;) { continue lbl; }",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 3,
+              "text": "lbl"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 4,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "ContinueStatement",
+                      "pos": 15,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 28,
+                          "text": "lbl"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "lbl: switch (a) { case 1: break lbl; }",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 3,
+              "text": "lbl"
+            },
+            {
+              "kind": "SwitchStatement",
+              "pos": 4,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "a"
+                },
+                {
+                  "kind": "CaseBlock",
+                  "pos": 15,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "CaseClause",
+                      "pos": 17,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "1"
+                        },
+                        {
+                          "kind": "BreakStatement",
+                          "pos": 25,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 35,
+                              "text": "lbl"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "lbl: for (;;) { break lbl; }",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 3,
+              "text": "lbl"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 4,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "BreakStatement",
+                      "pos": 15,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 25,
+                          "text": "lbl"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "outer: for (;;) { inner: for (;;) { continue outer; } }",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 55,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "outer"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 6,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 15,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "LabeledStatement",
+                      "pos": 17,
+                      "end": 53,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 23,
+                          "text": "inner"
+                        },
+                        {
+                          "kind": "ForStatement",
+                          "pos": 24,
+                          "end": 53,
+                          "children": [
+                            {
+                              "kind": "Block",
+                              "pos": 33,
+                              "end": 53,
+                              "children": [
+                                {
+                                  "kind": "ContinueStatement",
+                                  "pos": 35,
+                                  "end": 51,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 44,
+                                      "end": 50,
+                                      "text": "outer"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "lbl /* c */ : for (;;) { continue lbl; }",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 3,
+              "text": "lbl"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 13,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "ContinueStatement",
+                      "pos": 24,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 37,
+                          "text": "lbl"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) {} else if (b) {} else {}",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 9
+            },
+            {
+              "kind": "IfStatement",
+              "pos": 14,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "b"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 24
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) ; else if (b) ; else ;",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "EmptyStatement",
+              "pos": 6,
+              "end": 8
+            },
+            {
+              "kind": "IfStatement",
+              "pos": 13,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 19,
+                  "text": "b"
+                },
+                {
+                  "kind": "EmptyStatement",
+                  "pos": 20,
+                  "end": 22
+                },
+                {
+                  "kind": "EmptyStatement",
+                  "pos": 27,
+                  "end": 29
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) {} else if (b) {} else if (c) {} else {}",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 9
+            },
+            {
+              "kind": "IfStatement",
+              "pos": 14,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "b"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 24
+                },
+                {
+                  "kind": "IfStatement",
+                  "pos": 29,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 35,
+                      "text": "c"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 36,
+                      "end": 39
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 44,
+                      "end": 47
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) {} else /* c */ if (b) {} else {}",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 9
+            },
+            {
+              "kind": "IfStatement",
+              "pos": 14,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 28,
+                  "text": "b"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                },
+                {
+                  "kind": "Block",
+                  "pos": 37,
+                  "end": 40
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
