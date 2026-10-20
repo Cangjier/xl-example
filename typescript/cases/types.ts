@@ -280,10 +280,30 @@ type T = import("m").A[];
 type T = import("m").A | B;
 type T = import("m").A; // c
 
-// ===== 暂缓（chunk 5 / 其它家族，注释目标） =====
-// 模板字面量里的 mapped 名字展开等高级形态
-// type T = { [K in keyof A as `get${K}`]: A[K] };
-// 泛型参数声明与修饰词（留给 declarations chunk）
-// type T<U> = U[];
-// export type T = A;
-// declare type T = A;
+// ===== T25 泛型类型别名（type parameter 声明） =====
+type T<U> = U;
+type T<U, V> = U;
+type T<U extends A> = U;
+type T<U = B> = U;
+type T<U extends A = B> = U;
+type T<U extends A = B, V = C> = [U, V];
+type T<U extends A<B>> = U;
+type T<in U> = U;
+type T<out U> = U;
+type T<in out U> = U;
+type T<const U> = U;
+type T < U > = U;
+type T<U /* c */ extends A> = U;
+type T<\n  U,\n  V\n> = U;
+type T<U = B, V extends C = D> = U;
+type T<U> = U; // c
+type T<U> = U; type V<W> = W;
+/* c */ type T<U> = U;
+type T<U extends A = B, V = C> = [U, V]; // c
+
+// ===== 暂缓（chunk 6 / 其它家族，注释目标） =====
+// export / declare 修饰的 type alias（与 export/declare 声明候选抢同一格，需要先让根候选放行修饰词）
+// export type T<U> = U;
+// declare type T<U> = U;
+// class / interface / function 的泛型参数（declarations-3/4）
+// 默认值引用后面参数等语义层形态
