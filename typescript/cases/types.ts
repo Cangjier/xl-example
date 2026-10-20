@@ -158,30 +158,89 @@ type T = { a: /* c */ A };
 type T = { a: A; b: B; c: C };
 type T = { a(): B; b: C };
 
-// ===== 暂缓（chunk 3 / 其它家族，注释目标） =====
-// constructor type / 构造签名
-// type T = new () => A;
-// rest 参数 / 解构参数 / 默认值
-// type T = (a: A, ...b: B) => C;
-// type T = ({ a }: A) => B;
-// 对象类型里暂缓的成员形态
-// type T = { readonly [k: string]: A };
-// type T = { a?(): B };
-// type T = { get a(): A };
-// conditional / mapped / infer / keyof / typeof / indexed / import type / template literal type / predicate / 类型算子
-// type T = A extends B ? C : D;
+// ===== T13 条件类型 =====
+type T = A extends B ? C : D;
+type T = A extends B ? C : D extends E ? F : G;
+type T = A extends B ? C | D : E;
+type T = A extends B & C ? D : E;
+type T = (A extends B ? C : D)[];
+type T = A extends (B | C) ? D : E;
+type T = A extends B ? C : D; // c
+type T = A extends B ? C : D; type U = E extends F ? G : H;
+type T = A /* c */ extends B ? C : D;
+type T = A extends /* c */ B ? C : D;
+type T = A extends B\n? C : D;
+type T = A extends B ?\nC : D;
+type T = A extends B ? C :\nD;
+
+// ===== T14 infer =====
+type T = A extends (infer U)[] ? U : never;
+type T = A extends (infer U) ? U : B;
+type T = A extends Array<infer U> ? U : never;
+type T = A extends (infer U)[][] ? U : B;
+type T = A extends (infer U) ? U : never; // c
+type T = A extends /* c */ (infer U) ? U : B;
+
+// ===== T15 keyof / typeof =====
+type T = keyof A;
+type T = typeof a;
+type T = readonly A;
+type T = unique symbol;
+type T = keyof (A | B);
+type T = keyof typeof a;
+type T = keyof A[];
+type T = /* c */ keyof A;
+type T = keyof /* c */ A;
+type T = typeof /* c */ a;
+type T = keyof A | B;
+type T = typeof a; // c
+
+// ===== T16 索引访问 =====
+type T = A[B];
+type T = A[B][C];
+type T = A["k"];
+type T = (A | B)[C];
+type T = A[B | C];
+type T = A /* c */ [B];
+type T = A[\nB];
+type T = keyof A[B];
+type T = A[B]; // c
+
+// ===== T17 构造类型 =====
+type T = new () => A;
+type T = new (a: A) => B;
+type T = new (a: A, b: B) => C;
+type T = new /* c */ () => A;
+type T = new\n() => A;
+type T = new () => A[];
+type T = new () => A; // c
+
+// ===== T18 rest 参数（函数类型） =====
+type T = (...a: A[]) => B;
+type T = (a: A, ...b: B[]) => C;
+type T = (... a: A[]) => B;
+type T = (...a: A[]) => B; // c
+
+// ===== T19 嵌套泛型实参（>> 拆分） =====
+type T = A<B<C>>;
+type T = A<B<C>> | D;
+type T = A<B<C<D>>>;
+type T = A<B<C, D>>;
+type T = A<B<C>, D>;
+type T = A<B<C>>[];
+type T = A<B<C>>; // c
+
+// ===== 暂缓（chunk 4 / 其它家族，注释目标） =====
+// mapped type / template literal type / type predicate / import type
 // type T = { [K in keyof A]: A[K] };
-// type T = A extends infer U ? U : never;
-// type T = keyof A;
-// type T = typeof a;
-// type T = A["b"];
-// type T = import("m").A;
+// type T = { readonly [K in keyof A]?: A[K] };
 // type T = `a${B}c`;
 // type T = (x: A) => x is B;
-// type T = -1;
-// type T = readonly A[];
-// A<B<C>> 连写闭合（>> 被 basic token 收成一个 Symbol）
-// type T = A<B<C>>;
+// type T = import("m").A;
+// abstract new（TS 会多一个 FirstContextualKeyword 修饰节点，需要单独别名与形状）
+// type T = abstract new () => A;
+// rest / 可选 的组合形态（默认值、解构参数）
+// type T = ({ a }: A) => B;
 // 泛型参数声明与修饰词（留给 declarations chunk）
 // type T<U> = U[];
 // export type T = A;

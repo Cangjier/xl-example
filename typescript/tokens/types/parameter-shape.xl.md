@@ -28,6 +28,10 @@ type T = { [k: string]: A };
 
 ## field Type:Token | null = null
 
+## field RestToken:Token | null = null
+
+rest 参数的 `...`（`DotDotDotToken`）；它不是 rest 时为 `null`。
+
 ## constructor:(template:Template)=>void
 
 ```ts
