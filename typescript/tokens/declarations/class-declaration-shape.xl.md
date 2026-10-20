@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { AbstractKeywordShape } from "../keywords/abstract-keyword-shape.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
@@ -17,20 +18,25 @@ import { Token } from "../../../core/syntax/token.xl.md"
 ```txt
 class C {}
 declare class C {}
+abstract class C {}
+abstract declare class C {}
 ```
 
 `class C {}` 的 TS children 只有名字（`modifiers` 为空时）：ClassDeclaration → [Identifier C]。
-`declare class C {}` 的 `declare` 是 modifier，会作为子节点出现：ClassDeclaration → [DeclareKeyword, Identifier C]。
-类体是 basic token `Bracket`（`{…}` 整块），本批只收空体；`class` / `declare` 关键字本身不进 Data。
+修饰符会按源码顺序出现在名字前面：`declare` → DeclareKeyword，`abstract` → AbstractKeyword
+（TS 的 SyntaxKind 反查把 `abstract` 印成 FirstContextualKeyword，harness 别名归一到 AbstractKeyword）。
+类体是 basic token `Bracket`（`{…}` 整块），本批只收空体；关键字本身不进 Data。
 
-区间：从修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`（没有就是 `0`）。
-名字的 `Pos` 是 `class` 关键字之后，和 TS 的 `Identifier.pos` 同口径（含前导 trivia）。
+区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`（没有就是 `0`）。
+修饰符与名字的 `Pos` 都含前导 trivia（与 TS 一致）。
 
 字段不叫 `Name`：`cjAst` 会把 `Name` 读成 AST 的 `name`，而尺子里 ClassDeclaration 只比 children。
 
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
+
+## field AbstractKeyword:Token | null = null
 
 ## constructor:(template:Template)=>void
 
@@ -51,13 +57,25 @@ for (let at = start; at <= tokenIndex; at++) {
 }
 let index = 0;
 let declareUnit:Token | null = null;
-if (code.length > 0 && code[0] instanceof Common && (code[0] as Common).Is("declare")) {
-  declareUnit = code[0];
-  index++;
+let abstractUnit:Token | null = null;
+while (index < code.length && code[index] instanceof Common) {
+  const text = (code[index] as Common).TempToString();
+  if (text === "declare" && declareUnit === null) {
+    declareUnit = code[index];
+    index++;
+    continue;
+  }
+  if (text === "abstract" && abstractUnit === null) {
+    abstractUnit = code[index];
+    index++;
+    continue;
+  }
+  break;
 }
 if (index >= code.length) {
   throw new Error("类声明不完整");
 }
+const modifierCount = index;
 const keyword = code[index];
 index++;
 if (!(keyword instanceof Common) || !(keyword as Common).Is("class")) {
@@ -101,19 +119,31 @@ const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
 const shape = new ClassDeclarationShape(host.Template);
 shape.NameToken = name;
-if (declareUnit !== null) {
-  const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  // TS 的 modifier 也带前导 trivia：`/* c */ declare class C {}` 里 DeclareKeyword 的 pos 是 0 而不是 `declare` 的起点。
-  modifier.Pos = pos;
-  shape.DeclareKeyword = modifier;
-  shape.Add(modifier);
+// 修饰符按源码顺序建（`declare` / `abstract` 任意顺序、可只出现一个）。
+// Pos 口径：第一个修饰符 = 整个声明的 Pos（含前导 trivia），后面的 = 前一个修饰符的 End+1。
+let modifierPos = pos;
+for (let at = 0; at < modifierCount; at++) {
+  const modifierUnit = code[at];
+  if (!(modifierUnit instanceof Common)) {
+    continue;
+  }
+  if ((modifierUnit as Common).Is("declare")) {
+    const modifier = DeclareKeywordShape.FromBasicToken(modifierUnit as Common, context);
+    modifier.Pos = modifierPos;
+    shape.DeclareKeyword = modifier;
+    shape.Add(modifier);
+  } else {
+    const modifier = AbstractKeywordShape.FromBasicToken(modifierUnit as Common, context);
+    modifier.Pos = modifierPos;
+    shape.AbstractKeyword = modifier;
+    shape.Add(modifier);
+  }
+  if (modifierUnit.SourceRange.End !== null) {
+    modifierPos = modifierUnit.SourceRange.End.Index + 1;
+  }
 }
 shape.Add(name);
-if (declareUnit !== null) {
-  shape.SignInToken(declareUnit);
-} else {
-  shape.SignInToken(keyword);
-}
+shape.SignInToken(code[0]);
 shape.SignOutToken(bodyUnit);
 shape.Pos = pos;
 shape.TryToClose(context);
