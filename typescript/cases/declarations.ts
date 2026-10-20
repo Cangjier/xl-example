@@ -570,3 +570,16 @@ class C extends mixin(B) { m() {} }
 // `extends null`: TS parses it as Identifier named "null" (syntax-error recovery); our name path gives the same kind, kept as a case above.
 // heritage with generic call `extends mixin<T>(B)` and decorator-like expressions: needs more expression grammar/tuple args; deferred.
 // expression carriers that need statements/arrow/object-literal grammar (e.g. extends (() => B)): deferred.
+// ===== base 14: heritage generic call =====
+class C extends mixin<T>(B) {}
+class C extends (mixin<T>(B)) {}
+class C extends mixin<T, U>(B) {}
+class C extends mixin<T>(B, C2) {}
+class C extends a.b<T>(B) {}
+class C extends mixin<T>(B).x {}
+interface I extends mixin<T>(B) {}
+// + trivia
+class C extends /* c */ mixin<T>(B) {}
+class C extends mixin<T>(/* c */ B) {}
+class C extends mixin /* c */ <T>(B) {}
+interface I extends /* c */ mixin<T>(B) {}

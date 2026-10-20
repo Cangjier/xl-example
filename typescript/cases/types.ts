@@ -394,3 +394,26 @@ type T = (x: any) => /* c */ x is A;
 // 暂缓：function assertB(x: any): asserts x {} —— 无 is 的 asserts 谓词（TypePredicate 缺 is 分支）。
 // 暂缓：declare const t: unique symbol; —— 变量声明不接受 declare 修饰。
 // 暂缓：type T = typeof import("m"); —— ParseTypeQuery 只认实体名，`import(...)` 形式未接。
+
+// ===== base 14: construct signatures =====
+type T = { new (): A };
+type T = { new (a: A): B };
+type T = { new (a: A, b: B): C };
+type T = { new <U>(a: U): A };
+type T = { new <U, V>(a: U, b: V): C };
+interface I { new (): A; }
+interface I { new (a: A): B; }
+interface I { new <T>(a: T): A; }
+type T = { abstract new (): A };
+type T = { (): A; new (): B; x: C };
+interface I { new (): A; m(): void; }
+type T = { new: A };
+// + trivia
+type T = { /* c */ new (): A };
+type T = { new /* c */ (): A };
+type T = { new (/* c */ a: A): B };
+type T = { new (a: A) /* c */: B };
+interface I { /* c */ new (): A; }
+interface I { new (): A; /* c */ m(): void; }
+type T = {\n  new (): A;\n  new (a: A): B;\n};
+type T = { new (a: A, b: B): C, };

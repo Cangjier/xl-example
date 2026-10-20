@@ -138,3 +138,20 @@
 ### deferred
 - generic call in heritage (`extends mixin<T>(B)`), arrow/object-literal expressions in heritage, heritage with
   type arguments on call expressions beyond `A.B<C>`: needs more expression grammar; deferred.
+
+## chunk 7 (construct signatures + heritage generic call, branch cover-construct-sig-1 @ origin/integration 3168b495)
+
+- construct signatures: `type T = { new (): A }`, `{ new (a: A): B }`, `{ new (a: A, b: B): C }`, `{ new <U>(a: U): A }`,
+  `{ new <U, V>(a: U, b: V): C }`, `interface I { new (): A; }`, `{ new (a: A): B; }`, `{ new <T>(a: T): A; }`.
+- abstract-new recovery: `type T = { abstract new (): A }` -> TS yields MethodSignature named "new" with AbstractKeyword.  
+- mixed members: `{ (): A; new (): B; x: C }`, `interface I { new (): A; m(): void; }`, property named `new` regression.
+- heritage generic call: `class C extends mixin<T>(B)`, `(mixin<T>(B))`, `mixin<T, U>(B)`, `mixin<T>(B, C2)`,
+  `a.b<T>(B)`, `mixin<T>(B).x`, `interface I extends mixin<T>(B)` + trivia.
+- implementation: TypeBuilder.ParseTypeMember gains a `new` branch (ConstructSignatureShape with TypeParameters/Parameters/
+  ReturnType, TS children order) and the `abstract new` recovery; heritage BuildClauses detects generic calls
+  (`<...>` followed by `(`) and lets ExpressionBuilder parse the whole call, otherwise it still stops before type args.
+- readings: types 322/322 (baseline 302 + 20); declarations 441/441 (baseline 430 + 11); full suite 3318/3318 (baseline 3287 + 31); tsc 0 error.
+
+### deferred
+- constructor types with abstract (`abstract new () => A`), construct signature with modifiers other than abstract,
+  heritage generic call with explicit type arguments on parenthesized member access: deferred.
