@@ -31,6 +31,7 @@ import { ModuleDeclarationPossibleShape } from "../declarations/module-declarati
 import { NamespaceExportDeclarationPossibleShape } from "../declarations/namespace-export-declaration-possible-shape.xl.md"
 import { ReturnStatementPossibleShape } from "../statements/return-statement-possible-shape.xl.md"
 import { SourceFileEndPossibleShape } from "./source-file-end-possible-shape.xl.md"
+import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
 import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
 import { TryStatementPossibleShape } from "../statements/try-statement-possible-shape.xl.md"
@@ -134,6 +135,7 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
   SourceFileShape.CreatePossibleShapesCache = [
     new ImportDeclarationPossibleShape(),
     new ExportDeclarationPossibleShape(),
+    new StatementPossibleShape(),
     // new ImportEqualsDeclarationPossibleShape(),
     // new ExportAssignmentPossibleShape(),
     // new NamespaceExportDeclarationPossibleShape(),
