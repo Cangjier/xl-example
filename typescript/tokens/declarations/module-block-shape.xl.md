@@ -11,6 +11,7 @@ import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.xl.md"
+import { ImportDeclarationShape } from "./import-declaration-shape.xl.md"
 import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 import { NamespaceExportDeclarationShape } from "./namespace-export-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
@@ -156,6 +157,20 @@ if (keyword === "as") {
       const dataStart = bracket.Data.indexOf(inner.Units[declStart]);
       const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
       special = ImportEqualsDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+      (special as ShapeToken).Pos = inner.Positions[declStart];
+    }
+  } else {
+    // import x from "n"; / import {a} from "n"; / import * as ns from "n"; / import "n"; / import type {T} from "n";
+    for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+      if (inner.IsSymbol(inner.Units[scan], ";")) {
+        specialEnd = scan;
+        break;
+      }
+    }
+    if (specialEnd > declStart) {
+      const dataStart = bracket.Data.indexOf(inner.Units[declStart]);
+      const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+      special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
       (special as ShapeToken).Pos = inner.Positions[declStart];
     }
   }
