@@ -40087,6 +40087,735 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C { public static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 26
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { protected static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ProtectedKeyword",
+                  "pos": 9,
+                  "end": 19
+                },
+                {
+                  "kind": "Block",
+                  "pos": 26,
+                  "end": 29
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { private static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "PrivateKeyword",
+                  "pos": 9,
+                  "end": 17
+                },
+                {
+                  "kind": "Block",
+                  "pos": 24,
+                  "end": 27
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { declare static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "DeclareKeyword",
+                  "pos": 9,
+                  "end": 17
+                },
+                {
+                  "kind": "Block",
+                  "pos": 24,
+                  "end": 27
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 24
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public static { x = 1; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 25,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 25,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 27,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "FirstAssignment",
+                              "pos": 27,
+                              "end": 29
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public static {} static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 26
+                }
+              ]
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 26,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 33,
+                  "end": 36
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public static { a(); } protected static { b(); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 60,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 25,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 25,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 27,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 32,
+              "end": 58,
+              "children": [
+                {
+                  "kind": "ProtectedKeyword",
+                  "pos": 32,
+                  "end": 42
+                },
+                {
+                  "kind": "Block",
+                  "pos": 49,
+                  "end": 58,
+                  "children": [
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 51,
+                      "end": 56,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 51,
+                          "end": 55,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 51,
+                              "end": 53,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public /* c */ static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 31,
+                  "end": 34
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { /* c */ public static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 24
+                },
+                {
+                  "kind": "Block",
+                  "pos": 31,
+                  "end": 34
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public static /* c */ {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 34
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { @dec /* c */ static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 9,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { public static {\n let x = 1;\n} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "VariableStatement",
+                      "pos": 25,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "VariableDeclarationList",
+                          "pos": 25,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "VariableDeclaration",
+                              "pos": 30,
+                              "end": 36,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 30,
+                                  "end": 32,
+                                  "text": "x"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 34,
+                                  "end": 36,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "ClassStaticBlockDeclaration",
+              "pos": 9,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 16,
+                  "end": 19
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { get x() { return 1; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 9,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "x"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 17,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 19,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 26,
+                          "end": 28,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

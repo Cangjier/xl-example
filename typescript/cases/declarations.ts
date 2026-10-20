@@ -976,3 +976,25 @@ class C { @dec /* c */ public m() {} }
 // `@await f() class C {}` in async context: oracle rejects (await is not a decorator expression); skipped.
 // `@a[0] class C {}`: element access is not a legal decorator expression; TS recovery yields MissingDeclaration + ExpressionStatement (+ArrayLiteralExpression) and splits the decorator. Parked (invalid input, degenerate recovery).
 // `@dec(1) @a.b() @c[0] class C {}`: same element-access issue; use call forms like `@dec(1) @a.b() @c()` instead.
+
+// ===== base 21: static block modifier children（public/protected/private/declare/@dec 在 Block 前） =====
+class C { public static {} }
+class C { protected static {} }
+class C { private static {} }
+class C { declare static {} }
+class C { @dec static {} }
+class C { public static { x = 1; } }
+class C { public static {} static {} }
+class C { public static { a(); } protected static { b(); } }
+// + trivia
+class C { public /* c */ static {} }
+class C { /* c */ public static {} }
+class C { public static /* c */ {} }
+class C { @dec /* c */ static {} }
+class C { public static {\n let x = 1;\n} }
+// + regression：plain static 块 / 普通成员
+class C { static {} }
+class C { m() {} }
+class C { get x() { return 1; } }
+// ===== deferred =====
+// `class C { static readonly {} }` 等修饰词组合：TS parseDiagnostics = 3（非法组合），不收。

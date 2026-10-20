@@ -560,6 +560,17 @@ while (at < code.length) {
       throw new Error("static 块没有读完");
     }
     const staticShape = new ClassStaticBlockDeclarationShape(host.Template);
+    // TS children: Decorator(s), then the non-`static` modifiers (Public/Protected/Private/Declare...),
+    // then Block. The bare `static` keyword itself is not projected.
+    for (const decorator of decorators) {
+      staticShape.Add(decorator);
+    }
+    for (const modifier of modifiers) {
+      if (modifier instanceof StaticKeywordShape) {
+        continue;
+      }
+      staticShape.Add(modifier);
+    }
     staticShape.Add(staticBlock);
     staticShape.SignInToken(firstUnit);
     staticShape.SignOutToken(staticBody);
