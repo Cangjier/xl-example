@@ -38,6 +38,8 @@ import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 
 ## field ImportStage:int = 0
 
+## field AwaitStage:int = 0
+
 ## field CodeCount:int = 0
 
 ## field FirstIdentifier:bool = false
@@ -368,6 +370,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Rejected = false;
   state.AsyncStage = 0;
   state.ImportStage = 0;
+  state.AwaitStage = 0;
   state.CodeCount = 0;
   state.FirstIdentifier = false;
   state.SawQuestion = false;
@@ -406,6 +409,9 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     } else if (unit instanceof Common && (unit as Common).TempToString() === "import") {
       // import.meta 要累积确认：下一个代码单元必须是 `.`，否则本候选退出。
       state.ImportStage = 1;
+    } else if (unit instanceof Common && (unit as Common).TempToString() === "await") {
+      // `await using` 是 using 声明：下一格是 using 就让语句候选独占这一格。
+      state.AwaitStage = 1;
     }
   } else if (state.AsyncStage === 1) {
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
@@ -422,6 +428,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.AsyncStage = 3;
     } else {
       state.Rejected = true;
+    }
+  } else if (state.AwaitStage === 1) {
+    if (unit instanceof Common && (unit as Common).TempToString() === "using") {
+      // `await using` 进入这里说明首格是 await、次格是 using：这是声明，不是表达式语句。
+      state.Rejected = true;
+    } else {
+      state.AwaitStage = 0;
     }
   } else if (state.ImportStage === 1) {
     if (unit instanceof Symbol && (unit as Symbol).Is(".")) {
