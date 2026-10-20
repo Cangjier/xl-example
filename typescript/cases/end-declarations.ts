@@ -163,3 +163,15 @@ interface I\n{ a: number }
 class C\n{\n  m() {}\n}
 // 暂缓（原因见 docs/coverage-end.md §10）：declare function 无体在前、带体声明在后的多条连排仍红（chunk3 已记录）
 
+// ── chunk 5：无体声明在前、带体声明在后的 EOF 混排（declaration 候选在换行 statement word 处 Reject，交给 root end）──
+declare function f(): void\nclass C {}
+function f(a: A): B\nfunction f(a: A): B { return a; }
+declare function f(): void\ninterface I {}
+interface I {}\nclass C {}
+type T = A\nclass C {}
+// 三条混排暂缓：declare function + class + interface 一起到 EOF 时，前缀自己再拆两条、后缀起点要靠
+// BuildTrailingDeclaration 的返回约定，当前实现只保证「一条前缀」的递归；写成目标行等后续 chunk。
+// declare function f(): void\nclass C {}\ninterface I {}
+// 回归：两条无体函数背靠背（chunk3 已绿，保留对照）
+declare function f(): void\ndeclare function g(): void
+

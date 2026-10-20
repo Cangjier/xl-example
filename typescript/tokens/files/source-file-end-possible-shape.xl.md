@@ -13,6 +13,7 @@ import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ImportEqualsDeclarationShape } from "../declarations/import-equals-declaration-shape.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
+import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
@@ -140,7 +141,7 @@ for (let index = 1; index < code.length; index++) {
     continue;
   }
   const unitText = (unit as Common).TempToString();
-  if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "class")) {
+  if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "class" || unitText === "interface")) {
     continue;
   }
   let lineBreak = false;
@@ -161,7 +162,18 @@ if (boundary > 0) {
     host.Data.splice(start, prefixEnd - start + 1, prefix);
     prefix.Parent = host;
   }
-  return SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start + 1, at + start - prefixEnd, context);
+  // 前缀可能建出多条声明（它自己也会继续拆），所以后缀起点要从 Data 里现数：
+  // 从 start 起连续的 non-trivia 单元就是刚建出的形状。
+  let inserted = 0;
+  let cursor = start;
+  while (cursor < host.Data.length && !host.Data[cursor].IsTriviaToken) {
+    inserted++;
+    cursor++;
+  }
+  while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
+    cursor++;
+  }
+  return SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, at + inserted - (prefixEnd - start + 1), context);
 }
 const head = code[0];
 if (!(head instanceof Common)) {
@@ -169,11 +181,21 @@ if (!(head instanceof Common)) {
 }
 const text = (head as Common).TempToString();
 const lastUnit = code[code.length - 1];
-// 紧邻的 class 声明（体是闭合括号单元，`tokenIndex` 落在 `}` 上）。
-if (text === "class" && lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{") {
-  const klass = ClassDeclarationShape.FromUnits(host, start, at, context);
-  host.Data.splice(start, at - start + 1, klass);
-  klass.Parent = host;
+// 紧邻的 class / interface 声明（体是闭合括号单元，tokenIndex 落在 `}` 上）；允许前置 declare。
+const isClass = text === "class"
+  || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("class"));
+const isInterface = text === "interface"
+  || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("interface"));
+if ((isClass || isInterface) && lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{") {
+  if (isClass) {
+    const klass = ClassDeclarationShape.FromUnits(host, start, at, context);
+    host.Data.splice(start, at - start + 1, klass);
+    klass.Parent = host;
+    return true;
+  }
+  const iface = InterfaceDeclarationShape.FromUnits(host, start, at, context);
+  host.Data.splice(start, at - start + 1, iface);
+  iface.Parent = host;
   return true;
 }
 const isType = text === "type";

@@ -191,3 +191,32 @@ chunk 3 加的「紧邻 class（以 `}` 为 tokenIndex）」兜底在本批也�
 （`declare function f(): void\nclass C {}` 等，归 declarations 侧让候选在 EOF `Reject`）；
 `a\nimport …` 的「终结候选与其它候选同时成立」通用边界（chunk 1 记录，需 core 之外的独立通道）。
 
+## 11. EOF 声明混排（chunk 3 报告的 known red）
+
+**落地**（`end-declarations.ts` 103 → 109，+6）：
+
+- `declare function f(): void\nclass C {}` → 2 条语句（FunctionDeclaration + ClassDeclaration）；
+- `function f(a: A): B\nfunction f(a: A): B { return a; }`（overload + implementation 到 EOF）；
+- `declare function f(): void\ninterface I {}`、`interface I {}\nclass C {}`（后者本来已绿，补进用例集对照）；
+- `type T = A\nclass C {}`（类型别名在前、class 在后到 EOF）；
+- 回归对照：`declare function f(): void\ndeclare function g(): void`（chunk 3 已绿）。
+
+**修法（两处，均在 write scope 内）**：
+
+1. `function-declaration-possible-shape.xl.md`：Stage 3 / Stage 4 增加 **ASI Reject**——
+   若当前代码单元是「statement word」（复用 `ExpressionStatementPossibleShape.IsStatementWord`）且与
+   前一个代码单元之间**有换行**（新增 `LineBreakBefore`：按 Source 区间逐字符找 `\n` / `\r`，块注释里的换行也算），
+   则本候选 `Reject`。于是 `declare function f(): void\nclass …` 不会再把 `class C {}` 当成返回类型 / 函数体。
+   `class/interface` 形状文件未改。
+2. `source-file-end-possible-shape.xl.md` 的 `BuildTrailingDeclaration`：混排家族补 `interface`
+   （含 `declare interface`，走 `InterfaceDeclarationShape.FromUnits(host, start, at)`，`at` 落在 `}` 上）；
+   另外前缀递归可能建出**多条**声明（如 `declare function …` 前缀自身再拆），所以后缀起点不再假设
+   `start + 1`，而是从 `Data` 里现数「前缀建出的连续 non-trivia 形状个数」再推。
+
+**读数（本分支）**：`end-declarations` **109 / 109 完全一致**；全量 ast-json / diff **2797 / 2797**
+（基线 2791 + 6），结构差 0 / 位置差 0 / 字段差 0，无回归（declarations 276、end 53、export 等 stem 全绿）；tsc 0 error。
+
+**仍暂缓**：三条混排（`declare function f(): void\nclass C {}\ninterface I {}`）——前缀递归在「前缀自己再拆两条」
+时还没有把第二条的边界传回来，属 BuildTrailingDeclaration 的递归返回约定，写成用例里的 `//` 目标；
+`a\nimport …` 的候选共存边界（chunk 1）仍未处理。
+
