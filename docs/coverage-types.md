@@ -327,3 +327,15 @@ legacy `assert` 写法、字符串键（`{ "type": "json" }`），以及 4 条�
 | 嵌套条件 infer / 递归映射 `F<T>` | 绿 | 条件套条件、`{ [K in keyof T]: F<T[K]> }` |
 | `typeof a["b"]` / `(typeof a)["b"]` | 绿 | TypeQuery 后接索引访问 |
 | trivia（模板插值内注释、`keyof /* c */`） | 绿 | 逐条测 |
+
+## this 参数（cover-this-param-1，measurement）
+
+oracle：TS 的 this 参数在 AST 里是普通 `Parameter`，名字是 **`Identifier` 且 text 为 `"this"`**（不是 ThisKeyword），
+children = Identifier("this") + 类型；函数声明 / 方法 / 接口方法 / 类型字面量方法 / 函数类型 / 构造类型的 `(`…`)` 参数表都走同一口径。
+
+已绿（无需改源）：`function f(this: A, x: B)`、`function f(this: void)`、`function f(this: A)`、
+`class C { m(this: A, x: B) {} }`、`interface I { m(this: A): void; }`、`type T = { m(this: A): void }`、
+`type F = (this: A, x: B) => C`、`type F = new (this: A) => B`、`type F = (this: void) => A`，
+以及 trivia（`this /* c */ : A`）与 rest 回归。
+
+非法（oracle，不写用例）：`function f(x: B, this: A) {}` —— this 参数必须是第一个参数。

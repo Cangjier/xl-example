@@ -872,3 +872,13 @@ class C { constructor(public x /* c */ ?: A) {} }
 // parameter property definite assignment `constructor(public x!: A)`: invalid TypeScript; the oracle recovery AST
 // contains degenerate empty Parameter nodes (e.g. Parameter [30,30) Identifier [30,30)), matching it byte-for-byte has no value.
 // optional property with definite assignment `x?!: A` etc.: invalid, skipped.
+
+// ===== this 参数：函数声明 / 方法 / 接口方法（measurement） =====
+function f(this: A, x: B) {}
+function f(this: void) {}
+function f(this: A) {}
+class C { m(this: A, x: B) {} }
+interface I { m(this: A): void; }
+function f(this /* c */: A) {}
+function f(this: A, ...rest: B[]) {}
+// deferred：function f(x: B, this: A) {} —— TS parseDiagnostics 为空（语法可解析），但 checker 要求 this 必须是第一个参数（语义非法），故不写进用例

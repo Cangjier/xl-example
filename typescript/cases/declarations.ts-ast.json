@@ -35933,6 +35933,457 @@
           ]
         }
       ]
+    },
+    {
+      "src": "function f(this: A, x: B) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 15,
+                  "text": "this"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 22,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 25,
+              "end": 28
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(this: void) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 15,
+                  "text": "this"
+                },
+                {
+                  "kind": "VoidKeyword",
+                  "pos": 16,
+                  "end": 21
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 22,
+              "end": 25
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(this: A) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 15,
+                  "text": "this"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m(this: A, x: B) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 12,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 16,
+                      "text": "this"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 17,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 20,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 23,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 26,
+                  "end": 29
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I { m(this: A): void; }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "MethodSignature",
+              "pos": 13,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 16,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 20,
+                      "text": "this"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 21,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "VoidKeyword",
+                  "pos": 25,
+                  "end": 30
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(this /* c */: A) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 15,
+                  "text": "this"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(this: A, ...rest: B[]) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 15,
+                  "text": "this"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "DotDotDotToken",
+                  "pos": 19,
+                  "end": 23
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 27,
+                  "text": "rest"
+                },
+                {
+                  "kind": "ArrayType",
+                  "pos": 28,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 28,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 28,
+                          "end": 30,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 33,
+              "end": 36
+            }
+          ]
+        }
+      ]
     }
   ]
 }
