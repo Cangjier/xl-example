@@ -274,3 +274,32 @@ interface I { a: number; readonly b: A; m(): void; }
 // (class { x = 1; });
 // (class { m() {} });
 // 瑁呴グ鍣?/ static block / overloads / abstract 鏂规硶锛氬悗缁?chunk
+
+// ===== base 9：class element extras（abstract / overload / static block）=====
+abstract class C { abstract m(): void; }
+abstract class C { abstract x: number; }
+abstract class C { abstract m(): void; abstract x: A; }
+abstract class C { abstract m(a: A): B; }
+abstract class C { abstract x: A; y = 1; }
+class C { m(a: A): B; m(a): any { return a; } }
+class C { m(): void; m() {} }
+class C { m(a: A): B; m(a: A): B; m(a): any { return a; } }
+class C { m(): void; x = 1; }
+class C { static { a(); } }
+class C { static {} }
+class C { x = 1; static { a(); } }
+class C { static { a(); } m() {} }
+// + trivia
+abstract class C { /* c */ abstract m(): void; }
+abstract class C { abstract /* c */ m(): void; }
+abstract class C { abstract x: /* c */ A; }
+class C { m(a: A): B; /* c */ m(a): any { return a; } }
+class C { static { /* c */ a(); } }
+class C { static { a(); } /* c */ }
+
+// ===== 暂缓（base+trivia，待后续 chunk）=====
+// 装饰器：需要 expression 家族以外再开「@ 表达式」分派（类 candidate Stage 0 + 成员前缀），本块未做
+// @dec class C {}
+// class C { @dec m() {} }
+// class C { @dec x = 1; }
+// private fields (#x) / parameter properties / accessor keyword / abstract accessors：各自需要的形状未就绪
