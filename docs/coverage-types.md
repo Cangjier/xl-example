@@ -100,3 +100,39 @@ AST 的 `End` 由 `ParseFromShape` 换算成 `SourceRange.End.Index + 1`。
 4. **泛型参数声明 `type T<U> = U[]`、修饰词 `export` / `declare`**：留给 declarations chunk；本块的 root 候选只放行裸 `type`。
 5. 嵌套泛型实参的连写闭合 `A<B<C>>`：基本 token 会把 `>>` 收成一个 `Symbol`，本块未处理（写成 `A<B<C> >` 也不通），
    与 `f<T>(a)` 一起归到 Tier 2 泛型实参那一批。
+
+## 6. chunk 2：函数类型 + 对象类型成员 + 限定名转绿
+
+起点：\`origin/integration 53b5cae7\`（无 types chunk1），\`git merge origin/cover-types-1\` 后 1044/1044 全绿；
+本 chunk 后 127 条 types（全量 1098）。§5 里第 2、3 条已在本 chunk 落地，其余仍暂缓。
+
+### 6.1 harness 别名（唯一改动的共享文件）
+
+\`typescript/cases/ast-json.mjs\` 与 \`ast-json-diff.mjs\` 的 \`TS_KIND_ALIASES\` 各加一行
+\`["FirstNode", "QualifiedName"]\`（+ 一行注释）：TS 把 \`SyntaxKind.QualifiedName\` 的反查名印成 \`FirstNode\`。
+加完后 \`type T = A.B;\` / \`A.B.C\` / \`A.B<C>\` 三条转绿，其它 stem 不回归。
+
+### 6.2 函数类型（\`FunctionType\`）
+
+- \`TypeBuilder.ParseFunctionType\`：\`(\`…\`)\` 括号后跟 \`=>\` 时按函数类型解析；children = 参数们 + 返回类型，\`=>\` 不进 AST；
+- \`TypeBuilder.ParseParameterList\` / \`ParseParameter\`：参数 \`名字 [?] : 类型\`，children = Identifier、可选 QuestionToken、类型；
+  基本 token 会把连写的 \`?:\` 收成一个 \`Symbol\`（\`SymbolTemplate\` 组合符号表里有 \`?:\`），
+  所以 \`ParseOptionalMark\` 同时认 \`?\` 与 \`?:\`，\`?:\` 时 QuestionToken 只覆盖 \`?\` 一个字符；
+- \`FunctionTypeShape\` / 扩展的 \`ParameterShape\`（字段 \`ParameterName\` / \`QuestionToken\` / \`Type\`）。
+
+### 6.3 对象类型成员（\`TypeLiteral\`）
+
+\`TypeBuilder.ParseTypeMember\` 支持四种成员：属性 \`a: A\` / \`a?: A\`、只读 \`readonly a: A\`、方法 \`a(): B\`、
+索引 \`[k: string]: A\`、调用 \`(a: A): B\`；新增 \`PropertySignatureShape\` / \`MethodSignatureShape\` /
+\`IndexSignatureShape\` / \`CallSignatureShape\`。
+
+两处实测口径：
+1. **成员节点包含它后面的分隔符**：\`{ a: A; b: B }\` 的 \`PropertySignature\` 是 \`[10,16)\`（\`;\` 在 15），
+   \`SpanTypeMember\` 因此把紧跟的 \`;\` / \`,\` 也吃进区间；最后一个没有分隔符的成员不含。
+2. 成员之间的分隔符不进 children；空 \`{}\` 仍然没有 children。
+
+### 6.4 仍然暂缓（\`types.ts\` 末尾 \`//\` 目标）
+
+constructor type / 构造签名、rest 与解构参数、默认值、对象类型里的 \`readonly [k: string]\` / 可选方法 / get set、
+conditional / mapped / infer / keyof / typeof / indexed / import type / template literal type / type predicate / 类型算子、
+泛型参数声明与 export / declare 修饰词、\`A<B<C>>\` 连写闭合（\`>>\` 被 basic token 收成一个 Symbol）。

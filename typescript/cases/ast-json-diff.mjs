@@ -48,6 +48,8 @@ function selectedStems(args) {
 }
 
 const TS_KIND_ALIASES = new Map([
+  // SyntaxKind.QualifiedName 的反查名被别名 FirstNode 盖掉（与 tests/parse/ts-ast.mjs 同款）。
+  ["FirstNode", "QualifiedName"],
   ["FirstStatement", "VariableStatement"],
   ["LastStatement", "DebuggerStatement"],
   ["FirstLiteralToken", "NumericLiteral"],

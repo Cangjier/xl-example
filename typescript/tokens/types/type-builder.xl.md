@@ -8,6 +8,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { AnyKeywordShape } from "../keywords/any-keyword-shape.xl.md"
 import { BigIntKeywordShape } from "../keywords/big-int-keyword-shape.xl.md"
 import { BooleanKeywordShape } from "../keywords/boolean-keyword-shape.xl.md"
@@ -16,6 +17,7 @@ import { NeverKeywordShape } from "../keywords/never-keyword-shape.xl.md"
 import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { NumberKeywordShape } from "../keywords/number-keyword-shape.xl.md"
 import { ObjectKeywordShape } from "../keywords/object-keyword-shape.xl.md"
+import { ReadonlyKeywordShape } from "../keywords/readonly-keyword-shape.xl.md"
 import { StringKeywordShape } from "../keywords/string-keyword-shape.xl.md"
 import { SymbolKeywordShape } from "../keywords/symbol-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
@@ -27,9 +29,15 @@ import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ArrayTypeShape } from "./array-type-shape.xl.md"
+import { CallSignatureShape } from "./call-signature-shape.xl.md"
+import { FunctionTypeShape } from "./function-type-shape.xl.md"
+import { IndexSignatureShape } from "./index-signature-shape.xl.md"
 import { IntersectionTypeShape } from "./intersection-type-shape.xl.md"
 import { LiteralTypeShape } from "./literal-type-shape.xl.md"
+import { MethodSignatureShape } from "./method-signature-shape.xl.md"
+import { ParameterShape } from "./parameter-shape.xl.md"
 import { ParenthesizedTypeShape } from "./parenthesized-type-shape.xl.md"
+import { PropertySignatureShape } from "./property-signature-shape.xl.md"
 import { QualifiedNameShape } from "./qualified-name-shape.xl.md"
 import { ThisTypeShape } from "./this-type-shape.xl.md"
 import { TupleTypeShape } from "./tuple-type-shape.xl.md"
@@ -305,6 +313,10 @@ if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
   if (bracket.Is("(", ")")) {
     this.At++;
+    const after = this.Peek(0);
+    if (after !== null && this.IsText(after, "=>")) {
+      return this.ParseFunctionType(bracket, start);
+    }
     return this.ParseParenthesizedType(bracket, start);
   }
   if (bracket.Is("[", "]")) {
@@ -453,13 +465,27 @@ return shape;
 
 ## method ParseTypeLiteral:(bracket:Bracket, start:int)=>Token
 
-`{ }`：本块只支持**空**对象类型（成员见 chunk 2）；非空时报错而不是静默错树。
+对象类型：空花括号没有 children；非空时逐个解析成员（`;` / `,` 是分隔符，不进 AST）。
 
 ```ts
-if (this.HasCode(bracket.Data)) {
-  throw new Error("对象类型成员暂未实现");
-}
 const shape = new TypeLiteralShape(this.Template);
+if (this.HasCode(bracket.Data)) {
+  const inner = new TypeBuilder(this.Template, this.Context);
+  let base = 0;
+  if (bracket.SourceRange.Start !== null) {
+    base = bracket.SourceRange.Start.Index + 1;
+  }
+  inner.Load(bracket.Data, base);
+  while (inner.At < inner.Units.length) {
+    const unit = inner.Units[inner.At];
+    if (inner.IsText(unit, ";") || inner.IsText(unit, ",")) {
+      inner.At++;
+      continue;
+    }
+    shape.Add(inner.ParseTypeMember());
+  }
+  shape.Members = shape.Data;
+}
 if (bracket.SourceRange.Start !== null) {
   shape.SignIn(bracket.SourceRange.Start);
 }
@@ -469,6 +495,280 @@ if (bracket.SourceRange.End !== null) {
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
 return shape;
+```
+
+## method ParseTypeMember:()=>Token
+
+对象类型的一个成员：可选的 `readonly` 之后分四种形态——`(` 调用签名、`[` 索引签名、
+`名字(` 方法签名、`名字[?]` 属性签名。children 顺序都按 TS。
+
+成员区间**含它后面的 `;` / `,` 分隔符**（实测 `{ a: A; b: B }` 的 `PropertySignature` 是 `[10,16)`，
+`;` 在 15，所以末尾要把分隔符吃进区间；最后一个没有分隔符的成员不含）。
+
+```ts
+const start = this.At;
+const modifiers:Array<Token> = [];
+while (true) {
+  const unit = this.Peek(0);
+  if (unit === null || !this.IsText(unit, "readonly")) {
+    break;
+  }
+  const index = this.At;
+  this.At++;
+  modifiers.push(this.SpanLeaf(new ReadonlyKeywordShape(this.Template), index));
+}
+const unit = this.Peek(0);
+if (unit === null) {
+  throw new Error("对象类型成员意外结束");
+}
+if (unit instanceof Bracket) {
+  const bracket = unit as Bracket;
+  if (bracket.Is("(", ")")) {
+    this.At++;
+    const parameters = this.ParseParameterList(bracket);
+    const colon = this.Peek(0);
+    if (colon === null || !this.IsText(colon, ":")) {
+      throw new Error("调用签名缺少返回类型");
+    }
+    this.At++;
+    const returnType = this.ParseType();
+    const shape = new CallSignatureShape(this.Template);
+    shape.Parameters = parameters;
+    shape.ReturnType = returnType;
+    for (const parameter of parameters) {
+      shape.Add(parameter);
+    }
+    shape.Add(returnType);
+    return this.SpanTypeMember(shape, start);
+  }
+  if (bracket.Is("[", "]")) {
+    this.At++;
+    const parameter = this.ParseIndexParameter(bracket);
+    const colon = this.Peek(0);
+    if (colon === null || !this.IsText(colon, ":")) {
+      throw new Error("索引签名缺少类型");
+    }
+    this.At++;
+    const type = this.ParseType();
+    const shape = new IndexSignatureShape(this.Template);
+    shape.Parameter = parameter;
+    shape.Type = type;
+    shape.MemberModifiers = modifiers;
+    for (const modifier of modifiers) {
+      shape.Add(modifier);
+    }
+    shape.Add(parameter);
+    shape.Add(type);
+    return this.SpanTypeMember(shape, start);
+  }
+  throw new Error("对象类型里出现了不支持的括号");
+}
+if (!(unit instanceof Common)) {
+  throw new Error("不支持的对象类型成员");
+}
+const name = this.ParseName();
+const next = this.Peek(0);
+if (next !== null && this.IsBracket(next, "(", ")")) {
+  const bracket = next as Bracket;
+  this.At++;
+  const parameters = this.ParseParameterList(bracket);
+  const colon = this.Peek(0);
+  let returnType:Token | null = null;
+  if (colon !== null && this.IsText(colon, ":")) {
+    this.At++;
+    returnType = this.ParseType();
+  }
+  const shape = new MethodSignatureShape(this.Template);
+  shape.SignatureName = name;
+  shape.Parameters = parameters;
+  shape.ReturnType = returnType;
+  shape.MemberModifiers = modifiers;
+  for (const modifier of modifiers) {
+    shape.Add(modifier);
+  }
+  shape.Add(name);
+  for (const parameter of parameters) {
+    shape.Add(parameter);
+  }
+  if (returnType !== null) {
+    shape.Add(returnType);
+  }
+  return this.SpanTypeMember(shape, start);
+}
+const markUnit = this.Peek(0);
+let question:Token | null = null;
+let colonNeeded = true;
+if (markUnit !== null) {
+  const markText = this.TextOf(markUnit);
+  if (markText === "?" || markText === "?:") {
+    question = this.ParseOptionalMark();
+    colonNeeded = markText === "?";
+  }
+}
+if (colonNeeded) {
+  const colon = this.Peek(0);
+  if (colon === null || !this.IsText(colon, ":")) {
+    throw new Error("属性签名缺少类型");
+  }
+  this.At++;
+}
+const type = this.ParseType();
+const shape = new PropertySignatureShape(this.Template);
+shape.SignatureName = name;
+shape.QuestionToken = question;
+shape.Type = type;
+shape.MemberModifiers = modifiers;
+for (const modifier of modifiers) {
+  shape.Add(modifier);
+}
+shape.Add(name);
+if (question !== null) {
+  shape.Add(question);
+}
+shape.Add(type);
+return this.SpanTypeMember(shape, start);
+```
+
+## method SpanTypeMember:(shape:ShapeToken, start:int)=>Token
+
+按成员签区间，并把紧跟其后的 `;` / `,` 一并算进区间（TS 的成员节点包含自己的分隔符）。
+
+```ts
+let last = this.At - 1;
+const separator = this.Peek(0);
+if (separator !== null && (this.IsText(separator, ";") || this.IsText(separator, ","))) {
+  last = this.At;
+  this.At++;
+}
+return this.SpanNode(shape, start, last);
+```
+
+## method ParseOptionalMark:()=>Token | null
+
+可选标记 `?`。注意基本 token 会把连写的 `?:` 收成一个 `Symbol`（`SymbolTemplate` 的组合符号表里有 `?:`），
+所以这里同时认 `?` 与 `?:`：`?:` 时问号形状只覆盖 `?` 那一个字符（TS 的 `QuestionToken` 是 `[12,13)`），
+冒号算已经被它一并消费。
+
+```ts
+const unit = this.Peek(0);
+if (unit === null) {
+  return null;
+}
+const text = this.TextOf(unit);
+if (text !== "?" && text !== "?:") {
+  return null;
+}
+const index = this.At;
+this.At++;
+const shape = new QuestionTokenShape(this.Template);
+if (unit.SourceRange.Start !== null) {
+  shape.SignIn(unit.SourceRange.Start);
+  shape.SignOut(unit.SourceRange.Start);
+}
+shape.Pos = this.Positions[index];
+shape.TryToClose(this.Context);
+return shape;
+```
+
+## method ParseFunctionType:(bracket:Bracket, start:int)=>Token
+
+函数类型：参数表来自 `(`…`)` 那个括号单元，然后 `=>`（`Symbol`，不进 AST），返回类型按 `ParseType` 读（右结合）。
+
+```ts
+const shape = new FunctionTypeShape(this.Template);
+const parameters = this.ParseParameterList(bracket);
+for (const parameter of parameters) {
+  shape.Add(parameter);
+}
+const arrow = this.Peek(0);
+if (arrow === null || !this.IsText(arrow, "=>")) {
+  throw new Error("函数类型缺少 =>");
+}
+this.At++;
+const returnType = this.ParseType();
+shape.Parameters = parameters;
+shape.ReturnType = returnType;
+shape.Add(returnType);
+return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseParameterList:(bracket:Bracket)=>Array<Token>
+
+参数表：括号单元里允许空表，否则 `参数 (, 参数)*`，末尾逗号忽略。
+
+```ts
+const parameters:Array<Token> = [];
+const inner = new TypeBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+while (inner.At < inner.Units.length) {
+  const unit = inner.Units[inner.At];
+  if (inner.IsText(unit, ",")) {
+    inner.At++;
+    continue;
+  }
+  parameters.push(inner.ParseParameter());
+}
+return parameters;
+```
+
+## method ParseParameter:()=>Token
+
+一个参数：`名字 [?] : 类型`。children 顺序与 TS 一致（Identifier、可选 QuestionToken、类型）。
+
+基本 token 会把连写的 `?:` 收成一个 `Symbol`，所以 `?` 与 `?:` 都认：`?:` 时冒号已随符号消费。
+
+```ts
+const nameIndex = this.At;
+const name = this.ParseName();
+const markUnit = this.Peek(0);
+let question:Token | null = null;
+let colonNeeded = true;
+if (markUnit !== null) {
+  const markText = this.TextOf(markUnit);
+  if (markText === "?" || markText === "?:") {
+    question = this.ParseOptionalMark();
+    colonNeeded = markText === "?";
+  }
+}
+if (colonNeeded) {
+  const colon = this.Peek(0);
+  if (colon === null || !this.IsText(colon, ":")) {
+    throw new Error("参数缺少类型标注");
+  }
+  this.At++;
+}
+const type = this.ParseType();
+const parameter = new ParameterShape(this.Template);
+parameter.ParameterName = name;
+parameter.QuestionToken = question;
+parameter.Type = type;
+parameter.Add(name);
+if (question !== null) {
+  parameter.Add(question);
+}
+parameter.Add(type);
+return this.SpanNode(parameter, nameIndex, this.At - 1);
+```
+
+## method ParseIndexParameter:(bracket:Bracket)=>Token
+
+索引签名的参数：方括号单元里只有一个 `名字 : 类型`，复用 `ParseParameter` 的口径。
+
+```ts
+const inner = new TypeBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+if (inner.Units.length === 0) {
+  throw new Error("索引签名缺少参数");
+}
+return inner.ParseParameter();
 ```
 
 ## method ParseStringLiteralType:(token:String, start:int)=>Token
