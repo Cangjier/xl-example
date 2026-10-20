@@ -212,3 +212,52 @@ expression  364 / 364            # 329（chunk 1~3 后）+ 35（base 25 块体�
 2. `import.meta`（`MetaProperty` + import 候选在 `.` 处 Reject）；
 3. 箭头参数默认值 / 可选 / rest：本块已把 `ParseFunctionParameters` 的骨架搭好，扩参数产生式即可；
 4. 等 statements 家族把 class element 形状铺开后，带成员的 class 表达式与 object method / accessor 可同批收。
+
+## chunk 5（cover-expressions-5，从 origin/integration @568463e9 + merge cover-expressions-4）：高级参数
+
+本块只改 `expression-builder.xl.md` + `expression.ts` + 本文件；**未改 `parameter-shape`**（types 家族所有，
+当前字段是 `ParameterName` / `QuestionToken` / `Type`，没有 RestToken 字段——rest 用 `DotDotDotToken` 子节点表达即可，
+AST 对拍只读 `Data`）。`MakeOperatorToken` 补 `...` → `DotDotDotTokenShape`。
+
+### 实现落点
+
+- `ParseFunctionParameters` 扩成完整参数产生式：`...`? 名字（`?`）?（`: 类型`）?（`= 默认值`）?；
+  箭头（`ParseArrowFromBracket`）与函数表达式（`ParseFunctionExpression`）共用，箭头不再只收标识符。
+- children 顺序严格按 TS：`DotDotDotToken`、`Identifier`、`QuestionToken`、类型节点、initializer。
+- 默认值用 `ParseAssign` 解析；类型走 `TypeBuilder.ParseType`；`Pos` 取参数第一个单元（`...` 或名字）的含前导 trivia 起点，
+  区间到最后一个子节点结束。
+
+### AST 口径（TS 实测；与工单括注不同处以此为准）
+
+| 构造 | TS children / 区间 |
+| --- | --- |
+| `(a: A) => a;` | `Parameter[1,5)` → `Identifier[1,2)`、`TypeReference[3,5)`；`EqualsGreaterThanToken[6,9)` |
+| `(a = 1) => a;` | `Parameter[1,6)` → `Identifier[1,2)`、`NumericLiteral[4,6)`；**没有 EqualsToken 子节点** |
+| `(a: A, b = 1, ...c) => a;` | 三个 `Parameter`：`[1,5)`（name+type）、`[6,12)`（name+initializer）、`[13,18)`（`DotDotDotToken[13,17)`+`Identifier[17,18)`） |
+| `(...a) => a;` | `Parameter[1,5)` → `DotDotDotToken[1,4)`、`Identifier[4,5)`；Parameter 的 pos 从 `...` 起 |
+| `(function (a?) {});` | `Parameter[11,13)` → `Identifier[11,12)`、`QuestionToken[12,13)` |
+| `(function (a = 1) {});` | `Parameter[11,16)` → `Identifier[11,12)`、`NumericLiteral[14,16)`（同样没有 `=` 子节点） |
+
+> 注意：工单里写「Parameter children 含 EqualsToken」，但 TS 实测 `Parameter` 的 forEachChild **不含** EqualsToken
+> （只有 `{ a = 1 }` 的 ShorthandPropertyAssignment 才含）；本块按实测建树。
+
+### 读数（merge 后基线 1410/1410）
+
+```
+expression  397 / 397            # 364（chunk 1~4 后）+ 33（base 27 箭头高级参数 18 条、base 28 函数表达式参数 15 条）
+全量        1443 / 1443          # 1410 + 33；其余 12 个构造条数与读数不变
+```
+
+### 暂缓（附依赖，expression.ts 注释同步）
+
+- async 箭头 `async (a) => a` / `async () => {}` ← 依赖 cover-end-1 的 `CanStart` 放行 `async`；
+- 解构参数 / 参数装饰器（`(function ({ a }) {})`）← 依赖 bindings / decorator 家族；
+- `<T>a` / 泛型箭头 ← 等 cover-end-1 放行 `<`；import.meta、await / yield / new.target 同前；
+- 带成员的 class 表达式、object method / get / set ← 等 class element shapes；数组语句起点 ← 等 `CanStart [ ]`。
+
+### 下一 chunk 建议
+
+1. 数组字面量语句起点 `[a, b];`（builder 已就绪，只差 `ExpressionStatementPossibleShape.CanStart` 放行 `[`）；
+2. `import.meta`（`MetaProperty` + import 候选在 `.` 处 Reject）；
+3. 等 cover-end-1 放行 `async` / `<` 后同批收 async 箭头与泛型箭头；
+4. class element 形状就绪后收带成员 class 表达式与 object method / accessor。
