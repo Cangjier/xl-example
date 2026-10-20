@@ -19579,6 +19579,691 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare function f(a: A);",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f()\n",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(a: A);\n",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare /* c */ function f();",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare /* c */ function f(a: A);",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 27,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 28,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 29,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function /* c */ f();",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 26,
+              "text": "f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f(); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare namespace N { function f(); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 21,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "f"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f(a: A); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 32,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 33,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 34,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 36,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f(); function g(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    }
+                  ]
+                },
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 34,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 48,
+                      "end": 53
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f(): void; function g(); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 34,
+                      "end": 39
+                    }
+                  ]
+                },
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 40,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "g"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare namespace N { function f(): void; function g(); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 57,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 21,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 35,
+                      "end": 40
+                    }
+                  ]
+                },
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 41,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 50,
+                      "end": 52,
+                      "text": "g"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f();\nlet x: number; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 51,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableStatement",
+                  "pos": 34,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 34,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 38,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 38,
+                              "end": 40,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 41,
+                              "end": 48
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare namespace N { function f();\ninterface I {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 21,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "f"
+                    }
+                  ]
+                },
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 35,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 45,
+                      "end": 47,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

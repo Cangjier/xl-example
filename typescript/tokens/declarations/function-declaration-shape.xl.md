@@ -65,7 +65,7 @@ Data 里没有 Block，区间到 `;` 为止（AST 的 End 含分号）。
 super(template);
 ```
 
-## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>FunctionDeclarationShape
+## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool)=>FunctionDeclarationShape
 
 ```ts
 const code:Array<Token> = [];
@@ -160,8 +160,10 @@ if (afterParams < tailIndex) {
   if (typeBuilder.At !== typeBuilder.Units.length) {
     throw new Error("函数声明的返回类型没有读完");
   }
-} else if (bodyUnit === null && declareUnit === null) {
-  // A no-body declaration without "declare" needs a return type (overload signature).
+} else if (bodyUnit === null && declareUnit === null && (ambient ?? false) === false) {
+  // A no-body declaration without "declare" needs a return type (overload signature) --
+  // unless the caller says we are inside an ambient context (`declare module/namespace`, where the
+  // declare is implicit and the return type may be omitted: `function f();`).
   throw new Error("function 声明没有函数体时必须带返回类型（或 declare）");
 }
 let pos = 0;
