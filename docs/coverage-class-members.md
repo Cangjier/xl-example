@@ -316,3 +316,21 @@
 ### deferred
 - none for the target family; all requested forms are green. `@dec export default` with a class body/type params/heritage
   was included and stayed green with the same child order.
+
+## chunk 16 (SemicolonClassElement, branch cover-semicolon-elements-1 @ origin/integration 0bc3408c)
+
+- FINDING: `SemicolonClassElementShape` existed but was never wired into the class member loop - bare `;` members
+  were silently skipped, so the TS node was missing from the cj tree. This chunk closes the audit's last
+  "implemented but unmeasured" kind.
+- RED -> GREEN: `class C { ; }`, `{ ; ; }`, `{ ; ; ; }`, `{ ; x = 1; }`, `{ x = 1; ; m() {} }`, `{ x = 1; ; }`,
+  `{ m() {} ; }`, `extends B { ; }`, `{ static { } ; }`, `{ constructor() {} ; }` (all lacked the node before).
+- TS oracle: SemicolonClassElement has NO children; range starts right after the previous token (leading trivia)
+  and ends after the `;` (e.g. `class C { ; }` -> [9,11)); the class members array includes it in source order.
+- Fix (class-declaration-shape only): the member loop now builds SemicolonClassElementShape for a bare `;`
+  (SignIn/SignOut on the `;`, Pos = previousEnd + 1) and pushes it into members instead of skipping.
+- regression: empty body `class C {}`, body with only a block comment, body with only a line comment.
+- trivia: `/* c */ ;`, `; /* c */`, `; /* c */ ;`, multi-line body, `x = 1; /* c */ ; m() { }`.
+- readings: declarations 814/814 (baseline 797 + 17 net after dedupe); full suite 4230/4230 (baseline 4213); tsc 0 error.
+
+### deferred
+- none: every requested semicolon placement is green. `static { } ;` and the EOF variant are covered.
