@@ -3647,6 +3647,673 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare function f(): void\nclass C {}\ninterface I {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 26,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 32,
+              "end": 34,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 37,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 47,
+              "end": 49,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {}\nclass C {}\ndeclare function f(): void",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 14,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 25,
+          "end": 52,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 25,
+              "end": 33
+            },
+            {
+              "kind": "Identifier",
+              "pos": 42,
+              "end": 44,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 47,
+              "end": 52
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class A {}\nclass B {}\nclass C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "A"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "B"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 21,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 29,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\ntype T = A\nclass C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 26,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 35,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 35,
+                  "end": 37,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 37,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 43,
+              "end": 45,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = A\nclass C {}\ninterface I {}",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 21,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\nclass C {}\nclass D {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 26,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 32,
+              "end": 34,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 37,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 43,
+              "end": 45,
+              "text": "D"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\ninterface I {}\nclass C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 26,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 36,
+              "end": 38,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 41,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 47,
+              "end": 49,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {}\ndeclare function f(): void\nclass C {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 14,
+          "end": 41,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 14,
+              "end": 22
+            },
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 36,
+              "end": 41
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 41,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 47,
+              "end": 49,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class A {}\ninterface I {}\ntype T = A",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "A"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 10,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 25,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 34,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\n/* c */ class C {}\ninterface I {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 26,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 40,
+              "end": 42,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 45,
+          "end": 60,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 55,
+              "end": 57,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\nclass C {}\n// c\ninterface I {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 26,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 32,
+              "end": 34,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 37,
+          "end": 57,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 52,
+              "end": 54,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\ndeclare function g(): void\nclass C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 26,
+          "end": 53,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 26,
+              "end": 34
+            },
+            {
+              "kind": "Identifier",
+              "pos": 43,
+              "end": 45,
+              "text": "g"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 48,
+              "end": 53
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 53,
+          "end": 64,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 59,
+              "end": 61,
+              "text": "C"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
