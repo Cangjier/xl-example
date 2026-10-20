@@ -15,6 +15,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
@@ -22,6 +23,9 @@ import { ImportAttributesPossibleShape } from "./import-attributes-possible-shap
 import { ImportDeclarationEndPossibleShape } from "./import-declaration-end-possible-shape.xl.md"
 import { ImportClausePossibleShape } from "./import-clause-possible-shape.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
+import { NamedImportsShape } from "./named-imports-shape.xl.md"
+import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { StringLiteralPossibleShape } from "../literals/string-literal-possible-shape.xl.md"
 ```
 
@@ -73,6 +77,152 @@ if (ImportDeclarationShape.CreatePossibleShapesCache === null) {
 return ImportDeclarationShape.CreatePossibleShapesCache;
 ```
 
+## static method FromUnits:(host:Token, start:int, end:int, context:SyntaxContext)=>ImportDeclarationShape
+
+Build one import declaration from a module-body token slice (host is the enclosing Bracket; start/end index host.Data).
+Reuses the same children as the root path: ImportClause [+ NamedImports / NamespaceImport / default Identifier] then the module StringLiteral.
+
+```ts
+const code:Array<Token> = [];
+for (let at = start; at <= end; at++) {
+  if (!host.Data[at].IsTriviaToken) {
+    code.push(host.Data[at]);
+  }
+}
+if (code.length < 3) {
+  throw new Error("import declaration is incomplete");
+}
+const keyword = code[0];
+if (!(keyword instanceof Common) || !(keyword as Common).Is("import")) {
+  throw new Error("import declaration is missing import keyword");
+}
+const semicolon = code[code.length - 1];
+if (!(semicolon instanceof Symbol) || !(semicolon as Symbol).Is(";")) {
+  throw new Error("import declaration is missing semicolon");
+}
+const shape = new ImportDeclarationShape(host.Template);
+let index = 1;
+let isTypeOnly = false;
+let childPos = keyword.SourceRange.End === null ? 0 : keyword.SourceRange.End.Index + 1;
+if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("type")) {
+  isTypeOnly = true;
+  const typeUnit = code[index] as Common;
+  const typeEnd = typeUnit.SourceRange.End;
+  childPos = typeEnd === null ? childPos : typeEnd.Index + 1;
+  index++;
+}
+const sideEffect = code[index];
+if (sideEffect instanceof String) {
+  const literal = StringLiteralShape.FromBasicToken(sideEffect as String, context);
+  literal.Pos = keyword.SourceRange.End === null ? 0 : keyword.SourceRange.End.Index + 1;
+  shape.ModuleSpecifier = literal;
+  shape.IsTypeOnly = isTypeOnly;
+  shape.Add(literal);
+  if (keyword.SourceRange.Start !== null) {
+    shape.SignIn(keyword.SourceRange.Start);
+  }
+  if (semicolon.SourceRange.End !== null) {
+    shape.SignOut(semicolon.SourceRange.End);
+  }
+  shape.TryToClose(context);
+  return shape;
+}
+const clause = new ImportClauseShape(host.Template);
+clause.IsTypeOnly = isTypeOnly;
+let clauseStart:Token = keyword;
+let clauseEnd:Token = keyword;
+let hasChild = false;
+if (code[index] instanceof Common && !(code[index] as Common).Is("from")) {
+  const name = IdentifierShape.FromBasicToken(code[index] as Common, context);
+  name.Pos = childPos;
+  clause.Name = name;
+  clause.Data.push(name);
+  name.Parent = clause;
+  clauseStart = code[index];
+  clauseEnd = code[index];
+  hasChild = true;
+  index++;
+  if (index < code.length - 1 && code[index] instanceof Symbol && (code[index] as Symbol).Is(",")) {
+    index++;
+  }
+}
+if (code[index] instanceof Bracket && (code[index] as Bracket).StartBracketChar === "{") {
+  const bracket = code[index] as Bracket;
+  const named = NamedImportsShape.FromBracket(bracket, context);
+  const previous = code[index - 1];
+  named.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
+  clause.NamedBindings = named;
+  clause.Data.push(named);
+  named.Parent = clause;
+  if (!hasChild) {
+    clauseStart = bracket;
+  }
+  hasChild = true;
+  clauseEnd = bracket;
+  index++;
+} else if (code[index] instanceof Symbol && (code[index] as Symbol).Is("*")) {
+  const starUnit = code[index];
+  const bindingUnits:Array<Token> = [];
+  for (let scan = index; scan < code.length - 1 && bindingUnits.length < 3; scan++) {
+    bindingUnits.push(code[scan]);
+  }
+  const namespace = NamespaceImportShape.FromTokens(bindingUnits, context);
+  if (namespace === null) {
+    throw new Error("import declaration has a bad namespace binding");
+  }
+  const previous = code[index - 1];
+  namespace.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
+  clause.NamedBindings = namespace;
+  clause.Data.push(namespace);
+  namespace.Parent = clause;
+  if (!hasChild) {
+    clauseStart = starUnit;
+  }
+  hasChild = true;
+  clauseEnd = code[Math.min(index + 2, code.length - 1)];
+  index += 3;
+}
+if (!hasChild) {
+  throw new Error("import declaration is missing import clause");
+}
+if (!(code[index] instanceof Common) || !(code[index] as Common).Is("from")) {
+  throw new Error("import declaration is missing from keyword");
+}
+const fromUnit = code[index];
+index++;
+const specifierUnit = code[index];
+if (!(specifierUnit instanceof String)) {
+  throw new Error("import declaration is missing module specifier");
+}
+const moduleSpecifier = StringLiteralShape.FromBasicToken(specifierUnit as String, context);
+moduleSpecifier.Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
+index++;
+if (index !== code.length - 1) {
+  throw new Error("import declaration has trailing units");
+}
+clause.Pos = keyword.SourceRange.End === null ? 0 : keyword.SourceRange.End.Index + 1;
+if (clauseStart.SourceRange.Start !== null) {
+  clause.SignIn(clauseStart.SourceRange.Start);
+}
+if (clauseEnd.SourceRange.End !== null) {
+  clause.SignOut(clauseEnd.SourceRange.End);
+}
+clause.TryToClose(context);
+shape.ImportClause = clause;
+shape.IsTypeOnly = isTypeOnly;
+shape.Data.push(clause);
+clause.Parent = shape;
+shape.Data.push(moduleSpecifier);
+moduleSpecifier.Parent = shape;
+if (keyword.SourceRange.Start !== null) {
+  shape.SignIn(keyword.SourceRange.Start);
+}
+if (semicolon.SourceRange.End !== null) {
+  shape.SignOut(semicolon.SourceRange.End);
+}
+shape.TryToClose(context);
+return shape;
+```
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 关闭前**先自检、再过滤**：挂载壳在 `BuildByIndex` 里把 `import` / `from` 这些 basic token 原样收进了 `Data`，

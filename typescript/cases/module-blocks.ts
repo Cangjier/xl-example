@@ -130,3 +130,18 @@ declare global { /* c */ interface Window {} }
 declare module "m" { /* c */ export as namespace X; }
 declare module "m" { import /* c */ x = require("n"); }
 declare module "m" { import x = require("n") /* c */ ; }
+
+// ===== module-body import declarations（chunk module-imports） =====
+declare module "m" { import x from "n"; }
+declare module "m" { import { a, b } from "n"; }
+declare module "m" { import * as ns from "n"; }
+declare module "m" { import "n"; }
+namespace N { import x from "n"; }
+declare module "m" { import type { T } from "n"; }
+// + 行尾注释 / 换行 / 词间块注释
+declare module "m" { import x from "n"; } // c
+declare module "m" {\n  import { a } from "n";\n}
+declare module "m" { /* c */ import x from "n"; }
+declare module "m" { import /* c */ { a } from "n"; }
+// + 回归（既有绿）：module 体内 import-equals
+declare module "m" { import x = require("n"); }

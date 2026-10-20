@@ -5416,6 +5416,692 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare module \"m\" { import x from \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 27,
+                      "end": 29,
+                      "name": "x",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "x"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 34,
+                      "end": 38,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import { a, b } from \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 48,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 27,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "NamedImports",
+                          "pos": 27,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "ImportSpecifier",
+                              "pos": 29,
+                              "end": 31,
+                              "name": "a",
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 29,
+                                  "end": 31,
+                                  "text": "a"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "ImportSpecifier",
+                              "pos": 32,
+                              "end": 34,
+                              "name": "b",
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 32,
+                                  "end": 34,
+                                  "text": "b"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 41,
+                      "end": 45,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import * as ns from \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 27,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "NamespaceImport",
+                          "pos": 27,
+                          "end": 35,
+                          "name": "ns",
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 35,
+                              "text": "ns"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 40,
+                      "end": 44,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 27,
+                      "end": 31,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { import x from \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 13,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 20,
+                      "end": 22,
+                      "name": "x",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "x"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 27,
+                      "end": 31,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import type { T } from \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 48,
+                  "isTypeOnly": true,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 27,
+                      "end": 38,
+                      "isTypeOnly": true,
+                      "children": [
+                        {
+                          "kind": "NamedImports",
+                          "pos": 32,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "ImportSpecifier",
+                              "pos": 34,
+                              "end": 36,
+                              "name": "T",
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 34,
+                                  "end": 36,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 43,
+                      "end": 47,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import x from \"n\"; } // c",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 27,
+                      "end": 29,
+                      "name": "x",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "x"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 34,
+                      "end": 38,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" {\n  import { a } from \"n\";\n}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 29,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "NamedImports",
+                          "pos": 29,
+                          "end": 35,
+                          "children": [
+                            {
+                              "kind": "ImportSpecifier",
+                              "pos": 31,
+                              "end": 33,
+                              "name": "a",
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 31,
+                                  "end": 33,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 40,
+                      "end": 44,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { /* c */ import x from \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 35,
+                      "end": 37,
+                      "name": "x",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 37,
+                          "text": "x"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 42,
+                      "end": 46,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import /* c */ { a } from \"n\"; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ImportDeclaration",
+                  "pos": 20,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "ImportClause",
+                      "pos": 27,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "NamedImports",
+                          "pos": 27,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "ImportSpecifier",
+                              "pos": 37,
+                              "end": 39,
+                              "name": "a",
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 37,
+                                  "end": 39,
+                                  "text": "a"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 46,
+                      "end": 50,
+                      "text": "n"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { import x = require(\"n\"); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 20,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ExternalModuleReference",
+                      "pos": 31,
+                      "end": 44,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 40,
+                          "end": 43,
+                          "text": "n"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

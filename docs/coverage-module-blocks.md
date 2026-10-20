@@ -151,3 +151,20 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
   复用 ImportEqualsDeclarationShape.FromUnits；有 export 时仍按普通修饰词插回最前。
 - 暂缓（原因）：declare module "m" { import x from "n"; } —— ImportDeclarationShape 没有 FromUnits，
   需要 import 家族改动，超出本 chunk 写范围；function f(); 这类无体无返回类型 ambient 函数同理留在 deferred。
+
+## module-body import declarations（chunk module-imports）
+
+- `ImportDeclarationShape.FromUnits(host, start, end)` 新增：host 是 module block 的 `Bracket`，切片就是该成员在
+  `bracket.Data` 里的 token；复用既有 children 形状 —— ImportClause（可带 `type` 修饰、`IsTypeOnly`）、
+  NamedImports（`shape.FromBracket`）、NamespaceImport（`shape.FromTokens`）、default `Identifier`、以及
+  module `StringLiteral`；位置口径与 TS 对齐（ImportClause/名字/绑定 Pos = 前一个非 trivia token 的 End+1；
+  NamedImports/NamespaceImport Pos = `import`/`type`/逗号之后；module StringLiteral Pos = `from`.End+1；
+  声明本身 Pos 由调用方按成员起点设置，SignOut 到 `;`）。side-effect `import "n";` 只装 StringLiteral。
+- `ModuleBlockShape.BuildMember` 的 `import` 分支：原来只认 `import x = require(...)`（有 `=`），现在无 `=` 时
+  扫到 `;` 后调 `ImportDeclarationShape.FromUnits`，不改根 import 候选。
+- 新增全绿用例（module-blocks.ts，+11）：`declare module "m" { import x from "n"; }`、
+  `{ import { a, b } from "n"; }`、`{ import * as ns from "n"; }`、`{ import "n"; }`、
+  `namespace N { import x from "n"; }`、`{ import type { T } from "n"; }`，以及行尾注释/换行/词间块注释变体；
+  回归：module 体内 `import x = require("n")` 仍绿。
+- 暂缓：module 体内带 attributes 的 import（`import x from "n" with {…}`）需要 FromUnits 再接 attributes 段；
+  `export import x = require(...)` 之外的 export+import 组合不在本 chunk。
