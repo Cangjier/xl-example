@@ -139,6 +139,19 @@ if (first instanceof Common) {
   if (text === "debugger") {
     return StatementScanner.ScanSimpleSemicolon(code, 1);
   }
+  // Root-level labeled statement: Identifier ":" statement.
+  // A plain identifier start keeps this candidate alive only when the raw text after it
+  // (skipping trivia) is ":"; anything else is an expression statement, handled by the
+  // expression candidate at exactly the same trigger as before.
+  if (code.length === 1) {
+    if (StatementScanner.NextChar(first.SourceRange.End) === ":") {
+      return StatementScanner.NeedMore();
+    }
+    return StatementScanner.Mismatch();
+  }
+  if (StatementScanner.IsSymbol(code[1], ":")) {
+    return StatementScanner.ScanBody(code, 2);
+  }
   return StatementScanner.Mismatch();
 }
 return StatementScanner.Mismatch();
@@ -190,6 +203,10 @@ if (unit instanceof Common) {
   }
   if (text === "debugger") {
     return StatementScanner.ScanSimpleSemicolon(code, at + 1);
+  }
+  // Nested labeled statement inside a body: Identifier ":" statement.
+  if (at + 1 < code.length && StatementScanner.IsSymbol(code[at + 1], ":")) {
+    return StatementScanner.ScanBody(code, at + 2);
   }
 }
 return StatementScanner.ScanExpressionBody(code, at);
@@ -356,6 +373,47 @@ if (StatementScanner.IsEOF(code[semiAt])) {
   return StatementScanner.Complete(semiAt - 1);
 }
 return StatementScanner.Mismatch();
+```
+
+## static method NextChar:(last:Source | null)=>string
+
+从 `last` 之后的下一个位置起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
+根级标签判据用它回答「标识符后面是不是 `:`」，此时 `:` 可能还没被 token 化。
+
+```ts
+if (last === null) {
+  return "";
+}
+const document = last.Document;
+const count = document.GetCount();
+let at = last.Index + 1;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  return ch;
+}
+return "";
 ```
 
 ## static method NextWord:(last:Source | null)=>string

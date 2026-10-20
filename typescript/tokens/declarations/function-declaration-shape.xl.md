@@ -4,7 +4,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
-import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
@@ -29,9 +29,12 @@ function f(a: A, b: B): C { return a; }
 function f(): void {}
 declare function f(): void;
 function f(a: A): B;
+async function f() {}
+async function f(a: A): B { await a; }
+declare async function f(): void;
 ```
 
-TS 的 children 顺序：修饰符（可选 `DeclareKeyword`）→ 生成器的 `AsteriskToken`（可选，`function*`）→ 名字 →
+TS 的 children 顺序：修饰符（可选 `DeclareKeyword` / `AsyncKeyword`，按书写顺序）→ 生成器的 `AsteriskToken`（可选，`function*`）→ 名字 →
 每个 `Parameter` →（可选）返回类型 →（可选）`Block` 函数体；
 `function` 关键字、参数表的括号、`:`、无体声明的 `;` 之外的分隔符都不进 Data。
 
@@ -75,15 +78,24 @@ if (code.length < 3) {
   throw new Error("函数声明不完整");
 }
 let cursor = 0;
-let exportUnit:Token | null = null;
-if (code[0] instanceof Common && (code[0] as Common).Is("export")) {
-  exportUnit = code[0];
-  cursor = 1;
-}
 let declareUnit:Token | null = null;
-if (code[cursor] instanceof Common && (code[cursor] as Common).Is("declare")) {
-  declareUnit = code[cursor];
-  cursor++;
+let hasAsync = false;
+const modifierUnits:Array<Token> = [];
+while (cursor < code.length) {
+  const unit = code[cursor];
+  if (unit instanceof Common && (unit as Common).Is("declare") && declareUnit === null) {
+    declareUnit = unit;
+    modifierUnits.push(unit);
+    cursor++;
+    continue;
+  }
+  if (unit instanceof Common && (unit as Common).Is("async") && !hasAsync) {
+    hasAsync = true;
+    modifierUnits.push(unit);
+    cursor++;
+    continue;
+  }
+  break;
 }
 if (code.length < cursor + 3) {
   throw new Error("函数声明不完整");
@@ -147,16 +159,28 @@ for (let at = start - 1; at >= 0; at--) {
   }
 }
 const shape = new FunctionDeclarationShape(host.Template);
-if (exportUnit !== null) {
-  const modifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
-  modifier.Pos = pos;
-  shape.Add(modifier);
-}
-if (declareUnit !== null) {
-  const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  modifier.Pos = pos;
-  shape.DeclareKeyword = modifier;
-  shape.Add(modifier);
+let modifierPos = pos;
+for (const unit of modifierUnits) {
+  if (unit instanceof Common && (unit as Common).Is("declare")) {
+    const modifier = DeclareKeywordShape.FromBasicToken(unit as Common, context);
+    modifier.Pos = modifierPos;
+    if (shape.DeclareKeyword === null) {
+      shape.DeclareKeyword = modifier;
+    }
+    shape.Add(modifier);
+  } else {
+    const modifier = new AsyncKeywordShape(host.Template);
+    if (unit.SourceRange.Start !== null) {
+      modifier.SignIn(unit.SourceRange.Start);
+    }
+    if (unit.SourceRange.End !== null) {
+      modifier.SignOut(unit.SourceRange.End);
+    }
+    modifier.Pos = modifierPos;
+    modifier.TryToClose(context);
+    shape.Add(modifier);
+  }
+  modifierPos = unit.SourceRange.End === null ? modifierPos : unit.SourceRange.End.Index + 1;
 }
 if (asteriskUnit !== null) {
   const asterisk = new AsteriskTokenShape(host.Template);
@@ -198,10 +222,8 @@ if (returnType !== null) {
 if (body !== null) {
   shape.Add(body);
 }
-if (exportUnit !== null) {
-  shape.SignInToken(exportUnit);
-} else if (declareUnit !== null) {
-  shape.SignInToken(declareUnit);
+if (modifierUnits.length > 0) {
+  shape.SignInToken(modifierUnits[0]);
 } else {
   shape.SignInToken(keyword);
 }

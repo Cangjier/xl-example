@@ -346,3 +346,50 @@ generator-functions  27 / 27      # 与 function* 声明同表；本块新增 yi
 
 - 顶层 `yield`（TS 视为标识符 / 诊断；`CanStart` 也不放行）、`async function*`、generator 表达式 / 方法、
   `yield` 后换行（受限产生式需 ASI 换行断句）——同 `docs/coverage-declarations.md` 的 generators 节。
+
+## chunk 8（cover-obj-members-1，从 origin/integration @22e87cfe）：对象字面量 method/accessor/computed + class 表达式
+
+本块只改 `expression-builder.xl.md`、新增 `class-expressions.ts`、追加 `members.ts` 与两份 docs；未改 members/declarations/statements。
+
+### 实现落点
+
+- `ParseObjectLiteral` 成员分派扩成：可选 `async` / `get` / `set` / `*` 修饰 → 名字（标识符 / 字面量 / `[computed]`）：
+  - 后面是 `(` → 按 `MethodDeclarationShape` / `GetAccessorShape` / `SetAccessorShape` 建成员：
+    参数 `ClassDeclarationShape.BuildParameters`、返回类型 `TypeBuilder`、函数体 `StatementBuilder.BuildStatement`；
+    children 顺序 = `AsyncKeyword?` → `AsteriskToken?` → 名字 → `Parameter` 们 → 返回类型? → `Block`；
+  - 否则仍走 PropertyAssignment / ShorthandPropertyAssignment / SpreadAssignment。
+  `async` / `get` / `set` 都带「下一个是名字」的前瞻，所以 `({ get: 1 })`、`({ get() {} })` 不会被误判。
+- 新增 `ParseComputedPropertyName`：`[expr]` → `ComputedPropertyName`（children 只有表达式），property / method 名共用。
+- `ParseClassExpression` 从「只收空体」扩成完整类表达式：名字? → `HeritageClause` 们（`HeritageClauseShape.BuildClauses`）→
+  成员（`ClassDeclarationShape.BuildMembers`）；两者都是**消费** declarations 的静态助手，未编辑 declarations 文件。
+  `class` 后紧跟 `extends` 时不当名字（否则匿名 `class extends B` 会被吃掉）。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children |
+| --- | --- |
+| `({ m() {} });` | `MethodDeclaration[2,9)` → `Identifier[2,4)`、`Block[6,9)` |
+| `({ m(a: A): B { return a; } })` | `MethodDeclaration` → 名字、`Parameter`、`TypeReference`(返回)、`Block` |
+| `({ get x() { return 1; } })` | `GetAccessor[2,24)` → `Identifier[6,8)`、`Block[10,24)`（`get` 不是节点） |
+| `({ set x(v) {} })` | `SetAccessor` → 名字、`Parameter`、`Block` |
+| `({ [k]: 1 })` | `PropertyAssignment` → `ComputedPropertyName[2,6)`、`NumericLiteral[7,9)` |
+| `({ [k]() {} })` | `MethodDeclaration` 的名字是 `ComputedPropertyName` |
+| `({ *m() {} })` | `MethodDeclaration` → `AsteriskToken[2,4)`、`Identifier[4,5)`、`Block[7,10)` |
+| `({ async m() {} })` | `MethodDeclaration` → `AsyncKeyword[2,8)`、`Identifier[8,10)`、`Block[12,15)` |
+| `(class { x = 1; });` | `ClassExpression[1,17)` → `PropertyDeclaration[8,15)` |
+| `(class C { m() {} });` | `ClassExpression` → `Identifier C`、`MethodDeclaration` |
+| `(class extends B { m() {} });` | `ClassExpression` → `HeritageClause[6,16)` → `ExpressionWithTypeArguments[14,16)`、`MethodDeclaration` |
+
+### 读数（本块基线 2461/2461）
+
+```
+members            141 / 141      # base 10 新增 17 条（method/get/set/computed/generator/async + 混合 + trivia）
+class-expressions   17 / 17      # 空体/名字/属性/方法/constructor/计算名/extends/trivia
+全量              2495 / 2495     # 2461 + 34；结构差 0 / 位置差 0 / 字段差 0
+```
+
+### 暂缓
+
+- decorators（`@dec`）、static block（`static {}`）、private `#x` alias fields ← class extras 分支；
+- heritage 里放 class 表达式（`class extends (class {})`）← heritage 目前走 TypeBuilder，需要 ParseExpression 分支；
+- 对象字面量里的 rest 之外的更多修饰组合、以及 class 表达式 type parameters 未收。

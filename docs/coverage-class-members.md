@@ -47,3 +47,18 @@
   heritage（chunk3）需要单独合并后再在此 shape 上恢复 `HeritageClauseShape.BuildClauses` 调用。
 - `*.xl.md` 必须 UTF-8 无 BOM + LF；用 PowerShell 5.1 的 `Set-Content -Encoding utf8` 会写 BOM+CRLF，xl_build 直接报 E0005。
 - 不要把相对路径交给 .NET 的 `File.ReadAllText`（它用进程 CWD，不是 PowerShell 的 `cd`）——会误改主仓文件。
+
+## chunk 2（class element extras，branch cover-class-extras-1 @ origin/integration 22e87cfe）
+
+- abstract 方法/属性：`abstract class C { abstract m(): void; }`、`abstract x: number;`、多个 abstract 成员、与普通成员混排 + trivia
+- 方法 overload：`m(a: A): B; m(a): any { return a; }`、`m(): void; m() {}`、两条 overload + implementation、overload 后接属性 + trivia
+- static block：`static { a(); }`、`static {}`、与字段/方法混排、块内注释 + trivia
+- 实现：ClassDeclarationShape.BuildMembers 的方法分支现在允许「无体」形式——参数表/返回类型之后没有 `{` 时吃 `;`，
+  MethodDeclaration 不装 Block（TS overload/abstract 签名同形）；`static` 修饰符后面直接跟 `{` 时改走
+  ClassStaticBlockDeclarationShape（children 只有 Block，static 关键字不投影），区间到 `}`；属性分支原本已支持 `abstract x: A;`。
+- 读数：declarations 229/229（原 210 + 19 条 extras）；全量见下；tsc 0 error。
+
+### 暂缓
+- 装饰器 `@dec class C {}` / `class C { @dec m() {} }` / `@dec x = 1`：需要 class candidate Stage 0 放行 `@`+装饰器表达式，
+  并在成员前缀分派 Decorator（types/decorator-shape 仍是空壳）；本块预算内未做，已写成 declarations.ts 的 // 目标。
+- private fields (#x)、parameter properties、accessor keyword、abstract accessors：各自形状未就绪。
