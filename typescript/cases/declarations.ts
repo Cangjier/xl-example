@@ -475,3 +475,14 @@ function f<T>(a: T) {}\nfunction g<U>(b: U) {}
 // async generic function: `async function f<T>(a: T): T {}` -- async + generic combination, verify after the
 // async function declaration chunk lands (possible shape Stage 6/1 order needs checking there).
 // generic arrow / generic function expression 已由 expression 家族覆盖（<T>(a) => a）。
+// ===== base 12: newline between a decorator and its declaration (root end candidate no longer steals the boundary) =====
+@dec\nclass C {}
+@a @b\nclass C {}
+@dec()\nclass C {}
+@dec(a)\nclass C {}
+@dec\nabstract class C {}
+@a\nclass A {}\n@b\nclass B {}
+@dec\n\nclass C {}
+@dec /* c */\nclass C {}
+@dec\nclass C {}\nclass D {}
+class C { @dec\n x = 1; }

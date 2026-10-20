@@ -220,3 +220,29 @@ chunk 3 加的「紧邻 class（以 `}` 为 tokenIndex）」兜底在本批也�
 时还没有把第二条的边界传回来，属 BuildTrailingDeclaration 的递归返回约定，写成用例里的 `//` 目标；
 `a\nimport …` 的候选共存边界（chunk 1）仍未处理。
 
+## 12. 装饰器换行 ASI（`@dec\nclass C {}`）
+
+**根因（探针定位）**：`@dec\nclass C {}` 的 token 流是 `@`、`dec`、空白(`\n`)、`class`、…。
+类候选在 `@` 处已接过装饰器、**存活**；而在 `class` 那一格，根终结候选的 `IsAsiBoundary` 成立
+（前一个代码单元 `dec` 能收住表达式、中间有换行、`class` 是 statement word 不是延续符）→ 终结候选 `Accept`；
+此时 `Candidates` 里还有类候选 → `CatalogGuide` 抛「终结候选与其它候选同时成立」。探针读数：
+`@dec\nclass C {}` 下标 3、`@a @b\nclass C {}` 下标 6、`@dec()\nclass C {}` 下标 4、`@dec\nabstract class C {}` 下标 3；
+`@a class A {}\n@b class B {}`、成员装饰器换行（`class C { @dec\nm() {} }`、`@dec\nx = 1;`）本来就是绿的。
+
+**修法（只改 `source-file-end-possible-shape.xl.md`，未动 core、未动 class candidate）**：
+`ComputeByIndex` 在 `IsAsiBoundary` 成立后，再用新增的 `HasDecoratorPrefix(units, tokenIndex)` 往前看：
+把「`.` / Common / `(…)` 括号单元」当作装饰器表达式的一部分往回走，碰到 `@` 就说明这段是**下一条声明的装饰器前缀**，
+于是返回 `Uncertain`（不当 ASI 边界、不 Accept），把边界留给还在吃装饰器的类候选。判据只认「`@` 前缀」这一种形态，
+普通 `a\nclass C {}` 的 ASI 行为不变（类候选在那条里早已 `Reject`）。
+
+**用例**（`declarations.ts` append-only，+10）：`@dec\nclass C {}`、`@a @b\nclass C {}`、`@dec()\nclass C {}`、
+`@dec(a)\nclass C {}`、`@dec\nabstract class C {}`、`@a\nclass A {}\n@b\nclass B {}`、`@dec\n\nclass C {}`、
+`@dec /* c */\nclass C {}`、`@dec\nclass C {}\nclass D {}`、`class C { @dec\n x = 1; }`；
+成员装饰器换行（`class C { @dec\nm() {} }`）与单行装饰器（`@dec class C {}`）已在既有组，作为对照保留。
+
+**读数（本分支）**：`declarations` **315 / 315 完全一致**；全量 ast-json / diff **3053 / 3053**
+（基线 3043 + 10），结构差 0 / 位置差 0 / 字段差 0，无回归（decorator / using-declarations / end-declarations 109 全绿）；tsc 0 error。
+
+**仍暂缓**：`@dec` 与声明之间插入**其他语句**的写法（TS 本来非法，不列用例）；装饰器元数据 / 参数装饰器 / 接口·枚举上的装饰器
+仍是 declarations 家族后续 chunk；chunk 11 的两条暂缓（三条声明混排、`a\nimport …` 共存边界）不变。
+
