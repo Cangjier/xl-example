@@ -9,6 +9,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
+import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
@@ -592,6 +593,13 @@ return this.Finish(shape, first, this.At - 1);
 ```ts
 const first = this.At;
 this.At++;
+let awaitUnit:Token | null = null;
+let awaitPos = -1;
+if (this.At < this.Units.length && this.IsText(this.Units[this.At], "await")) {
+  awaitUnit = this.Units[this.At];
+  awaitPos = this.Positions[this.At];
+  this.At++;
+}
 const headerUnit = this.Units[this.At];
 if (!(headerUnit instanceof Bracket) || (headerUnit as Bracket).StartBracketChar !== "(") {
   throw new Error("for 缺少头部括号");
@@ -622,7 +630,10 @@ for (let at = 0; at < inner.Units.length; at++) {
   }
 }
 if (semicolonCount === 0 && inOfAt >= 0) {
-  return this.BuildForInOrOf(first, inner, inOfAt, inOfText);
+  return this.BuildForInOrOf(first, inner, inOfAt, inOfText, awaitUnit, awaitPos);
+}
+if (awaitUnit !== null) {
+  throw new Error("for await 只能是 for-of");
 }
 const shape = new ForStatementShape(this.Template);
 inner.At = 0;
@@ -672,7 +683,7 @@ shape.Add(this.BuildStatement());
 return this.Finish(shape, first, this.At - 1);
 ```
 
-## method BuildForInOrOf:(first:int, inner:StatementBuilder, keywordAt:int, keywordText:string)=>Token
+## method BuildForInOrOf:(first:int, inner:StatementBuilder, keywordAt:int, keywordText:string, awaitUnit:Token | null, awaitPos:int)=>Token
 
 ```ts
 let shape:ShapeToken;
@@ -701,6 +712,18 @@ if (declKeywordIndex >= 0) {
 inner.At = keywordAt + 1;
 const collection = inner.BuildExpressionRange(inner.At, inner.Units.length - 1);
 inner.At = inner.Units.length;
+if (awaitUnit !== null) {
+  const keywordShape = new AwaitKeywordShape(this.Template);
+  if (awaitUnit.SourceRange.Start !== null) {
+    keywordShape.SignIn(awaitUnit.SourceRange.Start);
+  }
+  if (awaitUnit.SourceRange.End !== null) {
+    keywordShape.SignOut(awaitUnit.SourceRange.End);
+  }
+  keywordShape.Pos = awaitPos;
+  keywordShape.TryToClose(this.Context);
+  shape.Add(keywordShape);
+}
 shape.Add(binding);
 shape.Add(collection);
 shape.Add(this.BuildStatement());

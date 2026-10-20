@@ -2537,6 +2537,1374 @@
           ]
         }
       ]
+    },
+    {
+      "src": "async function* f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function* f() { yield 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 21,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function* f() { await g(); yield await h(); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 51,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 21,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 27,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 27,
+                              "end": 29,
+                              "text": "g"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 32,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 32,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "AwaitExpression",
+                          "pos": 38,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 44,
+                              "end": 48,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 44,
+                                  "end": 46,
+                                  "text": "h"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function* f() { yield 1; yield 2; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 21,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 30,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 30,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 36,
+                          "end": 38,
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async /* c */ function* f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 22,
+              "end": 23
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function /* c */ * f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 24
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 28,
+              "end": 31
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function* f() { /* c */ yield 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 21,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 35,
+                          "end": 37,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function* f() {}\nasync function* g() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 22,
+          "end": 45,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 22,
+              "end": 28
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 37,
+              "end": 38
+            },
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "g"
+            },
+            {
+              "kind": "Block",
+              "pos": 42,
+              "end": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { async function* g() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 20,
+                      "end": 26
+                    },
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 35,
+                      "end": 36
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 40,
+                      "end": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function* f() { async function* g() { yield 1; } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 21,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "AsyncKeyword",
+                      "pos": 21,
+                      "end": 27
+                    },
+                    {
+                      "kind": "AsteriskToken",
+                      "pos": 36,
+                      "end": 37
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 41,
+                      "end": 54,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 43,
+                          "end": 52,
+                          "children": [
+                            {
+                              "kind": "YieldExpression",
+                              "pos": 43,
+                              "end": 51,
+                              "children": [
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 49,
+                                  "end": 51,
+                                  "text": "1"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for await (const x of xs) {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 51,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 49,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 32,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 37,
+                          "end": 39,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 37,
+                              "end": 39,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 42,
+                      "end": 45,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 46,
+                      "end": 49
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for await (const x of xs) { await g(); } }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 63,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 63,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 61,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 32,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 37,
+                          "end": 39,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 37,
+                              "end": 39,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 42,
+                      "end": 45,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 46,
+                      "end": 61,
+                      "children": [
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 48,
+                          "end": 59,
+                          "children": [
+                            {
+                              "kind": "AwaitExpression",
+                              "pos": 48,
+                              "end": 58,
+                              "children": [
+                                {
+                                  "kind": "CallExpression",
+                                  "pos": 54,
+                                  "end": 58,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 54,
+                                      "end": 56,
+                                      "text": "g"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for await (const [a] of xs) a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 32,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 37,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "ArrayBindingPattern",
+                              "pos": 37,
+                              "end": 41,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 39,
+                                  "end": 40,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 39,
+                                      "end": 40,
+                                      "text": "a"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 44,
+                      "end": 47,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 48,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 48,
+                          "end": 50,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for await (const {a} of xs) a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 32,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 37,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "ObjectBindingPattern",
+                              "pos": 37,
+                              "end": 41,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 39,
+                                  "end": 40,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 39,
+                                      "end": 40,
+                                      "text": "a"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 44,
+                      "end": 47,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 48,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 48,
+                          "end": 50,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for await (x of xs) {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 33,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 39,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 40,
+                      "end": 43
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for /* c */ await (const x of xs) {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 38
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 40,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 45,
+                          "end": 47,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 45,
+                              "end": 47,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 50,
+                      "end": 53,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 54,
+                      "end": 57
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for await /* c */ (const x of xs) {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 40,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 45,
+                          "end": 47,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 45,
+                              "end": 47,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 50,
+                      "end": 53,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 54,
+                      "end": 57
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function f() { for await (const x of xs) /* c */ {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 20,
+                  "end": 57,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 24,
+                      "end": 30
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 32,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 37,
+                          "end": 39,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 37,
+                              "end": 39,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 42,
+                      "end": 45,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 46,
+                      "end": 57
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function* f() { for await (const x of xs) yield x; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 58,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 58,
+              "children": [
+                {
+                  "kind": "ForOfStatement",
+                  "pos": 21,
+                  "end": 56,
+                  "children": [
+                    {
+                      "kind": "AwaitKeyword",
+                      "pos": 25,
+                      "end": 31
+                    },
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 33,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 38,
+                          "end": 40,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 38,
+                              "end": 40,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 46,
+                      "text": "xs"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 47,
+                      "end": 56,
+                      "children": [
+                        {
+                          "kind": "YieldExpression",
+                          "pos": 47,
+                          "end": 55,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 53,
+                              "end": 55,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for await (const x of xs) {}",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "AwaitKeyword",
+              "pos": 3,
+              "end": 9
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 11,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 21,
+              "end": 24,
+              "text": "xs"
+            },
+            {
+              "kind": "Block",
+              "pos": 25,
+              "end": 28
+            }
+          ]
+        }
+      ]
     }
   ]
 }
