@@ -8,7 +8,7 @@ import { Template } from "../../core/syntax/templates/template.xl.md"
 
 运行层：**TypeScript 这一门语言的模板配置**。
 
-`Template` 是语言无关的规则表；它上面的 `StringTemplate` 描述「字符串长什么样」，默认值沿用 C# 语义（`@` 逐字、`$` 前缀内插、`"""` 原始串）。ts 只有三种引号、没有那三种形态，所以在这里关掉。
+`Template` 是语言无关的规则表；**默认值本身就是 ts 的字符串形式**（三种引号、没有逐字串 / 原始串 / 前缀式内插；引号内内插打开、只认反引号），所以这里不再覆盖 `StringTemplate`。`StringGuide` 会把反引号串标成 `IsSupportInterpolation=True`、`InterpolationCount=1`，`String` 在串内按 `${…}` 收内插——词法层已通；模板的 AST 还要等形状层（用例见 `typescript/cases/string.ts`）。
 
 `RegexTemplate` 描述 ts 的正则字面量：flags 的字符集与「哪些关键字之后可以直接起表达式」。起点判据本身是词法层的近似（`/` 之前最后一个代码单元），控制头 `)`、裸块 `}` 那一族由语法形状登记 `RegexStartAfter`，不在这里配。
 
@@ -34,7 +34,7 @@ return value.length > 0 && /^[\p{ID_Continue}]$/u.test(value);
 
 ## static method Create:()=>Template
 
-造一份 ts 的模板：装 basic 跳转队列（不装的话 `Bracket` 等取不到队列，括号里的字符一个都收不进来），再把字符串形态、正则形态与数字后缀配成 ts 的样子。
+造一份 ts 的模板：装 basic 跳转队列（不装的话 `Bracket` 等取不到队列，括号里的字符一个都收不进来），再把符号组合、数字后缀与正则形态配成 ts 的样子。字符串形态直接吃 `StringTemplate` 的默认值（= ts），不再逐项覆盖。
 
 **ts 模板不再禁用 `RegexToken.Transit`**：判据已经换成「跳过 trivia 取 `/` 之前最后一个代码单元、按 token 类型判」，`a / b` / `(a) / b` / `a /* c */ / b` 这些除号不会再被误认成正则（这 89 条除号用例就是判据的回归网）。
 
@@ -45,10 +45,6 @@ const template = new Template();
 template.BranchTemplate.DefaultValue = Template.BasicBranchQueue();
 template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
 template.NumberTemplate.BigIntSuffix = "n";
-template.StringTemplate.Quotes = ['"', "'", "`"];
-template.StringTemplate.HasVerbatim = false;
-template.StringTemplate.HasInterpolation = false;
-template.StringTemplate.HasRaw = false;
 template.RegexTemplate = new TypeScriptRegexTemplate();
 template.RegexTemplate.ExpressionKeywords = [
   "typeof",

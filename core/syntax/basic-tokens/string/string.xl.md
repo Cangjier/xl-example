@@ -24,7 +24,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
 
-字符串单元：`StringGuide` 判定出是哪种字符串后就换成它。它是**单元**（能挂载子单元），按五个开关 `IsSupportInterpolation` / `IsSupportVerbatim` / `IsSupportRaw` 分成七条完全不同的处理路径：内插看到 `{` 就挂载 `InterpolationString`，逐字看到引号就挂载 `VerbatimQuoteGuide`，原始串看到引号就挂载 `RawQuoteExitGuide`，其余字符一律攒进常量块 `ConstString`。
+字符串单元：`StringGuide` 判定出是哪种字符串后就换成它。它是**单元**（能挂载子单元），按三个开关 `IsSupportInterpolation` / `IsSupportVerbatim` / `IsSupportRaw` 分成七条完全不同的处理路径：内插分两种形态——**前缀式**（C# 的 `$"{a}"`，见 `{` 就开）与**引号内式**（ts 的 `` `${a}` ``，要 `${` 两个字符），两者都挂载 `InterpolationString`；逐字看到引号就挂载 `VerbatimQuoteGuide`，原始串看到引号就挂载 `RawQuoteExitGuide`，其余字符一律攒进常量块 `ConstString`。
 
 三个开关与两个计数会直接印在 XML 标签上（`ToXmlString`）。
 
@@ -54,7 +54,7 @@ basic 单元：词法层记号。收集它的是 `StringGuide`，不是 `BasicBr
 
 ## field InterpolationCount:int = 0
 
-内插前缀 `$` 的个数（与内插串里 `{` 的数量一致），会写进 XML 标签。
+内插前缀 `$` 的个数（与内插串里 `{` 的数量一致），会写进 XML 标签。**引号内内插（ts 的 `${…}`）恒为 1**：一个内插由一个 `{` 开启——`InterpolationExitGuide` 就是按这一格数 `}` 的。
 
 ## field RawQuoteCount:int = 0
 
@@ -66,11 +66,11 @@ basic 单元：词法层记号。收集它的是 `StringGuide`，不是 `BasicBr
 
 ## private field Translate:Translate = new Translate()
 
-转义累加器：`\` 之后的字符逐个进来，凑够一个转义序列再解码。本文件只用到 `IsTranslating` / `Append` / `DecodeClear` 三个成员。
+转义累加器：`\` 之后的字符逐个进来，凑够一个转义序列再解码。本文件用到 `IsTranslating` / `Accept` / `Append` / `DecodeClear` 四个成员。
 
-## private field LastTranslateSource:Source | null = null
+## private field PendingInterpolation:Source | null = null
 
-上一次解码转义序列时用的位置；`null` 表示还没设过。
+引号内内插的 `$` 已经看到、下一个字符还没来：记下这个 `$` 的位置。**不向后看**——下一个字符到来时再决：是 `{` 就挂 `InterpolationString`，否则把这个 `$` 落回常量块再把当前字符照常处理；`$` 后面直接是收尾引号（`ExitOrPre`）或文件结束（`Close`）时，在这两个 close 点把 `$` 补落。非 `null` 期间那个 `$` 不落常量，所以不会产生空 `ConstString`。
 
 ## field IsRawIndentFormated:bool = false
 
@@ -113,11 +113,16 @@ if (!(last instanceof ConstString)) {
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
-关闭：把自己标记为已关闭，然后**只问父单元**要不要重算候选——和 `Common.Close` 同款。
+关闭：如果还有一个 `$` 挂着（文件在 `$` 上结束、没等到下一个字符），先把它补落进常量块，再把自己标记为已关闭，然后**只问父单元**要不要重算候选——和 `Common.Close` 同款。
 
 字符串 token 关闭就是「一个字符串字面量信息完备」的时刻：`StringLiteralShape` 的候选在这一刻才可能 Accept。所以这里必须把父级的重算结果原样带上去。
 
 ```ts
+if (this.PendingInterpolation !== null) {
+  const begin = this.PendingInterpolation;
+  this.PendingInterpolation = null;
+  this.AppendToLastConstString("$", begin, context);
+}
 this.Closed = true;
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
@@ -164,11 +169,11 @@ return result;
 七条分支（前六条各自对应一种字符串形态，最后一条必抛）：
 
 1. **内插 + 逐字**（`IsSupportInterpolation && IsSupportVerbatim && !IsSupportRaw`）：引号挂 `VerbatimQuoteGuide`，`{` 挂 `InterpolationString`，其余进常量块。
-2. **只内插**：正在转义就把字符喂给 `Translate`，解出一个完整转义序列（`Append` 返回 `true`）时把 `DecodeClear()` 的结果追加进常量块；否则 `\` 开转义、`{` 挂 `InterpolationString`、其余进常量块。
+2. **只内插**：正在转义时先问 `Translate.Accept`——属于这次转义就 `Append`（攒够时 `DecodeClear()` 落常量块）；不属于就先把上一个转义 `DecodeClear()` 结算（签出到前一个字符）再 `ReloadMessage` 重放当前字符。不在转义时：`EscapeChars` 里的字符（ts 是 `\`）开转义，再按**模板配置的内插形态**分两小支——前缀式（`HasInterpolationPrefix` 打开、当前引号不在 `InterpolationQuoteChars` 里）见 `{` 就挂 `InterpolationGuide`，由它按 `InterpolationCount` 数连续左花括号（`$` 的个数就是开一层内插要几个 `{`）；引号内式（`HasInterpolationQuoteChars` + 引号在 `InterpolationQuoteChars` 里）**不向后看**：`$` 先只记进 `PendingInterpolation`，下一个字符到来时才决——是 `{` 就挂 `InterpolationString`，否则把 `$` 落回常量块、当前字符照常处理；`$` 后面直接收尾时由 `ExitOrPre` / `Close` 补落。引号内式还要把模板里的真 `\r\n` / `\r` 归一成 `\n`（cooked text 口径），其余字符进常量块。
 3. **只逐字**：引号挂 `VerbatimQuoteGuide`，其余进常量块。
 4. **只原始**：引号可能是原始串的结束、也可能只是串内的纯双引号，一律挂 `RawQuoteExitGuide`（把自己的 `StringChar` 传给它），并插一条 `ReloadMessage` 把当前位置重新处理一遍让向导裁决；其余进常量块。
 5. **内插 + 原始**：`{` 挂 `InterpolationGuide` 并插 `ReloadMessage`；引号挂 `RawQuoteExitGuide` 并插 `ReloadMessage`；其余进常量块。
-6. **纯字符**（三个开关全关，如反引号串）：与第 2 条同款转义处理，但多一条特例——`{` 且前一个字符是 `$` 且那个 `$` 不是刚解码出来的（`!= LastTranslateSource`）且 `StringChar` 是反引号时，判为 ts 模板串的内插起点：`InterpolationCount = 1`、把前一个字符 `$` 从单元上 `Undo` 掉、挂 `InterpolationString`。
+6. **纯字符**（三个开关全关，如 `"…"` / `'…'`）：与第 2 条同款转义处理（同样走 `Accept` / `Append` / `DecodeClear`，转义符由模板的 `EscapeChars` 给），其余字符一律进常量块——`$`、`{` 都只是普通字符，不做内插（ts 的模板串走第 2 条）。
 7. 其余组合直接抛错，文案里带上三个开关的当前值。
 
 ```ts
@@ -200,14 +205,23 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     this.AppendToLastConstString(value, source, context);
   }
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
+  const config = this.Template.StringTemplate;
+  const quoteInterpolation = config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(this.StringChar);
   if (this.Translate.IsTranslating) {
-    if (this.Translate.Append(value)) {
-      this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
+    if (this.Translate.Accept(value)) {
+      if (this.Translate.Append(value)) {
+        this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
+      }
+    } else {
+      const previous = source.Pre();
+      if (previous !== null) {
+        this.AppendToLastConstString(this.Translate.DecodeClear(), previous, context);
+      }
+      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
   } else {
-    if (value === "\\") {
-      this.Translate.IsTranslating = true;
-    } else if (value === "{") {
+    if (this.PendingInterpolation !== null && quoteInterpolation && value === "{") {
+      this.PendingInterpolation = null;
       {
         const lastOfMounted = this.Last();
         if (lastOfMounted !== null && !lastOfMounted.Closed) {
@@ -217,9 +231,36 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
         this.Add(mounted);
         this.MountedUnit = mounted;
       }
-    (this.MountedUnit as InterpolationString)!.SignIn(source);
+      (this.MountedUnit as InterpolationString)!.SignIn(source);
     } else {
-      this.AppendToLastConstString(value, source, context);
+      if (this.PendingInterpolation !== null) {
+        const begin = this.PendingInterpolation;
+        this.PendingInterpolation = null;
+        this.AppendToLastConstString("$", begin, context);
+      }
+      if (config.EscapeChars.includes(value)) {
+        this.Translate.IsTranslating = true;
+      } else if (quoteInterpolation && value === "$") {
+        this.PendingInterpolation = source;
+      } else if (!quoteInterpolation && config.HasInterpolationPrefix && value === "{") {
+        {
+          const lastOfMounted = this.Last();
+          if (lastOfMounted !== null && !lastOfMounted.Closed) {
+            lastOfMounted.TryToClose(context);
+          }
+          const mounted = new InterpolationGuide(this.Template);
+          this.Add(mounted);
+          this.MountedUnit = mounted;
+        }
+        (this.MountedUnit as InterpolationGuide)!.SignIn(source);
+        context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+      } else if (quoteInterpolation && value === "\r") {
+        this.AppendToLastConstString("\n", source, context);
+      } else if (quoteInterpolation && value === "\n" && source.Pre()?.Value === "\r") {
+        // CRLF 的后半：CR 已经按 `\n` 归一，这里不再追加
+      } else {
+        this.AppendToLastConstString(value, source, context);
+      }
     }
   }
 } else if (!this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
@@ -285,26 +326,20 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
   }
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (this.Translate.IsTranslating) {
-    if (this.Translate.Append(value)) {
-      this.LastTranslateSource = source;
-      this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
+    if (this.Translate.Accept(value)) {
+      if (this.Translate.Append(value)) {
+        this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
+      }
+    } else {
+      const previous = source.Pre();
+      if (previous !== null) {
+        this.AppendToLastConstString(this.Translate.DecodeClear(), previous, context);
+      }
+      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
   } else {
-    if (value === "\\") {
+    if (this.Template.StringTemplate.EscapeChars.includes(value)) {
       this.Translate.IsTranslating = true;
-    } else if (value === "{" && source.Pre()?.Value === "$" && !Source.Same(source.Pre(), this.LastTranslateSource) && this.StringChar === "`") {
-      this.InterpolationCount = 1;
-      this.Undo(source.Pre()!);
-      {
-        const lastOfMounted = this.Last();
-        if (lastOfMounted !== null && !lastOfMounted.Closed) {
-          lastOfMounted.TryToClose(context);
-        }
-        const mounted = new InterpolationString(this.Template);
-        this.Add(mounted);
-        this.MountedUnit = mounted;
-      }
-    (this.MountedUnit as InterpolationString)!.SignIn(source);
     } else {
       this.AppendToLastConstString(value, source, context);
     }
@@ -376,8 +411,15 @@ for (const i of this.Data) {
 
 只有**不是原始串、也不是逐字串**、且当前字符正是本串的引号、且当前不在转义中时，才 `ForceExit` 并返回 `Done`；其余一律返回 `Undo`（继续前移）。
 
+退出前先看有没有挂着的 `$`：那是 `$` 后面还没等到下一个字符、直接碰上收尾引号的情况——把它补落进常量块再退出（不向后看，收尾这一步自然给出结论）。
+
 ```ts
 if (source.Value === this.StringChar && this.Translate.IsTranslating === false && !this.IsSupportRaw && !this.IsSupportVerbatim) {
+  if (this.PendingInterpolation !== null) {
+    const begin = this.PendingInterpolation;
+    this.PendingInterpolation = null;
+    this.AppendToLastConstString("$", begin, context);
+  }
   this.ForceExit(source, context);
   return BranchStates.Done;
 }
