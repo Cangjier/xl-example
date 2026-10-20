@@ -314,3 +314,16 @@ legacy `assert` 写法、字符串键（`{ "type": "json" }`），以及 4 条�
 已绿清单：`class/interface C<T extends A<B>>`、`class C<T = A<B>>`、`function f<T extends A<B>>()`、
 `A<B<C>>` / `A<B<C<D>>>` / `Map<string, Array<number>>` / `A<B<C>, D<E>>`、`class C extends A<B<C>>`、
 `interface I extends A<B<C>>`、`function f(): A<B<C>>`、方法返回 `A<B<C>>`、条件 extendee，以及注释 trivia。
+
+## sweep 5（measurement-first）
+
+| 形态 | 结果 | 说明 |
+| --- | --- | --- |
+| `type T = keyof A["b"];` | 绿 | TypeOperator 操作数可以是 IndexedAccess |
+| `type T = A["b"]["c"];` / `A[B["c"]]` / `(A | B)["x"]` | 绿 | 索引访问链/复合操作数 |
+| `` `${A}${B}` `` / `` `${A}-${B}-${C}` `` / `` `${number}` `` / `` `${string & K}` `` | 绿 | 相邻占位（空 TemplateMiddle）/关键字/交叉类型插值 |
+| `U extends A<infer R> ? R : never` / `Generator<infer R, infer S>` | 绿 | infer 在泛型实参与多参数位 |
+| `type T = () => infer R;` | 绿 | 返回位 infer（语法层可解析） |
+| 嵌套条件 infer / 递归映射 `F<T>` | 绿 | 条件套条件、`{ [K in keyof T]: F<T[K]> }` |
+| `typeof a["b"]` / `(typeof a)["b"]` | 绿 | TypeQuery 后接索引访问 |
+| trivia（模板插值内注释、`keyof /* c */`） | 绿 | 逐条测 |
