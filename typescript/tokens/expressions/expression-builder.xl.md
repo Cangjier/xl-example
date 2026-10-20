@@ -94,6 +94,7 @@ import { MetaPropertyShape } from "./meta-property-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
+import { SpreadElementShape } from "./spread-element-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
@@ -782,6 +783,12 @@ while (true) {
 }
 const shape = new NewExpressionShape(this.Template);
 shape.Add(callee);
+if (this.CanStartTypeArgumentCall(this.At)) {
+  const typeArguments = this.ParseTypeArgumentsAtCurrent();
+  for (const typeArgument of typeArguments) {
+    shape.Add(typeArgument);
+  }
+}
 const argsUnit = this.Peek(0);
 if (argsUnit !== null && this.IsBracketStart(argsUnit, "(")) {
   const bracket = argsUnit as Bracket;
@@ -1060,6 +1067,15 @@ while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
   if (inner.IsText(unit, ",")) {
     inner.At++;
+    continue;
+  }
+  if (inner.IsText(unit, "...")) {
+    const spreadIndex = inner.At;
+    inner.At++;
+    const expression = inner.ParseAssign();
+    const spread = new SpreadElementShape(this.Template);
+    spread.Add(expression);
+    shape.Add(inner.SpanNode(spread, spreadIndex, inner.At - 1));
     continue;
   }
   shape.Add(inner.ParseAssign());
@@ -1595,6 +1611,15 @@ while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
   if (inner.IsText(unit, ",")) {
     inner.At++;
+    continue;
+  }
+  if (inner.IsText(unit, "...")) {
+    const spreadIndex = inner.At;
+    inner.At++;
+    const expression = inner.ParseAssign();
+    const spread = new SpreadElementShape(this.Template);
+    spread.Add(expression);
+    args.push(inner.SpanNode(spread, spreadIndex, inner.At - 1));
     continue;
   }
   const arg = inner.ParseAssign();
