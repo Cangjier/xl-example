@@ -64,6 +64,7 @@ import { ClassExpressionShape } from "./class-expression-shape.xl.md"
 import { ConditionalExpressionShape } from "./conditional-expression-shape.xl.md"
 import { DeleteExpressionShape } from "./delete-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "./element-access-expression-shape.xl.md"
+import { FunctionExpressionShape } from "./function-expression-shape.xl.md"
 import { NewExpressionShape } from "./new-expression-shape.xl.md"
 import { NonNullExpressionShape } from "./non-null-expression-shape.xl.md"
 import { ObjectLiteralExpressionShape } from "./object-literal-expression-shape.xl.md"
@@ -85,6 +86,7 @@ import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
@@ -613,7 +615,7 @@ while (true) {
     parameter.Add(expression);
     this.SpanNode(parameter, start, start);
     this.At++;
-    const body = this.ParseAssign();
+    const body = this.ParseArrowBody();
     const shape = new ArrowFunctionShape(this.Template);
     shape.Add(parameter);
     shape.Add(this.MakeOperatorToken(unit, arrowIndex));
@@ -1090,7 +1092,7 @@ if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
 }
 const arrowIndex = this.At;
 this.At++;
-const body = this.ParseAssign();
+const body = this.ParseArrowBody();
 arrow.Add(this.MakeOperatorToken(arrowUnit, arrowIndex));
 arrow.Add(body);
 return this.SpanNode(arrow, start, this.At - 1);
@@ -1116,6 +1118,116 @@ for (const item of bracket.Data) {
 this.At++;
 const shape = new ClassExpressionShape(this.Template);
 return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseArrowBody:()=>Token
+
+箭头 body：紧跟 `{` 是块体（`Block`），否则是按赋值表达式解析的表达式体。块体交给 statements 家族的
+`StatementBuilder`（**消费**，不编辑 statements 文件）。
+
+```ts
+const unit = this.Peek(0);
+if (unit !== null && this.IsBracketStart(unit, "{")) {
+  return this.ParseBlock();
+}
+return this.ParseAssign();
+```
+
+## method ParseBlock:()=>Token
+
+`{ … }` 语句块：`{` `}` 是一个括号单元，里面的语句交给 `StatementBuilder.BuildBlock()` 递归建。
+`StatementBuilder.Load` 的 `basePos` 取 `Positions[At]`，因此 `Block` 的 `Pos`（含前导 trivia）与 TS 同口径。
+
+```ts
+const start = this.At;
+const unit = this.Peek(0);
+if (unit === null || !this.IsBracketStart(unit, "{")) {
+  throw new Error("缺少语句块");
+}
+const builder = new StatementBuilder(this.Template, this.Context);
+builder.Load(this.Units.slice(start), this.Positions[start]);
+const block = builder.BuildBlock();
+if (builder.At !== 1) {
+  throw new Error("语句块只应消费一个括号单元");
+}
+this.At = start + builder.At;
+return block;
+```
+
+## method ParseFunctionExpression:()=>Token
+
+`function` 函数表达式：children 顺序与 TS 一致 —— 可选的 `Identifier`（名字）、`Parameter` 们、`Block`；
+参数括号与函数体各是一个 `Bracket` 单元，参数由 `ParseFunctionParameters` 从括号 `Data` 里建。
+TS 的 `FunctionExpression` 没有 `name` 字段（名字只是第一个子节点），所以名字走 `Data`、不设字段。
+
+```ts
+const start = this.At;
+this.At++;
+const shape = new FunctionExpressionShape(this.Template);
+const nameUnit = this.Peek(0);
+if (nameUnit !== null && nameUnit instanceof Common) {
+  const nameIndex = this.At;
+  const name = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
+  name.Pos = this.Positions[nameIndex];
+  shape.Add(name);
+  this.At++;
+}
+const parametersUnit = this.Peek(0);
+if (parametersUnit === null || !this.IsBracketStart(parametersUnit, "(")) {
+  throw new Error("函数表达式缺少参数括号");
+}
+const parameterBracket = parametersUnit as Bracket;
+this.At++;
+const parameters = this.ParseFunctionParameters(parameterBracket);
+for (const parameter of parameters) {
+  shape.Add(parameter);
+}
+const bodyUnit = this.Peek(0);
+if (bodyUnit === null || !this.IsBracketStart(bodyUnit, "{")) {
+  throw new Error("函数表达式缺少函数体");
+}
+shape.Add(this.ParseBlock());
+return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseFunctionParameters:(bracket:Bracket)=>Array<Token>
+
+参数括号里的逐个参数：本批只收 `标识符` 与 `标识符 : 类型`（类型走 `TypeBuilder`）。
+每个参数是一个 `ParameterShape`，children 与 TS 一致（`Identifier`、可选的 `TypeReference`），
+`Pos` 取名字的含前导 trivia 起点，区间到类型标注结束。
+
+```ts
+const parameters:Array<Token> = [];
+const inner = new ExpressionBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+while (inner.At < inner.Units.length) {
+  const unit = inner.Units[inner.At];
+  if (inner.IsText(unit, ",")) {
+    inner.At++;
+    continue;
+  }
+  if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
+    throw new Error("函数参数只支持标识符");
+  }
+  const parameterIndex = inner.At;
+  const name = IdentifierShape.FromBasicToken(unit as Common, this.Context);
+  name.Pos = inner.Positions[parameterIndex];
+  inner.At++;
+  const parameter = new ParameterShape(this.Template);
+  parameter.Add(name);
+  const next = inner.Peek(0);
+  if (next !== null && inner.IsText(next, ":")) {
+    inner.At++;
+    parameter.Add(inner.ParseFollowingType());
+  }
+  inner.SpanNode(parameter, parameterIndex, inner.At - 1);
+  parameters.push(parameter);
+}
+return parameters;
 ```
 
 ## method ParsePrimary:()=>Token
@@ -1174,6 +1286,9 @@ if (unit instanceof Common) {
   }
   if (text === "class") {
     return this.ParseClassExpression();
+  }
+  if (text === "function") {
+    return this.ParseFunctionExpression();
   }
   this.At++;
   if (text === "true") {

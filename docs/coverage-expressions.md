@@ -158,3 +158,57 @@ expression  329 / 329            # 288（chunk 1/2 后）+ 41（base 23 as/satis
 2. `import.meta`（`MetaProperty` + import 候选在 `.` 处 Reject，见 expression-ast-analysis §4.4）；
 3. 等 cover-end-1 放行 `<` 后同批收 `<T>a` / `<T>(a) => a`；`f<T<U>>` 需先有 `>>` 拆 token 的用户决定；
 4. 若允许动 harness：给 `ast-json.mjs` 补 `FirstNode → QualifiedName` 别名，可一次解锁 `as A.B` 与 `types.ts` 的限定名。
+
+## chunk 4（cover-expressions-4，从 origin/integration @89413f7d + merge cover-expressions-3）：块体箭头 + 函数表达式
+
+本块只改 `expression-builder.xl.md`（expressions 家族）+ `expression.ts` + 本文件。**消费**了 statements chunk1 的
+`StatementBuilder`（不编辑 statements 文件），复用 types chunk2 的 `ParameterShape`；未动
+`expression-statement-possible-shape`（cover-end-1）与 `parameter-shape`（types-2）。
+
+### 实现落点
+
+- 新增 `ParseArrowBody`：`=>` 之后紧跟 `{` 走 `ParseBlock()`（块体），否则仍走 `ParseAssign()`（表达式体）；
+  `ParseArrowFromBracket` 与 `ParsePostfix` 的单标识符箭头两处共用。
+- 新增 `ParseBlock`：块是**一个** `Bracket` 单元，交给 `new StatementBuilder(...).Load(Units.slice(At), Positions[At])`
+  的 `BuildBlock()` 递归建（块内语句 = statements chunk1 的语句树），`At` 按 `builder.At` 推进。
+- 新增 `ParseFunctionExpression`：`function` 起头；children 顺序与 TS 一致 —— 可选 `Identifier`（名字）、
+  `Parameter` 们、`Block`。名字只进 `Data` 不设字段（TS 的 `FunctionExpression` 没有 `name` 字段）。
+- 新增 `ParseFunctionParameters`：参数括号的 `Data` 交给子 `ExpressionBuilder`，每参数一个 `ParameterShape`，
+  children = `Identifier`（+ 可选 `TypeReference`，类型走 `TypeBuilder`）；`Pos`/区间与 TS 同口径。
+- `ParsePrimary` 的 `Common` 分支补 `function` → `ParseFunctionExpression`（函数表达式因此天然可出现在
+  调用实参 / 对象值 / 数组元素 / 括号内等位置）。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children / 区间 |
+| --- | --- |
+| `() => {};` | `ArrowFunction[0,8)` → `EqualsGreaterThanToken[2,5)`、`Block[5,8)` |
+| `(a) => { return a; };` | `ArrowFunction[0,20)` → `Parameter[1,2)`、`EqualsGreaterThanToken[3,6)`、`Block[6,20)`→`ReturnStatement[8,18)` |
+| `(a) => { let x = 1; };` | `Block[6,21)` → `VariableStatement[8,19)`（块内走 statements builder） |
+| `(function () {});` | `ParenthesizedExpression[0,16)` → `FunctionExpression[1,15)` → `Block[12,15)` |
+| `(function f() {});` | `FunctionExpression[1,16)` → `Identifier[9,11) "f"`、`Block[13,16)` |
+| `(function f(a) { return a; });` | `FunctionExpression[1,28)` → `Identifier`、`Parameter[12,13)`→`Identifier[12,13)`、`Block[14,28)` |
+| `(function (a: T) {});` | `Parameter[11,15)` → `Identifier[11,12)`、`TypeReference[13,15)` |
+| `f(function () {});` | `CallExpression` 的一个实参是 `FunctionExpression` |
+
+### 读数（integration + merge 后基线 1275/1275）
+
+```
+expression  364 / 364            # 329（chunk 1~3 后）+ 35（base 25 块体箭头 17 条、base 26 函数表达式 18 条）
+全量        1310 / 1310          # 1275 + 35；其余 11 个构造条数与读数不变
+```
+
+### 暂缓（附依赖，expression.ts 注释同步）
+
+- async 箭头 `async (a) => a` / `async () => {}` ← 依赖 cover-end-1 的 `CanStart` 放行 `async`；
+- 默认参数 / 可选参数 / rest（`(a = 1) => a`、`(a?) => a`、`(function (a = 1) {})`）← 参数产生式未做；
+- 箭头参数类型标注 `(a: T) => a` ← 箭头参数目前只收标识符（函数表达式参数已收 `a: T`）；
+- 带成员的 class 表达式、object method / get / set ← 等 class element shapes；
+- `<T>a` / 泛型箭头 ← 等 cover-end-1 放行 `<`；import.meta、await / yield / new.target 同前。
+
+### 下一 chunk 建议
+
+1. 数组字面量 `[a, b]`（builder 已就绪，只差 `ExpressionStatementPossibleShape.CanStart` 放行 `[`）；
+2. `import.meta`（`MetaProperty` + import 候选在 `.` 处 Reject）；
+3. 箭头参数默认值 / 可选 / rest：本块已把 `ParseFunctionParameters` 的骨架搭好，扩参数产生式即可；
+4. 等 statements 家族把 class element 形状铺开后，带成员的 class 表达式与 object method / accessor 可同批收。
