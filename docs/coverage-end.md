@@ -278,3 +278,19 @@ UTF-8 中文被按 GBK 重新解释（部分文件还含非法 UTF-8 字节）�
 此后新增/改写的章节（涉及 `8600e768, 8176abef, 845f90e5`）已随乱码丢失、无法无损恢复，因此未收录（原文仍保留在 git 历史中，
 可用 `git show <sha>:docs/...coverage-end.md` 查看乱码原样）。
 没有发明新内容：本文件其余部分逐字来自上述干净 revision。
+## import/export EOF reds（chunk import-export-eof）
+GREEN（本 chunk 修复）
+- `export const x = 1`（无分号 EOF）、`export const x = 1 // c`、`export var v = 1`、`export let l = 1`、`export const c1 = 1\nexport const c2 = 2`：
+  `ExportDeclarationPossibleShape` 在 EOF 主动让位（Stage=3），由 `SourceFileEndPossibleShape.BuildTrailingDeclaration`
+  新增 `isExportVariable` 支路：用 `StatementBuilder` 按变量语句建，再把 `ExportKeyword` unshift 到 Data 首位、改写 Pos。
+- `export default 1`、`export default 1 // c`：同一 fallback 新增 `isExportDefault` 支路，用 `ExpressionBuilder` 建表达式 +
+  `ExportAssignmentShape`（children 只有表达式，export/default 不投影），Pos/End 按 oracle。
+- 多语句边界：`BuildTrailingDeclaration` 的 ASI 边界关键字表加入 `export`，于是 `export const x = 1\nclass C {}` 拆成
+  「export 变量语句 + class」，144 条 end-declarations 全绿。
+STILL RED（本 chunk 未解，已注释进用例文件并写明原因）
+- `import x from "m" // c`、`export { a } from "m" // c`、`export * from "m" // c`：声明在 EOF 收尾时 End 把尾注释算进去
+  （TS 停在 string / `}` 之后）。根因在 core 的 EOF 收尾（挂载壳被 EOF 关闭时用 EOF 位置 SignOut），
+  shape/end-possible 层拿不到二次 SignOut 机会（SignOut 只能设一次），按边界不改 core → 暂缓。
+- `import x from "m"\nclass C {}` / 无分号连续 import/export：需要在挂载壳的 EndPossible 里做真正的 ASI 收尾
+  （newline 后接新语句时提前 Close）；试过 raw lookahead Accept，会让壳的「终结候选与其它候选同时成立」，
+  需要 core CatalogGuide 配合 → 暂缓。

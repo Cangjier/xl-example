@@ -9,11 +9,15 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ImportEqualsDeclarationShape } from "../declarations/import-equals-declaration-shape.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { ExportAssignmentShape } from "../declarations/export-assignment-shape.xl.md"
 import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
@@ -183,7 +187,7 @@ for (let index = 1; index < code.length; index++) {
     continue;
   }
   const unitText = (unit as Common).TempToString();
-  if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "class" || unitText === "interface"
+  if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "export" || unitText === "class" || unitText === "interface"
     || unitText === "const" || unitText === "let" || unitText === "var" || unitText === "using")) {
     continue;
   }
@@ -253,7 +257,75 @@ if (isVariableKeyword || isDeclareVariable) {
   return true;
 }
 // 紧邻的 class / interface 声明（体是闭合括号单元，tokenIndex 落在 `}` 上）；允许前置 declare。
-const isClass = text === "class"
+// `export const x = 1` 鏃犲垎鍙峰埌 EOF锛氬厛渚?StatementBuilder 鎸夊彉閲忚鍙ュ缓锛屽啀鎶?ExportKeyword 鎻掑埌 Data 鏈€鍓嶃€?
+const isExportVariable = text === "export"
+  && code.length >= 3
+  && code[1] instanceof Common
+  && ((code[1] as Common).Is("const") || (code[1] as Common).Is("let")
+    || (code[1] as Common).Is("var") || (code[1] as Common).Is("using"));
+if (isExportVariable) {
+  let basePos = 0;
+  let pos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        pos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const exportEnd = code[0].SourceRange.End;
+  basePos = exportEnd === null ? pos : exportEnd.Index + 1;
+  const builder = new StatementBuilder(host.Template, context);
+  builder.Load(host.Data.slice(codeAt[1], at + 1), basePos);
+  const statement = builder.BuildStatement();
+  const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
+  (exportKeyword as ShapeToken).Pos = pos;
+  statement.Data.unshift(exportKeyword);
+  exportKeyword.Parent = statement;
+  (statement as ShapeToken).Pos = pos;
+  host.Data.splice(start, at - start + 1, statement);
+  statement.Parent = host;
+  return true;
+}
+// `export default 1` 鏃犲垎鍙峰埌 EOF锛欳hildren 鍙湁琛ㄨ揪寮忥紙TS 涓?export/default 閮戒笉鏄妭鐐癸級鎴栧悕绉般€?
+const isExportDefault = text === "export"
+  && code.length >= 3
+  && code[1] instanceof Common
+  && (code[1] as Common).Is("default");
+if (isExportDefault) {
+  let pos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        pos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const defaultEnd = code[1].SourceRange.End;
+  const basePos = defaultEnd === null ? pos : defaultEnd.Index + 1;
+  const builder = new ExpressionBuilder(host.Template, context);
+  builder.Load(host.Data.slice(codeAt[2], at + 1), basePos);
+  const expression = builder.ParseExpression();
+  const assignment = new ExportAssignmentShape(host.Template);
+  assignment.Expression = expression;
+  assignment.Data.push(expression);
+  expression.Parent = assignment;
+  (assignment as ShapeToken).Pos = pos;
+  if (code[0].SourceRange.Start !== null) {
+    assignment.SignIn(code[0].SourceRange.Start);
+  }
+  const expressionEnd = code[code.length - 1].SourceRange.End;
+  if (expressionEnd !== null) {
+    assignment.SignOut(expressionEnd);
+  }
+  host.Data.splice(start, at - start + 1, assignment);
+  assignment.Parent = host;
+  return true;
+}const isClass = text === "class"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("class"));
 const isInterface = text === "interface"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("interface"));

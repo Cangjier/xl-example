@@ -5,6 +5,7 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { NamedExportsShape } from "./named-exports-shape.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -105,6 +106,12 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
   state.At = index;
   const unit = units[index];
   if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof EndOfFileTokenShape) {
+    // EOF: the statement never got its `;`. Yield to SourceFileEndPossibleShape, which builds the
+    // trailing export variable statement / export default assignment from the leftover tokens.
+    state.Stage = 3;
     continue;
   }
   if (state.Head < 0) {
