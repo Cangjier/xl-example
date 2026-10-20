@@ -24,3 +24,6 @@ type T = typeof a.b;
 ```ts
 super(template);
 ```
+
+`typeof import("m")` 不走本形状：TS 的那棵树里节点就是 `ImportType`（Argument + 可选 Qualifier），
+所以 `TypeBuilder.ParseTypeQuery` 对 `import` 起始直接返回 `ImportTypeShape`；本形状只负责 `typeof a` / `typeof a.b` 这类实体名。

@@ -18090,6 +18090,393 @@
           ]
         }
       ]
+    },
+    {
+      "src": "type T = typeof import(\"m\");",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 23,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 23,
+                      "end": 26,
+                      "text": "m"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type U = typeof import(\"m\").a;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "U"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 23,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 23,
+                      "end": 26,
+                      "text": "m"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 29,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type V = typeof import(\"m\").default;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "V"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 23,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 23,
+                      "end": 26,
+                      "text": "m"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 35,
+                  "text": "default"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = keyof typeof import(\"m\");",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeOperator",
+              "pos": 8,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ImportType",
+                  "pos": 14,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "LiteralType",
+                      "pos": 29,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 29,
+                          "end": 32,
+                          "text": "m"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = typeof import(\"m\")[K];",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "IndexedAccessType",
+              "pos": 8,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ImportType",
+                  "pos": 8,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "LiteralType",
+                      "pos": 23,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 23,
+                          "end": 26,
+                          "text": "m"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 28,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 29,
+                      "text": "K"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = typeof /* c */ import(\"m\");",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 31,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 31,
+                      "end": 34,
+                      "text": "m"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = typeof import(/* c */\"m\");",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 23,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 23,
+                      "end": 33,
+                      "text": "m"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = typeof import(\"m\") /* c */ ;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 23,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 23,
+                      "end": 26,
+                      "text": "m"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = typeof import(\"m\"). /* c */ a;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 8,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 23,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 23,
+                      "end": 26,
+                      "text": "m"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 38,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -265,3 +265,11 @@ class / interface / function 的泛型参数（declarations chunk），语义层
 - `declare const t: unique symbol;`：变量声明不接受 declare 修饰。
 - `type T = typeof import("m");`：ParseTypeQuery 只认实体名，`import(...)` 形式未接。
 - `type T = { new (): A };`：类型字面量成员里的 ConstructSignature 未接（现被解析成 MethodSignature，`new` 当方法名）。
+
+## typeof import（cover-type-query-import-1）
+
+`type T = typeof import("m")`：TS 的节点就是 `ImportType`（`typeof` 只是 flag），没有再包 `TypeQuery`；children = `LiteralType`（模块字符串）＋可选限定名（`.a` / `.default` 都是 `Identifier`）。实现：`TypeBuilder.ParseTypeQuery` 在 `typeof` 之后见到 `import` 就直接建 `ImportTypeShape` 返回。
+
+已绿：`typeof import("m")`、`typeof import("m").a`、`typeof import("m").default`、`keyof typeof import("m")`、`typeof import("m")[K]`，以及注释 trivia；回归 `typeof a`、`typeof a.b.c`、`import("m").T` 不变。
+
+暂缓（原因）：`typeof import("m", { with: { type: "json" } })` —— 合法，但 ImportType 多一个 `AssertClause` 孩子，需扩 import-type-shape（不在本 chunk 写范围）。

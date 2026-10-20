@@ -394,3 +394,15 @@ type T = (x: any) => /* c */ x is A;
 // 暂缓：function assertB(x: any): asserts x {} —— 无 is 的 asserts 谓词（TypePredicate 缺 is 分支）。
 // 暂缓：declare const t: unique symbol; —— 变量声明不接受 declare 修饰。
 // 暂缓：type T = typeof import("m"); —— ParseTypeQuery 只认实体名，`import(...)` 形式未接。
+
+// ===== typeof import（TypeQuery 的 import 形态，TS 节点是 ImportType） =====
+type T = typeof import("m");
+type U = typeof import("m").a;
+type V = typeof import("m").default;
+type T = keyof typeof import("m");
+type T = typeof import("m")[K];
+// trivia
+type T = typeof /* c */ import("m");
+type T = typeof import(/* c */"m");
+type T = typeof import("m") /* c */ ;
+type T = typeof import("m"). /* c */ a;
