@@ -93,3 +93,21 @@ export declare import a from "m";
 import a from "m"; import b from "n";
 import a from "m"; import b from "n"; // c
 import a, { b, c } from "m"; import { d } from "n";
+
+// ===== base 12（import-attrs）：import attributes sweep =====
+import { a } from "m" with { type: "json" };
+import * as ns from "m" with { type: "json" };
+import x from "m" with { a: "b", c: "d" };
+import type x from "m" with { type: "json" };
+import { a } from "m" assert { type: "json" };
+// + 前导空格 / 行尾注释 / 词间块注释
+  import { a } from "m" with { type: "json" };
+import { a } from "m" with { type: "json" }; // c
+import { a } /* c */ from "m" with { type: "json" };
+// + 换行
+import { a } from "m"\nwith { type: "json" };
+import { a } from "m" with\n{ type: "json" };
+// + dynamic import
+// import("m");                          —— dynamic import: 语句层 `import` 起点被 ExpressionStatementPossibleShape.CanStart 拒绝（statements 家族），本 chunk 不改该文件，暂缓
+// import("m", { with: { type: "json" } });  —— 同上（dynamic import attributes），暂缓
+// import("m", { assert: { type: "json" } }); —— 同上，暂缓
