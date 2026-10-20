@@ -86,6 +86,7 @@ import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { ImportKeywordShape } from "../keywords/import-keyword-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { TypeParameterShape } from "../types/type-parameter-shape.xl.md"
@@ -1778,6 +1779,11 @@ if (unit instanceof Common) {
     // 不满足就不吃 import，退回普通标识符路径（`import x from "m"` 由声明候选处理）。
     const metaDot = this.Peek(0);
     const metaUnit = this.Peek(1);
+    // dynamic import: `import("m")` — `import` is the ImportKeyword leaf, the call is parsed by ParsePostfix.
+    const callUnit = this.Peek(0);
+    if (callUnit !== null && this.IsBracketStart(callUnit, "(")) {
+      return this.MakeKeywordLeaf(new ImportKeywordShape(this.Template), start);
+    }
     if (metaDot !== null && this.IsText(metaDot, ".")
       && metaUnit !== null && metaUnit instanceof Common && (metaUnit as Common).Is("meta")) {
       const metaShape = new MetaPropertyShape(this.Template);

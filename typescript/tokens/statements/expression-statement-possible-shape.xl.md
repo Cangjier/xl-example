@@ -439,6 +439,9 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   } else if (state.ImportStage === 1) {
     if (unit instanceof Symbol && (unit as Symbol).Is(".")) {
       state.ImportStage = 2;
+    } else if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+      // dynamic import: import(...) — the statement-layer candidate accepts the call start.
+      state.ImportStage = 3;
     } else {
       // `import` 后面不是 `.`：不是 import.meta，候选退出（import 声明候选此时保持唯一）。
       state.Rejected = true;
