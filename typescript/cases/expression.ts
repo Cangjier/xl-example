@@ -749,3 +749,14 @@ class C { #m() {} m2() { return this.#m /* c */ (); } }
 obj.#x;
 // 暂缓：optional private access `obj?.#x`（TS 语法允许但本块未接 `?.` 的 private 分支）、
 // brand check `#x in obj` 已由 base 30 覆盖
+
+// ===== sweep 3：断言函数 / this 返回类型 / unique symbol 声明（measurement-only） =====
+function assertA(x: any): asserts x is A {}
+const f: (x: any) => x is A = g;
+class C { m(): this { return this; } }
+interface I { m(): this; }
+interface I { readonly x: this; }
+const s: unique symbol = Symbol();
+// trivia
+function assertA /* c */ (x: any): asserts /* c */ x is A {}
+class C { m /* c */ (): /* c */ this { return this; } }
