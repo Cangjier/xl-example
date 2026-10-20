@@ -142,7 +142,28 @@ export default class D {} // c
 // + 词间块注释
 export /* c */ default 1;
 
-// ===== base 10：export declare / default function / 引号导出名 =====
+// ===== base 10：export declare 变量语句 / type 别名 + 字符串导出名（chunk4） =====
+export declare const x: number;
+export declare let y: string;
+export declare var z = 1;
+export declare type T = A;
+export { a as "b-c" } from "m";
+export { "a-b" } from "m";
+// + 前导空格
+  export declare const x: number;
+// + 词间块注释
+export /* c */ declare const x: number;
+export declare /* c */ const x: number;
+// + 行尾注释
+export declare const x: number; // c
+export { a as "b-c" } from "m"; // c
+// + 换行
+export\ndeclare const x: number;
+// + 重复形
+export declare const x: number; export declare type T = A;
+export { a as "b-c" } from "m"; export { "a-b" } from "n";
+
+// ===== base 11：export declare class/interface/enum + default function + declare function（chunk3） =====
 export declare class C {}
 export declare interface I {}
 export declare enum E { A }
@@ -167,11 +188,7 @@ export declare class C {} export declare interface I {}
 export { "a-b" as c } from "m"; export { "x-y" as z } from "n";
 
 // ===== 暂缓（不在本用例集） =====
-// export default function* f() {};      —— generator 的 `*` 未处理
-// export { a as "b-c" } from "m";       —— 名字是字符串；TS 侧 `name` = 字符串文本，cjAst 只认
-//                                          IdentifierShape.EscapedText，harness 缺该语义（报告，不硬改）
-// export { "a-b" } from "m";            —— 同上（无 as 时 name 也是字符串文本）
-// export declare const x: number;       —— declare 变量语句，statements 侧 declare 修饰词未打通
-// export as namespace NS;               —— cover-module-1 已合并
-// export = a;                           —— cover-module-1 已合并
-// export * as ns from "m" with {…};     —— 属性段已由既有 62 条覆盖
+// export default class D extends B {};  —— heritage（extends）未合并：类声明形状报「类表达式缺少类体」
+// export default function* f() {};     —— generator `*` 未处理
+// export declare\ntype T = A;          —— declare 与 type 之间换行时 TS 侧 TypeAliasDeclaration 的 pos 是 14 而不是 0
+// export declare const x;              —— declare 变量必须有类型或初始化式（TS 语义）

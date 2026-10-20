@@ -37,6 +37,18 @@
   需要 StringLiteral 名字与 harness 侧 `name` 字段口径，留作后续。
 - `export as namespace NS;` / `export = a;` —— cover-module-1 的文件（前者已合入 integration，后者进行中）。
 
+## chunk 4 新增（base 10，全部逐条对拍 TS）
+
+| 形态 | TS children | 实现 |
+| --- | --- | --- |
+| `export declare const x: number;` / `let y: string;` / `var z = 1;` | `VariableStatement` → `ExportKeyword` + `DeclareKeyword` + `VariableDeclarationList` | Stage 14→13（Kind 12）：`StatementBuilder` 从 `declare` 后那个 `const/let/var` 起建变量语句，再 unshift `DeclareKeyword` / `ExportKeyword`，整体 Pos 改到 `export` 前边界 |
+| `export declare type T = A;` | `TypeAliasDeclaration` → `ExportKeyword` + `DeclareKeyword` + `Identifier` + `TypeReference` | Stage 14→13（Kind 13）：`TypeAliasDeclarationShape.FromUnits` 从 `type` 起建，再补两个修饰词 |
+| `export { a as "b-c" } from "m";` / `export { "a-b" } from "m";` | `ExportSpecifier` → `Identifier`/`StringLiteral` + `StringLiteral` | `ExportSpecifierShape.FromTokens` 两个位置都接受 `Common` 或 `String`；harness `cjAst` 增一条最小 name 语义：`shape.Name.Text`（StringLiteralShape 的文本字段）→ `out.name`，`TS_KIND_ALIASES` 未动 |
+
+暂缓：`export default class D extends B {}`（heritage 未合并：类声明形状报「类表达式缺少类体」）；
+`export declare class/interface/enum`、`export default function`（属 chunk 3 分支，未并入本 base）；
+`export default function*`；`export declare\ntype T = A;`（`declare` 与 `type` 之间换行时 TS 侧
+TypeAliasDeclaration 的 pos 是 14 而不是 0，属 ruler 口径问题，留作后续）。
 ## chunk 3 新增（base 10，全部逐条对拍 TS）
 
 | 形态 | TS children | 实现 |
