@@ -11,6 +11,7 @@ import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ImportDeclarationShape } from "./import-declaration-shape.xl.md"
 ```
@@ -79,6 +80,19 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 3;
     } else if (unit instanceof Bracket && unit.Is("{", "}")) {
       state.Stage = 2;
+    } else if (unit instanceof Common) {
+      // 合法：默认导入名 / `type` / `as` / `from` 等关键字都在这一档。
+      continue;
+    } else if (unit instanceof Symbol && ((unit as Symbol).Is("*") || (unit as Symbol).Is(","))) {
+      // 合法：命名空间导入的 `*`、默认导入后面的 `,`。
+      continue;
+    } else if (unit instanceof String) {
+      // 合法：副作用导入 `import "m"` 的模块说明符。
+      continue;
+    } else {
+      // `.` 等不可能跟在 `import` 后面的单元：候选退出，
+      // 这样 `import.meta` 只剩表达式语句候选（它只接受 `import . meta`）。
+      state.Stage = 3;
     }
   }
 }
@@ -153,6 +167,11 @@ if (previousCode >= 0) {
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;
 host.MountedUnit = built;
+// 壳晚建的情况（`import` 之后还有代码单元才轮到本候选）：这些单元是**已关闭**的 basic token，
+// 不会再触发壳自己的候选重算，所以这里补一次，让 ImportClause / StringLiteral / 属性子句照常建出来。
+if (tokenIndex > start) {
+  built.ComputePossibleShapes(context);
+}
 return built;
 ```
 
