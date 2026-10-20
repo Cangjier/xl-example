@@ -159,3 +159,14 @@ TS 5.2+ 的 `using` / `await using`：oracle 用 `ts.createSourceFile` 逐条验
   List 的 listStart 口径）；`IsVariableKeyword` 加 `using` 使 `for (using x of xs)` 复用声明列表构建。
 - harness 增加别名 `["FirstStatement","VariableStatement"]`（diff 侧原本就有，ast-json 侧补齐）。
 - 暂缓：顶层 `await using`（与表达式语句候选抢同一格）、`for (await using x of xs)`、`using` 作 if/while 单语句体（未测量）。
+### await using（顺延 chunk：cover-await-using-1）
+
+async function 声明与嵌套 async 合入后，`await using` 全部打通（oracle 逐条验过）：
+
+- async 函数体内：`await using x = a;`、后接 `await g();`、带类型标注、多声明符、嵌套块内、注释 trivia —— 全部合法，
+  AST 与普通 using 相同（VariableStatement → VariableDeclarationList → VariableDeclaration），`await` 只是 List 的 flag；
+- **顶层 `await using x = a;`**：合法（顶层 await）。因为语句首 `await` 同时是表达式候选的 CanStart，
+  在 `ExpressionStatementPossibleShape` 加了一条最小优先级规则：首格 await 记 AwaitStage=1，次格是 `using` 就 Reject，
+  让语句候选独占；同时 `StatementScanner` 对「只有 await 一格」返回 NeedMore（等待下一格确认是 using 还是表达式）；
+- **`for (await using x of xs) {}`**：合法。`BuildForInOrOf` 识别「await + using」头，声明列表从 `using` 起解析、
+  List 的 Pos/区间仍从 `await` 起算（与 TS 的 VariableDeclarationList pos 一致）。

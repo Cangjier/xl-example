@@ -145,7 +145,11 @@ if (first instanceof Common) {
   }
   // await using：只认「await 后紧跟 using」，其余 await … 交回表达式候选。
   if (text === "await") {
-    if (code.length > 1 && StatementScanner.IsKeyword(code[1], "using")) {
+    if (code.length === 1) {
+      // 还不能判：可能是 `await using` 声明，也可能是 await 表达式语句。
+      return StatementScanner.NeedMore();
+    }
+    if (StatementScanner.IsKeyword(code[1], "using")) {
       return StatementScanner.ScanToSemicolon(code, 2);
     }
     return StatementScanner.Mismatch();

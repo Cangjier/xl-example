@@ -1,5 +1,4 @@
 // using 声明（TS 5.2+）：每个语句一条；base 先给，再叠 trivia / 重复形。
-// await using 只在 async 函数体内测量（顶层 await using 会与表达式语句候选抢同一格，暂缓）。
 
 // ===== base =====
 using x = a;
@@ -20,6 +19,19 @@ using x = a; // c
 using x = a; using y = b;
 type T = number;
 // ===== await using（async 函数体内） =====
-// 暂缓：async function f() { await using x = a; }
-// 暂缓：async function g() { { await using y = b; } }
-// 暂缓：async function h() { await using x: A = a; }
+// ===== await using（async 函数体内） =====
+async function f() { await using x = a; }
+async function f() { await using x = a; await g(); }
+async function f() { await using x: A = a; }
+async function f() { await using a = x, b = y; }
+async function f() { { await using y = b; } }
+async function f() { /* c */ await using x = a; }
+async function f() { await /* c */ using x = a; }
+async function f() { await  using  x  =  a ; }
+// ===== await using（顶层，await+using 优先规则） =====
+await using x = a;
+await using x: A = a;
+await using x = a; // c
+// ===== for-await-using =====
+for (await using x of xs) {}
+async function f() { for (await using x of xs) {} }

@@ -683,8 +683,17 @@ if (keywordText === "in") {
 }
 inner.At = 0;
 let binding:Token;
+let declKeywordIndex = -1;
+let declListStart = 0;
 if (inner.Units.length > 0 && inner.Units[0] instanceof Common && this.IsVariableKeyword(inner.Units[0])) {
-  binding = inner.BuildVariableDeclarationList(0, keywordAt);
+  declKeywordIndex = 0;
+  declListStart = 0;
+} else if (inner.Units.length > 1 && this.IsText(inner.Units[0], "await") && this.IsText(inner.Units[1], "using")) {
+  declKeywordIndex = 1;
+  declListStart = 0;
+}
+if (declKeywordIndex >= 0) {
+  binding = inner.BuildVariableDeclarationList(declKeywordIndex, keywordAt, declListStart);
 } else {
   binding = inner.BuildExpressionRange(0, keywordAt - 1);
   inner.At = keywordAt;
