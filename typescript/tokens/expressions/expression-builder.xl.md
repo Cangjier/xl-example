@@ -84,6 +84,9 @@ import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
+import { AsExpressionShape } from "./as-expression-shape.xl.md"
+import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
@@ -380,6 +383,28 @@ while (true) {
   if (unit === null) {
     break;
   }
+  if (this.IsTypeOperator(unit)) {
+    // `as` / `satisfies`：与关系运算符同级（TS 实测 `a + b as T` = `(a + b) as T`、
+    // `a as T + b` = `(a as T) + b`），右操作数是类型不是表达式。
+    const precedence = 11;
+    if (precedence < minPrecedence) {
+      break;
+    }
+    const operatorText = this.TextOf(unit);
+    const opIndex = this.At;
+    this.At++;
+    const type = this.ParseFollowingType();
+    let shape:ShapeToken;
+    if (operatorText === "as") {
+      shape = new AsExpressionShape(this.Template);
+    } else {
+      shape = new SatisfiesExpressionShape(this.Template);
+    }
+    shape.Add(left);
+    shape.Add(type);
+    left = this.SpanNode(shape, start, this.At - 1);
+    continue;
+  }
   const opText = this.BinaryOperatorText(unit);
   if (opText === "") {
     break;
@@ -398,6 +423,94 @@ while (true) {
   left = this.SpanNode(shape, start, this.At - 1);
 }
 return left;
+```
+
+## method IsTypeOperator:(unit:Token)=>bool
+
+`as` / `satisfies` 是类型运算符：`ParseBinary` 在二元循环里按关系运算符的优先级处理它们，右操作数交给 `ParseFollowingType`。
+
+```ts
+if (!(unit instanceof Common)) {
+  return false;
+}
+const text = (unit as Common).TempToString();
+return text === "as" || text === "satisfies";
+```
+
+## method ParseFollowingType:()=>Token
+
+从当前 `At` 起，把**剩下的单元**交给 `TypeBuilder.ParseType()` 读一个完整类型（调用方保证后面还有单元）。
+`basePos` 取 `Positions[At]`（即 `<` / `as` 之后第一个单元的含前导 trivia 起点），与 TypeBuilder 的 `Pos` 口径一致。
+
+```ts
+const builder = new TypeBuilder(this.Template, this.Context);
+builder.Load(this.Units.slice(this.At), this.Positions[this.At]);
+const type = builder.ParseType();
+if (builder.At === 0) {
+  throw new Error("缺少类型");
+}
+this.At += builder.At;
+return type;
+```
+
+## method CanStartTypeArgumentCall:(index:int)=>bool
+
+泛型调用的前瞻：`index` 是 `<`，扫描到与它配对的 `>`，且 `>` 之后紧跟 `(` 才算泛型调用；
+否则返回 `false`，让调用方回退成二元比较（`a < b` 不受影响）。只认 `Symbol` 的 `<` / `>` / `,`，
+`>>` 这种组合符号直接判否（拆 `>>` 需要 basic token 决策，见本块暂缓）。
+
+```ts
+if (index < 0 || index >= this.Units.length) {
+  return false;
+}
+if (!this.IsText(this.Units[index], "<")) {
+  return false;
+}
+let depth = 0;
+for (let at = index; at < this.Units.length; at++) {
+  const unit = this.Units[at];
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === "<") {
+      depth++;
+      continue;
+    }
+    if (text === ">") {
+      depth--;
+      if (depth === 0) {
+        if (at + 1 >= this.Units.length) {
+          return false;
+        }
+        return this.IsBracketStart(this.Units[at + 1], "(");
+      }
+      continue;
+    }
+    if (text === ",") {
+      continue;
+    }
+    return false;
+  }
+  if (depth === 0) {
+    return false;
+  }
+}
+return false;
+```
+
+## method ParseTypeArgumentsAtCurrent:()=>Array<Token>
+
+`At` 停在 `<` 上时读 `<A, B>`：返回实参数组并把 `At` 推进到 `>` 之后；`>` 本身不进 AST。
+`basePos` 取 `Positions[At]`，所以每个 `TypeReference` 的 `Pos` 与 TS 的 `pos` 同口径。
+
+```ts
+const builder = new TypeBuilder(this.Template, this.Context);
+builder.Load(this.Units.slice(this.At), this.Positions[this.At]);
+const typeArguments = builder.ParseTypeArguments();
+if (builder.At === 0) {
+  throw new Error("缺少泛型实参");
+}
+this.At += builder.At;
+return typeArguments;
 ```
 
 ## method BinaryOperatorText:(unit:Token)=>string
@@ -467,6 +580,28 @@ while (true) {
   const unit = this.Peek(0);
   if (unit === null) {
     break;
+  }
+  if (this.CanStartTypeArgumentCall(this.At)) {
+    // `f<T>(a)` 的前瞻在 CanStartTypeArgumentCall 里完成（`<` 扫到配对的 `>` 且后随 `(`）：
+    // 否则 `<` / `>` 会落进 ParseBinary 被吃成比较链（静默错树）。
+    const typeArguments = this.ParseTypeArgumentsAtCurrent();
+    const argsUnit = this.Peek(0);
+    if (argsUnit === null || !this.IsBracketStart(argsUnit, "(")) {
+      throw new Error("泛型实参后面缺少调用实参");
+    }
+    const bracket = argsUnit as Bracket;
+    this.At++;
+    const args = this.ParseBracketArguments(bracket);
+    const shape = new CallExpressionShape(this.Template);
+    shape.Add(expression);
+    for (const typeArgument of typeArguments) {
+      shape.Add(typeArgument);
+    }
+    for (const arg of args) {
+      shape.Add(arg);
+    }
+    expression = this.SpanNode(shape, start, this.At - 1);
+    continue;
   }
   if (this.IsText(unit, "=>")) {
     // 单标识符参数的箭头（`a => a`）：此时 expression 就是那个 Identifier。
