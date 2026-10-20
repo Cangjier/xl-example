@@ -77,7 +77,15 @@ while (at < code.length && code[at] instanceof Common) {
 if (at >= code.length) {
   throw new Error("模块声明缺少 namespace / module 关键字");
 }
-at++;
+const headUnit = code[at];
+if (headUnit instanceof Common && (headUnit as Common).Is("global")) {
+  // `declare global { … }`：名字就是 `global`，没有 namespace/module 关键字。
+  if (at === 0) {
+    throw new Error("global 声明缺少 declare 修饰");
+  }
+} else {
+  at++;
+}
 const nameIndices:Array<number> = [];
 const nameShapes:Array<ShapeToken> = [];
 let bodyIndex = -1;
