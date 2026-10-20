@@ -2,11 +2,15 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { ImportEqualsDeclarationShape } from "../declarations/import-equals-declaration-shape.xl.md"
+import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -78,9 +82,11 @@ while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOf
 }
 const start = ItemUtil.ItemStart(host.Data);
 if (at >= start && host.Data[at].IsBasicToken) {
-  const built = ExpressionStatementShape.FromUnits(host, start, at, context, false);
-  host.Data.splice(start, at - start + 1, built);
-  built.Parent = host;
+  if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
+    const built = ExpressionStatementShape.FromUnits(host, start, at, context, false);
+    host.Data.splice(start, at - start + 1, built);
+    built.Parent = host;
+  }
 }
 let tail = host.Data.length - 1;
 while (tail >= 0 && (host.Data[tail].IsTriviaToken || host.Data[tail] instanceof EndOfFileTokenShape)) {
@@ -95,3 +101,58 @@ if (tail >= 0 && unit.SourceRange.End === null) {
 unit.TryToClose(context);
 return host;
 ```
+
+## private static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
+
+EOF 边界补一条「必须分号、但 ASI 允许省略分号」的声明：`type T = A` 与 `import x = require("m")`
+（两者在 TS 里都能不带 `;` 收在文件末尾）。它们的 `FromUnits` 都要求 `tokenIndex` 落在 `;` 上，
+所以这里在最后一个真实代码单元后面补一个**零宽合成 `Symbol ";"`**（`SignIn` / `SignOut` 用同一个
+`End` 位置，`End.Index + 1` 正好是声明的右边界），再按正常入口建。
+
+只认这两族：`type` 开头、或 `import <名字> = …`（`code[2]` 是 `=`）；其余返回 `false`，由调用方退回
+`ExpressionStatementShape`。返回值 = 有没有建出来。
+
+```ts
+const code:Array<Token> = [];
+for (let index = start; index <= at; index++) {
+  if (!host.Data[index].IsTriviaToken) {
+    code.push(host.Data[index]);
+  }
+}
+if (code.length < 4) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+const text = (head as Common).TempToString();
+const isType = text === "type";
+const isImportEquals = text === "import"
+  && code.length >= 5
+  && code[1] instanceof Common
+  && code[2] instanceof Symbol
+  && (code[2] as Symbol).Is("=");
+if (!isType && !isImportEquals) {
+  return false;
+}
+const lastEnd = host.Data[at].SourceRange.End;
+if (lastEnd === null) {
+  return false;
+}
+const semi = new Symbol(host.Template);
+semi.SignIn(lastEnd);
+semi.AppendValueAndSignOut(";", lastEnd);
+host.Data.splice(at + 1, 0, semi);
+if (isType) {
+  const built = TypeAliasDeclarationShape.FromUnits(host, start, at + 1, context);
+  host.Data.splice(start, at - start + 2, built);
+  built.Parent = host;
+  return true;
+}
+const imported = ImportEqualsDeclarationShape.FromUnits(host, start, at + 1, context);
+host.Data.splice(start, at - start + 2, imported);
+imported.Parent = host;
+return true;
+```
+

@@ -73,6 +73,29 @@
       ]
     },
     {
+      "src": "declare class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "declare class D {}",
       "ast": [
         {
@@ -90,6 +113,29 @@
               "pos": 13,
               "end": 15,
               "text": "D"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "abstract class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "AbstractKeyword",
+              "pos": 0,
+              "end": 8
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "C"
             }
           ]
         }
@@ -569,6 +615,29 @@
               "pos": 9,
               "end": 13,
               "text": "ABC"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "I"
             }
           ]
         }
@@ -1258,6 +1327,29 @@
                   "text": "x"
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare enum E {}",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "E"
             }
           ]
         }
@@ -3255,6 +3347,1615 @@
       ]
     },
     {
+      "src": "class C extends D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D<E> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "E"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D<E, F> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "E"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 20,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "F"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements I, J {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "I"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 17,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 28,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D<E> implements I<J>, K {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "E"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 20,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 31,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "I"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 34,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 34,
+                          "end": 35,
+                          "text": "J"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 37,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "K"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends J, K {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "J"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 22,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "K"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends J<K> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "J"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 22,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends J<K, L> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "J"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 22,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "K"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 24,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 26,
+                          "text": "L"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "abstract class C extends D implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "AbstractKeyword",
+              "pos": 0,
+              "end": 8
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 16,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 24,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 26,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 37,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "abstract class C extends D<E> implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "AbstractKeyword",
+              "pos": 0,
+              "end": 8
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 16,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 24,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "D"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 27,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 28,
+                          "text": "E"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 29,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 40,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 40,
+                      "end": 42,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ class C extends D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 15,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 23,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C /* c */ extends D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 23,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends /* c */ D {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 25,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D /* c */ {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C /* c */ implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 26,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C implements /* c */ I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 18,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 28,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D<E /* c */> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "E"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D < E > {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 19,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "E"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D<E,\nF> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "E"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 20,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "F"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I /* c */ extends J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 27,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends /* c */ J {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 29,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends J /* c */, K {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "J"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 30,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "K"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends J<K /* c */> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "J"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 22,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D {} class E extends F {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 20,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 26,
+              "end": 28,
+              "text": "E"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 28,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 36,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "F"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D {} interface I extends J {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 20,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 32,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 40,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 40,
+                      "end": 42,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I extends J {} class C extends D {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 24,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 32,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 40,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 40,
+                      "end": 42,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C extends D implements I {} enum E { A }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 7,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 15,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "D"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 17,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 28,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "EnumDeclaration",
+          "pos": 33,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 42,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 42,
+                  "end": 44,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "class C {} class D {}",
       "ast": [
         {
@@ -3593,6 +5294,1104 @@
                   "text": "A"
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(a: A): B;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 19,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 25,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f();",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): B;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 13,
+              "end": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): B; function f(a: A): B { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 20,
+          "end": 54,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 32,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 38,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "B"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 40,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 42,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): A; function f(a: B): B; function f(a): C; function f(a: any): any { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 20,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 32,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 38,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 41,
+          "end": 59,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 50,
+              "end": 52,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 53,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 53,
+                  "end": 54,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 56,
+              "end": 58,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 56,
+                  "end": 58,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 59,
+          "end": 97,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 68,
+              "end": 70,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 71,
+              "end": 77,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 71,
+                  "end": 72,
+                  "text": "a"
+                },
+                {
+                  "kind": "AnyKeyword",
+                  "pos": 73,
+                  "end": 77
+                }
+              ]
+            },
+            {
+              "kind": "AnyKeyword",
+              "pos": 79,
+              "end": 83
+            },
+            {
+              "kind": "Block",
+              "pos": 83,
+              "end": 97,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 85,
+                  "end": 95,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 92,
+                      "end": 94,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): B;\nfunction f(a: A): B { return a; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 20,
+          "end": 54,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 32,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 34,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 38,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "B"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 40,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 42,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "/* c */ declare function f(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 15
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 29,
+              "end": 34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare /* c */ function f(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 29,
+              "end": 34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function /* c */ f(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 26,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 29,
+              "end": 34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): /* c */ void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void /* c */ ;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(): void /* c */ ;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 13,
+              "end": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A):\nB;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void; // tail",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare\nfunction f(): void;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 7,
+              "text": "declare"
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 7,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void;\ndeclare function g(a: A): B;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 27,
+          "end": 56,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 27,
+              "end": 35
+            },
+            {
+              "kind": "Identifier",
+              "pos": 44,
+              "end": 46,
+              "text": "g"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 47,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 47,
+                  "end": 48,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 49,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 49,
+                      "end": 51,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 53,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 53,
+                  "end": 55,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void; function f(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 27,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 36,
+              "end": 38,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 41,
+              "end": 46
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function\nf(): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
             }
           ]
         }

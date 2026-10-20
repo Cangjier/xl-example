@@ -10,6 +10,7 @@ import { ConstructorShape } from "../types/constructor-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
+import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { MethodDeclarationShape } from "../types/method-declaration-shape.xl.md"
 import { OverrideKeywordShape } from "../keywords/override-keyword-shape.xl.md"
@@ -55,6 +56,8 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 ## field DeclareKeyword:Token | null = null
 
 ## field AbstractKeyword:Token | null = null
+
+## field HeritageClauses:Array<Token> = []
 
 ## field Members:Array<Token> = []
 
@@ -110,6 +113,7 @@ if (!(nameUnit instanceof Common)) {
 if (index >= code.length) {
   throw new Error("类声明缺少类体");
 }
+const heritageUnits:Array<Token> = code.slice(index, code.length - 1);
 const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("类声明的类体不是花括号");
@@ -126,9 +130,14 @@ for (let at = start - 1; at >= 0; at--) {
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+const heritageBase = nameUnit.SourceRange.End === null ? name.Pos : nameUnit.SourceRange.End.Index + 1;
+const clauses:Array<Token> = heritageUnits.length === 0
+  ? []
+  : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
 const members = ClassDeclarationShape.BuildMembers(host, bodyUnit as Bracket, context);
 const shape = new ClassDeclarationShape(host.Template);
 shape.NameToken = name;
+shape.HeritageClauses = clauses;
 shape.Members = members;
 let modifierPos = pos;
 for (let at = 0; at < modifierCount; at++) {
@@ -152,6 +161,9 @@ for (let at = 0; at < modifierCount; at++) {
   }
 }
 shape.Add(name);
+for (const clause of clauses) {
+  shape.Add(clause);
+}
 for (const member of members) {
   shape.Add(member);
 }

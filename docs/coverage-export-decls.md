@@ -36,3 +36,31 @@
 - `export { "a-b" as c }` / `export { a as "b-c" }` —— 引号导出名；现有 `ExportSpecifierShape` 只认 `Common`，
   需要 StringLiteral 名字与 harness 侧 `name` 字段口径，留作后续。
 - `export as namespace NS;` / `export = a;` —— cover-module-1 的文件（前者已合入 integration，后者进行中）。
+
+## chunk 4 新增（base 10，全部逐条对拍 TS）
+
+| 形态 | TS children | 实现 |
+| --- | --- | --- |
+| `export declare const x: number;` / `let y: string;` / `var z = 1;` | `VariableStatement` → `ExportKeyword` + `DeclareKeyword` + `VariableDeclarationList` | Stage 14→13（Kind 12）：`StatementBuilder` 从 `declare` 后那个 `const/let/var` 起建变量语句，再 unshift `DeclareKeyword` / `ExportKeyword`，整体 Pos 改到 `export` 前边界 |
+| `export declare type T = A;` | `TypeAliasDeclaration` → `ExportKeyword` + `DeclareKeyword` + `Identifier` + `TypeReference` | Stage 14→13（Kind 13）：`TypeAliasDeclarationShape.FromUnits` 从 `type` 起建，再补两个修饰词 |
+| `export { a as "b-c" } from "m";` / `export { "a-b" } from "m";` | `ExportSpecifier` → `Identifier`/`StringLiteral` + `StringLiteral` | `ExportSpecifierShape.FromTokens` 两个位置都接受 `Common` 或 `String`；harness `cjAst` 增一条最小 name 语义：`shape.Name.Text`（StringLiteralShape 的文本字段）→ `out.name`，`TS_KIND_ALIASES` 未动 |
+
+暂缓：`export default class D extends B {}`（heritage 未合并：类声明形状报「类表达式缺少类体」）；
+`export declare class/interface/enum`、`export default function`（属 chunk 3 分支，未并入本 base）；
+`export default function*`；`export declare\ntype T = A;`（`declare` 与 `type` 之间换行时 TS 侧
+TypeAliasDeclaration 的 pos 是 14 而不是 0，属 ruler 口径问题，留作后续）。
+## chunk 3 新增（base 10，全部逐条对拍 TS）
+
+| 形态 | TS children | 实现 |
+| --- | --- | --- |
+| `export declare class C {}` | `ClassDeclaration` → `ExportKeyword` + `DeclareKeyword` + `Identifier` | Stage 14→10，Kind 7；`ClassDeclarationShape.FromUnits` 从 `declare` 起建，再 unshift `ExportKeyword`、整体 `Pos` 改为 `export` 前边界 |
+| `export declare interface I {}` | 同上，`InterfaceDeclaration` | Stage 14→11，Kind 8 |
+| `export declare enum E { A }` | `EnumDeclaration` → `ExportKeyword` + `DeclareKeyword` + 名字 + `EnumMember` | Stage 14→12，Kind 9（枚举体可非空） |
+| `export default function f() {}` | `FunctionDeclaration` → `ExportKeyword` + `DefaultKeyword` + `Identifier` + `Block` | Stage 20→23，Kind 10；`FunctionDeclarationShape.FromUnits` + Default/Export modifier |
+| `export default function () {}` | `FunctionDeclaration` → `ExportKeyword` + `DefaultKeyword` + `Block`（无名字） | 同 Kind 10 匿名分支：`StatementBuilder` 建 Block 作唯一 child |
+| `export declare function f(): void;` | `FunctionDeclaration` → `ExportKeyword` + `DeclareKeyword` + `Identifier` + `VoidKeyword`（无 body） | Stage 14→15（等 `;`），Kind 11 手工建，返回类型走 `TypeBuilder.ParseType` |
+| `export { "a-b" as c } from "m";` | `ExportSpecifier` → `StringLiteral` + `Identifier` | `ExportSpecifierShape.FromTokens` 属性名位置同时接受 `Common` 与 `String` |
+
+暂缓：`export { a as "b-c" }` / `export { "a-b" }`（TS 的 ExportSpecifier.name 是字符串文本，cjAst 只认
+IdentifierShape.EscapedText，harness 缺该语义 → 报告不硬改）；`export declare const`（statements 侧 declare）；
+`export default function*`（generator `*`）；类/接口成员与 decorators。

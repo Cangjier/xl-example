@@ -1,3 +1,2491 @@
 {
-  "cases": []
+  "cases": [
+    {
+      "src": "let [a, b] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 7,
+                          "end": 9,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 7,
+                              "end": 9,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 7,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a, b, c] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 7,
+                          "end": 9,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 7,
+                              "end": 9,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 10,
+                          "end": 12,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 10,
+                              "end": 12,
+                              "text": "c"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [ a , b ] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 9,
+                          "end": 11,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 9,
+                              "end": 11,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 6
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a, b } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 8,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a: b } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a: b, c: d } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 11,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 11,
+                              "end": 13,
+                              "text": "c"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 14,
+                              "end": 16,
+                              "text": "d"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let {} = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 6
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [[a], b] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 8,
+                          "children": [
+                            {
+                              "kind": "ArrayBindingPattern",
+                              "pos": 5,
+                              "end": 8,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 6,
+                                  "end": 7,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 6,
+                                      "end": 7,
+                                      "text": "a"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 9,
+                          "end": 11,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 9,
+                              "end": 11,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [{ a }] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "ObjectBindingPattern",
+                              "pos": 5,
+                              "end": 10,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 6,
+                                  "end": 8,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 6,
+                                      "end": 8,
+                                      "text": "a"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a: { b } } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "ObjectBindingPattern",
+                              "pos": 8,
+                              "end": 14,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 10,
+                                  "end": 12,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 10,
+                                      "end": 12,
+                                      "text": "b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a: [b, c] } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "ArrayBindingPattern",
+                              "pos": 8,
+                              "end": 15,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 10,
+                                  "end": 11,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 10,
+                                      "end": 11,
+                                      "text": "b"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 12,
+                                  "end": 14,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 12,
+                                      "end": 14,
+                                      "text": "c"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [{ a }, { b }] = xs;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "ObjectBindingPattern",
+                              "pos": 5,
+                              "end": 10,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 6,
+                                  "end": 8,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 6,
+                                      "end": 8,
+                                      "text": "a"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 11,
+                          "end": 17,
+                          "children": [
+                            {
+                              "kind": "ObjectBindingPattern",
+                              "pos": 11,
+                              "end": 17,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 13,
+                                  "end": 15,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 13,
+                                      "end": 15,
+                                      "text": "b"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 23,
+                      "text": "xs"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a = 1] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a, b = 1] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 7,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 7,
+                              "end": 9,
+                              "text": "b"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 11,
+                              "end": 13,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a = 1 } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 11,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 9,
+                              "end": 11,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a: b = 1 } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "b"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 12,
+                              "end": 14,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [{ a = 1 }] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "ObjectBindingPattern",
+                              "pos": 5,
+                              "end": 14,
+                              "children": [
+                                {
+                                  "kind": "BindingElement",
+                                  "pos": 6,
+                                  "end": 12,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 6,
+                                      "end": 8,
+                                      "text": "a"
+                                    },
+                                    {
+                                      "kind": "FirstLiteralToken",
+                                      "pos": 10,
+                                      "end": 12,
+                                      "text": "1"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [...a] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 9,
+                          "children": [
+                            {
+                              "kind": "DotDotDotToken",
+                              "pos": 5,
+                              "end": 8
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 9,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a, ...b] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 7,
+                          "end": 12,
+                          "children": [
+                            {
+                              "kind": "DotDotDotToken",
+                              "pos": 7,
+                              "end": 11
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 11,
+                              "end": 12,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { ...a } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "DotDotDotToken",
+                              "pos": 5,
+                              "end": 9
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 9,
+                              "end": 10,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a, ...b } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 8,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "DotDotDotToken",
+                              "pos": 8,
+                              "end": 12
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a, , b] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "OmittedExpression",
+                          "pos": 7,
+                          "end": 7
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 9,
+                          "end": 11,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 9,
+                              "end": 11,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [, a] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "OmittedExpression",
+                          "pos": 5,
+                          "end": 5
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 6,
+                          "end": 8,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 6,
+                              "end": 8,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a, , , b] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "OmittedExpression",
+                          "pos": 7,
+                          "end": 7
+                        },
+                        {
+                          "kind": "OmittedExpression",
+                          "pos": 9,
+                          "end": 9
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 11,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 11,
+                              "end": 13,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const [a, b] of xs) a;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 10,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 14,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 14,
+                              "end": 16,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 23,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 24,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (const { a } of xs) a;",
+      "ast": [
+        {
+          "kind": "ForOfStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 5,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 10,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 12,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 14,
+                              "text": "a"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 22,
+              "text": "xs"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 23,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 25,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [/* c */ a, /* d */ b] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 14,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 15,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 25,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { /* c */ a, /* d */ b } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 15,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 16,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 26,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a /* c */ : b } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 17,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a /* c */ = 1] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 16,
+                              "end": 18,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a, /* c */ ...b] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 7,
+                          "end": 20,
+                          "children": [
+                            {
+                              "kind": "DotDotDotToken",
+                              "pos": 7,
+                              "end": 19
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 20,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let {\na,\nb\n} = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 7,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 8,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [a,\nb] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 10,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 6,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 6,
+                              "text": "a"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "BindingElement",
+                          "pos": 7,
+                          "end": 9,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 7,
+                              "end": 9,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { a: b = /* c */ 1 } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "BindingElement",
+                          "pos": 5,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 5,
+                              "end": 7,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 8,
+                              "end": 10,
+                              "text": "b"
+                            },
+                            {
+                              "kind": "FirstLiteralToken",
+                              "pos": 12,
+                              "end": 22,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let [ /* c */ ] = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ArrayBindingPattern",
+                      "pos": 3,
+                      "end": 15
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let { /* c */ } = x;",
+      "ast": [
+        {
+          "kind": "FirstStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "ObjectBindingPattern",
+                      "pos": 3,
+                      "end": 15
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

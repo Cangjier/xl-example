@@ -261,3 +261,53 @@ expression  397 / 397            # 364（chunk 1~4 后）+ 33（base 27 箭头�
 2. `import.meta`（`MetaProperty` + import 候选在 `.` 处 Reject）；
 3. 等 cover-end-1 放行 `async` / `<` 后同批收 async 箭头与泛型箭头；
 4. class element 形状就绪后收带成员 class 表达式与 object method / accessor。
+
+## chunk 6（cover-spread-new-1，从 origin/integration @1ccce3cc）：spread 实参/数组元素 + 泛型 new
+
+本块只改 `expression-builder.xl.md` + 新增 `typescript/cases/spread-forms.ts` + 本文件；
+没有改 `expression-statement-possible-shape`、其它家族、`core/**`。`SpreadElementShape` / `NewExpressionShape`
+都沿用已有空壳（容器，children 由 builder `Add`），没有新增或修改 shape。
+
+### 实现落点
+
+- `ParseBracketArguments`：遇 `...` 先推进一颗单元，再 `ParseAssign()` 解析被展开的表达式，
+  建 `SpreadElementShape`（children 只有 expression），`SpanNode` 的起点取 `...` 单元（Pos 含前导 trivia、
+  区间从 `...` 起），然后作为实参 push。调用实参 / new 实参共用这一条，`new C(...a)` 自动一起绿。
+- `ParseArrayLiteral`：同样的 `...` 分支，建 `SpreadElement` 作为数组元素（元素间逗号仍不进 AST）。
+- `ParseNew`：callee 链（`.` / `[]`）解析完之后、实参之前，若 `CanStartTypeArgumentCall(this.At)`
+  成立（沿用泛型调用的 `<`→配对 `>` 且后随 `(` 前瞻），就 `ParseTypeArgumentsAtCurrent()`
+  读出 `TypeReference` 们，按 TS 顺序 `Add`：callee → 类型实参 → arguments。
+
+### AST 口径（TS 实测）
+
+| 构造 | TS children / 区间 |
+| --- | --- |
+| `f(...a);` | `CallExpression[0,7)` → `Identifier[0,1)`、`SpreadElement[2,6)`→`Identifier[5,6)` |
+| `f(a, ...b, c);` | 三个实参：`Identifier`、`SpreadElement[4,9)`、`Identifier` |
+| `([...a]);` | `ArrayLiteralExpression` 的元素是 `SpreadElement[3,7)`→`Identifier[6,7)` |
+| `new C(...a);` | `NewExpression` → `Identifier C`、`SpreadElement`→`Identifier` |
+| `new C<T>();` | `NewExpression[0,10)` → `Identifier[3,5)`、`TypeReference[6,7)`（无实参节点） |
+| `new C<T, U>(a);` | `NewExpression` → callee、两个 `TypeReference`、`Identifier a` |
+| `new a.b<T>();` | callee 是 `PropertyAccessExpression`，其后是 `TypeReference` |
+
+### 读数（integration 基线 1873/1873）
+
+```
+spread-forms  30 / 30            # spread 实参 14 + spread 数组元素 10 + 泛型 new 7（含 trivia）
+全量         1903 / 1903         # 1873 + 30；其余 18 个构造读数不变（expression 491 / async-arrows /
+                                 # type-assertions / import-meta 等全部保持绿）
+```
+
+### 暂缓（附原因）
+
+- 语句首数组字面量 `[...a];` / `[a, ...b];` —— `ExpressionStatementPossibleShape.CanStart` 仍不放行 `[`（不属本块写范围，
+  用 `([...a]);` / `x = [...a];` / `f([a, ...b]);` 测量同一产生式）；
+- 泛型 new 无实参形式 `new C<T>;` 与 `new C<T>` 的更多 trivia 组合：本块只按工单收带 `(...)` 的三种；
+- tagged template 的 spread 不是独立产生式（`tag(...a)` 就是普通调用实参，已被 `f(...)` 覆盖）；
+- 其余表达式族暂缓项（`<T>a`、import.meta、await/yield、类表达式成员等）见前几块。
+
+### 下一 chunk 建议
+
+1. 语句首 `[`（`CanStart` 放行）后，spread 数组元素可直接改成语句首写法，与 `expression.ts` 的数组用例合流；
+2. 可选链 + spread（`f?.(...a)`）、`new` 的 `?.`/非空 callee 组合可顺带补测；
+3. spread 在对象字面量 / 解构里已有独立路径（`SpreadAssignmentShape` / BindingElement），本块不重复。

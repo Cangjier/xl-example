@@ -56,7 +56,13 @@
 members 的 possible-shape 三页仍是占位：**成员解析走的是 builder 循环，不是候选表**，所以它们没有派发点，
 实现出来只能是永不调用的死代码；建议随 ParseObjectLiteral 迁到候选架构时再落，或直接删。
 
-## bindings：已实现（未测量）
+## bindings：已测量（cover-bindings-1 接手，见 docs/coverage-bindings.md）
+
+> **状态更新（cover-bindings-1）**：`binding-element-shape` 已改成直接建 AST 子节点
+> （Identifier / 嵌套 pattern / 默认值 / DotDotDot），`Elements` 固定留空让 statements 的
+> `NormalizeBindingPattern` workaround 成为 no-op（statements 一行未改，91/91 仍绿）；
+> `bindings.ts` 已从 0 条涨到 39 条全绿（含空位 OmittedExpression、嵌套、默认值、rest、for-of、trivia）。
+> 下表是 chunk 1 交付时的原始状态，正文口径以 `docs/coverage-bindings.md` 为准。
 
 | 文件 | 内容 |
 | --- | --- |
