@@ -14134,7 +14134,7 @@
                   "end": 21,
                   "children": [
                     {
-                      "kind": "FirstStatement",
+                      "kind": "VariableStatement",
                       "pos": 8,
                       "end": 19,
                       "children": [
@@ -14211,7 +14211,7 @@
                   "end": 31,
                   "children": [
                     {
-                      "kind": "FirstStatement",
+                      "kind": "VariableStatement",
                       "pos": 8,
                       "end": 19,
                       "children": [
@@ -14355,7 +14355,7 @@
                       "end": 23,
                       "children": [
                         {
-                          "kind": "FirstStatement",
+                          "kind": "VariableStatement",
                           "pos": 10,
                           "end": 21,
                           "children": [
@@ -15165,7 +15165,7 @@
                       "end": 27,
                       "children": [
                         {
-                          "kind": "FirstStatement",
+                          "kind": "VariableStatement",
                           "pos": 14,
                           "end": 25,
                           "children": [

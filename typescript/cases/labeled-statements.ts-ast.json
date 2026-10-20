@@ -1353,7 +1353,7 @@
       "src": "let x = 1;\nlbl: b;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -1443,7 +1443,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 7,
           "end": 18,
           "children": [

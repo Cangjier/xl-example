@@ -962,7 +962,7 @@
       "src": "export const x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [

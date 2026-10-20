@@ -127,7 +127,7 @@ if (!(unit instanceof Common)) {
   return false;
 }
 const text = (unit as Common).TempToString();
-return text === "let" || text === "const" || text === "var";
+return text === "let" || text === "const" || text === "var" || text === "using";
 ```
 
 ## method Finish:(shape:ShapeToken, first:int, last:int)=>ShapeToken
@@ -252,6 +252,15 @@ if (unit instanceof Common) {
   if (text === "debugger") {
     return this.BuildDebugger();
   }
+  if (text === "using") {
+    return this.BuildVariableStatement();
+  }
+  if (text === "await") {
+    const afterAwait = this.Peek(1);
+    if (afterAwait !== null && this.IsText(afterAwait, "using")) {
+      return this.BuildVariableStatement();
+    }
+  }
   const next = this.Peek(1);
   if (next !== null && this.IsText(next, ":")) {
     return this.BuildLabeled();
@@ -318,16 +327,24 @@ return this.Finish(shape, first, statementLast);
 
 ## method BuildVariableStatement:()=>Token
 
-`let` / `const` / `var` 语句：声明列表从关键字到 `;` 之前，`;` 归语句。
+变量语句：`let` / `const` / `var` / `using` / `await using`。声明列表从关键字到 `;` 之前；`await` 与 `using` 都不进 AST
+（TS 只把它们记成 List 的 flags），`await using` 的 List 仍从 `await` 起算 `Pos`（listStart 传语句首）。
 
 ```ts
 const first = this.At;
-this.At++;
+const firstText = this.TextOf(this.Units[first]);
+let keywordIndex = first;
+if (firstText === "await") {
+  keywordIndex = first + 1;
+  this.At = keywordIndex + 1;
+} else {
+  this.At = first + 1;
+}
 let endExclusive = this.At;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {
   endExclusive++;
 }
-const list = this.BuildVariableDeclarationList(first, endExclusive);
+const list = this.BuildVariableDeclarationList(keywordIndex, endExclusive, first);
 const shape = new VariableStatementShape(this.Template);
 shape.Add(list);
 this.At = endExclusive;
@@ -336,13 +353,13 @@ if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
 }
 return this.Finish(shape, first, this.At - 1);
 ```
-
-## method BuildVariableDeclarationList:(keywordIndex:int, endExclusive:int)=>ShapeToken
+## method BuildVariableDeclarationList:(keywordIndex:int, endExclusive:int, listStart?:int)=>ShapeToken
 
 声明列表：`let a = 1, b, c = f(x)`。每个声明 = 标识符 + 可选 `= 表达式`；`=` 之后到本层 `,` / 段末是初始化表达式。`Pos` 从关键字算起（与 TS 的 `VariableDeclarationList` 同口径）。
 
 ```ts
 const keyword = this.Units[keywordIndex];
+const listHeadIndex = listStart ?? keywordIndex;
 const list = new VariableDeclarationListShape(this.Template);
 let at = keywordIndex + 1;
 let lastUnit = keywordIndex;
@@ -417,7 +434,7 @@ while (at < endExclusive) {
     throw new Error("变量声明里有无法识别的单元");
   }
 }
-const head = keyword.SourceRange.Start;
+const head = this.Units[listHeadIndex].SourceRange.Start;
 if (head !== null) {
   list.SignIn(head);
 }
@@ -425,7 +442,7 @@ const tail = this.Units[lastUnit].SourceRange.End;
 if (tail !== null) {
   list.SignOut(tail);
 }
-list.Pos = this.Positions[keywordIndex];
+list.Pos = this.Positions[listHeadIndex];
 list.TryToClose(this.Context);
 this.At = endExclusive;
 return list;

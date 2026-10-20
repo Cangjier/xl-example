@@ -929,7 +929,7 @@
       "src": "let x = 1;\nasync function f() {}",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 10,
           "children": [
@@ -1013,7 +1013,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 21,
           "end": 32,
           "children": [

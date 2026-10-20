@@ -2752,7 +2752,7 @@
       "src": "export const x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -2795,7 +2795,7 @@
       "src": "export let y = 2;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 17,
           "children": [
@@ -2838,7 +2838,7 @@
       "src": "export var z = 3;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 17,
           "children": [
@@ -2963,7 +2963,7 @@
       "src": "export const x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -3006,7 +3006,7 @@
       "src": "export /* c */ const x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 27,
           "children": [
@@ -3049,7 +3049,7 @@
       "src": "export const /* c */ x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 27,
           "children": [
@@ -3092,7 +3092,7 @@
       "src": "export\nconst x = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -3135,7 +3135,7 @@
       "src": "export const x = 1; // c",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -3283,7 +3283,7 @@
       "src": "export const x = 1; export class C {}",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 19,
           "children": [
@@ -3605,7 +3605,7 @@
       "src": "export declare const x: number;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 31,
           "children": [
@@ -3652,7 +3652,7 @@
       "src": "export declare let y: string;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 29,
           "children": [
@@ -3699,7 +3699,7 @@
       "src": "export declare var z = 1;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 25,
           "children": [
@@ -3872,7 +3872,7 @@
       "src": "export declare const x: number;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 31,
           "children": [
@@ -3919,7 +3919,7 @@
       "src": "export /* c */ declare const x: number;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 39,
           "children": [
@@ -3966,7 +3966,7 @@
       "src": "export declare /* c */ const x: number;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 39,
           "children": [
@@ -4013,7 +4013,7 @@
       "src": "export declare const x: number; // c",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 31,
           "children": [
@@ -4105,7 +4105,7 @@
       "src": "export\ndeclare const x: number;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 31,
           "children": [
@@ -4152,7 +4152,7 @@
       "src": "export declare const x: number; export declare type T = A;",
       "ast": [
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 0,
           "end": 31,
           "children": [

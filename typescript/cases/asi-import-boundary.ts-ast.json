@@ -931,7 +931,7 @@
           ]
         },
         {
-          "kind": "FirstStatement",
+          "kind": "VariableStatement",
           "pos": 1,
           "end": 21,
           "children": [

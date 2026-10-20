@@ -552,7 +552,7 @@
               "end": 36,
               "children": [
                 {
-                  "kind": "FirstStatement",
+                  "kind": "VariableStatement",
                   "pos": 15,
                   "end": 34,
                   "children": [
