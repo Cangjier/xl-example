@@ -1,6 +1,6 @@
-// export 声明场景：每条以 base 起，再叠加对抗信息（空白 / 注释 / 换行 / 修饰词 / 重复形）。
-// 一行一个用例；行内的 \n 由 ast-json.mjs 还原成真实换行（这样多行语句也能逐行对齐）。
-
+// export 声明场景：每条以 base 起，再叠加对抗信息（空白 / 注释 / 换行 / 修饰语 / 重复形）。
+// 一行一个用例；行内 `\n` 由 ast-json.mjs 还原成真实换行（这样多行语句也能逐行对齐）。
+//
 // ===== base 1：具名导出（不带模块路径） =====
 export { a };
 export { a, b };
@@ -102,9 +102,49 @@ export { a } from "m"; export { b } from "n";
 export { a } from "m"; export * from "n"; // c
 export type { T } from "m"; export { a } from "n";
 
-// ===== 暂缓（不在这张用例集里） =====
-// export default a;          —— ExportAssignment，依赖表达式层
-// export = a;                —— ExportAssignment，依赖表达式层
-// export as namespace NS;    —— NamespaceExportDeclaration，单独一条形态
-// export { "a-b" as c };     —— 引号名，TS 4.5 起的任意模块名
+// ===== base 8：export + 声明前缀（class/interface/enum/const/var） =====
+export const x = 1;
+export let y = 2;
+export var z = 3;
+export class C {}
+export interface I {}
+export enum E { A }
+// + 前导空格
+  export const x = 1;
+// + 词间块注释
+export /* c */ const x = 1;
+// + 名字前块注释
+export const /* c */ x = 1;
+// + export 与声明之间有换行
+export\nconst x = 1;
+// + 行尾注释
+export const x = 1; // c
+export class C {} // c
+export\nclass C {}
+export interface I {} // c
+export enum E { A } // c
+// + 重复形
+export const x = 1; export class C {}
+export interface I {} export enum E { A }
 
+// ===== base 9：export default =====
+export default 1;
+export default a;
+export default (a + b);
+export default class D {}
+// + 前导空格
+  export default 1;
+// + 行尾注释
+export default 1; // c
+// + default 与表达式之间有换行
+export default\n1;
+export default class D {} // c
+// + 词间块注释
+export /* c */ default 1;
+
+// ===== 暂缓（不在本用例集） =====
+// export default function f() {};   —— 函数声明未合并
+// export declare class C {}         —— declare 修饰词属 declarations 侧，本 chunk 不扩
+// export as namespace NS;           —— NamespaceExportDeclaration，cover-module-1 已实现
+// export = a;                       —— ExportAssignment(isExportEquals)，cover-module-1 的文件
+// export { "a-b" as c };            —— 引号导出名，TS 4.5 起的任意模块名
