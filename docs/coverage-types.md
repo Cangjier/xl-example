@@ -216,3 +216,27 @@ harness 两文件加 `["FirstContextualKeyword","AbstractKeyword"]`。
 
 `import("m").A`：children = 模块字符串（`LiteralType → StringLiteral`）、限定名、可选泛型实参；
 `import` / `(` / `)` / `.` 不进 AST。TS 反查名是别名 `LastTypeNode`，harness 两文件加 `["LastTypeNode","ImportType"]`。
+
+## 9. chunk 5：泛型类型别名（type parameter 声明）
+
+起点：merge `origin/cover-types-4` 后实测 **1611/1611**（= integration 1571 + types 40）；
+本 chunk 后见报告实测。
+
+### 9.1 type parameter 表（`TypeBuilder.ParseTypeParameterList`）
+
+`TypeAliasDeclarationShape.FromUnits` 在名字后遇到 `<` 时先按 `<` / `>` 深度找类型参数表的闭合
+（`>>` / `>>>` 是一个 `Symbol`，`FindTypeParameterClose` 按 2 / 3 个闭合算），再把 `<…>` 那一段交给
+`TypeBuilder.Load` + `ParseTypeParameterList`（`>>` 在那里已被拆成两个单字符 `>`，嵌套泛型约束的闭合逐个消费）。
+
+### 9.2 TypeParameter children / 区间
+
+children 顺序与 TS 一致：variance / const 关键字（`InKeyword` / `OutKeyword` / `ConstKeyword`）→ `Identifier`
+→ 可选约束类型（`extends` 之后）→ 可选默认类型（`=` 之后）。`extends` / `=` 不进 AST。
+实测 `type T<U>` 是 `TypeParameter[7,8)`（`Pos` 从 `<` 之后算）；`type T<U extends A = B>` 是 `[7,22)` 三个孩子；
+`type T<in out U>` 是 `[7,15) → [InKeyword, OutKeyword, Identifier]`。
+`TypeParameterShape` 新增 `DefaultType` / `VarianceTokens` 字段。
+
+### 9.3 暂缓
+
+`export type …` / `declare type …`（与 export/declare 声明候选抢同一格，需要先让根候选放行修饰词），
+class / interface / function 的泛型参数（declarations chunk），语义层的默认值约束检查。

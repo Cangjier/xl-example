@@ -16,19 +16,23 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 
 ```txt
 type T = number;
-type T = A | B;
+type T<U> = U;
+type T<U extends A = B, V = C> = [U, V];
 ```
 
-measurement 载体：`type T = <type>;`。TS 的 children **不含** `type` 关键字与 `=`、`;`
-（实测 `type T = A;` → `TypeAliasDeclaration → [Identifier T, TypeReference A]`），所以 `Data` 只装两个形状：
-名字 + 类型；关键字 / 等号 / 分号都是 basic token，建完就丢。
+measurement 载体：`type T[<U, …>] = <type>;`。TS 的 children 是 `Identifier` + 泛型参数（`TypeParameter`，可无）
++ 类型；`type` 关键字、`<` / `>` / `=` / `;` 都是 basic token，建完就丢。
 
 区间：从 `type` 的起点到 `;`；`Pos` = 前一个非 trivia 单元 `End.Index + 1`（没有就 `0`），与 TS 一致。
 `type` 与名字之间的 trivia 体现在名字的 `Pos` 上（`type /* c */ T` 的名字 `Pos` 仍是 `type` 之后）。
 
 字段不叫 `Name`：`cjAst` 会把 `Name` 读成 AST 的 `name`，而 TS 的 `TypeAliasDeclaration` 在尺子里只比 children。
 
+`export type …` / `declare type …` 暂缓：它们与 export/declare 声明候选抢同一格，需要先让根候选放行修饰词。
+
 ## field AliasName:Token | null = null
+
+## field AliasParameters:Array<Token> = []
 
 ## field AliasType:Token | null = null
 
@@ -36,6 +40,41 @@ measurement 载体：`type T = <type>;`。TS 的 children **不含** `type` 关�
 
 ```ts
 super(template);
+```
+
+## static method FindTypeParameterClose:(code:Array<Token>)=>int
+
+从下标 2 的 `<` 开始，按 `<` / `>` 深度找类型参数表的闭合 `>`；`>>` / `>>>` 是一个 `Symbol`，按 2 / 3 个闭合算。
+找不到返回 `-1`。
+
+```ts
+let depth = 0;
+for (let at = 2; at < code.length; at++) {
+  const unit = code[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    depth++;
+    continue;
+  }
+  let closeCount = 0;
+  if (text === ">") {
+    closeCount = 1;
+  } else if (text === ">>") {
+    closeCount = 2;
+  } else if (text === ">>>") {
+    closeCount = 3;
+  }
+  if (closeCount > 0) {
+    depth -= closeCount;
+    if (depth <= 0) {
+      return at;
+    }
+  }
+}
+return -1;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>TypeAliasDeclarationShape
@@ -54,14 +93,28 @@ if (code.length < 5) {
 }
 const keyword = code[0];
 const nameUnit = code[1];
-const equal = code[2];
-const last = code[code.length - 1];
+const third = code[2];
 if (!(keyword instanceof Common) || !(keyword as Common).Is("type")) {
   throw new Error("类型别名声明缺少 type 关键字");
 }
 if (!(nameUnit instanceof Common)) {
   throw new Error("类型别名声明的名字不是标识符");
 }
+if (!(third instanceof Symbol)) {
+  throw new Error("类型别名声明缺少等号或类型参数");
+}
+let equalIndex = 2;
+let paramsUnits:Array<Token> = [];
+if ((third as Symbol).Is("<")) {
+  const closeIndex = TypeAliasDeclarationShape.FindTypeParameterClose(code);
+  if (closeIndex < 0) {
+    throw new Error("类型参数表缺少 >");
+  }
+  paramsUnits = code.slice(2, closeIndex + 1);
+  equalIndex = closeIndex + 1;
+}
+const equal = code[equalIndex];
+const last = code[code.length - 1];
 if (!(equal instanceof Symbol) || !(equal as Symbol).Is("=")) {
   throw new Error("类型别名声明缺少等号");
 }
@@ -88,17 +141,34 @@ let typePos = 0;
 if (equal.SourceRange.End !== null) {
   typePos = equal.SourceRange.End.Index + 1;
 }
-const typeUnits:Array<Token> = code.slice(3, code.length - 1);
+const typeUnits:Array<Token> = code.slice(equalIndex + 1, code.length - 1);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(typeUnits, typePos);
 const type = builder.ParseType();
 if (builder.At !== builder.Units.length) {
   throw new Error("类型别名声明的类型没有读完");
 }
+let parameters:Array<Token> = [];
+if (paramsUnits.length > 0) {
+  const paramsBuilder = new TypeBuilder(host.Template, context);
+  let paramsPos = 0;
+  if (nameUnit.SourceRange.End !== null) {
+    paramsPos = nameUnit.SourceRange.End.Index + 1;
+  }
+  paramsBuilder.Load(paramsUnits, paramsPos);
+  parameters = paramsBuilder.ParseTypeParameterList();
+  if (paramsBuilder.At !== paramsBuilder.Units.length) {
+    throw new Error("类型别名声明的类型参数没有读完");
+  }
+}
 const shape = new TypeAliasDeclarationShape(host.Template);
 shape.AliasName = name;
+shape.AliasParameters = parameters;
 shape.AliasType = type;
 shape.Add(name);
+for (const parameter of parameters) {
+  shape.Add(parameter);
+}
 shape.Add(type);
 if (keyword.SourceRange.Start !== null) {
   shape.SignIn(keyword.SourceRange.Start);
