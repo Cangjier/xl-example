@@ -663,4 +663,22 @@ a satisfies /* c */ T;
 //   本 sweep 不收语义非法形态。
 // `satisfies` 链式（`a satisfies T satisfies U`）：TS 解析为嵌套 SatisfiesExpression，
 //   本仓 ParseBinary 的 satisfies 分支是否吃两层待后续 sweep 确认。
-
+// ===== base 30：private-in（brand check）=====
+// 注意：裸 `#x in obj;`（语句首）当前被 statements 家族的 ExpressionStatementPossibleShape.CanStart
+// 拒绝（CanStart 的 Symbol 白名单没有 `#`，且该文件不在本块写范围），所以语句首用括号 / 赋值 / 逻辑组合测量：
+(#x in obj);
+a && #x in a;
+a || #x in a;
+!(#x in a);
+x = #x in obj;
+(/* c */ #x in obj);
+(#x /* c */ in obj);
+(#x in /* c */ obj);
+(a && /* c */ #x in a);
+// + class 方法里的 #x（class members + expression builder 配合）
+class C { #x = 1; m() { return #x in this; } }
+class C { #x = 1; m() { return #x in this && a; } }
+class C { #x = 1; m() { return !(#x in this); } }
+class D { #a = 1; #b = 2; m() { return #a in this && #b in this; } }
+// 暂缓：语句首裸 `#x in obj;`（依赖 statements 的 CanStart 放行 `#`）；class 外的私有标识符单独使用 /
+// private method reference（TS 语义错误或尚未实现）
