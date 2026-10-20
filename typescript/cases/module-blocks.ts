@@ -270,3 +270,22 @@ declare module "m" { declare function f(): void; function g(): void; }
 declare module "m" { function f(): void; }
 declare module "m" { function f() {} }
 declare module "m" { export function f(): void; }
+
+// ===== base 16：namespace 体内无 declare、无 body 的函数声明（gap closure） =====
+// TS：namespace/模块 体内的无体函数声明合法，AST 是 FunctionDeclaration（无 declare 修饰、children 不含 DeclareKeyword）
+namespace N { function f(); }
+namespace N { function f(): void; }
+namespace N { function f(a: A): B; }
+namespace N { function f(); function f() {} }
+namespace N { function f(): void; function f() {} }
+namespace N { function f(); function g(); }
+namespace N { function f(); class C {} }
+namespace N { function f(); type T = A; }
+module M { function f(); }
+// trivia
+namespace N { /* c */ function f(); }
+namespace N { function /* c */ f(); }
+// 回归：declare module 体内 / namespace 内显式 declare
+declare module "m" { function f(); }
+namespace N { declare function f(); }
+

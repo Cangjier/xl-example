@@ -275,3 +275,22 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
 - `cover-module-blocks-3` @ `778e1763` — (module blocks chunk 3)；cases +20/-3（module-blocks）；impl: module-block-shape
 - `cover-module-blocks-1` @ `39d94a7a` — (namespace/module blocks)；cases +30/-0（module-blocks）；impl: module-block-shape,module-declaration-possible-shape,module-declaration-shape,source-file-shape
 - `cover-module-blocks-1` @ `39d94a7a` — (module/namespace chunk 1)；cases +30/-0（module-blocks）；impl: module-block-shape,module-declaration-possible-shape,module-declaration-shape,source-file-shape
+
+## namespace 体内无 declare、无 body 的函数声明（chunk cover-gap-module-fn-1）
+
+- **GAP**：`namespace N { function f(); }`（namespace 内**无 declare、无 body、无返回类型**的函数声明）——CJ 抛
+  「function 声明没有函数体时必须带返回类型（或 declare）」。TS oracle 确认这是合法的 `FunctionDeclaration`：
+  children 里没有 `DeclareKeyword`（`FunctionDeclaration` 节点即可，body 缺失）。
+- **根因**：`ModuleBlockShape.BuildMember` 的无体函数（semicolon 终止）分支把
+  `InAmbientDeclaration(bracket)` 作为 `ambient` 传给 `FunctionDeclarationShape.FromUnits`；非 ambient namespace
+  该值为 false，形状的「无体且无 declare ⇒ 必须有返回类型」规则于是拒绝 `function f();`。
+- **修法（module-block-shape 一处）**：模块体 / namespace 体内的无体函数声明按 TS 一律合法，
+  该分支改为传 `true`；`ambient` 只影响形状校验、不改变 children（只有显式写 `declare` 才会有
+  `DeclareKeyword` 子节点）。未改 function-declaration shape、未改 core/**。
+- 用例（module-blocks.ts，+13，全绿）：`namespace N { function f(); }`、`{ function f(): void; }`、
+  `{ function f(a: A): B; }`、namespace 内重载 + 实现（`function f(); function f() {}` /
+  `function f(): void; function f() {}`）、两条无体 `function f(); function g();`、与 class / type alias 混排、
+  `module M { function f(); }`、trivia（`/* c */` 在 function 前 / 名字前）；回归 `declare module "m" { function f(); }`、
+  `namespace N { declare function f(); }`。
+- 读数：module-blocks 201 → **214 / 214 完全一致**；全量 **4325 / 4325**（基线 4312 + 13）。
+- 说明：终局审计列出的 module 家族缺口到此收敛；`declare` 显式修饰、ambient module 两种写法都在同一分支覆盖。

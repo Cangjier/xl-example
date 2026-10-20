@@ -340,7 +340,10 @@ if (special !== null) {
 } else if ((keyword === "function" || declareFunctionMember) && semiInner > declStart) {
   const dataStart = bracket.Data.indexOf(unit as Token);
   const dataEnd = bracket.Data.indexOf(inner.Units[semiInner]);
-  const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, ModuleBlockShape.InAmbientDeclaration(bracket));
+  // 模块体 / namespace 体里的无体函数声明按 TS 是合法的（无需 declare、返回类型可省：
+  // `namespace N { function f(); }` → FunctionDeclaration 无 declare 修饰），所以这里按 ambient 建；
+  // ambient 只影响形状校验，不改变 children（declare 只有显式写了才会成为 DeclareKeyword 子节点）。
+  const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, true);
   // 同 const enum：FunctionDeclarationShape 按「括号 Data 里前一个单元」推 modifier Pos，
   // 模块体首个成员会落到 0；这里用本层 Positions 把开头的 DeclareKeyword 重锚到 declare 起点。
   let declarePos = inner.Positions[declStart];
