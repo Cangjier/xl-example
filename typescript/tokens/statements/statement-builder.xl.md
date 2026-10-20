@@ -548,6 +548,20 @@ while (at < endExclusive) {
   if (at < endExclusive && this.IsSymbol(this.Units[at], "=")) {
     const initializerFirst = at + 1;
     let initializerEnd = initializerFirst;
+    // Generic class expression initializer (`const C = class<T, U> {};`): the type-parameter list
+    // contains top-level `,` units, so skip to the class body `{…}` bracket first and only then
+    // look for the declaration separator.
+    if (initializerFirst < endExclusive && this.IsText(this.Units[initializerFirst], "class")) {
+      let bodyAt = initializerFirst + 1;
+      while (bodyAt < endExclusive
+        && !(this.Units[bodyAt] instanceof Bracket
+          && (this.Units[bodyAt] as Bracket).StartBracketChar === "{")) {
+        bodyAt++;
+      }
+      if (bodyAt < endExclusive) {
+        initializerEnd = bodyAt + 1;
+      }
+    }
     while (initializerEnd < endExclusive && !this.IsSymbol(this.Units[initializerEnd], ",")) {
       initializerEnd++;
     }

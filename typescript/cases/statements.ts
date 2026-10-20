@@ -472,3 +472,13 @@ namespace N { function f() {} }
 namespace N { class D {} }
 { /* c */ class D {} }
 { class D {} /* c */ function f() {} }
+// ===== GAP1：annex-B 带 label 的函数 / 类声明（TS: LabeledStatement > FunctionDeclaration / ClassDeclaration）=====
+lbl: function f() {}
+lbl: function f(a) { return a; }
+lbl: function* g() {}
+lbl: class C {}
+lbl: async function f() {}
+{ lbl: function f() {} }
+// 非法（oracle parseDiagnostics：Identifier expected）：`lbl: function () {}`（缺名函数声明）
+// 误报证据：Bare `class<T> {}` / `class<T extends A> {}` 的 TS parseDiagnostics 为空，但 AST 是缺 Identifier/Block 的
+//   ClassDeclaration 恢复形态（见 class-expressions 注释）——不是合法 TS 程序，属审计误报，不收。

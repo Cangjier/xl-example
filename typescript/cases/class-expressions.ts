@@ -45,3 +45,15 @@ const CE1 = class<T extends A> { m(x: T): T { return x; } };
 const CE2 = class<T = A> { m(x: T): T { return x; } };
 (class<T extends A, U = B> {});
 (class /* c */ <T extends A> {});
+// ===== GAP2：generic class expression 的合法形态（oracle: ClassExpression children = TypeParameter* [HeritageClause] Block）=====
+const C = class<T extends A> {};
+const C = class<T extends A = B> {};
+(class<T, U> {});
+(class<T extends A> {});
+const C = class<T> extends B {};
+const C = class<T, U> extends B {};
+class C<T> {}
+class C<T extends A> {}
+// 误报证据（不收）：`class<T> {}` / `class<T extends A> {}` 裸形态 oracle parseDiagnostics 为空，但 TS 产出的是
+//   缺 Identifier 与 Block 的 ClassDeclaration 恢复节点（`class {}` 同样），不是可对拍的合法 AST。
+// 暂缓：`export default class<T> {}` —— 属 export 家族（export-declaration-shape），本块 WRITE SCOPE 之外。
