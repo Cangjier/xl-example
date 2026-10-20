@@ -241,3 +241,26 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
   `{ export { a, b as c } from "n"; }`、`{ export type { T } from "n"; }`、namespace 三形，以及
   词间注释 / `;` 前注释 / `export` 后换行 / 行尾注释 trivia；根级 `export * from "m";`、`export { a };`、
   `export * as ns from "m";`、`export { a } from "m";` 回归（export.ts +4）。
+
+## 模块体 declare function（chunk cover-module-declare-fn-1）
+
+- **measurement-first 结论**：`declare module "m" { function f(): void; }`、`{ function f(a: A): B; }`、
+  `{ function f(); }`、`{ function f<T>(a: T): T; }`、`{ function f() {} }` 在基线 0bc3408c 上**已绿**
+  （无体函数 ambient 路径 + 有体函数路径都已合入）；唯一红是带 `declare` 的成员：
+  `{ declare function f(): void; }`、`namespace N { declare function f(): void; }`、
+  `{ export declare function f(): void; }` —— 落到 `StatementBuilder` 的表达式路径（表达式没有读完）。
+- **根因**：`ModuleBlockShape.BuildMember` 只在 `keyword === "function"` 时扫分号并把成员交给
+  `FunctionDeclarationShape.FromUnits`；`declare` 头没有被识别为函数声明（只认了 declare+const enum）。
+- **修法（只改 module-block，消费既有形状）**：
+  1. 新增 `declareFunctionMember` 识别：`keyword === "declare"` 且下一个代码单元是 `function`；
+  2. `bodyInner/semiInner` 扫描条件与分号分支都放行该形态，走
+     `FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, InAmbientDeclaration(bracket))`
+     （形状自己建 `DeclareKeyword` 子节点，`[export]` 前缀仍由本类插回 Data 最前）；
+  3. 形状按「括号 Data 里前一个单元」推 modifier Pos，模块体首个成员会落到 0：用本层 `Positions[declStart]`
+     把开头的 `DeclareKeyword` 重锚（与 const enum 分支同一处理）。
+- 用例（module-blocks.ts，+12，全绿）：`{ declare function f(): void; }`、`{ declare function f<T>(a: T): T; }`、
+  `{ declare function f(); }`、`namespace N { declare function f(): void; }`、`{ export declare function f(): void; }`、
+  词间/`export` 后注释变体、declare function + class/interface/type 混排、declare function 与无体 function 连排；
+  回归 `{ function f(): void; }` / `{ function f() {} }` / `{ export function f(): void; }`。
+- 读数：module-blocks 189 → **201 / 201 完全一致**；全量 **4225 / 4225**（基线 4213 + 12）。
+- 未改 core/**、未改 function-declaration shape（只消费）、未改 class/statement 文件。

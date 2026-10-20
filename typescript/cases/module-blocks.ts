@@ -255,3 +255,18 @@ declare module "m" { export /* c */ * from "n"; }
 declare module "m" { export { a } /* c */; }
 declare module "m" { export\n{ a }; }
 declare module "m" { export * from "n"; } // c
+
+// ===== base 15：模块体 declare function（[export] [declare] function 分派） =====
+declare module "m" { declare function f(): void; }
+declare module "m" { declare function f<T>(a: T): T; }
+declare module "m" { declare function f(); }
+namespace N { declare function f(): void; }
+declare module "m" { export declare function f(): void; }
+declare module "m" { declare /* c */ function f(): void; }
+declare module "m" { export /* c */ declare function f(): void; }
+declare module "m" { declare function f(): void; class C {} interface I {} type T = A; }
+declare module "m" { declare function f(): void; function g(): void; }
+// 回归：无体 function / 有体 function / export function
+declare module "m" { function f(): void; }
+declare module "m" { function f() {} }
+declare module "m" { export function f(): void; }

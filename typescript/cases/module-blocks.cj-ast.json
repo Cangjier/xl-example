@@ -11116,6 +11116,749 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare module \"m\" { declare function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 42,
+                      "end": 47
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { declare function f<T>(a: T): T; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 54,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 54,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 40,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 40,
+                          "end": 41,
+                          "text": "T"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 43,
+                      "end": 47,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 43,
+                          "end": 44,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 45,
+                          "end": 47,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 45,
+                              "end": 47,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 49,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 49,
+                          "end": 51,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { declare function f(); }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "f"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { declare function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 13,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 13,
+                      "end": 21
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 35,
+                      "end": 40
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export declare function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 57,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 27,
+                      "end": 35
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 44,
+                      "end": 46,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 49,
+                      "end": 54
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { declare /* c */ function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 58,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 58,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 56,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 45,
+                      "end": 47,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 50,
+                      "end": 55
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export /* c */ declare function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 65,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 65,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 63,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 27,
+                      "end": 43
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 52,
+                      "end": 54,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 57,
+                      "end": 62
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { declare function f(): void; class C {} interface I {} type T = A; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 88,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 88,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 42,
+                      "end": 47
+                    }
+                  ]
+                },
+                {
+                  "kind": "ClassDeclaration",
+                  "pos": 48,
+                  "end": 59,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 54,
+                      "end": 56,
+                      "text": "C"
+                    }
+                  ]
+                },
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 59,
+                  "end": 74,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 69,
+                      "end": 71,
+                      "text": "I"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeAliasDeclaration",
+                  "pos": 74,
+                  "end": 86,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 79,
+                      "end": 81,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 83,
+                      "end": 85,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 83,
+                          "end": 85,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { declare function f(): void; function g(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 70,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 70,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "DeclareKeyword",
+                      "pos": 20,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 42,
+                      "end": 47
+                    }
+                  ]
+                },
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 48,
+                  "end": 68,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 57,
+                      "end": 59,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 62,
+                      "end": 67
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 34,
+                      "end": 39
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { function f() {} }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 33,
+                      "end": 36
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export function f(): void; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 27
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 41,
+                      "end": 46
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
