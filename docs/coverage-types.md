@@ -182,3 +182,37 @@ trueType / falseType 都递归调 \`ParseType\`，所以 falseType 天然右结�
 
 mapped type、template literal type、type predicate、import type、\`abstract new\`、解构 / 默认值参数、
 泛型参数声明与 export / declare 修饰词。
+
+## 8. chunk 4：mapped / template literal / predicate / import type / abstract new
+
+起点：`origin/integration` + merge `origin/cover-types-3`（实测基线 1397/1397，types 185）。
+
+### 8.1 mapped type（`MappedType`）
+
+花括号节点直接是 `MappedType`（不是 `TypeLiteral`）：`ParseTypeLiteral` 先用 `HasMappedMember` 判断
+「第一个代码单元是 `[` 且里面第二个代码单元是 `in`」。children 顺序与 TS 一致：只读修饰 token、
+`TypeParameter`（children = Identifier + 约束）、可选标记 token、可选 `as` 名字类型、值类型。
+
+实测口径：`-readonly` / `+readonly` 在 TS 里只留一个 `MinusToken` / `PlusToken` 子节点（readonly 关键字不进 AST），
+`-?` / `+?` 同理；连写 `]?:` 里 `?:` 是一个 `Symbol`，可选标记 token 只覆盖 `?` 一个字符（复用 `ParseOptionalMark`）。
+
+### 8.2 模板字面量类型（`TemplateLiteralType`）
+
+复用 `String` 的模板 token 层（`IsTemplateToken` 与 `ExpressionBuilder` 同口径）：无插值 → `LiteralType → NoSubstitutionTemplateLiteral`；
+有插值 → `TemplateLiteralType` = `TemplateHead` + 若干 `TemplateLiteralTypeSpan`（插值里按 `ParseType` 读 + `TemplateMiddle` / `TemplateTail`）。
+区间口径与表达式模板一致。
+
+### 8.3 类型谓词（`TypePredicate`）
+
+`(x: A) => x is B` / `asserts x is B`：函数类型返回类型由 `ParseReturnType` 分流；children = 可选 `AssertsKeyword`、
+Identifier、类型；`is` 不进 AST。TS 反查名是别名 `FirstTypeNode`，harness 两文件加 `["FirstTypeNode","TypePredicate"]`。
+
+### 8.4 abstract new（ConstructorType 修饰）
+
+`abstract new () => A`：`abstract` 进 children 成为 `AbstractKeyword`；TS 反查名是别名 `FirstContextualKeyword`，
+harness 两文件加 `["FirstContextualKeyword","AbstractKeyword"]`。
+
+### 8.5 import type（`ImportType`）
+
+`import("m").A`：children = 模块字符串（`LiteralType → StringLiteral`）、限定名、可选泛型实参；
+`import` / `(` / `)` / `.` 不进 AST。TS 反查名是别名 `LastTypeNode`，harness 两文件加 `["LastTypeNode","ImportType"]`。

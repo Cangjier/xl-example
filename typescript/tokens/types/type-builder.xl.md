@@ -5,10 +5,13 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { DotDotDotTokenShape } from "../punctuation/dot-dot-dot-token-shape.xl.md"
+import { MinusTokenShape } from "../punctuation/minus-token-shape.xl.md"
+import { PlusTokenShape } from "../punctuation/plus-token-shape.xl.md"
 import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { AnyKeywordShape } from "../keywords/any-keyword-shape.xl.md"
 import { BigIntKeywordShape } from "../keywords/big-int-keyword-shape.xl.md"
@@ -18,6 +21,8 @@ import { NeverKeywordShape } from "../keywords/never-keyword-shape.xl.md"
 import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { NumberKeywordShape } from "../keywords/number-keyword-shape.xl.md"
 import { ObjectKeywordShape } from "../keywords/object-keyword-shape.xl.md"
+import { AbstractKeywordShape } from "../keywords/abstract-keyword-shape.xl.md"
+import { AssertsKeywordShape } from "../keywords/asserts-keyword-shape.xl.md"
 import { ReadonlyKeywordShape } from "../keywords/readonly-keyword-shape.xl.md"
 import { StringKeywordShape } from "../keywords/string-keyword-shape.xl.md"
 import { SymbolKeywordShape } from "../keywords/symbol-keyword-shape.xl.md"
@@ -25,7 +30,13 @@ import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { UndefinedKeywordShape } from "../keywords/undefined-keyword-shape.xl.md"
 import { UnknownKeywordShape } from "../keywords/unknown-keyword-shape.xl.md"
 import { VoidKeywordShape } from "../keywords/void-keyword-shape.xl.md"
+import { ConstString } from "../../../core/syntax/basic-tokens/string/const-string.xl.md"
+import { InterpolationString } from "../../../core/syntax/basic-tokens/string/interpolation-string.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
+import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
+import { TemplateHeadShape } from "../literals/template-head-shape.xl.md"
+import { TemplateMiddleShape } from "../literals/template-middle-shape.xl.md"
+import { TemplateTailShape } from "../literals/template-tail-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -35,6 +46,7 @@ import { ConditionalTypeShape } from "./conditional-type-shape.xl.md"
 import { ConstructorTypeShape } from "./constructor-type-shape.xl.md"
 import { FunctionTypeShape } from "./function-type-shape.xl.md"
 import { IndexSignatureShape } from "./index-signature-shape.xl.md"
+import { ImportTypeShape } from "./import-type-shape.xl.md"
 import { IndexedAccessTypeShape } from "./indexed-access-type-shape.xl.md"
 import { InferTypeShape } from "./infer-type-shape.xl.md"
 import { IntersectionTypeShape } from "./intersection-type-shape.xl.md"
@@ -46,9 +58,13 @@ import { PropertySignatureShape } from "./property-signature-shape.xl.md"
 import { QualifiedNameShape } from "./qualified-name-shape.xl.md"
 import { ThisTypeShape } from "./this-type-shape.xl.md"
 import { TupleTypeShape } from "./tuple-type-shape.xl.md"
+import { MappedTypeShape } from "./mapped-type-shape.xl.md"
+import { TemplateLiteralTypeShape } from "./template-literal-type-shape.xl.md"
+import { TemplateLiteralTypeSpanShape } from "./template-literal-type-span-shape.xl.md"
 import { TypeLiteralShape } from "./type-literal-shape.xl.md"
 import { TypeOperatorShape } from "./type-operator-shape.xl.md"
 import { TypeParameterShape } from "./type-parameter-shape.xl.md"
+import { TypePredicateShape } from "./type-predicate-shape.xl.md"
 import { TypeQueryShape } from "./type-query-shape.xl.md"
 import { TypeReferenceShape } from "./type-reference-shape.xl.md"
 import { UnionTypeShape } from "./union-type-shape.xl.md"
@@ -98,6 +114,8 @@ type T = {};
 ## field Template:Template
 
 ## field Context:SyntaxContext
+
+## field MappedNameType:Token | null = null
 
 ## constructor:(template:Template, context:SyntaxContext)=>void
 
@@ -397,9 +415,10 @@ return type;
 
 ## method ParsePrimaryType:()=>Token
 
-原子类型与前缀类型：括号家族（`( )` / `[ ]` / `{ }`）、字符串 / 数字 / 布尔 / null 字面量、
-原始类型关键字、`this`、`infer`、`keyof` / `readonly` / `unique`（`TypeOperator`）、`typeof`（`TypeQuery`）、
-`new (…) => R`（`ConstructorType`）、最后是类型引用（限定名 / 泛型实参）。
+原子类型与前缀类型：括号家族（`( )` / `[ ]` / `{ }`）、字符串 / 模板 / 数字 / 布尔 / null 字面量、
+原始类型关键字、`this`、`infer`、`asserts`（类型谓词）、`keyof` / `readonly` / `unique`（`TypeOperator`）、
+`typeof`（`TypeQuery`）、`new` / `abstract new`（`ConstructorType`）、`import("m").A`（`ImportType`）、
+最后是类型引用（限定名 / 泛型实参）。
 
 ```ts
 const start = this.At;
@@ -429,6 +448,9 @@ if (unit instanceof Bracket) {
 }
 if (unit instanceof String) {
   this.At++;
+  if (this.IsTemplateToken(unit as String)) {
+    return this.ParseTemplateType(unit as String, start);
+  }
   return this.ParseStringLiteralType(unit as String, start);
 }
 if (unit instanceof Common) {
@@ -466,8 +488,14 @@ if (unit instanceof Common) {
     this.At++;
     return this.ParseInferType(start);
   }
-  if (text === "new") {
+  if (text === "asserts") {
+    return this.ParseTypePredicate(start);
+  }
+  if (text === "new" || text === "abstract") {
     return this.ParseConstructorType(start);
+  }
+  if (text === "import") {
+    return this.ParseImportType(start);
   }
   if (text === "any") {
     this.At++;
@@ -590,9 +618,13 @@ return shape;
 
 ## method ParseTypeLiteral:(bracket:Bracket, start:int)=>Token
 
-对象类型：空花括号没有 children；非空时逐个解析成员（`;` / `,` 是分隔符，不进 AST）。
+对象类型：空花括号没有 children；非空时先判断是不是 **mapped type**（第一个成员是 `[K in …]`），
+是就按 `MappedType` 建（整个花括号节点是 MappedType，不是 TypeLiteral），否则逐个解析成员签名。
 
 ```ts
+if (this.HasMappedMember(bracket)) {
+  return this.ParseMappedType(bracket, start);
+}
 const shape = new TypeLiteralShape(this.Template);
 if (this.HasCode(bracket.Data)) {
   const inner = new TypeBuilder(this.Template, this.Context);
@@ -797,7 +829,8 @@ return shape;
 
 ## method ParseFunctionType:(bracket:Bracket, start:int)=>Token
 
-函数类型：参数表来自 `(`…`)` 那个括号单元，然后 `=>`（`Symbol`，不进 AST），返回类型按 `ParseType` 读（右结合）。
+函数类型：参数表来自 `(`…`)` 那个括号单元，然后 `=>`，然后返回类型。
+返回类型可以是**类型谓词**（`x is B` / `asserts x is B`），由 `ParseReturnType` 分流；`=>` 不进 AST。
 
 ```ts
 const shape = new FunctionTypeShape(this.Template);
@@ -810,7 +843,7 @@ if (arrow === null || !this.IsText(arrow, "=>")) {
   throw new Error("函数类型缺少 =>");
 }
 this.At++;
-const returnType = this.ParseType();
+const returnType = this.ParseReturnType();
 shape.Parameters = parameters;
 shape.ReturnType = returnType;
 shape.Add(returnType);
@@ -1140,13 +1173,24 @@ return name;
 
 ## method ParseConstructorType:(start:int)=>Token
 
-`new (参数) => 返回类型`：`new` 不进 AST，children = 参数们 + 返回类型。
-实测 `new () => A` 没有参数孩子；`new (a: A) => B` 的 `Parameter` 从 `(` 之后起算。
-`abstract new` 暂缓（TS 侧会多一个 `FirstContextualKeyword` 修饰节点，需要单独的别名与形状）。
+`new (参数) => 返回类型` 或 `abstract new (参数) => 返回类型`：`new` / `=>` 不进 AST；
+`abstract` 进 children 成为 `AbstractKeyword`（TS 的反查名是别名 `FirstContextualKeyword`）。
+children = 可选的抽象修饰、参数们、返回类型。实测 `new () => A` 没有参数孩子。
 
-调用前 `At` 停在 `new` 上。
+调用前 `At` 停在 `new` 或 `abstract` 上。
 
 ```ts
+let abstractToken:Token | null = null;
+const firstUnit = this.Peek(0);
+if (firstUnit !== null && this.IsText(firstUnit, "abstract")) {
+  const index = this.At;
+  this.At++;
+  abstractToken = this.SpanLeaf(new AbstractKeywordShape(this.Template), index);
+}
+const newUnit = this.Peek(0);
+if (newUnit === null || !this.IsText(newUnit, "new")) {
+  throw new Error("构造类型缺少 new");
+}
 this.At++;
 const bracketUnit = this.Peek(0);
 if (bracketUnit === null || !this.IsBracket(bracketUnit, "(", ")")) {
@@ -1162,11 +1206,476 @@ if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
 this.At++;
 const returnType = this.ParseType();
 const shape = new ConstructorTypeShape(this.Template);
+shape.AbstractToken = abstractToken;
 shape.Parameters = parameters;
 shape.ReturnType = returnType;
+if (abstractToken !== null) {
+  shape.Add(abstractToken);
+}
 for (const parameter of parameters) {
   shape.Add(parameter);
 }
 shape.Add(returnType);
 return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseReturnType:()=>Token
+
+函数类型的返回类型：`asserts x is B`、`x is B` 走 `TypePredicate`，其余走 `ParseType`。
+
+```ts
+const unit = this.Peek(0);
+if (unit !== null && unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  if (text === "asserts") {
+    return this.ParseTypePredicate(this.At);
+  }
+  const next = this.Peek(1);
+  if (next !== null && this.IsText(next, "is")) {
+    return this.ParseTypePredicate(this.At);
+  }
+}
+return this.ParseType();
+```
+
+## method ParseTypePredicate:(start:int)=>Token
+
+类型谓词：`[asserts] 名字 is 类型`。`asserts` / `is` 都是节点或关键字：`asserts` 进 children 成为 `AssertsKeyword`，
+`is` 不进 AST。实测 `(x: A) => x is B` 是 `TypePredicate[18,25) → [Identifier[18,20) x, TypeReference[23,25) B]`。
+
+```ts
+const firstUnit = this.Units[start];
+let asserts:Token | null = null;
+if (this.IsText(firstUnit, "asserts")) {
+  this.At++;
+  asserts = this.SpanLeaf(new AssertsKeywordShape(this.Template), start);
+}
+const name = this.ParseName();
+const isUnit = this.Peek(0);
+if (isUnit === null || !this.IsText(isUnit, "is")) {
+  throw new Error("类型谓词缺少 is");
+}
+this.At++;
+const type = this.ParseType();
+const shape = new TypePredicateShape(this.Template);
+shape.AssertsToken = asserts;
+shape.ParameterName = name;
+shape.Type = type;
+if (asserts !== null) {
+  shape.Add(asserts);
+}
+shape.Add(name);
+shape.Add(type);
+return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseImportType:(start:int)=>Token
+
+`import("m").A`：`import` 与 `.` 不进 AST，children = 模块字符串（`LiteralType → StringLiteral`）、
+限定名（Identifier / QualifiedName）、以及可选泛型实参。实测 `ImportType[8,22) → [LiteralType[16,19), Identifier[21,22)]`。
+
+```ts
+const importUnit = this.Units[start];
+this.At++;
+const bracketUnit = this.Peek(0);
+if (bracketUnit === null || !this.IsBracket(bracketUnit, "(", ")")) {
+  throw new Error("import 类型缺少参数表");
+}
+const bracket = bracketUnit as Bracket;
+this.At++;
+let pathToken:String | null = null;
+for (const item of bracket.Data) {
+  if (!item.IsTriviaToken && item instanceof String) {
+    pathToken = item as String;
+    break;
+  }
+}
+if (pathToken === null) {
+  throw new Error("import 类型缺少模块字符串");
+}
+let pathPos = 0;
+if (bracket.SourceRange.Start !== null) {
+  pathPos = bracket.SourceRange.Start.Index + 1;
+}
+const stringShape = StringLiteralShape.FromBasicToken(pathToken, this.Context);
+stringShape.Pos = pathPos;
+const argument = new LiteralTypeShape(this.Template);
+argument.Literal = stringShape;
+argument.Add(stringShape);
+if (pathToken.SourceRange.Start !== null) {
+  argument.SignIn(pathToken.SourceRange.Start);
+}
+if (pathToken.SourceRange.End !== null) {
+  argument.SignOut(pathToken.SourceRange.End);
+}
+argument.Pos = pathPos;
+argument.TryToClose(this.Context);
+const dot = this.Peek(0);
+if (dot === null || !this.IsText(dot, ".")) {
+  throw new Error("import 类型缺少限定名");
+}
+this.At++;
+const qualifier = this.ParseEntityName();
+const typeArguments = this.ParseTypeArguments();
+const shape = new ImportTypeShape(this.Template);
+shape.Argument = argument;
+shape.Qualifier = qualifier;
+shape.TypeArguments = typeArguments;
+shape.Add(argument);
+shape.Add(qualifier);
+for (const argumentType of typeArguments) {
+  shape.Add(argumentType);
+}
+if (importUnit.SourceRange.Start !== null) {
+  shape.SignIn(importUnit.SourceRange.Start);
+}
+const lastUnit = this.Units[this.At - 1];
+if (lastUnit.SourceRange.End !== null) {
+  shape.SignOut(lastUnit.SourceRange.End);
+}
+shape.Pos = this.Positions[start];
+shape.TryToClose(this.Context);
+return shape;
+```
+
+## method IsTemplateToken:(token:String)=>bool
+
+是不是「引号内式内插」的模板串单元（与 `ExpressionBuilder.IsTemplateToken` 同口径）：开了内插且引号属于模板配置的
+`InterpolationQuoteChars`（ts 只有反引号）。
+
+```ts
+if (!token.IsSupportInterpolation) {
+  return false;
+}
+const config = this.Template.StringTemplate;
+return config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(token.StringChar);
+```
+
+## method SourceAfter:(source:Source, offset:int)=>Source
+
+同一文档里 `source` 之后第 `offset` 个位置（模板 span 的起点要用它）。
+
+```ts
+return source.Document.At(source.Index + offset);
+```
+
+## method ParseTemplateType:(token:String, start:int)=>Token
+
+模板字面量类型：`String` 的 `Data` 里 `ConstString` / `InterpolationString` 交替。
+没有 `InterpolationString` → `LiteralType → NoSubstitutionTemplateLiteral`（`` `a` `` 是字面量类型）；
+有 → `TemplateLiteralType` = `TemplateHead` + 若干 `TemplateLiteralTypeSpan`（每个 span = 插值类型 + `TemplateMiddle` / `TemplateTail`）。
+插值里按 `ParseType` 读（不是表达式）。区间口径与 `ExpressionBuilder.ParseTemplateToken` 相同。
+
+```ts
+const texts:Array<string> = [];
+const interps:Array<Token> = [];
+let current = "";
+for (const part of token.Data) {
+  if (part instanceof ConstString) {
+    current += (part as ConstString).TempToString();
+    continue;
+  }
+  if (part instanceof InterpolationString) {
+    texts.push(current);
+    current = "";
+    interps.push(part);
+  }
+}
+texts.push(current);
+if (interps.length === 0) {
+  const literal = NoSubstitutionTemplateLiteralShape.FromBasicToken(token, this.Context);
+  literal.Pos = this.Positions[start];
+  const shape = new LiteralTypeShape(this.Template);
+  shape.Literal = literal;
+  shape.Add(literal);
+  return this.SpanNode(shape, start, start);
+}
+const expression = new TemplateLiteralTypeShape(this.Template);
+const head = new TemplateHeadShape(this.Template);
+head.Text = texts[0];
+if (token.SourceRange.Start !== null) {
+  head.SignIn(token.SourceRange.Start);
+}
+if (interps[0].SourceRange.Start !== null) {
+  head.SignOut(interps[0].SourceRange.Start);
+}
+head.Pos = this.Positions[start];
+head.TryToClose(this.Context);
+expression.Add(head);
+for (let index = 0; index < interps.length; index++) {
+  const interp = interps[index];
+  const inner = new TypeBuilder(this.Template, this.Context);
+  let base = 0;
+  if (interp.SourceRange.Start !== null) {
+    base = interp.SourceRange.Start.Index + 1;
+  }
+  inner.Load(interp.Data, base);
+  if (inner.Units.length === 0) {
+    throw new Error("模板类型插值里没有类型");
+  }
+  const value = inner.ParseType();
+  if (inner.At !== inner.Units.length) {
+    throw new Error("模板类型插值里的类型没有读完");
+  }
+  let tailPos = 0;
+  if (value.SourceRange.End !== null) {
+    tailPos = value.SourceRange.End.Index + 1;
+  } else if (interp.SourceRange.End !== null) {
+    tailPos = interp.SourceRange.End.Index;
+  }
+  let tail:ShapeToken;
+  if (index + 1 < interps.length) {
+    const middle = new TemplateMiddleShape(this.Template);
+    middle.Text = texts[index + 1];
+    middle.Pos = tailPos;
+    if (interp.SourceRange.End !== null) {
+      middle.SignIn(interp.SourceRange.End);
+    }
+    const nextInterp = interps[index + 1];
+    if (nextInterp.SourceRange.Start !== null) {
+      middle.SignOut(nextInterp.SourceRange.Start);
+    }
+    middle.TryToClose(this.Context);
+    tail = middle;
+  } else {
+    const lastTail = new TemplateTailShape(this.Template);
+    lastTail.Text = texts[index + 1];
+    lastTail.Pos = tailPos;
+    if (interp.SourceRange.End !== null) {
+      lastTail.SignIn(interp.SourceRange.End);
+    }
+    if (token.SourceRange.End !== null) {
+      lastTail.SignOut(token.SourceRange.End);
+    }
+    lastTail.TryToClose(this.Context);
+    tail = lastTail;
+  }
+  const span = new TemplateLiteralTypeSpanShape(this.Template);
+  span.Type = value;
+  span.Tail = tail;
+  span.Add(value);
+  span.Add(tail);
+  if (interp.SourceRange.Start !== null) {
+    span.SignIn(this.SourceAfter(interp.SourceRange.Start, 1));
+    span.Pos = interp.SourceRange.Start.Index + 1;
+  }
+  if (tail.SourceRange.End !== null) {
+    span.SignOut(tail.SourceRange.End);
+  }
+  span.TryToClose(this.Context);
+  expression.Add(span);
+}
+if (token.SourceRange.Start !== null) {
+  expression.SignIn(token.SourceRange.Start);
+}
+if (token.SourceRange.End !== null) {
+  expression.SignOut(token.SourceRange.End);
+}
+expression.Pos = this.Positions[start];
+expression.TryToClose(this.Context);
+return expression;
+```
+
+## method HasMappedMember:(bracket:Bracket)=>bool
+
+花括号里的第一个**成员**是「可选修饰 + 方括号、且方括号里第二个代码单元是 `in`」→ 这是 mapped type
+（`{ [K in A]: B }`、`{ readonly [K in …]?: … }`、`{ -readonly [K in …]-?: … }`），否则是普通类型字面量。
+
+```ts
+const codes:Array<Token> = [];
+for (const item of bracket.Data) {
+  if (!item.IsTriviaToken) {
+    codes.push(item);
+  }
+}
+let index = 0;
+if (codes.length > 0 && codes[0] instanceof Common && (codes[0] as Common).Is("readonly")) {
+  index = 1;
+} else if (codes.length > 0 && codes[0] instanceof Symbol
+  && ((codes[0] as Symbol).Is("-") || (codes[0] as Symbol).Is("+"))) {
+  index = 1;
+  if (index < codes.length && codes[index] instanceof Common && (codes[index] as Common).Is("readonly")) {
+    index++;
+  }
+}
+if (index >= codes.length) {
+  return false;
+}
+const first = codes[index];
+if (!(first instanceof Bracket) || !(first as Bracket).Is("[", "]")) {
+  return false;
+}
+let seenName = false;
+for (const item of (first as Bracket).Data) {
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (!seenName) {
+    seenName = true;
+    continue;
+  }
+  return item instanceof Common && (item as Common).Is("in");
+}
+return false;
+```
+
+## method ParseMappedType:(bracket:Bracket, start:int)=>Token
+
+mapped type：`{ [readonly|+/-readonly] [K in 约束] [?|+?|-?] [as 名字] : 值类型 }`。
+children 顺序与 TS 一致：只读修饰 token（`ReadonlyKeyword` / `MinusToken` / `PlusToken`）、`TypeParameter`、
+可选标记 token（`QuestionToken` / `MinusToken` / `PlusToken`）、可选的 `as` 名字类型、值类型。
+
+实测两点：
+- `-readonly` / `+readonly` 在 TS 里只留一个 `MinusToken` / `PlusToken` 子节点（`readonly` 关键字本身不进 AST）；
+  `-?` / `+?` 同理。
+- 连写的 `]?:` / `]-?:` 里 `?:` 是一个 `Symbol`，可选标记 token 只覆盖 `?` 那一个字符（复用 `ParseOptionalMark`）。
+
+```ts
+const inner = new TypeBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+let readonlyToken:Token | null = null;
+const firstUnit = inner.Peek(0);
+if (firstUnit !== null) {
+  const firstText = inner.TextOf(firstUnit);
+  if (firstText === "readonly") {
+    const index = inner.At;
+    inner.At++;
+    readonlyToken = inner.SpanLeaf(new ReadonlyKeywordShape(this.Template), index);
+  } else if (firstText === "-" || firstText === "+") {
+    const index = inner.At;
+    inner.At++;
+    if (firstText === "-") {
+      readonlyToken = inner.SpanLeaf(new MinusTokenShape(this.Template), index);
+    } else {
+      readonlyToken = inner.SpanLeaf(new PlusTokenShape(this.Template), index);
+    }
+    const afterReadonly = inner.Peek(0);
+    if (afterReadonly !== null && inner.IsText(afterReadonly, "readonly")) {
+      inner.At++;
+    }
+  }
+}
+const paramUnit = inner.Peek(0);
+if (paramUnit === null || !inner.IsBracket(paramUnit, "[", "]")) {
+  throw new Error("mapped type 缺少 [K in …]");
+}
+const paramBracket = paramUnit as Bracket;
+inner.At++;
+const parameter = inner.ParseMappedTypeParameter(paramBracket);
+let questionToken:Token | null = null;
+let colonNeeded = true;
+const questionUnit = inner.Peek(0);
+if (questionUnit !== null) {
+  const questionText = inner.TextOf(questionUnit);
+  if (questionText === "-" || questionText === "+") {
+    const index = inner.At;
+    inner.At++;
+    if (questionText === "-") {
+      questionToken = inner.SpanLeaf(new MinusTokenShape(this.Template), index);
+    } else {
+      questionToken = inner.SpanLeaf(new PlusTokenShape(this.Template), index);
+    }
+    const markUnit = inner.Peek(0);
+    if (markUnit !== null) {
+      const markText = inner.TextOf(markUnit);
+      if (markText === "?") {
+        inner.At++;
+      } else if (markText === "?:") {
+        inner.At++;
+        colonNeeded = false;
+      }
+    }
+  } else if (questionText === "?" || questionText === "?:") {
+    questionToken = inner.ParseOptionalMark();
+    colonNeeded = questionText === "?";
+  }
+}
+if (colonNeeded) {
+  const colon = inner.Peek(0);
+  if (colon === null || !inner.IsText(colon, ":")) {
+    throw new Error("mapped type 缺少冒号");
+  }
+  inner.At++;
+}
+const valueType = inner.ParseType();
+while (inner.At < inner.Units.length) {
+  const tailUnit = inner.Units[inner.At];
+  if (inner.IsText(tailUnit, ";") || inner.IsText(tailUnit, ",")) {
+    inner.At++;
+    continue;
+  }
+  break;
+}
+if (inner.At !== inner.Units.length) {
+  throw new Error("mapped type 没有读完");
+}
+const shape = new MappedTypeShape(this.Template);
+shape.ReadonlyToken = readonlyToken;
+shape.TypeParameter = parameter;
+shape.QuestionToken = questionToken;
+shape.NameType = inner.MappedNameType;
+shape.Type = valueType;
+if (readonlyToken !== null) {
+  shape.Add(readonlyToken);
+}
+shape.Add(parameter);
+if (questionToken !== null) {
+  shape.Add(questionToken);
+}
+if (inner.MappedNameType !== null) {
+  shape.Add(inner.MappedNameType);
+}
+shape.Add(valueType);
+if (bracket.SourceRange.Start !== null) {
+  shape.SignIn(bracket.SourceRange.Start);
+}
+if (bracket.SourceRange.End !== null) {
+  shape.SignOut(bracket.SourceRange.End);
+}
+shape.Pos = this.Positions[start];
+shape.TryToClose(this.Context);
+return shape;
+```
+
+## method ParseMappedTypeParameter:(bracket:Bracket)=>Token
+
+mapped type 的 `[K in 约束 as 名字]`：`TypeParameter` 的 children 是 `Identifier` + 约束类型，区间也**只到约束结束**
+（`as` 后面的名字类型不属于 TypeParameter，单独挂在 MappedType 上，存进 `MappedNameType`）。
+
+```ts
+const inner = new TypeBuilder(this.Template, this.Context);
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+inner.Load(bracket.Data, base);
+const nameIndex = inner.At;
+const name = inner.ParseName();
+const inUnit = inner.Peek(0);
+if (inUnit === null || !inner.IsText(inUnit, "in")) {
+  throw new Error("mapped type 参数缺少 in");
+}
+inner.At++;
+const constraint = inner.ParseType();
+const constraintEnd = inner.At - 1;
+inner.MappedNameType = null;
+const asUnit = inner.Peek(0);
+if (asUnit !== null && inner.IsText(asUnit, "as")) {
+  inner.At++;
+  inner.MappedNameType = inner.ParseType();
+}
+if (inner.At !== inner.Units.length) {
+  throw new Error("mapped type 参数没有读完");
+}
+const parameter = new TypeParameterShape(this.Template);
+parameter.TypeParameterName = name;
+parameter.Type = constraint;
+parameter.Add(name);
+parameter.Add(constraint);
+this.MappedNameType = inner.MappedNameType;
+return inner.SpanNode(parameter, nameIndex, constraintEnd);
 ```
