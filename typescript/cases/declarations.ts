@@ -872,3 +872,32 @@ class C { constructor(public x /* c */ ?: A) {} }
 // parameter property definite assignment `constructor(public x!: A)`: invalid TypeScript; the oracle recovery AST
 // contains degenerate empty Parameter nodes (e.g. Parameter [30,30) Identifier [30,30)), matching it byte-for-byte has no value.
 // optional property with definite assignment `x?!: A` etc.: invalid, skipped.
+
+// ===== base 19: auto-accessor members =====
+class C { accessor x = 1; }
+class C { accessor x: A; }
+class C { accessor x: A = b; }
+class C { static accessor y = 2; }
+class C { accessor #z = 3; }
+class C { public accessor x = 1; }
+class C { protected accessor x: A; }
+class C { private static accessor y: A; }
+class C { readonly accessor z = 1; }
+abstract class C { abstract accessor w: A; }
+class C { declare accessor v: A; }
+class C { @dec accessor y = 1; }
+class C { @dec public accessor y = 1; }
+class C { accessor x = 1; accessor y = 2; }
+class C { accessor x = 1; m() {} }
+// + regression
+class C { get x() { return 1; } set x(v) {} }
+class C { x = 1; }
+class C { public static readonly x: A = b; }
+// + trivia
+class C { /* c */ accessor x = 1; }
+class C { accessor /* c */ x = 1; }
+class C { accessor x /* c */ = 1; }
+class C { public /* c */ accessor x = 1; }
+class C { static /* c */ accessor y = 2; }
+class C { @dec /* c */ accessor y = 1; }
+class C { accessor x: /* c */ A; }
