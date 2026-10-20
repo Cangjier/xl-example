@@ -11,6 +11,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -157,6 +158,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 3) {
+    // ASI: a statement word after a line break ends this declaration here (e.g. "declare function f(): void\nclass C {}").
+    if (unit instanceof Common
+      && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
+      && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
+      state.Rejected = true;
+      continue;
+    }
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
       state.Stage = 5;
       state.Done = true;
@@ -177,6 +185,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 4) {
+    // ASI: a statement word after a line break ends the no-body declaration, even inside the return type.
+    if (unit instanceof Common
+      && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
+      && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
+      state.Rejected = true;
+      continue;
+    }
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
       state.Stage = 5;
       state.Done = true;
@@ -232,6 +247,36 @@ while (cursor < to.Index) {
   cursor++;
 }
 return true;
+```
+
+## static method LineBreakBefore:(units:Array<Token>, at:int)=>bool
+
+`at` 是 statement word 那一格；看前一个非 trivia 单元与它之间有没有换行（空白块与块注释里的换行都算）。
+ASI 用：`declare function f(): void\nclass C {}` 在 `class` 处结束前一条声明。
+
+```ts
+let previous = at - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+const from = units[previous].SourceRange.End;
+const to = units[at].SourceRange.Start;
+if (from === null || to === null) {
+  return false;
+}
+const document = from.Document;
+let cursor = from.Index + 1;
+while (cursor < to.Index) {
+  const ch = document.At(cursor).Value;
+  if (ch === "\n" || ch === "\r") {
+    return true;
+  }
+  cursor++;
+}
+return false;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
