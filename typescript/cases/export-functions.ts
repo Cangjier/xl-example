@@ -45,3 +45,31 @@ function h() {}
 export const x = 1;
 export class C {}
 export default function d() {}
+
+// ── async function / async generator 导出（Declaration children 顺序按 oracle）──
+export async function f() {}
+export async function f() { await g(); }
+export async function f(a: A): B { return a; }
+export async function f(): Promise<void> { await g(); }
+export default async function f() {}
+export default async function () {}
+export async function* h() {}
+export async function* h() { yield 1; }
+export async function* h() { await g(); yield await h2(); }
+export default async function* g() {}
+export default function* g() {}
+export function* g() { yield 1; }
+export declare async function f(): void;
+
+// ── trivia / 重复形 ──
+export /* c */ async function f() {}
+export async /* c */ function f() {}
+export default /* c */ async function f() {}
+export async function /* c */ f() {}
+export async function f() /* c */ {}
+export async function* /* c */ h() {}
+export async function\nf() {}
+export default /* c */ function* g() {}
+export async function f() {}\nexport async function g() {}
+a\nexport async function f() {}
+export async function* h() {}\nexport function* g() {}
