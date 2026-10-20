@@ -516,3 +516,11 @@ type T = (typeof a)["b"];
 // trivia
 type T = `${A /* c */}${B}`;
 type T = keyof /* c */ A["b"];
+
+// ===== this 参数：类型字面量方法 / 函数类型 / 构造类型（measurement） =====
+type T = { m(this: A): void };
+type F = (this: A, x: B) => C;
+type F = new (this: A) => B;
+type F = (this: void) => A;
+// trivia
+type F = (this /* c */ : A) => B;

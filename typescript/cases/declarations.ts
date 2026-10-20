@@ -901,3 +901,12 @@ class C { public /* c */ accessor x = 1; }
 class C { static /* c */ accessor y = 2; }
 class C { @dec /* c */ accessor y = 1; }
 class C { accessor x: /* c */ A; }
+// ===== this 参数：函数声明 / 方法 / 接口方法（measurement） =====
+function f(this: A, x: B) {}
+function f(this: void) {}
+function f(this: A) {}
+class C { m(this: A, x: B) {} }
+interface I { m(this: A): void; }
+function f(this /* c */: A) {}
+function f(this: A, ...rest: B[]) {}
+// deferred：function f(x: B, this: A) {} —— TS parseDiagnostics 为空（语法可解析），但 checker 要求 this 必须是第一个参数（语义非法），故不写进用例
