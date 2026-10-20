@@ -349,6 +349,24 @@ type T = new () => U;
 type T = { a: U; b?: V };
 
 // ===== 测量 sweep：暂缓（注释目标 + 原因）=====
-// 条件类型里 `infer R extends A` 的约束形式（TS 4.7+）：本仓 TypeBuilder 的 infer 分支只认名字。
-// type T<U> = U extends infer R extends A ? R : never;
+// 本条已在 chunk 8 实现（TypeBuilder.ParseInferType 支持 `extends` 约束），用例见下方 chunk 8 段。
 // 模板字面量类型里的内插类型谓词（复杂占位符）与 mapped `as` 里组合键名的更多形态，留待后续 sweep。
+
+// ===== chunk 8：tuple rest 元素 + 约束 infer（实现项）=====
+type T = [A, ...B];
+type T = [...A[]];
+type T = [string, ...number[], boolean];
+type T = [A?, ...B[]];
+type T = readonly [A, ...B[]];
+type T = [first: A, ...rest: B[]];
+// 暂缓：optional named tuple member `[first: A, second?: B]` —— 词法把 `?` 与 `:` 合成一个
+// combined symbol（`?:`），要拆成 QuestionToken + 冒号需要 basic token 决策（core 侧），本块不碰 core。
+// `// ` type T = [first: A, second?: B];
+type T = [...rest: A[]];
+type T = [/* c */ A, .../* c */ B];
+type T<U> = U extends [infer R, ...infer S] ? R : never;
+type T<U> = U extends [...infer S] ? S : never;
+type T<U> = U extends infer R extends A ? R : never;
+type T<U> = U extends infer R extends string ? R : never;
+type T<U> = U extends { a: infer K extends string } ? K : never;
+type T<U> = U extends infer R extends A ? R : U;
