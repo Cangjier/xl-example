@@ -14,6 +14,7 @@ import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl
 import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
 import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
@@ -124,6 +125,7 @@ while (index < code.length && code[index] instanceof Symbol && (code[index] as S
 const decoratorUnitCount = index;
 const decoratorCount = decorators.length;
 let exportUnit:Token | null = null;
+let defaultUnit:Token | null = null;
 let declareUnit:Token | null = null;
 let abstractUnit:Token | null = null;
 while (index < code.length && code[index] instanceof Common) {
@@ -131,6 +133,12 @@ while (index < code.length && code[index] instanceof Common) {
   if (text === "export" && exportUnit === null) {
     // `@dec export class C {}` is legal TS: decorators precede `export` inside the same ClassDeclaration.
     exportUnit = code[index];
+    index++;
+    continue;
+  }
+  if (text === "default" && defaultUnit === null && exportUnit !== null) {
+    // `@dec export default class C {}`: DefaultKeyword follows ExportKeyword in the same ClassDeclaration.
+    defaultUnit = code[index];
     index++;
     continue;
   }
@@ -236,6 +244,13 @@ for (let at = decoratorUnitCount; at < decoratorUnitCount + modifierCount; at++)
   }
   if ((modifierUnit as Common).Is("export")) {
     const modifier = new ExportKeywordShape(host.Template);
+    modifier.SignInToken(modifierUnit);
+    modifier.SignOutToken(modifierUnit);
+    modifier.Pos = modifierPos;
+    modifier.TryToClose(context);
+    shape.Add(modifier);
+  } else if ((modifierUnit as Common).Is("default")) {
+    const modifier = new DefaultKeywordShape(host.Template);
     modifier.SignInToken(modifierUnit);
     modifier.SignOutToken(modifierUnit);
     modifier.Pos = modifierPos;

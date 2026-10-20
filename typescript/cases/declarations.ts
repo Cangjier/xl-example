@@ -1045,3 +1045,23 @@ declare function f(a: A): B\ndeclare function g(): C
 // 暂缓：namespace/module 体里的 `declare function f(): void;`（oracle 合法：ModuleBlock -> FunctionDeclaration
 // with DeclareKeyword）——namespace 成员由 module-block-shape.BuildMember 分派，`declare` 没走到 DeclarationCatalog 的
 // function 候选，落到表达式路径报「表达式没有读完」；属 module 文件，本块 WRITE SCOPE 之外，故留目标。
+// ===== base 22: decorated export default class =====
+@dec export default class C {}
+@dec export default abstract class C {}
+@a @b export default class C {}
+@a @b export default abstract class C {}
+@dec export default class C<T> {}
+@dec export default class C<T extends A> implements I {}
+@dec export class C<T> extends B {}
+@dec export default class C extends B {}
+@dec export default class C { x = 1 }
+@dec export default class C { m() {} }
+// + regression (export-family forms)
+export @dec class C {}
+export default @dec class C {}
+@ /* c */ dec export default class C {}
+@dec /* c */ export default class C {}
+@a\n@b export default class C {}
+@dec export /* c */ default class C {}
+@dec export default /* c */ class C {}
+@dec export default /* c */ abstract class C {}

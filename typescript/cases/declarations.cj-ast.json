@@ -43837,6 +43837,937 @@
           ]
         }
       ]
+    },
+    {
+      "src": "@dec export default class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default abstract class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 19,
+              "end": 28
+            },
+            {
+              "kind": "Identifier",
+              "pos": 34,
+              "end": 36,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a @b export default class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 2,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 5,
+              "end": 12
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 12,
+              "end": 20
+            },
+            {
+              "kind": "Identifier",
+              "pos": 26,
+              "end": 28,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a @b export default abstract class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 2,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 5,
+              "end": 12
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 12,
+              "end": 20
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 20,
+              "end": 29
+            },
+            {
+              "kind": "Identifier",
+              "pos": 35,
+              "end": 37,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default class C<T> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 28,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 29,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default class C<T extends A> implements I {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 28,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 29,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 37,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 40,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 51,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 51,
+                      "end": 53,
+                      "text": "I"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export class C<T> extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 20,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 21,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 22,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 30,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default class C extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 27,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 35,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default class C { x = 1 }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 29,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "x"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default class C { m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 29,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 33,
+                  "end": 36
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export @dec class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Decorator",
+              "pos": 6,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 11,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default @dec class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Decorator",
+              "pos": 14,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 19,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@ /* c */ dec export default class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 13,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 13,
+              "end": 20
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 20,
+              "end": 28
+            },
+            {
+              "kind": "Identifier",
+              "pos": 34,
+              "end": 36,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec /* c */ export default class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 19
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 19,
+              "end": 27
+            },
+            {
+              "kind": "Identifier",
+              "pos": 33,
+              "end": 35,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a\n@b export default class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 2,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 5,
+              "end": 12
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 12,
+              "end": 20
+            },
+            {
+              "kind": "Identifier",
+              "pos": 26,
+              "end": 28,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export /* c */ default class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 27
+            },
+            {
+              "kind": "Identifier",
+              "pos": 33,
+              "end": 35,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default /* c */ class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "Identifier",
+              "pos": 33,
+              "end": 35,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec export default /* c */ abstract class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 4,
+              "end": 11
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 11,
+              "end": 19
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 19,
+              "end": 36
+            },
+            {
+              "kind": "Identifier",
+              "pos": 42,
+              "end": 44,
+              "text": "C"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
