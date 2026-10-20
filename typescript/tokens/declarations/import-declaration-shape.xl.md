@@ -79,8 +79,8 @@ return ImportDeclarationShape.CreatePossibleShapesCache;
 
 ## static method FromUnits:(host:Token, start:int, end:int, context:SyntaxContext)=>ImportDeclarationShape
 
-Build one import declaration from a module-body token slice (host is the enclosing Bracket; start/end index host.Data).
-Reuses the same children as the root path: ImportClause [+ NamedImports / NamespaceImport / default Identifier] then the module StringLiteral.
+Build one import declaration from a module-body token slice (host is the enclosing Bracket; start/end index host.Data),
+including an optional trailing `with`/`assert` attributes clause. Reuses the same children as the root path.
 
 ```ts
 const code:Array<Token> = [];
@@ -103,7 +103,8 @@ if (!(semicolon instanceof Symbol) || !(semicolon as Symbol).Is(";")) {
 const shape = new ImportDeclarationShape(host.Template);
 let index = 1;
 let isTypeOnly = false;
-let childPos = keyword.SourceRange.End === null ? 0 : keyword.SourceRange.End.Index + 1;
+const keywordEnd = keyword.SourceRange.End;
+let childPos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
 if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("type")) {
   isTypeOnly = true;
   const typeUnit = code[index] as Common;
@@ -111,109 +112,127 @@ if (index < code.length - 1 && code[index] instanceof Common && (code[index] as 
   childPos = typeEnd === null ? childPos : typeEnd.Index + 1;
   index++;
 }
-const sideEffect = code[index];
-if (sideEffect instanceof String) {
-  const literal = StringLiteralShape.FromBasicToken(sideEffect as String, context);
-  literal.Pos = keyword.SourceRange.End === null ? 0 : keyword.SourceRange.End.Index + 1;
-  shape.ModuleSpecifier = literal;
-  shape.IsTypeOnly = isTypeOnly;
-  shape.Add(literal);
-  if (keyword.SourceRange.Start !== null) {
-    shape.SignIn(keyword.SourceRange.Start);
-  }
-  if (semicolon.SourceRange.End !== null) {
-    shape.SignOut(semicolon.SourceRange.End);
-  }
-  shape.TryToClose(context);
-  return shape;
-}
-const clause = new ImportClauseShape(host.Template);
-clause.IsTypeOnly = isTypeOnly;
-let clauseStart:Token = keyword;
-let clauseEnd:Token = keyword;
-let hasChild = false;
-if (code[index] instanceof Common && !(code[index] as Common).Is("from")) {
-  const name = IdentifierShape.FromBasicToken(code[index] as Common, context);
-  name.Pos = childPos;
-  clause.Name = name;
-  clause.Data.push(name);
-  name.Parent = clause;
-  clauseStart = code[index];
-  clauseEnd = code[index];
-  hasChild = true;
+let clause:ImportClauseShape | null = null;
+let specifierUnit:Token | null = null;
+let moduleSpecifier:StringLiteralShape | null = null;
+if (code[index] instanceof String) {
+  // side-effect import: import "n" [with {...}];
+  specifierUnit = code[index];
+  moduleSpecifier = StringLiteralShape.FromBasicToken(code[index] as String, context);
+  moduleSpecifier.Pos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
   index++;
-  if (index < code.length - 1 && code[index] instanceof Symbol && (code[index] as Symbol).Is(",")) {
+} else {
+  clause = new ImportClauseShape(host.Template);
+  clause.IsTypeOnly = isTypeOnly;
+  let clauseStart:Token = keyword;
+  let clauseEnd:Token = keyword;
+  let hasChild = false;
+  if (code[index] instanceof Common && !(code[index] as Common).Is("from")) {
+    const name = IdentifierShape.FromBasicToken(code[index] as Common, context);
+    name.Pos = childPos;
+    clause.Name = name;
+    clause.Data.push(name);
+    name.Parent = clause;
+    clauseStart = code[index];
+    clauseEnd = code[index];
+    hasChild = true;
     index++;
+    if (index < code.length - 1 && code[index] instanceof Symbol && (code[index] as Symbol).Is(",")) {
+      index++;
+    }
   }
-}
-if (code[index] instanceof Bracket && (code[index] as Bracket).StartBracketChar === "{") {
-  const bracket = code[index] as Bracket;
-  const named = NamedImportsShape.FromBracket(bracket, context);
-  const previous = code[index - 1];
-  named.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
-  clause.NamedBindings = named;
-  clause.Data.push(named);
-  named.Parent = clause;
+  if (code[index] instanceof Bracket && (code[index] as Bracket).StartBracketChar === "{") {
+    const brackets = code[index] as Bracket;
+    const named = NamedImportsShape.FromBracket(brackets, context);
+    const previous = code[index - 1];
+    named.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
+    clause.NamedBindings = named;
+    clause.Data.push(named);
+    named.Parent = clause;
+    if (!hasChild) {
+      clauseStart = brackets;
+    }
+    hasChild = true;
+    clauseEnd = brackets;
+    index++;
+  } else if (code[index] instanceof Symbol && (code[index] as Symbol).Is("*")) {
+    const starUnit = code[index];
+    const bindingUnits:Array<Token> = [];
+    for (let scan = index; scan < code.length - 1 && bindingUnits.length < 3; scan++) {
+      bindingUnits.push(code[scan]);
+    }
+    const namespace = NamespaceImportShape.FromTokens(bindingUnits, context);
+    if (namespace === null) {
+      throw new Error("import declaration has a bad namespace binding");
+    }
+    const previous = code[index - 1];
+    namespace.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
+    clause.NamedBindings = namespace;
+    clause.Data.push(namespace);
+    namespace.Parent = clause;
+    if (!hasChild) {
+      clauseStart = starUnit;
+    }
+    hasChild = true;
+    clauseEnd = code[Math.min(index + 2, code.length - 1)];
+    index += 3;
+  }
   if (!hasChild) {
-    clauseStart = bracket;
+    throw new Error("import declaration is missing import clause");
   }
-  hasChild = true;
-  clauseEnd = bracket;
+  if (!(code[index] instanceof Common) || !(code[index] as Common).Is("from")) {
+    throw new Error("import declaration is missing from keyword");
+  }
+  const fromUnit = code[index];
   index++;
-} else if (code[index] instanceof Symbol && (code[index] as Symbol).Is("*")) {
-  const starUnit = code[index];
-  const bindingUnits:Array<Token> = [];
-  for (let scan = index; scan < code.length - 1 && bindingUnits.length < 3; scan++) {
-    bindingUnits.push(code[scan]);
+  specifierUnit = code[index];
+  if (!(specifierUnit instanceof String)) {
+    throw new Error("import declaration is missing module specifier");
   }
-  const namespace = NamespaceImportShape.FromTokens(bindingUnits, context);
-  if (namespace === null) {
-    throw new Error("import declaration has a bad namespace binding");
+  moduleSpecifier = StringLiteralShape.FromBasicToken(specifierUnit as String, context);
+  moduleSpecifier.Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
+  index++;
+  clause.Pos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
+  if (clauseStart.SourceRange.Start !== null) {
+    clause.SignIn(clauseStart.SourceRange.Start);
   }
-  const previous = code[index - 1];
-  namespace.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
-  clause.NamedBindings = namespace;
-  clause.Data.push(namespace);
-  namespace.Parent = clause;
-  if (!hasChild) {
-    clauseStart = starUnit;
+  if (clauseEnd.SourceRange.End !== null) {
+    clause.SignOut(clauseEnd.SourceRange.End);
   }
-  hasChild = true;
-  clauseEnd = code[Math.min(index + 2, code.length - 1)];
-  index += 3;
+  clause.TryToClose(context);
 }
-if (!hasChild) {
-  throw new Error("import declaration is missing import clause");
+let attributes:ImportAttributesShape | null = null;
+if (index < code.length - 1 && code[index] instanceof Common
+  && ((code[index] as Common).Is("with") || (code[index] as Common).Is("assert"))) {
+  const attributeKeyword = code[index] as Common;
+  index++;
+  const attributeBracket = code[index];
+  if (!(attributeBracket instanceof Bracket) || (attributeBracket as Bracket).StartBracketChar !== "{") {
+    throw new Error("import declaration is missing attributes bracket");
+  }
+  attributes = ImportAttributesShape.FromBracket(attributeBracket as Bracket, attributeKeyword.TempToString(), context);
+  const specifierEnd = specifierUnit === null ? null : specifierUnit.SourceRange.End;
+  attributes.Pos = specifierEnd === null ? 0 : specifierEnd.Index + 1;
+  index++;
 }
-if (!(code[index] instanceof Common) || !(code[index] as Common).Is("from")) {
-  throw new Error("import declaration is missing from keyword");
-}
-const fromUnit = code[index];
-index++;
-const specifierUnit = code[index];
-if (!(specifierUnit instanceof String)) {
-  throw new Error("import declaration is missing module specifier");
-}
-const moduleSpecifier = StringLiteralShape.FromBasicToken(specifierUnit as String, context);
-moduleSpecifier.Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
-index++;
 if (index !== code.length - 1) {
   throw new Error("import declaration has trailing units");
 }
-clause.Pos = keyword.SourceRange.End === null ? 0 : keyword.SourceRange.End.Index + 1;
-if (clauseStart.SourceRange.Start !== null) {
-  clause.SignIn(clauseStart.SourceRange.Start);
+if (clause !== null) {
+  shape.ImportClause = clause;
+  shape.Data.push(clause);
+  clause.Parent = shape;
 }
-if (clauseEnd.SourceRange.End !== null) {
-  clause.SignOut(clauseEnd.SourceRange.End);
-}
-clause.TryToClose(context);
-shape.ImportClause = clause;
 shape.IsTypeOnly = isTypeOnly;
-shape.Data.push(clause);
-clause.Parent = shape;
-shape.Data.push(moduleSpecifier);
-moduleSpecifier.Parent = shape;
+if (moduleSpecifier !== null) {
+  shape.ModuleSpecifier = moduleSpecifier;
+  shape.Data.push(moduleSpecifier);
+  moduleSpecifier.Parent = shape;
+}
+if (attributes !== null) {
+  shape.Data.push(attributes);
+  attributes.Parent = shape;
+}
 if (keyword.SourceRange.Start !== null) {
   shape.SignIn(keyword.SourceRange.Start);
 }

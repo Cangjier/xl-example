@@ -111,3 +111,7 @@ import { a } from "m" with\n{ type: "json" };
 // import("m");                          —— dynamic import: 语句层 `import` 起点被 ExpressionStatementPossibleShape.CanStart 拒绝（statements 家族），本 chunk 不改该文件，暂缓
 // import("m", { with: { type: "json" } });  —— 同上（dynamic import attributes），暂缓
 // import("m", { assert: { type: "json" } }); —— 同上，暂缓
+
+// ===== entity-name import aliases（chunk module-imports-2） =====
+import A = B.C;
+import A = require("n");
