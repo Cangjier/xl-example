@@ -1402,6 +1402,13 @@ if (newUnit === null || !this.IsText(newUnit, "new")) {
   throw new Error("构造类型缺少 new");
 }
 this.At++;
+// Generic constructor type: `new <U>(a: U) => A` -- TypeParameter[] sits before the parameter list
+// (TS children: AbstractKeyword?, TypeParameter[], Parameter[], Type; `new` / `=>` are not projected).
+let typeParameters:Array<Token> = [];
+const angleUnit = this.Peek(0);
+if (angleUnit !== null && this.IsText(angleUnit, "<")) {
+  typeParameters = this.ParseTypeParameterList();
+}
 const bracketUnit = this.Peek(0);
 if (bracketUnit === null || !this.IsBracket(bracketUnit, "(", ")")) {
   throw new Error("构造类型缺少参数表");
@@ -1421,6 +1428,9 @@ shape.Parameters = parameters;
 shape.ReturnType = returnType;
 if (abstractToken !== null) {
   shape.Add(abstractToken);
+}
+for (const typeParameter of typeParameters) {
+  shape.Add(typeParameter);
 }
 for (const parameter of parameters) {
   shape.Add(parameter);

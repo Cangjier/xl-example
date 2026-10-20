@@ -428,3 +428,32 @@ interface I { /* c */ new (): A; }
 interface I { new (): A; /* c */ m(): void; }
 type T = {\n  new (): A;\n  new (a: A): B;\n};
 type T = { new (a: A, b: B): C, };
+
+// ===== base 15: constructor types (ConstructorType) =====
+type T = new (a: A) => B;
+type T = new (a: A, b: B) => C;
+type T = new <U>(a: U) => A;
+type T = new <U, V>(a: U, b: V) => C;
+type T = abstract new (a: A) => B;
+type T = abstract new (a: A, b: B) => C;
+type T = (new () => A) | (new () => B);
+type T = (new () => A) & (new () => B);
+type T = { new (): A } & B;
+type T = new () => A[];
+type T = new () => { a: A };
+type T = new () => A | B;
+// + trivia
+type T = new /* c */ (a: A) => B;
+type T = new (/* c */ a: A) => B;
+type T = new (a: A) /* c */ => B;
+type T = new (a: A) => /* c */ B;
+type T = abstract /* c */ new () => A;
+type T = new\n(a: A) => B;
+// + regression (function type / construct signature / array of constructor types)
+type T = () => A;
+// 暂缓：`type T = new (a) => b;` —— 无类型标注的参数（TS 语义错误 implicit any）；本仓
+//   构造函数类型的参数走 ParseParameterList（要求 `名字: 类型`），与函数类型位置共用。
+// `// ` type T = new (a) => b;
+type T = (new () => A)[];
+type T = Array<new () => A>;
+type T = { new (): A };
