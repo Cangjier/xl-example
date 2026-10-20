@@ -227,3 +227,35 @@ export default 1 // c
 export var v = 1
 export let l = 1
 export const c1 = 1\nexport const c2 = 2
+
+// ===== chunk 7：export default / 泛型 / namespace 在 EOF（measurement-first：23 条探针全绿） =====
+// export default 各形态
+export default class C {}
+export default class C extends B {}
+export default function f() {}
+export default function* g() {}
+export default async function f() {}
+export default abstract class C {}
+export default interface I {}
+// 泛型声明
+class C<T> {}
+interface I<T> {}
+function f<T>() {}
+// namespace / module
+namespace N {}
+declare namespace N {}
+declare module "m" {}
+declare module "m";
+module N.M {}
+// type / import type
+type T<U> = U
+import type { T } from "m"
+// 尾注释 / 换行变体
+export default class C {} // c\n
+export default function f() {} // c\n
+class C<T> {} // c\n
+namespace N {} // c\n
+type T<U> = U // c\n
+// 暂缓（红，归属 import 族）：`import type { T } from "m" // c\n` —— 尾注释被算进 ImportDeclaration 的 End
+// （TS 到字符串为止；与 chunk 6 记录的 `import x from "m" // c` 同族，非 end 层问题）
+// import type { T } from "m" // c\n

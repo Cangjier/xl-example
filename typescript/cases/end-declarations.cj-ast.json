@@ -5057,6 +5057,739 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export default class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class C extends B {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 22,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 30,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function* g() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 23,
+              "end": 24
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "g"
+            },
+            {
+              "kind": "Block",
+              "pos": 28,
+              "end": 31
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async function f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 33,
+              "end": 36
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C<T> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 8,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I<T> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 12,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f<T>() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 11,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 15,
+              "end": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare namespace N {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\";",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "module N.M {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleDeclaration",
+              "pos": 9,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 10,
+                  "text": "M"
+                },
+                {
+                  "kind": "ModuleBlock",
+                  "pos": 10,
+                  "end": 13
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T<U> = U",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 7,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 11,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "U"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import type { T } from \"m\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 17,
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 11,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 13,
+                      "end": 15,
+                      "name": "T",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 15,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default class C {} // c\n",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function f() {} // c\n",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 27,
+              "end": 30
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C<T> {} // c\n",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 8,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N {} // c\n",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T<U> = U // c\n",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 7,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "U"
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 11,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "U"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

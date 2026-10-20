@@ -294,3 +294,23 @@ STILL RED（本 chunk 未解，已注释进用例文件并写明原因）
 - `import x from "m"\nclass C {}` / 无分号连续 import/export：需要在挂载壳的 EndPossible 里做真正的 ASI 收尾
   （newline 后接新语句时提前 Close）；试过 raw lookahead Accept，会让壳的「终结候选与其它候选同时成立」，
   需要 core CatalogGuide 配合 → 暂缓。
+
+## 15. end-declarations chunk 7：export default / 泛型 / namespace 在 EOF（measurement-first）
+
+**探针先量（23 条）**：在 integration c2846827 上**全部已绿**——本批不动任何 shape，只补用例固化：
+- export default：`export default class C {}`、`export default class C extends B {}`、`export default function f() {}`、
+  `export default function* g() {}`、`export default async function f() {}`、`export default abstract class C {}`、
+  `export default interface I {}`；
+- 泛型：`class C<T> {}`、`interface I<T> {}`、`function f<T>() {}`；
+- namespace/module：`namespace N {}`、`declare namespace N {}`、`declare module "m" {}`、`declare module "m";`（无体）、`module N.M {}`；
+- type / import type：`type T<U> = U`、`import type { T } from "m"`；
+- 尾注释/换行变体（5 条里 4 条绿）。
+
+**唯一红（归属 import 族，非 end 层）**：`import type { T } from "m" // c\n` —— 声明在 EOF 收尾时把尾注释算进
+`ImportDeclaration` 的 `End`（TS 停在 string 之后），与 chunk 6 记录的 `import x from "m" // c` 同族；
+根因在 core 的 EOF 收尾（SignOut 只能设一次），按任务边界不改 core → 写成用例里的 `//` 目标。
+
+**用例**（`end-declarations.ts` append-only，+22）：上面 23 条探针中除该 import-尾注释条外的全部形态（含 4 条尾注释变体）。
+
+**读数（本分支）**：`end-declarations` **166 / 166 完全一致**；全量 ast-json / diff **3774 / 3774**
+（基线 3752 + 22），结构差 0 / 位置差 0 / 字段差 0，无回归（end 53 等既有 stem 全绿）；tsc 0 error。
