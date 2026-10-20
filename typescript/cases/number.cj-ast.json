@@ -308,7 +308,21 @@
     },
     {
       "src": ".5;",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 SourceFileShape，下标 0）"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 3,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 2,
+              "text": "0.5"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1e3;",
@@ -355,28 +369,10 @@
           "end": 5,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 4,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 0,
-                  "end": 2,
-                  "text": "1e"
-                },
-                {
-                  "kind": "PlusToken",
-                  "pos": 2,
-                  "end": 3
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 3,
-                  "end": 4,
-                  "text": "3"
-                }
-              ]
+              "text": "1000"
             }
           ]
         }
@@ -391,28 +387,10 @@
           "end": 5,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 4,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 0,
-                  "end": 2,
-                  "text": "1E"
-                },
-                {
-                  "kind": "MinusToken",
-                  "pos": 2,
-                  "end": 3
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 3,
-                  "end": 4,
-                  "text": "3"
-                }
-              ]
+              "text": "0.001"
             }
           ]
         }
@@ -427,28 +405,10 @@
           "end": 7,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 6,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 0,
-                  "end": 4,
-                  "text": "1.5e"
-                },
-                {
-                  "kind": "PlusToken",
-                  "pos": 4,
-                  "end": 5
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 5,
-                  "end": 6,
-                  "text": "2"
-                }
-              ]
+              "text": "150"
             }
           ]
         }
@@ -463,28 +423,10 @@
           "end": 7,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 6,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 0,
-                  "end": 4,
-                  "text": "1.5E"
-                },
-                {
-                  "kind": "MinusToken",
-                  "pos": 4,
-                  "end": 5
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 5,
-                  "end": 6,
-                  "text": "2"
-                }
-              ]
+              "text": "0.015"
             }
           ]
         }
@@ -492,11 +434,39 @@
     },
     {
       "src": ".5e2;",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 SourceFileShape，下标 0）"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 4,
+              "text": "50"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": ".5e+2;",
-      "error": "CatalogGuide: 没有候选形状可以构成（宿主 SourceFileShape，下标 0）"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "50"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1.e2;",
@@ -525,28 +495,10 @@
           "end": 6,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 5,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 0,
-                  "end": 3,
-                  "text": "1.e"
-                },
-                {
-                  "kind": "MinusToken",
-                  "pos": 3,
-                  "end": 4
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 4,
-                  "end": 5,
-                  "text": "2"
-                }
-              ]
+              "text": "0.01"
             }
           ]
         }
@@ -579,28 +531,10 @@
           "end": 5,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 4,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 0,
-                  "end": 2,
-                  "text": "1e"
-                },
-                {
-                  "kind": "MinusToken",
-                  "pos": 2,
-                  "end": 3
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 3,
-                  "end": 4,
-                  "text": "7"
-                }
-              ]
+              "text": "1e-7"
             }
           ]
         }
@@ -651,28 +585,10 @@
           "end": 7,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 6,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 0,
-                  "end": 2,
-                  "text": "1e"
-                },
-                {
-                  "kind": "MinusToken",
-                  "pos": 2,
-                  "end": 3
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 3,
-                  "end": 6,
-                  "text": "324"
-                }
-              ]
+              "text": "0"
             }
           ]
         }
@@ -680,55 +596,237 @@
     },
     {
       "src": "1_000;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "1000"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1_000_000;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 9,
+              "text": "1000000"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1_0.5_0;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "10.5"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0.1_5;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "0.15"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1.0_1;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "1.01"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1e1_0;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "10000000000"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1_0e2;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "1000"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "1_0e1_0;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "100000000000"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0x1_F;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "31"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0xF_F;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "255"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0xFF_FF;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 7,
+              "text": "65535"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0b1010_1010;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 11,
+              "text": "170"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0o7_7;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 0,
+              "end": 5,
+              "text": "63"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0x1f;",
@@ -937,7 +1035,7 @@
           "end": 3,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 2,
               "text": "0n"
@@ -955,7 +1053,7 @@
           "end": 3,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 2,
               "text": "1n"
@@ -973,7 +1071,7 @@
           "end": 5,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 4,
               "text": "123n"
@@ -984,7 +1082,21 @@
     },
     {
       "src": "1_000n;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "1000n"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0x1fn;",
@@ -995,7 +1107,7 @@
           "end": 6,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 5,
               "text": "0x1fn"
@@ -1013,10 +1125,10 @@
           "end": 6,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 5,
-              "text": "0X1Fn"
+              "text": "0x1fn"
             }
           ]
         }
@@ -1031,10 +1143,10 @@
           "end": 7,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 6,
-              "text": "0b101n"
+              "text": "5n"
             }
           ]
         }
@@ -1049,10 +1161,10 @@
           "end": 7,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 6,
-              "text": "0B101n"
+              "text": "5n"
             }
           ]
         }
@@ -1067,10 +1179,10 @@
           "end": 6,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 5,
-              "text": "0o17n"
+              "text": "15n"
             }
           ]
         }
@@ -1085,10 +1197,10 @@
           "end": 6,
           "children": [
             {
-              "kind": "NumericLiteral",
+              "kind": "BigIntLiteral",
               "pos": 0,
               "end": 5,
-              "text": "0O17n"
+              "text": "15n"
             }
           ]
         }
@@ -1096,15 +1208,57 @@
     },
     {
       "src": "0xFF_FFn;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 8,
+              "text": "0xffffn"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0b1010_1010n;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 12,
+              "text": "170n"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "0o7_7n;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "BigIntLiteral",
+              "pos": 0,
+              "end": 6,
+              "text": "63n"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

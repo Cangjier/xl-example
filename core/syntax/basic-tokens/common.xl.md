@@ -9,6 +9,7 @@ import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
+import { Symbol } from "./symbol.xl.md"
 ```
 
 # namespace cangjie
@@ -67,57 +68,337 @@ return CloseStates.Nothing;
 
 ## method IsNumberWithoutDecimal:()=>bool
 
-`Temp` 里的内容是不是纯数字——每一位都是数字。
+`Temp` 是不是「可以接小数点的十进制整数前缀」：只有数字与合法位置的 `_`，至少一位数字。
+
+它给 `Transit` 的「小数点并入上一个数字块」用：`1.5` / `1_0.5_0` 的点能并进去，`0x1F` 不能（含进制前缀），`1_` 不能（分隔符悬空）。
 
 ```ts
-return this.Template.SymbolTemplate.IsNumberWithoutDecimal(this.Temp.join(""));
+const text = this.TempToString();
+if (text.length === 0) {
+  return false;
+}
+let lastIsDigit = false;
+for (let index = 0; index < text.length; index++) {
+  const item = text[index];
+  if (this.Template.SymbolTemplate.IsNumber(item)) {
+    lastIsDigit = true;
+  } else if (item === "_" && lastIsDigit && index < text.length - 1) {
+    lastIsDigit = false;
+  } else {
+    return false;
+  }
+}
+return lastIsDigit;
 ```
 
-## method IsNumberContainsDecimal:()=>bool
+## method CanStartNumber:()=>bool
 
-`Temp` 里的内容是不是能解析成小数。
+`Temp` 的第一个字符能不能起一个数字字面量：数字，或 `.` 后面紧跟数字。
+
+形状层（`ExpressionStatementPossibleShape.CanStart` 与 `ExpressionBuilder.StartsNumber`）共用这一条判据，避免两处各写一份。
 
 ```ts
-return this.Template.SymbolTemplate.IsNumberContainsDecimal(this.Temp.join(""));
+const text = this.TempToString();
+if (text.length === 0) {
+  return false;
+}
+if (this.Template.SymbolTemplate.IsNumber(text[0])) {
+  return true;
+}
+return text[0] === "." && text.length > 1 && this.Template.SymbolTemplate.IsNumber(text[1]);
 ```
 
-## method IsLastCharIsNumber:()=>bool
+## method IsExponentPrefix:()=>bool
 
-最后一个字符是不是数字。
+`Temp` 是不是「十进制数字前缀 + 结尾 `e`/`E`」：`1e` / `1.5e` / `1.e` / `.5e` / `1_0e` 为 true；`0x1e` / `a1e` / `e` 为 false。
+
+`Transit` 用它决定 `+`/`-` 是不是指数符号。合法程序里 `…e` 后面只可能是指数数字或指数符号，所以这里不需要看下一个字符。
 
 ```ts
-return this.Template.SymbolTemplate.IsNumber(this.Temp[this.Temp.length - 1]);
+const text = this.TempToString();
+if (text.length < 2) {
+  return false;
+}
+const last = text[text.length - 1];
+if (last !== "e" && last !== "E") {
+  return false;
+}
+return this.IsDecimalPrefix(text.substring(0, text.length - 1));
 ```
 
 ## method IsNumber:()=>bool
 
-`Temp` 里的内容算不算数字字面量：至多一个小数点，且不要求有数字——`"."` 成立、`".."` 不成立；结尾允许一个 `d` 或 `f` 后缀，但必须在有数字之后且是最后一个字符；`Temp` 为空时成立。
+`Temp` 是不是 TS 的 NumericLiteral（不含 BigInt）：去掉语言配置允许的普通后缀之后，正文要满足十进制 / 十六进制 / 二进制 / 八进制文法，`_` 只能夹在两位数字之间。
+
+先按「没有后缀」校验整串，是为了让 `0x1d` 里的 `d` 仍然算十六进制数字、不被后缀抢走；只有整串不成立时才去剥后缀。
 
 ```ts
-let containsDot = false;
-let containsNumber = false;
-let index = 0;
-for (const item of this.Temp) {
+const text = this.TempToString();
+if (this.IsNumberBody(text)) {
+  return true;
+}
+const suffix = this.Template.NumberTemplate.MatchPlainSuffix(text);
+if (suffix === null || suffix.length >= text.length) {
+  return false;
+}
+return this.IsNumberBody(text.substring(0, text.length - suffix.length));
+```
+
+## method IsBigInt:()=>bool
+
+`Temp` 是不是 BigInt 字面量：尾部必须是 `NumberTemplate` 配置的 BigInt 后缀，去掉后缀的正文是整数文法（十进制 / 十六进制 / 二进制 / 八进制），不能带小数或指数。
+
+```ts
+const text = this.TempToString();
+const suffix = this.Template.NumberTemplate.MatchBigIntSuffix(text);
+if (suffix === null || suffix.length >= text.length) {
+  return false;
+}
+return this.IsBigIntBody(text.substring(0, text.length - suffix.length));
+```
+
+## method NumberBody:()=>string
+
+`Temp` 去掉普通后缀后的正文。`_` 原样保留，要不要剥、怎么规范化由目标语言的形状层决定。
+
+```ts
+const text = this.TempToString();
+if (this.IsNumberBody(text)) {
+  return text;
+}
+const suffix = this.Template.NumberTemplate.MatchPlainSuffix(text);
+if (suffix === null || suffix.length >= text.length) {
+  return text;
+}
+return text.substring(0, text.length - suffix.length);
+```
+
+## method BigIntBody:()=>string
+
+`Temp` 去掉 BigInt 后缀后的正文，`_` 原样保留。
+
+```ts
+const text = this.TempToString();
+const suffix = this.Template.NumberTemplate.MatchBigIntSuffix(text);
+if (suffix === null || suffix.length >= text.length) {
+  return text;
+}
+return text.substring(0, text.length - suffix.length);
+```
+
+## private method IsDigitRun:(text:string)=>bool
+
+一串十进制数字：至少一位数字，`_` 只能出现在两位数字之间。
+
+```ts
+if (text.length === 0) {
+  return false;
+}
+let previousIsDigit = false;
+for (let index = 0; index < text.length; index++) {
+  const item = text[index];
   if (this.Template.SymbolTemplate.IsNumber(item)) {
-    if (!containsNumber) {
-      containsNumber = true;
-    }
-  } else if (item === ".") {
-    if (containsDot) {
-      return false;
-    }
-    containsDot = true;
+    previousIsDigit = true;
+  } else if (item === "_" && previousIsDigit && index + 1 < text.length) {
+    previousIsDigit = false;
   } else {
-    if ((item === "d" || item === "f") && containsNumber && index === this.Temp.length - 1) {
-      // 后缀合法，什么都不做
-    } else {
-      return false;
-    }
+    return false;
   }
-  index++;
+}
+return previousIsDigit;
+```
+
+## private method IsDecimalInteger:(text:string)=>bool
+
+十进制整数：是数字串，且没有前导零（`0` 本身除外，`0777` 这类 legacy octal 在 TS 里不合法）。
+
+```ts
+if (!this.IsDigitRun(text)) {
+  return false;
+}
+if (text.length > 1 && text[0] === "0") {
+  return false;
 }
 return true;
 ```
+
+## private method IsDecimalPrefix:(text:string)=>bool
+
+十进制数字**前缀**：`1` / `1.` / `1.5` / `.5` / `1_0.5_0`；允许没有小数部分，也允许没有整数部分，但至少要有数字。
+
+```ts
+if (text.length === 0) {
+  return false;
+}
+if (text[0] === ".") {
+  return this.IsDigitRun(text.substring(1));
+}
+let dotIndex = -1;
+for (let index = 0; index < text.length; index++) {
+  if (text[index] === ".") {
+    if (dotIndex >= 0) {
+      return false;
+    }
+    dotIndex = index;
+  }
+}
+if (dotIndex < 0) {
+  return this.IsDigitRun(text);
+}
+const head = text.substring(0, dotIndex);
+const tail = text.substring(dotIndex + 1);
+if (!this.IsDigitRun(head)) {
+  return false;
+}
+if (tail.length === 0) {
+  return true;
+}
+return this.IsDigitRun(tail);
+```
+
+## private method IsDecimalNumber:(text:string)=>bool
+
+十进制数字（不含后缀）：拆出指数段、小数点后逐段校验。
+
+```ts
+let exponentIndex = -1;
+for (let index = 0; index < text.length; index++) {
+  const item = text[index];
+  if (item === "e" || item === "E") {
+    if (exponentIndex >= 0) {
+      return false;
+    }
+    exponentIndex = index;
+  }
+}
+let mantissa = text;
+if (exponentIndex >= 0) {
+  mantissa = text.substring(0, exponentIndex);
+  let exponent = text.substring(exponentIndex + 1);
+  if (exponent.length === 0) {
+    return false;
+  }
+  if (exponent[0] === "+" || exponent[0] === "-") {
+    exponent = exponent.substring(1);
+  }
+  if (!this.IsDigitRun(exponent)) {
+    return false;
+  }
+}
+let dotIndex = -1;
+for (let index = 0; index < mantissa.length; index++) {
+  if (mantissa[index] === ".") {
+    if (dotIndex >= 0) {
+      return false;
+    }
+    dotIndex = index;
+  }
+}
+if (dotIndex < 0) {
+  return this.IsDecimalInteger(mantissa);
+}
+const head = mantissa.substring(0, dotIndex);
+const tail = mantissa.substring(dotIndex + 1);
+if (head.length === 0) {
+  return this.IsDigitRun(tail);
+}
+if (!this.IsDecimalInteger(head)) {
+  return false;
+}
+if (tail.length === 0) {
+  return true;
+}
+return this.IsDigitRun(tail);
+```
+
+## private method IsRadixDigit:(item:string, radix:int)=>bool
+
+某个字符在指定进制里算不算数字：`radix` 取 2 / 8 / 16，分别按二进制 / 八进制 / 十六进制的数字集判断。
+
+```ts
+if (item >= "0" && item <= "9") {
+  if (radix === 2) {
+    return item === "0" || item === "1";
+  }
+  if (radix === 8) {
+    return item >= "0" && item <= "7";
+  }
+  return true;
+}
+if (radix === 16) {
+  return (item >= "a" && item <= "f") || (item >= "A" && item <= "F");
+}
+return false;
+```
+
+## private method IsRadixRun:(text:string, radix:int)=>bool
+
+一串指定进制的数字：至少一位，`_` 只能夹在两位数字之间。
+
+```ts
+if (text.length === 0) {
+  return false;
+}
+let previousIsDigit = false;
+for (let index = 0; index < text.length; index++) {
+  const item = text[index];
+  if (this.IsRadixDigit(item, radix)) {
+    previousIsDigit = true;
+  } else if (item === "_" && previousIsDigit && index + 1 < text.length) {
+    previousIsDigit = false;
+  } else {
+    return false;
+  }
+}
+return previousIsDigit;
+```
+
+## private method IsNumberBody:(text:string)=>bool
+
+NumericLiteral 正文（已去后缀）：先认进制前缀，再按十进制数字校验。
+
+```ts
+if (text.length === 0) {
+  return false;
+}
+if (text.length > 2 && text[0] === "0") {
+  const prefix = text[1];
+  if (prefix === "x" || prefix === "X") {
+    return this.IsRadixRun(text.substring(2), 16);
+  }
+  if (prefix === "b" || prefix === "B") {
+    return this.IsRadixRun(text.substring(2), 2);
+  }
+  if (prefix === "o" || prefix === "O") {
+    return this.IsRadixRun(text.substring(2), 8);
+  }
+}
+return this.IsDecimalNumber(text);
+```
+
+## private method IsBigIntBody:(text:string)=>bool
+
+BigInt 正文（已去后缀）：只能是指定进制的整数，不能带小数点或指数。
+
+```ts
+if (text.length === 0) {
+  return false;
+}
+if (text.length > 2 && text[0] === "0") {
+  const prefix = text[1];
+  if (prefix === "x" || prefix === "X") {
+    return this.IsRadixRun(text.substring(2), 16);
+  }
+  if (prefix === "b" || prefix === "B") {
+    return this.IsRadixRun(text.substring(2), 2);
+  }
+  if (prefix === "o" || prefix === "O") {
+    return this.IsRadixRun(text.substring(2), 8);
+  }
+}
+return this.IsDecimalInteger(text);
+```
+
 
 ## method IsBool:()=>bool
 
@@ -156,6 +437,8 @@ return items.includes(this.TempToString());
 
 判定、收尾、新开都在这一个方法里：
 
+- **指数符号**：当前字符是 `+`/`-`，且上一个未关闭的 `Common` 是十进制指数前缀 → 并进那个块。合法程序里 `…e` 之后只可能是指数数字或指数符号，所以这里不看下一个字符；
+- **前导点**：上一个单元是未关闭的、内容恰好为 `.` 的 `Symbol`，当前字符是数字 → 用新数字块顶替它（`Symbol` 在 `Transit` 里被丢弃，字符由 `Common` 接管）；
 - 上一个单元是未关闭的 `Common`：`.` 且它是纯数字 → 追加；`IsAppend` → 追加；否则先 `TryToClose` 它，建出形状就返回 `Reload`；
 - 收尾之后（或本来就没有 `Common` 可续接）：当前字符是符号或空白 → `Undo`，交给后面的分支；
 - 其余 → 开新块：先 `last.TryToClose(context)`，建出形状就返回 `Reload`，否则加新单元、签入当前字符并 `Done`。
@@ -164,6 +447,23 @@ return items.includes(this.TempToString());
 const value = source.Value;
 const template = unit.Template;
 const last = unit.Last();
+if ((value === "+" || value === "-")
+    && last instanceof Common && !last.Closed
+    && last.IsExponentPrefix()) {
+  last.AppendAndSignOut(source);
+  return BranchStates.Done;
+}
+if (last instanceof Symbol && !last.Closed
+    && last.TempToString() === "."
+    && template.SymbolTemplate.IsNumber(value)) {
+  const dot = last as Symbol;
+  const number = new Common(template);
+  number.SignInToken(dot);
+  number.AppendValueAndSignOut(".", dot.SourceRange.End!);
+  dot.Replace(number);
+  number.AppendAndSignOut(source);
+  return BranchStates.Done;
+}
 if (last instanceof Common && !last.Closed) {
   if (value === "." && template.SymbolTemplate.IsSymbol(value) && last.IsNumberWithoutDecimal()) {
     last.AppendAndSignOut(source);

@@ -48,7 +48,7 @@
 
 ## method Ban:(items:Array<string>)=>SymbolTemplate
 
-追加若干禁用字符，返回自身便于链式调用。禁掉 `_` 靠的就是它。
+追加若干禁用字符，返回自身便于链式调用。若某个内置符号字符在某种语言里其实是标识符字符（或数字的一部分），就靠它把该字符排除出符号表。
 
 ```ts
 this.BanedSymbol.push(...items);
@@ -92,7 +92,6 @@ switch (item) {
   case "\\":
   case "|":
   case "-":
-  case "_":
   case "=":
   case "+":
   case "`":

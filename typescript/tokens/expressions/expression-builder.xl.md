@@ -72,6 +72,7 @@ import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { RegularExpressionLiteralShape } from "../literals/regular-expression-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
@@ -147,12 +148,17 @@ return this.TextOf(unit) === text;
 
 ## method StartsNumber:(text:string)=>bool
 
+文本能不能起一个数字字面量：首字符是数字，或 `.` 后面紧跟数字（前导点写法 `.5`）。与 `Common.CanStartNumber` 同一口径。
+
 ```ts
 if (text.length === 0) {
   return false;
 }
 const ch = text[0];
-return ch >= "0" && ch <= "9";
+if (ch >= "0" && ch <= "9") {
+  return true;
+}
+return ch === "." && text.length > 1 && text[1] >= "0" && text[1] <= "9";
 ```
 
 ## method SpanLeaf:(shape:ShapeToken, index:int)=>ShapeToken
@@ -629,6 +635,11 @@ if (unit instanceof Common) {
     return this.MakeKeywordLeaf(new ThisKeywordShape(this.Template), start);
   }
   if (this.StartsNumber(text)) {
+    if ((unit as Common).IsBigInt()) {
+      const bigIntShape = BigIntLiteralShape.FromBasicToken(unit as Common, this.Context);
+      bigIntShape.Pos = this.Positions[start];
+      return bigIntShape;
+    }
     const shape = NumericLiteralShape.FromBasicToken(unit as Common, this.Context);
     shape.Pos = this.Positions[start];
     return shape;

@@ -86,6 +86,7 @@
    一行一个用例；行内 `\n` 由生成器还原成真实换行。
 
 6. shape 问题分类
+   - basic token存在问题
    - 缺少possible
    - 缺少end
    - possible compute不对

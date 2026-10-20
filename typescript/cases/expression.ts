@@ -332,8 +332,8 @@ a = 1; b = 2;
 // ASI / 多语句边界              a\n+b;   a\n++b;   （换行是否断句单独一轮，本批只收“换行后仍可延续”的写法）
 // 以下是本批想收、但当前收不进来的写法（原因在箭头后）：
 // 正则字面量                  /a/;   /a/g;             ← RegexToken.Transit 被 ts 模板 Ban（a / b 会被误判）；用例见 regex.ts
-// 指数带符号 / 数字分隔符 / 前导点  1e-3;   1_000;   .5;    ← basic token 在符号处断开（1e-3 被拆成 1e - 3）
+// 指数带符号 / 数字分隔符 / 前导点  1e-3;   1_000;   .5;    ← 已支持，用例迁到 number.ts（basic token 会把它们收进同一个 Common）
 // 字符串里的 \u / \x 转义      "\u0041";   "\x41";       ← String basic token 不解码这两种转义
 // 字符串里的 \n 转义           "a\nb";                 ← 用例生成器把行内 \n 还原成真换行，写不进用例
 // 空串                      "";                     ← 投影已能输出 text==""，加进用例即可（本轮沿用原计数）
-// 模板串 / bigint              `t`;   1n;              ← 会被当成 StringLiteral / NumericLiteral，kind 不对
+// 模板串                      `t`;                     ← 会被当成 StringLiteral，kind 不对；bigint（1n）已支持，见 number.ts

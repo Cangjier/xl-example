@@ -70,11 +70,8 @@ if (unit instanceof Common) {
   if (text === "typeof" || text === "void" || text === "delete" || text === "new") {
     return true;
   }
-  if (text.length > 0) {
-    const ch = text[0];
-    if (ch >= "0" && ch <= "9") {
-      return true;
-    }
+  if ((unit as Common).CanStartNumber()) {
+    return true;
   }
   return text !== "import"
     && text !== "export"

@@ -1037,7 +1037,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 2
+              "end": 2,
+              "text": "0n"
             }
           ]
         }
@@ -1054,7 +1055,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 2
+              "end": 2,
+              "text": "1n"
             }
           ]
         }
@@ -1071,7 +1073,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 4
+              "end": 4,
+              "text": "123n"
             }
           ]
         }
@@ -1088,7 +1091,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 6
+              "end": 6,
+              "text": "1000n"
             }
           ]
         }
@@ -1105,7 +1109,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 5
+              "end": 5,
+              "text": "0x1fn"
             }
           ]
         }
@@ -1122,7 +1127,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 5
+              "end": 5,
+              "text": "0x1fn"
             }
           ]
         }
@@ -1139,7 +1145,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 6
+              "end": 6,
+              "text": "5n"
             }
           ]
         }
@@ -1156,7 +1163,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 6
+              "end": 6,
+              "text": "5n"
             }
           ]
         }
@@ -1173,7 +1181,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 5
+              "end": 5,
+              "text": "15n"
             }
           ]
         }
@@ -1190,7 +1199,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 5
+              "end": 5,
+              "text": "15n"
             }
           ]
         }
@@ -1207,7 +1217,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 8
+              "end": 8,
+              "text": "0xffffn"
             }
           ]
         }
@@ -1224,7 +1235,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 12
+              "end": 12,
+              "text": "170n"
             }
           ]
         }
@@ -1241,7 +1253,8 @@
             {
               "kind": "BigIntLiteral",
               "pos": 0,
-              "end": 6
+              "end": 6,
+              "text": "63n"
             }
           ]
         }

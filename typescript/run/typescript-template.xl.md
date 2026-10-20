@@ -34,14 +34,17 @@ return value.length > 0 && /^[\p{ID_Continue}]$/u.test(value);
 
 ## static method Create:()=>Template
 
-造一份 ts 的模板：装 basic 跳转队列（不装的话 `Bracket` 等取不到队列，括号里的字符一个都收不进来），再把字符串形态与正则形态配成 ts 的样子。
+造一份 ts 的模板：装 basic 跳转队列（不装的话 `Bracket` 等取不到队列，括号里的字符一个都收不进来），再把字符串形态、正则形态与数字后缀配成 ts 的样子。
 
 **ts 模板不再禁用 `RegexToken.Transit`**：判据已经换成「跳过 trivia 取 `/` 之前最后一个代码单元、按 token 类型判」，`a / b` / `(a) / b` / `a /* c */ / b` 这些除号不会再被误认成正则（这 89 条除号用例就是判据的回归网）。
+
+**数字后缀**：ts 的数字字面量没有 `d` / `f` / `m` / `l` / `u` 这类普通后缀，`PlainSuffixes` 保持空；唯一的后缀是 BigInt 的 `n`。`_` 已经从 core 的符号表里移除，所以 `1_000`、`a_b` 都归 `Common`。
 
 ```ts
 const template = new Template();
 template.BranchTemplate.DefaultValue = Template.BasicBranchQueue();
 template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
+template.NumberTemplate.BigIntSuffix = "n";
 template.StringTemplate.Quotes = ['"', "'", "`"];
 template.StringTemplate.HasVerbatim = false;
 template.StringTemplate.HasInterpolation = false;

@@ -108,7 +108,8 @@ return CloseStates.Nothing;
 
 判定、收尾、新开都在这一个方法里：
 
-- 当前字符不是符号 → 先关掉还开着的上一个 `Symbol`（建出形状就返回 `Reload`），再 `Undo`；
+- 当前符号是 `+`/`-`，且上一个未关闭的 `Common` 是十进制指数前缀 → `Undo`，把符号让给 `Common` 续进数字块；
+- 当前字符不是符号 → 先 `Undo`；**若上一个单元是未关闭的孤立 `.` 且当前字符是数字，不关闭它**——留给 `Common` 顶替成数字块，提前关闭会先触发候选计算、把语句首的 `.5` 判成「没有候选形状」；
 - 上一个 `Symbol` 未关闭且能续接（组合符号）→ 追加，`Done`；
 - 上一个 `Symbol` 未关闭但接不上 → 关掉它，然后开新块；
 - `.` 跟在纯数字 `Common` 后面 → `Undo`，小数点归 `Common` 吃；
@@ -118,9 +119,17 @@ return CloseStates.Nothing;
 const value = source.Value;
 const template = unit.Template;
 const last = unit.Last();
+if ((value === "+" || value === "-")
+    && last instanceof Common && !last.Closed
+    && last.IsExponentPrefix()) {
+  return BranchStates.Undo;
+}
 if (!template.SymbolTemplate.IsSymbol(value)) {
-  if (last instanceof Symbol && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
-    return BranchStates.Reload;
+  if (last instanceof Symbol && !last.Closed) {
+    const numberTakesDot = last.TempToString() === "." && template.SymbolTemplate.IsNumber(value);
+    if (!numberTakesDot && last.TryToClose(context) === CloseStates.Built) {
+      return BranchStates.Reload;
+    }
   }
   return BranchStates.Undo;
 }
