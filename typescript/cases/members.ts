@@ -246,3 +246,11 @@ class C extends B { static { super.x; } }
 ({ m(x: any) /* c */ : /* c */ x is A { return true; } });
 ({ m /* c */ (): /* c */ A { return a; } });
 // 暂缓：对象方法的 type parameters（`({ m<T>(x: T): T { return x; } })`）—— object literal 泛型方法未接
+
+// ===== base 14：对象字面量泛型方法（TS 5.0）：TypeParameter 在名字之后 =====
+({ m<T>(x: T): T { return x; } });
+({ m<T, U>(x: T, y: U): T { return x; } });
+({ m<const T>(x: T) { return x; } });
+({ async m<T>(x: T): T { return x; } });
+({ *m<T>(x: T) {} });
+({ m<T> /* c */ (x: T): T { return x; } });
