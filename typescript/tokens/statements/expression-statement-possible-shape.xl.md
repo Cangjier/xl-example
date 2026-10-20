@@ -36,6 +36,8 @@ import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 
 ## field AsyncStage:int = 0
 
+## field ImportStage:int = 0
+
 # class ExpressionStatementPossibleShape extends PossibleShape
 
 ```txt
@@ -83,6 +85,12 @@ if (unit instanceof Common) {
   // `async` 只在真的起始一个 async 箭头时才放行；是不是箭头由 ComputeByIndex 的
   // 累积状态机（AsyncStage）在后续单元上确认，确认不了就 Reject。
   if (text === "async") {
+    return true;
+  }
+  // `import` 只在 `import . meta` 时放行；下一个代码单元必须是 `.`
+  // （由 ComputeByIndex 的 ImportStage 状态机确认）。`import x from "m"` 里
+  // 表达式候选在 `x` 处退出，import 声明候选保持唯一。
+  if (text === "import") {
     return true;
   }
   if ((unit as Common).CanStartNumber()) {
@@ -348,6 +356,7 @@ if (state.Checked > tokenIndex + 1) {
   state.DoneAt = -1;
   state.Rejected = false;
   state.AsyncStage = 0;
+  state.ImportStage = 0;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -366,6 +375,9 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     } else if (unit instanceof Common && (unit as Common).TempToString() === "async") {
       // async 箭头要累积确认：下一格必须是 `(` 或标识符，再下一格必须是 `=>`。
       state.AsyncStage = 1;
+    } else if (unit instanceof Common && (unit as Common).TempToString() === "import") {
+      // import.meta 要累积确认：下一个代码单元必须是 `.`，否则本候选退出。
+      state.ImportStage = 1;
     }
   } else if (state.AsyncStage === 1) {
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
@@ -381,6 +393,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     if (unit instanceof Symbol && (unit as Symbol).Is("=>")) {
       state.AsyncStage = 3;
     } else {
+      state.Rejected = true;
+    }
+  } else if (state.ImportStage === 1) {
+    if (unit instanceof Symbol && (unit as Symbol).Is(".")) {
+      state.ImportStage = 2;
+    } else {
+      // `import` 后面不是 `.`：不是 import.meta，候选退出（import 声明候选此时保持唯一）。
       state.Rejected = true;
     }
   }
