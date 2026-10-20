@@ -339,3 +339,16 @@ children = Identifier("this") + 类型；函数声明 / 方法 / 接口方法 / 
 以及 trivia（`this /* c */ : A`）与 rest 回归。
 
 非法（oracle，不写用例）：`function f(x: B, this: A) {}` —— this 参数必须是第一个参数。
+
+## type members sweep（cover-type-members-1）
+
+红→绿（TypeBuilder.ParseTypeMember 扩展，type literal 与 interface 成员共用）：
+
+- get/set 访问器：`{ get x(): A; set x(v: A) }`、`interface I { get x(): A }`、`interface I { set x(v: A) }` —— 新增 GetAccessor / SetAccessor 分支
+  （children = Identifier + [Parameter] + [返回类型]）；
+- 可选方法 `m?(): void`：`?` 紧跟参数表/泛型参数表时作为 MethodSignature 的 QuestionToken child；
+- 泛型方法 `m<T>(x: T): T`：名字后先解析 TypeParameterList，children 顺序 = Identifier → TypeParameter… → Parameter… → 返回类型。
+
+原本已绿（只补测量）：call signature（`{ (): void }`、`{ (a: A): B }`）、construct signature（`{ new (): C }`、
+`{ new <U>(x: U): U }`、interface 内 `new`）、索引签名（string / readonly number / symbol）、方法重载、
+`readonly a: A; b?: B`、以及注释 trivia。

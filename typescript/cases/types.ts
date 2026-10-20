@@ -524,3 +524,18 @@ type F = new (this: A) => B;
 type F = (this: void) => A;
 // trivia
 type F = (this /* c */ : A) => B;
+
+// ===== type members sweep：call/new/get/set/optional-method/generic-method（type literal） =====
+type T = { (): void };
+type T = { (a: A): B };
+type T = { new (): C };
+type T = { new <U>(x: U): U };
+type T = { [k: string]: A };
+type T = { readonly [k: number]: A };
+type T = { get x(): A; set x(v: A); };
+type T = { m?(): void };
+type T = { m<T>(x: T): T };
+type T = { readonly a: A; b?: B };
+// trivia
+type T = { readonly /* c */ a: A };
+type T = { get /* c */ x(): A };

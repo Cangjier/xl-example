@@ -947,3 +947,12 @@ class C { @dec m() {} }
 // missing -> not collected yet; owner: class-declaration-shape BuildMembers static-block branch (next chunk).
 // `// ` class C { public static {} }
 // `// ` class C { declare static {} }
+// ===== type members sweep：interface 成员（call/new/index/get/set/overload/optional/generic） =====
+interface I { (a: A): B; new (): C; }
+interface I { [k: symbol]: A }
+interface I { get x(): A; }
+interface I { set x(v: A); }
+interface I { m(a: A): B; m(a: C): D; }
+interface I { m?(): void; }
+interface I { m<T>(x: T): T; }
+interface I { m /* c */ (a: A): B; }
