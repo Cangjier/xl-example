@@ -1,5 +1,34 @@
 # declarations 覆盖报告（chunk 1 + chunk 2 + chunk 3）
 
+> **async chunk**（分支 `cover-async-fn-1`，起点 `origin/integration @9f7be57b`）：
+> 新 stem `typescript/cases/async-functions.ts` **22 / 22** 完全一致；全量 **2503 → 2525** 全绿；tsc 0 error。
+>
+> Oracle（TS `createSourceFile`，实测）：`FunctionDeclaration` 的 children 顺序是
+> **`AsyncKeyword` →（生成器 `AsteriskToken`）→ `Identifier` → 参数 →（可选）返回类型 →（可选）`Block`**；
+> `AsyncKeyword` 区间就是 `async` token（`Pos` = 前一个非 trivia 单元 `End+1`），声明 `Pos` 仍从 `async` 起。
+> `declare async function` 的 children 顺序是书写顺序 `DeclareKeyword → AsyncKeyword → …`。
+>
+> 实现（两页，均在 function declaration 家族内）：
+> - `function-declaration-possible-shape.xl.md`：Stage 0 接受 `declare` / `async`（`HasDeclare` / `HasAsync`），
+>   Stage 6 = 见过修饰词等 `function`；`declare async function` 的第二个修饰词在 Stage 6 接受。
+>   修饰词与 `function` 之间**换行**时沿用既有 `NoNewlineBefore`/`SplitDeclare` 机制，按 TS 的 ASI
+>   一次建出「ExpressionStatement(修饰词) + FunctionDeclaration」两条形状。
+> - `function-declaration-shape.xl.md`：`FromUnits` 改成**修饰词循环**（`declare` / `async`，按书写顺序），
+>   逐个建 `DeclareKeywordShape` / `AsyncKeywordShape`（`AsyncKeywordShape` 只有构造函数，这里就地签区间/Pos 后 `TryToClose`），
+>   Data 顺序 = 修饰词 →（`*`）→ 名字 → 参数 → 返回类型 → 函数体；`Pos` 链 = 第一个修饰词取声明 Pos、后续取前一个修饰词 `End+1`。
+>   `await` 表达式由既有 `ExpressionBuilder` 处理，未改。
+>
+> 22 条覆盖：`async function f() {}`、带参数/返回类型、`await g();` 体、`return await g();`、两种 await 混排、
+> `declare async function f(): void;`、注释（前导 / async 与 function 间 / function 与名字间 / 参数内 / 返回类型前后）、
+> `async function\nf() {}`、`async\nfunction f() {}`（ASI 拆分，TS 语义即 ExpressionStatement(async) + FunctionDeclaration）、
+> 重复形与和 `function` / `let` / `declare` 混排。
+>
+> 暂缓：**嵌套 async function**（`async function f() { async function g() {} }`）——同步嵌套
+> `function f() { function g() {} }` 已经是绿的，但函数体里的语句由 statements 的 `StatementBuilder` 分派，
+> 它认 `function` 关键字、不认 `async` 前缀；async 分支属 `typescript/tokens/statements/**`（本块写范围之外），
+> 需要 statements 侧补分派 + 复用 `FunctionDeclarationShape.FromUnits`。另暂缓：async generator（`async function*`）、
+> async method（class extras 分支）、泛型 async function（types 家族）、`export async function`（export 侧）。
+>
 > **chunk 3（heritage）**（分支 `cover-declarations-3`，起点 `origin/integration @0a02bda2`，合并
 > `origin/cover-declarations-2 @b8499967`；`source-file-shape.xl.md` 候选表有冲突，按并集手工去重后提交）：
 > ast-json 全量 **1554 / 1554**（合并后基线 1524 零回归），declarations.ts **138 / 138**，tsc 0 error，xl_build 0 error。

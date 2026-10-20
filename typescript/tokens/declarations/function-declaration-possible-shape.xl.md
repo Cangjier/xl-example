@@ -41,6 +41,8 @@ import { ItemUtil } from "../item-util.xl.md"
 
 ## field HasDeclare:bool = false
 
+## field HasAsync:bool = false
+
 ## field SplitDeclare:bool = false
 
 ## field FunctionAt:int = -1
@@ -57,7 +59,9 @@ declare function f(): void;
 根候选：条目可以从 `declare` 起（同一行紧跟 `function` 才算修饰符），名字、参数表 `(…)` 之后可以跟 `: 类型`，
 最后一块是函数体 `{…}` 的 `Bracket` 或（无函数体声明）顶层 `;`。函数体内容由 `StatementBuilder` 建。
 无体的 `;` 要求「有 `declare`」或「有返回类型」，所以根级的 `function f();` 会被拒绝。
-`function*` 生成器的 `*` 在 Stage 1 被接受（仍等名字）；`async function` / 泛型函数不在本批范围：`async` / `<` 会让扫描在对应 Stage 直接 `Reject`。
+`function*` 生成器的 `*` 在 Stage 1 被接受（仍等名字）；`async function` 与 `declare async function` 已支持（`AsyncKeyword` 子节点、按书写顺序），
+`declare` / `async` 与 `function` 之间换行时按 TS 的 ASI 拆成「ExpressionStatement(修饰词) + FunctionDeclaration」；
+泛型函数不在本批范围：`<` 会让扫描在对应 Stage 直接 `Reject`。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -81,6 +85,7 @@ if (state.Checked > tokenIndex + 1) {
   state.DoneAt = -1;
   state.Rejected = false;
   state.HasDeclare = false;
+  state.HasAsync = false;
   state.SplitDeclare = false;
   state.FunctionAt = -1;
 }
@@ -99,6 +104,11 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.Stage = 6;
       continue;
     }
+    if (unit instanceof Common && (unit as Common).Is("async")) {
+      state.HasAsync = true;
+      state.Stage = 6;
+      continue;
+    }
     if (unit instanceof Common && (unit as Common).Is("function")) {
       state.Stage = 1;
       continue;
@@ -107,12 +117,17 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 6) {
+    if (unit instanceof Common && (unit as Common).Is("async") && !state.HasAsync) {
+      // "declare async function ...": modifiers are emitted in written order.
+      state.HasAsync = true;
+      continue;
+    }
     if (unit instanceof Common && (unit as Common).Is("function")) {
       if (FunctionDeclarationPossibleShape.NoNewlineBefore(units, at)) {
         state.Stage = 1;
         continue;
       }
-      // ASI split: "declare" is its own ExpressionStatement, "function ..." starts a declaration.
+      // ASI split: the modifier is its own ExpressionStatement, "function ..." starts a declaration.
       state.SplitDeclare = true;
       state.FunctionAt = at;
       state.Stage = 1;
