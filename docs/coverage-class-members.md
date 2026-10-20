@@ -210,3 +210,20 @@
 ### deferred
 - optional property question token `x?: A` (QuestionToken child): same pattern as `!`, not in this round scope.
 - definite assignment on parameter properties (`constructor(public x!: A)`): parameter-property path separate; later chunk.
+
+## chunk 11 (optional properties + optional parameter properties, branch cover-member-mods-3 @ origin/integration c2846827)
+
+- optional class properties: `x?: A;`, `static x?: A;`, `#x?: A;`, `public x?: A;`, `readonly x?: A;`,
+  `x?: A = b;`, two optional members, trivia around `?`/`:`; QuestionToken is a child between name and type
+  (lexer may hand a combined `?:` symbol: the shape covers only the `?` character, matching TS).
+- optional parameter properties: `constructor(public x?: A) {}`, `private readonly y?: B`, `public x: A, private y?: B`.
+- parameter property with initializer (bonus, was red): `constructor(readonly y = 1) {}`.
+- regression: `x!: A | B;`, `x!: A = b;` (definite assignment from previous chunk).
+- implementation: property branch consumes `?`/`?:` into QuestionTokenShape (partial range for the combined token,
+  same technique as TypeBuilder.ParseOptionalMark), and the type block uses the remembered colon position;
+  BuildParameters property-parameter branch now handles optional mark, optional type and an initializer child.
+- readings: declarations 651/651 (baseline 635 + 16); full suite 3768/3768 (baseline 3752); tsc 0 error.
+
+### deferred
+- parameter property definite assignment `constructor(public x!: A)`: invalid TypeScript; the oracle recovery AST contains
+  degenerate empty Parameter nodes (e.g. `Parameter [30,30) Identifier [30,30)`), so matching it byte-for-byte has no value.
