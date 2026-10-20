@@ -62,3 +62,60 @@ a\n+b;
 a\n(b);
 [a, b];
 a\nb\nc;
+
+// ── chunk 2：声明条目在 EOF 的收口（每条用例单独 parse，文件就在这里结束） ──
+// class / interface / enum / declare class 的单条 EOF 形式已在上面的 base 组（那些行本身就是 EOF 用例），
+// 这里补其余种类 + 尾部换行 / 尾部注释变体。
+function f() {}
+function f(a: A): B { return a; }
+enum E { A }
+type T = A;
+namespace N {}
+module N {}
+module "m" {}
+declare module "m" {}
+import x = require("m");
+// 尾部换行 / 尾部注释（没有 `;`）
+class C {}\n
+class C {} // c
+class C {}\n// c
+interface I {} // c
+function f() {} // c
+type T = A; // c
+// 两条声明背靠背，最后一条在 EOF 收口
+class C {} class D {}
+class C {} interface I {}
+function f() {} class C {}
+enum E { A } type T = A;
+namespace N {} class C {}
+class C {} function f() {}
+interface I {} enum E { A }
+
+// ── chunk 2：声明条目之间的换行边界（不是 ASI 断句） ──
+class C {}\ninterface I {}
+function f() {}\nclass C {}
+class C {}\n\nclass D {}
+class C {} // c\nclass D {}
+interface I {}\nfunction f() {}
+enum E { A }\nclass C {}
+namespace N {}\nclass C {}
+type T = A;\nclass C {}
+import x = require("m");\nclass C {}
+
+// ── chunk 2：体前换行：补齐其余种类（class/interface/enum/declare 已在上面的组） ──
+function f()\n{}
+function f(a: A): B\n{\nreturn a;\n}
+module N\n{}
+namespace N\n{}
+
+// ── chunk 2：无分号 vs 必须分号（oracle：TS 两种都合法，看本仓是否都能收） ──
+type T = A
+import x = require("m")
+type T = A;\ninterface I {}
+class C {}\ntype T = A;
+
+// ── chunk 2 暂缓（红点，原因见 docs/coverage-end.md） ──
+// declare function f(): void;        ← 无体函数声明：需要声明侧 end 候选（declarations 未收）
+// declare function f()\n{}           ← 同上
+// 带成员的体前换行 class C\n{\nx: number;\n}   ← 类成员归 cover-members-1（与「体前换行」无关）
+

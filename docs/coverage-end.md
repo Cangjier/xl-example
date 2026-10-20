@@ -92,3 +92,41 @@ class / interface / enum / declare class / declare interface 的空体、`{ }`�
 
 **仍然存在（chunk 1 记录的通用边界）**：`a\nimport b from "m";` 会抛「终结候选与其它候选同时成立」
 （import / export 候选在边界那一刻仍活，`CatalogGuide` 不许改，需要 `core` 之外的独立通道）；本块未处理。
+
+## 8. end-declarations chunk 2：声明条目在 EOF 的收口（缺分号的 type alias / import-equals）
+
+**新增用例**（`typescript/cases/end-declarations.ts` append-only，37 → 76，+39 条）：
+
+- EOF 族：`function f() {}` / `function f(a: A): B { return a; }` / `enum E { A }` / `type T = A;` /
+  `namespace N {}` / `module N {}` / `module "m" {}` / `declare module "m" {}` / `import x = require("m");`
+  单条结尾；尾部换行 / 尾部注释变体（`class C {}\n`、`class C {} // c`、`class C {}\n// c` 等）；
+  两条声明背靠背到 EOF（class+class / class+interface / function+class / enum+type / namespace+class / interface+enum）。
+- 声明之间的换行边界：`class C {}\ninterface I {}`、`function f() {}\nclass C {}`、空行 / 行注释分隔、
+  `type T = A;\nclass C {}`、`import x = require("m");\nclass C {}`。
+- 体前换行补齐：`function f()\n{}`、`function f(a: A): B\n{\nreturn a;\n}`、`module N\n{}`、`namespace N\n{}`。
+- 无分号 vs 必须分号（oracle：TS 两种都合法）：`type T = A`、`import x = require("m")`、
+  `type T = A;\ninterface I {}`、`class C {}\ntype T = A;`。
+- ASI 回归（原有行保留）：`a\n++b;`、`a\nb;`、`a\n+b;`、`a\n(b);`、`[a, b];`、`a\nb\nc;`。
+
+**发现并修掉的真实缺口**（唯一改动 xl 源的地方，`source-file-end-possible-shape.xl.md`）：
+
+- 现象：文件以 `type T = A` 或 `import x = require("m")` 结尾（无 `;`）时，两条都抛
+  `表达式语句没有读完`——声明候选在 EOF 不 `Accept`，终结候选的 EOF 兜底一律按
+  `ExpressionStatementShape.FromUnits(..., false)` 建最后一条，于是把声明当表达式解析。
+- 修法：EOF 兜底前先试 `BuildTrailingDeclaration`：只认 `type` 开头与 `import <名> = …`（`code[2]` 是 `=`），
+  在最后一个真实代码单元后补一个**零宽合成 `Symbol ";"`**（`SignIn(End)` + `AppendValueAndSignOut(";", End)`，
+  所以 `Is(";")` 成立、`End.Index + 1` 正好是声明右边界），再走
+  `TypeAliasDeclarationShape.FromUnits` / `ImportEqualsDeclarationShape.FromUnits` 的正常入口；
+  其余老路径不变。
+- 为什么不是改声明候选：`TypeAliasDeclarationPossibleShape` / `ImportEqualsDeclarationPossibleShape`
+  不在本块 write scope（也不该把「EOF 也是终结符」塞进 declaration possible）；终结候选本来就是
+  「这一条到头了」的判定点。
+- 未改任何 declaration shape 文件，未碰 `core/**`。
+
+**读数（本分支）**：`end-declarations` **76/76 完全一致**；全量 ast-json / diff **1773/1773**
+（基线 1734 + 39），结构差 0 / 位置差 0 / 字段差 0，无回归；tsc 0 error；xl_check 0 error（仅仓库既有 W3102/W3103 文档类 warning）。
+
+**仍暂缓**：`declare function f(): void;` / `declare function f()\n{}`（无体函数声明需要声明侧的 end 候选，
+declarations 尚未收）；带成员的体前换行（归 cover-members-1）；`a\nimport …` 的「终结候选与其它候选同时成立」
+仍是 chunk 1 记录的通用边界，本块未处理。
+
