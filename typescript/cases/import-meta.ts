@@ -42,3 +42,21 @@ import { a } from "m";
 import * as ns from "m";
 import type { T } from "m";
 import a, { b } from "m";
+
+// ===== dynamic import expressions（chunk dynamic-import） =====
+import("m");
+import("m").then(f);
+const p = import("m");
+import("m", { with: { type: "json" } });
+import("m", { assert: { type: "json" } });
+f(import("m"));
+await import("m");
+(await import("m")).default;
+import("m").T;
+// + 前导空格 / 词间块注释
+  import("m");
+import /* c */ ("m");
+// + 行尾注释
+import("m"); // c
+// + 换行
+import(\n"m"\n);
