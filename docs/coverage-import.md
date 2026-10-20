@@ -51,3 +51,14 @@
 - 暂缓：`export import type A = B.C;` —— oracle 合法（ImportEqualsDeclaration.isTypeOnly），但
   ImportEquals 候选的 `type` 前瞻未接（会退到 import 候选并 shell 报错），需要改候选前瞻的 NextAfterName 逻辑，
   本 chunk 只记录不硬改。
+## type-only import-equals（chunk export-import-type）
+
+- `ImportEqualsDeclarationPossibleShape` 的 raw lookahead `NextAfterName` 现在跳过可选的 `type` 修饰词：
+  读到第一个词是 `type` 时再读一个名字词，然后返回其后的第一个非 trivia 字符（要求 `=`），所以
+  `import type A = ...` / `export import type A = ...` 不会在 `import` 之后被错误 Reject。
+- 状态机新增 Stage 7：`import` 之后先见到 `type` 时等真正的名字，再到 Stage 2 等 `=`；其余阶段不变。
+- `ImportEqualsDeclarationShape` 侧：既有可选 `type` 解析（IsTypeOnly + name Pos = `type`.End+1）已就绪；
+  oracle 显示 TS 的 ImportEqualsDeclaration 只带 `isTypeOnly` 标志，`type` **不是** child 节点，因此不新增 TypeKeyword child。
+- 新增全绿（import.ts +7）：`export import type A = B.C;`、`import type A = B.C;`、`export import type D = require("n");`、
+  `import type A = require("n");`，以及前导空格/行尾注释/词间块注释/`export import type A = B.C.D;` trivia；
+  回归：`export import A = B.C;`、`import A = B.C;`、`import A = require("n")`、namespace 形式全绿。

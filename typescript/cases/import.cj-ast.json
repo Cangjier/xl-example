@@ -3662,6 +3662,49 @@
       ]
     },
     {
+      "src": "export import type A = B.C;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 27,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "A"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 22,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "B"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "export import A = B.C;",
       "ast": [
         {
@@ -3866,6 +3909,266 @@
                   "pos": 51,
                   "end": 54,
                   "text": "n"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import type A = B.C;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 20,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 11,
+              "end": 13,
+              "text": "A"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 15,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "B"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 19,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export import type D = require(\"n\");",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 36,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "D"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 22,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 31,
+                  "end": 34,
+                  "text": "n"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export import type A = B.C;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 27,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "A"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 22,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "B"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export import type A = B.C; // c",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 27,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "A"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 22,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "B"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export /* c */ import type A = B.C;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 35,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 26,
+              "end": 28,
+              "text": "A"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 30,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "B"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 34,
+                  "text": "C"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export import type A = B.C.D;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 29,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "A"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 22,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "QualifiedName",
+                  "pos": 22,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 26,
+                      "text": "C"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 28,
+                  "text": "D"
                 }
               ]
             }

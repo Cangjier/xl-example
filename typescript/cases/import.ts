@@ -119,9 +119,16 @@ import A = require("n");
 export import A = B.C;
 export import A = require("n");
 export import A = B.C.D;
-// export import type A = B.C;   —— type-only import-equals：ImportEquals 候选的 `type` 前瞻未接（oracle 合法），暂缓
+export import type A = B.C;
 // + 前导空格 / 行尾注释 / 词间块注释 / 换行
   export import A = B.C;
 export import A = B.C; // c
 export /* c */ import A = B.C;
 export import A = B.C.D; export import D = require("n");
+// + type-only import-equals trivia（chunk export-import-type）
+import type A = B.C;
+export import type D = require("n");
+  export import type A = B.C;
+export import type A = B.C; // c
+export /* c */ import type A = B.C;
+export import type A = B.C.D;
