@@ -4314,6 +4314,399 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export {}",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * from \"m\"",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import \"m\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 10,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x = require(\"m\")",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "x"
+            },
+            {
+              "kind": "ExternalModuleReference",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 19,
+                  "end": 22,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export function f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export class C {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export interface I {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export enum E { A }",
+      "ast": [
+        {
+          "kind": "EnumDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 11,
+              "end": 13,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 15,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export namespace N {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export function f() {}\n",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type T = A",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 11,
+              "end": 13,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 15,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type T = A // c",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 11,
+              "end": 13,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 15,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
