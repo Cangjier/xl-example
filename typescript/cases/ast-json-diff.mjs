@@ -49,6 +49,7 @@ function selectedStems(args) {
 
 const TS_KIND_ALIASES = new Map([
   ["FirstStatement", "VariableStatement"],
+  ["LastStatement", "DebuggerStatement"],
   ["FirstLiteralToken", "NumericLiteral"],
   ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
   ["LastTemplateToken", "TemplateTail"],
