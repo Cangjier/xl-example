@@ -78,8 +78,8 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (state.Stage === 0) {
     if (unit instanceof Common) {
       const text = (unit as Common).TempToString();
-      if (text === "declare") {
-        state.Stage = 1;
+      if (text === "declare" || text === "abstract") {
+        // 修饰符可以连续出现（`abstract declare class`），所以停在 Stage 0 继续等 `class`。
         continue;
       }
       if (text === "class") {

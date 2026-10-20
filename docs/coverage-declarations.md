@@ -1,6 +1,30 @@
-# declarations 覆盖报告（chunk 1）
+# declarations 覆盖报告（chunk 1 + chunk 2）
 
-分支 `cover-declarations-1`，起点 `origin/integration @ee750929`（含 expressions / members / end / types chunk 1）。
+> **chunk 2**（分支 `cover-declarations-2`，起点 `origin/integration @89413f7d`，已合并
+> `origin/cover-expressions-3 @8e09dbf4` 与 `origin/cover-declarations-1 @f0040127`）：
+> ast-json 全量 **1383 / 1383**（基线 1339 零回归），declarations.ts **108 / 108**，tsc 0 error，xl_check 0 error。
+>
+> chunk 2 新增（44 条）：
+> - **FunctionDeclaration**：`function f() {}`、`function f(a) {}`、`function f(a, b) {}`、`function f(a: A) {}`、
+>   `function f(a: A, b: B) {}`、`function f(): void {}`、`function f(a?: A) {}`、`function f(a: A): C {}`、
+>   `function f(a: A, b: B): C { return a; }`、`function f() { return; }`、`function f(a) { return a; }`、
+>   体内 `let` + `return`、以及与 class/interface/enum 混排的重复形；trivia：前导、关键字与名字间、
+>   名字与括号间、参数前后/冒号前后注释、体前注释、块内、`function\nf()`、行尾换行。
+>   实现：`FunctionDeclarationShape.FromUnits` 自建参数（不带类型的只建 Identifier，带 `:`/`?:` 的走
+>   `TypeBuilder.ParseParameter()`）、`TypeBuilder.ParseType()` 建返回类型、`StatementBuilder` 建 `{…}` 函数体；
+>   `FunctionDeclarationPossibleShape` 用 Stage 扫描，Accept 落在函数体那个 `Bracket` 上。
+> - **abstract 修饰符**：`abstract class C {}`、`declare abstract class C {}`、`abstract declare class C {}` +
+>   trivia。新增 `keywords/abstract-keyword-shape.xl.md`（`FromBasicToken`）；`class-declaration-shape` 支持
+>   任意顺序的 `declare` / `abstract` 修饰符（第一个修饰符 Pos = 声明 Pos，后续 = 前一个修饰符 End+1）。
+> - **harness 别名**（最小改动）：`ast-json.mjs` 与 `ast-json-diff.mjs` 的 `TS_KIND_ALIASES` 各加一行
+>   `["FirstContextualKeyword","AbstractKeyword"]`（带注释）。全量复跑其它 stem 无回归。
+>
+> chunk 2 仍未做：继承 / implements（`HeritageClause` 在 members 家族、`ExpressionWithTypeArguments` 在
+> expressions 家族，都不在本块 write scope）；class/interface 带成员（等 class element shapes）；
+> `function f()\n{ }` 体前换行（同一个根终结候选 ASI 判据，cover-end-1 范围）；泛型 / 装饰器 / 重载 /
+> `declare function f(): void;`（声明 end 候选）。
+
+分支 chunk 1：`cover-declarations-1`，起点 `origin/integration @ee750929`（含 expressions / members / end / types chunk 1）。
 本块动了：`typescript/tokens/declarations/{class,interface,enum}-declaration-{shape,possible-shape}.xl.md`、
 `typescript/tokens/files/source-file-shape.xl.md`（只取消注释自己的 3 行候选）、
 `typescript/cases/declarations.ts`。没有碰 import-equals / export-assignment / namespace-export 的任何文件与候选行。

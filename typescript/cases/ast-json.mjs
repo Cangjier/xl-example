@@ -64,6 +64,8 @@ function readCases(stem) {
 const TS_KIND_ALIASES = new Map([
   // SyntaxKind.QualifiedName 的反查名被别名 FirstNode 盖掉（与 tests/parse/ts-ast.mjs 同款）。
   ["FirstNode", "QualifiedName"],
+  // SyntaxKind.AbstractKeyword 的反查名被别名 FirstContextualKeyword 盖掉（同一枚举值，后一个名字覆盖）。
+  ["FirstContextualKeyword", "AbstractKeyword"],
   ["AssertClause", "ImportAttributes"],
   ["AssertEntry", "ImportAttribute"],
   ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
