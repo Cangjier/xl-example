@@ -413,6 +413,14 @@ if (!StatementScanner.IsBracket(code[whileAt + 1], "(")) {
   return StatementScanner.Mismatch();
 }
 const semiAt = whileAt + 2;
+// ASI: only a literal `;` can continue a do-while, so when the next raw char is not one the
+// statement is already complete — at EOF, before `}`, after a line break, and even on the same
+// line when the next token starts a new statement (TS parses `do {} while (b) a;` as two statements).
+const headerEnd = (code[whileAt + 1] as Bracket).SourceRange.End;
+const nextChar = StatementScanner.NextChar(headerEnd);
+if (nextChar !== ";") {
+  return StatementScanner.Complete(whileAt + 1);
+}
 if (semiAt >= code.length) {
   return StatementScanner.NeedMore();
 }

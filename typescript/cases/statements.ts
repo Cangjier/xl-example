@@ -251,3 +251,36 @@ for (const [a] of xs) /* c */ a;
 // S21 mixed statements
 switch (x) { case a ? b : c: break; }\nfor (const [a] of xs) a;
 try { a(); } catch ({ message }) { b(); }\nlet z = 1;
+// ===== sweep4: optional catch / loop-semicolon edges / switch empty / with / debugger / empty / labeled-empty =====
+try {} catch {}
+try /* c */ {} catch /* c */ {}
+for (;;);
+for ( ; ; ) ;
+for (;;) /* c */ ;
+while (a);
+while (a) /* c */ ;
+do a(); while (b);
+do {} while (b);
+do {} while (b)
+do {} while (b)\na;
+do /* c */ {} while (b);
+do {} /* c */ while (b);
+switch (a) {}
+switch (a) { default: }
+switch (a) { case 1: }
+switch (a) { default: break; }
+switch (a) { /* c */ }
+switch (a) { default: /* c */ }
+with (a) b;
+with (a) {}
+with /* c */ (a) b;
+debugger
+debugger /* c */;
+;;
+;;;
+lbl: ;
+lbl /* c */ : ;
+do {} while (b) a;
+do {} while (b) // c\na;
+do {} while (b) /* c */ ;
+do {} while (b)\n;
