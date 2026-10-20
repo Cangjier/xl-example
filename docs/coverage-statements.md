@@ -199,3 +199,67 @@ UTF-8 中文被按 GBK 重新解释（部分文件还含非法 UTF-8 字节）�
 此后新增/改写的章节（涉及 `1ddd3eaa, 8a0508a8`）已随乱码丢失、无法无损恢复，因此未收录（原文仍保留在 git 历史中，
 可用 `git show <sha>:docs/...coverage-statements.md` 查看乱码原样）。
 没有发明新内容：本文件其余部分逐字来自上述干净 revision。
+
+## 历史 chunk 记录补遗（据 git 历史重建，原文件乱码）
+
+> 本段原在 `1ddd3eaa`（feat(statements): sweep 4）的乱码版本里，修复时随全文重建丢失；
+> 以下按乱码原文与 git 历史转写：分支、数值、代码 span 照原文保留。
+
+### statements sweep 4（分支 `cover-statements-4`，起点 `origin/integration @5a230659`）
+- `statements.ts` **210 → 242**（+32），**242/242** 完全一致；全量 **3144 → 3176** 全绿，tsc 0 error。
+- Oracle（TS `createSourceFile`，parseDiagnostics 全空）：optional catch（`catch {}`）、`for(;;);`、`while(a);`、
+  `do a(); while (b);` / `do {} while (b)` 的尾分号可省、EOF、跨行后续语句、同一行接下一句（`do {} while (b) a;` TS 也接受
+  DoStatement + ExpressionStatement）、`switch (a) {}` / `{ default: }` / `{ case 1: }`、`with (a) b;`、`debugger` 后接不接分号或 EOF、
+  `lbl: ;`。
+- 唯一源改动只有 `statement-scanner.xl.md` 的 `ScanDo`：do-while 尾分号可被 ASI 省略。原实现只认可「下一个 code 单元是 `;` 或 EOF」，
+  导致 `do {} while (b)` 在 EOF 处候选不能收尾；`do {} while (b)\na;` 也走进回退路径（被当成「表达式语句没有读完」）。
+  修法：`NextChar(headerEnd)` 在原始文本上只看到 `;` 才继续等分号，否则（EOF / `}` / 换行 / 同一行下一句）直接
+  `Complete(whileAt + 1)`，与 TS 的 ASI 口径一致；对 optional catch、switch 的 case、with、`debugger` EOF、空语句、`lbl: ;`
+  原语序不变，只补测量。
+- 32 条新增：optional catch 3 条（含 `finally`、关键字与注释）、for 头 3 条（`for (;;) {}` / `for (;;);` / 带注释）、
+  `while (a);` + 注释、do-while 8 条（有/无分号、EOF、跨行接语句、同行接语句、注释位置、`do {} while (b)\n;`）、
+  switch 5 条（`{}` / `default:` / `case 1:` / `default: break;` / 注释）、with 3 条、debugger 3 条（`;` / EOF / 注释后接 `;`）、
+  空语句 4 条（`;` / `;;` / `;;;` / `{ ; }`）、`if (a) ;`、`lbl: ;` 与 `lbl /* c */ : ;`。
+
+### statement-start private brand check（分支 `cover-hash-start-2`，起点 `origin/integration @890e3b0a`，private-in 已合入主线）
+- `expression.ts` 追加 10 条，**563/563** 完全一致（结构差 / 位置差 / 字段差均 0）；全量 **2996 → 3006** 全绿；tsc 0 error。
+- 根因与修法（最小改动）：private-in 合入后 `ExpressionBuilder` 已有 `#` 分派（`Symbol "#" + Common name` →
+  `PrivateIdentifierShape`），但语句首仍被 `ExpressionStatementPossibleShape.CanStart` 拦下：Symbol 白名单不含 `#`，
+  候选 Reject 后根终结候选把整段（含 `;`）当表达式收尾 → 「表达式语句没有读完」。本轮在 `CanStart` 的 Symbol 分支加一条
+  `text === "#"`（注释说明 `#x` 在 token 层是 Symbol `#` + Common `x`，语句首只可能是 brand check），其它候选文件未动。
+- 绿（10 条）：`#x in obj;`（语句首）、`/* c */ #x in obj;`、`#x in obj; // tail`、`#x /* c */ in obj;`、同文件两条
+  （`#x in obj;\n#y in obj;`）、括号内 `(#x in obj);`、函数体内 `function f() { #x in obj; }` / `return #x in obj;`、
+  class 方法体内 `return #x in this;` / `#x in this;` 语句。
+- 暂缓（写成 `//` 目标行，留 expressions 家族后续）：**private 成员访问** `this.#x` / `this.#m()` —— `ExpressionBuilder`
+  的 `.` 成员分派只认 Common 名字，不认 `#` + 名字（`class C { #x = 1; m() { return this.#x; } }` 与
+  `class C { #m() {} m2() { return this.#m(); } }` 实测仍红）；本块 WRITE SCOPE 不含 expressions 源，故只记目标。
+
+### labeled chunk（分支 `cover-label-root-1`，起点 `origin/integration @26dd9b3b`）
+- 新 stem `typescript/cases/labeled-statements.ts` **42/42** 完全一致；全量 **2337 → 2379** 全绿；tsc 0 error。
+- 机制（两处配合，都在 statements 家族内）：`expression-statement-possible-shape.xl.md`（最小改动）累计扫描加
+  `CodeCount` / `FirstIdentifier` / `SawQuestion`，只有「首单元是 Common 标识符、第 2 个代码单元是 `Symbol ":"`、且此前没出现过 `?`」
+  才 Reject（合法三元 `a ? b : c` 第 2 单元是 `?`，不会被误杀；对象字面量 / 类型上下文以括号或关键字起头，也不受影响）；
+  `statement-scanner.xl.md` 跳过空白与注释后下一个字符是 `:` 才继续等，否则立刻 `Mismatch`；见到 `:` 后 `ScanBody(at + 2)`
+  递归扫体，`ScanBody` 同时支持体内嵌套标签（`Identifier ":"` 递归），修掉 `a: b: { c(); }`（嵌套标签 + 块体）之前
+  「一直等 `;` 或 EOF」的问题。`LabeledStatementShape` 与 `BuildLabeled`（chunk 2 就有）直接复用，`break lbl;` / `continue lbl;`
+  的标签叶子也复用。
+- 42 条覆盖：`lbl: b;`、`lbl: { }` / `{ break lbl; }`、`lbl: if`、`lbl: while` / `for` / `do` / `switch`（块体与非块体）、
+  `break` / `continue` 的目标标签、嵌套标签（`a: b: c;` / `a: b: c: d;` / `a: b: { c(); }`）、双层循环里的 `break a;`；
+  trivia：前导 / 标签后冒号前 / 冒号后注释、行尾注释、`lbl:\nb;`、块内多行；重复形与混排（两条 / 三条标签、标签与 `let` / 表达式混排）。
+  回归：`a;`、`a ? b : c;`、嵌套三元、`a.b;`、`a();`、`a = b;`、`a, b;`、`(a, b);`、`f(a, b);` 全部不受影响。
+- 暂缓：标签直接修饰函数/类声明（TS 语法本身非法，故不收）；标签与 ASI 的交互（end 家族边界）。
+
+### trivia chunk（分支 `cover-statements-trivia-1`，起点 `origin/integration @ebbbacab`）
+- 纯测量轮：只 append `typescript/cases/statements.ts`，没有改任何 token 源文件 / shape / candidate。
+  `statements.ts` **91 → 174**（新增 83 条 trivia / 重复形），全量 **1734 → 1817** 完全一致，结构差 / 位置差 / 字段差均 0，
+  **无意外红项**（所有新增行一次通过 TS oracle）。
+- 新增覆盖（base 已在 chunk 1/2 有过，这里只补 trivia 与重复形）：if/else 链（头与体之间注释、`if ( /* c */ a /* c */ )`、
+  空体带注释 `if (a) /* c */ ;`、`} else {` 多行、`if (a)\n{ b; }`、else 前后注释、if / else-if / else 全链）；
+  循环（while / do-while / for / for-in / for-of 头体之间注释与换行、空体带注释、体内多语句、`do b;\nwhile (a);`、
+  for 体里再放一条变量语句）；变量语句（多 declarator 有/无 init 混排、declarator 之间注释、`var a = 1, b = 2; // tail`、
+  `let x = 1; /* c */`、同文件 2~3 条）；switch/try/with（`switch` 后 case 冒号前后 / 子句语句前后注释、多 case 换行；
+  try 头注释、`} /* c */ catch`、catch 绑定括号内外注释、空 catch 块、finally 前注释、嵌套 try；with 头体注释与体内多语句）；
+  labeled/break/continue/throw/return/debugger 的标签/表达式前注释与行尾注释；混排（同文件 3~5 条语句：if + while、
+  switch + try + let、with + do + debugger 等）。
+- 结论：statements 家族的 trivia 口径（Pos / 区间 / trivia 过滤 / 可选关键字前视）在既有 shape 上全部成立，
+  本轮没有需要报给 statements 源文件 owner 的红项。

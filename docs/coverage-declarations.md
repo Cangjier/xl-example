@@ -269,3 +269,110 @@ UTF-8 中文被按 GBK 重新解释（部分文件还含非法 UTF-8 字节）�
 此后新增/改写的章节（涉及 `2a79a7dd`）已随乱码丢失、无法无损恢复，因此未收录（原文仍保留在 git 历史中，
 可用 `git show <sha>:docs/...coverage-declarations.md` 查看乱码原样）。
 没有发明新内容：本文件其余部分逐字来自上述干净 revision。
+
+## 历史 chunk 记录补遗（据 git 历史重建，原文件乱码）
+
+> 本段原在 `2a79a7dd`（feat(declarations): enum member initializers）的乱码版本里，修复时随全文重建丢失；
+> 以下按乱码原文与 git 历史转写：分支、数值、`//` 暂缓目标与代码 span 照原文保留，个别叙述只能部分恢复。
+
+### enum member initializers（分支 `cover-enum-init-1`，起点 `origin/integration @f1ebc831`）
+- `declarations.ts` **496 → 517**（+21），**517/517** 完全一致；全量 **3523 → 3544**，tsc 0 error。
+- Oracle（TS 实测）：**EnumMember children = name + 可选初始化表达式**，`=` 与 `,` 不进 Data；name 可以是
+  `Identifier`、`StringLiteral`（`"a" = 1`）、`NumericLiteral`（`1 = 1`）；初始化表达式可为数字/字符串/前缀一元（`-1`、`~0`）/
+  模板（`` `x` ``）/二元表达式（`B = A + 1`）。
+- 实现只在 `declarations/enum-declaration-shape.xl.md`：`BuildMember` 增加分派 —— `Common` 且 `IsNumber()` →
+  `NumericLiteralShape`（数值文本按 TS 口径），`String` token → `StringLiteralShape`，其余 `Common` → `IdentifierShape`；
+  初始化表达式复用 `ExpressionBuilder.ParseAssign()`（`= 1 + 2`、`1 << 2`、`-1`、`~0`、`1 | 2`、模板串、`B = A + 1`）。
+- 暂缓（`//` 目标 + 原因）：**`const enum` / `declare const enum`** —— root 候选 coexist：`const` 同时是 statements 的
+  变量候选，`ScanToSemicolon` 到 EOF、enum 候选在 `}` 已 Done，`Candidates > 1`；EOF 时 enum 候选被尾部单元 Reject，
+  只剩语句候选导致无法识别。需要 statements 候选在 `const` 后接 `enum` 时退出，或 core CatalogGuide 提供候选优先级；
+  两者都在本块 WRITE SCOPE 之外，故写成 `//` 目标不静默跳过。
+
+### async generator / for-await（分支 `cover-async-gen-1`，起点 `origin/integration @d3c27487`）
+- `async-functions.ts` **43 → 63**（+20），**63/63** 完全一致；全量 **2791 → 2811** 全绿；tsc 0 error；
+  `generator-functions` 27/27、`statements` 210/210 无回归。
+- Oracle：`async function* f()` 的 `FunctionDeclaration` children = `AsyncKeyword` → `AsteriskToken` → `Identifier` →
+  （参数）→（返回类型）→ `Block`；`AsteriskToken` 区间就是 `*`（`Pos` = `function` 关键字 `End+1`），名字 `Pos` = `*` 的 `End+1`；
+  `for await (…)` 是 `ForOfStatement`。
+- 实现：只动 statements 两页（function-declaration 两页无需改动，上一轮 async + 既有 generator 支持已覆盖组合）——
+  `statement-scanner.xl.md` 把 `for` 的 `ScanLoop` 拆出 `ScanFor`，允许 `for` 与头部括号之间有一个 `await`
+  （`ScanRoot` / `ScanBody` 的 `for` 分派都走 `ScanFor`）；`statement-builder.xl.md` 的 `BuildFor` 建 await token
+  （区间 = await token、`Pos` = builder 的 `Positions[awaitIndex]`），顺序与 TS 一致，三子句的 `for` 后接 await 直接抛错。
+- 新增 20 条：`async function* f() {}`、`yield 1;`、`await g(); yield await h();`、两个 yield、注释（async/function 之间、
+  function 与 `*` 之间、体内）、两个 async generator 并列、async function 体内 async generator、async generator 体内
+  async generator；`for await (const x of xs)`（空 body / await body）、`for await (const [a] of xs)` 等。
+- 暂缓：async generator 方法/表达式（class / object 成员文件不在本块）；async method；泛型 async generator；
+  `export async function*`（export 侧）。
+
+### async（分支 `cover-async-fn-1`，起点 `origin/integration @9f7be57b`）
+- `async-functions.ts` **22 / 22** 完全一致；全量 **2503 → 2525** 全绿；tsc 0 error。
+- Oracle：`FunctionDeclaration` children 顺序 **`AsyncKeyword` →（生成器时 `AsteriskToken`）→ `Identifier` → 参数 →
+  （可选）返回类型 →（可选）`Block`**；`AsyncKeyword` 区间就是 `async` token（`Pos` = 前一个非 trivia 单元 `End+1`），
+  声明 `Pos` 仍从 `async` 起；`declare async function` 的 children 顺序是书写顺序。
+- 实现（两页，均在 function declaration 家族内）：`function-declaration-possible-shape.xl.md` 的 Stage 0 接受
+  `declare` / `async`（`HasDeclare` / `HasAsync`），Stage 6 = 见过修饰词等 `function`；`declare async function` 的第二个
+  修饰词在 Stage 6 接受；修饰词与 `function` 之间换行沿用既有 `NoNewlineBefore` / `SplitDeclare` 机制，按 TS 的 ASI
+  一次建出「ExpressionStatement(修饰词) + FunctionDeclaration」两条形状。`function-declaration-shape.xl.md` 的 `FromUnits`
+  改成**修饰词循环**（`declare` / `async`，按书写顺序），逐个建 `DeclareKeywordShape` / `AsyncKeywordShape`
+  （后者只有构造函数，这里就地签区间 / Pos / `TryToClose`）；Data 顺序 = 修饰词 →（`*`）→ 名字 → 参数 → 返回类型 →
+  函数体；`Pos` = 第一个修饰词取声明 Pos、后续取前一个修饰词 `End+1`；`await` 表达式由既有 `ExpressionBuilder` 处理，未改。
+- 22 条覆盖：`async function f() {}`、带参数/返回类型、`await g();` 体、`return await g();`、两个 await 混排、
+  `declare async function f(): void;`、注释（前导 / async 与 function 间 / function 与名字间 / 参数、返回类型前后）、
+  `async function\nf() {}`、`async\nfunction f() {}`（ASI 拆分，TS 语义 = ExpressionStatement(async) + FunctionDeclaration）。
+
+### nested async（分支 `cover-nested-async-1`，起点 `origin/integration @895a4ba5`）
+- 收掉上面「暂缓：嵌套 async function」。`async-functions.ts` **22 → 43**（+21），**43/43** 完全一致；全量 **2653 → 2674** 全绿；
+  tsc 0 error。
+- 实测还发现：修复前同步嵌套 `function f() { function g() {} }` 被建成 **ExpressionStatement(FunctionExpression)**，
+  与 TS 的 FunctionDeclaration 结构不符（只是没 stem 测到）；本次分派修复后一并转绿。
+- 修法（`typescript/tokens/statements/statement-builder.xl.md`，唯一源改动）：`BuildStatement` 的 Common 分派新增
+  `function` 与 `async` + `function` → `BuildFunctionDeclaration`；它找声明结尾（`{…}` 括号或重载签名 `;`），再用
+  **host-like 适配器** `{ Data: this.Units, Template: this.Template }` 调 `FunctionDeclarationShape.FromUnits`
+  （该函数只读 `host.Data` / `host.Template`，所以体外嵌套声明也能复用同一套构造）；适配器不知道块内第一条语句的
+  base offset，所以事后把 shape 的 `Pos` 与第一个修饰词（`AsyncKeyword` / `DeclareKeyword`）的 `Pos` 用本 builder 的
+  `Positions[first]` 修正。
+- 21 条新增：体内嵌套 async（空体 / await 体 / `return g;` / 带返回类型 / 带参数 / 重载签名 `async function g(a: A): B;`）、
+  三层嵌套、async 里套同步 function、同步 function 里套 async、`{ async function f() {} }`、`if (a) { async function f() {} }`、
+  `while (a) { async function f() {} }`、块内 async + `let`、async/function 之间的注释。
+- 仍未做：module / namespace **块体**里的嵌套 async function（块体由 module-block builder 负责，本块不动 module 文件）；
+  async generator、async method（class extras）、泛型 async function（types 家族）、`export async function`（export 侧）。
+
+### chunk 3 heritage（分支 `cover-declarations-3`，起点 `origin/integration @0a02bda2`，合并 `origin/cover-declarations-2 @b8499967`）
+- `source-file-shape.xl.md` 候选表有冲突，按并集手工去重后提交；ast-json 全量 **1554 / 1554**（合并后基线 1524 零回归），
+  `declarations.ts` **138 / 138**，tsc 0 error，xl_build 0 error。
+- chunk 3 新增（10 条，全部完全一致）：`class C extends D {}`、`extends D<E>`、`extends D<E, F>`、`class C implements I {}`、
+  `implements I, J`、`extends D implements I`、`extends D<E> implements I<J>, K`、`interface I extends J {}`、`extends J, K`、
+  `extends J<K>` 等。
+- 实现（三页）：`members/heritage-clause-shape.xl.md` 的 `HeritageClauseShape`（`ClauseKind` / `Types`，Data 只有
+  `ExpressionWithTypeArguments`，关键字不进 Data）与 `BuildClauses(host, units, basePos, context)`，用 `TypeBuilder`
+  逐个解析 `名字 [<类型实参>]`，`extends` / `implements` 切子句；`expressions/expression-with-type-arguments-shape.xl.md`
+  的 `FromParts(name, typeArguments, endToken, pos, context)`（区间从名字起点到 `>`）；class/interface 的 shape/possible-shape
+  在名字之后、体之前识别 heritage 单元（Common/Symbol），`FromUnits` 调 `HeritageClauseShape.BuildClauses` 并按顺序 Add，
+  Pos = 名字终点 + 1。踩坑：候选里 `unit instanceof Symbol` 必须 import `symbol.xl.md`（漏 import 时生成物引用全局 `Symbol`，
+  会静默全部 Reject，进而被根终结候选当成 ASI 边界去建表达式语句）。
+- chunk 3 仍未做：限定名父类型（`extends a.B`，需要 QualifiedName / PropertyAccess 接入）、class/interface 带成员、
+  `export default class`、装饰器、泛型声明、体前换行（根终结候选 ASI 判据，cover-end-1 范围）。
+
+### chunk 4（分支 `cover-declarations-4`，起点 `origin/integration @2ceafb28`，含 declarations-2 的函数声明）
+- `declarations.ts` **128 / 128**，全量 **1661 / 1661**（基线 1641 零回归），tsc 0 error，xl_check 0 error。
+- chunk 4 新增（10 条）：**无函数体声明** —— `declare function f(): void;`、`declare function f(a: A): B;`、`declare function f();`、
+  重载签名 `function f(a: A): B;` / `function f(): void;`、2 个重载 + implementation、3 个重载 + implementation、
+  同文件多条、trivia。
+- 实现：`FunctionDeclarationPossibleShape` Stage 机扩展 —— 见到 `declare` / `function`、见过 `declare` 后接 `function`、
+  参数表之后可接受 `;`（仅 declare 形）、返回类型之后可接 `{` 或 `;`；`DoneAt` 记函数体 `Bracket` 或 `;`；
+  仍是**原子建法**（在 `;` / 函数体那一格 `BuildByIndex` 一次建完整条，不新增 end 候选、不动 `ExitOrPre`）；
+  `FunctionDeclarationShape.FromUnits` 的 Data 顺序变成「可选 DeclareKeyword → 名字 → 参数 → 可选返回类型 → 可选 Block」，
+  无体时最后一块是 `;`（AST 的 End 含分号），Data 里没有 Block；`function f();` 仍被拒（无 declare 且无返回类型）。
+- chunk 4 暂缓：`export declare function`（export 前缀，cover-export-decls-2）、泛型函数声明、装饰器、`declare const`。
+
+### chunk 2（分支 `cover-declarations-2`，起点 `origin/integration @89413f7d`，已合并 `origin/cover-expressions-3 @8e09dbf4` 与 `origin/cover-declarations-1 @f0040127`）
+- ast-json 全量 **1383 / 1383**（基线 1339 零回归），`declarations.ts` **108 / 108**，tsc 0 error，xl_check 0 error。
+- chunk 2 新增（34 条）：**FunctionDeclaration**（`function f() {}`、带参数、多参数、带类型注解、可选参数、返回类型、
+  函数体 `return` 等；用 `TypeBuilder.ParseParameter()`、`TypeBuilder.ParseType()` 建返回类型、`StatementBuilder` 建 `{…}` 函数体；
+  `FunctionDeclarationPossibleShape` 用 Stage 扫描，Accept 落在函数体那个 `Bracket` 上）；**abstract 修饰符**
+  （`abstract class C {}`、`declare abstract class C {}`、`abstract declare class C {}` + trivia；新增
+  `keywords/abstract-keyword-shape.xl.md` 的 `FromBasicToken`；class-declaration-shape 支持任意顺序的 `declare` / `abstract`
+  修饰符：第一个修饰符 Pos = 声明 Pos，后续 = 前一个修饰符 End+1）；**harness 别名**（`ast-json.mjs` / `ast-json-diff.mjs`
+  的 `TS_KIND_ALIASES` 各加一条 `["FirstContextualKeyword","AbstractKeyword"]`，全量复跑其余 stem 无回归）。
+- chunk 2 仍未做：继承 / implements、class/interface 带成员、`function f()\n{ }` 体前换行（根终结候选 ASI 判据，cover-end-1 范围）、
+  泛型 / 装饰器 / 重载 / `declare function f(): void;`（声明 end 候选）。
