@@ -91,10 +91,11 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { TypeParameterShape } from "../types/type-parameter-shape.xl.md"
 import { TypeAssertionExpressionShape } from "./type-assertion-expression-shape.xl.md"
 import { MetaPropertyShape } from "./meta-property-shape.xl.md"
+import { AwaitExpressionShape } from "./await-expression-shape.xl.md"
+import { YieldExpressionShape } from "./yield-expression-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { AsExpressionShape } from "./as-expression-shape.xl.md"
 import { SatisfiesExpressionShape } from "./satisfies-expression-shape.xl.md"
-import { YieldExpressionShape } from "./yield-expression-shape.xl.md"
 import { SpreadElementShape } from "./spread-element-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
@@ -541,43 +542,6 @@ if (unit instanceof Common) {
 return "";
 ```
 
-## method ParseYield:()=>Token
-
-`yield` / `yield*`：TS 的 `YieldExpression` children 是 `AsteriskToken`（仅 `yield*`，`yield` 关键字本身不是节点）
-和可选的 operand（赋值表达式）。没有 operand 时 `yield` 是完整表达式，`Pos` 含前导 trivia、区间到 `yield` 结尾。
-终止符（`,` / `;` / `:`）说明这是无 operand 的 yield（例如实参、逗号表达式、三元分支里）。
-
-```ts
-const start = this.At;
-const yieldUnit = this.Units[start];
-this.At++;
-const shape = new YieldExpressionShape(this.Template);
-let afterYieldPos = 0;
-if (yieldUnit.SourceRange.End !== null) {
-  afterYieldPos = yieldUnit.SourceRange.End.Index + 1;
-}
-const next = this.Peek(0);
-let asterisk:Token | null = null;
-if (next !== null && next instanceof Symbol && (next as Symbol).Is("*")) {
-  const ast = new AsteriskTokenShape(this.Template);
-  ast.SignInToken(next);
-  ast.SignOutToken(next);
-  ast.Pos = afterYieldPos;
-  ast.TryToClose(this.Context);
-  asterisk = ast;
-  shape.Add(ast);
-  this.At++;
-}
-const operandUnit = this.Peek(0);
-const hasOperand = operandUnit !== null
-  && !(operandUnit instanceof Symbol
-    && ((operandUnit as Symbol).Is(",") || (operandUnit as Symbol).Is(";") || (operandUnit as Symbol).Is(":")));
-if (hasOperand) {
-  shape.Add(this.ParseAssign());
-}
-return this.SpanNode(shape, start, this.At - 1);
-```
-
 ## method ParseUnary:()=>Token
 
 ```ts
@@ -595,10 +559,18 @@ if (unit instanceof Symbol) {
 if (text === "yield") {
   return this.ParseYield();
 }
-if (!this.IsPrefixOperator(text)) {
+if (!this.IsPrefixOperator(text) && !(unit instanceof Common && (unit as Common).Is("await"))) {
   return this.ParsePostfix();
 }
 this.At++;
+if (unit instanceof Common && (unit as Common).Is("await")) {
+  // `await` 是一元前缀：操作数交给 ParseUnary，所以它比二元运算符绑得紧
+  // （`await a + b` = `(await a) + b`），`await` token 本身不进 AST。
+  const awaitOperand = this.ParseUnary();
+  const awaitShape = new AwaitExpressionShape(this.Template);
+  awaitShape.Add(awaitOperand);
+  return this.SpanNode(awaitShape, start, this.At - 1);
+}
 const operand = this.ParseUnary();
 if (text === "typeof") {
   const shape = new TypeOfExpressionShape(this.Template);
@@ -617,6 +589,45 @@ if (text === "delete") {
 }
 const shape = new PrefixUnaryExpressionShape(this.Template);
 shape.Add(operand);
+return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method ParseYield:()=>Token
+
+ParseYield handles `yield` / `yield*`. In TS the YieldExpression children are an optional
+AsteriskToken (for `yield*`; the `yield` keyword itself is not a node) and an optional operand
+(an assignment expression). The terminators `,` `;` `:` `}` mean the yield has no operand.
+
+```ts
+const start = this.At;
+const yieldUnit = this.Units[start];
+this.At++;
+const shape = new YieldExpressionShape(this.Template);
+let afterYieldPos = 0;
+if (yieldUnit.SourceRange.End !== null) {
+  afterYieldPos = yieldUnit.SourceRange.End.Index + 1;
+}
+const next = this.Peek(0);
+if (next !== null && next instanceof Symbol && (next as Symbol).Is("*")) {
+  const asterisk = new AsteriskTokenShape(this.Template);
+  asterisk.SignInToken(next);
+  asterisk.SignOutToken(next);
+  asterisk.Pos = afterYieldPos;
+  asterisk.TryToClose(this.Context);
+  shape.Add(asterisk);
+  this.At++;
+}
+const operandUnit = this.Peek(0);
+let hasOperand = operandUnit !== null;
+if (operandUnit !== null && operandUnit instanceof Symbol) {
+  const operandText = (operandUnit as Symbol).TempToString();
+  if (operandText === "," || operandText === ";" || operandText === ":" || operandText === "}") {
+    hasOperand = false;
+  }
+}
+if (hasOperand) {
+  shape.Add(this.ParseAssign());
+}
 return this.SpanNode(shape, start, this.At - 1);
 ```
 
