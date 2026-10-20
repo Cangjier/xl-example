@@ -10926,6 +10926,1860 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C { #x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = a; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x: A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m(a: A): B { return a; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 13,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 14,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 15,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 23,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 32,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { get #x() { return 1; } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 13,
+                  "end": 16
+                },
+                {
+                  "kind": "Block",
+                  "pos": 18,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "ReturnStatement",
+                      "pos": 20,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "FirstLiteralToken",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { set #x(v) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "SetAccessor",
+              "pos": 9,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 13,
+                  "end": 16
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 17,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 18,
+                      "text": "v"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 19,
+                  "end": 22
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = 1; #y = 2; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 17,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 17,
+                  "end": 20
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m() {} #n() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 17,
+                  "end": 20
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 25
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x = 1; m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 17,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 24
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(private x: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 22,
+                      "end": 29
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 32,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 34,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 35,
+                  "end": 38
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(public x: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "PublicKeyword",
+                      "pos": 22,
+                      "end": 28
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 31,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 31,
+                          "end": 33,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 34,
+                  "end": 37
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(readonly x: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "ReadonlyKeyword",
+                      "pos": 22,
+                      "end": 30
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 33,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 35,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 36,
+                  "end": 39
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(protected x: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "ProtectedKeyword",
+                      "pos": 22,
+                      "end": 31
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 34,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 34,
+                          "end": 36,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 37,
+                  "end": 40
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(private readonly x: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 22,
+                      "end": 29
+                    },
+                    {
+                      "kind": "ReadonlyKeyword",
+                      "pos": 29,
+                      "end": 38
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 41,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 41,
+                          "end": 43,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 44,
+                  "end": 47
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(private x) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 22,
+                      "end": 29
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "x"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 32,
+                  "end": 35
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(a, private b) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 23,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 24,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 24,
+                      "end": 32
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 35,
+                  "end": 38
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(a: A, private b: B) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 23,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 24,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 26,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 27,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 27,
+                      "end": 35
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 38,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 38,
+                          "end": 40,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 41,
+                  "end": 44
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(private x: A, b) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 22,
+                      "end": 29
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 32,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 34,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 35,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 38,
+                  "end": 41
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(private x: A) {} m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 22,
+                      "end": 29
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 32,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 34,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 35,
+                  "end": 38
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 38,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 42,
+                  "end": 45
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x: A; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 21,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { static accessor x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 9,
+                  "end": 16
+                },
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 16,
+                  "end": 25
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x = 1; accessor y = 2; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 25,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 25,
+                  "end": 34
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "y"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x = 1; m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 25,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { /* c */ #x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 20
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #x /* c */ = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { #m(/* c */ a) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "PrivateIdentifier",
+                  "pos": 9,
+                  "end": 12
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 13,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 22,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 26
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(/* c */ private x: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 22,
+                      "end": 37
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 39,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 40,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 40,
+                          "end": 42,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 43,
+                  "end": 46
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor(private /* c */ x: A) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 22,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "PrivateKeyword",
+                      "pos": 22,
+                      "end": 29
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 39,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 40,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 40,
+                          "end": 42,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 43,
+                  "end": 46
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { /* c */ accessor x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 26
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor /* c */ x = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 28,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { accessor x /* c */ = 1; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "AccessorKeyword",
+                  "pos": 9,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstLiteralToken",
+                  "pos": 30,
+                  "end": 32,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

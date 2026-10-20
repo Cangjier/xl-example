@@ -62,3 +62,23 @@
 - 装饰器 `@dec class C {}` / `class C { @dec m() {} }` / `@dec x = 1`：需要 class candidate Stage 0 放行 `@`+装饰器表达式，
   并在成员前缀分派 Decorator（types/decorator-shape 仍是空壳）；本块预算内未做，已写成 declarations.ts 的 // 目标。
 - private fields (#x)、parameter properties、accessor keyword、abstract accessors：各自形状未就绪。
+
+## chunk 3 (class element wave 2, branch cover-class-extras-2 @ origin/integration 895a4ba5)
+
+- private identifiers: `class C { #x = 1; }`, `#x;`, `#x: A;`, `#m() {}`, `#m(a: A): B {...}`, `get #x()`, `set #x(v)`,
+  multiple private members, mixed with public members + trivia.
+  Implementation: BuildMembers name dispatch: `#` (Symbol) + Common name -> PrivateIdentifierShape (pos from `#`, end at name).
+- parameter properties: `constructor(private x: A)`, `public` / `readonly` / `protected`, `private readonly x: A`,
+  `private x` (no type), mixed with normal params on both sides + trivia.
+  Implementation: BuildParameters detects leading modifier group, builds keyword leaves + Identifier + optional type
+  (TypeBuilder.ParseType) and closes with TypeBuilder.SpanNode.
+- accessor keyword: `class C { accessor x = 1; }`, `accessor x: A;`, `accessor x;`, `static accessor x = 1;`,
+  multiple accessors, mixed with methods + trivia. Implementation: `accessor` added to modifier whitelist and mapped to
+  AccessorKeywordShape (keyword leaf; TS kind AccessorKeyword).
+- readings: declarations 276/276; full suite 2688/2688 (baseline 2653 + 35); tsc 0 error.
+
+### deferred
+- private-in expression `#x in obj`: needs expressions/expression-builder ParsePrimary dispatch for Symbol "#" (out of write scope).
+- decorators: `@dec class C {}` / `class C { @dec m() {} }` / `@dec x = 1`: needs class candidate accepting "@"+decorator expression
+  (and Decorator shape; types/decorator-shape is still a shell) -- not done in this chunk.
+- abstract accessors, parameter decorators, decorator metadata.
