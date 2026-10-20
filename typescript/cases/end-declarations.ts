@@ -188,3 +188,31 @@ class A {}\ninterface I {}\ntype T = A
 declare function f(): void\n/* c */ class C {}\ninterface I {}
 declare function f(): void\nclass C {}\n// c\ninterface I {}
 declare function f(): void\ndeclare function g(): void\nclass C {}
+
+// ── chunk 6：export / import 声明在 EOF（measurement-first：先探针，只补红）──
+// 已经绿（补用例固化）：export/import 声明本身在 EOF 不需要分号
+export {}
+export * from "m"
+export { a } from "m"
+import x from "m"
+import "m"
+import x = require("m")
+export function f() {}
+export class C {}
+export interface I {}
+export enum E { A }
+export namespace N {}
+export function f() {}\n
+// 本轮修的：export type 无分号到 EOF（TypeAliasDeclarationShape 已认 export 前缀，end 兜底补合成 ;）
+export type T = A
+export type T = A // c
+// 暂缓（红；归属见 docs/coverage-end.md §14）：
+// export const x = 1                ← 归属 export/statement 族：export 变量语句候选在 EOF 仍活，与根终结候选同时成立
+// export const x = 1 // c\n         ← 同上
+// export const x = 1\nclass C {}    ← 同上（多声明混排）
+// export default 1                  ← 归属 export 族：ExportAssignment 候选在 EOF 仍活
+// export default 1 // c\n           ← 同上
+// import x from "m"\nclass C {}     ← 归属 import 族：ImportDeclarationShape.Close 把 class 单元当成未识别单元
+// import x from "m" // c\n        ← 归属 import 族：尾注释被算进 ImportDeclaration 的 End（TS 到字符串为止）
+// export { a } from "m" // c\n    ← 归属 export 族：同上（ExportDeclaration 的 End 含尾注释）
+

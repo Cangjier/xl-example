@@ -269,7 +269,13 @@ if ((isClass || isInterface) && lastUnit instanceof Bracket && (lastUnit as Brac
   iface.Parent = host;
   return true;
 }
-const isType = text === "type";
+// `export type T = A` 也走类型别名族（TypeAliasDeclarationShape 已接受 export 前缀），
+// 于是 `export type T = A` 无分号到 EOF 能靠合成 `;` 建出来。
+const isExportType = text === "export"
+  && code.length >= 3
+  && code[1] instanceof Common
+  && (code[1] as Common).Is("type");
+const isType = text === "type" || isExportType;
 const isImportEquals = text === "import"
   && code.length >= 5
   && code[1] instanceof Common
