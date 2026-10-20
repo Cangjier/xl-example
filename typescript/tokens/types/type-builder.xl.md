@@ -455,6 +455,9 @@ if (unit instanceof Bracket) {
   }
   throw new Error("类型里出现了不支持的括号");
 }
+if (unit instanceof Symbol && this.IsText(unit, "<")) {
+  return this.ParseGenericFunctionType(start);
+}
 if (unit instanceof String) {
   this.At++;
   if (this.IsTemplateToken(unit as String)) {
@@ -962,6 +965,40 @@ if (unit.SourceRange.Start !== null) {
 shape.Pos = this.Positions[index];
 shape.TryToClose(this.Context);
 return shape;
+```
+
+## method ParseGenericFunctionType:(start:int)=>Token
+
+泛型函数类型：`<const U>(x: U) => U` / `<U extends A>(x: U) => U`。`At` 停在 `<` 上；
+children 顺序与 TS 一致 = 每个 `TypeParameter` → 每个 `Parameter` → 返回类型（`=>` 不进 AST）。
+函数类型形状本身不新加字段，TypeParameter 直接 `Add` 进 Data（`Parameters` / `ReturnType` 仍指向参数表和返回类型）。
+
+```ts
+const typeParameters = this.ParseTypeParameterList();
+const bracketUnit = this.Peek(0);
+if (bracketUnit === null || !(bracketUnit instanceof Bracket) || !(bracketUnit as Bracket).Is("(", ")")) {
+  throw new Error("泛型函数类型缺少参数表");
+}
+const bracket = bracketUnit as Bracket;
+this.At++;
+const parameters = this.ParseParameterList(bracket);
+const arrowUnit = this.Peek(0);
+if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
+  throw new Error("泛型函数类型缺少 =>");
+}
+this.At++;
+const returnType = this.ParseReturnType();
+const shape = new FunctionTypeShape(this.Template);
+for (const typeParameter of typeParameters) {
+  shape.Add(typeParameter);
+}
+for (const parameter of parameters) {
+  shape.Add(parameter);
+}
+shape.Parameters = parameters;
+shape.ReturnType = returnType;
+shape.Add(returnType);
+return this.SpanNode(shape, start, this.At - 1);
 ```
 
 ## method ParseFunctionType:(bracket:Bracket, start:int)=>Token

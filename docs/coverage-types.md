@@ -283,3 +283,20 @@ class / interface / function 的泛型参数（declarations chunk），语义层
 
 已绿：`typeof import("m", { with: { type: "json" } })`、`import("m", { with: { type: "json" } }).X`、带泛型实参、
 legacy `assert` 写法、字符串键（`{ "type": "json" }`），以及 4 条注释 trivia；回归 `import("m").X`、`typeof import("m")` 不变。
+
+## sweep 4（measurement-first）
+
+| 形态 | 结果 | 说明 |
+| --- | --- | --- |
+| `type T = <const U>(x: U) => U;` | 红→绿 | 泛型函数类型 + const 类型参数：type-builder 新增 ParseGenericFunctionType（`<` 起头，TypeParameter→Parameter→返回类型） |
+| `type T = <U>(x: U) => U;` / `<U extends A>` | 红→绿 | 同一分支顺带覆盖普通泛型约束 |
+| `const f = <const T>(x: T) => x;` | 原已绿 | 箭头函数侧已支持 const 类型参数 |
+| `function g<const T>(x: T) {}` | 原已绿 | 函数声明侧已支持 |
+| `a satisfies T satisfies U` / `a satisfies T as U` / `(a satisfies T) satisfies U` | 原已绿 | expression 家族已有 |
+| `a as T as U` / `a as unknown as T` | 原已绿 | 同上 |
+| `type T = this["x"]` / `this extends A ? B : C` / `this & A` | 原已绿 | this 类型在索引访问/条件/交叉位置 |
+| trivia（`<const /* c */ U>`、`this /* c */ ["x"]`、`satisfies /* c */ T`、`as /* c */ T`） | 绿 | 逐条测 |
+
+暂缓（原因）：instantiation expressions 无调用形 `const g = f<string>;`、`const h = new C<number>;`、`const k = a.b<T>;`
+—— 当前 expression-builder 在类型实参后要求 `(`（调用）或运算符，语句结束会报「表达式意外结束」；修它要改 expressions 家族，
+本 chunk 写范围只有 type-builder。带调用的 `f<string>(1)` 原已绿。
