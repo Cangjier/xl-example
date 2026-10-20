@@ -275,3 +275,12 @@ export\ndefault interface I {}
 // + 重复形
 export declare interface I extends J {} export default interface J {}
 export declare type T = A; export declare const x: number;
+
+// ===== base 15（import-attrs chunk）：re-export attributes sweep =====
+export * from "m" with { type: "json", a: "b" };
+export * as ns from "m" with { a: "b", c: "d" };
+export { a } from "m" with { type: "json", other: "x" };
+export * as ns from "m" with { type: "json" };
+export { a } from "m" assert { type: "json", other: "x" };
+export * as ns from "m" with { type: "json" }; // c
+// export { a } from "m"\nwith { type: "json" };  —— TS 在 from 之后换行即 ASI：`with{…}` 是独立 WithStatement；本仓把 attributes 续上了（ASI 语义差），暂缓
