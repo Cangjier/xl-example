@@ -10,6 +10,8 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 ```
@@ -18,8 +20,12 @@ import { ItemUtil } from "../item-util.xl.md"
 
 # class FunctionDeclarationScan
 
-判定状态。`Stage`：0 = 等 `function`，1 = 等名字，2 = 等参数表 `(`，3 = 参数表之后（等 `:` 或函数体 `{`），
-4 = 返回类型里（等函数体 `{`），5 = 已经完整（见到函数体）；`DoneAt` 记函数体那一格。
+判定状态。`Stage`：0 = 等 `declare` / `function`，6 = 见过 `declare` 等 `function`，1 = 等名字，
+2 = 等参数表 `(`，3 = 参数表之后（等 `:` / 函数体 `{` / 无体 `;`），4 = 返回类型里（等函数体 `{` / `;`），
+5 = 已经完整；`DoneAt` 记收尾那一格（函数体 `Bracket` 或 `;`）。
+
+`SplitDeclare`：`declare` 与 `function` 之间换行时 TS 会按 ASI 拆成「ExpressionStatement(declare) + FunctionDeclaration」，
+这时 `FunctionAt` 记 `function` 那一格的绝对下标，`BuildByIndex` 一次建两条。
 
 ## field Start:int = -1
 
@@ -33,17 +39,25 @@ import { ItemUtil } from "../item-util.xl.md"
 
 ## field Rejected:bool = false
 
+## field HasDeclare:bool = false
+
+## field SplitDeclare:bool = false
+
+## field FunctionAt:int = -1
+
 # class FunctionDeclarationPossibleShape extends PossibleShape
 
 ```txt
 function f() {}
-function f(a) {}
 function f(a: A): B { return a; }
+function f(a: A): B;
+declare function f(): void;
 ```
 
-根候选：条目必须从 `function` 起，名字、参数表 `(…)` 之后可以跟 `: 类型`，最后一块是函数体 `{…}` 的 `Bracket`。
-函数体内容不在这里判定（`StatementBuilder` 负责建里面的语句），所以只要见到函数体括号就 `Accept`。
-`function*` / `async function` / 泛型函数不在本批范围：`*` 或 `async` 会让扫描在对应 Stage 直接 `Reject`。
+根候选：条目可以从 `declare` 起（同一行紧跟 `function` 才算修饰符），名字、参数表 `(…)` 之后可以跟 `: 类型`，
+最后一块是函数体 `{…}` 的 `Bracket` 或（无函数体声明）顶层 `;`。函数体内容由 `StatementBuilder` 建。
+无体的 `;` 要求「有 `declare`」或「有返回类型」，所以根级的 `function f();` 会被拒绝。
+`function*` / `async function` / 泛型函数不在本批范围：`*` / `async` / `<` 会让扫描在对应 Stage 直接 `Reject`。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -66,6 +80,9 @@ if (state.Checked > tokenIndex + 1) {
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
+  state.HasDeclare = false;
+  state.SplitDeclare = false;
+  state.FunctionAt = -1;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -77,7 +94,27 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 0) {
+    if (unit instanceof Common && (unit as Common).Is("declare")) {
+      state.HasDeclare = true;
+      state.Stage = 6;
+      continue;
+    }
     if (unit instanceof Common && (unit as Common).Is("function")) {
+      state.Stage = 1;
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 6) {
+    if (unit instanceof Common && (unit as Common).Is("function")) {
+      if (FunctionDeclarationPossibleShape.NoNewlineBefore(units, at)) {
+        state.Stage = 1;
+        continue;
+      }
+      // ASI split: "declare" is its own ExpressionStatement, "function ..." starts a declaration.
+      state.SplitDeclare = true;
+      state.FunctionAt = at;
       state.Stage = 1;
       continue;
     }
@@ -111,6 +148,12 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.Stage = 4;
       continue;
     }
+    if (unit instanceof Symbol && (unit as Symbol).Is(";") && state.HasDeclare) {
+      state.Stage = 5;
+      state.Done = true;
+      state.DoneAt = at;
+      continue;
+    }
     state.Rejected = true;
     continue;
   }
@@ -121,7 +164,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.DoneAt = at;
       continue;
     }
-    // 返回类型里的普通单元（名字 / 关键字 / `|` `&` `<` `>` 等符号 / 其它括号）都只当类型内容。
+    if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+      state.Stage = 5;
+      state.Done = true;
+      state.DoneAt = at;
+      continue;
+    }
+    // Anything inside a return type (names / keywords / operators / brackets) is just type content.
     continue;
   }
   state.Rejected = true;
@@ -134,6 +183,36 @@ if (state.Done) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;
+```
+
+## static method NoNewlineBefore:(units:Array<Token>, at:int)=>bool
+
+`at` 是 `function` 那一格；看前一个非 trivia 单元（`declare`）与它之间有没有换行。
+TS 用换行触发 ASI，把 `declare` 拆成独立的 ExpressionStatement，所以这里必须区分。
+
+```ts
+let previous = at - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return true;
+}
+const from = units[previous].SourceRange.End;
+const to = units[at].SourceRange.Start;
+if (from === null || to === null) {
+  return true;
+}
+const document = from.Document;
+let cursor = from.Index + 1;
+while (cursor < to.Index) {
+  const ch = document.At(cursor).Value;
+  if (ch === "\n" || ch === "\r") {
+    return false;
+  }
+  cursor++;
+}
+return true;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
@@ -150,6 +229,45 @@ const state = catalog.PossibleShapesComputeCache.GetState<FunctionDeclarationSca
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
+}
+if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
+  let declareAt = start;
+  while (declareAt < host.Data.length && host.Data[declareAt].IsTriviaToken) {
+    declareAt++;
+  }
+  const declareUnit = host.Data[declareAt];
+  if (!(declareUnit instanceof Common)) {
+    throw new Error("declare function: missing declare keyword");
+  }
+  let expressionPos = declareUnit.SourceRange.Start === null ? 0 : declareUnit.SourceRange.Start.Index;
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      const end = host.Data[at].SourceRange.End;
+      if (end !== null) {
+        expressionPos = end.Index + 1;
+      }
+      break;
+    }
+  }
+  const expression = new ExpressionStatementShape(host.Template);
+  const identifier = IdentifierShape.FromBasicToken(declareUnit as Common, context);
+  identifier.Pos = expressionPos;
+  expression.Expression = identifier;
+  expression.Add(identifier);
+  if (declareUnit.SourceRange.Start !== null) {
+    expression.SignIn(declareUnit.SourceRange.Start);
+  }
+  if (declareUnit.SourceRange.End !== null) {
+    expression.SignOut(declareUnit.SourceRange.End);
+  }
+  expression.Pos = expressionPos;
+  expression.TryToClose(context);
+  const declaration = FunctionDeclarationShape.FromUnits(host, state.FunctionAt, tokenIndex, context);
+  declaration.Pos = declareUnit.SourceRange.End === null ? 0 : declareUnit.SourceRange.End.Index + 1;
+  host.Data.splice(start, tokenIndex - start + 1, expression, declaration);
+  expression.Parent = host;
+  declaration.Parent = host;
+  return declaration;
 }
 const built = FunctionDeclarationShape.FromUnits(host, start, tokenIndex, context);
 host.Data.splice(start, tokenIndex - start + 1, built);
