@@ -1331,6 +1331,30 @@ const parameters = this.ParseFunctionParameters(bracket);
 for (const parameter of parameters) {
   arrow.Add(parameter);
 }
+const returnColonUnit = this.Peek(0);
+if (returnColonUnit !== null && this.IsText(returnColonUnit, ":")) {
+  // Optional return type before `=>`; type predicates (`x is A`, `asserts x is A`) go through
+  // TypeBuilder.ParseReturnType so they become TypePredicate nodes like TS.
+  this.At++;
+  const returnTypeStart = this.At;
+  while (this.At < this.Units.length && !this.IsText(this.Units[this.At], "=>")) {
+    this.At++;
+  }
+  if (this.At >= this.Units.length) {
+    throw new Error("箭头函数缺少 =>");
+  }
+  const returnTypeUnits:Array<Token> = this.Units.slice(returnTypeStart, this.At);
+  if (returnTypeUnits.length === 0) {
+    throw new Error("箭头函数的返回类型为空");
+  }
+  const returnTypeBuilder = new TypeBuilder(this.Template, this.Context);
+  returnTypeBuilder.Load(returnTypeUnits, this.Positions[returnTypeStart]);
+  const arrowReturnType = returnTypeBuilder.ParseReturnType();
+  if (returnTypeBuilder.At !== returnTypeBuilder.Units.length) {
+    throw new Error("箭头函数的返回类型没有读完");
+  }
+  arrow.Add(arrowReturnType);
+}
 const arrowUnit = this.Peek(0);
 if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
   throw new Error("箭头函数缺少 =>");
@@ -1455,6 +1479,26 @@ this.At++;
 const parameters = this.ParseFunctionParameters(parameterBracket);
 for (const parameter of parameters) {
   shape.Add(parameter);
+}
+const returnColonUnit = this.Peek(0);
+if (returnColonUnit !== null && this.IsText(returnColonUnit, ":")) {
+  // Optional return type before the body; type predicates go through ParseReturnType.
+  this.At++;
+  const returnTypeStart = this.At;
+  while (this.At < this.Units.length && !this.IsBracketStart(this.Units[this.At], "{")) {
+    this.At++;
+  }
+  const returnTypeUnits:Array<Token> = this.Units.slice(returnTypeStart, this.At);
+  if (returnTypeUnits.length === 0) {
+    throw new Error("函数表达式的返回类型为空");
+  }
+  const returnTypeBuilder = new TypeBuilder(this.Template, this.Context);
+  returnTypeBuilder.Load(returnTypeUnits, this.Positions[returnTypeStart]);
+  const functionReturnType = returnTypeBuilder.ParseReturnType();
+  if (returnTypeBuilder.At !== returnTypeBuilder.Units.length) {
+    throw new Error("函数表达式的返回类型没有读完");
+  }
+  shape.Add(functionReturnType);
 }
 const bodyUnit = this.Peek(0);
 if (bodyUnit === null || !this.IsBracketStart(bodyUnit, "{")) {
@@ -1710,7 +1754,21 @@ if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
   if (bracket.StartBracketChar === "(") {
     const next = this.Peek(1);
-    if (next !== null && this.IsText(next, "=>")) {
+    // Arrow with a return type: `(params): T => ...` / `(params): x is A => ...`.
+    // `:` alone is ambiguous with the ternary colon (`a ? (b, c) : d`), so only take the
+    // arrow route when a `=>` actually shows up after the parameter list.
+    let arrowAhead = next !== null && this.IsText(next, "=>");
+    if (!arrowAhead && next !== null && this.IsText(next, ":")) {
+      let probe = this.At + 2;
+      while (probe < this.Units.length) {
+        if (this.IsText(this.Units[probe], "=>")) {
+          arrowAhead = true;
+          break;
+        }
+        probe++;
+      }
+    }
+    if (arrowAhead) {
       this.At++;
       return this.ParseArrowFromBracket(bracket, start);
     }

@@ -769,3 +769,21 @@ function f() { return function () { return new.target; }; }
 // + trivia
 function f() { return new.target /* c */; }
 function f /* c */ () { return new.target; }
+
+// ===== base 37：箭头 / 函数表达式的返回类型（含类型谓词）=====
+// TypePredicate children = [AssertsKeyword?] ParameterName Type；`is` 不进 AST。
+const f = (x: any): x is A => true;
+const g = (x: any): asserts x is A => {};
+const f2 = (x: any): A => x;
+const f3 = (): void => {};
+(function (x: any): x is A { return true; });
+(function (x: any): asserts x is A {});
+(function (x: any): A { return x; });
+// async 箭头（TS 解析合法则收；见下方注释若被 oracle 拒）
+// const h = async (x: any): x is A => true;
+// 嵌套 / 括号包裹
+f((x: any): x is A => true);
+((x: any): x is A => true);
+// + trivia：`:` 两侧注释
+const f4 = (x: any) /* c */ : /* c */ x is A => true;
+(function (x: any) /* c */ : /* c */ asserts x is A {});

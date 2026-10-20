@@ -28508,6 +28508,917 @@
           ]
         }
       ]
+    },
+    {
+      "src": "const f = (x: any): x is A => true;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 9,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "Parameter",
+                          "pos": 11,
+                          "end": 17,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 11,
+                              "end": 12,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "AnyKeyword",
+                              "pos": 13,
+                              "end": 17
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypePredicate",
+                          "pos": 19,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 21,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 24,
+                              "end": 26,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 24,
+                                  "end": 26,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 26,
+                          "end": 29
+                        },
+                        {
+                          "kind": "TrueKeyword",
+                          "pos": 29,
+                          "end": 34
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const g = (x: any): asserts x is A => {};",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "g"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 9,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "Parameter",
+                          "pos": 11,
+                          "end": 17,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 11,
+                              "end": 12,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "AnyKeyword",
+                              "pos": 13,
+                              "end": 17
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypePredicate",
+                          "pos": 19,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "AssertsKeyword",
+                              "pos": 19,
+                              "end": 27
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 27,
+                              "end": 29,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 32,
+                              "end": 34,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 32,
+                                  "end": 34,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 34,
+                          "end": 37
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 37,
+                          "end": 40
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const f2 = (x: any): A => x;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "f2"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 10,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Parameter",
+                          "pos": 12,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "AnyKeyword",
+                              "pos": 14,
+                              "end": 18
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 20,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 22,
+                              "text": "A"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 22,
+                          "end": 25
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const f3 = (): void => {};",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "f3"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 10,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "VoidKeyword",
+                          "pos": 14,
+                          "end": 19
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 19,
+                          "end": 22
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 22,
+                          "end": 25
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function (x: any): x is A { return true; });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 13,
+                          "end": 17
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 19,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 24,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 26,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 28,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "TrueKeyword",
+                              "pos": 35,
+                              "end": 40
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function (x: any): asserts x is A {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 13,
+                          "end": 17
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 19,
+                      "end": 34,
+                      "children": [
+                        {
+                          "kind": "AssertsKeyword",
+                          "pos": 19,
+                          "end": 27
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 32,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 34,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 34,
+                      "end": 37
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function (x: any): A { return x; });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 13,
+                          "end": 17
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 19,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "A"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 21,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "ReturnStatement",
+                          "pos": 23,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 32,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f((x: any): x is A => true);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "ArrowFunction",
+                  "pos": 2,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 3,
+                      "end": 9,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 3,
+                          "end": 4,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 5,
+                          "end": 9
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 11,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 13,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 16,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 18,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "EqualsGreaterThanToken",
+                      "pos": 18,
+                      "end": 21
+                    },
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 21,
+                      "end": 26
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "((x: any): x is A => true);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ArrowFunction",
+                  "pos": 1,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 2,
+                      "end": 8,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 3,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 4,
+                          "end": 8
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 10,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 12,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 15,
+                          "end": 17,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 17,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "EqualsGreaterThanToken",
+                      "pos": 17,
+                      "end": 20
+                    },
+                    {
+                      "kind": "TrueKeyword",
+                      "pos": 20,
+                      "end": 25
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const f4 = (x: any) /* c */ : /* c */ x is A => true;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 53,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 52,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 52,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "f4"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 10,
+                      "end": 52,
+                      "children": [
+                        {
+                          "kind": "Parameter",
+                          "pos": 12,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "AnyKeyword",
+                              "pos": 14,
+                              "end": 18
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypePredicate",
+                          "pos": 29,
+                          "end": 44,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 39,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 42,
+                              "end": 44,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 42,
+                                  "end": 44,
+                                  "text": "A"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 44,
+                          "end": 47
+                        },
+                        {
+                          "kind": "TrueKeyword",
+                          "pos": 47,
+                          "end": 52
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "(function (x: any) /* c */ : /* c */ asserts x is A {});",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 56,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 55,
+              "children": [
+                {
+                  "kind": "FunctionExpression",
+                  "pos": 1,
+                  "end": 54,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 11,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 13,
+                          "end": 17
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 28,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "AssertsKeyword",
+                          "pos": 28,
+                          "end": 44
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 44,
+                          "end": 46,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 49,
+                          "end": 51,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 49,
+                              "end": 51,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Block",
+                      "pos": 51,
+                      "end": 54
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
