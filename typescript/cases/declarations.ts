@@ -486,3 +486,27 @@ function f<T>(a: T) {}\nfunction g<U>(b: U) {}
 @dec /* c */\nclass C {}
 @dec\nclass C {}\nclass D {}
 class C { @dec\n x = 1; }
+
+// ===== base 13: ambient no-body functions without return type (declare implies ambient) =====
+declare function f();
+declare function f(a: A);
+declare function f();
+declare function f()\n
+declare function f(a: A);\n
+declare /* c */ function f();
+declare /* c */ function f(a: A);
+declare function /* c */ f();
+// inside an ambient module / namespace the declare is implicit
+declare module "m" { function f(); }
+declare namespace N { function f(); }
+declare module "m" { function f(a: A); }
+declare module "m" { function f(); function g(): void; }
+declare module "m" { function f(): void; function g(); }
+declare namespace N { function f(): void; function g(); }
+declare module "m" { function f();\nlet x: number; }
+declare namespace N { function f();\ninterface I {} }
+// regression controls (already covered above, kept here for ownership clarity):
+// declare function f(): void;      <- explicit return type
+// function f(a: A): B;             <- non-declare overload signature (root) still requires a return type
+// deferred: non-ambient `namespace N { function f(); }` -> module-block passes ambient=false, shape rejects;
+// that spelling is a TS semantic error (implementation missing), not a parse-level gap.

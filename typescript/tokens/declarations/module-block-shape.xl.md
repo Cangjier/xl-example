@@ -205,7 +205,7 @@ if (special !== null) {
 } else if (keyword === "function" && semiInner > declStart) {
   const dataStart = bracket.Data.indexOf(unit as Token);
   const dataEnd = bracket.Data.indexOf(inner.Units[semiInner]);
-  const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+  const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, ModuleBlockShape.InAmbientDeclaration(bracket));
   declared.Pos = inner.Positions[declStart];
   inner.At = semiInner + 1;
   member = declared;
@@ -218,5 +218,40 @@ if (modifier !== null && !skipModifier) {
   (member as ShapeToken).Pos = inner.Positions[first];
 }
 block.Add(member);
+```
+
+## private static method InAmbientDeclaration:(bracket:Bracket)=>bool
+
+`bracket` 是模块体括号单元；看它所在宿主 `Data` 里、它之前的代码单元：第一个代码单元是 `declare`
+（或 `export declare`）⇒ 这是一条 ambient 声明（`declare module "m"` / `declare namespace N`），
+体内的无体函数可以省返回类型（`function f();`）。`bracket.Parent` 为空或找不到下标时按非 ambient 处理。
+
+```ts
+const parent = bracket.Parent;
+if (parent === null) {
+  return false;
+}
+const index = parent.Data.indexOf(bracket);
+if (index < 0) {
+  return false;
+}
+const texts:Array<string> = [];
+for (let at = 0; at < index; at++) {
+  const unit = parent.Data[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  texts.push(unit instanceof Common ? (unit as Common).TempToString() : "");
+  if (texts.length >= 2) {
+    break;
+  }
+}
+if (texts.length === 0) {
+  return false;
+}
+if (texts[0] === "declare") {
+  return true;
+}
+return texts[0] === "export" && texts.length > 1 && texts[1] === "declare";
 ```
 
