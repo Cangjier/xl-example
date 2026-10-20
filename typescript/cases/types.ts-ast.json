@@ -19844,6 +19844,420 @@
           ]
         }
       ]
+    },
+    {
+      "src": "type T = { m(x: any): x is A };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 8,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "MethodSignature",
+                  "pos": 10,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "m"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 13,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 15,
+                          "end": 19
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 21,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 26,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { m(x: any): asserts x is A };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 8,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "MethodSignature",
+                  "pos": 10,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "m"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 13,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 15,
+                          "end": 19
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 21,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "AssertsKeyword",
+                          "pos": 21,
+                          "end": 29
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 34,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 36,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { m(): this is A };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 8,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "MethodSignature",
+                  "pos": 10,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "m"
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 15,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "ThisType",
+                          "pos": 15,
+                          "end": 20
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 23,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 25,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { m(x: any): x is A; n(): void };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 8,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "MethodSignature",
+                  "pos": 10,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "m"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 13,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 15,
+                          "end": 19
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 21,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 26,
+                          "end": 28,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "MethodSignature",
+                  "pos": 29,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "n"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 34,
+                      "end": 39
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = { m(x: any): x /* c */ is A };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 8,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "MethodSignature",
+                  "pos": 10,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "m"
+                    },
+                    {
+                      "kind": "Parameter",
+                      "pos": 13,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "AnyKeyword",
+                          "pos": 15,
+                          "end": 19
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypePredicate",
+                      "pos": 21,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 34,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 36,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -428,3 +428,9 @@ interface I { /* c */ new (): A; }
 interface I { new (): A; /* c */ m(): void; }
 type T = {\n  new (): A;\n  new (a: A): B;\n};
 type T = { new (a: A, b: B): C, };
+// ===== base 15: type-literal method signatures with predicates =====
+type T = { m(x: any): x is A };
+type T = { m(x: any): asserts x is A };
+type T = { m(): this is A };
+type T = { m(x: any): x is A; n(): void };
+type T = { m(x: any): x /* c */ is A };

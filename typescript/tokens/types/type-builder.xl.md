@@ -823,7 +823,7 @@ if (unit instanceof Bracket) {
       throw new Error("调用签名缺少返回类型");
     }
     this.At++;
-    const returnType = this.ParseType();
+    const returnType = this.ParseReturnType();
     const shape = new CallSignatureShape(this.Template);
     shape.Parameters = parameters;
     shape.ReturnType = returnType;
@@ -868,7 +868,7 @@ if (next !== null && this.IsBracket(next, "(", ")")) {
   let returnType:Token | null = null;
   if (colon !== null && this.IsText(colon, ":")) {
     this.At++;
-    returnType = this.ParseType();
+    returnType = this.ParseReturnType();
   }
   const shape = new MethodSignatureShape(this.Template);
   shape.SignatureName = name;
@@ -1414,7 +1414,7 @@ if (arrowUnit === null || !this.IsText(arrowUnit, "=>")) {
   throw new Error("构造类型缺少 =>");
 }
 this.At++;
-const returnType = this.ParseType();
+const returnType = this.ParseReturnType();
 const shape = new ConstructorTypeShape(this.Template);
 shape.AbstractToken = abstractToken;
 shape.Parameters = parameters;
@@ -1460,7 +1460,15 @@ if (this.IsText(firstUnit, "asserts")) {
   this.At++;
   asserts = this.SpanLeaf(new AssertsKeywordShape(this.Template), start);
 }
-const name = this.ParseName();
+const nameUnit = this.Peek(0);
+let name:Token;
+if (nameUnit !== null && this.IsText(nameUnit, "this")) {
+  const thisIndex = this.At;
+  this.At++;
+  name = this.SpanLeaf(new ThisTypeShape(this.Template), thisIndex);
+} else {
+  name = this.ParseName();
+}
 // "x is A" has IsKeyword + Type; "asserts x" has neither (TS allows the bare assertion form).
 let type:Token | null = null;
 const isUnit = this.Peek(0);

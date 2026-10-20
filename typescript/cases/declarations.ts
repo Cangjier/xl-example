@@ -368,6 +368,31 @@ class C { /* c */ accessor x = 1; }
 class C { accessor /* c */ x = 1; }
 class C { accessor x /* c */ = 1; }
 
+
+// (restored) member decorator cases from earlier chunks
+class C { @dec m() {} }
+class C { @dec x = 1; }
+class C { @a @b m() {} }
+class C { @dec get x() { return 1; } }
+class C { @dec set x(v) {} }
+class C { @dec m(a: A): B { return a; } }
+class C { @dec() m() {} }
+class C { @dec() x = 1; }
+class C { @a.b m() {} }
+class C { @dec x = 1; @dec2 y = 2; }
+class C { @dec x; }
+class C { @dec /* c */ m() {} }
+class C { @ /* c */ dec m() {} }
+class C { @a /* c */ @b m() {} }
+class C { @dec\nm() {} }
+class C { @dec /* c */ x = 1; }
+class C { @dec async m() {} }
+class C { @dec *m() {} }
+class C { @dec async *m() {} }
+class C { @a @b *m() {} }
+class C { @dec /* c */ async m() {} }
+class C { @dec\n x = 1; }
+
 // ===== deferred =====
 // private-in expression: #x in obj  (needs expressions/expression-builder ParsePrimary dispatch for Symbol "#"; not in this write scope)
 // decorators: @dec class C {} / class C { @dec m() {} } / @dec x = 1 (needs class candidate "@"+decorator prefix + Decorator shape)
@@ -383,26 +408,10 @@ class C { accessor x /* c */ = 1; }
 @dec abstract class C {}
 @dec declare class C {}
 @dec class C {} @dec2 class D {}
-class C { @dec m() {} }
-class C { @dec x = 1; }
-class C { @a @b m() {} }
-class C { @dec get x() { return 1; } }
-class C { @dec set x(v) {} }
-class C { @dec m(a: A): B { return a; } }
-class C { @dec() m() {} }
-class C { @dec() x = 1; }
-class C { @a.b m() {} }
-class C { @dec x = 1; @dec2 y = 2; }
-class C { @dec x; }
 // + trivia
 @dec /* c */ class C {}
 @ /* c */ dec class C {}
 @a /* c */ @b class C {}
-class C { @dec /* c */ m() {} }
-class C { @ /* c */ dec m() {} }
-class C { @a /* c */ @b m() {} }
-class C { @dec\nm() {} }
-class C { @dec /* c */ x = 1; }
 @dec class C { @m2 dec() {} }
 
 // ===== deferred =====
@@ -433,18 +442,12 @@ class C { public set x(v) {} }
 class C { private get x() { return 1; } }
 class C { async get x() { return 1; } }
 class C { async set x(v) {} }
-class C { static get x() { return 1; } }
-class C { @dec async m() {} }
-class C { @dec *m() {} }
-class C { @dec async *m() {} }
-class C { @a @b *m() {} }
 // + trivia
 class C { async /* c */ m() {} }
 class C { /* c */ *m() {} }
 class C { * /* c */ m() {} }
 class C { async * /* c */ m() {} }
 class C { static /* c */ *m() {} }
-class C { @dec /* c */ async m() {} }
 class C { public /* c */ get x() { return 1; } }
 class C { *m() { /* c */ yield 1; } }
 
@@ -484,7 +487,6 @@ function f<T>(a: T) {}\nfunction g<U>(b: U) {}
 @dec\n\nclass C {}
 @dec /* c */\nclass C {}
 @dec\nclass C {}\nclass D {}
-class C { @dec\n x = 1; }
 
 // ===== base 13: async function with type parameters (AsyncKeyword -> [*] -> Identifier -> TypeParameter[] -> Parameter[]) =====
 async function f<T>(a: T): T { return a; }
@@ -630,3 +632,27 @@ var z = 1;
 // end candidate's IsAsiBoundary does not fire at a non-statement-word `declare` prefix.
 // deferred: `declare const x: number // c\n` (trailing comment, no semicolon) -- statement candidate and
 // root end candidate both stay live at EOF (CatalogGuide conflict); needs an EOF-aware end-candidate tweak.
+// ===== base 15: method return predicates + parameter decorators =====
+class C { m(x: any): x is A { return true; } }
+class C { m(x): x is A { return true; } }
+class C { static m(x: any): x is A { return true; } }
+class C { m(a: A, b: B): x is C { return true; } }
+class C { m(): this is A { return true; } }
+class C { get x(): asserts this is A {} }
+class C { m(x: any): x is A { return true; } n(y: any): asserts y {} }
+interface I { m(x: any): x is A; }
+interface I { m(x: any): asserts x is A; }
+interface I { m(x: any): x is A; n(): void; }
+// + trivia
+class C { m(x: any): x /* c */ is A { return true; } }
+class C { m(x: any): asserts /* c */ x is A {} }
+class C { m(x: any): x is /* c */ A { return true; } }
+interface I { m(x: any): asserts /* c */ x is A; }
+class C {\n  m(x: any): x is A {\n    return true;\n  }\n}
+
+// ===== deferred =====
+// object literal method predicates `({ m(x: any): x is A { return true; } })`: needs expression-builder method parsing; expression family scope.
+// parameter decorators with call/qualified expressions (`@dec() x`, `@a.b x`): only plain `@name` supported here.
+// constructor return predicates / assertions on setters: invalid TypeScript, skipped.
+// parameter decorators (`constructor(@dec x: A)`, `m(@dec x: A)`): DEFERRED -- needs TypeBuilder.ParseParameter surgery
+// (decorator prefix consumes tokens before the parameter name; planned for a later chunk).
