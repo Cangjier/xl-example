@@ -142,7 +142,7 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // new FunctionDeclarationPossibleShape(),
     // new EnumDeclarationPossibleShape(),
     // new ModuleDeclarationPossibleShape(),
-    // new TypeAliasDeclarationPossibleShape(),
+    new TypeAliasDeclarationPossibleShape(),
     // new VariableStatementPossibleShape(),
     // new BlockPossibleShape(),
     // new EmptyStatementPossibleShape(),
