@@ -333,3 +333,24 @@ STILL RED（本 chunk 未解，已注释进用例文件并写明原因）
   declare+interface+class、interface+declare+class、class+interface+type；注释在中间 / 行注释；declare+declare+class）；
   `asi-import-boundary` +9（`a\nimport b` / `{ b }` / `* as ns`、`a\nexport const`、import 后语句、`export function`、
   `export default function`、多 import、注释位置）。
+
+## 16. end-declarations chunk 8：装饰声明 / class 体成员 / 修饰词 在 EOF（measurement-first）
+
+**探针先量（22 条）**：在 integration 4fa193e7 上**全部已绿**——本批不动任何 shape，只补用例固化：
+- 根级装饰声明：`@dec class C {}`、`@dec class C { m() {} }`、`@dec\nclass C {}`、`@dec() class C {}`、`@a @b class C {}`；
+- class 体 ASI 成员（无分号到 EOF）：`class C { x = 1 }`、`class C { m() {} }`、`class C { x = 1; y = 2; }`；
+- interface/type/enum + 尾注释：`interface I { a: number } // c`、`type T = A // c`、`enum E { A } // c`、
+  `interface I { a: number } /* c */`；
+- export default class 体：`export default class C { x = 1 }`、`export default class C { m(): void {} }`；
+- abstract / declare：`abstract class C {}`、`declare class C {}`、`declare abstract class C {}`；
+- 无末尾换行 / 有尾换行对照：`@dec class C {} // c\n`、`class C { x = 1 } // c\n`、`export default class C { x = 1 } // c\n`、
+  `abstract class C {} // c\n`、`declare class C {} // c\n`。
+
+**为什么没有 end 层缺口**：这些形态的收尾都发生在**声明候选自己的建树路径**上（装饰器前缀由 class candidate 吃、
+类体是闭合括号单元、`abstract`/`declare` 是候选自己的修饰词位），不落到根终结候选的 EOF 兜底；chunk 2/3 时代
+（装饰器与修饰词形状尚未合入）留下的红点在形状合入后自然转绿，本批只是把口径固化。
+
+**用例**（`end-declarations.ts` append-only，+22）：上面 22 条探针形态全部收录（无末尾换行与尾注释/尾换行对照各占一部分）。
+
+**读数（本分支）**：`end-declarations` **188 / 188 完全一致**；全量 ast-json / diff **3884 / 3884**
+（基线 3862 + 22），结构差 0 / 位置差 0 / 字段差 0，无回归（end 53 等既有 stem 全绿）；tsc 0 error。

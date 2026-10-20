@@ -259,3 +259,34 @@ type T<U> = U // c\n
 // 暂缓（红，归属 import 族）：`import type { T } from "m" // c\n` —— 尾注释被算进 ImportDeclaration 的 End
 // （TS 到字符串为止；与 chunk 6 记录的 `import x from "m" // c` 同族，非 end 层问题）
 // import type { T } from "m" // c\n
+
+// ===== chunk 8：装饰声明 / class 体成员 / 修饰词 在 EOF（measurement-first：22 条探针全绿） =====
+// 根级装饰声明
+@dec class C {}
+@dec class C { m() {} }
+@dec\nclass C {}
+@dec() class C {}
+@a @b class C {}
+// class 体 ASI 成员（无分号到 EOF）
+class C { x = 1 }
+class C { m() {} }
+class C { x = 1; y = 2; }
+// interface/type/enum + 尾注释
+interface I { a: number } // c
+type T = A // c
+enum E { A } // c
+interface I { a: number } /* c */
+// export default class 体
+export default class C { x = 1 }
+export default class C { m(): void {} }
+// abstract / declare
+abstract class C {}
+declare class C {}
+declare abstract class C {}
+// 无末尾换行变体（上面这些本身即无尾换行；下面补「有尾换行 + 尾注释」的对照）
+@dec class C {} // c\n
+class C { x = 1 } // c\n
+export default class C { x = 1 } // c\n
+abstract class C {} // c\n
+declare class C {} // c\n
+
