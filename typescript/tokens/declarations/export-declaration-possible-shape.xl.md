@@ -138,6 +138,10 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       && ((unit as Common).Is("const") || (unit as Common).Is("let") || (unit as Common).Is("var"))) {
       state.Stage = 13;
       state.Kind = 4;
+    } else if (unit instanceof Common && (unit as Common).Is("function")) {
+      // `export function [*] name(…) {…}`：带函数体的导出函数（generator 的 `*` 在 Stage 16 里放行）。
+      state.Stage = 16;
+      state.Kind = 14;
     } else if (unit instanceof Common && (unit as Common).Is("default")) {
       state.Stage = 20;
       state.Kind = 6;
@@ -226,6 +230,21 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       continue;
     }
     state.Stage = 3;
+    continue;
+  }
+  if (state.Stage === 16) {
+    // `export function [*] name(…): Ret {…}`：名字 / `*` / 参数表 / 返回类型都先过去，
+    // 等函数体那个**已闭合**的 `{ }` 括号单元：Done 只落在它上面，BuildByIndex 一次建好整条声明
+    // （这样函数体内的语句不会在根层被当成表达式语句，ASI 边界也不会插进来）。
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+      if (!(unit as Bracket).Closed) {
+        continue;
+      }
+      state.Done = true;
+      state.DoneAt = index;
+      state.Stage = 4;
+      continue;
+    }
     continue;
   }
   if (state.Stage === 10 || state.Stage === 11 || state.Stage === 12 || state.Stage === 21) {
@@ -596,6 +615,21 @@ if (kind === 10) {
   defaultModifier.TryToClose(context);
   built.Data.unshift(defaultModifier);
   defaultModifier.Parent = built;
+  built.Data.unshift(exportModifier);
+  exportModifier.Parent = built;
+  built.Pos = pos;
+  host.Data.splice(start, tokenIndex - start + 1, built);
+  built.Parent = host;
+  return built;
+}
+if (kind === 14) {
+  // `export function [*] name(…) {…}`：声明从 `function`（secondIndex）起，体是闭合 `{ }`（tokenIndex）。
+  // children 顺序与 TS 一致：ExportKeyword、[AsteriskToken]、Identifier、Parameter 们、[返回类型]、Block。
+  let bodyIndex = tokenIndex;
+  while (bodyIndex > secondIndex && host.Data[bodyIndex].IsTriviaToken) {
+    bodyIndex--;
+  }
+  const built = FunctionDeclarationShape.FromUnits(host, secondIndex, bodyIndex, context);
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;
