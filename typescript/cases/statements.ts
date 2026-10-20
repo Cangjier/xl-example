@@ -343,3 +343,28 @@ const x = a\n+b
 const x = a\n(b)
 // 暂缓：`throw\na` —— TS 错误恢复产生 zero-width Identifier 子节点 + End 取下一 token 起点，cj Shape 表达不了（core-blocked，见 statements 覆盖文档）
 // 非法（TS parseDiagnostics，不进基准）：`a\nas T`、`a\nsatisfies T`、`a\n=`
+// ===== using / await using（oracle: keyword 不进 children，仅 VariableDeclarationList flags/pos）=====
+using x = f();
+{ using x = f(); }
+function g() { using x = f(); }
+async function f() { await using x = g(); }
+await using x = g();
+for (using x of xs) {}
+async function f() { for (await using y of ys) {} }
+for (await using y of ys) {}
+for (using x in xs) {}
+using x = f(), y = g();
+using /* c */ x = f();
+using x /* c */ = f();
+const x = 1; using y = f();
+using x = f();\nusing y = g();
+for (const x of xs) {}
+{ await using x = g(); }
+async function f() { for (await using y of ys) { await g(); } }
+for (using x of xs) b;
+async function f() { for (await using y of ys) b; }
+using  x = f();
+async function f() { await  using x = g(); }
+using x = f(); // c
+using x = f();\nconst y = 1;
+for (using x of xs) { using y = f(); }
