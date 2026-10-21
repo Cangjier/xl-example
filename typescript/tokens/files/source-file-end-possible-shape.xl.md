@@ -496,10 +496,15 @@ const isExportDeclareType = text === "export"
   && code[2] instanceof Common && (code[2] as Common).Is("type");
 const isType = text === "type" || isExportType || isDeclareType || isExportDeclareType;
 const isImportEquals = text === "import"
-  && code.length >= 5
-  && code[1] instanceof Common
-  && code[2] instanceof Symbol
-  && (code[2] as Symbol).Is("=");
+  && ((code.length >= 5
+    && code[1] instanceof Common
+    && code[2] instanceof Symbol
+    && (code[2] as Symbol).Is("="))
+    // `import type x = require("m")`：`type` 是 typeOnly 属性，不是名字；`=` 在 code[3]。
+    || (code.length >= 6
+      && code[1] instanceof Common && (code[1] as Common).Is("type")
+      && code[2] instanceof Common
+      && code[3] instanceof Symbol && (code[3] as Symbol).Is("=")));
 // `import … from "m"`（含 import type / 具名 / 命名空间 / 副作用）无分号到 EOF：
 // ImportDeclarationShape 有 FromUnits，末尾要求 `;`，这里补零宽合成 `;` 走它。
 const isImportClause = text === "import" && !isImportEquals;

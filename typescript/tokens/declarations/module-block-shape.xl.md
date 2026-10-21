@@ -228,11 +228,61 @@ if (keyword === "as") {
         break;
       }
     }
-    if (specialEnd > declStart) {
-      const dataStart = bracket.Data.indexOf(inner.Units[declStart]);
-      const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    // 块体里 import-equals 也可以无分号收口：`;` / 换行后下一个成员首词 / 块尾 三选一。
+    let endInner = specialEnd;
+    let syntheticSemi = false;
+    if (endInner < 0) {
+      for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+        const scanned = inner.Units[scan];
+        if (scan > declStart + 1 && scanned instanceof Common
+          && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
+          && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
+          endInner = scan - 1;
+          break;
+        }
+      }
+      if (endInner < 0) {
+        endInner = inner.Units.length - 1;
+      }
+      syntheticSemi = true;
+    }
+    if (endInner > declStart) {
+      // `export import x = …`：export 修饰词由 ImportEqualsDeclarationShape 自己投影（TS 的 children
+      // 是 [ExportKeyword, Identifier, …]），所以起点要含 export、末尾不再由本层插修饰词。
+      const startInner = modifier !== null ? first : declStart;
+      const dataStart = bracket.Data.indexOf(inner.Units[startInner]);
+      let dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+      if (syntheticSemi) {
+        const endSource = inner.Units[endInner].SourceRange.End;
+        if (endSource !== null) {
+          const semi = new Symbol(bracket.Template);
+          semi.SignIn(endSource);
+          semi.AppendValueAndSignOut(";", endSource);
+          bracket.Data.splice(dataEnd + 1, 0, semi);
+          dataEnd++;
+        } else {
+          syntheticSemi = false;
+        }
+      }
       special = ImportEqualsDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
-      (special as ShapeToken).Pos = inner.Positions[declStart];
+      (special as ShapeToken).Pos = inner.Positions[startInner];
+      if (modifier !== null) {
+        // ExportKeyword 的 Pos：FromUnits 按 `bracket.Data` 里前一个单元推，块体首个成员会落到 0；
+        // 这里用本层 Positions 重锚到 export 的起点（与 const enum / declare function 同款）。
+        for (const child of special.Data) {
+          if (child instanceof ExportKeywordShape) {
+            (child as ShapeToken).Pos = inner.Positions[first];
+            break;
+          }
+        }
+      }
+      if (syntheticSemi) {
+        bracket.Data.splice(dataEnd, 1);
+      }
+      specialEnd = endInner;
+      if (modifier !== null) {
+        skipModifier = true;
+      }
     }
   } else {
     // import x from "n"; / import {a} from "n"; / import * as ns from "n"; / import "n"; / import type {T} from "n";
@@ -324,12 +374,47 @@ if (keyword === "as") {
       break;
     }
   }
-  if (specialEnd > declStart) {
+  // 块体里 export= / export default 也可以无分号收口（`export default y` ⏎ `}` / 下一个成员）：
+  // 段末取「换行后的下一个成员首词」或块尾，补一个零宽合成 `;` 交给 ExportAssignmentShape。
+  let endInner = specialEnd;
+  let syntheticSemi = false;
+  if (endInner < 0) {
+    for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+      const scanned = inner.Units[scan];
+      if (scan > declStart + 1 && scanned instanceof Common
+        && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
+        && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
+        endInner = scan - 1;
+        break;
+      }
+    }
+    if (endInner < 0) {
+      endInner = inner.Units.length - 1;
+    }
+    syntheticSemi = true;
+  }
+  if (endInner > declStart) {
     const dataStart = bracket.Data.indexOf(inner.Units[first]);
-    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    let dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+    if (syntheticSemi) {
+      const endSource = inner.Units[endInner].SourceRange.End;
+      if (endSource !== null) {
+        const semi = new Symbol(bracket.Template);
+        semi.SignIn(endSource);
+        semi.AppendValueAndSignOut(";", endSource);
+        bracket.Data.splice(dataEnd + 1, 0, semi);
+        dataEnd++;
+      } else {
+        syntheticSemi = false;
+      }
+    }
     special = ExportAssignmentShape.FromUnits(bracket, dataStart, dataEnd, context);
     (special as ShapeToken).Pos = inner.Positions[first];
     skipModifier = true;
+    specialEnd = endInner;
+    if (syntheticSemi) {
+      bracket.Data.splice(dataEnd, 1);
+    }
   }
 }
 let bodyInner = -1;
