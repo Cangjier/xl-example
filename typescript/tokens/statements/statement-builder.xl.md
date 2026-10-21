@@ -655,25 +655,50 @@ if (firstText === "await") {
   this.At = first + 1;
 }
 let endExclusive = this.At;
+let angleDepth = 0;
+let typeArgsClosed = false;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {
+  const currentUnit = this.Units[endExclusive];
   // 无分号风格的变量语句：换行 + 上一位能收尾 + 下一位接不上 ⇒ 本条语句在此收口
   // （`const a = 1\nbreak`、`declare const o: T\no.m()`、`const last = xs[…]\nlog()`）。
   // 声明列表内的续接（`,` / `=` / `:` / 类型续接符 / `(` `[` `{`）由 `ContinuesAcrossLine`
   // 已经排除；`EndsAtLineBreak` 与 `BuildExpressionStatement` 读的是同一个判据。
   if (endExclusive > this.At) {
     const previousUnit = this.Units[endExclusive - 1];
-    const currentUnit = this.Units[endExclusive];
     if (StatementBuilder.EndsAtLineBreak(previousUnit, currentUnit)) {
       break;
     }
-    // `<…>` 类型实参在词法层是一个 Bracket 单元：`as Record<string, number>` ⏎ `console.log(v)`
-    // 的上一格是角度 Bracket，它同样收得住初始化器（换行 + 下一格接不上才是 ASI）。
+    // `const { [k]: v } = { a: 1 } as Record<string, number>` ⏎ `console.log(v)`：
+    // 类型实参的收尾 `>` 不在 `EndsExpression` 里，但角度深度归零后它同样收得住初始化器
+    // （换行 + 下一格接不上才是 ASI；比较运算的 `>` 前面没有合格 `<`，不会被标成 typeArgsClosed）。
+    if (typeArgsClosed
+      && !StatementScanner.NoLineBreakBetween(previousUnit, currentUnit)
+      && !StatementBuilder.ContinuesAcrossLine(currentUnit)) {
+      break;
+    }
+    // `<…>` 若在词法层已经是一个 Bracket 单元（`as Record<string, number>` 的紧凑写法），
+    // 上一格就是这个角度括号：它同样收得住初始化器。
     if (previousUnit instanceof Bracket
       && (previousUnit as Bracket).StartBracketChar === "<"
       && !StatementScanner.NoLineBreakBetween(previousUnit, currentUnit)
       && !StatementBuilder.ContinuesAcrossLine(currentUnit)) {
       break;
     }
+  }
+  if (currentUnit instanceof Symbol) {
+    const currentText = (currentUnit as Symbol).TempToString();
+    const depthBefore = angleDepth;
+    if (currentText === "<") {
+      if (StatementBuilder.IsTypeArgumentStart(this.Units, endExclusive, this.Units.length)) {
+        angleDepth = AngleJudge.ScanDepth(currentUnit, angleDepth);
+      }
+    } else {
+      angleDepth = AngleJudge.ScanDepth(currentUnit, angleDepth);
+    }
+    typeArgsClosed = (currentText === ">" || currentText === ">>" || currentText === ">>>")
+      && depthBefore > 0 && angleDepth <= 0;
+  } else {
+    typeArgsClosed = false;
   }
   endExclusive++;
 }

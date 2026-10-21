@@ -208,6 +208,76 @@ unit.TryToClose(context);
 return host;
 ```
 
+## private static method BuildStatementSegments:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
+
+把 `host.Data[start..at]` 里的 leftover 单元按「一条语句一段」逐段建 shape：每段交给 StatementBuilder，
+**段的消费量按语句右边界 `SourceRange.End` 数 Data 槽位**（不用 `builder.At`——它不是可靠的消费量，
+上一轮用它 splice 造成 114 个文件 ok→diff），再按段长 splice；整段都建完返 true。
+
+```ts
+let cursor = start;
+let limit = at;
+let built = 0;
+while (cursor <= limit) {
+  let hasBasic = false;
+  for (let index = cursor; index <= limit; index++) {
+    if (host.Data[index].IsBasicToken && !host.Data[index].IsTriviaToken) {
+      hasBasic = true;
+      break;
+    }
+  }
+  if (!hasBasic) {
+    break;
+  }
+  let basePos = 0;
+  for (let index = cursor - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        basePos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const builder = new StatementBuilder(host.Template, context);
+  builder.Load(host.Data.slice(cursor, limit + 1), basePos);
+  let statement:Token | null = null;
+  try {
+    statement = builder.BuildStatement();
+  } catch (error) {
+    statement = null;
+  }
+  if (statement === null) {
+    break;
+  }
+  const endSource = statement.SourceRange.End;
+  let consumed = 0;
+  if (endSource === null) {
+    consumed = limit - cursor + 1;
+  } else {
+    while (cursor + consumed <= limit) {
+      const unitStart = host.Data[cursor + consumed].SourceRange.Start;
+      if (unitStart !== null && unitStart.Index > endSource.Index) {
+        break;
+      }
+      consumed++;
+    }
+  }
+  if (consumed <= 0) {
+    break;
+  }
+  host.Data.splice(cursor, consumed, statement);
+  statement.Parent = host;
+  built++;
+  limit -= consumed - 1;
+  cursor++;
+  while (cursor <= limit && (host.Data[cursor].IsTriviaToken || !host.Data[cursor].IsBasicToken)) {
+    cursor++;
+  }
+}
+return built > 0;
+```
+
 ## private static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
 EOF 边界补一条「必须分号、但 ASI 允许省略分号」的声明：`type T = A` 与 `import x = require("m")`
@@ -245,6 +315,16 @@ if (code[0] instanceof Common) {
     const standalone = ExpressionStatementShape.FromUnits(host, start, codeAt[1], context, true);
     host.Data.splice(start, codeAt[1] - start + 1, standalone);
     standalone.Parent = host;
+    // 同一次调用里把剩余单元按段收口（否则它们会以 basic token 残留、污染 AST）。
+    const standaloneLimit = at - (codeAt[1] - start);
+    let standaloneNext = start + 1;
+    while (standaloneNext <= standaloneLimit
+      && (host.Data[standaloneNext].IsTriviaToken || !host.Data[standaloneNext].IsBasicToken)) {
+      standaloneNext++;
+    }
+    if (standaloneNext <= standaloneLimit) {
+      SourceFileEndPossibleShape.BuildStatementSegments(host, standaloneNext, standaloneLimit, context);
+    }
     return true;
   }
 }
@@ -366,22 +446,9 @@ const isDeclareVariable = text === "declare"
   && ((code[1] as Common).Is("let") || (code[1] as Common).Is("const")
     || (code[1] as Common).Is("var") || (code[1] as Common).Is("using"));
 if (isVariableKeyword || isDeclareVariable) {
-  let basePos = 0;
-  for (let index = start - 1; index >= 0; index--) {
-    if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        basePos = previousEnd.Index + 1;
-      }
-      break;
-    }
-  }
-  const builder = new StatementBuilder(host.Template, context);
-  builder.Load(host.Data.slice(start, at + 1), basePos);
-  const statement = builder.BuildStatement();
-  host.Data.splice(start, at - start + 1, statement);
-  statement.Parent = host;
-  return true;
+  // 无分号 EOF 尾巴：可能连排多条语句（`const a = 1` ⏎ `console.log(a)`）——按段逐条建，
+  // 每段按语句右边界算消费量，不能整段 splice（会吞掉后面的语句）。
+  return SourceFileEndPossibleShape.BuildStatementSegments(host, start, at, context);
 }
 // 控制语句 / 简单语句无分号到 EOF（statements 文档 F 组：`do x++` ⏎ `while (c);`）：
 // 这些形态没有专门的 FromUnits，交给 StatementBuilder 按正常语句路径建，别落进 ExpressionStatement。
