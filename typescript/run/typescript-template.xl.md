@@ -2,6 +2,10 @@
 ```xl
 import { RegexTemplate } from "../../core/syntax/templates/regex-template.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
+import { Bracket } from "../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../core/syntax/basic-tokens/symbol.xl.md"
+import { Token } from "../../core/syntax/token.xl.md"
 ```
 
 # namespace cangjie
@@ -28,6 +32,131 @@ ts 的正则模板。
 
 ```ts
 return value.length > 0 && /^[\p{ID_Continue}]$/u.test(value);
+```
+
+## method CanStartAt:(units:Array<Token>, index:int)=>bool
+
+ts 的起点判据：先走 `RegexTemplate.CanStartAt` 的纯词法判据，再补三类**位置判据**——词法层只看到「前一个代码单元」时判不出来的那些语句起点。
+
+- 控制头 `)`：`if (a)` / `while (a)` / `for (;;)` / `with (a)` 的 `)` 之后一定是新语句；
+  `obj.while(a)` / `obj.if(a)` 这种**成员调用**不算（`(` 前面那个词之前的单元是 `.` / `?.`）。
+- `else` / `do` 关键字尾：`else /re/` / `do /re/`。
+- 语句块尾：`try { } catch (e) { } ` 之后这类**块语句的收尾**；值位的花括号
+  （`=` / `=>` / `(` / `,` / `:` 之后的对象字面量、函数/类**表达式**的体）一律排除。
+
+```ts
+if (super.CanStartAt(units, index)) {
+  return true;
+}
+const slashIndex = TypeScriptRegexTemplate.SlashIndex(units, index);
+if (slashIndex < 0) {
+  return false;
+}
+const lastIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, slashIndex - 1);
+if (lastIndex < 0) {
+  return false;
+}
+const last = units[lastIndex];
+if (last instanceof Bracket && (last as Bracket).StartBracketChar === "(") {
+  const headIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, lastIndex - 1);
+  if (headIndex >= 0) {
+    const head = units[headIndex];
+    if (head instanceof Common) {
+      const word = (head as Common).TempToString();
+      if (word === "if" || word === "while" || word === "for" || word === "with") {
+        const beforeIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, headIndex - 1);
+        const before = beforeIndex >= 0 ? units[beforeIndex] : null;
+        if (before === null || !(before instanceof Symbol)) {
+          return true;
+        }
+        const beforeText = (before as Symbol).TempToString();
+        if (beforeText !== "." && beforeText !== "?.") {
+          return true;
+        }
+      }
+    }
+  }
+}
+if (last instanceof Common) {
+  const tail = (last as Common).TempToString();
+  if (tail === "else" || tail === "do") {
+    return true;
+  }
+}
+if (last instanceof Bracket && (last as Bracket).StartBracketChar === "{") {
+  return TypeScriptRegexTemplate.IsStatementBraceTail(units, lastIndex);
+}
+return false;
+```
+
+## static method PreviousCodeIndex:(units:Array<Token>, fromIndex:int)=>int
+
+从 `fromIndex` 往前跳过 trivia，返回第一个代码单元的下标；没有则返回 `-1`。
+
+```ts
+let at = fromIndex;
+while (at >= 0 && units[at].IsTriviaToken) {
+  at--;
+}
+return at;
+```
+
+## static method SlashIndex:(units:Array<Token>, index:int)=>int
+
+`index` 是 `/` 之后的下标（`data.length`）；往前跳过 trivia 找到那个 `/` 单元并返回它的下标，找不到返回 `-1`。
+
+```ts
+let at = index - 1;
+while (at >= 0 && units[at].IsTriviaToken) {
+  at--;
+}
+if (at < 0) {
+  return -1;
+}
+const unit = units[at];
+if (unit instanceof Symbol && (unit as Symbol).Is("/")) {
+  return at;
+}
+return -1;
+```
+
+## static method IsStatementBraceTail:(units:Array<Token>, braceIndex:int)=>bool
+
+判断 `braceIndex` 这个 `{` 是不是**块语句的收尾**（而不是值位的对象字面量 / 函数表达式体）。
+先排除值位（`=` / `=>` / `(` / `,` / `:` 等），再回看构造头：`try` / `catch` / `finally` / `else` / `do`，
+或 `if` / `while` / `for` / `with` / `switch`（这类要先跳过条件括号）。
+
+```ts
+const beforeIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, braceIndex - 1);
+if (beforeIndex < 0) {
+  return true;
+}
+const before = units[beforeIndex];
+if (before instanceof Symbol) {
+  const text = (before as Symbol).TempToString();
+  if (text === "." || text === "?." || text === "=" || text === "=>" || text === "(" || text === "[" || text === "," || text === ":" || text === "?" || text === "||" || text === "&&" || text === "+" || text === "-" || text === "*" || text === "/" || text === "%" || text === "!" || text === "~" || text === "&" || text === "|" || text === "^" || text === "<" || text === ">" || text === "==" || text === "===" || text === "!=" || text === "!==") {
+    return false;
+  }
+}
+let headIndex = beforeIndex;
+if (before instanceof Bracket && (before as Bracket).StartBracketChar === "(") {
+  headIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, beforeIndex - 1);
+}
+if (headIndex < 0) {
+  return false;
+}
+const head = units[headIndex];
+if (!(head instanceof Common)) {
+  return false;
+}
+const word = (head as Common).TempToString();
+if (word === "try" || word === "catch" || word === "finally" || word === "else" || word === "do") {
+  return true;
+}
+if (word === "if" || word === "while" || word === "for" || word === "with" || word === "switch") {
+  return true;
+}
+return false;
 ```
 
 # class TypescriptTemplate

@@ -41,6 +41,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | 原始基线（commit `dd5a494c`） | 1501 | **162** | **29** | 10 | 1 | 1703 |
 | round-1 合并后（commit `2a563080`） | **1561** | **119** | **12** | 10 | 1 | 1703 |
+| Plan A（token regex 判据，`cover-token-regexstart`） | **1638** | **45** | **9** | 10 | 1 | 1703 |
 | 最终合并态（commit `8dbb7976`） | **1636** | **47** | **9** | 10 | 1 | 1703 |
 
 - **191 处失败 = 162 crash + 29 diff**；`ts-invalid` 10 份是 TS 自己 `parseDiagnostics ≠ 0`（尺子不测），不计入 191。
@@ -139,6 +140,8 @@
   详见 §5 逐条。
 
 ## 5. basic token 待用户决定清单（按 IMPORTANCE §3.1，只能由用户发起）
+
+> **更新（Plan A 已落地）**：场景 1（控制头 `)` 之后 / 语句起点的 `/`）已实施——`RegexTemplate.CanStartAt(units,index)` + `RegexToken.Transit` 改调用 + `TypeScriptRegexTemplate.CanStartAt` 覆写。`expr-r1233-control-head-regex.ts`、`stmt-if-body-regex-not-comment.ts` 转 PASS；最新读数 **1638/45/9**（剩余 54 = 45+9），basic-token 类红 10→8。场景 1 不再「待裁定」；`RegexStartAfter` 保留（语法层否决/放行通道，当前无写入点），其余场景不变。
 
 本清单按**受影响文件**计数：items 1–4 共 **8 份** + item 5 shebang **2 份** + item 6 `>>` 拆分 **1 份** = **11 份**。
 §3 表与结论里的「basic token 8」是**归因条数**（items 1–4），口径不同、不矛盾。

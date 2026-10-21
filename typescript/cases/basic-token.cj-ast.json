@@ -116,6 +116,644 @@
           ]
         }
       ]
+    },
+    {
+      "src": "while (a) /re/g;",
+      "ast": [
+        {
+          "kind": "WhileStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 8,
+              "text": "a"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 9,
+                  "end": 15,
+                  "text": "/re/g"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "if (a) /re/g;",
+      "ast": [
+        {
+          "kind": "IfStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 5,
+              "text": "a"
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 6,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 6,
+                  "end": 12,
+                  "text": "/re/g"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (;;) /re/g;",
+      "ast": [
+        {
+          "kind": "ForStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 8,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "RegularExpressionLiteral",
+                  "pos": 8,
+                  "end": 14,
+                  "text": "/re/g"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "do { } while (a) /re/g;",
+      "ast": [
+        {
+          "kind": "DoStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 2,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 15,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 23,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 16,
+              "end": 22,
+              "text": "/re/g"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "try { } catch (e) { } /re/g;",
+      "ast": [
+        {
+          "kind": "TryStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 3,
+              "end": 7
+            },
+            {
+              "kind": "CatchClause",
+              "pos": 7,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 15,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 16,
+                      "text": "e"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 17,
+                  "end": 21
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 28,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 21,
+              "end": 27,
+              "text": "/re/g"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { if (a) /re/.test(x); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "IfStatement",
+                  "pos": 14,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 20,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 21,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 21,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "PropertyAccessExpression",
+                              "pos": 21,
+                              "end": 31,
+                              "children": [
+                                {
+                                  "kind": "RegularExpressionLiteral",
+                                  "pos": 21,
+                                  "end": 26,
+                                  "text": "/re/"
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 27,
+                                  "end": 31,
+                                  "text": "test"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 33,
+                              "text": "x"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() { if (a) /re/.test(x); } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "IfStatement",
+                      "pos": 15,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "ExpressionStatement",
+                          "pos": 22,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 22,
+                              "end": 35,
+                              "children": [
+                                {
+                                  "kind": "PropertyAccessExpression",
+                                  "pos": 22,
+                                  "end": 32,
+                                  "children": [
+                                    {
+                                      "kind": "RegularExpressionLiteral",
+                                      "pos": 22,
+                                      "end": 27,
+                                      "text": "/re/"
+                                    },
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 28,
+                                      "end": 32,
+                                      "text": "test"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 33,
+                                  "end": 34,
+                                  "text": "x"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const g1 = (a)\n/re/g;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "g1"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 10,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 10,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "ParenthesizedExpression",
+                              "pos": 10,
+                              "end": 14,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 12,
+                                  "end": 13,
+                                  "text": "a"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "SlashToken",
+                              "pos": 14,
+                              "end": 16
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 18,
+                              "text": "re"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "SlashToken",
+                          "pos": 18,
+                          "end": 19
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 20,
+                          "text": "g"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const g2 = obj.while(a)\n/re/g;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "g2"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 10,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 10,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "CallExpression",
+                              "pos": 10,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "PropertyAccessExpression",
+                                  "pos": 10,
+                                  "end": 20,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 10,
+                                      "end": 14,
+                                      "text": "obj"
+                                    },
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 15,
+                                      "end": 20,
+                                      "text": "while"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 21,
+                                  "end": 22,
+                                  "text": "a"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "SlashToken",
+                              "pos": 23,
+                              "end": 25
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 27,
+                              "text": "re"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "SlashToken",
+                          "pos": 27,
+                          "end": 28
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 28,
+                          "end": 29,
+                          "text": "g"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const g3 = a / b;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "g3"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 10,
+                      "end": 16,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 12,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "SlashToken",
+                          "pos": 12,
+                          "end": 14
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const g4 = a /* c */ / b;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "g4"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 10,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 12,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "SlashToken",
+                          "pos": 12,
+                          "end": 22
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

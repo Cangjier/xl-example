@@ -4,8 +4,15 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：当前主仓（`a782b229`）剩余 **56 份失败 = 47 crash + 9 diff**；
-本清单 7 个场景里 **实测仍红 10 份**（`/` 2 + `$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2）；
+**结论先行**：当前主仓（`a782b229`）剩余 **56 份失败 = 47 crash + 9 diff**；Plan A 落地后为 **54 = 45 crash + 9 diff**；
+本清单 7 个场景里 **实测仍红 8 份**（`﻿# basic token 场景清单（逐场景 case files / 根因 / 解决思路 / 验收）
+
+本文件把 `docs/token-ast-analysis.md` §5 的「basic token 待用户裁定」拆成**可执行清单**：
+每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
+方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
+
+**结论先行**：当前主仓（`a782b229`）剩余 **56 份失败 = 47 crash + 9 diff**；Plan A 落地后为 **54 = 45 crash + 9 diff**；
+ 3 + `\uXXXX` 2 + BOM 1 + shebang 2；`/` 2 份已由 Plan A 收掉）；
 `>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）在 round-2 已转绿（现 PASS），
 所以 Lead 口径的 11 份 = 10 份仍红 + 1 份已绿；`async` 是口径注记、当前无失败文件。
 **其中 3 个场景（2/4/5）可以完全不改 `core/**` 修掉；1/6 也不需要 core（用现有 `RegexStartAfter` / 表达式侧拆角）；
@@ -14,17 +21,17 @@
 ## 0. 读数基线（本克隆实测，非抄旧数）
 
 ```text
-分支 cover-token-basicdoc，HEAD a782b229（origin/feature/quick-pairse 最新）
+分支 cover-token-regexstart（从 a782b229 拉起），Plan A 已实施并实测通过
 xl_build core,typescript → 859 written / 0 error；tsc exit 0
 node typescript/cases/token-ast.mjs --quiet
-  → total=1703 ok=1636 crash=47 diff=9 ts-invalid=10 gap-now-passing=1
-  → known-gap 3（diff 2 + gap-now-passing 1），non-known-gap 1700（ok 1636 / crash 47 / diff 7 / ts-invalid 10）
-ast:cases（4622）不受本次场景影响，仍 4622/4622、0/0/0
+  → total=1703 ok=1638 crash=45 diff=9 ts-invalid=10 gap-now-passing=1
+  → known-gap 3（diff 2 + gap-now-passing 1），non-known-gap 1700（ok 1638 / crash 45 / diff 7 / ts-invalid 10）
+ast:cases：加用例前 4763/4763、0/0/0；本分支把场景 1 的活跃行加入 `typescript/cases/basic-token.ts` 后为 **4774/4774、0/0/0**
 ```
 
 逐文件复测命令：`node typescript/cases/token-ast.mjs tests/cases/token/<子目录>/<文件>.ts`（失败时 exit 1）。
 
-## 1. 控制头 `)` 之后 / 语句起点的 `/` 应判 `RegexToken` 而非除号
+## 1. 控制头 `)` 之后 / 语句起点的 `/` 应判 `RegexToken` 而非除号（**已实施 Plan A**）
 
 **受影响 case files（2，实测均为 crash，均无 `xl:known-gap`）**
 
@@ -54,10 +61,10 @@ ast:cases（4622）不受本次场景影响，仍 4622/4622、0/0/0
 **方案 B（不改 token 的 typescript 层绕过）**：维持现状，在语料把 `if (a) /re/…` 声明为不支持、改期望标签。
 代价：与 TS 行为永久不一致，且 `expr-r1233` 的多档控制头全部要改。**不推荐**。
 
-**推荐**：**方案 A（登记 `RegexStartAfter`，落点在 typescript 语句/表达式候选，不动 core）**。
-理由：core 早已留好接口，只差 parser 侧登记；比 re-scan 更小、可逆。
+**已实施（Plan A，用户批准加宽判据输入）**：`RegexTemplate` 新增 `CanStartAt(units,index)`（默认回扫 trivia 后委托 `CanStart`）；`RegexToken.Transit` 改调 `CanStartAt(data, data.length)`（`RegexStartAfter` 检查保留最前，字段/依赖未删）；ts 模板 `TypeScriptRegexTemplate.CanStartAt` 覆写补三类位置判据——控制头 `)`（`if/while/for/with`，排除 `obj.while(a)` 成员调用）、`else`/`do` 关键字尾、语句块尾（值位花括号排除）。
+改动文件：`core/syntax/templates/regex-template.xl.md`、`core/syntax/basic-tokens/regex-token.xl.md`、`typescript/run/typescript-template.xl.md`；无其它 core 改动，语言词表没有写进 core。
 
-**验收**：上表 2 份转 PASS；token 读数 ok 1636→1638、crash 47→45、diff 9 不变。
+**验收（已实测达成）**：上表 2 份转 PASS；`expr-r1232` / `expr-r1234` 守卫仍 PASS；嵌套 `function f(){ if (a) /re/.test(x); }`、`class C{ m(){ if (a) /re/.test(x); } }` PASS；`expr-r1233` 的 10 条对照仍为除号；token 读数 ok 1636→**1638**、crash 47→**45**、diff 9 **不变**；ast:cases 4774/4774、0/0/0。
 `typescript/cases/basic-token.ts` 候选活跃行：`if (a) /re/.test(x);`、`for (;;) /re/g;`。
 
 **需用户裁定**：允许按「表达式起点位置」把 `/` 改判成 `RegexToken`（用 core 现有 `RegexStartAfter`，不改 core 代码）吗？
@@ -262,7 +269,7 @@ parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / 
 
 | # | 场景 | 实测仍红 case 数 | 要改的文件 | 是否 core | 推荐方案 | 预计转绿 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 控制头 `)` 后 `/` 判 RegexToken | 2 | `typescript/` 语句/表达式候选登记 `RegexStartAfter`（`core/syntax/syntax-context.xl.md:33` 已有接口） | 否 | A（登记，非新 core API） | 2 |
+| 1 | 控制头 `)` 后 `/` 判 RegexToken（**已实施**） | 0（已转 PASS） | `core/syntax/templates/regex-template.xl.md`（新增 `CanStartAt`）+ `core/syntax/basic-tokens/regex-token.xl.md`（改调用）+ `typescript/run/typescript-template.xl.md`（ts 覆写） | 是（入口加宽在 core，用户已批准） | A | 2（已转绿） |
 | 2 | `$` 作标识符字符 | 3 | `typescript/run/typescript-template.xl.md`（`SymbolTemplate.Ban(["$"])`） | 否 | B | 3 |
 | 3 | `\uXXXX` 转义标识符 | 2 | `core/syntax/basic-tokens/common.xl.md`（字符吞并 + 解码）、`typescript/tokens/names/identifier-shape.xl.md`（投影解码） | **是**（推荐 A） | A | 2 |
 | 4 | U+FEFF/BOM 作 trivia | 1 | `typescript/run/text-document.xl.md`（同长度替换空格）；或 `core/syntax/templates/symbol-template.xl.md` 空白表 | 否（B）/ 是（A） | B | 1 |
@@ -271,7 +278,7 @@ parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / 
 | 7 | `async` 上下文关键字升级口径 | 0 | 无（口径记录） | 否 | 保持现状 | 0 |
 | | **合计** | **10** | | | | **10**（+`>>` 历史 1 已绿 → Lead 口径 11） |
 
-**合计影响剩余 56 份失败中的 11 份**（`/` 2 + `$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2 + `>>` 1）：
+**合计影响（Plan A 落地后）剩余 54 份失败中的 10 份**（`/` 2 + `$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2 + `>>` 1）：
 其中 **10 份当前仍红、1 份（`>>`/`ex-angle-cast`）已转绿**；本清单的 `>>` 一行给出「保持 token 合符号」的口径建议。
 若 1/2/3/4/5 全部按推荐方案实施，token 读数预期 **ok 1636→1646、crash 47→37、diff 9 不变**。
 
