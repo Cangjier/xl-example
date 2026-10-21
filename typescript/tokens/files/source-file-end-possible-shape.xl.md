@@ -23,6 +23,7 @@ import { ExportDeclarationShape } from "../declarations/export-declaration-shape
 import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { ModuleDeclarationShape } from "../declarations/module-declaration-shape.xl.md"
+import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
@@ -184,6 +185,27 @@ for (let index = start; index <= at; index++) {
 if (code.length < 2) {
   return false;
 }
+// `do <body> while (…)` 是一条语句：leftover 的换行拆分不能把 body 与 while 切开，
+// 整段交给 StatementBuilder（statements 文档 F 组）。
+const firstCodeText = code[0] instanceof Common ? (code[0] as Common).TempToString() : "";
+if (firstCodeText === "do") {
+  let doPos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        doPos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const doBuilder = new StatementBuilder(host.Template, context);
+  doBuilder.Load(host.Data.slice(start, at + 1), doPos);
+  const doStatement = doBuilder.BuildStatement();
+  host.Data.splice(start, at - start + 1, doStatement);
+  doStatement.Parent = host;
+  return true;
+}
 // 多条声明连排：最后一条的起点 = 最后一个「换行之后出现的声明起点」。
 let boundary = -1;
 for (let index = 1; index < code.length; index++) {
@@ -296,6 +318,29 @@ if (isVariableKeyword || isDeclareVariable) {
   const statement = builder.BuildStatement();
   host.Data.splice(start, at - start + 1, statement);
   statement.Parent = host;
+  return true;
+}
+// 控制语句 / 简单语句无分号到 EOF（statements 文档 F 组：`do x++` ⏎ `while (c);`）：
+// 这些形态没有专门的 FromUnits，交给 StatementBuilder 按正常语句路径建，别落进 ExpressionStatement。
+const isSimpleStatement = text === "do" || text === "while" || text === "if" || text === "for"
+  || text === "switch" || text === "try" || text === "throw" || text === "return"
+  || text === "break" || text === "continue" || text === "debugger";
+if (isSimpleStatement) {
+  let statementPos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        statementPos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const statementBuilder = new StatementBuilder(host.Template, context);
+  statementBuilder.Load(host.Data.slice(start, at + 1), statementPos);
+  const simpleStatement = statementBuilder.BuildStatement();
+  host.Data.splice(start, at - start + 1, simpleStatement);
+  simpleStatement.Parent = host;
   return true;
 }
 // 紧邻的 class / interface 声明（体是闭合括号单元，tokenIndex 落在 `}` 上）；允许前置 declare。
@@ -446,6 +491,27 @@ if (isExportEquals) {
   const assignment = ExportAssignmentShape.FromUnits(host, start, at, context, false);
   host.Data.splice(start, at - start + 1, assignment);
   assignment.Parent = host;
+  return true;
+}
+// `export as namespace A` 无分号到 EOF（statements 文档 I 组）：NamespaceExportDeclaration 的 children
+// 只有名字，FromUnits 要求末尾 `;`；这里补零宽合成 `;` 再走正常入口，避免落进 ExpressionStatement
+// 报「表达式语句没有读完」。多声明连排时本条是前缀，本分支只负责这一段。
+const isExportAsNamespace = text === "export"
+  && code.length >= 4
+  && code[1] instanceof Common && (code[1] as Common).Is("as")
+  && code[2] instanceof Common && (code[2] as Common).Is("namespace");
+if (isExportAsNamespace) {
+  const namespaceEnd = host.Data[at].SourceRange.End;
+  if (namespaceEnd === null) {
+    return false;
+  }
+  const namespaceSemi = new Symbol(host.Template);
+  namespaceSemi.SignIn(namespaceEnd);
+  namespaceSemi.AppendValueAndSignOut(";", namespaceEnd);
+  host.Data.splice(at + 1, 0, namespaceSemi);
+  const namespaceExport = NamespaceExportDeclarationShape.FromUnits(host, start, at + 1, context);
+  host.Data.splice(start, at - start + 2, namespaceExport);
+  namespaceExport.Parent = host;
   return true;
 }
 const isClass = text === "class"
