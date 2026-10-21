@@ -4,24 +4,16 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：当前主仓（`a782b229`）剩余 **56 份失败 = 47 crash + 9 diff**；Plan A 落地后为 **54 = 45 crash + 9 diff**；
-本清单 7 个场景里 **实测仍红 8 份**（`﻿# basic token 场景清单（逐场景 case files / 根因 / 解决思路 / 验收）
-
-本文件把 `docs/token-ast-analysis.md` §5 的「basic token 待用户裁定」拆成**可执行清单**：
-每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
-方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
-
-**结论先行**：当前主仓（`a782b229`）剩余 **56 份失败 = 47 crash + 9 diff**；Plan A 落地后为 **54 = 45 crash + 9 diff**；
- 3 + `\uXXXX` 2 + BOM 1 + shebang 2；`/` 2 份已由 Plan A 收掉）；
-`>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）在 round-2 已转绿（现 PASS），
-所以 Lead 口径的 11 份 = 10 份仍红 + 1 份已绿；`async` 是口径注记、当前无失败文件。
-**其中 3 个场景（2/4/5）可以完全不改 `core/**` 修掉；1/6 也不需要 core（用现有 `RegexStartAfter` / 表达式侧拆角）；
-只有 3（`\uXXXX`）推荐动 core。**
+**结论先行**：最终主仓（`9368d937`）读数 **1638/45/9/10/1**，剩余 **54 = 45 crash + 9 diff**；
+本清单 7 个场景里 **实测仍红 8 份**（`$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2；`/` 2 份已由 Plan A 收掉）；
+`>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 9；
+`async` 是口径注记、当前无失败文件。
+**其中 3 个场景（2/4/5）可以完全不改 `core/**` 修掉；1/6 也不需要 core（1 用 core 现有 `RegexStartAfter` 接口、6 保持 token 合符号）；只有 3（`\uXXXX`）推荐动 core。**
 
 ## 0. 读数基线（本克隆实测，非抄旧数）
 
 ```text
-分支 cover-token-regexstart（从 a782b229 拉起），Plan A 已实施并实测通过
+分支 cover-token-regexstart（从 a782b229 拉起，round 8 已并入主仓 `9368d937`），Plan A 已实施并实测通过
 xl_build core,typescript → 859 written / 0 error；tsc exit 0
 node typescript/cases/token-ast.mjs --quiet
   → total=1703 ok=1638 crash=45 diff=9 ts-invalid=10 gap-now-passing=1
@@ -276,20 +268,20 @@ parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / 
 | 5 | shebang `#!` 首行 trivia | 2 | `typescript/tokens/trivia/shebang-trivia-possible-shape.xl.md`（实现桩）+ `files/source-file-shape.xl.md` 候选接线 | 否（B）/ 是（A） | B | 2 |
 | 6 | `>>` / `>>>` 是否 token 层拆 | 0（历史 1 已绿） | token 拆：`typescript/run/typescript-template.xl.md:49` + 两侧重组；保持：`expression-builder.xl.md` 复用 `IsSplitClose` | 拆=A 要 core；保持=B 不要 | B（保持） | 0 |
 | 7 | `async` 上下文关键字升级口径 | 0 | 无（口径记录） | 否 | 保持现状 | 0 |
-| | **合计** | **10** | | | | **10**（+`>>` 历史 1 已绿 → Lead 口径 11） |
+| | **合计** | **8** | | | | **8**（场景 1 已转 PASS；`>>` 为口径项且已绿，若计入为 9） |
 
-**合计影响（Plan A 落地后）剩余 54 份失败中的 10 份**（`/` 2 + `$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2 + `>>` 1）：
-其中 **10 份当前仍红、1 份（`>>`/`ex-angle-cast`）已转绿**；本清单的 `>>` 一行给出「保持 token 合符号」的口径建议。
-若 1/2/3/4/5 全部按推荐方案实施，token 读数预期 **ok 1636→1646、crash 47→37、diff 9 不变**。
+**合计影响（Plan A 落地后）：剩余 basic-token 红 8 份**（`$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2）；
+`>>` 属**口径项**且已绿（`ex-angle-cast` 现 PASS），若计入则为 **9**；场景 1（`/` 2 份）已转 PASS，不再计入。
+若 2/3/4/5 全部按推荐方案实施，token 读数预期再降 8 份（ok 1638→1646、crash 45→37、diff 9 不变）。
 
 ## 9. `typescript/cases/basic-token.ts` 候选活跃行
 
-该文件目前只有注释（避免红行）+ 3 条已 PASS 的 `/` 边界对照。上述场景实施后，可把对应注释改成活跃行
-（新增行逐条跑 `npm run ast:cases` 确认）：
+该文件现已含**场景 1 的 11 条活跃行**（控制头/嵌套/守卫，已 PASS）+ 3 条原有 `/` 边界对照；其余 6 个场景仍只写注释。
+上述场景实施后，可把对应注释改成活跃行（新增行逐条跑 `npm run ast:cases` 确认）：
 
 | 场景 | 候选活跃行 |
 | --- | --- |
-| 1 `/` | `if (a) /re/.test(x);`、`for (;;) /re/g;` |
+| 1 `/`（**已加入 corpus**） | `while (a) /re/g;`、`if (a) /re/g;`、`for (;;) /re/g;`、`do { } while (a) /re/g;`、`try { } catch (e) { } /re/g;`、嵌套两条、守卫 4 条 |
 | 2 `$` | `const $x = 1;`、`const a$b = 2;`、`interface I$X { a: number }` |
 | 3 `\uXXXX` | `const \u0061bc = 1;`（源码写转义序列） |
 | 4 BOM | `<U+FEFF>const bom = 1;`（行首 U+FEFF） |
