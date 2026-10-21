@@ -935,13 +935,62 @@ while (true) {
   }
   break;
 }
+let newTypeArguments:Array<Token> = [];
+if (this.CanStartTypeArgumentCall(this.At) || this.CanStartTypeArguments(this.At)) {
+  newTypeArguments = this.ParseTypeArgumentsAtCurrent();
+  // `new f<T>`t``：TS 的 NewExpression 外层包 TaggedTemplateExpression（模板属于被构造者，
+  // typeArguments 挂在 TaggedTemplate 上）。类型实参之后紧跟模板时，把 callee 重建成标签模板，
+  // 再继续被构造者的后缀链（`.b` / `[k]` / `!`），最后才是 NewExpression 的调用实参。
+  const tagUnit = this.Peek(0);
+  if (tagUnit !== null && this.IsTemplateToken(tagUnit)) {
+    const template = this.ParseTemplateToken();
+    const tagged = new TaggedTemplateExpressionShape(this.Template);
+    tagged.Add(callee);
+    for (const typeArgument of newTypeArguments) {
+      tagged.Add(typeArgument);
+    }
+    tagged.Add(template);
+    callee = this.SpanNode(tagged, chainStart, this.At - 1);
+    newTypeArguments = [];
+    while (true) {
+      const suffix = this.Peek(0);
+      if (suffix === null) {
+        break;
+      }
+      if (suffix instanceof Symbol && (suffix as Symbol).TempToString() === ".") {
+        this.At++;
+        const name = this.ParseName();
+        const access = new PropertyAccessExpressionShape(this.Template);
+        access.Add(callee);
+        access.Add(name);
+        callee = this.SpanNode(access, chainStart, this.At - 1);
+        continue;
+      }
+      if (suffix instanceof Symbol && (suffix as Symbol).TempToString() === "!") {
+        this.At++;
+        const nonNull = new NonNullExpressionShape(this.Template);
+        nonNull.Add(callee);
+        callee = this.SpanNode(nonNull, chainStart, this.At - 1);
+        continue;
+      }
+      if (this.IsBracketStart(suffix, "[")) {
+        const bracket = suffix as Bracket;
+        this.At++;
+        const inner = this.ParseBracketExpression(bracket);
+        const access = new ElementAccessExpressionShape(this.Template);
+        access.Add(callee);
+        access.Add(inner);
+        callee = this.SpanNode(access, chainStart, this.At - 1);
+        continue;
+      }
+      break;
+    }
+  }
+}
 const shape = new NewExpressionShape(this.Template);
 shape.Add(callee);
-if (this.CanStartTypeArgumentCall(this.At) || this.CanStartTypeArguments(this.At)) {
-  const typeArguments = this.ParseTypeArgumentsAtCurrent();
-  for (const typeArgument of typeArguments) {
-    shape.Add(typeArgument);
-  }
+for (const typeArgument of newTypeArguments) {
+  shape.Add(typeArgument);
 }
 const argsUnit = this.Peek(0);
 if (argsUnit !== null && this.IsBracketStart(argsUnit, "(")) {

@@ -1,0 +1,576 @@
+{
+  "cases": [
+    {
+      "src": "const n1 = new f<T>`t`;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "n1"
+                    },
+                    {
+                      "kind": "NewExpression",
+                      "pos": 10,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "TaggedTemplateExpression",
+                          "pos": 14,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 14,
+                              "end": 16,
+                              "text": "f"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 17,
+                              "end": 18,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 17,
+                                  "end": 18,
+                                  "text": "T"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "NoSubstitutionTemplateLiteral",
+                              "pos": 19,
+                              "end": 22,
+                              "text": "t"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const n2 = new f<T>`t`.b;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "n2"
+                    },
+                    {
+                      "kind": "NewExpression",
+                      "pos": 10,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 14,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "TaggedTemplateExpression",
+                              "pos": 14,
+                              "end": 22,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "text": "f"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 17,
+                                  "end": 18,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 17,
+                                      "end": 18,
+                                      "text": "T"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "NoSubstitutionTemplateLiteral",
+                                  "pos": 19,
+                                  "end": 22,
+                                  "text": "t"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 24,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const n3 = new f<T>`t`(1);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "n3"
+                    },
+                    {
+                      "kind": "NewExpression",
+                      "pos": 10,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "TaggedTemplateExpression",
+                          "pos": 14,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 14,
+                              "end": 16,
+                              "text": "f"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 17,
+                              "end": 18,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 17,
+                                  "end": 18,
+                                  "text": "T"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "NoSubstitutionTemplateLiteral",
+                              "pos": 19,
+                              "end": 22,
+                              "text": "t"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 23,
+                          "end": 24,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const n4 = new Map<string, number>();",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "n4"
+                    },
+                    {
+                      "kind": "NewExpression",
+                      "pos": 10,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 18,
+                          "text": "Map"
+                        },
+                        {
+                          "kind": "StringKeyword",
+                          "pos": 19,
+                          "end": 25
+                        },
+                        {
+                          "kind": "NumberKeyword",
+                          "pos": 26,
+                          "end": 33
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const n5 = new f<T>;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "n5"
+                    },
+                    {
+                      "kind": "NewExpression",
+                      "pos": 10,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "f"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 17,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 17,
+                              "end": 18,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a }\nfrom(\"m\");",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 17,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 18,
+                  "end": 21,
+                  "text": "m"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { [KEY] = 1\n[\"s\" + \"t\"] = 2 }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ComputedPropertyName",
+                  "pos": 9,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "KEY"
+                    }
+                  ]
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 17,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "ElementAccessExpression",
+                      "pos": 17,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 17,
+                          "end": 19,
+                          "text": "1"
+                        },
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 21,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "StringLiteral",
+                              "pos": 21,
+                              "end": 24,
+                              "text": "s"
+                            },
+                            {
+                              "kind": "PlusToken",
+                              "pos": 24,
+                              "end": 26
+                            },
+                            {
+                              "kind": "StringLiteral",
+                              "pos": 26,
+                              "end": 30,
+                              "text": "t"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "EqualsToken",
+                      "pos": 31,
+                      "end": 33
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class D { [KEY] = 1; \n[\"s\" + \"t\"] = 2 }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "D"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 9,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "ComputedPropertyName",
+                  "pos": 9,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "KEY"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 20,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "ComputedPropertyName",
+                  "pos": 20,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 23,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 23,
+                          "end": 26,
+                          "text": "s"
+                        },
+                        {
+                          "kind": "PlusToken",
+                          "pos": 26,
+                          "end": 28
+                        },
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 28,
+                          "end": 32,
+                          "text": "t"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 35,
+                  "end": 37,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
