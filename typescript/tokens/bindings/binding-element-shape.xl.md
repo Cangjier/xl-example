@@ -12,6 +12,7 @@ import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ArrayBindingPatternShape } from "./array-binding-pattern-shape.xl.md"
 import { ObjectBindingPatternShape } from "./object-binding-pattern-shape.xl.md"
+import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -124,22 +125,62 @@ if (first instanceof Symbol && (first as Symbol).Is("...")) {
 if (index >= tokens.length) {
   return null;
 }
-let bindingName:Token = BindingElementShape.ParseName(tokens[index], context, namePos);
-index++;
+let bindingName:Token;
 let propertyName:Token | null = null;
-if (index < tokens.length && tokens[index] instanceof Symbol && (tokens[index] as Symbol).Is(":")) {
-  const colon = tokens[index];
-  index++;
+if (tokens[index] instanceof Bracket && (tokens[index] as Bracket).StartBracketChar === "["
+  && index + 1 < tokens.length && tokens[index + 1] instanceof Symbol
+  && (tokens[index + 1] as Symbol).Is(":")) {
+  // 解构里的计算属性名 `{ [k]: v }`：`[k]` 是 propertyName（ComputedPropertyName），
+  // 里面的 k 是表达式而不是 binding element；与类成员的计算名同一口径。
+  const computedBracket = tokens[index] as Bracket;
+  const inner = new ExpressionBuilder(first.Template, context);
+  let innerBase = namePos;
+  if (computedBracket.SourceRange.Start !== null) {
+    innerBase = computedBracket.SourceRange.Start.Index + 1;
+  }
+  inner.Load(computedBracket.Data, innerBase);
+  if (inner.Units.length === 0) {
+    return null;
+  }
+  const expression = inner.ParseExpression();
+  if (inner.At !== inner.Units.length) {
+    return null;
+  }
+  const computed = new ComputedPropertyNameShape(first.Template);
+  computed.Add(expression);
+  computed.SignInToken(computedBracket);
+  computed.SignOutToken(computedBracket);
+  computed.Pos = namePos;
+  computed.TryToClose(context);
+  propertyName = computed;
+  const colon = tokens[index + 1];
+  index += 2;
   if (index >= tokens.length) {
     return null;
   }
-  propertyName = bindingName;
   let bindingPos = namePos;
   if (colon.SourceRange.End !== null) {
     bindingPos = colon.SourceRange.End.Index + 1;
   }
   bindingName = BindingElementShape.ParseName(tokens[index], context, bindingPos);
   index++;
+} else {
+  bindingName = BindingElementShape.ParseName(tokens[index], context, namePos);
+  index++;
+  if (index < tokens.length && tokens[index] instanceof Symbol && (tokens[index] as Symbol).Is(":")) {
+    const colon = tokens[index];
+    index++;
+    if (index >= tokens.length) {
+      return null;
+    }
+    propertyName = bindingName;
+    let bindingPos = namePos;
+    if (colon.SourceRange.End !== null) {
+      bindingPos = colon.SourceRange.End.Index + 1;
+    }
+    bindingName = BindingElementShape.ParseName(tokens[index], context, bindingPos);
+    index++;
+  }
 }
 let initializer:Token | null = null;
 if (index < tokens.length && tokens[index] instanceof Symbol && (tokens[index] as Symbol).Is("=")) {

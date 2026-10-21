@@ -7,6 +7,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 ```
 
 # namespace cangjie
@@ -49,10 +50,17 @@ if (code[at] instanceof Common && (code[at] as Common).Is("type")) {
   shape.IsTypeOnly = true;
   at++;
 }
-if (at >= code.length || !(code[at] instanceof Common)) {
+// 具名导入的名字可以是字符串字面量（TS 4.5）：`import { "a-b" as c }` 的
+// children 是 `[StringLiteral "a-b", Identifier c]`，与 export specifier 同一口径。
+let firstShape:ShapeToken | null = null;
+if (at < code.length && code[at] instanceof Common) {
+  firstShape = IdentifierShape.FromBasicToken(code[at] as Common, context);
+} else if (at < code.length && code[at] instanceof String) {
+  firstShape = StringLiteralShape.FromBasicToken(code[at] as String, context);
+}
+if (firstShape === null) {
   return null;
 }
-const first = IdentifierShape.FromBasicToken(code[at] as Common, context);
 // 带 `type` 修饰时，标识符的前导 trivia 起点在 `type` 之后，形状的 Pos 仍在 `type` 之前。
 let firstPos = pos;
 if (shape.IsTypeOnly) {
@@ -61,17 +69,25 @@ if (shape.IsTypeOnly) {
     firstPos = typeEnd.Index + 1;
   }
 }
-first.Pos = firstPos;
-shape.PropertyName = first;
-shape.Data.push(first);
-first.Parent = shape;
+firstShape.Pos = firstPos;
+shape.PropertyName = firstShape as IdentifierShape;
+shape.Data.push(firstShape);
+firstShape.Parent = shape;
 let last = code[at];
 at++;
-if (at + 1 < code.length && code[at] instanceof Common && (code[at] as Common).Is("as") && code[at + 1] instanceof Common) {
-  const second = IdentifierShape.FromBasicToken(code[at + 1] as Common, context);
+if (at + 1 < code.length && code[at] instanceof Common && (code[at] as Common).Is("as")) {
+  let second:ShapeToken | null = null;
+  if (code[at + 1] instanceof Common) {
+    second = IdentifierShape.FromBasicToken(code[at + 1] as Common, context);
+  } else if (code[at + 1] instanceof String) {
+    second = StringLiteralShape.FromBasicToken(code[at + 1] as String, context);
+  }
+  if (second === null) {
+    return null;
+  }
   const asEnd = code[at].SourceRange.End;
   second.Pos = asEnd !== null ? asEnd.Index + 1 : -1;
-  shape.Name = second;
+  shape.Name = second as IdentifierShape;
   shape.Data.push(second);
   second.Parent = shape;
   last = code[at + 1];
