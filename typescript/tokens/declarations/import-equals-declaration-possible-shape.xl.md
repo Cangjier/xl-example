@@ -12,6 +12,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.xl.md"
 ```
 
@@ -33,6 +34,10 @@ import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.
 ## field DoneAt:int = -1
 
 ## field Rejected:bool = false
+
+## field LastCode:int = -1
+
+## field AsiEnd:bool = false
 
 # class ImportEqualsDeclarationPossibleShape extends PossibleShape
 
@@ -64,6 +69,8 @@ if (state.Checked > tokenIndex + 1) {
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
+  state.LastCode = -1;
+  state.AsiEnd = false;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -73,6 +80,20 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (unit instanceof EndOfFileTokenShape) {
     // 文件到头了：本条声明不可能再补 `;`。候选退出，把边界收尾交给终结候选。
     state.Rejected = true;
+    continue;
+  }
+  const previousCode = state.LastCode;
+  state.LastCode = at;
+  if (state.Stage === 6 && previousCode >= 0
+    && units[previousCode] instanceof Common
+    && !(unit instanceof Symbol && ((unit as Symbol).Is(".") || (unit as Symbol).Is(";")))
+    && ImportEqualsDeclarationPossibleShape.HasLineBreakBetween(units, previousCode, at)) {
+    // 实体名行末 ASI：`import A = foo` ⏎ `("m");`——边界 token 不属于本声明。
+    state.Done = true;
+    state.AsiEnd = true;
+    if (state.DoneAt < 0) {
+      state.DoneAt = at;
+    }
     continue;
   }
   if (state.Stage === 0) {
@@ -197,6 +218,18 @@ if (state.Done) {
 return ShapeStates.Uncertain;
 ```
 
+## static method HasLineBreakBetween:(units:Array<Token>, from:int, to:int)=>bool
+
+```ts
+for (let at = from + 1; at < to; at++) {
+  const unit = units[at];
+  if (unit.IsTriviaToken && ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+    return true;
+  }
+}
+return false;
+```
+
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
@@ -212,8 +245,18 @@ const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
 }
-const built = ImportEqualsDeclarationShape.FromUnits(host, start, tokenIndex, context);
-host.Data.splice(start, tokenIndex - start + 1, built);
+let end = tokenIndex;
+if (state !== null && state.AsiEnd) {
+  end = tokenIndex - 1;
+}
+while (end >= start && host.Data[end].IsTriviaToken) {
+  end--;
+}
+if (end < start) {
+  return host;
+}
+const built = ImportEqualsDeclarationShape.FromUnits(host, start, end, context);
+host.Data.splice(start, end - start + 1, built);
 built.Parent = host;
 return built;
 ```
