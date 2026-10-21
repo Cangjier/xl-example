@@ -20,6 +20,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { NamedExportsShape } from "./named-exports-shape.xl.md"
 import { NamespaceExportShape } from "./namespace-export-shape.xl.md"
+import { ParenthesizedExpressionShape } from "../expressions/parenthesized-expression-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -39,7 +40,7 @@ export type { T };
 
 ## field ExportClause:NamedExportsShape | NamespaceExportShape | null = null
 
-## field ModuleSpecifier:StringLiteralShape | null = null
+## field ModuleSpecifier:Token | null = null
 
 ## field AssertClause:ImportAttributesShape | null = null
 
@@ -170,11 +171,41 @@ if (index < code.length - 1 && code[index] instanceof Common && (code[index] as 
   const fromUnit = code[index];
   index++;
   const specifierUnit = code[index];
-  if (!(specifierUnit instanceof String)) {
+  let moduleSpecifier:Token;
+  if (specifierUnit instanceof String) {
+    moduleSpecifier = StringLiteralShape.FromBasicToken(specifierUnit as String, context);
+  } else if (specifierUnit instanceof Bracket
+    && (specifierUnit as Bracket).StartBracketChar === "("
+    && (specifierUnit as Bracket).EndBracketChar === ")") {
+    // `export { a }\nfrom("m")`：TS 的 moduleSpecifier 是 ParenthesizedExpression（child 是
+    // StringLiteral）。括号化是恢复形，但 TS 的 AST 就是这两层，投影必须补齐。
+    const holder = specifierUnit as Bracket;
+    let literalToken:String | null = null;
+    for (const item of holder.Data) {
+      if (!item.IsTriviaToken && item instanceof String) {
+        literalToken = item as String;
+        break;
+      }
+    }
+    if (literalToken === null) {
+      throw new Error("export declaration is missing module specifier");
+    }
+    const literal = StringLiteralShape.FromBasicToken(literalToken, context);
+    const parenthesized = new ParenthesizedExpressionShape(host.Template);
+    parenthesized.Add(literal);
+    if (holder.SourceRange.Start !== null) {
+      parenthesized.SignIn(holder.SourceRange.Start);
+    }
+    if (holder.SourceRange.End !== null) {
+      parenthesized.SignOut(holder.SourceRange.End);
+    }
+    parenthesized.Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
+    parenthesized.TryToClose(context);
+    moduleSpecifier = parenthesized;
+  } else {
     throw new Error("export declaration is missing module specifier");
   }
-  const moduleSpecifier = StringLiteralShape.FromBasicToken(specifierUnit as String, context);
-  moduleSpecifier.Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
+  (moduleSpecifier as ShapeToken).Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
   shape.ModuleSpecifier = moduleSpecifier;
   shape.Data.push(moduleSpecifier);
   moduleSpecifier.Parent = shape;
@@ -232,9 +263,36 @@ for (const item of this.Data) {
   } else if (item instanceof NamespaceExportShape) {
     this.ExportClause = item as NamespaceExportShape;
     kept.push(item);
-  } else if (item instanceof StringLiteralShape) {
-    this.ModuleSpecifier = item as StringLiteralShape;
+  } else if (item instanceof StringLiteralShape || item instanceof ParenthesizedExpressionShape) {
+    this.ModuleSpecifier = item as Token;
     kept.push(item);
+  } else if (item instanceof Bracket && (item as Bracket).StartBracketChar === "("
+    && (item as Bracket).EndBracketChar === ")") {
+    // 根级挂载壳路径：`export { a }\nfrom("m")` 的括号化 moduleSpecifier 由 Bracket 单元承载，
+    // TS 的 AST 是 ParenthesizedExpression > StringLiteral，这里补投影。
+    const holder = item as Bracket;
+    let literalToken:String | null = null;
+    for (const part of holder.Data) {
+      if (!part.IsTriviaToken && part instanceof String) {
+        literalToken = part as String;
+        break;
+      }
+    }
+    if (literalToken !== null) {
+      const literal = StringLiteralShape.FromBasicToken(literalToken, context);
+      const parenthesized = new ParenthesizedExpressionShape(this.Template);
+      parenthesized.Add(literal);
+      if (holder.SourceRange.Start !== null) {
+        parenthesized.SignIn(holder.SourceRange.Start);
+      }
+      if (holder.SourceRange.End !== null) {
+        parenthesized.SignOut(holder.SourceRange.End);
+      }
+      parenthesized.Pos = holder.SourceRange.Start === null ? 0 : holder.SourceRange.Start.Index;
+      parenthesized.TryToClose(context);
+      this.ModuleSpecifier = parenthesized as Token;
+      kept.push(parenthesized);
+    }
   } else if (item instanceof ImportAttributesShape) {
     if ((item as ImportAttributesShape).Token === "assert" && this.AssertClause === null) {
       this.AssertClause = item as ImportAttributesShape;

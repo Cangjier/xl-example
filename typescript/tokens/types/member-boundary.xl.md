@@ -28,12 +28,35 @@ for (let at = from + 1; at < code.length; at++) {
   if (!MemberBoundary.CanEndTypeUnit(code[at - 1])) {
     continue;
   }
+  if (MemberBoundary.IsInitializerIndexContinuation(code, at)) {
+    // `= 1` 换行 `["s" + "t"] = 2`：`[` 能续接上一行的初始化器（TS 不插 ASI），不切成员。
+    continue;
+  }
   if (!MemberBoundary.LooksLikeMemberStart(code, at)) {
     continue;
   }
   return at;
 }
 return code.length;
+```
+
+## static method IsInitializerIndexContinuation:(code:Array<Token>, at:int)=>bool
+
+`at` 是换行后的 `[`，且这个 `[...]` 后面紧跟 `=`（计算名初始化的形态）时，它是上一行初始化器
+的下标续接，而不是新成员起点（TS 的 ASI 规则：`[` 可以续接表达式，不插分号）。
+类型上下文里的 `[K]: T`（后面是 `:`）不受影响。
+
+```ts
+const unit = code[at];
+if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "[") {
+  return false;
+}
+const next = at + 1 < code.length ? code[at + 1] : null;
+if (next === null || !(next instanceof Symbol) || !(next as Symbol).Is("=")) {
+  return false;
+}
+const previous = code[at - 1];
+return previous instanceof Common || previous instanceof String || previous instanceof Bracket;
 ```
 
 ## static method HasLineBreakBetween:(left:Token, right:Token)=>bool
