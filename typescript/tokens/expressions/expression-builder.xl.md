@@ -58,6 +58,7 @@ import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { SlashEqualsTokenShape } from "../punctuation/slash-equals-token-shape.xl.md"
 import { SlashTokenShape } from "../punctuation/slash-token-shape.xl.md"
 import { ArrayLiteralExpressionShape } from "./array-literal-expression-shape.xl.md"
+import { OmittedExpressionShape } from "./omitted-expression-shape.xl.md"
 import { ArrowFunctionShape } from "./arrow-function-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { CallExpressionShape } from "./call-expression-shape.xl.md"
@@ -550,6 +551,10 @@ for (let at = index; at < this.Units.length; at++) {
           return true;
         }
         const after = this.Units[at + 1];
+        if (this.IsTemplateToken(after)) {
+          // `f<T>`t``：实参后面紧跟模板串时是标签模板，不是比较链。
+          return true;
+        }
         if (after instanceof Symbol) {
           const afterText = (after as Symbol).TempToString();
           if (afterText === ";" || afterText === "," || afterText === ")" || afterText === "]"
@@ -771,15 +776,30 @@ while (true) {
   if (this.IsTemplateToken(unit)) {
     const template = this.ParseTemplateToken();
     const shape = new TaggedTemplateExpressionShape(this.Template);
-    shape.Add(expression);
+    // `f<T>`t``：TS 的 TaggedTemplateExpression 把实参直接挂在 tag 后面
+    // （children = tag 表达式、typeArguments、模板），不是包一层 instantiation expression。
+    let tag:Token = expression;
+    if (expression instanceof ExpressionWithTypeArgumentsShape) {
+      const instantiation = expression as ExpressionWithTypeArgumentsShape;
+      const tagExpression = instantiation.Expression;
+      if (tagExpression !== null) {
+        tag = tagExpression;
+      }
+      shape.Add(tag);
+      for (const typeArgument of instantiation.TypeArguments) {
+        shape.Add(typeArgument);
+      }
+    } else {
+      shape.Add(expression);
+    }
     shape.Add(template);
-    if (expression.SourceRange.Start !== null) {
-      shape.SignIn(expression.SourceRange.Start);
+    if (tag.SourceRange.Start !== null) {
+      shape.SignIn(tag.SourceRange.Start);
     }
     if (template.SourceRange.End !== null) {
       shape.SignOut(template.SourceRange.End);
     }
-    shape.Pos = (expression as ShapeToken).Pos;
+    shape.Pos = (tag as ShapeToken).Pos;
     shape.TryToClose(this.Context);
     expression = shape;
     continue;
@@ -925,6 +945,24 @@ while (true) {
     const shape = new PropertyAccessExpressionShape(this.Template);
     shape.Add(callee);
     shape.Add(name);
+    callee = this.SpanNode(shape, chainStart, this.At - 1);
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).TempToString() === "!") {
+    // 非空断言属于被构造者（`new a!.b()`）：TS 把后缀链整体算进 NewExpression 的 expression，
+    // 后缀不能漏到 `new` 外面另起一个操作数。
+    this.At++;
+    const shape = new NonNullExpressionShape(this.Template);
+    shape.Add(callee);
+    callee = this.SpanNode(shape, chainStart, this.At - 1);
+    continue;
+  }
+  if (this.IsTemplateToken(unit)) {
+    // `new A.B`t``：模板与点号同属被构造者的后缀链，NewExpression 覆盖整条链。
+    const template = this.ParseTemplateToken();
+    const shape = new TaggedTemplateExpressionShape(this.Template);
+    shape.Add(callee);
+    shape.Add(template);
     callee = this.SpanNode(shape, chainStart, this.At - 1);
     continue;
   }
@@ -1374,9 +1412,28 @@ if (bracket.SourceRange.Start !== null) {
 }
 inner.Load(bracket.Data, base);
 const shape = new ArrayLiteralExpressionShape(this.Template);
+// 空槽（`[1, , 3]` / `[, 1]` / `[1, ,]`）= 零宽 OmittedExpression。
+// TS 的口径：槽位起点是**上一个逗号之后那一格**（`[` 之后的第一个槽同理），
+// 并且在「该出元素的位置又遇到逗号」时才建；元素后的行尾逗号不是空槽。
+const reference = bracket.SourceRange.Start;
+let slotStart = base;
+let expectValue = true;
 while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
   if (inner.IsText(unit, ",")) {
+    if (expectValue && reference !== null && slotStart > 0) {
+      const atSource = reference.Document.At(slotStart - 1);
+      const omitted = new OmittedExpressionShape(this.Template);
+      omitted.SourceRange.Start = atSource;
+      omitted.SourceRange.End = atSource;
+      omitted.Pos = slotStart;
+      omitted.TryToClose(this.Context);
+      shape.Add(omitted);
+    }
+    expectValue = true;
+    if (unit.SourceRange.End !== null) {
+      slotStart = unit.SourceRange.End.Index + 1;
+    }
     inner.At++;
     continue;
   }
@@ -1387,9 +1444,11 @@ while (inner.At < inner.Units.length) {
     const spread = new SpreadElementShape(this.Template);
     spread.Add(expression);
     shape.Add(inner.SpanNode(spread, spreadIndex, inner.At - 1));
+    expectValue = false;
     continue;
   }
   shape.Add(inner.ParseAssign());
+  expectValue = false;
 }
 if (bracket.SourceRange.Start !== null) {
   shape.SignIn(bracket.SourceRange.Start);
