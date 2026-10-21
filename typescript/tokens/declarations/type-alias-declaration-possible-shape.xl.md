@@ -50,6 +50,8 @@ Stage 1 直接 `Reject`，把位置留给 export 候选。
 
 ## field AsiEnd:bool = false
 
+## field SawDecorator:bool = false
+
 # class TypeAliasDeclarationPossibleShape extends PossibleShape
 
 ```txt
@@ -93,6 +95,7 @@ if (state.Checked > tokenIndex + 1) {
   state.SeenEqual = false;
   state.LastCode = -1;
   state.AsiEnd = false;
+  state.SawDecorator = false;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -119,10 +122,56 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.Stage = 1;
       continue;
     }
+    if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+      state.Stage = 6;
+      state.SawDecorator = true;
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 6) {
+    // 装饰器前缀（只读扫描）：等到 type / export / declare；其它声明族的关键字直接退出。
+    if (unit instanceof Common) {
+      const text = (unit as Common).TempToString();
+      if (text === "type") {
+        state.Stage = 1;
+        continue;
+      }
+      if (text === "export") {
+        state.Stage = 3;
+        continue;
+      }
+      if (text === "declare") {
+        continue;
+      }
+      let previous = at - 1;
+      while (previous >= 0 && units[previous].IsTriviaToken) {
+        previous--;
+      }
+      let afterDot = false;
+      if (previous >= 0 && units[previous] instanceof Symbol) {
+        const previousText = (units[previous] as Symbol).TempToString();
+        afterDot = previousText === "." || previousText === "?.";
+      }
+      if (!afterDot && (text === "class" || text === "interface" || text === "namespace"
+        || text === "module" || text === "enum" || text === "function"
+        || text === "const" || text === "let" || text === "var" || text === "global")) {
+        state.Rejected = true;
+        continue;
+      }
+      continue;
+    }
+    if (unit instanceof Bracket || unit instanceof Symbol || unit instanceof String) {
+      continue;
+    }
     state.Rejected = true;
     continue;
   }
   if (state.Stage === 3) {
+    if (state.SawDecorator && unit instanceof Common && (unit as Common).Is("declare")) {
+      continue;
+    }
     if (unit instanceof Common && (unit as Common).Is("type")) {
       state.Stage = 1;
       continue;

@@ -8,6 +8,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -89,6 +90,62 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
         state.Stage = 2;
         continue;
       }
+    }
+    if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+      state.Stage = 6;
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 6) {
+    // 装饰器前缀（只读扫描）：@dec / @ns.dec / @dec(…)。看到本族关键字才推进，
+    // 看到其它声明族的关键字就退出（避免与 class / type / module 候选共存）。
+    if (unit instanceof Common) {
+      const text = (unit as Common).TempToString();
+      if (text === "interface") {
+        state.Stage = 2;
+        continue;
+      }
+      if (text === "declare") {
+        state.Stage = 1;
+        continue;
+      }
+      if (text === "export") {
+        state.Stage = 7;
+        continue;
+      }
+      let previous = at - 1;
+      while (previous >= 0 && units[previous].IsTriviaToken) {
+        previous--;
+      }
+      let afterDot = false;
+      if (previous >= 0 && units[previous] instanceof Symbol) {
+        const previousText = (units[previous] as Symbol).TempToString();
+        afterDot = previousText === "." || previousText === "?.";
+      }
+      if (!afterDot && (text === "class" || text === "type" || text === "namespace"
+        || text === "module" || text === "enum" || text === "function"
+        || text === "const" || text === "let" || text === "var" || text === "global")) {
+        state.Rejected = true;
+        continue;
+      }
+      continue;
+    }
+    if (unit instanceof Symbol || unit instanceof Bracket || unit instanceof String) {
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 7) {
+    if (unit instanceof Common && (unit as Common).Is("declare")) {
+      state.Stage = 1;
+      continue;
+    }
+    if (unit instanceof Common && (unit as Common).Is("interface")) {
+      state.Stage = 2;
+      continue;
     }
     state.Rejected = true;
     continue;

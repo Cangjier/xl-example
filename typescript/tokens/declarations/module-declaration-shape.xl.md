@@ -13,6 +13,8 @@ import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { ModuleBlockShape } from "./module-block-shape.xl.md"
+import { DecoratorShape } from "../types/decorator-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -57,8 +59,39 @@ super(template);
 `positions[i]` 是 `code[i]` 的 `Pos`（含前导 trivia 的半开区间起点，与 TS 同口径），由候选算好传进来。
 
 ```ts
-let at = 0;
+let decoratorBase = positions.length > 0 ? positions[0] : 0;
+const decorators:Array<Token> = [];
+let decoratorEnd = decoratorBase;
+let decoratorCount = 0;
+while (decoratorCount < code.length
+  && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
+  const atUnit = code[decoratorCount];
+  const decoratorPos = decoratorEnd;
+  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const builder = new ExpressionBuilder(code[0].Template, context);
+  builder.Load(code.slice(decoratorCount + 1), expressionBase);
+  if (builder.Units.length === 0) {
+    throw new Error("decorator expression is empty");
+  }
+  const decoratorExpression = builder.ParseExpression();
+  if (builder.At === 0) {
+    throw new Error("decorator expression was not read");
+  }
+  const consumed = builder.At;
+  for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
+    const cursorEnd = code[cursor].SourceRange.End;
+    if (cursorEnd !== null) {
+      decoratorEnd = cursorEnd.Index + 1;
+    }
+  }
+  decoratorCount += 1 + consumed;
+  decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
+}
+let at = decoratorCount;
 const modifiers:Array<ShapeToken> = [];
+for (const decorator of decorators) {
+  modifiers.push(decorator as ShapeToken);
+}
 while (at < code.length && code[at] instanceof Common) {
   const unit = code[at] as Common;
   if (!(unit.Is("export") || unit.Is("declare"))) {

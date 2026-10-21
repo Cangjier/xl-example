@@ -4,6 +4,9 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { DecoratorShape } from "../types/decorator-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -54,10 +57,55 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
-let index = 0;
+let decoratorBase = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.End;
+    if (end !== null) {
+      decoratorBase = end.Index + 1;
+    }
+    break;
+  }
+}
+const decorators:Array<Token> = [];
+let decoratorEnd = decoratorBase;
+let decoratorCount = 0;
+while (decoratorCount < code.length
+  && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
+  const atUnit = code[decoratorCount];
+  const decoratorPos = decoratorEnd;
+  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  let decoratorExpression:Token;
+  {
+    const builder = new ExpressionBuilder(host.Template, context);
+    builder.Load(code.slice(decoratorCount + 1), expressionBase);
+    if (builder.Units.length === 0) {
+      throw new Error("decorator expression is empty");
+    }
+    decoratorExpression = builder.ParseExpression();
+    if (builder.At === 0) {
+      throw new Error("decorator expression was not read");
+    }
+    const consumed = builder.At;
+    for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
+      const cursorEnd = code[cursor].SourceRange.End;
+      if (cursorEnd !== null) {
+        decoratorEnd = cursorEnd.Index + 1;
+      }
+    }
+    decoratorCount += 1 + consumed;
+  }
+  decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
+}
+let index = decoratorCount;
+let exportUnit:Token | null = null;
+if (index < code.length && code[index] instanceof Common && (code[index] as Common).Is("export")) {
+  exportUnit = code[index];
+  index++;
+}
 let declareUnit:Token | null = null;
-if (code.length > 0 && code[0] instanceof Common && (code[0] as Common).Is("declare")) {
-  declareUnit = code[0];
+if (index < code.length && code[index] instanceof Common && (code[index] as Common).Is("declare")) {
+  declareUnit = code[index];
   index++;
 }
 if (index >= code.length) {
@@ -148,9 +196,24 @@ const shape = new InterfaceDeclarationShape(host.Template);
 shape.NameToken = name;
 shape.HeritageClauses = clauses;
 shape.Members = members;
+let modifierPos = decoratorCount === 0 ? pos : decoratorEnd;
+for (const decorator of decorators) {
+  shape.Add(decorator);
+}
+if (exportUnit !== null) {
+  const exportModifier = new ExportKeywordShape(host.Template);
+  exportModifier.SignInToken(exportUnit);
+  exportModifier.SignOutToken(exportUnit);
+  exportModifier.Pos = modifierPos;
+  exportModifier.TryToClose(context);
+  shape.Add(exportModifier);
+  if (exportUnit.SourceRange.End !== null) {
+    modifierPos = exportUnit.SourceRange.End.Index + 1;
+  }
+}
 if (declareUnit !== null) {
   const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  modifier.Pos = pos;
+  modifier.Pos = modifierPos;
   shape.DeclareKeyword = modifier;
   shape.Add(modifier);
 }
@@ -164,7 +227,11 @@ for (const clause of clauses) {
 for (const member of members) {
   shape.Add(member);
 }
-if (declareUnit !== null) {
+if (decoratorCount > 0) {
+  shape.SignInToken(code[0]);
+} else if (exportUnit !== null) {
+  shape.SignInToken(exportUnit);
+} else if (declareUnit !== null) {
   shape.SignInToken(declareUnit);
 } else {
   shape.SignInToken(keyword);
