@@ -10,9 +10,10 @@
 
 **结论先行**：191 处里 **end 收口族 71 条（end compute 63 + 缺少 end 6 + end build 2）**、
 **build 提取族 70 条（possible build）**、**候选族 42 条（possible compute 30 + 缺少 possible 12）**、
-**basic token 8 条**。也就是说：**token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
-「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**（ok/crash/diff/ts-invalid），
-ast:cases 保持 **4622/4622、0/0/0**。
+**basic token 8 条（归因条数；按受影响文件是 11 份，口径见 §3 脚注与 §5）**。也就是说：
+**token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
+「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**
+（ok/crash/diff/ts-invalid），最终合并态（HEAD `8dbb7976`）为 **1636/47/9/10/1**、ast:cases **4763/4763、0/0/0**。
 
 ## 0. 数据来源与口径
 
@@ -26,18 +27,21 @@ ast:cases 保持 **4622/4622、0/0/0**。
 - 崩溃口径：`SourceFileRunner.Parse(source, file)`，失败时展开 `InnerException` 取最内层消息；
   「最小复现」= 逐行前缀喂 `Parse`，第一个抛错的前缀最后一行。
 - diff 口径：与 `typescript/cases/ast-json.mjs` 同口径（结构差 / 同 kind 位置差 / 字段差）；
-  探针里按 `tmp/recon-token4.mjs` 的**较宽别名表**归一。
+  归一表只有一份实现：`typescript/cases/ast-compare.mjs` 的 `TS_KIND_ALIASES`（`ast-json.mjs` /
+  `ast-json-diff.mjs` / `token-ast.mjs` 共用，17 条）。
 - 四份文档的分组号原样引用：statements 的 `A/B/C/D/E/F/G/H/I/J/K/L/M/N/O`、declarations 的 `G1/G2a/G2b/G2c/G3a/G3b/G4/G5/G6/G7/G8/G9/G10/G11/G12/G13`、
   expressions/types 的 `G1a/G1b/G2/G3/G4/G5/G6/G7/G8/G9/G10/G11`、modules-diffs 的 `C1–C8` 与 `D1–D14`。
 
 ## 1. 基线读数
 
-Lead 基线（`tmp/token-ast-baseline.json`，1703 行）：
+1703 行逐文件基线（Lead 生成；**本仓库不跟踪 `tmp/`，不要依赖本地遗留文件**——基线可在任意 checkout 上
+用 `node typescript/cases/token-ast.mjs --json <path> --quiet` 重建）：
 
 | 状态 | ok | crash | diff | ts-invalid | gap-now-passing | 合计 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 原始基线（commit `dd5a494c`） | 1501 | **162** | **29** | 10 | 1 | 1703 |
 | round-1 合并后（commit `2a563080`） | **1561** | **119** | **12** | 10 | 1 | 1703 |
+| 最终合并态（commit `8dbb7976`） | **1636** | **47** | **9** | 10 | 1 | 1703 |
 
 - **191 处失败 = 162 crash + 29 diff**；`ts-invalid` 10 份是 TS 自己 `parseDiagnostics ≠ 0`（尺子不测），不计入 191。
 - `gap-now-passing` 1 份 = 语料里 `xl:known-gap` 已转绿的守卫；`known-gap` 共 3 份（2 diff + 1 gap-passing）。
@@ -72,6 +76,10 @@ Lead 基线（`tmp/token-ast-baseline.json`，1703 行）：
 暂记 end compute）与 modules-diffs `D14` 1 条（基线结构差、本克隆未复现，暂记 possible compute）。
 其余「混合组按主类计，次类在各组正文里注明」（例如 `G2` 主类 possible build 次类 basic token，
 `A` 主类 end compute 次类缺少 end，`D9` 在 3 份文件上分属 end compute/end build）。
+
+> **basic token 的 8 与 11**：本表与结论里的「basic token 8」是**归因条数**（items 1–4 的条数）；
+> §5 待用户裁定清单按**受影响文件**计数，items 1–4 共 8 份 + item 5 shebang 2 份 + item 6 `>>` 拆分 1 份 = **11 份**。
+> 两个数字口径不同（归因条数 vs 受影响文件数），不矛盾；具体文件以 §5 清单实测为准。
 
 ### 3.1 每类代表根因与落点
 
@@ -132,6 +140,9 @@ Lead 基线（`tmp/token-ast-baseline.json`，1703 行）：
 
 ## 5. basic token 待用户决定清单（按 IMPORTANCE §3.1，只能由用户发起）
 
+本清单按**受影响文件**计数：items 1–4 共 **8 份** + item 5 shebang **2 份** + item 6 `>>` 拆分 **1 份** = **11 份**。
+§3 表与结论里的「basic token 8」是**归因条数**（items 1–4），口径不同、不矛盾。
+
 | # | 场景 | 影响文件（原始 191 内） | 现状 | 要动 `core` 的哪一处 | 为什么必须用户裁定 |
 | --- | --- | --- | --- | --- | --- |
 | 1 | 控制头 `)` 之后 / 语句起点以 `/` 开头 | 2（`expr-r1233-control-head-regex.ts`、statements M 组 1 份） | `/` 被判成 `Symbol("/")`（除号），`ParsePrimary` 抛「不支持的表达式起点」；`if (/x/…)` 这种 `(` 之后的 `/` 已能判对 | `core/syntax/basic-tokens/` 的 `RegexToken` vs `Symbol` **位置判据**（`typescript/run/typescript-template.xl.md:44` 记录同症状；也可在 parser 侧做 re-scan） | `/` 的归类是字符→token 判定，属 basic token；两种口径（token 层判 vs parser 重扫）影响所有 `/` 场景 |
@@ -147,7 +158,7 @@ Lead 基线（`tmp/token-ast-baseline.json`，1703 行）：
 
 ## 6. 修复落地状态
 
-### 6.1 已合入主仓的修复（round-1 ~ round-4，最新 HEAD `14f1c070`）
+### 6.1 已合入主仓的修复（round-1 ~ round-5，最终合并 HEAD `8dbb7976`）
 
 四个分支合入：`cover-token-fix-build`、`cover-token-fix-class`、`cover-token-an-mod-diff`（+ 文档）、`cover-token-an-decl`（仅文档）。
 各提交自带**各自基线（1501/162/29）上的读数**——彼此有重叠组，**不可相加**，只能看最后合并态：
@@ -160,15 +171,16 @@ Lead 基线（`tmp/token-ast-baseline.json`，1703 行）：
 | cover-token-an-mod-diff | `a784d4c1` | D1 数组空槽、D2 解构计算键（2 份的 1 份）、D6 `new` 后缀链、D7 类型实参+模板、D13 具名导入字符串名 | 1501→**1514** / 162→**161** / 29→**17**，0 回归 |
 | cover-token-an-mod-diff | `9260d2bb` + `a1526d34` | type-builder：`JSDocNonNullableType`（G4 3 份）、无返回类型调用签名、mapped 值后成员、元组具名可选、`a?` 无类型成员、mapped 空方括号 IndexSignature（G5/G6/D12） | 1501→**1508→1509** / 162→**157** / 29→**26**，0 回归 |
 | round-2（class 第二轮） | `bf31249b` / `cfea36ae` | D4 顶层 `abstract`/`declare` 换行、D5 `async` 首语句 pos、类成员 pending-head | 1523→**1527** / 155 / 14→**10**，0 回归 |
-| round-3/4（多分支合并） | `cover-token-fix-end`、`cover-token-an-stmt`、`cover-token-an-mod-diff` 等 | A/B 块体 ASI、EOF 裸块、ASI 成员名、条件类型/infer、footer 收口 | 逐轮收敛到下方「合并态」 |
-| **合并态（最新）** | **`14f1c070`** | 全部合入 | **1636 ok / 47 crash / 9 diff / 10 ts-invalid / 1 gap-now-passing** |
+| round-3/4（中间多分支合并） | `cover-token-fix-end`、`cover-token-an-stmt`、`cover-token-an-mod-diff` 等 | A/B 块体 ASI、EOF 裸块、ASI 成员名、条件类型/infer、footer 收口 | 逐轮收敛到最终合并态 |
+| round-5（coverage 文档收尾） | `cover-token-coverage` | 7 类常驻构造 141 条并入 `typescript/cases/*.ts`、移除 `token-repros/`、文档读数更新 | 读数不变：**1636 / 47 / 9** |
+| **最终合并态** | **`8dbb7976`** | 全部合入 | **1636 ok / 47 crash / 9 diff / 10 ts-invalid / 1 gap-now-passing**；ast:cases **4763/4763、0/0/0** |
 
 - 每个修复提交都带逐条验证过的**最小用例**；这些用例本轮已折成 §6 七类的常驻构造（见 §6.5），
   `typescript/cases/token-repros/` 已删除。
 - 验证方式统一为：目标文件 `token-ast.mjs <file>` exit 0 + 全量 `token-ast.mjs --quiet`（ok 只升、crash/diff 只降）
   + `npm run ast:cases`（identical == total，结构/位置/字段差全 0）+ `xl_build` 0 error + `tsc` 0。
 
-### 6.2 仍剩的缺口（合并态 `14f1c070`：56 = 47 crash + 9 diff）
+### 6.2 仍剩的缺口（最终合并态 `8dbb7976`：56 = 47 crash + 9 diff）
 
 剩余 **56 处 = 47 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫），按目录：
 
@@ -250,10 +262,10 @@ types/gap-r907-index-signature-newline-after-readonly.ts D3  readonly 与 `[` �
 # 全量 token 语料（逐文件输出 + 汇总；失败 exit 1）
 node typescript/cases/token-ast.mjs
 
-# 只汇总 / 只列失败 / 写逐文件 JSON（schema 与 tmp/token-ast-baseline.json 一致）
+# 只汇总 / 只列失败 / 写逐文件 JSON（schema 与基线报告一致；基线可用 --json 在任意 checkout 重建）
 node typescript/cases/token-ast.mjs --quiet
 node typescript/cases/token-ast.mjs --fail-only
-node typescript/cases/token-ast.mjs --json tmp/token-now.json --quiet
+node typescript/cases/token-ast.mjs --json <path> --quiet
 
 # 过滤：仓库相对路径子串、目录前缀、或 glob
 node typescript/cases/token-ast.mjs types/
@@ -272,10 +284,9 @@ npm run build
 #   xl_build(cwd=<仓库>, paths=["core","typescript"], orphans:false)   → 859 written / 0 error
 node node_modules/typescript/bin/tsc
 
-# 基线与探针
-tmp/token-ast-baseline.json                     # Lead 基线（1703 行）
-tmp/recon-token4.mjs                            # 基线重算脚本
-<各分析克隆>/tmp/probe*.mjs                     # 四份归因文档的最小复现探针（不提交）
+# 基线与探针（本仓库不跟踪 tmp/，不要依赖本地遗留文件）
+node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件基线，可在任意 checkout 重建
+# 四份归因文档的探针是各分析克隆里的临时脚本，未随仓库提交
 ```
 
 ## 8. 附：四份分文档与本文的对应
@@ -286,4 +297,4 @@ tmp/recon-token4.mjs                            # 基线重算脚本
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 主仓 `14f1c070` 上 `token-ast.mjs --json` 实测（56 = 47 crash + 9 diff）；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | 主仓 `8dbb7976` 上 `token-ast.mjs --json` 实测（56 = 47 crash + 9 diff）；7 类常驻构造见 §6.5 |
