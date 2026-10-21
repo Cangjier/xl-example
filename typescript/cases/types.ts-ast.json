@@ -2974,7 +2974,7 @@
               "end": 10,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 8,
                   "end": 10,
                   "text": "1"
@@ -3005,7 +3005,7 @@
               "end": 12,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 8,
                   "end": 12,
                   "text": "1.5"
@@ -3213,7 +3213,7 @@
                   "end": 10,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 8,
                       "end": 10,
                       "text": "1"
@@ -3226,7 +3226,7 @@
                   "end": 14,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 12,
                       "end": 14,
                       "text": "2"
@@ -3239,7 +3239,7 @@
                   "end": 18,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 16,
                       "end": 18,
                       "text": "3"
@@ -3363,7 +3363,7 @@
               "end": 13,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 8,
                   "end": 13,
                   "text": "31"
@@ -3456,7 +3456,7 @@
               "end": 18,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 8,
                   "end": 18,
                   "text": "1"
@@ -14871,7 +14871,7 @@
                   "end": 29,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 27,
                       "end": 29,
                       "text": "1"
@@ -14884,7 +14884,7 @@
                   "end": 33,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 31,
                       "end": 33,
                       "text": "2"
@@ -22489,7 +22489,7 @@
                   "end": 33,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 31,
                       "end": 33,
                       "text": "1"
@@ -22502,7 +22502,7 @@
                   "end": 37,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 35,
                       "end": 37,
                       "text": "2"
@@ -25909,7 +25909,7 @@
                   "end": 19,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 18,
                       "end": 19,
                       "text": "0"
@@ -26167,7 +26167,7 @@
                                   "text": "x"
                                 },
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 15,
                                   "end": 17,
                                   "text": "1"
@@ -26240,7 +26240,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 6,
                               "end": 8,
                               "text": "1"

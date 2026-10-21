@@ -317,7 +317,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 11,
                   "end": 13,
                   "text": "1"
@@ -628,7 +628,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 13,
                   "end": 15,
                   "text": "1"

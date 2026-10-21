@@ -120,7 +120,7 @@
                   "end": 11
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 11,
                   "end": 13,
                   "text": "1"

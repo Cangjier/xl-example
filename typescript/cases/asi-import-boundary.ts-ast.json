@@ -905,7 +905,7 @@
           "end": 19,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 16,
               "end": 18,
               "text": "1"
@@ -957,7 +957,7 @@
                       "text": "x"
                     },
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 18,
                       "end": 20,
                       "text": "1"

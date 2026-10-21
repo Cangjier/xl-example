@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { createAstCore, cjAst } from "./ast-compare.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
@@ -130,100 +131,8 @@ function readCases(stem) {
     .map((line) => decodeCaseText(line));
 }
 
-// TS 的 SyntaxKind 301/302 在本版里反查出来印的是旧名 AssertClause / AssertEntry，
-// 但 `with` 与 `assert` 用的是同一个 kind（301/302），产物侧叫 ImportAttributes / ImportAttribute；
-// 先归一，否则每一行 attributes 都会凭空多出「结构差」。
-// 模板的两个 kind 同理：别名枚举值反查印 FirstTemplateToken / LastTemplateToken，
-// 产物侧按规范名叫 NoSubstitutionTemplateLiteral / TemplateTail。
-const TS_KIND_ALIASES = new Map([
-  // SyntaxKind.VariableStatement 的反查名被别名 FirstStatement 盖掉。
-  ["FirstStatement", "VariableStatement"],
-  // TypePredicate / ImportType / abstract 修饰的反查名被别名盖掉（FirstTypeNode / LastTypeNode / FirstContextualKeyword）。
-  ["FirstTypeNode", "TypePredicate"],
-  ["LastTypeNode", "ImportType"],
-  ["FirstContextualKeyword", "AbstractKeyword"],
-  // SyntaxKind.QualifiedName 的反查名被别名 FirstNode 盖掉（与 tests/parse/ts-ast.mjs 同款）。
-  ["FirstNode", "QualifiedName"],
-  // SyntaxKind.AbstractKeyword 的反查名被别名 FirstContextualKeyword 盖掉（同一枚举值，后一个名字覆盖）。
-  ["AssertClause", "ImportAttributes"],
-  ["AssertEntry", "ImportAttribute"],
-  ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
-  ["LastTemplateToken", "TemplateTail"],
-]);
-
-function norm(node) {
-  const out = { kind: node.kind, pos: node.pos, end: node.end };
-  if (node.text !== undefined) out.text = node.text;
-  if (node.name !== undefined) out.name = node.name;
-  if (node.isTypeOnly === true) out.isTypeOnly = true;
-  if (node.children && node.children.length > 0) out.children = node.children;
-  return out;
-}
-
-function tsAst(node) {
-  const kind = ts.SyntaxKind[node.kind];
-  const out = { kind: TS_KIND_ALIASES.get(kind) || kind, pos: node.pos, end: node.end };
-  // 模板的几种节点（NoSubstitutionTemplateLiteral / TemplateHead / TemplateMiddle / TemplateTail）
-  // 在 ts 里 `isStringLiteral` 为 false，但 `node.text` 有 cooked 文本；漏了它们会变成「字段差」。
-  if (ts.isIdentifier(node)
-    || ts.isStringLiteral(node)
-    || ts.isNoSubstitutionTemplateLiteral(node)
-    || ts.isTemplateHead(node)
-    || ts.isTemplateMiddle(node)
-    || ts.isTemplateTail(node)
-    || ts.isNumericLiteral(node)
-    || ts.isBigIntLiteral(node)
-    || ts.isRegularExpressionLiteral(node)) {
-    out.text = node.text;
-  }
-  // 与投影字段同名的那些：没出现的键不写，diff 两侧都缺就是一致。
-  // ImportDeclaration 的 type-only 在 TS 里记在子句上、产物侧记在声明上，这里把子句的 true 提上来；
-  // 少了这一句，`import type …` 那 8 条会从「一致」变成「字段差」。
-  if (ts.isImportDeclaration(node) && node.importClause && node.importClause.isTypeOnly === true) {
-    out.isTypeOnly = true;
-  }
-  if (node.isTypeOnly === true) out.isTypeOnly = true;
-  if (ts.isImportClause(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isImportSpecifier(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isNamespaceImport(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isExportSpecifier(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isNamespaceExport(node) && node.name && node.name.text) out.name = node.name.text;
-  const children = [];
-  node.forEachChild((child) => {
-    children.push(tsAst(child));
-  });
-  if (children.length > 0) out.children = children.map(norm);
-  return norm(out);
-}
-
-function cjAst(shape) {
-  const range = shape.SourceRange || {};
-  const out = {
-    kind: shape.constructor.name.replace("Shape", ""),
-    pos: shape.Pos >= 0 ? shape.Pos : (range.Start == null ? 0 : range.Start.Index),
-    end: range.End == null ? 0 : range.End.Index + 1,
-  };
-  // 空文本也是取值（throw 恢复形里的零宽 Identifier，TS 侧 text=""）；非空标识符的取值不变。
-  if (typeof shape.EscapedText === "string") out.text = shape.EscapedText;
-  // 字面量的 text 可以是空串（`""`），空串也是一个真实取值；只有带 Text 字段的那几种字面量会走到这里。
-  if (typeof shape.Text === "string") out.text = shape.Text;
-  if (shape.Name && shape.Name.text !== undefined) out.name = shape.Name.text;
-  if (shape.Name && shape.Name.EscapedText) out.name = shape.Name.EscapedText;
-  // 字符串导出名（`export { "a-b" as c }` / `export { a as "b-c" }` / `export { "a-b" }`）：
-  // TS 的 ExportSpecifier.name 是字符串文本；本仓 StringLiteralShape 把它放在 Text 字段（IdentifierShape 用 EscapedText）。
-  if (shape.Name && typeof shape.Name.Text === "string") out.name = shape.Name.Text;
-  if (shape.IsTypeOnly === true) out.isTypeOnly = true;
-  for (const field of ["ImportClause", "ModuleSpecifier", "Name", "NamedBindings", "Attributes", "AssertClause"]) {
-    const value = shape[field];
-    if (value && typeof value === "object") out[field] = value.constructor.name;
-  }
-  if (Array.isArray(shape.Modifiers) && shape.Modifiers.length > 0) {
-    out.Modifiers = shape.Modifiers.map((item) => item.constructor.name);
-  }
-  const children = (shape.Data || []).map(cjAst);
-  if (children.length > 0) out.children = children;
-  return norm(out);
-}
+// 归一表 / tsAst / cjAst 只有 ast-compare.mjs 一份实现，这里直接取用。
+const { tsAst } = createAstCore(ts);
 
 const stems = selectedStems(process.argv.slice(2));
 let total = 0;
