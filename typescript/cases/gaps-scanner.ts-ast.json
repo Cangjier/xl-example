@@ -549,6 +549,178 @@
           ]
         }
       ]
+    },
+    {
+      "src": "do x++\nwhile (x < 4);\nfoo();",
+      "ast": [
+        {
+          "kind": "DoStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 2,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "PostfixUnaryExpression",
+                  "pos": 2,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 2,
+                      "end": 4,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "BinaryExpression",
+              "pos": 14,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 15,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstBinaryOperator",
+                  "pos": 15,
+                  "end": 17
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "4"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 28,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 21,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 25,
+                  "text": "foo"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "do f()\nwhile (c);\ndo { x++; } while (x < 5);",
+      "ast": [
+        {
+          "kind": "DoStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 2,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "CallExpression",
+                  "pos": 2,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 2,
+                      "end": 4,
+                      "text": "f"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 15,
+              "text": "c"
+            }
+          ]
+        },
+        {
+          "kind": "DoStatement",
+          "pos": 17,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Block",
+              "pos": 20,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 22,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "PostfixUnaryExpression",
+                      "pos": 22,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "BinaryExpression",
+              "pos": 37,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 37,
+                  "end": 38,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstBinaryOperator",
+                  "pos": 38,
+                  "end": 40
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 40,
+                  "end": 42,
+                  "text": "5"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
