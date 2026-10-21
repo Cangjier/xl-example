@@ -14,6 +14,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -301,6 +302,46 @@ if (unit === null || unit.SourceRange.End === null) {
 return unit.SourceRange.End.Index + 1;
 ```
 
+## static method TakeParameterInitializer:(host:Token, inner:TypeBuilder, parameter:ParameterShape, context:SyntaxContext)=>void
+
+形参默认值 `= Expr`：TS 的 Parameter children 里它就是 `Initializer`。`ParseParameter` 只读到名字/可选/类型，
+这里把 `=` 之后到组末（顶层 `,` 之前）的一段交给表达式构建器，并把参数的区间延到默认值末单元。
+
+```ts
+if (inner.At >= inner.Units.length || !inner.IsText(inner.Units[inner.At], "=")) {
+  return;
+}
+const equalsUnit = inner.Units[inner.At];
+let initPos = 0;
+if (equalsUnit.SourceRange.End !== null) {
+  initPos = equalsUnit.SourceRange.End.Index + 1;
+}
+inner.At++;
+const initStart = inner.At;
+let initEnd = initStart;
+while (initEnd < inner.Units.length && !inner.IsText(inner.Units[initEnd], ",")) {
+  initEnd++;
+}
+const initUnits:Array<Token> = [];
+for (let cursor = initStart; cursor < initEnd; cursor++) {
+  initUnits.push(inner.Units[cursor]);
+}
+if (initUnits.length === 0) {
+  return;
+}
+const initBuilder = new ExpressionBuilder(host.Template, context);
+initBuilder.Load(initUnits, initPos);
+const initializer = initBuilder.ParseAssign();
+if (initBuilder.At !== initBuilder.Units.length) {
+  throw new Error("参数默认值没有读完");
+}
+parameter.Add(initializer);
+if (initEnd > initStart) {
+  parameter.SignOutToken(inner.Units[initEnd - 1]);
+}
+inner.At = initEnd;
+```
+
 ## static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
 参数表按逗号切组；带 `:` / `?:` 的组交给 `TypeBuilder.ParseParameter()`，不带类型的组只建 `Identifier`。
@@ -336,7 +377,13 @@ while (inner.At < inner.Units.length) {
   }
   // A rest parameter after decorators (`@dec ...x: A[]`) is routed to ParseParameter too (it owns `...`).
   const headIsRest = nameIndex < inner.Units.length && inner.TextOf(inner.Units[nameIndex]) === "...";
-  if (typed || headIsRest) {
+  // 解构模式形参（`{ a, b }` / `[c, d]`）与「有默认值」的形参（`a = 1`）也必须进 ParseParameter：
+  // 前者由 ParseParameter 直接建 Object/ArrayBindingPattern，后者由下面补 Initializer。
+  const headNameUnit = nameIndex < inner.Units.length ? inner.Units[nameIndex] : null;
+  const headIsPattern = headNameUnit instanceof Bracket
+    && ((headNameUnit as Bracket).StartBracketChar === "{" || (headNameUnit as Bracket).StartBracketChar === "[");
+  const headIsDefault = nameIndex + 1 < inner.Units.length && inner.TextOf(inner.Units[nameIndex + 1]) === "=";
+  if (typed || headIsRest || headIsPattern || headIsDefault) {
     const parameter = inner.ParseParameter() as ParameterShape;
     if (decorators.length > 0) {
       for (let i = decorators.length - 1; i >= 0; i--) {
@@ -349,6 +396,7 @@ while (inner.At < inner.Units.length) {
       }
       parameter.Pos = (firstDecorator as ShapeToken).Pos;
     }
+    FunctionDeclarationShape.TakeParameterInitializer(host, inner, parameter, context);
     parameters.push(parameter);
     continue;
   }

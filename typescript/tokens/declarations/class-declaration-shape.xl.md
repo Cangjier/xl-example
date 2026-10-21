@@ -477,6 +477,9 @@ while (inner.At < inner.Units.length) {
     continue;
   }
   const nameIndex = inner.At;
+  const headPatternUnit = nameIndex < inner.Units.length ? inner.Units[nameIndex] : null;
+  const headIsPattern = headPatternUnit instanceof Bracket
+    && ((headPatternUnit as Bracket).StartBracketChar === "{" || (headPatternUnit as Bracket).StartBracketChar === "[");
   let typed = false;
   if (nameIndex + 1 < inner.Units.length) {
     const next = inner.TextOf(inner.Units[nameIndex + 1]);
@@ -488,8 +491,10 @@ while (inner.At < inner.Units.length) {
       typed = true;
     }
   }
-  if (typed) {
-    parameters.push(inner.ParseParameter());
+  if (typed || headIsPattern) {
+    const parameter = inner.ParseParameter() as ParameterShape;
+    ClassDeclarationShape.TakeParameterInitializer(host, inner, parameter, context);
+    parameters.push(parameter);
     continue;
   }
   const nameUnit = inner.Units[nameIndex];
@@ -509,6 +514,45 @@ while (inner.At < inner.Units.length) {
   parameters.push(parameter);
 }
 return parameters;
+```
+
+## static method TakeParameterInitializer:(host:Token, inner:TypeBuilder, parameter:ParameterShape, context:SyntaxContext)=>void
+
+形参默认值 `= Expr`：`ParseParameter` 之后若紧跟 `=`，把默认值段交给表达式构建器并延长参数区间。
+
+```ts
+if (inner.At >= inner.Units.length || !inner.IsText(inner.Units[inner.At], "=")) {
+  return;
+}
+const equalsUnit = inner.Units[inner.At];
+let initPos = 0;
+if (equalsUnit.SourceRange.End !== null) {
+  initPos = equalsUnit.SourceRange.End.Index + 1;
+}
+inner.At++;
+const initStart = inner.At;
+let initEnd = initStart;
+while (initEnd < inner.Units.length && !inner.IsText(inner.Units[initEnd], ",")) {
+  initEnd++;
+}
+const initUnits:Array<Token> = [];
+for (let cursor = initStart; cursor < initEnd; cursor++) {
+  initUnits.push(inner.Units[cursor]);
+}
+if (initUnits.length === 0) {
+  return;
+}
+const initBuilder = new ExpressionBuilder(host.Template, context);
+initBuilder.Load(initUnits, initPos);
+const initializer = initBuilder.ParseAssign();
+if (initBuilder.At !== initBuilder.Units.length) {
+  throw new Error("参数默认值没有读完");
+}
+parameter.Add(initializer);
+if (initEnd > initStart) {
+  parameter.SignOutToken(inner.Units[initEnd - 1]);
+}
+inner.At = initEnd;
 ```
 
 ## static method BuildMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
