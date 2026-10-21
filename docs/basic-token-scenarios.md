@@ -4,7 +4,7 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：主仓 `e3f67aa5`（Plan A + 场景 3 已合入）读数 **1640/43/9/10/1**；本分支实施场景 2 后 **1643/40/9/10/1**，剩余 **49 = 40 crash + 9 diff**；
+**结论先行**：最终主仓 `96eaadf2`（Plan A + 场景 3 + 场景 2 已合入）读数 **1643/40/9/10/1**，剩余 **49 = 40 crash + 9 diff**；
 本清单 7 个场景里 **实测仍红 3 份**（BOM 1 + shebang 2；`/` 2 由 Plan A、`\uXXXX` 4 位形 2 由场景 3、`$` 3 由场景 2 收掉；`\u{…}` 花括号形仍缺，单列剩余子项）；
 `>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 9；
 `async` 是口径注记、当前无失败文件。
@@ -13,7 +13,7 @@
 ## 0. 读数基线（本克隆实测，非抄旧数）
 
 ```text
-分支 cover-token-dollar（从主仓 `e3f67aa5` 拉起）；Plan A / 场景 3 已合入，本分支实施场景 2
+场景 2 已合入 round 12（merge `96eaadf2`；实现提交 `c8256876`）
 xl_build core,typescript → 859 written / 0 error；tsc exit 0
 node typescript/cases/token-ast.mjs --quiet
   → total=1703 ok=1643 crash=40 diff=9 ts-invalid=10 gap-now-passing=1
@@ -97,7 +97,7 @@ ast:cases：场景 1 后 4774、场景 3 后 4780；场景 2 活跃行加入后�
 
 **验收（已实测达成）**：上表 3 份转 PASS；token 读数 ok 1640→**1643**、crash 43→**40**、diff 9 不变；`ast:cases` 4780→**4785**、0/0/0；`ast:dts` 226/226；探针 8 条（`const $x`、`a$b`、`I$X`、`const $`、`const $f = () => 1`、`$();`、`{ $x: 1 }`、`class C { $m() {} }`）AST text 与 TS 一致；字符串 `"$x"`、正则 `/$/`、`// $` 注释、`a / b`、数字/关键字行为与改前逐条一致；`$\"a\"` 仍 crash（消息由「不支持的表达式起点」变「表达式没有读完」，不要求支持）。
 
-**用户裁定**：已批准直接从 **core** 的 `IsSymbol` 符号表移除 `$`（不走 per-language `Ban` 路线）；本分支按此实施。
+**用户裁定**：已批准直接从 **core** 的 `IsSymbol` 符号表移除 `$`（不走 per-language `Ban` 路线）；已按此实施并合入 round 12（merge `96eaadf2`；实现提交 `c8256876`）。
 
 ## 3. `\uXXXX` 转义标识符（**已实施**：4 位形已收，`\u{…}` 花括号形仍缺）
 
