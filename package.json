@@ -17,6 +17,7 @@
     "tsrun": "node ./build/ts/tsrun.js",
     "cases:check": "node ./tests/parse/validate.mjs",
     "ast:cases": "node ./typescript/cases/ast-json.mjs && node ./typescript/cases/ast-json-diff.mjs",
+    "ast:token": "node ./typescript/cases/token-ast.mjs",
     "ast:dts": "node ./typescript/cases/real-dts-ast.mjs",
     "ast:verify": "npm run ast:cases && npm run ast:dts",
     "runtime:check": "node ./tests/runtime/check.mjs",

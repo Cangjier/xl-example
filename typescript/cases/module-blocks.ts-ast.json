@@ -64,7 +64,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 21,
                               "end": 23,
                               "text": "1"
@@ -122,7 +122,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 23,
                               "end": 25,
                               "text": "1"
@@ -180,7 +180,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 21,
                               "end": 23,
                               "text": "1"
@@ -213,7 +213,7 @@
                               "text": "y"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 32,
                               "end": 34,
                               "text": "2"
@@ -306,7 +306,7 @@
                                   "text": "x"
                                 },
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 23,
                                   "end": 25,
                                   "text": "1"
@@ -417,7 +417,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 21,
                               "end": 23,
                               "text": "1"
@@ -450,7 +450,7 @@
                               "text": "y"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 32,
                               "end": 34,
                               "text": "2"
@@ -531,7 +531,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 18,
                               "end": 20,
                               "text": "1"
@@ -622,7 +622,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 28,
                               "end": 30,
                               "text": "1"
@@ -713,7 +713,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 30,
                               "end": 32,
                               "text": "1"
@@ -794,7 +794,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 26,
                               "end": 28,
                               "text": "1"
@@ -852,7 +852,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 23,
                               "end": 25,
                               "text": "1"
@@ -1006,7 +1006,7 @@
                                   "text": "x"
                                 },
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 23,
                                   "end": 25,
                                   "text": "1"
@@ -1228,7 +1228,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 30,
                               "end": 32,
                               "text": "1"
@@ -1541,7 +1541,7 @@
                               "text": "y"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 26,
                               "end": 28,
                               "text": "2"
@@ -2027,7 +2027,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 23,
                               "end": 25,
                               "text": "1"
@@ -3311,7 +3311,7 @@
                               "end": 37,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 35,
                                   "end": 37,
                                   "text": "1"
@@ -3608,7 +3608,7 @@
                               "end": 44,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 42,
                                   "end": 44,
                                   "text": "1"
@@ -4035,7 +4035,7 @@
                               "end": 37,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 35,
                                   "end": 37,
                                   "text": "1"
@@ -4055,7 +4055,7 @@
                               "end": 46,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 44,
                                   "end": 46,
                                   "text": "2"
@@ -4135,7 +4135,7 @@
                               "end": 50,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 48,
                                   "end": 50,
                                   "text": "1"
@@ -6853,7 +6853,7 @@
                           "text": "A"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 32,
                           "end": 34,
                           "text": "1"
@@ -6872,7 +6872,7 @@
                           "text": "B"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 39,
                           "end": 41,
                           "text": "2"
@@ -6934,7 +6934,7 @@
                           "text": "A"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 32,
                           "end": 34,
                           "text": "1"
@@ -6969,7 +6969,7 @@
                               "end": 43
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 43,
                               "end": 45,
                               "text": "1"
@@ -7221,7 +7221,7 @@
                           "text": "A"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 39,
                           "end": 41,
                           "text": "1"
@@ -7940,7 +7940,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 42,
                               "end": 44,
                               "text": "1"
@@ -8137,7 +8137,7 @@
                           "text": "A"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 26,
                           "end": 28,
                           "text": "1"
@@ -8670,7 +8670,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 37,
                               "end": 39,
                               "text": "1"
@@ -9024,7 +9024,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 30,
                               "end": 32,
                               "text": "1"
@@ -9591,7 +9591,7 @@
                               "end": 31,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 29,
                                   "end": 31,
                                   "text": "1"

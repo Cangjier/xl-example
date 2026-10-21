@@ -20,12 +20,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 5,
                   "text": "1"
@@ -56,12 +56,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 7,
                   "text": "1.5"
@@ -92,12 +92,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 8,
                   "text": "31"
@@ -128,12 +128,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 9,
                   "text": "5"
@@ -164,12 +164,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 8,
                   "text": "15"
@@ -200,12 +200,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 7,
                   "text": "1000"
@@ -236,12 +236,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 6,
                   "text": "1"
@@ -272,12 +272,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 9,
                   "text": "1000"
@@ -308,12 +308,12 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 3,
                   "end": 24,
                   "text": "12345678901234567000"
@@ -344,7 +344,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -380,7 +380,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -416,7 +416,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -452,7 +452,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -488,7 +488,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -524,7 +524,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -560,7 +560,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -596,7 +596,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -632,7 +632,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -668,7 +668,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -704,7 +704,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 11
                 },
@@ -740,7 +740,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -776,7 +776,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -812,7 +812,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -848,7 +848,7 @@
                   "text": "f"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 2,
                   "end": 3,
                   "text": "1"
@@ -879,7 +879,7 @@
                   "text": "f"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 2,
                   "end": 5,
                   "text": "1.5"
@@ -910,7 +910,7 @@
                   "text": "f"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 2,
                   "end": 6,
                   "text": "31"
@@ -1189,7 +1189,7 @@
                   "text": "f"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 2,
                   "end": 3,
                   "text": "1"
@@ -1300,7 +1300,7 @@
                   "text": "f"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 2,
                   "end": 6,
                   "text": "31"
@@ -1399,7 +1399,7 @@
                   "text": "f"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 2,
                   "end": 3,
                   "text": "1"
@@ -1441,13 +1441,13 @@
                   "end": 8,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 3,
                       "end": 4,
                       "text": "1"
                     },
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 5,
                       "end": 7,
                       "text": "2"
@@ -1485,13 +1485,13 @@
                   "end": 13,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 3,
                       "end": 6,
                       "text": "1.5"
                     },
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 7,
                       "end": 12,
                       "text": "31"
@@ -1731,7 +1731,7 @@
                   "end": 19,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 3,
                       "end": 4,
                       "text": "1"
@@ -1817,7 +1817,7 @@
                   "end": 13,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 3,
                       "end": 12,
                       "text": "1"
@@ -1855,7 +1855,7 @@
                   "end": 17,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 3,
                       "end": 4,
                       "text": "1"
@@ -1904,7 +1904,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 5,
                           "end": 7,
                           "text": "1"
@@ -1949,7 +1949,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 5,
                           "end": 9,
                           "text": "1.5"
@@ -1994,7 +1994,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 5,
                           "end": 10,
                           "text": "31"
@@ -2399,7 +2399,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 5,
                           "end": 7,
                           "text": "1"
@@ -2527,7 +2527,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 5,
                           "end": 10,
                           "text": "31"
@@ -2591,7 +2591,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 5,
                           "end": 7,
                           "text": "1"
@@ -2807,7 +2807,7 @@
           "end": 2,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 1,
               "text": "1"
@@ -2825,7 +2825,7 @@
           "end": 6,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 5,
               "text": "1000"
@@ -2843,7 +2843,7 @@
           "end": 10,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 9,
               "text": "1000000"
@@ -2861,7 +2861,7 @@
           "end": 5,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 4,
               "text": "10000000000"
@@ -2879,7 +2879,7 @@
           "end": 5,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 4,
               "text": "10000000000"
@@ -2897,7 +2897,7 @@
           "end": 7,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 6,
               "text": "0.0015"
@@ -2915,7 +2915,7 @@
           "end": 3,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 2,
               "text": "0.5"
@@ -2933,7 +2933,7 @@
           "end": 4,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 3,
               "text": "0.5"
@@ -2951,7 +2951,7 @@
           "end": 5,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 4,
               "text": "255"
@@ -2969,7 +2969,7 @@
           "end": 5,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 4,
               "text": "15"
@@ -2987,7 +2987,7 @@
           "end": 7,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 6,
               "text": "10"
@@ -3005,7 +3005,7 @@
           "end": 8,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 7,
               "text": "65535"
@@ -3623,7 +3623,7 @@
               "end": 2,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 1,
                   "end": 2,
                   "text": "0"
@@ -3648,7 +3648,7 @@
               "end": 2,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 1,
                   "end": 2,
                   "text": "1"
@@ -3673,7 +3673,7 @@
               "end": 3,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 1,
                   "end": 3,
                   "text": "1"
@@ -3693,7 +3693,7 @@
           "end": 14,
           "children": [
             {
-              "kind": "FirstLiteralToken",
+              "kind": "NumericLiteral",
               "pos": 0,
               "end": 5,
               "text": "1000"

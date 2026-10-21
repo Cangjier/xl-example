@@ -988,7 +988,7 @@
               "end": 24,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 13,
                   "end": 15,
                   "text": "0"
@@ -1006,7 +1006,7 @@
               "end": 34,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 24,
                   "end": 26,
                   "text": "1"
@@ -1122,7 +1122,7 @@
                   "end": 23,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 18,
                       "end": 20,
                       "text": "0"
@@ -1191,13 +1191,13 @@
               "end": 38,
               "children": [
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 32,
                   "end": 34,
                   "text": "0"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 36,
                   "end": 38,
                   "text": "1"
@@ -1396,7 +1396,7 @@
                   "end": 17,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 15,
                       "end": 16,
                       "text": "0"
@@ -2830,7 +2830,7 @@
                       "end": 38,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 35,
                           "end": 37,
                           "text": "1"
@@ -3470,7 +3470,7 @@
                       "end": 34,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 33,
                           "end": 34,
                           "text": "1"
@@ -3510,7 +3510,7 @@
                   "end": 11,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 10,
                       "end": 11,
                       "text": "1"
@@ -3586,7 +3586,7 @@
                       "end": 20,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 19,
                           "end": 20,
                           "text": "1"
@@ -5992,7 +5992,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstLiteralToken",
+                  "kind": "NumericLiteral",
                   "pos": 20,
                   "end": 22,
                   "text": "1"
@@ -6103,7 +6103,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 37,
                               "end": 39,
                               "text": "1"

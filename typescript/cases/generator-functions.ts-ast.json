@@ -444,7 +444,7 @@
                       "end": 23,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 21,
                           "end": 23,
                           "text": "1"
@@ -578,7 +578,7 @@
                               "end": 33,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 31,
                                   "end": 33,
                                   "text": "1"
@@ -638,7 +638,7 @@
                           "text": "x"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 17,
                           "end": 19
                         },
@@ -698,7 +698,7 @@
                           "text": "x"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 17,
                           "end": 19
                         },
@@ -708,7 +708,7 @@
                           "end": 27,
                           "children": [
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 25,
                               "end": 27,
                               "text": "1"
@@ -838,13 +838,13 @@
                               "text": "h"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 25,
                               "end": 26,
                               "text": "1"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 27,
                               "end": 29,
                               "text": "2"
@@ -901,7 +901,7 @@
                           "end": 25,
                           "children": [
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 23,
                               "end": 24,
                               "text": "1"
@@ -953,7 +953,7 @@
                       "end": 31,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 21,
                           "end": 31,
                           "text": "1"
@@ -1003,7 +1003,7 @@
                       "end": 31,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 29,
                           "end": 31,
                           "text": "1"
@@ -1225,7 +1225,7 @@
                       "end": 30,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 28,
                           "end": 30,
                           "text": "1"
@@ -1280,7 +1280,7 @@
                           "end": 29,
                           "children": [
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 27,
                               "end": 29,
                               "text": "1"
@@ -1338,7 +1338,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 17,
                           "end": 19
                         },
@@ -1353,7 +1353,7 @@
                               "end": 33,
                               "children": [
                                 {
-                                  "kind": "FirstLiteralToken",
+                                  "kind": "NumericLiteral",
                                   "pos": 31,
                                   "end": 33,
                                   "text": "2"

@@ -16,6 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { flatten, groupByKind, FIELD_NAMES, fieldOf } from "./ast-compare.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,51 +48,9 @@ function selectedStems(args) {
   return [...picked];
 }
 
-const TS_KIND_ALIASES = new Map([
-  // TypePredicate / ImportType / abstract 修饰的反查名被别名盖掉（FirstTypeNode / LastTypeNode / FirstContextualKeyword）。
-  ["FirstTypeNode", "TypePredicate"],
-  ["LastTypeNode", "ImportType"],
-  ["FirstContextualKeyword", "AbstractKeyword"],
-  // SyntaxKind.QualifiedName 的反查名被别名 FirstNode 盖掉（与 tests/parse/ts-ast.mjs 同款）。
-  ["FirstNode", "QualifiedName"],
-  // SyntaxKind.AbstractKeyword 的反查名被别名 FirstContextualKeyword 盖掉（同一枚举值，后一个名字覆盖）。
-  ["FirstStatement", "VariableStatement"],
-  ["LastStatement", "DebuggerStatement"],
-  ["FirstLiteralToken", "NumericLiteral"],
-  ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
-  ["LastTemplateToken", "TemplateTail"],
-]);
-
-const kindOf = (kind) => TS_KIND_ALIASES.get(kind) || kind;
-
-/** 前序遍历成一维表，保留节点本身（children 已经在里面）。 */
-function flatten(nodes, out = []) {
-  for (const node of nodes || []) {
-    out.push(node);
-    flatten(node.children, out);
-  }
-  return out;
-}
-
-function groupByKind(nodes) {
-  const map = new Map();
-  for (const node of nodes) {
-    const kind = kindOf(node.kind);
-    if (!map.has(kind)) map.set(kind, []);
-    map.get(kind).push(node);
-  }
-  return map;
-}
-
-const FIELD_NAMES = ["text", "name", "isTypeOnly", "attributes", "namedBindings"];
-
-/** 两侧字段名大小写不同（TS 侧小写开头、产物侧按形状字段名），统一成小写首字母再比。 */
-function fieldOf(node, name) {
-  const lower = name[0].toLowerCase() + name.slice(1);
-  if (node[name] !== undefined) return node[name];
-  return node[lower];
-}
-
+// 归一表 / kindOf / flatten / groupByKind / fieldOf 只有 ast-compare.mjs 一份实现：
+// TS 侧生成快照时已按同一张表归一，这里对快照 kind 再归一一次是幂等的，
+// 保证两边永远不会各自漂移出一份不同的归一表。
 function load(stem, suffix) {
   return JSON.parse(fs.readFileSync(path.join(here, `${stem}${suffix}`), "utf8"));
 }

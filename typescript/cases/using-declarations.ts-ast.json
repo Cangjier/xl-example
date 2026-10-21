@@ -413,7 +413,7 @@
                   "end": 33,
                   "children": [
                     {
-                      "kind": "FirstLiteralToken",
+                      "kind": "NumericLiteral",
                       "pos": 17,
                       "end": 19,
                       "text": "1"

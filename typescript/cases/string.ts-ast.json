@@ -1522,7 +1522,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 8,
                               "end": 9,
                               "text": "1"
@@ -1586,7 +1586,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 7,
                               "end": 8,
                               "text": "1"
@@ -1696,13 +1696,13 @@
                           "text": "f"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 6,
                           "end": 7,
                           "text": "1"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 8,
                           "end": 10,
                           "text": "2"
@@ -1846,7 +1846,7 @@
                           "end": 10,
                           "children": [
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 5,
                               "end": 6,
                               "text": "1"
@@ -1857,7 +1857,7 @@
                               "end": 8
                             },
                             {
-                              "kind": "FirstLiteralToken",
+                              "kind": "NumericLiteral",
                               "pos": 8,
                               "end": 10,
                               "text": "2"
@@ -1910,13 +1910,13 @@
                       "end": 10,
                       "children": [
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 5,
                           "end": 6,
                           "text": "1"
                         },
                         {
-                          "kind": "FirstLiteralToken",
+                          "kind": "NumericLiteral",
                           "pos": 7,
                           "end": 9,
                           "text": "2"
