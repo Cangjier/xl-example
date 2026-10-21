@@ -1,0 +1,891 @@
+{
+  "cases": [
+    {
+      "src": "a < b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "FirstBinaryOperator",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a < b > c;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 0,
+                  "end": 5,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "FirstBinaryOperator",
+                      "pos": 1,
+                      "end": 3
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "GreaterThanToken",
+                  "pos": 5,
+                  "end": 7
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 7,
+                  "end": 9,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a << b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "LessThanLessThanToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a >> b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "GreaterThanGreaterThanToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a >>> b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "GreaterThanGreaterThanGreaterThanToken",
+                  "pos": 1,
+                  "end": 5
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 7,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a <= b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "LessThanEqualsToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a >= b;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "a"
+                },
+                {
+                  "kind": "GreaterThanEqualsToken",
+                  "pos": 1,
+                  "end": 4
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "x = y < z;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstAssignment",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 3,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "FirstBinaryOperator",
+                      "pos": 5,
+                      "end": 7
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "z"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "a < b && c > d;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 0,
+                  "end": 5,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "FirstBinaryOperator",
+                      "pos": 1,
+                      "end": 3
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "AmpersandAmpersandToken",
+                  "pos": 5,
+                  "end": 8
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 8,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "c"
+                    },
+                    {
+                      "kind": "GreaterThanToken",
+                      "pos": 10,
+                      "end": 12
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "d"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f<T>(x);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 2,
+                  "end": 3,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 2,
+                      "end": 3,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 5,
+                  "end": 6,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f<A, B>(x);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 2,
+                  "end": 3,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 2,
+                      "end": 3,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 4,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 6,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "detached<A>(1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 8,
+                  "text": "detached"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 10,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 10,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "new Map<K, V>();",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "NewExpression",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 3,
+                  "end": 7,
+                  "text": "Map"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 8,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 9,
+                      "text": "K"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 10,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "V"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "obj.f<T>(x);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 0,
+                  "end": 5,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 3,
+                      "text": "obj"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "f"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 6,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 7,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 10,
+                  "text": "x"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C<T extends U> {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 8,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "T"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 17,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I<T> {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 12,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type X = A<B<C>>;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "X"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 8,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 11,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 12,
+                      "text": "B"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 13,
+                      "end": 14,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f<T>`t`;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "TaggedTemplateExpression",
+              "pos": 0,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 2,
+                  "end": 3,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 2,
+                      "end": 3,
+                      "text": "T"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NoSubstitutionTemplateLiteral",
+                  "pos": 4,
+                  "end": 7,
+                  "text": "t"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f<A>(x) < y;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "CallExpression",
+                  "pos": 0,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 2,
+                      "end": 3,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 3,
+                          "text": "A"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 6,
+                      "text": "x"
+                    }
+                  ]
+                },
+                {
+                  "kind": "FirstBinaryOperator",
+                  "pos": 7,
+                  "end": 9
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "y"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

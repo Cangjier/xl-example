@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { AngleJudge } from "../types/angle-judge.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
@@ -485,46 +486,7 @@ return type;
 （`>>` / `>>>` 在最后一格收多层），找不到返回 -1。
 
 ```ts
-if (index < 0 || index >= this.Units.length) {
-  return -1;
-}
-if (!this.IsText(this.Units[index], "<")) {
-  return -1;
-}
-let depth = 0;
-for (let at = index; at < this.Units.length; at++) {
-  const unit = this.Units[at];
-  if (!(unit instanceof Symbol)) {
-    if (depth === 0) {
-      return -1;
-    }
-    continue;
-  }
-  const text = (unit as Symbol).TempToString();
-  if (text === "<") {
-    depth++;
-    continue;
-  }
-  if (text === ">") {
-    depth--;
-    if (depth === 0) {
-      return at;
-    }
-    continue;
-  }
-  if (text === ">>" || text === ">>>") {
-    depth -= text.length;
-    if (depth <= 0) {
-      return at;
-    }
-    continue;
-  }
-  if (text === ",") {
-    continue;
-  }
-  return -1;
-}
-return -1;
+return AngleJudge.FindClose(this.Units, index);
 ```
 
 ## method CanStartTypeArgumentCall:(index:int)=>bool
@@ -534,13 +496,7 @@ return -1;
 `>>` 这种组合符号直接判否（拆 `>>` 需要 basic token 决策，见本块暂缓）。
 
 ```ts
-if (index < 0 || index >= this.Units.length) {
-  return false;
-}
-if (!this.IsText(this.Units[index], "<")) {
-  return false;
-}
-const close = this.FindTypeArgumentClose(index);
+const close = AngleJudge.FindClose(this.Units, index);
 if (close < 0) {
   return false;
 }
@@ -550,49 +506,12 @@ return after !== undefined && this.IsBracketStart(after, "(");
 
 ## method CanStartTypeArguments:(index:int)=>bool
 
-Instantiation expression lookahead (`f<string>` with no call): same `<`/`>` pairing scan as
-`CanStartTypeArgumentCall`, but the `>` must be followed by a unit that cannot continue a
-comparison chain (`;` `,` `)` `]` `}` `=` `.` `!` `?` `:` `=>` `?.` or end of units). TS keeps
-`f<string> + 1` as comparison, so no binary-operator terminator is accepted here.
+Instantiation expression lookahead (`f<string>` with no call)：判据统一交给 `AngleJudge.CanStart`
+（前驱 + 配对扫描 + follower 白名单 + 内层粗校验）。TS 保持 `f<string> + 1` 为比较、`f<T>`t`` 为标签模板，
+这些 follower 决策都在 `AngleJudge.FollowerAllows` 里。
 
 ```ts
-if (index < 0 || index >= this.Units.length) {
-  return false;
-}
-if (!this.IsText(this.Units[index], "<")) {
-  return false;
-}
-const close = this.FindTypeArgumentClose(index);
-if (close < 0) {
-  return false;
-}
-if (close + 1 >= this.Units.length) {
-  return true;
-}
-const after = this.Units[close + 1];
-if (after instanceof Symbol) {
-  const afterText = (after as Symbol).TempToString();
-  if (afterText === ";" || afterText === "," || afterText === ")" || afterText === "]"
-      || afterText === "}" || afterText === "=" || afterText === "." || afterText === "!"
-      || afterText === "?" || afterText === ":" || afterText === "=>" || afterText === "?."
-      || afterText === "??" || afterText === "||" || afterText === "&&") {
-    return true;
-  }
-}
-if (after instanceof Common) {
-  // 实例化表达式后接类型/关系词（`a<b> as T` / `a<b> satisfies T` / `a<b> instanceof C`）
-  // 仍是实例化表达式，不是比较链。
-  const afterCommon = (after as Common).TempToString();
-  if (afterCommon === "as" || afterCommon === "satisfies" || afterCommon === "instanceof"
-      || afterCommon === "in") {
-    return true;
-  }
-}
-if (this.IsTemplateToken(after)) {
-  // `a<b>`t``：标签模板的标签是实例化表达式，`<…>` 是它自己的 typeArguments。
-  return true;
-}
-return false;
+return AngleJudge.CanStart(this.Units, index);
 ```
 
 ## method ParseTypeArgumentsAtCurrent:()=>Array<Token>
@@ -1909,41 +1828,11 @@ return parameters;
 ## method MatchAngleClose:(openIndex:int)=>int
 
 从 `openIndex`（必须是 `<`）扫到与它配对的 `>`，返回 `>` 的下标；扫不到返回 `-1`。
-只把 `Symbol` 的 `<` / `>` 当结构符（类型里的 `,` `|` `&` 等原样跳过）；`>>` 是组合符号，
-拆它需要 basic token 决策（见本块暂缓），这里**返回 `-1` 让调用方抛明确错误，不静默错树**。
+强制配对语境（尖括号断言 / 类型参数表）用它：只信 `AngleJudge.FindPair` 的配对结果，
+不再各写一份 `<`/`>`/`>>` 计数。
 
 ```ts
-let depth = 0;
-for (let at = openIndex; at < this.Units.length; at++) {
-  const unit = this.Units[at];
-  if (!(unit instanceof Symbol)) {
-    if (depth === 0) {
-      return -1;
-    }
-    continue;
-  }
-  const text = (unit as Symbol).TempToString();
-  if (text === "<") {
-    depth++;
-    continue;
-  }
-  if (text === ">") {
-    depth--;
-    if (depth === 0) {
-      return at;
-    }
-    continue;
-  }
-  if (text === ">>" || text === ">>>") {
-    // 合符号收尾：`Array<number>>` 的 `>>` 关两层、`>>>` 关三层（TS 词法上是多个 `>`）。
-    depth -= text.length;
-    if (depth <= 0) {
-      return at;
-    }
-    continue;
-  }
-}
-return -1;
+return AngleJudge.FindPair(this.Units, openIndex);
 ```
 
 ## method ParseAngleType:(first:int, last:int)=>Token

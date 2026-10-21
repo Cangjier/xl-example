@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { AngleJudge } from "../types/angle-judge.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
@@ -627,61 +628,15 @@ return !StatementBuilder.ContinuesAcrossLine(next);
 
 ## static method IsTypeArgumentStart:(units:Array<Token>, index:int, limit:int)=>bool
 
-`units[index]` 是 `<`、前面是可接类型实参的实体、后面有配对的 `>` 时，才算类型实参段的开头。
-只做符号层配对：`a < b` 这种没有配对 `>` 的比较不会被算进去。
+`units[index]` 是 `<`、且它开启的是类型实参段时才算开头。判据统一交给
+`AngleJudge.CanStart`（前驱 + 配对扫描 + follower 白名单 + 内层粗校验），
+本方法只保留 `limit` 越界检查这一层。
 
 ```ts
 if (index <= 0 || index >= limit) {
   return false;
 }
-const head = units[index];
-if (!(head instanceof Symbol) || !(head as Symbol).Is("<")) {
-  return false;
-}
-const previous = units[index - 1];
-if (!(previous instanceof Common) && !(previous instanceof Bracket)) {
-  return false;
-}
-let depth = 0;
-for (let at = index; at < limit; at++) {
-  const unit = units[at];
-  if (!(unit instanceof Symbol)) {
-    continue;
-  }
-  const text = (unit as Symbol).TempToString();
-  if (text === "<") {
-    depth++;
-  } else if (text === ">") {
-    depth--;
-  } else if (text === ">>") {
-    depth -= 2;
-  } else if (text === ">>>") {
-    depth -= 3;
-  }
-  if (depth <= 0) {
-    if (at <= index) {
-      return false;
-    }
-    // 配对的 `>` 之后必须接得上「类型实参段之后的东西」：调用括号 / `??` 这类算子 / 段末，
-    // 否则更像比较运算（`x < y … z > w`），不算类型实参。
-    const after = at + 1;
-    if (after >= limit) {
-      return true;
-    }
-    const follower = units[after];
-    if (follower instanceof Bracket && (follower as Bracket).StartBracketChar === "(") {
-      return true;
-    }
-    if (follower instanceof Symbol) {
-      const followerText = (follower as Symbol).TempToString();
-      return followerText === "??" || followerText === "||" || followerText === "&&"
-        || followerText === "?" || followerText === "?:" || followerText === ":"
-        || followerText === ";" || followerText === "." || followerText === "?.";
-    }
-    return false;
-  }
-}
-return false;
+return AngleJudge.CanStart(units, index);
 ```
 
 ## method BuildVariableStatement:()=>Token

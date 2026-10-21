@@ -314,3 +314,10 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
 | §6.2/6.3 剩余缺口 | 主仓 `bf2ea5dd`（round-16 merge；实现提交 `2f20a985`；含场景 4 方案 (b)）`token-ast.mjs --json` 实测（**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+
+## 9. angle 判据收敛为 AngleJudge（typescript 层唯一实现）
+
+- 新增 	ypescript/tokens/types/angle-judge.xl.md：AngleJudge.CanStart(units,index) 是「< 开的是类型实参/类型参数还是算术/比较」的唯一判据；内部 = 前驱判据 + 配对扫描（>>/>>> 按层拆，返回真实单元下标）+ follower 白名单 + 内层粗校验。AngleJudge.FindClose 是类型实参用的严格版本（不是类型实参返回 -1），AngleJudge.FindPair 是强制配对用的宽松版本，AngleJudge.IsSplitClose 是合符号拆分语义。
+- 已委托：expression-builder 的 FindTypeArgumentClose / CanStartTypeArgumentCall / CanStartTypeArguments / MatchAngleClose（ParseAngleStart 经薄包装），statement-builder 的 IsTypeArgumentStart。未委托（保留原实现，后续可继续收）：class / function / interface 声明候选里手写的 </>/>> 计数、	ype-builder.IsSplitClose 的调用方（Load 仍只做符号拆分）。
+- 读数：token 语料 baseline 1646/37/9 → **1648 ok / 35 crash / 9 diff**（逐文件 improved 2：expr-inst-tagged.ts、gap-r977-inst-tagged-two-args.ts；regressed 0 / other 0）；st:cases 4622→**4806**（新增 	ypescript/cases/angle.ts 19 条守卫，42 个构造，identical 4806/4806、结构/位置/字段差 0/0/0）；st:dts 226/226。
+- 未修：declarations/decl-obj-destructure-computed-key.ts、	ypes/type-parameter-list.ts 仍红，与本次判据收敛无因果（委托前后崩溃消息不变，见 §6.2 原记录）。
