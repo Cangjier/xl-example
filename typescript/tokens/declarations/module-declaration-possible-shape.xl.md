@@ -159,7 +159,63 @@ if (state.Checked !== tokenIndex + 1) {
       codeAt.push(at);
     }
   }
-  const result:StatementScanResult = this.Scan(code);
+  // 装饰器前缀（@dec / @ns.dec / @dec(…)）：先只读跳过，再对剩下的声明头走 Scan。
+  let decoratorCount = 0;
+  while (decoratorCount < code.length
+    && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
+    decoratorCount++;
+    let consumedAny = false;
+    while (decoratorCount < code.length) {
+      const rest = code[decoratorCount];
+      if (rest instanceof Bracket || rest instanceof String) {
+        decoratorCount++;
+        consumedAny = true;
+        continue;
+      }
+      if (rest instanceof Symbol) {
+        const restText = (rest as Symbol).TempToString();
+        if (restText === "@" || restText === "." || restText === "?." || restText === "<"
+          || restText === ">" || restText === "," || restText === "["
+          || restText === "]" || restText === "(" || restText === ")") {
+          decoratorCount++;
+          consumedAny = true;
+          continue;
+        }
+        break;
+      }
+      if (rest instanceof Common) {
+        const restText = (rest as Common).TempToString();
+        const previous = decoratorCount > 0 ? code[decoratorCount - 1] : null;
+        const afterDot = previous instanceof Symbol
+          && ((previous as Symbol).Is(".") || (previous as Symbol).Is("?."));
+        if (!afterDot && (restText === "export" || restText === "declare"
+          || restText === "namespace" || restText === "module" || restText === "global"
+          || restText === "class" || restText === "interface" || restText === "type"
+          || restText === "enum" || restText === "function" || restText === "const"
+          || restText === "let" || restText === "var")) {
+          break;
+        }
+        decoratorCount++;
+        consumedAny = true;
+        continue;
+      }
+      break;
+    }
+    if (!consumedAny) {
+      decoratorCount = -1;
+      break;
+    }
+  }
+  let scanCode = code;
+  let scanCodeAt = codeAt;
+  if (decoratorCount > 0) {
+    scanCode = code.slice(decoratorCount);
+    scanCodeAt = codeAt.slice(decoratorCount);
+  } else if (decoratorCount < 0) {
+    scanCode = [];
+    scanCodeAt = [];
+  }
+  const result:StatementScanResult = this.Scan(scanCode);
   state.Status = result.Status;
   // `declare` 与 `namespace|module|global` 之间换行：TS 的 ASI 收成两条
   // （ExpressionStatement(declare) + ModuleDeclaration）。本候选退出，交给根级边界收尾。
@@ -176,8 +232,11 @@ if (state.Checked !== tokenIndex + 1) {
       state.End = -1;
     }
   }
-  if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
-    state.End = codeAt[result.End];
+  if (decoratorCount < 0) {
+    state.Status = 0;
+    state.End = -1;
+  } else if (result.Status === 1 && result.End >= 0 && result.End < scanCodeAt.length) {
+    state.End = scanCodeAt[result.End];
   } else {
     state.End = -1;
   }

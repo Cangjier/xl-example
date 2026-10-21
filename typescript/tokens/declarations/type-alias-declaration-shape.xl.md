@@ -10,6 +10,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { DecoratorShape } from "../types/decorator-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -109,14 +111,64 @@ for (let at = start; at <= tokenIndex; at++) {
 if (code.length < 4) {
   throw new Error("类型别名声明不完整");
 }
-let cursor = 0;
+let pos = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.End;
+    if (end !== null) {
+      pos = end.Index + 1;
+    }
+    break;
+  }
+}
+let decoratorBase = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.End;
+    if (end !== null) {
+      decoratorBase = end.Index + 1;
+    }
+    break;
+  }
+}
+const decorators:Array<Token> = [];
+let decoratorEnd = decoratorBase;
+let decoratorCount = 0;
+while (decoratorCount < code.length
+  && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
+  const atUnit = code[decoratorCount];
+  const decoratorPos = decoratorEnd;
+  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  let decoratorExpression:Token;
+  {
+    const builder = new ExpressionBuilder(host.Template, context);
+    builder.Load(code.slice(decoratorCount + 1), expressionBase);
+    if (builder.Units.length === 0) {
+      throw new Error("decorator expression is empty");
+    }
+    decoratorExpression = builder.ParseExpression();
+    if (builder.At === 0) {
+      throw new Error("decorator expression was not read");
+    }
+    const consumed = builder.At;
+    for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
+      const cursorEnd = code[cursor].SourceRange.End;
+      if (cursorEnd !== null) {
+        decoratorEnd = cursorEnd.Index + 1;
+      }
+    }
+    decoratorCount += 1 + consumed;
+  }
+  decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
+}
+let cursor = decoratorCount;
 let exportUnit:Token | null = null;
-if (code[0] instanceof Common && (code[0] as Common).Is("export")) {
-  exportUnit = code[0];
-  cursor = 1;
+if (cursor < code.length && code[cursor] instanceof Common && (code[cursor] as Common).Is("export")) {
+  exportUnit = code[cursor];
+  cursor++;
 }
 let declareUnit:Token | null = null;
-if (code[cursor] instanceof Common && (code[cursor] as Common).Is("declare")) {
+if (cursor < code.length && code[cursor] instanceof Common && (code[cursor] as Common).Is("declare")) {
   declareUnit = code[cursor];
   cursor++;
 }
@@ -158,16 +210,6 @@ if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
 } else if (code.length <= equalIndex + 1) {
   throw new Error("类型别名声明的类型为空");
 }
-let pos = 0;
-for (let at = start - 1; at >= 0; at--) {
-  if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
-    }
-    break;
-  }
-}
 let namePos = 0;
 if (keyword.SourceRange.End !== null) {
   namePos = keyword.SourceRange.End.Index + 1;
@@ -206,6 +248,9 @@ const shape = new TypeAliasDeclarationShape(host.Template);
 shape.AliasName = name;
 shape.AliasParameters = parameters;
 shape.AliasType = type;
+for (const decorator of decorators) {
+  shape.Add(decorator);
+}
 if (exportUnit !== null) {
   const modifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
   modifier.Pos = pos;
@@ -222,12 +267,27 @@ if (declareUnit !== null) {
   }
   shape.Add(modifier);
 }
+if (decoratorCount > 0) {
+  let modifierPos = decoratorEnd;
+  for (const child of shape.Data) {
+    if (child instanceof ExportKeywordShape || child instanceof DeclareKeywordShape) {
+      (child as ShapeToken).Pos = modifierPos;
+      if (child.SourceRange.End !== null) {
+        modifierPos = child.SourceRange.End.Index + 1;
+      }
+    }
+  }
+}
 shape.Add(name);
 for (const parameter of parameters) {
   shape.Add(parameter);
 }
 shape.Add(type);
-if (exportUnit !== null) {
+if (decoratorCount > 0) {
+  if (code[0].SourceRange.Start !== null) {
+    shape.SignIn(code[0].SourceRange.Start);
+  }
+} else if (exportUnit !== null) {
   if (exportUnit.SourceRange.Start !== null) {
     shape.SignIn(exportUnit.SourceRange.Start);
   }

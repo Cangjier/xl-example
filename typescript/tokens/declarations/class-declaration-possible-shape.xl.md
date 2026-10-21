@@ -113,6 +113,23 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
         state.Stage = 1;
         continue;
       }
+      // 其它声明族的关键字（非成员名位置）说明这不是 class 声明：退出，避免与
+      // Interface / TypeAlias / ModuleDeclaration 候选在装饰器前缀后共存。
+      let previous = at - 1;
+      while (previous >= 0 && units[previous].IsTriviaToken) {
+        previous--;
+      }
+      let afterDot = false;
+      if (previous >= 0 && units[previous] instanceof Symbol) {
+        const previousText = (units[previous] as Symbol).TempToString();
+        afterDot = previousText === "." || previousText === "?.";
+      }
+      if (!afterDot && (text === "interface" || text === "type" || text === "namespace"
+        || text === "module" || text === "enum" || text === "function"
+        || text === "const" || text === "let" || text === "var" || text === "global")) {
+        state.Rejected = true;
+        continue;
+      }
       continue;
     }
     if (unit instanceof Symbol || unit instanceof Bracket) {
