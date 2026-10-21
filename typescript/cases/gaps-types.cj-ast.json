@@ -202,6 +202,182 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class C<T, U extends X<T>> {}\ntype F = number;",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 8,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 9,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 10,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "U"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 20,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "X"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 23,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 24,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 29,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 34,
+              "end": 36,
+              "text": "F"
+            },
+            {
+              "kind": "NumberKeyword",
+              "pos": 38,
+              "end": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I<T, U extends X<T>> {}\ntype G = number;",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 12,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 14,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "U"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 24,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "X"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 27,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 28,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 33,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "G"
+            },
+            {
+              "kind": "NumberKeyword",
+              "pos": 42,
+              "end": 49
+            }
+          ]
+        }
+      ]
     }
   ]
 }

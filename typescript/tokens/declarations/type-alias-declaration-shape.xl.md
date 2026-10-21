@@ -86,9 +86,25 @@ return -1;
 ```ts
 const code:Array<Token> = [];
 for (let at = start; at <= tokenIndex; at++) {
-  if (!host.Data[at].IsTriviaToken) {
-    code.push(host.Data[at]);
+  const unit = host.Data[at];
+  if (unit.IsTriviaToken) {
+    continue;
   }
+  // 同一源区间出现多个单元 = 重放副本（`>>` 被拆分后宿主 `Data` 变长，reload 把同一个字符
+  // 又压了一次；实测 `class C<T, U extends X<T>> {}` 后的 `;` 会以相同 [start..end] 出现两遍）。
+  // 只保留第一份，否则第二个 `;` 会落进类型单元切片，TypeBuilder 读不完。
+  const previous = code.length > 0 ? code[code.length - 1] : null;
+  const unitStart = unit.SourceRange.Start;
+  const unitEnd = unit.SourceRange.End;
+  if (previous !== null && unitStart !== null && unitEnd !== null) {
+    const previousStart = previous.SourceRange.Start;
+    const previousEnd = previous.SourceRange.End;
+    if (previousStart !== null && previousEnd !== null
+      && previousStart.Index === unitStart.Index && previousEnd.Index === unitEnd.Index) {
+      continue;
+    }
+  }
+  code.push(unit);
 }
 if (code.length < 4) {
   throw new Error("类型别名声明不完整");
