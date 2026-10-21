@@ -43,6 +43,48 @@ for (const item of text) {
 return true;
 ```
 
+## static method Shift:(unit:Token, depth:int)=>int
+
+候选扫描里的**宽松**数角（class 的 `<...>` 类型参数阶段 / function 的类型参数表）：`<` 进一层、`>` 出一层、
+`>>` / `>>>` 一次出两 / 三层；不是角符号时返回原深度，深度允许到 0 以下（调用方只判 `<= 0`）。
+这是「候选扫描数角」的唯一实现，与严格判据 `CanStart` / 强制配对 `FindPair` 并存、职责不同。
+
+```ts
+if (!(unit instanceof Symbol)) {
+  return depth;
+}
+const text = (unit as Symbol).TempToString();
+if (text === "<") {
+  return depth + 1;
+}
+if (text === ">") {
+  return depth - 1;
+}
+if (AngleJudge.IsSplitClose(text)) {
+  return depth - text.length;
+}
+return depth;
+```
+
+## static method Guard:(unit:Token, depth:int)=>int
+
+候选扫描的另一个变体（class / interface 的 heritage 段）：只认 `<` 与 `>`，`>` 只在深度 > 0 时出层，
+`>>` / `>>>` 原样当内容；深度夹在 0 以上。
+
+```ts
+if (!(unit instanceof Symbol)) {
+  return depth;
+}
+const text = (unit as Symbol).TempToString();
+if (text === "<") {
+  return depth + 1;
+}
+if (text === ">") {
+  return depth > 0 ? depth - 1 : 0;
+}
+return depth;
+```
+
 ## static method IsText:(unit:Token, text:string)=>bool
 
 ```ts

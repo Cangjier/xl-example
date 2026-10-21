@@ -16,6 +16,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -168,27 +169,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 7) {
-    // Inside "<...>": nested angle brackets are counted, ">>" closes two levels.
+    // Inside "<...>": 宽松数角一律交 AngleJudge.Shift（`>>` 一次关两层）。
     if (unit instanceof Symbol) {
-      const angleText = (unit as Symbol).TempToString();
-      if (angleText === "<") {
-        state.Angle++;
-        continue;
+      state.Angle = AngleJudge.Shift(unit, state.Angle);
+      if (state.Angle <= 0) {
+        state.Stage = 2;
       }
-      if (angleText === ">") {
-        state.Angle--;
-        if (state.Angle <= 0) {
-          state.Stage = 2;
-        }
-        continue;
-      }
-      if (angleText === ">>") {
-        state.Angle -= 2;
-        if (state.Angle <= 0) {
-          state.Stage = 2;
-        }
-        continue;
-      }
+      continue;
     }
     // Type parameter names / "extends" / "=" / default / constraint types are all content here.
     continue;

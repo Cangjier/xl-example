@@ -13,6 +13,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -179,44 +180,21 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 8) {
-    // 类名之后的类型参数表 `<...>`：嵌套尖括号计数，`>>` 一次关两层（与函数候选同款）。
+    // 类名之后的类型参数表 `<...>`：宽松数角一律交 AngleJudge.Shift（与函数候选同款）。
     if (unit instanceof Symbol) {
-      const angleText = (unit as Symbol).TempToString();
-      if (angleText === "<") {
-        state.AngleDepth++;
-        continue;
+      state.AngleDepth = AngleJudge.Shift(unit, state.AngleDepth);
+      if (state.AngleDepth <= 0) {
+        state.Stage = 3;
       }
-      if (angleText === ">") {
-        state.AngleDepth--;
-        if (state.AngleDepth <= 0) {
-          state.Stage = 3;
-        }
-        continue;
-      }
-      if (angleText === ">>") {
-        state.AngleDepth -= 2;
-        if (state.AngleDepth <= 0) {
-          state.Stage = 3;
-        }
-        continue;
-      }
+      continue;
     }
     continue;
   }
   if (state.Stage === 3) {
     // 类型形参 / 泛型实参里的 `{ a: A }`（类型字面量）不是类/接口体：用尖括号深度区分。
     if (unit instanceof Symbol) {
-      const angleText = (unit as Symbol).TempToString();
-      if (angleText === "<") {
-        state.AngleDepth++;
-        continue;
-      }
-      if (angleText === ">") {
-        if (state.AngleDepth > 0) {
-          state.AngleDepth--;
-        }
-        continue;
-      }
+      state.AngleDepth = AngleJudge.Guard(unit, state.AngleDepth);
+      continue;
     }
     if (state.AngleDepth === 0 && unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
       // 非空类体不再 Reject：成员由 ClassDeclarationShape.BuildMembers 逐个建。
