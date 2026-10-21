@@ -43,7 +43,41 @@ super(Template);
 能不能把 `Src` 并进本块：不是符号、也不是空白就行。
 
 ```ts
+if (Common.IsUnicodeEscapeStart(Src, this.Template)) {
+  return true;
+}
 return !(this.Template.SymbolTemplate.IsSymbol(Src.Value) || this.Template.SymbolTemplate.IsWhiteSpace(Src.Value));
+```
+
+## static method IsUnicodeEscapeStart:(Src:Source, template:Template)=>bool
+
+`Src` 处是不是一个**合法**的 `\uXXXX` 转义标识符起点：`\` + `u` + 4 个十六进制字符。
+
+语言开关（`SymbolTemplate.SupportUnicodeEscapeIdentifier`）关闭时恒 `false`，其它语言零影响；
+不足 4 位 / 非十六进制 / 不是 `\` 一律 `false`（这些情况保持旧的“落回符号层”行为）。
+ `Src` 只有当前字符，所以前探要经 `Src.Document.At(...)` / `GetCount()`；位置口径仍是原文。
+
+```ts
+if (!template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
+  return false;
+}
+if (Src.Value !== "\\") {
+  return false;
+}
+const document = Src.Document;
+const index = Src.Index;
+if (index + 6 > document.GetCount()) {
+  return false;
+}
+if (document.At(index + 1).Value !== "u") {
+  return false;
+}
+for (let offset = 2; offset <= 5; offset++) {
+  if (!template.SymbolTemplate.IsHexDigit(document.At(index + offset).Value)) {
+    return false;
+  }
+}
+return true;
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
@@ -477,7 +511,8 @@ if (last instanceof Common && !last.Closed) {
     return BranchStates.Reload;
   }
 }
-if (template.SymbolTemplate.IsSymbol(value) || template.SymbolTemplate.IsWhiteSpace(value)) {
+if ((template.SymbolTemplate.IsSymbol(value) || template.SymbolTemplate.IsWhiteSpace(value))
+    && !Common.IsUnicodeEscapeStart(source, template)) {
   return BranchStates.Undo;
 }
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {

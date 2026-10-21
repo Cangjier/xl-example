@@ -124,6 +124,9 @@ if ((value === "+" || value === "-")
     && last.IsExponentPrefix()) {
   return BranchStates.Undo;
 }
+if (value === "\\" && Common.IsUnicodeEscapeStart(source, template)) {
+  return BranchStates.Undo;
+}
 if (!template.SymbolTemplate.IsSymbol(value)) {
   if (last instanceof Symbol && !last.Closed) {
     const numberTakesDot = last.TempToString() === "." && template.SymbolTemplate.IsNumber(value);

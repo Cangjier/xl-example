@@ -177,6 +177,7 @@ const template = new Template();
 template.BranchTemplate.DefaultValue = Template.BasicBranchQueue();
 template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
 template.NumberTemplate.BigIntSuffix = "n";
+template.SymbolTemplate.SupportUnicodeEscapeIdentifier = true;
 template.RegexTemplate = new TypeScriptRegexTemplate();
 template.RegexTemplate.ExpressionKeywords = [
   "typeof",

@@ -7,8 +7,8 @@
 //    边界对照：`(` 之后的 `/` 已能判成正则（见下方 if (/x/) 一行）。
 // 2. `$` 作标识符字符：`$x` / `a$b` / `I$X` 被拆成 `Symbol($)+Common(x)`（3 份，lex-ident-dollar-*）。
 //    改动须同时保留 `$"…"` 内插前缀的 lookahead 回退。
-// 3. `\uXXXX` 转义标识符：`\` 是 Symbol、`u0061bc` 是 Common，没有「转义后整体算一个标识符字符」的规则
-//    （2 份，lex-unicode-escape-identifier / lx-unicode-ident）。
+// 3. `\uXXXX` 转义标识符：**已实施**（4 位形）—— token 层把合法的 `\u`+4hex 并进 Common，
+//    IdentifierShape 解码进 EscapedText（原文区间不变）；`\u{…}` 花括号形仍缺。
 // 4. U+FEFF（BOM）算 trivia：`Common` 会把 `\uFEFFconst` 吞成一个词（1 份，lex-bom，BOM 在中间行行首）。
 // 5. shebang `#!` 作首行 trivia：`#` 一律按 PrivateIdentifier 前缀扫，`!` 另起单元；
 //    `ShebangTriviaShape` 已存在但 possible/build 仍是「未实现」桩（2 份，lex-shebang / lx-shebang）。
@@ -33,3 +33,10 @@ const g1 = (a)\n/re/g;
 const g2 = obj.while(a)\n/re/g;
 const g3 = a / b;
 const g4 = a /* c */ / b;
+// 场景 3（已实施）：\uXXXX 转义标识符——token 层并成一个标识符，AST text 用解码值（原文区间不变）
+const ue1 = \u0061bc;
+const ue2 = a\u0062c;
+function f\u0066() {}
+class C\u0031 {}
+interface I\u0041 { a: number }
+const ue3 = { \u0061: 1 };
