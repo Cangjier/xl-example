@@ -477,6 +477,56 @@ this.At += builder.At;
 return type;
 ```
 
+## method FindTypeArgumentClose:(index:int)=>int
+
+类型实参前瞻用的**严格**配对扫描：只认 `<`、`>`、`>>` / `>>>`、`,` 这些符号与任意非符号单元
+（类型名 / 字面量 / 括号整块）；碰到别的符号（`&&`、`+` 等）就判否，避免把
+`a < b && c > (d)` 这类比较链当成泛型实参。返回闭合 `>` 所在的**原单元下标**
+（`>>` / `>>>` 在最后一格收多层），找不到返回 -1。
+
+```ts
+if (index < 0 || index >= this.Units.length) {
+  return -1;
+}
+if (!this.IsText(this.Units[index], "<")) {
+  return -1;
+}
+let depth = 0;
+for (let at = index; at < this.Units.length; at++) {
+  const unit = this.Units[at];
+  if (!(unit instanceof Symbol)) {
+    if (depth === 0) {
+      return -1;
+    }
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    depth++;
+    continue;
+  }
+  if (text === ">") {
+    depth--;
+    if (depth === 0) {
+      return at;
+    }
+    continue;
+  }
+  if (text === ">>" || text === ">>>") {
+    depth -= text.length;
+    if (depth <= 0) {
+      return at;
+    }
+    continue;
+  }
+  if (text === ",") {
+    continue;
+  }
+  return -1;
+}
+return -1;
+```
+
 ## method CanStartTypeArgumentCall:(index:int)=>bool
 
 泛型调用的前瞻：`index` 是 `<`，扫描到与它配对的 `>`，且 `>` 之后紧跟 `(` 才算泛型调用；
@@ -490,35 +540,12 @@ if (index < 0 || index >= this.Units.length) {
 if (!this.IsText(this.Units[index], "<")) {
   return false;
 }
-let depth = 0;
-for (let at = index; at < this.Units.length; at++) {
-  const unit = this.Units[at];
-  if (unit instanceof Symbol) {
-    const text = (unit as Symbol).TempToString();
-    if (text === "<") {
-      depth++;
-      continue;
-    }
-    if (text === ">") {
-      depth--;
-      if (depth === 0) {
-        if (at + 1 >= this.Units.length) {
-          return false;
-        }
-        return this.IsBracketStart(this.Units[at + 1], "(");
-      }
-      continue;
-    }
-    if (text === ",") {
-      continue;
-    }
-    return false;
-  }
-  if (depth === 0) {
-    return false;
-  }
+const close = this.FindTypeArgumentClose(index);
+if (close < 0) {
+  return false;
 }
-return false;
+const after = this.Units[close + 1];
+return after !== undefined && this.IsBracketStart(after, "(");
 ```
 
 ## method CanStartTypeArguments:(index:int)=>bool
@@ -535,60 +562,35 @@ if (index < 0 || index >= this.Units.length) {
 if (!this.IsText(this.Units[index], "<")) {
   return false;
 }
-let depth = 0;
-for (let at = index; at < this.Units.length; at++) {
-  const unit = this.Units[at];
-  if (unit instanceof Symbol) {
-    const text = (unit as Symbol).TempToString();
-    if (text === "<") {
-      depth++;
-      continue;
-    }
-    if (text === ">") {
-      depth--;
-      if (depth === 0) {
-        if (at + 1 >= this.Units.length) {
-          return true;
-        }
-        const after = this.Units[at + 1];
-        if (this.IsTemplateToken(after)) {
-          // `f<T>`t``：实参后面紧跟模板串时是标签模板，不是比较链。
-          return true;
-        }
-        if (after instanceof Symbol) {
-          const afterText = (after as Symbol).TempToString();
-          if (afterText === ";" || afterText === "," || afterText === ")" || afterText === "]"
-              || afterText === "}" || afterText === "=" || afterText === "." || afterText === "!"
-              || afterText === "?" || afterText === ":" || afterText === "=>" || afterText === "?."
-              || afterText === "??" || afterText === "||" || afterText === "&&") {
-            return true;
-          }
-        }
-        if (after instanceof Common) {
-          // 实例化表达式后接类型/关系词（`a<b> as T` / `a<b> satisfies T` / `a<b> instanceof C`）
-          // 仍是实例化表达式，不是比较链。
-          const afterCommon = (after as Common).TempToString();
-          if (afterCommon === "as" || afterCommon === "satisfies" || afterCommon === "instanceof"
-              || afterCommon === "in") {
-            return true;
-          }
-        }
-        if (after instanceof String && this.IsTemplateToken(after as String)) {
-          // `a<b>`t``：标签模板的标签是实例化表达式，`<…>` 是它自己的 typeArguments。
-          return true;
-        }
-        return false;
-      }
-      continue;
-    }
-    if (text === ",") {
-      continue;
-    }
-    return false;
+const close = this.FindTypeArgumentClose(index);
+if (close < 0) {
+  return false;
+}
+if (close + 1 >= this.Units.length) {
+  return true;
+}
+const after = this.Units[close + 1];
+if (after instanceof Symbol) {
+  const afterText = (after as Symbol).TempToString();
+  if (afterText === ";" || afterText === "," || afterText === ")" || afterText === "]"
+      || afterText === "}" || afterText === "=" || afterText === "." || afterText === "!"
+      || afterText === "?" || afterText === ":" || afterText === "=>" || afterText === "?."
+      || afterText === "??" || afterText === "||" || afterText === "&&") {
+    return true;
   }
-  if (depth === 0) {
-    return false;
+}
+if (after instanceof Common) {
+  // 实例化表达式后接类型/关系词（`a<b> as T` / `a<b> satisfies T` / `a<b> instanceof C`）
+  // 仍是实例化表达式，不是比较链。
+  const afterCommon = (after as Common).TempToString();
+  if (afterCommon === "as" || afterCommon === "satisfies" || afterCommon === "instanceof"
+      || afterCommon === "in") {
+    return true;
   }
+}
+if (this.IsTemplateToken(after)) {
+  // `a<b>`t``：标签模板的标签是实例化表达式，`<…>` 是它自己的 typeArguments。
+  return true;
 }
 return false;
 ```
@@ -599,13 +601,17 @@ return false;
 `basePos` 取 `Positions[At]`，所以每个 `TypeReference` 的 `Pos` 与 TS 的 `pos` 同口径。
 
 ```ts
-const builder = new TypeBuilder(this.Template, this.Context);
-builder.Load(this.Units.slice(this.At), this.Positions[this.At]);
-const typeArguments = builder.ParseTypeArguments();
-if (builder.At === 0) {
-  throw new Error("缺少泛型实参");
+const open = this.At;
+const close = this.MatchAngleClose(open);
+if (close < 0) {
+  throw new Error("泛型实参缺少配对的 >");
 }
-this.At += builder.At;
+const builder = new TypeBuilder(this.Template, this.Context);
+builder.Load(this.Units.slice(open), this.Positions[open]);
+const typeArguments = builder.ParseTypeArguments();
+// TypeBuilder.Load 会把 `>>` / `>>>` 拆成多个单字符 `>`，builder.At 的计数与原单元数不同；
+// 收口位置以原单元上的配对扫描为准，不能拿 builder.At 直接加。
+this.At = close + 1;
 return typeArguments;
 ```
 
