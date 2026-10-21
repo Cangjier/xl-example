@@ -5,6 +5,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
 ```
 
 # namespace cangjie
@@ -251,6 +252,18 @@ if (followerIndex >= units.length) {
   return true;
 }
 const follower = units[followerIndex];
+// 配对的 `>` 与 follower 之间**有换行**时，follow 什么其实无所谓：上一条语句在换行处已经结束
+// （`const { [k]: v } = { a: 1 } as Record<string, number>` 换行 `console.log(v)`）。
+// 例外是「换行也接得上」的续接符：`(` / `[` / `.` / `?.` / 模板串——那是同一条表达式。
+if (units[close] !== undefined && !StatementScanner.NoLineBreakBetween(units[close], follower)) {
+  const continues = (follower instanceof Bracket
+      && ((follower as Bracket).StartBracketChar === "(" || (follower as Bracket).StartBracketChar === "["))
+    || (follower instanceof Symbol && ((follower as Symbol).Is(".") || (follower as Symbol).Is("?.")))
+    || (follower instanceof String && (follower as String).StringChar === "`");
+  if (!continues) {
+    return true;
+  }
+}
 if (follower instanceof Symbol) {
   const text = (follower as Symbol).TempToString();
   if (text === "(" || text === ";" || text === "," || text === ")" || text === "]"
