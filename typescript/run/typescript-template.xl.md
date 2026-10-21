@@ -84,6 +84,17 @@ if (last instanceof Common) {
   }
 }
 if (last instanceof Bracket && (last as Bracket).StartBracketChar === "{") {
+  // 箭头函数体 `() => { }` 之后换行再 `/`：TS 一定断句（箭头体的 `}` 后不能接二元运算），
+  // 该 `/` 是新语句的正则起点（r1231）。对象字面量 / `function` 表达式体仍走原判据
+  //（它们后面跟 `/` 可能是除号：`const o = {} / 2` / `const f = function () {} / 2` 都是除法）。
+  const braceBeforeIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, lastIndex - 1);
+  if (braceBeforeIndex >= 0) {
+    const braceBefore = units[braceBeforeIndex];
+    if (braceBefore instanceof Symbol && (braceBefore as Symbol).Is("=>")
+      && TypeScriptRegexTemplate.HasLineBreakBetween(last, units[slashIndex])) {
+      return true;
+    }
+  }
   return TypeScriptRegexTemplate.IsStatementBraceTail(units, lastIndex);
 }
 return false;
@@ -99,6 +110,28 @@ while (at >= 0 && units[at].IsTriviaToken) {
   at--;
 }
 return at;
+```
+
+## static method HasLineBreakBetween:(left:Token, right:Token)=>bool
+
+两个代码单元的原文之间有没有换行（块注释里的换行也算）。
+
+```ts
+const from = left.SourceRange.End;
+const to = right.SourceRange.Start;
+if (from === null || to === null) {
+  return false;
+}
+const document = from.Document;
+let cursor = from.Index + 1;
+while (cursor < to.Index) {
+  const ch = document.At(cursor).Value;
+  if (ch === "\n" || ch === "\r") {
+    return true;
+  }
+  cursor++;
+}
+return false;
 ```
 
 ## static method SlashIndex:(units:Array<Token>, index:int)=>int

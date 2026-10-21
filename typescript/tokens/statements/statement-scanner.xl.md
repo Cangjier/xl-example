@@ -5,6 +5,7 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
 
@@ -402,6 +403,11 @@ if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   return text === "as" || text === "satisfies" || text === "instanceof" || text === "in" || text === "of"
     || text === "extends" || text === "is" || text === "keyof" || text === "typeof";
+}
+if (unit instanceof RegexToken) {
+  // 正则字面量不能续接上一条表达式：换行后的 `/re/g` 是一条新语句
+  //（箭头体 `}` 之后由 TypeScriptRegexTemplate.CanStartAt 的位置判据把它认成正则起点）。
+  return false;
 }
 return true;
 ```
