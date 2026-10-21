@@ -13,7 +13,7 @@
 **basic token 8 条（归因条数；按受影响文件是 11 份，口径见 §3 脚注与 §5）**。也就是说：
 **token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
 「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**
-（ok/crash/diff/ts-invalid），最终合并态（HEAD `8dbb7976`）为 **1636/47/9/10/1**、ast:cases **4763/4763、0/0/0**。
+（ok/crash/diff/ts-invalid），最终合并态（HEAD `9368d937`，含 Plan A）为 **1638/45/9/10/1**、ast:cases **4774/4774、0/0/0**。
 
 ## 0. 数据来源与口径
 
@@ -41,13 +41,13 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | 原始基线（commit `dd5a494c`） | 1501 | **162** | **29** | 10 | 1 | 1703 |
 | round-1 合并后（commit `2a563080`） | **1561** | **119** | **12** | 10 | 1 | 1703 |
-| Plan A（token regex 判据，`cover-token-regexstart`） | **1638** | **45** | **9** | 10 | 1 | 1703 |
-| 最终合并态（commit `8dbb7976`） | **1636** | **47** | **9** | 10 | 1 | 1703 |
+| Plan A 前最终合并态（commit `8dbb7976`） | **1636** | **47** | **9** | 10 | 1 | 1703 |
+| **当前最终态（HEAD `9368d937`，Plan A 已合入）** | **1638** | **45** | **9** | 10 | 1 | 1703 |
 
 - **191 处失败 = 162 crash + 29 diff**；`ts-invalid` 10 份是 TS 自己 `parseDiagnostics ≠ 0`（尺子不测），不计入 191。
 - `gap-now-passing` 1 份 = 语料里 `xl:known-gap` 已转绿的守卫；`known-gap` 共 3 份（2 diff + 1 gap-passing）。
-- 主仓同一提交上复核：`node typescript/cases/ast-json.mjs` → **4622/4622**；
-  `ast-json-diff.mjs` → 完全一致 4622 / 结构差 0 / 位置差 0 / 字段差 0。
+- 主仓同一提交上复核：`node typescript/cases/ast-json.mjs` → **4774/4774**；
+  `ast-json-diff.mjs` → 完全一致 4774 / 结构差 0 / 位置差 0 / 字段差 0。
 - 本文件写作时在上述克隆（分支 `cover-token-an-mod-diff`，rebase 到 `2a563080`）上实测：
   `token-ast.mjs --quiet` → `ok 1561 / crash 119 / diff 12 / ts-invalid 10 / gap-now-passing 1`，与主仓读数一致。
 
@@ -161,7 +161,7 @@
 
 ## 6. 修复落地状态
 
-### 6.1 已合入主仓的修复（round-1 ~ round-5，最终合并 HEAD `8dbb7976`）＋ Plan A 分支（待合入）
+### 6.1 已合入主仓的修复（round-1 ~ round-8，最终合并 HEAD `9368d937`）
 
 四个分支合入：`cover-token-fix-build`、`cover-token-fix-class`、`cover-token-an-mod-diff`（+ 文档）、`cover-token-an-decl`（仅文档）。
 各提交自带**各自基线（1501/162/29）上的读数**——彼此有重叠组，**不可相加**，只能看最后合并态：
@@ -176,8 +176,8 @@
 | round-2（class 第二轮） | `bf31249b` / `cfea36ae` | D4 顶层 `abstract`/`declare` 换行、D5 `async` 首语句 pos、类成员 pending-head | 1523→**1527** / 155 / 14→**10**，0 回归 |
 | round-3/4（中间多分支合并） | `cover-token-fix-end`、`cover-token-an-stmt`、`cover-token-an-mod-diff` 等 | A/B 块体 ASI、EOF 裸块、ASI 成员名、条件类型/infer、footer 收口 | 逐轮收敛到最终合并态 |
 | round-5（coverage 文档收尾） | `cover-token-coverage` | 7 类常驻构造 141 条并入 `typescript/cases/*.ts`、移除 `token-repros/`、文档读数更新 | 读数不变：**1636 / 47 / 9** |
-| **最终合并态** | **`8dbb7976`** | 全部合入 | **1636 ok / 47 crash / 9 diff / 10 ts-invalid / 1 gap-now-passing**；ast:cases **4763/4763、0/0/0** |
-| **Plan A（本分支，待合入）** | **`46649437`** | 场景 1（控制头 `)` 后 `/` 的起点判据：`RegexTemplate.CanStartAt(units,index)` + `RegexToken.Transit` 改调用 + `TypeScriptRegexTemplate.CanStartAt` 覆写） | **1636/47/9 → 1638/45/9**；ast:cases **4763 → 4774**（场景 1 活跃行 11 条并入 `basic-token.ts`），0/0/0；逐文件对拍 **improved 2 / regressed 0 / other 0**（改进：`expr-r1233-control-head-regex.ts`、`stmt-if-body-regex-not-comment.ts`） |
+| Plan A 前最终合并态 | **`8dbb7976`** | 全部合入 | **1636 ok / 47 crash / 9 diff / 10 ts-invalid / 1 gap-now-passing**；ast:cases **4763/4763、0/0/0** |
+| **Plan A（已合入 round 8，merge `9368d937`；实现提交 `46649437`）** | **`9368d937`** | 场景 1（控制头 `)` 后 `/` 的起点判据：`RegexTemplate.CanStartAt(units,index)` + `RegexToken.Transit` 改调用 + `TypeScriptRegexTemplate.CanStartAt` 覆写） | **1636/47/9 → 1638/45/9**；ast:cases **4763 → 4774**（场景 1 活跃行 11 条并入 `basic-token.ts`），0/0/0；逐文件对拍 **improved 2 / regressed 0 / other 0**（改进：`expr-r1233-control-head-regex.ts`、`stmt-if-body-regex-not-comment.ts`） |
 
 - 每个修复提交都带逐条验证过的**最小用例**；这些用例本轮已折成 §6 七类的常驻构造（见 §6.5），
   `typescript/cases/token-repros/` 已删除。
@@ -276,7 +276,7 @@ node typescript/cases/token-ast.mjs types/
 node typescript/cases/token-ast.mjs "stmt-while"
 node typescript/cases/token-ast.mjs "tests/cases/token/**/stmt-while.ts"
 
-# 类型主干 AST 对拍（本分支 4774 条；必须 identical == total 且结构差/位置差/字段差全 0）
+# 类型主干 AST 对拍（当前主仓 4774 条；必须 identical == total 且结构差/位置差/字段差全 0）
 npm run ast:cases
 
 # token 语料（等价于第一条）
@@ -301,4 +301,4 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 本分支（Plan A）`token-ast.mjs --json` 实测（**54 = 45 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | 主仓（Plan A 已合入，`9368d937`）`token-ast.mjs --json` 实测（**54 = 45 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
