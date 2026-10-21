@@ -1,5 +1,7 @@
 # 剩余失败分类与解决思路：declarations 组（19 个 crash）
 
+> **状态：全部条目已在 round 21–26 修复；最终读数 token 1690 ok / 0 crash / 0 diff / 10 ts-invalid / 3 gap-now-passing，ast 4848/4848（47 构造）、ast:dts 226/226（HEAD `840258dc`）。**
+
 > 只读分析。基线：主仓 `HEAD = 85daba1d`，克隆 `cover-gaps-decl`（分支同名），
 > `xl_build core,typescript` → 0 error；`tsc` → 0；token 语料 1703 份。
 > 口径：`build/ts` 的 `SourceFileRunner.Parse(src,"a.ts")` + `ts.createSourceFile` 对照（本组全部文件

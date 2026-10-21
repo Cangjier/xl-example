@@ -4,8 +4,8 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：最终主仓 `bf2ea5dd`（round-16 merge；实现提交 `2f20a985`；Plan A + 场景 2/3/4/5 已合入，含场景 4 方案 (b)）读数 **1646/37/9/10/1**，剩余 **46 = 37 crash + 9 diff**；
-本清单 7 个场景里 **实测仍红 0 份**（`lex-bom.ts` 随方案 (b) 转 PASS；`/`、`$`、`\uXXXX` 4 位形、shebang 均已转 PASS）；`\u{…}` 花括号形仍单列缺。
+**结论先行**：最终主仓 `840258dc`（round 21–26 全部修完）读数 **1690/0/0/10/3**，剩余失败 **0**；
+本清单 7 个场景 **全部收口**（含 `\u{…}` 花括号形，round 21–26）；basic-token 类红 **0**；`>>` 属口径项且已绿。
 `>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 **1**（仅 `>>` 口径项）；
 `async` 是口径注记、当前无失败文件。
 **场景 2/4/5 均已按用户批准改 core（`$` 移出符号表 / `Bom`+`Shebang` basic token；场景 4 采用方案 (b) 放宽 `Bom` 起始判据）；1 用 core 现有 `RegexStartAfter` 接口；6 保持 token 合符号；3 的 4 位形也已动 core。**
@@ -99,7 +99,7 @@ ast:cases：场景 1/2/3 后 4785；场景 4/5 活跃行加入后为 **4787/4787
 
 **用户裁定**：已批准直接从 **core** 的 `IsSymbol` 符号表移除 `$`（不走 per-language `Ban` 路线）；已按此实施并合入 round 12（merge `96eaadf2`；实现提交 `c8256876`）。
 
-## 3. `\uXXXX` 转义标识符（**已实施**：4 位形已收，`\u{…}` 花括号形仍缺）
+## 3. `\uXXXX` 转义标识符（**已实施并全部收口**：4 位形 + `\u{…}` 花括号形，round 21–26）
 
 **受影响 case files（2，均 crash，均无 known-gap）**
 
@@ -129,7 +129,7 @@ ast:cases：场景 1/2/3 后 4785；场景 4/5 活跃行加入后为 **4787/4787
 代价：`\` 在非转义位置不再是符号（TS 里应报错），且 `a\b` 会被吞成一个标识符后由 AST 校验兜底；
 属于「先收进来再纠错」，与词法错误位置会偏。**可行但语义不干净**。
 
-**已实施（用户批准方案 A；已合入 round 10，merge `de94ec2a`，实现提交 `13896b7d`）**：5 个文件——① `core/syntax/templates/symbol-template.xl.md` 新增开关 `SupportUnicodeEscapeIdentifier`（默认 false）+ `IsHexDigit`；② `core/syntax/basic-tokens/common.xl.md` 新增 `static IsUnicodeEscapeStart(Src, template)`（`\`+`u`+4hex 前探）、`IsAppend` 接受该起点、`Transit` 的 `Undo` 闸门放行；③ `core/syntax/basic-tokens/symbol.xl.md` 的 `Transit` 在合法转义前返回 `Undo`（让 Common 接管）；④ `typescript/run/typescript-template.xl.md` 打开开关；⑤ `typescript/tokens/names/identifier-shape.xl.md` 新增 `DecodeIdentifierEscapes`，`EscapedText` 存解码值（区间仍取原文）。**`\u{…}` 花括号形未做**（需 Bracket 让位，单列剩余子项）。
+**已实施（用户批准方案 A；已合入 round 10，merge `de94ec2a`，实现提交 `13896b7d`；round 21–26 补齐 `\u{…}` 花括号形）**：5 个文件——① `core/syntax/templates/symbol-template.xl.md` 新增开关 `SupportUnicodeEscapeIdentifier`（默认 false）+ `IsHexDigit`；② `core/syntax/basic-tokens/common.xl.md` 新增 `static IsUnicodeEscapeStart(Src, template)`（`\`+`u`+4hex 前探）、`IsAppend` 接受该起点、`Transit` 的 `Undo` 闸门放行；③ `core/syntax/basic-tokens/symbol.xl.md` 的 `Transit` 在合法转义前返回 `Undo`（让 Common 接管）；④ `typescript/run/typescript-template.xl.md` 打开开关；⑤ `typescript/tokens/names/identifier-shape.xl.md` 新增 `DecodeIdentifierEscapes`，`EscapedText` 存解码值（区间仍取原文）。**`\u{…}` 花括号形已在 round 21–26 收口**（Bracket 让位 + 解码），token 最终 **1690/0/0**。
 
 **验收（已实测达成）**：上表 2 份转 PASS；token 读数 ok 1638→**1640**、crash 45→**43**、diff 9 不变；`ast:cases` 4774→**4780**、0/0/0；`ast:dts` 226/226；探针 5 条（`const \u0061bc`、`const a\u0062c`、`function f\u0066`、`class C\u0031`、`interface I\u0041`）AST text 与 TS 一致（解码后）；非法/边界（`\u00`、`\uZZZZ`、孤立 `\`、字符串 “\u0061”、`a / b`）行为与改前完全一致；`{ \u0061: 1 }` 属性键也随之一致。
 
@@ -262,19 +262,19 @@ parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / 
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 控制头 `)` 后 `/` 判 RegexToken（**已实施**） | 0（已转 PASS） | `core/syntax/templates/regex-template.xl.md`（新增 `CanStartAt`）+ `core/syntax/basic-tokens/regex-token.xl.md`（改调用）+ `typescript/run/typescript-template.xl.md`（ts 覆写） | 是（入口加宽在 core，用户已批准） | A | 2（已转绿） |
 | 2 | `$` 作标识符字符（**已实施**） | 0（已转 PASS） | `core/syntax/templates/symbol-template.xl.md`（删 `case "$":`，非 Ban） | 是（用户已批准） | A（core 移除） | 3（已转绿） |
-| 3 | `\uXXXX` 转义标识符（**已实施**，4 位形） | 0（已转 PASS；`\u{…}` 仍缺） | `core/syntax/templates/symbol-template.xl.md`、`core/syntax/basic-tokens/{common,symbol}.xl.md`、`typescript/run/typescript-template.xl.md`、`typescript/tokens/names/identifier-shape.xl.md` | 是（用户已批准） | A | 2（已转绿） |
+| 3 | `\uXXXX` 转义标识符（**已实施**，4 位形 + `\u{…}`） | 0（已转 PASS） | `core/syntax/templates/symbol-template.xl.md`、`core/syntax/basic-tokens/{common,symbol}.xl.md`、`typescript/run/typescript-template.xl.md`、`typescript/tokens/names/identifier-shape.xl.md` | 是（用户已批准） | A | 2（已转绿） |
 | 4 | U+FEFF/BOM 作 trivia（**已实施**，方案 (b)） | 0（已转 PASS） | `core/syntax/basic-tokens/bom.xl.md`、`core/syntax/templates/template.xl.md` | 是（用户已批准） | A（新 basic token + (b) 判据） | 1（已转绿） |
 | 5 | shebang `#!` 首行 trivia（**已实施**） | 0（已转 PASS） | `core/syntax/basic-tokens/shebang.xl.md`、`core/syntax/templates/template.xl.md` | 是（用户已批准） | A（新 basic token） | 2（已转绿） |
 | 6 | `>>` / `>>>` 是否 token 层拆 | 0（历史 1 已绿） | token 拆：`typescript/run/typescript-template.xl.md:49` + 两侧重组；保持：`expression-builder.xl.md` 复用 `IsSplitClose` | 拆=A 要 core；保持=B 不要 | B（保持） | 0 |
 | 7 | `async` 上下文关键字升级口径 | 0 | 无（口径记录） | 否 | 保持现状 | 0 |
 | | **合计** | **0** | | | | **0**（场景 1/2/3/4/5 全部转 PASS；`>>` 为口径项且已绿，若计入为 1） |
 
-**合计影响（场景 4 方案 (b) 落地后）：剩余 basic-token 红 0 份**；场景 1（`/`）、2（`$`）、3 的 4 位形（`\uXXXX`）、4（BOM，方案 (b)）、5（shebang 2）均已转 PASS；`\u{…}` 花括号形仍缺单列；`>>` 属口径项且已绿。
+**合计影响（round 21–26 最终）：剩余 basic-token 红 0 份**；场景 1（`/`）、2（`$`）、3（`\uXXXX` 4 位形 + `\u{…}`）、4（BOM，方案 (b)）、5（shebang 2）全部转 PASS；`>>` 口径项已绿，最终 token **1690/0/0**。
 mid-code BOM 仍不支持（方案 (b) 只在「尚无代码 token」时认领）；若后续要 TS parity（任意位置空白），再选 (c)。
 
 ## 9. `typescript/cases/basic-token.ts` 候选活跃行
 
-该文件现已含场景 1/2/3 的实施活跃行 + 场景 5 的 shebang 2 行 + 3 条原有 `/` 边界对照；场景 4（BOM）与 `\u{…}` 仍只写注释（BOM 用直接 Parse 探针验证）。
+该文件现已含场景 1/2/3（含 `\u{…}`）的实施活跃行 + 场景 5 的 shebang 2 行 + 3 条原有 `/` 边界对照；场景 4（BOM，corpus 无法表示行首 BOM）仍只写注释（直接 Parse 探针验证）。
 上述场景实施后，可把对应注释改成活跃行（新增行逐条跑 `npm run ast:cases` 确认）：
 
 | 场景 | 候选活跃行 |

@@ -1,4 +1,4 @@
-# token 语料 AST 对拍：191 处失败的 §6 归因、五问答案与修复落地状态
+# token 语料 AST 对拍：**最终全部通过（ok 1690 / crash 0 / diff 0）**——191 处失败的 §6 归因、五问答案与修复落地状态
 
 本文件是 token 语料 AST 对拍的**最终汇总**，由四份分目录归因文档合并而成（数据来源见 §0）。
 它回答四件事：
@@ -6,14 +6,13 @@
 1. 原始 **191 处失败**（162 crash + 29 diff）落在 `typescript/IMPORTANCE.md` §6 的哪一类、各多少条；
 2. 「何时 build / build 提什么 / 何时 close / close 提什么」在**机制族**层面的答案；
 3. 哪些问题**必须由用户裁定**（basic token 场景），现状、证据、要动 `core` 的哪一处；
-4. round-1 修复合入后的读数、还剩哪些缺口。
+4. round-1 修复后的读数轨迹与最终状态（**44 处剩余失败已全部修复**）。
 
 **结论先行**：191 处里 **end 收口族 71 条（end compute 63 + 缺少 end 6 + end build 2）**、
 **build 提取族 70 条（possible build）**、**候选族 42 条（possible compute 30 + 缺少 possible 12）**、
 **basic token 8 条（归因条数；按受影响文件是 11 份，口径见 §3 脚注与 §5）**。也就是说：
 **token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
-「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**
-（ok/crash/diff/ts-invalid），最终主仓 `bf2ea5dd`（round-16 merge；实现提交 `2f20a985`；Plan A + 场景 2/3/4/5 已合入，含场景 4 方案 (b)）为 **1646/37/9/10/1**、ast:cases **4787/4787、0/0/0**。
+「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**（ok/crash/diff/ts-invalid）；**最终 HEAD `840258dc`（round 21–26 全部修完）**：**1690 ok / 0 crash / 0 diff / 10 ts-invalid / 3 gap-now-passing**（total 1703）；ast:cases **4848/4848（47 构造）、0/0/0**；`ast:dts` **226/226**。累计轨迹：**ok 1501→1690、crash 162→0、diff 29→0**。
 
 ## 0. 数据来源与口径
 
@@ -47,6 +46,7 @@
 | 场景 2（`$`，已合入 round 12，merge `96eaadf2`；实现提交 `c8256876`） | **1643** | **40** | **9** | 10 | 1 | 1703 |
 | 场景 4/5（BOM / shebang，已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`） | **1645** | **38** | **9** | 10 | 1 | 1703 |
 | 场景 4（方案 (b)：`Bom` 放宽起始判据） | **1646** | **37** | **9** | 10 | 1 | 1703 |
+| **最终态（HEAD `840258dc`，round 21–26 收尾）** | **1690** | **0** | **0** | 10 | 3 | 1703 |
 
 - **191 处失败 = 162 crash + 29 diff**；`ts-invalid` 10 份是 TS 自己 `parseDiagnostics ≠ 0`（尺子不测），不计入 191。
 - `gap-now-passing` 1 份 = 语料里 `xl:known-gap` 已转绿的守卫；`known-gap` 共 3 份（2 diff + 1 gap-passing）。
@@ -155,6 +155,8 @@
 
 > **更新（场景 4 方案 (b) 已落地，round 16）**：`Bom.CanStart` 放宽为「`source.Index === 0` **或** `unit.Data` 全为 trivia（尚无代码 token）」；`lex-bom.ts`（BOM 在 raw index 109）转 PASS；mid-code BOM 仍 crash。token **1646/37/9**、剩余 **46 = 37+9**、basic-token 类红 1→0。`\u{…}` 花括号形仍缺。
 
+> **最终收尾（round 21–26，HEAD `840258dc`）**：`\u{…}` 花括号形、BOM/shebang 剩余子项、`>>`/keyword 口径项全部收口；basic-token 类红 **0**；token **1690/0/0**、ast:cases **4848/4848**、`ast:dts` 226/226。
+
 本清单按**受影响文件**计数：items 1–4 共 **8 份** + item 5 shebang **2 份** + item 6 `>>` 拆分 **1 份** = **11 份**。
 §3 表与结论里的「basic token 8」是**归因条数**（items 1–4），口径不同、不矛盾。
 
@@ -196,9 +198,21 @@
 - 验证方式统一为：目标文件 `token-ast.mjs <file>` exit 0 + 全量 `token-ast.mjs --quiet`（ok 只升、crash/diff 只降）
   + `npm run ast:cases`（identical == total，结构/位置/字段差全 0）+ `xl_build` 0 error + `tsc` 0。
 
-### 6.2 仍剩的缺口（HEAD `5b5e2c34`：**44 = 35 crash + 9 diff**；场景 4 方案 (b) 落地时为 46 = 37+9，`8dbb7976` 时为 56 = 47+9）
+### 6.2 历史失败分组（44 = 35 crash + 9 diff）：**全部已修复（round 21–26，最终 1690/0/0）**
 
-剩余 **44 处 = 35 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫；场景 4 方案 (b) 之后又收掉 angle 判据收敛带来的 2 条，46→44），按**当前实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组）：
+> 以下内容为**历史记录**：44 组的每一条都已在 round 21–26 修复，最终读数 1690/0/0（HEAD `840258dc`）。旧组 → 修复轮次/commit 对照：
+
+| 旧组 | 修复轮次 / commit |
+| --- | --- |
+| declarations：形参模式/默认值（A，9）、继承实体名（B，3）、声明头装饰器（C，3）、孤立上下文关键字（D，1）、`as` 类型实参（E，1）、类型注解跨行（F，1）、r1237 守卫 | round 21–22（declarations 批次） |
+| statements：G1–G5（变量语句收口 / return-throw / 声明体 `{` 换行 / 函数返回类型跨行） | round 22–23 |
+| types/modules：G1 行末 ASI（4）、G2 `>>` 拆分重放副本（1）、G3 CatalogGuide 共存（1） | round 22–23（types G1 `d329acc3`、G2 `8163a0e8`；G3 round 23–26） |
+| imports：import-equals 实体名行末 ASI（1） | round 26（`ba59252c`） |
+| diffs：9 条（边界 ASI 3、语句收口/do 壳 2、build/投影嵌套 3、类型位 `{` 1） | round 24–26 |
+| 跨组：`do-while` 壳、`declare`/obj-destructure、known-gap 守卫 r1231/r1237/r1244 转绿 | round 23–26 |
+| **合计 44 → 0** | **token 1690 ok / 0 crash / 0 diff（HEAD `840258dc`）** |
+
+> 以下为**历史记录**：剩余 **44 处 = 35 crash + 9 diff**（另有 10 ts-invalid 不计；场景 4 方案 (b) 之后又收掉 angle 判据收敛带来的 2 条，46→44）；round 21–26 已**全部修复**，最终 1690/0/0。按**当时实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组，历史）：
 
 | 目录 | 条数 | 说明 |
 | --- | --- | --- |
@@ -227,7 +241,7 @@
 | 类型别名声明不完整 | 2 | 类型别名收口 |
 | 其余各 1 | 6 | 6 种杂项 |
 
-### 6.3 仍剩的 9 条 diff（逐条）
+### 6.3 历史 9 条 diff（逐条）：**全部已修复**
 
 ```text
 declarations/decl-class-computed-member.ts               D2  类成员计算名（成员名分派，possible build）
@@ -313,7 +327,7 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | HEAD `5b5e2c34`（路线 A 合入后）`token-ast.mjs --json` 实测（**44 = 35 crash + 9 diff**；`bf2ea5dd` 时为 46 = 37+9、`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | 历史记录：HEAD `5b5e2c34` 时 44 = 35 crash + 9 diff；round 21–26 已**全部修复**，最终 HEAD `840258dc` 为 **1690 ok / 0 crash / 0 diff** |
 
 ## 9. angle 判据收敛为 AngleJudge（typescript 层唯一实现）
 
@@ -323,7 +337,7 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 - 读数：token 语料 baseline 1646/37/9 → **1648 ok / 35 crash / 9 diff**（逐文件 improved 2：`expr-inst-tagged.ts`、`gap-r977-inst-tagged-two-args.ts`；regressed 0 / other 0）；**剩余 44 = 35 crash + 9 diff**（HEAD `5b5e2c34`）；`ast:cases` 4622→**4806**（新增 `typescript/cases/angle.ts` 19 条守卫，42 个构造，identical 4806/4806、结构/位置/字段差 0/0/0）；`ast:dts` 226/226。
 - 未修：`declarations/decl-obj-destructure-computed-key.ts`、`types/type-parameter-list.ts` 仍红，与本次判据收敛无因果（委托前后崩溃消息不变，见 §6.2 原记录）。
 
-## 10. 剩余 44 失败的分区分析（交叉引用）
+## 10. 历史：剩余 44 失败的分区分析（交叉引用）
 
 HEAD `85daba1d` 起，剩余失败已由四份分区文档逐份归因，并汇总为一份去重后的分类与分批计划：
 
@@ -335,4 +349,4 @@ HEAD `85daba1d` 起，剩余失败已由四份分区文档逐份归因，并汇�
   （去重：`ambiguous/am-declare-module-nested.ts` 在两份文档各记一次，只计 1 次）；含 18 行去重主分类表、
   7 条跨组共用根因、§6 七类计数，以及 4 阶段修复计划（基线 1648/35/9 → 全清后 1692/0/0）。
 
-本节只做交叉引用，不改变本文已有数字与结论；§3–§5 的历史计数（191 条）保持不变。
+本节只做交叉引用，不改变本文已有数字与结论；§3–§5 的历史计数（191 条）保持不变。round 21–26 后上述 44 处已全部修完（见 §6.2 完成表），最终读数 1690/0/0。
