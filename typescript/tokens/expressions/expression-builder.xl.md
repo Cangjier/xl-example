@@ -637,7 +637,9 @@ if (yieldUnit.SourceRange.End !== null) {
   afterYieldPos = yieldUnit.SourceRange.End.Index + 1;
 }
 const next = this.Peek(0);
-if (next !== null && next instanceof Symbol && (next as Symbol).Is("*")) {
+const isDelegate = next !== null && next instanceof Symbol && (next as Symbol).Is("*");
+let hasOperand = false;
+if (isDelegate) {
   const asterisk = new AsteriskTokenShape(this.Template);
   asterisk.SignInToken(next);
   asterisk.SignOutToken(next);
@@ -645,19 +647,111 @@ if (next !== null && next instanceof Symbol && (next as Symbol).Is("*")) {
   asterisk.TryToClose(this.Context);
   shape.Add(asterisk);
   this.At++;
-}
-const operandUnit = this.Peek(0);
-let hasOperand = operandUnit !== null;
-if (operandUnit !== null && operandUnit instanceof Symbol) {
-  const operandText = (operandUnit as Symbol).TempToString();
-  if (operandText === "," || operandText === ";" || operandText === ":" || operandText === "}") {
-    hasOperand = false;
+  hasOperand = true;
+} else {
+  const operandUnit = this.Peek(0);
+  hasOperand = operandUnit !== null;
+  if (operandUnit !== null && operandUnit instanceof Symbol) {
+    const operandText = (operandUnit as Symbol).TempToString();
+    if (operandText === "," || operandText === ";" || operandText === ":" || operandText === "}") {
+      hasOperand = false;
+    }
   }
+}
+if (!hasOperand && !this.IsInsideGeneratorBody(start)) {
+  // 裸 `yield`（无操作数、非 `yield*`）在非 generator 上下文里 TS 是普通 Identifier
+  // （`const v = yield;` / `return (yield);`）；generator 里裸 `yield;` 仍是 YieldExpression。
+  this.At = start + 1;
+  const identifier = IdentifierShape.FromBasicToken(yieldUnit as Common, this.Context);
+  identifier.Pos = this.Positions[start];
+  return identifier;
 }
 if (hasOperand) {
   shape.Add(this.ParseAssign());
 }
 return this.SpanNode(shape, start, this.At - 1);
+```
+
+## method IsInsideGeneratorBody:(start:int)=>bool
+
+`start` 是 `yield` 词所在的单元下标：沿原文往回找**包住它的函数体 `{`**（先把前面已经闭合的 `}` 块整段跳过），
+再看 `{` 前的签名里有没有 `*`（`function*` / `function *` / 方法 `*m()`）。generator 里裸 `yield;`
+仍是 YieldExpression；其它上下文 TS 给 Identifier。
+
+```ts
+const unit = this.Units[start];
+const from = unit.SourceRange.Start;
+if (from === null) {
+  return false;
+}
+const document = from.Document;
+let index = from.Index - 1;
+let depth = 0;
+while (index >= 0) {
+  const ch = document.At(index).Value;
+  if (ch === "}") {
+    depth++;
+    index--;
+    continue;
+  }
+  if (ch === "{") {
+    if (depth > 0) {
+      depth--;
+      index--;
+      continue;
+    }
+    let at = index - 1;
+    while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+      at--;
+    }
+    if (at < 0 || document.At(at).Value !== ")") {
+      return false;
+    }
+    at--;
+    let parenDepth = 0;
+    while (at >= 0) {
+      const inner = document.At(at).Value;
+      if (inner === ")") {
+        parenDepth++;
+      } else if (inner === "(") {
+        if (parenDepth === 0) {
+          break;
+        }
+        parenDepth--;
+      }
+      at--;
+    }
+    at--;
+    while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+      at--;
+    }
+    while (at >= 0 && this.IsIdentifierChar(document.At(at).Value)) {
+      at--;
+    }
+    while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+      at--;
+    }
+    return at >= 0 && document.At(at).Value === "*";
+  }
+  index--;
+}
+return false;
+```
+
+## method IsWhitespaceChar:(ch:string)=>bool
+
+```ts
+return ch === " " || ch === "\t" || ch === "\r" || ch === "\n";
+```
+
+## method IsIdentifierChar:(ch:string)=>bool
+
+```ts
+if (ch.length === 0) {
+  return false;
+}
+return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z")
+  || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$";
 ```
 
 ## method ParsePostfix:()=>Token
