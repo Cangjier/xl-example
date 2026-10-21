@@ -421,6 +421,34 @@ return ExpressionStatementPossibleShape.IsExpressionTail(units[previous])
   && !ExpressionStatementPossibleShape.IsContinuation(current);
 ```
 
+## static method ExpressionEnd:(units:Array<Token>, from:int)=>int
+
+块体里一条**表达式语句**读到哪一格结束：`;` 老的终止符、**换行 ASI 边界**、或本层末尾。
+返回 `-1` 表示本层已经没有后续单元（调用方按「读到末尾」处理，与改前行为一致）。
+
+判据与根级**同源**：`;` 是老路，ASI 直接读 `IsAsiBoundary`——解析期（`StatementScanner`）与
+收尾期（`BuildExpressionStatement`）必须问同一个函数，否则会出现「一边断句、一边不断」。
+
+```ts
+for (let at = from; at < units.length; at++) {
+  const unit = units[at];
+  if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+    return at;
+  }
+  if (unit instanceof EndOfFileTokenShape) {
+    return at > from ? at - 1 : -1;
+  }
+  if (at > from && ExpressionStatementPossibleShape.IsAsiBoundary(units, at)) {
+    let last = at - 1;
+    while (last > from && units[last].IsTriviaToken) {
+      last--;
+    }
+    return last;
+  }
+}
+return -1;
+```
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
