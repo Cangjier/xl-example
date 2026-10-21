@@ -4,11 +4,11 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：主仓 `01ce0a1a`（Plan A + 场景 2/3 已合入）读数 **1643/40/9/10/1**；本分支实施场景 4/5 后 **1645/38/9/10/1**，剩余 **47 = 38 crash + 9 diff**；
+**结论先行**：最终主仓 `b579c490`（Plan A + 场景 2/3/4/5 已合入）读数 **1645/38/9/10/1**，剩余 **47 = 38 crash + 9 diff**；
 本清单 7 个场景里 **实测仍红 1 份**（`lex-bom.ts`：BOM 在 raw index 109，index-0 规则不覆盖，三条候选待用户裁定）；`/`、`$`、`\uXXXX` 4 位形、shebang 已转 PASS；`\u{…}` 花括号形仍单列缺。
-`>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 9；
+`>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 2（剩余红 1 + `>>` 口径项 1）；
 `async` 是口径注记、当前无失败文件。
-**其中 3 个场景（2/4/5）可以完全不改 `core/**` 修掉；1/6 也不需要 core（1 用 core 现有 `RegexStartAfter` 接口、6 保持 token 合符号）；只有 3（`\uXXXX`）推荐动 core。**
+**场景 2/4/5 已按用户批准改 core（符号表移除 `$` / 新增 `Bom`+`Shebang` basic token）；1 用 core 现有 `RegexStartAfter` 接口；6 保持 token 合符号；3 的 4 位形也已动 core。**
 
 ## 0. 读数基线（本克隆实测，非抄旧数）
 
@@ -135,9 +135,9 @@ ast:cases：场景 1/2/3 后 4785；场景 4/5 活跃行加入后为 **4787/4787
 
 **用户裁定**：已批准方案 A（core 改动按上面 5 个文件最小化实现；`Ban(["\\"])` 的兜底方案未采用）。`\u{…}` 花括号形是否继续做，需另行批准（它还要让 `Bracket.Transit` 在该状态让位）。
 
-## 4. U+FEFF（BOM）作 trivia（**basic token 已实施：`Bom`，仅 source index 0**；目标 fixture `lex-bom.ts` 的 BOM 在 raw index 109，仍红，三条候选待用户裁定）
+## 4. U+FEFF（BOM）作 trivia（**basic token 已实施：`Bom`，仅 source index 0；已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`**；目标 fixture `lex-bom.ts` 的 BOM 在 raw index 109，仍红，三条候选待用户裁定）
 
-**已实施**：新增 `core/syntax/basic-tokens/bom.xl.md`（`Bom extends UnitToken`，`IsBasicToken`/`IsTriviaToken`；`Transit` 只在 `source.Index === 0` 且字符在 `Template.BomChars`（默认 `U+FEFF`/`U+FFFE`）里认领，签入/签出后立即关闭；进 `Template.BasicBranchQueue` 最前）。**目标 fixture 不绿**：`lex-bom.ts` 的 U+FEFF 在 raw index 109（指令注释头之后），严格 index-0 规则不覆盖；三条候选见本节末。下面表格/步骤是实施前记录，保留作历史。
+**已实施（已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`）**：新增 `core/syntax/basic-tokens/bom.xl.md`（`Bom extends UnitToken`，`IsBasicToken`/`IsTriviaToken`；`Transit` 只在 `source.Index === 0` 且字符在 `Template.BomChars`（默认 `U+FEFF`/`U+FFFE`）里认领，签入/签出后立即关闭；进 `Template.BasicBranchQueue` 最前）。**目标 fixture 不绿**：`lex-bom.ts` 的 U+FEFF 在 raw index 109（指令注释头之后），严格 index-0 规则不覆盖；三条候选见本节末。下面表格/步骤是实施前记录，保留作历史。
 
 **受影响 case files（1，crash，无 known-gap）**
 
@@ -158,23 +158,20 @@ BOM 出现在**代码行行首**（`\uFEFFconst a = 1;`），第一个 token 被
 - `typescript/run/text-document.xl.md:31-40` `TextDocument` 构造**不剥 BOM**（这只能处理第 0 格；
   本用例的 BOM 在中间行，所以运行层单改不够）。
 
-**方案 A（改 basic token 层）**：`symbol-template.xl.md` 的 `IsWhiteSpace` 加 U+FEFF（TS scanner 把 BOM 当
-whitespace）。影响面：所有语言的空白表；风险低；回归网：BOM 在文件首/中间/标识符中间（中间应报错）。
-**方案 B（typescript 层绕过）**：`typescript/run/text-document.xl.md` 构造时把 U+FEFF **同长度**替换成空格
-（`content.replace(/\uFEFF/g, " ")`），位置偏移不变、仍与 TS 的 pos 对齐；`WrapSymbol` 自然吃掉。
-代价：BOM 不再是独立字符（AST 只看位置，无影响）；若将来要保留 BOM 原始字节需另存。**不需要 core**。
+**三条候选（需用户裁定；旧的「方案 A / 方案 B」已废弃，统一按下面编号）**：
 
-**推荐**：**方案 B**（改运行层、同长度替换），最小且不动 core；若用户希望 token 层语义正确（BOM 是 trivia
-而不是空白），再选 A。
+1. **(a) 改 fixture + parseDirectives**：把 `tests/cases/token/lexical/lex-bom.ts` 的 U+FEFF 移到 **raw index 0**，并让 `parseDirectives` 容忍 BOM（**需用户批准改语料**）。语义最干净：BOM 真的成为文件头 trivia。
+2. **(b) 放宽 `Bom` token 的起始判据**：index 0 **或**「前面只有 trivia（尚无代码 token）」时也可认领。覆盖 `lex-bom.ts`（BOM 在指令注释之后、第一个代码 token 之前）；仍不把任意位置的 BOM 当空白。旧「方案 B（text-document 同长度替换）」等价于 (a) 的宽松版，已并入此条。
+3. **(c) BOM 字符当空白（TS parity）**：在 `SymbolTemplate.IsWhiteSpace` / 空白判定里把配置的 BOM 字符当空白（任意位置），`Bom` token 仍只在 index 0。`ts.createSourceFile` 对 mid-file U+FEFF 也是 **0 诊断**，所以这条最贴近 TS；影响面是所有语言的空白表。
 
-**验收**：`lex-bom.ts` 转 PASS；token 读数 ok 1643→1644、crash 40→39。
-`typescript/cases/basic-token.ts` 候选活跃行：一行以 `\uFEFF` 开头 + `const bom = 1;`。
+**推荐**：不替用户选；(b) 改动最小且只影响 BOM token 自身，(c) 与 TS parity 最一致，(a) 需要改语料。**token 已实现但 fixture 未转绿，按原规则（仅 index 0）提交**。
 
-**需用户裁定**：允许在 `typescript/run/text-document.xl.md` 里把 U+FEFF 同长度归一成空格（不改 core）吗？还是要在 core 的空白表里加 BOM？
+**验收（探针实测）**：直接 `SourceFileRunner.Parse("\uFEFFconst a = 1;")`（真 U+FEFF 在 index 0）解析成功，形状树与 `const a = 1;` 一致（CJ/TS 均 true）；BOM+shebang 见 §5。`lex-bom.ts` 仍 CRASH（BOM 在 raw index 109），待上述三选一。
 
-## 5. shebang `#!` 作首行 trivia（**已实施：basic token `Shebang`，index 0 或 BOM.End+1**）
 
-**已实施**：新增 `core/syntax/basic-tokens/shebang.xl.md`（`Shebang extends UnitToken`，`IsBasicToken`/`IsTriviaToken`；吞到行尾 `\n` 之前、`\n` 用 `ReloadMessage` 交回根单元；不投 AST）。起始判据：无 BOM 时 `source.Index === 0`，有 BOM 时 `source.Index === Bom.SourceRange.End.Index + 1`；标记由 `Template.ShebangMarker` 配置（默认 `#!`）。进 `Template.BasicBranchQueue`（BOM 之后、注释/符号之前）。`lex-shebang.ts` / `lx-shebang.ts` 转 PASS。下面表格/步骤是实施前记录，保留作历史。
+## 5. shebang `#!` 作首行 trivia（**已实施：basic token `Shebang`，index 0 或 BOM.End+1；已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`**）
+
+**已实施（已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`）**：新增 `core/syntax/basic-tokens/shebang.xl.md`（`Shebang extends UnitToken`，`IsBasicToken`/`IsTriviaToken`；吞到行尾 `\n` 之前、`\n` 用 `ReloadMessage` 交回根单元；不投 AST）。起始判据：无 BOM 时 `source.Index === 0`，有 BOM 时 `source.Index === Bom.SourceRange.End.Index + 1`；标记由 `Template.ShebangMarker` 配置（默认 `#!`）。进 `Template.BasicBranchQueue`（BOM 之后、注释/符号之前）。`lex-shebang.ts` / `lx-shebang.ts` 转 PASS。**BOM+shebang 超集**：`\uFEFF#!/usr/bin/env node\nconst a = 1;` 本实现解析 OK 且 AST 与无 shebang 版本一致；**TS 6.0.3 对该输入报 2 条 `parseDiagnostics`**，本实现按用户设计**有意接受**（超集）。下面表格/步骤是实施前记录，保留作历史。
 
 **受影响 case files（2，均 crash，均无 known-gap）**
 
@@ -207,10 +204,10 @@ whitespace）。影响面：所有语言的空白表；风险低；回归网：B
 **推荐**：**方案 B**（typescript 层，实现已有桩 + SourceFile 候选接线），不动 core；若用户认为 shebang
 应在 token 层就成 trivia，再选 A。
 
-**验收**：2 份转 PASS；token 读数 ok 1644→1646、crash 39→37。
+**验收（已实测达成）**：2 份转 PASS；token 读数 ok 1643→**1645**、crash 40→**38**、diff 9 不变；`ast:cases` 加 2 条 shebang 活跃行后 4787/4787、0/0/0；`ast:dts` 226/226。
 `typescript/cases/basic-token.ts` 候选活跃行：`#!/usr/bin/env node` + `const a = 1;`（两行一组）。
 
-**需用户裁定**：允许把 shebang 做成「只在文件首、typescript 层候选」的 trivia（不改 core）吗？
+**用户裁定**：已按方案 A（core 新增 `Shebang` basic token）实施并合入 round 14（merge `b579c490`；实现提交 `ad1bd6a3`）。
 若要求 token 层单列 `ShebangTrivia` basic token，则属于 core 改动、需要用户明确同意。
 
 ## 6. `>>` / `>>>` 是否在 token 层拆
@@ -277,7 +274,7 @@ parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / 
 
 ## 9. `typescript/cases/basic-token.ts` 候选活跃行
 
-该文件现已含**场景 1 的 11 条活跃行**（控制头/嵌套/守卫，已 PASS）+ 3 条原有 `/` 边界对照；其余 6 个场景仍只写注释。
+该文件现已含场景 1/2/3/5 的实施活跃行 + 3 条原有 `/` 边界对照；场景 4（BOM，corpus 的 case reader 会 trim 行首 U+FEFF，无法写成活跃行）与 `\u{…}` 仍只写注释（BOM 用直接 Parse 探针验证）。
 上述场景实施后，可把对应注释改成活跃行（新增行逐条跑 `npm run ast:cases` 确认）：
 
 | 场景 | 候选活跃行 |
