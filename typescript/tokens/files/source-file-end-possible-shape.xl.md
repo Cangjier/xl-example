@@ -187,14 +187,8 @@ if (code.length < 2) {
 // 多条声明连排：最后一条的起点 = 最后一个「换行之后出现的声明起点」。
 let boundary = -1;
 for (let index = 1; index < code.length; index++) {
-  const unit = code[index];
-  if (!(unit instanceof Common)) {
-    continue;
-  }
-  const unitText = (unit as Common).TempToString();
-  if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "export" || unitText === "class" || unitText === "interface"
-    || unitText === "enum" || unitText === "namespace" || unitText === "module" || unitText === "global" || unitText === "abstract"
-    || unitText === "const" || unitText === "let" || unitText === "var" || unitText === "using")) {
+  // 多语句的分界只在「还有下一条」时才成立：最后一格只能是本段自己的结尾。
+  if (index >= code.length - 1) {
     continue;
   }
   let lineBreak = false;
@@ -204,7 +198,41 @@ for (let index = 1; index < code.length; index++) {
       break;
     }
   }
-  if (lineBreak) {
+  if (!lineBreak) {
+    continue;
+  }
+  const unit = code[index];
+  // 老判据：下一行以声明 / 语句关键字开头。声明头本身可以跨行（`interface I` ⏎ `extends B`），
+  // 所以这里不看前一个代码单元是否完整——这类 leftovers 本来就只在不收口时才会走到。
+  if (unit instanceof Common) {
+    const unitText = (unit as Common).TempToString();
+    if (unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import"
+      || unitText === "export" || unitText === "class" || unitText === "interface" || unitText === "enum"
+      || unitText === "namespace" || unitText === "module" || unitText === "global" || unitText === "abstract"
+      || unitText === "const" || unitText === "let" || unitText === "var" || unitText === "using") {
+      boundary = index;
+      continue;
+    }
+  }
+  // 新判据（G2a）：下一条语句以**标识符**开头（`const a = 1` ⏎ `console.log(a)`）。
+  // 要求前一个代码单元能收住一条完整语句、当前单元又接不上它；声明体的 `{` 不算新语句。
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    continue;
+  }
+  // 声明头跨行续接的关键字（`interface I` ⏎ `extends B` / `class C` ⏎ `implements I`）与类型位续接词
+  // 都不是新语句的起点。
+  if (unit instanceof Common
+    && ((unit as Common).Is("extends") || (unit as Common).Is("implements")
+      || (unit as Common).Is("is") || (unit as Common).Is("asserts")
+      || (unit as Common).Is("from") || (unit as Common).Is("as")
+      || (unit as Common).Is("with") || (unit as Common).Is("assert")
+      || (unit as Common).Is("defer") || (unit as Common).Is("in")
+      || (unit as Common).Is("out") || (unit as Common).Is("keyof")
+      || (unit as Common).Is("infer"))) {
+    continue;
+  }
+  if (ExpressionStatementPossibleShape.IsExpressionTail(code[index - 1])
+    && !ExpressionStatementPossibleShape.IsContinuation(unit)) {
     boundary = index;
   }
 }
