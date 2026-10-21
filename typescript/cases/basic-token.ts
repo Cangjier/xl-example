@@ -46,3 +46,6 @@ const de2 = a$b;
 interface I$X { a: number }
 $();
 const de3 = { $x: 1 };
+// 场景 5（已实施）：shebang `#!` 作首行 trivia（basic token Shebang；index 0 或 BOM.End+1）
+#!/usr/bin/env node\nconst sb1 = 1;
+#!/usr/bin/env node\nlet sb2 = 1;
