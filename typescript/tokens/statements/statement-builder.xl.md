@@ -440,9 +440,14 @@ return this.Finish(shape, first, first);
 ```ts
 const first = this.At;
 let last = -1;
+let asiEnd = -1;
 for (let at = first; at < this.Units.length; at++) {
   if (this.IsSymbol(this.Units[at], ";")) {
     last = at;
+    break;
+  }
+  if (at > first && StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])) {
+    asiEnd = at - 1;
     break;
   }
 }
@@ -451,12 +456,139 @@ let expressionLast = this.Units.length - 1;
 if (last >= 0) {
   statementLast = last;
   expressionLast = last - 1;
+} else if (asiEnd >= 0) {
+  statementLast = asiEnd;
+  expressionLast = asiEnd;
 }
 const expression = this.BuildExpressionRange(first, expressionLast);
 const shape = new ExpressionStatementShape(this.Template);
 shape.Add(expression);
 this.At = statementLast + 1;
 return this.Finish(shape, first, statementLast);
+```
+
+## static method EndsExpression:(unit:Token)=>bool
+
+标识符 / 括号 / 字面量 / 后缀自增自减可以收尾一个表达式；`as` / `typeof` 这类前缀词不算。
+
+```ts
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  if (text === "as" || text === "satisfies" || text === "instanceof" || text === "in" || text === "of"
+    || text === "extends" || text === "is" || text === "keyof" || text === "typeof" || text === "new"
+    || text === "await" || text === "delete" || text === "void" || text === "yield"
+    || text === "unique" || text === "readonly" || text === "asserts" || text === "infer") {
+    return false;
+  }
+  return true;
+}
+if (unit instanceof Bracket) {
+  return true;
+}
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  return text === "++" || text === "--";
+}
+return true;
+```
+
+## static method ContinuesAcrossLine:(unit:Token)=>bool
+
+下一行的这个单元能不能接着上一行继续同一个表达式 / 类型；接不上就说明换行处是 ASI 边界。
+
+```ts
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  return text === "." || text === "?." || text === "<" || text === ">" || text === ">>" || text === ">>>"
+    || text === "|" || text === "&" || text === "?" || text === "?:" || text === ":" || text === "=>"
+    || text === "=" || text === "+" || text === "-" || text === "*" || text === "/" || text === "%"
+    || text === "**" || text === "&&" || text === "||" || text === "??" || text === "!" || text === "++"
+    || text === "--" || text === "," || text === "~";
+}
+if (unit instanceof Bracket) {
+  const start = (unit as Bracket).StartBracketChar;
+  // `{` 可能是函数 / 类表达式的体到了下一行（`function (a): number\n{ return a }`），不构成 ASI。
+  return start === "(" || start === "[" || start === "{";
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  return text === "as" || text === "satisfies" || text === "instanceof" || text === "in" || text === "of"
+    || text === "extends" || text === "is" || text === "keyof" || text === "typeof";
+}
+return true;
+```
+
+## static method EndsAtLineBreak:(previous:Token, next:Token)=>bool
+
+`previous` 能收尾、`next` 接不上、两者之间有换行 —— 三者都成立就是 ASI 边界。
+
+```ts
+if (StatementScanner.NoLineBreakBetween(previous, next)) {
+  return false;
+}
+if (!StatementBuilder.EndsExpression(previous)) {
+  return false;
+}
+return !StatementBuilder.ContinuesAcrossLine(next);
+```
+
+## static method IsTypeArgumentStart:(units:Array<Token>, index:int, limit:int)=>bool
+
+`units[index]` 是 `<`、前面是可接类型实参的实体、后面有配对的 `>` 时，才算类型实参段的开头。
+只做符号层配对：`a < b` 这种没有配对 `>` 的比较不会被算进去。
+
+```ts
+if (index <= 0 || index >= limit) {
+  return false;
+}
+const head = units[index];
+if (!(head instanceof Symbol) || !(head as Symbol).Is("<")) {
+  return false;
+}
+const previous = units[index - 1];
+if (!(previous instanceof Common) && !(previous instanceof Bracket)) {
+  return false;
+}
+let depth = 0;
+for (let at = index; at < limit; at++) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    depth++;
+  } else if (text === ">") {
+    depth--;
+  } else if (text === ">>") {
+    depth -= 2;
+  } else if (text === ">>>") {
+    depth -= 3;
+  }
+  if (depth <= 0) {
+    if (at <= index) {
+      return false;
+    }
+    // 配对的 `>` 之后必须接得上「类型实参段之后的东西」：调用括号 / `??` 这类算子 / 段末，
+    // 否则更像比较运算（`x < y … z > w`），不算类型实参。
+    const after = at + 1;
+    if (after >= limit) {
+      return true;
+    }
+    const follower = units[after];
+    if (follower instanceof Bracket && (follower as Bracket).StartBracketChar === "(") {
+      return true;
+    }
+    if (follower instanceof Symbol) {
+      const followerText = (follower as Symbol).TempToString();
+      return followerText === "??" || followerText === "||" || followerText === "&&"
+        || followerText === "?" || followerText === "?:" || followerText === ":"
+        || followerText === ";" || followerText === "." || followerText === "?.";
+    }
+    return false;
+  }
+}
+return false;
 ```
 
 ## method BuildVariableStatement:()=>Token
@@ -525,7 +657,28 @@ while (at < endExclusive) {
   if (at < endExclusive && this.IsSymbol(this.Units[at], ":")) {
     const typeFirst = at + 1;
     let typeEnd = typeFirst;
-    while (typeEnd < endExclusive && !this.IsSymbol(this.Units[typeEnd], "=") && !this.IsSymbol(this.Units[typeEnd], ",")) {
+    let typeDepth = 0;
+    while (typeEnd < endExclusive) {
+      const typeUnit = this.Units[typeEnd];
+      if (typeDepth === 0) {
+        if (this.IsSymbol(typeUnit, "=") || this.IsSymbol(typeUnit, ",")) {
+          break;
+        }
+      }
+      if (typeUnit instanceof Symbol) {
+        const typeText = (typeUnit as Symbol).TempToString();
+        if (typeText === "<") {
+          typeDepth++;
+        } else if (typeText === ">") {
+          if (typeDepth > 0) {
+            typeDepth--;
+          }
+        } else if (typeText === ">>") {
+          typeDepth = typeDepth >= 2 ? typeDepth - 2 : 0;
+        } else if (typeText === ">>>") {
+          typeDepth = typeDepth >= 3 ? typeDepth - 3 : 0;
+        }
+      }
       typeEnd++;
     }
     if (typeEnd <= typeFirst) {
@@ -562,7 +715,28 @@ while (at < endExclusive) {
         initializerEnd = bodyAt + 1;
       }
     }
-    while (initializerEnd < endExclusive && !this.IsSymbol(this.Units[initializerEnd], ",")) {
+    let angleDepth = 0;
+    while (initializerEnd < endExclusive) {
+      const initializerUnit = this.Units[initializerEnd];
+      if (angleDepth === 0) {
+        if (this.IsSymbol(initializerUnit, ",")) {
+          break;
+        }
+      }
+      if (initializerUnit instanceof Symbol) {
+        const symbolText = (initializerUnit as Symbol).TempToString();
+        if (symbolText === "<" && StatementBuilder.IsTypeArgumentStart(this.Units, initializerEnd, endExclusive)) {
+          angleDepth++;
+        } else if (symbolText === ">") {
+          if (angleDepth > 0) {
+            angleDepth--;
+          }
+        } else if (symbolText === ">>") {
+          angleDepth = angleDepth >= 2 ? angleDepth - 2 : 0;
+        } else if (symbolText === ">>>") {
+          angleDepth = angleDepth >= 3 ? angleDepth - 3 : 0;
+        }
+      }
       initializerEnd++;
     }
     if (initializerEnd <= initializerFirst) {
@@ -1223,16 +1397,43 @@ if (this.At < this.Units.length && this.Units[this.At] instanceof Bracket && (th
   } else {
     throw new Error("catch 绑定不是标识符");
   }
+  let bindingType:Token | null = null;
+  if (inner.At < inner.Units.length && inner.IsText(inner.Units[inner.At], ":")) {
+    const colon = inner.Units[inner.At];
+    const typeFirst = inner.At + 1;
+    let typePos = 0;
+    if (colon.SourceRange.End !== null) {
+      typePos = colon.SourceRange.End.Index + 1;
+    }
+    const typeUnits:Array<Token> = [];
+    for (let cursor = typeFirst; cursor < inner.Units.length; cursor++) {
+      typeUnits.push(inner.Units[cursor]);
+    }
+    const typeBuilder = new TypeBuilder(inner.Template, inner.Context);
+    typeBuilder.Load(typeUnits, typePos);
+    bindingType = typeBuilder.ParseType();
+    if (typeBuilder.At !== typeBuilder.Units.length) {
+      throw new Error("catch 绑定的类型没有读完");
+    }
+    inner.At = inner.Units.length;
+  }
   if (inner.At !== inner.Units.length) {
     throw new Error("catch 绑定没有读完");
   }
   const declaration = new VariableDeclarationShape(this.Template);
   declaration.Add(binding);
+  if (bindingType !== null) {
+    declaration.Add(bindingType);
+  }
   if (binding.SourceRange.Start !== null) {
     declaration.SignIn(binding.SourceRange.Start);
   }
-  if (binding.SourceRange.End !== null) {
-    declaration.SignOut(binding.SourceRange.End);
+  let declarationEnd = binding.SourceRange.End;
+  if (bindingType !== null && bindingType.SourceRange.End !== null) {
+    declarationEnd = bindingType.SourceRange.End;
+  }
+  if (declarationEnd !== null) {
+    declaration.SignOut(declarationEnd);
   }
   declaration.Pos = (binding as ShapeToken).Pos;
   declaration.TryToClose(this.Context);
