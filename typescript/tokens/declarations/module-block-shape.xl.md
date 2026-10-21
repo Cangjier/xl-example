@@ -297,6 +297,35 @@ if (keyword === "as") {
       const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
       special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
       (special as ShapeToken).Pos = inner.Positions[declStart];
+    } else {
+      // 无分号的 import 声明（ambient 模块体常态：`import { B } from "b"` ⏎ 下一个成员）：
+      // 段末取「换行后的下一个成员首词」或块尾，补一个零宽合成 `;` 交给 ImportDeclarationShape。
+      let endInner = -1;
+      for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+        const scanned = inner.Units[scan];
+        if (scan > declStart + 1 && scanned instanceof Common
+          && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
+          && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
+          endInner = scan - 1;
+          break;
+        }
+      }
+      if (endInner < 0) {
+        endInner = inner.Units.length - 1;
+      }
+      const endSource = inner.Units[endInner].SourceRange.End;
+      if (endInner > declStart && endSource !== null) {
+        const dataStart = bracket.Data.indexOf(inner.Units[declStart]);
+        const dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+        const syntheticSemi = new Symbol(bracket.Template);
+        syntheticSemi.SignIn(endSource);
+        syntheticSemi.AppendValueAndSignOut(";", endSource);
+        bracket.Data.splice(dataEnd + 1, 0, syntheticSemi);
+        special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd + 1, context);
+        bracket.Data.splice(dataEnd + 1, 1);
+        (special as ShapeToken).Pos = inner.Positions[declStart];
+        specialEnd = endInner;
+      }
     }
   }
 } else if (modifier !== null && headUnit instanceof Common && (headUnit as Common).Is("export")

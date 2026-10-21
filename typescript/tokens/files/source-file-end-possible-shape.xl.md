@@ -178,7 +178,18 @@ if (at >= start && host.Data[at].IsBasicToken) {
     host.Data.splice(start, 1, blockStatement);
     blockStatement.Parent = host;
   } else if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
-    const built = ExpressionStatementShape.FromUnits(host, start, at, context, false);
+    // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
+    // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
+    const tailIsSemicolon = host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";");
+    const built = tailIsSemicolon && at > start
+      ? ExpressionStatementShape.FromUnits(host, start, at - 1, context, false)
+      : ExpressionStatementShape.FromUnits(host, start, at, context, false);
+    if (tailIsSemicolon && at > start) {
+      const semiEnd = host.Data[at].SourceRange.End;
+      if (semiEnd !== null) {
+        built.SignOut(semiEnd);
+      }
+    }
     host.Data.splice(start, at - start + 1, built);
     built.Parent = host;
   }

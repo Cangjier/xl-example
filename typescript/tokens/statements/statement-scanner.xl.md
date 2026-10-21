@@ -269,6 +269,11 @@ if (unit instanceof Common) {
   if (text === "function" || text === "class") {
     return StatementScanner.ScanDeclarationBody(code, at);
   }
+  // 被标声明（`iface: interface I` ⏎ `{ … }` / `en: enum E` ⏎ `{ A }`）：体是闭合 `{…}` 括号，
+  // 按声明体收口；否则会落到 ScanExpressionBody 一路吃到 EOF，把后面的语句并给 builder。
+  if (text === "interface" || text === "enum" || text === "namespace" || text === "module") {
+    return StatementScanner.ScanDeclarationBody(code, at);
+  }
   if (text === "async" && at + 1 < code.length
     && StatementScanner.IsKeyword(code[at + 1], "function")) {
     return StatementScanner.ScanDeclarationBody(code, at);
@@ -319,6 +324,20 @@ for (let at = from; at < code.length; at++) {
     }
     return StatementScanner.Mismatch();
   }
+  // 换行 ASI：前一个代码单元能收住一条声明、当前单元接不上，就在这里收口——
+  // 否则会把**下一条语句**的 `;` 也吞进来（`const last = …` ⏎ `f(...)` / 类型注解跨行读到下一个 `;`）。
+  // 与 `StatementBuilder.BuildExpressionStatement` / `BuildVariableStatement` 读同一套判据。
+  if (at > from && StatementScanner.EndsAtLineBreak(code[at - 1], code[at])) {
+    if (StatementScanner.IsSymbol(code[at], ";")) {
+      // 行首 `;` 后面同一行还有代码（`;(() => 1)()`）：这个 `;` 是下一条空语句，不归本声明。
+      const afterSemi = at + 1 < code.length ? code[at + 1] : null;
+      if (afterSemi !== null && StatementScanner.NoLineBreakBetween(code[at], afterSemi)) {
+        return StatementScanner.Complete(at - 1);
+      }
+    } else {
+      return StatementScanner.Complete(at - 1);
+    }
+  }
   if (StatementScanner.IsSymbol(code[at], ";")) {
     return StatementScanner.Complete(at);
   }
@@ -330,6 +349,71 @@ if (StatementScanner.AtEOF && code.length > 0) {
   return StatementScanner.Complete(code.length - 1);
 }
 return StatementScanner.NeedMore();
+```
+
+## static method EndsExpression:(unit:Token)=>bool
+
+标识符 / 括号 / 字面量 / 后缀自增自减可以收尾一个表达式；`as` / `typeof` 这类前缀词不算。
+（与 `StatementBuilder.EndsExpression` 同一判据；放在 scanner 侧是为了不给 statement-scanner → statement-builder 造成循环依赖。）
+
+```ts
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  if (text === "as" || text === "satisfies" || text === "instanceof" || text === "in" || text === "of"
+    || text === "extends" || text === "is" || text === "keyof" || text === "typeof" || text === "new"
+    || text === "await" || text === "delete" || text === "void"
+    || text === "unique" || text === "readonly" || text === "asserts" || text === "infer") {
+    return false;
+  }
+  return true;
+}
+if (unit instanceof Bracket) {
+  return true;
+}
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  return text === "++" || text === "--";
+}
+return true;
+```
+
+## static method ContinuesAcrossLine:(unit:Token)=>bool
+
+下一行的这个单元能不能接着上一行继续同一个表达式 / 类型（与 `StatementBuilder.ContinuesAcrossLine` 同表）。
+
+```ts
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  return text === "." || text === "?." || text === "<" || text === ">" || text === ">>" || text === ">>>"
+    || text === "|" || text === "&" || text === "?" || text === "?:" || text === ":" || text === "=>"
+    || text === "=" || text === "+" || text === "-" || text === "*" || text === "/" || text === "%"
+    || text === "**" || text === "&&" || text === "||" || text === "??" || text === "!" || text === "++"
+    || text === "--" || text === "," || text === "~";
+}
+if (unit instanceof Bracket) {
+  const start = (unit as Bracket).StartBracketChar;
+  return start === "(" || start === "[" || start === "{";
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  return text === "as" || text === "satisfies" || text === "instanceof" || text === "in" || text === "of"
+    || text === "extends" || text === "is" || text === "keyof" || text === "typeof";
+}
+return true;
+```
+
+## static method EndsAtLineBreak:(previous:Token, next:Token)=>bool
+
+`previous` 能收尾、`next` 接不上、两者之间有换行 —— 三者都成立就是 ASI 边界。
+
+```ts
+if (StatementScanner.NoLineBreakBetween(previous, next)) {
+  return false;
+}
+if (!StatementScanner.EndsExpression(previous)) {
+  return false;
+}
+return !StatementScanner.ContinuesAcrossLine(next);
 ```
 
 ## static method ScanReturnOrThrow:(code:Array<Token>, keywordAt:int)=>StatementScanResult
