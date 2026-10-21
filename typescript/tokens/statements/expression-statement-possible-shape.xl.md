@@ -219,6 +219,29 @@ if (unit instanceof Common) {
 return false;
 ```
 
+## static method CanEndExpressionAt:(units:Array<Token>, index:int)=>bool
+
+`CanEndExpression` 只看单元本身；但成员名后面换行时（`a.class` ⏎ `{}`）那个 `class` 是 `.` 之后的
+属性名，不是语句关键字。所以按上下文再放开一格：紧邻的前一代码单元是 `.` / `?.` 时，任何 Common
+都能收住一条完整表达式（TS 的 `a.class` 就是 PropertyAccessExpression）。
+
+```ts
+if (ExpressionStatementPossibleShape.CanEndExpression(units[index])) {
+  return true;
+}
+if (index <= 0) {
+  return false;
+}
+const unit = units[index];
+if (unit instanceof Common) {
+  const before = units[index - 1];
+  if (before instanceof Symbol && ((before as Symbol).Is(".") || (before as Symbol).Is("?."))) {
+    return true;
+  }
+}
+return false;
+```
+
 ## static method IsContinuation:(unit:Token)=>bool
 
 换行之后到来的这个代码单元能不能接在上一条表达式后面——**能接就不许断句**。
@@ -332,7 +355,7 @@ while (prev >= 0) {
 if (prev < 0 || !lineBreak) {
   return false;
 }
-if (!ExpressionStatementPossibleShape.CanEndExpression(units[prev])) {
+if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)) {
   return false;
 }
 // `++` / `--` 既可后缀也可前缀：只有紧贴前一个「能结束表达式」的代码单元（中间无换行）时

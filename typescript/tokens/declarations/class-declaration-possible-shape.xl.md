@@ -10,6 +10,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 ```
@@ -29,6 +30,8 @@ import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 
 ## field AngleDepth:int = 0
 
+## field PendingModifier:bool = false
+
 ## field Done:bool = false
 
 ## field DoneAt:int = -1
@@ -45,6 +48,24 @@ declare class C {}
 第一个代码单元必须是 `class`（或修饰符 `declare` 后跟 `class`），最后一块是空类体 `{…}` 那个 `Bracket`。
 每格只推进 `Stage`，所以既满足 cache 口径（IMPORTANCE 3.4），也不会每轮从头重扫。
 类体非空时本候选主动 `Reject`——类成员还没实现，宁可让「没有候选」炸出来，也不静默丢成员。
+
+## private static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
+
+`at` 这个代码单元与它前面第一个代码单元之间有没有换行（中间的 trivia 逐格看，块注释里的换行也算）。
+扫描到 `at` 时只能往回看：用它判「修饰词后面换行，修饰词按 ASI 自成一条表达式语句」。
+
+```ts
+for (let index = at - 1; index >= 0; index--) {
+  const unit = units[index];
+  if (!unit.IsTriviaToken) {
+    return false;
+  }
+  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+    return true;
+  }
+}
+return false;
+```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -65,6 +86,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Checked = state.Start;
   state.Stage = 0;
   state.AngleDepth = 0;
+  state.PendingModifier = false;
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
@@ -102,10 +124,18 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     if (unit instanceof Common) {
       const text = (unit as Common).TempToString();
       if (text === "declare" || text === "abstract") {
-        // 修饰符可以连续出现（`abstract declare class`），所以停在 Stage 0 继续等 `class`。
+        // 修饰词先挂起：`abstract` ⏎ `class A {}` 在 TS 里是两条（修饰词自成一条表达式语句）。
+        // 换行与否要等 `class` 那一格才能判（ComputeByIndex 只看得到已到达的单元）。
+        state.PendingModifier = true;
         continue;
       }
       if (text === "class") {
+        // 修饰词与 `class` 之间换行：TS 的 ASI 把修饰词收成独立 ExpressionStatement，
+        // `class` 另起一条声明。本候选退出，交给根级边界收尾。
+        if (state.PendingModifier && ClassDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+          state.Rejected = true;
+          continue;
+        }
         state.Stage = 2;
         continue;
       }

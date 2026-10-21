@@ -343,7 +343,9 @@ if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
   if (!(declareUnit instanceof Common)) {
     throw new Error("declare function: missing declare keyword");
   }
-  let expressionPos = declareUnit.SourceRange.Start === null ? 0 : declareUnit.SourceRange.Start.Index;
+  // 文件首语句的 Pos 要含前导 trivia（TS 口径：第一条语句 pos=0）；没有前一代码单元时就是 0，
+  // 不能退回到修饰词自己的起点（`// c` ⏎ `async` ⏎ `function` 的 pos 必须是 0 而不是 5）。
+  let expressionPos = 0;
   for (let at = start - 1; at >= 0; at--) {
     if (!host.Data[at].IsTriviaToken) {
       const end = host.Data[at].SourceRange.End;

@@ -11,6 +11,7 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { StatementScanResult } from "../statements/statement-scanner.xl.md"
 import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 ```
@@ -160,6 +161,21 @@ if (state.Checked !== tokenIndex + 1) {
   }
   const result:StatementScanResult = this.Scan(code);
   state.Status = result.Status;
+  // `declare` 与 `namespace|module|global` 之间换行：TS 的 ASI 收成两条
+  // （ExpressionStatement(declare) + ModuleDeclaration）。本候选退出，交给根级边界收尾。
+  if (code.length >= 2 && code[0] instanceof Common && (code[0] as Common).Is("declare")) {
+    let lineBreak = false;
+    for (let gap = codeAt[0] + 1; gap < codeAt[1]; gap++) {
+      if (ExpressionStatementPossibleShape.HasLineBreak(units[gap])) {
+        lineBreak = true;
+        break;
+      }
+    }
+    if (lineBreak) {
+      state.Status = 2;
+      state.End = -1;
+    }
+  }
   if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
     state.End = codeAt[result.End];
   } else {
