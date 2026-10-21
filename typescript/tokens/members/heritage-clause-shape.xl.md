@@ -92,16 +92,37 @@ while (builder.At < builder.Units.length) {
   }
   const nameIndex = builder.At;
   const headUnit = builder.Units[nameIndex];
+  // 类型字面量当实体名（`interface I extends { a: 1 } { }`，r1237）：这一格是**类型位**，
+  // 交给 TypeBuilder 的 TypeLiteral；不能走 ExpressionBuilder（那会得到 ObjectLiteral 表达式）。
+  if (headUnit instanceof Bracket && (headUnit as Bracket).StartBracketChar === "{") {
+    const literal = builder.ParseType();
+    const literalEnd:Token = literal;
+    const literalExpression = ExpressionWithTypeArgumentsShape.FromParts(literal, [], literalEnd, builder.Positions[nameIndex], context);
+    if (keyword === null) {
+      throw new Error("继承子句缺少 extends / implements 关键字");
+    }
+    currentTypes.push(literalExpression);
+    continue;
+  }
   const secondUnit:Token | null = nameIndex + 1 < builder.Units.length ? builder.Units[nameIndex + 1] : null;
   // Expression carrier cases: `(expr)`, `name.member` (property access), `name(...)` (call).
   // They are parsed with ExpressionBuilder; the plain name + optional `<type args>` form keeps TypeBuilder.
   const headText = builder.TextOf(headUnit);
   let startsWithAccess = headText === "null";
+  // 实体名那一格是模板串（`` `a${X}b` `` / `` tag`t` ``）时整段交给 ExpressionBuilder：
+  // 名字后紧跟的 String 基本 token 属于 tagged template 的模板部分，不是「下一个类型项」。
+  if (!(headUnit instanceof Common) && !(headUnit instanceof Symbol) && !(headUnit instanceof Bracket)) {
+    startsWithAccess = true;
+  }
   if (secondUnit !== null) {
-    if (builder.IsText(secondUnit, ".")) {
+    if (builder.IsText(secondUnit, ".") || builder.IsText(secondUnit, "?.")) {
       startsWithAccess = true;
     }
     if (secondUnit instanceof Bracket && (secondUnit as Bracket).StartBracketChar === "(") {
+      startsWithAccess = true;
+    }
+    if (!(secondUnit instanceof Common) && !(secondUnit instanceof Symbol) && !(secondUnit instanceof Bracket)) {
+      // `tag`t``：名字后面紧跟模板串 → tagged template。
       startsWithAccess = true;
     }
   }

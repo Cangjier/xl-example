@@ -116,6 +116,24 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       continue;
     }
     if (state.AngleDepth === 0 && unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+      // `interface I extends { a: 1 } { }`（r1237）：紧跟 extends/implements/列表逗号的 `{` 是
+      // 类型位的类型字面量（heritage 实体名），不是接口体；接口体是下一个 `{`。
+      let previous = at - 1;
+      while (previous >= 0 && units[previous].IsTriviaToken) {
+        previous--;
+      }
+      let previousText = "";
+      if (previous >= 0) {
+        const previousUnit = units[previous];
+        if (previousUnit instanceof Common) {
+          previousText = (previousUnit as Common).TempToString();
+        } else if (previousUnit instanceof Symbol) {
+          previousText = (previousUnit as Symbol).TempToString();
+        }
+      }
+      if (previousText === "extends" || previousText === "implements" || previousText === ",") {
+        continue;
+      }
       // 非空接口体不再 Reject：成员由 InterfaceDeclarationShape.BuildMembers 逐个建。
       state.Stage = 4;
       state.Done = true;
