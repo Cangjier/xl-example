@@ -1,0 +1,351 @@
+{
+  "cases": [
+    {
+      "src": "function* g1() { yield 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g1"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g2() { yield; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "g2"
+            },
+            {
+              "kind": "Block",
+              "pos": 14,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 16,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 16,
+                      "end": 22
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function g3() { yield g(); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 11,
+              "text": "g3"
+            },
+            {
+              "kind": "Block",
+              "pos": 13,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 15,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "YieldExpression",
+                      "pos": 15,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 21,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "g"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const v = yield;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "v"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 15,
+                      "text": "yield"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f1() { return (yield); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 11,
+              "text": "f1"
+            },
+            {
+              "kind": "Block",
+              "pos": 13,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 15,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 22,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 29,
+                          "text": "yield"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async function a1() { await 1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "AsyncKeyword",
+              "pos": 0,
+              "end": 5
+            },
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 17,
+              "text": "a1"
+            },
+            {
+              "kind": "Block",
+              "pos": 19,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 21,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 21,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function a2() { await g(); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 11,
+              "text": "a2"
+            },
+            {
+              "kind": "Block",
+              "pos": 13,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 15,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 15,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 21,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "g"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "await;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 6,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "await"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
