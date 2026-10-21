@@ -1,0 +1,299 @@
+﻿# basic token 场景清单（逐场景 case files / 根因 / 解决思路 / 验收）
+
+本文件把 `docs/token-ast-analysis.md` §5 的「basic token 待用户裁定」拆成**可执行清单**：
+每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
+方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
+
+**结论先行**：当前主仓（`a782b229`）剩余 **56 份失败 = 47 crash + 9 diff**；
+本清单 7 个场景里 **实测仍红 10 份**（`/` 2 + `$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2）；
+`>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）在 round-2 已转绿（现 PASS），
+所以 Lead 口径的 11 份 = 10 份仍红 + 1 份已绿；`async` 是口径注记、当前无失败文件。
+**其中 3 个场景（2/4/5）可以完全不改 `core/**` 修掉；1/6 也不需要 core（用现有 `RegexStartAfter` / 表达式侧拆角）；
+只有 3（`\uXXXX`）推荐动 core。**
+
+## 0. 读数基线（本克隆实测，非抄旧数）
+
+```text
+分支 cover-token-basicdoc，HEAD a782b229（origin/feature/quick-pairse 最新）
+xl_build core,typescript → 859 written / 0 error；tsc exit 0
+node typescript/cases/token-ast.mjs --quiet
+  → total=1703 ok=1636 crash=47 diff=9 ts-invalid=10 gap-now-passing=1
+  → known-gap 3（diff 2 + gap-now-passing 1），non-known-gap 1700（ok 1636 / crash 47 / diff 7 / ts-invalid 10）
+ast:cases（4622）不受本次场景影响，仍 4622/4622、0/0/0
+```
+
+逐文件复测命令：`node typescript/cases/token-ast.mjs tests/cases/token/<子目录>/<文件>.ts`（失败时 exit 1）。
+
+## 1. 控制头 `)` 之后 / 语句起点的 `/` 应判 `RegexToken` 而非除号
+
+**受影响 case files（2，实测均为 crash，均无 `xl:known-gap`）**
+
+| 文件 | 实测 | 消息 | xl:expect |
+| --- | --- | --- | --- |
+| `tests/cases/token/expressions/expr-r1233-control-head-regex.ts` | CRASH | 不支持的表达式起点 | 见文件头（多档控制头 `/re/g;`） |
+| `tests/cases/token/statements/stmt-if-body-regex-not-comment.ts` | CRASH | 不支持的表达式起点 | `IfSet:2,IfSegment:3,IfCondition:2,IfBody,IfStatement:2,RegexToken:2` |
+
+**最小复现**：`if (a) /re/.test(x);`（对照：`if (/x/) {}` OK；`x = /re/.test(y);` OK；`a / b` OK）
+
+**根因**（精确位置）：
+- `core/syntax/basic-tokens/regex-token.xl.md:170-227` `Transit`：第二段「起点判据」先查
+  `context.RegexStartAfter`（`:208-211`），否则问 `Template.RegexTemplate.CanStart(lastCode, previousCode)`（`:212`）；
+  不成立就 `Undo`，`/` 落到符号层成为除号。
+- 接口已在 core 里备好：`core/syntax/syntax-context.xl.md:33` `field RegexStartAfter:Set<int>`；
+  `regex-token.xl.md:23` 明确写着「语法层可以否决」。
+- 没接上的是**语法层登记**：`typescript/run/typescript-template.xl.md:52-67` 的 `ExpressionKeywords`
+  只覆盖「前一个 token 是关键字」（`return` / `case` / `default` …），控制头 `)` 不在其中；
+  表达式起点位置（`if (a) ⌷` / `else ⌷` / `do ⌷` / `after }`）没有候选去登记 `RegexStartAfter`。
+- 报错出口：`typescript/tokens/expressions/expression-builder.xl.md:2023`「不支持的表达式起点」。
+
+**方案 A（改 basic token 层）**：在语句/表达式候选里**表达式起点那一格**（控制头 `)`、`else`、`do`、
+裸块 `}` 之后）把前一个代码单元的 `End.Index` 注册进 `context.RegexStartAfter`，让下一字符 `/` 的
+`RegexToken.Transit` 直接成立（即 TS 的 `reScanSlashToken` 等价物）。机制已存在，**不需要新 core API**；
+影响面：所有 `/` 起点判定共用一条路径；回归网：`a / b`、`(a) / b`、`a /* c */ / b`、`/a/` 字面量（用例在
+`typescript/cases/` 与 token 语料里已有）。
+**方案 B（不改 token 的 typescript 层绕过）**：维持现状，在语料把 `if (a) /re/…` 声明为不支持、改期望标签。
+代价：与 TS 行为永久不一致，且 `expr-r1233` 的多档控制头全部要改。**不推荐**。
+
+**推荐**：**方案 A（登记 `RegexStartAfter`，落点在 typescript 语句/表达式候选，不动 core）**。
+理由：core 早已留好接口，只差 parser 侧登记；比 re-scan 更小、可逆。
+
+**验收**：上表 2 份转 PASS；token 读数 ok 1636→1638、crash 47→45、diff 9 不变。
+`typescript/cases/basic-token.ts` 候选活跃行：`if (a) /re/.test(x);`、`for (;;) /re/g;`。
+
+**需用户裁定**：允许按「表达式起点位置」把 `/` 改判成 `RegexToken`（用 core 现有 `RegexStartAfter`，不改 core 代码）吗？
+
+## 2. `$` 作标识符字符（保留 `$"…"` 内插前缀回退）
+
+**受影响 case files（3，均 crash，均无 known-gap）**
+
+| 文件 | 实测 | 消息 | xl:expect |
+| --- | --- | --- | --- |
+| `tests/cases/token/lexical/lex-ident-dollar-variable.ts` | CRASH | 变量声明缺少标识符 | `Let` |
+| `tests/cases/token/lexical/lex-ident-dollar-middle.ts` | CRASH | 变量声明里有无法识别的单元 | `Let` |
+| `tests/cases/token/lexical/lex-ident-dollar-interface.ts` | CRASH | 缺少标识符 | `Interface,InterfaceBody,Field` |
+
+**最小复现**：`const $x = 1`（另：`const a$b = 1`、`interface I$X { a: number }`）
+
+**根因**：
+- `core/syntax/templates/symbol-template.xl.md:67-113` `IsSymbol` 的内置表把 `$` 列为符号（`:102`）；
+- `core/syntax/basic-tokens/common.xl.md:41-47` `IsAppend` 只要 `IsSymbol || IsWhiteSpace` 任一为真就拒收，
+  于是 `$x` = `Symbol($)` + `Common(x)`；
+- **模板已提供按语言禁用符号的开关**：`symbol-template.xl.md:49-56` `Ban(items)`（注释原话：某语言里其实是
+  标识符字符时用它排除）；`typescript/run/typescript-template.xl.md:46-68` `Create` 目前只配了
+  `AllowCombineSymbol` / 数字后缀 / 正则，没有 `Ban(["$"])`。
+- `$"` 内插前缀与本场景不冲突：ts 模板的 `StringTemplate.HasInterpolationPrefix` 默认 **false**
+  （`core/syntax/basic-tokens/string/string-guide.xl.md:42`），ts 的 `$` 在字符串里就是普通字符。
+
+**方案 A（改 basic token 层）**：把 `$` 从 core 的 `IsSymbol` 内置表移除——影响所有语言模板，**不建议**。
+**方案 B（typescript 层配置绕过，可行且最小）**：`typescript/run/typescript-template.xl.md` 的 `Create` 里加
+`template.SymbolTemplate.Ban(["$"])`；`$` 既不是 symbol 也不是 whitespace ⇒ `Common.IsAppend` 收下，
+`$x`/`a$b`/`I$X` 各成一个 `Common`，`IdentifierShape` 正常投影（TS 的 `Identifier.text` 也是 `$x`）。
+代价：`$` 在任何模板配置下都按标识符字符处理——ts 本来如此；若将来要支持 C# 的 `$"…"` 形态，
+**不要**在共享模板里 Ban，而应在本模板配置里 Ban（本方案已如此，`$"` 只可能出现在别的语言模板）。
+风险：`$` 若出现在 TS 非法位置（如单独的 `$` 后接字符串）会变成标识符声明/表达式而不是词法错误，影响面小。
+
+**推荐**：**方案 B**（一处配置 + 无需 core），并补一条回归用例 `const $x = 1` 到 token 语料。
+
+**验收**：上表 3 份转 PASS；token 读数 ok 1638→1641、crash 45→42。
+`typescript/cases/basic-token.ts` 候选活跃行：`const $x = 1;`、`const a$b = 2;`、`interface I$X { a: number }`。
+
+**需用户裁定**：允许在 `typescript/run/typescript-template.xl.md` 里把 `$` 从符号表禁用（ts 专用配置，不改 core）吗？
+
+## 3. `\uXXXX` 转义标识符
+
+**受影响 case files（2，均 crash，均无 known-gap）**
+
+| 文件 | 实测 | 消息 | xl:expect |
+| --- | --- | --- | --- |
+| `tests/cases/token/lexical/lex-unicode-escape-identifier.ts` | CRASH | 变量声明缺少标识符 | `Let,Statement` |
+| `tests/cases/token/lexical/lx-unicode-ident.ts` | CRASH | 变量声明缺少标识符 | `Statement,Let` |
+
+（`lx-unicode-ident.ts` 里 `const 变量 = 1`、`const café = 2` 两行是好的，只有 `const \u0061bc = 3` 崩。）
+
+**最小复现**：`const \u0061bc = 1;`（TS 的 `Identifier.text` 是解码后的 `abc`）
+
+**根因**：
+- `core/syntax/templates/symbol-template.xl.md:92` 把 `\` 列为符号；`common.xl.md:46` 的 `IsAppend`
+  拒绝符号 ⇒ `\` 单独成 `Symbol`，`u0061bc` 只是普通 `Common`，拼不成一个标识符；
+- 目前只有字符串里的转义（`core/syntax/basic-tokens/string/translate.xl.md`），**标识符扫描没有转义规则**；
+- 字符分类只由 `IsSymbol` / `IsWhiteSpace` 两张表决定（`symbol-template.xl.md:5`），没有「`\` + `uXXXX`
+  合并解码」的通道。
+
+**方案 A（改 basic token 层，推荐）**：在 core 的字符扫描里加「转义标识符」规则——
+步骤：① `Common.IsAppend` / `Transit` 识别 `\` + `u` + 4 hex（`\u{…}` 另议）为一个标识符字符；
+② 解码后进 `Temp`（或保留原文 + 新增解码字段）；③ `IdentifierShape.FromBasicToken` 取解码文本，
+保证 AST `text` 与 TS 一致（`abc`）；④ 位置区间仍按原文（6 个字符）。影响面：Common 的字符吞并判据；
+回归网：`\u0061bc`、`a\u0062c`、`\u{1F600}`（若支持）、非转义位置 `\` 仍应报错。新用例：token 语料 2 份 + `typescript/cases/basic-token.ts` 1 行。
+**方案 B（typescript 层绕过）**：`typescript-template.xl.md` 里 `Ban(["\\"])` 让 `\` 落到 `Common`，
+再在 `typescript/tokens/names/identifier-shape.xl.md` 的解码里把 `\uXXXX` 还原成目标字符。
+代价：`\` 在非转义位置不再是符号（TS 里应报错），且 `a\b` 会被吞成一个标识符后由 AST 校验兜底；
+属于「先收进来再纠错」，与词法错误位置会偏。**可行但语义不干净**。
+
+**推荐**：**方案 A（core）**——转义解码属于字符→token 的归类，只有 core 能做对；若用户不允许动 core，
+再退方案 B 并接受 `\` 的语义放宽。
+
+**验收**：上表 2 份转 PASS；token 读数 ok 1641→1643、crash 42→40。
+`typescript/cases/basic-token.ts` 候选活跃行：`const \u0061bc = 1;`（在源码里写反斜杠转义序列）。
+
+**需用户裁定**：允许改 `core/syntax/basic-tokens/`（Common 的字符吞并 + 转义解码）吗？范围是否也接受
+`typescript/run/typescript-template.xl.md` 的 `Ban(["\\"])` 兜底？
+
+## 4. U+FEFF（BOM）作 trivia
+
+**受影响 case files（1，crash，无 known-gap）**
+
+| 文件 | 实测 | 消息 | xl:expect |
+| --- | --- | --- | --- |
+| `tests/cases/token/lexical/lex-bom.ts` | CRASH | 表达式语句没有读完 | `Let` |
+
+**实测补充**：该文件**第 0 字节不是 BOM**（文件头字节 `2F 2F 20` = `"// "`，`// xl:bom` 是语料指令）；
+BOM 出现在**代码行行首**（`\uFEFFconst a = 1;`），第一个 token 被污染成 `Common("\uFEFFconst")`。
+
+**最小复现**：`\uFEFFconst a = 1;`（U+FEFF 在 `const` 前）
+
+**根因**：
+- `core/syntax/basic-tokens/wrap-symbol.xl.md:48-54` `IsAppend` ⇒ `SymbolTemplate.IsWhiteSpace`；
+  `symbol-template.xl.md:211` `IsWhiteSpace` 的空白字符表**不含 U+FEFF**；
+- `common.xl.md:41-47` `IsAppend`：U+FEFF 既非 symbol 也非 whitespace ⇒ 被 `Common` 吞进 `Temp`，
+  `const` 不再是关键字；
+- `typescript/run/text-document.xl.md:31-40` `TextDocument` 构造**不剥 BOM**（这只能处理第 0 格；
+  本用例的 BOM 在中间行，所以运行层单改不够）。
+
+**方案 A（改 basic token 层）**：`symbol-template.xl.md` 的 `IsWhiteSpace` 加 U+FEFF（TS scanner 把 BOM 当
+whitespace）。影响面：所有语言的空白表；风险低；回归网：BOM 在文件首/中间/标识符中间（中间应报错）。
+**方案 B（typescript 层绕过）**：`typescript/run/text-document.xl.md` 构造时把 U+FEFF **同长度**替换成空格
+（`content.replace(/\uFEFF/g, " ")`），位置偏移不变、仍与 TS 的 pos 对齐；`WrapSymbol` 自然吃掉。
+代价：BOM 不再是独立字符（AST 只看位置，无影响）；若将来要保留 BOM 原始字节需另存。**不需要 core**。
+
+**推荐**：**方案 B**（改运行层、同长度替换），最小且不动 core；若用户希望 token 层语义正确（BOM 是 trivia
+而不是空白），再选 A。
+
+**验收**：`lex-bom.ts` 转 PASS；token 读数 ok 1643→1644、crash 40→39。
+`typescript/cases/basic-token.ts` 候选活跃行：一行以 `\uFEFF` 开头 + `const bom = 1;`。
+
+**需用户裁定**：允许在 `typescript/run/text-document.xl.md` 里把 U+FEFF 同长度归一成空格（不改 core）吗？还是要在 core 的空白表里加 BOM？
+
+## 5. shebang `#!` 作首行 trivia
+
+**受影响 case files（2，均 crash，均无 known-gap）**
+
+| 文件 | 实测 | 消息 | xl:expect |
+| --- | --- | --- | --- |
+| `tests/cases/token/lexical/lex-shebang.ts` | CRASH | 私有标识符缺少名字 | `Let,PreprocessorDirectives` |
+| `tests/cases/token/lexical/lx-shebang.ts` | CRASH | 私有标识符缺少名字 | `Statement,Let` |
+
+**最小复现**：`#!/usr/bin/env node` 换行 `const a = 1;`
+
+**根因**：
+- `symbol-template.xl.md:67-113` 的符号表含 `#`（`:101`）与 `!`（`:99`），shebang 行被拆成一串
+  Symbol / RegexToken / Common；
+- `core/syntax/templates/template.xl.md:86-100` 的 `BasicBranchQueue` 没有 shebang 分支；
+- `typescript/tokens/trivia/shebang-trivia-shape.xl.md:9-19` 形状已存在，但
+  `typescript/tokens/trivia/shebang-trivia-possible-shape.xl.md:13-25` 的 `ComputeByIndex` / `BuildByIndex`
+  仍是 `throw new Error("…未实现")` 桩，也没进 SourceFile 的候选表；
+- `#` 被表达式层当 PrivateIdentifier 前缀：`expression-builder.xl.md:1841-1856`（:1847 抛「私有标识符缺少名字」）。
+- 证据：`#` 之后下一格是 `/`（RegexToken 或 Symbol），不是 `Common`，所以 expression 分支必抛。
+
+**方案 A（改 basic token 层）**：新增 shebang basic token（只在文件第 0 格 `#`+`!` 时按行吞掉，产 trivia
+不产 AST）并加进 `BasicBranchQueue`。需要新 basic token 类型（core）→ **必须用户裁定**。
+**方案 B（typescript 层绕过，可行）**：实现 `ShebangTriviaPossibleShape.ComputeByIndex/BuildByIndex`
+（扫描 root Data：第 0/1 格是 `Symbol(#)`+`Symbol(!)` 时 Accept，`BuildByIndex` 吞到行尾 `WrapSymbol` 的 `\n` 之前、
+建 `ShebangTriviaShape` 后丢弃/当 trivia），并在 `typescript/tokens/files/source-file-shape.xl.md` 的候选表里接线。
+代价：`#`/`!` 的 token 归类不变，靠候选在**首行**抢先收掉；行内其它 `#`/`!` 不受影响；风险限定在文件首。
+注意 `lex-shebang.ts` 的 `xl:expect` 含 `PreprocessorDirectives`，若该标签要求 AST 节点，需先与 TS 对齐
+（TS 的 AST 里 shebang 只是 trivia、无节点），建议按 TS 口径**不投影节点**。
+
+**推荐**：**方案 B**（typescript 层，实现已有桩 + SourceFile 候选接线），不动 core；若用户认为 shebang
+应在 token 层就成 trivia，再选 A。
+
+**验收**：2 份转 PASS；token 读数 ok 1644→1646、crash 39→37。
+`typescript/cases/basic-token.ts` 候选活跃行：`#!/usr/bin/env node` + `const a = 1;`（两行一组）。
+
+**需用户裁定**：允许把 shebang 做成「只在文件首、typescript 层候选」的 trivia（不改 core）吗？
+若要求 token 层单列 `ShebangTrivia` basic token，则属于 core 改动、需要用户明确同意。
+
+## 6. `>>` / `>>>` 是否在 token 层拆
+
+**受影响 case files（实测 0 份仍红）**
+
+- `types G2` 原代表文件 `expressions/ex-angle-cast.ts`（`const d = <Array<number>>y`）**本克隆实测已 PASS**
+  （round-2 的表达式/类型侧修复后不再红）；扫描剩余失败列表，没有以 `>>` 为根因的文件。
+- 因此本场景**当前不产生转绿收益**，只记录口径。
+
+**最小复现（历史）**：`const d = <Array<number>>y`（对照：`<Array<number> >y` OK）
+
+**根因（现状）**：
+- token 层是**合符号**：`typescript/run/typescript-template.xl.md:49`
+  `AllowCombineSymbol(["**","**=","<<",">>",">>>","<<=",">>=",">>>=", …])`，`>>` 是一个 Symbol 单元；
+- types 侧已绕过：`typescript/tokens/types/type-builder.xl.md:1717` `IsSplitClose`（类型位把一个 `>>` 当两格 `>`）；
+- expression 侧曾绕过一半：`expression-builder.xl.md:483` 与 `MatchAngleClose`（:1759-1761）写着
+  「拆 `>>` 需要 basic token 决策」，这是历史崩溃点；round-2 后 `ex-angle-cast` 已绿。
+
+**方案 A（改 basic token 层）**：token 层不把 `>>`/`>>>` 合成一个 Symbol，而是拆成单字符 `>` 序列，由
+parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / `>>=` / `>>>=` / 嵌套泛型收尾；需要同步改
+`typescript/run/typescript-template.xl.md:49` 的合符号表、expression/type 两侧的重组判据，并重跑
+`typescript/cases/operators.ts` 等 4622 条。
+**方案 B（不改 token 层，表达式侧复用拆法）**：保持 `>>` 合符号，在 `expression-builder.xl.md` 的
+`MatchAngleClose` / `CanStartTypeArgumentCall` 复用 `type-builder` 的 `IsSplitClose`（把合符号当两格 `>`）。
+影响面限定在角度配对；不动 token 表，回归风险低。**ex-angle-cast 已绿说明现状已够用。**
+
+**推荐**：**方案 B（保持 token 层合符号）**；除非用户明确要求「token 流里 `>` 永远单字符」，否则不拆。
+
+**验收**：无文件需转绿（历史 1 份已绿）；token 读数不变（ok 1646 / crash 37 / diff 9）。
+`typescript/cases/basic-token.ts` 候选活跃行（若决定 B 后可留作对照）：`const d = <Array<number>>y;`
+（当前口径下已可 PASS）；拆 token 的方案 A 若实施需另加 `a >> b`、`a >>> b` 的对照行。
+
+**需用户裁定**：`>>` / `>>>` 保持 token 层合符号（推荐，不动 core）吗？还是要求 token 层拆成单 `>`（core 改动）？
+
+## 7. 附注：`async` 等上下文关键字的升级口径（无失败文件）
+
+- 现状：`async` 是上下文关键字，只有紧跟 `function` / `(` 等语境才升级；`async` 换行/注释时按 `Identifier`
+  （与 TS 一致）。相关写证：`statements/gap-sweep-newline-async-01.ts` / `gap-sweep-linecomment-async-01.ts`
+  的文件头注记；关键字形状在 `typescript/tokens/keywords/async-keyword-*.xl.md`，升级表在
+  `core/syntax/templates/keyword-template.xl.md`。
+- 剩余失败里没有以 `async` 的 token 升级为根因的文件（本清单不计收益；若有同名 diff 属 D5 possible compute，不是 basic token）。
+- 口径问题：**升级判据留在 token 层（KeywordTemplate）还是下放到 parser**？建议保持现状（token 层只做
+  「这个词是不是关键字」的保守判定，语境升级由 parser 的形状候选决定），这样不需要改 core。
+
+**需用户裁定**：上下文关键字（`async` / `abstract` / `declare` / `readonly` 等）的「语境升级」保持在 parser 侧
+（不动 core）吗？
+
+## 8. 汇总表
+
+| # | 场景 | 实测仍红 case 数 | 要改的文件 | 是否 core | 推荐方案 | 预计转绿 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 控制头 `)` 后 `/` 判 RegexToken | 2 | `typescript/` 语句/表达式候选登记 `RegexStartAfter`（`core/syntax/syntax-context.xl.md:33` 已有接口） | 否 | A（登记，非新 core API） | 2 |
+| 2 | `$` 作标识符字符 | 3 | `typescript/run/typescript-template.xl.md`（`SymbolTemplate.Ban(["$"])`） | 否 | B | 3 |
+| 3 | `\uXXXX` 转义标识符 | 2 | `core/syntax/basic-tokens/common.xl.md`（字符吞并 + 解码）、`typescript/tokens/names/identifier-shape.xl.md`（投影解码） | **是**（推荐 A） | A | 2 |
+| 4 | U+FEFF/BOM 作 trivia | 1 | `typescript/run/text-document.xl.md`（同长度替换空格）；或 `core/syntax/templates/symbol-template.xl.md` 空白表 | 否（B）/ 是（A） | B | 1 |
+| 5 | shebang `#!` 首行 trivia | 2 | `typescript/tokens/trivia/shebang-trivia-possible-shape.xl.md`（实现桩）+ `files/source-file-shape.xl.md` 候选接线 | 否（B）/ 是（A） | B | 2 |
+| 6 | `>>` / `>>>` 是否 token 层拆 | 0（历史 1 已绿） | token 拆：`typescript/run/typescript-template.xl.md:49` + 两侧重组；保持：`expression-builder.xl.md` 复用 `IsSplitClose` | 拆=A 要 core；保持=B 不要 | B（保持） | 0 |
+| 7 | `async` 上下文关键字升级口径 | 0 | 无（口径记录） | 否 | 保持现状 | 0 |
+| | **合计** | **10** | | | | **10**（+`>>` 历史 1 已绿 → Lead 口径 11） |
+
+**合计影响剩余 56 份失败中的 11 份**（`/` 2 + `$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2 + `>>` 1）：
+其中 **10 份当前仍红、1 份（`>>`/`ex-angle-cast`）已转绿**；本清单的 `>>` 一行给出「保持 token 合符号」的口径建议。
+若 1/2/3/4/5 全部按推荐方案实施，token 读数预期 **ok 1636→1646、crash 47→37、diff 9 不变**。
+
+## 9. `typescript/cases/basic-token.ts` 候选活跃行
+
+该文件目前只有注释（避免红行）+ 3 条已 PASS 的 `/` 边界对照。上述场景实施后，可把对应注释改成活跃行
+（新增行逐条跑 `npm run ast:cases` 确认）：
+
+| 场景 | 候选活跃行 |
+| --- | --- |
+| 1 `/` | `if (a) /re/.test(x);`、`for (;;) /re/g;` |
+| 2 `$` | `const $x = 1;`、`const a$b = 2;`、`interface I$X { a: number }` |
+| 3 `\uXXXX` | `const \u0061bc = 1;`（源码写转义序列） |
+| 4 BOM | `<U+FEFF>const bom = 1;`（行首 U+FEFF） |
+| 5 shebang | `#!/usr/bin/env node` 换行 `const a = 1;` |
+| 6 `>>` | `const d = <Array<number>>y;`（当前口径已可 PASS）；若拆 token 再加 `a >> b;`、`a >>> b;` |
+| 7 async | `async` 换行 `function f() {}`（口径对照，当前已与 TS 一致） |
+
+## 10. 一句话裁定（汇总，给用户）
+
+**允许改 basic token 吗？范围是 `core/syntax/basic-tokens/`，还是也包含 `typescript/run/typescript-template.xl.md`
+与 `text-document.xl.md` 这两处 token 配置？**
+按本清单推荐：2/4/5 只动 `typescript/run` 与 `typescript/tokens`（**不需要 core**），1 用 core 现有接口
+（**不需要 core**），6 保持现状（**不需要 core**），只有 3（`\uXXXX`）推荐动 `core/syntax/basic-tokens/`。
+若用户裁定「一律不动 core」，则 3 退方案 B（`Ban(["\\"])` + Identifier 投影解码），代价是 `\` 的词法错误位置放宽。
