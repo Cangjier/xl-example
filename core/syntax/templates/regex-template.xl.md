@@ -14,7 +14,7 @@ import { Token } from "../token.xl.md"
 
 正则模板：**这门语言的正则字面量长什么样**。它只放语言数据（flags 字符集、哪些关键字之后可以起表达式）与「这个 `/` 该不该起正则」的默认判据；字符层状态机（转义 / 字符类 / flags）在 `RegexToken` 里，与语言无关。
 
-判据只看**词法层看得到的事实**：`/` 之前最后一个代码单元是什么。控制头 `)`、裸块 `}` 之后那种「语法上知道下一步是表达式、词法上看不出来」的位置，由语法形状在 `SyntaxContext.RegexStartAfter` 里登记下标，`RegexToken.Transit` 会先查那份登记再做默认判据。
+判据只看**词法层看得到的事实**：`/` 之前最后一个代码单元是什么。`CanStartAt(units, index)` 是新的入口：它从 `units` 这份 token 序列里回扫出「前一个 / 再前一个代码单元」，再交给 `CanStart`——语言模板可以在同一份序列上追加**位置判据**（ts 用它认控制头 `)` 之后等语法位置）。`CanStart` 保留为纯词法判据，旧调用与其它语言继续可用。`SyntaxContext.RegexStartAfter` 仍然保留，作为**语法层否决/放行**的通道（由 parser 在它决定的边界上登记下标；当前无写入点），本页与 ts 模板都没有删除它。
 
 # class RegexTemplate
 
@@ -94,4 +94,30 @@ if (lastCode instanceof Symbol) {
   return true;
 }
 return false;
+```
+
+## method CanStartAt:(units:Array<Token>, index:int)=>bool
+
+`units` + `index` 版本的起点判据：`index` 是**刚才那个 `/` 之后的下标**（`RegexToken.Transit` 传 `data.length`）。
+
+默认实现只做 `CanStart` 能做的事：从 `index - 1` 往前跳过 trivia、跨过那个 `/` 单元，得到 `lastCode` 与 `previousCode`，再交给 `CanStart`；语言模板覆写它就能在同一份 token 序列上看更远的上下文（ts 的控制头 `)` 判据就是这么加的）。
+
+```ts
+let at = index - 1;
+while (at >= 0 && units[at].IsTriviaToken) {
+  at--;
+}
+if (at >= 0 && units[at] instanceof Symbol && (units[at] as Symbol).Is("/")) {
+  at--;
+}
+while (at >= 0 && units[at].IsTriviaToken) {
+  at--;
+}
+const lastCode:Token | null = at >= 0 ? units[at] : null;
+at--;
+while (at >= 0 && units[at].IsTriviaToken) {
+  at--;
+}
+const previousCode:Token | null = at >= 0 ? units[at] : null;
+return this.CanStart(lastCode, previousCode);
 ```

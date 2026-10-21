@@ -20,3 +20,16 @@
 if (/x/) {}
 const r = /x/;
 const a = b / c;
+// 场景 1（已实施 Plan A）：控制头 `)` 之后 / 语句起点的 `/` 判成正则
+while (a) /re/g;
+if (a) /re/g;
+for (;;) /re/g;
+do { } while (a) /re/g;
+try { } catch (e) { } /re/g;
+function f() { if (a) /re/.test(x); }
+class C { m() { if (a) /re/.test(x); } }
+// 守卫：这些 `/` 仍是除号
+const g1 = (a)\n/re/g;
+const g2 = obj.while(a)\n/re/g;
+const g3 = a / b;
+const g4 = a /* c */ / b;

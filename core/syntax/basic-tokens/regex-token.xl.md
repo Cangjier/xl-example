@@ -209,7 +209,7 @@ let forced = false;
 if (lastCode !== null && lastCode.SourceRange.End !== null) {
   forced = context.RegexStartAfter.has(lastCode.SourceRange.End.Index);
 }
-if (!forced && !unit.Template.RegexTemplate.CanStart(lastCode, previousCode)) {
+if (!forced && !unit.Template.RegexTemplate.CanStartAt(data, data.length)) {
   return BranchStates.Undo;
 }
 unit.Undo(preUnit);
