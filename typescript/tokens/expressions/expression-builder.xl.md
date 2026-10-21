@@ -559,9 +559,23 @@ for (let at = index; at < this.Units.length; at++) {
           const afterText = (after as Symbol).TempToString();
           if (afterText === ";" || afterText === "," || afterText === ")" || afterText === "]"
               || afterText === "}" || afterText === "=" || afterText === "." || afterText === "!"
-              || afterText === "?" || afterText === ":" || afterText === "=>" || afterText === "?.") {
+              || afterText === "?" || afterText === ":" || afterText === "=>" || afterText === "?."
+              || afterText === "??" || afterText === "||" || afterText === "&&") {
             return true;
           }
+        }
+        if (after instanceof Common) {
+          // 实例化表达式后接类型/关系词（`a<b> as T` / `a<b> satisfies T` / `a<b> instanceof C`）
+          // 仍是实例化表达式，不是比较链。
+          const afterCommon = (after as Common).TempToString();
+          if (afterCommon === "as" || afterCommon === "satisfies" || afterCommon === "instanceof"
+              || afterCommon === "in") {
+            return true;
+          }
+        }
+        if (after instanceof String && this.IsTemplateToken(after as String)) {
+          // `a<b>`t``：标签模板的标签是实例化表达式，`<…>` 是它自己的 typeArguments。
+          return true;
         }
         return false;
       }
@@ -629,7 +643,25 @@ if (unit instanceof Symbol) {
   text = (unit as Common).TempToString();
 }
 if (text === "yield") {
+  // 裸 `yield` 与生成器里的 `yield;` 在单元层同形（都只剩一格），判据需要生成器上下文，
+  // 表达式层拿不到：这里只保留 `yield` 前缀路径，裸 `yield` 的 Identifier 收口留给语句层。
   return this.ParseYield();
+}
+if (unit instanceof Common && (unit as Common).Is("await")) {
+  // `await` with no operand (`const w = await;`) is a plain Identifier in TS, not an
+  // AwaitExpression: only take the prefix path when an operand actually follows.
+  const awaitNext = this.Peek(1);
+  let awaitHasOperand = awaitNext !== null;
+  if (awaitNext !== null && awaitNext instanceof Symbol) {
+    const awaitNextText = (awaitNext as Symbol).TempToString();
+    if (awaitNextText === ";" || awaitNextText === "," || awaitNextText === ")"
+        || awaitNextText === "]" || awaitNextText === "}") {
+      awaitHasOperand = false;
+    }
+  }
+  if (!awaitHasOperand) {
+    return this.ParsePostfix();
+  }
 }
 if (!this.IsPrefixOperator(text) && !(unit instanceof Common && (unit as Common).Is("await"))) {
   return this.ParsePostfix();
@@ -1287,7 +1319,27 @@ while (inner.At < inner.Units.length) {
     }
     const bodyUnit = inner.Peek(0);
     if (bodyUnit === null || !inner.IsBracketStart(bodyUnit, "{")) {
-      throw new Error("对象字面量成员缺少函数体");
+      // 值位对象字面量里**不带体**的方法签名（`{ new (a: number): I }`）：TS 仍然产出
+      // MethodDeclaration —— 名字就是 `new`、形参表与返回类型照收，没有 Block 子节点。
+      const signature = new MethodDeclarationShape(this.Template);
+      if (asyncUnit !== null) {
+        signature.Add(inner.MakeKeywordLeaf(new AsyncKeywordShape(this.Template), memberIndex));
+      }
+      if (asteriskUnit !== null) {
+        signature.Add(inner.MakeOperatorToken(asteriskUnit, asteriskIndex));
+      }
+      signature.Add(name);
+      for (const typeParameter of methodTypeParameters) {
+        signature.Add(typeParameter);
+      }
+      for (const parameter of parameters) {
+        signature.Add(parameter);
+      }
+      if (returnType !== null) {
+        signature.Add(returnType);
+      }
+      shape.Add(inner.SpanNode(signature, memberIndex, inner.At - 1));
+      continue;
     }
     const bodyIndex = inner.At;
     const bodyBuilder = new StatementBuilder(this.Template, this.Context);
@@ -1489,22 +1541,36 @@ if (returnColonUnit !== null && this.IsText(returnColonUnit, ":")) {
   // TypeBuilder.ParseReturnType so they become TypePredicate nodes like TS.
   this.At++;
   const returnTypeStart = this.At;
-  while (this.At < this.Units.length && !this.IsText(this.Units[this.At], "=>")) {
-    this.At++;
+  // 返回类型本身可以是函数类型（`(): () => void => {…}`），所以不能在**第一个** `=>` 处切断：
+  // 逐个把候选 `=>` 之前的那段交给 TypeBuilder，第一个能完整读完的就是这条箭头的返回类型。
+  let arrowSplit = -1;
+  let arrowReturnType:Token | null = null;
+  for (let candidate = returnTypeStart; candidate < this.Units.length; candidate++) {
+    if (!this.IsText(this.Units[candidate], "=>")) {
+      continue;
+    }
+    if (candidate === returnTypeStart) {
+      break;
+    }
+    const returnTypeUnits:Array<Token> = this.Units.slice(returnTypeStart, candidate);
+    const returnTypeBuilder = new TypeBuilder(this.Template, this.Context);
+    returnTypeBuilder.Load(returnTypeUnits, this.Positions[returnTypeStart]);
+    try {
+      const parsed = returnTypeBuilder.ParseReturnType();
+      if (returnTypeBuilder.At !== returnTypeBuilder.Units.length) {
+        continue;
+      }
+      arrowSplit = candidate;
+      arrowReturnType = parsed;
+      break;
+    } catch (error) {
+      continue;
+    }
   }
-  if (this.At >= this.Units.length) {
+  if (arrowSplit < 0 || arrowReturnType === null) {
     throw new Error("箭头函数缺少 =>");
   }
-  const returnTypeUnits:Array<Token> = this.Units.slice(returnTypeStart, this.At);
-  if (returnTypeUnits.length === 0) {
-    throw new Error("箭头函数的返回类型为空");
-  }
-  const returnTypeBuilder = new TypeBuilder(this.Template, this.Context);
-  returnTypeBuilder.Load(returnTypeUnits, this.Positions[returnTypeStart]);
-  const arrowReturnType = returnTypeBuilder.ParseReturnType();
-  if (returnTypeBuilder.At !== returnTypeBuilder.Units.length) {
-    throw new Error("箭头函数的返回类型没有读完");
-  }
+  this.At = arrowSplit;
   arrow.Add(arrowReturnType);
 }
 const arrowUnit = this.Peek(0);
@@ -1627,23 +1693,70 @@ this.At = start + builder.At;
 return block;
 ```
 
-## method ParseFunctionExpression:()=>Token
+## method HasArrowAfter:(from:int)=>bool
 
-`function` 函数表达式：children 顺序与 TS 一致 —— 可选的 `Identifier`（名字）、`Parameter` 们、`Block`；
-参数括号与函数体各是一个 `Bracket` 单元，参数由 `ParseFunctionParameters` 从括号 `Data` 里建。
-TS 的 `FunctionExpression` 没有 `name` 字段（名字只是第一个子节点），所以名字走 `Data`、不设字段。
+从 `from` 起在同一段单元里找 `=>`，用于「带返回类型标注的箭头」前瞻（`(…): T => …`）。
+遇到语句界符 `;` / `,` 判否，避免把 `cond ? f(1) : x` 这类三元误当成箭头。
+
+```ts
+for (let at = from; at < this.Units.length; at++) {
+  const unit = this.Units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (this.IsText(unit, "=>")) {
+    return true;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === ";" || text === ",") {
+      return false;
+    }
+  }
+}
+return false;
+```
+
+## method ParseFunctionExpression:(asyncKeyword?:Token | null, spanStart?:int)=>Token
+
+`function` 函数表达式：children 顺序与 TS 一致 —— `async`?、`*`?、可选的 `Identifier`（名字）、
+`TypeParameter` 们、`Parameter` 们、返回类型?、`Block`；参数括号与函数体各是一个 `Bracket` 单元，
+参数由 `ParseFunctionParameters` 从括号 `Data` 里建。
+TS 的 `FunctionExpression` 没有 `name` 字段（名字只是子节点之一），所以名字走 `Data`、不设字段；
+匿名函数表达式的类型参数段（`function <T>(…)`）与生成器 `*` 都不算名字，必须先跳过。
 
 ```ts
 const start = this.At;
+const signedStart = spanStart !== undefined && spanStart !== null ? spanStart : start;
 this.At++;
 const shape = new FunctionExpressionShape(this.Template);
+if (asyncKeyword !== undefined && asyncKeyword !== null) {
+  shape.Add(asyncKeyword);
+}
+const asteriskUnit = this.Peek(0);
+if (asteriskUnit !== null && this.IsText(asteriskUnit, "*")) {
+  shape.Add(this.MakeOperatorToken(asteriskUnit, this.At));
+  this.At++;
+}
 const nameUnit = this.Peek(0);
-if (nameUnit !== null && nameUnit instanceof Common) {
+if (nameUnit !== null && nameUnit instanceof Common && !this.IsText(nameUnit, "<")) {
   const nameIndex = this.At;
   const name = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
   name.Pos = this.Positions[nameIndex];
   shape.Add(name);
   this.At++;
+}
+const angleUnit = this.Peek(0);
+if (angleUnit !== null && this.IsText(angleUnit, "<")) {
+  const angleClose = this.MatchAngleClose(this.At);
+  if (angleClose < 0) {
+    throw new Error("函数表达式的类型参数缺少配对的 >");
+  }
+  const functionTypeParameters = this.ParseAngleTypeParameters(this.At, angleClose);
+  for (const typeParameter of functionTypeParameters) {
+    shape.Add(typeParameter);
+  }
+  this.At = angleClose + 1;
 }
 const parametersUnit = this.Peek(0);
 if (parametersUnit === null || !this.IsBracketStart(parametersUnit, "(")) {
@@ -1680,7 +1793,7 @@ if (bodyUnit === null || !this.IsBracketStart(bodyUnit, "{")) {
   throw new Error("函数表达式缺少函数体");
 }
 shape.Add(this.ParseBlock());
-return this.SpanNode(shape, start, this.At - 1);
+return this.SpanNode(shape, signedStart, this.At - 1);
 ```
 
 ## method ParseFunctionParameters:(bracket:Bracket)=>Array<Token>
@@ -1816,7 +1929,12 @@ for (let at = openIndex; at < this.Units.length; at++) {
     continue;
   }
   if (text === ">>" || text === ">>>") {
-    return -1;
+    // 合符号收尾：`Array<number>>` 的 `>>` 关两层、`>>>` 关三层（TS 词法上是多个 `>`）。
+    depth -= text.length;
+    if (depth <= 0) {
+      return at;
+    }
+    continue;
   }
 }
 return -1;
@@ -1871,16 +1989,29 @@ if (close < 0) {
   throw new Error("尖括号断言/泛型箭头缺少配对的 >");
 }
 const afterBracket = this.Units[close + 1];
-const afterArrow = this.Units.length > close + 2 ? this.Units[close + 2] : null;
-if (afterBracket !== undefined && this.IsBracketStart(afterBracket, "(")
-  && afterArrow !== null && this.IsText(afterArrow, "=>")) {
-  const typeParameters = this.ParseAngleTypeParameters(start, close);
-  this.At = close + 1;
-  const bracket = this.Peek(0) as Bracket;
-  this.At++;
-  return this.ParseArrowFromBracket(bracket, start, null, typeParameters);
+if (afterBracket !== undefined && this.IsBracketStart(afterBracket, "(")) {
+  // 泛型箭头：`<T>(…) => …` / `<T,>(…): T => …`（形参表与 `=>` 之间可以有返回类型标注）。
+  let bracketAfter = close + 2;
+  while (bracketAfter < this.Units.length && this.Units[bracketAfter].IsTriviaToken) {
+    bracketAfter++;
+  }
+  const afterArrow = bracketAfter < this.Units.length ? this.Units[bracketAfter] : null;
+  let isGenericArrow = afterArrow !== null && this.IsText(afterArrow, "=>");
+  if (!isGenericArrow && afterArrow !== null && this.IsText(afterArrow, ":")) {
+    isGenericArrow = this.HasArrowAfter(bracketAfter + 1);
+  }
+  if (isGenericArrow) {
+    const typeParameters = this.ParseAngleTypeParameters(start, close);
+    this.At = close + 1;
+    const bracket = this.Peek(0) as Bracket;
+    this.At++;
+    return this.ParseArrowFromBracket(bracket, start, null, typeParameters);
+  }
 }
-const type = this.ParseAngleType(start + 1, close - 1);
+const closeUnit = this.Units[close];
+const closeText = closeUnit instanceof Symbol ? (closeUnit as Symbol).TempToString() : ">";
+const typeLast = closeText.length > 1 ? close : close - 1;
+const type = this.ParseAngleType(start + 1, typeLast);
 this.At = close + 1;
 const shape = new TypeAssertionExpressionShape(this.Template);
 shape.Add(type);
@@ -1985,14 +2116,60 @@ if (unit instanceof Common) {
     return this.MakeKeywordLeaf(new SuperKeywordShape(this.Template), start);
   }
   if (text === "async") {
-    // async 箭头：`async (…) => …` / `async a => …`。确认不了是箭头就不吃 `async`（退回标识符路径），
-    // `async function f(){}` 因此不会被表达式语句劫持成静默错树。
-    const next = this.Peek(1);
+    // async 前缀有四种后续：`async function …`（异步函数表达式）、`async <T>(…) => …`
+    // （泛型 async 箭头）、`async (…) => …` / `async (…): T => …`（箭头，可带返回类型标注）、
+    // `async a => …`。确认不了是箭头就不吃 `async`（退回标识符路径）。
+    let asyncProbe = start + 1;
+    while (asyncProbe < this.Units.length && this.Units[asyncProbe].IsTriviaToken) {
+      asyncProbe++;
+    }
+    const next = asyncProbe < this.Units.length ? this.Units[asyncProbe] : null;
+    if (next !== null && next instanceof Common && (next as Common).Is("function")) {
+      // `async function () {}`：AsyncKeyword 是函数表达式的第一个子节点。
+      const functionKeyword = this.MakeKeywordLeaf(new AsyncKeywordShape(this.Template), start);
+      this.At = asyncProbe;
+      return this.ParseFunctionExpression(functionKeyword, start);
+    }
+    if (next !== null && this.IsText(next, "<")) {
+      // `async <T>(x: T) => x` / `async<T>(x) => x`：类型参数表在 async 与形参表之间。
+      const asyncAngleClose = this.MatchAngleClose(asyncProbe);
+      if (asyncAngleClose >= 0) {
+        const asyncBracketAt = asyncAngleClose + 1;
+        const asyncBracketUnit = asyncBracketAt < this.Units.length ? this.Units[asyncBracketAt] : null;
+        if (asyncBracketUnit !== null && this.IsBracketStart(asyncBracketUnit, "(")) {
+          let asyncArrowAt = asyncBracketAt + 1;
+          while (asyncArrowAt < this.Units.length && this.Units[asyncArrowAt].IsTriviaToken) {
+            asyncArrowAt++;
+          }
+          const asyncAfterBracket = asyncArrowAt < this.Units.length ? this.Units[asyncArrowAt] : null;
+          let asyncIsArrow = asyncAfterBracket !== null && this.IsText(asyncAfterBracket, "=>");
+          if (!asyncIsArrow && asyncAfterBracket !== null && this.IsText(asyncAfterBracket, ":")) {
+            asyncIsArrow = this.HasArrowAfter(asyncArrowAt + 1);
+          }
+          if (asyncIsArrow) {
+            const keyword = this.MakeKeywordLeaf(new AsyncKeywordShape(this.Template), start);
+            const typeParameters = this.ParseAngleTypeParameters(asyncProbe, asyncAngleClose);
+            this.At = asyncBracketAt + 1;
+            return this.ParseArrowFromBracket(asyncBracketUnit as Bracket, start, keyword, typeParameters);
+          }
+        }
+      }
+    }
     if (next !== null && this.IsBracketStart(next, "(")) {
-      const after = this.Peek(2);
-      if (after !== null && this.IsText(after, "=>")) {
+      const bracketAt = asyncProbe;
+      let afterBracketAt = bracketAt + 1;
+      while (afterBracketAt < this.Units.length && this.Units[afterBracketAt].IsTriviaToken) {
+        afterBracketAt++;
+      }
+      const after = afterBracketAt < this.Units.length ? this.Units[afterBracketAt] : null;
+      let isArrow = after !== null && this.IsText(after, "=>");
+      if (!isArrow && after !== null && this.IsText(after, ":")) {
+        // 带返回类型标注的 async 箭头：`async (): Promise<void> => {}`。
+        isArrow = this.HasArrowAfter(afterBracketAt + 1);
+      }
+      if (isArrow) {
         const keyword = this.MakeKeywordLeaf(new AsyncKeywordShape(this.Template), start);
-        this.At++;
+        this.At = bracketAt;
         const bracket = this.Peek(0) as Bracket;
         this.At++;
         return this.ParseArrowFromBracket(bracket, start, keyword);
