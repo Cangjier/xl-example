@@ -1,5 +1,7 @@
 # 剩余失败分类：statements / expressions / ambiguous（9 份 crash）
 
+> **状态：全部条目已在 round 21–26 修复；最终读数 token 1690 ok / 0 crash / 0 diff / 10 ts-invalid / 3 gap-now-passing，ast 4848/4848（47 构造）、ast:dts 226/226（HEAD `840258dc`）。**
+
 本文件只做**分析**：主仓 HEAD **`85daba1d`** 上 `tests/cases/token/` 里 statements / expressions /
 ambiguous 三个目录剩下的 **9 份 crash**，逐份给出「最小复现 → 完整崩溃链 → 根因（`typescript/**/*.xl.md` 方法:
 行）→ §6 七类归属 → 修复思路（何时 build / build 提什么 / 何时 close / close 提什么）→ 难度 → 回归风险 →

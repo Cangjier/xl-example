@@ -1,10 +1,10 @@
-# 剩余 44 失败：分类汇总与分批修复计划
+# 剩余 44 失败 → 0：分类汇总、修复记录与最终读数
 
 > **只读汇总**。本文件把四份分区分析（declarations / statements / types+modules / diffs）合并成
 > 一张去重后的主分类表、一组跨组共用根因、一份按 IMPORTANCE §6 的七类汇总，以及一份可执行的分批修复计划。
-> 基线：主仓 `feature/quick-parse` HEAD **`85daba1d`**。
-> token 语料实测：**`total=1703 ok=1648 crash=35 diff=9 ts-invalid=10 gap-now-passing=1`**（1703 份 `.ts`），
-> 即本文件对象 **44 = 35 crash + 9 diff**；修完后目标为 `ok 1692 / crash 0 / diff 0`（ts-invalid 10 与 gap-now-passing 1 不计入失败）。
+> 基线：主仓 `feature/quick-parse` HEAD **`85daba1d`**；**最终 HEAD `840258dc`（round 21–26 全部修完）**。
+> token 语料最终实测：**`total=1703 ok=1690 crash=0 diff=0 ts-invalid=10 gap-now-passing=3`**（1703 份 `.ts`）；
+> 即本文件对象 **44 = 35 crash + 9 diff → 0（已全部修复）**（ts-invalid 10 仍不计入失败；known-gap 守卫 r1231/r1237/r1244 已转绿，gap-now-passing 1→3）。
 >
 > TS 侧：35 份 crash 在 `ts.createSourceFile` 下 `parseDiagnostics = 0`（全部 TS 合法，非 TS-recovery、非 TS 非法）。
 > 9 份 diff 中 **2 份已登记 known-gap**（`gap-r1231`、`gap-r1237`），`stmt-throw` / `gap-r869` 带 TS 恢复色彩但
@@ -14,6 +14,20 @@
 > 四份来源（均为只读分析、已合入各自分支，详见 §8 溯源）：
 > `docs/remaining-gaps-declarations.md`、`docs/remaining-gaps-statements.md`、
 > `docs/remaining-gaps-types-modules.md`、`docs/remaining-gaps-diffs.md`。
+
+## 0.5 最终状态（44 → 0，round 21–26）
+
+**结论：44 = 35 crash + 9 diff 已全部修复。**最终 HEAD `840258dc`：**1690 ok / 0 crash / 0 diff / 10 ts-invalid / 3 gap-now-passing**（total 1703）；ast:cases **4848/4848（47 构造）、0/0/0**；`ast:dts` **226/226**。
+
+| 旧组 | 修复轮次 / commit |
+| --- | --- |
+| declarations：形参模式/默认值（A，9）、继承实体名（B，3）、声明头装饰器（C，3）、孤立上下文关键字（D，1）、`as` 类型实参（E，1）、类型注解跨行（F，1）、r1237 守卫 | round 21–22（declarations 批次） |
+| statements：G1–G5（变量语句收口 / return-throw / 声明体 `{` 换行 / 函数返回类型跨行） | round 22–23 |
+| types/modules：G1 行末 ASI（4）、G2 `>>` 拆分重放副本（1）、G3 CatalogGuide 共存（1） | round 22–23（types G1 `d329acc3`、G2 `8163a0e8`；G3 round 23–26） |
+| imports：import-equals 实体名行末 ASI（1） | round 26（`ba59252c`） |
+| diffs：9 条（边界 ASI 3、语句收口/do 壳 2、build/投影嵌套 3、类型位 `{` 1） | round 24–26 |
+| 跨组：`do-while` 壳、`declare`/obj-destructure、known-gap 守卫 r1231/r1237/r1244 转绿 | round 23–26 |
+| **合计 44 → 0** | **token 1690 ok / 0 crash / 0 diff（HEAD `840258dc`）** |
 
 ---
 
@@ -53,7 +67,9 @@
 
 ---
 
-## 2. 去重后的主分类表（18 行 = 35 crash + 9 diff）
+## 2. 去重后的主分类表（历史：18 行 = 35 crash + 9 diff，均已修复）
+
+> **以上 18 组 44 条已在 round 21–26 全部修复；最终读数 1690/0/0（见 §0.5 完成表）。**
 
 > 「数量」列：crash 行是该组的 crash 文件数，diff 行是该组的 diff 文件数；`类型` 列标 C=crash、D=diff。
 > 「共同根因」给出**代码定位**（`typescript/**/*.xl.md` 的方法:行号），详细崩溃链/最小复现见各分区文档。
@@ -124,7 +140,7 @@ decl B（3，`startsWithAccess` 一支三档）、decl C（3，三处 possible �
 
 ---
 
-## 5. 分批修复计划（4 阶段，从 1648 / 35 / 9 起算）
+## 5. 分批修复计划（历史：4 阶段，已全部执行完毕）
 
 > 每一阶段独立 commit；验收命令见 §7。每阶段先写 2–3 条最小复现（各分区文档正文已给），
 > 再动代码；以「逐文件 pre/post 失败清单对比」防回归。
@@ -252,7 +268,7 @@ node typescript/cases/real-dts-ast.mjs                     # 226/226（如本机
 
 ---
 
-## 8. 溯源
+## 8. 溯源（历史：各分区分析分支与基线读数，均已修复为 1690/0/0）
 
 | 内容 | 路径（分支 / commit） | 克隆 | 覆盖份数 |
 | --- | --- | --- | --- |
@@ -260,7 +276,7 @@ node typescript/cases/real-dts-ast.mjs                     # 226/226（如本机
 | statements 分区分析 | `cover-gaps-stmt` 分支 **`69558d66`**：`docs/remaining-gaps-statements.md` | `...\cover-gaps-stmt` | 9 crash（含同一个 ambiguous） |
 | types + modules 分区分析 | `cover-gaps-types` 分支 **`804fca2f`**：`docs/remaining-gaps-types-modules.md` | `...\cover-gaps-types` | 8 crash（types 6 + modules 2） |
 | diffs 分区分析 | `cover-gaps-diffs` 分支 **`bb9243eb`**：`docs/remaining-gaps-diffs.md` | `...\cover-gaps-diffs` | 9 diff |
-| **本汇总** | `cover-gaps-summary` 分支：`docs/remaining-gaps-analysis.md`（基线主仓 HEAD `85daba1d`） | `...\cover-gaps-summary` | **44 = 35 crash + 9 diff（去重后）** |
+| **本汇总** | `cover-gaps-summary` 分支：`docs/remaining-gaps-analysis.md`（基线主仓 HEAD `85daba1d`） | `...\cover-gaps-summary` | **44 = 35 crash + 9 diff（去重后）→ 0（已修复，见 §0.5）** |
 | 上位总览（历史读数/七类/相位） | `docs/token-ast-analysis.md`（本文为其 §10 的交叉引用对象） | 主仓 | 历史 191 条归因与修复状态 |
 
 > 本文只做汇总与排期，不改变四份源文档的任何结论；数量差异（declarations 18→19）按源文档实测 19 采用。

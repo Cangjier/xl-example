@@ -1,5 +1,7 @@
 # 剩余失败分类：9 个 AST diff 组
 
+> **状态：全部条目已在 round 21–26 修复；最终读数 token 1690 ok / 0 crash / 0 diff / 10 ts-invalid / 3 gap-now-passing，ast 4848/4848（47 构造）、ast:dts 226/226（HEAD `840258dc`）。**
+
 本文件只做分析（不改代码 / `.xl.md` / 语料 / `IMPORTANCE.md`）。对象：主仓 `feature/quick-parse`
 HEAD `85daba1d` 上 `token-ast.mjs` 的 **9 份 diff**（token 语料读数 **1648 ok / 35 crash / 9 diff /
 10 ts-invalid / 1 gap-now-passing**，known-gap 2）。每份的读数、TS-vs-本仓节点树、根因落点、
@@ -378,7 +380,7 @@ moduleSpecifier 提取（:147-180、:236）：只认 `from` 后面**裸 `String`
 ## 5. 附：读数与文件位置
 
 ```text
-当前 HEAD 85daba1d：token 1648 ok / 35 crash / 9 diff / 10 ts-invalid / 1 gap-now-passing
+（历史基线）HEAD `85daba1d`：token 1648 ok / 35 crash / 9 diff / 10 ts-invalid / 1 gap-now-passing（round 21–26 后全部修复为 1690/0/0）
 9 份 diff（known-gap 2：gap-r1231、gap-r1237）：
   declarations/decl-class-computed-member.ts
   expressions/gap-r1231-decl-newline-operator.ts      [known-gap]

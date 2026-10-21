@@ -192,6 +192,8 @@ G2 与 G1 不重叠（G2 不改 Accept 时机，只改缓存下标），可并�
 ```bash
 node typescript/cases/token-ast.mjs --quiet          # 基线：ok 1648 / crash 35 / diff 9
 # 单份 crash + 异常链（在 clone 里）：直接 SourceFileRunner.Parse + InnerException 遍历
+
+> **状态：全部条目已在 round 21–26 修复；最终读数 token 1690 ok / 0 crash / 0 diff / 10 ts-invalid / 3 gap-now-passing，ast 4848/4848（47 构造）、ast:dts 226/226（HEAD `840258dc`）。**
 # 最小复现：已写入正文各小节；均为 TS 0 诊断、本仓 crash 的片段
 ```
 
