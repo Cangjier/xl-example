@@ -333,7 +333,12 @@ if (prev < 0 || !lineBreak) {
   return false;
 }
 if (!ExpressionStatementPossibleShape.CanEndExpression(units[prev])) {
-  return false;
+  // `a.class` / `a?.interface`：`.` / `?.` 之后的关键字是**成员名**、不是语句关键字，
+  // 它照样能收住一条表达式。（TS：`a.class` 换行 `{}` 是「表达式语句 + 裸块」两条，
+  // `{}` 不能因为「类头还差一个体」被吞进类里——`ClassBranch.IsPendingHead` 的位置陷阱。）
+  if (!ExpressionStatementPossibleShape.IsMemberNameAt(units, prev)) {
+    return false;
+  }
 }
 // `++` / `--` 既可后缀也可前缀：只有紧贴前一个「能结束表达式」的代码单元（中间无换行）时
 // 它才是后缀（`a++` 能断句）；否则它是前缀运算符、还在等下一行的操作数（`a++; --\n a;` 里
@@ -367,6 +372,31 @@ if (units[head] instanceof Common
   return false;
 }
 return !ExpressionStatementPossibleShape.IsContinuation(current);
+```
+
+## static method IsMemberNameAt:(units:Array<Token>, index:int)=>bool
+
+`index` 这个代码单元是不是**成员名**：`.` / `?.` 之后的属性名。属性名位置 TS 允许任何标识符名
+（`a.class` / `a.interface` / `a.default` / `a.new`），它们只有在语句开头才是关键字——
+判「能不能收住表达式」时必须看前面那个代码单元是不是 `.` / `?.`，否则 `a.class` 会被当成类声明头。
+
+```ts
+if (index < 0 || index >= units.length) {
+  return false;
+}
+let before = index - 1;
+while (before >= 0 && units[before].IsTriviaToken) {
+  before--;
+}
+if (before < 0) {
+  return false;
+}
+const unit = units[before];
+if (!(unit instanceof Symbol)) {
+  return false;
+}
+const text = (unit as Symbol).TempToString();
+return text === "." || text === "?.";
 ```
 
 ## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool
