@@ -46,6 +46,10 @@
 
 额外允许的组合符号。
 
+## field SupportUnicodeEscapeIdentifier:bool = false
+
+是否把合法的 `\uXXXX` 转义序列当成标识符字符（默认 `false`，只有 ts 模板打开）。关闭时其它语言的字符分类零影响。
+
 ## method Ban:(items:Array<string>)=>SymbolTemplate
 
 追加若干禁用字符，返回自身便于链式调用。若某个内置符号字符在某种语言里其实是标识符字符（或数字的一部分），就靠它把该字符排除出符号表。
@@ -206,6 +210,14 @@ return !Number.isNaN(Number(Value));
 
 ```ts
 return Value >= "0" && Value <= "9";
+```
+
+## method IsHexDigit:(item:string)=>bool
+
+单个字符是不是十六进制数字（`0-9` / `a-f` / `A-F`），给 `\uXXXX` 转义标识符的判据用。
+
+```ts
+return (item >= "0" && item <= "9") || (item >= "a" && item <= "f") || (item >= "A" && item <= "F");
 ```
 
 ## method IsWhiteSpace:(item:string)=>bool

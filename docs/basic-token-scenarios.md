@@ -4,8 +4,8 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：最终主仓（`9368d937`）读数 **1638/45/9/10/1**，剩余 **54 = 45 crash + 9 diff**；
-本清单 7 个场景里 **实测仍红 8 份**（`$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2；`/` 2 份已由 Plan A 收掉）；
+**结论先行**：主仓 `1ff75c4c`（Plan A 已合入）读数 **1638/45/9/10/1**；本分支实施场景 3 后 **1640/43/9/10/1**，剩余 **52 = 43 crash + 9 diff**；
+本清单 7 个场景里 **实测仍红 6 份**（`$` 3 + BOM 1 + shebang 2；`/` 2 份已由 Plan A 收掉、`\uXXXX` 4 位形 2 份本分支收掉；`\u{…}` 花括号形仍缺，单列剩余子项）；
 `>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 9；
 `async` 是口径注记、当前无失败文件。
 **其中 3 个场景（2/4/5）可以完全不改 `core/**` 修掉；1/6 也不需要 core（1 用 core 现有 `RegexStartAfter` 接口、6 保持 token 合符号）；只有 3（`\uXXXX`）推荐动 core。**
@@ -13,12 +13,12 @@
 ## 0. 读数基线（本克隆实测，非抄旧数）
 
 ```text
-分支 cover-token-regexstart（从 a782b229 拉起，round 8 已并入主仓 `9368d937`），Plan A 已实施并实测通过
+分支 cover-token-unicode（从主仓 `1ff75c4c` 拉起），Plan A 已合入；场景 3 已实施并实测通过
 xl_build core,typescript → 859 written / 0 error；tsc exit 0
 node typescript/cases/token-ast.mjs --quiet
-  → total=1703 ok=1638 crash=45 diff=9 ts-invalid=10 gap-now-passing=1
-  → known-gap 3（diff 2 + gap-now-passing 1），non-known-gap 1700（ok 1638 / crash 45 / diff 7 / ts-invalid 10）
-ast:cases：加用例前 4763/4763、0/0/0；本分支把场景 1 的活跃行加入 `typescript/cases/basic-token.ts` 后为 **4774/4774、0/0/0**
+  → total=1703 ok=1640 crash=43 diff=9 ts-invalid=10 gap-now-passing=1
+  → known-gap 3（diff 2 + gap-now-passing 1），non-known-gap 1700（ok 1640 / crash 43 / diff 7 / ts-invalid 10）
+ast:cases：场景 1 后 4774/4774、0/0/0；场景 3 活跃行加入后为 **4780/4780、0/0/0**
 ```
 
 逐文件复测命令：`node typescript/cases/token-ast.mjs tests/cases/token/<子目录>/<文件>.ts`（失败时 exit 1）。
@@ -98,14 +98,14 @@ ast:cases：加用例前 4763/4763、0/0/0；本分支把场景 1 的活跃行�
 
 **需用户裁定**：允许在 `typescript/run/typescript-template.xl.md` 里把 `$` 从符号表禁用（ts 专用配置，不改 core）吗？
 
-## 3. `\uXXXX` 转义标识符
+## 3. `\uXXXX` 转义标识符（**已实施**：4 位形已收，`\u{…}` 花括号形仍缺）
 
 **受影响 case files（2，均 crash，均无 known-gap）**
 
 | 文件 | 实测 | 消息 | xl:expect |
 | --- | --- | --- | --- |
-| `tests/cases/token/lexical/lex-unicode-escape-identifier.ts` | CRASH | 变量声明缺少标识符 | `Let,Statement` |
-| `tests/cases/token/lexical/lx-unicode-ident.ts` | CRASH | 变量声明缺少标识符 | `Statement,Let` |
+| `tests/cases/token/lexical/lex-unicode-escape-identifier.ts` | **PASS**（原 CRASH：变量声明缺少标识符） | — | `Let,Statement` |
+| `tests/cases/token/lexical/lx-unicode-ident.ts` | **PASS**（原 CRASH：变量声明缺少标识符） | — | `Statement,Let` |
 
 （`lx-unicode-ident.ts` 里 `const 变量 = 1`、`const café = 2` 两行是好的，只有 `const \u0061bc = 3` 崩。）
 
@@ -128,14 +128,11 @@ ast:cases：加用例前 4763/4763、0/0/0；本分支把场景 1 的活跃行�
 代价：`\` 在非转义位置不再是符号（TS 里应报错），且 `a\b` 会被吞成一个标识符后由 AST 校验兜底；
 属于「先收进来再纠错」，与词法错误位置会偏。**可行但语义不干净**。
 
-**推荐**：**方案 A（core）**——转义解码属于字符→token 的归类，只有 core 能做对；若用户不允许动 core，
-再退方案 B 并接受 `\` 的语义放宽。
+**已实施（用户批准方案 A）**：5 个文件——① `core/syntax/templates/symbol-template.xl.md` 新增开关 `SupportUnicodeEscapeIdentifier`（默认 false）+ `IsHexDigit`；② `core/syntax/basic-tokens/common.xl.md` 新增 `static IsUnicodeEscapeStart(Src, template)`（`\`+`u`+4hex 前探）、`IsAppend` 接受该起点、`Transit` 的 `Undo` 闸门放行；③ `core/syntax/basic-tokens/symbol.xl.md` 的 `Transit` 在合法转义前返回 `Undo`（让 Common 接管）；④ `typescript/run/typescript-template.xl.md` 打开开关；⑤ `typescript/tokens/names/identifier-shape.xl.md` 新增 `DecodeIdentifierEscapes`，`EscapedText` 存解码值（区间仍取原文）。**`\u{…}` 花括号形未做**（需 Bracket 让位，单列剩余子项）。
 
-**验收**：上表 2 份转 PASS；token 读数 ok 1641→1643、crash 42→40。
-`typescript/cases/basic-token.ts` 候选活跃行：`const \u0061bc = 1;`（在源码里写反斜杠转义序列）。
+**验收（已实测达成）**：上表 2 份转 PASS；token 读数 ok 1638→**1640**、crash 45→**43**、diff 9 不变；`ast:cases` 4774→**4780**、0/0/0；`ast:dts` 226/226；探针 5 条（`const \u0061bc`、`const a\u0062c`、`function f\u0066`、`class C\u0031`、`interface I\u0041`）AST text 与 TS 一致（解码后）；非法/边界（`\u00`、`\uZZZZ`、孤立 `\`、字符串 “\u0061”、`a / b`）行为与改前完全一致；`{ \u0061: 1 }` 属性键也随之一致。
 
-**需用户裁定**：允许改 `core/syntax/basic-tokens/`（Common 的字符吞并 + 转义解码）吗？范围是否也接受
-`typescript/run/typescript-template.xl.md` 的 `Ban(["\\"])` 兜底？
+**用户裁定**：已批准方案 A（core 改动按上面 5 个文件最小化实现；`Ban(["\\"])` 的兜底方案未采用）。`\u{…}` 花括号形是否继续做，需另行批准（它还要让 `Bracket.Transit` 在该状态让位）。
 
 ## 4. U+FEFF（BOM）作 trivia
 
@@ -263,16 +260,15 @@ parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / 
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | 控制头 `)` 后 `/` 判 RegexToken（**已实施**） | 0（已转 PASS） | `core/syntax/templates/regex-template.xl.md`（新增 `CanStartAt`）+ `core/syntax/basic-tokens/regex-token.xl.md`（改调用）+ `typescript/run/typescript-template.xl.md`（ts 覆写） | 是（入口加宽在 core，用户已批准） | A | 2（已转绿） |
 | 2 | `$` 作标识符字符 | 3 | `typescript/run/typescript-template.xl.md`（`SymbolTemplate.Ban(["$"])`） | 否 | B | 3 |
-| 3 | `\uXXXX` 转义标识符 | 2 | `core/syntax/basic-tokens/common.xl.md`（字符吞并 + 解码）、`typescript/tokens/names/identifier-shape.xl.md`（投影解码） | **是**（推荐 A） | A | 2 |
+| 3 | `\uXXXX` 转义标识符（**已实施**，4 位形） | 0（已转 PASS；`\u{…}` 仍缺） | `core/syntax/templates/symbol-template.xl.md`、`core/syntax/basic-tokens/{common,symbol}.xl.md`、`typescript/run/typescript-template.xl.md`、`typescript/tokens/names/identifier-shape.xl.md` | 是（用户已批准） | A | 2（已转绿） |
 | 4 | U+FEFF/BOM 作 trivia | 1 | `typescript/run/text-document.xl.md`（同长度替换空格）；或 `core/syntax/templates/symbol-template.xl.md` 空白表 | 否（B）/ 是（A） | B | 1 |
 | 5 | shebang `#!` 首行 trivia | 2 | `typescript/tokens/trivia/shebang-trivia-possible-shape.xl.md`（实现桩）+ `files/source-file-shape.xl.md` 候选接线 | 否（B）/ 是（A） | B | 2 |
 | 6 | `>>` / `>>>` 是否 token 层拆 | 0（历史 1 已绿） | token 拆：`typescript/run/typescript-template.xl.md:49` + 两侧重组；保持：`expression-builder.xl.md` 复用 `IsSplitClose` | 拆=A 要 core；保持=B 不要 | B（保持） | 0 |
 | 7 | `async` 上下文关键字升级口径 | 0 | 无（口径记录） | 否 | 保持现状 | 0 |
-| | **合计** | **8** | | | | **8**（场景 1 已转 PASS；`>>` 为口径项且已绿，若计入为 9） |
+| | **合计** | **6** | | | | **6**（场景 1、3 已转 PASS；`>>` 为口径项且已绿，若计入为 8） |
 
-**合计影响（Plan A 落地后）：剩余 basic-token 红 8 份**（`$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2）；
-`>>` 属**口径项**且已绿（`ex-angle-cast` 现 PASS），若计入则为 **9**；场景 1（`/` 2 份）已转 PASS，不再计入。
-若 2/3/4/5 全部按推荐方案实施，token 读数预期再降 8 份（ok 1638→1646、crash 45→37、diff 9 不变）。
+**合计影响（场景 3 落地后）：剩余 basic-token 红 6 份**（`$` 3 + BOM 1 + shebang 2）；场景 1（`/` 2）与场景 3 的 4 位形（`\uXXXX` 2）已转 PASS；`\u{…}` 花括号形仍缺（若把它单列为第 7 个场景项，则剩余为 7）；`>>` 属口径项且已绿。
+若场景 2/4/5 继续按推荐方案实施，token 读数预期再降 6 份（ok 1640→1646、crash 43→37、diff 9 不变）。
 
 ## 9. `typescript/cases/basic-token.ts` 候选活跃行
 
@@ -283,7 +279,7 @@ parser 按需重组成移位运算符。影响面最大：所有 `>>` / `>>>` / 
 | --- | --- |
 | 1 `/`（**已加入 corpus**） | `while (a) /re/g;`、`if (a) /re/g;`、`for (;;) /re/g;`、`do { } while (a) /re/g;`、`try { } catch (e) { } /re/g;`、嵌套两条、守卫 4 条 |
 | 2 `$` | `const $x = 1;`、`const a$b = 2;`、`interface I$X { a: number }` |
-| 3 `\uXXXX` | `const \u0061bc = 1;`（源码写转义序列） |
+| 3 `\uXXXX`（**已加入 corpus**） | `const \u0061bc = 1;`、`const a\u0062c = 2;`、`function f\u0066() {}`、`class C\u0031 {}`、`interface I\u0041 { a: number }`、`const o = { \u0061: 1 };` |
 | 4 BOM | `<U+FEFF>const bom = 1;`（行首 U+FEFF） |
 | 5 shebang | `#!/usr/bin/env node` 换行 `const a = 1;` |
 | 6 `>>` | `const d = <Array<number>>y;`（当前口径已可 PASS）；若拆 token 再加 `a >> b;`、`a >>> b;` |
