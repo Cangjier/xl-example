@@ -5,8 +5,8 @@
 // 1. 控制头 `)` 之后 `/`：`/` 现被判成 `Symbol("/")`（除号），语句起点以 `/` 开头时抛
 //    「不支持的表达式起点」（`expr-r1233-control-head-regex`、statements M 组 1 份）。
 //    边界对照：`(` 之后的 `/` 已能判成正则（见下方 if (/x/) 一行）。
-// 2. `$` 作标识符字符：`$x` / `a$b` / `I$X` 被拆成 `Symbol($)+Common(x)`（3 份，lex-ident-dollar-*）。
-//    改动须同时保留 `$"…"` 内插前缀的 lookahead 回退。
+// 2. `$` 作标识符字符：**已实施**——用户指定从 core 符号表删除 `case "$":`（非 Ban）；`$` 归 Common，
+//    `$"…"` 内插前缀在 ts 模板 HasInterpolationPrefix=false，无依赖。
 // 3. `\uXXXX` 转义标识符：**已实施**（4 位形）—— token 层把合法的 `\u`+4hex 并进 Common，
 //    IdentifierShape 解码进 EscapedText（原文区间不变）；`\u{…}` 花括号形仍缺。
 // 4. U+FEFF（BOM）算 trivia：`Common` 会把 `\uFEFFconst` 吞成一个词（1 份，lex-bom，BOM 在中间行行首）。
@@ -40,3 +40,9 @@ function f\u0066() {}
 class C\u0031 {}
 interface I\u0041 { a: number }
 const ue3 = { \u0061: 1 };
+// 场景 2（已实施）：`$` 作标识符字符（core 符号表直接移除 `$`）
+const de1 = $x;
+const de2 = a$b;
+interface I$X { a: number }
+$();
+const de3 = { $x: 1 };
