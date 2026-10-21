@@ -103,7 +103,6 @@ switch (item) {
   case "!":
   case "@":
   case "#":
-  case "$":
   case "%":
   case "^":
   case "&":
