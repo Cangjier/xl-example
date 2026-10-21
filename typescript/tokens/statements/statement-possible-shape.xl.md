@@ -72,7 +72,13 @@ if (state.Checked !== tokenIndex + 1) {
     }
   }
   const owner = units[tokenIndex].Parent;
-  StatementScanner.AtEOF = owner !== null && owner.SourceRange.End !== null;
+  // 「本层到头」有两条证据：宿主已签出（旧判据），或**当前单元之后文档里已经没有内容**
+  // （`NextChar` 跳过空白与注释后是空串）。后者让「文件最后一条无分号语句」在它的最后一个
+  // 代码单元上就收口，而不是拖到 EOF 哨兵上——拖到 EOF 时终结候选会与它同时成立（§6 B 组）。
+  // 有 `;` 的语句不受影响（走各自老路径）；变量语句走 `stopAtEof` 也不受影响。
+  const unitEnd = units[tokenIndex].SourceRange.End;
+  StatementScanner.AtEOF = (owner !== null && owner.SourceRange.End !== null)
+    || (unitEnd !== null && StatementScanner.NextChar(unitEnd) === "");
   const result:StatementScanResult = StatementScanner.ScanRoot(code);
   state.Status = result.Status;
   if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
