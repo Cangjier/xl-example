@@ -52,6 +52,8 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 ## field Angle:int = 0
 
+## field SplitAt:int = -1
+
 # class FunctionDeclarationPossibleShape extends PossibleShape
 
 ```txt
@@ -94,6 +96,7 @@ if (state.Checked > tokenIndex + 1) {
   state.SplitDeclare = false;
   state.FunctionAt = -1;
   state.Angle = 0;
+  state.SplitAt = -1;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -231,6 +234,40 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.DoneAt = at;
       continue;
     }
+    // 返回类型之后换行、下一行以标识符开始的新语句（`declare function f<T>(): T` ⏎ `f<string>;`）：
+    // TS 的 ASI 在这里把声明截断，剩下的单元是一条独立的 ExpressionStatement。
+    // 这里只记截断点，等 `;` / EOF 收口时由 BuildByIndex 一次建两条（shape 不能返回兄弟节点）。
+    const nextText = unit instanceof Common ? (unit as Common).TempToString() : "";
+    const typeContinuation = nextText === "is" || nextText === "asserts" || nextText === "extends"
+      || nextText === "keyof" || nextText === "infer" || nextText === "readonly"
+      || nextText === "unique" || nextText === "typeof" || nextText === "in"
+      || nextText === "out" || nextText === "as" || nextText === "satisfies"
+      || nextText === "import";
+    if (unit instanceof Common
+      && !typeContinuation
+      && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
+      && !ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
+      let previous = at - 1;
+      while (previous >= 0 && units[previous].IsTriviaToken) {
+        previous--;
+      }
+      let canEndType = false;
+      if (previous >= 0) {
+        const previousUnit = units[previous];
+        if (previousUnit instanceof Common) {
+          canEndType = true;
+        } else if (previousUnit instanceof Bracket) {
+          const bracketChar = (previousUnit as Bracket).StartBracketChar;
+          canEndType = bracketChar === "(" || bracketChar === "[";
+        } else if (previousUnit instanceof Symbol) {
+          canEndType = (previousUnit as Symbol).Is(">");
+        }
+      }
+      if (canEndType && state.SplitAt < 0) {
+        state.SplitAt = at;
+      }
+      continue;
+    }
     // Anything inside a return type (names / keywords / operators / brackets) is just type content.
     continue;
   }
@@ -360,6 +397,20 @@ if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
   host.Data.splice(start, tokenIndex - start + 1, expression, declaration);
   expression.Parent = host;
   declaration.Parent = host;
+  return declaration;
+}
+const splitAt = state === null ? -1 : state.SplitAt;
+if (state !== null && splitAt > start && splitAt <= tokenIndex) {
+  // 被 ASI 截断：声明建到截断点前一个代码单元，剩余单元作为兄弟 ExpressionStatement 建出。
+  let declarationEnd = splitAt - 1;
+  while (declarationEnd >= start && host.Data[declarationEnd].IsTriviaToken) {
+    declarationEnd--;
+  }
+  const declaration = FunctionDeclarationShape.FromUnits(host, start, declarationEnd, context, true);
+  const trailing = ExpressionStatementShape.FromUnits(host, splitAt, tokenIndex, context, true);
+  host.Data.splice(start, tokenIndex - start + 1, declaration, trailing);
+  declaration.Parent = host;
+  trailing.Parent = host;
   return declaration;
 }
 const built = FunctionDeclarationShape.FromUnits(host, start, tokenIndex, context);
