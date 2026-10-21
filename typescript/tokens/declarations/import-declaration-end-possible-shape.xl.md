@@ -113,8 +113,17 @@ while (at < count) {
   if (ch === "/" && at + 1 < count) {
     const next = document.At(at + 1).Value;
     if (next === "/") {
-      // line comment: the declaration ends at the line break (ASI).
-      return true;
+      // 行注释不是边界：声明是否结束要看**下一行首词**。
+      // `import { a } //c` ⏎ `from "m"` 里 `from` 是续接关键字，声明还没完；
+      // 只有下一行首词不在续接表里才在换行处结束（ASI）。
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      if (at >= count) {
+        return true;
+      }
+      return !ImportDeclarationEndPossibleShape.IsContinuationWordAt(document, at + 1, count);
     }
     if (next === "*") {
       at += 2;
@@ -135,20 +144,7 @@ while (at < count) {
       }
       break;
     }
-    let word = "";
-    while (at < count) {
-      const c = document.At(at).Value;
-      if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c === "_" || c === "$") {
-        word += c;
-        at++;
-        continue;
-      }
-      break;
-    }
-    if (word === "with" || word === "assert" || word === "from" || word === "as" || word === "defer") {
-      return false;
-    }
-    return true;
+    return !ImportDeclarationEndPossibleShape.IsContinuationWordAt(document, at, count);
   }
   if (ch === ";") {
     return false;
@@ -156,6 +152,35 @@ while (at < count) {
   return false;
 }
 return true;
+```
+
+## static method IsContinuationWordAt:(document:any, at:int, count:int)=>bool
+
+`at` 起（先跳过空白）读一个标识符词；它是 import 声明的续接关键字（`with` / `assert` / `from` /
+`as` / `defer`）时返回 true。行注释与换行两条路共用它，保证「注释后的下一行」和「纯换行后的下一行」
+读到同一份续接表。
+
+```ts
+let scan = at;
+while (scan < count) {
+  const gap = document.At(scan).Value;
+  if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n") {
+    scan++;
+    continue;
+  }
+  break;
+}
+let word = "";
+while (scan < count) {
+  const c = document.At(scan).Value;
+  if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c === "_" || c === "$") {
+    word += c;
+    scan++;
+    continue;
+  }
+  break;
+}
+return word === "with" || word === "assert" || word === "from" || word === "as" || word === "defer";
 ```
 
 ## static method IsCompleteAt:(units:Array<Token>, last:int)=>bool
