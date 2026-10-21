@@ -94,16 +94,9 @@ while (builder.At < builder.Units.length) {
   const headUnit = builder.Units[nameIndex];
   // 类型字面量当实体名（`interface I extends { a: 1 } { }`，r1237）：这一格是**类型位**，
   // 交给 TypeBuilder 的 TypeLiteral；不能走 ExpressionBuilder（那会得到 ObjectLiteral 表达式）。
-  if (headUnit instanceof Bracket && (headUnit as Bracket).StartBracketChar === "{") {
-    const literal = builder.ParseType();
-    const literalEnd:Token = literal;
-    const literalExpression = ExpressionWithTypeArgumentsShape.FromParts(literal, [], literalEnd, builder.Positions[nameIndex], context);
-    if (keyword === null) {
-      throw new Error("继承子句缺少 extends / implements 关键字");
-    }
-    currentTypes.push(literalExpression);
-    continue;
-  }
+  // `extends { a: 1 }` 里那个 `{…}` 是**表达式位**：TS 的 AST 是
+  // ExpressionWithTypeArguments.expression = ObjectLiteralExpression（不是 TypeLiteral）。
+  // 所以这里不特殊处理，落到下面的 ExpressionBuilder 分支即可。
   const secondUnit:Token | null = nameIndex + 1 < builder.Units.length ? builder.Units[nameIndex + 1] : null;
   // Expression carrier cases: `(expr)`, `name.member` (property access), `name(...)` (call).
   // They are parsed with ExpressionBuilder; the plain name + optional `<type args>` form keeps TypeBuilder.
