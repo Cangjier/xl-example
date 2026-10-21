@@ -18,6 +18,7 @@ import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
+import { IndexSignatureShape } from "../types/index-signature-shape.xl.md"
 import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { MethodDeclarationShape } from "../types/method-declaration-shape.xl.md"
@@ -593,6 +594,42 @@ while (at < code.length) {
       && text !== "async" && text !== "accessor" && text !== "get" && text !== "set") {
       break;
     }
+    // 这一格也可能是成员名（`readonly() {}` / `private` ⏎ `m() {}`）：只有下一格确实是
+    // 「被修饰的成员」时才算修饰词。判据二选一：
+    // ① 与下一格之间没有换行 —— TS 的 ASI：换行（块注释里的换行也算）之后该词已收成只有名字的字段；
+    // ② 下一格不是名字后才会跟的单元（`(` `<` `?` `=` `;` `!` `:` 等）。
+    const modifierNext = at + 1 < code.length ? code[at + 1] : null;
+    if (modifierNext === null) {
+      break;
+    }
+    let isModifier = true;
+    // 下一格本身还是修饰词时，换行不改变它（`public static` ⏎ `readonly a` 仍是一条成员）；
+    // 只有「下一格是普通名字」时，换行才按 ASI 把当前词收成字段名。
+    let nextIsModifierWord = false;
+    if (modifierNext instanceof Common) {
+      const nextWord = (modifierNext as Common).TempToString();
+      nextIsModifierWord = nextWord === "readonly" || nextWord === "static" || nextWord === "private"
+        || nextWord === "public" || nextWord === "protected" || nextWord === "abstract"
+        || nextWord === "declare" || nextWord === "override" || nextWord === "async"
+        || nextWord === "accessor" || nextWord === "get" || nextWord === "set";
+    }
+    if (!nextIsModifierWord && MemberBoundary.HasLineBreakBetween(code[at], modifierNext)) {
+      isModifier = false;
+    }
+    if (isModifier && modifierNext instanceof Bracket && (modifierNext as Bracket).StartBracketChar === "(") {
+      isModifier = false;
+    }
+    if (isModifier && modifierNext instanceof Symbol) {
+      const nextText = (modifierNext as Symbol).TempToString();
+      if (nextText === "<" || nextText === "?" || nextText === "?:" || nextText === "="
+        || nextText === ";" || nextText === "!" || nextText === ")" || nextText === ","
+        || nextText === ":") {
+        isModifier = false;
+      }
+    }
+    if (!isModifier) {
+      break;
+    }
     if (text === "static") {
       hasStatic = true;
     }
@@ -675,8 +712,31 @@ while (at < code.length) {
   }
   let nameShape:Token | null = null;
   let nameText = "";
+  let indexSignatureParameter:Token | null = null;
   const nameUnit = code[at];
   if (nameUnit instanceof Bracket && (nameUnit as Bracket).StartBracketChar === "[") {
+    // 索引签名 `[k: T]` 与计算名 `[expr]` 在同一格分派：括号内容是「名字 + `:`」时判为索引签名，
+    // 复用 TypeBuilder 的索引参数口径（与 interface / 类型字面量侧同一套提取），而不是交给表达式。
+    const indexCandidate = nameUnit as Bracket;
+    const indexCode:Array<Token> = [];
+    for (const item of indexCandidate.Data) {
+      if (!item.IsTriviaToken) {
+        indexCode.push(item);
+      }
+    }
+    if (indexCode.length >= 3 && indexCode[0] instanceof Common
+      && indexCode[1] instanceof Symbol && (indexCode[1] as Symbol).Is(":")) {
+      const parameterBuilder = new TypeBuilder(host.Template, context);
+      parameterBuilder.Load([indexCandidate], previousEnd + 1);
+      indexSignatureParameter = parameterBuilder.ParseIndexParameter(indexCandidate);
+    }
+  }
+  if (indexSignatureParameter !== null) {
+    if (nameUnit.SourceRange.End !== null) {
+      previousEnd = nameUnit.SourceRange.End.Index;
+    }
+    at++;
+  } else if (nameUnit instanceof Bracket && (nameUnit as Bracket).StartBracketChar === "[") {
     const computedBracket = nameUnit as Bracket;
     const inner = new ExpressionBuilder(host.Template, context);
     let innerBase = 0;
@@ -754,7 +814,7 @@ while (at < code.length) {
   } else {
     throw new Error("类成员名字不是标识符");
   }
-  if (nameShape === null) {
+  if (nameShape === null && indexSignatureParameter === null) {
     throw new Error("类成员缺少名字");
   }
   // 可选方法 `m?()` / `[X.y]?<K>(...)`：`?` 后跟 `<` 或 `(` 时是 MethodDeclaration 的 QuestionToken。
@@ -936,7 +996,9 @@ while (at < code.length) {
       memberShape.Add(asteriskToken);
     }
     if (!(memberShape instanceof ConstructorShape)) {
-      memberShape.Add(nameShape);
+      if (nameShape !== null) {
+        memberShape.Add(nameShape);
+      }
       if (methodQuestionToken !== null) {
         memberShape.Add(methodQuestionToken);
       }
@@ -1083,6 +1145,27 @@ while (at < code.length) {
   } else if (at < code.length && StatementScanner.NoLineBreakBetween(code[at - 1], code[at])) {
     throw new Error("类成员之间缺少分隔符");
   }
+  if (indexSignatureParameter !== null) {
+    // 索引签名成员的 children 顺序与 TS 一致：修饰词、Parameter、值类型；`[`…`]`、`:` 不进 Data。
+    const signature = new IndexSignatureShape(host.Template);
+    for (const modifier of modifiers) {
+      signature.Add(modifier);
+    }
+    signature.Add(indexSignatureParameter);
+    if (typeShape !== null) {
+      signature.Add(typeShape);
+    }
+    signature.Parameter = indexSignatureParameter;
+    signature.Type = typeShape;
+    signature.MemberModifiers = modifiers;
+    // 与属性同口径：尾随 `;` 存在时 TS 的 IndexSignature end 也包含它。
+    signature.SignInToken(firstUnit);
+    signature.SignOutToken(endUnit);
+    signature.Pos = startPos;
+    signature.TryToClose(context);
+    members.push(signature);
+    continue;
+  }
   const property = new PropertyDeclarationShape(host.Template);
   for (const decorator of decorators) {
     property.Add(decorator);
@@ -1090,7 +1173,9 @@ while (at < code.length) {
   for (const modifier of modifiers) {
     property.Add(modifier);
   }
-  property.Add(nameShape);
+  if (nameShape !== null) {
+    property.Add(nameShape);
+  }
   if (exclamationToken !== null) {
     property.Add(exclamationToken);
   }
