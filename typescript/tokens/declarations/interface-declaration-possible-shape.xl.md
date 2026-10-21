@@ -12,6 +12,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -111,17 +112,8 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (state.Stage === 3) {
     // 类型形参 / 泛型实参里的 `{ a: A }`（类型字面量）不是类/接口体：用尖括号深度区分。
     if (unit instanceof Symbol) {
-      const angleText = (unit as Symbol).TempToString();
-      if (angleText === "<") {
-        state.AngleDepth++;
-        continue;
-      }
-      if (angleText === ">") {
-        if (state.AngleDepth > 0) {
-          state.AngleDepth--;
-        }
-        continue;
-      }
+      state.AngleDepth = AngleJudge.Guard(unit, state.AngleDepth);
+      continue;
     }
     if (state.AngleDepth === 0 && unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
       // 非空接口体不再 Reject：成员由 InterfaceDeclarationShape.BuildMembers 逐个建。

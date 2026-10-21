@@ -9,6 +9,7 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { AngleJudge } from "./angle-judge.xl.md"
 import { DotDotDotTokenShape } from "../punctuation/dot-dot-dot-token-shape.xl.md"
 import { MinusTokenShape } from "../punctuation/minus-token-shape.xl.md"
 import { PlusTokenShape } from "../punctuation/plus-token-shape.xl.md"
@@ -165,7 +166,7 @@ for (const unit of units) {
   }
   if (unit instanceof Symbol) {
     const text = (unit as Symbol).TempToString();
-    if (this.IsSplitClose(text) && unit.SourceRange.Start !== null) {
+    if (AngleJudge.IsSplitClose(text) && unit.SourceRange.Start !== null) {
       const head = unit.SourceRange.Start;
       for (let index = 0; index < text.length; index++) {
         const pieceSource = head.Document.At(head.Index + index);
@@ -1804,22 +1805,6 @@ if (right.SourceRange.End !== null) {
 shape.Pos = (left as ShapeToken).Pos;
 shape.TryToClose(this.Context);
 return shape;
-```
-
-## method IsSplitClose:(text:string)=>bool
-
-是不是「连续闭合尖括号」：长度 ≥ 2 且每个字符都是 `>`（`>>` / `>>>`）。这种 `Symbol` 要拆成多个单元。
-
-```ts
-if (text.length < 2) {
-  return false;
-}
-for (const item of text) {
-  if (item !== ">") {
-    return false;
-  }
-}
-return true;
 ```
 
 ## method ParseTypeQuery:(start:int)=>Token
