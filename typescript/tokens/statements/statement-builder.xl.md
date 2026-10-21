@@ -11,6 +11,9 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
+import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
+import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
+import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
@@ -257,6 +260,23 @@ if (unit instanceof Common) {
   if (text === "let" || text === "const" || text === "var") {
     return this.BuildVariableStatement();
   }
+  // 标签语句的被标体（`iface: interface I {}` / `en: enum E {}` / `t: type T = X`）：
+  // 声明关键字在块 / 被标体位置出现时交给既有声明构建器，而不是退化成表达式语句。
+  if (text === "interface") {
+    return this.BuildInterfaceDeclaration();
+  }
+  if (text === "enum") {
+    return this.BuildEnumDeclaration();
+  }
+  if (text === "type") {
+    const afterType = this.Peek(1);
+    if (afterType !== null && afterType instanceof Common) {
+      const third = this.Peek(2);
+      if (third !== null && (this.IsSymbol(third, "=") || this.IsSymbol(third, "<"))) {
+        return this.BuildTypeAliasDeclaration();
+      }
+    }
+  }
   if (text === "if") {
     return this.BuildIf();
   }
@@ -398,6 +418,78 @@ if (end < 0) {
 }
 const hostLike:any = { Data: this.Units, Template: this.Template };
 const shape = ClassDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+shape.Pos = this.Positions[first];
+this.At = end + 1;
+return shape;
+```
+
+## method BuildInterfaceDeclaration:()=>Token
+
+块 / 被标体位置的 `interface` 声明：交给 `InterfaceDeclarationShape.FromUnits`，体是那个 `{...}` 括号单元。
+
+```ts
+const first = this.At;
+let cursor = this.At + 2;
+let end = -1;
+while (cursor < this.Units.length) {
+  const unit = this.Units[cursor];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    end = cursor;
+    break;
+  }
+  cursor++;
+}
+if (end < 0) {
+  throw new Error("接口声明缺少接口体");
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = InterfaceDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+shape.Pos = this.Positions[first];
+this.At = end + 1;
+return shape;
+```
+
+## method BuildEnumDeclaration:()=>Token
+
+块 / 被标体位置的 `enum` 声明：交给 `EnumDeclarationShape.FromUnits`。
+
+```ts
+const first = this.At;
+let cursor = this.At + 2;
+let end = -1;
+while (cursor < this.Units.length) {
+  const unit = this.Units[cursor];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    end = cursor;
+    break;
+  }
+  cursor++;
+}
+if (end < 0) {
+  throw new Error("枚举声明缺少枚举体");
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = EnumDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+shape.Pos = this.Positions[first];
+this.At = end + 1;
+return shape;
+```
+
+## method BuildTypeAliasDeclaration:()=>Token
+
+块 / 被标体位置的 `type X = …`：交给 `TypeAliasDeclarationShape.FromUnits`，末单元是 `;` 或本段最后单元（无分号 ASI）。
+
+```ts
+const first = this.At;
+let end = this.Units.length - 1;
+for (let at = this.At; at < this.Units.length; at++) {
+  if (this.IsSymbol(this.Units[at], ";")) {
+    end = at;
+    break;
+  }
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = TypeAliasDeclarationShape.FromUnits(hostLike, first, end, this.Context);
 shape.Pos = this.Positions[first];
 this.At = end + 1;
 return shape;
