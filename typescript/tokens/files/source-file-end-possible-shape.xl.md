@@ -125,10 +125,29 @@ if (!(host.Data[tokenIndex] instanceof EndOfFileTokenShape)) {
     end--;
   }
   const asiStart = ItemUtil.ItemStart(host.Data);
+  // 边界格（下一条语句的第一个代码单元）要在 splice 之前抓住：splice 之后它的下标会整体左移。
+  const boundaryUnit = tokenIndex >= 0 && tokenIndex < host.Data.length ? host.Data[tokenIndex] : null;
   if (end >= asiStart && host.Data[end].IsBasicToken) {
     const built = ExpressionStatementShape.FromUnits(host, asiStart, end, context, false);
     host.Data.splice(asiStart, end - asiStart + 1, built);
     built.Parent = host;
+    // 边界格若是裸块 `{}`：它就是下一条语句（BlockStatement），这里当场建掉。
+    // 否则它会以 basic token 的形态留到 EOF，和 StatementPossibleShape 在 EOF 格的 Accept 撞共存。
+    if (boundaryUnit instanceof Bracket && (boundaryUnit as Bracket).StartBracketChar === "{") {
+      let blockPos = 0;
+      const blockEnd = end >= 0 ? host.Data[asiStart].SourceRange.End : null;
+      if (blockEnd !== null) {
+        blockPos = blockEnd.Index + 1;
+      }
+      const blockBuilder = new StatementBuilder(host.Template, context);
+      blockBuilder.Load([boundaryUnit], blockPos);
+      const blockStatement = blockBuilder.BuildStatement();
+      const boundaryAt = host.Data.indexOf(boundaryUnit);
+      if (boundaryAt >= 0) {
+        host.Data.splice(boundaryAt, 1, blockStatement);
+        blockStatement.Parent = host;
+      }
+    }
   }
   return host;
 }
@@ -138,7 +157,27 @@ while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOf
 }
 const start = ItemUtil.ItemStart(host.Data);
 if (at >= start && host.Data[at].IsBasicToken) {
-  if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
+  // 被 ASI 切出来的裸块 `{}`（`a.class` ⏎ `{}`）：它是一条 **BlockStatement**，不是对象字面量。
+  // EOF 兜底若走 ExpressionStatementShape.FromUnits，块会被投成对象字面量（结构差）；
+  // 这里交给 StatementBuilder 按正常语句路径建。
+  if (start === at && host.Data[at] instanceof Bracket
+    && (host.Data[at] as Bracket).StartBracketChar === "{") {
+    let blockPos = 0;
+    for (let index = start - 1; index >= 0; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const previousEnd = host.Data[index].SourceRange.End;
+        if (previousEnd !== null) {
+          blockPos = previousEnd.Index + 1;
+        }
+        break;
+      }
+    }
+    const blockBuilder = new StatementBuilder(host.Template, context);
+    blockBuilder.Load([host.Data[start]], blockPos);
+    const blockStatement = blockBuilder.BuildStatement();
+    host.Data.splice(start, 1, blockStatement);
+    blockStatement.Parent = host;
+  } else if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
     const built = ExpressionStatementShape.FromUnits(host, start, at, context, false);
     host.Data.splice(start, at - start + 1, built);
     built.Parent = host;
