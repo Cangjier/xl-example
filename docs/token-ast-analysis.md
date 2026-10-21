@@ -322,3 +322,17 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 - 已委托：expression-builder 的 `FindTypeArgumentClose` / `CanStartTypeArgumentCall` / `CanStartTypeArguments` / `MatchAngleClose`（`ParseAngleStart` 经薄包装），statement-builder 的 `IsTypeArgumentStart`；class / function / interface 声明候选已委托 `AngleJudge.Shift` / `AngleJudge.Guard`；statement-builder 初始化器的手写计数也已收进 `AngleJudge.ScanDepth`；`type-builder` 的 `IsSplitClose` 调用已指向 `AngleJudge.IsSplitClose`（**只做符号拆分的拆分器仍留在 type-builder**）。至此**手写 `<`/`>`/`>>`/`>>>` 计数 0 处**，只剩 AngleJudge 内部与一行薄包装/拆分器。
 - 读数：token 语料 baseline 1646/37/9 → **1648 ok / 35 crash / 9 diff**（逐文件 improved 2：`expr-inst-tagged.ts`、`gap-r977-inst-tagged-two-args.ts`；regressed 0 / other 0）；**剩余 44 = 35 crash + 9 diff**（HEAD `5b5e2c34`）；`ast:cases` 4622→**4806**（新增 `typescript/cases/angle.ts` 19 条守卫，42 个构造，identical 4806/4806、结构/位置/字段差 0/0/0）；`ast:dts` 226/226。
 - 未修：`declarations/decl-obj-destructure-computed-key.ts`、`types/type-parameter-list.ts` 仍红，与本次判据收敛无因果（委托前后崩溃消息不变，见 §6.2 原记录）。
+
+## 10. 剩余 44 失败的分区分析（交叉引用）
+
+HEAD `85daba1d` 起，剩余失败已由四份分区文档逐份归因，并汇总为一份去重后的分类与分批计划：
+
+- `docs/remaining-gaps-declarations.md`（分支 `cover-gaps-decl` @ `383d1182`；19 crash = 18 declarations + ambiguous 1）
+- `docs/remaining-gaps-statements.md`（`cover-gaps-stmt` @ `69558d66`；9 crash，含同一个 ambiguous）
+- `docs/remaining-gaps-types-modules.md`（`cover-gaps-types` @ `804fca2f`；8 crash = types 6 + modules 2）
+- `docs/remaining-gaps-diffs.md`（`cover-gaps-diffs` @ `bb9243eb`；9 diff，known-gap 2）
+- **汇总**：`docs/remaining-gaps-analysis.md`（`cover-gaps-summary`）——44 = 35 crash + 9 diff
+  （去重：`ambiguous/am-declare-module-nested.ts` 在两份文档各记一次，只计 1 次）；含 18 行去重主分类表、
+  7 条跨组共用根因、§6 七类计数，以及 4 阶段修复计划（基线 1648/35/9 → 全清后 1692/0/0）。
+
+本节只做交叉引用，不改变本文已有数字与结论；§3–§5 的历史计数（191 条）保持不变。
