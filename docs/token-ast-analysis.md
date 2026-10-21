@@ -13,7 +13,7 @@
 **basic token 8 条（归因条数；按受影响文件是 11 份，口径见 §3 脚注与 §5）**。也就是说：
 **token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
 「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**
-（ok/crash/diff/ts-invalid），最终主仓 `0e02c751`（Plan A + 场景 2/3/4/5 已合入，含场景 4 方案 (b)）为 **1646/37/9/10/1**、ast:cases **4787/4787、0/0/0**。
+（ok/crash/diff/ts-invalid），最终主仓 `bf2ea5dd`（round-16 merge；实现提交 `2f20a985`；Plan A + 场景 2/3/4/5 已合入，含场景 4 方案 (b)）为 **1646/37/9/10/1**、ast:cases **4787/4787、0/0/0**。
 
 ## 0. 数据来源与口径
 
@@ -198,7 +198,7 @@
 
 ### 6.2 仍剩的缺口（场景 4 方案 (b) 落地后：**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）
 
-剩余 **46 处 = 37 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫；Plan A 收 2、场景 2 收 3、场景 3 收 2、场景 4 收 3、场景 5 收 2，`8dbb7976` 时为 56 = 47+9），按**当前实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组）：
+剩余 **46 处 = 37 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫；Plan A −2、场景 2 −3、场景 3 −2、场景 4/5（basic token）−2、场景 4(b) −1，合计 −10（56→46），`8dbb7976` 时为 56 = 47+9），按**当前实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组）：
 
 | 目录 | 条数 | 说明 |
 | --- | --- | --- |
@@ -313,4 +313,4 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 主仓 `0e02c751`（含场景 4 方案 (b)）`token-ast.mjs --json` 实测（**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | 主仓 `bf2ea5dd`（round-16 merge；实现提交 `2f20a985`；含场景 4 方案 (b)）`token-ast.mjs --json` 实测（**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |

@@ -4,7 +4,7 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：最终主仓 `0e02c751`（Plan A + 场景 2/3/4/5 已合入；场景 4 方案 (b) 已落地）读数 **1646/37/9/10/1**，剩余 **46 = 37 crash + 9 diff**；
+**结论先行**：最终主仓 `bf2ea5dd`（round-16 merge；实现提交 `2f20a985`；Plan A + 场景 2/3/4/5 已合入，含场景 4 方案 (b)）读数 **1646/37/9/10/1**，剩余 **46 = 37 crash + 9 diff**；
 本清单 7 个场景里 **实测仍红 0 份**（`lex-bom.ts` 随方案 (b) 转 PASS；`/`、`$`、`\uXXXX` 4 位形、shebang 均已转 PASS）；`\u{…}` 花括号形仍单列缺。
 `>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 **1**（仅 `>>` 口径项）；
 `async` 是口径注记、当前无失败文件。
@@ -160,9 +160,9 @@ BOM 出现在**代码行行首**（`\uFEFFconst a = 1;`），第一个 token 被
 
 **三条候选（用户已选 (b)；(a)/(c) 未采用）**：
 
-1. **(a) 改 fixture + parseDirectives**：把 `tests/cases/token/lexical/lex-bom.ts` 的 U+FEFF 移到 **raw index 0**，并让 `parseDirectives` 容忍 BOM（**需用户批准改语料**）。语义最干净：BOM 真的成为文件头 trivia。
-**已采用：** 2. **(b) 放宽
-3. **(c) BOM 字符当空白（TS parity）**：在 `SymbolTemplate.IsWhiteSpace` / 空白判定里把配置的 BOM 字符当空白（任意位置），`Bom` token 仍只在 index 0。`ts.createSourceFile` 对 mid-file U+FEFF 也是 **0 诊断**，所以这条最贴近 TS；影响面是所有语言的空白表。
+**未采用：** 1. **(a) 改 fixture + parseDirectives**：把 `tests/cases/token/lexical/lex-bom.ts` 的 U+FEFF 移到 **raw index 0**，并让 `parseDirectives` 容忍 BOM（**需用户批准改语料**）。语义最干净：BOM 真的成为文件头 trivia。
+**已采用：** 2. **(b) 放宽 `Bom.CanStart` 为 `index 0` 或前面只有 trivia（尚无代码 token）**——覆盖 `lex-bom.ts`（BOM 在指令注释之后、第一个代码 token 之前）；仍不把任意位置的 BOM 当空白。旧「方案 B（text-document 同长度替换）」等价于 (a) 的宽松版，已并入此条。
+**未采用：** 3. **(c) BOM 字符当空白（TS parity）**：在 `SymbolTemplate.IsWhiteSpace` / 空白判定里把配置的 BOM 字符当空白（任意位置），`Bom` token 仍只在 index 0。`ts.createSourceFile` 对 mid-file U+FEFF 也是 **0 诊断**，所以这条最贴近 TS；影响面是所有语言的空白表。
 
 **用户裁定：选 (b)**——`Bom.CanStart` 放宽为「index 0 **或** 前面只有 trivia（尚无代码 token）」；`lex-bom.ts` 转 PASS；mid-code BOM 仍不支持。(a) 未采用（不改语料）、(c) 未采用（不把 BOM 当空白）。
 
