@@ -532,6 +532,65 @@ if (!StatementBuilder.EndsExpression(previous)) {
 return !StatementBuilder.ContinuesAcrossLine(next);
 ```
 
+## static method IsTypeArgumentStart:(units:Array<Token>, index:int, limit:int)=>bool
+
+`units[index]` 是 `<`、前面是可接类型实参的实体、后面有配对的 `>` 时，才算类型实参段的开头。
+只做符号层配对：`a < b` 这种没有配对 `>` 的比较不会被算进去。
+
+```ts
+if (index <= 0 || index >= limit) {
+  return false;
+}
+const head = units[index];
+if (!(head instanceof Symbol) || !(head as Symbol).Is("<")) {
+  return false;
+}
+const previous = units[index - 1];
+if (!(previous instanceof Common) && !(previous instanceof Bracket)) {
+  return false;
+}
+let depth = 0;
+for (let at = index; at < limit; at++) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    depth++;
+  } else if (text === ">") {
+    depth--;
+  } else if (text === ">>") {
+    depth -= 2;
+  } else if (text === ">>>") {
+    depth -= 3;
+  }
+  if (depth <= 0) {
+    if (at <= index) {
+      return false;
+    }
+    // 配对的 `>` 之后必须接得上「类型实参段之后的东西」：调用括号 / `??` 这类算子 / 段末，
+    // 否则更像比较运算（`x < y … z > w`），不算类型实参。
+    const after = at + 1;
+    if (after >= limit) {
+      return true;
+    }
+    const follower = units[after];
+    if (follower instanceof Bracket && (follower as Bracket).StartBracketChar === "(") {
+      return true;
+    }
+    if (follower instanceof Symbol) {
+      const followerText = (follower as Symbol).TempToString();
+      return followerText === "??" || followerText === "||" || followerText === "&&"
+        || followerText === "?" || followerText === "?:" || followerText === ":"
+        || followerText === ";" || followerText === "." || followerText === "?.";
+    }
+    return false;
+  }
+}
+return false;
+```
+
 ## method BuildVariableStatement:()=>Token
 
 变量语句：`let` / `const` / `var` / `using` / `await using`。声明列表从关键字到 `;` 之前；`await` 与 `using` 都不进 AST
@@ -656,33 +715,26 @@ while (at < endExclusive) {
         initializerEnd = bodyAt + 1;
       }
     }
-    let asDepth = 0;
-    let sawAs = false;
+    let angleDepth = 0;
     while (initializerEnd < endExclusive) {
       const initializerUnit = this.Units[initializerEnd];
-      if (asDepth === 0) {
+      if (angleDepth === 0) {
         if (this.IsSymbol(initializerUnit, ",")) {
           break;
         }
       }
-      if (initializerUnit instanceof Common) {
-        const initializerText = (initializerUnit as Common).TempToString();
-        if (initializerText === "as" || initializerText === "satisfies") {
-          sawAs = true;
-        }
-      }
-      if (sawAs && initializerUnit instanceof Symbol) {
+      if (initializerUnit instanceof Symbol) {
         const symbolText = (initializerUnit as Symbol).TempToString();
-        if (symbolText === "<") {
-          asDepth++;
+        if (symbolText === "<" && StatementBuilder.IsTypeArgumentStart(this.Units, initializerEnd, endExclusive)) {
+          angleDepth++;
         } else if (symbolText === ">") {
-          if (asDepth > 0) {
-            asDepth--;
+          if (angleDepth > 0) {
+            angleDepth--;
           }
         } else if (symbolText === ">>") {
-          asDepth = asDepth >= 2 ? asDepth - 2 : 0;
+          angleDepth = angleDepth >= 2 ? angleDepth - 2 : 0;
         } else if (symbolText === ">>>") {
-          asDepth = asDepth >= 3 ? asDepth - 3 : 0;
+          angleDepth = angleDepth >= 3 ? angleDepth - 3 : 0;
         }
       }
       initializerEnd++;
