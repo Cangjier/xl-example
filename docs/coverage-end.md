@@ -407,3 +407,45 @@ import+表达式 / 空行 / 注释隔开 / 块注释隔开 / import+export / 两
 
 **明确未做**：C 组 9 条（`export = <expr>` / `export default <expr>` 的无分号收口）留到下一轮；
 TS 静默恢复 3 条（`throw\na;`、`class {}`）与 TS 非法 8 条不入尺子（`docs/end-close-analysis.md` §7）。
+
+## export 赋值语句的无分号收口（C 组，`export =` / `export default <expr>`）
+
+**背景**：A/B 落地后 105 条探针剩 20 条红，其中 9 条是 C 组；另外探同族形态 26 条（对象字面量 / 箭头 / 模板 / 正则 /
+三元 / 数组尾巴），17 条也是红的——说明缺的是一条「`export` 赋值语句无分号收口」的通道，不是孤例。
+
+**TS 口径**：`export = <expr>` 与 `export default <expr>` 是同一个节点 `ExportAssignment`，children 只有表达式
+（`export` / `=` / `default` / `;` 都不是节点）；`Pos` = 前一代码单元 `End+1`，`End` = 最后一个代码单元 `End`。
+
+**四个修点**（全在 `typescript/` 层，未碰 `core/**`）：
+
+1. **形状层无分号入口**：`ExportAssignmentShape.FromUnits(..., requireSemicolon?:bool = true)`（照
+   `ExpressionStatementShape.FromUnits` 的现成模式）；`false` 时不要求末尾 `;`，End 取最后一个代码单元。
+2. **EOF 兜底**：`SourceFileEndPossibleShape.BuildTrailingDeclaration` 增 `isExportEquals` 分支（`export` + `=`），
+   与既有 `isExportDefault` 并列。`export = 1` / 尾注释 / `export = a.b` / `export = f()` 走这一条；
+   `export = 1\nfunction f() {}` 靠既有多声明递归（前缀 export=、后缀 function）。
+3. **候选侧 ASI**：`ExpressionStatementPossibleShape` 新增三个共用静态助手——
+   `HasLineBreakBefore` / `IsExpressionTail`（`CanEndExpression` 之外多认闭合的 `{`，即对象字面量与箭头体）/
+   `IsStatementBoundaryAfterExpression`（换行 + 前一个代码单元能收住表达式 + 当前不是延续符）。
+   `ExportAssignmentPossibleShape`（等 `;` 阶段）与 `ExportDeclarationPossibleShape`（stage 22）命中边界时
+   置 `Done/DoneAt=tokenIndex/Asi=true`，`BuildByIndex` 建到边界之前、splice 不含边界单元
+   （边界单元留在根里给下一条语句，和根 ASI 的产物结构一致）。`IsBuildable` 的 `DoneAt === tokenIndex` 天然满足。
+4. **`abstract` 换行边角（E3）**：stage 25 见 `class` 且与 `abstract` 之间有换行时，把 `abstract` 当 default 表达式
+   （Kind 6 + Asi），不再并成 abstract class；同行的 `export default abstract class C {}` 保持原路径。
+
+**顺带修的一处模板配置**：`TypeScriptRegexTemplate.ExpressionKeywords` 补 `default`。否则 `export default /re/;`
+里的 `/` 被当成除号（「不支持的表达式起点」），正则尾巴的 ASI 形态也无法验证。
+
+**用例**（新 stem `typescript/cases/end-export-assignment.ts`，49 条）：
+C1 EOF 9 条（值 / 成员 / 调用 / 括号 / 对象 / 行注释 / 块注释 / 含换行块注释 / 尾换行）；
+C1 ASI 9 条（表达式 / 无分号 / class / 调用后 class / 注释 / 块注释 / 对象 / 后接 const / 缩进）；
+C2 ASI 16 条（表达式 / 无分号 / 数字 / 调用 / 行注释 / 块注释 / class / function / 对象 / 箭头 / 模板 / 正则 / 三元 / 数组 / 括号 /
+`abstract\nclass`）；对照 15 条（延续符 `+` / 调用括号 / 三元、`export default\n1`、`export =\n1`、带 `;` 路径、
+module block 里的 `export =`）。
+
+**读数（本分支）**：`end-export-assignment` **49 / 49 完全一致**；全量 **4497 / 4497**（基线 4448 + 49，32 个构造），
+结构差 0 / 位置差 0 / 字段差 0，无回归；105 条 deferred 探针 **20 red → 11 red**（C 组 9 条全绿；
+剩 11 条 = TS 静默恢复 3 + TS 非法 8）；C 族扩展探针 **17 red → 0**；tsc 0 error；xl_check 0 error
+（仅仓库既有 W3102/W3103 文档类 warning）。
+
+**仍未收**：`throw\na;` / `class {}` 这 3 条 TS 静默恢复形态（需要合成零宽节点，交用户决定）；
+`export …\nwith {…}` 等 8 条 TS 自身非法的形态（尺子不测）。

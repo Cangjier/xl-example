@@ -40,6 +40,9 @@ return value.length > 0 && /^[\p{ID_Continue}]$/u.test(value);
 
 **数字后缀**：ts 的数字字面量没有 `d` / `f` / `m` / `l` / `u` 这类普通后缀，`PlainSuffixes` 保持空；唯一的后缀是 BigInt 的 `n`。`_` 已经从 core 的符号表里移除，所以 `1_000`、`a_b` 都归 `Common`。
 
+**`default` 也是表达式关键字**：`export default /re/;` 里 `default` 后面直接跟正则；
+少这一项时 `/` 会被当成除号（`export default /re/;` 抛「不支持的表达式起点」）。
+
 ```ts
 const template = new Template();
 template.BranchTemplate.DefaultValue = Template.BasicBranchQueue();
@@ -58,6 +61,7 @@ template.RegexTemplate.ExpressionKeywords = [
   "case",
   "do",
   "else",
+  "default",
   "yield",
   "await",
 ];

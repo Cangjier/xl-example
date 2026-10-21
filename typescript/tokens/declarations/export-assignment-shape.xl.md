@@ -31,18 +31,22 @@ measurement 载体：`export = <表达式>;`。TS 的 children 只有表达式�
 super(template);
 ```
 
-## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ExportAssignmentShape
+## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, requireSemicolon?:bool)=>ExportAssignmentShape
 
-`tokenIndex` 必须落在 `;` 上；初始化式交给 `ExpressionBuilder`（`export = 1;` / `export = a.b;` 同一套）。
+`tokenIndex` 落在 `;` 上时要求最后一块是 `;`；初始化式交给 `ExpressionBuilder`（`export = 1;` / `export = a.b;` 同一套）。
+终结候选在无分号收口（EOF / ASI）时传 `requireSemicolon = false`：最后一个代码单元就是表达式的末尾，
+`End` 取它的 `End`（`;` 不是 `export =` 的节点，本就不该进区间）。
 
 ```ts
+const hasSemicolon = requireSemicolon ?? true;
 const code:Array<Token> = [];
 for (let at = start; at <= tokenIndex; at++) {
   if (!host.Data[at].IsTriviaToken) {
     code.push(host.Data[at]);
   }
 }
-if (code.length < 4) {
+const minimum = hasSemicolon ? 4 : 3;
+if (code.length < minimum) {
   throw new Error("export = 声明不完整");
 }
 const keyword = code[0];
@@ -56,7 +60,7 @@ const isDefault = separator instanceof Common && (separator as Common).Is("defau
 if (!isDefault && (!(separator instanceof Symbol) || !(separator as Symbol).Is("="))) {
   throw new Error("export = 声明缺少等号");
 }
-if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
+if (hasSemicolon && (!(last instanceof Symbol) || !(last as Symbol).Is(";"))) {
   throw new Error("export = 声明缺少分号");
 }
 let pos = 0;
@@ -73,7 +77,7 @@ let expressionPos = 0;
 if (separator.SourceRange.End !== null) {
   expressionPos = separator.SourceRange.End.Index + 1;
 }
-const expressionUnits:Array<Token> = code.slice(2, code.length - 1);
+const expressionUnits:Array<Token> = hasSemicolon ? code.slice(2, code.length - 1) : code.slice(2);
 const builder = new ExpressionBuilder(host.Template, context);
 builder.Load(expressionUnits, expressionPos);
 const expression = builder.ParseExpression();
@@ -86,8 +90,9 @@ shape.Add(expression);
 if (keyword.SourceRange.Start !== null) {
   shape.SignIn(keyword.SourceRange.Start);
 }
-if (last.SourceRange.End !== null) {
-  shape.SignOut(last.SourceRange.End);
+const endUnit = hasSemicolon ? last : code[code.length - 1];
+if (endUnit.SourceRange.End !== null) {
+  shape.SignOut(endUnit.SourceRange.End);
 }
 shape.Pos = pos;
 shape.TryToClose(context);

@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 ```
@@ -34,6 +35,11 @@ import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 ## field DoneAt:int = -1
 
 ## field Rejected:bool = false
+
+## field Asi:bool = false
+
+换行收口：`ComputeByIndex` 在等 `;` 的阶段命中下一条语句起点时置 `true`；
+`BuildByIndex` 据此建到边界之前、splice 不含边界单元（边界单元留在根里给下一条语句）。
 
 # class ExportAssignmentPossibleShape extends PossibleShape
 
@@ -65,6 +71,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
+  state.Asi = false;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -101,6 +108,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
     continue;
   }
+  if (state.Parts > 0 && ExpressionStatementPossibleShape.IsStatementBoundaryAfterExpression(units, at)) {
+    // 无分号收口：下一条语句的第一个代码单元到了——这一条在它前面的换行处结束。
+    state.Done = true;
+    state.DoneAt = tokenIndex;
+    state.Asi = true;
+    break;
+  }
   state.Parts++;
 }
 state.Checked = tokenIndex + 1;
@@ -127,6 +141,17 @@ const state = catalog.PossibleShapesComputeCache.GetState<ExportAssignmentScan>(
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
+}
+if (state !== null && state.Asi) {
+  // 换行收口：建到边界之前，边界单元（下一条语句的第一个代码单元）留在根里。
+  const last = tokenIndex - 1;
+  if (last < start) {
+    return host;
+  }
+  const asiBuilt = ExportAssignmentShape.FromUnits(host, start, last, context, false);
+  host.Data.splice(start, tokenIndex - start, asiBuilt);
+  asiBuilt.Parent = host;
+  return asiBuilt;
 }
 const built = ExportAssignmentShape.FromUnits(host, start, tokenIndex, context);
 host.Data.splice(start, tokenIndex - start + 1, built);

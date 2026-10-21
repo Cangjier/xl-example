@@ -13,6 +13,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
@@ -51,6 +52,11 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 ## field Done:bool = false
 
 ## field DoneAt:int = -1
+
+## field Asi:bool = false
+
+换行收口：`ComputeByIndex` 在等 `;` 的阶段（stage 22 / stage 25 的 `abstract` 边角）命中下一条语句起点时置 `true`；
+`BuildByIndex` 据此建到边界之前、splice 不含边界单元（边界单元留在根里给下一条语句）。
 
 # class ExportDeclarationPossibleShape extends PossibleShape
 
@@ -102,6 +108,7 @@ if (state.At > tokenIndex) {
   state.Kind = 0;
   state.Done = false;
   state.DoneAt = -1;
+  state.Asi = false;
 }
 for (let index = state.At + 1; index <= tokenIndex; index++) {
   state.At = index;
@@ -280,6 +287,16 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
   if (state.Stage === 25) {
     // export default abstract class …。
     if (unit instanceof Common && (unit as Common).Is("class")) {
+      if (ExpressionStatementPossibleShape.HasLineBreakBefore(units, index)) {
+        // TS 把换行前的 `abstract` 当作 default 表达式（Identifier），`class` 起下一条语句；
+        // 同一行的 `export default abstract class C {}` 仍是 abstract class。
+        state.Kind = 6;
+        state.Stage = 4;
+        state.Done = true;
+        state.DoneAt = index;
+        state.Asi = true;
+        continue;
+      }
       state.Stage = 21;
       state.Kind = 16;
       continue;
@@ -447,6 +464,14 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       if (state.DoneAt < 0) {
         state.DoneAt = index;
       }
+      continue;
+    }
+    if (state.Stage === 22 && ExpressionStatementPossibleShape.IsStatementBoundaryAfterExpression(units, index)) {
+      // 无分号收口：下一条语句的第一个代码单元到了——`export default <expr>` 在它前面的换行处结束。
+      state.Done = true;
+      state.DoneAt = index;
+      state.Asi = true;
+      state.Stage = 4;
     }
     continue;
   }
@@ -1227,6 +1252,25 @@ const built = new ExportAssignmentShape(host.Template);
 built.Add(expression);
 if (exportUnit.SourceRange.Start !== null) {
   built.SignIn(exportUnit.SourceRange.Start);
+}
+const asi = state !== null && state.Asi;
+if (asi) {
+  // 换行收口：End 取边界之前最后一个代码单元；splice 不含边界单元（它留给下一条语句）。
+  let tail = tokenIndex - 1;
+  while (tail >= 0 && host.Data[tail].IsTriviaToken) {
+    tail--;
+  }
+  if (tail >= 0) {
+    const tailEnd = host.Data[tail].SourceRange.End;
+    if (tailEnd !== null) {
+      built.SignOut(tailEnd);
+    }
+  }
+  built.Pos = pos;
+  built.TryToClose(context);
+  host.Data.splice(start, tokenIndex - start, built);
+  built.Parent = host;
+  return built;
 }
 if (host.Data[lastIndex].SourceRange.End !== null) {
   built.SignOut(host.Data[lastIndex].SourceRange.End);

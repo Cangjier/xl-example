@@ -1,0 +1,1651 @@
+{
+  "cases": [
+    {
+      "src": "export = 1",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a.b",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "PropertyAccessExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = f()",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = (a)",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 11,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = { a: 1 } // c",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ObjectLiteralExpression",
+              "pos": 8,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PropertyAssignment",
+                  "pos": 10,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1 // c",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = f() /* c */",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = f() /* a\nb */",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = f()\n",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1\na",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1\nclass C {}",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = f()\nclass C {}",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 12,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1 // c\nclass C {}",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 10,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 21,
+              "end": 23,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1 /* c */\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = { a: 1 }\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ObjectLiteralExpression",
+              "pos": 8,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PropertyAssignment",
+                  "pos": 10,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 17,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a.b\nconst x = 1;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "PropertyAccessExpression",
+              "pos": 8,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 25,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1\n  a;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 14,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default x\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default x\na",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default 1\n2;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 14,
+              "end": 16,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 19,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 16,
+              "end": 18,
+              "text": "2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default f()\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default x // c\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 23,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default x /* c */\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 26,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default x\nfunction f() {}",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 16,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 29,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default x\nclass C {}",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 16,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 22,
+              "end": 24,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default { a: 1 }\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ObjectLiteralExpression",
+              "pos": 14,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "PropertyAssignment",
+                  "pos": 16,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "FirstLiteralToken",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default () => {}\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 14,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 17,
+                  "end": 20
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default `t`\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "t"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default /re/\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 14,
+              "end": 19,
+              "text": "/re/"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 19,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a ? b : c\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ConditionalExpression",
+              "pos": 14,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 16,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "b"
+                },
+                {
+                  "kind": "ColonToken",
+                  "pos": 20,
+                  "end": 22
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 24,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default [a]\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 17,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default (a)\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 17,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract\nclass C {}",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 23,
+              "text": "abstract"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 23,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a\n+ b;c;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "a"
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 10,
+                  "end": 12
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 14,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 15,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 16,
+              "text": "c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a\n+ b;c;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 14,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 16,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 23,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 21,
+              "end": 22,
+              "text": "c"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a\n(b);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 8,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 13,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a\n(b);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 14,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 19,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a\n? b : c;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ConditionalExpression",
+              "pos": 14,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 16,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "b"
+                },
+                {
+                  "kind": "ColonToken",
+                  "pos": 20,
+                  "end": 22
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\n1;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 14,
+              "end": 16,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export =\n1;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = 1;\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 11,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 11,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 11,
+              "end": 13,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default 1;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "FirstLiteralToken",
+              "pos": 14,
+              "end": 16,
+              "text": "1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default x;\na;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 17,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default /re/;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 14,
+              "end": 19,
+              "text": "/re/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default abstract class C {};",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "EmptyStatement",
+          "pos": 34,
+          "end": 35
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export = x; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { export = a.b; }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 20,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 29,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 33,
+                          "text": "b"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

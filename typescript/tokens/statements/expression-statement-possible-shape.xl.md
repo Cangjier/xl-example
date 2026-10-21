@@ -350,6 +350,77 @@ if (units[head] instanceof Common
 return !ExpressionStatementPossibleShape.IsContinuation(current);
 ```
 
+## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool
+
+`tokenIndex` 之前紧邻的那段 trivia 里有没有换行（块注释里的换行也算；行注释本身不含换行，换行在它后面那个空白块里）。
+扫到第一个非 trivia 就停——它前面的那段就是「前一代码单元到当前单元」的全部间隔。
+
+```ts
+if (tokenIndex < 1) {
+  return false;
+}
+for (let at = tokenIndex - 1; at >= 0; at--) {
+  const unit = units[at];
+  if (!unit.IsTriviaToken) {
+    return false;
+  }
+  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+    return true;
+  }
+}
+return false;
+```
+
+## static method IsExpressionTail:(unit:Token)=>bool
+
+`export =` / `export default` 的表达式位置：这个代码单元能不能收住一条完整表达式。
+比 `CanEndExpression` 多认一个 `{` 括号——在这个位置上 `{` 只可能是对象字面量 / 箭头函数体，
+而 `CanEndExpression` 分不清 `{` 与裸块，统一按 false 处理。
+
+```ts
+if (ExpressionStatementPossibleShape.CanEndExpression(unit)) {
+  return true;
+}
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+  return true;
+}
+return false;
+```
+
+## static method IsStatementBoundaryAfterExpression:(units:Array<Token>, tokenIndex:int)=>bool
+
+「换行之后，下一条语句的第一个代码单元到了」——`export =` / `export default` 两个候选在等 `;` 的阶段用它收口。
+四条同时成立：当前是代码（不是 trivia / EOF / `;`）；与前一代码单元之间有换行；
+前一代码单元能收住表达式（`IsExpressionTail`）；当前单元不是延续符（`IsContinuation`）。
+
+它不判「本条语句的起点是不是语句关键字」——那一条是 `IsAsiBoundary` 的，而 export 语句的起点永远是 `export`，
+所以那两个候选必须自己判，不能借 `IsAsiBoundary`。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const current = units[tokenIndex];
+if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
+  return false;
+}
+if (current instanceof Symbol && (current as Symbol).Is(";")) {
+  return false;
+}
+if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+  return false;
+}
+let previous = tokenIndex - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+return ExpressionStatementPossibleShape.IsExpressionTail(units[previous])
+  && !ExpressionStatementPossibleShape.IsContinuation(current);
+```
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts

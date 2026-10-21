@@ -325,7 +325,20 @@ if (isExportDefault) {
   host.Data.splice(start, at - start + 1, assignment);
   assignment.Parent = host;
   return true;
-}const isClass = text === "class"
+}
+// `export = 1` 无分号到 EOF：与 `export default 1` 同族（都是 ExportAssignment，children 只有表达式），
+// 区别只在 `export` 后面跟的是 `=`。`End` 由形状取最后一个代码单元。
+const isExportEquals = text === "export"
+  && code.length >= 3
+  && code[1] instanceof Symbol
+  && (code[1] as Symbol).Is("=");
+if (isExportEquals) {
+  const assignment = ExportAssignmentShape.FromUnits(host, start, at, context, false);
+  host.Data.splice(start, at - start + 1, assignment);
+  assignment.Parent = host;
+  return true;
+}
+const isClass = text === "class"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("class"));
 const isInterface = text === "interface"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("interface"));

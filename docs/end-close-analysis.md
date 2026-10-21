@@ -200,3 +200,32 @@ tsc 0 error；xl_check 0 error（仅仓库既有 W3102/W3103 文档类 warning�
 ```
 
 **仍未做**：C 组（`export =` / `export default <expr>` 的无分号收口，9 条）按用户指示留到下一轮。
+
+## 9. 落地状态（第二轮：C 组）
+
+**C 组已转绿**，改动在 5 个规范页 + 1 个模板配置（未碰 `core/**`）：
+
+| 补丁 | 内容 | 文件 |
+| --- | --- | --- |
+| P1 | `ExportAssignmentShape.FromUnits` 加 `requireSemicolon?:bool = true`：`false` 时不要求末尾 `;`，End 取最后一个代码单元 | `export-assignment-shape` |
+| P2 | `BuildTrailingDeclaration` 增 `isExportEquals` 分支（EOF：`export = 1` / 尾注释 / 后接声明） | `source-file-end-possible-shape` |
+| P3 | 三个共用助手 `HasLineBreakBefore` / `IsExpressionTail` / `IsStatementBoundaryAfterExpression`；两个候选（`ExportAssignmentPossibleShape` 的等 `;` 阶段、`ExportDeclarationPossibleShape` 的 stage 22）命中边界时置 `Done/Asi`，`BuildByIndex` 建到边界之前、边界单元还给根 | `expression-statement-possible-shape`、`export-assignment-possible-shape`、`export-declaration-possible-shape` |
+| P4 | stage 25 在 `abstract` 与 `class` 之间有换行时把 `abstract` 当 default 表达式（E3） | `export-declaration-possible-shape` |
+| 附带 | `TypeScriptRegexTemplate.ExpressionKeywords` 补 `default`（否则 `export default /re/;` 的 `/` 被当除号） | `typescript/run/typescript-template` |
+
+关键判据：`IsExpressionTail = CanEndExpression ∨ 闭合的 { 括号`——后者补上对象字面量与箭头函数体
+（`CanEndExpression` 分不清 `{` 与裸块）；`IsStatementBoundaryAfterExpression` 不判「语句起点是不是关键字」，
+所以 export 语句的候选必须自己判，不能借用 `IsAsiBoundary`（第 5 条会把 export 开头的条目整条排除）。
+
+**读数（本分支）**
+
+```text
+新 stem typescript/cases/end-export-assignment.ts：49 条，49/49 完全一致
+全量 ast-json / diff：4497 / 4497 完全一致（32 个构造）；结构差 0 / 位置差 0 / 字段差 0
+105 条 deferred 探针：20 red → 11 red（C 9 条全绿；剩 11 = TS 静默恢复 3 + TS 非法 8）
+C 族扩展探针（对象/箭头/模板/正则/三元/数组尾巴等 26 条）：17 red → 0
+tsc 0 error；xl_check 0 error（仅仓库既有 W3102/W3103 文档类 warning）
+```
+
+**仍未收**：TS 静默恢复 3 条（`throw\na;`、`class {}`，需要合成零宽节点，交用户决定）；
+TS 自身非法 8 条（尺子不测）。
