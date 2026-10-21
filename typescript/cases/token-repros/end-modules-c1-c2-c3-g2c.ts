@@ -18,3 +18,7 @@ try { } catch (e) { }
 declare namespace A {}\nexport as namespace A
 export as namespace JSON
 const x = [1, 2]\nconsole.log(x)
+a.class\n{}
+a.b\n{}
+a.interface\n{}
+a.default\n{}
