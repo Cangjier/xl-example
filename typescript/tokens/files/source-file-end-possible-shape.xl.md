@@ -235,6 +235,19 @@ for (let index = start; index <= at; index++) {
 if (code.length < 2) {
   return false;
 }
+// 孤立修饰词语句：`declare;` / `abstract;`。它们各自是一条 ExpressionStatement（TS 的
+// Identifier 就是关键字本身）。先就地建掉，后面的单元留给下一次 EOF 收口，否则多语句段
+// 会落进同一个 ExpressionStatement 兜底而抛「表达式语句没有读完」。
+if (code[0] instanceof Common) {
+  const standaloneText = (code[0] as Common).TempToString();
+  if ((standaloneText === "declare" || standaloneText === "abstract")
+    && code[1] instanceof Symbol && (code[1] as Symbol).Is(";")) {
+    const standalone = ExpressionStatementShape.FromUnits(host, start, codeAt[1], context, true);
+    host.Data.splice(start, codeAt[1] - start + 1, standalone);
+    standalone.Parent = host;
+    return true;
+  }
+}
 // `do <body> while (…)` 是一条语句：leftover 的换行拆分不能把 body 与 while 切开，
 // 整段交给 StatementBuilder（statements 文档 F 组）。
 const firstCodeText = code[0] instanceof Common ? (code[0] as Common).TempToString() : "";

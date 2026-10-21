@@ -660,9 +660,20 @@ while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusiv
   // （`const a = 1\nbreak`、`declare const o: T\no.m()`、`const last = xs[…]\nlog()`）。
   // 声明列表内的续接（`,` / `=` / `:` / 类型续接符 / `(` `[` `{`）由 `ContinuesAcrossLine`
   // 已经排除；`EndsAtLineBreak` 与 `BuildExpressionStatement` 读的是同一个判据。
-  if (endExclusive > this.At
-    && StatementBuilder.EndsAtLineBreak(this.Units[endExclusive - 1], this.Units[endExclusive])) {
-    break;
+  if (endExclusive > this.At) {
+    const previousUnit = this.Units[endExclusive - 1];
+    const currentUnit = this.Units[endExclusive];
+    if (StatementBuilder.EndsAtLineBreak(previousUnit, currentUnit)) {
+      break;
+    }
+    // `<…>` 类型实参在词法层是一个 Bracket 单元：`as Record<string, number>` ⏎ `console.log(v)`
+    // 的上一格是角度 Bracket，它同样收得住初始化器（换行 + 下一格接不上才是 ASI）。
+    if (previousUnit instanceof Bracket
+      && (previousUnit as Bracket).StartBracketChar === "<"
+      && !StatementScanner.NoLineBreakBetween(previousUnit, currentUnit)
+      && !StatementBuilder.ContinuesAcrossLine(currentUnit)) {
+      break;
+    }
   }
   endExclusive++;
 }
