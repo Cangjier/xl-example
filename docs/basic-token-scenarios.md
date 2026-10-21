@@ -4,8 +4,8 @@
 每个场景写清**受影响的 case 文件（最新主仓实测）**、最小复现、根因（精确到文件:方法:行）、
 方案 A（改 basic token 层）/ 方案 B（typescript 层绕过）、推荐项、验收标准，以及**要用户裁定的一句话**。
 
-**结论先行**：主仓 `1ff75c4c`（Plan A 已合入）读数 **1638/45/9/10/1**；本分支实施场景 3 后 **1640/43/9/10/1**，剩余 **52 = 43 crash + 9 diff**；
-本清单 7 个场景里 **实测仍红 6 份**（`$` 3 + BOM 1 + shebang 2；`/` 2 份已由 Plan A 收掉、`\uXXXX` 4 位形 2 份本分支收掉；`\u{…}` 花括号形仍缺，单列剩余子项）；
+**结论先行**：最终主仓 `de94ec2a`（Plan A + 场景 3 已合入）读数 **1640/43/9/10/1**，剩余 **52 = 43 crash + 9 diff**；
+本清单 7 个场景里 **实测仍红 6 份**（`$` 3 + BOM 1 + shebang 2；`/` 2 份已由 Plan A 收掉、`\uXXXX` 4 位形 2 份由场景 3 收掉；`\u{…}` 花括号形仍缺，单列剩余子项）；
 `>>` 场景的 1 份（`expressions/ex-angle-cast.ts`）属**口径项**且已绿（现 PASS），若计入 basic-token 红为 9；
 `async` 是口径注记、当前无失败文件。
 **其中 3 个场景（2/4/5）可以完全不改 `core/**` 修掉；1/6 也不需要 core（1 用 core 现有 `RegexStartAfter` 接口、6 保持 token 合符号）；只有 3（`\uXXXX`）推荐动 core。**
@@ -13,7 +13,7 @@
 ## 0. 读数基线（本克隆实测，非抄旧数）
 
 ```text
-分支 cover-token-unicode（从主仓 `1ff75c4c` 拉起），Plan A 已合入；场景 3 已实施并实测通过
+已合入 round 10（merge `de94ec2a`；实现提交 `13896b7d`）：Plan A + 场景 3 均已合入并实测通过
 xl_build core,typescript → 859 written / 0 error；tsc exit 0
 node typescript/cases/token-ast.mjs --quiet
   → total=1703 ok=1640 crash=43 diff=9 ts-invalid=10 gap-now-passing=1
@@ -128,7 +128,7 @@ ast:cases：场景 1 后 4774/4774、0/0/0；场景 3 活跃行加入后为 **47
 代价：`\` 在非转义位置不再是符号（TS 里应报错），且 `a\b` 会被吞成一个标识符后由 AST 校验兜底；
 属于「先收进来再纠错」，与词法错误位置会偏。**可行但语义不干净**。
 
-**已实施（用户批准方案 A）**：5 个文件——① `core/syntax/templates/symbol-template.xl.md` 新增开关 `SupportUnicodeEscapeIdentifier`（默认 false）+ `IsHexDigit`；② `core/syntax/basic-tokens/common.xl.md` 新增 `static IsUnicodeEscapeStart(Src, template)`（`\`+`u`+4hex 前探）、`IsAppend` 接受该起点、`Transit` 的 `Undo` 闸门放行；③ `core/syntax/basic-tokens/symbol.xl.md` 的 `Transit` 在合法转义前返回 `Undo`（让 Common 接管）；④ `typescript/run/typescript-template.xl.md` 打开开关；⑤ `typescript/tokens/names/identifier-shape.xl.md` 新增 `DecodeIdentifierEscapes`，`EscapedText` 存解码值（区间仍取原文）。**`\u{…}` 花括号形未做**（需 Bracket 让位，单列剩余子项）。
+**已实施（用户批准方案 A；已合入 round 10，merge `de94ec2a`，实现提交 `13896b7d`）**：5 个文件——① `core/syntax/templates/symbol-template.xl.md` 新增开关 `SupportUnicodeEscapeIdentifier`（默认 false）+ `IsHexDigit`；② `core/syntax/basic-tokens/common.xl.md` 新增 `static IsUnicodeEscapeStart(Src, template)`（`\`+`u`+4hex 前探）、`IsAppend` 接受该起点、`Transit` 的 `Undo` 闸门放行；③ `core/syntax/basic-tokens/symbol.xl.md` 的 `Transit` 在合法转义前返回 `Undo`（让 Common 接管）；④ `typescript/run/typescript-template.xl.md` 打开开关；⑤ `typescript/tokens/names/identifier-shape.xl.md` 新增 `DecodeIdentifierEscapes`，`EscapedText` 存解码值（区间仍取原文）。**`\u{…}` 花括号形未做**（需 Bracket 让位，单列剩余子项）。
 
 **验收（已实测达成）**：上表 2 份转 PASS；token 读数 ok 1638→**1640**、crash 45→**43**、diff 9 不变；`ast:cases` 4774→**4780**、0/0/0；`ast:dts` 226/226；探针 5 条（`const \u0061bc`、`const a\u0062c`、`function f\u0066`、`class C\u0031`、`interface I\u0041`）AST text 与 TS 一致（解码后）；非法/边界（`\u00`、`\uZZZZ`、孤立 `\`、字符串 “\u0061”、`a / b`）行为与改前完全一致；`{ \u0061: 1 }` 属性键也随之一致。
 
