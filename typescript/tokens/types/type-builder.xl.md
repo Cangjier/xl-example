@@ -137,6 +137,8 @@ type T = {};
 
 ## field MappedNameType:Token | null = null
 
+## field InConditionalExtends:bool = false
+
 ## constructor:(template:Template, context:SyntaxContext)=>void
 
 ```ts
@@ -329,7 +331,9 @@ if (extendsUnit === null || !this.IsText(extendsUnit, "extends")) {
   return checkType;
 }
 this.At++;
+this.InConditionalExtends = true;
 const extendsType = this.ParseUnionType();
+this.InConditionalExtends = false;
 const questionUnit = this.Peek(0);
 if (questionUnit === null || !this.IsText(questionUnit, "?")) {
   throw new Error("条件类型缺少 ?");
@@ -1937,11 +1941,19 @@ let last = nameIndex;
 // second child (Identifier, Constraint); `extends` itself is not projected.
 const extendsUnit = this.Peek(0);
 if (extendsUnit !== null && this.IsText(extendsUnit, "extends")) {
+  const extendsIndex = this.At;
   this.At++;
   const constraint = this.ParseType();
-  parameter.Type = constraint;
-  parameter.Add(constraint);
-  last = this.At - 1;
+  const afterConstraint = this.Peek(0);
+  // TS 的 tryParseConstraintOfInferType：不在条件类型的 extends 子句里时，
+  // 约束之后紧跟 `?` 说明这个 `extends` 属于外层条件类型，约束要回退（InferType 只到名字）。
+  if (!this.InConditionalExtends && afterConstraint !== null && this.IsText(afterConstraint, "?")) {
+    this.At = extendsIndex;
+  } else {
+    parameter.Type = constraint;
+    parameter.Add(constraint);
+    last = this.At - 1;
+  }
 }
 this.SpanNode(parameter, nameIndex, last);
 const shape = new InferTypeShape(this.Template);
