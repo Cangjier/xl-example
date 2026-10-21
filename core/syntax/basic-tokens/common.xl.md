@@ -42,19 +42,34 @@ super(Template);
 
 能不能把 `Src` 并进本块：不是符号、也不是空白就行。
 
+`\u{…}` 花括号转义进行中时，`{` / 十六进制位 / `}` 也要并进同一个块（`}` 只在已有至少一位十六进制时）。
+
 ```ts
 if (Common.IsUnicodeEscapeStart(Src, this.Template)) {
   return true;
+}
+if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
+  const digits = this.UnicodeBraceEscapeDigits();
+  if (digits === 0 && Src.Value === "{") {
+    return true;
+  }
+  if (digits > 0) {
+    if (Src.Value === "}") {
+      return true;
+    }
+    return digits < 6 && this.Template.SymbolTemplate.IsHexDigit(Src.Value);
+  }
 }
 return !(this.Template.SymbolTemplate.IsSymbol(Src.Value) || this.Template.SymbolTemplate.IsWhiteSpace(Src.Value));
 ```
 
 ## static method IsUnicodeEscapeStart:(Src:Source, template:Template)=>bool
 
-`Src` 处是不是一个**合法**的 `\uXXXX` 转义标识符起点：`\` + `u` + 4 个十六进制字符。
+`Src` 处是不是一个**合法**的转义标识符起点：`\` + `u` + 4 个十六进制字符（`\uXXXX`），
+或 `\` + `u` + `{` + 1–6 个十六进制字符 + `}`（`\u{…}`，码点 ≤ `0x10FFFF`）。
 
 语言开关（`SymbolTemplate.SupportUnicodeEscapeIdentifier`）关闭时恒 `false`，其它语言零影响；
-不足 4 位 / 非十六进制 / 不是 `\` 一律 `false`（这些情况保持旧的“落回符号层”行为）。
+不足位数 / 非十六进制 / 不是 `\` / 花括号形未闭合或码点越界一律 `false`（这些情况保持旧的“落回符号层”行为）。
  `Src` 只有当前字符，所以前探要经 `Src.Document.At(...)` / `GetCount()`；位置口径仍是原文。
 
 ```ts
@@ -66,10 +81,29 @@ if (Src.Value !== "\\") {
 }
 const document = Src.Document;
 const index = Src.Index;
-if (index + 6 > document.GetCount()) {
+const count = document.GetCount();
+if (index + 2 >= count) {
   return false;
 }
 if (document.At(index + 1).Value !== "u") {
+  return false;
+}
+if (document.At(index + 2).Value === "{") {
+  // `\u{hex+}`：1–6 位十六进制、码点 ≤ 0x10FFFF、必须 `}` 收口（与字符串路径同口径）。
+  let at = index + 3;
+  let digits = 0;
+  let value = 0;
+  while (at < count && digits < 6 && template.SymbolTemplate.IsHexDigit(document.At(at).Value)) {
+    value = value * 16 + Number.parseInt(document.At(at).Value, 16);
+    digits++;
+    at++;
+  }
+  if (digits === 0 || at >= count || document.At(at).Value !== "}") {
+    return false;
+  }
+  return value <= 0x10FFFF;
+}
+if (index + 6 > count) {
   return false;
 }
 for (let offset = 2; offset <= 5; offset++) {
@@ -78,6 +112,56 @@ for (let offset = 2; offset <= 5; offset++) {
   }
 }
 return true;
+```
+
+## method UnicodeBraceEscapeDigits:()=>int
+
+正在写 `\u{…}` 时已收的十六进制位数：`0` = 刚读完 `\u`、还在等 `{`；`-1` = 不在花括号转义里。
+状态从 `Temp` 尾部推出来（最后一个 `\` 起是否 `\u` / `\u{hex{0,6}}`），不新增字段。
+
+```ts
+const text = this.TempToString();
+const backslash = text.lastIndexOf("\\");
+if (backslash < 0) {
+  return -1;
+}
+const tail = text.substring(backslash);
+if (tail === "\\u") {
+  return 0;
+}
+if (!tail.startsWith("\\u{")) {
+  return -1;
+}
+const body = tail.substring(3);
+if (body.indexOf("}") >= 0 || body.length > 6) {
+  return -1;
+}
+for (let index = 0; index < body.length; index++) {
+  if (!this.Template.SymbolTemplate.IsHexDigit(body[index])) {
+    return -1;
+  }
+}
+return body.length;
+```
+
+## static method IsInUnicodeBraceEscape:(unit:Token)=>bool
+
+最上层打开的 `Common` 是不是正在写 `\u{…}`：`Bracket` / `Symbol` 的跳转在这时让位，
+让 `{` / 十六进制位 / `}` 继续并进那个 `Common`，而不是被括号或符号抢走。
+
+```ts
+const last = unit.Last();
+if (!(last instanceof Common)) {
+  return false;
+}
+const token = last as Common;
+if (token.Closed) {
+  return false;
+}
+if (!token.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
+  return false;
+}
+return token.UnicodeBraceEscapeDigits() >= 0;
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates

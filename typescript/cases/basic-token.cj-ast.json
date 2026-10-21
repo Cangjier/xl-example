@@ -967,6 +967,313 @@
       ]
     },
     {
+      "src": "const ub1 = \\u{61}bc;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "ub1"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 20,
+                      "text": "abc"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const ub2 = a\\u{62}c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "ub2"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 20,
+                      "text": "abc"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f\\u{66}() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 16,
+              "text": "ff"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C\\u{31} {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 13,
+              "text": "C1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I\\u{41} { a: number }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 17,
+              "text": "IA"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 19,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 22,
+                  "end": 29
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const ub3 = { \\u{61}: 1 };",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "ub3"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 11,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "PropertyAssignment",
+                          "pos": 13,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 13,
+                              "end": 20,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const ub4 = \\u{61}\\u{62};",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "ub4"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 24,
+                      "text": "ab"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const ub5 = { a: \\u{62} };",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 9,
+                      "text": "ub5"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 11,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "PropertyAssignment",
+                          "pos": 13,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 13,
+                              "end": 15,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 23,
+                              "text": "b"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "const de1 = $x;",
       "ast": [
         {

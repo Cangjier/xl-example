@@ -9,6 +9,7 @@ import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
 import { UnitToken } from "../unit-token.xl.md"
+import { Common } from "./common.xl.md"
 ```
 
 # namespace cangjie
@@ -100,8 +101,13 @@ return CloseStates.Nothing;
 
 遇到配对的结束括号就退出：先签出到该字符，再尝试关闭，然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
 
+`\u{…}` 花括号转义进行中时，`}` 是转义的收口、不是本括号的结束括号：这时返回 `Undo`，让 `Common` 吃掉它。
+
 ```ts
 if (source.Value === this.EndBracketChar) {
+  if (Common.IsInUnicodeBraceEscape(this)) {
+    return BranchStates.Undo;
+  }
   this.SignOut(source);
   this.TryToClose(context);
   this.Quit();
@@ -129,9 +135,14 @@ return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${t
 
 挂之前先看关闭的结果：关闭上一个 token 的过程可能建出了形状，这时返回 `Reload`，字符交给新形状重吃。
 
+`\u{…}` 花括号转义进行中时不起新括号：这时 `{` 属于转义（`\u{61}`），返回 `Undo` 让 `Common` 吃掉。
+
 ```ts
 const value = source.Value;
 if (value !== "(" && value !== "{" && value !== "[") {
+  return BranchStates.Undo;
+}
+if (value === "{" && Common.IsInUnicodeBraceEscape(unit)) {
   return BranchStates.Undo;
 }
 const lastOfMounted = unit.Last();
