@@ -11,3 +11,5 @@ en: enum E\n{ A }
 abstract\nclass A {}
 declare module "a" {\n  import { B } from "b"\n}
 
+do x++\nwhile (x < 4);\nfoo();
+do f()\nwhile (c);\ndo { x++; } while (x < 5);

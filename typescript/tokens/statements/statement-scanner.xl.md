@@ -202,9 +202,13 @@ if (first instanceof Common) {
 return StatementScanner.Mismatch();
 ```
 
-## static method ScanBody:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanBody:(code:Array<Token>, at:int, stopAtWhile?:bool)=>StatementScanResult
 
 语句体：任何一条语句都行（含表达式语句与空语句），因为 `if` / 循环的体里不会再走根候选。
+
+`stopAtWhile` 只由 `ScanDo` 传 true：do 体的表达式语句在**换行处遇到 `while`** 时要收口，
+那个 `while` 是 do-while 自己的条件头，不是体的一部分（否则体会把 `while (…)` 之后的 `;` 也吞掉，
+`ScanDo.whileAt` 就落到下一条语句上）。
 
 ```ts
 if (at < 0 || at >= code.length) {
@@ -215,13 +219,13 @@ if (unit instanceof Bracket) {
   if ((unit as Bracket).StartBracketChar === "{") {
     return StatementScanner.Complete(at);
   }
-  return StatementScanner.ScanExpressionBody(code, at);
+  return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false);
 }
 if (unit instanceof Symbol) {
   if ((unit as Symbol).Is(";")) {
     return StatementScanner.Complete(at);
   }
-  return StatementScanner.ScanExpressionBody(code, at);
+  return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false);
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
@@ -283,7 +287,7 @@ if (unit instanceof Common) {
     return StatementScanner.ScanBody(code, at + 2);
   }
 }
-return StatementScanner.ScanExpressionBody(code, at);
+return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false);
 ```
 
 ## static method ScanDeclarationBody:(code:Array<Token>, at:int)=>StatementScanResult
@@ -470,10 +474,17 @@ if (StatementScanner.IsEOF(code[from + 1])) {
 return StatementScanner.Mismatch();
 ```
 
-## static method ScanExpressionBody:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanExpressionBody:(code:Array<Token>, at:int, stopAtWhile?:bool)=>StatementScanResult
 
 ```ts
 for (let cursor = at; cursor < code.length; cursor++) {
+  // do 体（`stopAtWhile`）：换行后遇到 `while` 关键字 ⇒ 体到此为止，那一格属于 do-while 的条件头。
+  // 判据复用 `EndsAtLineBreak`（前一个代码单元能收尾 + 换行 + `while` 不是表达式的续接符）。
+  if ((stopAtWhile ?? false) && cursor > at
+    && StatementScanner.IsKeyword(code[cursor], "while")
+    && StatementScanner.EndsAtLineBreak(code[cursor - 1], code[cursor])) {
+    return StatementScanner.Complete(cursor - 1);
+  }
   if (StatementScanner.IsSymbol(code[cursor], ";")) {
     return StatementScanner.Complete(cursor);
   }
@@ -560,7 +571,7 @@ return StatementScanner.ScanBody(code, at + 2);
 ## static method ScanDo:(code:Array<Token>, at:int)=>StatementScanResult
 
 ```ts
-const body = StatementScanner.ScanBody(code, at + 1);
+const body = StatementScanner.ScanBody(code, at + 1, true);
 if (body.Status !== 1) {
   return body;
 }
