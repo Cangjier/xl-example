@@ -196,9 +196,9 @@
 - 验证方式统一为：目标文件 `token-ast.mjs <file>` exit 0 + 全量 `token-ast.mjs --quiet`（ok 只升、crash/diff 只降）
   + `npm run ast:cases`（identical == total，结构/位置/字段差全 0）+ `xl_build` 0 error + `tsc` 0。
 
-### 6.2 仍剩的缺口（场景 4 方案 (b) 落地后：**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）
+### 6.2 仍剩的缺口（HEAD `5b5e2c34`：**44 = 35 crash + 9 diff**；场景 4 方案 (b) 落地时为 46 = 37+9，`8dbb7976` 时为 56 = 47+9）
 
-剩余 **46 处 = 37 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫；Plan A −2、场景 2 −3、场景 3 −2、场景 4/5（basic token）−2、场景 4(b) −1，合计 −10（56→46），`8dbb7976` 时为 56 = 47+9），按**当前实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组）：
+剩余 **44 处 = 35 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫；场景 4 方案 (b) 之后又收掉 angle 判据收敛带来的 2 条，46→44），按**当前实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组）：
 
 | 目录 | 条数 | 说明 |
 | --- | --- | --- |
@@ -313,11 +313,12 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 主仓 `bf2ea5dd`（round-16 merge；实现提交 `2f20a985`；含场景 4 方案 (b)）`token-ast.mjs --json` 实测（**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | HEAD `5b5e2c34`（路线 A 合入后）`token-ast.mjs --json` 实测（**44 = 35 crash + 9 diff**；`bf2ea5dd` 时为 46 = 37+9、`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
 
 ## 9. angle 判据收敛为 AngleJudge（typescript 层唯一实现）
 
-- 新增 	ypescript/tokens/types/angle-judge.xl.md：AngleJudge.CanStart(units,index) 是「< 开的是类型实参/类型参数还是算术/比较」的唯一判据；内部 = 前驱判据 + 配对扫描（>>/>>> 按层拆，返回真实单元下标）+ follower 白名单 + 内层粗校验。AngleJudge.FindClose 是类型实参用的严格版本（不是类型实参返回 -1），AngleJudge.FindPair 是强制配对用的宽松版本，AngleJudge.IsSplitClose 是合符号拆分语义。
-- 已委托：expression-builder 的 FindTypeArgumentClose / CanStartTypeArgumentCall / CanStartTypeArguments / MatchAngleClose（ParseAngleStart 经薄包装），statement-builder 的 IsTypeArgumentStart。未委托（保留原实现，后续可继续收）：class / function / interface 声明候选里手写的 </>/>> 计数、	ype-builder.IsSplitClose 的调用方（Load 仍只做符号拆分）。
-- 读数：token 语料 baseline 1646/37/9 → **1648 ok / 35 crash / 9 diff**（逐文件 improved 2：expr-inst-tagged.ts、gap-r977-inst-tagged-two-args.ts；regressed 0 / other 0）；st:cases 4622→**4806**（新增 	ypescript/cases/angle.ts 19 条守卫，42 个构造，identical 4806/4806、结构/位置/字段差 0/0/0）；st:dts 226/226。
-- 未修：declarations/decl-obj-destructure-computed-key.ts、	ypes/type-parameter-list.ts 仍红，与本次判据收敛无因果（委托前后崩溃消息不变，见 §6.2 原记录）。
+- 新增 `typescript/tokens/types/angle-judge.xl.md`：`AngleJudge.CanStart(units,index)` 是「`<` 开的是类型实参/类型参数还是算术/比较」的唯一判据；内部 = 前驱判据 + 配对扫描（`>>`/`>>>` 按层拆，返回真实单元下标）+ follower 白名单 + 内层粗校验。`AngleJudge.FindClose` 是类型实参用的严格版本（不是类型实参返回 `-1`），`AngleJudge.FindPair` 是强制配对用的宽松版本，`AngleJudge.IsSplitClose` 是合符号拆分语义。
+- 候选扫描里的「数角」也收在本类：`AngleJudge.Shift`（`<` +1 / `>` -1 / `>>`、`>>>` -2、-3，可为负，调用方判 `<= 0`）供 class/function 声明候选使用；`AngleJudge.Guard`（`<` +1 / `>` 仅 depth>0 时出层、`>>` 不拆、夹零）供 class/interface 的 heritage 段判断「`{` 是不是体」；`AngleJudge.ScanDepth`（夹零版 `<>`/`>>`/`>>>` 计数）供 statement-builder 变量声明初始化器扫顶层 `,` 边界使用。
+- 已委托：expression-builder 的 `FindTypeArgumentClose` / `CanStartTypeArgumentCall` / `CanStartTypeArguments` / `MatchAngleClose`（`ParseAngleStart` 经薄包装），statement-builder 的 `IsTypeArgumentStart`；class / function / interface 声明候选已委托 `AngleJudge.Shift` / `AngleJudge.Guard`；statement-builder 初始化器的手写计数也已收进 `AngleJudge.ScanDepth`；`type-builder` 的 `IsSplitClose` 调用已指向 `AngleJudge.IsSplitClose`（**只做符号拆分的拆分器仍留在 type-builder**）。至此**手写 `<`/`>`/`>>`/`>>>` 计数 0 处**，只剩 AngleJudge 内部与一行薄包装/拆分器。
+- 读数：token 语料 baseline 1646/37/9 → **1648 ok / 35 crash / 9 diff**（逐文件 improved 2：`expr-inst-tagged.ts`、`gap-r977-inst-tagged-two-args.ts`；regressed 0 / other 0）；**剩余 44 = 35 crash + 9 diff**（HEAD `5b5e2c34`）；`ast:cases` 4622→**4806**（新增 `typescript/cases/angle.ts` 19 条守卫，42 个构造，identical 4806/4806、结构/位置/字段差 0/0/0）；`ast:dts` 226/226。
+- 未修：`declarations/decl-obj-destructure-computed-key.ts`、`types/type-parameter-list.ts` 仍红，与本次判据收敛无因果（委托前后崩溃消息不变，见 §6.2 原记录）。
