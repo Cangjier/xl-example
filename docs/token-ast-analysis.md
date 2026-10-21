@@ -13,7 +13,7 @@
 **basic token 8 条（归因条数；按受影响文件是 11 份，口径见 §3 脚注与 §5）**。也就是说：
 **token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
 「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**
-（ok/crash/diff/ts-invalid），主仓 `e3f67aa5`（Plan A + 场景 3 已合入）为 **1640/43/9/10/1**；本分支再实施场景 2 后为 **1643/40/9/10/1**、ast:cases **4785/4785、0/0/0**。
+（ok/crash/diff/ts-invalid），最终主仓 `96eaadf2`（Plan A + 场景 3 + 场景 2 已合入）为 **1643/40/9/10/1**、ast:cases **4785/4785、0/0/0**。
 
 ## 0. 数据来源与口径
 
@@ -44,7 +44,7 @@
 | Plan A 前最终合并态（commit `8dbb7976`） | **1636** | **47** | **9** | 10 | 1 | 1703 |
 | **当前最终态（HEAD `9368d937`，Plan A 已合入）** | **1638** | **45** | **9** | 10 | 1 | 1703 |
 | 场景 3（`\uXXXX`，已合入 round 10，merge `de94ec2a`；实现提交 `13896b7d`） | **1640** | **43** | **9** | 10 | 1 | 1703 |
-| 场景 2（`$`，本分支 `cover-token-dollar`，待合入） | **1643** | **40** | **9** | 10 | 1 | 1703 |
+| 场景 2（`$`，已合入 round 12，merge `96eaadf2`；实现提交 `c8256876`） | **1643** | **40** | **9** | 10 | 1 | 1703 |
 
 - **191 处失败 = 162 crash + 29 diff**；`ts-invalid` 10 份是 TS 自己 `parseDiagnostics ≠ 0`（尺子不测），不计入 191。
 - `gap-now-passing` 1 份 = 语料里 `xl:known-gap` 已转绿的守卫；`known-gap` 共 3 份（2 diff + 1 gap-passing）。
@@ -147,7 +147,7 @@
 >
 > **更新（场景 3 已实施，已合入 round 10，merge `de94ec2a`；实现提交 `13896b7d`）**：`\uXXXX` 4 位转义标识符已收（`SymbolTemplate.SupportUnicodeEscapeIdentifier` + `Common.IsUnicodeEscapeStart` + `Symbol.Transit` 让位 + `IdentifierShape.DecodeIdentifierEscapes`）；token **1640/43/9**、剩余 **52 = 43+9**、basic-token 类红 8→6；`\u{…}` 花括号形仍缺。
 >
-> **更新（场景 2 已实施，本分支 `cover-token-dollar`）**：`$` 已从 `core/syntax/templates/symbol-template.xl.md` 的 `IsSymbol` 内置表移除（一行删除，非 per-language `Ban`）；token **1643/40/9**、剩余 **49 = 40+9**、basic-token 类红 6→3。
+> **更新（场景 2 已实施，已合入 round 12，merge `96eaadf2`；实现提交 `c8256876`）**：`$` 已从 `core/syntax/templates/symbol-template.xl.md` 的 `IsSymbol` 内置表移除（一行删除，非 per-language `Ban`）；token **1643/40/9**、剩余 **49 = 40+9**、basic-token 类红 6→3。
 
 本清单按**受影响文件**计数：items 1–4 共 **8 份** + item 5 shebang **2 份** + item 6 `>>` 拆分 **1 份** = **11 份**。
 §3 表与结论里的「basic token 8」是**归因条数**（items 1–4），口径不同、不矛盾。
@@ -167,7 +167,7 @@
 
 ## 6. 修复落地状态
 
-### 6.1 已合入主仓的修复（round-1 ~ round-10，最终合并 HEAD `de94ec2a`；场景 2 在本分支待合入）
+### 6.1 已合入主仓的修复（round-1 ~ round-12，最终合并 HEAD `96eaadf2`）
 
 四个分支合入：`cover-token-fix-build`、`cover-token-fix-class`、`cover-token-an-mod-diff`（+ 文档）、`cover-token-an-decl`（仅文档）。
 各提交自带**各自基线（1501/162/29）上的读数**——彼此有重叠组，**不可相加**，只能看最后合并态：
@@ -282,7 +282,7 @@ node typescript/cases/token-ast.mjs types/
 node typescript/cases/token-ast.mjs "stmt-while"
 node typescript/cases/token-ast.mjs "tests/cases/token/**/stmt-while.ts"
 
-# 类型主干 AST 对拍（本分支 4785 条；必须 identical == total 且结构差/位置差/字段差全 0）
+# 类型主干 AST 对拍（当前主仓 4785 条；必须 identical == total 且结构差/位置差/字段差全 0）
 npm run ast:cases
 
 # token 语料（等价于第一条）
@@ -307,4 +307,4 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 本分支（场景 2）`token-ast.mjs --json` 实测（**49 = 40 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | 主仓 `96eaadf2`（Plan A + 场景 3 + 场景 2 已合入）`token-ast.mjs --json` 实测（**49 = 40 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
