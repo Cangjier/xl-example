@@ -1111,6 +1111,15 @@ if (unit instanceof Bracket) {
       indexSignature = true;
     }
     if (!indexSignature) {
+      if (innerCode.length === 0) {
+        // 换行后的空方括号：TS 的 parseMappedType 在值类型之后 parseTypeMembers()，读成**无形参的** IndexSignature。
+        this.At++;
+        const emptySignature = new IndexSignatureShape(this.Template);
+        for (const emptyModifier of modifiers) {
+          emptySignature.Add(emptyModifier);
+        }
+        return this.SpanTypeMember(emptySignature, start);
+      }
       // 计算属性名成员：`[s]: A` / `[s]?: A` / `[s](): A`，name 是 ComputedPropertyName([ … ])。
       // 方括号里的内容按表达式读（`Symbol.iterator` / `a.b` / 字符串 / 数字都能进），不再只认单标识符。
       const inner = new ExpressionBuilder(this.Template, this.Context);
