@@ -960,7 +960,17 @@ while (true) {
   const readonlyUnit = this.Peek(0);
   if (afterReadonly instanceof Bracket && (afterReadonly as Bracket).StartBracketChar === "["
     && readonlyUnit !== null && MemberBoundary.HasLineBreakBetween(readonlyUnit, afterReadonly)) {
-    break;
+    // `readonly` 换行后接 `[`：readonly 是**无类型 PropertySignature** 的名字；
+    // `[k: string]` 另起一个 IndexSignature 成员。这里当场收掉 readonly 成员，
+    // 不能只 break（否则物化成名字后会把这个 `[` 当成类型的索引访问后缀）。
+    const readonlyNameIndex = this.At;
+    this.At++;
+    const readonlyName = IdentifierShape.FromBasicToken(unit as Common, this.Context);
+    readonlyName.Pos = this.Positions[readonlyNameIndex];
+    const readonlyShape = new PropertySignatureShape(this.Template);
+    readonlyShape.SignatureName = readonlyName;
+    readonlyShape.Add(readonlyName);
+    return this.SpanTypeMember(readonlyShape, start);
   }
   const hasNameAfter = afterReadonly !== null
     && (afterReadonly instanceof Common

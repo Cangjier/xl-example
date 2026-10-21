@@ -14,6 +14,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { MemberBoundary } from "../types/member-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
 
@@ -166,7 +167,8 @@ const lastIsSemicolon = last instanceof Symbol && (last as Symbol).Is(";");
 // 末尾的 `{…}` 只有在「前一个单元能收住一个类型」时才是函数体；否则它是返回类型里的对象字面量
 // （`declare function f(): { a: A }` 的最后一块就是类型，没有函数体）。
 const bodyIsLast = lastIsBrace && TypeBuilder.IsBodyBrace(code, code.length - 1);
-const tailIndex = bodyIsLast || lastIsSemicolon ? code.length - 1 : code.length;
+let tailIndex = bodyIsLast || lastIsSemicolon ? code.length - 1 : code.length;
+let signOutUnit:Token = last;
 let bodyUnit:Token | null = null;
 if (bodyIsLast) {
   bodyUnit = last;
@@ -195,7 +197,17 @@ if (afterParams < tailIndex) {
   // 其余类型仍由 ParseType 读（与函数类型位置同一套口子）。
   returnType = typeBuilder.ParseReturnType();
   if (typeBuilder.At !== typeBuilder.Units.length) {
-    throw new Error("函数声明的返回类型没有读完");
+    // ambient 函数无分号、下一行还有语句时，tokenIndex 可能把下一条语句也带进来：
+    // 已收类型末单元与剩余段首之间有换行 → 返回类型到此为止（截 tailIndex）。
+    const consumedLast = typeBuilder.Units[typeBuilder.At - 1];
+    const leftoverFirst = typeBuilder.Units[typeBuilder.At];
+    if ((declareUnit !== null || (ambient ?? false)) && consumedLast !== undefined
+      && MemberBoundary.HasLineBreakBetween(consumedLast, leftoverFirst)) {
+      tailIndex = afterParams + 1 + typeBuilder.At;
+      signOutUnit = code[tailIndex - 1];
+    } else {
+      throw new Error("函数声明的返回类型没有读完");
+    }
   }
 } else if (bodyUnit === null && declareUnit === null && (ambient ?? false) === false) {
   // A no-body declaration without "declare" needs a return type (overload signature) --
@@ -285,7 +297,7 @@ if (modifierUnits.length > 0) {
 } else {
   shape.SignInToken(keyword);
 }
-shape.SignOutToken(last);
+shape.SignOutToken(signOutUnit);
 shape.Pos = pos;
 shape.TryToClose(context);
 return shape;
