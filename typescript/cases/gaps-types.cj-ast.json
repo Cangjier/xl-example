@@ -1,0 +1,207 @@
+{
+  "cases": [
+    {
+      "src": "type T = A\n[\"k\"];",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 10,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 12,
+                  "end": 15,
+                  "text": "k"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type X = number\nexport type { X }",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "X"
+            },
+            {
+              "kind": "NumberKeyword",
+              "pos": 8,
+              "end": 15
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 15,
+          "end": 33,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 27,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 29,
+                  "end": 31,
+                  "name": "X",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "X"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T11 = A//c\n[];",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 8,
+              "text": "T11"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 10,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 12,
+          "end": 19,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 12,
+              "end": 18
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type Y = 1\ntype Z = 2;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "Y"
+            },
+            {
+              "kind": "LiteralType",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 10,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "Z"
+            },
+            {
+              "kind": "LiteralType",
+              "pos": 19,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
