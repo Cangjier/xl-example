@@ -1,0 +1,1740 @@
+{
+  "cases": [
+    {
+      "src": "class C1 { [key: string]: number }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C1"
+            },
+            {
+              "kind": "IndexSignature",
+              "pos": 10,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 15,
+                      "text": "key"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 16,
+                      "end": 23
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 25,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C2 { static [k: string]: number; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C2"
+            },
+            {
+              "kind": "IndexSignature",
+              "pos": 10,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 10,
+                  "end": 17
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 19,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 20,
+                      "text": "k"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 21,
+                      "end": 28
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 30,
+                  "end": 37
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C3 { readonly [k: symbol]: string }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C3"
+            },
+            {
+              "kind": "IndexSignature",
+              "pos": 10,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 10,
+                  "end": 19
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 21,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 22,
+                      "text": "k"
+                    },
+                    {
+                      "kind": "SymbolKeyword",
+                      "pos": 23,
+                      "end": 30
+                    }
+                  ]
+                },
+                {
+                  "kind": "StringKeyword",
+                  "pos": 32,
+                  "end": 39
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C4 { readonly() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C4"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 10,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 19,
+                  "text": "readonly"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 24
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C5 { static readonly() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C5"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 10,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 10,
+                  "end": 17
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 26,
+                  "text": "readonly"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 28,
+                  "end": 31
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C6 { public static readonly a = 1; private m() { } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 58,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C6"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 10,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 10,
+                  "end": 17
+                },
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 17,
+                  "end": 24
+                },
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 24,
+                  "end": 33
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 33,
+                  "end": 35,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 37,
+                  "end": 39,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 40,
+              "end": 56,
+              "children": [
+                {
+                  "kind": "PrivateKeyword",
+                  "pos": 40,
+                  "end": 48
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 48,
+                  "end": 50,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 52,
+                  "end": 56
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "abstract\nclass A {}",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 8,
+              "text": "abstract"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 8,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare\nmodule \"m\" {}",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 7,
+              "text": "declare"
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 7,
+          "end": 21,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T1 = a!;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T1"
+            },
+            {
+              "kind": "JSDocNonNullableType",
+              "pos": 9,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T2 = (a!);",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T2"
+            },
+            {
+              "kind": "ParenthesizedType",
+              "pos": 9,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "JSDocNonNullableType",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 11,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T3 = Box<a!>;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T3"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 9,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 13,
+                  "text": "Box"
+                },
+                {
+                  "kind": "JSDocNonNullableType",
+                  "pos": 14,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 14,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const q1 = f() as T!;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "q1"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 10,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 10,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 10,
+                              "end": 12,
+                              "text": "f"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "JSDocNonNullableType",
+                          "pos": 17,
+                          "end": 20,
+                          "children": [
+                            {
+                              "kind": "TypeReference",
+                              "pos": 17,
+                              "end": 19,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 17,
+                                  "end": 19,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const q2 = f() as T![];",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "q2"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 10,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 10,
+                          "end": 14,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 10,
+                              "end": 12,
+                              "text": "f"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "ArrayType",
+                          "pos": 17,
+                          "end": 22,
+                          "children": [
+                            {
+                              "kind": "JSDocNonNullableType",
+                              "pos": 17,
+                              "end": 20,
+                              "children": [
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 17,
+                                  "end": 19,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 17,
+                                      "end": 19,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I1 { a? }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "I1"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 14,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 16,
+                  "end": 17
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I2 { a?; }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "I2"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 16,
+                  "end": 17
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T4 = { (a: string) };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T4"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 9,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "CallSignature",
+                  "pos": 11,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 13,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 14,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "StringKeyword",
+                          "pos": 15,
+                          "end": 22
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T5 = [A?, ...B, C, name: D?, ...rest: E[]];",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T5"
+            },
+            {
+              "kind": "TupleType",
+              "pos": 9,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "OptionalType",
+                  "pos": 11,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 11,
+                      "end": 12,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 12,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "RestType",
+                  "pos": 14,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 19,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 20,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "C"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NamedTupleMember",
+                  "pos": 23,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 28,
+                      "text": "name"
+                    },
+                    {
+                      "kind": "OptionalType",
+                      "pos": 29,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 29,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 29,
+                              "end": 31,
+                              "text": "D"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "NamedTupleMember",
+                  "pos": 33,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "DotDotDotToken",
+                      "pos": 33,
+                      "end": 37
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 37,
+                      "end": 41,
+                      "text": "rest"
+                    },
+                    {
+                      "kind": "ArrayType",
+                      "pos": 42,
+                      "end": 46,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 42,
+                          "end": 44,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 42,
+                              "end": 44,
+                              "text": "E"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T6 = { [K in keyof U]:U; [X]: A };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T6"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 9,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 13,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 14,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 17,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 23,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 25,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 27,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 28,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "PropertySignature",
+                  "pos": 29,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "ComputedPropertyName",
+                      "pos": 29,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 31,
+                          "end": 32,
+                          "text": "X"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 34,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 34,
+                          "end": 36,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T7 = { [K in keyof U as `k${K}`]:U\n[K] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T7"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 9,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 13,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 14,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 17,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 23,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 25,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateLiteralType",
+                  "pos": 28,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "TemplateHead",
+                      "pos": 28,
+                      "end": 33,
+                      "text": "k"
+                    },
+                    {
+                      "kind": "TemplateLiteralTypeSpan",
+                      "pos": 33,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 33,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 33,
+                              "end": 34,
+                              "text": "K"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TemplateTail",
+                          "pos": 34,
+                          "end": 36,
+                          "text": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 38,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 39,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "PropertySignature",
+                  "pos": 39,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "ComputedPropertyName",
+                      "pos": 39,
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 41,
+                          "end": 42,
+                          "text": "K"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T8 = { [K in keyof U]:U\n[] };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T8"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 9,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 13,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 14,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 17,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 23,
+                          "end": 25,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 25,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 27,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 28,
+                      "text": "U"
+                    }
+                  ]
+                },
+                {
+                  "kind": "IndexSignature",
+                  "pos": 28,
+                  "end": 31
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N1 = A extends B ? C extends D ? infer E extends F ? G : H : I : J;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 72,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "N1"
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 9,
+              "end": 71,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ConditionalType",
+                  "pos": 23,
+                  "end": 67,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 23,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "C"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 33,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 35,
+                          "text": "D"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ConditionalType",
+                      "pos": 37,
+                      "end": 63,
+                      "children": [
+                        {
+                          "kind": "InferType",
+                          "pos": 37,
+                          "end": 45,
+                          "children": [
+                            {
+                              "kind": "TypeParameter",
+                              "pos": 43,
+                              "end": 45,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 43,
+                                  "end": 45,
+                                  "text": "E"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 53,
+                          "end": 55,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 53,
+                              "end": 55,
+                              "text": "F"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 57,
+                          "end": 59,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 57,
+                              "end": 59,
+                              "text": "G"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 61,
+                          "end": 63,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 61,
+                              "end": 63,
+                              "text": "H"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 65,
+                      "end": 67,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 65,
+                          "end": 67,
+                          "text": "I"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 69,
+                  "end": 71,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 69,
+                      "end": 71,
+                      "text": "J"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N2 = infer E extends F ? G : H;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "N2"
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 9,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "InferType",
+                  "pos": 9,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 15,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "E"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 25,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "F"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 29,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "G"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 33,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 35,
+                      "text": "H"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N3 = A extends infer E extends B ? E : never;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "N3"
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 9,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "InferType",
+                  "pos": 19,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 25,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "E"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 35,
+                          "end": 37,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 35,
+                              "end": 37,
+                              "text": "B"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 39,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 41,
+                      "text": "E"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NeverKeyword",
+                  "pos": 43,
+                  "end": 49
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N4 = A extends B ? infer E extends F : G;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "N4"
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 9,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "InferType",
+                  "pos": 23,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "TypeParameter",
+                      "pos": 29,
+                      "end": 41,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "E"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 39,
+                          "end": 41,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 39,
+                              "end": 41,
+                              "text": "F"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 43,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "G"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N5 = infer E extends F;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "N5"
+            },
+            {
+              "kind": "InferType",
+              "pos": 9,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 15,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "E"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 25,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "F"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

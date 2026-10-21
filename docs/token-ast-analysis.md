@@ -147,7 +147,7 @@ Lead 基线（`tmp/token-ast-baseline.json`，1703 行）：
 
 ## 6. 修复落地状态
 
-### 6.1 已合入主仓的修复（round-1，HEAD `2a563080`）
+### 6.1 已合入主仓的修复（round-1 ~ round-4，最新 HEAD `14f1c070`）
 
 四个分支合入：`cover-token-fix-build`、`cover-token-fix-class`、`cover-token-an-mod-diff`（+ 文档）、`cover-token-an-decl`（仅文档）。
 各提交自带**各自基线（1501/162/29）上的读数**——彼此有重叠组，**不可相加**，只能看最后合并态：
@@ -159,59 +159,61 @@ Lead 基线（`tmp/token-ast-baseline.json`，1703 行）：
 | cover-token-fix-class | `bf31249b` | 类体索引签名（K/G5/G6）、`readonly` 作名（C8）、类成员修饰词与名字分派（D3 类侧） | 1501→**1510** / 162→**156** / 29→**26**，0 回归；ast:cases 4622/4622 |
 | cover-token-an-mod-diff | `a784d4c1` | D1 数组空槽、D2 解构计算键（2 份的 1 份）、D6 `new` 后缀链、D7 类型实参+模板、D13 具名导入字符串名 | 1501→**1514** / 162→**161** / 29→**17**，0 回归 |
 | cover-token-an-mod-diff | `9260d2bb` + `a1526d34` | type-builder：`JSDocNonNullableType`（G4 3 份）、无返回类型调用签名、mapped 值后成员、元组具名可选、`a?` 无类型成员、mapped 空方括号 IndexSignature（G5/G6/D12） | 1501→**1508→1509** / 162→**157** / 29→**26**，0 回归 |
-| 合并态 | `2a563080` | 全部合入 | **1561 / 119 / 12**；ast:cases **4622/4622、0/0/0** |
+| round-2（class 第二轮） | `bf31249b` / `cfea36ae` | D4 顶层 `abstract`/`declare` 换行、D5 `async` 首语句 pos、类成员 pending-head | 1523→**1527** / 155 / 14→**10**，0 回归 |
+| round-3/4（多分支合并） | `cover-token-fix-end`、`cover-token-an-stmt`、`cover-token-an-mod-diff` 等 | A/B 块体 ASI、EOF 裸块、ASI 成员名、条件类型/infer、footer 收口 | 逐轮收敛到下方「合并态」 |
+| **合并态（最新）** | **`14f1c070`** | 全部合入 | **1636 ok / 47 crash / 9 diff / 10 ts-invalid / 1 gap-now-passing** |
 
-- 每个修复提交都带 `typescript/cases/token-repros/*.ts` 的**逐条验证过的**最小用例（子目录不进构造）。
+- 每个修复提交都带逐条验证过的**最小用例**；这些用例本轮已折成 §6 七类的常驻构造（见 §6.5），
+  `typescript/cases/token-repros/` 已删除。
 - 验证方式统一为：目标文件 `token-ast.mjs <file>` exit 0 + 全量 `token-ast.mjs --quiet`（ok 只升、crash/diff 只降）
-  + `npm run ast:cases`（4622/4622、0/0/0）+ `xl_build` 0 error + `tsc` 0。
+  + `npm run ast:cases`（identical == total，结构/位置/字段差全 0）+ `xl_build` 0 error + `tsc` 0。
 
-### 6.2 仍剩的缺口（与主仓 1561/119/12 一致）
+### 6.2 仍剩的缺口（合并态 `14f1c070`：56 = 47 crash + 9 diff）
 
-剩余 **131 处 = 119 crash + 12 diff**，按目录：
+剩余 **56 处 = 47 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫），按目录：
 
 | 目录 | 条数 | 说明 |
 | --- | --- | --- |
-| declarations | 37 | G1 形参模式/默认值（8 条「函数参数不是标识符」仍占大头）、G2c ModuleBlock、G10 装饰器声明、G12 孤立 `declare`/`abstract` 等 |
-| statements | 34 | 块体 ASI 的剩余档、`CatalogGuide` EOF 共存（`stmts` 的 B/N）、`switch`/`do` 边缘、`/` 正则（M） |
-| expressions | 27 | 泛型箭头/`async` 形态（D）、函数表达式前缀（G11）、对象字面量 `new` 签名（G7）、`>>`/标签模板残留 |
-| types | 11 | 类型位「词 + `{`」（D10，`gap-r1237`）、index-signature 换行（D3 残留）、types G10 待确认 3 条 |
-| modules | 10 | import/export ASI 残留（C1–C3）、import-equals、`gap-r869` 待复核 |
+| declarations | 18 | G1 形参模式/默认值（8 条「函数参数不是标识符」仍占大头）、G2c ModuleBlock、G10 装饰器声明、孤立 `declare`/`abstract` 等 |
+| statements | 7 | 块体 ASI 剩余档、`do-while` 体收口、EOF 共存 |
+| expressions | 5 | 泛型箭头 / `new` 实参后缀 / `yield` 语境 |
+| types | 6 | 类型位「词 + `{`」、index-signature 换行、条件类型收尾 |
 | lexical | 8 | `$` 3 + `\uXXXX` 2 + BOM 1 + shebang 2（全部 §5 待用户决定） |
-| ambiguous | 4 | 泛型箭头（D）与 E 组残留 |
+| modules | 2 | import/export ASI 残留 |
+| ambiguous | 1 | 泛型箭头 |
 
-剩余 crash 的**主要消息分布**（top 12）：
+剩余 crash 的**主要消息分布**（top）：
 
 | 消息 | 条数 | 主要族 |
 | --- | --- | --- |
-| 表达式没有读完 | 28 | 块体 ASI / 表达式边界（A、G1b） |
-| 表达式语句没有读完 | 9 | 根级 ASI / 表达式语句收口 |
-| 不支持的表达式起点 | 9 | 表达式文法缺档（G7 等） |
-| 尖括号断言/泛型箭头缺少配对的 `>` | 9 | 泛型箭头（D、G1a 残留） |
-| 函数参数不是标识符 | 8 | 形参模式/默认值（G1） |
-| 变量声明里有无法识别的单元 | 7 | `!` 断言（G9/G13）、类型实参切分残留 |
-| 类型注解没有读完 | 7 | 类型 ASI / 类型文法 |
-| CatalogGuide: 终结候选与其它候选同时成立 | 5 + 2 + 2 + 1×3 | B/N（根级 EOF）、C1（import） |
-| 缺少标识符 | 4 | `$`/unicode/shebang 的连带 |
-| 类型别名声明的类型没有读完 | 4 | 类型 ASI / `>>` |
+| 函数参数不是标识符 | 8 | G1 形参模式 / 默认值 |
+| 表达式没有读完 | 6 | 块体 ASI / 表达式边界 |
+| 不支持的表达式起点 | 5 | 表达式文法缺档 |
+| 缺少标识符 | 4 | `$` / unicode / shebang 连带 |
 | 变量声明缺少标识符 | 3 | `$` / 绑定模式 |
+| 类型注解没有读完 | 3 | 类型 ASI / 类型文法 |
+| 变量声明里有无法识别的单元 | 3 | `!` 断言 / 类型实参切分残留 |
+| 类型别名声明的类型没有读完 | 3 | 类型 ASI / `>>` |
+| 表达式语句没有读完 | 2 | 根级 ASI / 表达式语句收口 |
 | 私有标识符缺少名字 | 2 | shebang `#!` |
+| 类型别名声明不完整 | 2 | 类型别名收口 |
+| 其余各 1 | 6 | 类成员参数、`泛型实参缺少 >`、import equals 点号、函数返回类型、2 条 CatalogGuide 共存 |
 
-### 6.3 仍剩的 12 条 diff（逐条）
+### 6.3 仍剩的 9 条 diff（逐条）
 
 ```text
-ambiguous/am-arrow-generic.ts                     D8  泛型箭头 vs 尖括号断言（expression-builder.ParseAngleStart）
-declarations/decl-class-computed-member.ts        D2  类成员计算名（class-declaration-shape 成员名分派，D2 的剩余 1 份）
-declarations/gap-sweep-newline-decl-abstract-01.ts D4 顶层 abstract 换行（possible compute）
-expressions/gap-r1231-decl-newline-operator.ts    D9 无分号声明收口（end compute）
-expressions/gap-r979-new-inst-tagged.ts           D7 类型实参 + 标签模板（possible build）
-modules/gap-r869-exp-named-newline-then-from-like.ts D14 复现差异（待复核）
-modules/gap-sweep-newline-mod-declare-01.ts       D4 顶层 declare 换行
-statements/gap-sweep-linecomment-async-01.ts      D5 async 换行（上下文关键字）
-statements/gap-sweep-newline-async-01.ts          D5 async 换行
-statements/stmt-throw-no-argument-then-statement.ts D9 throw 零宽节点落点（end build）
-types/gap-r1237-type-position-brace.ts            D10 类型位「词 + {」
-types/gap-r907-index-signature-newline-after-readonly.ts D3 readonly 与 `[` 换行
+declarations/decl-class-computed-member.ts               D2  类成员计算名（成员名分派，possible build）
+expressions/gap-r1231-decl-newline-operator.ts           D9  无分号声明收口（下一条 `/re/g` 被续进声明，end compute）
+expressions/gap-r955-yield-await-outside-context.ts      语境型 `yield`（YieldExpression 数量差，possible build/compute）
+expressions/gap-r979-new-inst-tagged.ts                  D7  类型实参 + 标签模板（NewExpression End 少一格，possible build）
+modules/gap-r869-exp-named-newline-then-from-like.ts     D14 ExportDeclaration 少 ParenthesizedExpression/StringLiteral（待复核）
+statements/stmt-do-while-body-terminated.ts              `do-while` 体收口（end compute）
+statements/stmt-throw-no-argument-then-statement.ts      D9  throw 零宽节点落点（ThrowStatement End，end build）
+types/gap-r1237-type-position-brace.ts                   D10 类型位「词 + {」（possible compute）
+types/gap-r907-index-signature-newline-after-readonly.ts D3  readonly 与 `[` 换行（possible compute）
 ```
+
+按类别：possible build 3、possible compute 3、end compute 2、end build 1。**这 9 条都不属于 basic token**，也不需要改尺子。
 
 ### 6.4 「非 shape / 尺子 / TS 恢复」判定（29 条 diff 的结论）
 
@@ -219,9 +221,28 @@ types/gap-r907-index-signature-newline-after-readonly.ts D3 readonly 与 `[` 换
 - **1 条待复核**（`gap-r869-exp-named-newline-then-from-like.ts`：基线结构差 2 个节点，原分析克隆未复现）；
 - **10 条 ts-invalid**（TS 自己 `parseDiagnostics ≠ 0`，或 TS 静默恢复成零宽 Identifier / 无名声明）不计入 191，
   属「TS 恢复」类，不应为了对齐它们改 shape；
-- **尺子归一表**有一处需要注意：`typescript/cases/ast-json.mjs:138-152` 的别名表比 `tmp/recon-token4.mjs` 少 8 条
-  （`FirstLiteralToken`、`LastStatement`、`LastAssignment` 族、`FirstPunctuation`、`FirstAssignment`）。
-  对 token 语料用窄表会产生假「结构差」；这是**尺子问题**，建议补齐（不属于 shape 缺口）。
+- **尺子归一表已统一**：`ast-json.mjs` / `ast-json-diff.mjs` / `token-ast.mjs` 共用
+  `typescript/cases/ast-compare.mjs` 的 `TS_KIND_ALIASES`（17 条，含 `FirstLiteralToken`、`LastStatement`、
+  `LastAssignment` 族、`FirstPunctuation`、`FirstAssignment`、`AssertClause`/`AssertEntry`），
+  不再有「窄表把别名印成假结构差」的问题。
+
+### 6.5 §6 七类的常驻用例构造（`typescript/cases/*.ts`）
+
+`typescript/cases/token-repros/` 已并入下列 7 个构造（一行一用例，多行形用行内 `\n`，全部 `ast:cases` 全绿）：
+
+| 构造 | §6 类别 | 条数 | 主要覆盖 |
+| --- | --- | --- | --- |
+| `basic-token.ts` | basic token 存在问题 | 3（仅边界对照）+ 7 项待裁定注释 | 待用户裁定的 7 个场景只写注释；活跃行钉 `/` 的可判位置 |
+| `missing-possible.ts` | 缺少 possible | 9 | D 泛型箭头/`async<T>`、G10 装饰器声明、G11 `using`、G5/G6 类型侧候选 |
+| `missing-end.ts` | 缺少 end | 11 | G2b 函数体/构造器体、G2c ModuleBlock 的 `import=`/`export=`、I `export as namespace` |
+| `possible-compute.ts` | possible compute 不对 | 25 | K/G5/G6 类体索引签名与成员名、C8、D3、D4、D12、G4/G6/G5 类型成员、conditional-infer |
+| `possible-build.ts` | possible build 不对 | 47 | D1/D2/D6/D7/D9/D13、G2 `>>`、G3 async、G7 无体成员/裸 await、G11 function* |
+| `end-compute.ts` | end compute 不对 | 43 | A 块体/根级 ASI、B EOF 收口、C1–C3 import/export ASI、L、O、async 前缀歧义 |
+| `end-build.ts` | end build 不对 | 3 | D9 `throw`/type-tail 的 End 边界（未修形态只写注释） |
+| **合计** | | **141** | `ast:cases` 由 4622 → **4763**（identical 4763/4763、结构/位置/字段差 0） |
+
+> `basic-token.ts` 的 7 个待裁定场景（控制头 `)` 后 `/`、`$`、`\uXXXX`、BOM、shebang、`>>` 拆分、
+> Keyword 升级表）全文见该文件头注释与 §5；在用户裁定前不改 `core/**`。
 
 ## 7. 复现命令
 
@@ -239,7 +260,7 @@ node typescript/cases/token-ast.mjs types/
 node typescript/cases/token-ast.mjs "stmt-while"
 node typescript/cases/token-ast.mjs "tests/cases/token/**/stmt-while.ts"
 
-# 类型主干 AST 对拍（4622 条；必须 4622/4622 且 0/0/0）
+# 类型主干 AST 对拍（当前 4763 条；必须 identical == total 且结构差/位置差/字段差全 0）
 npm run ast:cases
 
 # token 语料（等价于第一条）
@@ -265,4 +286,4 @@ tmp/recon-token4.mjs                            # 基线重算脚本
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 主仓 `2a563080` 上 `token-ast.mjs --json` 实测（131 = 119 + 12） |
+| §6.2/6.3 剩余缺口 | 主仓 `14f1c070` 上 `token-ast.mjs --json` 实测（56 = 47 crash + 9 diff）；7 类常驻构造见 §6.5 |

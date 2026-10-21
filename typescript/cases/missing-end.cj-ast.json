@@ -1,0 +1,574 @@
+{
+  "cases": [
+    {
+      "src": "import A = A.B;",
+      "ast": [
+        {
+          "kind": "ImportEqualsDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 6,
+              "end": 8,
+              "text": "A"
+            },
+            {
+              "kind": "QualifiedName",
+              "pos": 10,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "A"
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 14,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N1 { import A = B.C }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "N1"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 12,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 14,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "A"
+                    },
+                    {
+                      "kind": "QualifiedName",
+                      "pos": 25,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "B"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 28,
+                          "end": 29,
+                          "text": "C"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N2 { import x = require(\"m\") }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "N2"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 12,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "ImportEqualsDeclaration",
+                  "pos": 14,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ExternalModuleReference",
+                      "pos": 25,
+                      "end": 38,
+                      "children": [
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 34,
+                          "end": 37,
+                          "text": "m"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N3 { const a = 1; export = a }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "N3"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 12,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 14,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 14,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 20,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 22,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 27,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"x\" {\n  export function f(): void\n  const y: number\n  export default y\n}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 87,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "x"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 87,
+              "children": [
+                {
+                  "kind": "FunctionDeclaration",
+                  "pos": 20,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "ExportKeyword",
+                      "pos": 20,
+                      "end": 29
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "f"
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 43,
+                      "end": 48
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableStatement",
+                  "pos": 48,
+                  "end": 66,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 48,
+                      "end": 66,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 56,
+                          "end": 66,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 56,
+                              "end": 58,
+                              "text": "y"
+                            },
+                            {
+                              "kind": "NumberKeyword",
+                              "pos": 59,
+                              "end": 66
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 66,
+                  "end": 85,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 83,
+                      "end": 85,
+                      "text": "y"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"*.css\" {\n  const content: string\n  export default content\n}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 75,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 22,
+              "text": "*.css"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 22,
+              "end": 75,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 24,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 24,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 32,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 32,
+                              "end": 40,
+                              "text": "content"
+                            },
+                            {
+                              "kind": "StringKeyword",
+                              "pos": 41,
+                              "end": 48
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExportAssignment",
+                  "pos": 48,
+                  "end": 73,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 65,
+                      "end": 73,
+                      "text": "content"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare global { interface Window { x: A } }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 44,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 7,
+              "end": 14,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 14,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "InterfaceDeclaration",
+                  "pos": 16,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 33,
+                      "text": "Window"
+                    },
+                    {
+                      "kind": "PropertySignature",
+                      "pos": 35,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 37,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 38,
+                          "end": 40,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 38,
+                              "end": 40,
+                              "text": "A"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare namespace A {}\nexport as namespace A",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "A"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 22
+            }
+          ]
+        },
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 22,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 42,
+              "end": 44,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export as namespace JSON",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 24,
+              "text": "JSON"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { constructor() { } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 9,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 27
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
