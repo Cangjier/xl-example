@@ -85,6 +85,32 @@ if (text === ">") {
 return depth;
 ```
 
+## static method ScanDepth:(unit:Token, depth:int)=>int
+
+变量声明初始化器扫顶层 `,` 边界时用的**夹零**数角：`<` +1；`>` 仅在 depth > 0 时 -1；
+`>>` / `>>>` 一次 -2 / -3（不够时夹到 0）；其它单元原样。
+与 `Shift` 的唯一区别是深度不会变负（调用方拿 `=== 0` 判「顶层逗号」）。
+
+```ts
+if (!(unit instanceof Symbol)) {
+  return depth;
+}
+const text = (unit as Symbol).TempToString();
+if (text === "<") {
+  return depth + 1;
+}
+if (text === ">") {
+  return depth > 0 ? depth - 1 : 0;
+}
+if (text === ">>") {
+  return depth >= 2 ? depth - 2 : 0;
+}
+if (text === ">>>") {
+  return depth >= 3 ? depth - 3 : 0;
+}
+return depth;
+```
+
 ## static method IsText:(unit:Token, text:string)=>bool
 
 ```ts

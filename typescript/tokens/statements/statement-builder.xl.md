@@ -787,16 +787,12 @@ while (at < endExclusive) {
       }
       if (initializerUnit instanceof Symbol) {
         const symbolText = (initializerUnit as Symbol).TempToString();
-        if (symbolText === "<" && (initializerEnd === initializerFirst || StatementBuilder.IsTypeArgumentStart(this.Units, initializerEnd, endExclusive))) {
-          angleDepth++;
-        } else if (symbolText === ">") {
-          if (angleDepth > 0) {
-            angleDepth--;
+        if (symbolText === "<") {
+          if (initializerEnd === initializerFirst || StatementBuilder.IsTypeArgumentStart(this.Units, initializerEnd, endExclusive)) {
+            angleDepth = AngleJudge.ScanDepth(initializerUnit, angleDepth);
           }
-        } else if (symbolText === ">>") {
-          angleDepth = angleDepth >= 2 ? angleDepth - 2 : 0;
-        } else if (symbolText === ">>>") {
-          angleDepth = angleDepth >= 3 ? angleDepth - 3 : 0;
+        } else {
+          angleDepth = AngleJudge.ScanDepth(initializerUnit, angleDepth);
         }
       }
       initializerEnd++;
