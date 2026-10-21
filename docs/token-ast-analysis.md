@@ -13,7 +13,7 @@
 **basic token 8 条（归因条数；按受影响文件是 11 份，口径见 §3 脚注与 §5）**。也就是说：
 **token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
 「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**
-（ok/crash/diff/ts-invalid），最终主仓 `b579c490`（Plan A + 场景 2/3/4/5 已合入）为 **1645/38/9/10/1**、ast:cases **4787/4787、0/0/0**。
+（ok/crash/diff/ts-invalid），最终主仓 `0e02c751`（Plan A + 场景 2/3/4/5 已合入，含场景 4 方案 (b)）为 **1646/37/9/10/1**、ast:cases **4787/4787、0/0/0**。
 
 ## 0. 数据来源与口径
 
@@ -46,6 +46,7 @@
 | 场景 3（`\uXXXX`，已合入 round 10，merge `de94ec2a`；实现提交 `13896b7d`） | **1640** | **43** | **9** | 10 | 1 | 1703 |
 | 场景 2（`$`，已合入 round 12，merge `96eaadf2`；实现提交 `c8256876`） | **1643** | **40** | **9** | 10 | 1 | 1703 |
 | 场景 4/5（BOM / shebang，已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`） | **1645** | **38** | **9** | 10 | 1 | 1703 |
+| 场景 4（方案 (b)：`Bom` 放宽起始判据） | **1646** | **37** | **9** | 10 | 1 | 1703 |
 
 - **191 处失败 = 162 crash + 29 diff**；`ts-invalid` 10 份是 TS 自己 `parseDiagnostics ≠ 0`（尺子不测），不计入 191。
 - `gap-now-passing` 1 份 = 语料里 `xl:known-gap` 已转绿的守卫；`known-gap` 共 3 份（2 diff + 1 gap-passing）。
@@ -152,6 +153,8 @@
 
 > **更新（场景 4/5 已实施，已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`）**：新增 basic token `Bom`（仅 source index 0，字符表 `Template.BomChars` 默认 U+FEFF/U+FFFE）与 `Shebang`（index 0 或 BOM.End+1，吞到行尾 `\n` 之前）；两者都是 trivia、不进 AST，已进 `Template.BasicBranchQueue` 最前。shebang 2 份转 PASS；`lex-bom.ts` 的 BOM 在 raw index 109，严格 index-0 不覆盖，三条候选（改 fixture / 放宽 Bom 起始判据 / BOM 当空白）详见 `docs/basic-token-scenarios.md` §4，待用户裁定。BOM+shebang 超集：本实现解析 OK，**TS 6.0.3 报 2 条 parseDiagnostics**（有意接受）。token **1645/38/9**、剩余 **47 = 38+9**、basic-token 红 3→1。
 
+> **更新（场景 4 方案 (b) 已落地，round 16）**：`Bom.CanStart` 放宽为「`source.Index === 0` **或** `unit.Data` 全为 trivia（尚无代码 token）」；`lex-bom.ts`（BOM 在 raw index 109）转 PASS；mid-code BOM 仍 crash。token **1646/37/9**、剩余 **46 = 37+9**、basic-token 类红 1→0。`\u{…}` 花括号形仍缺。
+
 本清单按**受影响文件**计数：items 1–4 共 **8 份** + item 5 shebang **2 份** + item 6 `>>` 拆分 **1 份** = **11 份**。
 §3 表与结论里的「basic token 8」是**归因条数**（items 1–4），口径不同、不矛盾。
 
@@ -193,9 +196,9 @@
 - 验证方式统一为：目标文件 `token-ast.mjs <file>` exit 0 + 全量 `token-ast.mjs --quiet`（ok 只升、crash/diff 只降）
   + `npm run ast:cases`（identical == total，结构/位置/字段差全 0）+ `xl_build` 0 error + `tsc` 0。
 
-### 6.2 仍剩的缺口（场景 4/5 落地后：**47 = 38 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）
+### 6.2 仍剩的缺口（场景 4 方案 (b) 落地后：**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）
 
-剩余 **47 处 = 38 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫；Plan A 收 2、场景 2 收 3、场景 3 收 2、场景 4/5 收 2，`8dbb7976` 时为 56 = 47+9），按**当前实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组）：
+剩余 **46 处 = 37 crash + 9 diff**（另有 10 ts-invalid 不计、1 gap-now-passing 作回归守卫；Plan A 收 2、场景 2 收 3、场景 3 收 2、场景 4 收 3、场景 5 收 2，`8dbb7976` 时为 56 = 47+9），按**当前实测**目录（`token-ast.mjs --json tmp/post-token.json` 分组）：
 
 | 目录 | 条数 | 说明 |
 | --- | --- | --- |
@@ -203,7 +206,7 @@
 | statements | 6 | 块体 ASI 剩余档、`do-while` 体收口、EOF 共存 |
 | expressions | 4 | 泛型箭头 / `new` 实参后缀 / `yield` 语境 |
 | types | 6 | 类型位「词 + `{`」、index-signature 换行、条件类型收尾 |
-| lexical | 1 | `lex-bom.ts` 的 BOM 在 raw index 109（`Bom` token 已实现、fixture 待裁定；shebang 已收） |
+| lexical | 0 | shebang（场景 5）与 BOM（场景 4 方案 (b)）均已收；`lex-bom.ts` 转 PASS |
 | modules | 2 | import/export ASI 残留 |
 | ambiguous | 1 | 泛型箭头 |
 
@@ -257,7 +260,7 @@ types/gap-r907-index-signature-newline-after-readonly.ts D3  readonly 与 `[` �
 
 | 构造 | §6 类别 | 条数 | 主要覆盖 |
 | --- | --- | --- | --- |
-| `basic-token.ts` | basic token 存在问题 | **27**（场景 1/2/3/5 已实施的活跃行 + 原边界对照） | 场景 1/2/3/5 已转 PASS 并进常驻用例；BOM 无法写成活跃行（case reader 会 `trim` 行首 U+FEFF），用直接 `SourceFileRunner.Parse` 探针验证；`\u{…}` 仍只写注释 |
+| `basic-token.ts` | basic token 存在问题 | **27**（场景 1/2/3/5 已实施的活跃行 + 原边界对照；场景 4 方案 (b) 使 `lex-bom.ts` 转 PASS） | 场景 1/2/3/5 已转 PASS 并进常驻用例；BOM 无法写成活跃行（case reader 会 `trim` 行首 U+FEFF），用直接 `SourceFileRunner.Parse` 探针验证；`\u{…}` 仍只写注释 |
 | `missing-possible.ts` | 缺少 possible | 9 | D 泛型箭头/`async<T>`、G10 装饰器声明、G11 `using`、G5/G6 类型侧候选 |
 | `missing-end.ts` | 缺少 end | 11 | G2b 函数体/构造器体、G2c ModuleBlock 的 `import=`/`export=`、I `export as namespace` |
 | `possible-compute.ts` | possible compute 不对 | 25 | K/G5/G6 类体索引签名与成员名、C8、D3、D4、D12、G4/G6/G5 类型成员、conditional-infer |
@@ -310,4 +313,4 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 主仓 `b579c490`（场景 4/5 已合入）`token-ast.mjs --json` 实测（**47 = 38 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | 主仓 `0e02c751`（含场景 4 方案 (b)）`token-ast.mjs --json` 实测（**46 = 37 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
