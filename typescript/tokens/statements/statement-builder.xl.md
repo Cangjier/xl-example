@@ -12,6 +12,7 @@ import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
+import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
@@ -522,6 +523,21 @@ while (at < endExclusive) {
   declaration.Add(name);
   at++;
   let declarationLast = nameIndex;
+  // 确定赋值断言 `let x!: T`：`!` 是 VariableDeclaration 的 ExclamationToken 子节点，
+  // 位置在名字与类型之间；TS 的 token pos 就是 `!` 本身（不含前导 trivia）。
+  if (at < endExclusive && this.IsSymbol(this.Units[at], "!")) {
+    const bangUnit = this.Units[at];
+    const bang = new ExclamationTokenShape(this.Template);
+    bang.SignInToken(bangUnit);
+    bang.SignOutToken(bangUnit);
+    if (bangUnit.SourceRange.Start !== null) {
+      bang.Pos = bangUnit.SourceRange.Start.Index;
+    }
+    bang.TryToClose(this.Context);
+    declaration.Add(bang);
+    declarationLast = at;
+    at++;
+  }
   if (at < endExclusive && this.IsSymbol(this.Units[at], ":")) {
     const typeFirst = at + 1;
     let typeEnd = typeFirst;
