@@ -6,3 +6,7 @@ try {} catch (e: unknown/*c*/) {}
 let x: Record<string, number> = y;
 // xl:note 初值里 `as` 之后的类型实参同样不按裸 `,` 切。
 const r = { a: 1 } as Record<string, number>;
+// xl:note 初值里的泛型调用 / new 泛型实参（G1a 残留）也不按裸 `,` 切。
+const x = new Map<string, number>();
+const y = f<A, B>(1);
+const z = a as Foo<A, B>;
