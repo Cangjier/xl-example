@@ -7,6 +7,7 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 ```
@@ -60,6 +61,28 @@ if (units[tokenIndex] instanceof EndOfFileTokenShape) {
   // EOF without `;`: the declaration ends at its last code unit; comments/EOF trivia are not part of it.
   return ShapeStates.Accept;
 }
+if (!units[tokenIndex].IsTriviaToken) {
+  // ASI：下一条语句的第一个**代码**单元已经到了——本条声明在它前面的换行处结束。
+  // 判据只允许在这一格成立：换行 trivia 或最后一个代码单元上 Accept 时普通候选还活着，
+  // CatalogGuide 会报「终结候选与其它候选同时成立」。
+  let previous = tokenIndex - 1;
+  let lineBreak = false;
+  while (previous >= 0) {
+    const unit = units[previous];
+    if (!unit.IsTriviaToken) {
+      break;
+    }
+    if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+      lineBreak = true;
+    }
+    previous--;
+  }
+  if (previous >= 0 && lineBreak
+    && ImportDeclarationEndPossibleShape.IsCompleteAt(units, previous)
+    && ImportDeclarationEndPossibleShape.CanEndAt(units, previous)) {
+    return ShapeStates.Accept;
+  }
+}
 return ShapeStates.Reject;
 ```
 
@@ -67,7 +90,7 @@ return ShapeStates.Reject;
 
 Raw lookahead after `last`: the declaration can end here when what follows is EOF, a comment, or a
 line break followed by a new statement; it must not end when the next code is `;` or a continuation keyword
-(`with` / `assert`) on the same or the next line.
+(`with` / `assert` / `from` / `as` / `type` / `defer`) on the same or the next line.
 
 ```ts
 const end = units[last].SourceRange.End;
@@ -118,7 +141,7 @@ while (at < count) {
       }
       break;
     }
-    if (word === "with" || word === "assert") {
+    if (word === "with" || word === "assert" || word === "from" || word === "as" || word === "type" || word === "defer") {
       return false;
     }
     return true;
@@ -130,10 +153,65 @@ while (at < count) {
 }
 return true;
 ```
+
+## static method IsCompleteAt:(units:Array<Token>, last:int)=>bool
+
+`last` 这个代码单元能不能收住一条完整的 import 声明（只看结构，不看后面）：
+
+- 模块说明符（`import x from "m"` / `import "m"`）：它是字符串字面量，原文以引号开头；
+- `with` / `assert` 属性括号：原文以 `}` 收尾（命名导入子句的 `}` 不是收尾——
+  它后面还等着 `from`，而 `CanEndAt` 会在下一行的 `from` 上返回 false）。
+
+`;` 不走这里（它走 `Done` 那条路）。声明还没到这两处时（`import` / `import x` / `import type` /
+`import { … }` / `import * as ns` / `import x from`），这里一律 false——否则换行后的
+`from` / `{` / `*` / `as` / `type` 会被误当成下一条语句，与还活着的普通候选撞在一起。
+
+```ts
+const range = units[last].SourceRange;
+if (range.Start === null || range.End === null) {
+  return false;
+}
+const text = range.GetRaw();
+if (text.length === 0) {
+  return false;
+}
+const head = text[0];
+if (head === "\"" || head === "'" || head === "`") {
+  return true;
+}
+return text[text.length - 1] === "}";
+```
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 const unit = host as UnitToken;
+const boundary = host.Data[tokenIndex];
+if (!(boundary instanceof EndOfFileTokenShape) && !(boundary instanceof Symbol && (boundary as Symbol).Is(";"))) {
+  // ASI：tokenIndex 是下一条语句的第一个代码单元。它是被壳吃进来的，不属于本条声明：
+  // 先签出最后一个代码单元，再把这一格还给父单元，最后关闭并卸下壳。
+  let end = tokenIndex - 1;
+  while (end >= 0 && host.Data[end].IsTriviaToken) {
+    end--;
+  }
+  if (end >= 0) {
+    const lastEnd = host.Data[end].SourceRange.End;
+    if (lastEnd !== null) {
+      unit.SignOut(lastEnd);
+    }
+  }
+  const parent = unit.Parent;
+  host.Data.splice(tokenIndex, 1);
+  unit.TryToClose(context);
+  unit.Quit();
+  if (parent !== null) {
+    const shellAt = parent.Data.indexOf(unit);
+    if (shellAt >= 0) {
+      parent.Data.splice(shellAt + 1, 0, boundary);
+      boundary.Parent = parent;
+    }
+  }
+  return host;
+}
 let at = tokenIndex;
 while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOfFileTokenShape)) {
   at--;

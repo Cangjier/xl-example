@@ -52,6 +52,36 @@ super(template);
 this.CatalogGuide = new CatalogGuide(ExportDeclarationShape.CreatePossibleShapes(), new ExportDeclarationEndPossibleShape());
 ```
 
+## method TryToClose:(context:SyntaxContext)=>CloseStates
+
+关闭前补 End：挂载壳的 `Data` 里还留着尾随 trivia（空白 / 换行 / 行注释 / 块注释），
+而 EOF 收尾有两条路径都会把 `End` 撑到 trivia 末尾：
+
+- `ShapeToken.TryToClose` 的兜底取的是**最后一个 `Data` 单元**——那可能是 trivia；
+- `SyntaxContext.Process` 在处理完最后一个真实字符时会对根 `SignOut`，递归 `TrySignOut` 到挂载壳，
+  把壳的 `End` 先写成最后一个字符（空白 / 注释）的下标。
+
+所以这里**只在「壳还挂载着」时重算一次**：从 `Data` 末尾跳过 trivia 与未签出单元，取最后一个代码单元的 End
+（TS 的声明右边界）。`FromUnits` 这类直接建出来、从不挂载的入口保持原有 `SignOut` 结果——
+它们的 `End` 可能合法地落在 `;` 上，而 `;` 不在形状的 `Data` 里。
+
+```ts
+const mounted = this.Parent !== null && this.Parent.MountedUnit === this;
+if (mounted) {
+  let at = this.Data.length - 1;
+  while (at >= 0 && (this.Data[at].IsTriviaToken || this.Data[at].SourceRange.End === null)) {
+    at--;
+  }
+  if (at >= 0) {
+    const tail = this.Data[at].SourceRange.End;
+    if (tail !== null) {
+      this.SourceRange.End = tail;
+    }
+  }
+}
+return super.TryToClose(context);
+```
+
 ## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
 
 ## static method CreatePossibleShapes:()=>Array<PossibleShape>

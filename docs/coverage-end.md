@@ -370,3 +370,40 @@ STILL RED（本 chunk 未解，已注释进用例文件并写明原因）
 - `cover-asi-import-1` @ `a34acfa3` — (ASI x import boundary)；cases +46/-0（asi-import-boundary）；impl: export-declaration-possible-shape
 - `cover-end-declarations-3` @ `3373ce9a` — (EOF multi-declaration + function family)；cases +22/-0（end-declarations）；impl: source-file-end-possible-shape
 - `cover-end-declarations-2` @ `34d25aac` — (declaration body ASI chunk 2)；cases +57/-0（end-declarations）；impl: source-file-end-possible-shape
+
+## end/import·export 收口（A/B 两组，用户指定先做这两组）
+
+**背景**：全量 4402 条用例全绿之后，把 case 里 `//` 记录的 deferred 形态 + 边界变体抽成 105 条探针逐条对拍 TS AST，
+仍有 34 条 shape 层真红，全部属于 `end` 族（分析见 `docs/end-close-analysis.md` §3）。本轮只做其中的 A、B 两组。
+
+**A 组（19 条）：无分号到 EOF + 尾随 trivia，声明 `End` 被撑到 trivia 末尾**
+
+- 根因有两条：`SourceFileShape.Process` 的 EOF 分支直接 `mounted.TryToClose()`（绕过壳自己的终结候选），
+  `ShapeToken.TryToClose` 兜底取 `Last()`（Data 里还有 trivia）；且 `SyntaxContext.Process` 处理完最后一个真实字符时
+  对根 `SignOut` 会递归 `TrySignOut` 到挂载壳，把壳 `End` 先写成最后一个字符（空白/注释）的下标。
+- 修法：`ImportDeclarationShape` / `ExportDeclarationShape` 覆写 `TryToClose`——**只在壳还挂载着时**重算 End：
+  从 `Data` 末尾跳过 trivia 与未签出单元，取最后一个代码单元的 End；`FromUnits` 建出的（从不挂载）保持原 `SignOut`。
+
+**B 组（6 条）：无分号 + 换行后接下一语句（ASI）**
+
+- 根因：两个 `…DeclarationEndPossibleShape.ComputeByIndex` 只认 `;` 与 EOF；`CanEndAt` 写了但零调用点；
+  壳在边界不收口 → import 吞掉下一条后在 `Close` 抛「未识别的单元（Common）」，export 把两条并成一条。
+- 修法：`ComputeByIndex` 接线 ASI——当前格是**下一条语句第一个代码单元**、与前一代码单元之间有换行、
+  `IsCompleteAt`（声明结构已完整）× `CanEndAt`（下一行不是延续关键字）同时成立才 `Accept`；
+  `BuildByIndex` 的 ASI 支路把边界单元从壳 `Data` 摘出、还给父单元，再关闭并卸下壳。
+  `;` / EOF 两条老路不动。
+- 关键：`IsCompleteAt` 只看「结构已完整」不够；`CanEndAt` 的延续关键字表由 `with`/`assert` 扩到
+  `from`/`as`/`type`/`defer`，否则 `import x\nfrom "m"`、`import type\n{ T }`、`export { a }\nfrom "m"`、
+  `import x from "m" with\n{…}` 会被误判成 ASI（实测会抛「终结候选与其它候选同时成立」）。
+
+**用例**（新 stem `typescript/cases/end-import-export.ts`，46 条）：
+A 组 17 条（行注释 / 块注释 / 块注释含换行 / 尾随换行 / 尾随空格换行 / 副作用导入 / type 导入 / 默认+具名 / 命名空间 /
+属性子句，以及 export 具名 / star / star-as / type-only / 本地 export）；B 组 17 条（两条 import / import+class /
+import+表达式 / 空行 / 注释隔开 / 块注释隔开 / import+export / 两条 export 三种 / export+class / export 本地+语句）；
+对照组 12 条（`;` 收尾、换行后仍是同一声明：`from` / `{` / `*` / `type` / `with` 等延续形）。
+
+**读数（本分支）**：`end-import-export` **46 / 46 完全一致**；全量 **4448 / 4448**（基线 4402 + 46，31 个构造），
+结构差 0 / 位置差 0 / 字段差 0，无回归；tsc 0 error；xl_check 0 error（仅仓库既有 W3102/W3103 文档类 warning）。
+
+**明确未做**：C 组 9 条（`export = <expr>` / `export default <expr>` 的无分号收口）留到下一轮；
+TS 静默恢复 3 条（`throw\na;`、`class {}`）与 TS 非法 8 条不入尺子（`docs/end-close-analysis.md` §7）。

@@ -1,0 +1,2158 @@
+{
+  "cases": [
+    {
+      "src": "import x from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" /* c */",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"\n",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" \n",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" /* a\nb */",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import \"m\" // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 6,
+              "end": 10,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import type { T } from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 17,
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 11,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 13,
+                      "end": 15,
+                      "name": "T",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 15,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x, { y } from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 15,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                },
+                {
+                  "kind": "NamedImports",
+                  "pos": 9,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 11,
+                      "end": 13,
+                      "name": "y",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 11,
+                          "end": 13,
+                          "text": "y"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 20,
+              "end": 24,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import * as ns from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 6,
+                  "end": 14,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 19,
+              "end": 23,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" with { type: \"json\" } // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 17,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 24,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 29,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 30,
+                      "end": 37,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * as ns from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "NamespaceExport",
+              "pos": 6,
+              "end": 14,
+              "name": "ns",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 14,
+                  "text": "ns"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 19,
+              "end": 23,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export type { T } from \"m\" // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 26,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 11,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 13,
+                  "end": 15,
+                  "name": "T",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"\n",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"\nimport y from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 35,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 24,
+              "end": 26,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 31,
+              "end": 35,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"\nclass C {}",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 17,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"\na;",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 17,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"\n\nimport y from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 36,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 25,
+              "end": 27,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 32,
+              "end": 36,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"\nimport y from \"n\"\na;",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 35,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 24,
+              "end": 26,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 31,
+              "end": 35,
+              "text": "n"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 35,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 35,
+              "end": 37,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"\n// c\nimport y from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 40,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 29,
+              "end": 31,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 36,
+              "end": 40,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" // c\nimport y from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 40,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 29,
+              "end": 31,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 36,
+              "end": 40,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"// c\nimport y from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 28,
+              "end": 30,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 28,
+                  "end": 30,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 35,
+              "end": 39,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" /* c */\nimport y from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 43,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 32,
+              "end": 34,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 34,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 39,
+              "end": 43,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" /* c */\nexport { a };",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 17,
+          "end": 39,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 32,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 34,
+                  "end": 36,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import { a } from \"m\"\nexport { b } from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 6,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 8,
+                      "end": 10,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 8,
+                          "end": 10,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 21,
+          "end": 43,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 28,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 30,
+                  "end": 32,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 39,
+              "end": 43,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"\nexport { b } from \"n\"",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 21,
+          "end": 43,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 28,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 30,
+                  "end": 32,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 39,
+              "end": 43,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export * from \"m\"\nexport * from \"n\"",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 17,
+          "end": 35,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 31,
+              "end": 35,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"\nexport * from \"n\"",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 21,
+          "end": 39,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 35,
+              "end": 39,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\" /* c */\nexport { b } from \"n\"",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 21,
+          "end": 51,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 36,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 38,
+                  "end": 40,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 47,
+              "end": 51,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"\nclass C {}",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 21,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 29,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a }\na;",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 12,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x\nfrom \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import { a }\nfrom \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 6,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 8,
+                      "end": 10,
+                      "name": "a",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 8,
+                          "end": 10,
+                          "text": "a"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import type\n{ T } from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 27,
+          "isTypeOnly": true,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 17,
+              "isTypeOnly": true,
+              "children": [
+                {
+                  "kind": "NamedImports",
+                  "pos": 11,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "ImportSpecifier",
+                      "pos": 13,
+                      "end": 15,
+                      "name": "T",
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 13,
+                          "end": 15,
+                          "text": "T"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 22,
+              "end": 26,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import defer\n* as ns from \"m\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamespaceImport",
+                  "pos": 12,
+                  "end": 20,
+                  "name": "ns",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 20,
+                      "text": "ns"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" with\n{ type: \"json\" };",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 17,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 24,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 29,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 30,
+                      "end": 37,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\" with\n{ type: \"json\" }\nimport y from \"n\"",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            },
+            {
+              "kind": "ImportAttributes",
+              "pos": 17,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "ImportAttribute",
+                  "pos": 24,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 24,
+                      "end": 29,
+                      "text": "type"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 30,
+                      "end": 37,
+                      "text": "json"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 39,
+          "end": 57,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 46,
+              "end": 48,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 46,
+                  "end": 48,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 53,
+              "end": 57,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a }\nfrom \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export *\nfrom \"m\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\";\nimport y from \"n\";",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 18,
+          "end": 37,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 25,
+              "end": 27,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 32,
+              "end": 36,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a };\nexport { b } from \"n\";",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExportDeclaration",
+          "pos": 13,
+          "end": 36,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 20,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 22,
+                  "end": 24,
+                  "name": "b",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 31,
+              "end": 35,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "import x from \"m\"; // c",
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export { a } from \"m\"; // c",
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 17,
+              "end": 21,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
