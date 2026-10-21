@@ -13,7 +13,7 @@
 **basic token 8 条（归因条数；按受影响文件是 11 份，口径见 §3 脚注与 §5）**。也就是说：
 **token 化本身不是主因（8/191），真正的主因是「这条语句/类型在哪一格结束」与
 「build 时拿到的是不是完整单元集」**。round-1 修复后读数从 **1501/162/29/10** 降到 **1561/119/12/10**
-（ok/crash/diff/ts-invalid），主仓 `01ce0a1a`（Plan A + 场景 2/3 已合入）为 **1643/40/9/10/1**；本分支再实施场景 4/5 后为 **1645/38/9/10/1**、ast:cases **4787/4787、0/0/0**。
+（ok/crash/diff/ts-invalid），最终主仓 `b579c490`（Plan A + 场景 2/3/4/5 已合入）为 **1645/38/9/10/1**、ast:cases **4787/4787、0/0/0**。
 
 ## 0. 数据来源与口径
 
@@ -45,7 +45,7 @@
 | **当前最终态（HEAD `9368d937`，Plan A 已合入）** | **1638** | **45** | **9** | 10 | 1 | 1703 |
 | 场景 3（`\uXXXX`，已合入 round 10，merge `de94ec2a`；实现提交 `13896b7d`） | **1640** | **43** | **9** | 10 | 1 | 1703 |
 | 场景 2（`$`，已合入 round 12，merge `96eaadf2`；实现提交 `c8256876`） | **1643** | **40** | **9** | 10 | 1 | 1703 |
-| 场景 4/5（BOM / shebang，本分支 `cover-token-bomshebang`，待合入） | **1645** | **38** | **9** | 10 | 1 | 1703 |
+| 场景 4/5（BOM / shebang，已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`） | **1645** | **38** | **9** | 10 | 1 | 1703 |
 
 - **191 处失败 = 162 crash + 29 diff**；`ts-invalid` 10 份是 TS 自己 `parseDiagnostics ≠ 0`（尺子不测），不计入 191。
 - `gap-now-passing` 1 份 = 语料里 `xl:known-gap` 已转绿的守卫；`known-gap` 共 3 份（2 diff + 1 gap-passing）。
@@ -150,7 +150,7 @@
 >
 > **更新（场景 2 已实施，已合入 round 12，merge `96eaadf2`；实现提交 `c8256876`）**：`$` 已从 `core/syntax/templates/symbol-template.xl.md` 的 `IsSymbol` 内置表移除（一行删除，非 per-language `Ban`）；token **1643/40/9**、剩余 **49 = 40+9**、basic-token 类红 6→3。
 
-> **更新（场景 4/5 已实施，本分支 `cover-token-bomshebang`）**：新增 basic token `Bom`（仅 source index 0，字符表 `Template.BomChars` 默认 U+FEFF/U+FFFE）与 `Shebang`（index 0 或 BOM.End+1，吞到行尾 `\n` 之前）；两者都是 trivia、不进 AST，已进 `Template.BasicBranchQueue` 最前。shebang 2 份转 PASS；`lex-bom.ts` 的 BOM 在 raw index 109，严格 index-0 不覆盖，三条候选待用户裁定。token **1645/38/9**、剩余 **47 = 38+9**、basic-token 红 3→1。
+> **更新（场景 4/5 已实施，已合入 round 14，merge `b579c490`；实现提交 `ad1bd6a3`）**：新增 basic token `Bom`（仅 source index 0，字符表 `Template.BomChars` 默认 U+FEFF/U+FFFE）与 `Shebang`（index 0 或 BOM.End+1，吞到行尾 `\n` 之前）；两者都是 trivia、不进 AST，已进 `Template.BasicBranchQueue` 最前。shebang 2 份转 PASS；`lex-bom.ts` 的 BOM 在 raw index 109，严格 index-0 不覆盖，三条候选（改 fixture / 放宽 Bom 起始判据 / BOM 当空白）详见 `docs/basic-token-scenarios.md` §4，待用户裁定。BOM+shebang 超集：本实现解析 OK，**TS 6.0.3 报 2 条 parseDiagnostics**（有意接受）。token **1645/38/9**、剩余 **47 = 38+9**、basic-token 红 3→1。
 
 本清单按**受影响文件**计数：items 1–4 共 **8 份** + item 5 shebang **2 份** + item 6 `>>` 拆分 **1 份** = **11 份**。
 §3 表与结论里的「basic token 8」是**归因条数**（items 1–4），口径不同、不矛盾。
@@ -170,7 +170,7 @@
 
 ## 6. 修复落地状态
 
-### 6.1 已合入主仓的修复（round-1 ~ round-12，最终合并 HEAD `96eaadf2`；场景 4/5 在本分支待合入）
+### 6.1 已合入主仓的修复（round-1 ~ round-14，最终合并 HEAD `b579c490`）
 
 四个分支合入：`cover-token-fix-build`、`cover-token-fix-class`、`cover-token-an-mod-diff`（+ 文档）、`cover-token-an-decl`（仅文档）。
 各提交自带**各自基线（1501/162/29）上的读数**——彼此有重叠组，**不可相加**，只能看最后合并态：
@@ -257,16 +257,16 @@ types/gap-r907-index-signature-newline-after-readonly.ts D3  readonly 与 `[` �
 
 | 构造 | §6 类别 | 条数 | 主要覆盖 |
 | --- | --- | --- | --- |
-| `basic-token.ts` | basic token 存在问题 | 25（场景 1/2/3 已实施的活跃行 + 原边界对照） | 场景 1/2/3 已转 PASS 并进常驻用例；BOM/shebang/`\u{…}` 仍只写注释 |
+| `basic-token.ts` | basic token 存在问题 | **27**（场景 1/2/3/5 已实施的活跃行 + 原边界对照） | 场景 1/2/3/5 已转 PASS 并进常驻用例；BOM 无法写成活跃行（case reader 会 `trim` 行首 U+FEFF），用直接 `SourceFileRunner.Parse` 探针验证；`\u{…}` 仍只写注释 |
 | `missing-possible.ts` | 缺少 possible | 9 | D 泛型箭头/`async<T>`、G10 装饰器声明、G11 `using`、G5/G6 类型侧候选 |
 | `missing-end.ts` | 缺少 end | 11 | G2b 函数体/构造器体、G2c ModuleBlock 的 `import=`/`export=`、I `export as namespace` |
 | `possible-compute.ts` | possible compute 不对 | 25 | K/G5/G6 类体索引签名与成员名、C8、D3、D4、D12、G4/G6/G5 类型成员、conditional-infer |
 | `possible-build.ts` | possible build 不对 | 47 | D1/D2/D6/D7/D9/D13、G2 `>>`、G3 async、G7 无体成员/裸 await、G11 function* |
 | `end-compute.ts` | end compute 不对 | 43 | A 块体/根级 ASI、B EOF 收口、C1–C3 import/export ASI、L、O、async 前缀歧义 |
 | `end-build.ts` | end build 不对 | 3 | D9 `throw`/type-tail 的 End 边界（未修形态只写注释） |
-| **合计** | | **168** | `ast:cases` 由 4622 → **4787**（identical 4787/4787、结构/位置/字段差 0） |
+| **合计** | | **165** | `ast:cases` 由 4622 → **4787**（identical 4787/4787、结构/位置/字段差 0） |
 
-> `basic-token.ts` 的 7 个待裁定场景（控制头 `)` 后 `/`、`$`、`\uXXXX`、BOM、shebang、`>>` 拆分、
+> `basic-token.ts` 的 7 个场景里 1/2/3/5 已实施（控制头 `)` 后 `/`、`$`、`\uXXXX` 4 位形、shebang），BOM（场景 4）token 已实现但 fixture 待裁定，`>>` 与 Keyword 升级表仍是口径项；详见该文件头注释与 `docs/basic-token-scenarios.md`。
 > Keyword 升级表）全文见该文件头注释与 §5；在用户裁定前不改 `core/**`。
 
 ## 7. 复现命令
@@ -285,7 +285,7 @@ node typescript/cases/token-ast.mjs types/
 node typescript/cases/token-ast.mjs "stmt-while"
 node typescript/cases/token-ast.mjs "tests/cases/token/**/stmt-while.ts"
 
-# 类型主干 AST 对拍（本分支 4787 条；必须 identical == total 且结构差/位置差/字段差全 0）
+# 类型主干 AST 对拍（当前主仓 4787 条；必须 identical == total 且结构差/位置差/字段差全 0）
 npm run ast:cases
 
 # token 语料（等价于第一条）
@@ -310,4 +310,4 @@ node typescript/cases/token-ast.mjs --json <path> --quiet   # 1703 行逐文件�
 | §4 五问 | statements §4、declarations 各组「五问」、expressions+types 各组「五问」、modules-diffs §4/§5 |
 | §5 basic token | statements M、declarations G12、expressions+types §4、modules-diffs §7 |
 | §6.4 diff 判定 | modules-diffs §6/§8 |
-| §6.2/6.3 剩余缺口 | 本分支（场景 4/5）`token-ast.mjs --json` 实测（**47 = 38 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
+| §6.2/6.3 剩余缺口 | 主仓 `b579c490`（场景 4/5 已合入）`token-ast.mjs --json` 实测（**47 = 38 crash + 9 diff**；`8dbb7976` 时为 56 = 47+9）；9 条 diff 清单不变；7 类常驻构造见 §6.5 |
