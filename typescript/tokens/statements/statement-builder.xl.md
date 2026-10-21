@@ -680,8 +680,7 @@ while (at < endExclusive) {
         }
       }
       typeEnd++;
-    }
-    if (typeEnd <= typeFirst) {
+    }    if (typeEnd <= typeFirst) {
       throw new Error("类型注解为空");
     }
     const typeUnits:Array<Token> = [];
@@ -725,7 +724,7 @@ while (at < endExclusive) {
       }
       if (initializerUnit instanceof Symbol) {
         const symbolText = (initializerUnit as Symbol).TempToString();
-        if (symbolText === "<" && StatementBuilder.IsTypeArgumentStart(this.Units, initializerEnd, endExclusive)) {
+        if (symbolText === "<" && (initializerEnd === initializerFirst || StatementBuilder.IsTypeArgumentStart(this.Units, initializerEnd, endExclusive))) {
           angleDepth++;
         } else if (symbolText === ">") {
           if (angleDepth > 0) {
