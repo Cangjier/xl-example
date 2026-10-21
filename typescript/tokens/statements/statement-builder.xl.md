@@ -923,7 +923,13 @@ if (split) {
   } else {
     shape = new BreakStatementShape(this.Template);
   }
-  return this.Finish(shape, first, first);
+  // `break` / `continue` 换行后紧跟 `;`：那个 `;` 是**本语句自己的终结符**（TS 的
+  // `canParseSemicolon`：`while (a) break\n;` 的 BreakStatement 与 WhileStatement 都含它），
+  // 不能留给外层当孤儿单元，否则外层壳报「语句没有读完」且右端借不到这一格。
+  if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
+    this.At++;
+  }
+  return this.Finish(shape, first, this.At - 1);
 }
 let label:Token | null = null;
 if (this.At < this.Units.length && !this.IsSymbol(this.Units[this.At], ";")) {

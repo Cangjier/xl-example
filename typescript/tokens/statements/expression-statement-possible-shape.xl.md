@@ -335,6 +335,25 @@ if (prev < 0 || !lineBreak) {
 if (!ExpressionStatementPossibleShape.CanEndExpression(units[prev])) {
   return false;
 }
+// `++` / `--` 既可后缀也可前缀：只有紧贴前一个「能结束表达式」的代码单元（中间无换行）时
+// 它才是后缀（`a++` 能断句）；否则它是前缀运算符、还在等下一行的操作数（`a++; --\n a;` 里
+// 那条语句是 `--a`，绝不能在 `--` 后面断句）。
+if (units[prev] instanceof Symbol) {
+  const operator = (units[prev] as Symbol).TempToString();
+  if (operator === "++" || operator === "--") {
+    let before = prev - 1;
+    let breakSeen = false;
+    while (before >= 0 && units[before].IsTriviaToken) {
+      if (ExpressionStatementPossibleShape.HasLineBreak(units[before])) {
+        breakSeen = true;
+      }
+      before--;
+    }
+    if (before < 0 || breakSeen || !ExpressionStatementPossibleShape.CanEndExpression(units[before])) {
+      return false;
+    }
+  }
+}
 // 本条语句的起点：从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。
 let head = prev;
 while (head > 0 && units[head - 1].IsBasicToken) {
@@ -517,15 +536,26 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
   } else if (state.AsyncStage === 1) {
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+      // `async (…)`：调用位或带括号参数的箭头，先按「可能是箭头」继续看。
       state.AsyncStage = 2;
     } else if (unit instanceof Common && !(unit as Common).CanStartNumber()) {
-      state.AsyncStage = 2;
+      // `async x`：只有 `async x => …` 这一种，后面必须是 `=>`。
+      state.AsyncStage = 4;
     } else {
       // `async function` / `async;` / `async` + 别的代码：不是 async 箭头，候选退出，
       // 别把函数声明的头劫持成表达式语句（function 声明候选还没进 root，保持「无候选」）。
       state.Rejected = true;
     }
   } else if (state.AsyncStage === 2) {
+    if (unit instanceof Symbol && (unit as Symbol).Is("=>")) {
+      state.AsyncStage = 3;
+    } else {
+      // `async(…)` 后面不是 `=>`：这不是箭头函数，`async` 只是一个被调用的标识符
+      // （`async(1);`）。退回普通表达式语句，别把这一格让给「无候选」——
+      // 让位之后 `;` 会成孤儿、落进 EOF 兜底的 ExpressionStatement 并抛「表达式语句没有读完」。
+      state.AsyncStage = 0;
+    }
+  } else if (state.AsyncStage === 4) {
     if (unit instanceof Symbol && (unit as Symbol).Is("=>")) {
       state.AsyncStage = 3;
     } else {
