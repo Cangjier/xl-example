@@ -1055,12 +1055,28 @@ const keyword = this.Units[first];
 // statement (ASI), so the following token starts a NEW statement (`return\na;` = return; a;).
 // ReturnStatement has no expression child; TS reconstructs `throw` with a zero-width Identifier child
 // (`ThrowStatement [0,5] -> Identifier [5,5] text=""`) — synthesized below when there is no expression.
-const split = !isThrow
-  && this.At < this.Units.length
+// `return` / `throw` 都是受限产生式：关键字之后换行 ⇒ 本条语句没有操作数、下一行是新语句
+// （`return\na;` = return; a;）。`return` 没有表达式子节点；`throw` 的 TS 恢复形是
+// 「ThrowStatement[first..关键字末] + 零宽 Identifier[pos==end==关键字之后的下一格]」。
+const lineBreak = this.At < this.Units.length
   && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.End);
-if (split) {
-  const shape = new ReturnStatementShape(this.Template);
-  return this.Finish(shape, first, first);
+if (lineBreak) {
+  if (!isThrow) {
+    return this.Finish(new ReturnStatementShape(this.Template), first, first);
+  }
+  const throwShape = new ThrowStatementShape(this.Template);
+  const throwEnd = keyword.SourceRange.End;
+  if (throwEnd !== null) {
+    const zero = new IdentifierShape(this.Template);
+    zero.EscapedText = "";
+    const zeroSource = throwEnd.Document.At(throwEnd.Index);
+    zero.SourceRange.Start = zeroSource;
+    zero.SourceRange.End = zeroSource;
+    zero.Pos = throwEnd.Index + 1;
+    zero.TryToClose(this.Context);
+    throwShape.Add(zero);
+  }
+  return this.Finish(throwShape, first, first);
 }
 let endExclusive = this.At;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {
