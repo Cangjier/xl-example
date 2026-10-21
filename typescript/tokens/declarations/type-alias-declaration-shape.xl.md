@@ -81,7 +81,7 @@ return -1;
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>TypeAliasDeclarationShape
 
-从根单元 `host.Data[start..tokenIndex]` 建一条类型别名声明。`tokenIndex` 必须落在 `;` 上。
+从根单元 `host.Data[start..tokenIndex]` 建一条类型别名声明。`tokenIndex` 落在 `;` 上，或（无分号 ASI 收口时）落在类型末单元上。
 
 ```ts
 const code:Array<Token> = [];
@@ -90,7 +90,7 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
-if (code.length < 5) {
+if (code.length < 4) {
   throw new Error("类型别名声明不完整");
 }
 let cursor = 0;
@@ -104,7 +104,7 @@ if (code[cursor] instanceof Common && (code[cursor] as Common).Is("declare")) {
   declareUnit = code[cursor];
   cursor++;
 }
-if (code.length < cursor + 5) {
+if (code.length < cursor + 4) {
   throw new Error("类型别名声明不完整");
 }
 const keyword = code[cursor];
@@ -135,7 +135,12 @@ if (!(equal instanceof Symbol) || !(equal as Symbol).Is("=")) {
   throw new Error("类型别名声明缺少等号");
 }
 if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
-  throw new Error("类型别名声明缺少分号");
+  // 无分号收口（ASI）：tokenIndex 就是类型末单元，末单元不是 `;` 是合法的。
+  if (code.length <= equalIndex + 1) {
+    throw new Error("类型别名声明的类型为空");
+  }
+} else if (code.length <= equalIndex + 1) {
+  throw new Error("类型别名声明的类型为空");
 }
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
@@ -157,7 +162,11 @@ let typePos = 0;
 if (equal.SourceRange.End !== null) {
   typePos = equal.SourceRange.End.Index + 1;
 }
-const typeUnits:Array<Token> = code.slice(equalIndex + 1, code.length - 1);
+let typeTail = code.length;
+if (last instanceof Symbol && (last as Symbol).Is(";")) {
+  typeTail = code.length - 1;
+}
+const typeUnits:Array<Token> = code.slice(equalIndex + 1, typeTail);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(typeUnits, typePos);
 const type = builder.ParseType();
