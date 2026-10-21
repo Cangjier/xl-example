@@ -1,6 +1,8 @@
 # dependencies
 ```xl
 import { BranchTransiter } from "../branch-transiter.xl.md"
+import { Bom } from "../basic-tokens/bom.xl.md"
+import { Shebang } from "../basic-tokens/shebang.xl.md"
 import { AreaAnnotation } from "../basic-tokens/area-annotation.xl.md"
 import { Bracket } from "../basic-tokens/bracket.xl.md"
 import { Common } from "../basic-tokens/common.xl.md"
@@ -61,6 +63,14 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 正则模板：这门语言的正则字面量长什么样（flags 字符集、可以起表达式的关键字、以及「这个 `/` 该不该起正则」的默认判据）。
 
+## field BomChars:Array<string> = ["\uFEFF", "\uFFFE"]
+
+文件头 BOM 的码点表：`Bom` basic token 只在 source index 0 认领其中的字符；语言无关，默认覆盖常见 BOM。
+
+## field ShebangMarker:string = "#!"
+
+Shebang 行的标记（默认 `#!`）。`Shebang` basic token 只在文件头允许的位置按它进入。
+
 ## field NumberTemplate:NumberTemplate = new NumberTemplate()
 
 数字模板：这门语言的数字字面量允许哪些后缀（不改节点种类的普通后缀，以及改用 BigIntLiteral 的 BigInt 后缀）。
@@ -86,6 +96,8 @@ basic tokens 的跳转队列：注释 → 正则 → 字符串 → 括号 → �
 ```ts
 if (Template.BasicBranchQueueCache === null) {
   Template.BasicBranchQueueCache = new Sequence<BranchTransiter>([
+    Bom.Transit,
+    Shebang.Transit,
     AreaAnnotation.Transit,
     LineAnnotation.Transit,
     RegexToken.Transit,
