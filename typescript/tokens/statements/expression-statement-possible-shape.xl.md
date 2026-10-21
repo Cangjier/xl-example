@@ -385,11 +385,62 @@ while (head > 0 && units[head - 1].IsBasicToken) {
 while (head < prev && units[head].IsTriviaToken) {
   head++;
 }
+// 被标声明（`en: enum E` 换行 `{ A }`）：段首是**标签名**时先跳过标签头，再看真正的声明关键字。
+let statementHead = head;
+let afterHead = statementHead + 1;
+while (afterHead < units.length && units[afterHead].IsTriviaToken) {
+  afterHead++;
+}
+if (units[statementHead] instanceof Common && afterHead < units.length
+  && units[afterHead] instanceof Symbol && (units[afterHead] as Symbol).Is(":")) {
+  let afterColon = afterHead + 1;
+  while (afterColon < units.length && units[afterColon].IsTriviaToken) {
+    afterColon++;
+  }
+  if (afterColon < units.length) {
+    statementHead = afterColon;
+  }
+}
+if (units[statementHead] instanceof Common
+  && ExpressionStatementPossibleShape.IsDeclarationHeadWord((units[statementHead] as Common).TempToString())) {
+  return false;
+}
 if (units[head] instanceof Common
   && ExpressionStatementPossibleShape.IsStatementWord((units[head] as Common).TempToString())) {
   return false;
 }
 return !ExpressionStatementPossibleShape.IsContinuation(current);
+```
+
+## static method IsContextualIdentifier:(text:string)=>bool
+
+`declare` / `abstract`：既是语句 / 修改符关键字，也能当普通标识符（TS：`declare;` / `abstract;`
+都是 `ExpressionStatement(Identifier)`）。只有「同一行 + 合法声明关键字」那一种才是修改符。
+
+```ts
+return text === "declare" || text === "abstract";
+```
+
+## static method IsModifierKeyword:(text:string)=>bool
+
+`declare` / `abstract` 后面能跟的、真正进入声明的关键字（同一行才算修改符）。
+
+```ts
+return text === "const" || text === "let" || text === "var" || text === "using"
+  || text === "function" || text === "class" || text === "interface" || text === "enum"
+  || text === "namespace" || text === "module" || text === "type" || text === "global"
+  || text === "abstract" || text === "async";
+```
+
+## static method IsDeclarationHeadWord:(text:string)=>bool
+
+声明头关键字：它们后面换行跟 `{` 时那个 `{` 是**声明体**，不是 ASI 边界
+（`en: enum E` 换行 `{ A }`、`class C` 换行 `{}`）。与 `IsStatementWord` 不同：这里**不收**
+`const` / `let` / `var`（`const a = 1` 换行 `{}` 是两条语句）。
+
+```ts
+return text === "class" || text === "interface" || text === "enum" || text === "namespace"
+  || text === "module" || text === "function" || text === "declare" || text === "abstract";
 ```
 
 ## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool

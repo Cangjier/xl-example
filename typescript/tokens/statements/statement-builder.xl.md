@@ -570,7 +570,7 @@ if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   if (text === "as" || text === "satisfies" || text === "instanceof" || text === "in" || text === "of"
     || text === "extends" || text === "is" || text === "keyof" || text === "typeof" || text === "new"
-    || text === "await" || text === "delete" || text === "void" || text === "yield"
+    || text === "await" || text === "delete" || text === "void"
     || text === "unique" || text === "readonly" || text === "asserts" || text === "infer") {
     return false;
   }
@@ -656,6 +656,14 @@ if (firstText === "await") {
 }
 let endExclusive = this.At;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {
+  // 无分号风格的变量语句：换行 + 上一位能收尾 + 下一位接不上 ⇒ 本条语句在此收口
+  // （`const a = 1\nbreak`、`declare const o: T\no.m()`、`const last = xs[…]\nlog()`）。
+  // 声明列表内的续接（`,` / `=` / `:` / 类型续接符 / `(` `[` `{`）由 `ContinuesAcrossLine`
+  // 已经排除；`EndsAtLineBreak` 与 `BuildExpressionStatement` 读的是同一个判据。
+  if (endExclusive > this.At
+    && StatementBuilder.EndsAtLineBreak(this.Units[endExclusive - 1], this.Units[endExclusive])) {
+    break;
+  }
   endExclusive++;
 }
 const list = this.BuildVariableDeclarationList(keywordIndex, endExclusive, first);
@@ -1056,6 +1064,12 @@ if (split) {
 }
 let endExclusive = this.At;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {
+  // 操作数写在下一行时按 ASI 收口（`return 1\n g()` 是 2 条语句）；续接符（`+` / `.` / `?` …）
+  // 由 `ContinuesAcrossLine` 排除。关键字后换行的受限产生式在上面已经处理过，不受影响。
+  if (endExclusive > this.At
+    && StatementBuilder.EndsAtLineBreak(this.Units[endExclusive - 1], this.Units[endExclusive])) {
+    break;
+  }
   endExclusive++;
 }
 let expression:Token | null = null;
