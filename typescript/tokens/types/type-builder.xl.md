@@ -955,6 +955,13 @@ while (true) {
   // `readonly` 也可能是成员名（`interface TupleType { readonly: boolean }`）：
   // 只有后面跟着名字 / 字符串名 / 计算名时才是修饰词。
   const afterReadonly = this.Peek(1);
+  // `readonly` 换行后接 `[`：TS 把 readonly 收成**无类型 PropertySignature**（名字就是 readonly），
+  // `[k: string]` 另起一个索引签名成员；同一行的 `readonly [k: string]` 仍是修饰词。
+  const readonlyUnit = this.Peek(0);
+  if (afterReadonly instanceof Bracket && (afterReadonly as Bracket).StartBracketChar === "["
+    && readonlyUnit !== null && MemberBoundary.HasLineBreakBetween(readonlyUnit, afterReadonly)) {
+    break;
+  }
   const hasNameAfter = afterReadonly !== null
     && (afterReadonly instanceof Common
       || afterReadonly instanceof String

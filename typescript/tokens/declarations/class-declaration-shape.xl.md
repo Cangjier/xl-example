@@ -494,6 +494,18 @@ while (inner.At < inner.Units.length) {
   if (typed || headIsPattern) {
     const parameter = inner.ParseParameter() as ParameterShape;
     ClassDeclarationShape.TakeParameterInitializer(host, inner, parameter, context);
+    if (headIsPattern && parameter.ParameterName !== null) {
+      let groupPos = 0;
+      if (nameIndex > 0) {
+        const previousUnit = inner.Units[nameIndex - 1];
+        if (previousUnit.SourceRange.End !== null) {
+          groupPos = previousUnit.SourceRange.End.Index + 1;
+        }
+      } else if (bracket.SourceRange.Start !== null) {
+        groupPos = bracket.SourceRange.Start.Index + 1;
+      }
+      (parameter.ParameterName as ShapeToken).Pos = groupPos;
+    }
     parameters.push(parameter);
     continue;
   }
@@ -550,7 +562,10 @@ if (initBuilder.At !== initBuilder.Units.length) {
 }
 parameter.Add(initializer);
 if (initEnd > initStart) {
-  parameter.SignOutToken(inner.Units[initEnd - 1]);
+  const initTail = inner.Units[initEnd - 1].SourceRange.End;
+  if (initTail !== null) {
+    parameter.SourceRange.End = initTail;
+  }
 }
 inner.At = initEnd;
 ```
