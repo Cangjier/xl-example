@@ -52,7 +52,7 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
-if (code.length < 6) {
+if (code.length < 4) {
   throw new Error("import equals 声明不完整");
 }
 const last = code[code.length - 1];
@@ -82,9 +82,7 @@ if (!(nameUnit instanceof Common)) {
 if (!(equal instanceof Symbol) || !(equal as Symbol).Is("=")) {
   throw new Error("import equals 声明缺少等号");
 }
-if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
-  throw new Error("import equals 声明缺少分号");
-}
+// 无分号 ASI：行末边界 token 已由 possible-shape 的 BuildByIndex 排除，最后单元是引用末单元。
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
