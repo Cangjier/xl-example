@@ -21,6 +21,7 @@ import { GetAccessorShape } from "../types/get-accessor-shape.xl.md"
 import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { MethodDeclarationShape } from "../types/method-declaration-shape.xl.md"
+import { MemberBoundary } from "../types/member-boundary.xl.md"
 import { OverrideKeywordShape } from "../keywords/override-keyword-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { PrivateIdentifierShape } from "../names/private-identifier-shape.xl.md"
@@ -33,6 +34,10 @@ import { ReadonlyKeywordShape } from "../keywords/readonly-keyword-shape.xl.md"
 import { SetAccessorShape } from "../types/set-accessor-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
+import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
+import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { StaticKeywordShape } from "../keywords/static-keyword-shape.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -464,6 +469,12 @@ while (inner.At < inner.Units.length) {
     parameters.push(inner.ParseParameter());
     continue;
   }
+  // rest 参数（`...args: any[]`）：直接交给 TypeBuilder.ParseParameter —— 它已经会建 DotDotDotToken。
+  const restHead = inner.Units[inner.At];
+  if (restHead instanceof Symbol && (restHead as Symbol).Is("...")) {
+    parameters.push(inner.ParseParameter());
+    continue;
+  }
   const nameIndex = inner.At;
   let typed = false;
   if (nameIndex + 1 < inner.Units.length) {
@@ -586,6 +597,16 @@ while (at < code.length) {
       hasStatic = true;
     }
     if (text === "get" || text === "set") {
+      // `get` / `set` 只有后面跟名字（或计算名 `[`）时才是访问器关键字；
+      // `get(...)` / `get: A` 是名为 get 的方法 / 属性。
+      const afterAccessor = at + 1 < code.length ? code[at + 1] : null;
+      const accessorHasName = afterAccessor !== null
+        && (afterAccessor instanceof Common
+          || (afterAccessor instanceof Bracket && (afterAccessor as Bracket).StartBracketChar === "[")
+          || (afterAccessor instanceof Symbol && (afterAccessor as Symbol).Is("#")));
+      if (!accessorHasName) {
+        break;
+      }
       accessorKind = text;
       const accessorUnit = code[at];
       if (accessorUnit.SourceRange.End !== null) {
@@ -674,7 +695,8 @@ while (at < code.length) {
     computed.Add(expression);
     computed.SignInToken(computedBracket);
     computed.SignOutToken(computedBracket);
-    computed.Pos = startPos;
+    // TS 的 ComputedPropertyName.Pos 在有修饰词时是修饰词之后（`readonly [x]`），不是成员起点。
+    computed.Pos = previousEnd + 1;
     computed.TryToClose(context);
     nameShape = computed;
     if (nameUnit.SourceRange.End !== null) {
@@ -703,11 +725,27 @@ while (at < code.length) {
     nameShape = privateIdentifier;
     nameText = "#" + (privateNameUnit as Common).TempToString();
     at++;
+  } else if (nameUnit instanceof String) {
+    // 字符串字面量成员名（`"foo"(): void`）：TS 的 name 是 StringLiteral，Text 不带引号。
+    const literalName = StringLiteralShape.FromBasicToken(nameUnit as String, context);
+    literalName.Pos = previousEnd + 1;
+    nameShape = literalName;
+    nameText = literalName.Text;
+    if (nameUnit.SourceRange.End !== null) {
+      previousEnd = nameUnit.SourceRange.End.Index;
+    }
+    at++;
   } else if (nameUnit instanceof Common) {
     const namePos = previousEnd + 1;
-    const ident = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-    ident.Pos = namePos;
-    nameShape = ident;
+    let nameToken:ShapeToken;
+    if ((nameUnit as Common).CanStartNumber()) {
+      // 数字成员名（`class A { 0 = 1 }`）：TS 的 name 是 NumericLiteral。
+      nameToken = NumericLiteralShape.FromBasicToken(nameUnit as Common, context);
+    } else {
+      nameToken = IdentifierShape.FromBasicToken(nameUnit as Common, context);
+    }
+    nameToken.Pos = namePos;
+    nameShape = nameToken;
     nameText = (nameUnit as Common).TempToString();
     if (nameUnit.SourceRange.End !== null) {
       previousEnd = nameUnit.SourceRange.End.Index;
@@ -718,6 +756,81 @@ while (at < code.length) {
   }
   if (nameShape === null) {
     throw new Error("类成员缺少名字");
+  }
+  // 可选方法 `m?()` / `[X.y]?<K>(...)`：`?` 后跟 `<` 或 `(` 时是 MethodDeclaration 的 QuestionToken。
+  let methodQuestionToken:QuestionTokenShape | null = null;
+  if (at < code.length && code[at] instanceof Symbol
+    && ((code[at] as Symbol).Is("?") || (code[at] as Symbol).Is("?:"))) {
+    const markUnit = code[at];
+    const afterMark = at + 1 < code.length ? code[at + 1] : null;
+    let optionalMethod = false;
+    if (afterMark !== null) {
+      if (afterMark instanceof Symbol && (afterMark as Symbol).Is("<")) {
+        optionalMethod = true;
+      } else if (afterMark instanceof Bracket && (afterMark as Bracket).StartBracketChar === "(") {
+        // `?(` 也可能是可选属性 + 括号/函数类型（`trace?: (s: string) => void`）：
+        // 只有参数表 `)` 后跟返回类型 `:` 时才是方法。
+        const afterParams = at + 2 < code.length ? code[at + 2] : null;
+        optionalMethod = afterParams !== null && afterParams instanceof Symbol && (afterParams as Symbol).Is(":");
+      }
+    }
+    if (optionalMethod) {
+      const markPos = previousEnd + 1;
+      methodQuestionToken = new QuestionTokenShape(host.Template);
+      if (markUnit.SourceRange.Start !== null) {
+        methodQuestionToken.SignIn(markUnit.SourceRange.Start);
+        methodQuestionToken.SignOut(markUnit.SourceRange.Start);
+      }
+      methodQuestionToken.Pos = markPos;
+      methodQuestionToken.TryToClose(context);
+      if (markUnit.SourceRange.End !== null) {
+        previousEnd = markUnit.SourceRange.End.Index;
+      }
+      at++;
+    }
+  }
+  // 泛型方法 `m<T>(x: T): T`：名字之后的 `<...>` 是 TypeParameter 列表（TS children 在名字与参数之间）。
+  let methodTypeParameters:Array<Token> = [];
+  if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("<")) {
+    const angleUnit = code[at];
+    const angleStart = angleUnit.SourceRange.Start === null ? 0 : angleUnit.SourceRange.Start.Index;
+    const angleBuilder = new TypeBuilder(host.Template, context);
+    angleBuilder.Load(code.slice(at), angleStart);
+    methodTypeParameters = angleBuilder.ParseTypeParameterList();
+    if (methodTypeParameters.length === 0) {
+      throw new Error("类成员的泛型参数为空");
+    }
+    // `>>` / `>>>` 在 Load 里是虚拟拆分，按原 code 还原消费的原始单元数。
+    let consumedUnits = 0;
+    let mappedIndex = at;
+    while (consumedUnits < angleBuilder.At && mappedIndex < code.length) {
+      const mappedUnit = code[mappedIndex];
+      let width = 1;
+      if (mappedUnit instanceof Symbol) {
+        const mappedText = (mappedUnit as Symbol).TempToString();
+        if (mappedText.length > 1) {
+          let allClose = true;
+          for (let ci = 0; ci < mappedText.length; ci++) {
+            if (mappedText[ci] !== ">") {
+              allClose = false;
+              break;
+            }
+          }
+          if (allClose) {
+            width = mappedText.length;
+          }
+        }
+      }
+      consumedUnits += width;
+      mappedIndex++;
+    }
+    for (let cursor = at; cursor < mappedIndex; cursor++) {
+      const cursorEnd = code[cursor].SourceRange.End;
+      if (cursorEnd !== null) {
+        previousEnd = cursorEnd.Index;
+      }
+    }
+    at = mappedIndex;
   }
   if (at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "(") {
     const paramBracket = code[at] as Bracket;
@@ -734,35 +847,51 @@ while (at < code.length) {
         previousEnd = colon.SourceRange.End.Index;
       }
       at++;
-      const typeStart = at;
-      while (at < code.length) {
-        const probe = code[at];
-        if (probe instanceof Bracket && (probe as Bracket).StartBracketChar === "{") {
-          break;
-        }
-        if (probe instanceof Symbol && (probe as Symbol).Is(";")) {
-          break;
-        }
-        if (probe.SourceRange.End !== null) {
-          previousEnd = probe.SourceRange.End.Index;
-        }
-        at++;
-      }
-      const typeUnits:Array<Token> = code.slice(typeStart, at);
-      if (typeUnits.length === 0) {
+      if (at >= code.length) {
         throw new Error("方法的返回类型为空");
       }
+      // 贪心读返回类型，但先截到「下一个成员起点」为止，避免把下一成员的 `[计算名]` 当成索引访问。
+      const typeBoundary = MemberBoundary.FindMemberBoundary(code, at);
       const typeBuilder = new TypeBuilder(host.Template, context);
-      typeBuilder.Load(typeUnits, typePos);
+      typeBuilder.Load(code.slice(at, typeBoundary), typePos);
       returnType = typeBuilder.ParseReturnType();
-      if (typeBuilder.At !== typeBuilder.Units.length) {
-        throw new Error("方法的返回类型没有读完");
+      // Load 把 `>>` / `>>>` 拆成虚拟单元，At 是虚拟编号：按原 code 还原消费的原始单元数。
+      let consumedUnits = 0;
+      let mappedIndex = at;
+      while (consumedUnits < typeBuilder.At && mappedIndex < code.length) {
+        const mappedUnit = code[mappedIndex];
+        let width = 1;
+        if (mappedUnit instanceof Symbol) {
+          const mappedText = (mappedUnit as Symbol).TempToString();
+          if (mappedText.length > 1) {
+            let allClose = true;
+            for (let ci = 0; ci < mappedText.length; ci++) {
+              if (mappedText[ci] !== ">") {
+                allClose = false;
+                break;
+              }
+            }
+            if (allClose) {
+              width = mappedText.length;
+            }
+          }
+        }
+        consumedUnits += width;
+        mappedIndex++;
       }
+      for (let cursor = at; cursor < mappedIndex; cursor++) {
+        const cursorEnd = code[cursor].SourceRange.End;
+        if (cursorEnd !== null) {
+          previousEnd = cursorEnd.Index;
+        }
+      }
+      at = mappedIndex;
     }
     let body:Token | null = null;
     let bodyUnit:Token | null = null;
     let signatureEnd:Token | null = null;
-    if (at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "{") {
+    if (at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "{"
+      && TypeBuilder.IsBodyBrace(code, at)) {
       bodyUnit = code[at] as Bracket;
       const bodyPos = previousEnd + 1;
       if (bodyUnit.SourceRange.End !== null) {
@@ -781,6 +910,9 @@ while (at < code.length) {
         previousEnd = signatureEnd.SourceRange.End.Index;
       }
       at++;
+    } else if (at >= code.length || !StatementScanner.NoLineBreakBetween(code[at - 1], code[at])) {
+      // 无分号的 ambient 成员（`.d.ts` 常态：`m(): void` 换行接下一个成员）：
+      // 签名在换行处结束，成员区间止于最后一个代码单元（换行不进成员）。
     } else {
       throw new Error("类成员缺少函数体");
     }
@@ -805,6 +937,12 @@ while (at < code.length) {
     }
     if (!(memberShape instanceof ConstructorShape)) {
       memberShape.Add(nameShape);
+      if (methodQuestionToken !== null) {
+        memberShape.Add(methodQuestionToken);
+      }
+      for (const typeParameter of methodTypeParameters) {
+        memberShape.Add(typeParameter);
+      }
     }
     for (const parameter of parameters) {
       memberShape.Add(parameter);
@@ -876,27 +1014,45 @@ while (at < code.length) {
       at++;
       typePos = previousEnd + 1;
     }
-    const typeStart = at;
-    while (at < code.length) {
-      const probe = code[at];
-      if (probe instanceof Symbol && ((probe as Symbol).Is("=") || (probe as Symbol).Is(";"))) {
-        break;
-      }
-      if (probe.SourceRange.End !== null) {
-        previousEnd = probe.SourceRange.End.Index;
-      }
-      at++;
-    }
-    const typeUnits:Array<Token> = code.slice(typeStart, at);
-    if (typeUnits.length === 0) {
+    if (at >= code.length) {
       throw new Error("属性的类型为空");
     }
+    // 贪心读类型，但先截到「下一个成员起点」为止（理由同方法返回类型）。
+    const typeBoundary = MemberBoundary.FindMemberBoundary(code, at);
     const typeBuilder = new TypeBuilder(host.Template, context);
-    typeBuilder.Load(typeUnits, typePos);
+    typeBuilder.Load(code.slice(at, typeBoundary), typePos);
     typeShape = typeBuilder.ParseType();
-    if (typeBuilder.At !== typeBuilder.Units.length) {
-      throw new Error("属性的类型没有读完");
+    // Load 把 `>>` / `>>>` 拆成虚拟单元，At 是虚拟编号：按原 code 还原消费的原始单元数。
+    let consumedUnits = 0;
+    let mappedIndex = at;
+    while (consumedUnits < typeBuilder.At && mappedIndex < code.length) {
+      const mappedUnit = code[mappedIndex];
+      let width = 1;
+      if (mappedUnit instanceof Symbol) {
+        const mappedText = (mappedUnit as Symbol).TempToString();
+        if (mappedText.length > 1) {
+          let allClose = true;
+          for (let ci = 0; ci < mappedText.length; ci++) {
+            if (mappedText[ci] !== ">") {
+              allClose = false;
+              break;
+            }
+          }
+          if (allClose) {
+            width = mappedText.length;
+          }
+        }
+      }
+      consumedUnits += width;
+      mappedIndex++;
     }
+    for (let cursor = at; cursor < mappedIndex; cursor++) {
+      const cursorEnd = code[cursor].SourceRange.End;
+      if (cursorEnd !== null) {
+        previousEnd = cursorEnd.Index;
+      }
+    }
+    at = mappedIndex;
   }
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("=")) {
     const equal = code[at];
@@ -905,27 +1061,17 @@ while (at < code.length) {
       previousEnd = equal.SourceRange.End.Index;
     }
     at++;
-    const valueStart = at;
-    while (at < code.length) {
-      const probe = code[at];
-      if (probe instanceof Symbol && (probe as Symbol).Is(";")) {
-        break;
-      }
-      if (probe.SourceRange.End !== null) {
-        previousEnd = probe.SourceRange.End.Index;
-      }
-      at++;
-    }
-    const valueUnits:Array<Token> = code.slice(valueStart, at);
-    if (valueUnits.length === 0) {
-      throw new Error("属性初始化器为空");
-    }
+    const valueBoundary = MemberBoundary.FindMemberBoundary(code, at);
     const valueBuilder = new ExpressionBuilder(host.Template, context);
-    valueBuilder.Load(valueUnits, valuePos);
+    valueBuilder.Load(code.slice(at, valueBoundary), valuePos);
     initializer = valueBuilder.ParseAssign();
-    if (valueBuilder.At !== valueBuilder.Units.length) {
-      throw new Error("属性初始化器没有读完");
+    for (let cursor = at; cursor < at + valueBuilder.At; cursor++) {
+      const cursorEnd = code[cursor].SourceRange.End;
+      if (cursorEnd !== null) {
+        previousEnd = cursorEnd.Index;
+      }
     }
+    at += valueBuilder.At;
   }
   let endUnit:Token = code[at - 1];
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(";")) {
@@ -934,6 +1080,8 @@ while (at < code.length) {
       previousEnd = endUnit.SourceRange.End.Index;
     }
     at++;
+  } else if (at < code.length && StatementScanner.NoLineBreakBetween(code[at - 1], code[at])) {
+    throw new Error("类成员之间缺少分隔符");
   }
   const property = new PropertyDeclarationShape(host.Template);
   for (const decorator of decorators) {

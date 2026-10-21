@@ -127,10 +127,50 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 2) {
     if (unit instanceof Common) {
+      // 名字（`class C {}`）；`extends` / `implements` 也走这里——TS 对
+      // `class extends B {}` / `class implements I {}` 的恢复形就是无名 ClassDeclaration。
       state.Stage = 3;
       continue;
     }
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+      // 匿名类声明（TS 的静默恢复，`class {}`）：名字缺失不是错误，直接到类体。
+      state.Stage = 4;
+      state.Done = true;
+      state.DoneAt = at;
+      continue;
+    }
+    if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
+      // 匿名泛型类 `class<T> {}`：先过类型参数表，再等 heritage / 类体。
+      state.AngleDepth = 1;
+      state.Stage = 8;
+      continue;
+    }
     state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 8) {
+    // 类名之后的类型参数表 `<...>`：嵌套尖括号计数，`>>` 一次关两层（与函数候选同款）。
+    if (unit instanceof Symbol) {
+      const angleText = (unit as Symbol).TempToString();
+      if (angleText === "<") {
+        state.AngleDepth++;
+        continue;
+      }
+      if (angleText === ">") {
+        state.AngleDepth--;
+        if (state.AngleDepth <= 0) {
+          state.Stage = 3;
+        }
+        continue;
+      }
+      if (angleText === ">>") {
+        state.AngleDepth -= 2;
+        if (state.AngleDepth <= 0) {
+          state.Stage = 3;
+        }
+        continue;
+      }
+    }
     continue;
   }
   if (state.Stage === 3) {
@@ -191,7 +231,7 @@ const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
 }
-const built = ClassDeclarationShape.FromUnits(host, start, tokenIndex, context);
+const built = ClassDeclarationShape.FromUnitsAllowAnonymous(host, start, tokenIndex, context);
 host.Data.splice(start, tokenIndex - start + 1, built);
 built.Parent = host;
 return built;

@@ -134,9 +134,11 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 - **对象 / 数组字面量的表达式**：`({ a: b })`、`f([1, 2])`、`{…}` / `[…]` 作为插值内容都已能建对；
   语句首的裸 `[a, b];` 仍卡在 `CanStart`（缺 possible，不在表达式形状层）。
 - **JSX / TSX** 没有支持。
-- 实测：`node_modules` 下 200 个真实 `.d.ts`（`lib.es5` / `lib.dom` / `@types/node` / undici-types）
-  全部解析成功、零异常；TypeScript 自带的那份 8MB **打包 JS**（`typescript.js`）仍会在个别
-  JavaScript 专有形状上抛内部错误——那是 JS 而不是 TypeScript，不在当前范围内。
+- 实测（本分支，2026-10-21）：`node_modules` 下 **226 份真实 `.d.ts`**（`typescript/lib` / `@types/node` / undici-types）
+  **全部解析成功**，且与本仓 AST **226/226 逐节点一致**；`npm run ast:dts` 是这一门的固定门禁。
+  修这一批缺口之前的读数是：**112 份解析崩溃、能解析的 114 份 AST 一致**——归因、最小复现与修法见
+  [docs/real-dts-ast-analysis.md](docs/real-dts-ast-analysis.md)。TypeScript 自带的 8MB **打包 JS**
+  （`typescript.js`）不在这一门里：那是 JavaScript 而不是 `.d.ts` 声明。
 
 ## cjcli
 
@@ -190,15 +192,21 @@ node samples/check.mjs --update # 用当前产物重写夹具
 
 ## 测试
 
-`tests/` 整套从 `feature/print-direct-ast` 搬来（那个分支比本分支晚约 1250 轮），语料与尺子都在：
+`tests/` 整套从 `feature/print-direct-ast` 搬来（那个分支比本分支晚约 1250 轮），`tests/parse/*` 那套旧 AST 门
+读的是另一个分支的产物，见 [tests/MIGRATION.md](tests/MIGRATION.md)。**本分支权威的 AST 尺子**是：
 
 ```bash
-npm run cases:check     # 语料体检：唯一一道现在就绿、且真的量了本分支的门
-npm run gates           # 8 道门一次跑完
+npm run ast:cases         # 语料：ast-json 生成快照 + ast-json-diff 逐条对拍（当前 4622/4622）
+npm run ast:dts           # 真实 .d.ts 门禁：226 份全部解析成功且 AST 逐节点一致
+npm run ast:verify        # 上面两条一起跑
 ```
 
-**哪几道门跑得动、其余各缺什么、以及 `build/` + `dist/` 里那批别的分支的旧产物为什么会让门假绿**，
-都记在 [tests/MIGRATION.md](tests/MIGRATION.md)。
+`tests/` 的语料体检仍然可用：
+
+```bash
+npm run cases:check     # 语料文件头 / 用例格式体检
+npm run gates           # 8 道门一次跑完（其中多数是旧分支的门，见 MIGRATION）
+```
 
 ## 改这个项目
 

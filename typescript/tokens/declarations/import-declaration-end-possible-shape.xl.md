@@ -90,7 +90,11 @@ return ShapeStates.Reject;
 
 Raw lookahead after `last`: the declaration can end here when what follows is EOF, a comment, or a
 line break followed by a new statement; it must not end when the next code is `;` or a continuation keyword
-(`with` / `assert` / `from` / `as` / `type` / `defer`) on the same or the next line.
+on the same or the next line. `from` / `as` / `defer` are genuine continuations after a complete-looking
+unit (`import { a }\nfrom "m"` — the clause `}` looks complete but still awaits `from`). `type` is **not**
+one of them: it only appears before the specifier (where `IsCompleteAt` already answers false), and listing
+it here broke a following type alias — `import x from "m"\ntype X = A;` had the import shell swallow `type`
+and Close threw "未识别的单元（Common）".
 
 ```ts
 const end = units[last].SourceRange.End;
@@ -141,7 +145,7 @@ while (at < count) {
       }
       break;
     }
-    if (word === "with" || word === "assert" || word === "from" || word === "as" || word === "type" || word === "defer") {
+    if (word === "with" || word === "assert" || word === "from" || word === "as" || word === "defer") {
       return false;
     }
     return true;

@@ -10,6 +10,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
+import { AbstractKeywordShape } from "../keywords/abstract-keyword-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.xl.md"
@@ -23,6 +24,8 @@ import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -147,6 +150,28 @@ if (keyword === "default" && modifier !== null) {
     keyword = unit !== null && unit instanceof Common ? (unit as Common).TempToString() : "";
   }
 }
+// `declare <decl>` / `abstract class` 成员（.d.ts 常态：模块/命名空间体里的 `declare class C {}` /
+// `declare interface I {}` / `declare enum E {}` / `declare namespace N {}` / `declare module "m" {}` /
+// `abstract class C {}`）：分派关键字取修饰词之后的声明词，但 Data 起点仍保留修饰词 ——
+// 各声明形状的 FromUnits 都接受 declare / abstract 修饰词（TS 的 children 里修饰词也在最前）。
+if (keyword === "declare" || keyword === "abstract") {
+  let look = declStart + 1;
+  while (look < inner.Units.length && inner.Units[look] instanceof Common) {
+    const lookText = (inner.Units[look] as Common).TempToString();
+    if (lookText === "abstract" || lookText === "async") {
+      look++;
+      continue;
+    }
+    break;
+  }
+  if (look < inner.Units.length && inner.Units[look] instanceof Common) {
+    const lookText = (inner.Units[look] as Common).TempToString();
+    if (lookText === "class" || lookText === "interface" || lookText === "enum"
+      || lookText === "namespace" || lookText === "module" || lookText === "function") {
+      keyword = lookText;
+    }
+  }
+}
 // `const enum` / `declare const enum` member heads (enum shapes already accept the modifiers):
 // detect them here so the member is routed to EnumDeclarationShape.FromUnits instead of
 // StatementBuilder (statements never see the `const` + `enum` combination).
@@ -255,7 +280,36 @@ if (keyword === "as") {
       break;
     }
   }
-  if (specialEnd > declStart) {
+  if (specialEnd < 0) {
+    // 无分号的 ambient 类型别名（`declare namespace N { export type T = A | B }`）：
+    // 结束于换行后的下一个成员首词或体末尾；FromUnits 要求末尾是 `;`，这里补一个零宽合成 `;`。
+    let endInner = -1;
+    for (let scan = declStart + 2; scan < inner.Units.length; scan++) {
+      const scanned = inner.Units[scan];
+      if (scanned instanceof Common && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
+        && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
+        endInner = scan - 1;
+        break;
+      }
+    }
+    if (endInner < 0) {
+      endInner = inner.Units.length - 1;
+    }
+    const endUnit = inner.Units[endInner];
+    const endSource = endUnit.SourceRange.End;
+    if (endSource !== null) {
+      const dataEnd = bracket.Data.indexOf(endUnit);
+      const dataStart = bracket.Data.indexOf(unit as Token);
+      const syntheticSemi = new Symbol(bracket.Template);
+      syntheticSemi.SignIn(endSource);
+      syntheticSemi.AppendValueAndSignOut(";", endSource);
+      bracket.Data.splice(dataEnd + 1, 0, syntheticSemi);
+      special = TypeAliasDeclarationShape.FromUnits(bracket, dataStart, dataEnd + 1, context);
+      (special as ShapeToken).Pos = inner.Positions[declStart];
+      bracket.Data.splice(dataEnd + 1, 1);
+      specialEnd = endInner;
+    }
+  } else if (specialEnd > declStart) {
     const dataStart = bracket.Data.indexOf(unit as Token);
     const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
     special = TypeAliasDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
@@ -280,12 +334,17 @@ if (keyword === "as") {
 }
 let bodyInner = -1;
 let semiInner = -1;
+let tailInner = -1;
 if (special === null
   && (keyword === "class" || keyword === "interface" || keyword === "enum" || keyword === "function"
-    || keyword === "namespace" || keyword === "module" || constEnumMember || declareFunctionMember)) {
+    || keyword === "namespace" || keyword === "module" || keyword === "global"
+    || constEnumMember || declareFunctionMember)) {
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
     const scanned = inner.Units[scan];
-    if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{") {
+    // 只有「前一个单元能收住一个类型」的 `{` 才是声明体；类型里的对象字面量
+    // （`function f(): {a: A}` / 泛型默认值 `= {}` / 类型实参）不是体。
+    if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{"
+      && TypeBuilder.IsBodyBrace(inner.Units, scan)) {
       bodyInner = scan;
       break;
     }
@@ -294,6 +353,19 @@ if (special === null
       semiInner = scan;
       break;
     }
+    // 无分号的 ambient 函数（namespace 体常态：`function f(): B` 换行接下一个成员）：
+    // 换行之后出现新成员的首词时，本函数签名收在前一个单元。
+    if ((keyword === "function" || declareFunctionMember) && scan > declStart + 1
+      && scanned instanceof Common && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
+      && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
+      tailInner = scan - 1;
+      break;
+    }
+  }
+  if (tailInner < 0 && (keyword === "function" || declareFunctionMember)
+    && bodyInner < 0 && semiInner < 0 && inner.Units.length > declStart + 1) {
+    // 体里最后一条无分号 ambient 函数：收在最后一个代码单元。
+    tailInner = inner.Units.length - 1;
   }
 }
 let member:Token;
@@ -326,7 +398,7 @@ if (special !== null) {
         break;
       }
     }
-  } else if (keyword === "namespace" || keyword === "module") {
+  } else if (keyword === "namespace" || keyword === "module" || keyword === "global") {
     member = ModuleDeclarationShape.FromUnits(
       inner.Units.slice(declStart, bodyInner + 1),
       inner.Positions.slice(declStart, bodyInner + 1),
@@ -337,6 +409,25 @@ if (special !== null) {
   }
   (member as ShapeToken).Pos = inner.Positions[declStart];
   inner.At = bodyInner + 1;
+} else if ((keyword === "function" || declareFunctionMember) && tailInner > declStart) {
+  const dataStart = bracket.Data.indexOf(unit as Token);
+  const dataEnd = bracket.Data.indexOf(inner.Units[tailInner]);
+  // 无分号也无体的 ambient 函数（namespace 体里换行分隔）：ambient=true 允许省略 `;` 与返回类型。
+  const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, true);
+  let declarePos = inner.Positions[declStart];
+  for (const child of declared.Data) {
+    if (child instanceof DeclareKeywordShape) {
+      (child as ShapeToken).Pos = declarePos;
+      if (child.SourceRange.End !== null) {
+        declarePos = child.SourceRange.End.Index + 1;
+      }
+      continue;
+    }
+    break;
+  }
+  declared.Pos = inner.Positions[declStart];
+  inner.At = tailInner + 1;
+  member = declared;
 } else if ((keyword === "function" || declareFunctionMember) && semiInner > declStart) {
   const dataStart = bracket.Data.indexOf(unit as Token);
   const dataEnd = bracket.Data.indexOf(inner.Units[semiInner]);
@@ -361,7 +452,74 @@ if (special !== null) {
   inner.At = semiInner + 1;
   member = declared;
 } else {
-  member = inner.BuildStatement();
+  // ambient 变量声明无分号（namespace 体常态：`const Dispatcher: typeof import('./x').default`
+  // 换行接下一个成员）：把成员范围截到下一个成员起点，末尾补零宽合成 `;` 再交给 StatementBuilder。
+  let variableHead = keyword;
+  if (variableHead === "declare" && declStart + 1 < inner.Units.length
+    && inner.Units[declStart + 1] instanceof Common) {
+    const declareNextText = (inner.Units[declStart + 1] as Common).TempToString();
+    if (declareNextText === "const" || declareNextText === "let" || declareNextText === "var"
+      || declareNextText === "using") {
+      variableHead = declareNextText;
+    }
+  }
+  const isVariableMember = variableHead === "const" || variableHead === "let"
+    || variableHead === "var" || variableHead === "using";
+  if (isVariableMember) {
+    let endInner = -1;
+    let hasSemi = false;
+    for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
+      const scanned = inner.Units[scan];
+      if (inner.IsSymbol(scanned, ";")) {
+        endInner = scan;
+        hasSemi = true;
+        break;
+      }
+      if (scan > declStart + 1 && scanned instanceof Common
+        && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
+        && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
+        endInner = scan - 1;
+        break;
+      }
+    }
+    if (endInner < 0) {
+      endInner = inner.Units.length - 1;
+    }
+    const variableUnits:Array<Token> = inner.Units.slice(declStart, endInner + 1);
+    if (!hasSemi) {
+      const variableLastEnd = inner.Units[endInner].SourceRange.End;
+      if (variableLastEnd !== null) {
+        const syntheticSemi = new Symbol(bracket.Template);
+        syntheticSemi.SignIn(variableLastEnd);
+        syntheticSemi.AppendValueAndSignOut(";", variableLastEnd);
+        variableUnits.push(syntheticSemi);
+      }
+    }
+    const variableBuilder = new StatementBuilder(bracket.Template, context);
+    variableBuilder.Load(variableUnits, inner.Positions[declStart]);
+    const variableStatement = variableBuilder.BuildStatement();
+    if (variableBuilder.At !== variableBuilder.Units.length) {
+      throw new Error("变量语句没有读完");
+    }
+    inner.At = endInner + 1;
+    member = variableStatement;
+  } else {
+    member = inner.BuildStatement();
+  }
+}
+// 成员首部的 declare / abstract 修饰词 Pos：各声明形状按 `bracket.Data` 里「前一个单元」推，
+// 模块体里首个成员会落到 0；这里用本层 Positions 重锚（与 const enum / declare function 同款）。
+let leadingModifierPos = inner.Positions[declStart];
+for (const child of member.Data) {
+  if (child instanceof DeclareKeywordShape || child instanceof AbstractKeywordShape) {
+    (child as ShapeToken).Pos = leadingModifierPos;
+    const childEnd = child.SourceRange.End;
+    if (childEnd !== null) {
+      leadingModifierPos = childEnd.Index + 1;
+    }
+    continue;
+  }
+  break;
 }
 if (modifier !== null && !skipModifier) {
   member.Data.splice(0, 0, modifier);
@@ -373,6 +531,17 @@ if (modifier !== null && !skipModifier) {
   (member as ShapeToken).Pos = inner.Positions[first];
 }
 block.Add(member);
+```
+
+## private static method IsMemberStartWord:(text:string)=>bool
+
+模块体成员的首词集合：用于「无分号 ambient 函数在换行处收口」的判据。
+
+```ts
+return text === "export" || text === "declare" || text === "function" || text === "class"
+  || text === "interface" || text === "enum" || text === "const" || text === "let"
+  || text === "var" || text === "type" || text === "namespace" || text === "module"
+  || text === "import" || text === "using" || text === "abstract";
 ```
 
 ## private static method InAmbientDeclaration:(bracket:Bracket)=>bool

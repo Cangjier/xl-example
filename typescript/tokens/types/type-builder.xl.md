@@ -35,6 +35,10 @@ import { UnknownKeywordShape } from "../keywords/unknown-keyword-shape.xl.md"
 import { VoidKeywordShape } from "../keywords/void-keyword-shape.xl.md"
 import { ConstString } from "../../../core/syntax/basic-tokens/string/const-string.xl.md"
 import { InterpolationString } from "../../../core/syntax/basic-tokens/string/interpolation-string.xl.md"
+import { PrefixUnaryExpressionShape } from "../expressions/prefix-unary-expression-shape.xl.md"
+import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
+import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
+import { MemberBoundary } from "./member-boundary.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
 import { TemplateHeadShape } from "../literals/template-head-shape.xl.md"
@@ -57,6 +61,7 @@ import { IndexedAccessTypeShape } from "./indexed-access-type-shape.xl.md"
 import { InferTypeShape } from "./infer-type-shape.xl.md"
 import { IntersectionTypeShape } from "./intersection-type-shape.xl.md"
 import { LiteralTypeShape } from "./literal-type-shape.xl.md"
+import { IntrinsicKeywordShape } from "../keywords/intrinsic-keyword-shape.xl.md"
 import { MethodSignatureShape } from "./method-signature-shape.xl.md"
 import { ParameterShape } from "./parameter-shape.xl.md"
 import { ParenthesizedTypeShape } from "./parenthesized-type-shape.xl.md"
@@ -244,6 +249,53 @@ shape.TryToClose(this.Context);
 return shape;
 ```
 
+## method ParseTypeBounded:()=>Token
+
+对象类型成员的类型是贪心的，但下一个成员的 `[计算名]` 会被误当成索引访问后缀
+（`{ m(): string\n['a']: A }`）。这里把解析范围截到 `MemberBoundary.FindMemberBoundary`。
+
+```ts
+const boundary = MemberBoundary.FindMemberBoundary(this.Units, this.At);
+if (boundary >= this.Units.length) {
+  return this.ParseType();
+}
+const savedUnits = this.Units;
+const savedPositions = this.Positions;
+const startAt = this.At;
+this.Units = savedUnits.slice(startAt, boundary);
+this.Positions = savedPositions.slice(startAt, boundary);
+this.At = 0;
+const parsed = this.ParseType();
+const consumed = this.At;
+this.Units = savedUnits;
+this.Positions = savedPositions;
+this.At = startAt + consumed;
+return parsed;
+```
+
+## method ParseReturnTypeBounded:()=>Token
+
+`ParseTypeBounded` 的返回类型版本（含类型谓词分流）。
+
+```ts
+const boundary = MemberBoundary.FindMemberBoundary(this.Units, this.At);
+if (boundary >= this.Units.length) {
+  return this.ParseReturnType();
+}
+const savedUnits = this.Units;
+const savedPositions = this.Positions;
+const startAt = this.At;
+this.Units = savedUnits.slice(startAt, boundary);
+this.Positions = savedPositions.slice(startAt, boundary);
+this.At = 0;
+const parsed = this.ParseReturnType();
+const consumed = this.At;
+this.Units = savedUnits;
+this.Positions = savedPositions;
+this.At = startAt + consumed;
+return parsed;
+```
+
 ## method SpanNode:(shape:ShapeToken, first:int, last:int)=>ShapeToken
 
 以 `Units[first..last]` 给节点签区间；子节点必须已经 `Add` 进来。
@@ -304,9 +356,16 @@ return this.SpanNode(shape, start, this.At - 1);
 ## method ParseUnionType:()=>Token
 
 `A | B | …`：条件类型两侧的分支各要能读 union，所以从 `ParseType` 里单独拆出一层。
+TS 允许**前导** `|`（`type T = | A | B`），而且单成员也仍是 `UnionType`：只要见过前导 `|` 就包一层。
 
 ```ts
 const start = this.At;
+let hasLeading = false;
+const leadingUnit = this.Peek(0);
+if (leadingUnit !== null && this.IsText(leadingUnit, "|")) {
+  hasLeading = true;
+  this.At++;
+}
 const first = this.ParseIntersection();
 const members:Array<Token> = [first];
 while (true) {
@@ -320,7 +379,7 @@ while (true) {
   this.At++;
   members.push(this.ParseIntersection());
 }
-if (members.length === 1) {
+if (members.length === 1 && !hasLeading) {
   return first;
 }
 const shape = new UnionTypeShape(this.Template);
@@ -333,10 +392,16 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ## method ParseIntersection:()=>Token
 
-`A & B`：优先级比 union 高、比数组后缀低。
+`A & B`：优先级比 union 高、比数组后缀低。同 union，TS 允许**前导** `&`，单成员仍包一层 `IntersectionType`。
 
 ```ts
 const start = this.At;
+let hasLeading = false;
+const leadingUnit = this.Peek(0);
+if (leadingUnit !== null && this.IsText(leadingUnit, "&")) {
+  hasLeading = true;
+  this.At++;
+}
 const first = this.ParsePostfixType();
 const members:Array<Token> = [first];
 while (true) {
@@ -350,7 +415,7 @@ while (true) {
   this.At++;
   members.push(this.ParsePostfixType());
 }
-if (members.length === 1) {
+if (members.length === 1 && !hasLeading) {
   return first;
 }
 const shape = new IntersectionTypeShape(this.Template);
@@ -359,6 +424,43 @@ for (const member of members) {
   shape.Add(member);
 }
 return this.SpanNode(shape, start, this.At - 1);
+```
+
+## static method IsBodyBrace:(units:Array<Token>, braceIndex:int)=>bool
+
+越过 `:` 之后，判断一个 `{…}` 括号单元是**函数体**还是**返回类型里的对象字面量**（或类型的一部分）。
+判据只看前一个代码单元：类型内部还等着操作数的位置（`:` / `|` / `&` / `<` / `,` / `=` / `=>` / `?` / `-` / `+`，
+以及 `extends` / `keyof` / `typeof` / `infer` / `new` / `abstract` / `readonly` / `unique` / `is` / `asserts` /
+`in` / `of` / `as` / `satisfies`）后面出现的 `{` 是类型；其余（前一个单元能收住一个类型）时是函数体。
+
+```ts
+let previous = braceIndex - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return true;
+}
+const unit = units[previous];
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  if (text === ":" || text === "|" || text === "&" || text === "<" || text === ","
+    || text === "=" || text === "=>" || text === "?" || text === "-" || text === "+") {
+    return false;
+  }
+  return true;
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  if (text === "extends" || text === "keyof" || text === "readonly" || text === "unique"
+    || text === "typeof" || text === "infer" || text === "new" || text === "abstract"
+    || text === "asserts" || text === "is" || text === "in" || text === "of"
+    || text === "as" || text === "satisfies") {
+    return false;
+  }
+  return true;
+}
+return true;
 ```
 
 ## method ParsePostfixType:()=>Token
@@ -439,6 +541,34 @@ const start = this.At;
 const unit = this.Peek(0);
 if (unit === null) {
   throw new Error("类型意外结束");
+}
+// 负数字面量类型 `-1`：TS 是 LiteralType → PrefixUnaryExpression → NumericLiteral（`-` 不进 children）。
+if (unit instanceof Symbol && (unit as Symbol).Is("-")) {
+  this.At++;
+  const numberUnit = this.Peek(0);
+  if (numberUnit === null || !(numberUnit instanceof Common) || !(numberUnit as Common).CanStartNumber()) {
+    throw new Error("负数字面量类型缺少数字");
+  }
+  const numberIndex = this.At;
+  this.At++;
+  const numeric = NumericLiteralShape.FromBasicToken(numberUnit as Common, this.Context);
+  numeric.Pos = this.Positions[numberIndex];
+  const prefix = new PrefixUnaryExpressionShape(this.Template);
+  prefix.Add(numeric);
+  const spannedPrefix = this.SpanNode(prefix, start, this.At - 1);
+  // LiteralType 的区间要盖住 `-1` 两个单元（`MakeLiteralType` 只按单单元签，负号会被截掉）。
+  const negativeLiteral = new LiteralTypeShape(this.Template);
+  negativeLiteral.Literal = spannedPrefix;
+  negativeLiteral.Add(spannedPrefix);
+  if (unit.SourceRange.Start !== null) {
+    negativeLiteral.SignIn(unit.SourceRange.Start);
+  }
+  if (spannedPrefix.SourceRange.End !== null) {
+    negativeLiteral.SignOut(spannedPrefix.SourceRange.End);
+  }
+  negativeLiteral.Pos = this.Positions[start];
+  negativeLiteral.TryToClose(this.Context);
+  return negativeLiteral;
 }
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
@@ -549,6 +679,10 @@ if (unit instanceof Common) {
   if (text === "bigint") {
     this.At++;
     return this.SpanLeaf(new BigIntKeywordShape(this.Template), start);
+  }
+  if (text === "intrinsic") {
+    this.At++;
+    return this.SpanLeaf(new IntrinsicKeywordShape(this.Template), start);
   }
   if (text === "symbol") {
     this.At++;
@@ -748,6 +882,16 @@ while (true) {
   if (unit === null || !this.IsText(unit, "readonly")) {
     break;
   }
+  // `readonly` 也可能是成员名（`interface TupleType { readonly: boolean }`）：
+  // 只有后面跟着名字 / 字符串名 / 计算名时才是修饰词。
+  const afterReadonly = this.Peek(1);
+  const hasNameAfter = afterReadonly !== null
+    && (afterReadonly instanceof Common
+      || afterReadonly instanceof String
+      || (afterReadonly instanceof Bracket && (afterReadonly as Bracket).StartBracketChar === "["));
+  if (!hasNameAfter) {
+    break;
+  }
   const index = this.At;
   this.At++;
   modifiers.push(this.SpanLeaf(new ReadonlyKeywordShape(this.Template), index));
@@ -834,6 +978,38 @@ if (unit instanceof Common && this.IsText(unit, "new")) {
     return this.SpanTypeMember(constructShape, start);
   }
 }
+if (unit instanceof Symbol && this.IsText(unit, "<")) {
+  // 泛型调用签名：`<T>(x: T): T`。TS 的 CallSignature children = 每个 TypeParameter，
+  // 然后每个 Parameter，最后返回类型；`<` `>` `(` `)` `:` 都不进 AST。
+  const typeParameters = this.ParseTypeParameterList();
+  const callBracket = this.Peek(0);
+  if (callBracket === null || !(callBracket instanceof Bracket) || !(callBracket as Bracket).Is("(", ")")) {
+    throw new Error("调用签名缺少参数表");
+  }
+  this.At++;
+  const callParameters = this.ParseParameterList(callBracket as Bracket);
+  const callColon = this.Peek(0);
+  if (callColon === null || !this.IsText(callColon, ":")) {
+    throw new Error("调用签名缺少返回类型");
+  }
+  this.At++;
+  const callReturnType = this.ParseReturnTypeBounded();
+  const callShape = new CallSignatureShape(this.Template);
+  callShape.Parameters = callParameters;
+  callShape.ReturnType = callReturnType;
+  callShape.MemberModifiers = modifiers;
+  for (const callModifier of modifiers) {
+    callShape.Add(callModifier);
+  }
+  for (const callTypeParameter of typeParameters) {
+    callShape.Add(callTypeParameter);
+  }
+  for (const callParameter of callParameters) {
+    callShape.Add(callParameter);
+  }
+  callShape.Add(callReturnType);
+  return this.SpanTypeMember(callShape, start);
+}
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
   if (bracket.Is("(", ")")) {
@@ -844,7 +1020,7 @@ if (unit instanceof Bracket) {
       throw new Error("调用签名缺少返回类型");
     }
     this.At++;
-    const returnType = this.ParseReturnType();
+    const returnType = this.ParseReturnTypeBounded();
     const shape = new CallSignatureShape(this.Template);
     shape.Parameters = parameters;
     shape.ReturnType = returnType;
@@ -866,18 +1042,22 @@ if (unit instanceof Bracket) {
       indexSignature = true;
     }
     if (!indexSignature) {
-      // 计算属性名成员：`[s]: A` / `[s]?: A` / `[s](): A` —— TS 的 name 是 ComputedPropertyName([ … ])。
-      if (innerCode.length !== 1 || !(innerCode[0] instanceof Common)) {
-        throw new Error("计算属性名只支持简单标识符");
+      // 计算属性名成员：`[s]: A` / `[s]?: A` / `[s](): A`，name 是 ComputedPropertyName([ … ])。
+      // 方括号里的内容按表达式读（`Symbol.iterator` / `a.b` / 字符串 / 数字都能进），不再只认单标识符。
+      const inner = new ExpressionBuilder(this.Template, this.Context);
+      let expressionBase = 0;
+      if (bracket.SourceRange.Start !== null) {
+        expressionBase = bracket.SourceRange.Start.Index + 1;
+      }
+      inner.Load(bracket.Data, expressionBase);
+      if (inner.Units.length === 0) {
+        throw new Error("计算属性名是空的");
+      }
+      const expression = inner.ParseExpression();
+      if (inner.At !== inner.Units.length) {
+        throw new Error("计算属性名没有读完");
       }
       const computed = new ComputedPropertyNameShape(this.Template);
-      const expressionUnit = innerCode[0] as Common;
-      const expression = IdentifierShape.FromBasicToken(expressionUnit, this.Context);
-      let expressionPos = 0;
-      if (bracket.SourceRange.Start !== null) {
-        expressionPos = bracket.SourceRange.Start.Index + 1;
-      }
-      expression.Pos = expressionPos;
       computed.Add(expression);
       expression.Parent = computed;
       if (bracket.SourceRange.Start !== null) {
@@ -900,16 +1080,23 @@ if (unit instanceof Bracket) {
         }
       }
       const computedAfterMark = this.Peek(0);
-      if (computedAfterMark !== null && computedAfterMark instanceof Bracket
-        && (computedAfterMark as Bracket).Is("(", ")")) {
+      // 计算名的泛型方法：`[sym]?<K>(…): R` —— 名字后先 `<...>` 类型参数，再参数表。
+      let computedTypeParameters:Array<Token> = [];
+      let computedParamMark = computedAfterMark;
+      if (computedParamMark !== null && this.IsText(computedParamMark, "<")) {
+        computedTypeParameters = this.ParseTypeParameterList();
+        computedParamMark = this.Peek(0);
+      }
+      if (computedParamMark !== null && computedParamMark instanceof Bracket
+        && (computedParamMark as Bracket).Is("(", ")")) {
         this.At++;
-        const computedParameters = this.ParseParameterList(computedAfterMark as Bracket);
+        const computedParameters = this.ParseParameterList(computedParamMark as Bracket);
         const computedColon = this.Peek(0);
         if (computedColon === null || !this.IsText(computedColon, ":")) {
           throw new Error("计算属性方法缺少返回类型");
         }
         this.At++;
-        const computedReturnType = this.ParseReturnType();
+        const computedReturnType = this.ParseReturnTypeBounded();
         const computedMethod = new MethodSignatureShape(this.Template);
         computedMethod.SignatureName = computed;
         computedMethod.Parameters = computedParameters;
@@ -921,6 +1108,9 @@ if (unit instanceof Bracket) {
         computedMethod.Add(computed);
         if (computedQuestion !== null) {
           computedMethod.Add(computedQuestion);
+        }
+        for (const computedTypeParameter of computedTypeParameters) {
+          computedMethod.Add(computedTypeParameter);
         }
         for (const computedParameter of computedParameters) {
           computedMethod.Add(computedParameter);
@@ -935,7 +1125,7 @@ if (unit instanceof Bracket) {
         }
         this.At++;
       }
-      const computedType = this.ParseType();
+      const computedType = this.ParseTypeBounded();
       const computedProperty = new PropertySignatureShape(this.Template);
       computedProperty.SignatureName = computed;
       computedProperty.QuestionToken = computedQuestion;
@@ -958,7 +1148,7 @@ if (unit instanceof Bracket) {
       throw new Error("索引签名缺少类型");
     }
     this.At++;
-    const type = this.ParseType();
+    const type = this.ParseTypeBounded();
     const shape = new IndexSignatureShape(this.Template);
     shape.Parameter = parameter;
     shape.Type = type;
@@ -972,7 +1162,7 @@ if (unit instanceof Bracket) {
   }
   throw new Error("对象类型里出现了不支持的括号");
 }
-if (!(unit instanceof Common)) {
+if (!(unit instanceof Common) && !(unit instanceof String)) {
   throw new Error("不支持的对象类型成员");
 }
 // get / set 访问器：TS 节点是 GetAccessor / SetAccessor（children = 名字 + [参数] + [返回类型]）。
@@ -992,7 +1182,7 @@ if (accessorText === "get" || accessorText === "set") {
     const accessorColon = this.Peek(0);
     if (accessorColon !== null && this.IsText(accessorColon, ":")) {
       this.At++;
-      accessorReturn = this.ParseReturnType();
+      accessorReturn = this.ParseReturnTypeBounded();
     }
     let accessor:ShapeToken;
     if (accessorText === "get") {
@@ -1010,16 +1200,42 @@ if (accessorText === "get" || accessorText === "set") {
     return this.SpanTypeMember(accessor, start);
   }
 }
-const name = this.ParseName();
+// 成员名：标识符或字符串字面量（`interface I { "abort": Event }` / `"m"(): void`）。
+const nameHead = this.Peek(0);
+let name:Token;
+if (nameHead instanceof String) {
+  const nameIndex = this.At;
+  this.At++;
+  const literalName = StringLiteralShape.FromBasicToken(nameHead as String, this.Context);
+  literalName.Pos = this.Positions[nameIndex];
+  name = literalName;
+} else if (nameHead instanceof Common && (nameHead as Common).CanStartNumber()) {
+  // 数字成员名（`interface RegExpMatchArray { 0: string }`）：TS 的 name 是 NumericLiteral。
+  const nameIndex = this.At;
+  this.At++;
+  const numericName = NumericLiteralShape.FromBasicToken(nameHead as Common, this.Context);
+  numericName.Pos = this.Positions[nameIndex];
+  name = numericName;
+} else {
+  name = this.ParseName();
+}
 let next = this.Peek(0);
-// 可选方法 `m?()`：`?` 紧跟参数表（或泛型参数表）时是 MethodSignature 的 QuestionToken。
+// 可选方法 `m?()`：`?` 紧跟参数表（或泛型参数表）时才是 MethodSignature 的 QuestionToken。
+// `?(` 有两种读法：`m?(): T` 是可选方法，`a?: (A | B)` / `a?: () => void` 是**可选属性**＋括号类型。
+// TS 的判据是参数表 `)` 之后是不是 `:`（返回类型）；不是就退回属性那条路。
 let questionToken:Token | null = null;
 if (next !== null) {
   const markText = this.TextOf(next);
   if (markText === "?" || markText === "?:") {
     const afterMark = this.Peek(1);
-    if (afterMark !== null
-      && ((afterMark instanceof Bracket && (afterMark as Bracket).Is("(", ")")) || this.IsText(afterMark, "<"))) {
+    let optionalMethod = false;
+    if (afterMark !== null && this.IsText(afterMark, "<")) {
+      optionalMethod = true;
+    } else if (afterMark !== null && afterMark instanceof Bracket && (afterMark as Bracket).Is("(", ")")) {
+      const afterParams = this.Peek(2);
+      optionalMethod = afterParams !== null && this.IsText(afterParams, ":");
+    }
+    if (optionalMethod) {
       questionToken = this.ParseOptionalMark();
       next = this.Peek(0);
     }
@@ -1039,7 +1255,7 @@ if (next !== null && this.IsBracket(next, "(", ")")) {
   let returnType:Token | null = null;
   if (colon !== null && this.IsText(colon, ":")) {
     this.At++;
-    returnType = this.ParseReturnType();
+    returnType = this.ParseReturnTypeBounded();
   }
   const shape = new MethodSignatureShape(this.Template);
   shape.SignatureName = name;
@@ -1081,7 +1297,7 @@ if (colonNeeded) {
   }
   this.At++;
 }
-const type = this.ParseType();
+const type = this.ParseTypeBounded();
 const shape = new PropertySignatureShape(this.Template);
 shape.SignatureName = name;
 shape.QuestionToken = question;
@@ -1270,7 +1486,21 @@ if (restUnit !== null && this.IsText(restUnit, "...")) {
   this.At++;
   rest = this.SpanLeaf(new DotDotDotTokenShape(this.Template), restIndex);
 }
-const name = this.ParseName();
+// 参数名可以是标识符，也可以是解构模式（`...{a}: A` / `[a]: A`）：TS 的 Parameter children 里
+// 直接是 ObjectBindingPattern / ArrayBindingPattern。
+let name:Token;
+const paramNameUnit = this.Peek(0);
+if (paramNameUnit !== null && paramNameUnit instanceof Bracket && (paramNameUnit as Bracket).StartBracketChar === "{") {
+  const patternBracket = paramNameUnit as Bracket;
+  this.At++;
+  name = ObjectBindingPatternShape.FromBracket(patternBracket, this.Context);
+} else if (paramNameUnit !== null && paramNameUnit instanceof Bracket && (paramNameUnit as Bracket).StartBracketChar === "[") {
+  const patternBracket = paramNameUnit as Bracket;
+  this.At++;
+  name = ArrayBindingPatternShape.FromBracket(patternBracket, this.Context);
+} else {
+  name = this.ParseName();
+}
 const markUnit = this.Peek(0);
 let question:Token | null = null;
 let colonNeeded = true;
@@ -1582,11 +1812,19 @@ const name = this.ParseEntityName();
 const shape = new TypeQueryShape(this.Template);
 shape.ExprName = name;
 shape.Add(name);
+// `typeof x.y<Z>`：TS 6 允许类型实参（InstantiationExpression 的 `x.y<Z>` 作为 typeof 的实体），
+// TypeQuery children = 实体名 + 每个 TypeArgument。
+const typeArguments = this.ParseTypeArguments();
+for (const typeArgument of typeArguments) {
+  shape.Add(typeArgument);
+}
 if (operatorUnit.SourceRange.Start !== null) {
   shape.SignIn(operatorUnit.SourceRange.Start);
 }
-if (name.SourceRange.End !== null) {
-  shape.SignOut(name.SourceRange.End);
+// 有类型实参时 TS 的 TypeQuery 区间含末尾的 `>`（`typeof X<A>`），按最后消费的单元签出。
+const lastConsumed = this.Units[this.At - 1];
+if (lastConsumed.SourceRange.End !== null) {
+  shape.SignOut(lastConsumed.SourceRange.End);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);

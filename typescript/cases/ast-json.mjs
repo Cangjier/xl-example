@@ -203,7 +203,8 @@ function cjAst(shape) {
     pos: shape.Pos >= 0 ? shape.Pos : (range.Start == null ? 0 : range.Start.Index),
     end: range.End == null ? 0 : range.End.Index + 1,
   };
-  if (typeof shape.EscapedText === "string" && shape.EscapedText !== "") out.text = shape.EscapedText;
+  // 空文本也是取值（throw 恢复形里的零宽 Identifier，TS 侧 text=""）；非空标识符的取值不变。
+  if (typeof shape.EscapedText === "string") out.text = shape.EscapedText;
   // 字面量的 text 可以是空串（`""`），空串也是一个真实取值；只有带 Text 字段的那几种字面量会走到这里。
   if (typeof shape.Text === "string") out.text = shape.Text;
   if (shape.Name && shape.Name.text !== undefined) out.name = shape.Name.text;

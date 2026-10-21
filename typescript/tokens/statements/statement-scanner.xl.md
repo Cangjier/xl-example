@@ -161,7 +161,7 @@ if (first instanceof Common) {
     return StatementScanner.ScanDo(code, 0);
   }
   if (text === "return" || text === "throw") {
-    return StatementScanner.ScanToSemicolon(code, 1);
+    return StatementScanner.ScanReturnOrThrow(code, 0);
   }
   if (text === "break" || text === "continue") {
     return StatementScanner.ScanBreakOrContinue(code, 1);
@@ -248,7 +248,7 @@ if (unit instanceof Common) {
     return StatementScanner.ScanDo(code, at);
   }
   if (text === "return" || text === "throw") {
-    return StatementScanner.ScanToSemicolon(code, at + 1);
+    return StatementScanner.ScanReturnOrThrow(code, at);
   }
   if (text === "break" || text === "continue") {
     return StatementScanner.ScanBreakOrContinue(code, at + 1);
@@ -332,6 +332,18 @@ if (StatementScanner.AtEOF && code.length > 0) {
 return StatementScanner.NeedMore();
 ```
 
+## static method ScanReturnOrThrow:(code:Array<Token>, keywordAt:int)=>StatementScanResult
+
+`return` / `throw` 的受限产生式：**关键字之后换行**时语句停在关键字上（`throw\na;` = throw; a;）。
+TS 对 `throw` 的恢复形是 `ThrowStatement` + 零宽 `Identifier` 子节点（Builder 侧补），扫描这里只负责收口。
+
+```ts
+if (StatementScanner.IsKeyword(code[keywordAt], "throw") && keywordAt + 1 < code.length
+  && !StatementScanner.NoLineBreakBetween(code[keywordAt], code[keywordAt + 1])) {
+  return StatementScanner.Complete(keywordAt);
+}
+return StatementScanner.ScanToSemicolon(code, keywordAt + 1);
+```
 ## static method ScanSimpleSemicolon:(code:Array<Token>, from:int)=>StatementScanResult
 
 ```ts

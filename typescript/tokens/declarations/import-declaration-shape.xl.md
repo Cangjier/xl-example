@@ -269,6 +269,18 @@ if (keyword.SourceRange.Start !== null) {
 if (semicolon.SourceRange.End !== null) {
   shape.SignOut(semicolon.SourceRange.End);
 }
+// TS 的 pos 含前导 trivia：= 前一个非 trivia 单元 End.Index + 1（挂载壳路径不会替它算 Pos）。
+let pos = 0;
+for (let index = start - 1; index >= 0; index--) {
+  if (!host.Data[index].IsTriviaToken) {
+    const previousEnd = host.Data[index].SourceRange.End;
+    if (previousEnd !== null) {
+      pos = previousEnd.Index + 1;
+    }
+    break;
+  }
+}
+shape.Pos = pos;
 shape.TryToClose(context);
 return shape;
 ```

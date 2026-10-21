@@ -188,7 +188,13 @@ if (exportUnit !== null) {
 }
 if (declareUnit !== null) {
   const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  modifier.Pos = pos;
+  // TS 的 pos：export 之后的 declare 取 export 末尾 + 1（`export declare type` 的 declare 是 [6,14)）。
+  if (exportUnit === null) {
+    modifier.Pos = pos;
+  } else {
+    const exportEnd = exportUnit.SourceRange.End;
+    modifier.Pos = exportEnd === null ? pos : exportEnd.Index + 1;
+  }
   shape.Add(modifier);
 }
 shape.Add(name);

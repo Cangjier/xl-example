@@ -441,18 +441,8 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     if (!(unit as Bracket).Closed) {
       continue;
     }
-    let empty = true;
-    for (const item of (unit as Bracket).Data) {
-      if (!item.IsTriviaToken) {
-        empty = false;
-        break;
-      }
-    }
-    // class / interface 的类体、接口体成员未实现：非空就先退出（不静默丢成员）。
-    if (state.Stage === 11 && !empty) {
-      state.Stage = 3;
-      continue;
-    }
+    // class / interface 的成员现在都能由各自的 Shape.BuildMembers 建出（export 的 BuildByIndex 走
+    // ClassDeclarationShape.FromUnits / InterfaceDeclarationShape.FromUnits），所以接口体非空不再是退出理由。
     state.Done = true;
     state.DoneAt = index;
     state.Stage = 4;
@@ -1204,7 +1194,9 @@ if (kind === 11) {
   }
   const built = new FunctionDeclarationShape(host.Template);
   built.FunctionName = name;
-  built.Parameters = [];
+  // 参数表复用 FunctionDeclarationShape.BuildParameters（与普通函数声明同一口径）：
+  // children 顺序 = ExportKeyword、DeclareKeyword、[AsyncKeyword]、Identifier、Parameter 们、[返回类型]。
+  built.Parameters = FunctionDeclarationShape.BuildParameters(host, paramsUnit as Bracket, context);
   built.ReturnType = returnType;
   built.Body = null;
   built.Add(exportModifier);
@@ -1218,6 +1210,9 @@ if (kind === 11) {
     built.Add(asyncShape);
   }
   built.Add(name);
+  for (const parameter of built.Parameters) {
+    built.Add(parameter);
+  }
   if (returnType !== null) {
     built.Add(returnType);
   }

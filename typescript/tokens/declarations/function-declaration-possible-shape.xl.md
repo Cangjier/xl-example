@@ -15,6 +15,7 @@ import { ExpressionStatementPossibleShape } from "../statements/expression-state
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -228,9 +229,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       continue;
     }
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
-      state.Stage = 5;
-      state.Done = true;
-      state.DoneAt = at;
+      // 返回类型里的对象字面量（`function f(): {a: A}`）不是函数体：只有前一个单元能收住一个类型时
+      // 才是体（`function f(): B {}`）。否则继续留在 Stage 4，等 `;` / EOF / ASI 收口。
+      if (TypeBuilder.IsBodyBrace(units, at)) {
+        state.Stage = 5;
+        state.Done = true;
+        state.DoneAt = at;
+      }
       continue;
     }
     if (unit instanceof Symbol && (unit as Symbol).Is(";")) {

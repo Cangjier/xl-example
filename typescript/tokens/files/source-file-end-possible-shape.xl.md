@@ -12,17 +12,22 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
 import { ImportEqualsDeclarationShape } from "../declarations/import-equals-declaration-shape.xl.md"
+import { ImportDeclarationShape } from "../declarations/import-declaration-shape.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ExportAssignmentShape } from "../declarations/export-assignment-shape.xl.md"
+import { ExportDeclarationShape } from "../declarations/export-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
+import { ModuleDeclarationShape } from "../declarations/module-declaration-shape.xl.md"
+import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
 
@@ -176,7 +181,7 @@ for (let index = start; index <= at; index++) {
     codeAt.push(index);
   }
 }
-if (code.length < 3) {
+if (code.length < 2) {
   return false;
 }
 // 多条声明连排：最后一条的起点 = 最后一个「换行之后出现的声明起点」。
@@ -188,6 +193,7 @@ for (let index = 1; index < code.length; index++) {
   }
   const unitText = (unit as Common).TempToString();
   if (!(unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import" || unitText === "export" || unitText === "class" || unitText === "interface"
+    || unitText === "enum" || unitText === "namespace" || unitText === "module" || unitText === "global" || unitText === "abstract"
     || unitText === "const" || unitText === "let" || unitText === "var" || unitText === "using")) {
     continue;
   }
@@ -221,7 +227,15 @@ if (boundary > 0) {
   // 原来 `at + inserted - (prefixEnd - start + 1)` 会偏一格，递归的第二个边界就落到合成形状上。
   // 后缀自己的单元（含其间 trivia）在 splice 后是连续平移的，所以用「后缀起点 + 相对长度」直接定位。
   const suffixAt = cursor + (at - codeAt[boundary]);
-  return SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, suffixAt, context);
+  // 后缀自己也可能建不出来：整条返回 false 会让调用方拿**已经 splice 过**的旧下标来兜底
+  // （`已建前缀 + export 子句` 就是这样越界读到 undefined 的）。所以后缀先内部兜底成表达式语句。
+  const suffixBuilt = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, suffixAt, context);
+  if (!suffixBuilt) {
+    const suffix = ExpressionStatementShape.FromUnits(host, cursor, suffixAt, context, false);
+    host.Data.splice(cursor, suffixAt - cursor + 1, suffix);
+    suffix.Parent = host;
+  }
+  return true;
 }
 const head = code[0];
 if (!(head instanceof Common)) {
@@ -262,7 +276,10 @@ const isExportVariable = text === "export"
   && code.length >= 3
   && code[1] instanceof Common
   && ((code[1] as Common).Is("const") || (code[1] as Common).Is("let")
-    || (code[1] as Common).Is("var") || (code[1] as Common).Is("using"));
+    || (code[1] as Common).Is("var") || (code[1] as Common).Is("using")
+    || ((code[1] as Common).Is("declare") && code.length >= 4 && code[2] instanceof Common
+      && ((code[2] as Common).Is("const") || (code[2] as Common).Is("let")
+        || (code[2] as Common).Is("var") || (code[2] as Common).Is("using"))));
 if (isExportVariable) {
   let basePos = 0;
   let pos = 0;
@@ -288,6 +305,71 @@ if (isExportVariable) {
   host.Data.splice(start, at - start + 1, statement);
   statement.Parent = host;
   return true;
+}
+// `export class C {…}` / `export interface I {…}` / `export [declare] namespace N {…}`
+// 无分号到 EOF：体是闭合 `}` 括号；从 export 之后那一格建声明，再把 ExportKeyword 插回 Data 最前。
+if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUnit instanceof Bracket
+  && (lastUnit as Bracket).StartBracketChar === "{" && TypeBuilder.IsBodyBrace(code, code.length - 1)) {
+  // 跳过 export 之后的修饰词（declare / abstract / async）找到声明词；
+  // 但建树起点要留在第一个修饰词上（DeclareKeyword / AbstractKeyword 是 TS 的 children）。
+  let keywordOffset = 1;
+  while (keywordOffset < code.length && code[keywordOffset] instanceof Common) {
+    const modifierText = (code[keywordOffset] as Common).TempToString();
+    if (modifierText === "declare" || modifierText === "abstract" || modifierText === "async") {
+      keywordOffset++;
+      continue;
+    }
+    break;
+  }
+  const keywordText = keywordOffset < code.length && code[keywordOffset] instanceof Common
+    ? (code[keywordOffset] as Common).TempToString() : "";
+  if (keywordText === "class" || keywordText === "interface"
+    || keywordText === "namespace" || keywordText === "module" || keywordText === "global") {
+    let pos = 0;
+    for (let index = start - 1; index >= 0; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const previousEnd = host.Data[index].SourceRange.End;
+        if (previousEnd !== null) {
+          pos = previousEnd.Index + 1;
+        }
+        break;
+      }
+    }
+    let declared:ShapeToken;
+    if (keywordText === "class") {
+      declared = ClassDeclarationShape.FromUnits(host, codeAt[1], at, context) as ShapeToken;
+    } else if (keywordText === "interface") {
+      declared = InterfaceDeclarationShape.FromUnits(host, codeAt[1], at, context) as ShapeToken;
+    } else {
+      // namespace / module / global：ModuleDeclarationShape.FromUnits 要 code + positions 两个数组，
+      // 且它自己会处理开头的 export / declare 修饰词，所以从 export 开始切。
+      const subCode:Array<Token> = [];
+      const subPositions:Array<number> = [];
+      let subPos = pos;
+      for (let index = start; index <= at; index++) {
+        const unit = host.Data[index];
+        if (unit.IsTriviaToken) {
+          continue;
+        }
+        subCode.push(unit);
+        subPositions.push(subPos);
+        if (unit.SourceRange.End !== null) {
+          subPos = unit.SourceRange.End.Index + 1;
+        }
+      }
+      declared = ModuleDeclarationShape.FromUnits(subCode, subPositions, context) as ShapeToken;
+    }
+    const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
+    (exportKeyword as ShapeToken).Pos = pos;
+    if (keywordText !== "namespace" && keywordText !== "module" && keywordText !== "global") {
+      declared.Data.unshift(exportKeyword);
+      exportKeyword.Parent = declared;
+    }
+    (declared as ShapeToken).Pos = pos;
+    host.Data.splice(start, at - start + 1, declared);
+    declared.Parent = host;
+    return true;
+  }
 }
 // `export default 1` 鏃犲垎鍙峰埌 EOF锛欳hildren 鍙湁琛ㄨ揪寮忥紙TS 涓?export/default 閮戒笉鏄妭鐐癸級鎴栧悕绉般€?
 const isExportDefault = text === "export"
@@ -342,16 +424,59 @@ const isClass = text === "class"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("class"));
 const isInterface = text === "interface"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("interface"));
-if ((isClass || isInterface) && lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{") {
+const isEnum = text === "enum"
+  || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("enum"));
+const isModuleDecl = text === "namespace" || text === "module" || text === "global"
+  || (text === "declare" && code.length >= 3 && code[1] instanceof Common
+    && ((code[1] as Common).Is("namespace") || (code[1] as Common).Is("module")
+      || (code[1] as Common).Is("global")));
+if ((isClass || isInterface || isEnum || isModuleDecl)
+  && lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{") {
   if (isClass) {
     const klass = ClassDeclarationShape.FromUnits(host, start, at, context);
     host.Data.splice(start, at - start + 1, klass);
     klass.Parent = host;
     return true;
   }
-  const iface = InterfaceDeclarationShape.FromUnits(host, start, at, context);
-  host.Data.splice(start, at - start + 1, iface);
-  iface.Parent = host;
+  if (isInterface) {
+    const iface = InterfaceDeclarationShape.FromUnits(host, start, at, context);
+    host.Data.splice(start, at - start + 1, iface);
+    iface.Parent = host;
+    return true;
+  }
+  if (isEnum) {
+    const enumShape = EnumDeclarationShape.FromUnits(host, start, at, context);
+    host.Data.splice(start, at - start + 1, enumShape);
+    enumShape.Parent = host;
+    return true;
+  }
+  // namespace / module / global：ModuleDeclarationShape.FromUnits 要 code + positions 两个数组。
+  const subCode:Array<Token> = [];
+  const subPositions:Array<number> = [];
+  let noSemiPos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        noSemiPos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  for (let index = start; index <= at; index++) {
+    const unit = host.Data[index];
+    if (unit.IsTriviaToken) {
+      continue;
+    }
+    subCode.push(unit);
+    subPositions.push(noSemiPos);
+    if (unit.SourceRange.End !== null) {
+      noSemiPos = unit.SourceRange.End.Index + 1;
+    }
+  }
+  const moduleShape = ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
+  host.Data.splice(start, at - start + 1, moduleShape);
+  moduleShape.Parent = host;
   return true;
 }
 // `export type T = A` 也走类型别名族（TypeAliasDeclarationShape 已接受 export 前缀），
@@ -360,20 +485,80 @@ const isExportType = text === "export"
   && code.length >= 3
   && code[1] instanceof Common
   && (code[1] as Common).Is("type");
-const isType = text === "type" || isExportType;
+// `declare type T = A` 无分号到 EOF：TypeAliasDeclarationShape.FromUnits 已接受 declare 前缀。
+const isDeclareType = text === "declare"
+  && code.length >= 3
+  && code[1] instanceof Common
+  && (code[1] as Common).Is("type");
+const isExportDeclareType = text === "export"
+  && code.length >= 4
+  && code[1] instanceof Common && (code[1] as Common).Is("declare")
+  && code[2] instanceof Common && (code[2] as Common).Is("type");
+const isType = text === "type" || isExportType || isDeclareType || isExportDeclareType;
 const isImportEquals = text === "import"
   && code.length >= 5
   && code[1] instanceof Common
   && code[2] instanceof Symbol
   && (code[2] as Symbol).Is("=");
+// `import … from "m"`（含 import type / 具名 / 命名空间 / 副作用）无分号到 EOF：
+// ImportDeclarationShape 有 FromUnits，末尾要求 `;`，这里补零宽合成 `;` 走它。
+const isImportClause = text === "import" && !isImportEquals;
 // 函数声明：无体时最后一块是 `;`（补合成 `;`），有体时最后一块是 `{`（直接 FromUnits）。
 const isFunction = text === "function"
   || (text === "declare" && code.length >= 4 && code[1] instanceof Common && (code[1] as Common).Is("function"));
-if (!isType && !isImportEquals && !isFunction) {
+// `export function …` / `export declare function …` / `export async function …`：
+// FunctionDeclarationShape.FromUnits 只认 declare/async 前缀、不认 export，所以从 export 之后那一格建，
+// 再把 ExportKeyword 插到 Data 最前面（与 isExportVariable 同款）。没有这一支，`export declare function f(): B`
+// 无分号到 EOF 会落进 ExpressionStatement，报「表达式语句没有读完」。
+let exportFunctionStart = -1;
+if (text === "export" && code.length >= 4 && code[1] instanceof Common) {
+  const secondText = (code[1] as Common).TempToString();
+  if (secondText === "function") {
+    // `export function …`
+    exportFunctionStart = codeAt[1];
+  } else if (secondText === "async" && code.length >= 5 && code[2] instanceof Common
+    && (code[2] as Common).Is("function")) {
+    // `export async function …`：从 async 起（FromUnits 建 AsyncKeyword 子节点）。
+    exportFunctionStart = codeAt[1];
+  } else if (secondText === "declare") {
+    // `export declare function …` / `export declare async function …`：从 declare 起，
+    // FromUnits 才能建出 DeclareKeyword 子节点。
+    if (code.length >= 5 && code[2] instanceof Common && (code[2] as Common).Is("function")) {
+      exportFunctionStart = codeAt[1];
+    } else if (code.length >= 6 && code[2] instanceof Common && (code[2] as Common).Is("async")
+      && code[3] instanceof Common && (code[3] as Common).Is("function")) {
+      exportFunctionStart = codeAt[1];
+    }
+  }
+}
+const isExportFunction = exportFunctionStart >= 0;
+// 其余 `export …` 形式（`export { a }` / `export * from "m"` / `export type { T }` 等）：
+// 走 ExportDeclarationShape.FromUnits + 合成 `;`，在下面 isType/isImportEquals/isExportFunction 之后兜底。
+const isExportClause = text === "export";
+if (!isType && !isImportEquals && !isImportClause && !isFunction && !isExportFunction && !isExportClause) {
   return false;
 }
-if (isFunction && lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{") {
-  const declared = FunctionDeclarationShape.FromUnits(host, start, at, context);
+if ((isFunction || isExportFunction) && lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{"
+  && TypeBuilder.IsBodyBrace(code, code.length - 1)) {
+  const functionStart = isExportFunction ? exportFunctionStart : start;
+  const declared = FunctionDeclarationShape.FromUnits(host, functionStart, at, context);
+  if (isExportFunction) {
+    let pos = 0;
+    for (let index = start - 1; index >= 0; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const previousEnd = host.Data[index].SourceRange.End;
+        if (previousEnd !== null) {
+          pos = previousEnd.Index + 1;
+        }
+        break;
+      }
+    }
+    const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
+    (exportKeyword as ShapeToken).Pos = pos;
+    declared.Data.unshift(exportKeyword);
+    exportKeyword.Parent = declared;
+    (declared as ShapeToken).Pos = pos;
+  }
   host.Data.splice(start, at - start + 1, declared);
   declared.Parent = host;
   return true;
@@ -397,6 +582,51 @@ if (isImportEquals) {
   host.Data.splice(start, at - start + 2, imported);
   imported.Parent = host;
   return true;
+}
+if (isImportClause) {
+  try {
+    const imported = ImportDeclarationShape.FromUnits(host, start, at + 1, context);
+    host.Data.splice(start, at - start + 2, imported);
+    imported.Parent = host;
+    return true;
+  } catch (error) {
+    host.Data.splice(at + 1, 1);
+    return false;
+  }
+}
+if (isExportFunction) {
+  const exported = FunctionDeclarationShape.FromUnits(host, exportFunctionStart, at + 1, context);
+  let pos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        pos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
+  (exportKeyword as ShapeToken).Pos = pos;
+  exported.Data.unshift(exportKeyword);
+  exportKeyword.Parent = exported;
+  (exported as ShapeToken).Pos = pos;
+  host.Data.splice(start, at - start + 2, exported);
+  exported.Parent = host;
+  return true;
+}
+if (isExportClause) {
+  // `export { a }` / `export * from "m"` 无分号到 EOF：ExportDeclarationShape 自己的入口要求末尾 `;`，
+  // 这里用已插入的合成 `;` 走正常路径；建不出来就撤掉合成 `;` 并让调用方退回表达式兜底。
+  try {
+    const built = ExportDeclarationShape.FromUnits(host, start, at + 1, context);
+    host.Data.splice(start, at - start + 2, built);
+    built.Parent = host;
+    return true;
+  } catch (error) {
+    host.Data.splice(at + 1, 1);
+    return false;
+  }
 }
 const declared = FunctionDeclarationShape.FromUnits(host, start, at + 1, context);
 host.Data.splice(start, at - start + 2, declared);

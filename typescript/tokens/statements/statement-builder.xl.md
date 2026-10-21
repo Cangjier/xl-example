@@ -811,10 +811,10 @@ return this.Finish(shape, first, this.At - 1);
 const first = this.At;
 this.At++;
 const keyword = this.Units[first];
-// `return` is a restricted production: a line break right after it ends the statement (ASI),
-// so the following token starts a NEW statement (`return\na;` = return; a;).
-// TS sets the ReturnStatement End to the next token's Pos (keyword end + 1); throw is left as is
-// (core-blocked: TS recovery emits a zero-width Identifier child).
+// `return` / `throw` are restricted productions: a line break right after the keyword ends the
+// statement (ASI), so the following token starts a NEW statement (`return\na;` = return; a;).
+// ReturnStatement has no expression child; TS reconstructs `throw` with a zero-width Identifier child
+// (`ThrowStatement [0,5] -> Identifier [5,5] text=""`) — synthesized below when there is no expression.
 const split = !isThrow
   && this.At < this.Units.length
   && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.End);
@@ -838,6 +838,20 @@ if (isThrow) {
 }
 if (expression !== null) {
   shape.Add(expression);
+}
+if (isThrow && expression === null) {
+  // TS 的恢复形：零宽 Identifier，pos == end == 关键字末尾之后（`throw` 之后那一格）。
+  const keywordEnd = keyword.SourceRange.End;
+  if (keywordEnd !== null) {
+    const zero = new IdentifierShape(this.Template);
+    zero.EscapedText = "";
+    const zeroSource = keywordEnd.Document.At(keywordEnd.Index);
+    zero.SourceRange.Start = zeroSource;
+    zero.SourceRange.End = zeroSource;
+    zero.Pos = keywordEnd.Index + 1;
+    zero.TryToClose(this.Context);
+    shape.Add(zero);
+  }
 }
 this.At = endExclusive;
 if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {

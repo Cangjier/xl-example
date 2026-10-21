@@ -80,9 +80,8 @@ if (at >= code.length) {
 const headUnit = code[at];
 if (headUnit instanceof Common && (headUnit as Common).Is("global")) {
   // `declare global { … }`：名字就是 `global`，没有 namespace/module 关键字。
-  if (at === 0) {
-    throw new Error("global 声明缺少 declare 修饰");
-  }
+  // 也允许不带 declare 的 `global { … }`：这是 ambient module 体里的 global augmentation
+  // （`declare module "buffer" { global { interface BufferConstructor { … } } }`），TS 合法。
 } else {
   at++;
 }

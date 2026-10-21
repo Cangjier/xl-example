@@ -160,12 +160,21 @@ if (!(paramUnit instanceof Bracket) || (paramUnit as Bracket).StartBracketChar !
   throw new Error("函数声明缺少参数表");
 }
 const last = code[code.length - 1];
-const tailIndex = code.length - 1;
+const lastIsBrace = last instanceof Bracket && (last as Bracket).StartBracketChar === "{";
+const lastIsSemicolon = last instanceof Symbol && (last as Symbol).Is(";");
+// 末尾的 `{…}` 只有在「前一个单元能收住一个类型」时才是函数体；否则它是返回类型里的对象字面量
+// （`declare function f(): { a: A }` 的最后一块就是类型，没有函数体）。
+const bodyIsLast = lastIsBrace && TypeBuilder.IsBodyBrace(code, code.length - 1);
+const tailIndex = bodyIsLast || lastIsSemicolon ? code.length - 1 : code.length;
 let bodyUnit:Token | null = null;
-if (last instanceof Bracket && (last as Bracket).StartBracketChar === "{") {
+if (bodyIsLast) {
   bodyUnit = last;
-} else if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
-  throw new Error("函数声明缺少函数体或分号");
+} else if (!lastIsBrace && !lastIsSemicolon) {
+  // ambient 的无体、无分号函数（namespace 体里 `function f(): B` 换行接下一个成员）：
+  // 调用方显式传 ambient=true 时才允许。
+  if (!(ambient ?? false)) {
+    throw new Error("函数声明缺少函数体或分号");
+  }
 }
 let returnType:Token | null = null;
 const afterParams = paramIndex + 1;
@@ -292,7 +301,7 @@ if (unit === null || unit.SourceRange.End === null) {
 return unit.SourceRange.End.Index + 1;
 ```
 
-## private static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
+## static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
 参数表按逗号切组；带 `:` / `?:` 的组交给 `TypeBuilder.ParseParameter()`，不带类型的组只建 `Identifier`。
 

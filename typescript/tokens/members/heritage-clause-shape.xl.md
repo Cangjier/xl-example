@@ -148,7 +148,8 @@ while (builder.At < builder.Units.length) {
     let expressionLimit = genericCall ? builder.Units.length : nameIndex;
     while (!genericCall && expressionLimit < builder.Units.length) {
       const probe = builder.Units[expressionLimit];
-      if (probe instanceof Symbol && (probe as Symbol).Is("<")) {
+      if (probe instanceof Symbol && ((probe as Symbol).Is("<") || (probe as Symbol).Is(","))) {
+        // `,` 是继承列表的分隔符（`extends A.B, C`），不能当成逗号表达式一起吃掉。
         break;
       }
       expressionLimit++;
