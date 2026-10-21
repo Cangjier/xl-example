@@ -119,6 +119,11 @@ return CloseStates.Nothing;
 const value = source.Value;
 const template = unit.Template;
 const last = unit.Last();
+// `\u{…}` 花括号转义进行中：`{` / 十六进制位 / `}` 全归那个 Common，
+// 符号层必须让位，否则 `}` 会把还没写完转义的 Common 提前关掉。
+if (Common.IsInUnicodeBraceEscape(unit)) {
+  return BranchStates.Undo;
+}
 if ((value === "+" || value === "-")
     && last instanceof Common && !last.Closed
     && last.IsExponentPrefix()) {

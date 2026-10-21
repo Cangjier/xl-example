@@ -7,8 +7,8 @@
 //    边界对照：`(` 之后的 `/` 已能判成正则（见下方 if (/x/) 一行）。
 // 2. `$` 作标识符字符：**已实施**——用户指定从 core 符号表删除 `case "$":`（非 Ban）；`$` 归 Common，
 //    `$"…"` 内插前缀在 ts 模板 HasInterpolationPrefix=false，无依赖。
-// 3. `\uXXXX` 转义标识符：**已实施**（4 位形）—— token 层把合法的 `\u`+4hex 并进 Common，
-//    IdentifierShape 解码进 EscapedText（原文区间不变）；`\u{…}` 花括号形仍缺。
+// 3. `\uXXXX` 转义标识符：**已实施**（4 位形 + `\u{…}` 花括号形）—— token 层把合法的转义并进 Common，
+//    IdentifierShape 解码进 EscapedText（原文区间不变）；花括号形 1–6 hex、码点 ≤ 0x10FFFF。
 // 4. U+FEFF（BOM）算 trivia：`Common` 会把 `\uFEFFconst` 吞成一个词（1 份，lex-bom，BOM 在中间行行首）。
 // 5. shebang `#!` 作首行 trivia：`#` 一律按 PrivateIdentifier 前缀扫，`!` 另起单元；
 //    `ShebangTriviaShape` 已存在但 possible/build 仍是「未实现」桩（2 份，lex-shebang / lx-shebang）。
@@ -40,6 +40,15 @@ function f\u0066() {}
 class C\u0031 {}
 interface I\u0041 { a: number }
 const ue3 = { \u0061: 1 };
+// 场景 3b（已实施）：\u{…} 花括号形（1–6 hex、码点 ≤ 0x10FFFF），标识符位与属性名位
+const ub1 = \u{61}bc;
+const ub2 = a\u{62}c;
+function f\u{66}() {}
+class C\u{31} {}
+interface I\u{41} { a: number }
+const ub3 = { \u{61}: 1 };
+const ub4 = \u{61}\u{62};
+const ub5 = { a: \u{62} };
 // 场景 2（已实施）：`$` 作标识符字符（core 符号表直接移除 `$`）
 const de1 = $x;
 const de2 = a$b;
