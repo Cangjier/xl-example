@@ -13,6 +13,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
 import { NamedImportsShape } from "./named-imports-shape.xl.md"
+import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 ```
 
@@ -73,6 +74,15 @@ if (state.Head < 0) {
     start = ItemUtil.NextCode(units, start + 1);
   }
   if (start >= units.length) {
+    // shell 已经收过模块说明符（副作用 import / `from "m"` 之后）：子句不可能再出现，
+    // 候选退出，避免与 ImportDeclarationEndPossibleShape 的 ASI Accept 在同一格撞 CatalogGuide 共存。
+    let previousShape = state.Start - 1;
+    while (previousShape >= 0 && units[previousShape].IsTriviaToken) {
+      previousShape--;
+    }
+    if (previousShape >= 0 && units[previousShape] instanceof StringLiteralShape) {
+      return ShapeStates.Reject;
+    }
     return ShapeStates.Uncertain;
   }
   const candidate = units[start];
@@ -97,6 +107,17 @@ if (tail instanceof Symbol && (tail as Symbol).Is("*")) {
   return ShapeStates.Uncertain;
 }
 if (!(tail instanceof Common)) {
+  return ShapeStates.Reject;
+}
+// 模块说明符已经收尾（shell 的 Data 里是已关闭的 StringLiteralShape）时，子句不可能再长：
+// 后面紧跟的 Common 若是 with / assert（属性子句）就交给 ImportAttributes 候选，
+// 其余（export / const / 语句关键字）都是下一条语句的起点 —— 候选必须退出，
+// 否则 ImportDeclarationEndPossibleShape 在同一格 Accept 会撞 CatalogGuide 共存。
+const previousClauseCode = ItemUtil.PreviousCode(units, last - 1);
+if (previousClauseCode >= 0 && units[previousClauseCode] instanceof StringLiteralShape
+  && !(tail as Common).Is("with") && !(tail as Common).Is("assert")
+  && !(tail as Common).Is("from") && !(tail as Common).Is("as")
+  && !(tail as Common).Is("defer") && !(tail as Common).Is("import")) {
   return ShapeStates.Reject;
 }
 const previous = ItemUtil.PreviousCode(units, last - 1);
