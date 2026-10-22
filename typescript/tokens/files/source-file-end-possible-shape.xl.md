@@ -28,6 +28,7 @@ import { ModuleDeclarationShape } from "../declarations/module-declaration-shape
 import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
@@ -446,6 +447,13 @@ if (firstCodeText === "do") {
 }
 // 多条声明连排：最后一条的起点 = 最后一个「换行之后出现的声明起点」。
 let boundary = -1;
+// 装饰器声明头：段首就是 `@` 时，整段是「装饰器前缀（可跨行、可多个）+ 修饰词 + 声明词」的
+// **一个**声明头（`@dec\nclass C {}` / `@a\n@b\ninterface I {}`）。头内部的声明词虽然也在换行处，
+// 但它不是新语句的起点——否则会把 `@dec` 与 `class` 切成两段，前缀 `@dec` 建不出来。
+let decoratedHeadEnd = -1;
+if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
+  decoratedHeadEnd = StatementScanner.DecoratedHeadKeyword(code, 0);
+}
 for (let index = 1; index < code.length; index++) {
   // 多语句的分界只在「还有下一条」时才成立：最后一格只能是本段自己的结尾。
   if (index >= code.length - 1) {
@@ -459,6 +467,10 @@ for (let index = 1; index < code.length; index++) {
     }
   }
   if (!lineBreak) {
+    continue;
+  }
+  if (index <= decoratedHeadEnd) {
+    // 正在扫的这条装饰器声明头的内部（装饰器表达式 / 修饰词 / 声明词本身）：不是新语句的起点。
     continue;
   }
   const unit = code[index];
@@ -476,8 +488,13 @@ for (let index = 1; index < code.length; index++) {
   // 所以这里不看前一个代码单元是否完整——这类 leftovers 本来就只在不收口时才会走到。
   if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
     // 换行后的 `@dec` 是**下一条声明**的装饰器前缀（`@dec class C {}`）：装饰器表达式可以任意长，
-    // 这里只需要把边界放在 `@` 上，整段交给下面的装饰器分支建。
+    // 这里只需要把边界放在 `@` 上，整段交给下面的装饰器分支建。同时把整个声明头
+    //（@ / 装饰器 / 修饰词 / 声明词）记成一体：头内部的 `class` / `export` 不再改边界。
     boundary = index;
+    const headAt = StatementScanner.DecoratedHeadKeyword(code, index);
+    if (headAt >= 0) {
+      decoratedHeadEnd = headAt;
+    }
     continue;
   }
   if (unit instanceof Common) {
@@ -487,6 +504,15 @@ for (let index = 1; index < code.length; index++) {
       || unitText === "namespace" || unitText === "module" || unitText === "global" || unitText === "abstract"
       || unitText === "async" || unitText === "const" || unitText === "let" || unitText === "var"
       || unitText === "using") {
+      // 分界还要过一关：**前一段能不能收住一条完整语句**。`let` ⏎ `let = 1` 在 TS 里是**一条**
+      // VariableStatement（`let` 是上下文关键字，下一格能起绑定就按声明读，见
+      // StatementScanner.ScanRoot）；前缀只有单独一个 `let` 时它收不住任何语句，换行不构成分界。
+      const loneLetPrefix = index - 1 === 0
+        && code[0] instanceof Common && (code[0] as Common).Is("let")
+        && StatementScanner.StartsBinding(code, index);
+      if (loneLetPrefix) {
+        continue;
+      }
       boundary = index;
       continue;
     }
@@ -556,15 +582,37 @@ if (boundary > 0) {
   }
   return true;
 }
-// 装饰器开头的 class 声明（`@dec class C {}` / `@a @b class C {}` / `@dec export class C {}`）：
-// 段首是 `@`（不是 Common），下面的字面分支都会漏掉；整段交给 `ClassDeclarationShape.FromUnits`
-// ——它自己消费装饰器表达式与 export / default / declare / abstract 修饰词，建出来就是 TS 的
-// ClassDeclaration（Decorator 是 children 的第一个）。建不出来（装饰器后面不是 class）按原路返回 false。
-if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")
-  && code[code.length - 1] instanceof Bracket && (code[code.length - 1] as Bracket).StartBracketChar === "{"
-  && TypeBuilder.IsBodyBrace(code, code.length - 1)) {
+// 装饰器开头的声明（`@dec class C {}` / `@a @b class C {}` / `@dec export class C {}` /
+// `@dec interface I {}` / `@dec enum E { A }` / `@dec type T = number;` / `@dec namespace N {}` /
+// `@dec function g() {}`）：段首是 `@`（不是 Common），下面的字面分支都会漏掉。
+// 「装饰器前缀（可跨行、可多个）+ 修饰词 + 声明词」由
+// `StatementScanner.DecoratedHeadKeyword` 一次认出——与 `function-declaration-possible-shape` 的
+// ASI 判据、`statement-builder.ScanDecoratedHead` 同口径——再按**声明词**分派到对应的 `FromUnits`：
+// 它们都从段首重新扫装饰器，把 Decorator 放进 children 最前，整段建出来就是 TS 的声明节点。
+// 建不出来（装饰器后面不是声明头 / 段被切在声明头中间）按原路返回 false。
+if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
+  const headAt = StatementScanner.DecoratedHeadKeyword(code, 0);
+  if (headAt < 0) {
+    return false;
+  }
+  const headText = (code[headAt] as Common).TempToString();
   try {
-    const decorated = ClassDeclarationShape.FromUnits(host, start, at, context);
+    let decorated:Token;
+    if (headText === "interface") {
+      decorated = InterfaceDeclarationShape.FromUnits(host, start, at, context);
+    } else if (headText === "enum") {
+      decorated = EnumDeclarationShape.FromUnits(host, start, at, context);
+    } else if (headText === "type") {
+      decorated = TypeAliasDeclarationShape.FromUnits(host, start, at, context);
+    } else if (headText === "function") {
+      decorated = FunctionDeclarationShape.FromUnits(host, start, at, context);
+    } else if (headText === "namespace" || headText === "module" || headText === "global") {
+      decorated = SourceFileEndPossibleShape.BuildModuleDeclaration(host, start, at, context);
+    } else {
+      // `class`（含 `@dec abstract class`：`abstract` 是修饰词，装饰器声明头认出的声明词是 class）。
+      // ClassDeclarationShape.FromUnits 自己消费 export / default / declare / abstract 与装饰器。
+      decorated = ClassDeclarationShape.FromUnits(host, start, at, context);
+    }
     host.Data.splice(start, at - start + 1, decorated);
     decorated.Parent = host;
     return true;
@@ -1308,5 +1356,40 @@ const declared = FunctionDeclarationShape.FromUnits(host, start, at + 1, context
 host.Data.splice(start, at - start + 2, declared);
 declared.Parent = host;
 return true;
+```
+
+## private static method BuildModuleDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>Token
+
+段首是装饰器的模块声明（`@dec namespace N {}` / `@dec export module "m" {}` 等）：
+`ModuleDeclarationShape.FromUnits` 要 `code` + `positions` 两个数组（`positions[i]` 是 `code[i]`
+含前导 trivia 的半开起点），且它自己从段首开始扫装饰器与 `export` / `declare` 修饰词。
+这里只负责把 `host.Data[start..at]` 收成这两个数组，建形状由它完成；splice 留给调用方。
+
+```ts
+let pos = 0;
+for (let index = start - 1; index >= 0; index--) {
+  if (!host.Data[index].IsTriviaToken) {
+    const previousEnd = host.Data[index].SourceRange.End;
+    if (previousEnd !== null) {
+      pos = previousEnd.Index + 1;
+    }
+    break;
+  }
+}
+const subCode:Array<Token> = [];
+const subPositions:Array<number> = [];
+let subPos = pos;
+for (let index = start; index <= at; index++) {
+  const unit = host.Data[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  subCode.push(unit);
+  subPositions.push(subPos);
+  if (unit.SourceRange.End !== null) {
+    subPos = unit.SourceRange.End.Index + 1;
+  }
+}
+return ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
 ```
 
