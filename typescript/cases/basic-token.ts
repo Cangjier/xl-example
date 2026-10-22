@@ -197,3 +197,26 @@ const wx = 1;​const wy = 2;
 type TW = number;
 // 叠加：块注释 trivia + NBSP 后接第二条语句
 const wz = 1; /* c */ const wz2 = 2;
+
+// ══ cover6 core（A/B/C 行终止符）：行注释与 shebang 在 \r / U+2028 / U+2029 处收尾 ══
+// 探针 tmp/probe-lineterm.mjs（26 输入，TS 6.0.3 口径）：修前 12 红 / 14 绿，修后 26/26 全绿。
+// 实现：core 新增 `Template.LineTerminatorChars`（默认 "\n"）+ `IsLineTerminator`，
+//       `LineAnnotation` / `Shebang` 改问它；ts 模板配成 "\n\r\u2028\u2029"。
+// 行注释不能作为用例行首（readCases 丢 `//` 开头行），所以统一用「一条语句 + 行尾注释」的形。
+// base：LF 行尾（既有行为，未变）
+const lt0 = 0; // c\nconst lt1 = 1;
+// lone CR（U+000D 字面字节，后面不跟 LF）
+const lt2 = 0; // cconst lt3 = 1;
+// U+2028 / U+2029（LineTerminator，也是 trivia）
+const lt4 = 0; // c const lt5 = 1;
+const lt6 = 0; // c const lt7 = 1;
+// CRLF：CR 字面字节 + `\n` 转义（readCases 只按 LF 切行）
+const lt8 = 0; // c\nconst lt9 = 1;
+// 块注释 trivia 与空注释的 CR 收尾
+/* c */const ltA = 0; // cconst ltB = 1;
+// shebang 行尾：shebang 必须在文件第 0 行，故各自独立成行
+#!x\nconst ltC = 1;
+#!xconst ltD = 1;
+#!x const ltE = 1;
+#!x const ltF = 1;
+#!x\nconst ltG = 1;

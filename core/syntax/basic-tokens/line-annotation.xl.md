@@ -118,13 +118,27 @@ this.Tmp += source.Value;
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-遇到换行就退出，并处理 CRLF：前一个字符是 `\r` 时先把它回退掉，再签出到 `\r` 的前一个字符；否则直接签出到前一个字符。然后关闭自己并跑重组、从父单元卸载，再插一条 `ReloadMessage` 让当前换行重新处理一遍，返回 `Done`；其余情况返回 `Undo`。
+遇到行终止符（`Template.IsLineTerminator`：core 默认 `\n`，ts 模板为 `\n` / `\r` / U+2028 / U+2029）就退出。
+
+- `\r` 自己当行尾时（lone CR / CRLF 的前半），它**不进**注释正文：直接签出到它的前一个字符，再把它 `Reload` 给根单元（根单元按空白 trivia 处理，CRLF 的另一半 `\n` 同样由根单元接手）；
+- `\n` 当行尾时，若前一个字符是 `\r`（只有默认 `\n` 模板走得到这条，ts 模板已经在 `\r` 处先收尾）先 `Undo` 掉那个 `\r`，再签出到 `\r` 之前；否则直接签出到前一个字符。
+
+签出后关闭自己并跑重组、从父单元卸载，再插一条 `ReloadMessage` 让当前行终止符重新处理一遍，返回 `Done`；其余字符返回 `Undo`。
 
 ```ts
-if (source.Value !== "\n") {
+if (!this.Template.IsLineTerminator(source.Value)) {
   return BranchStates.Undo;
 }
 const preSource = source.Pre();
+if (source.Value === "\r") {
+  if (preSource !== null) {
+    this.SignOut(preSource);
+  }
+  this.TryToClose(context);
+  this.Quit();
+  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+  return BranchStates.Done;
+}
 if (preSource !== null && preSource.Value === "\r") {
   this.Undo(preSource);
   this.SignOut(preSource.Pre()!);

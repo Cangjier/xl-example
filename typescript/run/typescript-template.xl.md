@@ -206,9 +206,15 @@ return false;
 **`default` 也是表达式关键字**：`export default /re/;` 里 `default` 后面直接跟正则；
 少这一项时 `/` 会被当成除号（`export default /re/;` 抛「不支持的表达式起点」）。
 
+**行终止符**：ECMAScript 的 LineTerminator 是 `\n` / `\r` / U+2028 / U+2029（CRLF 整体算一个），
+而 core 的 `Template.LineTerminatorChars` 默认只有 `\n`（其它语言模板保持历史行为）。这里显式启用全集，
+`LineAnnotation` 与 `Shebang` 才会在这四种字符处收尾——否则 `// c\rconst a = 1;` 会把 CR 之后的代码
+整行吞进注释，`#!x\r…` 同理。
+
 ```ts
 const template = new Template();
 template.BranchTemplate.DefaultValue = Template.BasicBranchQueue();
+template.LineTerminatorChars = "\n\r\u2028\u2029";
 template.SymbolTemplate = new TypeScriptSymbolTemplate();
 template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
 template.NumberTemplate.BigIntSuffix = "n";
