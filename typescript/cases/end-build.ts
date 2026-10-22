@@ -184,3 +184,79 @@ function\f f() {}
 a\f+\fb
 \f
 \v
+
+// ══ cover5 round5（end build）：EOF 尾随声明的「修饰词 / 装饰器」前缀 ══
+// 形态：前缀声明无分号、无体地落在 EOF 前（declare function / 函数签名 / type / export const / import =），
+// 尾随一条以修饰词（abstract / async / export）或装饰器（@dec）开头的声明。TS 的 AST 里它们是两条独立声明，
+// 修饰词属于后一条声明的 children；修复前本仓把后一条整体漏掉（crash「表达式语句没有读完」）或建错
+//（export default class / function 被当成 ExportAssignment + ClassExpression / FunctionExpression）。
+// 根因（end build）：SourceFileEndPossibleShape 的 EOF 兜底 BuildTrailingDeclaration 只认「段首字面就是
+// 声明词」，且 export default 一律走表达式路；修复＝按「修饰词 + 声明词」识别后交给对应 FromUnits、
+// 识别装饰器开头的 class、export default 后是 class/function/interface 声明形时建声明（修饰词按 TS 顺序插入）。
+// 一行一个用例，行内 `\n` 由 ast-json.mjs 还原。
+
+// ── ① abstract class / declare abstract class 作为 EOF 尾随声明（修复前 crash：表达式语句没有读完） ──
+declare function f(): void\nabstract class C {}
+declare function f(): void\nabstract class C { m() {} }
+declare function f(): void\nabstract class C extends B {}
+declare function f(): void\ndeclare abstract class C {}
+declare function f(): void\ndeclare abstract class C { m(): void }
+declare function f(): void\n\nabstract class C {}
+declare function f(): void // c\nabstract class C {}
+declare function f(): void /* c */\nabstract class C {}
+declare function f(): void\nabstract class C {} // c
+declare function f(): void\nabstract class C {}\n
+declare function f(): void\nabstract class C {}\ninterface I {}
+
+// ── ② async function / declare async function（修复前 crash 或结构差：FunctionDeclaration 缺失） ──
+declare function f(): void\nasync function g() {}
+declare function f(): void\nasync function g(a: A): B { return a; }
+declare function f(): void\nasync function* g() {}
+declare async function f(): void
+declare async function f(): void // c
+declare async function f(a: A): B
+declare function f(): void\n\nasync function g() {}
+declare function f(): void // c\nasync function g() {}
+declare function f(): void\nasync function g() {} // c
+type T = A\ndeclare async function f(): void
+declare function f(): void\nasync function g() {}\ninterface I {}
+
+// ── ③ export enum / export declare enum / export const enum（修复前 crash：表达式语句没有读完） ──
+declare function f(): void\nexport enum E { A }
+declare function f(): void\nexport enum E { A, B }
+declare function f(): void\nexport declare enum E { A }
+declare function f(): void\nexport const enum E { A }
+declare function f(): void // c\nexport enum E { A }
+declare function f(): void\nexport enum E { A } // c
+declare function f(): void\nexport enum E { A }\ninterface I {}
+
+// ── ④ export import = require(...) 到 EOF（修复前 crash：表达式语句没有读完） ──
+export import y = require("m")
+export import y = require("m") // c
+export import type y = require("m")
+type T = A\nexport import y = require("m")
+declare function f(): void\nexport import y = require("m")
+declare function f(): void\nexport import y = require("m")\ninterface I {}
+
+// ── ⑤ export default 的声明形（TS：ExportKeyword/DefaultKeyword 是声明自身修饰词，不是 ExportAssignment） ──
+declare function f(): void\nexport default class C {}
+declare function f(): void\nexport default class C extends B {}
+declare function f(): void\nexport default abstract class C {}
+declare function f(): void\nexport default function g() {}
+declare function f(): void\nexport default function* g() {}
+declare function f(): void\nexport default async function g() {}
+declare function f(): void\nexport default interface I {}
+declare function f(): void\nexport default class C {} // c
+declare function f(): void\nexport default class C {}\ninterface I {}
+
+// ── ⑥ 装饰器开头的 class 作为 EOF 尾随声明（修复前 crash：不支持的表达式起点 / 结构差） ──
+type T = A\n@dec class C {}
+type T = A\n@dec class C { m() {} }
+type T = A\n@a @b class C {}
+type T = A\n@dec() class C {}
+type T = A\n@dec export class C {}
+type T = A\n@dec export default class C {}
+type T = A // c\n@dec class C {}
+type T = A\n\n@dec class C {}
+export const ec = 1\n@dec class C {}
+import x = require("m")\n@dec class C {}

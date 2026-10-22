@@ -154,6 +154,55 @@ for (let index = at; index >= start; index--) {
 return false;
 ```
 
+## static method LeadingDeclarationKeyword:(code:Array<Token>)=>int
+
+EOF 尾随段的**声明关键字下标**：从段首跳过修饰词（`export` / `default` / `declare` / `abstract` /
+`async` / `const`），返回第一个非修饰词单元的下标；它不是 `Common`（说明不是声明头）时返回 `-1`。
+`abstract class` / `declare abstract class` / `async function` / `declare async function` 都是
+「修饰词 + 声明词」：段首的表层文字不是声明词，但整段**就是**那条声明，交给对应的 `FromUnits`
+（它们自己消费修饰词）即可。只用于 EOF 兜底，不参与普通候选判定。
+
+```ts
+let at = 0;
+while (at < code.length && code[at] instanceof Common) {
+  const text = (code[at] as Common).TempToString();
+  if (text === "export" || text === "default" || text === "declare"
+    || text === "abstract" || text === "async" || text === "const") {
+    at++;
+    continue;
+  }
+  break;
+}
+if (at >= code.length || !(code[at] instanceof Common)) {
+  return -1;
+}
+return at;
+```
+
+## static method BodyDeclarationKeyword:(code:Array<Token>, from:int)=>int
+
+`export default <声明>`：从 `from` 起跳过修饰词（`declare` / `abstract` / `async` / `const`），
+返回第一个声明词（`class` / `function` / `interface` / `enum`）的下标；不是声明形时返回 `-1`。
+TS 的 `export default class C {}` / `export default function f() {}` 是**声明自身**带
+`ExportKeyword` + `DefaultKeyword` 修饰词（不是 `ExportAssignment`），所以这里必须先把
+「default 后面是不是声明」判出来，再决定走哪条建树路。
+
+```ts
+let at = from;
+while (at < code.length && code[at] instanceof Common) {
+  const text = (code[at] as Common).TempToString();
+  if (text === "class" || text === "function" || text === "interface" || text === "enum") {
+    return at;
+  }
+  if (text === "declare" || text === "abstract" || text === "async" || text === "const") {
+    at++;
+    continue;
+  }
+  return -1;
+}
+return -1;
+```
+
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 两条路各走各的：
@@ -425,12 +474,19 @@ for (let index = 1; index < code.length; index++) {
   }
   // 老判据：下一行以声明 / 语句关键字开头。声明头本身可以跨行（`interface I` ⏎ `extends B`），
   // 所以这里不看前一个代码单元是否完整——这类 leftovers 本来就只在不收口时才会走到。
+  if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+    // 换行后的 `@dec` 是**下一条声明**的装饰器前缀（`@dec class C {}`）：装饰器表达式可以任意长，
+    // 这里只需要把边界放在 `@` 上，整段交给下面的装饰器分支建。
+    boundary = index;
+    continue;
+  }
   if (unit instanceof Common) {
     const unitText = (unit as Common).TempToString();
     if (unitText === "declare" || unitText === "function" || unitText === "type" || unitText === "import"
       || unitText === "export" || unitText === "class" || unitText === "interface" || unitText === "enum"
       || unitText === "namespace" || unitText === "module" || unitText === "global" || unitText === "abstract"
-      || unitText === "const" || unitText === "let" || unitText === "var" || unitText === "using") {
+      || unitText === "async" || unitText === "const" || unitText === "let" || unitText === "var"
+      || unitText === "using") {
       boundary = index;
       continue;
     }
@@ -499,6 +555,22 @@ if (boundary > 0) {
     suffix.Parent = host;
   }
   return true;
+}
+// 装饰器开头的 class 声明（`@dec class C {}` / `@a @b class C {}` / `@dec export class C {}`）：
+// 段首是 `@`（不是 Common），下面的字面分支都会漏掉；整段交给 `ClassDeclarationShape.FromUnits`
+// ——它自己消费装饰器表达式与 export / default / declare / abstract 修饰词，建出来就是 TS 的
+// ClassDeclaration（Decorator 是 children 的第一个）。建不出来（装饰器后面不是 class）按原路返回 false。
+if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")
+  && code[code.length - 1] instanceof Bracket && (code[code.length - 1] as Bracket).StartBracketChar === "{"
+  && TypeBuilder.IsBodyBrace(code, code.length - 1)) {
+  try {
+    const decorated = ClassDeclarationShape.FromUnits(host, start, at, context);
+    host.Data.splice(start, at - start + 1, decorated);
+    decorated.Parent = host;
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 const head = code[0];
 if (!(head instanceof Common)) {
@@ -571,7 +643,11 @@ if (isSimpleStatement) {
 }
 // 紧邻的 class / interface 声明（体是闭合括号单元，tokenIndex 落在 `}` 上）；允许前置 declare。
 // `export const x = 1` 鏃犲垎鍙峰埌 EOF锛氬厛渚?StatementBuilder 鎸夊彉閲忚鍙ュ缓锛屽啀鎶?ExportKeyword 鎻掑埌 Data 鏈€鍓嶃€?
-const isExportVariable = text === "export"
+const isExportConstEnum = text === "export"
+  && code.length >= 3
+  && code[1] instanceof Common && (code[1] as Common).Is("const")
+  && code[2] instanceof Common && (code[2] as Common).Is("enum");
+const isExportVariable = !isExportConstEnum && text === "export"
   && code.length >= 2
   && code[1] instanceof Common
   && ((code[1] as Common).Is("const") || (code[1] as Common).Is("let")
@@ -609,12 +685,13 @@ if (isExportVariable) {
 // 无分号到 EOF：体是闭合 `}` 括号；从 export 之后那一格建声明，再把 ExportKeyword 插回 Data 最前。
 if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUnit instanceof Bracket
   && (lastUnit as Bracket).StartBracketChar === "{" && TypeBuilder.IsBodyBrace(code, code.length - 1)) {
-  // 跳过 export 之后的修饰词（declare / abstract / async）找到声明词；
-  // 但建树起点要留在第一个修饰词上（DeclareKeyword / AbstractKeyword 是 TS 的 children）。
+  // 跳过 export 之后的修饰词（declare / abstract / async / const）找到声明词；
+  // 但建树起点要留在第一个修饰词上（DeclareKeyword / AbstractKeyword / ConstKeyword 是 TS 的 children）。
   let keywordOffset = 1;
   while (keywordOffset < code.length && code[keywordOffset] instanceof Common) {
     const modifierText = (code[keywordOffset] as Common).TempToString();
-    if (modifierText === "declare" || modifierText === "abstract" || modifierText === "async") {
+    if (modifierText === "declare" || modifierText === "abstract" || modifierText === "async"
+      || modifierText === "const") {
       keywordOffset++;
       continue;
     }
@@ -622,7 +699,7 @@ if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUn
   }
   const keywordText = keywordOffset < code.length && code[keywordOffset] instanceof Common
     ? (code[keywordOffset] as Common).TempToString() : "";
-  if (keywordText === "class" || keywordText === "interface"
+  if (keywordText === "class" || keywordText === "interface" || keywordText === "enum"
     || keywordText === "namespace" || keywordText === "module" || keywordText === "global") {
     let pos = 0;
     for (let index = start - 1; index >= 0; index--) {
@@ -639,6 +716,8 @@ if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUn
       declared = ClassDeclarationShape.FromUnits(host, codeAt[1], at, context) as ShapeToken;
     } else if (keywordText === "interface") {
       declared = InterfaceDeclarationShape.FromUnits(host, codeAt[1], at, context) as ShapeToken;
+    } else if (keywordText === "enum") {
+      declared = EnumDeclarationShape.FromUnits(host, codeAt[1], at, context) as ShapeToken;
     } else {
       // namespace / module / global：ModuleDeclarationShape.FromUnits 要 code + positions 两个数组，
       // 且它自己会处理开头的 export / declare 修饰词，所以从 export 开始切。
@@ -741,6 +820,66 @@ const isExportDefault = text === "export"
   && code[1] instanceof Common
   && (code[1] as Common).Is("default");
 if (isExportDefault) {
+  // `export default class C {}` / `export default function f() {}` / `export default interface I {}`：
+  // TS 6 把 ExportKeyword / DefaultKeyword 当声明**自身的修饰词**（ClassDeclaration /
+  // FunctionDeclaration / InterfaceDeclaration 的 children），不是 ExportAssignment；default 后面
+  // 若是声明形，必须建声明，不能走下面的表达式路。
+  const defaultDeclarationAt = SourceFileEndPossibleShape.BodyDeclarationKeyword(code, 2);
+  if (defaultDeclarationAt >= 0) {
+    const declarationText = (code[defaultDeclarationAt] as Common).TempToString();
+    const closedBody = code[code.length - 1] instanceof Bracket
+      && (code[code.length - 1] as Bracket).StartBracketChar === "{"
+      && TypeBuilder.IsBodyBrace(code, code.length - 1);
+    if (closedBody) {
+      let pos = 0;
+      for (let index = start - 1; index >= 0; index--) {
+        if (!host.Data[index].IsTriviaToken) {
+          const previousEnd = host.Data[index].SourceRange.End;
+          if (previousEnd !== null) {
+            pos = previousEnd.Index + 1;
+          }
+          break;
+        }
+      }
+      if (declarationText === "class") {
+        // ClassDeclarationShape.FromUnits 自己消费 export / default / declare / abstract 与装饰器；
+        // AllowAnonymous 覆盖 `export default class {}`（TS 合法：没有名字 child）。
+        const declared = ClassDeclarationShape.FromUnitsAllowAnonymous(host, start, at, context);
+        host.Data.splice(start, at - start + 1, declared);
+        declared.Parent = host;
+        return true;
+      }
+      if (declarationText === "function" || declarationText === "interface") {
+        // 这两个 FromUnits 只认自己的修饰词（function 的 declare/async、interface 的 export/declare），
+        // 不认 default：从声明词（function 前的 async 也算）建出来，再把 DefaultKeyword /
+        // ExportKeyword 按 TS 的 children 顺序插到最前。
+        let declarationStart = defaultDeclarationAt;
+        while (declarationStart > 2 && code[declarationStart - 1] instanceof Common
+          && (code[declarationStart - 1] as Common).Is("async")) {
+          declarationStart--;
+        }
+        const declared = declarationText === "function"
+          ? FunctionDeclarationShape.FromUnits(host, codeAt[declarationStart], at, context)
+          : InterfaceDeclarationShape.FromUnits(host, codeAt[declarationStart], at, context);
+        const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
+        (exportKeyword as ShapeToken).Pos = pos;
+        const defaultKeyword = new DefaultKeywordShape(host.Template);
+        defaultKeyword.SignInToken(code[1]);
+        defaultKeyword.SignOutToken(code[1]);
+        const exportEnd = code[0].SourceRange.End;
+        (defaultKeyword as ShapeToken).Pos = exportEnd === null ? pos : exportEnd.Index + 1;
+        defaultKeyword.TryToClose(context);
+        declared.Data.unshift(exportKeyword, defaultKeyword);
+        exportKeyword.Parent = declared;
+        defaultKeyword.Parent = declared;
+        (declared as ShapeToken).Pos = pos;
+        host.Data.splice(start, at - start + 1, declared);
+        declared.Parent = host;
+        return true;
+      }
+    }
+    return false;
+  }
   let pos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
@@ -865,8 +1004,11 @@ if (isBodylessAmbientModule) {
     return false;
   }
 }
-const isClass = text === "class"
-  || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("class"));
+// 声明关键字按「修饰词 + 声明词」识别：`abstract class` / `declare abstract class` 与 `class` /
+// `declare class` 一样都是 ClassDeclaration（ClassDeclarationShape.FromUnits 自己消费修饰词）。
+const leadingAt = SourceFileEndPossibleShape.LeadingDeclarationKeyword(code);
+const leadingText = leadingAt >= 0 ? (code[leadingAt] as Common).TempToString() : "";
+const isClass = leadingText === "class";
 const isInterface = text === "interface"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("interface"));
 const isEnum = text === "enum"
@@ -943,7 +1085,7 @@ const isExportDeclareType = text === "export"
   && code[1] instanceof Common && (code[1] as Common).Is("declare")
   && code[2] instanceof Common && (code[2] as Common).Is("type");
 const isType = TypeAliasDeclarationShape.IsTypeAliasHead(code, text);
-const isImportEquals = text === "import"
+const isImportEquals = (text === "import"
   && ((code.length >= 5
     && code[1] instanceof Common
     && code[2] instanceof Symbol
@@ -952,7 +1094,20 @@ const isImportEquals = text === "import"
     || (code.length >= 6
       && code[1] instanceof Common && (code[1] as Common).Is("type")
       && code[2] instanceof Common
-      && code[3] instanceof Symbol && (code[3] as Symbol).Is("=")));
+      && code[3] instanceof Symbol && (code[3] as Symbol).Is("="))))
+  // `export import y = require("m")` / `export import type y = …`：TS 是 ImportEqualsDeclaration
+  // 带 ExportKeyword 修饰词（ImportEqualsDeclarationShape.FromUnits 已消费 export 前缀）；
+  // 无分号到 EOF 时跟 import 形一样补零宽合成 `;` 走正常入口。
+  || (text === "export"
+    && ((code.length >= 6
+      && code[1] instanceof Common && (code[1] as Common).Is("import")
+      && code[2] instanceof Common
+      && code[3] instanceof Symbol && (code[3] as Symbol).Is("="))
+      || (code.length >= 7
+        && code[1] instanceof Common && (code[1] as Common).Is("import")
+        && code[2] instanceof Common && (code[2] as Common).Is("type")
+        && code[3] instanceof Common
+        && code[4] instanceof Symbol && (code[4] as Symbol).Is("="))));
 // `import … from "m"`（含 import type / 具名 / 命名空间 / 副作用）无分号到 EOF：
 // ImportDeclarationShape 有 FromUnits，末尾要求 `;`，这里补零宽合成 `;` 走它。
 const isImportClause = text === "import" && !isImportEquals;
@@ -973,8 +1128,13 @@ const isExportImportEquals = text === "export"
       && code[3] instanceof Common
       && code[4] instanceof Symbol && (code[4] as Symbol).Is("=")));
 // 函数声明：无体时最后一块是 `;`（补合成 `;`），有体时最后一块是 `{`（直接 FromUnits）。
-// `async function …` / `declare async function …` 同族（重载签名可以带 async；TS 只做语义检查）。
-const isFunction = text === "function"
+// 合并裁定（end-build 的通用判据 + missing-end 的显式枚举，两边语义都保留）：
+// 1) end-build：修饰词按「declare / async + function」归约到 leadingText，`text !== "export" && leadingText === "function"`
+//    覆盖 `function` / `declare function` / `async function` / `declare async function` 以及带装饰器/@dec 前缀的声明；
+// 2) missing-end：显式枚举 `function` / `declare function` / `async function` / `declare async function` 作为兜底
+//    （重载签名可以带 async；TS 只做语义检查）。
+const isFunction = (text !== "export" && leadingText === "function")
+  || text === "function"
   || (text === "declare" && code.length >= 4 && code[1] instanceof Common && (code[1] as Common).Is("function"))
   || (text === "async" && code.length >= 2 && code[1] instanceof Common && (code[1] as Common).Is("function"))
   || (text === "declare" && code.length >= 5 && code[1] instanceof Common && (code[1] as Common).Is("async")
