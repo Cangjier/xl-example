@@ -10196,6 +10196,1719 @@
           ]
         }
       ]
+    },
+    {
+      "src": "const x = a as T\r<b>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 14,
+                                      "end": 16,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 16,
+                              "end": 18
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 19,
+                          "end": 20
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as T <b>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 14,
+                                      "end": 16,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 16,
+                              "end": 18
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 19,
+                          "end": 20
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as T <b>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 14,
+                                      "end": 16,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 16,
+                              "end": 18
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 19,
+                          "end": 20
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as T <B>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 14,
+                                      "end": 16,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 16,
+                              "end": 18
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "B"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 19,
+                          "end": 20
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f(a as T <b>c);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 2,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 2,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "AsExpression",
+                          "pos": 2,
+                          "end": 8,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 3,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 6,
+                              "end": 8,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 6,
+                                  "end": 8,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "FirstBinaryOperator",
+                          "pos": 8,
+                          "end": 10
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 11,
+                          "text": "b"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "GreaterThanToken",
+                      "pos": 11,
+                      "end": 12
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 13,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as N.T\r<b>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 18,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 14,
+                                  "end": 18,
+                                  "children": [
+                                    {
+                                      "kind": "QualifiedName",
+                                      "pos": 14,
+                                      "end": 18,
+                                      "children": [
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 14,
+                                          "end": 16,
+                                          "text": "N"
+                                        },
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 17,
+                                          "end": 18,
+                                          "text": "T"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 18,
+                              "end": 20
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 21,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 21,
+                          "end": 22
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { return a as T\r<b>c; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 21,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 21,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 21,
+                              "end": 28,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 21,
+                                  "end": 23,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 26,
+                                  "end": 28,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 26,
+                                      "end": 28,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 28,
+                              "end": 30
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 31,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 31,
+                          "end": 32
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 33,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as typeof f\n<T>(1);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeQuery",
+                                  "pos": 14,
+                                  "end": 23,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 21,
+                                      "end": 23,
+                                      "text": "f"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 23,
+                              "end": 25
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 26,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 26,
+                          "end": 27
+                        },
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 27,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 28,
+                              "end": 29,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as typeof f\r<T>(1);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeQuery",
+                                  "pos": 14,
+                                  "end": 23,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 21,
+                                      "end": 23,
+                                      "text": "f"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 23,
+                              "end": 25
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 26,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 26,
+                          "end": 27
+                        },
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 27,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 28,
+                              "end": 29,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as typeof ns.f\n<T>(1);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 26,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeQuery",
+                                  "pos": 14,
+                                  "end": 26,
+                                  "children": [
+                                    {
+                                      "kind": "QualifiedName",
+                                      "pos": 21,
+                                      "end": 26,
+                                      "children": [
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 21,
+                                          "end": 24,
+                                          "text": "ns"
+                                        },
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 25,
+                                          "end": 26,
+                                          "text": "f"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 26,
+                              "end": 28
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 28,
+                              "end": 29,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 29,
+                          "end": 30
+                        },
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 30,
+                          "end": 33,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 31,
+                              "end": 32,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as typeof f /*c*/\n<T>(1);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 32,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeQuery",
+                                  "pos": 14,
+                                  "end": 23,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 21,
+                                      "end": 23,
+                                      "text": "f"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 23,
+                              "end": 31
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 31,
+                              "end": 32,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 32,
+                          "end": 33
+                        },
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 33,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 34,
+                              "end": 35,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as typeof f\r\n<T>(1);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeQuery",
+                                  "pos": 14,
+                                  "end": 23,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 21,
+                                      "end": 23,
+                                      "text": "f"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 23,
+                              "end": 26
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 27,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 27,
+                          "end": 28
+                        },
+                        {
+                          "kind": "ParenthesizedExpression",
+                          "pos": 28,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 29,
+                              "end": 30,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f(a as typeof f\n<T>(1));",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 2,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 2,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "AsExpression",
+                          "pos": 2,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 3,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "TypeQuery",
+                              "pos": 6,
+                              "end": 15,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 13,
+                                  "end": 15,
+                                  "text": "f"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "FirstBinaryOperator",
+                          "pos": 15,
+                          "end": 17
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 17,
+                          "end": 18,
+                          "text": "T"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "GreaterThanToken",
+                      "pos": 18,
+                      "end": 19
+                    },
+                    {
+                      "kind": "ParenthesizedExpression",
+                      "pos": 19,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "yield\n(1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "yield"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "yield (1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "yield"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "yield\n[1];",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "ElementAccessExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "yield"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "yield* 2;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "yield"
+                },
+                {
+                  "kind": "AsteriskToken",
+                  "pos": 5,
+                  "end": 6
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { yield (1); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 14,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 14,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 20,
+                          "text": "yield"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "await\n(1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "await"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "await (1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "await"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "await\n[1];",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "ElementAccessExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "await"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { await (1); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 14,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 14,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 20,
+                          "text": "await"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { await\n(1); }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 14,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 14,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 20,
+                          "text": "await"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 23,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "yield\r(1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "yield"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "await\r(1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "await"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 7,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

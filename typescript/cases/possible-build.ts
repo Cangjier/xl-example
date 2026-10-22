@@ -280,3 +280,58 @@ a?.<T, U>(b, c);
 a?.<Array<T>>(b);
 const ox = a?.<T>(b);
 a?./*c*/<T>(b);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// cover9：行终止符口径（B1 族）+ as typeof 的二元层（B3 族）+ yield/await 上下文（C 族）
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── cover9/B1：`as` 类型位的类型实参与类型名必须同一行；CR / U+2028 / U+2029 也是行终止符 ──
+// 根因：TypeBuilder.HasLineBreakBeforeCurrent 只判 document.At(at).Value === "\n"（CR / LS / PS
+// 不算换行），ParseTypeReference 的类型实参同行守卫因此把下一行的 <b> 吞成类型实参 → 「表达式没有读完」。
+// 正确 build：`a as T` 在 T 处收口（TS parseTypeArgumentsOfTypeReference 要求 !hasPrecedingLineBreak）；
+// close：AsExpression 止于 T 末，整条语句是一条比较链 `(a as T) < b > c`，区间到 c 末。
+// base = CR（红线的最小形；LF 对照在 possible-compute 的 cover8-D 段）：
+const x = a as T<b>c;
+const x = a as T <b>c;
+const x = a as T <b>c;
+const x = a as T <B>c;
+// 变体：实参位 / 限定名 / return 位
+f(a as T <b>c);
+const x = a as N.T<b>c;
+function f() { return a as T<b>c; }
+
+// ── cover9/B3：`as typeof f` 之后的 `<` 回二元层（typeof 的类型实参也必须同一行）──
+// 根因：TypeBuilder.ParseTypeQuery 无条件 ParseTypeArguments，把 `typeof f` 后面换行的 <T>(1) 吞成
+// TypeQuery 的类型实参；expression-builder.ParseFollowingType 交回后剩余 (1) 无人认领 → 「表达式没有读完」。
+// 正确 build：TypeQuery 只收实体名（换行后的 < 不是类型实参），< / > 落回 ParseBinary 关系运算符；
+// close：整条语句 = `(a as typeof f) < T > (1)`（TS 的 FirstStatement 区间到 (1) 末）。
+// base = LF：
+const x = a as typeof f\n<T>(1);
+const x = a as typeof f<T>(1);
+// 变体：限定实体名 / 注释后换行 / CRLF（CR 字面 + \n 转义）/ 实参位
+const x = a as typeof ns.f\n<T>(1);
+const x = a as typeof f /*c*/\n<T>(1);
+const x = a as typeof f\n<T>(1);
+f(a as typeof f\n<T>(1));
+
+// ── cover9/C：yield / await 的关键字上下文（脚本顶层 / 普通函数里是 Identifier + 后缀）──
+// 根因：ExpressionBuilder 无条件当 Yield/AwaitExpression。TS 的 isYieldExpression / isAwaitExpression：
+// 在 generator / async 上下文里才是关键字表达式；否则只有「下一 token 是标识符/关键字/字面量且同一行」
+// 才是，否则回落成 Identifier 继续走后缀链（`yield⏎(1)` = 调用 yield(1)）。
+// 正确 build：先判上下文与 lookahead 再决定建不建 Yield/AwaitExpression；回落成 Identifier 后由
+// ParsePostfixSuffix 继续吃后缀。close：调用/下标/比较的区间按后缀层各自签出。
+// base = yield 换行调用位：
+yield\n(1);
+yield (1);
+yield\n[1];
+yield* 2;
+function f() { yield (1); }
+// base = await 换行调用位：
+await\n(1);
+await (1);
+await\n[1];
+function f() { await (1); }
+function f() { await\n(1); }
+// 行终止符变体（CR 也是行终止符，与 B1 同口径）：
+yield(1);
+await(1);

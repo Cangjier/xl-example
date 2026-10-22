@@ -10,6 +10,7 @@ import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
+import { Document } from "../../../core/syntax/document.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -572,24 +573,25 @@ if (unit instanceof Symbol) {
   text = (unit as Common).TempToString();
 }
 if (text === "yield") {
-  // 裸 `yield` 与生成器里的 `yield;` 在单元层同形（都只剩一格），判据需要生成器上下文，
-  // 表达式层拿不到：这里只保留 `yield` 前缀路径，裸 `yield` 的 Identifier 收口留给语句层。
-  return this.ParseYield();
+  // `yield` 是不是 YieldExpression 按 TS 的两条判据：在 generator 上下文里就是（操作数可无、可换行）；
+  // 不在上下文里只有「下一 token 是标识符/关键字/字面量且同一行」才是（`isYieldExpression` 的
+  // lookahead），否则是普通 Identifier——`yield⏎(1)` / `yield (1)` 是调用 `yield(1)`（cover9 C02）。
+  // 回落成 Identifier 后接后缀链，`.foo` / `[1]` / 调用 / 模板 / `=>` 都照常。
+  const yieldExpression = this.ParseYield();
+  if (yieldExpression instanceof IdentifierShape) {
+    return this.ParsePostfixSuffix(yieldExpression, start);
+  }
+  return yieldExpression;
 }
 if (unit instanceof Common && (unit as Common).Is("await")) {
-  // `await` with no operand (`const w = await;`) is a plain Identifier in TS, not an
-  // AwaitExpression: only take the prefix path when an operand actually follows.
-  const awaitNext = this.Peek(1);
-  let awaitHasOperand = awaitNext !== null;
-  if (awaitNext !== null && awaitNext instanceof Symbol) {
-    const awaitNextText = (awaitNext as Symbol).TempToString();
-    if (awaitNextText === ";" || awaitNextText === "," || awaitNextText === ")"
-        || awaitNextText === "]" || awaitNextText === "}") {
-      awaitHasOperand = false;
-    }
-  }
-  if (!awaitHasOperand) {
-    return this.ParsePostfix();
+  // `await` 同一条判据：在 async 上下文里是 AwaitExpression；否则只有「下一 token 是
+  // 标识符/关键字/字面量且同一行」才是（TS `isAwaitExpression` 的 lookahead）。
+  // `await (` / `await⏎(1)` 在非 async 上下文里是 Identifier + 调用后缀（cover9 C03）。
+  if (!this.IsAwaitExpressionStart(start)) {
+    this.At = start + 1;
+    const awaitIdentifier = IdentifierShape.FromBasicToken(unit as Common, this.Context);
+    awaitIdentifier.Pos = this.Positions[start];
+    return this.ParsePostfixSuffix(awaitIdentifier, start);
   }
 }
 if (!this.IsPrefixOperator(text) && !(unit instanceof Common && (unit as Common).Is("await"))) {
@@ -631,9 +633,25 @@ ParseYield handles `yield` / `yield*`. In TS the YieldExpression children are an
 AsteriskToken (for `yield*`; the `yield` keyword itself is not a node) and an optional operand
 (an assignment expression). The terminators `,` `;` `:` `}` mean the yield has no operand.
 
+**先判关键字还是标识符**：TS 的 `isYieldExpression` 是「在 yield 上下文里 ⇒ YieldExpression；
+否则 `nextTokenIsIdentifierOrKeywordOrLiteralOnSameLine` 成立才是，否则是普通 Identifier」。
+`yield⏎(1)` 在脚本顶层因此是调用 `yield(1)`（Identifier + 后缀），不是 YieldExpression。
+
 ```ts
 const start = this.At;
 const yieldUnit = this.Units[start];
+const yieldLineBreak = LineTerminator.HasAfter(yieldUnit.SourceRange.End);
+const next = start + 1 < this.Units.length ? this.Units[start + 1] : null;
+const yieldFlags = this.EnclosingFunctionFlags(start);
+const generatorContext = yieldFlags === 1 || yieldFlags === 3;
+const yieldKeyword = generatorContext
+  || (!yieldLineBreak && next !== null && this.IsIdentifierKeywordOrLiteral(next));
+if (!yieldKeyword) {
+  this.At = start + 1;
+  const identifier = IdentifierShape.FromBasicToken(yieldUnit as Common, this.Context);
+  identifier.Pos = this.Positions[start];
+  return identifier;
+}
 this.At++;
 const shape = new YieldExpressionShape(this.Template);
 let afterYieldPos = 0;
@@ -642,11 +660,9 @@ if (yieldUnit.SourceRange.End !== null) {
 }
 // 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）：
 // 关键字后跳过空白与注释，先出现行终止符 ⇒ 受限产生式在这里收口（块注释里的行终止符也算）。
-const yieldLineBreak = LineTerminator.HasAfter(yieldUnit.SourceRange.End);
 // TS 的 yield 是受限产生式：`yield` 与操作数之间出现行终止符 ⇒ 本条 yield 没有操作数
-// （`yield⏎(x)` = `yield` 语句 + `(x)` 语句）。`yield *` 的 [no LineTerminator here] 在 `*` 之前，
-// 换行时连 `*` 都不能吃；块注释里的换行同样算行终止符。
-const next = this.Peek(0);
+// （generator 里 `yield⏎(x)` = `yield` 语句 + `(x)` 语句）。`yield *` 的 [no LineTerminator here]
+// 在 `*` 之前，换行时连 `*` 都不能吃；块注释里的换行同样算行终止符。
 const isDelegate = !yieldLineBreak && next !== null && next instanceof Symbol && (next as Symbol).Is("*");
 let hasOperand = false;
 if (isDelegate) {
@@ -668,84 +684,281 @@ if (isDelegate) {
     }
   }
 }
-if (!hasOperand && !this.IsInsideGeneratorBody(start)) {
-  // 裸 `yield`（无操作数、非 `yield*`）在非 generator 上下文里 TS 是普通 Identifier
-  // （`const v = yield;` / `return (yield);`）；generator 里裸 `yield;` 仍是 YieldExpression。
-  this.At = start + 1;
-  const identifier = IdentifierShape.FromBasicToken(yieldUnit as Common, this.Context);
-  identifier.Pos = this.Positions[start];
-  return identifier;
-}
 if (hasOperand) {
   shape.Add(this.ParseAssign());
 }
 return this.SpanNode(shape, start, this.At - 1);
 ```
 
-## method IsInsideGeneratorBody:(start:int)=>bool
+## method EnclosingFunctionFlags:(start:int)=>int
 
-`start` 是 `yield` 词所在的单元下标：沿原文往回找**包住它的函数体 `{`**（先把前面已经闭合的 `}` 块整段跳过），
-再看 `{` 前的签名里有没有 `*`（`function*` / `function *` / 方法 `*m()`）。generator 里裸 `yield;`
-仍是 YieldExpression；其它上下文 TS 给 Identifier。
+`start` 是 `yield` / `await` 词所在的单元下标：沿原文往回找**包住它的函数**，返回标志位
+（`1` = generator，`2` = async，`3` = async generator，`0` = 没有函数包住 / 普通函数）。
+TS 的 yield / await 上下文字面量是**词法**的、且被函数边界重置：`async function` 体里是 async 上下文，
+非 async 函数体（含非 async 箭头体）里不是；`function*` 体里是 generator 上下文。
+块语句（`if (…) {` / `else {` / `try {` / 对象字面量 / 类体）不重置上下文，继续往外找。
 
 ```ts
 const unit = this.Units[start];
 const from = unit.SourceRange.Start;
 if (from === null) {
-  return false;
+  return 0;
 }
 const document = from.Document;
 let index = from.Index - 1;
-let depth = 0;
 while (index >= 0) {
   const ch = document.At(index).Value;
-  if (ch === "}") {
-    depth++;
+  // 先跳过前面已经闭合的括号组（`)` / `]` / `}`）；它们和当前词不是同一个层。
+  if (ch === ")" || ch === "]" || ch === "}") {
+    const open = ch === ")" ? "(" : (ch === "]" ? "[" : "{");
+    let depth = 0;
+    index--;
+    while (index >= 0) {
+      const inner = document.At(index).Value;
+      if (inner === ch) {
+        depth++;
+      } else if (inner === open) {
+        if (depth === 0) {
+          break;
+        }
+        depth--;
+      }
+      index--;
+    }
     index--;
     continue;
   }
   if (ch === "{") {
-    if (depth > 0) {
-      depth--;
-      index--;
-      continue;
-    }
+    // 这个 `{` 包住当前词：是函数体 / 箭头块体就定案，否则（块语句 / 对象字面量 / 类体）继续往外找。
     let at = index - 1;
     while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
       at--;
     }
-    if (at < 0 || document.At(at).Value !== ")") {
-      return false;
+    if (at >= 1 && document.At(at).Value === ">" && document.At(at - 1).Value === "=") {
+      return this.ArrowBodyFlags(document, at - 1);
     }
-    at--;
-    let parenDepth = 0;
-    while (at >= 0) {
-      const inner = document.At(at).Value;
-      if (inner === ")") {
-        parenDepth++;
-      } else if (inner === "(") {
-        if (parenDepth === 0) {
-          break;
-        }
-        parenDepth--;
+    if (at >= 0 && document.At(at).Value === ")") {
+      const openAt = this.MatchParenBackward(document, at);
+      if (openAt < 0) {
+        return 0;
       }
-      at--;
+      let wordEnd = openAt - 1;
+      while (wordEnd >= 0 && this.IsWhitespaceChar(document.At(wordEnd).Value)) {
+        wordEnd--;
+      }
+      let wordStart = wordEnd;
+      while (wordStart >= 0 && this.IsIdentifierChar(document.At(wordStart).Value)) {
+        wordStart--;
+      }
+      const word = this.ReadWord(document, wordStart + 1, wordEnd);
+      if (this.IsControlKeyword(word)) {
+        index = wordStart;
+        continue;
+      }
+      return this.FunctionBodyFlags(document, wordStart, wordEnd);
     }
-    at--;
-    while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
-      at--;
-    }
-    while (at >= 0 && this.IsIdentifierChar(document.At(at).Value)) {
-      at--;
-    }
-    while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
-      at--;
-    }
-    return at >= 0 && document.At(at).Value === "*";
+    index--;
+    continue;
+  }
+  if (ch === ">" && index >= 1 && document.At(index - 1).Value === "=") {
+    // 箭头表达式体（没有花括号）：`async () => await (1)`。
+    return this.ArrowBodyFlags(document, index - 1);
+  }
+  if (ch === ";") {
+    return 0;
   }
   index--;
 }
+return 0;
+```
+
+## method ArrowBodyFlags:(document:Document, arrowIndex:int)=>int
+
+`arrowIndex` 是 `=>` 的 `=` 下标。往回跳过形参（`(…)` 或单标识符）与空白，看前面是不是 `async`。
+
+```ts
+let at = arrowIndex - 1;
+while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+  at--;
+}
+if (at >= 0 && document.At(at).Value === ")") {
+  const openAt = this.MatchParenBackward(document, at);
+  if (openAt < 0) {
+    return 0;
+  }
+  at = openAt - 1;
+} else {
+  while (at >= 0 && this.IsIdentifierChar(document.At(at).Value)) {
+    at--;
+  }
+}
+while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+  at--;
+}
+const wordEnd = at;
+let wordStart = at;
+while (wordStart >= 0 && this.IsIdentifierChar(document.At(wordStart).Value)) {
+  wordStart--;
+}
+if (this.ReadWord(document, wordStart + 1, wordEnd) === "async") {
+  return 2;
+}
+return 0;
+```
+
+## method FunctionBodyFlags:(document:Document, wordStart:int, wordEnd:int)=>int
+
+形参表 `(` 之前那个词（`wordStart`..`wordEnd`，可能是函数名，也可能是 `function` 本身）：
+读出标志位。`function` / `*` / `async` 都可能在它前面。
+
+```ts
+let at = wordStart;
+while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+  at--;
+}
+let generator = false;
+if (at >= 0 && document.At(at).Value === "*") {
+  generator = true;
+  at--;
+  while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+    at--;
+  }
+}
+const precedingEnd = at;
+let precedingStart = at;
+while (precedingStart >= 0 && this.IsIdentifierChar(document.At(precedingStart).Value)) {
+  precedingStart--;
+}
+const preceding = this.ReadWord(document, precedingStart + 1, precedingEnd);
+const wordBeforeParen = this.ReadWord(document, wordStart + 1, wordEnd);
+let keyword = preceding;
+let keywordStart = precedingStart;
+if (wordBeforeParen === "function") {
+  keyword = "function";
+  keywordStart = wordStart;
+}
+if (wordBeforeParen === "async") {
+  // 方法名就叫 `async`（`{ async() {} }`）：不是 `async` 修饰词。
+  keyword = preceding;
+}
+if (keyword === "function") {
+  let before = keywordStart - 1;
+  while (before >= 0 && this.IsWhitespaceChar(document.At(before).Value)) {
+    before--;
+  }
+  if (before >= 0 && document.At(before).Value === "*") {
+    generator = true;
+    before--;
+    while (before >= 0 && this.IsWhitespaceChar(document.At(before).Value)) {
+      before--;
+    }
+  }
+  const asyncEnd = before;
+  let asyncStart = before;
+  while (asyncStart >= 0 && this.IsIdentifierChar(document.At(asyncStart).Value)) {
+    asyncStart--;
+  }
+  keyword = this.ReadWord(document, asyncStart + 1, asyncEnd);
+}
+let flags = 0;
+if (generator) {
+  flags = 1;
+}
+if (keyword === "async") {
+  flags = flags + 2;
+}
+return flags;
+```
+
+## method IsControlKeyword:(word:string)=>bool
+
+控制语句的关键字：它们的 `{` 是块语句体，不重置 yield / await 上下文（继续往外找函数）。
+
+```ts
+return word === "if" || word === "for" || word === "while" || word === "switch"
+  || word === "catch" || word === "with";
+```
+
+## method MatchParenBackward:(document:Document, closeAt:int)=>int
+
+`closeAt` 是 `)` 的下标：往回找配对的 `(`，返回其下标；找不到返回 -1。
+
+```ts
+let depth = 0;
+let at = closeAt - 1;
+while (at >= 0) {
+  const ch = document.At(at).Value;
+  if (ch === ")") {
+    depth++;
+  } else if (ch === "(") {
+    if (depth === 0) {
+      return at;
+    }
+    depth--;
+  }
+  at--;
+}
+return -1;
+```
+
+## method ReadWord:(document:Document, from:int, to:int)=>string
+
+把 `from..to`（含两端，`to` 可能 < `from`）的标识符字符拼成词。
+
+```ts
+let word = "";
+if (to < from) {
+  return word;
+}
+let at = from;
+while (at <= to) {
+  word = word + document.At(at).Value;
+  at++;
+}
+return word;
+```
+
+## method IsIdentifierKeywordOrLiteral:(unit:Token)=>bool
+
+TS 的 `nextTokenIsIdentifierOrKeywordOrLiteralOnSameLine` 的后半：标识符 / 关键字 / 数字 / 大整数 / 字符串
+字面量（模板串**不算**，`NoSubstitutionTemplateLiteral` 不在那个 token 集合里）。
+
+```ts
+if (unit instanceof Common) {
+  return true;
+}
+if (unit instanceof String && !this.IsTemplateToken(unit as String)) {
+  return true;
+}
 return false;
+```
+
+## method IsAwaitExpressionStart:(start:int)=>bool
+
+TS 的 `isAwaitExpression`：在 async 上下文里是 AwaitExpression；否则只有
+`nextTokenIsIdentifierOrKeywordOrLiteralOnSameLine` 成立才是。没有操作数（`await;`）按 Identifier 收
+（TS 那份输入本身非法，这里保持既有行为不让 parser 崩）。
+
+```ts
+const keyword = this.Units[start];
+const next = start + 1 < this.Units.length ? this.Units[start + 1] : null;
+if (next === null) {
+  return false;
+}
+if (next instanceof Symbol) {
+  const text = (next as Symbol).TempToString();
+  if (text === ";" || text === "," || text === ")" || text === "]" || text === "}") {
+    return false;
+  }
+}
+const awaitFlags = this.EnclosingFunctionFlags(start);
+if (awaitFlags === 2 || awaitFlags === 3) {
+  return true;
+}
+if (LineTerminator.HasAfter(keyword.SourceRange.End)) {
+  return false;
+}
+return this.IsIdentifierKeywordOrLiteral(next);
 ```
 
 ## method IsWhitespaceChar:(ch:string)=>bool
@@ -768,7 +981,18 @@ return (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z")
 
 ```ts
 const start = this.At;
-let expression = this.ParsePrimary();
+const expression = this.ParsePrimary();
+return this.ParsePostfixSuffix(expression, start);
+```
+
+## method ParsePostfixSuffix:(expression:Token, start:int)=>Token
+
+从一个已经读出的 `expression` 起继续吃后缀（`.` / `?.` / `!` / 泛型实参与调用 / 调用 / 下标 / 模板 /
+自增 / 单标识符箭头）。`ParsePostfix` 在 `ParsePrimary` 之后走这里；`yield` / `await` 在**非上下文**
+里回落成 Identifier 之后也走这里——TS 对它们先看是不是关键字表达式，不是就把词当标识符继续走后缀
+（`yield⏎(1)` / `await⏎(1)` 是调用 `yield(1)` / `await(1)`，cover9 C02/C03）。
+
+```ts
 while (true) {
   const unit = this.Peek(0);
   if (unit === null) {

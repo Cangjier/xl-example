@@ -9,6 +9,7 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
 import { DotDotDotTokenShape } from "../punctuation/dot-dot-dot-token-shape.xl.md"
 import { MinusTokenShape } from "../punctuation/minus-token-shape.xl.md"
@@ -490,7 +491,10 @@ return true;
 
 ## method HasLineBreakBeforeCurrent:()=>bool
 
-当前单元与上一个 code 单元之间是否隔着换行（TS 的 `parsePostfixTypeOrHigher` 只在**同一行**吃 `[`）。
+当前单元与上一个 code 单元之间是否隔着换行（TS 的 `parsePostfixTypeOrHigher` 只在**同一行**吃 `[`，
+`parseTypeArgumentsOfTypeReference` 也要求 `<` 与类型名同一行）。行终止符口径交给 `LineTerminator`
+（LF / CR / U+2028 / U+2029，cover8-A；CRLF 算一次）：本方法以前只认 `"\n"`，CR / LS / PS 会被当成
+「同一行」而把下一行的 `<` / `[` 吞进类型。
 
 ```ts
 const current = this.Peek(0);
@@ -504,20 +508,7 @@ while (previousIndex >= 0 && this.Units[previousIndex].IsTriviaToken) {
 if (previousIndex < 0) {
   return false;
 }
-const previousEnd = this.Units[previousIndex].SourceRange.End;
-const currentStart = current.SourceRange.Start;
-if (previousEnd === null || currentStart === null) {
-  return false;
-}
-const document = previousEnd.Document;
-let at = previousEnd.Index + 1;
-while (at < currentStart.Index) {
-  if (document.At(at).Value === "\n") {
-    return true;
-  }
-  at++;
-}
-return false;
+return LineTerminator.HasBetween(this.Units[previousIndex].SourceRange.End, current.SourceRange.Start);
 ```
 
 ## method ParsePostfixType:()=>Token
@@ -1999,7 +1990,13 @@ shape.ExprName = name;
 shape.Add(name);
 // `typeof x.y<Z>`：TS 6 允许类型实参（InstantiationExpression 的 `x.y<Z>` 作为 typeof 的实体），
 // TypeQuery children = 实体名 + 每个 TypeArgument。
-const typeArguments = this.ParseTypeArguments();
+// 与 `ParseTypeReference` 同一条同口径：类型实参必须与实体名**同一行**（`parseTypeArgumentsOfTypeReference`
+// 的 `!scanner.hasPrecedingLineBreak()`）。换行后的 `<` 是关系运算符——`a as typeof f` ⏎ `<T>(1)`
+// 是 `(a as typeof f) < T > (1)` 一条比较表达式，不是 TypeQuery 的类型实参（cover9 B15/B16）。
+let typeArguments:Array<Token> = [];
+if (!this.HasLineBreakBeforeCurrent()) {
+  typeArguments = this.ParseTypeArguments();
+}
 for (const typeArgument of typeArguments) {
   shape.Add(typeArgument);
 }
