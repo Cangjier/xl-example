@@ -28,6 +28,14 @@ class E { @dec m() {} }
 @dec export abstract class A1 {}
 // 变体：方法参数位装饰器（decl-class-decorator-parameter.ts 同族）
 class F1 { m(@dec p: any) {} }
+// ── 装饰参数：缺类型标注 / 默认值（G10 家族，ClassDeclarationShape.BuildParameters） ──
+// 变体：装饰参数**不带类型标注**——原先装饰参数分支强制要求 `:`，抛
+// 「装饰过的类成员参数缺少类型标注」；TS parseDiagnostics=0，Parameter children = Decorator + Identifier。
+class F2 { m(@dec p) {} }
+// 变体：装饰参数 + 默认值——同一分支完全不吃 `= 1`（`=` 不进 Parameter children）。
+class F3 { m(@dec p = 1) {} }
+// 变体：构造函数里的装饰参数——同一条 BuildParameters 分支。
+class F4 { constructor(@dec p) {} }
 // 核心缺口：装饰器 + type alias / interface / namespace 原先没有「从 `@` 起」的候选，
 // `@` 落到表达式语句后报「不支持的表达式起点」；现在声明从 `@` 起、装饰器进 modifiers。
 // 历史：declarations/decl-type-alias-decorator.ts、decl-interface-decorator-modifiers.ts、
@@ -59,6 +67,12 @@ type M1 = { [K in keyof T as `k${K}`]: T[K] };
 
 // ── 其它类型侧候选：`typeof import`、条件类型 infer 约束、`satisfies`、模板字面量类型 ──
 type TI = typeof import("./m1");
+// ── import 类型：无限定名（TypeBuilder.ParseImportType，Qualifier 在 TS 侧可选） ──
+// import 类型**不带限定名**：`import("m")` 本身合法（TS ImportType children 只有 LiteralType）；
+// 原先强制要求 `.`，抛「import 类型缺少限定名」。
+type IT1 = import("./m1");
+// 变体：import 类型 + attributes 且无限定名（TS children = LiteralType + ImportAttributes）。
+type IT2 = import("./m1", { with: { type: "json" } });
 type CT = T extends Array<infer U extends string> ? U : never;
 const s1 = {} satisfies Record<string, number>;
 type TL = `a${string}b`;

@@ -472,16 +472,29 @@ while (inner.At < inner.Units.length) {
         colonConsumed = markText === "?:";
       }
     }
-    if (!colonConsumed) {
-      const colonMark = inner.Peek(0);
-      if (colonMark === null || !inner.IsText(colonMark, ":")) {
-        throw new Error("装饰过的类成员参数缺少类型标注");
+    // `@` 装饰的参数 TS 侧同样允许缺类型标注 / 带默认值（parseDiagnostics=0）：
+    //   m(@dec p)      -> Parameter children = Decorator + Identifier
+    //   m(@dec p = 1)  -> Decorator + Identifier + 默认值表达式（`=` 不进 children）
+    // 原先这里强制要求 `:`（抛「装饰过的类成员参数缺少类型标注」），且完全不吃 `= 1`。
+    const colonMark = inner.Peek(0);
+    if (colonConsumed || (colonMark !== null && inner.IsText(colonMark, ":"))) {
+      if (!colonConsumed) {
+        inner.At++;
       }
-      inner.At++;
+      const typeShape = inner.ParseType();
+      parameter.Type = typeShape;
+      parameter.Add(typeShape);
     }
-    const typeShape = inner.ParseType();
-    parameter.Type = typeShape;
-    parameter.Add(typeShape);
+    const initializerMark = inner.Peek(0);
+    if (initializerMark !== null && inner.IsText(initializerMark, "=")) {
+      inner.At++;
+      const initializerPos = inner.Positions[inner.At];
+      const initializerBuilder = new ExpressionBuilder(host.Template, context);
+      initializerBuilder.Load(inner.Units.slice(inner.At), initializerPos);
+      const initializer = initializerBuilder.ParseAssign();
+      parameter.Add(initializer);
+      inner.At += initializerBuilder.At;
+    }
     parameters.push(inner.SpanNode(parameter, groupStart, inner.At - 1));
     continue;
   }
