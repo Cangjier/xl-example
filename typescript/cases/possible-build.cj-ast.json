@@ -5500,6 +5500,173 @@
           ]
         }
       ]
+    },
+    {
+      "src": "const z3 = a as Foo<A, B>[];",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "z3"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 10,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 12,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "ArrayType",
+                          "pos": 15,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "TypeReference",
+                              "pos": 15,
+                              "end": 25,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 15,
+                                  "end": 19,
+                                  "text": "Foo"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 20,
+                                  "end": 21,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 20,
+                                      "end": 21,
+                                      "text": "A"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 22,
+                                  "end": 24,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 22,
+                                      "end": 24,
+                                      "text": "B"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const q1 = a as Array<Array<number>>;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "q1"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 10,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 12,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 15,
+                          "end": 36,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 21,
+                              "text": "Array"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 22,
+                              "end": 35,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 22,
+                                  "end": 27,
+                                  "text": "Array"
+                                },
+                                {
+                                  "kind": "NumberKeyword",
+                                  "pos": 28,
+                                  "end": 34
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
