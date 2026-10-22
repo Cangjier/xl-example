@@ -962,6 +962,30 @@ while (true) {
         expression = this.SpanNode(shape, start, this.At - 1);
         continue;
       }
+      if (next !== null && this.IsText(next, "<") && this.CanStartTypeArguments(this.At)) {
+        // 可选调用 + 显式类型参数（`a?.<T>(b)`）：TS 的 children 顺序是
+        // [expression, QuestionDotToken, TypeArguments…, args…]，`(` / `)` 不投影。
+        // 旧口径在 `?.` 之后一律 ParseName，`<` 被当名字 → 「缺少标识符」。
+        const typeArguments = this.ParseTypeArgumentsAtCurrent();
+        const argsUnit = this.Peek(0);
+        if (argsUnit === null || !this.IsBracketStart(argsUnit, "(")) {
+          throw new Error("可选调用的类型实参后面缺少调用实参");
+        }
+        const bracket = argsUnit as Bracket;
+        this.At++;
+        const args = this.ParseBracketArguments(bracket);
+        const shape = new CallExpressionShape(this.Template);
+        shape.Add(expression);
+        shape.Add(this.MakeOperatorToken(unit, questionDotIndex));
+        for (const typeArgument of typeArguments) {
+          shape.Add(typeArgument);
+        }
+        for (const arg of args) {
+          shape.Add(arg);
+        }
+        expression = this.SpanNode(shape, start, this.At - 1);
+        continue;
+      }
       const name = this.ParseName();
       const shape = new PropertyAccessExpressionShape(this.Template);
       shape.Add(expression);
@@ -1397,8 +1421,32 @@ while (inner.At < inner.Units.length) {
     name = inner.ParsePropertyName();
   }
   const next = inner.Peek(0);
+  // 对象字面量可选方法 `{ m?() {} }` / `{ m?(a) {} }` / `{ async m?() {} }`：
+  // TS 的成员是 MethodDeclaration（children 顺序 name → QuestionToken → [TypeParameters] → params → … → Block）。
+  // 旧口径不认名字后的 `?`，直接落到属性/简写分支 → 「缺少标识符」/「缺少函数体」。
+  // 只有 `?` / `?:` 之后紧跟 `(` 或 `<` 才是方法；`{ m?: A }` 仍是普通属性。
+  let memberQuestionToken:Token | null = null;
+  const markUnit = inner.Peek(0);
+  if (markUnit !== null && (inner.IsText(markUnit, "?") || inner.IsText(markUnit, "?:"))) {
+    const markIndex = inner.At;
+    const afterMark = markIndex + 1 < inner.Units.length ? inner.Units[markIndex + 1] : null;
+    const markIsMethod = afterMark !== null
+      && (inner.IsBracketStart(afterMark, "(") || inner.IsText(afterMark, "<"));
+    if (markIsMethod) {
+      inner.At++;
+      const questionShape = new QuestionTokenShape(this.Template);
+      if (markUnit.SourceRange.Start !== null) {
+        questionShape.SignIn(markUnit.SourceRange.Start);
+        questionShape.SignOut(markUnit.SourceRange.Start);
+      }
+      questionShape.Pos = inner.Positions[markIndex];
+      questionShape.TryToClose(this.Context);
+      memberQuestionToken = questionShape;
+    }
+  }
   let methodTypeParameters:Array<Token> = [];
-  if (next !== null && inner.IsText(next, "<")) {
+  const afterQuestionUnit = inner.Peek(0);
+  if (afterQuestionUnit !== null && inner.IsText(afterQuestionUnit, "<")) {
     // Generic object literal method `({ m<T>(x: T): T {...} })`: TypeParameter(s) after the name.
     const angleClose = inner.MatchAngleClose(inner.At);
     if (angleClose < 0) {
@@ -1480,6 +1528,9 @@ while (inner.At < inner.Units.length) {
       memberShape.Add(inner.MakeOperatorToken(asteriskUnit, asteriskIndex));
     }
     memberShape.Add(name);
+    if (memberQuestionToken !== null) {
+      memberShape.Add(memberQuestionToken);
+    }
     for (const typeParameter of methodTypeParameters) {
       memberShape.Add(typeParameter);
     }
@@ -1497,7 +1548,7 @@ while (inner.At < inner.Units.length) {
     shape.Add(memberShape);
     continue;
   }
-  if (asyncUnit !== null || accessorKind !== "" || asteriskUnit !== null) {
+  if (asyncUnit !== null || accessorKind !== "" || asteriskUnit !== null || memberQuestionToken !== null) {
     throw new Error("对象字面量成员缺少函数体");
   }
   if (next !== null && inner.IsText(next, ":")) {
@@ -2029,11 +2080,17 @@ return parameters;
 return AngleJudge.FindPair(this.Units, openIndex);
 ```
 
-## method ParseAngleType:(first:int, last:int)=>Token
+## method ParseAngleType:(first:int, last:int, includesClose:bool)=>Token
 
 把 `Units[first..last]` 交给 `TypeBuilder.ParseType()` 读一个**完整**类型，读不完就抛错
 （尖括号断言里 `<` / `>` 不投影，只有类型节点与表达式节点进 AST）。
 `basePos` 取 `Positions[first]`，与 TypeBuilder 的 `Pos` 口径一致。
+
+区间右端若是**合符号** `>>` / `>>>`（`includesClose`），它会被 `TypeBuilder.Load` 拆成
+`n` 个单字符 `>` 虚拟单元；其中**最后一个** `>` 是断言自己那一格（`ParseAngleStart` 的外层 `<` 配对），
+类型只能消费前 `n - 1` 个。所以期望消费数是 `builder.Units.length - 1`（含合符号）或
+`builder.Units.length`（不含）——旧口径拿「原单元数」当期望值，只有 `>>`（n = 2）恰好相等，
+`>>>` / `>>>>` 就多出一格，误报「尖括号断言里的类型没有读完」。
 
 ```ts
 if (first > last) {
@@ -2042,7 +2099,8 @@ if (first > last) {
 const builder = new TypeBuilder(this.Template, this.Context);
 builder.Load(this.Units.slice(first, last + 1), this.Positions[first]);
 const type = builder.ParseType();
-if (builder.At !== last - first + 1) {
+const expected = includesClose ? builder.Units.length - 1 : builder.Units.length;
+if (builder.At !== expected) {
   throw new Error("尖括号断言里的类型没有读完");
 }
 return type;
@@ -2100,7 +2158,9 @@ if (afterBracket !== undefined && this.IsBracketStart(afterBracket, "(")) {
 const closeUnit = this.Units[close];
 const closeText = closeUnit instanceof Symbol ? (closeUnit as Symbol).TempToString() : ">";
 const typeLast = closeText.length > 1 ? close : close - 1;
-const type = this.ParseAngleType(start + 1, typeLast);
+// `>>` / `>>>` / `>>>>` 是合符号：它整格交给 TypeBuilder（Load 拆成单字符 `>`），
+// 但其中最后一个 `>` 属于断言自身，类型不该消费它。
+const type = this.ParseAngleType(start + 1, typeLast, closeText.length > 1);
 this.At = close + 1;
 const shape = new TypeAssertionExpressionShape(this.Template);
 shape.Add(type);
