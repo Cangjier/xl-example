@@ -316,3 +316,23 @@ tag`a\n\8b`;
 tag`a\8\nb`;
 tag`a\8b${x}c\9d`;
 tag`\8${x}\8`;
+
+// ══ cover7（字符串 \u{…} 位数）：花括号形 Unicode 转义位数不限，逐个累计校验 ≤ U+10FFFF ══
+// 判据：TS 6.0.3 `ts.createSourceFile` 的 parseDiagnostics.length === 0；修复前 AST 的 text 字段是原文而不是 cooked。
+// 修点：core/syntax/basic-tokens/string/translate.xl.md（Accept / Append / DecodeClear 的 u{…} 三处 + UnicodeBraceValueOf），
+//       core/syntax/templates/string-template.xl.md 的 AllowLongUnicodeBraceEscape（默认 false = 历史 6 位上限），
+//       ts 模板页打开：typescript/run/typescript-template.xl.md。
+// 与 F（标识符路径）同口径：位数不限、逐位累计 ≤ Common.MaxUnicodeCodePoint()，越界即按原文结算。
+const b1 = "\u{0000061}";
+const b2 = "\u{000000061}";
+const b3 = "\u{000000000000041}";
+const b4 = "\u{00000000000000000061}";
+const b5 = "\u{000000000010FFFF}";
+const b6 = "\u{000000000000000}";
+const b7 = "a\u{0000061}b";
+const b8 = "\u{00000061}\u{00000042}";
+const b9 = `\u{0000061}`;
+const b10 = `\u{000000000010FFFF}`;
+const b11 = `a\u{0000061}b${x}`;
+tag`\u{0000061}`;
+tag`a\u{0000061}b`;
