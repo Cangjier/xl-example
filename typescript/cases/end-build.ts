@@ -260,3 +260,34 @@ type T = A // c\n@dec class C {}
 type T = A\n\n@dec class C {}
 export const ec = 1\n@dec class C {}
 import x = require("m")\n@dec class C {}
+
+// ══ cover8（装饰器尾随声明）：函数类声明前缀之后换行接「装饰器 + 声明」 ══
+// 形态：无体函数声明（declare function / 重载签名 / async / generator / 泛型）在前，换行后是
+// 以 `@dec` 开头的下一条声明。TS 是两条声明：函数**没有 body**、装饰器声明完整且区间正确。
+// 修复前（end build）：函数候选 Stage3/4 的 ASI 边界只认 statement word（Common），`@` 是 Symbol 看不到，
+// 于是把下一条声明的 `{…}` 收成函数体（diff：函数多 Block、下一条声明整条丢失）或抛「返回类型没有读完」。
+// 修复：① function-declaration-possible-shape 的 Stage3/4 把「换行后的 `@`」认作边界（Reject，与
+//        source-file-end-possible-shape 的 LeadingDeclarationKeyword 同口径，只认 `@` 这一种形态）；
+//       ② function-declaration-shape.FromUnits 在返回类型于换行处被截断后重判 body（bodyUnit=null），
+//        避免函数凭空多 Block。
+// 一行一个用例，行内 `\n` 由 ast-json.mjs 还原。
+declare function gf(): void\n@dec class C {}
+function f(): void\n@dec class C {}
+function f(a: A): B\n@dec class C {}
+declare function gf<T>(): T\n@dec class C {}
+declare async function ga(): void\n@dec class C {}
+function* g(): void\n@dec class C {}
+declare function gf(): void\n@a @b class C {}
+function f(): void\n@a @b class C {}
+declare function gf(): void\n@dec() class C {}
+declare function gf(): void\n@dec(a) class C {}
+declare function gf(): void\n@a.b class C {}
+declare function gf(): void\n@dec abstract class C {}
+declare function gf(): void\n@dec export class C {}
+declare function gf(): void\n@dec export default class C {}
+declare function gf(): void\n@dec class C { m() {} }
+declare function gf(): void\n@dec class C extends B {}
+declare function gf(): void\n\n@dec class C {}
+declare function gf(): void // c\n@dec class C {}
+declare function gf(): void /* c */\n@dec class C {}
+declare function gf(): void\n/* c */\n@dec class C {}
