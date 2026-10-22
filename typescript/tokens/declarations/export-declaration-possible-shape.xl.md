@@ -371,6 +371,12 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 3;
       continue;
     }
+    if (ExportDeclarationPossibleShape.IsNewDeclarationAfterLineBreak(units, index)) {
+      // 换行后是下一条声明（`export default function (): void` ⏎ `interface I {}`）：本条是无体签名，
+      // 在 ASI 处收口。不 Reject 的话会把下一条声明的 `{…}` 当函数体（Y13：吞 interface 体）。
+      state.Stage = 3;
+      continue;
+    }
     if (unit instanceof Common) {
       continue;
     }
@@ -429,6 +435,11 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       // 换行后的 `@dec` 是**下一条声明**的装饰器前缀：本条是**无体**签名（`export function f(): void`
       // ⏎ `@dec class C {}`），TS 侧在这里 ASI 收口。不 Reject 的话本候选会一直等到下一条声明的
       // `{…}` 当函数体，`FunctionDeclarationShape.FromUnits` 报「函数声明的返回类型没有读完」。
+      state.Stage = 3;
+      continue;
+    }
+    if (ExportDeclarationPossibleShape.IsNewDeclarationAfterLineBreak(units, index)) {
+      // 同上，换行后是下一条声明（`export function f(): void` ⏎ `interface I {}`）：无体签名在 ASI 收口。
       state.Stage = 3;
       continue;
     }
@@ -1315,6 +1326,35 @@ built.TryToClose(context);
 host.Data.splice(start, tokenIndex - start + 1, built);
 built.Parent = host;
 return built;
+```
+
+## private static method IsNewDeclarationAfterLineBreak:(units:Array<Token>, index:int)=>bool
+
+`index` 这一格是不是**换行之后开始的下一条声明 / 语句**（声明词、变量词、`export` / `import` /
+`declare` / `abstract` / `async`）。`export function f(): void` ⏎ `interface I {}` /
+`export default function (): void` ⏎ `class C {}` 里，函数签名在换行处 ASI 收口（TS 的
+`parseFunctionBlockOrSemicolon` 只看紧跟参数表 / 返回类型的那个 token，不是 `{` 就收在签名上），
+下一条声明的 `{…}` 不属于本条。候选的 Stage 16 / 23 原来「有闭合 `{` 就收作函数体」，
+会把下一条声明的体吞进来（Y13）。判据与 EOF 尾随分界同口径：真换行 + 声明/语句关键字。
+
+```ts
+if (index < 0 || index >= units.length) {
+  return false;
+}
+const unit = units[index];
+if (!(unit instanceof Common)) {
+  return false;
+}
+if (!StatementScanner.HasLineBreakBefore(units, index)) {
+  return false;
+}
+const text = (unit as Common).TempToString();
+if (StatementScanner.IsDeclarationKeyword(text)) {
+  return true;
+}
+return text === "const" || text === "let" || text === "var" || text === "using"
+  || text === "export" || text === "import" || text === "declare"
+  || text === "abstract" || text === "async";
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool

@@ -358,3 +358,42 @@ let\n/* c */\nlet = 1
 let\n\nlet = 1
 let\nlet = 1, x = 2
 let\nlet = 1\n
+
+// ══ cover9（end build）：EOF 多语句分界把 export 声明头从中间切开（O01–O07） ══
+// 类别（IMPORTANCE §6）：end build 不对。
+// 形态：`export default` ⏎ 声明词 / `export as` ⏎ `namespace` —— 修饰词链内部有换行；
+// TS 的 parseModifiers 对 export / default / as / import 不看换行，整段仍是**同一条**声明的声明头。
+// 修前：SourceFileEndPossibleShape 的 EOF 多语句分界（source-file-end-possible-shape.xl.md:515-607）
+//       只放行「前一个代码单元是 export」，链内部的 default / as 不放行 → 前缀只剩 `export default` /
+//       `export as`，走表达式路径 crash「表达式语句没有读完」/「类型意外结束」。
+// 修复：分界前用 IsInsideExportModifierChain 回溯 export / default / as / import 修饰词链，链内部不设边界；
+//       declare / abstract / async 与下一格之间换行在 TS 侧是另一条语句，不吞。
+// 同族附加（非候选）：`export function f(): void` ⏎ `interface/class` 是本仓 export 候选把下一条声明的
+//       `{…}` 当函数体（Stage 16/23 判据 IsNewDeclarationAfterLineBreak，与 Y13 同一修）。
+// 候选 id：O01–O07；一行一个用例，行内 `\n` 由 ast-json.mjs 还原，CR / LS / PS 用行内字面字符。
+
+// ── ① `export default` ⏎ 函数声明头（O01）：生成器 / async / 行注释 / 含换行块注释 / 双换行 / 后接语句 ──
+export default\nfunction f(): void
+export default\nfunction* g(): void
+export default\nasync function f(): void
+export default // c\nfunction f(): void
+export default /* \n */ function f(): void
+export\ndefault\nfunction f(): void
+export default\nfunction f(): void\nconst x = 1
+
+// ── ② `export as` ⏎ `namespace`（O02–O06）：base / 多空格 / 双换行 / 含换行块注释 / CR / LS / PS ──
+export as\nnamespace A
+export  as\nnamespace A
+export\nas\nnamespace A
+export as /* \n */ namespace A
+export asnamespace A
+export as namespace A
+export as namespace A
+
+// ── ③ 后接 `export =`（O07）──
+export as\nnamespace A\nexport = A
+export\nas\nnamespace A\nexport = A
+
+// ── ④ 同族附加：`export function f(): void` ⏎ 下一条声明（候选曾把下一条声明的 `{…}` 当函数体）──
+export function f(): void\ninterface I {}
+export function f(): void\nclass C {}
