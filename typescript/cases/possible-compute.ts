@@ -30,6 +30,9 @@ class C11 { public static readonly a = 1; private m() { } }
 class C12 { public static readonly a = 1; private\nm() { } }
 class C13 { public /*x\ny*/ m() {} }
 class C14 { public static readonly a = 1; private //c\nm() { } }
+class C15 { public\nstatic readonly a = 1 }
+class C21 { static\nm() {} }
+class C22 { get\nfoo() {} }
 
 // ── D4：顶层修饰词与声明关键字之间换行 = 两条语句（换行用行内 \n） ──
 abstract\nclass A {}
@@ -55,6 +58,11 @@ const q2 = f() as T![];
 // ── G6：可选无类型成员（`a?`；接口有 / 无分号两档） ──
 interface I1 { a? }
 interface I2 { a?; }
+class C16 { a?() {} }
+class C17 { a?(): void }
+class C18 { a?(); }
+class C19 { m?() }
+class C20 { trace?: (s: string) => void }
 
 // ── G5：无返回类型调用签名（类型字面量 / 接口）、具名可选元组（完整链 / 最小） ──
 type T4 = { (a: string) };
@@ -85,8 +93,9 @@ type N5 = infer E extends F;
 type N6 = A extends (infer E extends F)[] ? E : never;
 type N7 = A extends B ? C extends D ? infer E extends F ? G : H : I : J;
 
-// ── 未纳入的被测缺口（不提交红用例；证据见 task-4 报告） ──
-// ① `class C { public\nstatic readonly a = 1 }`：TS 是「PropertyDeclaration(名字 `public`) + 静态字段」两条，
-//    本仓仍把 `public` 当修饰词跨换行续接（结构差：Identifier -1 / PropertyDeclaration -1 / PublicKeyword +1）；
-// ② `class C { a?() {} }`：TS 可解析（可选方法），本仓候选直接抛「类成员之间缺少分隔符」（crash），
-//    归 possible compute（成员候选没为 `?` 后接 `(` 的格子让路）。
+// ── 已修复并转活跃（原 task-4 上报的两个 possible compute 缺口） ──
+// ① `public` ⏎ `static readonly a = 1`：TS 是两条成员（字段 public + 静态字段 a）。根因在
+//    class-declaration-shape.xl.md 的修饰词判定把「下一格还是修饰词」当成不看换行的例外；
+// ② `a?() {}` / `a?();` / `m?()`：TS 是带 QuestionToken 的 MethodDeclaration。根因是同文件
+//    可选方法判定只认「参数表后跟 `:`」，其余形态掉进属性路径后抛「类成员之间缺少分隔符」。
+// 两处均已按 TS 的 parseModifiers / nextTokenCanFollowModifier 判据修复（见上方 C15–C22）。
