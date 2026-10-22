@@ -231,9 +231,10 @@ if (unit instanceof Symbol) {
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   if (text === "let" || text === "const" || text === "var") {
-    // Same yield as the root dispatch: `const enum …` belongs to the enum declaration candidate.
+    // `const enum …`：块 / 体里没有 enum 声明候选，按声明体扫（被标体 `l: const enum E { A }`
+    // 原先在这里 Mismatch → 零候选 → 根终结候选的 ExpressionStatement 兜底报「表达式语句没有读完」）。
     if (text === "const" && StatementScanner.NextWord(code[at].SourceRange.End) === "enum") {
-      return StatementScanner.Mismatch();
+      return StatementScanner.ScanDeclarationBody(code, at);
     }
     return StatementScanner.ScanToSemicolon(code, at + 1);
   }

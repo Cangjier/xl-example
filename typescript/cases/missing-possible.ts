@@ -83,3 +83,92 @@ type TL = `a${string}b`;
 // 历史：lexical/lex-shebang.ts、lexical/lx-shebang.ts。
 #!/usr/bin/env node\nconst sb1 = 1;
 #!/usr/bin/env node\nlet sb2 = 1;
+
+// ══ cover5 round5（missing possible）：块 / 体 / 被标体里的「声明头」分派 ══
+// 缺口：`StatementBuilder.BuildStatement` 只认 function / class / interface / enum / type / 变量
+// 这几种声明头，`namespace` / `abstract class` / `const enum` / `declare <声明>` / 装饰器声明 /
+// `export <声明>` 在块体里没有分派入口 → 落 ExpressionStatement 兜底（「表达式没有读完」/
+// 「不支持的表达式起点」）。根级另有两条零候选：`yield 1;`（表达式候选的 CanStart 不认 yield）
+// 与 `l: const enum E { A }`（StatementScanner.ScanBody 对 const enum 直接 Mismatch）。
+// 修复：BuildStatement 增加声明头分派（BuildModuleDeclaration / BuildDecoratedStatement /
+// BuildExportedStatement / BuildDefaultModifierStatement）并把 class / interface / enum / function
+// 四个 builder 的起始格泛化（起始格可以是修饰词 / 装饰器前缀）；ScanBody 的 const enum 走声明体。
+// TS 侧全部 parseDiagnostics=0，且与本仓 AST 完全一致（ast-json-diff 校验）。
+
+// ── base：块内 namespace（标识符名）/ 变体：module + 字符串名 / 限定名 / 嵌套 / 成员族 ──
+{ namespace N { let a = 1; } }
+{ module 'm' { export let a = 1; } }
+{ namespace A.B.C {} }
+{ namespace A { namespace B {} } }
+{ namespace N { class C {} interface I {} enum E { A } function f() {} type T = 1; } }
+// trivia 变体：namespace 前的前导注释
+{ /* c */ namespace N {} }
+// 重复形：同一块里多条模块声明 + 枚举声明
+{ namespace A {} namespace B {} const enum E { A } }
+
+// ── 块内 abstract class / const enum ──
+{ abstract class A {} }
+function f() { abstract class A {} }
+{ const enum E { A } }
+// 重复形：块里 abstract class 后接 const enum
+{ abstract class A {} const enum E { A } }
+// static block 体同样走语句派发
+class C { static { const enum E { A } } }
+
+// ── 块内 `declare <声明>` 族（原先只有 declare + 变量有入口） ──
+{ declare class C {} }
+{ declare interface I {} }
+{ declare enum E { A } }
+{ declare const enum E { A } }
+{ declare namespace N {} }
+{ declare module 'm' {} }
+{ declare type T = number; }
+{ declare function f(): void; }
+{ declare abstract class C {} }
+// trivia 变体：declare 与声明词之间多空格
+{ declare   class   C   {} }
+
+// ── 块内装饰器声明（@ 开头的声明头原先零候选） ──
+{ @dec class C {} }
+{ @dec('x') class C {} }
+{ @a @b.c class C {} }
+{ @dec abstract class A {} }
+{ @dec export class C {} }
+{ @dec interface I {} }
+{ @dec type T = number; }
+{ @dec enum E { A } }
+{ @dec namespace N {} }
+function f() { @dec class C {} }
+
+// ── 块内 export 声明（export 修饰词摘掉再插回 Data 最前） ──
+{ export class C {} }
+{ export const x = 1; }
+{ export enum E { A } }
+{ export interface I {} }
+{ export type T = 1; }
+{ export namespace N {} }
+{ export function f() {} }
+{ export abstract class C {} }
+{ export declare class C {} }
+{ export default class C {} }
+{ export default class {} }
+{ export default interface I {} }
+{ export default abstract class C {} }
+{ export default function f() {} }
+// 重复形：同块里 export 声明连排
+{ export class A {} export const b = 1; }
+
+// ── namespace / module 体里的同类变体 ──
+declare module 'm' { export default abstract class C {} }
+namespace N { @dec class C {} }
+namespace N { export @dec class C {} }
+namespace N { const enum E { A } }
+namespace N { declare class C {} }
+
+// ── 被标体里的声明（ScanBody 的 const enum / 声明体） ──
+l: const enum E { A }
+l: abstract class A {}
+l: @dec class C {}
+
+// ── 根级表达式起点：`yield 1;` 原先被 IsStatementWord 挡掉 → 零候选 ──
+yield 1;

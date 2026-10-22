@@ -6,6 +6,7 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -19,6 +20,9 @@ import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
+import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { ModuleDeclarationShape } from "../declarations/module-declaration-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
@@ -68,6 +72,10 @@ import { WithStatementShape } from "./with-statement-shape.xl.md"
 ## field Positions:Array<int> = []
 
 ## field At:int = 0
+
+## field AllowAnonymousClass:bool = false
+
+## field DecoratedKeyword:string = ""
 
 ## constructor:(template:Template, context:SyntaxContext)=>void
 
@@ -220,10 +228,32 @@ if (unit instanceof Symbol) {
   if ((unit as Symbol).Is(";")) {
     return this.BuildEmpty();
   }
+  // 块 / 体里以装饰器开头的声明：`@dec class C {}` / `@dec interface I {}` /
+  // `@dec type T = …` / `@dec namespace N {}`（TS 的 Decorator 是声明 children 的第一项）。
+  // 原先这里只有表达式语句兜底，`@` 在表达式层抛「不支持的表达式起点」。
+  if ((unit as Symbol).Is("@")) {
+    const decorated = this.BuildDecoratedStatement();
+    if (decorated !== null) {
+      return decorated;
+    }
+  }
   return this.BuildExpressionStatement();
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
+  // 块 / 体里的 `export` / `default` 修饰：把修饰词从头上摘下来，建完被修饰的语句再插回 Data 最前
+  // （与 ModuleBlockShape.BuildMember 的 export 处理同款；TS 的 children 顺序是修饰词在最前）。
+  if (text === "export" && this.IsExportDeclarationHead()) {
+    return this.BuildExportedStatement();
+  }
+  if (text === "default" && this.IsDefaultDeclarationHead()) {
+    return this.BuildDefaultModifierStatement();
+  }
+  // `namespace` / `module` / `global` 在块 / 体里同样是声明（TS parser 允许），
+  // 模块体由 ModuleDeclarationShape 递归交给 ModuleBlockShape。
+  if (this.IsModuleDeclarationHead(text)) {
+    return this.BuildModuleDeclaration();
+  }
   // Nested function declarations: "function" or "async function" at statement position.
   // The declaration itself is built by FunctionDeclarationShape.FromUnits (no duplicate ownership).
   if (text === "function") {
@@ -241,10 +271,55 @@ if (unit instanceof Common) {
     }
   }
   if (text === "declare") {
+    // Ambient 声明族在块 / 体里：`declare class C {}` / `declare interface I {}` /
+    // `declare enum E {}` / `declare namespace N {}` / `declare module "m" {}` /
+    // `declare function f(): void;` / `declare type T = …` / `declare abstract class` /
+    // `declare const enum`。各声明形状的 FromUnits 都接受 declare 修饰词（TS 的 children 里
+    // 修饰词在最前），所以这里只负责分派，不自己摘修饰词。
+    const afterDeclare = this.Peek(1);
+    if (afterDeclare !== null && afterDeclare instanceof Common
+      && StatementScanner.NoLineBreakBetween(unit, afterDeclare)) {
+      const nextText = (afterDeclare as Common).TempToString();
+      if (nextText === "const") {
+        const third = this.Peek(2);
+        if (third !== null && this.IsText(third, "enum")) {
+          return this.BuildEnumDeclaration();
+        }
+      }
+      if (nextText === "abstract") {
+        const third = this.Peek(2);
+        if (third !== null && this.IsText(third, "class")) {
+          return this.BuildClassDeclaration();
+        }
+      }
+      if (nextText === "async") {
+        const third = this.Peek(2);
+        if (third !== null && this.IsText(third, "function")) {
+          return this.BuildFunctionDeclaration();
+        }
+      }
+      if (nextText === "class") {
+        return this.BuildClassDeclaration();
+      }
+      if (nextText === "interface") {
+        return this.BuildInterfaceDeclaration();
+      }
+      if (nextText === "enum") {
+        return this.BuildEnumDeclaration();
+      }
+      if (nextText === "namespace" || nextText === "module" || nextText === "global") {
+        return this.BuildModuleDeclaration();
+      }
+      if (nextText === "function") {
+        return this.BuildFunctionDeclaration();
+      }
+      if (nextText === "type") {
+        return this.BuildTypeAliasDeclaration();
+      }
+    }
     // Ambient variable statement (`declare const x: number;`): TS keeps a DeclareKeyword CHILD node
     // (ast-json compares it), so build the normal variable statement after skipping the keyword,
     // prepend the modifier shape, and rewind the statement Pos to the declare keyword.
-    const afterDeclare = this.Peek(1);
     if (afterDeclare !== null && this.IsVariableKeyword(afterDeclare)
       && StatementScanner.NoLineBreakBetween(unit, afterDeclare)) {
       const declarePos = this.Positions[this.At];
@@ -259,7 +334,25 @@ if (unit instanceof Common) {
       return ambient;
     }
   }
+  if (text === "abstract") {
+    // `abstract class A {}` 在块 / 体里：类声明的 FromUnits 接受 abstract 修饰词。
+    // 单独的 `abstract` 是标识符表达式（`abstract;`），不能当修饰词；`abstract` ⏎ `class A {}`
+    // 也按 ASI 断成两条语句（TS 侧就是 ExpressionStatement(Identifier) + ClassDeclaration）。
+    const afterAbstract = this.Peek(1);
+    if (afterAbstract !== null && this.IsText(afterAbstract, "class")
+      && StatementScanner.NoLineBreakBetween(unit, afterAbstract)) {
+      return this.BuildClassDeclaration();
+    }
+  }
   if (text === "let" || text === "const" || text === "var") {
+    // `const enum E { A }`：enum 候选独占（`const` 后面同一行是 enum 时不是变量声明）。
+    if (text === "const") {
+      const afterConst = this.Peek(1);
+      if (afterConst !== null && this.IsText(afterConst, "enum")
+        && StatementScanner.NoLineBreakBetween(unit, afterConst)) {
+        return this.BuildEnumDeclaration();
+      }
+    }
     return this.BuildVariableStatement();
   }
   // 标签语句的被标体（`iface: interface I {}` / `en: enum E {}` / `t: type T = X`）：
@@ -334,41 +427,37 @@ return this.BuildExpressionStatement();
 
 ## method BuildFunctionDeclaration:()=>Token
 
-Nested `function` / `async function` declaration inside a body. Delegates to
+Nested `function` / `async function` / `declare function` declaration inside a body. Delegates to
 `FunctionDeclarationShape.FromUnits` with a host-like adapter over this builder's code units
 (FromUnits only reads `host.Data` / `host.Template`), then fixes the shape `Pos` to this
 builder's `Positions[first]` (the first statement of a block has a base offset that the
 adapter cannot know). End of the declaration is the body `{...}` bracket or the `;` of an
-overload signature.
+overload / ambient signature.
+
+起始格不假定是 `function`：`declare function` / `async function` 也走这里。无体形态（`;` 收尾）
+按 ambient 交给 FromUnits——块里的重载签名 / `declare function` 都没有函数体。
 
 ```ts
 const first = this.At;
 let cursor = this.At;
-if (this.IsText(this.Units[cursor], "async")) {
-  cursor++;
-}
-if (cursor >= this.Units.length || !this.IsText(this.Units[cursor], "function")) {
-  throw new Error("函数声明缺少 function 关键字");
-}
-cursor++;
-if (cursor < this.Units.length && this.IsSymbol(this.Units[cursor], "*")) {
-  cursor++;
-}
-cursor++;
-if (cursor >= this.Units.length
-  || !(this.Units[cursor] instanceof Bracket)
-  || (this.Units[cursor] as Bracket).StartBracketChar !== "(") {
-  throw new Error("函数声明缺少参数表");
-}
-cursor++;
+let paramsSeen = false;
 let end = -1;
 while (cursor < this.Units.length) {
   const unit = this.Units[cursor];
-  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+  if (!paramsSeen) {
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+      paramsSeen = true;
+    }
+    cursor++;
+    continue;
+  }
+  // 参数表之后的第一个「能当函数体」的 `{`：返回类型里的对象字面量类型不算。
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{"
+    && TypeBuilder.IsBodyBrace(this.Units, cursor)) {
     end = cursor;
     break;
   }
-  if (this.IsSymbol(unit, ";")) {
+  if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
     end = cursor;
     break;
   }
@@ -377,19 +466,37 @@ while (cursor < this.Units.length) {
 if (end < 0) {
   throw new Error("函数声明缺少函数体或分号");
 }
+const hasBody = this.Units[end] instanceof Bracket
+  && (this.Units[end] as Bracket).StartBracketChar === "{";
 const hostLike:any = { Data: this.Units, Template: this.Template };
-const shape = FunctionDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+const shape = FunctionDeclarationShape.FromUnits(hostLike, first, end, this.Context, !hasBody);
 shape.Pos = this.Positions[first];
 // FromUnits cannot know this builder's base offset, so the FIRST modifier (async / declare)
 // would get Pos 0. Repair it from this builder's Positions (later modifiers are chained off it).
-if (this.IsText(this.Units[first], "async") || this.IsText(this.Units[first], "declare")) {
-  if (shape.Data.length > 0) {
-    const head = shape.Data[0] as ShapeToken;
-    head.Pos = this.Positions[first];
-  }
-}
+this.AnchorFirstModifier(shape, first);
 this.At = end + 1;
 return shape;
+```
+
+## private method AnchorFirstModifier:(shape:Token, first:int)=>void
+
+块 / 体里**首个**声明的第一个修饰词（`declare` / `abstract` / `export` / `default` / `async` /
+装饰器）：各声明形状按「前一个单元 `End+1`」推修饰词 `Pos`，块内第一个成员前面没有代码单元时
+会回退成 0；这里用本层 `Positions[first]` 重锚。后续修饰词是按 `End+1` 链式算的、本来就对，不动。
+与 `ModuleBlockShape.BuildMember` 对首成员修饰词的重锚同款。
+
+```ts
+if (shape.Data.length === 0) {
+  return;
+}
+const head = shape.Data[0] as ShapeToken;
+const name = head.constructor.name;
+if (name === "DeclareKeywordShape" || name === "AbstractKeywordShape"
+  || name === "ExportKeywordShape" || name === "DefaultKeywordShape"
+  || name === "AsyncKeywordShape" || name === "ConstKeywordShape"
+  || name === "DecoratorShape") {
+  head.Pos = this.Positions[first];
+}
 ```
 
 ## method BuildClassDeclaration:()=>Token
@@ -398,29 +505,36 @@ Nested `class` declaration inside a body. Delegates to `ClassDeclarationShape.Fr
 same host-like adapter as `BuildFunctionDeclaration` (FromUnits only reads `host.Data` /
 `host.Template`); the declaration end is the class body `{...}` bracket.
 
+起始格不假定是 `class`：`abstract class` / `declare class` / `export class`（export 已由
+`BuildExportedStatement` 摘掉）/ `@dec class` 都由调用方把 `this.At` 停在声明头第一格，
+`ClassDeclarationShape.FromUnits` 自己认这些前缀。类体按 `TypeBuilder.IsBodyBrace` 找
+（`class C<T extends {}> {}` 里类型参数的 `{}` 不是类体）。
+
 ```ts
 const first = this.At;
-let cursor = this.At;
-if (!this.IsText(this.Units[cursor], "class")) {
-  throw new Error("类声明缺少 class 关键字");
-}
-cursor++;
-cursor++;
 let end = -1;
-while (cursor < this.Units.length) {
-  const unit = this.Units[cursor];
-  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
-    end = cursor;
+for (let scan = this.At; scan < this.Units.length; scan++) {
+  const scanned = this.Units[scan];
+  if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{"
+    && TypeBuilder.IsBodyBrace(this.Units, scan)) {
+    end = scan;
     break;
   }
-  cursor++;
+  if (scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
+    break;
+  }
 }
 if (end < 0) {
   throw new Error("类声明缺少类体");
 }
 const hostLike:any = { Data: this.Units, Template: this.Template };
-const shape = ClassDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+const allowAnonymous = this.AllowAnonymousClass;
+this.AllowAnonymousClass = false;
+const shape = allowAnonymous
+  ? ClassDeclarationShape.FromUnitsAllowAnonymous(hostLike, first, end, this.Context)
+  : ClassDeclarationShape.FromUnits(hostLike, first, end, this.Context);
 shape.Pos = this.Positions[first];
+this.AnchorFirstModifier(shape, first);
 this.At = end + 1;
 return shape;
 ```
@@ -428,18 +542,19 @@ return shape;
 ## method BuildInterfaceDeclaration:()=>Token
 
 块 / 被标体位置的 `interface` 声明：交给 `InterfaceDeclarationShape.FromUnits`，体是那个 `{...}` 括号单元。
+起始格可以是修饰词 / 装饰器前缀（`declare interface` / `@dec interface`），由 FromUnits 自己认；
+接口体按 `TypeBuilder.IsBodyBrace` 找。
 
 ```ts
 const first = this.At;
-let cursor = this.At + 2;
 let end = -1;
-while (cursor < this.Units.length) {
-  const unit = this.Units[cursor];
-  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
-    end = cursor;
+for (let scan = this.At; scan < this.Units.length; scan++) {
+  const scanned = this.Units[scan];
+  if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{"
+    && TypeBuilder.IsBodyBrace(this.Units, scan)) {
+    end = scan;
     break;
   }
-  cursor++;
 }
 if (end < 0) {
   throw new Error("接口声明缺少接口体");
@@ -447,25 +562,26 @@ if (end < 0) {
 const hostLike:any = { Data: this.Units, Template: this.Template };
 const shape = InterfaceDeclarationShape.FromUnits(hostLike, first, end, this.Context);
 shape.Pos = this.Positions[first];
+this.AnchorFirstModifier(shape, first);
 this.At = end + 1;
 return shape;
 ```
 
 ## method BuildEnumDeclaration:()=>Token
 
-块 / 被标体位置的 `enum` 声明：交给 `EnumDeclarationShape.FromUnits`。
+块 / 被标体位置的 `enum` 声明：交给 `EnumDeclarationShape.FromUnits`（它接受 `declare` / `const` /
+`export` / 装饰器前缀），体是那个 `{...}` 括号单元。
 
 ```ts
 const first = this.At;
-let cursor = this.At + 2;
 let end = -1;
-while (cursor < this.Units.length) {
-  const unit = this.Units[cursor];
-  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
-    end = cursor;
+for (let scan = this.At; scan < this.Units.length; scan++) {
+  const scanned = this.Units[scan];
+  if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{"
+    && TypeBuilder.IsBodyBrace(this.Units, scan)) {
+    end = scan;
     break;
   }
-  cursor++;
 }
 if (end < 0) {
   throw new Error("枚举声明缺少枚举体");
@@ -473,8 +589,231 @@ if (end < 0) {
 const hostLike:any = { Data: this.Units, Template: this.Template };
 const shape = EnumDeclarationShape.FromUnits(hostLike, first, end, this.Context);
 shape.Pos = this.Positions[first];
+this.AnchorFirstModifier(shape, first);
 this.At = end + 1;
 return shape;
+```
+
+## method BuildModuleDeclaration:()=>Token
+
+块 / 体位置的 `namespace` / `module` / `global` 声明：交给
+`ModuleDeclarationShape.FromUnits(code, positions, context)`——它认装饰器、`export` / `declare`
+修饰词、限定名（`namespace A.B {}`）、字符串名（`module "m" {}`）与 `global` 关键字，并把模块体
+递归交回 `ModuleBlockShape`（体内成员同样走本 builder）。
+
+```ts
+const first = this.At;
+let end = -1;
+for (let scan = this.At; scan < this.Units.length; scan++) {
+  const scanned = this.Units[scan];
+  if (scanned instanceof Bracket && (scanned as Bracket).StartBracketChar === "{"
+    && TypeBuilder.IsBodyBrace(this.Units, scan)) {
+    end = scan;
+    break;
+  }
+  if (scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
+    end = scan;
+    break;
+  }
+}
+if (end < 0) {
+  throw new Error("模块声明缺少模块体");
+}
+const code:Array<Token> = this.Units.slice(this.At, end + 1);
+const positions:Array<number> = this.Positions.slice(this.At, end + 1);
+const shape = ModuleDeclarationShape.FromUnits(code, positions, this.Context);
+this.At = end + 1;
+return shape;
+```
+
+## method BuildExportedStatement:()=>Token
+
+块 / 体里 `export` 修饰的声明：先摘掉 `export`，建被修饰的语句，再把 `ExportKeywordShape`
+插回成员 `Data` 最前（TS 的 children 顺序是修饰词在最前）。与
+`ModuleBlockShape.BuildMember` 对 export 成员的处理同款，`Pos` 回到 `export` 起点。
+
+```ts
+const first = this.At;
+const exportUnit = this.Units[first] as Common;
+this.At++;
+const member = this.BuildStatement();
+const modifier = ExportKeywordShape.FromBasicToken(exportUnit, this.Context);
+modifier.Pos = this.Positions[first];
+member.Data.splice(0, 0, modifier);
+modifier.Parent = member;
+(member as ShapeToken).Pos = this.Positions[first];
+return member;
+```
+
+## method BuildDefaultModifierStatement:()=>Token
+
+`export default` 后面的声明（`class` / `abstract class` / `interface` / `function` / `@dec class`）：
+摘掉 `default`，建声明，把 `DefaultKeywordShape` 插回成员 `Data` 最前。
+`export default class {}` 的匿名类由 `AllowAnonymousClass` 在这条路径上放行。
+
+```ts
+const first = this.At;
+const defaultUnit = this.Units[first] as Common;
+this.At++;
+this.AllowAnonymousClass = true;
+const member = this.BuildStatement();
+this.AllowAnonymousClass = false;
+const modifier = new DefaultKeywordShape(this.Template);
+modifier.SignInToken(defaultUnit);
+modifier.SignOutToken(defaultUnit);
+modifier.Pos = this.Positions[first];
+modifier.TryToClose(this.Context);
+member.Data.splice(0, 0, modifier);
+modifier.Parent = member;
+(member as ShapeToken).Pos = this.Positions[first];
+return member;
+```
+
+## method ScanDecoratedHead:()=>void
+
+从 `this.At` 起的装饰器前缀：逐个 `@` 用 `ExpressionBuilder` 吃掉装饰器表达式（与各声明形状
+`FromUnits` 的 decorator 扫描同口径），把装饰器之后的声明关键字记进 `DecoratedKeyword`
+（不是声明关键字就置空）。只负责分类，不建形状——装饰器本身的形状由被分派到的声明形状建。
+
+```ts
+this.DecoratedKeyword = "";
+let index = this.At;
+while (index < this.Units.length && this.Units[index] instanceof Symbol
+  && (this.Units[index] as Symbol).Is("@")) {
+  const atUnit = this.Units[index];
+  let base = 0;
+  if (atUnit.SourceRange.End !== null) {
+    base = atUnit.SourceRange.End.Index + 1;
+  }
+  const builder = new ExpressionBuilder(this.Template, this.Context);
+  builder.Load(this.Units.slice(index + 1), base);
+  if (builder.Units.length === 0) {
+    return;
+  }
+  builder.ParseExpression();
+  if (builder.At === 0) {
+    return;
+  }
+  index += 1 + builder.At;
+}
+// 装饰器之后还可能有修饰词（`@dec export class C {}`：export 在装饰器后面；`@dec declare class` 同理），
+// 跳过它们再认声明关键字。`abstract` 只有在后面是 `class` 时才算修饰词。
+while (index < this.Units.length && this.Units[index] instanceof Common) {
+  const text = (this.Units[index] as Common).TempToString();
+  if (text === "export" || text === "declare" || text === "default") {
+    index++;
+    continue;
+  }
+  if (text === "abstract") {
+    const after = index + 1 < this.Units.length ? this.Units[index + 1] : null;
+    if (after !== null && this.IsText(after, "class")
+      && StatementScanner.NoLineBreakBetween(this.Units[index], after)) {
+      index++;
+      continue;
+    }
+  }
+  break;
+}
+if (index >= this.Units.length) {
+  return;
+}
+const head = this.Units[index];
+if (head instanceof Common) {
+  this.DecoratedKeyword = (head as Common).TempToString();
+}
+```
+
+## method BuildDecoratedStatement:()=>Token | null
+
+块 / 体里以 `@` 开头的声明：按 `ScanDecoratedHead` 认出的关键字分派到对应声明 builder，
+`this.At` 仍停在第一个 `@` 上（各 `FromUnits` 从 Data 起点重新扫装饰器）。
+不是声明（TS 侧 parse 就非法）时返回 `null`，调用方退回表达式语句兜底。
+
+```ts
+this.ScanDecoratedHead();
+const keyword = this.DecoratedKeyword;
+this.DecoratedKeyword = "";
+if (keyword === "class" || keyword === "abstract") {
+  return this.BuildClassDeclaration();
+}
+if (keyword === "interface") {
+  return this.BuildInterfaceDeclaration();
+}
+if (keyword === "enum") {
+  return this.BuildEnumDeclaration();
+}
+if (keyword === "type") {
+  return this.BuildTypeAliasDeclaration();
+}
+if (keyword === "namespace" || keyword === "module" || keyword === "global") {
+  return this.BuildModuleDeclaration();
+}
+return null;
+```
+
+## method IsModuleDeclarationHead:(text:string)=>bool
+
+`namespace` / `module` / `global` 是不是本位置的模块声明头：`namespace` / `module` 后面必须是
+名字（标识符或字符串），`global` 后面必须是 `{...}` 体。`module.exports` 这类成员访问不算。
+
+```ts
+if (text === "global") {
+  const after = this.Peek(1);
+  return after !== null && after instanceof Bracket && (after as Bracket).StartBracketChar === "{";
+}
+if (text === "namespace" || text === "module") {
+  const after = this.Peek(1);
+  if (after === null) {
+    return false;
+  }
+  return after instanceof Common || after instanceof String;
+}
+return false;
+```
+
+## method IsExportDeclarationHead:()=>bool
+
+`export` 后面跟的是不是声明头（`class` / `interface` / `type` / `enum` / `namespace` / `module` /
+`global` / `function` / `const` / `let` / `var` / `using` / `abstract` / `async` / `declare` /
+`default` / `@`）。模块说明符形态（`export { a }` / `export * from` / `export =`）不在这里处理。
+
+```ts
+const after = this.Peek(1);
+if (after === null) {
+  return false;
+}
+if (after instanceof Symbol && (after as Symbol).Is("@")) {
+  return true;
+}
+if (!(after instanceof Common)) {
+  return false;
+}
+const text = (after as Common).TempToString();
+return text === "class" || text === "interface" || text === "type" || text === "enum"
+  || text === "namespace" || text === "module" || text === "global" || text === "function"
+  || text === "const" || text === "let" || text === "var" || text === "using"
+  || text === "abstract" || text === "async" || text === "declare" || text === "default";
+```
+
+## method IsDefaultDeclarationHead:()=>bool
+
+`default` 后面跟的是不是声明头（`class` / `abstract` / `interface` / `enum` / `function` /
+`async` / `declare` / `@`）。`export default <表达式>` 是 ExportAssignment，不在这里处理。
+
+```ts
+const after = this.Peek(1);
+if (after === null) {
+  return false;
+}
+if (after instanceof Symbol && (after as Symbol).Is("@")) {
+  return true;
+}
+if (!(after instanceof Common)) {
+  return false;
+}
+const text = (after as Common).TempToString();
+return text === "class" || text === "abstract" || text === "interface" || text === "enum"
+  || text === "function" || text === "async" || text === "declare";
 ```
 
 ## method BuildTypeAliasDeclaration:()=>Token
@@ -493,6 +832,7 @@ for (let at = this.At; at < this.Units.length; at++) {
 const hostLike:any = { Data: this.Units, Template: this.Template };
 const shape = TypeAliasDeclarationShape.FromUnits(hostLike, first, end, this.Context);
 shape.Pos = this.Positions[first];
+this.AnchorFirstModifier(shape, first);
 this.At = end + 1;
 return shape;
 ```

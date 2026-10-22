@@ -109,6 +109,12 @@ if (unit instanceof Common) {
   if (text === "await") {
     return true;
   }
+  // `yield` 同理：TS 的 parse 视角下顶层 `yield 1;` 也是合法语句（语义层才报「yield 只能在
+  // generator 里」），语句首放行后 builder 的 ParseYield 能建 YieldExpression。原先它被
+  // `IsStatementWord` 排除 → 根级零候选 → 终结候选兜底崩在「SourceRange.End has been setted」。
+  if (text === "yield") {
+    return true;
+  }
   if ((unit as Common).CanStartNumber()) {
     return true;
   }
