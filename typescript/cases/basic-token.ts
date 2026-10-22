@@ -12,10 +12,10 @@
 // 3. `\uXXXX` 转义标识符（原 2 份 crash：`lexical/lex-unicode-escape-identifier.ts`、`lexical/lx-unicode-ident.ts`）；
 //    已实施——token 层把合法转义并进 Common，IdentifierShape 解码进 EscapedText（原文区间不变）；
 //    另含 `\u{…}` 花括号形（1–6 hex、码点 ≤ 0x10FFFF，round 21–26 收口）。
-// 4. U+FEFF（BOM）作 trivia（原 1 份 crash：`lexical/lex-bom.ts`，BOM 在注释之后的代码行行首）；
-//    已实施方案 (b)：`Bom.CanStart` = index 0 或前面只有 trivia（尚无代码 token）。
-//    corpus reader 逐行 `trim()`、行首 U+FEFF 会被吞掉，所以只能写「行内 / 注释之后行首」形；
-//    mid-code BOM（首个代码 token 之后）仍**有意不支持**，见文件末尾注释。
+// 4. U+FEFF（BOM）作 trivia（原 1 份 crash：`lexical/lex-bom.ts`）；
+//    用户裁定②（方案②「放宽 Bom 起始判据」）：`Bom.CanStart` 只要求字符在 `Template.BomChars` 里，
+//    **任意位置**都认（对齐 TS，U+FEFF 属 ECMAScript Whitespace），mid-code BOM 也已修复。
+//    corpus reader 逐行 `trim()`、行首 U+FEFF 会被吞掉，所以只能写「行内 / 注释之后行首」形。
 // 5. shebang `#!` 作首行 trivia（原 2 份 crash：`lexical/lex-shebang.ts`、`lexical/lx-shebang.ts`）；
 //    已实施 basic token `Shebang`：起点 index 0 或 `Bom.SourceRange.End.Index + 1`，吞到行尾 `\n` 前、不进 AST。
 // 6. `>>` / `>>>` 的 token 层口径：**保持合符号不拆**（`AllowCombineSymbol`），types 侧 `IsSplitClose`、
@@ -126,14 +126,18 @@ const f2 = async () => 1;
 async\nfunction f3() {}
 const async = 1;
 
-// ---- 场景 4：U+FEFF（BOM）作 trivia（已实施方案 (b)：index 0 或前面只有 trivia）----
+// ---- 场景 4：U+FEFF（BOM）作 trivia（用户裁定②：任意位置都认；Bom 起始判据已放宽）----
 // reader 逐行 trim，行首 U+FEFF 会被吞；line0 形在 corpus 里也无法表达，故写「行内 / 注释之后行首」形。
 /* c */﻿const b1 = 1;
 /* c */\n﻿const b2 = 1;
 /* c */﻿﻿const b4 = 1;
-// 有意不支持（不写活跃行）：mid-code BOM —— `const b = 1;﻿const c = 2;`（首个代码 token 之后）仍 crash；
-// BOM+shebang 的 `﻿#!…` 本仓有意接受为超集，但 TS 6.0.3 报 2 条诊断、且 reader trim 行首 BOM，故只记录。
-
+// 用户裁定②（已修复）：mid-code BOM（首个代码 token 之后）按 trivia 跳过，AST 与 TS 一致
+const b5 = 1;﻿const b6 = 2;
+function﻿bf() {}
+const b7 = [1,﻿2];
+const﻿b8 = 3;
+// 仍只记录的边界：BOM+shebang 的「﻿#!…」本仓有意接受为超集，但 TS 6.0.3 报 2 条诊断、
+// 且 reader trim 行首 BOM，故不写活跃行。
 // ---- 场景 5：shebang `#!` 作首行 trivia（已实施 Shebang basic token；index 0 或 BOM.End+1）----
 #!/usr/bin/env node\nconst sb1 = 1;
 #!/usr/bin/env node\nlet sb2 = 1;
