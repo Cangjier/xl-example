@@ -102,7 +102,65 @@
       ]
     },
     {
-      "src": "class C3 { readonly [k: symbol]: string }",
+      "src": "class C3 { static readonly [k: string]: number; }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C3"
+            },
+            {
+              "kind": "IndexSignature",
+              "pos": 10,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 10,
+                  "end": 17
+                },
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 17,
+                  "end": 26
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 28,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 29,
+                      "text": "k"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 30,
+                      "end": 37
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 39,
+                  "end": 46
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C4 { readonly [k: symbol]: string }",
       "ast": [
         {
           "kind": "ClassDeclaration",
@@ -113,7 +171,7 @@
               "kind": "Identifier",
               "pos": 5,
               "end": 8,
-              "text": "C3"
+              "text": "C4"
             },
             {
               "kind": "IndexSignature",
@@ -155,7 +213,206 @@
       ]
     },
     {
-      "src": "class C4 { readonly() {} }",
+      "src": "interface I3 { readonly\n[k: string]: number }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "I3"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 14,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 23,
+                  "text": "readonly"
+                }
+              ]
+            },
+            {
+              "kind": "IndexSignature",
+              "pos": 23,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 25,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 26,
+                      "text": "k"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 27,
+                      "end": 34
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 36,
+                  "end": 43
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C5 { readonly\n[k: string]: number }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C5"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 10,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 19,
+                  "text": "readonly"
+                }
+              ]
+            },
+            {
+              "kind": "IndexSignature",
+              "pos": 19,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 21,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 22,
+                      "text": "k"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 23,
+                      "end": 30
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 32,
+                  "end": 39
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I4 { readonly\n[Symbol.iterator](): T }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "I4"
+            },
+            {
+              "kind": "PropertySignature",
+              "pos": 14,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 23,
+                  "text": "readonly"
+                }
+              ]
+            },
+            {
+              "kind": "MethodSignature",
+              "pos": 23,
+              "end": 46,
+              "children": [
+                {
+                  "kind": "ComputedPropertyName",
+                  "pos": 23,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "PropertyAccessExpression",
+                      "pos": 25,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 31,
+                          "text": "Symbol"
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 40,
+                          "text": "iterator"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 44,
+                  "end": 46,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 44,
+                      "end": 46,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C6 { readonly() {} }",
       "ast": [
         {
           "kind": "ClassDeclaration",
@@ -166,7 +423,7 @@
               "kind": "Identifier",
               "pos": 5,
               "end": 8,
-              "text": "C4"
+              "text": "C6"
             },
             {
               "kind": "MethodDeclaration",
@@ -191,7 +448,7 @@
       ]
     },
     {
-      "src": "class C5 { static readonly() {} }",
+      "src": "class C7 { static readonly() {} }",
       "ast": [
         {
           "kind": "ClassDeclaration",
@@ -202,7 +459,7 @@
               "kind": "Identifier",
               "pos": 5,
               "end": 8,
-              "text": "C5"
+              "text": "C7"
             },
             {
               "kind": "MethodDeclaration",
@@ -232,73 +489,540 @@
       ]
     },
     {
-      "src": "class C6 { public static readonly a = 1; private m() { } }",
+      "src": "class C8 { readonly: number }",
       "ast": [
         {
           "kind": "ClassDeclaration",
           "pos": 0,
-          "end": 58,
+          "end": 29,
           "children": [
             {
               "kind": "Identifier",
               "pos": 5,
               "end": 8,
-              "text": "C6"
+              "text": "C8"
             },
             {
               "kind": "PropertyDeclaration",
               "pos": 10,
-              "end": 40,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 19,
+                  "text": "readonly"
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 20,
+                  "end": 27
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C9 { readonly = 1 }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "C9"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 19,
+                  "text": "readonly"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 21,
+                  "end": 23,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C10 { public readonly = 1 }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C10"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 31,
               "children": [
                 {
                   "kind": "PublicKeyword",
-                  "pos": 10,
-                  "end": 17
-                },
-                {
-                  "kind": "StaticKeyword",
-                  "pos": 17,
-                  "end": 24
-                },
-                {
-                  "kind": "ReadonlyKeyword",
-                  "pos": 24,
-                  "end": 33
+                  "pos": 11,
+                  "end": 18
                 },
                 {
                   "kind": "Identifier",
-                  "pos": 33,
-                  "end": 35,
+                  "pos": 18,
+                  "end": 27,
+                  "text": "readonly"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 29,
+                  "end": 31,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C11 { public static readonly a = 1; private m() { } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C11"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 11,
+                  "end": 18
+                },
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 18,
+                  "end": 25
+                },
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 25,
+                  "end": 34
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
                   "text": "a"
                 },
                 {
                   "kind": "NumericLiteral",
-                  "pos": 37,
-                  "end": 39,
+                  "pos": 38,
+                  "end": 40,
                   "text": "1"
                 }
               ]
             },
             {
               "kind": "MethodDeclaration",
-              "pos": 40,
-              "end": 56,
+              "pos": 41,
+              "end": 57,
               "children": [
                 {
                   "kind": "PrivateKeyword",
-                  "pos": 40,
-                  "end": 48
+                  "pos": 41,
+                  "end": 49
                 },
                 {
                   "kind": "Identifier",
-                  "pos": 48,
-                  "end": 50,
+                  "pos": 49,
+                  "end": 51,
                   "text": "m"
                 },
                 {
                   "kind": "Block",
-                  "pos": 52,
-                  "end": 56
+                  "pos": 53,
+                  "end": 57
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C12 { public static readonly a = 1; private\nm() { } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 59,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C12"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 11,
+                  "end": 18
+                },
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 18,
+                  "end": 25
+                },
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 25,
+                  "end": 34
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 41,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 41,
+                  "end": 49,
+                  "text": "private"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 49,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 49,
+                  "end": 51,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 53,
+                  "end": 57
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C13 { public /*x\ny*/ m() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C13"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 18,
+                  "text": "public"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 18,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 28,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 30,
+                  "end": 33
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C14 { public static readonly a = 1; private //c\nm() { } }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 63,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C14"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 41,
+              "children": [
+                {
+                  "kind": "PublicKeyword",
+                  "pos": 11,
+                  "end": 18
+                },
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 18,
+                  "end": 25
+                },
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 25,
+                  "end": 34
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "1"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 41,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 41,
+                  "end": 49,
+                  "text": "private"
+                }
+              ]
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 49,
+              "end": 61,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 49,
+                  "end": 55,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 57,
+                  "end": 61
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C15 { public\nstatic readonly a = 1 }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C15"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 18,
+                  "text": "public"
+                }
+              ]
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 18,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 18,
+                  "end": 25
+                },
+                {
+                  "kind": "ReadonlyKeyword",
+                  "pos": 25,
+                  "end": 34
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 36,
+                  "text": "a"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 38,
+                  "end": 40,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C21 { static\nm() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C21"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 11,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 11,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 25
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C22 { get\nfoo() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C22"
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 11,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 19,
+                  "text": "foo"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 21,
+                  "end": 24
                 }
               ]
             }
@@ -368,6 +1092,262 @@
               "kind": "ModuleBlock",
               "pos": 18,
               "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare\nclass B {}",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 7,
+              "text": "declare"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 7,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 13,
+              "end": 15,
+              "text": "B"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async\nfunction f() { await g(); }",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "async"
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 5,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 20,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "AwaitExpression",
+                      "pos": 20,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 26,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 28,
+                              "text": "g"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const ga = <T>(x: T): T => x;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "ga"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 10,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "TypeParameter",
+                          "pos": 12,
+                          "end": 13,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 12,
+                              "end": 13,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Parameter",
+                          "pos": 15,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 16,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 17,
+                              "end": 19,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 17,
+                                  "end": 19,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 23,
+                          "end": 26
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 26,
+                          "end": 28,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I5 extends { a: 1 } { }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "I5"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 12,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 20,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 20,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "PropertyAssignment",
+                          "pos": 22,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 22,
+                              "end": 24,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 25,
+                              "end": 27,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -731,6 +1711,226 @@
       ]
     },
     {
+      "src": "class C16 { a?() {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C16"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 11,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 13,
+                  "end": 14
+                },
+                {
+                  "kind": "Block",
+                  "pos": 16,
+                  "end": 19
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C17 { a?(): void }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C17"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 11,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 13,
+                  "end": 14
+                },
+                {
+                  "kind": "VoidKeyword",
+                  "pos": 17,
+                  "end": 22
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C18 { a?(); }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C18"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 11,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 13,
+                  "end": 14
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C19 { m?() }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C19"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 11,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "m"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 13,
+                  "end": 14
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C20 { trace?: (s: string) => void }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "C20"
+            },
+            {
+              "kind": "PropertyDeclaration",
+              "pos": 11,
+              "end": 39,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 17,
+                  "text": "trace"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 17,
+                  "end": 18
+                },
+                {
+                  "kind": "FunctionType",
+                  "pos": 19,
+                  "end": 39,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 21,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 22,
+                          "text": "s"
+                        },
+                        {
+                          "kind": "StringKeyword",
+                          "pos": 23,
+                          "end": 30
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 34,
+                      "end": 39
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "type T4 = { (a: string) };",
       "ast": [
         {
@@ -771,6 +1971,49 @@
                           "end": 22
                         }
                       ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I6 { (a: string) }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "I6"
+            },
+            {
+              "kind": "CallSignature",
+              "pos": 14,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 16,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 17,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "StringKeyword",
+                      "pos": 18,
+                      "end": 25
                     }
                   ]
                 }
@@ -930,7 +2173,225 @@
       ]
     },
     {
-      "src": "type T6 = { [K in keyof U]:U; [X]: A };",
+      "src": "type T6 = [name: D?];",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "T6"
+            },
+            {
+              "kind": "TupleType",
+              "pos": 9,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "NamedTupleMember",
+                  "pos": 11,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 15,
+                      "text": "name"
+                    },
+                    {
+                      "kind": "OptionalType",
+                      "pos": 16,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 16,
+                          "end": 18,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 16,
+                              "end": 18,
+                              "text": "D"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const e1 = new Map<string, number>();",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "e1"
+                    },
+                    {
+                      "kind": "NewExpression",
+                      "pos": 10,
+                      "end": 36,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 18,
+                          "text": "Map"
+                        },
+                        {
+                          "kind": "StringKeyword",
+                          "pos": 19,
+                          "end": 25
+                        },
+                        {
+                          "kind": "NumberKeyword",
+                          "pos": 26,
+                          "end": 33
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const e2 = obj.m<string, number>(x);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "e2"
+                    },
+                    {
+                      "kind": "CallExpression",
+                      "pos": 10,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "PropertyAccessExpression",
+                          "pos": 10,
+                          "end": 16,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 10,
+                              "end": 14,
+                              "text": "obj"
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 16,
+                              "text": "m"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "StringKeyword",
+                          "pos": 17,
+                          "end": 23
+                        },
+                        {
+                          "kind": "NumberKeyword",
+                          "pos": 24,
+                          "end": 31
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 34,
+                          "text": "x"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "async(1);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 9,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 5,
+                  "text": "async"
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 6,
+                  "end": 7,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T7 = { [K in keyof U]:U; [X]: A };",
       "ast": [
         {
           "kind": "TypeAliasDeclaration",
@@ -941,7 +2402,7 @@
               "kind": "Identifier",
               "pos": 4,
               "end": 7,
-              "text": "T6"
+              "text": "T7"
             },
             {
               "kind": "MappedType",
@@ -1034,7 +2495,7 @@
       ]
     },
     {
-      "src": "type T7 = { [K in keyof U as `k${K}`]:U\n[K] };",
+      "src": "type T8 = { [K in keyof U as `k${K}`]:U\n[K] };",
       "ast": [
         {
           "kind": "TypeAliasDeclaration",
@@ -1045,7 +2506,7 @@
               "kind": "Identifier",
               "pos": 4,
               "end": 7,
-              "text": "T7"
+              "text": "T8"
             },
             {
               "kind": "MappedType",
@@ -1164,7 +2625,7 @@
       ]
     },
     {
-      "src": "type T8 = { [K in keyof U]:U\n[] };",
+      "src": "type T9 = { [K in keyof U]:U\n[] };",
       "ast": [
         {
           "kind": "TypeAliasDeclaration",
@@ -1175,7 +2636,7 @@
               "kind": "Identifier",
               "pos": 4,
               "end": 7,
-              "text": "T8"
+              "text": "T9"
             },
             {
               "kind": "MappedType",
@@ -1240,12 +2701,193 @@
       ]
     },
     {
-      "src": "type N1 = A extends B ? C extends D ? infer E extends F ? G : H : I : J;",
+      "src": "type T10 = { [K in keyof U as\n`k${K}`]:U };",
       "ast": [
         {
           "kind": "TypeAliasDeclaration",
           "pos": 0,
-          "end": 72,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 8,
+              "text": "T10"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 10,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 14,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 18,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 24,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TemplateLiteralType",
+                  "pos": 29,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "TemplateHead",
+                      "pos": 29,
+                      "end": 34,
+                      "text": "k"
+                    },
+                    {
+                      "kind": "TemplateLiteralTypeSpan",
+                      "pos": 34,
+                      "end": 37,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 34,
+                          "end": 35,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 34,
+                              "end": 35,
+                              "text": "K"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TemplateTail",
+                          "pos": 35,
+                          "end": 37,
+                          "text": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 39,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 40,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T11 = { [K in keyof U]:\nU };",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 8,
+              "text": "T11"
+            },
+            {
+              "kind": "MappedType",
+              "pos": 10,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "TypeParameter",
+                  "pos": 14,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "K"
+                    },
+                    {
+                      "kind": "TypeOperator",
+                      "pos": 18,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 24,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 24,
+                              "end": 26,
+                              "text": "U"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 28,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "U"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N1 = A extends infer E ? E : never;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 40,
           "children": [
             {
               "kind": "Identifier",
@@ -1256,7 +2898,7 @@
             {
               "kind": "ConditionalType",
               "pos": 9,
-              "end": 71,
+              "end": 39,
               "children": [
                 {
                   "kind": "TypeReference",
@@ -1272,125 +2914,20 @@
                   ]
                 },
                 {
-                  "kind": "TypeReference",
+                  "kind": "InferType",
                   "pos": 19,
-                  "end": 21,
+                  "end": 27,
                   "children": [
                     {
-                      "kind": "Identifier",
-                      "pos": 19,
-                      "end": 21,
-                      "text": "B"
-                    }
-                  ]
-                },
-                {
-                  "kind": "ConditionalType",
-                  "pos": 23,
-                  "end": 67,
-                  "children": [
-                    {
-                      "kind": "TypeReference",
-                      "pos": 23,
-                      "end": 25,
+                      "kind": "TypeParameter",
+                      "pos": 25,
+                      "end": 27,
                       "children": [
                         {
                           "kind": "Identifier",
-                          "pos": 23,
-                          "end": 25,
-                          "text": "C"
-                        }
-                      ]
-                    },
-                    {
-                      "kind": "TypeReference",
-                      "pos": 33,
-                      "end": 35,
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 33,
-                          "end": 35,
-                          "text": "D"
-                        }
-                      ]
-                    },
-                    {
-                      "kind": "ConditionalType",
-                      "pos": 37,
-                      "end": 63,
-                      "children": [
-                        {
-                          "kind": "InferType",
-                          "pos": 37,
-                          "end": 45,
-                          "children": [
-                            {
-                              "kind": "TypeParameter",
-                              "pos": 43,
-                              "end": 45,
-                              "children": [
-                                {
-                                  "kind": "Identifier",
-                                  "pos": 43,
-                                  "end": 45,
-                                  "text": "E"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "kind": "TypeReference",
-                          "pos": 53,
-                          "end": 55,
-                          "children": [
-                            {
-                              "kind": "Identifier",
-                              "pos": 53,
-                              "end": 55,
-                              "text": "F"
-                            }
-                          ]
-                        },
-                        {
-                          "kind": "TypeReference",
-                          "pos": 57,
-                          "end": 59,
-                          "children": [
-                            {
-                              "kind": "Identifier",
-                              "pos": 57,
-                              "end": 59,
-                              "text": "G"
-                            }
-                          ]
-                        },
-                        {
-                          "kind": "TypeReference",
-                          "pos": 61,
-                          "end": 63,
-                          "children": [
-                            {
-                              "kind": "Identifier",
-                              "pos": 61,
-                              "end": 63,
-                              "text": "H"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "kind": "TypeReference",
-                      "pos": 65,
-                      "end": 67,
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 65,
-                          "end": 67,
-                          "text": "I"
+                          "pos": 25,
+                          "end": 27,
+                          "text": "E"
                         }
                       ]
                     }
@@ -1398,16 +2935,21 @@
                 },
                 {
                   "kind": "TypeReference",
-                  "pos": 69,
-                  "end": 71,
+                  "pos": 29,
+                  "end": 31,
                   "children": [
                     {
                       "kind": "Identifier",
-                      "pos": 69,
-                      "end": 71,
-                      "text": "J"
+                      "pos": 29,
+                      "end": 31,
+                      "text": "E"
                     }
                   ]
+                },
+                {
+                  "kind": "NeverKeyword",
+                  "pos": 33,
+                  "end": 39
                 }
               ]
             }
@@ -1727,6 +3269,285 @@
                           "text": "F"
                         }
                       ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N6 = A extends (infer E extends F)[] ? E : never;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 54,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "N6"
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 9,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ArrayType",
+                  "pos": 19,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "ParenthesizedType",
+                      "pos": 19,
+                      "end": 39,
+                      "children": [
+                        {
+                          "kind": "InferType",
+                          "pos": 21,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "TypeParameter",
+                              "pos": 26,
+                              "end": 38,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 26,
+                                  "end": 28,
+                                  "text": "E"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 36,
+                                  "end": 38,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 36,
+                                      "end": 38,
+                                      "text": "F"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 43,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "E"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NeverKeyword",
+                  "pos": 47,
+                  "end": 53
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type N7 = A extends B ? C extends D ? infer E extends F ? G : H : I : J;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 72,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 7,
+              "text": "N7"
+            },
+            {
+              "kind": "ConditionalType",
+              "pos": 9,
+              "end": 71,
+              "children": [
+                {
+                  "kind": "TypeReference",
+                  "pos": 9,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "A"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "B"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ConditionalType",
+                  "pos": 23,
+                  "end": 67,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 23,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "C"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 33,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 33,
+                          "end": 35,
+                          "text": "D"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ConditionalType",
+                      "pos": 37,
+                      "end": 63,
+                      "children": [
+                        {
+                          "kind": "InferType",
+                          "pos": 37,
+                          "end": 45,
+                          "children": [
+                            {
+                              "kind": "TypeParameter",
+                              "pos": 43,
+                              "end": 45,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 43,
+                                  "end": 45,
+                                  "text": "E"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 53,
+                          "end": 55,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 53,
+                              "end": 55,
+                              "text": "F"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 57,
+                          "end": 59,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 57,
+                              "end": 59,
+                              "text": "G"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 61,
+                          "end": 63,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 61,
+                              "end": 63,
+                              "text": "H"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 65,
+                      "end": 67,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 65,
+                          "end": 67,
+                          "text": "I"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 69,
+                  "end": 71,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 69,
+                      "end": 71,
+                      "text": "J"
                     }
                   ]
                 }

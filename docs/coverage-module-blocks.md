@@ -142,9 +142,12 @@ chunk 3 之后，模块体里的这些成员已经全部能与 TS AST 对齐（o
   实现：ModuleBlockShape.BuildMember 新增 namespace / module 分派，直接调 ModuleDeclarationShape.FromUnits
   （传本层非 trivia 单元切片与对应 Positions），内层声明按 TS 的嵌套 ModuleDeclaration 结构建。
 - declare global {} / declare global { interface Window {} }：module-declaration 候选与形状原本已支持，本 chunk 补测量。
-- export as namespace X;：顶层已绿；模块体内的 declare module "m" { export as namespace X; } 新增成员分派——
+- export as namespace X;：顶层已绿；模块体内的 declare module "m" { export as namespace X; } 由成员分派——
   TS 的 NamespaceExportDeclaration children 没有 ExportKeyword，所以该成员由 BuildMember 直接调
   NamespaceExportDeclarationShape.FromUnits（起始格含 export）并跳过修饰词插回。
+  无 `;` 形（declare module "m" { export as namespace X } / namespace N { export as namespace X }）原先
+  只扫 `;`，段末找不到即 CRASH「表达式没有读完」；fix-missing-end 起改为「名字单元即段末 + 零宽合成 `;`」
+  （与 import= / 类型别名 / 顶层 source-file-end 同款），三条已转为 missing-end.ts 活跃用例。
 - declare module "m"; 无体 ambient module：候选 Scan 增加「declare + module + 字符串名 + 分号」到齐分支；
   ModuleDeclarationShape.FromUnits 支持无体形态（children 只有修饰词 + 名字，区间到分号为止）。
 - 模块体内 import x = require("n"); / export import x = require("n");：BuildMember 新增 import-equals 分派，
