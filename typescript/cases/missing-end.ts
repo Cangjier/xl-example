@@ -101,14 +101,36 @@ declare module "m"\n\nclass C {}
 declare module "m"\nclass C {} // c
 declare module "m";\nclass C {}
 
-// 未收口 backlog（探针复现 5 条，TS parseDiagnostics=0；本块不改 import 声明候选的 ASI 通道）：
-//   import "m"\nimport "n"                 ← 崩溃：CatalogGuide: 终结候选与其它候选同时成立（宿主 ImportDeclarationShape，下标 4）
-//   import "m"\nimport x from "n"          ← 同上
-//   import "m"\nimport * as ns from "n"    ← 同上
-//   import "m"\nimport { a } from "n"      ← 同上
-//   import "m"\nimport type { T } from "n" ← 同上
-//   对照（全绿）：import "m"\nclass C {} / import x from "m"\nimport "n" / import "m";\nimport "n";
-//   根因方向：typescript/tokens/declarations/import-declaration-possible-shape.xl.md : ComputeByIndex（Stage 1）
-//   对副作用导入的模块说明符 String 只 continue，候选在 ASI 边界仍 Uncertain；壳 ImportDeclarationShape 的
-//   终结候选（ImportDeclarationEndPossibleShape.ComputeByIndex）Accept 时普通候选未 Reject → core CatalogGuide
-//   抛共存。修法需让副作用导入在说明符处 Accept/建壳或让宿主候选在该格 Reject，属 import 声明流水线，本块不动。
+// ── A 组：副作用 import 的 ASI 收口（本块修复） ──
+// 根因：typescript/tokens/declarations/import-clause-possible-shape.xl.md : ImportClausePossibleShape.ComputeByIndex
+//   （line 116 起）在「前一个代码单元是已关闭的 StringLiteralShape（模块说明符）」且当前是下一条
+//   `import` 时把 import 当续接词 → 返回 Uncertain；壳 ImportDeclarationShape 的终结候选
+//   （ImportDeclarationEndPossibleShape.ComputeByIndex，line 64 起）在同一个 ASI 格 Accept →
+//   core CatalogGuide 抛「终结候选与其它候选同时成立（宿主 ImportDeclarationShape）」。副作用导入没有
+//   ImportClause，该候选在 ASI 边界必须 Reject（只认 prev=StringLiteralShape && tail=import）。
+// 何时 build：副作用 import 已收模块说明符，换行后下一条语句以 `import` 开头（ASI 边界那一格）。
+// build 提取：本候选不建任何节点，只退出候选集；由终结候选收口本条 import。
+// 何时 close：终结候选在同一格 Accept 后，BuildByIndex 的 ASI 支路把边界单元还给父单元并关闭壳。
+// close 提取：最后一个代码单元（模块说明符字符串）的 SourceRange.End。
+import "m"\nimport "n"
+import "m"\nimport x from "n"
+import "m"\nimport * as ns from "n"
+import "m"\nimport { a } from "n"
+import "m"\nimport type { T } from "n"
+import "m"\n\nimport "n"
+import "m" // c\nimport "n"
+import "m"\nimport "n"\nclass C {}
+import "m"\nimport "n"\nimport "o"
+import "m"\nclass C {}
+import x from "m"\nimport "n"
+import "m";\nimport "n";
+
+// 未收口 backlog：
+//   B（空声明语句，探针 68 red：diff 35 / crash 10）：
+//     `const` / `var` 单独成句（无 `;`，EOF / 换行前）TS 是空 VariableDeclarationList 的 VariableStatement，
+//     本仓落 ExpressionStatement(Identifier)；`let;` TS 是 ExpressionStatement 而本仓是 VariableStatement；
+//     `export const` / `export var` 单独成句崩溃「表达式语句没有读完」（source-file-end BuildTrailingDeclaration
+//     的 isExportVariable 要求 code.length>=3，两格形落空）。归 variable-statement 族 / 末轮兜底，本块未动。
+//   D/E（TS oracle 确认，不入尺子）：`export { a } from "m"\nwith { … }` → TS parseDiagnostics '(' expected；
+//     `import x from "m"\nassert { … }` → Unknown keyword or identifier（TS 6.0.3 只认 with，且换行后已 ASI）。
+//     全部 TS 非法，写注释 backlog，不建用例。
