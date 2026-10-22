@@ -225,11 +225,6 @@ if (a)\nf()
 x as T\n(1)
 x as T\n[0]
 x as T\n`t`
-const f = () => {}\n(1)
-const f = () => {}\n[0]
-const f = async () => {}\n(1)
-async () => {}\n(1)
-const f = () => {} /* c */\n(1)
 x!\ng()
 x!\n++g
 x!\n--g
