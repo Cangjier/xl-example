@@ -1317,8 +1317,11 @@ while (inner.At < inner.Units.length) {
   let asteriskUnit:Token | null = null;
   const firstUnit = inner.Units[memberIndex];
   const afterFirst = memberIndex + 1 < inner.Units.length ? inner.Units[memberIndex + 1] : null;
+  // 成员名也可以是字面量（`{ get "s"() {} }` / `{ set "a-b"(v) {} }`）：TS 里访问器的 name 是
+  // StringLiteral。旧口径只认 Common 与 computed `[`，于是 `get` 被当成简写属性、`"s"()` 又被建成
+  // 独立的 MethodDeclaration，访问器一项变成两项。
   const looksLikeMemberName = afterFirst !== null
-    && (afterFirst instanceof Common || inner.IsBracketStart(afterFirst, "["));
+    && (afterFirst instanceof Common || afterFirst instanceof String || inner.IsBracketStart(afterFirst, "["));
   const asyncFollowedByGenerator = afterFirst !== null && inner.IsText(afterFirst, "*");
   if (inner.IsText(firstUnit, "async") && (looksLikeMemberName || asyncFollowedByGenerator)) {
     asyncUnit = firstUnit;

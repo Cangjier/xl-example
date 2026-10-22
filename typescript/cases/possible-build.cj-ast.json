@@ -5964,6 +5964,819 @@
           ]
         }
       ]
+    },
+    {
+      "src": "class Cdef1 { m(a = 1) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Cdef1"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 13,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 16,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 17,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 22,
+                  "end": 25
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Cdef2 { m(a: T = 1) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Cdef2"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 13,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 16,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 17,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 18,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "T"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 25,
+                  "end": 28
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Cdef3 { constructor(a = 1) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Cdef3"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 13,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 26,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 27,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 32,
+                  "end": 35
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Cdef4 { set x(v = 1) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Cdef4"
+            },
+            {
+              "kind": "SetAccessor",
+              "pos": 13,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "x"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 20,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 21,
+                      "text": "v"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 26,
+                  "end": 29
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Cdef5 { static m(a = 1) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Cdef5"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 13,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "StaticKeyword",
+                  "pos": 13,
+                  "end": 20
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 22,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 23,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 24,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const odef1 = { m(a = 1) {} }",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 11,
+                      "text": "odef1"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 13,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "MethodDeclaration",
+                          "pos": 15,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 17,
+                              "text": "m"
+                            },
+                            {
+                              "kind": "Parameter",
+                              "pos": 18,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 18,
+                                  "end": 19,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 21,
+                                  "end": 23,
+                                  "text": "1"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Block",
+                              "pos": 24,
+                              "end": 27
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const odef2 = { m(a: T = 1) {} }",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 11,
+                      "text": "odef2"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 13,
+                      "end": 32,
+                      "children": [
+                        {
+                          "kind": "MethodDeclaration",
+                          "pos": 15,
+                          "end": 30,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 15,
+                              "end": 17,
+                              "text": "m"
+                            },
+                            {
+                              "kind": "Parameter",
+                              "pos": 18,
+                              "end": 26,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 18,
+                                  "end": 19,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 20,
+                                  "end": 22,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 20,
+                                      "end": 22,
+                                      "text": "T"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "NumericLiteral",
+                                  "pos": 24,
+                                  "end": 26,
+                                  "text": "1"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Block",
+                              "pos": 27,
+                              "end": 30
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const oacc1 = { get \"s\"() { return 1 } }",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 40,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 40,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 11,
+                      "text": "oacc1"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 13,
+                      "end": 40,
+                      "children": [
+                        {
+                          "kind": "GetAccessor",
+                          "pos": 15,
+                          "end": 38,
+                          "children": [
+                            {
+                              "kind": "StringLiteral",
+                              "pos": 19,
+                              "end": 23,
+                              "text": "s"
+                            },
+                            {
+                              "kind": "Block",
+                              "pos": 25,
+                              "end": 38,
+                              "children": [
+                                {
+                                  "kind": "ReturnStatement",
+                                  "pos": 27,
+                                  "end": 36,
+                                  "children": [
+                                    {
+                                      "kind": "NumericLiteral",
+                                      "pos": 34,
+                                      "end": 36,
+                                      "text": "1"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const oacc2 = { set \"s\"(v) {} }",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 11,
+                      "text": "oacc2"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 13,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "SetAccessor",
+                          "pos": 15,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "StringLiteral",
+                              "pos": 19,
+                              "end": 23,
+                              "text": "s"
+                            },
+                            {
+                              "kind": "Parameter",
+                              "pos": 24,
+                              "end": 25,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 24,
+                                  "end": 25,
+                                  "text": "v"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Block",
+                              "pos": 26,
+                              "end": 29
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const oacc3 = { get \"a-b\"() { return 1 } }",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 42,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 11,
+                      "text": "oacc3"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 13,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "GetAccessor",
+                          "pos": 15,
+                          "end": 40,
+                          "children": [
+                            {
+                              "kind": "StringLiteral",
+                              "pos": 19,
+                              "end": 25,
+                              "text": "a-b"
+                            },
+                            {
+                              "kind": "Block",
+                              "pos": 27,
+                              "end": 40,
+                              "children": [
+                                {
+                                  "kind": "ReturnStatement",
+                                  "pos": 29,
+                                  "end": 38,
+                                  "children": [
+                                    {
+                                      "kind": "NumericLiteral",
+                                      "pos": 36,
+                                      "end": 38,
+                                      "text": "1"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Hnew1 extends new A() {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Hnew1"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "NewExpression",
+                      "pos": 19,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Hidx1 extends b[\"c\"] {}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Hidx1"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 11,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 19,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "ElementAccessExpression",
+                      "pos": 19,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 22,
+                          "end": 25,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface Hidx2 extends b[\"c\"] {}",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 15,
+              "text": "Hidx2"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 15,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 23,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "ElementAccessExpression",
+                      "pos": 23,
+                      "end": 30,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 26,
+                          "end": 29,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

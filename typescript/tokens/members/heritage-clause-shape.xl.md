@@ -102,6 +102,15 @@ while (builder.At < builder.Units.length) {
   // They are parsed with ExpressionBuilder; the plain name + optional `<type args>` form keeps TypeBuilder.
   const headText = builder.TextOf(headUnit);
   let startsWithAccess = headText === "null";
+  // 关键字承载的表达式实体：`class C extends new A() {}` / `extends typeof x`。
+  // 把它们当「名字 + 可选泛型实参」走 TypeBuilder 会把 `new` 名字与 `A()` 切成两个
+  // ExpressionWithTypeArguments（TS 只有一个，expression 是 NewExpression）。
+  if (
+    headText === "new" || headText === "typeof" || headText === "void" ||
+    headText === "await" || headText === "yield" || headText === "delete"
+  ) {
+    startsWithAccess = true;
+  }
   // 实体名那一格是模板串（`` `a${X}b` `` / `` tag`t` ``）时整段交给 ExpressionBuilder：
   // 名字后紧跟的 String 基本 token 属于 tagged template 的模板部分，不是「下一个类型项」。
   if (!(headUnit instanceof Common) && !(headUnit instanceof Symbol) && !(headUnit instanceof Bracket)) {
@@ -112,6 +121,12 @@ while (builder.At < builder.Units.length) {
       startsWithAccess = true;
     }
     if (secondUnit instanceof Bracket && (secondUnit as Bracket).StartBracketChar === "(") {
+      startsWithAccess = true;
+    }
+    if (secondUnit instanceof Bracket && (secondUnit as Bracket).StartBracketChar === "[") {
+      // 元素访问 heritage：`class A extends b["c"] {}` → 一个 ExpressionWithTypeArguments
+      // （expression 是 ElementAccessExpression）。旧口径只认 `.` / `(`，于是 `b` 被建成一项、
+      // `["c"]` 又被当成下一项的起点，HeritageClause 下出来 2 个节点。
       startsWithAccess = true;
     }
     if (!(secondUnit instanceof Common) && !(secondUnit instanceof Symbol) && !(secondUnit instanceof Bracket)) {
