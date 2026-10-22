@@ -3,3 +3,10 @@
 # 否则在 Windows 上克隆（core.autocrlf=true）会把每个 *.xl.md 变成 CRLF，
 # 每个检查都会失败。
 * text=auto eol=lf
+# cover6: case fixtures may embed a lone CR (U+000D) as an inline line terminator
+# inside one physical case line. Git's text=auto already treats such files as binary,
+# but pin -text explicitly so the bytes survive commit/checkout on every platform.
+typescript/cases/basic-token.ts -text
+typescript/cases/cover6-*.ts -text
+typescript/cases/*-cr*.ts -text
+tests/cases/token/lexical/*-cr*.ts -text
