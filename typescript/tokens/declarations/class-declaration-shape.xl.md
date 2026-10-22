@@ -98,6 +98,44 @@ return ClassDeclarationShape.BuildFromUnits(host, start, tokenIndex, context, fa
 return ClassDeclarationShape.BuildFromUnits(host, start, tokenIndex, context, true);
 ```
 
+## static method HasNoName:(units:Array<Token>, start:int, end:int)=>bool
+
+`start` / `end` 是这条类声明的首格与类体 `{...}` 括号在 `units` 里的下标：`class` 关键字后面
+（跳过 trivia）直接是类体括号 / `extends` / `implements` ⇒ 没有名字。TS 对语句位 / 块体位的匿名
+`class {}` 是**静默恢复**（`parseDiagnostics=0`，造无名字 ClassDeclaration），语句建造器与
+`ModuleBlockShape` 用本判据打开 `FromUnitsAllowAnonymous`。
+
+```ts
+let keyword = -1;
+for (let at = start; at < end; at++) {
+  const unit = units[at];
+  if (unit instanceof Common && (unit as Common).Is("class")) {
+    keyword = at;
+    break;
+  }
+}
+if (keyword < 0) {
+  return false;
+}
+let next = keyword + 1;
+while (next < end && units[next].IsTriviaToken) {
+  next++;
+}
+// `next == end` 就是类体括号本身（`class {}`）：同样是没有名字。
+if (next > end || next >= units.length) {
+  return false;
+}
+const candidate = units[next];
+if (candidate instanceof Bracket) {
+  return true;
+}
+if (candidate instanceof Common) {
+  const text = (candidate as Common).TempToString();
+  return text === "extends" || text === "implements";
+}
+return false;
+```
+
 ## private static method BuildFromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, allowAnonymous:bool)=>ClassDeclarationShape
 
 ```ts

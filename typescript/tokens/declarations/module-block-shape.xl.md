@@ -551,7 +551,11 @@ if (special !== null) {
   const dataStart = bracket.Data.indexOf(unit as Token);
   const dataEnd = bracket.Data.indexOf(inner.Units[bodyInner]);
   if (keyword === "class") {
-    member = ClassDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+    // TS 的静默恢复：`namespace N { class {} }` 的 parseDiagnostics=0，AST 是无名字 ClassDeclaration
+    // （cover9 用户裁定追恢复 AST）；与语句建造器共用 ClassDeclarationShape.HasNoName 判据。
+    member = ClassDeclarationShape.HasNoName(bracket.Data, dataStart, dataEnd)
+      ? ClassDeclarationShape.FromUnitsAllowAnonymous(bracket, dataStart, dataEnd, context)
+      : ClassDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
   } else if (keyword === "interface") {
     member = InterfaceDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
   } else if (keyword === "enum" || constEnumMember) {
