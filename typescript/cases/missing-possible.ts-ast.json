@@ -6766,6 +6766,1475 @@
           ]
         }
       ]
+    },
+    {
+      "src": "{ @dec\n  const x = 1;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 14,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @dec\n  let x = 1;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 12,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 14,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @dec\n  var x = 1;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 12,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 14,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @dec\n  const x = 1, y = 2;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 14,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "1"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 21,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 21,
+                          "end": 23,
+                          "text": "y"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @dec const x = 1; }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 12,
+                      "end": 18,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 14,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ /* c */ @dec\n  const x = 1;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 31,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 14,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 11,
+                      "end": 14,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 14,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 22,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 26,
+                          "end": 28,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @dec /*c*/\n  const x = 1;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 20,
+                      "end": 26,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 22,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 24,
+                          "end": 26,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @a @b\n  const x = 1;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 4,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 4,
+                      "text": "a"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Decorator",
+                  "pos": 4,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 7,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 7,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 15,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @dec\n  const a = 1;\n  const b = 2;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 14,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "VariableStatement",
+              "pos": 21,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 21,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 29,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "b"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 33,
+                          "end": 35,
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ @dec\n  const x = 1;\n  let y = 2;\n}",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "VariableStatement",
+              "pos": 1,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Decorator",
+                  "pos": 1,
+                  "end": 6,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 6,
+                      "text": "dec"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 6,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 14,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "x"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "VariableStatement",
+              "pos": 21,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "VariableDeclarationList",
+                  "pos": 21,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "VariableDeclaration",
+                      "pos": 27,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "y"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 31,
+                          "end": 33,
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec\nconst x = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 4,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec const x = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 4,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec('x')\nconst x = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "CallExpression",
+                  "pos": 1,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 1,
+                      "end": 4,
+                      "text": "dec"
+                    },
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "x"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 9,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 15,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 15,
+                      "end": 17,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@a @b.c\nconst x = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 2,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 2,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 2,
+              "end": 7,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 4,
+                  "end": 7,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 7,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 7,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 13,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "@dec\nconst x = 1;\nconst y = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 0,
+              "end": 4,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 4,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 4,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 17,
+          "end": 30,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 17,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 23,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\nglobal {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 27,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 34,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 34,
+              "end": 37
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\nglobal { const x = 1 }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 27,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 34,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 34,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 36,
+                  "end": 48,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 36,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 42,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 42,
+                              "end": 44,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 46,
+                              "end": 48,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\nglobal {\n  const x = 1;\n}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 27,
+          "end": 53,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 34,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 34,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 36,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 36,
+                      "end": 50,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 44,
+                          "end": 50,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 44,
+                              "end": 46,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 48,
+                              "end": 50,
+                              "text": "1"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n\nglobal {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 27,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 35,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 35,
+              "end": 38
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n/* c */ global {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 27,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 42,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 42,
+              "end": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\nglobal { const x = 1, y = 2 }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 27,
+          "end": 57,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 34,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 34,
+              "end": 57,
+              "children": [
+                {
+                  "kind": "VariableStatement",
+                  "pos": 36,
+                  "end": 55,
+                  "children": [
+                    {
+                      "kind": "VariableDeclarationList",
+                      "pos": 36,
+                      "end": 55,
+                      "children": [
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 42,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 42,
+                              "end": 44,
+                              "text": "x"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 46,
+                              "end": 48,
+                              "text": "1"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "VariableDeclaration",
+                          "pos": 49,
+                          "end": 55,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 49,
+                              "end": 51,
+                              "text": "y"
+                            },
+                            {
+                              "kind": "NumericLiteral",
+                              "pos": 53,
+                              "end": 55,
+                              "text": "2"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\nglobal {}\nglobal {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 27,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 34,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 34,
+              "end": 37
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 37,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 37,
+              "end": 44,
+              "text": "global"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 44,
+              "end": 47
+            }
+          ]
+        }
+      ]
     }
   ]
 }

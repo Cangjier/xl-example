@@ -445,6 +445,73 @@ if (firstCodeText === "do") {
   doStatement.Parent = host;
   return true;
 }
+// 装饰器开头的变量语句（`@dec\nconst x = 1;`）：段首 `@` 不是 Common，下面按字面量的分支会漏掉；
+// 多语句分界又会把 `@dec` 与 `const` 切开（前缀 `@dec` 单独不是一条语句，会落进表达式兜底报
+// 「不支持的表达式起点」）。TS 的 VariableStatement children 是 Decorator(s) + VariableDeclarationList，
+// 装饰器前缀允许跨行，所以这里先用 `StatementBuilder.ScanDecoratedHead` 认出声明词——**只接变量关键字**
+// （class / interface / enum / function / namespace 等装饰器声明头仍走各自的既有分支与候选，
+// 避免与装饰器声明头判据抢归属）。认出变量关键字后，`this.At` 仍停在第一个 `@`，整条交给
+// `StatementBuilder.BuildStatement`（`BuildDecoratedStatement` → `BuildDecoratedVariableStatement`）。
+if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
+  let decoratedPos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        decoratedPos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const decoratedBuilder = new StatementBuilder(host.Template, context);
+  decoratedBuilder.Load(host.Data.slice(start, at + 1), decoratedPos);
+  let decoratedKeyword = "";
+  try {
+    decoratedBuilder.ScanDecoratedHead();
+    decoratedKeyword = decoratedBuilder.DecoratedKeyword;
+    decoratedBuilder.DecoratedKeyword = "";
+  } catch (error) {
+    decoratedKeyword = "";
+  }
+  if (decoratedKeyword === "const" || decoratedKeyword === "let" || decoratedKeyword === "var") {
+    let decoratedStatement:Token | null = null;
+    try {
+      decoratedStatement = decoratedBuilder.BuildStatement();
+    } catch (error) {
+      decoratedStatement = null;
+    }
+    if (decoratedStatement !== null) {
+      const decoratedEnd = decoratedStatement.SourceRange.End;
+      let consumed = 0;
+      if (decoratedEnd === null) {
+        consumed = at - start + 1;
+      } else {
+        while (start + consumed <= at) {
+          const unitStart = host.Data[start + consumed].SourceRange.Start;
+          if (unitStart !== null && unitStart.Index > decoratedEnd.Index) {
+            break;
+          }
+          consumed++;
+        }
+      }
+      if (consumed > 0) {
+        host.Data.splice(start, consumed, decoratedStatement);
+        decoratedStatement.Parent = host;
+        // 后面还有语句（`@dec\nconst x = 1;` ⏎ `const y = 2;`）：剩余单元按段继续收口。
+        const decoratedLimit = at - (consumed - 1);
+        let decoratedNext = start + 1;
+        while (decoratedNext <= decoratedLimit
+          && (host.Data[decoratedNext].IsTriviaToken || !host.Data[decoratedNext].IsBasicToken)) {
+          decoratedNext++;
+        }
+        if (decoratedNext <= decoratedLimit) {
+          SourceFileEndPossibleShape.BuildStatementSegments(host, decoratedNext, decoratedLimit, context);
+        }
+        return true;
+      }
+    }
+  }
+}
 // 多条声明连排：最后一条的起点 = 最后一个「换行之后出现的声明起点」。
 let boundary = -1;
 // 装饰器声明头：段首就是 `@` 时，整段是「装饰器前缀（可跨行、可多个）+ 修饰词 + 声明词」的

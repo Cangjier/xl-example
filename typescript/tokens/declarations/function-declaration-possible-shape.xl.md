@@ -11,6 +11,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
+import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
@@ -437,13 +438,34 @@ if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
 }
 const splitAt = state === null ? -1 : state.SplitAt;
 if (state !== null && splitAt > start && splitAt <= tokenIndex) {
-  // 被 ASI 截断：声明建到截断点前一个代码单元，剩余单元作为兄弟 ExpressionStatement 建出。
+  // 被 ASI 截断：声明建到截断点前一个代码单元，剩余单元作为兄弟语句建出。
   let declarationEnd = splitAt - 1;
   while (declarationEnd >= start && host.Data[declarationEnd].IsTriviaToken) {
     declarationEnd--;
   }
   const declaration = FunctionDeclarationShape.FromUnits(host, start, declarationEnd, context, true);
-  const trailing = ExpressionStatementShape.FromUnits(host, splitAt, tokenIndex, context, true);
+  // 截断点之后的尾巴不一定是表达式语句：`declare function gf(): void` ⏎ `global {}` 的尾巴是
+  // ModuleDeclaration 的 global 关键字形（TS 同款：ModuleDeclaration > Identifier + ModuleBlock）。
+  // 交给 `StatementBuilder` 的语句分派建；其它形态仍按表达式语句建（不扩大改动面）。
+  const trailingHead = host.Data[splitAt];
+  let trailing:Token;
+  if (trailingHead instanceof Common && (trailingHead as Common).Is("global")) {
+    let trailingPos = 0;
+    for (let at = splitAt - 1; at >= 0; at--) {
+      if (!host.Data[at].IsTriviaToken) {
+        const previousEnd = host.Data[at].SourceRange.End;
+        if (previousEnd !== null) {
+          trailingPos = previousEnd.Index + 1;
+        }
+        break;
+      }
+    }
+    const trailingBuilder = new StatementBuilder(host.Template, context);
+    trailingBuilder.Load(host.Data.slice(splitAt, tokenIndex + 1), trailingPos);
+    trailing = trailingBuilder.BuildStatement();
+  } else {
+    trailing = ExpressionStatementShape.FromUnits(host, splitAt, tokenIndex, context, true);
+  }
   host.Data.splice(start, tokenIndex - start + 1, declaration, trailing);
   declaration.Parent = host;
   trailing.Parent = host;
