@@ -260,3 +260,57 @@ function f() { return a as T\n<b>c; }
 export const x = a as T\n<b>c;
 export default a as T\n<b>c;
 export = a as T\n<b>c;
+
+// ══ cover9（possible compute）：enum/interface 的 declare 与成员修饰词（readonly/new）的同行判据 ══
+// 缺口（§6「possible compute 不对」）：① `declare` ⏎ `enum E { A }` / `declare` ⏎ `interface I {}`：
+// TS 的 parseModifiers 只认**同一行**的下一个 token，换行时 `declare` 按 ASI 自成 ExpressionStatement、
+// 声明不带 DeclareKeyword；本仓候选 Stage0 见 declare 直接推进，把两条并成一条带 DeclareKeyword 的声明。
+// ② 成员修饰词同理：`readonly` ⏎ `readonly: number`（interface / type literal）时 TS 造两个成员
+//（首个是名字 readonly 的无类型 PropertySignature），本仓把第一个 readonly 当修饰词只造一个；
+// `new` ⏎ `new(): void` 时 TS 造 PropertySignature(name=new) + ConstructSignature，本仓把首个 new
+// 当构造签名 / 构造类型抛「构造类型缺少 =>」。
+// 修复：enum/interface 候选 Stage0 的 declare 改为「挂起 + 到声明词那一格查换行」（与 class 候选同款
+// HasLineBreakBefore 守卫）；type-builder.ParseTypeMember 把 readonly 的换行判据从「只接 `[`」扩到
+// 任意下一格、`new` 在「下一格不是 `(` / `<` 且换行」时按成员名收口。
+// 候选：cover9 survey Z17–Z24（cover9-survey-candidates.json）；TS 侧 parseDiagnostics=0，AST 三栏全一致。
+
+// ── base：`declare` 与 enum / interface 之间换行（TS 两条语句，声明不带 DeclareKeyword） ──
+declare\nenum E { A }
+declare\ninterface I {}
+// 变体：非空接口体（声明体内容不影响判据）
+declare\ninterface I {\n  a: A;\n}
+// trivia 变体：块注释 / 行注释 / 下一行块注释 / 空行
+declare /* c */\nenum E { A }
+declare // c\nenum E { A }
+declare\n/* c */ enum E { A }
+declare\n\nenum E { A }
+// 同族：`declare` ⏎ `const enum`（const enum 声明同样不带 DeclareKeyword）
+declare\nconst enum E { A }
+// 重复形：前面还有一条声明 / 后面还有一条语句（ASI 边界在中间）
+interface I {}\ndeclare\nenum E { A }
+declare\nenum E { A }\nclass C {}
+
+// ── base：`readonly` 与成员名之间换行（readonly 自己是无类型 PropertySignature） ──
+interface I { readonly\nreadonly: number }
+// type literal 同形 / 可选属性 / 方法签名 / 类型本身也用 readonly
+type T = { readonly\nreadonly: number }
+interface I { readonly\nreadonly?: number }
+interface I { readonly\nreadonly(): void }
+interface I { readonly\nreadonly: readonly string[] }
+// trivia 变体：空行 / 词间块注释 / 行注释
+interface I { readonly\n\nreadonly: number }
+interface I { readonly /* c */\nreadonly: number }
+interface I { readonly // c\nreadonly: number }
+// 重复形：后面还有成员
+interface I { readonly\nreadonly: number\nother: string }
+
+// ── base：`new` 与构造签名之间换行（new 自己是 PropertySignature 名，下一行才是 ConstructSignature） ──
+type T = { new\nnew(): void }
+interface I { new\nnew(): void }
+// 变体：带参数 / 返回类型不同
+interface I { new\nnew(a: A): B }
+interface I { new\nnew(): string }
+// trivia 变体：词间块注释
+type T = { new /* c */\nnew(): void }
+// 重复形：后面还有成员
+type T = { new\nnew(): void\nx: number }
