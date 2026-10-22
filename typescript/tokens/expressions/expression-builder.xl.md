@@ -466,15 +466,18 @@ return text === "as" || text === "satisfies";
 
 从当前 `At` 起，把**剩下的单元**交给 `TypeBuilder.ParseType()` 读一个完整类型（调用方保证后面还有单元）。
 `basePos` 取 `Positions[At]`（即 `<` / `as` 之后第一个单元的含前导 trivia 起点），与 TypeBuilder 的 `Pos` 口径一致。
+`TypeBuilder.Load` 会把 `>>` / `>>>` 拆成多格，`builder.At` 是展开后的格数；推进本层 `At` 必须用
+`OriginalConsumed()` 折回原单元数（否则 `a as Array<Array<number>>` 会越过表达式末尾）。
 
 ```ts
 const builder = new TypeBuilder(this.Template, this.Context);
 builder.Load(this.Units.slice(this.At), this.Positions[this.At]);
 const type = builder.ParseType();
-if (builder.At === 0) {
+const consumed = builder.OriginalConsumed();
+if (consumed === 0) {
   throw new Error("缺少类型");
 }
-this.At += builder.At;
+this.At += consumed;
 return type;
 ```
 

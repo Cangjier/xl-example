@@ -245,6 +245,8 @@ return -1;
 ## private static method FollowerAllows:(units:Array<Token>, close:int)=>bool
 
 配对 `>` 之后那一格是不是「类型实参段之后接得上」的东西。
+`[` 也是合法 follower：数组后缀 / 下标访问紧跟配对 `>`（`a as Foo<A, B>[]`、`f<T>[0]`），
+类型实参段在这里就收口；否则声明层的顶层 `,` 扫描会把 `<A, B>` 里的逗号当声明分隔符。
 
 ```ts
 const followerIndex = close + 1;
@@ -266,7 +268,7 @@ if (units[close] !== undefined && !StatementScanner.NoLineBreakBetween(units[clo
 }
 if (follower instanceof Symbol) {
   const text = (follower as Symbol).TempToString();
-  if (text === "(" || text === ";" || text === "," || text === ")" || text === "]"
+  if (text === "(" || text === "[" || text === ";" || text === "," || text === ")" || text === "]"
       || text === "}" || text === "=" || text === "." || text === "!" || text === "?"
       || text === "?:" || text === ":" || text === "=>" || text === "?."
       || text === "??" || text === "||" || text === "&&") {
@@ -275,7 +277,7 @@ if (follower instanceof Symbol) {
   return false;
 }
 if (follower instanceof Bracket) {
-  return (follower as Bracket).StartBracketChar === "(";
+  return (follower as Bracket).StartBracketChar === "(" || (follower as Bracket).StartBracketChar === "[";
 }
 if (follower instanceof Common) {
   const text = (follower as Common).TempToString();

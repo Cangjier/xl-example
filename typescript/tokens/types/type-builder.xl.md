@@ -130,6 +130,8 @@ type T = {};
 
 ## field Positions:Array<int> = []
 
+## field SourceIndexes:Array<int> = []
+
 ## field At:int = 0
 
 ## field Template:Template
@@ -154,13 +156,16 @@ this.Context = context;
 `>>` / `>>>` 这种连续闭合尖括号在基本 token 层是一个 `Symbol`；这里按字符拆成若干个只含一个 `>` 的虚拟符号单元
 （`Document.At` 取那个字符的 `Source`，各占一个字符区间），这样嵌套泛型实参的区间才能与 TS 对齐
 （`A<B<C>>` 的内层 `TypeReference` 结束在第一个 `>`，外层结束在第二个）。
+展开后第 `i` 格来自传入数组的哪一格记在 `SourceIndexes[i]`；`OriginalConsumed()` 用它把 `At` 折回**原单元数**。
 
 ```ts
 this.Units = [];
 this.Positions = [];
+this.SourceIndexes = [];
 this.At = 0;
 let pos = basePos;
-for (const unit of units) {
+for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
+  const unit = units[sourceIndex];
   if (unit.IsTriviaToken) {
     continue;
   }
@@ -175,6 +180,7 @@ for (const unit of units) {
         piece.SignIn(pieceSource);
         this.Units.push(piece);
         this.Positions.push(pos);
+        this.SourceIndexes.push(sourceIndex);
         pos = pieceSource.Index + 1;
       }
       continue;
@@ -182,10 +188,23 @@ for (const unit of units) {
   }
   this.Units.push(unit);
   this.Positions.push(pos);
+  this.SourceIndexes.push(sourceIndex);
   if (unit.SourceRange.End !== null) {
     pos = unit.SourceRange.End.Index + 1;
   }
 }
+```
+
+## method OriginalConsumed:()=>int
+
+`At` 数的是 `Load` **展开后**的单元（`>>` / `>>>` 拆成多格）；本方法把它折回传入数组的原单元数（含被跳过的 trivia 占位），
+供调用方（如 `ExpressionBuilder.ParseFollowingType`）按本层自己的下标推进。
+
+```ts
+if (this.At <= 0) {
+  return 0;
+}
+return this.SourceIndexes[this.At - 1] + 1;
 ```
 
 ## method Peek:(offset:int)=>Token | null

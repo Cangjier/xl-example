@@ -132,3 +132,9 @@ const gf4 = function* <T>(x: T) { yield x; };
 a < b && c > d;
 if (a < b && c > d) {}
 a<b>>c;
+
+// ── 修复回归：`as` 右端类型收口（嵌套泛型 `>>` 与数组后缀 `[]`）──
+// 根因：AngleJudge.FollowerAllows 不认 `[` follower（声明层顶层 `,` 误把 `<A, B>` 切断）+
+// ParseFollowingType 用展开后的 `builder.At` 推进本层 `At`（`>>` 拆格后越界）。
+const z3 = a as Foo<A, B>[];
+const q1 = a as Array<Array<number>>;
