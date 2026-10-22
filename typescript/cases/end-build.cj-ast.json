@@ -6385,6 +6385,1248 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 32,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(): void\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 13,
+              "end": 18
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 18,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 18,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 23,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(a: A): B\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 11,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 12,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 17,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 19,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 19,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 24,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf<T>(): T\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "TypeParameter",
+              "pos": 20,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 21,
+                  "text": "T"
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 25,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 27,
+                  "text": "T"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 32,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare async function ga(): void\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 7,
+              "end": 13
+            },
+            {
+              "kind": "Identifier",
+              "pos": 22,
+              "end": 25,
+              "text": "ga"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 33,
+          "end": 49,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 33,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 35,
+                  "end": 38,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 44,
+              "end": 46,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function* g(): void\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "AsteriskToken",
+              "pos": 8,
+              "end": 9
+            },
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "g"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 14,
+              "end": 19
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 19,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 19,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 21,
+                  "end": 24,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@a @b class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 30,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 30,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 32,
+                  "end": 33,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 39,
+              "end": 41,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(): void\n@a @b class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 13,
+              "end": 18
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 18,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 18,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 20,
+                  "end": 21,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Decorator",
+              "pos": 21,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "b"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec() class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "CallExpression",
+                  "pos": 29,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 32,
+                      "text": "dec"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 40,
+              "end": 42,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec(a) class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 46,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "CallExpression",
+                  "pos": 29,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 32,
+                      "text": "dec"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 33,
+                      "end": 34,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 41,
+              "end": 43,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@a.b class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "PropertyAccessExpression",
+                  "pos": 29,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 29,
+                      "end": 30,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 32,
+                      "text": "b"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec abstract class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 52,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 32,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 32,
+              "end": 41
+            },
+            {
+              "kind": "Identifier",
+              "pos": 47,
+              "end": 49,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec export class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 50,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 32,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 32,
+              "end": 39
+            },
+            {
+              "kind": "Identifier",
+              "pos": 45,
+              "end": 47,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec export default class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 58,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 32,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "ExportKeyword",
+              "pos": 32,
+              "end": 39
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 39,
+              "end": 47
+            },
+            {
+              "kind": "Identifier",
+              "pos": 53,
+              "end": 55,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec class C { m() {} }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 51,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 32,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 42,
+              "end": 49,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 42,
+                  "end": 44,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 46,
+                  "end": 49
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n@dec class C extends B {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 53,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 32,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "C"
+            },
+            {
+              "kind": "HeritageClause",
+              "pos": 40,
+              "end": 50,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 48,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 48,
+                      "end": 50,
+                      "text": "B"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 33,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 39,
+              "end": 41,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void // c\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 34,
+                  "end": 37,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 43,
+              "end": 45,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void /* c */\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 51,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 37,
+                  "end": 40,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 46,
+              "end": 48,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function gf(): void\n/* c */\n@dec class C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 19,
+              "text": "gf"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 22,
+              "end": 27
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 27,
+          "end": 51,
+          "children": [
+            {
+              "kind": "Decorator",
+              "pos": 27,
+              "end": 40,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 37,
+                  "end": 40,
+                  "text": "dec"
+                }
+              ]
+            },
+            {
+              "kind": "Identifier",
+              "pos": 46,
+              "end": 48,
+              "text": "C"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

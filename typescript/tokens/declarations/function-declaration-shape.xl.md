@@ -205,6 +205,10 @@ if (afterParams < tailIndex) {
       && MemberBoundary.HasLineBreakBetween(consumedLast, leftoverFirst)) {
       tailIndex = afterParams + 1 + typeBuilder.At;
       signOutUnit = code[tailIndex - 1];
+      // 返回类型在换行处被截断：`tokenIndex` 原先把后面的整段也带了进来，`bodyIsLast` 于是可能把
+      // 下一条声明（如 `@dec class C {}`）的 `{…}` 误判成函数体。截断后必须重判 body：
+      // 函数在 `signOutUnit` 收尾，不再持有任何 Block。
+      bodyUnit = null;
     } else {
       throw new Error("函数声明的返回类型没有读完");
     }

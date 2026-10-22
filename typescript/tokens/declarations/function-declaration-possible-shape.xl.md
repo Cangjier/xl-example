@@ -185,6 +185,11 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 3) {
     // ASI: a statement word after a line break ends this declaration here (e.g. "declare function f(): void\nclass C {}").
+    if (FunctionDeclarationPossibleShape.IsDecoratedDeclarationStart(units, at)) {
+      // 换行后的 `@dec` 是**下一条声明**（装饰器属于它），本条无体函数到此结束。
+      state.Rejected = true;
+      continue;
+    }
     if (unit instanceof Common
       && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
       && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
@@ -212,6 +217,12 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 4) {
     // ASI: a statement word after a line break ends the no-body declaration, even inside the return type.
+    if (FunctionDeclarationPossibleShape.IsDecoratedDeclarationStart(units, at)) {
+      // 返回类型之后换行、下一行以 `@` 开头：装饰器属于下一条声明，本函数在换行处截断（不再把
+      // 下一条声明的 `{…}` 当成函数体）。与 `class` 等 statement word 同一条 ASI 边界，只是 `@` 是 Symbol。
+      state.Rejected = true;
+      continue;
+    }
     if (unit instanceof Common
       && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
       && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
@@ -341,6 +352,24 @@ while (cursor < to.Index) {
   cursor++;
 }
 return false;
+```
+
+## static method IsDecoratedDeclarationStart:(units:Array<Token>, at:int)=>bool
+
+`at` 这一格是不是「换行之后开始一条**带装饰器**的新声明」：`unit = @` 且与上一个非 trivia 单元之间有换行。
+装饰器在 TS 词法里是 Symbol `@`（不是 `Common`），所以 `IsStatementWord` 那条 ASI 判据看不到它；
+`declare function f(): void` ⏎ `@dec class C {}` 会在 `@` 处被继续当成返回类型内容，最终把下一条声明的
+`{…}` 收成函数体。这里把「换行后的 `@`」与 statement word 同等对待：
+
+- Stage 3（参数表之后、返回类型冒号之前）与 Stage 4（返回类型里）遇到它都 `Reject`，本条无体函数
+  在换行处收口，装饰器声明留给下一条（EOF/ASI 收口侧）。
+- 同一行内的 `@` 不是边界（`function f(): @dec` 这种形态 TS 本身非法），所以只认带换行的。
+
+```ts
+if (!(units[at] instanceof Symbol) || !(units[at] as Symbol).Is("@")) {
+  return false;
+}
+return FunctionDeclarationPossibleShape.LineBreakBefore(units, at);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
