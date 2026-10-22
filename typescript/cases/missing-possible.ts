@@ -248,3 +248,52 @@ declare module 'm' {\n  @dec\n  function f(): void;\n}
 @dec\nfunction f() {}
 @dec enum E { A }
 @dec\nenum E { A }
+
+// ══ cover9（装饰器贴变量声明 + 尾随 `global {}` 模块头）════
+// 缺口（§6「缺少 possible」）：① 装饰器前缀 + 变量声明 `@dec const x = 1;`——块 / 体里
+// `BuildStatement` 的 `@` 分派只认 class / interface / enum / type / function / namespace，
+// 变量族没有入口，退表达式语句报「不支持的表达式起点」；根级同一形态落到 EOF 兜底
+// （`SourceFileEndPossibleShape.BuildTrailingDeclaration`）也没有「装饰器 + 变量」通道。
+// ② `declare function gf(): void` ⏎ `global {}`——`global {}` 是 ModuleDeclaration 的 global
+// 关键字形；函数候选在返回类型后的 ASI 截断点把尾巴硬当 ExpressionStatement 建，报「表达式语句缺少分号」。
+// 修复：StatementBuilder 增加 BuildDecoratedVariableStatement（TypeBuilder.ParseDecorators 建装饰器，
+// BuildVariableStatement(decoratedFirst) 把区间 / Pos 锚到第一个 `@`）并接进 BuildDecoratedStatement；
+// BuildTrailingDeclaration 增加「装饰器 + 变量关键字」通道（ScanDecoratedHead 判词，只接 const/let/var）；
+// FunctionDeclarationPossibleShape.BuildByIndex 的截断尾巴在 `global` 开头时交给 StatementBuilder 的语句分派。
+// 候选：A17–A21 / C07–C08（tests/cover9/candidates.json）；TS 侧 parseDiagnostics=0，AST 三栏全一致。
+
+// ── base：块内装饰器变量声明（const，装饰器与关键字分行） ──
+{ @dec\n  const x = 1;\n}
+// 变体：let / var / 多声明（同一形态换关键字 / 声明列表可重复）
+{ @dec\n  let x = 1;\n}
+{ @dec\n  var x = 1;\n}
+{ @dec\n  const x = 1, y = 2;\n}
+// trivia 变体：装饰器与关键字同行 / 装饰器前的前导注释 / 装饰器后的词间注释
+{ @dec const x = 1; }
+{ /* c */ @dec\n  const x = 1;\n}
+{ @dec /*c*/\n  const x = 1;\n}
+// 重复形：两个装饰器 / 块内后续语句（同一块多条语句）
+{ @a @b\n  const x = 1;\n}
+{ @dec\n  const a = 1;\n  const b = 2;\n}
+{ @dec\n  const x = 1;\n  let y = 2;\n}
+
+// ── base：根级装饰器变量声明 ──
+@dec\nconst x = 1;
+// trivia 变体：装饰器与关键字同行 / 带参装饰器
+@dec const x = 1;
+@dec('x')\nconst x = 1;
+// 重复形：多个装饰器（含成员访问）/ 根级后续语句
+@a @b.c\nconst x = 1;
+@dec\nconst x = 1;\nconst y = 2;
+
+// ── base：`declare function` 之后尾随 `global {}`（ModuleDeclaration 的 global 关键字形） ──
+declare function gf(): void\nglobal {}
+// 变体：global 体里有成员 / 体内换行
+declare function gf(): void\nglobal { const x = 1 }
+declare function gf(): void\nglobal {\n  const x = 1;\n}
+// trivia 变体：空行 / 块注释
+declare function gf(): void\n\nglobal {}
+declare function gf(): void\n/* c */ global {}
+// 重复形：体内多声明 / 尾随两个 global 模块
+declare function gf(): void\nglobal { const x = 1, y = 2 }
+declare function gf(): void\nglobal {}\nglobal {}

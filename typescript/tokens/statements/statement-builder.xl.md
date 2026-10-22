@@ -1064,7 +1064,39 @@ if (keyword === "function") {
 if (keyword === "namespace" || keyword === "module" || keyword === "global") {
   return this.BuildModuleDeclaration();
 }
+// 装饰器贴变量声明（`@dec const x = 1;` / `@dec\nlet x = 1;`）：TS 的 VariableStatement children
+// 是 Decorator(s) + VariableDeclarationList。其余声明族走各自的声明建造器，变量族没有 FromUnits，
+// 所以在这里建装饰器前缀、再把变量语句的区间 / Pos 重锚到第一个 `@`。
+if (keyword === "const" || keyword === "let" || keyword === "var") {
+  return this.BuildDecoratedVariableStatement();
+}
 return null;
+```
+
+## method BuildDecoratedVariableStatement:()=>Token
+
+块 / 体里以装饰器开头的变量声明：`@dec const x = 1;` / `@dec\nlet x = 1;` / `@dec\nvar x = 1;`。
+TS 的 `VariableStatement` children 顺序是 Decorator(s) → VariableDeclarationList（`@` 不进 children）。
+装饰器表达式与声明形状的 decorator 扫描同口径（`TypeBuilder.ParseDecorators` ⇄ `DecoratorShape`）；
+装饰器之后的关键字已由 `ScanDecoratedHead` 判过（`DecoratedKeyword`），这里从关键字起建变量语句，
+再把装饰器按原序插到 Data 最前、区间与 Pos 从第一个 `@` 起算（`BuildVariableStatement(decoratedFirst)`）。
+必须先建装饰器形状，才知道 `this.At` 要跳过多少个单元（装饰器表达式可以任意长）。
+
+```ts
+const first = this.At;
+const decoratorBuilder = new TypeBuilder(this.Template, this.Context);
+decoratorBuilder.Load(this.Units.slice(first), this.Positions[first]);
+const decorators:Array<Token> = decoratorBuilder.ParseDecorators();
+if (decorators.length === 0) {
+  throw new Error("装饰器变量声明缺少装饰器");
+}
+this.At = first + decoratorBuilder.At;
+const shape = this.BuildVariableStatement(first) as ShapeToken;
+for (let index = decorators.length - 1; index >= 0; index--) {
+  shape.Data.unshift(decorators[index]);
+  decorators[index].Parent = shape;
+}
+return shape;
 ```
 
 ## method IsModuleDeclarationHead:(text:string)=>bool
@@ -1337,20 +1369,25 @@ if (index <= 0 || index >= limit) {
 return AngleJudge.CanStart(units, index);
 ```
 
-## method BuildVariableStatement:()=>Token
+## method BuildVariableStatement:(decoratedFirst?:int)=>Token
 
 变量语句：`let` / `const` / `var` / `using` / `await using`。声明列表从关键字到 `;` 之前；`await` 与 `using` 都不进 AST
 （TS 只把它们记成 List 的 flags），`await using` 的 List 仍从 `await` 起算 `Pos`（listStart 传语句首）。
 
+`decoratedFirst` 是装饰器前缀的起点（`@dec const x = 1;` 里第一个 `@` 的下标）：TS 的 VariableStatement
+在变量关键字前面还有 Decorator children，区间与 `Pos` 要从装饰器起算；不传时就是普通变量语句（从关键字起算）。
+装饰器形状由调用方建好、按 TS 的 children 顺序（Decorator(s) 在 VariableDeclarationList 之前）插进 Data。
+
 ```ts
-const first = this.At;
-const firstText = this.TextOf(this.Units[first]);
-let keywordIndex = first;
+const keywordStart = this.At;
+const first = decoratedFirst ?? keywordStart;
+let keywordIndex = this.At;
+const firstText = this.TextOf(this.Units[keywordIndex]);
 if (firstText === "await") {
-  keywordIndex = first + 1;
+  keywordIndex = keywordIndex + 1;
   this.At = keywordIndex + 1;
 } else {
-  this.At = first + 1;
+  this.At = keywordIndex + 1;
 }
 let endExclusive = this.At;
 let angleDepth = 0;
@@ -1406,7 +1443,7 @@ while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusiv
   }
   endExclusive++;
 }
-const list = this.BuildVariableDeclarationList(keywordIndex, endExclusive, first);
+const list = this.BuildVariableDeclarationList(keywordIndex, endExclusive, keywordStart);
 const shape = new VariableStatementShape(this.Template);
 shape.Add(list);
 this.At = endExclusive;
