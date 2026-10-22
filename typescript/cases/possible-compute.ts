@@ -99,3 +99,14 @@ type N7 = A extends B ? C extends D ? infer E extends F ? G : H : I : J;
 // ② `a?() {}` / `a?();` / `m?()`：TS 是带 QuestionToken 的 MethodDeclaration。根因是同文件
 //    可选方法判定只认「参数表后跟 `:`」，其余形态掉进属性路径后抛「类成员之间缺少分隔符」。
 // 两处均已按 TS 的 parseModifiers / nextTokenCanFollowModifier 判据修复（见上方 C15–C22）。
+
+// ── H1：上下文关键字 `type` 作赋值目标（base 在前；类型别名候选 / EOF 别名兜底都不许误收） ──
+// `type = 1` 在 TS 里是赋值表达式语句（`type` 是合法标识符），不是类型别名；此前
+// source-file-end-possible-shape.xl.md 的 EOF 兜底只按「首词是 type」就交给
+// TypeAliasDeclarationShape.FromUnits，抛「类型别名声明不完整」。修法：新增
+// TypeAliasDeclarationShape.IsTypeAliasHead（名字 + `=`/`<` 才算别名头），别名候选
+// ComputeByIndex 的 Stage 1 也只认 Common 名字、之后只认 `=` / `<`。
+type = 1
+type = 1 + 2
+type /* c */ = 1
+type\n= 1

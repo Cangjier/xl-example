@@ -3556,6 +3556,168 @@
           ]
         }
       ]
+    },
+    {
+      "src": "type = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "type"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 4,
+                  "end": 6
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type = 1 + 2",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "type"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 4,
+                  "end": 6
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 6,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 6,
+                      "end": 8,
+                      "text": "1"
+                    },
+                    {
+                      "kind": "PlusToken",
+                      "pos": 8,
+                      "end": 10
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type /* c */ = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "type"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 4,
+                  "end": 14
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\n= 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 8,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 4,
+                  "text": "type"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 4,
+                  "end": 6
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
