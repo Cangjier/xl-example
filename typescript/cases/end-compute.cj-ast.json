@@ -6344,6 +6344,84 @@
       ]
     },
     {
+      "src": "let h = 1; h++\n(h)",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "h"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 14,
+          "children": [
+            {
+              "kind": "PostfixUnaryExpression",
+              "pos": 10,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "h"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 14,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 17,
+                  "text": "h"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "if (a) f()\n;",
       "ast": [
         {

@@ -115,9 +115,11 @@ for (;;) { x++\ncontinue }
 while (a)\n{ break }
 do x++; while (x < 3)
 type H = number\ntry { } catch { }
-// 真缺口（deferred，未提交红用例）：`label: for (;;) break label` 在 EOF 处 CRASH
-//   CatalogGuide「终结候选与其它候选同时成立」（宿主 SourceFileShape，下标 10）——
-//   普通候选在 EOF 处未灭，与本类 B 组同源；已报告 lead，未改 core。
+// 真缺口（deferred，仍未修）：`label: for (;;) break label` 在 EOF 处 CRASH
+//   CatalogGuide「终结候选与其它候选同时成立（宿主 SourceFileShape，下标 10）」。
+//   ddmin：`for (;;) break`（TS parseDiagnostics=0，同样 CRASH，下标 5）、`label: break label`（下标 6）；
+//   而 `label: { break label }` / `label: for (;;) f()` OK —— 根因是 break/continue 在 EOF 的候选共存，
+//   需改 StatementPossibleShape / StatementScanner（ScanBreakOrContinue 的 EOF 收口），本次未完成。
 
 // ── C4（审计补强）：import/export 无分号、换行后接下一语句时在行末 ASI（end-close-analysis §3 B 组）──
 import x from "m"\nimport y from "n"
@@ -142,8 +144,8 @@ let c = 1, d = 2; c++\n--d
 let e = 1; e++\n!e
 let f = 1; f++\n--f
 let g = 1; g\n++g
-// 真缺口（deferred，未提交红用例）：`let h = 1; h++\n(h)` 把换行后的 `(h)` 续成 CallExpression(h++)；
-//   TS 在 `h++` 之后插 ASI（UpdateExpression 不是合法调用者）——后缀单元判据缺一格。
+// (b) 已修（fix-end-compute）：后缀单元判据补「换行后接 `(` `[` `.` `?.` `!` 不能续接」，转活跃用例。
+let h = 1; h++\n(h)
 
 // ── O2（审计补强）：换行后的 `;` 归上一条语句，不新起空语句（O 组 gap-r942-loop-body-terminator）──
 if (a) f()\n;
@@ -154,8 +156,8 @@ switch (x) { case 1: break\n; }
 
 // ── S2（审计补强）：`async` 上下文关键字与换行断句（`async` 换行后不是箭头前缀）──
 async\nfunction f() {}
-// 真缺口（deferred，未提交红用例）：`async\n(x) => x;` 被当成 async 箭头（AsyncKeyword + ArrowFunction）；
-//   TS 因 `async` 与参数之间有换行而断成两条语句（`async` 标识符 + `(x) => x`）。
+// 不可修缺口（deferred）：`async\n(x) => x;` 的 TS parseDiagnostics = "';' expected."（静默恢复：
+//   ExpressionStatement(CallExpression(async,x)) + x）；尺子不测恢复 AST，故不作为活跃用例、不修。
 async (a) => a\nasync (b) => b
 async function f() {}\nfunction g() {}
 async(1)\n(foo)

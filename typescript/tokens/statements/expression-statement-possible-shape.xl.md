@@ -375,6 +375,20 @@ if (units[prev] instanceof Symbol) {
     if (before < 0 || breakSeen || !ExpressionStatementPossibleShape.CanEndExpression(units[before])) {
       return false;
     }
+    // 后缀 `++`/`--` 的结果不是合法的调用者 / 成员访问宿主（TS 的 UpdateExpression 不在
+    // MemberExpression 里）：换行后接 `(` `[` `.` `?.` `!` 只能是新语句的起点——
+    // `h++` ⏎ `(h)` 是两条语句（TS 在 `h++` 之后插 ASI）。同一行内不会走到这里（无换行即无边界）。
+    if (current instanceof Bracket
+      && (((current as Bracket).StartBracketChar === "(")
+        || ((current as Bracket).StartBracketChar === "["))) {
+      return true;
+    }
+    if (current instanceof Symbol) {
+      const afterPostfix = (current as Symbol).TempToString();
+      if (afterPostfix === "." || afterPostfix === "?." || afterPostfix === "!") {
+        return true;
+      }
+    }
   }
 }
 // 本条语句的起点：从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。
