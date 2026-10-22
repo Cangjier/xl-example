@@ -374,6 +374,30 @@ while (cursor <= limit) {
 return built > 0;
 ```
 
+## private static method IsInsideExportModifierChain:(code:Array<Token>, index:int)=>bool
+
+`code[index]` 这一格是不是一条**从 `export` 起、还没走完的修饰词链**的内部。TS 的 `parseModifiers`
+对 `export` / `default` / `as` / `import` 不看换行，所以这几格都还在**同一条**声明的声明头里，
+换行不构成多语句分界：`export` ⏎ `default` ⏎ `function f(): void` / `export as` ⏎ `namespace A` /
+`export` ⏎ `import` ⏎ `x = A.B`。只回溯这四种修饰词是刻意的——`declare` / `abstract` / `async`
+与下一格之间换行时 TS 侧是另一条语句（`export default async` ⏎ `function f(): void` =
+ExportAssignment + FunctionDeclaration；`declare` ⏎ `class C {}` 同理），不能一起吞掉。
+
+```ts
+let at = index - 1;
+while (at >= 0 && code[at] instanceof Common) {
+  const text = (code[at] as Common).TempToString();
+  if (text === "export") {
+    return true;
+  }
+  if (text !== "default" && text !== "as" && text !== "import") {
+    return false;
+  }
+  at--;
+}
+return false;
+```
+
 ## private static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
 EOF 边界补一条「必须分号、但 ASI 允许省略分号」的声明：`type T = A` 与 `import x = require("m")`
@@ -541,15 +565,13 @@ for (let index = 1; index < code.length; index++) {
     continue;
   }
   const unit = code[index];
-  // 修饰词跨行：`export` ⏎ `const x = 1` 是**同一条**声明（TS 的 parseModifiers 对 export
-  // 不看换行）。`declare` / `abstract` 不同——TS 要求它们与声明词同行，换行后是两条语句
-  //（`declare` ⏎ `class C {}` = ExpressionStatement + ClassDeclaration），所以不放进来。
-  const previousCode = code[index - 1];
-  if (previousCode instanceof Common) {
-    const previousText = (previousCode as Common).TempToString();
-    if (previousText === "export") {
-      continue;
-    }
+  // 修饰词跨行：`export` ⏎ `const x = 1` / `export` ⏎ `default` ⏎ `function f(): void` /
+  // `export as` ⏎ `namespace A` 都是**同一条**声明的声明头（TS 的 parseModifiers 对
+  // export / default / as / import 不看换行）。分界若落在链内部，前缀只剩半截声明头
+  //（`export default` / `export as`）→ 表达式路径 crash。判据只看「从 export 起、还没走完的
+  // 修饰词链」——`declare` / `abstract` / `async` 与下一格之间换行时 TS 侧是另一条语句，不能吞。
+  if (SourceFileEndPossibleShape.IsInsideExportModifierChain(code, index)) {
+    continue;
   }
   // 老判据：下一行以声明 / 语句关键字开头。声明头本身可以跨行（`interface I` ⏎ `extends B`），
   // 所以这里不看前一个代码单元是否完整——这类 leftovers 本来就只在不收口时才会走到。
@@ -885,12 +907,14 @@ if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUn
 // 再把 DefaultKeyword / ExportKeyword 依次插到 Data 最前。没有这一支，整条会落进
 // `isExportDefault` 的表达式路径，报「函数表达式缺少函数体」。
 // 有体的 `export default function f() {}` 由声明候选自己收口，不走这里。
+// 长度下界按**括号是整单元**算：`export default function ()` 只有 export / default / function / `()`
+// 四个单元（无返回类型），所以下界是 4；async 形多一格 async，下界 5。
 const isExportDefaultFunction = text === "export"
-  && code.length >= 5
+  && code.length >= 4
   && code[1] instanceof Common && (code[1] as Common).Is("default")
   && code[2] instanceof Common
   && ((code[2] as Common).Is("function")
-    || ((code[2] as Common).Is("async") && code.length >= 6
+    || ((code[2] as Common).Is("async") && code.length >= 5
       && code[3] instanceof Common && (code[3] as Common).Is("function")));
 if (isExportDefaultFunction
   && !(lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{")) {
@@ -917,7 +941,14 @@ if (isExportDefaultFunction
     overloadEnd = at + 1;
   }
   try {
-    const declared = FunctionDeclarationShape.FromUnits(host, codeAt[2], overloadEnd, context);
+    // 匿名无体 `export default function (): void`：TS 的 FunctionDeclaration 没有名字 child
+    //（`export default function () {}` 也是这样），所以这里必须允许匿名——否则 FromUnits 抛
+    //「函数声明的名字不是标识符」、被 catch 后整条落进 isExportDefault 的表达式路径 crash。
+    // ambient 也传 true：无体、无返回类型的签名（`export default function ()`）在根级只有
+    // declare / ambient 才被 FunctionDeclarationShape 接受，但 TS 侧它是合法的「重载签名」形
+    //（parseDiagnostics=0，AST 只有 ExportKeyword / DefaultKeyword / Parameter[]），
+    // 不打开这一格就建不出来。
+    const declared = FunctionDeclarationShape.FromUnits(host, codeAt[2], overloadEnd, context, true, true);
     const defaultKeyword = new DefaultKeywordShape(host.Template);
     if (code[1].SourceRange.Start !== null) {
       defaultKeyword.SignIn(code[1].SourceRange.Start);

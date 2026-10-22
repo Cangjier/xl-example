@@ -5464,6 +5464,1058 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export default function (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void // c",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void /* c */",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\n",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\n\n",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default  function (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function ()",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function* (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 23,
+              "end": 24
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default async function (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 33,
+              "end": 38
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (a: A): B",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Parameter",
+              "pos": 25,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 27,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "A"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 31,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 31,
+                  "end": 33,
+                  "text": "B"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\nfunction (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\n function (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\nfunction* g(): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 23,
+              "end": 24
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "g"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 29,
+              "end": 34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\nasync function (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 33,
+              "end": 38
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;\nexport default function (): void",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 12,
+          "end": 45,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 12,
+              "end": 19
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 19,
+              "end": 27
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 40,
+              "end": 45
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare function f(): void\nexport default function (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 21,
+              "end": 26
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 26,
+          "end": 59,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 26,
+              "end": 33
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 33,
+              "end": 41
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 54,
+              "end": 59
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface I {}\nexport default function (): void",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 14,
+          "end": 47,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 14,
+              "end": 21
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 21,
+              "end": 29
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 42,
+              "end": 47
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\nconst x = 1;",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 32,
+          "end": 45,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 32,
+              "end": 44,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 38,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 42,
+                      "end": 44,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\n// c",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\nexport default function (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 32,
+          "end": 65,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 32,
+              "end": 39
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 39,
+              "end": 47
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 60,
+              "end": 65
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\nexport default function* (): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        },
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 32,
+          "end": 66,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 32,
+              "end": 39
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 39,
+              "end": 47
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 56,
+              "end": 57
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 61,
+              "end": 66
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\ninterface I {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 32,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 42,
+              "end": 44,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\nclass C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 32,
+          "end": 43,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 38,
+              "end": 40,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\nenum E { A }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        },
+        {
+          "kind": "EnumDeclaration",
+          "pos": 32,
+          "end": 45,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 37,
+              "end": 39,
+              "text": "E"
+            },
+            {
+              "kind": "EnumMember",
+              "pos": 41,
+              "end": 43,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 41,
+                  "end": 43,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function f(): void\ninterface I {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 33,
+          "end": 48,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 43,
+              "end": 45,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default function (): void\ninterface I {}\nconst x = 1",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 27,
+              "end": 32
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 32,
+          "end": 47,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 42,
+              "end": 44,
+              "text": "I"
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 47,
+          "end": 59,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 47,
+              "end": 59,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 53,
+                  "end": 59,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 53,
+                      "end": 55,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 57,
+                      "end": 59,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

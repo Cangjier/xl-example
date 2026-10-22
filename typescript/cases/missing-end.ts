@@ -211,3 +211,54 @@ export default function f(): void;
 export default function f(): void // c
 export default function f(): void\n
 export = a\nexport import x = A.B
+
+// ══ cover9（缺少 end）：匿名/无体 `export default function` 的 EOF 收口（Y01–Y17） ══
+// 类别（IMPORTANCE §6）：缺少 end 不对。
+// 形态：`export default function [*] [async] [名] (…) [: 返回类型]` **无体、无分号**收在文件末尾。
+// 匿名形 TS 的 FunctionDeclaration children 里没有名字（ExportKeyword / DefaultKeyword / 参数 / 返回类型）；
+// 无返回类型、带真实 `;`、末尾换行/空行/注释、前后有其它声明、两条连排同样成立。
+// 修前：EOF 兜底的 isExportDefaultFunction 分支（source-file-end-possible-shape.xl.md:919-975）调
+//       FunctionDeclarationShape.FromUnits 时没传 allowAnonymous / ambient → 抛「函数声明的名字不是标识符」
+//       或「必须带返回类型」→ 落进 isExportDefault 的表达式路径 crash「表达式语句没有读完」；
+//       `export default` ⏎ `function` 还会被多语句分界切在修饰词链内部（与 O 组同一处）。
+// 修复：该分支传 ambient=true, allowAnonymous=true；声明长度下界按括号整单元算（4；async 形 5）；
+//       多语句分界先识别「从 export 起未走完的修饰词链」（IsInsideExportModifierChain）。
+// 候选 id：Y01–Y17（后接声明形为 Y13：吞下一条声明体；修复在 export-declaration-possible-shape 的
+//       Stage 16/23 同一判据 IsNewDeclarationAfterLineBreak）。一行一个用例，行内 `\n` 由 ast-json.mjs 还原。
+
+// ── ① base 与 trivia 叠加：匿名无体 + 返回类型，行尾注释 / 块注释 / 末尾换行 / 空行 / 真实分号 / 多空格 ──
+export default function (): void
+export default function (): void // c
+export default function (): void /* c */
+export default function (): void\n
+export default function (): void\n\n
+export default function (): void;
+export default  function (): void
+export default function ()
+
+// ── ② 匿名形态变体：生成器 / async / 带形参返回类型（Y03–Y05）──
+export default function* (): void
+export default async function (): void
+export default function (a: A): B
+
+// ── ③ `export default` 与 `function` 之间换行（Y15–Y17）──
+export default\nfunction (): void
+export default\n function (): void
+export default\nfunction* g(): void
+export default\nasync function (): void
+
+// ── ④ 前后有语句 / interface / declare 无体签名 / 注释 / 两条连排（Y08–Y12、Y14）──
+const a = 1;\nexport default function (): void
+declare function f(): void\nexport default function (): void
+interface I {}\nexport default function (): void
+export default function (): void\nconst x = 1;
+export default function (): void\n// c
+export default function (): void\nexport default function (): void
+export default function (): void\nexport default function* (): void
+
+// ── ⑤ 后接声明：本仓曾把下一条声明的 `{…}` 当函数体（Y13：interface / class / enum / 具名 / 再跟语句）──
+export default function (): void\ninterface I {}
+export default function (): void\nclass C {}
+export default function (): void\nenum E { A }
+export default function f(): void\ninterface I {}
+export default function (): void\ninterface I {}\nconst x = 1

@@ -10068,6 +10068,550 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export default\nfunction f(): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\nfunction* g(): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsteriskToken",
+              "pos": 23,
+              "end": 24
+            },
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "g"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 29,
+              "end": 34
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\nasync function f(): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AsyncKeyword",
+              "pos": 14,
+              "end": 20
+            },
+            {
+              "kind": "Identifier",
+              "pos": 29,
+              "end": 31,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 34,
+              "end": 39
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default // c\nfunction f(): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 28,
+              "end": 30,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 33,
+              "end": 38
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default /* \n */ function f(): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 41,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 36,
+              "end": 41
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export\ndefault\nfunction f(): void",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default\nfunction f(): void\nconst x = 1",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 28,
+              "end": 33
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 33,
+          "end": 45,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 33,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 39,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 39,
+                      "end": 41,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export as\nnamespace A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export  as\nnamespace A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 20,
+              "end": 22,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export\nas\nnamespace A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export as /* \n */ namespace A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 27,
+              "end": 29,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export as\rnamespace A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export as namespace A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export as namespace A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export as\nnamespace A\nexport = A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "A"
+            }
+          ]
+        },
+        {
+          "kind": "ExportAssignment",
+          "pos": 21,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export\nas\nnamespace A\nexport = A",
+      "ast": [
+        {
+          "kind": "NamespaceExportDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "A"
+            }
+          ]
+        },
+        {
+          "kind": "ExportAssignment",
+          "pos": 21,
+          "end": 32,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 30,
+              "end": 32,
+              "text": "A"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export function f(): void\ninterface I {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 20,
+              "end": 25
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 25,
+          "end": 40,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 35,
+              "end": 37,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export function f(): void\nclass C {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "Identifier",
+              "pos": 15,
+              "end": 17,
+              "text": "f"
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 20,
+              "end": 25
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 25,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 31,
+              "end": 33,
+              "text": "C"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
