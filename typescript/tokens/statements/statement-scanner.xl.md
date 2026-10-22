@@ -434,6 +434,13 @@ TS 对 `throw` 的恢复形是 `ThrowStatement` + 零宽 `Identifier` 子节点�
 ```ts
 if (StatementScanner.IsKeyword(code[keywordAt], "throw") && keywordAt + 1 < code.length
   && !StatementScanner.NoLineBreakBetween(code[keywordAt], code[keywordAt + 1])) {
+  // 换行后的 `;` 仍是这条 throw 的终止符：TS 给 `throw` ⏎ `;` 的 AST 是
+  // ThrowStatement[0,7] + 零宽 Identifier[5,5]（`;` 计入 End，不再另起 EmptyStatement）。
+  // 收在这一格上，否则它会被留给下一条空语句，根层 statement 候选就会拖到 EOF 哨兵上
+  // 与根终结候选同时 Accept（CatalogGuide「终结候选与其它候选同时成立」）。
+  if (StatementScanner.IsSymbol(code[keywordAt + 1], ";")) {
+    return StatementScanner.Complete(keywordAt + 1);
+  }
   return StatementScanner.Complete(keywordAt);
 }
 return StatementScanner.ScanToSemicolon(code, keywordAt + 1);

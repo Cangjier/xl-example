@@ -2,11 +2,14 @@
 // 覆盖组：D9 —— `throw` 无参数恢复出的零宽 Identifier 落点、type-tail 行注释之后不得把下一行续进类型。
 // 来源：token-repros 与 statements/stmt-throw-no-argument-then-statement、types/type-tail-linecomment 的修复。
 //
-// 状态（本分支复核，原先那句「两条都是剩余 diff、不写成活跃行」已过时）：
+// 状态（Wave-2 修复后）：
 //   · `type T = A // c\n[];`：TS parseDiagnostics=0，本仓 AST 与 TS 完全一致——TypeAliasDeclaration.End
-//     停在 `A`（[0,10)），`[]` 是独立的 ExpressionStatement；**已写成活跃行**（见 ④ 组第二条）；
-//   · `throw\n;`：仍是真缺口（TS parseDiagnostics=0 而非 1，本仓 CRASH），只写注释+证据，见文件末尾「仍缺口」；
-//   · 本轮另实测出第二个缺口 `function f(){ return\n; }`（`;` 该被 return 当终止符吞掉），同写注释+证据。
+//     停在 `A`（[0,10)），`[]` 是独立的 ExpressionStatement；**活跃行**（见 ④ 组第二条）；
+//   · `throw\n;`（及带注释的两种变体）：本轮已修好，**活跃行**（见 ①② 组之间那组）——
+//     根因是换行后的 `;` 没了结 throw（根层 statement 候选拖到 EOF，与根终结候选同时 Accept），
+//     修在 `statement-scanner.ScanReturnOrThrow`（换行后紧跟的 `;` 收在 `;` 上）；
+//   · `function f(){ return\n; }`：本轮已修好，**活跃行**（见 ③ 组第二条）——
+//     修在 `statement-builder.BuildReturnOrThrow`（换行后紧跟的 `;` 计入 End，不新起 EmptyStatement）。
 // 其余为本轮补的 End 边界：`throw`/`return` 受限产生式换行、零宽 Identifier / OmittedExpression 的落点、
 // 行注释与块注释尾巴不进区间、声明/语句的 End 与下一行语句边界。
 // 一行一个用例，行内 `\n` 由 ast-json.mjs 还原（行尾 `//` 注释里的 `\n` 也还原，故多行形可写在一行）。
@@ -25,6 +28,13 @@ throw // c\ne;
 // 块体里同一口径（根级与块体必须同一时机）
 function f(){ throw e // c\n; }
 
+// ── ①' 换行后的 `;` 归上一条 throw（TS 把它当终止符吞进 End，零宽 Identifier 落在关键字之后） ──
+// 修复前：根层 CRASH（CatalogGuide: 终结候选与其它候选同时成立，下标 3/5）。
+// 修复后：`throw\n;` = ThrowStatement[0,7] + Identifier[5,5] text=""，逐字段一致。
+throw\n;
+throw /* c */\n;
+throw // c\n;
+
 // ── ② throw 无参数：零宽恢复 Identifier 的落点（pos=end，落在下一格而不撑大语句 End） ──
 // `function f(){ throw\n}` —— TS 造 Identifier[19,19] text=""，ThrowStatement[13,19]；本仓逐字段一致。
 function f(){ throw\n}
@@ -33,6 +43,9 @@ function f(){ throw // c\n}
 
 // ── ③ return 受限产生式：表达式缺省/换行，注释尾巴不进 ReturnStatement 区间 ──
 function f(){ return; // c\n}
+// 换行后的 `;` 归 return：TS ReturnStatement[13,22]；修复前本仓 End 停在 [13,20] 并多一个 EmptyStatement[20,22]。
+function f(){ return\n; }
+function f(){ return // c\n; }
 function f(){ return // c\nx; }
 function f(){ return // c\n}
 function f(){ return x // c\n; }
@@ -72,11 +85,13 @@ this // c\n;
 var a = [,];
 var a = [1,,2];
 
-// ── 仍缺口（本仓与 TS 不一致，不写成活跃行；以下均 TS parseDiagnostics = 0，属 TS 恢复形/End 取错） ──
-// - `throw\n;`：TS 造 ThrowStatement[0,7] + 零宽 Identifier[5,5]（`;` 当终止符吞掉，diag=0）；
-//   本仓抛 CatalogGuide: 终结候选与其它候选同时成立（宿主 SourceFileShape，下标 3）。
-//   变体 `throw /* c */\n;` 与 `throw // c\n;` 同一根因（下标 5）。
-//   口径注意：只有同一行写法 `throw;` 才让 TS 报 TS1109 Expression expected（尺子不测），
-//   而 `function f(){ throw\n}` 这类块体形本仓已与 TS 完全一致（见 ② 组）。
-// - `function f(){ return\n; }`：TS 把换行后的 `;` 当 ReturnStatement 终止符，ReturnStatement[13,22]；
-//   本仓 ReturnStatement[13,20] + 多出一个 EmptyStatement[20,22]（结构 +1、位置差 1 条）。
+// ── 修复记录（Wave-2，原先这两条是 deferred 注释；现已全部转为活跃行） ──
+// - `throw\n;`：修复前 TS=ThrowStatement[0,7]+Identifier[5,5]（diag=0），本仓抛
+//   CatalogGuide: 终结候选与其它候选同时成立（宿主 SourceFileShape，下标 3）；变体下标 5。
+//   根因：ScanReturnOrThrow 在「throw 后换行」时 Complete 在关键字上，换行后的 `;` 成了另一条
+//   空语句的新起点，根层 statement 候选一直活到 EOF 哨兵，与根终结候选同时 Accept。
+//   修法：换行后紧跟的 `;` 收在 `;` 那一格（`statement-scanner.xl.md`）；Builder 侧把 `;` 计入 End。
+//   口径注意：只有同一行写法 `throw;` 才让 TS 报 TS1109 Expression expected（尺子不测）。
+// - `function f(){ return\n; }`：修复前 TS ReturnStatement[13,22]，本仓 ReturnStatement[13,20] +
+//   EmptyStatement[20,22]（结构 +1、位置差 1）。根因：BuildReturnOrThrow 的换行分支放弃 `;`。
+//   修法：换行后紧跟的 `;` 计入 End，不新起 EmptyStatement（`statement-builder.xl.md`）。
