@@ -114,6 +114,15 @@ if (!(tail instanceof Common)) {
 // 其余（export / const / 语句关键字）都是下一条语句的起点 —— 候选必须退出，
 // 否则 ImportDeclarationEndPossibleShape 在同一格 Accept 会撞 CatalogGuide 共存。
 const previousClauseCode = ItemUtil.PreviousCode(units, last - 1);
+// 副作用 import 的模块说明符之后、换行迎来了下一条 import（`import "m"` ⏎ `import "n"`）：
+// 本子句不可能再出现，必须 Reject，否则 ImportDeclarationEndPossibleShape 在同一个 ASI 格 Accept 时
+// 本候选仍 Uncertain，CatalogGuide 抛「终结候选与其它候选同时成立（宿主 ImportDeclarationShape）」。
+// 只认「前一个代码单元是已关闭的模块说明符 StringLiteralShape」；shell 头的 `import` 关键字
+// （previousClauseCode < 0）仍要 Uncertain，子句才有机会在后面建出来。
+if (previousClauseCode >= 0 && units[previousClauseCode] instanceof StringLiteralShape
+  && (tail as Common).Is("import")) {
+  return ShapeStates.Reject;
+}
 if (previousClauseCode >= 0 && units[previousClauseCode] instanceof StringLiteralShape
   && !(tail as Common).Is("with") && !(tail as Common).Is("assert")
   && !(tail as Common).Is("from") && !(tail as Common).Is("as")
