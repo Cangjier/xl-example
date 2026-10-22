@@ -644,6 +644,57 @@ if (isExportAsNamespace) {
   namespaceExport.Parent = host;
   return true;
 }
+// 无体 ambient module 到 EOF：`declare module "m"`（无体、无分号）。
+// TS 的 ModuleDeclaration 在模块字符串处就完整（children 只有 DeclareKeyword + 字符串名），
+// 换行 / EOF 靠 ASI 收口。原实现只在「最后一块是 `{`」时建 ModuleDeclaration，无体形落进
+// ExpressionStatement 兜底报「表达式语句没有读完」；多条连排（`declare module "m"` ⏎ `class C {}`）
+// 时前缀递归同样走到这里。补零宽合成 `;` 后走 ModuleDeclarationShape.FromUnits 的无体分支
+// （terminatorIndex），与 `declare module "m";` 的建树口径一致。
+const isBodylessAmbientModule = text === "declare"
+  && code.length === 3
+  && code[1] instanceof Common && (code[1] as Common).Is("module");
+if (isBodylessAmbientModule) {
+  const moduleEnd = host.Data[at].SourceRange.End;
+  if (moduleEnd === null) {
+    return false;
+  }
+  try {
+    const subCode:Array<Token> = [];
+    const subPositions:Array<number> = [];
+    let subPos = 0;
+    for (let index = start - 1; index >= 0; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const previousEnd = host.Data[index].SourceRange.End;
+        if (previousEnd !== null) {
+          subPos = previousEnd.Index + 1;
+        }
+        break;
+      }
+    }
+    for (let index = start; index <= at; index++) {
+      const unit = host.Data[index];
+      if (unit.IsTriviaToken) {
+        continue;
+      }
+      subCode.push(unit);
+      subPositions.push(subPos);
+      if (unit.SourceRange.End !== null) {
+        subPos = unit.SourceRange.End.Index + 1;
+      }
+    }
+    const moduleSemi = new Symbol(host.Template);
+    moduleSemi.SignIn(moduleEnd);
+    moduleSemi.AppendValueAndSignOut(";", moduleEnd);
+    subCode.push(moduleSemi);
+    subPositions.push(subPos);
+    const bodyless = ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
+    host.Data.splice(start, at - start + 1, bodyless);
+    bodyless.Parent = host;
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
 const isClass = text === "class"
   || (text === "declare" && code.length >= 3 && code[1] instanceof Common && (code[1] as Common).Is("class"));
 const isInterface = text === "interface"

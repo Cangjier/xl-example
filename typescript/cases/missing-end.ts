@@ -80,3 +80,35 @@ const y2 = 1\nexport default y2
 export {}
 export { z }
 export * from "m"
+
+// ── 无体 ambient module 到 EOF 的收口（本块修复） ──
+// 根因：typescript/tokens/files/source-file-end-possible-shape.xl.md : BuildTrailingDeclaration（line 281）
+//   只认「最后一块是 `{`」的 namespace / module / global；`declare module "m"`（无体、无 `;`）没有
+//   Accept 点，leftover 落进 ExpressionStatement 兜底 → 「表达式语句没有读完」。
+// build 时机：EOF leftovers 以 `declare module` 开头且只有三格（declare + module + 字符串名，无体无分号）；
+//   多条连排时它是前缀递归（`declare module "m"` ⏎ `class C {}` 的 boundary 切出的前缀）。
+// build 提取：DeclareKeywordShape + StringLiteralShape（无 ModuleBlock；TS 的 End 停在字符串右边界）。
+// close 时机：补零宽合成 `;` 后由 ModuleDeclarationShape.FromUnits 的无体分支（terminatorIndex）收口；
+// close 提取：最后代码单元（模块字符串）的 SourceRange.End。
+declare module "m"
+declare module "m"\n
+declare module "m" // c
+declare module "m"\nclass C {}
+declare module "m"\ninterface I {}
+declare module "m"\ndeclare module "n"
+declare module "m"\nclass C {}\ninterface I {}
+declare module "m"\n\nclass C {}
+declare module "m"\nclass C {} // c
+declare module "m";\nclass C {}
+
+// 未收口 backlog（探针复现 5 条，TS parseDiagnostics=0；本块不改 import 声明候选的 ASI 通道）：
+//   import "m"\nimport "n"                 ← 崩溃：CatalogGuide: 终结候选与其它候选同时成立（宿主 ImportDeclarationShape，下标 4）
+//   import "m"\nimport x from "n"          ← 同上
+//   import "m"\nimport * as ns from "n"    ← 同上
+//   import "m"\nimport { a } from "n"      ← 同上
+//   import "m"\nimport type { T } from "n" ← 同上
+//   对照（全绿）：import "m"\nclass C {} / import x from "m"\nimport "n" / import "m";\nimport "n";
+//   根因方向：typescript/tokens/declarations/import-declaration-possible-shape.xl.md : ComputeByIndex（Stage 1）
+//   对副作用导入的模块说明符 String 只 continue，候选在 ASI 边界仍 Uncertain；壳 ImportDeclarationShape 的
+//   终结候选（ImportDeclarationEndPossibleShape.ComputeByIndex）Accept 时普通候选未 Reject → core CatalogGuide
+//   抛共存。修法需让副作用导入在说明符处 Accept/建壳或让宿主候选在该格 Reject，属 import 声明流水线，本块不动。

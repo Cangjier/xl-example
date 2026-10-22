@@ -2747,6 +2747,345 @@
           ]
         }
       ]
+    },
+    {
+      "src": "declare module \"m\"",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"\n",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" // c",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"\nclass C {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 18,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"\ninterface I {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 18,
+          "end": 33,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 28,
+              "end": 30,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"\ndeclare module \"n\"",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 18,
+          "end": 37,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 18,
+              "end": 26
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 33,
+              "end": 37,
+              "text": "n"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"\nclass C {}\ninterface I {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 18,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "C"
+            }
+          ]
+        },
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 29,
+          "end": 44,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 39,
+              "end": 41,
+              "text": "I"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"\n\nclass C {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 18,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\"\nclass C {} // c",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 18,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "C"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\";\nclass C {}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 19,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 25,
+              "end": 27,
+              "text": "C"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
