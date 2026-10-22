@@ -101,17 +101,29 @@ if (end === null) {
 const document = end.Document;
 const count = document.GetCount();
 let at = end.Index + 1;
+let lineBreak = false;
 while (at < count) {
   const ch = document.At(at).Value;
   if (ch === " " || ch === "\t" || ch === "\r") {
     at++;
     continue;
   }
+  if (ch === "\n") {
+    lineBreak = true;
+    at++;
+    continue;
+  }
   if (ch === "/" && at + 1 < count) {
     const next = document.At(at + 1).Value;
     if (next === "/") {
-      // line comment: the declaration ends at the line break (ASI).
-      return true;
+      // 行注释本身不含换行：跳过注释文本，让它后面的那个换行在下一轮被记为 lineBreak。
+      // `export { a } // c` ⏎ `from "m"` 必须与块注释 / 无注释走同一套判据，否则在这里
+      // 提前 Accept 会与还活着的普通候选在同一格撞 CatalogGuide 共存。
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
     }
     if (next === "*") {
       at += 2;
@@ -122,34 +134,27 @@ while (at < count) {
       continue;
     }
   }
-  if (ch === "\n") {
+  break;
+}
+if (at >= count) {
+  // EOF：声明可以结束。
+  return true;
+}
+if (!lineBreak) {
+  // 同一行还有代码（或只有注释、没有换行）：不能结束。
+  return false;
+}
+let word = "";
+while (at < count) {
+  const c = document.At(at).Value;
+  if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c === "_" || c === "$") {
+    word += c;
     at++;
-    while (at < count) {
-      const gap = document.At(at).Value;
-      if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n") {
-        at++;
-        continue;
-      }
-      break;
-    }
-    let word = "";
-    while (at < count) {
-      const c = document.At(at).Value;
-      if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c === "_" || c === "$") {
-        word += c;
-        at++;
-        continue;
-      }
-      break;
-    }
-    if (word === "with" || word === "assert" || word === "from" || word === "as" || word === "type") {
-      return false;
-    }
-    return true;
+    continue;
   }
-  if (ch === ";") {
-    return false;
-  }
+  break;
+}
+if (word === "with" || word === "assert" || word === "from" || word === "as" || word === "type") {
   return false;
 }
 return true;

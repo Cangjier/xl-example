@@ -164,3 +164,54 @@ async\nfunction f() {}
 async (a) => a\nasync (b) => b
 async function f() {}\nfunction g() {}
 async(1)\n(foo)
+
+// ── C5（cover2 补强）：export 子句的 `}` 与下一行 `from` 之间夹行注释时，终结候选不得提前 Accept ──
+// 根因：ExportDeclarationEndPossibleShape.CanEndAt 的 `//` 分支直接 return true，
+//   跳过了「换行后第一个词是 from/with/assert/as/type 就仍属本条声明」这条检查 →
+//   终结候选与 ExportDeclarationPossibleShape 在同一格同时 Accept，CatalogGuide 报
+//   「终结候选与其它候选同时成立（宿主 ExportDeclarationShape，下标 6）」并抛错。
+// 修法（typescript/tokens/declarations/export-declaration-end-possible-shape.xl.md:CanEndAt）：
+//   行注释分支改为「跳过注释 → 让换行分支判续接关键字」，与块注释 / 无注释走同一套判据。
+export { a } // c\nfrom "m"
+export { a } /* c */\nfrom "m"
+export { a }\nfrom "m"
+export { a } from\n"m"
+
+// ── L3（cover2 补强）：后缀 `++`/`--` 换行后接反引号模板 = 新语句，不是标签模板 ──
+// 根因：ExpressionStatementPossibleShape.IsAsiBoundary 的后缀 `++`/`--` 分支只放行了
+//   `(` `[` `.` `?.` `!`，漏了反引号模板（IsContinuation 里反引号按标签模板续接返回 true）→
+//   本仓把 `a++` 与下一行模板并成 TaggedTemplateExpression，TS 是两条语句。
+// 修法（typescript/tokens/statements/expression-statement-possible-shape.xl.md:IsAsiBoundary）：
+//   后缀分支补「current 是 String 且 StringChar 为反引号」→ 返回 true（在这里断句）。
+a++\n`t`
+f\n`t`
+f()\n`t`
+new f\n`t`
+f\n`t`\ng()
+
+// ── C6（cover2 补强）：import/export 声明跨行续接（换行后仍是 from / with / 说明符串）──
+import { a } from\n"m"
+import x\nfrom "m"
+import * as ns\nfrom "m"
+import x from "m"\nwith\n{ type: "json" }
+import { "a-b" as c } from "m"\nfoo()
+import x = a.b\nfoo()
+export default\nx
+export =\n1
+export as namespace N\nfoo()
+export import a = b\nfoo()
+
+// ── A4（cover2 补强）：根级表达式语句换行后的继续 / 收口（后缀与关键字双方向）──
+const x = a\n?.b
+a\nin o
+a\ninstanceof C
+typeof\nx
+new\nf()
+delete\na.b
+class C { a = 1\nb = 2 }
+switch (x) { case 1:\ncase 2: f() }
+type T = A |\nB
+function f(): void;\nfunction f() {}
+using a = b\nfoo()
+while (a)\nf()
+if (a)\nf()
