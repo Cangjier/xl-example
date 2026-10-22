@@ -10,3 +10,6 @@ typescript/cases/basic-token.ts -text
 typescript/cases/cover6-*.ts -text
 typescript/cases/*-cr*.ts -text
 tests/cases/token/lexical/*-cr*.ts -text
+# cover9: possible-build.ts 的 cover9 段内嵌 lone CR（U+000D）作行内行终止符用例；
+# 文件名不含 -cr，故显式钉住字节，避免 CRLF 归一化把它吃掉。
+typescript/cases/possible-build.ts -text
