@@ -9202,6 +9202,1368 @@
           ]
         }
       ]
+    },
+    {
+      "src": "const a=1;const b=2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 8,
+                      "end": 9,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 10,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 16,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 19,
+                      "end": 20,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;const b = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 25,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 6,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 8,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;const b = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 19,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = 1;const y = 2;const z = 3;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 25,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 18,
+                      "end": 20,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 22,
+                      "end": 24,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 25,
+          "end": 38,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 25,
+              "end": 37,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 31,
+                  "end": 37,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "z"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 35,
+                      "end": 37,
+                      "text": "3"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const a = 1;export const b = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 19,
+          "end": 39,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 19,
+              "end": 26
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 26,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 32,
+                  "end": 38,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 36,
+                      "end": 38,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;// c\nconst b = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 30,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 23,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "consta = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "consta = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "letx = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a =1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "functionf() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { return1; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T =number;",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "NumberKeyword",
+              "pos": 8,
+              "end": 15
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class C { m() {}}",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "C"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 9,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 9,
+                  "end": 11,
+                  "text": "m"
+                },
+                {
+                  "kind": "Block",
+                  "pos": 13,
+                  "end": 16
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a=1;const b=2;const c=3;const d=4;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 8,
+                      "end": 9,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 10,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 16,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 19,
+                      "end": 20,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 21,
+          "end": 32,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 21,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 27,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "c"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 30,
+                      "end": 31,
+                      "text": "3"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 32,
+          "end": 43,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 32,
+              "end": 42,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 38,
+                  "end": 42,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "d"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 41,
+                      "end": 42,
+                      "text": "4"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "consta=1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1; const b = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 19,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": ";const a = 1;",
+      "ast": [
+        {
+          "kind": "EmptyStatement",
+          "pos": 0,
+          "end": 1
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 1,
+          "end": 14,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 1,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 7,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 11,
+                      "end": 13,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;/* c */const b = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 32,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 25,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 27,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 29,
+                      "end": 31,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const a = 1;\nconst b = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 11,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 11,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 9,
+                      "end": 11,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 12,
+          "end": 26,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 12,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 19,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() {return 1;}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
