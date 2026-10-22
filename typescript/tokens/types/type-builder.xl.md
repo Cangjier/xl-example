@@ -974,14 +974,16 @@ while (true) {
   // `readonly` 也可能是成员名（`interface TupleType { readonly: boolean }`）：
   // 只有后面跟着名字 / 字符串名 / 计算名时才是修饰词。
   const afterReadonly = this.Peek(1);
-  // `readonly` 换行后接 `[`：TS 把 readonly 收成**无类型 PropertySignature**（名字就是 readonly），
-  // `[k: string]` 另起一个索引签名成员；同一行的 `readonly [k: string]` 仍是修饰词。
+  // `readonly` 换行后接**任何**代码单元：TS 的成员修饰词只认「同一行」的下一个 token
+  //（parseModifiers → nextTokenIsOnSameLineAndCanFollowModifier），换行时 `readonly` 收成
+  // **无类型 PropertySignature**（名字就是 readonly），下一行另起成员。
+  // 同一行的 `readonly [k: string]` / `readonly x: A` 仍是修饰词。
   const readonlyUnit = this.Peek(0);
-  if (afterReadonly instanceof Bracket && (afterReadonly as Bracket).StartBracketChar === "["
-    && readonlyUnit !== null && MemberBoundary.HasLineBreakBetween(readonlyUnit, afterReadonly)) {
-    // `readonly` 换行后接 `[`：readonly 是**无类型 PropertySignature** 的名字；
-    // `[k: string]` 另起一个 IndexSignature 成员。这里当场收掉 readonly 成员，
-    // 不能只 break（否则物化成名字后会把这个 `[` 当成类型的索引访问后缀）。
+  if (readonlyUnit !== null && afterReadonly !== null
+    && MemberBoundary.HasLineBreakBetween(readonlyUnit, afterReadonly)) {
+    // 当场收掉 readonly 成员，不能只 break：物化成名字后，下一行的 `[` / `(` / 名字会被
+    // 当成类型的索引访问 / 调用 / 续接后缀（`readonly` ⏎ `[k: string]` 的 `[` 是下一个
+    // IndexSignature 成员，不是上一成员类型的索引访问）。
     const readonlyNameIndex = this.At;
     this.At++;
     const readonlyName = IdentifierShape.FromBasicToken(unit as Common, this.Context);
@@ -1082,6 +1084,22 @@ if (unit instanceof Common && this.IsText(unit, "new")) {
     }
     constructShape.Add(constructReturnType);
     return this.SpanTypeMember(constructShape, start);
+  }
+  // `new` 换行后接下一个成员（`new` ⏎ `new(): void`）：TS 把这一格的 new 收成
+  // **无类型 PropertySignature**（名字就是 new），构造签名是下一行的 `new()`。
+  // 构造签名判据本身不看换行（`new` ⏎ `(` / `<` 仍是构造签名，G13/G14 已绿），
+  // 所以只在「下一格不是 `(` / `<` 且与 new 之间有换行」时按成员名收口；
+  // 否则通用名字路径会把下一行的 `new` 当成上一格 new 的类型（`new` 走构造类型、缺 `=>` 崩）。
+  if (!isConstructSignature && newNextUnit !== null
+    && MemberBoundary.HasLineBreakBetween(unit, newNextUnit)) {
+    const newNameIndex = this.At;
+    this.At++;
+    const newName = IdentifierShape.FromBasicToken(unit as Common, this.Context);
+    newName.Pos = this.Positions[newNameIndex];
+    const newShape = new PropertySignatureShape(this.Template);
+    newShape.SignatureName = newName;
+    newShape.Add(newName);
+    return this.SpanTypeMember(newShape, start);
   }
 }
 if (unit instanceof Symbol && this.IsText(unit, "<")) {

@@ -11,6 +11,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
@@ -37,6 +38,8 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 ## field Rejected:bool = false
 
+## field PendingModifier:bool = false
+
 # class InterfaceDeclarationPossibleShape extends PossibleShape
 
 ```txt
@@ -46,6 +49,25 @@ declare interface I {}
 
 与 ClassDeclarationPossibleShape 同构：第一个代码单元 `interface`（或 `declare` + `interface`），
 最后一块是空接口体 `{…}` 的 `Bracket`。`interface I extends J {}` 在本批 `Reject`（`extends` 不是 `{`。
+
+## private static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
+
+`at` 这个代码单元与它前面第一个代码单元之间有没有换行（中间的 trivia 逐格看，块注释里的换行也算）。
+`declare` 与 `interface` 之间换行时 TS 的 ASI 把 `declare` 收成独立的 ExpressionStatement、
+接口声明不带 DeclareKeyword，本候选必须退出（与 `class-declaration-possible-shape.xl.md` 的同款守卫一致）。
+
+```ts
+for (let index = at - 1; index >= 0; index--) {
+  const unit = units[index];
+  if (!unit.IsTriviaToken) {
+    return false;
+  }
+  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+    return true;
+  }
+}
+return false;
+```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -69,6 +91,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
+  state.PendingModifier = false;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -83,10 +106,17 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     if (unit instanceof Common) {
       const text = (unit as Common).TempToString();
       if (text === "declare") {
-        state.Stage = 1;
+        // 修饰词先挂起：`declare` 与 `interface` 之间换行时 TS 按 ASI 把 declare 收成独立
+        // ExpressionStatement（接口声明不带 DeclareKeyword），换行与否要等 `interface` 那一格才能判。
+        state.PendingModifier = true;
         continue;
       }
       if (text === "interface") {
+        // `declare` ⏎ `interface`：ASI 拆成两条语句，本候选退出，`declare` 交给表达式语句候选收口。
+        if (state.PendingModifier && InterfaceDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+          state.Rejected = true;
+          continue;
+        }
         state.Stage = 2;
         continue;
       }

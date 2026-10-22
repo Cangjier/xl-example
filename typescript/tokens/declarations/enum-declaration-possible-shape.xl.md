@@ -10,6 +10,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 ```
@@ -33,6 +34,8 @@ import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 
 ## field Rejected:bool = false
 
+## field PendingModifier:bool = false
+
 # class EnumDeclarationPossibleShape extends PossibleShape
 
 ```txt
@@ -44,6 +47,25 @@ declare enum E { A }
 
 与 ClassDeclarationPossibleShape 同构，但枚举体**可以非空**：成员由 `EnumDeclarationShape.FromUnits` 逐个建。
 第一个代码单元 `enum`（或 `declare` + `enum`），最后一块是枚举体 `{…}` 的 `Bracket`。
+
+## private static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
+
+`at` 这个代码单元与它前面第一个代码单元之间有没有换行（中间的 trivia 逐格看，块注释里的换行也算）。
+`declare` 与 `enum` 之间换行时 TS 的 ASI 把 `declare` 收成独立的 ExpressionStatement、枚举声明
+不带 DeclareKeyword，本候选必须退出（与 `class-declaration-possible-shape.xl.md` 的同款守卫一致）。
+
+```ts
+for (let index = at - 1; index >= 0; index--) {
+  const unit = units[index];
+  if (!unit.IsTriviaToken) {
+    return false;
+  }
+  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+    return true;
+  }
+}
+return false;
+```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -66,6 +88,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
+  state.PendingModifier = false;
 }
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
@@ -80,16 +103,29 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     if (unit instanceof Common) {
       const text = (unit as Common).TempToString();
       if (text === "declare") {
-        state.Stage = 1;
+        // 修饰词先挂起：`declare` 与 `enum` 之间换行时 TS 按 ASI 把 declare 收成独立
+        // ExpressionStatement（枚举声明不带 DeclareKeyword），换行与否要等 `enum` 那一格才能判。
+        state.PendingModifier = true;
         continue;
       }
       if (text === "const") {
         // `const enum E {…}`: the statement candidate yields on `const` + `enum` (raw lookahead),
         // so this candidate is the only one left for that form.
+        // `declare` ⏎ `const enum` 同 `declare` ⏎ `enum`：ASI 把 declare 拆成独立的
+        // ExpressionStatement，`const enum` 声明不带 DeclareKeyword（与上面 enum 分支同一判据）。
+        if (state.PendingModifier && EnumDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+          state.Rejected = true;
+          continue;
+        }
         state.Stage = 5;
         continue;
       }
       if (text === "enum") {
+        // `declare` ⏎ `enum`：ASI 拆成两条语句，本候选退出，`declare` 交给表达式语句候选收口。
+        if (state.PendingModifier && EnumDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+          state.Rejected = true;
+          continue;
+        }
         state.Stage = 2;
         continue;
       }
