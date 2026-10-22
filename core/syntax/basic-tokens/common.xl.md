@@ -57,16 +57,31 @@ if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
     if (Src.Value === "}") {
       return true;
     }
-    return digits < 6 && this.Template.SymbolTemplate.IsHexDigit(Src.Value);
+    if (!this.Template.SymbolTemplate.IsHexDigit(Src.Value)) {
+      return false;
+    }
+    // 位数不限（`\u{0000061}` / `\u{0001D400}` 合法）：只有「再补一位」还落在 Unicode 标量上限内
+    // 才继续收。前缀全零时值为 0，可以任意长；越界的转义 `Common.IsUnicodeEscapeStart` 本就不会放行。
+    return this.UnicodeBraceEscapeValue() * 16 <= Common.MaxUnicodeCodePoint();
   }
 }
 return !(this.Template.SymbolTemplate.IsSymbol(Src.Value) || this.Template.SymbolTemplate.IsWhiteSpace(Src.Value));
 ```
 
+## static method MaxUnicodeCodePoint:()=>int
+
+Unicode 标量值上限（`U+10FFFF`）：`\u{…}` 的累计码点超过它就非法。这是 **Unicode 定义**、
+与目标语言无关，可以留在 core；ECMAScript 的「位数不限」由既有开关
+`SymbolTemplate.SupportUnicodeEscapeIdentifier`（默认关闭）表达，其它语言零影响。
+
+```ts
+return 0x10FFFF;
+```
+
 ## static method IsUnicodeEscapeStart:(Src:Source, template:Template)=>bool
 
 `Src` 处是不是一个**合法**的转义标识符起点：`\` + `u` + 4 个十六进制字符（`\uXXXX`），
-或 `\` + `u` + `{` + 1–6 个十六进制字符 + `}`（`\u{…}`，码点 ≤ `0x10FFFF`）。
+或 `\` + `u` + `{` + 1 个及以上十六进制字符 + `}`（`\u{…}`，位数不限，累计码点 ≤ `U+10FFFF`）。
 
 语言开关（`SymbolTemplate.SupportUnicodeEscapeIdentifier`）关闭时恒 `false`，其它语言零影响；
 不足位数 / 非十六进制 / 不是 `\` / 花括号形未闭合或码点越界一律 `false`（这些情况保持旧的“落回符号层”行为）。
@@ -89,19 +104,24 @@ if (document.At(index + 1).Value !== "u") {
   return false;
 }
 if (document.At(index + 2).Value === "{") {
-  // `\u{hex+}`：1–6 位十六进制、码点 ≤ 0x10FFFF、必须 `}` 收口（与字符串路径同口径）。
+  // `\u{hex+}`：位数不限（前导零可任意多），累计码点 ≤ 0x10FFFF、必须以 `}` 收口。
   let at = index + 3;
   let digits = 0;
   let value = 0;
-  while (at < count && digits < 6 && template.SymbolTemplate.IsHexDigit(document.At(at).Value)) {
+  while (at < count && template.SymbolTemplate.IsHexDigit(document.At(at).Value)) {
     value = value * 16 + Number.parseInt(document.At(at).Value, 16);
     digits++;
     at++;
+    // 前导零会把数字串拉任意长而值仍是 0；一旦累计值越界，继续补位只会更大 ⇒ 当场判非法。
+    // 这也把乘法限制在 0x10FFFF * 16 之内，不会溢出。
+    if (value > Common.MaxUnicodeCodePoint()) {
+      return false;
+    }
   }
   if (digits === 0 || at >= count || document.At(at).Value !== "}") {
     return false;
   }
-  return value <= 0x10FFFF;
+  return true;
 }
 if (index + 6 > count) {
   return false;
@@ -117,7 +137,7 @@ return true;
 ## method UnicodeBraceEscapeDigits:()=>int
 
 正在写 `\u{…}` 时已收的十六进制位数：`0` = 刚读完 `\u`、还在等 `{`；`-1` = 不在花括号转义里。
-状态从 `Temp` 尾部推出来（最后一个 `\` 起是否 `\u` / `\u{hex{0,6}}`），不新增字段。
+状态从 `Temp` 尾部推出来（最后一个 `\` 起是否 `\u` / `\u{hex*}`），不新增字段。
 
 ```ts
 const text = this.TempToString();
@@ -133,7 +153,7 @@ if (!tail.startsWith("\\u{")) {
   return -1;
 }
 const body = tail.substring(3);
-if (body.indexOf("}") >= 0 || body.length > 6) {
+if (body.indexOf("}") >= 0) {
   return -1;
 }
 for (let index = 0; index < body.length; index++) {
@@ -142,6 +162,39 @@ for (let index = 0; index < body.length; index++) {
   }
 }
 return body.length;
+```
+
+## method UnicodeBraceEscapeValue:()=>int
+
+正在写 `\u{…}` 时已收的十六进制位累计出的码点值（`-1` = 不在花括号转义里 / 不是合法十六进制串）。
+与 `UnicodeBraceEscapeDigits` 看同一段 `Temp` 尾部；累计值一越过 Unicode 标量上限就封顶返回
+`MaxUnicodeCodePoint + 1`——调用方只用它判「再补一位会不会越界」，封顶后不再乘 16，避免数值溢出。
+
+```ts
+const text = this.TempToString();
+const backslash = text.lastIndexOf("\\");
+if (backslash < 0) {
+  return -1;
+}
+const tail = text.substring(backslash);
+if (!tail.startsWith("\\u{")) {
+  return -1;
+}
+const body = tail.substring(3);
+if (body.indexOf("}") >= 0) {
+  return -1;
+}
+let value = 0;
+for (let index = 0; index < body.length; index++) {
+  if (!this.Template.SymbolTemplate.IsHexDigit(body[index])) {
+    return -1;
+  }
+  value = value * 16 + Number.parseInt(body[index], 16);
+  if (value > Common.MaxUnicodeCodePoint()) {
+    return Common.MaxUnicodeCodePoint() + 1;
+  }
+}
+return value;
 ```
 
 ## static method IsInUnicodeBraceEscape:(unit:Token)=>bool

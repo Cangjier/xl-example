@@ -197,3 +197,42 @@ const wx = 1;​const wy = 2;
 type TW = number;
 // 叠加：块注释 trivia + NBSP 后接第二条语句
 const wz = 1; /* c */ const wz2 = 2;
+
+// ══ cover6 core（F `\u{…}` 位数 / code point 边界）══
+// 探针：tmp/probe-unicode.mjs（41 + 17 条输入，TS 6.0.3 口径）：修前 12 条合法形 crash
+//   （「变量声明缺少标识符」等），修后 0 红；TS 自身非法的 19 条只记录、不入尺子。
+// 根因：core/syntax/basic-tokens/common.xl.md 的 IsAppend / IsUnicodeEscapeStart /
+//   UnicodeBraceEscapeDigits 写死 1–6 位十六进制；typescript/tokens/names/identifier-shape.xl.md
+//   的解码正则同样是 {1,6}。
+// 修法：去位数上限，累计码点 > Common.MaxUnicodeCodePoint()（0x10FFFF）才非法；前导零可任意多。
+// base：1–6 位（旧口径，修后必须仍绿）
+const \u{61} = 1;
+const \u{0061} = 1;
+const \u{000061} = 1;
+const a\u{62}c = 1;
+const \u{61}\u{62} = 1;
+// 位数超过 6：合法标识符字符前补任意多个前导零
+const \u{0000061} = 1;
+const \u{000000061} = 1;
+const \u{000000000000000000061} = 1;
+const \u{0000000000000000000000000000000061} = 1;
+const \u{000005F} = 1;
+const \u{0000024} = 1;
+const a\u{0000062}c = 1;
+const \u{0000061}\u{0000062} = 1;
+const \u{0000061}bc = 1;
+// 与 \uXXXX 混排
+const \u0061\u{0000062} = 1;
+const \u{0000061}\u0062\u{63} = 1;
+// 位置：属性名 / 方法名 / 成员访问 / 类型位 / 函数名
+const ub8 = { \u{0000061}: 1 };
+class G { \u{0000062}() {} }
+const ub9 = obj.\u{0000062};
+let ub10: \u{0000049};
+function f\u{0000066}() {}
+// 星面 code point（U+1D400 MATHEMATICAL BOLD CAPITAL A，ID_Start）：位数超 6 仍合法，解码成代理对
+const \u{1D400} = 1;
+const \u{0001D400} = 1;
+const \u{0000001D400} = 1;
+const \u{0000000000000000000001D400} = 1;
+const a\u{0001D400}c = 1;
