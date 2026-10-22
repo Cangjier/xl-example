@@ -63,3 +63,99 @@ const [, second] = [1, 2]\nconsole.log(second)
 const o = { x: 1 } as const
 try { } catch (e) { }
 const x = [1, 2]\nconsole.log(x)
+
+// ── A3（审计补强）：块体内部与根级必须同一时机收口（A 组 stmt-block-statements / st-switch / stmt-while）──
+function f() { const a = 1\n f(a) }
+function f() { const x = 1\n return x }
+if (a) { const x = 1\n f(x) }
+for (const x of xs) { total += x\n }
+while (a) { b = c\n }
+try { f()\n } catch (e) { g()\n }
+function f() { x as T\n g() }
+switch (x) { case 1: { let a = 1\n break\n } }
+switch (x) { case 1: f()\n default: g() }
+switch (x) { case 1: f()\n break }
+function f() { return\n x }
+do { f()\n } while (a)
+function f() { "use strict"\n g() }
+label: { f()\n }
+en:\n{ f() }\nenum E { A }
+function f() { throw new Error("x")\n }
+do f()\nwhile (a)
+function f() { if (a) return\n g() }
+
+// ── A-g（审计补强）：根级语句/声明之间 ASI；换行后接 `(` `[` 二元运算符时不得插 ASI ──
+const a = 1\nlet b = 2
+let a = 1\nfunction f() {}
+a = 1\nb = 2
+f()\ng()
+f()\n[0]
+f()\n(1)
+let a = 1\na\n+ 2
+const f = () => {}\nconst g = () => {}
+class C {}\nconst x = 1
+type T = A\nconst x = 1
+let a: number\nlet b = 2
+const x = y as T\nfoo()
+declare const o: any\nconst b = 1;
+interface I { a: number }\nconst x = 1
+{ x => x\n[1, 2, 3] }
+
+// ── B2（审计补强）：EOF 处普通候选与终结候选共存，最后一条无分号语句由自己的末单元收口 ──
+for (;;) f()
+switch (x) { case 1: f() }
+function f() {}
+class C {}
+if (a) { f() }
+if (a) f()\nelse g()
+while (a) b++
+const a = 1
+try { f() } finally { g() }
+for (;;) { x++\ncontinue }
+while (a)\n{ break }
+do x++; while (x < 3)
+type H = number\ntry { } catch { }
+// 真缺口（deferred，未提交红用例）：`label: for (;;) break label` 在 EOF 处 CRASH
+//   CatalogGuide「终结候选与其它候选同时成立」（宿主 SourceFileShape，下标 10）——
+//   普通候选在 EOF 处未灭，与本类 B 组同源；已报告 lead，未改 core。
+
+// ── C4（审计补强）：import/export 无分号、换行后接下一语句时在行末 ASI（end-close-analysis §3 B 组）──
+import x from "m"\nimport y from "n"
+import x from "m"\nfoo()
+import x from "m"\nclass C {}
+import "./side"\nexport default 1
+import type { T } from "m"\nconst x: T = 1
+export * from "m"\nexport * from "n"
+export const a = 1\nexport const b = 2
+export { a }\nexport { b }
+export type { A } from "m"\nexport type { B } from "n"
+export default function f() {}\nexport const a = 1
+export default async function f() {}\nexport const a = 1
+export default 1\nexport const a = 2
+import a = require("m")\nfoo()
+import a = require("m")\nimport b = require("n")
+declare module "m" { export const a: number\nexport const b: string }
+
+// ── L2（审计补强）：`++`/`--` 紧贴可结束表达式才是后缀；换行后不跨行绑定（L 组 prefix-operand-newline）──
+let a = 1, b = 2; a++\n++b
+let c = 1, d = 2; c++\n--d
+let e = 1; e++\n!e
+let f = 1; f++\n--f
+let g = 1; g\n++g
+// 真缺口（deferred，未提交红用例）：`let h = 1; h++\n(h)` 把换行后的 `(h)` 续成 CallExpression(h++)；
+//   TS 在 `h++` 之后插 ASI（UpdateExpression 不是合法调用者）——后缀单元判据缺一格。
+
+// ── O2（审计补强）：换行后的 `;` 归上一条语句，不新起空语句（O 组 gap-r942-loop-body-terminator）──
+if (a) f()\n;
+while (a) f()\n;
+do f()\nwhile (a)\n;
+for (;;) continue\n;
+switch (x) { case 1: break\n; }
+
+// ── S2（审计补强）：`async` 上下文关键字与换行断句（`async` 换行后不是箭头前缀）──
+async\nfunction f() {}
+// 真缺口（deferred，未提交红用例）：`async\n(x) => x;` 被当成 async 箭头（AsyncKeyword + ArrowFunction）；
+//   TS 因 `async` 与参数之间有换行而断成两条语句（`async` 标识符 + `(x) => x`）。
+async (a) => a\nasync (b) => b
+async function f() {}\nfunction g() {}
+async(1)\n(foo)
