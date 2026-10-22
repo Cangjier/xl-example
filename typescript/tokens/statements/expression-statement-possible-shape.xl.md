@@ -389,6 +389,11 @@ if (units[prev] instanceof Symbol) {
         return true;
       }
     }
+    // 标签模板的宿主同样不能是后缀 `++`/`--`（TS 的 UpdateExpression 不是 MemberExpression）：
+    // `a++` ⏎ `` `t` `` 是两条语句（第二条是无替换模板表达式），不能并成 TaggedTemplateExpression。
+    if (current instanceof String && (current as String).StringChar === "`") {
+      return true;
+    }
   }
 }
 // 本条语句的起点：从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。
