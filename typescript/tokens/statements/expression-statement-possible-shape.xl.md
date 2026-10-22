@@ -636,6 +636,11 @@ return false;
 四条同时成立：当前是代码（不是 trivia / EOF / `;`）；与前一代码单元之间有换行；
 前一代码单元能收住表达式（`IsExpressionTail`）；当前单元不是延续符（`IsContinuation`）。
 
+另加一条**窄判据**（与变量语句 / `return` 操作数共用 `IsUncontinuableTailBoundary`）：
+当前是调用位（`(` / `[` / 反引号模板）且上一格是**注定当不了调用者**的尾巴（块体箭头 `=> {}`、
+`as` / `satisfies` 的类型、后缀 `++` / `--`）时，无论 `IsContinuation` 怎么说都是边界——
+`export default a as T` ⏎ `(b)` 是两条语句，而 `export default a` ⏎ `(b)` 仍是 `a(b)` 一条。
+
 它不判「本条语句的起点是不是语句关键字」——那一条是 `IsAsiBoundary` 的，而 export 语句的起点永远是 `export`，
 所以那两个候选必须自己判，不能借 `IsAsiBoundary`。
 
@@ -659,6 +664,11 @@ while (previous >= 0 && units[previous].IsTriviaToken) {
 }
 if (previous < 0) {
   return false;
+}
+// 调用位 + 不可调用尾：`(` / `[` / 模板「接得上」的前提是上一格能当调用者 / 标签模板宿主；
+// `as` / `satisfies` 的类型、块体箭头、后缀自增都当不了，TS 就在那里插 ASI。
+if (ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(units, tokenIndex)) {
+  return true;
 }
 return ExpressionStatementPossibleShape.IsExpressionTail(units[previous])
   && !ExpressionStatementPossibleShape.IsContinuation(current);

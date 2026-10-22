@@ -7637,6 +7637,2804 @@
           ]
         }
       ]
+    },
+    {
+      "src": "export default a as T\n(b);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 14,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 21,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a as T\n[b];",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 14,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 21,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a as T\n`t`;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 14,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 26,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 21,
+              "end": 25,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a as T\n(b)\n(c);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 14,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 30,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 21,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 21,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 24,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 27,
+                  "end": 28,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a as T /*c*/\n(b);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 14,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 19,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 32,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 21,
+              "end": 31,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 29,
+                  "end": 30,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default () => {}\n(b);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 14,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 17,
+                  "end": 20
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 28,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 23,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a as T\n(b);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 8,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 15,
+          "end": 20,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 15,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a as T\n[b];",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 8,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 15,
+          "end": 20,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 15,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 18,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a as T\n`t`;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "AsExpression",
+              "pos": 8,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "a"
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 13,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "T"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 15,
+          "end": 20,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 15,
+              "end": 19,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = () => {}\n(b);",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 8,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 11,
+                  "end": 14
+                },
+                {
+                  "kind": "Block",
+                  "pos": 14,
+                  "end": 17
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 17,
+          "end": 22,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 17,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T\n(b);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 16,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 28,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 23,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T\n[b];",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 16,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 28,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 23,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T\n`t`;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 16,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 28,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 23,
+              "end": 27,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T /*c*/\n(b);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 16,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 23,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 31,
+                  "end": 32,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T // c\n(b);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 16,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 33,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 23,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 30,
+                  "end": 31,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T\n(b), y = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 16,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 35,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 23,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "ParenthesizedExpression",
+                  "pos": 23,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 25,
+                      "end": 26,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "CommaToken",
+                  "pos": 27,
+                  "end": 28
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 28,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 28,
+                      "end": 30,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "FirstAssignment",
+                      "pos": 30,
+                      "end": 32
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 32,
+                      "end": 34,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T\n(b);\nexport const z = 1;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 16,
+                      "end": 23,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 18,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 21,
+                          "end": 23,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 21,
+                              "end": 23,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 28,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 23,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 28,
+          "end": 48,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 28,
+              "end": 35
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 35,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 41,
+                  "end": 47,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 41,
+                      "end": 43,
+                      "text": "z"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 45,
+                      "end": 47,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export let x = a as T\n(b);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 14,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 19,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 21,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 21,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export var x = a as T\n(b);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 14,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 19,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 21,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 26,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 21,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 23,
+                  "end": 24,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = 1\nf();",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 23,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 18,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export let x = 1\nexport let y = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 16,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 16,
+              "end": 23
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 23,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 27,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export var x = 1\nexport var y = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 10,
+                  "end": 16,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 14,
+                      "end": 16,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 16,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 16,
+              "end": 23
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 23,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 27,
+                  "end": 33,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 31,
+                      "end": 33,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export declare const x: A\nexport declare const y: B;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 14,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 20,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 22,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 23,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 25,
+          "end": 52,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 25,
+              "end": 32
+            },
+            {
+              "kind": "DeclareKeyword",
+              "pos": 32,
+              "end": 40
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 40,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 46,
+                  "end": 51,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 46,
+                      "end": 48,
+                      "text": "y"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 49,
+                      "end": 51,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 49,
+                          "end": 51,
+                          "text": "B"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = () => {}\n`t`;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 16,
+                      "end": 25,
+                      "children": [
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 19,
+                          "end": 22
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 22,
+                          "end": 25
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 25,
+          "end": 30,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 25,
+              "end": 29,
+              "text": "t"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export  const  x  =  a  as  T\n(b);",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 13,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 16,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "AsExpression",
+                      "pos": 19,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 19,
+                          "end": 22,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 26,
+                          "end": 29,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 29,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 29,
+          "end": 34,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 29,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 31,
+                  "end": 32,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as T\n<b>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 14,
+                                      "end": 16,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 16,
+                              "end": 18
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 19,
+                          "end": 20
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "x = a as T\n<b>c;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 0,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "x"
+                },
+                {
+                  "kind": "FirstAssignment",
+                  "pos": 1,
+                  "end": 3
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 3,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 3,
+                      "end": 13,
+                      "children": [
+                        {
+                          "kind": "AsExpression",
+                          "pos": 3,
+                          "end": 10,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 3,
+                              "end": 5,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 8,
+                              "end": 10,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 8,
+                                  "end": 10,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "FirstBinaryOperator",
+                          "pos": 10,
+                          "end": 12
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 12,
+                          "end": 13,
+                          "text": "b"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "GreaterThanToken",
+                      "pos": 13,
+                      "end": 14
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 15,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as T\n<b<C>>d;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 19,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 9,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 14,
+                                  "end": 16,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 14,
+                                      "end": 16,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 16,
+                              "end": 18
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 18,
+                              "end": 19,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "FirstBinaryOperator",
+                          "pos": 19,
+                          "end": 20
+                        },
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 20,
+                          "end": 24,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 21,
+                              "text": "C"
+                            },
+                            {
+                              "kind": "GreaterThanGreaterThanToken",
+                              "pos": 21,
+                              "end": 23
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 23,
+                              "end": 24,
+                              "text": "d"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a as T\n<b>c ? d : e;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "ConditionalExpression",
+                      "pos": 9,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "BinaryExpression",
+                              "pos": 9,
+                              "end": 19,
+                              "children": [
+                                {
+                                  "kind": "AsExpression",
+                                  "pos": 9,
+                                  "end": 16,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 9,
+                                      "end": 11,
+                                      "text": "a"
+                                    },
+                                    {
+                                      "kind": "TypeReference",
+                                      "pos": 14,
+                                      "end": 16,
+                                      "children": [
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 14,
+                                          "end": 16,
+                                          "text": "T"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "kind": "FirstBinaryOperator",
+                                  "pos": 16,
+                                  "end": 18
+                                },
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 18,
+                                  "end": 19,
+                                  "text": "b"
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "GreaterThanToken",
+                              "pos": 19,
+                              "end": 20
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 20,
+                              "end": 21,
+                              "text": "c"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "QuestionToken",
+                          "pos": 21,
+                          "end": 23
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "d"
+                        },
+                        {
+                          "kind": "ColonToken",
+                          "pos": 25,
+                          "end": 27
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 29,
+                          "text": "e"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const x = a satisfies T\n<b>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 9,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 9,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "SatisfiesExpression",
+                              "pos": 9,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 21,
+                                  "end": 23,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 21,
+                                      "end": 23,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 23,
+                              "end": 25
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 26,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 26,
+                          "end": 27
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 28,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "f(a as T\n<b>c);",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 0,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 0,
+                  "end": 1,
+                  "text": "f"
+                },
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 2,
+                  "end": 13,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 2,
+                      "end": 11,
+                      "children": [
+                        {
+                          "kind": "AsExpression",
+                          "pos": 2,
+                          "end": 8,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 2,
+                              "end": 3,
+                              "text": "a"
+                            },
+                            {
+                              "kind": "TypeReference",
+                              "pos": 6,
+                              "end": 8,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 6,
+                                  "end": 8,
+                                  "text": "T"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "FirstBinaryOperator",
+                          "pos": 8,
+                          "end": 10
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 11,
+                          "text": "b"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "GreaterThanToken",
+                      "pos": 11,
+                      "end": 12
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 13,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f() { return a as T\n<b>c; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 36,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 14,
+                  "end": 34,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 21,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 21,
+                          "end": 31,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 21,
+                              "end": 28,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 21,
+                                  "end": 23,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 26,
+                                  "end": 28,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 26,
+                                      "end": 28,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 28,
+                              "end": 30
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 31,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 31,
+                          "end": 32
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 32,
+                          "end": 33,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export const x = a as T\n<b>c;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 6,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 12,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 12,
+                      "end": 14,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 16,
+                      "end": 28,
+                      "children": [
+                        {
+                          "kind": "BinaryExpression",
+                          "pos": 16,
+                          "end": 26,
+                          "children": [
+                            {
+                              "kind": "AsExpression",
+                              "pos": 16,
+                              "end": 23,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 16,
+                                  "end": 18,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "TypeReference",
+                                  "pos": 21,
+                                  "end": 23,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 21,
+                                      "end": 23,
+                                      "text": "T"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "FirstBinaryOperator",
+                              "pos": 23,
+                              "end": 25
+                            },
+                            {
+                              "kind": "Identifier",
+                              "pos": 25,
+                              "end": 26,
+                              "text": "b"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "GreaterThanToken",
+                          "pos": 26,
+                          "end": 27
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 27,
+                          "end": 28,
+                          "text": "c"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export default a as T\n<b>c;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 14,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 14,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "AsExpression",
+                      "pos": 14,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 19,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 19,
+                              "end": 21,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "FirstBinaryOperator",
+                      "pos": 21,
+                      "end": 23
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 24,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "GreaterThanToken",
+                  "pos": 24,
+                  "end": 25
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 25,
+                  "end": 26,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "export = a as T\n<b>c;",
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 8,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 8,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "AsExpression",
+                      "pos": 8,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 8,
+                          "end": 10,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "TypeReference",
+                          "pos": 13,
+                          "end": 15,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 13,
+                              "end": 15,
+                              "text": "T"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "FirstBinaryOperator",
+                      "pos": 15,
+                      "end": 17
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 18,
+                      "text": "b"
+                    }
+                  ]
+                },
+                {
+                  "kind": "GreaterThanToken",
+                  "pos": 18,
+                  "end": 19
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 19,
+                  "end": 20,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

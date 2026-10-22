@@ -210,3 +210,53 @@ import type from 'm'\nimport type from 'n';
 if (a) b\nc();
 while (a) b\nc();
 l: x\ny();
+
+// ══ cover8（export 家族调用位 ASI / as 后比较）：export default / export = / export const|let|var 的换行收口，
+// 以及 `as T` 换行后 `<` 不是类型实参而是关系运算符（TS 6.0.3 `parseDiagnostics` 全 0，修复后与 TS 三栏一致）。
+// 共同根因：export 家族的 ComputeByIndex 只看 `;` / 老式延续符，没有「调用位 + 不可调用尾」这一条；
+// 而类型实参的解析又没有 TS `parseTypeArgumentsOfTypeReference` 的 `!hasPrecedingLineBreak()` 同一行前提。
+// 修法见 docs/cover8-exportasi.md：`IsStatementBoundaryAfterExpression` 复用 `IsUncontinuableTailBoundary`；
+// `StatementScanner.EndsAtLineBreakBefore` 给 export 变量语句 stage 13 共用（含调用位判据）；
+// `TypeBuilder.ParseTypeReference` 增加「类型名与 `<` 之间有换行则不吃类型实参」的守卫。
+// §5 口径：base 在前，trivia（块注释 / 行注释 / 多空格）/ 重复形变体在后。
+
+// ── export default / export = 的调用位 ASI（`as T` 类型之后 / 块体箭头之后换行接 `(` `[` 模板） ──
+export default a as T\n(b);
+export default a as T\n[b];
+export default a as T\n`t`;
+export default a as T\n(b)\n(c);
+export default a as T /*c*/\n(b);
+export default () => {}\n(b);
+export = a as T\n(b);
+export = a as T\n[b];
+export = a as T\n`t`;
+export = () => {}\n(b);
+
+// ── export const|let|var / export declare 的无分号收口（与根变量语句读同一个 EndsAtLineBreak） ──
+export const x = a as T\n(b);
+export const x = a as T\n[b];
+export const x = a as T\n`t`;
+export const x = a as T /*c*/\n(b);
+export const x = a as T // c\n(b);
+export const x = a as T\n(b), y = 2;
+export const x = a as T\n(b);\nexport const z = 1;
+export let x = a as T\n(b);
+export var x = a as T\n(b);
+export const x = 1\nf();
+export let x = 1\nexport let y = 2;
+export var x = 1\nexport var y = 2;
+export declare const x: A\nexport declare const y: B;
+export const x = () => {}\n`t`;
+export  const  x  =  a  as  T\n(b);
+
+// ── `as T` 后换行接 `<`：类型实参必须同一行（TS parseTypeArgumentsOfTypeReference）→ 比较续接，不是 ASI ──
+const x = a as T\n<b>c;
+x = a as T\n<b>c;
+const x = a as T\n<b<C>>d;
+const x = a as T\n<b>c ? d : e;
+const x = a satisfies T\n<b>c;
+f(a as T\n<b>c);
+function f() { return a as T\n<b>c; }
+export const x = a as T\n<b>c;
+export default a as T\n<b>c;
+export = a as T\n<b>c;

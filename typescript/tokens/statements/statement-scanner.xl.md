@@ -678,6 +678,27 @@ if (StatementScanner.IsCallishUnit(next) && StatementScanner.IsCallPositionBlock
 return !StatementScanner.ContinuesAcrossLine(next);
 ```
 
+## static method EndsAtLineBreakBefore:(units:Array<Token>, current:int)=>bool
+
+`units[current]` 是当前代码单元；把它前面紧邻的那个代码单元与它交给 `EndsAtLineBreak` 判一次 ASI。
+给「手里直接是 `host.Data`（带 trivia）、没有先抽成 code 数组」的候选共用：export 家族的
+`export const|let|var` / `export declare …` 无分号收口。判据仍然只有 `EndsAtLineBreak` 一份
+（含调用位 / 类型实参收尾 `>` 两条），所以与根变量语句不会一边断、一边不断。
+
+```ts
+if (current <= 0 || current >= units.length) {
+  return false;
+}
+let previous = current - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+return StatementScanner.EndsAtLineBreak(units, previous, current);
+```
+
 ## static method ScanReturnOrThrow:(code:Array<Token>, keywordAt:int)=>StatementScanResult
 
 `return` / `throw` 的受限产生式：**关键字之后换行**时语句停在关键字上（`throw\na;` = throw; a;，
