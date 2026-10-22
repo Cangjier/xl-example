@@ -19,9 +19,11 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
 import { CallSignaturePossibleShape } from "../types/call-signature-possible-shape.xl.md"
 import { ConstructSignaturePossibleShape } from "../types/construct-signature-possible-shape.xl.md"
+import { GetAccessorPossibleShape } from "../types/get-accessor-possible-shape.xl.md"
 import { IndexSignaturePossibleShape } from "../types/index-signature-possible-shape.xl.md"
 import { MethodSignaturePossibleShape } from "../types/method-signature-possible-shape.xl.md"
 import { PropertySignaturePossibleShape } from "../types/property-signature-possible-shape.xl.md"
+import { SetAccessorPossibleShape } from "../types/set-accessor-possible-shape.xl.md"
 import { InterfaceDeclarationEndPossibleShape } from "./interface-declaration-end-possible-shape.xl.md"
 ```
 
@@ -128,18 +130,20 @@ return text !== "extends" && text !== "implements" && text !== ",";
 
 ## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
 
-接口体括号的候选目录：接口体成员与类型字面量的对象类型成员同口径（属性 / 方法 / 索引 / 调用 / 构造签名）。目录只建一份，所有接口体括号共用；判定状态在各自的 `CatalogGuide` 缓存里。
+接口体括号的候选目录：接口体成员与类型字面量的对象类型成员同口径（属性 / 方法 / 索引 / 调用 / 构造签名 / get / set 访问器）。目录只建一份，所有接口体括号共用；判定状态在各自的 `CatalogGuide` 缓存里。
+
+七类成员各有一个候选，`BuildFromCode` 收口时把括号 `Data` 里**已经建好的成员形状**按序收进 `Members`；仍留 raw basic token 的路径（导出 / 模块体 / 语句位置的 `FromUnits`、以及最后一个没来得及增量建出的成员）走 `BuildMembers` 兜底。
 
 ```ts
 if (InterfaceDeclarationShape.CreateBodyPossibleShapesCache === null) {
-  // 成员 possible 现在还是桩（ComputeByIndex 抛「未实现」）：先把「接口体括号 → 成员候选」这条链路接上，
-  // 成员本身仍由 BuildMembers 在收口时一次性建。等成员 possible 落地，这里的清单不用再改。
   InterfaceDeclarationShape.CreateBodyPossibleShapesCache = [
     new PropertySignaturePossibleShape(),
     new MethodSignaturePossibleShape(),
     new IndexSignaturePossibleShape(),
     new CallSignaturePossibleShape(),
     new ConstructSignaturePossibleShape(),
+    new GetAccessorPossibleShape(),
+    new SetAccessorPossibleShape(),
   ];
 }
 return InterfaceDeclarationShape.CreateBodyPossibleShapesCache;
@@ -290,7 +294,7 @@ const heritageBase = heritageBasePos;
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
   : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
-const members = InterfaceDeclarationShape.BuildMembers(host, bodyUnit as Bracket, context);
+const members = InterfaceDeclarationShape.CollectBodyMembers(host, bodyUnit as Bracket, context);
 const shape = new InterfaceDeclarationShape(host.Template);
 shape.NameToken = name;
 shape.HeritageClauses = clauses;
@@ -354,6 +358,85 @@ if (bracket.SourceRange.Start !== null) {
 }
 builder.Load(bracket.Data, base);
 while (builder.At < builder.Units.length) {
+  members.push(builder.ParseTypeMember());
+}
+return members;
+```
+
+## static method CollectBodyMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
+
+收口时取接口体成员。两条路径必须产出同一棵 AST：
+
+- 括号 `Data` 里**没有已建好的成员形状**（导出 / 模块体 / 语句位置的一次性构建）：整段还是 raw basic token，原样交给 `BuildMembers`，与重构前逐字一致；
+- 已经由接口体 `CatalogGuide` 增量建出了成员形状：按序收集 `Members`，丢弃 trivia 与残留的 `;` / `,`；如果后面还留着一截没有增量建出的 raw 代码（例如最后一条成员在容器收口时才确定、或七类里还没有候选的类型），只用 `TypeBuilder` 解析这一截 raw 尾巴。
+
+两种情况成员顺序都是源码顺序，成员形状都由同一个 `TypeBuilder.ParseTypeMember()` 建，区间口径不变。
+
+```ts
+let hasBuiltMember = false;
+let hasRawCode = false;
+for (const unit of bracket.Data) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (!unit.IsBasicToken) {
+    hasBuiltMember = true;
+    continue;
+  }
+  if (unit instanceof Symbol && ((unit as Symbol).Is(";") || (unit as Symbol).Is(","))) {
+    continue;
+  }
+  hasRawCode = true;
+}
+if (!hasBuiltMember) {
+  return InterfaceDeclarationShape.BuildMembers(host, bracket, context);
+}
+const members:Array<Token> = [];
+let at = 0;
+while (at < bracket.Data.length) {
+  const unit = bracket.Data[at];
+  if (unit.IsTriviaToken) {
+    at++;
+    continue;
+  }
+  if (unit.IsBasicToken) {
+    if (unit instanceof Symbol && ((unit as Symbol).Is(";") || (unit as Symbol).Is(","))) {
+      at++;
+      continue;
+    }
+    break;
+  }
+  members.push(unit);
+  at++;
+}
+if (at >= bracket.Data.length) {
+  return members;
+}
+let base = 0;
+if (bracket.SourceRange.Start !== null) {
+  base = bracket.SourceRange.Start.Index + 1;
+}
+for (let previous = at - 1; previous >= 0; previous--) {
+  if (!bracket.Data[previous].IsTriviaToken) {
+    const previousEnd = bracket.Data[previous].SourceRange.End;
+    if (previousEnd !== null) {
+      base = previousEnd.Index + 1;
+    }
+    break;
+  }
+}
+const builder = new TypeBuilder(host.Template, context);
+builder.Load(bracket.Data.slice(at), base);
+while (builder.At < builder.Units.length) {
+  const codeUnit = builder.Units[builder.At];
+  if (codeUnit.IsTriviaToken) {
+    builder.At++;
+    continue;
+  }
+  if (codeUnit instanceof Symbol && ((codeUnit as Symbol).Is(";") || (codeUnit as Symbol).Is(","))) {
+    builder.At++;
+    continue;
+  }
   members.push(builder.ParseTypeMember());
 }
 return members;
