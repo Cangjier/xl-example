@@ -429,14 +429,20 @@ return !StatementScanner.ContinuesAcrossLine(next);
 
 ## static method ScanReturnOrThrow:(code:Array<Token>, keywordAt:int)=>StatementScanResult
 
-`return` / `throw` 的受限产生式：**关键字之后换行**时语句停在关键字上（`throw\na;` = throw; a;）。
+`return` / `throw` 的受限产生式：**关键字之后换行**时语句停在关键字上（`throw\na;` = throw; a;，
+`return\nc;` = return; c;）。TS 的 `ReturnStatement` / `ThrowStatement` 用的是
+`return [no LineTerminator here] Expression? ;` 的受限产生式，换行后没有操作数。
 TS 对 `throw` 的恢复形是 `ThrowStatement` + 零宽 `Identifier` 子节点（Builder 侧补），扫描这里只负责收口。
 
+少了 `return` 这一支，`return` 会一路吃到**下一条语句的 `;`**，`Build` 时报「语句没有读完」
+（`return` ⏎ `c;`、`lbl: return` ⏎ `c;`、`while (a) return` ⏎ `c;` 都是这个原因）。
+
 ```ts
-if (StatementScanner.IsKeyword(code[keywordAt], "throw") && keywordAt + 1 < code.length
+if (keywordAt + 1 < code.length
   && !StatementScanner.NoLineBreakBetween(code[keywordAt], code[keywordAt + 1])) {
-  // 换行后的 `;` 仍是这条 throw 的终止符：TS 给 `throw` ⏎ `;` 的 AST 是
-  // ThrowStatement[0,7] + 零宽 Identifier[5,5]（`;` 计入 End，不再另起 EmptyStatement）。
+  // 换行后的 `;` 仍是这条语句的终止符：TS 给 `throw` ⏎ `;` 的 AST 是
+  // ThrowStatement[0,7] + 零宽 Identifier[5,5]（`;` 计入 End，不再另起 EmptyStatement）；
+  // `return` ⏎ `;` 同理（ReturnStatement 的 End 含分号）。
   // 收在这一格上，否则它会被留给下一条空语句，根层 statement 候选就会拖到 EOF 哨兵上
   // 与根终结候选同时 Accept（CatalogGuide「终结候选与其它候选同时成立」）。
   if (StatementScanner.IsSymbol(code[keywordAt + 1], ";")) {
@@ -447,6 +453,11 @@ if (StatementScanner.IsKeyword(code[keywordAt], "throw") && keywordAt + 1 < code
 return StatementScanner.ScanToSemicolon(code, keywordAt + 1);
 ```
 ## static method ScanSimpleSemicolon:(code:Array<Token>, from:int)=>StatementScanResult
+
+`debugger` 这类简单语句：`;` 或 EOF 收口之外，**换行处也按 ASI 收口**——
+`debugger` ⏎ `c;` 是两条语句（TS 在 `debugger` 后插 ASI）。没有这一条，`debugger` 候选在
+`c` 那一格 `Mismatch`，整段 leftover 一直拖到 EOF 哨兵，再被 `BuildTrailingDeclaration`
+按一条语句建出来，后面的语句就整条丢掉。
 
 ```ts
 if (from >= code.length) {
@@ -459,6 +470,9 @@ if (StatementScanner.IsSymbol(code[from], ";")) {
   return StatementScanner.Complete(from);
 }
 if (StatementScanner.IsEOF(code[from])) {
+  return StatementScanner.Complete(from - 1);
+}
+if (from > 0 && StatementScanner.EndsAtLineBreak(code[from - 1], code[from])) {
   return StatementScanner.Complete(from - 1);
 }
 return StatementScanner.Mismatch();
@@ -507,12 +521,27 @@ return StatementScanner.Mismatch();
 
 ## static method ScanExpressionBody:(code:Array<Token>, at:int, stopAtWhile?:bool)=>StatementScanResult
 
+语句体里的表达式语句也要认 **ASI 边界**：`while (a) b` ⏎ `c;` 的体在 `b` 处就被换行收住
+（TS 在 `b` 之后插 ASI，`c;` 是下一条语句）。少了这一条，体扫描会一路吃到下一条语句的 `;`，
+`Build` 时报「语句没有读完」。
+
+判据与 `ScanToSemicolon` 的同类规则、`StatementBuilder.ContinuesAcrossLine` 同一张表：
+前一个代码单元能收尾 + 两者之间有换行 + 当前单元不是续接符。
+**当前单元是 `;` 时不算 ASI**：`b` ⏎ `;` 里的 `;` 就是这条语句自己的终止符（`parseSemicolon`
+跨行照收），交给下面的 `;` 分支，不能让它变成下一条空语句。
+
 ```ts
 for (let cursor = at; cursor < code.length; cursor++) {
   // do 体（`stopAtWhile`）：换行后遇到 `while` 关键字 ⇒ 体到此为止，那一格属于 do-while 的条件头。
   // 判据复用 `EndsAtLineBreak`（前一个代码单元能收尾 + 换行 + `while` 不是表达式的续接符）。
   if ((stopAtWhile ?? false) && cursor > at
     && StatementScanner.IsKeyword(code[cursor], "while")
+    && StatementScanner.EndsAtLineBreak(code[cursor - 1], code[cursor])) {
+    return StatementScanner.Complete(cursor - 1);
+  }
+  // ASI：换行处收口语句体（`while (a) b` ⏎ `c;` / `if (a) b` ⏎ `else c` / `lab: a` ⏎ `c;`）。
+  if (cursor > at
+    && !StatementScanner.IsSymbol(code[cursor], ";")
     && StatementScanner.EndsAtLineBreak(code[cursor - 1], code[cursor])) {
     return StatementScanner.Complete(cursor - 1);
   }
