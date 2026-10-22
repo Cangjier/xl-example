@@ -68,3 +68,67 @@ new Map<string, Array<number>>(1);
 f<Map<string, Array<number>>>(1);
 class S1 { m = new Map<string, Array<number>>() }
 a < b && c > (d);
+
+// ── 补强（审计 §3.1/§4.2/§6.5）：每行钉住一个历史 possible build 场景 ──
+
+// D1：数组空槽 —— 多空槽 / 空槽带 trivia / 展开后的空槽（OmittedExpression 计数）
+const arr4 = [,,]
+const arr5 = [1, /*c*/ , 3]
+const arr6 = [...xs, , 1]
+
+// D2：计算键 —— 字符串字面量键、类成员计算名、计算键 + 数组模式（不得按数组解构切）
+const { ["k"]: v2 } = o
+const { [k3]: [pa, pb] } = o
+class C1 { [k]: number }
+class C2 { [k]() {} }
+
+// D6：`new` 被构造者后缀链 —— 元素访问 / 括号 / 调用后再取属性 / 标签模板后调用
+const n6 = new a[b]()
+const n7 = new (a!.b)()
+const n8 = new a!().b
+const n9 = new A.B`abc`()
+
+// D7：类型实参 + 标签模板 / 实例化表达式取属性 / `new` 开头的实例化标签模板
+const t4 = f<T>.x
+const t5 = f<A, B>.x
+const t6 = new f<T>`t`
+
+// D9：catch 绑定带类型（注释变体）与泛型 `,` 深度（嵌套 / 三实参 / 收口位置）
+try { } catch (e: any) { }
+try { } catch (/*c*/ e2: unknown) { }
+let x6: Record<string, Array<number>> = y;
+const x7 = new Map<string, Map<string, number>>();
+const x8 = f<A, B, C>(1);
+const q2: Promise<Array<number>> = p;
+// 缺口（未提交红用例）：`as` 右端的类型收口仍缺一格 —— `a as Foo<A, B>[]`（后缀数组）与
+// `a as Array<Array<number>>`（嵌套 `>>`）实测均报「表达式语句没有读完」（带 / 不带结尾分号都一样），
+// 故不列为用例；疑点在 `as` 类型段 end 收口，不在 basic token。
+
+// D13：具名导入的字符串名（多条并排，别名必须保留）
+import { "a-b" as c1, "c-d" as c2 } from "m"
+
+// G2：`>` 收口 —— 尖括号断言、调用类型实参、`new` 类型实参三种收口
+const s3 = <Array<number>>y;
+const a5 = a<Array<number>>(1);
+const a6 = new Set<Array<string>>();
+
+// G3：async —— 声明（含裸 await 上下文）/ async 生成器 / 泛型箭头尾逗号 / 箭头体
+async function af7() { await x; }
+const af8 = async function* () { yield 1 };
+const af9 = async <T,>(x: T) => x;
+const af10 = async () => { await x; };
+
+// G7：无体成员 / 裸 await（表达式语句与实参位）
+const m2 = { m(a: number): void };
+await;
+const w3 = f(await);
+
+// G11：function* —— 声明 / 泛型 / 立即调用
+function* gf3() { yield 1; }
+const gf4 = function* <T>(x: T) { yield x; };
+(function* () {})();
+
+// 守卫：比较链不得被误判成泛型实参
+a < b && c > d;
+if (a < b && c > d) {}
+a<b>>c;
