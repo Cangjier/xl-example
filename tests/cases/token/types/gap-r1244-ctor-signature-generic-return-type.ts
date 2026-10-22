@@ -17,7 +17,9 @@
 // 实测同一族另两档**本来就是对的**（都在这份用例里当守卫）：不带泛型的
 // `type U = new (a: A) => { b: A };`（`new` 后面紧跟 `(` ⇒ `crossedUnit` 假）与
 // 不带返回类型的 `type V = new <A>(a: A) => void;`（那个 `{` 根本不存在）。
-// xl:known-gap 泛型构造签名（`new <A>(…) => …`）后面那个返回类型字面量被判成值位（`crossedUnit` 把 `<A>` 算成了被构造者）
+//
+// 该格后来已修复：泛型构造签名后面的返回类型字面量现在收成 `TypeLiteral`（`crossedUnit`
+// 不再把 `<A>` 算成被构造者），按规则已撤掉 `known-gap` 指令。
 // xl:expect TypeLiteral:1
 // xl:absent Block
 type T = new <A>(a: A) => { b: A };

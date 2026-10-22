@@ -10,8 +10,9 @@
 // （它本来就有「紧跟一格反引号模板 ⇒ 又是一条标签模板」那一支），余下那一截原样交给
 // 原来的本体（判据、次序一个字没改）。判据与四档分界记在
 // `typescript/print-ast-common.xl.md` 的 `chainWithOptional` 那一节。
-// xl:ts-invalid TS 自己会给其中一部分一条**语义**错（可选链上取模板再调用之类），
-// 可**树是照投的**——本仓的判据只算语法（kind / 区间 / 字段名），语义错不进账。
+// xl:note 语法合法（`parseDiagnostics=0`，按「必须是合法 TS」的规则归 ok、不是 ts-invalid）；
+// TS 自己会给其中一部分一条**语义**错（可选链上取模板再调用之类）——本仓的判据只算语法
+// （kind / 区间 / 字段名），语义错不进账，可**树是照投的**。
 // xl:end
 declare const a: any, b: any, c: any, d: any, T: any;
 
