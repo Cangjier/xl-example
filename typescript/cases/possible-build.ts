@@ -138,3 +138,17 @@ a<b>>c;
 // ParseFollowingType 用展开后的 `builder.At` 推进本层 `At`（`>>` 拆格后越界）。
 const z3 = a as Foo<A, B>[];
 const q1 = a as Array<Array<number>>;
+
+// ── 修复回归：可选形参没有类型标注（`?` 后面不是 `:`）──
+// 根因：FunctionDeclarationShape.BuildParameters / ClassDeclarationShape.BuildMembers 的 typed 判定
+// 写成「`?` 且再下一格是 `:`」，于是 `f(a?)` 落进「裸标识符」分支，`?` 无人认领；下一次循环把 `?`
+// 当参数名 → 「函数参数不是标识符」/「类成员参数不是标识符」。TS 侧 `f(a?)` 的 Parameter 是
+// name + QuestionToken（Type 缺失），parseDiagnostics=0。
+// 正确的 build：`?` 一律走 TypeBuilder.ParseParameter（该函数已支持 name + QuestionToken、无 Type）；
+// close：ParameterShape 在名字/`?`/类型之后 TryToClose，区间到 `?` 为止、Pos 含前导 trivia。
+function fopt1(a?) {}
+function fopt2(a, b?) {}
+function fopt3(a?): void {}
+class Copt1 { m(a?) {} }
+class Copt2 { constructor(a?) {} }
+class Copt3 { set x(v?) {} }
