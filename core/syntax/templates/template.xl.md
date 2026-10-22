@@ -65,7 +65,7 @@ import { SymbolTemplate } from "./symbol-template.xl.md"
 
 ## field BomChars:Array<string> = ["\uFEFF", "\uFFFE"]
 
-文件头 BOM 的码点表：`Bom` basic token 只在 source index 0 认领其中的字符；语言无关，默认覆盖常见 BOM。
+BOM 的码点表：`Bom` basic token 在**任意位置**认领其中的字符（用户裁定②：对齐 TS，U+FEFF 属 Whitespace；旧「只在 source index 0 认领」已取消）；语言无关，默认覆盖常见 BOM。
 
 ## field ShebangMarker:string = "#!"
 

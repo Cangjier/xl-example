@@ -15,7 +15,7 @@ import { UnitToken } from "../unit-token.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-BOM basic token：认领配置里的 BOM 字符（默认 `U+FEFF` / `U+FFFE`，见 `Template.BomChars`）——**`source.Index === 0`，或前面只有 trivia（尚无代码 token）**。
+BOM basic token：认领配置里的 BOM 字符（默认 `U+FEFF` / `U+FFFE`，见 `Template.BomChars`）——**任意位置都认**（用户裁定②：对齐 TS，U+FEFF 属 ECMAScript Whitespace；旧判据「`source.Index === 0` 或前面只有 trivia」已取消）。
 它是 trivia（`IsTriviaToken`）：不产生 AST 节点，吞掉那一个字符后立刻关闭；后续字符照常交给根单元。
 
 TS 的 BOM 是文件头 trivia；它的位置口径按**原文**（BOM 也算一个字符，后续 token 的 index 不前移）。
@@ -81,30 +81,23 @@ return CloseStates.Nothing;
 
 ## static method CanStart:(unit:Token, source:Source)=>bool
 
-能不能从这里起一个 `Bom`：字符必须在 `unit.Template.BomChars` 里，并且满足
-- `source.Index === 0`；或
-- `unit.Data` 里已有的单元**全是 trivia**（尚无代码 token）——覆盖「指令注释头之后、第一个代码 token 之前」的 BOM。
+能不能从这里起一个 `Bom`：字符在 `unit.Template.BomChars` 里即可——**任意位置都认**（用户裁定②：对齐 TS，
+U+FEFF 属 ECMAScript Whitespace；BOM 是 trivia，不构成代码 token 的边界）。
 
-**mid-code BOM 不认**：前面只要出现过任一非 trivia 单元就 `false`（保持旧行为，`const a = 1;\uFEFFconst b = 2;` 仍 crash）。
+历史：旧判据是「`source.Index === 0` 或 `unit.Data` 里已有的单元**全是 trivia**（尚无代码 token）」，
+mid-code BOM 不认；用户裁定②（§5 item 4 方案②「放宽 Bom 起始判据」）取消了该位置限制，
+`const a = 1;\uFEFFconst b = 2;` 这类 mid-code BOM 现在也按 trivia 跳过。
 
 ```ts
 if (!unit.Template.BomChars.includes(source.Value)) {
   return false;
-}
-if (source.Index === 0) {
-  return true;
-}
-for (const item of unit.Data) {
-  if (!item.IsTriviaToken) {
-    return false;
-  }
 }
 return true;
 ```
 
 ## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
 
-判据见 `CanStart`：字符在 `unit.Template.BomChars` 里，且 `source.Index === 0` 或 `unit.Data` 全是 trivia（尚无代码 token）。
+判据见 `CanStart`：字符在 `unit.Template.BomChars` 里即可（**任意位置**，用户裁定②）。
 
 认下就挂一个新的 `Bom`，立刻按同一个字符签入、签出并关闭；它是 trivia，之后所有字符回到根单元。
 

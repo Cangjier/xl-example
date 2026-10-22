@@ -3837,6 +3837,189 @@
       ]
     },
     {
+      "src": "const b5 = 1;﻿const b6 = 2;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "b5"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 13,
+          "end": 27,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 13,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 19,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 19,
+                      "end": 22,
+                      "text": "b6"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 24,
+                      "end": 26,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function﻿bf() {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 11,
+              "text": "bf"
+            },
+            {
+              "kind": "Block",
+              "pos": 13,
+              "end": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const b7 = [1,﻿2];",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "b7"
+                    },
+                    {
+                      "kind": "ArrayLiteralExpression",
+                      "pos": 10,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 12,
+                          "end": 13,
+                          "text": "1"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 14,
+                          "end": 16,
+                          "text": "2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const﻿b8 = 3;",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 13,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "b8"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "3"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "#!/usr/bin/env node\nconst sb1 = 1;",
       "ast": [
         {
