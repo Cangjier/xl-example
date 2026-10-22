@@ -23,6 +23,7 @@
 // 「名字 + 可选标记」而不是访问器；成员名 / 可选标记 / 类型参数表与 `<` `(` 之间的换行不插 ASI
 // （`m` ⏎ `()`、`m<T>` ⏎ `()`、`b?` ⏎ `()`、`typeof import` ⏎ `("m")`），但成员自己收住后
 // （有 `:` 类型 / 已有参数表）换行后的 `(` 仍是下一个成员。`--no-generic` 同时跳过这一组。
+// `--no-generic` 同时跳过 `--member-start` 与 `--recovery` 两个分组。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -167,6 +168,30 @@ const MEMBER_START_CASES = [
   { source: "interface I { a: A\nnew (): B }", required: ["ConstructSignaturePossibleShape"] },
   // 2d. `readonly` 换行后是计算名成员：`readonly` 收成无类型属性名，`(` 属于下一个成员
   { source: "interface I { readonly\n[Symbol.iterator](): T }", required: ["PropertySignaturePossibleShape", "MethodSignaturePossibleShape"] },
+];
+
+// `--recovery` 分组（默认也跑）：非法源码恢复回归（fix/invalid-recovery）。
+// 同行缺分隔符的接口成员列表：TS 不插 ASI，但类型在第一条成员的类型处就收住，后面是下一条成员。
+// 增量路径的收口证据 3（后面是容器收口字符）会把整段当一条成员；`BuildByIndex` 建不完整时必须
+// 回落成 raw、由收口时的 `BuildMembers` 按重构前口径逐成员恢复，而不是从 `Parse` 里抛异常。
+const RECOVERY_CASES = [
+  { source: "interface A { a: number b: string }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface A { a: number /* c */ b: string }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface A { m(): void /* c */ n(): void }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface A { a: number b: string c: boolean }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface A { a: string[] b: number }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface A { a: string | number b: number }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface A { a: Map<K,V> b: number }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface A { a?: number b?: string }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface A { [k: string]: A b: number }", required: ["IndexSignaturePossibleShape"] },
+  { source: "interface A { a: number; b: string c: boolean }", required: ["PropertySignaturePossibleShape"] },
+  // 七个候选各走一遍「同行两条成员」：建不完整时都必须回落，不允许从 Parse 冒异常。
+  { source: "interface A { (): void (): string }", required: ["CallSignaturePossibleShape"] },
+  { source: "interface A { <T>(x: T): U <U>(y: U): V }", required: ["CallSignaturePossibleShape"] },
+  { source: "interface A { new (): A new (): B }", required: ["ConstructSignaturePossibleShape"] },
+  { source: "interface A { readonly new (): A }", required: ["ConstructSignaturePossibleShape"] },
+  { source: "interface A { get x(): A get y(): B }", required: ["GetAccessorPossibleShape"] },
+  { source: "interface A { set x(v: A) set y(v: B) }", required: ["SetAccessorPossibleShape"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -415,15 +440,19 @@ function main() {
   const pickRequired = (item) => only === null || item.required.every((name) => only.includes(name));
   const genericCases = noGeneric ? [] : GENERIC_BOUNDARY_CASES.filter(pickRequired);
   const memberStartCases = noGeneric ? [] : MEMBER_START_CASES.filter(pickRequired);
+  const recoveryCases = noGeneric ? [] : RECOVERY_CASES.filter(pickRequired);
   const skippedGeneric = noGeneric ? 0 : GENERIC_BOUNDARY_CASES.length - genericCases.length;
   const skippedMemberStart = noGeneric ? 0 : MEMBER_START_CASES.length - memberStartCases.length;
+  const skippedRecovery = noGeneric ? 0 : RECOVERY_CASES.length - recoveryCases.length;
   let result = { passed: 0, failed: 0 };
   let genericResult = { passed: 0, failed: 0 };
   let memberStartResult = { passed: 0, failed: 0 };
+  let recoveryResult = { passed: 0, failed: 0 };
   try {
     result = runCases(cases);
     genericResult = runCases(genericCases.map((item) => item.source));
     memberStartResult = runCases(memberStartCases.map((item) => item.source));
+    recoveryResult = runCases(recoveryCases.map((item) => item.source));
   } finally {
     restore();
   }
@@ -435,7 +464,10 @@ function main() {
   console.log(
     `[member-possible] member-start cases=${memberStartCases.length} pass=${memberStartResult.passed} fail=${memberStartResult.failed} skipped=${skippedMemberStart}`,
   );
-  if (result.failed > 0 || genericResult.failed > 0 || memberStartResult.failed > 0) {
+  console.log(
+    `[member-possible] recovery cases=${recoveryCases.length} pass=${recoveryResult.passed} fail=${recoveryResult.failed} skipped=${skippedRecovery}`,
+  );
+  if (result.failed > 0 || genericResult.failed > 0 || memberStartResult.failed > 0 || recoveryResult.failed > 0) {
     process.exitCode = 1;
   }
 }

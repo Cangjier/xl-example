@@ -73,7 +73,7 @@ return state.Complete && state.End >= 0
 
 成员区间尾部的 trivia 不属于成员：`splice` 只吃到最后一个代码单元，后面的 trivia 留给下一条目当先行 trivia（下一条目的 `Pos` 由 `BasePos` 按「前一个非 trivia 单元」算，与整段解析同口径）。
 
-产出断言：正常路径必须是 `ConstructSignatureShape`；`abstract new (...)` 的 TS recovery（`TypeBuilder` 产出 `MethodSignatureShape`）只在条目以 `abstract` 开头时接受，两种情况都必须读完后无 leftover、消费范围与判定一致。
+产出断言：正常路径必须是 `ConstructSignatureShape`；带修饰词的 `new (...)`（TS 的 recovery：`abstract new (...)` / `readonly new (...)` 都是名字为 `new` 的 `MethodSignatureShape`，`TypeBuilder` 对「有修饰词 + `new`」统一走这条）只在条目以 `abstract` / `readonly` 开头时接受。两种情况都必须读完后无 leftover、消费范围与判定一致才 `splice`，否则不建、把 raw 代码留给收口时的 `BuildMembers` 按重构前口径恢复（见 `MemberPossibleUtil.MemberParsedWhole`）；整段读完后才做产出断言。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
@@ -93,23 +93,21 @@ for (const unit of consumed) {
     break;
   }
 }
-const abstractRecovery = firstCode !== null && MemberPossibleUtil.TextOf(firstCode) === "abstract";
+const modifierRecovery = firstCode !== null
+  && (MemberPossibleUtil.TextOf(firstCode) === "abstract"
+    || MemberPossibleUtil.TextOf(firstCode) === "readonly");
 const basePos = MemberPossibleUtil.BasePos(host, start);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(consumed, basePos);
 const built = builder.ParseTypeMember();
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+  return host;
+}
 const isConstruct = built instanceof ConstructSignatureShape;
-const isAbstractMethodRecovery = abstractRecovery && built instanceof MethodSignatureShape;
-if (!isConstruct && !isAbstractMethodRecovery) {
+const isModifierMethodRecovery = modifierRecovery && built instanceof MethodSignatureShape;
+if (!isConstruct && !isModifierMethodRecovery) {
   throw new Error("ConstructSignaturePossibleShape.BuildByIndex: 产出不是 ConstructSignatureShape");
-}
-if (builder.At !== builder.Units.length) {
-  throw new Error("ConstructSignaturePossibleShape.BuildByIndex: 成员没有读完");
-}
-if (builder.OriginalConsumed() !== consumed.length) {
-  throw new Error("ConstructSignaturePossibleShape.BuildByIndex: 消费范围与判定不一致");
-}
-host.Data.splice(start, consumed.length, built);
+}host.Data.splice(start, consumed.length, built);
 built.Parent = host;
 return built;
 ```

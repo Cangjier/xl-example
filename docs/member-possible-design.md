@@ -56,10 +56,11 @@ wave1 已完成共享管线与一个参考候选（`PropertySignaturePossibleSha
 - `basePos = MemberPossibleUtil.BasePos(host, state.Start)`：条目起点前最近一个非 trivia 单元的 `End.Index + 1`；
   前面没有单元时用宿主 `SourceRange.Start.Index + 1`。这是 `Pos` 的口径，必须与整段 `BuildMembers` 一致。
 - 用 `new TypeBuilder(host.Template, context)` + `builder.Load(consumed, basePos)`，然后**只调一次** `builder.ParseTypeMember()`：
-  - 断言 `builder.At === builder.Units.length`（成员读完了，没有 leftover）；
-  - 断言 `builder.OriginalConsumed() === consumed.length`（消费范围与判定一致）；
-  - 断言产出的形状类就是自己这一类（见 §3 的「必产出」列）；
-  - 任何断言失败直接 `throw`（宁可红，不可静默切错）。
+  - **先判「整段是否恰好读完」**（`MemberPossibleUtil.MemberParsedWhole`：`builder.At === builder.Units.length`
+    且 `builder.OriginalConsumed() === consumed.length`）：不成立说明判定区间里其实不止一条成员
+    （收口证据 3 只保证「到容器收口为止没有更多代码单元」，排不掉同一行里的下一条成员），
+    这时**不建、不 `splice`**，raw 代码原样留给收口时的 `BuildMembers` 逐成员恢复——恢复结果与 55578b9a 一致；
+  - 整段读完后再断言产出的形状类就是自己这一类（见 §3 的「必产出」列），不对直接 `throw`（这才是真的判型 bug）。
 - `host.Data.splice(state.Start, consumed.length, built)`，再 `built.Parent = host`，返回 `built`。
 
 ### 1.4 边界、ASI、分隔符、trivia
@@ -219,11 +220,11 @@ const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(consumed, basePos);
 const built = builder.ParseTypeMember();
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+  return host;
+}
 if (!(built instanceof MethodSignatureShape)) {
   throw new Error("MethodSignaturePossibleShape.BuildByIndex: 产出不是 MethodSignatureShape");
-}
-if (builder.At !== builder.Units.length || builder.OriginalConsumed() !== consumed.length) {
-  throw new Error("MethodSignaturePossibleShape.BuildByIndex: 成员没有读完");
 }
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;
@@ -305,6 +306,26 @@ node tests/member-possible/harness.mjs --file=my-cases.json
 把换行后的 `readonly` 收成无类型属性名）、`interface I { [k]` ⏎ `(): A }`（计算名后换行参数表）、
 `interface I { get` ⏎ `x(): A }`（TS 读成 GetAccessor）。三者的基线（`git stash` 掉本修复后同源构建）
 读数与修复后完全相同。
+
+### 4.2 非法源码恢复修复（`fix/invalid-recovery`，2026-10-23）
+
+缺口：同行缺分隔符的接口成员列表（`interface A { a: number b: string }`）在增量路径上被收口证据 3
+整段判成**一条**成员，`BuildByIndex` 的 leftover 断言直接 `throw`，异常冒到 `SourceFileRunner.Parse`；
+重构前基线 55578b9a 走 `BuildMembers` 逐成员解析，能正常恢复且 AST 与 `ts.createSourceFile` 一致。
+同类探针 10/10 在 HEAD 崩、在 55578b9a 全过；`export interface` / `declare module` 内接口 / type literal
+走旧 raw `BuildMembers` 路径，本就不受影响（同一文件内两条路径行为不一致是本回归的形态）。
+
+修法只动增量路径的「建不出来」分支：`MemberPossibleUtil.MemberParsedWhole` 在 leftover / 消费范围不一致时
+返回 `false`，候选不 `splice`、原样返回；接口体收口时 `CollectBodyMembers` 本来就带 raw 尾巴路径，
+由 `BuildMembers` 按重构前口径逐成员重建。只有整段恰好读完时才断言「产出类型必须是自己这一类」，
+形状不对仍抛错——不放宽真正的形状错误，也不放宽成员边界判据（合法源码的切分完全不变）。
+
+读数：10/10 探针恢复且与 TS AST 一致（harness 新增 `recovery` 分组共 16 例：10 条探针 + 七个候选各一条同行成员用例 + `readonly new (...)`）；
+合法源码七道门禁保持全绿
+（6167/6167、226/226、1705 ok / 0 crash、validate 0、xl check 0 error、tsc 0 error、`harness --all` 全过）。
+改动文件：共享工具 `property-signature-possible-shape.xl.md`（`MemberParsedWhole`）+ 7 个候选的 `BuildByIndex` 末段
+（property 本身 + 6 个）+ `construct-signature` 接受 `readonly new (...)` 的 TS recovery（与 `abstract new` 同形，
+基线同样恢复，HEAD 之前误抛）+ harness 新分组 + 本文；没有改 `core/`、没有改 `TypeBuilder`、没有改边界判据。
 
 ---
 

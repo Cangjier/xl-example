@@ -73,8 +73,7 @@ return state.Complete && state.End >= 0
 用 `TypeBuilder.ParseTypeMember()` 建出方法签名，然后 `host.Data.splice(start, consumed, shape)` 原地顶替。
 
 `Pos` 由 `MemberPossibleUtil.BasePos` 算（条目起点前最近一个非 trivia 单元的 `End.Index + 1`），
-与整段 `BuildMembers` 同一口径。断言三件事：产出就是 `MethodSignatureShape`、成员读完（没有 leftover）、
-消费范围与判定一致——失败直接抛错，宁可红也不静默切错边界。
+与整段 `BuildMembers` 同一口径。**成员读完、消费范围与判定一致才 `splice`**，否则不建、把 raw 代码留给收口时的 `BuildMembers` 按重构前口径恢复（见 `MemberPossibleUtil.MemberParsedWhole`）；整段读完后才断言产出必须是 `MethodSignatureShape`。
 
 `abstract new (...)` 这类 recovery 不是本候选的入口：判型表把它交给构造签名分支，本候选在
 `ClassifyHead` 阶段即 `Reject`。
@@ -94,14 +93,11 @@ const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(consumed, basePos);
 const built = builder.ParseTypeMember();
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+  return host;
+}
 if (!(built instanceof MethodSignatureShape)) {
   throw new Error("MethodSignaturePossibleShape.BuildByIndex: 产出不是 MethodSignatureShape");
-}
-if (builder.At !== builder.Units.length) {
-  throw new Error("MethodSignaturePossibleShape.BuildByIndex: 成员没有读完");
-}
-if (builder.OriginalConsumed() !== consumed.length) {
-  throw new Error("MethodSignaturePossibleShape.BuildByIndex: 消费范围与判定不一致");
 }
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;

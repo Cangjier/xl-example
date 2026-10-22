@@ -71,7 +71,7 @@ return state.Complete && state.End >= 0
 
 成员区间尾部的 trivia 不属于成员：`splice` 只吃到最后一个代码单元（注释 / 换行由 `splice` 天然留在原处，下一条目的 `Pos` 由 `BasePos` 按「前一个非 trivia 单元」重新算）。
 
-`ParseTypeMember` 对 `(` 开头与 `<` 开头两条路径都产出 `CallSignatureShape`：前者是普通调用签名，后者是泛型调用签名（`<T>(x: T): U`，类型参数进 `CallSignature` 的 children）。成员读完、消费范围一致、产出类型正确，三者任一不成立直接抛错——宁可红，不可静默切错边界。
+`ParseTypeMember` 对 `(` 开头与 `<` 开头两条路径都产出 `CallSignatureShape`：前者是普通调用签名，后者是泛型调用签名（`<T>(x: T): U`，类型参数进 `CallSignature` 的 children）。成员读完、消费范围一致才 `splice`，否则不建、把 raw 代码留给收口时的 `BuildMembers` 按重构前口径恢复（见 `MemberPossibleUtil.MemberParsedWhole`）；整段读完后才断言产出类型正确，不对直接抛错。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
@@ -88,14 +88,11 @@ const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(consumed, basePos);
 const built = builder.ParseTypeMember();
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+  return host;
+}
 if (!(built instanceof CallSignatureShape)) {
   throw new Error("CallSignaturePossibleShape.BuildByIndex: 产出不是 CallSignatureShape");
-}
-if (builder.At !== builder.Units.length) {
-  throw new Error("CallSignaturePossibleShape.BuildByIndex: 成员没有读完");
-}
-if (builder.OriginalConsumed() !== consumed.length) {
-  throw new Error("CallSignaturePossibleShape.BuildByIndex: 消费范围与判定不一致");
 }
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;
