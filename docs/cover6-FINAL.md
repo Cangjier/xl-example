@@ -208,6 +208,9 @@ E/F 新增夹具头。它不在 Lead 列出的本轮门禁口径里，且本轮�
    仍写死 `hex.length > 6`（越界只按 `> 0x10FFFF` 返回原文）。本轮只统一了**标识符**路径
    （`common.xl.md` + `identifier-shape.xl.md`），字符串路径未动——与 `docs/cover6-core-unicode.md` §7、
    `docs/cover6-core-string.md` §6 记录一致。
+   **→ 已解决（cover7-1，commit `89ca10d7` / merge `3aa2370d`）**：字符串路径改为「位数不限 + 逐位累计
+   ≤ `Common.MaxUnicodeCodePoint()`」，开关 `StringTemplate.AllowLongUnicodeBraceEscape` 默认 `false`（历史 6 位上限），
+   ts 模板打开；终验实测见 **§10**。**本项遗留关闭。**
 2. **G 的严格化落点**：tokenizer 不知道 tagged，当前统一产出原文（超集口径）。无标签 `` `\8` ``
    TS 是语法错误（diag=1），TS 侧 text 为 `"8"`、本仓为 `"\8"`——不建用例、不入尺子；
    要严格区分需 token 携带非法转义区间 + 形状层投影（`ExpressionBuilder.ParseTemplateCall`）。
@@ -308,4 +311,44 @@ node typescript/cases/token-ast.mjs --quiet && node typescript/cases/real-dts-as
 - §7.1 保留为历史记录（异常原文），其后续状态以本附录为准。
 - 回滚点更新：整体回滚仍为 `99f286d8`；第 5 条合并可单独 `git revert -m 1 1b8e2060`（只撤夹具头修复，
   不影响 4 条 core 改动）；本附录所在文档提交可单独 `git revert <本次 docs 提交>`。
+
+## 10. 附录：cover7-1 字符串 `\u{…}` 位数统一已解决（commit `89ca10d7` / merge `3aa2370d`）
+
+本附录关闭 **§8 第 1 项遗留**，数据来自 cover7-1 独立终验（`docs/cover7-FINAL.md` 为完整报告）。
+
+### 10.1 关闭的遗留
+
+- 原文：字符串字面量 `\u{…}` 仍写死 `hex.length > 6`，只统一了标识符路径（§8.1）。
+- 现状：字符串路径也统一为「位数不限（前导零任意多）+ 逐位累计 ≤ `Common.MaxUnicodeCodePoint()`（`U+10FFFF`）」；
+  非法（越界/非十六进制/空）仍按原文结算。core 用 **`StringTemplate.AllowLongUnicodeBraceEscape`**
+  （默认 `false` = 历史 6 位上限）表达，`typescript/run/typescript-template.xl.md:241` 打开；
+  **默认行为不变**（运行时实测：`new Template().StringTemplate.AllowLongUnicodeBraceEscape === false`，
+  `TypescriptTemplate.Create()` 为 `true`；`Translate.DecodeClear("u{000000061}", …, 省略/false)`
+  返回原文 `"\\u{000000061}"`，`true` 时返回 `"a"`）。
+- 实现：`core/syntax/basic-tokens/string/translate.xl.md` 三处 6 位上限全部按开关分叉
+  （`Accept`:30-68、`Append`:97-116、`DecodeClear`:148/233），新增
+  `Translate.UnicodeBraceValueOf`:298（逐位累计、越界封顶 `Max+1`、乘法不溢出，与标识符路径同一口径）；
+  `core/syntax/basic-tokens/string/string.xl.md:215-226 / 338-348` 两处结算传参；
+  `core/syntax/templates/string-template.xl.md:40` 字段默认 `false`。core **只改批准 3 文件**，
+  IMPORTANCE 0 行、package/lock 依赖 0 变化；唯一新增是 core 内部 `translate.xl.md:3` 对 `Common` 的
+  模块引用（共用 `MaxUnicodeCodePoint`，无循环）。
+
+### 10.2 本轮复核读数（cover7-1 独立克隆，从 `.xl.md` 重建 4 written / 0 error → tsc 0）
+
+| 项 | 读数 |
+| --- | --- |
+| 结构 | HEAD `3aa2370d`；`1fff4711..HEAD` **1 条 merge**（`3aa2370d`，父 `1fff4711`+`89ca10d7`）；core 只 3 批准文件；IMPORTANCE 0 行；status 空 |
+| 行为探针（自写，27 条 + basic-token 新段抽样 3 条） | **FAIL 0**：长前导零字符串/模板/带标签模板 cooked 全绿；`\u{10FFFF}` 代理对绿；回归 `\u0041`/`\x41`/plain/旧模板/D 行续接 LS·PS 全绿；带标签模板 legacy octal（`\08`/`\09`/`\101`/`\00`）全绿；TS 非法 `\u{110000}`/`\u{}`/`\u{ZZ}` 记录行为 |
+| ast-json / diff | **5797/5797 cj-ok**；**5797/5797 完全一致；结构/位置/字段差 0/0/0** |
+| basic-token 单 stem | **196/196**；diff 0/0/0（新段行 320 起，active 13 条：326–338） |
+| token-ast | **1714（ok 1704 / ts-invalid 10 / crash 0 / diff 0 / known-gap 0）** |
+| cases:check | **1718 条 / 0 不合格**（新夹具 `lex-string-unicode-brace-long.ts` 头合法：`xl:expect` 全 ∈ TAGS） |
+| real-dts / tsc / xl_check | 226/226；`tsc -p` 与 `--noEmit` 0；xl_check **863 文件 0 error**（2464 warning = 既有 W3102/W3103 + 3 条既有 E2004，无新增） |
+
+### 10.3 结论
+
+- §8 第 1 项**关闭**；cover7-1 复核 **PASS**（无阻塞项）。
+- §8 第 2–6 项（G 严格化落点、F 的 TS 非法边界、ID_Start 不校验、U+2028/29 的 ASI、tests/gates 环境）
+  **仍然有效**，本轮未动。
+- 回滚点：cover7-1 可单独 `git revert -m 1 3aa2370d`（只撤该项；父 `1fff4711` 即本报告加入时的 HEAD）。
 
