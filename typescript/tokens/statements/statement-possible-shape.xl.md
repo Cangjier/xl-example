@@ -7,6 +7,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { StatementScanResult } from "./statement-scanner.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
@@ -46,6 +47,8 @@ debugger;
 ```
 
 建树时机由 `StatementScanner` 回答：`Status == 1`（到齐）且 `End` 已知时建；`End` 可能小于当前下标（`if (a) b;` 后面来了新的代码单元才确定没有 `else`），这时只消费到 `End`，剩下的单元留给下一条语句。
+
+**EOF 哨兵上的让位**：`ItemStart > 0`（前面已经建出过语句）时，最后一段的边界 token 留给根终结候选在 EOF 建——上一条语句在 ASI 边界收口时会把边界 token 原样留下（`type T = A` ⏎ `return` / `debugger` / `{ a: 1 }`），它不再有自己的判定格；本候选若在哨兵上 Accept，两边同时成立，CatalogGuide 抛错（C04–C06）。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -92,6 +95,14 @@ if (state.Status === 2) {
   return ShapeStates.Reject;
 }
 if (state.Status === 1) {
+  // 已经建出过上一条语句（`ItemStart > 0`）、剩下的这一段又只在 **EOF 哨兵**这一格才判完：
+  // 这一段是「上一条语句在 ASI 边界收口时留下的边界 token」（`type T = A` ⏎ `return` /
+  // `debugger` / `{ a: 1 }`、`a` ⏎ `return`）。边界 token 不会再有自己的判定格，根终结候选
+  // 会在 EOF 这一格用 `BuildTrailingDeclaration` 把它建出来；本候选若在这里 Accept，
+  // CatalogGuide 就抛「终结候选与其它候选同时成立」（C04–C06）。
+  if (state.Start > 0 && units[tokenIndex] instanceof EndOfFileTokenShape) {
+    return ShapeStates.Reject;
+  }
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;

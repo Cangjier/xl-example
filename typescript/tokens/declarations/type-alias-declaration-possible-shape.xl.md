@@ -282,8 +282,12 @@ return false;
 判据按**类型续接符**（而不是按语句关键字白名单）给出，因为类型之后的下一条语句可以是任何
 以表达式 / 标识符 / 模板 / `(` 开头的语句：
 
-- 符号续接：`|` `&` `<` `>` `>>` `>>>` `.` `?` `:` `=>` `,` `=` `-`（联合 / 交叉 / 类型实参 /
-  成员名 / 条件类型 / 函数类型 / 声明列表 / 类型标注 / 负数字面量）；
+- 符号续接：`|` `&` `>` `>>` `>>>` `.` `?` `:` `=>` `,` `=` `-`（联合 / 交叉 / 类型实参的
+  收尾 / 成员名 / 条件类型 / 函数类型 / 声明列表 / 类型标注 / 负数字面量）；
+- `<` **不在续接表里**：TS 的 `parseTypeArgumentsOfTypeReference` 要求类型实参紧跟类型名
+  （`scanner.hasPrecedingLineBreak()` 时直接不解析类型实参），本判据又只在「`last` 与 `at`
+  之间已有换行」时被调用 ⇒ 换行后的 `<` 一定是**下一条语句**的起点：`type T = A` ⏎ `<B>c;`
+  是 `TypeAliasDeclaration` + 独立的 TypeAssertion 表达式语句（B06–B14）；
 - 括号：`[` / `(` 是**新语句**（TS 的 `parsePostfixTypeOrHigher` 只在同一行吃下标访问；类型之后
   不可能再跟调用参数）——但泛型函数类型的参数表例外：`type U = <U>` ⏎ `(a: U) => U` 的 `(`
   仍是这个类型的一部分（`<` 紧跟在 `=` 之后）；`{` 不在这里判（函数体等由语句候选收口）；
@@ -313,8 +317,15 @@ if (unit instanceof String || unit instanceof RegexToken) {
 }
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
-  // 类型续接符：联合 / 交叉 / 类型实参 / 成员名 / 条件类型 / 函数类型 / 声明列表 / 类型标注。
-  return !(text === "|" || text === "&" || text === "<" || text === ">" || text === ">>"
+  // `<` 只有在同一行才能续接一个类型（TS 的 parseTypeArgumentsOfTypeReference 在
+  // `scanner.hasPrecedingLineBreak()` 时根本不解析类型实参）。本判据只在调用方已经确认
+  // 「`last` 与 `at` 之间有换行」时被调用，所以这里的 `<` 是下一条语句的起点：
+  // `type T = A` ⏎ `<B>c;` = TypeAliasDeclaration + ExpressionStatement(TypeAssertion)。
+  if (text === "<") {
+    return true;
+  }
+  // 类型续接符：联合 / 交叉 / 类型实参收尾 / 成员名 / 条件类型 / 函数类型 / 声明列表 / 类型标注。
+  return !(text === "|" || text === "&" || text === ">" || text === ">>"
     || text === ">>>" || text === "." || text === "?" || text === ":" || text === "=>"
     || text === "," || text === "=" );
 }

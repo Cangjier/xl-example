@@ -402,3 +402,43 @@ while (a) { continue label }
 do f() while (a)
 x = () => {} (y)
 class C { a = 1 `t` }
+
+// ══ cover9（end compute）：type alias 跨行 `<` 边界 + 边界 token 的收尾语句 ══
+// 探针：tests/cover9/probe.mjs 的 B06–B14 / C04–C06（TS 6.0.3 parseDiagnostics 全 0，修前全红）。
+// B2 族：TS 的 parseTypeArgumentsOfTypeReference 要求类型实参紧跟类型名（有行终止符就不解析类型实参）
+//   → `type T = A` ⏎ `<B>c` 是 TypeAliasDeclaration + 独立的 TypeAssertion 表达式语句；
+//   修法：type-alias-declaration-possible-shape.xl.md 的 IsAsiBoundary 不再把换行后的 `<` 当续接符。
+// C 族：上一条语句在 ASI 边界收口时把边界 token（`return` / `debugger` / 裸块）原样留下，EOF 时
+//   语句候选与根终结候选同时 Accept（CatalogGuide 抛「终结候选与其它候选同时成立」）；修法：
+//   statement-possible-shape.xl.md 在 EOF 让位 + source-file-end-possible-shape.xl.md 的
+//   IsStandaloneTrailingStatement 由根终结候选按正常语句路径建。
+// 行终止符写法：`\n` 用转义；CR / U+2028 / U+2029 用行内字面字符（.gitattributes 对本文件钉了 -text）。
+// base：LF 对照（修前也红——不是行终止符特有）
+type T = A\n<B>c;
+type T = A<B>c;
+type T = A <B>c;
+type T = A <B>c;
+// trivia 类：词间块注释 / 行尾注释
+type T = A /* c */\n<B>c;
+type T = A // c\n<B>c;
+// 重复形：无分号 / 后面还有语句
+type T = A\n<B>c
+type T = A\n<B>c;\nlet z = 1;
+// 类型位的其它形态：type query / import() / 括号操作数
+type T = typeof x.y\n<Z>c;
+type T = typeof x.y<Z>c;
+type T = import("m")\n<T>(1);
+type T = import("m")<T>(1);
+type T = A\n<B>(1);
+// 修饰词 / 块级 / 函数体（statement-builder 读同一份判据）
+export type T = A\n<B>c;
+{ type T = A\n<B>c; }
+function f(){ type T = A\n<B>c; }
+// ── C 族：上一条语句在 ASI 边界留下的收尾语句（base 是 `return`）──
+type T = A\nreturn
+type T = A\ndebugger
+type T = A\nbreak
+type T = A\ncontinue
+type T = A\n{ a: 1 }
+type T = A\n{ }
+type T = A\n{ a: 1; b: 2 }
