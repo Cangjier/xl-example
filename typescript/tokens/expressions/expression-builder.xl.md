@@ -13,6 +13,7 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { FirstAssignmentShape } from "../aliases/first-assignment-shape.xl.md"
 import { FirstBinaryOperatorShape } from "../aliases/first-binary-operator-shape.xl.md"
 import { FirstCompoundAssignmentShape } from "../aliases/first-compound-assignment-shape.xl.md"
@@ -639,48 +640,9 @@ let afterYieldPos = 0;
 if (yieldUnit.SourceRange.End !== null) {
   afterYieldPos = yieldUnit.SourceRange.End.Index + 1;
 }
-const yieldEnd = yieldUnit.SourceRange.End;
-let yieldLineBreak = false;
-if (yieldEnd !== null) {
-  const yieldDocument = yieldEnd.Document;
-  const yieldCount = yieldDocument.GetCount();
-  let scan = yieldEnd.Index + 1;
-  while (scan < yieldCount) {
-    const ch = yieldDocument.At(scan).Value;
-    if (ch === "\n" || ch === "\r") {
-      yieldLineBreak = true;
-      break;
-    }
-    if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
-      scan++;
-      continue;
-    }
-    if (ch === "/" && scan + 1 < yieldCount) {
-      const nextChar = yieldDocument.At(scan + 1).Value;
-      if (nextChar === "/") {
-        yieldLineBreak = true;
-        break;
-      }
-      if (nextChar === "*") {
-        scan += 2;
-        let commentBreak = false;
-        while (scan + 1 < yieldCount && !(yieldDocument.At(scan).Value === "*" && yieldDocument.At(scan + 1).Value === "/")) {
-          if (yieldDocument.At(scan).Value === "\n" || yieldDocument.At(scan).Value === "\r") {
-            commentBreak = true;
-          }
-          scan++;
-        }
-        if (commentBreak) {
-          yieldLineBreak = true;
-          break;
-        }
-        scan += 2;
-        continue;
-      }
-    }
-    break;
-  }
-}
+// 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）：
+// 关键字后跳过空白与注释，先出现行终止符 ⇒ 受限产生式在这里收口（块注释里的行终止符也算）。
+const yieldLineBreak = LineTerminator.HasAfter(yieldUnit.SourceRange.End);
 // TS 的 yield 是受限产生式：`yield` 与操作数之间出现行终止符 ⇒ 本条 yield 没有操作数
 // （`yield⏎(x)` = `yield` 语句 + `(x)` 语句）。`yield *` 的 [no LineTerminator here] 在 `*` 之前，
 // 换行时连 `*` 都不能吃；块注释里的换行同样算行终止符。

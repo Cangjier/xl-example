@@ -27,6 +27,7 @@ import { ModuleDeclarationShape } from "../declarations/module-declaration-shape
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
 import { BindingElementShape } from "../bindings/binding-element-shape.xl.md"
 import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
@@ -1575,47 +1576,10 @@ return this.Finish(shape, first, this.At - 1);
 ## private static method HasLineBreakAfter:(last:Source | null)=>bool
 
 关键字后面（跳过空格与注释）是否先出现换行。注释里的换行也算：ASI 把注释中的 LineTerminator 视作换行。
+行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-if (last === null) {
-  return false;
-}
-const document = last.Document;
-const count = document.GetCount();
-let at = last.Index + 1;
-while (at < count) {
-  const ch = document.At(at).Value;
-  if (ch === "\n" || ch === "\r") {
-    return true;
-  }
-  if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
-    at++;
-    continue;
-  }
-  if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
-    if (next === "/") {
-      at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
-        at++;
-      }
-      return at < count;
-    }
-    if (next === "*") {
-      at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
-        if (document.At(at).Value === "\n" || document.At(at).Value === "\r") {
-          return true;
-        }
-        at++;
-      }
-      at += 2;
-      continue;
-    }
-  }
-  return false;
-}
-return false;
+return LineTerminator.HasAfter(last);
 ```
 
 ## method BuildBreakOrContinue:(isContinue:bool)=>Token

@@ -10,6 +10,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -106,7 +107,21 @@ const count = document.GetCount();
 let at = end.Index + 1;
 while (at < count) {
   const ch = document.At(at).Value;
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\v" || ch === "\f") {
+  // 行终止符：LF / CR / U+2028 / U+2029（cover8-A，统一走 LineTerminator）。
+  if (LineTerminator.IsLineTerminator(ch)) {
+    at++;
+    while (at < count) {
+      const gap = document.At(at).Value;
+      if (gap === " " || gap === "\t" || gap === "\v" || gap === "\f"
+        || LineTerminator.IsLineTerminator(gap)) {
+        at++;
+        continue;
+      }
+      break;
+    }
+    return !ImportDeclarationEndPossibleShape.IsContinuationWordAt(document, at, count);
+  }
+  if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
@@ -117,7 +132,7 @@ while (at < count) {
       // `import { a } //c` ⏎ `from "m"` 里 `from` 是续接关键字，声明还没完；
       // 只有下一行首词不在续接表里才在换行处结束（ASI）。
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && !LineTerminator.IsLineTerminator(document.At(at).Value)) {
         at++;
       }
       if (at >= count) {
@@ -133,18 +148,6 @@ while (at < count) {
       at += 2;
       continue;
     }
-  }
-  if (ch === "\n") {
-    at++;
-    while (at < count) {
-      const gap = document.At(at).Value;
-      if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n" || gap === "\v" || gap === "\f") {
-        at++;
-        continue;
-      }
-      break;
-    }
-    return !ImportDeclarationEndPossibleShape.IsContinuationWordAt(document, at, count);
   }
   if (ch === ";") {
     return false;

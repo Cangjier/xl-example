@@ -5,6 +5,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -62,23 +63,10 @@ return previous instanceof Common || previous instanceof String || previous inst
 ## static method HasLineBreakBetween:(left:Token, right:Token)=>bool
 
 两个代码单元的原文之间有没有换行（块注释里的换行也算）。
+行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-const from = left.SourceRange.End;
-const to = right.SourceRange.Start;
-if (from === null || to === null) {
-  return false;
-}
-const document = from.Document;
-let at = from.Index + 1;
-while (at < to.Index) {
-  const ch = document.At(at).Value;
-  if (ch === "\n" || ch === "\r") {
-    return true;
-  }
-  at++;
-}
-return false;
+return LineTerminator.HasBetween(left.SourceRange.End, right.SourceRange.Start);
 ```
 
 ## static method CanEndTypeUnit:(unit:Token)=>bool
