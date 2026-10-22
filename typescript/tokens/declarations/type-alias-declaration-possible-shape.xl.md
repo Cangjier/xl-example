@@ -46,6 +46,8 @@ Stage 1 直接 `Reject`，把位置留给 export 候选。
 
 ## field SeenEqual:bool = false
 
+## field NameAt:int = -1
+
 ## field LastCode:int = -1
 
 ## field AsiEnd:bool = false
@@ -94,6 +96,7 @@ if (state.Checked > tokenIndex + 1) {
   state.Rejected = false;
   state.SeenEqual = false;
   state.LastCode = -1;
+  state.NameAt = -1;
   state.AsiEnd = false;
   state.SawDecorator = false;
 }
@@ -180,13 +183,32 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.Stage === 1) {
+    // `type` 后面必须紧跟声明名（`Common` 标识符）；`type = 1` 里的 `=` / `;` / EOF
+    // 都不是名字——那是赋值表达式语句，别名候选必须当场退出，把位置留给 ExpressionStatement。
+    // `type { … }` / `type * …` 是 export 声明形态（`export type { T }`），也退出。
     if ((unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{")
       || (unit instanceof Symbol && (unit as Symbol).Is("*"))) {
       state.Rejected = true;
       continue;
     }
+    if (!(unit instanceof Common)) {
+      state.Rejected = true;
+      continue;
+    }
+    state.NameAt = at;
     state.Stage = 2;
     continue;
+  }
+  if (state.Stage === 2 && !state.SeenEqual && state.NameAt >= 0 && at > state.NameAt) {
+    // 名字之后、等号之前的第一个代码单元只能是 `=` 或类型参数 `<`。
+    // 别的（例如 `type\nT` 的 EOF、`type T` 后跟的下一条语句首词）说明它根本不是别名，
+    // 候选当场退出，别再拖到 build 才抛「类型别名声明不完整」。
+    const afterName = unit instanceof Symbol ? (unit as Symbol).TempToString() : "";
+    if (afterName !== "=" && afterName !== "<") {
+      state.Rejected = true;
+      continue;
+    }
+    state.NameAt = -1;
   }
   if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
     state.Done = true;

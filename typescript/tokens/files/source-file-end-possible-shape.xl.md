@@ -756,6 +756,9 @@ if ((isClass || isInterface || isEnum || isModuleDecl)
 }
 // `export type T = A` 也走类型别名族（TypeAliasDeclarationShape 已接受 export 前缀），
 // 于是 `export type T = A` 无分号到 EOF 能靠合成 `;` 建出来。
+// 注意：**只有真的长得像别名才走这一支**。`type = 1` / `type` ⏎ `T` 这类以 `type`
+// 开头的赋值表达式语句，TS 侧是 ExpressionStatement，不能被这里当别名丢给 FromUnits
+//（FromUnits 会抛「类型别名声明不完整」）。判据在 TypeAliasDeclarationShape.IsTypeAliasHead。
 const isExportType = text === "export"
   && code.length >= 3
   && code[1] instanceof Common
@@ -769,7 +772,7 @@ const isExportDeclareType = text === "export"
   && code.length >= 4
   && code[1] instanceof Common && (code[1] as Common).Is("declare")
   && code[2] instanceof Common && (code[2] as Common).Is("type");
-const isType = text === "type" || isExportType || isDeclareType || isExportDeclareType;
+const isType = TypeAliasDeclarationShape.IsTypeAliasHead(code, text);
 const isImportEquals = text === "import"
   && ((code.length >= 5
     && code[1] instanceof Common

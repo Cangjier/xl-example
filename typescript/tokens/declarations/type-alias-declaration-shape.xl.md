@@ -81,6 +81,41 @@ for (let at = start; at < code.length; at++) {
 return -1;
 ```
 
+## static method IsTypeAliasHead:(code:Array<Token>, headText:string)=>bool
+
+`type` / `export type` / `declare type` / `export declare type` 之后必须紧跟声明名，再紧跟 `=` 或类型参数 `<`，
+才算「还没收口的类型别名」。只看前缀是会把 `type = 1` 这类以 `type` 作标识符的赋值表达式
+误丢给 `FromUnits`（它随即抛「类型别名声明不完整」——`type` ⏎ `T` 同理）。
+
+```ts
+let typeIndex = -1;
+if (headText === "type") {
+  typeIndex = 0;
+} else if (headText === "export" && code.length >= 2
+  && code[1] instanceof Common && (code[1] as Common).Is("type")) {
+  typeIndex = 1;
+} else if (headText === "declare" && code.length >= 2
+  && code[1] instanceof Common && (code[1] as Common).Is("type")) {
+  typeIndex = 1;
+} else if (headText === "export" && code.length >= 3
+  && code[1] instanceof Common && (code[1] as Common).Is("declare")
+  && code[2] instanceof Common && (code[2] as Common).Is("type")) {
+  typeIndex = 2;
+}
+if (typeIndex < 0 || code.length <= typeIndex + 2) {
+  return false;
+}
+if (!(code[typeIndex + 1] instanceof Common)) {
+  return false;
+}
+const next = code[typeIndex + 2];
+if (!(next instanceof Symbol)) {
+  return false;
+}
+const nextText = (next as Symbol).TempToString();
+return nextText === "=" || nextText === "<";
+```
+
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>TypeAliasDeclarationShape
 
 从根单元 `host.Data[start..tokenIndex]` 建一条类型别名声明。`tokenIndex` 落在 `;` 上，或（无分号 ASI 收口时）落在类型末单元上。
