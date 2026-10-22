@@ -744,7 +744,7 @@ return false;
 ## method IsWhitespaceChar:(ch:string)=>bool
 
 ```ts
-return ch === " " || ch === "\t" || ch === "\r" || ch === "\n";
+return ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f";
 ```
 
 ## method IsIdentifierChar:(ch:string)=>bool

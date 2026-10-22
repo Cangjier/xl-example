@@ -676,7 +676,7 @@ const count = document.GetCount();
 let at = last.Index + 1;
 while (at < count) {
   const ch = document.At(at).Value;
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
@@ -718,7 +718,7 @@ const count = document.GetCount();
 let at = last.Index + 1;
 while (at < count) {
   const ch = document.At(at).Value;
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }

@@ -95,3 +95,92 @@ var a = [1,,2];
 // - `function f(){ return\n; }`：修复前 TS ReturnStatement[13,22]，本仓 ReturnStatement[13,20] +
 //   EmptyStatement[20,22]（结构 +1、位置差 1）。根因：BuildReturnOrThrow 的换行分支放弃 `;`。
 //   修法：换行后紧跟的 `;` 计入 End，不新起 EmptyStatement（`statement-builder.xl.md`）。
+
+// ── ⑥ TS WhiteSpace 覆盖 `\v` / `\f`：这两个字符是 trivia，不是标识符 / 数字的一部分 ──
+// 缺口（end build：trivia 被吞 → Pos/End 偏移）。core 的 `SymbolTemplate.IsWhiteSpace` 只认空格 / `\t` / `\r` / `\n`，
+// `\f`(U+000C) / `\v`(U+000B) 于是被 `Common`、数字模板与语句扫描的字符白名单漏掉：
+//   · `throw e\f`：TS `ThrowStatement[0,7]` + `Identifier[5,7]`；修前本仓 End 被撑到 8
+//     （`core/syntax/templates/symbol-template.xl.md:222 IsWhiteSpace`）；
+//   · `class C {}\f`：TS 只有一条 `ClassDeclaration[0,10]`；修前 `\f` 被 `Common` 当成标识符，
+//     多出一条 `ExpressionStatement`（`typescript/tokens/files/source-file-end-possible-shape.xl.md:54 ComputeByIndex`
+//     的 EOF 兜底拿到的最后代码单元不对）；
+//   · `let x = 1\f`：修前抛「表达式语句没有读完」；`return\f`：`\f` 已进 `WrapSymbol` 后语句候选与根终结候选
+//     仍同时 `Accept`——`typescript/tokens/statements/statement-scanner.xl.md:665 NextChar` 的 4 字符白名单
+//     没跳过 `\f`，AtEOF 判不出来。
+// 修法（只改 typescript/，core 不动）：
+//   · 新增 `typescript/run/typescript-symbol-template.xl.md`：`TypeScriptSymbolTemplate.IsWhiteSpace` 在 core 四种外
+//     补 U+000B/U+000C，`TypescriptTemplate.Create` 换用它；空白块认领后判形状一律跳过、`Close` 丢弃；
+//   · `statement-scanner.NextChar/NextWord`、`expression-builder`、`statement-builder` 与
+//     import / export / import-equals 的字符白名单同步补 `\v` / `\f`（它们按文档字符扫，不走 token 的 `IsWhiteSpace`）；
+//   · `ast-json.mjs` 的 `decodeCaseText` 支持 `\v` / `\f` 转义（与 `\n` 同口径：字符串 / 模板 / 正则里不解码）。
+// 什么时候 build / close：与普通空白完全一样——这两个字符由 `WrapSymbol` 收成 trivia，不参与任何形状判定；
+// build 时 `Data` 里仍留着它，但 `Close` 取 End 一律落到最后一个非 trivia 代码单元，字段与 End 都不含它。
+throw e
+throw e\f
+throw e\v
+throw e\f;
+throw e\v;
+throw e /* c */\f
+throw e /* c */\v
+return
+return;
+return\f
+return\v
+break
+break\f
+break\v
+continue
+continue\f
+continue\v
+debugger
+debugger\f
+debugger\v
+if (a) b
+if (a) b\f
+if (a) b\v
+class C {}
+class C {}\f
+class C {}\v
+interface I {}
+interface I {}\f
+enum E { A }
+enum E { A }\f
+namespace N {}
+namespace N {}\f
+function f() {}
+function f() {}\f
+switch (a) { case 1: b }
+switch (a) { case 1: b }\f
+let x = 1
+let x = 1\f
+let x = 1\v
+const x = 1\f
+var y
+var y\f
+type T = A
+type T = A\f
+type T = A\v
+import x from "m"
+import x from "m"\f
+import x from "m"\v
+import x = require("m")
+import x = require("m")\f
+export {}
+export {}\f
+export * from "m"
+export * from "m"\f
+export = 1
+export = 1\f
+export default 1
+export default 1\f
+declare function f(): void
+declare function f(): void\f
+x
+x\f
+x\v
+throw e\f\n;
+let\f x = 1;
+function\f f() {}
+a\f+\fb
+\f
+\v

@@ -1183,7 +1183,7 @@ while (at < count) {
   if (ch === "\n" || ch === "\r") {
     return true;
   }
-  if (ch === " " || ch === "\t") {
+  if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }

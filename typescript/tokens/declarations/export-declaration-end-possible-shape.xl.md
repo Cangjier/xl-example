@@ -104,7 +104,7 @@ let at = end.Index + 1;
 let lineBreak = false;
 while (at < count) {
   const ch = document.At(at).Value;
-  if (ch === " " || ch === "\t" || ch === "\r") {
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }

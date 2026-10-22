@@ -87,6 +87,11 @@ function decodeCaseText(line) {
         out += ch; i++; continue;
       }
       if (ch === "\\" && line[i + 1] === "n") { out += "\n"; i += 2; continue; }
+      // `\v` / `\f` are encoded too, so a case whose trailing trivia is U+000B / U+000C
+      // still fits on one physical line (and `.trim()` cannot eat it). Same literal-state
+      // protection as `\n`: inside a string / template / regex these are real escapes.
+      if (ch === "\\" && line[i + 1] === "v") { out += "\u000B"; i += 2; continue; }
+      if (ch === "\\" && line[i + 1] === "f") { out += "\u000C"; i += 2; continue; }
       out += ch; i++; continue;
     }
     if (top === "regex" || top === "class") {
