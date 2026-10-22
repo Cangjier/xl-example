@@ -5,6 +5,12 @@
 它解析 TypeScript 风格的源码——把字符流啃成一棵 token 树，再把树打印成 XML。
 产物里带一个命令行入口 `cjcli`，可以直接拿一个源文件跑出这棵树。
 
+> **当前状态提示（2026-10-22）**：仓库已删除 `dawn/` 旧语言层（`1cf6d30d`），当前可复跑的是
+> `core/` + `typescript/` 的定向构建与 AST 门禁；根入口 `cjcli.xl.md` 仍引用 `dawn/**`，完整构建与
+> `samples/check.mjs` 在当前 HEAD 跑不起来。**当前状态、验证读数、语法覆盖与遗留缺口以
+> [docs/Final.md](docs/Final.md) 为准**；本 README 的「解析优先级」「cjcli」「样本验收」等章节是 dawn 时代的
+> 历史描述，已知缺口一节也已按当前实测重写。
+
 ## 构建链路
 
 ```
@@ -58,22 +64,15 @@ node build/ts/cjcli.js samples/hello.ts
 
 ## 解析优先级在哪
 
-token 层的公共契约——**跳转优先级**与**重组优先级**——只在
-[dawn/text/parse-pipeline.xl.md](dawn/text/parse-pipeline.xl.md) 里：
+当前解析机制**不是**旧版的 Dawn `ParsePipeline`：`dawn/` 已在 `1cf6d30d`（2026-10-13）随旧语言层、
+`core/runtime` 与全部重组机制一起删除。现在由 **`CatalogGuide`** 驱动：basic token close 时触发父级
+`ComputePossibleShapes`，`CatalogGuide` 对 `PossibleShapes`（普通候选）与 `EndPossible`（终结候选）逐格判定、
+淘汰、build——流程与硬性规则见 [typescript/IMPORTANCE.md](typescript/IMPORTANCE.md) §3.3 与
+[core/syntax/catalog-guide.xl.md](core/syntax/catalog-guide.xl.md)。各语言的候选表/形状在
+`typescript/tokens/**` 的 `*-possible-shape` / `*-shape`，新增 token 的改动点就在那里。
 
-- `ParsePipeline.CreateGeneralQueue()`：每处理一个字符，按这个顺序问每个 `Branch` 要不要接手；
-- `ParsePipeline.GeneralReorganize`：每个单元关闭时，按这个顺序把子单元合并成更高层结构；
-- `ParsePipeline.Install(template)`：往模板上装这两张表**与语言配置**（关键字表、禁用方法名表）。
-  `TextContext` 构造时调它，所以调用方只需要 `new Template()`。
-
-要看「这个语言的解析优先级是什么」，读这一个文件就够了；新增 token 的改动点也在这里。
-队首是声明层、队尾是关键字兜底，**顺序本身就是语义**：
-
-```text
-Decorator → Class → Function → Enum → MethodDeclaration → Label → Let → Field → New → Method → …
-… → TypeAssign → Lamda → TypeDefine → Ternary → Try → Switch → IfSet → For → Foreach → While → …
-… → WrapSymbol → CompoundAssignment → NotNull → Keyword
-```
+旧版本这一节描述的 `dawn/text/parse-pipeline.xl.md`、`ParsePipeline.CreateGeneralQueue/GeneralReorganize/Install`
+与那份「Decorator → … → Keyword」队列清单已随 dawn 删除，仅作历史记录，不要再按它找代码。
 
 ## 支持的语法构造
 
@@ -122,25 +121,23 @@ Decorator → Class → Function → Enum → MethodDeclaration → Label → Le
 
 ## 已知缺口
 
-- **`type X = { a: number }` 这种类型字面量里没有成员节点**：`interface` 的成员已经有节点（`InterfaceBody` +
-  `Field`），但类型别名右侧那对 `{ }` 还是 `Common` / `Symbol` 序列。
-- **没有方法体的成员声明**（`abstract f(): void;`、接口里的 `m(): void`）与「以 `;` 收尾的调用语句」同形，
-  仍然落成 `<Statement>` + `<Method>` + `<TypeDefine>`；类里的 `static { … }` 块也没有节点。
-- **`Label` 只是标记节点**，不包含它标的那条语句（产物形如 `<Label LabelName="outer" /><While>…</While>`）：
-  标签规则必须排在 `TypeDefine` 之前，那时后面那条语句还没成形，认不出边界。
-- **模板字符串的 AST**（`` `a${b}c` ``）：已支持——词法层把 `${…}` 收成 `<String IsSupportInterpolation=True>` + `ConstString` / `InterpolationString`，
-  形状层按它切出 `NoSubstitutionTemplateLiteral` / `TemplateHead` / `TemplateMiddle` / `TemplateTail` / `TemplateExpression` /
-  `TemplateSpan` / `TaggedTemplateExpression`，`typescript/cases/string.ts` 的 S3–S6 全绿（75/75）。`$"…"` 是 C# 的前缀式内插，ts 没有，按普通 `Symbol` + `String` 解析。
-- **对象 / 数组字面量的表达式**：`({ a: b })`、`f([1, 2])`、`{…}` / `[…]` 作为插值内容都已能建对；
-  语句首的裸 `[a, b];` 仍卡在 `CanStart`（缺 possible，不在表达式形状层）。
-- **JSX / TSX** 没有支持。
-- 实测（本分支，2026-10-21）：`node_modules` 下 **226 份真实 `.d.ts`**（`typescript/lib` / `@types/node` / undici-types）
+- **JSX / TSX** 没有支持（`typescript/IMPORTANCE.md` §8）。
+- 历史上的几项缺口——类型字面量里的成员节点、无体成员（`abstract f(): void;` / 接口方法）、类的 `static { … }` 块、
+  `Label` 不包含所标语句、语句首裸 `[a, b];`、对象/数组字面量在语句首——**都已在 2026-10-21～10-22 的轮次中修掉**，
+  2026-10-22 的只读探针复核为 AST 全部 MATCH（明细见 [docs/Final.md](docs/Final.md) §7.4）。
+- 当前仍开放的缺口与口径（无体签名吞后续语句、模板块成员 `declare`、装饰器+`export` 声明、块内 `declare`+`global {}`、
+  两个新发现的语料缺口、空白判定表未统一等）见 [docs/Final.md](docs/Final.md) §7。
+- 实测（本分支，2026-10-22）：`node_modules` 下 **226 份真实 `.d.ts`**（`typescript/lib` / `@types/node` / undici-types）
   **全部解析成功**，且与本仓 AST **226/226 逐节点一致**；`npm run ast:dts` 是这一门的固定门禁。
-  修这一批缺口之前的读数是：**112 份解析崩溃、能解析的 114 份 AST 一致**——归因、最小复现与修法见
-  [docs/real-dts-ast-analysis.md](docs/real-dts-ast-analysis.md)。TypeScript 自带的 8MB **打包 JS**
+  修这一批缺口之前的读数是：**112 份解析崩溃、能解析的 114 份 AST 一致**——归因与当前覆盖见
+  [docs/Final.md](docs/Final.md) §6.2。TypeScript 自带的 8MB **打包 JS**
   （`typescript.js`）不在这一门里：那是 JavaScript 而不是 `.d.ts` 声明。
 
 ## cjcli
+
+> **当前不可用**：`cjcli.xl.md` 仍 `import "./dawn/text/*"`（`dawn/` 已于 `1cf6d30d` 删除），根级 `xl build`
+> 会以 E1006 中止，`build/ts/cjcli.js` 不存在。下面几小节是 dawn 时代的用法说明，恢复入口（把 `cjcli.xl.md`
+> 的依赖改到现行 `core/` + `typescript/`）之前不可执行。
 
 [cjcli.xl.md](cjcli.xl.md) → `dist/ts/cjcli.ts` → `build/ts/cjcli.js`。它是命令行入口，不属于语法层本体。
 
@@ -196,7 +193,7 @@ node samples/check.mjs --update # 用当前产物重写夹具
 读的是另一个分支的产物，见 [tests/MIGRATION.md](tests/MIGRATION.md)。**本分支权威的 AST 尺子**是：
 
 ```bash
-npm run ast:cases         # 语料：ast-json 生成快照 + ast-json-diff 逐条对拍（当前 4622/4622）
+npm run ast:cases         # 语料：ast-json 生成快照 + ast-json-diff 逐条对拍（当前 6167/6167）
 npm run ast:dts           # 真实 .d.ts 门禁：226 份全部解析成功且 AST 逐节点一致
 npm run ast:verify        # 上面两条一起跑
 ```
