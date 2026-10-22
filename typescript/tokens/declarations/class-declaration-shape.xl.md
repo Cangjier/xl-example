@@ -348,6 +348,26 @@ shape.TryToClose(context);
 return shape;
 ```
 
+## private static method CanFollowModifier:(unit:Token)=>bool
+
+TS 的 `canFollowModifier()`：修饰词后面这一格能否接成员名（`[` / `{` / `*` / `...` / 字面量属性名）。
+`static` 的判据用它（不看换行），`get` / `set` 与其余修饰词还要再过各自的「名字」那一关。
+
+```ts
+if (unit instanceof Bracket) {
+  const bracketChar = (unit as Bracket).StartBracketChar;
+  return bracketChar === "[" || bracketChar === "{";
+}
+if (unit instanceof Symbol) {
+  const symbolText = (unit as Symbol).TempToString();
+  return symbolText === "*" || symbolText === "..." || symbolText === "#";
+}
+if (unit instanceof Common) {
+  return true;
+}
+return unit instanceof String;
+```
+
 ## static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
 参数表按逗号切组；带 `:` / `?:` 的组交给 `TypeBuilder.ParseParameter()`，不带类型的组只建 `Identifier`。
@@ -654,37 +674,24 @@ while (at < code.length) {
       break;
     }
     // 这一格也可能是成员名（`readonly() {}` / `private` ⏎ `m() {}`）：只有下一格确实是
-    // 「被修饰的成员」时才算修饰词。判据二选一：
-    // ① 与下一格之间没有换行 —— TS 的 ASI：换行（块注释里的换行也算）之后该词已收成只有名字的字段；
-    // ② 下一格不是名字后才会跟的单元（`(` `<` `?` `=` `;` `!` `:` 等）。
+    // 「被修饰的成员」时才算修饰词。判据对齐 TS 的 parseModifiers（三档）：
+    //   · `static` 走 nextTokenCanFollowModifier()：只看下一格能否接名字，**不看换行**
+    //     （`static` ⏎ `m() {}` 仍是一条静态方法、`static` ⏎ `readonly a` 仍在修饰词链里）；
+    //   · `get` / `set` 走 canFollowGetOrSetKeyword()：同样不看换行，交下面访问器分支再核；
+    //   · 其余修饰词走 nextTokenIsOnSameLineAndCanFollowModifier()：换行（块注释里的换行也算）
+    //     或下一格不能接名字，当前词就按 ASI 收成只有名字的字段。
+    // 旧实现把「下一格还是修饰词」当成不看换行的例外，于是 `public` ⏎ `static readonly a = 1`
+    // 被并成一条成员（TS 实测是「字段 public + 静态字段 a」两条）。
     const modifierNext = at + 1 < code.length ? code[at + 1] : null;
     if (modifierNext === null) {
       break;
     }
     let isModifier = true;
-    // 下一格本身还是修饰词时，换行不改变它（`public static` ⏎ `readonly a` 仍是一条成员）；
-    // 只有「下一格是普通名字」时，换行才按 ASI 把当前词收成字段名。
-    let nextIsModifierWord = false;
-    if (modifierNext instanceof Common) {
-      const nextWord = (modifierNext as Common).TempToString();
-      nextIsModifierWord = nextWord === "readonly" || nextWord === "static" || nextWord === "private"
-        || nextWord === "public" || nextWord === "protected" || nextWord === "abstract"
-        || nextWord === "declare" || nextWord === "override" || nextWord === "async"
-        || nextWord === "accessor" || nextWord === "get" || nextWord === "set";
-    }
-    if (!nextIsModifierWord && MemberBoundary.HasLineBreakBetween(code[at], modifierNext)) {
-      isModifier = false;
-    }
-    if (isModifier && modifierNext instanceof Bracket && (modifierNext as Bracket).StartBracketChar === "(") {
-      isModifier = false;
-    }
-    if (isModifier && modifierNext instanceof Symbol) {
-      const nextText = (modifierNext as Symbol).TempToString();
-      if (nextText === "<" || nextText === "?" || nextText === "?:" || nextText === "="
-        || nextText === ";" || nextText === "!" || nextText === ")" || nextText === ","
-        || nextText === ":") {
-        isModifier = false;
-      }
+    if (text === "static") {
+      isModifier = ClassDeclarationShape.CanFollowModifier(modifierNext);
+    } else if (text !== "get" && text !== "set") {
+      isModifier = !MemberBoundary.HasLineBreakBetween(code[at], modifierNext)
+        && ClassDeclarationShape.CanFollowModifier(modifierNext);
     }
     if (!isModifier) {
       break;
@@ -882,15 +889,22 @@ while (at < code.length) {
     && ((code[at] as Symbol).Is("?") || (code[at] as Symbol).Is("?:"))) {
     const markUnit = code[at];
     const afterMark = at + 1 < code.length ? code[at + 1] : null;
+    const markText = (markUnit as Symbol).TempToString();
     let optionalMethod = false;
     if (afterMark !== null) {
       if (afterMark instanceof Symbol && (afterMark as Symbol).Is("<")) {
         optionalMethod = true;
       } else if (afterMark instanceof Bracket && (afterMark as Bracket).StartBracketChar === "(") {
-        // `?(` 也可能是可选属性 + 括号/函数类型（`trace?: (s: string) => void`）：
-        // 只有参数表 `)` 后跟返回类型 `:` 时才是方法。
         const afterParams = at + 2 < code.length ? code[at + 2] : null;
-        optionalMethod = afterParams !== null && afterParams instanceof Symbol && (afterParams as Symbol).Is(":");
+        if (markText === "?") {
+          // `?` 单独成格、下一格就是参数表：一定是可选方法（属性的类型必须先有 `:`，
+          // `trace?: (s) => void` 的 `?` 后面那一格是 `:`，不会走到这里）。原来只认「参数表后跟 `:`」，
+          // 于是 `a?() {}` / `a?();` / `m?()` 都掉进属性路径 → 「类成员之间缺少分隔符」crash。
+          optionalMethod = true;
+        } else {
+          // `?:` 合并格：`(` 可能是属性类型（`trace?: (s: string) => void`），只有后跟 `:` 才是方法。
+          optionalMethod = afterParams !== null && afterParams instanceof Symbol && (afterParams as Symbol).Is(":");
+        }
       }
     }
     if (optionalMethod) {
