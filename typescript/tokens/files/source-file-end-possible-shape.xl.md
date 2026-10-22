@@ -367,6 +367,16 @@ for (let index = 1; index < code.length; index++) {
     continue;
   }
   const unit = code[index];
+  // 修饰词跨行：`export` ⏎ `const x = 1` 是**同一条**声明（TS 的 parseModifiers 对 export
+  // 不看换行）。`declare` / `abstract` 不同——TS 要求它们与声明词同行，换行后是两条语句
+  //（`declare` ⏎ `class C {}` = ExpressionStatement + ClassDeclaration），所以不放进来。
+  const previousCode = code[index - 1];
+  if (previousCode instanceof Common) {
+    const previousText = (previousCode as Common).TempToString();
+    if (previousText === "export") {
+      continue;
+    }
+  }
   // 老判据：下一行以声明 / 语句关键字开头。声明头本身可以跨行（`interface I` ⏎ `extends B`），
   // 所以这里不看前一个代码单元是否完整——这类 leftovers 本来就只在不收口时才会走到。
   if (unit instanceof Common) {
@@ -445,6 +455,32 @@ const isDeclareVariable = text === "declare"
   && code[1] instanceof Common
   && ((code[1] as Common).Is("let") || (code[1] as Common).Is("const")
     || (code[1] as Common).Is("var") || (code[1] as Common).Is("using"));
+// 空声明语句 `const` / `var`（含 `const;` / `var;`）：TS 是带**空** VariableDeclarationList 的
+// VariableStatement（`const` 是关键字，不可能当标识符表达式）。StatementBuilder 的正常路径只按
+// 「有 declarator」建变量语句，所以这里单独走 BuildVariableStatement 的入口；
+// `let` 不在此列（TS 里 `let` 单独成句是 ExpressionStatement，标识符）。
+const isLoneEmptyVariable = isVariableKeyword
+  && (text === "const" || text === "var")
+  && (code.length === 1
+    || (code.length === 2 && code[1] instanceof Symbol && (code[1] as Symbol).Is(";")));
+if (isLoneEmptyVariable) {
+  let emptyPos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        emptyPos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const emptyBuilder = new StatementBuilder(host.Template, context);
+  emptyBuilder.Load(host.Data.slice(start, at + 1), emptyPos);
+  const emptyStatement = emptyBuilder.BuildStatement();
+  host.Data.splice(start, at - start + 1, emptyStatement);
+  emptyStatement.Parent = host;
+  return true;
+}
 if (isVariableKeyword || isDeclareVariable) {
   // 无分号 EOF 尾巴：可能连排多条语句（`const a = 1` ⏎ `console.log(a)`）——按段逐条建，
   // 每段按语句右边界算消费量，不能整段 splice（会吞掉后面的语句）。
@@ -476,11 +512,11 @@ if (isSimpleStatement) {
 // 紧邻的 class / interface 声明（体是闭合括号单元，tokenIndex 落在 `}` 上）；允许前置 declare。
 // `export const x = 1` 鏃犲垎鍙峰埌 EOF锛氬厛渚?StatementBuilder 鎸夊彉閲忚鍙ュ缓锛屽啀鎶?ExportKeyword 鎻掑埌 Data 鏈€鍓嶃€?
 const isExportVariable = text === "export"
-  && code.length >= 3
+  && code.length >= 2
   && code[1] instanceof Common
   && ((code[1] as Common).Is("const") || (code[1] as Common).Is("let")
     || (code[1] as Common).Is("var") || (code[1] as Common).Is("using")
-    || ((code[1] as Common).Is("declare") && code.length >= 4 && code[2] instanceof Common
+    || ((code[1] as Common).Is("declare") && code.length >= 3 && code[2] instanceof Common
       && ((code[2] as Common).Is("const") || (code[2] as Common).Is("let")
         || (code[2] as Common).Is("var") || (code[2] as Common).Is("using"))));
 if (isExportVariable) {

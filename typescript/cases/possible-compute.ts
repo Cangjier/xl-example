@@ -110,3 +110,18 @@ type = 1
 type = 1 + 2
 type /* c */ = 1
 type\n= 1
+
+// ── H2：空声明语句 / 修饰词跨行的 EOF 收口（base 在前；export 与成员词允许跨行） ──
+// `export const` 单独成句在 TS 里是带**空** VariableDeclarationList 的 VariableStatement；
+// 此前 source-file-end-possible-shape.xl.md 的 isExportVariable 要求 code.length>=3，
+// 两格形（export + const）落空后掉进 ExpressionStatement 抛「表达式语句没有读完」。
+// 修法：isExportVariable 放宽到 code.length>=2（declare 形 >=3）；EOF 边界拆句时
+// 「上一格是 export」不拆（TS 的 parseModifiers 对 export 不看换行）。
+export const
+export var
+export let
+export declare const
+export const\nconst x = 1
+export\nconst x = 1
+export\nconst
+export default\n1
