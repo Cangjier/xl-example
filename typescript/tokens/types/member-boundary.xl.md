@@ -51,8 +51,14 @@ class 体不能直接复用这条例外：值初始化器里的 `foo` ⏎ `(bar)
 所以 `FindMemberBoundary` / `LooksLikeMemberStart` 保持原判据不动，class 体与 type literal 的既有解析不受影响；
 只有对象类型成员候选（`MemberPossibleUtil.Analyze`）走这个入口。
 
-`(` 前面是 `new`（`new` ⏎ `(` 是构造签名）或这组 `<...>` 是同一个调用/构造签名**尚未出现的参数表**
-（`<T>` ⏎ `(x: T): B`、`new <T>` ⏎ `(x: T): B`）时，`(` 不是新成员起点。
+`(` / `<` 前面是 `new`（`new` ⏎ `<T>` / `(` 是构造签名的类型参数表 / 参数表），
+或当前成员前缀**还没拿到参数表**（`m` ⏎ `(x: T): B`、`m<T>` ⏎ `(x: T): B`、`b?` ⏎ `(): E`、
+`<T>` ⏎ `(x: T): B`）时，`(` / `<` 是同一个签名自己的类型参数表 / 参数表，不是新成员：
+TS 的 `parseTypeMember` 在成员名与 `<` / `(` 之间**从不插 ASI**，只有成员自己已经收住
+（有了 `:` 类型、有了参数表、或根本是调用签名）时，换行后的 `(` / `<` 才是下一个成员。
+
+`(` 前面是 `import`、再前一个是 `typeof`（`f: typeof import` ⏎ `("m")`）时，`(` 是 import 类型的
+参数表（`TypeBuilder.ParseTypeQuery` 同口径），也不是新成员。
 
 ```ts
 for (let at = from + 1; at < code.length; at++) {
@@ -71,6 +77,10 @@ for (let at = from + 1; at < code.length; at++) {
       // `new` ⏎ `<T>` 是构造签名的类型参数表，不是新成员。
       continue;
     }
+    if (MemberBoundary.IsMemberSignatureAwaitingParams(code, at)) {
+      // `m` ⏎ `<T>(…)`：`<...>` 是这个方法自己的类型参数表。
+      continue;
+    }
     return at;
   }
   if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
@@ -78,7 +88,12 @@ for (let at = from + 1; at < code.length; at++) {
       // `new` ⏎ `(...)` 是构造签名的参数表。
       continue;
     }
-    if (MemberBoundary.IsTypeParameterListAwaitingParams(code, at)) {
+    if (MemberBoundary.IsMemberSignatureAwaitingParams(code, at)) {
+      // `m` / `m<T>` / `b?` ⏎ `(...)`：参数表属于同一个成员。
+      continue;
+    }
+    if (MemberBoundary.IsImportTypeArguments(code, at)) {
+      // `typeof import` ⏎ `("m")`：`(` 是 import 类型的参数表。
       continue;
     }
     return at;
@@ -102,57 +117,88 @@ if (unit instanceof Common) {
 return false;
 ```
 
-## private static method IsTypeParameterListAwaitingParams:(code:Array<Token>, at:int)=>bool
+## private static method IsMemberSignatureAwaitingParams:(code:Array<Token>, at:int)=>bool
 
-`at` 是换行后的 `(`，前一个代码单元是 `>` / `>>` / `>>>` 时：反向找到这组 `<...>` 的开 `<`，
-如果开 `<` 就是条目第一个单元、或紧跟 `new`，而且 `at` 之前还没有出现过参数表 `(` 括号，
-那这个 `(` 是同一个调用 / 构造签名的参数表（`<T>` ⏎ `(x: T): B`），不是新成员。
+`at` 是换行后的 `(` / `<`。当前成员前缀（`code[0 .. at-1]`）还停在「成员名 / 可选标记 / 类型参数表」
+这一截、**还没拿到参数表**时，`at` 处的 `(` / `<` 属于同一个签名，不是新成员：
 
-`a: Foo<A>` ⏎ `(): B` 里开 `<` 前是名字 `Foo`，是类型实参而不是本签名的类型参数表 ⇒ 返回 false，
-`(` 照常当新成员起点。
+- 前缀里已经出现过参数表 `(` 括号 ⇒ 成员已经收住（`(): A` / `m()`），`at` 是新成员；
+- 前缀顶层（角深度 0）出现过 `:` ⇒ 类型已经开始（`a: Foo<A>` ⏎ `(): B`），成员收得住，`at` 是新成员；
+- 前缀最后一个代码单元必须是「后面还能接类型参数表 / 参数表」的东西：名字 / 字符串名、
+  可选标记 `?` / `?:`、或类型参数表的收口 `>` / `>>` / `>>>`。
+
+`readonly` 是例外：`TypeBuilder.ParseTypeMember` 把**换行后的** `readonly` 当场收成无类型属性名
+（`readonly` ⏎ `readonly: number` 是两个成员，这是 TS 的 `nextTokenIsOnSameLineAndCanFollowModifier`），
+跨过这个换行会让它提前收口、留下 leftover，所以 `readonly` ⏎ `(` 保持既有分界（不跨）。
 
 ```ts
-let angle = 0;
-let opener = -1;
-for (let cursor = at - 1; cursor >= 0; cursor--) {
-  const unit = code[cursor];
-  if (!(unit instanceof Symbol)) {
-    continue;
-  }
-  const text = (unit as Symbol).TempToString();
-  if (text === ">") {
-    angle += 1;
-    continue;
-  }
-  if (text === ">>") {
-    angle += 2;
-    continue;
-  }
-  if (text === ">>>") {
-    angle += 3;
-    continue;
-  }
-  if (text === "<") {
-    angle -= 1;
-    if (angle <= 0) {
-      opener = cursor;
-      break;
-    }
-  }
-}
-if (opener < 0) {
-  return false;
-}
 for (let cursor = 0; cursor < at; cursor++) {
   const unit = code[cursor];
   if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
     return false;
   }
 }
-if (opener === 0) {
+let angle = 0;
+for (let cursor = 0; cursor < at; cursor++) {
+  const unit = code[cursor];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    angle += 1;
+    continue;
+  }
+  if (text === ">") {
+    angle = angle > 0 ? angle - 1 : 0;
+    continue;
+  }
+  if (text === ">>") {
+    angle = angle > 1 ? angle - 2 : 0;
+    continue;
+  }
+  if (text === ">>>") {
+    angle = angle > 2 ? angle - 3 : 0;
+    continue;
+  }
+  if (text === ":" && angle === 0) {
+    return false;
+  }
+}
+const last = code[at - 1];
+if (last instanceof Common) {
+  return (last as Common).TempToString() !== "readonly";
+}
+if (last instanceof String) {
   return true;
 }
-return MemberBoundary.IsNewKeyword(code[opener - 1]);
+if (last instanceof Symbol) {
+  const lastText = (last as Symbol).TempToString();
+  return lastText === "?" || lastText === "?:" || lastText === ">"
+    || lastText === ">>" || lastText === ">>>";
+}
+return false;
+```
+
+## private static method IsImportTypeArguments:(code:Array<Token>, at:int)=>bool
+
+`at` 是换行后的 `(`，`code[at - 1]` 是 `import`、`code[at - 2]` 是 `typeof` 时，这组括号是
+`typeof import(...)` 的参数表：TS 的 `parseTypeQuery` 在 `import` 之后直接读 `(`，不插 ASI；
+本仓 `TypeBuilder.ParseTypeQuery` 同口径，所以成员分界要跨过那个换行。
+
+`import` 只有紧跟 `typeof` 才是 import 类型；其它位置的 `import` 是成员名（`import` ⏎ `(): A`
+是名字为 `import` 的方法签名，`(` 照常是新成员起点）。
+
+```ts
+if (at < 2) {
+  return false;
+}
+const name = code[at - 1];
+if (!(name instanceof Common) || (name as Common).TempToString() !== "import") {
+  return false;
+}
+const before = code[at - 2];
+return before instanceof Common && (before as Common).TempToString() === "typeof";
 ```
 
 ## static method IsInitializerIndexContinuation:(code:Array<Token>, at:int)=>bool

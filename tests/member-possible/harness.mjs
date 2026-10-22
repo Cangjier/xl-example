@@ -18,6 +18,11 @@
 // `--generic` 分组（默认也跑）：泛型成员边界回归。成员自身的 `<...>` 里，`>` 和 `,` 都是成员内部结构，
 // 不能当本层收口证据（`a: Foo<A>`、`a: Map<K, V>`、`m<T, U>(x: T): U` …）。
 // 每条用例声明它需要的候选；候选没被选中（还是桩）时该用例跳过，等 wave2 实现后自动生效。
+//
+// `--member-start` 分组（默认也跑）：成员起点判据回归（residual 修复新增）。`get?` / `set?` 是
+// 「名字 + 可选标记」而不是访问器；成员名 / 可选标记 / 类型参数表与 `<` `(` 之间的换行不插 ASI
+// （`m` ⏎ `()`、`m<T>` ⏎ `()`、`b?` ⏎ `()`、`typeof import` ⏎ `("m")`），但成员自己收住后
+// （有 `:` 类型 / 已有参数表）换行后的 `(` 仍是下一个成员。`--no-generic` 同时跳过这一组。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -121,6 +126,47 @@ const GENERIC_BOUNDARY_CASES = [
   { source: "interface I { (): A\n(): B }", required: ["CallSignaturePossibleShape"] },
   { source: "interface I { <T>(x: T): A\n(): B }", required: ["CallSignaturePossibleShape"] },
   { source: "interface I { a: A\n(): B }", required: ["PropertySignaturePossibleShape", "CallSignaturePossibleShape"] },
+];
+
+// ---------------------------------------------------------------------------
+// `--member-start` 分组（默认也跑）：成员起点判据回归（residual 修复新增）。
+//
+// 两条共享判据在这里钉住：
+//   1. `get?` / `set?`：`?` 紧跟访问器关键字，访问器形态已经不可能 ⇒ `get` / `set` 是成员名，
+//      按「名字 + 可选标记」判型（`get?(): any` 是 MethodSignature、`get?: A` 是 PropertySignature）。
+//   2. 成员名与 `<` / `(` 之间的换行不插 ASI：`m` ⏎ `()`、`m<T>` ⏎ `()`、`b?` ⏎ `()`、
+//      `typeof import` ⏎ `("m")` 都是同一个成员；而成员自己已经收住（有 `:` 类型 / 已有参数表）时，
+//      换行后的 `(` / `<` 才是下一个成员（`a: A` ⏎ `(): B`）。
+// 每条用例声明它需要的候选；候选没被选中（还是桩）时跳过，等 `--all` 时生效。
+const MEMBER_START_CASES = [
+  // 1. get / set 可选标记
+  { source: "interface I { get?(): any; }", required: ["PropertySignaturePossibleShape", "MethodSignaturePossibleShape"] },
+  { source: "interface I { get?(this: This): Value; }", required: ["PropertySignaturePossibleShape", "MethodSignaturePossibleShape"] },
+  { source: "interface I { set?(v: string): void; }", required: ["PropertySignaturePossibleShape", "MethodSignaturePossibleShape"] },
+  { source: "interface I { get?<T>(): T }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { get?: A }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { get?: (a: A) => B }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { set?: (v: A) => void }", required: ["PropertySignaturePossibleShape"] },
+  // 2a. 名字 / 可选标记 / 类型参数表 后面的换行参数表属于同一个成员
+  { source: "interface I { a: number; m\n(): void; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { a: number; m//c\n(): void; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { m<T>/*c*/(a: T): void; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { m<T>\n(a: T): void; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { m<T, U>\n(a: T, b: U): void; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { b?\n(): E; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { b?/*c*/\n(): E; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { b?<T>\n(x: T): E; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { \"m\"\n(): void }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { readonly x\n(): A }", required: ["MethodSignaturePossibleShape"] },
+  // 2b. `typeof import` 的参数表跨换行
+  { source: "interface I { f: typeof import\n(\"m\") }", required: ["PropertySignaturePossibleShape"] },
+  { source: "type B = { f: typeof import\n(\"m\") };", required: ["PropertySignaturePossibleShape"] },
+  // 2c. 成员自己已经收住时，换行后的 `(` 仍是下一个成员
+  { source: "interface I { a: A\n(): B }", required: ["PropertySignaturePossibleShape", "CallSignaturePossibleShape"] },
+  { source: "interface I { [k: string]: A\n(): B }", required: ["IndexSignaturePossibleShape"] },
+  { source: "interface I { a: A\nnew (): B }", required: ["ConstructSignaturePossibleShape"] },
+  // 2d. `readonly` 换行后是计算名成员：`readonly` 收成无类型属性名，`(` 属于下一个成员
+  { source: "interface I { readonly\n[Symbol.iterator](): T }", required: ["PropertySignaturePossibleShape", "MethodSignaturePossibleShape"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -366,17 +412,18 @@ function main() {
   }
   const restore = installCandidates(only);
   const cases = collectCases();
-  const genericCases = noGeneric
-    ? []
-    : GENERIC_BOUNDARY_CASES.filter(
-        (item) => only === null || item.required.every((name) => only.includes(name)),
-      );
+  const pickRequired = (item) => only === null || item.required.every((name) => only.includes(name));
+  const genericCases = noGeneric ? [] : GENERIC_BOUNDARY_CASES.filter(pickRequired);
+  const memberStartCases = noGeneric ? [] : MEMBER_START_CASES.filter(pickRequired);
   const skippedGeneric = noGeneric ? 0 : GENERIC_BOUNDARY_CASES.length - genericCases.length;
+  const skippedMemberStart = noGeneric ? 0 : MEMBER_START_CASES.length - memberStartCases.length;
   let result = { passed: 0, failed: 0 };
   let genericResult = { passed: 0, failed: 0 };
+  let memberStartResult = { passed: 0, failed: 0 };
   try {
     result = runCases(cases);
     genericResult = runCases(genericCases.map((item) => item.source));
+    memberStartResult = runCases(memberStartCases.map((item) => item.source));
   } finally {
     restore();
   }
@@ -385,7 +432,10 @@ function main() {
   console.log(
     `[member-possible] generic-boundary cases=${genericCases.length} pass=${genericResult.passed} fail=${genericResult.failed} skipped=${skippedGeneric}`,
   );
-  if (result.failed > 0 || genericResult.failed > 0) {
+  console.log(
+    `[member-possible] member-start cases=${memberStartCases.length} pass=${memberStartResult.passed} fail=${memberStartResult.failed} skipped=${skippedMemberStart}`,
+  );
+  if (result.failed > 0 || genericResult.failed > 0 || memberStartResult.failed > 0) {
     process.exitCode = 1;
   }
 }

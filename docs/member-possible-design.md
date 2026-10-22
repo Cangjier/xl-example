@@ -86,6 +86,19 @@ wave1 已完成共享管线与一个参考候选（`PropertySignaturePossibleSha
   仍是同一个构造签名；`<T>` ⏎ `(x: T): B` 仍是同一个调用签名（参数表还没出现）。
   **class 体不走这条入口**：值初始化器里的 `foo` ⏎ `(bar)` / `foo` ⏎ `<T>(x)` 是续接（TS 不插 ASI），
   `FindMemberBoundary` / `LooksLikeMemberStart` 保持原判据，所以 class 体与 type literal 的既有解析零变化。
+- **换行 `(` / `<` 的反向门**（`residual` 修复新增，`MemberBoundary.IsMemberSignatureAwaitingParams`）：
+  上一条「换行后的 `(` / `<` 是新成员」只在**前一个成员自己已经收得住**时成立。TS 的 `parseTypeMember`
+  在「成员名 / 可选标记 `?` / 类型参数表」与 `<` `(` 之间**从不插 ASI**，所以
+  `m` ⏎ `(x: T): B`、`m<T>` ⏎ `(x: T): B`、`b?` ⏎ `(): E`、`<T>` ⏎ `(x: T): B` 都是**一个**成员。
+  判据三条（前缀 = `code[0 .. at-1]`）：① 前缀里已有参数表 `(` ⇒ 成员已收住，`at` 是新成员（`(): A` ⏎ `(): B`）；
+  ② 前缀顶层（角深度 0）已有 `:` ⇒ 类型已开始，成员收得住（`a: Foo<A>` ⏎ `(): B` 是两个）；
+  ③ 前缀最后一个代码单元是名字 / 字符串名 / `?` / `?:` / `>`（`>>` `>>>`）⇒ 还在等参数表。
+  `readonly` 是唯一例外：`TypeBuilder.ParseTypeMember` 把**换行后的** `readonly` 当场收成无类型属性名，
+  跨过这个换行会让它提前收口、留下 leftover，故 `readonly` ⏎ `(` 保持既有分界（不跨）。
+- **`typeof import` 的参数表跨换行**（`MemberBoundary.IsImportTypeArguments`）：`f: typeof import` ⏎ `("m")`
+  里的 `(` 是 import 类型的参数表（TS 的 `parseTypeQuery` 在 `import` 之后直接读 `(`，不插 ASI；
+  `TypeBuilder.ParseTypeQuery` 同口径）。判据：`code[at-1]` 是 `import` 且 `code[at-2]` 是 `typeof`。
+  其它位置的 `import` 是成员名（`import` ⏎ `(): A` 是名字为 `import` 的方法签名），`(` 照常是新成员起点。
 - **trivia**：`ComputeByIndex` 判型时跳过 `IsTriviaToken`；`BuildByIndex` 的区间只切到最后一个代码单元，
   成员前后的注释 / 换行由 `splice` 天然留在原处，下一条目的 `Pos` 由 `BasePos` 重新算。
 - **空条目 / 纯 trivia / 纯分隔符**：`Kinds = AllKinds`、`Complete = false` ⇒ 所有候选 `Uncertain`，等容器收口时
@@ -134,7 +147,7 @@ wave1 已完成共享管线与一个参考候选（`PropertySignaturePossibleSha
 | 名字（标识符 / 字符串字面量 / 数字字面量） | 名字族，**先 `[Property, Method]` 两可**，随后的单元收敛 | 看到 `(` 括号或 `<` ⇒ `MethodKind` 定死，属性候选 Reject；看到 `:` ⇒ `PropertyKind` 定死，方法候选 Reject | 属性：可选 `?` + `:` + 类型（无类型也合法：`interface I { a }`）；方法：`(`/`<` + 参数表 + 可选 `:` 返回类型 |
 | 名字后跟 `?` / `?:` | 若 `?` 后面是 `(` 括号：**看参数表 `)` 之后的下一字符**——是 `:` ⇒ `MethodKind`（可选方法 `m?(): T`），否则 `PropertyKind`（可选属性 + 括号类型 `a?: (A) => B` / `a?: () => void`）。若 `?` 后面是 `<` ⇒ `MethodKind`；其它 ⇒ `PropertyKind` | 定死后其它候选 Reject | 同上 |
 | `get` / `set` + 名字（标识符或以 `[` 开头的计算名）+ `(` 括号 | `GetKind` / `SetKind` 定死（访问器） | 其它 6 类 Reject | `(` 参数表 + 可选 `:` 返回类型、边界确定 |
-| `get` / `set` 后面不是「名字 + `(`」 | 退化为名字族：`get` / `set` 本身是成员名（`get: A` 是属性、`get(): void` 是方法、`get` 独占是属性） | 按名字族定死 | 按名字族定死 |
+| `get` / `set` 后面不是「名字 + `(`」 | 退化为名字族：`get` / `set` 本身是成员名（`get: A` 是属性、`get(): void` 是方法、`get` 独占是属性）。**`get?` / `set?` 也在这一格**（`?` 紧跟关键字 ⇒ 访问器形态已不可能），按「名字 + 可选标记」的下一行判据收敛：`get?(this: This): Value` 是 MethodSignature（名字 `get`）、`get?: A` 是属性、`get?: (a: A) => B` 是括号类型的可选属性 | 按名字族定死 | 按名字族定死 |
 | `{` 括号 / 其它符号 / 其它单元 | 空种类（不可能构成任何对象类型成员）— 但只在真的是坏前缀时才发生 | 全部候选 Reject | — |
 
 **两条最容易写错的分界**（参考实现已覆盖，wave2 用共享工具即自动正确）：
@@ -144,6 +157,11 @@ wave1 已完成共享管线与一个参考候选（`PropertySignaturePossibleSha
 2. **调用签名 vs 构造签名**：`(` / `<` 开头是调用签名；`new` 后跟 `(` 或 `<` 是构造签名（换行不影响）；
    `new` 后面是别的单元时 `new` 只是成员名（属性签名）。`abstract new (...)`: TS recovery 成名字为 `new` 的
    `MethodSignature`（带 `AbstractKeyword`），`TypeBuilder` 已按 TS 处理，候选按「构造签名分支」让路即可。
+
+**收口时的收敛规则**（`MemberPossibleUtil.Analyze`，`residual` 修复收紧）：`Complete` 时若 `Kinds` 仍是多值，
+按「**前缀里有没有参数表 `(`**」决定：有 ⇒ `MethodKind`（`get?(this: This): Value` 这类「名字 + 可选标记 + 参数表」，
+`get` 只能是名字）；没有 ⇒ `PropertyKind`（`interface I { a }` 这种无类型属性）。这条判据只看成员**自己的**
+消费范围 `code[0 .. End]`，不能看后面的代码单元——`readonly` ⏎ `[Symbol.iterator](): T` 里那个 `(` 属于下一个成员。
 
 ---
 
@@ -244,6 +262,10 @@ node tests/member-possible/harness.mjs --all
 node tests/member-possible/harness.mjs --file=my-cases.json
 ```
 
+三个分组：`cases`（默认属性/成员用例）、`generic-boundary`（泛型成员 `<...>` 不提前收口）、
+`member-start`（`get?` / `set?` 判名字族 + 成员名与 `<` `(` 之间的换行不插 ASI，`residual` 修复新增）。
+`--no-generic` 同时跳过后两组。
+
 方法：
 
 1. 先 `xl_build(cwd=<你的克隆>, paths=["core","typescript"], targets=["ts"])`，再 `node node_modules/typescript/bin/tsc -p tsconfig.json`；
@@ -258,6 +280,31 @@ node tests/member-possible/harness.mjs --file=my-cases.json
 - harness 默认 35 例：35/35；`--from-cases` 自动挑出 206 个「只含属性签名成员」的接口用例：206/206；
 - `ast:cases`：6167 条中 red ≤ 96，**非接口相关 red = 0**（其余 6 类是桩，接口体仍会在第一个没实现的候选处崩，属预期）；
 - `ast:dts` / `token-ast`：不差于基线（dts 148/226、token-ast 1602 ok / 103 crash）。
+
+### 4.1 residual 修复读数（`fix/residual-integration`，2026-10-22）
+
+七道门禁全绿：`ast:cases` 6167/6167、`ast:dts` **226/226**（AST 差异 0）、
+`token-ast` **1705 ok / 0 crash / 0 diff**、`validate` 0 不合格、`xl check` 0 error、`tsc` 0 error、
+`harness --all` 35/35 + 25/25 + 23/23。
+
+两条残留的根因（都不是 BuildByIndex 断言过严，断言保持原样）：
+
+1. **`get?` / `set?` 被判成访问器/属性**（3 个 lib d.ts：`get?(this: This): Value`、`get?(): any`）：
+   `ClassifyHead` 的 `get`/`set` 分支在 `?` 之后直接返回 `[Property, Method, Get]`，收口时又被
+   「多值 ⇒ 属性」的旧规则压成 `PropertyKind`（`Analyze` 无条件收敛），于是属性候选去建了一个
+   MethodSignature，`instanceof` 断言当场红。修法：`?` 紧跟关键字 ⇒ 访问器形态已不可能，按「名字 + 可选标记」
+   的既有判据看下一个单元（`(` + `)` 之后是 `:` ⇒ 方法；`<` ⇒ 方法；否则属性）；`Analyze` 的收敛规则
+   改为「有参数表 `(` ⇒ 方法，没有 ⇒ 属性」，且只看成员自己的消费范围。
+2. **成员名与 `<` `(` 之间的换行被当成成员分界**（3 条 token 用例 + `typeof import` 那 1 条）：
+   `FindTypeMemberBoundary` 把换行后的 `(` / `<` 一律当新成员起点，但 TS 的 `parseTypeMember`
+   在「名字 / `?` / 类型参数表」与 `<` `(` 之间从不插 ASI。修法见 §1.4 的 `IsMemberSignatureAwaitingParams`
+   与 `IsImportTypeArguments`（共享判据，七个候选同时受益）。
+
+**仍存在的既有偏差**（都在本次修复之前就存在，不在门禁语料里，且改动前后读数一致）：
+`interface I { readonly` ⏎ `(): B }`（TS 读成名字为 `readonly` 的 MethodSignature，本仓 `TypeBuilder`
+把换行后的 `readonly` 收成无类型属性名）、`interface I { [k]` ⏎ `(): A }`（计算名后换行参数表）、
+`interface I { get` ⏎ `x(): A }`（TS 读成 GetAccessor）。三者的基线（`git stash` 掉本修复后同源构建）
+读数与修复后完全相同。
 
 ---
 
@@ -284,3 +331,7 @@ git checkout -- typescript/cases                        # 快照还原，别提�
 - wave2 待做（并行、互不重叠写文件）：`method-signature`、`index-signature`、`call-signature`、`construct-signature`、`get-accessor`+`set-accessor` 五条分支，各自只改自己的 `*-possible-shape.xl.md`。
 - 每分支的完成判据：`--only=<自己>` harness 0 fail；`--only=PropertySignaturePossibleShape,<自己>` 0 fail；本分支 `ast:cases` 非接口 red = 0 且 red 数 ≤ 96；`tsc` 0 error；不动 `typescript/cases` 快照。
 - 合并时若有 `ClassifyHead` 争用，按「先参考实现、后增量补充」处理并回报 Lead；`CollectBodyMembers` 只属于 wave1，wave2 不要改。
+- residual 修复（`fix/residual-integration`）已完成：七道门禁全绿（读数见 §4.1），改动只落在共享判据
+  `member-boundary.xl.md`（`IsMemberSignatureAwaitingParams` / `IsImportTypeArguments`）、
+  `property-signature-possible-shape.xl.md`（`ClassifyHead` 的 `get?`/`set?`、`Analyze` 的收敛规则、`HasParameterList`）
+  与 `tests/member-possible/harness.mjs`（新增 `member-start` 分组），没有改 `core/`、没有改 `TypeBuilder`。

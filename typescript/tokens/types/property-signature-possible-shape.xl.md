@@ -158,6 +158,24 @@ if (!(unit instanceof Symbol)) {
 return (unit as Symbol).Is(";") || (unit as Symbol).Is(",");
 ```
 
+## static method HasParameterList:(code:Array<Token>, last:int)=>bool
+
+`code[0 .. last]`（当前成员自己的消费范围）里有没有参数表 `(` 括号：有就说明这一格已经走到
+「名字 + 参数表」的方法形态，收住时不能再把它收敛成属性签名。
+
+只看成员自己的范围，不看后面的代码单元——`readonly` ⏎ `[Symbol.iterator](): T` 里那个 `(`
+属于**下一个**成员，拿它当证据会把 `readonly` 误判成方法。
+
+```ts
+for (let cursor = 0; cursor <= last && cursor < code.length; cursor++) {
+  const unit = code[cursor];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+    return true;
+  }
+}
+return false;
+```
+
 ## static method IsNameToken:(unit:Token)=>bool
 
 能不能当成员名：标识符 / 字符串字面量 / 计算名 `[...]`。
@@ -365,11 +383,31 @@ if (text === "get" || text === "set") {
     return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
   }
   if (nameText === "?" || nameText === "?:") {
-    return [
-      MemberPossibleUtil.PropertyKind,
-      MemberPossibleUtil.MethodKind,
-      accessorKind,
-    ];
+    // `get?` / `set?`：`?` 紧跟在访问器关键字后面，访问器这一类已经不成立
+    //（访问器的形态是「get 名字 (`」），`get` / `set` 只能是成员名，
+    // 所以这里按「名字 + 可选标记」的同一套判据往下看：
+    // `get?(this: This): Value` 是 MethodSignature（名字 get），`get?: A` 是 PropertySignature。
+    let cursor = at + 2;
+    if (cursor >= code.length) {
+      return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+    }
+    const afterMark = code[cursor];
+    if (afterMark instanceof Bracket && (afterMark as Bracket).Is("(", ")")) {
+      let methodLike = false;
+      if (cursor + 1 < code.length) {
+        methodLike = MemberPossibleUtil.TextOf(code[cursor + 1]) === ":";
+      } else {
+        methodLike = MemberPossibleUtil.NextChar((afterMark as Bracket).SourceRange.End) === ":";
+      }
+      if (methodLike) {
+        return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.MethodKind);
+      }
+      return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
+    }
+    if (MemberPossibleUtil.TextOf(afterMark) === "<") {
+      return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.MethodKind);
+    }
+    return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
   }
   if (!MemberPossibleUtil.IsNameToken(nameUnit)) {
     return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
@@ -443,7 +481,9 @@ return [];
 
 **三条证据都只在角括号深度为 0 时生效**（`AngleDepth` 与 `AngleJudge.ScanDepth` 同口径）：成员自身的 `<...>` 里，`a: Foo<A>` 的 `>` 和 `m<T, U>(x: T): U` 类型参数表里的 `,` 都是成员内部结构，不是本层收口证据；深度 > 0 时宁可让候选多等一格，由闭合后的 `;` / `,` / 下一成员起点 / 容器收口来收。收口字符 `>` 也一样：只有它闭合的是**外层**、不是成员自己数出来的那层时才算数。
 
-收住时可能种类已经定死；仍多值时按「没有参数表就不可能是方法」收敛到属性签名（`interface I { a }` 这种无类型属性）。
+收住时可能种类已经定死；仍多值时按「有没有参数表」收敛：**有参数表 `(` 就是方法签名**
+（`get?(this: This): Value` 这种「名字 + 可选标记 + 参数表」，`get` 只能是名字），
+**没有参数表才收成属性签名**（`interface I { a }` 这种无类型属性）。
 
 ```ts
 state.Complete = false;
@@ -482,7 +522,12 @@ if (angle === 0) {
 }
 let kinds = head;
 if (complete && kinds.length > 1 && MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.PropertyKind)) {
-  kinds = MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
+  if (MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.MethodKind)
+    && MemberPossibleUtil.HasParameterList(code, end)) {
+    kinds = MemberPossibleUtil.OnlyKind(MemberPossibleUtil.MethodKind);
+  } else {
+    kinds = MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
+  }
 }
 state.Kinds = kinds;
 state.Complete = complete && end >= 0;
