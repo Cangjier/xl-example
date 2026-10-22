@@ -65,3 +65,22 @@ switch (item) {
     return false;
 }
 ```
+
+## method IsCombineBlocked:(combined:string, following:string)=>bool
+
+ECMAScript 的 `?.` 前瞻：**可选链的 `?.` 后面不能紧跟十进制数字**（`OptionalChainingPunctuator`：
+`? .` 只有在后随字符不是 DecimalDigit 时才合成一个标点）。所以：
+
+- `a?.b` / `a?.[k]` / `a?.(y)` / `a?.<T>(y)`：`?.` 后面不是数字 → 照旧合成 `?.`；
+- `a?.5:b`：`.` 后面紧跟 `5` → 不合成 `?.`，词法上切成 `?` 与 `.5`，
+  解析成条件表达式 `a ? .5 : b`（TS 6.0.3：ConditionalExpression + NumericLiteral `.5`，diag=0）。
+
+core 的 `SymbolTemplate.IsCombineBlocked` 默认永不阻断，这里按 ECMAScript 口径覆写。
+**不要**用 `BanCombineSymbol(["?."])` 代替：那会把所有可选链一起废掉。
+
+```ts
+if (combined === "?.") {
+  return following >= "0" && following <= "9";
+}
+return super.IsCombineBlocked(combined, following);
+```

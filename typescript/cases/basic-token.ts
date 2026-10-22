@@ -258,3 +258,29 @@ const \u{0001D400} = 1;
 const \u{0000001D400} = 1;
 const \u{0000000000000000000001D400} = 1;
 const a\u{0001D400}c = 1;
+// ══ cover6 core（E `?.` 前瞻）：`?.` 后随十进制数字不合并（ECMAScript lookahead）
+// 探针：tmp/probe.mjs（30 条边界，TS 6.0.3 diag=0 口径）。修前 `a?.5:b` 一律 crash「表达式没有读完」；
+// 修后与 TS 三栏一致：`?` + `.5` → ConditionalExpression(QuestionToken, NumericLiteral)。
+// 根因：core 的 `Symbol.IsAppend` 只看组合符号表（`?.` 无条件成立），看不到后随字符。
+// 修法：core 新增 `SymbolTemplate.IsCombineBlocked(combined, following)` 前瞻钩子（默认永不阻断），
+//       `Symbol.NextCharAfter` 把「组合符号后面紧跟的那个字符」递过去；
+//       `typescript-symbol-template` 覆写为「`?.` 且 following 是 0-9 → 不合并」。
+// 可选链全部保持绿：`?.` 后随不是数字时仍合成 QuestionDotToken。
+// base：`?.` 后随十进制数字 → 条件表达式（`?` 与 `.5` 分属两 token）
+const x = a?.5:b;
+a?.5:b;
+const d0 = a?.0:b;
+const d1 = a?.1:b;
+const d9 = a?.9:b;
+const e1 = a?.5e3:b;
+const c1 = f(a?.5:b);
+// 对照：显式空格 / 问号后空格 —— 不涉及 `?.` 合并，行为不变
+const t1 = a ? .5 : b;
+const t2 = a? .5 : b;
+// 回归对照：可选链形态（`?.` 后随非数字，必须保持 QuestionDotToken）
+const o1 = a?.b;
+const o2 = a?.[k];
+const o3 = a?.(y);
+const o4 = a?.<T>(y);
+const o5 = a?.b?.c;
+const o6 = a?.[k]?.(y);

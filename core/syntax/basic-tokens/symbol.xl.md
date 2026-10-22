@@ -46,16 +46,44 @@ super(Template);
 
 能不能把 `Src` 并进本块。
 
-两段判定：`Temp` 还是空的、且当前字符是符号，就能（开头的符号直接收）；否则要求当前字符是符号，**并且** `Temp` 现有内容加上当前字符能构成一个组合符号。
+三段判定：`Temp` 还是空的、且当前字符是符号，就能（开头的符号直接收）；否则要求当前字符是符号，
+**并且** `Temp` 现有内容加上当前字符能构成一个组合符号，**并且**语言模板的前瞻钩子没有否决它。
 
 「首字符也要求是符号」不是冗余：`SymbolBranch` 已经筛过一次，但 `IsAppend` 也可能被别处问到，判据写全了才不会在非符号字符上吞穿。
+
+组合符号表只回答「这两个字符合起来是不是某个标点」，看不到后一个字符；语言的前瞻规则
+（例如 ECMAScript 的 `?.` 后随十进制数字不算可选链）由 `SymbolTemplate.IsCombineBlocked` 回答，
+core 只负责把「组合符号后面紧跟的那个字符」递过去，默认不阻断。
 
 ```ts
 if (this.Temp.length === 0 && this.Template.SymbolTemplate.IsSymbol(Src.Value)) {
   return true;
 }
-return this.Template.SymbolTemplate.IsSymbol(Src.Value)
-  && this.Template.SymbolTemplate.IsCombinedSymbol(this.Temp.join("") + Src.Value);
+if (!this.Template.SymbolTemplate.IsSymbol(Src.Value)) {
+  return false;
+}
+const combined = this.Temp.join("") + Src.Value;
+if (!this.Template.SymbolTemplate.IsCombinedSymbol(combined)) {
+  return false;
+}
+return !this.Template.SymbolTemplate.IsCombineBlocked(combined, Symbol.NextCharAfter(Src));
+```
+
+## static method NextCharAfter:(src:Source)=>string
+
+`src` 后面紧跟的那一个字符（不跳空白 / 注释，就是词法上的下一格）；越界返回空串。
+
+它是 `IsAppend` 递给 `IsCombineBlocked` 的 `following`：前瞻只看紧邻字符，`a?. 5` / `a?\n.5`
+都不属于「后随十进制数字」。
+
+```ts
+const document = src.Document;
+const count = document.GetCount();
+const next = src.Index + 1;
+if (next >= count) {
+  return "";
+}
+return document.At(next).Value;
 ```
 
 ## method Is:(value:string)=>bool

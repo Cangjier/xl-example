@@ -157,6 +157,19 @@ switch (item) {
 }
 ```
 
+## method IsCombineBlocked:(combined:string, following:string)=>bool
+
+组合符号的**语言前瞻钩子**：`combined` 已经在组合符号表里成立，`following` 是它后面紧跟的
+那一个字符（越界为空串）。返回 `true` = 这次不合并，两个字符各自成 token。
+
+core 不知道任何语言的前瞻规则，所以**默认永远不阻断**——所有语言模板继承到的行为与改动前
+一字不差。语言模板按自己的词法覆写它（例如 ECMAScript 的 `?.` 后面不能跟十进制数字）。
+与 `BanCombineSymbol` 的区别：这是**逐次**判定、看得到后一个字符；禁用的是整族静态表。
+
+```ts
+return false;
+```
+
 ## method AllowCombineSymbol:(items:Array<string>)=>void
 
 追加若干允许的组合符号。
