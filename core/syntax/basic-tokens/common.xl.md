@@ -137,9 +137,13 @@ return true;
 ## method UnicodeBraceEscapeDigits:()=>int
 
 正在写 `\u{…}` 时已收的十六进制位数：`0` = 刚读完 `\u`、还在等 `{`；`-1` = 不在花括号转义里。
-状态从 `Temp` 尾部推出来（最后一个 `\` 起是否 `\u` / `\u{hex*}`），不新增字段。
+先看 `HasBackslash` 快速短路：`Temp` 里从没出现过 `\` 的 token 直接 `-1`，不做逐字符扫描；
+有 `\` 才从 `Temp` 尾部推（最后一个 `\` 起是否 `\u` / `\u{hex*}`）。
 
 ```ts
+if (!this.HasBackslash) {
+  return -1;
+}
 const text = this.TempToString();
 const backslash = text.lastIndexOf("\\");
 if (backslash < 0) {
@@ -171,6 +175,9 @@ return body.length;
 `MaxUnicodeCodePoint + 1`——调用方只用它判「再补一位会不会越界」，封顶后不再乘 16，避免数值溢出。
 
 ```ts
+if (!this.HasBackslash) {
+  return -1;
+}
 const text = this.TempToString();
 const backslash = text.lastIndexOf("\\");
 if (backslash < 0) {

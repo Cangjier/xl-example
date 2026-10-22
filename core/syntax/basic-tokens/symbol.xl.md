@@ -62,7 +62,7 @@ if (this.Temp.length === 0 && this.Template.SymbolTemplate.IsSymbol(Src.Value)) 
 if (!this.Template.SymbolTemplate.IsSymbol(Src.Value)) {
   return false;
 }
-const combined = this.Temp.join("") + Src.Value;
+const combined = this.Temp + Src.Value;
 if (!this.Template.SymbolTemplate.IsCombinedSymbol(combined)) {
   return false;
 }

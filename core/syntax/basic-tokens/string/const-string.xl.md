@@ -59,10 +59,18 @@ return true;
 
 ```ts
 if (this.Temp[this.Temp.length - 1] === source.Value) {
-  this.Temp.splice(this.Temp.length - 1, 1);
+  this.Temp = this.Temp.substring(0, this.Temp.length - 1);
 } else {
   throw new Error("ConstString Undo异常");
 }
+```
+
+## private method RemoveCharAt:(Index:int)=>void
+
+删掉 `Temp` 里下标 `Index` 的那一个字符（字符串拼接：前段 + 后段）。
+
+```ts
+this.Temp = this.Temp.substring(0, Index) + this.Temp.substring(Index + 1);
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
@@ -203,16 +211,16 @@ for (let i = this.Temp.length - 1; i >= 0; i--) {
   const Item = this.Temp[i];
   if (flag === 0) {
     if (Item === " ") {
-      this.Temp.splice(i, 1);
+      this.RemoveCharAt(i);
     } else if (Item === "\n") {
-      this.Temp.splice(i, 1);
+      this.RemoveCharAt(i);
       flag = 1;
     } else {
       throw new Error("异常字符");
     }
   } else if (flag === 1) {
     if (Item === "\r") {
-      this.Temp.splice(i, 1);
+      this.RemoveCharAt(i);
     } else {
       break;
     }
@@ -230,21 +238,21 @@ for (let i = 0; i < this.Temp.length; i++) {
   const Item = this.Temp[i];
   if (Flag === 0) {
     if (Item === " ") {
-      this.Temp.splice(i, 1);
+      this.RemoveCharAt(i);
       i--;
     } else if (Item === "\r") {
-      this.Temp.splice(i, 1);
+      this.RemoveCharAt(i);
       i--;
       Flag = 1;
     } else if (Item === "\n") {
-      this.Temp.splice(i, 1);
+      this.RemoveCharAt(i);
       return;
     } else {
       throw new Error("异常字符");
     }
   } else if (Flag === 1) {
     if (Item === "\n") {
-      this.Temp.splice(i, 1);
+      this.RemoveCharAt(i);
       return;
     } else {
       throw new Error("异常字符");
@@ -264,7 +272,7 @@ let SpaceCount = 0;
 for (let i = Index; i < this.Temp.length; i++) {
   const Item = this.Temp[i];
   if (Item === " ") {
-    this.Temp.splice(i, 1);
+    this.RemoveCharAt(i);
     i--;
     SpaceCount++;
     if (SpaceCount === Count) {

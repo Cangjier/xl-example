@@ -17,9 +17,18 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 块数据。
 
-## field Temp:Array<string> = []
+## field Temp:string = ""
 
-本块累积的字符。
+本块累积的字符。直接就是一个字符串（追加用 `+=`），不再维护字符数组 + `join`。
+
+## field HasBackslash:bool = false
+
+本块的 `Temp` 里是否出现过 `\`。
+
+只给 `Common` 的 `\u{…}` 判定做快速短路用：没有 `\` 的 token 不可能处于花括号转义里，
+`UnicodeBraceEscapeDigits` / `UnicodeBraceEscapeValue` 可以直接返回 `-1`，不必每字符扫一遍 `Temp`。
+
+单调置 `true`、`Undo` 不回滚：多记一次只会让那个 token 回落到原来的慢路径，不影响正确性。
 
 ## constructor:(template:Template)=>void
 
@@ -31,12 +40,12 @@ super(template);
 
 ## method TempToString:()=>string
 
-把累积的字符拼成字符串。
+把累积的字符取成字符串。
 
-拼接直接用数组自带的 `join`。
+`Temp` 本身就是字符串，直接返回即可，没有数组拼接成本。
 
 ```ts
-return this.Temp.join("");
+return this.Temp;
 ```
 
 ## method AppendAndSignOut:(source:Source)=>BlockToken
@@ -45,7 +54,10 @@ return this.Temp.join("");
 
 ```ts
 this.SignOut(source);
-this.Temp.push(source.Value);
+this.Temp += source.Value;
+if (source.Value === "\\") {
+  this.HasBackslash = true;
+}
 return this;
 ```
 
@@ -57,7 +69,10 @@ return this;
 
 ```ts
 this.SignOut(source);
-this.Temp.push(value);
+this.Temp += value;
+if (value.indexOf("\\") >= 0) {
+  this.HasBackslash = true;
+}
 return this;
 ```
 
@@ -98,7 +113,7 @@ if (undoUnit !== null) {
   undoUnit.Undo(source);
   return;
 }
-this.Temp.splice(this.Temp.length - 1, 1);
+this.Temp = this.Temp.substring(0, this.Temp.length - 1);
 const previous = source.Pre();
 if (previous === null) {
   this.Parent!.Data.splice(this.Parent!.Data.indexOf(this), 1);
@@ -143,5 +158,5 @@ this.SourceRange.End = source;
 
 ```ts
 const name = this.constructor.name;
-return `<${name}>${CommonUtil.XmlDecode(this.Temp.join(""))}</${name}>`;
+return `<${name}>${CommonUtil.XmlDecode(this.Temp)}</${name}>`;
 ```
