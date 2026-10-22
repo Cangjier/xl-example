@@ -152,3 +152,29 @@ function fopt3(a?): void {}
 class Copt1 { m(a?) {} }
 class Copt2 { constructor(a?) {} }
 class Copt3 { set x(v?) {} }
+
+// ── cover3：方法/构造器/对象字面量方法的默认值形参（A）──
+// 根因：ClassDeclarationShape.BuildParameters 的分派只认 `:` / `?` / 解构模式，`a = 1` 走裸标识符
+// 分支，`=` 留给下一轮 → 「类成员参数不是标识符」。正确 build：名字后跟 `=` 也进 ParseParameter，
+// 再由 TakeParameterInitializer 收 `= Expr`（默认值是 Parameter 的 Initializer 子节点）。
+class Cdef1 { m(a = 1) {} }
+class Cdef2 { m(a: T = 1) {} }
+class Cdef3 { constructor(a = 1) {} }
+class Cdef4 { set x(v = 1) {} }
+class Cdef5 { static m(a = 1) {} }
+const odef1 = { m(a = 1) {} }
+const odef2 = { m(a: T = 1) {} }
+
+// ── cover3：对象字面量字符串名访问器（D）──
+// 根因：ExpressionBuilder.ParseObjectLiteral 的 looksLikeMemberName 只认 Common / `[`，字符串名
+// 不算成员名 → `get` 当简写属性、`"s"()` 当方法，TS 是单个 Get/SetAccessor。
+const oacc1 = { get "s"() { return 1 } }
+const oacc2 = { set "s"(v) {} }
+const oacc3 = { get "a-b"() { return 1 } }
+
+// ── cover3：heritage 表达式承载（B/C）──
+// 根因：HeritageClauseShape.BuildClauses 的 startsWithAccess 不认 `new` 开头与元素访问 `[`，
+// 把 `new A()` / `b["c"]` 切成两个 ExpressionWithTypeArguments（TS 各一个）。
+class Hnew1 extends new A() {}
+class Hidx1 extends b["c"] {}
+interface Hidx2 extends b["c"] {}

@@ -513,6 +513,11 @@ while (inner.At < inner.Units.length) {
   const headPatternUnit = nameIndex < inner.Units.length ? inner.Units[nameIndex] : null;
   const headIsPattern = headPatternUnit instanceof Bracket
     && ((headPatternUnit as Bracket).StartBracketChar === "{" || (headPatternUnit as Bracket).StartBracketChar === "[");
+  // 有默认值的形参（`m(a = 1)` / `constructor(a = 1)` / 对象字面量方法 `{ m(a = 1) {} }`）也必须
+  // 进 ParseParameter：TS 的 Parameter 是 name + Initializer（默认值不是名字的一部分）。旧口径只认
+  // `:` / `?` / 解构模式，于是 `a` 走裸标识符分支、`=` 留给下一轮 → 「类成员参数不是标识符」。
+  const headIsDefault = nameIndex + 1 < inner.Units.length
+    && inner.TextOf(inner.Units[nameIndex + 1]) === "=";
   let typed = false;
   if (nameIndex + 1 < inner.Units.length) {
     const next = inner.TextOf(inner.Units[nameIndex + 1]);
@@ -526,7 +531,7 @@ while (inner.At < inner.Units.length) {
       typed = true;
     }
   }
-  if (typed || headIsPattern) {
+  if (typed || headIsPattern || headIsDefault) {
     const parameter = inner.ParseParameter() as ParameterShape;
     ClassDeclarationShape.TakeParameterInitializer(host, inner, parameter, context);
     if (headIsPattern && parameter.ParameterName !== null) {
