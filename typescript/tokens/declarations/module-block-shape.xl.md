@@ -208,6 +208,30 @@ if (keyword === "as") {
     special = NamespaceExportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
     (special as ShapeToken).Pos = inner.Positions[first];
     skipModifier = true;
+  } else {
+    // 块体里 `export as namespace X` 也可以无分号收口（ambient 模块体 / namespace 体常态：
+    // `export as namespace X` 换行接下一个成员，或直接紧随 `}` / 体末）。TS 文法里名字只有一格，
+    // 段末就是名字单元；NamespaceExportDeclarationShape.FromUnits 要求末尾是 `;`，这里补一个
+    // 零宽合成 `;` 再走正常入口——与顶层 source-file-end-possible-shape 的 isExportAsNamespace 分支、
+    // 以及本类 import= / type 别名的无分号路径同款；合成 `;` 建完立即从 bracket.Data 摘掉。
+    const asNameInner = declStart + 2;
+    if (asNameInner < inner.Units.length) {
+      const asNameUnit = inner.Units[asNameInner];
+      const asNameEnd = asNameUnit.SourceRange.End;
+      if (asNameEnd !== null) {
+        const asDataStart = bracket.Data.indexOf(inner.Units[first]);
+        const asSemiAt = bracket.Data.indexOf(asNameUnit) + 1;
+        const asSemi = new Symbol(bracket.Template);
+        asSemi.SignIn(asNameEnd);
+        asSemi.AppendValueAndSignOut(";", asNameEnd);
+        bracket.Data.splice(asSemiAt, 0, asSemi);
+        special = NamespaceExportDeclarationShape.FromUnits(bracket, asDataStart, asSemiAt, context);
+        (special as ShapeToken).Pos = inner.Positions[first];
+        bracket.Data.splice(asSemiAt, 1);
+        skipModifier = true;
+        specialEnd = asNameInner;
+      }
+    }
   }
 } else if (keyword === "import") {
   let equalsAt = -1;

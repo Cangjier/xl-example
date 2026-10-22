@@ -2455,6 +2455,130 @@
       ]
     },
     {
+      "src": "declare module \"m6\" {\n  export as namespace Z\n}",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 47,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 19,
+              "text": "m6"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 47,
+              "children": [
+                {
+                  "kind": "NamespaceExportDeclaration",
+                  "pos": 21,
+                  "end": 45,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 43,
+                      "end": 45,
+                      "text": "Z"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m7\" { export as namespace Z }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 45,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 19,
+              "text": "m7"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 19,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "NamespaceExportDeclaration",
+                  "pos": 21,
+                  "end": 43,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 41,
+                      "end": 43,
+                      "text": "Z"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace X2 { export as namespace Z }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 12,
+              "text": "X2"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 12,
+              "end": 38,
+              "children": [
+                {
+                  "kind": "NamespaceExportDeclaration",
+                  "pos": 14,
+                  "end": 36,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 34,
+                      "end": 36,
+                      "text": "Z"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "const z = 1\nexport = z",
       "ast": [
         {
