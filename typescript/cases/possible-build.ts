@@ -178,3 +178,22 @@ const oacc3 = { get "a-b"() { return 1 } }
 class Hnew1 extends new A() {}
 class Hidx1 extends b["c"] {}
 interface Hidx2 extends b["c"] {}
+
+// ── cover4：interface / 类型字面量签名的默认值形参（A）──
+// 根因：TypeBuilder.ParseParameterList 逐参数只调 ParseParameter，`=` 无人认领；下一轮
+// ParseParameter 在 `=` 上继续 ParseName → 「缺少标识符」。class / 对象方法由 BuildParameters
+// + TakeParameterInitializer 已收，签名路径漏了。正确 build：名字/类型后跟 `=` 时读默认值
+// （ExpressionBuilder.ParseAssign）并作为 Parameter 的最后一个 child；close：Parameter 区间延到默认值末尾。
+interface Idef1 { m(a = 1): void }
+interface Idef2 { m(a: T = 1): void }
+type Tdef1 = { (a = 1): void }
+interface Idef3 { new (a = 1): C }
+
+// ── cover4：interface / 类型字面量的计算名访问器（C）──
+// 根因：TypeBuilder.ParseTypeMember 的 get/set 分支只认「名字是 Common」；计算名 `get [k]()` 落回
+// 普通成员名路径 → PropertySignature + CallSignature 两个成员，TS 是单个 GetAccessor（name 为
+// ComputedPropertyName）。正确 build：名字是 `[` 括号时用 ExpressionBuilder 读成 ComputedPropertyName，
+// 再按 Accessor children 顺序（name + 参数 + 返回类型）装配；close：SpanTypeMember 一次收口。
+interface Iacc1 { get [k](): number }
+interface Iacc2 { set [k](v: number) }
+type Tacc1 = { get [k](): number }
