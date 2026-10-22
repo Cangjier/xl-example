@@ -364,18 +364,51 @@ if (keyword === "as") {
       && (inner.IsSymbol(inner.Units[declStart + 1], "*")
         || (inner.Units[declStart + 1] instanceof Bracket && (inner.Units[declStart + 1] as Bracket).StartBracketChar === "{")))) {
   // export * from "n"; / export { a }; / export * as ns from "n"; / export { a } from "n"; / export type * ...
+  // 无分号（ambient 模块体常态：`export { a }` ⏎ 下一个成员 / 体末）：段末取「换行后的下一个成员首词」
+  // 或块尾，补一个零宽合成 `;` 再交给 ExportDeclarationShape。分段时同时看 `;` 与「换行后的成员首词」，
+  // 不能在 `;` 上盲扫——`export { a }` ⏎ `let b = 1;` 的 `;` 属于下一个成员。
+  let endInner = -1;
+  let syntheticSemi = false;
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
     if (inner.IsSymbol(inner.Units[scan], ";")) {
-      specialEnd = scan;
+      endInner = scan;
+      break;
+    }
+    const scanned = inner.Units[scan];
+    if (scan > declStart && scanned instanceof Common
+      && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
+      && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
+      endInner = scan - 1;
+      syntheticSemi = true;
       break;
     }
   }
-  if (specialEnd > declStart) {
+  if (endInner < 0) {
+    endInner = inner.Units.length - 1;
+    syntheticSemi = true;
+  }
+  if (endInner >= declStart) {
     const dataStart = bracket.Data.indexOf(inner.Units[first]);
-    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    let dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+    if (syntheticSemi) {
+      const endSource = inner.Units[endInner].SourceRange.End;
+      if (endSource !== null) {
+        const semi = new Symbol(bracket.Template);
+        semi.SignIn(endSource);
+        semi.AppendValueAndSignOut(";", endSource);
+        bracket.Data.splice(dataEnd + 1, 0, semi);
+        dataEnd++;
+      } else {
+        syntheticSemi = false;
+      }
+    }
     special = ExportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
     (special as ShapeToken).Pos = inner.Positions[first];
     skipModifier = true;
+    specialEnd = endInner;
+    if (syntheticSemi) {
+      bracket.Data.splice(dataEnd, 1);
+    }
   }
 } else if (keyword === "type" || (keyword === "declare" && declStart + 1 < inner.Units.length
   && inner.Units[declStart + 1] instanceof Common && (inner.Units[declStart + 1] as Common).Is("type"))) {

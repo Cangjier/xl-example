@@ -16,6 +16,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { MemberBoundary } from "../types/member-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { DecoratorShape } from "../types/decorator-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -67,7 +68,10 @@ Data 里没有 Block，区间到 `;` 为止（AST 的 End 含分号）。
 super(template);
 ```
 
-## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool)=>FunctionDeclarationShape
+## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool, allowAnonymous?:bool)=>FunctionDeclarationShape
+
+`allowAnonymous`：`export default function () {}` / `export default function* () {}` 的名字可以省略
+（TS 的 children 只有修饰词 / `*` / 参数 / 体）。其余位置仍要求名字。
 
 ```ts
 const code:Array<Token> = [];
@@ -79,7 +83,47 @@ for (let at = start; at <= tokenIndex; at++) {
 if (code.length < 3) {
   throw new Error("函数声明不完整");
 }
-let cursor = 0;
+// 装饰器前缀（根 / 块里的 `@dec function f() {}`；TS 的 Decorator 是 FunctionDeclaration children
+// 的第一项，排在 declare / async 之前——装饰器贴在声明头最外）。与 EnumDeclarationShape.FromUnits
+// 的 decorator 扫描同口径。
+let decoratorBase = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.End;
+    if (end !== null) {
+      decoratorBase = end.Index + 1;
+    }
+    break;
+  }
+}
+const decorators:Array<Token> = [];
+let decoratorEnd = decoratorBase;
+let decoratorCount = 0;
+while (decoratorCount < code.length
+  && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
+  const atUnit = code[decoratorCount];
+  const decoratorPos = decoratorEnd;
+  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const builder = new ExpressionBuilder(host.Template, context);
+  builder.Load(code.slice(decoratorCount + 1), expressionBase);
+  if (builder.Units.length === 0) {
+    throw new Error("decorator expression is empty");
+  }
+  const decoratorExpression = builder.ParseExpression();
+  if (builder.At === 0) {
+    throw new Error("decorator expression was not read");
+  }
+  const consumed = builder.At;
+  for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
+    const cursorEnd = code[cursor].SourceRange.End;
+    if (cursorEnd !== null) {
+      decoratorEnd = cursorEnd.Index + 1;
+    }
+  }
+  decoratorCount += 1 + consumed;
+  decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
+}
+let cursor = decoratorCount;
 let declareUnit:Token | null = null;
 let hasAsync = false;
 const modifierUnits:Array<Token> = [];
@@ -113,10 +157,12 @@ if (code[cursor + 1] instanceof Symbol && (code[cursor + 1] as Symbol).Is("*")) 
   nameOffset = 2;
 }
 const nameUnit = code[cursor + nameOffset];
-if (!(nameUnit instanceof Common)) {
+let paramIndex = cursor + nameOffset;
+if (nameUnit instanceof Common) {
+  paramIndex = cursor + nameOffset + 1;
+} else if (!(allowAnonymous ?? false)) {
   throw new Error("函数声明的名字不是标识符");
 }
-let paramIndex = cursor + nameOffset + 1;
 let typeParameters:Array<Token> = [];
 if (paramIndex < code.length && code[paramIndex] instanceof Symbol && (code[paramIndex] as Symbol).Is("<")) {
   // Generic function: "<...>" right after the name; TypeBuilder parses the list (same shape as
@@ -230,7 +276,10 @@ for (let at = start - 1; at >= 0; at--) {
   }
 }
 const shape = new FunctionDeclarationShape(host.Template);
-let modifierPos = pos;
+let modifierPos = decorators.length === 0 ? pos : decoratorEnd;
+for (const decorator of decorators) {
+  shape.Add(decorator);
+}
 for (const unit of modifierUnits) {
   if (unit instanceof Common && (unit as Common).Is("declare")) {
     const modifier = DeclareKeywordShape.FromBasicToken(unit as Common, context);
@@ -262,11 +311,15 @@ if (asteriskUnit !== null) {
   shape.AsteriskToken = asterisk;
   shape.Add(asterisk);
 }
-const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-if (asteriskUnit === null) {
-  name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
-} else {
-  name.Pos = asteriskUnit.SourceRange.End === null ? pos : asteriskUnit.SourceRange.End.Index + 1;
+let name:Token | null = null;
+if (nameUnit instanceof Common) {
+  const builtName = IdentifierShape.FromBasicToken(nameUnit, context);
+  if (asteriskUnit === null) {
+    builtName.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+  } else {
+    builtName.Pos = asteriskUnit.SourceRange.End === null ? pos : asteriskUnit.SourceRange.End.Index + 1;
+  }
+  name = builtName;
 }
 const parameters = FunctionDeclarationShape.BuildParameters(host, paramUnit as Bracket, context);
 let body:Token | null = null;
@@ -283,7 +336,9 @@ shape.FunctionName = name;
 shape.Parameters = parameters;
 shape.ReturnType = returnType;
 shape.Body = body;
-shape.Add(name);
+if (name !== null) {
+  shape.Add(name);
+}
 for (const typeParameter of typeParameters) {
   shape.Add(typeParameter);
 }
@@ -296,7 +351,9 @@ if (returnType !== null) {
 if (body !== null) {
   shape.Add(body);
 }
-if (modifierUnits.length > 0) {
+if (decorators.length > 0) {
+  shape.SignInToken(code[0]);
+} else if (modifierUnits.length > 0) {
   shape.SignInToken(modifierUnits[0]);
 } else {
   shape.SignInToken(keyword);

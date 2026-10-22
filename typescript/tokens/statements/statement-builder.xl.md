@@ -24,6 +24,11 @@ import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ModuleDeclarationShape } from "../declarations/module-declaration-shape.xl.md"
+import { ImportDeclarationShape } from "../declarations/import-declaration-shape.xl.md"
+import { ImportEqualsDeclarationShape } from "../declarations/import-equals-declaration-shape.xl.md"
+import { ExportDeclarationShape } from "../declarations/export-declaration-shape.xl.md"
+import { ExportAssignmentShape } from "../declarations/export-assignment-shape.xl.md"
+import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
@@ -77,6 +82,8 @@ import { WithStatementShape } from "./with-statement-shape.xl.md"
 ## field At:int = 0
 
 ## field AllowAnonymousClass:bool = false
+
+## field AllowAnonymousFunction:bool = false
 
 ## field DecoratedKeyword:string = ""
 
@@ -246,8 +253,11 @@ if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   // 块 / 体里的 `export` / `default` 修饰：把修饰词从头上摘下来，建完被修饰的语句再插回 Data 最前
   // （与 ModuleBlockShape.BuildMember 的 export 处理同款；TS 的 children 顺序是修饰词在最前）。
-  if (text === "export" && this.IsExportDeclarationHead()) {
-    return this.BuildExportedStatement();
+  if (text === "import" && this.IsImportStatementHead()) {
+    return this.BuildImportStatement();
+  }
+  if (text === "export") {
+    return this.BuildExportStatement();
   }
   if (text === "default" && this.IsDefaultDeclarationHead()) {
     return this.BuildDefaultModifierStatement();
@@ -484,7 +494,9 @@ if (end < 0) {
 const hasBody = this.Units[end] instanceof Bracket
   && (this.Units[end] as Bracket).StartBracketChar === "{";
 const hostLike:any = { Data: this.Units, Template: this.Template };
-const shape = FunctionDeclarationShape.FromUnits(hostLike, first, end, this.Context, !hasBody);
+const allowAnonymousFunction = this.AllowAnonymousFunction;
+this.AllowAnonymousFunction = false;
+const shape = FunctionDeclarationShape.FromUnits(hostLike, first, end, this.Context, !hasBody, allowAnonymousFunction);
 shape.Pos = this.Positions[first];
 // FromUnits cannot know this builder's base offset, so the FIRST modifier (async / declare)
 // would get Pos 0. Repair it from this builder's Positions (later modifiers are chained off it).
@@ -671,8 +683,10 @@ const first = this.At;
 const defaultUnit = this.Units[first] as Common;
 this.At++;
 this.AllowAnonymousClass = true;
+this.AllowAnonymousFunction = true;
 const member = this.BuildStatement();
 this.AllowAnonymousClass = false;
+this.AllowAnonymousFunction = false;
 const modifier = new DefaultKeywordShape(this.Template);
 modifier.SignInToken(defaultUnit);
 modifier.SignOutToken(defaultUnit);
@@ -682,6 +696,290 @@ member.Data.splice(0, 0, modifier);
 modifier.Parent = member;
 (member as ShapeToken).Pos = this.Positions[first];
 return member;
+```
+
+## method IsImportStatementHead:()=>bool
+
+`import` 在块 / 体里是不是 import 声明头（而不是 `import.meta` / `import(...)` 表达式）：
+下一个代码单元是字符串（side-effect）/ 标识符（默认导入 / `type` 前缀 / import-equals）/ `{`
+（具名导入）/ `*`（namespace 导入）。`import` 后面是 `.` 或 `(` 时是表达式，交回表达式语句。
+
+```ts
+const after = this.Peek(1);
+if (after === null) {
+  return false;
+}
+if (after instanceof String || after instanceof Common) {
+  return true;
+}
+if (after instanceof Bracket && (after as Bracket).StartBracketChar === "{") {
+  return true;
+}
+if (after instanceof Symbol && (after as Symbol).Is("*")) {
+  return true;
+}
+return false;
+```
+
+## private method IsClauseContinuation:(unit:Token)=>bool
+
+`import` / `export` 子句在换行处还没完的延续词：`from` / `with` / `assert` / `as`
+（`export { a }` ⏎ `from "m"`、`import x from "m" with` ⏎ `{ … }` 都还是同一条语句）。
+续接符本身不让块级 ASI 判据成立，所以子句收口要显式放过它们。
+
+```ts
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  return text === "from" || text === "with" || text === "assert" || text === "as";
+}
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  return text === "," || text === "*";
+}
+return false;
+```
+
+## private method ClauseEnd:(from:int)=>int
+
+子句语句的收口下标：先找本层 `;`；没有 `;` 时按块级 ASI 判据（`StatementBuilder.EndsAtLineBreak`）
+找「上一格能收尾、下一格接不上」的换行边界，`from` / `with` / `assert` / `as` 这些延续词不算边界。
+返回最后一个属于本语句的代码单元下标（可能是 `;`，也可能不是）。
+
+```ts
+for (let scan = from; scan < this.Units.length; scan++) {
+  if (this.IsSymbol(this.Units[scan], ";")) {
+    return scan;
+  }
+  if (scan > from) {
+    const previous = this.Units[scan - 1];
+    const current = this.Units[scan];
+    if (StatementBuilder.EndsAtLineBreak(previous, current)
+      && !this.IsClauseContinuation(current)) {
+      return scan - 1;
+    }
+  }
+}
+return this.Units.length - 1;
+```
+
+## private method SynthesizeSemicolon:(end:int)=>int
+
+`ImportDeclarationShape` / `ExportDeclarationShape` / `ImportEqualsDeclarationShape` /
+`NamespaceExportDeclarationShape` 的 `FromUnits` 都要求末尾单元是 `;`：无分号收口时补一个零宽合成
+`;`（与 `ModuleBlockShape` 的无分号路径同款），返回它在 `Units` 里的下标；`Positions` 同步插一格
+保持两个数组对齐。
+
+```ts
+const tailEnd = this.Units[end].SourceRange.End;
+if (tailEnd === null) {
+  return end;
+}
+const semi = new Symbol(this.Template);
+semi.SignIn(tailEnd);
+semi.AppendValueAndSignOut(";", tailEnd);
+this.Units.splice(end + 1, 0, semi);
+this.Positions.splice(end + 1, 0, this.Positions[end]);
+return end + 1;
+```
+
+## private method RemoveSemicolon:(index:int)=>void
+
+摘掉 `SynthesizeSemicolon` 插进去的零宽合成 `;`（建完形状就还原本层单元，不能让合成单元流到
+后续语句的 `Positions` 上）。
+
+```ts
+this.Units.splice(index, 1);
+this.Positions.splice(index, 1);
+```
+
+## method BuildImportStatement:()=>Token
+
+块 / 体里的 import 声明（原先没有分派，`import` 落表达式兜底「表达式没有读完」）：
+`import x from "m"` / `import { a } from "m"` / `import * as ns from "m"` / `import "m"` /
+`import type …` / `import x = require("m")`（import-equals）。子句与模块体同源：复用
+`ImportDeclarationShape.FromUnits` / `ImportEqualsDeclarationShape.FromUnits`，无分号补合成 `;`。
+
+```ts
+const first = this.At;
+let end = this.ClauseEnd(this.At + 1);
+let hasEquals = false;
+for (let scan = this.At + 1; scan <= end; scan++) {
+  if (this.IsSymbol(this.Units[scan], "=")) {
+    hasEquals = true;
+    break;
+  }
+}
+let synthetic = false;
+if (!this.IsSymbol(this.Units[end], ";")) {
+  end = this.SynthesizeSemicolon(end);
+  synthetic = true;
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+let shape:Token;
+if (hasEquals) {
+  shape = ImportEqualsDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+} else {
+  shape = ImportDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+}
+(shape as ShapeToken).Pos = this.Positions[first];
+this.At = end + 1;
+if (synthetic) {
+  this.RemoveSemicolon(end);
+  this.At = end;
+}
+return shape;
+```
+
+## method BuildExportStatement:()=>Token
+
+块 / 体里的 `export` 语句分派（原先只有「export + 声明头」一条路，模块说明符形态 / ExportAssignment
+全落表达式兜底）：
+
+- `export as namespace X;` → `NamespaceExportDeclarationShape`
+- `export import x = require("m");` → `ImportEqualsDeclarationShape`（export 是它的子节点）
+- `export default <声明>` → `BuildExportedStatement`（保留声明路径）
+- `export = <expr>` / `export default <expr>` → `ExportAssignmentShape`（children 只有表达式）
+- `export { … }` / `export * …` / `export type { … }` → `ExportDeclarationShape`
+- 其余 `export <声明>` → `BuildExportedStatement`
+
+```ts
+const first = this.At;
+const after = this.Peek(1);
+if (after === null) {
+  return this.BuildExpressionStatement();
+}
+const afterText = after instanceof Common ? (after as Common).TempToString() : "";
+if (afterText === "as") {
+  return this.BuildNamespaceExportDeclaration();
+}
+if (afterText === "import") {
+  return this.BuildExportImportEquals();
+}
+if (after instanceof Symbol && (after as Symbol).Is("=")) {
+  return this.BuildExportAssignmentStatement();
+}
+if (afterText === "default") {
+  // `export default <声明>` 与 `export default <表达式>` 的区分看 default 之后那一格
+  // （`IsDefaultDeclarationHead` 是相对 `this.At` 的，这里 At 还在 export 上，不能直接用）。
+  const second = this.Peek(2);
+  const secondText = second instanceof Common ? (second as Common).TempToString() : "";
+  const declarationHead = second !== null && (
+    (second instanceof Symbol && (second as Symbol).Is("@"))
+    || (second instanceof Common && (secondText === "class" || secondText === "abstract"
+      || secondText === "interface" || secondText === "enum" || secondText === "function"
+      || secondText === "async" || secondText === "declare")));
+  if (declarationHead) {
+    return this.BuildExportedStatement();
+  }
+  return this.BuildExportAssignmentStatement();
+}
+if (afterText === "type") {
+  const second = this.Peek(2);
+  if (second !== null && (this.IsSymbol(second, "*")
+    || (second instanceof Bracket && (second as Bracket).StartBracketChar === "{"))) {
+    return this.BuildExportClauseStatement();
+  }
+}
+if (this.IsExportDeclarationHead()) {
+  return this.BuildExportedStatement();
+}
+if (after instanceof Bracket && (after as Bracket).StartBracketChar === "{") {
+  return this.BuildExportClauseStatement();
+}
+if (after instanceof Symbol && (after as Symbol).Is("*")) {
+  return this.BuildExportClauseStatement();
+}
+return this.BuildExpressionStatement();
+```
+
+## private method BuildExportClauseStatement:()=>Token
+
+`export { … }` / `export * from "m"` / `export type { … }`：`ExportDeclarationShape.FromUnits`
+（`export` / `type` / `from` 不进 children；NamedExports / 模块字符串 / attributes 才是）。
+无分号时补合成 `;`。
+
+```ts
+const first = this.At;
+let end = this.ClauseEnd(this.At + 1);
+let synthetic = false;
+if (!this.IsSymbol(this.Units[end], ";")) {
+  end = this.SynthesizeSemicolon(end);
+  synthetic = true;
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = ExportDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+(shape as ShapeToken).Pos = this.Positions[first];
+this.At = end + 1;
+if (synthetic) {
+  this.RemoveSemicolon(end);
+  this.At = end;
+}
+return shape;
+```
+
+## private method BuildExportImportEquals:()=>Token
+
+`export import x = require("m");`：`ImportEqualsDeclarationShape` 自己投影 ExportKeyword 子节点。
+
+```ts
+const first = this.At;
+let end = this.ClauseEnd(this.At + 1);
+let synthetic = false;
+if (!this.IsSymbol(this.Units[end], ";")) {
+  end = this.SynthesizeSemicolon(end);
+  synthetic = true;
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = ImportEqualsDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+(shape as ShapeToken).Pos = this.Positions[first];
+this.AnchorFirstModifier(shape as Token, first);
+this.At = end + 1;
+if (synthetic) {
+  this.RemoveSemicolon(end);
+  this.At = end;
+}
+return shape;
+```
+
+## private method BuildNamespaceExportDeclaration:()=>Token
+
+`export as namespace X;`：`NamespaceExportDeclarationShape.FromUnits`（children 只有名字，
+export / as / namespace 不进 children）。它要求末尾是 `;`，无分号时补合成 `;`。
+
+```ts
+const first = this.At;
+let end = this.ClauseEnd(this.At + 1);
+let synthetic = false;
+if (!this.IsSymbol(this.Units[end], ";")) {
+  end = this.SynthesizeSemicolon(end);
+  synthetic = true;
+}
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = NamespaceExportDeclarationShape.FromUnits(hostLike, first, end, this.Context);
+(shape as ShapeToken).Pos = this.Positions[first];
+this.At = end + 1;
+if (synthetic) {
+  this.RemoveSemicolon(end);
+  this.At = end;
+}
+return shape;
+```
+
+## private method BuildExportAssignmentStatement:()=>Token
+
+`export = <expr>` / `export default <expr>`：`ExportAssignmentShape.FromUnits`——TS 的
+ExportAssignment children 只有表达式（`export` / `=` / `default` / `;` 都不投影）。
+无分号时用 `requireSemicolon=false`，区间收在表达式末单元（与根终结候选的 ASI 口径一致）。
+
+```ts
+const first = this.At;
+const end = this.ClauseEnd(this.At + 2);
+const hasSemicolon = this.IsSymbol(this.Units[end], ";");
+const hostLike:any = { Data: this.Units, Template: this.Template };
+const shape = ExportAssignmentShape.FromUnits(hostLike, first, end, this.Context, hasSemicolon);
+(shape as ShapeToken).Pos = this.Positions[first];
+this.At = end + 1;
+return shape;
 ```
 
 ## method ScanDecoratedHead:()=>void
@@ -759,6 +1057,9 @@ if (keyword === "enum") {
 }
 if (keyword === "type") {
   return this.BuildTypeAliasDeclaration();
+}
+if (keyword === "function") {
+  return this.BuildFunctionDeclaration();
 }
 if (keyword === "namespace" || keyword === "module" || keyword === "global") {
   return this.BuildModuleDeclaration();
