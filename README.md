@@ -124,13 +124,13 @@ node build/ts/cjcli.js samples/hello.ts
 - **JSX / TSX** 没有支持（`typescript/IMPORTANCE.md` §8）。
 - 历史上的几项缺口——类型字面量里的成员节点、无体成员（`abstract f(): void;` / 接口方法）、类的 `static { … }` 块、
   `Label` 不包含所标语句、语句首裸 `[a, b];`、对象/数组字面量在语句首——**都已在 2026-10-21～10-22 的轮次中修掉**，
-  2026-10-22 的只读探针复核为 AST 全部 MATCH（明细见 [docs/Final.md](docs/Final.md) §7.4）。
+  2026-10-22 的只读探针复核为 AST 全部 MATCH（明细见 [docs/Final.md](docs/Final.md) §4.2/§6）。
 - 当前仍开放的缺口与口径（无体签名吞后续语句、模板块成员 `declare`、装饰器+`export` 声明、块内 `declare`+`global {}`、
-  两个新发现的语料缺口、空白判定表未统一等）见 [docs/Final.md](docs/Final.md) §7。
+  两个新发现的语料缺口、空白判定表未统一等）见 [docs/Final.md](docs/Final.md) §6。
 - 实测（本分支，2026-10-22）：`node_modules` 下 **226 份真实 `.d.ts`**（`typescript/lib` / `@types/node` / undici-types）
   **全部解析成功**，且与本仓 AST **226/226 逐节点一致**；`npm run ast:dts` 是这一门的固定门禁。
   修这一批缺口之前的读数是：**112 份解析崩溃、能解析的 114 份 AST 一致**——归因与当前覆盖见
-  [docs/Final.md](docs/Final.md) §6.2。TypeScript 自带的 8MB **打包 JS**
+  [docs/Final.md](docs/Final.md) §4.2。TypeScript 自带的 8MB **打包 JS**
   （`typescript.js`）不在这一门里：那是 JavaScript 而不是 `.d.ts` 声明。
 
 ## cjcli

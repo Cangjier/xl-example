@@ -6,7 +6,7 @@
 //
 // 为什么要有这一门：typescript/cases/*.ts 是**整理过的语料**，它保证「节点种类」覆盖；
 // 真实 `.d.ts` 保证「源码形态」覆盖（无分号 ambient 成员、global 增强、计算名、真实 TS 版本自己
-// 的 lib 文件……）。历史读数见 docs/Final.md §6.2：修之前 112/226 解析崩溃、能解析的
+// 的 lib 文件……）。修之前 112/226 解析崩溃、能解析的
 // 114 份 AST 一致；修之后 226/226 解析成功且 226/226 AST 完全一致。
 import fs from "node:fs";
 import path from "node:path";
