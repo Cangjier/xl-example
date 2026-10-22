@@ -122,6 +122,11 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.Stage = 1;
       continue;
     }
+    if (unit instanceof Symbol && (unit as Symbol).Is("@")) {
+      // 装饰器前缀（`@dec function f() {}`）：TS 的 Decorator 是 FunctionDeclaration children 的第一项。
+      state.Stage = 8;
+      continue;
+    }
     state.Rejected = true;
     continue;
   }
@@ -140,6 +145,46 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.SplitDeclare = true;
       state.FunctionAt = at;
       state.Stage = 1;
+      continue;
+    }
+    state.Rejected = true;
+    continue;
+  }
+  if (state.Stage === 8) {
+    // 装饰器前缀（只读扫描）：@dec / @ns.dec / @dec(…)；装饰器之后可以接 declare / async 修饰词，
+    // 最后必须是 function。看到其它声明族的关键字就退出（避免与 class / interface / enum 候选共存）。
+    if (unit instanceof Common) {
+      const text = (unit as Common).TempToString();
+      if (text === "function") {
+        state.Stage = 1;
+        continue;
+      }
+      if (text === "declare") {
+        state.HasDeclare = true;
+        continue;
+      }
+      if (text === "async") {
+        state.HasAsync = true;
+        continue;
+      }
+      let previous = at - 1;
+      while (previous >= 0 && units[previous].IsTriviaToken) {
+        previous--;
+      }
+      let afterDot = false;
+      if (previous >= 0 && units[previous] instanceof Symbol) {
+        const previousText = (units[previous] as Symbol).TempToString();
+        afterDot = previousText === "." || previousText === "?.";
+      }
+      if (!afterDot && (text === "class" || text === "interface" || text === "type"
+        || text === "enum" || text === "namespace" || text === "module"
+        || text === "const" || text === "let" || text === "var" || text === "global")) {
+        state.Rejected = true;
+        continue;
+      }
+      continue;
+    }
+    if (unit instanceof Symbol || unit instanceof Bracket || unit instanceof String) {
       continue;
     }
     state.Rejected = true;

@@ -172,3 +172,79 @@ l: @dec class C {}
 
 // ── 根级表达式起点：`yield 1;` 原先被 IsStatementWord 挡掉 → 零候选 ──
 yield 1;
+
+// ══ cover8（块内 import/export 与装饰器声明头）════
+// 缺口：块 / 体 / 被标体（以及模块体）里 `import x from "m"` / `export { a }` / `export * from "m"` /
+// `export = <expr>` / `export default <expr>` / 匿名 `export default function () {}` 没有分派，
+// 全部落 ExpressionStatement 兜底（「表达式没有读完」/「函数声明的名字不是标识符」）；
+// 模板块的 `export { a }` 无分号成员漏收；`@dec` 在根级只认 class/interface/type/namespace，
+// function / enum 的装饰器候选缺失（块内 function 也缺）。
+// 修复：BuildStatement 增加 import / export 语句分派（BuildImportStatement / BuildExportStatement +
+// 四个子分派，复用 Import/Export/ImportEquals/NamespaceExport/ExportAssignment 的 FromUnits）；
+// FunctionDeclarationShape.FromUnits 支持装饰器前缀与匿名（allowAnonymous）；
+// Function/Enum 的根级 PossibleShape 增加 `@` 装饰器 Stage；ModuleBlockShape 的无分号 export 子句。
+// TS 侧全部 parseDiagnostics=0，且与本仓 AST 完全一致（ast-json-diff 校验）。
+
+// ── base：块内 import 声明（side-effect / 默认 / 具名 / namespace / type-only） ──
+{ import 'm'; }
+{ import x from 'm'; }
+{ import { a } from 'm'; }
+{ import * as ns from 'm'; }
+{ import type { A } from 'm'; }
+{ import x from 'm' with { type: 'json' }; }
+// 变体：无分号 + 块内下一条语句（块级 ASI 收口，补零宽合成 `;` 交给 FromUnits）
+{ import x from 'm'\n  let b = 1; }
+// 重复形：同一块里两条 import
+{ import x from 'a'; import y from 'b'; }
+// trivia 变体：import 前的前导注释
+{ /* c */ import x from 'm'; }
+// import-equals（含 type-only）
+{ import x = require('m'); }
+{ import type x = require('m'); }
+
+// ── 块内 export 声明（具名 / star / star-as / from / type-only） ──
+{ export { a }; }
+{ export * from 'm'; }
+{ export * as ns from 'm'; }
+{ export { a } from 'm'; }
+{ export type { A }; }
+{ export type * from 'm'; }
+// 变体：无分号 + 块内下一条语句
+{ export { a }\n  let b = 1; }
+// 重复形：同一块里两条 export 子句
+{ export { a }; export { b }; }
+// export as namespace / export import =
+{ export as namespace X; }
+{ export import x = require('m'); }
+
+// ── 块内 ExportAssignment（children 只有表达式） ──
+{ export = foo; }
+{ export = class {}; }
+{ export default 1; }
+{ export default foo(); }
+// 变体：无分号收口（requireSemicolon=false）
+{ export = foo }
+{ export default foo }
+
+// ── 匿名 export default function / class（export / default 修饰词 + 匿名声明） ──
+{ export default function () {} }
+{ export default function* () {} }
+{ export default async function () {} }
+{ export default class {} }
+
+// ── 模板块成员：无分号 export 子句（下一个成员首词 / 体末收口） ──
+declare module 'm' {\n  export { a }\n}
+declare module 'm' {\n  export * from 'n'\n}
+declare module 'm' {\n  export { a }\n  let b = 1;\n}
+namespace N {\n  export { a }\n}
+
+// ── 装饰器接 function / enum（块内 + 根级；换行 / 同行两种排布） ──
+{ @dec function f() {} }
+{ @dec\n  function f() {}\n}
+{ @dec('x')\n  function f() {}\n}
+{ @dec enum E { A } }
+{ @dec\n  enum E { A }\n}
+declare module 'm' {\n  @dec\n  function f(): void;\n}
+@dec\nfunction f() {}
+@dec enum E { A }
+@dec\nenum E { A }
