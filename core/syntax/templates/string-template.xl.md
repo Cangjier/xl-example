@@ -10,7 +10,7 @@
 
 默认值就是 **TypeScript 的字符串形式**：三种引号、没有逐字串 / 原始串 / 前缀式内插，**有引号内内插**（`` `${…}` ``）；`HasInterpolationQuoteChars` 默认开，`InterpolationQuoteChars` 默认只列反引号。要给别的语言（C# / Cangjie 那一族）时再逐项覆盖。
 
-两个**扫描细节**的开关默认取「既有行为」，由具体语言的模板页按需收紧/放开：`LineTerminatorChars`（行续接认哪些行终止符，默认 CR/LF）与 `StrictTemplateEscapes`（模板串里的非法转义是否保留原文，默认关）。ts 模板页（`typescript/run/typescript-template.xl.md`）把两者都打开 —— ECMAScript 的行续接认 LS/PS，模板串的 legacy octal / `\8` `\9` 保留原文。
+两个**扫描细节**的开关默认取「既有行为」，由具体语言的模板页按需收紧/放开：`LineTerminatorChars`（行续接认哪些行终止符，默认 CR/LF）、`StrictTemplateEscapes`（模板串里的非法转义是否保留原文，默认关）与 `AllowLongUnicodeBraceEscape`（`\u{…}` 是否允许超过 6 位十六进制，默认关 = 6 位上限）。ts 模板页（`typescript/run/typescript-template.xl.md`）把三者都打开 —— ECMAScript 的行续接认 LS/PS，模板串的 legacy octal / `\8` `\9` 保留原文，`\u{…}` 位数不限。
 
 # class StringTemplate
 
@@ -36,6 +36,17 @@ NonOctalDecimalEscape（`\8` / `\9`）不解成字符，而是原样输出 `\1` 
 默认 `false` = 既有行为（按八进制 / 字符解码）。ECMAScript 模板串正是这个口径（带标签模板合法、
 不带标签模板是语法错误），ts 模板页把它打开；`String` 只对**引号内内插串**应用本开关
 （普通引号串仍按既有行为解码），因为引号内内插串才是这门语言的模板串。
+
+## field AllowLongUnicodeBraceEscape:bool = false
+
+花括号形 Unicode 转义 `\u{…}` 是否**允许超过 6 位十六进制**：`true` 时位数不限（前导零可以任意多），
+只受 Unicode 标量上限 `U+10FFFF` 约束；`false` = 既有行为（最多 6 位，第 7 位起按原文结算）。
+ECMAScript 的 `\u{…}` 位数不限，ts 模板页把它打开。
+
+判定与标识符路径共用同一份「逐位累计、越界即非法、防乘法溢出」的口径
+（`Translate.UnicodeBraceValueOf`，上限取 core 的 `Common.MaxUnicodeCodePoint`）；
+区别只在开关：标识符路径由 `SymbolTemplate.SupportUnicodeEscapeIdentifier`（默认关）表达，
+字符串路径由本字段（默认关）表达，所以打开之前两者的行为都与历史一致。
 
 ## field VerbatimPrefix:string = "@"
 
