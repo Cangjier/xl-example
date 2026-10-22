@@ -198,6 +198,18 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       state.Rejected = true;
       continue;
     }
+    // TS nextTokenIsIdentifierOnSameLine：名字必须与 `type` **同行**。有行终止符（LF/CR/LS/PS、
+    // 行注释的换行、块注释里的换行都算）时 `type` 只是标识符——`type` ⏎ `T = 1` 是两条
+    // ExpressionStatement，本候选必须当场退出，否则它会活到边界格与根终结候选同时 Accept
+    //（CatalogGuide 抛「终结候选与其它候选同时成立」）。
+    let typeAt = at - 1;
+    while (typeAt >= 0 && units[typeAt].IsTriviaToken) {
+      typeAt--;
+    }
+    if (typeAt >= 0 && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(units, typeAt, at)) {
+      state.Rejected = true;
+      continue;
+    }
     state.NameAt = at;
     state.Stage = 2;
     continue;

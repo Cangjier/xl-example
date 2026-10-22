@@ -235,6 +235,10 @@ return false;
 - 紧邻的前一代码单元是 `.` / `?.` 时，任何 Common 都能收住（TS 的 `a.class` 是 PropertyAccessExpression）；
 - `let` / `using` 是上下文关键字：后面**不能**起绑定时它们只是标识符，可以收住一条表达式
   （`using` ⏎ `x = y;` 是两条语句；`let` 同理；与候选的 DualStage 同一判据）。
+- `type` 也是上下文关键字（同理）：只有「名字与 `type` 同行 + 名字后面紧跟 `=` / `<`」才是声明头
+  （`TypeAliasDeclarationShape.IsTypeAliasHead`）；否则 `type` 是标识符，可以收住一条表达式——
+  `type` ⏎ `T = 1` 是两条 ExpressionStatement（Z01–Z16）。没有这一格，换行处终结候选不会 Accept，
+  `type` 与 `T = 1` 会被并成一条 TypeAliasDeclaration（或者拖到 EOF 兜底 crash）。
 
 ```ts
 if (ExpressionStatementPossibleShape.CanEndExpression(units[index])) {
@@ -251,6 +255,19 @@ if (units[index] instanceof Common) {
       ? StatementScanner.StartsBinding(units, nextCode)
       : StatementScanner.StartsUsingDeclaration(units, index, nextCode);
     if (!isDeclaration) {
+      return true;
+    }
+  }
+  if (keywordText === "type") {
+    // 声明头判据与 TypeAliasDeclarationPossibleShape 的 Stage 1 读同一份：
+    // 同行 + 名字 + `=`/`<`。两者不一致会一边判「别名」一边判「表达式」（候选共存 crash）。
+    const headCode:Array<Token> = [units[index]];
+    for (let at = index + 1; at < units.length; at++) {
+      if (!units[at].IsTriviaToken) {
+        headCode.push(units[at]);
+      }
+    }
+    if (!TypeAliasDeclarationShape.IsTypeAliasHead(headCode, keywordText)) {
       return true;
     }
   }

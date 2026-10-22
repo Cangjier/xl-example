@@ -10,3 +10,6 @@ typescript/cases/basic-token.ts -text
 typescript/cases/cover6-*.ts -text
 typescript/cases/*-cr*.ts -text
 tests/cases/token/lexical/*-cr*.ts -text
+# cover9 W2: possible-compute.ts carries an inline lone CR (Z02) as a line terminator
+# inside one physical case line; pin -text so the CR bytes survive commit/checkout.
+typescript/cases/possible-compute.ts -text
