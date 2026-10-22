@@ -291,3 +291,70 @@ declare function gf(): void\n\n@dec class C {}
 declare function gf(): void // c\n@dec class C {}
 declare function gf(): void /* c */\n@dec class C {}
 declare function gf(): void\n/* c */\n@dec class C {}
+
+// ══ cover9（end build）：无体声明 / import= 之后换行接「装饰器（可跨行）+ 声明」的 ASI 收口 ══
+// 类别（IMPORTANCE §6）：end build 不对。
+// 形态：前一条是**无体**声明（declare function 签名 / function / export function / export default function /
+// import x = require("m")），换行后是**装饰器开头的下一条声明**——装饰器与声明词各占一行（`@dec` ⏎ `class`），
+// 装饰器可跨行（`@a` ⏎ `@b`）、可多个（`@a @b`）、可带行尾注释；声明词覆盖 class / abstract class / export class /
+// interface / enum / type / namespace / function。TS：前一条在换行处 ASI 收口（无体仍无体），装饰器是下一条
+// 声明 children 的第一项，下一条声明的区间从 `@` 起。
+// 修复前：SourceFileEndPossibleShape 的 EOF 尾随分界把 `@dec` 与声明词切成两段（crash「不支持的表达式起点」）；
+// export function / export default function 候选还会把下一条声明的 `{…}` 当函数体（crash「函数声明的返回类型
+// 没有读完」）；装饰器尾随段的分派面只接 class（interface / enum / type / namespace / function 全漏）。
+// 修复：①「@（可跨行、可多个）+ 修饰词 + 声明词」做成一份共用判据（StatementScanner.DecoratedHeadKeyword /
+//        IsDecoratedDeclarationStart；source-file-end 的 EOF 分界、export 候选的 ASI、function 候选的 Stage3/4
+//        同口径）；② 尾随段按声明词分派到 class / interface / enum / type / namespace / function 的 FromUnits；
+//        ③ `let` ⏎ `let` 的前缀收不住语句，不作为多语句分界（TS 读成一条 VariableStatement）。
+// 候选 id：A01–A16 共用前四组；C01 是最后的 let 组。一行一个用例，行内 `\n` 由 ast-json.mjs 还原。
+
+// ── ① base：declare function 无体签名之后接 `@dec` ⏎ `class`（A01），再叠加 trivia 与重复形 ──
+declare function gf(): void\n@dec\nclass C {}
+declare function gf(): void // c\n@dec\nclass C {}
+declare function gf(): void /* c */\n@dec\nclass C {}
+declare function gf(): void\n// c\n@dec\nclass C {}
+declare function gf(): void\n\n@dec\nclass C {}
+declare function gf(): void\n@dec\nclass C {} // c
+declare function gf(): void\n@dec\nclass C { m() {} }
+
+// ── ② 前一条的修饰 / 形态：裸 function / export function / export default function / import =（A02–A05） ──
+function f(): void\n@dec\nclass C {}
+export function f(): void\n@dec\nclass C {}
+export default function f(): void\n@dec\nclass C {}
+import x = require("m")\n@dec\nclass C {}
+
+// ── ③ 装饰器前缀的形态：多装饰器同行 / 逐行 / 装饰器后 trivia（A06–A08）与重复形 ──
+declare function f(): void\n@a @b\nclass C {}
+declare function f(): void\n@a\n@b\nclass C {}
+declare function f(): void\n@dec /*c*/\nclass C {}
+declare function f(): void\n@a\n@b\n@c\nclass C {}
+declare function f(): void\n@a /* c */\n@b\nclass C {}
+
+// ── ④ 声明词分派：class 修饰词（abstract / export）与 interface / enum / type / namespace / function（A09–A15） ──
+declare function gf(): void\n@dec\nabstract class C {}
+declare function gf(): void\n@dec\nexport class C {}
+declare function f(): void\n@dec\nexport class C {}
+declare function f(): void\n@dec\ninterface I {}
+declare function f(): void\n@dec\ninterface I { m(): void }
+declare function f(): void\n@dec\nenum E { A }
+declare function f(): void\n@dec\nenum E { A, B }
+declare function f(): void\n@dec\ntype T = number;
+declare function f(): void\n@dec\ntype T = A | B;
+declare function f(): void\n@dec\nnamespace N {}
+declare function f(): void\n@dec\nnamespace N { export const x = 1; }
+declare function f(): void\n@dec\nabstract class C { m(): void }
+declare function f(): void\n@dec\nfunction g() {}
+declare function f(): void\n@dec\nfunction g(a: A): B { return a; }
+
+// ── ⑤ 装饰器声明之后还有第三条语句（A16）与换一种声明词（重复形） ──
+declare function f(): void\n@dec\nclass C {}\nlet z = 1
+declare function f(): void\n@dec\nclass C {}\ninterface I {}
+declare function f(): void\n@dec\ninterface I {}\nlet z = 1
+
+// ── ⑥ C01：`let` ⏎ `let = 1` 是**一条** VariableStatement（前缀收不住语句，不切分） ──
+let\nlet = 1
+let // c\nlet = 1
+let\n/* c */\nlet = 1
+let\n\nlet = 1
+let\nlet = 1, x = 2
+let\nlet = 1\n

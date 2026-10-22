@@ -963,6 +963,117 @@ if (from === null || to === null) {
 return !LineTerminator.HasBetween(from, to);
 ```
 
+## static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
+
+`units[at]` 前面紧邻的非 trivia 单元与它之间有没有换行（块注释里的换行也算）。
+与 `NoLineBreakBetween` 共用同一份行终止符口径（LF / CR / U+2028 / U+2029，cover8-A），
+供「换行后的 `@` 是下一条声明的装饰器前缀」判据使用。
+
+```ts
+if (at <= 0 || at >= units.length) {
+  return false;
+}
+let previous = at - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+return !StatementScanner.NoLineBreakBetween(units[previous], units[at]);
+```
+
+## static method IsDecoratedDeclarationStart:(units:Array<Token>, at:int)=>bool
+
+`at` 这一格是不是「换行之后开始的带装饰器的新声明」：`unit = @` 且与上一个非 trivia 单元之间有换行。
+装饰器在 TS 词法里是 Symbol `@`（不是 `Common`），`IsStatementWord` 那条 ASI 判据看不到它；
+`declare function f(): void` ⏎ `@dec class C {}` 会在 `@` 处被继续当成返回类型内容，最终把下一条声明
+的 `{…}` 收成函数体。这里把「换行后的 `@`」与 statement word 同等对待（与
+`FunctionDeclarationPossibleShape.IsDecoratedDeclarationStart` 同一份判据，两处共读这一个函数）。
+
+```ts
+if (at < 0 || at >= units.length) {
+  return false;
+}
+if (!(units[at] instanceof Symbol) || !(units[at] as Symbol).Is("@")) {
+  return false;
+}
+return StatementScanner.HasLineBreakBefore(units, at);
+```
+
+## static method IsDeclarationKeyword:(text:string)=>bool
+
+装饰器声明头的**声明词**表：装饰器前缀（可跨行、可多个）与修饰词之后，只有这些词才让整段
+成一条声明。`abstract` 是修饰词不是声明词（`@dec abstract class` 归到 `class`）。
+变量声明（`const` / `let` / `var` / `using`）不在表里：根级 `@dec` + 变量声明的分派由
+`StatementBuilder.BuildDecoratedStatement` 负责，EOF 尾随段这里不抢。
+
+```ts
+return text === "class" || text === "interface" || text === "enum" || text === "type"
+  || text === "namespace" || text === "module" || text === "global" || text === "function";
+```
+
+## static method DecoratedHeadKeyword:(code:Array<Token>, at:int)=>int
+
+`code[at]` 是 `@`（装饰器前缀的起点，可跨行）：把**装饰器前缀 + 修饰词**整段扫完，返回紧随其后的
+声明词下标；不是「装饰器 + 声明头」时返回 `-1`。
+
+- 装饰器表达式：`@dec` / `@a.b` / `@dec(…)` / `@dec(…) .b`（括号 / 下标是整单元，`(…)` 直接跳过）；
+- 修饰词：`export` / `default` / `declare` / `abstract` / `async` / `const`，按 TS 的书写顺序；
+- 收尾：`IsDeclarationKeyword` 认的词才返回下标；别的返回 `-1`。
+
+读法只到**声明词**为止，不再深入声明体：调用方按声明词分派到对应 `FromUnits`，
+装饰器的形状由那些 `FromUnits` 自己建（它们都从段首重新扫装饰器）。
+
+```ts
+if (at < 0 || at >= code.length) {
+  return -1;
+}
+let index = at;
+while (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("@")) {
+  index++;
+  if (index >= code.length) {
+    return -1;
+  }
+  if (code[index] instanceof Bracket && (code[index] as Bracket).StartBracketChar === "(") {
+    // `@(expr)`：括号表达式整单元。
+    index++;
+  } else if (code[index] instanceof Common) {
+    index++;
+    // 限定名 `@ns.dec`
+    while (index + 1 < code.length
+      && code[index] instanceof Symbol && (code[index] as Symbol).Is(".")
+      && code[index + 1] instanceof Common) {
+      index += 2;
+    }
+  } else {
+    return -1;
+  }
+  // 装饰器调用 `@dec(…)`：括号整单元。
+  if (index < code.length && code[index] instanceof Bracket
+    && (code[index] as Bracket).StartBracketChar === "(") {
+    index++;
+  }
+}
+while (index < code.length && code[index] instanceof Common) {
+  const text = (code[index] as Common).TempToString();
+  if (text === "export" || text === "default" || text === "declare" || text === "abstract"
+    || text === "async" || text === "const") {
+    index++;
+    continue;
+  }
+  break;
+}
+if (index >= code.length || !(code[index] instanceof Common)) {
+  return -1;
+}
+const keyword = (code[index] as Common).TempToString();
+if (!StatementScanner.IsDeclarationKeyword(keyword)) {
+  return -1;
+}
+return index;
+```
+
 ## static method NextChar:(last:Source | null)=>string
 
 从 `last` 之后的下一个位置起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。

@@ -365,6 +365,12 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
   }
   if (state.Stage === 23) {
     // `export default function [*] [名] (…) {…}`：名字 / `*` / 参数表先过去，等函数体那个 `{`。
+    if (StatementScanner.IsDecoratedDeclarationStart(units, index)) {
+      // 与 Stage 16 同一判据：换行后的 `@dec` 起下一条声明，本条是无体签名
+      //（`export default function f(): void` ⏎ `@dec class C {}`），在这里 ASI 收口。
+      state.Stage = 3;
+      continue;
+    }
     if (unit instanceof Common) {
       continue;
     }
@@ -419,6 +425,13 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     // `export function [*] name(…): Ret {…}`：名字 / `*` / 参数表 / 返回类型都先过去，
     // 等函数体那个**已闭合**的 `{ }` 括号单元：Done 只落在它上面，BuildByIndex 一次建好整条声明
     // （这样函数体内的语句不会在根层被当成表达式语句，ASI 边界也不会插进来）。
+    if (StatementScanner.IsDecoratedDeclarationStart(units, index)) {
+      // 换行后的 `@dec` 是**下一条声明**的装饰器前缀：本条是**无体**签名（`export function f(): void`
+      // ⏎ `@dec class C {}`），TS 侧在这里 ASI 收口。不 Reject 的话本候选会一直等到下一条声明的
+      // `{…}` 当函数体，`FunctionDeclarationShape.FromUnits` 报「函数声明的返回类型没有读完」。
+      state.Stage = 3;
+      continue;
+    }
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
       if (!(unit as Bracket).Closed) {
         continue;

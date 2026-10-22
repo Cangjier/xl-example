@@ -18,6 +18,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
 ```
 
 # namespace cangjie
@@ -371,11 +372,11 @@ return LineTerminator.HasBefore(units, at);
   在换行处收口，装饰器声明留给下一条（EOF/ASI 收口侧）。
 - 同一行内的 `@` 不是边界（`function f(): @dec` 这种形态 TS 本身非法），所以只认带换行的。
 
+判据只有一份：`StatementScanner.IsDecoratedDeclarationStart`（与 `source-file-end` 的装饰器声明头
+分派、`statement-builder.ScanDecoratedHead` 同口径，见 cover9 A 组）。
+
 ```ts
-if (!(units[at] instanceof Symbol) || !(units[at] as Symbol).Is("@")) {
-  return false;
-}
-return FunctionDeclarationPossibleShape.LineBreakBefore(units, at);
+return StatementScanner.IsDecoratedDeclarationStart(units, at);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
