@@ -460,6 +460,12 @@ return StatementScanner.Mismatch();
 
 ```ts
 if (from >= code.length) {
+  // 本层已经读完：AtEOF 时按 ASI 收在最后一个代码单元（`for (;;) break` / `label: break label`），
+  // 否则还要等下一格才能判断后面有没有标签 / `;`。不在这里收口，普通候选会一直活到 EOF 哨兵，
+  // 与根终结候选同时 Accept，CatalogGuide 抛「终结候选与其它候选同时成立」（end compute B 组同源）。
+  if (StatementScanner.AtEOF && code.length > 0) {
+    return StatementScanner.Complete(code.length - 1);
+  }
   return StatementScanner.NeedMore();
 }
 if (StatementScanner.IsSymbol(code[from], ";")) {
@@ -468,13 +474,24 @@ if (StatementScanner.IsSymbol(code[from], ";")) {
 if (StatementScanner.IsEOF(code[from])) {
   return StatementScanner.Complete(from - 1);
 }
+// 受限产生式：`break` / `continue` 之后换行 = 没有标签，语句在关键字处收口（`break` ⏎ `foo()`）。
+if (from > 0 && StatementScanner.EndsAtLineBreak(code[from - 1], code[from])) {
+  return StatementScanner.Complete(from - 1);
+}
 if (from + 1 >= code.length) {
+  if (StatementScanner.AtEOF && code.length > 0) {
+    return StatementScanner.Complete(code.length - 1);
+  }
   return StatementScanner.NeedMore();
 }
 if (StatementScanner.IsSymbol(code[from + 1], ";")) {
   return StatementScanner.Complete(from + 1);
 }
 if (StatementScanner.IsEOF(code[from + 1])) {
+  return StatementScanner.Complete(from);
+}
+// 标签之后换行 / 到头：`break label` 后面没有 `;` 也收口（`break label` ⏎ 下一条语句）。
+if (StatementScanner.EndsAtLineBreak(code[from], code[from + 1])) {
   return StatementScanner.Complete(from);
 }
 return StatementScanner.Mismatch();

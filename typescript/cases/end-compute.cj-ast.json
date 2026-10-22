@@ -4979,6 +4979,212 @@
       ]
     },
     {
+      "src": "for (;;) break",
+      "ast": [
+        {
+          "kind": "ForStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "BreakStatement",
+              "pos": 8,
+              "end": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: break label",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "BreakStatement",
+              "pos": 6,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 18,
+                  "text": "label"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: for (;;) break label",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 6,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "BreakStatement",
+                  "pos": 15,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 27,
+                      "text": "label"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (;;) break\nfoo()",
+      "ast": [
+        {
+          "kind": "ForStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "BreakStatement",
+              "pos": 8,
+              "end": 14
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 14,
+          "end": 20,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 14,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 18,
+                  "text": "foo"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: { break label }",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "BreakStatement",
+                  "pos": 8,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 20,
+                      "text": "label"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: for (;;) f()",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 6,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 15,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "f"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "import x from \"m\"\nimport y from \"n\"",
       "ast": [
         {

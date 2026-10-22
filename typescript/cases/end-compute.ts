@@ -115,11 +115,14 @@ for (;;) { x++\ncontinue }
 while (a)\n{ break }
 do x++; while (x < 3)
 type H = number\ntry { } catch { }
-// 真缺口（deferred，仍未修）：`label: for (;;) break label` 在 EOF 处 CRASH
-//   CatalogGuide「终结候选与其它候选同时成立（宿主 SourceFileShape，下标 10）」。
-//   ddmin：`for (;;) break`（TS parseDiagnostics=0，同样 CRASH，下标 5）、`label: break label`（下标 6）；
-//   而 `label: { break label }` / `label: for (;;) f()` OK —— 根因是 break/continue 在 EOF 的候选共存，
-//   需改 StatementPossibleShape / StatementScanner（ScanBreakOrContinue 的 EOF 收口），本次未完成。
+// (a) 已修（第二个 commit）：EOF 处 break/continue 的普通候选不再拖到 EOF 哨兵——ScanBreakOrContinue
+//   在 AtEOF / 换行处就地 Complete（受限产生式），本组转为活跃用例。
+for (;;) break
+label: break label
+label: for (;;) break label
+for (;;) break\nfoo()
+label: { break label }
+label: for (;;) f()
 
 // ── C4（审计补强）：import/export 无分号、换行后接下一语句时在行末 ASI（end-close-analysis §3 B 组）──
 import x from "m"\nimport y from "n"
