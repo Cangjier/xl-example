@@ -314,3 +314,37 @@ interface I { new\nnew(): string }
 type T = { new /* c */\nnew(): void }
 // 重复形：后面还有成员
 type T = { new\nnew(): void\nx: number }
+
+// ══ cover9（W2）：`type` 声明头的同行判据（名字必须与 `type` 同行）══
+// 探针：xl-example-set/cover9-survey-candidates.json 的 Z01–Z16（TS 6.0.3 parseDiagnostics 全 0；修前 16/16 红）。
+// TS 的 nextTokenIsIdentifierOnSameLine：`type` 与名字之间出现行终止符时 `type` 只是标识符 ——
+//   `type` ⏎ `T = 1` 是两条 ExpressionStatement（type 是标识符、T = 1 是赋值），`type` ⏎ `T` / `type` ⏎ `T;`
+//   同理；修前本仓把它们并成一条 TypeAliasDeclaration（或 crash「表达式语句没有读完」）。
+// 换行口径：LF / CR / U+2028 / U+2029 / 行注释的换行 / 含换行的块注释全部算（按源位置判）。
+// 修法（5 个 .xl.md，详见 docs/cover9-posscompute-type.md）：IsTypeAliasHead 加同行判据，并下沉到
+//   TypeAliasDeclarationPossibleShape Stage 1、ExpressionStatementPossibleShape.CanEndExpressionAt、
+//   StatementBuilder 的 type 分派、ModuleBlockShape.BuildMember。
+// §5 口径：base（LF）在前，行终止符 / 注释 trivia / crash / 重复形 / 各种宿主变体在后。
+// base：`type` ⏎ `T = 1`（两条 ExpressionStatement）
+type\nT = 1
+// 行终止符变体（CR / U+2028 / U+2029 用行内字面字符，.gitattributes 已对本文件钉 -text）
+typeT = 1
+type T = 1
+type T = 1
+// trivia 变体：含换行的块注释 / 行尾行注释（注释里的行终止符同样触发）
+type /* \n */ T = 1
+type // c\nT = 1
+// 没有 `=` 的形态（修前 crash「表达式语句没有读完」）
+type\nT
+type\nT;
+// 名字之后是对象类型 / 泛型参数（仍是两条语句）
+type\nT = { a: 1 }
+type\nT<U> = U
+// 重复形：后面还有第三条语句 / 两条 `type` ⏎ `T` 连排
+type\nT = 1;\nconst x = 2;
+type\nT = 1\ntype\nU = 2
+// 宿主变体：块体 / namespace 体 / 函数体 / ambient module 体（同一判据在成员层）
+{ type\nT = 1 }
+namespace N { type\nT = 1 }
+function f(){ type\nT = 1 }
+declare module "m" { type\nT = 1 }

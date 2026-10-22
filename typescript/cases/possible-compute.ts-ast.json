@@ -11722,6 +11722,943 @@
           ]
         }
       ]
+    },
+    {
+      "src": "type\nT = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 6,
+                  "end": 8
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\rT = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 6,
+                  "end": 8
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 6,
+                  "end": 8
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type T = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 6,
+                  "end": 8
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type /* \n */ T = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 18,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 14,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 14,
+                  "end": 16
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 16,
+                  "end": 18,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type // c\nT = 1",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 15,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 15,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 11,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 11,
+                  "end": 13
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\nT",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 6,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\nT;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 7,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\nT = { a: 1 }",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 17,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 6,
+                  "end": 8
+                },
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 8,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "PropertyAssignment",
+                      "pos": 10,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 10,
+                          "end": 12,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 13,
+                          "end": 15,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\nT<U> = U",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 13,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 13,
+              "children": [
+                {
+                  "kind": "ExpressionWithTypeArguments",
+                  "pos": 4,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 4,
+                      "end": 6,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 7,
+                      "end": 8,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 7,
+                          "end": 8,
+                          "text": "U"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 9,
+                  "end": 11
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "U"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\nT = 1;\nconst x = 2;",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 11,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 6,
+                  "end": 8
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "VariableStatement",
+          "pos": 11,
+          "end": 24,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 11,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 17,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "x"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "2"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type\nT = 1\ntype\nU = 2",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 4,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 10,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 4,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 6,
+                  "text": "T"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 6,
+                  "end": 8
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "1"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 15,
+              "text": "type"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 15,
+          "end": 21,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 15,
+              "end": 21,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 17,
+                  "text": "U"
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 17,
+                  "end": 19
+                },
+                {
+                  "kind": "NumericLiteral",
+                  "pos": 19,
+                  "end": 21,
+                  "text": "2"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "{ type\nT = 1 }",
+      "ast": [
+        {
+          "kind": "Block",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 6,
+                  "text": "type"
+                }
+              ]
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 6,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 8,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "EqualsToken",
+                      "pos": 8,
+                      "end": 10
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "namespace N { type\nT = 1 }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 11,
+              "text": "N"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 11,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 13,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 18,
+                      "text": "type"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 18,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "T"
+                        },
+                        {
+                          "kind": "EqualsToken",
+                          "pos": 20,
+                          "end": 22
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(){ type\nT = 1 }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 13,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 18,
+                      "text": "type"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 18,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "T"
+                        },
+                        {
+                          "kind": "EqualsToken",
+                          "pos": 20,
+                          "end": 22
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "declare module \"m\" { type\nT = 1 }",
+      "ast": [
+        {
+          "kind": "ModuleDeclaration",
+          "pos": 0,
+          "end": 33,
+          "children": [
+            {
+              "kind": "DeclareKeyword",
+              "pos": 0,
+              "end": 7
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "m"
+            },
+            {
+              "kind": "ModuleBlock",
+              "pos": 18,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 20,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 25,
+                      "text": "type"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 25,
+                  "end": 31,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 25,
+                      "end": 31,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 25,
+                          "end": 27,
+                          "text": "T"
+                        },
+                        {
+                          "kind": "EqualsToken",
+                          "pos": 27,
+                          "end": 29
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 29,
+                          "end": 31,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

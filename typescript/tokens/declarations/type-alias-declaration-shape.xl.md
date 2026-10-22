@@ -12,6 +12,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -87,6 +88,11 @@ return -1;
 才算「还没收口的类型别名」。只看前缀是会把 `type = 1` 这类以 `type` 作标识符的赋值表达式
 误丢给 `FromUnits`（它随即抛「类型别名声明不完整」——`type` ⏎ `T` 同理）。
 
+**名字必须与 `type` 同行**（TS `nextTokenIsIdentifierOnSameLine`）：换行之后的 `T` 是下一条语句的开头，
+`type` 只是标识符（TS 把 `type` ⏎ `T = 1` 解析成两条 ExpressionStatement）。换行口径按**源位置**：
+两个代码单元之间的原文里有行终止符（LF / CR / U+2028 / U+2029；行注释的换行、块注释里的换行都算）即为换行。
+`code` 是**代码单元**数组（调用方滤掉了 trivia），所以用 `LineTerminator.HasBetween` 比较相邻单元的源区间。
+
 ```ts
 let typeIndex = -1;
 if (headText === "type") {
@@ -106,6 +112,11 @@ if (typeIndex < 0 || code.length <= typeIndex + 2) {
   return false;
 }
 if (!(code[typeIndex + 1] instanceof Common)) {
+  return false;
+}
+// TS nextTokenIsIdentifierOnSameLine：`type` 与名字之间有行终止符 ⇒ 这不是别名声明。
+// `type` ⏎ `T = 1` 是两条 ExpressionStatement（`type` 是标识符）；块注释里的换行同样算。
+if (LineTerminator.HasBetween(code[typeIndex].SourceRange.End, code[typeIndex + 1].SourceRange.Start)) {
   return false;
 }
 const next = code[typeIndex + 2];

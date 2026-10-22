@@ -386,7 +386,12 @@ if (unit instanceof Common) {
   }
   if (text === "type") {
     const afterType = this.Peek(1);
-    if (afterType !== null && afterType instanceof Common) {
+    // TS nextTokenIsIdentifierOnSameLine：名字必须与 `type` **同行**才是别名声明头。
+    // `{ type` ⏎ `T = 1 }` 里 `type` 是标识符（TS 是两条 ExpressionStatement），
+    // 与 declare 分支（`:294` 的 `StatementScanner.NoLineBreakBetween`）同一套同行口径；
+    // 同行判据按源位置，块体 units 不带 trivia 也成立（LF / CR / LS / PS / 注释里的换行都算）。
+    if (afterType !== null && afterType instanceof Common
+      && StatementScanner.NoLineBreakBetween(unit, afterType)) {
       const third = this.Peek(2);
       if (third !== null && (this.IsSymbol(third, "=") || this.IsSymbol(third, "<"))) {
         return this.BuildTypeAliasDeclaration();

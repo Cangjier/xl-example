@@ -196,6 +196,21 @@ if (keyword === "declare") {
   const afterDeclare = declStart + 1 < inner.Units.length ? inner.Units[declStart + 1] : null;
   declareFunctionMember = afterDeclare !== null && afterDeclare instanceof Common && (afterDeclare as Common).Is("function");
 }
+// 模块体里的类型别名成员：名字必须与 `type` **同行**（TS nextTokenIsIdentifierOnSameLine）。
+// `namespace N { type` ⏎ `T = 1 }` 里 `type` 是标识符（TS 是两条 ExpressionStatement），
+// 不能交给 TypeAliasDeclarationShape.FromUnits；否则 `type` 与 `T = 1` 被并成一条别名。
+// 同行口径与 StatementBuilder 的 `type` 分派、TypeAliasDeclarationPossibleShape 的 Stage 1 同一份。
+let typeAliasMember = false;
+if (keyword === "type" && declStart + 1 < inner.Units.length
+  && inner.Units[declStart + 1] instanceof Common
+  && StatementScanner.NoLineBreakBetween(inner.Units[declStart], inner.Units[declStart + 1])) {
+  typeAliasMember = true;
+} else if (keyword === "declare" && declStart + 2 < inner.Units.length
+  && inner.Units[declStart + 1] instanceof Common && (inner.Units[declStart + 1] as Common).Is("type")
+  && inner.Units[declStart + 2] instanceof Common
+  && StatementScanner.NoLineBreakBetween(inner.Units[declStart + 1], inner.Units[declStart + 2])) {
+  typeAliasMember = true;
+}
 let special:Token | null = null;
 let specialEnd = -1;
 if (keyword === "as") {
@@ -410,10 +425,11 @@ if (keyword === "as") {
       bracket.Data.splice(dataEnd, 1);
     }
   }
-} else if (keyword === "type" || (keyword === "declare" && declStart + 1 < inner.Units.length
-  && inner.Units[declStart + 1] instanceof Common && (inner.Units[declStart + 1] as Common).Is("type"))) {
+} else if (typeAliasMember) {
   // 模块体内的类型别名：TypeAliasDeclarationShape.FromUnits 已接受 `[export] [declare] type` 前缀；
   // `export` 修饰词仍由本类在成员建好后插回 Data 最前（所以这里从 export 之后的 type 起始格开始）。
+  // 只有「名字与 type 同行」才进得来（见上方 typeAliasMember）；换行的 `type` 落回
+  // StatementBuilder.BuildStatement，由块内 ASI 判据切成两条 ExpressionStatement。
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
     if (inner.IsSymbol(inner.Units[scan], ";")) {
       specialEnd = scan;
