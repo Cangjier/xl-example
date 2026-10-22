@@ -5,6 +5,7 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
+import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { EnumMemberShape } from "../members/enum-member-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -65,7 +66,47 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
-let index = 0;
+// 装饰器前缀（块 / 体里 `@dec enum E { A }`；TS 的 Decorator 是 EnumDeclaration children 的第一项）。
+// 与 InterfaceDeclarationShape.FromUnits 的 decorator 扫描同口径：逐个 `@` 用 ExpressionBuilder
+// 吃掉装饰器表达式，装饰器形状由 DecoratorShape.FromParts 建。
+let decoratorBase = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.End;
+    if (end !== null) {
+      decoratorBase = end.Index + 1;
+    }
+    break;
+  }
+}
+const decorators:Array<Token> = [];
+let decoratorEnd = decoratorBase;
+let decoratorCount = 0;
+while (decoratorCount < code.length
+  && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
+  const atUnit = code[decoratorCount];
+  const decoratorPos = decoratorEnd;
+  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const builder = new ExpressionBuilder(host.Template, context);
+  builder.Load(code.slice(decoratorCount + 1), expressionBase);
+  if (builder.Units.length === 0) {
+    throw new Error("decorator expression is empty");
+  }
+  const decoratorExpression = builder.ParseExpression();
+  if (builder.At === 0) {
+    throw new Error("decorator expression was not read");
+  }
+  const consumed = builder.At;
+  for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
+    const cursorEnd = code[cursor].SourceRange.End;
+    if (cursorEnd !== null) {
+      decoratorEnd = cursorEnd.Index + 1;
+    }
+  }
+  decoratorCount += 1 + consumed;
+  decorators.push(DecoratorShape.FromParts(atUnit, decoratorExpression, decoratorPos, context));
+}
+let index = decoratorCount;
 const modifierUnits:Array<Token> = [];
 while (index < code.length && code[index] instanceof Common) {
   const text = (code[index] as Common).TempToString();
@@ -119,7 +160,10 @@ const members = EnumDeclarationShape.BuildMembers(host, bodyUnit as Bracket, con
 const shape = new EnumDeclarationShape(host.Template);
 shape.EnumName = name;
 shape.Members = members;
-let modifierPos = pos;
+let modifierPos = decorators.length === 0 ? pos : decoratorEnd;
+for (const decorator of decorators) {
+  shape.Add(decorator);
+}
 for (const unit of modifierUnits) {
   if ((unit as Common).Is("declare")) {
     const modifier = DeclareKeywordShape.FromBasicToken(unit as Common, context);
@@ -139,7 +183,9 @@ shape.Add(name);
 for (const member of members) {
   shape.Add(member);
 }
-if (modifierUnits.length > 0) {
+if (decorators.length > 0) {
+  shape.SignInToken(code[0]);
+} else if (modifierUnits.length > 0) {
   shape.SignInToken(modifierUnits[0]);
 } else {
   shape.SignInToken(keyword);

@@ -133,7 +133,11 @@ let defaultModifier:Token | null = null;
 if (keyword === "default" && modifier !== null) {
   const afterDefault = declStart + 1 < inner.Units.length ? inner.Units[declStart + 1] : null;
   const afterText = afterDefault !== null && afterDefault instanceof Common ? (afterDefault as Common).TempToString() : "";
-  if (afterText === "class" || afterText === "function" || afterText === "interface" || afterText === "enum") {
+  // `export default abstract class C {}` / `export default async function f() {}`：`default` 后面的
+  // 声明词也可能是 `abstract` / `async`（TS 的 children 是 [ExportKeyword, DefaultKeyword,
+  // AbstractKeyword/AsyncKeyword, …]），所以这两个也要认成「default 后跟声明」。
+  if (afterText === "class" || afterText === "function" || afterText === "interface"
+    || afterText === "enum" || afterText === "abstract" || afterText === "async") {
     const defaultUnit = unit as Common;
     defaultModifier = new DefaultKeywordShape(bracket.Template);
     if (defaultUnit.SourceRange.Start !== null) {
