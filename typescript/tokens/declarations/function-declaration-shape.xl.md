@@ -420,9 +420,11 @@ while (inner.At < inner.Units.length) {
     FunctionDeclarationShape.TakeParameterInitializer(host, inner, parameter, context);
     if (headIsPattern && parameter.ParameterName !== null) {
       // 解构模式形参的 Pos 要含前导 trivia（`f(/*c*/ [c])` 的 `[` 从注释前算起）。
+      // 有装饰器时 `groupStart` 停在第一个 `@`，前导 trivia 要接到**最后一个装饰器**之后
+      // （`f(@a { x }: T)` 的 `{` pos = 装饰器 a 的 End+1），所以用名字下标 `nameIndex` 回看一格。
       let groupPos = 0;
-      if (groupStart > 0) {
-        const previousUnit = inner.Units[groupStart - 1];
+      if (nameIndex > 0) {
+        const previousUnit = inner.Units[nameIndex - 1];
         if (previousUnit.SourceRange.End !== null) {
           groupPos = previousUnit.SourceRange.End.Index + 1;
         }

@@ -7,6 +7,7 @@ import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
 import { EnumMemberShape } from "../members/enum-member-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
@@ -189,7 +190,31 @@ if (group.length === 0) {
 }
 const nameUnit = group[0];
 let name:Token;
-if (nameUnit instanceof Common) {
+if (nameUnit instanceof Bracket && (nameUnit as Bracket).StartBracketChar === "[") {
+  // 计算名 `enum E { [k] }` / `[f()] = 1`：TS 的成员名是 ComputedPropertyName（内部装表达式），
+  // 与 class 成员计算名同一形态；`[` `]` 不进 children，区间覆盖整个方括号。
+  const computedBracket = nameUnit as Bracket;
+  const inner = new ExpressionBuilder(host.Template, context);
+  let innerBase = 0;
+  if (computedBracket.SourceRange.Start !== null) {
+    innerBase = computedBracket.SourceRange.Start.Index + 1;
+  }
+  inner.Load(computedBracket.Data, innerBase);
+  if (inner.Units.length === 0) {
+    throw new Error("枚举成员的计算名是空的");
+  }
+  const expression = inner.ParseExpression();
+  if (inner.At !== inner.Units.length) {
+    throw new Error("枚举成员的计算名没有读完");
+  }
+  const computed = new ComputedPropertyNameShape(host.Template);
+  computed.Add(expression);
+  computed.SignInToken(computedBracket);
+  computed.SignOutToken(computedBracket);
+  computed.Pos = pos;
+  computed.TryToClose(context);
+  name = computed;
+} else if (nameUnit instanceof Common) {
   if ((nameUnit as Common).IsNumber()) {
     // `enum E { 1 = 1 }`: TS 的名字是 NumericLiteral，不是 Identifier。
     const numeric = NumericLiteralShape.FromBasicToken(nameUnit as Common, context);

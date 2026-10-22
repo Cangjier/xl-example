@@ -9,6 +9,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -21,7 +22,7 @@ with { type: "json" }
 
 ## field Key:IdentifierShape | StringLiteralShape | null = null
 
-## field Value:StringLiteralShape | null = null
+## field Value:Token | null = null
 
 ## constructor:(template:Template)=>void
 
@@ -57,10 +58,19 @@ if (code[0] instanceof Common) {
   shape.Data.push(key);
   key.Parent = shape;
 }
-if (code.length >= 3 && code[1] instanceof Symbol && code[2] instanceof String) {
-  const value = StringLiteralShape.FromBasicToken(code[2] as String, context);
+// 值：TS 把 `:` 之后当**表达式**解析（`"json"` 是 StringLiteral；恢复形里也会是
+// Identifier / NumericLiteral / 对象 / 数组 / 二元表达式，甚至模板串 NoSubstitutionTemplateLiteral）。
+// 旧口径只认 `String` basic token，非字符串值整段丢掉 → AST 少了 value 子树，模板串还被错建成 StringLiteral。
+if (code.length >= 3 && code[1] instanceof Symbol && (code[1] as Symbol).Is(":")) {
   const colonEnd = code[1].SourceRange.End;
-  value.Pos = colonEnd !== null ? colonEnd.Index + 1 : -1;
+  const valuePos = colonEnd !== null ? colonEnd.Index + 1 : -1;
+  const valueUnits:Array<Token> = code.slice(2);
+  const valueBuilder = new ExpressionBuilder(code[2].Template, context);
+  valueBuilder.Load(valueUnits, valuePos);
+  const value = valueBuilder.ParseAssign();
+  if (valueBuilder.At !== valueBuilder.Units.length) {
+    throw new Error("import attribute 的值没有读完");
+  }
   shape.Value = value;
   shape.Data.push(value);
   value.Parent = shape;

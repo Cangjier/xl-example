@@ -12,6 +12,7 @@ import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
 import { SemicolonClassElementShape } from "../expressions/semicolon-class-element-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
+import { DotDotDotTokenShape } from "../punctuation/dot-dot-dot-token-shape.xl.md"
 import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
@@ -411,6 +412,16 @@ while (inner.At < inner.Units.length) {
     for (const modifier of modifiers) {
       parameter.Add(modifier);
     }
+    // 参数属性的 rest（`constructor(private ...a: A[])`）：parseDiagnostics=0，TS children 顺序是
+    // [修饰词, DotDotDotToken, Identifier, Type]。旧口径在修饰词后直接 ParseName，`...` 当名字 → 「缺少标识符」。
+    const propertyRestUnit = inner.Peek(0);
+    if (propertyRestUnit !== null && inner.IsText(propertyRestUnit, "...")) {
+      const propertyRestIndex = inner.At;
+      inner.At++;
+      const propertyRest = inner.SpanLeaf(new DotDotDotTokenShape(host.Template), propertyRestIndex);
+      parameter.RestToken = propertyRest;
+      parameter.Add(propertyRest);
+    }
     const propertyName = inner.ParseName();
     parameter.ParameterName = propertyName;
     parameter.Add(propertyName);
@@ -452,6 +463,41 @@ while (inner.At < inner.Units.length) {
   if (decorators.length > 0) {
     // Decorated plain parameter: children = Decorator(s), Identifier, [QuestionToken], Type;
     // the Parameter range starts at the first `@` (TS口径).
+    // 装饰器之后也可以是解构模式（`m(@a { x }: T)`）或 rest（`m(@a ...x: A[])`）：
+    // 这两种形态 TypeBuilder.ParseParameter 本来就会建，装饰器前缀上面已经吃过，这里补挂回最前。
+    const decoratedHead = inner.At < inner.Units.length ? inner.Units[inner.At] : null;
+    const decoratedIsPattern = decoratedHead instanceof Bracket
+      && ((decoratedHead as Bracket).StartBracketChar === "{" || (decoratedHead as Bracket).StartBracketChar === "[");
+    const decoratedIsRest = decoratedHead instanceof Symbol && (decoratedHead as Symbol).Is("...");
+    if (decoratedIsPattern || decoratedIsRest) {
+      const decoratedNameIndex = inner.At;
+      const decoratedParameter = inner.ParseParameter() as ParameterShape;
+      for (let i = decorators.length - 1; i >= 0; i--) {
+        decorators[i].Parent = decoratedParameter;
+        decoratedParameter.Data.unshift(decorators[i]);
+      }
+      const headDecorator = decorators[0];
+      if (headDecorator.SourceRange.Start !== null) {
+        decoratedParameter.SourceRange.Start = headDecorator.SourceRange.Start;
+      }
+      decoratedParameter.Pos = (headDecorator as ShapeToken).Pos;
+      ClassDeclarationShape.TakeParameterInitializer(host, inner, decoratedParameter, context);
+      if (decoratedIsPattern && decoratedParameter.ParameterName !== null) {
+        // 解构模式名的 Pos 含前导 trivia：取装饰器之后那一格（最后一个装饰器的 End+1）。
+        let groupPos = 0;
+        if (decoratedNameIndex > 0) {
+          const previousUnit = inner.Units[decoratedNameIndex - 1];
+          if (previousUnit.SourceRange.End !== null) {
+            groupPos = previousUnit.SourceRange.End.Index + 1;
+          }
+        } else if (bracket.SourceRange.Start !== null) {
+          groupPos = bracket.SourceRange.Start.Index + 1;
+        }
+        (decoratedParameter.ParameterName as ShapeToken).Pos = groupPos;
+      }
+      parameters.push(decoratedParameter);
+      continue;
+    }
     const parameter = new ParameterShape(host.Template);
     for (const decorator of decorators) {
       parameter.Add(decorator);

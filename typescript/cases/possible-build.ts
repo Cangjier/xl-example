@@ -197,3 +197,86 @@ interface Idef3 { new (a = 1): C }
 interface Iacc1 { get [k](): number }
 interface Iacc2 { set [k](v: number) }
 type Tacc1 = { get [k](): number }
+
+// ══ cover5 round5（possible build）：build 期提取错 ══
+// 一行一个用例；行内 `\n` 由 ast-json.mjs 还原。§5 口径：base 在前，trivia / 重复形变体在后。
+
+// A. 枚举计算名：TS 的 EnumMember.name 是 ComputedPropertyName（`[` `]` 不进 children、内部装表达式）。
+//    根因：EnumDeclarationShape.BuildMember 只认 Common / String 名字，`[k]` 直接抛「枚举成员的名字不是
+//    标识符、字符串或数字」。正确 build：`[` 括号内交 ExpressionBuilder 读表达式包成 ComputedPropertyName，
+//    区间覆盖整个方括号、Pos 取成员起点（含前导 trivia）；close：成员区间到名字 / 初始化器末尾。
+enum E5 { [k] }
+enum E5 { [k] = 1 }
+enum E5 { ["a"] }
+enum E5 { [0] }
+enum E5 { A = 1, [k] = 2, B = 3 }
+enum E5 { /*c*/ [k] /*d*/ = 1 }
+enum E5 { [k], [m] = 2 }
+
+// B. 尖括号断言里的嵌套泛型收口：`>>` / `>>>` / `>>>>` 是 basic token 的合符号，
+//    最后一个 `>` 属于断言自身，类型只能消费前 n-1 个。根因：ExpressionBuilder.ParseAngleType 拿
+//    「原单元数」当期望消费数，只有 `>>`（n=2）恰好相等，`>>>` 多一格 → 「尖括号断言里的类型没有读完」。
+//    正确 build：期望消费数 = 展开后 unit 数 - 1（切片含合符号时）。
+const x1 = <A<B<C>>>y;
+const x2 = <Array<Array<number>>>y;
+const x3 = <A<B<C<D>>>>y;
+const x4 = <A/*c*/<B<C>>>y;
+f(<A<B<C>>>y);
+function f() { return <A<B<C>>>y; }
+
+// C. import attribute 的值按表达式提取：TS 的 AssertEntry.value 是表达式（`"json"` 是 StringLiteral，
+//    恢复形里也会是 Identifier / NumericLiteral / 对象 / 数组 / 二元表达式 / 模板串）。
+//    根因：ImportAttributeShape.FromTokens 只认 String basic token → 非字符串值整段丢掉，
+//    模板串还被错建成 StringLiteral。正确 build：`:` 之后交 ExpressionBuilder.ParseAssign。
+import x1 from "m" with { type: json };
+import x2 from "m" with { type: 1 };
+import x3 from "m" with { type: `t` };
+import x4 from "m" with { type: 1 + 2 };
+import x5 from "m" with { type: [1] };
+import x6 from "m" with { type: { a: 1 } };
+
+// D. 参数装饰器之后的解构 / rest：TS decorator context 里 `@a` 后面顶层的 `[` 不是 element access，
+//    而是参数名（解构模式）的起点；装饰器的 children 只有表达式，Parameter 仍是 [Decorator, 模式, 类型]。
+//    根因：TypeBuilder.ParseDecorators 把 `a [x]` 当 element access 整段吃掉；class 侧 BuildParameters
+//    的「装饰过的参数」分支只 ParseName（解构模式 / `...` 直接「缺少标识符」）；function/class 解构模式的
+//    Pos 接到第一个 `@` 而不是最后一个装饰器之后。正确 build：装饰器表达式在顶层 `[` 处截断，模式/rest
+//    交 TypeBuilder.ParseParameter 再补挂装饰器，Pos = 最后一个装饰器的 End+1。
+function f1(@a { x }: T) {}
+function f6(@a /*c*/ { x }: T) {}
+class C2 { m(@a { x }: T) {} }
+class C3 { m(@a [x]: T) {} }
+class C4 { m(@a @b { x }: T) {} }
+class C5 { constructor(@a [x]: T) {} }
+class C7 { m(@a() [x]: T) {} }
+
+// E. 参数属性的 rest：TS children 顺序是 [修饰词, DotDotDotToken, Identifier, Type]（parseDiagnostics=0）。
+//    根因：class BuildParameters 的属性参数分支在修饰词后直接 ParseName，`...` 当名字 → 「缺少标识符」。
+//    正确 build：修饰词之后先认 `...`（DotDotDotToken，Pos 含前导 trivia），再读名字 / 可选 / 类型 / 默认值。
+class R1 { constructor(private ...a: A[]) {} }
+class R2 { constructor(readonly ...a: A[]) {} }
+class R3 { constructor(public ...a: A[]) {} }
+class R4 { constructor(private /*c*/ ...a: A[]) {} }
+
+// F. 对象字面量可选方法：TS 是 MethodDeclaration（children 顺序 name → QuestionToken →
+//    [TypeParameters] → params → [return type] → Block）。根因：名字后的 `?` 无人认领，落到属性 / 简写
+//    分支 → 「缺少标识符」；async / generator 形态则报「对象字面量成员缺少函数体」。
+//    正确 build：`?` / `?:` 后紧跟 `(` 或 `<` 时建 QuestionToken（只覆盖 `?` 一格）放在 name 之后。
+const o1 = { m?() {} };
+const o2 = { m?(a) {} };
+const o3 = { async m?() {} };
+const o4 = { *m?() {} };
+const o5 = { m? /*c*/ () {} };
+const o6 = { m?(): void {} };
+const o7 = { m?<T>(x: T): T { return x } };
+const o8 = { "a-b"?() {} };
+
+// G. 可选调用 + 显式类型参数（`a?.<T>(b)`）：TS 的 CallExpression children 顺序是
+//    [expression, QuestionDotToken, TypeArguments…, args…]（`(` / `)` 不投影）。
+//    根因：`?.` 分支只认 `?.(` / `?.[` / `?.name`，`<` 落进 ParseName → 「缺少标识符」。
+//    正确 build：`?.` 之后先用 AngleJudge.CanStart 判类型实参（`?.` 在 PredecessorAllows 白名单里），
+//    读完后要求紧跟实参括号。
+a?.<T>(b);
+a?.<T, U>(b, c);
+a?.<Array<T>>(b);
+const ox = a?.<T>(b);
+a?./*c*/<T>(b);

@@ -1636,8 +1636,18 @@ while (true) {
   const decoratorPos = this.Positions[atIndex];
   this.At++;
   const expressionBase = atToken.SourceRange.End === null ? decoratorPos : atToken.SourceRange.End.Index + 1;
+  // 装饰器表达式按 TS 的 decorator context 口径截断：`@a` 后面**顶层**的 `[` 不是 element access，
+  // 而是参数名（解构模式）的起点（`m(@a [x]: T)` 的 TS AST 是 Decorator(`a`) + ArrayBindingPattern）。
+  // `@a()` / `@a.b` / `@a(b)` 仍正常；`(...)` 是整块 Bracket，里面的 `[` 不在本层，不受影响。
+  const decoratorUnits:Array<Token> = [];
+  for (const item of this.Units.slice(this.At)) {
+    if (item instanceof Bracket && (item as Bracket).StartBracketChar === "[") {
+      break;
+    }
+    decoratorUnits.push(item);
+  }
   const decoratorBuilder = new ExpressionBuilder(this.Template, this.Context);
-  decoratorBuilder.Load(this.Units.slice(this.At), expressionBase);
+  decoratorBuilder.Load(decoratorUnits, expressionBase);
   if (decoratorBuilder.Units.length === 0) {
     throw new Error("参数装饰器缺少表达式");
   }
