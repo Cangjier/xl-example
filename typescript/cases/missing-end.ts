@@ -61,16 +61,18 @@ namespace N8 {\n  export const a = 1\n  export function f(): void\n}
 declare module "m3" {\n  export = y\n}
 declare module "m4" {\n  export as namespace X;\n}
 
-// 真实缺口（不提交红用例，core/** 未改，交 Lead 裁定）：ModuleBlock / namespace 体里的
-// `export as namespace` 成员只认 `;` 收口——三种无 `;` 形实测 CRASH「表达式没有读完」：
-//   `declare module "m" {\n  export as namespace X\n}` / `declare module "m" { export as namespace X }` /
-//   `namespace N { export as namespace X }`；同一条加上 `;` 即完全一致（探针 p2/p4 绿，见下 m4/m5）。
-// 属本类「块体没有换行/`}` 终结候选」；对照 docs/coverage-module-blocks.md:145 的分派只覆盖带 `;` 形。
+// 已修复（fix-missing-end）：ModuleBlock / namespace 体里的 `export as namespace` 原先只认 `;` 收口，
+// 三种无 `;` 形都 CRASH「表达式没有读完」；ModuleBlockShape.BuildMember 现按「名字单元即段末 +
+// 零宽合成 `;`」收口（与 import= / type 别名 / 顶层 source-file-end 的 isExportAsNamespace 同款），
+// 下面 m6 / m7 / X2 三条无分号形为活跃用例（m4 / X1 是带 `;` 对照）。
 // ── I：export as namespace（无分号收在文件末尾） ──
 declare namespace A {}\nexport as namespace A
 export as namespace JSON
 declare namespace B {\n  namespace C {\n    const x: number\n  }\n}\nexport as namespace B\nexport = B
 namespace X1 { export as namespace Y; }
+declare module "m6" {\n  export as namespace Z\n}
+declare module "m7" { export as namespace Z }
+namespace X2 { export as namespace Z }
 
 // ── C1 同族：export = / export default / export {} / export * 的行末（EOF）收口 ──
 const z = 1\nexport = z
