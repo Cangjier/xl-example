@@ -3,6 +3,7 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
@@ -17,6 +18,7 @@ import { FunctionDeclarationShape } from "../declarations/function-declaration-s
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { DefaultKeywordShape } from "../keywords/default-keyword-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ExportAssignmentShape } from "../declarations/export-assignment-shape.xl.md"
 import { ExportDeclarationShape } from "../declarations/export-declaration-shape.xl.md"
@@ -67,9 +69,53 @@ if (ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
   if (SourceFileEndPossibleShape.HasDecoratorPrefix(units, tokenIndex)) {
     return ShapeStates.Uncertain;
   }
+  // 被标语句（`lab: a` ⏎ `c;`）不是表达式语句：`lab: a` 只能由 StatementPossibleShape
+  // 按 LabeledStatement 建。ASI 判据把它当成「`a` 处结束的表达式语句」，于是终结候选 Accept
+  // 时普通候选还活着 → CatalogGuide 抛「终结候选与其它候选同时成立」。这里让位给语句候选。
+  if (SourceFileEndPossibleShape.HasLabelPrefix(units, tokenIndex)) {
+    return ShapeStates.Uncertain;
+  }
   return ShapeStates.Accept;
 }
 return ShapeStates.Reject;
+```
+
+## static method HasLabelPrefix:(units:Array<Token>, tokenIndex:int)=>bool
+
+本条语句（`tokenIndex` 之前那一段）是不是**带标签的语句头** `标识符 :`。
+是的话 `tokenIndex` 处不是「一条表达式语句在换行处结束」，而是被标语句的体刚结束时——
+`lab: a` ⏎ `c;` 里 TS 侧是 `LabeledStatement(lab, ExpressionStatement(a))`，这条语句只能由
+`StatementPossibleShape` 建，终结候选不许抢。
+
+做法：先按 `IsAsiBoundary` 的口径回到本条语句的头（越过本条的 basic token、跳过前导 trivia），
+再看头后面的第一个代码单元是不是 `:`。`a ? b : c` 的头是 `a`、后面是 `?`，所以不会误判。
+
+```ts
+const start = ItemUtil.ItemStart(units);
+let prev = tokenIndex - 1;
+while (prev >= start && units[prev].IsTriviaToken) {
+  prev--;
+}
+if (prev < start) {
+  return false;
+}
+let head = prev;
+while (head > start && units[head - 1].IsBasicToken) {
+  head--;
+}
+while (head < prev && units[head].IsTriviaToken) {
+  head++;
+}
+if (!(units[head] instanceof Common)) {
+  return false;
+}
+let afterHead = head + 1;
+while (afterHead < units.length && units[afterHead].IsTriviaToken) {
+  afterHead++;
+}
+return afterHead < units.length
+  && units[afterHead] instanceof Symbol
+  && (units[afterHead] as Symbol).Is(":");
 ```
 
 ## static method HasDecoratorPrefix:(units:Array<Token>, tokenIndex:int)=>bool
@@ -434,7 +480,21 @@ if (boundary > 0) {
   // （`已建前缀 + export 子句` 就是这样越界读到 undefined 的）。所以后缀先内部兜底成表达式语句。
   const suffixBuilt = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, suffixAt, context);
   if (!suffixBuilt) {
-    const suffix = ExpressionStatementShape.FromUnits(host, cursor, suffixAt, context, false);
+    // 后缀常以 `;` 结尾：`declare module "m"` ⏎ `z;` 的后缀就是 `z ;`。
+    // 这时要走 `requireSemicolon = true` 的入口（它会把 `;` 从表达式单元里切掉、End 停在 `;` 上）；
+    // 传 false 会把 `;` 当表达式单元，`ExpressionBuilder` 报「表达式语句没有读完」。
+    // 注意不能先按 false 建完再 `SignOut(semiEnd)`——`FromUnits` 已经签过 End，再签会抛
+    // `SourceRange.End has been setted`。
+    let suffixLast = suffixAt;
+    while (suffixLast > cursor && host.Data[suffixLast].IsTriviaToken) {
+      suffixLast--;
+    }
+    const suffixTailIsSemicolon = suffixLast >= cursor
+      && host.Data[suffixLast] instanceof Symbol
+      && (host.Data[suffixLast] as Symbol).Is(";");
+    const suffix = suffixTailIsSemicolon
+      ? ExpressionStatementShape.FromUnits(host, cursor, suffixLast, context, true)
+      : ExpressionStatementShape.FromUnits(host, cursor, suffixLast, context, false);
     host.Data.splice(cursor, suffixAt - cursor + 1, suffix);
     suffix.Parent = host;
   }
@@ -611,6 +671,71 @@ if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUn
   }
 }
 // `export default 1` 鏃犲垎鍙峰埌 EOF锛欳hildren 鍙湁琛ㄨ揪寮忥紙TS 涓?export/default 閮戒笉鏄妭鐐癸級鎴栧悕绉般€?
+// `export default function f(): void`（无体、无分号到 EOF）：TS 是带 export / default 修饰的
+// FunctionDeclaration（重载签名，children 顺序 ExportKeyword → DefaultKeyword → AsyncKeyword? → 名字 → 返回类型）。
+// `FunctionDeclarationShape.FromUnits` 不认 export / default，所以从 `function` / `async` 那一格建，
+// 再把 DefaultKeyword / ExportKeyword 依次插到 Data 最前。没有这一支，整条会落进
+// `isExportDefault` 的表达式路径，报「函数表达式缺少函数体」。
+// 有体的 `export default function f() {}` 由声明候选自己收口，不走这里。
+const isExportDefaultFunction = text === "export"
+  && code.length >= 5
+  && code[1] instanceof Common && (code[1] as Common).Is("default")
+  && code[2] instanceof Common
+  && ((code[2] as Common).Is("function")
+    || ((code[2] as Common).Is("async") && code.length >= 6
+      && code[3] instanceof Common && (code[3] as Common).Is("function")));
+if (isExportDefaultFunction
+  && !(lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{")) {
+  let pos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        pos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  const lastCodeEnd = code[code.length - 1].SourceRange.End;
+  if (lastCodeEnd === null) {
+    return false;
+  }
+  let overloadEnd = at;
+  if (!(lastUnit instanceof Symbol && (lastUnit as Symbol).Is(";"))) {
+    const overloadSemi = new Symbol(host.Template);
+    overloadSemi.SignIn(lastCodeEnd);
+    overloadSemi.AppendValueAndSignOut(";", lastCodeEnd);
+    host.Data.splice(at + 1, 0, overloadSemi);
+    overloadEnd = at + 1;
+  }
+  try {
+    const declared = FunctionDeclarationShape.FromUnits(host, codeAt[2], overloadEnd, context);
+    const defaultKeyword = new DefaultKeywordShape(host.Template);
+    if (code[1].SourceRange.Start !== null) {
+      defaultKeyword.SignIn(code[1].SourceRange.Start);
+    }
+    if (code[1].SourceRange.End !== null) {
+      defaultKeyword.SignOut(code[1].SourceRange.End);
+    }
+    defaultKeyword.Pos = code[0].SourceRange.End === null ? pos : code[0].SourceRange.End.Index + 1;
+    defaultKeyword.TryToClose(context);
+    declared.Data.unshift(defaultKeyword);
+    defaultKeyword.Parent = declared;
+    const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
+    (exportKeyword as ShapeToken).Pos = pos;
+    declared.Data.unshift(exportKeyword);
+    exportKeyword.Parent = declared;
+    (declared as ShapeToken).Pos = pos;
+    host.Data.splice(start, overloadEnd - start + 1, declared);
+    declared.Parent = host;
+    return true;
+  } catch (error) {
+    if (overloadEnd !== at) {
+      host.Data.splice(at + 1, 1);
+    }
+    return false;
+  }
+}
 const isExportDefault = text === "export"
   && code.length >= 3
   && code[1] instanceof Common
@@ -680,15 +805,21 @@ if (isExportAsNamespace) {
   namespaceExport.Parent = host;
   return true;
 }
-// 无体 ambient module 到 EOF：`declare module "m"`（无体、无分号）。
-// TS 的 ModuleDeclaration 在模块字符串处就完整（children 只有 DeclareKeyword + 字符串名），
-// 换行 / EOF 靠 ASI 收口。原实现只在「最后一块是 `{`」时建 ModuleDeclaration，无体形落进
-// ExpressionStatement 兜底报「表达式语句没有读完」；多条连排（`declare module "m"` ⏎ `class C {}`）
-// 时前缀递归同样走到这里。补零宽合成 `;` 后走 ModuleDeclarationShape.FromUnits 的无体分支
-// （terminatorIndex），与 `declare module "m";` 的建树口径一致。
-const isBodylessAmbientModule = text === "declare"
+// 无体 ambient module 到 EOF：`declare module "m"`（无体、无分号），以及不带 `declare` 的
+// `module "m"` / `module "m";`（TS 同为无体 ModuleDeclaration，children 只有字符串名）。
+// TS 的 ModuleDeclaration 在模块字符串处就完整，换行 / EOF 靠 ASI 收口。原实现只在「最后一块是 `{`」
+// 时建 ModuleDeclaration，无体形落进 ExpressionStatement 兜底报「表达式语句没有读完」；
+// 多条连排（`declare module "m"` ⏎ `class C {}`）时前缀递归同样走到这里。
+// 末尾没有 `;` 时补零宽合成 `;`，有真实 `;` 时直接用它（End 要含分号），
+// 再走 ModuleDeclarationShape.FromUnits 的无体分支（terminatorIndex）。
+const isDeclareBodylessModule = text === "declare"
   && code.length === 3
   && code[1] instanceof Common && (code[1] as Common).Is("module");
+const isQuotedBodylessModule = text === "module"
+  && code[1] instanceof String
+  && (code.length === 2
+    || (code.length === 3 && code[2] instanceof Symbol && (code[2] as Symbol).Is(";")));
+const isBodylessAmbientModule = isDeclareBodylessModule || isQuotedBodylessModule;
 if (isBodylessAmbientModule) {
   const moduleEnd = host.Data[at].SourceRange.End;
   if (moduleEnd === null) {
@@ -718,11 +849,14 @@ if (isBodylessAmbientModule) {
         subPos = unit.SourceRange.End.Index + 1;
       }
     }
-    const moduleSemi = new Symbol(host.Template);
-    moduleSemi.SignIn(moduleEnd);
-    moduleSemi.AppendValueAndSignOut(";", moduleEnd);
-    subCode.push(moduleSemi);
-    subPositions.push(subPos);
+    const lastCodeUnit = subCode[subCode.length - 1];
+    if (!(lastCodeUnit instanceof Symbol && (lastCodeUnit as Symbol).Is(";"))) {
+      const moduleSemi = new Symbol(host.Template);
+      moduleSemi.SignIn(moduleEnd);
+      moduleSemi.AppendValueAndSignOut(";", moduleEnd);
+      subCode.push(moduleSemi);
+      subPositions.push(subPos);
+    }
     const bodyless = ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
     host.Data.splice(start, at - start + 1, bodyless);
     bodyless.Parent = host;
@@ -822,9 +956,29 @@ const isImportEquals = text === "import"
 // `import … from "m"`（含 import type / 具名 / 命名空间 / 副作用）无分号到 EOF：
 // ImportDeclarationShape 有 FromUnits，末尾要求 `;`，这里补零宽合成 `;` 走它。
 const isImportClause = text === "import" && !isImportEquals;
+// `export import x = A.B` / `export import x = require("m")` 无分号到 EOF：
+// TS 是带 ExportKeyword 修饰的 ImportEqualsDeclaration。ImportEqualsDeclarationShape.FromUnits
+// 不认 export 前缀，所以从 `import` 那一格建，再把 ExportKeyword 插到 Data 最前
+//（与 isExportFunction 同款）。没有这一支，整条会落进 ExpressionStatement 兜底，
+// 报「表达式语句没有读完」（`export = a` ⏎ `export import x = A.B` 的后缀也是它）。
+const isExportImportEquals = text === "export"
+  && ((code.length >= 5
+    && code[1] instanceof Common && (code[1] as Common).Is("import")
+    && code[2] instanceof Common
+    && code[3] instanceof Symbol && (code[3] as Symbol).Is("="))
+    // `export import type x = require("m")`：`type` 是 typeOnly 属性，`=` 在 code[4]。
+    || (code.length >= 6
+      && code[1] instanceof Common && (code[1] as Common).Is("import")
+      && code[2] instanceof Common && (code[2] as Common).Is("type")
+      && code[3] instanceof Common
+      && code[4] instanceof Symbol && (code[4] as Symbol).Is("=")));
 // 函数声明：无体时最后一块是 `;`（补合成 `;`），有体时最后一块是 `{`（直接 FromUnits）。
+// `async function …` / `declare async function …` 同族（重载签名可以带 async；TS 只做语义检查）。
 const isFunction = text === "function"
-  || (text === "declare" && code.length >= 4 && code[1] instanceof Common && (code[1] as Common).Is("function"));
+  || (text === "declare" && code.length >= 4 && code[1] instanceof Common && (code[1] as Common).Is("function"))
+  || (text === "async" && code.length >= 2 && code[1] instanceof Common && (code[1] as Common).Is("function"))
+  || (text === "declare" && code.length >= 5 && code[1] instanceof Common && (code[1] as Common).Is("async")
+    && code[2] instanceof Common && (code[2] as Common).Is("function"));
 // `export function …` / `export declare function …` / `export async function …`：
 // FunctionDeclarationShape.FromUnits 只认 declare/async 前缀、不认 export，所以从 export 之后那一格建，
 // 再把 ExportKeyword 插到 Data 最前面（与 isExportVariable 同款）。没有这一支，`export declare function f(): B`
@@ -854,7 +1008,8 @@ const isExportFunction = exportFunctionStart >= 0;
 // 其余 `export …` 形式（`export { a }` / `export * from "m"` / `export type { T }` 等）：
 // 走 ExportDeclarationShape.FromUnits + 合成 `;`，在下面 isType/isImportEquals/isExportFunction 之后兜底。
 const isExportClause = text === "export";
-if (!isType && !isImportEquals && !isImportClause && !isFunction && !isExportFunction && !isExportClause) {
+if (!isType && !isImportEquals && !isImportClause && !isFunction && !isExportFunction
+  && !isExportImportEquals && !isExportClause) {
   return false;
 }
 if ((isFunction || isExportFunction) && lastUnit instanceof Bracket && (lastUnit as Bracket).StartBracketChar === "{"
@@ -901,6 +1056,34 @@ if (isImportEquals) {
   host.Data.splice(start, at - start + 2, imported);
   imported.Parent = host;
   return true;
+}
+if (isExportImportEquals) {
+  // 从 `import` 那一格建（ExportKeyword 不是 ImportEqualsDeclarationShape 的入参），
+  // 再把 ExportKeyword 插回 Data 最前、Pos 改到 export 起点——TS 的 Pos 含前导 trivia。
+  let exportPos = 0;
+  for (let index = start - 1; index >= 0; index--) {
+    if (!host.Data[index].IsTriviaToken) {
+      const previousEnd = host.Data[index].SourceRange.End;
+      if (previousEnd !== null) {
+        exportPos = previousEnd.Index + 1;
+      }
+      break;
+    }
+  }
+  try {
+    const imported = ImportEqualsDeclarationShape.FromUnits(host, codeAt[1], at + 1, context);
+    const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
+    (exportKeyword as ShapeToken).Pos = exportPos;
+    imported.Data.unshift(exportKeyword);
+    exportKeyword.Parent = imported;
+    (imported as ShapeToken).Pos = exportPos;
+    host.Data.splice(start, at - start + 2, imported);
+    imported.Parent = host;
+    return true;
+  } catch (error) {
+    host.Data.splice(at + 1, 1);
+    return false;
+  }
 }
 if (isImportClause) {
   try {

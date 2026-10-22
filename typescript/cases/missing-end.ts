@@ -134,3 +134,80 @@ import "m";\nimport "n";
 //   D/E（TS oracle 确认，不入尺子）：`export { a } from "m"\nwith { … }` → TS parseDiagnostics '(' expected；
 //     `import x from "m"\nassert { … }` → Unknown keyword or identifier（TS 6.0.3 只认 with，且换行后已 ASI）。
 //     全部 TS 非法，写注释 backlog，不建用例。
+
+// ══ cover5 round5（missing end）：语句体 / 语句尾的 ASI 收口通道 + 声明族在 EOF 的兜底分支 ══
+// 判据：TS 6.0.3 `ts.createSourceFile` 的 parseDiagnostics.length === 0，且本仓在修复前 CRASH 或 AST 不一致；
+// 探针 tmp/probe-missing-end.mjs + tmp/candidates-final.json（48 条，基线 47 红 → 0 红；另一条 baseline 已绿，未收录）。
+// 一行一个用例，行内 `\n` 由 ast-json.mjs 还原成真实换行。
+
+// ── 1) 语句体的 ASI 收口：ScanExpressionBody 只认 `;` / EOF `while (a) b` ⏎ `c;` 的体会一路吃下一条语句 ──
+// 何时 build：体在换行处结束（EndsAtLineBreak 成立）→ StatementScanner 收口 → StatementPossibleShape 建到 `b`。
+// build 提取：WhileStatement / IfStatement / ForStatement 等的 body 子形状；语句 End = 最后一个代码单元。
+// 何时 close：体的 ASI 边界——换行 + 前一个代码单元能收尾 + 当前单元不是续接符（与 ScanToSemicolon 同一张表）。
+// close 提取：End 停在 `b`；边界单元 `c` 不归本语句，留给下一条语句。
+while (a) b\nc;
+if (a) b\nc;
+for (;;) b\nc;
+for await (const x of y) b\nc;
+with (a) b\nc;
+// trivia / 重复形：行尾注释、块注释、空行、体换行、两条循环连排
+while (a) b // c\nc2;
+while (a) b /* c */\nc;
+while (a) b\n\nc;
+while (a)\nb\nc;
+while (a) b\nwhile (c) d\ne;
+// if / else 链：then 体与 else 体各自按 ASI 收口
+if (a) b\nelse c\nd;
+if (a) b\nelse if (c) d\ne;
+// 被标语句的体（`lab: a` 是 LabeledStatement，不是表达式语句：终结候选不许抢 ASI 边界）
+lab: a\nc;
+lbl: while (a) b\nc;
+// debugger：`;` / EOF 之外的换行也收口，否则整段 leftover 拖到 EOF 被一条语句吞掉
+debugger\nc;
+debugger\n\nc;
+debugger // c\nc2;
+a;\ndebugger\nc;
+class C {}\ndebugger\nc;
+
+// ── 2) return 的受限产生式：关键字后换行 = 没有操作数（TS: ReturnStatement[0,6] + 下一条语句） ──
+// 修前 ScanReturnOrThrow 只对 `throw` 认这条；`return` 会一路吃到下一条语句的 `;`，报「语句没有读完」。
+// 何时 build：`return` 之后到达的代码单元与本关键字之间有换行（含行注释换行）→ 收在关键字上。
+// close 提取：ReturnStatement 的 End = 关键字右边界（换行后的 `;` 仍归本条，End 含分号）。
+return\nc;
+return // c\nc2;
+while (a) return\nc;
+if (a) return\nc;
+lbl: return\nc;
+
+// ── 3) 无分号声明 + 后续语句：EOF 兜底的前缀/后缀递归里，后缀 `z ;` 曾按 requireSemicolon=false 建 → 抛错 ──
+// 何时 build：EOF 时 leftovers 里「声明前缀 + 表达式语句后缀」按最后一条语句起点切分，前缀递归建声明。
+// close 提取：后缀按 requireSemicolon=true 入口建（`;` 从表达式单元里切掉、End 停在 `;` 上）。
+import x = require("m")\nz;
+declare module "m"\nz;
+export as namespace A\nz;
+
+// ── 4) EOF 兜底的声明族分支：export import = / 无 declare 的字符串模块 / async 无体函数 / export default 无体函数 ──
+// export import x = …：TS 是带 ExportKeyword 的 ImportEqualsDeclaration，从 `import` 那格建、ExportKeyword 插回最前。
+// module "m" / module "m";：TS 是无体 ModuleDeclaration（children 只有字符串名），补/用 `;` 走无体分支。
+// async function f(): void：重载签名可带 async（TS 只做语义检查），与 `function f(): void` 同族。
+// export default function f(): void：带 export / default 修饰的 FunctionDeclaration，修饰词插回 Data 最前。
+export import x = A.B
+export import x = require("m")
+export import type x = A.B
+export import type x = require("m")
+export import x = A.B // c
+class C {}\nexport import x = A.B
+module "m"
+module "m";
+module "m"\nclass C {}
+async function f(): void
+declare async function f(): void
+async function f(): void\nclass C {}
+export default function f(): void
+export default function f(a: A): B
+export default function* g(): void
+export default async function f(): void
+export default function f(): void;
+export default function f(): void // c
+export default function f(): void\n
+export = a\nexport import x = A.B
