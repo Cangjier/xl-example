@@ -102,7 +102,10 @@ return false;
 ```ts
 const unit = code[at];
 if (unit instanceof String) {
-  return true;
+  // 反引号模板不是成员名：它只能续在上一条初始化器后面当标签模板
+  //（`class C { a = 1` ⏎ `` `t` ``}` 是**一个**成员、初始化器为 `1`t``，TS 不插 ASI）。
+  // 引号串才是成员名（`class C { a = 1` ⏎ `"s"` }` 的 `"s"` 是新成员）。
+  return (unit as String).StringChar !== "`";
 }
 if (unit instanceof Symbol) {
   return (unit as Symbol).Is("@");

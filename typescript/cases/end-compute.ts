@@ -239,3 +239,123 @@ function* g(){ yield*\n(x) }
 function* g(){ yield (x)\n(y) }
 while (a) { b = c\n }
 a = 1\nb = 2
+
+// ══ cover5 round5（end compute）：语句 / 类型的「终点格」判据补强 ══
+// 一轮把「上一表达式 / 类型已完整、换行后下一个单元接不上」的同一套判据接到四处：
+//   根终结候选 + 块级表达式语句（IsAsiBoundary）、变量语句 / return 操作数（窄版）、
+//   type alias 候选的 AsiEnd；并补两处「什么不算接不上」：yield 受限产生式、类成员模板续接。
+// 下面按族给 base + 换行变体 + 对照组（§5：base 在前）。
+
+// ── E1：箭头块体 / as / satisfies 不是调用位宿主 ⇒ 换行接 `(` `[` 模板是下一条语句 ──
+const f0 = () => {};
+x = () => {};
+x = () => {}\n(y)
+x = () => {}\n[0]
+x = () => {}\n`t`
+x = async () => {}\n(y)
+x = (a) => {}\n(y)
+x = () => { return 1 }\n(y)
+const f = () => {}\n(y)
+const f = () => {}\n[0]
+let f = () => {}\n(y)
+x = () => a as T\n(y)
+(x) => {}\n(y)
+{ x = () => {}\n(y) }
+// 对照组：concise body 之后调用位仍可续接（TS 不插 ASI）
+x = () => 1\n(y)
+x = () => 1\n[0]
+x = () => 1\n`t`
+const f = () => 1\n(y)
+x = () => a + b\n(y)
+x = () => ({a: 1})\n(y)
+
+// ── E2：块体里的表达式语句与根级同一时机收口（后缀 `++`/`--`/`!` 不是调用位/前缀宿主）──
+{ x++; }
+{ x++; y; }
+{ x++\n++y }
+{ x++\n--y }
+{ x++\n!y }
+{ x++\n~y }
+{ x++\n(y) }
+{ x++\n[y] }
+{ x++\n`t` }
+{ x--\n++y }
+{ x!\n++y }
+{ x as T\n(y) }
+{ const z = 1; x++\n++y }
+function f(){ x++\n++y }
+function f(){ x++\n--y }
+if (a) { b++\n++c }
+while (a) { x++\n++y }
+for(;;){x++\n++y}
+switch(x){case 1: x++\n++y}
+try { x++\n++y } catch (e) {}
+label: { x++\n++y }
+
+// ── E3：yield 受限产生式（关键字与操作数之间换行 ⇒ 本条 yield 无操作数、下一行新语句）──
+function* g(){ yield 1 }
+function* g(){ yield* x }
+function* g(){ yield\n(x) }
+function* g(){ yield\n[x] }
+function* g(){ yield\n`t` }
+function* g(){ yield\n/y/ }
+function* g(){ yield\n!x }
+function* g(){ yield\n-x }
+function* g(){ yield/*c*/\n(x) }
+function* g(){ yield (x)\n(y) }
+function* g(){ yield*\n(x) }
+function* g(){ yield 1\n  yield* other() }
+
+// ── E4：type alias 在行末 ASI 收口（类型已完整 + 换行 + 下一单元接不上）──
+type T = A;
+type T = A\nz;
+export type T = A\nz;
+type T = A\n(b)
+type T = A\nf
+type T = A\n1
+type T = A\n"s"
+type T = A\n`t`
+type T = A\n-1
+type T = A\n+B
+type T = A /* c */\n(b)
+type T = A // c\n(b)
+type T = A\n\n(b)
+{ type T = A\n(b) }
+{ type T = A\nf }
+function f(){ type T = A\n(b) }
+// 对照组：类型内部的跨行续接不能被切断
+type T = keyof\nA
+type T = A |\nB
+type T = A<B>\n(b)
+type T = <U>\n(a: U) => U
+type T = -/*c*/1 | 0 | 1
+type T = A\n[B]
+
+// ── E5：export 声明结构完整后，下一行的 `type` 不是延续词（行末 ASI）──
+export { a } from "m";
+export { a } from "m"\ntype T = A
+export { a } from "m"\ntype T = A;
+export * from "m"\ntype T = A
+export type { A } from "m"\ntype T = A
+// 对照组：仍是同一条声明的跨行延续
+export { a }\nfrom "m"
+export { a } from\n"m"
+export { a } from "m" with { type: "json" };
+
+// ── E6：class 成员没有分号时，反引号模板续接上一条初始化器（不切成新成员）──
+class C { a = 1; }
+class C { a = 1\n`t` }
+class C { a = b\n`t` }
+class C { a = 1 + 2\n`t` }
+class C { a = 1\n`t`\nb = 2 }
+class C { a = 1\n`s` = 2 }
+// 对照组：引号串是成员名
+class C { a = 1\n"s" }
+
+// ── E7：变量语句 / return 操作数的端点与表达式语句读同一判据 ──
+const a = x++;
+const a = x++\n++y
+const f = () => {};\nconst g = () => {};
+function f(){ return x; }
+function f(){ return x++\n++y }
+function f(){ return x + 1\n g() }

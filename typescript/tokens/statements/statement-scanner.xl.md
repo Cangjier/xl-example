@@ -7,6 +7,7 @@ import { Source } from "../../../core/syntax/source.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -331,8 +332,11 @@ for (let at = from; at < code.length; at++) {
   }
   // 换行 ASI：前一个代码单元能收住一条声明、当前单元接不上，就在这里收口——
   // 否则会把**下一条语句**的 `;` 也吞进来（`const last = …` ⏎ `f(...)` / 类型注解跨行读到下一个 `;`）。
-  // 与 `StatementBuilder.BuildExpressionStatement` / `BuildVariableStatement` 读同一套判据。
-  if (at > from && StatementScanner.EndsAtLineBreak(code[at - 1], code[at])) {
+  // 与 `StatementBuilder.BuildExpressionStatement` / `BuildVariableStatement` 读同一套判据；
+  // 表达式尾的细节（后缀 `++`/`--`、`=> {}` / `as` / `satisfies` 不是调用位宿主）交给
+  // `ExpressionStatementPossibleShape.IsUncontinuableTailBoundary`。
+  if (at > from && (StatementScanner.EndsAtLineBreak(code[at - 1], code[at])
+    || ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(code, at))) {
     if (StatementScanner.IsSymbol(code[at], ";")) {
       // 行首 `;` 后面同一行还有代码（`;(() => 1)()`）：这个 `;` 是下一条空语句，不归本声明。
       const afterSemi = at + 1 < code.length ? code[at + 1] : null;

@@ -15,12 +15,14 @@ import { ClassDeclarationShape } from "../declarations/class-declaration-shape.x
 import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
+import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
 import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
 import { BindingElementShape } from "../bindings/binding-element-shape.xl.md"
 import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
@@ -480,15 +482,34 @@ return shape;
 ## method BuildTypeAliasDeclaration:()=>Token
 
 块 / 被标体位置的 `type X = …`：交给 `TypeAliasDeclarationShape.FromUnits`，末单元是 `;` 或本段最后单元（无分号 ASI）。
+无分号时与根级的 `TypeAliasDeclarationPossibleShape` 读同一套收口判据（`=` 之后类型已完整 + 换行 +
+`IsAsiBoundary`）：`{ type T = A` ⏎ `(b) }` 的 `(b)` 是下一条语句，不能喂给类型解析。
 
 ```ts
 const first = this.At;
 let end = this.Units.length - 1;
-for (let at = this.At; at < this.Units.length; at++) {
-  if (this.IsSymbol(this.Units[at], ";")) {
+let seenEqual = false;
+let lastCode = first;
+for (let at = first; at < this.Units.length; at++) {
+  const unit = this.Units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (at > first && seenEqual && lastCode >= first
+    && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(this.Units, lastCode, at)
+    && TypeAliasDeclarationPossibleShape.CanEndTypeAt(this.Units[lastCode])
+    && TypeAliasDeclarationPossibleShape.IsAsiBoundary(unit)) {
+    end = lastCode;
+    break;
+  }
+  if (this.IsSymbol(unit, ";")) {
     end = at;
     break;
   }
+  if (this.IsSymbol(unit, "=")) {
+    seenEqual = true;
+  }
+  lastCode = at;
 }
 const hostLike:any = { Data: this.Units, Template: this.Template };
 const shape = TypeAliasDeclarationShape.FromUnits(hostLike, first, end, this.Context);
@@ -529,20 +550,43 @@ return this.Finish(shape, first, first);
 
 ## method BuildExpressionStatement:()=>Token
 
-体里的表达式语句：从当前下标读到本层 `;`（或段末）。
+体里的表达式语句：从当前下标读到本层 `;`（或段末）。换行边界读**与根级终结候选同一个**
+`ExpressionStatementPossibleShape.IsAsiBoundary`（`;` 之外的边界：后缀 `++`/`--`/`!` 后接
+`(` `[` 反引号模板、`as`/`satisfies`/箭头块体后接调用位、`x++` ⏎ `++y` 这类前缀运算），
+以及 `yield` 受限产生式（关键字后换行 ⇒ 本条语句在 `yield` 处结束）。
 
 ```ts
 const first = this.At;
 let last = -1;
 let asiEnd = -1;
-for (let at = first; at < this.Units.length; at++) {
-  if (this.IsSymbol(this.Units[at], ";")) {
-    last = at;
-    break;
+// yield 是受限产生式：`yield` 与操作数之间出现行终止符 ⇒ 本条语句在 `yield` 处收口
+// （`function* g(){ yield⏎(x) }` = `yield;` + `(x);`；块注释里的换行也算）。
+if (this.IsText(this.Units[first], "yield")) {
+  let afterYield = first + 1;
+  while (afterYield < this.Units.length && this.Units[afterYield].IsTriviaToken) {
+    afterYield++;
   }
-  if (at > first && StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])) {
-    asiEnd = at - 1;
-    break;
+  if (afterYield < this.Units.length
+    && ExpressionStatementPossibleShape.HasLineBreakBefore(this.Units, afterYield)) {
+    asiEnd = first;
+  }
+}
+if (asiEnd < 0) {
+  for (let at = first; at < this.Units.length; at++) {
+    if (this.IsSymbol(this.Units[at], ";")) {
+      last = at;
+      break;
+    }
+    // 老判据（`declare` ⏎ `const` 这类上下文关键字在下一行另起语句）与根级终结候选的
+    // IsAsiBoundary（后缀 `++`/`--`/`!` 后接调用位、`as`/`satisfies`/箭头块体后接调用位、
+    // `x++` ⏎ `++y` 这类前缀运算）取并集：两边各自覆盖对方没有的形态。
+    // 块体里的 units 还没有建形状，`limit` 必须传段首，否则 IsAsiBoundary 会一路走回
+    // 上一条语句的声明关键字（`{ const z = 1; a ⏎ (b) }` 的 `a` 不在声明头后面）。
+    if (at > first && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
+      || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
+      asiEnd = at - 1;
+      break;
+    }
   }
 }
 let statementLast = this.Units.length - 1;
@@ -666,6 +710,12 @@ while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusiv
   if (endExclusive > this.At) {
     const previousUnit = this.Units[endExclusive - 1];
     if (StatementBuilder.EndsAtLineBreak(previousUnit, currentUnit)) {
+      break;
+    }
+    // 表达式尾的细节（后缀 `++`/`--`、`=> {}` / `as` / `satisfies` 不是调用位宿主）
+    // 与根级 / 块级表达式语句读同一个判据：`const f = () => {}` ⏎ `(y)`、
+    // `const a = x++` ⏎ `++y` 都要在这里收口。
+    if (ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(this.Units, endExclusive)) {
       break;
     }
     // `const { [k]: v } = { a: 1 } as Record<string, number>` ⏎ `console.log(v)`：
@@ -1127,8 +1177,11 @@ let endExclusive = this.At;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {
   // 操作数写在下一行时按 ASI 收口（`return 1\n g()` 是 2 条语句）；续接符（`+` / `.` / `?` …）
   // 由 `ContinuesAcrossLine` 排除。关键字后换行的受限产生式在上面已经处理过，不受影响。
+  // 表达式尾的细节（后缀 `++`/`--`、`=> {}` / `as` / `satisfies` 不是调用位宿主）与
+  // 表达式语句 / 变量语句读同一个判据：`return x++` ⏎ `++y` / `return () => {}` ⏎ `(y)`。
   if (endExclusive > this.At
-    && StatementBuilder.EndsAtLineBreak(this.Units[endExclusive - 1], this.Units[endExclusive])) {
+    && (StatementBuilder.EndsAtLineBreak(this.Units[endExclusive - 1], this.Units[endExclusive])
+      || ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(this.Units, endExclusive))) {
     break;
   }
   endExclusive++;

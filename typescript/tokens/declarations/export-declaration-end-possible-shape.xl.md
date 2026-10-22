@@ -154,7 +154,11 @@ while (at < count) {
   }
   break;
 }
-if (word === "with" || word === "assert" || word === "from" || word === "as" || word === "type") {
+// 延续词：声明结构已完整（`IsCompleteAt`）之后还能把这一条接下去的只有
+// `with` / `assert`（import attributes）与 `from` / `as`（具名子句的模块说明符）。
+// **`type` 不在其中**：`export { a } from "m"` ⏎ `type T = A` 是两条语句（TS 在行末插 ASI）；
+// import 侧的延续词表早就不收 `type`，export 侧同口径。
+if (word === "with" || word === "assert" || word === "from" || word === "as") {
   return false;
 }
 return true;
