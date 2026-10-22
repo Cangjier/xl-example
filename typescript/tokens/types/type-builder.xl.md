@@ -1290,15 +1290,51 @@ if (!(unit instanceof Common) && !(unit instanceof String)) {
   throw new Error("不支持的对象类型成员");
 }
 // get / set 访问器：TS 节点是 GetAccessor / SetAccessor（children = 名字 + [参数] + [返回类型]）。
+// 名字可以是标识符，也可以是计算名 `get [k](): T`（TS 的 name 是 ComputedPropertyName）。
 const accessorText = this.TextOf(unit);
 if (accessorText === "get" || accessorText === "set") {
   const accessorNameUnit = this.Peek(1);
   const accessorBracketUnit = this.Peek(2);
-  if (accessorNameUnit !== null && accessorNameUnit instanceof Common
+  const accessorNameIsComputed = accessorNameUnit !== null && accessorNameUnit instanceof Bracket
+    && (accessorNameUnit as Bracket).StartBracketChar === "[";
+  if (accessorNameUnit !== null && (accessorNameUnit instanceof Common || accessorNameIsComputed)
     && accessorBracketUnit !== null && accessorBracketUnit instanceof Bracket
     && (accessorBracketUnit as Bracket).Is("(", ")")) {
     this.At++;
-    const accessorName = this.ParseName();
+    let accessorName:Token;
+    if (accessorNameIsComputed) {
+      // 计算名：方括号内容按表达式读，包成 ComputedPropertyName（与计算属性成员同一读取口径）。
+      const accessorNameBracket = accessorNameUnit as Bracket;
+      const accessorNameIndex = this.At;
+      this.At++;
+      const accessorInner = new ExpressionBuilder(this.Template, this.Context);
+      let accessorBase = 0;
+      if (accessorNameBracket.SourceRange.Start !== null) {
+        accessorBase = accessorNameBracket.SourceRange.Start.Index + 1;
+      }
+      accessorInner.Load(accessorNameBracket.Data, accessorBase);
+      if (accessorInner.Units.length === 0) {
+        throw new Error("访问器计算名是空的");
+      }
+      const accessorExpression = accessorInner.ParseExpression();
+      if (accessorInner.At !== accessorInner.Units.length) {
+        throw new Error("访问器计算名没有读完");
+      }
+      const accessorComputed = new ComputedPropertyNameShape(this.Template);
+      accessorComputed.Add(accessorExpression);
+      accessorExpression.Parent = accessorComputed;
+      if (accessorNameBracket.SourceRange.Start !== null) {
+        accessorComputed.SignIn(accessorNameBracket.SourceRange.Start);
+      }
+      if (accessorNameBracket.SourceRange.End !== null) {
+        accessorComputed.SignOut(accessorNameBracket.SourceRange.End);
+      }
+      accessorComputed.Pos = this.Positions[accessorNameIndex];
+      accessorComputed.TryToClose(this.Context);
+      accessorName = accessorComputed;
+    } else {
+      accessorName = this.ParseName();
+    }
     const accessorBracket = this.Peek(0) as Bracket;
     this.At++;
     const accessorParameters = this.ParseParameterList(accessorBracket);
@@ -1559,7 +1595,26 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     continue;
   }
-  parameters.push(inner.ParseParameter());
+  const parameter = inner.ParseParameter();
+  // 签名参数的默认值：`interface I { m(a = 1): void }`。TS 的 Parameter children 末尾是 Initializer，
+  // `=` 不进 children。class / 对象方法由各自的 BuildParameters + TakeParameterInitializer 收，
+  // 签名路径原先漏了这一步：`=` 留给下一轮 ParseParameter 继续 ParseName → 「缺少标识符」。
+  const initializerMark = inner.Peek(0);
+  if (initializerMark !== null && inner.IsText(initializerMark, "=")) {
+    inner.At++;
+    const initializerPos = inner.Positions[inner.At];
+    const initializerBuilder = new ExpressionBuilder(this.Template, this.Context);
+    initializerBuilder.Load(inner.Units.slice(inner.At), initializerPos);
+    const initializer = initializerBuilder.ParseAssign();
+    inner.At += initializerBuilder.At;
+    parameter.Add(initializer);
+    const initializerTail = inner.Units[inner.At - 1];
+    const initializerEnd = initializerTail.SourceRange.End;
+    if (initializerEnd !== null) {
+      parameter.SourceRange.End = initializerEnd;
+    }
+  }
+  parameters.push(parameter);
 }
 return parameters;
 ```

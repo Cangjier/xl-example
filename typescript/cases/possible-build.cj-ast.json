@@ -6777,6 +6777,391 @@
           ]
         }
       ]
+    },
+    {
+      "src": "interface Idef1 { m(a = 1): void }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 15,
+              "text": "Idef1"
+            },
+            {
+              "kind": "MethodSignature",
+              "pos": 17,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 20,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 21,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 23,
+                      "end": 25,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VoidKeyword",
+                  "pos": 27,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface Idef2 { m(a: T = 1): void }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 15,
+              "text": "Idef2"
+            },
+            {
+              "kind": "MethodSignature",
+              "pos": 17,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 20,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 21,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "TypeReference",
+                      "pos": 22,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "T"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "VoidKeyword",
+                  "pos": 30,
+                  "end": 35
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type Tdef1 = { (a = 1): void }",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 30,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 10,
+              "text": "Tdef1"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 12,
+              "end": 30,
+              "children": [
+                {
+                  "kind": "CallSignature",
+                  "pos": 14,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Parameter",
+                      "pos": 16,
+                      "end": 21,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 16,
+                          "end": 17,
+                          "text": "a"
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 19,
+                          "end": 21,
+                          "text": "1"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "VoidKeyword",
+                      "pos": 23,
+                      "end": 28
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface Idef3 { new (a = 1): C }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 15,
+              "text": "Idef3"
+            },
+            {
+              "kind": "ConstructSignature",
+              "pos": 17,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 23,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 24,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 26,
+                      "end": 28,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "TypeReference",
+                  "pos": 30,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 30,
+                      "end": 32,
+                      "text": "C"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface Iacc1 { get [k](): number }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 37,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 15,
+              "text": "Iacc1"
+            },
+            {
+              "kind": "GetAccessor",
+              "pos": 17,
+              "end": 35,
+              "children": [
+                {
+                  "kind": "ComputedPropertyName",
+                  "pos": 21,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 24,
+                      "text": "k"
+                    }
+                  ]
+                },
+                {
+                  "kind": "NumberKeyword",
+                  "pos": 28,
+                  "end": 35
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "interface Iacc2 { set [k](v: number) }",
+      "ast": [
+        {
+          "kind": "InterfaceDeclaration",
+          "pos": 0,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 9,
+              "end": 15,
+              "text": "Iacc2"
+            },
+            {
+              "kind": "SetAccessor",
+              "pos": 17,
+              "end": 36,
+              "children": [
+                {
+                  "kind": "ComputedPropertyName",
+                  "pos": 21,
+                  "end": 25,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 23,
+                      "end": 24,
+                      "text": "k"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 26,
+                  "end": 35,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 27,
+                      "text": "v"
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 28,
+                      "end": 35
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type Tacc1 = { get [k](): number }",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 10,
+              "text": "Tacc1"
+            },
+            {
+              "kind": "TypeLiteral",
+              "pos": 12,
+              "end": 34,
+              "children": [
+                {
+                  "kind": "GetAccessor",
+                  "pos": 14,
+                  "end": 32,
+                  "children": [
+                    {
+                      "kind": "ComputedPropertyName",
+                      "pos": 18,
+                      "end": 22,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 20,
+                          "end": 21,
+                          "text": "k"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "NumberKeyword",
+                      "pos": 25,
+                      "end": 32
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }
