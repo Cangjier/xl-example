@@ -165,7 +165,9 @@ while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
 // 子句自己的第一个单元（`type`，或名字 / 括号）；clause.Pos 要取它**前面**那一格。
 const clauseStart = cursor;
 let typeOnly = false;
-if (cursor < host.Data.length && host.Data[cursor] instanceof Common && (host.Data[cursor] as Common).Is("type")) {
+// `type` 不一定是类型修饰符：`import type from "m"` 里它是默认导入名（与 TS 的 lookahead 同判据）。
+if (cursor < host.Data.length && host.Data[cursor] instanceof Common && (host.Data[cursor] as Common).Is("type")
+  && ImportClausePossibleShape.IsTypePhaseModifier(host.Data[cursor])) {
   typeOnly = true;
   cursor++;
   while (cursor < host.Data.length && host.Data[cursor].IsTriviaToken) {
@@ -337,6 +339,123 @@ while (at < count) {
 }
 return !(word === "from");
 ```
+## static method IsTypePhaseModifier:(unit:Token)=>bool
+
+`import type …` 里的 `type` 是**类型相位修饰符**还是默认导入名，取决于它后面那一格
+（TS 的 `parseImportDeclarationOrImportEqualsDeclaration` 对 `type` 的 lookahead）：
+
+- 后面是 `{` / `*` → 修饰符（`import type { A }` / `import type * as ns`）；
+- 后面是标识符 → 修饰符（`import type A from "m"`）；
+- 后面是 `from` → **只有** `from` 之后还是 `from` 或 `=` 时才是修饰符
+  （`import type from from "m"` / `import type from = require(…)`）；
+  否则 `type` 就是默认导入名（`import type from "m"` = ImportClause.name "type"）；
+- 其它（`,` / 字符串 / `;` / 到头）→ 默认导入名（`import type, { A } from "m"`）。
+
+与 TS 同口径；`defer` 的同款判据见 `IsDeferPhaseModifier`。
+
+```ts
+const end = unit.SourceRange.End;
+if (end === null) {
+  return false;
+}
+const document = end.Document;
+const count = document.GetCount();
+let at = end.Index + 1;
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  break;
+}
+if (at >= count) {
+  return false;
+}
+const first = document.At(at).Value;
+if (first === "{" || first === "*") {
+  return true;
+}
+if (!((first >= "a" && first <= "z") || (first >= "A" && first <= "Z") || first === "_" || first === "$")) {
+  return false;
+}
+let word = "";
+while (at < count) {
+  const ch = document.At(at).Value;
+  if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
+    word += ch;
+    at++;
+    continue;
+  }
+  break;
+}
+if (word !== "from") {
+  return true;
+}
+// `type from …`：还要看 `from` 之后是不是 `from` / `=`。
+while (at < count) {
+  const ch = document.At(at).Value;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.At(at + 1).Value;
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.At(at).Value !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  break;
+}
+if (at >= count) {
+  return false;
+}
+if (document.At(at).Value === "=") {
+  return true;
+}
+let after = "";
+while (at < count) {
+  const ch = document.At(at).Value;
+  if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
+    after += ch;
+    at++;
+    continue;
+  }
+  break;
+}
+return after === "from";
+```
+
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts

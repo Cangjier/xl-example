@@ -135,7 +135,8 @@ let index = 1;
 let isTypeOnly = false;
 const keywordEnd = keyword.SourceRange.End;
 let childPos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
-if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("type")) {
+if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("type")
+  && ImportClausePossibleShape.IsTypePhaseModifier(code[index])) {
   isTypeOnly = true;
   const typeUnit = code[index] as Common;
   const typeEnd = typeUnit.SourceRange.End;

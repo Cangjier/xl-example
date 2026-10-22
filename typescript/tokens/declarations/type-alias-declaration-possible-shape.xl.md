@@ -221,7 +221,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (state.SeenEqual && state.LastCode >= 0
     && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(units, state.LastCode, at)
     && TypeAliasDeclarationPossibleShape.CanEndTypeAt(units[state.LastCode])
-    && TypeAliasDeclarationPossibleShape.IsAsiBoundary(unit)) {
+    && TypeAliasDeclarationPossibleShape.IsAsiBoundary(units, state.LastCode, at)) {
     state.Done = true;
     state.AsiEnd = true;
     if (state.DoneAt < 0) {
@@ -259,29 +259,99 @@ for (let at = from + 1; at < to; at++) {
 return false;
 ```
 
-## static method IsAsiBoundary:(unit:Token)=>bool
+## static method IsAsiBoundary:(units:Array<Token>, last:int, at:int)=>bool
 
-只在**明确的语句边界**上收口，避免把跨行还能续接的类型切断：
-- `[` 开的新语句（TS 的 `parsePostfixTypeOrHigher` 只在同一行吃下标访问，换行后的 `[` 是新语句）；
-- 常见语句首词（`export` / `import` / `declare` / `type` / `const` / `let` / `var` / `function` /
-  `class` / `interface` / `enum` / `namespace` / `module` / `abstract` / `async` / `if` / `for` /
-  `while` / `do` / `switch` / `try` / `return` / `throw` / `break` / `continue`）。
+换行处到来的这一格**不是类型续接符** ⇒ 上一条类型到这里已经完整，这里是下一条语句的起点。
+判据按**类型续接符**（而不是按语句关键字白名单）给出，因为类型之后的下一条语句可以是任何
+以表达式 / 标识符 / 模板 / `(` 开头的语句：
 
-其它单元（运算符、`(`、`,`、标识符续行、`extends`/`infer`/`keyof` 等类型续接）一律**不收口**。
+- 符号续接：`|` `&` `<` `>` `>>` `>>>` `.` `?` `:` `=>` `,` `=` `-`（联合 / 交叉 / 类型实参 /
+  成员名 / 条件类型 / 函数类型 / 声明列表 / 类型标注 / 负数字面量）；
+- 括号：`[` / `(` 是**新语句**（TS 的 `parsePostfixTypeOrHigher` 只在同一行吃下标访问；类型之后
+  不可能再跟调用参数）——但泛型函数类型的参数表例外：`type U = <U>` ⏎ `(a: U) => U` 的 `(`
+  仍是这个类型的一部分（`<` 紧跟在 `=` 之后）；`{` 不在这里判（函数体等由语句候选收口）；
+- 词续接：`extends` / `infer` / `keyof` / `typeof` / `readonly` / `unique` / `is` / `asserts` /
+  `import` / `new` / `in` / `out` / `abstract` / `as` / `satisfies`（前缀或中缀类型关键字）。
+
+其它单元（标识符 / 字面量 / 模板 / 语句关键字）都算语句边界。
 
 ```ts
+const unit = units[at];
 if (unit instanceof Bracket) {
-  return (unit as Bracket).StartBracketChar === "[";
+  const startChar = (unit as Bracket).StartBracketChar;
+  if (startChar === "[") {
+    return true;
+  }
+  if (startChar !== "(") {
+    return false;
+  }
+  // 泛型函数类型的参数表：`<T>` ⏎ `(a: T) => T` 的 `(` 不是新语句。
+  return !TypeAliasDeclarationPossibleShape.IsTypeParameterListTail(units, last);
+}
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  // 类型续接符：联合 / 交叉 / 类型实参 / 成员名 / 条件类型 / 函数类型 / 声明列表 / 类型标注。
+  return !(text === "|" || text === "&" || text === "<" || text === ">" || text === ">>"
+    || text === ">>>" || text === "." || text === "?" || text === ":" || text === "=>"
+    || text === "," || text === "=" || text === "-");
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
-  return text === "export" || text === "import" || text === "declare" || text === "type"
-    || text === "const" || text === "let" || text === "var" || text === "function"
-    || text === "class" || text === "interface" || text === "enum" || text === "namespace"
-    || text === "module" || text === "abstract" || text === "async" || text === "if"
-    || text === "for" || text === "while" || text === "do" || text === "switch"
-    || text === "try" || text === "return" || text === "throw" || text === "break"
-    || text === "continue";
+  // 类型位的前缀 / 中缀关键字：类型还能接着长。
+  return !(text === "extends" || text === "infer" || text === "keyof" || text === "typeof"
+    || text === "readonly" || text === "unique" || text === "is" || text === "asserts"
+    || text === "import" || text === "new" || text === "in" || text === "out"
+    || text === "abstract" || text === "as" || text === "satisfies");
+}
+return true;
+```
+
+## static method IsTypeParameterListTail:(units:Array<Token>, last:int)=>bool
+
+`last` 是 `>` / `>>` / `>>>`，且往回配对到的 `<` **紧跟在 `=` 之后** ⇒ 这是一个泛型函数类型 /
+泛型类型声明的参数表收尾，后面的 `(` 是参数表而不是新语句（`type U = <U>` ⏎ `(a: U) => U`）。
+
+```ts
+const tail = units[last];
+if (!(tail instanceof Symbol) || !((tail as Symbol).Is(">") || (tail as Symbol).Is(">>") || (tail as Symbol).Is(">>>"))) {
+  return false;
+}
+let depth = 0;
+let open = -1;
+for (let at = last; at >= 0; at--) {
+  const unit = units[at];
+  if (unit.IsTriviaToken || !(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === ">") {
+    depth++;
+    continue;
+  }
+  if (text === ">>") {
+    depth += 2;
+    continue;
+  }
+  if (text === ">>>") {
+    depth += 3;
+    continue;
+  }
+  if (text === "<") {
+    depth--;
+    if (depth <= 0) {
+      open = at;
+      break;
+    }
+  }
+}
+if (open < 0) {
+  return false;
+}
+for (let at = open - 1; at >= 0; at--) {
+  if (units[at].IsTriviaToken) {
+    continue;
+  }
+  return units[at] instanceof Symbol && (units[at] as Symbol).Is("=");
 }
 return false;
 ```
@@ -289,13 +359,23 @@ return false;
 ## static method CanEndTypeAt:(unit:Token)=>bool
 
 上一个代码单元能不能收住一个类型：普通标识符 / 字面量 / 括号单元都可以；
-只有「还等着操作数」的运算符（`=`、`|`、`&`、`<`、`?`、`:`、`=>`、`.`、`,`）不行。
+「还等着操作数」的运算符（`=`、`|`、`&`、`<`、`?`、`:`、`=>`、`.`、`,`）与**前缀类型关键字**
+（`keyof` / `typeof` / `readonly` / `unique` / `infer` / `new` / `abstract` / `asserts` / `import`）不行。
 
 ```ts
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
+  // `-` 是负数字面量类型的前缀（`type T = -1`），还在等操作数。
   return !(text === "=" || text === "|" || text === "&" || text === "<"
-    || text === "?" || text === ":" || text === "=>" || text === "." || text === ",");
+    || text === "?" || text === ":" || text === "=>" || text === "." || text === ","
+    || text === "-");
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  // 前缀类型关键字还在等操作数：`type T = keyof` ⏎ `A` 里的 `A` 是同一个类型。
+  return !(text === "keyof" || text === "typeof" || text === "readonly" || text === "unique"
+    || text === "infer" || text === "new" || text === "abstract" || text === "asserts"
+    || text === "import" || text === "extends" || text === "assert");
 }
 return true;
 ```

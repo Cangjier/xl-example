@@ -125,3 +125,88 @@ export const\nconst x = 1
 export\nconst x = 1
 export\nconst
 export default\n1
+
+// ══ cover5 round5（possible compute）：上下文关键字双角色 / 换行 ASI 的调用位判据 / 类型别名收口 / import type ══
+// 每条都在 TS 6.0.3 `parseDiagnostics.length === 0` 下真红过（基线：crash 或静默错树），修复后转绿。
+// 共同根因：普通候选的 `ComputeByIndex` 该 Reject 没 Reject（把下一语句吃进来 → 静默错树）或
+// 该 Accept 没 Accept（等到 EOF → crash）；判据没有与 TS 的解析结果对齐，也没有与同类候选读同一个函数。
+// 修法见 docs/cover5-possible-compute.md：StatementScanner 增 StartsBinding /
+// StartsUsingDeclaration / IsCallPositionBlocked（与 ExpressionStatementPossibleShape.IsAsiBoundary 共用）；
+// ExpressionStatement 候选补 DualStage（let/using/type 双角色）；TypeAliasDeclaration 的 ASI 判据改成
+// 「不是类型续接符」；ImportClause 的 `type` 按 TS lookahead 区分修饰符 / 默认导入名。
+// §5 口径：base 在前，变体（换行 / trivia / 重复形）在后。
+
+// ── let / using：上下文关键字当标识符（赋值 / 标签 / 调用 / 成员访问 / 一元 / 逗号） ──
+let = 1;
+let = 1;\nlet = 2;
+let = 1\nlet = 2;
+let = 1\na();
+let: 1
+let\n: 1
+let: 1\na();
+let\n: 1\nlet = 2;
+let (a);
+let.x;
+let += 1;
+let + 1;
+let ? a : b;
+let, x;
+using = 1;
+using = 1\nx = 2;
+using: 1
+using\n: 1
+using\nx = y;
+await using;
+
+// ── let / using / type：类型位的双角色（语句体的换行 ASI 不能被吞） ──
+type = 1\na();
+type = 1\n(a);
+
+// ── as / satisfies 的类型之后换行接调用位：语句到此结束（ASI） ──
+const x = a as T\n(b);
+const x = a as T\n[b];
+const a = b as T\n[c];
+const x = a satisfies T\n(b);
+let x = a as T\n(b);
+var x = a as T\n(b);
+const x: A = a as T\n(b);
+declare const x: A = a as T\n(b);
+const x = a as T & U\n(b);
+const x = a as unknown as T\n(b);
+const a = b as T\n(c); const d = e as U\n(f);
+
+// ── 表达式语句根：箭头块体 / as 类型之后换行接调用位（TS 插 ASI） ──
+x = a as T + b\n(c);
+x = a as T[]\n(c);
+x = a as T<U>\n(c);
+x = a as (T)\n(c);
+x = () => {}\n(1);
+x = () => 1\n(1);
+x = async () => {}\n(1);
+() => {}\n(1);
+async () => {}\n(1);
+const x = () => {}\n(b);
+const x = () => 1\n(b);
+const x = 1, f = () => {}\n(1);
+
+// ── 类型别名：类型之后的换行边界（表达式语句 / 模板 / 括号 / 标识符） ──
+type T = A\n(b);
+type T = A | B\n(C);
+type T = (A)\n(B);
+type T = A<B>\n(C);
+type T = A[]\n(B);
+type T = { a: 1 }\n(B);
+type T = A\na();
+type T = A\n`t`;
+type T = A\n`a${B}c`;
+
+// ── import type：`type` 是类型修饰符还是默认导入名（TS 的 lookahead） ──
+import type from 'm';
+import type\nfrom 'm';
+import type, { A } from 'm';
+import type from 'm'\nimport type from 'n';
+
+// ── 语句体表达式换行 ASI（if / while / 标签体之后的下一条语句不被吞掉） ──
+if (a) b\nc();
+while (a) b\nc();
+l: x\ny();
