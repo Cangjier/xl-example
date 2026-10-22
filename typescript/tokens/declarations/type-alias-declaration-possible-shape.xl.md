@@ -15,6 +15,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -252,28 +253,23 @@ return ShapeStates.Uncertain;
 
 ## static method HasLineBreakBetween:(units:Array<Token>, from:int, to:int)=>bool
 
-`from` 与 `to` 之间（不含两端）有没有换行。按**源位置**在两个代码单元之间找 `\n` / `\r`：
-块体 / 体里的 `Units` 不一定带 trivia 单元（`StatementBuilder` 的块数据只有代码单元），
-只扫 trivia 单元会在那里永远判出「没有换行」；行注释 / 块注释里的换行同样算。
+`from` 与 `to` 之间（不含两端）有没有换行。按**源位置**在两个代码单元之间找行终止符
+（LF / CR / U+2028 / U+2029，见 `LineTerminator`）：块体 / 体里的 `Units` 不一定带 trivia 单元
+（`StatementBuilder` 的块数据只有代码单元），只扫 trivia 单元会在那里永远判出「没有换行」；
+行注释 / 块注释里的换行同样算。
 
 ```ts
 const left = units[from].SourceRange.End;
 const right = units[to].SourceRange.Start;
+if (LineTerminator.HasBetween(left, right)) {
+  return true;
+}
 if (left !== null && right !== null) {
-  const document = left.Document;
-  let at = left.Index + 1;
-  while (at < right.Index) {
-    const ch = document.At(at).Value;
-    if (ch === "\n" || ch === "\r") {
-      return true;
-    }
-    at++;
-  }
   return false;
 }
 for (let at = from + 1; at < to; at++) {
   const unit = units[at];
-  if (unit.IsTriviaToken && ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+  if (unit.IsTriviaToken && LineTerminator.HasLineBreakUnit(unit)) {
     return true;
   }
 }

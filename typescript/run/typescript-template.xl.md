@@ -7,6 +7,7 @@ import { Bracket } from "../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
+import { LineTerminator } from "./line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -130,23 +131,10 @@ return at;
 ## static method HasLineBreakBetween:(left:Token, right:Token)=>bool
 
 两个代码单元的原文之间有没有换行（块注释里的换行也算）。
+行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-const from = left.SourceRange.End;
-const to = right.SourceRange.Start;
-if (from === null || to === null) {
-  return false;
-}
-const document = from.Document;
-let cursor = from.Index + 1;
-while (cursor < to.Index) {
-  const ch = document.At(cursor).Value;
-  if (ch === "\n" || ch === "\r") {
-    return true;
-  }
-  cursor++;
-}
-return false;
+return LineTerminator.HasBetween(left.SourceRange.End, right.SourceRange.Start);
 ```
 
 ## static method SlashIndex:(units:Array<Token>, index:int)=>int

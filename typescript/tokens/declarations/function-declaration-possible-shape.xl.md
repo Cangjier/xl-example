@@ -17,6 +17,7 @@ import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -298,60 +299,20 @@ return ShapeStates.Uncertain;
 
 `at` 是 `function` 那一格；看前一个非 trivia 单元（`declare`）与它之间有没有换行。
 TS 用换行触发 ASI，把 `declare` 拆成独立的 ExpressionStatement，所以这里必须区分。
+行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-let previous = at - 1;
-while (previous >= 0 && units[previous].IsTriviaToken) {
-  previous--;
-}
-if (previous < 0) {
-  return true;
-}
-const from = units[previous].SourceRange.End;
-const to = units[at].SourceRange.Start;
-if (from === null || to === null) {
-  return true;
-}
-const document = from.Document;
-let cursor = from.Index + 1;
-while (cursor < to.Index) {
-  const ch = document.At(cursor).Value;
-  if (ch === "\n" || ch === "\r") {
-    return false;
-  }
-  cursor++;
-}
-return true;
+return !LineTerminator.HasBefore(units, at);
 ```
 
 ## static method LineBreakBefore:(units:Array<Token>, at:int)=>bool
 
 `at` 是 statement word 那一格；看前一个非 trivia 单元与它之间有没有换行（空白块与块注释里的换行都算）。
 ASI 用：`declare function f(): void\nclass C {}` 在 `class` 处结束前一条声明。
+行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-let previous = at - 1;
-while (previous >= 0 && units[previous].IsTriviaToken) {
-  previous--;
-}
-if (previous < 0) {
-  return false;
-}
-const from = units[previous].SourceRange.End;
-const to = units[at].SourceRange.Start;
-if (from === null || to === null) {
-  return false;
-}
-const document = from.Document;
-let cursor = from.Index + 1;
-while (cursor < to.Index) {
-  const ch = document.At(cursor).Value;
-  if (ch === "\n" || ch === "\r") {
-    return true;
-  }
-  cursor++;
-}
-return false;
+return LineTerminator.HasBefore(units, at);
 ```
 
 ## static method IsDecoratedDeclarationStart:(units:Array<Token>, at:int)=>bool

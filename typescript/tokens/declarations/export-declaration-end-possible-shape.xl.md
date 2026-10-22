@@ -11,6 +11,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { UnitToken } from "../../../core/syntax/unit-token.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -104,12 +105,13 @@ let at = end.Index + 1;
 let lineBreak = false;
 while (at < count) {
   const ch = document.At(at).Value;
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\v" || ch === "\f") {
+  // 行终止符：LF / CR / U+2028 / U+2029（cover8-A，统一走 LineTerminator）。
+  if (LineTerminator.IsLineTerminator(ch)) {
+    lineBreak = true;
     at++;
     continue;
   }
-  if (ch === "\n") {
-    lineBreak = true;
+  if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
@@ -120,7 +122,7 @@ while (at < count) {
       // `export { a } // c` ⏎ `from "m"` 必须与块注释 / 无注释走同一套判据，否则在这里
       // 提前 Accept 会与还活着的普通候选在同一格撞 CatalogGuide 共存。
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && !LineTerminator.IsLineTerminator(document.At(at).Value)) {
         at++;
       }
       continue;

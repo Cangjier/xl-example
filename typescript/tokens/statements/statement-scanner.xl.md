@@ -9,6 +9,7 @@ import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
 # namespace cangjie
@@ -930,6 +931,7 @@ return StatementScanner.Mismatch();
 
 两个 token 的原始文本之间（`left.End.Index + 1` 到 `right.Start.Index - 1`）有没有换行；
 块注释里的换行也算换行。用于 `declare` 与变量关键字之间：同一行才是同一个 ambient 变量语句。
+行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
 const from = left.SourceRange.End;
@@ -937,16 +939,7 @@ const to = right.SourceRange.Start;
 if (from === null || to === null) {
   return true;
 }
-const document = from.Document;
-let cursor = from.Index + 1;
-while (cursor < to.Index) {
-  const ch = document.At(cursor).Value;
-  if (ch === "\n" || ch === "\r") {
-    return false;
-  }
-  cursor++;
-}
-return true;
+return !LineTerminator.HasBetween(from, to);
 ```
 
 ## static method NextChar:(last:Source | null)=>string

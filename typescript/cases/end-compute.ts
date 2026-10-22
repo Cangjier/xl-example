@@ -359,3 +359,46 @@ const f = () => {};\nconst g = () => {};
 function f(){ return x; }
 function f(){ return x++\n++y }
 function f(){ return x + 1\n g() }
+// ══ cover8（U+2028/2029 ASI）：LS/PS 是 ECMAScript 行终止符，参与换行断句 ══
+// 探针：tmp/probe-asi.mjs（56 条，TS 6.0.3 diag 全 0）：修前 31 红（crash / 并吞下一语句），修后 0 红。
+// 根因：ts 层各处「是否换行」判据只认 \n / \r（expression-statement 的 HasLineBreak/HasLineBreakBefore、
+//   statement-builder 的 HasLineBreakAfter、function-declaration 的 LineBreakBefore/NoNewlineBefore、
+//   expression-builder 的 ParseYield、statement-scanner 的 NoLineBreakBetween、member-boundary /
+//   typescript-template 的 HasLineBreakBetween、import/export end 的 CanEndAt、type-alias 的
+//   HasLineBreakBetween）；修法：统一到 typescript/run/line-terminator.xl.md 的 LineTerminator
+//   （LF / CR / U+2028 / U+2029，CRLF 算一次），core 零改动。
+// 写法：LS/PS 用行内**字面字符**（reader 只按 LF 切行，且会 trim 行首尾的 LS/PS）。
+// base：LF 对照（行为不变）
+function f(){ return\n1; }
+a\nb
+const a = 1;\nconst b = 2;
+function* g(){ yield\n(x) }
+function f(){ return 1; }
+function f(){ return 1; }
+function f(){ return ; }
+function f(){ return 1 2; }
+a b
+a b
+a +b
+a ++b
+a++ b
+a !b
+const a = 1; const b = 2;
+const a = 1; const b = 2;
+let a = 1 let b = 2
+type T = A z;
+import x from "m" import y from "n"
+export { a } from "m" type T = A
+{ a b }
+function f(){ a b }
+function f(){ x++ ++y }
+if (a) { b c }
+while (a) { b c }
+switch (x) { case 1: a b }
+function* g(){ yield (x) }
+function* g(){ yield x }
+while (a) { break label }
+while (a) { continue label }
+do f() while (a)
+x = () => {} (y)
+class C { a = 1 `t` }

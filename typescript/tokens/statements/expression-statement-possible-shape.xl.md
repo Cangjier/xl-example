@@ -17,6 +17,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 ```
 
@@ -186,17 +187,10 @@ return text === "import"
 
 这个 trivia 单元里有没有换行。空白块看 `Temp`；区域注释看 `Tmp`——**块注释里的换行同样是换行**
 （`a /* \n */ ++b` 与 `a \n ++b` 一样断句）。行注释自己不包含换行（换行是它后面那个空白块）。
+行终止符口径见 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-if (unit instanceof WrapSymbol) {
-  const text = (unit as WrapSymbol).TempToString();
-  return text.includes("\n") || text.includes("\r");
-}
-if (unit instanceof AreaAnnotation) {
-  const text = (unit as AreaAnnotation).Tmp;
-  return text.includes("\n") || text.includes("\r");
-}
-return false;
+return LineTerminator.HasLineBreakUnit(unit);
 ```
 
 ## static method CanEndExpression:(unit:Token)=>bool
@@ -612,39 +606,12 @@ return StatementScanner.IsCallPositionBlocked(units, last);
 ## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool
 
 `tokenIndex` 之前紧邻的那段 trivia 里有没有换行（块注释里的换行也算）。按**源位置**在
-前一代码单元与当前单元之间找 `\n` / `\r`：块体 / 体里的 `Units` 不一定带 trivia 单元
-（`StatementBuilder` 的块数据只有代码单元），只扫 trivia 单元会在那里永远判出「没有换行」。
+前一代码单元与当前单元之间找行终止符（LF / CR / U+2028 / U+2029，见 `LineTerminator`）：
+块体 / 体里的 `Units` 不一定带 trivia 单元（`StatementBuilder` 的块数据只有代码单元），
+只扫 trivia 单元会在那里永远判出「没有换行」。
 
 ```ts
-if (tokenIndex < 1) {
-  return false;
-}
-let previous = tokenIndex - 1;
-while (previous >= 0 && units[previous].IsTriviaToken) {
-  previous--;
-}
-if (previous < 0) {
-  return false;
-}
-const left = units[previous].SourceRange.End;
-const right = units[tokenIndex].SourceRange.Start;
-if (left !== null && right !== null) {
-  const document = left.Document;
-  let at = left.Index + 1;
-  while (at < right.Index) {
-    const ch = document.At(at).Value;
-    if (ch === "\n" || ch === "\r") {
-      return true;
-    }
-    at++;
-  }
-}
-for (let at = tokenIndex - 1; at > previous; at--) {
-  if (ExpressionStatementPossibleShape.HasLineBreak(units[at])) {
-    return true;
-  }
-}
-return false;
+return LineTerminator.HasBefore(units, tokenIndex);
 ```
 
 ## static method IsExpressionTail:(unit:Token)=>bool
