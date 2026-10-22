@@ -555,7 +555,11 @@ if (end < 0) {
   throw new Error("类声明缺少类体");
 }
 const hostLike:any = { Data: this.Units, Template: this.Template };
-const allowAnonymous = this.AllowAnonymousClass;
+// TS 的静默恢复：语句 / 块体位置的 `class {}`（无名字）parseDiagnostics=0，AST 造无名字的
+// ClassDeclaration（`export default class {}` 之外还有块体形，end-close-analysis §7 当时只登记了顶层形；
+// cover9 用户裁定：追 TS 恢复 AST）。判据只看 `class` 关键字后面那个代码单元：类体括号 / extends /
+// implements ⇒ 没有名字。export default 路径仍走旧的 AllowAnonymousClass 开关。
+const allowAnonymous = this.AllowAnonymousClass || ClassDeclarationShape.HasNoName(this.Units, first, end);
 this.AllowAnonymousClass = false;
 const shape = allowAnonymous
   ? ClassDeclarationShape.FromUnitsAllowAnonymous(hostLike, first, end, this.Context)

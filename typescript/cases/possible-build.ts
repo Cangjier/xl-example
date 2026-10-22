@@ -280,3 +280,37 @@ a?.<T, U>(b, c);
 a?.<Array<T>>(b);
 const ox = a?.<T>(b);
 a?./*c*/<T>(b);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// cover9/possbuild-class：块体 / 语句位匿名 `class {}` 的 TS 静默恢复 AST（用户已裁定追恢复形）
+// ═══════════════════════════════════════════════════════════════════════════
+// 实测：TS 6.0.3 `parseDiagnostics=0`，AST 是**没有名字的 ClassDeclaration**（TS 恢复产物）；
+// 本仓修前 crash「class declaration requires a name」。根因：statement-builder 的
+// BuildClassDeclaration 只在 export default 路径打开 AllowAnonymousClass，块内匿名类走
+// ClassDeclarationShape 的 allowAnonymous=false 分支抛错；namespace 体走 ModuleBlockShape 同一缺口。
+// 正确 build：语句位 / 块体位 `class` 后没有名字（类体括号 / extends / implements 紧跟关键字）时按
+// FromUnitsAllowAnonymous 建**无名 ClassDeclaration**；close：区间从 class（含修饰词/装饰器）到类体 `}`。
+// base = 函数体内的裸匿名 class：
+function f(){ class {} }
+// 变体：类体成员 / heritage / class 与体之间换行
+function f(){ class { m() {} } }
+function f(){ class extends B {} }
+function f(){ class\n{} }
+// 变体：语句位（裸块 / if 块 / if 体 / while 体）
+{ class {} }
+if (a) { class {} }
+if (a) class {}
+while (a) class {}
+// 变体：方法体内 / namespace 体内（ModuleBlockShape 同判据）
+class C { m(){ class {} } }
+namespace N { class {} }
+namespace N { class { m() {} } }
+// 变体：匿名 class 之后还有语句 / 前面有注释 / 两个连排（重复形）
+function f(){ class {}\nfoo() }
+function f(){ // c\nclass {} }
+function f(){ class {}\nclass {} }
+// 变体：修饰词 / 装饰器前缀的匿名 class，与裸块内的 heritage 形
+{ abstract class {} }
+function f(){ @dec class {} }
+{ class extends B {} }
+function f(){ class implements I {} }
