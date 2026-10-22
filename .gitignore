@@ -6,3 +6,4 @@ build
 # 依赖与本地工具
 node_modules
 .tools
+tmp
