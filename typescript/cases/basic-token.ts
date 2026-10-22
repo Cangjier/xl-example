@@ -168,3 +168,32 @@ const﻿b8 = 3;
 // 13. 已探明**无缺口**、不必再探的族（证据同上）：HTML 注释 `<!--`/`-->`（TS 与 cj 一致；TS 自身多数非法）、
 //     CRLF、BOM 任意位置（除 shebang 行尾见 8/9）、`\u{…}` 常规 1–6 hex、U+200C/U+200D 标识符、
 //     regex 起点上下文（控制头 `)`/else/do/`}`/=>/yield/await/case 后）、数字分隔符 30 条合法形、`$` 与 `\u0024`。
+
+// ══ cover5 round5（basic token）：ECMAScript 全空白集（已修，只动 typescript 层）══
+// 探针：tmp/probe-r6.mjs（106 输入，TS 6.0.3 口径）；修前本段 13 条 ws 形 crash / diff，修后全绿。
+// 根因：core 的 `SymbolTemplate.IsWhiteSpace` 只认空格 / \t / \r / \n（core/syntax/templates/symbol-template.xl.md:222-238）；
+// 修法：`typescript/run/typescript-symbol-template.xl.md` 的 `TypeScriptSymbolTemplate.IsWhiteSpace` 覆写
+//       增补 ECMAScript WhiteSpace + LineTerminator 全集；U+FEFF 仍归 `Bom` basic token，不在空白表里。
+// 写法：这些字符会被 JS 的 `trim()` 从行首/行尾吃掉，所以一律放在行中间。
+// base：普通空格分隔的两条语句（受影响字符只是替换这个空格）
+const wsb0 = 1; const wsb1 = 2;
+// NBSP（U+00A0）：语句之间 / 关键字与名字之间 / `=` 与值之间
+const wa = 1; const wb = 2;
+const wc = 1;
+const wd = 1;
+// 其余 Unicode 空格逐字符一句（U+1680 / U+2000 / U+2003 / U+200A / U+202F / U+205F / U+3000）
+const we = 1; const wf = 2;
+const wg = 1; const wh = 2;
+const wi = 1; const wj = 2;
+const wk = 1; const wl = 2;
+const wm = 1; const wn = 2;
+const wo = 1; const wp = 2;
+const　wq = 1;
+const wr = 1;　const wsV = 2;
+// U+2028 / U+2029（LineTerminator）与 U+200B（ZERO WIDTH SPACE）：同为 trivia，不参与标识符 / 关键字拼接
+const wt = 1; const wu = 2;
+const wv = 1; const ww = 2;
+const wx = 1;​const wy = 2;
+type TW = number;
+// 叠加：块注释 trivia + NBSP 后接第二条语句
+const wz = 1; /* c */ const wz2 = 2;
