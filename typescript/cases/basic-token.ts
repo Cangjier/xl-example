@@ -336,3 +336,49 @@ const b10 = `\u{000000000010FFFF}`;
 const b11 = `a\u{0000061}b${x}`;
 tag`\u{0000061}`;
 tag`a\u{0000061}b`;
+
+// ══ cover9（U+0085 NEL）：TS 词法把 NEL 当**单行空白**（ECMAScript 不认；用户已裁定按 TS 口径） ══
+// 类别（IMPORTANCE §6）：basic token 存在问题。判据：TS 6.0.3 parseDiagnostics=0 且三栏（结构/位置/字段）一致。
+// 根因：typescript/run/typescript-symbol-template.xl.md 的 IsWhiteSpace 覆写漏了 U+0085（TS 的
+//   `isWhiteSpaceSingleLine` 把 `CharacterCodes.nextLine`（0x85）当单行空白）→ NEL 落到 Common，被并进
+//   标识符 / 关键字 / 数字（`const<NEL>a` 的 Identifier 从 0 起、`const a=<NEL>1` 的 1 变成 Identifier），
+//   语句读不完或 AST 结构/位置差。修法：该 switch 补 `case "\u0085"`（ts 层一处，core 零改动）。
+// NEL **不是行终止符**（TS 的 `isLineBreak` 不含 0x85）：`return<NEL>1` 仍是带表达式的 return，
+//   语句之间靠 `;` 分句（所以下面没有「NEL 处 ASI 断句」的用例——那不是 TS 口径）。
+// 写法：NEL 是**行内字面 U+0085 字符**，不写 `\u0085` 转义（ast-json.mjs 的 decode 不认 \uXXXX；
+//   本文件已在 .gitattributes 用 -text 钉住）。
+// 候选：X01–X15（survey X 组的 15 形 / 1 根因，修前 15/15 red，修后 15/15 green）。
+// 一行一个用例，行内 `\n` 由 ast-json.mjs 还原。
+
+// ── ① base：NEL 作语句分隔（X01）＋ 前导 / 尾随 / 连续 / 多语句 / export / 注释后（X04 X05 X09 X11 X13 X15）──
+const a=1;const b=2;
+const a = 1;const b = 2;
+const a = 1;
+const a = 1;
+const a = 1;const b = 2;
+const x = 1;const y = 2;const z = 3;
+export const a = 1;export const b = 2;
+const a = 1;// c\nconst b = 2;
+
+// ── ② 关键字 / 名字 / 字面量之间的 NEL（X02 X12 X10 X03 X14）──
+consta = 1;
+consta = 1;
+letx = 1;
+const a =1;
+functionf() {}
+
+// ── ③ NEL 只是空白、不是行终止符：return 后 / type 的 `=` 后 / 类成员行尾（X06 X07 X08）──
+function f() { return1; }
+type T =number;
+class C { m() {}}
+
+// ── ④ trivia 与重复形：NEL 与空格叠加 / 多位置 / 空语句后 / 块注释后 / 与 LF 并存 / 函数体首尾 ──
+const a=1;const b=2;const c=3;const d=4;
+const a = 1;
+const a = 1;
+consta=1;
+const a = 1; const b = 2;
+;const a = 1;
+const a = 1;/* c */const b = 2;
+const a = 1;\nconst b = 2;
+function f() {return 1;}
