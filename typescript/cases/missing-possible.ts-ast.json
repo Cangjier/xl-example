@@ -985,6 +985,192 @@
       ]
     },
     {
+      "src": "class F2 { m(@dec p) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 25,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "F2"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 10,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 13,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "Decorator",
+                      "pos": 13,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 17,
+                          "text": "dec"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "p"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class F3 { m(@dec p = 1) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "F3"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 10,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 13,
+                  "end": 23,
+                  "children": [
+                    {
+                      "kind": "Decorator",
+                      "pos": 13,
+                      "end": 17,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 17,
+                          "text": "dec"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 17,
+                      "end": 19,
+                      "text": "p"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 24,
+                  "end": 27
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class F4 { constructor(@dec p) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 35,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 8,
+              "text": "F4"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 10,
+              "end": 33,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 23,
+                  "end": 29,
+                  "children": [
+                    {
+                      "kind": "Decorator",
+                      "pos": 23,
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 24,
+                          "end": 27,
+                          "text": "dec"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 27,
+                      "end": 29,
+                      "text": "p"
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 30,
+                  "end": 33
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "@dec export type TT = number;",
       "ast": [
         {
@@ -1710,6 +1896,108 @@
                       "pos": 24,
                       "end": 30,
                       "text": "./m1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type IT1 = import(\"./m1\");",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 8,
+              "text": "IT1"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 10,
+              "end": 25,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 18,
+                      "end": 24,
+                      "text": "./m1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "type IT2 = import(\"./m1\", { with: { type: \"json\" } });",
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 54,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 8,
+              "text": "IT2"
+            },
+            {
+              "kind": "ImportType",
+              "pos": 10,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "LiteralType",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "StringLiteral",
+                      "pos": 18,
+                      "end": 24,
+                      "text": "./m1"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ImportAttributes",
+                  "pos": 33,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "ImportAttribute",
+                      "pos": 35,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 35,
+                          "end": 40,
+                          "text": "type"
+                        },
+                        {
+                          "kind": "StringLiteral",
+                          "pos": 41,
+                          "end": 48,
+                          "text": "json"
+                        }
+                      ]
                     }
                   ]
                 }

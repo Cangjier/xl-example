@@ -2301,13 +2301,17 @@ if (pathToken.SourceRange.End !== null) {
 argument.Pos = pathPos;
 argument.TryToClose(this.Context);
 const attributes = this.ParseImportTypeAttributes(bracket);
+// 限定名在 TS 侧是可选的：`type T = import("m")` / `import("m", { with: … })` 都合法，
+// 此时 ImportType children 只有 LiteralType（+ ImportAttributes），没有 Identifier/TypeArguments。
+// 原先这里强制要求 `.`（抛「import 类型缺少限定名」）。
+let qualifier:Token | null = null;
+let typeArguments:Array<Token> = [];
 const dot = this.Peek(0);
-if (dot === null || !this.IsText(dot, ".")) {
-  throw new Error("import 类型缺少限定名");
+if (dot !== null && this.IsText(dot, ".")) {
+  this.At++;
+  qualifier = this.ParseEntityName();
+  typeArguments = this.ParseTypeArguments();
 }
-this.At++;
-const qualifier = this.ParseEntityName();
-const typeArguments = this.ParseTypeArguments();
 const shape = new ImportTypeShape(this.Template);
 shape.Argument = argument;
 shape.AssertClause = attributes;
@@ -2317,7 +2321,9 @@ shape.Add(argument);
 if (attributes !== null) {
   shape.Add(attributes);
 }
-shape.Add(qualifier);
+if (qualifier !== null) {
+  shape.Add(qualifier);
+}
 for (const argumentType of typeArguments) {
   shape.Add(argumentType);
 }
