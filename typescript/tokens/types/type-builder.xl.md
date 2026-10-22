@@ -1829,7 +1829,14 @@ while (true) {
   const right = this.ParseName();
   typeName = this.MakeQualifiedName(typeName, right);
 }
-const typeArguments = this.ParseTypeArguments();
+// TS 的 `parseTypeArgumentsOfTypeReference` 要求 `!scanner.hasPrecedingLineBreak()`：
+// **类型实参必须与类型名同一行**。换行后的 `<` 是关系运算符，不是类型实参——
+// `a as T` ⏎ `<b>c` 是 `(a as T) < b > c`（一条比较表达式语句，不是 ASI）。
+// `<` 在同一行、只有实参内部换行（`A<` ⏎ `B>`）时不受影响：判据看的是 `<` 前有没有换行。
+let typeArguments:Array<Token> = [];
+if (!this.HasLineBreakBeforeCurrent()) {
+  typeArguments = this.ParseTypeArguments();
+}
 const shape = new TypeReferenceShape(this.Template);
 shape.TypeName = typeName;
 shape.TypeArguments = typeArguments;

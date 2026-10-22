@@ -30,6 +30,7 @@ import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
@@ -55,8 +56,15 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 
 ## field Asi:bool = false
 
-换行收口：`ComputeByIndex` 在等 `;` 的阶段（stage 22 / stage 25 的 `abstract` 边角）命中下一条语句起点时置 `true`；
+换行收口：`ComputeByIndex` 在等 `;` 的阶段（stage 22 / stage 25 的 `abstract` 边角，以及 stage 13 的
+`export const|let|var` / `export declare …`）命中下一条语句起点时置 `true`；
 `BuildByIndex` 据此建到边界之前、splice 不含边界单元（边界单元留在根里给下一条语句）。
+
+## field LastBodyCode:int = -1
+
+stage 13（变量声明 / 类型别名体）里上一个已吃进的**代码**单元下标：无分号收口用
+`StatementScanner.EndsAtLineBreakBefore(units, index)` 判边界，所以边界只在「已经有一个体单元」之后才可能成立，
+不会把 `export const` 之后的换行（那是声明头的一部分）当成语句边界。
 
 # class ExportDeclarationPossibleShape extends PossibleShape
 
@@ -109,6 +117,7 @@ if (state.At > tokenIndex) {
   state.Done = false;
   state.DoneAt = -1;
   state.Asi = false;
+  state.LastBodyCode = -1;
 }
 for (let index = state.At + 1; index <= tokenIndex; index++) {
   state.At = index;
@@ -456,6 +465,19 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       }
       continue;
     }
+    if (state.Stage === 13 && (state.Kind === 4 || state.Kind === 12)) {
+      // `export const|let|var …` / `export declare …` 的无分号收口：与根变量语句读**同一个**
+      // `StatementScanner.EndsAtLineBreak`（含调用位与类型实参收尾 `>` 两条判据）：
+      // `export const x = a as T` ⏎ `(b)` 在 `(` 那一格收口，`(b)` 是下一条语句。
+      if (state.LastBodyCode >= 0 && StatementScanner.EndsAtLineBreakBefore(units, index)) {
+        state.Done = true;
+        state.DoneAt = index;
+        state.Asi = true;
+        state.Stage = 4;
+        continue;
+      }
+      state.LastBodyCode = index;
+    }
     if (state.Stage === 22 && ExpressionStatementPossibleShape.IsStatementBoundaryAfterExpression(units, index)) {
       // 无分号收口：下一条语句的第一个代码单元到了——`export default <expr>` 在它前面的换行处结束。
       state.Done = true;
@@ -607,7 +629,10 @@ if (kind === 1 || kind === 2 || kind === 3 || kind === 7 || kind === 8 || kind =
   return built;
 }
 if (kind === 4) {
-  const consumed:Array<Token> = host.Data.slice(declIndex, tokenIndex + 1);
+  // Asi：tokenIndex 是下一条语句的第一个代码单元，不属于本条声明（End 已在 builder 里收到边界前）。
+  const asi = state !== null && state.Asi;
+  const endExclusive = asi ? tokenIndex : tokenIndex + 1;
+  const consumed:Array<Token> = host.Data.slice(declIndex, endExclusive);
   let basePos = pos;
   if (exportUnit.SourceRange.End !== null) {
     basePos = exportUnit.SourceRange.End.Index + 1;
@@ -622,7 +647,7 @@ if (kind === 4) {
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;
-  host.Data.splice(start, tokenIndex - start + 1, built);
+  host.Data.splice(start, endExclusive - start, built);
   built.Parent = host;
   return built;
 }
@@ -644,7 +669,9 @@ if (kind === 12) {
   if (keywordIndex < 0) {
     return host;
   }
-  const consumed:Array<Token> = host.Data.slice(keywordIndex, tokenIndex + 1);
+  const asi = state !== null && state.Asi;
+  const endExclusive = asi ? tokenIndex : tokenIndex + 1;
+  const consumed:Array<Token> = host.Data.slice(keywordIndex, endExclusive);
   let basePos = pos;
   if (declareUnit.SourceRange.End !== null) {
     basePos = declareUnit.SourceRange.End.Index + 1;
@@ -661,7 +688,7 @@ if (kind === 12) {
   built.Data.unshift(exportModifier);
   exportModifier.Parent = built;
   built.Pos = pos;
-  host.Data.splice(start, tokenIndex - start + 1, built);
+  host.Data.splice(start, endExclusive - start, built);
   built.Parent = host;
   return built;
 }
