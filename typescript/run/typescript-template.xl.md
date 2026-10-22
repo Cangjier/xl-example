@@ -2,6 +2,7 @@
 ```xl
 import { RegexTemplate } from "../../core/syntax/templates/regex-template.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
+import { TypeScriptSymbolTemplate } from "./typescript-symbol-template.xl.md"
 import { Bracket } from "../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../core/syntax/basic-tokens/symbol.xl.md"
@@ -208,6 +209,7 @@ return false;
 ```ts
 const template = new Template();
 template.BranchTemplate.DefaultValue = Template.BasicBranchQueue();
+template.SymbolTemplate = new TypeScriptSymbolTemplate();
 template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
 template.NumberTemplate.BigIntSuffix = "n";
 template.SymbolTemplate.SupportUnicodeEscapeIdentifier = true;

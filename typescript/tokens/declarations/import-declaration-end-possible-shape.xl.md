@@ -106,7 +106,7 @@ const count = document.GetCount();
 let at = end.Index + 1;
 while (at < count) {
   const ch = document.At(at).Value;
-  if (ch === " " || ch === "\t" || ch === "\r") {
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
@@ -138,7 +138,7 @@ while (at < count) {
     at++;
     while (at < count) {
       const gap = document.At(at).Value;
-      if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n") {
+      if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n" || gap === "\v" || gap === "\f") {
         at++;
         continue;
       }
@@ -164,7 +164,7 @@ return true;
 let scan = at;
 while (scan < count) {
   const gap = document.At(scan).Value;
-  if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n") {
+  if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n" || gap === "\v" || gap === "\f") {
     scan++;
     continue;
   }

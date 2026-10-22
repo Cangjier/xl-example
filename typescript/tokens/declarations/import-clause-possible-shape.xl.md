@@ -289,7 +289,7 @@ const count = document.GetCount();
 let at = end.Index + 1;
 while (at < count) {
   const ch = document.At(at).Value;
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
