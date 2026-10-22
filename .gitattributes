@@ -10,3 +10,6 @@ typescript/cases/basic-token.ts -text
 typescript/cases/cover6-*.ts -text
 typescript/cases/*-cr*.ts -text
 tests/cases/token/lexical/*-cr*.ts -text
+# cover9: end-compute.ts carries inline literal line terminators (CR / U+2028 / U+2029,
+# see docs/cover9-endcompute.md); pin -text so the CR bytes survive commit/checkout.
+typescript/cases/end-compute.ts -text

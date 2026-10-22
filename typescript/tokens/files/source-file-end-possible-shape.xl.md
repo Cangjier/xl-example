@@ -203,12 +203,35 @@ while (at < code.length && code[at] instanceof Common) {
 return -1;
 ```
 
+## static method IsStandaloneTrailingStatement:(unit:Token)=>bool
+
+`unit` **单独一个代码单元**就能构成一条完整的根语句吗？只认两族：
+
+- 裸块 `{…}`（`Bracket`，`StartBracketChar` 是 `{`）：一条 BlockStatement，不是对象字面量；
+- `return` / `debugger` / `break` / `continue`：TS 的 ASI 让它们在这一格就收口，无分号、无操作数
+  （`type T = A` ⏎ `return` / `debugger` 各是一条语句）。
+
+`;` / `throw` / 变量声明 / 控制语句都不在这里：`throw` 缺操作数在 TS 里是语法错误，其余要么需要
+更多单元、要么由 `BuildTrailingDeclaration` 的其它分支建。
+
+```ts
+if (unit instanceof Bracket) {
+  return (unit as Bracket).StartBracketChar === "{";
+}
+if (!(unit instanceof Common)) {
+  return false;
+}
+const text = (unit as Common).TempToString();
+return text === "return" || text === "debugger" || text === "break" || text === "continue";
+```
+
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 两条路各走各的：
 
 - **ASI**：只把「换行处结束的那一条」按边界收尾建出来（不要求 `;`），根继续吃后面的单元；
-- **EOF**：建最后一条等不到 `;` 的语句，签出根（`SyntaxContext.Process` 在最后一个真实位置已经签过一次，
+- **EOF**：建最后一条等不到 `;` 的语句（声明 / 变量 / 控制语句 / 裸块 / 无分号简单语句——最后一段
+  只剩一个代码单元时走 `IsStandaloneTrailingStatement`），签出根（`SyntaxContext.Process` 在最后一个真实位置已经签过一次，
   这里只在没签时补），关闭根。
 
 ```ts
@@ -252,26 +275,31 @@ while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOf
 }
 const start = ItemUtil.ItemStart(host.Data);
 if (at >= start && host.Data[at].IsBasicToken) {
-  // 被 ASI 切出来的裸块 `{}`（`a.class` ⏎ `{}`）：它是一条 **BlockStatement**，不是对象字面量。
-  // EOF 兜底若走 ExpressionStatementShape.FromUnits，块会被投成对象字面量（结构差）；
-  // 这里交给 StatementBuilder 按正常语句路径建。
-  if (start === at && host.Data[at] instanceof Bracket
-    && (host.Data[at] as Bracket).StartBracketChar === "{") {
-    let blockPos = 0;
+  let firstCode = start;
+  while (firstCode <= at && host.Data[firstCode].IsTriviaToken) {
+    firstCode++;
+  }
+  // 最后一段只剩一个代码单元、而它自己就构成一条完整语句：裸块 `{}`（`a.class` ⏎ `{}`）是
+  // **BlockStatement** 不是对象字面量；`return` / `debugger` / `break` / `continue` 无分号到 EOF
+  // 也各是一条语句（上一条语句在 ASI 边界收口时把这个边界 token 原样留下：`type T = A` ⏎ `return`）。
+  // 统一交给 StatementBuilder 按正常语句路径建——走 ExpressionStatement 的话块会被投成对象字面量、
+  // 关键字会报「表达式语句没有读完」。
+  if (firstCode === at && SourceFileEndPossibleShape.IsStandaloneTrailingStatement(host.Data[at])) {
+    let trailingPos = 0;
     for (let index = start - 1; index >= 0; index--) {
       if (!host.Data[index].IsTriviaToken) {
         const previousEnd = host.Data[index].SourceRange.End;
         if (previousEnd !== null) {
-          blockPos = previousEnd.Index + 1;
+          trailingPos = previousEnd.Index + 1;
         }
         break;
       }
     }
-    const blockBuilder = new StatementBuilder(host.Template, context);
-    blockBuilder.Load([host.Data[start]], blockPos);
-    const blockStatement = blockBuilder.BuildStatement();
-    host.Data.splice(start, 1, blockStatement);
-    blockStatement.Parent = host;
+    const trailingBuilder = new StatementBuilder(host.Template, context);
+    trailingBuilder.Load(host.Data.slice(start, at + 1), trailingPos);
+    const trailingStatement = trailingBuilder.BuildStatement();
+    host.Data.splice(start, at - start + 1, trailingStatement);
+    trailingStatement.Parent = host;
   } else if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
     // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
     // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
