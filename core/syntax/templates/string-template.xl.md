@@ -10,6 +10,8 @@
 
 默认值就是 **TypeScript 的字符串形式**：三种引号、没有逐字串 / 原始串 / 前缀式内插，**有引号内内插**（`` `${…}` ``）；`HasInterpolationQuoteChars` 默认开，`InterpolationQuoteChars` 默认只列反引号。要给别的语言（C# / Cangjie 那一族）时再逐项覆盖。
 
+两个**扫描细节**的开关默认取「既有行为」，由具体语言的模板页按需收紧/放开：`LineTerminatorChars`（行续接认哪些行终止符，默认 CR/LF）与 `StrictTemplateEscapes`（模板串里的非法转义是否保留原文，默认关）。ts 模板页（`typescript/run/typescript-template.xl.md`）把两者都打开 —— ECMAScript 的行续接认 LS/PS，模板串的 legacy octal / `\8` `\9` 保留原文。
+
 # class StringTemplate
 
 ## field Quotes:Array<string> = ['"', "'", "`"]
@@ -19,6 +21,21 @@
 ## field EscapeChars:Array<string> = ['\\']
 
 转义符。默认 ts 只有 `\`；留成数组是为了别的语言能加。`String` 的两条转义路径（普通串 / 模板串）都从这里取，不再写死反斜杠。
+
+## field LineTerminatorChars:Array<string> = ["\n", "\r"]
+
+行终止符：转义符后面紧跟这些字符时是一次**行续接**（LineContinuation），不产出字符。
+默认只有 `\n` / `\r`（CRLF 由 `\r\n` 两个字符一起收，见 `Translate.Append`），即**既有行为**；
+需要 ECMAScript 那一套的语言在模板页追加 `\u2028` / `\u2029`（LS / PS）——`String` 把本表交给
+`Translate.DecodeClear`，转义累积逻辑本身不知道语言。
+
+## field StrictTemplateEscapes:bool = false
+
+引号内内插串里的**非法转义**是否保留原文：`true` 时 legacy octal（`\1`–`\7`、`\00`）与
+NonOctalDecimalEscape（`\8` / `\9`）不解成字符，而是原样输出 `\1` / `\8`（cooked text 取原文的那一侧）。
+默认 `false` = 既有行为（按八进制 / 字符解码）。ECMAScript 模板串正是这个口径（带标签模板合法、
+不带标签模板是语法错误），ts 模板页把它打开；`String` 只对**引号内内插串**应用本开关
+（普通引号串仍按既有行为解码），因为引号内内插串才是这门语言的模板串。
 
 ## field VerbatimPrefix:string = "@"
 

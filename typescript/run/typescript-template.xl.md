@@ -13,7 +13,16 @@ import { Token } from "../../core/syntax/token.xl.md"
 
 运行层：**TypeScript 这一门语言的模板配置**。
 
-`Template` 是语言无关的规则表；**默认值本身就是 ts 的字符串形式**（三种引号、没有逐字串 / 原始串 / 前缀式内插；引号内内插打开、只认反引号），所以这里不再覆盖 `StringTemplate`。`StringGuide` 会把反引号串标成 `IsSupportInterpolation=True`、`InterpolationCount=1`，`String` 在串内按 `${…}` 收内插——词法层已通；模板的 AST 还要等形状层（用例见 `typescript/cases/string.ts`）。
+`Template` 是语言无关的规则表；**默认值本身就是 ts 的字符串形式**（三种引号、没有逐字串 / 原始串 / 前缀式内插；引号内内插打开、只认反引号），所以这里不再逐项覆盖 `StringTemplate` 的引号 / 逐字 / 原始串配置。`StringGuide` 会把反引号串标成 `IsSupportInterpolation=True`、`InterpolationCount=1`，`String` 在串内按 `${…}` 收内插——词法层已通；模板的 AST 还要等形状层（用例见 `typescript/cases/string.ts`）。
+
+**两个扫描细节按 ECMAScript 覆盖**（core 的默认值是既有行为，ts 才收紧/放开）：
+
+- `StringTemplate.LineTerminatorChars` 加上 `\u2028` / `\u2029`：ECMAScript 的行续接是 `\` + LineTerminatorSequence，
+  而 LineTerminatorSequence 包括 LS / PS（`"a\<U+2028>b"` 的 cooked 是 `"ab"`）；
+- `StringTemplate.StrictTemplateEscapes = true`：模板串里的 legacy octal（`\1`–`\7`、`\00`）与
+  NonOctalDecimalEscape（`\8` / `\9`）是非法转义——**带标签模板**里它们的 cooked 是 `undefined`、
+  AST 的 `text` 取原文（`` tag`\8` `` → `text` 是 `\8`）。不带标签模板里这些转义是语法错误（ts 有诊断、不入尺子），
+  这里按「超集」口径统一产出原文（见 `docs/cover6-core-string.md`）。
 
 `RegexTemplate` 描述 ts 的正则字面量：flags 的字符集与「哪些关键字之后可以直接起表达式」。起点判据本身是词法层的近似（`/` 之前最后一个代码单元），控制头 `)`、裸块 `}` 那一族由语法形状登记 `RegexStartAfter`，不在这里配。
 
@@ -213,6 +222,10 @@ template.SymbolTemplate = new TypeScriptSymbolTemplate();
 template.SymbolTemplate.AllowCombineSymbol(["**", "**=", "<<", ">>", ">>>", "<<=", ">>=", ">>>=", "&=", "|=", "^=", "%=", "&&=", "||=", "??="]);
 template.NumberTemplate.BigIntSuffix = "n";
 template.SymbolTemplate.SupportUnicodeEscapeIdentifier = true;
+// D：ECMAScript 行续接认全部 LineTerminator（`\n` / `\r` / U+2028 / U+2029；CRLF 仍算一个）。
+template.StringTemplate.LineTerminatorChars = ["\n", "\r", "\u2028", "\u2029"];
+// G：模板串里的 legacy octal / `\8` `\9` 是非法转义，cooked 取原文（带标签模板合法）。
+template.StringTemplate.StrictTemplateEscapes = true;
 template.RegexTemplate = new TypeScriptRegexTemplate();
 template.RegexTemplate.ExpressionKeywords = [
   "typeof",
