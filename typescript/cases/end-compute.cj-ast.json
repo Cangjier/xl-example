@@ -4979,6 +4979,212 @@
       ]
     },
     {
+      "src": "for (;;) break",
+      "ast": [
+        {
+          "kind": "ForStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "BreakStatement",
+              "pos": 8,
+              "end": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: break label",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "BreakStatement",
+              "pos": 6,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 12,
+                  "end": 18,
+                  "text": "label"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: for (;;) break label",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 6,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "BreakStatement",
+                  "pos": 15,
+                  "end": 27,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 27,
+                      "text": "label"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "for (;;) break\nfoo()",
+      "ast": [
+        {
+          "kind": "ForStatement",
+          "pos": 0,
+          "end": 14,
+          "children": [
+            {
+              "kind": "BreakStatement",
+              "pos": 8,
+              "end": 14
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 14,
+          "end": 20,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 14,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 18,
+                  "text": "foo"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: { break label }",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "Block",
+              "pos": 6,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "BreakStatement",
+                  "pos": 8,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 14,
+                      "end": 20,
+                      "text": "label"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "label: for (;;) f()",
+      "ast": [
+        {
+          "kind": "LabeledStatement",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "label"
+            },
+            {
+              "kind": "ForStatement",
+              "pos": 6,
+              "end": 19,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 15,
+                  "end": 19,
+                  "children": [
+                    {
+                      "kind": "CallExpression",
+                      "pos": 15,
+                      "end": 19,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 15,
+                          "end": 17,
+                          "text": "f"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "import x from \"m\"\nimport y from \"n\"",
       "ast": [
         {
@@ -6336,6 +6542,84 @@
                   "pos": 15,
                   "end": 16,
                   "text": "g"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "let h = 1; h++\n(h)",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 9,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 3,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "h"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 14,
+          "children": [
+            {
+              "kind": "PostfixUnaryExpression",
+              "pos": 10,
+              "end": 14,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "h"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 14,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 17,
+                  "text": "h"
                 }
               ]
             }
