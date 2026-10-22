@@ -12,6 +12,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { AngleJudge } from "./angle-judge.xl.md"
 import { MemberBoundary } from "./member-boundary.xl.md"
 import { PropertySignatureShape } from "./property-signature-shape.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
@@ -231,11 +232,27 @@ while (at < count) {
 return "";
 ```
 
+## static method AngleDepth:(code:Array<Token>)=>int
+
+当前成员前缀里**未闭合的 `<` 层数**。数角口径与 `AngleJudge.ScanDepth` 完全一致（`>>` / `>>>` 是 basic token 的合符号，按层一次出 2 / 3 层，深度夹在 0 以上），因为 TypeBuilder / AngleJudge 也用同一口径。
+
+成员自身的类型实参 `a: Foo<A>`、方法类型参数表 `m<T>(x: T): U` 里的 `<...>` 会被它数出来；只有深度为 0 时，`>` 和 `,` 才可能是本层的收口证据。
+
+```ts
+let depth = 0;
+for (const unit of code) {
+  depth = AngleJudge.ScanDepth(unit, depth);
+}
+return depth;
+```
+
 ## static method IsCompletionBoundary:(ch:string)=>bool
 
 容器收口字符：成员到这里一定结束了，而且后面不会再有本层的代码单元。
 
 `;` / `,` **不在这里**：它们是显式分隔符，要等它们自己被 token 化、作为成员末尾消费进区间（与 `TypeBuilder.SpanTypeMember` 同口径）。
+
+`>` **只在当前前缀没有未闭合 `<` 时**才是收口证据：`a: Foo<A>` 里的 `>` 属于成员自己的类型实参，不能提前收口。`Analyze` 用 `AngleDepth` 做这道门，本方法只回答「字符本身是不是收口字符」。
 
 ```ts
 return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
@@ -419,9 +436,12 @@ return [];
 
 收住的三条证据（都与 `TypeBuilder.ParseTypeMember()` 的分界同口径）：
 
-1. `MemberBoundary.FindMemberBoundary` 在已攒下的前缀里找到了下一个成员的起点——前一个成员到此为止；
+1. `MemberBoundary.FindTypeMemberBoundary` 在已攒下的前缀里找到了下一个成员的起点——前一个成员到此为止
+   （对象类型成员的起点集合比 class 体多 `(` / `<`：调用/构造签名换行后紧随的 `(): A`、`<T>` 是新成员）；
 2. 最后一个代码单元是 `;` / `,`——显式分隔符（它自己要被吃进成员区间）；
 3. 最后一个代码单元之后的下一个字符是容器收口字符——本层不会再有代码单元。
+
+**三条证据都只在角括号深度为 0 时生效**（`AngleDepth` 与 `AngleJudge.ScanDepth` 同口径）：成员自身的 `<...>` 里，`a: Foo<A>` 的 `>` 和 `m<T, U>(x: T): U` 类型参数表里的 `,` 都是成员内部结构，不是本层收口证据；深度 > 0 时宁可让候选多等一格，由闭合后的 `;` / `,` / 下一成员起点 / 容器收口来收。收口字符 `>` 也一样：只有它闭合的是**外层**、不是成员自己数出来的那层时才算数。
 
 收住时可能种类已经定死；仍多值时按「没有参数表就不可能是方法」收敛到属性签名（`interface I { a }` 这种无类型属性）。
 
@@ -443,18 +463,22 @@ if (head.length === 0) {
   return;
 }
 const last = code[code.length - 1];
-const boundary = MemberBoundary.FindMemberBoundary(code, 0);
+const boundary = MemberBoundary.FindTypeMemberBoundary(code, 0);
+// 成员自身 <...> 里的 `>` / `,` 不是本层收口证据：深度 > 0 时三条证据全部不生效。
+const angle = MemberPossibleUtil.AngleDepth(code);
 let complete = false;
 let end = -1;
-if (boundary < code.length) {
-  complete = true;
-  end = boundary - 1;
-} else if (MemberPossibleUtil.IsSeparator(last)) {
-  complete = true;
-  end = code.length - 1;
-} else if (MemberPossibleUtil.IsCompletionBoundary(MemberPossibleUtil.NextChar(last.SourceRange.End))) {
-  complete = true;
-  end = code.length - 1;
+if (angle === 0) {
+  if (boundary < code.length) {
+    complete = true;
+    end = boundary - 1;
+  } else if (MemberPossibleUtil.IsSeparator(last)) {
+    complete = true;
+    end = code.length - 1;
+  } else if (MemberPossibleUtil.IsCompletionBoundary(MemberPossibleUtil.NextChar(last.SourceRange.End))) {
+    complete = true;
+    end = code.length - 1;
+  }
 }
 let kinds = head;
 if (complete && kinds.length > 1 && MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.PropertyKind)) {
