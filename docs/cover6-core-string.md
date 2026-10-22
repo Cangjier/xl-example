@@ -152,7 +152,28 @@ ECMAScript 的 `LineContinuation :: \ LineTerminatorSequence`，`LineTerminatorS
 4. **C# 那一族（逐字串 / 原始串 / 前缀内插）**：`StringTemplate` 两个新字段默认值 = 既有行为，
    那些路径不经过 `StrictTemplateEscapes`（只有 `IsSupportInterpolation` 分支传 true），无需回归。
 5. **`tests/gates/run.mjs` 在本克隆上 7/8 失败**（`tests/parse/ts-shape.mjs` 的 `MODULE_NOT_FOUND` / 无输出），
-   是环境 / 基线问题，与本分支改动无关；本轮任务门禁口径不含它，未修。`cases:check`（`tests/parse/validate.mjs`）
-   单独跑是好的：1710 条用例 0 条不合格。
+   与本分支改动无关；本轮任务门禁口径不含它，未修。合并后的 HEAD 上 `cases:check`
+   （`tests/parse/validate.mjs`）曾出现 1717 条用例 / **3 条不合格**——**不是**环境 / 基线问题
+   （基线 `99f286d8` 实测 1708 条 / 0 不合格），差异来自 cover6-E / F 新增的 3 个夹具头元数据
+   （覆盖层的头缺 `// xl:end`、`xl:expect` 里写了幽灵标签或 TS kind 名）；已由 `cover6-fix-fixture-meta` 分支修正。
 6. **`basic-token.ts` 的 `-text` 属性**：prep 提交已把该文件钉成 `-text`，本分支追加的行含字面 LS/PS（无 CR），
    提交后 `git cat-file -s` 与工作树字节数一致（见 §5 的字节自检），无需再改 `.gitattributes`。
+
+## 7. 附：cover6 夹具头元数据修复（`cover6-fix-fixture-meta`，独立分支）
+
+终验发现合并后的 HEAD 上 `node tests/parse/validate.mjs` = 1717 条用例 / **3 条不合格**（prep `99f286d8` 是 1708 / 0）。
+3 条都是新增夹具的文件头元数据问题（与本分支字符串改动无关），由独立分支 `cover6-fix-fixture-meta` 修正：
+
+| 夹具 | 原问题（`cases:check` 的具体报错） | 修正 |
+|---|---|---|
+| `lex-optional-chain-digit-lookahead.ts` | ① 头里有覆盖层键 `xl:round` 却没有 `// xl:end`（`case-file.mjs`：覆盖层文件头必须以 `xl:end` 收尾）；② `xl:expect` 里 `ConditionalExpression` 不在标签表，`QuestionToken` / `NumericLiteral` / `ColonToken` / `PropertyAccessExpression` / `QuestionDotToken` 是幽灵标签（投影层 kind，永远不进产物） | expect 改 `Let,TernaryOperator,PropertyAccess`（语料先例：`ex-ternary.ts` / `am-call-type-args.ts`）；幽灵标签移入 `xl:absent`；补 `// xl:end` |
+| `lx-optional-chain-digit.ts` | 同上（缺 `xl:end`；`ConditionalExpression` 未知、`NumericLiteral` / `QuestionDotToken` 幽灵） | 同上 |
+| `lex-unicode-escape-brace-long.ts` | `xl:expect` 里 `VariableStatement` / `VariableDeclarationList` / `VariableDeclaration` / `NumericLiteral` / `TypeReference` 是幽灵标签；`FirstStatement` / `FunctionDeclaration` / `ClassDeclaration` / `PropertyDeclaration` 不在标签表（后两者是 TS kind 名） | expect 改 `Let,Function,Class,ObjectLiteral,MethodDeclaration`（类方法与对象的先例见 `am-class-modifier-order.ts` / `am-prop-named-keywords.ts`）；幽灵标签移入 `xl:absent`；未知标签删除 |
+
+**依据**：`tests/parse/validate.mjs` 的 `TAGS` / `GHOST_TAGS` 是唯一标签表（幽灵标签只能写进 `xl:absent`）。
+历史上做标签级判据的 `tests/parse/tags.mjs` 在「第 1017 轮」已删除，它当年的产品 XML 取法
+（`TextContext` / `typescript/text-document.js`）在本仓重构后也已不存在，所以 `xl:expect` 现在只被 `cases:check`
+当**标签合法性**校验、不再逐条核产物；这里按「语料里同类形态已用过的产品标签」取值，与用例的 `xl:note` 语义一致。
+**token-ast 不受影响**：3 个夹具改头前后都 OK（头只是注释 trivia，AST 对拍不看 `xl:expect`）。
+修正后 `cases:check` = **1717 条用例 / 0 条不合格**；`token-ast` = 1713（ok 1703 / ts-invalid 10 / crash 0 / diff 0 / known-gap 0）、
+`ast-json` 5784/5784、`ast-json-diff` 0/0/0、`real-dts` 226/226、`tsc` 0。
