@@ -65,17 +65,27 @@ wave1 已完成共享管线与一个参考候选（`PropertySignaturePossibleSha
 ### 1.4 边界、ASI、分隔符、trivia
 
 - **成员边界**（与 `TypeBuilder.ParseTypeBounded` 同口径）三条证据，`MemberPossibleUtil.Analyze` 已实现：
-  1. `MemberBoundary.FindMemberBoundary(code, 0) < code.length`：找到了下一个成员的起点 ⇒ 当前成员到该位置前一个代码单元为止；
+  1. `MemberBoundary.FindTypeMemberBoundary(code, 0) < code.length`：找到了下一个成员的起点 ⇒ 当前成员到该位置前一个代码单元为止；
   2. 最后一个代码单元是 `;` / `,`：显式分隔符，等它自己被 token 化后**吃进成员区间**再建
      （所以 `ComputeByIndex` 在「最后一个代码单元之后的下一个字符是 `;` / `,`」时**不要**提前 `Accept`，`IsCompletionBoundary` 故意不含它们）；
   3. 最后一个代码单元之后的下一个字符是容器收口字符 `}` / `]` / `)` / `>` / EOF：本层不会再有代码单元，立即收口。
      这是「最后一条成员没有分隔符」的建出时机——接口体的 `}` 不会再触发本目录的判定。
+     **三条证据都只在角括号深度为 0 时生效**：`MemberPossibleUtil.AngleDepth`（与 `AngleJudge.ScanDepth`
+     同口径：`<` 进层、`>` 出层、`>>` / `>>>` 一次出 2 / 3 层、夹 0）把成员自身 `<...>` 数出来。
+     成员自己的 `a: Foo<A>`、`m<T, U>(x: T): U` 里的 `>` / `,` 是成员内部结构，深度 > 0 时不能收口；
+     等闭合后的 `;` / `,` / 下一成员起点 / 容器收口再收，宁可多等一格也不能切错。
 - **ASI 三种合法写法行为一致**（AST 都有相同的成员形状与区间）：
   - `interface I { a: A; b: B }`：`;` 到达时建第一条（含 `;`）；
   - `interface I { a: A, b: B }`：`,` 同上；
   - `interface I { a: A \n b: B }`：`b` 关闭时 `FindMemberBoundary` 指到 `b`，建第一条（区间到 `A`），`b` 留在 `Data` 里成为下一条目起点。
 - **不能提前收口**的反例：`a: A` 换行 `[B]` 仍是一个类型 `A[B]`（TS 的索引访问后缀不看换行）；
   `a: A` 换行 `[B]: C` 才是两个成员（`[` 后跟 `:` 才像成员起点）。这类判定交给 `MemberBoundary`，不要自己写换行规则。
+- **`MemberBoundary.FindTypeMemberBoundary` 的起点集合**（对象类型成员专用）：在 `FindMemberBoundary`
+  的起点（引号串名、`@`、`[...]` 计算名）之外，另把换行后的 `(` 参数表与 `<` 类型参数表当新成员起点——
+  `(): A` ⏎ `(): B`、`a: A` ⏎ `(): B`、`a: Foo<A>` ⏎ `(): B` 都是两个成员。`new` ⏎ `(` / `new` ⏎ `<T>`
+  仍是同一个构造签名；`<T>` ⏎ `(x: T): B` 仍是同一个调用签名（参数表还没出现）。
+  **class 体不走这条入口**：值初始化器里的 `foo` ⏎ `(bar)` / `foo` ⏎ `<T>(x)` 是续接（TS 不插 ASI），
+  `FindMemberBoundary` / `LooksLikeMemberStart` 保持原判据，所以 class 体与 type literal 的既有解析零变化。
 - **trivia**：`ComputeByIndex` 判型时跳过 `IsTriviaToken`；`BuildByIndex` 的区间只切到最后一个代码单元，
   成员前后的注释 / 换行由 `splice` 天然留在原处，下一条目的 `Pos` 由 `BasePos` 重新算。
 - **空条目 / 纯 trivia / 纯分隔符**：`Kinds = AllKinds`、`Complete = false` ⇒ 所有候选 `Uncertain`，等容器收口时

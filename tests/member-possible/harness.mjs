@@ -6,6 +6,7 @@
 //   node tests/member-possible/harness.mjs --all                # 不裁剪候选（未实现的候选仍是桩，会崩）
 //   node tests/member-possible/harness.mjs --from-cases         # 从 typescript/cases/*.ts 自动挑「只含属性签名接口」的用例
 //   node tests/member-possible/harness.mjs --file=cases.json    # JSON 字符串数组，逐个源码
+//   node tests/member-possible/harness.mjs --no-generic         # 跳过泛型边界回归分组（默认跑，按候选自动启用）
 //   node tests/member-possible/harness.mjs --verbose
 //
 // 对拍口径与 ast-json.mjs / ast-json-diff.mjs 完全一致：TS 侧 ts.createSourceFile + ast-compare.tsAst，
@@ -13,6 +14,10 @@
 //
 // 隔离办法是**运行时 monkeypatch** `InterfaceDeclarationShape.CreateBodyPossibleShapesCache`
 // （xl 生成的 JS 里 private static 字段在运行期可写），不改任何源码；进程退出即还原。
+//
+// `--generic` 分组（默认也跑）：泛型成员边界回归。成员自身的 `<...>` 里，`>` 和 `,` 都是成员内部结构，
+// 不能当本层收口证据（`a: Foo<A>`、`a: Map<K, V>`、`m<T, U>(x: T): U` …）。
+// 每条用例声明它需要的候选；候选没被选中（还是桩）时该用例跳过，等 wave2 实现后自动生效。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,6 +49,7 @@ const argv = process.argv.slice(2);
 const verbose = argv.includes("--verbose");
 const fromCases = argv.includes("--from-cases");
 const runAll = argv.includes("--all");
+const noGeneric = argv.includes("--no-generic");
 const onlyArg = argv.find((item) => item.startsWith("--only="));
 const fileArg = argv.find((item) => item.startsWith("--file="));
 
@@ -84,6 +90,37 @@ const DEFAULT_CASES = [
   "interface I\n{ a: number }",
   "interface I {\n  a: number;\n  b: A;\n}",
   "interface I { a: A;\n b: B }",
+];
+
+/** 泛型成员边界回归（wave1 共享工具 bug）：成员自身 `<...>` 里的 `>` / `,` 不能提前收口。
+ *  `required` 是这条用例需要的候选：没被 `--only` 选中（还是桩）时跳过，不污染本分支读数。 */
+const GENERIC_BOUNDARY_CASES = [
+  { source: "interface I { a: Foo<A>; }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { a: Array<A> }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { a?: Foo<A<B>>; }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { a: A<B<C>> }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { readonly a: Foo<A, B>; }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { a: Map<K, V>; }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { a: Record<string, number>; }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { [Symbol.iterator]: Iterator<A> }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { a: Map<K, V>\n b: B }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { a: Map<K, V>; b: Record<A, B> }", required: ["PropertySignaturePossibleShape"] },
+  { source: "interface I { [k: string]: Map<K, V> }", required: ["IndexSignaturePossibleShape"] },
+  { source: "interface I { m<T>(x: T): U; }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { m<T, U>(x: T): U }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { m(): A<B, C> }", required: ["MethodSignaturePossibleShape"] },
+  { source: "interface I { <T>(x: T): B }", required: ["CallSignaturePossibleShape"] },
+  { source: "interface I { new <T>(x: T): B }", required: ["ConstructSignaturePossibleShape"] },
+  { source: "interface I { new <U, V>(a: U, b: V): C }", required: ["ConstructSignaturePossibleShape"] },
+  { source: "interface I { new <T extends A>(x: T): B }", required: ["ConstructSignaturePossibleShape"] },
+  { source: "interface I { new <T>(x: A<B<C>>): D }", required: ["ConstructSignaturePossibleShape"] },
+  { source: "interface I { new (): A<B> }", required: ["ConstructSignaturePossibleShape"] },
+  { source: "interface I { get a(): Foo<A> }", required: ["GetAccessorPossibleShape"] },
+  { source: "interface I { set a(v: A) }", required: ["SetAccessorPossibleShape"] },
+  // G2：换行后的 `(` / `<` 是新成员起点（`MemberBoundary.LooksLikeMemberStart`），不能被并成一条。
+  { source: "interface I { (): A\n(): B }", required: ["CallSignaturePossibleShape"] },
+  { source: "interface I { <T>(x: T): A\n(): B }", required: ["CallSignaturePossibleShape"] },
+  { source: "interface I { a: A\n(): B }", required: ["PropertySignaturePossibleShape", "CallSignaturePossibleShape"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -283,6 +320,43 @@ function describeError(error) {
   return message.split("\n")[0] || "unknown error";
 }
 
+/** 逐条对拍；返回 { passed, failed }，FAIL 行就打印出来。 */
+function runCases(sources) {
+  let passed = 0;
+  let failed = 0;
+  for (const source of sources) {
+    let tsNodes = null;
+    let cjNodes = null;
+    let problem = null;
+    try {
+      tsNodes = parseTs(source);
+    } catch (error) {
+      problem = `TS 侧异常：${describeError(error)}`;
+    }
+    if (problem === null) {
+      try {
+        cjNodes = parseCj(source);
+      } catch (error) {
+        problem = `CJ 侧异常：${describeError(error)}`;
+      }
+    }
+    if (problem === null) {
+      problem = firstDifference(tsNodes, cjNodes);
+    }
+    if (problem === null) {
+      passed++;
+      if (verbose) {
+        console.log(`PASS  ${JSON.stringify(source)}`);
+      }
+    } else {
+      failed++;
+      console.log(`FAIL  ${JSON.stringify(source)}`);
+      console.log(`      ${problem}`);
+    }
+  }
+  return { passed, failed };
+}
+
 function main() {
   let only = ["PropertySignaturePossibleShape"];
   if (runAll) {
@@ -292,47 +366,26 @@ function main() {
   }
   const restore = installCandidates(only);
   const cases = collectCases();
-  let passed = 0;
-  let failed = 0;
-  const failures = [];
+  const genericCases = noGeneric
+    ? []
+    : GENERIC_BOUNDARY_CASES.filter(
+        (item) => only === null || item.required.every((name) => only.includes(name)),
+      );
+  const skippedGeneric = noGeneric ? 0 : GENERIC_BOUNDARY_CASES.length - genericCases.length;
+  let result = { passed: 0, failed: 0 };
+  let genericResult = { passed: 0, failed: 0 };
   try {
-    for (const source of cases) {
-      let tsNodes = null;
-      let cjNodes = null;
-      let problem = null;
-      try {
-        tsNodes = parseTs(source);
-      } catch (error) {
-        problem = `TS 侧异常：${describeError(error)}`;
-      }
-      if (problem === null) {
-        try {
-          cjNodes = parseCj(source);
-        } catch (error) {
-          problem = `CJ 侧异常：${describeError(error)}`;
-        }
-      }
-      if (problem === null) {
-        problem = firstDifference(tsNodes, cjNodes);
-      }
-      if (problem === null) {
-        passed++;
-        if (verbose) {
-          console.log(`PASS  ${JSON.stringify(source)}`);
-        }
-      } else {
-        failed++;
-        failures.push({ source, problem });
-        console.log(`FAIL  ${JSON.stringify(source)}`);
-        console.log(`      ${problem}`);
-      }
-    }
+    result = runCases(cases);
+    genericResult = runCases(genericCases.map((item) => item.source));
   } finally {
     restore();
   }
   const mode = only === null ? "all" : only.join("+");
-  console.log(`\n[member-possible] candidates=${mode} cases=${cases.length} pass=${passed} fail=${failed}`);
-  if (failed > 0) {
+  console.log(`\n[member-possible] candidates=${mode} cases=${cases.length} pass=${result.passed} fail=${result.failed}`);
+  console.log(
+    `[member-possible] generic-boundary cases=${genericCases.length} pass=${genericResult.passed} fail=${genericResult.failed} skipped=${skippedGeneric}`,
+  );
+  if (result.failed > 0 || genericResult.failed > 0) {
     process.exitCode = 1;
   }
 }

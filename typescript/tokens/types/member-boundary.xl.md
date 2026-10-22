@@ -41,6 +41,120 @@ for (let at = from + 1; at < code.length; at++) {
 return code.length;
 ```
 
+## static method FindTypeMemberBoundary:(code:Array<Token>, from:int)=>int
+
+**对象类型成员候选管线**（接口体；类型字面量将来可复用同一入口）的分界：与 `FindMemberBoundary` 同口径，
+另外把**换行后的 `(` / `<`** 当成新成员起点——`(): A` ⏎ `(): B`、`a: A` ⏎ `(): B`、`a: Foo<A>` ⏎ `(): B`
+都是两个成员。
+
+class 体不能直接复用这条例外：值初始化器里的 `foo` ⏎ `(bar)` / `foo` ⏎ `<T>(x)` 是**续接**（TS 不插 ASI），
+所以 `FindMemberBoundary` / `LooksLikeMemberStart` 保持原判据不动，class 体与 type literal 的既有解析不受影响；
+只有对象类型成员候选（`MemberPossibleUtil.Analyze`）走这个入口。
+
+`(` 前面是 `new`（`new` ⏎ `(` 是构造签名）或这组 `<...>` 是同一个调用/构造签名**尚未出现的参数表**
+（`<T>` ⏎ `(x: T): B`、`new <T>` ⏎ `(x: T): B`）时，`(` 不是新成员起点。
+
+```ts
+for (let at = from + 1; at < code.length; at++) {
+  if (!MemberBoundary.HasLineBreakBetween(code[at - 1], code[at])) {
+    continue;
+  }
+  if (!MemberBoundary.CanEndTypeUnit(code[at - 1])) {
+    continue;
+  }
+  if (MemberBoundary.IsInitializerIndexContinuation(code, at)) {
+    continue;
+  }
+  const unit = code[at];
+  if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
+    if (MemberBoundary.IsNewKeyword(code[at - 1])) {
+      // `new` ⏎ `<T>` 是构造签名的类型参数表，不是新成员。
+      continue;
+    }
+    return at;
+  }
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+    if (MemberBoundary.IsNewKeyword(code[at - 1])) {
+      // `new` ⏎ `(...)` 是构造签名的参数表。
+      continue;
+    }
+    if (MemberBoundary.IsTypeParameterListAwaitingParams(code, at)) {
+      continue;
+    }
+    return at;
+  }
+  if (!MemberBoundary.LooksLikeMemberStart(code, at)) {
+    continue;
+  }
+  return at;
+}
+return code.length;
+```
+
+## private static method IsNewKeyword:(unit:Token)=>bool
+
+`unit` 是不是 `new` 关键字。
+
+```ts
+if (unit instanceof Common) {
+  return (unit as Common).TempToString() === "new";
+}
+return false;
+```
+
+## private static method IsTypeParameterListAwaitingParams:(code:Array<Token>, at:int)=>bool
+
+`at` 是换行后的 `(`，前一个代码单元是 `>` / `>>` / `>>>` 时：反向找到这组 `<...>` 的开 `<`，
+如果开 `<` 就是条目第一个单元、或紧跟 `new`，而且 `at` 之前还没有出现过参数表 `(` 括号，
+那这个 `(` 是同一个调用 / 构造签名的参数表（`<T>` ⏎ `(x: T): B`），不是新成员。
+
+`a: Foo<A>` ⏎ `(): B` 里开 `<` 前是名字 `Foo`，是类型实参而不是本签名的类型参数表 ⇒ 返回 false，
+`(` 照常当新成员起点。
+
+```ts
+let angle = 0;
+let opener = -1;
+for (let cursor = at - 1; cursor >= 0; cursor--) {
+  const unit = code[cursor];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === ">") {
+    angle += 1;
+    continue;
+  }
+  if (text === ">>") {
+    angle += 2;
+    continue;
+  }
+  if (text === ">>>") {
+    angle += 3;
+    continue;
+  }
+  if (text === "<") {
+    angle -= 1;
+    if (angle <= 0) {
+      opener = cursor;
+      break;
+    }
+  }
+}
+if (opener < 0) {
+  return false;
+}
+for (let cursor = 0; cursor < at; cursor++) {
+  const unit = code[cursor];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+    return false;
+  }
+}
+if (opener === 0) {
+  return true;
+}
+return MemberBoundary.IsNewKeyword(code[opener - 1]);
+```
+
 ## static method IsInitializerIndexContinuation:(code:Array<Token>, at:int)=>bool
 
 `at` 是换行后的 `[`，且这个 `[...]` 后面紧跟 `=`（计算名初始化的形态）时，它是上一行初始化器
