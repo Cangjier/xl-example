@@ -61,11 +61,12 @@ this.Tmp += source.Value;
 
 ## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
 
-遇到行尾 `\n`（或 EOF 哨兵）就退出：签出到前一个字符、关闭自己并跑重组、从父单元卸载；
-`\n` 不是 shebang 的一部分，用 `ReloadMessage` 交回根单元（EOF 时不再插消息）。
+遇到行终止符（`Template.IsLineTerminator`：core 默认 `\n`，ts 模板为 `\n` / `\r` / U+2028 / U+2029）
+或 EOF 哨兵就退出：签出到前一个字符、关闭自己并跑重组、从父单元卸载；
+行终止符本身不是 shebang 的一部分，用 `ReloadMessage` 交回根单元（EOF 时不再插消息）。
 
 ```ts
-if (source.Value !== "\n" && !source.IsEOF) {
+if (!source.IsEOF && !this.Template.IsLineTerminator(source.Value)) {
   return BranchStates.Undo;
 }
 const previous = source.Pre();

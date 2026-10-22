@@ -71,6 +71,23 @@ BOM 的码点表：`Bom` basic token 在**任意位置**认领其中的字符（
 
 Shebang 行的标记（默认 `#!`）。`Shebang` basic token 只在文件头允许的位置按它进入。
 
+## field LineTerminatorChars:string = "\n"
+
+行终止符字符集：`LineAnnotation` 与 `Shebang` 用 `IsLineTerminator` 判定「行到哪里结束」。
+
+默认只有 `\n`，与这两个 basic token 的历史行为完全一致（其它语言模板不配置时零影响）；
+各语言模板按自己的词法补齐——ts 模板配置为 `"\n\r\u2028\u2029"`（ECMAScript 的 LineTerminator 全集）。
+
+CRLF 不需要在这里成对声明：判据按「先遇到 `\r` 就收尾」工作，`\n` 由根单元当普通 trivia 处理。
+
+## method IsLineTerminator:(item:string)=>bool
+
+单个字符是不是本语言的行终止符：`item` 在 `LineTerminatorChars` 里即是。
+
+```ts
+return item.length === 1 && this.LineTerminatorChars.indexOf(item) >= 0;
+```
+
 ## field NumberTemplate:NumberTemplate = new NumberTemplate()
 
 数字模板：这门语言的数字字面量允许哪些后缀（不改节点种类的普通后缀，以及改用 BigIntLiteral 的 BigInt 后缀）。
