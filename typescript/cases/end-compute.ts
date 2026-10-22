@@ -215,3 +215,21 @@ function f(): void;\nfunction f() {}
 using a = b\nfoo()
 while (a)\nf()
 if (a)\nf()
+// ── C7（cover3 补强）：非调用位表达式（as / satisfies / 箭头体）换行接 `(` `[` 反引号模板 = 新语句 ──
+// 根因：ExpressionStatementPossibleShape.IsAsiBoundary 只判「当前单元是不是延续符」，不看上一
+//   表达式能不能当 CallExpression / TaggedTemplate 的宿主：as / satisfies 表达式与箭头函数体都
+//   不是 MemberExpression，TS 在换行处插 ASI；本仓此前继续续接，甚至抛「表达式语句没有读完」。
+// 修法（typescript/tokens/statements/expression-statement-possible-shape.xl.md）：
+//   IsAsiBoundary 增加 IsNonCallableExpressionTail(units, prev)（同层扫 `=>` / `as` / `satisfies`），
+//   命中且当前是 `(` `[` 反引号模板时 return true；CanEndExpressionAt 之前的守卫再放行后缀 `!`。
+x as T\n(1)
+x as T\n[0]
+x as T\n`t`
+const f = () => {}\n(1)
+const f = () => {}\n[0]
+const f = async () => {}\n(1)
+async () => {}\n(1)
+const f = () => {} /* c */\n(1)
+x!\ng()
+x!\n++g
+x!\n--g

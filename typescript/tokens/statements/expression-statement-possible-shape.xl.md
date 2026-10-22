@@ -355,7 +355,8 @@ while (prev >= 0) {
 if (prev < 0 || !lineBreak) {
   return false;
 }
-if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)) {
+if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)
+    && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)) {
   return false;
 }
 // `++` / `--` 既可后缀也可前缀：只有紧贴前一个「能结束表达式」的代码单元（中间无换行）时
@@ -396,7 +397,16 @@ if (units[prev] instanceof Symbol) {
     }
   }
 }
-// 本条语句的起点：从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。
+// 非调用位表达式（箭头体 / as / satisfies）后面换行接 `(` `[` 反引号模板只能是新语句：
+// TS 的 CallExpression / TaggedTemplate 宿主必须是 MemberExpression，箭头体与 as/satisfies
+// 都不在其中（`const f = () => {}` ⏎ `(1)`、`x as T` ⏎ `(1)` 都要 ASI）。
+if ((current instanceof Bracket
+    && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
+  || (current instanceof String && (current as String).StringChar === "`")) {
+  if (ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, prev)) {
+    return true;
+  }
+}// 本条语句的起点：从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。
 let head = prev;
 while (head > 0 && units[head - 1].IsBasicToken) {
   head--;
@@ -462,6 +472,74 @@ return text === "class" || text === "interface" || text === "enum" || text === "
   || text === "module" || text === "function" || text === "declare" || text === "abstract";
 ```
 
+## static method IsPostfixBangTail:(units:Array<Token>, last:int)=>bool
+
+`last` 是不是**后缀** `!`（非空断言）：只有紧贴同一行、且左边能收住表达式时才是后缀
+（`x!` ⏎ `g()` 里 `!` 是后缀，TS 在 `x!` 后插 ASI）；换行在 `!` 之前时它是前缀运算符，
+仍在等下一行的操作数（`a` ⏎ `!b` 是两条语句，但那条 `!b` 不是后缀）。
+
+```ts
+if (!(units[last] instanceof Symbol) || (units[last] as Symbol).TempToString() !== "!") {
+  return false;
+}
+let operand = last - 1;
+let breakSeen = false;
+while (operand >= 0 && units[operand].IsTriviaToken) {
+  if (ExpressionStatementPossibleShape.HasLineBreak(units[operand])) {
+    breakSeen = true;
+  }
+  operand--;
+}
+return operand >= 0 && !breakSeen && ExpressionStatementPossibleShape.CanEndExpression(units[operand]);
+```
+## static method IsNonCallableExpressionTail:(units:Array<Token>, last:int)=>bool
+
+`last` 收尾的表达式是不是「不能当调用者 / 标签模板宿主」的那几种（箭头函数体、`as` / `satisfies`）。
+TS 只在「换行继续会变成语法错误」时才插 ASI：CallExpression / TaggedTemplate 的宿主必须是
+MemberExpression，箭头体与 as/satisfies 表达式都不在其中，所以换行后接 `(` `[` 反引号模板
+只能是下一条语句。判据：从 `last` 往回在**同一括号层**里找 `=>` / `as` / `satisfies`；
+遇到更外层的开括号就停（`(a as T)` ⏎ `(1)` 是合法调用，不能断）。
+
+```ts
+let depth = 0;
+for (let at = last; at >= 0; at--) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  const range = unit.SourceRange;
+  const raw = range.Start === null || range.End === null ? "" : range.GetRaw();
+  const head = raw.length > 0 ? raw[0] : "";
+  const tail = raw.length > 0 ? raw[raw.length - 1] : "";
+  if (tail === ")" || tail === "]" || tail === "}") {
+    depth++;
+    continue;
+  }
+  if (head === "(" || head === "[" || head === "{") {
+    if (depth === 0) {
+      return false;
+    }
+    depth--;
+    continue;
+  }
+  if (depth > 0) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).TempToString() === "=>") {
+    return true;
+  }
+  if (unit instanceof Common) {
+    const text = (unit as Common).TempToString();
+    if (text === "as" || text === "satisfies") {
+      return true;
+    }
+    if (ExpressionStatementPossibleShape.IsStatementWord(text)) {
+      return false;
+    }
+  }
+}
+return false;
+```
 ## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool
 
 `tokenIndex` 之前紧邻的那段 trivia 里有没有换行（块注释里的换行也算；行注释本身不含换行，换行在它后面那个空白块里）。
