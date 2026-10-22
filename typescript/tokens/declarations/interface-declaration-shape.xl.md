@@ -2,6 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
@@ -9,11 +10,19 @@ import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
+import { CallSignaturePossibleShape } from "../types/call-signature-possible-shape.xl.md"
+import { ConstructSignaturePossibleShape } from "../types/construct-signature-possible-shape.xl.md"
+import { IndexSignaturePossibleShape } from "../types/index-signature-possible-shape.xl.md"
+import { MethodSignaturePossibleShape } from "../types/method-signature-possible-shape.xl.md"
+import { PropertySignaturePossibleShape } from "../types/property-signature-possible-shape.xl.md"
+import { InterfaceDeclarationEndPossibleShape } from "./interface-declaration-end-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -42,10 +51,98 @@ TS 的 children 顺序：名字 → 每个成员。成员就是**对象类型成
 
 ## field Members:Array<Token> = []
 
+## field BodyBracket:Bracket | null = null
+
+根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationPossibleShape` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，`Close` 之外由终结候选 `InterfaceDeclarationEndPossibleShape` 在接口体括号闭合时收口。
+
+`BodyBracket` 记「已经认定的接口体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（接口体里的嵌套括号父级是接口体，不会回到本形状）。
+
 ## constructor:(template:Template)=>void
 
 ```ts
 super(template);
+```
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+监听括号创建：如果新括号**肯定是接口体**，就把接口体目录向导装到这个括号上，并给自己装上终结向导（接口体括号关闭时由它收口）。
+
+- 不是 `{`：不是接口体（类型参数 / heritage 里的 `(` / `[`）；
+- 已经认定过接口体：忽略；
+- 尖括号深度不为 0：是类型参数里的类型字面量，不是接口体；
+- 前一个代码单元是 `extends` / `implements` / `,`：`{` 处在「类型从这里开始」的位置，是 heritage 里的类型字面量，不是接口体。
+
+「肯定是 Body」就落在这里：只有上面四条都排除掉，才给括号初始化 `CatalogGuide`。**本形状自己的目录向导也在这一刻才装**——头部阶段不需要判候选，装早了只是一遍空转。
+
+```ts
+if (this.BodyBracket !== null) {
+  return;
+}
+if (!(bracket instanceof Bracket)) {
+  return;
+}
+if ((bracket as Bracket).StartBracketChar !== "{") {
+  return;
+}
+if (!this.IsDefinitelyBodyBracket(bracket as Bracket)) {
+  return;
+}
+const body = bracket as Bracket;
+this.BodyBracket = body;
+body.CatalogGuide = new CatalogGuide(InterfaceDeclarationShape.CreateBodyPossibleShapes());
+this.CatalogGuide = new CatalogGuide([], new InterfaceDeclarationEndPossibleShape());
+```
+
+## method IsDefinitelyBodyBracket:(bracket:Bracket)=>bool
+
+新括号已经在 `Data` 末尾；只看它前面的头部：尖括号深度回到 0，且最后一个代码单元不在「后面还能接类型字面量」的位置上。
+
+尖括号用 `AngleJudge.ScanDepth` 数：`>>` / `>>>` 是 basic token 的合符号，必须按层拆开；深度夹在 0 以上。
+
+```ts
+let depth = 0;
+let previous:Token | null = null;
+for (const unit of this.Data) {
+  if (unit === bracket) {
+    continue;
+  }
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  depth = AngleJudge.ScanDepth(unit, depth);
+  previous = unit;
+}
+if (depth !== 0 || previous === null) {
+  return false;
+}
+let text = "";
+if (previous instanceof Common) {
+  text = (previous as Common).TempToString();
+} else if (previous instanceof Symbol) {
+  text = (previous as Symbol).TempToString();
+}
+return text !== "extends" && text !== "implements" && text !== ",";
+```
+
+## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
+
+## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
+
+接口体括号的候选目录：接口体成员与类型字面量的对象类型成员同口径（属性 / 方法 / 索引 / 调用 / 构造签名）。目录只建一份，所有接口体括号共用；判定状态在各自的 `CatalogGuide` 缓存里。
+
+```ts
+if (InterfaceDeclarationShape.CreateBodyPossibleShapesCache === null) {
+  // 成员 possible 现在还是桩（ComputeByIndex 抛「未实现」）：先把「接口体括号 → 成员候选」这条链路接上，
+  // 成员本身仍由 BuildMembers 在收口时一次性建。等成员 possible 落地，这里的清单不用再改。
+  InterfaceDeclarationShape.CreateBodyPossibleShapesCache = [
+    new PropertySignaturePossibleShape(),
+    new MethodSignaturePossibleShape(),
+    new IndexSignaturePossibleShape(),
+    new CallSignaturePossibleShape(),
+    new ConstructSignaturePossibleShape(),
+  ];
+}
+return InterfaceDeclarationShape.CreateBodyPossibleShapesCache;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>InterfaceDeclarationShape
@@ -57,16 +154,28 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
-let decoratorBase = 0;
+let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
     if (end !== null) {
-      decoratorBase = end.Index + 1;
+      pos = end.Index + 1;
     }
     break;
   }
 }
+return InterfaceDeclarationShape.BuildFromCode(host, code, pos, context);
+```
+
+## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext)=>InterfaceDeclarationShape
+
+从「已经按 AST 顺序排好的非 trivia 代码单元」建接口声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`InterfaceDeclarationEndPossibleShape` 把壳换成完整形状）。
+
+`pos` 是第一个代码单元前一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`），也是装饰器的区间起点。
+
+```ts
+const decoratorBase = pos;
+
 const decorators:Array<Token> = [];
 let decoratorEnd = decoratorBase;
 let decoratorCount = 0;
@@ -174,16 +283,6 @@ const heritageUnits:Array<Token> = code.slice(index, code.length - 1);
 const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("接口声明的接口体不是花括号");
-}
-let pos = 0;
-for (let at = start - 1; at >= 0; at--) {
-  if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
-    }
-    break;
-  }
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;

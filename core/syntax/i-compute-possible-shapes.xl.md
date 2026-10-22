@@ -3,6 +3,7 @@
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
+import { Token } from "./token.xl.md"
 ```
 
 # namespace cangjie
@@ -36,3 +37,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 按子单元下标重算本单元目录里的候选。
 
 无参版看全部子单元，本版只看 `tokenIndex` 那一个，留给「逐个喂子单元」的调用方。
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+括号创建事件：`Bracket.Transit` 建出一个新括号、把它挂到宿主名下并签入之后，回调宿主一次。
+
+宿主借此在括号刚有身份的时候配置它——`InterfaceDeclarationShape` 就靠这个事件判断新建的括号是不是自己的接口体，是的话给这个 `Bracket` 挂上接口体目录向导（`Bracket` 经 `UnitToken` 已经是 `IComputePossibleShapes` 的宿主）。
+
+形参写成 `Token` 而不是 `Bracket`：basic token 不能反过来 import 括号，否则 `Bracket` ↔ `IComputePossibleShapes` 成 require 环。实参一定是 `Bracket`，需要括号细节的实现自己转换。
+
+默认实现什么都不做（普通单元不关心括号创建）。

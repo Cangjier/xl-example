@@ -24,6 +24,10 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元值类型是单字符的 `string`。
 
+它同时**也是一个宿主**（与 `Shape` 同款）：`UnitToken` 已经给了 `CatalogGuide`（默认 `null`）和 `IComputePossibleShapes`，所以括号里的 basic token 关闭时问到的就是括号自己的目录向导。默认 `null` 表示括号里不判候选；谁需要判，就在括号建出来之后给它挂上——接口体就是这么做的：`InterfaceDeclarationShape` 在自己的括号创建事件里认出接口体，再把接口体目录向导装到这个括号上。
+
+括号自己的关闭仍然只问父单元，不因为自己挂了向导就改成问自己。
+
 ## field IsBasicToken:bool = true
 
 basic 单元：由 `Template.BasicBranchQueue()` 收出来。
@@ -135,6 +139,8 @@ return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${t
 
 挂之前先看关闭的结果：关闭上一个 token 的过程可能建出了形状，这时返回 `Reload`，字符交给新形状重吃。
 
+挂好并签入之后，**通知父单元 `OnBracketCreatedEvent`**：父单元可能借这个时机给新括号挂上目录向导（接口体的成员候选就是这么接上的）。父单元没实现 `IComputePossibleShapes` 就不通知，也不再往上找。
+
 `\u{…}` 花括号转义进行中时不起新括号：这时 `{` 属于转义（`\u{61}`），返回 `Undo` 让 `Common` 吃掉。
 
 ```ts
@@ -152,6 +158,9 @@ if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(
 const mounted = new Bracket(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
-(unit.MountedUnit as Bracket)!.Use(source.Value).SignIn(source);
+mounted.Use(source.Value).SignIn(source);
+if ("OnBracketCreatedEvent" in unit) {
+  (unit as unknown as IComputePossibleShapes).OnBracketCreatedEvent(mounted, context);
+}
 return BranchStates.Done;
 ```

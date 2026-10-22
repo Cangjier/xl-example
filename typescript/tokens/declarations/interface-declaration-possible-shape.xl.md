@@ -14,23 +14,21 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
-import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
 
 # namespace cangjie
 
 # class InterfaceDeclarationScan
 
-判定状态。`Stage`：0 = 等 `declare` / `interface`，1 = 等 `interface`，2 = 等名字，3 = 等接口体，
-4 = 已经完整（见到空接口体）；`DoneAt` 记接口体那一格。
+判定状态。`Stage`：0 = 等修饰词 / `interface`，1 = 已见 `declare`、等 `interface`，6 = 装饰器前缀，7 = 装饰器后已见 `export`。
+
+`Done` 表示**已经确认是接口声明**（看到 `interface` 关键字），接口体与名字交给建出来的壳自己吃——本候选不再等接口体括号闭合。
 
 ## field Start:int = -1
 
 ## field Checked:int = 0
 
 ## field Stage:int = 0
-
-## field AngleDepth:int = 0
 
 ## field Done:bool = false
 
@@ -45,16 +43,18 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 ```txt
 interface I {}
 declare interface I {}
+@dec interface I {}
 ```
 
-与 ClassDeclarationPossibleShape 同构：第一个代码单元 `interface`（或 `declare` + `interface`），
-最后一块是空接口体 `{…}` 的 `Bracket`。`interface I extends J {}` 在本批 `Reject`（`extends` 不是 `{`。
+根层的接口声明是**提前挂载的壳**：本候选一眼认下 `interface`（连同前面的装饰器 / `declare` 前缀）就 `Accept` 并被 `CatalogGuide` 建出 `InterfaceDeclarationShape` 壳，壳随后吃名字 / 类型参数 / heritage / 接口体，接口体括号闭合时由壳的终结候选收口。
+
+所以本候选**不再扫描到接口体**：`extends` / 类型参数 / 括号里的内容全是壳的事，`interface I` 之后出现什么都不影响本候选的判定。
+
+`declare` 与 `interface` 之间换行时 TS 的 ASI 把 `declare` 收成独立的 ExpressionStatement、接口声明不带 DeclareKeyword，本候选必须退出。
 
 ## private static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
 
 `at` 这个代码单元与它前面第一个代码单元之间有没有换行（中间的 trivia 逐格看，块注释里的换行也算）。
-`declare` 与 `interface` 之间换行时 TS 的 ASI 把 `declare` 收成独立的 ExpressionStatement、
-接口声明不带 DeclareKeyword，本候选必须退出（与 `class-declaration-possible-shape.xl.md` 的同款守卫一致）。
 
 ```ts
 for (let index = at - 1; index >= 0; index--) {
@@ -87,7 +87,6 @@ if (state.Checked > tokenIndex + 1) {
   state.Start = ItemUtil.ItemStart(units);
   state.Checked = state.Start;
   state.Stage = 0;
-  state.AngleDepth = 0;
   state.Done = false;
   state.DoneAt = -1;
   state.Rejected = false;
@@ -96,6 +95,10 @@ if (state.Checked > tokenIndex + 1) {
 for (let at = state.Checked; at <= tokenIndex; at++) {
   const unit = units[at];
   if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (state.Done) {
+    // 已经认下 `interface`：后面的名字 / 类型参数 / heritage / 接口体都归壳，不再判。
     continue;
   }
   if (unit instanceof EndOfFileTokenShape) {
@@ -117,7 +120,8 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
           state.Rejected = true;
           continue;
         }
-        state.Stage = 2;
+        state.Done = true;
+        state.DoneAt = at;
         continue;
       }
     }
@@ -134,7 +138,8 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     if (unit instanceof Common) {
       const text = (unit as Common).TempToString();
       if (text === "interface") {
-        state.Stage = 2;
+        state.Done = true;
+        state.DoneAt = at;
         continue;
       }
       if (text === "declare") {
@@ -174,7 +179,8 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       continue;
     }
     if (unit instanceof Common && (unit as Common).Is("interface")) {
-      state.Stage = 2;
+      state.Done = true;
+      state.DoneAt = at;
       continue;
     }
     state.Rejected = true;
@@ -182,54 +188,8 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 1) {
     if (unit instanceof Common && (unit as Common).Is("interface")) {
-      state.Stage = 2;
-      continue;
-    }
-    state.Rejected = true;
-    continue;
-  }
-  if (state.Stage === 2) {
-    if (unit instanceof Common) {
-      state.Stage = 3;
-      continue;
-    }
-    state.Rejected = true;
-    continue;
-  }
-  if (state.Stage === 3) {
-    // 类型形参 / 泛型实参里的 `{ a: A }`（类型字面量）不是类/接口体：用尖括号深度区分。
-    if (unit instanceof Symbol) {
-      state.AngleDepth = AngleJudge.Guard(unit, state.AngleDepth);
-      continue;
-    }
-    if (state.AngleDepth === 0 && unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
-      // `interface I extends { a: 1 } { }`（r1237）：紧跟 extends/implements/列表逗号的 `{` 是
-      // 类型位的类型字面量（heritage 实体名），不是接口体；接口体是下一个 `{`。
-      let previous = at - 1;
-      while (previous >= 0 && units[previous].IsTriviaToken) {
-        previous--;
-      }
-      let previousText = "";
-      if (previous >= 0) {
-        const previousUnit = units[previous];
-        if (previousUnit instanceof Common) {
-          previousText = (previousUnit as Common).TempToString();
-        } else if (previousUnit instanceof Symbol) {
-          previousText = (previousUnit as Symbol).TempToString();
-        }
-      }
-      if (previousText === "extends" || previousText === "implements" || previousText === ",") {
-        continue;
-      }
-      // 非空接口体不再 Reject：成员由 InterfaceDeclarationShape.BuildMembers 逐个建。
-      state.Stage = 4;
       state.Done = true;
       state.DoneAt = at;
-      continue;
-    }
-    // 名字与接口体之间的 heritage（`extends J` / `extends J<K>, L`）：
-    // 关键字与类型内容都是 Common / Symbol，具体解析交给 InterfaceDeclarationShape.FromUnits。
-    if (unit instanceof Common || unit instanceof Symbol) {
       continue;
     }
     state.Rejected = true;
@@ -249,21 +209,47 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
+只要已经认下 `interface` 就能建壳：建壳时机由 `CatalogGuide` 的唯一候选决定（`@dec interface I` 这类前缀要等其它候选都退出，可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
+
 ```ts
 const state = cache.GetState<InterfaceDeclarationScan>(this.constructor.name);
-return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
+return state !== null && state.Done && !state.Rejected;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
+把 `interface` 关键字的这一格变成**挂载的壳**：把 `state.Start..tokenIndex` 的单元原样搬进壳的 `Data`、签入，然后让壳挂到宿主上接管后续字符。
+
+壳的 `Pos` 在这里算：`state.Start` 前面最近一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`）——与 `FromUnits` 的口径一致。
+
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<InterfaceDeclarationScan>(this.constructor.name);
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
-if (start > tokenIndex) {
+if (start < 0 || start > tokenIndex) {
   return host;
 }
-const built = InterfaceDeclarationShape.FromUnits(host, start, tokenIndex, context);
-host.Data.splice(start, tokenIndex - start + 1, built);
-built.Parent = host;
-return built;
+const consumed:Array<Token> = host.Data.slice(start, tokenIndex + 1);
+const shell = new InterfaceDeclarationShape(host.Template);
+for (const unit of consumed) {
+  shell.Add(unit);
+}
+const begin = consumed[0].SourceRange.Start;
+if (begin !== null) {
+  shell.SignIn(begin);
+}
+let pos = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const previousEnd = host.Data[at].SourceRange.End;
+    if (previousEnd !== null) {
+      pos = previousEnd.Index + 1;
+    }
+    break;
+  }
+}
+shell.Pos = pos;
+host.Data.splice(start, consumed.length, shell);
+shell.Parent = host;
+host.MountedUnit = shell;
+return shell;
 ```

@@ -61,6 +61,12 @@ if (this.CatalogGuide !== null) {
 return ComputePossibleShapesStates.Nothing;
 ```
 
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+括号创建事件的默认实现：什么都不做。
+
+普通单元不关心括号创建；只有把自己当前正在吃的内容当作「括号里的东西」的壳形状（如 `InterfaceDeclarationShape`）才覆写它，在括号刚建出来时决定要不要给那个括号初始化目录向导。
+
 ## constructor:(template:Template)=>void
 
 以模板创建。挂载与退出这套调度不需要额外状态，构造器里只有转调。
