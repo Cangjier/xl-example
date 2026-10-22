@@ -8,6 +8,8 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -221,6 +223,9 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (state.SeenEqual && state.LastCode >= 0
     && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(units, state.LastCode, at)
     && TypeAliasDeclarationPossibleShape.CanEndTypeAt(units[state.LastCode])
+    // 函数类型的类型参数表 `= <U>` 之后那个 `(` 是参数表，不是新语句。
+    && !(unit instanceof Bracket && (unit as Bracket).StartBracketChar === "("
+      && TypeAliasDeclarationPossibleShape.ClosesFunctionTypeParameters(units, state.LastCode))
     && TypeAliasDeclarationPossibleShape.IsAsiBoundary(unit)) {
     state.Done = true;
     state.AsiEnd = true;
@@ -247,9 +252,25 @@ return ShapeStates.Uncertain;
 
 ## static method HasLineBreakBetween:(units:Array<Token>, from:int, to:int)=>bool
 
-`from` 与 `to` 之间（不含两端）的 trivia 里有没有换行；行注释把换行吃进 trivia 也算（`HasLineBreak` 能认）。
+`from` 与 `to` 之间（不含两端）有没有换行。按**源位置**在两个代码单元之间找 `\n` / `\r`：
+块体 / 体里的 `Units` 不一定带 trivia 单元（`StatementBuilder` 的块数据只有代码单元），
+只扫 trivia 单元会在那里永远判出「没有换行」；行注释 / 块注释里的换行同样算。
 
 ```ts
+const left = units[from].SourceRange.End;
+const right = units[to].SourceRange.Start;
+if (left !== null && right !== null) {
+  const document = left.Document;
+  let at = left.Index + 1;
+  while (at < right.Index) {
+    const ch = document.At(at).Value;
+    if (ch === "\n" || ch === "\r") {
+      return true;
+    }
+    at++;
+  }
+  return false;
+}
 for (let at = from + 1; at < to; at++) {
   const unit = units[at];
   if (unit.IsTriviaToken && ExpressionStatementPossibleShape.HasLineBreak(unit)) {
@@ -271,17 +292,35 @@ return false;
 
 ```ts
 if (unit instanceof Bracket) {
-  return (unit as Bracket).StartBracketChar === "[";
+  const start = (unit as Bracket).StartBracketChar;
+  // `[` / `(` / `{` 都接不上一个已完成的类型：TS 的索引访问类型只在同一行吃 `[`，
+  // `(` 是下一条表达式语句，`{` 是下一条块语句 / 对象字面量。
+  return start === "[" || start === "(" || start === "{";
+}
+if (unit instanceof String || unit instanceof RegexToken) {
+  // 字面量（含模板 / 正则）不能续接类型：`type T = A` ⏎ `"s"` / `` `s` `` / `/re/` 都是下一条语句。
+  return true;
+}
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  // 能续接类型的标点一律不收口：联合 / 交叉 `|` `&`、限定名 `.`、类型实参 `<` `>`、
+  // 条件类型 `?` `:`、函数类型 `=>`、列表 `,`、默认值 `=`、变长 `...`。
+  return !(text === "|" || text === "&" || text === "." || text === "<"
+    || text === ">" || text === ">>" || text === ">>>" || text === "?"
+    || text === ":" || text === "=>" || text === "," || text === "="
+    || text === "...");
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
-  return text === "export" || text === "import" || text === "declare" || text === "type"
-    || text === "const" || text === "let" || text === "var" || text === "function"
-    || text === "class" || text === "interface" || text === "enum" || text === "namespace"
-    || text === "module" || text === "abstract" || text === "async" || text === "if"
-    || text === "for" || text === "while" || text === "do" || text === "switch"
-    || text === "try" || text === "return" || text === "throw" || text === "break"
-    || text === "continue";
+  // 「只能在类型内部出现的续接词」不是语句起点：条件类型的 `extends`、类型运算符
+  // `keyof` / `typeof` / `readonly` / `unique` / `infer` / `new` / `import`、谓词词
+  // `is` / `asserts`，以及映射类型 / `as` 族。其余关键字（`export` / `class` / `const` …）
+  // 与普通标识符都是下一条语句的起点。
+  return !(text === "extends" || text === "is" || text === "asserts"
+    || text === "keyof" || text === "typeof" || text === "readonly"
+    || text === "unique" || text === "infer" || text === "new"
+    || text === "import" || text === "in" || text === "of"
+    || text === "as" || text === "satisfies");
 }
 return false;
 ```
@@ -295,9 +334,70 @@ return false;
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
   return !(text === "=" || text === "|" || text === "&" || text === "<"
-    || text === "?" || text === ":" || text === "=>" || text === "." || text === ",");
+    || text === "?" || text === ":" || text === "=>" || text === "." || text === ","
+    // 前缀运算符还在等操作数（`type T = -` ⏎ `/*c*/1` 的 `-` 与数字是同一格类型）。
+    || text === "-" || text === "+" || text === "!" || text === "~" || text === "*");
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  // 还等着操作数的**类型运算符词**收不住类型：`type T = keyof` ⏎ `A` 是同一个类型，
+  // 不能在 `keyof` 之后当边界（`typeof` / `readonly` / `unique` / `infer` / `new` /
+  // `import` / `asserts` / `is` / `extends` 同理）。完型字面量词（`void` / `null` /
+  // `true` / `string` …）与普通标识符照旧算收得住。
+  return !(text === "keyof" || text === "typeof" || text === "readonly"
+    || text === "unique" || text === "infer" || text === "new"
+    || text === "import" || text === "asserts" || text === "is"
+    || text === "extends" || text === "in" || text === "of"
+    || text === "as" || text === "satisfies");
 }
 return true;
+```
+
+## static method ClosesFunctionTypeParameters:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `>` 是否闭合一个**函数类型参数表**（`type T = <U>(…) => …`）。往回配平 `<` / `>`，
+找到对应的 `<` 后看它前面的代码单元：是 `=` ⇒ 后面必须跟参数表 `(`，那个换行后的 `(` 不是新语句
+（TS：`type T = <U>` ⏎ `(a: U) => U` 是**一条**别名）。`type T = A<B>` ⏎ `(c)` 的 `<` 前面是
+类型名，不属这一支。
+
+```ts
+if (index < 0 || index >= units.length || !(units[index] instanceof Symbol)) {
+  return false;
+}
+const tail = (units[index] as Symbol).TempToString();
+if (tail !== ">" && tail !== ">>" && tail !== ">>>") {
+  return false;
+}
+let depth = 0;
+for (let at = index; at >= 0; at--) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (!(unit instanceof Symbol)) {
+    if (depth === 0) {
+      return false;
+    }
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === ">" || text === ">>" || text === ">>>") {
+    depth++;
+    continue;
+  }
+  if (text === "<") {
+    depth--;
+    if (depth === 0) {
+      let before = at - 1;
+      while (before >= 0 && units[before].IsTriviaToken) {
+        before--;
+      }
+      return before >= 0 && units[before] instanceof Symbol
+        && (units[before] as Symbol).Is("=");
+    }
+  }
+}
+return false;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool

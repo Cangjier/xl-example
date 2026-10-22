@@ -319,7 +319,7 @@ if (unit instanceof Common) {
 return false;
 ```
 
-## static method IsAsiBoundary:(units:Array<Token>, tokenIndex:int)=>bool
+## static method IsAsiBoundary:(units:Array<Token>, tokenIndex:int, limit?:int)=>bool
 
 **ASI 判据**：`tokenIndex` 这个代码单元到得太晚——上一条表达式已经在换行处结束了。五条同时成立：
 
@@ -347,74 +347,35 @@ if (current instanceof Symbol && (current as Symbol).Is(";")) {
   return false;
 }
 let prev = tokenIndex - 1;
-let lineBreak = false;
-while (prev >= 0) {
-  const unit = units[prev];
-  if (!unit.IsTriviaToken) {
-    break;
-  }
-  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
-    lineBreak = true;
-  }
+while (prev >= 0 && units[prev].IsTriviaToken) {
   prev--;
 }
-if (prev < 0 || !lineBreak) {
+if (prev < 0) {
   return false;
 }
+// 换行判据按源位置找（块体 / 体里的 Units 不带 trivia 单元，见 HasLineBreakBefore）。
+if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+  return false;
+}
+// 前一个代码单元能收住一条完整表达式。闭合的 `{…}` 括号单元（对象字面量 / 箭头函数块体）
+// 也算：CanEndExpression 分不清 `{` 与裸块、统一按 false 处理，但在这个位置上 `{…}` 已经
+// 闭合，确实收得住（`x = () => {}` ⏎ `(y)` 必须在换行处断句，TS 的块体不是 MemberExpression）。
+const prevIsClosedBrace = units[prev] instanceof Bracket
+  && (units[prev] as Bracket).StartBracketChar === "{";
 if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)
-    && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)) {
+    && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)
+    && !prevIsClosedBrace) {
   return false;
 }
-// `++` / `--` 既可后缀也可前缀：只有紧贴前一个「能结束表达式」的代码单元（中间无换行）时
-// 它才是后缀（`a++` 能断句）；否则它是前缀运算符、还在等下一行的操作数（`a++; --\n a;` 里
-// 那条语句是 `--a`，绝不能在 `--` 后面断句）。
-if (units[prev] instanceof Symbol) {
-  const operator = (units[prev] as Symbol).TempToString();
-  if (operator === "++" || operator === "--") {
-    let before = prev - 1;
-    let breakSeen = false;
-    while (before >= 0 && units[before].IsTriviaToken) {
-      if (ExpressionStatementPossibleShape.HasLineBreak(units[before])) {
-        breakSeen = true;
-      }
-      before--;
-    }
-    if (before < 0 || breakSeen || !ExpressionStatementPossibleShape.CanEndExpression(units[before])) {
-      return false;
-    }
-    // 后缀 `++`/`--` 的结果不是合法的调用者 / 成员访问宿主（TS 的 UpdateExpression 不在
-    // MemberExpression 里）：换行后接 `(` `[` `.` `?.` `!` 只能是新语句的起点——
-    // `h++` ⏎ `(h)` 是两条语句（TS 在 `h++` 之后插 ASI）。同一行内不会走到这里（无换行即无边界）。
-    if (current instanceof Bracket
-      && (((current as Bracket).StartBracketChar === "(")
-        || ((current as Bracket).StartBracketChar === "["))) {
-      return true;
-    }
-    if (current instanceof Symbol) {
-      const afterPostfix = (current as Symbol).TempToString();
-      if (afterPostfix === "." || afterPostfix === "?." || afterPostfix === "!") {
-        return true;
-      }
-    }
-    // 标签模板的宿主同样不能是后缀 `++`/`--`（TS 的 UpdateExpression 不是 MemberExpression）：
-    // `a++` ⏎ `` `t` `` 是两条语句（第二条是无替换模板表达式），不能并成 TaggedTemplateExpression。
-    if (current instanceof String && (current as String).StringChar === "`") {
-      return true;
-    }
-  }
-}
-// 非调用位表达式（箭头体 / as / satisfies）后面换行接 `(` `[` 反引号模板只能是新语句：
-// TS 的 CallExpression / TaggedTemplate 宿主必须是 MemberExpression，箭头体与 as/satisfies
-// 都不在其中（`const f = () => {}` ⏎ `(1)`、`x as T` ⏎ `(1)` 都要 ASI）。
-if ((current instanceof Bracket
-    && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
-  || (current instanceof String && (current as String).StringChar === "`")) {
-  if (ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, prev)) {
-    return true;
-  }
-}// 本条语句的起点：从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。
+// 条件 5：本条语句的起点。**必须排在下面两个「确定性边界」早退之前**——那些边界是给
+// **表达式语句**用的；`const f = () => {}` ⏎ `(y)` / `let v = x as T` ⏎ `(1)` 这类声明条目的
+// 换行收口要由声明候选自己完成，终结候选若在这里 Accept 就会撞 CatalogGuide 的
+// 「终结候选与其它候选同时成立」。
+// 从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。`limit` 是「本条语句所在段的
+// 起点」：块体里的 units 还没有建形状，调用方必须传段首，否则会一路走回上一条语句的声明关键字。
+const lowerBound = limit ?? 0;
 let head = prev;
-while (head > 0 && units[head - 1].IsBasicToken) {
+while (head > lowerBound && units[head - 1].IsBasicToken) {
   head--;
 }
 while (head < prev && units[head].IsTriviaToken) {
@@ -441,8 +402,58 @@ if (units[statementHead] instanceof Common
   return false;
 }
 if (units[head] instanceof Common
-  && ExpressionStatementPossibleShape.IsStatementWord((units[head] as Common).TempToString())) {
+  && ExpressionStatementPossibleShape.IsStatementWord((units[head] as Common).TempToString())
+  // `yield` 是唯一的例外：它既是语句词、也是受限产生式的开头——`yield 1` ⏎ `yield* other()`
+  // 的换行是 ASI 边界（yield 候选不在 root 的候选表里，不会撞共存）。
+  && !(units[head] as Common).Is("yield")) {
   return false;
+}
+// `++` / `--` 既可后缀也可前缀：只有紧贴前一个「能结束表达式」的代码单元（中间无换行）时
+// 它才是后缀（`a++` 能断句）；否则它是前缀运算符、还在等下一行的操作数（`a++; --\n a;` 里
+// 那条语句是 `--a`，绝不能在 `--` 后面断句）。
+if (units[prev] instanceof Symbol) {
+  const operator = (units[prev] as Symbol).TempToString();
+  if (operator === "++" || operator === "--") {
+    let before = prev - 1;
+    while (before >= 0 && units[before].IsTriviaToken) {
+      before--;
+    }
+    // 「操作数与 `++` 之间不能有换行」同样按源位置判（块体的 Units 不带 trivia 单元）。
+    if (before < 0
+      || ExpressionStatementPossibleShape.HasLineBreakBefore(units, prev)
+      || !ExpressionStatementPossibleShape.CanEndExpression(units[before])) {
+      return false;
+    }
+    // 后缀 `++`/`--` 的结果不是合法的调用者 / 成员访问宿主（TS 的 UpdateExpression 不在
+    // MemberExpression 里）：换行后接 `(` `[` `.` `?.` `!` 只能是新语句的起点——
+    // `h++` ⏎ `(h)` 是两条语句（TS 在 `h++` 之后插 ASI）。同一行内不会走到这里（无换行即无边界）。
+    if (current instanceof Bracket
+      && (((current as Bracket).StartBracketChar === "(")
+        || ((current as Bracket).StartBracketChar === "["))) {
+      return true;
+    }
+    if (current instanceof Symbol) {
+      const afterPostfix = (current as Symbol).TempToString();
+      if (afterPostfix === "." || afterPostfix === "?." || afterPostfix === "!") {
+        return true;
+      }
+    }
+    // 标签模板的宿主同样不能是后缀 `++`/`--`（TS 的 UpdateExpression 不是 MemberExpression）：
+    // `a++` ⏎ `` `t` `` 是两条语句（第二条是无替换模板表达式），不能并成 TaggedTemplateExpression。
+    if (current instanceof String && (current as String).StringChar === "`") {
+      return true;
+    }
+  }
+}
+// 非调用位表达式（箭头体 / as / satisfies）后面换行接 `(` `[` 反引号模板只能是新语句：
+// TS 的 CallExpression / TaggedTemplate 宿主必须是 MemberExpression，箭头体与 as/satisfies
+// 都不在其中（`x = () => {}` ⏎ `(1)`、`x as T` ⏎ `(1)` 都要 ASI）。
+if ((current instanceof Bracket
+    && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
+  || (current instanceof String && (current as String).StringChar === "`")) {
+  if (ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, prev)) {
+    return true;
+  }
 }
 return !ExpressionStatementPossibleShape.IsContinuation(current);
 ```
@@ -507,6 +518,18 @@ MemberExpression，箭头体与 as/satisfies 表达式都不在其中，所以�
 遇到更外层的开括号就停（`(a as T)` ⏎ `(1)` 是合法调用，不能断）。
 
 ```ts
+// 箭头函数的**块体**收尾：`last` 是块体 `{…}` 且紧邻它的代码单元是 `=>`
+// （`x = () => {}` ⏎ `(y)`：块体不是 MemberExpression，`(` 只能是新语句起点 → ASI）。
+// 箭头函数的 **concise body** 不同：`x = () => 1` ⏎ `(y)` 的 `(y)` 还能续在体表达式上
+// （`1(y)`），TS 不断句——所以下面往回扫到 `=>` 时不能直接返回。
+if (units[last] instanceof Bracket && (units[last] as Bracket).StartBracketChar === "{") {
+  let beforeBody = last - 1;
+  while (beforeBody >= 0 && units[beforeBody].IsTriviaToken) {
+    beforeBody--;
+  }
+  return beforeBody >= 0 && units[beforeBody] instanceof Symbol
+    && (units[beforeBody] as Symbol).TempToString() === "=>";
+}
 let depth = 0;
 for (let at = last; at >= 0; at--) {
   const unit = units[at];
@@ -531,9 +554,6 @@ for (let at = last; at >= 0; at--) {
   if (depth > 0) {
     continue;
   }
-  if (unit instanceof Symbol && (unit as Symbol).TempToString() === "=>") {
-    return true;
-  }
   if (unit instanceof Common) {
     const text = (unit as Common).TempToString();
     if (text === "as" || text === "satisfies") {
@@ -548,19 +568,36 @@ return false;
 ```
 ## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool
 
-`tokenIndex` 之前紧邻的那段 trivia 里有没有换行（块注释里的换行也算；行注释本身不含换行，换行在它后面那个空白块里）。
-扫到第一个非 trivia 就停——它前面的那段就是「前一代码单元到当前单元」的全部间隔。
+`tokenIndex` 之前紧邻的那段 trivia 里有没有换行（块注释里的换行也算）。按**源位置**在
+前一代码单元与当前单元之间找 `\n` / `\r`：块体 / 体里的 `Units` 不一定带 trivia 单元
+（`StatementBuilder` 的块数据只有代码单元），只扫 trivia 单元会在那里永远判出「没有换行」。
 
 ```ts
 if (tokenIndex < 1) {
   return false;
 }
-for (let at = tokenIndex - 1; at >= 0; at--) {
-  const unit = units[at];
-  if (!unit.IsTriviaToken) {
-    return false;
+let previous = tokenIndex - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+const left = units[previous].SourceRange.End;
+const right = units[tokenIndex].SourceRange.Start;
+if (left !== null && right !== null) {
+  const document = left.Document;
+  let at = left.Index + 1;
+  while (at < right.Index) {
+    const ch = document.At(at).Value;
+    if (ch === "\n" || ch === "\r") {
+      return true;
+    }
+    at++;
   }
-  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+}
+for (let at = tokenIndex - 1; at > previous; at--) {
+  if (ExpressionStatementPossibleShape.HasLineBreak(units[at])) {
     return true;
   }
 }
@@ -615,6 +652,85 @@ if (previous < 0) {
 }
 return ExpressionStatementPossibleShape.IsExpressionTail(units[previous])
   && !ExpressionStatementPossibleShape.IsContinuation(current);
+```
+
+## static method IsUncontinuableTailBoundary:(units:Array<Token>, tokenIndex:int)=>bool
+
+「上一条表达式的尾巴注定接不上当前单元」——只认**确定**的几种，比 `IsStatementBoundaryAfterExpression`
+更窄（变量语句 / `return` 操作数用它：那里若把 `{` 也一律当边界，会把 `function (): number` ⏎ `{ … }`
+的函数体切断）：
+
+- 当前是调用位（`(` / `[` / 反引号模板），且上一条以**后缀 `++`/`--`**（UpdateExpression 不是
+  MemberExpression）或 **`=> {}` / `as` / `satisfies`** 收尾：`const a = x++` ⏎ `++y`、
+  `const f = () => {}` ⏎ `(y)`、`const v = x as T` ⏎ `(1)`；
+- 上一条是后缀 `++`/`--`/`!`，当前是 `++` `--` `!` `~`：这些都不是能续接的运算符。
+
+其余（`{` 可能是函数 / 类表达式的体、类型运算符词等）一律返回 false，交给老的
+`EndsAtLineBreak` / `ContinuesAcrossLine`。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const current = units[tokenIndex];
+if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
+  return false;
+}
+if (current instanceof Symbol && (current as Symbol).Is(";")) {
+  return false;
+}
+if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+  return false;
+}
+let previous = tokenIndex - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+const currentIsCallPosition = (current instanceof Bracket
+    && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
+  || (current instanceof String && (current as String).StringChar === "`");
+if (currentIsCallPosition) {
+  if (ExpressionStatementPossibleShape.IsPostfixOperatorAt(units, previous)) {
+    const operatorText = (units[previous] as Symbol).TempToString();
+    if (operatorText === "++" || operatorText === "--") {
+      return true;
+    }
+  }
+  return ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, previous);
+}
+if (ExpressionStatementPossibleShape.IsPostfixOperatorAt(units, previous)
+  && current instanceof Symbol) {
+  const currentText = (current as Symbol).TempToString();
+  if (currentText === "++" || currentText === "--" || currentText === "!" || currentText === "~") {
+    return true;
+  }
+}
+return false;
+```
+
+## static method IsPostfixOperatorAt:(units:Array<Token>, index:int)=>bool
+
+`index` 处的 `++` / `--` / `!` 是不是**后缀**（紧贴同一行、且左边能收住表达式）。
+只有后缀形态才「注定接不上」调用位；前缀形态还在等操作数（`x++` 与 `a ⏎ ++b` 要分开）。
+
+```ts
+if (index < 0 || index >= units.length || !(units[index] instanceof Symbol)) {
+  return false;
+}
+const text = (units[index] as Symbol).TempToString();
+if (text !== "++" && text !== "--" && text !== "!") {
+  return false;
+}
+let operand = index - 1;
+while (operand >= 0 && units[operand].IsTriviaToken) {
+  operand--;
+}
+return operand >= 0
+  && !ExpressionStatementPossibleShape.HasLineBreakBefore(units, index)
+  && ExpressionStatementPossibleShape.CanEndExpression(units[operand]);
 ```
 
 ## static method ExpressionEnd:(units:Array<Token>, from:int)=>int
