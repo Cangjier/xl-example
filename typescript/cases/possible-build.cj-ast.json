@@ -5667,6 +5667,303 @@
           ]
         }
       ]
+    },
+    {
+      "src": "function fopt1(a?) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 14,
+              "text": "fopt1"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 15,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 16,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 18,
+              "end": 21
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function fopt2(a, b?) {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 14,
+              "text": "fopt2"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 15,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 16,
+                  "text": "a"
+                }
+              ]
+            },
+            {
+              "kind": "Parameter",
+              "pos": 17,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "b"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 19,
+                  "end": 20
+                }
+              ]
+            },
+            {
+              "kind": "Block",
+              "pos": 21,
+              "end": 24
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function fopt3(a?): void {}",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 14,
+              "text": "fopt3"
+            },
+            {
+              "kind": "Parameter",
+              "pos": 15,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 15,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 16,
+                  "end": 17
+                }
+              ]
+            },
+            {
+              "kind": "VoidKeyword",
+              "pos": 19,
+              "end": 24
+            },
+            {
+              "kind": "Block",
+              "pos": 24,
+              "end": 27
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Copt1 { m(a?) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Copt1"
+            },
+            {
+              "kind": "MethodDeclaration",
+              "pos": 13,
+              "end": 22,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 13,
+                  "end": 15,
+                  "text": "m"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 16,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 17,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "QuestionToken",
+                      "pos": 17,
+                      "end": 18
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 19,
+                  "end": 22
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Copt2 { constructor(a?) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 34,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Copt2"
+            },
+            {
+              "kind": "Constructor",
+              "pos": 13,
+              "end": 32,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 26,
+                  "end": 28,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 26,
+                      "end": 27,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "QuestionToken",
+                      "pos": 27,
+                      "end": 28
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 29,
+                  "end": 32
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "class Copt3 { set x(v?) {} }",
+      "ast": [
+        {
+          "kind": "ClassDeclaration",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 11,
+              "text": "Copt3"
+            },
+            {
+              "kind": "SetAccessor",
+              "pos": 13,
+              "end": 26,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 17,
+                  "end": 19,
+                  "text": "x"
+                },
+                {
+                  "kind": "Parameter",
+                  "pos": 20,
+                  "end": 22,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 20,
+                      "end": 21,
+                      "text": "v"
+                    },
+                    {
+                      "kind": "QuestionToken",
+                      "pos": 21,
+                      "end": 22
+                    }
+                  ]
+                },
+                {
+                  "kind": "Block",
+                  "pos": 23,
+                  "end": 26
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

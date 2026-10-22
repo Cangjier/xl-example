@@ -506,7 +506,9 @@ while (inner.At < inner.Units.length) {
     if (next === "?:") {
       typed = true;
     } else if (next === "?") {
-      typed = nameIndex + 2 < inner.Units.length && inner.TextOf(inner.Units[nameIndex + 2]) === ":";
+      // 同 FunctionDeclarationShape.BuildParameters：`m(a?)` / `constructor(a?)` / `set x(v?)` 的
+      // `?` 是可选的 QuestionToken，不是「后面没冒号所以裸标识符」。交给 ParseParameter 一次建对。
+      typed = true;
     } else if (next === ":") {
       typed = true;
     }

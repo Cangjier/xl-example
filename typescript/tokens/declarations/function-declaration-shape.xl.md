@@ -387,7 +387,11 @@ while (inner.At < inner.Units.length) {
     if (next === "?:") {
       typed = true;
     } else if (next === "?") {
-      typed = nameIndex + 2 < inner.Units.length && inner.TextOf(inner.Units[nameIndex + 2]) === ":";
+      // `a?` 没有类型标注（`f(a?)` / `f(a?, b?)`）也必须是 ParameterShape：TS 的 Parameter
+      // 是 name + QuestionToken、Type 缺失。旧口径只在 `?` 后紧跟 `:` 时才算类型化，于是 `a?`
+      // 落进下面「裸标识符」分支，`?` 无人认领 → 下一次循环拿 `?` 当名字 → 「函数参数不是标识符」。
+      // 正确做法：`?` 一律交 ParseParameter（它已支持 name + QuestionToken、无 Type）。
+      typed = true;
     } else if (next === ":") {
       typed = true;
     }
