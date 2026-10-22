@@ -284,3 +284,35 @@ const o3 = a?.(y);
 const o4 = a?.<T>(y);
 const o5 = a?.b?.c;
 const o6 = a?.[k]?.(y);
+// ══ cover6 core（D/G 字符串）：行续接认 LS/PS；带标签模板的非法转义 cooked 取原文 ══
+// 判据：TS 6.0.3 `ts.createSourceFile` 的 parseDiagnostics.length === 0，修复前 AST 的 text 字段差。
+// D：`\` + LineTerminator 是行续接（ECMAScript 的 LineTerminatorSequence 含 U+2028/U+2029），cooked 里不产出字符。
+// 修点：core/syntax/basic-tokens/string/translate.xl.md 的 DecodeClear 认 StringTemplate.LineTerminatorChars；
+//       ts 模板把 LS/PS 加进该表（typescript/run/typescript-template.xl.md）。
+const s1 = "a\ b";
+const s2 = "a\ b";
+const s3 = 'a\ b';
+const s4 = "a\ b\ c";
+const s5 = "\ ";
+const s6 = `a\ b`;
+const s7 = `a\ b`;
+const s8 = `\ `;
+const s9 = `a\ ${x}b`;
+// G：模板串里的 legacy octal（`\1`–`\7`、`\00`）与 NonOctalDecimalEscape（`\8`/`\9`）非法；
+// 带标签模板里 TS 的 text = 原文（cooked 为 undefined 的那一侧），不带标签模板是语法错误、不入尺子。
+// 修点：StringTemplate.StrictTemplateEscapes（ts 模板打开）+ Translate.IsInvalidTemplateEscape；
+//       tokenizer 不知道 tagged，所以统一产出原文（超集口径，见 docs/cover6-core-string.md）。
+tag`\8`;
+tag`\9`;
+tag`\08`;
+tag`\09`;
+tag`\1`;
+tag`\7`;
+tag`\377`;
+tag`\008`;
+tag`\08x`;
+tag`\8a`;
+tag`a\n\8b`;
+tag`a\8\nb`;
+tag`a\8b${x}c\9d`;
+tag`\8${x}\8`;

@@ -8,7 +8,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 转义累积器：普通字符串里遇到 `\` 就进入转义模式，之后逐个字符攒进 `Temp`，攒够一次性解出一个字符交回字符串单元。它不是 token，不进 `Data`、不进 XML，只被 `String` 私有持有。
 
-对齐口径是 ts 的 **cooked text**：`\uXXXX` / `\u{…}` / `\xNN` 解成码点，`\07` / `\101` 按八进制解，`\a` `\{` `\d` 这类 NonEscapeCharacter 解成字符本身，`\r` / `\n` 开头的续行什么都不产出。
+对齐口径是 ts 的 **cooked text**：`\uXXXX` / `\u{…}` / `\xNN` 解成码点，`\07` / `\101` 按八进制解，`\a` `\{` `\d` 这类 NonEscapeCharacter 解成字符本身，`\r` / `\n`（以及行终止符表里的其它字符）开头的续行什么都不产出。
+
+两处语言差异由调用方以参数传进来、本类不写死：**行终止符表**（哪些字符算行续接）与**模板串非法转义开关**（legacy octal / `\8` `\9` 保留原文还是解成字符）。
 
 # class Translate
 
@@ -115,13 +117,24 @@ return true;
 return text.length > 0 && /^[0-9a-fA-F]+$/.test(text);
 ```
 
-## method DecodeClear:()=>string | null
+## method DecodeClear:(lineTerminatorChars:Array<string>, strictTemplateEscapes:bool, nextItem?:string)=>string | null
 
 解出一个字符、清空 `Temp` 并退出转义模式。返回 `null` 表示这次转义**不产出字符**（换行续行）。
 
+三个参数都是**语言配置**（由 `String` 从 `StringTemplate` 上取来，本类自己不写死语言事实）：
+
+- `lineTerminatorChars`：行终止符表。`Temp` 是其中任一字符（或 `\r\n` 两字）时是行续接、返回 `null`；
+- `strictTemplateEscapes`：为真时，**模板串**里的非法转义（legacy octal / `\8` / `\9`）保留原文，
+  返回 `"\\" + Temp`——这是 ECMAScript 模板串「cooked 为 undefined 时取原文」的那一侧；
+- `nextItem`：调用方在 `Accept` 返回 `false` 时把**那个不属于本次转义的字符**带进来。只有一处分寸需要它：
+  `\0` 本身合法，但后面紧跟十进制数字（`\08` / `\09`）就是 legacy octal、非法——
+  这时 `Temp` 只有 `"0"`，要看到下一个字符才判得出来。`Append` 攒够的那条路径不带它。
+
 规则（与 ts 的 cooked text 对齐）：
 
-- `\n`、`\r`、`\r\n`：换行续行，返回 `null`；
+- `\n`、`\r`、`\r\n`（以及 `lineTerminatorChars` 里的其它字符）：换行续行，返回 `null`；
+- `strictTemplateEscapes` 且（`Temp` 是模板串非法转义，或 `Temp === "0"` 且 `nextItem` 是十进制数字）：
+  保留原文（`\8` → `\8`、`\1` → `\1`、`\00` → `\00`、`\08` → `\0` + 字面 `8`）；
 - `0`–`7` 开头的八进制：按位解码（`\07` → BEL、`\101` → `A`、`\377` → `ÿ`）；`8` / `9`：NonOctalDecimalEscapeSequence，解成字符本身；
 - 单字符转义：`r` `n` `t` `b` `f` `\` `'` `"` `v` 查表；其余（`a`、`{`、`d`、空格等）是 NonEscapeCharacter，解成字符本身；
 - `u`：`uXXXX` 解 4 位十六进制；`u{…}` 解成码点（可以超过 `0xFFFF`，用 `fromCodePoint`）；
@@ -130,9 +143,13 @@ return text.length > 0 && /^[0-9a-fA-F]+$/.test(text);
 
 ```ts
 let result: string | null = null;
-if (this.Temp.length === 1) {
+if (strictTemplateEscapes
+  && (Translate.IsInvalidTemplateEscape(this.Temp)
+    || (this.Temp === "0" && nextItem !== undefined && nextItem >= "0" && nextItem <= "9"))) {
+  result = "\\" + this.Temp;
+} else if (this.Temp.length === 1) {
   const ch = this.Temp[0];
-  if (ch === "\n" || ch === "\r") {
+  if (lineTerminatorChars.includes(ch)) {
     result = null;
   } else if (ch >= "0" && ch <= "7") {
     result = String.fromCharCode(Number.parseInt(ch, 8));
@@ -214,4 +231,35 @@ if (this.Temp.length === 1) {
 this.Temp = "";
 this.IsTranslating = false;
 return result;
+```
+
+## static method IsInvalidTemplateEscape:(temp:string)=>bool
+
+`temp`（反斜杠之后攒下来的字符，不含反斜杠本身）在**模板串口径**下是不是一个非法转义。
+ECMAScript 的模板串只认孤立的 `\0`（后面不跟数字）与常规单字符 / 十六进制转义；
+legacy octal（`\1`–`\7`、`\00`）与 NonOctalDecimalEscape（`\8` / `\9`）都非法——
+带标签模板里这些转义的 cooked 是 `undefined`、AST 取原文，所以扫描侧要能识别它们。
+
+核心只回答「这串字符是不是『数字开头、且不是孤立的 `0`』」；是否启用由
+`StringTemplate.StrictTemplateEscapes` 决定，本类不写死语言。
+
+**孤立的 `0` 要带下一个字符才判得出来**：`\0`、`\0x` 合法（`Temp === "0"`，本方法返回 `false`），
+`\08` / `\09` 非法（`Append` 不会把 `8` / `9` 收进 `Temp`，所以 `Accept` 返回 `false` 的那条路径
+把当前字符当 `nextItem` 交给 `DecodeClear` 才能判定）。
+
+```ts
+if (temp.length === 0) {
+  return false;
+}
+const first = temp[0];
+if (first < "0" || first > "9") {
+  return false;
+}
+if (first === "8" || first === "9") {
+  return true;
+}
+if (first === "0") {
+  return temp.length > 1;
+}
+return true;
 ```

@@ -207,15 +207,21 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   const config = this.Template.StringTemplate;
   const quoteInterpolation = config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(this.StringChar);
+  // 转义结算的两项语言口径从模板上取：行终止符表（行续接）与模板串非法转义开关
+  //（ECMAScript 模板串里 legacy octal / `\8` `\9` 的 cooked 是 undefined，取原文）。
+  const lineTerminatorChars = config.LineTerminatorChars;
+  const strictTemplateEscapes = config.StrictTemplateEscapes;
   if (this.Translate.IsTranslating) {
     if (this.Translate.Accept(value)) {
       if (this.Translate.Append(value)) {
-        this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
+        this.AppendToLastConstString(this.Translate.DecodeClear(lineTerminatorChars, strictTemplateEscapes), source, context);
       }
     } else {
       const previous = source.Pre();
       if (previous !== null) {
-        this.AppendToLastConstString(this.Translate.DecodeClear(), previous, context);
+        // `Accept` 不收的字符是「本次转义之外」的第一个字符：`\08` 的合法/非法要看它
+        //（`\0` 后跟十进制数字 = legacy octal），所以把它当 nextItem 传进去。
+        this.AppendToLastConstString(this.Translate.DecodeClear(lineTerminatorChars, strictTemplateEscapes, value), previous, context);
       }
       context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
@@ -325,20 +331,23 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
     this.AppendToLastConstString(value, source, context);
   }
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
+  const plainConfig = this.Template.StringTemplate;
   if (this.Translate.IsTranslating) {
     if (this.Translate.Accept(value)) {
       if (this.Translate.Append(value)) {
-        this.AppendToLastConstString(this.Translate.DecodeClear(), source, context);
+        // 普通引号串：行续接认模板的 LineTerminatorChars（ECMAScript 的 `"a\<LS>b"` 也是续接），
+        // 但**不**走模板串非法转义口径——普通引号串的 cooked 照旧解码（ts 侧那些输入本身有诊断）。
+        this.AppendToLastConstString(this.Translate.DecodeClear(plainConfig.LineTerminatorChars, false), source, context);
       }
     } else {
       const previous = source.Pre();
       if (previous !== null) {
-        this.AppendToLastConstString(this.Translate.DecodeClear(), previous, context);
+        this.AppendToLastConstString(this.Translate.DecodeClear(plainConfig.LineTerminatorChars, false), previous, context);
       }
       context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
     }
   } else {
-    if (this.Template.StringTemplate.EscapeChars.includes(value)) {
+    if (plainConfig.EscapeChars.includes(value)) {
       this.Translate.IsTranslating = true;
     } else {
       this.AppendToLastConstString(value, source, context);
