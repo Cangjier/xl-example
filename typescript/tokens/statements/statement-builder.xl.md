@@ -1097,8 +1097,17 @@ const keyword = this.Units[first];
 const lineBreak = this.At < this.Units.length
   && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.End);
 if (lineBreak) {
+  // 换行之后紧跟的 `;` 仍是本条语句的终止符，TS 把 `;` 计进 End：
+  //   `return` ⏎ `;` → ReturnStatement[13,22]（不能新起 EmptyStatement[20,22]）；
+  //   `throw`  ⏎ `;` → ThrowStatement[0,7] + 零宽 Identifier[5,5]。
+  // 只吃 `;`；换行后的其它代码单元照旧留给下一条语句（`return` ⏎ `a;` = 2 条语句）。
+  const semicolonNext = this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";");
+  if (semicolonNext) {
+    this.At++;
+  }
+  const tail = semicolonNext ? this.At - 1 : first;
   if (!isThrow) {
-    return this.Finish(new ReturnStatementShape(this.Template), first, first);
+    return this.Finish(new ReturnStatementShape(this.Template), first, tail);
   }
   const throwShape = new ThrowStatementShape(this.Template);
   const throwEnd = keyword.SourceRange.End;
@@ -1112,7 +1121,7 @@ if (lineBreak) {
     zero.TryToClose(this.Context);
     throwShape.Add(zero);
   }
-  return this.Finish(throwShape, first, first);
+  return this.Finish(throwShape, first, tail);
 }
 let endExclusive = this.At;
 while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusive], ";")) {

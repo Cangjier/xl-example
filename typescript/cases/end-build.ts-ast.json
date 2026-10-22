@@ -240,6 +240,60 @@
       ]
     },
     {
+      "src": "throw\n;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 7,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw /* c */\n;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "throw // c\n;",
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "src": "function f(){ throw\n}",
       "ast": [
         {
@@ -376,6 +430,66 @@
                   "kind": "ReturnStatement",
                   "pos": 13,
                   "end": 21
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(){ return\n; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 13,
+                  "end": 22
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "function f(){ return // c\n; }",
+      "ast": [
+        {
+          "kind": "FunctionDeclaration",
+          "pos": 0,
+          "end": 29,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "f"
+            },
+            {
+              "kind": "Block",
+              "pos": 12,
+              "end": 29,
+              "children": [
+                {
+                  "kind": "ReturnStatement",
+                  "pos": 13,
+                  "end": 27
                 }
               ]
             }
