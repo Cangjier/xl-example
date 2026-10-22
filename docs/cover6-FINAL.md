@@ -18,6 +18,11 @@ real-dts / tsc / xl_check）全部实测通过，且与 infra 报数一致。
 若 Lead 把 `cases:check` 列为 blocking 门禁，则本报告应改为 **CONDITIONAL（待修 3 个夹具头）**；
 其余全部读数不受影响。详见 §7.1。
 
+> **更新（2026-10-22，第 5 条合并 `1b8e2060` 之后复核）**：§7.1 的异常已由独立分支
+> `cover6-fix-fixture-meta`（`4d659ea9`，merge `1b8e2060`）修复并复核闭环——
+> `node tests/parse/validate.mjs` = **1717 用例 / 0 不合格（exit 0）**，token-ast / ast-json / diff 读数不变。
+> **最终结论 = PASS（无阻塞项）**，不再需要 CONDITIONAL；复核细节与新读数见 **§9 附录**。
+
 | 项 | 结果 |
 | --- | --- |
 | HEAD / 合并链 / 范围 | ✅ `ff2ea1e8`，4 条 merge（`221b24ee`/`59c469cc`/`108b1767`/`ff2ea1e8`），28 文件 +8059/−29 |
@@ -254,3 +259,53 @@ node .\node_modules\typescript\bin\tsc -p tsconfig.json
 node typescript/cases/ast-json.mjs && node typescript/cases/ast-json-diff.mjs
 node typescript/cases/token-ast.mjs --quiet && node typescript/cases/real-dts-ast.mjs
 ```
+
+## 9. 附录：`cases:check` 回归已修复（commit `4d659ea9` + merge `1b8e2060`）
+
+### 9.1 异常原文与根因（历史记录，保留可追溯）
+
+- 终验时（HEAD `ff2ea1e8`）：`node tests/parse/validate.mjs` = **1717 用例 / 3 条不合格 / exit 1**；
+  基线 prep `99f286d8` = **1708 / 0 / exit 0**（同一 worktree 实测）。
+- 3 条 BAD 全为 cover6 新增夹具的**文件头元数据**（产品代码未变）：
+  - `tests/cases/token/lexical/lex-optional-chain-digit-lookahead.ts`、
+    `tests/cases/token/lexical/lx-optional-chain-digit.ts`：覆盖层文件头缺 `// xl:end`（`xl:round` 存在时必需，
+    规则在 `tests/cases/case-file.mjs` 一侧），且 `xl:expect` 写了 TS kind 名/幽灵标签
+    （`ConditionalExpression` 不在标签表；`QuestionToken`/`NumericLiteral`/`ColonToken`/
+    `PropertyAccessExpression`/`QuestionDotToken` 属 `GHOST_TAGS`，只能进 `xl:absent`）。
+  - `tests/cases/token/lexical/lex-unicode-escape-brace-long.ts`：`xl:expect` 用了幽灵标签
+    （`VariableStatement`/`VariableDeclarationList`/`VariableDeclaration`/`NumericLiteral`/`TypeReference`）
+    与未登记标签（`FirstStatement` 等；`FunctionDeclaration`/`ClassDeclaration` 等是 TS kind 名）。
+- 根因是**夹具头元数据不合规**，不是 AST/产品回归（token-ast / ast-json / real-dts 当时即全绿）。
+  `docs/cover6-core-string.md` 原先把 `cases:check` 记成「环境 / 基线问题」，实测不成立，已在该文档 §7 一并更正。
+
+### 9.2 修复（独立分支，未改产品代码）
+
+- 分支 `cover6-fix-fixture-meta` @ **`4d659ea9`** `cover6(fixtures): 修正 3 个夹具头元数据（cases:check 回归清零）`
+  （由 basic-token 执行；write scope 仅 `tests/cases/token/lexical` + `docs/cover6-core-string.md`）。
+- 修复内容：两个 E 夹具补 `// xl:end`；`xl:expect` 改为语料里已用过的产品标签
+  （`Let,TernaryOperator,PropertyAccess`；F 夹具 `Let,Function,Class,ObjectLiteral,MethodDeclaration`）；
+  幽灵标签移入 `xl:absent`；未知标签删除。`docs/cover6-core-string.md` §7 增补修复记录并更正「环境问题」表述。
+- 合并：**`1b8e2060`** `merge: cover6-fix-fixture-meta`（第 5 条合并；父链 `ff2ea1e8` + `4d659ea9`）。
+
+### 9.3 合并后复核读数（只做短复核，未重跑 7 项端到端）
+
+| 检查 | 实测 |
+| --- | --- |
+| 主仓 HEAD / 工作区 | **`1b8e20604c9d783cd7ef1f4f42891f3a54805cd9`**；`git status --porcelain` 空 |
+| 合并链 | `99f286d8..HEAD` = **5 条** merge：`221b24ee` / `59c469cc` / `108b1767` / `ff2ea1e8` / **`1b8e2060`** |
+| 改动范围（`ff2ea1e8..HEAD`） | 只 5 文件：`docs/cover6-FINAL.md`(A)、`docs/cover6-core-string.md`(M)、3 个 E/F 夹具(M)；**无产品代码、无 core** |
+| core 不变性 | `git diff 99f286d8..HEAD -- core` 与合并前同 hash（`44f0591f36077aa1c2b7a386a62f67b01cc1aaf7`）；仍 **9 文件**、无新增 |
+| `cases:check` | **1717 条用例 / 0 条不合格 / exit 0**（合并前 3 不合格 → 清零） |
+| 夹具头抽查（TAGS/GHOST_TAGS） | 3 个夹具 `xl:expect` 标签全部 ∈ `TAGS`；`xl:absent` 标签全部 ∈ `GHOST_TAGS`；2 个 E 夹具（覆盖层）有 `// xl:end`，F 夹具非覆盖层无需 `xl:end` —— **BAD 0** |
+| token-ast | **total 1713 / ok 1703 / ts-invalid 10 / crash 0 / diff 0 / known-gap 0**（与合并前一致） |
+| ast-json / diff | **5784/5784 cj-ok**；**5784/5784 完全一致，结构/位置/字段差 0/0/0**（独立克隆更新到新 HEAD 后重跑，未变） |
+| 7 项 A–G / real-dts / tsc / xl_check | 本轮未重跑（产品代码零变化；§3/§7 读数继续有效） |
+
+### 9.4 结论更新
+
+- 终验结论由 **「PASS（附 1 条非阻塞异常）」** 更新为 **「PASS（无阻塞项）」**；
+  §1 的「若列为 blocking 则 CONDITIONAL」提醒**不再适用**（`cases:check` 已 0 不合格）。
+- §7.1 保留为历史记录（异常原文），其后续状态以本附录为准。
+- 回滚点更新：整体回滚仍为 `99f286d8`；第 5 条合并可单独 `git revert -m 1 1b8e2060`（只撤夹具头修复，
+  不影响 4 条 core 改动）；本附录所在文档提交可单独 `git revert <本次 docs 提交>`。
+
