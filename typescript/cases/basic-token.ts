@@ -144,3 +144,27 @@ const﻿b8 = 3;
 #!/usr/bin/env -S node --enable-source-maps\nconst sb4 = 1;
 #!/usr/bin/env node
 #!/usr/bin/env node\n// c\nconst sb5 = 1;
+
+// ---- 场景 8–13：2026-10 探针新发现，**必须改 core、待用户裁定**（未修，故不写活跃用例）----
+// 探针：clone/tmp/probe-basic-token.mjs，14 族 303 条候选（kind 归一口径同 ast-compare）；
+// TS 侧只认 parseDiagnostics=0 的 236 条：207 一致 / 9 crash / 20 diff；67 条 TS 自身非法已剔除。
+// 下面每条都给最小复现与 core 根因；修好后应各自转为活跃行（base/变体成对）。
+// 8. lone CR 不是行注释/shebang 的行尾：`// c\rconst a = 1;`、`#!x\rconst a = 1;` → cj 整行吞到 EOF（cj 树为空）。
+//    根因：core/syntax/basic-tokens/line-annotation.xl.md:124 只判 `source.Value !== "\n"`；
+//    core/syntax/basic-tokens/shebang.xl.md:68 同判据。CRLF 正常（CR 先被回退），只有 lone CR 漏。
+// 9. U+2028/U+2029 不是行终止符，也不是空白：`const a = 1;<LS>const b = 2;`（cj crash「表达式语句没有读完」）、
+//    `function f(){ return<LS>1; }`（cj 把 `return`+LS+`1` 并成一个 Identifier）、`type T =<LS>number;`（同）。
+//    根因：空白表 core/syntax/templates/symbol-template.xl.md 的 IsWhiteSpace（被 core/syntax/basic-tokens/common.xl.md:63/598
+//    用于「能不能并块」）不含 LS/PS；行注释/shebang 的 `\n` 判据见 8。
+// 10. U+200B（ZERO WIDTH SPACE）不是空白：`const a = 1;<U+200B>const b = 2;`、`x = 1<U+200B>+2;`
+//     （TS 对这两条 0 诊断——TS 的 isWhiteSpaceSingleLine 把 0x2000–0x200B 都算空白；cj 均 crash）。
+//     根因同 9 的 IsWhiteSpace 字符表（core）。
+// 11. `\u{…}` 花括号转义没有位数上限：`const \u{0000061} = 1;`（TS 合法，码点 0x61；cj crash「变量声明缺少标识符」）。
+//     根因：core/syntax/basic-tokens/common.xl.md:69/92/104 写死 1–6 位十六进制；TS 不限位数、只要求码点 ≤ 0x10FFFF。
+//     typescript/tokens/names/identifier-shape.xl.md:47 是同一 6 位口径的解码侧，放宽时需一起改（否则 escape 进不了 token）。
+// 12. 模板里非法转义的 cooked 值：`tag`+反引号+`\8`（TS 的 text 是原文 "\\8"，即 cooked=undefined 时回退 raw；
+//     cj 给出 "8"）。根因：core/syntax/basic-tokens/string/translate.xl.md:37/125 把 `\8`/`\9` 按
+//     NonOctalDecimalEscapeSequence「解成字符本身」，而 TS 只在无标签模板里报错、在有标签模板里保留 raw。
+// 13. 已探明**无缺口**、不必再探的族（证据同上）：HTML 注释 `<!--`/`-->`（TS 与 cj 一致；TS 自身多数非法）、
+//     CRLF、BOM 任意位置（除 shebang 行尾见 8/9）、`\u{…}` 常规 1–6 hex、U+200C/U+200D 标识符、
+//     regex 起点上下文（控制头 `)`/else/do/`}`/=>/yield/await/case 后）、数字分隔符 30 条合法形、`$` 与 `\u0024`。
