@@ -85,14 +85,11 @@ const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(consumed, basePos);
 const built = builder.ParseTypeMember();
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+  return host;
+}
 if (!(built instanceof SetAccessorShape)) {
   throw new Error("SetAccessorPossibleShape.BuildByIndex: 产出不是 SetAccessorShape");
-}
-if (builder.At !== builder.Units.length) {
-  throw new Error("SetAccessorPossibleShape.BuildByIndex: 成员没有读完");
-}
-if (builder.OriginalConsumed() !== consumed.length) {
-  throw new Error("SetAccessorPossibleShape.BuildByIndex: 消费范围与判定不一致");
 }
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;

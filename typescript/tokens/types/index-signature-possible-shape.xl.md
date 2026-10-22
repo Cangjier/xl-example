@@ -82,14 +82,11 @@ const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(consumed, basePos);
 const built = builder.ParseTypeMember();
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+  return host;
+}
 if (!(built instanceof IndexSignatureShape)) {
   throw new Error("IndexSignaturePossibleShape.BuildByIndex: 产出不是 IndexSignatureShape");
-}
-if (builder.At !== builder.Units.length) {
-  throw new Error("IndexSignaturePossibleShape.BuildByIndex: 成员没有读完");
-}
-if (builder.OriginalConsumed() !== consumed.length) {
-  throw new Error("IndexSignaturePossibleShape.BuildByIndex: 消费范围与判定不一致");
 }
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;

@@ -593,6 +593,24 @@ if (host.SourceRange.Start === null) {
 return host.SourceRange.Start.Index + 1;
 ```
 
+## static method MemberParsedWhole:(builder:TypeBuilder, consumedLength:int)=>bool
+
+`TypeBuilder.ParseTypeMember()` 是否**恰好**把这一条判定区间整段读完（没有 leftover、消费范围与判定一致）。
+
+`Analyze` 的第三条收口证据（最后一个单元后面是容器收口字符）只保证「到容器收口为止没有更多代码单元」，它无法排除**同一行里挤了多条成员**：`interface I { a: number b: string }` 里 TS 不插 ASI，但类型解析在 `number` 处就收住、`b` 是下一条成员。返回 `false` 就表示这一段其实不止一条成员（或消费范围与判定不一致）：调用方**不建、不 `splice`**，把 raw 代码原样留给容器收口时的 `BuildMembers`（接口体 `CollectBodyMembers` 的 raw 尾巴）按重构前逐成员口径重新解析——恢复行为与 55578b9a 一致。
+
+只有返回 `true` 的整段解析才值得做「产出形状必须是自己这一类」的断言：那时形状不对是真的判型 bug，不是成员边界问题，仍然直接抛错。
+
+```ts
+if (builder.At !== builder.Units.length) {
+  return false;
+}
+if (builder.OriginalConsumed() !== consumedLength) {
+  return false;
+}
+return true;
+```
+
 # class PropertySignaturePossibleShape extends PossibleShape
 
 ```txt
@@ -644,6 +662,8 @@ return state.Complete && state.End >= 0
 
 成员区间尾部的 trivia 不属于成员：`splice` 只吃到最后一个代码单元，后面的 trivia 留给下一条目当先行 trivia（下一条目的 `Pos` 由 `BasePos` 按「前一个非 trivia 单元」算，与整段解析同口径）。
 
+读不完 / 消费范围不一致时**不顶替**，raw 代码原样留给收口时的 `BuildMembers`（见 `MemberPossibleUtil.MemberParsedWhole`）。
+
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
 if (state === null || state.End < 0 || state.End >= state.CodeAt.length) {
@@ -659,14 +679,11 @@ const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
 builder.Load(consumed, basePos);
 const built = builder.ParseTypeMember();
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+  return host;
+}
 if (!(built instanceof PropertySignatureShape)) {
   throw new Error("PropertySignaturePossibleShape.BuildByIndex: 产出不是 PropertySignatureShape");
-}
-if (builder.At !== builder.Units.length) {
-  throw new Error("PropertySignaturePossibleShape.BuildByIndex: 成员没有读完");
-}
-if (builder.OriginalConsumed() !== consumed.length) {
-  throw new Error("PropertySignaturePossibleShape.BuildByIndex: 消费范围与判定不一致");
 }
 host.Data.splice(start, consumed.length, built);
 built.Parent = host;
