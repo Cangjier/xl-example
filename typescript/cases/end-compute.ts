@@ -69,7 +69,6 @@ function f() { const a = 1\n f(a) }
 function f() { const x = 1\n return x }
 if (a) { const x = 1\n f(x) }
 for (const x of xs) { total += x\n }
-while (a) { b = c\n }
 try { f()\n } catch (e) { g()\n }
 function f() { x as T\n g() }
 switch (x) { case 1: { let a = 1\n break\n } }
@@ -87,7 +86,6 @@ function f() { if (a) return\n g() }
 // ── A-g（审计补强）：根级语句/声明之间 ASI；换行后接 `(` `[` 二元运算符时不得插 ASI ──
 const a = 1\nlet b = 2
 let a = 1\nfunction f() {}
-a = 1\nb = 2
 f()\ng()
 f()\n[0]
 f()\n(1)
@@ -228,3 +226,16 @@ x as T\n`t`
 x!\ng()
 x!\n++g
 x!\n--g
+// ── yield 受限产生式（[no LineTerminator here]）：yield 与操作数之间换行 ⇒ 本条 yield 无操作数 ──
+// 缺口（end compute：收口判据）：expression-builder.xl.md:ParseYield 只按「后面有没有单元 / 是不是 , ; : }」
+// 判 hasOperand，没看关键字与操作数之间有没有行终止符；TS 的 YieldExpression 是受限产生式，
+// 换行即收口（`yield⏎(x)` = YieldExpression[..yield 末] + ExpressionStatement(`(x)`)，DIFF 见下）。
+// 修法：ParseYield 里从 yield 关键字 End 往后扫空白与注释找行终止符（块注释里的换行也算），
+// 命中则 hasOperand=false、且 `yield *` 的 `*` 也不吃（[no LineTerminator here] 在 `*` 之前）。
+// 什么时候 build / close：yield 候选在关键字处 build；close 时机是「换行 / , ; : } / 生成器体尾」，
+// close 时只提取操作数（缺省为空），End 落在关键字末（yield* 时落在 * 末）。
+function* g(){ yield (x) }
+function* g(){ yield*\n(x) }
+function* g(){ yield (x)\n(y) }
+while (a) { b = c\n }
+a = 1\nb = 2
