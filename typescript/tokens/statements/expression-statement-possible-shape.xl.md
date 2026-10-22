@@ -16,6 +16,8 @@ import { WrapSymbol } from "../../../core/syntax/basic-tokens/wrap-symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
+import { StatementScanner } from "./statement-scanner.xl.md"
+import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -39,6 +41,12 @@ import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 ## field ImportStage:int = 0
 
 ## field AwaitStage:int = 0
+
+## field DualStage:int = 0
+
+## field DualAt:int = -1
+
+## field AwaitUsingAt:int = -1
 
 ## field CodeCount:int = 0
 
@@ -228,12 +236,30 @@ return false;
 ## static method CanEndExpressionAt:(units:Array<Token>, index:int)=>bool
 
 `CanEndExpression` 只看单元本身；但成员名后面换行时（`a.class` ⏎ `{}`）那个 `class` 是 `.` 之后的
-属性名，不是语句关键字。所以按上下文再放开一格：紧邻的前一代码单元是 `.` / `?.` 时，任何 Common
-都能收住一条完整表达式（TS 的 `a.class` 就是 PropertyAccessExpression）。
+属性名，不是语句关键字。所以按上下文再放开两格：
+
+- 紧邻的前一代码单元是 `.` / `?.` 时，任何 Common 都能收住（TS 的 `a.class` 是 PropertyAccessExpression）；
+- `let` / `using` 是上下文关键字：后面**不能**起绑定时它们只是标识符，可以收住一条表达式
+  （`using` ⏎ `x = y;` 是两条语句；`let` 同理；与候选的 DualStage 同一判据）。
 
 ```ts
 if (ExpressionStatementPossibleShape.CanEndExpression(units[index])) {
   return true;
+}
+if (units[index] instanceof Common) {
+  const keywordText = (units[index] as Common).TempToString();
+  if (keywordText === "let" || keywordText === "using") {
+    let nextCode = index + 1;
+    while (nextCode < units.length && units[nextCode].IsTriviaToken) {
+      nextCode++;
+    }
+    const isDeclaration = keywordText === "let"
+      ? StatementScanner.StartsBinding(units, nextCode)
+      : StatementScanner.StartsUsingDeclaration(units, index, nextCode);
+    if (!isDeclaration) {
+      return true;
+    }
+  }
 }
 if (index <= 0) {
   return false;
@@ -362,6 +388,18 @@ if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
 // 闭合，确实收得住（`x = () => {}` ⏎ `(y)` 必须在换行处断句，TS 的块体不是 MemberExpression）。
 const prevIsClosedBrace = units[prev] instanceof Bracket
   && (units[prev] as Bracket).StartBracketChar === "{";
+// 类型实参 / 类型断言收尾的 `>`（`a as T<U>` / `f<T>`）不是 EndExpression 认的表达式尾，
+// 但类型之后接 `(` / `[` / 模板是语法错 → 换行处是 ASI 边界（与 StatementScanner.EndsAtLineBreak
+// 的同一支判据一致）。只处理 `>` 收尾：普通表达式尾`f(a as T)` ⏎ `(b)` 的调用是合法的，不能早断。
+if ((current instanceof Bracket
+    && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
+  || (current instanceof String && (current as String).StringChar === "`")) {
+  if (units[prev] instanceof Symbol
+    && ((units[prev] as Symbol).Is(">") || (units[prev] as Symbol).Is(">>") || (units[prev] as Symbol).Is(">>>"))
+    && StatementScanner.IsCallPositionBlocked(units, prev)) {
+    return true;
+  }
+}
 if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)
     && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)
     && !prevIsClosedBrace) {
@@ -387,6 +425,7 @@ let afterHead = statementHead + 1;
 while (afterHead < units.length && units[afterHead].IsTriviaToken) {
   afterHead++;
 }
+const headFollow = afterHead;
 if (units[statementHead] instanceof Common && afterHead < units.length
   && units[afterHead] instanceof Symbol && (units[afterHead] as Symbol).Is(":")) {
   let afterColon = afterHead + 1;
@@ -401,15 +440,64 @@ if (units[statementHead] instanceof Common
   && ExpressionStatementPossibleShape.IsDeclarationHeadWord((units[statementHead] as Common).TempToString())) {
   return false;
 }
-if (units[head] instanceof Common
-  && ExpressionStatementPossibleShape.IsStatementWord((units[head] as Common).TempToString())
-  // `yield` 是唯一的例外：它既是语句词、也是受限产生式的开头——`yield 1` ⏎ `yield* other()`
-  // 的换行是 ASI 边界（yield 候选不在 root 的候选表里，不会撞共存）。
-  && !(units[head] as Common).Is("yield")) {
+// 标签语句（`lbl: …`）由语句候选建 LabeledStatement：换行处不是表达式语句的 ASI，
+// 否则语句候选 Accept 的同时终结候选也 Accept，CatalogGuide 抛「同时成立」。
+if (units[head] instanceof Common && headFollow < units.length
+  && units[headFollow] instanceof Symbol && (units[headFollow] as Symbol).Is(":")) {
   return false;
 }
-// `++` / `--` 既可后缀也可前缀：只有紧贴前一个「能结束表达式」的代码单元（中间无换行）时
-// 它才是后缀（`a++` 能断句）；否则它是前缀运算符、还在等下一行的操作数（`a++; --\n a;` 里
+// 双角色 / 上下文关键字（possible-compute）：`async` / `let` / `using` / `type` 只有能起声明时
+// 才是声明头；否则它们起的是表达式语句（`let = 1`、`type = 1`、`using` 标识符…），换行处仍是
+// ASI 边界。判据与候选 / StatementScanner 读同一套，不在两处各写一份。
+if (units[head] instanceof Common) {
+  const headText = (units[head] as Common).TempToString();
+  let expressionHead = false;
+  if (headText === "async") {
+    let afterAsync = head + 1;
+    while (afterAsync < units.length && units[afterAsync].IsTriviaToken) {
+      afterAsync++;
+    }
+    expressionHead = !(afterAsync < units.length && units[afterAsync] instanceof Common
+      && (units[afterAsync] as Common).Is("function"));
+  }
+  if ((headText === "let" || headText === "using") && !expressionHead) {
+    let nextCode = head + 1;
+    while (nextCode < units.length && units[nextCode].IsTriviaToken) {
+      nextCode++;
+    }
+    if (headText === "let") {
+      expressionHead = !StatementScanner.StartsBinding(units, nextCode);
+    } else {
+      expressionHead = !StatementScanner.StartsUsingDeclaration(units, head, nextCode);
+    }
+  }
+  if (!expressionHead && headText === "type") {
+    const headCode:Array<Token> = [];
+    for (let at = head; at < units.length; at++) {
+      if (!units[at].IsTriviaToken) {
+        headCode.push(units[at]);
+      }
+    }
+    expressionHead = !TypeAliasDeclarationShape.IsTypeAliasHead(headCode, headText);
+  }
+  if (!expressionHead && ExpressionStatementPossibleShape.IsStatementWord(headText)
+    // `yield` 是唯一的例外：它既是语句词、也是受限产生式的开头——`yield 1` ⏎ `yield* other()`
+    // 的换行是 ASI 边界（yield 候选不在 root 的候选表里，不会撞共存）。
+    && !(units[head] as Common).Is("yield")) {
+    return false;
+  }
+}
+// 调用位：`(` / `[` / 反引号模板在换行后接上一条表达式，当且仅当上一条表达式能当调用者 /
+// 标签模板宿主（TS 的 CallExpression / TaggedTemplate 宿主必须是 LeftHandSideExpression）。
+// 块体箭头 `() => {}` 收尾的 `{}` 不是 `CanEndExpression` 认的表达式尾，所以这条必须放在
+// `CanEndExpressionAt` **之前**；声明语句的换行处已由上面的语句起点判据挡掉，交给语句候选收口。
+if ((current instanceof Bracket
+    && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
+  || (current instanceof String && (current as String).StringChar === "`")) {
+  if (ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, prev)) {
+    return true;
+  }
+}
 // 那条语句是 `--a`，绝不能在 `--` 后面断句）。
 if (units[prev] instanceof Symbol) {
   const operator = (units[prev] as Symbol).TempToString();
@@ -511,60 +599,15 @@ return operand >= 0 && !breakSeen && ExpressionStatementPossibleShape.CanEndExpr
 ```
 ## static method IsNonCallableExpressionTail:(units:Array<Token>, last:int)=>bool
 
-`last` 收尾的表达式是不是「不能当调用者 / 标签模板宿主」的那几种（箭头函数体、`as` / `satisfies`）。
-TS 只在「换行继续会变成语法错误」时才插 ASI：CallExpression / TaggedTemplate 的宿主必须是
-MemberExpression，箭头体与 as/satisfies 表达式都不在其中，所以换行后接 `(` `[` 反引号模板
-只能是下一条语句。判据：从 `last` 往回在**同一括号层**里找 `=>` / `as` / `satisfies`；
-遇到更外层的开括号就停（`(a as T)` ⏎ `(1)` 是合法调用，不能断）。
+`last` 收尾的表达式是不是「不能当调用者 / 标签模板宿主」：`as` / `satisfies` 的类型之后、
+**块体**箭头函数 `() => {}` 之后。TS 只在「换行继续会变成语法错误」时才插 ASI，
+所以这两处换行后接 `(` `[` 反引号模板只能是下一条语句。
+
+实现只有一份：`StatementScanner.IsCallPositionBlocked`（语句候选的 ASI 判据也调它，
+两侧不会一边断、一边不断）。表达式体箭头不算：`() => x` ⏎ `(b)` 是 `() => x(b)`。
 
 ```ts
-// 箭头函数的**块体**收尾：`last` 是块体 `{…}` 且紧邻它的代码单元是 `=>`
-// （`x = () => {}` ⏎ `(y)`：块体不是 MemberExpression，`(` 只能是新语句起点 → ASI）。
-// 箭头函数的 **concise body** 不同：`x = () => 1` ⏎ `(y)` 的 `(y)` 还能续在体表达式上
-// （`1(y)`），TS 不断句——所以下面往回扫到 `=>` 时不能直接返回。
-if (units[last] instanceof Bracket && (units[last] as Bracket).StartBracketChar === "{") {
-  let beforeBody = last - 1;
-  while (beforeBody >= 0 && units[beforeBody].IsTriviaToken) {
-    beforeBody--;
-  }
-  return beforeBody >= 0 && units[beforeBody] instanceof Symbol
-    && (units[beforeBody] as Symbol).TempToString() === "=>";
-}
-let depth = 0;
-for (let at = last; at >= 0; at--) {
-  const unit = units[at];
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  const range = unit.SourceRange;
-  const raw = range.Start === null || range.End === null ? "" : range.GetRaw();
-  const head = raw.length > 0 ? raw[0] : "";
-  const tail = raw.length > 0 ? raw[raw.length - 1] : "";
-  if (tail === ")" || tail === "]" || tail === "}") {
-    depth++;
-    continue;
-  }
-  if (head === "(" || head === "[" || head === "{") {
-    if (depth === 0) {
-      return false;
-    }
-    depth--;
-    continue;
-  }
-  if (depth > 0) {
-    continue;
-  }
-  if (unit instanceof Common) {
-    const text = (unit as Common).TempToString();
-    if (text === "as" || text === "satisfies") {
-      return true;
-    }
-    if (ExpressionStatementPossibleShape.IsStatementWord(text)) {
-      return false;
-    }
-  }
-}
-return false;
+return StatementScanner.IsCallPositionBlocked(units, last);
 ```
 ## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool
 
@@ -785,6 +828,9 @@ if (state.Checked > tokenIndex + 1) {
   state.AsyncStage = 0;
   state.ImportStage = 0;
   state.AwaitStage = 0;
+  state.DualStage = 0;
+  state.DualAt = -1;
+  state.AwaitUsingAt = -1;
   state.CodeCount = 0;
   state.FirstIdentifier = false;
   state.SawQuestion = false;
@@ -815,7 +861,15 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (!state.Admitted) {
     state.Admitted = true;
-    if (!this.CanStart(unit)) {
+    const firstText = unit instanceof Common ? (unit as Common).TempToString() : "";
+    // `let` / `using` 是上下文关键字（不是保留字）：后面能起绑定才是声明（让位给语句候选），
+    // 否则 `let` / `using` 就是普通标识符——`let = 1` / `let: 1` / `let(x)` / `using;`
+    // 都是表达式语句（或标签，标签在上一格 `:` 处已退出）。判据与 TS 的
+    // `isLetDeclaration` / `isUsingDeclaration` 一致，与语句候选读同一个 StartsBinding。
+    if (firstText === "let" || firstText === "using" || firstText === "type") {
+      state.DualStage = firstText === "let" ? 1 : (firstText === "using" ? 2 : 3);
+      state.DualAt = at;
+    } else if (!this.CanStart(unit)) {
       state.Rejected = true;
     } else if (unit instanceof Common && (unit as Common).TempToString() === "async") {
       // async 箭头要累积确认：下一格必须是 `(` 或标识符，再下一格必须是 `=>`。
@@ -824,8 +878,37 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       // import.meta 要累积确认：下一个代码单元必须是 `.`，否则本候选退出。
       state.ImportStage = 1;
     } else if (unit instanceof Common && (unit as Common).TempToString() === "await") {
-      // `await using` 是 using 声明：下一格是 using 就让语句候选独占这一格。
+      // `await using` 是 using 声明：下一格是 using 且第三格能起绑定就让语句候选独占这一格。
       state.AwaitStage = 1;
+    }
+  } else if (state.DualStage === 1) {
+    // `let` 的下一格：`[` / `{` / 非保留字 Common 是绑定 → 声明，本候选退出；其余（`=` / `(` /
+    // `.` / `:` / 运算符）说明 `let` 是标识符，继续当表达式语句。
+    if (StatementScanner.StartsBinding(units, at)) {
+      state.Rejected = true;
+    } else {
+      state.DualStage = 0;
+    }
+  } else if (state.DualStage === 2) {
+    // `using` 要求**同一行**跟绑定标识符或 `{`（`[` 不在内）。
+    if (StatementScanner.StartsUsingDeclaration(units, state.DualAt, at)) {
+      state.Rejected = true;
+    } else {
+      state.DualStage = 0;
+    }
+  } else if (state.DualStage === 3) {
+    // `type` 双角色的第一格：别名头要求「名字 + `=`/`<`」，先看这一格是不是名字。
+    if (unit instanceof Common) {
+      state.DualStage = 4;
+    } else {
+      state.DualStage = 0;
+    }
+  } else if (state.DualStage === 4) {
+    // `type` 双角色的第三格：`=` / `<` 才是别名声明头，其余说明 `type` 是标识符。
+    if (unit instanceof Symbol && ((unit as Symbol).Is("=") || (unit as Symbol).Is("<"))) {
+      state.Rejected = true;
+    } else {
+      state.DualStage = 0;
     }
   } else if (state.AsyncStage === 1) {
     if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
@@ -856,7 +939,16 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
   } else if (state.AwaitStage === 1) {
     if (unit instanceof Common && (unit as Common).TempToString() === "using") {
-      // `await using` 进入这里说明首格是 await、次格是 using：这是声明，不是表达式语句。
+      // 首格 await、次格 using：还要看第三格。`await using;` 是 AwaitExpression(Identifier)，
+      // 不是声明；只有 `await using <绑定>`（同一行）才让位。
+      state.AwaitStage = 2;
+      state.AwaitUsingAt = at;
+    } else {
+      state.AwaitStage = 0;
+    }
+  } else if (state.AwaitStage === 2) {
+    if (StatementScanner.StartsUsingDeclaration(units, state.AwaitUsingAt, at)) {
+      // `await using` 进入这里说明三格齐了：这是声明，不是表达式语句。
       state.Rejected = true;
     } else {
       state.AwaitStage = 0;

@@ -6,6 +6,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Source } from "../../../core/syntax/source.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 ```
@@ -73,6 +74,67 @@ return unit instanceof Bracket && (unit as Bracket).StartBracketChar === start;
 return unit instanceof EndOfFileTokenShape;
 ```
 
+## static method IsReservedWord:(text:string)=>bool
+
+保留字（TS 的 `LastReservedWord` 及以下）：绑定标识符**不能**是它们。上下文关键字
+（`let` / `async` / `await` / `yield` / `of` / `as` / `type` / `declare` …）不在表里，
+可以当绑定名——`let let = 1` / `let await = 1` 在 TS 里都是合法声明。
+
+```ts
+return text === "break" || text === "case" || text === "catch" || text === "class"
+  || text === "const" || text === "continue" || text === "debugger" || text === "default"
+  || text === "delete" || text === "do" || text === "else" || text === "enum"
+  || text === "export" || text === "extends" || text === "false" || text === "finally"
+  || text === "for" || text === "function" || text === "if" || text === "import"
+  || text === "in" || text === "instanceof" || text === "new" || text === "null"
+  || text === "return" || text === "super" || text === "switch" || text === "this"
+  || text === "throw" || text === "true" || text === "try" || text === "typeof"
+  || text === "var" || text === "void" || text === "while" || text === "with";
+```
+
+## static method StartsBinding:(code:Array<Token>, index:int)=>bool
+
+`index` 这一格能不能起一个绑定：标识符（非保留字的 Common）或 `[` / `{` 括号。
+与 TS 的 `nextTokenIsBindingIdentifierOrStartOfDestructuring` 同口径（`let` 用它）。
+
+```ts
+if (index < 0 || index >= code.length) {
+  return false;
+}
+const unit = code[index];
+if (unit instanceof Bracket) {
+  const start = (unit as Bracket).StartBracketChar;
+  return start === "[" || start === "{";
+}
+if (unit instanceof Common) {
+  return !StatementScanner.IsReservedWord((unit as Common).TempToString());
+}
+return false;
+```
+
+## static method StartsUsingDeclaration:(code:Array<Token>, keywordAt:int, index:int)=>bool
+
+`using` 声明要求**同一行**跟绑定标识符或 `{`（TS 的
+`nextTokenIsBindingIdentifierOrStartOfDestructuringOnSameLine`）：`[` 不在内——
+`using [a] = b` 是 `using[a] = b` 的元素访问赋值，不是声明。
+
+```ts
+if (index < 0 || index >= code.length || keywordAt < 0 || keywordAt >= code.length) {
+  return false;
+}
+if (!StatementScanner.NoLineBreakBetween(code[keywordAt], code[index])) {
+  return false;
+}
+const unit = code[index];
+if (unit instanceof Bracket) {
+  return (unit as Bracket).StartBracketChar === "{";
+}
+if (unit instanceof Common) {
+  return !StatementScanner.IsReservedWord((unit as Common).TempToString());
+}
+return false;
+```
+
 ## static method NeedMore:()=>StatementScanResult
 
 ```ts
@@ -135,7 +197,7 @@ if (first instanceof Common) {
     }
     return StatementScanner.Mismatch();
   }
-  if (text === "let" || text === "const" || text === "var") {
+  if (text === "const" || text === "var") {
     // `const enum E {…}` (also `const\tenum` / `const\nenum`): the enum declaration candidate owns
     // this form, so the variable-statement candidate must yield instead of scanning to `;`.
     // Raw lookahead, because `enum` may not be tokenized yet when `const` arrives.
@@ -143,6 +205,19 @@ if (first instanceof Common) {
       return StatementScanner.Mismatch();
     }
     return StatementScanner.ScanToSemicolon(code, 1, true);
+  }
+  // `let` 是上下文关键字（不是保留字）：只有**下一格能起绑定**（标识符 / `[` / `{`）时它才是
+  // 变量声明；否则它仍是一个普通标识符——`let = 1` 是赋值表达式语句、`let: 1` 是标签、
+  // `let (a)` 是调用。判据与 TS 的 `isLetDeclaration`（lookAhead 到
+  // `nextTokenIsBindingIdentifierOrStartOfDestructuring`）一致。
+  if (text === "let") {
+    if (code.length >= 2 && StatementScanner.StartsBinding(code, 1)) {
+      return StatementScanner.ScanToSemicolon(code, 1, true);
+    }
+    if (code.length === 1 && !StatementScanner.AtEOF) {
+      return StatementScanner.NeedMore();
+    }
+    // 落到下面的标签判据 / `Mismatch`：让位置给表达式候选。
   }
   if (text === "if") {
     return StatementScanner.ScanIf(code, 0);
@@ -172,17 +247,38 @@ if (first instanceof Common) {
     return StatementScanner.ScanSimpleSemicolon(code, 1);
   }
   // using 声明：声明列表到本层 ; 为止（本层括号是整单元，不数深度）。
+  // `using` 也是上下文关键字：TS 的 `isUsingDeclaration` 要求**同一行**跟绑定标识符或 `{`
+  // （`[` 不在内：`using [a] = b` 被解析成 `using[a] = b` 的元素访问赋值）。
   if (text === "using") {
-    return StatementScanner.ScanToSemicolon(code, 1);
+    if (code.length >= 2 && StatementScanner.StartsUsingDeclaration(code, 0, 1)) {
+      return StatementScanner.ScanToSemicolon(code, 2);
+    }
+    if (code.length === 1 && !StatementScanner.AtEOF) {
+      return StatementScanner.NeedMore();
+    }
+    // `using = 1` / `using: 1` / `using;`：标识符，落到标签判据 / Mismatch。
   }
-  // await using：只认「await 后紧跟 using」，其余 await … 交回表达式候选。
+  // await using：只认「await 后紧跟 using，且 using 后面同一行能起绑定」，其余 await … 交回表达式候选。
   if (text === "await") {
     if (code.length === 1) {
+      if (StatementScanner.AtEOF) {
+        return StatementScanner.Mismatch();
+      }
       // 还不能判：可能是 `await using` 声明，也可能是 await 表达式语句。
       return StatementScanner.NeedMore();
     }
     if (StatementScanner.IsKeyword(code[1], "using")) {
-      return StatementScanner.ScanToSemicolon(code, 2);
+      if (code.length === 2) {
+        if (StatementScanner.AtEOF) {
+          // `await using` 到头：`using` 是 await 的操作数（表达式语句），不是声明。
+          return StatementScanner.Mismatch();
+        }
+        return StatementScanner.NeedMore();
+      }
+      if (StatementScanner.StartsUsingDeclaration(code, 1, 2)) {
+        return StatementScanner.ScanToSemicolon(code, 3);
+      }
+      return StatementScanner.Mismatch();
     }
     return StatementScanner.Mismatch();
   }
@@ -231,13 +327,21 @@ if (unit instanceof Symbol) {
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
-  if (text === "let" || text === "const" || text === "var") {
-    // `const enum …`：块 / 体里没有 enum 声明候选，按声明体扫（被标体 `l: const enum E { A }`
-    // 原先在这里 Mismatch → 零候选 → 根终结候选的 ExpressionStatement 兜底报「表达式语句没有读完」）。
+  if (text === "const" || text === "var") {
+    // Same yield as the root dispatch: `const enum …` belongs to the enum declaration candidate.
     if (text === "const" && StatementScanner.NextWord(code[at].SourceRange.End) === "enum") {
       return StatementScanner.ScanDeclarationBody(code, at);
     }
     return StatementScanner.ScanToSemicolon(code, at + 1);
+  }
+  // `let` 双角色（与 ScanRoot 同一判据）：后面能起绑定才是声明，否则按标识符走标签 / 表达式体。
+  if (text === "let") {
+    if (at + 1 < code.length && StatementScanner.StartsBinding(code, at + 1)) {
+      return StatementScanner.ScanToSemicolon(code, at + 1);
+    }
+    if (at + 1 >= code.length && !StatementScanner.AtEOF) {
+      return StatementScanner.NeedMore();
+    }
   }
   if (text === "if") {
     return StatementScanner.ScanIf(code, at);
@@ -264,11 +368,22 @@ if (unit instanceof Common) {
     return StatementScanner.ScanSimpleSemicolon(code, at + 1);
   }
   if (text === "using") {
-    return StatementScanner.ScanToSemicolon(code, at + 1);
+    if (at + 1 < code.length && StatementScanner.StartsUsingDeclaration(code, at, at + 1)) {
+      return StatementScanner.ScanToSemicolon(code, at + 1);
+    }
+    if (at + 1 >= code.length && !StatementScanner.AtEOF) {
+      return StatementScanner.NeedMore();
+    }
   }
   if (text === "await") {
     if (at + 1 < code.length && StatementScanner.IsKeyword(code[at + 1], "using")) {
-      return StatementScanner.ScanToSemicolon(code, at + 2);
+      if (at + 2 >= code.length) {
+        if (!StatementScanner.AtEOF) {
+          return StatementScanner.NeedMore();
+        }
+      } else if (StatementScanner.StartsUsingDeclaration(code, at + 1, at + 2)) {
+        return StatementScanner.ScanToSemicolon(code, at + 2);
+      }
     }
   }
   // Annex-B: a labeled statement may wrap a function / class declaration (`lbl: function f() {}`).
@@ -336,7 +451,7 @@ for (let at = from; at < code.length; at++) {
   // 与 `StatementBuilder.BuildExpressionStatement` / `BuildVariableStatement` 读同一套判据；
   // 表达式尾的细节（后缀 `++`/`--`、`=> {}` / `as` / `satisfies` 不是调用位宿主）交给
   // `ExpressionStatementPossibleShape.IsUncontinuableTailBoundary`。
-  if (at > from && (StatementScanner.EndsAtLineBreak(code[at - 1], code[at])
+  if (at > from && (StatementScanner.EndsAtLineBreak(code, at - 1, at)
     || ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(code, at))) {
     if (StatementScanner.IsSymbol(code[at], ";")) {
       // 行首 `;` 后面同一行还有代码（`;(() => 1)()`）：这个 `;` 是下一条空语句，不归本声明。
@@ -417,16 +532,147 @@ if (unit instanceof RegexToken) {
 return true;
 ```
 
-## static method EndsAtLineBreak:(previous:Token, next:Token)=>bool
+## static method IsCallishUnit:(unit:Token)=>bool
 
-`previous` 能收尾、`next` 接不上、两者之间有换行 —— 三者都成立就是 ASI 边界。
+换行之后到来的这一格是不是「调用 / 下标 / 标签模板」位：`(`、`[` 括号或反引号模板。
+只有这三类才需要问「上一条表达式能不能当调用者 / 标签模板宿主」。
 
 ```ts
+if (unit instanceof Bracket) {
+  const start = (unit as Bracket).StartBracketChar;
+  return start === "(" || start === "[";
+}
+if (unit instanceof String) {
+  return (unit as String).StringChar === "`";
+}
+return false;
+```
+
+## static method IsCallPositionBlocked:(code:Array<Token>, last:int)=>bool
+
+`last` 收尾的那条表达式**不能**当调用者 / 标签模板宿主，因此换行后的 `(` / `[` / 模板
+只能是新语句（TS 在那里插 ASI）。判据与 TS 的解析结果同源——`(` 能接上，当且仅当已经解析出的
+表达式是 LeftHandSideExpression：
+
+- `as` / `satisfies` 右半是**类型**：类型之后不能再接 `(`（`a as T (b)` 是语法错）→ 断；
+- 块体箭头函数 `() => {}` 已经完整、也不是调用者 → 断（表达式体箭头不同：调用接在体的表达式上，
+  `() => x` ⏎ `(b)` = `() => x(b)`，不断）；
+- 其余（标识符 / 字面量 / 括号单元 / 成员访问 / 调用 / 对象字面量 / 函数与类表达式）都能接。
+
+扫描是**平**的：括号单元各自完整（`(…)` / `[…]` / `{…}` 在 `Data` 里各是一个单元），
+所以遇到括号单元直接跳过，不数深度。`<` `>` `>>` `>>>`（类型实参 / 比较歧义）、`|` `&`
+（联合 / 交叉类型）、`?` `:`（条件类型 / 三元）都可能还在类型位里，继续往回找 `as`。
+
+```ts
+let at = last;
+while (at >= 0 && code[at].IsTriviaToken) {
+  at--;
+}
+if (at < 0) {
+  return false;
+}
+const tail = code[at];
+// 后缀 `++` / `--`：结果不是调用者 / 标签模板宿主（TS 的 UpdateExpression 不在
+// LeftHandSideExpression 里），换行后的 `(` / `[` / 模板只能是新语句。
+if (tail instanceof Symbol) {
+  const tailText = (tail as Symbol).TempToString();
+  if (tailText === "++" || tailText === "--") {
+    let before = at - 1;
+    while (before >= 0 && code[before].IsTriviaToken) {
+      before--;
+    }
+    if (before >= 0 && StatementScanner.NoLineBreakBetween(code[before], tail)
+      && StatementScanner.EndsExpression(code[before])) {
+      return true;
+    }
+  }
+}
+// 块体箭头函数：`=>` 后面紧跟的 `{…}` 就是它的体，箭头已完整且不是调用者。
+if (tail instanceof Bracket && (tail as Bracket).StartBracketChar === "{") {
+  let before = at - 1;
+  while (before >= 0 && code[before].IsTriviaToken) {
+    before--;
+  }
+  if (before >= 0 && code[before] instanceof Symbol && (code[before] as Symbol).Is("=>")) {
+    return true;
+  }
+}
+while (at >= 0) {
+  const unit = code[at];
+  if (unit.IsTriviaToken) {
+    at--;
+    continue;
+  }
+  if (unit instanceof Bracket) {
+    // 括号单元自成整体：它的内容不改变「外层最后一个操作数」是谁。
+    at--;
+    continue;
+  }
+  if (unit instanceof String || unit instanceof RegexToken) {
+    at--;
+    continue;
+  }
+  if (unit instanceof Common) {
+    const text = (unit as Common).TempToString();
+    // 类型位：`as` / `satisfies` 右半的类型之后不能再接 `(` / `[` / 模板。
+    if (text === "as" || text === "satisfies") {
+      return true;
+    }
+    // 明确的二元关键字：类型到这里已经结束，`(` 接在右操作数上。
+    if (text === "in" || text === "instanceof") {
+      return false;
+    }
+    at--;
+    continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    // 表达式体箭头：调用接在体的表达式上，不是新语句。
+    if (text === "=>") {
+      return false;
+    }
+    // 类型实参 / 比较歧义、联合与交叉、条件类型、成员访问：都还可能在类型位里（或只是
+    // 访问后缀），继续往回找 `as`。
+    if (text === "<" || text === ">" || text === ">>" || text === ">>>"
+      || text === "|" || text === "&" || text === "?" || text === ":"
+      || text === "." || text === "?.") {
+      at--;
+      continue;
+    }
+    // 其它符号都是表达式运算符：最后一个操作数在它右边，`(` 接在那个操作数上。
+    return false;
+  }
+  return false;
+}
+return false;
+```
+
+## static method EndsAtLineBreak:(code:Array<Token>, previousIndex:int, nextIndex:int)=>bool
+
+`previous` 能收尾、`next` 接不上、两者之间有换行 —— 三者都成立就是 ASI 边界。
+调用 / 下标 / 标签模板位另有一条：`next` 虽然「接得上」（`(` 通常是续接），但当上一条表达式
+不能当调用者时就接不上——与 `ExpressionStatementPossibleShape.IsAsiBoundary` 读同一个判据。
+
+```ts
+const previous = code[previousIndex];
+const next = code[nextIndex];
 if (StatementScanner.NoLineBreakBetween(previous, next)) {
   return false;
 }
+// 类型实参 / 类型断言收尾的 `>`（`a as T<U>` / `f<T>`）不是 `EndsExpression` 认的表达式尾
+//（它只认 `++` / `--`），但类型之后接 `(` / `[` / 模板同样是语法错 → 换行处是 ASI 边界。
+if (StatementScanner.IsCallishUnit(next) && previous instanceof Symbol) {
+  const previousSymbol = (previous as Symbol).TempToString();
+  if ((previousSymbol === ">" || previousSymbol === ">>" || previousSymbol === ">>>")
+    && StatementScanner.IsCallPositionBlocked(code, previousIndex)) {
+    return true;
+  }
+}
 if (!StatementScanner.EndsExpression(previous)) {
   return false;
+}
+if (StatementScanner.IsCallishUnit(next) && StatementScanner.IsCallPositionBlocked(code, previousIndex)) {
+  return true;
 }
 return !StatementScanner.ContinuesAcrossLine(next);
 ```
@@ -476,7 +722,7 @@ if (StatementScanner.IsSymbol(code[from], ";")) {
 if (StatementScanner.IsEOF(code[from])) {
   return StatementScanner.Complete(from - 1);
 }
-if (from > 0 && StatementScanner.EndsAtLineBreak(code[from - 1], code[from])) {
+if (from > 0 && StatementScanner.EndsAtLineBreak(code, from - 1, from)) {
   return StatementScanner.Complete(from - 1);
 }
 return StatementScanner.Mismatch();
@@ -501,7 +747,7 @@ if (StatementScanner.IsEOF(code[from])) {
   return StatementScanner.Complete(from - 1);
 }
 // 受限产生式：`break` / `continue` 之后换行 = 没有标签，语句在关键字处收口（`break` ⏎ `foo()`）。
-if (from > 0 && StatementScanner.EndsAtLineBreak(code[from - 1], code[from])) {
+if (from > 0 && StatementScanner.EndsAtLineBreak(code, from - 1, from)) {
   return StatementScanner.Complete(from - 1);
 }
 if (from + 1 >= code.length) {
@@ -517,7 +763,7 @@ if (StatementScanner.IsEOF(code[from + 1])) {
   return StatementScanner.Complete(from);
 }
 // 标签之后换行 / 到头：`break label` 后面没有 `;` 也收口（`break label` ⏎ 下一条语句）。
-if (StatementScanner.EndsAtLineBreak(code[from], code[from + 1])) {
+if (StatementScanner.EndsAtLineBreak(code, from, from + 1)) {
   return StatementScanner.Complete(from);
 }
 return StatementScanner.Mismatch();
@@ -540,13 +786,13 @@ for (let cursor = at; cursor < code.length; cursor++) {
   // 判据复用 `EndsAtLineBreak`（前一个代码单元能收尾 + 换行 + `while` 不是表达式的续接符）。
   if ((stopAtWhile ?? false) && cursor > at
     && StatementScanner.IsKeyword(code[cursor], "while")
-    && StatementScanner.EndsAtLineBreak(code[cursor - 1], code[cursor])) {
+    && StatementScanner.EndsAtLineBreak(code, cursor - 1, cursor)) {
     return StatementScanner.Complete(cursor - 1);
   }
   // ASI：换行处收口语句体（`while (a) b` ⏎ `c;` / `if (a) b` ⏎ `else c` / `lab: a` ⏎ `c;`）。
   if (cursor > at
     && !StatementScanner.IsSymbol(code[cursor], ";")
-    && StatementScanner.EndsAtLineBreak(code[cursor - 1], code[cursor])) {
+    && StatementScanner.EndsAtLineBreak(code, cursor - 1, cursor)) {
     return StatementScanner.Complete(cursor - 1);
   }
   if (StatementScanner.IsSymbol(code[cursor], ";")) {
@@ -557,6 +803,13 @@ for (let cursor = at; cursor < code.length; cursor++) {
       return StatementScanner.Complete(cursor - 1);
     }
     return StatementScanner.Mismatch();
+  }
+  // 换行 ASI：与 `StatementBuilder.BuildExpressionStatement` /
+  // `ExpressionStatementPossibleShape.ExpressionEnd` 读同一套判据——体是表达式语句时，
+  // 前一个代码单元能收尾、当前单元接不上，就是体的终点。没有这一条，
+  // `let: 1` ⏎ `a();` 的体会一路吃到下一句的 `;`，把后面的语句吞进来。
+  if (cursor > at && StatementScanner.EndsAtLineBreak(code, cursor - 1, cursor)) {
+    return StatementScanner.Complete(cursor - 1);
   }
 }
 if (StatementScanner.AtEOF && code.length > at) {

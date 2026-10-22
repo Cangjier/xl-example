@@ -346,7 +346,7 @@ if (unit instanceof Common) {
       return this.BuildClassDeclaration();
     }
   }
-  if (text === "let" || text === "const" || text === "var") {
+  if (text === "const" || text === "var") {
     // `const enum E { A }`：enum 候选独占（`const` 后面同一行是 enum 时不是变量声明）。
     if (text === "const") {
       const afterConst = this.Peek(1);
@@ -356,6 +356,14 @@ if (unit instanceof Common) {
       }
     }
     return this.BuildVariableStatement();
+  }
+  // `let` 双角色：后面能起绑定才是变量声明（与 `StatementScanner.ScanRoot` 读同一个判据）；
+  // 否则 `let` 是标识符——`let: 1` 是标签语句、`let = 1` 是表达式语句。判据不一致就会
+  // 「扫描器判成标签、建树器按变量声明建」而抛「变量声明缺少标识符」。
+  if (text === "let") {
+    if (this.At + 1 < this.Units.length && StatementScanner.StartsBinding(this.Units, this.At + 1)) {
+      return this.BuildVariableStatement();
+    }
   }
   // 标签语句的被标体（`iface: interface I {}` / `en: enum E {}` / `t: type T = X`）：
   // 声明关键字在块 / 被标体位置出现时交给既有声明构建器，而不是退化成表达式语句。
@@ -411,11 +419,15 @@ if (unit instanceof Common) {
     return this.BuildDebugger();
   }
   if (text === "using") {
-    return this.BuildVariableStatement();
+    // 同 `let`：`using` 也是上下文关键字，只有同一行跟绑定标识符 / `{` 才是声明。
+    if (this.At + 1 < this.Units.length
+      && StatementScanner.StartsUsingDeclaration(this.Units, this.At, this.At + 1)) {
+      return this.BuildVariableStatement();
+    }
   }
   if (text === "await") {
-    const afterAwait = this.Peek(1);
-    if (afterAwait !== null && this.IsText(afterAwait, "using")) {
+    if (this.At + 2 < this.Units.length && this.IsText(this.Units[this.At + 1], "using")
+      && StatementScanner.StartsUsingDeclaration(this.Units, this.At + 1, this.At + 2)) {
       return this.BuildVariableStatement();
     }
   }
@@ -837,7 +849,7 @@ for (let at = first; at < this.Units.length; at++) {
   if (at > first && seenEqual && lastCode >= first
     && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(this.Units, lastCode, at)
     && TypeAliasDeclarationPossibleShape.CanEndTypeAt(this.Units[lastCode])
-    && TypeAliasDeclarationPossibleShape.IsAsiBoundary(unit)) {
+    && TypeAliasDeclarationPossibleShape.IsAsiBoundary(this.Units, lastCode, at)) {
     end = lastCode;
     break;
   }

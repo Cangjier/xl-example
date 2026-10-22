@@ -671,7 +671,21 @@ if (isExportVariable) {
   basePos = exportEnd === null ? pos : exportEnd.Index + 1;
   const builder = new StatementBuilder(host.Template, context);
   builder.Load(host.Data.slice(codeAt[1], at + 1), basePos);
-  const statement = builder.BuildStatement();
+  // 空声明列表（`export let` / `export let;`）：TS 这里是带**空** VariableDeclarationList 的
+  // VariableStatement。`let` 单独成句时是标识符表达式语句，所以 `BuildStatement` 会把它当表达式；
+  // 但 `export` 之后的关键字永远是变量声明入口——这里直接走 `BuildVariableStatement`。
+  let emptyList = true;
+  for (let index = codeAt[1]; index <= at; index++) {
+    if (host.Data[index].IsTriviaToken) {
+      continue;
+    }
+    if (index === codeAt[1] || (host.Data[index] instanceof Symbol && (host.Data[index] as Symbol).Is(";"))) {
+      continue;
+    }
+    emptyList = false;
+    break;
+  }
+  const statement = emptyList ? builder.BuildVariableStatement() : builder.BuildStatement();
   const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
   (exportKeyword as ShapeToken).Pos = pos;
   statement.Data.unshift(exportKeyword);
