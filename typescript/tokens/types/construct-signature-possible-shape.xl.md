@@ -108,6 +108,7 @@ const isModifierMethodRecovery = modifierRecovery && built instanceof MethodSign
 if (!isConstruct && !isModifierMethodRecovery) {
   throw new Error("ConstructSignaturePossibleShape.BuildByIndex: 产出不是 ConstructSignatureShape");
 }host.Data.splice(start, consumed.length, built);
+MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;
 ```

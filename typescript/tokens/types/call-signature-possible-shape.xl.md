@@ -95,6 +95,7 @@ if (!(built instanceof CallSignatureShape)) {
   throw new Error("CallSignaturePossibleShape.BuildByIndex: 产出不是 CallSignatureShape");
 }
 host.Data.splice(start, consumed.length, built);
+MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;
 ```
