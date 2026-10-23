@@ -58,7 +58,11 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 
 ## field BoundaryScan:MemberBoundaryScan = new MemberBoundaryScan()
 
-class 体成员边界的**增量扫描状态**：`Boundary` 是已经找到的下一个成员起点，`Checked` 是下一个待判位置。语义与 `MemberBoundary.FindMemberBoundary(Code, 0)` 的全量重算逐 token 等价。
+class 体成员边界的**增量扫描状态**：`Boundary` 是已经找到的下一个成员起点，`Checked` 是下一个待判位置。语义与 `MemberBoundary.FindMemberBoundary(Code, from)` 的全量重算逐 token 等价（`from` = `BoundaryAnchor`）。
+
+## field BoundaryAnchor:int = -1
+
+增量边界扫描的**锚点**（`FindMemberBoundary` 的 `from`）：非装饰器成员恒为 `0`；装饰器成员是 `DecoratorHeadAt(code)`，随装饰器前缀变长而单调前进。锚点前进**不重扫**（判据只看局部三格，已判为 false 的位置结论不变）；只有锚点后退（理论上不发生）才整段重扫。
 
 # class ClassMemberItemStartShared
 
@@ -621,9 +625,11 @@ for (let at = from; at <= tokenIndex; at++) {
 }
 ```
 
-## static method ScanBoundary:(state:ClassMemberPossibleScan)=>void
+## static method ScanBoundary:(state:ClassMemberPossibleScan, from:int)=>void
 
-class 体成员边界的增量推进：判据与 `MemberBoundary.FindMemberBoundary(Code, 0)` **逐条相同、顺序相同**（换行 + 前一个单元能收住 + `[` 不是初始化器续接 + 当前单元像成员起点），只是把「已判到哪」记在 `state.BoundaryScan` 里，新单元只判一次。
+class 体成员边界的增量推进：判据与 `MemberBoundary.FindMemberBoundary(Code, from)` **逐条相同、顺序相同**（换行 + 前一个单元能收住 + `[` 不是初始化器续接 + 当前单元像成员起点），只是把「已判到哪」记在 `state.BoundaryScan` 里，新单元只判一次。
+
+`from` 是锚点：非装饰器成员传 `0`，装饰器成员传 `DecoratorHeadAt(code)`（装饰器前缀之后）。锚点会随装饰器变长而前进，而**前进不需要重扫**：判据只看 `code[at - 1] / code[at] / code[at + 1]`，锚点只决定「哪些位置允许找」，已判为 false 的位置结论不变；若此前找到的边界落在新锚点之前（装饰器后来把它包住了），把它作废、从 `Checked` 继续往后找即可。所以整段仍是 O(L)，而不是每个 token 一次 O(L) 全量重扫——后者在「装饰器 + 长成员」上是 O(L²)（实测 T=2000 比非装饰器成员慢 21 倍，见 `tests/bench/class-scaling.mjs` 档 C）。
 
 与对象类型那套 `MemberBoundary.ScanTypeMemberBoundary` 的区别：class 体里换行后的 `(` / `<` 是上一行初始化器 / 调用的续接，**不是**新成员起点，所以这里不能复用 `FindTypeMemberBoundary` 的那两个特例，必须走 `FindMemberBoundary` 的判据。
 
@@ -631,10 +637,26 @@ class 体成员边界的增量推进：判据与 `MemberBoundary.FindMemberBound
 
 ```ts
 const code = state.Code;
-if (state.BoundaryScan.Boundary >= 0) {
+if (from < state.BoundaryAnchor) {
+  // 锚点后退（理论上不发生）：已判过的位置区间变了，整段重扫。
+  state.BoundaryAnchor = from;
+  state.BoundaryScan.Boundary = -1;
+  state.BoundaryScan.Checked = from + 1;
+}
+if (from > state.BoundaryAnchor) {
+  state.BoundaryAnchor = from;
+}
+if (state.BoundaryScan.Boundary > from) {
   return;
 }
+if (state.BoundaryScan.Boundary >= 0) {
+  // 边界落在锚点之前/之内（装饰器前缀变长后把它包住了）：作废，继续往后找。
+  state.BoundaryScan.Boundary = -1;
+}
 let at = state.BoundaryScan.Checked;
+if (at <= from) {
+  at = from + 1;
+}
 if (at < 1) {
   at = 1;
 }
@@ -743,10 +765,10 @@ if (shared !== null) {
 装饰器表达式本身当成成员起点，把一条成员切在装饰器中间。跳不过去（装饰器没读完 / 形态无法静态判定）或判型仍多值时
 **不判收口**：留在 raw 兜底，宁可慢一点也不能切错。
 
-**角深度与边界的来源是增量状态**（`state.Angle` / `state.BoundaryScan`，由 `Extend` / `ScanBoundary` 维护）：原先每次判定都要
+**角深度与边界都由增量状态给出**（`state.Angle` / `state.BoundaryScan`，由 `Extend` / `ScanBoundary` 维护）：原先每次判定都要
 `AngleDepth(code)` + `FindMemberBoundary(code, boundaryStart)` 全量重扫，单个长成员上退化成 O(L²)（L = 成员的代码单元数）。
-`tests/bench/class-scaling.mjs` 的档 B 守这条：T=2000 时改前 ~478ms、改后 ~10ms，interface 增量样板 ~7ms。
-装饰器成员是唯一保留全量入口的分支（边界起点随装饰器前缀变化，增量状态只按 0 起点推进）。
+`tests/bench/class-scaling.mjs` 的档 B 守非装饰器成员（T=2000 时改前 ~478ms、改后 ~10ms，interface 增量样板 ~7ms）、
+**档 C 守装饰器长成员**（边界锚点不是 0：改前 T=2000 ~150ms，改后与档 B 同量级）。
 
 ```ts
 const code = state.Code;
@@ -774,16 +796,12 @@ if (last.SourceRange.EndIndex < 0) {
   return;
 }
 // 角深度与边界都由增量状态给出（`Extend` / `ScanBoundary` 维护）：
-// 与 `ClassMemberPossibleUtil.AngleDepth(code)`、`MemberBoundary.FindMemberBoundary(code, 0)`
-// 的全量重算逐 token 等价。装饰器成员的边界起点随装饰器前缀变化（不是 0），
-// 增量边界只按 0 起点推进，所以这一类保留全量入口（装饰器成员少，且不影响非装饰器路径）。
+// 与 `ClassMemberPossibleUtil.AngleDepth(code)`、`MemberBoundary.FindMemberBoundary(code, boundaryStart)`
+// 的全量重算逐 token 等价。装饰器成员的锚点是 `DecoratorHeadAt(code)`（不是 0），
+// 锚点前进时增量状态不需要重扫（见 `ScanBoundary`）。
 const angle = state.Angle;
-let boundary = 0;
-if (decorated) {
-  boundary = MemberBoundary.FindMemberBoundary(code, boundaryStart);
-} else {
-  boundary = state.BoundaryScan.Boundary < 0 ? code.length : state.BoundaryScan.Boundary;
-}
+ClassMemberPossibleUtil.ScanBoundary(state, boundaryStart);
+const boundary = state.BoundaryScan.Boundary < 0 ? code.length : state.BoundaryScan.Boundary;
 let complete = false;
 let end = -1;
 if (angle === 0) {
@@ -831,9 +849,11 @@ state.End = end;
 - `state === null`：新条目（首次判定，或目录复位后）。条目起点先问 `Share`（O(1) 新鲜度校验），失效才倒扫一次；
 - `state.Start !== start`：条目起点变了（上一条成员刚被顶替而 `Share` 没跟上，或换了一个宿主数组）→ 重建；
 - `state.Checked > tokenIndex + 1`：缓存越过当前下标（防御）→ 重建；
-- `state.Checked <= tokenIndex`：只**追加**新单元（不重建），增量推进 `Angle` 与边界，然后重算收口结论。
+- `state.Checked <= tokenIndex`：只**追加**新单元（不重建），`Angle` 在追加时折好，边界与收口结论由 `Analyze` 里的 `ScanBoundary` 增量推进。
 
-新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `CodeAt` / `Code` / `Angle` / `BoundaryScan` 全部是 `ClassMemberPossibleScan` 字段声明处的构造默认值，**不在 `Scan` 里二次分配**。`Kinds` 不是构造默认值的语义（默认为 `[]`），所以仍然显式写成 `AllKinds()`。
+新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `CodeAt` / `Code` / `Angle` / `BoundaryScan` / `BoundaryAnchor` 全部是 `ClassMemberPossibleScan` 字段声明处的构造默认值，**不在 `Scan` 里二次分配**。`Kinds` 不是构造默认值的语义（默认为 `[]`），所以仍然显式写成 `AllKinds()`。
+
+边界扫描的锚点（`0` 或装饰器之后的 `DecoratorHeadAt`）只有 `Analyze` 知道，所以 `ScanBoundary` 由 `Analyze` 调用，而不是在这里先按 0 跑一遍。
 
 ```ts
 const start = ClassMemberPossibleUtil.ItemStartOf(units, cache);
@@ -846,7 +866,6 @@ if (state === null || state.Start !== start || state.Checked > tokenIndex + 1) {
 }
 if (state.Checked <= tokenIndex) {
   ClassMemberPossibleUtil.Extend(state, units, tokenIndex);
-  ClassMemberPossibleUtil.ScanBoundary(state);
   ClassMemberPossibleUtil.Analyze(state);
   state.Checked = tokenIndex + 1;
 }

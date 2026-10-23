@@ -93,6 +93,13 @@ function interfaceLengthSource(t) {
   return `interface I {\n  p: ${type};\n}\n`;
 }
 
+// 档 C：带装饰器的单个长成员 —— 边界起点不是 0（要跳过装饰器前缀），
+// 这是 class 判定里唯一的「anchored 边界扫描」分支；全量重扫时同样是 O(L²)。
+function decoratorLengthSource(t) {
+  const type = new Array(t).fill("A").join(" | ");
+  return `class C {\n  @dec()\n  p: ${type};\n}\n`;
+}
+
 // ---------- class 密集 XML 语料（覆盖 class 体判定的各个分支）----------
 const XML_CORPUS = [
   // 基础成员种类
@@ -212,19 +219,21 @@ function pairedRatio(later, earlier) {
   return values.length === 0 ? Infinity : median(values);
 }
 
-const scaling = { memberCount: [], memberLength: [], interfaceLength: [] };
+const scaling = { memberCount: [], memberLength: [], interfaceLength: [], decoratorLength: [] };
 scaling.memberCount = runSeries(
   [250, 500, 1000, 2000].map((n) => ({ n, name: `class-count-${n}.ts`, text: memberCountSource(n) })),
 );
-// 档 B 与 interface 样板同轮交错：class/interface 比也是同轮配对的
+// 档 B / 档 C 与 interface 样板同轮交错：class/interface 比也是同轮配对的
 const lengthCases = [];
 for (const t of [250, 500, 1000, 2000]) {
   lengthCases.push({ t, kind: "class", name: `class-len-${t}.ts`, text: memberLengthSource(t) });
   lengthCases.push({ t, kind: "iface", name: `iface-len-${t}.ts`, text: interfaceLengthSource(t) });
+  lengthCases.push({ t, kind: "decorated", name: `class-decor-len-${t}.ts`, text: decoratorLengthSource(t) });
 }
 const lengthSeries = runSeries(lengthCases);
 scaling.memberLength = lengthSeries.filter((one) => one.kind === "class");
 scaling.interfaceLength = lengthSeries.filter((one) => one.kind === "iface");
+scaling.decoratorLength = lengthSeries.filter((one) => one.kind === "decorated");
 
 // ---------- 断言 ----------
 const LIMIT = 2.6;
@@ -247,6 +256,7 @@ function checkScaling(label, rows, keyOf, floorMs) {
 }
 checkScaling("档 A 成员数", scaling.memberCount, (r) => `N=${r.n}`);
 checkScaling("档 B 成员长度", scaling.memberLength, (r) => `T=${r.t}`, NOISE_FLOOR_MS);
+checkScaling("档 C 装饰器成员长度", scaling.decoratorLength, (r) => `T=${r.t}`, NOISE_FLOOR_MS);
 // 结构性断言：class 成员判定不该比已经合规的 interface 增量样板慢出一个量级
 for (let i = 0; i < scaling.memberLength.length; i++) {
   const cls = scaling.memberLength[i];
@@ -264,7 +274,10 @@ if (base !== null) {
   equivalents = [];
   const cases = XML_CORPUS.map(([name, source]) => [name, source]);
   for (const n of [250, 500, 1000, 2000]) cases.push([`class-count-${n}`, memberCountSource(n)]);
-  for (const t of [250, 500, 1000, 2000]) cases.push([`class-len-${t}`, memberLengthSource(t)]);
+  for (const t of [250, 500, 1000, 2000]) {
+    cases.push([`class-len-${t}`, memberLengthSource(t)]);
+    cases.push([`class-decor-len-${t}`, decoratorLengthSource(t)]);
+  }
   for (const [name, source] of cases) {
     const row = { name, ok: false, detail: "" };
     let baseXml = null;
@@ -337,12 +350,18 @@ if (asJson) {
     );
   }
   console.log(`  （倍数带 · = 上一档 < ${NOISE_FLOOR_MS}ms，被固定开销主导、不作断言；结构性门限 class/iface <= ${INTERFACE_LIMIT}）`);
+  console.log(`\n## 档 C：带装饰器的单个长成员（@dec() + 长类型 = 边界起点不为 0 的 anchored 分支）`);
+  console.log(`  ${"T".padStart(6)} ${"median ms".padStart(10)} ${"倍数".padStart(8)}`);
+  for (const row of scaling.decoratorLength) {
+    const ratio = row.ratioVsPrev === undefined ? "-" : row.ratioNote === "below-floor" ? `x${row.ratioVsPrev.toFixed(2)}·` : `x${row.ratioVsPrev.toFixed(2)}`;
+    console.log(`  ${String(row.t).padStart(6)} ${fmt(row.medianMs)} ${ratio.padStart(8)}`);
+  }
   if (equivalents !== null) {
     console.log(`\n## XML 等价（--base ${baseDir} vs --build ${buildDir}）`);
     for (const row of equivalents) console.log(`  ${row.ok ? "PASS" : "FAIL"} ${row.name.padEnd(18)} ${row.detail}`);
   }
   if (failures.length === 0) {
-    console.log(`\nPASS 全部通过（标度 ${scaling.memberCount.length + scaling.memberLength.length} 档${equivalents ? `，等价 ${equivalents.length} 项` : ""}）`);
+    console.log(`\nPASS 全部通过（标度 ${scaling.memberCount.length + scaling.memberLength.length + scaling.decoratorLength.length} 档${equivalents ? `，等价 ${equivalents.length} 项` : ""}）`);
   } else {
     console.log(`\nFAIL ${failures.length} 项：`);
     for (const failure of failures) console.log(`  - ${failure}`);
