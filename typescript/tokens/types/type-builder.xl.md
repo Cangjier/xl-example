@@ -40,7 +40,7 @@ import { InterpolationString } from "../../../core/syntax/basic-tokens/string/in
 import { PrefixUnaryExpressionShape } from "../expressions/prefix-unary-expression-shape.xl.md"
 import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
-import { MemberBoundary } from "./member-boundary.xl.md"
+import { MemberBoundary, MemberBoundaryCache } from "./member-boundary.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
 import { TemplateHeadShape } from "../literals/template-head-shape.xl.md"
@@ -143,6 +143,14 @@ type T = {};
 
 ## field InConditionalExtends:bool = false
 
+## field BoundaryCache:MemberBoundaryCache = new MemberBoundaryCache()
+
+成员边界判定的记忆化宿主（`MemberBoundary.FindMemberBoundary` 的第三个参数）。
+
+**生命周期**：一个 `TypeBuilder` 实例一份，`Load` 时归零；只对当前 `Units` 数组对象有效。
+`ParseTypeBounded` / `ParseReturnTypeBounded` 把 `Units` 换成 `slice` 解析时，先保存并清空条目，
+切回原数组后再恢复——切片里的 `At` 下标与外部不是同一套，不能共用条目。
+
 ## constructor:(template:Template, context:SyntaxContext)=>void
 
 ```ts
@@ -164,6 +172,9 @@ this.Units = [];
 this.Positions = [];
 this.SourceIndexes = [];
 this.At = 0;
+this.BoundaryCache.Code = null;
+this.BoundaryCache.From = -1;
+this.BoundaryCache.Boundary = -1;
 let pos = basePos;
 for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
   const unit = units[sourceIndex];
@@ -278,45 +289,66 @@ return shape;
 对象类型成员的类型是贪心的，但下一个成员的 `[计算名]` 会被误当成索引访问后缀
 （`{ m(): string\n['a']: A }`）。这里把解析范围截到 `MemberBoundary.FindMemberBoundary`。
 
+成员边界走 `BoundaryCache` 记忆化：同一段 `Units` 上 `At` 只会变大，已经算过的边界直接复用；
+切出 `[startAt, boundary)` 切片解析时，切片的下标是另一套，条目先保存并清零，回到原数组再恢复。
+
 ```ts
-const boundary = MemberBoundary.FindMemberBoundary(this.Units, this.At);
+const boundary = MemberBoundary.FindMemberBoundary(this.Units, this.At, this.BoundaryCache);
 if (boundary >= this.Units.length) {
   return this.ParseType();
 }
 const savedUnits = this.Units;
 const savedPositions = this.Positions;
+const savedCacheCode = this.BoundaryCache.Code;
+const savedCacheFrom = this.BoundaryCache.From;
+const savedCacheBoundary = this.BoundaryCache.Boundary;
 const startAt = this.At;
 this.Units = savedUnits.slice(startAt, boundary);
 this.Positions = savedPositions.slice(startAt, boundary);
+this.BoundaryCache.Code = null;
+this.BoundaryCache.From = -1;
+this.BoundaryCache.Boundary = -1;
 this.At = 0;
 const parsed = this.ParseType();
 const consumed = this.At;
 this.Units = savedUnits;
 this.Positions = savedPositions;
 this.At = startAt + consumed;
+this.BoundaryCache.Code = savedCacheCode;
+this.BoundaryCache.From = savedCacheFrom;
+this.BoundaryCache.Boundary = savedCacheBoundary;
 return parsed;
 ```
 
 ## method ParseReturnTypeBounded:()=>Token
 
-`ParseTypeBounded` 的返回类型版本（含类型谓词分流）。
+`ParseTypeBounded` 的返回类型版本（含类型谓词分流）；同样走 `BoundaryCache` 记忆化，切片期间条目保存并清零。
 
 ```ts
-const boundary = MemberBoundary.FindMemberBoundary(this.Units, this.At);
+const boundary = MemberBoundary.FindMemberBoundary(this.Units, this.At, this.BoundaryCache);
 if (boundary >= this.Units.length) {
   return this.ParseReturnType();
 }
 const savedUnits = this.Units;
 const savedPositions = this.Positions;
+const savedCacheCode = this.BoundaryCache.Code;
+const savedCacheFrom = this.BoundaryCache.From;
+const savedCacheBoundary = this.BoundaryCache.Boundary;
 const startAt = this.At;
 this.Units = savedUnits.slice(startAt, boundary);
 this.Positions = savedPositions.slice(startAt, boundary);
+this.BoundaryCache.Code = null;
+this.BoundaryCache.From = -1;
+this.BoundaryCache.Boundary = -1;
 this.At = 0;
 const parsed = this.ParseReturnType();
 const consumed = this.At;
 this.Units = savedUnits;
 this.Positions = savedPositions;
 this.At = startAt + consumed;
+this.BoundaryCache.Code = savedCacheCode;
+this.BoundaryCache.From = savedCacheFrom;
+this.BoundaryCache.Boundary = savedCacheBoundary;
 return parsed;
 ```
 

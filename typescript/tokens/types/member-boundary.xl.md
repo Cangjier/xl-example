@@ -24,6 +24,30 @@ import { LineTerminator } from "../../run/line-terminator.xl.md"
 
 下一个待判位置（`code` 下标）；`FindTypeMemberBoundary` 从 `from + 1` 起判，所以初始是 `1`。
 
+# class MemberBoundaryCache
+成员边界判定的**记忆化宿主**：`FindMemberBoundary` 算出第一条 `(code, from)` 的 `Boundary` 之后，
+只要 `code` 仍是同一个数组、且新 `from` 落在已扫过的单调区间里（`from >= From`，并且
+`from < Boundary` 或 `Boundary` 已经是 `code.length` 即整段无边界），答案就是同一个 `Boundary`，
+不必再扫一遍。
+
+**生命周期**：一次 `Load` 一份，挂在 `TypeBuilder` 实例上；`Load` 归零。`ParseTypeBounded` /
+`ParseReturnTypeBounded` 切出临时 `Units` 切片时，先把条目保存并清零、切回原数组后恢复——
+所以条目只对「同一个 `Units` 数组对象 + 同一段单调推进的 `At`」成立，不跨数组、不跨文件。
+判定本身仍是原来的纯扫描（只依赖 `code` 与 `from`），缓存只是把「同一前缀上重复问同一个边界」
+从 O(k) 降到 O(1)。
+
+## field Code:Array<Token> | null = null
+
+条目对应的 `Units` 数组（按**引用**比较）；`null` 表示还没有条目。
+
+## field From:int = -1
+
+条目算出 `Boundary` 时用的 `from`。之后的 `from` 必须更大（`At` 单调推进），更小就重算。
+
+## field Boundary:int = -1
+
+`FindMemberBoundary(Code, From)` 的结果；`-1` 表示没有条目。
+
 # class MemberBoundary
 对象类型 / 类体里「一个成员的终点」的判据。成员的类型是**贪心**解析的，但 `[…]` 既可能是类型的
 索引访问后缀、也可能是下一个成员的计算名（`entries: () => X\n[Symbol.iterator]: () => Y`），
@@ -70,12 +94,22 @@ while (at < code.length) {
 }
 scan.Checked = code.length > 1 ? code.length - 1 : 1;
 ```
-## static method FindMemberBoundary:(code:Array<Token>, from:int)=>int
+## static method FindMemberBoundary:(code:Array<Token>, from:int, cache?:MemberBoundaryCache | null)=>int
 
 从 `from` 起扫到第一个「换行 + 前一个代码单元能收住一个类型 + 当前单元看起来是成员起点」的位置；
 找不到就是 `code.length`。
 
+`cache` 是可选的**记忆化宿主**：同一个 `code` 上，若之前从更小的 `from` 算过 `Boundary`，
+且当前 `from` 还在 `Boundary` 之前（或 `Boundary` 已是 `code.length`），直接返回旧结果。
+`TypeBuilder.ParseTypeBounded` / `ParseReturnTypeBounded` 会传它，把「同一段前缀上反复问同一个
+成员边界」的 O(k) 扫描压成 O(1)；不传时行为与不带缓存的逐条扫描完全一致。
+
 ```ts
+if (cache !== undefined && cache !== null && cache.Code === code
+  && cache.Boundary >= 0 && from >= cache.From
+  && (cache.Boundary >= code.length || from < cache.Boundary)) {
+  return cache.Boundary;
+}
 for (let at = from + 1; at < code.length; at++) {
   if (!MemberBoundary.HasLineBreakBetween(code[at - 1], code[at])) {
     continue;
@@ -90,7 +124,17 @@ for (let at = from + 1; at < code.length; at++) {
   if (!MemberBoundary.LooksLikeMemberStart(code, at)) {
     continue;
   }
+  if (cache !== undefined && cache !== null) {
+    cache.Code = code;
+    cache.From = from;
+    cache.Boundary = at;
+  }
   return at;
+}
+if (cache !== undefined && cache !== null) {
+  cache.Code = code;
+  cache.From = from;
+  cache.Boundary = code.length;
 }
 return code.length;
 ```
