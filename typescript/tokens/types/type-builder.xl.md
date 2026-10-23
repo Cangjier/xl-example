@@ -187,21 +187,24 @@ for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
   if (unit.IsTriviaToken) {
     continue;
   }
-  if (unit instanceof Symbol) {
-    const text = (unit as Symbol).TempToString();
-    if (AngleJudge.IsSplitClose(text) && unit.SourceRange.StartIndex >= 0) {
-      const head = unit.SourceRange.StartIndex;
-      for (let index = 0; index < text.length; index++) {
-        const pieceIndex = head + index;
-        const piece = new Symbol(unit.Template);
-        piece.AppendAndSignOut(text[index], pieceIndex);
-        piece.SignIn(pieceIndex);
-        this.Units.push(piece);
-        this.Positions.push(pos);
-        this.SourceIndexes.push(sourceIndex);
-        pos = pieceIndex + 1;
+  const temp: string | undefined = (unit as Common).Temp;
+  if (temp !== undefined && temp.length > 1 && temp.charCodeAt(temp.length - 1) === 62 /* > */) {
+    if (unit instanceof Symbol) {
+      const text = (unit as Symbol).TempToString();
+      if (AngleJudge.IsSplitClose(text) && unit.SourceRange.StartIndex >= 0) {
+        const head = unit.SourceRange.StartIndex;
+        for (let index = 0; index < text.length; index++) {
+          const pieceIndex = head + index;
+          const piece = new Symbol(unit.Template);
+          piece.AppendAndSignOut(text[index], pieceIndex);
+          piece.SignIn(pieceIndex);
+          this.Units.push(piece);
+          this.Positions.push(pos);
+          this.SourceIndexes.push(sourceIndex);
+          pos = pieceIndex + 1;
+        }
+        continue;
       }
-      continue;
     }
   }
   this.Units.push(unit);
