@@ -88,6 +88,8 @@ if (!(built instanceof ConstructorShape)) {
   throw new Error("ConstructorPossibleShape.BuildByIndex: 产出不是 ConstructorShape");
 }
 host.Data.splice(start, consumed.length, built);
+// Share 由 Build 阶段更新：条目起点前进一格（被建的形状正好坐在 start 上）。
+ClassMemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;
 ```
