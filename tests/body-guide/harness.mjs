@@ -76,27 +76,102 @@ const BODY_TARGETS = {
     memberStart: () => ENUM_MEMBER_START_CASES,
     recovery: () => ENUM_RECOVERY_CASES,
   },
-  // 预留：T6 给 ClassDeclarationShape 增加 CreateBodyPossibleShapesCache / CreateBodyPossibleShapes 后自动生效。
+  // T6b：类体成员候选（属性 / 方法 / 兜底）。兜底候选永远留在目录里（pinned），
+  // 否则 `--only=` 裁剪后遇到构造 / 访问器 / static 块会让 CatalogGuide 0 候选抛错。
   class: {
     shapeName: "ClassDeclarationShape",
     modulePath: "typescript/tokens/declarations/class-declaration-shape.js",
     cacheField: "CreateBodyPossibleShapesCache",
     candidates: {
-      PropertyDeclarationPossibleShape: "typescript/tokens/members/property-declaration-possible-shape.js",
-      MethodDeclarationPossibleShape: "typescript/tokens/members/method-declaration-possible-shape.js",
-      ConstructorPossibleShape: "typescript/tokens/members/constructor-possible-shape.js",
-      GetAccessorPossibleShape: "typescript/tokens/members/class-get-accessor-possible-shape.js",
-      SetAccessorPossibleShape: "typescript/tokens/members/class-set-accessor-possible-shape.js",
-      ClassStaticBlockDeclarationPossibleShape: "typescript/tokens/members/class-static-block-declaration-possible-shape.js",
+      PropertyDeclarationPossibleShape: "typescript/tokens/types/property-declaration-possible-shape.js",
+      MethodDeclarationPossibleShape: "typescript/tokens/types/method-declaration-possible-shape.js",
       SemicolonClassElementPossibleShape: "typescript/tokens/expressions/semicolon-class-element-possible-shape.js",
-      IndexSignaturePossibleShape: "typescript/tokens/members/class-index-signature-possible-shape.js",
+      ClassMemberCatchAllPossibleShape: "typescript/tokens/types/class-member-catch-all-possible-shape.js",
     },
-    cases: () => [],
-    genericBoundary: () => [],
-    memberStart: () => [],
-    recovery: () => [],
+    pinned: ["ClassMemberCatchAllPossibleShape"],
+    cases: () => CLASS_CASES,
+    genericBoundary: () => CLASS_GENERIC_BOUNDARY_CASES,
+    memberStart: () => CLASS_MEMBER_START_CASES,
+    recovery: () => CLASS_RECOVERY_CASES,
   },
 };
+
+// ---------------------------------------------------------------------------
+// class body 用例：属性 / 方法 / 构造 / 访问器 / static 块 / `;` / 索引签名 / 装饰器 /
+// 计算名 / 字符串名 / 数字名 / `#private` / 无分号换行 / 同一行多条 / 泛型。
+// 增量路径只建属性与方法，其余走兜底 raw 尾巴——两条路径都必须与 TS AST 逐节点一致。
+const CLASS_CASES = [
+  "class C {}",
+  "class C { a = 1; }",
+  "class C { a: number; }",
+  "class C { readonly a: A; }",
+  "class C { static readonly a = 1 }",
+  "class C { a?: A }",
+  "class C { a!: A }",
+  "class C { a: A = 1 }",
+  "class C { a = 1\n b = 2 }",
+  "class C { a = 1; b = 2 }",
+  "class C { a = 1/* c */\n b = 2 }",
+  "class C { \"x\" = 1 }",
+  "class C { 0 = 1 }",
+  "class C { #x = 1 }",
+  "class C { [k] = 1 }",
+  "class C { [Symbol.iterator]: () => void }",
+  "class C { m() {} }",
+  "class C { m(): void; }",
+  "class C { m(a: A): B { return a; } }",
+  "class C { m<T>(x: T): T { return x; } }",
+  "class C { async m() {} }",
+  "class C { *m() {} }",
+  "class C { m?(): void }",
+  "class C { get x() { return 1; } }",
+  "class C { set x(v) {} }",
+  "class C { constructor() {} }",
+  "class C { constructor(private a: A) {} }",
+  "class C { static { let x = 1; } }",
+  "class C { ; }",
+  "class C { a = 1;; }",
+  "class C { a: A\n m(): void }",
+  "class C { m(): void\n n(): void }",
+  "class C { abstract m(): void }",
+  "class C { @dec m() {} }",
+  "class C { a = { x: 1 } }",
+  "class C { a: { x: 1 } }",
+  "class C { a: Map<string, number> }",
+  "class C { a: A<B<C>> }",
+  "class C { a = () => { return 1; } }",
+  "class C { public static readonly a = 1; private b: B; protected c() {} }",
+  "class C { a\n b }",
+  "class C { a = 1\n [b] = 2 }",
+  "class C extends B { a = 1 }",
+  "class C<T> extends B<T> implements I { m(): T { return null; } }",
+  // 分界证据落在修饰词上的回归（T6b：FindMemberBoundary 会在 readonly 处给出边界，
+  // 但那仍是一条成员的修饰词链，不能把 `public static` 切出来重跑 BuildMembers）。
+  "class C { public static \nreadonly a = 1; private m() { } }",
+  "class C { public static //c\nreadonly a = 1; private m() { } }",
+];
+
+const CLASS_GENERIC_BOUNDARY_CASES = [
+  { source: "class C { a: Map<string, number> }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { a: A<B<C>> }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { a: A<B> | C }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { a: (x: A) => B }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { m<T, U>(x: T): U { return x; } }", required: ["MethodDeclarationPossibleShape"] },
+  { source: "class C { m<T extends A<B>>() {} }", required: ["MethodDeclarationPossibleShape"] },
+];
+
+const CLASS_MEMBER_START_CASES = [
+  { source: "class C { a = 1\n b = 2 }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { a = 1; b = 2; c = 3 }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { m(): void\n n(): void }", required: ["MethodDeclarationPossibleShape"] },
+  { source: "class C { a: A\n [B]: C }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { a: A\n m() {} }", required: ["PropertyDeclarationPossibleShape", "MethodDeclarationPossibleShape"] },
+  { source: "class C { m() {}\n a = 1 }", required: ["PropertyDeclarationPossibleShape", "MethodDeclarationPossibleShape"] },
+  { source: "class C { constructor() {}\n a = 1 }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { a = 1\n constructor() {} }", required: ["PropertyDeclarationPossibleShape"] },
+];
+
+const CLASS_RECOVERY_CASES = [];
 
 /** BodyGuideUtil 的静态方法清单（冒烟组断言用；与设计文档 §6.2 的接口一一对应）。 */
 const BODY_GUIDE_UTIL_METHODS = [
@@ -500,6 +575,19 @@ function installCandidates(target, only) {
       throw new Error(`生成物里没有导出 ${name}：${path.join(root, "build/ts", modulePath)}`);
     }
     shapes.push(new ShapeClassOfCandidate());
+  }
+  // pinned：裁剪时始终保留的候选（class 的兜底候选；见 BODY_TARGETS.class.pinned）。
+  const pinned = target.spec.pinned ?? [];
+  for (const name of pinned) {
+    if (only.includes(name)) {
+      continue;
+    }
+    const modulePath = target.spec.candidates[name];
+    if (modulePath === undefined) {
+      throw new Error(`target=${target.name} pinned 未知候选：${name}`);
+    }
+    const loaded = require(path.join(root, "build/ts", modulePath));
+    shapes.push(new loaded[name]());
   }
   ShapeClass[cacheField] = shapes;
   return () => { ShapeClass[cacheField] = original; };
