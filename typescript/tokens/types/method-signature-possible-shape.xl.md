@@ -100,6 +100,7 @@ if (!(built instanceof MethodSignatureShape)) {
   throw new Error("MethodSignaturePossibleShape.BuildByIndex: 产出不是 MethodSignatureShape");
 }
 host.Data.splice(start, consumed.length, built);
+MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;
 ```

@@ -13,7 +13,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
-import { MemberBoundary } from "./member-boundary.xl.md"
+import { MemberBoundary, MemberBoundaryScan } from "./member-boundary.xl.md"
 import { PropertySignatureShape } from "./property-signature-shape.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
 ```
@@ -52,6 +52,43 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 代码单元下标 → 宿主 `Data` 下标的映射（`BuildByIndex` 的 `splice` 用）。
 
+## field Code:Array<Token> = []
+
+已扫过的**代码单元**（非 trivia），下标与 `CodeAt` 一一对应。增量维护：新单元只 `push`，不从 `Start` 重建。
+
+## field Angle:int = 0
+
+已扫过的代码单元前缀的**未闭合 `<` 层数**（与 `MemberPossibleUtil.AngleDepth` / `AngleJudge.ScanDepth` 同口径，夹 0）。增量维护：每追加一个代码单元折一次。
+
+## field BoundaryScan:MemberBoundaryScan = new MemberBoundaryScan()
+
+成员边界的**增量扫描状态**：`Boundary` 是已经找到的下一个成员起点，`Checked` 是下一个待判位置。语义与 `MemberBoundary.FindTypeMemberBoundary(Code, 0)` 的全量重算逐 token 等价。
+
+# class MemberItemStartShared
+
+`PossibleShapeCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个接口体括号的 `CatalogGuide` 生命周期内，七类成员候选共用同一份。
+
+为什么需要它：`Scan` 在每个 basic token 关闭时被七类候选**各调一次**，而 `ItemUtil.ItemStart` 要从 `Data` 尾部倒扫 O(k)——七个候选各扫一遍就是 7×O(k)，长成员上退化成二次。条目起点只在「上一条成员被 `splice` 顶替」时才前进一格，所以把它放进 `Share`，七类候选的 `BuildByIndex` 都在 `splice` 之后统一调 `MemberPossibleUtil.UpdateItemStartAfterBuild` 就地更新成 `start + 1`；`Scan` 首行只做 O(1) 新鲜度校验。
+
+**新鲜度判据**（`Share` 不受 `Reset` 清空，必须逐项校验）：
+
+- `Host === units`：缓存属于同一个宿主 `Data` 数组（跨宿主不会串）；
+- `Start` 落在 `[0, units.length]`；
+- `Start > 0` 时 `units[Start - 1]` 必须**不是** basic token——条目起点前面最近一格只能是已经建好的形状；
+- `Start < units.length` 时 `units[Start]` 必须**不是**已建好的形状——若恰好在 `Start` 上坐着形状，说明上一条成员刚被 `splice` 顶替而 `Share` 还没更新（漏调 `UpdateItemStartAfterBuild`，或更新写在别的宿主数组上），缓存失效、退回倒扫兜底。
+
+## field Host:Array<Token> = []
+
+这份共享数据服务的宿主 `Data` 数组（引用同一性校验）。
+
+## field Start:int = 0
+
+当前条目在 `Host` 里的起点（`ItemUtil.ItemStart`）。
+
+## field Valid:bool = false
+
+是否已经写过一份有效值；`false` 时直接退回 `ItemUtil.ItemStart`。
+
 # class MemberPossibleUtil
 
 对象类型成员候选的公共判据。成员边界与 TS 同口径：**类型是贪心解析的**，但成员与成员之间的分界由 `MemberBoundary.FindMemberBoundary` 回答（换行 + 前一个单元能收住类型 + 当前单元像成员起点），显式 `;` / `,` 是确定边界，容器收口字符（`}` / `]` / `)` / `>` / EOF）也是确定边界。
@@ -61,6 +98,10 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 ## static field CacheKey:string = "MemberPossible"
 
 七个候选共用的缓存键。
+
+## static field ItemStartKey:string = "MemberPossible.ItemStart"
+
+条目起点在 `PossibleShapeCache.Share` 里的键（值类型 `MemberItemStartShared`）。
 
 ## static field PropertyKind:int = 1
 
@@ -468,7 +509,7 @@ if (unit instanceof Common || unit instanceof String) {
 return [];
 ```
 
-## static method Analyze:(code:Array<Token>, state:MemberPossibleScan)=>void
+## static method Analyze:(state:MemberPossibleScan)=>void
 
 把「当前成员」的结论写进 `state`：可能种类 + 是否收住 + 收在哪个代码单元。
 
@@ -486,6 +527,7 @@ return [];
 **没有参数表才收成属性签名**（`interface I { a }` 这种无类型属性）。
 
 ```ts
+const code = state.Code;
 state.Complete = false;
 state.End = -1;
 if (code.length === 0) {
@@ -503,9 +545,11 @@ if (head.length === 0) {
   return;
 }
 const last = code[code.length - 1];
-const boundary = MemberBoundary.FindTypeMemberBoundary(code, 0);
+// 边界与角深度都由增量状态给出（`ScanBoundary` / `Extend` 维护）：
+// 与 `MemberBoundary.FindTypeMemberBoundary(code, 0)`、`MemberPossibleUtil.AngleDepth(code)` 的全量重算逐 token 等价。
+const boundary = state.BoundaryScan.Boundary < 0 ? code.length : state.BoundaryScan.Boundary;
 // 成员自身 <...> 里的 `>` / `,` 不是本层收口证据：深度 > 0 时三条证据全部不生效。
-const angle = MemberPossibleUtil.AngleDepth(code);
+const angle = state.Angle;
 let complete = false;
 let end = -1;
 if (angle === 0) {
@@ -534,18 +578,117 @@ state.Complete = complete && end >= 0;
 state.End = end;
 ```
 
-## static method Scan:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>MemberPossibleScan
+## static method Extend:(state:MemberPossibleScan, units:Array<Token>, tokenIndex:int)=>void
 
-拿宿主攒下的 `Data` 与当前下标，取（必要时重算）当前成员的判定状态。
+把 `state.Checked`（新条目从 `Start` 起）之后的新单元**追加**进 `state.Code` / `state.CodeAt`，同时把每个新代码单元折进 `state.Angle`。
 
-缓存以 `CacheKey` 为键只存一份：七个候选在同一次判定里共享，第一个问到的形状算一次，其余直接读。
-
-条目起点变化、或缓存已经越过当前下标（目录复位后残留），就地重建。
+只追加、不重建：一次判定里 7 个候选共用同一份状态，只有第一个问到的形状会走到这里；其余 6 个在 `state.Checked > tokenIndex` 时直接读结论。
 
 ```ts
+let from = state.Checked;
+if (from < state.Start) {
+  from = state.Start;
+}
+for (let at = from; at <= tokenIndex; at++) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  state.Code.push(unit);
+  state.CodeAt.push(at);
+  state.Angle = AngleJudge.ScanDepth(unit, state.Angle);
+}
+```
+
+## static method ScanBoundary:(state:MemberPossibleScan)=>void
+
+成员边界的增量推进：转调 `MemberBoundary.ScanTypeMemberBoundary`（判据与 `FindTypeMemberBoundary` 逐条相同，带 lookahead 的末位复查也在那里）。
+
+```ts
+MemberBoundary.ScanTypeMemberBoundary(state.Code, state.BoundaryScan);
+```
+
+## static method ItemStartValid:(units:Array<Token>, shared:MemberItemStartShared)=>bool
+
+`Share` 里那份条目起点还新不新鲜（判据见 `MemberItemStartShared`）。校验是 O(1)：只看 `Start` 前后各一格，不从头扫。
+
+```ts
+if (!shared.Valid) {
+  return false;
+}
+if (shared.Host !== units) {
+  return false;
+}
+if (shared.Start < 0 || shared.Start > units.length) {
+  return false;
+}
+if (shared.Start > 0 && units[shared.Start - 1].IsBasicToken) {
+  return false;
+}
+if (shared.Start < units.length) {
+  const atStart = units[shared.Start];
+  if (!atStart.IsTriviaToken) {
+    return atStart.IsBasicToken;
+  }
+}
+return true;
+```
+
+## static method ItemStartOf:(units:Array<Token>, cache:PossibleShapeCache)=>int
+
+条目起点：先问 `Share`（O(1) 校验命中就免倒扫），失效才 `ItemUtil.ItemStart` 倒扫一次并写回 `Share`。
+
+```ts
+let shared = cache.GetShare<MemberItemStartShared>(MemberPossibleUtil.ItemStartKey);
+if (shared !== null && MemberPossibleUtil.ItemStartValid(units, shared)) {
+  return shared.Start;
+}
 const start = ItemUtil.ItemStart(units);
+if (shared === null) {
+  shared = new MemberItemStartShared();
+  shared.Host = units;
+  shared.Start = start;
+  shared.Valid = true;
+  cache.SetShare(MemberPossibleUtil.ItemStartKey, shared);
+} else {
+  shared.Host = units;
+  shared.Start = start;
+  shared.Valid = true;
+}
+return start;
+```
+
+## static method UpdateItemStartAfterBuild:(cache:PossibleShapeCache, host:Token, start:int)=>void
+
+`BuildByIndex` 在 `host.Data.splice(...)` **之后**调用：被建的形状正好坐在 `start` 上，条目起点前进一格，下一次 `Scan` 的 O(1) 新鲜度校验就能命中。
+
+七个成员候选（属性 / 方法 / 索引 / 调用 / 构造 / get / set）建完形状后都调这一份，而不是各写一遍：`Share` 里的条目起点是七者共用的一份事实源，写回口径必须逐字一致——`Host` 换成新的 `host.Data` 数组（`splice` 是原地改，但引用仍取宿主）、`Start = start + 1`、`Valid = true`。`Share` 里还没有值（`null`）时不新建：没有读者曾经问过，`ItemStartOf` 的倒扫会自己写下第一份。
+
+不调它的后果是**正确但慢**：`splice` 之后 `units[start]` 变成已建好的形状，`ItemStartValid` 的第三、四条判据立刻失配，于是下一次 `Scan` 退回 `ItemUtil.ItemStart` 的 O(成员长) 倒扫——这正是本次推广要消掉的那次重扫。
+
+```ts
+const shared = cache.GetShare<MemberItemStartShared>(MemberPossibleUtil.ItemStartKey);
+if (shared !== null) {
+  shared.Host = host.Data;
+  shared.Start = start + 1;
+  shared.Valid = true;
+}
+```
+
+## static method Scan:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>MemberPossibleScan
+
+拿宿主攒下的 `Data` 与当前下标，取（必要时**增量推进**）当前成员的判定状态。
+
+缓存以 `CacheKey` 为键只存一份：七个候选在同一次判定里共享，第一个问到的形状推进一次，其余直接读。
+
+- `state === null`：新条目（首次判定，或目录复位后）。条目起点先问 `Share`（O(1) 新鲜度校验），失效才倒扫一次；
+- `state.Checked > tokenIndex + 1`：缓存越过当前下标（防御；正常由 `Reset` 清空）→ 重建；
+- `state.Checked <= tokenIndex`：只**追加**新单元（不重建），增量推进 `Angle` 与边界，然后重算收口结论。
+
+```ts
 let state = cache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
-if (state === null || state.Start !== start || state.Checked > tokenIndex + 1) {
+if (state === null || state.Checked > tokenIndex + 1) {
+  const start = MemberPossibleUtil.ItemStartOf(units, cache);
   state = new MemberPossibleScan();
   state.Start = start;
   state.Checked = -1;
@@ -553,19 +696,15 @@ if (state === null || state.Start !== start || state.Checked > tokenIndex + 1) {
   state.End = -1;
   state.Kinds = MemberPossibleUtil.AllKinds();
   state.CodeAt = [];
+  state.Code = [];
+  state.Angle = 0;
+  state.BoundaryScan = new MemberBoundaryScan();
   cache.SetState(MemberPossibleUtil.CacheKey, state);
 }
 if (state.Checked <= tokenIndex) {
-  const code:Array<Token> = [];
-  const codeAt:Array<number> = [];
-  for (let at = start; at <= tokenIndex; at++) {
-    if (!units[at].IsTriviaToken) {
-      code.push(units[at]);
-      codeAt.push(at);
-    }
-  }
-  state.CodeAt = codeAt;
-  MemberPossibleUtil.Analyze(code, state);
+  MemberPossibleUtil.Extend(state, units, tokenIndex);
+  MemberPossibleUtil.ScanBoundary(state);
+  MemberPossibleUtil.Analyze(state);
   state.Checked = tokenIndex + 1;
 }
 return state;
@@ -686,6 +825,8 @@ if (!(built instanceof PropertySignatureShape)) {
   throw new Error("PropertySignaturePossibleShape.BuildByIndex: 产出不是 PropertySignatureShape");
 }
 host.Data.splice(start, consumed.length, built);
+// Share 由 Build 阶段更新：条目起点前进一格（被建的形状正好坐在 start 上）。
+MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;
 ```

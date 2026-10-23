@@ -45,6 +45,20 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ClassDeclarationEndPossibleShape } from "./class-declaration-end-possible-shape.xl.md"
+import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { Source } from "../../../core/syntax/source.xl.md"
+import { PropertyDeclarationPossibleShape } from "../types/property-declaration-possible-shape.xl.md"
+import { MethodDeclarationPossibleShape } from "../types/method-declaration-possible-shape.xl.md"
+import { ClassMemberCatchAllPossibleShape } from "../types/class-member-catch-all-possible-shape.xl.md"
+import { SemicolonClassElementPossibleShape } from "../expressions/semicolon-class-element-possible-shape.xl.md"
+import { ConstructorPossibleShape } from "../types/constructor-possible-shape.xl.md"
+import { GetAccessorPossibleShape } from "../types/class-get-accessor-possible-shape.xl.md"
+import { SetAccessorPossibleShape } from "../types/class-set-accessor-possible-shape.xl.md"
+import { ClassStaticBlockDeclarationPossibleShape } from "../types/class-static-block-declaration-possible-shape.xl.md"
+import { IndexSignaturePossibleShape } from "../types/class-index-signature-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -68,6 +82,15 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`。
 成员的 `Pos` = 前一个成员（或 `{`）的 `End.Index + 1`，`end` = 函数体 `}` / 属性末尾的 `;`。
 
+根层的类声明是**提前挂载的壳**：`class` 关键字那一格 `ClassDeclarationPossibleShape` 就把本形状建出来、挂到父单元上
+（`BodyGuideUtil.MountShell`）；本形状随后吃名字 / 类型参数 / heritage / 类体，拿到类体括号后由终结候选
+`ClassDeclarationEndPossibleShape` 在类体括号闭合时收口（`BuildFromCode` → `FinishShell`）。
+
+本阶段（T6b）**成员按成员增量构建**：类体括号上挂成员候选目录
+（`ClassDeclarationShape.CreateBodyPossibleShapes`：属性 / 方法 / 构造 / get / set / static 块 / `;` / 索引签名 / 兜底），
+已经认出的成员在 body 里就地建形状；尚未认出的成员（恢复形 / 判不清的装饰器成员）保持 raw basic token，由兜底候选占着目录，
+收口时由 `BuildMembers` 从 raw 尾巴逐个建——两条路径走同一个建造器，AST 逐节点一致。
+
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
@@ -78,10 +101,77 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 
 ## field Members:Array<Token> = []
 
+## field BodyBracket:Bracket | null = null
+
+`BodyBracket` 记「已经认定的类体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（类体里的
+嵌套括号父级是类体括号，不会回到本形状）。
+
 ## constructor:(template:Template)=>void
 
 ```ts
 super(template);
+```
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+监听括号创建：如果新括号**肯定是类体**，就给自己装上终结向导（类体括号关闭时由它收口）。
+
+- 已经认定过类体：忽略；
+- 不是 `{`：不是类体（类型参数 / heritage 里的 `(` / `[`）；
+- 尖括号深度不为 0：是类型实参里的类型字面量（`extends A<{ x: B }>`），不是类体；
+- 前一个代码单元是 `extends` / `implements` / `,`：`{` 处在「类型从这里开始」的位置，是 heritage 里的类型字面量。
+
+判据统一走 `BodyGuideUtil.IsBodyBracket`（与 interface 同一套，`blocked` 单词表是
+`["extends", "implements", ","]`）。
+
+**类体括号同时挂成员候选目录**：`BodyGuideUtil.MountBodyGuide` 用 `ClassDeclarationShape.CreateBodyPossibleShapes()`
+（目录只建一份、所有类体括号共用），已经认出的属性 / 方法在 body 里增量建出；没认出的成员由兜底候选占位，
+收口时交给 `CollectBodyMembers` 的 raw 尾巴。
+
+```ts
+if (this.BodyBracket !== null) {
+  return;
+}
+if (!(bracket instanceof Bracket)) {
+  return;
+}
+if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, ["extends", "implements", ","])) {
+  return;
+}
+const body = bracket as Bracket;
+this.BodyBracket = body;
+BodyGuideUtil.MountBodyGuide(body, ClassDeclarationShape.CreateBodyPossibleShapes());
+this.CatalogGuide = new CatalogGuide([], new ClassDeclarationEndPossibleShape());
+```
+
+## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
+
+## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
+
+类体括号的成员候选目录。与接口体的区别：class 体的成员语法是**值世界的**（属性初始化器 / 方法体 / 构造 /
+访问器 / static 块），判型走独立的 `ClassMemberPossibleUtil`（`MemberBoundary.FindMemberBoundary` 口径，
+不是对象类型的 `FindTypeMemberBoundary`）。
+
+八类成员各有一个候选：属性、方法、构造、get / set 访问器、static 块、孤立 `;`、索引签名；`ClassMemberCatchAllPossibleShape`
+是兜底候选，保证目录永不因 0 候选抛错。兜底候选只在「已收住且 `Kinds` 全部落在 `ImplementedKinds()`」时让开，
+其余形态（装饰器成员 / 恢复形 / 判不清的条目）全部留在 raw 里由收口兜底——AST 与一次性构建逐节点一致。
+
+```ts
+const cached = BodyGuideUtil.CreateShapesCache(
+  ClassDeclarationShape.CreateBodyPossibleShapesCache,
+  () => [
+    new PropertyDeclarationPossibleShape(),
+    new MethodDeclarationPossibleShape(),
+    new ConstructorPossibleShape(),
+    new GetAccessorPossibleShape(),
+    new SetAccessorPossibleShape(),
+    new ClassStaticBlockDeclarationPossibleShape(),
+    new SemicolonClassElementPossibleShape(),
+    new IndexSignaturePossibleShape(),
+    new ClassMemberCatchAllPossibleShape(),
+  ]);
+ClassDeclarationShape.CreateBodyPossibleShapesCache = cached;
+return cached;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ClassDeclarationShape
@@ -155,6 +245,21 @@ for (let at = start - 1; at >= 0; at--) {
     break;
   }
 }
+return ClassDeclarationShape.BuildFromCode(host, code, pos, context, allowAnonymous);
+```
+
+## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext, allowAnonymous:bool)=>ClassDeclarationShape
+
+从「已经按 AST 顺序排好的非 trivia 代码单元」建类声明。两个入口共用：`FromUnits` / `FromUnitsAllowAnonymous`
+（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`ClassDeclarationEndPossibleShape`）。
+
+`pos` 是第一个代码单元前一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`），也是装饰器的区间起点。
+
+`allowAnonymous` 决定名字缺失时是静默建出匿名 `ClassDeclaration`（壳收口路径、`export default class {}`）还是抛错
+（一次性路径要求名字）；除此之外与 `FromUnits` 的解析逐字一致——壳 `Data` 里没有 trivia、host `Data` 里有，所以
+下标只按这份 `code` 数组走。
+
+```ts
 const decorators:Array<Token> = [];
 let decoratorEnd = pos;
 let index = 0;
@@ -293,7 +398,7 @@ if (nameUnit !== null) {
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
   : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
-const members = ClassDeclarationShape.BuildMembers(host, bodyUnit as Bracket, context);
+const members = BodyGuideUtil.CollectBodyMembers(host, bodyUnit as Bracket, context, ClassDeclarationShape.BuildMembers);
 const shape = new ClassDeclarationShape(host.Template);
 shape.NameToken = name;
 shape.HeritageClauses = clauses;
@@ -355,6 +460,63 @@ shape.TryToClose(context);
 return shape;
 ```
 
+## static method BuildMemberFromCode:(host:Token, code:Array<Token>, start:int, end:int, pos:int, context:SyntaxContext)=>Token | null
+
+从「一个成员自己的代码单元区间」建出**一个**成员，供 body 的成员候选复用。
+
+`start..end` 是候选判定出的成员区间（`CodeAt` 口径，含成员自己的 `;`），`pos` 是该成员的 `Pos`
+（`ClassMemberPossibleUtil.BasePos`：区间前一个非 trivia 单元的 `End.Index + 1`）。
+
+实现刻意**不复制** `BuildMembers` 的解析：把区间切出来包成一个临时括号视图、交给同一个 `BuildMembers`，
+这样增量路径与收口 raw 兜底走的是**同一份**建造器，区间 / `Pos` / `End` / children 顺序不可能分叉。
+
+- 临时视图的 `SourceRange.Start` 对齐到 `pos - 1`（`BuildMembers` 用它当首个 `previousEnd`，首成员因此得到
+  「`{` 之后」而不是 `0`），与整段构建时 `bracket.SourceRange.Start.Index` 的用途逐字一致；
+- 不是**恰好一个**成员、或成员的 `Pos` / 结束下标与区间不一致、或解析抛错 ⇒ 返回 `null`：调用方**不建、不 splice**，
+  raw 原样留给收口兜底（`docs/body-guide-contract.md` §2.3 的「整段没读完 ⇒ 不建」）；
+- 抛错一律按「这一段不止一条成员 / 判型与建造器不一致」处理：宁可回落 raw（结果正确、只是慢一点），
+  不可把半条成员硬建进 AST。
+
+视图不参与字符流、不签出、不关闭，只当一次调用参数（与 `BodyGuideUtil.CollectBodyMembers` 的 raw 尾巴视图同款）。
+
+```ts
+if (start < 0 || end < start || end >= code.length) {
+  return null;
+}
+const span:Array<Token> = code.slice(start, end + 1);
+if (span.length === 0) {
+  return null;
+}
+const headStart = span[0].SourceRange.Start;
+if (headStart === null) {
+  return null;
+}
+const view = new Bracket(host.Template);
+view.Data = span;
+if (pos > 0) {
+  view.SignIn(new Source(headStart.Document, pos - 1));
+}
+let members:Array<Token> = [];
+try {
+  members = ClassDeclarationShape.BuildMembers(host, view, context);
+} catch (error) {
+  return null;
+}
+if (members.length !== 1) {
+  return null;
+}
+const built = members[0];
+if ((built as ShapeToken).Pos !== pos) {
+  return null;
+}
+const spanTail = span[span.length - 1].SourceRange.End;
+const builtTail = built.SourceRange.End;
+if (spanTail === null || builtTail === null || builtTail.Index !== spanTail.Index) {
+  return null;
+}
+return built;
+```
+
 ## static method BuildModifier:(template:Template, text:string, unit:Token, pos:int, context:SyntaxContext)=>Token
 
 ```ts
@@ -387,7 +549,7 @@ shape.TryToClose(context);
 return shape;
 ```
 
-## private static method CanFollowModifier:(unit:Token)=>bool
+## static method CanFollowModifier:(unit:Token)=>bool
 
 TS 的 `canFollowModifier()`：修饰词后面这一格能否接成员名（`[` / `{` / `*` / `...` / 字面量属性名）。
 `static` 的判据用它（不看换行），`get` / `set` 与其余修饰词还要再过各自的「名字」那一关。

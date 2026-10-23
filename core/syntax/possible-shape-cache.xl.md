@@ -6,11 +6,23 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 状态是每个形状自己立的**具名类**（各形状的 `…Scan`）。底层只能写 `any`：xl 的类型标注不接受 `{[key:string]:any}`（`E1204`），`Map<string, any>` 是这套规范里唯一能写的字符串键映射——明确性由取值那一侧的泛型补回来（与 `SyntaxContext.GetDefault` 同款）。
 
+缓存分两层，键都按形状名分槽：`Values` 是**逐条目判定状态**，随 `Reset` 清空；`Share` 是**Shape 生命周期内可长期复用**的数据，不受 `Reset` 重置。
+
 # class PossibleShapeCache
 
 ## field Values:Map<string, any> = new Map()
 
 形状名 → 该形状的判定状态。
+
+## field Share:Map<string, any> = new Map()
+
+形状名 → 该形状**在 Shape 生命周期内长期复用**的数据（跨条目共享）。
+
+与 `Values` 的分界：`Values` 只对「当前这一条目」有效，`Reset` 一调就清；`Share` 活到持有这份缓存的 `CatalogGuide`（宿主 Shape）结束，普通 `Reset` **不**动它。
+
+**由 Build 阶段按需处理**：`BuildByIndex`（普通候选与终结候选都算）与 `BuildFromCode` 里读 `Share`，缺了就地建，建完写回；`Compute` / `ComputeByIndex` 不假定 `Share` 里已经有东西。
+
+**因为 `Reset` 不清 `Share`，每条共享数据必须自带新鲜度判据**（例如 `Start`、长度、版本号）：换到下一条目后，旧数据可能还指着上一条目的结论，所以使用前必须校验，失效就重建；否则会拿上一条目的结论去判下一条目。
 
 ## method GetState:<Item>(possibleShapeName:string)=>Item | null
 
@@ -31,9 +43,38 @@ return null;
 this.Values.set(possibleShapeName, state);
 ```
 
+## method GetShare:<Item>(possibleShapeName:string)=>Item | null
+
+取这个形状的共享数据；还没写过给 `null`。类型由调用方点明：`cache.GetShare<XxxShared>(name)`。
+
+```ts
+if (this.Share.has(possibleShapeName)) {
+  return this.Share.get(possibleShapeName) as Item;
+}
+return null;
+```
+
+## method SetShare:<Item>(possibleShapeName:string, value:Item)=>void
+
+写这个形状的共享数据。与 `SetState` 一样**只在第一次建时调**——对象建出来之后由形状就地改，`Share` 里握着的是同一个对象。
+
+```ts
+this.Share.set(possibleShapeName, value);
+```
+
+## method ClearShare:()=>void
+
+清空全部共享数据。**普通 `Reset` 不调它**：`Share` 的生命周期 = 持有这份缓存的宿主 Shape（`CatalogGuide`）的生命周期，只有 Shape 生命周期收尾、要归还这部分内存时才清。
+
+```ts
+this.Share.clear();
+```
+
 ## method Clear:()=>void
 
-清空全部缓存。形状建完之后由 `CatalogGuide` 调一次——下一条目的判定必须从零开始，留着上一条的状态会判错。
+清空**逐条目判定状态**（`Values`）。形状建完之后由 `CatalogGuide` 调一次——下一条目的判定必须从零开始，留着上一条的状态会判错。
+
+**`Share` 不清**：它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置；要清只能显式调 `ClearShare`。
 
 ```ts
 this.Values.clear();

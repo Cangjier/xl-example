@@ -122,7 +122,7 @@ return ComputePossibleShapesStates.Built;
 
 ## private method Reset:()=>void
 
-目录复位：`Candidates` 重新填满，判定缓存清空。
+目录复位：`Candidates` 重新填满，判定缓存清空。`Clear` 只清 `Values`（逐条目判定状态），`Share` 保留——它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置。
 
 **建完一条形状必须复位**：下一个条目的判定要从零开始——下标集不复位，就再也建不出第二个形状；缓存不清，就会拿上一条「读到第几格、什么档位」的状态去判下一条。
 
