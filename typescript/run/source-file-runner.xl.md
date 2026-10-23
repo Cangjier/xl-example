@@ -29,10 +29,17 @@ import { TypescriptTemplate } from "./typescript-template.xl.md"
 
 返回的是**形状树**（`SourceFileShape` 的 `Data` 里是语句形状），不是 AST——AST 由各形状自己的投影入口产出，见 `typescript/ast/`。
 
+**窗口大小取 128（不是 core 默认的 32）。** 窗口只影响调度粒度、不影响解析结果（任一窗口大小的 XML 逐字节相同），
+但在 run-batching 之后，basic token 的批处理（注释正文 / 空白段 / Common 正文）让成本集中到「每窗口一次」的入口上：
+窗口 32 时 8 份 `.d.ts` 有 12.7 万个窗口，128 时只有约 3.2 万。同进程 A/B 实测 128 比 32 快 **7% ~ 9.5%**（8 份 d.ts），
+全语料 4,497 文件 XML 逐字节等价、七道门全绿；整体口径（8 份 / 226 份与 TS 对照）见
+`docs/opt-basic-token-gc-analysis.md`。这里显式传参而不改 core 默认值，是为了把「性能口径」留在运行层，
+core 的 `SyntaxContext` 默认值仍是 32（其它语言的装配可以自选）。
+
 ```ts
 const template = TypescriptTemplate.Create();
 const root = new SourceFileShape(template);
-const context = new SyntaxContext(root);
+const context = new SyntaxContext(root, 128);
 context.Process(new TextDocument(text, filePath));
 return root;
 ```
