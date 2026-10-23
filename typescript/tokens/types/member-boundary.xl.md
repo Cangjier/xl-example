@@ -10,12 +10,66 @@ import { LineTerminator } from "../../run/line-terminator.xl.md"
 
 # namespace cangjie
 
-# class MemberBoundary
+# class MemberBoundaryScan
 
+对象类型成员边界的**增量扫描状态**：`MemberBoundary.ScanTypeMemberBoundary` 用它缓存「已经找到的边界」与「下一次该判哪一格」，把长成员的分界判定从「每个 basic token 都全前缀 O(k)」降到均摊 O(1)。
+
+`Boundary` 是 `FindTypeMemberBoundary(code, 0)` 的结果（`code` 下标，`-1` 表示还没找到）；`Checked` 是**下一个待判位置**（`code` 下标）。因为 `FindTypeMemberBoundary` 带一格 lookahead（`IsInitializerIndexContinuation` / `LooksLikeMemberStart` 的 `[...]` 分支都要看 `at + 1`），一次没命中时 `Checked` 回退到末位，下一次连末位一起复查。
+
+## field Boundary:int = -1
+
+已经找到的下一个成员起点（`code` 下标）；`-1` 表示还没找到。找到即锁定：更长的前缀不会改变「第一个命中」。
+
+## field Checked:int = 1
+
+下一个待判位置（`code` 下标）；`FindTypeMemberBoundary` 从 `from + 1` 起判，所以初始是 `1`。
+
+# class MemberBoundary
 对象类型 / 类体里「一个成员的终点」的判据。成员的类型是**贪心**解析的，但 `[…]` 既可能是类型的
 索引访问后缀、也可能是下一个成员的计算名（`entries: () => X\n[Symbol.iterator]: () => Y`），
 所以解析类型之前要先用这个助手截出当前成员的范围。
 
+## static method ScanTypeMemberBoundary:(code:Array<Token>, scan:MemberBoundaryScan)=>void
+
+`FindTypeMemberBoundary(code, 0)` 的**增量版**：`scan.Boundary` 已经找到就直接返回；否则从 `scan.Checked` 起只判新追加的位置。
+
+判据与 `FindTypeMemberBoundary` 逐条相同（换行 + 前一个单元能收住类型 + 当前单元是成员起点，外加 `(` / `<` 的成员起点例外与 ASI 例外）。两条带 lookahead 的判据在末位拿不到 `at + 1` 时都判 false，所以末位永远不会被提前锁定；一次扫到底就把 `Checked` 回退到末位，下一次复用同一格复查，均摊 O(1)。
+
+```ts
+if (scan.Boundary >= 0) {
+  return;
+}
+let at = scan.Checked;
+if (at < 1) {
+  at = 1;
+}
+while (at < code.length) {
+  if (MemberBoundary.HasLineBreakBetween(code[at - 1], code[at])
+    && MemberBoundary.CanEndTypeUnit(code[at - 1])
+    && !MemberBoundary.IsInitializerIndexContinuation(code, at)) {
+    const unit = code[at];
+    if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
+      if (!MemberBoundary.IsNewKeyword(code[at - 1])
+        && !MemberBoundary.IsMemberSignatureAwaitingParams(code, at)) {
+        scan.Boundary = at;
+        return;
+      }
+    } else if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+      if (!MemberBoundary.IsNewKeyword(code[at - 1])
+        && !MemberBoundary.IsMemberSignatureAwaitingParams(code, at)
+        && !MemberBoundary.IsImportTypeArguments(code, at)) {
+        scan.Boundary = at;
+        return;
+      }
+    } else if (MemberBoundary.LooksLikeMemberStart(code, at)) {
+      scan.Boundary = at;
+      return;
+    }
+  }
+  at++;
+}
+scan.Checked = code.length > 1 ? code.length - 1 : 1;
+```
 ## static method FindMemberBoundary:(code:Array<Token>, from:int)=>int
 
 从 `from` 起扫到第一个「换行 + 前一个代码单元能收住一个类型 + 当前单元看起来是成员起点」的位置；
