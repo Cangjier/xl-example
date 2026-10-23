@@ -95,13 +95,15 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 判定本身**不建任何形状、也不解析类型**：只做「前缀是不是这个成员 / 收住了没有 / 是哪一类」的词的层面判断；真正的形状由被选中的候选在自己的 `BuildByIndex` 里用 `TypeBuilder.ParseTypeMember()` 建。
 
-## static field CacheKey:string = "MemberPossible"
+## static field CacheKey:any = PossibleShape.SlotOf(MemberPossibleScan)
 
-七个候选共用的缓存键。
+七个候选共用的缓存槽。**槽号由这一组共同的标识类 `MemberPossibleScan` 发出来**（`PossibleShape.SlotOf`，同一类同号），所以七个候选读到的是同一个槽，而不是各自的 `this.Slot()`。
 
-## static field ItemStartKey:string = "MemberPossible.ItemStart"
+标注写 `any` 而不是 `int`：xl 的 `E1207` 只接受**字面量**或 `new` 形式的静态字段初始值，跨类静态调用（`PossibleShape.SlotOf(...)`）一律判「与 int 不符」。实际值一定是槽位号——`SlotOf` 的返回类型就是 `int`，只是 xl 的静态字段检查器不认这条返回值。
 
-条目起点在 `PossibleShapeCache.Share` 里的键（值类型 `MemberItemStartShared`）。
+## static field ItemStartKey:any = PossibleShape.SlotOf(MemberItemStartShared)
+
+条目起点在 `PossibleShapeCache.Share` 里的槽（值类型 `MemberItemStartShared`）；槽号由值类型 `MemberItemStartShared` 发出来。标注用 `any` 的理由同上（`E1207`）。
 
 ## static field PropertyKind:int = 1
 

@@ -56,7 +56,7 @@ debugger;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 const itemStart = ItemUtil.ItemStart(units);
 let state = cache.GetState<StatementScan>(name);
 if (state === null || state.Start !== itemStart) {
@@ -111,14 +111,14 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const state = cache.GetState<StatementScan>(this.constructor.name);
+const state = cache.GetState<StatementScan>(this.Slot());
 return state !== null && state.Status === 1 && state.End >= 0;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<StatementScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<StatementScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 let end = state === null ? tokenIndex : state.End;
 if (end < start) {

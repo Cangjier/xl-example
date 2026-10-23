@@ -37,7 +37,7 @@ import * as ns from "m";
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<NamespaceImportScan>(name);
 if (state === null) {
   state = new NamespaceImportScan();
@@ -134,7 +134,7 @@ return shape;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
-const state = cache.GetState<NamespaceImportScan>(this.constructor.name);
+const state = cache.GetState<NamespaceImportScan>(this.Slot());
 if (state === null) {
   return false;
 }

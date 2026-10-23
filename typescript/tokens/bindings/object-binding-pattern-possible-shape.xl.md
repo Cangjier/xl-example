@@ -35,7 +35,7 @@ const { a, b: c } = o;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<ObjectBindingPatternScan>(name);
 if (state === null) {
   state = new ObjectBindingPatternScan();

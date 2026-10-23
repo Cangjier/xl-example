@@ -36,7 +36,7 @@ export { a };
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<ExportDeclarationEndScan>(name);
 if (state === null) {
   state = new ExportDeclarationEndScan();

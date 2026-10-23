@@ -51,7 +51,9 @@ import { Token } from "../../../core/syntax/token.xl.md"
 缺逗号的恢复形在整段路径里会抛「枚举成员缺少等号」。候选如果提前按换行切开，会把这个（既有的）恢复行为改成两条成员，
 AST 就不再与重构前一致——所以这类条目**不建**，留给收口时的 raw 兜底按原口径恢复。
 
-## static field CacheKey:string = "EnumMemberPossible"
+## static field CacheKey:any = PossibleShape.SlotOf(EnumMemberPossibleScan)
+
+枚举体成员候选的缓存槽：`ComputeByIndex` / `IsBuildable` / `BuildByIndex` 共用这一份扫描结论，槽号由这一组共同的标识类 `EnumMemberPossibleScan` 发出来。
 
 ## static method TextOf:(unit:Token)=>string
 

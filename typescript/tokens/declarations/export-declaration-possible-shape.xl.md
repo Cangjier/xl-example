@@ -100,7 +100,7 @@ export declare function f(): void;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<ExportDeclarationScan>(name);
 if (state === null) {
   state = new ExportDeclarationScan();
@@ -527,7 +527,7 @@ return ShapeStates.Uncertain;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ExportDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<ExportDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;
@@ -1360,7 +1360,7 @@ return text === "const" || text === "let" || text === "var" || text === "using"
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
-const state = cache.GetState<ExportDeclarationScan>(this.constructor.name);
+const state = cache.GetState<ExportDeclarationScan>(this.Slot());
 if (state === null) {
   return false;
 }

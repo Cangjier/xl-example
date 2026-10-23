@@ -82,7 +82,7 @@ export type { X }
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<TypeAliasDeclarationScan>(name);
 if (state === null) {
   state = new TypeAliasDeclarationScan();
@@ -479,7 +479,7 @@ return false;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const state = cache.GetState<TypeAliasDeclarationScan>(this.constructor.name);
+const state = cache.GetState<TypeAliasDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
@@ -489,7 +489,7 @@ return state !== null && state.Done && !state.Rejected && state.DoneAt === token
 `host.Data.splice` 也少吞一格，边界 token 留在原处由下一条语句重新处理。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<TypeAliasDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<TypeAliasDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 let end = tokenIndex;
 if (state !== null && state.AsiEnd) {

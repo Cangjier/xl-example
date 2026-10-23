@@ -39,7 +39,7 @@ import { StringLiteralShape } from "./string-literal-shape.xl.md"
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<StringLiteralScan>(name);
 if (state === null) {
   state = new StringLiteralScan();
@@ -110,7 +110,7 @@ while (index >= 0 && host.Data[index].IsTriviaToken) {
 if (index < 0 || !(host.Data[index] instanceof String)) {
   return host;
 }
-const scan = catalog.PossibleShapesComputeCache.GetState<StringLiteralScan>(this.constructor.name);
+const scan = catalog.PossibleShapesComputeCache.GetState<StringLiteralScan>(this.Slot());
 const itemStart = scan === null ? ItemUtil.ItemStart(host.Data) : scan.Start;
 const token = host.Data[index] as String;
 let previousCode = -1;

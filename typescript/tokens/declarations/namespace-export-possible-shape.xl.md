@@ -41,7 +41,7 @@ export type * as ns from "m";
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<NamespaceExportScan>(name);
 if (state === null) {
   state = new NamespaceExportScan();
@@ -104,7 +104,7 @@ return ShapeStates.Reject;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<NamespaceExportScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<NamespaceExportScan>(this.Slot());
 const start = state === null || state.Start < 0 ? 0 : state.Start;
 let star = -1;
 for (let at = start; at <= tokenIndex; at++) {
@@ -144,7 +144,7 @@ return shape;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
-const state = cache.GetState<NamespaceExportScan>(this.constructor.name);
+const state = cache.GetState<NamespaceExportScan>(this.Slot());
 if (state === null) {
   return false;
 }
