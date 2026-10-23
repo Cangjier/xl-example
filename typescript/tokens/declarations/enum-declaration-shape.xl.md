@@ -2,7 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
@@ -13,15 +13,14 @@ import { ComputedPropertyNameShape } from "../types/computed-property-name-shape
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
-import { EnumDeclarationEndPossibleShape } from "./enum-declaration-end-possible-shape.xl.md"
-import { EnumMemberPossibleShape } from "../members/enum-member-possible-shape.xl.md"
+import { EnumBodyItemHost, EnumItemRule } from "../items/enum-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -54,9 +53,9 @@ declare const enum E { A = 1 }
 区间：从修饰符（没有就从 `enum`）的起点到 `}`；`Pos` 口径同 ClassDeclarationShape。
 
 **提前挂载的壳**：`EnumDeclarationPossibleShape` 在认下 `enum` 关键字时就建出本形状并挂到父单元上；本形状随后吃
-名字与枚举体括号。枚举体括号创建时 `OnBracketCreatedEvent` 认领它、给枚举体挂上成员候选目录
-（`EnumMemberPossibleShape`），闭合时由终结候选 `EnumDeclarationEndPossibleShape` 收口。导出 / 模块体 / 语句位置
-等一次性构建路径仍走 `FromUnits`。
+名字与枚举体括号。枚举体括号创建时 `OnBracketCreatedEvent` 认领它、给括号挂上 item 表引擎
+（`EnumBodyItemHost` = `ItemListEngine(EnumItemRule)`），闭合时由本形状的 `OnBasicTokenClosed` 收口
+（`BuildFromCode` + `BodyGuideUtil.FinishShell`）。导出 / 模块体 / 语句位置等一次性构建路径仍走 `FromUnits`。
 
 ## field EnumName:Token | null = null
 
@@ -75,13 +74,15 @@ super(template);
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
 
-监听括号创建：新括号**肯定是枚举体**时，给枚举体挂上成员候选目录，并给自己装上终结向导
-（枚举体括号关闭时由它收口）。
+监听括号创建：新括号**肯定是枚举体**时，给枚举体括号挂上 item 表引擎（`EnumBodyItemHost`），
+枚举体括号关闭时由本形状的 `OnBasicTokenClosed` 收口。
 
 - 不是 `{`：不是枚举体；
 - 已经认定过枚举体：忽略；
 - 尖括号深度不为 0 / 前一个代码单元在「后面还能接类型」的位置：不是枚举体（枚举头没有类型参数与 heritage，
   这里仍走共享判据，`blocked` 给空表）。
+
+**不再给括号挂 `CatalogGuide`、也不给自己装终结候选**：成员判定与收口都由 item 表引擎负责。
 
 ```ts
 if (this.BodyBracket !== null) {
@@ -95,22 +96,67 @@ if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, [])) {
 }
 const body = bracket as Bracket;
 this.BodyBracket = body;
-BodyGuideUtil.MountBodyGuide(body, EnumDeclarationShape.CreateBodyPossibleShapes());
-this.CatalogGuide = new CatalogGuide([], new EnumDeclarationEndPossibleShape());
+body.BatchAdapter = new EnumBodyItemHost(body, EnumDeclarationShape.CreateBodyItemRules());
 ```
 
-## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
+## private static field CreateBodyItemRulesCache:Array<ItemRule> | null = null
 
-## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
+## static method CreateBodyItemRules:()=>Array<ItemRule>
 
-枚举体括号的候选目录：枚举成员只有一个候选 `EnumMemberPossibleShape`。目录只建一份，所有枚举体括号共用；
-判定状态在各自的 `CatalogGuide` 缓存里。
+枚举体 item 表的规则表：枚举成员只有一个规则 `EnumItemRule`。规则表只建一份，所有枚举体括号共用；
+判定状态在各自的引擎里（`EnumBodyItemHost.Engine`），规则实例本身无状态，共用安全。
 
 ```ts
-EnumDeclarationShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
-  EnumDeclarationShape.CreateBodyPossibleShapesCache,
-  () => [new EnumMemberPossibleShape()]);
-return EnumDeclarationShape.CreateBodyPossibleShapesCache;
+if (EnumDeclarationShape.CreateBodyItemRulesCache !== null) {
+  return EnumDeclarationShape.CreateBodyItemRulesCache;
+}
+EnumDeclarationShape.CreateBodyItemRulesCache = [new EnumItemRule()];
+return EnumDeclarationShape.CreateBodyItemRulesCache;
+```
+
+## method OnBasicTokenClosed:(token:Token, context:SyntaxContext)=>CloseStates
+
+basic token 关闭的宿主侧入口（`Bracket.Close` 只问父单元；枚举体括号的父单元就是本形状）。
+
+枚举体括号关闭时先 flush 括号上的 item 表引擎（把最后一条成员建掉），再把壳收口成完整声明；
+其余 basic token（头部阶段的名字 / `declare` / `const` 等）交回 `UnitToken` 的默认实现。
+
+```ts
+if (this.BodyBracket !== null && token === this.BodyBracket) {
+  return this.FinishBody(context);
+}
+return super.OnBasicTokenClosed(token, context);
+```
+
+## private method FinishBody:(context:SyntaxContext)=>CloseStates
+
+枚举体括号闭合：flush 引擎 → 用壳自己的 `Data` 走 `BuildFromCode` → `FinishShell` 原地顶替。
+
+收口用 splice 顶替而不是 `Token.Replace`，所以 `BodyBracket` 先清空，避免重复收口；
+`FlushBatch` 在括号没有活动批次时是空操作，`Engine.Flush` 只补建「收口时才确定」的最后一条成员。
+
+```ts
+const body = this.BodyBracket;
+if (body === null) {
+  return CloseStates.Nothing;
+}
+const parent = this.Parent;
+if (parent === null) {
+  return CloseStates.Nothing;
+}
+this.BodyBracket = null;
+if (body.BatchAdapter !== null) {
+  body.FlushBatch(context);
+}
+const code:Array<Token> = [];
+for (const unit of this.Data) {
+  if (!unit.IsTriviaToken) {
+    code.push(unit);
+  }
+}
+const built = EnumDeclarationShape.BuildFromCode(this, code, this.Pos, context);
+BodyGuideUtil.FinishShell(parent, this, built);
+return CloseStates.Built;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>EnumDeclarationShape
@@ -140,7 +186,7 @@ return EnumDeclarationShape.BuildFromCode(host, code, pos, context);
 ## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext)=>EnumDeclarationShape
 
 从「已经按 AST 顺序排好的非 trivia 代码单元」建枚举声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等
-一次性建形状）与本形状壳的收口（`EnumDeclarationEndPossibleShape` 把壳换成完整形状）。
+一次性建形状）与本形状壳的收口（`FinishBody` 把壳换成完整形状）。
 
 `pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
 
@@ -298,7 +344,7 @@ return members;
 
 ## static method BuildMember:(host:Token, group:Array<Token>, pos:int, context:SyntaxContext)=>Token | null
 
-`EnumMemberPossibleShape.BuildByIndex` 复用的**同一建造器**（不要另写一份，否则增量路径与 raw 路径的
+`EnumItemRule.Build` 复用的**同一建造器**（不要另写一份，否则增量路径与 raw 路径的
 AST 会不一致）。`group` 是成员自己的非 trivia 代码单元，`pos` 是成员 `Pos`。
 
 ```ts
