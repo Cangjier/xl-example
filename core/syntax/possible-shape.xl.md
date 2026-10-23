@@ -21,6 +21,40 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `ComputeByIndex` 与 `BuildByIndex` 是抽象方法，写成抛错桩；`Compute` / `Build` 在基类里**转调**它们——每个形状只需要实现 ByIndex 那两条。
 
+每个形状在缓存里有一个**整数槽位**（`Slot`）。槽位由基类统一发号，形状自己不必写常量、也不必拼键名。
+
+## static field Slots:Map<any, int> = new Map()
+
+形状类 → 槽位号。进程内单调发号：同一个类第一次问到才拿号，之后永远是同一个号；不同的类一定拿到不同的号。
+
+**键是类对象本身**（函数对象的引用同一性），不是类名——两个不同的类即使 `name` 相同，也拿两个不同的槽。
+
+## static method SlotOf:(shapeClass:any)=>int
+
+问一个形状类要槽位号；没发过号就现在发一个。**同一个类 == 同一个槽**，这是槽位作为缓存键的全部依据。
+
+用 `Map` 而不是每次重算，是因为发号只发生在某个类**第一次**进缓存的时候；之后每次 `GetState` / `SetState` 命中的都是一次 `Map.get`，比读 `constructor.name`（访问器 + 字符串）便宜一个量级。
+
+```ts
+const known = PossibleShape.Slots.get(shapeClass);
+if (known !== undefined) {
+  return known;
+}
+const slot = PossibleShape.Slots.size;
+PossibleShape.Slots.set(shapeClass, slot);
+return slot;
+```
+
+## method Slot:()=>int
+
+本形状在缓存里的槽位号。形状在自己的 `ComputeByIndex` / `IsBuildable` / `BuildByIndex` 里**只调这一条**，把结果当键交给 `PossibleShapeCache`：`cache.GetState<XxxScan>(this.Slot())`。
+
+```ts
+return PossibleShape.SlotOf(this.constructor);
+```
+
+取的是**运行时类**（`this.constructor`），所以基类给一次实现、所有形状共用；子类不必各自再写一份槽位常量，也不会因为漏写而撞槽。
+
 ## method Compute:(units:Array<Token>, cache:PossibleShapeCache)=>ShapeStates
 
 看已经攒下的单元能不能构成这个形状。

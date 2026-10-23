@@ -44,7 +44,7 @@ import a from "m";
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<ImportClauseScan>(name);
 if (state === null) {
   state = new ImportClauseScan();
@@ -150,7 +150,7 @@ return ShapeStates.Accept;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const scan = catalog.PossibleShapesComputeCache.GetState<ImportClauseScan>(this.constructor.name);
+const scan = catalog.PossibleShapesComputeCache.GetState<ImportClauseScan>(this.Slot());
 const itemStart = scan === null ? ItemUtil.ItemStart(host.Data) : scan.Start;
 let first = itemStart;
 while (first < host.Data.length && host.Data[first].IsTriviaToken) {
@@ -462,7 +462,7 @@ return after === "from";
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
-const state = cache.GetState<ImportClauseScan>(this.constructor.name);
+const state = cache.GetState<ImportClauseScan>(this.Slot());
 if (state === null) {
   return false;
 }

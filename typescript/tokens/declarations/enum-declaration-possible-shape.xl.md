@@ -83,7 +83,7 @@ return false;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<EnumDeclarationScan>(name);
 if (state === null) {
   state = new EnumDeclarationScan();
@@ -244,7 +244,7 @@ return ShapeStates.Uncertain;
 可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
 
 ```ts
-const state = cache.GetState<EnumDeclarationScan>(this.constructor.name);
+const state = cache.GetState<EnumDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
@@ -254,7 +254,7 @@ return state !== null && state.Done && !state.Rejected;
 `EnumDeclarationShape` 的 `Data`、按 `BasePos` 定壳的 `Pos`、顶替进宿主，并让宿主把后续字符交给壳（`MountedUnit`）。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<EnumDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<EnumDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;

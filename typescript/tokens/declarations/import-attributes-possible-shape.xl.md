@@ -35,7 +35,7 @@ import a from "m" with { type: "json" };
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<ImportAttributesScan>(name);
 if (state === null) {
   state = new ImportAttributesScan();

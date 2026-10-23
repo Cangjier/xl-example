@@ -44,7 +44,7 @@ import a from "m" with { type: "json" };
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<ImportDeclarationScan>(name);
 if (state === null) {
   state = new ImportDeclarationScan();
@@ -108,7 +108,7 @@ return ShapeStates.Uncertain;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ImportDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<ImportDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
@@ -178,6 +178,6 @@ return built;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
-const state = cache.GetState<ImportDeclarationScan>(this.constructor.name);
+const state = cache.GetState<ImportDeclarationScan>(this.Slot());
 return state !== null && state.Stage !== 0;
 ```

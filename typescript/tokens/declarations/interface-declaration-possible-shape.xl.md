@@ -75,7 +75,7 @@ return false;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<InterfaceDeclarationScan>(name);
 if (state === null) {
   state = new InterfaceDeclarationScan();
@@ -212,7 +212,7 @@ return ShapeStates.Uncertain;
 只要已经认下 `interface` 就能建壳：建壳时机由 `CatalogGuide` 的唯一候选决定（`@dec interface I` 这类前缀要等其它候选都退出，可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
 
 ```ts
-const state = cache.GetState<InterfaceDeclarationScan>(this.constructor.name);
+const state = cache.GetState<InterfaceDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
@@ -223,7 +223,7 @@ return state !== null && state.Done && !state.Rejected;
 壳的 `Pos` 在这里算：`state.Start` 前面最近一个非 trivia 单元的 `EndIndex`（没有就是 `0`）——与 `FromUnits` 的口径一致。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<InterfaceDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<InterfaceDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;

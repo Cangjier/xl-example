@@ -2,21 +2,25 @@
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-形状判定的缓存：**每个形状一个槽**——键是形状名，值是这个形状自己那一份判定状态。形状在自己名下读写，不必自己拼键名，形状之间也不会撞。
+形状判定的缓存：**每个形状一个槽**——键是形状的整数槽位号（`PossibleShape.Slot()`），值是这个形状自己那一份判定状态。形状在自己的槽里读写，不必自己拼键名，形状之间也不会撞。
 
-状态是每个形状自己立的**具名类**（各形状的 `…Scan`）。底层只能写 `any`：xl 的类型标注不接受 `{[key:string]:any}`（`E1204`），`Map<string, any>` 是这套规范里唯一能写的字符串键映射——明确性由取值那一侧的泛型补回来（与 `SyntaxContext.GetDefault` 同款）。
+槽位是**整数下标**，所以两层缓存都是**数组**：取值是一次下标读，不再经过字符串哈希，也不必再读一次 `constructor.name`。槽位由 `PossibleShape.SlotOf` 统一发号（见 `possible-shape.xl.md`）：**同一个类 == 同一个槽**，不同的类一定是不同的槽。
 
-缓存分两层，键都按形状名分槽：`Values` 是**逐条目判定状态**，随 `Reset` 清空；`Share` 是**Shape 生命周期内可长期复用**的数据，不受 `Reset` 重置。
+状态是每个形状自己立的**具名类**（各形状的 `…Scan`）。底层只能写 `any`：xl 的类型标注不接受 `{[key:string]:any}`（`E1204`），`Array<any>` 是这套规范里能写的落地形式——明确性由取值那一侧的泛型补回来（与 `SyntaxContext.GetDefault` 同款）。
+
+缓存分两层，都按槽位分：`Values` 是**逐条目判定状态**，随 `Reset` 清空；`Share` 是**Shape 生命周期内可长期复用**的数据，不受 `Reset` 重置。
+
+**共享槽**：一组形状（例如七个成员候选）故意共用一份结论时，它们共用**同一个**槽——那个槽号由这一组共同的标识类发出来（`MemberPossibleUtil.CacheKey` / `ClassMemberPossibleUtil.CacheKey` 这类常量就是这样一个槽号），而不是各自的 `this.Slot()`。判据没变：同一个类同号，不同的类不同号。
 
 # class PossibleShapeCache
 
-## field Values:Map<string, any> = new Map()
+## field Values:Array<any> = []
 
-形状名 → 该形状的判定状态。
+槽位号 → 该形状的判定状态。下标就是槽位；没写过的槽读出来是 `undefined`（`GetState` 把它折成 `null`）。
 
-## field Share:Map<string, any> = new Map()
+## field Share:Array<any> = []
 
-形状名 → 该形状**在 Shape 生命周期内长期复用**的数据（跨条目共享）。
+槽位号 → 该形状**在 Shape 生命周期内长期复用**的数据（跨条目共享）。
 
 与 `Values` 的分界：`Values` 只对「当前这一条目」有效，`Reset` 一调就清；`Share` 活到持有这份缓存的 `CatalogGuide`（宿主 Shape）结束，普通 `Reset` **不**动它。
 
@@ -24,42 +28,46 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 **因为 `Reset` 不清 `Share`，每条共享数据必须自带新鲜度判据**（例如 `Start`、长度、版本号）：换到下一条目后，旧数据可能还指着上一条目的结论，所以使用前必须校验，失效就重建；否则会拿上一条目的结论去判下一条目。
 
-## method GetState:<Item>(possibleShapeName:string)=>Item | null
+## method GetState:<Item>(possibleShapeSlot:int)=>Item | null
 
-取这个形状的状态；还没写过给 `null`。类型由调用方点明：`cache.GetState<XxxScan>(name)`。
+取这个形状的状态；还没写过给 `null`。类型由调用方点明：`cache.GetState<XxxScan>(this.Slot())`。
+
+一次下标读代替旧的 `has` + `get` 两次哈希：键是整数槽位，数组没有哈希这一步。
 
 ```ts
-if (this.Values.has(possibleShapeName)) {
-  return this.Values.get(possibleShapeName) as Item;
+const value = this.Values[possibleShapeSlot];
+if (value === undefined) {
+  return null;
 }
-return null;
+return value as Item;
 ```
 
-## method SetState:<Item>(possibleShapeName:string, state:Item)=>void
+## method SetState:<Item>(possibleShapeSlot:int, state:Item)=>void
 
 写这个形状的状态。**只在第一次建状态时调**——状态对象建出来之后由形状就地改，缓存里握着的是同一个对象。
 
 ```ts
-this.Values.set(possibleShapeName, state);
+this.Values[possibleShapeSlot] = state;
 ```
 
-## method GetShare:<Item>(possibleShapeName:string)=>Item | null
+## method GetShare:<Item>(possibleShapeSlot:int)=>Item | null
 
-取这个形状的共享数据；还没写过给 `null`。类型由调用方点明：`cache.GetShare<XxxShared>(name)`。
+取这个形状的共享数据；还没写过给 `null`。类型由调用方点明：`cache.GetShare<XxxShared>(key)`。
 
 ```ts
-if (this.Share.has(possibleShapeName)) {
-  return this.Share.get(possibleShapeName) as Item;
+const value = this.Share[possibleShapeSlot];
+if (value === undefined) {
+  return null;
 }
-return null;
+return value as Item;
 ```
 
-## method SetShare:<Item>(possibleShapeName:string, value:Item)=>void
+## method SetShare:<Item>(possibleShapeSlot:int, value:Item)=>void
 
 写这个形状的共享数据。与 `SetState` 一样**只在第一次建时调**——对象建出来之后由形状就地改，`Share` 里握着的是同一个对象。
 
 ```ts
-this.Share.set(possibleShapeName, value);
+this.Share[possibleShapeSlot] = value;
 ```
 
 ## method ClearShare:()=>void
@@ -67,7 +75,7 @@ this.Share.set(possibleShapeName, value);
 清空全部共享数据。**普通 `Reset` 不调它**：`Share` 的生命周期 = 持有这份缓存的宿主 Shape（`CatalogGuide`）的生命周期，只有 Shape 生命周期收尾、要归还这部分内存时才清。
 
 ```ts
-this.Share.clear();
+this.Share = [];
 ```
 
 ## method Clear:()=>void
@@ -76,6 +84,8 @@ this.Share.clear();
 
 **`Share` 不清**：它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置；要清只能显式调 `ClearShare`。
 
+换一个新数组而不是逐个置空：槽位是整数下标，整表作废就是 O(1)，而且不必知道最大的槽号。
+
 ```ts
-this.Values.clear();
+this.Values = [];
 ```

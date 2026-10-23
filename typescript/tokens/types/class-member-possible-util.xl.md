@@ -2,6 +2,7 @@
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -56,9 +57,9 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 
 判定本身**不建任何形状、也不解析类型**：只做「前缀是不是这个成员 / 收住了没有 / 是哪一类」的词的层面判断；真正的形状由被选中的候选在自己的 `BuildByIndex` 里交给 `ClassDeclarationShape.BuildMemberFromCode` 建（复用一次性构建的同一个 `BuildMembers`，见 `class-declaration-shape.xl.md`）。
 
-## static field CacheKey:string = "ClassMemberPossible"
+## static field CacheKey:any = PossibleShape.SlotOf(ClassMemberPossibleScan)
 
-所有类体成员候选共用的缓存键。
+所有类体成员候选共用的缓存槽。**槽号由这一组共同的标识类 `ClassMemberPossibleScan` 发出来**（`PossibleShape.SlotOf`，同一类同号），所以全部类体成员候选读到同一个槽，而不是各自的 `this.Slot()`。
 
 ## static field PropertyKind:int = 1
 

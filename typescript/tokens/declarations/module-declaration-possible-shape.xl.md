@@ -141,7 +141,7 @@ return new StatementScanResult(0, -1);
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 const itemStart = ItemUtil.ItemStart(units);
 let state = cache.GetState<ModuleDeclarationScan>(name);
 if (state === null || state.Start !== itemStart) {
@@ -254,7 +254,7 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
-const state = cache.GetState<ModuleDeclarationScan>(this.constructor.name);
+const state = cache.GetState<ModuleDeclarationScan>(this.Slot());
 return state !== null && state.Status === 1 && state.End >= 0;
 ```
 
@@ -264,7 +264,7 @@ return state !== null && state.Status === 1 && state.End >= 0;
 先取 `start` 之前最后一个非 trivia 单元的 `EndIndex`，再逐格推进（trivia 不推进 `Pos`）。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ModuleDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<ModuleDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 let end = state === null ? tokenIndex : state.End;
 if (end < start) {

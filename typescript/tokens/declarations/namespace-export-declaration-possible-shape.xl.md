@@ -47,7 +47,7 @@ export as namespace NS;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<NamespaceExportDeclarationScan>(name);
 if (state === null) {
   state = new NamespaceExportDeclarationScan();
@@ -123,14 +123,14 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const state = cache.GetState<NamespaceExportDeclarationScan>(this.constructor.name);
+const state = cache.GetState<NamespaceExportDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<NamespaceExportDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<NamespaceExportDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;

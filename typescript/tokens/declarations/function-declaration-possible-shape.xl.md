@@ -79,7 +79,7 @@ declare function f(): void;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<FunctionDeclarationScan>(name);
 if (state === null) {
   state = new FunctionDeclarationScan();
@@ -383,14 +383,14 @@ return StatementScanner.IsDecoratedDeclarationStart(units, at);
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-const state = cache.GetState<FunctionDeclarationScan>(this.constructor.name);
+const state = cache.GetState<FunctionDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<FunctionDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<FunctionDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;

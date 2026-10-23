@@ -85,7 +85,7 @@ return false;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
-const name = this.constructor.name;
+const name = this.Slot();
 let state = cache.GetState<ClassDeclarationScan>(name);
 if (state === null) {
   state = new ClassDeclarationScan();
@@ -211,7 +211,7 @@ return ShapeStates.Uncertain;
 可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
 
 ```ts
-const state = cache.GetState<ClassDeclarationScan>(this.constructor.name);
+const state = cache.GetState<ClassDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
@@ -224,7 +224,7 @@ return state !== null && state.Done && !state.Rejected;
 `FromUnits` 的口径一致。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ClassDeclarationScan>(this.constructor.name);
+const state = catalog.PossibleShapesComputeCache.GetState<ClassDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;
