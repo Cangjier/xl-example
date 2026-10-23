@@ -151,7 +151,13 @@ throw new Error("抽象成员未实现");
 
 签出覆写了基类：**只设终点，不递归子单元，也不检查是否已设过**。
 
+块 token 可能只被「签出」而没有经过 `SignIn`（合成 token、纯追加场景），所以文档兜底在这里也要补一次：
+范围没有文档时取 `SourceRange.CurrentDocument`。只在不覆盖已有值时补。
+
 ```ts
+if (this.SourceRange.Document === null) {
+  this.SourceRange.Document = SourceRange.CurrentDocument;
+}
 this.SourceRange.End = endIndex;
 ```
 

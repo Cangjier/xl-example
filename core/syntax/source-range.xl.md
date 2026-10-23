@@ -18,6 +18,16 @@ import { SourceException } from "../exceptions/source-exception.xl.md"
 
 `At` 是「取某个下标上的字符」的**零分配**入口：直接问文档要值，不建任何对象。token 层只通过它（或 `buffer.At`）读字符。
 
+**文档从哪来**：新模型里范围只带 int 下标，文档统一由驱动层登记到静态字段 `CurrentDocument`；
+`Token.SignIn` / `SignOut` 在范围没有文档时自动补上它。这样每个 token 的 `SourceRange.Document`
+都不再需要逐处手动赋值（旧模型靠 `Source` 自带文档，那套已经没了）。
+
+## static field CurrentDocument:Document | null = null
+
+**当前正在解析的文档**。由 `SyntaxContext.Process` / `ProcessRange` 在开始处理时登记；
+`Token.SignIn` / `SignOut`（以及递归签出 `TrySignOut`）只在范围还没有文档时才用它兜底。
+解析是单线程、顺序的，所以不需要在处理结束时清空。
+
 ## field Document:Document | null = null
 
 这段范围所属的文档；`null` 表示还没关联。

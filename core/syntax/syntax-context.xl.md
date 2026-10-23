@@ -122,8 +122,13 @@ return this;
 
 主循环结束后：游标压到 `count`、给根签出到 `count`（半开终点 = 文件末尾），再把**空窗口** `[count, count)`（`IsEof`）交给根——根单元的关闭由这条 EOF 路径驱动。最后再抽一次消息队列。
 
+开头的 `SourceRange.CurrentDocument = document` 是**文档登记**：新模型里 token 只拿 int 下标，
+`Token.SignIn` / `SignOut` 在范围没有文档时靠它兜底，所以驱动层一开始就要把它设好。
+解析是单线程、顺序的，处理结束不清空。
+
 ```ts
 this.CurrentDocument = document;
+SourceRange.CurrentDocument = document;
 this.Index = 0;
 const count = document.GetCount();
 while (this.Index < count) {
@@ -153,8 +158,14 @@ this.DrainMessages();
 让指定单元处理一个窗口（从 `index` 起），然后消费消息队列。
 
 它是 `ProcessSingle` / `ProcessAt` 的替代：不再有「位置对象 + 队列项」，调用方自己给出窗口。
+窗口带着文档时一并登记为 `CurrentDocument`（`SourceRange.CurrentDocument` 同步更新），
+否则沿用上一次登记的那个。
 
 ```ts
+if (buffer.Document !== null) {
+  this.CurrentDocument = buffer.Document;
+  SourceRange.CurrentDocument = buffer.Document;
+}
 this.Index = index;
 owner.Process(this, buffer, index);
 this.DrainMessages();

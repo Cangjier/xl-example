@@ -182,8 +182,14 @@ throw new Error("abstract member: Process");
 
 签入：把范围起点设为 `index`。起点只能设一次（`-1` 表示未设置）。
 
+范围还没有文档时，用 `SourceRange.CurrentDocument` 兜底补上——新模型里 token 只拿到 int，
+文档由驱动层登记（`SourceRange.Document` 不能永远为空）。
+
 ```ts
 if (this.SourceRange.Start < 0) {
+  if (this.SourceRange.Document === null) {
+    this.SourceRange.Document = SourceRange.CurrentDocument;
+  }
   this.SourceRange.Start = index;
   return this;
 }
@@ -205,8 +211,13 @@ return this.SignIn(token.SourceRange.Start);
 
 签出：把范围终点设为 `endIndex`（**被消费字符的下标 +1**，开区间终点），并让最后一个子单元递归签出。终点只能设一次。
 
+范围还没有文档时同样用 `SourceRange.CurrentDocument` 兜底补上（只在不覆盖已有值时）。
+
 ```ts
 if (this.SourceRange.End < 0) {
+  if (this.SourceRange.Document === null) {
+    this.SourceRange.Document = SourceRange.CurrentDocument;
+  }
   this.SourceRange.End = endIndex;
   if (this.Data.length !== 0) {
     this.Data[this.Data.length - 1].TrySignOut(endIndex);
@@ -222,8 +233,13 @@ if (this.SourceRange.End < 0) {
 
 它与 `SignOut` 的差别是**不抛异常**——遇到已签出的子单元就停。
 
+被递归到的子单元同样要补文档：父单元可能自己带着文档、子单元却是「只签出手续」走到这里的。
+
 ```ts
 if (this.SourceRange.End < 0) {
+  if (this.SourceRange.Document === null) {
+    this.SourceRange.Document = SourceRange.CurrentDocument;
+  }
   this.SourceRange.End = endIndex;
   if (this.Data.length !== 0) {
     this.Data[this.Data.length - 1].TrySignOut(endIndex);

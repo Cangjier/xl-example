@@ -52,6 +52,7 @@ class Document {
 
 ```ts
 class SourceRange {
+  static CurrentDocument: Document | null = null;   // T1b：驱动层登记，SignIn/SignOut 兜底用
   Document: Document | null = null;
   Start: number = -1;                 // -1 = 未设置
   End: number = -1;                   // 开区间终点；-1 = 未设置
@@ -92,6 +93,12 @@ class SourceRange {
   诊断路径实际不会拿 EOF 范围查行）。
 - `GetRaw/GetRawRange` 在 `Document === null` 或任一端 `< 0` 时抛 `SourceException.SourceRangeContainsNull`。
 - `IsEof()` 对空文档的 `[0,0)` 也返回 true（空文件 EOF 就是 0）。
+- **`Document` 自动补（T1b）**：新模型里 token 只拿 int，旧模型靠 `Source` 自带文档。现在
+  `SyntaxContext.Process` / `ProcessRange` 把当前文档登记到 `SourceRange.CurrentDocument`，
+  `Token.SignIn` / `SignOut` / `TrySignOut` 与 `BlockToken.SignOut` 在范围**没有**文档时用它兜底
+  （只覆盖 `null`，已有值不覆盖）。所以 `token.SourceRange.Document` 在解析期间恒非 null，
+  T4/T8 的 `NextChar` / `HasBetween` / `HasLineBreakBetween` 可以直接用。
+  单线程顺序解析：`CurrentDocument` 跨文件保留、不必清空。
 
 ## 3. Token 家族（调度）
 
@@ -115,10 +122,10 @@ class Token {
   TryToClose(context: SyntaxContext): CloseStates;       // Start<0 || End<0 → SourceException
   MoveDataTo/Add/AddRange/Quit；
   Process(context: SyntaxContext, buffer: SourceRange, index: number): void;
-  SignIn(index: number): Token;                          // 只设 Start，重复设抛 SourceRangeStartIsSetted
+  SignIn(index: number): Token;                          // 只设 Start + 补 Document，重复设抛 SourceRangeStartIsSetted
   SignInToken(token: Token): Token;
-  SignOut(endIndex: number): void;                       // 只设 End，并递归 TrySignOut(endIndex)
-  private TrySignOut(endIndex: number): void;
+  SignOut(endIndex: number): void;                       // 只设 End（+补 Document），并递归 TrySignOut(endIndex)
+  private TrySignOut(endIndex: number): void;            // 同样补 Document
   SignOutToken(token: Token): void;
   Sign(token: Token): void;
   Undo(index: number): void;                             // 回退 index 位置之前刚消费的字符
@@ -146,7 +153,8 @@ class Token {
 `BlockToken.Process`：有挂载转交（推进了才记 `LastIndex`），否则 `Default`，若游标没动补 `+1`。
 块 token 默认就是「吃当前一个字符」。`AppendAndSignOut(value, index)` / `AppendValueAndSignOut(value, index)`
 都是 `SignOut(index + 1); Temp += value`（两个名字保留给不同调用语义，产物相同）。
-`BlockToken.SignOut(endIndex)` **只设 End，不递归、不检查重复**。
+`BlockToken.SignOut(endIndex)` **只设 End，不递归、不检查重复**；它同样在 `Document === null` 时
+用 `SourceRange.CurrentDocument` 兜底（合成 token / 只签出场景，见 T1b）。
 
 `GuideToken.Process`：有挂载转交；否则 `Navigate(context, buffer, index)` 之后分三种收口——
 (1) 游标前进了：记 `LastIndex` 返回；(2) 游标没动但这次 `Navigate` 压了消息：**保持阻塞返回**
@@ -182,7 +190,7 @@ class SyntaxContext {
 
 `Process(document)`：
 
-1. `CurrentDocument = document; Index = 0`。
+1. `CurrentDocument = document; SourceRange.CurrentDocument = document; Index = 0`（T1b 的文档登记）。
 2. 窗口主循环：`[Index, min(Index+BufferSize, count))` 交给 `Root.Process(this, buffer, Index)`；
    `Index` 被拉回就夹回 `forwardFrom`；`DrainMessages()`；
    若 `Index <= forwardFrom` → 抛 `SyntaxException`（文本含 `no progress at index N`），**绝不原地重试**。
@@ -201,7 +209,7 @@ class SyntaxContext {
 > 因此窗口固定成 `[at, at + 1)`。跨格消费靠 token 自己推进 `context.Index`，与窗口大小无关。
 > 工具：本地回归脚本（`tmp/driver-test.cjs`，`tmp/` 被 gitignore、未提交）里的用例 6 就是这个回归检查。
 
-`ProcessRange(owner, buffer, index)` = `Index = index; owner.Process(...); DrainMessages()`。
+`ProcessRange(owner, buffer, index)` = `登记 CurrentDocument（buffer.Document 非 null 时）；Index = index; owner.Process(...); DrainMessages()`。
 **没有任何内部代码再调用它**（旧 `ProcessSingle/ProcessAt` 的调用点都随 `SourceQueue` 消失），
 它是给外部/工具用的入口。
 
@@ -272,6 +280,10 @@ SourceException.SourceRangeIndexOutOfRange  // ← 新增：At 越界
 - **`Document.At`、`Source`、`ProcessSource`、`SourceQueue`、`ProcessSingle/ProcessAt`、`LastSource`、
   `SourceRange.Start/End === null` 判定**：全部不存在/不再成立。用 `Start < 0` / `End < 0`。
 - **`LastIndex`**：最近消费的字符下标；`Shape.TryToClose` 的兜底是 `LastIndex + 1`。
+- **`SourceRange.Document`（T1b）**：不要再用「位置自带文档」，也不要在调用点手动赋值——
+  `SyntaxContext.Process` 登记 `SourceRange.CurrentDocument`，token 的 `SignIn`/`SignOut`/
+  `TrySignOut`/`BlockToken.SignOut` 自动补。`token.SourceRange.Document!` 在解析期间可以直接信任；
+  只有**解析上下文之外**新造的裸 `SourceRange` 才是 `null`。
 - **构建过渡期**：`xl_build` 只列自己的文件；`xl_check` 也列自己的文件。等 T3 删掉 basic-tokens 里
   对 `source.xl.md` 的 import 之后，全仓 `paths:[core,typescript]` 才会恢复 0 error。
 
@@ -294,3 +306,35 @@ SourceException.SourceRangeIndexOutOfRange  // ← 新增：At 越界
   - Block/Guide 的“消费即推进”与阻塞；
   - `SourceRange`：`Whole/Of/At/Has/GetRaw/IsEof/FromRanges` 半开语义、`At` 越界抛 `SourceRangeIndexOutOfRange`；
   - EOF 空窗口交给根覆写；`SignOut(count)` 递归到最后一个子单元；`TryToClose` 的范围前置条件。
+
+---
+
+## 9. T1b：`SourceRange.Document` 兜底（branch `feat/buffer-core-doc`）
+
+**缺口**：旧模型每个 `Source` 自带 `Document`；新模型 token 只拿 int，`Token.SourceRange.Document`
+全仓无人赋值。T4/T8 的 `NextChar`、`LineTerminator.HasBetween`、`MemberBoundary.HasLineBreakBetween`
+会因此静默退化为 `""` / `false`。
+
+**修法**（core 统一，避免改 1000+ 调用点）：
+
+1. `SourceRange` 新增 `static CurrentDocument: Document | null = null`。
+2. `Token.SignIn(index)` 设 Start 前、`Token.SignOut(endIndex)` 与私有 `TrySignOut(endIndex)` 设 End 前、
+   `BlockToken.SignOut(endIndex)` 设 End 前：`if (SourceRange.Document === null) { Document = SourceRange.CurrentDocument; }`。
+   只覆盖 `null`，已有值不覆盖。
+3. `SyntaxContext.Process(document)` 开头登记 `SourceRange.CurrentDocument = document`；
+   `ProcessRange` 在 `buffer.Document !== null` 时同步登记。处理结束不清空（单线程顺序解析）。
+
+**边界说明**：`UnitToken.Process` 的两段守卫（Quit 后交回父单元、有未消费消息先返回）由 **T3a**
+在 `feat/buffer-basic` 提交，T1b **没有改** `unit-token.xl.md`。
+
+**验证**（`feat/buffer-core-doc`，base = `feat/buffer-bootstrap`）：
+
+- `xl_build`（`paths:[core,typescript]`）：**871 个文件全部就绪（32 written + 839 skipped），0 error**。
+- `xl_check`（T1b 3 个文件）：0 error。
+- `tsc`：本任务 core 文件 **0 error**（其余误差全是未移植完的 basic-tokens/typescript 面）。
+- 驱动回归（`tmp/driver-test.cjs`，32 项，含 T1b 新增 12a–12f）全过；并在**打上 T3a 两段守卫的产物**上复跑同样全过：
+  - `12b` 根单元 `SourceRange.Document` 是当前文档；
+  - `12c` 解析期间 `SignIn` 的 token `range.Document` 是当前文档；
+  - `12d` **只 `SignOut`** 的合成 token 也有文档（`BlockToken.SignOut` 兜底）；
+  - `12e` 用 `range.Document.GetValue(range.EndIndex)` 能取到下一个字符（`NextChar` 场景）；
+  - `12f` `ProcessRange` 也登记 `CurrentDocument`。
