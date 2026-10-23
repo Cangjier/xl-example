@@ -11,6 +11,7 @@ import { RegexToken } from "../basic-tokens/regex-token.xl.md"
 import { StringGuide } from "../basic-tokens/string/string-guide.xl.md"
 import { Symbol } from "../basic-tokens/symbol.xl.md"
 import { WrapSymbol } from "../basic-tokens/wrap-symbol.xl.md"
+import { BasicDispatch } from "./basic-dispatch.xl.md"
 import { KeywordTemplate } from "./keyword-template.xl.md"
 import { MethodNameTemplate } from "./method-name-template.xl.md"
 import { NumberTemplate } from "./number-template.xl.md"
@@ -98,33 +99,30 @@ return item.length === 1 && this.LineTerminatorChars.indexOf(item) >= 0;
 
 ## static method BasicBranchQueue:()=>Sequence<BranchTransiter>
 
-basic tokens 的跳转队列：注释 → 正则 → 字符串 → 括号 → 空白 → 符号 → 通用字符。
+basic tokens 的跳转队列：**只装一条**融合分派 `BasicDispatch.Transit`。
 
-**它必须列全所有 basic token**：漏掉一个，那类字符就没人认领，只能落到 `Default` 被静默吞掉。
+原来这里按次序装着十条 `Transit`——BOM → Shebang → 区域注释 → 行注释 → 正则 → 字符串 → 括号 → 空白 → 符号 → 通用字符，
+`UnitToken.Process` 在每个位置逐条问过去；profile 里一个字符平均要问 3.37 条才有人接手，而每条都要各自回看一次前文。
+现在这十条的**顺序与判据**原样搬进 `BasicDispatch.Transit`：它先用最便宜的判据筛掉「必然 `Undo` 且不写树」的那几条，
+再把仍然可能接手的字符转交给对应 `Transit`——认下之后怎么收尾、怎么新开，仍只有那一份实现（逐段依据见 `basic-dispatch.xl.md`）。
 
-**`StringGuide` 排在 `Symbol` 之前**：字符串的引号也是符号字符，字符串必须先认领；否则 `"` 会先变成单字符符号。
+**这里必须仍然覆盖所有 basic token**：漏掉一条，那类字符就没人认领，只能落到 `Default` 被静默吞掉。
+这条保证现在由 `BasicDispatch.Transit` 的分派表承担。
 
-**这里只存函数引用、不改顺序**：跳转函数的第 5 个参数 `value` 是调度层在每个位置上读好的当前字符（见 `BranchTransiter`），队列本身不读字符、也不重排——改签名只换参数表，分派次序与原来逐条相同。
+**相对顺序不变**：`StringGuide` 必须排在 `Symbol` 之前（引号也是符号字符，字符串要先认领）、
+`Symbol` 必须排在 `Common` 之前（标点只归符号块，`Common` 明确拒绝符号与空白）、
+`WrapSymbol` 排在 `Symbol` / `Common` 之前——这些次序在 `BasicDispatch.Transit` 的段落顺序里逐字保留。
+队列本身仍只存**函数引用**、不改顺序：第 5 个参数 `value` 是调度层在每个位置上读好的当前字符（见 `BranchTransiter`），
+队列不读字符、也不重排。
 
-**`WrapSymbol` 排在 `Symbol` / `Common` 之前**：空白只归空白块，`Symbol` 与 `Common` 都明确拒绝空白，排在哪它们都不会接；放在前面是因为「先收掉不属于结构的字符，再让结构字符各自认领」这条读起来更顺。
-
-**`Symbol` 必须排在 `Common` 之前、`Bracket` 之后**：标点只归符号块，而三个开括号已经被 `Bracket` 认领完了，再问符号块才轮得到 `;` / `=` 这些；反过来把 `Symbol` 放在 `Bracket` 前面，`(` 会先被当成单字符符号。
-
-**为什么是方法而不是 static 字段。** 模板与 basic tokens 互为依赖（模板要列出它们的跳转函数，它们的构造器要问模板要自己的队列），写成类定义期求值的 `static readonly field` 会读到 `undefined`——require 环里先执行的那一半还没把类定义出来。改成方法 + 缓存之后，那 8 个函数引用只在第一次调用时才读，那时所有模块都已加载完。
+**为什么是方法而不是 static 字段。** 模板与 basic tokens 互为依赖（模板要列出它们的跳转函数，它们的构造器要问模板要自己的队列），
+写成类定义期求值的 `static readonly field` 会读到 `undefined`——require 环里先执行的那一半还没把类定义出来。
+改成方法 + 缓存之后，那个函数引用只在第一次调用时才读，那时所有模块都已加载完。
 
 ```ts
 if (Template.BasicBranchQueueCache === null) {
   Template.BasicBranchQueueCache = new Sequence<BranchTransiter>([
-    Bom.Transit,
-    Shebang.Transit,
-    AreaAnnotation.Transit,
-    LineAnnotation.Transit,
-    RegexToken.Transit,
-    StringGuide.Transit,
-    Bracket.Transit,
-    WrapSymbol.Transit,
-    Symbol.Transit,
-    Common.Transit,
+    BasicDispatch.Transit,
   ]);
 }
 return Template.BasicBranchQueueCache;
