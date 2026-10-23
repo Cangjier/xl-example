@@ -101,11 +101,23 @@ throw new Error("abstract member: ExitOrPre");
 
 **`Reload` 是这套调度的转折点**：一次关闭可能触发形状建造，分支只能把结果报上来。拿到 `Reload` 就**停止整个窗口**、把当前位置压进消息队列，`context.Index` 留在原地（阻塞返回），由驱动层重放。`ProcessOwner` 用 `null`（= 根）：新形状已经 mount，重放时自然落到正确那一层。
 
+**窗口里的两个提前返回（关闭/重放的安全阀）**：
+- 本单元在本次窗口里已经 `Quit`（`Parent.MountedUnit` 已经不是自己）→ **立刻返回**，把本窗口剩余字符交回父单元。关闭发生在窗口中间时，已卸载的单元不许再吃后面的字符。
+- `context.Messages` 非空 → **立刻返回**，把尚未消费的消息交回驱动层先 `DrainMessages()` 重放。否则父单元会先把重放位置之后的字符处理掉，重放就变成乱序。
+
 整个窗口包在**一次** `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个字符到当前字符」`[max(0, index-1), index+1)`。
 
 ```ts
 try {
   while (index < buffer.End) {
+    // 本单元已在本次窗口里 Quit（关闭后卸载）：交回父单元处理剩余字符。
+    if (this.Parent !== null && this.Parent.MountedUnit !== this) {
+      return;
+    }
+    // 还有未消费的消息（Reload）：先交回驱动层 DrainMessages 重放，保证重放先于后续字符。
+    if (context.Messages.length > 0) {
+      return;
+    }
     if (this.MountedUnit !== null) {
       this.MountedUnit.Process(context, buffer, index);
       if (context.Index === index) {
