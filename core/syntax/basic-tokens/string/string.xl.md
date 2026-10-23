@@ -105,6 +105,8 @@ return false;
 
 `String` 会在收尾引号那一格由 `ExitOrPre` 调 `ForceExit` 关闭自己（`Closed = true`、从父单元卸载）。基类 `UnitToken.Process` 的窗口循环没有「本单元已关闭」这个退出条件，关闭之后它还会继续把同一窗口剩下的字符吃进本单元；这里用与基类相同的循环，只补一条 `!this.Closed` 守卫：收尾之后立刻把窗口交还出去，剩下的字符由外层（下一轮）处理。窗口内抛出的异常按基类规则包成 `SyntaxException`；已经是 `SyntaxException` 的原样上抛，不再套窗口范围。
 
+当前字符在每个位置只读一次（`buffer.ValueAt(index)`）：同一份 `value` 交给 `ExitOrPre`，也顺链传给每条跳转与 `Default`。
+
 ```ts
 try {
   while (index < buffer.End && !this.Closed) {
@@ -123,7 +125,8 @@ try {
       index = context.Index;
       continue;
     }
-    const exitState = this.ExitOrPre(context, buffer, index);
+    const value = buffer.ValueAt(index);
+    const exitState = this.ExitOrPre(context, buffer, index, value);
     if (exitState === BranchStates.Reload) {
       context.Messages.push(new ReloadMessage(null, index));
       return;
@@ -139,7 +142,6 @@ try {
     let transited = false;
     if (this.ProcessQueue !== null) {
       // 与基类同一口径：当前字符只读一次，顺链传给每条跳转。
-      const value = buffer.At(index);
       for (const item of this.ProcessQueue.Data) {
         const state = item(context, this, buffer, index, value);
         if (state === BranchStates.Reload) {
@@ -158,7 +160,7 @@ try {
       }
     }
     if (!transited) {
-      this.Default(context, buffer, index);
+      this.Default(context, buffer, index, value);
       if (context.Index === index) {
         context.Index = index + 1;
       }
@@ -240,9 +242,11 @@ if (value !== null) {
 return result;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 兜底处理：按五个开关分流，把当前字符要么攒进常量块，要么引给一个新的引导单元。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：下面直接用它，不再复读。
 
 七条分支（前六条各自对应一种字符串形态，最后一条必抛）：
 
@@ -255,7 +259,6 @@ return result;
 7. 其余组合直接抛错，文案里带上三个开关的当前值。
 
 ```ts
-const value = buffer.At(index);
 if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (value === this.StringChar) {
     {
@@ -425,9 +428,11 @@ for (const i of this.Data) {
 }
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 问自己「当前字符是让我退出、继续前移，还是得先重放」。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：下面直接用它，不再复读。
 
 先处理两件必须在 `Default` 之前决出的事，再交出引号收尾：
 
@@ -443,7 +448,6 @@ for (const i of this.Data) {
 `Reload` 由 `UnitToken.Process` 统一压消息并原地阻塞；这里不碰 `context.Index`。
 
 ```ts
-const value = buffer.At(index);
 const config = this.Template.StringTemplate;
 if (this.Translate.IsTranslating) {
   if (!this.Translate.Accept(value, config.AllowLongUnicodeBraceEscape)) {

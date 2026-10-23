@@ -50,22 +50,26 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 Shebang 行的正文（`#!` 及其后的字符，不含行尾换行）。
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接追加，不再复读。
+
 ```ts
-this.Tmp += buffer.At(index);
+this.Tmp += value;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 遇到行终止符（`Template.IsLineTerminator`：core 默认 `\n`，ts 模板为 `\n` / `\r` / U+2028 / U+2029）
 或 EOF 空窗口就退出：签出到当前字符之前、关闭自己并跑重组、从父单元卸载；
 行终止符本身不是 shebang 的一部分，返回 `Reload` 让它**不归本单元消费**、由驱动层原地重放给根单元（EOF 时返回 `Done`）。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接判定，不再复读。
+
 ```ts
-if (!buffer.IsEof() && !this.Template.IsLineTerminator(buffer.At(index))) {
+if (!buffer.IsEof() && !this.Template.IsLineTerminator(value)) {
   return BranchStates.Undo;
 }
 if (index > 0) {

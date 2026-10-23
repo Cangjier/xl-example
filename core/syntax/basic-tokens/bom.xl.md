@@ -47,15 +47,17 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 已吞掉的字符（单字符 BOM）。
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接追加，不再复读。
+
 ```ts
-this.Tmp += buffer.At(index);
+this.Tmp += value;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 BOM 单元不再接受任何字符（单字符、签出即关闭），一律让路。
 

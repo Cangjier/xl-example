@@ -97,18 +97,20 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 兜底处理。空实现——括号既不吞字符也不跑跳转，字符全交给挂载的子单元。
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 遇到配对的结束括号就退出：先签出到该字符之后，再尝试关闭，然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接比较，不再复读。
 
 `\u{…}` 花括号转义进行中时，`}` 是转义的收口、不是本括号的结束括号：这时返回 `Undo`，让 `Common` 吃掉它。
 
 ```ts
-if (buffer.At(index) === this.EndBracketChar) {
+if (value === this.EndBracketChar) {
   if (Common.IsInUnicodeBraceEscape(this)) {
     return BranchStates.Undo;
   }

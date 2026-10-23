@@ -53,13 +53,14 @@ this.Closed = true;
 return CloseStates.Nothing;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 兜底：碰上空白字符（`\r` / `\n` / 空格 / `\t`）直接忽略，非空白时同样什么都不做。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接判定，不再复读。
+
 ```ts
-const Value = buffer.At(index);
-if (Value === "\r" || Value === "\n" || Value === " " || Value === "\t") {
+if (value === "\r" || value === "\n" || value === " " || value === "\t") {
   return;
 }
 ```
@@ -80,6 +81,8 @@ this.Quit();
 
 退出向导数够 `}` 时会 `ForceExit` 本单元（`Closed = true`、从外层字符串卸载）。基类 `UnitToken.Process` 的窗口循环没有「本单元已关闭」这个退出条件，关闭之后它还会继续把同一窗口剩下的字符吃进本单元；这里用与基类相同的循环，只补一条 `!this.Closed` 守卫：退出之后立刻把窗口交还出去，`}` 之后的字符回到外层字符串。窗口内抛出的异常按基类规则包成 `SyntaxException`；已经是 `SyntaxException` 的原样上抛，不再套窗口范围。
 
+当前字符在每个位置只读一次（`buffer.ValueAt(index)`）：同一份 `value` 交给 `ExitOrPre`，也顺链传给每条跳转与 `Default`。
+
 ```ts
 try {
   while (index < buffer.End && !this.Closed) {
@@ -98,7 +101,8 @@ try {
       index = context.Index;
       continue;
     }
-    const exitState = this.ExitOrPre(context, buffer, index);
+    const value = buffer.ValueAt(index);
+    const exitState = this.ExitOrPre(context, buffer, index, value);
     if (exitState === BranchStates.Reload) {
       context.Messages.push(new ReloadMessage(null, index));
       return;
@@ -114,7 +118,6 @@ try {
     let transited = false;
     if (this.ProcessQueue !== null) {
       // 与基类同一口径：当前字符只读一次，顺链传给每条跳转。
-      const value = buffer.At(index);
       for (const item of this.ProcessQueue.Data) {
         const state = item(context, this, buffer, index, value);
         if (state === BranchStates.Reload) {
@@ -133,7 +136,7 @@ try {
       }
     }
     if (!transited) {
-      this.Default(context, buffer, index);
+      this.Default(context, buffer, index, value);
       if (context.Index === index) {
         context.Index = index + 1;
       }
@@ -151,12 +154,14 @@ try {
 }
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 遇到 `}` 就把退出向导挂到自己身上；当前这个 `}` 还没被消费，所以返回 `Reload`——`UnitToken.Process` 会压一条 `ReloadMessage` 并原地阻塞，由驱动层重放，重放时 `MountedUnit`（向导）接住这个 `}`。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接判定，不再复读。
+
 ```ts
-if (buffer.At(index) === "}") {
+if (value === "}") {
   {
     const lastOfMounted = this.Last();
     if (lastOfMounted !== null && !lastOfMounted.Closed) {

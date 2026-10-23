@@ -32,7 +32,7 @@ super(template);
 this.ProcessQueue = Template.BasicBranchQueue();
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 所有跳转都不接手时的兜底：**什么都不做**。
 
@@ -75,7 +75,7 @@ this.Closed = true;
 return CloseStates.Nothing;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 形状默认「退出」由终结候选（`Close`）决定，自己不在 `ExitOrPre` 里拦字符。
 

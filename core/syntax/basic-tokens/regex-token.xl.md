@@ -156,9 +156,11 @@ this.Temp += value;
 return BranchStates.Done;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 后续字符全部交给 `Consume`：正则被挂载之后，本单元的 `Process` 走 `ExitOrPre`，状态机只有这一个入口。
+
+`value` 是驱动层已经读好的当前字符；`Consume` 自己还要维护正则状态机，仍按它的需要读取窗口。
 
 ```ts
 return this.Consume(context, buffer, index);

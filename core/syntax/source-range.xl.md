@@ -88,6 +88,16 @@ if (!this.Has(index)) {
 return this.Document!.GetValue(index);
 ```
 
+## method ValueAt:(index:int)=>string
+
+下标处的字符，**不做范围校验**：调用方必须自证 `Start <= index < End`。
+
+热路径的零校验入口。驱动层在 `UnitToken.Process` 的窗口循环里已经证明 `index` 在界内，下游（`Default` / `ExitOrPre` / basic token 的判定辅助）不该再为同一个字符付一次 `Has` 校验。`At` 仍是唯一带校验的公开入口，`E_SOURCE_RANGE_OUT_OF_RANGE` 也只由它抛出；**越界时行为未定义**——需要错误检查的调用点一律走 `At`。
+
+```ts
+return this.Document!.GetValue(index);
+```
+
 ## method Has:(index:int)=>bool
 
 下标是否落在本范围内（`Start <= index < End`）。与 `At` 的判据相同，但**不抛**。

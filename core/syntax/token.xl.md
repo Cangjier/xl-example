@@ -93,9 +93,11 @@ if (position >= 0 && position < this.Data.length) {
 return null;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 所有跳转都不接手时的兜底处理。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：兜底实现直接用它，不要为同一个字符再读一次 `buffer.At(index)`。
 
 抽象方法。`Root.Default` 会在这里报「未知字符」。`ShapeToken.Default` 保持空实现——空白由调度层的统一 `+1` 吞掉。
 

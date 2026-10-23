@@ -38,26 +38,28 @@ basic 单元：由 `Template.BasicBranchQueue()` 收出来。
 super(Template);
 ```
 
-## method IsAppend:(buffer:SourceRange, index:int)=>bool
+## method IsAppend:(buffer:SourceRange, index:int, value:string)=>bool
 
 能不能把窗口里 `index` 处的字符并进本块：不是符号、也不是空白就行。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：判定直接用它，不再为同一个字符复读。
 
 `\u{…}` 花括号转义进行中时，`{` / 十六进制位 / `}` 也要并进同一个块（`}` 只在已有至少一位十六进制时）。
 
 ```ts
-if (Common.IsUnicodeEscapeStart(buffer, index, this.Template)) {
+if (Common.IsUnicodeEscapeStart(buffer, index, this.Template, value)) {
   return true;
 }
 if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
   const digits = this.UnicodeBraceEscapeDigits();
-  if (digits === 0 && buffer.At(index) === "{") {
+  if (digits === 0 && value === "{") {
     return true;
   }
   if (digits > 0) {
-    if (buffer.At(index) === "}") {
+    if (value === "}") {
       return true;
     }
-    if (!this.Template.SymbolTemplate.IsHexDigit(buffer.At(index))) {
+    if (!this.Template.SymbolTemplate.IsHexDigit(value)) {
       return false;
     }
     // 位数不限（`\u{0000061}` / `\u{0001D400}` 合法）：只有「再补一位」还落在 Unicode 标量上限内
@@ -65,7 +67,7 @@ if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
     return this.UnicodeBraceEscapeValue() * 16 <= Common.MaxUnicodeCodePoint();
   }
 }
-return !(this.Template.SymbolTemplate.IsSymbol(buffer.At(index)) || this.Template.SymbolTemplate.IsWhiteSpace(buffer.At(index)));
+return !(this.Template.SymbolTemplate.IsSymbol(value) || this.Template.SymbolTemplate.IsWhiteSpace(value));
 ```
 
 ## static method MaxUnicodeCodePoint:()=>int
@@ -78,10 +80,12 @@ Unicode 标量值上限（`U+10FFFF`）：`\u{…}` 的累计码点超过它就�
 return 0x10FFFF;
 ```
 
-## static method IsUnicodeEscapeStart:(buffer:SourceRange, index:int, template:Template)=>bool
+## static method IsUnicodeEscapeStart:(buffer:SourceRange, index:int, template:Template, value:string)=>bool
 
 `index` 处是不是一个**合法**的转义标识符起点：`\` + `u` + 4 个十六进制字符（`\uXXXX`），
 或 `\` + `u` + `{` + 1 个及以上十六进制字符 + `}`（`\u{…}`，位数不限，累计码点 ≤ `U+10FFFF`）。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：第一道 `\` 判定直接用它。
 
 语言开关（`SymbolTemplate.SupportUnicodeEscapeIdentifier`）关闭时恒 `false`，其它语言零影响；
 不足位数 / 非十六进制 / 不是 `\` / 花括号形未闭合或码点越界一律 `false`（这些情况保持旧的“落回符号层”行为）。
@@ -91,7 +95,7 @@ return 0x10FFFF;
 if (!template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
   return false;
 }
-if (buffer.At(index) !== "\\") {
+if (value !== "\\") {
   return false;
 }
 const whole = SourceRange.Whole(buffer.Document!);
@@ -645,7 +649,7 @@ if (last instanceof Common && !last.Closed) {
     last.AppendAndSignOut(value, index);
     return BranchStates.Done;
   }
-  if (last.IsAppend(buffer, index)) {
+  if (last.IsAppend(buffer, index, value)) {
     last.AppendAndSignOut(value, index);
     return BranchStates.Done;
   }
@@ -654,7 +658,7 @@ if (last instanceof Common && !last.Closed) {
   }
 }
 if ((template.SymbolTemplate.IsSymbol(value) || template.SymbolTemplate.IsWhiteSpace(value))
-    && !Common.IsUnicodeEscapeStart(buffer, index, template)) {
+    && !Common.IsUnicodeEscapeStart(buffer, index, template, value)) {
   return BranchStates.Undo;
 }
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {

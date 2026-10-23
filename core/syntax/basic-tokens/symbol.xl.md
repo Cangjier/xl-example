@@ -42,9 +42,11 @@ basic 单元：由 `Template.BasicBranchQueue()` 收出来。
 super(Template);
 ```
 
-## method IsAppend:(buffer:SourceRange, index:int)=>bool
+## method IsAppend:(buffer:SourceRange, index:int, value:string)=>bool
 
 能不能把窗口里 `index` 处的字符并进本块。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：三段判定都直接用它，不再复读。
 
 三段判定：`Temp` 还是空的、且当前字符是符号，就能（开头的符号直接收）；否则要求当前字符是符号，
 **并且** `Temp` 现有内容加上当前字符能构成一个组合符号，**并且**语言模板的前瞻钩子没有否决它。
@@ -56,13 +58,13 @@ super(Template);
 core 只负责把「组合符号后面紧跟的那个字符」递过去，默认不阻断。
 
 ```ts
-if (this.Temp.length === 0 && this.Template.SymbolTemplate.IsSymbol(buffer.At(index))) {
+if (this.Temp.length === 0 && this.Template.SymbolTemplate.IsSymbol(value)) {
   return true;
 }
-if (!this.Template.SymbolTemplate.IsSymbol(buffer.At(index))) {
+if (!this.Template.SymbolTemplate.IsSymbol(value)) {
   return false;
 }
-const combined = this.Temp + buffer.At(index);
+const combined = this.Temp + value;
 if (!this.Template.SymbolTemplate.IsCombinedSymbol(combined)) {
   return false;
 }
@@ -156,7 +158,7 @@ if ((value === "+" || value === "-")
     && last.IsExponentPrefix()) {
   return BranchStates.Undo;
 }
-if (value === "\\" && Common.IsUnicodeEscapeStart(buffer, index, template)) {
+if (value === "\\" && Common.IsUnicodeEscapeStart(buffer, index, template, value)) {
   return BranchStates.Undo;
 }
 if (!template.SymbolTemplate.IsSymbol(value)) {
@@ -169,7 +171,7 @@ if (!template.SymbolTemplate.IsSymbol(value)) {
   return BranchStates.Undo;
 }
 if (last instanceof Symbol && !last.Closed) {
-  if (last.IsAppend(buffer, index)) {
+  if (last.IsAppend(buffer, index, value)) {
     last.AppendAndSignOut(value, index);
     return BranchStates.Done;
   }

@@ -40,7 +40,7 @@ this.Closed = true;
 return CloseStates.Nothing;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 兜底处理。
 

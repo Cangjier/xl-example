@@ -107,17 +107,21 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接追加，不再复读。
+
 ```ts
-this.Tmp += buffer.At(index);
+this.Tmp += value;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 遇到行终止符（`Template.IsLineTerminator`：core 默认 `\n`，ts 模板为 `\n` / `\r` / U+2028 / U+2029）就退出。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接判定，不再复读。
 
 - `\r` 自己当行尾时（lone CR / CRLF 的前半），它**不进**注释正文：直接签出到它的前一个字符，再把它 `Reload` 给根单元（根单元按空白 trivia 处理，CRLF 的另一半 `\n` 同样由根单元接手）；
 - `\n` 当行尾时，若前一个字符是 `\r`（只有默认 `\n` 模板走得到这条，ts 模板已经在 `\r` 处先收尾）先 `Undo` 掉那个 `\r`，再签出到 `\r` 之前；否则直接签出到前一个字符。
@@ -127,7 +131,6 @@ this.Tmp += buffer.At(index);
 前一个字符可能落在上一个窗口（行尾在窗口开头），窗口内取不到时要经 `SourceRange.Whole(buffer.Document!)` 取。
 
 ```ts
-const value = buffer.At(index);
 if (!this.Template.IsLineTerminator(value)) {
   return BranchStates.Undo;
 }

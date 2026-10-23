@@ -76,9 +76,11 @@ if (value.indexOf("\\") >= 0) {
 return this;
 ```
 
-## method IsAppend:(buffer:SourceRange, index:int)=>bool
+## method IsAppend:(buffer:SourceRange, index:int, value:string)=>bool
 
 当前字符能不能并进本块。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：实现直接用它，不再复读。
 
 抽象成员，由各 token 实现。
 
@@ -94,6 +96,8 @@ throw new Error("abstract member: IsAppend");
 
 子单元消费了就算有进展并记下 `LastIndex`；自己走 `Default` 之后若 `context.Index` 还没动，就统一补 `+1`（块 token 默认消费当前字符）。**无进展即阻塞返回**。
 
+当前字符在交给 `Default` 之前只读一次（`buffer.ValueAt(index)`，`index < buffer.End` 由窗口循环自证界内），`Default` 直接用它。
+
 ```ts
 if (this.MountedUnit !== null) {
   this.MountedUnit.Process(context, buffer, index);
@@ -102,7 +106,8 @@ if (this.MountedUnit !== null) {
   }
   return;
 }
-this.Default(context, buffer, index);
+const value = buffer.ValueAt(index);
+this.Default(context, buffer, index, value);
 if (context.Index === index) {
   context.Index = index + 1;
 }
@@ -137,9 +142,11 @@ if (this.Temp.length === 0 || index <= this.SourceRange.Start) {
 return true;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 兜底直接抛错——块 token 必须靠挂载单元或自己的覆写来消费字符。
+
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：覆写直接用它，不要再读 `buffer.At(index)`。
 
 ```ts
 throw new Error("抽象成员未实现");

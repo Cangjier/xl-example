@@ -75,11 +75,12 @@ if (value === marker[0]) {
 // ③ 区域注释 / 行注释 / 正则三条的前提完全一样：前一个字符是 '/'、它还能被回退（unit.IsUndo）。
 //    不满足时三条的 Undo 路径都只读不写（AreaAnnotation / LineAnnotation / RegexToken 的判据全在 return Undo 之前读完），
 //    所以这里回看一次、问一次 IsUndo，替掉原来三条各回看一次（每次 Has + At）的三倍开销。
+//    窗口内取前一个字符走 ValueAt（无校验）：preIndex >= buffer.Start 已判，preIndex = index - 1 < index < buffer.End 由窗口条件自证。
 //    三条之间的先后与原队列一致：'*' → 区域注释，'/' → 行注释（'//' 永远是行注释），其余 → 正则（正则明确排除 '//'）。
 //    前两种一旦前提成立就一定认下（判据已被筛法覆盖），直接返回；正则还要过它的「起点判据」，可能 Undo，继续往下。
 const preIndex = index - 1;
 if (preIndex >= 0) {
-  const pre = buffer.Has(preIndex) ? buffer.At(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
+  const pre = preIndex >= buffer.Start ? buffer.ValueAt(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
   if (pre === "/" && unit.IsUndo(preIndex)) {
     if (value === "*") {
       return AreaAnnotation.Transit(context, unit, buffer, index, value);

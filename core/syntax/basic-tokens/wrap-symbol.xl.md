@@ -45,12 +45,14 @@ trivia 单元：判形状时跳过。
 super(Template);
 ```
 
-## method IsAppend:(buffer:SourceRange, index:int)=>bool
+## method IsAppend:(buffer:SourceRange, index:int, value:string)=>bool
 
 能不能把窗口里 `index` 处的字符并进本块：是空白就行——空白不像组合符号那样需要看前文。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接判定，不再复读。
+
 ```ts
-return this.Template.SymbolTemplate.IsWhiteSpace(buffer.At(index));
+return this.Template.SymbolTemplate.IsWhiteSpace(value);
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates

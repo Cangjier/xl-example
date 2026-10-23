@@ -98,27 +98,32 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
+`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接追加，不再复读。
+
 ```ts
-this.Tmp += buffer.At(index);
+this.Tmp += value;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
-遇到 `*/` 就退出：前一个字符是 `*` 且当前字符是 `/` 时，签出到当前字符之后、把那个 `*` 回退掉、关闭自己并跑重组、从父单元卸载，返回 `Done`；否则返回 `Undo`。
+遇到 `*/` 就退出：当前字符是 `/` 且前一个字符是 `*` 时，签出到当前字符之后、把那个 `*` 回退掉、关闭自己并跑重组、从父单元卸载，返回 `Done`；否则返回 `Undo`。
 
-前一个字符可能落在上一个窗口（`*` 在窗口末尾、`/` 在下一个窗口开头），所以窗口内取不到时要经 `SourceRange.Whole(buffer.Document!)` 取。
+**先判当前字符**（`value !== "/"` 立刻 `Undo`），只有 `/` 才回看前一个字符——注释正文里绝大多数是既不是 `*` 也不是 `/` 的普通字符，走不到回看，省掉的是每个注释字符一次窗口读取 + 一次窗口回看。前一个字符可能落在上一个窗口（`*` 在窗口末尾、`/` 在下一个窗口开头），所以窗口内取不到时要经 `SourceRange.Whole(buffer.Document!)` 取。
 
 ```ts
+if (value !== "/") {
+  return BranchStates.Undo;
+}
 const preIndex = index - 1;
 let pre: string | null = null;
 if (preIndex >= 0) {
   pre = buffer.Has(preIndex) ? buffer.At(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
 }
-if (pre === "*" && buffer.At(index) === "/") {
+if (pre === "*") {
   this.SignOut(index + 1);
   this.Undo(preIndex);
   this.TryToClose(context);
