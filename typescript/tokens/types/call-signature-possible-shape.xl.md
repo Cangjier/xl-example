@@ -84,17 +84,16 @@ if (start < 0 || end < start) {
   return host;
 }
 const basePos = MemberPossibleUtil.BasePos(host, start);
-const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
-builder.Load(consumed, basePos);
+const consumedLength = builder.LoadFrom(host.Data, start, end + 1, basePos);
 const built = builder.ParseTypeMember();
-if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumedLength)) {
   return host;
 }
 if (!(built instanceof CallSignatureShape)) {
   throw new Error("CallSignaturePossibleShape.BuildByIndex: 产出不是 CallSignatureShape");
 }
-host.Data.splice(start, consumed.length, built);
+host.Data.splice(start, consumedLength, built);
 MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;

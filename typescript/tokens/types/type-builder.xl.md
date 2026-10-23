@@ -172,6 +172,36 @@ this.Context = context;
 展开后第 `i` 格来自传入数组的哪一格记在 `SourceIndexes[i]`；`OriginalConsumed()` 用它把 `At` 折回**原单元数**。
 
 ```ts
+this.LoadFrom(units, 0, units.length, basePos);
+```
+
+## method LoadFrom:(units:Array<Token>, from:int, to:int, basePos:int)=>int
+
+与 `Load(units.slice(from, to), basePos)` 逐字节等价，但不分配切片：直接按 `[from, to)` 区间读同一个数组，
+`SourceIndexes` 仍记**相对 `from` 的下标**（`OriginalConsumed()` 因此与切片版同一个数），返回值 = 切片长度（`slice` 的钳位语义照旧）。
+`from` / `to` 越界（负数或超过 `units.length`）时按 `Array.prototype.slice` 的规则钳位。
+
+```ts
+let fromIndex = from;
+let toIndex = to;
+const unitCount = units.length;
+if (fromIndex < 0) {
+  fromIndex = unitCount + fromIndex;
+  if (fromIndex < 0) {
+    fromIndex = 0;
+  }
+} else if (fromIndex > unitCount) {
+  fromIndex = unitCount;
+}
+if (toIndex < 0) {
+  toIndex = unitCount + toIndex;
+  if (toIndex < 0) {
+    toIndex = 0;
+  }
+} else if (toIndex > unitCount) {
+  toIndex = unitCount;
+}
+const consumedCount = toIndex > fromIndex ? toIndex - fromIndex : 0;
 this.Units = [];
 this.Positions = [];
 this.SourceIndexes = [];
@@ -182,7 +212,8 @@ this.BoundaryCache.Code = null;
 this.BoundaryCache.From = -1;
 this.BoundaryCache.Boundary = -1;
 let pos = basePos;
-for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
+const endIndex = fromIndex + consumedCount;
+for (let sourceIndex = fromIndex; sourceIndex < endIndex; sourceIndex++) {
   const unit = units[sourceIndex];
   if (unit.IsTriviaToken) {
     continue;
@@ -200,7 +231,7 @@ for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
           piece.SignIn(pieceIndex);
           this.Units.push(piece);
           this.Positions.push(pos);
-          this.SourceIndexes.push(sourceIndex);
+          this.SourceIndexes.push(sourceIndex - fromIndex);
           pos = pieceIndex + 1;
         }
         continue;
@@ -209,11 +240,12 @@ for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
   }
   this.Units.push(unit);
   this.Positions.push(pos);
-  this.SourceIndexes.push(sourceIndex);
+  this.SourceIndexes.push(sourceIndex - fromIndex);
   if (unit.SourceRange.EndIndex >= 0) {
     pos = unit.SourceRange.EndIndex;
   }
 }
+return consumedCount;
 ```
 
 ## method OriginalConsumed:()=>int
