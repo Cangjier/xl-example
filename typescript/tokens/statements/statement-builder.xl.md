@@ -108,8 +108,8 @@ for (const unit of units) {
   }
   this.Units.push(unit);
   this.Positions.push(pos);
-  if (unit.SourceRange.End !== null) {
-    pos = unit.SourceRange.End.Index + 1;
+  if (unit.SourceRange.EndIndex >= 0) {
+    pos = unit.SourceRange.EndIndex;
   }
 }
 ```
@@ -165,11 +165,11 @@ return text === "let" || text === "const" || text === "var" || text === "using";
 ```ts
 const head = this.Units[first];
 const tail = this.Units[last];
-if (head.SourceRange.Start !== null) {
-  shape.SignIn(head.SourceRange.Start);
+if (head.SourceRange.StartIndex >= 0) {
+  shape.SignIn(head.SourceRange.StartIndex);
 }
-if (tail.SourceRange.End !== null) {
-  shape.SignOut(tail.SourceRange.End);
+if (tail.SourceRange.EndIndex >= 0) {
+  shape.SignOut(tail.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[first];
 shape.TryToClose(this.Context);
@@ -204,8 +204,8 @@ return value;
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 if (inner.Units.length === 0) {
@@ -778,13 +778,14 @@ return this.Units.length - 1;
 保持两个数组对齐。
 
 ```ts
-const tailEnd = this.Units[end].SourceRange.End;
-if (tailEnd === null) {
+const tailEnd = this.Units[end].SourceRange.EndIndex;
+if (tailEnd < 0) {
   return end;
 }
+// 合成 `;` 是零宽节点：半开口径下 [tailEnd, tailEnd)，父形状的 End 由它的 EndIndex 得到。
 const semi = new Symbol(this.Template);
 semi.SignIn(tailEnd);
-semi.AppendValueAndSignOut(";", tailEnd);
+semi.AppendValueAndSignOut(";", tailEnd - 1);
 this.Units.splice(end + 1, 0, semi);
 this.Positions.splice(end + 1, 0, this.Positions[end]);
 return end + 1;
@@ -1003,8 +1004,8 @@ while (index < this.Units.length && this.Units[index] instanceof Symbol
   && (this.Units[index] as Symbol).Is("@")) {
   const atUnit = this.Units[index];
   let base = 0;
-  if (atUnit.SourceRange.End !== null) {
-    base = atUnit.SourceRange.End.Index + 1;
+  if (atUnit.SourceRange.EndIndex >= 0) {
+    base = atUnit.SourceRange.EndIndex;
   }
   const builder = new ExpressionBuilder(this.Template, this.Context);
   builder.Load(this.Units.slice(index + 1), base);
@@ -1223,8 +1224,8 @@ this.At++;
 const shape = new BlockShape(this.Template);
 const inner = new StatementBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
@@ -1502,8 +1503,8 @@ while (at < endExclusive) {
     const bang = new ExclamationTokenShape(this.Template);
     bang.SignInToken(bangUnit);
     bang.SignOutToken(bangUnit);
-    if (bangUnit.SourceRange.Start !== null) {
-      bang.Pos = bangUnit.SourceRange.Start.Index;
+    if (bangUnit.SourceRange.StartIndex >= 0) {
+      bang.Pos = bangUnit.SourceRange.StartIndex;
     }
     bang.TryToClose(this.Context);
     declaration.Add(bang);
@@ -1607,12 +1608,12 @@ while (at < endExclusive) {
     throw new Error("变量声明里有无法识别的单元");
   }
 }
-const head = this.Units[listHeadIndex].SourceRange.Start;
-if (head !== null) {
+const head = this.Units[listHeadIndex].SourceRange.StartIndex;
+if (head >= 0) {
   list.SignIn(head);
 }
-const tail = this.Units[lastUnit].SourceRange.End;
-if (tail !== null) {
+const tail = this.Units[lastUnit].SourceRange.EndIndex;
+if (tail >= 0) {
   list.SignOut(tail);
 }
 list.Pos = this.Positions[listHeadIndex];
@@ -1708,8 +1709,8 @@ this.At++;
 const bracket = headerUnit as Bracket;
 const inner = new StatementBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 let semicolonCount = 0;
@@ -1814,11 +1815,11 @@ const collection = inner.BuildExpressionRange(inner.At, inner.Units.length - 1);
 inner.At = inner.Units.length;
 if (awaitUnit !== null) {
   const keywordShape = new AwaitKeywordShape(this.Template);
-  if (awaitUnit.SourceRange.Start !== null) {
-    keywordShape.SignIn(awaitUnit.SourceRange.Start);
+  if (awaitUnit.SourceRange.StartIndex >= 0) {
+    keywordShape.SignIn(awaitUnit.SourceRange.StartIndex);
   }
-  if (awaitUnit.SourceRange.End !== null) {
-    keywordShape.SignOut(awaitUnit.SourceRange.End);
+  if (awaitUnit.SourceRange.EndIndex >= 0) {
+    keywordShape.SignOut(awaitUnit.SourceRange.EndIndex);
   }
   keywordShape.Pos = awaitPos;
   keywordShape.TryToClose(this.Context);
@@ -1844,7 +1845,7 @@ const keyword = this.Units[first];
 // （`return\na;` = return; a;）。`return` 没有表达式子节点；`throw` 的 TS 恢复形是
 // 「ThrowStatement[first..关键字末] + 零宽 Identifier[pos==end==关键字之后的下一格]」。
 const lineBreak = this.At < this.Units.length
-  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.End);
+  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.EndIndex);
 if (lineBreak) {
   // 换行之后紧跟的 `;` 仍是本条语句的终止符，TS 把 `;` 计进 End：
   //   `return` ⏎ `;` → ReturnStatement[13,22]（不能新起 EmptyStatement[20,22]）；
@@ -1859,14 +1860,13 @@ if (lineBreak) {
     return this.Finish(new ReturnStatementShape(this.Template), first, tail);
   }
   const throwShape = new ThrowStatementShape(this.Template);
-  const throwEnd = keyword.SourceRange.End;
-  if (throwEnd !== null) {
+  const throwEnd = keyword.SourceRange.EndIndex;
+  if (throwEnd >= 0) {
     const zero = new IdentifierShape(this.Template);
     zero.EscapedText = "";
-    const zeroSource = throwEnd.Document.At(throwEnd.Index);
-    zero.SourceRange.Start = zeroSource;
-    zero.SourceRange.End = zeroSource;
-    zero.Pos = throwEnd.Index + 1;
+    zero.SourceRange.Start = throwEnd;
+    zero.SourceRange.End = throwEnd;
+    zero.Pos = throwEnd;
     zero.TryToClose(this.Context);
     throwShape.Add(zero);
   }
@@ -1900,14 +1900,13 @@ if (expression !== null) {
 }
 if (isThrow && expression === null) {
   // TS 的恢复形：零宽 Identifier，pos == end == 关键字末尾之后（`throw` 之后那一格）。
-  const keywordEnd = keyword.SourceRange.End;
-  if (keywordEnd !== null) {
+  const keywordEnd = keyword.SourceRange.EndIndex;
+  if (keywordEnd >= 0) {
     const zero = new IdentifierShape(this.Template);
     zero.EscapedText = "";
-    const zeroSource = keywordEnd.Document.At(keywordEnd.Index);
-    zero.SourceRange.Start = zeroSource;
-    zero.SourceRange.End = zeroSource;
-    zero.Pos = keywordEnd.Index + 1;
+    zero.SourceRange.Start = keywordEnd;
+    zero.SourceRange.End = keywordEnd;
+    zero.Pos = keywordEnd;
     zero.TryToClose(this.Context);
     shape.Add(zero);
   }
@@ -1919,12 +1918,16 @@ if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
 return this.Finish(shape, first, this.At - 1);
 ```
 
-## private static method HasLineBreakAfter:(last:Source | null)=>bool
+## private static method HasLineBreakAfter:(last:int)=>bool
 
-关键字后面（跳过空格与注释）是否先出现换行。注释里的换行也算：ASI 把注释中的 LineTerminator 视作换行。
+关键字后面（跳过空格与注释）是否先出现换行。`last` 是半开终点（关键字最后一个字符下标 + 1），-1 表示未签出。
+注释里的换行也算：ASI 把注释中的 LineTerminator 视作换行。
 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
+if (last < 0) {
+  return false;
+}
 return LineTerminator.HasAfter(last);
 ```
 
@@ -1937,7 +1940,7 @@ const keyword = this.Units[first];
 // Newline after `break` / `continue` = no label (ASI): `break\nlbl` = break; lbl; and the
 // BreakStatement End is the next token's Pos (keyword end + 1).
 const split = this.At < this.Units.length
-  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.End);
+  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.EndIndex);
 if (split) {
   let shape:ShapeToken;
   if (isContinue) {
@@ -2077,8 +2080,8 @@ for (const tokens of groups) {
       identifier.Pos = pos;
       binding.Add(identifier);
     }
-    if (token.SourceRange.End !== null) {
-      pos = token.SourceRange.End.Index + 1;
+    if (token.SourceRange.EndIndex >= 0) {
+      pos = token.SourceRange.EndIndex;
     }
   }
 }
@@ -2114,8 +2117,8 @@ return this.Finish(shape, first, blockIndex);
 const caseBlock = new CaseBlockShape(this.Template);
 const inner = new StatementBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
@@ -2179,11 +2182,11 @@ while (inner.At < inner.Units.length) {
   }
   throw new Error("switch 块里出现了 case / default 之外的单元");
 }
-if (bracket.SourceRange.Start !== null) {
-  caseBlock.SignIn(bracket.SourceRange.Start);
+if (bracket.SourceRange.StartIndex >= 0) {
+  caseBlock.SignIn(bracket.SourceRange.StartIndex);
 }
-if (bracket.SourceRange.End !== null) {
-  caseBlock.SignOut(bracket.SourceRange.End);
+if (bracket.SourceRange.EndIndex >= 0) {
+  caseBlock.SignOut(bracket.SourceRange.EndIndex);
 }
 caseBlock.Pos = this.Positions[bracketIndex];
 caseBlock.TryToClose(this.Context);
@@ -2226,8 +2229,8 @@ if (this.At < this.Units.length && this.Units[this.At] instanceof Bracket && (th
   this.At++;
   const inner = new StatementBuilder(this.Template, this.Context);
   let base = 0;
-  if (bracket.SourceRange.Start !== null) {
-    base = bracket.SourceRange.Start.Index + 1;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
   }
   inner.Load(bracket.Data, base);
   if (inner.Units.length === 0) {
@@ -2256,8 +2259,8 @@ if (this.At < this.Units.length && this.Units[this.At] instanceof Bracket && (th
     const colon = inner.Units[inner.At];
     const typeFirst = inner.At + 1;
     let typePos = 0;
-    if (colon.SourceRange.End !== null) {
-      typePos = colon.SourceRange.End.Index + 1;
+    if (colon.SourceRange.EndIndex >= 0) {
+      typePos = colon.SourceRange.EndIndex;
     }
     const typeUnits:Array<Token> = [];
     for (let cursor = typeFirst; cursor < inner.Units.length; cursor++) {
@@ -2279,14 +2282,14 @@ if (this.At < this.Units.length && this.Units[this.At] instanceof Bracket && (th
   if (bindingType !== null) {
     declaration.Add(bindingType);
   }
-  if (binding.SourceRange.Start !== null) {
-    declaration.SignIn(binding.SourceRange.Start);
+  if (binding.SourceRange.StartIndex >= 0) {
+    declaration.SignIn(binding.SourceRange.StartIndex);
   }
-  let declarationEnd = binding.SourceRange.End;
-  if (bindingType !== null && bindingType.SourceRange.End !== null) {
-    declarationEnd = bindingType.SourceRange.End;
+  let declarationEnd = binding.SourceRange.EndIndex;
+  if (bindingType !== null && bindingType.SourceRange.EndIndex >= 0) {
+    declarationEnd = bindingType.SourceRange.EndIndex;
   }
-  if (declarationEnd !== null) {
+  if (declarationEnd >= 0) {
     declaration.SignOut(declarationEnd);
   }
   declaration.Pos = (binding as ShapeToken).Pos;

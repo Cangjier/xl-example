@@ -1,6 +1,8 @@
 # dependencies
 ```xl
 import { Token } from "../../../core/syntax/token.xl.md"
+import { Document } from "../../../core/syntax/document.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -34,7 +36,7 @@ this.End = end;
 
 为什么要有它：根候选按 `CatalogGuide` 的契约必须在一个下标上决定「建不建」，而 `if` 还牵扯「`;` 之后还有没有 `else`」——这根换行 / 下一个代码单元才看得见。扫描器把「还差单元」与「已经到齐（到齐点可能早于当前下标）」分开回答，形状才在正确的时机建。
 
-`AtEOF` 是文件末尾的判别位：根在最后一个真实位置已经被签出（`SourceRange.End` 非空）时，候选把「本层没有后续单元」当成 ASI 收尾，而不是继续等 `else` / `;`。
+`AtEOF` 是文件末尾的判别位：根在最后一个真实位置已经被签出（`SourceRange.EndIndex >= 0`）时，候选把「本层没有后续单元」当成 ASI 收尾，而不是继续等 `else` / `;`。
 
 ## static field AtEOF:bool = false
 
@@ -187,7 +189,7 @@ if (first instanceof Common) {
     if (second instanceof Common) {
       const secondText = (second as Common).TempToString();
       // `declare const enum …`: the enum declaration candidate owns it, so yield here too.
-      if (secondText === "const" && StatementScanner.NextWord(second.SourceRange.End) === "enum") {
+      if (secondText === "const" && StatementScanner.NextWord(second.SourceRange.Document, second.SourceRange.EndIndex) === "enum") {
         return StatementScanner.Mismatch();
       }
       if ((secondText === "let" || secondText === "const" || secondText === "var" || secondText === "using")
@@ -201,7 +203,7 @@ if (first instanceof Common) {
     // `const enum E {…}` (also `const\tenum` / `const\nenum`): the enum declaration candidate owns
     // this form, so the variable-statement candidate must yield instead of scanning to `;`.
     // Raw lookahead, because `enum` may not be tokenized yet when `const` arrives.
-    if (text === "const" && StatementScanner.NextWord(first.SourceRange.End) === "enum") {
+    if (text === "const" && StatementScanner.NextWord(first.SourceRange.Document, first.SourceRange.EndIndex) === "enum") {
       return StatementScanner.Mismatch();
     }
     return StatementScanner.ScanToSemicolon(code, 1, true);
@@ -287,7 +289,7 @@ if (first instanceof Common) {
   // (skipping trivia) is ":"; anything else is an expression statement, handled by the
   // expression candidate at exactly the same trigger as before.
   if (code.length === 1) {
-    if (StatementScanner.NextChar(first.SourceRange.End) === ":") {
+    if (StatementScanner.NextChar(first.SourceRange.Document, first.SourceRange.EndIndex) === ":") {
       return StatementScanner.NeedMore();
     }
     return StatementScanner.Mismatch();
@@ -329,7 +331,7 @@ if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   if (text === "const" || text === "var") {
     // Same yield as the root dispatch: `const enum …` belongs to the enum declaration candidate.
-    if (text === "const" && StatementScanner.NextWord(code[at].SourceRange.End) === "enum") {
+    if (text === "const" && StatementScanner.NextWord(code[at].SourceRange.Document, code[at].SourceRange.EndIndex) === "enum") {
       return StatementScanner.ScanDeclarationBody(code, at);
     }
     return StatementScanner.ScanToSemicolon(code, at + 1);
@@ -865,7 +867,7 @@ if (next < code.length) {
   }
   return StatementScanner.Complete(body.End);
 }
-if (StatementScanner.NextWord(code[body.End].SourceRange.End) === "else") {
+if (StatementScanner.NextWord(code[body.End].SourceRange.Document, code[body.End].SourceRange.EndIndex) === "else") {
   return StatementScanner.NeedMore();
 }
 return StatementScanner.Complete(body.End);
@@ -930,8 +932,8 @@ const semiAt = whileAt + 2;
 // ASI: only a literal `;` can continue a do-while, so when the next raw char is not one the
 // statement is already complete — at EOF, before `}`, after a line break, and even on the same
 // line when the next token starts a new statement (TS parses `do {} while (b) a;` as two statements).
-const headerEnd = (code[whileAt + 1] as Bracket).SourceRange.End;
-const nextChar = StatementScanner.NextChar(headerEnd);
+const headerEnd = (code[whileAt + 1] as Bracket).SourceRange.EndIndex;
+const nextChar = StatementScanner.NextChar((code[whileAt + 1] as Bracket).SourceRange.Document, headerEnd);
 if (nextChar !== ";") {
   return StatementScanner.Complete(whileAt + 1);
 }
@@ -949,14 +951,14 @@ return StatementScanner.Mismatch();
 
 ## static method NoLineBreakBetween:(left:Token, right:Token)=>bool
 
-两个 token 的原始文本之间（`left.End.Index + 1` 到 `right.Start.Index - 1`）有没有换行；
+两个 token 的原始文本之间（`left.EndIndex` 到 `right.StartIndex - 1`，即半开 `[left.EndIndex, right.StartIndex)`）有没有换行；
 块注释里的换行也算换行。用于 `declare` 与变量关键字之间：同一行才是同一个 ambient 变量语句。
 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-const from = left.SourceRange.End;
-const to = right.SourceRange.Start;
-if (from === null || to === null) {
+const from = left.SourceRange.EndIndex;
+const to = right.SourceRange.StartIndex;
+if (from < 0 || to < 0) {
   return true;
 }
 return !LineTerminator.HasBetween(from, to);
@@ -1073,36 +1075,36 @@ if (!StatementScanner.IsDeclarationKeyword(keyword)) {
 return index;
 ```
 
-## static method NextChar:(last:Source | null)=>string
+## static method NextChar:(document:Document | null, last:int)=>string
 
-从 `last` 之后的下一个位置起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
+从 `last`（半开终点，即上一个字符的下标 + 1）起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
 根级标签判据用它回答「标识符后面是不是 `:`」，此时 `:` 可能还没被 token 化。
 
 ```ts
-if (last === null) {
+if (document === null || last < 0) {
   return "";
 }
-const document = last.Document;
 const count = document.GetCount();
-let at = last.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = last;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -1114,37 +1116,37 @@ while (at < count) {
 return "";
 ```
 
-## static method NextWord:(last:Source | null)=>string
+## static method NextWord:(document:Document | null, last:int)=>string
 
-从 `last` 之后的下一个位置起，跳过空白与注释，读一个标识符词；读不到（越界 / 非标识符字符）返回空串。
+从 `last`（半开终点，即上一个字符的下标 + 1）起，跳过空白与注释，读一个标识符词；读不到（越界 / 非标识符字符）返回空串。
 
 它只服务「可选关键字是不是还在文档后面」这一种判据（`else` / `catch` / `finally`），不看 token 层：`catch` 之类的关键字还没被 token 化时，扫描器仍要能回答「还要不要等」。
 
 ```ts
-if (last === null) {
+if (document === null || last < 0) {
   return "";
 }
-const document = last.Document;
 const count = document.GetCount();
-let at = last.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = last;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -1155,7 +1157,7 @@ while (at < count) {
 }
 const word:Array<string> = [];
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_" || ch === "$") {
     word.push(ch);
     at++;
@@ -1188,7 +1190,7 @@ if (next < code.length) {
   }
   return StatementScanner.Complete(tryBlock);
 }
-const word = StatementScanner.NextWord(code[tryBlock].SourceRange.End);
+const word = StatementScanner.NextWord(code[tryBlock].SourceRange.Document, code[tryBlock].SourceRange.EndIndex);
 if (word === "catch" || word === "finally") {
   return StatementScanner.NeedMore();
 }
@@ -1221,7 +1223,7 @@ if (next < code.length) {
   }
   return StatementScanner.Complete(catchBlock);
 }
-if (StatementScanner.NextWord(code[catchBlock].SourceRange.End) === "finally") {
+if (StatementScanner.NextWord(code[catchBlock].SourceRange.Document, code[catchBlock].SourceRange.EndIndex) === "finally") {
   return StatementScanner.NeedMore();
 }
 return StatementScanner.Complete(catchBlock);
