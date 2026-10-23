@@ -169,9 +169,9 @@ for (let at = start - 1; at >= 0; at--) {
   }
 }
 if (previous >= 0) {
-  const previousEnd = host.Data[previous].SourceRange.End;
-  if (previousEnd !== null) {
-    shape.Pos = previousEnd.Index + 1;
+  const previousEnd = host.Data[previous].SourceRange.EndIndex;
+  if (previousEnd >= 0) {
+    shape.Pos = previousEnd;
   }
 }
 host.Data.splice(start, first - start + 1, shape);

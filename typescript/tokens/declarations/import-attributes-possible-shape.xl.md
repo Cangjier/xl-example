@@ -116,12 +116,12 @@ while (before >= 0 && host.Data[before].IsTriviaToken) {
   before--;
 }
 if (before >= 0) {
-  const beforeEnd = host.Data[before].SourceRange.End;
-  if (beforeEnd !== null) {
-    shape.Pos = beforeEnd.Index + 1;
+  const beforeEnd = host.Data[before].SourceRange.EndIndex;
+  if (beforeEnd >= 0) {
+    shape.Pos = beforeEnd;
   }
-} else if (bracket.SourceRange.Start !== null) {
-  shape.Pos = bracket.SourceRange.Start.Index;
+} else if (bracket.SourceRange.StartIndex >= 0) {
+  shape.Pos = bracket.SourceRange.StartIndex;
 }
 host.Data.splice(at, index - at + 1, shape);
 shape.Parent = host;

@@ -10,6 +10,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -94,38 +95,39 @@ if (unit instanceof Common || unit instanceof String) {
 return unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[";
 ```
 
-## static method NextChar:(last:Source | null)=>string
+## static method NextChar:(last:SourceRange | null)=>string
 
-`last` 之后的下一个字符，跳过空白与 `//` / `/* */` 注释；越界返回空串。
+`last` 之后（`last.EndIndex` 起）的下一个字符，跳过空白与 `//` / `/* */` 注释；越界返回空串。
 
 枚举体最后一个成员的收口判据要用它回答「最后一个代码单元后面是不是 `}` / EOF」——那个字符可能还没被 token 化。
 
 ```ts
-if (last === null) {
+if (last === null || last.EndIndex < 0 || last.Document === null) {
   return "";
 }
 const document = last.Document;
 const count = document.GetCount();
-let at = last.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = last.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v"
     || ch === "\f" || ch === "\u2028" || ch === "\u2029") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -148,25 +150,25 @@ return ch === "" || ch === "}";
 ## static method BasePos:(host:Token, start:int)=>int
 
 成员形状的 `Pos` 口径，与 `EnumDeclarationShape.BuildMembers` 里手算的 `memberPos` 完全相同：
-条目第一个代码单元前面最近一个非 trivia 单元的 `End.Index + 1`；前面什么都没有时用宿主起点 + 1
-（`BuildMembers` 的初始 `memberPos = bracket.SourceRange.Start.Index + 1`）。
+条目第一个代码单元前面最近一个非 trivia 单元的 `EndIndex`；前面什么都没有时用宿主起点 + 1
+（`BuildMembers` 的初始 `memberPos = bracket.SourceRange.StartIndex + 1`）。
 
 ```ts
 if (start > 0) {
   for (let at = start - 1; at >= 0; at--) {
     if (!host.Data[at].IsTriviaToken) {
-      const previousEnd = host.Data[at].SourceRange.End;
-      if (previousEnd !== null) {
-        return previousEnd.Index + 1;
+      const previousEnd = host.Data[at].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        return previousEnd;
       }
       break;
     }
   }
 }
-if (host.SourceRange.Start === null) {
+if (host.SourceRange.StartIndex < 0) {
   return 0;
 }
-return host.SourceRange.Start.Index + 1;
+return host.SourceRange.StartIndex + 1;
 ```
 
 ## static method Analyze:(code:Array<Token>, state:EnumMemberPossibleScan)=>void
@@ -198,7 +200,7 @@ for (let at = nameAt + 1; at < code.length; at++) {
   }
 }
 const last = code[code.length - 1];
-if (EnumMemberPossibleUtil.IsCompletionBoundary(EnumMemberPossibleUtil.NextChar(last.SourceRange.End))) {
+if (EnumMemberPossibleUtil.IsCompletionBoundary(EnumMemberPossibleUtil.NextChar(last.SourceRange))) {
   state.Complete = true;
   state.End = code.length - 1;
 }

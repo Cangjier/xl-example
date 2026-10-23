@@ -103,8 +103,8 @@ let namePos = pos;
 if (first instanceof Symbol && (first as Symbol).Is("...")) {
   dotDotDot = BindingElementShape.MakeRest(first, first, context, pos);
   index = 1;
-  if (first.SourceRange.End !== null) {
-    namePos = first.SourceRange.End.Index + 1;
+  if (first.SourceRange.EndIndex >= 0) {
+    namePos = first.SourceRange.EndIndex;
   }
 } else if (first instanceof Symbol && (first as Symbol).Is(".")) {
   let lastDot:Token = first;
@@ -118,8 +118,8 @@ if (first instanceof Symbol && (first as Symbol).Is("...")) {
     return null;
   }
   dotDotDot = BindingElementShape.MakeRest(first, lastDot, context, pos);
-  if (lastDot.SourceRange.End !== null) {
-    namePos = lastDot.SourceRange.End.Index + 1;
+  if (lastDot.SourceRange.EndIndex >= 0) {
+    namePos = lastDot.SourceRange.EndIndex;
   }
 }
 if (index >= tokens.length) {
@@ -135,8 +135,8 @@ if (tokens[index] instanceof Bracket && (tokens[index] as Bracket).StartBracketC
   const computedBracket = tokens[index] as Bracket;
   const inner = new ExpressionBuilder(first.Template, context);
   let innerBase = namePos;
-  if (computedBracket.SourceRange.Start !== null) {
-    innerBase = computedBracket.SourceRange.Start.Index + 1;
+  if (computedBracket.SourceRange.StartIndex >= 0) {
+    innerBase = computedBracket.SourceRange.StartIndex + 1;
   }
   inner.Load(computedBracket.Data, innerBase);
   if (inner.Units.length === 0) {
@@ -159,8 +159,8 @@ if (tokens[index] instanceof Bracket && (tokens[index] as Bracket).StartBracketC
     return null;
   }
   let bindingPos = namePos;
-  if (colon.SourceRange.End !== null) {
-    bindingPos = colon.SourceRange.End.Index + 1;
+  if (colon.SourceRange.EndIndex >= 0) {
+    bindingPos = colon.SourceRange.EndIndex;
   }
   bindingName = BindingElementShape.ParseName(tokens[index], context, bindingPos);
   index++;
@@ -175,8 +175,8 @@ if (tokens[index] instanceof Bracket && (tokens[index] as Bracket).StartBracketC
     }
     propertyName = bindingName;
     let bindingPos = namePos;
-    if (colon.SourceRange.End !== null) {
-      bindingPos = colon.SourceRange.End.Index + 1;
+    if (colon.SourceRange.EndIndex >= 0) {
+      bindingPos = colon.SourceRange.EndIndex;
     }
     bindingName = BindingElementShape.ParseName(tokens[index], context, bindingPos);
     index++;
@@ -190,8 +190,8 @@ if (index < tokens.length && tokens[index] instanceof Symbol && (tokens[index] a
     return null;
   }
   let initializerPos = pos;
-  if (equals.SourceRange.End !== null) {
-    initializerPos = equals.SourceRange.End.Index + 1;
+  if (equals.SourceRange.EndIndex >= 0) {
+    initializerPos = equals.SourceRange.EndIndex;
   }
   const builder = new ExpressionBuilder(first.Template, context);
   builder.Load(tokens.slice(index), initializerPos);

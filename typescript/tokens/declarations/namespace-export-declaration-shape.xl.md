@@ -19,7 +19,7 @@ export as namespace NS;
 
 measurement 载体：`export as namespace <名字>;`。TS 的 children 只有名字一个
 （`export as namespace N;` → `NamespaceExportDeclaration → [Identifier N]`），关键字、`;` 都不是节点。
-区间从 `export` 起点到 `;`；名字 `Pos` = `namespace` 的 `End.Index + 1`；整体 `Pos` = 前一个非 trivia 单元 `End.Index + 1`。
+区间从 `export` 起点到 `;`；名字 `Pos` = `namespace` 的 `EndIndex`；整体 `Pos` = 前一个非 trivia 单元 `EndIndex`。
 
 ## field ExportName:Token | null = null
 
@@ -66,27 +66,27 @@ if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
+    const end = host.Data[at].SourceRange.EndIndex;
     if (end !== null) {
-      pos = end.Index + 1;
+      pos = end;
     }
     break;
   }
 }
 const name = IdentifierShape.FromBasicToken(nameUnit, context);
-if (namespaceKeyword.SourceRange.End !== null) {
-  name.Pos = namespaceKeyword.SourceRange.End.Index + 1;
+if (namespaceKeyword.SourceRange.EndIndex >= 0) {
+  name.Pos = namespaceKeyword.SourceRange.EndIndex;
 }
-if (name.SourceRange.End === null && nameUnit.SourceRange.End !== null) {
+if (name.SourceRange.EndIndex < 0 && nameUnit.SourceRange.EndIndex >= 0) {
   name.SignOut(nameUnit.SourceRange.End);
 }
 const shape = new NamespaceExportDeclarationShape(host.Template);
 shape.ExportName = name;
 shape.Add(name);
-if (keyword.SourceRange.Start !== null) {
+if (keyword.SourceRange.StartIndex >= 0) {
   shape.SignIn(keyword.SourceRange.Start);
 }
-if (last.SourceRange.End !== null) {
+if (last.SourceRange.EndIndex >= 0) {
   shape.SignOut(last.SourceRange.End);
 }
 shape.Pos = pos;

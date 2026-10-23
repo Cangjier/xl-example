@@ -27,7 +27,7 @@ import x = A.B.C;
 measurement 载体：`import <名字> = <引用>;`。TS 的 children **不含** `import` 关键字、`=` 与 `;`
 （`import x = require("m");` → `ImportEqualsDeclaration → [Identifier x, ExternalModuleReference → [StringLiteral "m"]]`；
 `import x = A.B;` → `ImportEqualsDeclaration → [Identifier x, QualifiedName → [Identifier A, Identifier B]]`），
-所以 `Data` 只装两个形状：名字 + 引用。区间从 `import` 起点到 `;`；`Pos` = 前一个非 trivia 单元 `End.Index + 1`。
+所以 `Data` 只装两个形状：名字 + 引用。区间从 `import` 起点到 `;`；`Pos` = 前一个非 trivia 单元 `EndIndex`。
 
 ## field LocalName:Token | null = null
 
@@ -86,9 +86,9 @@ if (!(equal instanceof Symbol) || !(equal as Symbol).Is("=")) {
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
+    const end = host.Data[at].SourceRange.EndIndex;
     if (end !== null) {
-      pos = end.Index + 1;
+      pos = end;
     }
     break;
   }
@@ -96,17 +96,17 @@ for (let at = start - 1; at >= 0; at--) {
 const shape = new ImportEqualsDeclarationShape(host.Template);
 const name = IdentifierShape.FromBasicToken(nameUnit, context);
 const nameSource = isTypeOnly ? code[base + 1] : keyword;
-if (nameSource.SourceRange.End !== null) {
-  name.Pos = nameSource.SourceRange.End.Index + 1;
+if (nameSource.SourceRange.EndIndex >= 0) {
+  name.Pos = nameSource.SourceRange.EndIndex;
 }
-if (name.SourceRange.End === null && nameUnit.SourceRange.End !== null) {
+if (name.SourceRange.EndIndex < 0 && nameUnit.SourceRange.EndIndex >= 0) {
   name.SignOut(nameUnit.SourceRange.End);
 }
 shape.LocalName = name;
 shape.Add(name);
 let referencePos = 0;
-if (equal.SourceRange.End !== null) {
-  referencePos = equal.SourceRange.End.Index + 1;
+if (equal.SourceRange.EndIndex >= 0) {
+  referencePos = equal.SourceRange.EndIndex;
 }
 const target = code[index];
 let reference:Token;
@@ -127,18 +127,18 @@ if (target instanceof Common && (target as Common).Is("require")) {
     throw new Error("import equals 的 require 缺少字符串");
   }
   const literal = StringLiteralShape.FromBasicToken(stringUnit as String, context);
-  if (inner.SourceRange.Start !== null) {
-    literal.Pos = inner.SourceRange.Start.Index + 1;
+  if (inner.SourceRange.StartIndex >= 0) {
+    literal.Pos = inner.SourceRange.StartIndex + 1;
   }
-  if (literal.SourceRange.End === null && stringUnit.SourceRange.End !== null) {
+  if (literal.SourceRange.EndIndex < 0 && stringUnit.SourceRange.EndIndex >= 0) {
     literal.SignOut(stringUnit.SourceRange.End);
   }
   const external = new ExternalModuleReferenceShape(host.Template);
   external.Add(literal);
-  if (target.SourceRange.Start !== null) {
+  if (target.SourceRange.StartIndex >= 0) {
     external.SignIn(target.SourceRange.Start);
   }
-  if (inner.SourceRange.End !== null) {
+  if (inner.SourceRange.EndIndex >= 0) {
     external.SignOut(inner.SourceRange.End);
   }
   external.Pos = referencePos;
@@ -163,10 +163,10 @@ if (target instanceof Common && (target as Common).Is("require")) {
       throw new Error("import equals 的实体名缺少标识符");
     }
     const right = IdentifierShape.FromBasicToken(rightUnit, context);
-    if (dot.SourceRange.End !== null) {
-      right.Pos = dot.SourceRange.End.Index + 1;
+    if (dot.SourceRange.EndIndex >= 0) {
+      right.Pos = dot.SourceRange.EndIndex;
     }
-    if (right.SourceRange.End === null && rightUnit.SourceRange.End !== null) {
+    if (right.SourceRange.EndIndex < 0 && rightUnit.SourceRange.EndIndex >= 0) {
       right.SignOut(rightUnit.SourceRange.End);
     }
     const qualified = new QualifiedNameShape(host.Template);
@@ -174,10 +174,10 @@ if (target instanceof Common && (target as Common).Is("require")) {
     qualified.Right = right;
     qualified.Add(current);
     qualified.Add(right);
-    if (current.SourceRange.Start !== null) {
+    if (current.SourceRange.StartIndex >= 0) {
       qualified.SignIn(current.SourceRange.Start);
     }
-    if (right.SourceRange.End !== null) {
+    if (right.SourceRange.EndIndex >= 0) {
       qualified.SignOut(right.SourceRange.End);
     }
     qualified.Pos = current.Pos;
@@ -193,18 +193,18 @@ shape.Add(reference);
 if (exportUnit !== null) {
   const exportModifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
   exportModifier.Pos = pos;
-  if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== null) {
+  if (exportModifier.SourceRange.EndIndex < 0 && exportUnit.SourceRange.EndIndex >= 0) {
     exportModifier.SignOut(exportUnit.SourceRange.End);
   }
   shape.Data.unshift(exportModifier);
   exportModifier.Parent = shape;
-  if (exportUnit.SourceRange.Start !== null) {
+  if (exportUnit.SourceRange.StartIndex >= 0) {
     shape.SignIn(exportUnit.SourceRange.Start);
   }
-} else if (keyword.SourceRange.Start !== null) {
+} else if (keyword.SourceRange.StartIndex >= 0) {
   shape.SignIn(keyword.SourceRange.Start);
 }
-if (last.SourceRange.End !== null) {
+if (last.SourceRange.EndIndex >= 0) {
   shape.SignOut(last.SourceRange.End);
 }
 shape.Pos = pos;

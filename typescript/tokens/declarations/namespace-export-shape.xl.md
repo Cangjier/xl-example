@@ -43,18 +43,18 @@ if (lastUnit instanceof Common) {
   // 名字的 Pos 取它前面那个非 trivia 单元（`as`）的 End+1。
   if (code.length >= 2) {
     const previous = code[code.length - 2];
-    if (previous.SourceRange.End !== null) {
-      identifier.Pos = previous.SourceRange.End.Index + 1;
+    if (previous.SourceRange.EndIndex >= 0) {
+      identifier.Pos = previous.SourceRange.EndIndex;
     }
   }
   shape.Name = identifier;
   shape.Data.push(identifier);
   identifier.Parent = shape;
 }
-if (code[0].SourceRange.Start !== null) {
+if (code[0].SourceRange.StartIndex >= 0) {
   shape.SignIn(code[0].SourceRange.Start);
 }
-if (lastUnit.SourceRange.End !== null) {
+if (lastUnit.SourceRange.EndIndex >= 0) {
   shape.SignOut(lastUnit.SourceRange.End);
 }
 shape.TryToClose(context);

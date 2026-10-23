@@ -67,7 +67,7 @@ while (decoratorCount < code.length
   && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
   const atUnit = code[decoratorCount];
   const decoratorPos = decoratorEnd;
-  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const expressionBase = atUnit.SourceRange.EndIndex < 0 ? decoratorPos : atUnit.SourceRange.EndIndex;
   const builder = new ExpressionBuilder(code[0].Template, context);
   builder.Load(code.slice(decoratorCount + 1), expressionBase);
   if (builder.Units.length === 0) {
@@ -79,9 +79,9 @@ while (decoratorCount < code.length
   }
   const consumed = builder.At;
   for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
-    const cursorEnd = code[cursor].SourceRange.End;
-    if (cursorEnd !== null) {
-      decoratorEnd = cursorEnd.Index + 1;
+    const cursorEnd = code[cursor].SourceRange.EndIndex;
+    if (cursorEnd >= 0) {
+      decoratorEnd = cursorEnd;
     }
   }
   decoratorCount += 1 + consumed;
@@ -226,10 +226,10 @@ if (level + 1 < nameShapes.length) {
   declaration.Body = body;
 }
 const head = level === 0 ? code[0] : nameShapes[level];
-if (head.SourceRange.Start !== null) {
+if (head.SourceRange.StartIndex >= 0) {
   declaration.SignIn(head.SourceRange.Start);
 }
-if (body.SourceRange.End !== null) {
+if (body.SourceRange.EndIndex >= 0) {
   declaration.SignOut(body.SourceRange.End);
 }
 declaration.Pos = level === 0 ? positions[0] : positions[nameIndices[level]];

@@ -68,8 +68,8 @@ if (code[base] instanceof Common) {
 } else {
   return null;
 }
-if (typeUnit !== null && typeUnit.SourceRange.End !== null) {
-  first.Pos = typeUnit.SourceRange.End.Index + 1;
+if (typeUnit !== null && typeUnit.SourceRange.EndIndex >= 0) {
+  first.Pos = typeUnit.SourceRange.EndIndex;
 } else {
   first.Pos = pos;
 }
@@ -87,8 +87,8 @@ if (code.length >= base + 3 && code[base + 1] instanceof Common && (code[base + 
   if (second === null) {
     return null;
   }
-  const asEnd = code[base + 1].SourceRange.End;
-  second.Pos = asEnd !== null ? asEnd.Index + 1 : -1;
+  const asEnd = code[base + 1].SourceRange.EndIndex;
+  second.Pos = asEnd >= 0 ? asEnd : -1;
   shape.Name = second;
   shape.Data.push(second);
   second.Parent = shape;
@@ -98,10 +98,10 @@ if (shape.Name === null && shape.PropertyName !== null) {
   shape.Name = shape.PropertyName;
   shape.PropertyName = null;
 }
-if (code[0].SourceRange.Start !== null) {
+if (code[0].SourceRange.StartIndex >= 0) {
   shape.SignIn(code[0].SourceRange.Start);
 }
-if (last.SourceRange.End !== null) {
+if (last.SourceRange.EndIndex >= 0) {
   shape.SignOut(last.SourceRange.End);
 }
 shape.TryToClose(context);

@@ -220,7 +220,7 @@ return state !== null && state.Done && !state.Rejected;
 
 把 `interface` 关键字的这一格变成**挂载的壳**：把 `state.Start..tokenIndex` 的单元原样搬进壳的 `Data`、签入，然后让壳挂到宿主上接管后续字符。
 
-壳的 `Pos` 在这里算：`state.Start` 前面最近一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`）——与 `FromUnits` 的口径一致。
+壳的 `Pos` 在这里算：`state.Start` 前面最近一个非 trivia 单元的 `EndIndex`（没有就是 `0`）——与 `FromUnits` 的口径一致。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<InterfaceDeclarationScan>(this.constructor.name);
@@ -233,16 +233,16 @@ const shell = new InterfaceDeclarationShape(host.Template);
 for (const unit of consumed) {
   shell.Add(unit);
 }
-const begin = consumed[0].SourceRange.Start;
-if (begin !== null) {
+const begin = consumed[0].SourceRange.StartIndex;
+if (begin >= 0) {
   shell.SignIn(begin);
 }
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const previousEnd = host.Data[at].SourceRange.End;
-    if (previousEnd !== null) {
-      pos = previousEnd.Index + 1;
+    const previousEnd = host.Data[at].SourceRange.EndIndex;
+    if (previousEnd >= 0) {
+      pos = previousEnd;
     }
     break;
   }

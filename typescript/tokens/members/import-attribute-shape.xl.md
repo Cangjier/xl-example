@@ -62,8 +62,8 @@ if (code[0] instanceof Common) {
 // Identifier / NumericLiteral / 对象 / 数组 / 二元表达式，甚至模板串 NoSubstitutionTemplateLiteral）。
 // 旧口径只认 `String` basic token，非字符串值整段丢掉 → AST 少了 value 子树，模板串还被错建成 StringLiteral。
 if (code.length >= 3 && code[1] instanceof Symbol && (code[1] as Symbol).Is(":")) {
-  const colonEnd = code[1].SourceRange.End;
-  const valuePos = colonEnd !== null ? colonEnd.Index + 1 : -1;
+  const colonEnd = code[1].SourceRange.EndIndex;
+  const valuePos = colonEnd >= 0 ? colonEnd : -1;
   const valueUnits:Array<Token> = code.slice(2);
   const valueBuilder = new ExpressionBuilder(code[2].Template, context);
   valueBuilder.Load(valueUnits, valuePos);
@@ -76,10 +76,10 @@ if (code.length >= 3 && code[1] instanceof Symbol && (code[1] as Symbol).Is(":")
   value.Parent = shape;
 }
 const last = code[code.length - 1];
-if (code[0].SourceRange.Start !== null) {
+if (code[0].SourceRange.StartIndex >= 0) {
   shape.SignIn(code[0].SourceRange.Start);
 }
-if (last.SourceRange.End !== null) {
+if (last.SourceRange.EndIndex >= 0) {
   shape.SignOut(last.SourceRange.End);
 }
 shape.TryToClose(context);

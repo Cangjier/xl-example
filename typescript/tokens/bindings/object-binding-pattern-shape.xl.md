@@ -40,7 +40,7 @@ const shape = new ObjectBindingPatternShape(bracket.Template);
 const groups:Array<Array<Token>> = [];
 const positions:Array<number> = [];
 let group:Array<Token> = [];
-let groupPos = bracket.SourceRange.Start === null ? 0 : bracket.SourceRange.Start.Index + 1;
+let groupPos = bracket.SourceRange.StartIndex < 0 ? 0 : bracket.SourceRange.StartIndex + 1;
 for (const item of bracket.Data) {
   if (item.IsTriviaToken) {
     continue;
@@ -49,7 +49,7 @@ for (const item of bracket.Data) {
     groups.push(group);
     positions.push(groupPos);
     group = [];
-    groupPos = item.SourceRange.End === null ? groupPos : item.SourceRange.End.Index + 1;
+    groupPos = item.SourceRange.EndIndex < 0 ? groupPos : item.SourceRange.EndIndex;
     continue;
   }
   group.push(item);

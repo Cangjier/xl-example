@@ -25,7 +25,7 @@ interface I extends J<K> {}
 继承子句。TS 的 HeritageClause children **只有** `ExpressionWithTypeArguments`（`extends` / `implements`
 关键字不投影成子节点），所以 Data 里只装这些项；关键字只参与本形状的区间与 `Pos`。
 
-区间：从关键字起点到最后一个类型表达式的终点；`Pos` = 关键字前一个非 trivia 单元（类名 / 接口名 / 上一个子句）`End.Index + 1`。
+区间：从关键字起点到最后一个类型表达式的终点；`Pos` = 关键字前一个非 trivia 单元（类名 / 接口名 / 上一个子句）`EndIndex`。
 
 ## field ClauseKind:string = ""
 

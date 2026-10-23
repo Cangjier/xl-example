@@ -40,7 +40,7 @@ return ShapeStates.Reject;
 
 把壳收口成完整形状：用壳的 `Data`（头部代码单元 + 已闭合的接口体括号）走 `BuildFromCode`，然后在父单元的 `Data` 里原地顶替掉壳。
 
-壳的 `Pos` 在建壳时已经按「前一个非 trivia 单元的 `End.Index + 1`」算好，直接沿用——收口时父单元里壳已经是最后一个单元，重算会得到壳自己的右边界。
+壳的 `Pos` 在建壳时已经按「前一个非 trivia 单元的 `EndIndex`」算好，直接沿用——收口时父单元里壳已经是最后一个单元，重算会得到壳自己的右边界。
 
 ```ts
 const shell = host as InterfaceDeclarationShape;

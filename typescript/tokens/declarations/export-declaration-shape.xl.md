@@ -70,7 +70,7 @@ this.CatalogGuide = new CatalogGuide(ExportDeclarationShape.CreatePossibleShapes
 const mounted = this.Parent !== null && this.Parent.MountedUnit === this;
 if (mounted) {
   let at = this.Data.length - 1;
-  while (at >= 0 && (this.Data[at].IsTriviaToken || this.Data[at].SourceRange.End === null)) {
+  while (at >= 0 && (this.Data[at].IsTriviaToken || this.Data[at].SourceRange.EndIndex < 0)) {
     at--;
   }
   if (at >= 0) {
@@ -133,11 +133,11 @@ if (index < code.length - 1 && code[index] instanceof Common && (code[index] as 
 if (index >= code.length - 1) {
   throw new Error("export declaration is missing export clause");
 }
-const keywordEnd = keyword.SourceRange.End;
-let clausePos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
+const keywordEnd = keyword.SourceRange.EndIndex;
+let clausePos = keywordEnd < 0 ? 0 : keywordEnd;
 if (isTypeOnly) {
-  const typeEnd = code[index - 1].SourceRange.End;
-  clausePos = typeEnd === null ? clausePos : typeEnd.Index + 1;
+  const typeEnd = code[index - 1].SourceRange.EndIndex;
+  clausePos = typeEnd < 0 ? clausePos : typeEnd;
 }
 if (code[index] instanceof Symbol && (code[index] as Symbol).Is("*")) {
   const starUnit = code[index];
@@ -193,19 +193,19 @@ if (index < code.length - 1 && code[index] instanceof Common && (code[index] as 
     const literal = StringLiteralShape.FromBasicToken(literalToken, context);
     const parenthesized = new ParenthesizedExpressionShape(host.Template);
     parenthesized.Add(literal);
-    if (holder.SourceRange.Start !== null) {
+    if (holder.SourceRange.StartIndex >= 0) {
       parenthesized.SignIn(holder.SourceRange.Start);
     }
-    if (holder.SourceRange.End !== null) {
+    if (holder.SourceRange.EndIndex >= 0) {
       parenthesized.SignOut(holder.SourceRange.End);
     }
-    parenthesized.Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
+    parenthesized.Pos = fromUnit.SourceRange.EndIndex < 0 ? 0 : fromUnit.SourceRange.EndIndex;
     parenthesized.TryToClose(context);
     moduleSpecifier = parenthesized;
   } else {
     throw new Error("export declaration is missing module specifier");
   }
-  (moduleSpecifier as ShapeToken).Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
+  (moduleSpecifier as ShapeToken).Pos = fromUnit.SourceRange.EndIndex < 0 ? 0 : fromUnit.SourceRange.EndIndex;
   shape.ModuleSpecifier = moduleSpecifier;
   shape.Data.push(moduleSpecifier);
   moduleSpecifier.Parent = shape;
@@ -221,8 +221,8 @@ if (index < code.length - 1 && code[index] instanceof Common
   }
   const attributes = ImportAttributesShape.FromBracket(attributeBracket as Bracket, attributeKeyword.TempToString(), context);
   const attributePrevious = code[index - 2];
-  const attributePreviousEnd = attributePrevious.SourceRange.End;
-  attributes.Pos = attributePreviousEnd === null ? 0 : attributePreviousEnd.Index + 1;
+  const attributePreviousEnd = attributePrevious.SourceRange.EndIndex;
+  attributes.Pos = attributePreviousEnd < 0 ? 0 : attributePreviousEnd;
   shape.Data.push(attributes);
   attributes.Parent = shape;
   index++;
@@ -234,18 +234,18 @@ shape.IsTypeOnly = isTypeOnly;
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
+    const end = host.Data[at].SourceRange.EndIndex;
     if (end !== null) {
-      pos = end.Index + 1;
+      pos = end;
     }
     break;
   }
 }
 shape.Pos = pos;
-if (keyword.SourceRange.Start !== null) {
+if (keyword.SourceRange.StartIndex >= 0) {
   shape.SignIn(keyword.SourceRange.Start);
 }
-if (semicolon.SourceRange.End !== null) {
+if (semicolon.SourceRange.EndIndex >= 0) {
   shape.SignOut(semicolon.SourceRange.End);
 }
 shape.TryToClose(context);
@@ -282,13 +282,13 @@ for (const item of this.Data) {
       const literal = StringLiteralShape.FromBasicToken(literalToken, context);
       const parenthesized = new ParenthesizedExpressionShape(this.Template);
       parenthesized.Add(literal);
-      if (holder.SourceRange.Start !== null) {
+      if (holder.SourceRange.StartIndex >= 0) {
         parenthesized.SignIn(holder.SourceRange.Start);
       }
-      if (holder.SourceRange.End !== null) {
+      if (holder.SourceRange.EndIndex >= 0) {
         parenthesized.SignOut(holder.SourceRange.End);
       }
-      parenthesized.Pos = holder.SourceRange.Start === null ? 0 : holder.SourceRange.Start.Index;
+      parenthesized.Pos = holder.SourceRange.StartIndex < 0 ? 0 : holder.SourceRange.StartIndex;
       parenthesized.TryToClose(context);
       this.ModuleSpecifier = parenthesized as Token;
       kept.push(parenthesized);
