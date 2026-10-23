@@ -143,6 +143,10 @@ type T = {};
 
 ## field InConditionalExtends:bool = false
 
+## field TextCacheUnit:Token | null = null
+
+## field TextCacheValue:string = ""
+
 ## field BoundaryCache:MemberBoundaryCache = new MemberBoundaryCache()
 
 成员边界判定的记忆化宿主（`MemberBoundary.FindMemberBoundary` 的第三个参数）。
@@ -172,6 +176,8 @@ this.Units = [];
 this.Positions = [];
 this.SourceIndexes = [];
 this.At = 0;
+this.TextCacheUnit = null;
+this.TextCacheValue = "";
 this.BoundaryCache.Code = null;
 this.BoundaryCache.From = -1;
 this.BoundaryCache.Boundary = -1;
@@ -232,13 +238,18 @@ return this.Units[index];
 ## method TextOf:(unit:Token)=>string
 
 ```ts
+if (unit === this.TextCacheUnit) {
+  return this.TextCacheValue;
+}
+let value = "";
 if (unit instanceof Common) {
-  return (unit as Common).TempToString();
+  value = (unit as Common).TempToString();
+} else if (unit instanceof Symbol) {
+  value = (unit as Symbol).TempToString();
 }
-if (unit instanceof Symbol) {
-  return (unit as Symbol).TempToString();
-}
-return "";
+this.TextCacheUnit = unit;
+this.TextCacheValue = value;
+return value;
 ```
 
 ## method IsText:(unit:Token, text:string)=>bool
