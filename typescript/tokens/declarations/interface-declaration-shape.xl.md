@@ -162,8 +162,8 @@ let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
+    if (end >= 0) {
+      pos = end;
     }
     break;
   }
@@ -175,7 +175,7 @@ return InterfaceDeclarationShape.BuildFromCode(host, code, pos, context);
 
 从「已经按 AST 顺序排好的非 trivia 代码单元」建接口声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`InterfaceDeclarationEndPossibleShape` 把壳换成完整形状）。
 
-`pos` 是第一个代码单元前一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`），也是装饰器的区间起点。
+`pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
 
 ```ts
 const decoratorBase = pos;
@@ -187,7 +187,7 @@ while (decoratorCount < code.length
   && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
   const atUnit = code[decoratorCount];
   const decoratorPos = decoratorEnd;
-  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const expressionBase = atUnit.SourceRange.End < 0 ? decoratorPos : atUnit.SourceRange.EndIndex;
   let decoratorExpression:Token;
   {
     const builder = new ExpressionBuilder(host.Template, context);
@@ -202,8 +202,8 @@ while (decoratorCount < code.length
     const consumed = builder.At;
     for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
       const cursorEnd = code[cursor].SourceRange.End;
-      if (cursorEnd !== null) {
-        decoratorEnd = cursorEnd.Index + 1;
+      if (cursorEnd >= 0) {
+        decoratorEnd = cursorEnd;
       }
     }
     decoratorCount += 1 + consumed;
@@ -240,7 +240,7 @@ if (!(nameUnit instanceof Common)) {
 if (index >= code.length) {
   throw new Error("接口声明缺少接口体");
 }
-let heritageBasePos = nameUnit.SourceRange.End === null ? 0 : nameUnit.SourceRange.End.Index + 1;
+let heritageBasePos = nameUnit.SourceRange.End < 0 ? 0 : nameUnit.SourceRange.EndIndex;
 const typeParameters:Array<Token> = [];
 if (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("<")) {
   const typeParameterBuilder = new TypeBuilder(host.Template, context);
@@ -278,8 +278,8 @@ if (index < code.length && code[index] instanceof Symbol && (code[index] as Symb
   if (index > 0) {
     const lastTypeUnit = code[index - 1];
     const lastTypeEnd = lastTypeUnit.SourceRange.End;
-    if (lastTypeEnd !== null) {
-      heritageBasePos = lastTypeEnd.Index + 1;
+    if (lastTypeEnd >= 0) {
+      heritageBasePos = lastTypeEnd;
     }
   }
 }
@@ -289,7 +289,7 @@ if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !==
   throw new Error("接口声明的接口体不是花括号");
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+name.Pos = keyword.SourceRange.End < 0 ? pos : keyword.SourceRange.EndIndex;
 const heritageBase = heritageBasePos;
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
@@ -310,8 +310,8 @@ if (exportUnit !== null) {
   exportModifier.Pos = modifierPos;
   exportModifier.TryToClose(context);
   shape.Add(exportModifier);
-  if (exportUnit.SourceRange.End !== null) {
-    modifierPos = exportUnit.SourceRange.End.Index + 1;
+  if (exportUnit.SourceRange.End >= 0) {
+    modifierPos = exportUnit.SourceRange.EndIndex;
   }
 }
 if (declareUnit !== null) {
@@ -353,8 +353,8 @@ return shape;
 const members:Array<Token> = [];
 const builder = new TypeBuilder(host.Template, context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.Start >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 builder.Load(bracket.Data, base);
 while (builder.At < builder.Units.length) {
@@ -413,14 +413,14 @@ if (at >= bracket.Data.length) {
   return members;
 }
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.Start >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 for (let previous = at - 1; previous >= 0; previous--) {
   if (!bracket.Data[previous].IsTriviaToken) {
     const previousEnd = bracket.Data[previous].SourceRange.End;
-    if (previousEnd !== null) {
-      base = previousEnd.Index + 1;
+    if (previousEnd >= 0) {
+      base = previousEnd;
     }
     break;
   }

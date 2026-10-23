@@ -5,6 +5,7 @@ import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
@@ -98,20 +99,21 @@ it here broke a following type alias — `import x from "m"\ntype X = A;` had th
 and Close threw "未识别的单元（Common）".
 
 ```ts
-const end = units[last].SourceRange.End;
-if (end === null) {
+const lastRange = units[last].SourceRange;
+const document = lastRange.Document;
+if (document === null || lastRange.End < 0) {
   return false;
 }
-const document = end.Document;
 const count = document.GetCount();
-let at = end.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = lastRange.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   // 行终止符：LF / CR / U+2028 / U+2029（cover8-A，统一走 LineTerminator）。
   if (LineTerminator.IsLineTerminator(ch)) {
     at++;
     while (at < count) {
-      const gap = document.At(at).Value;
+      const gap = whole.At(at);
       if (gap === " " || gap === "\t" || gap === "\v" || gap === "\f"
         || LineTerminator.IsLineTerminator(gap)) {
         at++;
@@ -126,13 +128,13 @@ while (at < count) {
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       // 行注释不是边界：声明是否结束要看**下一行首词**。
       // `import { a } //c` ⏎ `from "m"` 里 `from` 是续接关键字，声明还没完；
       // 只有下一行首词不在续接表里才在换行处结束（ASI）。
       at += 2;
-      while (at < count && !LineTerminator.IsLineTerminator(document.At(at).Value)) {
+      while (at < count && !LineTerminator.IsLineTerminator(whole.At(at))) {
         at++;
       }
       if (at >= count) {
@@ -142,7 +144,7 @@ while (at < count) {
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -164,9 +166,10 @@ return true;
 读到同一份续接表。
 
 ```ts
+const whole = SourceRange.Whole(document);
 let scan = at;
 while (scan < count) {
-  const gap = document.At(scan).Value;
+  const gap = whole.At(scan);
   if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n" || gap === "\v" || gap === "\f") {
     scan++;
     continue;
@@ -175,7 +178,7 @@ while (scan < count) {
 }
 let word = "";
 while (scan < count) {
-  const c = document.At(scan).Value;
+  const c = whole.At(scan);
   if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c === "_" || c === "$") {
     word += c;
     scan++;
@@ -200,7 +203,7 @@ return word === "with" || word === "assert" || word === "from" || word === "as" 
 
 ```ts
 const range = units[last].SourceRange;
-if (range.Start === null || range.End === null) {
+if (range.Start < 0 || range.End < 0) {
   return false;
 }
 const text = range.GetRaw();
@@ -227,7 +230,7 @@ if (!(boundary instanceof EndOfFileTokenShape) && !(boundary instanceof Symbol &
   }
   if (end >= 0) {
     const lastEnd = host.Data[end].SourceRange.End;
-    if (lastEnd !== null) {
+    if (lastEnd >= 0) {
       unit.SignOut(lastEnd);
     }
   }
@@ -250,8 +253,8 @@ while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOf
 }
 if (at >= 0) {
   const last = host.Data[at];
-  if (last.SourceRange.End !== null) {
-    unit.SignOut(last.SourceRange.End);
+  if (last.SourceRange.End >= 0) {
+    unit.SignOut(last.SourceRange.EndIndex);
   }
 }
 unit.TryToClose(context);

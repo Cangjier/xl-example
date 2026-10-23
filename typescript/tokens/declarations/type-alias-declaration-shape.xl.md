@@ -28,7 +28,7 @@ type T<U extends A = B, V = C> = [U, V];
 measurement 载体：`type T[<U, …>] = <type>;`。TS 的 children 是 `Identifier` + 泛型参数（`TypeParameter`，可无）
 + 类型；`type` 关键字、`<` / `>` / `=` / `;` 都是 basic token，建完就丢。
 
-区间：从 `type` 的起点到 `;`；`Pos` = 前一个非 trivia 单元 `End.Index + 1`（没有就 `0`），与 TS 一致。
+区间：从 `type` 的起点到 `;`；`Pos` = 前一个非 trivia 单元 `EndIndex`（没有就 `0`），与 TS 一致。
 `type` 与名字之间的 trivia 体现在名字的 `Pos` 上（`type /* c */ T` 的名字 `Pos` 仍是 `type` 之后）。
 
 字段不叫 `Name`：`cjAst` 会把 `Name` 读成 AST 的 `name`，而 TS 的 `TypeAliasDeclaration` 在尺子里只比 children。
@@ -116,7 +116,7 @@ if (!(code[typeIndex + 1] instanceof Common)) {
 }
 // TS nextTokenIsIdentifierOnSameLine：`type` 与名字之间有行终止符 ⇒ 这不是别名声明。
 // `type` ⏎ `T = 1` 是两条 ExpressionStatement（`type` 是标识符）；块注释里的换行同样算。
-if (LineTerminator.HasBetween(code[typeIndex].SourceRange.End, code[typeIndex + 1].SourceRange.Start)) {
+if (LineTerminator.HasBetween(code[typeIndex].SourceRange, code[typeIndex + 1].SourceRange)) {
   return false;
 }
 const next = code[typeIndex + 2];
@@ -144,11 +144,11 @@ for (let at = start; at <= tokenIndex; at++) {
   const previous = code.length > 0 ? code[code.length - 1] : null;
   const unitStart = unit.SourceRange.Start;
   const unitEnd = unit.SourceRange.End;
-  if (previous !== null && unitStart !== null && unitEnd !== null) {
+  if (previous !== null && unitStart >= 0 && unitEnd >= 0) {
     const previousStart = previous.SourceRange.Start;
     const previousEnd = previous.SourceRange.End;
-    if (previousStart !== null && previousEnd !== null
-      && previousStart.Index === unitStart.Index && previousEnd.Index === unitEnd.Index) {
+    if (previousStart >= 0 && previousEnd >= 0
+      && previousStart === unitStart && previousEnd === unitEnd) {
       continue;
     }
   }
@@ -161,8 +161,8 @@ let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
+    if (end >= 0) {
+      pos = end;
     }
     break;
   }
@@ -171,8 +171,8 @@ let decoratorBase = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      decoratorBase = end.Index + 1;
+    if (end >= 0) {
+      decoratorBase = end;
     }
     break;
   }
@@ -184,7 +184,7 @@ while (decoratorCount < code.length
   && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
   const atUnit = code[decoratorCount];
   const decoratorPos = decoratorEnd;
-  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const expressionBase = atUnit.SourceRange.End < 0 ? decoratorPos : atUnit.SourceRange.EndIndex;
   let decoratorExpression:Token;
   {
     const builder = new ExpressionBuilder(host.Template, context);
@@ -199,8 +199,8 @@ while (decoratorCount < code.length
     const consumed = builder.At;
     for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
       const cursorEnd = code[cursor].SourceRange.End;
-      if (cursorEnd !== null) {
-        decoratorEnd = cursorEnd.Index + 1;
+      if (cursorEnd >= 0) {
+        decoratorEnd = cursorEnd;
       }
     }
     decoratorCount += 1 + consumed;
@@ -257,14 +257,14 @@ if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
   throw new Error("类型别名声明的类型为空");
 }
 let namePos = 0;
-if (keyword.SourceRange.End !== null) {
-  namePos = keyword.SourceRange.End.Index + 1;
+if (keyword.SourceRange.End >= 0) {
+  namePos = keyword.SourceRange.EndIndex;
 }
 const name = IdentifierShape.FromBasicToken(nameUnit, context);
 name.Pos = namePos;
 let typePos = 0;
-if (equal.SourceRange.End !== null) {
-  typePos = equal.SourceRange.End.Index + 1;
+if (equal.SourceRange.End >= 0) {
+  typePos = equal.SourceRange.EndIndex;
 }
 let typeTail = code.length;
 if (last instanceof Symbol && (last as Symbol).Is(";")) {
@@ -281,8 +281,8 @@ let parameters:Array<Token> = [];
 if (paramsUnits.length > 0) {
   const paramsBuilder = new TypeBuilder(host.Template, context);
   let paramsPos = 0;
-  if (nameUnit.SourceRange.End !== null) {
-    paramsPos = nameUnit.SourceRange.End.Index + 1;
+  if (nameUnit.SourceRange.End >= 0) {
+    paramsPos = nameUnit.SourceRange.EndIndex;
   }
   paramsBuilder.Load(paramsUnits, paramsPos);
   parameters = paramsBuilder.ParseTypeParameterList();
@@ -309,7 +309,7 @@ if (declareUnit !== null) {
     modifier.Pos = pos;
   } else {
     const exportEnd = exportUnit.SourceRange.End;
-    modifier.Pos = exportEnd === null ? pos : exportEnd.Index + 1;
+    modifier.Pos = exportEnd < 0 ? pos : exportEnd;
   }
   shape.Add(modifier);
 }
@@ -318,8 +318,8 @@ if (decoratorCount > 0) {
   for (const child of shape.Data) {
     if (child instanceof ExportKeywordShape || child instanceof DeclareKeywordShape) {
       (child as ShapeToken).Pos = modifierPos;
-      if (child.SourceRange.End !== null) {
-        modifierPos = child.SourceRange.End.Index + 1;
+      if (child.SourceRange.End >= 0) {
+        modifierPos = child.SourceRange.EndIndex;
       }
     }
   }
@@ -330,22 +330,22 @@ for (const parameter of parameters) {
 }
 shape.Add(type);
 if (decoratorCount > 0) {
-  if (code[0].SourceRange.Start !== null) {
-    shape.SignIn(code[0].SourceRange.Start);
+  if (code[0].SourceRange.Start >= 0) {
+    shape.SignIn(code[0].SourceRange.StartIndex);
   }
 } else if (exportUnit !== null) {
-  if (exportUnit.SourceRange.Start !== null) {
-    shape.SignIn(exportUnit.SourceRange.Start);
+  if (exportUnit.SourceRange.Start >= 0) {
+    shape.SignIn(exportUnit.SourceRange.StartIndex);
   }
 } else if (declareUnit !== null) {
-  if (declareUnit.SourceRange.Start !== null) {
-    shape.SignIn(declareUnit.SourceRange.Start);
+  if (declareUnit.SourceRange.Start >= 0) {
+    shape.SignIn(declareUnit.SourceRange.StartIndex);
   }
-} else if (keyword.SourceRange.Start !== null) {
-  shape.SignIn(keyword.SourceRange.Start);
+} else if (keyword.SourceRange.Start >= 0) {
+  shape.SignIn(keyword.SourceRange.StartIndex);
 }
-if (last.SourceRange.End !== null) {
-  shape.SignOut(last.SourceRange.End);
+if (last.SourceRange.End >= 0) {
+  shape.SignOut(last.SourceRange.EndIndex);
 }
 shape.Pos = pos;
 shape.TryToClose(context);

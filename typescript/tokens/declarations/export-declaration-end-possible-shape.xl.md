@@ -5,6 +5,7 @@ import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
@@ -95,16 +96,17 @@ line break followed by a new statement; it must not end when the next code is `;
 (`with` / `assert` / `from` / `as` / `type`) on the same or the next line.
 
 ```ts
-const end = units[last].SourceRange.End;
-if (end === null) {
+const lastRange = units[last].SourceRange;
+const document = lastRange.Document;
+if (document === null || lastRange.End < 0) {
   return false;
 }
-const document = end.Document;
 const count = document.GetCount();
-let at = end.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = lastRange.EndIndex;
 let lineBreak = false;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   // 行终止符：LF / CR / U+2028 / U+2029（cover8-A，统一走 LineTerminator）。
   if (LineTerminator.IsLineTerminator(ch)) {
     lineBreak = true;
@@ -116,20 +118,20 @@ while (at < count) {
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       // 行注释本身不含换行：跳过注释文本，让它后面的那个换行在下一轮被记为 lineBreak。
       // `export { a } // c` ⏎ `from "m"` 必须与块注释 / 无注释走同一套判据，否则在这里
       // 提前 Accept 会与还活着的普通候选在同一格撞 CatalogGuide 共存。
       at += 2;
-      while (at < count && !LineTerminator.IsLineTerminator(document.At(at).Value)) {
+      while (at < count && !LineTerminator.IsLineTerminator(whole.At(at))) {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -148,7 +150,7 @@ if (!lineBreak) {
 }
 let word = "";
 while (at < count) {
-  const c = document.At(at).Value;
+  const c = whole.At(at);
   if ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c === "_" || c === "$") {
     word += c;
     at++;
@@ -179,7 +181,7 @@ return true;
 
 ```ts
 const range = units[last].SourceRange;
-if (range.Start === null || range.End === null) {
+if (range.Start < 0 || range.End < 0) {
   return false;
 }
 const text = range.GetRaw();
@@ -206,7 +208,7 @@ if (!(boundary instanceof EndOfFileTokenShape) && !(boundary instanceof Symbol &
   }
   if (end >= 0) {
     const lastEnd = host.Data[end].SourceRange.End;
-    if (lastEnd !== null) {
+    if (lastEnd >= 0) {
       unit.SignOut(lastEnd);
     }
   }
@@ -229,8 +231,8 @@ while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOf
 }
 if (at >= 0) {
   const last = host.Data[at];
-  if (last.SourceRange.End !== null) {
-    unit.SignOut(last.SourceRange.End);
+  if (last.SourceRange.End >= 0) {
+    unit.SignOut(last.SourceRange.EndIndex);
   }
 }
 unit.TryToClose(context);

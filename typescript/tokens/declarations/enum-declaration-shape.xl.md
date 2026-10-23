@@ -48,7 +48,7 @@ declare const enum E { A = 1 }
 `enum` / 花括号 / 逗号 / 等号都不进 Data。
 
 枚举成员由 `EnumMemberShape`（members 家族，构造函数已就绪）就地建：
-名字的 `Pos` = 枚举成员 `Pos` = 前一个单元（`{` 或 `,`）`End.Index + 1`，与 TS 的 `EnumMember.pos` 同口径；
+名字的 `Pos` = 枚举成员 `Pos` = 前一个单元（`{` 或 `,`）`EndIndex`，与 TS 的 `EnumMember.pos` 同口径；
 初始化器用 `ExpressionBuilder.ParseAssign()` 解析，区间到初始化器终点为止（`enum E { A }` 的成员区间不含 `}` 前的空间）。
 
 区间：从修饰符（没有就从 `enum`）的起点到 `}`；`Pos` 口径同 ClassDeclarationShape。
@@ -128,8 +128,8 @@ let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
+    if (end >= 0) {
+      pos = end;
     }
     break;
   }
@@ -142,7 +142,7 @@ return EnumDeclarationShape.BuildFromCode(host, code, pos, context);
 从「已经按 AST 顺序排好的非 trivia 代码单元」建枚举声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等
 一次性建形状）与本形状壳的收口（`EnumDeclarationEndPossibleShape` 把壳换成完整形状）。
 
-`pos` 是第一个代码单元前一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`），也是装饰器的区间起点。
+`pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
 
 成员由 `CollectBodyMembers` 取：枚举体里已经由成员候选增量建出的形状按序收集，仍留 raw basic token 的路径
 （一次性构建、最后一个没来得及建出的成员、恢复形）回退 `BuildMembers`。
@@ -156,7 +156,7 @@ while (decoratorCount < code.length
   && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
   const atUnit = code[decoratorCount];
   const decoratorPos = decoratorEnd;
-  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const expressionBase = atUnit.SourceRange.End < 0 ? decoratorPos : atUnit.SourceRange.EndIndex;
   const builder = new ExpressionBuilder(host.Template, context);
   builder.Load(code.slice(decoratorCount + 1), expressionBase);
   if (builder.Units.length === 0) {
@@ -169,8 +169,8 @@ while (decoratorCount < code.length
   const consumed = builder.At;
   for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
     const cursorEnd = code[cursor].SourceRange.End;
-    if (cursorEnd !== null) {
-      decoratorEnd = cursorEnd.Index + 1;
+    if (cursorEnd >= 0) {
+      decoratorEnd = cursorEnd;
     }
   }
   decoratorCount += 1 + consumed;
@@ -215,7 +215,7 @@ if (index !== code.length) {
   throw new Error("枚举声明有多余单元");
 }
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-name.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+name.Pos = keyword.SourceRange.End < 0 ? pos : keyword.SourceRange.EndIndex;
 const members = EnumDeclarationShape.CollectBodyMembers(host, bodyUnit as Bracket, context);
 const shape = new EnumDeclarationShape(host.Template);
 shape.EnumName = name;
@@ -237,7 +237,7 @@ for (const unit of modifierUnits) {
     modifier.TryToClose(context);
     shape.Add(modifier);
   }
-  modifierPos = unit.SourceRange.End === null ? modifierPos : unit.SourceRange.End.Index + 1;
+  modifierPos = unit.SourceRange.End < 0 ? modifierPos : unit.SourceRange.EndIndex;
 }
 shape.Add(name);
 for (const member of members) {
@@ -273,7 +273,7 @@ return BodyGuideUtil.CollectBodyMembers(host, bracket, context, EnumDeclarationS
 ```ts
 const members:Array<Token> = [];
 let group:Array<Token> = [];
-let memberPos = bracket.SourceRange.Start === null ? 0 : bracket.SourceRange.Start.Index + 1;
+let memberPos = bracket.SourceRange.Start < 0 ? 0 : bracket.SourceRange.StartIndex + 1;
 for (const item of bracket.Data) {
   if (item.IsTriviaToken) {
     continue;
@@ -284,7 +284,7 @@ for (const item of bracket.Data) {
       members.push(member);
     }
     group = [];
-    memberPos = item.SourceRange.End === null ? 0 : item.SourceRange.End.Index + 1;
+    memberPos = item.SourceRange.End < 0 ? 0 : item.SourceRange.EndIndex;
     continue;
   }
   group.push(item);
@@ -313,8 +313,8 @@ if (nameUnit instanceof Bracket && (nameUnit as Bracket).StartBracketChar === "[
   const computedBracket = nameUnit as Bracket;
   const inner = new ExpressionBuilder(host.Template, context);
   let innerBase = 0;
-  if (computedBracket.SourceRange.Start !== null) {
-    innerBase = computedBracket.SourceRange.Start.Index + 1;
+  if (computedBracket.SourceRange.Start >= 0) {
+    innerBase = computedBracket.SourceRange.StartIndex + 1;
   }
   inner.Load(computedBracket.Data, innerBase);
   if (inner.Units.length === 0) {
@@ -362,7 +362,7 @@ if (group.length > 1) {
   if (valueUnits.length === 0) {
     throw new Error("枚举成员的初始化器为空");
   }
-  const valuePos = equal.SourceRange.End === null ? 0 : equal.SourceRange.End.Index + 1;
+  const valuePos = equal.SourceRange.End < 0 ? 0 : equal.SourceRange.EndIndex;
   const builder = new ExpressionBuilder(host.Template, context);
   builder.Load(valueUnits, valuePos);
   const value = builder.ParseAssign();
