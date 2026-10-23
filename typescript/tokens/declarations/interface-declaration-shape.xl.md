@@ -373,41 +373,39 @@ return members;
 两种情况成员顺序都是源码顺序，成员形状都由同一个 `TypeBuilder.ParseTypeMember()` 建，区间口径不变。
 
 ```ts
-let hasBuiltMember = false;
-let hasRawCode = false;
-for (const unit of bracket.Data) {
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  if (!unit.IsBasicToken) {
-    hasBuiltMember = true;
-    continue;
-  }
-  if (unit instanceof Symbol && ((unit as Symbol).Is(";") || (unit as Symbol).Is(","))) {
-    continue;
-  }
-  hasRawCode = true;
-}
-if (!hasBuiltMember) {
-  return InterfaceDeclarationShape.BuildMembers(host, bracket, context);
-}
+// 单趟：按序收集已建成员，同时记住第一段 raw 代码的位置；成员次序即 XML 次序，不得改动。
 const members:Array<Token> = [];
+let hasBuiltMember = false;
 let at = 0;
-while (at < bracket.Data.length) {
+for (; at < bracket.Data.length; at++) {
   const unit = bracket.Data[at];
   if (unit.IsTriviaToken) {
-    at++;
     continue;
   }
   if (unit.IsBasicToken) {
     if (unit instanceof Symbol && ((unit as Symbol).Is(";") || (unit as Symbol).Is(","))) {
-      at++;
       continue;
     }
     break;
   }
+  hasBuiltMember = true;
   members.push(unit);
-  at++;
+}
+// raw 尾巴上可能还有已建成员（异常摆放时才出现）：补齐探测，保持「整段有无已建成员」的原判据。
+if (at < bracket.Data.length) {
+  for (let probe = at + 1; probe < bracket.Data.length; probe++) {
+    const probeUnit = bracket.Data[probe];
+    if (probeUnit.IsTriviaToken) {
+      continue;
+    }
+    if (!probeUnit.IsBasicToken) {
+      hasBuiltMember = true;
+      break;
+    }
+  }
+}
+if (!hasBuiltMember) {
+  return InterfaceDeclarationShape.BuildMembers(host, bracket, context);
 }
 if (at >= bracket.Data.length) {
   return members;
