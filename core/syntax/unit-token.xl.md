@@ -105,7 +105,7 @@ throw new Error("abstract member: ExitOrPre");
 - 本单元在本次窗口里已经 `Quit`（`Parent.MountedUnit` 已经不是自己）→ **立刻返回**，把本窗口剩余字符交回父单元。关闭发生在窗口中间时，已卸载的单元不许再吃后面的字符。
 - `context.Messages` 非空 → **立刻返回**，把尚未消费的消息交回驱动层先 `DrainMessages()` 重放。否则父单元会先把重放位置之后的字符处理掉，重放就变成乱序。**驱动层自己重放一个位置时（`context.Replaying`）不适用**：重放窗口固定一格，队列里可能还排着更后面的消息。
 
-整个窗口包在**一次** `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个字符到当前字符」`[max(0, index-1), index+1)`。
+整个窗口包在**一次** `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个字符到当前字符」`[max(0, index-1), index+1)`。已经是 `SyntaxException` 的异常原样上抛，不再套一层窗口范围。
 
 ```ts
 try {

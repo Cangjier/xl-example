@@ -57,7 +57,7 @@
 | 7 | parse validate | `node tests/parse/validate.mjs` | 1719/0 | **1719 条，0 条不合格** | PASS |
 | 8 | cache-share | `node tests/cache-share/check.mjs` | 5/5 | **5/5 PASS，0 FAIL** | PASS |
 
-### 3.1 等价（XML 逐字节 + 位置 digest）
+### 3.1 等价（XML 逐字节 + 位置 digest；本节为 exc-fix 前 `7d566280` 读数）
 
 命令：`node tests/bench/buffer-equivalence.mjs --mode both --base build-base --new build`
 （`build-base` = `buffer-baseline/build-base` 的副本，873 个 js）
@@ -71,7 +71,7 @@
 - **ERROR 10 = 两侧都抛错、只是异常的 `^` 标注位置不同**（不是「一侧能解析另一侧不能」）：
   7 份 `typescript/cases/*.ts`（逐行夹具，整文件本身不可解析）+ 3 份 `tests/cases/e2e/scenarios/*`
   （超出当前语法面、基线同样抛错）。两侧 XML 字节都是 0，解析结果等价；该工具按「异常文本全等」判同错，
-  所以计成 ERROR 而不是「同错」。详见 §5 未决项 1。
+  所以计成 ERROR 而不是「同错」。详见 §6 未决项 1；exc-fix 后已归零，最终读数见 §7.2。
 - 基线自检口径是 4504/0/0/52；本树把其中 42 份仍判同错，10 份因错误位置不同被判 ERROR。
 
 ### 3.2 性能（同机同会话）
@@ -159,11 +159,13 @@ ProcessSingle|ProcessAt|SourceQueue|ProcessSource|LastSource   0
 
 ## 6. 未决 / 说明
 
-1. **等价工具 10 项 ERROR（两侧都抛错、异常 `^` 位置不同）**：7 份 `typescript/cases/*.ts`（一行一个用例的
-   夹具，整文件不可解析）+ 3 份 `tests/cases/e2e/scenarios/*`（当前语法面外，基线也抛）。两侧都没有 XML 产出
-   （字节 0/0），token 数也相同；差异只在 `SyntaxException` 的 `^` 标注。基线把这 9+43 份记成「同错」，
-   本树把其中 10 份判成 ERROR。若验收要求「同错文本也全等」，需要把这 10 份的抛错位置对齐旧实现
-   （涉及恢复路径的抛错点，属语义改动，未擅自做）。
+1. **等价工具 10 项 ERROR（两侧都抛错、异常 `^` 位置不同）——已解决**：
+   `fix/buffer-exception-range` @ `74468f9a` 把 `UnitToken` / `String` / `InterpolationString` 三处窗口级
+   `catch` 改成「`e instanceof SyntaxException` 就原样 `throw e`」，不再用窗口内旧 `index` 构造外层
+   `SourceRange` 再 `FromInner` 包裹；只有真正的内层裸异常才套窗口范围。最终等价读数
+   **xml/digest 均 FAIL 0 / ERROR 0 / 同错 52（原 42 + 10）**，XML 字节 34,109,694 两侧相等、
+   token 797,790 两侧相等。原先那 10 份（7 份 `typescript/cases/*.ts` 逐行夹具 + 3 份
+   `tests/cases/e2e/scenarios/*`）现在异常文本全等，按「同错」计。详见 §7.2。
 2. `xl_build` 的 warning 数 2440 < 基线 2447（少的来自契约删除的两个源文件），未新增 warning。
 3. `build/`、`build-base/`、`dist/` 均在 `.gitignore` 内，**未提交**；本报告只提交源码与文档。
 4. 复跑顺序（本 clone）：
@@ -180,3 +182,70 @@ ProcessSingle|ProcessAt|SourceQueue|ProcessSource|LastSource   0
    node tests\bench\parse-perf.mjs --dts 8 --repeat 3
    node tests\bench\buffer-ab.mjs --base build-base --new build --repeat 5 --min-improve 20
    ```
+
+---
+
+## 7. 最终读数（含 exc-fix）
+
+最终合并者把 `fix/buffer-exception-range` @ `74468f9a`（父 `7d566280`）以 `--no-ff` 合入
+`integration-buffer`（merge commit `6ebf9d25`），从零重建后重跑全部门禁、等价与性能。
+同时按补文档对齐只改散文：`core/syntax/unit-token.xl.md`、
+`core/syntax/basic-tokens/string/string.xl.md`、
+`core/syntax/basic-tokens/string/interpolation-string.xl.md` 各补一句
+「已经是 `SyntaxException` 的原样上抛」，不改代码行为。
+
+- 工作目录：`C:\Users\Admin\Documents\GitHub\xl-example-set\buffer-final-merge`（独立 clone）
+- 分支：`integration-buffer`，含 merge `6ebf9d25` + 散文/报告提交
+- 环境：Windows 10 LTSC / Xeon 8378C / Node v24.21.0 / tsc 6.0.3
+
+### 7.1 构建与门禁（全量重跑）
+
+| 项 | 命令 | 读数 | 判定 |
+| --- | --- | --- | --- |
+| xl_build | `xl_build`（cwd=本 clone，paths `core,typescript`，target `ts`） | **871 written / 0 skipped / 0 planned / 0 error / 2440 warning** | PASS |
+| tsc | `node_modules\.bin\tsc.cmd -p tsconfig.json` | **exit 0，0 error** | PASS |
+| xl_check | `xl_check`（paths `core,typescript`） | **871 file(s) / 0 error**（warning 2440，与 xl_build 同） | PASS |
+| body-guide | `node tests/body-guide/harness.mjs --all` | **109/109**（35+25+23+16+10，fail 0，skipped 0） | PASS |
+| AST 快照 + 差异 | `node typescript/cases/ast-json.mjs` → `node typescript/cases/ast-json-diff.mjs` | **6167/6167 cj-ok=6167 cj-fail=0；完全一致 6167/6167，结构差 0、位置差 0、字段差 0** | PASS |
+| real-dts AST | `node typescript/cases/real-dts-ast.mjs` | **226 份（跳过 0）：成功 226、崩溃 0、AST 差异 0** | PASS |
+| token AST | `node typescript/cases/token-ast.mjs --quiet` | **total=1715 ok=1705 crash=0 diff=0 ts-invalid=10，known-gap 0** | PASS |
+| parse validate | `node tests/parse/validate.mjs` | **1719 条，0 条不合格** | PASS |
+| cache-share | `node tests/cache-share/check.mjs` | **5/5 PASS，0 FAIL** | PASS |
+
+与上一版（`7d566280`）相比，9 项读数完全一致，**无回归**。
+
+### 7.2 等价（exc-fix 后，XML 逐字节 + 位置 digest）
+
+命令：`node tests/bench/buffer-equivalence.mjs --mode both --base build-base --new build`
+（`build-base` = `buffer-baseline/build-base` 的副本，873 个 js）
+
+| 通道 | 读数 |
+| --- | --- |
+| xml | **PASS 4504 / FAIL 0 / ERROR 0 / 同错 52**；两侧字节都 34,109,694 B（逐字节相等） |
+| digest | **PASS 4504 / FAIL 0 / ERROR 0 / 同错 52**；两侧 token 各 797,790 条 |
+
+- 语料 4556 份、7,837,812 字符；两通道全 PASS。
+- **与 `7d566280` 的差异只在异常位置**：ERROR 10 → 0、同错 42 → 52（42 + 10），PASS 4504、字节数、
+  token 数与解析耗时口径均不变。原 10 份「两侧都抛错、`^` 标注位置不同」的输入现在异常文本全等。
+- 结论：等价闭环，§6 未决项 1 关闭。
+
+### 7.3 性能（同机同会话）
+
+| 项 | 命令 | 读数 | 判定 |
+| --- | --- | --- | --- |
+| buffer-ab | `node tests/bench/buffer-ab.mjs --base build-base --new build --repeat 5 --min-improve 20` | 基线 TOTAL 2163.713 ms → 实验 1406.993 ms，**+34.97%**（每轮合计中位 +32.4%），exit 0 | ≥20% PASS |
+| parse-perf | `node tests/bench/parse-perf.mjs --dts 8 --repeat 3` | **TOTAL median 1409.012 ms**（基线 2005–2011 ms，约 −29.8%） | ≥20% PASS |
+
+parse-perf 逐文件 median（ms）：dom 735.247、webworker 291.556、typescript.d.ts 294.021、es5 60.089、
+es2023.array 8.416、es2020.bigint 9.923、es2015.core 5.583、es2015.symbol 4.177。
+
+与上一版（`7d566280`）相比：buffer-ab +30.74% → **+34.97%**；parse-perf 1413.399 ms → **1409.012 ms**，
+同量级、无退化。
+
+### 7.4 最终结论
+
+**PASS。** `fix/buffer-exception-range` 已合入 `integration-buffer`，从零重建
+871 written / 0 error、tsc 0 error、xl_check 0 error；6 项门禁全部维持 109/109、6167/6167（0/0/0）、
+226/0/0、1715/1705/0/0/10、1719/0、5/5；等价 xml/digest 双通道 **FAIL 0 / ERROR 0 / 同错 52**，
+XML 字节 34,109,694 逐字节相等、token 797,790 相等；buffer-ab **+34.97%**、parse-perf **1409.012 ms**。
+**无未决项**，原「10 条 ERROR」已由 `74468f9a` 修复关闭。

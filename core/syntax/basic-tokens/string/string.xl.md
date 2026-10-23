@@ -103,7 +103,7 @@ return false;
 
 处理窗口里的字符，直到窗口走完**或本单元已经关闭**。
 
-`String` 会在收尾引号那一格由 `ExitOrPre` 调 `ForceExit` 关闭自己（`Closed = true`、从父单元卸载）。基类 `UnitToken.Process` 的窗口循环没有「本单元已关闭」这个退出条件，关闭之后它还会继续把同一窗口剩下的字符吃进本单元；这里用与基类相同的循环，只补一条 `!this.Closed` 守卫：收尾之后立刻把窗口交还出去，剩下的字符由外层（下一轮）处理。
+`String` 会在收尾引号那一格由 `ExitOrPre` 调 `ForceExit` 关闭自己（`Closed = true`、从父单元卸载）。基类 `UnitToken.Process` 的窗口循环没有「本单元已关闭」这个退出条件，关闭之后它还会继续把同一窗口剩下的字符吃进本单元；这里用与基类相同的循环，只补一条 `!this.Closed` 守卫：收尾之后立刻把窗口交还出去，剩下的字符由外层（下一轮）处理。窗口内抛出的异常按基类规则包成 `SyntaxException`；已经是 `SyntaxException` 的原样上抛，不再套窗口范围。
 
 ```ts
 try {
