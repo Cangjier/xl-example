@@ -4,7 +4,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
-import { Source } from "../source.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
@@ -47,15 +47,15 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 已吞掉的字符（单字符 BOM）。
 
-## protected method Default:(context:SyntaxContext, source:Source)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
 ```ts
-this.Tmp += source.Value;
+this.Tmp += buffer.At(index);
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
 BOM 单元不再接受任何字符（单字符、签出即关闭），一律让路。
 
@@ -79,9 +79,9 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## static method CanStart:(unit:Token, source:Source)=>bool
+## static method CanStart:(unit:Token, buffer:SourceRange, index:int)=>bool
 
-能不能从这里起一个 `Bom`：字符在 `unit.Template.BomChars` 里即可——**任意位置都认**（用户裁定②：对齐 TS，
+能不能从 `index` 这里起一个 `Bom`：字符在 `unit.Template.BomChars` 里即可——**任意位置都认**（用户裁定②：对齐 TS，
 U+FEFF 属 ECMAScript Whitespace；BOM 是 trivia，不构成代码 token 的边界）。
 
 历史：旧判据是「`source.Index === 0` 或 `unit.Data` 里已有的单元**全是 trivia**（尚无代码 token）」，
@@ -89,26 +89,26 @@ mid-code BOM 不认；用户裁定②（§5 item 4 方案②「放宽 Bom 起始
 `const a = 1;\uFEFFconst b = 2;` 这类 mid-code BOM 现在也按 trivia 跳过。
 
 ```ts
-if (!unit.Template.BomChars.includes(source.Value)) {
+if (!unit.Template.BomChars.includes(buffer.At(index))) {
   return false;
 }
 return true;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 判据见 `CanStart`：字符在 `unit.Template.BomChars` 里即可（**任意位置**，用户裁定②）。
 
 认下就挂一个新的 `Bom`，立刻按同一个字符签入、签出并关闭；它是 trivia，之后所有字符回到根单元。
 
 ```ts
-if (!Bom.CanStart(unit, source)) {
+if (!Bom.CanStart(unit, buffer, index)) {
   return BranchStates.Undo;
 }
 const mounted = new Bom(unit.Template);
 unit.Add(mounted);
-mounted.SignIn(source);
-mounted.SignOut(source);
+mounted.SignIn(index);
+mounted.SignOut(index + 1);
 mounted.TryToClose(context);
 return BranchStates.Done;
 ```

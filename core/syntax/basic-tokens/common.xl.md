@@ -5,7 +5,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
-import { Source } from "../source.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
@@ -38,26 +38,26 @@ basic 单元：由 `Template.BasicBranchQueue()` 收出来。
 super(Template);
 ```
 
-## method IsAppend:(Src:Source)=>bool
+## method IsAppend:(buffer:SourceRange, index:int)=>bool
 
-能不能把 `Src` 并进本块：不是符号、也不是空白就行。
+能不能把窗口里 `index` 处的字符并进本块：不是符号、也不是空白就行。
 
 `\u{…}` 花括号转义进行中时，`{` / 十六进制位 / `}` 也要并进同一个块（`}` 只在已有至少一位十六进制时）。
 
 ```ts
-if (Common.IsUnicodeEscapeStart(Src, this.Template)) {
+if (Common.IsUnicodeEscapeStart(buffer, index, this.Template)) {
   return true;
 }
 if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
   const digits = this.UnicodeBraceEscapeDigits();
-  if (digits === 0 && Src.Value === "{") {
+  if (digits === 0 && buffer.At(index) === "{") {
     return true;
   }
   if (digits > 0) {
-    if (Src.Value === "}") {
+    if (buffer.At(index) === "}") {
       return true;
     }
-    if (!this.Template.SymbolTemplate.IsHexDigit(Src.Value)) {
+    if (!this.Template.SymbolTemplate.IsHexDigit(buffer.At(index))) {
       return false;
     }
     // 位数不限（`\u{0000061}` / `\u{0001D400}` 合法）：只有「再补一位」还落在 Unicode 标量上限内
@@ -65,7 +65,7 @@ if (this.Template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
     return this.UnicodeBraceEscapeValue() * 16 <= Common.MaxUnicodeCodePoint();
   }
 }
-return !(this.Template.SymbolTemplate.IsSymbol(Src.Value) || this.Template.SymbolTemplate.IsWhiteSpace(Src.Value));
+return !(this.Template.SymbolTemplate.IsSymbol(buffer.At(index)) || this.Template.SymbolTemplate.IsWhiteSpace(buffer.At(index)));
 ```
 
 ## static method MaxUnicodeCodePoint:()=>int
@@ -78,38 +78,37 @@ Unicode 标量值上限（`U+10FFFF`）：`\u{…}` 的累计码点超过它就�
 return 0x10FFFF;
 ```
 
-## static method IsUnicodeEscapeStart:(Src:Source, template:Template)=>bool
+## static method IsUnicodeEscapeStart:(buffer:SourceRange, index:int, template:Template)=>bool
 
-`Src` 处是不是一个**合法**的转义标识符起点：`\` + `u` + 4 个十六进制字符（`\uXXXX`），
+`index` 处是不是一个**合法**的转义标识符起点：`\` + `u` + 4 个十六进制字符（`\uXXXX`），
 或 `\` + `u` + `{` + 1 个及以上十六进制字符 + `}`（`\u{…}`，位数不限，累计码点 ≤ `U+10FFFF`）。
 
 语言开关（`SymbolTemplate.SupportUnicodeEscapeIdentifier`）关闭时恒 `false`，其它语言零影响；
 不足位数 / 非十六进制 / 不是 `\` / 花括号形未闭合或码点越界一律 `false`（这些情况保持旧的“落回符号层”行为）。
- `Src` 只有当前字符，所以前探要经 `Src.Document.At(...)` / `GetCount()`；位置口径仍是原文。
+ `buffer` 只是 `[index, index + BufferSize)` 的窗口，所以前探要经 `SourceRange.Whole(buffer.Document!)`；位置口径仍是原文。
 
 ```ts
 if (!template.SymbolTemplate.SupportUnicodeEscapeIdentifier) {
   return false;
 }
-if (Src.Value !== "\\") {
+if (buffer.At(index) !== "\\") {
   return false;
 }
-const document = Src.Document;
-const index = Src.Index;
-const count = document.GetCount();
+const whole = SourceRange.Whole(buffer.Document!);
+const count = whole.EndIndex;
 if (index + 2 >= count) {
   return false;
 }
-if (document.At(index + 1).Value !== "u") {
+if (whole.At(index + 1) !== "u") {
   return false;
 }
-if (document.At(index + 2).Value === "{") {
+if (whole.At(index + 2) === "{") {
   // `\u{hex+}`：位数不限（前导零可任意多），累计码点 ≤ 0x10FFFF、必须以 `}` 收口。
   let at = index + 3;
   let digits = 0;
   let value = 0;
-  while (at < count && template.SymbolTemplate.IsHexDigit(document.At(at).Value)) {
-    value = value * 16 + Number.parseInt(document.At(at).Value, 16);
+  while (at < count && template.SymbolTemplate.IsHexDigit(whole.At(at))) {
+    value = value * 16 + Number.parseInt(whole.At(at), 16);
     digits++;
     at++;
     // 前导零会把数字串拉任意长而值仍是 0；一旦累计值越界，继续补位只会更大 ⇒ 当场判非法。
@@ -118,7 +117,7 @@ if (document.At(index + 2).Value === "{") {
       return false;
     }
   }
-  if (digits === 0 || at >= count || document.At(at).Value !== "}") {
+  if (digits === 0 || at >= count || whole.At(at) !== "}") {
     return false;
   }
   return true;
@@ -127,7 +126,7 @@ if (index + 6 > count) {
   return false;
 }
 for (let offset = 2; offset <= 5; offset++) {
-  if (!template.SymbolTemplate.IsHexDigit(document.At(index + offset).Value)) {
+  if (!template.SymbolTemplate.IsHexDigit(whole.At(index + offset))) {
     return false;
   }
 }
@@ -611,7 +610,7 @@ return true;
 return items.includes(this.TempToString());
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 判定、收尾、新开都在这一个方法里：
 
@@ -622,13 +621,13 @@ return items.includes(this.TempToString());
 - 其余 → 开新块：先 `last.TryToClose(context)`，建出形状就返回 `Reload`，否则加新单元、签入当前字符并 `Done`。
 
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 const template = unit.Template;
 const last = unit.Last();
 if ((value === "+" || value === "-")
     && last instanceof Common && !last.Closed
     && last.IsExponentPrefix()) {
-  last.AppendAndSignOut(source);
+  last.AppendAndSignOut(value, index);
   return BranchStates.Done;
 }
 if (last instanceof Symbol && !last.Closed
@@ -637,18 +636,18 @@ if (last instanceof Symbol && !last.Closed
   const dot = last as Symbol;
   const number = new Common(template);
   number.SignInToken(dot);
-  number.AppendValueAndSignOut(".", dot.SourceRange.End!);
+  number.AppendValueAndSignOut(".", dot.SourceRange.EndIndex - 1);
   dot.Replace(number);
-  number.AppendAndSignOut(source);
+  number.AppendAndSignOut(value, index);
   return BranchStates.Done;
 }
 if (last instanceof Common && !last.Closed) {
   if (value === "." && template.SymbolTemplate.IsSymbol(value) && last.IsNumberWithoutDecimal()) {
-    last.AppendAndSignOut(source);
+    last.AppendAndSignOut(value, index);
     return BranchStates.Done;
   }
-  if (last.IsAppend(source)) {
-    last.AppendAndSignOut(source);
+  if (last.IsAppend(buffer, index)) {
+    last.AppendAndSignOut(value, index);
     return BranchStates.Done;
   }
   if (last.TryToClose(context) === CloseStates.Built) {
@@ -656,13 +655,13 @@ if (last instanceof Common && !last.Closed) {
   }
 }
 if ((template.SymbolTemplate.IsSymbol(value) || template.SymbolTemplate.IsWhiteSpace(value))
-    && !Common.IsUnicodeEscapeStart(source, template)) {
+    && !Common.IsUnicodeEscapeStart(buffer, index, template)) {
   return BranchStates.Undo;
 }
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 unit.Add(new Common(unit.Template));
-(unit.Last() as Common)!.AppendAndSignOut(source).SignIn(source);
+(unit.Last() as Common)!.AppendAndSignOut(value, index).SignIn(index);
 return BranchStates.Done;
 ```

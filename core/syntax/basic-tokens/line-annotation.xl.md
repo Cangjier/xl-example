@@ -4,8 +4,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
-import { ReloadMessage } from "../messages/reload-message.xl.md"
-import { Source } from "../source.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
@@ -60,30 +59,30 @@ const name = this.constructor.name;
 return `<${name}>${this.Tmp}</${name}>`;
 ```
 
-## method Undo:(source:Source)=>void
+## method Undo:(index:int)=>void
 
-回退一个字符：覆盖该位置的子单元非空就转交给它，否则从 `Tmp` 末尾删掉一个字符。
+回退一个字符：覆盖 `index` 的子单元非空就转交给它，否则从 `Tmp` 末尾删掉一个字符。
 
 ```ts
-const undoUnit = this.WhichUnitRangeContains(source);
+const undoUnit = this.WhichUnitRangeContains(index);
 if (undoUnit !== null) {
-  undoUnit.Undo(source);
+  undoUnit.Undo(index);
 } else {
   this.Tmp = this.Tmp.slice(0, this.Tmp.length - 1);
 }
 ```
 
-## method IsUndo:(source:Source)=>bool
+## method IsUndo:(index:int)=>bool
 
-能不能回退：范围已经签出（`SourceRange.End` 非空）就不能；否则看覆盖该位置的子单元，没有子单元时返回 `true`。
+能不能回退：范围已经签出（`SourceRange.End >= 0`）就不能；否则看覆盖 `index` 的子单元，没有子单元时返回 `true`。
 
 ```ts
-if (this.SourceRange.End !== null) {
+if (this.SourceRange.End >= 0) {
   return false;
 }
-const undoUnit = this.WhichUnitRangeContains(source);
+const undoUnit = this.WhichUnitRangeContains(index);
 if (undoUnit !== null) {
-  return undoUnit.IsUndo(source);
+  return undoUnit.IsUndo(index);
 }
 return true;
 ```
@@ -108,61 +107,72 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## protected method Default:(context:SyntaxContext, source:Source)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
 ```ts
-this.Tmp += source.Value;
+this.Tmp += buffer.At(index);
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
 遇到行终止符（`Template.IsLineTerminator`：core 默认 `\n`，ts 模板为 `\n` / `\r` / U+2028 / U+2029）就退出。
 
 - `\r` 自己当行尾时（lone CR / CRLF 的前半），它**不进**注释正文：直接签出到它的前一个字符，再把它 `Reload` 给根单元（根单元按空白 trivia 处理，CRLF 的另一半 `\n` 同样由根单元接手）；
 - `\n` 当行尾时，若前一个字符是 `\r`（只有默认 `\n` 模板走得到这条，ts 模板已经在 `\r` 处先收尾）先 `Undo` 掉那个 `\r`，再签出到 `\r` 之前；否则直接签出到前一个字符。
 
-签出后关闭自己并跑重组、从父单元卸载，再插一条 `ReloadMessage` 让当前行终止符重新处理一遍，返回 `Done`；其余字符返回 `Undo`。
+签出后关闭自己并跑重组、从父单元卸载，再返回 `Reload` 让当前行终止符**不归本单元消费**、由驱动层原地重放（根单元按空白 trivia 接手）；其余字符返回 `Undo`。
+
+前一个字符可能落在上一个窗口（行尾在窗口开头），窗口内取不到时要经 `SourceRange.Whole(buffer.Document!)` 取。
 
 ```ts
-if (!this.Template.IsLineTerminator(source.Value)) {
+const value = buffer.At(index);
+if (!this.Template.IsLineTerminator(value)) {
   return BranchStates.Undo;
 }
-const preSource = source.Pre();
-if (source.Value === "\r") {
-  if (preSource !== null) {
-    this.SignOut(preSource);
+const preIndex = index - 1;
+let pre: string | null = null;
+if (preIndex >= 0) {
+  pre = buffer.Has(preIndex) ? buffer.At(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
+}
+if (value === "\r") {
+  if (preIndex >= 0) {
+    this.SignOut(index);
   }
   this.TryToClose(context);
   this.Quit();
-  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
-  return BranchStates.Done;
+  return BranchStates.Reload;
 }
-if (preSource !== null && preSource.Value === "\r") {
-  this.Undo(preSource);
-  this.SignOut(preSource.Pre()!);
+if (pre === "\r") {
+  this.Undo(preIndex);
+  this.SignOut(index - 1);
 } else {
-  this.SignOut(source.Pre()!);
+  this.SignOut(index);
 }
 this.TryToClose(context);
 this.Quit();
-context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
-return BranchStates.Done;
+return BranchStates.Reload;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 判据：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符也是 `/`。
 
 认下就回退已吃掉的那个 `/`（它归本单元所有），再挂一个新的 `LineAnnotation` 并用同一个 `/` 签入；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
 
+前一个字符可能在上一个窗口，窗口内取不到时经 `SourceRange.Whole(buffer.Document!)` 取。
+
 ```ts
-const preUnit = source.Pre();
-if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value !== "/") {
+const preIndex = index - 1;
+if (preIndex < 0) {
   return BranchStates.Undo;
 }
-unit.Undo(preUnit);
+const pre = buffer.Has(preIndex) ? buffer.At(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
+if (pre !== "/" || !unit.IsUndo(preIndex) || buffer.At(index) !== "/") {
+  return BranchStates.Undo;
+}
+unit.Undo(preIndex);
 const lastOfMounted = unit.Last();
 if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
@@ -170,6 +180,6 @@ if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(
 const mounted = new LineAnnotation(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
-(unit.MountedUnit as LineAnnotation)!.SignIn(preUnit);
+(unit.MountedUnit as LineAnnotation)!.SignIn(preIndex);
 return BranchStates.Done;
 ```

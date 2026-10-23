@@ -5,7 +5,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
-import { Source } from "../source.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
@@ -42,9 +42,9 @@ basic 单元：由 `Template.BasicBranchQueue()` 收出来。
 super(Template);
 ```
 
-## method IsAppend:(Src:Source)=>bool
+## method IsAppend:(buffer:SourceRange, index:int)=>bool
 
-能不能把 `Src` 并进本块。
+能不能把窗口里 `index` 处的字符并进本块。
 
 三段判定：`Temp` 还是空的、且当前字符是符号，就能（开头的符号直接收）；否则要求当前字符是符号，
 **并且** `Temp` 现有内容加上当前字符能构成一个组合符号，**并且**语言模板的前瞻钩子没有否决它。
@@ -56,34 +56,34 @@ super(Template);
 core 只负责把「组合符号后面紧跟的那个字符」递过去，默认不阻断。
 
 ```ts
-if (this.Temp.length === 0 && this.Template.SymbolTemplate.IsSymbol(Src.Value)) {
+if (this.Temp.length === 0 && this.Template.SymbolTemplate.IsSymbol(buffer.At(index))) {
   return true;
 }
-if (!this.Template.SymbolTemplate.IsSymbol(Src.Value)) {
+if (!this.Template.SymbolTemplate.IsSymbol(buffer.At(index))) {
   return false;
 }
-const combined = this.Temp + Src.Value;
+const combined = this.Temp + buffer.At(index);
 if (!this.Template.SymbolTemplate.IsCombinedSymbol(combined)) {
   return false;
 }
-return !this.Template.SymbolTemplate.IsCombineBlocked(combined, Symbol.NextCharAfter(Src));
+return !this.Template.SymbolTemplate.IsCombineBlocked(combined, Symbol.NextCharAfter(buffer, index));
 ```
 
-## static method NextCharAfter:(src:Source)=>string
+## static method NextCharAfter:(buffer:SourceRange, index:int)=>string
 
-`src` 后面紧跟的那一个字符（不跳空白 / 注释，就是词法上的下一格）；越界返回空串。
+`index` 后面紧跟的那一个字符（不跳空白 / 注释，就是词法上的下一格）；越界返回空串。
 
 它是 `IsAppend` 递给 `IsCombineBlocked` 的 `following`：前瞻只看紧邻字符，`a?. 5` / `a?\n.5`
-都不属于「后随十进制数字」。
+都不属于「后随十进制数字」。窗口之外的那个字符要经 `SourceRange.Whole(buffer.Document!)` 取。
 
 ```ts
-const document = src.Document;
-const count = document.GetCount();
-const next = src.Index + 1;
+const whole = SourceRange.Whole(buffer.Document!);
+const count = whole.EndIndex;
+const next = index + 1;
 if (next >= count) {
   return "";
 }
-return document.At(next).Value;
+return whole.At(next);
 ```
 
 ## method Is:(value:string)=>bool
@@ -132,7 +132,7 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 判定、收尾、新开都在这一个方法里：
 
@@ -144,7 +144,7 @@ return CloseStates.Nothing;
 - 其余开新块：先 `last.TryToClose(context)`，建出形状就返回 `Reload`。
 
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 const template = unit.Template;
 const last = unit.Last();
 // `\u{…}` 花括号转义进行中：`{` / 十六进制位 / `}` 全归那个 Common，
@@ -157,7 +157,7 @@ if ((value === "+" || value === "-")
     && last.IsExponentPrefix()) {
   return BranchStates.Undo;
 }
-if (value === "\\" && Common.IsUnicodeEscapeStart(source, template)) {
+if (value === "\\" && Common.IsUnicodeEscapeStart(buffer, index, template)) {
   return BranchStates.Undo;
 }
 if (!template.SymbolTemplate.IsSymbol(value)) {
@@ -170,8 +170,8 @@ if (!template.SymbolTemplate.IsSymbol(value)) {
   return BranchStates.Undo;
 }
 if (last instanceof Symbol && !last.Closed) {
-  if (last.IsAppend(source)) {
-    last.AppendAndSignOut(source);
+  if (last.IsAppend(buffer, index)) {
+    last.AppendAndSignOut(value, index);
     return BranchStates.Done;
   }
   if (last.TryToClose(context) === CloseStates.Built) {
@@ -184,6 +184,6 @@ if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Bu
   return BranchStates.Reload;
 }
 unit.Add(new Symbol(unit.Template));
-(unit.Last() as Symbol)!.AppendAndSignOut(source).SignIn(source);
+(unit.Last() as Symbol)!.AppendAndSignOut(value, index).SignIn(index);
 return BranchStates.Done;
 ```
