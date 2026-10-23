@@ -149,11 +149,8 @@ return true;
 ```ts
 this.Closed = true;
 const parent = this.Parent;
-if (parent !== null && "ComputePossibleShapes" in parent) {
-  const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);
-  if (state === ComputePossibleShapesStates.Built) {
-    return CloseStates.Built;
-  }
+if (parent !== null) {
+  return parent.OnBasicTokenClosed(this, context);
 }
 return CloseStates.Nothing;
 ```

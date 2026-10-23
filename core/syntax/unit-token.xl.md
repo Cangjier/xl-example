@@ -1,5 +1,9 @@
 # dependencies
 ```xl
+import { BasicTokenBatch } from "./batch/basic-token-batch.xl.md"
+import { BatchStates } from "./batch/batch-states.xl.md"
+import { IBatchHost } from "./batch/i-batch-host.xl.md"
+import { CloseStates } from "./close-states.xl.md"
 import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
 import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
@@ -34,6 +38,93 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 普通单元默认没有，所以父单元不是宿主时，basic token 关闭不触发任何判定。
 
+## field BatchFrom:int = -1
+
+当前活动批次的批首在 `Data` 中的下标；`-1` 表示没有批次（legacy 路径）。
+
+## field BatchSink:BasicTokenBatch | null = null
+
+当前活动批次的零拷贝视图；`null` 表示没有批次。
+
+## field BatchAdapter:IBatchHost | null = null
+
+本宿主挂载的批次消费者：`ItemListEngine`（新引擎）或 `LegacyBatchAdapter`（旧目录）二选一。
+`null` 表示本宿主未迁移；`BatchMode=0` 时全部宿主都是 `null`。
+
+## method OnBasicTokenClosed:(token:Token, context:SyntaxContext)=>CloseStates
+
+basic token 关闭的唯一回调入口（11 个 basic 单元都调它，不再各自问目录）。
+
+- `BatchMode=0` 或未挂适配器 → 逐字走 `Token.OnBasicTokenClosed` 的 legacy 实现；
+- 否则入批，由适配器消费；`Done`/`Reload` 时清批，`Reload` 映射成 `CloseStates.Built`。
+
+```ts
+if (context.BatchMode === 0 || this.BatchAdapter === null) {
+  return super.OnBasicTokenClosed(token, context);
+}
+const last = this.Data.length - 1;
+if (last < 0) {
+  return CloseStates.Nothing;
+}
+let batch = this.BatchSink;
+if (batch === null) {
+  batch = new BasicTokenBatch();
+  batch.Reset(this, last, this.IsAtEof());
+  this.BatchSink = batch;
+  this.BatchFrom = last;
+}
+batch.To = last + 1;
+batch.Sealed = false;
+batch.Recompute();
+const state = this.BatchAdapter.OnBasicTokens(batch, context);
+if (state === BatchStates.Done || state === BatchStates.Reload) {
+  this.ClearBatch();
+  if (state === BatchStates.Reload) {
+    return CloseStates.Built;
+  }
+}
+return CloseStates.Nothing;
+```
+
+## method FlushBatch:(context:SyntaxContext)=>BatchStates
+
+硬边界 flush：把尚未收口的批次交给适配器，然后清批。
+
+```ts
+const batch = this.BatchSink;
+if (batch === null || this.BatchAdapter === null) {
+  this.ClearBatch();
+  return BatchStates.Done;
+}
+batch.Sealed = true;
+batch.To = this.Data.length;
+batch.Recompute();
+const state = this.BatchAdapter.CloseBatch(context);
+this.ClearBatch();
+return state;
+```
+
+## private method ClearBatch:()=>void
+
+清掉活动批次（`BatchFrom` 回到 `-1`）。
+
+```ts
+this.BatchFrom = -1;
+this.BatchSink = null;
+```
+
+## private method IsAtEof:()=>bool
+
+本单元的范围是否已到文档末尾。
+
+```ts
+const document = this.SourceRange.Document;
+if (document === null) {
+  return true;
+}
+return this.SourceRange.End >= document.GetCount();
+```
+
 ## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
 
 重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
@@ -65,6 +156,14 @@ return ComputePossibleShapesStates.Nothing;
 括号创建事件的默认实现：什么都不做。
 
 普通单元不关心括号创建；只有把自己当前正在吃的内容当作「括号里的东西」的壳形状（如 `InterfaceDeclarationShape`）才覆写它，在括号刚建出来时决定要不要给那个括号初始化目录向导。
+
+## method OnChildCreated:(child:Token, context:SyntaxContext)=>void
+
+括号创建事件的新名字（`OnBracketCreatedEvent` 改名，签名不变）：默认转调旧方法。
+
+```ts
+this.OnBracketCreatedEvent(child, context);
+```
 
 ## constructor:(template:Template)=>void
 

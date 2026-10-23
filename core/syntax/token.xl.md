@@ -1,6 +1,8 @@
 # dependencies
 ```xl
 import { CloseStates } from "./close-states.xl.md"
+import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
+import { IComputePossibleShapes } from "./i-compute-possible-shapes.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { BranchTransiter } from "./branch-transiter.xl.md"
@@ -113,6 +115,23 @@ throw new Error("abstract member: Default");
 
 ```ts
 throw new Error("abstract member: Close");
+```
+
+## method OnBasicTokenClosed:(token:Token, context:SyntaxContext)=>CloseStates
+
+basic token 关闭时**宿主侧**的默认实现：与旧 `*Close` 里「只问父单元要不要重算候选」逐字等价。
+
+`BatchMode=0` 时所有宿主都走这一条（`UnitToken` 的覆写会在非批次模式下先转调进来），
+因此行为与基线逐字节一致。
+
+```ts
+if ("ComputePossibleShapes" in this) {
+  const legacy = this as unknown as IComputePossibleShapes;
+  if (legacy.ComputePossibleShapes(context) === ComputePossibleShapesStates.Built) {
+    return CloseStates.Built;
+  }
+}
+return CloseStates.Nothing;
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
