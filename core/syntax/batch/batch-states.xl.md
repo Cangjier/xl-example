@@ -9,11 +9,12 @@
 
 ## static field Done:int = 0
 
-正常：批次已消费完，`BatchFrom` 清空；字符重放没有新增。
+正常：批次已消费到 `batch.Cursor`，且至少建出一个 item；`Cursor >= To` 时清 `BatchFrom`，
+否则按 `Cursor` 保留未消费尾巴（`BasicTokenBatch.Cursor`）。
 
 ## static field NeedMore:int = 1
 
-item 还没到齐：批次保留，下一批从 `To` 继续。
+item 还没到齐：批次保留，下一批从 `Cursor` 继续（不是从 `From`，否则已消费的 unit 会重复追加）。
 
 ## static field Reload:int = 2
 

@@ -25,6 +25,12 @@ import { Token } from "../token.xl.md"
 
 批尾（不含）。封批时等于 `Host.Data.length`。
 
+## field Cursor:int = -1
+
+已消费到的宿主下标（半开，G1/G2）：引擎在 `Feed` 里维护，宿主**只读**。
+`Done` 时若 `Cursor < To`，宿主保留未消费尾巴（`From = Cursor`）；否则清批。
+`NeedMore` 时宿主保留批次，下一批从 `Cursor` 续喂（不得回退到 `From`，否则同一 unit 被重复追加）。
+
 ## field AtEof:bool = false
 
 创建本批时文档是否已到末尾（替代旧的 `StatementScanner.AtEOF` 静态字段）。
@@ -128,6 +134,7 @@ this.Host = host;
 this.From = from;
 this.To = host.Data.length;
 this.AtEof = atEof;
+this.Cursor = from;
 this.Sealed = false;
 this.Recompute();
 ```
