@@ -32,7 +32,8 @@ if (token.SourceRange.Start !== null) {
 if (token.SourceRange.End !== null) {
   shape.SignOut(token.SourceRange.End);
 }
-shape.EscapedText = IdentifierShape.DecodeIdentifierEscapes(token.TempToString());
+const text = token.TempToString();
+shape.EscapedText = token.HasBackslash ? IdentifierShape.DecodeIdentifierEscapes(text) : text;
 shape.TryToClose(context);
 return shape;
 ```
