@@ -45,6 +45,9 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ClassDeclarationEndPossibleShape } from "./class-declaration-end-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -68,6 +71,13 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`。
 成员的 `Pos` = 前一个成员（或 `{`）的 `End.Index + 1`，`end` = 函数体 `}` / 属性末尾的 `;`。
 
+根层的类声明是**提前挂载的壳**：`class` 关键字那一格 `ClassDeclarationPossibleShape` 就把本形状建出来、挂到父单元上
+（`BodyGuideUtil.MountShell`）；本形状随后吃名字 / 类型参数 / heritage / 类体，拿到类体括号后由终结候选
+`ClassDeclarationEndPossibleShape` 在类体括号闭合时收口（`BuildFromCode` → `FinishShell`）。
+
+本阶段（T6a）**只做通道**：壳自己装终结向导，类体的成员候选目录还不挂（`body.CatalogGuide` 留空），成员仍是
+raw basic token，收口时由 `BuildMembers` 一次性建——与整段 `FromUnits` 逐节点一致。
+
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
@@ -78,10 +88,45 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 
 ## field Members:Array<Token> = []
 
+## field BodyBracket:Bracket | null = null
+
+`BodyBracket` 记「已经认定的类体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（类体里的
+嵌套括号父级是类体括号，不会回到本形状）。
+
 ## constructor:(template:Template)=>void
 
 ```ts
 super(template);
+```
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+监听括号创建：如果新括号**肯定是类体**，就给自己装上终结向导（类体括号关闭时由它收口）。
+
+- 已经认定过类体：忽略；
+- 不是 `{`：不是类体（类型参数 / heritage 里的 `(` / `[`）；
+- 尖括号深度不为 0：是类型实参里的类型字面量（`extends A<{ x: B }>`），不是类体；
+- 前一个代码单元是 `extends` / `implements` / `,`：`{` 处在「类型从这里开始」的位置，是 heritage 里的类型字面量。
+
+判据统一走 `BodyGuideUtil.IsBodyBracket`（与 interface 同一套，`blocked` 单词表是
+`["extends", "implements", ","]`）。
+
+**本阶段（T6a）刻意不给类体括号挂成员候选目录**：`body.CatalogGuide` 留空，类体成员保持 raw basic token，
+收口时由 `BuildMembers` 一次性建。成员候选目录由下一段接线（`ClassDeclarationShape.CreateBodyPossibleShapes`）。
+
+```ts
+if (this.BodyBracket !== null) {
+  return;
+}
+if (!(bracket instanceof Bracket)) {
+  return;
+}
+if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, ["extends", "implements", ","])) {
+  return;
+}
+const body = bracket as Bracket;
+this.BodyBracket = body;
+this.CatalogGuide = new CatalogGuide([], new ClassDeclarationEndPossibleShape());
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ClassDeclarationShape
@@ -155,6 +200,21 @@ for (let at = start - 1; at >= 0; at--) {
     break;
   }
 }
+return ClassDeclarationShape.BuildFromCode(host, code, pos, context, allowAnonymous);
+```
+
+## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext, allowAnonymous:bool)=>ClassDeclarationShape
+
+从「已经按 AST 顺序排好的非 trivia 代码单元」建类声明。两个入口共用：`FromUnits` / `FromUnitsAllowAnonymous`
+（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`ClassDeclarationEndPossibleShape`）。
+
+`pos` 是第一个代码单元前一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`），也是装饰器的区间起点。
+
+`allowAnonymous` 决定名字缺失时是静默建出匿名 `ClassDeclaration`（壳收口路径、`export default class {}`）还是抛错
+（一次性路径要求名字）；除此之外与 `FromUnits` 的解析逐字一致——壳 `Data` 里没有 trivia、host `Data` 里有，所以
+下标只按这份 `code` 数组走。
+
+```ts
 const decorators:Array<Token> = [];
 let decoratorEnd = pos;
 let index = 0;
