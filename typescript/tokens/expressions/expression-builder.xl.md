@@ -9,7 +9,7 @@ import { InterpolationString } from "../../../core/syntax/basic-tokens/string/in
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
-import { Document } from "../../../core/syntax/document.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -160,8 +160,8 @@ for (const unit of units) {
   }
   this.Units.push(unit);
   this.Positions.push(pos);
-  if (unit.SourceRange.End !== null) {
-    pos = unit.SourceRange.End.Index + 1;
+  if (unit.SourceRange.EndIndex >= 0) {
+    pos = unit.SourceRange.EndIndex;
   }
 }
 ```
@@ -213,11 +213,11 @@ return ch === "." && text.length > 1 && text[1] >= "0" && text[1] <= "9";
 
 ```ts
 const unit = this.Units[index];
-if (unit.SourceRange.Start !== null) {
-  shape.SignIn(unit.SourceRange.Start);
+if (unit.SourceRange.StartIndex >= 0) {
+  shape.SignIn(unit.SourceRange.StartIndex);
 }
-if (unit.SourceRange.End !== null) {
-  shape.SignOut(unit.SourceRange.End);
+if (unit.SourceRange.EndIndex >= 0) {
+  shape.SignOut(unit.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[index];
 shape.TryToClose(this.Context);
@@ -229,11 +229,11 @@ return shape;
 ```ts
 const head = this.Units[first];
 const tail = this.Units[last];
-if (head.SourceRange.Start !== null) {
-  shape.SignIn(head.SourceRange.Start);
+if (head.SourceRange.StartIndex >= 0) {
+  shape.SignIn(head.SourceRange.StartIndex);
 }
-if (tail.SourceRange.End !== null) {
-  shape.SignOut(tail.SourceRange.End);
+if (tail.SourceRange.EndIndex >= 0) {
+  shape.SignOut(tail.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[first];
 shape.TryToClose(this.Context);
@@ -639,7 +639,7 @@ AsteriskToken (for `yield*`; the `yield` keyword itself is not a node) and an op
 ```ts
 const start = this.At;
 const yieldUnit = this.Units[start];
-const yieldLineBreak = LineTerminator.HasAfter(yieldUnit.SourceRange.End);
+const yieldLineBreak = LineTerminator.HasAfter(yieldUnit.SourceRange.EndIndex);
 const next = start + 1 < this.Units.length ? this.Units[start + 1] : null;
 const yieldFlags = this.EnclosingFunctionFlags(start);
 const generatorContext = yieldFlags === 1 || yieldFlags === 3;
@@ -654,8 +654,8 @@ if (!yieldKeyword) {
 this.At++;
 const shape = new YieldExpressionShape(this.Template);
 let afterYieldPos = 0;
-if (yieldUnit.SourceRange.End !== null) {
-  afterYieldPos = yieldUnit.SourceRange.End.Index + 1;
+if (yieldUnit.SourceRange.EndIndex >= 0) {
+  afterYieldPos = yieldUnit.SourceRange.EndIndex;
 }
 // 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）：
 // 关键字后跳过空白与注释，先出现行终止符 ⇒ 受限产生式在这里收口（块注释里的行终止符也算）。
@@ -699,21 +699,25 @@ TS 的 yield / await 上下文字面量是**词法**的、且被函数边界重�
 
 ```ts
 const unit = this.Units[start];
-const from = unit.SourceRange.Start;
-if (from === null) {
+const from = unit.SourceRange.StartIndex;
+if (from < 0) {
   return 0;
 }
-const document = from.Document;
-let index = from.Index - 1;
+const document = unit.SourceRange.Document;
+if (document === null) {
+  return 0;
+}
+const whole = SourceRange.Whole(document);
+let index = from - 1;
 while (index >= 0) {
-  const ch = document.At(index).Value;
+  const ch = whole.At(index);
   // 先跳过前面已经闭合的括号组（`)` / `]` / `}`）；它们和当前词不是同一个层。
   if (ch === ")" || ch === "]" || ch === "}") {
     const open = ch === ")" ? "(" : (ch === "]" ? "[" : "{");
     let depth = 0;
     index--;
     while (index >= 0) {
-      const inner = document.At(index).Value;
+      const inner = whole.At(index);
       if (inner === ch) {
         depth++;
       } else if (inner === open) {
@@ -730,38 +734,38 @@ while (index >= 0) {
   if (ch === "{") {
     // 这个 `{` 包住当前词：是函数体 / 箭头块体就定案，否则（块语句 / 对象字面量 / 类体）继续往外找。
     let at = index - 1;
-    while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+    while (at >= 0 && this.IsWhitespaceChar(whole.At(at))) {
       at--;
     }
-    if (at >= 1 && document.At(at).Value === ">" && document.At(at - 1).Value === "=") {
-      return this.ArrowBodyFlags(document, at - 1);
+    if (at >= 1 && whole.At(at) === ">" && whole.At(at - 1) === "=") {
+      return this.ArrowBodyFlags(whole, at - 1);
     }
-    if (at >= 0 && document.At(at).Value === ")") {
-      const openAt = this.MatchParenBackward(document, at);
+    if (at >= 0 && whole.At(at) === ")") {
+      const openAt = this.MatchParenBackward(whole, at);
       if (openAt < 0) {
         return 0;
       }
       let wordEnd = openAt - 1;
-      while (wordEnd >= 0 && this.IsWhitespaceChar(document.At(wordEnd).Value)) {
+      while (wordEnd >= 0 && this.IsWhitespaceChar(whole.At(wordEnd))) {
         wordEnd--;
       }
       let wordStart = wordEnd;
-      while (wordStart >= 0 && this.IsIdentifierChar(document.At(wordStart).Value)) {
+      while (wordStart >= 0 && this.IsIdentifierChar(whole.At(wordStart))) {
         wordStart--;
       }
-      const word = this.ReadWord(document, wordStart + 1, wordEnd);
+      const word = this.ReadWord(whole, wordStart + 1, wordEnd);
       if (this.IsControlKeyword(word)) {
         index = wordStart;
         continue;
       }
-      return this.FunctionBodyFlags(document, wordStart, wordEnd);
+      return this.FunctionBodyFlags(whole, wordStart, wordEnd);
     }
     index--;
     continue;
   }
-  if (ch === ">" && index >= 1 && document.At(index - 1).Value === "=") {
+  if (ch === ">" && index >= 1 && whole.At(index - 1) === "=") {
     // 箭头表达式体（没有花括号）：`async () => await (1)`。
-    return this.ArrowBodyFlags(document, index - 1);
+    return this.ArrowBodyFlags(whole, index - 1);
   }
   if (ch === ";") {
     return 0;
@@ -771,65 +775,65 @@ while (index >= 0) {
 return 0;
 ```
 
-## method ArrowBodyFlags:(document:Document, arrowIndex:int)=>int
+## method ArrowBodyFlags:(whole:SourceRange, arrowIndex:int)=>int
 
 `arrowIndex` 是 `=>` 的 `=` 下标。往回跳过形参（`(…)` 或单标识符）与空白，看前面是不是 `async`。
 
 ```ts
 let at = arrowIndex - 1;
-while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+while (at >= 0 && this.IsWhitespaceChar(whole.At(at))) {
   at--;
 }
-if (at >= 0 && document.At(at).Value === ")") {
-  const openAt = this.MatchParenBackward(document, at);
+if (at >= 0 && whole.At(at) === ")") {
+  const openAt = this.MatchParenBackward(whole, at);
   if (openAt < 0) {
     return 0;
   }
   at = openAt - 1;
 } else {
-  while (at >= 0 && this.IsIdentifierChar(document.At(at).Value)) {
+  while (at >= 0 && this.IsIdentifierChar(whole.At(at))) {
     at--;
   }
 }
-while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+while (at >= 0 && this.IsWhitespaceChar(whole.At(at))) {
   at--;
 }
 const wordEnd = at;
 let wordStart = at;
-while (wordStart >= 0 && this.IsIdentifierChar(document.At(wordStart).Value)) {
+while (wordStart >= 0 && this.IsIdentifierChar(whole.At(wordStart))) {
   wordStart--;
 }
-if (this.ReadWord(document, wordStart + 1, wordEnd) === "async") {
+if (this.ReadWord(whole, wordStart + 1, wordEnd) === "async") {
   return 2;
 }
 return 0;
 ```
 
-## method FunctionBodyFlags:(document:Document, wordStart:int, wordEnd:int)=>int
+## method FunctionBodyFlags:(whole:SourceRange, wordStart:int, wordEnd:int)=>int
 
 形参表 `(` 之前那个词（`wordStart`..`wordEnd`，可能是函数名，也可能是 `function` 本身）：
 读出标志位。`function` / `*` / `async` 都可能在它前面。
 
 ```ts
 let at = wordStart;
-while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+while (at >= 0 && this.IsWhitespaceChar(whole.At(at))) {
   at--;
 }
 let generator = false;
-if (at >= 0 && document.At(at).Value === "*") {
+if (at >= 0 && whole.At(at) === "*") {
   generator = true;
   at--;
-  while (at >= 0 && this.IsWhitespaceChar(document.At(at).Value)) {
+  while (at >= 0 && this.IsWhitespaceChar(whole.At(at))) {
     at--;
   }
 }
 const precedingEnd = at;
 let precedingStart = at;
-while (precedingStart >= 0 && this.IsIdentifierChar(document.At(precedingStart).Value)) {
+while (precedingStart >= 0 && this.IsIdentifierChar(whole.At(precedingStart))) {
   precedingStart--;
 }
-const preceding = this.ReadWord(document, precedingStart + 1, precedingEnd);
-const wordBeforeParen = this.ReadWord(document, wordStart + 1, wordEnd);
+const preceding = this.ReadWord(whole, precedingStart + 1, precedingEnd);
+const wordBeforeParen = this.ReadWord(whole, wordStart + 1, wordEnd);
 let keyword = preceding;
 let keywordStart = precedingStart;
 if (wordBeforeParen === "function") {
@@ -842,22 +846,22 @@ if (wordBeforeParen === "async") {
 }
 if (keyword === "function") {
   let before = keywordStart - 1;
-  while (before >= 0 && this.IsWhitespaceChar(document.At(before).Value)) {
+  while (before >= 0 && this.IsWhitespaceChar(whole.At(before))) {
     before--;
   }
-  if (before >= 0 && document.At(before).Value === "*") {
+  if (before >= 0 && whole.At(before) === "*") {
     generator = true;
     before--;
-    while (before >= 0 && this.IsWhitespaceChar(document.At(before).Value)) {
+    while (before >= 0 && this.IsWhitespaceChar(whole.At(before))) {
       before--;
     }
   }
   const asyncEnd = before;
   let asyncStart = before;
-  while (asyncStart >= 0 && this.IsIdentifierChar(document.At(asyncStart).Value)) {
+  while (asyncStart >= 0 && this.IsIdentifierChar(whole.At(asyncStart))) {
     asyncStart--;
   }
-  keyword = this.ReadWord(document, asyncStart + 1, asyncEnd);
+  keyword = this.ReadWord(whole, asyncStart + 1, asyncEnd);
 }
 let flags = 0;
 if (generator) {
@@ -878,7 +882,7 @@ return word === "if" || word === "for" || word === "while" || word === "switch"
   || word === "catch" || word === "with";
 ```
 
-## method MatchParenBackward:(document:Document, closeAt:int)=>int
+## method MatchParenBackward:(whole:SourceRange, closeAt:int)=>int
 
 `closeAt` 是 `)` 的下标：往回找配对的 `(`，返回其下标；找不到返回 -1。
 
@@ -886,7 +890,7 @@ return word === "if" || word === "for" || word === "while" || word === "switch"
 let depth = 0;
 let at = closeAt - 1;
 while (at >= 0) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === ")") {
     depth++;
   } else if (ch === "(") {
@@ -900,7 +904,7 @@ while (at >= 0) {
 return -1;
 ```
 
-## method ReadWord:(document:Document, from:int, to:int)=>string
+## method ReadWord:(whole:SourceRange, from:int, to:int)=>string
 
 把 `from..to`（含两端，`to` 可能 < `from`）的标识符字符拼成词。
 
@@ -911,7 +915,7 @@ if (to < from) {
 }
 let at = from;
 while (at <= to) {
-  word = word + document.At(at).Value;
+  word = word + whole.At(at);
   at++;
 }
 return word;
@@ -954,7 +958,7 @@ const awaitFlags = this.EnclosingFunctionFlags(start);
 if (awaitFlags === 2 || awaitFlags === 3) {
   return true;
 }
-if (LineTerminator.HasAfter(keyword.SourceRange.End)) {
+if (LineTerminator.HasAfter(keyword.SourceRange.EndIndex)) {
   return false;
 }
 return this.IsIdentifierKeywordOrLiteral(next);
@@ -1008,8 +1012,8 @@ while (true) {
     for (const typeArgument of typeArguments) {
       instantiation.Add(typeArgument);
     }
-    if (expression.SourceRange.Start !== null) {
-      instantiation.SignIn(expression.SourceRange.Start);
+    if (expression.SourceRange.StartIndex >= 0) {
+      instantiation.SignIn(expression.SourceRange.StartIndex);
     }
     instantiation.SignOutToken(this.Units[this.At - 1]);
     instantiation.Pos = (expression as ShapeToken).Pos;
@@ -1077,11 +1081,11 @@ while (true) {
       shape.Add(expression);
     }
     shape.Add(template);
-    if (tag.SourceRange.Start !== null) {
-      shape.SignIn(tag.SourceRange.Start);
+    if (tag.SourceRange.StartIndex >= 0) {
+      shape.SignIn(tag.SourceRange.StartIndex);
     }
-    if (template.SourceRange.End !== null) {
-      shape.SignOut(template.SourceRange.End);
+    if (template.SourceRange.EndIndex >= 0) {
+      shape.SignOut(template.SourceRange.EndIndex);
     }
     shape.Pos = (tag as ShapeToken).Pos;
     shape.TryToClose(this.Context);
@@ -1372,14 +1376,6 @@ const config = this.Template.StringTemplate;
 return config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(token.StringChar);
 ```
 
-## method SourceAfter:(source:Source, offset:int)=>Source
-
-同一文档里、`source` 之后第 `offset` 个位置（`offset` 为 1 就是下一个字符）。
-
-```ts
-return source.Document.At(source.Index + offset);
-```
-
 ## method ParseTemplateToken:()=>Token
 
 把「当前 At 上的模板 `String` 单元」拆成模板 AST。`At` 要停在模板单元上，方法自己前进一格。
@@ -1420,11 +1416,11 @@ if (interps.length === 0) {
 const expression = new TemplateExpressionShape(this.Template);
 const head = new TemplateHeadShape(this.Template);
 head.Text = texts[0];
-if (token.SourceRange.Start !== null) {
-  head.SignIn(token.SourceRange.Start);
+if (token.SourceRange.StartIndex >= 0) {
+  head.SignIn(token.SourceRange.StartIndex);
 }
-if (interps[0].SourceRange.Start !== null) {
-  head.SignOut(interps[0].SourceRange.Start);
+if (interps[0].SourceRange.StartIndex >= 0) {
+  head.SignOut(interps[0].SourceRange.StartIndex);
 }
 head.Pos = this.Positions[start];
 head.TryToClose(this.Context);
@@ -1433,8 +1429,8 @@ for (let index = 0; index < interps.length; index++) {
   const interp = interps[index];
   const inner = new ExpressionBuilder(this.Template, this.Context);
   let base = 0;
-  if (interp.SourceRange.Start !== null) {
-    base = interp.SourceRange.Start.Index + 1;
+  if (interp.SourceRange.StartIndex >= 0) {
+    base = interp.SourceRange.StartIndex + 1;
   }
   inner.Load(interp.Data, base);
   if (inner.Units.length === 0) {
@@ -1446,22 +1442,22 @@ for (let index = 0; index < interps.length; index++) {
   }
   // 尾段 / 中段的 Pos 是 `}` 这个 token 的 pos（含表达式后面的 trivia）：取「表达式最后一个字符的下一个位置」。
   let tailPos = 0;
-  if (value.SourceRange.End !== null) {
-    tailPos = value.SourceRange.End.Index + 1;
-  } else if (interp.SourceRange.End !== null) {
-    tailPos = interp.SourceRange.End.Index;
+  if (value.SourceRange.EndIndex >= 0) {
+    tailPos = value.SourceRange.EndIndex;
+  } else if (interp.SourceRange.EndIndex >= 0) {
+    tailPos = interp.SourceRange.EndIndex - 1;
   }
   let tail:ShapeToken;
   if (index + 1 < interps.length) {
     const middle = new TemplateMiddleShape(this.Template);
     middle.Text = texts[index + 1];
     middle.Pos = tailPos;
-    if (interp.SourceRange.End !== null) {
-      middle.SignIn(interp.SourceRange.End);
+    if (interp.SourceRange.EndIndex >= 0) {
+      middle.SignIn(interp.SourceRange.EndIndex - 1);
     }
     const nextInterp = interps[index + 1];
-    if (nextInterp.SourceRange.Start !== null) {
-      middle.SignOut(nextInterp.SourceRange.Start);
+    if (nextInterp.SourceRange.StartIndex >= 0) {
+      middle.SignOut(nextInterp.SourceRange.StartIndex);
     }
     middle.TryToClose(this.Context);
     tail = middle;
@@ -1469,11 +1465,11 @@ for (let index = 0; index < interps.length; index++) {
     const lastTail = new TemplateTailShape(this.Template);
     lastTail.Text = texts[index + 1];
     lastTail.Pos = tailPos;
-    if (interp.SourceRange.End !== null) {
-      lastTail.SignIn(interp.SourceRange.End);
+    if (interp.SourceRange.EndIndex >= 0) {
+      lastTail.SignIn(interp.SourceRange.EndIndex - 1);
     }
-    if (token.SourceRange.End !== null) {
-      lastTail.SignOut(token.SourceRange.End);
+    if (token.SourceRange.EndIndex >= 0) {
+      lastTail.SignOut(token.SourceRange.EndIndex);
     }
     lastTail.TryToClose(this.Context);
     tail = lastTail;
@@ -1481,21 +1477,21 @@ for (let index = 0; index < interps.length; index++) {
   const span = new TemplateSpanShape(this.Template);
   span.Add(value);
   span.Add(tail);
-  if (interp.SourceRange.Start !== null) {
-    span.SignIn(this.SourceAfter(interp.SourceRange.Start, 1));
-    span.Pos = interp.SourceRange.Start.Index + 1;
+  if (interp.SourceRange.StartIndex >= 0) {
+    span.SignIn(interp.SourceRange.StartIndex + 1);
+    span.Pos = interp.SourceRange.StartIndex + 1;
   }
-  if (tail.SourceRange.End !== null) {
-    span.SignOut(tail.SourceRange.End);
+  if (tail.SourceRange.EndIndex >= 0) {
+    span.SignOut(tail.SourceRange.EndIndex);
   }
   span.TryToClose(this.Context);
   expression.Add(span);
 }
-if (token.SourceRange.Start !== null) {
-  expression.SignIn(token.SourceRange.Start);
+if (token.SourceRange.StartIndex >= 0) {
+  expression.SignIn(token.SourceRange.StartIndex);
 }
-if (token.SourceRange.End !== null) {
-  expression.SignOut(token.SourceRange.End);
+if (token.SourceRange.EndIndex >= 0) {
+  expression.SignOut(token.SourceRange.EndIndex);
 }
 expression.Pos = this.Positions[start];
 expression.TryToClose(this.Context);
@@ -1517,8 +1513,8 @@ const bracket = unit as Bracket;
 this.At++;
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 if (inner.Units.length === 0) {
@@ -1546,8 +1542,8 @@ return shape;
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 const shape = new ObjectLiteralExpressionShape(this.Template);
@@ -1620,9 +1616,9 @@ while (inner.At < inner.Units.length) {
     if (markIsMethod) {
       inner.At++;
       const questionShape = new QuestionTokenShape(this.Template);
-      if (markUnit.SourceRange.Start !== null) {
-        questionShape.SignIn(markUnit.SourceRange.Start);
-        questionShape.SignOut(markUnit.SourceRange.Start);
+      if (markUnit.SourceRange.StartIndex >= 0) {
+        questionShape.SignIn(markUnit.SourceRange.StartIndex);
+        questionShape.SignOut(markUnit.SourceRange.StartIndex + 1);
       }
       questionShape.Pos = inner.Positions[markIndex];
       questionShape.TryToClose(this.Context);
@@ -1758,11 +1754,11 @@ while (inner.At < inner.Units.length) {
   shorthand.Pos = inner.Positions[memberIndex];
   shape.Add(shorthand);
 }
-if (bracket.SourceRange.Start !== null) {
-  shape.SignIn(bracket.SourceRange.Start);
+if (bracket.SourceRange.StartIndex >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
 }
-if (bracket.SourceRange.End !== null) {
-  shape.SignOut(bracket.SourceRange.End);
+if (bracket.SourceRange.EndIndex >= 0) {
+  shape.SignOut(bracket.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -1814,32 +1810,32 @@ return this.ParseName();
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 const shape = new ArrayLiteralExpressionShape(this.Template);
 // 空槽（`[1, , 3]` / `[, 1]` / `[1, ,]`）= 零宽 OmittedExpression。
 // TS 的口径：槽位起点是**上一个逗号之后那一格**（`[` 之后的第一个槽同理），
 // 并且在「该出元素的位置又遇到逗号」时才建；元素后的行尾逗号不是空槽。
-const reference = bracket.SourceRange.Start;
+const reference = bracket.SourceRange.StartIndex;
 let slotStart = base;
 let expectValue = true;
 while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
   if (inner.IsText(unit, ",")) {
-    if (expectValue && reference !== null && slotStart > 0) {
-      const atSource = reference.Document.At(slotStart - 1);
+    if (expectValue && reference >= 0 && slotStart > 0) {
+      // 空位是零宽节点：TS 的 OmittedExpression pos == end == slotStart（半开口径下就是 [slotStart, slotStart)）。
       const omitted = new OmittedExpressionShape(this.Template);
-      omitted.SourceRange.Start = atSource;
-      omitted.SourceRange.End = atSource;
+      omitted.SourceRange.Start = slotStart;
+      omitted.SourceRange.End = slotStart;
       omitted.Pos = slotStart;
       omitted.TryToClose(this.Context);
       shape.Add(omitted);
     }
     expectValue = true;
-    if (unit.SourceRange.End !== null) {
-      slotStart = unit.SourceRange.End.Index + 1;
+    if (unit.SourceRange.EndIndex >= 0) {
+      slotStart = unit.SourceRange.EndIndex;
     }
     inner.At++;
     continue;
@@ -1857,11 +1853,11 @@ while (inner.At < inner.Units.length) {
   shape.Add(inner.ParseAssign());
   expectValue = false;
 }
-if (bracket.SourceRange.Start !== null) {
-  shape.SignIn(bracket.SourceRange.Start);
+if (bracket.SourceRange.StartIndex >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
 }
-if (bracket.SourceRange.End !== null) {
-  shape.SignOut(bracket.SourceRange.End);
+if (bracket.SourceRange.EndIndex >= 0) {
+  shape.SignOut(bracket.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -1952,7 +1948,7 @@ const keywordUnit = this.Units[start];
 this.At++;
 const shape = new ClassExpressionShape(this.Template);
 const typeParameters:Array<Token> = [];
-let afterClass = keywordUnit.SourceRange.End === null ? 0 : keywordUnit.SourceRange.End.Index + 1;
+let afterClass = keywordUnit.SourceRange.EndIndex >= 0 ? keywordUnit.SourceRange.EndIndex : 0;
 const angleUnit = this.Peek(0);
 if (angleUnit !== null && this.IsText(angleUnit, "<")) {
   // Generic class expression `class<T> { ... }` (TS 5.0): TypeParameter children come first.
@@ -1964,8 +1960,8 @@ if (angleUnit !== null && this.IsText(angleUnit, "<")) {
   for (const typeParameter of parsedTypeParameters) {
     typeParameters.push(typeParameter);
   }
-  if (this.Units[angleClose].SourceRange.End !== null) {
-    afterClass = this.Units[angleClose].SourceRange.End.Index + 1;
+  if (this.Units[angleClose].SourceRange.EndIndex >= 0) {
+    afterClass = this.Units[angleClose].SourceRange.EndIndex;
   }
   this.At = angleClose + 1;
 }
@@ -1978,8 +1974,8 @@ if (nameUnit !== null && nameUnit instanceof Common
   const identifier = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
   identifier.Pos = heritageBase;
   name = identifier;
-  if (nameUnit.SourceRange.End !== null) {
-    heritageBase = nameUnit.SourceRange.End.Index + 1;
+  if (nameUnit.SourceRange.EndIndex >= 0) {
+    heritageBase = nameUnit.SourceRange.EndIndex;
   }
   this.At++;
 }
@@ -2162,8 +2158,8 @@ children 顺序与 TS 的 `Parameter` 完全一致：`DotDotDotToken`、`Identif
 const parameters:Array<Token> = [];
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
@@ -2223,10 +2219,10 @@ while (inner.At < inner.Units.length) {
     // `?` 与 `:` 相邻时会被 token 层并成一颗组合符号 `?:`；QuestionToken 只覆盖前一个 `?`。
     const questionUnit = inner.Units[inner.At];
     const questionShape = new QuestionTokenShape(this.Template);
-    const questionSource = questionUnit.SourceRange.Start;
-    if (questionSource !== null) {
-      questionShape.SignIn(questionSource);
-      questionShape.SignOut(questionSource);
+    const questionStart = questionUnit.SourceRange.StartIndex;
+    if (questionStart >= 0) {
+      questionShape.SignIn(questionStart);
+      questionShape.SignOut(questionStart + 1);
     }
     questionShape.Pos = inner.Positions[inner.At];
     questionShape.TryToClose(this.Context);
@@ -2624,8 +2620,8 @@ return unit instanceof Bracket && (unit as Bracket).StartBracketChar === start;
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 if (inner.Units.length === 0) {
@@ -2644,8 +2640,8 @@ return shape;
 const args:Array<Token> = [];
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
