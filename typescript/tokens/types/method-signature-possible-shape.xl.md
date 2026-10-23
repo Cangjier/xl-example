@@ -72,7 +72,7 @@ return state.Complete && state.End >= 0
 消费 `state.Start .. CodeAt[state.End]` 这一段（含成员自己的 `;` / `,`，不含成员之后的 trivia），
 用 `TypeBuilder.ParseTypeMember()` 建出方法签名，然后 `host.Data.splice(start, consumed, shape)` 原地顶替。
 
-`Pos` 由 `MemberPossibleUtil.BasePos` 算（条目起点前最近一个非 trivia 单元的 `End.Index + 1`），
+`Pos` 由 `MemberPossibleUtil.BasePos` 算（条目起点前最近一个非 trivia 单元的 `EndIndex`），
 与整段 `BuildMembers` 同一口径。**成员读完、消费范围与判定一致才 `splice`**，否则不建、把 raw 代码留给收口时的 `BuildMembers` 按重构前口径恢复（见 `MemberPossibleUtil.MemberParsedWhole`）；整段读完后才断言产出必须是 `MethodSignatureShape`。
 
 `abstract new (...)` 这类 recovery 不是本候选的入口：判型表把它交给构造签名分支，本候选在

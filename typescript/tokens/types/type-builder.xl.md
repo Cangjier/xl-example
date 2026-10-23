@@ -7,6 +7,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
@@ -101,13 +102,13 @@ import { JSDocNonNullableTypeShape } from "../jsdoc/jsdoc-non-nullable-type-shap
 调用方约定（expressions / declarations 后续消费）：
 
 - 造：`new TypeBuilder(host.Template, context)`；
-- 装：`builder.Load(units, basePos)`，`basePos` = 本段第一个单元前一个非 trivia 单元的 `End.Index + 1`
+- 装：`builder.Load(units, basePos)`，`basePos` = 本段第一个单元前一个非 trivia 单元的 `EndIndex`
   （没有就 `0`）——与 `ExpressionBuilder.Load` 同口径，`Positions` 因此与 TS 的 `pos`（含前导 trivia）一致；
 - 读：`ParseType()` 读一个完整类型（union 层）；`ParseTypeArguments()` 在 `At` 停在 `<` 上时读 `<A, B>` 并返回实参数组；
 - 校验：读完后 `builder.At === builder.Units.length`，否则「类型没有读完」；
 - 对齐 `ExpressionBuilder`：两者的 `Units` / `Positions` / `At` 语义完全相同，
   所以「表达式读到一半开始读类型」时，把剩下的单元原样传给新的 `TypeBuilder`、`basePos` 取
-  `ExpressionBuilder.Units[ExpressionBuilder.At - 1].SourceRange.End.Index + 1` 即可；
+  `ExpressionBuilder.Units[ExpressionBuilder.At - 1].SourceRange.EndIndex` 即可；
   反之（类型里要嵌表达式，如后续 template literal type）同理用 `ExpressionBuilder.Load` 接续。
 
 本块支持的文法（TS 口径）：
@@ -154,7 +155,7 @@ this.Context = context;
 把一段单元装进来：跳过 trivia，记下每个单元**含前导 trivia 的起点**（`Positions[i]`），`At` 归零。
 
 `>>` / `>>>` 这种连续闭合尖括号在基本 token 层是一个 `Symbol`；这里按字符拆成若干个只含一个 `>` 的虚拟符号单元
-（`Document.At` 取那个字符的 `Source`，各占一个字符区间），这样嵌套泛型实参的区间才能与 TS 对齐
+（以该 `Symbol` 的 `SourceRange.StartIndex` 为底、每个字符各占一个半开区间 `[i, i+1)`），这样嵌套泛型实参的区间才能与 TS 对齐
 （`A<B<C>>` 的内层 `TypeReference` 结束在第一个 `>`，外层结束在第二个）。
 展开后第 `i` 格来自传入数组的哪一格记在 `SourceIndexes[i]`；`OriginalConsumed()` 用它把 `At` 折回**原单元数**。
 
@@ -171,17 +172,17 @@ for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
   }
   if (unit instanceof Symbol) {
     const text = (unit as Symbol).TempToString();
-    if (AngleJudge.IsSplitClose(text) && unit.SourceRange.Start !== null) {
-      const head = unit.SourceRange.Start;
+    if (AngleJudge.IsSplitClose(text) && unit.SourceRange.StartIndex >= 0) {
+      const head = unit.SourceRange.StartIndex;
       for (let index = 0; index < text.length; index++) {
-        const pieceSource = head.Document.At(head.Index + index);
+        const pieceIndex = head + index;
         const piece = new Symbol(unit.Template);
-        piece.AppendAndSignOut(pieceSource);
-        piece.SignIn(pieceSource);
+        piece.AppendAndSignOut(text[index], pieceIndex);
+        piece.SignIn(pieceIndex);
         this.Units.push(piece);
         this.Positions.push(pos);
         this.SourceIndexes.push(sourceIndex);
-        pos = pieceSource.Index + 1;
+        pos = pieceIndex + 1;
       }
       continue;
     }
@@ -189,8 +190,8 @@ for (let sourceIndex = 0; sourceIndex < units.length; sourceIndex++) {
   this.Units.push(unit);
   this.Positions.push(pos);
   this.SourceIndexes.push(sourceIndex);
-  if (unit.SourceRange.End !== null) {
-    pos = unit.SourceRange.End.Index + 1;
+  if (unit.SourceRange.EndIndex >= 0) {
+    pos = unit.SourceRange.EndIndex;
   }
 }
 ```
@@ -261,11 +262,11 @@ return false;
 
 ```ts
 const unit = this.Units[index];
-if (unit.SourceRange.Start !== null) {
-  shape.SignIn(unit.SourceRange.Start);
+if (unit.SourceRange.StartIndex >= 0) {
+  shape.SignIn(unit.SourceRange.StartIndex);
 }
-if (unit.SourceRange.End !== null) {
-  shape.SignOut(unit.SourceRange.End);
+if (unit.SourceRange.EndIndex >= 0) {
+  shape.SignOut(unit.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[index];
 shape.TryToClose(this.Context);
@@ -326,11 +327,11 @@ return parsed;
 ```ts
 const head = this.Units[first];
 const tail = this.Units[last];
-if (head.SourceRange.Start !== null) {
-  shape.SignIn(head.SourceRange.Start);
+if (head.SourceRange.StartIndex >= 0) {
+  shape.SignIn(head.SourceRange.StartIndex);
 }
-if (tail.SourceRange.End !== null) {
-  shape.SignOut(tail.SourceRange.End);
+if (tail.SourceRange.EndIndex >= 0) {
+  shape.SignOut(tail.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[first];
 shape.TryToClose(this.Context);
@@ -507,7 +508,25 @@ while (previousIndex >= 0 && this.Units[previousIndex].IsTriviaToken) {
 if (previousIndex < 0) {
   return false;
 }
-return LineTerminator.HasBetween(this.Units[previousIndex].SourceRange.End, current.SourceRange.Start);
+// token 的 SourceRange 只带下标：扫描用的文档取单元自己的，没有就退回驱动层的当前文档。
+const document = current.SourceRange.Document !== null
+  ? current.SourceRange.Document
+  : this.Context.CurrentDocument;
+if (document === null) {
+  return false;
+}
+const previousEnd = this.Units[previousIndex].SourceRange.EndIndex;
+const currentStart = current.SourceRange.StartIndex;
+if (previousEnd < 0 || currentStart < 0) {
+  return false;
+}
+const whole = SourceRange.Whole(document);
+for (let at = previousEnd; at < currentStart; at++) {
+  if (LineTerminator.IsLineTerminator(whole.At(at))) {
+    return true;
+  }
+}
+return false;
 ```
 
 ## method ParsePostfixType:()=>Token
@@ -531,11 +550,11 @@ while (true) {
     this.At++;
     const nonNullable = new JSDocNonNullableTypeShape(this.Template);
     nonNullable.Add(type);
-    if (type.SourceRange.Start !== null) {
-      nonNullable.SignIn(type.SourceRange.Start);
+    if (type.SourceRange.StartIndex >= 0) {
+      nonNullable.SignIn(type.SourceRange.StartIndex);
     }
-    if (bang.SourceRange.End !== null) {
-      nonNullable.SignOut(bang.SourceRange.End);
+    if (bang.SourceRange.EndIndex >= 0) {
+      nonNullable.SignOut(bang.SourceRange.EndIndex);
     }
     nonNullable.Pos = (type as ShapeToken).Pos;
     nonNullable.TryToClose(this.Context);
@@ -555,11 +574,11 @@ while (true) {
     const arrayShape = new ArrayTypeShape(this.Template);
     arrayShape.ElementType = type;
     arrayShape.Add(type);
-    if (type.SourceRange.Start !== null) {
-      arrayShape.SignIn(type.SourceRange.Start);
+    if (type.SourceRange.StartIndex >= 0) {
+      arrayShape.SignIn(type.SourceRange.StartIndex);
     }
-    if (bracket.SourceRange.End !== null) {
-      arrayShape.SignOut(bracket.SourceRange.End);
+    if (bracket.SourceRange.EndIndex >= 0) {
+      arrayShape.SignOut(bracket.SourceRange.EndIndex);
     }
     arrayShape.Pos = (type as ShapeToken).Pos;
     arrayShape.TryToClose(this.Context);
@@ -568,8 +587,8 @@ while (true) {
   }
   const inner = new TypeBuilder(this.Template, this.Context);
   let base = 0;
-  if (bracket.SourceRange.Start !== null) {
-    base = bracket.SourceRange.Start.Index + 1;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
   }
   inner.Load(bracket.Data, base);
   if (inner.Units.length === 0) {
@@ -584,11 +603,11 @@ while (true) {
   shape.IndexType = indexType;
   shape.Add(type);
   shape.Add(indexType);
-  if (type.SourceRange.Start !== null) {
-    shape.SignIn(type.SourceRange.Start);
+  if (type.SourceRange.StartIndex >= 0) {
+    shape.SignIn(type.SourceRange.StartIndex);
   }
-  if (bracket.SourceRange.End !== null) {
-    shape.SignOut(bracket.SourceRange.End);
+  if (bracket.SourceRange.EndIndex >= 0) {
+    shape.SignOut(bracket.SourceRange.EndIndex);
   }
   shape.Pos = (type as ShapeToken).Pos;
   shape.TryToClose(this.Context);
@@ -628,11 +647,11 @@ if (unit instanceof Symbol && (unit as Symbol).Is("-")) {
   const negativeLiteral = new LiteralTypeShape(this.Template);
   negativeLiteral.Literal = spannedPrefix;
   negativeLiteral.Add(spannedPrefix);
-  if (unit.SourceRange.Start !== null) {
-    negativeLiteral.SignIn(unit.SourceRange.Start);
+  if (unit.SourceRange.StartIndex >= 0) {
+    negativeLiteral.SignIn(unit.SourceRange.StartIndex);
   }
-  if (spannedPrefix.SourceRange.End !== null) {
-    negativeLiteral.SignOut(spannedPrefix.SourceRange.End);
+  if (spannedPrefix.SourceRange.EndIndex >= 0) {
+    negativeLiteral.SignOut(spannedPrefix.SourceRange.EndIndex);
   }
   negativeLiteral.Pos = this.Positions[start];
   negativeLiteral.TryToClose(this.Context);
@@ -685,11 +704,11 @@ if (unit instanceof Common) {
     const shape = new TypeOperatorShape(this.Template);
     shape.Operand = operand;
     shape.Add(operand);
-    if (unit.SourceRange.Start !== null) {
-      shape.SignIn(unit.SourceRange.Start);
+    if (unit.SourceRange.StartIndex >= 0) {
+      shape.SignIn(unit.SourceRange.StartIndex);
     }
-    if (operand.SourceRange.End !== null) {
-      shape.SignOut(operand.SourceRange.End);
+    if (operand.SourceRange.EndIndex >= 0) {
+      shape.SignOut(operand.SourceRange.EndIndex);
     }
     shape.Pos = this.Positions[start];
     shape.TryToClose(this.Context);
@@ -778,8 +797,8 @@ throw new Error("不支持的类型起点");
 ```ts
 const inner = new TypeBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 if (inner.Units.length === 0) {
@@ -792,11 +811,11 @@ if (inner.At !== inner.Units.length) {
 const shape = new ParenthesizedTypeShape(this.Template);
 shape.Type = type;
 shape.Add(type);
-if (bracket.SourceRange.Start !== null) {
-  shape.SignIn(bracket.SourceRange.Start);
+if (bracket.SourceRange.StartIndex >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
 }
-if (bracket.SourceRange.End !== null) {
-  shape.SignOut(bracket.SourceRange.End);
+if (bracket.SourceRange.EndIndex >= 0) {
+  shape.SignOut(bracket.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -810,8 +829,8 @@ return shape;
 ```ts
 const inner = new TypeBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 const shape = new TupleTypeShape(this.Template);
@@ -896,11 +915,11 @@ while (inner.At < inner.Units.length) {
   shape.Add(elementType);
 }
 shape.Elements = shape.Data;
-if (bracket.SourceRange.Start !== null) {
-  shape.SignIn(bracket.SourceRange.Start);
+if (bracket.SourceRange.StartIndex >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
 }
-if (bracket.SourceRange.End !== null) {
-  shape.SignOut(bracket.SourceRange.End);
+if (bracket.SourceRange.EndIndex >= 0) {
+  shape.SignOut(bracket.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -920,8 +939,8 @@ const shape = new TypeLiteralShape(this.Template);
 if (this.HasCode(bracket.Data)) {
   const inner = new TypeBuilder(this.Template, this.Context);
   let base = 0;
-  if (bracket.SourceRange.Start !== null) {
-    base = bracket.SourceRange.Start.Index + 1;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
   }
   inner.Load(bracket.Data, base);
   while (inner.At < inner.Units.length) {
@@ -934,11 +953,11 @@ if (this.HasCode(bracket.Data)) {
   }
   shape.Members = shape.Data;
 }
-if (bracket.SourceRange.Start !== null) {
-  shape.SignIn(bracket.SourceRange.Start);
+if (bracket.SourceRange.StartIndex >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
 }
-if (bracket.SourceRange.End !== null) {
-  shape.SignOut(bracket.SourceRange.End);
+if (bracket.SourceRange.EndIndex >= 0) {
+  shape.SignOut(bracket.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -1173,8 +1192,8 @@ if (unit instanceof Bracket) {
       // 方括号里的内容按表达式读（`Symbol.iterator` / `a.b` / 字符串 / 数字都能进），不再只认单标识符。
       const inner = new ExpressionBuilder(this.Template, this.Context);
       let expressionBase = 0;
-      if (bracket.SourceRange.Start !== null) {
-        expressionBase = bracket.SourceRange.Start.Index + 1;
+      if (bracket.SourceRange.StartIndex >= 0) {
+        expressionBase = bracket.SourceRange.StartIndex + 1;
       }
       inner.Load(bracket.Data, expressionBase);
       if (inner.Units.length === 0) {
@@ -1187,11 +1206,11 @@ if (unit instanceof Bracket) {
       const computed = new ComputedPropertyNameShape(this.Template);
       computed.Add(expression);
       expression.Parent = computed;
-      if (bracket.SourceRange.Start !== null) {
-        computed.SignIn(bracket.SourceRange.Start);
+      if (bracket.SourceRange.StartIndex >= 0) {
+        computed.SignIn(bracket.SourceRange.StartIndex);
       }
-      if (bracket.SourceRange.End !== null) {
-        computed.SignOut(bracket.SourceRange.End);
+      if (bracket.SourceRange.EndIndex >= 0) {
+        computed.SignOut(bracket.SourceRange.EndIndex);
       }
       computed.Pos = this.Positions[this.At];
       computed.TryToClose(this.Context);
@@ -1317,8 +1336,8 @@ if (accessorText === "get" || accessorText === "set") {
       this.At++;
       const accessorInner = new ExpressionBuilder(this.Template, this.Context);
       let accessorBase = 0;
-      if (accessorNameBracket.SourceRange.Start !== null) {
-        accessorBase = accessorNameBracket.SourceRange.Start.Index + 1;
+      if (accessorNameBracket.SourceRange.StartIndex >= 0) {
+        accessorBase = accessorNameBracket.SourceRange.StartIndex + 1;
       }
       accessorInner.Load(accessorNameBracket.Data, accessorBase);
       if (accessorInner.Units.length === 0) {
@@ -1331,11 +1350,11 @@ if (accessorText === "get" || accessorText === "set") {
       const accessorComputed = new ComputedPropertyNameShape(this.Template);
       accessorComputed.Add(accessorExpression);
       accessorExpression.Parent = accessorComputed;
-      if (accessorNameBracket.SourceRange.Start !== null) {
-        accessorComputed.SignIn(accessorNameBracket.SourceRange.Start);
+      if (accessorNameBracket.SourceRange.StartIndex >= 0) {
+        accessorComputed.SignIn(accessorNameBracket.SourceRange.StartIndex);
       }
-      if (accessorNameBracket.SourceRange.End !== null) {
-        accessorComputed.SignOut(accessorNameBracket.SourceRange.End);
+      if (accessorNameBracket.SourceRange.EndIndex >= 0) {
+        accessorComputed.SignOut(accessorNameBracket.SourceRange.EndIndex);
       }
       accessorComputed.Pos = this.Positions[accessorNameIndex];
       accessorComputed.TryToClose(this.Context);
@@ -1519,9 +1538,9 @@ if (text !== "?" && text !== "?:") {
 const index = this.At;
 this.At++;
 const shape = new QuestionTokenShape(this.Template);
-if (unit.SourceRange.Start !== null) {
-  shape.SignIn(unit.SourceRange.Start);
-  shape.SignOut(unit.SourceRange.Start);
+if (unit.SourceRange.StartIndex >= 0) {
+  shape.SignIn(unit.SourceRange.StartIndex);
+  shape.SignOut(unit.SourceRange.StartIndex + 1);
 }
 shape.Pos = this.Positions[index];
 shape.TryToClose(this.Context);
@@ -1593,8 +1612,8 @@ return this.SpanNode(shape, start, this.At - 1);
 const parameters:Array<Token> = [];
 const inner = new TypeBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
@@ -1617,8 +1636,8 @@ while (inner.At < inner.Units.length) {
     inner.At += initializerBuilder.At;
     parameter.Add(initializer);
     const initializerTail = inner.Units[inner.At - 1];
-    const initializerEnd = initializerTail.SourceRange.End;
-    if (initializerEnd !== null) {
+    const initializerEnd = initializerTail.SourceRange.EndIndex;
+    if (initializerEnd >= 0) {
       parameter.SourceRange.End = initializerEnd;
     }
   }
@@ -1643,7 +1662,7 @@ while (true) {
   const atToken = unit as Symbol;
   const decoratorPos = this.Positions[atIndex];
   this.At++;
-  const expressionBase = atToken.SourceRange.End === null ? decoratorPos : atToken.SourceRange.End.Index + 1;
+  const expressionBase = atToken.SourceRange.EndIndex < 0 ? decoratorPos : atToken.SourceRange.EndIndex;
   // 装饰器表达式按 TS 的 decorator context 口径截断：`@a` 后面**顶层**的 `[` 不是 element access，
   // 而是参数名（解构模式）的起点（`m(@a [x]: T)` 的 TS AST 是 Decorator(`a`) + ArrayBindingPattern）。
   // `@a()` / `@a.b` / `@a(b)` 仍正常；`(...)` 是整块 Bracket，里面的 `[` 不在本层，不受影响。
@@ -1754,8 +1773,8 @@ return this.SpanNode(parameter, paramStart, this.At - 1);
 ```ts
 const inner = new TypeBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 if (inner.Units.length === 0) {
@@ -1912,11 +1931,11 @@ shape.Left = left;
 shape.Right = right;
 shape.Add(left);
 shape.Add(right);
-if (left.SourceRange.Start !== null) {
-  shape.SignIn(left.SourceRange.Start);
+if (left.SourceRange.StartIndex >= 0) {
+  shape.SignIn(left.SourceRange.StartIndex);
 }
-if (right.SourceRange.End !== null) {
-  shape.SignOut(right.SourceRange.End);
+if (right.SourceRange.EndIndex >= 0) {
+  shape.SignOut(right.SourceRange.EndIndex);
 }
 shape.Pos = (left as ShapeToken).Pos;
 shape.TryToClose(this.Context);
@@ -1956,19 +1975,19 @@ if (importUnit !== null && this.IsText(importUnit, "import")) {
     throw new Error("typeof import 缺少模块字符串");
   }
   let pathPos = 0;
-  if (bracket.SourceRange.Start !== null) {
-    pathPos = bracket.SourceRange.Start.Index + 1;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    pathPos = bracket.SourceRange.StartIndex + 1;
   }
   const stringShape = StringLiteralShape.FromBasicToken(pathToken, this.Context);
   stringShape.Pos = pathPos;
   const argument = new LiteralTypeShape(this.Template);
   argument.Literal = stringShape;
   argument.Add(stringShape);
-  if (pathToken.SourceRange.Start !== null) {
-    argument.SignIn(pathToken.SourceRange.Start);
+  if (pathToken.SourceRange.StartIndex >= 0) {
+    argument.SignIn(pathToken.SourceRange.StartIndex);
   }
-  if (pathToken.SourceRange.End !== null) {
-    argument.SignOut(pathToken.SourceRange.End);
+  if (pathToken.SourceRange.EndIndex >= 0) {
+    argument.SignOut(pathToken.SourceRange.EndIndex);
   }
   argument.Pos = pathPos;
   argument.TryToClose(this.Context);
@@ -1990,12 +2009,12 @@ if (importUnit !== null && this.IsText(importUnit, "import")) {
   if (qualifier !== null) {
     imported.Add(qualifier);
   }
-  if (operatorUnit.SourceRange.Start !== null) {
-    imported.SignIn(operatorUnit.SourceRange.Start);
+  if (operatorUnit.SourceRange.StartIndex >= 0) {
+    imported.SignIn(operatorUnit.SourceRange.StartIndex);
   }
   const lastUnit = this.Units[this.At - 1];
-  if (lastUnit.SourceRange.End !== null) {
-    imported.SignOut(lastUnit.SourceRange.End);
+  if (lastUnit.SourceRange.EndIndex >= 0) {
+    imported.SignOut(lastUnit.SourceRange.EndIndex);
   }
   imported.Pos = this.Positions[start];
   imported.TryToClose(this.Context);
@@ -2017,13 +2036,13 @@ if (!this.HasLineBreakBeforeCurrent()) {
 for (const typeArgument of typeArguments) {
   shape.Add(typeArgument);
 }
-if (operatorUnit.SourceRange.Start !== null) {
-  shape.SignIn(operatorUnit.SourceRange.Start);
+if (operatorUnit.SourceRange.StartIndex >= 0) {
+  shape.SignIn(operatorUnit.SourceRange.StartIndex);
 }
 // 有类型实参时 TS 的 TypeQuery 区间含末尾的 `>`（`typeof X<A>`），按最后消费的单元签出。
 const lastConsumed = this.Units[this.At - 1];
-if (lastConsumed.SourceRange.End !== null) {
-  shape.SignOut(lastConsumed.SourceRange.End);
+if (lastConsumed.SourceRange.EndIndex >= 0) {
+  shape.SignOut(lastConsumed.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -2259,11 +2278,11 @@ const inner = innerUnit as Bracket;
 const attributes = new ImportAttributesShape(this.Template);
 attributes.Token = this.TextOf(withUnit);
 let attributesPos = 0;
-if (withUnit.SourceRange.End !== null) {
-  attributesPos = withUnit.SourceRange.End.Index + 2;
+if (withUnit.SourceRange.EndIndex >= 0) {
+  attributesPos = withUnit.SourceRange.EndIndex + 1;
 }
 let group:Array<Token> = [];
-let pos = inner.SourceRange.Start === null ? 0 : inner.SourceRange.Start.Index + 1;
+let pos = inner.SourceRange.StartIndex < 0 ? 0 : inner.SourceRange.StartIndex + 1;
 for (const item of inner.Data) {
   if (!item.IsTriviaToken && item instanceof Symbol && (item as Symbol).Is(",")) {
     const entry = this.BuildImportTypeAttribute(group, pos);
@@ -2271,7 +2290,7 @@ for (const item of inner.Data) {
       attributes.Elements.push(entry);
     }
     group = [];
-    pos = item.SourceRange.End === null ? 0 : item.SourceRange.End.Index + 1;
+    pos = item.SourceRange.EndIndex < 0 ? 0 : item.SourceRange.EndIndex;
     continue;
   }
   group.push(item);
@@ -2285,11 +2304,11 @@ for (const entry of attributes.Elements) {
   attributes.Data.push(entry);
 }
 attributes.Pos = attributesPos;
-if (inner.SourceRange.Start !== null) {
-  attributes.SignIn(inner.SourceRange.Start);
+if (inner.SourceRange.StartIndex >= 0) {
+  attributes.SignIn(inner.SourceRange.StartIndex);
 }
-if (inner.SourceRange.End !== null) {
-  attributes.SignOut(inner.SourceRange.End);
+if (inner.SourceRange.EndIndex >= 0) {
+  attributes.SignOut(inner.SourceRange.EndIndex);
 }
 attributes.TryToClose(this.Context);
 return attributes;
@@ -2330,16 +2349,16 @@ if (!(valueUnit instanceof String)) {
   throw new Error("import 类型 attribute 的值不是字符串");
 }
 const value = StringLiteralShape.FromBasicToken(valueUnit as String, this.Context);
-value.Pos = code[1].SourceRange.End === null ? 0 : code[1].SourceRange.End.Index + 1;
+value.Pos = code[1].SourceRange.EndIndex < 0 ? 0 : code[1].SourceRange.EndIndex;
 attribute.Value = value;
 attribute.Data.push(value);
 value.Parent = attribute;
 attribute.Pos = pos;
-if (keyUnit.SourceRange.Start !== null) {
-  attribute.SignIn(keyUnit.SourceRange.Start);
+if (keyUnit.SourceRange.StartIndex >= 0) {
+  attribute.SignIn(keyUnit.SourceRange.StartIndex);
 }
-if (valueUnit.SourceRange.End !== null) {
-  attribute.SignOut(valueUnit.SourceRange.End);
+if (valueUnit.SourceRange.EndIndex >= 0) {
+  attribute.SignOut(valueUnit.SourceRange.EndIndex);
 }
 attribute.TryToClose(this.Context);
 return attribute;
@@ -2370,19 +2389,19 @@ if (pathToken === null) {
   throw new Error("import 类型缺少模块字符串");
 }
 let pathPos = 0;
-if (bracket.SourceRange.Start !== null) {
-  pathPos = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  pathPos = bracket.SourceRange.StartIndex + 1;
 }
 const stringShape = StringLiteralShape.FromBasicToken(pathToken, this.Context);
 stringShape.Pos = pathPos;
 const argument = new LiteralTypeShape(this.Template);
 argument.Literal = stringShape;
 argument.Add(stringShape);
-if (pathToken.SourceRange.Start !== null) {
-  argument.SignIn(pathToken.SourceRange.Start);
+if (pathToken.SourceRange.StartIndex >= 0) {
+  argument.SignIn(pathToken.SourceRange.StartIndex);
 }
-if (pathToken.SourceRange.End !== null) {
-  argument.SignOut(pathToken.SourceRange.End);
+if (pathToken.SourceRange.EndIndex >= 0) {
+  argument.SignOut(pathToken.SourceRange.EndIndex);
 }
 argument.Pos = pathPos;
 argument.TryToClose(this.Context);
@@ -2413,12 +2432,12 @@ if (qualifier !== null) {
 for (const argumentType of typeArguments) {
   shape.Add(argumentType);
 }
-if (importUnit.SourceRange.Start !== null) {
-  shape.SignIn(importUnit.SourceRange.Start);
+if (importUnit.SourceRange.StartIndex >= 0) {
+  shape.SignIn(importUnit.SourceRange.StartIndex);
 }
 const lastUnit = this.Units[this.At - 1];
-if (lastUnit.SourceRange.End !== null) {
-  shape.SignOut(lastUnit.SourceRange.End);
+if (lastUnit.SourceRange.EndIndex >= 0) {
+  shape.SignOut(lastUnit.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -2436,14 +2455,6 @@ if (!token.IsSupportInterpolation) {
 }
 const config = this.Template.StringTemplate;
 return config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(token.StringChar);
-```
-
-## method SourceAfter:(source:Source, offset:int)=>Source
-
-同一文档里 `source` 之后第 `offset` 个位置（模板 span 的起点要用它）。
-
-```ts
-return source.Document.At(source.Index + offset);
 ```
 
 ## method ParseTemplateType:(token:String, start:int)=>Token
@@ -2480,11 +2491,11 @@ if (interps.length === 0) {
 const expression = new TemplateLiteralTypeShape(this.Template);
 const head = new TemplateHeadShape(this.Template);
 head.Text = texts[0];
-if (token.SourceRange.Start !== null) {
-  head.SignIn(token.SourceRange.Start);
+if (token.SourceRange.StartIndex >= 0) {
+  head.SignIn(token.SourceRange.StartIndex);
 }
-if (interps[0].SourceRange.Start !== null) {
-  head.SignOut(interps[0].SourceRange.Start);
+if (interps[0].SourceRange.StartIndex >= 0) {
+  head.SignOut(interps[0].SourceRange.StartIndex + 1);
 }
 head.Pos = this.Positions[start];
 head.TryToClose(this.Context);
@@ -2493,8 +2504,8 @@ for (let index = 0; index < interps.length; index++) {
   const interp = interps[index];
   const inner = new TypeBuilder(this.Template, this.Context);
   let base = 0;
-  if (interp.SourceRange.Start !== null) {
-    base = interp.SourceRange.Start.Index + 1;
+  if (interp.SourceRange.StartIndex >= 0) {
+    base = interp.SourceRange.StartIndex + 1;
   }
   inner.Load(interp.Data, base);
   if (inner.Units.length === 0) {
@@ -2505,22 +2516,22 @@ for (let index = 0; index < interps.length; index++) {
     throw new Error("模板类型插值里的类型没有读完");
   }
   let tailPos = 0;
-  if (value.SourceRange.End !== null) {
-    tailPos = value.SourceRange.End.Index + 1;
-  } else if (interp.SourceRange.End !== null) {
-    tailPos = interp.SourceRange.End.Index;
+  if (value.SourceRange.EndIndex >= 0) {
+    tailPos = value.SourceRange.EndIndex;
+  } else if (interp.SourceRange.EndIndex >= 0) {
+    tailPos = interp.SourceRange.EndIndex - 1;
   }
   let tail:ShapeToken;
   if (index + 1 < interps.length) {
     const middle = new TemplateMiddleShape(this.Template);
     middle.Text = texts[index + 1];
     middle.Pos = tailPos;
-    if (interp.SourceRange.End !== null) {
-      middle.SignIn(interp.SourceRange.End);
+    if (interp.SourceRange.EndIndex >= 0) {
+      middle.SignIn(interp.SourceRange.EndIndex - 1);
     }
     const nextInterp = interps[index + 1];
-    if (nextInterp.SourceRange.Start !== null) {
-      middle.SignOut(nextInterp.SourceRange.Start);
+    if (nextInterp.SourceRange.StartIndex >= 0) {
+      middle.SignOut(nextInterp.SourceRange.StartIndex + 1);
     }
     middle.TryToClose(this.Context);
     tail = middle;
@@ -2528,11 +2539,11 @@ for (let index = 0; index < interps.length; index++) {
     const lastTail = new TemplateTailShape(this.Template);
     lastTail.Text = texts[index + 1];
     lastTail.Pos = tailPos;
-    if (interp.SourceRange.End !== null) {
-      lastTail.SignIn(interp.SourceRange.End);
+    if (interp.SourceRange.EndIndex >= 0) {
+      lastTail.SignIn(interp.SourceRange.EndIndex - 1);
     }
-    if (token.SourceRange.End !== null) {
-      lastTail.SignOut(token.SourceRange.End);
+    if (token.SourceRange.EndIndex >= 0) {
+      lastTail.SignOut(token.SourceRange.EndIndex);
     }
     lastTail.TryToClose(this.Context);
     tail = lastTail;
@@ -2542,21 +2553,21 @@ for (let index = 0; index < interps.length; index++) {
   span.Tail = tail;
   span.Add(value);
   span.Add(tail);
-  if (interp.SourceRange.Start !== null) {
-    span.SignIn(this.SourceAfter(interp.SourceRange.Start, 1));
-    span.Pos = interp.SourceRange.Start.Index + 1;
+  if (interp.SourceRange.StartIndex >= 0) {
+    span.SignIn(interp.SourceRange.StartIndex + 1);
+    span.Pos = interp.SourceRange.StartIndex + 1;
   }
-  if (tail.SourceRange.End !== null) {
-    span.SignOut(tail.SourceRange.End);
+  if (tail.SourceRange.EndIndex >= 0) {
+    span.SignOut(tail.SourceRange.EndIndex);
   }
   span.TryToClose(this.Context);
   expression.Add(span);
 }
-if (token.SourceRange.Start !== null) {
-  expression.SignIn(token.SourceRange.Start);
+if (token.SourceRange.StartIndex >= 0) {
+  expression.SignIn(token.SourceRange.StartIndex);
 }
-if (token.SourceRange.End !== null) {
-  expression.SignOut(token.SourceRange.End);
+if (token.SourceRange.EndIndex >= 0) {
+  expression.SignOut(token.SourceRange.EndIndex);
 }
 expression.Pos = this.Positions[start];
 expression.TryToClose(this.Context);
@@ -2620,8 +2631,8 @@ children 顺序与 TS 一致：只读修饰 token（`ReadonlyKeyword` / `MinusTo
 ```ts
 const inner = new TypeBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 let readonlyToken:Token | null = null;
@@ -2719,11 +2730,11 @@ shape.Add(valueType);
 for (const mappedMember of mappedMembers) {
   shape.Add(mappedMember);
 }
-if (bracket.SourceRange.Start !== null) {
-  shape.SignIn(bracket.SourceRange.Start);
+if (bracket.SourceRange.StartIndex >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
 }
-if (bracket.SourceRange.End !== null) {
-  shape.SignOut(bracket.SourceRange.End);
+if (bracket.SourceRange.EndIndex >= 0) {
+  shape.SignOut(bracket.SourceRange.EndIndex);
 }
 shape.Pos = this.Positions[start];
 shape.TryToClose(this.Context);
@@ -2738,8 +2749,8 @@ mapped type 的 `[K in 约束 as 名字]`：`TypeParameter` 的 children 是 `Id
 ```ts
 const inner = new TypeBuilder(this.Template, this.Context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 const nameIndex = inner.At;
