@@ -47,7 +47,7 @@ TS 的 children 顺序：修饰符（可选 `DeclareKeyword` / `AsyncKeyword`，
 无函数体的声明（`declare function f(): void;` / 重载签名 `function f(a: A): B;`）最后一块是 `;`：
 Data 里没有 Block，区间到 `;` 为止（AST 的 End 含分号）。
 
-区间：从 `declare` 或 `function` 起点到函数体 `}` / `;`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`（没有就是 `0`）。
+区间：从 `declare` 或 `function` 起点到函数体 `}` / `;`；`Pos` = 前面那个非 trivia 单元 `EndIndex`（没有就是 `0`）。
 名字 `Pos` = `function` 之后；参数 `Pos` = `(` 或 `,` 之后；返回类型 `Pos` = `:` 之后；函数体 `Pos` = `)` 或返回类型之后。
 
 ## field DeclareKeyword:Token | null = null
@@ -90,8 +90,8 @@ let decoratorBase = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      decoratorBase = end.Index + 1;
+    if (end >= 0) {
+      decoratorBase = end;
     }
     break;
   }
@@ -103,7 +103,7 @@ while (decoratorCount < code.length
   && code[decoratorCount] instanceof Symbol && (code[decoratorCount] as Symbol).Is("@")) {
   const atUnit = code[decoratorCount];
   const decoratorPos = decoratorEnd;
-  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const expressionBase = atUnit.SourceRange.End < 0 ? decoratorPos : atUnit.SourceRange.EndIndex;
   const builder = new ExpressionBuilder(host.Template, context);
   builder.Load(code.slice(decoratorCount + 1), expressionBase);
   if (builder.Units.length === 0) {
@@ -116,8 +116,8 @@ while (decoratorCount < code.length
   const consumed = builder.At;
   for (let cursor = decoratorCount + 1; cursor < decoratorCount + 1 + consumed; cursor++) {
     const cursorEnd = code[cursor].SourceRange.End;
-    if (cursorEnd !== null) {
-      decoratorEnd = cursorEnd.Index + 1;
+    if (cursorEnd >= 0) {
+      decoratorEnd = cursorEnd;
     }
   }
   decoratorCount += 1 + consumed;
@@ -170,7 +170,7 @@ if (paramIndex < code.length && code[paramIndex] instanceof Symbol && (code[para
   // Parameter[] in the AST children to match TS.
   const angleUnit = code[paramIndex] as Symbol;
   const angleBuilder = new TypeBuilder(host.Template, context);
-  const angleStart = angleUnit.SourceRange.Start === null ? 0 : angleUnit.SourceRange.Start.Index;
+  const angleStart = angleUnit.SourceRange.Start < 0 ? 0 : angleUnit.SourceRange.StartIndex;
   angleBuilder.Load(code.slice(paramIndex), angleStart);
   typeParameters = angleBuilder.ParseTypeParameterList();
   if (typeParameters.length === 0) {
@@ -236,7 +236,7 @@ if (afterParams < tailIndex) {
   if (typeUnits.length === 0) {
     throw new Error("函数声明的返回类型为空");
   }
-  const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
+  const typePos = colon.SourceRange.End < 0 ? 0 : colon.SourceRange.EndIndex;
   const typeBuilder = new TypeBuilder(host.Template, context);
   typeBuilder.Load(typeUnits, typePos);
   // 返回类型可以是类型谓词（`x is A` / `asserts x is A` / `asserts x`）：走 ParseReturnType 分流，
@@ -269,8 +269,8 @@ let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
+    if (end >= 0) {
+      pos = end;
     }
     break;
   }
@@ -290,23 +290,23 @@ for (const unit of modifierUnits) {
     shape.Add(modifier);
   } else {
     const modifier = new AsyncKeywordShape(host.Template);
-    if (unit.SourceRange.Start !== null) {
-      modifier.SignIn(unit.SourceRange.Start);
+    if (unit.SourceRange.Start >= 0) {
+      modifier.SignIn(unit.SourceRange.StartIndex);
     }
-    if (unit.SourceRange.End !== null) {
-      modifier.SignOut(unit.SourceRange.End);
+    if (unit.SourceRange.End >= 0) {
+      modifier.SignOut(unit.SourceRange.EndIndex);
     }
     modifier.Pos = modifierPos;
     modifier.TryToClose(context);
     shape.Add(modifier);
   }
-  modifierPos = unit.SourceRange.End === null ? modifierPos : unit.SourceRange.End.Index + 1;
+  modifierPos = unit.SourceRange.End < 0 ? modifierPos : unit.SourceRange.EndIndex;
 }
 if (asteriskUnit !== null) {
   const asterisk = new AsteriskTokenShape(host.Template);
   asterisk.SignInToken(asteriskUnit);
   asterisk.SignOutToken(asteriskUnit);
-  asterisk.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+  asterisk.Pos = keyword.SourceRange.End < 0 ? pos : keyword.SourceRange.EndIndex;
   asterisk.TryToClose(context);
   shape.AsteriskToken = asterisk;
   shape.Add(asterisk);
@@ -315,9 +315,9 @@ let name:Token | null = null;
 if (nameUnit instanceof Common) {
   const builtName = IdentifierShape.FromBasicToken(nameUnit, context);
   if (asteriskUnit === null) {
-    builtName.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+    builtName.Pos = keyword.SourceRange.End < 0 ? pos : keyword.SourceRange.EndIndex;
   } else {
-    builtName.Pos = asteriskUnit.SourceRange.End === null ? pos : asteriskUnit.SourceRange.End.Index + 1;
+    builtName.Pos = asteriskUnit.SourceRange.End < 0 ? pos : asteriskUnit.SourceRange.EndIndex;
   }
   name = builtName;
 }
@@ -369,10 +369,10 @@ return shape;
 `)` 或返回类型之后那一格，也就是函数体 `Pos` 的取值。
 
 ```ts
-if (unit === null || unit.SourceRange.End === null) {
+if (unit === null || unit.SourceRange.End < 0) {
   return 0;
 }
-return unit.SourceRange.End.Index + 1;
+return unit.SourceRange.EndIndex;
 ```
 
 ## static method TakeParameterInitializer:(host:Token, inner:TypeBuilder, parameter:ParameterShape, context:SyntaxContext)=>void
@@ -386,8 +386,8 @@ if (inner.At >= inner.Units.length || !inner.IsText(inner.Units[inner.At], "="))
 }
 const equalsUnit = inner.Units[inner.At];
 let initPos = 0;
-if (equalsUnit.SourceRange.End !== null) {
-  initPos = equalsUnit.SourceRange.End.Index + 1;
+if (equalsUnit.SourceRange.End >= 0) {
+  initPos = equalsUnit.SourceRange.EndIndex;
 }
 inner.At++;
 const initStart = inner.At;
@@ -411,7 +411,7 @@ if (initBuilder.At !== initBuilder.Units.length) {
 parameter.Add(initializer);
 if (initEnd > initStart) {
   const initTail = inner.Units[initEnd - 1].SourceRange.End;
-  if (initTail !== null) {
+  if (initTail >= 0) {
     // 直接改字段：ParseParameter 已经 SpanNode 签过一次 End，再走 SignOutToken 会撞
     // SourceRangeEndIsSetted（core/exceptions/source-exception.xl.md:41）。
     parameter.SourceRange.End = initTail;
@@ -428,8 +428,8 @@ inner.At = initEnd;
 const parameters:Array<Token> = [];
 const inner = new TypeBuilder(host.Template, context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.Start >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
@@ -473,8 +473,8 @@ while (inner.At < inner.Units.length) {
         parameter.Data.unshift(decorators[i]);
       }
       const firstDecorator = decorators[0];
-      if (firstDecorator.SourceRange.Start !== null) {
-        parameter.SourceRange.Start = firstDecorator.SourceRange.Start;
+      if (firstDecorator.SourceRange.Start >= 0) {
+        parameter.SourceRange.Start = firstDecorator.SourceRange.StartIndex;
       }
       parameter.Pos = (firstDecorator as ShapeToken).Pos;
     }
@@ -486,11 +486,11 @@ while (inner.At < inner.Units.length) {
       let groupPos = 0;
       if (nameIndex > 0) {
         const previousUnit = inner.Units[nameIndex - 1];
-        if (previousUnit.SourceRange.End !== null) {
-          groupPos = previousUnit.SourceRange.End.Index + 1;
+        if (previousUnit.SourceRange.End >= 0) {
+          groupPos = previousUnit.SourceRange.EndIndex;
         }
-      } else if (bracket.SourceRange.Start !== null) {
-        groupPos = bracket.SourceRange.Start.Index + 1;
+      } else if (bracket.SourceRange.Start >= 0) {
+        groupPos = bracket.SourceRange.StartIndex + 1;
       }
       (parameter.ParameterName as ShapeToken).Pos = groupPos;
     }
@@ -515,8 +515,8 @@ while (inner.At < inner.Units.length) {
   parameter.Pos = inner.Positions[nameIndex];
   if (decorators.length > 0) {
     const firstDecorator = decorators[0];
-    if (firstDecorator.SourceRange.Start !== null) {
-      parameter.SourceRange.Start = firstDecorator.SourceRange.Start;
+    if (firstDecorator.SourceRange.Start >= 0) {
+      parameter.SourceRange.Start = firstDecorator.SourceRange.StartIndex;
     }
     parameter.Pos = (firstDecorator as ShapeToken).Pos;
   }

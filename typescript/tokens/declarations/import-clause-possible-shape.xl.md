@@ -8,6 +8,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -212,11 +213,11 @@ const clause = new ImportClauseShape(host.Template);
 const firstUnit = host.Data[cursor];
 if (clausePrevious >= 0) {
   const clausePrevEnd = host.Data[clausePrevious].SourceRange.End;
-  if (clausePrevEnd !== null) {
-    clause.Pos = clausePrevEnd.Index + 1;
+  if (clausePrevEnd >= 0) {
+    clause.Pos = clausePrevEnd;
   }
-} else if (firstUnit.SourceRange.Start !== null) {
-  clause.Pos = firstUnit.SourceRange.Start.Index;
+} else if (firstUnit.SourceRange.Start >= 0) {
+  clause.Pos = firstUnit.SourceRange.StartIndex;
 }
 if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   let at = cursor + 1;
@@ -235,11 +236,11 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
         // NamespaceImport 的 Pos 是 `*` 前面那个非 trivia 单元（`import` / `type`）的 End+1——那格只有宿主还看得见。
         if (previousCode >= 0) {
           const previousEnd = host.Data[previousCode].SourceRange.End;
-          if (previousEnd !== null) {
-            ns.Pos = previousEnd.Index + 1;
+          if (previousEnd >= 0) {
+            ns.Pos = previousEnd;
           }
-        } else if (firstUnit.SourceRange.Start !== null) {
-          ns.Pos = firstUnit.SourceRange.Start.Index;
+        } else if (firstUnit.SourceRange.Start >= 0) {
+          ns.Pos = firstUnit.SourceRange.StartIndex;
         }
         clause.NamedBindings = ns;
         ns.Parent = clause;
@@ -252,11 +253,11 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   // 具名导入的 Pos 是括号前那个非 trivia 单元（`import` 或 `type`）的 End+1——括号外的那一格只有这里看得到。
   if (previousCode >= 0) {
     const previousEnd = host.Data[previousCode].SourceRange.End;
-    if (previousEnd !== null) {
-      named.Pos = previousEnd.Index + 1;
+    if (previousEnd >= 0) {
+      named.Pos = previousEnd;
     }
-  } else if (firstUnit.SourceRange.Start !== null) {
-    named.Pos = firstUnit.SourceRange.Start.Index;
+  } else if (firstUnit.SourceRange.Start >= 0) {
+    named.Pos = firstUnit.SourceRange.StartIndex;
   }
   clause.NamedBindings = named;
   named.Parent = clause;
@@ -266,7 +267,7 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
   // 名字的 Pos 取它前面那一格（type-only 时是 `type`，否则是 `import`），与 clause.Pos 不一定相同。
   if (previousCode >= 0) {
     const previousEnd = host.Data[previousCode].SourceRange.End;
-    identifier.Pos = previousEnd !== null ? previousEnd.Index + 1 : clause.Pos;
+    identifier.Pos = previousEnd >= 0 ? previousEnd : clause.Pos;
   } else {
     identifier.Pos = clause.Pos;
   }
@@ -276,8 +277,8 @@ if (firstUnit instanceof Symbol && (firstUnit as Symbol).Is("*")) {
 }
 clause.IsTypeOnly = typeOnly;
 clause.PhaseModifier = phaseModifier;
-if (firstUnit.SourceRange.Start !== null) {
-  clause.SignIn(firstUnit.SourceRange.Start);
+if (firstUnit.SourceRange.Start >= 0) {
+  clause.SignIn(firstUnit.SourceRange.StartIndex);
 }
 host.Data.splice(cursor, tokenIndex - cursor + 1, clause);
 clause.Parent = host;
@@ -291,31 +292,32 @@ Raw lookahead after `defer`: `import defer from "m"` is a default import named `
 continuation (`*`, `{`, or a name) makes `defer` a phase modifier (TS 6.0.3: ImportClause.phaseModifier).
 
 ```ts
-const end = unit.SourceRange.End;
-if (end === null) {
+const range = unit.SourceRange;
+const document = range.Document;
+if (document === null || range.End < 0) {
   return false;
 }
-const document = end.Document;
 const count = document.GetCount();
-let at = end.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = range.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -329,7 +331,7 @@ if (at >= count) {
 }
 let word = "";
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
     word += ch;
     at++;
@@ -354,31 +356,32 @@ return !(word === "from");
 与 TS 同口径；`defer` 的同款判据见 `IsDeferPhaseModifier`。
 
 ```ts
-const end = unit.SourceRange.End;
-if (end === null) {
+const range = unit.SourceRange;
+const document = range.Document;
+if (document === null || range.End < 0) {
   return false;
 }
-const document = end.Document;
 const count = document.GetCount();
-let at = end.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = range.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -390,7 +393,7 @@ while (at < count) {
 if (at >= count) {
   return false;
 }
-const first = document.At(at).Value;
+const first = whole.At(at);
 if (first === "{" || first === "*") {
   return true;
 }
@@ -399,7 +402,7 @@ if (!((first >= "a" && first <= "z") || (first >= "A" && first <= "Z") || first 
 }
 let word = "";
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
     word += ch;
     at++;
@@ -412,23 +415,23 @@ if (word !== "from") {
 }
 // `type from …`：还要看 `from` 之后是不是 `from` / `=`。
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -440,12 +443,12 @@ while (at < count) {
 if (at >= count) {
   return false;
 }
-if (document.At(at).Value === "=") {
+if (whole.At(at) === "=") {
   return true;
 }
 let after = "";
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
     after += ch;
     at++;

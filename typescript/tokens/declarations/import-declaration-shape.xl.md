@@ -78,12 +78,12 @@ this.CatalogGuide = new CatalogGuide(ImportDeclarationShape.CreatePossibleShapes
 const mounted = this.Parent !== null && this.Parent.MountedUnit === this;
 if (mounted) {
   let at = this.Data.length - 1;
-  while (at >= 0 && (this.Data[at].IsTriviaToken || this.Data[at].SourceRange.End === null)) {
+  while (at >= 0 && (this.Data[at].IsTriviaToken || this.Data[at].SourceRange.End < 0)) {
     at--;
   }
   if (at >= 0) {
     const tail = this.Data[at].SourceRange.End;
-    if (tail !== null) {
+    if (tail >= 0) {
       this.SourceRange.End = tail;
     }
   }
@@ -133,13 +133,13 @@ const shape = new ImportDeclarationShape(host.Template);
 let index = 1;
 let isTypeOnly = false;
 const keywordEnd = keyword.SourceRange.End;
-let childPos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
+let childPos = keywordEnd < 0 ? 0 : keywordEnd;
 if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("type")
   && ImportClausePossibleShape.IsTypePhaseModifier(code[index])) {
   isTypeOnly = true;
   const typeUnit = code[index] as Common;
   const typeEnd = typeUnit.SourceRange.End;
-  childPos = typeEnd === null ? childPos : typeEnd.Index + 1;
+  childPos = typeEnd < 0 ? childPos : typeEnd;
   index++;
 }
 let clause:ImportClauseShape | null = null;
@@ -149,7 +149,7 @@ if (code[index] instanceof String) {
   // side-effect import: import "n" [with {...}];
   specifierUnit = code[index];
   moduleSpecifier = StringLiteralShape.FromBasicToken(code[index] as String, context);
-  moduleSpecifier.Pos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
+  moduleSpecifier.Pos = keywordEnd < 0 ? 0 : keywordEnd;
   index++;
 } else {
   clause = new ImportClauseShape(host.Template);
@@ -175,7 +175,7 @@ if (code[index] instanceof String) {
     const brackets = code[index] as Bracket;
     const named = NamedImportsShape.FromBracket(brackets, context);
     const previous = code[index - 1];
-    named.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
+    named.Pos = previous.SourceRange.End < 0 ? childPos : previous.SourceRange.EndIndex;
     clause.NamedBindings = named;
     clause.Data.push(named);
     named.Parent = clause;
@@ -196,7 +196,7 @@ if (code[index] instanceof String) {
       throw new Error("import declaration has a bad namespace binding");
     }
     const previous = code[index - 1];
-    namespace.Pos = previous.SourceRange.End === null ? childPos : previous.SourceRange.End.Index + 1;
+    namespace.Pos = previous.SourceRange.End < 0 ? childPos : previous.SourceRange.EndIndex;
     clause.NamedBindings = namespace;
     clause.Data.push(namespace);
     namespace.Parent = clause;
@@ -220,14 +220,14 @@ if (code[index] instanceof String) {
     throw new Error("import declaration is missing module specifier");
   }
   moduleSpecifier = StringLiteralShape.FromBasicToken(specifierUnit as String, context);
-  moduleSpecifier.Pos = fromUnit.SourceRange.End === null ? 0 : fromUnit.SourceRange.End.Index + 1;
+  moduleSpecifier.Pos = fromUnit.SourceRange.End < 0 ? 0 : fromUnit.SourceRange.EndIndex;
   index++;
-  clause.Pos = keywordEnd === null ? 0 : keywordEnd.Index + 1;
-  if (clauseStart.SourceRange.Start !== null) {
-    clause.SignIn(clauseStart.SourceRange.Start);
+  clause.Pos = keywordEnd < 0 ? 0 : keywordEnd;
+  if (clauseStart.SourceRange.Start >= 0) {
+    clause.SignIn(clauseStart.SourceRange.StartIndex);
   }
-  if (clauseEnd.SourceRange.End !== null) {
-    clause.SignOut(clauseEnd.SourceRange.End);
+  if (clauseEnd.SourceRange.End >= 0) {
+    clause.SignOut(clauseEnd.SourceRange.EndIndex);
   }
   clause.TryToClose(context);
 }
@@ -241,8 +241,8 @@ if (index < code.length - 1 && code[index] instanceof Common
     throw new Error("import declaration is missing attributes bracket");
   }
   attributes = ImportAttributesShape.FromBracket(attributeBracket as Bracket, attributeKeyword.TempToString(), context);
-  const specifierEnd = specifierUnit === null ? null : specifierUnit.SourceRange.End;
-  attributes.Pos = specifierEnd === null ? 0 : specifierEnd.Index + 1;
+  const specifierEnd = specifierUnit === null ? -1 : specifierUnit.SourceRange.End;
+  attributes.Pos = specifierEnd < 0 ? 0 : specifierEnd;
   index++;
 }
 if (index !== code.length - 1) {
@@ -263,19 +263,19 @@ if (attributes !== null) {
   shape.Data.push(attributes);
   attributes.Parent = shape;
 }
-if (keyword.SourceRange.Start !== null) {
-  shape.SignIn(keyword.SourceRange.Start);
+if (keyword.SourceRange.Start >= 0) {
+  shape.SignIn(keyword.SourceRange.StartIndex);
 }
-if (semicolon.SourceRange.End !== null) {
-  shape.SignOut(semicolon.SourceRange.End);
+if (semicolon.SourceRange.End >= 0) {
+  shape.SignOut(semicolon.SourceRange.EndIndex);
 }
-// TS 的 pos 含前导 trivia：= 前一个非 trivia 单元 End.Index + 1（挂载壳路径不会替它算 Pos）。
+// TS 的 pos 含前导 trivia：= 前一个非 trivia 单元 EndIndex（挂载壳路径不会替它算 Pos）。
 let pos = 0;
 for (let index = start - 1; index >= 0; index--) {
   if (!host.Data[index].IsTriviaToken) {
     const previousEnd = host.Data[index].SourceRange.End;
-    if (previousEnd !== null) {
-      pos = previousEnd.Index + 1;
+    if (previousEnd >= 0) {
+      pos = previousEnd;
     }
     break;
   }

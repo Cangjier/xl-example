@@ -7,6 +7,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
@@ -111,7 +112,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     // import-equals declaration: <name> followed by "=". Anything else (from / "," / "{" / quote / "*")
     // rejects now, so ImportDeclarationPossibleShape stays the only candidate and mounts its shell
     // at exactly the same token as before this candidate existed.
-    if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange.End) !== "=") {
+    if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange) !== "=") {
       state.Rejected = true;
     }
     continue;
@@ -120,7 +121,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     // after `export`: the next code unit must be `import`, then the same "=" lookahead decides.
     if (unit instanceof Common && (unit as Common).Is("import")) {
       state.Stage = 1;
-      if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange.End) !== "=") {
+      if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange) !== "=") {
         state.Rejected = true;
       }
     } else {
@@ -148,7 +149,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
         break;
       }
     }
-    if (!hasLaterCode && ImportEqualsDeclarationPossibleShape.NextChar(unit.SourceRange.End) !== "=") {
+    if (!hasLaterCode && ImportEqualsDeclarationPossibleShape.NextChar(unit.SourceRange) !== "=") {
       state.Rejected = true;
     }
     continue;
@@ -260,9 +261,9 @@ built.Parent = host;
 return built;
 ```
 
-## static method NextAfterName:(last:Source | null)=>string
+## static method NextAfterName:(last:SourceRange | null)=>string
 
-从 `last` 之后跳过空白与注释，读一个标识符词，再跳过空白与注释，返回它后面的那个字符；读不到返回空串。
+从 `last`（名字单元的区间）之后跳过空白与注释，读一个标识符词，再跳过空白与注释，返回它后面的那个字符；读不到返回空串。
 
 `= ` 还没被 token 化时用它回答「`import <名字>` 后面是不是 `=`」。
 
@@ -271,13 +272,17 @@ if (last === null) {
   return "";
 }
 const document = last.Document;
+if (document === null) {
+  return "";
+}
 const count = document.GetCount();
-let at = last.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = last.EndIndex;
 at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
 const wordStart = at;
 let wordLength = 0;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
     wordLength++;
     at++;
@@ -291,14 +296,14 @@ if (wordLength === 0) {
 // type-only import-equals: `import type A = ...` — the first word is the `type` modifier, the real
 // name is the next word; the `=` check must look past both.
 if (wordLength === 4
-  && document.At(wordStart).Value === "t"
-  && document.At(wordStart + 1).Value === "y"
-  && document.At(wordStart + 2).Value === "p"
-  && document.At(wordStart + 3).Value === "e") {
+  && whole.At(wordStart) === "t"
+  && whole.At(wordStart + 1) === "y"
+  && whole.At(wordStart + 2) === "p"
+  && whole.At(wordStart + 3) === "e") {
   at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
   let nameLength = 0;
   while (at < count) {
-    const ch = document.At(at).Value;
+    const ch = whole.At(at);
     if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$") {
       nameLength++;
       at++;
@@ -314,7 +319,7 @@ at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
 if (at >= count) {
   return "";
 }
-return document.At(at).Value;
+return whole.At(at);
 ```
 
 ## static method SkipTrivia:(document:any, from:int, count:int)=>int
@@ -322,25 +327,26 @@ return document.At(at).Value;
 跳过空白与 `//` / `/* */` 注释，返回第一个非 trivia 字符的下标（越界返回 `count`）。
 
 ```ts
+const whole = SourceRange.Whole(document);
 let at = from;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -352,9 +358,9 @@ while (at < count) {
 return at;
 ```
 
-## static method NextChar:(last:Source | null)=>string
+## static method NextChar:(last:SourceRange | null)=>string
 
-从 `last` 之后的下一个位置起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
+从 `last`（名字单元的区间）之后的下一个位置起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
 
 它只服务「名字后面是不是 `=`」这一条判据：`=` 还没被 token 化时，候选仍要能当场决定退不退出。
 
@@ -363,26 +369,30 @@ if (last === null) {
   return "";
 }
 const document = last.Document;
+if (document === null) {
+  return "";
+}
 const count = document.GetCount();
-let at = last.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = last.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
