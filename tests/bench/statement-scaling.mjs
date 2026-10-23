@@ -79,7 +79,9 @@ function ident(i) {
     s = IDS[n % 26] + s;
     n = Math.floor(n / 26) - 1;
   } while (n >= 0);
-  return s;
+  // 前缀 `v`：不留前缀时 bijective base-26 会生成保留字（i=248 → `in` → `let in = 248;`），
+  // 当前解析器与 baseline 构建都会在「表达式没有读完」上崩（与本重构无关）。加前缀后语料恒可解析。
+  return "v" + s;
 }
 // 档 1：函数体语句数 N
 function stmtCountSource(n) {
