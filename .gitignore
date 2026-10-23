@@ -1,6 +1,8 @@
 # 生成物
 dist
 build
+# 基线 build 副本（供 tests/bench/buffer-ab.mjs 做 A/B，不入库）
+build-base
 .xl
 
 # 依赖与本地工具
