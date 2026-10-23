@@ -25,6 +25,14 @@ import { StatementBuilder } from "./statement-builder.xl.md"
 
 ## field End:int = -1
 
+## field Code:Array<Token> = []
+
+本条目已扫过的**代码单元**（非 trivia），下标与 `CodeAt` 一一对应。只追加：`Checked` 推进时把新单元 push 进来，换条目（`Start` 变化、状态重建）时才随状态一起从空开始。
+
+## field CodeAt:Array<int> = []
+
+代码单元下标 → 宿主 `Data` 下标的映射（`End` 折算用）。
+
 # class StatementPossibleShape extends PossibleShape
 
 根级语句候选（块 / 空语句 / 变量 / if / while / do / for / for-in / for-of / return / break / continue / throw / debugger）。
@@ -66,12 +74,22 @@ if (state === null || state.Start !== itemStart) {
   cache.SetState(name, state);
 }
 if (state.Checked !== tokenIndex + 1) {
-  const code:Array<Token> = [];
-  const codeAt:Array<number> = [];
-  for (let at = state.Start; at <= tokenIndex; at++) {
+  // `Code` / `CodeAt` 放在状态里**只追加**：`Checked` 已经扫过的前缀不再重建，只 push 新单元。
+  // 只有「换条目」（状态刚重建、数组本来就是空）或防御性的回退越界才清空重扫——
+  // 那两种情况下状态里攒的前缀对不上当前下标。
+  let from = state.Checked;
+  if (from < state.Start) {
+    from = state.Start;
+  }
+  if (from > tokenIndex + 1) {
+    state.Code.length = 0;
+    state.CodeAt.length = 0;
+    from = state.Start;
+  }
+  for (let at = from; at <= tokenIndex; at++) {
     if (!units[at].IsTriviaToken) {
-      code.push(units[at]);
-      codeAt.push(at);
+      state.Code.push(units[at]);
+      state.CodeAt.push(at);
     }
   }
   const owner = units[tokenIndex].Parent;
@@ -82,10 +100,10 @@ if (state.Checked !== tokenIndex + 1) {
   const unitEnd = units[tokenIndex].SourceRange.EndIndex;
   StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
     || (unitEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, unitEnd) === "");
-  const result:StatementScanResult = StatementScanner.ScanRoot(code);
+  const result:StatementScanResult = StatementScanner.ScanRoot(state.Code);
   state.Status = result.Status;
-  if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
-    state.End = codeAt[result.End];
+  if (result.Status === 1 && result.End >= 0 && result.End < state.CodeAt.length) {
+    state.End = state.CodeAt[result.End];
   } else {
     state.End = -1;
   }
