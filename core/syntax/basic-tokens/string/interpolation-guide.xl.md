@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { GuideToken } from "../../guide-token.xl.md"
-import { Source } from "../../source.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"

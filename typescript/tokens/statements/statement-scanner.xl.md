@@ -3,7 +3,6 @@
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { Source } from "../../../core/syntax/source.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"

@@ -3,7 +3,6 @@
 import { BlockToken } from "../block-token.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
-import { Source } from "../source.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"

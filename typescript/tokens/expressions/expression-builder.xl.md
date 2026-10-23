@@ -9,7 +9,6 @@ import { InterpolationString } from "../../../core/syntax/basic-tokens/string/in
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
-import { Source } from "../../../core/syntax/source.xl.md"
 import { Document } from "../../../core/syntax/document.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"

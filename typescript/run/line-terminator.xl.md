@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { AreaAnnotation } from "../../core/syntax/basic-tokens/area-annotation.xl.md"
-import { Source } from "../../core/syntax/source.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { WrapSymbol } from "../../core/syntax/basic-tokens/wrap-symbol.xl.md"
 ```
