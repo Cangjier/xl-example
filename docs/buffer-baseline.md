@@ -148,13 +148,13 @@ XML 逐字节 + **半开位置 digest** 的双通道等价验收。同进程分�
 | 耗时 | 18.2 s（解析 7678/7381 ms、XML 757 ms、digest 1077 ms） | |
 
 「同错 52」= 两版在**整文件**解析时抛出同一异常、按同错计（XML 无从比较，单独计数）：
-- 42 份是 `typescript/cases/*.ts`：它们是「一行一个用例」的夹具（`ast-json.mjs` 逐行解析），
-  整文件本身不是可解析的 TS（含故意残缺的恢复用例），所以整文件解析必然抛错；
-  这 42 份的内容正确性由门禁 4（6167 条逐行 AST 对比）覆盖，不走 XML 通道。
-- 其余 10 份：`typescript/cases/token-repros/*`（2）、`tests/cases/e2e/*`（4）、
-  `tests/cases/runtime/*`（2）、`tests/cases/token/*`（2）、`samples/generic.ts`（1）。
-  其中 test-case/token-repros 是刻意的非法/恢复输入；`samples/generic.ts` 是 cjcli（dawn 模板）
-  的样本，`SourceFileRunner`（typescript 模板）不接受其泛型语法。
+- 43 份在 `typescript/cases/` 下（41 份 `typescript/cases/*.ts` + 2 份 `typescript/cases/token-repros/*.ts`）：
+  它们是「一行一个用例」的夹具（`ast-json.mjs` 逐行解析），整文件本身不是可解析的 TS（含故意残缺的
+  恢复用例），所以整文件解析必然抛错；这 43 份的内容正确性由门禁 4（6167 条逐行 AST 对比）覆盖，
+  不走 XML 通道（50 份 `typescript/cases/**/*.ts` 中另有 6 份整文件可解析，已计入 PASS）。
+- 其余 9 份：`tests/cases/e2e/*`（4）、`tests/cases/runtime/*`（2）、`tests/cases/token/*`（2）、
+  `samples/generic.ts`（1）。test-case / token-repros 类为刻意的非法/恢复输入；
+  `samples/generic.ts` 是 cjcli（dawn 模板）的样本，`SourceFileRunner`（typescript 模板）不接受其泛型语法。
 
 ### 检测能力自检（负向用例，证明不是「空跑全 PASS」）
 
