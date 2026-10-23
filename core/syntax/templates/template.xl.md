@@ -93,6 +93,21 @@ return item.length === 1 && this.LineTerminatorChars.indexOf(item) >= 0;
 
 数字模板：这门语言的数字字面量允许哪些后缀（不改节点种类的普通后缀，以及改用 BigIntLiteral 的 BigInt 后缀）。
 
+## field BasicClassTable:string = ""
+
+basic token 的 ASCII 分类表（由 `BasicDispatch` 懒建）：空串 = 未建；否则是 128 个字符，
+第 `i` 个字符的码点低 7 位就是第 `i` 个 ASCII 字符的分类位——1 = BOM、2 = Shebang 标记首字符、
+4 = Quotes、8 = 开括号、16 = `IsWhiteSpace`、32 = `IsSymbol`、64 = plain（标识符/数字正文）。
+
+每一位都是**建表那一刻**用本模板自己的谓词问出来的（见 `BasicDispatch.BuildClassTable`），
+所以模板把哪个字符配进 `BomChars` / `Quotes` / `AllowedSymbol`，表就跟着变。
+
+**建表之后本模板的分类必须冻结。** 运行期再改 `BomChars` / `ShebangMarker` /
+`StringTemplate.Quotes` / `SymbolTemplate` 的禁用/允许表，或覆写 `IsSymbol` / `IsWhiteSpace`,
+表就过期了；而且过期方向可能**静默改变分词**：例如模板后来把 `"` 加进 Quotes，表仍说「不是引号」→
+`StringGuide` 不被调用，`Common` 又拒绝引号 → 该字符没人接手，落到 `Default` 被吞掉（不报错，产出错树）。
+`Initialize` 会在跑初始化回调前清空本字段，下一次 `Transit` 重新建表；除了这条路径，模板只允许在 parse 前配置。
+
 ## private static field BasicBranchQueueCache:Sequence<BranchTransiter> | null = null
 
 `BasicBranchQueue` 的缓存；`null` 表示还没建过。
@@ -132,7 +147,11 @@ return Template.BasicBranchQueueCache;
 
 拿自身跑一遍初始化回调，然后返回自身，便于链式写。
 
+回调负责配置模板；配置可能改到分类谓词，所以**回调前先清空 `BasicClassTable`**，
+让下一次 `BasicDispatch.Transit` 按新配置重建表（见 `## field BasicClassTable` 的冻结契约）。
+
 ```ts
+this.BasicClassTable = "";
 onInitialize(this);
 return this;
 ```
