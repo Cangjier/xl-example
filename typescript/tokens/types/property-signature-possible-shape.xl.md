@@ -68,14 +68,14 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `PossibleShapeCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个接口体括号的 `CatalogGuide` 生命周期内，七类成员候选共用同一份。
 
-为什么需要它：`Scan` 在每个 basic token 关闭时被七类候选**各调一次**，而 `ItemUtil.ItemStart` 要从 `Data` 尾部倒扫 O(k)——七个候选各扫一遍就是 7×O(k)，长成员上退化成二次。条目起点只在「上一条成员被 `splice` 顶替」时才前进一格，所以把它放进 `Share`，由 `BuildByIndex` 在 `splice` 之后就地更新成 `start + 1`；`Scan` 首行只做 O(1) 新鲜度校验。
+为什么需要它：`Scan` 在每个 basic token 关闭时被七类候选**各调一次**，而 `ItemUtil.ItemStart` 要从 `Data` 尾部倒扫 O(k)——七个候选各扫一遍就是 7×O(k)，长成员上退化成二次。条目起点只在「上一条成员被 `splice` 顶替」时才前进一格，所以把它放进 `Share`，七类候选的 `BuildByIndex` 都在 `splice` 之后统一调 `MemberPossibleUtil.UpdateItemStartAfterBuild` 就地更新成 `start + 1`；`Scan` 首行只做 O(1) 新鲜度校验。
 
 **新鲜度判据**（`Share` 不受 `Reset` 清空，必须逐项校验）：
 
 - `Host === units`：缓存属于同一个宿主 `Data` 数组（跨宿主不会串）；
 - `Start` 落在 `[0, units.length]`；
 - `Start > 0` 时 `units[Start - 1]` 必须**不是** basic token——条目起点前面最近一格只能是已经建好的形状；
-- `Start < units.length` 时 `units[Start]` 必须**不是**已建好的形状——若恰好在 `Start` 上坐着形状，说明上一条成员刚被 `splice` 顶替而 `Share` 还没更新（例如由另外六个候选建的），缓存失效、退回倒扫。
+- `Start < units.length` 时 `units[Start]` 必须**不是**已建好的形状——若恰好在 `Start` 上坐着形状，说明上一条成员刚被 `splice` 顶替而 `Share` 还没更新（漏调 `UpdateItemStartAfterBuild`，或更新写在别的宿主数组上），缓存失效、退回倒扫兜底。
 
 ## field Host:Array<Token> = []
 
@@ -658,6 +658,23 @@ if (shared === null) {
 return start;
 ```
 
+## static method UpdateItemStartAfterBuild:(cache:PossibleShapeCache, host:Token, start:int)=>void
+
+`BuildByIndex` 在 `host.Data.splice(...)` **之后**调用：被建的形状正好坐在 `start` 上，条目起点前进一格，下一次 `Scan` 的 O(1) 新鲜度校验就能命中。
+
+七个成员候选（属性 / 方法 / 索引 / 调用 / 构造 / get / set）建完形状后都调这一份，而不是各写一遍：`Share` 里的条目起点是七者共用的一份事实源，写回口径必须逐字一致——`Host` 换成新的 `host.Data` 数组（`splice` 是原地改，但引用仍取宿主）、`Start = start + 1`、`Valid = true`。`Share` 里还没有值（`null`）时不新建：没有读者曾经问过，`ItemStartOf` 的倒扫会自己写下第一份。
+
+不调它的后果是**正确但慢**：`splice` 之后 `units[start]` 变成已建好的形状，`ItemStartValid` 的第三、四条判据立刻失配，于是下一次 `Scan` 退回 `ItemUtil.ItemStart` 的 O(成员长) 倒扫——这正是本次推广要消掉的那次重扫。
+
+```ts
+const shared = cache.GetShare<MemberItemStartShared>(MemberPossibleUtil.ItemStartKey);
+if (shared !== null) {
+  shared.Host = host.Data;
+  shared.Start = start + 1;
+  shared.Valid = true;
+}
+```
+
 ## static method Scan:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>MemberPossibleScan
 
 拿宿主攒下的 `Data` 与当前下标，取（必要时**增量推进**）当前成员的判定状态。
@@ -808,13 +825,8 @@ if (!(built instanceof PropertySignatureShape)) {
   throw new Error("PropertySignaturePossibleShape.BuildByIndex: 产出不是 PropertySignatureShape");
 }
 host.Data.splice(start, consumed.length, built);
-// Share 由 Build 阶段按需处理：条目起点前进一格（被建的形状正好坐在 start 上）。
-const sharedStart = catalog.PossibleShapesComputeCache.GetShare<MemberItemStartShared>(MemberPossibleUtil.ItemStartKey);
-if (sharedStart !== null) {
-  sharedStart.Host = host.Data;
-  sharedStart.Start = start + 1;
-  sharedStart.Valid = true;
-}
+// Share 由 Build 阶段更新：条目起点前进一格（被建的形状正好坐在 start 上）。
+MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;
 ```

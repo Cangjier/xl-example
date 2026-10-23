@@ -92,6 +92,7 @@ if (!(built instanceof SetAccessorShape)) {
   throw new Error("SetAccessorPossibleShape.BuildByIndex: 产出不是 SetAccessorShape");
 }
 host.Data.splice(start, consumed.length, built);
+MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;
 ```
