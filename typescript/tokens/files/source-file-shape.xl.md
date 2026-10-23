@@ -4,6 +4,7 @@ import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
@@ -89,19 +90,19 @@ return CloseStates.Nothing;
 ```
 
 
-## method Process:(context:SyntaxContext, source:Source)=>void
+## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
-处理一个位置。`Source.IsEOF` 是文件末尾哨兵（下标 `-1`、`Value` 为 `"\0"`），走一条单独的收尾路径：
+处理一个窗口。`buffer.IsEof()`（空区间 `[count,count)`，`index === count`）是文件末尾，走一条单独的收尾路径：
 
 1. 还有挂载单元就先关掉它（没有分号的 import / export 也在这一刻收口）；
 2. 关掉最后一个还开着的子单元——文件末尾不会再有下一个字符来关它，标识符 / 符号 / 字符串 / 空白 / 注释谁开着就关谁；
-3. 造一个 `EndOfFileTokenShape`，签入签出同一个 EOF 位置、加进根，再 `TryToClose`。
+3. 造一个 `EndOfFileTokenShape`，签入签出文件末尾位置（`index === count`，空区间）、加进根，再 `TryToClose`。
    它关闭时会问父单元重算候选，根单元的终结候选 `SourceFileEndPossibleShape` 随即签出根并关闭根。
 
 ```ts
-if (source.IsEOF) {
-  if (this.SourceRange.Start === null) {
-    this.SourceRange.Start = source;
+if (buffer.IsEof()) {
+  if (this.SourceRange.Start < 0) {
+    this.SourceRange.Start = index;
   }
   if (this.MountedUnit !== null) {
     const mounted = this.MountedUnit;
@@ -113,16 +114,16 @@ if (source.IsEOF) {
     last.TryToClose(context);
   }
   const eof = new EndOfFileTokenShape(this.Template);
-  eof.SignIn(source);
-  eof.SignOut(source);
+  eof.SignIn(index);
+  eof.SignOut(index);
   this.Add(eof);
   eof.TryToClose(context);
   return;
 }
-if (this.SourceRange.Start === null) {
-  this.SourceRange.Start = source;
+if (this.SourceRange.Start < 0) {
+  this.SourceRange.Start = index;
 }
-super.Process(context, source);
+super.Process(context, buffer, index);
 ```
 
 ## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null

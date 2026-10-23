@@ -14,10 +14,10 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 
 ```txt
 const x = 1;
-           ^ 文件末尾（下标 -1 的哨兵位置）
+           ^ 文件末尾（下标 = 文本长度 count 的空区间位置）
 ```
 
-文件末尾哨兵：`SourceFileShape.Process` 在 `Source.IsEOF` 时造一个、签入签出同一个 EOF 位置、加进根单元，然后 `TryToClose`。
+文件末尾哨兵：`SourceFileShape.Process` 在 `buffer.IsEof()`（空区间 `[count,count)`）时造一个、签入签出文件末尾位置（`SignIn(count)` / `SignOut(count)`，`[count,count)` 空区间）、加进根单元，然后 `TryToClose`。
 它不占真实字符、不读文档；`SourceFileShape.Close` 会把它从 `Data` 里过滤掉，所以它不进 XML、也不进 AST。
 
 ## field IsBasicToken:bool = true

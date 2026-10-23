@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { AreaAnnotation } from "../../core/syntax/basic-tokens/area-annotation.xl.md"
+import { SourceRange } from "../../core/syntax/source-range.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { WrapSymbol } from "../../core/syntax/basic-tokens/wrap-symbol.xl.md"
 ```
@@ -59,19 +60,24 @@ if (unit instanceof AreaAnnotation) {
 return false;
 ```
 
-## static method HasBetween:(left:Source | null, right:Source | null)=>bool
+## static method HasBetween:(left:SourceRange | null, right:SourceRange | null)=>bool
 
-两个源位置之间（`left.Index + 1` 到 `right.Index - 1`）有没有行终止符；块注释里的行终止符也算，
-因为注释字符就在这段原文里。位置不可用（`null`）时返回 `false`，由调用方决定回退口径。
+两个源范围之间（`left.EndIndex` 到 `right.StartIndex`，即左单元最后一个字符之后、右单元第一个字符之前）有没有行终止符；块注释里的行终止符也算，因为注释字符就在这段原文里。位置不可用（`null` 或端点未设置）时返回 `false`，由调用方决定回退口径。
+
+扫描整篇文档要跨出当前 buffer 窗口，所以按 `SourceRange.Whole(document)` 取全文范围的 `At`（`Document.At` 已删除）。
 
 ```ts
 if (left === null || right === null) {
   return false;
 }
-const document = left.Document;
-let at = left.Index + 1;
-while (at < right.Index) {
-  if (LineTerminator.IsLineTerminator(document.At(at).Value)) {
+const document = left.Document !== null ? left.Document : right.Document;
+if (document === null || left.EndIndex < 0 || right.StartIndex < 0) {
+  return false;
+}
+const whole = SourceRange.Whole(document);
+let at = left.EndIndex;
+while (at < right.StartIndex) {
+  if (LineTerminator.IsLineTerminator(whole.At(at))) {
     return true;
   }
   at++;
@@ -96,7 +102,7 @@ while (previous >= 0 && units[previous].IsTriviaToken) {
 if (previous < 0) {
   return false;
 }
-if (LineTerminator.HasBetween(units[previous].SourceRange.End, units[tokenIndex].SourceRange.Start)) {
+if (LineTerminator.HasBetween(units[previous].SourceRange, units[tokenIndex].SourceRange)) {
   return true;
 }
 for (let at = tokenIndex - 1; at > previous; at--) {
@@ -107,20 +113,26 @@ for (let at = tokenIndex - 1; at > previous; at--) {
 return false;
 ```
 
-## static method HasAfter:(last:Source | null)=>bool
+## static method HasAfter:(last:SourceRange | null)=>bool
 
-`last` 之后（跳过空格与注释）是否先出现行终止符。注释里的行终止符也算：ASI 把注释中的
+`last` 之后（自 `last.EndIndex` 起，跳过空格与注释）是否先出现行终止符。注释里的行终止符也算：ASI 把注释中的
 LineTerminator 视作换行。行注释的终止符就是行终止符，所以行注释一律算「有换行」（注释到 EOF 时不算）。
+
+同 `HasBetween`：整篇扫描走 `SourceRange.Whole(document).At`，边界用 `GetCount`。
 
 ```ts
 if (last === null) {
   return false;
 }
 const document = last.Document;
+if (document === null || last.EndIndex < 0) {
+  return false;
+}
+const whole = SourceRange.Whole(document);
 const count = document.GetCount();
-let at = last.Index + 1;
+let at = last.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (LineTerminator.IsLineTerminator(ch)) {
     return true;
   }
@@ -129,18 +141,18 @@ while (at < count) {
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && !LineTerminator.IsLineTerminator(document.At(at).Value)) {
+      while (at < count && !LineTerminator.IsLineTerminator(whole.At(at))) {
         at++;
       }
       return at < count;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
-        if (LineTerminator.IsLineTerminator(document.At(at).Value)) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
+        if (LineTerminator.IsLineTerminator(whole.At(at))) {
           return true;
         }
         at++;
