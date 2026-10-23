@@ -37,6 +37,12 @@ import { SourceRange } from "./source-range.xl.md"
 
 父范围；文档可以嵌在另一个文档的范围里，顶层文档为 `null`。
 
+## field WholeRange:SourceRange | null = null
+
+**整文档只读视图的缓存槽**：`SourceRange.Whole(document)` 第一次调用时把 `[0, GetCount())` 建在这里，之后同一个文档的每次调用都返回这同一个实例。
+
+文档长度在构造后不变（`TextDocument.Content` 是只读的，`GetCount` 是它的闭包），所以这份缓存不需要失效。但它是**共享的只读视图**：调用方只能读（`At` / `Has` / `GetRaw` 等），**不得改写返回范围的 `Start` / `End`**，否则会污染所有持有该视图的代码。
+
 ## constructor:(getValue:ValueGetter, getCount:CountGetter, Parent?:SourceRange | null)=>void
 
 以取值器、长度器与父范围创建。

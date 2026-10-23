@@ -64,8 +64,15 @@ return new SourceRange(document, start, end);
 
 整个文档：`[0, document.GetCount())`。
 
+**按文档缓存**：第一次调用时建好并放进 `document.WholeRange`，之后同一文档的每次调用都返回同一个实例。全文范围是热路径上分配最多的一项——member-boundary → line-terminator 的循环每次 `HasBetween` 都会要一个，而它覆盖的区间在文档生命周期内是常量，没有理由反复重建。
+
+缓存实例是**共享的只读视图**：调用方只能读，不得改写它的 `Start` / `End`。
+
 ```ts
-return new SourceRange(document, 0, document.GetCount());
+if (document.WholeRange === null) {
+  document.WholeRange = new SourceRange(document, 0, document.GetCount());
+}
+return document.WholeRange;
 ```
 
 ## method At:(index:int)=>string
