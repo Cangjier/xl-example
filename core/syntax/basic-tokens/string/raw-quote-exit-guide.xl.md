@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { GuideToken } from "../../guide-token.xl.md"
-import { Source } from "../../source.xl.md"
+import { SourceRange } from "../../source-range.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
@@ -33,9 +33,9 @@ return (this.Parent as String)!;
 
 已经数过的连续双引号个数。
 
-## private field Items:Array<Source> = []
+## private field Items:Array<int> = []
 
-数引号过程中经过的位置：一旦发现这串引号不是结尾，就把它们按顺序还给常量字符串。
+数引号过程中经过的位置（下标）：一旦发现这串引号不是结尾，就把它们按顺序还给常量字符串。
 
 ## field StringChar:string = "\""
 
@@ -49,21 +49,23 @@ return (this.Parent as String)!;
 super(template);
 ```
 
-## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+## protected method Navigate:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 按当前字符是不是引号分两条路：
 
-1. **是引号**：个数加一。够上 `ParentString.RawQuoteCount` 就摘掉自己、让父字符串 `ForceExit(source)`，再 `FormatRawIndent()`（按原始字符串的缩进格式掉首尾两行与每行缩进），然后**返回**；个数还不够就继续攒；个数超了抛「结尾原始字符串双引号数量超过起始数量」。
-2. **不是引号**：这串引号全是字面量，逐个 `AppendToLastConstString(i.Value, i).TrySignIn(i)` 还回去；再把当前这个非引号字符 `ReloadMessage` 回队首重新处理，然后返回。
+1. **是引号**：个数加一。够上 `ParentString.RawQuoteCount` 就摘掉自己、让父字符串 `ForceExit(context, buffer, index)`，再 `FormatRawIndent()`（按原始字符串的缩进格式掉首尾两行与每行缩进），然后**返回**；个数还不够就继续攒；个数超了抛「结尾原始字符串双引号数量超过起始数量」。
+2. **不是引号**：这串引号全是字面量，逐个 `AppendToLastConstString(value, i, context).TrySignIn(i)` 还回去；再把当前这个非引号字符 `ReloadMessage` 重放一遍（压消息、不推进游标），然后返回。
+
+`Items` 里记的是更早的下标，可能已经落在当前 buffer 窗口之前，所以取字符用 `SourceRange.Whole(buffer.Document!)`。
 
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 if (value === this.StringChar) {
   this.QuoteCount++;
   if (this.QuoteCount === this.ParentString.RawQuoteCount) {
     //达到原始字符串退出的要求
     this.RemoveSelf();
-    this.ParentString.ForceExit(source, context);
+    this.ParentString.ForceExit(context, buffer, index);
     this.ParentString.FormatRawIndent();
     return;
   } else if (this.QuoteCount < this.ParentString.RawQuoteCount) {
@@ -75,15 +77,16 @@ if (value === this.StringChar) {
   //双引号数量不满足要求，同时当前字符非双引号
 
   //把双引号都当作常量字符串
+  const whole = SourceRange.Whole(buffer.Document!);
   for (const i of this.Items) {
-    this.ParentString.AppendToLastConstString(i.Value, i, context).TrySignIn(i);
+    this.ParentString.AppendToLastConstString(whole.At(i), i, context).TrySignIn(i);
   }
 
   //将非双引号字符重载
-  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
 
   return;
 }
 
-this.Items.push(source);
+this.Items.push(index);
 ```

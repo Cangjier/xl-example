@@ -3,7 +3,7 @@
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { BlockToken } from "../../block-token.xl.md"
 import { CloseStates } from "../../close-states.xl.md"
-import { Source } from "../../source.xl.md"
+import { SourceRange } from "../../source-range.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
 import { String } from "./string.xl.md"
@@ -37,7 +37,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 super(Template);
 ```
 
-## method IsAppend:(Src:Source)=>bool
+## method IsAppend:(buffer:SourceRange, index:int)=>bool
 
 恒为 `false`：常量块的字符由 `String` 显式推给它，不靠并块判定。
 
@@ -45,7 +45,7 @@ super(Template);
 return false;
 ```
 
-## method IsUndo:(source:Source)=>bool
+## method IsUndo:(index:int)=>bool
 
 恒为 `true`：常量块自己实现 `Undo`。
 
@@ -53,16 +53,15 @@ return false;
 return true;
 ```
 
-## method Undo:(source:Source)=>void
+## method Undo:(index:int)=>void
 
-回退一个字符：`Temp` 的**最后一个**字符必须正好是 `source.Value`，是就弹掉它，否则抛错。
+回退 `index` 位置上的那个字符——就是 `Temp` 的**最后一个**字符：有就弹掉它，`Temp` 已空则抛错。
 
 ```ts
-if (this.Temp[this.Temp.length - 1] === source.Value) {
-  this.Temp = this.Temp.substring(0, this.Temp.length - 1);
-} else {
+if (this.Temp.length === 0) {
   throw new Error("ConstString Undo异常");
 }
+this.Temp = this.Temp.substring(0, this.Temp.length - 1);
 ```
 
 ## private method RemoveCharAt:(Index:int)=>void
@@ -82,13 +81,13 @@ this.Closed = true;
 return CloseStates.Nothing;
 ```
 
-## method TrySignIn:(Src:Source)=>ConstString
+## method TrySignIn:(index:int)=>ConstString
 
-「没签入过就签入」：`SourceRange.Start` 为 `null` 时才 `SignIn`，然后返回自身便于链式调用；与基类的 `SignIn` 不同，重复调用不抛错。
+「没签入过就签入」：`SourceRange.Start < 0` 时才 `SignIn`，然后返回自身便于链式调用；与基类的 `SignIn` 不同，重复调用不抛错。
 
 ```ts
-if (this.SourceRange.Start === null) {
-  this.SignIn(Src);
+if (this.SourceRange.Start < 0) {
+  this.SignIn(index);
 }
 return this;
 ```

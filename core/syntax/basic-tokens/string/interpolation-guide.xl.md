@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { GuideToken } from "../../guide-token.xl.md"
-import { Source } from "../../source.xl.md"
+import { SourceRange } from "../../source-range.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
@@ -30,9 +30,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 return (this.Parent as String)!;
 ```
 
-## private field Items:Array<Source> = []
+## private field Items:Array<int> = []
 
-已经数过的左花括号位置（每个 `{` 一个），按遇到顺序排列；只有当前字符就是 `{` 时才会记进来。
+已经数过的左花括号位置（下标，每个 `{` 一个），按遇到顺序排列；只有当前字符就是 `{` 时才会记进来。
 
 ## private field BracketCount:int = 0
 
@@ -46,30 +46,33 @@ return (this.Parent as String)!;
 super(template);
 ```
 
-## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+## protected method Navigate:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 当前字符还是 `{` 就接着数；一旦遇到别的字符，就用数到的个数做结论。
 
 两条支路：
 
-- **够数**（`BracketCount >= ParentString.InterpolationCount`）：先把自己摘掉，然后把多出来的 `Next = BracketCount - InterpolationCount` 个 `{` 当作字面量还给常量字符串（`AppendToLastConstString`，并在 `i == 0` 时用 `TrySignIn` 给新建的常量字符串签入）；接着挂一个新的 `InterpolationString` 并用 `Items[0]` 签入，最后把当前字符 `ReloadMessage` 回队首重新处理一遍，然后返回。
+- **够数**（`BracketCount >= ParentString.InterpolationCount`）：先把自己摘掉，然后把多出来的 `Next = BracketCount - InterpolationCount` 个 `{` 当作字面量还给常量字符串（`AppendToLastConstString(…, i, context)`，并在 `i == 0` 时用 `TrySignIn(i)` 给新建的常量字符串签入）；接着挂一个新的 `InterpolationString` 并用 `Items[0]` 签入，最后把当前字符 `ReloadMessage` 重放一遍，然后返回。
   - 注意 `Items[0]` 是**第一个** `{` 的位置（不是第 `Next` 个）。
-- **不够数**（`BracketCount < ParentString.InterpolationCount`）：这串 `{` 全是字面量，逐个 `AppendToLastConstString(…).TrySignIn(…)` 还回去，再 `ReloadMessage`。
+- **不够数**（`BracketCount < ParentString.InterpolationCount`）：这串 `{` 全是字面量，逐个 `AppendToLastConstString(…, i, context).TrySignIn(i)` 还回去，再把当前字符重放一遍。
 
-两个分支都 `return`，所以只有 `{` 会走到末尾的 `Items.push(source)`。
+两个分支都 `return`，所以只有 `{` 会走到末尾的 `Items.push(index)`。
+
+`Items` 里记的是更早的下标，可能已经落在当前 buffer 窗口之前，所以取字符用 `SourceRange.Whole(buffer.Document!)`。
 
 ```ts
-const Value = source.Value;
+const Value = buffer.At(index);
 if (Value !== "{") {
+  const whole = SourceRange.Whole(buffer.Document!);
   if (this.BracketCount >= this.ParentString.InterpolationCount) {
     //满足情况
     this.RemoveSelf();
     const Next = this.BracketCount - this.ParentString.InterpolationCount;
     for (let i = 0; i < Next; i++) {
-      const Item = this.Items[i];
-      const Const = this.ParentString.AppendToLastConstString(Item.Value, Item, context);
+      const ItemIndex = this.Items[i];
+      const Const = this.ParentString.AppendToLastConstString(whole.At(ItemIndex), ItemIndex, context);
       if (i === 0) {
-        Const.TrySignIn(Item);
+        Const.TrySignIn(ItemIndex);
       }
     }
     {
@@ -82,19 +85,19 @@ if (Value !== "{") {
       this.ParentString.MountedUnit = mounted;
     }
     (this.ParentString.MountedUnit as InterpolationString)!.SignIn(this.Items[0]);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
     return;
   } else {
     //不满足情况
     this.RemoveSelf();
-    for (const i of this.Items) {
-      this.ParentString.AppendToLastConstString(i.Value, i, context).TrySignIn(i);
+    for (const ItemIndex of this.Items) {
+      this.ParentString.AppendToLastConstString(whole.At(ItemIndex), ItemIndex, context).TrySignIn(ItemIndex);
     }
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
   }
 } else {
   this.BracketCount++;
 }
 
-this.Items.push(source);
+this.Items.push(index);
 ```

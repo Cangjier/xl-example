@@ -5,11 +5,12 @@ import { CloseStates } from "../../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../../i-compute-possible-shapes.xl.md"
 import { ReloadMessage } from "../../messages/reload-message.xl.md"
-import { Source } from "../../source.xl.md"
+import { SourceRange } from "../../source-range.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
 import { UnitToken } from "../../unit-token.xl.md"
+import { SyntaxException } from "../../../exceptions/syntax-exception.xl.md"
 import { ConstString } from "./const-string.xl.md"
 import { InterpolationGuide } from "./interpolation-guide.xl.md"
 import { InterpolationString } from "./interpolation-string.xl.md"
@@ -68,9 +69,9 @@ basic 单元：词法层记号。收集它的是 `StringGuide`，不是 `BasicBr
 
 转义累加器：`\` 之后的字符逐个进来，凑够一个转义序列再解码。本文件用到 `IsTranslating` / `Accept` / `Append` / `DecodeClear` 四个成员。
 
-## private field PendingInterpolation:Source | null = null
+## private field PendingInterpolation:int = -1
 
-引号内内插的 `$` 已经看到、下一个字符还没来：记下这个 `$` 的位置。**不向后看**——下一个字符到来时再决：是 `{` 就挂 `InterpolationString`，否则把这个 `$` 落回常量块再把当前字符照常处理；`$` 后面直接是收尾引号（`ExitOrPre`）或文件结束（`Close`）时，在这两个 close 点把 `$` 补落。非 `null` 期间那个 `$` 不落常量，所以不会产生空 `ConstString`。
+引号内内插的 `$` 已经看到、下一个字符还没来：记下这个 `$` 的**下标**（`-1` = 没有）。**不向后看**——下一个字符到来时再决：是 `{` 就挂 `InterpolationString`，否则把这个 `$` 落回常量块再把当前字符照常处理；`$` 后面直接是收尾引号（`ExitOrPre`）或文件结束（`Close`）时，在这两个 close 点把 `$` 补落。非 `-1` 期间那个 `$` 不落常量，所以不会产生空 `ConstString`。
 
 ## field IsRawIndentFormated:bool = false
 
@@ -90,7 +91,7 @@ this.StringChar = stringChar;
 this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 ```
 
-## method IsUndo:(source:Source)=>bool
+## method IsUndo:(index:int)=>bool
 
 字符串单元自己不可回退，恒为 `false`。
 
@@ -98,7 +99,73 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 return false;
 ```
 
-## method Undo:(source:Source)=>void
+## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+
+处理窗口里的字符，直到窗口走完**或本单元已经关闭**。
+
+`String` 会在收尾引号那一格由 `ExitOrPre` 调 `ForceExit` 关闭自己（`Closed = true`、从父单元卸载）。基类 `UnitToken.Process` 的窗口循环没有「本单元已关闭」这个退出条件，关闭之后它还会继续把同一窗口剩下的字符吃进本单元；这里用与基类相同的循环，只补一条 `!this.Closed` 守卫：收尾之后立刻把窗口交还出去，剩下的字符由外层（下一轮）处理。
+
+```ts
+try {
+  while (index < buffer.End && !this.Closed) {
+    if (this.MountedUnit !== null) {
+      this.MountedUnit.Process(context, buffer, index);
+      if (context.Index === index) {
+        return;
+      }
+      this.LastIndex = context.Index - 1;
+      index = context.Index;
+      continue;
+    }
+    const exitState = this.ExitOrPre(context, buffer, index);
+    if (exitState === BranchStates.Reload) {
+      context.Messages.push(new ReloadMessage(null, index));
+      return;
+    }
+    if (exitState === BranchStates.Done) {
+      if (context.Index === index) {
+        context.Index = index + 1;
+      }
+      this.LastIndex = index;
+      index = context.Index;
+      continue;
+    }
+    let transited = false;
+    if (this.ProcessQueue !== null) {
+      for (const item of this.ProcessQueue.Data) {
+        const state = item(context, this, buffer, index);
+        if (state === BranchStates.Reload) {
+          context.Messages.push(new ReloadMessage(null, index));
+          return;
+        }
+        if (state === BranchStates.Done) {
+          if (context.Index === index) {
+            context.Index = index + 1;
+          }
+          this.LastIndex = index;
+          index = context.Index;
+          transited = true;
+          break;
+        }
+      }
+    }
+    if (!transited) {
+      this.Default(context, buffer, index);
+      if (context.Index === index) {
+        context.Index = index + 1;
+      }
+      this.LastIndex = index;
+      index = context.Index;
+    }
+  }
+} catch (e) {
+  const start = Math.max(0, index - 1);
+  const range = new SourceRange(buffer.Document, start, index + 1);
+  throw SyntaxException.FromInner(range, e);
+}
+```
+
+## method Undo:(index:int)=>void
 
 回退转交给**最后一个**子单元；它不是 `ConstString`（包括还没有子单元）就抛错。
 
@@ -107,7 +174,7 @@ const last = this.Last();
 if (!(last instanceof ConstString)) {
   throw new Error("字符串最后一个元素不是ConstString");
 } else {
-  last.Undo(source);
+  last.Undo(index);
 }
 ```
 
@@ -118,9 +185,9 @@ if (!(last instanceof ConstString)) {
 字符串 token 关闭就是「一个字符串字面量信息完备」的时刻：`StringLiteralShape` 的候选在这一刻才可能 Accept。所以这里必须把父级的重算结果原样带上去。
 
 ```ts
-if (this.PendingInterpolation !== null) {
+if (this.PendingInterpolation !== -1) {
   const begin = this.PendingInterpolation;
-  this.PendingInterpolation = null;
+  this.PendingInterpolation = -1;
   this.AppendToLastConstString("$", begin, context);
 }
 this.Closed = true;
@@ -134,19 +201,19 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## method AppendToLastConstString:(value:string | null, signSource:Source, context:SyntaxContext)=>ConstString
+## method AppendToLastConstString:(value:string | null, index:int, context:SyntaxContext)=>ConstString
 
 把 `value` 追加到最后一个常量块上，并返回那个常量块。三步：
 
-1. 还没有子单元、或最后一个子单元不是 `ConstString`——新建一个 `ConstString`、把它的 `ParentString` 指回自己、`SignIn` 后先关上一个子单元、再 `Add` 进去。
-2. `value` 非 `null` 就用 `AppendValueAndSignOut(value, signSource)` 把字符收进常量块。
-3. `value` 为 `null` 时只 `SignOut(signSource)`：这个位置只签出、不加字符。
+1. 还没有子单元、或最后一个子单元不是 `ConstString`——新建一个 `ConstString`、把它的 `ParentString` 指回自己、在 `index` 处 `SignIn` 后先关上一个子单元、再 `Add` 进去。
+2. `value` 非 `null` 就用 `AppendValueAndSignOut(value, index)` 把字符收进常量块（签出到 `index + 1`）。
+3. `value` 为 `null` 时只 `SignOut(index + 1)`：这个位置只签出、不加字符。
 
 ```ts
 if (this.Data.length === 0 || !(this.Last() instanceof ConstString)) {
   const created = new ConstString(this.Template);
   created.ParentString = this;
-  created.SignIn(signSource);
+  created.SignIn(index);
   const lastOfAdd = this.Last();
   if (lastOfAdd !== null && !lastOfAdd.Closed) {
     lastOfAdd.TryToClose(context);
@@ -155,29 +222,29 @@ if (this.Data.length === 0 || !(this.Last() instanceof ConstString)) {
 }
 const result = this.Last() as ConstString;
 if (value !== null) {
-  result.AppendValueAndSignOut(value, signSource);
+  result.AppendValueAndSignOut(value, index);
 } else {
-  result.SignOut(signSource);
+  result.SignOut(index + 1);
 }
 return result;
 ```
 
-## protected method Default:(context:SyntaxContext, source:Source)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 兜底处理：按五个开关分流，把当前字符要么攒进常量块，要么引给一个新的引导单元。
 
 七条分支（前六条各自对应一种字符串形态，最后一条必抛）：
 
 1. **内插 + 逐字**（`IsSupportInterpolation && IsSupportVerbatim && !IsSupportRaw`）：引号挂 `VerbatimQuoteGuide`，`{` 挂 `InterpolationString`，其余进常量块。
-2. **只内插**：正在转义时先问 `Translate.Accept`——属于这次转义就 `Append`（攒够时 `DecodeClear()` 落常量块）；不属于就先把上一个转义 `DecodeClear()` 结算（签出到前一个字符）再 `ReloadMessage` 重放当前字符。不在转义时：`EscapeChars` 里的字符（ts 是 `\`）开转义，再按**模板配置的内插形态**分两小支——前缀式（`HasInterpolationPrefix` 打开、当前引号不在 `InterpolationQuoteChars` 里）见 `{` 就挂 `InterpolationGuide`，由它按 `InterpolationCount` 数连续左花括号（`$` 的个数就是开一层内插要几个 `{`）；引号内式（`HasInterpolationQuoteChars` + 引号在 `InterpolationQuoteChars` 里）**不向后看**：`$` 先只记进 `PendingInterpolation`，下一个字符到来时才决——是 `{` 就挂 `InterpolationString`，否则把 `$` 落回常量块、当前字符照常处理；`$` 后面直接收尾时由 `ExitOrPre` / `Close` 补落。引号内式还要把模板里的真 `\r\n` / `\r` 归一成 `\n`（cooked text 口径），其余字符进常量块。
+2. **只内插**：正在转义时把当前字符攒进转义（`Append` 攒够时 `DecodeClear()` 落常量块）；`Accept` 返回 `false` 的那条已由 `ExitOrPre` 先结算并重放，这里不会出现。不在转义时：`EscapeChars` 里的字符（ts 是 `\`）开转义，再按**模板配置的内插形态**分两小支——前缀式（`HasInterpolationPrefix` 打开、当前引号不在 `InterpolationQuoteChars` 里）的 `{` 已在 `ExitOrPre` 里挂 `InterpolationGuide` 并重放；引号内式（`HasInterpolationQuoteChars` + 引号在 `InterpolationQuoteChars` 里）**不向后看**：`$` 先只记进 `PendingInterpolation`，下一个字符到来时才决——是 `{` 就挂 `InterpolationString`，否则把 `$` 落回常量块、当前字符照常处理；`$` 后面直接收尾时由 `ExitOrPre` / `Close` 补落。引号内式还要把模板里的真 `\r\n` / `\r` 归一成 `\n`（cooked text 口径），其余字符进常量块。
 3. **只逐字**：引号挂 `VerbatimQuoteGuide`，其余进常量块。
-4. **只原始**：引号可能是原始串的结束、也可能只是串内的纯双引号，一律挂 `RawQuoteExitGuide`（把自己的 `StringChar` 传给它），并插一条 `ReloadMessage` 把当前位置重新处理一遍让向导裁决；其余进常量块。
-5. **内插 + 原始**：`{` 挂 `InterpolationGuide` 并插 `ReloadMessage`；引号挂 `RawQuoteExitGuide` 并插 `ReloadMessage`；其余进常量块。
-6. **纯字符**（三个开关全关，如 `"…"` / `'…'`）：与第 2 条同款转义处理（同样走 `Accept` / `Append` / `DecodeClear`，转义符由模板的 `EscapeChars` 给），其余字符一律进常量块——`$`、`{` 都只是普通字符，不做内插（ts 的模板串走第 2 条）。
+4. **只原始**：引号已在 `ExitOrPre` 里挂上 `RawQuoteExitGuide` 并重放（让向导裁决），这里只剩其余字符进常量块。
+5. **内插 + 原始**：`{` 与引号都已在 `ExitOrPre` 里挂向导并重放；这里只剩其余字符进常量块。
+6. **纯字符**（三个开关全关，如 `"…"` / `'…'`）：与第 2 条同款转义处理（`Accept` 同理由 `ExitOrPre` 先问），其余字符一律进常量块——`$`、`{` 都只是普通字符，不做内插（ts 的模板串走第 2 条）。
 7. 其余组合直接抛错，文案里带上三个开关的当前值。
 
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw) {
   if (value === this.StringChar) {
     {
@@ -189,7 +256,7 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       this.Add(mounted);
       this.MountedUnit = mounted;
     }
-    (this.MountedUnit as VerbatimQuoteGuide)!.SignIn(source);
+    (this.MountedUnit as VerbatimQuoteGuide)!.SignIn(index);
   } else if (value === "{") {
     {
       const lastOfMounted = this.Last();
@@ -200,9 +267,9 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       this.Add(mounted);
       this.MountedUnit = mounted;
     }
-    (this.MountedUnit as InterpolationString)!.SignIn(source);
+    (this.MountedUnit as InterpolationString)!.SignIn(index);
   } else {
-    this.AppendToLastConstString(value, source, context);
+    this.AppendToLastConstString(value, index, context);
   }
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   const config = this.Template.StringTemplate;
@@ -214,22 +281,13 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
   const strictTemplateEscapes = config.StrictTemplateEscapes;
   const allowLongUnicodeBraceEscape = config.AllowLongUnicodeBraceEscape;
   if (this.Translate.IsTranslating) {
-    if (this.Translate.Accept(value, allowLongUnicodeBraceEscape)) {
-      if (this.Translate.Append(value, allowLongUnicodeBraceEscape)) {
-        this.AppendToLastConstString(this.Translate.DecodeClear(lineTerminatorChars, strictTemplateEscapes, allowLongUnicodeBraceEscape), source, context);
-      }
-    } else {
-      const previous = source.Pre();
-      if (previous !== null) {
-        // `Accept` 不收的字符是「本次转义之外」的第一个字符：`\08` 的合法/非法要看它
-        //（`\0` 后跟十进制数字 = legacy octal），所以把它当 nextItem 传进去。
-        this.AppendToLastConstString(this.Translate.DecodeClear(lineTerminatorChars, strictTemplateEscapes, allowLongUnicodeBraceEscape, value), previous, context);
-      }
-      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+    // `Accept` 已由 ExitOrPre 问过（返回 false 的那条在那边结算并重放），这里只可能是「还属于本次转义」。
+    if (this.Translate.Append(value, allowLongUnicodeBraceEscape)) {
+      this.AppendToLastConstString(this.Translate.DecodeClear(lineTerminatorChars, strictTemplateEscapes, allowLongUnicodeBraceEscape), index, context);
     }
   } else {
-    if (this.PendingInterpolation !== null && quoteInterpolation && value === "{") {
-      this.PendingInterpolation = null;
+    if (this.PendingInterpolation !== -1 && quoteInterpolation && value === "{") {
+      this.PendingInterpolation = -1;
       {
         const lastOfMounted = this.Last();
         if (lastOfMounted !== null && !lastOfMounted.Closed) {
@@ -239,35 +297,23 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
         this.Add(mounted);
         this.MountedUnit = mounted;
       }
-      (this.MountedUnit as InterpolationString)!.SignIn(source);
+      (this.MountedUnit as InterpolationString)!.SignIn(index);
     } else {
-      if (this.PendingInterpolation !== null) {
+      if (this.PendingInterpolation !== -1) {
         const begin = this.PendingInterpolation;
-        this.PendingInterpolation = null;
+        this.PendingInterpolation = -1;
         this.AppendToLastConstString("$", begin, context);
       }
       if (config.EscapeChars.includes(value)) {
         this.Translate.IsTranslating = true;
       } else if (quoteInterpolation && value === "$") {
-        this.PendingInterpolation = source;
-      } else if (!quoteInterpolation && config.HasInterpolationPrefix && value === "{") {
-        {
-          const lastOfMounted = this.Last();
-          if (lastOfMounted !== null && !lastOfMounted.Closed) {
-            lastOfMounted.TryToClose(context);
-          }
-          const mounted = new InterpolationGuide(this.Template);
-          this.Add(mounted);
-          this.MountedUnit = mounted;
-        }
-        (this.MountedUnit as InterpolationGuide)!.SignIn(source);
-        context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+        this.PendingInterpolation = index;
       } else if (quoteInterpolation && value === "\r") {
-        this.AppendToLastConstString("\n", source, context);
-      } else if (quoteInterpolation && value === "\n" && source.Pre()?.Value === "\r") {
+        this.AppendToLastConstString("\n", index, context);
+      } else if (quoteInterpolation && value === "\n" && index > 0 && (index > buffer.Start ? buffer.At(index - 1) : SourceRange.Whole(buffer.Document!).At(index - 1)) === "\r") {
         // CRLF 的后半：CR 已经按 `\n` 归一，这里不再追加
       } else {
-        this.AppendToLastConstString(value, source, context);
+        this.AppendToLastConstString(value, index, context);
       }
     }
   }
@@ -282,78 +328,29 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
       this.Add(mounted);
       this.MountedUnit = mounted;
     }
-    (this.MountedUnit as VerbatimQuoteGuide)!.SignIn(source);
+    (this.MountedUnit as VerbatimQuoteGuide)!.SignIn(index);
   } else {
-    this.AppendToLastConstString(value, source, context);
+    this.AppendToLastConstString(value, index, context);
   }
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
-  if (value === this.StringChar) {
-    const guide = new RawQuoteExitGuide(this.Template);
-    guide.StringChar = this.StringChar;
-    {
-      const lastOfMounted = this.Last();
-      if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(context);
-      }
-      this.Add(guide);
-      this.MountedUnit = guide;
-    }
-    (this.MountedUnit as RawQuoteExitGuide)!.SignIn(source);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
-  } else {
-    this.AppendToLastConstString(value, source, context);
-  }
+  // 引号由 ExitOrPre 挂上 RawQuoteExitGuide 后重放；这里只剩其余字符进常量块。
+  this.AppendToLastConstString(value, index, context);
 } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && this.IsSupportRaw) {
-  if (value === "{") {
-    {
-      const lastOfMounted = this.Last();
-      if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(context);
-      }
-      const mounted = new InterpolationGuide(this.Template);
-      this.Add(mounted);
-      this.MountedUnit = mounted;
-    }
-    (this.MountedUnit as InterpolationGuide)!.SignIn(source);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
-  } else if (value === this.StringChar) {
-    const guide = new RawQuoteExitGuide(this.Template);
-    guide.StringChar = this.StringChar;
-    {
-      const lastOfMounted = this.Last();
-      if (lastOfMounted !== null && !lastOfMounted.Closed) {
-        lastOfMounted.TryToClose(context);
-      }
-      this.Add(guide);
-      this.MountedUnit = guide;
-    }
-    (this.MountedUnit as RawQuoteExitGuide)!.SignIn(source);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
-  } else {
-    this.AppendToLastConstString(value, source, context);
-  }
+  // `{` 与引号都由 ExitOrPre 挂向导后重放；这里只剩其余字符进常量块。
+  this.AppendToLastConstString(value, index, context);
 } else if (!this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
   const plainConfig = this.Template.StringTemplate;
   if (this.Translate.IsTranslating) {
-    if (this.Translate.Accept(value, plainConfig.AllowLongUnicodeBraceEscape)) {
-      if (this.Translate.Append(value, plainConfig.AllowLongUnicodeBraceEscape)) {
-        // 普通引号串：行续接认模板的 LineTerminatorChars（ECMAScript 的 `"a\<LS>b"` 也是续接）、
-        // `\u{…}` 位数认 AllowLongUnicodeBraceEscape；但**不**走模板串非法转义口径——
-        // 普通引号串的 cooked 照旧解码（ts 侧那些输入本身有诊断）。
-        this.AppendToLastConstString(this.Translate.DecodeClear(plainConfig.LineTerminatorChars, false, plainConfig.AllowLongUnicodeBraceEscape), source, context);
-      }
-    } else {
-      const previous = source.Pre();
-      if (previous !== null) {
-        this.AppendToLastConstString(this.Translate.DecodeClear(plainConfig.LineTerminatorChars, false, plainConfig.AllowLongUnicodeBraceEscape), previous, context);
-      }
-      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+    // 普通引号串：行续接认模板的 LineTerminatorChars、`\u{…}` 位数认 AllowLongUnicodeBraceEscape；
+    // 但**不**走模板串非法转义口径——普通引号串的 cooked 照旧解码（ts 侧那些输入本身有诊断）。
+    if (this.Translate.Append(value, plainConfig.AllowLongUnicodeBraceEscape)) {
+      this.AppendToLastConstString(this.Translate.DecodeClear(plainConfig.LineTerminatorChars, false, plainConfig.AllowLongUnicodeBraceEscape), index, context);
     }
   } else {
     if (plainConfig.EscapeChars.includes(value)) {
       this.Translate.IsTranslating = true;
     } else {
-      this.AppendToLastConstString(value, source, context);
+      this.AppendToLastConstString(value, index, context);
     }
   }
 } else {
@@ -361,14 +358,14 @@ if (this.IsSupportInterpolation && this.IsSupportVerbatim && !this.IsSupportRaw)
 }
 ```
 
-## method ForceExit:(source:Source, context:SyntaxContext)=>void
+## method ForceExit:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
-强制退出：签出、尝试关闭、然后从父单元卸载自己。
+强制退出：签出到 `index + 1`（半开终点 = 被消费字符下标 + 1）、尝试关闭、然后从父单元卸载自己。
 
 供 `StringGuide` 在判定串已经结束时调用。
 
 ```ts
-this.SignOut(source);
+this.SignOut(index + 1);
 this.TryToClose(context);
 this.Quit();
 ```
@@ -417,23 +414,100 @@ for (const i of this.Data) {
 }
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
-问自己「当前字符是让我退出，还是继续前移」。
+问自己「当前字符是让我退出、继续前移，还是得先重放」。
 
-只有**不是原始串、也不是逐字串**、且当前字符正是本串的引号、且当前不在转义中时，才 `ForceExit` 并返回 `Done`；其余一律返回 `Undo`（继续前移）。
+先处理两件必须在 `Default` 之前决出的事，再交出引号收尾：
 
-退出前先看有没有挂着的 `$`：那是 `$` 后面还没等到下一个字符、直接碰上收尾引号的情况——把它补落进常量块再退出（不向后看，收尾这一步自然给出结论）。
+1. **一次转义刚刚攒够**（`IsTranslating` 且 `Accept` 返回 `false`）：当前字符不属于这次转义。先把上一个转义 `DecodeClear(…, value)` 结算掉、签出到**前一个字符**（`index - 1`），再返回 `Reload`——当前字符没被消费，由驱动层重放（重放时转义状态已清干净，会按普通字符走完整条路径）。
+2. **收尾引号**：不是原始串、也不是逐字串、当前字符正是本串的引号、且不在转义中时，`ForceExit` 并返回 `Done`。退出前先看有没有挂着的 `$`：那是 `$` 后面还没等到下一个字符、直接碰上收尾引号的情况——把它补落进常量块再退出（不向后看，收尾这一步自然给出结论）。
+3. **需要挂向导并重放当前字符的三种形态**（都在 `Default` 之前拦截，因为挂完向导要原地重放这一格）：
+   - 原始串（含「内插 + 原始」）的引号：挂 `RawQuoteExitGuide`（带上本串的 `StringChar`）、签入 `index`，返回 `Reload`；
+   - 「内插 + 原始」的 `{`：挂 `InterpolationGuide`、签入 `index`，返回 `Reload`；
+   - 前缀式内插的 `{`（`HasInterpolationPrefix` 打开、本引号不在 `InterpolationQuoteChars` 里）：挂 `InterpolationGuide`、签入 `index`，返回 `Reload`。
+
+其余一律返回 `Undo`（继续前移，交给 `Default`）。
+
+`Reload` 由 `UnitToken.Process` 统一压消息并原地阻塞；这里不碰 `context.Index`。
 
 ```ts
-if (source.Value === this.StringChar && this.Translate.IsTranslating === false && !this.IsSupportRaw && !this.IsSupportVerbatim) {
-  if (this.PendingInterpolation !== null) {
+const value = buffer.At(index);
+const config = this.Template.StringTemplate;
+if (this.Translate.IsTranslating) {
+  if (!this.Translate.Accept(value, config.AllowLongUnicodeBraceEscape)) {
+    // `Accept` 不收的字符是「本次转义之外」的第一个字符：`\08` 的合法/非法要看它
+    //（`\0` 后跟十进制数字 = legacy octal），所以把它当 nextItem 传进去。
+    const strictTemplateEscapes = this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw
+      ? config.StrictTemplateEscapes
+      : false;
+    this.AppendToLastConstString(
+      this.Translate.DecodeClear(config.LineTerminatorChars, strictTemplateEscapes, config.AllowLongUnicodeBraceEscape, value),
+      index - 1,
+      context,
+    );
+    return BranchStates.Reload;
+  }
+}
+if (value === this.StringChar && this.Translate.IsTranslating === false && !this.IsSupportRaw && !this.IsSupportVerbatim) {
+  if (this.PendingInterpolation !== -1) {
     const begin = this.PendingInterpolation;
-    this.PendingInterpolation = null;
+    this.PendingInterpolation = -1;
     this.AppendToLastConstString("$", begin, context);
   }
-  this.ForceExit(source, context);
+  this.ForceExit(context, buffer, index);
   return BranchStates.Done;
+}
+if (this.Translate.IsTranslating === false) {
+  if (this.IsSupportRaw && !this.IsSupportVerbatim) {
+    if (value === this.StringChar) {
+      // 原始串的引号：挂 RawQuoteExitGuide 并重放，由向导数这一串引号。
+      const guide = new RawQuoteExitGuide(this.Template);
+      guide.StringChar = this.StringChar;
+      {
+        const lastOfMounted = this.Last();
+        if (lastOfMounted !== null && !lastOfMounted.Closed) {
+          lastOfMounted.TryToClose(context);
+        }
+        this.Add(guide);
+        this.MountedUnit = guide;
+      }
+      (this.MountedUnit as RawQuoteExitGuide)!.SignIn(index);
+      return BranchStates.Reload;
+    }
+    if (this.IsSupportInterpolation && value === "{") {
+      // 内插 + 原始：`{` 挂 InterpolationGuide 并重放。
+      {
+        const lastOfMounted = this.Last();
+        if (lastOfMounted !== null && !lastOfMounted.Closed) {
+          lastOfMounted.TryToClose(context);
+        }
+        const mounted = new InterpolationGuide(this.Template);
+        this.Add(mounted);
+        this.MountedUnit = mounted;
+      }
+      (this.MountedUnit as InterpolationGuide)!.SignIn(index);
+      return BranchStates.Reload;
+    }
+  } else if (this.IsSupportInterpolation && !this.IsSupportVerbatim && !this.IsSupportRaw) {
+    if (value === "{") {
+      const quoteInterpolation = config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(this.StringChar);
+      if (!quoteInterpolation && config.HasInterpolationPrefix) {
+        // 前缀式内插：`{` 挂 InterpolationGuide 并重放，由向导数连续左花括号。
+        {
+          const lastOfMounted = this.Last();
+          if (lastOfMounted !== null && !lastOfMounted.Closed) {
+            lastOfMounted.TryToClose(context);
+          }
+          const mounted = new InterpolationGuide(this.Template);
+          this.Add(mounted);
+          this.MountedUnit = mounted;
+        }
+        (this.MountedUnit as InterpolationGuide)!.SignIn(index);
+        return BranchStates.Reload;
+      }
+    }
+  }
 }
 return BranchStates.Undo;
 ```

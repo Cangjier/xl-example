@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { GuideToken } from "../../guide-token.xl.md"
-import { Source } from "../../source.xl.md"
+import { SourceRange } from "../../source-range.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
@@ -37,28 +37,28 @@ super(Template);
 return (this.Parent as String)!;
 ```
 
-## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+## protected method Navigate:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 当前字符是不是引号，决定这次引号是转义还是结尾。
 
-- **是 `"`**：先摘掉自己，把这一个引号追加进常量字符串；如果新建出来的常量字符串还没签入过，用上一个字符的位置给它签入。
-- **不是 `"`**：先摘掉自己，再让父字符串 `ForceExit(source.Pre()!)` 强制退出——退出位置是上一个字符（那个结尾引号）；最后把当前这个字符 `ReloadMessage` 回队首重新处理。
+- **是 `"`**：先摘掉自己，把这一个引号追加进常量字符串；如果新建出来的常量字符串还没签入过，用**前一个**字符的位置给它签入。
+- **不是 `"`**：先摘掉自己，再让父字符串 `ForceExit(context, buffer, index - 1)` 强制退出——退出位置是上一个字符（那个结尾引号）；最后把当前这个字符 `ReloadMessage` 重放一遍（压消息、不推进游标，由 `GuideToken.Process` 收口）。
 
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 if (value === "\"") {
   //说明 双引号是转义字符
   this.RemoveSelf();
-  const Const = this.ParentString.AppendToLastConstString(value, source, context);
-  if (Const.SourceRange.Start === null) {
-    Const.SignIn(source.Pre()!);
+  const Const = this.ParentString.AppendToLastConstString(value, index, context);
+  if (Const.SourceRange.Start < 0) {
+    Const.SignIn(index - 1);
   }
 } else {
   //说明 字符串已结束
   this.RemoveSelf();
   //手动强制退出
-  this.ParentString.ForceExit(source.Pre()!, context);
+  this.ParentString.ForceExit(context, buffer, index - 1);
   //最后一个字符需要重载
-  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
 }
 ```
