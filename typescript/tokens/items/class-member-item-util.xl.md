@@ -2,6 +2,7 @@
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ItemScanState } from "../../../core/syntax/batch/item-scan-state.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
@@ -9,8 +10,8 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { AngleJudge } from "./angle-judge.xl.md"
-import { MemberBoundary, MemberBoundaryScan } from "./member-boundary.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
+import { MemberBoundary, MemberBoundaryScan } from "../types/member-boundary.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 ```
 
@@ -892,4 +893,75 @@ if (host.SourceRange.StartIndex < 0) {
   return 0;
 }
 return host.SourceRange.StartIndex + 1;
+```
+
+# class ClassMemberItemUtil
+
+类体 item 表（`ClassItemRule`）的判定入口：把 `ClassMemberPossibleUtil` 的算法（`Extend` / `ScanBoundary` /
+`Analyze` / `DecoratorHeadAt` / `BasePos`）搬到 `core/syntax/batch/item-scan-state` 上。
+
+与 possible 路径的差别只有「状态从哪来」：`Code` / `CodeAt` / `Angle` 由引擎的 `ItemScanState` 维护，
+判定用的代码数组、角深度与**增量边界扫描状态**放在 `ClassMemberPossibleScan` 上（每个类体括号一份，
+见 `ClassItemRule.Scan`）。`Analyze` 仍走 `ClassMemberPossibleUtil.ScanBoundary` 的增量判据，不是每个
+basic token 从头 `FindMemberBoundary`：`tests/bench/class-scaling.mjs` 档 B/C 守的就是这条（长成员 /
+装饰器长成员的 O(L²)）。
+
+`ClassMemberPossibleUtil` 本身逐字保留（判型、分界、装饰器头、`BasePos` 都在那里），本类只负责
+「新 item 时把扫描状态归零」「把新代码单元增量喂进去」「把代码下标结论映射回宿主下标」。
+
+## static method ResetScan:(scan:ClassMemberPossibleScan)=>void
+
+新 item 的扫描状态归零：条目起点固定为 `0`（这里喂进来的 `units` 是 `state.Code`，代码下标从 0 起），
+`Code` / `CodeAt` 清空、角深度归零、边界扫描回到初始态（`Boundary = -1`、`Checked = 1`）。
+
+```ts
+scan.Start = 0;
+scan.Checked = -1;
+scan.Complete = false;
+scan.End = -1;
+scan.Kinds = ClassMemberPossibleUtil.AllKinds();
+scan.Code = [];
+scan.CodeAt = [];
+scan.Angle = 0;
+scan.BoundaryScan.Boundary = -1;
+scan.BoundaryScan.Checked = 1;
+scan.BoundaryAnchor = -1;
+```
+
+## static method Extend:(state:ItemScanState, scan:ClassMemberPossibleScan)=>void
+
+把刚追加的代码单元增量折进扫描状态。`state.Code.length === 1` 是「本 item 的第一个代码单元」——
+引擎每个 item 都从空 `Code` 开始，所以这一条就是新条目的判据（不需要额外的条目号）。
+
+```ts
+const code = state.Code;
+if (code.length === 0) {
+  return;
+}
+if (code.length === 1) {
+  ClassMemberItemUtil.ResetScan(scan);
+}
+ClassMemberPossibleUtil.Extend(scan, code, code.length - 1);
+scan.Checked = code.length;
+```
+
+## static method Analyze:(state:ItemScanState, scan:ClassMemberPossibleScan)=>void
+
+收口判定：`ClassMemberPossibleUtil.Analyze(scan)` 把「是否收住、收在哪个代码单元」写进 `scan`，
+这里把它映射成 `ItemScanState.Complete` / `ItemScanState.End`（`End` 是宿主 `Data` 下标，经 `state.CodeAt`
+映射）。判据与 possible 路径逐条相同：① 前缀里找到下一个成员起点；② 最后一个代码单元是 `;`；
+③ 最后一个代码单元之后是容器收口字符。三条都只在角深度 0 时生效。
+
+```ts
+state.Complete = false;
+state.End = -1;
+if (state.Code.length === 0) {
+  return;
+}
+ClassMemberPossibleUtil.Analyze(scan);
+if (!scan.Complete || scan.End < 0 || scan.End >= state.CodeAt.length) {
+  return;
+}
+state.Complete = true;
+state.End = state.CodeAt[scan.End];
 ```
