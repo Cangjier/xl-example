@@ -118,9 +118,11 @@ return items.includes(this.TempToString());
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
-关闭：只把自己标记为已关闭，返回 `Nothing`。
+关闭：只把自己标记为已关闭，然后**和 `Common.Close` 一样只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
 
-**它不问父单元要不要重算候选**——与 `Common.Close` 不同。符号是**终结者**：`;`、`}` 这些字符由形状自己的 `ExitOrPre` 认领并顺手把形状关掉，那时形状已经闭合，再让候选目录去判一次只会判到一个「已经过去的」下标。`Common` 要问，是因为一个标识符的收尾本身就是子形状（名字、子句）完成的时刻。
+符号（`;`、`,`、`+`、`=` …）常常是 item 的收尾，这一次「问父单元」就是「item 关闭 → 宿主目录重算 → 建出 item」的触发点：类体 / 接口体 / 枚举体里的成员，正是在收尾符号关闭的这一下被建出来的。`}` 不是符号，它是 `Bracket` 的结束括号，同一职责由 `Bracket.Close` 承担。
+
+重算的返回值原样带上去：建出形状时返回 `Built`，让正在收尾的 token 把当前字符重放给新形状。
 
 ```ts
 this.Closed = true;
