@@ -101,6 +101,9 @@ throw new Error("abstract member: ExitOrPre");
 
 **`Done` 的统一 `+1`**：处理者可能只做了签入签出、没有自己碰 `context.Index`（basic token 的跳转就是这样）。所以只要 `context.Index === index`，就补 `context.Index = index + 1`。这条是「默认单字符消费」的唯一出口。
 
+**`LastIndex` 记 `context.Index - 1`**：跳转函数可以把 `context.Index` 一次推进多格（basic token 的整段收——注释正文、空白段、Common 正文），
+此时最后被消费的字符是 `context.Index - 1`，不是进入本帧时的 `index`。单字符消费时两者相等，所以这是同一口径的推广。
+
 **`Reload` 是这套调度的转折点**：一次关闭可能触发形状建造，分支只能把结果报上来。拿到 `Reload` 就**停止整个窗口**、把当前位置压进消息队列，`context.Index` 留在原地（阻塞返回），由驱动层重放。`ProcessOwner` 用 `null`（= 根）：新形状已经 mount，重放时自然落到正确那一层。
 
 **窗口里的两个提前返回（关闭/重放的安全阀）**：
@@ -174,7 +177,7 @@ try {
           if (context.Index === index) {
             context.Index = index + 1;
           }
-          this.LastIndex = index;
+          this.LastIndex = context.Index - 1;
           index = context.Index;
           transited = true;
           break;

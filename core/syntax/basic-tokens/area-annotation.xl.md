@@ -50,6 +50,66 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 注释正文，两个 `*` 都不在内：开头的 `*` 由 `Success` 消费掉，结尾的 `*` 由 `ExitOrPre` 回退掉。
 
+## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+
+覆写驱动循环：注释挂载之后本单元**只吃字符到 `*/`**，中间没有别的单元会插进来，所以不必逐字符走一遍
+`UnitToken.Process` 的驱动帧（父单元 / 消息 / 挂载检查 + 读字符 + 下标簿记）。
+
+窗口内一次 `GetRaw` 拿整段文本、一次原生 `indexOf("*/")` 找结束序列：
+
+- 找到：`close` 处就是结尾 `*`，正文到它之前为止（逐字符路径里结尾 `*` 也是「先追加、再 `Undo` 删掉」，
+  这里从构造上就不追加它）；签出到结尾 `/` 之后、关闭、跑重组、卸载，`context.Index = slash + 1`。
+- 没找到：整窗剩余一次追加进 `Tmp`，`context.Index = buffer.End`，等下一个窗口接着吃。
+
+结束序列跨窗口时（窗口以 `*` 收尾）：`Tmp` 的末尾正好是 `index - 1` 那一格，所以
+`Tmp.endsWith("*")` 加上「当前字符是 `/`」就是精确判据；把末尾那个 `*` 从 `Tmp` 里删掉（与原 `Undo` 等价）后收口。
+
+**为什么等价**：注释挂载期间没有第二个执行者——父单元的 `MountedUnit` 不会在窗口中间换人，
+`context.Messages` 也不会在窗口中间被别的单元 push（本单元只在窗口末尾关闭）。
+`Tmp` 的终值与逐字符追加一致，两个提前返回（父单元已卸载 / 有待重放消息）在窗口开头判一次即可。
+**依赖**：本方法用 `Document.GetRaw`（`TextDocument` 已实现）做整窗切片。
+
+```ts
+const end = buffer.End;
+if (index >= end) {
+  return;
+}
+const parent = this.Parent;
+if (parent !== null && parent.MountedUnit !== this) {
+  return;
+}
+if (!context.Replaying && context.Messages.length > 0) {
+  return;
+}
+const document = buffer.Document!;
+// 跨窗口：上一个窗口以 `*` 收尾，当前字符是 `/` ⇒ 结束序列正好跨在窗口边界上。
+if (index > 0 && this.Tmp.endsWith("*") && document.GetValue(index) === "/") {
+  this.Tmp = this.Tmp.slice(0, this.Tmp.length - 1);
+  this.SignOut(index + 1);
+  this.TryToClose(context);
+  this.Quit();
+  context.Index = index + 1;
+  this.LastIndex = index;
+  return;
+}
+const raw = document.GetRaw(index, end);
+const close = raw.indexOf("*/");
+if (close >= 0) {
+  // `close` 处是结尾 `*`：正文到它之前为止；结尾 `*` 本来就不进 `Tmp`。
+  this.Tmp += raw.substring(0, close);
+  const slash = index + close + 1;
+  this.SignOut(slash + 1);
+  this.TryToClose(context);
+  this.Quit();
+  context.Index = slash + 1;
+  this.LastIndex = slash;
+  return;
+}
+this.Tmp += raw;
+context.Index = end;
+this.LastIndex = end - 1;
+```
+
 ## method Undo:(index:int)=>void
 
 回退一个字符：覆盖 `index` 的子单元非空就转交给它，否则从 `Tmp` 末尾删掉一个字符。

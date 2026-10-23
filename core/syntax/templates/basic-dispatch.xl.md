@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { BranchStates } from "../branch-states.xl.md"
+import { CloseStates } from "../close-states.xl.md"
 import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -54,6 +55,11 @@ basic token 的融合分派。
 各段的筛法都写在注释里，逐条给出「为什么筛掉它以后行为不变」的依据。规律是：
 **只看 `value` 就能判死的先判死**（BOM / 标记首字符 / 三个开括号），**必须回看 `index - 1` 的三条共用一次回看**
 （它们的前提都是「前一个字符是 `/` 且可回退」），**要写树的照旧交给原实现**。
+
+⑧ 兜底前对 Common 的**正文字符**再做一次整段收：ASCII 字母 / 数字 / 下划线一旦落到兜底，就说明它不是符号、空白、引号、
+括号、BOM、标记或注释/正则前缀，整段只有一个去处（`Common`），所以可以一次扫到段尾、一次追加，
+省掉逐字符的驱动帧与分派。**这一段必须放在 ③ 之后**：`/` 后面可能是注释/正则，那三条只能由 ③ 判，
+批量扫描只看 `value`，替代不了 ③；`\` 转义态与 `.` / 指数符号也一律回 `Common.Transit` 原路径。
 
 ```ts
 const template = unit.Template;
@@ -136,5 +142,41 @@ if (symbolTemplate.IsSymbol(value) || (last instanceof Symbol && !last.Closed)) 
 }
 // ⑧ 兜底 Common：凡是上面没人认下的字符都归它（标识符 / 数字 / 布尔）。
 //    它自己还会判一次「符号或空白 + 是否是转义标识符起点」，那一步不能在这里复制，原样调用。
+//    **这一段必须在 ③ 之后**：`/` 后面可能是注释或正则，那三条只能由 ③ 判；批量扫描只看 `value`，替代不了 ③。
+//    ASCII 字母 / 数字 / 下划线是 Common 的正文：整段扫完一次追加，不再逐字符走驱动帧与分派。
+//    `\` 转义态（HasBackslash）与未闭合的 `.` / 指数符号一律回 Common.Transit 原路径，行为逐字节不变。
+const code = value.charCodeAt(0);
+const plain = (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code === 95;
+if (plain) {
+  const document = buffer.Document!;
+  const raw = document.GetRaw(index, buffer.End);
+  let offset = 1;
+  while (offset < raw.length) {
+    const next = raw.charCodeAt(offset);
+    if (!((next >= 48 && next <= 57) || (next >= 65 && next <= 90) || (next >= 97 && next <= 122) || next === 95)) {
+      break;
+    }
+    offset++;
+  }
+  const at = index + offset;
+  const runText = raw.substring(0, offset);
+  // 续接：上一个单元是未闭合的 Common 且没有进入 `\` 转义态 → 整段并进去。
+  if (last instanceof Common && !last.Closed && !last.HasBackslash) {
+    last.AppendAndSignOut(runText, at - 1);
+    context.Index = at;
+    return BranchStates.Done;
+  }
+  // 起新块：上一个单元不是未闭合的 Symbol（`.` 归数字 / 指数符号在 Common.Transit 里特殊处理），
+  // 也不是未闭合的 Common（转义态由 Common.Transit 判）；先按原逻辑收尾，再把整段一次收进新块。
+  if (at > index + 1 && !(last instanceof Symbol) && !(last instanceof Common && !last.Closed)) {
+    if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
+      return BranchStates.Reload;
+    }
+    unit.Add(new Common(unit.Template));
+    (unit.Last() as Common)!.AppendAndSignOut(runText, at - 1).SignIn(index);
+    context.Index = at;
+    return BranchStates.Done;
+  }
+}
 return Common.Transit(context, unit, buffer, index, value);
 ```

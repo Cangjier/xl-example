@@ -70,22 +70,41 @@ return CloseStates.Nothing;
 
 当前字符是空白就接手；不是就先关掉还开着的上一个 `WrapSymbol`（它是一整段空白，遇到非空白就该收尾），再让路。
 
+**空白段一次收完**：既然一整段连续空白本来就归同一个 `WrapSymbol`，就没必要逐字符走驱动帧与分派——
+窗口内先 `GetRaw` 一次，再用原生字符串下标把连续空白扫到窗口尾，一次 `AppendAndSignOut` 整段追加。
+扫描用 `raw[offset]` 而不是逐字符 `Document.GetValue`，省掉的是一次次闭包调用。
+
+批量跳格要自己推进 `context.Index`（`UnitToken.Process` 只会在 `context.Index === index` 时补 `+1`）。
+段跨窗口时扫到 `buffer.End` 为止，下一个窗口的第一个字符仍由本方法续接。
+
 ```ts
 const last = unit.Last();
-if (!unit.Template.SymbolTemplate.IsWhiteSpace(value)) {
+const symbolTemplate = unit.Template.SymbolTemplate;
+if (!symbolTemplate.IsWhiteSpace(value)) {
   if (last instanceof WrapSymbol && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
     return BranchStates.Reload;
   }
   return BranchStates.Undo;
 }
+// 空白段整段收：窗口内连续空白一次扫完，跳过逐字符的驱动帧与分派。
+const document = buffer.Document!;
+const raw = document.GetRaw(index, buffer.End);
+let offset = 1;
+while (offset < raw.length && symbolTemplate.IsWhiteSpace(raw[offset])) {
+  offset++;
+}
+const at = index + offset;
+const runText = raw.substring(0, offset);
 if (last instanceof WrapSymbol && !last.Closed) {
-  last.AppendAndSignOut(value, index);
+  last.AppendAndSignOut(runText, at - 1);
+  context.Index = at;
   return BranchStates.Done;
 }
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 unit.Add(new WrapSymbol(unit.Template));
-(unit.Last() as WrapSymbol)!.AppendAndSignOut(value, index).SignIn(index);
+(unit.Last() as WrapSymbol)!.AppendAndSignOut(runText, at - 1).SignIn(index);
+context.Index = at;
 return BranchStates.Done;
 ```
