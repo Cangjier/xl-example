@@ -46,6 +46,12 @@ item 最后一个代码 unit 的宿主下标。
 
 item 的代码区间里是否出现过换行（ASI 类判据用）。
 
+## field AtEof:bool = false
+
+文档是否已到末尾（G0）：`Feed` 入口从 `batch.AtEof` 赋值，`ItemRule.Extend/Analyze` 只读本字段。
+它是**文档级事实**，不随 item 复位（`Reset` 不清它）；`Analyze` 在 `AtEof` 且无新 unit 时也必须被调用一次（G5），
+因此「文件末尾无分号的语句」能在这里收口。
+
 ## method Reset:(start:int)=>void
 
 复位到「从 `start` 开始的新 item」。

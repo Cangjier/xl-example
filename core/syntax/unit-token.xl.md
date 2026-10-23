@@ -74,11 +74,12 @@ if (batch === null) {
   this.BatchFrom = last;
 }
 batch.To = last + 1;
+batch.AtEof = this.IsAtEof();
 batch.Sealed = false;
 batch.Recompute();
 const state = this.BatchAdapter.OnBasicTokens(batch, context);
 if (state === BatchStates.Done || state === BatchStates.Reload) {
-  this.ClearBatch();
+  this.AdvanceBatch(batch);
   if (state === BatchStates.Reload) {
     return CloseStates.Built;
   }
@@ -111,6 +112,22 @@ return state;
 ```ts
 this.BatchFrom = -1;
 this.BatchSink = null;
+```
+
+## private method AdvanceBatch:(batch:BasicTokenBatch)=>void
+
+按引擎给出的 `batch.Cursor` 决定「保留未消费尾巴」还是「清批」（G1/G2 的宿主侧半条契约）。
+引擎已经 splices 并把 `batch.From/To/Cursor` 重定位到 splice 之后，宿主只需要跟随 `Cursor`。
+
+```ts
+if (batch.Cursor < 0 || batch.Cursor >= batch.To) {
+  this.ClearBatch();
+  return;
+}
+batch.From = batch.Cursor;
+batch.Sealed = false;
+batch.Recompute();
+this.BatchFrom = batch.Cursor;
 ```
 
 ## private method IsAtEof:()=>bool
