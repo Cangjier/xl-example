@@ -740,10 +740,6 @@ if (unit instanceof Common) {
     this.At++;
     return this.ParseNumericLiteralType(token, start);
   }
-  if (text === "true" || text === "false" || text === "null") {
-    this.At++;
-    return this.ParseBooleanOrNullLiteralType(text, start);
-  }
   if (text === "keyof" || text === "readonly" || text === "unique") {
     this.At++;
     const operand = this.ParsePostfixType();
@@ -760,76 +756,57 @@ if (unit instanceof Common) {
     shape.TryToClose(this.Context);
     return shape;
   }
-  if (text === "typeof") {
-    this.At++;
-    return this.ParseTypeQuery(start);
-  }
-  if (text === "infer") {
-    this.At++;
-    return this.ParseInferType(start);
-  }
-  if (text === "asserts") {
-    return this.ParseTypePredicate(start);
-  }
-  if (text === "new" || text === "abstract") {
-    return this.ParseConstructorType(start);
-  }
-  if (text === "import") {
-    return this.ParseImportType(start);
-  }
-  if (text === "any") {
-    this.At++;
-    return this.SpanLeaf(new AnyKeywordShape(this.Template), start);
-  }
-  if (text === "unknown") {
-    this.At++;
-    return this.SpanLeaf(new UnknownKeywordShape(this.Template), start);
-  }
-  if (text === "never") {
-    this.At++;
-    return this.SpanLeaf(new NeverKeywordShape(this.Template), start);
-  }
-  if (text === "void") {
-    this.At++;
-    return this.SpanLeaf(new VoidKeywordShape(this.Template), start);
-  }
-  if (text === "undefined") {
-    this.At++;
-    return this.SpanLeaf(new UndefinedKeywordShape(this.Template), start);
-  }
-  if (text === "boolean") {
-    this.At++;
-    return this.SpanLeaf(new BooleanKeywordShape(this.Template), start);
-  }
-  if (text === "number") {
-    this.At++;
-    return this.SpanLeaf(new NumberKeywordShape(this.Template), start);
-  }
-  if (text === "string") {
-    this.At++;
-    return this.SpanLeaf(new StringKeywordShape(this.Template), start);
-  }
-  if (text === "bigint") {
-    this.At++;
-    return this.SpanLeaf(new BigIntKeywordShape(this.Template), start);
-  }
-  if (text === "intrinsic") {
-    this.At++;
-    return this.SpanLeaf(new IntrinsicKeywordShape(this.Template), start);
-  }
-  if (text === "symbol") {
-    this.At++;
-    return this.SpanLeaf(new SymbolKeywordShape(this.Template), start);
-  }
-  if (text === "object") {
-    this.At++;
-    return this.SpanLeaf(new ObjectKeywordShape(this.Template), start);
-  }
-  if (text === "this") {
-    this.At++;
-    const thisType = ThisTypeShape.FromBasicToken(token, this.Context);
-    thisType.Pos = this.Positions[start];
-    return thisType;
+  // 首字符预筛：25 个关键字按首字符（charCode）分派，分支内只做 1-3 次 ===；判定集合与结果不变。
+  switch (text.charCodeAt(0)) {
+    case 97: // a
+      if (text === "any") { this.At++; return this.SpanLeaf(new AnyKeywordShape(this.Template), start); }
+      if (text === "abstract") { return this.ParseConstructorType(start); }
+      if (text === "asserts") { return this.ParseTypePredicate(start); }
+      break;
+    case 98: // b
+      if (text === "boolean") { this.At++; return this.SpanLeaf(new BooleanKeywordShape(this.Template), start); }
+      if (text === "bigint") { this.At++; return this.SpanLeaf(new BigIntKeywordShape(this.Template), start); }
+      break;
+    case 102: // f
+      if (text === "false") { this.At++; return this.ParseBooleanOrNullLiteralType(text, start); }
+      break;
+    case 105: // i
+      if (text === "import") { return this.ParseImportType(start); }
+      if (text === "infer") { this.At++; return this.ParseInferType(start); }
+      if (text === "intrinsic") { this.At++; return this.SpanLeaf(new IntrinsicKeywordShape(this.Template), start); }
+      break;
+    case 110: // n
+      if (text === "null") { this.At++; return this.ParseBooleanOrNullLiteralType(text, start); }
+      if (text === "new") { return this.ParseConstructorType(start); }
+      if (text === "never") { this.At++; return this.SpanLeaf(new NeverKeywordShape(this.Template), start); }
+      if (text === "number") { this.At++; return this.SpanLeaf(new NumberKeywordShape(this.Template), start); }
+      break;
+    case 111: // o
+      if (text === "object") { this.At++; return this.SpanLeaf(new ObjectKeywordShape(this.Template), start); }
+      break;
+    case 115: // s
+      if (text === "string") { this.At++; return this.SpanLeaf(new StringKeywordShape(this.Template), start); }
+      if (text === "symbol") { this.At++; return this.SpanLeaf(new SymbolKeywordShape(this.Template), start); }
+      break;
+    case 116: // t
+      if (text === "true") { this.At++; return this.ParseBooleanOrNullLiteralType(text, start); }
+      if (text === "this") {
+        this.At++;
+        const thisType = ThisTypeShape.FromBasicToken(token, this.Context);
+        thisType.Pos = this.Positions[start];
+        return thisType;
+      }
+      if (text === "typeof") { this.At++; return this.ParseTypeQuery(start); }
+      break;
+    case 117: // u
+      if (text === "unknown") { this.At++; return this.SpanLeaf(new UnknownKeywordShape(this.Template), start); }
+      if (text === "undefined") { this.At++; return this.SpanLeaf(new UndefinedKeywordShape(this.Template), start); }
+      break;
+    case 118: // v
+      if (text === "void") { this.At++; return this.SpanLeaf(new VoidKeywordShape(this.Template), start); }
+      break;
+    default:
+      break;
   }
   return this.ParseTypeReference();
 }
