@@ -64,26 +64,26 @@ this.Closed = true;
 return CloseStates.Nothing;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 当前字符是空白就接手；不是就先关掉还开着的上一个 `WrapSymbol`（它是一整段空白，遇到非空白就该收尾），再让路。
 
 ```ts
 const last = unit.Last();
-if (!unit.Template.SymbolTemplate.IsWhiteSpace(buffer.At(index))) {
+if (!unit.Template.SymbolTemplate.IsWhiteSpace(value)) {
   if (last instanceof WrapSymbol && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
     return BranchStates.Reload;
   }
   return BranchStates.Undo;
 }
 if (last instanceof WrapSymbol && !last.Closed) {
-  last.AppendAndSignOut(buffer.At(index), index);
+  last.AppendAndSignOut(value, index);
   return BranchStates.Done;
 }
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 unit.Add(new WrapSymbol(unit.Template));
-(unit.Last() as WrapSymbol)!.AppendAndSignOut(buffer.At(index), index).SignIn(index);
+(unit.Last() as WrapSymbol)!.AppendAndSignOut(value, index).SignIn(index);
 return BranchStates.Done;
 ```

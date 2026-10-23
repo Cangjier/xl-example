@@ -94,7 +94,7 @@ throw new Error("abstract member: ExitOrPre");
 
 1. 有挂载单元就整个交给它；它没推进 `context.Index` 就没有进展，本单元**原样返回**（不许死循环）。
 2. 否则先问 `ExitOrPre`：`Reload` 就把当前下标压进消息队列并返回（当前字符没被消费）；`Done` 就记 `LastIndex` 并前进。
-3. 再依次跑 `ProcessQueue` 里的跳转，哪个 `Done` 就前进并进入下一个位置，哪个 `Reload` 就压消息并返回。
+3. 再依次跑 `ProcessQueue` 里的跳转，哪个 `Done` 就前进并进入下一个位置，哪个 `Reload` 就压消息并返回。跑跳转之前**当前字符只读一次**（`buffer.At(index)`），作为第 5 个参数顺链传给每条跳转——跳转函数不再各自读当前字符。
 4. 都不接手才走 `Default` 兜底；兜底默认消费一个字符。
 
 **`Done` 的统一 `+1`**：处理者可能只做了签入签出、没有自己碰 `context.Index`（basic token 的跳转就是这样）。所以只要 `context.Index === index`，就补 `context.Index = index + 1`。这条是「默认单字符消费」的唯一出口。
@@ -143,8 +143,10 @@ try {
     }
     let transited = false;
     if (this.ProcessQueue !== null) {
+      // 当前字符只读一次，顺链传给每条跳转（basic token 的 Transit 不再各自 `buffer.At(index)`）。
+      const value = buffer.At(index);
       for (const item of this.ProcessQueue.Data) {
-        const state = item(context, this, buffer, index);
+        const state = item(context, this, buffer, index, value);
         if (state === BranchStates.Reload) {
           context.Messages.push(new ReloadMessage(null, index));
           return;

@@ -610,7 +610,7 @@ return true;
 return items.includes(this.TempToString());
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 判定、收尾、新开都在这一个方法里：
 
@@ -621,7 +621,6 @@ return items.includes(this.TempToString());
 - 其余 → 开新块：先 `last.TryToClose(context)`，建出形状就返回 `Reload`，否则加新单元、签入当前字符并 `Done`。
 
 ```ts
-const value = buffer.At(index);
 const template = unit.Template;
 const last = unit.Last();
 if ((value === "+" || value === "-")

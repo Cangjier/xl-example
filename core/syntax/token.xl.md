@@ -31,6 +31,8 @@ Token，语法树的地基。
 
 从当前单元跳到下一个单元的跳转队列（一列 `BranchTransiter` 函数）。由各 token 在自己的构造器里从 `Template.BranchTemplate` 取。
 
+队列里的函数拿得到调度层已经读好的当前字符（第 5 个参数 `value`），所以它们不必为当前字符再问一次 `buffer`。
+
 ## field Parent:Token | null = null
 
 父单元。
