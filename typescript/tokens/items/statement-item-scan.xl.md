@@ -181,12 +181,19 @@ finally 体（保留）。
 
 在当前代码前缀上判定一次。前缀长度与上次相同 → 复用；否则按状态号选族、调用该族**同一个** `Scan*`。
 
+**`AtEof` 的收窄（本文件的关键约定）**：`ItemScanState.AtEof` 是**文档级**事实（G0），而
+`StatementScanner` 的 EOF 规则假设「本层已经没有后续内容」（旧路径里那个 `AtEOF` 是根级候选算出来的）。
+一条 item 在容器中间时这两件事不同：`return` 后面还有 `i;`，文档却已到末尾——此时若把 `AtEof` 原样传进去，
+`ScanReturnOrThrow` 会把裸 `return` 判成空 return（`return` + 无参）。因此这里把 `AtEof` **收窄**成
+「文档到末尾 **且** 本 item 的最后一个代码单元就是容器的最后一个非 trivia 单元」（`AtContainerEnd`）。
+收窄只可能把 `true` 变 `false`，所以「逐前缀 AtEof=(n===N)」的 oracle 对拍口径不变（n<N 时本来就是 false）。
+
 ```ts
 if (this.Watermark === code.length && this.Result.Status !== 0) {
   return this.Result;
 }
 const previous = StatementScanner.AtEOF;
-StatementScanner.AtEOF = this.AtEof;
+StatementScanner.AtEOF = this.AtEof && StatementItemScan.AtContainerEnd(code);
 this.Watermark = code.length;
 const result = this.Decide(code);
 StatementScanner.AtEOF = previous;
@@ -198,6 +205,37 @@ if (result.Status === 1) {
   this.PendingEnd = -1;
 }
 return result;
+```
+
+## static method AtContainerEnd:(code:Array<Token>)=>bool
+
+`code` 的最后一个代码单元是不是**容器**（`code[last].Parent`）的最后一个非 trivia 单元。
+从容器 `Data` 的尾部向前找：先遇到 `last` → 到头（`true`）；先遇到别的非 trivia → 没到头（`false`）。
+容器已 splice / 找不到 `last`（假宿主、测试里拷出来的 Data）时保守返回 `true`，与收窄前的行为一致。
+
+```ts
+if (code.length === 0) {
+  return true;
+}
+const last = code[code.length - 1];
+const host = last.Parent;
+if (host === null) {
+  return true;
+}
+const data = host.Data;
+if (data === null || data === undefined || data.length === 0) {
+  return true;
+}
+for (let at = data.length - 1; at >= 0; at--) {
+  const unit = data[at];
+  if (unit === last) {
+    return true;
+  }
+  if (!unit.IsTriviaToken) {
+    return false;
+  }
+}
+return true;
 ```
 
 ## method Decide:(code:Array<Token>)=>StatementScanResult
