@@ -73,10 +73,10 @@ return this.FilePath;
 
 ## method GetRaw:(start:int, end:int)=>string
 
-取 `[start, end]` 上的原文——注意是**闭区间**。
+取 `[start, end)` 上的原文——**半开区间**，与 `SourceRange` / TS 的 `pos`/`end` 同一口径。
 
 ```ts
-return this.Content.substring(start, end + 1);
+return this.Content.substring(start, end);
 ```
 
 ## method GetLine:(index:int)=>int
@@ -85,8 +85,10 @@ return this.Content.substring(start, end + 1);
 
 用 `LineStartOffsets` 线性扫描：找到第一个「比 `index` 大」的行起点，返回它前一行；都没找到就是最后一行。
 
+越界语义保持旧行为（`index < 0` 或 `index > GetCount()` 抛错，诊断路径不依赖它）；**唯一的例外是 EOF 下标 `index === GetCount()`**——它是「最后一个字符之后」的位置（空文档就是第 0 行行首），行号取最后一行、行内偏移取该行末尾位置，不抛。
+
 ```ts
-if (index < 0 || index >= this.Content.length) {
+if (index < 0 || index > this.Content.length) {
   throw new Error("ArgumentOutOfRangeException: Index is out of range.");
 }
 for (let i = 0; i < this.LineStartOffsets.length; i++) {
@@ -99,10 +101,10 @@ return this.LineStartOffsets.length - 1;
 
 ## method GetLineOffset:(index:int)=>int
 
-下标在其所在行内的偏移。
+下标在其所在行内的偏移。越界语义同 `GetLine`（EOF 下标按行末之后的位置回答）。
 
 ```ts
-if (index < 0 || index >= this.Content.length) {
+if (index < 0 || index > this.Content.length) {
   throw new Error("ArgumentOutOfRangeException: Index is out of range.");
 }
 for (let i = 0; i < this.LineStartOffsets.length; i++) {
@@ -115,10 +117,10 @@ return index - this.LineStartOffsets[this.LineStartOffsets.length - 1];
 
 ## method GetLineInfo:(index:int)=>Array<int>
 
-下标所在行的 `[行号, 行内偏移]`。xl 没有元组类型，一律用 `Array<int>`。
+下标所在行的 `[行号, 行内偏移]`。xl 没有元组类型，一律用 `Array<int>`。越界语义同 `GetLine`（EOF 下标按行末之后的位置回答）。
 
 ```ts
-if (index < 0 || index >= this.Content.length) {
+if (index < 0 || index > this.Content.length) {
   throw new Error("ArgumentOutOfRangeException: Index is out of range.");
 }
 for (let i = 0; i < this.LineStartOffsets.length; i++) {
@@ -133,14 +135,16 @@ return [this.LineStartOffsets.length - 1, index - this.LineStartOffsets[this.Lin
 
 把范围所在的那一行连同下一行 `^` 下划线一起输出，有 `FilePath` 时再补一行 `at file: <路径>:<行号>`。
 
+`^` 覆盖半开区间 `[StartIndex, EndIndex)`：`j >= StartIndex && j < EndIndex`。
+
 先把整段文本按 `\n` 切行（`\r` 直接丢掉），再找到起点所在行：行内容一行、`^` 指示一行。
 
 ```ts
-if (range.Start === null) {
+if (range.Start < 0) {
   throw new Error("SourceRange.Start is null");
 }
-const startIndex = range.Start.Index;
-const endIndex = range.End === null ? startIndex : range.End.Index;
+const startIndex = range.StartIndex;
+const endIndex = range.EndIndex < 0 ? startIndex : range.EndIndex;
 const lines: string[] = [];
 const lineStartIndices: number[] = [0];
 let lineTemp = "";
@@ -172,7 +176,7 @@ for (let i = 0; i < lines.length; i++) {
       sourceLineIndex = i;
     }
     for (let j = lineStartIndex; j < lineEndIndex; j++) {
-      if (j >= startIndex && j <= endIndex) {
+      if (j >= startIndex && j < endIndex) {
         result += "^";
       } else {
         result += " ";
@@ -195,11 +199,11 @@ return result;
 `GetRangeLines` 与 `GetRangeString` 是两份几乎一样的代码，差别只在行前缀；这里保持同样的结构，不抽公共方法——诊断路径要的是「读一处就懂」，不是复用。
 
 ```ts
-if (range.Start === null) {
+if (range.Start < 0) {
   throw new Error("SourceRange.Start is null");
 }
-const startIndex = range.Start.Index;
-const endIndex = range.End === null ? startIndex : range.End.Index;
+const startIndex = range.StartIndex;
+const endIndex = range.EndIndex < 0 ? startIndex : range.EndIndex;
 const lines: string[] = [];
 const lineStartIndices: number[] = [0];
 let lineTemp = "";
@@ -233,7 +237,7 @@ for (let i = 0; i < lines.length; i++) {
     result += "\n";
     result += `line ${i + 1}: `;
     for (let j = lineStartIndex; j < lineEndIndex; j++) {
-      if (j >= startIndex && j <= endIndex) {
+      if (j >= startIndex && j < endIndex) {
         result += "^";
       } else {
         result += " ";

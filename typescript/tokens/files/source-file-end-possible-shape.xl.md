@@ -254,9 +254,9 @@ if (!(host.Data[tokenIndex] instanceof EndOfFileTokenShape)) {
     // 否则它会以 basic token 的形态留到 EOF，和 StatementPossibleShape 在 EOF 格的 Accept 撞共存。
     if (boundaryUnit instanceof Bracket && (boundaryUnit as Bracket).StartBracketChar === "{") {
       let blockPos = 0;
-      const blockEnd = end >= 0 ? host.Data[asiStart].SourceRange.End : null;
-      if (blockEnd !== null) {
-        blockPos = blockEnd.Index + 1;
+      const blockEnd = end >= 0 ? host.Data[asiStart].SourceRange.EndIndex : -1;
+      if (blockEnd >= 0) {
+        blockPos = blockEnd;
       }
       const blockBuilder = new StatementBuilder(host.Template, context);
       blockBuilder.Load([boundaryUnit], blockPos);
@@ -289,9 +289,9 @@ if (at >= start && host.Data[at].IsBasicToken) {
     let trailingPos = 0;
     for (let index = start - 1; index >= 0; index--) {
       if (!host.Data[index].IsTriviaToken) {
-        const previousEnd = host.Data[index].SourceRange.End;
-        if (previousEnd !== null) {
-          trailingPos = previousEnd.Index + 1;
+        const previousEnd = host.Data[index].SourceRange.EndIndex;
+        if (previousEnd >= 0) {
+          trailingPos = previousEnd;
         }
         break;
       }
@@ -309,8 +309,8 @@ if (at >= start && host.Data[at].IsBasicToken) {
       ? ExpressionStatementShape.FromUnits(host, start, at - 1, context, false)
       : ExpressionStatementShape.FromUnits(host, start, at, context, false);
     if (tailIsSemicolon && at > start) {
-      const semiEnd = host.Data[at].SourceRange.End;
-      if (semiEnd !== null) {
+      const semiEnd = host.Data[at].SourceRange.EndIndex;
+      if (semiEnd >= 0) {
         built.SignOut(semiEnd);
       }
     }
@@ -322,9 +322,9 @@ let tail = host.Data.length - 1;
 while (tail >= 0 && (host.Data[tail].IsTriviaToken || host.Data[tail] instanceof EndOfFileTokenShape)) {
   tail--;
 }
-if (tail >= 0 && unit.SourceRange.End === null) {
-  const end = host.Data[tail].SourceRange.End;
-  if (end !== null) {
+if (tail >= 0 && unit.SourceRange.EndIndex < 0) {
+  const end = host.Data[tail].SourceRange.EndIndex;
+  if (end >= 0) {
     unit.SignOut(end);
   }
 }
@@ -335,7 +335,7 @@ return host;
 ## private static method BuildStatementSegments:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
 把 `host.Data[start..at]` 里的 leftover 单元按「一条语句一段」逐段建 shape：每段交给 StatementBuilder，
-**段的消费量按语句右边界 `SourceRange.End` 数 Data 槽位**（不用 `builder.At`——它不是可靠的消费量，
+**段的消费量按语句右边界 `SourceRange.EndIndex`（半开终点）数 Data 槽位**（不用 `builder.At`——它不是可靠的消费量，
 上一轮用它 splice 造成 114 个文件 ok→diff），再按段长 splice；整段都建完返 true。
 
 ```ts
@@ -356,9 +356,9 @@ while (cursor <= limit) {
   let basePos = 0;
   for (let index = cursor - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        basePos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        basePos = previousEnd;
       }
       break;
     }
@@ -374,14 +374,14 @@ while (cursor <= limit) {
   if (statement === null) {
     break;
   }
-  const endSource = statement.SourceRange.End;
+  const endIndex = statement.SourceRange.EndIndex;
   let consumed = 0;
-  if (endSource === null) {
+  if (endIndex < 0) {
     consumed = limit - cursor + 1;
   } else {
     while (cursor + consumed <= limit) {
       const unitStart = host.Data[cursor + consumed].SourceRange.Start;
-      if (unitStart !== null && unitStart.Index > endSource.Index) {
+      if (unitStart >= 0 && unitStart >= endIndex) {
         break;
       }
       consumed++;
@@ -431,7 +431,7 @@ return false;
 EOF 边界补一条「必须分号、但 ASI 允许省略分号」的声明：`type T = A` 与 `import x = require("m")`
 （两者在 TS 里都能不带 `;` 收在文件末尾）。它们的 `FromUnits` 都要求 `tokenIndex` 落在 `;` 上，
 所以这里在最后一个真实代码单元后面补一个**零宽合成 `Symbol ";"`**（`SignIn` / `SignOut` 用同一个
-`End` 位置，`End.Index + 1` 正好是声明的右边界），再按正常入口建。
+半开终点 `EndIndex`——`AppendValueAndSignOut` 传 `EndIndex - 1` 签出到 `EndIndex`，它正好是声明的右边界），再按正常入口建。
 
 只认四族：`type` 开头、`import <名字> = …`（`code[2]` 是 `=`）、函数声明（`declare function …` /
 重载签名 `function …`，无体时最后一块是 `;`；有体时最后一块是 `{`）、以及紧邻的 `class … {}`。
@@ -483,9 +483,9 @@ if (firstCodeText === "do") {
   let doPos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        doPos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        doPos = previousEnd;
       }
       break;
     }
@@ -508,9 +508,9 @@ if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
   let decoratedPos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        decoratedPos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        decoratedPos = previousEnd;
       }
       break;
     }
@@ -533,14 +533,14 @@ if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
       decoratedStatement = null;
     }
     if (decoratedStatement !== null) {
-      const decoratedEnd = decoratedStatement.SourceRange.End;
+      const decoratedEndIndex = decoratedStatement.SourceRange.EndIndex;
       let consumed = 0;
-      if (decoratedEnd === null) {
+      if (decoratedEndIndex < 0) {
         consumed = at - start + 1;
       } else {
         while (start + consumed <= at) {
           const unitStart = host.Data[start + consumed].SourceRange.Start;
-          if (unitStart !== null && unitStart.Index > decoratedEnd.Index) {
+          if (unitStart >= 0 && unitStart >= decoratedEndIndex) {
             break;
           }
           consumed++;
@@ -682,7 +682,7 @@ if (boundary > 0) {
     // 后缀常以 `;` 结尾：`declare module "m"` ⏎ `z;` 的后缀就是 `z ;`。
     // 这时要走 `requireSemicolon = true` 的入口（它会把 `;` 从表达式单元里切掉、End 停在 `;` 上）；
     // 传 false 会把 `;` 当表达式单元，`ExpressionBuilder` 报「表达式语句没有读完」。
-    // 注意不能先按 false 建完再 `SignOut(semiEnd)`——`FromUnits` 已经签过 End，再签会抛
+    // 注意不能先按 false 建完再 `SignOut(endIndex)`——`FromUnits` 已经签过 End，再签会抛
     // `SourceRange.End has been setted`。
     let suffixLast = suffixAt;
     while (suffixLast > cursor && host.Data[suffixLast].IsTriviaToken) {
@@ -764,9 +764,9 @@ if (isLoneEmptyVariable) {
   let emptyPos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        emptyPos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        emptyPos = previousEnd;
       }
       break;
     }
@@ -792,9 +792,9 @@ if (isSimpleStatement) {
   let statementPos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        statementPos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        statementPos = previousEnd;
       }
       break;
     }
@@ -825,15 +825,15 @@ if (isExportVariable) {
   let pos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        pos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        pos = previousEnd;
       }
       break;
     }
   }
-  const exportEnd = code[0].SourceRange.End;
-  basePos = exportEnd === null ? pos : exportEnd.Index + 1;
+  const exportEnd = code[0].SourceRange.EndIndex;
+  basePos = exportEnd < 0 ? pos : exportEnd;
   const builder = new StatementBuilder(host.Template, context);
   builder.Load(host.Data.slice(codeAt[1], at + 1), basePos);
   // 空声明列表（`export let` / `export let;`）：TS 这里是带**空** VariableDeclarationList 的
@@ -883,9 +883,9 @@ if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUn
     let pos = 0;
     for (let index = start - 1; index >= 0; index--) {
       if (!host.Data[index].IsTriviaToken) {
-        const previousEnd = host.Data[index].SourceRange.End;
-        if (previousEnd !== null) {
-          pos = previousEnd.Index + 1;
+        const previousEnd = host.Data[index].SourceRange.EndIndex;
+        if (previousEnd >= 0) {
+          pos = previousEnd;
         }
         break;
       }
@@ -910,8 +910,8 @@ if (text === "export" && code.length >= 4 && code[1] instanceof Common && lastUn
         }
         subCode.push(unit);
         subPositions.push(subPos);
-        if (unit.SourceRange.End !== null) {
-          subPos = unit.SourceRange.End.Index + 1;
+        if (unit.SourceRange.EndIndex >= 0) {
+          subPos = unit.SourceRange.EndIndex;
         }
       }
       declared = ModuleDeclarationShape.FromUnits(subCode, subPositions, context) as ShapeToken;
@@ -949,22 +949,22 @@ if (isExportDefaultFunction
   let pos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        pos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        pos = previousEnd;
       }
       break;
     }
   }
-  const lastCodeEnd = code[code.length - 1].SourceRange.End;
-  if (lastCodeEnd === null) {
+  const lastCodeEnd = code[code.length - 1].SourceRange.EndIndex;
+  if (lastCodeEnd < 0) {
     return false;
   }
   let overloadEnd = at;
   if (!(lastUnit instanceof Symbol && (lastUnit as Symbol).Is(";"))) {
     const overloadSemi = new Symbol(host.Template);
     overloadSemi.SignIn(lastCodeEnd);
-    overloadSemi.AppendValueAndSignOut(";", lastCodeEnd);
+    overloadSemi.AppendValueAndSignOut(";", lastCodeEnd - 1);
     host.Data.splice(at + 1, 0, overloadSemi);
     overloadEnd = at + 1;
   }
@@ -978,13 +978,13 @@ if (isExportDefaultFunction
     // 不打开这一格就建不出来。
     const declared = FunctionDeclarationShape.FromUnits(host, codeAt[2], overloadEnd, context, true, true);
     const defaultKeyword = new DefaultKeywordShape(host.Template);
-    if (code[1].SourceRange.Start !== null) {
-      defaultKeyword.SignIn(code[1].SourceRange.Start);
+    if (code[1].SourceRange.StartIndex >= 0) {
+      defaultKeyword.SignIn(code[1].SourceRange.StartIndex);
     }
-    if (code[1].SourceRange.End !== null) {
-      defaultKeyword.SignOut(code[1].SourceRange.End);
+    if (code[1].SourceRange.EndIndex >= 0) {
+      defaultKeyword.SignOut(code[1].SourceRange.EndIndex);
     }
-    defaultKeyword.Pos = code[0].SourceRange.End === null ? pos : code[0].SourceRange.End.Index + 1;
+    defaultKeyword.Pos = code[0].SourceRange.EndIndex < 0 ? pos : code[0].SourceRange.EndIndex;
     defaultKeyword.TryToClose(context);
     declared.Data.unshift(defaultKeyword);
     defaultKeyword.Parent = declared;
@@ -1022,9 +1022,9 @@ if (isExportDefault) {
       let pos = 0;
       for (let index = start - 1; index >= 0; index--) {
         if (!host.Data[index].IsTriviaToken) {
-          const previousEnd = host.Data[index].SourceRange.End;
-          if (previousEnd !== null) {
-            pos = previousEnd.Index + 1;
+          const previousEnd = host.Data[index].SourceRange.EndIndex;
+          if (previousEnd >= 0) {
+            pos = previousEnd;
           }
           break;
         }
@@ -1054,8 +1054,8 @@ if (isExportDefault) {
         const defaultKeyword = new DefaultKeywordShape(host.Template);
         defaultKeyword.SignInToken(code[1]);
         defaultKeyword.SignOutToken(code[1]);
-        const exportEnd = code[0].SourceRange.End;
-        (defaultKeyword as ShapeToken).Pos = exportEnd === null ? pos : exportEnd.Index + 1;
+        const exportEnd = code[0].SourceRange.EndIndex;
+        (defaultKeyword as ShapeToken).Pos = exportEnd < 0 ? pos : exportEnd;
         defaultKeyword.TryToClose(context);
         declared.Data.unshift(exportKeyword, defaultKeyword);
         exportKeyword.Parent = declared;
@@ -1071,15 +1071,15 @@ if (isExportDefault) {
   let pos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        pos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        pos = previousEnd;
       }
       break;
     }
   }
-  const defaultEnd = code[1].SourceRange.End;
-  const basePos = defaultEnd === null ? pos : defaultEnd.Index + 1;
+  const defaultEnd = code[1].SourceRange.EndIndex;
+  const basePos = defaultEnd < 0 ? pos : defaultEnd;
   const builder = new ExpressionBuilder(host.Template, context);
   builder.Load(host.Data.slice(codeAt[2], at + 1), basePos);
   const expression = builder.ParseExpression();
@@ -1088,11 +1088,11 @@ if (isExportDefault) {
   assignment.Data.push(expression);
   expression.Parent = assignment;
   (assignment as ShapeToken).Pos = pos;
-  if (code[0].SourceRange.Start !== null) {
-    assignment.SignIn(code[0].SourceRange.Start);
+  if (code[0].SourceRange.StartIndex >= 0) {
+    assignment.SignIn(code[0].SourceRange.StartIndex);
   }
-  const expressionEnd = code[code.length - 1].SourceRange.End;
-  if (expressionEnd !== null) {
+  const expressionEnd = code[code.length - 1].SourceRange.EndIndex;
+  if (expressionEnd >= 0) {
     assignment.SignOut(expressionEnd);
   }
   host.Data.splice(start, at - start + 1, assignment);
@@ -1119,13 +1119,13 @@ const isExportAsNamespace = text === "export"
   && code[1] instanceof Common && (code[1] as Common).Is("as")
   && code[2] instanceof Common && (code[2] as Common).Is("namespace");
 if (isExportAsNamespace) {
-  const namespaceEnd = host.Data[at].SourceRange.End;
-  if (namespaceEnd === null) {
+  const namespaceEnd = host.Data[at].SourceRange.EndIndex;
+  if (namespaceEnd < 0) {
     return false;
   }
   const namespaceSemi = new Symbol(host.Template);
   namespaceSemi.SignIn(namespaceEnd);
-  namespaceSemi.AppendValueAndSignOut(";", namespaceEnd);
+  namespaceSemi.AppendValueAndSignOut(";", namespaceEnd - 1);
   host.Data.splice(at + 1, 0, namespaceSemi);
   const namespaceExport = NamespaceExportDeclarationShape.FromUnits(host, start, at + 1, context);
   host.Data.splice(start, at - start + 2, namespaceExport);
@@ -1148,8 +1148,8 @@ const isQuotedBodylessModule = text === "module"
     || (code.length === 3 && code[2] instanceof Symbol && (code[2] as Symbol).Is(";")));
 const isBodylessAmbientModule = isDeclareBodylessModule || isQuotedBodylessModule;
 if (isBodylessAmbientModule) {
-  const moduleEnd = host.Data[at].SourceRange.End;
-  if (moduleEnd === null) {
+  const moduleEnd = host.Data[at].SourceRange.EndIndex;
+  if (moduleEnd < 0) {
     return false;
   }
   try {
@@ -1158,9 +1158,9 @@ if (isBodylessAmbientModule) {
     let subPos = 0;
     for (let index = start - 1; index >= 0; index--) {
       if (!host.Data[index].IsTriviaToken) {
-        const previousEnd = host.Data[index].SourceRange.End;
-        if (previousEnd !== null) {
-          subPos = previousEnd.Index + 1;
+        const previousEnd = host.Data[index].SourceRange.EndIndex;
+        if (previousEnd >= 0) {
+          subPos = previousEnd;
         }
         break;
       }
@@ -1172,15 +1172,15 @@ if (isBodylessAmbientModule) {
       }
       subCode.push(unit);
       subPositions.push(subPos);
-      if (unit.SourceRange.End !== null) {
-        subPos = unit.SourceRange.End.Index + 1;
+      if (unit.SourceRange.EndIndex >= 0) {
+        subPos = unit.SourceRange.EndIndex;
       }
     }
     const lastCodeUnit = subCode[subCode.length - 1];
     if (!(lastCodeUnit instanceof Symbol && (lastCodeUnit as Symbol).Is(";"))) {
       const moduleSemi = new Symbol(host.Template);
       moduleSemi.SignIn(moduleEnd);
-      moduleSemi.AppendValueAndSignOut(";", moduleEnd);
+      moduleSemi.AppendValueAndSignOut(";", moduleEnd - 1);
       subCode.push(moduleSemi);
       subPositions.push(subPos);
     }
@@ -1231,9 +1231,9 @@ if ((isClass || isInterface || isEnum || isModuleDecl)
   let noSemiPos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        noSemiPos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        noSemiPos = previousEnd;
       }
       break;
     }
@@ -1245,8 +1245,8 @@ if ((isClass || isInterface || isEnum || isModuleDecl)
     }
     subCode.push(unit);
     subPositions.push(noSemiPos);
-    if (unit.SourceRange.End !== null) {
-      noSemiPos = unit.SourceRange.End.Index + 1;
+    if (unit.SourceRange.EndIndex >= 0) {
+      noSemiPos = unit.SourceRange.EndIndex;
     }
   }
   const moduleShape = ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
@@ -1368,9 +1368,9 @@ if ((isFunction || isExportFunction) && lastUnit instanceof Bracket && (lastUnit
     let pos = 0;
     for (let index = start - 1; index >= 0; index--) {
       if (!host.Data[index].IsTriviaToken) {
-        const previousEnd = host.Data[index].SourceRange.End;
-        if (previousEnd !== null) {
-          pos = previousEnd.Index + 1;
+        const previousEnd = host.Data[index].SourceRange.EndIndex;
+        if (previousEnd >= 0) {
+          pos = previousEnd;
         }
         break;
       }
@@ -1385,13 +1385,13 @@ if ((isFunction || isExportFunction) && lastUnit instanceof Bracket && (lastUnit
   declared.Parent = host;
   return true;
 }
-const lastEnd = host.Data[at].SourceRange.End;
-if (lastEnd === null) {
+const lastEnd = host.Data[at].SourceRange.EndIndex;
+if (lastEnd < 0) {
   return false;
 }
 const semi = new Symbol(host.Template);
 semi.SignIn(lastEnd);
-semi.AppendValueAndSignOut(";", lastEnd);
+semi.AppendValueAndSignOut(";", lastEnd - 1);
 host.Data.splice(at + 1, 0, semi);
 if (isType) {
   const built = TypeAliasDeclarationShape.FromUnits(host, start, at + 1, context);
@@ -1411,9 +1411,9 @@ if (isExportImportEquals) {
   let exportPos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        exportPos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        exportPos = previousEnd;
       }
       break;
     }
@@ -1449,9 +1449,9 @@ if (isExportFunction) {
   let pos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
-      const previousEnd = host.Data[index].SourceRange.End;
-      if (previousEnd !== null) {
-        pos = previousEnd.Index + 1;
+      const previousEnd = host.Data[index].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        pos = previousEnd;
       }
       break;
     }
@@ -1495,9 +1495,9 @@ return true;
 let pos = 0;
 for (let index = start - 1; index >= 0; index--) {
   if (!host.Data[index].IsTriviaToken) {
-    const previousEnd = host.Data[index].SourceRange.End;
-    if (previousEnd !== null) {
-      pos = previousEnd.Index + 1;
+    const previousEnd = host.Data[index].SourceRange.EndIndex;
+    if (previousEnd >= 0) {
+      pos = previousEnd;
     }
     break;
   }
@@ -1512,8 +1512,8 @@ for (let index = start; index <= at; index++) {
   }
   subCode.push(unit);
   subPositions.push(subPos);
-  if (unit.SourceRange.End !== null) {
-    subPos = unit.SourceRange.End.Index + 1;
+  if (unit.SourceRange.EndIndex >= 0) {
+    subPos = unit.SourceRange.EndIndex;
   }
 }
 return ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
