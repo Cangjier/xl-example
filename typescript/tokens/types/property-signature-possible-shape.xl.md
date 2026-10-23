@@ -26,7 +26,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 接口 / 对象类型体里「当前成员」的判定状态。**七个成员候选共用这一份**：候选目录里每个形状都在同一个 `PossibleShapeCache` 里读写，键固定为 `MemberPossibleUtil.CacheKey`——同一次判定里只有一个形状真的去扫，其余直接读结论。
 
-`Start` 是当前条目在宿主 `Data` 里的起点（`ItemUtil.ItemStart`），`Checked` 是已经扫到的 `tokenIndex + 1`；`Kinds` 是「还可能的成员种类」（见 `MemberPossibleUtil` 的 `Kind` 常量，空数组表示前缀已经不可能构成任何成员），`Complete` / `End` 是「当前成员已经收住、`End` 是代码单元下标」的结论，`CodeAt` 把代码单元下标映射回宿主 `Data` 下标（建形状时 `splice` 用）。
+`Start` 是当前条目在宿主 `Data` 里的起点（`ItemUtil.ItemStart`），`Checked` 是已经扫到的 `tokenIndex + 1`；`Kinds` 是「还可能的成员种类」（见 `MemberPossibleUtil` 的 `Kind` 常量，按位或成的整型位掩码，`0` 表示前缀已经不可能构成任何成员），`Complete` / `End` 是「当前成员已经收住、`End` 是代码单元下标」的结论，`CodeAt` 把代码单元下标映射回宿主 `Data` 下标（建形状时 `splice` 用）。
 
 ## field Start:int = -1
 
@@ -44,9 +44,17 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 成员最后一个代码单元的下标（`CodeAt` 的下标，不是宿主下标）；`-1` 表示还没收住。
 
-## field Kinds:Array<int> = []
+## field Kinds:int = 0
 
-还可能的成员种类（`MemberPossibleUtil` 的 `Kind` 常量）；空数组表示前缀已不可能构成任何成员。
+还可能的成员种类：`MemberPossibleUtil` 的 `Kind` 常量按位或成的**整型位掩码**（每类占一位）；`0` 表示前缀已不可能构成任何成员。
+
+## field HeadKinds:int = 0
+
+上一个**已定型**的 head 结论（`MemberPossibleUtil.ClassifyHead` 的位掩码），与 `HeadLen` 配对复用。
+
+## field HeadLen:int = -1
+
+算出 `HeadKinds` 时 `Code` 的长度。`Code` 只追加，且分类结果只依赖前缀的前四个代码单元（实测最长定型点 3），所以长度到 4 之后结论不再变化；`-1` / 小于 4 表示还没有可复用的结论。
 
 ## field CodeAt:Array<int> = []
 
@@ -109,27 +117,29 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 属性签名（`a: A` / `a?: A` / `readonly a: A` / `[expr]: A`）。
 
+七类各占一个二进制位（`1 << 0` … `1 << 6`），`Kinds` / `HeadKinds` 都是它们的按位或；`HasKind` 用按位与判一位。
+
 ## static field MethodKind:int = 2
 
 方法签名（`m(): A` / `m?<T>(): A` / `[expr](): A`）。
 
-## static field IndexKind:int = 3
+## static field IndexKind:int = 4
 
 索引签名（`[k: string]: A`）。
 
-## static field CallKind:int = 4
+## static field CallKind:int = 8
 
 调用签名（`(a: A): B` / `<T>(a: T): B`）。
 
-## static field ConstructKind:int = 5
+## static field ConstructKind:int = 16
 
 构造签名（`new (a: A): B` / `new <T>(a: T): B`）。
 
-## static field GetKind:int = 6
+## static field GetKind:int = 32
 
 `get` 访问器（`get x(): A`）。
 
-## static field SetKind:int = 7
+## static field SetKind:int = 64
 
 `set` 访问器（`set x(v: A)`）。
 
@@ -145,41 +155,34 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 与 `TextCacheUnit` 配对的文本。`""` 是「非文本单元」的取值，与 `TextOf` 的兜底一致。
 
-## static method AllKinds:()=>Array<int>
+## static method AllKinds:()=>int
 
-七类全可能。返回**新数组**，判定状态各持一份，避免共享后被就地改。
+七类全可能：七位的按位或（`0x7F`）。位掩码是不可变值，判定状态各持一份就是各存一个 int，不存在「共享数组被就地改」的问题。
 
 ```ts
-return [
-  MemberPossibleUtil.PropertyKind,
-  MemberPossibleUtil.MethodKind,
-  MemberPossibleUtil.IndexKind,
-  MemberPossibleUtil.CallKind,
-  MemberPossibleUtil.ConstructKind,
-  MemberPossibleUtil.GetKind,
-  MemberPossibleUtil.SetKind,
-];
+return MemberPossibleUtil.PropertyKind
+  | MemberPossibleUtil.MethodKind
+  | MemberPossibleUtil.IndexKind
+  | MemberPossibleUtil.CallKind
+  | MemberPossibleUtil.ConstructKind
+  | MemberPossibleUtil.GetKind
+  | MemberPossibleUtil.SetKind;
 ```
 
-## static method OnlyKind:(kind:int)=>Array<int>
+## static method OnlyKind:(kind:int)=>int
 
-只可能这一类。
+只可能这一类：位掩码里只有 `kind` 那一位。
 
 ```ts
-return [kind];
+return kind;
 ```
 
-## static method HasKind:(kinds:Array<int>, kind:int)=>bool
+## static method HasKind:(kinds:int, kind:int)=>bool
 
-`kinds` 里有没有 `kind`。
+`kinds` 位掩码里有没有 `kind` 那一位。
 
 ```ts
-for (const item of kinds) {
-  if (item === kind) {
-    return true;
-  }
-}
-return false;
+return (kinds & kind) !== 0;
 ```
 
 ## static method TextOf:(unit:Token)=>string
@@ -343,9 +346,9 @@ return depth;
 return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
 ```
 
-## static method ClassifyHead:(code:Array<Token>)=>Array<int>
+## static method ClassifyHead:(code:Array<Token>)=>int
 
-只看**已攒下的代码单元前缀**，回答「当前成员可能是哪几类」。信息不足时给多个可能（候选项继续等），已经能定死时给一类，明显不可能时给空数组。
+只看**已攒下的代码单元前缀**，回答「当前成员可能是哪几类」，结果是位掩码。信息不足时给多个可能（候选项继续等），已经能定死时给一类，明显不可能时给 `0`。
 
 前缀阶段的修饰词与 `TypeBuilder.ParseTypeMember()` 同口径：
 
@@ -353,7 +356,7 @@ return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
 - `abstract` 只有后面紧跟 `new` 时才算构造签名的修饰词。
 
 ```ts
-const ALL:Array<number> = MemberPossibleUtil.AllKinds();
+const ALL = MemberPossibleUtil.AllKinds();
 if (code.length === 0) {
   return ALL;
 }
@@ -406,7 +409,7 @@ if (unit instanceof Bracket) {
       }
     }
     if (cursor >= code.length) {
-      return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+      return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
     }
     const after = code[cursor];
     if (after instanceof Bracket && (after as Bracket).Is("(", ")")) {
@@ -417,7 +420,7 @@ if (unit instanceof Bracket) {
     }
     return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
   }
-  return [];
+  return 0;
 }
 const text = MemberPossibleUtil.TextOf(unit);
 if (text === "<") {
@@ -425,7 +428,7 @@ if (text === "<") {
 }
 if (text === "new") {
   if (at + 1 >= code.length) {
-    return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.ConstructKind];
+    return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.ConstructKind;
   }
   const following = code[at + 1];
   if (following instanceof Bracket && (following as Bracket).Is("(", ")")) {
@@ -456,7 +459,7 @@ if (text === "get" || text === "set") {
     // `get?(this: This): Value` 是 MethodSignature（名字 get），`get?: A` 是 PropertySignature。
     let cursor = at + 2;
     if (cursor >= code.length) {
-      return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+      return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
     }
     const afterMark = code[cursor];
     if (afterMark instanceof Bracket && (afterMark as Bracket).Is("(", ")")) {
@@ -477,31 +480,27 @@ if (text === "get" || text === "set") {
     return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
   }
   if (!MemberPossibleUtil.IsNameToken(nameUnit)) {
-    return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+    return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
   }
   if (at + 2 >= code.length) {
-    return [
-      MemberPossibleUtil.PropertyKind,
-      MemberPossibleUtil.MethodKind,
-      accessorKind,
-    ];
+    return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind | accessorKind;
   }
   const bracketUnit = code[at + 2];
   if (bracketUnit instanceof Bracket && (bracketUnit as Bracket).Is("(", ")")) {
     return MemberPossibleUtil.OnlyKind(accessorKind);
   }
-  return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+  return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
 }
 if (unit instanceof Common || unit instanceof String) {
   let cursor = at + 1;
   if (cursor >= code.length) {
-    return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+    return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
   }
   const markText = MemberPossibleUtil.TextOf(code[cursor]);
   if (markText === "?" || markText === "?:") {
     cursor++;
     if (cursor >= code.length) {
-      return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+      return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
     }
     const after = code[cursor];
     if (after instanceof Bracket && (after as Bracket).Is("(", ")")) {
@@ -530,9 +529,9 @@ if (unit instanceof Common || unit instanceof String) {
   if (MemberPossibleUtil.TextOf(code[cursor]) === ":") {
     return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
   }
-  return [MemberPossibleUtil.PropertyKind, MemberPossibleUtil.MethodKind];
+  return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
 }
-return [];
+return 0;
 ```
 
 ## static method Analyze:(state:MemberPossibleScan)=>void
@@ -565,9 +564,19 @@ if (MemberPossibleUtil.IsSeparator(code[0])) {
   state.Kinds = MemberPossibleUtil.AllKinds();
   return;
 }
-const head = MemberPossibleUtil.ClassifyHead(code);
-if (head.length === 0) {
-  state.Kinds = [];
+// head 结论按成员缓存：分类只依赖前缀的前四个代码单元，`Code` 又只追加，长度到 4 之后
+// 结论不再变化（实测最长定型点 3）。第一次在长度 ≥4 时算出并记住（`HeadLen`/`HeadKinds`），
+// 之后同一成员再判时直接复用，不再重跑 ClassifyHead。
+let head = state.HeadKinds;
+if (state.HeadLen < 4) {
+  head = MemberPossibleUtil.ClassifyHead(code);
+  if (code.length >= 4) {
+    state.HeadKinds = head;
+    state.HeadLen = code.length;
+  }
+}
+if (head === 0) {
+  state.Kinds = 0;
   return;
 }
 const last = code[code.length - 1];
@@ -591,7 +600,9 @@ if (angle === 0) {
   }
 }
 let kinds = head;
-if (complete && kinds.length > 1 && MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.PropertyKind)) {
+// 「多于一类」等价于「至少两个二进制位」：`kinds & (kinds - 1)` 非 0。
+if (complete && (kinds & (kinds - 1)) !== 0
+  && MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.PropertyKind)) {
   if (MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.MethodKind)
     && MemberPossibleUtil.HasParameterList(code, end)) {
     kinds = MemberPossibleUtil.OnlyKind(MemberPossibleUtil.MethodKind);
@@ -711,7 +722,7 @@ if (shared !== null) {
 - `state.Checked > tokenIndex + 1`：缓存越过当前下标（防御；正常由 `Reset` 清空）→ 重建；
 - `state.Checked <= tokenIndex`：只**追加**新单元（不重建），增量推进 `Angle` 与边界，然后重算收口结论。
 
-新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `CodeAt` / `Code` / `Angle` / `BoundaryScan` 全部是 `MemberPossibleScan` 字段声明处的构造默认值（`-1` / `false` / 新数组 / `0` / 新建的边界扫描），**不再在 `Scan` 里二次分配**——旧实现构造完后又写 `CodeAt = []` / `Code = []` / `new MemberBoundaryScan()`，每个新成员状态白白多出 2 个数组 + 1 个边界扫描状态（约 21 万对象/pass）。`Kinds` 不是构造默认值的语义（默认为 `[]`），所以仍然显式写成 `AllKinds()`。
+新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `HeadKinds` / `HeadLen` / `CodeAt` / `Code` / `Angle` / `BoundaryScan` 全部是 `MemberPossibleScan` 字段声明处的构造默认值（`-1` / `false` / `0` / 新数组 / `0` / 新建的边界扫描），**不再在 `Scan` 里二次分配**——旧实现构造完后又写 `CodeAt = []` / `Code = []` / `new MemberBoundaryScan()`，每个新成员状态白白多出 2 个数组 + 1 个边界扫描状态（约 21 万对象/pass）。`Kinds` 不是构造默认值的语义（默认为 `0`），所以仍然显式写成 `AllKinds()`。
 
 ```ts
 let state = cache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
