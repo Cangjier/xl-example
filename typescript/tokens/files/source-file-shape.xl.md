@@ -102,7 +102,7 @@ return CloseStates.Nothing;
 ```ts
 if (buffer.IsEof()) {
   if (this.SourceRange.Start < 0) {
-    this.SourceRange.Start = index;
+    this.SignIn(index);
   }
   if (this.MountedUnit !== null) {
     const mounted = this.MountedUnit;
@@ -121,7 +121,7 @@ if (buffer.IsEof()) {
   return;
 }
 if (this.SourceRange.Start < 0) {
-  this.SourceRange.Start = index;
+  this.SignIn(index);
 }
 super.Process(context, buffer, index);
 ```
