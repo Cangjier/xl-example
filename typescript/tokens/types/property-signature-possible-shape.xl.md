@@ -26,6 +26,8 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 接口 / 对象类型体里「当前成员」的判定状态。**七个成员候选共用这一份**：候选目录里每个形状都在同一个 `PossibleShapeCache` 里读写，键固定为 `MemberPossibleUtil.CacheKey`——同一次判定里只有一个形状真的去扫，其余直接读结论。
 
+实例不是每进一个成员新建：它放在 `PossibleShapeCache.Share` 的 `MemberScanShared` 槽里跨成员复用，进入新条目时由 `MemberPossibleUtil.ReuseScan` 整体重置字段（含 `HeadSettled`），既不 `new` 状态/边界扫描，也不重新分配 `Code` / `CodeAt` 两个数组。
+
 `Start` 是当前条目在宿主 `Data` 里的起点（`ItemUtil.ItemStart`），`Checked` 是已经扫到的 `tokenIndex + 1`；`Kinds` 是「还可能的成员种类」（见 `MemberPossibleUtil` 的 `Kind` 常量，按位或成的整型位掩码，`0` 表示前缀已经不可能构成任何成员），`Complete` / `End` 是「当前成员已经收住、`End` 是代码单元下标」的结论，`CodeAt` 把代码单元下标映射回宿主 `Data` 下标（建形状时 `splice` 用）。
 
 ## field Start:int = -1
@@ -99,6 +101,30 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 是否已经写过一份有效值；`false` 时直接退回 `ItemUtil.ItemStart`。
 
+# class MemberScanShared
+
+`PossibleShapeCache.Share` 里的**可复用判定状态载体**：`Share` 不受 `Reset` 清空，所以 `MemberPossibleScan` 对象（连同它的两个数组、边界扫描状态）可以跨成员复用——每进一个成员不再 `new` 一套，只把字段重置。
+
+`Scan` 走重建路径时**整体重置**、不重分配：`Checked` / `Complete` / `End` / `Kinds` / `HeadKinds` / `HeadSettled` / `Angle` 与 `BoundaryScan` 都回到字段声明处的构造默认值，`Code` / `CodeAt` 用 `length = 0` 保留数组本体，`Start` 写成当前条目起点。
+
+**新鲜度**：`Share` 活到持有这份缓存的 `CatalogGuide` 结束、普通 `Reset` 不动它，所以取到的可能是上一条目的状态——进入重建路径本身就意味着「条目换了（`Start` 前进）或判定状态被清掉，必须从零重扫」，因此不做增量保留，一律整体重置。`Host` / `Start` 记录这份槽属于哪个宿主数组、哪个条目，供校验与排查。
+
+## field Host:Array<Token> = []
+
+这份复用状态服务的宿主 `Data` 数组（同一份槽只服务一个宿主）。
+
+## field Start:int = -1
+
+上一次取用时写入的条目起点（`ItemUtil.ItemStart`）。
+
+## field Valid:bool = false
+
+是否已经写入过一份状态；`false` 时 `Host` / `Start` 还没有意义。
+
+## field Scan:MemberPossibleScan = new MemberPossibleScan()
+
+跨成员复用的判定状态本体；它的字段由 `MemberPossibleUtil.ReuseScan` 整体重置。
+
 # class MemberPossibleUtil
 
 对象类型成员候选的公共判据。成员边界与 TS 同口径：**类型是贪心解析的**，但成员与成员之间的分界由 `MemberBoundary.FindMemberBoundary` 回答（换行 + 前一个单元能收住类型 + 当前单元像成员起点），显式 `;` / `,` 是确定边界，容器收口字符（`}` / `]` / `)` / `>` / EOF）也是确定边界。
@@ -114,6 +140,10 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 ## static field ItemStartKey:any = PossibleShape.SlotOf(MemberItemStartShared)
 
 条目起点在 `PossibleShapeCache.Share` 里的槽（值类型 `MemberItemStartShared`）；槽号由值类型 `MemberItemStartShared` 发出来。标注用 `any` 的理由同上（`E1207`）。
+
+## static field ScanSharedKey:any = PossibleShape.SlotOf(MemberScanShared)
+
+可复用判定状态在 `PossibleShapeCache.Share` 里的槽（值类型 `MemberScanShared`）；槽号由值类型 `MemberScanShared` 发出来。标注用 `any` 的理由同上（`E1207`）。与 `ItemStartKey` 是两个不同的槽：一个是条目起点，一个是状态本体，互不覆盖。
 
 ## static field PropertyKind:int = 1
 
@@ -750,25 +780,52 @@ if (shared !== null) {
 }
 ```
 
+## static method ReuseScan:(units:Array<Token>, start:int, cache:PossibleShapeCache)=>MemberPossibleScan
+
+取跨成员复用的判定状态并**整体重置**成「条目起点 = `start`、从零开始扫」的初始态：字段回到构造默认值，`Code` / `CodeAt` 只 `length = 0`（保留数组本体，避免每成员两次数组分配），状态对象本身来自 `Share` 槽，不再 `new`。
+
+重置必须包含 `HeadSettled` / `HeadKinds`：head 结论是**上一条目**的，带着它判下一条目会直接算错成员种类（`HeadSettled = true` 时 `Analyze` 会跳过重算）。
+
+```ts
+let shared = cache.GetShare<MemberScanShared>(MemberPossibleUtil.ScanSharedKey);
+if (shared === null) {
+  shared = new MemberScanShared();
+  cache.SetShare(MemberPossibleUtil.ScanSharedKey, shared);
+}
+const state = shared.Scan;
+state.Start = start;
+state.Checked = -1;
+state.Complete = false;
+state.End = -1;
+state.Kinds = MemberPossibleUtil.AllKinds();
+state.HeadKinds = 0;
+state.HeadSettled = false;
+state.Code.length = 0;
+state.CodeAt.length = 0;
+state.Angle = 0;
+state.BoundaryScan.Boundary = -1;
+state.BoundaryScan.Checked = 1;
+shared.Host = units;
+shared.Start = start;
+shared.Valid = true;
+return state;
+```
+
 ## static method Scan:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>MemberPossibleScan
 
 拿宿主攒下的 `Data` 与当前下标，取（必要时**增量推进**）当前成员的判定状态。
 
 缓存以 `CacheKey` 为键只存一份：七个候选在同一次判定里共享，第一个问到的形状推进一次，其余直接读。
 
-- `state === null`：新条目（首次判定，或目录复位后）。条目起点先问 `Share`（O(1) 新鲜度校验），失效才倒扫一次；
-- `state.Checked > tokenIndex + 1`：缓存越过当前下标（防御；正常由 `Reset` 清空）→ 重建；
+- `state === null`：新条目（首次判定，或目录复位后）。条目起点先问 `Share`（O(1) 新鲜度校验），失效才倒扫一次；状态本体从 `Share` 复用并整体重置（`ReuseScan`），不再 `new`；
+- `state.Checked > tokenIndex + 1`：缓存越过当前下标（防御；正常由 `Reset` 清空）→ 同样走 `ReuseScan` 整体重置；
 - `state.Checked <= tokenIndex`：只**追加**新单元（不重建），增量推进 `Angle` 与边界，然后重算收口结论。
-
-新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `HeadKinds` / `HeadSettled` / `CodeAt` / `Code` / `Angle` / `BoundaryScan` 全部是 `MemberPossibleScan` 字段声明处的构造默认值（`-1` / `false` / `0` / 新数组 / `0` / 新建的边界扫描），**不再在 `Scan` 里二次分配**——旧实现构造完后又写 `CodeAt = []` / `Code = []` / `new MemberBoundaryScan()`，每个新成员状态白白多出 2 个数组 + 1 个边界扫描状态（约 21 万对象/pass）。`Kinds` 不是构造默认值的语义（默认为 `0`），所以仍然显式写成 `AllKinds()`。
 
 ```ts
 let state = cache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
 if (state === null || state.Checked > tokenIndex + 1) {
   const start = MemberPossibleUtil.ItemStartOf(units, cache);
-  state = new MemberPossibleScan();
-  state.Start = start;
-  state.Kinds = MemberPossibleUtil.AllKinds();
+  state = MemberPossibleUtil.ReuseScan(units, start, cache);
   cache.SetState(MemberPossibleUtil.CacheKey, state);
 }
 if (state.Checked <= tokenIndex) {
