@@ -85,6 +85,11 @@ const BODY_TARGETS = {
     candidates: {
       PropertyDeclarationPossibleShape: "typescript/tokens/types/property-declaration-possible-shape.js",
       MethodDeclarationPossibleShape: "typescript/tokens/types/method-declaration-possible-shape.js",
+      ConstructorPossibleShape: "typescript/tokens/types/constructor-possible-shape.js",
+      GetAccessorPossibleShape: "typescript/tokens/types/class-get-accessor-possible-shape.js",
+      SetAccessorPossibleShape: "typescript/tokens/types/class-set-accessor-possible-shape.js",
+      ClassStaticBlockDeclarationPossibleShape: "typescript/tokens/types/class-static-block-declaration-possible-shape.js",
+      IndexSignaturePossibleShape: "typescript/tokens/types/class-index-signature-possible-shape.js",
       SemicolonClassElementPossibleShape: "typescript/tokens/expressions/semicolon-class-element-possible-shape.js",
       ClassMemberCatchAllPossibleShape: "typescript/tokens/types/class-member-catch-all-possible-shape.js",
     },
@@ -169,6 +174,15 @@ const CLASS_MEMBER_START_CASES = [
   { source: "class C { m() {}\n a = 1 }", required: ["PropertyDeclarationPossibleShape", "MethodDeclarationPossibleShape"] },
   { source: "class C { constructor() {}\n a = 1 }", required: ["PropertyDeclarationPossibleShape"] },
   { source: "class C { a = 1\n constructor() {} }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { constructor() {}\n constructor(a: A) {} }", required: ["ConstructorPossibleShape"] },
+  { source: "class C { constructor(private a: A) {}\n m() {} }", required: ["ConstructorPossibleShape"] },
+  { source: "class C { get x() { return 1; }\n set x(v) {} }", required: ["GetAccessorPossibleShape", "SetAccessorPossibleShape"] },
+  { source: "class C { static get [k](): number { return 1; } }", required: ["GetAccessorPossibleShape"] },
+  { source: "class C { static set [k](v: number) {} }", required: ["SetAccessorPossibleShape"] },
+  { source: "class C { static { let x = 1; }\n static { } }", required: ["ClassStaticBlockDeclarationPossibleShape"] },
+  { source: "class C { static {}\n a = 1 }", required: ["ClassStaticBlockDeclarationPossibleShape"] },
+  { source: "class C { readonly [k: string]: A;\n [j: number]: B }", required: ["IndexSignaturePossibleShape"] },
+  { source: "class C { [k: string]: A\n m() {} }", required: ["IndexSignaturePossibleShape"] },
 ];
 
 const CLASS_RECOVERY_CASES = [];

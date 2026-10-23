@@ -122,13 +122,19 @@ return [kind];
 **已经有候选负责建造**的成员种类。兜底候选只在「收住且 Kinds 全部落在这一组里」时退出，把唯一候选让给真正的候选；
 新增一个成员候选时，必须把它的种类加进这里（否则兜底候选会挡住它，目录永远到不了唯一候选）。
 
-本阶段（T6b P0）：属性 / 方法 / 孤立 `;`。构造 / get / set / static 块 / 索引签名暂时留在 raw 兜底。
+本阶段（T6b P1）：八类成员全部有候选负责建造——属性 / 方法 / 构造 / get / set / static 块 / 孤立 `;` / 索引签名。
+装饰器成员仍走 raw 兜底（判型不判收口）。
 
 ```ts
 return [
   ClassMemberPossibleUtil.PropertyKind,
   ClassMemberPossibleUtil.MethodKind,
+  ClassMemberPossibleUtil.ConstructorKind,
+  ClassMemberPossibleUtil.GetKind,
+  ClassMemberPossibleUtil.SetKind,
+  ClassMemberPossibleUtil.StaticBlockKind,
   ClassMemberPossibleUtil.SemicolonKind,
+  ClassMemberPossibleUtil.IndexKind,
 ];
 ```
 

@@ -54,6 +54,11 @@ import { PropertyDeclarationPossibleShape } from "../types/property-declaration-
 import { MethodDeclarationPossibleShape } from "../types/method-declaration-possible-shape.xl.md"
 import { ClassMemberCatchAllPossibleShape } from "../types/class-member-catch-all-possible-shape.xl.md"
 import { SemicolonClassElementPossibleShape } from "../expressions/semicolon-class-element-possible-shape.xl.md"
+import { ConstructorPossibleShape } from "../types/constructor-possible-shape.xl.md"
+import { GetAccessorPossibleShape } from "../types/class-get-accessor-possible-shape.xl.md"
+import { SetAccessorPossibleShape } from "../types/class-set-accessor-possible-shape.xl.md"
+import { ClassStaticBlockDeclarationPossibleShape } from "../types/class-static-block-declaration-possible-shape.xl.md"
+import { IndexSignaturePossibleShape } from "../types/class-index-signature-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -82,9 +87,9 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 `ClassDeclarationEndPossibleShape` 在类体括号闭合时收口（`BuildFromCode` → `FinishShell`）。
 
 本阶段（T6b）**成员按成员增量构建**：类体括号上挂成员候选目录
-（`ClassDeclarationShape.CreateBodyPossibleShapes`：属性 / 方法 / 兜底），已经认出的成员在 body 里就地建形状；
-尚未实现或没认出的成员（构造 / 访问器 / static 块 / `;` / 索引签名 / 装饰器成员 / 恢复形）保持 raw basic token，
-由兜底候选占着目录，收口时由 `BuildMembers` 从 raw 尾巴逐个建——两条路径走同一个建造器，AST 逐节点一致。
+（`ClassDeclarationShape.CreateBodyPossibleShapes`：属性 / 方法 / 构造 / get / set / static 块 / `;` / 索引签名 / 兜底），
+已经认出的成员在 body 里就地建形状；尚未认出的成员（装饰器成员 / 恢复形）保持 raw basic token，由兜底候选占着目录，
+收口时由 `BuildMembers` 从 raw 尾巴逐个建——两条路径走同一个建造器，AST 逐节点一致。
 
 ## field NameToken:Token | null = null
 
@@ -147,9 +152,9 @@ this.CatalogGuide = new CatalogGuide([], new ClassDeclarationEndPossibleShape())
 访问器 / static 块），判型走独立的 `ClassMemberPossibleUtil`（`MemberBoundary.FindMemberBoundary` 口径，
 不是对象类型的 `FindTypeMemberBoundary`）。
 
-本阶段只有三类：属性、方法、兜底。兜底候选保证目录永不因 0 候选抛错，同时只把「已收住且定死是属性 / 方法」
-的条目让给前两类，其余全部留在 raw 里由收口兜底——所以构造 / 访问器 / static 块 / `;` / 索引签名 /
-装饰器成员在增量路径上不建形状，但 AST 与一次性构建逐节点一致。
+八类成员各有一个候选：属性、方法、构造、get / set 访问器、static 块、孤立 `;`、索引签名；`ClassMemberCatchAllPossibleShape`
+是兜底候选，保证目录永不因 0 候选抛错。兜底候选只在「已收住且 `Kinds` 全部落在 `ImplementedKinds()`」时让开，
+其余形态（装饰器成员 / 恢复形 / 判不清的条目）全部留在 raw 里由收口兜底——AST 与一次性构建逐节点一致。
 
 ```ts
 const cached = BodyGuideUtil.CreateShapesCache(
@@ -157,7 +162,12 @@ const cached = BodyGuideUtil.CreateShapesCache(
   () => [
     new PropertyDeclarationPossibleShape(),
     new MethodDeclarationPossibleShape(),
+    new ConstructorPossibleShape(),
+    new GetAccessorPossibleShape(),
+    new SetAccessorPossibleShape(),
+    new ClassStaticBlockDeclarationPossibleShape(),
     new SemicolonClassElementPossibleShape(),
+    new IndexSignaturePossibleShape(),
     new ClassMemberCatchAllPossibleShape(),
   ]);
 ClassDeclarationShape.CreateBodyPossibleShapesCache = cached;
