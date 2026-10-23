@@ -199,7 +199,7 @@ class SyntaxContext {
 > 也处理了一遍，外层的升序循环随后把游标压回 `at+1` 再处理一次——区间里每个位置被处理多遍
 > （实测重放 `[2,5)` 会把 `2..9` 各处理三遍）。重放要复刻的是旧队列「一次一个位置」的语义，
 > 因此窗口固定成 `[at, at + 1)`。跨格消费靠 token 自己推进 `context.Index`，与窗口大小无关。
-> 工具：`tmp/driver-test.cjs`（不进交付）里的用例 6 就是这个回归检查。
+> 工具：本地回归脚本（`tmp/driver-test.cjs`，`tmp/` 被 gitignore、未提交）里的用例 6 就是这个回归检查。
 
 `ProcessRange(owner, buffer, index)` = `Index = index; owner.Process(...); DrainMessages()`。
 **没有任何内部代码再调用它**（旧 `ProcessSingle/ProcessAt` 的调用点都随 `SourceQueue` 消失），
@@ -274,3 +274,23 @@ SourceException.SourceRangeIndexOutOfRange  // ← 新增：At 越界
 - **`LastIndex`**：最近消费的字符下标；`Shape.TryToClose` 的兜底是 `LastIndex + 1`。
 - **构建过渡期**：`xl_build` 只列自己的文件；`xl_check` 也列自己的文件。等 T3 删掉 basic-tokens 里
   对 `source.xl.md` 的 import 之后，全仓 `paths:[core,typescript]` 才会恢复 0 error。
+
+---
+
+## 8. T1 自测读数（commit 1f677bf4，feat/buffer-core）
+
+- `xl_check`（本任务 13 个文件）：**0 error**；2 warning 都是本机 `dist/` 里已删源文件的孤儿产物
+  `E2004`（新 clone / `xl orphans --prune` 之后为 0）。
+- `xl_build`（本任务 13 个文件，显式文件清单）：13 written，0 error。
+- `tsc -p tsconfig.json`：全仓 745 error，**本任务文件 0 error**；全部来自未适配的
+  `basic-tokens`（162）、`typescript/**`（约 573）与 `templates/template.ts` 引用的旧 `Transit` 签名（10）。
+  这些是 T3–T8 的移植面，按契约不应由 T1 修。
+- 驱动层语义回归（用生成的 `build/ts` + 假文档跑，本地 `tmp/driver-test.cjs`，26 项全过）：
+  - 窗口循环每字符恰好一次、`Index → count`、`Root.End = count`；
+  - 跳转 `Done` 不推进 → 统一 `+1`；多字符消费（`Index = index + 2`）按 0,2,4 前进；
+  - `ExitOrPre`/`Navigate` 的 `Reload` 原地阻塞并重放（`0,1,2,2,3,4,5`），不抢跑；
+  - `FromRange` 区间升序重放且**不重复处理范围之后**的字符；
+  - `IndependentToken` 不消费 → 抛 `SyntaxException`（文本含 `no progress`）；
+  - Block/Guide 的“消费即推进”与阻塞；
+  - `SourceRange`：`Whole/Of/At/Has/GetRaw/IsEof/FromRanges` 半开语义、`At` 越界抛 `SourceRangeIndexOutOfRange`；
+  - EOF 空窗口交给根覆写；`SignOut(count)` 递归到最后一个子单元；`TryToClose` 的范围前置条件。
