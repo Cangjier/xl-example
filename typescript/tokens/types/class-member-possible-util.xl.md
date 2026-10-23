@@ -122,13 +122,19 @@ return [kind];
 **已经有候选负责建造**的成员种类。兜底候选只在「收住且 Kinds 全部落在这一组里」时退出，把唯一候选让给真正的候选；
 新增一个成员候选时，必须把它的种类加进这里（否则兜底候选会挡住它，目录永远到不了唯一候选）。
 
-本阶段（T6b P0）：属性 / 方法 / 孤立 `;`。构造 / get / set / static 块 / 索引签名暂时留在 raw 兜底。
+本阶段（T6b P1）：八类成员全部有候选负责建造——属性 / 方法 / 构造 / get / set / static 块 / 孤立 `;` / 索引签名；
+装饰器成员由 `DecoratorHeadAt` 跳过装饰器后按真实成员头判型，同样走增量（判不清时留在 raw 兜底）。
 
 ```ts
 return [
   ClassMemberPossibleUtil.PropertyKind,
   ClassMemberPossibleUtil.MethodKind,
+  ClassMemberPossibleUtil.ConstructorKind,
+  ClassMemberPossibleUtil.GetKind,
+  ClassMemberPossibleUtil.SetKind,
+  ClassMemberPossibleUtil.StaticBlockKind,
   ClassMemberPossibleUtil.SemicolonKind,
+  ClassMemberPossibleUtil.IndexKind,
 ];
 ```
 
@@ -290,6 +296,89 @@ for (let cursor = 0; cursor <= last && cursor < code.length; cursor++) {
 return false;
 ```
 
+## static method DecoratorHeadAt:(code:Array<Token>)=>int
+
+跳过前缀装饰器，返回**真正的成员头**在 `code` 里的下标；装饰器表达式还没读完 / 形态无法静态判定时返回 `-1`（判型退回 `AllKinds()`，留给 raw 兜底）。
+
+消费口径与 `ClassDeclarationShape.BuildMembers` 的装饰器循环对齐（`ExpressionBuilder.ParseExpression` 吃掉一个左值表达式）：
+`@name` / `@a.b` / `@a?.b` / `@dec()` / `@dec<T>()` / `@(expr)` / `@a[0]` / `@new Foo()`。装饰器与成员头之间没有分隔符，
+静态扫描靠「后缀链」判断表达式到哪结束：`.name` / `?.name` / `(...)` / `[...]` / `<...>` / `!` 是表达式的一部分，
+下一个名字 / 修饰词 / `@` 是成员头。`new` 前缀单独吃一格，避免把 `@new Foo()` 的 `Foo` 当成成员名。
+
+这个判据只服务**判型**（`ClassifyHead`）与**分界起点**（`Analyze`）；真正的装饰器 AST 仍由 `BuildMembers` 的
+`ExpressionBuilder` 建，候选只负责把整段交给 `BuildMemberFromCode`。
+
+```ts
+let at = 0;
+while (at < code.length && ClassMemberPossibleUtil.TextOf(code[at]) === "@") {
+  at++;
+  if (at >= code.length) {
+    return -1;
+  }
+  if (ClassMemberPossibleUtil.TextOf(code[at]) === "new") {
+    at++;
+    if (at >= code.length) {
+      return -1;
+    }
+  }
+  const first = code[at];
+  if (first instanceof Common || first instanceof String) {
+    at++;
+  } else if (first instanceof Bracket
+    && ((first as Bracket).StartBracketChar === "(" || (first as Bracket).StartBracketChar === "[")) {
+    at++;
+  } else {
+    return -1;
+  }
+  while (at < code.length) {
+    const unit = code[at];
+    if (unit instanceof Bracket
+      && ((unit as Bracket).StartBracketChar === "(" || (unit as Bracket).StartBracketChar === "[")) {
+      at++;
+      continue;
+    }
+    const text = ClassMemberPossibleUtil.TextOf(unit);
+    if (text === "." || text === "?.") {
+      at++;
+      if (at >= code.length || !(code[at] instanceof Common || code[at] instanceof String)) {
+        return -1;
+      }
+      at++;
+      continue;
+    }
+    if (text === "!") {
+      at++;
+      continue;
+    }
+    if (text === "<") {
+      let depth = 0;
+      while (at < code.length) {
+        const angleText = ClassMemberPossibleUtil.TextOf(code[at]);
+        if (angleText === "<") {
+          depth++;
+        } else if (angleText === ">") {
+          depth--;
+        } else if (angleText === ">>") {
+          depth -= 2;
+        } else if (angleText === ">>>") {
+          depth -= 3;
+        }
+        at++;
+        if (depth <= 0) {
+          break;
+        }
+      }
+      if (depth > 0) {
+        return -1;
+      }
+      continue;
+    }
+    break;
+  }
+}
+return at;
+```
+
 ## static method ClassifyHead:(code:Array<Token>)=>Array<int>
 
 只看**已攒下的代码单元前缀**，回答「当前成员可能是哪几类」。信息不足时给 `AllKinds()`（候选项继续等），已经能定死时给一类。
@@ -302,20 +391,25 @@ return false;
 
 名字之后按后面的单元分派：`(` → 方法 / 构造 / 访问器；`<` → 泛型方法；`:` / `!` / `=` / `;` → 属性；`?` / `?:` 再按「`(` / `<` / `:`」细分。
 
-**装饰器成员**（`@dec m() {}`）本阶段一律返回 `AllKinds()` 并**不判收口**（见 `Analyze`）：装饰器表达式的消费口径由 `BuildMembers` 里的 `ExpressionBuilder` 决定，候选侧复刻它容易切错，保守交给收口 raw 兜底；AST 与基线逐节点一致。这是 T6b 的已知裁剪点，P1 可补装饰器感知判型。
+**装饰器成员**（`@dec m() {}` / `@dec a: A` / `@a @b.c(x) m()`）：先用 `DecoratorHeadAt` 跳过装饰器，再按真正的成员头判型；
+装饰器表达式没读完 / 跳不过去时给 `AllKinds()`。判出的种类与 `BuildMembers` 一致——装饰器 AST 由建造器那边建，
+候选只需确信整段的成员种类。
 
 ```ts
 const ALL:Array<number> = ClassMemberPossibleUtil.AllKinds();
 if (code.length === 0) {
   return ALL;
 }
+let at = 0;
 if (ClassMemberPossibleUtil.TextOf(code[0]) === "@") {
-  return ALL;
+  at = ClassMemberPossibleUtil.DecoratorHeadAt(code);
+  if (at < 0 || at >= code.length) {
+    return ALL;
+  }
 }
-if (ClassMemberPossibleUtil.IsSeparator(code[0])) {
+if (ClassMemberPossibleUtil.IsSeparator(code[at])) {
   return ClassMemberPossibleUtil.OnlyKind(ClassMemberPossibleUtil.SemicolonKind);
 }
-let at = 0;
 let hasStatic = false;
 let accessorKind = "";
 while (at < code.length) {
@@ -479,7 +573,9 @@ return ALL;
 收住时可能种类已经定死；仍多值时按「有没有参数表」收敛：有参数表 `(` 就是方法，没有才收成属性——与 `BuildMembers` 一致
 （`class C { a = 1 b = 2 }` 这类同一行挤两条成员的恢复形照样会收住，由 `BuildMemberFromCode` 的「整段没读完 ⇒ 不建」兜底）。
 
-**装饰器成员永不收口**（`code[0]` 是 `@`）：整条留给收口 raw 兜底。
+**装饰器成员**：收口判据不变，只是「下一个成员起点」的搜索从**成员头**（`DecoratorHeadAt`）开始——从 `@` 开始搜会把
+装饰器表达式本身当成成员起点，把一条成员切在装饰器中间。跳不过去（装饰器没读完 / 形态无法静态判定）或判型仍多值时
+**不判收口**：留在 raw 兜底，宁可慢一点也不能切错。
 
 ```ts
 state.Complete = false;
@@ -488,8 +584,17 @@ if (code.length === 0) {
   state.Kinds = ClassMemberPossibleUtil.AllKinds();
   return;
 }
+const decorated = ClassMemberPossibleUtil.TextOf(code[0]) === "@";
+let boundaryStart = 0;
+if (decorated) {
+  boundaryStart = ClassMemberPossibleUtil.DecoratorHeadAt(code);
+  if (boundaryStart < 0 || boundaryStart >= code.length) {
+    state.Kinds = ClassMemberPossibleUtil.ClassifyHead(code);
+    return;
+  }
+}
 state.Kinds = ClassMemberPossibleUtil.ClassifyHead(code);
-if (ClassMemberPossibleUtil.TextOf(code[0]) === "@") {
+if (decorated && state.Kinds.length > 1) {
   return;
 }
 const last = code[code.length - 1];
@@ -498,11 +603,11 @@ if (lastEnd === null) {
   return;
 }
 const angle = ClassMemberPossibleUtil.AngleDepth(code);
-const boundary = MemberBoundary.FindMemberBoundary(code, 0);
+const boundary = MemberBoundary.FindMemberBoundary(code, boundaryStart);
 let complete = false;
 let end = -1;
 if (angle === 0) {
-  if (boundary < code.length) {
+  if (boundary > boundaryStart && boundary < code.length) {
     const boundaryEnd = boundary - 1;
     if (!ClassMemberPossibleUtil.IsModifierWord(code[boundaryEnd])) {
       complete = true;
