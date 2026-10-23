@@ -344,7 +344,7 @@ let heritageBasePos = nameUnit === null
 const typeParameters:Array<Token> = [];
 if (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("<")) {
   const typeParameterBuilder = new TypeBuilder(host.Template, context);
-  typeParameterBuilder.Load(code.slice(index), heritageBasePos);
+  typeParameterBuilder.LoadFrom(code, index, code.length, heritageBasePos);
   const parsedTypeParameters = typeParameterBuilder.ParseTypeParameterList();
   for (const parsedTypeParameter of parsedTypeParameters) {
     typeParameters.push(parsedTypeParameter);
@@ -1251,7 +1251,7 @@ while (at < code.length) {
       // 贪心读返回类型，但先截到「下一个成员起点」为止，避免把下一成员的 `[计算名]` 当成索引访问。
       const typeBoundary = MemberBoundary.FindMemberBoundary(code, at);
       const typeBuilder = new TypeBuilder(host.Template, context);
-      typeBuilder.Load(code.slice(at, typeBoundary), typePos);
+      typeBuilder.LoadFrom(code, at, typeBoundary, typePos);
       returnType = typeBuilder.ParseReturnType();
       // Load 把 `>>` / `>>>` 拆成虚拟单元，At 是虚拟编号：按原 code 还原消费的原始单元数。
       let consumedUnits = 0;
@@ -1414,7 +1414,7 @@ while (at < code.length) {
     // 贪心读类型，但先截到「下一个成员起点」为止（理由同方法返回类型）。
     const typeBoundary = MemberBoundary.FindMemberBoundary(code, at);
     const typeBuilder = new TypeBuilder(host.Template, context);
-    typeBuilder.Load(code.slice(at, typeBoundary), typePos);
+    typeBuilder.LoadFrom(code, at, typeBoundary, typePos);
     typeShape = typeBuilder.ParseType();
     // Load 把 `>>` / `>>>` 拆成虚拟单元，At 是虚拟编号：按原 code 还原消费的原始单元数。
     let consumedUnits = 0;

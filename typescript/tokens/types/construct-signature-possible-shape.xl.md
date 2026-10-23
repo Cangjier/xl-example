@@ -85,11 +85,12 @@ const end = state.CodeAt[state.End];
 if (start < 0 || end < start) {
   return host;
 }
-const consumed:Array<Token> = host.Data.slice(start, end + 1);
 let firstCode:Token | null = null;
-for (const unit of consumed) {
-  if (!unit.IsTriviaToken) {
-    firstCode = unit;
+const scanLimit = end + 1 <= host.Data.length ? end + 1 : host.Data.length;
+for (let firstIndex = start; firstIndex < scanLimit; firstIndex++) {
+  const firstUnit = host.Data[firstIndex];
+  if (!firstUnit.IsTriviaToken) {
+    firstCode = firstUnit;
     break;
   }
 }
@@ -98,16 +99,16 @@ const modifierRecovery = firstCode !== null
     || MemberPossibleUtil.TextOf(firstCode) === "readonly");
 const basePos = MemberPossibleUtil.BasePos(host, start);
 const builder = new TypeBuilder(host.Template, context);
-builder.Load(consumed, basePos);
+const consumedLength = builder.LoadFrom(host.Data, start, end + 1, basePos);
 const built = builder.ParseTypeMember();
-if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumedLength)) {
   return host;
 }
 const isConstruct = built instanceof ConstructSignatureShape;
 const isModifierMethodRecovery = modifierRecovery && built instanceof MethodSignatureShape;
 if (!isConstruct && !isModifierMethodRecovery) {
   throw new Error("ConstructSignaturePossibleShape.BuildByIndex: 产出不是 ConstructSignatureShape");
-}host.Data.splice(start, consumed.length, built);
+}host.Data.splice(start, consumedLength, built);
 MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
 return built;

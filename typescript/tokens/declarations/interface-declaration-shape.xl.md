@@ -244,7 +244,7 @@ let heritageBasePos = nameUnit.SourceRange.End < 0 ? 0 : nameUnit.SourceRange.En
 const typeParameters:Array<Token> = [];
 if (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("<")) {
   const typeParameterBuilder = new TypeBuilder(host.Template, context);
-  typeParameterBuilder.Load(code.slice(index), heritageBasePos);
+  typeParameterBuilder.LoadFrom(code, index, code.length, heritageBasePos);
   const parsedTypeParameters = typeParameterBuilder.ParseTypeParameterList();
   for (const parsedTypeParameter of parsedTypeParameters) {
     typeParameters.push(parsedTypeParameter);
@@ -424,7 +424,7 @@ for (let previous = at - 1; previous >= 0; previous--) {
   }
 }
 const builder = new TypeBuilder(host.Template, context);
-builder.Load(bracket.Data.slice(at), base);
+builder.LoadFrom(bracket.Data, at, bracket.Data.length, base);
 while (builder.At < builder.Units.length) {
   const codeUnit = builder.Units[builder.At];
   if (codeUnit.IsTriviaToken) {

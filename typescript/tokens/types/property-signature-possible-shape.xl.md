@@ -884,17 +884,16 @@ if (start < 0 || end < start) {
   return host;
 }
 const basePos = MemberPossibleUtil.BasePos(host, start);
-const consumed:Array<Token> = host.Data.slice(start, end + 1);
 const builder = new TypeBuilder(host.Template, context);
-builder.Load(consumed, basePos);
+const consumedLength = builder.LoadFrom(host.Data, start, end + 1, basePos);
 const built = builder.ParseTypeMember();
-if (!MemberPossibleUtil.MemberParsedWhole(builder, consumed.length)) {
+if (!MemberPossibleUtil.MemberParsedWhole(builder, consumedLength)) {
   return host;
 }
 if (!(built instanceof PropertySignatureShape)) {
   throw new Error("PropertySignaturePossibleShape.BuildByIndex: 产出不是 PropertySignatureShape");
 }
-host.Data.splice(start, consumed.length, built);
+host.Data.splice(start, consumedLength, built);
 // Share 由 Build 阶段更新：条目起点前进一格（被建的形状正好坐在 start 上）。
 MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
 built.Parent = host;
