@@ -6,8 +6,11 @@
 > **权威源**：`typescript/IMPORTANCE.md`（开发流程与质量规范，只允许用户编辑）、`README.md`（构建/CLI/样本；
 > 注意其 dawn 时代章节已过时，见 §1.2）、`tests/MIGRATION.md`（旧测试树来源）。
 >
-> **核对时点**：2026-10-22（Asia/Shanghai），分支 `feature/quick-parse`，代码面 HEAD `2a531cb2`（docs 提交不改变代码），
-> TypeScript **6.0.3** / Node **v24.21.0**。§2 读数均为当日复跑。
+> **核对时点**：2026-10-23（Asia/Shanghai），分支 `feature/quick-parse`，代码面 HEAD `893e567c`
+> （`integration-7` 合并后的代码面；docs 提交不改变代码），TypeScript **6.0.3** / Node **v24.21.0**。
+> §2 读数均为当日复跑。
+> **本轮 SHAPE-CACHE**：`PossibleShapeCache.Share` 数据槽 / interface 成员扫描增量（二次→线性）/
+> body guide 推广到 enum 与 class（经验总结见 [`docs/share-cache-and-body-guide.md`](share-cache-and-body-guide.md)）。
 >
 > **标注**：✅ 已实现/已复现；⭕ 仍开放；❓ 需再验；「口径」= 不是缺陷，只是尺子/约定的边界。
 
@@ -73,7 +76,7 @@
 
 ## 2. 当前状态：固定门禁读数
 
-以下为 2026-10-22 复跑读数（代码面 HEAD `2a531cb2`）：
+以下为 2026-10-22 复跑读数（代码面 HEAD `2a531cb2`）；**2026-10-23 本轮（代码面 `893e567c`）复跑一致**，逐项读数未变：
 
 | # | 门禁 | 命令 | 实测 | 判定 |
 | --- | --- | --- | --- | --- |
@@ -86,6 +89,10 @@
 | 7 | 规范结构检查 | `xl_check(cwd=主仓, paths=["core","typescript"], targets=["ts"])` | **864 file(s)，0 error，2466 warning**；3 个 E2004 孤儿（`dist/ts/core/syntax/{add-result,branch-condition-result,branch}.ts`，既有 dist 残留） | ✅（只认 error=0） |
 | 8 | 候选探针 | `node tests/cover9/probe.mjs` | **88 候选：red=0 / green=88**（A 45+B 22+C 21）；44 条存储红基线不一致 → **exit 1 为预期** | ✅ |
 | 9 | 样本逐字节 | `node samples/check.mjs` | **当前不可运行**：`build/ts/cjcli.js` 不存在（§1.2） | 口径 |
+
+**2026-10-23 本轮复跑一致**：门禁 1/2/3/4/5/6 六项读数逐位相同（6167 / 0-0-0 / 1715-1705-0-0-10 / 1719-0 /
+226-226 / tsc 0）；门禁 7（`xl_check`）因本轮新增 9 个 `.xl.md` 与 3 条同名类型 warning（E1107），
+报 **873 file(s) / 2450 warning / 0 error**，判定不变（只认 error=0）。
 
 当前状态补充：
 
@@ -170,6 +177,48 @@ build 提取族占绝大多数）；「加 `;` 即绿 / 去尾随换行即绿」
   （现有规则：`basic-token.ts`、`end-compute.ts`、`possible-build.ts`、`possible-compute.ts`、`cover6-*.ts`、`*-cr*.ts` 等），
   写用例时 CR/LS/PS 用行内字面字符（`\n` 仍写转义）。
 - `// xl:known-gap` 文件头标记已通过的既知缺口，token-ast 里计入 `gap-now-passing` 而不是 ok。
+
+---
+
+### 3.5 缓存与 body guide（2026-10-23）
+
+本轮把「性能」与「body 括号事件」两件事做成可复制的机制，细节与证据见
+[`docs/share-cache-and-body-guide.md`](share-cache-and-body-guide.md)；这里只留**下次动手前必须守的规则**。
+
+**`PossibleShapeCache.Share` 使用规则**（`core/syntax/possible-shape-cache.xl.md`）：
+
+1. `Share` **不受 `Reset` 清空**：寿命 = 持有该 cache 的 `CatalogGuide`（宿主 Shape）的寿命。
+   逐条目状态一律放 `Values`（`GetState` / `SetState`），放错就会读到上一条目的残值。
+2. **每条 `Share` 数据必须自带 O(1) 新鲜度判据**（引用同一性 / 界内 / 前一位的类别 / 版本号）。
+   校验必须 O(1)：用一次全扫来校验等于把省下的时间花回去。
+3. **只在 Build 阶段按需写回**：`Compute` / `ComputeByIndex` 不假定 `Share` 里已经有东西；
+   `BuildByIndex` / `BuildFromCode` 读、缺了就地建、建完写回（同一份事实源只留一个写回函数）。
+4. **`Share` 只允许影响「什么时候建」**：命中与否都必须产出逐节点一致的 AST；宿主 Shape 收尾时
+   `ClearShare()` 归还内存。
+
+**增量扫描结论**：interface 单成员长类型的二次项来自四处「每个 token 重算一遍」——`ItemUtil.ItemStart`
+倒扫（还被七类候选各调一次 7×O(k)）、`Scan` 重建 `Code`/`CodeAt`、`FindTypeMemberBoundary` 全前缀扫、
+`AngleDepth` 全前缀。改成「`Share` 缓存条目起点 + 只追加 + 角深度增量 + 边界增量」后：**N=4000
+2012.093 ms → 22.489 ms（≈89.5×，T4 会话约 90–110×），曲线由 ×4 变 ×2，µs/token 恒定 5.6–6.0；
+真实 dts 8 份合计 −2.0%（在 ±2.4% 波动内，属「不退化 + 小幅下降」）**。dts 的剩余成本在 core 逐 token
+流水线（`UnitToken.Process` 16.6% / `SyntaxContext` 10.8% / `Transit` ≈7.4%），scope 内候选
+`MemberBoundary.FindMemberBoundary` 仅 2.6% —— **要做 core 性能另开分支并设端到端 ≥10% 门槛**。
+
+**body guide 现状**：
+
+- **机制**：`BodyGuideUtil`（`typescript/tokens/declarations/body-guide-util.xl.md`）七方法
+  `BasePos` / `IsBodyBracket` / `MountBodyGuide` / `MountShell` / `CollectBodyMembers` / `FinishShell` /
+  `CreateShapesCache`；前提是**壳在 `{` 出现前挂上**（`Bracket.Transit` 只回调直接父单元）。
+- **interface**：已有（范式来源）。
+- **enum**：✅ 壳化 + 枚举体成员增量（`EnumDeclarationShape` + `EnumMemberPossibleShape`，一个候选即可）。
+- **class**：✅ 壳化 + 类体 **8 类成员**增量（属性 / 方法 / 构造 / get / set / 索引签名 / `static {}` / 孤立 `;`）
+  + 装饰器感知（`DecoratorHeadAt`）+ `ClassMemberCatchAllPossibleShape` 兜底
+  （`IsBuildable` 恒 `false`，只在「收住且 `Kinds ⊆ ImplementedKinds()`」时让位；**每加一类候选必须同步更新 `ImplementedKinds()`**）。
+- **不做**：type literal（`TypeBuilder.ParseTypeLiteral` 在已闭合括号上直建，需另开预扫课题）、
+  function / module / object literal / static block / switch / try（理由见新文档 §5.2）。
+
+**已知遗留**：壳化后「未闭合体在 EOF」的恢复形与基线不同（enum / class 各 2–3 条未跟踪形，不影响 7 门禁）；
+3 条新增 E1107 同名类型 warning（class 的 get/set/index 候选与 interface 侧同名，0 error，可改名）。
 
 ---
 
@@ -362,6 +411,7 @@ node samples/check.mjs                             # 当前不可运行（需 cj
 | 文件 | 内容 |
 | --- | --- |
 | `docs/Final.md` | **本文件**：当前状态的唯一汇总（形态/读数/规范/覆盖/口径/缺口/复跑） |
+| `docs/share-cache-and-body-guide.md` | SHAPE-CACHE 轮经验总结 / 推广手册：`Share` 数据槽与纪律、interface 成员扫描二次→线性（前后数字）、body guide 推广到 enum / class、推广到其它 shape 的 checklist 与明确不做的清单、性能调查结论、风险与复跑口径 |
 | `docs/xl-to-cpp.md` | C++ 目标生成契约；文首有「修订说明（与实际实现对齐）」，早期两遍构建描述**未采用**，以文首说明与各节实际实现为准；文中 `dawn/...` 路径为历史示例 |
 | `docs/cpp-design-notes.md` | C++ 三个结构性决定的论证；文首注明第 2 条（`shared_ptr`）已落实，第 1 条（两遍构建+`CANGJIE_BODIES`）与第 3 条（`TypeName()` 字符串反射）**未采用**，实际方案见 `xl-to-cpp.md` |
 
