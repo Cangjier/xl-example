@@ -290,7 +290,13 @@ try {
     }
   }
 } catch (error) {
-  console.error(`bench 失败: ${error && error.message ? error.message : error}`);
+  // 解析失败抛的是 `SyntaxException`（不是 JS Error：文本在 `Message` 字段上），
+  // 旧的一行只读 `error.message`，于是门禁上只看到 `bench 失败: [object Object]`——
+  // 解析器未适配时这条读数就没法用。这里只改「怎么打印」，测量与退出码不变。
+  const text = error && typeof error === "object" ? error.message ?? error.Message ?? error : error;
+  console.error(`bench 失败: ${text}`);
+  const inner = error && typeof error === "object" ? error.InnerException : null;
+  if (inner) console.error(`  inner: ${inner.Message ?? inner.message ?? inner}`);
   process.exit(1);
 }
 
