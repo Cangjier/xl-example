@@ -133,7 +133,7 @@ for (const item of this.Data) {
 return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${this.EndBracketChar}">${temp.join("")}</${name}>`;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 只认 `(` / `{` / `[` 三种开括号字符：认下就新建一个 `Bracket`、配成对应的括号对、挂到 `unit` 上并签入。
 
@@ -144,7 +144,6 @@ return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${t
 `\u{…}` 花括号转义进行中时不起新括号：这时 `{` 属于转义（`\u{61}`），返回 `Undo` 让 `Common` 吃掉。
 
 ```ts
-const value = buffer.At(index);
 if (value !== "(" && value !== "{" && value !== "[") {
   return BranchStates.Undo;
 }

@@ -132,7 +132,7 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 判定、收尾、新开都在这一个方法里：
 
@@ -144,7 +144,6 @@ return CloseStates.Nothing;
 - 其余开新块：先 `last.TryToClose(context)`，建出形状就返回 `Reload`。
 
 ```ts
-const value = buffer.At(index);
 const template = unit.Template;
 const last = unit.Last();
 // `\u{…}` 花括号转义进行中：`{` / 十六进制位 / `}` 全归那个 Common，

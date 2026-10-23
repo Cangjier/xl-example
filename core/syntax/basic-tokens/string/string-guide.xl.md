@@ -29,7 +29,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 **哪些引号算起点、有没有那几种形态，都从模板取**：`Template.StringTemplate` 的 `Quotes` / `HasVerbatim` / `HasInterpolationPrefix` / `HasInterpolationQuoteChars` / `InterpolationQuoteChars` / `HasRaw`。它自己不带 `StringChars` 这类字段——配置归模板，形状归 `String`。
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 当前字符是模板声明的字符串起点就认下：新建一个 `StringGuide`，按模板回看前缀，再把它挂到 `unit` 上；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
 
@@ -42,7 +42,6 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 ts 的模板把这两个前缀开关都关掉，所以 `@"…"` / `$"…"` 不会在这里被当成字符串起点，`@` 与 `$` 留给别的 token。这是默认值：`HasVerbatim` / `HasInterpolationPrefix` 都是 `false`；引号内内插由 `HasInterpolationQuoteChars` 打开，默认 `true`、只认反引号。
 
 ```ts
-const value = buffer.At(index);
 const config = unit.Template.StringTemplate;
 if (!config.Quotes.includes(value)) {
   return BranchStates.Undo;

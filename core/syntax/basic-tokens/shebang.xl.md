@@ -95,7 +95,7 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 判据三段：
 1. 允许的起始下标：根 `Data` 第一格是 `Bom`（且已签出）时取 `Bom.SourceRange.EndIndex`，否则 `0`；
@@ -117,7 +117,7 @@ const marker = unit.Template.ShebangMarker;
 if (marker.length !== 2) {
   return BranchStates.Undo;
 }
-if (buffer.At(index) !== marker[0]) {
+if (value !== marker[0]) {
   return BranchStates.Undo;
 }
 const whole = SourceRange.Whole(buffer.Document!);

@@ -103,7 +103,7 @@ class SourceRange {
 ## 3. Token 家族（调度）
 
 ```ts
-type BranchTransiter = (context: SyntaxContext, unit: Token, buffer: SourceRange, index: number) => BranchStates;
+type BranchTransiter = (context: SyntaxContext, unit: Token, buffer: SourceRange, index: number, value: string) => BranchStates;
 
 class Token {
   Template: Template;

@@ -164,7 +164,7 @@ return BranchStates.Done;
 return this.Consume(context, buffer, index);
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 判据分三段。
 
@@ -180,7 +180,7 @@ if (preIndex < 0) {
   return BranchStates.Undo;
 }
 const pre = buffer.Has(preIndex) ? buffer.At(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
-if (pre !== "/" || !unit.IsUndo(preIndex) || buffer.At(index) === "/") {
+if (pre !== "/" || !unit.IsUndo(preIndex) || value === "/") {
   return BranchStates.Undo;
 }
 const data = unit.Data;

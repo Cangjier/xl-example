@@ -79,9 +79,9 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## static method CanStart:(unit:Token, buffer:SourceRange, index:int)=>bool
+## static method CanStart:(unit:Token, value:string)=>bool
 
-能不能从 `index` 这里起一个 `Bom`：字符在 `unit.Template.BomChars` 里即可——**任意位置都认**（用户裁定②：对齐 TS，
+能不能以这个字符起一个 `Bom`：`value` 在 `unit.Template.BomChars` 里即可——**任意位置都认**（用户裁定②：对齐 TS，
 U+FEFF 属 ECMAScript Whitespace；BOM 是 trivia，不构成代码 token 的边界）。
 
 历史：旧判据是「`source.Index === 0` 或 `unit.Data` 里已有的单元**全是 trivia**（尚无代码 token）」，
@@ -89,20 +89,20 @@ mid-code BOM 不认；用户裁定②（§5 item 4 方案②「放宽 Bom 起始
 `const a = 1;\uFEFFconst b = 2;` 这类 mid-code BOM 现在也按 trivia 跳过。
 
 ```ts
-if (!unit.Template.BomChars.includes(buffer.At(index))) {
+if (!unit.Template.BomChars.includes(value)) {
   return false;
 }
 return true;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
-判据见 `CanStart`：字符在 `unit.Template.BomChars` 里即可（**任意位置**，用户裁定②）。
+判据见 `CanStart`：当前字符在 `unit.Template.BomChars` 里即可（**任意位置**，用户裁定②）。
 
 认下就挂一个新的 `Bom`，立刻按同一个字符签入、签出并关闭；它是 trivia，之后所有字符回到根单元。
 
 ```ts
-if (!Bom.CanStart(unit, buffer, index)) {
+if (!Bom.CanStart(unit, value)) {
   return BranchStates.Undo;
 }
 const mounted = new Bom(unit.Template);
