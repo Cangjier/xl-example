@@ -63,13 +63,14 @@ const BODY_TARGETS = {
     memberStart: () => MEMBER_START_CASES,
     recovery: () => RECOVERY_CASES,
   },
-  // enum：T5 落地。候选取自 EnumDeclarationShape.CreateBodyPossibleShapesCache。
+  // enum：WP-1 起成员判定由 item 表引擎（ItemListEngine(EnumItemRule)）驱动，
+  // 裁剪点从 possible 目录缓存换成规则表缓存；`--all` 时不加载候选模块，默认只装这一条规则。
   enum: {
     shapeName: "EnumDeclarationShape",
     modulePath: "typescript/tokens/declarations/enum-declaration-shape.js",
-    cacheField: "CreateBodyPossibleShapesCache",
+    cacheField: "CreateBodyItemRulesCache",
     candidates: {
-      EnumMemberPossibleShape: "typescript/tokens/members/enum-member-possible-shape.js",
+      EnumItemRule: "typescript/tokens/items/enum-item-rule.js",
     },
     cases: () => ENUM_CASES,
     genericBoundary: () => ENUM_INITIALIZER_CASES,
