@@ -133,6 +133,18 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `set` 访问器（`set x(v: A)`）。
 
+## private static field TextCacheUnit:Token | null = null
+
+`TextOf` 的单格记忆：上一次问过的单元（对象同一性比较）。
+
+判定是**串行**的（一个 `CatalogGuide` 一次只判一个下标），而 `ClassifyHead` / `Analyze` 的判据分支会对同一个代码单元连问多次——实测 `TextOf` 的连续调用里 **49.6%** 命中同一个单元。单格记忆只留「上一个问过的单元 → 文本」，命中就免掉 `instanceof` 链与 `TempToString()`。
+
+不变量：`Temp` 只在 basic token 扫描期由 `AppendAndSignOut` 追加，判定期单元都已关闭、文本不再变；命中返回的永远是同一份文本。
+
+## private static field TextCacheValue:string = ""
+
+与 `TextCacheUnit` 配对的文本。`""` 是「非文本单元」的取值，与 `TextOf` 的兜底一致。
+
 ## static method AllKinds:()=>Array<int>
 
 七类全可能。返回**新数组**，判定状态各持一份，避免共享后被就地改。
@@ -174,20 +186,25 @@ return false;
 
 代码单元的文本：保留字 / 标识符 / 符号取 `TempToString()`；字符串与括号只给占位串（成员判型只关心「是不是名字 / 是不是括号」）。
 
+先查单格记忆（`TextCacheUnit` / `TextCacheValue`）：同一个单元被连续问到时直接返回上一次的文本，省掉 `instanceof` 链与 `TempToString()`；只改这两格，不影响任何判据。
+
 ```ts
+if (unit === MemberPossibleUtil.TextCacheUnit) {
+  return MemberPossibleUtil.TextCacheValue;
+}
+let value = "";
 if (unit instanceof Common) {
-  return (unit as Common).TempToString();
+  value = (unit as Common).TempToString();
+} else if (unit instanceof Symbol) {
+  value = (unit as Symbol).TempToString();
+} else if (unit instanceof String) {
+  value = "string";
+} else if (unit instanceof Bracket) {
+  value = "bracket";
 }
-if (unit instanceof Symbol) {
-  return (unit as Symbol).TempToString();
-}
-if (unit instanceof String) {
-  return "string";
-}
-if (unit instanceof Bracket) {
-  return "bracket";
-}
-return "";
+MemberPossibleUtil.TextCacheUnit = unit;
+MemberPossibleUtil.TextCacheValue = value;
+return value;
 ```
 
 ## static method IsSeparator:(unit:Token)=>bool
@@ -694,20 +711,15 @@ if (shared !== null) {
 - `state.Checked > tokenIndex + 1`：缓存越过当前下标（防御；正常由 `Reset` 清空）→ 重建；
 - `state.Checked <= tokenIndex`：只**追加**新单元（不重建），增量推进 `Angle` 与边界，然后重算收口结论。
 
+新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `CodeAt` / `Code` / `Angle` / `BoundaryScan` 全部是 `MemberPossibleScan` 字段声明处的构造默认值（`-1` / `false` / 新数组 / `0` / 新建的边界扫描），**不再在 `Scan` 里二次分配**——旧实现构造完后又写 `CodeAt = []` / `Code = []` / `new MemberBoundaryScan()`，每个新成员状态白白多出 2 个数组 + 1 个边界扫描状态（约 21 万对象/pass）。`Kinds` 不是构造默认值的语义（默认为 `[]`），所以仍然显式写成 `AllKinds()`。
+
 ```ts
 let state = cache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
 if (state === null || state.Checked > tokenIndex + 1) {
   const start = MemberPossibleUtil.ItemStartOf(units, cache);
   state = new MemberPossibleScan();
   state.Start = start;
-  state.Checked = -1;
-  state.Complete = false;
-  state.End = -1;
   state.Kinds = MemberPossibleUtil.AllKinds();
-  state.CodeAt = [];
-  state.Code = [];
-  state.Angle = 0;
-  state.BoundaryScan = new MemberBoundaryScan();
   cache.SetState(MemberPossibleUtil.CacheKey, state);
 }
 if (state.Checked <= tokenIndex) {
