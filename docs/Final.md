@@ -106,6 +106,14 @@
 
 
 > 性能现状（2026-10-23，DTS-PERF 轮）：226 份 `.d.ts` 解析合计约 3.36 s，与输入严格线性（β=1.008），约 70% 的时间花在 core 的「每字符固定税」上（每字符 3.07 次对象分配 + 3.44 次 `UnitToken.Process`）。已有一个「8 份 −26~−30%、token 树与 XML 8/8 等价、0 basic-tokens 改动」的组合原型待合并；路线图与批准边界见 [`docs/dts-optimization.md`](dts-optimization.md)。本节门禁读数不受影响。
+>
+> **性能现状更新（2026-10-23，窗口 128 + `BasicDispatch` 分类表已落地）**：`BufferSize` 在运行层改为 **128**
+> （`typescript/run/source-file-runner.xl.md`；core 默认仍 32），`core/syntax/templates/basic-dispatch.xl.md`
+> 改为「128 项 ASCII 分类表 + 原 ①–⑧ 回退链」。8 份 d.ts 同进程 A/B **+10.1%**，全语料 4,556 文件 XML/digest
+> 逐字节等价，七道门全绿。以 TS 官方解析器为基准（`tests/bench/perf-vs-ts.mjs`）：8 份 `ours/ts-np` **3.75× → 3.10~3.23×**、
+> `ours/ts-par` **3.03× → 2.56~2.75×**；226 份 `ours/ts-np` **3.96× → 3.34~3.42×**、`ours/ts-par` **3.14× → 2.68~2.81×**
+> （`perf-vs-ts` 的语料/口径与 `parse-perf --dts 8` 不同，且 TS 侧有 ±10% 会话噪声）。详见
+> [`docs/opt-window128-and-class-table.md`](opt-window128-and-class-table.md)。
 
 ## 3. 架构与开发规范
 
