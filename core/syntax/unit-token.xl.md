@@ -6,7 +6,6 @@ import { BranchStates } from "./branch-states.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { IComputePossibleShapes } from "./i-compute-possible-shapes.xl.md"
 import { ReloadMessage } from "./messages/reload-message.xl.md"
-import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
@@ -17,7 +16,7 @@ import { Template } from "./templates/template.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「先问退出条件、再跑跳转队列、最后兜底」这套调度固定下来。
+单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「一次处理一整个 buffer 窗口」这套调度固定下来：窗口里逐字符前进，每消费一个字符就推进 `context.Index`。
 
 它同时实现 `IComputePossibleShapes`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
 
@@ -75,7 +74,7 @@ return ComputePossibleShapesStates.Nothing;
 super(template);
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
 判断当前字符是让本单元「退出」还是「前移」。
 
@@ -85,51 +84,81 @@ super(template);
 throw new Error("abstract member: ExitOrPre");
 ```
 
-## method Process:(context:SyntaxContext, source:Source)=>void
+## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
-处理一个字符。
+处理一个 buffer 窗口：从 `index` 起逐字符推进，**一次调用吃一个窗口**。
 
-处理顺序：有挂载单元就转给它；否则先问 `ExitOrPre`，`Done` 就记下 `LastSource` 返回；再依次跑 `ProcessQueue` 里的跳转，哪个返回 `Done` 就返回；都不接手才走 `Default`；无论走哪条路都把 `LastSource` 设为当前字符。
+`index` 是本地游标（初值 = `context.Index` = `buffer.Start`）；`context.Index` 是全局下一个待处理位置。每消费一个字符都必须让它前进，返回时它不得小于进入时的 `index`。
 
-**`Reload` 是这套调度的转折点。** 一次关闭可能触发形状建造（关掉上一个 token 时），建造发生在分支内部，分支只能把结果报上来。拿到 `Reload` 就**停止本字符的处理**、把字符插回队首：新形状已经 mount 在本单元上，重放时第一行就会把它转过去。`ProcessOwner` 用本单元而不是根，嵌套形状里字符才会回到正确那一层。
+处理顺序（每个位置）：
 
-整个流程包在 `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个位置到当前位置」。注意用 `source.Pre()` 建范围时取出来的是前一个 `Source` 本身，不是字符。
+1. 有挂载单元就整个交给它；它没推进 `context.Index` 就没有进展，本单元**原样返回**（不许死循环）。
+2. 否则先问 `ExitOrPre`：`Reload` 就把当前下标压进消息队列并返回（当前字符没被消费）；`Done` 就记 `LastIndex` 并前进。
+3. 再依次跑 `ProcessQueue` 里的跳转，哪个 `Done` 就前进并进入下一个位置，哪个 `Reload` 就压消息并返回。
+4. 都不接手才走 `Default` 兜底；兜底默认消费一个字符。
+
+**`Done` 的统一 `+1`**：处理者可能只做了签入签出、没有自己碰 `context.Index`（basic token 的跳转就是这样）。所以只要 `context.Index === index`，就补 `context.Index = index + 1`。这条是「默认单字符消费」的唯一出口。
+
+**`Reload` 是这套调度的转折点**：一次关闭可能触发形状建造，分支只能把结果报上来。拿到 `Reload` 就**停止整个窗口**、把当前位置压进消息队列，`context.Index` 留在原地（阻塞返回），由驱动层重放。`ProcessOwner` 用 `null`（= 根）：新形状已经 mount，重放时自然落到正确那一层。
+
+整个窗口包在**一次** `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个字符到当前字符」`[max(0, index-1), index+1)`。
 
 ```ts
 try {
-  if (this.MountedUnit !== null) {
-    this.MountedUnit.Process(context, source);
-    return;
-  }
-  const exitState = this.ExitOrPre(context, source);
-  if (exitState === BranchStates.Reload) {
-    context.Messages.push(new ReloadMessage(null, this, source));
-    this.LastSource = source;
-    return;
-  }
-  if (exitState === BranchStates.Done) {
-    this.LastSource = source;
-    return;
-  }
-  if (this.ProcessQueue !== null) {
-    for (const item of this.ProcessQueue.Data) {
-      const state = item(context, this, source);
-      if (state === BranchStates.Reload) {
-        context.Messages.push(new ReloadMessage(null, this, source));
-        this.LastSource = source;
+  while (index < buffer.End) {
+    if (this.MountedUnit !== null) {
+      this.MountedUnit.Process(context, buffer, index);
+      if (context.Index === index) {
         return;
       }
-      if (state === BranchStates.Done) {
-        this.LastSource = source;
-        return;
+      this.LastIndex = context.Index - 1;
+      index = context.Index;
+      continue;
+    }
+    const exitState = this.ExitOrPre(context, buffer, index);
+    if (exitState === BranchStates.Reload) {
+      context.Messages.push(new ReloadMessage(null, index));
+      return;
+    }
+    if (exitState === BranchStates.Done) {
+      if (context.Index === index) {
+        context.Index = index + 1;
+      }
+      this.LastIndex = index;
+      index = context.Index;
+      continue;
+    }
+    let transited = false;
+    if (this.ProcessQueue !== null) {
+      for (const item of this.ProcessQueue.Data) {
+        const state = item(context, this, buffer, index);
+        if (state === BranchStates.Reload) {
+          context.Messages.push(new ReloadMessage(null, index));
+          return;
+        }
+        if (state === BranchStates.Done) {
+          if (context.Index === index) {
+            context.Index = index + 1;
+          }
+          this.LastIndex = index;
+          index = context.Index;
+          transited = true;
+          break;
+        }
       }
     }
+    if (!transited) {
+      this.Default(context, buffer, index);
+      if (context.Index === index) {
+        context.Index = index + 1;
+      }
+      this.LastIndex = index;
+      index = context.Index;
+    }
   }
-  this.Default(context, source);
-  this.LastSource = source;
 } catch (e) {
-  const previous = source.Pre();
-  const range = new SourceRange(previous, source);
+  const start = Math.max(0, index - 1);
+  const range = new SourceRange(buffer.Document, start, index + 1);
   throw SyntaxException.FromInner(range, e);
 }
 ```

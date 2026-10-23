@@ -1,12 +1,13 @@
 # dependencies
 ```xl
-import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 ```
 
 # namespace cangjie
 
 文档：按「下标 → 值」抽象出来的字符来源。语法层不关心底层是字符串、文件还是别的什么，只通过 `Document` 取长度、取值、取行号。`Dawn/Text` 里的 `TextDocument` 是它唯一的实现。
+
+文档只按**下标**工作：`Document.At`（每次新建一个 `Source`）已经删除，token 层一律「文档 + int 下标」或 `SourceRange` 窗口，不再有位置对象。
 
 # type ValueGetter = (index:number)=>string
 
@@ -22,7 +23,7 @@ import { SourceRange } from "./source-range.xl.md"
 
 文档。
 
-索引式的取值由 `At(index)` 方法承担。
+索引式的取值由 `GetValue(index)` 承担；区间文本由半开的 `GetRaw(start, end)` 承担。
 
 ## field GetValue:ValueGetter
 
@@ -48,21 +49,11 @@ this.GetCount = getCount;
 this.Parent = Parent ?? null;
 ```
 
-## method At:(index:int)=>Source
-
-取下标对应的**位置**。
-
-每次访问都新建一个 `Source`，调用点不要依赖对象身份。
-
-```ts
-return new Source(this, index);
-```
-
 ## method GetRangeString:(range:SourceRange)=>string
 
 范围的可读字符串。
 
-基类实现直接返回 `range.ToString()`，由 `TextDocument` 覆盖成带 `^` 指示的多行文本。
+基类实现直接返回 `range.ToString()`，由 `TextDocument` 覆盖成带 `^` 指示的多行文本（半开 `[StartIndex, EndIndex)`）。
 
 ```ts
 return range.ToString();
@@ -82,7 +73,7 @@ return range.ToString();
 
 下标所在的行号。
 
-基类不实现，由 `TextDocument` 覆盖。
+基类不实现，由 `TextDocument` 覆盖（`index === GetCount()` 的 EOF 位置不查行号）。
 
 ```ts
 throw new Error("抽象成员未实现");
@@ -110,9 +101,9 @@ throw new Error("抽象成员未实现");
 
 ## method GetRaw:(start:int, end:int)=>string
 
-文档上 `[start, end]` 的原始文本。
+文档上**半开区间** `[start, end)` 的原始文本。
 
-基类不实现，由 `TextDocument` 覆盖。
+基类不实现，由 `TextDocument` 覆盖（`Content.substring(start, end)`）。
 
 ```ts
 throw new Error("抽象成员未实现");

@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { CommonUtil } from "../common-util.xl.md"
-import { Source } from "./source.xl.md"
+import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
 import { Template } from "./templates/template.xl.md"
@@ -12,6 +12,8 @@ import { Template } from "./templates/template.xl.md"
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
 块 token：把连续的同类字符吞进 `Temp`，最后整块吐成一个 XML 文本节点。标识符、数字、符号都是它——`<Common>abc</Common>` 就是这么来的。
+
+块 token 自己**永远只吃当前这一个字符**：`Default`（或子类的覆写）把它并进 `Temp`，然后由调度层统一把 `context.Index` 推进一格。
 
 # class BlockToken extends Token
 
@@ -48,27 +50,12 @@ super(template);
 return this.Temp;
 ```
 
-## method AppendAndSignOut:(source:Source)=>BlockToken
+## method AppendAndSignOut:(value:string, index:int)=>BlockToken
 
-先签出到 `source`，再把该字符追加进 `Temp`，返回自身。
-
-```ts
-this.SignOut(source);
-this.Temp += source.Value;
-if (source.Value === "\\") {
-  this.HasBackslash = true;
-}
-return this;
-```
-
-## method AppendValueAndSignOut:(value:string, source:Source)=>BlockToken
-
-同上，但追加的是显式给的值而不是 `source.Value`。
-
-两个参数的那个 `AppendAndSignOut` 重载在 ts 里叫 `AppendValueAndSignOut`。
+先签出到 `index + 1`（半开终点），再把 `value` 追加进 `Temp`，返回自身。
 
 ```ts
-this.SignOut(source);
+this.SignOut(index + 1);
 this.Temp += value;
 if (value.indexOf("\\") >= 0) {
   this.HasBackslash = true;
@@ -76,7 +63,20 @@ if (value.indexOf("\\") >= 0) {
 return this;
 ```
 
-## method IsAppend:(source:Source)=>bool
+## method AppendValueAndSignOut:(value:string, index:int)=>BlockToken
+
+同上，但追加的是显式给的值。
+
+```ts
+this.SignOut(index + 1);
+this.Temp += value;
+if (value.indexOf("\\") >= 0) {
+  this.HasBackslash = true;
+}
+return this;
+```
+
+## method IsAppend:(buffer:SourceRange, index:int)=>bool
 
 当前字符能不能并进本块。
 
@@ -86,45 +86,50 @@ return this;
 throw new Error("abstract member: IsAppend");
 ```
 
-## method Process:(context:SyntaxContext, source:Source)=>void
+## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
-处理一个字符：有挂载单元就转给它，否则走 `Default`。
+处理窗口里 `index` 处的一个字符：有挂载单元就整个转给它，否则走 `Default`。
 
 块 token 覆写了基类的调度：**不跑跳转队列**，只认挂载单元和自己。
 
+子单元消费了就算有进展并记下 `LastIndex`；自己走 `Default` 之后若 `context.Index` 还没动，就统一补 `+1`（块 token 默认消费当前字符）。**无进展即阻塞返回**。
+
 ```ts
 if (this.MountedUnit !== null) {
-  this.MountedUnit.Process(context, source);
+  this.MountedUnit.Process(context, buffer, index);
+  if (context.Index > index) {
+    this.LastIndex = index;
+  }
   return;
 }
-this.Default(context, source);
-this.LastSource = source;
+this.Default(context, buffer, index);
+if (context.Index === index) {
+  context.Index = index + 1;
+}
+this.LastIndex = index;
 ```
 
-## method Undo:(source:Source)=>void
+## method Undo:(index:int)=>void
 
-回退一个字符。
+回退 `index` 位置之前刚消费的那个字符。
 
-分两种情况：有子单元覆盖该位置就交给它；否则从 `Temp` 弹掉最后一个字符，并在「已经退到最前」或「`Temp` 空了」时把自己从父单元里摘掉，否则把终点退回前一个位置。
+分两种情况：有子单元覆盖该位置就交给它；否则从 `Temp` 弹掉最后一个字符。弹完 `Temp` 空了、或者已经退到范围起点（`index <= StartIndex`），就把自己从父单元里摘掉；否则把开区间终点退到 `index`。
 
 ```ts
-const undoUnit = this.WhichUnitRangeContains(source);
+const undoUnit = this.WhichUnitRangeContains(index);
 if (undoUnit !== null) {
-  undoUnit.Undo(source);
+  undoUnit.Undo(index);
   return;
 }
 this.Temp = this.Temp.substring(0, this.Temp.length - 1);
-const previous = source.Pre();
-if (previous === null) {
-  this.Parent!.Data.splice(this.Parent!.Data.indexOf(this), 1);
-} else if (this.Temp.length === 0) {
+if (this.Temp.length === 0 || index <= this.SourceRange.Start) {
   this.Parent!.Data.splice(this.Parent!.Data.indexOf(this), 1);
 } else {
-  this.SignOut(previous);
+  this.SignOut(index);
 }
 ```
 
-## method IsUndo:(source:Source)=>bool
+## method IsUndo:(index:int)=>bool
 
 块 token 永远可以回退。
 
@@ -132,7 +137,7 @@ if (previous === null) {
 return true;
 ```
 
-## protected method Default:(context:SyntaxContext, source:Source)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 兜底直接抛错——块 token 必须靠挂载单元或自己的覆写来消费字符。
 
@@ -140,14 +145,14 @@ return true;
 throw new Error("抽象成员未实现");
 ```
 
-## method SignOut:(source:Source)=>void
+## method SignOut:(endIndex:int)=>void
 
 签出。
 
 签出覆写了基类：**只设终点，不递归子单元，也不检查是否已设过**。
 
 ```ts
-this.SourceRange.End = source;
+this.SourceRange.End = endIndex;
 ```
 
 ## method ToXmlString:()=>string

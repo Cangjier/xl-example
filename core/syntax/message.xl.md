@@ -25,20 +25,22 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `Type` 是抽象属性，写成抛错桩。
 
-## field Target:Token
+`Target` 允许为 `null`：`ReloadMessage` 的构造器只收「处理者 + 下标」，不带目标单元；需要目标的工厂（`WithoutProcessOwner` / `FromRange`）在建好消息之后显式赋给它。
 
-消息的目标单元。
+## field Target:Token | null = null
+
+消息的目标单元；`null` 表示没有单独指定。
 
 ## field ProcessOwner:Token | null = null
 
 处理本消息时要切换到的单元；`null` 表示用上下文的根。
 
-## constructor:(Target:Token)=>void
+## constructor:(Target?:Token | null)=>void
 
 创建消息。
 
 ```ts
-this.Target = Target;
+this.Target = Target ?? null;
 ```
 
 ## property Type:MessageTypes

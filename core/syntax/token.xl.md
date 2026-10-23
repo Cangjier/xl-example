@@ -4,7 +4,6 @@ import { CloseStates } from "./close-states.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { BranchTransiter } from "./branch-transiter.xl.md"
-import { Source } from "./source.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { Template } from "./templates/template.xl.md"
 import { Sequence } from "./templates/sequence.xl.md"
@@ -14,7 +13,9 @@ import { Sequence } from "./templates/sequence.xl.md"
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
-`Token` 是整棵树的地基：它记录自己覆盖的源码范围、自己的子单元、以及处理每个字符时该跑哪些跳转。
+`Token` 是整棵树的地基：它记录自己覆盖的源码范围（半开 `[Start, End)`）、自己的子单元、以及处理每个字符时该跑哪些跳转。
+
+调度只认「上下文 + 窗口 + 下标」：`Process(context, buffer, index)` 处理窗口里的一个位置，消费了字符就必须推进 `context.Index`。
 
 # class Token
 
@@ -44,11 +45,13 @@ Token，语法树的地基。
 
 ## field SourceRange:SourceRange = new SourceRange()
 
-本单元覆盖的源码范围。
+本单元覆盖的源码范围（半开 `[Start, End)`）。
 
-## field LastSource:Source | null = null
+## field LastIndex:int = -1
 
-上一次处理的字符位置。
+最近被本单元处理（消费）的字符下标；`-1` 表示还没处理过。
+
+注意它记的是**下标**而不是终点：形状的补终点用 `LastIndex + 1`（半开区间终点）。
 
 ## field Closed:bool = false
 
@@ -88,11 +91,11 @@ if (position >= 0 && position < this.Data.length) {
 return null;
 ```
 
-## protected method Default:(context:SyntaxContext, source:Source)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 所有跳转都不接手时的兜底处理。
 
-抽象方法。`Root.Default` 会在这里报「未知字符」。
+抽象方法。`Root.Default` 会在这里报「未知字符」。`ShapeToken.Default` 保持空实现——空白由调度层的统一 `+1` 吞掉。
 
 ```ts
 throw new Error("abstract member: Default");
@@ -110,12 +113,12 @@ throw new Error("abstract member: Close");
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
-尝试关闭：范围必须已签入签出，然后关闭，并把关闭的结果透传出去。
+尝试关闭：范围必须两端都已设置（`Start >= 0 && End >= 0`），然后关闭，并把关闭的结果透传出去。
 
 约定：`SourceRange` 只能赋值一次；`Close` 之前它必须已赋值；新建单元时上一个单元必须已关闭。
 
 ```ts
-if (this.SourceRange.Start === null || this.SourceRange.End === null) {
+if (this.SourceRange.Start < 0 || this.SourceRange.End < 0) {
   throw SourceException.SourceRangeContainsNull;
 }
 return this.Close(context);
@@ -167,21 +170,21 @@ if (this.Parent !== null) {
 return this.Parent;
 ```
 
-## method Process:(context:SyntaxContext, source:Source)=>void
+## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
-处理一个字符。
+处理窗口里 `index` 处的一个字符。
 
 ```ts
 throw new Error("abstract member: Process");
 ```
 
-## method SignIn:(source:Source)=>Token
+## method SignIn:(index:int)=>Token
 
-签入：把范围起点设为 `source`。起点只能设一次。
+签入：把范围起点设为 `index`。起点只能设一次（`-1` 表示未设置）。
 
 ```ts
-if (this.SourceRange.Start === null) {
-  this.SourceRange.Start = source;
+if (this.SourceRange.Start < 0) {
+  this.SourceRange.Start = index;
   return this;
 }
 throw SourceException.SourceRangeStartIsSetted;
@@ -192,38 +195,38 @@ throw SourceException.SourceRangeStartIsSetted;
 用另一个单元的起点签入。
 
 ```ts
-if (token.SourceRange.Start === null) {
+if (token.SourceRange.Start < 0) {
   throw SourceException.SourceRangeStartIsNull;
 }
 return this.SignIn(token.SourceRange.Start);
 ```
 
-## method SignOut:(source:Source)=>void
+## method SignOut:(endIndex:int)=>void
 
-签出：把范围终点设为 `source`，并让最后一个子单元递归签出。终点只能设一次。
+签出：把范围终点设为 `endIndex`（**被消费字符的下标 +1**，开区间终点），并让最后一个子单元递归签出。终点只能设一次。
 
 ```ts
-if (this.SourceRange.End === null) {
-  this.SourceRange.End = source;
+if (this.SourceRange.End < 0) {
+  this.SourceRange.End = endIndex;
   if (this.Data.length !== 0) {
-    this.Data[this.Data.length - 1].TrySignOut(source);
+    this.Data[this.Data.length - 1].TrySignOut(endIndex);
   }
 } else {
   throw SourceException.SourceRangeEndIsSetted;
 }
 ```
 
-## private method TrySignOut:(source:Source)=>void
+## private method TrySignOut:(endIndex:int)=>void
 
 递归签出：只在终点还没设过时往下传。
 
 它与 `SignOut` 的差别是**不抛异常**——遇到已签出的子单元就停。
 
 ```ts
-if (this.SourceRange.End === null) {
-  this.SourceRange.End = source;
+if (this.SourceRange.End < 0) {
+  this.SourceRange.End = endIndex;
   if (this.Data.length !== 0) {
-    this.Data[this.Data.length - 1].TrySignOut(source);
+    this.Data[this.Data.length - 1].TrySignOut(endIndex);
   }
 }
 ```
@@ -233,7 +236,7 @@ if (this.SourceRange.End === null) {
 用另一个单元的终点签出。
 
 ```ts
-if (token.SourceRange.End === null) {
+if (token.SourceRange.End < 0) {
   throw SourceException.SourceRangeEndIsNull;
 }
 this.SignOut(token.SourceRange.End);
@@ -248,38 +251,38 @@ this.SignInToken(token);
 this.SignOutToken(token);
 ```
 
-## method Undo:(source:Source)=>void
+## method Undo:(index:int)=>void
 
-回退：找到覆盖 `source` 的子单元，让它回退。
+回退：找到覆盖 `index` 的子单元，让它回退。
 
 `WhichUnitRangeContains` 可能返回 `null`，所以要判空再转发。
 
 ```ts
-const undoUnit = this.WhichUnitRangeContains(source);
+const undoUnit = this.WhichUnitRangeContains(index);
 if (undoUnit !== null) {
-  undoUnit.Undo(source);
+  undoUnit.Undo(index);
 }
 ```
 
-## method IsUndo:(source:Source)=>bool
+## method IsUndo:(index:int)=>bool
 
 能不能回退。
 
 ```ts
-const undoUnit = this.WhichUnitRangeContains(source);
+const undoUnit = this.WhichUnitRangeContains(index);
 if (undoUnit !== null) {
-  return undoUnit.IsUndo(source);
+  return undoUnit.IsUndo(index);
 }
 return false;
 ```
 
-## method WhichUnitRangeContains:(source:Source)=>Token | null
+## method WhichUnitRangeContains:(index:int)=>Token | null
 
-从后往前找第一个覆盖了 `source` 的子单元。
+从后往前找第一个半开范围覆盖了 `index` 的子单元。
 
 ```ts
 for (let i = this.Data.length - 1; i >= 0; i--) {
-  if (this.Data[i].SourceRange.IsInRange(source)) {
+  if (this.Data[i].SourceRange.IsInRange(index)) {
     return this.Data[i];
   }
 }
