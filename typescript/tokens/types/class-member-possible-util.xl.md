@@ -10,6 +10,7 @@ import { ClassDeclarationShape } from "../declarations/class-declaration-shape.x
 import { ItemUtil } from "../item-util.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
 import { MemberBoundary } from "./member-boundary.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 ```
 
 # namespace cangjie
@@ -193,9 +194,12 @@ return (unit as Symbol).Is(";");
 return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
 ```
 
-## static method NextChar:(last:Source | null)=>string
+## static method NextChar:(last:SourceRange | null)=>string
 
 `last` 之后的下一个字符，跳过空白与 `//` / `/* */` 注释；越界返回空串。
+
+`last` 是**单元自己的范围**（半开 `[Start, End)`）：扫描从 `EndIndex` 开始。token 的 `SourceRange` 只带下标，
+读字符用的文档取自 `last.Document`；没有关联文档（或还没签出）时返回空串。
 
 成员收口判据要用它回答「最后一个代码单元后面是不是容器的收口字符」——那个字符可能还没被 token 化。
 
@@ -204,27 +208,31 @@ if (last === null) {
   return "";
 }
 const document = last.Document;
+if (document === null || last.EndIndex < 0) {
+  return "";
+}
 const count = document.GetCount();
-let at = last.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = last.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v"
     || ch === "\f" || ch === "\u2028" || ch === "\u2029") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -510,7 +518,7 @@ if (markText === "?" || markText === "?:") {
     if (afterParams !== null) {
       optionalMethodLike = ClassMemberPossibleUtil.TextOf(afterParams) === ":";
     } else {
-      optionalMethodLike = ClassMemberPossibleUtil.NextChar((afterMark as Bracket).SourceRange.End) === ":";
+      optionalMethodLike = ClassMemberPossibleUtil.NextChar((afterMark as Bracket).SourceRange) === ":";
     }
     if (optionalMethodLike) {
       return methodLike;
@@ -561,7 +569,7 @@ return ALL;
 
 三条**只在角括号深度为 0 时生效**：成员自身 `<...>` 里的 `>` 是成员内部结构，不是本层收口证据。
 
-最后一个代码单元还没闭合（`SourceRange.End` 为 `null`）时**一律不收口**：方法体 / 类型字面量的 `{` 在关闭之前不能算成员末尾。
+最后一个代码单元还没闭合（`SourceRange.EndIndex < 0`）时**一律不收口**：方法体 / 类型字面量的 `{` 在关闭之前不能算成员末尾。
 
 **分界证据落在修饰词上时不收口**：`class C { public static` ⏎ `readonly a = 1 }` 里 `FindMemberBoundary` 会在
 `readonly` 处给出边界（`static` 是 Common、`readonly` 像成员起点），但整段 raw 文本里它们是**同一条成员**的修饰词链——
@@ -597,8 +605,7 @@ if (decorated && state.Kinds.length > 1) {
   return;
 }
 const last = code[code.length - 1];
-const lastEnd = last.SourceRange.End;
-if (lastEnd === null) {
+if (last.SourceRange.EndIndex < 0) {
   return;
 }
 const angle = ClassMemberPossibleUtil.AngleDepth(code);
@@ -617,7 +624,7 @@ if (angle === 0) {
     complete = true;
     end = code.length - 1;
   }
-  if (!complete && ClassMemberPossibleUtil.IsCompletionBoundary(ClassMemberPossibleUtil.NextChar(lastEnd))) {
+  if (!complete && ClassMemberPossibleUtil.IsCompletionBoundary(ClassMemberPossibleUtil.NextChar(last.SourceRange))) {
     complete = true;
     end = code.length - 1;
   }
@@ -680,22 +687,22 @@ return state;
 
 ## static method BasePos:(host:Token, start:int)=>int
 
-成员形状的 `Pos` 口径，与 `ClassDeclarationShape.BuildMembers` 里 `previousEnd` 的初值同口径：`start` 前面最近一个非 trivia 单元的 `End.Index + 1`；前面什么都没有时用**宿主括号起点 + 1**（class 体首成员的 `Pos` 是 `{` 之后，不是 `0`）。
+成员形状的 `Pos` 口径，与 `ClassDeclarationShape.BuildMembers` 里 `previousEnd` 的初值同口径：`start` 前面最近一个非 trivia 单元的 `EndIndex`；前面什么都没有时用**宿主括号起点 + 1**（class 体首成员的 `Pos` 是 `{` 之后，不是 `0`）。
 
 ```ts
 if (start > 0) {
   for (let at = start - 1; at >= 0; at--) {
     if (!host.Data[at].IsTriviaToken) {
-      const previousEnd = host.Data[at].SourceRange.End;
-      if (previousEnd !== null) {
-        return previousEnd.Index + 1;
+      const previousEnd = host.Data[at].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        return previousEnd;
       }
       break;
     }
   }
 }
-if (host.SourceRange.Start === null) {
+if (host.SourceRange.StartIndex < 0) {
   return 0;
 }
-return host.SourceRange.Start.Index + 1;
+return host.SourceRange.StartIndex + 1;
 ```

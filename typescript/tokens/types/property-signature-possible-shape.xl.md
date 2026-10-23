@@ -7,6 +7,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -247,9 +248,12 @@ if (inner.length >= 2 && MemberPossibleUtil.TextOf(inner[1]) === ":") {
 return false;
 ```
 
-## static method NextChar:(last:Source | null)=>string
+## static method NextChar:(last:SourceRange | null)=>string
 
 `last` 之后的下一个字符，跳过空白与 `//` / `/* */` 注释；越界返回空串。
+
+`last` 是**单元自己的范围**（半开 `[Start, End)`）：扫描从 `EndIndex` 开始。token 的 `SourceRange` 只带下标，
+读字符用的文档取自 `last.Document`；没有关联文档（或还没签出）时返回空串。
 
 成员收口判据要用它回答「最后一个代码单元后面是不是容器的收口字符」——那个字符可能还没被 token 化。
 
@@ -258,27 +262,31 @@ if (last === null) {
   return "";
 }
 const document = last.Document;
+if (document === null || last.EndIndex < 0) {
+  return "";
+}
 const count = document.GetCount();
-let at = last.Index + 1;
+const whole = SourceRange.Whole(document);
+let at = last.EndIndex;
 while (at < count) {
-  const ch = document.At(at).Value;
+  const ch = whole.At(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v"
     || ch === "\f" || ch === "\u2028" || ch === "\u2029") {
     at++;
     continue;
   }
   if (ch === "/" && at + 1 < count) {
-    const next = document.At(at + 1).Value;
+    const next = whole.At(at + 1);
     if (next === "/") {
       at += 2;
-      while (at < count && document.At(at).Value !== "\n") {
+      while (at < count && whole.At(at) !== "\n") {
         at++;
       }
       continue;
     }
     if (next === "*") {
       at += 2;
-      while (at + 1 < count && !(document.At(at).Value === "*" && document.At(at + 1).Value === "/")) {
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
         at++;
       }
       at += 2;
@@ -437,7 +445,7 @@ if (text === "get" || text === "set") {
       if (cursor + 1 < code.length) {
         methodLike = MemberPossibleUtil.TextOf(code[cursor + 1]) === ":";
       } else {
-        methodLike = MemberPossibleUtil.NextChar((afterMark as Bracket).SourceRange.End) === ":";
+        methodLike = MemberPossibleUtil.NextChar((afterMark as Bracket).SourceRange) === ":";
       }
       if (methodLike) {
         return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.MethodKind);
@@ -482,7 +490,7 @@ if (unit instanceof Common || unit instanceof String) {
       if (cursor + 1 < code.length) {
         methodLike = MemberPossibleUtil.TextOf(code[cursor + 1]) === ":";
       } else {
-        methodLike = MemberPossibleUtil.NextChar((after as Bracket).SourceRange.End) === ":";
+        methodLike = MemberPossibleUtil.NextChar((after as Bracket).SourceRange) === ":";
       }
       if (methodLike) {
         return MemberPossibleUtil.OnlyKind(MemberPossibleUtil.MethodKind);
@@ -558,7 +566,7 @@ if (angle === 0) {
   } else if (MemberPossibleUtil.IsSeparator(last)) {
     complete = true;
     end = code.length - 1;
-  } else if (MemberPossibleUtil.IsCompletionBoundary(MemberPossibleUtil.NextChar(last.SourceRange.End))) {
+  } else if (MemberPossibleUtil.IsCompletionBoundary(MemberPossibleUtil.NextChar(last.SourceRange))) {
     complete = true;
     end = code.length - 1;
   }
@@ -711,24 +719,24 @@ return state;
 
 ## static method BasePos:(host:Token, start:int)=>int
 
-成员形状的 `Pos` 口径（与 `InterfaceDeclarationShape.BuildMembers` 的 `builder.Load(bracket.Data, bracket.SourceRange.Start.Index + 1)` 一致）：条目起点前面最近一个非 trivia 单元的 `End.Index + 1`；前面什么都没有时用宿主起点 + 1。
+成员形状的 `Pos` 口径（与 `InterfaceDeclarationShape.BuildMembers` 的 `builder.Load(bracket.Data, bracket.SourceRange.StartIndex + 1)` 一致）：条目起点前面最近一个非 trivia 单元的 `EndIndex`；前面什么都没有时用宿主起点 + 1。
 
 ```ts
 if (start > 0) {
   for (let at = start - 1; at >= 0; at--) {
     if (!host.Data[at].IsTriviaToken) {
-      const previousEnd = host.Data[at].SourceRange.End;
-      if (previousEnd !== null) {
-        return previousEnd.Index + 1;
+      const previousEnd = host.Data[at].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        return previousEnd;
       }
       break;
     }
   }
 }
-if (host.SourceRange.Start === null) {
+if (host.SourceRange.StartIndex < 0) {
   return 0;
 }
-return host.SourceRange.Start.Index + 1;
+return host.SourceRange.StartIndex + 1;
 ```
 
 ## static method MemberParsedWhole:(builder:TypeBuilder, consumedLength:int)=>bool
