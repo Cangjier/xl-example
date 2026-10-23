@@ -63,7 +63,7 @@ const BODY_TARGETS = {
     memberStart: () => MEMBER_START_CASES,
     recovery: () => RECOVERY_CASES,
   },
-  // 预留：T5 给 EnumDeclarationShape 增加 CreateBodyPossibleShapesCache / CreateBodyPossibleShapes 后自动生效。
+  // enum：T5 落地。候选取自 EnumDeclarationShape.CreateBodyPossibleShapesCache。
   enum: {
     shapeName: "EnumDeclarationShape",
     modulePath: "typescript/tokens/declarations/enum-declaration-shape.js",
@@ -71,10 +71,10 @@ const BODY_TARGETS = {
     candidates: {
       EnumMemberPossibleShape: "typescript/tokens/members/enum-member-possible-shape.js",
     },
-    cases: () => [],
-    genericBoundary: () => [],
-    memberStart: () => [],
-    recovery: () => [],
+    cases: () => ENUM_CASES,
+    genericBoundary: () => ENUM_INITIALIZER_CASES,
+    memberStart: () => ENUM_MEMBER_START_CASES,
+    recovery: () => ENUM_RECOVERY_CASES,
   },
   // 预留：T6 给 ClassDeclarationShape 增加 CreateBodyPossibleShapesCache / CreateBodyPossibleShapes 后自动生效。
   class: {
@@ -234,6 +234,102 @@ const RECOVERY_CASES = [
   { source: "interface A { readonly new (): A }", required: ["ConstructSignaturePossibleShape"] },
   { source: "interface A { get x(): A get y(): B }", required: ["GetAccessorPossibleShape"] },
   { source: "interface A { set x(v: A) set y(v: B) }", required: ["SetAccessorPossibleShape"] },
+];
+
+/** enum 默认用例：成员名族（Identifier / 字符串 / 数字 / 计算名）+ 初始化器 + 修饰词 / 装饰器 / 尾随逗号。 */
+const ENUM_CASES = [
+  "enum E {}",
+  "enum E { A }",
+  "enum E { A, B }",
+  "enum E { A = 1 }",
+  "enum E { A = 1, B = 2 }",
+  "enum E { A = 0, B = 1, C = 2 }",
+  "enum E { A = \"x\" }",
+  "enum E { A = `x` }",
+  "enum E { \"a\" = 1 }",
+  "enum E { 'a' = 1 }",
+  "enum E { 1 = 1 }",
+  "enum E { [k] }",
+  "enum E { [k] = 1 }",
+  "enum E { [f()] = 1 }",
+  "enum E { [\"a\" + \"b\"] = 1 }",
+  "enum E { A = -1 }",
+  "enum E { A = ~0 }",
+  "enum E { A = 1 << 2 }",
+  "enum E { A = 1 + 2 }",
+  "enum E { A = \"x\", B = \"y\" }",
+  "enum E { A, }",
+  "enum E { A = 1, }",
+  "enum E { A = \"x\", }",
+  "enum E { A /* c */, B }",
+  "enum E { A = /* c */ 1 }",
+  "enum E { A = 1, /* c */ B = 2 }",
+  "enum E { /* c */ }",
+  "enum E { /* c */ A }",
+  "enum E { A /* c */ }",
+  "enum E { A = 1 /* c */ }",
+  "enum E {\n\n A,\n\n B\n\n}",
+  "enum E {\nA\n}",
+  "enum E {\nA,\nB\n}",
+  "enum E { A = 1 } // c",
+  "enum E { A } /* c */",
+  "declare enum E {}",
+  "declare enum E { A }",
+  "declare enum E { A = 1 }",
+  "const enum E { A = 1 }",
+  "declare const enum E { A = 1 }",
+  "@dec enum E { A }",
+  "enum E { A } enum F { B }",
+  "enum E { A }\nconst x = 1",
+  "interface I {} enum E {}",
+  "enum E { A } class C {}",
+  "function f() {} enum E { A }",
+];
+
+/** enum 初始化器边界：初始化器是任意表达式，内部逗号 / 括号 / 尖括号 / 模板不能当成员分隔符。 */
+const ENUM_INITIALIZER_CASES = [
+  { source: "enum E { A = f(1, 2) }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = f(1, 2), B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = new Map([1, 2]) }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = { x: 1 } }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = { x: 1 }, B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = [1, 2] }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = [1, 2], B = [3] }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = (1, 2) }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = (1, 2), B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = 1 < 2 }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = 1 > 2 }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = b ? 1 : 2 }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = b ? 1 : 2, B = 3 }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = 1 + 2, B = 3 * 4 }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = x || y, B = z && w }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = `x${1}y` }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = `x${1}y`, B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = \"a,b\", B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = f(g(1, 2), 3), B }", required: ["EnumMemberPossibleShape"] },
+];
+
+/** enum 成员起点：换行 / 注释 / 计算名 / 字符串名与逗号、容器收口的交互。 */
+const ENUM_MEMBER_START_CASES = [
+  { source: "enum E { A\n, B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A /* c */\n, B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = 1\n, B = 2 }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = 1 /* c */, B = 2 }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A, /* c */ B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A,\nB }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { [k]\n, B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { \"a\"\n, b }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A\n} ", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A\n}", required: ["EnumMemberPossibleShape"] },
+];
+
+/** enum 恢复形：行尾 / 成员之间只有逗号、空组、空枚举体等**不抛异常**的形态，成员必须回落 raw 兜底。 */
+const ENUM_RECOVERY_CASES = [
+  { source: "enum E { A = 1, , B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E {, A }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A, , B }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A, B, }", required: ["EnumMemberPossibleShape"] },
+  { source: "enum E { A = (1, 2), , B }", required: ["EnumMemberPossibleShape"] },
 ];
 
 // ---------------------------------------------------------------------------
