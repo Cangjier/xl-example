@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { GuideToken } from "../../guide-token.xl.md"
+import { SourceRange } from "../../source-range.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
@@ -32,9 +33,9 @@ return (this.Parent as InterpolationString)!.ParentString;
 
 已经数过的右花括号个数。
 
-## protected field Items:Array<Source> = []
+## protected field Items:Array<int> = []
 
-数括号过程中经过的位置。
+数括号过程中经过的位置（下标）。
 
 ## constructor:(Template:Template)=>void
 
@@ -44,22 +45,24 @@ return (this.Parent as InterpolationString)!.ParentString;
 super(Template);
 ```
 
-## protected method Navigate:(context:SyntaxContext, Src:Source)=>void
+## protected method Navigate:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 只认右花括号，按数到的个数分四种走法：
 
-1. `}` 且个数**等于** `AncestorString.InterpolationCount`——把自己从父单元摘掉，再让父插值单元 `ForceExit(context, Src)`，然后**直接返回**（这个 `}` 不进 `Items`）。
-2. `}` 但个数**还没到**——什么都不做，落到方法末尾的 `Items.push(Src)`。
+1. `}` 且个数**等于** `AncestorString.InterpolationCount`——把自己从父单元摘掉，再让父插值单元 `ForceExit(context, buffer, index)`，然后**直接返回**（这个 `}` 不进 `Items`）。
+2. `}` 但个数**还没到**——什么都不做，落到方法末尾的 `Items.push(index)`。
 3. `}` 但个数**超过了**——抛空消息异常。
 4. 不是 `}`——抛「插值关闭异常」。
 
+`Navigate` 消费字符但**不碰 `context.Index`**：由 `GuideToken.Process` 统一收口（没压消息就补 `+1`）。
+
 ```ts
-const Value = Src.Value;
+const Value = buffer.At(index);
 if (Value === "}") {
   this.BracketCount++;
   if (this.BracketCount === this.AncestorString.InterpolationCount) {
     this.RemoveSelf();
-    (this.Parent as InterpolationString)!.ForceExit(context, Src);
+    (this.Parent as InterpolationString)!.ForceExit(context, buffer, index);
     return;
   } else if (this.BracketCount < this.AncestorString.InterpolationCount) {
     //不确定
@@ -70,5 +73,5 @@ if (Value === "}") {
   //不正常
   throw new Error("插值关闭异常");
 }
-this.Items.push(Src);
+this.Items.push(index);
 ```

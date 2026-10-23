@@ -4,6 +4,7 @@ import { BranchStates } from "../../branch-states.xl.md"
 import { CloseStates } from "../../close-states.xl.md"
 import { GuideToken } from "../../guide-token.xl.md"
 import { ReloadMessage } from "../../messages/reload-message.xl.md"
+import { SourceRange } from "../../source-range.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
 import { Token } from "../../token.xl.md"
 import { Template } from "../../templates/template.xl.md"
@@ -28,45 +29,48 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 **哪些引号算起点、有没有那几种形态，都从模板取**：`Template.StringTemplate` 的 `Quotes` / `HasVerbatim` / `HasInterpolationPrefix` / `HasInterpolationQuoteChars` / `InterpolationQuoteChars` / `HasRaw`。它自己不带 `StringChars` 这类字段——配置归模板，形状归 `String`。
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 当前字符是模板声明的字符串起点就认下：新建一个 `StringGuide`，按模板回看前缀，再把它挂到 `unit` 上；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
 
-回看循环：从当前字符往前一个位置起，前缀字符只有在模板打开了对应形态时才算——`HasInterpolationPrefix` 打开才认 `$`，`HasVerbatim` 打开才认 `@`；遇到别的字符就停。随后逆序处理记下来的每个前缀：逐字前缀置 `IsSupportVerbatim`，内插前缀置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉。
+回看循环：从当前字符往前一个位置起，前缀字符只有在模板打开了对应形态时才算——`HasInterpolationPrefix` 打开才认 `$`，`HasVerbatim` 打开才认 `@`；遇到别的字符就停。前缀可能已经落在当前窗口之前，所以字符一律从 `SourceRange.Whole(buffer.Document!)` 上取。随后处理记下来的每个前缀：逐字前缀置 `IsSupportVerbatim`，内插前缀置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉。
 
 **引号内内插另外判**：模板打开 `HasInterpolationQuoteChars`、且当前引号在 `InterpolationQuoteChars` 里时，新建的向导直接置 `IsSupportInterpolation = true`、`InterpolationCount = 1`——这一类串的 `${` 是引号**里面**的两个字符，由 `String` 在串内自己啃（见 `string.xl.md` 的 `PendingInterpolation`），向导不参与回看。
 
-**没有逐字 / 原始串的语言（ts）不建向导**：只有逐字串 / 原始串才需要「看下一个字符」数引号，所以 `Transit` 在这两种开关都关时直接造 `String`（`CreateString` 把刚回看到的开关抄过去）并签入开引号，把后续字符全部留给 `String` 的 `Default`。这样一来 `"` / `` ` `` 停在 EOF 时树里只有一个未关闭的 `String`，不会留下未决向导，也不需要判断「这是不是最后一个字符」。
+**没有逐字 / 原始串的语言（ts）不建向导**：只有逐字串 / 原始串才需要「看下一个字符」数引号，所以 `Transit` 在这两种开关都关时直接造 `String`（`CreateString` 把刚回看到的开关抄过去）并签入开引号，把后续字符全部留给 `String` 的 `ExitOrPre` / `Default`。这样一来 `"` / `` ` `` 停在 EOF 时树里只有一个未关闭的 `String`，不会留下未决向导，也不需要判断「这是不是最后一个字符」。
 
 ts 的模板把这两个前缀开关都关掉，所以 `@"…"` / `$"…"` 不会在这里被当成字符串起点，`@` 与 `$` 留给别的 token。这是默认值：`HasVerbatim` / `HasInterpolationPrefix` 都是 `false`；引号内内插由 `HasInterpolationQuoteChars` 打开，默认 `true`、只认反引号。
 
 ```ts
+const value = buffer.At(index);
 const config = unit.Template.StringTemplate;
-if (!config.Quotes.includes(source.Value)) {
+if (!config.Quotes.includes(value)) {
   return BranchStates.Undo;
 }
-const item = new StringGuide(unit.Template, source.Value);
-if (config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(source.Value)) {
+const item = new StringGuide(unit.Template, value);
+if (config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(value)) {
   item.IsSupportInterpolation = true;
   item.InterpolationCount = 1;
 }
-const undoSources: Source[] = [];
-let last: Source | null = source;
+const undoSources: number[] = [];
+const whole = SourceRange.Whole(buffer.Document!);
+let last = index;
 while (true) {
-  last = last!.Pre();
-  if (last === null) {
+  last = last - 1;
+  if (last < 0) {
     break;
   }
-  if (config.HasInterpolationPrefix && last.Value === config.InterpolationPrefix) {
+  const previous = whole.At(last);
+  if (config.HasInterpolationPrefix && previous === config.InterpolationPrefix) {
     undoSources.push(last);
-  } else if (config.HasVerbatim && last.Value === config.VerbatimPrefix) {
+  } else if (config.HasVerbatim && previous === config.VerbatimPrefix) {
     undoSources.push(last);
   } else {
     break;
   }
 }
 for (const i of undoSources) {
-  if (i.Value === config.VerbatimPrefix) {
+  if (whole.At(i) === config.VerbatimPrefix) {
     item.IsSupportVerbatim = true;
   } else {
     item.IsSupportInterpolation = true;
@@ -82,12 +86,12 @@ if (!config.HasRaw && !config.HasVerbatim) {
   const asString = item.CreateString(false, 1);
   unit.Add(asString);
   unit.MountedUnit = asString;
-  asString.SignIn(source);
+  asString.SignIn(index);
   return BranchStates.Done;
 }
 unit.Add(item);
 unit.MountedUnit = item;
-(unit.MountedUnit as StringGuide)!.SignIn(source);
+(unit.MountedUnit as StringGuide)!.SignIn(index);
 return BranchStates.Done;
 ```
 
@@ -138,48 +142,50 @@ item.RawQuoteCount = rawQuoteCount;
 return item;
 ```
 
-## protected method Navigate:(context:SyntaxContext, source:Source)=>void
+## protected method Navigate:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 引到目标：按模板与已经吃到的引号个数决定这是哪种字符串，然后把自己替换成对应的 `String`。
 
 **模板既没有原始串、也没有逐字串时不会走到这里**：那种形态在 `Transit` 里就直接换成了 `String`，向导根本不建立。所以这里只剩 C# 语义，按引号个数分三条：
 
-1. `QuoteCount == 1`——当前字符又是引号就只把计数加到 `2`；否则就是单引号串（`"x"`），换成 `String` 并用前一个位置签入，再把当前字符重放。
-2. `QuoteCount == 2`——当前字符又是引号时计数加到 `3`：若逐字串打开，这就是逐字串里表达一个双引号的三引号，换成 `String` 后用「前前一个位置」签入，并插两条 `ReloadMessage`；不逐字则继续往原始字符串走。当前字符不是引号时就是空串 `""`：换成 `String` 后从前前一个位置签入、从前一个位置签出，清空父单元的挂载，再重放当前字符。
+1. `QuoteCount == 1`——当前字符又是引号就只把计数加到 `2`；否则就是单引号串（`"x"`），换成 `String` 并用**前一个位置**签入，再把当前字符重放。
+2. `QuoteCount == 2`——当前字符又是引号时计数加到 `3`：若逐字串打开，这就是逐字串里表达一个双引号的三引号，换成 `String` 后用「前前一个位置」签入，并重放前一个与当前两个位置；不逐字则继续往原始字符串走。当前字符不是引号时就是空串 `""`：换成 `String` 后从前前一个位置签入、以当前下标为开区间终点签出，清空父单元的挂载，再重放当前字符。
 3. 其余（`QuoteCount >= 3`）——当前字符又是引号就继续加计数；否则确定为原始字符串，换成 `String`（`IsSupportRaw = true`，`RawQuoteCount = QuoteCount`），以自己的起点签入，再重放当前字符。
 
+`Navigate` 压 `ReloadMessage` 时不碰 `context.Index`：由 `GuideToken.Process` 收口（压过消息就保持阻塞，由驱动层重放）。
+
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 if (this.QuoteCount === 1) {
   if (value === this.StringChar) {
     this.QuoteCount++;
   } else {
     const item = this.CreateString(false, 1);
-    this.Replace(item).SignIn(source.Pre()!);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+    this.Replace(item).SignIn(index - 1);
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
   }
 } else if (this.QuoteCount === 2) {
   if (value === this.StringChar) {
     this.QuoteCount++;
     if (this.IsSupportVerbatim) {
       const item = this.CreateString(false, 1);
-      this.Replace(item).SignIn(source.Pre()!.Pre()!);
-      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source.Pre()!));
-      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+      this.Replace(item).SignIn(index - 2);
+      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index - 1));
+      context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
     }
   } else {
     const item = this.CreateString(false, 1);
-    this.Replace(item).SignIn(source.Pre()!.Pre()!).SignOut(source.Pre()!);
+    this.Replace(item).SignIn(index - 2).SignOut(index);
     this.Parent!.MountedUnit = null;
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
   }
 } else {
   if (value === this.StringChar) {
     this.QuoteCount++;
   } else {
     const item = this.CreateString(true, this.QuoteCount);
-    this.Replace(item).SignIn(this.SourceRange.Start!);
-    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+    this.Replace(item).SignIn(this.SourceRange.Start);
+    context.Messages.push(ReloadMessage.WithoutProcessOwner(this, index));
   }
 }
 ```
@@ -193,7 +199,7 @@ if (this.QuoteCount === 1) {
 ```ts
 if (this.QuoteCount === 2) {
   const item = this.CreateString(false, 1);
-  this.Replace(item).SignIn(this.SourceRange.Start!).SignOut(this.SourceRange.End!);
+  this.Replace(item).SignIn(this.SourceRange.Start).SignOut(this.SourceRange.End);
 }
 return super.Close(context);
 ```
