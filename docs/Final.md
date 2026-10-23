@@ -104,6 +104,9 @@
 
 ---
 
+
+> 性能现状（2026-10-23，DTS-PERF 轮）：226 份 `.d.ts` 解析合计约 3.36 s，与输入严格线性（β=1.008），约 70% 的时间花在 core 的「每字符固定税」上（每字符 3.07 次对象分配 + 3.44 次 `UnitToken.Process`）。已有一个「8 份 −26~−30%、token 树与 XML 8/8 等价、0 basic-tokens 改动」的组合原型待合并；路线图与批准边界见 [`docs/dts-optimization.md`](dts-optimization.md)。本节门禁读数不受影响。
+
 ## 3. 架构与开发规范
 
 权威原文是 [`typescript/IMPORTANCE.md`](../typescript/IMPORTANCE.md)（只允许用户编辑）；本节是摘要，冲突时以 IMPORTANCE 为准。
@@ -414,6 +417,7 @@ node samples/check.mjs                             # 当前不可运行（需 cj
 | `docs/share-cache-and-body-guide.md` | SHAPE-CACHE 轮经验总结 / 推广手册：`Share` 数据槽与纪律、interface 成员扫描二次→线性（前后数字）、body guide 推广到 enum / class、推广到其它 shape 的 checklist 与明确不做的清单、性能调查结论、风险与复跑口径 |
 | `docs/xl-to-cpp.md` | C++ 目标生成契约；文首有「修订说明（与实际实现对齐）」，早期两遍构建描述**未采用**，以文首说明与各节实际实现为准；文中 `dawn/...` 路径为历史示例 |
 | `docs/cpp-design-notes.md` | C++ 三个结构性决定的论证；文首注明第 2 条（`shared_ptr`）已落实，第 1 条（两遍构建+`CANGJIE_BODIES`）与第 3 条（`TypeName()` 字符串反射）**未采用**，实际方案见 `xl-to-cpp.md` |
+| `docs/dts-optimization.md` | DTS 性能优化总报告（DTS-PERF 定稿）：画像证据、15 条决策表、A/B/C 原型实测（8 份 −26~−30%，token 树与 XML 8/8 等价、0 basic-tokens 变更）与分阶段路线图；core / basic-tokens 改动需用户批准 |
 
 维护规则：
 
@@ -424,6 +428,7 @@ node samples/check.mjs                             # 当前不可运行（需 cj
   这些文件多为 `-text` 字节级夹具，未改动；需要旧内容用 git 历史查。
 
 ---
+
 
 ## 附录 A：47 个 stem 的用例数（当前 6167）
 
