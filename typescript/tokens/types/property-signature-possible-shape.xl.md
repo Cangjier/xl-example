@@ -50,11 +50,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## field HeadKinds:int = 0
 
-上一个**已定型**的 head 结论（`MemberPossibleUtil.ClassifyHead` 的位掩码），与 `HeadLen` 配对复用。
+上一个**已定型**的 head 结论（`MemberPossibleUtil.ClassifyHead` 剥掉未定型标记后的位掩码），与 `HeadSettled` 配对复用。
 
-## field HeadLen:int = -1
+## field HeadSettled:bool = false
 
-算出 `HeadKinds` 时 `Code` 的长度。`Code` 只追加，且分类结果只依赖前缀的前四个代码单元（实测最长定型点 3），所以长度到 4 之后结论不再变化；`-1` / 小于 4 表示还没有可复用的结论。
+`HeadKinds` 是否已经**语义定型**：`false` 表示 head 结论还会随 `Code` 追加而变（`ClassifyHead` 上次返回时还缺后续代码单元），必须重算；`true` 表示结论只依赖已经到齐的单元与源码字符，之后无论 `Code` 再追加什么都不变，可以直接复用。
+
+判据不是长度阈值：`Code` 的**长度**与「结论还能不能变」无关——前导修饰词链可以任意长（`readonly readonly readonly readonly …` 的第 5、6 个代码单元都还在继续消费修饰词），固定长度阈值会在链中间把「还没定型」的结论缓存下来。终局判据由 `ClassifyHead` 自己给出：它返回时置位 `MemberPossibleUtil.PendingBit` 就表示「还缺后续单元」，只有**没有**置位的结果才允许写进 `HeadKinds`。
 
 ## field CodeAt:Array<int> = []
 
@@ -142,6 +144,36 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 ## static field SetKind:int = 64
 
 `set` 访问器（`set x(v: A)`）。
+
+## static field PendingBit:int = 128
+
+`ClassifyHead` 返回值里的「**未定型**」标记位：置位表示这次分类还依赖尚未到达的代码单元（分类分支走到了 `Code` 末尾、需要再看一个单元才能定死），结论不能缓存；清掉这一位后剩下的低 7 位才是真正的 `Kind` 位掩码。
+
+放在 `1 << 7`：`Kind` 只占低 7 位（`PropertyKind` … `SetKind`），第 8 位空着。用这个标记位而不是长度阈值做缓存判据——代码单元的数量与「结论还能不能变」无关（前导修饰词链可以任意长），只有分类分支自己知道答案是否已经终局。
+
+## static method Pending:(kinds:int)=>int
+
+给 `ClassifyHead` 的返回值打上「未定型」标记：分类还缺后续代码单元。
+
+```ts
+return kinds | MemberPossibleUtil.PendingBit;
+```
+
+## static method IsPending:(raw:int)=>bool
+
+`ClassifyHead` 的返回值是不是「未定型」（置了 `PendingBit`）。
+
+```ts
+return (raw & MemberPossibleUtil.PendingBit) !== 0;
+```
+
+## static method WithoutPending:(raw:int)=>int
+
+清掉 `ClassifyHead` 返回值里的未定型标记，得到纯 `Kind` 位掩码。
+
+```ts
+return raw & ~MemberPossibleUtil.PendingBit;
+```
 
 ## private static field TextCacheUnit:Token | null = null
 
@@ -350,6 +382,8 @@ return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
 
 只看**已攒下的代码单元前缀**，回答「当前成员可能是哪几类」，结果是位掩码。信息不足时给多个可能（候选项继续等），已经能定死时给一类，明显不可能时给 `0`。
 
+返回值同时带**定型状态**：分类分支若走到了 `Code` 末尾、还要再看一个代码单元才能定死（前导修饰词链没走完、名字后面还没看到 `?` / `(` / `<` / `:` 等），返回的就是「位掩码 | `PendingBit`」——表示这个结论**不是终局**，`Code` 再追加单元就还可能变，调用方不得缓存；只有不带 `PendingBit` 的返回值才是「decisive 单元与它需要的后续单元都已到齐」的终局结论。缓存判据必须用这个标记位，**不能用 `Code.length` 之类的长度阈值**（修饰词链任意长，长度到某个固定值并不代表结论已经定型）。
+
 前缀阶段的修饰词与 `TypeBuilder.ParseTypeMember()` 同口径：
 
 - `readonly` 只有「同一行 + 后面跟名字 / 字符串名 / 计算名」时才是修饰词；换行时 TS 按 ASI 把 `readonly` 收成成员名（`readonly` ⏎ `readonly: number` 是两个成员）。
@@ -358,7 +392,7 @@ return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
 ```ts
 const ALL = MemberPossibleUtil.AllKinds();
 if (code.length === 0) {
-  return ALL;
+  return MemberPossibleUtil.Pending(ALL);
 }
 let at = 0;
 while (at < code.length) {
@@ -366,7 +400,7 @@ while (at < code.length) {
   const text = MemberPossibleUtil.TextOf(unit);
   if (text === "readonly") {
     if (at + 1 >= code.length) {
-      return ALL;
+      return MemberPossibleUtil.Pending(ALL);
     }
     const following = code[at + 1];
     if (MemberPossibleUtil.IsNameToken(following)
@@ -378,7 +412,7 @@ while (at < code.length) {
   }
   if (text === "abstract") {
     if (at + 1 >= code.length) {
-      return ALL;
+      return MemberPossibleUtil.Pending(ALL);
     }
     if (MemberPossibleUtil.TextOf(code[at + 1]) === "new") {
       at++;
@@ -389,7 +423,7 @@ while (at < code.length) {
   break;
 }
 if (at >= code.length) {
-  return ALL;
+  return MemberPossibleUtil.Pending(ALL);
 }
 const unit = code[at];
 if (unit instanceof Bracket) {
@@ -409,7 +443,7 @@ if (unit instanceof Bracket) {
       }
     }
     if (cursor >= code.length) {
-      return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
+      return MemberPossibleUtil.Pending(MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind);
     }
     const after = code[cursor];
     if (after instanceof Bracket && (after as Bracket).Is("(", ")")) {
@@ -428,7 +462,7 @@ if (text === "<") {
 }
 if (text === "new") {
   if (at + 1 >= code.length) {
-    return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.ConstructKind;
+    return MemberPossibleUtil.Pending(MemberPossibleUtil.PropertyKind | MemberPossibleUtil.ConstructKind);
   }
   const following = code[at + 1];
   if (following instanceof Bracket && (following as Bracket).Is("(", ")")) {
@@ -442,7 +476,7 @@ if (text === "new") {
 if (text === "get" || text === "set") {
   const accessorKind = text === "get" ? MemberPossibleUtil.GetKind : MemberPossibleUtil.SetKind;
   if (at + 1 >= code.length) {
-    return ALL;
+    return MemberPossibleUtil.Pending(ALL);
   }
   const nameUnit = code[at + 1];
   const nameText = MemberPossibleUtil.TextOf(nameUnit);
@@ -459,7 +493,7 @@ if (text === "get" || text === "set") {
     // `get?(this: This): Value` 是 MethodSignature（名字 get），`get?: A` 是 PropertySignature。
     let cursor = at + 2;
     if (cursor >= code.length) {
-      return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
+      return MemberPossibleUtil.Pending(MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind);
     }
     const afterMark = code[cursor];
     if (afterMark instanceof Bracket && (afterMark as Bracket).Is("(", ")")) {
@@ -483,7 +517,8 @@ if (text === "get" || text === "set") {
     return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
   }
   if (at + 2 >= code.length) {
-    return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind | accessorKind;
+    return MemberPossibleUtil.Pending(
+      MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind | accessorKind);
   }
   const bracketUnit = code[at + 2];
   if (bracketUnit instanceof Bracket && (bracketUnit as Bracket).Is("(", ")")) {
@@ -494,13 +529,13 @@ if (text === "get" || text === "set") {
 if (unit instanceof Common || unit instanceof String) {
   let cursor = at + 1;
   if (cursor >= code.length) {
-    return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
+    return MemberPossibleUtil.Pending(MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind);
   }
   const markText = MemberPossibleUtil.TextOf(code[cursor]);
   if (markText === "?" || markText === "?:") {
     cursor++;
     if (cursor >= code.length) {
-      return MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind;
+      return MemberPossibleUtil.Pending(MemberPossibleUtil.PropertyKind | MemberPossibleUtil.MethodKind);
     }
     const after = code[cursor];
     if (after instanceof Bracket && (after as Bracket).Is("(", ")")) {
@@ -564,15 +599,18 @@ if (MemberPossibleUtil.IsSeparator(code[0])) {
   state.Kinds = MemberPossibleUtil.AllKinds();
   return;
 }
-// head 结论按成员缓存：分类只依赖前缀的前四个代码单元，`Code` 又只追加，长度到 4 之后
-// 结论不再变化（实测最长定型点 3）。第一次在长度 ≥4 时算出并记住（`HeadLen`/`HeadKinds`），
-// 之后同一成员再判时直接复用，不再重跑 ClassifyHead。
+// head 结论按成员缓存，判据是**语义终局**而不是长度阈值：`ClassifyHead` 只在
+// 「decisive 单元与它需要的后续单元都到齐」时返回不带 `PendingBit` 的结果，那时结论
+// 无论 `Code` 再追加什么都不变，才允许写进 `HeadKinds` / `HeadSettled`；返回带标记
+// 就表示还缺后续单元（例如前导修饰词链还没走完、名字后面还没看到 `?` / `(` / `<` / `:`），
+// 本次用算出来的值继续判定，但**不缓存**，下一次重新分类。
 let head = state.HeadKinds;
-if (state.HeadLen < 4) {
-  head = MemberPossibleUtil.ClassifyHead(code);
-  if (code.length >= 4) {
+if (!state.HeadSettled) {
+  const raw = MemberPossibleUtil.ClassifyHead(code);
+  head = MemberPossibleUtil.WithoutPending(raw);
+  if (!MemberPossibleUtil.IsPending(raw)) {
     state.HeadKinds = head;
-    state.HeadLen = code.length;
+    state.HeadSettled = true;
   }
 }
 if (head === 0) {
@@ -722,7 +760,7 @@ if (shared !== null) {
 - `state.Checked > tokenIndex + 1`：缓存越过当前下标（防御；正常由 `Reset` 清空）→ 重建；
 - `state.Checked <= tokenIndex`：只**追加**新单元（不重建），增量推进 `Angle` 与边界，然后重算收口结论。
 
-新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `HeadKinds` / `HeadLen` / `CodeAt` / `Code` / `Angle` / `BoundaryScan` 全部是 `MemberPossibleScan` 字段声明处的构造默认值（`-1` / `false` / `0` / 新数组 / `0` / 新建的边界扫描），**不再在 `Scan` 里二次分配**——旧实现构造完后又写 `CodeAt = []` / `Code = []` / `new MemberBoundaryScan()`，每个新成员状态白白多出 2 个数组 + 1 个边界扫描状态（约 21 万对象/pass）。`Kinds` 不是构造默认值的语义（默认为 `0`），所以仍然显式写成 `AllKinds()`。
+新建状态时只覆盖 `Start`（随调用而变的那一项）：`Checked` / `Complete` / `End` / `Kinds` 初值 / `HeadKinds` / `HeadSettled` / `CodeAt` / `Code` / `Angle` / `BoundaryScan` 全部是 `MemberPossibleScan` 字段声明处的构造默认值（`-1` / `false` / `0` / 新数组 / `0` / 新建的边界扫描），**不再在 `Scan` 里二次分配**——旧实现构造完后又写 `CodeAt = []` / `Code = []` / `new MemberBoundaryScan()`，每个新成员状态白白多出 2 个数组 + 1 个边界扫描状态（约 21 万对象/pass）。`Kinds` 不是构造默认值的语义（默认为 `0`），所以仍然显式写成 `AllKinds()`。
 
 ```ts
 let state = cache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
