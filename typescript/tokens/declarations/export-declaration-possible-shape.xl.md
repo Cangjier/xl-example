@@ -560,17 +560,17 @@ if (kind === 0) {
     const named = NamedExportsShape.FromBracket(unit as Bracket, context);
     if (previous >= 0) {
       const previousEnd = built0.Data[previous].SourceRange.End;
-      if (previousEnd !== null) {
-        named.Pos = previousEnd.Index + 1;
+      if (previousEnd >= 0) {
+        named.Pos = previousEnd;
       }
-    } else if (unit.SourceRange.Start !== null) {
-      named.Pos = unit.SourceRange.Start.Index;
+    } else if (unit.SourceRange.Start >= 0) {
+      named.Pos = unit.SourceRange.StartIndex;
     }
     built0.Data.splice(at, 1, named);
     named.Parent = built0;
   }
   const begin0 = consumed0[0].SourceRange.Start;
-  if (begin0 !== null) {
+  if (begin0 >= 0) {
     built0.SignIn(begin0);
   }
   let previousCode0 = -1;
@@ -580,11 +580,11 @@ if (kind === 0) {
       break;
     }
   }
-  built0.Pos = begin0 !== null ? begin0.Index : -1;
+  built0.Pos = begin0 >= 0 ? begin0 : -1;
   if (previousCode0 >= 0) {
     const previousUnit = host.Data[previousCode0];
-    if (previousUnit.SourceRange.End !== null) {
-      built0.Pos = previousUnit.SourceRange.End.Index + 1;
+    if (previousUnit.SourceRange.End >= 0) {
+      built0.Pos = previousUnit.SourceRange.EndIndex;
     }
   }
   host.Data.splice(start, tokenIndex - start + 1, built0);
@@ -614,8 +614,8 @@ let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
+    if (end >= 0) {
+      pos = end;
     }
     break;
   }
@@ -623,8 +623,8 @@ for (let at = start - 1; at >= 0; at--) {
 const exportUnit = host.Data[exportIndex];
 const exportModifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
 exportModifier.Pos = pos;
-if (exportModifier.SourceRange.End === null && exportUnit.SourceRange.End !== null) {
-  exportModifier.SignOut(exportUnit.SourceRange.End);
+if (exportModifier.SourceRange.End < 0 && exportUnit.SourceRange.End >= 0) {
+  exportModifier.SignOut(exportUnit.SourceRange.EndIndex);
 }
 let declIndex = secondIndex;
 if (kind === 5 || kind === 10 || kind === 16 || kind === 20) {
@@ -658,8 +658,8 @@ if (kind === 4) {
   const endExclusive = asi ? tokenIndex : tokenIndex + 1;
   const consumed:Array<Token> = host.Data.slice(declIndex, endExclusive);
   let basePos = pos;
-  if (exportUnit.SourceRange.End !== null) {
-    basePos = exportUnit.SourceRange.End.Index + 1;
+  if (exportUnit.SourceRange.End >= 0) {
+    basePos = exportUnit.SourceRange.EndIndex;
   }
   const builder = new StatementBuilder(host.Template, context);
   builder.Load(consumed, basePos);
@@ -679,9 +679,9 @@ if (kind === 12) {
   // export declare const/let/var …;  —— 变量语句前有 ExportKeyword + DeclareKeyword 两个修饰词。
   const declareUnit = host.Data[secondIndex];
   const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
-  if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
-    declareModifier.SignOut(declareUnit.SourceRange.End);
+  declareModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
+  if (declareModifier.SourceRange.End < 0 && declareUnit.SourceRange.End >= 0) {
+    declareModifier.SignOut(declareUnit.SourceRange.EndIndex);
   }
   let keywordIndex = -1;
   for (let at = secondIndex + 1; at <= tokenIndex; at++) {
@@ -697,8 +697,8 @@ if (kind === 12) {
   const endExclusive = asi ? tokenIndex : tokenIndex + 1;
   const consumed:Array<Token> = host.Data.slice(keywordIndex, endExclusive);
   let basePos = pos;
-  if (declareUnit.SourceRange.End !== null) {
-    basePos = declareUnit.SourceRange.End.Index + 1;
+  if (declareUnit.SourceRange.End >= 0) {
+    basePos = declareUnit.SourceRange.EndIndex;
   }
   const builder = new StatementBuilder(host.Template, context);
   builder.Load(consumed, basePos);
@@ -720,9 +720,9 @@ if (kind === 13) {
   // export declare type T = A;  —— TypeAliasDeclaration 自带名字/类型两个 child，前面补两个修饰词。
   const declareUnit = host.Data[secondIndex];
   const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
-  if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
-    declareModifier.SignOut(declareUnit.SourceRange.End);
+  declareModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
+  if (declareModifier.SourceRange.End < 0 && declareUnit.SourceRange.End >= 0) {
+    declareModifier.SignOut(declareUnit.SourceRange.EndIndex);
   }
   let typeIndex = -1;
   for (let at = secondIndex + 1; at <= tokenIndex; at++) {
@@ -759,13 +759,13 @@ if (kind === 16) {
   const built = ClassDeclarationShape.FromUnitsAllowAnonymous(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
   const defaultModifier = new DefaultKeywordShape(host.Template);
-  if (defaultUnit.SourceRange.Start !== null) {
-    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  if (defaultUnit.SourceRange.Start >= 0) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.StartIndex);
   }
-  if (defaultUnit.SourceRange.End !== null) {
-    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  if (defaultUnit.SourceRange.End >= 0) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.EndIndex);
   }
-  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
   defaultModifier.TryToClose(context);
   built.Data.unshift(defaultModifier);
   defaultModifier.Parent = built;
@@ -800,23 +800,23 @@ if (kind === 18 || kind === 19) {
   const constToken = host.Data[constIndex];
   const built = EnumDeclarationShape.FromUnits(host, enumIndex, tokenIndex, context);
   const constModifier = new ConstKeywordShape(host.Template);
-  if (constToken.SourceRange.Start !== null) {
-    constModifier.SignIn(constToken.SourceRange.Start);
+  if (constToken.SourceRange.Start >= 0) {
+    constModifier.SignIn(constToken.SourceRange.StartIndex);
   }
-  if (constToken.SourceRange.End !== null) {
-    constModifier.SignOut(constToken.SourceRange.End);
+  if (constToken.SourceRange.End >= 0) {
+    constModifier.SignOut(constToken.SourceRange.EndIndex);
   }
   const constPrev = kind === 19 ? host.Data[secondIndex] : exportUnit;
-  constModifier.Pos = constPrev.SourceRange.End === null ? pos : constPrev.SourceRange.End.Index + 1;
+  constModifier.Pos = constPrev.SourceRange.End < 0 ? pos : constPrev.SourceRange.EndIndex;
   constModifier.TryToClose(context);
   built.Data.unshift(constModifier);
   constModifier.Parent = built;
   if (kind === 19) {
     const declareUnit = host.Data[secondIndex];
     const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-    declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
-    if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
-      declareModifier.SignOut(declareUnit.SourceRange.End);
+    declareModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
+    if (declareModifier.SourceRange.End < 0 && declareUnit.SourceRange.End >= 0) {
+      declareModifier.SignOut(declareUnit.SourceRange.EndIndex);
     }
     built.Data.unshift(declareModifier);
     declareModifier.Parent = built;
@@ -833,13 +833,13 @@ if (kind === 20) {
   const built = InterfaceDeclarationShape.FromUnits(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
   const defaultModifier = new DefaultKeywordShape(host.Template);
-  if (defaultUnit.SourceRange.Start !== null) {
-    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  if (defaultUnit.SourceRange.Start >= 0) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.StartIndex);
   }
-  if (defaultUnit.SourceRange.End !== null) {
-    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  if (defaultUnit.SourceRange.End >= 0) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.EndIndex);
   }
-  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
   defaultModifier.TryToClose(context);
   built.Data.unshift(defaultModifier);
   defaultModifier.Parent = built;
@@ -854,13 +854,13 @@ if (kind === 5) {
   const built = ClassDeclarationShape.FromUnitsAllowAnonymous(host, declIndex, tokenIndex, context);
   const defaultUnit = host.Data[secondIndex];
   const defaultModifier = new DefaultKeywordShape(host.Template);
-  if (defaultUnit.SourceRange.Start !== null) {
-    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  if (defaultUnit.SourceRange.Start >= 0) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.StartIndex);
   }
-  if (defaultUnit.SourceRange.End !== null) {
-    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  if (defaultUnit.SourceRange.End >= 0) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.EndIndex);
   }
-  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
   defaultModifier.TryToClose(context);
   built.Data.unshift(defaultModifier);
   defaultModifier.Parent = built;
@@ -921,7 +921,7 @@ if (kind === 10) {
       // (children: ExportKeyword, DefaultKeyword, AsteriskToken, Block), so build it.
       const asteriskUnit = host.Data[paramsIndex];
       const functionUnitForAsterisk = host.Data[functionIndex];
-      const asteriskPos = functionUnitForAsterisk.SourceRange.End === null ? pos : functionUnitForAsterisk.SourceRange.End.Index + 1;
+      const asteriskPos = functionUnitForAsterisk.SourceRange.End < 0 ? pos : functionUnitForAsterisk.SourceRange.EndIndex;
       const asterisk = new AsteriskTokenShape(host.Template);
       asterisk.SignInToken(asteriskUnit);
       asterisk.SignOutToken(asteriskUnit);
@@ -954,7 +954,7 @@ if (kind === 10) {
     }
     const bodyUnit = host.Data[bodyIndex] as Bracket;
     const paramsEnd = paramsUnit.SourceRange.End;
-    const bodyPos = paramsEnd === null ? pos : paramsEnd.Index + 1;
+    const bodyPos = paramsEnd < 0 ? pos : paramsEnd;
     const bodyBuilder = new StatementBuilder(host.Template, context);
     bodyBuilder.Load([bodyUnit], bodyPos);
     const body = bodyBuilder.BuildStatement();
@@ -972,23 +972,23 @@ if (kind === 10) {
       anonymous.Data.unshift(asteriskShape);
     }
     const functionUnit = host.Data[functionIndex];
-    if (functionUnit.SourceRange.Start !== null) {
-      anonymous.SignIn(functionUnit.SourceRange.Start);
+    if (functionUnit.SourceRange.Start >= 0) {
+      anonymous.SignIn(functionUnit.SourceRange.StartIndex);
     }
-    if (bodyUnit.SourceRange.End !== null) {
-      anonymous.SignOut(bodyUnit.SourceRange.End);
+    if (bodyUnit.SourceRange.End >= 0) {
+      anonymous.SignOut(bodyUnit.SourceRange.EndIndex);
     }
     anonymous.TryToClose(context);
     built = anonymous;
   }
   const defaultModifier = new DefaultKeywordShape(host.Template);
-  if (defaultUnit.SourceRange.Start !== null) {
-    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  if (defaultUnit.SourceRange.Start >= 0) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.StartIndex);
   }
-  if (defaultUnit.SourceRange.End !== null) {
-    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  if (defaultUnit.SourceRange.End >= 0) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.EndIndex);
   }
-  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
   defaultModifier.TryToClose(context);
   built.Data.unshift(defaultModifier);
   defaultModifier.Parent = built;
@@ -1061,7 +1061,7 @@ if (kind === 23) {
     if (host.Data[paramsIndex] instanceof Symbol && (host.Data[paramsIndex] as Symbol).Is("*")) {
       const asteriskUnit = host.Data[paramsIndex];
       const functionUnitForAsterisk = host.Data[functionIndex];
-      const asteriskPos = functionUnitForAsterisk.SourceRange.End === null ? pos : functionUnitForAsterisk.SourceRange.End.Index + 1;
+      const asteriskPos = functionUnitForAsterisk.SourceRange.End < 0 ? pos : functionUnitForAsterisk.SourceRange.EndIndex;
       const asterisk = new AsteriskTokenShape(host.Template);
       asterisk.SignInToken(asteriskUnit);
       asterisk.SignOutToken(asteriskUnit);
@@ -1095,10 +1095,10 @@ if (kind === 23) {
     const asyncShape = new AsyncKeywordShape(host.Template);
     asyncShape.SignInToken(asyncUnit);
     asyncShape.SignOutToken(asyncUnit);
-    asyncShape.Pos = defaultUnit.SourceRange.End === null ? pos : defaultUnit.SourceRange.End.Index + 1;
+    asyncShape.Pos = defaultUnit.SourceRange.End < 0 ? pos : defaultUnit.SourceRange.EndIndex;
     asyncShape.TryToClose(context);
     const paramsEnd = (paramsUnit as Bracket).SourceRange.End;
-    const bodyPos = paramsEnd === null ? pos : paramsEnd.Index + 1;
+    const bodyPos = paramsEnd < 0 ? pos : paramsEnd;
     const bodyBuilder = new StatementBuilder(host.Template, context);
     bodyBuilder.Load([bodyUnit], bodyPos);
     const body = bodyBuilder.BuildStatement();
@@ -1117,20 +1117,20 @@ if (kind === 23) {
     }
     anonymous.Add(body);
     anonymous.SignInToken(exportUnit);
-    if (bodyUnit.SourceRange.End !== null) {
-      anonymous.SignOut(bodyUnit.SourceRange.End);
+    if (bodyUnit.SourceRange.End >= 0) {
+      anonymous.SignOut(bodyUnit.SourceRange.EndIndex);
     }
     anonymous.TryToClose(context);
     built = anonymous;
   }
   const defaultModifier = new DefaultKeywordShape(host.Template);
-  if (defaultUnit.SourceRange.Start !== null) {
-    defaultModifier.SignIn(defaultUnit.SourceRange.Start);
+  if (defaultUnit.SourceRange.Start >= 0) {
+    defaultModifier.SignIn(defaultUnit.SourceRange.StartIndex);
   }
-  if (defaultUnit.SourceRange.End !== null) {
-    defaultModifier.SignOut(defaultUnit.SourceRange.End);
+  if (defaultUnit.SourceRange.End >= 0) {
+    defaultModifier.SignOut(defaultUnit.SourceRange.EndIndex);
   }
-  defaultModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
+  defaultModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
   defaultModifier.TryToClose(context);
   built.Data.unshift(defaultModifier);
   defaultModifier.Parent = built;
@@ -1160,9 +1160,9 @@ if (kind === 11) {
   // export declare function f(): void;  —— 无函数体，children: ExportKeyword | DeclareKeyword | Identifier | 返回类型。
   const declareUnit = host.Data[secondIndex];
   const declareModifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, context);
-  declareModifier.Pos = exportUnit.SourceRange.End === null ? pos : exportUnit.SourceRange.End.Index + 1;
-  if (declareModifier.SourceRange.End === null && declareUnit.SourceRange.End !== null) {
-    declareModifier.SignOut(declareUnit.SourceRange.End);
+  declareModifier.Pos = exportUnit.SourceRange.End < 0 ? pos : exportUnit.SourceRange.EndIndex;
+  if (declareModifier.SourceRange.End < 0 && declareUnit.SourceRange.End >= 0) {
+    declareModifier.SignOut(declareUnit.SourceRange.EndIndex);
   }
   let functionIndex = -1;
   for (let at = secondIndex + 1; at <= tokenIndex; at++) {
@@ -1230,7 +1230,7 @@ if (kind === 11) {
   if (colonIndex >= 0) {
     const colon = host.Data[colonIndex];
     const typeUnits:Array<Token> = host.Data.slice(colonIndex + 1, tokenIndex);
-    const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
+    const typePos = colon.SourceRange.End < 0 ? 0 : colon.SourceRange.EndIndex;
     const typeBuilder = new TypeBuilder(host.Template, context);
     typeBuilder.Load(typeUnits, typePos);
     returnType = typeBuilder.ParseType();
@@ -1239,9 +1239,9 @@ if (kind === 11) {
     }
   }
   const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-  name.Pos = functionUnit.SourceRange.End === null ? pos : functionUnit.SourceRange.End.Index + 1;
-  if (name.SourceRange.End === null && nameUnit.SourceRange.End !== null) {
-    name.SignOut(nameUnit.SourceRange.End);
+  name.Pos = functionUnit.SourceRange.End < 0 ? pos : functionUnit.SourceRange.EndIndex;
+  if (name.SourceRange.End < 0 && nameUnit.SourceRange.End >= 0) {
+    name.SignOut(nameUnit.SourceRange.EndIndex);
   }
   const built = new FunctionDeclarationShape(host.Template);
   built.FunctionName = name;
@@ -1256,7 +1256,7 @@ if (kind === 11) {
     const asyncShape = new AsyncKeywordShape(host.Template);
     asyncShape.SignInToken(asyncUnit);
     asyncShape.SignOutToken(asyncUnit);
-    asyncShape.Pos = declareUnit.SourceRange.End === null ? pos : declareUnit.SourceRange.End.Index + 1;
+    asyncShape.Pos = declareUnit.SourceRange.End < 0 ? pos : declareUnit.SourceRange.EndIndex;
     asyncShape.TryToClose(context);
     built.Add(asyncShape);
   }
@@ -1267,12 +1267,12 @@ if (kind === 11) {
   if (returnType !== null) {
     built.Add(returnType);
   }
-  if (exportUnit.SourceRange.Start !== null) {
-    built.SignIn(exportUnit.SourceRange.Start);
+  if (exportUnit.SourceRange.Start >= 0) {
+    built.SignIn(exportUnit.SourceRange.StartIndex);
   }
   const lastUnit = host.Data[tokenIndex];
-  if (lastUnit.SourceRange.End !== null) {
-    built.SignOut(lastUnit.SourceRange.End);
+  if (lastUnit.SourceRange.End >= 0) {
+    built.SignOut(lastUnit.SourceRange.EndIndex);
   }
   built.Pos = pos;
   built.TryToClose(context);
@@ -1284,8 +1284,8 @@ if (kind === 11) {
 const defaultUnit = host.Data[secondIndex];
 const lastIndex = tokenIndex;
 let basePos = pos;
-if (defaultUnit.SourceRange.End !== null) {
-  basePos = defaultUnit.SourceRange.End.Index + 1;
+if (defaultUnit.SourceRange.End >= 0) {
+  basePos = defaultUnit.SourceRange.EndIndex;
 }
 const expressionUnits:Array<Token> = host.Data.slice(secondIndex + 1, tokenIndex);
 const builder = new ExpressionBuilder(host.Template, context);
@@ -1296,8 +1296,8 @@ if (builder.At !== builder.Units.length) {
 }
 const built = new ExportAssignmentShape(host.Template);
 built.Add(expression);
-if (exportUnit.SourceRange.Start !== null) {
-  built.SignIn(exportUnit.SourceRange.Start);
+if (exportUnit.SourceRange.Start >= 0) {
+  built.SignIn(exportUnit.SourceRange.StartIndex);
 }
 const asi = state !== null && state.Asi;
 if (asi) {
@@ -1308,7 +1308,7 @@ if (asi) {
   }
   if (tail >= 0) {
     const tailEnd = host.Data[tail].SourceRange.End;
-    if (tailEnd !== null) {
+    if (tailEnd >= 0) {
       built.SignOut(tailEnd);
     }
   }
@@ -1318,8 +1318,8 @@ if (asi) {
   built.Parent = host;
   return built;
 }
-if (host.Data[lastIndex].SourceRange.End !== null) {
-  built.SignOut(host.Data[lastIndex].SourceRange.End);
+if (host.Data[lastIndex].SourceRange.End >= 0) {
+  built.SignOut(host.Data[lastIndex].SourceRange.EndIndex);
 }
 built.Pos = pos;
 built.TryToClose(context);

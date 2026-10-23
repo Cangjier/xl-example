@@ -78,8 +78,8 @@ TS 的 children 顺序：修饰符 → 名字 → 每个 `Parameter` →（可�
 PropertyDeclaration / MethodDeclaration / Constructor / GetAccessor / SetAccessor，名字可以是 Identifier 或
 ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` 的名字**不投影**（TS 的 Constructor 只有参数与函数体）。
 
-区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `End.Index + 1`。
-成员的 `Pos` = 前一个成员（或 `{`）的 `End.Index + 1`，`end` = 函数体 `}` / 属性末尾的 `;`。
+区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `EndIndex`。
+成员的 `Pos` = 前一个成员（或 `{`）的 `EndIndex`，`end` = 函数体 `}` / 属性末尾的 `;`。
 
 根层的类声明是**提前挂载的壳**：`class` 关键字那一格 `ClassDeclarationPossibleShape` 就把本形状建出来、挂到父单元上
 （`BodyGuideUtil.MountShell`）；本形状随后吃名字 / 类型参数 / heritage / 类体，拿到类体括号后由终结候选
@@ -238,8 +238,8 @@ let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
+    if (end >= 0) {
+      pos = end;
     }
     break;
   }
@@ -252,7 +252,7 @@ return ClassDeclarationShape.BuildFromCode(host, code, pos, context, allowAnonym
 从「已经按 AST 顺序排好的非 trivia 代码单元」建类声明。两个入口共用：`FromUnits` / `FromUnitsAllowAnonymous`
 （导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`ClassDeclarationEndPossibleShape`）。
 
-`pos` 是第一个代码单元前一个非 trivia 单元的 `End.Index + 1`（没有就是 `0`），也是装饰器的区间起点。
+`pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
 
 `allowAnonymous` 决定名字缺失时是静默建出匿名 `ClassDeclaration`（壳收口路径、`export default class {}`）还是抛错
 （一次性路径要求名字）；除此之外与 `FromUnits` 的解析逐字一致——壳 `Data` 里没有 trivia、host `Data` 里有，所以
@@ -265,7 +265,7 @@ let index = 0;
 while (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("@")) {
   const atUnit = code[index];
   const decoratorPos = decoratorEnd;
-  const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
+  const expressionBase = atUnit.SourceRange.End < 0 ? decoratorPos : atUnit.SourceRange.EndIndex;
   index++;
   const decoratorBuilder = new ExpressionBuilder(host.Template, context);
   decoratorBuilder.Load(code.slice(index), expressionBase);
@@ -279,8 +279,8 @@ while (index < code.length && code[index] instanceof Symbol && (code[index] as S
   const consumed = decoratorBuilder.At;
   for (let cursor = index; cursor < index + consumed; cursor++) {
     const cursorEnd = code[cursor].SourceRange.End;
-    if (cursorEnd !== null) {
-      decoratorEnd = cursorEnd.Index + 1;
+    if (cursorEnd >= 0) {
+      decoratorEnd = cursorEnd;
     }
   }
   index += consumed;
@@ -339,8 +339,8 @@ if (index >= code.length) {
   throw new Error("class declaration is incomplete");
 }
 let heritageBasePos = nameUnit === null
-  ? (keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1)
-  : (nameUnit.SourceRange.End === null ? 0 : nameUnit.SourceRange.End.Index + 1);
+  ? (keyword.SourceRange.End < 0 ? pos : keyword.SourceRange.EndIndex)
+  : (nameUnit.SourceRange.End < 0 ? 0 : nameUnit.SourceRange.EndIndex);
 const typeParameters:Array<Token> = [];
 if (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("<")) {
   const typeParameterBuilder = new TypeBuilder(host.Template, context);
@@ -378,8 +378,8 @@ if (index < code.length && code[index] instanceof Symbol && (code[index] as Symb
   if (index > 0) {
     const lastTypeUnit = code[index - 1];
     const lastTypeEnd = lastTypeUnit.SourceRange.End;
-    if (lastTypeEnd !== null) {
-      heritageBasePos = lastTypeEnd.Index + 1;
+    if (lastTypeEnd >= 0) {
+      heritageBasePos = lastTypeEnd;
     }
   }
 }
@@ -391,7 +391,7 @@ if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !==
 let name:IdentifierShape | null = null;
 if (nameUnit !== null) {
   const builtName = IdentifierShape.FromBasicToken(nameUnit as Common, context);
-  builtName.Pos = keyword.SourceRange.End === null ? pos : keyword.SourceRange.End.Index + 1;
+  builtName.Pos = keyword.SourceRange.End < 0 ? pos : keyword.SourceRange.EndIndex;
   name = builtName;
 }const heritageBase = heritageBasePos;
 const clauses:Array<Token> = heritageUnits.length === 0
@@ -436,8 +436,8 @@ for (let at = decoratorUnitCount; at < decoratorUnitCount + modifierCount; at++)
     shape.AbstractKeyword = modifier;
     shape.Add(modifier);
   }
-  if (modifierUnit.SourceRange.End !== null) {
-    modifierPos = modifierUnit.SourceRange.End.Index + 1;
+  if (modifierUnit.SourceRange.End >= 0) {
+    modifierPos = modifierUnit.SourceRange.EndIndex;
   }
 }
 if (name !== null) {
@@ -464,13 +464,13 @@ return shape;
 从「一个成员自己的代码单元区间」建出**一个**成员，供 body 的成员候选复用。
 
 `start..end` 是候选判定出的成员区间（`CodeAt` 口径，含成员自己的 `;`），`pos` 是该成员的 `Pos`
-（`ClassMemberPossibleUtil.BasePos`：区间前一个非 trivia 单元的 `End.Index + 1`）。
+（`ClassMemberPossibleUtil.BasePos`：区间前一个非 trivia 单元的 `EndIndex`）。
 
 实现刻意**不复制** `BuildMembers` 的解析：把区间切出来包成一个临时括号视图、交给同一个 `BuildMembers`，
 这样增量路径与收口 raw 兜底走的是**同一份**建造器，区间 / `Pos` / `End` / children 顺序不可能分叉。
 
 - 临时视图的 `SourceRange.Start` 对齐到 `pos - 1`（`BuildMembers` 用它当首个 `previousEnd`，首成员因此得到
-  「`{` 之后」而不是 `0`），与整段构建时 `bracket.SourceRange.Start.Index` 的用途逐字一致；
+  「`{` 之后」而不是 `0`），与整段构建时 `bracket.SourceRange.StartIndex` 的用途逐字一致；
 - 不是**恰好一个**成员、或成员的 `Pos` / 结束下标与区间不一致、或解析抛错 ⇒ 返回 `null`：调用方**不建、不 splice**，
   raw 原样留给收口兜底（`docs/body-guide-contract.md` §2.3 的「整段没读完 ⇒ 不建」）；
 - 抛错一律按「这一段不止一条成员 / 判型与建造器不一致」处理：宁可回落 raw（结果正确、只是慢一点），
@@ -487,13 +487,13 @@ if (span.length === 0) {
   return null;
 }
 const headStart = span[0].SourceRange.Start;
-if (headStart === null) {
+if (headStart < 0) {
   return null;
 }
 const view = new Bracket(host.Template);
 view.Data = span;
 if (pos > 0) {
-  view.SignIn(new Source(headStart.Document, pos - 1));
+  view.SignIn(pos - 1);
 }
 let members:Array<Token> = [];
 try {
@@ -510,7 +510,7 @@ if ((built as ShapeToken).Pos !== pos) {
 }
 const spanTail = span[span.length - 1].SourceRange.End;
 const builtTail = built.SourceRange.End;
-if (spanTail === null || builtTail === null || builtTail.Index !== spanTail.Index) {
+if (spanTail < 0 || builtTail < 0 || builtTail !== spanTail) {
   return null;
 }
 return built;
@@ -576,8 +576,8 @@ return unit instanceof String;
 const parameters:Array<Token> = [];
 const inner = new TypeBuilder(host.Template, context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.Start >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
@@ -676,8 +676,8 @@ while (inner.At < inner.Units.length) {
         decoratedParameter.Data.unshift(decorators[i]);
       }
       const headDecorator = decorators[0];
-      if (headDecorator.SourceRange.Start !== null) {
-        decoratedParameter.SourceRange.Start = headDecorator.SourceRange.Start;
+      if (headDecorator.SourceRange.Start >= 0) {
+        decoratedParameter.SourceRange.Start = headDecorator.SourceRange.StartIndex;
       }
       decoratedParameter.Pos = (headDecorator as ShapeToken).Pos;
       ClassDeclarationShape.TakeParameterInitializer(host, inner, decoratedParameter, context);
@@ -686,11 +686,11 @@ while (inner.At < inner.Units.length) {
         let groupPos = 0;
         if (decoratedNameIndex > 0) {
           const previousUnit = inner.Units[decoratedNameIndex - 1];
-          if (previousUnit.SourceRange.End !== null) {
-            groupPos = previousUnit.SourceRange.End.Index + 1;
+          if (previousUnit.SourceRange.End >= 0) {
+            groupPos = previousUnit.SourceRange.EndIndex;
           }
-        } else if (bracket.SourceRange.Start !== null) {
-          groupPos = bracket.SourceRange.Start.Index + 1;
+        } else if (bracket.SourceRange.Start >= 0) {
+          groupPos = bracket.SourceRange.StartIndex + 1;
         }
         (decoratedParameter.ParameterName as ShapeToken).Pos = groupPos;
       }
@@ -783,11 +783,11 @@ while (inner.At < inner.Units.length) {
       let groupPos = 0;
       if (nameIndex > 0) {
         const previousUnit = inner.Units[nameIndex - 1];
-        if (previousUnit.SourceRange.End !== null) {
-          groupPos = previousUnit.SourceRange.End.Index + 1;
+        if (previousUnit.SourceRange.End >= 0) {
+          groupPos = previousUnit.SourceRange.EndIndex;
         }
-      } else if (bracket.SourceRange.Start !== null) {
-        groupPos = bracket.SourceRange.Start.Index + 1;
+      } else if (bracket.SourceRange.Start >= 0) {
+        groupPos = bracket.SourceRange.StartIndex + 1;
       }
       (parameter.ParameterName as ShapeToken).Pos = groupPos;
     }
@@ -823,8 +823,8 @@ if (inner.At >= inner.Units.length || !inner.IsText(inner.Units[inner.At], "="))
 }
 const equalsUnit = inner.Units[inner.At];
 let initPos = 0;
-if (equalsUnit.SourceRange.End !== null) {
-  initPos = equalsUnit.SourceRange.End.Index + 1;
+if (equalsUnit.SourceRange.End >= 0) {
+  initPos = equalsUnit.SourceRange.EndIndex;
 }
 inner.At++;
 const initStart = inner.At;
@@ -848,7 +848,7 @@ if (initBuilder.At !== initBuilder.Units.length) {
 parameter.Add(initializer);
 if (initEnd > initStart) {
   const initTail = inner.Units[initEnd - 1].SourceRange.End;
-  if (initTail !== null) {
+  if (initTail >= 0) {
     parameter.SourceRange.End = initTail;
   }
 }
@@ -871,7 +871,7 @@ for (const item of bracket.Data) {
 }
 const members:Array<Token> = [];
 let at = 0;
-let previousEnd = bracket.SourceRange.Start === null ? -1 : bracket.SourceRange.Start.Index;
+let previousEnd = bracket.SourceRange.Start < 0 ? 0 : bracket.SourceRange.StartIndex + 1;
 while (at < code.length) {
   const unit = code[at];
   if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
@@ -880,25 +880,25 @@ while (at < code.length) {
     const semicolonShape = new SemicolonClassElementShape(host.Template);
     semicolonShape.SignInToken(unit);
     semicolonShape.SignOutToken(unit);
-    semicolonShape.Pos = previousEnd + 1;
+    semicolonShape.Pos = previousEnd;
     semicolonShape.TryToClose(context);
     members.push(semicolonShape);
-    if (unit.SourceRange.End !== null) {
-      previousEnd = unit.SourceRange.End.Index;
+    if (unit.SourceRange.End >= 0) {
+      previousEnd = unit.SourceRange.EndIndex;
     }
     at++;
     continue;
   }
-  const startPos = previousEnd + 1;
+  const startPos = previousEnd;
   const firstIndex = at;
   const firstUnit = code[firstIndex];
   const decorators:Array<Token> = [];
   while (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("@")) {
     const atUnit = code[at];
-    const decoratorPos = previousEnd + 1;
-    const expressionBase = atUnit.SourceRange.End === null ? decoratorPos : atUnit.SourceRange.End.Index + 1;
-    if (atUnit.SourceRange.End !== null) {
-      previousEnd = atUnit.SourceRange.End.Index;
+    const decoratorPos = previousEnd;
+    const expressionBase = atUnit.SourceRange.End < 0 ? decoratorPos : atUnit.SourceRange.EndIndex;
+    if (atUnit.SourceRange.End >= 0) {
+      previousEnd = atUnit.SourceRange.EndIndex;
     }
     at++;
     let expressionLimit = at;
@@ -920,8 +920,8 @@ while (at < code.length) {
     const consumed = decoratorBuilder.At;
     for (let cursor = at; cursor < at + consumed; cursor++) {
       const cursorEnd = code[cursor].SourceRange.End;
-      if (cursorEnd !== null) {
-        previousEnd = cursorEnd.Index;
+      if (cursorEnd >= 0) {
+        previousEnd = cursorEnd;
       }
     }
     at += consumed;
@@ -977,25 +977,25 @@ while (at < code.length) {
       }
       accessorKind = text;
       const accessorUnit = code[at];
-      if (accessorUnit.SourceRange.End !== null) {
-        previousEnd = accessorUnit.SourceRange.End.Index;
+      if (accessorUnit.SourceRange.End >= 0) {
+        previousEnd = accessorUnit.SourceRange.EndIndex;
       }
       at++;
       continue;
     }
-    const modifierPos = previousEnd + 1;
+    const modifierPos = previousEnd;
     const modifierUnit = code[at];
-    if (modifierUnit.SourceRange.End !== null) {
-      previousEnd = modifierUnit.SourceRange.End.Index;
+    if (modifierUnit.SourceRange.End >= 0) {
+      previousEnd = modifierUnit.SourceRange.EndIndex;
     }
     at++;
     modifiers.push(ClassDeclarationShape.BuildModifier(host.Template, text, modifierUnit, modifierPos, context));
   }
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("*")) {
     const asteriskUnit = code[at];
-    const asteriskPos = previousEnd + 1;
-    if (asteriskUnit.SourceRange.End !== null) {
-      previousEnd = asteriskUnit.SourceRange.End.Index;
+    const asteriskPos = previousEnd;
+    if (asteriskUnit.SourceRange.End >= 0) {
+      previousEnd = asteriskUnit.SourceRange.EndIndex;
     }
     at++;
     const asteriskShape = new AsteriskTokenShape(host.Template);
@@ -1007,9 +1007,9 @@ while (at < code.length) {
   }
   if (hasStatic && at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "{") {
     const staticBody = code[at] as Bracket;
-    const staticBodyPos = previousEnd + 1;
-    if (staticBody.SourceRange.End !== null) {
-      previousEnd = staticBody.SourceRange.End.Index;
+    const staticBodyPos = previousEnd;
+    if (staticBody.SourceRange.End >= 0) {
+      previousEnd = staticBody.SourceRange.EndIndex;
     }
     at++;
     const staticBuilder = new StatementBuilder(host.Template, context);
@@ -1058,21 +1058,21 @@ while (at < code.length) {
     if (indexCode.length >= 3 && indexCode[0] instanceof Common
       && indexCode[1] instanceof Symbol && (indexCode[1] as Symbol).Is(":")) {
       const parameterBuilder = new TypeBuilder(host.Template, context);
-      parameterBuilder.Load([indexCandidate], previousEnd + 1);
+      parameterBuilder.Load([indexCandidate], previousEnd);
       indexSignatureParameter = parameterBuilder.ParseIndexParameter(indexCandidate);
     }
   }
   if (indexSignatureParameter !== null) {
-    if (nameUnit.SourceRange.End !== null) {
-      previousEnd = nameUnit.SourceRange.End.Index;
+    if (nameUnit.SourceRange.End >= 0) {
+      previousEnd = nameUnit.SourceRange.EndIndex;
     }
     at++;
   } else if (nameUnit instanceof Bracket && (nameUnit as Bracket).StartBracketChar === "[") {
     const computedBracket = nameUnit as Bracket;
     const inner = new ExpressionBuilder(host.Template, context);
     let innerBase = 0;
-    if (computedBracket.SourceRange.Start !== null) {
-      innerBase = computedBracket.SourceRange.Start.Index + 1;
+    if (computedBracket.SourceRange.Start >= 0) {
+      innerBase = computedBracket.SourceRange.StartIndex + 1;
     }
     inner.Load(computedBracket.Data, innerBase);
     if (inner.Units.length === 0) {
@@ -1087,18 +1087,18 @@ while (at < code.length) {
     computed.SignInToken(computedBracket);
     computed.SignOutToken(computedBracket);
     // TS 的 ComputedPropertyName.Pos 在有修饰词时是修饰词之后（`readonly [x]`），不是成员起点。
-    computed.Pos = previousEnd + 1;
+    computed.Pos = previousEnd;
     computed.TryToClose(context);
     nameShape = computed;
-    if (nameUnit.SourceRange.End !== null) {
-      previousEnd = nameUnit.SourceRange.End.Index;
+    if (nameUnit.SourceRange.End >= 0) {
+      previousEnd = nameUnit.SourceRange.EndIndex;
     }
     at++;
   } else if (nameUnit instanceof Symbol && (nameUnit as Symbol).Is("#")) {
     const hashUnit = nameUnit;
-    const privatePos = previousEnd + 1;
-    if (hashUnit.SourceRange.End !== null) {
-      previousEnd = hashUnit.SourceRange.End.Index;
+    const privatePos = previousEnd;
+    if (hashUnit.SourceRange.End >= 0) {
+      previousEnd = hashUnit.SourceRange.EndIndex;
     }
     at++;
     if (at >= code.length || !(code[at] instanceof Common)) {
@@ -1107,8 +1107,8 @@ while (at < code.length) {
     const privateNameUnit = code[at];
     const privateIdentifier = new PrivateIdentifierShape(host.Template);
     privateIdentifier.SignInToken(hashUnit);
-    if (privateNameUnit.SourceRange.End !== null) {
-      previousEnd = privateNameUnit.SourceRange.End.Index;
+    if (privateNameUnit.SourceRange.End >= 0) {
+      previousEnd = privateNameUnit.SourceRange.EndIndex;
     }
     privateIdentifier.SignOutToken(privateNameUnit);
     privateIdentifier.Pos = privatePos;
@@ -1119,15 +1119,15 @@ while (at < code.length) {
   } else if (nameUnit instanceof String) {
     // 字符串字面量成员名（`"foo"(): void`）：TS 的 name 是 StringLiteral，Text 不带引号。
     const literalName = StringLiteralShape.FromBasicToken(nameUnit as String, context);
-    literalName.Pos = previousEnd + 1;
+    literalName.Pos = previousEnd;
     nameShape = literalName;
     nameText = literalName.Text;
-    if (nameUnit.SourceRange.End !== null) {
-      previousEnd = nameUnit.SourceRange.End.Index;
+    if (nameUnit.SourceRange.End >= 0) {
+      previousEnd = nameUnit.SourceRange.EndIndex;
     }
     at++;
   } else if (nameUnit instanceof Common) {
-    const namePos = previousEnd + 1;
+    const namePos = previousEnd;
     let nameToken:ShapeToken;
     if ((nameUnit as Common).CanStartNumber()) {
       // 数字成员名（`class A { 0 = 1 }`）：TS 的 name 是 NumericLiteral。
@@ -1138,8 +1138,8 @@ while (at < code.length) {
     nameToken.Pos = namePos;
     nameShape = nameToken;
     nameText = (nameUnit as Common).TempToString();
-    if (nameUnit.SourceRange.End !== null) {
-      previousEnd = nameUnit.SourceRange.End.Index;
+    if (nameUnit.SourceRange.End >= 0) {
+      previousEnd = nameUnit.SourceRange.EndIndex;
     }
     at++;
   } else {
@@ -1173,16 +1173,16 @@ while (at < code.length) {
       }
     }
     if (optionalMethod) {
-      const markPos = previousEnd + 1;
+      const markPos = previousEnd;
       methodQuestionToken = new QuestionTokenShape(host.Template);
-      if (markUnit.SourceRange.Start !== null) {
-        methodQuestionToken.SignIn(markUnit.SourceRange.Start);
-        methodQuestionToken.SignOut(markUnit.SourceRange.Start);
+      if (markUnit.SourceRange.Start >= 0) {
+        methodQuestionToken.SignIn(markUnit.SourceRange.StartIndex);
+        methodQuestionToken.SignOut(markUnit.SourceRange.StartIndex + 1);
       }
       methodQuestionToken.Pos = markPos;
       methodQuestionToken.TryToClose(context);
-      if (markUnit.SourceRange.End !== null) {
-        previousEnd = markUnit.SourceRange.End.Index;
+      if (markUnit.SourceRange.End >= 0) {
+        previousEnd = markUnit.SourceRange.EndIndex;
       }
       at++;
     }
@@ -1191,7 +1191,7 @@ while (at < code.length) {
   let methodTypeParameters:Array<Token> = [];
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("<")) {
     const angleUnit = code[at];
-    const angleStart = angleUnit.SourceRange.Start === null ? 0 : angleUnit.SourceRange.Start.Index;
+    const angleStart = angleUnit.SourceRange.Start < 0 ? 0 : angleUnit.SourceRange.StartIndex;
     const angleBuilder = new TypeBuilder(host.Template, context);
     angleBuilder.Load(code.slice(at), angleStart);
     methodTypeParameters = angleBuilder.ParseTypeParameterList();
@@ -1224,25 +1224,25 @@ while (at < code.length) {
     }
     for (let cursor = at; cursor < mappedIndex; cursor++) {
       const cursorEnd = code[cursor].SourceRange.End;
-      if (cursorEnd !== null) {
-        previousEnd = cursorEnd.Index;
+      if (cursorEnd >= 0) {
+        previousEnd = cursorEnd;
       }
     }
     at = mappedIndex;
   }
   if (at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "(") {
     const paramBracket = code[at] as Bracket;
-    if (paramBracket.SourceRange.End !== null) {
-      previousEnd = paramBracket.SourceRange.End.Index;
+    if (paramBracket.SourceRange.End >= 0) {
+      previousEnd = paramBracket.SourceRange.EndIndex;
     }
     at++;
     const parameters = ClassDeclarationShape.BuildParameters(host, paramBracket, context);
     let returnType:Token | null = null;
     if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(":")) {
       const colon = code[at];
-      const typePos = colon.SourceRange.End === null ? 0 : colon.SourceRange.End.Index + 1;
-      if (colon.SourceRange.End !== null) {
-        previousEnd = colon.SourceRange.End.Index;
+      const typePos = colon.SourceRange.End < 0 ? 0 : colon.SourceRange.EndIndex;
+      if (colon.SourceRange.End >= 0) {
+        previousEnd = colon.SourceRange.EndIndex;
       }
       at++;
       if (at >= code.length) {
@@ -1279,8 +1279,8 @@ while (at < code.length) {
       }
       for (let cursor = at; cursor < mappedIndex; cursor++) {
         const cursorEnd = code[cursor].SourceRange.End;
-        if (cursorEnd !== null) {
-          previousEnd = cursorEnd.Index;
+        if (cursorEnd >= 0) {
+          previousEnd = cursorEnd;
         }
       }
       at = mappedIndex;
@@ -1291,9 +1291,9 @@ while (at < code.length) {
     if (at < code.length && code[at] instanceof Bracket && (code[at] as Bracket).StartBracketChar === "{"
       && TypeBuilder.IsBodyBrace(code, at)) {
       bodyUnit = code[at] as Bracket;
-      const bodyPos = previousEnd + 1;
-      if (bodyUnit.SourceRange.End !== null) {
-        previousEnd = bodyUnit.SourceRange.End.Index;
+      const bodyPos = previousEnd;
+      if (bodyUnit.SourceRange.End >= 0) {
+        previousEnd = bodyUnit.SourceRange.EndIndex;
       }
       at++;
       const bodyBuilder = new StatementBuilder(host.Template, context);
@@ -1304,8 +1304,8 @@ while (at < code.length) {
       }
     } else if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(";")) {
       signatureEnd = code[at];
-      if (signatureEnd.SourceRange.End !== null) {
-        previousEnd = signatureEnd.SourceRange.End.Index;
+      if (signatureEnd.SourceRange.End >= 0) {
+        previousEnd = signatureEnd.SourceRange.EndIndex;
       }
       at++;
     } else if (at >= code.length || !StatementScanner.NoLineBreakBetween(code[at - 1], code[at])) {
@@ -1374,27 +1374,27 @@ while (at < code.length) {
   if (at < code.length && code[at] instanceof Symbol && ((code[at] as Symbol).Is("?") || (code[at] as Symbol).Is("?:"))) {
     const questionUnit = code[at];
     const questionText = (questionUnit as Symbol).TempToString();
-    const questionPos = previousEnd + 1;
+    const questionPos = previousEnd;
     const questionShape = new QuestionTokenShape(host.Template);
-    if (questionUnit.SourceRange.Start !== null) {
-      questionShape.SignIn(questionUnit.SourceRange.Start);
-      questionShape.SignOut(questionUnit.SourceRange.Start);
+    if (questionUnit.SourceRange.Start >= 0) {
+      questionShape.SignIn(questionUnit.SourceRange.StartIndex);
+      questionShape.SignOut(questionUnit.SourceRange.StartIndex + 1);
     }
     questionShape.Pos = questionPos;
     questionShape.TryToClose(context);
     questionToken = questionShape;
     questionColonConsumed = questionText === "?:";
-    if (questionUnit.SourceRange.End !== null) {
-      previousEnd = questionUnit.SourceRange.End.Index;
+    if (questionUnit.SourceRange.End >= 0) {
+      previousEnd = questionUnit.SourceRange.EndIndex;
     }
     at++;
   }
   let exclamationToken:Token | null = null;
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("!")) {
     const exclamationUnit = code[at];
-    const exclamationPos = previousEnd + 1;
-    if (exclamationUnit.SourceRange.End !== null) {
-      previousEnd = exclamationUnit.SourceRange.End.Index;
+    const exclamationPos = previousEnd;
+    if (exclamationUnit.SourceRange.End >= 0) {
+      previousEnd = exclamationUnit.SourceRange.EndIndex;
     }
     at++;
     const exclamationShape = new ExclamationTokenShape(host.Template);
@@ -1405,14 +1405,14 @@ while (at < code.length) {
     exclamationToken = exclamationShape;
   }
   if (questionColonConsumed || (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(":"))) {
-    let typePos = previousEnd + 1;
+    let typePos = previousEnd;
     if (!questionColonConsumed) {
       const colon = code[at];
-      if (colon.SourceRange.End !== null) {
-        previousEnd = colon.SourceRange.End.Index;
+      if (colon.SourceRange.End >= 0) {
+        previousEnd = colon.SourceRange.EndIndex;
       }
       at++;
-      typePos = previousEnd + 1;
+      typePos = previousEnd;
     }
     if (at >= code.length) {
       throw new Error("属性的类型为空");
@@ -1448,17 +1448,17 @@ while (at < code.length) {
     }
     for (let cursor = at; cursor < mappedIndex; cursor++) {
       const cursorEnd = code[cursor].SourceRange.End;
-      if (cursorEnd !== null) {
-        previousEnd = cursorEnd.Index;
+      if (cursorEnd >= 0) {
+        previousEnd = cursorEnd;
       }
     }
     at = mappedIndex;
   }
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is("=")) {
     const equal = code[at];
-    const valuePos = equal.SourceRange.End === null ? 0 : equal.SourceRange.End.Index + 1;
-    if (equal.SourceRange.End !== null) {
-      previousEnd = equal.SourceRange.End.Index;
+    const valuePos = equal.SourceRange.End < 0 ? 0 : equal.SourceRange.EndIndex;
+    if (equal.SourceRange.End >= 0) {
+      previousEnd = equal.SourceRange.EndIndex;
     }
     at++;
     const valueBoundary = MemberBoundary.FindMemberBoundary(code, at);
@@ -1467,8 +1467,8 @@ while (at < code.length) {
     initializer = valueBuilder.ParseAssign();
     for (let cursor = at; cursor < at + valueBuilder.At; cursor++) {
       const cursorEnd = code[cursor].SourceRange.End;
-      if (cursorEnd !== null) {
-        previousEnd = cursorEnd.Index;
+      if (cursorEnd >= 0) {
+        previousEnd = cursorEnd;
       }
     }
     at += valueBuilder.At;
@@ -1476,8 +1476,8 @@ while (at < code.length) {
   let endUnit:Token = code[at - 1];
   if (at < code.length && code[at] instanceof Symbol && (code[at] as Symbol).Is(";")) {
     endUnit = code[at];
-    if (endUnit.SourceRange.End !== null) {
-      previousEnd = endUnit.SourceRange.End.Index;
+    if (endUnit.SourceRange.End >= 0) {
+      previousEnd = endUnit.SourceRange.EndIndex;
     }
     at++;
   } else if (at < code.length && StatementScanner.NoLineBreakBetween(code[at - 1], code[at])) {
