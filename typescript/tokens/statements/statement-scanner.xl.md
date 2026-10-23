@@ -40,6 +40,14 @@ this.End = end;
 
 ## static field AtEOF:bool = false
 
+## static field ContentDocument:Document | null = null
+
+`ContentText` 缓存对应的文档。解析按文件串行，换一个文档才重取（`GetRaw(0, count)` 在半开区间覆盖全文时返回原串本身，不拷贝）。
+
+## static field ContentText:string = ""
+
+`ContentDocument` 的全文：`NextChar` 的逐字符读取与注释整段跳都在这份串上做，避免每字符一次 `SourceRange.At`。
+
 ## static method TextOf:(unit:Token)=>string
 
 ```ts
@@ -1075,38 +1083,40 @@ return index;
 从 `last`（半开终点，即上一个字符的下标 + 1）起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
 根级标签判据用它回答「标识符后面是不是 `:`」，此时 `:` 可能还没被 token 化。
 
+空白逐字符判；注释用 `indexOf` 整段跳到注释末尾，不再让每个注释字符各走一次 `SourceRange.At`
+（`At` 带范围校验、再经 `Document.GetValue` 一次间接调用；长注释占本方法 90% 以上的字符）。
+
 ```ts
 if (document === null || last < 0) {
   return "";
 }
-const count = document.GetCount();
-const whole = SourceRange.Whole(document);
+if (document !== StatementScanner.ContentDocument) {
+  StatementScanner.ContentDocument = document;
+  StatementScanner.ContentText = document.GetRaw(0, document.GetCount());
+}
+const content = StatementScanner.ContentText;
+const count = content.length;
 let at = last;
 while (at < count) {
-  const ch = whole.At(at);
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v" || ch === "\f") {
+  const code = content.charCodeAt(at);
+  if (code === 32 || code === 9 || code === 13 || code === 10 || code === 11 || code === 12) {
     at++;
     continue;
   }
-  if (ch === "/" && at + 1 < count) {
-    const next = whole.At(at + 1);
-    if (next === "/") {
-      at += 2;
-      while (at < count && whole.At(at) !== "\n") {
-        at++;
-      }
+  if (code === 47 && at + 1 < count) {
+    const next = content.charCodeAt(at + 1);
+    if (next === 47) {
+      const lineEnd = content.indexOf("\n", at + 2);
+      at = lineEnd < 0 ? count : lineEnd + 1;
       continue;
     }
-    if (next === "*") {
-      at += 2;
-      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
-        at++;
-      }
-      at += 2;
+    if (next === 42) {
+      const blockEnd = content.indexOf("*/", at + 2);
+      at = blockEnd < 0 ? count : blockEnd + 2;
       continue;
     }
   }
-  return ch;
+  return content[at];
 }
 return "";
 ```
