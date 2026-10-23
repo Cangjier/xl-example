@@ -192,6 +192,8 @@ node tests/bench/slot-micro.mjs --build build        # 改造后
 * 39.5% 的剩余成本在键这一侧（`Map.get(类)` + 一次方法调用），60.5% 在缓存查找。`Slot()` 仍是**每次一次 `Map.get`**——这与设计一致（"静态整数槽"），下一步若要继续压，可把槽号缓存在实例字段上（本轮未做，见 §8）。
 * 旧账对得上：`this.constructor.name` 23.89 / 30.34 = **78.7%**，与 profile 记的 79% 一致。
 
+**别把 `dts-cost-probe.mjs --micro` 那一行当新读数**：它量的是 `cache.GetState(inst.constructor.name)`（字符串键，为了与历史读数可比而保留下来的写法）。在改造后的树上，字符串键会落到**数组的同名属性**上（`Values["SomeShape"]`），照样能命中，所以它报的仍是 **34.51 ns**（数组上的字符串属性访问），不是槽位路径。槽位路径的读数只看 `tests/bench/slot-micro.mjs`。这也顺带说明：本轮没有留下任何字符串键调用点（§1.4），否则那处会以属性形式"看起来能跑"。
+
 ## 7. 墙钟 Δ 的归因：**只认单价，不认"这 5% 是省出来的"**
 
 按 `tests/bench/dts-cost-probe.mjs --count` 的调用计数（`lib.dom.d.ts`，2,349,323 字符）：
@@ -216,6 +218,7 @@ node tests/bench/slot-micro.mjs --build build        # 改造后
 | `cache-share` 测试跟着改了 API | 键从字符串变槽位，旧测试用字符串会落到数组属性上而假绿 | 已改：5 条原语义 + 2 条槽语义，7/7 PASS；**这是本分支唯一动到的测试** |
 | 4 个共享槽常量标 `any` | xl `E1207` 只认字面量/`new` 的静态字段初值，跨类静态调用判不符（`as int` 也无效） | 值一定是 `SlotOf` 发的 int；理由写在 `property-signature-possible-shape.xl.md` |
 | 槽位号不是固定常量 | 号是**进程内发号顺序**的产物（`Map.size`），不同 require 顺序可能给出不同的号 | 槽号不进 XML / AST（等价已证）；不要把它写进日志断言或快照 |
+| 残留字符串键会静默生效 | `Values` 是数组，写一个字符串键会落在**同名属性**上、照样能读写（`dts-cost-probe --micro` 那一行就是这么跑通的），但 `Clear()` 的 `Values = []` 会**无声丢掉**它 | 全仓已无字符串键调用点（§1.4 的 grep 为零）；新增调用点必须传 `this.Slot()` / 槽常量 |
 | `Slot()` 每次一次 `Map.get` | 14.73 ns，占新单价 ~39% | 设计口径（静态槽）；下一步可缓存在实例字段（形状候选实例在 Shape 生命周期内长期存活），预计再省 ~9 ns/次 |
 | 没碰 `unit-token` / `template` | O3/O4 并行 | `git diff --name-only` 里零命中 |
 
