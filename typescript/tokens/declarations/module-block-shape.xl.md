@@ -55,6 +55,8 @@ namespace N { class C {} function f() {} }
 - 带 `export` 修饰的成员：修饰词由本类提出、放进成员 `Data` 最前（TS 的 children 顺序是
   `[ExportKeyword, …成员自己的 children]`），成员 `Pos` 回到修饰词起点。
 
+## field DataCursorAt:int = 0
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -222,8 +224,8 @@ if (keyword === "as") {
     }
   }
   if (specialEnd > declStart) {
-    const dataStart = bracket.Data.indexOf(inner.Units[first]);
-    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    const dataStart = block.DataIndex(bracket, inner.Units[first]);
+    const dataEnd = block.DataIndex(bracket, inner.Units[specialEnd]);
     special = NamespaceExportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
     (special as ShapeToken).Pos = inner.Positions[first];
     skipModifier = true;
@@ -238,8 +240,8 @@ if (keyword === "as") {
       const asNameUnit = inner.Units[asNameInner];
       const asNameEnd = asNameUnit.SourceRange.End;
       if (asNameEnd !== null) {
-        const asDataStart = bracket.Data.indexOf(inner.Units[first]);
-        const asSemiAt = bracket.Data.indexOf(asNameUnit) + 1;
+        const asDataStart = block.DataIndex(bracket, inner.Units[first]);
+        const asSemiAt = block.DataIndex(bracket, asNameUnit) + 1;
         const asSemi = new Symbol(bracket.Template);
         asSemi.SignIn(asNameEnd);
         asSemi.AppendValueAndSignOut(";", asNameEnd - 1);
@@ -293,8 +295,8 @@ if (keyword === "as") {
       // `export import x = …`：export 修饰词由 ImportEqualsDeclarationShape 自己投影（TS 的 children
       // 是 [ExportKeyword, Identifier, …]），所以起点要含 export、末尾不再由本层插修饰词。
       const startInner = modifier !== null ? first : declStart;
-      const dataStart = bracket.Data.indexOf(inner.Units[startInner]);
-      let dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+      const dataStart = block.DataIndex(bracket, inner.Units[startInner]);
+      let dataEnd = block.DataIndex(bracket, inner.Units[endInner]);
       if (syntheticSemi) {
         const endSource = inner.Units[endInner].SourceRange.End;
         if (endSource !== null) {
@@ -336,8 +338,8 @@ if (keyword === "as") {
       }
     }
     if (specialEnd > declStart) {
-      const dataStart = bracket.Data.indexOf(inner.Units[declStart]);
-      const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+      const dataStart = block.DataIndex(bracket, inner.Units[declStart]);
+      const dataEnd = block.DataIndex(bracket, inner.Units[specialEnd]);
       special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
       (special as ShapeToken).Pos = inner.Positions[declStart];
     } else {
@@ -358,8 +360,8 @@ if (keyword === "as") {
       }
       const endSource = inner.Units[endInner].SourceRange.End;
       if (endInner > declStart && endSource !== null) {
-        const dataStart = bracket.Data.indexOf(inner.Units[declStart]);
-        const dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+        const dataStart = block.DataIndex(bracket, inner.Units[declStart]);
+        const dataEnd = block.DataIndex(bracket, inner.Units[endInner]);
         const syntheticSemi = new Symbol(bracket.Template);
         syntheticSemi.SignIn(endSource);
         syntheticSemi.AppendValueAndSignOut(";", endSource - 1);
@@ -403,8 +405,8 @@ if (keyword === "as") {
     syntheticSemi = true;
   }
   if (endInner >= declStart) {
-    const dataStart = bracket.Data.indexOf(inner.Units[first]);
-    let dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+    const dataStart = block.DataIndex(bracket, inner.Units[first]);
+    let dataEnd = block.DataIndex(bracket, inner.Units[endInner]);
     if (syntheticSemi) {
       const endSource = inner.Units[endInner].SourceRange.End;
       if (endSource !== null) {
@@ -454,8 +456,8 @@ if (keyword === "as") {
     const endUnit = inner.Units[endInner];
     const endSource = endUnit.SourceRange.End;
     if (endSource !== null) {
-      const dataEnd = bracket.Data.indexOf(endUnit);
-      const dataStart = bracket.Data.indexOf(unit as Token);
+      const dataStart = block.DataIndex(bracket, unit as Token);
+      const dataEnd = block.DataIndex(bracket, endUnit);
       const syntheticSemi = new Symbol(bracket.Template);
       syntheticSemi.SignIn(endSource);
       syntheticSemi.AppendValueAndSignOut(";", endSource - 1);
@@ -466,8 +468,8 @@ if (keyword === "as") {
       specialEnd = endInner;
     }
   } else if (specialEnd > declStart) {
-    const dataStart = bracket.Data.indexOf(unit as Token);
-    const dataEnd = bracket.Data.indexOf(inner.Units[specialEnd]);
+    const dataStart = block.DataIndex(bracket, unit as Token);
+    const dataEnd = block.DataIndex(bracket, inner.Units[specialEnd]);
     special = TypeAliasDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
     (special as ShapeToken).Pos = inner.Positions[declStart];
   }
@@ -500,8 +502,8 @@ if (keyword === "as") {
     syntheticSemi = true;
   }
   if (endInner > declStart) {
-    const dataStart = bracket.Data.indexOf(inner.Units[first]);
-    let dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
+    const dataStart = block.DataIndex(bracket, inner.Units[first]);
+    let dataEnd = block.DataIndex(bracket, inner.Units[endInner]);
     if (syntheticSemi) {
       const endSource = inner.Units[endInner].SourceRange.End;
       if (endSource !== null) {
@@ -564,8 +566,8 @@ if (special !== null) {
   member = special;
   inner.At = specialEnd + 1;
 } else if (bodyInner > declStart) {
-  const dataStart = bracket.Data.indexOf(unit as Token);
-  const dataEnd = bracket.Data.indexOf(inner.Units[bodyInner]);
+  const dataStart = block.DataIndex(bracket, unit as Token);
+  const dataEnd = block.DataIndex(bracket, inner.Units[bodyInner]);
   if (keyword === "class") {
     // TS 的静默恢复：`namespace N { class {} }` 的 parseDiagnostics=0，AST 是无名字 ClassDeclaration
     // （cover9 用户裁定追恢复 AST）；与语句建造器共用 ClassDeclarationShape.HasNoName 判据。
@@ -605,8 +607,8 @@ if (special !== null) {
   (member as ShapeToken).Pos = inner.Positions[declStart];
   inner.At = bodyInner + 1;
 } else if ((keyword === "function" || declareFunctionMember) && tailInner > declStart) {
-  const dataStart = bracket.Data.indexOf(unit as Token);
-  const dataEnd = bracket.Data.indexOf(inner.Units[tailInner]);
+  const dataStart = block.DataIndex(bracket, unit as Token);
+  const dataEnd = block.DataIndex(bracket, inner.Units[tailInner]);
   // 无分号也无体的 ambient 函数（namespace 体里换行分隔）：ambient=true 允许省略 `;` 与返回类型。
   const declared = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, true);
   let declarePos = inner.Positions[declStart];
@@ -624,8 +626,8 @@ if (special !== null) {
   inner.At = tailInner + 1;
   member = declared;
 } else if ((keyword === "function" || declareFunctionMember) && semiInner > declStart) {
-  const dataStart = bracket.Data.indexOf(unit as Token);
-  const dataEnd = bracket.Data.indexOf(inner.Units[semiInner]);
+  const dataStart = block.DataIndex(bracket, unit as Token);
+  const dataEnd = block.DataIndex(bracket, inner.Units[semiInner]);
   // 模块体 / namespace 体里的无体函数声明按 TS 是合法的（无需 declare、返回类型可省：
   // `namespace N { function f(); }` → FunctionDeclaration 无 declare 修饰），所以这里按 ambient 建；
   // ambient 只影响形状校验，不改变 children（declare 只有显式写了才会成为 DeclareKeyword 子节点）。
@@ -726,6 +728,30 @@ if (modifier !== null && !skipModifier) {
   (member as ShapeToken).Pos = inner.Positions[first];
 }
 block.Add(member);
+```
+
+## private method DataIndex:(bracket:Bracket, unit:Token)=>int
+
+把「`inner.Units` 里的单元」换算回「`bracket.Data` 下标」：成员按源码顺序被消费，游标 `DataCursorAt` **只前进不回头**，
+所以一次 body 只走一遍，取代「每个成员两次线性 `indexOf`」的 O(成员数 × body 长度) 扫描。
+命中失败（游标越界，或单元落在游标之前——将来某分支若在成员之间改写 `bracket.Data`）时**回退线性 `bracket.Data.indexOf`**：
+宁可慢，也不返回错位下标。
+
+```ts
+const data = bracket.Data;
+let at = this.DataCursorAt;
+while (at < data.length && data[at] !== unit) {
+  at++;
+}
+if (at < data.length) {
+  this.DataCursorAt = at;
+  return at;
+}
+const found = data.indexOf(unit);
+if (found >= 0) {
+  this.DataCursorAt = found;
+}
+return found;
 ```
 
 ## private static method IsMemberStartWord:(text:string)=>bool
