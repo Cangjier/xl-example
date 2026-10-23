@@ -170,7 +170,9 @@ this.DrainMessages();
 
 把消息队列抽干：`ReloadMessage` 按位置**升序**逐点重放，其余交给 `HandleMessage`。
 
-重放一个位置时：先存下当前游标，把游标压到 `at`，用 `[at, min(at + BufferSize, count))` 窗口把该位置交给 `ProcessOwner ?? Root` 重放；重放必须让游标离开 `at`，否则抛 `SyntaxException`（防挂死）；处理完把游标恢复到 `max(当前, 存下的)`。区间消息从 `StartIndex` 到 `EndIndex`（不含）逐个升序重放；`EndIndex < 0` 表示单点。
+重放一个位置时：先存下当前游标，把游标压到 `at`，用**只覆盖这一个位置**的窗口 `[at, at + 1)` 把该位置交给 `ProcessOwner ?? Root` 重放；重放必须让游标离开 `at`，否则抛 `SyntaxException`（防挂死）；处理完把游标恢复到 `max(当前, 存下的)`。区间消息从 `StartIndex` 到 `EndIndex`（不含）逐个升序重放；`EndIndex < 0` 表示单点。
+
+**窗口只放一个位置**（契约写的 `min(at+BufferSize, count)` 在这里是矛盾的）：`owner.Process` 会把这个窗口一直吃到 `buffer.End`，用 `BufferSize` 的窗口重放第一个点就会把 `at+1 .. at+BufferSize` 一起重放一遍，而外围的升序循环随后又把游标压回 `at+1` 再重放一次——区间里每个位置会被处理多遍（实测 `[2,5)` 重放成 `2..9` 三遍）。重放要复刻的是旧队列「一次一个位置」的语义，所以窗口必须 `[at, at+1)`；真要一口气吃多格的 token 由它自己的 `Process` 推进 `context.Index`，不受窗口大小限制。
 
 ```ts
 while (this.Messages.length > 0) {
@@ -185,7 +187,7 @@ while (this.Messages.length > 0) {
     for (let at = start; at < endExclusive; at++) {
       const saved = this.Index;
       this.Index = at;
-      const windowEnd = Math.min(at + this.BufferSize, count);
+      const windowEnd = Math.min(at + 1, count);
       owner.Process(this, new SourceRange(document, at, windowEnd), at);
       if (this.Index === at) {
         throw SyntaxException.FromMessage(
