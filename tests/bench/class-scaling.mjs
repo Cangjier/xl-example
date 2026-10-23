@@ -8,16 +8,22 @@
 //   node tests/bench/class-scaling.mjs                              # 只跑标度（测 ./build）
 //   node tests/bench/class-scaling.mjs --build build-class-before   # 测指定产物（改前对照）
 //   node tests/bench/class-scaling.mjs --base build-class-before    # 额外做 XML 等价 + 改前/改后 ms
-//   node tests/bench/class-scaling.mjs --rounds 7 --json
+//   node tests/bench/class-scaling.mjs --rounds 15 --warmup 2 --json
 //
-// 断言（全部通过才退出 0）：
-//   档 A（成员数  N=250/500/1000/2000）：相邻档「翻倍耗时倍数」< 2.2
-//   档 B（成员长度 T=250/500/1000/2000）：相邻档「翻倍耗时倍数」< 2.2
+// 判定口径（与阈值一起写死在这里，改阈值必须同时改这段注释）：
+//   统计量：每档先 `--warmup` 次预热（默认 2，不计时），再取 `--rounds` 次的中位数（默认 15）。
+//           单档中位数在 15 次采样下的相对波动约 ±3%（7 次时 ±8%，这就是旧版 flaky 的来源）。
+//   档 A（成员数  N=250/500/1000/2000）：相邻档「翻倍耗时倍数」< **2.6**
+//   档 B（成员长度 T=250/500/1000/2000）：相邻档「翻倍耗时倍数」< **2.6**
 //         —— 这一档才是抓 O(L²) 的；计时小于 2ms 的档位被固定开销主导，
 //            该对倍数不作断言，改由下面这条更稳的结构性断言守。
-//   档 B 结构性断言：每个 T 上 class 的耗时 <= interface 的 1.5 倍
-//         （interface 是已经合规的增量样板；改前这里是 6.7×~69×）
+//   档 B 结构性断言：每个 T 上 class 的耗时 <= interface 的 **1.8 倍**
+//         （interface 是已经合规的增量样板；class 全量重扫时这里是 5.4×~74×）
 //   给了 --base 时：class 密集语料 + 两档合成源，两份 build 的 XML（或同一条错误消息）必须逐字节一致
+//
+//   为什么是 2.6 / 1.8：二次形态实测是 ×3.5~4.1、class/interface 5.4~74×；线性形态实测 ×1.3~2.1、
+//   class/interface 0.7~1.4。2.6 与 1.8 落在两个簇之间，既不误报又保留分辨力。
+//   回归验证：用改前产物（`m1-tokens-opt/build`，即 class 全量重扫的那版）跑必须稳定 FAIL（实测 10/10）。
 //
 // 确定性：源文本是固定合成，不用随机数，不写文件（--json 只走 stdout），不读网络。
 import fs from "node:fs";
@@ -40,14 +46,16 @@ function take(flag, fallback) {
 }
 const buildDir = take("--build", "build");
 const baseDir = take("--base", null);
-const rounds = Number(take("--rounds", "7"));
+const rounds = Number(take("--rounds", "15"));
+const warmup = Number(take("--warmup", "2"));
 const asJson = args.includes("--json");
 if (args.includes("--json")) args.splice(args.indexOf("--json"), 1);
 if (args.length > 0) {
   console.error(`未知参数: ${args.join(" ")}`);
   process.exit(2);
 }
-if (!Number.isInteger(rounds) || rounds < 5) throw new Error(`--rounds 至少 5，收到 ${rounds}`);
+if (!Number.isInteger(rounds) || rounds < 15) throw new Error(`--rounds 至少 15（15 次中位的相对波动约 ±3%），收到 ${rounds}`);
+if (!Number.isInteger(warmup) || warmup < 0) throw new Error(`--warmup 必须是非负整数，收到 ${warmup}`);
 
 function loadRunner(dir, label) {
   const full = path.resolve(root, dir);
@@ -164,46 +172,71 @@ const XML_CORPUS = [
 ];
 
 // ---------- 测量 ----------
+// 抗噪设计（这是「连跑 10 次 0 误报」的关键）：
+//   1) 同一条 series 里的各档**逐轮交错**计时，而不是「把一档跑完再跑下一档」——
+//      后者会让不同档落在不同的 GC/预热相位上，倍数被相位差污染（旧版 flaky 的主因之一）；
+//   2) 奇偶轮**换序**，抵消「谁先跑谁占缓存便宜」；
+//   3) 档与档的倍数用「逐轮比值的中位」（配对比值），而不是「两个中位相除」；
+//   4) 每档先 warmup 次预热，再取 rounds 次中位。
 function median(values) {
   const s = values.slice().sort((a, b) => a - b);
   const mid = s.length >> 1;
   return s.length % 2 === 1 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
-function measure(runner, text, name) {
-  runner.Parse(text, name); // warmup
-  const samples = [];
-  for (let i = 0; i < rounds; i++) {
-    const t0 = process.hrtime.bigint();
-    const shape = runner.Parse(text, name);
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
-    if (!shape || !Array.isArray(shape.Data)) throw new Error(`${name}: Parse 未返回带 Data 的 SourceFileShape`);
-    samples.push(ms);
+
+function runSeries(cases) {
+  for (const one of cases) for (let i = 0; i < warmup; i++) target.runner.Parse(one.text, one.name);
+  const samples = cases.map(() => []);
+  for (let round = 0; round < rounds; round++) {
+    const order = [];
+    for (let i = 0; i < cases.length; i++) order.push(round % 2 === 0 ? i : cases.length - 1 - i);
+    for (const index of order) {
+      const one = cases[index];
+      const t0 = process.hrtime.bigint();
+      const shape = target.runner.Parse(one.text, one.name);
+      const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+      if (!shape || !Array.isArray(shape.Data)) throw new Error(`${one.name}: Parse 未返回带 Data 的 SourceFileShape`);
+      samples[index].push(ms);
+    }
   }
-  return { medianMs: median(samples), samples };
+  return cases.map((one, index) => ({ ...one, samples: samples[index], medianMs: median(samples[index]) }));
+}
+
+// 配对比值：逐轮 (later / earlier) 的中位
+function pairedRatio(later, earlier) {
+  const values = [];
+  const count = Math.min(later.samples.length, earlier.samples.length);
+  for (let i = 0; i < count; i++) {
+    if (earlier.samples[i] > 0) values.push(later.samples[i] / earlier.samples[i]);
+  }
+  return values.length === 0 ? Infinity : median(values);
 }
 
 const scaling = { memberCount: [], memberLength: [], interfaceLength: [] };
-for (const n of [250, 500, 1000, 2000]) {
-  scaling.memberCount.push({ n, ...measure(target.runner, memberCountSource(n), `class-count-${n}.ts`) });
-}
+scaling.memberCount = runSeries(
+  [250, 500, 1000, 2000].map((n) => ({ n, name: `class-count-${n}.ts`, text: memberCountSource(n) })),
+);
+// 档 B 与 interface 样板同轮交错：class/interface 比也是同轮配对的
+const lengthCases = [];
 for (const t of [250, 500, 1000, 2000]) {
-  scaling.memberLength.push({ t, ...measure(target.runner, memberLengthSource(t), `class-len-${t}.ts`) });
-  scaling.interfaceLength.push({ t, ...measure(target.runner, interfaceLengthSource(t), `iface-len-${t}.ts`) });
+  lengthCases.push({ t, kind: "class", name: `class-len-${t}.ts`, text: memberLengthSource(t) });
+  lengthCases.push({ t, kind: "iface", name: `iface-len-${t}.ts`, text: interfaceLengthSource(t) });
 }
+const lengthSeries = runSeries(lengthCases);
+scaling.memberLength = lengthSeries.filter((one) => one.kind === "class");
+scaling.interfaceLength = lengthSeries.filter((one) => one.kind === "iface");
 
 // ---------- 断言 ----------
-const LIMIT = 2.2;
+const LIMIT = 2.6;
 // 计时小于这个值的档位被固定开销（文件级 preamble / GC）主导，倍数不可信，不作断言。
 const NOISE_FLOOR_MS = 2;
-const INTERFACE_LIMIT = 1.5;
+const INTERFACE_LIMIT = 1.8;
 const failures = [];
 function checkScaling(label, rows, keyOf, floorMs) {
   for (let i = 1; i < rows.length; i++) {
-    const prev = rows[i - 1].medianMs;
-    const cur = rows[i].medianMs;
-    const ratio = prev > 0 ? cur / prev : Infinity;
+    const ratio = pairedRatio(rows[i], rows[i - 1]);
     rows[i].ratioVsPrev = Number(ratio.toFixed(2));
-    if (floorMs !== undefined && prev < floorMs) {
+    if (floorMs !== undefined && rows[i - 1].medianMs < floorMs) {
       rows[i].ratioNote = "below-floor";
       continue;
     }
@@ -218,8 +251,9 @@ checkScaling("档 B 成员长度", scaling.memberLength, (r) => `T=${r.t}`, NOIS
 for (let i = 0; i < scaling.memberLength.length; i++) {
   const cls = scaling.memberLength[i];
   const iface = scaling.interfaceLength[i];
-  cls.vsInterface = iface.medianMs > 0 ? Number((cls.medianMs / iface.medianMs).toFixed(2)) : Infinity;
-  if (!(cls.vsInterface <= INTERFACE_LIMIT)) {
+  const ratio = pairedRatio(cls, iface);
+  cls.vsInterface = Number(ratio.toFixed(2));
+  if (!(ratio <= INTERFACE_LIMIT)) {
     failures.push(`档 B 结构性: T=${cls.t} class/interface = ${cls.vsInterface} 超过 ${INTERFACE_LIMIT}`);
   }
 }
@@ -273,7 +307,9 @@ const report = {
   build: buildDir,
   base: baseDir,
   rounds,
+  warmup,
   limit: LIMIT,
+  interfaceLimit: INTERFACE_LIMIT,
   scaling,
   equivalents,
   failures,
@@ -283,7 +319,7 @@ const report = {
 if (asJson) {
   console.log(JSON.stringify(report, null, 2));
 } else {
-  console.log(`class 标度门禁   build=${buildDir}  rounds=${rounds}  门限=相邻档翻倍倍数 < ${LIMIT}`);
+  console.log(`class 标度门禁   build=${buildDir}  warmup=${warmup} rounds=${rounds}  门限=相邻档翻倍倍数 < ${LIMIT}、class/interface <= ${INTERFACE_LIMIT}`);
   const fmt = (ms) => (ms >= 100 ? ms.toFixed(1) : ms.toFixed(2)).padStart(9);
   console.log(`\n## 档 A：成员数 N（每成员固定 12 个类型 token）`);
   console.log(`  ${"N".padStart(6)} ${"median ms".padStart(10)} ${"倍数".padStart(8)}`);
