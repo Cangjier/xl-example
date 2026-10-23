@@ -47,15 +47,10 @@ const BODY_TARGETS = {
   interface: {
     shapeName: "InterfaceDeclarationShape",
     modulePath: "typescript/tokens/declarations/interface-declaration-shape.js",
-    cacheField: "CreateBodyPossibleShapesCache",
+    // WP-4: interface body now mounts ItemListEngine(InterfaceItemRule); prune point is the rules cache.
+    cacheField: "CreateBodyItemRulesCache",
     candidates: {
-      PropertySignaturePossibleShape: "typescript/tokens/types/property-signature-possible-shape.js",
-      MethodSignaturePossibleShape: "typescript/tokens/types/method-signature-possible-shape.js",
-      IndexSignaturePossibleShape: "typescript/tokens/types/index-signature-possible-shape.js",
-      CallSignaturePossibleShape: "typescript/tokens/types/call-signature-possible-shape.js",
-      ConstructSignaturePossibleShape: "typescript/tokens/types/construct-signature-possible-shape.js",
-      GetAccessorPossibleShape: "typescript/tokens/types/get-accessor-possible-shape.js",
-      SetAccessorPossibleShape: "typescript/tokens/types/set-accessor-possible-shape.js",
+      InterfaceItemRule: "typescript/tokens/items/interface-item-rule.js",
     },
     // 用例分组随 target 走：interface 复用 member-possible 的同一套用例。
     cases: () => DEFAULT_CASES,
