@@ -4,7 +4,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
-import { ReloadMessage } from "../messages/reload-message.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
@@ -92,28 +92,28 @@ return CloseStates.Nothing;
 return "/" + this.Temp + "/" + this.Flags;
 ```
 
-## method Consume:(context:SyntaxContext, source:Source)=>BranchStates
+## method Consume:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
 **收一个正文字符的唯一入口**：`Transit` 收第一个字符、`ExitOrPre` 收后续字符，都走这里，免得某一条路径漏设转义态。
 
 七个分支的优先级固定：
 
 1. 转义态（`IsTranslate`）：原样收，退出转义态；
-2. 已见结尾 `/`（`IsReadyToExit`）：是 flag 就收进 `Flags`；否则**签出到前一个字符**、关闭自己并跑重组、从父单元卸载，再插一条 `ReloadMessage` 让当前字符重新处理；
+2. 已见结尾 `/`（`IsReadyToExit`）：是 flag 就收进 `Flags`；否则**签出到当前字符之前**、关闭自己并跑重组、从父单元卸载，再返回 `Reload` 让当前字符**不归本单元消费**、由驱动层原地重放（挂在哪一层就交回哪一层）；
 3. `\`：收进正文并进入转义态；
 4. 字符类内：`]` 退出字符类，字符照常进正文（`]` 本身也保留）；
 5. `[`：进入字符类，字符进正文；
 6. `/`：置「已见结尾」；
 7. 其余：进正文。
 
-**`SignOut(source.Pre())` 不是 `SignOut(source)`**：关闭发生在「结尾 `/` 之后的下一个字符」上，范围终点必须是上一个字符。`Pre()` 为 `null` 不可能（此时至少已有开头那个 `/`），但仍然判空。
+**签出的是 `index`（当前字符之前）不是 `index + 1`**：关闭发生在「结尾 `/` 之后的下一个字符」上，范围终点必须是上个字符之后的那个位置。`index === 0` 不可能（此时至少已有开头那个 `/`），但仍然判空。
 
-**关闭时的 `ReloadMessage` 用 `this.Parent` 当处理者**，不是根：正则可能挂在 `Bracket` 里（`f(/a/)`、`a[/b/]`），当前字符必须交回那个括号，否则括号的收尾会被根单元抢走。
+**关闭用 `Reload` 而不是自己压 `ReloadMessage`**：`Reload` 只把「当前字符未消费」这件事交给驱动层，重放从根开始、沿挂载链自然落回正则的父单元（正则可能挂在 `Bracket` 里：`f(/a/)`、`a[/b/]`），不会把括号的收尾让根单元抢走。
 
 EOF 时不会走到这里：`/a/` 落在文件末尾，由 `SourceFileShape` 的收尾 `SignOut` 递归签出，`Consume` 不假设一定会看到「下一个字符」。
 
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 if (this.IsTranslate) {
   this.Temp += value;
   this.IsTranslate = false;
@@ -124,14 +124,12 @@ if (this.IsReadyToExit) {
     this.Flags += value;
     return BranchStates.Done;
   }
-  const previous = source.Pre();
-  if (previous !== null) {
-    this.SignOut(previous);
+  if (index > 0) {
+    this.SignOut(index);
   }
   this.TryToClose(context);
   this.Quit();
-  context.Messages.push(new ReloadMessage(this.Parent, this, source));
-  return BranchStates.Done;
+  return BranchStates.Reload;
 }
 if (value === "\\") {
   this.Temp += value;
@@ -158,27 +156,31 @@ this.Temp += value;
 return BranchStates.Done;
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
 后续字符全部交给 `Consume`：正则被挂载之后，本单元的 `Process` 走 `ExitOrPre`，状态机只有这一个入口。
 
 ```ts
-return this.Consume(context, source);
+return this.Consume(context, buffer, index);
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 判据分三段。
 
-**第一段（不变）**：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符不是 `/`（`//` 永远是行注释）。
+**第一段（不变）**：前一个字符是 `/`、它还能被回退（`unit.IsUndo`）、且当前字符不是 `/`（`//` 永远是行注释）。前一个字符可能落在上一个窗口，窗口内取不到时经 `SourceRange.Whole(buffer.Document!)` 取。
 
-**第二段（起点判据）**：从 `Data` 里那个 `/` 往前找，跳过 trivia（`WrapSymbol` / `AreaAnnotation` / `LineAnnotation`），得到 `lastCode`（可能为 `null`）与再往前一个代码单元 `previousCode`。先查 `SyntaxContext.RegexStartAfter`：`lastCode` 的 `End.Index` 在登记里就是语法层点名过的位置，直接成立；否则问 `Template.RegexTemplate.CanStart(lastCode, previousCode)`。不成立就 `Undo`，把 `/` 留给符号层。
+**第二段（起点判据）**：从 `Data` 里那个 `/` 往前找，跳过 trivia（`WrapSymbol` / `AreaAnnotation` / `LineAnnotation`），得到 `lastCode`（可能为 `null`）与再往前一个代码单元 `previousCode`。先查 `SyntaxContext.RegexStartAfter`：`lastCode` 的 `EndIndex` 在登记里就是语法层点名过的位置，直接成立；否则问 `Template.RegexTemplate.CanStart(lastCode, previousCode)`。不成立就 `Undo`，把 `/` 留给符号层。
 
 **第三段（认下）**：先把那个已经被吃成 `Symbol` 的 `/` 回退掉（它归 `RegexToken` 所有，不属于前一个单元），然后挂一个新的 `RegexToken`，用同一个 `/` 签入，再把当前字符交给 `Consume`。
 
 ```ts
-const preUnit = source.Pre();
-if (preUnit === null || preUnit.Value !== "/" || !unit.IsUndo(preUnit) || source.Value === "/") {
+const preIndex = index - 1;
+if (preIndex < 0) {
+  return BranchStates.Undo;
+}
+const pre = buffer.Has(preIndex) ? buffer.At(preIndex) : SourceRange.Whole(buffer.Document!).At(preIndex);
+if (pre !== "/" || !unit.IsUndo(preIndex) || buffer.At(index) === "/") {
   return BranchStates.Undo;
 }
 const data = unit.Data;
@@ -205,13 +207,13 @@ if (at >= 0) {
   }
 }
 let forced = false;
-if (lastCode !== null && lastCode.SourceRange.End !== null) {
-  forced = context.RegexStartAfter.has(lastCode.SourceRange.End.Index);
+if (lastCode !== null && lastCode.SourceRange.End >= 0) {
+  forced = context.RegexStartAfter.has(lastCode.SourceRange.EndIndex);
 }
 if (!forced && !unit.Template.RegexTemplate.CanStartAt(data, data.length)) {
   return BranchStates.Undo;
 }
-unit.Undo(preUnit);
+unit.Undo(preIndex);
 const lastOfMounted = unit.Last();
 if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
@@ -220,7 +222,7 @@ const mounted = new RegexToken(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
 const regexToken = unit.MountedUnit as RegexToken;
-regexToken.SignIn(preUnit);
-regexToken.Consume(context, source);
+regexToken.SignIn(preIndex);
+regexToken.Consume(context, buffer, index);
 return BranchStates.Done;
 ```

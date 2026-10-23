@@ -4,7 +4,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
-import { ReloadMessage } from "../messages/reload-message.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Bom } from "./bom.xl.md"
@@ -17,11 +17,11 @@ import { UnitToken } from "../unit-token.xl.md"
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
 
 Shebang basic token：`#!…` 只在**文件头的允许位置**进入——
-- 没有 BOM 时：`source.Index === 0`；
-- 有 BOM 时：`source.Index === Bom.SourceRange.End.Index + 1`（即 BOM 之后那一格）。
+- 没有 BOM 时：`index === 0`；
+- 有 BOM 时：`index === Bom.SourceRange.EndIndex`（即 BOM 之后那一格）。
 
 标记本身由 `Template.ShebangMarker` 配置（默认 `#!`）。吞到**行尾换行之前**（不含 `\n`），
-`\n` 用 `ReloadMessage` 交回根单元处理。它是 trivia（`IsTriviaToken`）：不产生 AST 节点。
+`\n` 用 `Reload` 交回根单元处理。它是 trivia（`IsTriviaToken`）：不产生 AST 节点。
 
 # class Shebang extends UnitToken
 
@@ -50,32 +50,31 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 Shebang 行的正文（`#!` 及其后的字符，不含行尾换行）。
 
-## protected method Default:(context:SyntaxContext, source:Source)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 跳转队列没接手时，把字符并进 `Tmp`。
 
 ```ts
-this.Tmp += source.Value;
+this.Tmp += buffer.At(index);
 ```
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
 遇到行终止符（`Template.IsLineTerminator`：core 默认 `\n`，ts 模板为 `\n` / `\r` / U+2028 / U+2029）
-或 EOF 哨兵就退出：签出到前一个字符、关闭自己并跑重组、从父单元卸载；
-行终止符本身不是 shebang 的一部分，用 `ReloadMessage` 交回根单元（EOF 时不再插消息）。
+或 EOF 空窗口就退出：签出到当前字符之前、关闭自己并跑重组、从父单元卸载；
+行终止符本身不是 shebang 的一部分，返回 `Reload` 让它**不归本单元消费**、由驱动层原地重放给根单元（EOF 时返回 `Done`）。
 
 ```ts
-if (!source.IsEOF && !this.Template.IsLineTerminator(source.Value)) {
+if (!buffer.IsEof() && !this.Template.IsLineTerminator(buffer.At(index))) {
   return BranchStates.Undo;
 }
-const previous = source.Pre();
-if (previous !== null) {
-  this.SignOut(previous);
+if (index > 0) {
+  this.SignOut(index);
 }
 this.TryToClose(context);
 this.Quit();
-if (!source.IsEOF) {
-  context.Messages.push(ReloadMessage.WithoutProcessOwner(this, source));
+if (!buffer.IsEof()) {
+  return BranchStates.Reload;
 }
 return BranchStates.Done;
 ```
@@ -96,38 +95,38 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 判据三段：
-1. 允许的起始下标：根 `Data` 第一格是 `Bom`（且已签出）时取 `Bom.SourceRange.End.Index + 1`，否则 `0`；
-2. 当前字符是 `Template.ShebangMarker` 的第一个字符、下一格是第二个字符；
+1. 允许的起始下标：根 `Data` 第一格是 `Bom`（且已签出）时取 `Bom.SourceRange.EndIndex`，否则 `0`；
+2. 当前字符是 `Template.ShebangMarker` 的第一个字符、下一格是第二个字符（下一格可能跨窗口，经 `SourceRange.Whole(buffer.Document!)` 取）；
 3. 认下后挂一个新的 `Shebang`，按当前字符签入，后续字符由本单元吞到行尾。
 
 ```ts
 let startIndex = 0;
 if (unit.Data.length > 0) {
   const first = unit.Data[0];
-  if (first instanceof Bom && first.SourceRange.End !== null) {
-    startIndex = first.SourceRange.End.Index + 1;
+  if (first instanceof Bom && first.SourceRange.End >= 0) {
+    startIndex = first.SourceRange.EndIndex;
   }
 }
-if (source.Index !== startIndex) {
+if (index !== startIndex) {
   return BranchStates.Undo;
 }
 const marker = unit.Template.ShebangMarker;
 if (marker.length !== 2) {
   return BranchStates.Undo;
 }
-if (source.Value !== marker[0]) {
+if (buffer.At(index) !== marker[0]) {
   return BranchStates.Undo;
 }
-const document = source.Document;
-if (source.Index + 1 >= document.GetCount() || document.At(source.Index + 1).Value !== marker[1]) {
+const whole = SourceRange.Whole(buffer.Document!);
+if (index + 1 >= whole.EndIndex || whole.At(index + 1) !== marker[1]) {
   return BranchStates.Undo;
 }
 const mounted = new Shebang(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
-mounted.SignIn(source);
+mounted.SignIn(index);
 return BranchStates.Done;
 ```

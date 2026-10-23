@@ -3,6 +3,7 @@
 import { BlockToken } from "../block-token.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
@@ -44,12 +45,12 @@ trivia 单元：判形状时跳过。
 super(Template);
 ```
 
-## method IsAppend:(Src:Source)=>bool
+## method IsAppend:(buffer:SourceRange, index:int)=>bool
 
-能不能把 `Src` 并进本块：是空白就行——空白不像组合符号那样需要看前文。
+能不能把窗口里 `index` 处的字符并进本块：是空白就行——空白不像组合符号那样需要看前文。
 
 ```ts
-return this.Template.SymbolTemplate.IsWhiteSpace(Src.Value);
+return this.Template.SymbolTemplate.IsWhiteSpace(buffer.At(index));
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
@@ -63,26 +64,26 @@ this.Closed = true;
 return CloseStates.Nothing;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 当前字符是空白就接手；不是就先关掉还开着的上一个 `WrapSymbol`（它是一整段空白，遇到非空白就该收尾），再让路。
 
 ```ts
 const last = unit.Last();
-if (!unit.Template.SymbolTemplate.IsWhiteSpace(source.Value)) {
+if (!unit.Template.SymbolTemplate.IsWhiteSpace(buffer.At(index))) {
   if (last instanceof WrapSymbol && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
     return BranchStates.Reload;
   }
   return BranchStates.Undo;
 }
 if (last instanceof WrapSymbol && !last.Closed) {
-  last.AppendAndSignOut(source);
+  last.AppendAndSignOut(buffer.At(index), index);
   return BranchStates.Done;
 }
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
 unit.Add(new WrapSymbol(unit.Template));
-(unit.Last() as WrapSymbol)!.AppendAndSignOut(source).SignIn(source);
+(unit.Last() as WrapSymbol)!.AppendAndSignOut(buffer.At(index), index).SignIn(index);
 return BranchStates.Done;
 ```

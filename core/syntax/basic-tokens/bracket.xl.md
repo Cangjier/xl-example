@@ -4,6 +4,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
+import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { Template } from "../templates/template.xl.md"
@@ -96,22 +97,22 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
-## protected method Default:(context:SyntaxContext, source:Source)=>void
+## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
 兜底处理。空实现——括号既不吞字符也不跑跳转，字符全交给挂载的子单元。
 
-## protected method ExitOrPre:(context:SyntaxContext, source:Source)=>BranchStates
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
 
-遇到配对的结束括号就退出：先签出到该字符，再尝试关闭，然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
+遇到配对的结束括号就退出：先签出到该字符之后，再尝试关闭，然后从父单元卸载自己，返回 `Done`；否则返回 `Undo`，让这一个字符继续往下走。
 
 `\u{…}` 花括号转义进行中时，`}` 是转义的收口、不是本括号的结束括号：这时返回 `Undo`，让 `Common` 吃掉它。
 
 ```ts
-if (source.Value === this.EndBracketChar) {
+if (buffer.At(index) === this.EndBracketChar) {
   if (Common.IsInUnicodeBraceEscape(this)) {
     return BranchStates.Undo;
   }
-  this.SignOut(source);
+  this.SignOut(index + 1);
   this.TryToClose(context);
   this.Quit();
   return BranchStates.Done;
@@ -132,7 +133,7 @@ for (const item of this.Data) {
 return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${this.EndBracketChar}">${temp.join("")}</${name}>`;
 ```
 
-## static method Transit:(context:SyntaxContext, unit:Token, source:Source)=>BranchStates
+## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int)=>BranchStates
 
 只认 `(` / `{` / `[` 三种开括号字符：认下就新建一个 `Bracket`、配成对应的括号对、挂到 `unit` 上并签入。
 
@@ -143,7 +144,7 @@ return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${t
 `\u{…}` 花括号转义进行中时不起新括号：这时 `{` 属于转义（`\u{61}`），返回 `Undo` 让 `Common` 吃掉。
 
 ```ts
-const value = source.Value;
+const value = buffer.At(index);
 if (value !== "(" && value !== "{" && value !== "[") {
   return BranchStates.Undo;
 }
@@ -157,7 +158,7 @@ if (lastOfMounted !== null && !lastOfMounted.Closed && lastOfMounted.TryToClose(
 const mounted = new Bracket(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
-mounted.Use(source.Value).SignIn(source);
+mounted.Use(value).SignIn(index);
 if ("OnBracketCreatedEvent" in unit) {
   (unit as unknown as IComputePossibleShapes).OnBracketCreatedEvent(mounted, context);
 }
