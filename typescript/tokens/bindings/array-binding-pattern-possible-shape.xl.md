@@ -91,12 +91,12 @@ for (let at = index - 1; at >= 0; at--) {
   }
 }
 if (previous >= 0) {
-  const previousEnd = host.Data[previous].SourceRange.End;
-  if (previousEnd !== null) {
-    shape.Pos = previousEnd.Index + 1;
+  const previousEnd = host.Data[previous].SourceRange.EndIndex;
+  if (previousEnd >= 0) {
+    shape.Pos = previousEnd;
   }
-} else if (bracket.SourceRange.Start !== null) {
-  shape.Pos = bracket.SourceRange.Start.Index;
+} else if (bracket.SourceRange.StartIndex >= 0) {
+  shape.Pos = bracket.SourceRange.StartIndex;
 }
 host.Data.splice(index, 1, shape);
 shape.Parent = host;

@@ -121,13 +121,13 @@ for (let at = index - 1; at >= itemStart; at--) {
   }
 }
 const shape = StringLiteralShape.FromBasicToken(token, context);
-if (previousCode >= 0 && host.Data[previousCode].SourceRange.End !== null) {
+if (previousCode >= 0 && host.Data[previousCode].SourceRange.EndIndex >= 0) {
   const prevUnit = host.Data[previousCode];
-  if (prevUnit.SourceRange.End !== null) {
-    shape.Pos = prevUnit.SourceRange.End.Index + 1;
+  if (prevUnit.SourceRange.EndIndex >= 0) {
+    shape.Pos = prevUnit.SourceRange.EndIndex;
   }
-} else if (token.SourceRange.Start !== null) {
-  shape.Pos = token.SourceRange.Start.Index;
+} else if (token.SourceRange.StartIndex >= 0) {
+  shape.Pos = token.SourceRange.StartIndex;
 }
 host.Data.splice(index, 1, shape);
 shape.Parent = host;

@@ -409,9 +409,9 @@ if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
   let expressionPos = 0;
   for (let at = start - 1; at >= 0; at--) {
     if (!host.Data[at].IsTriviaToken) {
-      const end = host.Data[at].SourceRange.End;
+      const end = host.Data[at].SourceRange.EndIndex;
       if (end !== null) {
-        expressionPos = end.Index + 1;
+        expressionPos = end;
       }
       break;
     }
@@ -421,16 +421,16 @@ if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
   identifier.Pos = expressionPos;
   expression.Expression = identifier;
   expression.Add(identifier);
-  if (declareUnit.SourceRange.Start !== null) {
+  if (declareUnit.SourceRange.StartIndex >= 0) {
     expression.SignIn(declareUnit.SourceRange.Start);
   }
-  if (declareUnit.SourceRange.End !== null) {
+  if (declareUnit.SourceRange.EndIndex >= 0) {
     expression.SignOut(declareUnit.SourceRange.End);
   }
   expression.Pos = expressionPos;
   expression.TryToClose(context);
   const declaration = FunctionDeclarationShape.FromUnits(host, state.FunctionAt, tokenIndex, context);
-  declaration.Pos = declareUnit.SourceRange.End === null ? 0 : declareUnit.SourceRange.End.Index + 1;
+  declaration.Pos = declareUnit.SourceRange.EndIndex < 0 ? 0 : declareUnit.SourceRange.EndIndex;
   host.Data.splice(start, tokenIndex - start + 1, expression, declaration);
   expression.Parent = host;
   declaration.Parent = host;
@@ -453,9 +453,9 @@ if (state !== null && splitAt > start && splitAt <= tokenIndex) {
     let trailingPos = 0;
     for (let at = splitAt - 1; at >= 0; at--) {
       if (!host.Data[at].IsTriviaToken) {
-        const previousEnd = host.Data[at].SourceRange.End;
-        if (previousEnd !== null) {
-          trailingPos = previousEnd.Index + 1;
+        const previousEnd = host.Data[at].SourceRange.EndIndex;
+        if (previousEnd >= 0) {
+          trailingPos = previousEnd;
         }
         break;
       }

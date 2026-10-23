@@ -127,17 +127,17 @@ while (at < consumed.length) {
   }
   if (unit instanceof Common && (unit as Common).Is("export")) {
     const shape = ExportKeywordShape.FromBasicToken(unit as Common, context);
-    shape.Pos = modifierPos >= 0 ? modifierPos : (unit.SourceRange.Start !== null ? unit.SourceRange.Start.Index : -1);
+    shape.Pos = modifierPos >= 0 ? modifierPos : (unit.SourceRange.StartIndex >= 0 ? unit.SourceRange.StartIndex : -1);
     built.Add(shape);
-    modifierPos = unit.SourceRange.End !== null ? unit.SourceRange.End.Index + 1 : -1;
+    modifierPos = unit.SourceRange.EndIndex >= 0 ? unit.SourceRange.EndIndex : -1;
     at++;
     continue;
   }
   if (unit instanceof Common && (unit as Common).Is("declare")) {
     const shape = DeclareKeywordShape.FromBasicToken(unit as Common, context);
-    shape.Pos = modifierPos >= 0 ? modifierPos : (unit.SourceRange.Start !== null ? unit.SourceRange.Start.Index : -1);
+    shape.Pos = modifierPos >= 0 ? modifierPos : (unit.SourceRange.StartIndex >= 0 ? unit.SourceRange.StartIndex : -1);
     built.Add(shape);
-    modifierPos = unit.SourceRange.End !== null ? unit.SourceRange.End.Index + 1 : -1;
+    modifierPos = unit.SourceRange.EndIndex >= 0 ? unit.SourceRange.EndIndex : -1;
     at++;
     continue;
   }
@@ -146,8 +146,8 @@ while (at < consumed.length) {
 for (let index = at; index < consumed.length; index++) {
   built.Add(consumed[index]);
 }
-const begin = consumed[0].SourceRange.Start;
-if (begin !== null) {
+const begin = consumed[0].SourceRange.StartIndex;
+if (begin >= 0) {
   built.SignIn(begin);
 }
 let previousCode = -1;
@@ -157,11 +157,11 @@ for (let at = start - 1; at >= 0; at--) {
     break;
   }
 }
-built.Pos = begin !== null ? begin.Index : -1;
+built.Pos = begin >= 0 ? begin : -1;
 if (previousCode >= 0) {
   const prevUnit = host.Data[previousCode];
-  if (prevUnit.SourceRange.End !== null) {
-    built.Pos = prevUnit.SourceRange.End.Index + 1;
+  if (prevUnit.SourceRange.EndIndex >= 0) {
+    built.Pos = prevUnit.SourceRange.EndIndex;
   }
 }
 host.Data.splice(start, consumed.length, built);

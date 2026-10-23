@@ -35,7 +35,7 @@ shape.Token = token;
 const elements:Array<ImportAttributeShape> = [];
 let group:Array<Token> = [];
 // 每个 attribute 的 Pos 是它前面那个非 trivia 单元（`{` 或 `,`）的 End+1。
-let pos = bracket.SourceRange.Start === null ? -1 : bracket.SourceRange.Start.Index + 1;
+let pos = bracket.SourceRange.StartIndex < 0 ? -1 : bracket.SourceRange.StartIndex + 1;
 for (const item of bracket.Data) {
   if (item instanceof Symbol && (item as Symbol).Is(",")) {
     const attribute = ImportAttributeShape.FromTokens(group, context, pos);
@@ -43,7 +43,7 @@ for (const item of bracket.Data) {
       elements.push(attribute);
     }
     group = [];
-    pos = item.SourceRange.End === null ? -1 : item.SourceRange.End.Index + 1;
+    pos = item.SourceRange.EndIndex < 0 ? -1 : item.SourceRange.EndIndex;
     continue;
   }
   group.push(item);
@@ -57,10 +57,10 @@ for (const item of elements) {
   item.Parent = shape;
   shape.Data.push(item);
 }
-if (bracket.SourceRange.Start !== null) {
+if (bracket.SourceRange.StartIndex >= 0) {
   shape.SignIn(bracket.SourceRange.Start);
 }
-if (bracket.SourceRange.End !== null) {
+if (bracket.SourceRange.EndIndex >= 0) {
   shape.SignOut(bracket.SourceRange.End);
 }
 shape.TryToClose(context);

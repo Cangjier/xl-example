@@ -129,12 +129,12 @@ for (let at = star - 1; at >= 0; at--) {
   }
 }
 if (previous >= 0) {
-  const previousEnd = host.Data[previous].SourceRange.End;
-  if (previousEnd !== null) {
-    shape.Pos = previousEnd.Index + 1;
+  const previousEnd = host.Data[previous].SourceRange.EndIndex;
+  if (previousEnd >= 0) {
+    shape.Pos = previousEnd;
   }
-} else if (shape.SourceRange.Start !== null) {
-  shape.Pos = shape.SourceRange.Start.Index;
+} else if (shape.SourceRange.StartIndex >= 0) {
+  shape.Pos = shape.SourceRange.StartIndex;
 }
 host.Data.splice(star, tokenIndex - star + 1, shape);
 shape.Parent = host;

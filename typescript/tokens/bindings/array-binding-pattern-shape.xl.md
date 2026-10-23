@@ -46,7 +46,7 @@ const shape = new ArrayBindingPatternShape(bracket.Template);
 const groups:Array<Array<Token>> = [];
 const positions:Array<number> = [];
 let group:Array<Token> = [];
-let groupPos = bracket.SourceRange.Start === null ? 0 : bracket.SourceRange.Start.Index + 1;
+let groupPos = bracket.SourceRange.StartIndex < 0 ? 0 : bracket.SourceRange.StartIndex + 1;
 for (const item of bracket.Data) {
   if (item.IsTriviaToken) {
     continue;
@@ -55,7 +55,7 @@ for (const item of bracket.Data) {
     groups.push(group);
     positions.push(groupPos);
     group = [];
-    groupPos = item.SourceRange.End === null ? groupPos : item.SourceRange.End.Index + 1;
+    groupPos = item.SourceRange.EndIndex < 0 ? groupPos : item.SourceRange.EndIndex;
     continue;
   }
   group.push(item);
@@ -76,16 +76,16 @@ for (let at = 0; at < groups.length; at++) {
     // 行尾逗号（`[a,]`）不是空位；空模式 `[]` 也走这里。
     continue;
   }
-  const reference = bracket.SourceRange.Start;
-  if (reference === null || position <= 0) {
+  const reference = bracket.SourceRange;
+  if (reference.StartIndex < 0 || reference.Document === null || position <= 0) {
     continue;
   }
   // 空位是零宽节点：TS 的 OmittedExpression pos == end == position；
-  // cjAst 的 end = SourceRange.End.Index + 1，所以终点点在 position - 1 上。
-  const atSource = reference.Document.At(position - 1);
+  // cjAst 的 end = SourceRange.EndIndex，所以 End 取 position（半开区间 `[position-1, position)`）。
   const omitted = new OmittedExpressionShape(bracket.Template);
-  omitted.SourceRange.Start = atSource;
-  omitted.SourceRange.End = atSource;
+  omitted.SourceRange.Document = reference.Document;
+  omitted.SourceRange.Start = position - 1;
+  omitted.SourceRange.End = position;
   omitted.Pos = position;
   omitted.TryToClose(context);
   shape.Add(omitted);

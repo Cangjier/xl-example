@@ -42,7 +42,7 @@ namespace N { class C {} function f() {} }
 里面的语句 / 声明由 `StatementBuilder` 与各声明形状的 `FromUnits` 在括号单元的 `Data` 上逐条递归建出来，
 `{` / `}` 自己不进 AST 子节点（`ModuleBlock` 的 children 只有语句 / 声明）。
 
-`Pos` 与 TS 同口径：`Pos = 前一个非 trivia 单元的 End.Index + 1`（含 `{` 前面的 trivia），
+`Pos` 与 TS 同口径：`Pos = 前一个非 trivia 单元的 EndIndex`（含 `{` 前面的 trivia），
 由调用方算好传进来；区间是括号单元自己的 `[{, }]`。
 
 模块体里的成员有三类（chunk 2 + chunk 3）：
@@ -72,17 +72,17 @@ super(template);
 
 ```ts
 const shape = new ModuleBlockShape(bracket.Template);
-if (bracket.SourceRange.Start !== null) {
+if (bracket.SourceRange.StartIndex >= 0) {
   shape.SignIn(bracket.SourceRange.Start);
 }
-if (bracket.SourceRange.End !== null) {
+if (bracket.SourceRange.EndIndex >= 0) {
   shape.SignOut(bracket.SourceRange.End);
 }
 shape.Pos = pos;
 const inner = new StatementBuilder(bracket.Template, context);
 let base = 0;
-if (bracket.SourceRange.Start !== null) {
-  base = bracket.SourceRange.Start.Index + 1;
+if (bracket.SourceRange.StartIndex >= 0) {
+  base = bracket.SourceRange.StartIndex + 1;
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
@@ -140,10 +140,10 @@ if (keyword === "default" && modifier !== null) {
     || afterText === "enum" || afterText === "abstract" || afterText === "async") {
     const defaultUnit = unit as Common;
     defaultModifier = new DefaultKeywordShape(bracket.Template);
-    if (defaultUnit.SourceRange.Start !== null) {
+    if (defaultUnit.SourceRange.StartIndex >= 0) {
       (defaultModifier as ShapeToken).SignIn(defaultUnit.SourceRange.Start);
     }
-    if (defaultUnit.SourceRange.End !== null) {
+    if (defaultUnit.SourceRange.EndIndex >= 0) {
       (defaultModifier as ShapeToken).SignOut(defaultUnit.SourceRange.End);
     }
     (defaultModifier as ShapeToken).Pos = inner.Positions[declStart];
@@ -585,8 +585,8 @@ if (special !== null) {
       for (const child of member.Data) {
         if (child instanceof ConstKeywordShape || child instanceof DeclareKeywordShape) {
           (child as ShapeToken).Pos = modifierPos;
-          if (child.SourceRange.End !== null) {
-            modifierPos = child.SourceRange.End.Index + 1;
+          if (child.SourceRange.EndIndex >= 0) {
+            modifierPos = child.SourceRange.EndIndex;
           }
           continue;
         }
@@ -613,8 +613,8 @@ if (special !== null) {
   for (const child of declared.Data) {
     if (child instanceof DeclareKeywordShape) {
       (child as ShapeToken).Pos = declarePos;
-      if (child.SourceRange.End !== null) {
-        declarePos = child.SourceRange.End.Index + 1;
+      if (child.SourceRange.EndIndex >= 0) {
+        declarePos = child.SourceRange.EndIndex;
       }
       continue;
     }
@@ -636,8 +636,8 @@ if (special !== null) {
   for (const child of declared.Data) {
     if (child instanceof DeclareKeywordShape) {
       (child as ShapeToken).Pos = declarePos;
-      if (child.SourceRange.End !== null) {
-        declarePos = child.SourceRange.End.Index + 1;
+      if (child.SourceRange.EndIndex >= 0) {
+        declarePos = child.SourceRange.EndIndex;
       }
       continue;
     }
@@ -708,9 +708,9 @@ let leadingModifierPos = inner.Positions[declStart];
 for (const child of member.Data) {
   if (child instanceof DeclareKeywordShape || child instanceof AbstractKeywordShape) {
     (child as ShapeToken).Pos = leadingModifierPos;
-    const childEnd = child.SourceRange.End;
-    if (childEnd !== null) {
-      leadingModifierPos = childEnd.Index + 1;
+    const childEnd = child.SourceRange.EndIndex;
+    if (childEnd >= 0) {
+      leadingModifierPos = childEnd;
     }
     continue;
   }

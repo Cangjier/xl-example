@@ -52,16 +52,16 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 ## static method BasePos:(host:Token, start:int)=>int
 
-条目 / 壳的 `Pos` 口径：`start` 之前最近一个非 trivia 单元的 `End.Index + 1`；前面没有非 trivia 单元时返回 `0`。
+条目 / 壳的 `Pos` 口径：`start` 之前最近一个非 trivia 单元的 `EndIndex`；前面没有非 trivia 单元时返回 `0`。
 
 与 `InterfaceDeclarationPossibleShape.BuildByIndex` 的 `Pos` 循环、`InterfaceDeclarationShape.FromUnits` 的 `pos` 循环、`MemberPossibleUtil.BasePos` 同一口径（只差「前面什么都没有」时是否回退到宿主起点，这里按壳的口径返回 `0`）。
 
 ```ts
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const previousEnd = host.Data[at].SourceRange.End;
-    if (previousEnd !== null) {
-      return previousEnd.Index + 1;
+    const previousEnd = host.Data[at].SourceRange.EndIndex;
+    if (previousEnd >= 0) {
+      return previousEnd;
     }
     break;
   }
@@ -144,8 +144,8 @@ const consumed:Array<Token> = host.Data.slice(start, tokenIndex + 1);
 for (const unit of consumed) {
   shell.Add(unit);
 }
-const begin = consumed[0].SourceRange.Start;
-if (begin !== null) {
+const begin = consumed[0].SourceRange.StartIndex;
+if (begin >= 0) {
   shell.SignIn(begin);
 }
 const shape = shell as ShapeToken;
@@ -163,7 +163,7 @@ return shell;
 - 括号 `Data` 里**没有已建好的成员形状**（导出 / 模块体 / 语句位置的一次性构建，或整段都没增量建出）：整段还是 raw basic token，原样交给 `rawFallback`，与重构前逐字一致；
 - 已经由 body 的 `CatalogGuide` 增量建出成员形状：按序收集非 basic 单元（成员形状），跳过 trivia 与残留的 `;` / `,`；若后面还留着一截没有增量建出的 raw 代码（最后一条成员在容器收口时才确定、`BuildByIndex` 判不完整回落、或本族还没有对应候选），把**这一截 raw** 包成一个临时括号视图交给 `rawFallback` 逐成员建，再拼接到已建成员之后。
 
-临时括号视图：`Data` 只含 raw 尾巴，`SourceRange.Start` 对齐到尾巴前一个非 trivia 单元的 `End`，所以 `rawFallback` 里 `bracket.SourceRange.Start.Index + 1` 得到的 base 与 interface 收口里手写循环算出的 `base` 完全相同；它不参与字符流、不签出、不关闭，只当一次调用参数。
+临时括号视图：`Data` 只含 raw 尾巴，`SourceRange.Start` 对齐到尾巴前一个非 trivia 单元的 `End`，所以 `rawFallback` 里 `bracket.SourceRange.StartIndex + 1` 得到的 base 与 interface 收口里手写循环算出的 `base` 完全相同；它不参与字符流、不签出、不关闭，只当一次调用参数。
 
 `rawFallback` 的语义必须是「该族一次性构建用的 `BuildMembers`」：`BuildMembers(host, bracket, context)` 逐成员建 `bracket.Data`。这样增量路径与 raw 路径都由同一个建造器产出成员，区间 / `Pos` 口径不变。
 

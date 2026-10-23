@@ -220,7 +220,7 @@ return state !== null && state.Done && !state.Rejected;
 把 `class` 关键字的这一格变成**挂载的壳**：把 `state.Start..tokenIndex` 的单元原样搬进壳的 `Data`、签入，然后让壳
 挂到宿主上接管后续字符（`BodyGuideUtil.MountShell`）。
 
-壳的 `Pos` 由 `MountShell` 按「`state.Start` 前面最近一个非 trivia 单元的 `End.Index + 1`」算出来——与
+壳的 `Pos` 由 `MountShell` 按「`state.Start` 前面最近一个非 trivia 单元的 `EndIndex`」算出来——与
 `FromUnits` 的口径一致。
 
 ```ts

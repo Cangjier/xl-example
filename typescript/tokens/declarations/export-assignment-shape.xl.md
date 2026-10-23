@@ -21,7 +21,7 @@ export = f;
 measurement 载体：`export = <表达式>;`。TS 的 children 只有表达式一个，`export` / `=` / `;` 都不是节点
 （`export = x;` → `ExportAssignment → [Identifier x]`），所以 `Data` 只装表达式。
 `isExportEquals` 不在 `ast-json.mjs` 的比较字段里（那边只比 `text` / `name` / `isTypeOnly`），不用造字段。
-区间从 `export` 起点到 `;`；`Pos` = 前一个非 trivia 单元 `End.Index + 1`。
+区间从 `export` 起点到 `;`；`Pos` = 前一个非 trivia 单元 `EndIndex`。
 
 ## field Expression:Token | null = null
 
@@ -66,16 +66,16 @@ if (hasSemicolon && (!(last instanceof Symbol) || !(last as Symbol).Is(";"))) {
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
+    const end = host.Data[at].SourceRange.EndIndex;
     if (end !== null) {
-      pos = end.Index + 1;
+      pos = end;
     }
     break;
   }
 }
 let expressionPos = 0;
-if (separator.SourceRange.End !== null) {
-  expressionPos = separator.SourceRange.End.Index + 1;
+if (separator.SourceRange.EndIndex >= 0) {
+  expressionPos = separator.SourceRange.EndIndex;
 }
 const expressionUnits:Array<Token> = hasSemicolon ? code.slice(2, code.length - 1) : code.slice(2);
 const builder = new ExpressionBuilder(host.Template, context);
@@ -87,11 +87,11 @@ if (builder.At !== builder.Units.length) {
 const shape = new ExportAssignmentShape(host.Template);
 shape.Expression = expression;
 shape.Add(expression);
-if (keyword.SourceRange.Start !== null) {
+if (keyword.SourceRange.StartIndex >= 0) {
   shape.SignIn(keyword.SourceRange.Start);
 }
 const endUnit = hasSemicolon ? last : code[code.length - 1];
-if (endUnit.SourceRange.End !== null) {
+if (endUnit.SourceRange.EndIndex >= 0) {
   shape.SignOut(endUnit.SourceRange.End);
 }
 shape.Pos = pos;

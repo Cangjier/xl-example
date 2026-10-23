@@ -64,9 +64,9 @@ if (firstShape === null) {
 // 带 `type` 修饰时，标识符的前导 trivia 起点在 `type` 之后，形状的 Pos 仍在 `type` 之前。
 let firstPos = pos;
 if (shape.IsTypeOnly) {
-  const typeEnd = code[at - 1].SourceRange.End;
-  if (typeEnd !== null) {
-    firstPos = typeEnd.Index + 1;
+  const typeEnd = code[at - 1].SourceRange.EndIndex;
+  if (typeEnd >= 0) {
+    firstPos = typeEnd;
   }
 }
 firstShape.Pos = firstPos;
@@ -85,8 +85,8 @@ if (at + 1 < code.length && code[at] instanceof Common && (code[at] as Common).I
   if (second === null) {
     return null;
   }
-  const asEnd = code[at].SourceRange.End;
-  second.Pos = asEnd !== null ? asEnd.Index + 1 : -1;
+  const asEnd = code[at].SourceRange.EndIndex;
+  second.Pos = asEnd >= 0 ? asEnd : -1;
   shape.Name = second as IdentifierShape;
   shape.Data.push(second);
   second.Parent = shape;
@@ -96,10 +96,10 @@ if (shape.Name === null && shape.PropertyName !== null) {
   shape.Name = shape.PropertyName;
   shape.PropertyName = null;
 }
-if (code[0].SourceRange.Start !== null) {
+if (code[0].SourceRange.StartIndex >= 0) {
   shape.SignIn(code[0].SourceRange.Start);
 }
-if (last.SourceRange.End !== null) {
+if (last.SourceRange.EndIndex >= 0) {
   shape.SignOut(last.SourceRange.End);
 }
 shape.TryToClose(context);

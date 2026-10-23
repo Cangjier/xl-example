@@ -261,7 +261,7 @@ return state !== null && state.Status === 1 && state.End >= 0;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 按 `state.End`（`{` 在 `host.Data` 里的下标）只消费到该格为止；`Pos` 口径与 `StatementPossibleShape` 一致：
-先取 `start` 之前最后一个非 trivia 单元的 `End.Index + 1`，再逐格推进（trivia 不推进 `Pos`）。
+先取 `start` 之前最后一个非 trivia 单元的 `EndIndex`，再逐格推进（trivia 不推进 `Pos`）。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<ModuleDeclarationScan>(this.constructor.name);
@@ -278,9 +278,9 @@ const positions:Array<number> = [];
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const previousEnd = host.Data[at].SourceRange.End;
-    if (previousEnd !== null) {
-      pos = previousEnd.Index + 1;
+    const previousEnd = host.Data[at].SourceRange.EndIndex;
+    if (previousEnd >= 0) {
+      pos = previousEnd;
     }
     break;
   }
@@ -292,8 +292,8 @@ for (let at = start; at <= end; at++) {
   }
   code.push(unit);
   positions.push(pos);
-  if (unit.SourceRange.End !== null) {
-    pos = unit.SourceRange.End.Index + 1;
+  if (unit.SourceRange.EndIndex >= 0) {
+    pos = unit.SourceRange.EndIndex;
   }
 }
 const built = ModuleDeclarationShape.FromUnits(code, positions, context);
