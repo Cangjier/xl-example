@@ -5,6 +5,13 @@
 //
 // 口径：计量对象与 tests/bench/parse-perf.mjs 的 --dts 档一致——`SourceFileRunner.Parse(text, filePath)`，
 // 只跑「字符流 → 形状树」，不含 AST 投影。
+//
+// buffer 契约（BUFFER-CONTRACT §1.2 / §1.4）之后的两处调整：
+//   - `--micro` 的 `new Source` / `doc.At` / `s.Value` 三条换成 `SourceRange` 的对应物
+//     （`new SourceRange(doc,i,i+1)` / `range.At(i)`），因为 `Source` 与 `Document.At` 已删除；
+//   - 原「队列 push+splice」那条量的是已删除的 `SourceQueue` / `ProcessSource`，改为
+//     **不可用（unavailable）** 并写明原因，另给一条 `ReloadMessage` 的 push+splice 作成本参照。
+//   - `--count` 档的包装名单按新方法名更新（`ProcessSingle` / `DrainQueue` 已不存在）。
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -29,10 +36,10 @@ const bump = (key) => counts.set(key, (counts.get(key) ?? 0) + 1);
 
 const WATCH = new Set([
   "Process", "TryToClose", "Add", "SignOut", "SignIn", "Close", "Undo",
-  "WhichUnitRangeContains", "At", "GetState", "SetState",
+  "WhichUnitRangeContains", "At", "Has", "GetState", "SetState",
   "ComputePossibleShapesByIndex", "ComputeByIndex", "BuildByIndex", "IsInRange",
-  "IsAppend", "Transit", "Default", "GetCount", "ProcessSingle", "DrainQueue",
-  "DrainMessages", "ComputePossibleShapes", "FromRanges", "IsBuildable",
+  "IsAppend", "Transit", "Default", "GetCount", "ProcessRange", "DrainMessages",
+  "ComputePossibleShapes", "FromRanges", "IsBuildable", "TrySignOut", "SignOutToken",
 ]);
 
 function instrumentModule(mod, file) {
@@ -41,7 +48,7 @@ function instrumentModule(mod, file) {
     const exp = mod[name];
     if (typeof exp !== "function" || !exp.prototype) {
       if (typeof exp === "function" && WATCH.has(name)) {
-        // 静态转调函数（例如 Source.EOF）：不包装，避免改变 this 语义。
+        // 静态转调函数（例如 `SourceRange.Whole` / `SourceRange.Of`）：不包装，避免改变 this 语义。
       }
       continue;
     }
@@ -133,15 +140,18 @@ if (doCount) {
 }
 
 if (doMicro) {
-  const { Source } = require(path.join(buildTs, "core", "syntax", "source.js"));
+  // buffer 契约之后：`Source`（core/syntax/source.js）、`Document.At`、`ProcessSource`
+  // （core/syntax/process-source.js）都已删除；下面每条 label 都写了它替代的旧项。
+  const { SourceRange } = require(path.join(buildTs, "core", "syntax", "source-range.js"));
   const { Document } = require(path.join(buildTs, "core", "syntax", "document.js"));
-  const { ProcessSource } = require(path.join(buildTs, "core", "syntax", "process-source.js"));
+  const { ReloadMessage } = require(path.join(buildTs, "core", "syntax", "messages", "reload-message.js"));
   const { TextDocument } = require(path.join(buildTs, "typescript", "run", "text-document.js"));
   const { PossibleShapeCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
   const { Token } = require(path.join(buildTs, "core", "syntax", "token.js"));
 
   const text = "a".repeat(1 << 20);
   const doc = new TextDocument(text, "micro.ts");
+  const whole = SourceRange.Whole(doc); // [0, GetCount())：At 合法域，且 At 自身不分配对象
   const N = 2_000_000;
 
   const time = (label, fn, n = N) => {
@@ -154,16 +164,22 @@ if (doMicro) {
   };
 
   const rows = [];
-  rows.push(time("new Source(doc,i)", (i) => !!new Source(doc, i % 1000000)));
-  rows.push(time("doc.At(i)  [= new Source + call]", (i) => !!doc.At(i % 1000000)));
+  rows.push(time("new SourceRange(doc,i,i+1)  [旧 new Source(doc,i)]", (i) => !!new SourceRange(doc, i % 1000000, (i % 1000000) + 1)));
+  rows.push(time("range.At(i)  [旧 doc.At(i)；新实现不分配]", (i) => whole.At(i % 1000000) !== "\0"));
   rows.push(time("doc.GetValue(i)  [text[i]]", (i) => doc.GetValue(i % 1000000) !== "\0"));
-  const s = new Source(doc, 5);
-  rows.push(time("s.Value  [getter + GetValue]", (i) => s.Value !== "\0"));
+  rows.push(time("range.At(5)  [旧 s.Value]", () => whole.At(5) !== "\0"));
 
-  // 队列：push + splice(0,1) 对比 「push + 头指针」
+  // 队列：旧项量的是 SourceQueue 的 push + splice(0,1)。SourceQueue / ProcessSource 已随
+  // 契约删除（§1.4：驱动改为 SyntaxContext.ProcessRange，不再经队列），该项**无对应物**。
+  rows.push({
+    label: "queue push+splice(0,1) per item",
+    unavailable: true,
+    note: "SourceQueue / ProcessSource 已删除（BUFFER-CONTRACT §1.4），无对应物，此项不可测",
+  });
+  // 成本参照：若仍要量「数组队列 push + 头删」，驱动层唯一还在排队的是 ReloadMessage。
   const q = [];
-  rows.push(time("queue push+splice(0,1) per item", (i) => {
-    q.push(new ProcessSource(null, s));
+  rows.push(time("ReloadMessage push+splice(0,1) per item（队列成本参照）", (i) => {
+    q.push(new ReloadMessage(null, i % 1000000));
     const head = q[0];
     q.splice(0, 1);
     return head !== null;

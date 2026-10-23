@@ -93,11 +93,15 @@ function tsAst(node) {
 }
 
 function cjAst(shape) {
+  // buffer 契约 §1.6：SourceRange 半开 [Start, End)，Start / End 是 int（-1 = 未设置）；
+  // End 已是开区间终点（最后字符 + 1），与 TS 的 node.end 同口径，不再 +1。
   const range = shape.SourceRange || {};
+  const startIndex = typeof range.StartIndex === "number" ? range.StartIndex : -1;
+  const endIndex = typeof range.EndIndex === "number" ? range.EndIndex : -1;
   const out = {
     kind: shape.constructor.name.replace("Shape", ""),
-    pos: shape.Pos >= 0 ? shape.Pos : (range.Start == null ? 0 : range.Start.Index),
-    end: range.End == null ? 0 : range.End.Index + 1,
+    pos: shape.Pos >= 0 ? shape.Pos : startIndex >= 0 ? startIndex : 0,
+    end: endIndex >= 0 ? endIndex : 0,
   };
   // 空文本也是取值（throw 恢复形里的零宽 Identifier，TS 侧 text=""）。
   if (typeof shape.EscapedText === "string") out.text = shape.EscapedText;
