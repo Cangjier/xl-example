@@ -140,6 +140,9 @@ try {
     }
   }
 } catch (e) {
+  if (e instanceof SyntaxException) {
+    throw e;
+  }
   const start = Math.max(0, index - 1);
   const range = new SourceRange(buffer.Document, start, index + 1);
   throw SyntaxException.FromInner(range, e);
