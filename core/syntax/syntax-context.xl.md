@@ -38,6 +38,10 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 待消费的消息队列。
 
+## field Replaying:bool = false
+
+`DrainMessages` 正在重放一个位置时为 `true`。重放的窗口固定 `[at, at+1)`，此时队列里可能还压着**更后面**的消息（它们按 FIFO 排在重放消息之后），单元不能因为「队列非空」就把这一个位置也让出去，否则重放原地无进展。
+
 ## field VariableMap:Map<string, any> = new Map()
 
 上下文变量表。
@@ -157,7 +161,7 @@ this.DrainMessages();
 
 让指定单元处理一个窗口（从 `index` 起），然后消费消息队列。
 
-它是 `ProcessSingle` / `ProcessAt` 的替代：不再有「位置对象 + 队列项」，调用方自己给出窗口。
+它是旧的单点处理入口的替代：不再有「位置对象 + 队列项」，调用方自己给出窗口。
 窗口带着文档时一并登记为 `CurrentDocument`（`SourceRange.CurrentDocument` 同步更新），
 否则沿用上一次登记的那个。
 
@@ -195,19 +199,30 @@ while (this.Messages.length > 0) {
     const owner = item.ProcessOwner ?? this.Root;
     const start = item.StartIndex;
     const endExclusive = item.EndIndex < 0 ? start + 1 : item.EndIndex;
+    this.Replaying = true;
     for (let at = start; at < endExclusive; at++) {
       const saved = this.Index;
-      this.Index = at;
       const windowEnd = Math.min(at + 1, count);
-      owner.Process(this, new SourceRange(document, at, windowEnd), at);
-      if (this.Index === at) {
-        throw SyntaxException.FromMessage(
-          new SourceRange(document, at, Math.min(at + 1, count)),
-          `SyntaxContext.DrainMessages: reload made no progress at index ${at}`,
-        );
+      let attempts = 0;
+      while (true) {
+        this.Index = at;
+        owner.Process(this, new SourceRange(document, at, windowEnd), at);
+        if (this.Index !== at) {
+          break;
+        }
+        // 旧队列语义：一次重放没有推进、只压了新消息（典型是「先建形状、再把当前字符交回来」），
+        // 这个位置会被重新排队再处理一遍。这里就地重试，模拟那条回路；换不出推进才算挂死。
+        attempts++;
+        if (attempts > 8) {
+          throw SyntaxException.FromMessage(
+            new SourceRange(document, at, Math.min(at + 1, count)),
+            `SyntaxContext.DrainMessages: reload made no progress at index ${at}`,
+          );
+        }
       }
       this.Index = Math.max(this.Index, saved);
     }
+    this.Replaying = false;
   } else {
     this.HandleMessage(item);
   }

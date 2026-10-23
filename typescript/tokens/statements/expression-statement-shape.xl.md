@@ -57,9 +57,9 @@ if (hasSemicolon) {
 let pos = 0;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
-    const end = host.Data[at].SourceRange.End;
-    if (end !== null) {
-      pos = end.Index + 1;
+    const end = host.Data[at].SourceRange.EndIndex;
+    if (end >= 0) {
+      pos = end;
     }
     break;
   }

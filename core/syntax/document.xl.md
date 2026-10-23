@@ -7,7 +7,7 @@ import { SourceRange } from "./source-range.xl.md"
 
 文档：按「下标 → 值」抽象出来的字符来源。语法层不关心底层是字符串、文件还是别的什么，只通过 `Document` 取长度、取值、取行号。`Dawn/Text` 里的 `TextDocument` 是它唯一的实现。
 
-文档只按**下标**工作：`Document.At`（每次新建一个 `Source`）已经删除，token 层一律「文档 + int 下标」或 `SourceRange` 窗口，不再有位置对象。
+文档只按**下标**工作：旧版「按下标取一个位置对象」的入口已经删除，token 层一律「文档 + int 下标」或 `SourceRange` 窗口，不再有位置对象。
 
 # type ValueGetter = (index:number)=>string
 

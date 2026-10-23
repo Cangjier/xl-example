@@ -210,14 +210,18 @@ if (at >= bracket.Data.length) {
 const tail = new Bracket(host.Template);
 tail.Data = bracket.Data.slice(at);
 let baseSource = bracket.SourceRange.Start;
+let fromPrevious = false;
 for (let previous = at - 1; previous >= 0; previous--) {
   if (!bracket.Data[previous].IsTriviaToken) {
     baseSource = bracket.Data[previous].SourceRange.End;
+    fromPrevious = true;
     break;
   }
 }
+// 临时视图的 `Start` 要满足 `Start + 1` = 尾巴前一个非 trivia 单元的 `EndIndex`（= 首成员的 Pos），
+// 所以「有前一个单元」时要比它再退一格；没有前一个单元时 `Start` 就是宿主括号的 `{`，直接用。
 if (baseSource !== null) {
-  tail.SignIn(baseSource);
+  tail.SignIn(fromPrevious ? baseSource - 1 : baseSource);
 }
 const tailMembers = rawFallback(host, tail, context);
 for (const member of tailMembers) {

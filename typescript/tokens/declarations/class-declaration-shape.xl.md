@@ -1353,13 +1353,7 @@ while (at < code.length) {
     if (body !== null) {
       memberShape.Add(body);
     }
-    let memberEnd:Token | null = bodyUnit;
-    if (memberEnd === null) {
-      memberEnd = signatureEnd;
-    }
-    if (memberEnd === null) {
-      memberEnd = code[at - 1];
-    }
+    const memberEnd:Token = bodyUnit !== null ? bodyUnit : (signatureEnd !== null ? signatureEnd : code[at - 1]);
     memberShape.SignInToken(firstUnit);
     memberShape.SignOutToken(memberEnd);
     memberShape.Pos = startPos;

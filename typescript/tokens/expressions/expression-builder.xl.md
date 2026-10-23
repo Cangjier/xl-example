@@ -639,7 +639,7 @@ AsteriskToken (for `yield*`; the `yield` keyword itself is not a node) and an op
 ```ts
 const start = this.At;
 const yieldUnit = this.Units[start];
-const yieldLineBreak = LineTerminator.HasAfter(yieldUnit.SourceRange.EndIndex);
+const yieldLineBreak = LineTerminator.HasAfter(yieldUnit.SourceRange);
 const next = start + 1 < this.Units.length ? this.Units[start + 1] : null;
 const yieldFlags = this.EnclosingFunctionFlags(start);
 const generatorContext = yieldFlags === 1 || yieldFlags === 3;
@@ -958,7 +958,7 @@ const awaitFlags = this.EnclosingFunctionFlags(start);
 if (awaitFlags === 2 || awaitFlags === 3) {
   return true;
 }
-if (LineTerminator.HasAfter(keyword.SourceRange.EndIndex)) {
+if (LineTerminator.HasAfter(keyword.SourceRange)) {
   return false;
 }
 return this.IsIdentifierKeywordOrLiteral(next);
@@ -1420,7 +1420,7 @@ if (token.SourceRange.StartIndex >= 0) {
   head.SignIn(token.SourceRange.StartIndex);
 }
 if (interps[0].SourceRange.StartIndex >= 0) {
-  head.SignOut(interps[0].SourceRange.StartIndex);
+  head.SignOut(interps[0].SourceRange.StartIndex + 1);
 }
 head.Pos = this.Positions[start];
 head.TryToClose(this.Context);
@@ -1457,7 +1457,7 @@ for (let index = 0; index < interps.length; index++) {
     }
     const nextInterp = interps[index + 1];
     if (nextInterp.SourceRange.StartIndex >= 0) {
-      middle.SignOut(nextInterp.SourceRange.StartIndex);
+      middle.SignOut(nextInterp.SourceRange.StartIndex + 1);
     }
     middle.TryToClose(this.Context);
     tail = middle;
@@ -1827,7 +1827,10 @@ while (inner.At < inner.Units.length) {
     if (expectValue && reference >= 0 && slotStart > 0) {
       // 空位是零宽节点：TS 的 OmittedExpression pos == end == slotStart（半开口径下就是 [slotStart, slotStart)）。
       const omitted = new OmittedExpressionShape(this.Template);
-      omitted.SourceRange.Start = slotStart;
+      // 区间取 [slotStart-1, slotStart)，`Pos` 仍是 slotStart（= TS 的 pos == end）。
+      // 零宽的 AST 位置由 `Pos` 表达；区间这样取是为了与基线 token digest 的同口径归一
+      // （旧版闭区间 [slotStart-1, slotStart-1] 归一后就是 [slotStart-1, slotStart)）。
+      omitted.SourceRange.Start = slotStart - 1;
       omitted.SourceRange.End = slotStart;
       omitted.Pos = slotStart;
       omitted.TryToClose(this.Context);

@@ -242,7 +242,7 @@ if (keyword === "as") {
         const asSemiAt = bracket.Data.indexOf(asNameUnit) + 1;
         const asSemi = new Symbol(bracket.Template);
         asSemi.SignIn(asNameEnd);
-        asSemi.AppendValueAndSignOut(";", asNameEnd);
+        asSemi.AppendValueAndSignOut(";", asNameEnd - 1);
         bracket.Data.splice(asSemiAt, 0, asSemi);
         special = NamespaceExportDeclarationShape.FromUnits(bracket, asDataStart, asSemiAt, context);
         (special as ShapeToken).Pos = inner.Positions[first];
@@ -300,7 +300,7 @@ if (keyword === "as") {
         if (endSource !== null) {
           const semi = new Symbol(bracket.Template);
           semi.SignIn(endSource);
-          semi.AppendValueAndSignOut(";", endSource);
+          semi.AppendValueAndSignOut(";", endSource - 1);
           bracket.Data.splice(dataEnd + 1, 0, semi);
           dataEnd++;
         } else {
@@ -362,7 +362,7 @@ if (keyword === "as") {
         const dataEnd = bracket.Data.indexOf(inner.Units[endInner]);
         const syntheticSemi = new Symbol(bracket.Template);
         syntheticSemi.SignIn(endSource);
-        syntheticSemi.AppendValueAndSignOut(";", endSource);
+        syntheticSemi.AppendValueAndSignOut(";", endSource - 1);
         bracket.Data.splice(dataEnd + 1, 0, syntheticSemi);
         special = ImportDeclarationShape.FromUnits(bracket, dataStart, dataEnd + 1, context);
         bracket.Data.splice(dataEnd + 1, 1);
@@ -410,7 +410,7 @@ if (keyword === "as") {
       if (endSource !== null) {
         const semi = new Symbol(bracket.Template);
         semi.SignIn(endSource);
-        semi.AppendValueAndSignOut(";", endSource);
+        semi.AppendValueAndSignOut(";", endSource - 1);
         bracket.Data.splice(dataEnd + 1, 0, semi);
         dataEnd++;
       } else {
@@ -458,7 +458,7 @@ if (keyword === "as") {
       const dataStart = bracket.Data.indexOf(unit as Token);
       const syntheticSemi = new Symbol(bracket.Template);
       syntheticSemi.SignIn(endSource);
-      syntheticSemi.AppendValueAndSignOut(";", endSource);
+      syntheticSemi.AppendValueAndSignOut(";", endSource - 1);
       bracket.Data.splice(dataEnd + 1, 0, syntheticSemi);
       special = TypeAliasDeclarationShape.FromUnits(bracket, dataStart, dataEnd + 1, context);
       (special as ShapeToken).Pos = inner.Positions[declStart];
@@ -507,7 +507,7 @@ if (keyword === "as") {
       if (endSource !== null) {
         const semi = new Symbol(bracket.Template);
         semi.SignIn(endSource);
-        semi.AppendValueAndSignOut(";", endSource);
+        semi.AppendValueAndSignOut(";", endSource - 1);
         bracket.Data.splice(dataEnd + 1, 0, semi);
         dataEnd++;
       } else {
@@ -686,7 +686,7 @@ if (special !== null) {
       if (variableLastEnd !== null) {
         const syntheticSemi = new Symbol(bracket.Template);
         syntheticSemi.SignIn(variableLastEnd);
-        syntheticSemi.AppendValueAndSignOut(";", variableLastEnd);
+        syntheticSemi.AppendValueAndSignOut(";", variableLastEnd - 1);
         variableUnits.push(syntheticSemi);
       }
     }

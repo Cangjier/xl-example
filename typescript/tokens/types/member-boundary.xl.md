@@ -280,7 +280,7 @@ return previous instanceof Common || previous instanceof String || previous inst
 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-return LineTerminator.HasBetween(left.SourceRange.End, right.SourceRange.Start);
+return LineTerminator.HasBetween(left.SourceRange, right.SourceRange);
 ```
 
 ## static method CanEndTypeUnit:(unit:Token)=>bool

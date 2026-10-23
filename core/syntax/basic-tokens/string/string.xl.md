@@ -108,6 +108,12 @@ return false;
 ```ts
 try {
   while (index < buffer.End && !this.Closed) {
+    if (this.Parent !== null && this.Parent.MountedUnit !== this) {
+      return;
+    }
+    if (!context.Replaying && context.Messages.length > 0) {
+      return;
+    }
     if (this.MountedUnit !== null) {
       this.MountedUnit.Process(context, buffer, index);
       if (context.Index === index) {

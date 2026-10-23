@@ -64,7 +64,7 @@ return false;
 
 两个源范围之间（`left.EndIndex` 到 `right.StartIndex`，即左单元最后一个字符之后、右单元第一个字符之前）有没有行终止符；块注释里的行终止符也算，因为注释字符就在这段原文里。位置不可用（`null` 或端点未设置）时返回 `false`，由调用方决定回退口径。
 
-扫描整篇文档要跨出当前 buffer 窗口，所以按 `SourceRange.Whole(document)` 取全文范围的 `At`（`Document.At` 已删除）。
+扫描整篇文档要跨出当前 buffer 窗口，所以按 `SourceRange.Whole(document)` 取全文范围的 `At`（旧的下标取值入口已删除）。
 
 ```ts
 if (left === null || right === null) {

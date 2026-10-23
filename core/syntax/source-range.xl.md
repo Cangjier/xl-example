@@ -8,7 +8,7 @@ import { SourceException } from "../exceptions/source-exception.xl.md"
 
 来源的**范围**：一段半开区间 `[Start, End)`。语法树里每个 token 都靠它记录自己覆盖了源码的哪一段，`Undo` / `IsInRange` 这类回退逻辑全靠它判断。
 
-范围不再持有 `Source`（那个类已删除），只持有文档与两个整数下标：`Start` 是第一个字符，`End` 是最后一个字符的下标 **+1**（与 TS 的 `pos` / `end` 口径一致）。`-1` 表示未设置。
+范围不再持有位置对象（那个类已删除），只持有文档与两个整数下标：`Start` 是第一个字符，`End` 是最后一个字符的下标 **+1**（与 TS 的 `pos` / `end` 口径一致）。`-1` 表示未设置。
 
 # class SourceRange
 
@@ -20,7 +20,7 @@ import { SourceException } from "../exceptions/source-exception.xl.md"
 
 **文档从哪来**：新模型里范围只带 int 下标，文档统一由驱动层登记到静态字段 `CurrentDocument`；
 `Token.SignIn` / `SignOut` 在范围没有文档时自动补上它。这样每个 token 的 `SourceRange.Document`
-都不再需要逐处手动赋值（旧模型靠 `Source` 自带文档，那套已经没了）。
+都不再需要逐处手动赋值（旧模型靠位置对象自带文档，那套已经没了）。
 
 ## static field CurrentDocument:Document | null = null
 

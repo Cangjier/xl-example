@@ -956,12 +956,7 @@ return StatementScanner.Mismatch();
 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-const from = left.SourceRange.EndIndex;
-const to = right.SourceRange.StartIndex;
-if (from < 0 || to < 0) {
-  return true;
-}
-return !LineTerminator.HasBetween(from, to);
+return !LineTerminator.HasBetween(left.SourceRange, right.SourceRange);
 ```
 
 ## static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool

@@ -103,7 +103,7 @@ throw new Error("abstract member: ExitOrPre");
 
 **窗口里的两个提前返回（关闭/重放的安全阀）**：
 - 本单元在本次窗口里已经 `Quit`（`Parent.MountedUnit` 已经不是自己）→ **立刻返回**，把本窗口剩余字符交回父单元。关闭发生在窗口中间时，已卸载的单元不许再吃后面的字符。
-- `context.Messages` 非空 → **立刻返回**，把尚未消费的消息交回驱动层先 `DrainMessages()` 重放。否则父单元会先把重放位置之后的字符处理掉，重放就变成乱序。
+- `context.Messages` 非空 → **立刻返回**，把尚未消费的消息交回驱动层先 `DrainMessages()` 重放。否则父单元会先把重放位置之后的字符处理掉，重放就变成乱序。**驱动层自己重放一个位置时（`context.Replaying`）不适用**：重放窗口固定一格，队列里可能还排着更后面的消息。
 
 整个窗口包在**一次** `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个字符到当前字符」`[max(0, index-1), index+1)`。
 
@@ -115,7 +115,8 @@ try {
       return;
     }
     // 还有未消费的消息（Reload）：先交回驱动层 DrainMessages 重放，保证重放先于后续字符。
-    if (context.Messages.length > 0) {
+    // 重放本身（窗口只有一个位置）不受这条约束：队列里可能还有排在它后面的消息。
+    if (!context.Replaying && context.Messages.length > 0) {
       return;
     }
     if (this.MountedUnit !== null) {

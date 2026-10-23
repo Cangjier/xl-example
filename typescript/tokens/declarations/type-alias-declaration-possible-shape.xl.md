@@ -271,13 +271,10 @@ return ShapeStates.Uncertain;
 行注释 / 块注释里的换行同样算。
 
 ```ts
-const left = units[from].SourceRange.End;
-const right = units[to].SourceRange.Start;
-if (LineTerminator.HasBetween(left, right)) {
-  return true;
-}
-if (left !== null && right !== null) {
-  return false;
+const left = units[from].SourceRange;
+const right = units[to].SourceRange;
+if (left.EndIndex >= 0 && right.StartIndex >= 0) {
+  return LineTerminator.HasBetween(left, right);
 }
 for (let at = from + 1; at < to; at++) {
   const unit = units[at];

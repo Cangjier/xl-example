@@ -25,13 +25,13 @@ super(template);
 
 ```ts
 const shape = new DeclareKeywordShape(token.Template);
-if (token.SourceRange.Start !== null) {
+if (token.SourceRange.Start >= 0) {
   shape.SignIn(token.SourceRange.Start);
 }
-if (token.SourceRange.End !== null) {
+if (token.SourceRange.End >= 0) {
   shape.SignOut(token.SourceRange.End);
 }
-shape.Pos = token.SourceRange.Start !== null ? token.SourceRange.Start.Index : -1;
+shape.Pos = token.SourceRange.Start;
 shape.TryToClose(context);
 return shape;
 ```

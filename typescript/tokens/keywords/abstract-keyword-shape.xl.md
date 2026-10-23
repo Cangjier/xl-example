@@ -30,13 +30,13 @@ super(template);
 ```ts
 // 区间就是 `abstract` 这一个词；Pos 由宿主按「含前导 trivia」的口径重设（与 DeclareKeywordShape 相同）。
 const shape = new AbstractKeywordShape(token.Template);
-if (token.SourceRange.Start !== null) {
+if (token.SourceRange.Start >= 0) {
   shape.SignIn(token.SourceRange.Start);
 }
-if (token.SourceRange.End !== null) {
+if (token.SourceRange.End >= 0) {
   shape.SignOut(token.SourceRange.End);
 }
-shape.Pos = token.SourceRange.Start !== null ? token.SourceRange.Start.Index : -1;
+shape.Pos = token.SourceRange.Start;
 shape.TryToClose(context);
 return shape;
 ```

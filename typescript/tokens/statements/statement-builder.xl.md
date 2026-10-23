@@ -1845,7 +1845,7 @@ const keyword = this.Units[first];
 // （`return\na;` = return; a;）。`return` 没有表达式子节点；`throw` 的 TS 恢复形是
 // 「ThrowStatement[first..关键字末] + 零宽 Identifier[pos==end==关键字之后的下一格]」。
 const lineBreak = this.At < this.Units.length
-  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.EndIndex);
+  && StatementBuilder.HasLineBreakAfter(keyword);
 if (lineBreak) {
   // 换行之后紧跟的 `;` 仍是本条语句的终止符，TS 把 `;` 计进 End：
   //   `return` ⏎ `;` → ReturnStatement[13,22]（不能新起 EmptyStatement[20,22]）；
@@ -1864,7 +1864,8 @@ if (lineBreak) {
   if (throwEnd >= 0) {
     const zero = new IdentifierShape(this.Template);
     zero.EscapedText = "";
-    zero.SourceRange.Start = throwEnd;
+    // 零宽占位：`Pos` = TS 的 pos == end；区间取 [throwEnd-1, throwEnd) 与基线 digest 同口径。
+    zero.SourceRange.Start = throwEnd - 1;
     zero.SourceRange.End = throwEnd;
     zero.Pos = throwEnd;
     zero.TryToClose(this.Context);
@@ -1904,7 +1905,9 @@ if (isThrow && expression === null) {
   if (keywordEnd >= 0) {
     const zero = new IdentifierShape(this.Template);
     zero.EscapedText = "";
-    zero.SourceRange.Start = keywordEnd;
+    // 零宽占位：AST 位置由 `Pos` 表达（= TS 的 pos == end）；区间取 [keywordEnd-1, keywordEnd)
+    // 与基线 token digest 的闭区间归一后同口径。
+    zero.SourceRange.Start = keywordEnd - 1;
     zero.SourceRange.End = keywordEnd;
     zero.Pos = keywordEnd;
     zero.TryToClose(this.Context);
@@ -1918,17 +1921,17 @@ if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
 return this.Finish(shape, first, this.At - 1);
 ```
 
-## private static method HasLineBreakAfter:(last:int)=>bool
+## private static method HasLineBreakAfter:(last:Token)=>bool
 
-关键字后面（跳过空格与注释）是否先出现换行。`last` 是半开终点（关键字最后一个字符下标 + 1），-1 表示未签出。
+关键字后面（跳过空格与注释）是否先出现换行。`last` 是那个关键字单元；未签出（`EndIndex < 0`）时判否。
 注释里的换行也算：ASI 把注释中的 LineTerminator 视作换行。
 行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
 
 ```ts
-if (last < 0) {
+if (last.SourceRange.EndIndex < 0) {
   return false;
 }
-return LineTerminator.HasAfter(last);
+return LineTerminator.HasAfter(last.SourceRange);
 ```
 
 ## method BuildBreakOrContinue:(isContinue:bool)=>Token
@@ -1940,7 +1943,7 @@ const keyword = this.Units[first];
 // Newline after `break` / `continue` = no label (ASI): `break\nlbl` = break; lbl; and the
 // BreakStatement End is the next token's Pos (keyword end + 1).
 const split = this.At < this.Units.length
-  && StatementBuilder.HasLineBreakAfter(keyword.SourceRange.EndIndex);
+  && StatementBuilder.HasLineBreakAfter(keyword);
 if (split) {
   let shape:ShapeToken;
   if (isContinue) {
