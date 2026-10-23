@@ -303,8 +303,8 @@ enum 的价值是**样本最小**：七件套一步不少，但没有多候选�
   - 共享判型：`class-member-possible-util.xl.md`（702 行的公共判据：修饰符、装饰器、成员头判型、`ImplementedKinds()`）；
   - **装饰器感知**：`DecoratorHeadAt` —— 成员前的 `@dec` / `@a.b.c` 属于**下一个**成员的头，不是前一个的尾巴；
   - **兜底**：`ClassMemberCatchAllPossibleShape`（见 §7.2）；
-  - **harness 分组**（`--target=class`，**T6b 会话读数，docs 会话未复现**，见 §7.6）：cases **54**、
-    generic-boundary **6**、member-start **21**。
+  - **harness 分组**（`--target=class --all`，**必须带 `--all`**，见 §7.6）：cases **54**、
+    generic-boundary **6**、member-start **21**；不带 `--all` 时 harness 只 pin 第一个候选，读数不可用。
 
 **为什么 class 必须有 CatchAll 而 enum 不需要**：`CatalogGuide` 在「候选 0 个且没有终结候选」时**直接抛错**，
 而**类体括号上没有终结候选**（终结候选在壳上）。类体成员形态远超 8 类（`abstract`、`declare`、
@@ -420,7 +420,10 @@ class 的三个候选与 interface 侧同名：
 
 - `--warmup 2 --repeat 5` 取**中位**；小档（500/1000、multi 200/500）单次波动 ±3–20%，**不要**用单次样本下结论；
 - dts 合计 run-to-run ±2.4%（基线三次 2013.8 / 2031.8 / 2112.7），**−2% 级差异落在波动内**；
-- 同机、同会话、串行；跨会话拼数字会把噪声当收益。
+- 同机、同会话、串行；跨会话拼数字会把噪声当收益；
+- **绝对值本身也随机器/会话漂移**：本轮各成员读数落在 dts **1970–2110 ms**、single@4000 **17.9–23.1 ms**
+  区间。比较必须**同会话配对**（同一轮内各成员读数一致、都在同一条噪声带里），跨会话的绝对值差异
+  既不是回归也不是收益。
 
 ### 7.5 装饰器等极端形保守 raw 兜底
 
@@ -429,25 +432,41 @@ class 的三个候选与 interface 侧同名：
   不增量、交 `CollectBodyMembers` 的 raw 尾巴，AST 与基线一致，只是没提速。这是有意的取舍：
   宁可慢，不可错。
 
-### 7.6 docs 会话的复验差异（需验证成员复核）
+### 7.6 harness 的候选裁剪：`--target=class` 不带 `--all` 时只 pin 第一个候选
 
-本轮 docs 克隆（代码面 `893e567c`，`dist`/`build` 从 `integration-7` 复制后 `tsc` 复跑 exit 0）独立复跑
-`tests/body-guide/harness.mjs`，**逐组结果**：
+`tests/body-guide/harness.mjs` 的 `runTarget` 默认只装**一个**候选：
 
-| 组 | 报告读数 | docs 会话复跑 | 结论 |
-|---|---|---|---|
-| enum `cases` / `generic-boundary` / `member-start` / `recovery` | 46 / 19 / 10 / 5 | **46 / 19 / 10 / 5（全过）** | ✅ 一致 |
-| interface `cases` / `generic-boundary` / `member-start` / `recovery` | — | 35 / 10 / 5 / 8（全过） | ✅ |
-| `util` | — | 10 / 10 | ✅ |
-| `tests/cache-share/check.mjs` | — | **5/5 PASS** | ✅ |
-| class `cases` | 54（全过） | **54 中 pass 26 / fail 28** | ❌ **未复现** |
-| class `generic-boundary` / `member-start` | 6 / 21 | 4 / 4；4 / 6 | ❌ 部分 |
+```js
+let only = [Object.keys(target.spec.candidates)[0]];   // 默认：只 pin 第一个候选
+if (runAll) { only = null; }                           // 只有 --all 才是全候选
+else if (onlyArg !== undefined) { … }                  // 或 --only=A,B 显式指定
+```
 
-class 的失败全是 CJ 侧抛 `CatalogGuide: 没有候选形状可以构成（宿主 Bracket，下标 n）`，典型用例
-`class C { @a @b.c m() {} }`、`class C { constructor() {} }`、`class C { public static readonly a = 1; … }`。
-**7 项门禁不受影响**（harness 不在门禁内，AST 与 dts 全绿），但这说明 class 组要么依赖某个未提交的本地状态、
-要么报告读数与当前代码面不符。**结论**：class 的 harness 读数在采纳前必须由 `verify-*` 成员在新克隆里
-独立复跑一次；在复现之前，§4.5 的 class harness 数字标注为「T6b 会话读数，docs 会话未复现」。
+所以**不带 `--all` 的读数是被裁剪过的，不是实现缺陷**：
+
+- `only` 命中的候选装进目录，其余候选被 `installCandidates` 拿掉；`generic-boundary` / `member-start` /
+  `recovery` 三组按 `required` 过滤，用不上的用例**静默 skip**（只体现在 `skipped=`，不算 fail）；
+- `cases` 组**不按 `required` 过滤**（全量跑）：用例里一旦出现未 pin 的成员形态，类体目录只剩属性候选、
+  变成「0 候选且无终结候选」，`CatalogGuide` 直接抛
+  `CatalogGuide: 没有候选形状可以构成（宿主 Bracket，下标 n）` —— 这就是旧版本节记下的 28 条失败。
+
+**实测（本轮 docs 克隆 `4558f7ea`，代码面 `893e567c`，`dist`/`build` 复制后 `tsc` exit 0；三条命令串行）**：
+
+| 命令 | cases | generic-boundary | member-start | recovery | exit |
+|---|---|---|---|---|---|
+| `--target=class --all` | **54 / 54 pass，0 fail**（`candidates=all`） | **6 / 6** | **21 / 21** | 0 | 0 |
+| `--target=class`（默认） | **26 pass / 28 fail**（`candidates=PropertyDeclarationPossibleShape`） | 4 pass / 2 skipped | 4 pass / 2 fail / 15 skipped | 0 | 1 |
+| `--target=all --all` | interface 35、enum 46、class 54，全 pass；`util` 10 / 10 | interface 25、enum 19、class 6 | interface 23、enum 10、class 21 | interface 16、enum 5、class 0 | 0 |
+
+默认口径下 28 条失败的用例**全部**含非属性成员（方法 / 构造 / 访问器 / `static {}` / 孤立 `;` / 跨成员
+多候选用例），与「只 pin `PropertyDeclarationPossibleShape`」逐条吻合；只含属性成员的 26 条全过。
+`tests/cache-share/check.mjs` 仍是 **5/5 PASS**。
+
+**结论（旧版「docs 会话未复现 / 需 verify 复核 / 可能依赖未提交本地状态」作废）**：
+`--target=class --all` 实测 **54 / 6 / 21，0 fail**，与 T6b / merge-7 / verify-7 逐位一致。
+全量口径必须写 `--target=class --all`；`--target=interface` 同理：默认 35 / 10 / 5 / 8
+（带 skip 15 / 18 / 8），`--all` 才是 **35 / 25 / 23 / 16**。**7 项门禁不受影响**（harness 不在门禁内），
+§8 的复跑命令已按此修正为带 `--all`。
 
 ---
 
@@ -471,11 +490,11 @@ node tests/parse/validate.mjs                    # 1719 条 / 0 不合格
 node typescript/cases/real-dts-ast.mjs           # 226 / 226
 git checkout -- typescript/cases                 # 还原被 ast-json 重写的快照
 
-# 3) 两个 harness（不在 7 门禁内，但改了 body shape 必跑）
-node tests/body-guide/harness.mjs --target=interface
-node tests/body-guide/harness.mjs --target=enum
-node tests/body-guide/harness.mjs --target=class
-node tests/body-guide/harness.mjs --target=all
+# 3) 两个 harness（不在 7 门禁内，但改了 body shape 必跑；**必须带 --all**，否则只 pin 第一个候选，见 §7.6）
+node tests/body-guide/harness.mjs --target=interface --all
+node tests/body-guide/harness.mjs --target=enum --all
+node tests/body-guide/harness.mjs --target=class --all
+node tests/body-guide/harness.mjs --target=all --all
 node tests/member-possible/harness.mjs
 
 # 4) Share 数据槽自测
