@@ -107,20 +107,36 @@ throw new Error("abstract member: ExitOrPre");
 
 整个窗口包在**一次** `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个字符到当前字符」`[max(0, index-1), index+1)`。已经是 `SyntaxException` 的异常原样上抛，不再套一层窗口范围。
 
+**每字符帧的瘦身**（本方法是 profile 里的第一热点：self ≈ 19.5%，约 520 ns/帧、68 ns/字符）：`this` 在单元族里是多态的（`Root` / `Statement` / `BlockToken` …），逐字符重复的 `this.X` 属性读是本方法最贵的一笔，而其中大多数在**整段窗口内都不变**。所以：
+
+- 窗口终点 `buffer.End`、消息队列 `context.Messages`（引用）、`context.Replaying`、跳转队列 `this.ProcessQueue` 各自只在进入循环前读**一次**——这四样在本次窗口内都不会被改写（`Messages` 只 push/splice、不换引用；`Replaying` 由驱动层在调用前后翻，窗口内恒定；`ProcessQueue` 构造时定下）。
+- 两段提前返回的守卫里，`this.Parent` 每帧只读**一次**再复用（原来读两次）。它是字段而不是 getter，同一次求值里两次读必然同值，因此这一改**不改变**守卫语义。
+- 挂载单元 `this.MountedUnit` 每帧读**一次**（原来 null 判定 + 调用各读一次）。
+- 跳转队列由 `for…of` 换成下标循环：`for…of` 每帧都要建一次数组迭代器，而这里只想要「按下标取一项再调用」。
+
+`Quit` 守卫仍然**逐帧**判定 `parent.MountedUnit !== this`（而不是在循环外判一次）：关闭可能发生在窗口中间，已卸载的单元不许再吃后面的字符。
+
 ```ts
 try {
-  while (index < buffer.End) {
+  // 这四样在本次窗口内恒定，逐字符重复读只是多态属性读的开销。
+  const end = buffer.End;
+  const messages = context.Messages;
+  const replaying = context.Replaying;
+  const queue = this.ProcessQueue;
+  while (index < end) {
     // 本单元已在本次窗口里 Quit（关闭后卸载）：交回父单元处理剩余字符。
-    if (this.Parent !== null && this.Parent.MountedUnit !== this) {
+    const parent = this.Parent;
+    if (parent !== null && parent.MountedUnit !== this) {
       return;
     }
     // 还有未消费的消息（Reload）：先交回驱动层 DrainMessages 重放，保证重放先于后续字符。
     // 重放本身（窗口只有一个位置）不受这条约束：队列里可能还有排在它后面的消息。
-    if (!context.Replaying && context.Messages.length > 0) {
+    if (!replaying && messages.length > 0) {
       return;
     }
-    if (this.MountedUnit !== null) {
-      this.MountedUnit.Process(context, buffer, index);
+    const mountedUnit = this.MountedUnit;
+    if (mountedUnit !== null) {
+      mountedUnit.Process(context, buffer, index);
       if (context.Index === index) {
         return;
       }
@@ -142,11 +158,12 @@ try {
       continue;
     }
     let transited = false;
-    if (this.ProcessQueue !== null) {
+    if (queue !== null) {
       // 当前字符只读一次，顺链传给每条跳转（basic token 的 Transit 不再各自 `buffer.At(index)`）。
       const value = buffer.At(index);
-      for (const item of this.ProcessQueue.Data) {
-        const state = item(context, this, buffer, index, value);
+      const branches = queue.Data;
+      for (let branch = 0; branch < branches.length; branch++) {
+        const state = branches[branch](context, this, buffer, index, value);
         if (state === BranchStates.Reload) {
           context.Messages.push(new ReloadMessage(null, index));
           return;
