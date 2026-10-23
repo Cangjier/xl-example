@@ -140,6 +140,14 @@ const CLASS_CASES = [
   "class C { m(): void\n n(): void }",
   "class C { abstract m(): void }",
   "class C { @dec m() {} }",
+  "class C { @dec a: A }",
+  "class C { @dec(x) m() {} }",
+  "class C { @a @b.c m() {} }",
+  "class C { @a.b(x) @c.d a = 1 }",
+  "class C { @dec constructor() {} }",
+  "class C { @dec get x() { return 1; } }",
+  "class C { @dec\nm() {} }",
+  "class C { a = 1\n @dec m() {}\n b = 2 }",
   "class C { a = { x: 1 } }",
   "class C { a: { x: 1 } }",
   "class C { a: Map<string, number> }",
@@ -183,6 +191,10 @@ const CLASS_MEMBER_START_CASES = [
   { source: "class C { static {}\n a = 1 }", required: ["ClassStaticBlockDeclarationPossibleShape"] },
   { source: "class C { readonly [k: string]: A;\n [j: number]: B }", required: ["IndexSignaturePossibleShape"] },
   { source: "class C { [k: string]: A\n m() {} }", required: ["IndexSignaturePossibleShape"] },
+  { source: "class C { @dec m() {}\n a = 1 }", required: ["MethodDeclarationPossibleShape"] },
+  { source: "class C { @dec a: A\n @x.y b = 1 }", required: ["PropertyDeclarationPossibleShape"] },
+  { source: "class C { @dec constructor() {}\n a = 1 }", required: ["ConstructorPossibleShape"] },
+  { source: "class C { @dec get x() { return 1; }\n @dec set x(v) {} }", required: ["GetAccessorPossibleShape", "SetAccessorPossibleShape"] },
 ];
 
 const CLASS_RECOVERY_CASES = [];

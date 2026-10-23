@@ -88,7 +88,7 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 
 本阶段（T6b）**成员按成员增量构建**：类体括号上挂成员候选目录
 （`ClassDeclarationShape.CreateBodyPossibleShapes`：属性 / 方法 / 构造 / get / set / static 块 / `;` / 索引签名 / 兜底），
-已经认出的成员在 body 里就地建形状；尚未认出的成员（装饰器成员 / 恢复形）保持 raw basic token，由兜底候选占着目录，
+已经认出的成员在 body 里就地建形状；尚未认出的成员（恢复形 / 判不清的装饰器成员）保持 raw basic token，由兜底候选占着目录，
 收口时由 `BuildMembers` 从 raw 尾巴逐个建——两条路径走同一个建造器，AST 逐节点一致。
 
 ## field NameToken:Token | null = null
