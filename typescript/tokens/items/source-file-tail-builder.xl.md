@@ -1396,23 +1396,30 @@ if ((isFunction || isExportFunction) && lastUnit instanceof Bracket && (lastUnit
   declared.Parent = host;
   return true;
 }
-const lastEnd = host.Data[at].SourceRange.EndIndex;
+// 段尾**自带**真 `;` 时直接用它：含 `;` 建出来的形状右界自然落在 `;` 上；
+// 再合成一个只会得到 `;;`（`import a from "m";` 整段因此建不出来）。
+const codeLastAt:number = codeAt[code.length - 1];
+const realSemi:boolean = lastUnit instanceof Symbol && (lastUnit as Symbol).Is(";");
+const lastEnd:number = lastUnit.SourceRange.EndIndex;
 if (lastEnd < 0) {
   return false;
 }
-const semi = new Symbol(host.Template);
-semi.SignIn(lastEnd);
-semi.AppendValueAndSignOut(";", lastEnd - 1);
-host.Data.splice(at + 1, 0, semi);
+const semiAt:number = realSemi ? codeLastAt : at + 1;
+if (!realSemi) {
+  const semi = new Symbol(host.Template);
+  semi.SignIn(lastEnd);
+  semi.AppendValueAndSignOut(";", lastEnd - 1);
+  host.Data.splice(at + 1, 0, semi);
+}
 if (isType) {
-  const built = TypeAliasDeclarationShape.FromUnits(host, start, at + 1, context);
-  host.Data.splice(start, at - start + 2, built);
+  const built = TypeAliasDeclarationShape.FromUnits(host, start, semiAt, context);
+  host.Data.splice(start, semiAt - start + 1, built);
   built.Parent = host;
   return true;
 }
 if (isImportEquals) {
-  const imported = ImportEqualsDeclarationShape.FromUnits(host, start, at + 1, context);
-  host.Data.splice(start, at - start + 2, imported);
+  const imported = ImportEqualsDeclarationShape.FromUnits(host, start, semiAt, context);
+  host.Data.splice(start, semiAt - start + 1, imported);
   imported.Parent = host;
   return true;
 }
@@ -1430,33 +1437,37 @@ if (isExportImportEquals) {
     }
   }
   try {
-    const imported = ImportEqualsDeclarationShape.FromUnits(host, codeAt[1], at + 1, context);
+    const imported = ImportEqualsDeclarationShape.FromUnits(host, codeAt[1], semiAt, context);
     const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
     (exportKeyword as ShapeToken).Pos = exportPos;
     imported.Data.unshift(exportKeyword);
     exportKeyword.Parent = imported;
     (imported as ShapeToken).Pos = exportPos;
-    host.Data.splice(start, at - start + 2, imported);
+    host.Data.splice(start, semiAt - start + 1, imported);
     imported.Parent = host;
     return true;
   } catch (error) {
-    host.Data.splice(at + 1, 1);
+    if (!realSemi) {
+      host.Data.splice(semiAt, 1);
+    }
     return false;
   }
 }
 if (isImportClause) {
   try {
-    const imported = ImportDeclarationShape.FromUnits(host, start, at + 1, context);
-    host.Data.splice(start, at - start + 2, imported);
+    const imported = ImportDeclarationShape.FromUnits(host, start, semiAt, context);
+    host.Data.splice(start, semiAt - start + 1, imported);
     imported.Parent = host;
     return true;
   } catch (error) {
-    host.Data.splice(at + 1, 1);
+    if (!realSemi) {
+      host.Data.splice(semiAt, 1);
+    }
     return false;
   }
 }
 if (isExportFunction) {
-  const exported = FunctionDeclarationShape.FromUnits(host, exportFunctionStart, at + 1, context);
+  const exported = FunctionDeclarationShape.FromUnits(host, exportFunctionStart, semiAt, context);
   let pos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
@@ -1472,7 +1483,7 @@ if (isExportFunction) {
   exported.Data.unshift(exportKeyword);
   exportKeyword.Parent = exported;
   (exported as ShapeToken).Pos = pos;
-  host.Data.splice(start, at - start + 2, exported);
+  host.Data.splice(start, semiAt - start + 1, exported);
   exported.Parent = host;
   return true;
 }
@@ -1480,17 +1491,19 @@ if (isExportClause) {
   // `export { a }` / `export * from "m"` 无分号到 EOF：ExportDeclarationShape 自己的入口要求末尾 `;`，
   // 这里用已插入的合成 `;` 走正常路径；建不出来就撤掉合成 `;` 并让调用方退回表达式兜底。
   try {
-    const built = ExportDeclarationShape.FromUnits(host, start, at + 1, context);
-    host.Data.splice(start, at - start + 2, built);
+    const built = ExportDeclarationShape.FromUnits(host, start, semiAt, context);
+    host.Data.splice(start, semiAt - start + 1, built);
     built.Parent = host;
     return true;
   } catch (error) {
-    host.Data.splice(at + 1, 1);
+    if (!realSemi) {
+      host.Data.splice(semiAt, 1);
+    }
     return false;
   }
 }
-const declared = FunctionDeclarationShape.FromUnits(host, start, at + 1, context);
-host.Data.splice(start, at - start + 2, declared);
+const declared = FunctionDeclarationShape.FromUnits(host, start, semiAt, context);
+host.Data.splice(start, semiAt - start + 1, declared);
 declared.Parent = host;
 return true;
 ```
@@ -1540,9 +1553,46 @@ return ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
 落盘由引擎的 `ApplyBuilds` 或容器的 `FinishBody` 自己做。
 
 ```ts
+let hasCode = false;
+for (let index = start; index <= at; index++) {
+  if (!host.Data[index].IsTriviaToken) {
+    hasCode = true;
+    break;
+  }
+}
+if (!hasCode) {
+  return [];
+}
 const before:Array<Token> = host.Data.slice();
 const length:number = host.Data.length;
-SourceFileTailBuilder.BuildTrailingDeclaration(host, start, at, context);
+let built = false;
+try {
+  built = SourceFileTailBuilder.BuildTrailingDeclaration(host, start, at, context);
+} catch (error) {
+  built = false;
+}
+if (!built && host.Data.length === length) {
+  // F：声明族不认（`a` / `a + b` / `console.log(a)`，EOF 等不到 `;`）：
+  // 先按语句段建（`const` / 控制语句 / 裸块 / 单独的 `;`），再退回表达式语句兜底。
+  let segmentsBuilt = false;
+  try {
+    segmentsBuilt = SourceFileTailBuilder.BuildStatementSegments(host, start, at, context);
+  } catch (error) {
+    segmentsBuilt = false;
+  }
+  if (!segmentsBuilt && host.Data.length === length) {
+    let last = at;
+    while (last > start && host.Data[last].IsTriviaToken) {
+      last--;
+    }
+    const tailIsSemicolon = host.Data[last] instanceof Symbol && (host.Data[last] as Symbol).Is(";");
+    const expression = tailIsSemicolon
+      ? ExpressionStatementShape.FromUnits(host, start, last, context, true)
+      : ExpressionStatementShape.FromUnits(host, start, last, context, false);
+    host.Data.splice(start, last - start + 1, expression);
+    expression.Parent = host;
+  }
+}
 const delta:number = host.Data.length - length;
 const replaced:Array<Token> = host.Data.slice(start, at + 1 + delta);
 host.Data = before;

@@ -1,9 +1,10 @@
 # dependencies
 ```xl
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { SourceFileBodyItemHost } from "../items/root-item-rule.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -62,7 +63,78 @@ const queue = template.BranchTemplate.Get(this.constructor);
 if (queue !== null) {
   this.ProcessQueue = queue;
 }
-this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileTailBuilder());
+this.AdapterRoot = new SourceFileBodyItemHost(this, SourceFileBodyItemHost.CreateRules(SourceFileShape.CreatePossibleShapes()));
+this.BatchAdapter = this.AdapterRoot;
+```
+
+## field AdapterRoot:SourceFileBodyItemHost | null = null
+
+根 item 表的宿主，与 `BatchAdapter` 指向同一个对象。`BatchAdapter` 的静态类型只有 `IBatchHost` 接口，
+而收口时要读 `RawRange()`，所以这里留一份具体类型的引用。
+
+## private method FinishBody:(context:SyntaxContext)=>CloseStates
+
+EOF 收尾，分三步：
+
+1. **先关最后一个子单元**再 `FlushBatch`：文件末尾那个 `;` 的 basic token 直到关闭才被喂进 item 表；
+   先 Flush 会让引擎的 `State.Checked` 停在 `;` 之前，尾巴永远进不了 raw 段；
+2. `Flush` 把最后一条没建完的 item 建掉（建不出就记 raw 回退）；
+3. **扫描 `Data` 里的裸 basic token 段**逐段重建，而不是只信 `RawRange()`：后者只记最后一段 raw，
+   而 raw 段还可能出现在已建 item **之前**（`class` 一格就被判成可建、Build 抛错时 raw 是 `[0,1)`，
+   `C {}` 反而是第二段）。`ShapeToken` 之间才是 item 边界。
+
+```ts
+const last = this.Last();
+if (last !== null && !last.Closed) {
+  last.TryToClose(context);
+}
+this.FlushBatch(context);
+const segments: Array<number> = [];
+let index = 0;
+while (index < this.Data.length) {
+  if (this.Data[index] instanceof ShapeToken) {
+    index = index + 1;
+    continue;
+  }
+  const from = index;
+  while (index < this.Data.length && !(this.Data[index] instanceof ShapeToken)) {
+    index = index + 1;
+  }
+  segments.push(from);
+  segments.push(index - 1);
+}
+// 从右向左重建：splice 只影响右侧下标。
+for (let s = segments.length - 2; s >= 0; s = s - 2) {
+  const from = segments[s];
+  const to = segments[s + 1];
+  if (to < from) {
+    continue;
+  }
+  const replaced = SourceFileTailBuilder.BuildTrailingItems(this, from, to, context);
+  if (replaced.length > 0) {
+    this.Data.splice(from, to - from + 1, ...replaced);
+  }
+}
+// 落单的 `;` 是前一个形状的终结符（`import …;` / `export type { T };` / `a;`）：
+// 它不进形状的 `Data`，但 TS 的节点终点含它。这里把它并回前一个形状的右界再丢掉。
+let semiAt = 1;
+while (semiAt < this.Data.length) {
+  const semi = this.Data[semiAt];
+  const previous = this.Data[semiAt - 1];
+  if (semi instanceof Symbol && (semi as Symbol).Is(";") && previous instanceof ShapeToken
+    && previous.SourceRange.EndIndex === semi.SourceRange.StartIndex && semi.SourceRange.EndIndex >= 0) {
+    previous.SourceRange.End = semi.SourceRange.EndIndex;
+    this.Data.splice(semiAt, 1);
+    continue;
+  }
+  semiAt = semiAt + 1;
+}
+const adapter = this.AdapterRoot;
+if (adapter !== null) {
+  adapter.RawRange().Reset();
+}
+this.TryToClose(context);
+return CloseStates.Nothing;
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
@@ -117,15 +189,7 @@ if (buffer.IsEof()) {
     mounted.TryToClose(context);
     mounted.Quit();
   }
-  const last = this.Last();
-  if (last !== null && !last.Closed) {
-    last.TryToClose(context);
-  }
-  const eof = new EndOfFileTokenShape(this.Template);
-  eof.SignIn(index);
-  eof.SignOut(index);
-  this.Add(eof);
-  eof.TryToClose(context);
+  this.FinishBody(context);
   return;
 }
 if (this.SourceRange.Start < 0) {

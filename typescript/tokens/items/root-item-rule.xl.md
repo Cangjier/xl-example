@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { BasicTokenBatch } from "../../../core/syntax/batch/basic-token-batch.xl.md"
 import { BatchPolicy } from "../../../core/syntax/batch/batch-policy.xl.md"
@@ -28,8 +29,9 @@ import { ModuleDeclarationShape } from "../declarations/module-declaration-shape
 import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
+import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
-import { StatementItemScan } from "./statement-item-scan.xl.md"
 ```
 
 # namespace cangjie
@@ -74,6 +76,15 @@ import { StatementItemScan } from "./statement-item-scan.xl.md"
 
 最近一次 `Analyze` 判出的唯一候选下标；`Build` 用它决定建造入口，建完复位。
 
+## field Owner:Token | null = null
+
+宿主（根）引用。`ItemRule.Analyze(state)` 没有 host 形参，而「试建」需要宿主，
+所以由 `SourceFileBodyItemHost.OnBasicTokens` 每批注入（与 `Context` 同一处）。
+
+## field Pending:Token | null = null
+
+`Analyze` 试建成功的 item；`Build` 直接取用，同一段不建两次。
+
 ## field Context:SyntaxContext | null = null
 
 判定上下文。`ItemRule.Analyze(state)` 没有 context 形参，而候选的 `IsBuildable(units, index, cache, context)`
@@ -100,6 +111,7 @@ for (let index = 0; index < this.Guide.PossibleShapes.length; index++) {
 }
 this.Watermark = 0;
 this.Winner = -1;
+this.Pending = null;
 this.Guide.PossibleShapesComputeCache.Clear();
 ```
 
@@ -141,17 +153,80 @@ const code: Array<Token> = state.Code;
 if (code.length === 0) {
   return;
 }
+// 候选的 `ComputeByIndex` 是按**宿主 Data + 宿主下标**写的（`ItemUtil.ItemStart(units)`、
+// `HasLineBreakBefore(units, at)` 都要看 trivia）。引擎给的是去掉 trivia 的 `Code`，所以这里
+// 用 `CodeAt` 映射回宿主下标，判据本身一个字不改（INV-2）。
+const owner: Token | null = this.Owner;
+if (owner === null) {
+  return;
+}
 const cache: PossibleShapeCache = this.Guide.PossibleShapesComputeCache;
+// 候选按「从本条目起点开始的数组」判定：`ItemUtil.ItemStart(units)` 取的是「最后一个非 basic
+// 单元之后」——只有把本条目之前的单元切掉，它才等于本条目的起点。上一段留下的 raw basic token
+// 若还在数组里，`ItemStart` 会落回它们身上，所有候选的判据都会被带偏（`a` ⏎ `b;` 的 `b`）。
+const base: number = state.Start >= 0 ? state.Start : 0;
+const units: Array<Token> = base === 0 ? owner.Data : owner.Data.slice(base);
 let at: number = this.Watermark;
 while (at < code.length) {
+  const hostAt: number = state.CodeAt[at] - base;
   for (const index of this.Alive) {
-    if (this.Guide.PossibleShapes[index].ComputeByIndex(code, at, cache) === ShapeStates.Reject) {
+    if (this.Guide.PossibleShapes[index].ComputeByIndex(units, hostAt, cache) === ShapeStates.Reject) {
       this.Alive.delete(index);
     }
   }
   if (this.Alive.size === 0) {
+    // 所有候选在这一格退出。常见两种情况：
+    //   ① 这一格是声明族的终结符 `;`（`import …;` 的候选在 `;` 上 Reject）——它属于本条 item；
+    //   ② 这一格是下一条语句的开头（ASI 边界）——它不属于本条 item。
+    // 先按「把这一格也算进来」建一次，再看形状实际右界截到哪一格：声明会吃进 `;`，
+    // 语句则按 ASI 停在前一格（`StatementBuilder` 自己就在换行处收口）。
+    if (this.Context !== null && state.Start >= 0 && !this.ShouldDeferToTail(code)) {
+      // ① 先按「不含这一格」建：这一格通常是下一条语句的开头（ASI 边界），不属于本条 item。
+      if (at > 0) {
+        const beforeEnd: number = state.CodeAt[at - 1];
+        const before: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, beforeEnd, this.Context);
+        if (before !== null) {
+          state.Complete = true;
+          state.End = beforeEnd;
+          this.Pending = before;
+          this.Watermark = at;
+          return;
+        }
+      }
+      // ② 再按「含这一格」建：声明族的终结符 `;` 就落在这一格（`import …;` 的候选在 `;` 上 Reject）。
+      const over: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, state.CodeAt[at], this.Context);
+      if (over !== null) {
+        const overEnd: number = over.SourceRange.EndIndex;
+        let overAt: number = at;
+        if (overEnd >= 0) {
+          while (overAt >= 0) {
+            const overStart: number = code[overAt].SourceRange.Start;
+            if (overStart >= 0 && overStart < overEnd) {
+              break;
+            }
+            overAt = overAt - 1;
+          }
+        }
+        if (overAt >= 0) {
+          state.Complete = true;
+          state.End = state.CodeAt[overAt];
+          this.Pending = over;
+          this.Watermark = overAt + 1;
+          return;
+        }
+      }
+    }
+    // 收口到**上一格**，把这一格留给下一条：引擎按 `End + 1` 切，这一格会被重新读一次。
+    if (at > 0) {
+      state.Complete = true;
+      state.End = state.CodeAt[at - 1];
+      this.Winner = -1;
+      this.Watermark = at;
+      return;
+    }
+    // 第一格就没候选：这一格自己建不出来，按 raw 回退交给容器的尾巴重建。
     state.Complete = true;
-    state.End = state.CodeAt[at];
+    state.End = hostAt;
     this.Winner = -1;
     this.Watermark = at + 1;
     return;
@@ -159,19 +234,48 @@ while (at < code.length) {
   if (this.Alive.size === 1) {
     const only: number = RootItemRule.FirstOf(this.Alive);
     const shape: PossibleShape = this.Guide.PossibleShapes[only];
-    if (this.Context !== null && shape.IsBuildable(code, at, cache, this.Context)) {
-      state.Complete = true;
-      state.End = state.CodeAt[at];
-      this.Winner = only;
-      this.Watermark = at + 1;
-      return;
+    if (this.Context !== null && shape.IsBuildable(units, hostAt, cache, this.Context)) {
+      // 修饰词与声明词之间换行时 TS 按 ASI 拆成两条（`declare` ⏎ `enum E {}`）：
+      // 这种段交给尾巴的 `BuildTrailingDeclaration`（它的多语句分界按这个口径写）。
+      if (this.ShouldDeferToTail(code)) {
+        at = at + 1;
+        continue;
+      }
+      // C：`IsBuildable` 只说明「可以试着建」，不说明「这一段建得出」（`import a` 就是 true）。
+      // 真建一次，建出来才收口；结果留给 `Build` 直接取用（同一段不建两次）。
+      if (state.Start >= 0) {
+        const built: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, state.CodeAt[at], this.Context);
+        if (built !== null) {
+          // D：收口点按 shape 的实际右界反推，不能用试探格——试探格可能已是下一条语句的 token，
+          // 按它收口会把 lookahead 一起 splice 掉。
+          const builtEnd: number = built.SourceRange.EndIndex;
+          let lastAt: number = at;
+          if (builtEnd >= 0) {
+            while (lastAt >= 0) {
+              const unitStart: number = code[lastAt].SourceRange.Start;
+              if (unitStart >= 0 && unitStart < builtEnd) {
+                break;
+              }
+              lastAt = lastAt - 1;
+            }
+          }
+          if (lastAt >= 0) {
+            state.Complete = true;
+            state.End = state.CodeAt[lastAt];
+            this.Winner = only;
+            this.Pending = built;
+            this.Watermark = lastAt + 1;
+            return;
+          }
+        }
+      }
     }
   }
   at = at + 1;
 }
 this.Watermark = at;
 if (state.AtEof) {
-  // 到 EOF 还有候选没被淘汰、但谁都建不出（`IsBuildable` 恒 false）：**无条件收口**。
+  // 到 EOF 还有候选没被淘汰、但谁都建不出：**无条件收口**。
   // 不收口的话引擎一条 item 都不建，`Flush` 既走不了「能建就建」也走不了「raw 回退」。
   // 收口后 `Winner = -1` → `Build` 返回 `null` → 引擎记 raw 回退，
   // 由容器的 `FinishBody` 用 `BuildTrailingItems` 把这段尾巴整段建对（legacy 里是「终结候选」干的事）。
@@ -202,24 +306,43 @@ return -1;
 if (state.Start < 0 || state.Start >= host.Data.length) {
   return null;
 }
-if (this.Winner < 0) {
-  this.ResetAfterBuild();
-  return null;
-}
 const start: number = state.Start;
 const end: number = state.End;
-if (end < start || end >= host.Data.length) {
-  this.ResetAfterBuild();
-  return null;
-}
-const kind: number = this.KindOf(state.Code);
-const built: Token | null = this.BuildByKind(kind, host, start, end, context);
+const built: Token | null = this.Pending;
 this.ResetAfterBuild();
-if (built === null) {
+if (end < start || built === null) {
   return null;
 }
 built.Parent = host;
 return built;
+```
+
+## private method ShouldDeferToTail:(code:Array<Token>)=>bool
+
+修饰词（`declare` / `abstract` / `async`）与后面的声明词之间**有换行**时，TS 按 ASI 拆成两条：
+`declare` 是独立的 ExpressionStatement，声明本身不带该修饰词（`declare` ⏎ `enum E {}`）。
+这种段不能在这里用 `FromUnits` 合并建出来（`FromUnits` 不看修饰词与关键字之间的换行），
+必须交给 EOF/尾巴的 `BuildTrailingDeclaration`——它的多语句分界正是按这个口径写的。
+
+```ts
+if (code.length < 2) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+const headText: string = (head as Common).TempToString();
+if (headText !== "declare" && headText !== "abstract" && headText !== "async") {
+  return false;
+}
+const document = head.SourceRange.Document;
+const from: number = head.SourceRange.EndIndex;
+const to: number = code[1].SourceRange.StartIndex;
+if (document === null || from < 0 || to < 0 || to <= from) {
+  return false;
+}
+return document.GetRaw(from, to).indexOf("\n") >= 0;
 ```
 
 ## private method ResetAfterBuild:()=>void
@@ -269,10 +392,21 @@ if (code.length === 0) {
   return 9;
 }
 const hadExport: boolean = this.IsTextAt(code, 0, "export");
-let at: number = 0;
+let startAt: number = 0;
+if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
+  // 装饰器前缀：声明词由 `StatementScanner` 一次认出（与 `ScanDecoratedHead` 同口径）。
+  // `@dec\nconst x = 1;` 的声明词是 `const`，按变量语句走 `StatementBuilder` 的装饰器路径。
+  const decoratedHead: number = StatementScanner.DecoratedHeadKeyword(code, 0);
+  if (decoratedHead < 0) {
+    return 9;
+  }
+  startAt = decoratedHead;
+}
+let at: number = startAt;
 while (at < code.length) {
   const text: string = this.TextOf(code[at]);
-  if (text === "export" || text === "declare" || text === "abstract" || text === "async") {
+  if (text === "export" || text === "declare" || text === "abstract" || text === "async"
+    || text === "default") {
     at = at + 1;
     continue;
   }
@@ -314,6 +448,17 @@ if (head === "namespace" || head === "module") {
   return 7;
 }
 if (head === "type") {
+  // `export type { T }` / `export type * from "m"`：这是 ExportDeclaration（isTypeOnly），
+  // 不是类型别名——不能按 `type` 去找 `=`。
+  if (at + 1 < code.length) {
+    const nextUnit: Token = code[at + 1];
+    if (nextUnit instanceof Bracket && (nextUnit as Bracket).StartBracketChar === "{") {
+      return 2;
+    }
+    if (this.IsSymbolAt(code, at + 1, "*")) {
+      return 2;
+    }
+  }
   let probe: number = at + 2;
   while (probe < code.length && this.TextOf(code[probe]) !== "=" && !this.IsSymbolAt(code, probe, ";")) {
     probe = probe + 1;
@@ -327,6 +472,11 @@ if (this.IsSymbolAt(code, at, "=") && hadExport) {
   return 10;
 }
 if (hadExport) {
+  // `export default <表达式>` 是 ExportAssignment；带声明词的 `export default class …`
+  // 已经在上面按声明词分派掉了。
+  if (at >= 2 && this.IsTextAt(code, 1, "default")) {
+    return 10;
+  }
   return 2;
 }
 return 9;
@@ -375,7 +525,10 @@ try {
     return TypeAliasDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 10) {
-    return ExportAssignmentShape.FromUnits(host, start, end, context, true);
+    // `export = …` / `export default …`：`;` 在区间里才要求分号（ASI 的尾巴没有分号）。
+    const lastUnit: Token = host.Data[end];
+    const hasSemi: boolean = lastUnit instanceof Symbol && (lastUnit as Symbol).Is(";");
+    return ExportAssignmentShape.FromUnits(host, start, end, context, hasSemi);
   }
   if (kind === 11) {
     return ImportEqualsDeclarationShape.FromUnits(host, start, end, context);
@@ -398,7 +551,19 @@ for (let at = start; at <= end; at++) {
 if (units.length === 0) {
   return null;
 }
-const basePos: number = StatementItemScan.BasePos(host, start);
+// 根上的 `basePos` 不能用 `StatementItemScan.BasePos`：那是「语句体」口径
+// （宿主起点 + 1 跳过 `{`），根宿主起点是 0 → Pos 会整体偏 1。
+// 根上只取「前一个非 trivia 单元的右界」，前面什么都没有就是 0。
+let basePos: number = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const previousEnd: number = host.Data[at].SourceRange.EndIndex;
+    if (previousEnd >= 0) {
+      basePos = previousEnd;
+    }
+    break;
+  }
+}
 const builder: StatementBuilder = new StatementBuilder(host.Template, context);
 builder.Load(units, basePos);
 return builder.BuildStatement();
@@ -467,6 +632,7 @@ if (host === null) {
 for (const rule of this.Engine.Rules) {
   if (rule instanceof RootItemRule) {
     (rule as RootItemRule).Context = context;
+    (rule as RootItemRule).Owner = host;
   }
 }
 const before: number = this.Engine.Built;
