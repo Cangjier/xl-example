@@ -40,31 +40,59 @@ ode tests/statement-possible/s4l-await-body.mjs\）
 | 表 | exit |
 |---|---|
 | s4l-await-body | 1 |
-| s4j-function-body | 1 |
-| harness --all | 1 |
-| harness --double-accept | 1 |
-| harness --lint | 1 |
-| control-flow-takeover | 1 |
-| block-body-takeover | 1 |
-| r1-asi | 1 |
-| block-body-cases | 1 |
-| control-flow-cases | 1 |
-| s4c2-cases | 1 |
-| dev-cases | 1 |
-| op-cases | 1 |
-| op-ast-proof | 1 |
-| op-proof | 1 |
-| comma-import-fallback | 1 |
+| s4j-function-body | 0 |
+| harness-all | 0 |
+| double-accept | 0 |
+| lint | 0 |
+| control-flow-takeover | 0 |
+| block-body-takeover | 0 |
+| r1-asi | 0 |
+| block-body-cases | 0 |
+| control-flow-cases | 0 |
+| s4c2-cases | 0 |
+| dev-cases | 0 |
+| op-cases | 0 |
+| op-ast-proof | 0 |
+| op-proof | 0 |
+| comma-import-fallback | 0 |
 | validate | 0 |
-| ast-json | 1 |
+| ast-json | 0 |
 | ast-json-diff | 0 |
-| token-ast | 1 |
-| real-dts | 1 |
-| feas-operator-harness | 1 |
-| feas-operator-insert-between | 1 |
-| perf | 1 |
+| token-ast | 0 |
+| real-dts | 0 |
+| feas-operator | 0 |
+| feas-insert-between | 0 |
+| perf | 0 |
 
-原始尾部输出：
+原始尾部输出（每行末条读数）：
+
+```
+s4l-await-body           exit=1 :: | `const t = { await: 1 };` | 0 | 0 | 0 | PASS | / | `function s(){ await f(); }` | 1 | 1 | 1 | PASS | / | `async function u(){ await a + b; let z=1; }` | 1 | 0 | 1 | PASS |
+s4j-function-body        exit=0 :: | `label: { a; }` | 0 | 0 | 0 | PASS | / | `({ m(){ let z=1; } });` | 0 | 0 | 0 | PASS | / | `function f(): void;` | 0 | 0 | 0 | PASS |
+harness-all              exit=0 :: [statement-possible] double-accept 冲突: 0 / [statement-possible] groups run=8 skipped=3 | cases pass=101 fail=0 skip=0 known=1 uncovered=0 / [statement-possible] file-fallback total=0 distinct=0
+double-accept            exit=0 :: [statement-possible] 互斥仪器: cells=821 candidateCalls=5126 endCalls=818 acceptCells=190 waitingNoCandidate=284 / [statement-possible] double-accept 冲突: 0 / [statement-possible] double-accept: cases=120 failed=0
+lint                     exit=0 ::   Precedence 定义 typescript/tokens/expressions/operator-table.js / [lint] OperatorTable 数字优先级条目=12 / [lint] 结果：PASS（ASI 实现唯一 / 优先级数字表只在 operator-table）
+control-flow-takeover    exit=0 :: PASS "en /* c */ : a;"  cf=0 body=0 label=1 /  / [control-flow-takeover] cases=39 failed=0 defaultFlag=true
+block-body-takeover      exit=0 :: PASS "{ a; if (b) c; d; }"  shells=1 body=3 /  / [block-body-takeover] cases=21 failed=0 defaultFlag=true
+r1-asi                   exit=0 :: [statement-possible] double-accept 冲突: 0 / [statement-possible] groups run=1 skipped=0 | cases pass=15 fail=0 skip=0 known=0 uncovered=0 / [statement-possible] file-fallback total=0 distinct=0
+block-body-cases         exit=0 :: [statement-possible] double-accept 冲突: 0 / [statement-possible] groups run=1 skipped=0 | cases pass=17 fail=0 skip=0 known=0 uncovered=0 / [statement-possible] file-fallback total=0 distinct=0
+control-flow-cases       exit=0 :: [statement-possible] double-accept 冲突: 0 / [statement-possible] groups run=1 skipped=0 | cases pass=42 fail=0 skip=0 known=0 uncovered=0 / [statement-possible] file-fallback total=0 distinct=0
+s4c2-cases               exit=0 :: [statement-possible] double-accept 冲突: 0 / [statement-possible] groups run=1 skipped=0 | cases pass=33 fail=0 skip=0 known=0 uncovered=0 / [statement-possible] file-fallback total=0 distinct=0
+dev-cases                exit=0 :: [statement-possible] groups run=1 skipped=0 | cases pass=22 fail=0 skip=0 known=0 uncovered=0 / [statement-possible] file-fallback total=2 distinct=1 /   fallback: "let a = 1; a++; --\na;\nif (a) { a++; } --\na;"
+op-cases                 exit=0 :: [statement-possible] double-accept 冲突: 0 / [statement-possible] groups run=1 skipped=0 | cases pass=40 fail=0 skip=0 known=0 uncovered=0 / [statement-possible] file-fallback total=0 distinct=0
+op-ast-proof             exit=0 :: PASS  s3m-declined-async-arrow-type  shapeAst=0 declined=1 texts=["params"] /  / [op-ast-proof] group=ast-from-shapes cases=90 pass=90 fail=0 | 形状树接管计数已核 90 条、TS 逐节点已核 85 条、AST 数字叶子已核 8 条
+op-proof                 exit=0 :: PASS  s3g-op-optional-chain  texts=["member(member(a,b),c)"] inserts=2 bodies=1 /  / [op-proof] group=operators-live cases=40 pass=40 fail=0 | 结构文本已核 40 条、InsertBetween 计数已核 38 条
+comma-import-fallback    exit=0 ::       shapeNodes=["CallExpressionShape","ImportKeywordShape"]  shapeTexts=["call(import)"] /  / [comma-import-fallback] cases=11 pass=11 fail=0（契约：XML==legacy、无 fallback、无形状泄漏、控制组仍被接管）
+validate                 exit=0 ::  / 1720 条用例，0 条不合格
+ast-json                 exit=0 :: [types] cases=450 cj-ok=450 cj-fail=0 / [using-declarations] cases=29 cj-ok=29 cj-fail=0 / total cases=6167 cj-ok=6167 cj-fail=0（47 个构造）
+ast-json-diff            exit=0 :: （没有 gap） /  / 合计 6167 条：完全一致 6167 / 6167；有结构差 0 条、有位置差 0 条、有字段差 0 条
+token-ast                exit=0 :: summary: total=1716 ok=1706 crash=0 diff=0 ts-invalid=10 gap-now-passing=0 / known-gap:     0 file(s) (none) / non-known-gap: 1716 file(s) (ok 1706, ts-invalid 10)
+real-dts                 exit=0 :: real-dts: 文件 226（跳过 TS 非法 0）：解析成功 226、崩溃 0；AST 完全一致 226、有差异 0 / 真实 .d.ts 全量解析成功且 AST 逐节点一致
+feas-operator            exit=0 :: [feas-operator] cases=6 pass=6 fail=0
+feas-insert-between      exit=0 :: PASS  嵌套插入：wrapper 套 wrapper / PASS  拒绝非法输入 / [feas-operator] insert-between tests=9 pass=9 fail=0
+perf                     exit=0 :: [perf] scale ratio(200/100)=2.06 ratio(400/200)=2.84（线性≈2.0；>2.5 视为退化告警，不判失败） / [perf] WARN 耗时增长超过 2.5 倍，疑似二次退化（设计 §8.3.3） / [perf] done
+```
+
 
 ### s4l-await-body (exit=1)
 ```
