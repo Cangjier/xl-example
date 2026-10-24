@@ -48,6 +48,15 @@ a-b-c   ->  -(-(a,b),c)
 为什么必须持它：S3c 的收口器（`StatementShapeAst`）用它与 `ExpressionBuilder.Units` 对齐，从而把
 `Pos` / `SignIn` / `SignOut` 落在与 legacy **同一个单元**上——节点类型与范围因此逐字段一致。
 
+## field Args:Token | null = null
+
+`KindNew` 的实参括号（`new X(a)` 的那个 `(`），或 `KindOptionalCall` / `KindOptionalIndex` 的括号。
+它不是子节点（括号里的内容不进形状树），AST 侧仍由 legacy 的 `ParseBracketArguments` / 内层嵌套体整段建。
+
+## field Open:bool = false
+
+`KindNew` 的被构造者后缀链是否还开着：被构造者挂上后置 `true`，`(` 被 `AcceptNewArgs` 收走时置 `false`。
+`true` 时 `InsertionPoint` 会穿过它（`.b` / `[k]` 属于被构造者的链）；`false` 时 `.y` / `()` 属于构造结果。
 ## static field KindHolder:int = 0
 
 根持有者（`StatementOperatorBody.Root`）：不是表达式节点，只用来挂最外层 shape，所以它永远不要被渲染。
@@ -119,6 +128,40 @@ AST 侧由 `StatementShapeAst` 走 legacy 的 `TrueKeywordShape` / `FalseKeyword
 数组字面量（S3f）：`Data = []`、`Raw` 是那个 `[` 括号单元。元素不进形状树，AST 侧走 legacy 的
 `ParseArrayLiteral`（元素 / 空槽 / 展开全由它建），形状树只证明「这是一个数组字面量操作数」。
 
+## static field KindObject:int = 14
+
+对象字面量（S3g）：`Data = []`、`Raw` 是那个 `{` 括号单元。元素不进形状树，AST 侧走 legacy 的
+`ParseObjectLiteral`（成员 / 简写 / 展开 / 访问器全由它建）。**只在 `Nested` 本体里接受**：括号 / 索引内部
+才是明确的表达式位置；语句首的 `{` 必须留给块壳（`BlockPossibleShape`）与 legacy，形状层不去抢。
+
+## static field KindNew:int = 15
+
+`new` 表达式的**前缀节点**（S3g）：`Data = [被构造者（含其后缀链）]`、`Raw` 是 `new` 关键字单元、`Args` 是可选
+的实参括号。它走 `Prefixes` 前缀栈（`-new X()` 的包裹顺序因此自然正确），AST 侧交给 legacy 的 `ParseNew`
+整段建（`NewExpressionShape` 的 children 与 `Pos` 由同一段代码决定，不重写）。
+
+`Open` 区分两种 `.` / `[`：`new a.b()` 的 `.b` 属于**被构造者**的链（`Open == true` 时插入点穿过本节点），
+`new X().y` 的 `.y` 属于**构造结果**（`AcceptNewArgs` 收走括号后 `Open == false`）。
+
+## static field KindQuestionDot:int = 16
+
+`?.` 的**待定节点**（S3g）：读到 `?.` 时先建出来插好位置（`Data = [对象]`），转 `ExpectOptional`；
+下一个单元到达后原地升级成 `KindOptionalMember` / `KindOptionalCall` / `KindOptionalIndex`。
+它只在表达式未收口时短暂存在（`IsComplete()` 要求 `Expect == ExpectOperator`），不会进结构文本。
+
+## static field KindOptionalMember:int = 17
+
+可选成员访问（S3g）：`Data = [对象, 成员名]`、`Raw` 是 `?.` 单元。AST 是 `PropertyAccessExpressionShape`，
+children 比普通成员多一个 `QuestionDotTokenShape`（`ExpressionBuilder.ParsePostfixSuffix` 的 `?.` 分支同口径）。
+
+## static field KindOptionalCall:int = 18
+
+可选调用（S3g）：`Data = [被调用者]`、`Raw` 是 `?.` 单元、`Args` 是实参括号。实参仍不进形状树。
+
+## static field KindOptionalIndex:int = 19
+
+可选索引（S3g）：`Data = [对象, 下标表达式]`、`Raw` 是 `?.` 单元、`Args` 是方括号。下标走嵌套体。
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -185,6 +228,11 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 **正在等成员名**的成员节点（S3f）：读到 `.` 时建出来、插好位置，等下一个非 trivia 单元当名字。
 非空就表示状态机停在 `ExpectName`。名字到达后立刻清空。
 
+## field AwaitOptional:Token | null = null
+
+**正在等 `?.` 之后那个单元**的节点（S3g）：读到 `?.` 时建出来、插好位置，转 `ExpectOptional`。
+名字 / 调用 / 索引到达后立刻清空。
+
 ## field Prefixes:Array<Token> = []
 
 已经读到、但操作数还没到的前缀节点（`-a` 的 `-`）。操作数到达时按后进先出包上去，再挂进当前帧。
@@ -245,6 +293,10 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 成员名的状态（S3f）：`.` 之后要的不是操作数而是一个**名字**——名字不能被前缀包住（`a.-b` 不是成员访问），
 所以它单独一个状态，而不是复用 `ExpectOperand`。
 
+## static field ExpectOptional:int = 4
+
+`?.` 之后的状态（S3g）：要的不是普通操作数也不是成员名，而是「成员名 / `(` / `[`」三选一，
+所以单独一个状态（`IngestOptional` 分派）。
 ## static field TotalBodies:int = 0
 
 进程内建过的表达式体个数（每建一条走壳的表达式语句 +1；圆括号内部的嵌套体不计）。
@@ -408,8 +460,21 @@ if (this.Expect === StatementOperatorBody.ExpectName) {
   this.IngestName(unit, text, template);
   return;
 }
+if (this.Expect === StatementOperatorBody.ExpectOptional) {
+  this.IngestOptional(unit, text, template);
+  return;
+}
+
 if (this.Expect === StatementOperatorBody.ExpectOperand) {
-  if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
+  if (text === "class") {
+    this.Fail("class 表达式");
+    return;
+  }
+  if (text === "new") {
+    this.StartNew(unit, template);
+    return;
+  }
+if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
     const prefix = new StatementOperandShape(template);
     prefix.Kind = StatementOperandShape.KindPrefix;
     prefix.Text = text;
@@ -430,11 +495,18 @@ if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
   this.PushBinary(unit, text, template);
   return;
 }
+if (text === "?.") {
+  this.StartQuestionDot(unit, template);
+  return;
+}
 if (text === ".") {
   this.StartMember(unit, template);
   return;
 }
 if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+  if (this.AcceptNewArgs(unit as Bracket)) {
+    return;
+  }
   this.StartCall(unit as Bracket, template);
   return;
 }
@@ -470,9 +542,6 @@ if (unit instanceof RegexToken) {
 if (unit instanceof String) {
   const token = unit as String;
   if (StatementOperatorBody.IsTemplateUnit(token, template)) {
-    if (StatementOperatorBody.HasInterpolation(token)) {
-      return null;
-    }
     const shape = new StatementOperandShape(template);
     shape.Kind = StatementOperandShape.KindTemplate;
     shape.Raw = unit;
@@ -490,6 +559,15 @@ if (unit instanceof Bracket) {
     arrayShape.Kind = StatementOperandShape.KindArray;
     arrayShape.Raw = unit;
     return arrayShape;
+  }
+  if (bracket.StartBracketChar === "{") {
+    if (!this.Nested) {
+      return null;
+    }
+    const objectShape = new StatementOperandShape(template);
+    objectShape.Kind = StatementOperandShape.KindObject;
+    objectShape.Raw = unit;
+    return objectShape;
   }
   if (bracket.StartBracketChar !== "(") {
     return null;
@@ -558,7 +636,9 @@ while (true) {
   if (!(child instanceof StatementOperandShape)) {
     break;
   }
-  if ((child as StatementOperandShape).Kind !== StatementOperandShape.KindPrefix) {
+  const kind = (child as StatementOperandShape).Kind;
+  if (kind !== StatementOperandShape.KindPrefix
+    && !(kind === StatementOperandShape.KindNew && (child as StatementOperandShape).Open)) {
     break;
   }
   if (child.Data.length === 0) {
@@ -694,6 +774,9 @@ let shape = built;
 while (this.Prefixes.length > 0) {
   const prefix = this.Prefixes.pop()!;
   prefix.Add(shape);
+  if (prefix instanceof StatementOperandShape && (prefix as StatementOperandShape).Kind === StatementOperandShape.KindNew) {
+    (prefix as StatementOperandShape).Open = true;
+  }
   shape = prefix;
 }
 this.Top().Add(shape);
@@ -745,6 +828,130 @@ this.Expect = StatementOperatorBody.ExpectOperand;
 this.Frames.pop();
 this.FramePrecs.pop();
 this.FramePending.pop();
+```
+
+## method StartNew:(unit:Token, template:Template)=>void
+
+`new` 关键字（S3g）：压一个 `KindNew` 前缀节点，等被构造者。与 `-a` 的前缀走同一个 `Prefixes` 栈，
+所以 `-new X()` 的包裹顺序自然正确（`-` 包 `new`，而不是反过来）。
+
+```ts
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindNew;
+shape.Raw = unit;
+this.Prefixes.push(shape);
+```
+
+## method AcceptNewArgs:(bracket:Bracket)=>bool
+
+`new X(...)` 的实参括号（S3g）：当前表达式最外层若是还开着的 `KindNew`，这一对圆括号属于它，
+不是对构造结果的调用。记下括号、关掉后缀链并返回 `true`；否则返回 `false` 交给 `StartCall`。
+
+**只在 `Top()` 的最后一个子单元上找**：`a + new X(` 的 `Top()` 是待右操作数的 `+` 帧，它的最后一个子单元
+正是 `new` 节点；找不到就说明括号属于别的调用（`new X()()` 的第二个括号），交给 `StartCall` 是对的。
+
+```ts
+const top = this.Top();
+if (top.Data.length === 0) {
+  return false;
+}
+const last = top.Data[top.Data.length - 1];
+if (!(last instanceof StatementOperandShape)) {
+  return false;
+}
+const shape = last as StatementOperandShape;
+if (shape.Kind !== StatementOperandShape.KindNew || !shape.Open || shape.Args !== null) {
+  return false;
+}
+shape.Args = bracket;
+shape.Open = false;
+this.Expect = StatementOperatorBody.ExpectOperator;
+return true;
+```
+
+## method StartQuestionDot:(unit:Token, template:Template)=>void
+
+`a?.` 的可选链（S3g）：先把一个待定节点插到对象的位置（与 `StartMember` 同一处、同一套 `InsertBetween`），
+转 `ExpectOptional` 等下一个单元决定它是成员名 / 调用还是索引。
+
+```ts
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  this.Fail("可选链缺少对象");
+  return;
+}
+if (StatementOperatorBody.IsBareImport(point[1])) {
+  this.Fail("import 开头的可选链");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindQuestionDot;
+shape.Raw = unit;
+ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.AwaitOptional = shape;
+this.Expect = StatementOperatorBody.ExpectOptional;
+```
+
+## method IngestOptional:(unit:Token, text:string, template:Template)=>void
+
+`?.` 之后的那个单元（S3g）：`(` → 可选调用、`[` → 可选索引、标识符 → 可选成员。三种都复用既有 AST 形状
+（`PropertyAccessExpressionShape` / `CallExpressionShape` / `ElementAccessExpressionShape`），差别只是
+`?.` 这个单元会作为子节点投影进 AST（`StatementShapeAst` 用 `MakeOperatorToken` 建 `QuestionDotTokenShape`）。
+
+```ts
+if (this.AwaitOptional === null) {
+  this.Fail("没有等待的可选链节点");
+  return;
+}
+const shape = this.AwaitOptional as StatementOperandShape;
+this.AwaitOptional = null;
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+  shape.Kind = StatementOperandShape.KindOptionalCall;
+  shape.Args = unit;
+  this.Expect = StatementOperatorBody.ExpectOperator;
+  return;
+}
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[") {
+  const bracket = unit as Bracket;
+  if (bracket.Data.length === 0) {
+    this.Fail("可选索引里没有表达式");
+    return;
+  }
+  const inner = new StatementOperatorBody(template);
+  inner.Nested = true;
+  inner.IngestAll(bracket.Data, template);
+  if (inner.Incomplete || !inner.IsComplete()) {
+    this.Fail("可选索引里的表达式");
+    return;
+  }
+  if (inner.Root === null || inner.Root.Data.length !== 1) {
+    this.Fail("可选索引里的表达式不是单节点");
+    return;
+  }
+  shape.Kind = StatementOperandShape.KindOptionalIndex;
+  shape.Args = bracket;
+  shape.Add(inner.Root.Data[0]);
+  this.Expect = StatementOperatorBody.ExpectOperator;
+  return;
+}
+if (!(unit instanceof Common)) {
+  this.Fail("?. 之后不是成员名 / 调用 / 索引");
+  return;
+}
+const common = unit as Common;
+if (!StatementOperatorBody.IsOperandText(text) || common.IsNumber() || common.IsBigInt()) {
+  this.Fail("可选链成员名 " + text);
+  return;
+}
+shape.Kind = StatementOperandShape.KindOptionalMember;
+const name = new StatementOperandShape(template);
+name.Kind = StatementOperandShape.KindIdentifier;
+name.Text = text;
+name.Raw = unit;
+shape.Add(name);
+this.Expect = StatementOperatorBody.ExpectOperator;
 ```
 
 ## method Fail:(reason:string)=>void
@@ -810,6 +1017,30 @@ if (token instanceof StatementOperandShape) {
     const subscript = shape.Data.length > 1 ? StatementOperatorBody.Render(shape.Data[1]) : "?";
     return "index(" + object + "," + subscript + ")";
   }
+  if (shape.Kind === StatementOperandShape.KindObject) {
+    return "object";
+  }
+  if (shape.Kind === StatementOperandShape.KindNew) {
+    const callee = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "new(" + callee + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindOptionalMember) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    const name = shape.Data.length > 1 ? StatementOperatorBody.Render(shape.Data[1]) : "?";
+    return "member(" + object + "," + name + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindOptionalCall) {
+    const callee = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "call(" + callee + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindOptionalIndex) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    const subscript = shape.Data.length > 1 ? StatementOperatorBody.Render(shape.Data[1]) : "?";
+    return "index(" + object + "," + subscript + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindQuestionDot) {
+    return "qdot";
+  }
   if (shape.Kind === StatementOperandShape.KindString) {
     return "string";
   }
@@ -861,6 +1092,30 @@ if (token instanceof StatementOperandShape) {
     const object = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
     const subscript = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
     return "index(" + object + "," + subscript + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindObject) {
+    return "object";
+  }
+  if (shape.Kind === StatementOperandShape.KindNew) {
+    const callee = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    return "new(" + callee + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindOptionalMember) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    const name = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
+    return "member(" + object + "," + name + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindOptionalCall) {
+    const callee = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    return "call(" + callee + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindOptionalIndex) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    const subscript = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
+    return "index(" + object + "," + subscript + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindQuestionDot) {
+    return "qdot";
   }
   if (shape.Kind === StatementOperandShape.KindString) {
     return "string";

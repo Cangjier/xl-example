@@ -76,6 +76,8 @@ function leafText(node, sourceFile) {
 
 function tsLiteralText(node) {
   if (ts.isNoSubstitutionTemplateLiteral(node)) return "template";
+  if (ts.isTemplateExpression(node)) return "template";
+  if (ts.isObjectLiteralExpression(node)) return "object";
   if (ts.isRegularExpressionLiteral(node)) return "regex";
   if (ts.isStringLiteral(node)) return "string";
   if (ts.isArrayLiteralExpression(node)) return "array";
@@ -93,10 +95,6 @@ function tsInfix(node, sourceFile) {
   const leaf = leafText(node, sourceFile);
   if (leaf !== null) {
     return leaf;
-  }
-  if (node.questionDotToken !== undefined) {
-    // 可选链是 S3f 的未覆盖构造：形状层不接管，这里也不渲染（用例用 shapeAst=0 声明）
-    return null;
   }
   if (tsBareImport(node)) {
     // `import.meta` / `import("m")` 被形状层保守拒绝（legacy 树不同），这里同样不渲染
@@ -122,6 +120,11 @@ function tsInfix(node, sourceFile) {
     if (callee === null) return null;
     return "call(" + callee + ")";
   }
+  if (ts.isNewExpression(node)) {
+    const callee = tsInfix(node.expression, sourceFile);
+    if (callee === null) return null;
+    return "new(" + callee + ")";
+  }
   if (ts.isBinaryExpression(node)) {
     const left = tsInfix(node.left, sourceFile);
     const right = tsInfix(node.right, sourceFile);
@@ -146,10 +149,6 @@ function tsPrefix(node, sourceFile) {
   if (leaf !== null) {
     return leaf;
   }
-  if (node.questionDotToken !== undefined) {
-    // 可选链是 S3f 的未覆盖构造：形状层不接管，这里也不渲染（用例用 shapeAst=0 声明）
-    return null;
-  }
   if (tsBareImport(node)) {
     // `import.meta` / `import("m")` 被形状层保守拒绝（legacy 树不同），这里同样不渲染
     return null;
@@ -173,6 +172,11 @@ function tsPrefix(node, sourceFile) {
     const callee = tsPrefix(node.expression, sourceFile);
     if (callee === null) return null;
     return "call(" + callee + ")";
+  }
+  if (ts.isNewExpression(node)) {
+    const callee = tsPrefix(node.expression, sourceFile);
+    if (callee === null) return null;
+    return "new(" + callee + ")";
   }
   if (ts.isBinaryExpression(node)) {
     const left = tsPrefix(node.left, sourceFile);
@@ -237,6 +241,22 @@ function tsNumericLeaves(source) {
     if (ts.isExpressionStatement(statement)) walk(statement.expression);
   }
   return out;
+}
+
+// ---- ⑤ AST 节点类型计数：可选链的 ?. / new / 内插模板是 S3g 新增的接管点，
+// 光看结构文本（member(...)）分不出「带 ?. 的成员访问」与普通成员访问，所以直接数 AST 里的节点类型。
+function countNodes(shape, name) {
+  let total = 0;
+  const walk = (node) => {
+    if (node === null || node === undefined) return;
+    if (node.constructor !== undefined && node.constructor.name === name) total++;
+    const data = node.Data;
+    if (Array.isArray(data)) {
+      for (const child of data) walk(child);
+    }
+  };
+  walk(shape);
+  return total;
 }
 
 function asList(value) {
@@ -352,6 +372,16 @@ for (const caseDef of cases) {
       const fromTsLeaves = tsNumericLeaves(caseDef.source);
       if (JSON.stringify(fromTsLeaves) !== JSON.stringify(wantLeaves)) {
         problems.push(`AST 数字叶子与 ts.createSourceFile 不符：TS=${JSON.stringify(fromTsLeaves)} 期望=${JSON.stringify(wantLeaves)}`);
+      }
+    }
+    // ⑤ AST 节点类型计数（可选链 / new / 内插模板）
+    const wantCounts = caseDef.counts;
+    if (wantCounts !== undefined && wantCounts !== null) {
+      for (const nodeName of Object.keys(wantCounts)) {
+        const actual = countNodes(shell.shape, nodeName);
+        if (actual !== wantCounts[nodeName]) {
+          problems.push(`AST 节点计数不符 ${nodeName}：期望 ${wantCounts[nodeName]} 实际 ${actual}`);
+        }
       }
     }
   }
