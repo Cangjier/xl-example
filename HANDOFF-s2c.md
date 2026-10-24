@@ -82,3 +82,22 @@
 
     git checkout feature/possible-statement-s2c
     git reset --hard 0f2e8982
+## 7. 第二步：去掉剩余二次项（同一分支第二个 commit）
+
+`IngestAll` 收尾的 `HasTypeArgumentCall` 每格把全部 units 扫一遍；`<` 是它唯一可能有结论的来源，
+没有 `<` 时判据恒假、扫描纯属白跑。新增字段 `SawLessThan`（`Ingest` 遇到 `<` 置真），
+`IngestAll` 里改为 `if (this.SawLessThan && ...)`。判据本体、`Fail` 时机、`TotalBodies` / `TotalInserts` 计数全不变。
+语义等价：units 只追加，从未摄入过 `<` ⟺ 全表里没有 `<`。
+
+**最终读数（含第二步）**：
+
+```
+[perf] long n=300 median=5.12ms tokens=599 candidateCalls=30 callsPerToken=0.05
+[perf] many statements=2000 median=31.44ms tokens=2000 candidateCalls=30015 callsPerToken=15.01
+[perf] scale n=100 median=0.72ms tokens=199 candidateCalls=30
+[perf] scale n=200 median=1.49ms tokens=399 candidateCalls=30
+[perf] scale n=400 median=3.45ms tokens=799 candidateCalls=30
+[perf] scale ratio(200/100)=2.06 ratio(400/200)=2.32（线性≈2.0；>2.5 视为退化告警，不判失败）
+```
+
+逐门 exit code（最终）：`dev=0 op=0 opast=0 opproof=0 all=0 double=0 lint=0 validate=0 astjson=0 astdiff=0 tokenast=0 realdts=0 feas=0 insert=0`，ALLGREEN=True。

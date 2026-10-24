@@ -155,6 +155,10 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 本壳当前的单元序列（`IngestAll` 每次覆盖成入参）。只给「`<` 是小于号还是类型实参表」这一处向前看用，
 不参与建树：`Ingest` 拿 `Ingested - 1` 当游标去 `AmbiguousTypeArguments` 里看后面的单元。
 
+## field SawLessThan:bool = false
+
+本壳已经摄入过 `<`。`<` 是「类型实参调用」歧义的唯一来源，`IngestAll` 收尾的 `HasTypeArgumentCall` 是一遍全表扫描；
+没有 `<` 时该判据恒假，扫描纯属白跑（scale 用例剩余的那点二次项正是它）。所以只在它为真时才扫。
 ## field Incomplete:bool = false
 
 遇到未实现的构造：停止摄入，本壳放弃表达式体（AST 不受影响）。
@@ -268,7 +272,7 @@ while (this.Ingested < units.length && !this.Incomplete && !this.Closed) {
   }
   this.Ingest(units[at], template);
 }
-if (!this.Incomplete && !this.Closed && StatementOperatorBody.HasTypeArgumentCall(this.Units)) {
+if (this.SawLessThan && !this.Incomplete && !this.Closed && StatementOperatorBody.HasTypeArgumentCall(this.Units)) {
   this.Fail("类型实参调用");
 }
 if (this.Nested) {
@@ -338,6 +342,9 @@ StatementOperatorBody.ShapeTexts[this.Slot] = text;
   其余一律 `Fail`。
 
 ```ts
+if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
+  this.SawLessThan = true;
+}
 if (unit instanceof EndOfFileTokenShape) {
   return;
 }
