@@ -149,9 +149,9 @@ Stage 4 位掩码（控制流语句族壳化），本阶段恒为 0。
 `false` 时这些起点重新判成 `Legacy`，行为逐位回到 Stage 4b 之前（安全回退，不靠候选先后）。
 `EnableShellExpressions == false`（文件级 fallback 与 harness 的 legacy 对拍）时同样一律 `Legacy`。
 
-## static field EnableControlFlowLabel:bool = true
+## static field EnableControlFlowLabel:bool = false
 
-标签语句是否随控制流壳接管（`lbl: f();`），**Stage 4c-2 起默认打开**。Stage 4c 默认关的理由是判据问题，不是标签不可接管：首格上第二个代码单元还没到，`Decide` 当时直接落到了 `ShellPlainExpression`，标签就被锁进表达式壳。
+标签语句是否随控制流壳接管（lbl: f();），**默认关（4c-2 实测回退）**。路由与候选都已落地（ShellLabel / LabelShellCount / 在 `:` 格建壳），实测 7 条标签用例全部 XML==legacy、AST==TS、label=1；但打开后**全表回归**：表达式壳的建壳时机被推迟一格，op-ast-proof 11/62、op-proof 8/40、lock-body-takeover 11/17 —— 表达式体状态机拿不到首个运算符。所以默认关，标签继续走已经验证过的表达式壳（Stage 4c 行为），s4c2-label* 只守正确性、不声称接管。详见 HANDOFF-s4c2.md §3。
 
 Stage 4c-2 把那一格改成 **`None`（继续等，不判死、不判族）**：下一个代码单元到达后，`:` 才把这条语句判成 `ShellLabel`，`ControlFlowStatementPossibleShape` 在 `:` 那一格建壳（搬 `ident` + `:`，`Kind = ShellLabel`），判界走 legacy 的 `StatementScanner.ScanRoot`、建树走 `StatementBuilder.BuildStatement` 的标签分派——与 legacy 建标签语句是同一份 scanner / 同一份建造器。
 

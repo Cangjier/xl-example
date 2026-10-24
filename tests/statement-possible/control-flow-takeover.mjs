@@ -57,13 +57,13 @@ const cases = [
   { source: ";\n;", cf: 0 },
   { source: "{ ; ; }", cf: 0, body: 0 },
   { source: "if (a) {}\n;\nwhile (b) {}\n;", cf: 2 },
-  // Stage 4c-2：标签语句由标签壳接管（`EnableControlFlowLabel` 默认 true，`label` = LabelShellCount 增量）
-  { source: "en: a;", cf: 0, label: 1 },
-  { source: "lab: { f(); }", cf: 0, label: 1 },
-  { source: "en:\n{ f() }", cf: 0, label: 1 },
-  { source: "outer: while (a) { break outer; }", cf: 0, label: 1 },
+  // Stage 4c-2：标签**未接管**（`EnableControlFlowLabel` 默认 false；打开后实测全表回归，见 HANDOFF-s4c2.md §3）
+  { source: "en: a;", cf: 0, label: 0 },
+  { source: "lab: { f(); }", cf: 0, label: 0 },
+  { source: "en:\n{ f() }", cf: 0, label: 0 },
+  { source: "outer: while (a) { break outer; }", cf: 0, label: 0 },
   { source: "l1: f();\nl2: g();", cf: 0, label: 2 },
-  { source: "en: ;", cf: 0, label: 1 },
+  { source: "en: ;", cf: 0, label: 0 },
   { source: "a ? b : c;", cf: 0, label: 0 },
 ];
 
