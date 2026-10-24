@@ -110,7 +110,7 @@ AST 逐节点一致。块内语句仍由 `BuildBlock` 原子递归（块内目�
 ```ts
 BlockPossibleShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
   BlockPossibleShape.CreateBodyPossibleShapesCache,
-  () => [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape(), new BlockPossibleShape()]);
+  () => [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape(), new BlockPossibleShape(), new AwaitStatementPossibleShape()]);
 return BlockPossibleShape.CreateBodyPossibleShapesCache;
 ```
 
@@ -426,4 +426,169 @@ body.CatalogGuide = new CatalogGuide(
   new BlockBodyWaitingPossibleShape());
 BlockPossibleShape.FunctionBodyMountCount += 1;
 return true;
+```
+
+
+# class AwaitStatementPossibleShape extends PossibleShape
+
+**块体目录里的 `await` 起点语句候选**（Stage 4l）。
+
+`await` 在冻结的 `StatementRouteUtil.IsLegacyKeyword` 里是**双角色起点**：`await f()` 的关键字前缀，
+与旧式 `await` 标识符 / 标签（`{ await: f(); }`）都能起一条语句，所以 `Decide` 一律判成
+`StatementRoute.Legacy`，根层照旧由 `StatementPossibleShape` 原子建树，行为一字不改。
+
+块体目录里**没有** legacy 候选，`async function a(){ await f(); }` 的 `await` 语句因此只能整段留在 raw 段：
+`BlockBodyStatementCount` 不增（`BuildBlock` 的 legacy 递归仍能建对树，所以这是「未接管」而不是「建错」）。
+本候选只在**块体目录**（`CreateBodyPossibleShapes`）里补这一条入口，根目录不注册。
+
+**判界与建树完全复用控制流壳的同一份机制**：壳 `Kind = StatementRoute.ShellStatementFamily`、
+终结候选 `StatementKind = StatementRoute.ShellStatementFamily` → 沿用 legacy 的 `StatementScanner.ScanRoot`
+判界；收口时 `StatementShape.BuildFromShell` → `StatementBuilder.BuildStatement` 用**同一段 raw 单元**
+建树。所以 XML 逐字节、AST 逐节点与 legacy 一致，接管只体现在 `AwaitShellCount` 上。
+
+**只认首代码单元那一格**：建壳之后本条语句归壳，后续格子由壳的终结候选判界；`Reject` 被 `CatalogGuide`
+永久删除，所以首代码单元还没到（只有 trivia）必须 `Uncertain`。
+
+**互斥（不靠先后）**：`ControlFlowStatementPossibleShape` / `RootExpressionStatementPossibleShape` /
+`VariableStatementPossibleShape` / `BlockPossibleShape` 对 `await` 首格全部 `Reject`（`Decide` 给 `Legacy`、
+首单元不是 `let` / `{`），本候选只对「块体宿主 + `await` 首单元」`Accept`，两边永不同格成立。
+
+## static method IsAwaitHead:(unit:Token)=>bool
+
+`unit` 是不是 `await` 关键字。只看 `Common` 的文本，不建状态。
+```ts
+if (!(unit instanceof Common)) {
+  return false;
+}
+return (unit as Common).TempToString() === "await";
+```
+
+## static method IsBlockHost:(host:Token | null)=>bool
+
+宿主是不是**块体 `{` 括号**（块体目录的宿主）。根层宿主是 `SourceFileShape`，不命中——本候选在根层永远不接。
+```ts
+if (!(host instanceof Bracket)) {
+  return false;
+}
+return (host as Bracket).StartBracketChar === "{";
+```
+
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return ShapeStates.Uncertain;
+}
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableAwaitStatement) {
+  return ShapeStates.Reject;
+}
+if (units[tokenIndex] instanceof EndOfFileTokenShape) {
+  return ShapeStates.Reject;
+}
+const start = ItemUtil.ItemStartCached(units, cache);
+const headAt = ItemUtil.NextCode(units, start);
+if (headAt >= units.length || headAt > tokenIndex) {
+  return ShapeStates.Uncertain;
+}
+if (units[tokenIndex].IsTriviaToken) {
+  return ShapeStates.Uncertain;
+}
+if (tokenIndex !== headAt) {
+  return ShapeStates.Reject;
+}
+if (!AwaitStatementPossibleShape.IsAwaitHead(units[headAt])) {
+  return ShapeStates.Reject;
+}
+const owner = units[headAt].Parent;
+if (owner === null) {
+  return ShapeStates.Uncertain;
+}
+if (!AwaitStatementPossibleShape.IsBlockHost(owner)) {
+  return ShapeStates.Reject;
+}
+return ShapeStates.Accept;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+首代码单元到齐即可建壳；建壳不需要等语句结束。
+```ts
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableAwaitStatement) {
+  return false;
+}
+const start = ItemUtil.ItemStartCached(units, cache);
+const headAt = ItemUtil.NextCode(units, start);
+if (headAt >= units.length || headAt > tokenIndex) {
+  return false;
+}
+if (units[tokenIndex].IsTriviaToken || tokenIndex !== headAt) {
+  return false;
+}
+if (!AwaitStatementPossibleShape.IsAwaitHead(units[headAt])) {
+  return false;
+}
+return AwaitStatementPossibleShape.IsBlockHost(units[headAt].Parent);
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+与 `ControlFlowStatementPossibleShape.BuildByIndex` 逐字同构：搬 raw 单元、`Pos` 取「前一个非 trivia 单元
+`EndIndex`」（宿主是块体 `{` 括号时首句取 `StartIndex + 1`，与 legacy `BuildBlock` 的 `base` 同口径）、
+原位插回壳、`Parent` / `MountedUnit` 显式设置。唯一的族标记固定为 `StatementRoute.ShellStatementFamily`
+（不看 `Decide` 给的 `Legacy`——`Legacy` 不是壳族标记）。
+```ts
+const start = ItemUtil.ItemStart(host.Data);
+if (start > tokenIndex) {
+  throw new Error("await 语句候选没有可搬的单元");
+}
+let pos = 0;
+if (host instanceof Bracket && (host as Bracket).StartBracketChar === "{") {
+  let previous = -1;
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      previous = at;
+      break;
+    }
+  }
+  if (previous < 0) {
+    if (host.SourceRange.StartIndex >= 0) {
+      pos = host.SourceRange.StartIndex + 1;
+    }
+  } else {
+    const previousEnd = host.Data[previous].SourceRange.EndIndex;
+    if (previousEnd >= 0) {
+      pos = previousEnd;
+    }
+  }
+} else {
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      const previousEnd = host.Data[at].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        pos = previousEnd;
+      }
+      break;
+    }
+  }
+}
+const moved:Array<Token> = host.Data.slice(start, tokenIndex + 1);
+host.Data.splice(start, moved.length);
+const shell = new StatementShape(host.Template);
+shell.Pos = pos;
+shell.Kind = StatementRoute.ShellStatementFamily;
+for (const item of moved) {
+  shell.Add(item);
+}
+const headStart = moved[0].SourceRange.Start;
+if (headStart >= 0) {
+  shell.SignIn(headStart);
+}
+const endShape = new StatementEndPossibleShape();
+endShape.StatementKind = StatementRoute.ShellStatementFamily;
+shell.CatalogGuide = new CatalogGuide([], endShape);
+host.Data.splice(start, 0, shell);
+shell.Parent = host;
+host.MountedUnit = shell;
+StatementRouteUtil.AwaitShellCount += 1;
+return shell;
 ```
