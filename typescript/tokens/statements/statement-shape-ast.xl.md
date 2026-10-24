@@ -107,7 +107,10 @@ return true;
 一个形状节点 → 一个 AST 节点。分型见 `StatementOperandShape.Kind*`。
 
 - `KindIdentifier` / `KindNumber`：叶子，`Raw` 是那个 raw `Common` 单元（标识符 / 数字），
-  工厂与 `ExpressionBuilder.ParsePrimary` 的 Common 分支逐字相同；
+  工厂与 `ExpressionBuilder.ParsePrimary` 的 Common 分支逐字相同。数字分支先自己确认 `IsNumber()`／`IsBigInt()`：
+  前者不成立就 `Decline`（`NumericLiteralShape.FromBasicToken` 对非数字会抛错，收口器绝不建错树），
+  后者一律 `Decline`（BigInt 未覆盖，回 legacy）；所以**形状层的 Kind 与 AST 工厂的接受集必须一致**，
+  `.5` / `.5e2` / `1.` 这类前导点/尾点写法由 `IsNumber()` 认出，绝不能落到 `IdentifierShape`；
 - `KindParen`：`Raw` 是那个 `(` 括号单元，内部用**一个新的 `ExpressionBuilder`** 载入 `bracket.Data`
   （`base = StartIndex + 1`，与 `StatementBuilder.ParseBracketExpression` 同口径），包成
   `ParenthesizedExpressionShape`，跨度取括号单元自己（`SpanNode(index, index)`，与 `ParsePrimary` 一致）；
@@ -133,6 +136,9 @@ if (shape.Kind === StatementOperandShape.KindIdentifier || shape.Kind === Statem
   if (shape.Kind === StatementOperandShape.KindNumber) {
     if ((raw as Common).IsBigInt()) {
       return StatementShapeAst.Decline("大整数字面量");
+    }
+    if (!(raw as Common).IsNumber()) {
+      return StatementShapeAst.Decline("不是数字字面量");
     }
     const numeric = NumericLiteralShape.FromBasicToken(raw as Common, context);
     numeric.Pos = builder.Positions[index];

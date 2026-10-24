@@ -55,7 +55,8 @@ a-b-c   ->  -(-(a,b),c)
 
 ## static field KindNumber:int = 2
 
-数字字面量叶子（判定见 `StatementOperatorBody.LooksNumber`）。
+数字字面量叶子（判定见 `StatementOperatorBody.LooksNumber`：与 `NumericLiteralShape` / `BigIntLiteralShape`
+的接受集同一口径，含前导点写法 `.5`）。
 
 ## static field KindOperator:int = 3
 
@@ -344,7 +345,9 @@ this.Fail(text === "" ? "单元" : "运算符 " + text);
 
 - `(`…`)`：用**一个新的嵌套本体**把括号里的单元全部喂一遍，再包一个 `KindParen` 节点。括号里的 raw 单元是括号自己的
   `Data`（不是壳的 `Data`），所以可以整段喂——这正是「括号可选」在 S3b 里的落地方式；
-- `Common` 且不是保留字/前缀关键字：`LooksNumber` 分 `KindNumber` / `KindIdentifier`；
+- `Common` 且不是保留字/前缀关键字：`LooksNumber` 分 `KindNumber` / `KindIdentifier`——`KindNumber` 用的是
+  `Common.IsNumber()` / `Common.IsBigInt()`（即两个字面量工厂的入参判据），所以 `.5` / `.5e2` / `1.` 都归数字；
+  「像数字开头但不是合法字面量」的非法源码（`1_` 之类）返回 `null`，既不建 Identifier 也不建错树；
 - 其余（字符串/模板/正则/`[`/`{`）：`null`。
 
 ```ts
@@ -368,12 +371,17 @@ if (unit instanceof Bracket) {
   return shape;
 }
 if (unit instanceof Common) {
-  const text = (unit as Common).TempToString();
+  const common = unit as Common;
+  const text = common.TempToString();
   if (!StatementOperatorBody.IsOperandText(text)) {
     return null;
   }
+  const number = StatementOperatorBody.LooksNumber(common);
+  if (!number && common.CanStartNumber()) {
+    return null;
+  }
   const shape = new StatementOperandShape(template);
-  shape.Kind = StatementOperatorBody.LooksNumber(text)
+  shape.Kind = number
     ? StatementOperandShape.KindNumber
     : StatementOperandShape.KindIdentifier;
   shape.Text = text;
@@ -559,17 +567,19 @@ if (unit instanceof Symbol) {
 return text === "typeof" || text === "void" || text === "delete";
 ```
 
-## static method LooksNumber:(text:string)=>bool
+## static method LooksNumber:(unit:Common)=>bool
 
-数字字面量的开头判定：首字符是 `0..9`（十六进制 `0x`、小数点 `.5` 里只有 `.5` 会漏判，S3b 不要 `.5`，
-它没有小数点在前的写法；这条列进未覆盖清单）。
+这个 `Common` 是不是数字叶子——判据**直接复用字面量工厂的接受集**，不另写一份字符规则：
+`Common.IsNumber()`（= `NumericLiteralShape.FromBasicToken` 的入参校验）或 `Common.IsBigInt()`
+（= `BigIntLiteralShape`）。所以前导点 `.5` / `.5e2` / `.5e+2`、尾点 `1.`、十六进制 `0x1f`、分隔符 `1_000`
+全部归 `KindNumber`，与 legacy `ExpressionBuilder.ParsePrimary` 的
+`StartsNumber` → `IsBigInt() ? BigInt : Numeric` 分派同口径。
+
+**BigInt 仍判 `KindNumber`**（不是 Identifier）：收口器 `StatementShapeAst` 对它 `Decline` 并回 legacy 建
+`BigIntLiteral`，因此它既不会走错分支、也不会静默退化成标识符（见 `HANDOFF-s3c-r2.md` 未覆盖清单）。
 
 ```ts
-if (text === "") {
-  return false;
-}
-const head = text.charAt(0);
-return head >= "0" && head <= "9";
+return unit.IsNumber() || unit.IsBigInt();
 ```
 
 ## static method IsOperandText:(text:string)=>bool
