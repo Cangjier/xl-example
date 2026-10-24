@@ -45,6 +45,13 @@ let b = 2
 壳内目录据此选构件候选，**不再重复语句族判型**。`0` = 未定；族常量随 `statement-route-util.xl.md` 落地
 （`StatementRoute.ShellVariable` 等），Stage 1 先留字段与注释，不定义常量、不改变任何判定。
 
+## field BodyKind:int = 0
+
+壳的**体种类**（设计 §1.4 的 `BodyKind`）：`0` = 未定；`StatementShape.BodyKindBlock` = 块语句的体
+（语句首 `{`，由 `BlockPossibleShape` 建壳时置位）；`StatementShape.BodyKindObjectLiteral` = 对象字面量
+（预留给「表达式位置 `{`」的后续 Stage，本阶段不产生）。块内目录的挂载判据读它，
+不再重复「这是不是块」的判型。
+
 ## field OperatorBody:StatementOperatorBody | null = null
 
 **壳内的表达式体状态机**（Stage 3 S3a/S3b）：只有 `Kind == StatementRoute.ShellPlainExpression` 的壳才由
@@ -59,6 +66,14 @@ let b = 2
 与 `ExpressionBuilder` 同一份）；否则照旧由 `StatementBuilder` 从壳里 raw 单元整段建（legacy 逐位不变）。
 XML 的逐字节一致由「同一份 raw 单元 + 同一批节点工厂 + 同一套 Pos/SignIn/SignOut 口径」结构性保证。
 
+
+## static field BodyKindBlock:int = 1
+
+`BodyKind` 的取值：块语句的体（语句首 `{ ... }`）。
+
+## static field BodyKindObjectLiteral:int = 2
+
+`BodyKind` 的取值：对象字面量的体（表达式位置 `{ ... }`；本阶段只留取值，不产生）。
 
 ## constructor:(template:Template)=>void
 
