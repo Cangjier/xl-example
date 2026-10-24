@@ -221,3 +221,62 @@ if (StatementRouteUtil.EnableBlockBodyCatalog && bodyBracket !== null) {
 StatementRouteUtil.BlockShellCount += 1;
 return shell;
 ```
+
+## static field FunctionBodyMountCount:int = 0
+
+进程内累计「函数体 / 方法体 / 构造器体括号挂上语句目录」的次数（只增不减，供测试断言接管确实发生）。
+
+## static method TryMountFunctionBody:(unit:Token, bracket:Token, context:SyntaxContext)=>bool
+
+给**函数体括号**挂块体语句目录（Stage 4j 步骤 3）。挂载点只有一个判据：新括号是 `{`、且宿主 `Data` 里
+它前面那个非 trivia 单元是一个**已闭合的 `(` 括号单元**。本语法里 `(` `)` 是**同一个** `Bracket` 单元，
+所以「`)` 之后紧跟 `{`」在这里落地为「前一个单元是 `StartBracketChar === "("` 且 `Closed` 的括号」。
+
+**为什么不在这里判「这是不是函数体」**：`function f() {}` / `m() {}` / `constructor() {}` / `if (x) {}` 的
+`{` 前面都是同一个形状，本语法没有第二个本地判据能区分它们；而**挂目录本身不改任何 AST 决定**——目录里的
+候选各自用自己的壳收口，`BlockBodyWaitingPossibleShape` 保证「一个候选都不接」时目录**不抛错**（S4i §3
+的抛错出口只在 `EndPossible === null` 时存在）。真正决定「谁建这些语句」的是收口侧
+`StatementBuilder.BuildBlock` → `HasBuiltBodyStatements` / `CollectBodyStatements`（与块体同一条通道），
+所以判据宽一点只会让更多语句走已有的收集通道，而不是换一条建树路径。
+
+**与 S4i 方案 A 的区别**：这里给**新括号**挂目录，**不重算宿主目录**。S4i 全表红的根因是
+「子括号刚建、还没闭合」时回调宿主 `ComputePossibleShapesByIndex`，让宿主 `Candidates` 合法地全被拒、
+落进 `size === 0 && EndPossible === null` 的抛错出口。本方法只读宿主 `Data` 找前一个单元，
+不调用任何 `ComputePossibleShapes*`。
+
+**安全回退**：宿主目录照旧在括号闭合时判定，`StatementShape.DetachShell` / `CollectBodyStatements` 的
+raw 段建与「未收口壳抛错 → 文件级 fallback」两条兜底完全不变。
+
+```ts
+if (!(bracket instanceof Bracket)) {
+  return false;
+}
+const body = bracket as Bracket;
+if (body.StartBracketChar !== "{") {
+  return false;
+}
+if (body.CatalogGuide !== null) {
+  return false;
+}
+let previous:Token | null = null;
+for (let at = unit.Data.length - 1; at >= 0; at--) {
+  const item = unit.Data[at];
+  if (item === bracket || item.IsTriviaToken) {
+    continue;
+  }
+  previous = item;
+  break;
+}
+if (previous === null || !(previous instanceof Bracket)) {
+  return false;
+}
+const parameters = previous as Bracket;
+if (parameters.StartBracketChar !== "(" || !parameters.Closed) {
+  return false;
+}
+body.CatalogGuide = new CatalogGuide(
+  BlockPossibleShape.CreateBodyPossibleShapes(),
+  new BlockBodyWaitingPossibleShape());
+BlockPossibleShape.FunctionBodyMountCount += 1;
+return true;
+```

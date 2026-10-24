@@ -110,7 +110,19 @@ return CloseStates.Nothing;
 不是语句首（条目的首代码单元是 `en`），这里不建壳，否则根表达式候选会借「晚建壳」把 `en : {` 整条吞进壳、
 逼出一次文件级 fallback。判据仍只有 `Decide` 一份，不在这里新写。
 
+**函数体目录（Stage 4j 步骤 3）**：`function f() { … }` 的函数体括号创建时，`{` 前面那个非 trivia 单元是
+已闭合的参数表 `(` 括号。此时给**新括号**挂块体语句目录（`BlockPossibleShape.TryMountFunctionBody`），
+函数体里的语句由 possible 增量建 `StatementShape`，收口时 `FunctionDeclarationShape.FromUnits` 的
+`bodyBuilder.BuildStatement()` 落到 `BuildBlock()`，再由 `HasBuiltBodyStatements` / `CollectBodyStatements`
+按序收集 —— 与块体共用同一条收集通道，不新增第二条建树路径。
+
+这一步**不重算根目录**（S4i 方案 A 的全表红就是这么来的）：只读根 `Data` 找前一个单元，判错了也只是
+多挂一份**不会抛错**的目录（`BlockBodyWaitingPossibleShape` 是它的终结候选）。
+
 ```ts
+if (StatementRouteUtil.EnableShellExpressions && StatementRouteUtil.EnableBlockBodyCatalog) {
+  BlockPossibleShape.TryMountFunctionBody(this, bracket, context);
+}
 if (StatementRouteUtil.EnableShellExpressions
   && bracket instanceof Bracket
   && (bracket as Bracket).StartBracketChar === "{"
