@@ -448,51 +448,6 @@ while (cursor <= limit) {
         }
       }
     }
-    // 最后手段：按「能建出来的最长前缀」切一刀。`StatementBuilder` 一次只吃一条语句，
-    // 尾段里还剩整条语句时它会报「语句没有读完」（`en:` ⏎ `{ f() }` ⏎ `enum E { A }` 与
-    // `if (a) { a++; }` ⏎（下一行 `--a;`）都是这种形态）。从 limit 往回收，第一个建得出来的
-    // 前缀就是这一条语句，建完继续切剩余部分；全部失败才抛错。
-    let cutDone = false;
-    let cut = limit - 1;
-    while (cut > cursor) {
-      const probeBuilder = new StatementBuilder(host.Template, context);
-      probeBuilder.Load(host.Data.slice(cursor, cut + 1), basePos);
-      let probe:Token | null = null;
-      try {
-        probe = probeBuilder.BuildStatement();
-      } catch (probeError) {
-        probe = null;
-      }
-      if (probe !== null) {
-        const probeEnd = probe.SourceRange.EndIndex;
-        let probeConsumed = 0;
-        if (probeEnd < 0) {
-          probeConsumed = cut - cursor + 1;
-        } else {
-          while (cursor + probeConsumed <= cut
-            && host.Data[cursor + probeConsumed].SourceRange.Start < probeEnd) {
-            probeConsumed++;
-          }
-        }
-        if (probeConsumed > 0) {
-          host.Data.splice(cursor, probeConsumed, probe);
-          probe.Parent = host;
-          built++;
-          limit -= probeConsumed - 1;
-          cursor += probeConsumed - 1;
-          cursor++;
-          while (cursor <= limit && (host.Data[cursor].IsTriviaToken || !host.Data[cursor].IsBasicToken)) {
-            cursor++;
-          }
-          cutDone = true;
-          break;
-        }
-      }
-      cut--;
-    }
-    if (cutDone) {
-      continue;
-    }
     // 显式失败：不再静默 break 把剩余单元留给 legacy 在 EOF 报「语句没有读完」。
     throw new Error("语句没有读完：EOF 尾段无法按语句切分");
   }
