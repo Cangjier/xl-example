@@ -34,6 +34,8 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 ## static field ShellStatementFamily:int = 4
 
+## static field ShellBlock:int = 5
+
 # class StatementClass
 
 `StatementRouteUtil.ClassOf` 的**单元分类码**（设计 §2.3）。Stage 1 只落地分类器，判定仍由 `Decide` 驱动；
@@ -94,6 +96,14 @@ r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改�
 
 最近一次 `SourceFileRunner.Parse` 是否走了兜底；Parse 入口先重置，兜底成功后置 true。
 ## static field EnableShellStatements:int = 0
+
+## static field EnableBlockBodyCatalog:bool = false
+
+块体语句目录开关（Stage 4a）。`false` = 不把语句候选目录挂到块体 `{` 括号上，块内仍由 `StatementBuilder.BuildBlock()` 原子递归（与 legacy 逐字相同）。默认关是**未覆盖构造的安全回退**：`BuildBlock` 目前只吃 raw basic token，块内一旦增量建成形状它没有「收集已建语句」的通道，打开会把整条语句建错树（再靠文件级 fallback 掩盖），所以先关。
+
+## static field BlockShellCount:int = 0
+
+进程内累计「被块候选建成壳的块语句」条数（只增不减），与 `FileFallbackCount` 同一定位：harness / 集成表用它出「块语句确实走了新路径」的计数证据。
 
 Stage 4 位掩码（控制流语句族壳化），本阶段恒为 0。
 
@@ -200,6 +210,11 @@ if (head instanceof Bracket) {
   const startChar = (head as Bracket).StartBracketChar;
   if (startChar === "(" || startChar === "[") {
     return StatementRoute.ShellPlainExpression;
+  }
+  if (startChar === "{") {
+    // 语句首的 `{` 一律是块语句：对象字面量只可能出现在表达式位置（`({ a: 1 });` / `x = { a: 1 }`），
+    // 语句首不存在「从 `{` 起一条表达式语句」的写法。二义的裁决点就在这里，不在 Bracket 里另起判据。
+    return StatementRoute.ShellBlock;
   }
   // `{`：块体 / 对象字面量二义，Stage 4 才裁；其余括号也不可能起语句。
   return StatementRoute.Legacy;

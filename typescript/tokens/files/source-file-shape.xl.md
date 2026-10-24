@@ -158,7 +158,7 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new VariableStatementPossibleShape(),
     // Stage 1 T1d：普通表达式起点建 `StatementShape` 壳（终结候选收口，AST 由 `StatementBuilder` 原子建）。
     new RootExpressionStatementPossibleShape(),
-    // new BlockPossibleShape(),
+    new BlockPossibleShape(),
     // new EmptyStatementPossibleShape(),
     new ExpressionStatementPossibleShape(),
     // new IfStatementPossibleShape(),

@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "description": "Stage 4a dedicated cases: block statements `{ ... }` are claimed by the StatementShape shell (Kind=ShellBlock); the `{` ambiguity is decided only in StatementRouteUtil.Decide. Each case asserts: (1) shell-path XML == legacy-path XML (EnableShellExpressions=false) byte for byte; (2) AST node-for-node == ts.createSourceFile; (3) two parses of the same source give identical XML (determinism); (4) no StatementShape node leaks into the shape tree.",
+  "groups": {
+    "stage4-block": {
+      "stage": "Stage 4a (block statement shell + block body catalog infra)",
+      "description": "Block statement shell: `{}`, `{ let x = 1; f(); }`, `{ if (a) b; }`, nested block, in-block ASI, in-block comment, function / method body, `{ \"s\"; }`, `{ a.b; }`, two blocks in a row, `({ a: 1 });` (object literal must be unaffected).",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "block-empty", "source": "{}" },
+        { "name": "block-let-call", "source": "{ let x = 1; f(); }" },
+        { "name": "block-if", "source": "{ if (a) b; }" },
+        { "name": "block-nested", "source": "{ { a; } }" },
+        { "name": "block-asi", "source": "{ let a = 1\nlet b = 2\nf() }" },
+        { "name": "block-comment", "source": "{ // c\n a; /* d */ }" },
+        { "name": "block-string", "source": "{ \"s\"; }" },
+        { "name": "block-member", "source": "{ a.b; }" },
+        { "name": "block-func-body", "source": "function f() { let x = 1; }" },
+        { "name": "block-method-body", "source": "class C { m() { a; } }" },
+        { "name": "block-two", "source": "{ a; }\n{ b; }" },
+        { "name": "block-object-vs-block", "source": "({ a: 1 });" }
+      ]
+    }
+  }
+}

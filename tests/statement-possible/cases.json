@@ -2,6 +2,27 @@
   "schema": 1,
   "description": "语句 possible 仪器用例（设计 §7.1）。分组按 Stage 归属；needs 表明该组依赖的运行期能力，能力缺失时整组 skip 并打印原因。",
   "groups": {
+    "stage4-block": {
+      "stage": "Stage 4a (block statement shell)",
+      "description": "Block statement shell: `{}`, `{ let x = 1; f(); }`, `{ if (a) b; }`, nested block, in-block ASI, in-block comment, function / method body, `{ \"s\"; }`, `{ a.b; }`, two blocks in a row, `({ a: 1 });`. Same cases as block-cases.json.",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "block-empty", "source": "{}" },
+        { "name": "block-let-call", "source": "{ let x = 1; f(); }" },
+        { "name": "block-if", "source": "{ if (a) b; }" },
+        { "name": "block-nested", "source": "{ { a; } }" },
+        { "name": "block-asi", "source": "{ let a = 1\nlet b = 2\nf() }" },
+        { "name": "block-comment", "source": "{ // c\n a; /* d */ }" },
+        { "name": "block-string", "source": "{ \"s\"; }" },
+        { "name": "block-member", "source": "{ a.b; }" },
+        { "name": "block-func-body", "source": "function f() { let x = 1; }" },
+        { "name": "block-method-body", "source": "class C { m() { a; } }" },
+        { "name": "block-two", "source": "{ a; }\n{ b; }" },
+        { "name": "block-object-vs-block", "source": "({ a: 1 });" }
+      ]
+    },
+    
+
     "stage1": {
       "stage": "Stage 1（T1d 接线后生效）",
       "description": "普通表达式起点走语句壳 + legacy 混排",
