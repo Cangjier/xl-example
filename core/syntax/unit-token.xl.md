@@ -7,7 +7,6 @@ import { CloseStates } from "./close-states.xl.md"
 import { ItemComputeStates } from "./item-compute-states.xl.md"
 import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
-import { ShapeCatalog } from "./shape-catalog.xl.md"
 import { IItemCompute } from "./i-item-compute.xl.md"
 import { ReloadMessage } from "./messages/reload-message.xl.md"
 import { SourceRange } from "./source-range.xl.md"
@@ -22,25 +21,17 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「一次处理一整个 buffer 窗口」这套调度固定下来：窗口里逐字符前进，每消费一个字符就推进 `context.Index`。
 
-它同时实现 `IItemCompute`：`ShapeCatalog` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
+它同时实现 `IItemCompute`：basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。目录向导（`ShapeCatalog`）已在 WP-7 退役，本类不再持有它。
 
-向导本身不继承任何东西、不在树里，所以它是一个**普通引用**，不是挂载的子单元：本单元的 `Data` 里装的仍是那批 basic token。
+
 
 # class UnitToken extends Token implements IItemCompute
 
 单元。
 
-## field ShapeCatalog:ShapeCatalog | null = null
-
-宿主在本单元名下的目录向导；`null` 表示没有。
-
-它是普通引用而不是子单元——向导不进 `Data`、不进 XML。
-
-普通单元默认没有，所以父单元不是宿主时，basic token 关闭不触发任何判定。
-
 ## field BatchFrom:int = -1
 
-当前活动批次的批首在 `Data` 中的下标；`-1` 表示没有批次（legacy 路径）。
+当前活动批次的批首在 `Data` 中的下标；`-1` 表示没有活动批次。
 
 ## field BatchSink:BasicTokenBatch | null = null
 
@@ -172,35 +163,25 @@ return this.SourceRange.End >= document.GetCount();
 
 ## method ComputeItems:(context:SyntaxContext)=>ItemComputeStates
 
-重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
+目录向导已退役（WP-7）：本单元不再持有 `ShapeCatalog`，所以重算恒为「什么都没做」。
 
-没向导时返回 `Nothing`——被问到就答「什么都没做」。
+保留本方法只为满足 `IItemCompute` 的成员契约——basic token 关闭时仍只认这个接口（有 `BatchAdapter` 的宿主在 `OnBasicTokenClosed` 里接管批次）。
 
 ```ts
-if (this.ShapeCatalog !== null) {
-  return this.ShapeCatalog.ComputeItems(this, context);
-}
 return ItemComputeStates.Nothing;
 ```
-
 ## method ComputeItemsByIndex:(tokenIndex:int, context:SyntaxContext)=>ItemComputeStates
 
-按下标重算候选，把**自己（宿主）与下标**一起转交给向导的同名方法。
-
-向导的方法要两个参数（宿主 + 下标），而接口这里是单参——两者的差由本方法补上。
+按子单元下标重算：同 `ComputeItems`，目录向导退役后恒为「什么都没做」。
 
 ```ts
-if (this.ShapeCatalog !== null) {
-  return this.ShapeCatalog.ComputeItemsByIndex(this, tokenIndex, context);
-}
 return ItemComputeStates.Nothing;
 ```
-
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
 
 括号创建事件的默认实现：什么都不做。
 
-普通单元不关心括号创建；只有把自己当前正在吃的内容当作「括号里的东西」的壳形状（如 `InterfaceDeclarationShape`）才覆写它，在括号刚建出来时决定要不要给那个括号初始化目录向导。
+普通单元不关心括号创建；只有把自己当前正在吃的内容当作「括号里的东西」的壳形状（如 `InterfaceDeclarationShape`）才覆写它，在括号刚建出来时认出它是不是自己的 body 括号（`InterfaceDeclarationShape` 就这么记下 `BodyBracket`）。
 
 ## method OnChildCreated:(child:Token, context:SyntaxContext)=>void
 

@@ -19,7 +19,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { DeclarationShellUtil } from "./declaration-shell-util.xl.md"
 import { EnumBodyItemHost, EnumItemRule } from "../items/enum-item-rule.xl.md"
 ```
 
@@ -55,7 +55,7 @@ declare const enum E { A = 1 }
 **提前挂载的壳**：`EnumDeclarationRule` 在认下 `enum` 关键字时就建出本形状并挂到父单元上；本形状随后吃
 名字与枚举体括号。枚举体括号创建时 `OnBracketCreatedEvent` 认领它、给括号挂上 item 表引擎
 （`EnumBodyItemHost` = `ItemListEngine(EnumItemRule)`），闭合时由本形状的 `OnBasicTokenClosed` 收口
-（`BuildFromCode` + `BodyGuideUtil.FinishShell`）。导出 / 模块体 / 语句位置等一次性构建路径仍走 `FromUnits`。
+（`BuildFromCode` + `DeclarationShellUtil.FinishShell`）。导出 / 模块体 / 语句位置等一次性构建路径仍走 `FromUnits`。
 
 ## field EnumName:Token | null = null
 
@@ -91,7 +91,7 @@ if (this.BodyBracket !== null) {
 if (!(bracket instanceof Bracket)) {
   return;
 }
-if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, [])) {
+if (!DeclarationShellUtil.IsBodyBracket(this, bracket as Bracket, [])) {
   return;
 }
 const body = bracket as Bracket;
@@ -155,7 +155,7 @@ for (const unit of this.Data) {
   }
 }
 const built = EnumDeclarationShape.BuildFromCode(this, code, this.Pos, context);
-BodyGuideUtil.FinishShell(parent, this, built);
+DeclarationShellUtil.FinishShell(parent, this, built);
 return CloseStates.Built;
 ```
 
@@ -308,7 +308,7 @@ return shape;
 后面剩下的 raw 代码包成临时括号视图交给同一个 `BuildMembers` 逐成员建。
 
 ```ts
-return BodyGuideUtil.CollectBodyMembers(host, bracket, context, EnumDeclarationShape.BuildMembers);
+return DeclarationShellUtil.CollectBodyMembers(host, bracket, context, EnumDeclarationShape.BuildMembers);
 ```
 
 ## static method BuildMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>

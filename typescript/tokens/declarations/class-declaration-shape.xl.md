@@ -45,7 +45,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
-import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { DeclarationShellUtil } from "./declaration-shell-util.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
 import { ClassBodyItemHost, ClassItemRule } from "../items/class-item-rule.xl.md"
@@ -73,7 +73,7 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 成员的 `Pos` = 前一个成员（或 `{`）的 `EndIndex`，`end` = 函数体 `}` / 属性末尾的 `;`。
 
 根层的类声明是**提前挂载的壳**：`class` 关键字那一格 `ClassDeclarationRule` 就把本形状建出来、挂到父单元上
-（`BodyGuideUtil.MountShell`）；本形状随后吃名字 / 类型参数 / heritage / 类体。拿到类体括号后，由类体括号的
+（`DeclarationShellUtil.MountShell`）；本形状随后吃名字 / 类型参数 / heritage / 类体。拿到类体括号后，由类体括号的
 `BatchAdapter`（`ClassBodyItemHost` = `ItemListEngine(ClassItemRule)`）增量建成员，括号闭合时本形状的
 `OnBasicTokenClosed` 走 `FinishBody` 收口（`BuildFromCode` → `FinishShell`）。
 
@@ -112,7 +112,7 @@ super(template);
 - 尖括号深度不为 0：是类型实参里的类型字面量（`extends A<{ x: B }>`），不是类体；
 - 前一个代码单元是 `extends` / `implements` / `,`：`{` 处在「类型从这里开始」的位置，是 heritage 里的类型字面量。
 
-判据统一走 `BodyGuideUtil.IsBodyBracket`（与 interface 同一套，`blocked` 单词表是
+判据统一走 `DeclarationShellUtil.IsBodyBracket`（与 interface 同一套，`blocked` 单词表是
 `["extends", "implements", ","]`）。
 
 **不再给括号挂 `ShapeCatalog`、也不给自己装终结候选**：成员判定与收口都由 item 表引擎负责。
@@ -124,7 +124,7 @@ if (this.BodyBracket !== null) {
 if (!(bracket instanceof Bracket)) {
   return;
 }
-if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, ["extends", "implements", ","])) {
+if (!DeclarationShellUtil.IsBodyBracket(this, bracket as Bracket, ["extends", "implements", ","])) {
   return;
 }
 const body = bracket as Bracket;
@@ -192,7 +192,7 @@ for (const unit of this.Data) {
   }
 }
 const built = ClassDeclarationShape.BuildFromCode(this, code, this.Pos, context, true);
-BodyGuideUtil.FinishShell(parent, this, built);
+DeclarationShellUtil.FinishShell(parent, this, built);
 return CloseStates.Built;
 ```
 
@@ -428,7 +428,7 @@ if (nameUnit !== null) {
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
   : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
-const members = BodyGuideUtil.CollectBodyMembers(host, bodyUnit as Bracket, context, ClassDeclarationShape.BuildMembers);
+const members = DeclarationShellUtil.CollectBodyMembers(host, bodyUnit as Bracket, context, ClassDeclarationShape.BuildMembers);
 const shape = new ClassDeclarationShape(host.Template);
 shape.NameToken = name;
 shape.HeritageClauses = clauses;
@@ -507,7 +507,7 @@ return shape;
 - 抛错一律按「这一段不止一条成员 / 判型与建造器不一致」处理：宁可回落 raw（结果正确、只是慢一点），
   不可把半条成员硬建进 AST。
 
-视图不参与字符流、不签出、不关闭，只当一次调用参数（与 `BodyGuideUtil.CollectBodyMembers` 的 raw 尾巴视图同款）。
+视图不参与字符流、不签出、不关闭，只当一次调用参数（与 `DeclarationShellUtil.CollectBodyMembers` 的 raw 尾巴视图同款）。
 
 ```ts
 if (start < 0 || end < start || end >= code.length) {

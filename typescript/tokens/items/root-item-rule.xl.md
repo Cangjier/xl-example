@@ -994,7 +994,7 @@ return count < minCount;
 ## private method BuildByKind:(kind:int, host:Token, start:int, end:int, context:SyntaxContext)=>Token | null
 
 按族分派到候选的静态建造入口（**不是** `BuildByIndex`：class/interface/enum 的 `BuildByIndex` 走
-`BodyGuideUtil.MountShell`，会改 `host.MountedUnit` 并替换 `host.Data`）。
+`DeclarationShellUtil.MountShell`，会改 `host.MountedUnit` 并替换 `host.Data`）。
 
 ```ts
 try {

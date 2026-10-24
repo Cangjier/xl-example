@@ -17,7 +17,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
-import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { DeclarationShellUtil } from "./declaration-shell-util.xl.md"
 import { InterfaceBodyItemHost, InterfaceItemRule } from "../items/interface-item-rule.xl.md"
 ```
 
@@ -179,7 +179,7 @@ for (const unit of this.Data) {
   }
 }
 const built = InterfaceDeclarationShape.BuildFromCode(this, code, this.Pos, context);
-BodyGuideUtil.FinishShell(parent, this, built);
+DeclarationShellUtil.FinishShell(parent, this, built);
 return CloseStates.Built;
 ```
 

@@ -11,7 +11,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { DeclarationShellUtil } from "./declaration-shell-util.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 ```
 
@@ -217,7 +217,7 @@ return state !== null && state.Done && !state.Rejected;
 ## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 把 `class` 关键字的这一格变成**挂载的壳**：把 `state.Start..tokenIndex` 的单元原样搬进壳的 `Data`、签入，然后让壳
-挂到宿主上接管后续字符（`BodyGuideUtil.MountShell`）。
+挂到宿主上接管后续字符（`DeclarationShellUtil.MountShell`）。
 
 壳的 `Pos` 由 `MountShell` 按「`state.Start` 前面最近一个非 trivia 单元的 `EndIndex`」算出来——与
 `FromUnits` 的口径一致。
@@ -229,5 +229,5 @@ if (start < 0 || start > tokenIndex) {
   return host;
 }
 const shell = new ClassDeclarationShape(host.Template);
-return BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
+return DeclarationShellUtil.MountShell(host, start, tokenIndex, shell, context);
 ```

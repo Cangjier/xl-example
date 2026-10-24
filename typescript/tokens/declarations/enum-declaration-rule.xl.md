@@ -11,7 +11,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { DeclarationShellUtil } from "./declaration-shell-util.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 ```
 
@@ -249,7 +249,7 @@ return state !== null && state.Done && !state.Rejected;
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
-把 `enum` 关键字的这一格变成**挂载的壳**：`BodyGuideUtil.MountShell` 把 `state.Start..tokenIndex` 的单元原样搬进
+把 `enum` 关键字的这一格变成**挂载的壳**：`DeclarationShellUtil.MountShell` 把 `state.Start..tokenIndex` 的单元原样搬进
 `EnumDeclarationShape` 的 `Data`、按 `BasePos` 定壳的 `Pos`、顶替进宿主，并让宿主把后续字符交给壳（`MountedUnit`）。
 
 ```ts
@@ -259,5 +259,5 @@ if (start < 0 || start > tokenIndex) {
   return host;
 }
 const shell = new EnumDeclarationShape(host.Template);
-return BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
+return DeclarationShellUtil.MountShell(host, start, tokenIndex, shell, context);
 ```
