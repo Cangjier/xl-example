@@ -1,8 +1,8 @@
 # dependencies
 ```xl
 import { CloseStates } from "./close-states.xl.md"
-import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
-import { IComputePossibleShapes } from "./i-compute-possible-shapes.xl.md"
+import { ItemComputeStates } from "./item-compute-states.xl.md"
+import { IItemCompute } from "./i-item-compute.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { SourceException } from "../exceptions/source-exception.xl.md"
 import { BranchTransiter } from "./branch-transiter.xl.md"
@@ -125,9 +125,9 @@ basic token 关闭时**宿主侧**的默认实现：与旧 `*Close` 里「只问
 因此行为与基线逐字节一致。
 
 ```ts
-if ("ComputePossibleShapes" in this) {
-  const legacy = this as unknown as IComputePossibleShapes;
-  if (legacy.ComputePossibleShapes(context) === ComputePossibleShapesStates.Built) {
+if ("ComputeItems" in this) {
+  const legacy = this as unknown as IItemCompute;
+  if (legacy.ComputeItems(context) === ItemComputeStates.Built) {
     return CloseStates.Built;
   }
 }

@@ -32,7 +32,7 @@ const { SourceRange } = require(path.join(buildTs, "core", "syntax", "source-ran
 const { TextDocument } = require(path.join(buildTs, "typescript", "run", "text-document.js"));
 const { Token } = require(path.join(buildTs, "core", "syntax", "token.js"));
 const { BlockToken } = require(path.join(buildTs, "core", "syntax", "block-token.js"));
-const { PossibleShapeCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
+const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
 
 const median = (values) => {
   const s = values.slice().sort((a, b) => a - b);
@@ -136,7 +136,7 @@ bench("token.SignOut(i)", "含把 End 复位成 -1；Data 为空，不递归", (
 });
 
 // ---- 4) 形状分派 ----
-const cache = new PossibleShapeCache();
+const cache = new ItemSlotCache();
 class SomeShape {}
 const inst = new SomeShape();
 cache.SetState(SomeShape.name, { at: 0 });

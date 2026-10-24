@@ -4,11 +4,11 @@ import { BasicTokenBatch } from "./batch/basic-token-batch.xl.md"
 import { BatchStates } from "./batch/batch-states.xl.md"
 import { IBatchHost } from "./batch/i-batch-host.xl.md"
 import { CloseStates } from "./close-states.xl.md"
-import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
+import { ItemComputeStates } from "./item-compute-states.xl.md"
 import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
-import { IComputePossibleShapes } from "./i-compute-possible-shapes.xl.md"
+import { IItemCompute } from "./i-item-compute.xl.md"
 import { ReloadMessage } from "./messages/reload-message.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -22,11 +22,11 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「一次处理一整个 buffer 窗口」这套调度固定下来：窗口里逐字符前进，每消费一个字符就推进 `context.Index`。
 
-它同时实现 `IComputePossibleShapes`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
+它同时实现 `IItemCompute`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
 
 向导本身不继承任何东西、不在树里，所以它是一个**普通引用**，不是挂载的子单元：本单元的 `Data` 里装的仍是那批 basic token。
 
-# class UnitToken extends Token implements IComputePossibleShapes
+# class UnitToken extends Token implements IItemCompute
 
 单元。
 
@@ -170,7 +170,7 @@ if (document === null) {
 return this.SourceRange.End >= document.GetCount();
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputeItems:(context:SyntaxContext)=>ItemComputeStates
 
 重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
 
@@ -178,12 +178,12 @@ return this.SourceRange.End >= document.GetCount();
 
 ```ts
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapes(this, context);
+  return this.CatalogGuide.ComputeItems(this, context);
 }
-return ComputePossibleShapesStates.Nothing;
+return ItemComputeStates.Nothing;
 ```
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputeItemsByIndex:(tokenIndex:int, context:SyntaxContext)=>ItemComputeStates
 
 按下标重算候选，把**自己（宿主）与下标**一起转交给向导的同名方法。
 
@@ -191,9 +191,9 @@ return ComputePossibleShapesStates.Nothing;
 
 ```ts
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex, context);
+  return this.CatalogGuide.ComputeItemsByIndex(this, tokenIndex, context);
 }
-return ComputePossibleShapesStates.Nothing;
+return ItemComputeStates.Nothing;
 ```
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void

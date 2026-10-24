@@ -3,8 +3,8 @@
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemScanState } from "../../../core/syntax/batch/item-scan-state.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -19,7 +19,7 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 
 # class ClassMemberPossibleScan
 
-类体里「当前成员」的判定状态。**所有类体成员候选共用这一份**：候选目录里每个形状都在同一个 `PossibleShapeCache` 里读写，键固定为 `ClassMemberPossibleUtil.CacheKey`——同一次判定里只有一个形状真的去扫，其余直接读结论。
+类体里「当前成员」的判定状态。**所有类体成员候选共用这一份**：候选目录里每个形状都在同一个 `ItemSlotCache` 里读写，键固定为 `ClassMemberPossibleUtil.CacheKey`——同一次判定里只有一个形状真的去扫，其余直接读结论。
 
 `Start` 是当前条目在宿主 `Data` 里的起点（`ItemUtil.ItemStart`），`Checked` 是已经扫到的 `tokenIndex + 1`；`Kinds` 是「还可能的成员种类」（见 `ClassMemberPossibleUtil` 的 `Kind` 常量），`Complete` / `End` 是「当前成员已经收住、`End` 是代码单元下标」的结论，`CodeAt` 把代码单元下标映射回宿主 `Data` 下标（建形状时 `splice` 用）。
 
@@ -67,7 +67,7 @@ class 体成员边界的**增量扫描状态**：`Boundary` 是已经找到的�
 
 # class ClassMemberItemStartShared
 
-`PossibleShapeCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个类体括号的 `CatalogGuide` 生命周期内，全部类体成员候选共用同一份。
+`ItemSlotCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个类体括号的 `CatalogGuide` 生命周期内，全部类体成员候选共用同一份。
 
 为什么需要它：`Scan` 在每个 basic token 关闭时被每个类体候选**各调一次**，而 `ItemUtil.ItemStart` 要从 `Data` 尾部倒扫 O(k)——每个候选各扫一遍就是 k×O(k)，长成员上退化成二次。条目起点只在「上一条成员被 `splice` 顶替」时才前进一格，所以把它放进 `Share`，各候选的 `BuildByIndex` 都在 `splice` 之后统一调 `ClassMemberPossibleUtil.UpdateItemStartAfterBuild` 就地更新成 `start + 1`；`Scan` 首行只做 O(1) 新鲜度校验。
 
@@ -99,13 +99,13 @@ class 体成员边界的**增量扫描状态**：`Boundary` 是已经找到的�
 
 判定本身**不建任何形状、也不解析类型**：只做「前缀是不是这个成员 / 收住了没有 / 是哪一类」的词的层面判断；真正的形状由被选中的候选在自己的 `BuildByIndex` 里交给 `ClassDeclarationShape.BuildMemberFromCode` 建（复用一次性构建的同一个 `BuildMembers`，见 `class-declaration-shape.xl.md`）。
 
-## static field CacheKey:any = PossibleShape.SlotOf(ClassMemberPossibleScan)
+## static field CacheKey:any = ItemSlotCache.SlotOf(ClassMemberPossibleScan)
 
-所有类体成员候选共用的缓存槽。**槽号由这一组共同的标识类 `ClassMemberPossibleScan` 发出来**（`PossibleShape.SlotOf`，同一类同号），所以全部类体成员候选读到同一个槽，而不是各自的 `this.Slot()`。
+所有类体成员候选共用的缓存槽。**槽号由这一组共同的标识类 `ClassMemberPossibleScan` 发出来**（`ItemSlotCache.SlotOf`，同一类同号），所以全部类体成员候选读到同一个槽，而不是各自的 `this.Slot()`。
 
-## static field ItemStartKey:any = PossibleShape.SlotOf(ClassMemberItemStartShared)
+## static field ItemStartKey:any = ItemSlotCache.SlotOf(ClassMemberItemStartShared)
 
-条目起点在 `PossibleShapeCache.Share` 里的槽（值类型 `ClassMemberItemStartShared`）；槽号由值类型 `ClassMemberItemStartShared` 发出来。标注用 `any` 的理由同 `CacheKey`（xl 的 `E1207` 不认跨类静态调用的返回值）。
+条目起点在 `ItemSlotCache.Share` 里的槽（值类型 `ClassMemberItemStartShared`）；槽号由值类型 `ClassMemberItemStartShared` 发出来。标注用 `any` 的理由同 `CacheKey`（xl 的 `E1207` 不认跨类静态调用的返回值）。
 
 ## static field PropertyKind:int = 1
 
@@ -700,7 +700,7 @@ if (shared.Start < units.length) {
 return true;
 ```
 
-## static method ItemStartOf:(units:Array<Token>, cache:PossibleShapeCache)=>int
+## static method ItemStartOf:(units:Array<Token>, cache:ItemSlotCache)=>int
 
 条目起点：先问 `Share`（O(1) 校验命中就免倒扫），失效才 `ItemUtil.ItemStart` 倒扫一次并写回 `Share`。
 
@@ -724,7 +724,7 @@ if (shared === null) {
 return start;
 ```
 
-## static method UpdateItemStartAfterBuild:(cache:PossibleShapeCache, host:Token, start:int)=>void
+## static method UpdateItemStartAfterBuild:(cache:ItemSlotCache, host:Token, start:int)=>void
 
 `BuildByIndex` 在 `host.Data.splice(...)` **之后**调用：被建的形状正好坐在 `start` 上，条目起点前进一格，下一次 `Scan` 的 O(1) 新鲜度校验就能命中。
 
@@ -841,7 +841,7 @@ state.Complete = complete && end >= 0;
 state.End = end;
 ```
 
-## static method Scan:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ClassMemberPossibleScan
+## static method Scan:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ClassMemberPossibleScan
 
 拿宿主攒下的 `Data` 与当前下标，取（必要时**增量推进**）当前成员的判定状态。
 

@@ -2,8 +2,8 @@
 ```xl
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
-import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
+import { ItemComputeStates } from "../item-compute-states.xl.md"
+import { IItemCompute } from "../i-item-compute.xl.md"
 import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"

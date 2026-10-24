@@ -6,8 +6,8 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -37,7 +37,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 
 # namespace cangjie
 
-# class SourceFileTailBuilder extends PossibleShape
+# class SourceFileTailBuilder extends ShapeRule
 
 ```txt
 a
@@ -48,13 +48,13 @@ a
 根单元的**尾部建造器**：文件末尾那些「没有 `;` 结尾」的尾巴由它收口。
 
 > **WP-3 迁移状态（U4：先整文件机械搬，再拆三入口）**：本文件从
-> `typescript/tokens/files/source-file-end-possible-shape.xl.md` **逐字搬来**（类名
+> `typescript/tokens/files/source-file-end-shape-rule.xl.md` **逐字搬来**（类名
 > `SourceFileEndPossibleShape` → `SourceFileTailBuilder`，逻辑一字未改），因此暂时仍
-> `extends PossibleShape`、由 `CatalogGuide` 当「终结候选」驱动（`ComputeByIndex` / `BuildByIndex`
+> `extends ShapeRule`、由 `CatalogGuide` 当「终结候选」驱动（`ComputeByIndex` / `BuildByIndex`
 > 是旧协议入口，行为与搬迁前逐字节相同）。
 > 三个**建造入口**已提升为 public，就是本类对外的 API：
 > `BuildTrailingDeclaration`（声明尾巴）/ `BuildStatementSegments`（多条语句分段）/ `BuildModuleDeclaration`（module 头）。
-> 下一个波次：`RootItemRule.Build` 改调这三个入口，本类的 PossibleShape 外壳随之删除。
+> 下一个波次：`RootItemRule.Build` 改调这三个入口，本类的 ShapeRule 外壳随之删除。
 
 根单元的终结候选：认两种「这条语句到这里该结束了」。
 
@@ -65,7 +65,7 @@ a
 两种情况下普通候选（import / export / expression statement）都已在同一处 `Reject`，
 所以 `Candidates == 0`，按 `CatalogGuide` 的契约由本候选结束这一条语句。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {

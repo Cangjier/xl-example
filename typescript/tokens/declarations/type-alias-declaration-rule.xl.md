@@ -4,7 +4,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
@@ -75,7 +75,7 @@ export type { X }
 扫描到行末 ASI 边界时也在边界 token 上 `Accept`（build 时排除该 token：它属于下一条语句）。
 `IsBuildable` 只在收口那一格为真——与 `ExpressionStatementPossibleShape` 同一套时机。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -475,7 +475,7 @@ for (let at = index; at >= 0; at--) {
 return false;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache, context:SyntaxContext)=>bool
 
 ```ts
 const state = cache.GetState<TypeAliasDeclarationScan>(this.Slot());

@@ -4,9 +4,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状目录重算的结果。
 
-# enum ComputePossibleShapesStates
+# enum ItemComputeStates
 
-`CatalogGuide.ComputePossibleShapes` 与 `UnitToken.ComputePossibleShapes` 的返回值。
+`CatalogGuide.ComputeItems` 与 `UnitToken.ComputeItems` 的返回值。
 
 - case Nothing
 这次什么都没做：宿主没有目录向导，或者下标越界。

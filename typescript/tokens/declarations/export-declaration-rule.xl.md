@@ -7,7 +7,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { NamedExportsShape } from "./named-exports-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -93,7 +93,7 @@ export declare function f(): void;
 `export default <表达式>` 的节点是 `ExportAssignment`（`isExportEquals=false`，不在比较字段里），这里直接建
 `ExportAssignmentShape`，不碰 module-1 的 export-assignment 候选/文件。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -1356,7 +1356,7 @@ return text === "const" || text === "let" || text === "var" || text === "using"
   || text === "abstract" || text === "async";
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>bool
 
 ```ts
 const state = cache.GetState<ExportDeclarationScan>(this.Slot());

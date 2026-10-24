@@ -4,7 +4,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -47,7 +47,7 @@ import x = A.B;
 
 `Stage`：0 等 `import`，1 等名字，2 等 `=`，3 等引用起点（`require` → 4；标识符 → 6），4 等 `(`，5 等 `;`（require 形），6 实体名部分（`Common` / `.`，`;` 收尾）。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -229,7 +229,7 @@ for (let at = from + 1; at < to; at++) {
 return false;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache, context:SyntaxContext)=>bool
 
 ```ts
 const state = cache.GetState<ImportEqualsDeclarationScan>(this.Slot());

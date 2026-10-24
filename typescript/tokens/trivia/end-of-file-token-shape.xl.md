@@ -1,8 +1,8 @@
 # dependencies
 ```xl
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
-import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
-import { IComputePossibleShapes } from "../../../core/syntax/i-compute-possible-shapes.xl.md"
+import { ItemComputeStates } from "../../../core/syntax/item-compute-states.xl.md"
+import { IItemCompute } from "../../../core/syntax/i-item-compute.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"

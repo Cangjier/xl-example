@@ -1,8 +1,8 @@
 # dependencies
 ```xl
 import { CloseStates } from "../close-states.xl.md"
-import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
+import { ItemComputeStates } from "../item-compute-states.xl.md"
+import { IItemCompute } from "../i-item-compute.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { BasicTokenBatch } from "./basic-token-batch.xl.md"
@@ -95,16 +95,16 @@ this.Host = null;
 
 ## private method Ask:(context:SyntaxContext)=>CloseStates
 
-问宿主：旧 `ComputePossibleShapes` 这次有没有建出形状。
+问宿主：旧 `ComputeItems` 这次有没有建出形状。
 
 ```ts
 const host = this.Host;
 if (host === null) {
   return CloseStates.Nothing;
 }
-if ("ComputePossibleShapes" in host) {
-  const legacy = host as unknown as IComputePossibleShapes;
-  if (legacy.ComputePossibleShapes(context) === ComputePossibleShapesStates.Built) {
+if ("ComputeItems" in host) {
+  const legacy = host as unknown as IItemCompute;
+  if (legacy.ComputeItems(context) === ItemComputeStates.Built) {
     return CloseStates.Built;
   }
 }

@@ -1,9 +1,9 @@
 # dependencies
 ```xl
-import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
-import { PossibleShape } from "./possible-shape.xl.md"
+import { ItemComputeStates } from "./item-compute-states.xl.md"
+import { ShapeRule } from "./shape-rule.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
-import { PossibleShapeCache } from "./possible-shape-cache.xl.md"
+import { ItemSlotCache } from "./item-slot-cache.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
 ```
@@ -14,51 +14,51 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状目录向导：一份**完整的**候选目录 + 一份**还活着的**候选下标 + 一份判定缓存。
 
-触发只有一条路径：basic token 关闭时**只问父单元**，父单元（实现了 `IComputePossibleShapes`、且 `CatalogGuide` 非空）把 `this` 转交进来；本向导问一遍还活着的候选（`PossibleShape.ComputeByIndex`），被拒的**从下标集里去掉**（候选数组一个字都不动），**当且仅当只剩一个候选**时把它交给 `PossibleShape.BuildByIndex`，建完**复位**；一个候选都不剩就抛错，还有多个就继续等后面的单元。
+触发只有一条路径：basic token 关闭时**只问父单元**，父单元（实现了 `IItemCompute`、且 `CatalogGuide` 非空）把 `this` 转交进来；本向导问一遍还活着的候选（`ShapeRule.ComputeByIndex`），被拒的**从下标集里去掉**（候选数组一个字都不动），**当且仅当只剩一个候选**时把它交给 `ShapeRule.BuildByIndex`，建完**复位**；一个候选都不剩就抛错，还有多个就继续等后面的单元。
 
 # class CatalogGuide
 
 形状目录向导。
 
-## field PossibleShapes:Array<PossibleShape>
+## field Shapes:Array<ShapeRule>
 
 **完整的**候选目录。构造时取传入的数组，此后一个字都不改——被拒的候选不从数组里删，只从 `Candidates` 里去掉下标。
 
 ## field Candidates:Set<int> = new Set()
 
-还活着的候选下标。构造时填满 `0..PossibleShapes.length-1`，判定中被拒的去掉一个，建完一条形状后重新填满。
+还活着的候选下标。构造时填满 `0..Shapes.length-1`，判定中被拒的去掉一个，建完一条形状后重新填满。
 
-## field EndPossible:PossibleShape | null = null
+## field EndPossible:ShapeRule | null = null
 
-**终结候选**：单独一个，不进 `PossibleShapes`、不参与 `Candidates` 的淘汰。它回答的是「这条语句到这里该结束了」。
+**终结候选**：单独一个，不进 `Shapes`、不参与 `Candidates` 的淘汰。它回答的是「这条语句到这里该结束了」。
 
 只有它 `Accept` 时才可能构建；它`Accept`而 `Candidates` 里还有候选，说明「既像结束、又像还能长」，直接抛错。
 
-## field PossibleShapesComputeCache:PossibleShapeCache = new PossibleShapeCache()
+## field SlotCache:ItemSlotCache = new ItemSlotCache()
 
 判定缓存。形状在自己名下读写，同一向导的所有判定共用这一份。
 
-## constructor:(shapes:Array<PossibleShape>, endPossible?:PossibleShape | null)=>void
+## constructor:(shapes:Array<ShapeRule>, endPossible?:ShapeRule | null)=>void
 
 以候选目录创建，把所有下标放进 `Candidates`；终结候选单独收下。
 
 ```ts
-this.PossibleShapes = shapes;
+this.Shapes = shapes;
 this.EndPossible = endPossible ?? null;
 for (let index = 0; index < shapes.length; index++) {
   this.Candidates.add(index);
 }
 ```
 
-## method ComputePossibleShapes:(host:Token, context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputeItems:(host:Token, context:SyntaxContext)=>ItemComputeStates
 
-判全段就是判到最后一格为止：直接转调 `ComputePossibleShapesByIndex`。
+判全段就是判到最后一格为止：直接转调 `ComputeItemsByIndex`。
 
 ```ts
-return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context);
+return this.ComputeItemsByIndex(host, host.Data.length - 1, context);
 ```
 
-## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputeItemsByIndex:(host:Token, tokenIndex:int, context:SyntaxContext)=>ItemComputeStates
 
 拿**宿主**攒下的子单元问一遍还活着的候选——`Candidates` 里那些下标，被拒的从 `Candidates` 里去掉——然后按**个数**行动：只剩一个就建它并复位，一个都不剩就抛错，还有多个就继续等后面的单元。
 
@@ -80,16 +80,16 @@ if (typeof context === "undefined") {
 }
 const token = host.Data[tokenIndex];
 if (token === undefined) {
-  return ComputePossibleShapesStates.Nothing;
+  return ItemComputeStates.Nothing;
 }
 for (const index of this.Candidates) {
-  if (this.PossibleShapes[index].ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Reject) {
+  if (this.Shapes[index].ComputeByIndex(host.Data, tokenIndex, this.SlotCache) === ShapeStates.Reject) {
     this.Candidates.delete(index);
   }
 }
 let ended = false;
 if (this.EndPossible !== null) {
-  ended = this.EndPossible.ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Accept;
+  ended = this.EndPossible.ComputeByIndex(host.Data, tokenIndex, this.SlotCache) === ShapeStates.Accept;
   if (ended && this.Candidates.size > 0) {
     throw new Error(`CatalogGuide: 终结候选与其它候选同时成立（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
   }
@@ -97,27 +97,27 @@ if (this.EndPossible !== null) {
 if (ended && this.EndPossible !== null) {
   this.EndPossible.BuildByIndex(host, tokenIndex, this, context);
   this.Reset();
-  return ComputePossibleShapesStates.Built;
+  return ItemComputeStates.Built;
 }
 if (this.Candidates.size === 0) {
   if (this.EndPossible === null) {
     throw new Error(`CatalogGuide: 没有候选形状可以构成（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
   }
-  return ComputePossibleShapesStates.Waiting;
+  return ItemComputeStates.Waiting;
 }
 if (this.Candidates.size > 1) {
-  return ComputePossibleShapesStates.Waiting;
+  return ItemComputeStates.Waiting;
 }
 if (this.Candidates.size !== 1) {
   throw new Error(`CatalogGuide: 唯一候选不变量被破坏（宿主 ${host.constructor.name}，下标 ${tokenIndex}，候选 ${this.Candidates.size} 个）`);
 }
 const index = Array.from(this.Candidates)[0];
-if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.PossibleShapesComputeCache, context)) {
-  return ComputePossibleShapesStates.Waiting;
+if (!this.Shapes[index].IsBuildable(host.Data, tokenIndex, this.SlotCache, context)) {
+  return ItemComputeStates.Waiting;
 }
-this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this, context);
+this.Shapes[index].BuildByIndex(host, tokenIndex, this, context);
 this.Reset();
-return ComputePossibleShapesStates.Built;
+return ItemComputeStates.Built;
 ```
 
 ## private method Reset:()=>void
@@ -128,8 +128,8 @@ return ComputePossibleShapesStates.Built;
 
 ```ts
 this.Candidates.clear();
-for (let index = 0; index < this.PossibleShapes.length; index++) {
+for (let index = 0; index < this.Shapes.length; index++) {
   this.Candidates.add(index);
 }
-this.PossibleShapesComputeCache.Clear();
+this.SlotCache.Clear();
 ```

@@ -2,8 +2,8 @@
 ```xl
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
-import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
+import { ItemComputeStates } from "../item-compute-states.xl.md"
+import { IItemCompute } from "../i-item-compute.xl.md"
 import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -24,7 +24,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元值类型是单字符的 `string`。
 
-它同时**也是一个宿主**（与 `Shape` 同款）：`UnitToken` 已经给了 `CatalogGuide`（默认 `null`）和 `IComputePossibleShapes`，所以括号里的 basic token 关闭时问到的就是括号自己的目录向导。默认 `null` 表示括号里不判候选；谁需要判，就在括号建出来之后给它挂上——接口体就是这么做的：`InterfaceDeclarationShape` 在自己的括号创建事件里认出接口体，再把接口体目录向导装到这个括号上。
+它同时**也是一个宿主**（与 `Shape` 同款）：`UnitToken` 已经给了 `CatalogGuide`（默认 `null`）和 `IItemCompute`，所以括号里的 basic token 关闭时问到的就是括号自己的目录向导。默认 `null` 表示括号里不判候选；谁需要判，就在括号建出来之后给它挂上——接口体就是这么做的：`InterfaceDeclarationShape` 在自己的括号创建事件里认出接口体，再把接口体目录向导装到这个括号上。
 
 括号自己的关闭仍然只问父单元，不因为自己挂了向导就改成问自己。
 
@@ -79,7 +79,7 @@ return this;
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
-关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
+关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IItemCompute` 就不问，也不再往上找。
 
 父单元是不是宿主由它自己的 `CatalogGuide` 说了算：为空就等于没挂向导，被问到也不做任何事。
 
@@ -138,7 +138,7 @@ return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${t
 
 挂之前先看关闭的结果：关闭上一个 token 的过程可能建出了形状，这时返回 `Reload`，字符交给新形状重吃。
 
-挂好并签入之后，**通知父单元 `OnBracketCreatedEvent`**：父单元可能借这个时机给新括号挂上目录向导（接口体的成员候选就是这么接上的）。父单元没实现 `IComputePossibleShapes` 就不通知，也不再往上找。
+挂好并签入之后，**通知父单元 `OnBracketCreatedEvent`**：父单元可能借这个时机给新括号挂上目录向导（接口体的成员候选就是这么接上的）。父单元没实现 `IItemCompute` 就不通知，也不再往上找。
 
 最后再调一次**语言侧的创建钩子** `context.BracketHook`（未装配时是 `null`，只多一次判空）：
 钩子跑在父单元通知**之后**，所以壳刚给括号挂上的适配器它看得见（`BatchAdapter !== null` 即可早退）。
@@ -162,7 +162,7 @@ unit.Add(mounted);
 unit.MountedUnit = mounted;
 mounted.Use(value).SignIn(index);
 if ("OnBracketCreatedEvent" in unit) {
-  (unit as unknown as IComputePossibleShapes).OnBracketCreatedEvent(mounted, context);
+  (unit as unknown as IItemCompute).OnBracketCreatedEvent(mounted, context);
 }
 if (context.BracketHook !== null) {
   context.BracketHook(mounted, unit, context);

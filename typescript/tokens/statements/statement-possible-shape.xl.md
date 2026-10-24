@@ -3,8 +3,8 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
@@ -33,7 +33,7 @@ import { StatementBuilder } from "./statement-builder.xl.md"
 
 代码单元下标 → 宿主 `Data` 下标的映射（`End` 折算用）。
 
-# class StatementPossibleShape extends PossibleShape
+# class StatementPossibleShape extends ShapeRule
 
 根级语句候选（块 / 空语句 / 变量 / if / while / do / for / for-in / for-of / return / break / continue / throw / debugger）。
 只认本族起点（`{`、`;` 与固定关键字），其它起点一律 `Reject`，把位置留给 import / export / expression 候选。
@@ -58,7 +58,7 @@ debugger;
 
 **EOF 哨兵上的让位**：`ItemStart > 0`（前面已经建出过语句）时，最后一段的边界 token 留给根终结候选在 EOF 建——上一条语句在 ASI 边界收口时会把边界 token 原样留下（`type T = A` ⏎ `return` / `debugger` / `{ a: 1 }`），它不再有自己的判定格；本候选若在哨兵上 Accept，两边同时成立，CatalogGuide 抛错（C04–C06）。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -126,7 +126,7 @@ if (state.Status === 1) {
 return ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache, context:SyntaxContext)=>bool
 
 ```ts
 const state = cache.GetState<StatementScan>(this.Slot());
@@ -136,7 +136,7 @@ return state !== null && state.Status === 1 && state.End >= 0;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<StatementScan>(this.Slot());
+const state = catalog.SlotCache.GetState<StatementScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 let end = state === null ? tokenIndex : state.End;
 if (end < start) {

@@ -4,7 +4,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -19,7 +19,7 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 本文件**不 import 任何具体声明形状**：壳、成员候选、raw 兜底的 `BuildMembers` 都由调用方以参数传入，这样 interface / enum / class 各自 import 本文件时不会形成 require 环。
 
-# type BodyShapesFactory = ()=>Array<PossibleShape>
+# type BodyShapesFactory = ()=>Array<ShapeRule>
 
 按需建一份成员候选目录的工厂；只在缓存为空时调用一次（参数表里不直接写函数类型，与 `Document.CountGetter` 同款）。
 
@@ -34,7 +34,7 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 ```txt
 // 一个族的完整接线（以 interface 为例，行号见设计文档 §9）：
 // 1) 壳 OnBracketCreatedEvent：BodyGuideUtil.IsBodyBracket(壳, 新括号, ["extends", "implements", ","])
-//    为真 ⇒ BodyGuideUtil.MountBodyGuide(接口体括号, CreateBodyPossibleShapes())
+//    为真 ⇒ BodyGuideUtil.MountBodyGuide(接口体括号, CreateBodyShapes())
 //    同时壳自己装终结候选 new CatalogGuide([], new XxxEndPossibleShape())
 // 2) 声明关键字格提前 Accept，BuildByIndex 里：
 //    const shell = new XxxShape(host.Template);
@@ -45,9 +45,9 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 //    BodyGuideUtil.FinishShell(shell.Parent, shell, built);
 // 4) 收口取成员：XxxShape.BuildFromCode 里
 //    const members = BodyGuideUtil.CollectBodyMembers(host, bodyBracket, context, XxxShape.BuildMembers);
-// 5) 目录缓存：static CreateBodyPossibleShapes()
-//    XxxShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
-//      XxxShape.CreateBodyPossibleShapesCache, () => [ ...本族成员候选... ]);
+// 5) 目录缓存：static CreateBodyShapes()
+//    XxxShape.CreateBodyShapesCache = BodyGuideUtil.CreateShapesCache(
+//      XxxShape.CreateBodyShapesCache, () => [ ...本族成员候选... ]);
 ```
 
 ## static method BasePos:(host:Token, start:int)=>int
@@ -114,11 +114,11 @@ for (const word of blocked) {
 return true;
 ```
 
-## static method MountBodyGuide:(bracket:Bracket, shapes:Array<PossibleShape>)=>CatalogGuide
+## static method MountBodyGuide:(bracket:Bracket, shapes:Array<ShapeRule>)=>CatalogGuide
 
 给 body 括号挂上**成员候选目录**：`bracket.CatalogGuide = new CatalogGuide(shapes)`，返回该向导（便于测试断言）。
 
-目录只建一份、所有 body 括号共用（`shapes` 由各族的 `CreateBodyPossibleShapes` 静态缓存提供）；判定状态在 `CatalogGuide` 自己的 `PossibleShapesComputeCache` 里，**不能跨 body 共享**。
+目录只建一份、所有 body 括号共用（`shapes` 由各族的 `CreateBodyShapes` 静态缓存提供）；判定状态在 `CatalogGuide` 自己的 `SlotCache` 里，**不能跨 body 共享**。
 
 注意：本方法只挂「普通候选」目录，**不要**把壳的终结候选挂到这里——壳的终结候选是 `new CatalogGuide([], new XxxEndPossibleShape())`，装到**壳自己**的 `CatalogGuide` 上（见 `FinishShell` 的调用方）。
 
@@ -256,15 +256,15 @@ if (parent.MountedUnit === shell) {
 }
 ```
 
-## static method CreateShapesCache:(cacheRef:Array<PossibleShape> | null, factory:BodyShapesFactory)=>Array<PossibleShape>
+## static method CreateShapesCache:(cacheRef:Array<ShapeRule> | null, factory:BodyShapesFactory)=>Array<ShapeRule>
 
-各族的「成员目录只建一份」缓存。`cacheRef` 为空就调一次 `factory()`；非空直接返回。调用方把静态字段原样传进来并接回返回值——`XxxShape.CreateBodyPossibleShapesCache` 是 private static 字段时，在类的 `static CreateBodyPossibleShapes()` 里：
+各族的「成员目录只建一份」缓存。`cacheRef` 为空就调一次 `factory()`；非空直接返回。调用方把静态字段原样传进来并接回返回值——`XxxShape.CreateBodyShapesCache` 是 private static 字段时，在类的 `static CreateBodyShapes()` 里：
 
 ```ts
-// XxxShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
-//   XxxShape.CreateBodyPossibleShapesCache,
+// XxxShape.CreateBodyShapesCache = BodyGuideUtil.CreateShapesCache(
+//   XxxShape.CreateBodyShapesCache,
 //   () => [ new MemberPossibleShape(), ... ]);
-// return XxxShape.CreateBodyPossibleShapesCache;
+// return XxxShape.CreateBodyShapesCache;
 //
 // 目录只建一份、所有 body 括号共用；候选实例本身无状态（判定状态在 CatalogGuide 的缓存里），共用安全。
 if (cacheRef !== null) {

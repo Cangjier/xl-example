@@ -2,7 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
@@ -37,7 +37,7 @@ import a, { b } from "m";
 import a from "m" with { type: "json" };
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -169,12 +169,12 @@ host.MountedUnit = built;
 // 壳晚建的情况（`import` 之后还有代码单元才轮到本候选）：这些单元是**已关闭**的 basic token，
 // 不会再触发壳自己的候选重算，所以这里补一次，让 ImportClause / StringLiteral / 属性子句照常建出来。
 if (tokenIndex > start) {
-  built.ComputePossibleShapes(context);
+  built.ComputeItems(context);
 }
 return built;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>bool
 
 ```ts
 const state = cache.GetState<ImportDeclarationScan>(this.Slot());

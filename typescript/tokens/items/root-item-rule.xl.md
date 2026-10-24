@@ -12,7 +12,7 @@ import { IBatchHost } from "../../../core/syntax/batch/i-batch-host.xl.md"
 import { ItemListEngine, ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
 import { ItemScanState } from "../../../core/syntax/batch/item-scan-state.xl.md"
 import { RawFallback } from "../../../core/syntax/batch/raw-fallback.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { IRootRule, RootRuleTable } from "./root-rule-contract.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -187,7 +187,7 @@ const owner: Token | null = this.Owner;
 if (owner === null) {
   return;
 }
-const cache: PossibleShapeCache = this.Table.Cache;
+const cache: ItemSlotCache = this.Table.Cache;
 // 候选按「从本条目起点开始的数组」判定：`ItemUtil.ItemStart(units)` 取的是「最后一个非 basic
 // 单元之后」——只有把本条目之前的单元切掉，它才等于本条目的起点。上一段留下的 raw basic token
 // 若还在数组里，`ItemStart` 会落回它们身上，所有候选的判据都会被带偏（`a` ⏎ `b;` 的 `b`）。

@@ -6,8 +6,8 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
@@ -55,7 +55,7 @@ import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaratio
 
 ## field SawQuestion:bool = false
 
-# class ExpressionStatementPossibleShape extends PossibleShape
+# class ExpressionStatementPossibleShape extends ShapeRule
 
 ```txt
 a;
@@ -798,7 +798,7 @@ for (let at = from; at < units.length; at++) {
 return -1;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -980,7 +980,7 @@ if (state.Done) {
 return ShapeStates.Uncertain;
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache, context:SyntaxContext)=>bool
 
 ```ts
 const state = cache.GetState<ExpressionStatementScan>(this.Slot());
@@ -990,7 +990,7 @@ return state !== null && state.Done && !state.Rejected && state.DoneAt === token
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ExpressionStatementScan>(this.Slot());
+const state = catalog.SlotCache.GetState<ExpressionStatementScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 const built = ExpressionStatementShape.FromUnits(host, start, tokenIndex, context);
 host.Data.splice(start, tokenIndex - start + 1, built);

@@ -4,8 +4,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemScanState } from "../../../core/syntax/batch/item-scan-state.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -18,7 +18,7 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 
 # namespace cangjie
 
-对象类型成员（interface 体 / type literal）的公共判据：从 `property-signature-possible-shape.xl.md`
+对象类型成员（interface 体 / type literal）的公共判据：从 `property-signature-shape-rule.xl.md`
 **逐字搬出**的 `MemberPossibleScan` / `MemberItemStartShared` / `MemberScanShared` / `MemberPossibleUtil`。
 
 搬出的目的：interface 体迁到 `ItemListEngine(InterfaceItemRule)` 之后，判据不能再住在某个
@@ -27,9 +27,9 @@ possible 候选文件里；class 体仍在用的 index / get / set 三个候选�
 `MemberItemUtil` 是同一套判据在 `core/syntax/batch/item-scan-state` 上的入口（item 表用）。
 # class MemberPossibleScan
 
-接口 / 对象类型体里「当前成员」的判定状态。**七个成员候选共用这一份**：候选目录里每个形状都在同一个 `PossibleShapeCache` 里读写，键固定为 `MemberPossibleUtil.CacheKey`——同一次判定里只有一个形状真的去扫，其余直接读结论。
+接口 / 对象类型体里「当前成员」的判定状态。**七个成员候选共用这一份**：候选目录里每个形状都在同一个 `ItemSlotCache` 里读写，键固定为 `MemberPossibleUtil.CacheKey`——同一次判定里只有一个形状真的去扫，其余直接读结论。
 
-实例不是每进一个成员新建：它放在 `PossibleShapeCache.Share` 的 `MemberScanShared` 槽里跨成员复用，进入新条目时由 `MemberPossibleUtil.ReuseScan` 整体重置字段（含 `HeadSettled`），既不 `new` 状态/边界扫描，也不重新分配 `Code` / `CodeAt` 两个数组。
+实例不是每进一个成员新建：它放在 `ItemSlotCache.Share` 的 `MemberScanShared` 槽里跨成员复用，进入新条目时由 `MemberPossibleUtil.ReuseScan` 整体重置字段（含 `HeadSettled`），既不 `new` 状态/边界扫描，也不重新分配 `Code` / `CodeAt` 两个数组。
 
 `Start` 是当前条目在宿主 `Data` 里的起点（`ItemUtil.ItemStart`），`Checked` 是已经扫到的 `tokenIndex + 1`；`Kinds` 是「还可能的成员种类」（见 `MemberPossibleUtil` 的 `Kind` 常量，按位或成的整型位掩码，`0` 表示前缀已经不可能构成任何成员），`Complete` / `End` 是「当前成员已经收住、`End` 是代码单元下标」的结论，`CodeAt` 把代码单元下标映射回宿主 `Data` 下标（建形状时 `splice` 用）。
 
@@ -81,7 +81,7 @@ possible 候选文件里；class 体仍在用的 index / get / set 三个候选�
 
 # class MemberItemStartShared
 
-`PossibleShapeCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个接口体括号的 `CatalogGuide` 生命周期内，七类成员候选共用同一份。
+`ItemSlotCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个接口体括号的 `CatalogGuide` 生命周期内，七类成员候选共用同一份。
 
 为什么需要它：`Scan` 在每个 basic token 关闭时被七类候选**各调一次**，而 `ItemUtil.ItemStart` 要从 `Data` 尾部倒扫 O(k)——七个候选各扫一遍就是 7×O(k)，长成员上退化成二次。条目起点只在「上一条成员被 `splice` 顶替」时才前进一格，所以把它放进 `Share`，七类候选的 `BuildByIndex` 都在 `splice` 之后统一调 `MemberPossibleUtil.UpdateItemStartAfterBuild` 就地更新成 `start + 1`；`Scan` 首行只做 O(1) 新鲜度校验。
 
@@ -106,7 +106,7 @@ possible 候选文件里；class 体仍在用的 index / get / set 三个候选�
 
 # class MemberScanShared
 
-`PossibleShapeCache.Share` 里的**可复用判定状态载体**：`Share` 不受 `Reset` 清空，所以 `MemberPossibleScan` 对象（连同它的两个数组、边界扫描状态）可以跨成员复用——每进一个成员不再 `new` 一套，只把字段重置。
+`ItemSlotCache.Share` 里的**可复用判定状态载体**：`Share` 不受 `Reset` 清空，所以 `MemberPossibleScan` 对象（连同它的两个数组、边界扫描状态）可以跨成员复用——每进一个成员不再 `new` 一套，只把字段重置。
 
 `Scan` 走重建路径时**整体重置**、不重分配：`Checked` / `Complete` / `End` / `Kinds` / `HeadKinds` / `HeadSettled` / `Angle` 与 `BoundaryScan` 都回到字段声明处的构造默认值，`Code` / `CodeAt` 用 `length = 0` 保留数组本体，`Start` 写成当前条目起点。
 
@@ -134,19 +134,19 @@ possible 候选文件里；class 体仍在用的 index / get / set 三个候选�
 
 判定本身**不建任何形状、也不解析类型**：只做「前缀是不是这个成员 / 收住了没有 / 是哪一类」的词的层面判断；真正的形状由被选中的候选在自己的 `BuildByIndex` 里用 `TypeBuilder.ParseTypeMember()` 建。
 
-## static field CacheKey:any = PossibleShape.SlotOf(MemberPossibleScan)
+## static field CacheKey:any = ItemSlotCache.SlotOf(MemberPossibleScan)
 
-七个候选共用的缓存槽。**槽号由这一组共同的标识类 `MemberPossibleScan` 发出来**（`PossibleShape.SlotOf`，同一类同号），所以七个候选读到的是同一个槽，而不是各自的 `this.Slot()`。
+七个候选共用的缓存槽。**槽号由这一组共同的标识类 `MemberPossibleScan` 发出来**（`ItemSlotCache.SlotOf`，同一类同号），所以七个候选读到的是同一个槽，而不是各自的 `this.Slot()`。
 
-标注写 `any` 而不是 `int`：xl 的 `E1207` 只接受**字面量**或 `new` 形式的静态字段初始值，跨类静态调用（`PossibleShape.SlotOf(...)`）一律判「与 int 不符」。实际值一定是槽位号——`SlotOf` 的返回类型就是 `int`，只是 xl 的静态字段检查器不认这条返回值。
+标注写 `any` 而不是 `int`：xl 的 `E1207` 只接受**字面量**或 `new` 形式的静态字段初始值，跨类静态调用（`ItemSlotCache.SlotOf(...)`）一律判「与 int 不符」。实际值一定是槽位号——`SlotOf` 的返回类型就是 `int`，只是 xl 的静态字段检查器不认这条返回值。
 
-## static field ItemStartKey:any = PossibleShape.SlotOf(MemberItemStartShared)
+## static field ItemStartKey:any = ItemSlotCache.SlotOf(MemberItemStartShared)
 
-条目起点在 `PossibleShapeCache.Share` 里的槽（值类型 `MemberItemStartShared`）；槽号由值类型 `MemberItemStartShared` 发出来。标注用 `any` 的理由同上（`E1207`）。
+条目起点在 `ItemSlotCache.Share` 里的槽（值类型 `MemberItemStartShared`）；槽号由值类型 `MemberItemStartShared` 发出来。标注用 `any` 的理由同上（`E1207`）。
 
-## static field ScanSharedKey:any = PossibleShape.SlotOf(MemberScanShared)
+## static field ScanSharedKey:any = ItemSlotCache.SlotOf(MemberScanShared)
 
-可复用判定状态在 `PossibleShapeCache.Share` 里的槽（值类型 `MemberScanShared`）；槽号由值类型 `MemberScanShared` 发出来。标注用 `any` 的理由同上（`E1207`）。与 `ItemStartKey` 是两个不同的槽：一个是条目起点，一个是状态本体，互不覆盖。
+可复用判定状态在 `ItemSlotCache.Share` 里的槽（值类型 `MemberScanShared`）；槽号由值类型 `MemberScanShared` 发出来。标注用 `any` 的理由同上（`E1207`）。与 `ItemStartKey` 是两个不同的槽：一个是条目起点，一个是状态本体，互不覆盖。
 
 ## static field PropertyKind:int = 1
 
@@ -742,7 +742,7 @@ if (shared.Start < units.length) {
 return true;
 ```
 
-## static method ItemStartOf:(units:Array<Token>, cache:PossibleShapeCache)=>int
+## static method ItemStartOf:(units:Array<Token>, cache:ItemSlotCache)=>int
 
 条目起点：先问 `Share`（O(1) 校验命中就免倒扫），失效才 `ItemUtil.ItemStart` 倒扫一次并写回 `Share`。
 
@@ -766,7 +766,7 @@ if (shared === null) {
 return start;
 ```
 
-## static method UpdateItemStartAfterBuild:(cache:PossibleShapeCache, host:Token, start:int)=>void
+## static method UpdateItemStartAfterBuild:(cache:ItemSlotCache, host:Token, start:int)=>void
 
 `BuildByIndex` 在 `host.Data.splice(...)` **之后**调用：被建的形状正好坐在 `start` 上，条目起点前进一格，下一次 `Scan` 的 O(1) 新鲜度校验就能命中。
 
@@ -783,7 +783,7 @@ if (shared !== null) {
 }
 ```
 
-## static method ReuseScan:(units:Array<Token>, start:int, cache:PossibleShapeCache)=>MemberPossibleScan
+## static method ReuseScan:(units:Array<Token>, start:int, cache:ItemSlotCache)=>MemberPossibleScan
 
 取跨成员复用的判定状态并**整体重置**成「条目起点 = `start`、从零开始扫」的初始态：字段回到构造默认值，`Code` / `CodeAt` 只 `length = 0`（保留数组本体，避免每成员两次数组分配），状态对象本身来自 `Share` 槽，不再 `new`。
 
@@ -814,7 +814,7 @@ shared.Valid = true;
 return state;
 ```
 
-## static method Scan:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>MemberPossibleScan
+## static method Scan:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>MemberPossibleScan
 
 拿宿主攒下的 `Data` 与当前下标，取（必要时**增量推进**）当前成员的判定状态。
 
