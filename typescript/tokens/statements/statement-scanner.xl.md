@@ -23,6 +23,20 @@ import { LineTerminator } from "../../run/line-terminator.xl.md"
 
 ## field End:int = -1
 
+## field Resume:int = -1
+
+「还要等」时的**续扫点**：从 `code` 的这个下标起重新扫描，与从头扫一遍**等价**
+（-1 = 不可续扫，必须从入口重来）。阶段 2 的增量约定全部落在这一个字段上：
+
+- 只有**纯向前扫的循环**（`ScanToSemicolon` / `ScanExpressionBody` / `ScanDeclarationBody`）会把它设成
+  `code.length`：这些循环逐格判完、结论只依赖 `code[0..at]`（前缀只追加），所以「已经判过的格子」不必再判；
+- 需要**跨格上下文回看**的判据（`ScanIf` 等 `else`、`ScanDo` 等 `while` 头）在「体已收口、只等下一格」时
+  返回 `Resume = -1`：那时没有在生长的前缀可复用，重扫的代价是 O(1)；
+- `Complete` / `Mismatch` 一律 `-1`（已经有终局，不存在续扫）。
+
+续扫点由 `StatementItemScan` 保存并在下一次 `Analyze` 交回来（见 `statement-item-scan.xl.md`），
+中间没有任何一份判据被复制：续扫走的是**同一个** `Scan*` 函数，只是入口下标前移。
+
 ## constructor:(status:int, end:int)=>void
 
 ```ts
@@ -163,9 +177,23 @@ return new StatementScanResult(1, end);
 return new StatementScanResult(2, -1);
 ```
 
-## static method ScanRoot:(code:Array<Token>)=>StatementScanResult
+## static method NeedMoreAt:(resume:int)=>StatementScanResult
+
+「还要等」+ 显式续扫点（阶段 2）。调用方只在本层**确实逐格判到 `resume`** 时才能用它；
+判据本身没有变化，所以它的 `Status/End` 与 `NeedMore()` 完全同构，只有 `Resume` 不同。
+
+```ts
+const result = new StatementScanResult(0, -1);
+result.Resume = resume;
+return result;
+```
+
+## static method ScanRoot:(code:Array<Token>, startAt?:int)=>StatementScanResult
 
 根级只认「本族语句的起点」：`{`（块）、`;`（空语句）、以及固定关键字。表达式 / import / export 一律交回其它候选。
+
+`startAt` 是续扫点（阶段 2）：只影响本层**向前的循环**从哪一格起步，判据逐字不变；
+不传 / 传 `-1` 时与阶段 1 完全一致（根候选与 oracle 都是这么调的）。
 
 ```ts
 if (code.length === 0) {
@@ -202,7 +230,7 @@ if (first instanceof Common) {
       }
       if ((secondText === "let" || secondText === "const" || secondText === "var" || secondText === "using")
         && StatementScanner.NoLineBreakBetween(first, second)) {
-        return StatementScanner.ScanToSemicolon(code, 2, true);
+        return StatementScanner.ScanToSemicolon(code, 2, true, startAt);
       }
     }
     return StatementScanner.Mismatch();
@@ -214,7 +242,7 @@ if (first instanceof Common) {
     if (text === "const" && StatementScanner.NextWord(first.SourceRange.Document, first.SourceRange.EndIndex) === "enum") {
       return StatementScanner.Mismatch();
     }
-    return StatementScanner.ScanToSemicolon(code, 1, true);
+    return StatementScanner.ScanToSemicolon(code, 1, true, startAt);
   }
   // `let` 是上下文关键字（不是保留字）：只有**下一格能起绑定**（标识符 / `[` / `{`）时它才是
   // 变量声明；否则它仍是一个普通标识符——`let = 1` 是赋值表达式语句、`let: 1` 是标签、
@@ -222,7 +250,7 @@ if (first instanceof Common) {
   // `nextTokenIsBindingIdentifierOrStartOfDestructuring`）一致。
   if (text === "let") {
     if (code.length >= 2 && StatementScanner.StartsBinding(code, 1)) {
-      return StatementScanner.ScanToSemicolon(code, 1, true);
+      return StatementScanner.ScanToSemicolon(code, 1, true, startAt);
     }
     if (code.length === 1 && !StatementScanner.AtEOF) {
       return StatementScanner.NeedMore();
@@ -230,25 +258,25 @@ if (first instanceof Common) {
     // 落到下面的标签判据 / `Mismatch`：让位置给表达式候选。
   }
   if (text === "if") {
-    return StatementScanner.ScanIf(code, 0);
+    return StatementScanner.ScanIf(code, 0, startAt);
   }
   if (text === "while") {
-    return StatementScanner.ScanLoop(code, 0);
+    return StatementScanner.ScanLoop(code, 0, startAt);
   }
   if (text === "for") {
-    return StatementScanner.ScanFor(code, 0);
+    return StatementScanner.ScanFor(code, 0, startAt);
   }
   if (text === "switch" || text === "with") {
-    return StatementScanner.ScanLoop(code, 0);
+    return StatementScanner.ScanLoop(code, 0, startAt);
   }
   if (text === "try") {
-    return StatementScanner.ScanTry(code, 0);
+    return StatementScanner.ScanTry(code, 0, startAt);
   }
   if (text === "do") {
-    return StatementScanner.ScanDo(code, 0);
+    return StatementScanner.ScanDo(code, 0, startAt);
   }
   if (text === "return" || text === "throw") {
-    return StatementScanner.ScanReturnOrThrow(code, 0);
+    return StatementScanner.ScanReturnOrThrow(code, 0, startAt);
   }
   if (text === "break" || text === "continue") {
     return StatementScanner.ScanBreakOrContinue(code, 1);
@@ -261,7 +289,7 @@ if (first instanceof Common) {
   // （`[` 不在内：`using [a] = b` 被解析成 `using[a] = b` 的元素访问赋值）。
   if (text === "using") {
     if (code.length >= 2 && StatementScanner.StartsUsingDeclaration(code, 0, 1)) {
-      return StatementScanner.ScanToSemicolon(code, 2);
+      return StatementScanner.ScanToSemicolon(code, 2, false, startAt);
     }
     if (code.length === 1 && !StatementScanner.AtEOF) {
       return StatementScanner.NeedMore();
@@ -286,7 +314,7 @@ if (first instanceof Common) {
         return StatementScanner.NeedMore();
       }
       if (StatementScanner.StartsUsingDeclaration(code, 1, 2)) {
-        return StatementScanner.ScanToSemicolon(code, 3);
+        return StatementScanner.ScanToSemicolon(code, 3, false, startAt);
       }
       return StatementScanner.Mismatch();
     }
@@ -303,20 +331,24 @@ if (first instanceof Common) {
     return StatementScanner.Mismatch();
   }
   if (StatementScanner.IsSymbol(code[1], ":")) {
-    return StatementScanner.ScanBody(code, 2);
+    return StatementScanner.ScanBody(code, 2, false, startAt);
   }
   return StatementScanner.Mismatch();
 }
 return StatementScanner.Mismatch();
 ```
 
-## static method ScanBody:(code:Array<Token>, at:int, stopAtWhile?:bool)=>StatementScanResult
+## static method ScanBody:(code:Array<Token>, at:int, stopAtWhile?:bool, startAt?:int)=>StatementScanResult
 
 语句体：任何一条语句都行（含表达式语句与空语句），因为 `if` / 循环的体里不会再走根候选。
 
 `stopAtWhile` 只由 `ScanDo` 传 true：do 体的表达式语句在**换行处遇到 `while`** 时要收口，
 那个 `while` 是 do-while 自己的条件头，不是体的一部分（否则体会把 `while (…)` 之后的 `;` 也吞掉，
 `ScanDo.whileAt` 就落到下一条语句上）。
+
+`startAt` 是续扫点：体只是一个**分派**（O(1)），它把续扫点原样交给下面那个真正在生长的扫描
+（`ScanExpressionBody` / `ScanToSemicolon` / …）。分派本身每次都要重做——头的判据依赖
+`code[at]` 与后一格，是 O(1) 的。
 
 ```ts
 if (at < 0 || at >= code.length) {
@@ -327,49 +359,49 @@ if (unit instanceof Bracket) {
   if ((unit as Bracket).StartBracketChar === "{") {
     return StatementScanner.Complete(at);
   }
-  return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false);
+  return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false, startAt);
 }
 if (unit instanceof Symbol) {
   if ((unit as Symbol).Is(";")) {
     return StatementScanner.Complete(at);
   }
-  return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false);
+  return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false, startAt);
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
   if (text === "const" || text === "var") {
     // Same yield as the root dispatch: `const enum …` belongs to the enum declaration candidate.
     if (text === "const" && StatementScanner.NextWord(code[at].SourceRange.Document, code[at].SourceRange.EndIndex) === "enum") {
-      return StatementScanner.ScanDeclarationBody(code, at);
+      return StatementScanner.ScanDeclarationBody(code, at, startAt);
     }
-    return StatementScanner.ScanToSemicolon(code, at + 1);
+    return StatementScanner.ScanToSemicolon(code, at + 1, false, startAt);
   }
   // `let` 双角色（与 ScanRoot 同一判据）：后面能起绑定才是声明，否则按标识符走标签 / 表达式体。
   if (text === "let") {
     if (at + 1 < code.length && StatementScanner.StartsBinding(code, at + 1)) {
-      return StatementScanner.ScanToSemicolon(code, at + 1);
+      return StatementScanner.ScanToSemicolon(code, at + 1, false, startAt);
     }
     if (at + 1 >= code.length && !StatementScanner.AtEOF) {
       return StatementScanner.NeedMore();
     }
   }
   if (text === "if") {
-    return StatementScanner.ScanIf(code, at);
+    return StatementScanner.ScanIf(code, at, startAt);
   }
   if (text === "while" || text === "switch" || text === "with") {
-    return StatementScanner.ScanLoop(code, at);
+    return StatementScanner.ScanLoop(code, at, startAt);
   }
   if (text === "for") {
-    return StatementScanner.ScanFor(code, at);
+    return StatementScanner.ScanFor(code, at, startAt);
   }
   if (text === "try") {
     return StatementScanner.ScanTry(code, at);
   }
   if (text === "do") {
-    return StatementScanner.ScanDo(code, at);
+    return StatementScanner.ScanDo(code, at, startAt);
   }
   if (text === "return" || text === "throw") {
-    return StatementScanner.ScanReturnOrThrow(code, at);
+    return StatementScanner.ScanReturnOrThrow(code, at, startAt);
   }
   if (text === "break" || text === "continue") {
     return StatementScanner.ScanBreakOrContinue(code, at + 1);
@@ -379,7 +411,7 @@ if (unit instanceof Common) {
   }
   if (text === "using") {
     if (at + 1 < code.length && StatementScanner.StartsUsingDeclaration(code, at, at + 1)) {
-      return StatementScanner.ScanToSemicolon(code, at + 1);
+      return StatementScanner.ScanToSemicolon(code, at + 1, false, startAt);
     }
     if (at + 1 >= code.length && !StatementScanner.AtEOF) {
       return StatementScanner.NeedMore();
@@ -392,39 +424,46 @@ if (unit instanceof Common) {
           return StatementScanner.NeedMore();
         }
       } else if (StatementScanner.StartsUsingDeclaration(code, at + 1, at + 2)) {
-        return StatementScanner.ScanToSemicolon(code, at + 2);
+        return StatementScanner.ScanToSemicolon(code, at + 2, false, startAt);
       }
     }
   }
   // Annex-B: a labeled statement may wrap a function / class declaration (`lbl: function f() {}`).
   // Those are declaration statements: scan to the closed body `{…}` bracket instead of an expression.
   if (text === "function" || text === "class") {
-    return StatementScanner.ScanDeclarationBody(code, at);
+    return StatementScanner.ScanDeclarationBody(code, at, startAt);
   }
   // 被标声明（`iface: interface I` ⏎ `{ … }` / `en: enum E` ⏎ `{ A }`）：体是闭合 `{…}` 括号，
   // 按声明体收口；否则会落到 ScanExpressionBody 一路吃到 EOF，把后面的语句并给 builder。
   if (text === "interface" || text === "enum" || text === "namespace" || text === "module") {
-    return StatementScanner.ScanDeclarationBody(code, at);
+    return StatementScanner.ScanDeclarationBody(code, at, startAt);
   }
   if (text === "async" && at + 1 < code.length
     && StatementScanner.IsKeyword(code[at + 1], "function")) {
-    return StatementScanner.ScanDeclarationBody(code, at);
+    return StatementScanner.ScanDeclarationBody(code, at, startAt);
   }
   // Nested labeled statement inside a body: Identifier ":" statement.
   if (at + 1 < code.length && StatementScanner.IsSymbol(code[at + 1], ":")) {
     return StatementScanner.ScanBody(code, at + 2);
   }
 }
-return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false);
+  return StatementScanner.ScanExpressionBody(code, at, stopAtWhile ?? false, startAt);
 ```
 
-## static method ScanDeclarationBody:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanDeclarationBody:(code:Array<Token>, at:int, startAt?:int)=>StatementScanResult
 
 声明语句（函数 / 类，含 `function*`、泛型参数、参数表、`extends` 等）的体是一个闭合的 `{…}` 括号单元：
 从 `at` 起找本层第一个 `{` 括号，到它为止。找不到且已到 EOF 则 mismatch。
 
+`startAt` 是续扫点（阶段 2）：本循环只找**本层第一个** `{`，逐格结论只依赖 `code[0..index]`，
+所以 `max(at, startAt)` 起步与从头扫等价。
+
 ```ts
-for (let index = at; index < code.length; index++) {
+let begin = at;
+if (startAt !== undefined && startAt > at) {
+  begin = startAt;
+}
+for (let index = begin; index < code.length; index++) {
   const unit = code[index];
   if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
     return StatementScanner.Complete(index);
@@ -436,17 +475,25 @@ for (let index = at; index < code.length; index++) {
 if (StatementScanner.AtEOF && code.length > 0) {
   return StatementScanner.Complete(code.length - 1);
 }
-return StatementScanner.NeedMore();
+return StatementScanner.NeedMoreAt(code.length);
 ```
 
-## static method ScanToSemicolon:(code:Array<Token>, from:int, stopAtEof?:bool)=>StatementScanResult
+## static method ScanToSemicolon:(code:Array<Token>, from:int, stopAtEof?:bool, startAt?:int)=>StatementScanResult
 
 从 `from` 起找本层的 `;`（本层里括号是整单元，所以 `;` 只可能是语句分隔符）；文件末尾没有 `;` 时按 ASI 收在最后一个代码单元。
 `stopAtEof` 为真时文件末尾**不**按 ASI 收口，而是 `Mismatch`——变量语句在 EOF 交给根终结候选的
 `BuildTrailingDeclaration` 兜底（避免 statement 候选与终结候选在 EOF 同时成立）。
 
+`startAt` 是续扫点（阶段 2）：前缀只追加、每一格的结论只依赖 `code[0..at]`，所以
+`begin = max(from, startAt)` 起步与从头扫等价；`from` 仍然参与「首格不许 ASI」的守卫
+（`at > from`），判据逐字未动。
+
 ```ts
-for (let at = from; at < code.length; at++) {
+let begin = from;
+if (startAt !== undefined && startAt > from) {
+  begin = startAt;
+}
+for (let at = begin; at < code.length; at++) {
   if (StatementScanner.IsEOF(code[at])) {
     if (stopAtEof ?? false) {
       return StatementScanner.Mismatch();
@@ -483,7 +530,7 @@ if (StatementScanner.AtEOF && code.length > 0) {
   }
   return StatementScanner.Complete(code.length - 1);
 }
-return StatementScanner.NeedMore();
+return StatementScanner.NeedMoreAt(code.length);
 ```
 
 ## static method EndsExpression:(unit:Token)=>bool
@@ -708,7 +755,7 @@ if (previous < 0) {
 return StatementScanner.EndsAtLineBreak(units, previous, current);
 ```
 
-## static method ScanReturnOrThrow:(code:Array<Token>, keywordAt:int)=>StatementScanResult
+## static method ScanReturnOrThrow:(code:Array<Token>, keywordAt:int, startAt?:int)=>StatementScanResult
 
 `return` / `throw` 的受限产生式：**关键字之后换行**时语句停在关键字上（`throw\na;` = throw; a;，
 `return\nc;` = return; c;）。TS 的 `ReturnStatement` / `ThrowStatement` 用的是
@@ -731,7 +778,7 @@ if (keywordAt + 1 < code.length
   }
   return StatementScanner.Complete(keywordAt);
 }
-return StatementScanner.ScanToSemicolon(code, keywordAt + 1);
+return StatementScanner.ScanToSemicolon(code, keywordAt + 1, false, startAt);
 ```
 ## static method ScanSimpleSemicolon:(code:Array<Token>, from:int)=>StatementScanResult
 
@@ -800,7 +847,7 @@ if (StatementScanner.EndsAtLineBreak(code, from, from + 1)) {
 return StatementScanner.Mismatch();
 ```
 
-## static method ScanExpressionBody:(code:Array<Token>, at:int, stopAtWhile?:bool)=>StatementScanResult
+## static method ScanExpressionBody:(code:Array<Token>, at:int, stopAtWhile?:bool, startAt?:int)=>StatementScanResult
 
 语句体里的表达式语句也要认 **ASI 边界**：`while (a) b` ⏎ `c;` 的体在 `b` 处就被换行收住
 （TS 在 `b` 之后插 ASI，`c;` 是下一条语句）。少了这一条，体扫描会一路吃到下一条语句的 `;`，
@@ -811,8 +858,15 @@ return StatementScanner.Mismatch();
 **当前单元是 `;` 时不算 ASI**：`b` ⏎ `;` 里的 `;` 就是这条语句自己的终止符（`parseSemicolon`
 跨行照收），交给下面的 `;` 分支，不能让它变成下一条空语句。
 
+`startAt` 是续扫点（阶段 2）：`begin = max(at, startAt)` 起步，`at` 仍参与「首格不许 ASI」的守卫，
+判据逐字未动。
+
 ```ts
-for (let cursor = at; cursor < code.length; cursor++) {
+let begin = at;
+if (startAt !== undefined && startAt > at) {
+  begin = startAt;
+}
+for (let cursor = begin; cursor < code.length; cursor++) {
   // do 体（`stopAtWhile`）：换行后遇到 `while` 关键字 ⇒ 体到此为止，那一格属于 do-while 的条件头。
   // 判据复用 `EndsAtLineBreak`（前一个代码单元能收尾 + 换行 + `while` 不是表达式的续接符）。
   if ((stopAtWhile ?? false) && cursor > at
@@ -846,12 +900,17 @@ for (let cursor = at; cursor < code.length; cursor++) {
 if (StatementScanner.AtEOF && code.length > at) {
   return StatementScanner.Complete(code.length - 1);
 }
-return StatementScanner.NeedMore();
+return StatementScanner.NeedMoreAt(code.length);
 ```
 
-## static method ScanIf:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanIf:(code:Array<Token>, at:int, startAt?:int)=>StatementScanResult
 
 `else` 的歧义在这里处理：体到齐那一刻，如果**文档里**紧随的下一个词是 `else`（还没被 token 化也算），就继续等；否则收在体的末尾。这样 `if (a) {}` 在文件末尾能就地建，不会把「还差 else」拖到 EOF 哨兵上与根终结候选打架。
+
+`startAt`（阶段 2）只交给**体**那一次扫描（体是唯一会生长的段）。`else` 体是从它自己的入口新起的一次扫描：
+那时 `then` 体已经收口，没有可复用的前缀——把续扫点交给它反而会让它跳过 `then` 体的收口点。
+「体在末尾收口、还在等 `else`」的分支返回**不带续扫点**的 `NeedMore`：等待的对象是下一格
+（`NextWord` lookahead），没有在生长的前缀，重扫的代价是 O(1)。
 
 ```ts
 if (at + 1 >= code.length) {
@@ -860,7 +919,7 @@ if (at + 1 >= code.length) {
 if (!StatementScanner.IsBracket(code[at + 1], "(")) {
   return StatementScanner.Mismatch();
 }
-const body = StatementScanner.ScanBody(code, at + 2);
+const body = StatementScanner.ScanBody(code, at + 2, false, startAt);
 if (body.Status !== 1) {
   return body;
 }
@@ -881,9 +940,10 @@ if (StatementScanner.NextWord(code[body.End].SourceRange.Document, code[body.End
 return StatementScanner.Complete(body.End);
 ```
 
-## static method ScanFor:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanFor:(code:Array<Token>, at:int, startAt?:int)=>StatementScanResult
 
 `for` 头可选一个 `await`（`for await (…)`，ForOfStatement 的 AwaitKeyword），后面才是 `( … )` 括号单元。
+`startAt` 原样交给体（见 `ScanIf` 的同一约定）。
 
 ```ts
 if (at + 1 >= code.length) {
@@ -899,12 +959,12 @@ if (StatementScanner.IsKeyword(code[bracketAt], "await")) {
 if (!StatementScanner.IsBracket(code[bracketAt], "(")) {
   return StatementScanner.Mismatch();
 }
-return StatementScanner.ScanBody(code, bracketAt + 1);
+return StatementScanner.ScanBody(code, bracketAt + 1, false, startAt);
 ```
 
-## static method ScanLoop:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanLoop:(code:Array<Token>, at:int, startAt?:int)=>StatementScanResult
 
-`while` 与 `for` 同构：头部是一个 `( … )` 括号单元，后面跟体。
+`while` 与 `for` 同构：头部是一个 `( … )` 括号单元，后面跟体。`startAt` 原样交给体。
 
 ```ts
 if (at + 1 >= code.length) {
@@ -913,13 +973,13 @@ if (at + 1 >= code.length) {
 if (!StatementScanner.IsBracket(code[at + 1], "(")) {
   return StatementScanner.Mismatch();
 }
-return StatementScanner.ScanBody(code, at + 2);
+return StatementScanner.ScanBody(code, at + 2, false, startAt);
 ```
 
-## static method ScanDo:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanDo:(code:Array<Token>, at:int, startAt?:int)=>StatementScanResult
 
 ```ts
-const body = StatementScanner.ScanBody(code, at + 1, true);
+const body = StatementScanner.ScanBody(code, at + 1, true, startAt);
 if (body.Status !== 1) {
   return body;
 }
@@ -1173,9 +1233,12 @@ while (at < count) {
 return word.join("");
 ```
 
-## static method ScanTry:(code:Array<Token>, at:int)=>StatementScanResult
+## static method ScanTry:(code:Array<Token>, at:int, startAt?:int)=>StatementScanResult
 
 `try` 的可选部分（`catch` / `finally`）用同一个「文档里下一个词」判据等：块到齐时下一个词是它们就继续等，否则收尾。
+
+`startAt` 只为了与其它族的调用形状一致：`try` 体是**一个闭合的 `{…}` 括号单元**，本方法逐格判的
+只有 `at+1` / `at+2` 两格，没有会生长的前缀可复用（代价恒为 O(1)），所以这个参数不参与判据。
 
 ```ts
 if (at + 1 >= code.length) {

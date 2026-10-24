@@ -7,6 +7,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { DeclarationSpan } from "../items/module-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -96,5 +97,59 @@ if (endUnit.SourceRange.EndIndex >= 0) {
 }
 shape.Pos = pos;
 shape.TryToClose(context);
+return shape;
+```
+
+## static method BuildDirect:(host:Token, start:int, end:int, context:SyntaxContext)=>ExportAssignmentShape | null
+
+**直接建造入口**（WP-3 根级用）：`host.Data[start, end)` 恰好是一条 `export = <expr>` /
+`export default <expr>`（`end` 不含）。
+
+`export default` / `export =` 的 **ASI 口径**由 `hasSemicolon = DeclarationSpan.EndsWithSemicolon(code)` 决定：
+无分号时 `FromUnits(…, false)` 取最后一个代码单元（表达式末尾）作 `End`——`;` 不是本节点的 children，
+本就不该进区间。有分号时按原口径把 `;` 计入区间。
+
+- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- **不改 `host.Data`**；
+- 返回 `null` = 这一片不是 export-assignment（`export default class …` 这类「default + 声明」是
+  声明族，不是本形态）或不是完整声明；不抛异常。
+
+```ts
+if (start < 0 || end <= start) {
+  return null;
+}
+const code = DeclarationSpan.Slice(host, start, end);
+if (code.length < 3) {
+  return null;
+}
+const keyword = code[0];
+if (!(keyword instanceof Common) || !(keyword as Common).Is("export")) {
+  return null;
+}
+const separator = code[1];
+const isDefault = separator instanceof Common && (separator as Common).Is("default");
+const isEquals = separator instanceof Symbol && (separator as Symbol).Is("=");
+if (!isDefault && !isEquals) {
+  return null;
+}
+if (isDefault) {
+  const afterDefault = code[2];
+  if (afterDefault instanceof Common) {
+    const afterText = (afterDefault as Common).TempToString();
+    if (afterText === "class" || afterText === "function" || afterText === "interface"
+      || afterText === "enum" || afterText === "abstract" || afterText === "async") {
+      return null;
+    }
+  }
+}
+const hasSemicolon = DeclarationSpan.EndsWithSemicolon(code);
+const units:Array<Token> = [];
+for (const unit of code) {
+  units.push(unit);
+}
+const hostLike:any = { Data: units, Template: host.Template };
+const pos = DeclarationSpan.PosBefore(host, start);
+const shape = ExportAssignmentShape.FromUnits(hostLike, 0, units.length - 1, context, hasSemicolon);
+shape.Pos = pos;
 return shape;
 ```

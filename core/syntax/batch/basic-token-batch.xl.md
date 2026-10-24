@@ -59,6 +59,15 @@ import { Token } from "../token.xl.md"
 
 惰性下标表：`CodeIndex[i]` 是第 `i` 个非 trivia 单元的 `Host.Data` 下标。`Recompute` 时清空、`EnsureCode` 时建一次。
 
+## private field MetaFrom:int = -1
+
+元信息已覆盖的批首；`-1` 表示还没算过。批首一动（`AdvanceBatch` / splice 后的 `ApplyBuilds`）就退回整算。
+
+## private field MetaTo:int = -1
+
+元信息已覆盖到的批尾（半开）。批只**向后长**，所以「批首没动」时 `Recompute` 只需把 `[MetaTo, To)` 这一段折进元信息：
+原本每个 token 关闭都重扫整批（O(批长) + 一次整批 `GetRaw`），现在摊到每 token 是 O(1)。
+
 ## method Count:()=>int
 
 批内单元数（含 trivia）。
@@ -143,17 +152,40 @@ this.Recompute();
 
 重算 `FirstStart / LastEnd / HasCode / HasLineBreak` 与惰性下标表。`To` 变化后调用。
 
+**增量**：`From` 没变、且已算到的 `MetaTo` 落在 `[From, To]` 内时只补算 `[MetaTo, To)`——批只向后长，
+新增单元的元信息可以直接折进旧值（`FirstStart` 只可能第一次被赋值，`LastEnd` 单调右移）。
+批首变了（`AdvanceBatch` 保留尾巴、`ApplyBuilds` splice 后重定位）就整算，那是 O(1) 次的事，不在热路径上。
+
+换行判据同样只读**新增的一段** `[上一个代码单元末尾, 本单元末尾)`：这些区间的并集正是整段
+`[FirstStart, LastEnd)`，结论与「整段查一次」逐字相同，但每 token 只 `GetRaw` 一个单元而不是整批。
+
 ```ts
-this.CodeIndex = [];
-this.FirstStart = -1;
-this.LastEnd = -1;
-this.HasCode = false;
-this.HasLineBreak = false;
 const host = this.Host;
 if (host === null) {
+  this.CodeIndex = [];
+  this.FirstStart = -1;
+  this.LastEnd = -1;
+  this.HasCode = false;
+  this.HasLineBreak = false;
+  this.MetaFrom = -1;
+  this.MetaTo = -1;
   return;
 }
-for (let i = this.From; i < this.To; i++) {
+let at = this.From;
+const incremental = this.MetaFrom === this.From && this.MetaTo >= this.From && this.MetaTo <= this.To;
+if (incremental) {
+  at = this.MetaTo;
+} else {
+  this.CodeIndex = [];
+  this.FirstStart = -1;
+  this.LastEnd = -1;
+  this.HasCode = false;
+  this.HasLineBreak = false;
+  this.MetaFrom = this.From;
+  this.MetaTo = this.From;
+}
+const document = this.GetDocument();
+for (let i = at; i < this.To; i++) {
   const unit = host.Data[i];
   if (unit === undefined) {
     continue;
@@ -162,15 +194,24 @@ for (let i = this.From; i < this.To; i++) {
     continue;
   }
   this.HasCode = true;
+  const start = unit.SourceRange.Start;
+  const end = unit.SourceRange.End;
   if (this.FirstStart < 0) {
-    this.FirstStart = unit.SourceRange.Start;
+    this.FirstStart = start;
   }
-  this.LastEnd = unit.SourceRange.End;
+  if (this.CodeIndex.length > 0) {
+    this.CodeIndex.push(i);
+  }
+  const from = this.LastEnd >= 0 && this.LastEnd < end ? this.LastEnd : start;
+  this.LastEnd = end;
+  if (!this.HasLineBreak && document !== null && end > from) {
+    if (document.GetRaw(from, end).indexOf("\n") >= 0) {
+      this.HasLineBreak = true;
+    }
+  }
 }
-const document = this.GetDocument();
-if (document !== null && this.FirstStart >= 0 && this.LastEnd > this.FirstStart) {
-  this.HasLineBreak = document.GetRaw(this.FirstStart, this.LastEnd).indexOf("\n") >= 0;
-}
+this.MetaFrom = this.From;
+this.MetaTo = this.To;
 ```
 
 ## private method EnsureCode:()=>void

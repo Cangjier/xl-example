@@ -3,6 +3,7 @@
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { SourceFileShape } from "../tokens/files/source-file-shape.xl.md"
+import { StatementBlockStream } from "./statement-block-stream.xl.md"
 import { TextDocument } from "./text-document.xl.md"
 import { TypescriptTemplate } from "./typescript-template.xl.md"
 ```
@@ -36,10 +37,17 @@ import { TypescriptTemplate } from "./typescript-template.xl.md"
 `docs/opt-basic-token-gc-analysis.md`。这里显式传参而不改 core 默认值，是为了把「性能口径」留在运行层，
 core 的 `SyntaxContext` 默认值仍是 32（其它语言的装配可以自选）。
 
+**语句块的流式挂载点在这里装配**：`new SyntaxContext` 之后立刻把 `StatementBlockStream.Hook` 装到
+`BracketHook` 上，`Process` 之前完成。装配的是「判定 + 挂载」，不是引擎：
+钩子在 `Bracket.Transit` 建出 `{` 时判定它是不是语句块，是就给该括号设 `BatchAdapter`（动作与 WP-1 枚举体一致），
+块内 item 由解析期自己的 `OnBasicTokenClosed` 就地建出（见 `statement-block-stream.xl.md`）。
+判定不认的 `{`（对象 / 类型字面量、class / enum / interface / module 体）一个都不挂，行为回到基线。
+
 ```ts
 const template = TypescriptTemplate.Create();
 const root = new SourceFileShape(template);
 const context = new SyntaxContext(root, 128);
+context.BracketHook = StatementBlockStream.Hook;
 context.Process(new TextDocument(text, filePath));
 return root;
 ```

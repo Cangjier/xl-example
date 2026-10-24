@@ -13,6 +13,7 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { QualifiedNameShape } from "../types/qualified-name-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { ExternalModuleReferenceShape } from "./external-module-reference-shape.xl.md"
+import { DeclarationSpan } from "../items/module-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -209,5 +210,61 @@ if (last.SourceRange.EndIndex >= 0) {
 }
 shape.Pos = pos;
 shape.TryToClose(context);
+return shape;
+```
+
+## static method BuildDirect:(host:Token, start:int, end:int, context:SyntaxContext)=>ImportEqualsDeclarationShape | null
+
+**直接建造入口**（WP-3 根级用）：`host.Data[start, end)` 恰好是一条 import-equals 声明
+（`import x = require("m")` / `import x = A.B.C` / `export import x = …`；`end` 不含）。
+
+`;` 口径：**可有可无**。`FromUnits` 的区间终点就是「最后一个单元」，带 `;` 时它落在 `;` 上、
+无分号（ASI）时落在引用末单元上——两种口径的 `End` 都由同一个 `last` 签出，所以这里**不需要合成 `;`**；
+有 `;` 但被 ASI 提前收口时，调用方给的 `end` 已经把它排除在外。
+
+- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- **不改 `host.Data`**；
+- 返回 `null` = 这一片不是 import-equals（例如 `import { … } from` 形态交给
+  `ImportDeclarationShape.BuildDirect`）或不是完整声明；不抛异常。
+
+```ts
+if (start < 0 || end <= start) {
+  return null;
+}
+const code = DeclarationSpan.Slice(host, start, end);
+if (code.length < 4) {
+  return null;
+}
+const headText = code[0] instanceof Common ? (code[0] as Common).TempToString() : "";
+const keywordIndex = headText === "export" ? 1 : 0;
+if (keywordIndex >= code.length) {
+  return null;
+}
+const keyword = code[keywordIndex];
+if (!(keyword instanceof Common) || !(keyword as Common).Is("import")) {
+  return null;
+}
+let hasEquals = false;
+for (let at = keywordIndex + 1; at < code.length; at++) {
+  const unit = code[at];
+  if (unit instanceof Symbol && (unit as Symbol).Is("=")) {
+    hasEquals = true;
+    break;
+  }
+  if (unit instanceof Common && (unit as Common).Is("from")) {
+    break;
+  }
+}
+if (!hasEquals) {
+  return null;
+}
+const units:Array<Token> = [];
+for (const unit of code) {
+  units.push(unit);
+}
+const hostLike:any = { Data: units, Template: host.Template };
+const pos = DeclarationSpan.PosBefore(host, start);
+const shape = ImportEqualsDeclarationShape.FromUnits(hostLike, 0, units.length - 1, context);
+shape.Pos = pos;
 return shape;
 ```

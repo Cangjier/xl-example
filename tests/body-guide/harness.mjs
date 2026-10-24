@@ -47,15 +47,10 @@ const BODY_TARGETS = {
   interface: {
     shapeName: "InterfaceDeclarationShape",
     modulePath: "typescript/tokens/declarations/interface-declaration-shape.js",
-    cacheField: "CreateBodyPossibleShapesCache",
+    // WP-4: interface body now mounts ItemListEngine(InterfaceItemRule); prune point is the rules cache.
+    cacheField: "CreateBodyItemRulesCache",
     candidates: {
-      PropertySignaturePossibleShape: "typescript/tokens/types/property-signature-possible-shape.js",
-      MethodSignaturePossibleShape: "typescript/tokens/types/method-signature-possible-shape.js",
-      IndexSignaturePossibleShape: "typescript/tokens/types/index-signature-possible-shape.js",
-      CallSignaturePossibleShape: "typescript/tokens/types/call-signature-possible-shape.js",
-      ConstructSignaturePossibleShape: "typescript/tokens/types/construct-signature-possible-shape.js",
-      GetAccessorPossibleShape: "typescript/tokens/types/get-accessor-possible-shape.js",
-      SetAccessorPossibleShape: "typescript/tokens/types/set-accessor-possible-shape.js",
+      InterfaceItemRule: "typescript/tokens/items/interface-item-rule.js",
     },
     // 用例分组随 target 走：interface 复用 member-possible 的同一套用例。
     cases: () => DEFAULT_CASES,
@@ -77,24 +72,15 @@ const BODY_TARGETS = {
     memberStart: () => ENUM_MEMBER_START_CASES,
     recovery: () => ENUM_RECOVERY_CASES,
   },
-  // T6b：类体成员候选（属性 / 方法 / 兜底）。兜底候选永远留在目录里（pinned），
-  // 否则 `--only=` 裁剪后遇到构造 / 访问器 / static 块会让 CatalogGuide 0 候选抛错。
+  // WP-5：class 体成员判定由 item 表引擎（ItemListEngine(ClassItemRule)）驱动，
+  // 裁剪点从 possible 目录缓存换成规则表缓存；`--all` 时不加载候选模块，正常路径每类体一份规则。
   class: {
     shapeName: "ClassDeclarationShape",
     modulePath: "typescript/tokens/declarations/class-declaration-shape.js",
-    cacheField: "CreateBodyPossibleShapesCache",
+    cacheField: "CreateBodyItemRulesCache",
     candidates: {
-      PropertyDeclarationPossibleShape: "typescript/tokens/types/property-declaration-possible-shape.js",
-      MethodDeclarationPossibleShape: "typescript/tokens/types/method-declaration-possible-shape.js",
-      ConstructorPossibleShape: "typescript/tokens/types/constructor-possible-shape.js",
-      GetAccessorPossibleShape: "typescript/tokens/types/class-get-accessor-possible-shape.js",
-      SetAccessorPossibleShape: "typescript/tokens/types/class-set-accessor-possible-shape.js",
-      ClassStaticBlockDeclarationPossibleShape: "typescript/tokens/types/class-static-block-declaration-possible-shape.js",
-      IndexSignaturePossibleShape: "typescript/tokens/types/class-index-signature-possible-shape.js",
-      SemicolonClassElementPossibleShape: "typescript/tokens/expressions/semicolon-class-element-possible-shape.js",
-      ClassMemberCatchAllPossibleShape: "typescript/tokens/types/class-member-catch-all-possible-shape.js",
+      ClassItemRule: "typescript/tokens/items/class-item-rule.js",
     },
-    pinned: ["ClassMemberCatchAllPossibleShape"],
     cases: () => CLASS_CASES,
     genericBoundary: () => CLASS_GENERIC_BOUNDARY_CASES,
     memberStart: () => CLASS_MEMBER_START_CASES,
