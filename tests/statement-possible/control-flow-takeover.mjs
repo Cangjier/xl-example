@@ -50,6 +50,21 @@ const cases = [
   { source: "{ if (a) b; else c; d; }", cf: 1, body: 2 },
   { source: "{ ; }", cf: 0, body: 0 },
   { source: "{ while (a) { b; } let x = 1; }", cf: 1, body: 2 },
+  // Stage 4c-2：空语句**未接管**（`EnableControlFlowEmpty` 默认 false；打开过，实测丢节点后回退）
+  { source: ";", cf: 0 },
+  { source: ";;", cf: 0 },
+  { source: "a;\n;\nb;", cf: 0 },
+  { source: ";\n;", cf: 0 },
+  { source: "{ ; ; }", cf: 0, body: 0 },
+  { source: "if (a) {}\n;\nwhile (b) {}\n;", cf: 2 },
+  // Stage 4c-2：标签语句由标签壳接管（`EnableControlFlowLabel` 默认 true，`label` = LabelShellCount 增量）
+  { source: "en: a;", cf: 0, label: 1 },
+  { source: "lab: { f(); }", cf: 0, label: 1 },
+  { source: "en:\n{ f() }", cf: 0, label: 1 },
+  { source: "outer: while (a) { break outer; }", cf: 0, label: 1 },
+  { source: "l1: f();\nl2: g();", cf: 0, label: 2 },
+  { source: "en: ;", cf: 0, label: 1 },
+  { source: "a ? b : c;", cf: 0, label: 0 },
 ];
 
 function describeError(error) {
@@ -116,6 +131,7 @@ for (const item of cases) {
   R.EnableShellExpressions = true;
   const before = {
     cf: R.ControlFlowShellCount,
+    label: R.LabelShellCount,
     body: R.BlockBodyStatementCount,
     fallback: R.FileFallbackCount,
   };
@@ -126,6 +142,7 @@ for (const item of cases) {
     problems.push(`接管档抛错：${describeError(error)}`);
   }
   const cfDelta = R.ControlFlowShellCount - before.cf;
+  const labelDelta = R.LabelShellCount - before.label;
   const bodyDelta = R.BlockBodyStatementCount - before.body;
   const fallback = R.LastFileFallback === true || R.FileFallbackCount !== before.fallback;
 
@@ -147,6 +164,9 @@ for (const item of cases) {
   }
   if (fallback) problems.push("触发了文件级 fallback（接管档不应需要兜底）");
   if (cfDelta !== item.cf) problems.push(`ControlFlowShellCount 增量=${cfDelta} 期望=${item.cf}`);
+  if (item.label !== undefined && labelDelta !== item.label) {
+    problems.push(`LabelShellCount 增量=${labelDelta} 期望=${item.label}`);
+  }
   if (item.body !== undefined && bodyDelta !== item.body) {
     problems.push(`BlockBodyStatementCount 增量=${bodyDelta} 期望=${item.body}`);
   }
@@ -157,7 +177,7 @@ for (const item of cases) {
     console.log(`FAIL ${shown}`);
     for (const problem of problems) console.log(`   ! ${problem}`);
   } else {
-    console.log(`PASS ${shown}  cf=${cfDelta} body=${bodyDelta}`);
+    console.log(`PASS ${shown}  cf=${cfDelta} body=${bodyDelta} label=${labelDelta}`);
   }
 }
 

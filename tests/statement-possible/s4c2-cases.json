@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "description": "Stage 4c-2 dedicated cases: empty statements (`;`) and labeled statements claimed by the generic statement shell, plus the constructs that stay on the legacy path (declaration family / import-export / nested block / function-method body). Each case asserts: (1) shell-path XML == legacy-path XML byte for byte (the harness parses the same source again with StatementRouteUtil.EnableShellExpressions=false); (2) AST node-for-node == ts.createSourceFile; (3) two parses of the same source give identical XML; (4) no StatementShape shell leaks into the shape tree. Takeover counters (ControlFlowShellCount / LabelShellCount / BlockBodyStatementCount) and the no-file-fallback expectation are asserted by tests/statement-possible/control-flow-takeover.mjs; readings are recorded in HANDOFF-s4c2.md.",
+  "groups": {
+    "stage4c2": {
+      "stage": "Stage 4c-2 (empty statements + labeled statements shelled; coverage boundaries re-measured)",
+      "description": "Empty statement (`;`, `;;`, after a block-bodied statement, inside a block body, after an if/while pair) and labeled statements (`en: a;`, `lab: { f(); }`, `outer: while ...`, label on a newline before a block, two labels, label + for, ternary look-alike `a ? b : c`). The last block of cases are the boundaries that stay legacy: declaration family, import/export, nested block, function body, method body — they are here to prove the shell route does not swallow them and that XML/AST stay identical, not to claim takeover.",
+      "cases": [
+        { "name": "s4c2-empty", "source": ";" },
+        { "name": "s4c2-empty-double", "source": ";;" },
+        { "name": "s4c2-empty-table", "source": ";\n;\n;" },
+        { "name": "s4c2-empty-after", "source": "a;\n;\nb;" },
+        { "name": "s4c2-empty-block", "source": "{ ; }" },
+        { "name": "s4c2-empty-block-two", "source": "{ ; ; }" },
+        { "name": "s4c2-empty-in-body", "source": "{ a; ; b; }" },
+        { "name": "s4c2-empty-after-block", "source": "if (a) {}\n;\nwhile (b) {}\n;" },
+        { "name": "s4c2-empty-comment", "source": "/*c*/ ;" },
+        { "name": "s4c2-empty-lead-semi", "source": ";\nif (a) b;" },
+        { "name": "s4c2-label", "source": "en: a;" },
+        { "name": "s4c2-label-block", "source": "lab: { f(); }" },
+        { "name": "s4c2-label-newline-block", "source": "en:\n{ f() }" },
+        { "name": "s4c2-label-loop", "source": "outer: while (a) { break outer; }" },
+        { "name": "s4c2-label-for", "source": "outer: for (;;) break outer;" },
+        { "name": "s4c2-label-two", "source": "l1: f();\nl2: g();" },
+        { "name": "s4c2-label-nested", "source": "a: b: c;" },
+        { "name": "s4c2-label-empty-body", "source": "en: ;" },
+        { "name": "s4c2-label-continue", "source": "outer: while (a) { continue outer; }" },
+        { "name": "s4c2-label-comment", "source": "en: /*c*/ a;" },
+        { "name": "s4c2-ternary-lookalike", "source": "a ? b : c;" },
+        { "name": "s4c2-assign-lookalike", "source": "a = 1;" },
+        { "name": "s4c2-call-lookalike", "source": "a(b);" },
+        { "name": "s4c2-fallback-decl-function", "source": "function f() { let x = 1; if (x) f(); }" },
+        { "name": "s4c2-fallback-decl-class", "source": "class C { m() { b; } }" },
+        { "name": "s4c2-fallback-decl-interface", "source": "interface I { a: number; }" },
+        { "name": "s4c2-fallback-decl-enum", "source": "enum E { A, B }" },
+        { "name": "s4c2-fallback-import", "source": "import { a } from \"m\";\nenum E { A }" },
+        { "name": "s4c2-fallback-export", "source": "export const a = 1;\nexport function f() { return 1; }" },
+        { "name": "s4c2-fallback-nested-block", "source": "{ { a; } }" },
+        { "name": "s4c2-fallback-nested-block-let", "source": "{ { let x = 1; } }" },
+        { "name": "s4c2-fallback-object-body", "source": "const o = { m() { a; } };" },
+        { "name": "s4c2-label-then-decl", "source": "en: a;\nfunction f() {}" }
+      ]
+    }
+  }
+}
