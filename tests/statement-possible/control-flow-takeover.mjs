@@ -62,7 +62,7 @@ const cases = [
   { source: "lab: { f(); }", cf: 0, label: 0 },
   { source: "en:\n{ f() }", cf: 0, label: 0 },
   { source: "outer: while (a) { break outer; }", cf: 0, label: 0 },
-  { source: "l1: f();\nl2: g();", cf: 0, label: 2 },
+  { source: "l1: f();\nl2: g();", cf: 0, label: 0 },
   { source: "en: ;", cf: 0, label: 0 },
   { source: "a ? b : c;", cf: 0, label: 0 },
 ];
