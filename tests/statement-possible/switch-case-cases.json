@@ -33,6 +33,33 @@
         { "name": "s4p-trap-label-body", "source": "en: { a; }" },
         { "name": "s4p-trap-class-method", "source": "class C { m(){ let y = 1; } }" }
       ]
+    },
+    "stage4s": {
+      "stage": "Stage 4s (switch case bodies and block-scoped function bodies taken over; supersedes 4p (B))",
+      "description": "Root cause fixed: both mounts attached the block-body catalog to the HOST bracket instead of the body brace. Case bodies mount on the case body brace itself, so clause expressions (case a+1: / case foo(): / case a?b:c:) still go through BuildCaseBlock.BuildExpressionRange, and case-body statements are collected by BuildBlock. Block-scoped function bodies mount on the function body brace, so BuildFunctionDeclaration -> BuildBlock -> HasBuiltBodyStatements/CollectBodyStatements collects them. Every case asserts XML==legacy, AST==ts, determinism, no shape leak, and no file-level fallback.",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4s-case-expr-arith", "source": "switch (x) { case a + 1: { g(); } }" },
+        { "name": "s4s-case-expr-call", "source": "switch (x) { case foo(): { g(); } }" },
+        { "name": "s4s-case-expr-ternary", "source": "switch (x) { case a ? b : c: { g(); } }" },
+        { "name": "s4s-case-expr-member", "source": "switch (x) { case o.k: { g(); } }" },
+        { "name": "s4s-case-block-let", "source": "switch (x) { case 1: { let a = 1; } default: }" },
+        { "name": "s4s-case-block-ctrl", "source": "switch (x) { case 1: { if (a) { b; } else { c; } } }" },
+        { "name": "s4s-case-block-loop", "source": "switch (x) { case 1: { for (;;) { b; } } }" },
+        { "name": "s4s-case-mixed", "source": "switch (x) { case 1: f(); case 2: { g(); } break; }" },
+        { "name": "s4s-case-nested", "source": "switch (a) { case 1: { switch (b) { case 2: { c; } } } }" },
+        { "name": "s4s-case-try", "source": "switch (x) { case 1: { try { a; } catch (e) { b; } } }" },
+        { "name": "s4s-fn-block", "source": "{ function f(){ let x = 1; } f(); }" },
+        { "name": "s4s-fn-block-two", "source": "{ function g(){ a; b; } }" },
+        { "name": "s4s-fn-block-return", "source": "{ function h(): number { return 1; } }" },
+        { "name": "s4s-fn-block-generic", "source": "{ function f<T>(a: T){ let x = a; } }" },
+        { "name": "s4s-fn-block-nested-if", "source": "{ function f(){ if (a) { b; } } }" },
+        { "name": "s4s-fn-block-in-case", "source": "switch (x) { case 1: { function f(){ a; } } }" },
+        { "name": "s4s-trap-obj-method-body", "source": "const o = { m(){ let y = 2; } };" },
+        { "name": "s4s-trap-arrow-body", "source": "const f = x => { let z = 1; };" },
+        { "name": "s4s-trap-class-method", "source": "class C { m(){ let y = 1; } }" },
+        { "name": "s4s-trap-switch-no-body", "source": "switch (x) { case 1: f(); default: g(); }" }
+      ]
     }
   }
 }
