@@ -550,10 +550,23 @@ function braceBody(text, openIndex) {
 
 const relativeOf = (file) => path.relative(buildRoot, file).split(path.sep).join("/");
 
-const ASI_IMPL_ALLOWED = new Set([
-  "typescript/tokens/statements/expression-statement-possible-shape.js",
+/**
+ * T1a 合并后的 ASI 实现点白名单。
+ * 基线校准为 2 点：expression-statement + type-alias-declaration。
+ * T1a 之后判据本体收敛到 StatementBoundaryUtil，expression-statement 只剩单行委托，
+ * 不再算实现点；type-alias-declaration 保留类型层自己的实现（设计 §2.2 允许），
+ * 因此合并后的实现点 = statement-boundary-util + type-alias-declaration。
+ */
+const ASI_IMPL_UTIL = "typescript/tokens/statements/statement-boundary-util.js";
+
+/** 允许与 StatementBoundaryUtil 并存的类型层实现点（仅此项，语句层不得再有第二份）。 */
+const ASI_IMPL_TYPE_LAYER = new Set([
   "typescript/tokens/declarations/type-alias-declaration-possible-shape.js",
-  "typescript/tokens/statements/statement-boundary-util.js",
+]);
+
+const ASI_IMPL_ALLOWED = new Set([
+  ASI_IMPL_UTIL,
+  ...ASI_IMPL_TYPE_LAYER,
 ]);
 
 /** 设计 §4.3：除 operator-table.* 外不允许出现优先级数字表。基线的已知噪声单独列明。 */
@@ -613,10 +626,10 @@ function runLint(verbose) {
   for (const impl of impls) {
     if (!ASI_IMPL_ALLOWED.has(impl.file)) problems.push(`IsAsiBoundary 出现第二份实现：${impl.file}:${impl.line}（设计 R1）`);
   }
-  const utilImpl = impls.some((impl) => impl.file.endsWith("statement-boundary-util.js"));
+  const utilImpl = impls.some((impl) => impl.file === ASI_IMPL_UTIL);
   if (utilImpl) {
     for (const impl of impls) {
-      if (impl.file !== "typescript/tokens/statements/statement-boundary-util.js") {
+      if (impl.file !== ASI_IMPL_UTIL && !ASI_IMPL_TYPE_LAYER.has(impl.file)) {
         problems.push(`StatementBoundaryUtil 已存在但 ${impl.file}:${impl.line} 仍是函数体，应改为单行委托`);
       }
     }
