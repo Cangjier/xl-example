@@ -8,6 +8,8 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
 import { CallExpressionShape } from "../expressions/call-expression-shape.xl.md"
+import { ConditionalExpressionShape } from "../expressions/conditional-expression-shape.xl.md"
+import { PostfixUnaryExpressionShape } from "../expressions/postfix-unary-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "../expressions/element-access-expression-shape.xl.md"
 import { PropertyAccessExpressionShape } from "../expressions/property-access-expression-shape.xl.md"
 import { DeleteExpressionShape } from "../expressions/delete-expression-shape.xl.md"
@@ -53,6 +55,12 @@ legacy 逐字段一致是**结构性**的，而不是靠对拍凑出来的。
 可选链三种形态（`?.` 的 `QuestionDotTokenShape` 用 `MakeOperatorToken` 建，与 `ParsePostfixSuffix` 同口径）、
 带内插模板（`KindTemplate` 统一走 `ParseTemplateToken`：无内插时它返回 `NoSubstitutionTemplateLiteralShape`，
 有内插时返回 `TemplateExpressionShape`，两者由同一段 legacy 代码决定 `Pos` 与区间）。
+
+**S3h 追加覆盖**：赋值 / 复合赋值（形状层是 `KindOperator`，这里复用二元分支——legacy `ParseAssign` 也用
+`BinaryExpressionShape`，运算符 token 由 `MakeOperatorToken` 建 `FirstAssignmentShape` /
+`FirstCompoundAssignmentShape`，所以无需新分支）、条件表达式（`KindConditional` → `ConditionalExpressionShape`，
+`?` 与 `:` 都用 `MakeOperatorToken` 投影）、后缀自增自减（`KindPostfix` → `PostfixUnaryExpressionShape`，
+运算符只进区间不进 children）。三者都**只**在整段覆盖（`Covers`）成立时才接管。
 
 **覆盖判据**：形状树覆盖的单元下标必须**恰好**是 `0..Units.length-1`（递增、无空洞、无多余）。这条比
 `IsComplete()` 更强——它证明「整段表达式都被这棵树解释掉了」，任何一格没被解释就回 legacy。
@@ -626,6 +634,70 @@ if (shape.Kind === StatementOperandShape.KindOptionalIndex) {
   access.Add(builder.MakeOperatorToken(dotRaw, dotIndex));
   access.Add(value);
   return builder.SpanNode(access, firstIndex, bracketIndex);
+}
+if (shape.Kind === StatementOperandShape.KindConditional) {
+  if (shape.Data.length !== 3) {
+    return StatementShapeAst.Decline("条件表达式不是三个子节点");
+  }
+  const questionRaw = shape.Raw;
+  const colonRaw = shape.Colon;
+  if (questionRaw === null || colonRaw === null) {
+    return StatementShapeAst.Decline("条件表达式缺少 ? 或 : 单元");
+  }
+  const at = covered.length;
+  const condition = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (condition === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const questionIndex = builder.Units.indexOf(questionRaw);
+  if (questionIndex < 0) {
+    return StatementShapeAst.Decline("? 单元不在表达式里");
+  }
+  covered.push(questionIndex);
+  const whenTrue = StatementShapeAst.BuildNode(shape.Data[1], builder, context, covered);
+  if (whenTrue === null) {
+    return null;
+  }
+  const colonIndex = builder.Units.indexOf(colonRaw);
+  if (colonIndex < 0) {
+    return StatementShapeAst.Decline(": 单元不在表达式里");
+  }
+  covered.push(colonIndex);
+  const whenFalse = StatementShapeAst.BuildNode(shape.Data[2], builder, context, covered);
+  if (whenFalse === null) {
+    return null;
+  }
+  const conditional = new ConditionalExpressionShape(builder.Template);
+  conditional.Add(condition);
+  conditional.Add(builder.MakeOperatorToken(questionRaw, questionIndex));
+  conditional.Add(whenTrue);
+  conditional.Add(builder.MakeOperatorToken(colonRaw, colonIndex));
+  conditional.Add(whenFalse);
+  return builder.SpanNode(conditional, firstIndex, covered[covered.length - 1]);
+}
+if (shape.Kind === StatementOperandShape.KindPostfix) {
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("后缀节点不是单操作数");
+  }
+  const raw = shape.Raw;
+  if (raw === null) {
+    return StatementShapeAst.Decline("后缀节点没有运算符单元");
+  }
+  const at = covered.length;
+  const operand = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (operand === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const opIndex = builder.Units.indexOf(raw);
+  if (opIndex < 0) {
+    return StatementShapeAst.Decline("后缀运算符单元不在表达式里");
+  }
+  covered.push(opIndex);
+  const postfix = new PostfixUnaryExpressionShape(builder.Template);
+  postfix.Add(operand);
+  return builder.SpanNode(postfix, firstIndex, opIndex);
 }
 return StatementShapeAst.Decline("未覆盖的形状类型");
 ```
