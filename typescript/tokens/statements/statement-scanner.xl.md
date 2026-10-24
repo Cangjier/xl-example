@@ -210,6 +210,14 @@ if (first instanceof Symbol) {
   if ((first as Symbol).Is(";")) {
     return StatementScanner.Complete(0);
   }
+  // 根级「装饰器 + 变量声明」（`@dec\nconst x = 1;`）：`@` 不在下面任何关键字判据里，
+  // 原先在这里直接 Mismatch；`const` 一格的候选也只剩 class/interface 这些装饰器声明头，
+  // 全灭后根就在 `const` 上收口 → `VariableStatement[@dec const]`（空声明列表）+ `x = 1;`
+  // 两条（F 类 #146–#150）。装饰器前缀允许跨行，所以整条按变量语句扫到 `;` 为止；
+  // 建树仍交给 `StatementBuilder.BuildDecoratedStatement`（块内同一形状已经走通）。
+  if ((first as Symbol).Is("@")) {
+    return StatementScanner.ScanDecoratedVariableRoot(code, startAt);
+  }
   return StatementScanner.Mismatch();
 }
 if (first instanceof Common) {
@@ -1136,6 +1144,89 @@ if (!StatementScanner.IsDeclarationKeyword(keyword)) {
   return -1;
 }
 return index;
+```
+
+## static method ScanDecoratedVariableRoot:(code:Array<Token>, startAt?:int)=>StatementScanResult
+
+根级 `@` 开头的段：装饰器前缀（可跨行、可多个）+ 修饰词 + **变量关键字**时按变量语句扫到 `;`；
+声明词是 class / interface / … 时 `Mismatch`（那些声明头归各自的候选，本候选不抢）。
+装饰器前缀还没读全（`@` 单独一格、`@dec` 之后还没到声明词）时 `NeedMore`——候选必须活着等下一格，
+否则根会在 `const` 上收口（F 类 #146–#150）；EOF 上等不到就 `Mismatch`，把位置让给根终结候选
+（`BuildTrailingDeclaration` 自己有一条装饰器变量分支）。
+
+```ts
+let index = 0;
+while (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is("@")) {
+  index++;
+  if (index >= code.length) {
+    break;
+  }
+  const target = code[index];
+  if (target instanceof Bracket && (target as Bracket).StartBracketChar === "(") {
+    index++;
+  } else if (target instanceof Common) {
+    index++;
+    // 限定名 `@ns.dec`：`.` 与它后面的标识符都还没到齐时不能判 Mismatch（下一格才到），
+    // 否则候选会在 `.` 上死掉，根就在 `const` 上把整条装饰器变量语句切开（#149 `@a @b.c`）。
+    while (index < code.length && code[index] instanceof Symbol && (code[index] as Symbol).Is(".")) {
+      if (index + 1 >= code.length) {
+        if (StatementScanner.AtEOF) {
+          return StatementScanner.Mismatch();
+        }
+        return StatementScanner.NeedMore();
+      }
+      if (!(code[index + 1] instanceof Common)) {
+        return StatementScanner.Mismatch();
+      }
+      index += 2;
+    }
+  } else {
+    return StatementScanner.Mismatch();
+  }
+  if (index < code.length && code[index] instanceof Bracket
+    && (code[index] as Bracket).StartBracketChar === "(") {
+    index++;
+  }
+}
+if (index >= code.length) {
+  if (StatementScanner.AtEOF) {
+    return StatementScanner.Mismatch();
+  }
+  return StatementScanner.NeedMore();
+}
+while (index < code.length && code[index] instanceof Common) {
+  const text = (code[index] as Common).TempToString();
+  if (text === "export" || text === "default" || text === "declare" || text === "abstract"
+    || text === "async") {
+    index++;
+    continue;
+  }
+  break;
+}
+if (index >= code.length) {
+  if (StatementScanner.AtEOF) {
+    return StatementScanner.Mismatch();
+  }
+  return StatementScanner.NeedMore();
+}
+if (!(code[index] instanceof Common)) {
+  return StatementScanner.Mismatch();
+}
+const keyword = (code[index] as Common).TempToString();
+if (keyword !== "const" && keyword !== "let" && keyword !== "var") {
+  return StatementScanner.Mismatch();
+}
+if (keyword === "const"
+  && StatementScanner.NextWord(code[index].SourceRange.Document, code[index].SourceRange.EndIndex) === "enum") {
+  return StatementScanner.Mismatch();
+}
+if (index + 1 >= code.length) {
+  if (StatementScanner.AtEOF) {
+    return StatementScanner.Mismatch();
+  }
+  return StatementScanner.NeedMore();
+}
+return StatementScanner.ScanToSemicolon(code, index + 1, true, startAt);
 ```
 
 ## static method NextChar:(document:Document | null, last:int)=>string

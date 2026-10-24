@@ -1192,15 +1192,18 @@ for (let at = first; at < this.Units.length; at++) {
   if (unit.IsTriviaToken) {
     continue;
   }
+  // `;` 先判：TS 的声明的 `parseSemicolon` **不看换行**（`type T = A // c` ⏎ `;` 仍是
+  // `TypeAliasDeclaration[0,21]`），所以收口点不能让上面的 ASI 判据先把它切出去——否则那个 `;`
+  // 会变成下一条 `EmptyStatement`（end-build #33/#37）。
+  if (this.IsSymbol(unit, ";")) {
+    end = at;
+    break;
+  }
   if (at > first && seenEqual && lastCode >= first
     && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(this.Units, lastCode, at)
     && TypeAliasDeclarationPossibleShape.CanEndTypeAt(this.Units[lastCode])
     && TypeAliasDeclarationPossibleShape.IsAsiBoundary(this.Units, lastCode, at)) {
     end = lastCode;
-    break;
-  }
-  if (this.IsSymbol(unit, ";")) {
-    end = at;
     break;
   }
   if (this.IsSymbol(unit, "=")) {
@@ -1301,16 +1304,23 @@ return this.Finish(shape, first, first);
 const first = this.At;
 let last = -1;
 let asiEnd = -1;
-// yield 是受限产生式：`yield` 与操作数之间出现行终止符 ⇒ 本条语句在 `yield` 处收口
-// （`function* g(){ yield⏎(x) }` = `yield;` + `(x);`；块注释里的换行也算）。
+// yield 是受限产生式：只在 **generator 上下文**里 `yield` 才是关键字。TS 的 `isYieldExpression`
+// 判据先看上下文——脚本顶层 / 普通函数里 `yield` 是普通标识符，`yield⏎(1)` 是调用 `yield(1)`
+// （#169/#171/#179），语句层不能按 ASI 在这里切断。上下文判定复用
+// `ExpressionBuilder.EnclosingFunctionFlags`（词法、被函数边界重置），不另写一套判据。
 if (this.IsText(this.Units[first], "yield")) {
-  let afterYield = first + 1;
-  while (afterYield < this.Units.length && this.Units[afterYield].IsTriviaToken) {
-    afterYield++;
-  }
-  if (afterYield < this.Units.length
-    && ExpressionStatementPossibleShape.HasLineBreakBefore(this.Units, afterYield)) {
-    asiEnd = first;
+  const yieldContext = new ExpressionBuilder(this.Template, this.Context);
+  yieldContext.Load(this.Units, 0);
+  const yieldFlags = yieldContext.EnclosingFunctionFlags(first);
+  if (yieldFlags === 1 || yieldFlags === 3) {
+    let afterYield = first + 1;
+    while (afterYield < this.Units.length && this.Units[afterYield].IsTriviaToken) {
+      afterYield++;
+    }
+    if (afterYield < this.Units.length
+      && ExpressionStatementPossibleShape.HasLineBreakBefore(this.Units, afterYield)) {
+      asiEnd = first;
+    }
   }
 }
 if (asiEnd < 0) {
@@ -1324,8 +1334,15 @@ if (asiEnd < 0) {
     // `x++` ⏎ `++y` 这类前缀运算）取并集：两边各自覆盖对方没有的形态。
     // 块体里的 units 还没有建形状，`limit` 必须传段首，否则 IsAsiBoundary 会一路走回
     // 上一条语句的声明关键字（`{ const z = 1; a ⏎ (b) }` 的 `a` 不在声明头后面）。
-    if (at > first && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
-      || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
+    // 前缀 `++` / `--` 在行尾**不是**语句结束：它必须等下一行的操作数
+    // （`--` ⏎ `b;` = `--b;`）。`EndsExpression` 只按「`++`/`--` 能收尾」判，
+    // 分不出前缀还是后缀；表达式从 `first` 起就以 `++`/`--` 开头时它一定是前缀
+    // （单独一个 `--` 也不是合法语句），所以这里不认换行边界。
+    const prefixOperand = at - 1 === first
+      && (this.IsSymbol(this.Units[at - 1], "++") || this.IsSymbol(this.Units[at - 1], "--"));
+    if (at > first && !prefixOperand
+      && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
+        || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
       asiEnd = at - 1;
       break;
     }

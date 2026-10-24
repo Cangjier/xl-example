@@ -37,13 +37,24 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 
 # namespace cangjie
 
-# class SourceFileEndPossibleShape extends PossibleShape
+# class SourceFileTailBuilder extends PossibleShape
 
 ```txt
 a
 ++b;
 ^ 换行这里上一条就到齐了
 ```
+
+根单元的**尾部建造器**：文件末尾那些「没有 `;` 结尾」的尾巴由它收口。
+
+> **WP-3 迁移状态（U4：先整文件机械搬，再拆三入口）**：本文件从
+> `typescript/tokens/files/source-file-end-possible-shape.xl.md` **逐字搬来**（类名
+> `SourceFileEndPossibleShape` → `SourceFileTailBuilder`，逻辑一字未改），因此暂时仍
+> `extends PossibleShape`、由 `CatalogGuide` 当「终结候选」驱动（`ComputeByIndex` / `BuildByIndex`
+> 是旧协议入口，行为与搬迁前逐字节相同）。
+> 三个**建造入口**已提升为 public，就是本类对外的 API：
+> `BuildTrailingDeclaration`（声明尾巴）/ `BuildStatementSegments`（多条语句分段）/ `BuildModuleDeclaration`（module 头）。
+> 下一个波次：`RootItemRule.Build` 改调这三个入口，本类的 PossibleShape 外壳随之删除。
 
 根单元的终结候选：认两种「这条语句到这里该结束了」。
 
@@ -67,13 +78,13 @@ if (current instanceof EndOfFileTokenShape) {
 if (ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
   // 前导装饰器属于**下一条声明**，不是换行处结束的表达式语句：`@dec\nclass C {}`。
   // 类候选还在吃这串装饰器时，终结候选不许 Accept，否则 CatalogGuide 会报「终结候选与其它候选同时成立」。
-  if (SourceFileEndPossibleShape.HasDecoratorPrefix(units, tokenIndex)) {
+  if (SourceFileTailBuilder.HasDecoratorPrefix(units, tokenIndex)) {
     return ShapeStates.Uncertain;
   }
   // 被标语句（`lab: a` ⏎ `c;`）不是表达式语句：`lab: a` 只能由 StatementPossibleShape
   // 按 LabeledStatement 建。ASI 判据把它当成「`a` 处结束的表达式语句」，于是终结候选 Accept
   // 时普通候选还活着 → CatalogGuide 抛「终结候选与其它候选同时成立」。这里让位给语句候选。
-  if (SourceFileEndPossibleShape.HasLabelPrefix(units, tokenIndex)) {
+  if (SourceFileTailBuilder.HasLabelPrefix(units, tokenIndex)) {
     return ShapeStates.Uncertain;
   }
   return ShapeStates.Accept;
@@ -285,7 +296,7 @@ if (at >= start && host.Data[at].IsBasicToken) {
   // 也各是一条语句（上一条语句在 ASI 边界收口时把这个边界 token 原样留下：`type T = A` ⏎ `return`）。
   // 统一交给 StatementBuilder 按正常语句路径建——走 ExpressionStatement 的话块会被投成对象字面量、
   // 关键字会报「表达式语句没有读完」。
-  if (firstCode === at && SourceFileEndPossibleShape.IsStandaloneTrailingStatement(host.Data[at])) {
+  if (firstCode === at && SourceFileTailBuilder.IsStandaloneTrailingStatement(host.Data[at])) {
     let trailingPos = 0;
     for (let index = start - 1; index >= 0; index--) {
       if (!host.Data[index].IsTriviaToken) {
@@ -301,7 +312,7 @@ if (at >= start && host.Data[at].IsBasicToken) {
     const trailingStatement = trailingBuilder.BuildStatement();
     host.Data.splice(start, at - start + 1, trailingStatement);
     trailingStatement.Parent = host;
-  } else if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
+  } else if (!SourceFileTailBuilder.BuildTrailingDeclaration(host, start, at, context)) {
     // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
     // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
     const tailIsSemicolon = host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";");
@@ -332,7 +343,7 @@ unit.TryToClose(context);
 return host;
 ```
 
-## private static method BuildStatementSegments:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
+## static method BuildStatementSegments:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
 把 `host.Data[start..at]` 里的 leftover 单元按「一条语句一段」逐段建 shape：每段交给 StatementBuilder，
 **段的消费量按语句右边界 `SourceRange.EndIndex`（半开终点）数 Data 槽位**（不用 `builder.At`——它不是可靠的消费量，
@@ -426,7 +437,7 @@ while (at >= 0 && code[at] instanceof Common) {
 return false;
 ```
 
-## private static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
+## static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
 EOF 边界补一条「必须分号、但 ASI 允许省略分号」的声明：`type T = A` 与 `import x = require("m")`
 （两者在 TS 里都能不带 `;` 收在文件末尾）。它们的 `FromUnits` 都要求 `tokenIndex` 落在 `;` 上，
@@ -471,7 +482,7 @@ if (code[0] instanceof Common) {
       standaloneNext++;
     }
     if (standaloneNext <= standaloneLimit) {
-      SourceFileEndPossibleShape.BuildStatementSegments(host, standaloneNext, standaloneLimit, context);
+      SourceFileTailBuilder.BuildStatementSegments(host, standaloneNext, standaloneLimit, context);
     }
     return true;
   }
@@ -557,7 +568,7 @@ if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
           decoratedNext++;
         }
         if (decoratedNext <= decoratedLimit) {
-          SourceFileEndPossibleShape.BuildStatementSegments(host, decoratedNext, decoratedLimit, context);
+          SourceFileTailBuilder.BuildStatementSegments(host, decoratedNext, decoratedLimit, context);
         }
         return true;
       }
@@ -598,7 +609,7 @@ for (let index = 1; index < code.length; index++) {
   // export / default / as / import 不看换行）。分界若落在链内部，前缀只剩半截声明头
   //（`export default` / `export as`）→ 表达式路径 crash。判据只看「从 export 起、还没走完的
   // 修饰词链」——`declare` / `abstract` / `async` 与下一格之间换行时 TS 侧是另一条语句，不能吞。
-  if (SourceFileEndPossibleShape.IsInsideExportModifierChain(code, index)) {
+  if (SourceFileTailBuilder.IsInsideExportModifierChain(code, index)) {
     continue;
   }
   // 老判据：下一行以声明 / 语句关键字开头。声明头本身可以跨行（`interface I` ⏎ `extends B`），
@@ -658,7 +669,7 @@ for (let index = 1; index < code.length; index++) {
 }
 if (boundary > 0) {
   const prefixEnd = codeAt[boundary - 1];
-  if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, prefixEnd, context)) {
+  if (!SourceFileTailBuilder.BuildTrailingDeclaration(host, start, prefixEnd, context)) {
     const prefix = ExpressionStatementShape.FromUnits(host, start, prefixEnd, context, false);
     host.Data.splice(start, prefixEnd - start + 1, prefix);
     prefix.Parent = host;
@@ -677,7 +688,7 @@ if (boundary > 0) {
   const suffixAt = cursor + (at - codeAt[boundary]);
   // 后缀自己也可能建不出来：整条返回 false 会让调用方拿**已经 splice 过**的旧下标来兜底
   // （`已建前缀 + export 子句` 就是这样越界读到 undefined 的）。所以后缀先内部兜底成表达式语句。
-  const suffixBuilt = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, suffixAt, context);
+  const suffixBuilt = SourceFileTailBuilder.BuildTrailingDeclaration(host, cursor, suffixAt, context);
   if (!suffixBuilt) {
     // 后缀常以 `;` 结尾：`declare module "m"` ⏎ `z;` 的后缀就是 `z ;`。
     // 这时要走 `requireSemicolon = true` 的入口（它会把 `;` 从表达式单元里切掉、End 停在 `;` 上）；
@@ -724,7 +735,7 @@ if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
     } else if (headText === "function") {
       decorated = FunctionDeclarationShape.FromUnits(host, start, at, context);
     } else if (headText === "namespace" || headText === "module" || headText === "global") {
-      decorated = SourceFileEndPossibleShape.BuildModuleDeclaration(host, start, at, context);
+      decorated = SourceFileTailBuilder.BuildModuleDeclaration(host, start, at, context);
     } else {
       // `class`（含 `@dec abstract class`：`abstract` 是修饰词，装饰器声明头认出的声明词是 class）。
       // ClassDeclarationShape.FromUnits 自己消费 export / default / declare / abstract 与装饰器。
@@ -781,7 +792,7 @@ if (isLoneEmptyVariable) {
 if (isVariableKeyword || isDeclareVariable) {
   // 无分号 EOF 尾巴：可能连排多条语句（`const a = 1` ⏎ `console.log(a)`）——按段逐条建，
   // 每段按语句右边界算消费量，不能整段 splice（会吞掉后面的语句）。
-  return SourceFileEndPossibleShape.BuildStatementSegments(host, start, at, context);
+  return SourceFileTailBuilder.BuildStatementSegments(host, start, at, context);
 }
 // 控制语句 / 简单语句无分号到 EOF（statements 文档 F 组：`do x++` ⏎ `while (c);`）：
 // 这些形态没有专门的 FromUnits，交给 StatementBuilder 按正常语句路径建，别落进 ExpressionStatement。
@@ -856,8 +867,44 @@ if (isExportVariable) {
   statement.Data.unshift(exportKeyword);
   exportKeyword.Parent = statement;
   (statement as ShapeToken).Pos = pos;
-  host.Data.splice(start, at - start + 1, statement);
+  // **只吃掉本条语句实际覆盖的槽位**，不是整段：`export const x = a as T` ⏎ `(b);` /
+  // `export const a = 1;export const b = 2;` 里后面那条语句与这一段在同一片 raw 区间
+  // （item 表建不出 `export const …`，整段走 raw 回退到这里），原来
+  // `splice(start, at - start + 1, statement)` 会把后面那条语句一起吞掉。
+  // 消费量与 `BuildStatementSegments` 同一口径：按语句右边界 `SourceRange.EndIndex`（半开终点）
+  // 数 Data 槽位，不用 `builder.At`。
+  const statementEnd:number = statement.SourceRange.EndIndex;
+  let consumed = 0;
+  if (statementEnd < 0) {
+    consumed = at - start + 1;
+  } else {
+    while (start + consumed <= at) {
+      const unitStart = host.Data[start + consumed].SourceRange.Start;
+      if (unitStart >= 0 && unitStart >= statementEnd) {
+        break;
+      }
+      consumed++;
+    }
+  }
+  if (consumed <= 0) {
+    consumed = at - start + 1;
+  }
+  host.Data.splice(start, consumed, statement);
   statement.Parent = host;
+  // 后面还有代码单元（同一片 raw 里的下一条语句）：按尾巴的正常口径继续收口——
+  // 先当声明建（`export const b = 2;` 仍是 `isExportVariable`），建不出来再按语句分段。
+  const restLimit = at - (consumed - 1);
+  let restNext = start + 1;
+  while (restNext <= restLimit
+    && (host.Data[restNext].IsTriviaToken || !host.Data[restNext].IsBasicToken)) {
+    restNext++;
+  }
+  if (restNext > restLimit) {
+    return true;
+  }
+  if (!SourceFileTailBuilder.BuildTrailingDeclaration(host, restNext, restLimit, context)) {
+    SourceFileTailBuilder.BuildStatementSegments(host, restNext, restLimit, context);
+  }
   return true;
 }
 // `export class C {…}` / `export interface I {…}` / `export [declare] namespace N {…}`
@@ -1012,7 +1059,7 @@ if (isExportDefault) {
   // TS 6 把 ExportKeyword / DefaultKeyword 当声明**自身的修饰词**（ClassDeclaration /
   // FunctionDeclaration / InterfaceDeclaration 的 children），不是 ExportAssignment；default 后面
   // 若是声明形，必须建声明，不能走下面的表达式路。
-  const defaultDeclarationAt = SourceFileEndPossibleShape.BodyDeclarationKeyword(code, 2);
+  const defaultDeclarationAt = SourceFileTailBuilder.BodyDeclarationKeyword(code, 2);
   if (defaultDeclarationAt >= 0) {
     const declarationText = (code[defaultDeclarationAt] as Common).TempToString();
     const closedBody = code[code.length - 1] instanceof Bracket
@@ -1119,7 +1166,20 @@ const isExportAsNamespace = text === "export"
   && code[1] instanceof Common && (code[1] as Common).Is("as")
   && code[2] instanceof Common && (code[2] as Common).Is("namespace");
 if (isExportAsNamespace) {
-  const namespaceEnd = host.Data[at].SourceRange.EndIndex;
+  // 边界单元可能是 trivia（换行 / 尾注释）：合成的 `;` 必须落在**最后一个代码单元**的末尾，
+  // 否则 NamespaceExportDeclaration 的 End 会把行尾 trivia 吃进来（#95 / #9）。
+  let namespaceEnd = host.Data[at].SourceRange.EndIndex;
+  if (host.Data[at].IsTriviaToken) {
+    for (let index = at - 1; index >= start; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const codeEnd = host.Data[index].SourceRange.EndIndex;
+        if (codeEnd >= 0) {
+          namespaceEnd = codeEnd;
+        }
+        break;
+      }
+    }
+  }
   if (namespaceEnd < 0) {
     return false;
   }
@@ -1148,7 +1208,19 @@ const isQuotedBodylessModule = text === "module"
     || (code.length === 3 && code[2] instanceof Symbol && (code[2] as Symbol).Is(";")));
 const isBodylessAmbientModule = isDeclareBodylessModule || isQuotedBodylessModule;
 if (isBodylessAmbientModule) {
-  const moduleEnd = host.Data[at].SourceRange.EndIndex;
+  // 同 namespace export：边界是 trivia 时，合成 `;` 落在最后一个代码单元末尾（#48 / #49）。
+  let moduleEnd = host.Data[at].SourceRange.EndIndex;
+  if (host.Data[at].IsTriviaToken) {
+    for (let index = at - 1; index >= start; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const codeEnd = host.Data[index].SourceRange.EndIndex;
+        if (codeEnd >= 0) {
+          moduleEnd = codeEnd;
+        }
+        break;
+      }
+    }
+  }
   if (moduleEnd < 0) {
     return false;
   }
@@ -1194,7 +1266,7 @@ if (isBodylessAmbientModule) {
 }
 // 声明关键字按「修饰词 + 声明词」识别：`abstract class` / `declare abstract class` 与 `class` /
 // `declare class` 一样都是 ClassDeclaration（ClassDeclarationShape.FromUnits 自己消费修饰词）。
-const leadingAt = SourceFileEndPossibleShape.LeadingDeclarationKeyword(code);
+const leadingAt = SourceFileTailBuilder.LeadingDeclarationKeyword(code);
 const leadingText = leadingAt >= 0 ? (code[leadingAt] as Common).TempToString() : "";
 const isClass = leadingText === "class";
 const isInterface = text === "interface"
@@ -1385,23 +1457,30 @@ if ((isFunction || isExportFunction) && lastUnit instanceof Bracket && (lastUnit
   declared.Parent = host;
   return true;
 }
-const lastEnd = host.Data[at].SourceRange.EndIndex;
+// 段尾**自带**真 `;` 时直接用它：含 `;` 建出来的形状右界自然落在 `;` 上；
+// 再合成一个只会得到 `;;`（`import a from "m";` 整段因此建不出来）。
+const codeLastAt:number = codeAt[code.length - 1];
+const realSemi:boolean = lastUnit instanceof Symbol && (lastUnit as Symbol).Is(";");
+const lastEnd:number = lastUnit.SourceRange.EndIndex;
 if (lastEnd < 0) {
   return false;
 }
-const semi = new Symbol(host.Template);
-semi.SignIn(lastEnd);
-semi.AppendValueAndSignOut(";", lastEnd - 1);
-host.Data.splice(at + 1, 0, semi);
+const semiAt:number = realSemi ? codeLastAt : at + 1;
+if (!realSemi) {
+  const semi = new Symbol(host.Template);
+  semi.SignIn(lastEnd);
+  semi.AppendValueAndSignOut(";", lastEnd - 1);
+  host.Data.splice(at + 1, 0, semi);
+}
 if (isType) {
-  const built = TypeAliasDeclarationShape.FromUnits(host, start, at + 1, context);
-  host.Data.splice(start, at - start + 2, built);
+  const built = TypeAliasDeclarationShape.FromUnits(host, start, semiAt, context);
+  host.Data.splice(start, semiAt - start + 1, built);
   built.Parent = host;
   return true;
 }
 if (isImportEquals) {
-  const imported = ImportEqualsDeclarationShape.FromUnits(host, start, at + 1, context);
-  host.Data.splice(start, at - start + 2, imported);
+  const imported = ImportEqualsDeclarationShape.FromUnits(host, start, semiAt, context);
+  host.Data.splice(start, semiAt - start + 1, imported);
   imported.Parent = host;
   return true;
 }
@@ -1419,33 +1498,37 @@ if (isExportImportEquals) {
     }
   }
   try {
-    const imported = ImportEqualsDeclarationShape.FromUnits(host, codeAt[1], at + 1, context);
+    const imported = ImportEqualsDeclarationShape.FromUnits(host, codeAt[1], semiAt, context);
     const exportKeyword = ExportKeywordShape.FromBasicToken(code[0] as Common, context);
     (exportKeyword as ShapeToken).Pos = exportPos;
     imported.Data.unshift(exportKeyword);
     exportKeyword.Parent = imported;
     (imported as ShapeToken).Pos = exportPos;
-    host.Data.splice(start, at - start + 2, imported);
+    host.Data.splice(start, semiAt - start + 1, imported);
     imported.Parent = host;
     return true;
   } catch (error) {
-    host.Data.splice(at + 1, 1);
+    if (!realSemi) {
+      host.Data.splice(semiAt, 1);
+    }
     return false;
   }
 }
 if (isImportClause) {
   try {
-    const imported = ImportDeclarationShape.FromUnits(host, start, at + 1, context);
-    host.Data.splice(start, at - start + 2, imported);
+    const imported = ImportDeclarationShape.FromUnits(host, start, semiAt, context);
+    host.Data.splice(start, semiAt - start + 1, imported);
     imported.Parent = host;
     return true;
   } catch (error) {
-    host.Data.splice(at + 1, 1);
+    if (!realSemi) {
+      host.Data.splice(semiAt, 1);
+    }
     return false;
   }
 }
 if (isExportFunction) {
-  const exported = FunctionDeclarationShape.FromUnits(host, exportFunctionStart, at + 1, context);
+  const exported = FunctionDeclarationShape.FromUnits(host, exportFunctionStart, semiAt, context);
   let pos = 0;
   for (let index = start - 1; index >= 0; index--) {
     if (!host.Data[index].IsTriviaToken) {
@@ -1461,7 +1544,7 @@ if (isExportFunction) {
   exported.Data.unshift(exportKeyword);
   exportKeyword.Parent = exported;
   (exported as ShapeToken).Pos = pos;
-  host.Data.splice(start, at - start + 2, exported);
+  host.Data.splice(start, semiAt - start + 1, exported);
   exported.Parent = host;
   return true;
 }
@@ -1469,22 +1552,24 @@ if (isExportClause) {
   // `export { a }` / `export * from "m"` 无分号到 EOF：ExportDeclarationShape 自己的入口要求末尾 `;`，
   // 这里用已插入的合成 `;` 走正常路径；建不出来就撤掉合成 `;` 并让调用方退回表达式兜底。
   try {
-    const built = ExportDeclarationShape.FromUnits(host, start, at + 1, context);
-    host.Data.splice(start, at - start + 2, built);
+    const built = ExportDeclarationShape.FromUnits(host, start, semiAt, context);
+    host.Data.splice(start, semiAt - start + 1, built);
     built.Parent = host;
     return true;
   } catch (error) {
-    host.Data.splice(at + 1, 1);
+    if (!realSemi) {
+      host.Data.splice(semiAt, 1);
+    }
     return false;
   }
 }
-const declared = FunctionDeclarationShape.FromUnits(host, start, at + 1, context);
-host.Data.splice(start, at - start + 2, declared);
+const declared = FunctionDeclarationShape.FromUnits(host, start, semiAt, context);
+host.Data.splice(start, semiAt - start + 1, declared);
 declared.Parent = host;
 return true;
 ```
 
-## private static method BuildModuleDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>Token
+## static method BuildModuleDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>Token
 
 段首是装饰器的模块声明（`@dec namespace N {}` / `@dec export module "m" {}` 等）：
 `ModuleDeclarationShape.FromUnits` 要 `code` + `positions` 两个数组（`positions[i]` 是 `code[i]`
@@ -1517,5 +1602,100 @@ for (let index = start; index <= at; index++) {
   }
 }
 return ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
+```
+
+## static method BuildTrailingItems:(host:Token, start:int, at:int, context:SyntaxContext)=>Array<Token>
+
+尾巴段（EOF / 硬边界）的**只建造、不落盘**入口。`BuildTrailingDeclaration` 自己会 splice `host.Data`，
+这里用 Data journal（快照 → 跑旧逻辑 → 按长度差取出这一段的新内容 → 还原）把「建造」与「落盘」分开：
+判据与建造逻辑一字不动（INV-2），只是调用方拿到的不是「已落盘」而是「要落盘的内容」。
+
+一次调用可能建出**多条**形状（前缀 / 后缀 / 合成 `;`），所以返回数组；`ItemRule.Build` 不许改 `host.Data`，
+落盘由引擎的 `ApplyBuilds` 或容器的 `FinishBody` 自己做。
+
+```ts
+let hasCode = false;
+for (let index = start; index <= at; index++) {
+  if (!host.Data[index].IsTriviaToken) {
+    hasCode = true;
+    break;
+  }
+}
+if (!hasCode) {
+  return [];
+}
+const before:Array<Token> = host.Data.slice();
+const length:number = host.Data.length;
+let built = false;
+try {
+  built = SourceFileTailBuilder.BuildTrailingDeclaration(host, start, at, context);
+} catch (error) {
+  built = false;
+}
+if (!built && host.Data.length === length) {
+  // F：声明族不认（`a` / `a + b` / `console.log(a)`，EOF 等不到 `;`）：
+  // 先按语句段建（`const` / 控制语句 / 裸块 / 单独的 `;`），再退回表达式语句兜底。
+  let segmentsBuilt = false;
+  try {
+    segmentsBuilt = SourceFileTailBuilder.BuildStatementSegments(host, start, at, context);
+  } catch (error) {
+    segmentsBuilt = false;
+  }
+  if (!segmentsBuilt && host.Data.length === length) {
+    let last = at;
+    while (last > start && host.Data[last].IsTriviaToken) {
+      last--;
+    }
+    const tailIsSemicolon = host.Data[last] instanceof Symbol && (host.Data[last] as Symbol).Is(";");
+    // 兜底也可能建不出（段首是装饰器前缀 `@dec` ⏎ `const x = 1;` 这种：表达式起点不认识 `@`）。
+    // 建不出时**宁可留 raw 也不要抛**：抛出去整个 Parse 就失败（buffer-equivalence 会记 ERROR），
+    // 留 raw 至少还是一条能解析的文件（wp3-13 实测：5 条装饰器语料从「抛错」回到「结构差」）。
+    let expression:Token | null = null;
+    try {
+      expression = tailIsSemicolon
+        ? ExpressionStatementShape.FromUnits(host, start, last, context, true)
+        : ExpressionStatementShape.FromUnits(host, start, last, context, false);
+    } catch (error) {
+      expression = null;
+    }
+    if (expression !== null) {
+      host.Data.splice(start, last - start + 1, expression);
+      expression.Parent = host;
+    }
+  }
+}
+const delta:number = host.Data.length - length;
+const replaced:Array<Token> = host.Data.slice(start, at + 1 + delta);
+host.Data = before;
+return replaced;
+```
+
+## static method BuildSegmentItems:(host:Token, start:int, at:int, context:SyntaxContext)=>Array<Token>
+
+`BuildStatementSegments` 的同款只建造入口：逐段建造、可能建出多条形状，落盘交调用方。
+
+```ts
+const before:Array<Token> = host.Data.slice();
+const length:number = host.Data.length;
+SourceFileTailBuilder.BuildStatementSegments(host, start, at, context);
+const delta:number = host.Data.length - length;
+const replaced:Array<Token> = host.Data.slice(start, at + 1 + delta);
+host.Data = before;
+return replaced;
+```
+
+## static method BuildModuleItem:(host:Token, start:int, at:int, context:SyntaxContext)=>Token | null
+
+`BuildModuleDeclaration` 本来就只建形状、不 splice（splice 在调用方），这里只补上 journal 与 `null` 判定：
+根 item 表要的是「建出来了吗」，没建出来就走 raw 回退，不要把 `host` 自己当成形状返回。
+
+```ts
+const before:Array<Token> = host.Data.slice();
+const built:Token | null = SourceFileTailBuilder.BuildModuleDeclaration(host, start, at, context);
+host.Data = before;
+if (built === null || built === host) {
+  return null;
+}
+return built;
 ```
 

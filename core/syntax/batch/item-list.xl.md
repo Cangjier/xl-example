@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { ShapeToken } from "../shape-token.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
 import { BasicTokenBatch } from "./basic-token-batch.xl.md"
@@ -16,7 +17,10 @@ item 表引擎：**判定增量、建造整体**。每个容器一个引擎，�
 契约修正（见 `docs/refactor/batch-contract-amendment.md`，按 WP-2 的 G0–G6）：
 ① 整批消费（一批内可连续建出多个 item）；② 先记 `PendingBuild`、消费完整批后从右向左 `splice`（INV-3）；
 ③ item 右界用 `State.End + 1`（`End >= 0`），否则 `Checked`；④ item 起点取首个**非 trivia** unit；
-⑤ `batch.AtEof` 且无新增 unit 时也调一次 `Analyze`；⑥ `Flush` 把未收口尾巴写进 `RawFallback`。
+⑤ `batch.AtEof` 且无新增 unit 时也调一次 `Analyze`；⑥ `Flush` 把未收口尾巴写进 `RawFallback`；
+⑦ 引擎**从未消费过任何 unit**（`Start < 0` 且 `Checked < 0`）时，批次起点之前那段连续的非形状 unit
+（例如 `const` 还没关闭就被 BOM 抢走了字符，它永远等不到自己的 `Close`）也并进本批：它们没有别的批次会喂，
+漏掉就等于整条 item 从起点就丢了。
 
 # class PendingBuild
 
@@ -113,11 +117,26 @@ this.Item = item;
 批内可以连续建出多个 item；建造立即发生（与 legacy 逐 token 建出的时机一致），
 `splice` 推迟到批末、从右向左做（INV-3）。
 
+**批首之前的补读（契约 ⑦）**：宿主给的批次起点是「刚关闭的那个 unit」，前提是它之前的 unit 都被喂过。
+这个前提在「basic token 没等到自己的关闭就被另一个 basic token 抢走字符」时会破（`const` 后紧跟 BOM：
+`Bom.Transit` 直接吞掉字符并关闭，`const` 一直开着，`Common.Transit` 再也不会替它 `TryToClose`），
+于是 `const` 留在 `Data` 里、不属于任何批次，`Start` 永远等不到它，整条语句从起点被切掉、只能落进 raw 段。
+本引擎从未消费过任何 unit 时（`Start < 0 && Checked < 0`）没有历史结论要保护，
+因此把 `from` 往前推到最近的形状 unit 之后，把这些「没人喂」的 unit 并进本批。
+已消费过时不动：那时 `Checked` 就是权威边界，往前后退会重读已经算过的 unit。
+
 ```ts
 if (batch.Cursor < batch.From) {
   batch.Cursor = batch.From;
 }
-const from = batch.Cursor;
+let from = batch.Cursor;
+if (from > 0 && this.State.Start < 0 && this.State.Checked < 0) {
+  let back = from;
+  while (back > 0 && !(host.Data[back - 1] instanceof ShapeToken)) {
+    back = back - 1;
+  }
+  from = back;
+}
 if (from >= batch.To && !batch.AtEof) {
   this.Cache.End(batch.To);
   return;

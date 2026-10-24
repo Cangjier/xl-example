@@ -1,9 +1,10 @@
 # dependencies
 ```xl
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { SourceFileBodyItemHost } from "../items/root-item-rule.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -30,7 +31,7 @@ import { LabeledStatementPossibleShape } from "../statements/labeled-statement-p
 import { ModuleDeclarationPossibleShape } from "../declarations/module-declaration-possible-shape.xl.md"
 import { NamespaceExportDeclarationPossibleShape } from "../declarations/namespace-export-declaration-possible-shape.xl.md"
 import { ReturnStatementPossibleShape } from "../statements/return-statement-possible-shape.xl.md"
-import { SourceFileEndPossibleShape } from "./source-file-end-possible-shape.xl.md"
+import { SourceFileTailBuilder } from "../items/source-file-tail-builder.xl.md"
 import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
 import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
@@ -62,27 +63,106 @@ const queue = template.BranchTemplate.Get(this.constructor);
 if (queue !== null) {
   this.ProcessQueue = queue;
 }
-this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileEndPossibleShape());
+this.AdapterRoot = new SourceFileBodyItemHost(this, SourceFileBodyItemHost.CreateRules(SourceFileShape.CreatePossibleShapes()));
+this.BatchAdapter = this.AdapterRoot;
+```
+
+## field AdapterRoot:SourceFileBodyItemHost | null = null
+
+根 item 表的宿主，与 `BatchAdapter` 指向同一个对象。`BatchAdapter` 的静态类型只有 `IBatchHost` 接口，
+而收口时要读 `RawRange()`，所以这里留一份具体类型的引用。
+
+## private method FinishBody:(context:SyntaxContext)=>CloseStates
+
+EOF 收尾，分三步：
+
+1. **先关最后一个子单元**再 `FlushBatch`：文件末尾那个 `;` 的 basic token 直到关闭才被喂进 item 表；
+   先 Flush 会让引擎的 `State.Checked` 停在 `;` 之前，尾巴永远进不了 raw 段；
+2. `Flush` 把最后一条没建完的 item 建掉（建不出就记 raw 回退）；
+3. **扫描 `Data` 里的裸 basic token 段**逐段重建，而不是只信 `RawRange()`：后者只记最后一段 raw，
+   而 raw 段还可能出现在已建 item **之前**（`class` 一格就被判成可建、Build 抛错时 raw 是 `[0,1)`，
+   `C {}` 反而是第二段）。`ShapeToken` 之间才是 item 边界。
+
+```ts
+const last = this.Last();
+if (last !== null && !last.Closed) {
+  last.TryToClose(context);
+}
+this.FlushBatch(context);
+const segments: Array<number> = [];
+let index = 0;
+while (index < this.Data.length) {
+  if (this.Data[index] instanceof ShapeToken) {
+    index = index + 1;
+    continue;
+  }
+  const from = index;
+  while (index < this.Data.length && !(this.Data[index] instanceof ShapeToken)) {
+    index = index + 1;
+  }
+  segments.push(from);
+  segments.push(index - 1);
+}
+// 从右向左重建：splice 只影响右侧下标。
+for (let s = segments.length - 2; s >= 0; s = s - 2) {
+  const from = segments[s];
+  const to = segments[s + 1];
+  if (to < from) {
+    continue;
+  }
+  const replaced = SourceFileTailBuilder.BuildTrailingItems(this, from, to, context);
+  if (replaced.length > 0) {
+    this.Data.splice(from, to - from + 1, ...replaced);
+  }
+}
+// 落单的 `;` 是前一个形状的终结符（`import …;` / `export type { T };` / `a;`）：
+// 它不进形状的 `Data`，但 TS 的节点终点含它。这里把它并回前一个形状的右界再丢掉。
+let semiAt = 1;
+while (semiAt < this.Data.length) {
+  const semi = this.Data[semiAt];
+  const previous = this.Data[semiAt - 1];
+  if (semi instanceof Symbol && (semi as Symbol).Is(";") && previous instanceof ShapeToken
+    && previous.SourceRange.EndIndex === semi.SourceRange.StartIndex && semi.SourceRange.EndIndex >= 0) {
+    previous.SourceRange.End = semi.SourceRange.EndIndex;
+    this.Data.splice(semiAt, 1);
+    continue;
+  }
+  semiAt = semiAt + 1;
+}
+const adapter = this.AdapterRoot;
+if (adapter !== null) {
+  adapter.RawRange().Reset();
+}
+this.TryToClose(context);
+return CloseStates.Nothing;
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 ```ts
 this.Closed = true;
-for (const item of this.Data.slice()) {
+// 单次 live 遍历：每个未关闭的单元最多尝试关闭两次（与重构前「快照扫一遍 + 再扫一遍」等价），
+// 两次之后仍关不掉就是真缺陷。原实现对 `this.Data` 做了三次全扫（slice 快照、再扫、校验扫），
+// 这里并成一次，并把 `slice()` 的每文件分配也去掉（PLAN §6.3 WP-3「消三次全扫」）。
+let index = 0;
+while (index < this.Data.length) {
+  const item = this.Data[index];
+  if (item.Closed) {
+    index++;
+    continue;
+  }
+  item.TryToClose(context);
   if (!item.Closed) {
     item.TryToClose(context);
   }
-}
-for (const item of this.Data) {
-  if (!item.Closed) {
-    item.TryToClose(context);
-  }
-}
-for (const item of this.Data) {
   if (!item.Closed) {
     throw new Error("SourceFileShape.Close: 有子单元无法关闭");
   }
+  // 关闭过程中该格可能被替换/拼接成别的单元：不退格，下一轮检查新单元是否已关闭。
+  if (index < this.Data.length && this.Data[index] !== item) {
+    continue;
+  }
+  index++;
 }
 // AST 的 children 只有子形状：文件末尾没人认领的 trivia（空格 / 行尾注释 / 换行）与 EOF 哨兵在收尾时丢掉。
 this.Data = this.Data.filter((item) => !item.IsTriviaToken && !(item instanceof EndOfFileTokenShape));
@@ -97,7 +177,7 @@ return CloseStates.Nothing;
 1. 还有挂载单元就先关掉它（没有分号的 import / export 也在这一刻收口）；
 2. 关掉最后一个还开着的子单元——文件末尾不会再有下一个字符来关它，标识符 / 符号 / 字符串 / 空白 / 注释谁开着就关谁；
 3. 造一个 `EndOfFileTokenShape`，签入签出文件末尾位置（`index === count`，空区间）、加进根，再 `TryToClose`。
-   它关闭时会问父单元重算候选，根单元的终结候选 `SourceFileEndPossibleShape` 随即签出根并关闭根。
+   它关闭时会问父单元重算候选，根单元的终结候选 `SourceFileTailBuilder` 随即签出根并关闭根。
 
 ```ts
 if (buffer.IsEof()) {
@@ -109,15 +189,7 @@ if (buffer.IsEof()) {
     mounted.TryToClose(context);
     mounted.Quit();
   }
-  const last = this.Last();
-  if (last !== null && !last.Closed) {
-    last.TryToClose(context);
-  }
-  const eof = new EndOfFileTokenShape(this.Template);
-  eof.SignIn(index);
-  eof.SignOut(index);
-  this.Add(eof);
-  eof.TryToClose(context);
+  this.FinishBody(context);
   return;
 }
 if (this.SourceRange.Start < 0) {
