@@ -1622,11 +1622,21 @@ if (!built && host.Data.length === length) {
       last--;
     }
     const tailIsSemicolon = host.Data[last] instanceof Symbol && (host.Data[last] as Symbol).Is(";");
-    const expression = tailIsSemicolon
-      ? ExpressionStatementShape.FromUnits(host, start, last, context, true)
-      : ExpressionStatementShape.FromUnits(host, start, last, context, false);
-    host.Data.splice(start, last - start + 1, expression);
-    expression.Parent = host;
+    // 兜底也可能建不出（段首是装饰器前缀 `@dec` ⏎ `const x = 1;` 这种：表达式起点不认识 `@`）。
+    // 建不出时**宁可留 raw 也不要抛**：抛出去整个 Parse 就失败（buffer-equivalence 会记 ERROR），
+    // 留 raw 至少还是一条能解析的文件（wp3-13 实测：5 条装饰器语料从「抛错」回到「结构差」）。
+    let expression:Token | null = null;
+    try {
+      expression = tailIsSemicolon
+        ? ExpressionStatementShape.FromUnits(host, start, last, context, true)
+        : ExpressionStatementShape.FromUnits(host, start, last, context, false);
+    } catch (error) {
+      expression = null;
+    }
+    if (expression !== null) {
+      host.Data.splice(start, last - start + 1, expression);
+      expression.Parent = host;
+    }
   }
 }
 const delta:number = host.Data.length - length;

@@ -219,7 +219,7 @@ while (at < code.length) {
       if (at > 0) {
         const beforeEnd: number = state.CodeAt[at - 1];
         const before: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, beforeEnd, this.Context);
-        if (before !== null) {
+        if (before !== null && !this.IsEmptyVariableStatement(code, before)) {
           state.Complete = true;
           state.End = beforeEnd;
           this.Pending = before;
@@ -229,7 +229,7 @@ while (at < code.length) {
       }
       // ② 再按「含这一格」建：声明族的终结符 `;` 就落在这一格（`import …;` 的候选在 `;` 上 Reject）。
       const over: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, state.CodeAt[at], this.Context);
-      if (over !== null) {
+      if (over !== null && !this.IsEmptyVariableStatement(code, over)) {
         const overEnd: number = over.SourceRange.EndIndex;
         let overAt: number = at;
         if (overEnd >= 0) {
@@ -258,12 +258,11 @@ while (at < code.length) {
       this.Watermark = at;
       return;
     }
-    // 第一格就没候选：这一格自己建不出来，按 raw 回退交给容器的尾巴重建。
-    state.Complete = true;
-    state.End = hostAt;
-    this.Winner = -1;
-    this.Watermark = at + 1;
-    return;
+    // 第一格建不出来（`var` 单独一格、`@dec` 后面的声明词）：**继续扫描**，不在这里 raw 收口。
+    // 后面的 unit 可能让这一段建得出：`var` ⏎ `y` 是一条 `VariableStatement[0,5)`（wp3-13 实测 +2）。
+    // raw 收口会把第一格换成 raw token，尾巴只能看到剩下的 ` y`，整条语句就再也拼不回来了。
+    at = at + 1;
+    continue;
   }
   if (this.Alive.size === 1) {
     const only: number = RootItemRule.FirstOf(this.Alive);
@@ -401,6 +400,38 @@ if (document === null || from < 0 || to < 0 || to <= from) {
   return false;
 }
 return document.GetRaw(from, to).indexOf("\n") >= 0;
+```
+
+## private method IsEmptyVariableStatement:(code:Array<Token>, shape:Token)=>bool
+
+这条建出来的形状是不是**空声明列表的变量语句**（`VariableStatement` 里那个 `VariableDeclarationList`
+一个声明项都没有）。这种形状只在「变量关键字已经是本段最后一格」时建得出（`var` 单独一格、
+`@dec` ⏎ `const`），它不是一条完整的语句，**不许用来收口**：收口了就再也不会长回来
+（`var` ⏎ `y` 会变成 `VariableStatement[0,3)` + `ExpressionStatement[3,5)`，wp3-13 实测）。
+
+判据按形状结构读，不按 type/kind：`Data` 里只要有一个 `VariableDeclarationListShape` 且它的
+`Data` 为空就成立。装饰器变量语句的 `Data` 是 `[Decorator…, VariableDeclarationList]`，
+所以不能只看 `Data.length`。
+
+```ts
+if (shape === null) {
+  return false;
+}
+// 装饰器开头的段照旧（装饰器变量声明的收口点另属 wp3-13 的 F 类，还没修）：这里只治
+// 没有装饰器的「关键字单独一格」段。
+if (code.length > 0 && code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
+  return false;
+}
+const data:Array<Token> = shape.Data;
+if (data === null || data.length === 0) {
+  return false;
+}
+for (const child of data) {
+  if (child !== null && child.constructor.name === "VariableDeclarationListShape" && child.Data.length === 0) {
+    return true;
+  }
+}
+return false;
 ```
 
 ## private method IsDeclarationBoundary:(code:Array<Token>, at:int)=>bool
