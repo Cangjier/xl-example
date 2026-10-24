@@ -26,6 +26,13 @@ import { PrefixUnaryExpressionShape } from "./prefix-unary-expression-shape.xl.m
 
 # class FeasOperatorParser
 
+```txt
+1*2+3   ->  +( *(1,2), 3 )
+a+b*c   ->  +( a, *(b,c) )
+a-b-c   ->  - ( -(a,b), c )
+a*(b+c) ->  *( a, (b+c) )
+```
+
 可行性原型 B 的**增量表达式解析器**：按真实 basic token 单元逐格推进，遇操作数建叶子、遇二元操作符**立刻**建 `BinaryExpressionShape`，遇更高优先级操作符时用 `ShapeInsertUtil.InsertBetween` 把新 shape 插进当前父子之间（已建好的子表达式变成新 shape 的左操作数）。
 
 只覆盖 `+ - * /`、圆括号、数字 / 标识符，且**只用于对拍与可行性验证**：主解析路径一行都不接（见 `HANDOFF.md`）。位置 / 文本 / 运算符单元 / span 全部复用 `ExpressionBuilder` 的公开入口，保证与基线逐字节同口径；增量建树与插入是本类自己的逻辑。
@@ -71,13 +78,13 @@ this.At = 0;
 
 ```ts
 const frames:Array<Token> = [];
-const precs:Array<int> = [];
-const pending:Array<bool> = [];
-const starts:Array<int> = [];
-const ends:Array<int> = [];
-const rightStarts:Array<int> = [];
+const precs:Array<number> = [];
+const pending:Array<boolean> = [];
+const starts:Array<number> = [];
+const ends:Array<number> = [];
+const rightStarts:Array<number> = [];
 const prefixShapes:Array<Token> = [];
-const prefixStarts:Array<int> = [];
+const prefixStarts:Array<number> = [];
 let left:Token | null = null;
 let leftStart = 0;
 let leftEnd = 0;
@@ -93,7 +100,7 @@ while (this.At < this.Units.length) {
       const shape = prefixShapes.pop()!;
       const shapeStart = prefixStarts.pop()!;
       shape.Add(built);
-      this.Builder.SpanNode(shape, shapeStart, end);
+      this.FinishNode(shape, shapeStart, end);
       built = shape;
       start = shapeStart;
     }
@@ -103,7 +110,7 @@ while (this.At < this.Units.length) {
       pending[frames.length - 1] = false;
       ends[frames.length - 1] = end;
       rightStarts[frames.length - 1] = start;
-      this.Builder.SpanNode(top, starts[frames.length - 1], end);
+      this.FinishNode(top, starts[frames.length - 1], end);
     } else {
       left = built;
       leftStart = start;
@@ -227,6 +234,26 @@ if (unit instanceof Symbol) {
 return "";
 ```
 
+## method FinishNode:(shape:Token, startIndex:int, endIndex:int)=>void
+
+与 `ExpressionBuilder.SpanNode` 同一个 span 口径，只多一条保护：**起点已经签过的形状（被 `InsertBetween` 从子节点继承过范围）不再重签**——`SourceRange` 写一次就锁死，重签会抛 `SourceRangeStartIsSetted`。
+
+```ts
+if (!(shape instanceof ShapeToken)) {
+  return;
+}
+const node = shape as ShapeToken;
+const head = this.Units[startIndex];
+const tail = this.Units[endIndex];
+if (node.SourceRange.Start < 0 && head.SourceRange.StartIndex >= 0) {
+  node.SignIn(head.SourceRange.StartIndex);
+}
+if (node.SourceRange.End < 0 && tail.SourceRange.EndIndex >= 0) {
+  node.SignOut(tail.SourceRange.EndIndex);
+}
+node.Pos = this.Positions[startIndex];
+```
+
 ## method BuildOperand:(unit:Token, index:int)=>Token
 
 ```ts
@@ -244,7 +271,8 @@ if (unit instanceof Bracket) {
   const expression = inner.ParseExpression();
   const shape = new ParenthesizedExpressionShape(this.Template);
   shape.Add(expression);
-  return this.Builder.SpanNode(shape, index, index);
+  this.FinishNode(shape, index, index);
+  return shape;
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
