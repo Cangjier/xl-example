@@ -20,7 +20,7 @@ BASE: impl-wp3-3 @ 36c0aa68
    - `SourceFileBodyItemHost implements IBatchHost`：照抄 `StatementBodyItemHost`，多两处：
      `OnBasicTokens` 每批把 `context` 注入 `RootItemRule.Context`（`Analyze` 没有 context 形参，这是唯一偏离模板的地方）；
      新增 `RawRange()` 供容器读 raw 区间。
-3. **D**：ATTEMPTED-BUT-REVERTED（--family root 失败，见下方读数；改动已丢弃，工作树干净）
+3. **D**：DONE（`--family root` PASS，已提交；14 段 root 语料 + root 族驱动 `SourceFileBodyItemHost + RootItemRule.CreateRules(SourceFileShape.CreatePossibleShapes())`）
 4. **C 未做**（Adapter 仍是 `null`）：见「未完成项」。因此 **AST 与产物逐字节不变**，
    `full -BaseBuild` 的 buffer-equivalence 与 class-scaling 双 build 等价都 PASS 就是证据。
 
@@ -37,7 +37,7 @@ BASE: impl-wp3-3 @ 36c0aa68
 | gates/run.mjs | 内嵌于 full | RED* 1/8（基线已知红，见 TEAM §5.4） | 已知红 |
 | parse-perf | `parse-perf --dts 8 --repeat 3` | TOTAL median 577.476 ms（并发环境，仅参考） | 参考 |
 | xl_check | `xl_check(paths=["typescript/tokens/items"])` | **0 error / 2 warning** | 绿 |
-| batch-split root | `node .\tests\body-drive\batch-split.mjs --family root` | == family root: 1 段代码 == /   代码段: 1（建出 item 1 / 全 raw 0） /   RESULT: FAIL  （1 段代码 / 14 次断言 / 1 次失败） / FAIL 建出 item 的段太少（1/1）：引擎没真正跑起来 | 红（已丢弃改动） |
+| batch-split root | `node .\tests\body-drive\batch-split.mjs --family root` | == family root: 9 段代码 == /   代码段: 9（建出 item 9 / 全 raw 0） /   RESULT: PASS  （9 段代码 / 126 次断言 / 0 次失败） | 绿 |
 
 ## 未完成项
 

@@ -43,6 +43,8 @@ const { BasicTokenBatch } = require(path.join(root, "build/ts/core/syntax/batch/
 const { BatchStates } = require(path.join(root, "build/ts/core/syntax/batch/batch-states.js"));
 const { StatementBodyItemHost } = require(path.join(root, "build/ts/typescript/tokens/items/statement-item-rule.js"));
 const { StatementBuilder } = require(path.join(root, "build/ts/typescript/tokens/statements/statement-builder.js"));
+const { SourceFileBodyItemHost } = require(path.join(root, "build/ts/typescript/tokens/items/root-item-rule.js"));
+const { SourceFileShape } = require(path.join(root, "build/ts/typescript/tokens/files/source-file-shape.js"));
 const { SourceFileRunner } = require(path.join(root, "build/ts/typescript/run/source-file-runner.js"));
 
 // ---------------------------------------------------------------------------
@@ -92,6 +94,74 @@ for (let i = 0; i < SOURCES.length; i++) {
   }
 }
 StatementBuilder.prototype.Load = originalLoad;
+
+// ---------------------------------------------------------------------------
+// root 族语料：root 级声明 / 语句 / ASI 尾巴。
+// 此步 SourceFileShape.BatchAdapter 仍为 null，捕获的是 legacy 路径的解析结果，正好当参照。
+// 根形状的 Data 每个顶层声明只有 1 个形状，所以按**顶层子形状的 Data**（真实 token 段）切条。
+// ---------------------------------------------------------------------------
+const ROOT_SOURCES = [
+  `import a from "m";`,
+  `import * as ns from "m";`,
+  `export { x };`,
+  `export default class D {}`,
+  `class C { a: number; }`,
+  `interface I { a: number }`,
+  `function f() { return 1; }`,
+  `enum E { A, B }`,
+  `namespace N { export const x = 1; }`,
+  `type T = A;`,
+  `let x = 1;`,
+  `{ }`,
+  `if (a) b;`,
+  `let a = 1
+let b = 2`,
+];
+
+const rootCaptures = [];
+const rootSeen = new Set();
+function pushRootCapture(code) {
+  if (!Array.isArray(code) || code.length <= 1 || code.length > 200) {
+    return;
+  }
+  const first = code[0];
+  if (first === null || first === undefined || !first.SourceRange) {
+    return;
+  }
+  const key = `${code.length}@${first.SourceRange.Start}`;
+  if (rootSeen.has(key)) {
+    return;
+  }
+  rootSeen.add(key);
+  rootCaptures.push(code);
+}
+function codeUnitsOf(units) {
+  const code = [];
+  if (!Array.isArray(units)) {
+    return code;
+  }
+  for (const unit of units) {
+    if (unit !== null && unit !== undefined && !unit.IsTriviaToken) {
+      code.push(unit);
+    }
+  }
+  return code;
+}
+for (let i = 0; i < ROOT_SOURCES.length; i++) {
+  try {
+    const rootShape = SourceFileRunner.Parse(ROOT_SOURCES[i], `batch-split-root-${i}.ts`);
+    const data = rootShape && Array.isArray(rootShape.Data) ? rootShape.Data : [];
+    pushRootCapture(codeUnitsOf(data));
+    for (const child of data) {
+      if (child === null || child === undefined || child.IsTriviaToken) {
+        continue;
+      }
+      pushRootCapture(codeUnitsOf(child.Data));
+    }
+  } catch (e) {
+    console.error(`root 语料 #${i} 解析失败: ${e && e.message ? e.message : e}`);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // 宿主：一段语句代码单元的容器（真实 token，Data 可被引擎 splice）
@@ -159,6 +229,37 @@ function runSplit(host, context, k) {
   return { items: collectItems(host), states: [first, second, closed] };
 }
 
+function rootRules() {
+  return SourceFileBodyItemHost.CreateRules(SourceFileShape.CreatePossibleShapes());
+}
+
+function runWholeRoot(host, context) {
+  const adapter = new SourceFileBodyItemHost(host, rootRules());
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, true);
+  batch.Sealed = true;
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, closed] };
+}
+
+function runSplitRoot(host, context, k) {
+  const adapter = new SourceFileBodyItemHost(host, rootRules());
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, false);
+  batch.To = Math.max(1, Math.min(k, host.Data.length));
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  batch.To = host.Data.length;
+  batch.AtEof = true;
+  batch.Sealed = false;
+  batch.Recompute();
+  const second = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, second, closed] };
+}
+
 function collectItems(host) {
   const items = [];
   for (const unit of host.Data) {
@@ -200,6 +301,14 @@ const FAMILIES = [
     contextOf,
     runWhole,
     runSplit,
+  },
+  {
+    name: "root",
+    cases: () => rootCaptures,
+    makeHost,
+    contextOf,
+    runWhole: runWholeRoot,
+    runSplit: runSplitRoot,
   },
 ];
 
