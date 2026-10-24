@@ -35,7 +35,7 @@ const cases = [
   { source: "{ let a = 1\nlet b = 2\nf() }", body: 3, shells: 1 },
   { source: "{ a; }\n{ b; }", body: 2, shells: 2 },
   { source: "{ let a = 1; f(); b; }", body: 3, shells: 1 },
-  { source: "{ if (a) b; }", body: 0, shells: 1 },
+  { source: "{ if (a) b; }", body: 1, shells: 1 },
   { source: "{ ; }", body: 0, shells: 1 },
   { source: "{ a; b; c; }", body: 3, shells: 1 },
   { source: "{ let x = 1 }", body: 1, shells: 1 },
@@ -44,8 +44,8 @@ const cases = [
   { source: "{ let x = 1; f() }", body: 2, shells: 1 },
   { source: "{ /*c*/ a; }", body: 1, shells: 1 },
   { source: "{ a /*c*/ }", body: 1, shells: 1 },
-  { source: "{ if (a) b; while (c) d; }", body: 0, shells: 1 },
-  { source: "{ a; if (b) c; d; }", body: 1, shells: 1 },
+  { source: "{ if (a) b; while (c) d; }", body: 2, shells: 1 },
+  { source: "{ a; if (b) c; d; }", body: 3, shells: 1 },
 ];
 
 function describeError(error) {
