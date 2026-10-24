@@ -1057,6 +1057,36 @@ try {
     return ClassDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 4) {
+    // 快速否定（不改语义，只省异常）：`InterfaceDeclarationShape.BuildFromCode` 对「本段还不是
+    // 一条完整接口声明」有三种拒收，全部是 `throw`：`interface` 之后没名字（code 只有 1 格）、
+    // 有名字没接口体（2 格）、末单元不是 `{` 括号（`接口声明的接口体不是花括号`）。本方法外层
+    // 是 `try { … } catch { return null; }`，所以「抛 → catch → null」≡「提前 return null」。
+    // 但抛异常要构造 Error 并抓栈，而 `BuildByKind` 在 `Analyze` 里是按**每个候选格**试探调用的，
+    // 一次 parse 会在这里抛出上万次 —— profile 实测 `BuildFromCode` self 占 27.4%，其中 95% 的
+    // 采样落在上述三个 `throw` 行上（`interface-declaration-shape.js` L181/L189/L237），是 root
+    // 接线后最大的一处回归源。判据与 `BuildFromCode` 逐条同源：末个非 trivia 单元必须是 `{` 括号，
+    // 且 `[start, end]` 内至少有「interface / 名字 / 体」三个代码单元。两条都成立时才交给原入口，
+    // 其余一律按原来的 catch 结果返回 null。
+    let lastAt: number = end;
+    while (lastAt >= start && host.Data[lastAt].IsTriviaToken) {
+      lastAt = lastAt - 1;
+    }
+    if (lastAt < start) {
+      return null;
+    }
+    const lastUnit: Token = host.Data[lastAt];
+    if (!(lastUnit instanceof Bracket) || (lastUnit as Bracket).StartBracketChar !== "{") {
+      return null;
+    }
+    let headCount: number = 0;
+    for (let headAt = start; headAt <= lastAt && headCount < 3; headAt++) {
+      if (!host.Data[headAt].IsTriviaToken) {
+        headCount = headCount + 1;
+      }
+    }
+    if (headCount < 3) {
+      return null;
+    }
     return InterfaceDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 5) {
