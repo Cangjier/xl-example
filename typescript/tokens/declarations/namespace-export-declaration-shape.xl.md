@@ -7,6 +7,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { DeclarationSpan } from "../items/module-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -29,18 +30,20 @@ measurement 载体：`export as namespace <名字>;`。TS 的 children 只有名
 super(template);
 ```
 
-## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>NamespaceExportDeclarationShape
+## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, requireSemicolon?:bool)=>NamespaceExportDeclarationShape
 
-`tokenIndex` 必须落在 `;` 上。
+`tokenIndex` 落在 `;` 上时要求最后一块是 `;`；无分号收口（EOF / ASI）时传 `requireSemicolon = false`，
+最后一个代码单元就是名字，`End` 取它的 `End`。
 
 ```ts
+const hasSemicolon = requireSemicolon ?? true;
 const code:Array<Token> = [];
 for (let at = start; at <= tokenIndex; at++) {
   if (!host.Data[at].IsTriviaToken) {
     code.push(host.Data[at]);
   }
 }
-if (code.length < 5) {
+if (code.length < 4) {
   throw new Error("namespace export 声明不完整");
 }
 const keyword = code[0];
@@ -60,7 +63,7 @@ if (!(namespaceKeyword instanceof Common) || !(namespaceKeyword as Common).Is("n
 if (!(nameUnit instanceof Common)) {
   throw new Error("namespace export 声明的名字不是标识符");
 }
-if (!(last instanceof Symbol) || !(last as Symbol).Is(";")) {
+if (hasSemicolon && (!(last instanceof Symbol) || !(last as Symbol).Is(";"))) {
   throw new Error("namespace export 声明缺少分号");
 }
 let pos = 0;
@@ -91,5 +94,48 @@ if (last.SourceRange.EndIndex >= 0) {
 }
 shape.Pos = pos;
 shape.TryToClose(context);
+return shape;
+```
+
+## static method BuildDirect:(host:Token, start:int, end:int, context:SyntaxContext)=>NamespaceExportDeclarationShape | null
+
+**直接建造入口**（WP-3 根级用）：`host.Data[start, end)` 恰好是一条 `export as namespace X`（`end` 不含）。
+
+`;` 口径：**可有可无**。无分号时 `FromUnits(…, false)` 把名字单元的 `End` 当区间终点（`;` 不是本节点的
+children），也就是模块体里 `export as namespace X` 换行收口的同一口径——但这里**不合成 `;`**、
+**不改 `host.Data`**。
+
+- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- 返回 `null` = 这一片不是 namespace-export 或不是完整声明；不抛异常。
+
+```ts
+if (start < 0 || end <= start) {
+  return null;
+}
+const code = DeclarationSpan.Slice(host, start, end);
+if (code.length < 4) {
+  return null;
+}
+const keyword = code[0];
+if (!(keyword instanceof Common) || !(keyword as Common).Is("export")) {
+  return null;
+}
+const asKeyword = code[1];
+if (!(asKeyword instanceof Common) || !(asKeyword as Common).Is("as")) {
+  return null;
+}
+const namespaceKeyword = code[2];
+if (!(namespaceKeyword instanceof Common) || !(namespaceKeyword as Common).Is("namespace")) {
+  return null;
+}
+const hasSemicolon = DeclarationSpan.EndsWithSemicolon(code);
+const units:Array<Token> = [];
+for (const unit of code) {
+  units.push(unit);
+}
+const hostLike:any = { Data: units, Template: host.Template };
+const pos = DeclarationSpan.PosBefore(host, start);
+const shape = NamespaceExportDeclarationShape.FromUnits(hostLike, 0, units.length - 1, context, hasSemicolon);
+shape.Pos = pos;
 return shape;
 ```

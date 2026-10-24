@@ -15,6 +15,7 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { ModuleBlockShape } from "./module-block-shape.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { DeclarationSpan } from "../items/module-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -51,14 +52,19 @@ export namespace N {}
 super(template);
 ```
 
-## static method FromUnits:(code:Array<Token>, positions:Array<int>, context:SyntaxContext)=>ModuleDeclarationShape
+## static method FromUnits:(code:Array<Token>, positions:Array<int>, context:SyntaxContext, requireTerminator?:bool)=>ModuleDeclarationShape
 
 把一条到齐的模块声明（非 trivia 单元 + 每个单元的 `Pos`）建成形状树。
+
+`requireTerminator` 默认 `true`：无体 ambient 模块（`declare module "m";`）必须以 `;` 收口。
+无分号收口（EOF / ASI）时传 `false`，最后一个单元就是名字，`End` 取名字单元的 `End`
+（**End 重锚**：不取 `;`、更不取后面的 trivia）。
 
 `code` 的第一格是第一个修饰词或模块关键字（`namespace` / `module`），最后一格是闭合的 `{ … }` 括号单元。
 `positions[i]` 是 `code[i]` 的 `Pos`（含前导 trivia 的半开区间起点，与 TS 同口径），由候选算好传进来。
 
 ```ts
+const hasTerminator = requireTerminator ?? true;
 let decoratorBase = positions.length > 0 ? positions[0] : 0;
 const decorators:Array<Token> = [];
 let decoratorEnd = decoratorBase;
@@ -149,7 +155,11 @@ while (at < code.length) {
   throw new Error("模块声明里出现无法识别的单元");
 }
 if (bodyIndex < 0 && terminatorIndex < 0) {
-  throw new Error("模块声明缺少模块体");
+  if (hasTerminator) {
+    throw new Error("模块声明缺少模块体");
+  }
+  // 无分号 ASI 收口：最后一个单元就是名字，End 落在名字末尾（End 重锚）。
+  terminatorIndex = code.length - 1;
 }
 if (bodyIndex < 0) {
   // declare module "m";：没有体，children 只有修饰词 + 名字；区间到分号为止（AST 的 End 含分号）。
@@ -235,4 +245,45 @@ if (body.SourceRange.EndIndex >= 0) {
 declaration.Pos = level === 0 ? positions[0] : positions[nameIndices[level]];
 declaration.TryToClose(context);
 return declaration;
+```
+
+## static method BuildDirect:(host:Token, start:int, end:int, context:SyntaxContext)=>ModuleDeclarationShape | null
+
+**直接建造入口**（WP-3 根级用）：`host.Data[start, end)` 恰好是一条模块声明
+（`namespace N { … }` / `module N { … }` / `declare module "m" { … }` / `declare global { … }` /
+无体 `declare module "m";`；`end` 不含）。
+
+`declare module` 的 **End 重锚**在 `FromUnits` 里已经成立：带体时 `End` 取体括号（`}`）的 `End`，
+无体时取 `;`（有分号）或名字单元（ASI）的 `End`——两条路径都不看尾随 trivia，所以直接入口不需要再修一次。
+
+- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- **不改 `host.Data`**（体括号是闭合单元，`ModuleBlockShape.FromBracket` 只在它自己的 `Data` 上工作）；
+- 返回 `null` = 这一片不是模块声明或不是完整声明；不抛异常。
+
+```ts
+if (start < 0 || end <= start) {
+  return null;
+}
+const code = DeclarationSpan.Slice(host, start, end);
+if (code.length === 0) {
+  return null;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return null;
+}
+const headText = (head as Common).TempToString();
+if (headText !== "namespace" && headText !== "module" && headText !== "global"
+  && headText !== "export" && headText !== "declare") {
+  return null;
+}
+const last = code[code.length - 1];
+const hasTerminator = DeclarationSpan.EndsWithSemicolon(code)
+  || (last instanceof Bracket && (last as Bracket).StartBracketChar === "{");
+const positions = DeclarationSpan.Positions(code, DeclarationSpan.PosBefore(host, start));
+try {
+  return ModuleDeclarationShape.FromUnits(code, positions, context, hasTerminator);
+} catch {
+  return null;
+}
 ```
