@@ -12,7 +12,7 @@ import { ClassDeclarationRule } from "../declarations/class-declaration-rule.xl.
 import { EnumDeclarationRule } from "../declarations/enum-declaration-rule.xl.md"
 import { ExportAssignmentRule } from "../declarations/export-assignment-rule.xl.md"
 import { ExportDeclarationRule } from "../declarations/export-declaration-rule.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { FunctionDeclarationRule } from "../declarations/function-declaration-rule.xl.md"
 import { ImportDeclarationRule } from "../declarations/import-declaration-rule.xl.md"
 import { ImportEqualsDeclarationRule } from "../declarations/import-equals-declaration-rule.xl.md"
@@ -20,7 +20,7 @@ import { InterfaceDeclarationRule } from "../declarations/interface-declaration-
 import { ModuleDeclarationRule } from "../declarations/module-declaration-rule.xl.md"
 import { NamespaceExportDeclarationRule } from "../declarations/namespace-export-declaration-rule.xl.md"
 import { SourceFileTailBuilder } from "../items/source-file-tail-builder.xl.md"
-import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
+import { StatementRule } from "../statements/statement-rule.xl.md"
 import { TypeAliasDeclarationRule } from "../declarations/type-alias-declaration-rule.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
@@ -189,7 +189,7 @@ if (SourceFileShape.CreateRulesCache === null) {
   SourceFileShape.CreateRulesCache = [
     new ImportDeclarationRule(),
     new ExportDeclarationRule(),
-    new StatementPossibleShape(),
+    new StatementRule(),
     // new ImportEqualsDeclarationRule(),
     // new ExportAssignmentRule(),
     // new NamespaceExportDeclarationRule(),
@@ -207,25 +207,25 @@ if (SourceFileShape.CreateRulesCache === null) {
     // new EnumDeclarationRule(),
     new ModuleDeclarationRule(),
     new TypeAliasDeclarationRule(),
-    // new VariableStatementPossibleShape(),
-    // new BlockPossibleShape(),
-    // new EmptyStatementPossibleShape(),
-    new ExpressionStatementPossibleShape(),
-    // new IfStatementPossibleShape(),
-    // new DoStatementPossibleShape(),
-    // new WhileStatementPossibleShape(),
-    // new ForStatementPossibleShape(),
-    // new ForInStatementPossibleShape(),
-    // new ForOfStatementPossibleShape(),
-    // new ContinueStatementPossibleShape(),
-    // new BreakStatementPossibleShape(),
-    // new ReturnStatementPossibleShape(),
-    // new WithStatementPossibleShape(),
-    // new SwitchStatementPossibleShape(),
-    // new LabeledStatementPossibleShape(),
-    // new ThrowStatementPossibleShape(),
-    // new TryStatementPossibleShape(),
-    // new DebuggerStatementPossibleShape(),
+    // new VariableStatementShapeRule(),
+    // new BlockShapeRule(),
+    // new EmptyStatementShapeRule(),
+    new ExpressionStatementRule(),
+    // new IfStatementShapeRule(),
+    // new DoStatementShapeRule(),
+    // new WhileStatementShapeRule(),
+    // new ForStatementShapeRule(),
+    // new ForInStatementShapeRule(),
+    // new ForOfStatementShapeRule(),
+    // new ContinueStatementShapeRule(),
+    // new BreakStatementShapeRule(),
+    // new ReturnStatementShapeRule(),
+    // new WithStatementShapeRule(),
+    // new SwitchStatementShapeRule(),
+    // new LabeledStatementShapeRule(),
+    // new ThrowStatementShapeRule(),
+    // new TryStatementShapeRule(),
+    // new DebuggerStatementShapeRule(),
   ];
 }
 return SourceFileShape.CreateRulesCache;

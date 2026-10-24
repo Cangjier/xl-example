@@ -9,7 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
@@ -53,7 +53,7 @@ declare class C {}
 
 根层的类声明是**提前挂载的壳**：本候选一眼认下 `class`（连同前面的装饰器 / `declare` / `abstract` 前缀）就被
 `RootRuleTable` 建出 `ClassDeclarationShape` 壳，壳随后吃名字 / 类型参数 / heritage / 类体；类体括号闭合时由壳的
-终结候选（`ClassDeclarationEndPossibleShape`）收口。所以本候选**不再扫描到类体**：`extends` / `implements` /
+终结候选（`ClassDeclarationEndShapeRule`）收口。所以本候选**不再扫描到类体**：`extends` / `implements` /
 类型参数 / 类体内容全是壳的事，`class` 之后出现什么都不影响本候选的判定。
 
 `declare` / `abstract` 与 `class` 之间换行时 TS 的 ASI 把修饰词收成独立的 ExpressionStatement、类声明不带该修饰词，
@@ -71,7 +71,7 @@ for (let index = at - 1; index >= 0; index--) {
   if (!unit.IsTriviaToken) {
     return false;
   }
-  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+  if (ExpressionStatementRule.HasLineBreak(unit)) {
     return true;
   }
 }

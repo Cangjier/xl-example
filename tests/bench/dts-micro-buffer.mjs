@@ -32,7 +32,7 @@ const { SourceRange } = require(path.join(buildTs, "core", "syntax", "source-ran
 const { TextDocument } = require(path.join(buildTs, "typescript", "run", "text-document.js"));
 const { Token } = require(path.join(buildTs, "core", "syntax", "token.js"));
 const { BlockToken } = require(path.join(buildTs, "core", "syntax", "block-token.js"));
-const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
+const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "shape-rule-cache.js"));
 
 const median = (values) => {
   const s = values.slice().sort((a, b) => a - b);

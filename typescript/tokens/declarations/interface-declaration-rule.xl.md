@@ -10,7 +10,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 ```
@@ -45,7 +45,7 @@ declare interface I {}
 @dec interface I {}
 ```
 
-根层的接口声明是**提前挂载的壳**：本候选一眼认下 `interface`（连同前面的装饰器 / `declare` 前缀）就 `Accept` 并被 `CatalogGuide` 建出 `InterfaceDeclarationShape` 壳，壳随后吃名字 / 类型参数 / heritage / 接口体，接口体括号闭合时由壳的终结候选收口。
+根层的接口声明是**提前挂载的壳**：本候选一眼认下 `interface`（连同前面的装饰器 / `declare` 前缀）就 `Accept` 并被 `ShapeCatalog` 建出 `InterfaceDeclarationShape` 壳，壳随后吃名字 / 类型参数 / heritage / 接口体，接口体括号闭合时由壳的终结候选收口。
 
 所以本候选**不再扫描到接口体**：`extends` / 类型参数 / 括号里的内容全是壳的事，`interface I` 之后出现什么都不影响本候选的判定。
 
@@ -61,7 +61,7 @@ for (let index = at - 1; index >= 0; index--) {
   if (!unit.IsTriviaToken) {
     return false;
   }
-  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+  if (ExpressionStatementRule.HasLineBreak(unit)) {
     return true;
   }
 }
@@ -208,7 +208,7 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache, context:SyntaxContext)=>bool
 
-只要已经认下 `interface` 就能建壳：建壳时机由 `CatalogGuide` 的唯一候选决定（`@dec interface I` 这类前缀要等其它候选都退出，可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
+只要已经认下 `interface` 就能建壳：建壳时机由 `ShapeCatalog` 的唯一候选决定（`@dec interface I` 这类前缀要等其它候选都退出，可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
 
 ```ts
 const state = cache.GetState<InterfaceDeclarationScan>(this.Slot());

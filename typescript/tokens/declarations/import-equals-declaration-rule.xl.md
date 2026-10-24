@@ -11,7 +11,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.xl.md"
 ```
 
@@ -222,7 +222,7 @@ return ShapeStates.Uncertain;
 ```ts
 for (let at = from + 1; at < to; at++) {
   const unit = units[at];
-  if (unit.IsTriviaToken && ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+  if (unit.IsTriviaToken && ExpressionStatementRule.HasLineBreak(unit)) {
     return true;
   }
 }

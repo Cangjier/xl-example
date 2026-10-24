@@ -3,7 +3,7 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { AreaAnnotation } from "../../../core/syntax/basic-tokens/area-annotation.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ShapeCatalog } from "../../../core/syntax/shape-catalog.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
@@ -55,7 +55,7 @@ import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaratio
 
 ## field SawQuestion:bool = false
 
-# class ExpressionStatementPossibleShape extends ShapeRule
+# class ExpressionStatementRule extends ShapeRule
 
 ```txt
 a;
@@ -127,7 +127,7 @@ if (unit instanceof Common) {
   if ((unit as Common).CanStartNumber()) {
     return true;
   }
-  return !ExpressionStatementPossibleShape.IsStatementWord(text);
+  return !ExpressionStatementRule.IsStatementWord(text);
 }
 return false;
 ```
@@ -213,7 +213,7 @@ if (unit instanceof Symbol) {
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
-  return !ExpressionStatementPossibleShape.IsStatementWord(text)
+  return !ExpressionStatementRule.IsStatementWord(text)
     && text !== "typeof"
     && text !== "void"
     && text !== "delete"
@@ -241,7 +241,7 @@ return false;
   `type` 与 `T = 1` 会被并成一条 TypeAliasDeclaration（或者拖到 EOF 兜底 crash）。
 
 ```ts
-if (ExpressionStatementPossibleShape.CanEndExpression(units[index])) {
+if (ExpressionStatementRule.CanEndExpression(units[index])) {
   return true;
 }
 if (units[index] instanceof Common) {
@@ -391,7 +391,7 @@ if (prev < 0) {
   return false;
 }
 // 换行判据按源位置找（块体 / 体里的 Units 不带 trivia 单元，见 HasLineBreakBefore）。
-if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+if (!ExpressionStatementRule.HasLineBreakBefore(units, tokenIndex)) {
   return false;
 }
 // 前一个代码单元能收住一条完整表达式。闭合的 `{…}` 括号单元（对象字面量 / 箭头函数块体）
@@ -411,14 +411,14 @@ if ((current instanceof Bracket
     return true;
   }
 }
-if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)
-    && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)
+if (!ExpressionStatementRule.CanEndExpressionAt(units, prev)
+    && !ExpressionStatementRule.IsPostfixBangTail(units, prev)
     && !prevIsClosedBrace) {
   return false;
 }
 // 条件 5：本条语句的起点。**必须排在下面两个「确定性边界」早退之前**——那些边界是给
 // **表达式语句**用的；`const f = () => {}` ⏎ `(y)` / `let v = x as T` ⏎ `(1)` 这类声明条目的
-// 换行收口要由声明候选自己完成，终结候选若在这里 Accept 就会撞 CatalogGuide 的
+// 换行收口要由声明候选自己完成，终结候选若在这里 Accept 就会撞 ShapeCatalog 的
 // 「终结候选与其它候选同时成立」。
 // 从 prev 往回跳过属于自己的 basic token（遇到建好的形状就停）。`limit` 是「本条语句所在段的
 // 起点」：块体里的 units 还没有建形状，调用方必须传段首，否则会一路走回上一条语句的声明关键字。
@@ -448,11 +448,11 @@ if (units[statementHead] instanceof Common && afterHead < units.length
   }
 }
 if (units[statementHead] instanceof Common
-  && ExpressionStatementPossibleShape.IsDeclarationHeadWord((units[statementHead] as Common).TempToString())) {
+  && ExpressionStatementRule.IsDeclarationHeadWord((units[statementHead] as Common).TempToString())) {
   return false;
 }
 // 标签语句（`lbl: …`）由语句候选建 LabeledStatement：换行处不是表达式语句的 ASI，
-// 否则语句候选 Accept 的同时终结候选也 Accept，CatalogGuide 抛「同时成立」。
+// 否则语句候选 Accept 的同时终结候选也 Accept，ShapeCatalog 抛「同时成立」。
 if (units[head] instanceof Common && headFollow < units.length
   && units[headFollow] instanceof Symbol && (units[headFollow] as Symbol).Is(":")) {
   return false;
@@ -491,7 +491,7 @@ if (units[head] instanceof Common) {
     }
     expressionHead = !TypeAliasDeclarationShape.IsTypeAliasHead(headCode, headText);
   }
-  if (!expressionHead && ExpressionStatementPossibleShape.IsStatementWord(headText)
+  if (!expressionHead && ExpressionStatementRule.IsStatementWord(headText)
     // `yield` 是唯一的例外：它既是语句词、也是受限产生式的开头——`yield 1` ⏎ `yield* other()`
     // 的换行是 ASI 边界（yield 候选不在 root 的候选表里，不会撞共存）。
     && !(units[head] as Common).Is("yield")) {
@@ -505,7 +505,7 @@ if (units[head] instanceof Common) {
 if ((current instanceof Bracket
     && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
   || (current instanceof String && (current as String).StringChar === "`")) {
-  if (ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, prev)) {
+  if (ExpressionStatementRule.IsNonCallableExpressionTail(units, prev)) {
     return true;
   }
 }
@@ -519,8 +519,8 @@ if (units[prev] instanceof Symbol) {
     }
     // 「操作数与 `++` 之间不能有换行」同样按源位置判（块体的 Units 不带 trivia 单元）。
     if (before < 0
-      || ExpressionStatementPossibleShape.HasLineBreakBefore(units, prev)
-      || !ExpressionStatementPossibleShape.CanEndExpression(units[before])) {
+      || ExpressionStatementRule.HasLineBreakBefore(units, prev)
+      || !ExpressionStatementRule.CanEndExpression(units[before])) {
       return false;
     }
     // 后缀 `++`/`--` 的结果不是合法的调用者 / 成员访问宿主（TS 的 UpdateExpression 不在
@@ -550,11 +550,11 @@ if (units[prev] instanceof Symbol) {
 if ((current instanceof Bracket
     && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
   || (current instanceof String && (current as String).StringChar === "`")) {
-  if (ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, prev)) {
+  if (ExpressionStatementRule.IsNonCallableExpressionTail(units, prev)) {
     return true;
   }
 }
-return !ExpressionStatementPossibleShape.IsContinuation(current);
+return !ExpressionStatementRule.IsContinuation(current);
 ```
 
 ## static method IsContextualIdentifier:(text:string)=>bool
@@ -601,12 +601,12 @@ if (!(units[last] instanceof Symbol) || (units[last] as Symbol).TempToString() !
 let operand = last - 1;
 let breakSeen = false;
 while (operand >= 0 && units[operand].IsTriviaToken) {
-  if (ExpressionStatementPossibleShape.HasLineBreak(units[operand])) {
+  if (ExpressionStatementRule.HasLineBreak(units[operand])) {
     breakSeen = true;
   }
   operand--;
 }
-return operand >= 0 && !breakSeen && ExpressionStatementPossibleShape.CanEndExpression(units[operand]);
+return operand >= 0 && !breakSeen && ExpressionStatementRule.CanEndExpression(units[operand]);
 ```
 ## static method IsNonCallableExpressionTail:(units:Array<Token>, last:int)=>bool
 
@@ -638,7 +638,7 @@ return LineTerminator.HasBefore(units, tokenIndex);
 而 `CanEndExpression` 分不清 `{` 与裸块，统一按 false 处理。
 
 ```ts
-if (ExpressionStatementPossibleShape.CanEndExpression(unit)) {
+if (ExpressionStatementRule.CanEndExpression(unit)) {
   return true;
 }
 if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
@@ -672,7 +672,7 @@ if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
 if (current instanceof Symbol && (current as Symbol).Is(";")) {
   return false;
 }
-if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+if (!ExpressionStatementRule.HasLineBreakBefore(units, tokenIndex)) {
   return false;
 }
 let previous = tokenIndex - 1;
@@ -684,11 +684,11 @@ if (previous < 0) {
 }
 // 调用位 + 不可调用尾：`(` / `[` / 模板「接得上」的前提是上一格能当调用者 / 标签模板宿主；
 // `as` / `satisfies` 的类型、块体箭头、后缀自增都当不了，TS 就在那里插 ASI。
-if (ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(units, tokenIndex)) {
+if (ExpressionStatementRule.IsUncontinuableTailBoundary(units, tokenIndex)) {
   return true;
 }
-return ExpressionStatementPossibleShape.IsExpressionTail(units[previous])
-  && !ExpressionStatementPossibleShape.IsContinuation(current);
+return ExpressionStatementRule.IsExpressionTail(units[previous])
+  && !ExpressionStatementRule.IsContinuation(current);
 ```
 
 ## static method IsUncontinuableTailBoundary:(units:Array<Token>, tokenIndex:int)=>bool
@@ -716,7 +716,7 @@ if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
 if (current instanceof Symbol && (current as Symbol).Is(";")) {
   return false;
 }
-if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+if (!ExpressionStatementRule.HasLineBreakBefore(units, tokenIndex)) {
   return false;
 }
 let previous = tokenIndex - 1;
@@ -730,15 +730,15 @@ const currentIsCallPosition = (current instanceof Bracket
     && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
   || (current instanceof String && (current as String).StringChar === "`");
 if (currentIsCallPosition) {
-  if (ExpressionStatementPossibleShape.IsPostfixOperatorAt(units, previous)) {
+  if (ExpressionStatementRule.IsPostfixOperatorAt(units, previous)) {
     const operatorText = (units[previous] as Symbol).TempToString();
     if (operatorText === "++" || operatorText === "--") {
       return true;
     }
   }
-  return ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, previous);
+  return ExpressionStatementRule.IsNonCallableExpressionTail(units, previous);
 }
-if (ExpressionStatementPossibleShape.IsPostfixOperatorAt(units, previous)
+if (ExpressionStatementRule.IsPostfixOperatorAt(units, previous)
   && current instanceof Symbol) {
   const currentText = (current as Symbol).TempToString();
   if (currentText === "++" || currentText === "--" || currentText === "!" || currentText === "~") {
@@ -766,8 +766,8 @@ while (operand >= 0 && units[operand].IsTriviaToken) {
   operand--;
 }
 return operand >= 0
-  && !ExpressionStatementPossibleShape.HasLineBreakBefore(units, index)
-  && ExpressionStatementPossibleShape.CanEndExpression(units[operand]);
+  && !ExpressionStatementRule.HasLineBreakBefore(units, index)
+  && ExpressionStatementRule.CanEndExpression(units[operand]);
 ```
 
 ## static method ExpressionEnd:(units:Array<Token>, from:int)=>int
@@ -787,7 +787,7 @@ for (let at = from; at < units.length; at++) {
   if (unit instanceof EndOfFileTokenShape) {
     return at > from ? at - 1 : -1;
   }
-  if (at > from && ExpressionStatementPossibleShape.IsAsiBoundary(units, at)) {
+  if (at > from && ExpressionStatementRule.IsAsiBoundary(units, at)) {
     let last = at - 1;
     while (last > from && units[last].IsTriviaToken) {
       last--;
@@ -967,7 +967,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
 }
 // ASI：换行后到来的这个代码单元接不上前一条表达式，说明本条语句在换行处就结束了。
 // 这里只「退出」——建那条语句是根终结候选的事（按边界 `FromUnits(..., false)` 收尾）。
-if (!state.Done && ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
+if (!state.Done && ExpressionStatementRule.IsAsiBoundary(units, tokenIndex)) {
   state.Rejected = true;
 }
 state.Checked = tokenIndex + 1;
@@ -987,7 +987,7 @@ const state = cache.GetState<ExpressionStatementScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:ShapeCatalog, context:SyntaxContext)=>Token
 
 ```ts
 const state = catalog.SlotCache.GetState<ExpressionStatementScan>(this.Slot());

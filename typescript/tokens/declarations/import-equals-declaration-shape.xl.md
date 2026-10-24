@@ -222,7 +222,7 @@ return shape;
 无分号（ASI）时落在引用末单元上——两种口径的 `End` 都由同一个 `last` 签出，所以这里**不需要合成 `;`**；
 有 `;` 但被 ASI 提前收口时，调用方给的 `end` 已经把它排除在外。
 
-- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- 不依赖 `BuildByIndex` / `MountShell` / `ShapeCatalog`；
 - **不改 `host.Data`**；
 - 返回 `null` = 这一片不是 import-equals（例如 `import { … } from` 形态交给
   `ImportDeclarationShape.BuildDirect`）或不是完整声明；不抛异常。

@@ -44,9 +44,9 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 
 引擎与状态全部来自 `core/syntax/batch`（契约冻结，本文件只消费、不修改）。
 
-判定不是本文件自己写的：**13 个根候选在同一张表里竞争**（`CatalogGuide` 的语义），
-语句族的判据在 `StatementPossibleShape` 里（`StatementScanner`），声明族的判据在各自的
-`XxxDeclarationPossibleShape` 里。本文件只做「谁赢了 → 用哪个静态建造入口」的映射，
+判定不是本文件自己写的：**13 个根候选在同一张表里竞争**（`ShapeCatalog` 的语义），
+语句族的判据在 `StatementRule` 里（`StatementScanner`），声明族的判据在各自的
+`XxxDeclarationShapeRule` 里。本文件只做「谁赢了 → 用哪个静态建造入口」的映射，
 **不复制任何判据**（INV-2）。
 
 `End` 一律是**宿主下标**：候选给出的收口点是 `Code` 下标，这里经 `state.CodeAt` 映射。
@@ -125,7 +125,7 @@ this.Reseed();
 ## private method Reseed:()=>void
 
 复位：候选下标填满、缓存清空、水位线与胜者归零。**每建完一条都必须调**——
-不复位就再也建不出第二条（`CatalogGuide.Reset` 的注释）。
+不复位就再也建不出第二条（`ShapeCatalog.Reset` 的注释）。
 
 ```ts
 this.Alive.clear();
@@ -165,7 +165,7 @@ return kinds;
 
 ## method Analyze:(state:ItemScanState)=>void
 
-= 不带 context 形参的 `CatalogGuide` 选表循环：逐个 `Code` 下标淘汰候选，只剩一个且
+= 不带 context 形参的 `ShapeCatalog` 选表循环：逐个 `Code` 下标淘汰候选，只剩一个且
 `IsBuildable` 成立时收口。
 
 `Alive` 空 = 本段没有形状可建 → 立刻收口并交 raw（引擎 `RawFallback`），EOF 时由 `FinishBody` 兜底。

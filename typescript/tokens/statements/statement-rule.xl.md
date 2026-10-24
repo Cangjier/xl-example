@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ShapeCatalog } from "../../../core/syntax/shape-catalog.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
 import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
@@ -33,7 +33,7 @@ import { StatementBuilder } from "./statement-builder.xl.md"
 
 代码单元下标 → 宿主 `Data` 下标的映射（`End` 折算用）。
 
-# class StatementPossibleShape extends ShapeRule
+# class StatementRule extends ShapeRule
 
 根级语句候选（块 / 空语句 / 变量 / if / while / do / for / for-in / for-of / return / break / continue / throw / debugger）。
 只认本族起点（`{`、`;` 与固定关键字），其它起点一律 `Reject`，把位置留给 import / export / expression 候选。
@@ -56,7 +56,7 @@ debugger;
 
 建树时机由 `StatementScanner` 回答：`Status == 1`（到齐）且 `End` 已知时建；`End` 可能小于当前下标（`if (a) b;` 后面来了新的代码单元才确定没有 `else`），这时只消费到 `End`，剩下的单元留给下一条语句。
 
-**EOF 哨兵上的让位**：`ItemStart > 0`（前面已经建出过语句）时，最后一段的边界 token 留给根终结候选在 EOF 建——上一条语句在 ASI 边界收口时会把边界 token 原样留下（`type T = A` ⏎ `return` / `debugger` / `{ a: 1 }`），它不再有自己的判定格；本候选若在哨兵上 Accept，两边同时成立，CatalogGuide 抛错（C04–C06）。
+**EOF 哨兵上的让位**：`ItemStart > 0`（前面已经建出过语句）时，最后一段的边界 token 留给根终结候选在 EOF 建——上一条语句在 ASI 边界收口时会把边界 token 原样留下（`type T = A` ⏎ `return` / `debugger` / `{ a: 1 }`），它不再有自己的判定格；本候选若在哨兵上 Accept，两边同时成立，ShapeCatalog 抛错（C04–C06）。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
@@ -117,7 +117,7 @@ if (state.Status === 1) {
   // 这一段是「上一条语句在 ASI 边界收口时留下的边界 token」（`type T = A` ⏎ `return` /
   // `debugger` / `{ a: 1 }`、`a` ⏎ `return`）。边界 token 不会再有自己的判定格，根终结候选
   // 会在 EOF 这一格用 `BuildTrailingDeclaration` 把它建出来；本候选若在这里 Accept，
-  // CatalogGuide 就抛「终结候选与其它候选同时成立」（C04–C06）。
+  // ShapeCatalog 就抛「终结候选与其它候选同时成立」（C04–C06）。
   if (state.Start > 0 && units[tokenIndex] instanceof EndOfFileTokenShape) {
     return ShapeStates.Reject;
   }
@@ -133,7 +133,7 @@ const state = cache.GetState<StatementScan>(this.Slot());
 return state !== null && state.Status === 1 && state.End >= 0;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:ShapeCatalog, context:SyntaxContext)=>Token
 
 ```ts
 const state = catalog.SlotCache.GetState<StatementScan>(this.Slot());

@@ -231,7 +231,7 @@ return token.UnicodeBraceEscapeDigits() >= 0;
 
 关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IItemCompute` 就不问，也不再往上找。
 
-父单元是不是宿主由它自己的 `CatalogGuide` 说了算：为空就等于没挂向导，被问到也不做任何事。
+父单元是不是宿主由它自己的 `BatchAdapter` 说了算：为空就等于没挂批次消费者，被问到也不做任何事。
 
 重算的返回值要**原样带上去**：建出了形状时，正在被建的那个 token 的收尾就变成了「形状已就位，当前字符该重放」。
 
@@ -273,7 +273,7 @@ return lastIsDigit;
 
 `Temp` 的第一个字符能不能起一个数字字面量：数字，或 `.` 后面紧跟数字。
 
-形状层（`ExpressionStatementPossibleShape.CanStart` 与 `ExpressionBuilder.StartsNumber`）共用这一条判据，避免两处各写一份。
+形状层（`ExpressionStatementRule.CanStart` 与 `ExpressionBuilder.StartsNumber`）共用这一条判据，避免两处各写一份。
 
 ```ts
 const text = this.TempToString();

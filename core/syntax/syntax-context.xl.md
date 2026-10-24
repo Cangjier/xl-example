@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { HandoffRequest } from "./batch/handoff-request.xl.md"
-import { ShadowCompare } from "./batch/shadow-compare.xl.md"
 import { Document } from "./document.xl.md"
 import { Message } from "./message.xl.md"
 import { ReloadMessage } from "./messages/reload-message.xl.md"
@@ -44,18 +43,6 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `DrainMessages` 正在重放一个位置时为 `true`。重放的窗口固定 `[at, at+1)`，此时队列里可能还压着**更后面**的消息（它们按 FIFO 排在重放消息之后），单元不能因为「队列非空」就把这一个位置也让出去，否则重放原地无进展。
 
-## field BatchMode:int = 1
-
-批次驱动模式（**per-host 粒度**，不是全局一刀切）：
-
-- `0 = legacy`：所有宿主装 `LegacyBatchAdapter`，行为与基线逐字节一致；
-- `1 = batch`：已迁移宿主装 `ItemListEngine`，未迁移宿主仍装适配器；
-- `2 = shadow`：只对正在迁移的那类宿主先走新引擎、再走旧适配器，比较后丢弃新结果（只用于对拍构build，不进性能测量）。
-
-默认值从 WP-1 起为 `1`：`UnitToken.OnBasicTokenClosed` 只在「`BatchMode !== 0` **且**宿主挂了适配器」时走批次路径，
-而 WP-1 只有枚举体括号挂 `EnumBodyItemHost`，其余宿主 `BatchAdapter === null`，仍逐字走
-`Token.OnBasicTokenClosed` 的旧路径（行为不变，由 AST / XML 门禁证明）。
-
 ## field BatchEpoch:int = 0
 
 批次纪元：宿主挂载/切换适配器时递增，用来判定已有批次视图是否失效。
@@ -63,10 +50,6 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 ## field Handoff:HandoffRequest | null = null
 
 活动中的 shell handoff 请求（递归深度上限见 `HandoffRequest.MaxDepth = 8`）。
-
-## field Shadow:ShadowCompare | null = null
-
-`BatchMode=2` 时挂的影子比较器；`null` 表示不对拍。
 
 ## field BracketHook:any = null
 

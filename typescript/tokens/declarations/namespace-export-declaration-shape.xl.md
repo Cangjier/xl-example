@@ -105,7 +105,7 @@ return shape;
 children），也就是模块体里 `export as namespace X` 换行收口的同一口径——但这里**不合成 `;`**、
 **不改 `host.Data`**。
 
-- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- 不依赖 `BuildByIndex` / `MountShell` / `ShapeCatalog`；
 - 返回 `null` = 这一片不是 namespace-export 或不是完整声明；不抛异常。
 
 ```ts

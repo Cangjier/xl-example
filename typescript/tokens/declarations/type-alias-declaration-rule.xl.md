@@ -12,7 +12,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
@@ -73,7 +73,7 @@ export type { X }
 条目可以带 `export` / `declare` 修饰（`[export] [declare] type …`，顺序与 TS 一致；`export type T = A` 也合法），
 所以 Stage 0 先吞修饰词，见到 `type` 才进 Stage 1。扫描到顶层 `;` 时 `Accept`；
 扫描到行末 ASI 边界时也在边界 token 上 `Accept`（build 时排除该 token：它属于下一条语句）。
-`IsBuildable` 只在收口那一格为真——与 `ExpressionStatementPossibleShape` 同一套时机。
+`IsBuildable` 只在收口那一格为真——与 `ExpressionStatementRule` 同一套时机。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
@@ -200,7 +200,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     // TS nextTokenIsIdentifierOnSameLine：名字必须与 `type` **同行**。有行终止符（LF/CR/LS/PS、
     // 行注释的换行、块注释里的换行都算）时 `type` 只是标识符——`type` ⏎ `T = 1` 是两条
     // ExpressionStatement，本候选必须当场退出，否则它会活到边界格与根终结候选同时 Accept
-    //（CatalogGuide 抛「终结候选与其它候选同时成立」）。
+    //（ShapeCatalog 抛「终结候选与其它候选同时成立」）。
     let typeAt = at - 1;
     while (typeAt >= 0 && units[typeAt].IsTriviaToken) {
       typeAt--;

@@ -6,7 +6,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 # enum ItemComputeStates
 
-`CatalogGuide.ComputeItems` 与 `UnitToken.ComputeItems` 的返回值。
+`ShapeCatalog.ComputeItems` 与 `UnitToken.ComputeItems` 的返回值。
 
 - case Nothing
 这次什么都没做：宿主没有目录向导，或者下标越界。

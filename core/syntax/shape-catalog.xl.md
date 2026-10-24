@@ -14,9 +14,9 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 形状目录向导：一份**完整的**候选目录 + 一份**还活着的**候选下标 + 一份判定缓存。
 
-触发只有一条路径：basic token 关闭时**只问父单元**，父单元（实现了 `IItemCompute`、且 `CatalogGuide` 非空）把 `this` 转交进来；本向导问一遍还活着的候选（`ShapeRule.ComputeByIndex`），被拒的**从下标集里去掉**（候选数组一个字都不动），**当且仅当只剩一个候选**时把它交给 `ShapeRule.BuildByIndex`，建完**复位**；一个候选都不剩就抛错，还有多个就继续等后面的单元。
+触发只有一条路径：basic token 关闭时**只问父单元**，父单元（实现了 `IItemCompute`、且 `ShapeCatalog` 非空）把 `this` 转交进来；本向导问一遍还活着的候选（`ShapeRule.ComputeByIndex`），被拒的**从下标集里去掉**（候选数组一个字都不动），**当且仅当只剩一个候选**时把它交给 `ShapeRule.BuildByIndex`，建完**复位**；一个候选都不剩就抛错，还有多个就继续等后面的单元。
 
-# class CatalogGuide
+# class ShapeCatalog
 
 形状目录向导。
 
@@ -76,7 +76,7 @@ return this.ComputeItemsByIndex(host, host.Data.length - 1, context);
 
 ```ts
 if (typeof context === "undefined") {
-  throw new Error(`CatalogGuide: context 必须通过形参传入（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
+  throw new Error(`ShapeCatalog: context 必须通过形参传入（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
 }
 const token = host.Data[tokenIndex];
 if (token === undefined) {
@@ -91,7 +91,7 @@ let ended = false;
 if (this.EndPossible !== null) {
   ended = this.EndPossible.ComputeByIndex(host.Data, tokenIndex, this.SlotCache) === ShapeStates.Accept;
   if (ended && this.Candidates.size > 0) {
-    throw new Error(`CatalogGuide: 终结候选与其它候选同时成立（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
+    throw new Error(`ShapeCatalog: 终结候选与其它候选同时成立（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
   }
 }
 if (ended && this.EndPossible !== null) {
@@ -101,7 +101,7 @@ if (ended && this.EndPossible !== null) {
 }
 if (this.Candidates.size === 0) {
   if (this.EndPossible === null) {
-    throw new Error(`CatalogGuide: 没有候选形状可以构成（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
+    throw new Error(`ShapeCatalog: 没有候选形状可以构成（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
   }
   return ItemComputeStates.Waiting;
 }
@@ -109,7 +109,7 @@ if (this.Candidates.size > 1) {
   return ItemComputeStates.Waiting;
 }
 if (this.Candidates.size !== 1) {
-  throw new Error(`CatalogGuide: 唯一候选不变量被破坏（宿主 ${host.constructor.name}，下标 ${tokenIndex}，候选 ${this.Candidates.size} 个）`);
+  throw new Error(`ShapeCatalog: 唯一候选不变量被破坏（宿主 ${host.constructor.name}，下标 ${tokenIndex}，候选 ${this.Candidates.size} 个）`);
 }
 const index = Array.from(this.Candidates)[0];
 if (!this.Shapes[index].IsBuildable(host.Data, tokenIndex, this.SlotCache, context)) {

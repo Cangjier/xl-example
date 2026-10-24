@@ -8,7 +8,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 ```
@@ -16,7 +16,7 @@ import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 # namespace cangjie
 
 `export = <表达式>;` 的候选：`export` `=` 之后至少一个代码单元，顶层 `;` 收尾。
-`ExportDeclarationRule` 在第二格见到 `=` 就 `Reject`，`ExpressionStatementPossibleShape.CanStart` 又保留 `export`，
+`ExportDeclarationRule` 在第二格见到 `=` 就 `Reject`，`ExpressionStatementRule.CanStart` 又保留 `export`，
 所以这里只要阶段推进正确，`;` 那一格只剩本候选。时序与 `TypeAliasDeclarationRule` 相同。
 
 # class ExportAssignmentScan
@@ -107,7 +107,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
     continue;
   }
-  if (state.Parts > 0 && ExpressionStatementPossibleShape.IsStatementBoundaryAfterExpression(units, at)) {
+  if (state.Parts > 0 && ExpressionStatementRule.IsStatementBoundaryAfterExpression(units, at)) {
     // 无分号收口：下一条语句的第一个代码单元到了——这一条在它前面的换行处结束。
     state.Done = true;
     state.DoneAt = tokenIndex;

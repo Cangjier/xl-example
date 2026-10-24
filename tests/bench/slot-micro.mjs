@@ -21,8 +21,8 @@ const buildIdx = argv.indexOf("--build");
 const buildDir = path.resolve(root, buildIdx >= 0 ? argv[buildIdx + 1] : "build");
 const buildTs = path.join(buildDir, "ts");
 
-const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
-const { ShapeRule } = require(path.join(buildTs, "core", "syntax", "possible-shape.js"));
+const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "shape-rule-cache.js"));
+const { ShapeRule } = require(path.join(buildTs, "core", "syntax", "shape-rule.js"));
 
 class SamplePossibleShape extends ShapeRule {}
 const instance = new SamplePossibleShape();

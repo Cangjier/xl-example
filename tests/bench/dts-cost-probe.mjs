@@ -146,7 +146,7 @@ if (doMicro) {
   const { Document } = require(path.join(buildTs, "core", "syntax", "document.js"));
   const { ReloadMessage } = require(path.join(buildTs, "core", "syntax", "messages", "reload-message.js"));
   const { TextDocument } = require(path.join(buildTs, "typescript", "run", "text-document.js"));
-  const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
+  const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "shape-rule-cache.js"));
   const { Token } = require(path.join(buildTs, "core", "syntax", "token.js"));
 
   const text = "a".repeat(1 << 20);

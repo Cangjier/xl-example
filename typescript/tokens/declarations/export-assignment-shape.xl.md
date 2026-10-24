@@ -109,7 +109,7 @@ return shape;
 无分号时 `FromUnits(…, false)` 取最后一个代码单元（表达式末尾）作 `End`——`;` 不是本节点的 children，
 本就不该进区间。有分号时按原口径把 `;` 计入区间。
 
-- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- 不依赖 `BuildByIndex` / `MountShell` / `ShapeCatalog`；
 - **不改 `host.Data`**；
 - 返回 `null` = 这一片不是 export-assignment（`export default class …` 这类「default + 声明」是
   声明族，不是本形态）或不是完整声明；不抛异常。

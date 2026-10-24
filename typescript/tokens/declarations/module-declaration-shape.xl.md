@@ -256,7 +256,7 @@ return declaration;
 `declare module` 的 **End 重锚**在 `FromUnits` 里已经成立：带体时 `End` 取体括号（`}`）的 `End`，
 无体时取 `;`（有分号）或名字单元（ASI）的 `End`——两条路径都不看尾随 trivia，所以直接入口不需要再修一次。
 
-- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- 不依赖 `BuildByIndex` / `MountShell` / `ShapeCatalog`；
 - **不改 `host.Data`**（体括号是闭合单元，`ModuleBlockShape.FromBracket` 只在它自己的 `Data` 上工作）；
 - 返回 `null` = 这一片不是模块声明或不是完整声明；不抛异常。
 

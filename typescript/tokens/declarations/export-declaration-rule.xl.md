@@ -12,7 +12,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
@@ -125,7 +125,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     continue;
   }
   if (unit instanceof EndOfFileTokenShape) {
-    // EOF: the statement never got its `;`. Yield to SourceFileEndPossibleShape, which builds the
+    // EOF: the statement never got its `;`. Yield to SourceFileEndShapeRule, which builds the
     // trailing export variable statement / export default assignment from the leftover tokens.
     state.Stage = 3;
     continue;
@@ -139,7 +139,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
     // 首格不是 `export` 的条目已经以 Stage = 3 退出：后面的单元不许再把 Stage 改写回合法档。
     // 以前这里没有这道闸，`import { b } from "m"`（在 ASI 边界之后剩下的一整条 import）会被
     // 第二个单元 `{` 误判成 `export { … }` 子句形，于是 import 与 export 两个候选同时 Accept，
-    // 根终结候选在 EOF 上 Accept 时触发 CatalogGuide 的「终结候选与其它候选同时成立」。
+    // 根终结候选在 EOF 上 Accept 时触发 ShapeCatalog 的「终结候选与其它候选同时成立」。
     if (state.Stage === 3) {
       continue;
     }
@@ -295,7 +295,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
   if (state.Stage === 25) {
     // export default abstract class …。
     if (unit instanceof Common && (unit as Common).Is("class")) {
-      if (ExpressionStatementPossibleShape.HasLineBreakBefore(units, index)) {
+      if (ExpressionStatementRule.HasLineBreakBefore(units, index)) {
         // TS 把换行前的 `abstract` 当作 default 表达式（Identifier），`class` 起下一条语句；
         // 同一行的 `export default abstract class C {}` 仍是 abstract class。
         state.Kind = 6;
@@ -501,7 +501,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       }
       state.LastBodyCode = index;
     }
-    if (state.Stage === 22 && ExpressionStatementPossibleShape.IsStatementBoundaryAfterExpression(units, index)) {
+    if (state.Stage === 22 && ExpressionStatementRule.IsStatementBoundaryAfterExpression(units, index)) {
       // 无分号收口：下一条语句的第一个代码单元到了——`export default <expr>` 在它前面的换行处结束。
       state.Done = true;
       state.DoneAt = index;

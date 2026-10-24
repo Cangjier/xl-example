@@ -7,7 +7,7 @@ import { CloseStates } from "./close-states.xl.md"
 import { ItemComputeStates } from "./item-compute-states.xl.md"
 import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
-import { CatalogGuide } from "./catalog-guide.xl.md"
+import { ShapeCatalog } from "./shape-catalog.xl.md"
 import { IItemCompute } from "./i-item-compute.xl.md"
 import { ReloadMessage } from "./messages/reload-message.xl.md"
 import { SourceRange } from "./source-range.xl.md"
@@ -22,7 +22,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「一次处理一整个 buffer 窗口」这套调度固定下来：窗口里逐字符前进，每消费一个字符就推进 `context.Index`。
 
-它同时实现 `IItemCompute`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
+它同时实现 `IItemCompute`：`ShapeCatalog` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
 
 向导本身不继承任何东西、不在树里，所以它是一个**普通引用**，不是挂载的子单元：本单元的 `Data` 里装的仍是那批 basic token。
 
@@ -30,7 +30,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元。
 
-## field CatalogGuide:CatalogGuide | null = null
+## field ShapeCatalog:ShapeCatalog | null = null
 
 宿主在本单元名下的目录向导；`null` 表示没有。
 
@@ -48,8 +48,8 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 ## field BatchAdapter:IBatchHost | null = null
 
-本宿主挂载的批次消费者：`ItemListEngine`（新引擎）或 `LegacyBatchAdapter`（旧目录）二选一。
-`null` 表示本宿主未迁移；`BatchMode=0` 时全部宿主都是 `null`。
+本宿主挂载的批次消费者：`ItemListEngine`。
+`null` 表示本宿主没有批次消费者，basic token 关闭时走 `Token.OnBasicTokenClosed` 的默认实现。
 
 ## private field BatchGated:bool = false
 
@@ -63,13 +63,13 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 basic token 关闭的唯一回调入口（11 个 basic 单元都调它，不再各自问目录）。
 
-- `BatchMode=0` 或未挂适配器 → 逐字走 `Token.OnBasicTokenClosed` 的 legacy 实现；
+- 未挂适配器 → 走 `Token.OnBasicTokenClosed` 的默认实现（无候选可算）；
 - 挂了适配器且有 `BatchPolicy` → 只入批，**软边界为真才**把批交给适配器（否则只推进批尾，不 `Recompute`、
   不 `Feed`）；`Done`/`Reload` 时清批，`Reload` 映射成 `CloseStates.Built`；
 - 挂了适配器但策略是 `null` → 每个 token 关闭就交一批（改动前的路径，逐字不变）。
 
 ```ts
-if (context.BatchMode === 0 || this.BatchAdapter === null) {
+if (this.BatchAdapter === null) {
   return super.OnBasicTokenClosed(token, context);
 }
 const last = this.Data.length - 1;
@@ -177,8 +177,8 @@ return this.SourceRange.End >= document.GetCount();
 没向导时返回 `Nothing`——被问到就答「什么都没做」。
 
 ```ts
-if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputeItems(this, context);
+if (this.ShapeCatalog !== null) {
+  return this.ShapeCatalog.ComputeItems(this, context);
 }
 return ItemComputeStates.Nothing;
 ```
@@ -190,8 +190,8 @@ return ItemComputeStates.Nothing;
 向导的方法要两个参数（宿主 + 下标），而接口这里是单参——两者的差由本方法补上。
 
 ```ts
-if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputeItemsByIndex(this, tokenIndex, context);
+if (this.ShapeCatalog !== null) {
+  return this.ShapeCatalog.ComputeItemsByIndex(this, tokenIndex, context);
 }
 return ItemComputeStates.Nothing;
 ```

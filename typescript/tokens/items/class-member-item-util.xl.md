@@ -43,7 +43,7 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 
 ## field Kinds:Array<int> = []
 
-还可能的成员种类（`ClassMemberPossibleUtil` 的 `Kind` 常量）。**永不返回空数组**：判不清的形态一律给 `AllKinds()`，这是 `CatalogGuide` 0 候选不抛错的全函数性要求（`docs/body-guide-contract.md` §3.1）。
+还可能的成员种类（`ClassMemberPossibleUtil` 的 `Kind` 常量）。**永不返回空数组**：判不清的形态一律给 `AllKinds()`，这是 `ShapeCatalog` 0 候选不抛错的全函数性要求（`docs/body-guide-contract.md` §3.1）。
 
 ## field CodeAt:Array<int> = []
 
@@ -67,7 +67,7 @@ class 体成员边界的**增量扫描状态**：`Boundary` 是已经找到的�
 
 # class ClassMemberItemStartShared
 
-`ItemSlotCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个类体括号的 `CatalogGuide` 生命周期内，全部类体成员候选共用同一份。
+`ItemSlotCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个类体括号的 `ShapeCatalog` 生命周期内，全部类体成员候选共用同一份。
 
 为什么需要它：`Scan` 在每个 basic token 关闭时被每个类体候选**各调一次**，而 `ItemUtil.ItemStart` 要从 `Data` 尾部倒扫 O(k)——每个候选各扫一遍就是 k×O(k)，长成员上退化成二次。条目起点只在「上一条成员被 `splice` 顶替」时才前进一格，所以把它放进 `Share`，各候选的 `BuildByIndex` 都在 `splice` 之后统一调 `ClassMemberPossibleUtil.UpdateItemStartAfterBuild` 就地更新成 `start + 1`；`Scan` 首行只做 O(1) 新鲜度校验。
 

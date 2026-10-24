@@ -82,7 +82,7 @@ super(template);
 - 尖括号深度不为 0 / 前一个代码单元在「后面还能接类型」的位置：不是枚举体（枚举头没有类型参数与 heritage，
   这里仍走共享判据，`blocked` 给空表）。
 
-**不再给括号挂 `CatalogGuide`、也不给自己装终结候选**：成员判定与收口都由 item 表引擎负责。
+**不再给括号挂 `ShapeCatalog`、也不给自己装终结候选**：成员判定与收口都由 item 表引擎负责。
 
 ```ts
 if (this.BodyBracket !== null) {

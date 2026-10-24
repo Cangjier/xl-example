@@ -115,7 +115,7 @@ super(template);
 判据统一走 `BodyGuideUtil.IsBodyBracket`（与 interface 同一套，`blocked` 单词表是
 `["extends", "implements", ","]`）。
 
-**不再给括号挂 `CatalogGuide`、也不给自己装终结候选**：成员判定与收口都由 item 表引擎负责。
+**不再给括号挂 `ShapeCatalog`、也不给自己装终结候选**：成员判定与收口都由 item 表引擎负责。
 
 ```ts
 if (this.BodyBracket !== null) {

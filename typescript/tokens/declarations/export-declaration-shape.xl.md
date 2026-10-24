@@ -324,7 +324,7 @@ return shape;
 **直接建造入口**（WP-3 根级用）：`host.Data[start, end)` 恰好是一条 `export { … } / export * … /
 export type { … }` 声明（`end` 不含，结尾 `;` 可有可无）。
 
-- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- 不依赖 `BuildByIndex` / `MountShell` / `ShapeCatalog`；
 - **不改 `host.Data`**；
 - 返回 `null` = 这一片不是一条完整的 export 声明（调用方走 raw 兜底）；不抛异常。
 

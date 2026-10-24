@@ -33,7 +33,7 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 import { BasicTokenBatch } from "../../../core/syntax/batch/basic-token-batch.xl.md"
 import { StatementBodyItemHost } from "../items/statement-item-rule.xl.md"
 import { CaseClauseBuild, CaseClauseDrive } from "../items/case-clause-item-rule.xl.md"
-import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "./expression-statement-rule.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
 import { BindingElementShape } from "../bindings/binding-element-shape.xl.md"
@@ -1228,12 +1228,12 @@ return shape;
 - **流式块**（`bracket.BatchAdapter !== null`，`StatementBlockStream` 在 `{` 创建时就挂了宿主）：
   item 在**解析期**已经建进 `Data`，这里只 `FlushBatch` 补建最后一条「收口时才确定」的语句——
   `FlushBatch` 在括号没有活动批次时是空操作（与枚举体收口同一个口径）。
-- **非流式块**（`BatchMode !== 0` 但没挂宿主）：走 WP-2-4 的兜底——把已闭合块的 `Data` 整体喂一遍
+- **非流式块**（没挂宿主）：走 WP-2-4 的兜底——把已闭合块的 `Data` 整体喂一遍
   `StatementBodyItemHost`（`DriveBodyItems`）。
 
 两条路之后都只把「非 basic、非 trivia 单元」当块子节点（那就是 item），
 残留的 basic 单元（引擎 raw 回退的区间）仍走原来的逐条 `BuildStatement`。
-`BatchMode === 0`（legacy）时逐字保持改动前的路径，两条都不进。
+没有批次可用时逐字走改动前的路径。
 
 不改 `Finish` 的语义，也不改 `host.Data` 的形状口径：splice 由引擎在批末统一做。
 
@@ -1244,7 +1244,7 @@ this.At++;
 const shape = new BlockShape(this.Template);
 if (bracket.BatchAdapter !== null) {
   bracket.FlushBatch(this.Context);
-} else if (this.Context.BatchMode !== 0) {
+} else {
   this.DriveBodyItems(bracket);
 }
 const inner = new StatementBuilder(this.Template, this.Context);
@@ -1255,7 +1255,7 @@ if (bracket.SourceRange.StartIndex >= 0) {
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
-  if (this.Context.BatchMode !== 0 && !unit.IsBasicToken && !unit.IsTriviaToken) {
+  if (!unit.IsBasicToken && !unit.IsTriviaToken) {
     shape.Add(unit);
     inner.At++;
     continue;
@@ -1296,7 +1296,7 @@ return this.Finish(shape, first, first);
 ## method BuildExpressionStatement:()=>Token
 
 体里的表达式语句：从当前下标读到本层 `;`（或段末）。换行边界读**与根级终结候选同一个**
-`ExpressionStatementPossibleShape.IsAsiBoundary`（`;` 之外的边界：后缀 `++`/`--`/`!` 后接
+`ExpressionStatementRule.IsAsiBoundary`（`;` 之外的边界：后缀 `++`/`--`/`!` 后接
 `(` `[` 反引号模板、`as`/`satisfies`/箭头块体后接调用位、`x++` ⏎ `++y` 这类前缀运算），
 以及 `yield` 受限产生式（关键字后换行 ⇒ 本条语句在 `yield` 处结束）。
 
@@ -1318,7 +1318,7 @@ if (this.IsText(this.Units[first], "yield")) {
       afterYield++;
     }
     if (afterYield < this.Units.length
-      && ExpressionStatementPossibleShape.HasLineBreakBefore(this.Units, afterYield)) {
+      && ExpressionStatementRule.HasLineBreakBefore(this.Units, afterYield)) {
       asiEnd = first;
     }
   }
@@ -1342,7 +1342,7 @@ if (asiEnd < 0) {
       && (this.IsSymbol(this.Units[at - 1], "++") || this.IsSymbol(this.Units[at - 1], "--"));
     if (at > first && !prefixOperand
       && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
-        || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
+        || ExpressionStatementRule.IsAsiBoundary(this.Units, at, first))) {
       asiEnd = at - 1;
       break;
     }
@@ -1479,7 +1479,7 @@ while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusiv
     // 表达式尾的细节（后缀 `++`/`--`、`=> {}` / `as` / `satisfies` 不是调用位宿主）
     // 与根级 / 块级表达式语句读同一个判据：`const f = () => {}` ⏎ `(y)`、
     // `const a = x++` ⏎ `++y` 都要在这里收口。
-    if (ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(this.Units, endExclusive)) {
+    if (ExpressionStatementRule.IsUncontinuableTailBoundary(this.Units, endExclusive)) {
       break;
     }
     // `const { [k]: v } = { a: 1 } as Record<string, number>` ⏎ `console.log(v)`：
@@ -1945,7 +1945,7 @@ while (endExclusive < this.Units.length && !this.IsSymbol(this.Units[endExclusiv
   // 表达式语句 / 变量语句读同一个判据：`return x++` ⏎ `++y` / `return () => {}` ⏎ `(y)`。
   if (endExclusive > this.At
     && (StatementBuilder.EndsAtLineBreak(this.Units[endExclusive - 1], this.Units[endExclusive])
-      || ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(this.Units, endExclusive))) {
+      || ExpressionStatementRule.IsUncontinuableTailBoundary(this.Units, endExclusive))) {
     break;
   }
   endExclusive++;
@@ -2182,9 +2182,9 @@ return this.Finish(shape, first, blockIndex);
 
 `switch` 的 case 块：`{` … `}` 是一个括号单元，里面只有 `case` / `default` 子句。
 
-**接线（WP-6-4）**：`BatchMode !== 0` 时先把已闭合括号的 `Data` 交给 case block item 表
+**接线（WP-6-4）**：先把已闭合括号的 `Data` 交给 case block item 表
 （`CaseClauseDrive.Drive`，**全有或全无**：在克隆括号上驱动，全部子句建出且无 raw 残留才接管），
-接管成功就直接把返回的子句逐个 `Add`；接管不了（或 `BatchMode === 0`）逐字走原来的逐子句循环。
+接管成功就直接把返回的子句逐个 `Add`；接管不了就逐字走原来的逐子句循环。
 两条路的子句都由同一个 `BuildCaseClause` 建出——边界判据只有一份，所以 item 边界永远不会切出
 「半条子句」：建造器自己的右端安全阀（`BuildCaseClauseAt`）会把不一致的切片退回 `null`。
 
@@ -2194,12 +2194,10 @@ return this.Finish(shape, first, blockIndex);
 const caseBlock = new CaseBlockShape(this.Template);
 let adopt = false;
 let clauses:Array<Token> = [];
-if (this.Context.BatchMode !== 0) {
-  const driven = CaseClauseDrive.Drive(bracket, this.Context, new CaseClauseBuildAdapter());
-  if (driven !== null) {
-    adopt = true;
-    clauses = driven;
-  }
+const driven = CaseClauseDrive.Drive(bracket, this.Context, new CaseClauseBuildAdapter());
+if (driven !== null) {
+  adopt = true;
+  clauses = driven;
 }
 if (adopt) {
   for (const clause of clauses) {

@@ -11,7 +11,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -239,7 +239,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
     if (unit instanceof Common
       && FunctionDeclarationRule.LineBreakBefore(units, at)
-      && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
+      && ExpressionStatementRule.IsStatementWord((unit as Common).TempToString())) {
       state.Rejected = true;
       continue;
     }
@@ -272,7 +272,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
     if (unit instanceof Common
       && FunctionDeclarationRule.LineBreakBefore(units, at)
-      && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
+      && ExpressionStatementRule.IsStatementWord((unit as Common).TempToString())) {
       state.Rejected = true;
       continue;
     }
@@ -304,7 +304,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     if (unit instanceof Common
       && !typeContinuation
       && FunctionDeclarationRule.LineBreakBefore(units, at)
-      && !ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
+      && !ExpressionStatementRule.IsStatementWord((unit as Common).TempToString())) {
       let previous = at - 1;
       while (previous >= 0 && units[previous].IsTriviaToken) {
         previous--;

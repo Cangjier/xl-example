@@ -81,7 +81,7 @@ possible 候选文件里；class 体仍在用的 index / get / set 三个候选�
 
 # class MemberItemStartShared
 
-`ItemSlotCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个接口体括号的 `CatalogGuide` 生命周期内，七类成员候选共用同一份。
+`ItemSlotCache.Share` 里的**条目起点**（`ItemUtil.ItemStart`）长期缓存：一个接口体括号的 `ShapeCatalog` 生命周期内，七类成员候选共用同一份。
 
 为什么需要它：`Scan` 在每个 basic token 关闭时被七类候选**各调一次**，而 `ItemUtil.ItemStart` 要从 `Data` 尾部倒扫 O(k)——七个候选各扫一遍就是 7×O(k)，长成员上退化成二次。条目起点只在「上一条成员被 `splice` 顶替」时才前进一格，所以把它放进 `Share`，七类候选的 `BuildByIndex` 都在 `splice` 之后统一调 `MemberPossibleUtil.UpdateItemStartAfterBuild` 就地更新成 `start + 1`；`Scan` 首行只做 O(1) 新鲜度校验。
 
@@ -110,7 +110,7 @@ possible 候选文件里；class 体仍在用的 index / get / set 三个候选�
 
 `Scan` 走重建路径时**整体重置**、不重分配：`Checked` / `Complete` / `End` / `Kinds` / `HeadKinds` / `HeadSettled` / `Angle` 与 `BoundaryScan` 都回到字段声明处的构造默认值，`Code` / `CodeAt` 用 `length = 0` 保留数组本体，`Start` 写成当前条目起点。
 
-**新鲜度**：`Share` 活到持有这份缓存的 `CatalogGuide` 结束、普通 `Reset` 不动它，所以取到的可能是上一条目的状态——进入重建路径本身就意味着「条目换了（`Start` 前进）或判定状态被清掉，必须从零重扫」，因此不做增量保留，一律整体重置。`Host` / `Start` 记录这份槽属于哪个宿主数组、哪个条目，供校验与排查。
+**新鲜度**：`Share` 活到持有这份缓存的 `ShapeCatalog` 结束、普通 `Reset` 不动它，所以取到的可能是上一条目的状态——进入重建路径本身就意味着「条目换了（`Start` 前进）或判定状态被清掉，必须从零重扫」，因此不做增量保留，一律整体重置。`Host` / `Start` 记录这份槽属于哪个宿主数组、哪个条目，供校验与排查。
 
 ## field Host:Array<Token> = []
 
@@ -212,7 +212,7 @@ return raw & ~MemberPossibleUtil.PendingBit;
 
 `TextOf` 的单格记忆：上一次问过的单元（对象同一性比较）。
 
-判定是**串行**的（一个 `CatalogGuide` 一次只判一个下标），而 `ClassifyHead` / `Analyze` 的判据分支会对同一个代码单元连问多次——实测 `TextOf` 的连续调用里 **49.6%** 命中同一个单元。单格记忆只留「上一个问过的单元 → 文本」，命中就免掉 `instanceof` 链与 `TempToString()`。
+判定是**串行**的（一个 `ShapeCatalog` 一次只判一个下标），而 `ClassifyHead` / `Analyze` 的判据分支会对同一个代码单元连问多次——实测 `TextOf` 的连续调用里 **49.6%** 命中同一个单元。单格记忆只留「上一个问过的单元 → 文本」，命中就免掉 `instanceof` 链与 `TempToString()`。
 
 不变量：`Temp` 只在 basic token 扫描期由 `AppendAndSignOut` 追加，判定期单元都已关闭、文本不再变；命中返回的永远是同一份文本。
 

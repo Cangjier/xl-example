@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "./syntax-context.xl.md"
-import { CatalogGuide } from "./catalog-guide.xl.md"
+import { ShapeCatalog } from "./shape-catalog.xl.md"
 import { ItemSlotCache } from "./item-slot-cache.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
@@ -55,7 +55,7 @@ return this.ComputeByIndex(units, units.length - 1, cache);
 throw new Error("abstract member: ComputeByIndex");
 ```
 
-## method Build:(host:Token, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method Build:(host:Token, catalog:ShapeCatalog, context:SyntaxContext)=>Token
 
 把这个形状建出来，**返回建好的那个单元**。
 
@@ -73,7 +73,7 @@ return this.BuildByIndex(host, host.Data.length - 1, catalog, context);
 return true;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:ShapeCatalog, context:SyntaxContext)=>Token
 
 按**一个下标**把这个形状建出来，**返回建好的那个单元**。
 

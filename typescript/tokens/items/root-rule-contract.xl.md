@@ -10,11 +10,11 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 根 item 规则契约（WP-7 D-1）：根宿主 `SourceFileBodyItemHost` 真正需要候选做的三件事，**不带 possible 语义**。
 
-`shape-rule.xl.md` 把「候选」和「目录（`CatalogGuide`）」绑在一起：候选是目录里的一格，构造要收目录、建造要收目录。
+`shape-rule.xl.md` 把「候选」和「目录（`ShapeCatalog`）」绑在一起：候选是目录里的一格，构造要收目录、建造要收目录。
 但根 item 引擎实际上只做两件事——**判前缀**（`ComputeByIndex`）和**问能不能建**（`IsBuildable`），
 建造一律走各族自己的静态入口（`root-item-rule` 的 `BuildByKind`），**从不调 `BuildByIndex`**。
 所以本契约只声明这三条，`BuildByIndex` 故意**不在契约里**：
-根引擎不调它，而把它留在契约里会把 `CatalogGuide` 形参带进来，契约就又变成 possible 语义了。
+根引擎不调它，而把它留在契约里会把 `ShapeCatalog` 形参带进来，契约就又变成 possible 语义了。
 
 这条「不含 `BuildByIndex`」的选择是有意的**迁移杠杆**：`ShapeRule` 的三个成员
 （`Slot` / `ComputeByIndex` / `IsBuildable`）与 `IRootRule` 逐字同签名，因此**任何 existing possible 都结构化满足本契约**。
@@ -40,7 +40,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # class RootRule
 
-根规则基类：**只**提供槽位分配，不提供建造、不持有目录、不认识 `CatalogGuide`。
+根规则基类：**只**提供槽位分配，不提供建造、不持有目录、不认识 `ShapeCatalog`。
 从 `ShapeRule` 搬出来的规则类改继承本类即可，判据与建造代码一字不动。
 
 ## static method SlotOf:(ruleClass:any)=>int
@@ -61,7 +61,7 @@ return RootRule.SlotOf(this.constructor);
 
 # class RootRuleTable
 
-根宿主的规则表：规则数组 + 判定缓存。**替代 `CatalogGuide` 在根上的那两个职责**
+根宿主的规则表：规则数组 + 判定缓存。**替代 `ShapeCatalog` 在根上的那两个职责**
 （`Shapes` 数组与 `SlotCache`），但**不含**目录语义：
 不认领候选、不淘汰、不挂 `EndPossible`——那些是根引擎 `root-item-rule` 自己的事。
 
@@ -84,7 +84,7 @@ this.Rules = rules;
 
 ## method Count:()=>int
 
-规则条数。根引擎的淘汰循环用它当上界（原本读 `CatalogGuide.Shapes.length`）。
+规则条数。根引擎的淘汰循环用它当上界（原本读 `ShapeCatalog.Shapes.length`）。
 
 ```ts
 return this.Rules.length;
@@ -103,7 +103,7 @@ return this.Rules[index];
 
 ## method Reset:()=>void
 
-清空判定缓存。根引擎每建完一条都要调它（原本是 `CatalogGuide.SlotCache.Clear()`）。
+清空判定缓存。根引擎每建完一条都要调它（原本是 `ShapeCatalog.SlotCache.Clear()`）。
 
 ```ts
 this.Cache.Clear();

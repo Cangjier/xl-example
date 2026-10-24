@@ -1,7 +1,6 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "./syntax-context.xl.md"
-import { CatalogGuide } from "./catalog-guide.xl.md"
 import { ItemComputeStates } from "./item-compute-states.xl.md"
 import { Token } from "./token.xl.md"
 ```
@@ -18,13 +17,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元重算的接口。
 
-`CatalogGuide` 是宿主指向目录向导的引用：`null` 表示本单元没挂向导，被问到也不做任何事。
-
 返回值统一是 `ItemComputeStates`：调用方要判断的是「这次有没有建出形状」，而不是「建了什么」——形状是谁由目录自己知道。
-
-## property CatalogGuide:CatalogGuide | null
-
-本单元挂着的目录向导；`null` 表示没挂。
 
 ## method ComputeItems:(context:SyntaxContext)=>ItemComputeStates
 

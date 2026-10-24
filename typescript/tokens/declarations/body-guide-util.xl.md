@@ -2,7 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ShapeCatalog } from "../../../core/syntax/shape-catalog.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -35,7 +35,7 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 // 一个族的完整接线（以 interface 为例，行号见设计文档 §9）：
 // 1) 壳 OnBracketCreatedEvent：BodyGuideUtil.IsBodyBracket(壳, 新括号, ["extends", "implements", ","])
 //    为真 ⇒ BodyGuideUtil.MountBodyGuide(接口体括号, CreateBodyShapes())
-//    同时壳自己装终结候选 new CatalogGuide([], new XxxEndPossibleShape())
+//    同时壳自己装终结候选 new ShapeCatalog([], new XxxEndShapeRule())
 // 2) 声明关键字格提前 Accept，BuildByIndex 里：
 //    const shell = new XxxShape(host.Template);
 //    BodyGuideUtil.MountShell(host, state.Start, tokenIndex, shell, context);
@@ -114,17 +114,17 @@ for (const word of blocked) {
 return true;
 ```
 
-## static method MountBodyGuide:(bracket:Bracket, shapes:Array<ShapeRule>)=>CatalogGuide
+## static method MountBodyGuide:(bracket:Bracket, shapes:Array<ShapeRule>)=>ShapeCatalog
 
-给 body 括号挂上**成员候选目录**：`bracket.CatalogGuide = new CatalogGuide(shapes)`，返回该向导（便于测试断言）。
+给 body 括号挂上**成员候选目录**：`bracket.ShapeCatalog = new ShapeCatalog(shapes)`，返回该向导（便于测试断言）。
 
-目录只建一份、所有 body 括号共用（`shapes` 由各族的 `CreateBodyShapes` 静态缓存提供）；判定状态在 `CatalogGuide` 自己的 `SlotCache` 里，**不能跨 body 共享**。
+目录只建一份、所有 body 括号共用（`shapes` 由各族的 `CreateBodyShapes` 静态缓存提供）；判定状态在 `ShapeCatalog` 自己的 `SlotCache` 里，**不能跨 body 共享**。
 
-注意：本方法只挂「普通候选」目录，**不要**把壳的终结候选挂到这里——壳的终结候选是 `new CatalogGuide([], new XxxEndPossibleShape())`，装到**壳自己**的 `CatalogGuide` 上（见 `FinishShell` 的调用方）。
+注意：本方法只挂「普通候选」目录，**不要**把壳的终结候选挂到这里——壳的终结候选是 `new ShapeCatalog([], new XxxEndShapeRule())`，装到**壳自己**的 `ShapeCatalog` 上（见 `FinishShell` 的调用方）。
 
 ```ts
-const guide = new CatalogGuide(shapes);
-bracket.CatalogGuide = guide;
+const guide = new ShapeCatalog(shapes);
+bracket.ShapeCatalog = guide;
 return guide;
 ```
 
@@ -161,7 +161,7 @@ return shell;
 收口时取 body 成员。由 `InterfaceDeclarationShape.CollectBodyMembers` **原样泛化**，只是把两处 `InterfaceDeclarationShape.BuildMembers` 换成参数 `rawFallback`；两条路径必须产出同一棵 AST：
 
 - 括号 `Data` 里**没有已建好的成员形状**（导出 / 模块体 / 语句位置的一次性构建，或整段都没增量建出）：整段还是 raw basic token，原样交给 `rawFallback`，与重构前逐字一致；
-- 已经由 body 的 `CatalogGuide` 增量建出成员形状：按序收集非 basic 单元（成员形状），跳过 trivia 与残留的 `;` / `,`；若后面还留着一截没有增量建出的 raw 代码（最后一条成员在容器收口时才确定、`BuildByIndex` 判不完整回落、或本族还没有对应候选），把**这一截 raw** 包成一个临时括号视图交给 `rawFallback` 逐成员建，再拼接到已建成员之后。
+- 已经由 body 的 `ShapeCatalog` 增量建出成员形状：按序收集非 basic 单元（成员形状），跳过 trivia 与残留的 `;` / `,`；若后面还留着一截没有增量建出的 raw 代码（最后一条成员在容器收口时才确定、`BuildByIndex` 判不完整回落、或本族还没有对应候选），把**这一截 raw** 包成一个临时括号视图交给 `rawFallback` 逐成员建，再拼接到已建成员之后。
 
 临时括号视图：`Data` 只含 raw 尾巴，`SourceRange.Start` 对齐到尾巴前一个非 trivia 单元的 `End`，所以 `rawFallback` 里 `bracket.SourceRange.StartIndex + 1` 得到的 base 与 interface 收口里手写循环算出的 `base` 完全相同；它不参与字符流、不签出、不关闭，只当一次调用参数。
 
@@ -234,7 +234,7 @@ return members;
 
 把壳收口成完整形状：在 `host.Data` 里用 `built` 原地顶替 `shell`、`built.Parent = host`，并在 `host.MountedUnit === shell` 时清空挂载。
 
-由 `InterfaceDeclarationEndPossibleShape.BuildByIndex` 泛化而来。`host` 是**壳所在的父单元**（调用方传 `shell.Parent`）；为容错，若调用方传进来的就是壳本身（`host === shell`），内部改取 `shell.Parent`。父单元为空（壳没挂上）时什么都不做。
+由 `InterfaceDeclarationEndShapeRule.BuildByIndex` 泛化而来。`host` 是**壳所在的父单元**（调用方传 `shell.Parent`）；为容错，若调用方传进来的就是壳本身（`host === shell`），内部改取 `shell.Parent`。父单元为空（壳没挂上）时什么都不做。
 
 收口**必须用 splice 顶替**而不是 `Token.Replace`，所以 `MountedUnit` 要手动清：否则后续字符会被送进已经被顶替掉的旧壳。壳的 `Pos` 在建壳时已算好，`built.Pos` 由 `BuildFromCode` 沿用 `shell.Pos`，这里不重算。
 
@@ -263,10 +263,10 @@ if (parent.MountedUnit === shell) {
 ```ts
 // XxxShape.CreateBodyShapesCache = BodyGuideUtil.CreateShapesCache(
 //   XxxShape.CreateBodyShapesCache,
-//   () => [ new MemberPossibleShape(), ... ]);
+//   () => [ new MemberShapeRule(), ... ]);
 // return XxxShape.CreateBodyShapesCache;
 //
-// 目录只建一份、所有 body 括号共用；候选实例本身无状态（判定状态在 CatalogGuide 的缓存里），共用安全。
+// 目录只建一份、所有 body 括号共用；候选实例本身无状态（判定状态在 ShapeCatalog 的缓存里），共用安全。
 if (cacheRef !== null) {
   return cacheRef;
 }

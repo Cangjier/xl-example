@@ -13,8 +13,7 @@ import { BatchStates } from "./batch-states.xl.md"
 批次消费契约：**容器**（`SourceFileShape` / body `Bracket` / block `Bracket`）唯一实现它。
 item shape 永远不实现本接口（`OnBasicTokens` 只属于容器）。
 
-一个宿主在挂载时二选一：`ItemListEngine`（新引擎）或 `LegacyBatchAdapter`（旧目录，过渡期）。
-因此迁移可以逐族推进，`BatchMode=1` 时未迁移宿主仍走旧路径。
+宿主在挂载时一律装 `ItemListEngine`（唯一实现），不再有新旧两条路径。
 
 # interface IBatchHost
 

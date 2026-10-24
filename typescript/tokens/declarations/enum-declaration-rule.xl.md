@@ -9,7 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
@@ -53,7 +53,7 @@ const enum E { A = 1 }
 **提前挂载的壳**：`enum` 关键字（含 `declare` / `const` / 装饰器前缀）关闭时就 `Accept`，`BuildByIndex` 把
 `state.Start..tokenIndex` 搬进 `EnumDeclarationShape` 壳并挂到宿主上。名字、枚举体括号、成员都由壳自己吃；
 枚举体括号创建时壳的 `OnBracketCreatedEvent` 认领它、给枚举体挂成员候选目录，闭合时由
-`EnumDeclarationEndPossibleShape` 收口。
+`EnumDeclarationEndShapeRule` 收口。
 
 提前 `Accept` 之前，`declare` / `const` 前缀的 ASI 守卫必须照旧判完（`declare` ⏎ `enum` 是两条语句）。
 
@@ -69,7 +69,7 @@ for (let index = at - 1; index >= 0; index--) {
   if (!unit.IsTriviaToken) {
     return false;
   }
-  if (ExpressionStatementPossibleShape.HasLineBreak(unit)) {
+  if (ExpressionStatementRule.HasLineBreak(unit)) {
     return true;
   }
 }
@@ -239,7 +239,7 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache, context:SyntaxContext)=>bool
 
-只要已经认下 `enum` 关键字就能建壳：建壳时机由 `CatalogGuide` 的唯一候选决定（装饰器前缀下要等其它候选都退出，
+只要已经认下 `enum` 关键字就能建壳：建壳时机由 `ShapeCatalog` 的唯一候选决定（装饰器前缀下要等其它候选都退出，
 可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
 
 ```ts

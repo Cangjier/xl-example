@@ -10,7 +10,7 @@ import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { StatementScanResult } from "../statements/statement-scanner.xl.md"
 import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 ```
@@ -221,7 +221,7 @@ if (state.Checked !== tokenIndex + 1) {
   if (code.length >= 2 && code[0] instanceof Common && (code[0] as Common).Is("declare")) {
     let lineBreak = false;
     for (let gap = codeAt[0] + 1; gap < codeAt[1]; gap++) {
-      if (ExpressionStatementPossibleShape.HasLineBreak(units[gap])) {
+      if (ExpressionStatementRule.HasLineBreak(units[gap])) {
         lineBreak = true;
         break;
       }
@@ -259,7 +259,7 @@ return state !== null && state.Status === 1 && state.End >= 0;
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
-按 `state.End`（`{` 在 `host.Data` 里的下标）只消费到该格为止；`Pos` 口径与 `StatementPossibleShape` 一致：
+按 `state.End`（`{` 在 `host.Data` 里的下标）只消费到该格为止；`Pos` 口径与 `StatementRule` 一致：
 先取 `start` 之前最后一个非 trivia 单元的 `EndIndex`，再逐格推进（trivia 不推进 `Pos`）。
 
 ```ts
