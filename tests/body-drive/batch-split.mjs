@@ -1,0 +1,296 @@
+// tests/body-drive/batch-split.mjs — 批次无关性（INV-6）的**族无关骨架** + statement family 钩子。
+//
+//   node tests/body-drive/batch-split.mjs
+//   node tests/body-drive/batch-split.mjs --family=statement
+//   node tests/body-drive/batch-split.mjs --verbose
+//
+// 断言：同一个宿主、同一段代码，
+//   a) 整段一次喂完（`Reset(host, 0, AtEof=true)` + `OnBasicTokens` + `CloseBatch`）；
+//   b) 在任意中间位置切两批喂（第一批 `To = k`，第二批把剩下的喂完）；
+// 建出的 item 序列（构造器名 + XML）必须**完全一致**，且不能有 raw 回退。
+//
+// 骨架的用法：一个「族」就是一个配置 { name, rules(), code: () => [codeArray], makeHost(code) }。
+// 其它族（enum / members / module-block）以后只追加配置，不改本文件的驱动逻辑。
+// statement 族用真实 token（来自真实解析），不造假 token。
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, "..", "..");
+const require = createRequire(import.meta.url);
+
+const args = process.argv.slice(2);
+function take(flag, fallback) {
+  const i = args.indexOf(flag);
+  if (i < 0) return fallback;
+  const v = args[i + 1];
+  if (v === undefined || v.startsWith("--")) throw new Error(`${flag} 需要一个值`);
+  args.splice(i, 2);
+  return v;
+}
+const only = take("--family", null);
+const verbose = args.includes("--verbose");
+if (verbose) args.splice(args.indexOf("--verbose"), 1);
+if (args.length > 0) {
+  console.error(`未知参数: ${args.join(" ")}`);
+  process.exit(2);
+}
+
+const { BasicTokenBatch } = require(path.join(root, "build/ts/core/syntax/batch/basic-token-batch.js"));
+const { BatchStates } = require(path.join(root, "build/ts/core/syntax/batch/batch-states.js"));
+const { StatementBodyItemHost } = require(path.join(root, "build/ts/typescript/tokens/items/statement-item-rule.js"));
+const { StatementBuilder } = require(path.join(root, "build/ts/typescript/tokens/statements/statement-builder.js"));
+const { SourceFileRunner } = require(path.join(root, "build/ts/typescript/run/source-file-runner.js"));
+
+// ---------------------------------------------------------------------------
+// 语料与捕获（与 item-oracle 同一套办法：打桩 Load 拿真实 token 段）
+// ---------------------------------------------------------------------------
+const SOURCES = [
+  `function a() { let x = 1; if (x) { while (x) { x = x - 1; } } }`,
+  `function b() {
+  switch (x) { case 1: a(); break; default: b(); }
+  try { a(); } catch (e) { b(); } finally { c(); }
+}`,
+  `function c() {
+  for (let i = 0; i < 3; i++) { if (i) { a(); } else { b(); } }
+  return i;
+}`,
+  `function d() { a(); a(); a(); a(); }`,
+  `function e() { let a = 1; b(); c(); }`,
+];
+
+const captures = [];
+const seen = new Set();
+const originalLoad = StatementBuilder.prototype.Load;
+StatementBuilder.prototype.Load = function (units, basePos) {
+  const result = originalLoad.call(this, units, basePos);
+  if (Array.isArray(units) && units.length > 0) {
+    const code = [];
+    for (const unit of units) {
+      if (unit !== null && unit !== undefined && !unit.IsTriviaToken) {
+        code.push(unit);
+      }
+    }
+    if (code.length > 1 && code.length <= 200) {
+      const key = `${code.length}@${code[0].SourceRange.Start}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        captures.push(code);
+      }
+    }
+  }
+  return result;
+};
+for (let i = 0; i < SOURCES.length; i++) {
+  try {
+    SourceFileRunner.Parse(SOURCES[i], `batch-split-${i}.ts`);
+  } catch (e) {
+    console.error(`语料 #${i} 解析失败: ${e && e.message ? e.message : e}`);
+  }
+}
+StatementBuilder.prototype.Load = originalLoad;
+
+// ---------------------------------------------------------------------------
+// 宿主：一段语句代码单元的容器（真实 token，Data 可被引擎 splice）
+// ---------------------------------------------------------------------------
+function makeHost(code) {
+  const first = code[0];
+  const document = first.SourceRange.Document;
+  const start = first.SourceRange.Start;
+  const end = code[code.length - 1].SourceRange.End;
+  return {
+    Data: code.slice(),
+    Parent: null,
+    Template: first.Template,
+    SourceRange: {
+      Document: document,
+      Start: start - 1,
+      End: end,
+      get StartIndex() {
+        return this.Start;
+      },
+      get EndIndex() {
+        return this.End;
+      },
+    },
+  };
+}
+
+function contextOf(code) {
+  // 引擎与建造器都不改上下文；用真实解析出来的那一份最稳（Document / VariableMap 都对）。
+  const { SyntaxContext } = require(path.join(root, "build/ts/core/syntax/syntax-context.js"));
+  return new SyntaxContext(code[0].SourceRange.Document, 32);
+}
+
+// ---------------------------------------------------------------------------
+// 驱动：（a）整段一次喂完
+// ---------------------------------------------------------------------------
+function runWhole(host, context) {
+  const adapter = new StatementBodyItemHost(host, StatementBodyItemHost.CreateRules());
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, true);
+  batch.Sealed = true;
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, closed] };
+}
+
+// ---------------------------------------------------------------------------
+// 驱动：（b）在 k 处切两批
+// ---------------------------------------------------------------------------
+function runSplit(host, context, k) {
+  const adapter = new StatementBodyItemHost(host, StatementBodyItemHost.CreateRules());
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, false);
+  batch.To = Math.max(1, Math.min(k, host.Data.length));
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  // 引擎在批末已把 batch.From / To / Cursor 重定位到 splice 之后；这里只把剩下的喂完。
+  batch.To = host.Data.length;
+  batch.AtEof = true;
+  batch.Sealed = false;
+  batch.Recompute();
+  const second = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, second, closed] };
+}
+
+function collectItems(host) {
+  const items = [];
+  for (const unit of host.Data) {
+    if (unit === null || unit === undefined) {
+      continue;
+    }
+    if (unit.IsTriviaToken || unit.IsBasicToken) {
+      continue;
+    }
+    items.push(describe(unit));
+  }
+  return items;
+}
+
+function describe(unit) {
+  let xml = "";
+  try {
+    xml = unit.ToXmlString();
+  } catch (e) {
+    xml = `<xml-error ${String(e && e.message ? e.message : e)}>`;
+  }
+  let name = "?";
+  try {
+    name = unit.constructor.name;
+  } catch (e) {
+    /* ignore */
+  }
+  return `${name}\n${xml}`;
+}
+
+// ---------------------------------------------------------------------------
+// 族表（骨架）：以后加族只在这里追加配置
+// ---------------------------------------------------------------------------
+const FAMILIES = [
+  {
+    name: "statement",
+    cases: () => captures,
+    makeHost,
+    contextOf,
+    runWhole,
+    runSplit,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// 跑
+// ---------------------------------------------------------------------------
+const active = only === null ? FAMILIES : FAMILIES.filter((f) => f.name === only);
+if (active.length === 0) {
+  console.error(`没有这个族: ${only}（有：${FAMILIES.map((f) => f.name).join(", ")}）`);
+  process.exit(2);
+}
+
+let cases = 0;
+let checks = 0;
+let failures = 0;
+let builtCases = 0;
+let emptyCases = 0;
+
+function fail(message) {
+  failures++;
+  console.error(`FAIL ${message}`);
+}
+
+for (const family of active) {
+  const codeList = family.cases();
+  if (codeList.length === 0) {
+    fail(`${family.name}: 没有捕获到用例（build/ 是不是没编译？）`);
+    continue;
+  }
+  console.log(`== family ${family.name}: ${codeList.length} 段代码 ==`);
+  for (let index = 0; index < codeList.length; index++) {
+    const code = codeList[index];
+    const count = code.length;
+    cases++;
+    const whole = family.runWhole(family.makeHost(code), family.contextOf(code));
+    // 整段一次喂完：状态只能是 Done / NeedMore（NeedMore = 本批没建出 item）
+    for (const state of whole.states) {
+      checks++;
+      if (state !== BatchStates.Done && state !== BatchStates.NeedMore) {
+        fail(`${family.name}#${index}: 整批驱动返回非法状态（${state}）`);
+        break;
+      }
+    }
+    if (whole.items.length === 0) {
+      // 段里只有表达式片段 / 判不出语句的形态时，引擎正确地留 raw（0 item）。
+      // 不当作失败，但要求整体上足够多的段真的建出了 item（否则引擎等于没跑）。
+      emptyCases++;
+      continue;
+    }
+    builtCases++;
+    const splits = [];
+    splits.push(1);
+    splits.push(Math.floor(count / 2));
+    splits.push(count - 1);
+    for (const k of splits) {
+      if (k < 1 || k >= count) {
+        continue;
+      }
+      const split = family.runSplit(family.makeHost(code), family.contextOf(code), k);
+      checks++;
+      const left = JSON.stringify(whole.items);
+      const right = JSON.stringify(split.items);
+      if (left !== right) {
+        let at = 0;
+        while (at < left.length && at < right.length && left[at] === right[at]) {
+          at++;
+        }
+        fail(`${family.name}#${index} split@${k}: item 序列不一致（整批 ${whole.items.length} / 分两批 ${split.items.length}），首个差异在 ${at}`);
+        console.error(`    整批  : …${left.slice(Math.max(0, at - 90), at + 90)}…`);
+        console.error(`    分两批: …${right.slice(Math.max(0, at - 90), at + 90)}…`);
+      }
+      // 批次驱动只允许答 Done / NeedMore（NeedMore = 本批没建出 item，宿主继续喂，这是正常路径）
+      for (const state of split.states) {
+        checks++;
+        if (state !== BatchStates.Done && state !== BatchStates.NeedMore) {
+          fail(`${family.name}#${index} split@${k}: 驱动返回非法状态（${state}）`);
+          break;
+        }
+      }
+      if (verbose) {
+        console.log(`  ok split@${k} (${whole.items.length} items)`);
+      }
+    }
+  }
+}
+
+console.log(`  代码段: ${cases}（建出 item ${builtCases} / 全 raw ${emptyCases}）`);
+// 「建出 item 的段」下限：所有 Load 捕获里有一部分**不是**语句列表（for 头 / case 头 / catch 头 /
+// 单条语句切片），它们正确地留 raw（0 item）。这里只要求整体上真的有足够多的段走到了建造。
+if (builtCases < 4) {
+  fail(`建出 item 的段太少（${builtCases}/${cases}）：引擎没真正跑起来`);
+}
+console.log(`  RESULT: ${failures === 0 ? "PASS" : "FAIL"}  （${cases} 段代码 / ${checks} 次断言 / ${failures} 次失败）`);
+process.exit(failures === 0 ? 0 : 1);

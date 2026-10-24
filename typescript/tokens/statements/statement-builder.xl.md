@@ -30,6 +30,8 @@ import { ExportAssignmentShape } from "../declarations/export-assignment-shape.x
 import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { BasicTokenBatch } from "../../../core/syntax/batch/basic-token-batch.xl.md"
+import { StatementBodyItemHost } from "../items/statement-item-rule.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
@@ -1217,11 +1219,30 @@ return shape;
 
 块：`{` … `}` 是一个括号单元，里面的语句在它的 `Data` 里递归建。
 
+**WP-2 的语句 item 表接管块体，分两条路，按「这个块流式过没有」区分**：
+
+- **流式块**（`bracket.BatchAdapter !== null`，`StatementBlockStream` 在 `{` 创建时就挂了宿主）：
+  item 在**解析期**已经建进 `Data`，这里只 `FlushBatch` 补建最后一条「收口时才确定」的语句——
+  `FlushBatch` 在括号没有活动批次时是空操作（与枚举体收口同一个口径）。
+- **非流式块**（`BatchMode !== 0` 但没挂宿主）：走 WP-2-4 的兜底——把已闭合块的 `Data` 整体喂一遍
+  `StatementBodyItemHost`（`DriveBodyItems`）。
+
+两条路之后都只把「非 basic、非 trivia 单元」当块子节点（那就是 item），
+残留的 basic 单元（引擎 raw 回退的区间）仍走原来的逐条 `BuildStatement`。
+`BatchMode === 0`（legacy）时逐字保持改动前的路径，两条都不进。
+
+不改 `Finish` 的语义，也不改 `host.Data` 的形状口径：splice 由引擎在批末统一做。
+
 ```ts
 const first = this.At;
 const bracket = this.Units[this.At] as Bracket;
 this.At++;
 const shape = new BlockShape(this.Template);
+if (bracket.BatchAdapter !== null) {
+  bracket.FlushBatch(this.Context);
+} else if (this.Context.BatchMode !== 0) {
+  this.DriveBodyItems(bracket);
+}
 const inner = new StatementBuilder(this.Template, this.Context);
 let base = 0;
 if (bracket.SourceRange.StartIndex >= 0) {
@@ -1229,9 +1250,34 @@ if (bracket.SourceRange.StartIndex >= 0) {
 }
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
+  const unit = inner.Units[inner.At];
+  if (this.Context.BatchMode !== 0 && !unit.IsBasicToken && !unit.IsTriviaToken) {
+    shape.Add(unit);
+    inner.At++;
+    continue;
+  }
   shape.Add(inner.BuildStatement());
 }
 return this.Finish(shape, first, first);
+```
+
+## method DriveBodyItems:(bracket:Bracket)=>void
+
+把已闭合块的 `Data` 作为**一个**批次交给语句 item 表：`From = 0`、`AtEof = true`（块是自足的，
+`StatementItemScan.AtContainerEnd` 会把「块内最后一条语句」也认成容器末尾），批末
+`CloseBatch` 把最后一条没建的语句建掉。
+
+建造出来的语句由引擎 splice 回 `bracket.Data`，本方法**不**往 `shape` 里放任何东西——
+块的子节点在 `BuildBlock` 的循环里按 splice 后的顺序取。
+
+```ts
+const host = new StatementBodyItemHost(bracket, StatementBodyItemHost.CreateRules());
+const batch = new BasicTokenBatch();
+batch.Reset(bracket, 0, true);
+batch.Sealed = true;
+batch.Recompute();
+host.OnBasicTokens(batch, this.Context);
+host.CloseBatch(this.Context);
 ```
 
 ## method BuildEmpty:()=>Token

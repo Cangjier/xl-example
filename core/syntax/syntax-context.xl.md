@@ -68,6 +68,20 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `BatchMode=2` 时挂的影子比较器；`null` 表示不对拍。
 
+## field BracketHook:any = null
+
+括号创建钩子：`Bracket.Transit` 建出新括号、**通知完父单元之后**调用一次（`bracket` 是新括号，`host` 是它的父单元）。
+
+签名是 `(bracket:Token, host:Token, context:SyntaxContext)=>void`。**故意声明成 `any`**：xl 的类型打印器会把
+函数类型外层的括号去掉，`((…)=>void) | null` 会变成「返回 `void | null` 的函数」，`= null` 直接不合法（实测 TS2322）；
+可空函数指针在 xl 里没有别的写法，所以用 `any` 装它，装配方按上面的签名赋值。
+
+默认 `null` 表示语言侧没有装配钩子——`Transit` 只多一次判空，行为与基线逐字节一致。
+
+钩子只准「挂载」：不建 token、不改 `BranchStates`、不碰游标，所以它不可能制造 `Reload`，`Transit` 的返回路径不动。
+它存在的理由是**时序**：语句块 `{` 的父单元是 core 的 `Root` / 外层 `Bracket`，两者都不认「语句块」，
+除了这条钩子，语言侧拿不到「这个 `{` 刚建出来」的时刻（见 `docs/refactor/stream-mount-feasibility.md` §1）。
+
 ## field VariableMap:Map<string, any> = new Map()
 
 上下文变量表。
