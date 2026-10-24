@@ -12,9 +12,8 @@ import { IBatchHost } from "../../../core/syntax/batch/i-batch-host.xl.md"
 import { ItemListEngine, ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
 import { ItemScanState } from "../../../core/syntax/batch/item-scan-state.xl.md"
 import { RawFallback } from "../../../core/syntax/batch/raw-fallback.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
+import { IRootRule, RootRuleTable } from "./root-rule-contract.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -45,9 +44,9 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 
 引擎与状态全部来自 `core/syntax/batch`（契约冻结，本文件只消费、不修改）。
 
-判定不是本文件自己写的：**13 个根候选在同一张表里竞争**（`CatalogGuide` 的语义），
-语句族的判据在 `StatementPossibleShape` 里（`StatementScanner`），声明族的判据在各自的
-`XxxDeclarationPossibleShape` 里。本文件只做「谁赢了 → 用哪个静态建造入口」的映射，
+判定不是本文件自己写的：**13 个根候选在同一张表里竞争**（`ShapeCatalog` 的语义），
+语句族的判据在 `StatementRule` 里（`StatementScanner`），声明族的判据在各自的
+`XxxDeclarationShapeRule` 里。本文件只做「谁赢了 → 用哪个静态建造入口」的映射，
 **不复制任何判据**（INV-2）。
 
 `End` 一律是**宿主下标**：候选给出的收口点是 `Code` 下标，这里经 `state.CodeAt` 映射。
@@ -57,16 +56,16 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 根级唯一的一族 item：**一条根单元**（import / export / 各类声明 / 语句）。
 `Classify` 恒认领（root 拥有全部 item），判定交给 13 个候选在前缀上逐个淘汰。
 
-候选表由构造器注入（`SourceFileShape.CreatePossibleShapes()`），本文件**不 import** `SourceFileShape`：
+候选表由构造器注入（`SourceFileShape.CreateRules()`），本文件**不 import** `SourceFileShape`：
 根形状反过来要 import 本文件的 host，双向 import 会成环。
 
 ## static field Item:int = 1
 
 本族唯一的 kind 号（`ItemRule.Classify` 的返回值）。
 
-## field Guide:CatalogGuide
+## field Table:RootRuleTable
 
-候选目录：13 个根候选 + 判定缓存。**终结候选为 `null`**：尾巴（EOF / 硬边界）由容器的
+根规则表：13 个根候选 + 判定缓存。**终结候选为 `null`**：尾巴（EOF / 硬边界）由容器的
 `FinishBody` 收（`SourceFileTailBuilder.BuildTrailingItems`），不走 item 表。
 
 ## field Alive:Set<int> = new Set()
@@ -114,23 +113,23 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 判定上下文。`ItemRule.Analyze(state)` 没有 context 形参，而候选的 `IsBuildable(units, index, cache, context)`
 需要它，所以由宿主 `SourceFileBodyItemHost.OnBasicTokens` **每批注入**。
 
-## constructor:(shapes:Array<PossibleShape>)=>void
+## constructor:(shapes:Array<IRootRule>)=>void
 
-以候选表（`SourceFileShape.CreatePossibleShapes()`）创建，初始即复位。
+以候选表（`SourceFileShape.CreateRules()`）创建，初始即复位。
 
 ```ts
-this.Guide = new CatalogGuide(shapes, null);
+this.Table = new RootRuleTable(shapes);
 this.Reseed();
 ```
 
 ## private method Reseed:()=>void
 
 复位：候选下标填满、缓存清空、水位线与胜者归零。**每建完一条都必须调**——
-不复位就再也建不出第二条（`CatalogGuide.Reset` 的注释）。
+不复位就再也建不出第二条（`ShapeCatalog.Reset` 的注释）。
 
 ```ts
 this.Alive.clear();
-for (let index = 0; index < this.Guide.PossibleShapes.length; index++) {
+for (let index = 0; index < this.Table.Count(); index++) {
   this.Alive.add(index);
 }
 this.Watermark = 0;
@@ -140,7 +139,7 @@ this.HoldAt = -1;
 this.HoldGt = -1;
 this.HoldLt = -1;
 this.HoldKind = 9;
-this.Guide.PossibleShapesComputeCache.Clear();
+this.Table.Reset();
 ```
 
 ## method Classify:(code:Array<Token>)=>Array<int>
@@ -166,7 +165,7 @@ return kinds;
 
 ## method Analyze:(state:ItemScanState)=>void
 
-= 不带 context 形参的 `CatalogGuide` 选表循环：逐个 `Code` 下标淘汰候选，只剩一个且
+= 不带 context 形参的 `ShapeCatalog` 选表循环：逐个 `Code` 下标淘汰候选，只剩一个且
 `IsBuildable` 成立时收口。
 
 `Alive` 空 = 本段没有形状可建 → 立刻收口并交 raw（引擎 `RawFallback`），EOF 时由 `FinishBody` 兜底。
@@ -188,7 +187,7 @@ const owner: Token | null = this.Owner;
 if (owner === null) {
   return;
 }
-const cache: PossibleShapeCache = this.Guide.PossibleShapesComputeCache;
+const cache: ItemSlotCache = this.Table.Cache;
 // 候选按「从本条目起点开始的数组」判定：`ItemUtil.ItemStart(units)` 取的是「最后一个非 basic
 // 单元之后」——只有把本条目之前的单元切掉，它才等于本条目的起点。上一段留下的 raw basic token
 // 若还在数组里，`ItemStart` 会落回它们身上，所有候选的判据都会被带偏（`a` ⏎ `b;` 的 `b`）。
@@ -243,7 +242,7 @@ while (at < code.length) {
   }
   const hostAt: number = state.CodeAt[at] - base;
   for (const index of this.Alive) {
-    if (this.Guide.PossibleShapes[index].ComputeByIndex(units, hostAt, cache) === ShapeStates.Reject) {
+    if (this.Table.At(index)!.ComputeByIndex(units, hostAt, cache) === ShapeStates.Reject) {
       this.Alive.delete(index);
     }
   }
@@ -376,7 +375,7 @@ while (at < code.length) {
   }
   if (this.Alive.size === 1) {
     const only: number = RootItemRule.FirstOf(this.Alive);
-    const shape: PossibleShape = this.Guide.PossibleShapes[only];
+    const shape: IRootRule = this.Table.At(only)!;
     if (this.Context !== null && shape.IsBuildable(units, hostAt, cache, this.Context)) {
       // 修饰词与声明词之间换行时 TS 按 ASI 拆成两条（`declare` ⏎ `enum E {}`）：
       // 这种段交给尾巴的 `BuildTrailingDeclaration`（它的多语句分界按这个口径写）。
@@ -995,7 +994,7 @@ return count < minCount;
 ## private method BuildByKind:(kind:int, host:Token, start:int, end:int, context:SyntaxContext)=>Token | null
 
 按族分派到候选的静态建造入口（**不是** `BuildByIndex`：class/interface/enum 的 `BuildByIndex` 走
-`BodyGuideUtil.MountShell`，会改 `host.MountedUnit` 并替换 `host.Data`）。
+`DeclarationShellUtil.MountShell`，会改 `host.MountedUnit` 并替换 `host.Data`）。
 
 ```ts
 try {
@@ -1348,9 +1347,9 @@ this.Engine.Reset();
 this.Fallback.Reset();
 ```
 
-## static method CreateRules:(shapes:Array<PossibleShape>)=>Array<ItemRule>
+## static method CreateRules:(shapes:Array<IRootRule>)=>Array<ItemRule>
 
-根的规则表：只占 1 条规则；候选表由调用方给（`SourceFileShape.CreatePossibleShapes()`），
+根的规则表：只占 1 条规则；候选表由调用方给（`SourceFileShape.CreateRules()`），
 本文件因此不必 import 根形状，双向 import 不成环。
 
 ```ts

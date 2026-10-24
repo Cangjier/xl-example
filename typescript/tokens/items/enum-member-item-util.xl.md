@@ -11,7 +11,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # namespace cangjie
 
-枚举体成员 item 的公共判据：从 `EnumMemberPossibleUtil`（`enum-member-possible-shape.xl.md`）逐字搬出的算法，
+枚举体成员 item 的公共判据：从 `EnumMemberPossibleUtil`（`enum-member-shape-rule.xl.md`）逐字搬出的算法，
 去掉 possible / 槽位缓存协议，改成读写 `core/syntax/batch/item-scan-state`。
 
 枚举成员的语法是封闭的：`名字 [= 初始化器]`，名字可以是 Identifier / StringLiteral / NumericLiteral / 计算名 `[...]`，

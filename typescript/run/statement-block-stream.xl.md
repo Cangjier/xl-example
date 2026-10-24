@@ -42,7 +42,7 @@ import { StatementBodyItemHost } from "../tokens/items/statement-item-rule.xl.md
 
 顺序即防线：
 
-1. `BatchMode === 0` / 开关关 → 什么都不做（`BatchMode=0` 时全宿主 `BatchAdapter === null`，与基线逐字节一致）；
+1. 开关关 → 什么都不做；
 2. 不是 `{ }` → 不做（`(` / `[` 里没有语句序列）；
 3. `bracket.BatchAdapter !== null` → 已被壳接管（enum / interface / class / module 体），早退；
 4. 宿主身份闸 + 前缀白名单 → `Wants`；
@@ -51,7 +51,7 @@ import { StatementBodyItemHost } from "../tokens/items/statement-item-rule.xl.md
 **不碰游标、不建 token**：钩子跑在 `Transit` 里、`mounted.Use(value).SignIn(index)` 之后，任何字符操作都会破坏 `Transit` 的返回值。
 
 ```ts
-if (context.BatchMode === 0 || !StatementBlockStream.Enabled) {
+if (!StatementBlockStream.Enabled) {
   return;
 }
 if (!(bracket instanceof Bracket)) {

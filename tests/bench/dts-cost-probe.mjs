@@ -37,9 +37,9 @@ const bump = (key) => counts.set(key, (counts.get(key) ?? 0) + 1);
 const WATCH = new Set([
   "Process", "TryToClose", "Add", "SignOut", "SignIn", "Close", "Undo",
   "WhichUnitRangeContains", "At", "Has", "GetState", "SetState",
-  "ComputePossibleShapesByIndex", "ComputeByIndex", "BuildByIndex", "IsInRange",
+  "ComputeItemsByIndex", "ComputeByIndex", "BuildByIndex", "IsInRange",
   "IsAppend", "Transit", "Default", "GetCount", "ProcessRange", "DrainMessages",
-  "ComputePossibleShapes", "FromRanges", "IsBuildable", "TrySignOut", "SignOutToken",
+  "ComputeItems", "FromRanges", "IsBuildable", "TrySignOut", "SignOutToken",
 ]);
 
 function instrumentModule(mod, file) {
@@ -146,7 +146,7 @@ if (doMicro) {
   const { Document } = require(path.join(buildTs, "core", "syntax", "document.js"));
   const { ReloadMessage } = require(path.join(buildTs, "core", "syntax", "messages", "reload-message.js"));
   const { TextDocument } = require(path.join(buildTs, "typescript", "run", "text-document.js"));
-  const { PossibleShapeCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
+  const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "shape-rule-cache.js"));
   const { Token } = require(path.join(buildTs, "core", "syntax", "token.js"));
 
   const text = "a".repeat(1 << 20);
@@ -186,7 +186,7 @@ if (doMicro) {
   }));
 
   // Map<string,any> 查找：constructor.name 作键 vs 预置符号键
-  const cache = new PossibleShapeCache();
+  const cache = new ItemSlotCache();
   class SomeShape {}
   const inst = new SomeShape();
   cache.SetState(SomeShape.name, { at: 0 });

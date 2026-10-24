@@ -9,7 +9,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "./expression-statement-rule.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
@@ -48,7 +48,7 @@ this.End = end;
 
 根级语句的**终结位置扫描器**：只做符号层的递归下降，不建任何形状，回答「从第一个代码单元算起，这条语句到哪一格结束」。
 
-为什么要有它：根候选按 `CatalogGuide` 的契约必须在一个下标上决定「建不建」，而 `if` 还牵扯「`;` 之后还有没有 `else`」——这根换行 / 下一个代码单元才看得见。扫描器把「还差单元」与「已经到齐（到齐点可能早于当前下标）」分开回答，形状才在正确的时机建。
+为什么要有它：根候选按 `ShapeCatalog` 的契约必须在一个下标上决定「建不建」，而 `if` 还牵扯「`;` 之后还有没有 `else`」——这根换行 / 下一个代码单元才看得见。扫描器把「还差单元」与「已经到齐（到齐点可能早于当前下标）」分开回答，形状才在正确的时机建。
 
 `AtEOF` 是文件末尾的判别位：根在最后一个真实位置已经被签出（`SourceRange.EndIndex >= 0`）时，候选把「本层没有后续单元」当成 ASI 收尾，而不是继续等 `else` / `;`。
 
@@ -515,9 +515,9 @@ for (let at = begin; at < code.length; at++) {
   // 否则会把**下一条语句**的 `;` 也吞进来（`const last = …` ⏎ `f(...)` / 类型注解跨行读到下一个 `;`）。
   // 与 `StatementBuilder.BuildExpressionStatement` / `BuildVariableStatement` 读同一套判据；
   // 表达式尾的细节（后缀 `++`/`--`、`=> {}` / `as` / `satisfies` 不是调用位宿主）交给
-  // `ExpressionStatementPossibleShape.IsUncontinuableTailBoundary`。
+  // `ExpressionStatementRule.IsUncontinuableTailBoundary`。
   if (at > from && (StatementScanner.EndsAtLineBreak(code, at - 1, at)
-    || ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(code, at))) {
+    || ExpressionStatementRule.IsUncontinuableTailBoundary(code, at))) {
     if (StatementScanner.IsSymbol(code[at], ";")) {
       // 行首 `;` 后面同一行还有代码（`;(() => 1)()`）：这个 `;` 是下一条空语句，不归本声明。
       const afterSemi = at + 1 < code.length ? code[at + 1] : null;
@@ -716,7 +716,7 @@ return false;
 
 `previous` 能收尾、`next` 接不上、两者之间有换行 —— 三者都成立就是 ASI 边界。
 调用 / 下标 / 标签模板位另有一条：`next` 虽然「接得上」（`(` 通常是续接），但当上一条表达式
-不能当调用者时就接不上——与 `ExpressionStatementPossibleShape.IsAsiBoundary` 读同一个判据。
+不能当调用者时就接不上——与 `ExpressionStatementRule.IsAsiBoundary` 读同一个判据。
 
 ```ts
 const previous = code[previousIndex];
@@ -780,7 +780,7 @@ if (keywordAt + 1 < code.length
   // ThrowStatement[0,7] + 零宽 Identifier[5,5]（`;` 计入 End，不再另起 EmptyStatement）；
   // `return` ⏎ `;` 同理（ReturnStatement 的 End 含分号）。
   // 收在这一格上，否则它会被留给下一条空语句，根层 statement 候选就会拖到 EOF 哨兵上
-  // 与根终结候选同时 Accept（CatalogGuide「终结候选与其它候选同时成立」）。
+  // 与根终结候选同时 Accept（ShapeCatalog「终结候选与其它候选同时成立」）。
   if (StatementScanner.IsSymbol(code[keywordAt + 1], ";")) {
     return StatementScanner.Complete(keywordAt + 1);
   }
@@ -820,7 +820,7 @@ return StatementScanner.Mismatch();
 if (from >= code.length) {
   // 本层已经读完：AtEOF 时按 ASI 收在最后一个代码单元（`for (;;) break` / `label: break label`），
   // 否则还要等下一格才能判断后面有没有标签 / `;`。不在这里收口，普通候选会一直活到 EOF 哨兵，
-  // 与根终结候选同时 Accept，CatalogGuide 抛「终结候选与其它候选同时成立」（end compute B 组同源）。
+  // 与根终结候选同时 Accept，ShapeCatalog 抛「终结候选与其它候选同时成立」（end compute B 组同源）。
   if (StatementScanner.AtEOF && code.length > 0) {
     return StatementScanner.Complete(code.length - 1);
   }
@@ -898,7 +898,7 @@ for (let cursor = begin; cursor < code.length; cursor++) {
     return StatementScanner.Mismatch();
   }
   // 换行 ASI：与 `StatementBuilder.BuildExpressionStatement` /
-  // `ExpressionStatementPossibleShape.ExpressionEnd` 读同一套判据——体是表达式语句时，
+  // `ExpressionStatementRule.ExpressionEnd` 读同一套判据——体是表达式语句时，
   // 前一个代码单元能收尾、当前单元接不上，就是体的终点。没有这一条，
   // `let: 1` ⏎ `a();` 的体会一路吃到下一句的 `;`，把后面的语句吞进来。
   if (cursor > at && StatementScanner.EndsAtLineBreak(code, cursor - 1, cursor)) {
@@ -1061,7 +1061,7 @@ return !StatementScanner.NoLineBreakBetween(units[previous], units[at]);
 装饰器在 TS 词法里是 Symbol `@`（不是 `Common`），`IsStatementWord` 那条 ASI 判据看不到它；
 `declare function f(): void` ⏎ `@dec class C {}` 会在 `@` 处被继续当成返回类型内容，最终把下一条声明
 的 `{…}` 收成函数体。这里把「换行后的 `@`」与 statement word 同等对待（与
-`FunctionDeclarationPossibleShape.IsDecoratedDeclarationStart` 同一份判据，两处共读这一个函数）。
+`FunctionDeclarationRule.IsDecoratedDeclarationStart` 同一份判据，两处共读这一个函数）。
 
 ```ts
 if (at < 0 || at >= units.length) {

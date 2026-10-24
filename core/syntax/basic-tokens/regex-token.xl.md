@@ -2,8 +2,8 @@
 ```xl
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
-import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
+import { ItemComputeStates } from "../item-compute-states.xl.md"
+import { IItemCompute } from "../i-item-compute.xl.md"
 import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -44,9 +44,9 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor, null);
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
-关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
+关闭：只把自己标记为已关闭，然后**只问父单元**要不要重算候选——父单元没实现 `IItemCompute` 就不问，也不再往上找。
 
-父单元是不是宿主由它自己的 `CatalogGuide` 说了算：为空就等于没挂向导，被问到也不做任何事。
+父单元是不是宿主由它自己的 `BatchAdapter` 说了算：为空就等于没挂批次消费者，被问到也不做任何事。
 
 重算的返回值原样带上去：建出了形状时，正在收尾的这个 token 要让当前字符重放。
 

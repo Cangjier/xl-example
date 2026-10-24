@@ -17,7 +17,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
-import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { DeclarationShellUtil } from "./declaration-shell-util.xl.md"
 import { InterfaceBodyItemHost, InterfaceItemRule } from "../items/interface-item-rule.xl.md"
 ```
 
@@ -49,7 +49,7 @@ TS 的 children 顺序：名字 → 每个成员。成员就是**对象类型成
 
 ## field BodyBracket:Bracket | null = null
 
-根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationPossibleShape` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，由接口体括号的 `BatchAdapter`（`InterfaceBodyItemHost` = `ItemListEngine(InterfaceItemRule)`）增量建成员，括号闭合时本形状的 `OnBasicTokenClosed` 走 `FinishBody` 收口。
+根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationRule` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，由接口体括号的 `BatchAdapter`（`InterfaceBodyItemHost` = `ItemListEngine(InterfaceItemRule)`）增量建成员，括号闭合时本形状的 `OnBasicTokenClosed` 走 `FinishBody` 收口。
 
 `BodyBracket` 记「已经认定的接口体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（接口体里的嵌套括号父级是接口体，不会回到本形状）。
 
@@ -68,7 +68,7 @@ super(template);
 - 尖括号深度不为 0：是类型参数里的类型字面量，不是接口体；
 - 前一个代码单元是 `extends` / `implements` / `,`：`{` 处在「类型从这里开始」的位置，是 heritage 里的类型字面量，不是接口体。
 
-「肯定是 Body」就落在这里：只有上面四条都排除掉，才给括号初始化 `CatalogGuide`。**本形状自己的目录向导也在这一刻才装**——头部阶段不需要判候选，装早了只是一遍空转。
+「肯定是 Body」就落在这里：只有上面四条都排除掉，才给括号初始化 `ShapeCatalog`。**本形状自己的目录向导也在这一刻才装**——头部阶段不需要判候选，装早了只是一遍空转。
 
 ```ts
 if (this.BodyBracket !== null) {
@@ -179,7 +179,7 @@ for (const unit of this.Data) {
   }
 }
 const built = InterfaceDeclarationShape.BuildFromCode(this, code, this.Pos, context);
-BodyGuideUtil.FinishShell(parent, this, built);
+DeclarationShellUtil.FinishShell(parent, this, built);
 return CloseStates.Built;
 ```
 
@@ -207,7 +207,7 @@ return InterfaceDeclarationShape.BuildFromCode(host, code, pos, context);
 
 ## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext)=>InterfaceDeclarationShape
 
-从「已经按 AST 顺序排好的非 trivia 代码单元」建接口声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`InterfaceDeclarationEndPossibleShape` 把壳换成完整形状）。
+从「已经按 AST 顺序排好的非 trivia 代码单元」建接口声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`InterfaceDeclarationEndShapeRule` 把壳换成完整形状）。
 
 `pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
 
@@ -421,7 +421,7 @@ return members;
 收口时取接口体成员。两条路径必须产出同一棵 AST：
 
 - 括号 `Data` 里**没有已建好的成员形状**（导出 / 模块体 / 语句位置的一次性构建）：整段还是 raw basic token，原样交给 `BuildMembers`，与重构前逐字一致；
-- 已经由接口体 `CatalogGuide` 增量建出了成员形状：按序收集 `Members`，丢弃 trivia 与残留的 `;` / `,`；如果后面还留着一截没有增量建出的 raw 代码（例如最后一条成员在容器收口时才确定、或七类里还没有候选的类型），只用 `TypeBuilder` 解析这一截 raw 尾巴。
+- 已经由接口体 `ShapeCatalog` 增量建出了成员形状：按序收集 `Members`，丢弃 trivia 与残留的 `;` / `,`；如果后面还留着一截没有增量建出的 raw 代码（例如最后一条成员在容器收口时才确定、或七类里还没有候选的类型），只用 `TypeBuilder` 解析这一截 raw 尾巴。
 
 两种情况成员顺序都是源码顺序，成员形状都由同一个 `TypeBuilder.ParseTypeMember()` 建，区间口径不变。
 

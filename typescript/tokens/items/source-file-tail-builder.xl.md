@@ -1,13 +1,13 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ShapeCatalog } from "../../../core/syntax/shape-catalog.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ShapeRule } from "../../../core/syntax/shape-rule.xl.md"
+import { ItemSlotCache } from "../../../core/syntax/item-slot-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -27,7 +27,7 @@ import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaratio
 import { ModuleDeclarationShape } from "../declarations/module-declaration-shape.xl.md"
 import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { ExpressionStatementRule } from "../statements/expression-statement-rule.xl.md"
 import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -37,7 +37,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 
 # namespace cangjie
 
-# class SourceFileTailBuilder extends PossibleShape
+# class SourceFileTailBuilder extends ShapeRule
 
 ```txt
 a
@@ -48,24 +48,24 @@ a
 根单元的**尾部建造器**：文件末尾那些「没有 `;` 结尾」的尾巴由它收口。
 
 > **WP-3 迁移状态（U4：先整文件机械搬，再拆三入口）**：本文件从
-> `typescript/tokens/files/source-file-end-possible-shape.xl.md` **逐字搬来**（类名
-> `SourceFileEndPossibleShape` → `SourceFileTailBuilder`，逻辑一字未改），因此暂时仍
-> `extends PossibleShape`、由 `CatalogGuide` 当「终结候选」驱动（`ComputeByIndex` / `BuildByIndex`
+> `typescript/tokens/files/source-file-end-shape-rule.xl.md` **逐字搬来**（类名
+> `SourceFileEndShapeRule` → `SourceFileTailBuilder`，逻辑一字未改），因此暂时仍
+> `extends ShapeRule`、由 `ShapeCatalog` 当「终结候选」驱动（`ComputeByIndex` / `BuildByIndex`
 > 是旧协议入口，行为与搬迁前逐字节相同）。
 > 三个**建造入口**已提升为 public，就是本类对外的 API：
 > `BuildTrailingDeclaration`（声明尾巴）/ `BuildStatementSegments`（多条语句分段）/ `BuildModuleDeclaration`（module 头）。
-> 下一个波次：`RootItemRule.Build` 改调这三个入口，本类的 PossibleShape 外壳随之删除。
+> 下一个波次：`RootItemRule.Build` 改调这三个入口，本类的 ShapeRule 外壳随之删除。
 
 根单元的终结候选：认两种「这条语句到这里该结束了」。
 
 - **EOF 哨兵**：`EndOfFileTokenShape` 关闭触发的那一次重算里 `Accept`；
 - **ASI 边界**：换行之后到来的代码单元接不上前一条表达式时 `Accept`（判据由
-  `ExpressionStatementPossibleShape.IsAsiBoundary` 给出，与普通候选**读同一个函数**）。
+  `ExpressionStatementRule.IsAsiBoundary` 给出，与普通候选**读同一个函数**）。
 
 两种情况下普通候选（import / export / expression statement）都已在同一处 `Reject`，
-所以 `Candidates == 0`，按 `CatalogGuide` 的契约由本候选结束这一条语句。
+所以 `Candidates == 0`，按 `ShapeCatalog` 的契约由本候选结束这一条语句。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:ItemSlotCache)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -75,15 +75,15 @@ const current = units[tokenIndex];
 if (current instanceof EndOfFileTokenShape) {
   return ShapeStates.Accept;
 }
-if (ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
+if (ExpressionStatementRule.IsAsiBoundary(units, tokenIndex)) {
   // 前导装饰器属于**下一条声明**，不是换行处结束的表达式语句：`@dec\nclass C {}`。
-  // 类候选还在吃这串装饰器时，终结候选不许 Accept，否则 CatalogGuide 会报「终结候选与其它候选同时成立」。
+  // 类候选还在吃这串装饰器时，终结候选不许 Accept，否则 ShapeCatalog 会报「终结候选与其它候选同时成立」。
   if (SourceFileTailBuilder.HasDecoratorPrefix(units, tokenIndex)) {
     return ShapeStates.Uncertain;
   }
-  // 被标语句（`lab: a` ⏎ `c;`）不是表达式语句：`lab: a` 只能由 StatementPossibleShape
+  // 被标语句（`lab: a` ⏎ `c;`）不是表达式语句：`lab: a` 只能由 StatementRule
   // 按 LabeledStatement 建。ASI 判据把它当成「`a` 处结束的表达式语句」，于是终结候选 Accept
-  // 时普通候选还活着 → CatalogGuide 抛「终结候选与其它候选同时成立」。这里让位给语句候选。
+  // 时普通候选还活着 → ShapeCatalog 抛「终结候选与其它候选同时成立」。这里让位给语句候选。
   if (SourceFileTailBuilder.HasLabelPrefix(units, tokenIndex)) {
     return ShapeStates.Uncertain;
   }
@@ -97,7 +97,7 @@ return ShapeStates.Reject;
 本条语句（`tokenIndex` 之前那一段）是不是**带标签的语句头** `标识符 :`。
 是的话 `tokenIndex` 处不是「一条表达式语句在换行处结束」，而是被标语句的体刚结束时——
 `lab: a` ⏎ `c;` 里 TS 侧是 `LabeledStatement(lab, ExpressionStatement(a))`，这条语句只能由
-`StatementPossibleShape` 建，终结候选不许抢。
+`StatementRule` 建，终结候选不许抢。
 
 做法：先按 `IsAsiBoundary` 的口径回到本条语句的头（越过本条的 basic token、跳过前导 trivia），
 再看头后面的第一个代码单元是不是 `:`。`a ? b : c` 的头是 `a`、后面是 `?`，所以不会误判。
@@ -237,7 +237,7 @@ const text = (unit as Common).TempToString();
 return text === "return" || text === "debugger" || text === "break" || text === "continue";
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:ShapeCatalog, context:SyntaxContext)=>Token
 
 两条路各走各的：
 
@@ -262,7 +262,7 @@ if (!(host.Data[tokenIndex] instanceof EndOfFileTokenShape)) {
     host.Data.splice(asiStart, end - asiStart + 1, built);
     built.Parent = host;
     // 边界格若是裸块 `{}`：它就是下一条语句（BlockStatement），这里当场建掉。
-    // 否则它会以 basic token 的形态留到 EOF，和 StatementPossibleShape 在 EOF 格的 Accept 撞共存。
+    // 否则它会以 basic token 的形态留到 EOF，和 StatementRule 在 EOF 格的 Accept 撞共存。
     if (boundaryUnit instanceof Bracket && (boundaryUnit as Bracket).StartBracketChar === "{") {
       let blockPos = 0;
       const blockEnd = end >= 0 ? host.Data[asiStart].SourceRange.EndIndex : -1;
@@ -591,7 +591,7 @@ for (let index = 1; index < code.length; index++) {
   }
   let lineBreak = false;
   for (let gap = codeAt[index - 1] + 1; gap < codeAt[index]; gap++) {
-    if (ExpressionStatementPossibleShape.HasLineBreak(host.Data[gap])) {
+    if (ExpressionStatementRule.HasLineBreak(host.Data[gap])) {
       lineBreak = true;
       break;
     }
@@ -662,8 +662,8 @@ for (let index = 1; index < code.length; index++) {
       || (unit as Common).Is("infer"))) {
     continue;
   }
-  if (ExpressionStatementPossibleShape.IsExpressionTail(code[index - 1])
-    && !ExpressionStatementPossibleShape.IsContinuation(unit)) {
+  if (ExpressionStatementRule.IsExpressionTail(code[index - 1])
+    && !ExpressionStatementRule.IsContinuation(unit)) {
     boundary = index;
   }
 }
@@ -714,7 +714,7 @@ if (boundary > 0) {
 // `@dec interface I {}` / `@dec enum E { A }` / `@dec type T = number;` / `@dec namespace N {}` /
 // `@dec function g() {}`）：段首是 `@`（不是 Common），下面的字面分支都会漏掉。
 // 「装饰器前缀（可跨行、可多个）+ 修饰词 + 声明词」由
-// `StatementScanner.DecoratedHeadKeyword` 一次认出——与 `function-declaration-possible-shape` 的
+// `StatementScanner.DecoratedHeadKeyword` 一次认出——与 `function-declaration-rule` 的
 // ASI 判据、`statement-builder.ScanDecoratedHead` 同口径——再按**声明词**分派到对应的 `FromUnits`：
 // 它们都从段首重新扫装饰器，把 Decorator 放进 children 最前，整段建出来就是 TS 的声明节点。
 // 建不出来（装饰器后面不是声明头 / 段被切在声明头中间）按原路返回 false。

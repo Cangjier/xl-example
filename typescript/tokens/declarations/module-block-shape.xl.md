@@ -273,7 +273,7 @@ if (keyword === "declare") {
 // 模块体里的类型别名成员：名字必须与 `type` **同行**（TS nextTokenIsIdentifierOnSameLine）。
 // `namespace N { type` ⏎ `T = 1 }` 里 `type` 是标识符（TS 是两条 ExpressionStatement），
 // 不能交给 TypeAliasDeclarationShape.FromUnits；否则 `type` 与 `T = 1` 被并成一条别名。
-// 同行口径与 StatementBuilder 的 `type` 分派、TypeAliasDeclarationPossibleShape 的 Stage 1 同一份。
+// 同行口径与 StatementBuilder 的 `type` 分派、TypeAliasDeclarationRule 的 Stage 1 同一份。
 let typeAliasMember = false;
 if (keyword === "type" && declStart + 1 < inner.Units.length
   && inner.Units[declStart + 1] instanceof Common

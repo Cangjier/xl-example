@@ -3,8 +3,8 @@
 import { BlockToken } from "../block-token.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
-import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
-import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
+import { ItemComputeStates } from "../item-compute-states.xl.md"
+import { IItemCompute } from "../i-item-compute.xl.md"
 import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -118,7 +118,7 @@ return items.includes(this.TempToString());
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
-关闭：只把自己标记为已关闭，然后**和 `Common.Close` 一样只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
+关闭：只把自己标记为已关闭，然后**和 `Common.Close` 一样只问父单元**要不要重算候选——父单元没实现 `IItemCompute` 就不问，也不再往上找。
 
 符号（`;`、`,`、`+`、`=` …）常常是 item 的收尾，这一次「问父单元」就是「item 关闭 → 宿主目录重算 → 建出 item」的触发点：类体 / 接口体 / 枚举体里的成员，正是在收尾符号关闭的这一下被建出来的。`}` 不是符号，它是 `Bracket` 的结束括号，同一职责由 `Bracket.Close` 承担。
 

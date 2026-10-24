@@ -1,4 +1,4 @@
-// 缓存键改造（O5a）的单价探针：分别量「旧口径」与「新口径」下一次 `PossibleShapeCache.GetState`
+// 缓存键改造（O5a）的单价探针：分别量「旧口径」与「新口径」下一次 `ItemSlotCache.GetState`
 // 的完整成本，以及路径上的每一段（取键 / 取状态）。
 //
 //   node tests/bench/slot-micro.mjs --build build        # 改造后
@@ -21,10 +21,10 @@ const buildIdx = argv.indexOf("--build");
 const buildDir = path.resolve(root, buildIdx >= 0 ? argv[buildIdx + 1] : "build");
 const buildTs = path.join(buildDir, "ts");
 
-const { PossibleShapeCache } = require(path.join(buildTs, "core", "syntax", "possible-shape-cache.js"));
-const { PossibleShape } = require(path.join(buildTs, "core", "syntax", "possible-shape.js"));
+const { ItemSlotCache } = require(path.join(buildTs, "core", "syntax", "shape-rule-cache.js"));
+const { ShapeRule } = require(path.join(buildTs, "core", "syntax", "shape-rule.js"));
 
-class SamplePossibleShape extends PossibleShape {}
+class SamplePossibleShape extends ShapeRule {}
 const instance = new SamplePossibleShape();
 const N = 2_000_000;
 
@@ -39,16 +39,16 @@ const time = (label, fn, n = N) => {
   return { label, nsPerOp: +ns.toFixed(2), sink, warmSink };
 };
 
-const hasSlotApi = typeof PossibleShape.SlotOf === "function" && typeof instance.Slot === "function";
+const hasSlotApi = typeof ItemSlotCache.SlotOf === "function" && typeof instance.Slot === "function";
 const rows = [];
 rows.push(time("this.constructor.name（键的旧来源）", () => instance.constructor.name.length > 0));
 
-const cache = new PossibleShapeCache();
+const cache = new ItemSlotCache();
 if (hasSlotApi) {
-  const slot = PossibleShape.SlotOf(SamplePossibleShape);
+  const slot = ItemSlotCache.SlotOf(SamplePossibleShape);
   cache.SetState(slot, { At: 0 });
-  rows.push(time("PossibleShape.SlotOf(类)（键的新来源，Map<类,int> 命中）", () => PossibleShape.SlotOf(SamplePossibleShape)));
-  rows.push(time("PossibleShape.SlotOf(this.constructor)（形状里的实际形态）", () => PossibleShape.SlotOf(instance.constructor)));
+  rows.push(time("ItemSlotCache.SlotOf(类)（键的新来源，Map<类,int> 命中）", () => ItemSlotCache.SlotOf(SamplePossibleShape)));
+  rows.push(time("ItemSlotCache.SlotOf(this.constructor)（形状里的实际形态）", () => ItemSlotCache.SlotOf(instance.constructor)));
   rows.push(time("this.Slot()（形状调的入口）", () => instance.Slot()));
   rows.push(time("cache.GetState(槽位)（数组下标读，已命中）", () => cache.GetState(slot) !== null));
   rows.push(time("cache.GetState(this.Slot())（完整一次取状态）", () => cache.GetState(instance.Slot()) !== null));
