@@ -249,6 +249,155 @@ return shell;
 进程内累计「箭头块体 / 对象字面量方法体括号挂上语句目录」的次数（Stage 4o，只增不减）。
 与 `FunctionBodyMountCount` 分开计量，任何既有的「函数体挂载」断言不受影响。
 
+## static field SwitchCaseBodyMountCount:int = 0
+
+**switch case 体**（Stage 4p）：`switch (x) { case 1: { … } }` 的 case 体 `{` 挂上块体语句目录的次数（只增不减）。
+与 `ControlFlowBodyBraceCount` 分开计量：switch 的体括号是 `CaseBlockShape` 的入口（`case` / `default` 子句），
+**不能**挂语句目录（目录里的表达式候选会把 `case 1:` 当表达式语句建壳）；能挂的是 **case 子句里那个 `{`**。
+
+## static field BlockFunctionBodyMountCount:int = 0
+
+**块内函数声明体**（Stage 4p）：`{ function f(){ … } }` 的函数体 `{` 挂上块体语句目录的次数（只增不减）。
+声明本身不新建壳（仍留在 raw 段由 legacy 递归建树），接管只发生在体内语句上——与根层函数体同一条收集通道
+（`StatementBuilder.BuildBlock()` → `HasBuiltBodyStatements` / `CollectBodyStatements`）。
+
+## static field EnableSwitchCaseBody:bool = false
+
+**Stage 4p 开关，实测后默认关（安全回退）**：`true` = case 子句里的体 `{` 挂块体语句目录；但 `case <表达式>:` 会抛 `SourceRange is not set`（`default:` 不抛），整条文件走文件级 fallback，所以默认 `false`。`false` = 不挂，行为逐位回到 Stage 4o
+（case 体整段 raw，`BuildCaseBlock` 的 `BuildStatement()` 递归建树——那是「未接管」，不是「建错」）。
+
+## static field EnableBlockFunctionBody:bool = false
+
+**Stage 4p 开关，实测后默认关（安全回退）**：`true` = 块内函数声明的体 `{` 挂块体语句目录。挂载确实发生（`BlockFunctionBodyMountCount` +1），但体内已建语句没有被 `BuildBlock()` 的收集通道收到（`BlockBodyStatementCount` 增量 0，见 HANDOFF-s4p.md §2），所以「挂上」不等于「接管」；默认 `false`，行为逐位回到 Stage 4o。
+
+## static method MountBodyCatalog:(bracket:Bracket)=>void
+
+把块体语句目录挂到 `bracket` 上（终结候选 `BlockBodyWaitingPossibleShape`：一个候选都不接也不抛错）。
+```ts
+bracket.CatalogGuide = new CatalogGuide(
+  BlockPossibleShape.CreateBodyPossibleShapes(),
+  new BlockBodyWaitingPossibleShape());
+```
+
+## static method IsSwitchCaseBody:(body:Bracket, bracket:Token, previous:Token | null)=>bool
+
+**case 体的判据**（Stage 4p），三段，全部只读已有的树与 `Data`：
+
+1. 这个 `{` 前面那个非 trivia 单元是 `:`（`case 1: {` / `default: {`）；
+2. 宿主括号的父单元是**控制流壳**（`StatementShape` 且 `Kind === StatementRoute.ShellStatementFamily`）；
+3. 壳的首代码单元是 `switch`（即宿主括号是 switch 的 **case 块**，不是 `if (a) { … }` 这种体）。
+
+第 2/3 段把「对象字面量的 `{ a: { b } }`」「类型字面量的 `{ a: { } }`」这类同样以 `:` 开头的括号全部排除：
+它们的宿主括号 / 父单元不可能是 `switch` 壳。
+
+```ts
+if (previous === null || !(previous instanceof Symbol) || !(previous as Symbol).Is(":")) {
+  return false;
+}
+const owner = body.Parent;
+if (!(owner instanceof StatementShape)) {
+  return false;
+}
+if ((owner as StatementShape).Kind !== StatementRoute.ShellStatementFamily) {
+  return false;
+}
+for (const unit of (owner as StatementShape).Data) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  return unit instanceof Common && (unit as Common).TempToString() === "switch";
+}
+return false;
+```
+
+## static method IsClosedParameterList:(unit:Token)=>bool
+
+`unit` 是不是一个**已闭合的参数表** `( … )`（`(` `)` 在本语法里是同一个 `Bracket` 单元）。
+```ts
+if (!(unit instanceof Bracket)) {
+  return false;
+}
+return (unit as Bracket).StartBracketChar === "(" && (unit as Bracket).Closed;
+```
+
+## static method IsFunctionDeclarationBody:(host:Token, bracket:Token)=>bool
+
+**块内 / 体内函数声明体的判据**（Stage 4p）：从体 `{` 往回扫——先过返回类型（`:` 之后到参数表 `(`）、
+参数表那个已闭合的 `(`、可选的类型参数 `<…>`、可选的 `*`、函数名，再往前一格必须是 `function`。
+扫到 `;` / `=` / `=>` / `,` 立即停（跨语句 / 落进箭头体 / 落进对象字面量时一律不挂）。
+
+**为什么必须确认 `function`**：`m(){ … }`（对象方法）、`constructor(){ … }`（构造器）、`if (a) { … }`（控制流体）
+的 `{` 前面同样是「已闭合的 `(`」，只看那一格会把对象字面量 / 类体当成函数体挂目录（形状泄漏）。
+
+```ts
+const data:Array<Token> = host.Data;
+let braceAt = -1;
+for (let at = data.length - 1; at >= 0; at--) {
+  if (data[at] === bracket) {
+    braceAt = at;
+    break;
+  }
+}
+if (braceAt <= 0) {
+  return false;
+}
+let at = braceAt - 1;
+while (at >= 0 && data[at].IsTriviaToken) {
+  at--;
+}
+if (at < 0) {
+  return false;
+}
+if (!BlockPossibleShape.IsClosedParameterList(data[at])) {
+  while (at >= 0) {
+    const unit = data[at];
+    if (unit.IsTriviaToken) {
+      at--;
+      continue;
+    }
+    if (BlockPossibleShape.IsClosedParameterList(unit)) {
+      break;
+    }
+    if (unit instanceof Symbol) {
+      const text = (unit as Symbol).TempToString();
+      if (text === ";" || text === "=" || text === "=>" || text === ",") {
+        return false;
+      }
+    }
+    at--;
+  }
+  if (at < 0) {
+    return false;
+  }
+}
+at--;
+while (at >= 0 && data[at].IsTriviaToken) {
+  at--;
+}
+if (at >= 0 && data[at] instanceof Bracket && (data[at] as Bracket).StartBracketChar === "<") {
+  at--;
+  while (at >= 0 && data[at].IsTriviaToken) {
+    at--;
+  }
+}
+if (at < 0 || !(data[at] instanceof Common)) {
+  return false;
+}
+at--;
+while (at >= 0 && data[at].IsTriviaToken) {
+  at--;
+}
+if (at >= 0 && data[at] instanceof Symbol && (data[at] as Symbol).Is("*")) {
+  at--;
+  while (at >= 0 && data[at].IsTriviaToken) {
+    at--;
+  }
+}
+if (at < 0 || !(data[at] instanceof Common)) {
+  return false;
+}
+return (data[at] as Common).TempToString() === "function";
+```
 ## static method IsArrowUnit:(unit:Token)=>bool
 
 `unit` 是不是箭头 `=>`（只看 `Symbol` 文本，不建状态）。
@@ -535,6 +684,27 @@ if (previous !== null && BlockPossibleShape.IsArrowUnit(previous)) {
     return;
   }
   BlockPossibleShape.TryMountFunctionBody(parent, bracket, context, true);
+  return;
+}
+if (previous !== null && BlockPossibleShape.IsSwitchCaseBody(body, bracket, previous)) {
+  // **case 体的 `{`**（Stage 4p）：`switch (x) { case 1: { … } }`。挂上块体目录后，体内语句由
+  // `BuildCaseBlock` → 内层 `BuildStatement()` → `BuildBlock()` → `HasBuiltBodyStatements` /
+  // `CollectBodyStatements` 收集——与块体 / 函数体同一条通道，`CaseBlockShape` / `CaseClauseShape`
+  // 的建树路径一个字不改。`case 1: f();` 这种**不在 `{}` 里的子句语句**仍留 raw（未接管，树仍正确）。
+  if (BlockPossibleShape.EnableSwitchCaseBody) {
+    BlockPossibleShape.MountBodyCatalog(body);
+    BlockPossibleShape.SwitchCaseBodyMountCount += 1;
+  }
+  return;
+}
+if (BlockPossibleShape.IsFunctionDeclarationBody(parent, bracket)) {
+  // **块内 / 体内的函数声明体**（Stage 4p）：`{ function f(){ let x = 1; } f(); }`。声明本身没有壳
+  // （块体目录里不补声明族候选），体括号却在 raw 递归的 `BuildFunctionDeclaration` → `BuildBlock()`
+  // 上，所以只挂目录就能让体内语句走收集通道：mount > 0、XML / AST 与 legacy 逐字节一致。
+  if (BlockPossibleShape.EnableBlockFunctionBody) {
+    BlockPossibleShape.MountBodyCatalog(body);
+    BlockPossibleShape.BlockFunctionBodyMountCount += 1;
+  }
   return;
 }
 if (body.CatalogGuide === null) {
