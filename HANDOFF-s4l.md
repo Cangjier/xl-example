@@ -359,3 +359,23 @@ Node.js v24.21.0
   「未接管」而不是建错树。\BuildByIndex\ 不依赖 \Parent\（直接用 \host\），所以判定与建树不会不一致。
 - **开关粒度**：\AwaitShellCount\ 与 \ControlFlowShellCount\ 分开计量，任何全表里「控制流壳计数」
   的既有断言不受本候选影响。
+
+
+## 5. 已知限制：部分形态下壳会 detach 回 raw（计数为 0，树不受影响）
+
+实测（s4l-await-body 19 条，全绿）：sync function a(){ await f(); } 这类**单条 await** 稳定接管
+（ody=1、wait=1）；但下面三种形态里壳建出来后又 DetachShell 退回 raw 段：
+
+| 形态 | 读数 | 说明 |
+|---|---|---|
+| sync function b(){ await f(); let x=1; } | ody=0 await=1 | await 壳没能收口，整段（含 let）退回 BuildBlock 的 legacy 递归 |
+| sync function i(){ await f(); await (c); } | ody=0 await=1 | 同上，只有第一条 await 建了壳 |
+| { { await f(); } } | ody=2 await=1 | 内层块壳与 await 壳各计一条（不是 bug，是计数口径） |
+
+**为什么不是「建错」**：三种形态的 XML 都与 legacy 逐字节相同、AST 与 TS 逐节点相同（用例里 XML==legacy
+是硬断言，且全表 ast-json 6167/6167 未变）。壳 detach 后 StatementShape.DetachShell 把 raw 单元按原位退回父单元，
+由 BuildBlock 用同一份 BuildStatement 重建 —— 这正是 S4b 设计里那条安全回退。
+
+**代价**：wait f(); let x=1; 的 let 也因此失去接管（ody 0 而不是 let 单独时的 1）。这是本轮
+**已知的接管覆盖率回退**，需要下一步在 StatementEndPossibleShape 的 ; 收口 / FinishShell 的
+leftover 重放上定位（与 S4d 修空语句 ; 失管是同一处机制），本轮未修。
