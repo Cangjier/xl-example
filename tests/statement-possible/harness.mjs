@@ -37,7 +37,7 @@ const require = createRequire(import.meta.url);
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { tsAst } = createAstCore(ts);
 
-const GROUP_ORDER = ["dev", "stage1", "asi", "trivia", "route", "satisfies", "operators", "stage4", "stage5"];
+const GROUP_ORDER = ["dev", "stage1", "stage4-block", "asi", "trivia", "route", "satisfies", "operators", "stage4", "stage5"];
 
 /** 组能力 → 未满足时的 skip 原因。 */
 const NEED_REASONS = {
