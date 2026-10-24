@@ -82,13 +82,31 @@ function g() {
   },
   {
     name: "arrow-body",
-    // f 体（const / return）+ 箭头体（if / return）+ 箭头体里的 if 体（return）
-    expectMounts: 3,
-    expectStreaming: 3,
+    // WP-2 回归修复：`=>` 已从白名单移除（与函数类型返回的类型字面量不可区分）。
+    // 于是箭头体**不挂**；箭头体里的 if 体宿主是裸 Bracket（BatchAdapter === null），
+    // 过不了 IsStatementContainer 的身份闸，也不挂 —— 整条箭头体链回退旧循环。
+    // 只有 f 体（const / return）挂载并真流式。
+    expectMounts: 1,
+    expectStreaming: 1,
     expectLegacy: 0,
     source: `function f() {
   const k = (a) => { if (a) { return 1; } return 2; };
   return k;
+}`,
+  },
+  {
+    name: "type-literal-after-arrow",
+    // 回归守卫：类型位置的 `=> {` 是对象类型字面量，绝不能挂 ——
+    // 挂上会让 TypeBuilder 读到非 basic 单元并抛「不支持的对象类型成员」
+    //（tests/cases/token/types/type-fn-return-typeliteral.ts，buffer-equivalence 4503/1 ERROR 的根因）。
+    // 这里只允许 f 体（let / return）挂载并真流式。
+    expectMounts: 1,
+    expectStreaming: 1,
+    expectLegacy: 0,
+    source: `type A = (opts: X) => { a: number };
+function f() {
+  let a: A = null;
+  return a;
 }`,
   },
 ];
