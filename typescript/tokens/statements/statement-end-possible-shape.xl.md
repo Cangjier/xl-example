@@ -9,6 +9,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
+import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
 ```
@@ -50,6 +52,13 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 # class StatementEndPossibleShape extends PossibleShape
 
+## field StatementKind:int = 0
+
+本条语句的**族标记**（取值见 `StatementRoute`）：`0` = Wave1 的变量声明壳（`ScanRoot` 判界，行为逐位不变）；
+`StatementRoute.ShellPlainExpression` = 表达式语句壳（`StatementBoundaryUtil.CanEndStatement` 判界）。
+由建壳方在 `BuildByIndex` 里设好（`RootExpressionStatementPossibleShape` 设表达式族；其它建壳方不设、保持 0），
+终结候选只读它分派，**不在每次 Compute 时重新判族**（免得每格 O(k) 重走 `Decide`）。
+
 **语句终结候选**（可行性原型 A）：装在 `StatementShape` 壳自己的 `CatalogGuide` 里（壳的普通候选为空，所以
 `EndPossible` 永远不会撞 `CatalogGuide` 的「终结候选与其它候选同时成立」）。
 
@@ -71,6 +80,20 @@ import { StatementShape } from "./statement-shape.xl.md"
 新候选一律照抄这条防御。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+
+按语句族分派收口判据（`HANDOFF-s1d.md` §5.3）：
+
+- `StatementKind == StatementRoute.ShellPlainExpression`（表达式语句族）：**唯一判据是
+  `StatementBoundaryUtil.CanEndStatement`**（`;` / EOF / ASI 三条同源）。`StatementScanner.ScanRoot`
+  的 `End` 在这里**不参与判界**——`ScanRoot` 只认 `{` / `;` / 固定关键字起点，对表达式条目给
+  `Mismatch`；即便碰巧给出 `End`，那个位置也早于壳里已经攒下的全部代码单元，正是「表达式语句没有读完」
+  的根因（`HANDOFF-s1d.md` §5.3）。`End` 只作「上一格已经判过」的增量提示（`Checked`）。
+- 其余（`StatementKind == 0`，即 Wave1 的变量声明壳）：**逐位保留** `ScanRoot` 的
+  `Status == 1 && End >= 0`。
+
+`End` 一律折算成「壳 `Data` 里的下标」（`CodeAt[codeIndex]`），`BuildFromShell` 只消费到它。
+ASI 边界收口时边界单元本身**不属于**本条语句（`a` ⏎ `b` 的 `b` 是下一条语句的开头），
+所以消费到 `last - 1`，剩下的单元由 `StatementShape.FinishShell` 搬回父单元。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -112,36 +135,78 @@ if (state.Checked !== tokenIndex + 1) {
   const unitEnd = units[tokenIndex].SourceRange.EndIndex;
   StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
     || (unitEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, unitEnd) === "");
-  const result = StatementScanner.ScanRoot(state.Code);
-  state.Status = result.Status;
-  if (result.Status === 1 && result.End >= 0 && result.End < state.CodeAt.length) {
-    state.End = state.CodeAt[result.End];
+  state.Status = 0;
+  state.End = -1;
+  if (this.StatementKind === StatementRoute.ShellPlainExpression) {
+    const endCode = StatementEndPossibleShape.ExpressionEndCode(state.Code, StatementScanner.AtEOF);
+    if (endCode >= 0 && endCode < state.CodeAt.length) {
+      state.End = state.CodeAt[endCode];
+      state.Status = 1;
+    }
   } else {
-    state.End = -1;
+    const result = StatementScanner.ScanRoot(state.Code);
+    state.Status = result.Status;
+    if (result.Status === 1 && result.End >= 0 && result.End < state.CodeAt.length) {
+      state.End = state.CodeAt[result.End];
+    }
   }
   state.Checked = tokenIndex + 1;
 }
 // 只有 trivia、还没有任何代码单元：不判死、也不建（基线在 `code.length === 0` 时就是 `Uncertain`）。
-// 这里显式挡住任何可能的 `Reject`：`CatalogGuide` 一旦删掉本候选，本条语句就没人收口了（28 crash 根因）。
 if (state.Code.length === 0) {
   return ShapeStates.Uncertain;
 }
-// T1d 回退：判据保持 Wave1 的 `ScanRoot`（`Status == 1 && End >= 0`）。设计 §2.2 的
-// `StatementBoundaryUtil.CanEndStatement` 切换在壳路径收敛后由 Stage 2 接回：`CanEndStatement` 的
-// ASI 起点规则以「表达式语句」为前提，声明族（let/const/var 壳）在 ASI 处会被判 false，
-// 直接切换会让壳收不了口（详见 `HANDOFF-s1d.md` §5）。
-if (state.Status === 1 && state.End >= 0) {
+if (state.End >= 0) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;
 ```
 
+## static method ExpressionEndCode:(code:Array<Token>, atEof:bool)=>int
+
+表达式语句族的收口位置：返回 `code` 里**最后一条属于本条语句**的单元下标，`-1` = 还不能收口。
+判据只有 `StatementBoundaryUtil` 一份（`;` / ASI 两条），不在这里写第二套 ASI：
+
+1. 末单元是 `;` → 收在它身上（`;` 归本条语句，`StatementBuilder` 建完语句后不把它放进 `Data`）；
+2. 末单元是 ASI 边界（`IsAsiBoundary`）→ 收在 `last - 1`：边界单元是**下一条**语句的开头
+   （`a` ⏎ `b` 的 `b`），必须留在壳里交给 `FinishShell` 搬回父单元；
+3. 已经在文件末尾（`atEof`）→ 收在末单元；
+4. 其余 → `-1`（继续等）。
+
+`atEof` 排在 ASI 之后：文件末尾的 `a` ⏎ `b` 仍然是两条语句。
+
+```ts
+if (code.length === 0) {
+  return -1;
+}
+const last = code.length - 1;
+if (StatementBoundaryUtil.IsEof(last, code)) {
+  return last === 0 ? -1 : last - 1;
+}
+if (StatementBoundaryUtil.IsSemicolon(code[last])) {
+  return last;
+}
+if (StatementBoundaryUtil.IsAsiBoundary(code, last)) {
+  if (last === 0) {
+    return -1;
+  }
+  return last - 1;
+}
+if (atEof) {
+  return last;
+}
+return -1;
+```
+
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
-把本条语句建出来、让壳原位收口。
+把本条语句建出来、让壳原位收口。收口位置与 `ComputeByIndex` **同一判据**
+（表达式族走 `ExpressionEndCode`，变量族走 `ScanRoot` 的 `End`），只是这里从 `host.Data` 重新折一遍
+`code` / `codeAt`，再交给 `StatementShape.BuildFromShell` 用**正确的 endIndex** 消费到那里。
 
 - `EOF` 哨兵：消费到最后一个代码单元；
-- 其它：重算一遍与 `ComputeByIndex` 同口径的 `End`，把它折算成壳 `Data` 下标，消费到那里（`;` 含在内）。
+- 其它：算出「最后一条属于本条语句的单元」并折算成壳 `Data` 下标；算不出来时退回 `tokenIndex`
+  （`TryToClose` 会 `DetachShell` 兜底，不会把壳留在树里）。
 
 ```ts
 let endIndex = tokenIndex;
@@ -164,9 +229,17 @@ if (current instanceof EndOfFileTokenShape) {
   const unitEnd = current.SourceRange.EndIndex;
   StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
     || (unitEnd >= 0 && StatementScanner.NextChar(current.SourceRange.Document, unitEnd) === "");
-  const result = StatementScanner.ScanRoot(code);
-  if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
-    endIndex = codeAt[result.End];
+  let endCode = -1;
+  if (this.StatementKind === StatementRoute.ShellPlainExpression) {
+    endCode = StatementEndPossibleShape.ExpressionEndCode(code, StatementScanner.AtEOF);
+  } else {
+    const result = StatementScanner.ScanRoot(code);
+    if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
+      endCode = result.End;
+    }
+  }
+  if (endCode >= 0 && endCode < codeAt.length) {
+    endIndex = codeAt[endCode];
   }
 }
 const built = StatementShape.BuildFromShell(host, endIndex, context);

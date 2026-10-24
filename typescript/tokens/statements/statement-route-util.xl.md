@@ -72,9 +72,10 @@ Stage 3 的操作符候选在这里按类 `Accept`，`EndPossible` 按类互斥�
 
 ## static field EnableShellExpressions:bool = false
 
-**熔断开关**（设计 §11）：**T1d 交付时默认 `false`**——壳路径尚未收敛（见 `HANDOFF-s1d.md` §5），
-`RootExpressionStatementPossibleShape` 与 legacy `ExpressionStatementPossibleShape` 的路由让位都只在它为 `true` 时生效，
-`false` 时新候选整体 `Reject`、legacy 全接管，行为与 Wave1 逐位相同；harness 的双路对拍也用它。
+**表达式语句壳路径**（设计 §11）：T1d 收口修复已落地、但**默认仍关闭**（熔断，见 HANDOFF-s1d-r2.md §5）——表达式族（标识符 / 字面量 / `(` / `[` /
+一元前缀符号）由 `RootExpressionStatementPossibleShape` 建壳，收口判据是
+`StatementBoundaryUtil.CanEndStatement`（见 `statement-end-possible-shape.xl.md` 的 `StatementKind` 分派）。
+`false` 时新候选整体 `Reject`、legacy 全接管（Wave1 逐位行为），harness 的双路对拍也用它。
 
 ## static field EnableShellStatements:int = 0
 

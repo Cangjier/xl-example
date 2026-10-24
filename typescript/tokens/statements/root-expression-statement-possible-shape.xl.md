@@ -115,7 +115,9 @@ const headStart = moved[0].SourceRange.Start;
 if (headStart >= 0) {
   shell.SignIn(headStart);
 }
-shell.CatalogGuide = new CatalogGuide([], new StatementEndPossibleShape());
+  const endShape = new StatementEndPossibleShape();
+  endShape.StatementKind = StatementRoute.ShellPlainExpression;
+  shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
