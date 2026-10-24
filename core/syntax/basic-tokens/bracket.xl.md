@@ -204,5 +204,11 @@ mounted.Use(value).SignIn(index);
 if ("OnBracketCreatedEvent" in unit) {
   (unit as unknown as IComputePossibleShapes).OnBracketCreatedEvent(mounted, context);
 }
+// 宿主**不是括号**时（根 / 语句壳 / 其它形状单元），`Bracket.OnBracketCreatedEvent` 不会被调用，
+// 子括号监听因此要在这里补一次：箭头块体的 `{`（`x => { … }`）就落在语句壳上，根层
+// `const f = () => { … }` 的 `{` 甚至不在任何括号里。监听只挂目录、不改任何 AST 决定。
+if (!(unit instanceof Bracket) && Bracket.ChildBracketCreatedHook !== null) {
+  Bracket.ChildBracketCreatedHook.OnChildBracketCreated(unit, mounted, context);
+}
 return BranchStates.Done;
 ```
