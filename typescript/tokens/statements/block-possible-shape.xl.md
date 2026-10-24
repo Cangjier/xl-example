@@ -84,14 +84,20 @@ AST 逐节点一致。块内语句仍由 `BuildBlock` 原子递归（块内目�
 
 ## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
 
-块体目录 = 「已经验证过的语句起点候选」：变量声明壳（`let/const/var`）与普通表达式壳。
-两者都靠**自己的** `CatalogGuide` + `StatementEndPossibleShape` 收口，与宿主是不是
-`SourceFileShape` 无关，所以挂到块体括号上可直接复用（与 `BodyGuideUtil.MountBodyGuide`
-给 interface body 挂成员目录同一模式）。
+块体目录 = 「已经验证过的语句起点候选」：变量声明壳（`let/const/var`）、普通表达式壳、
+控制流族壳，以及**块壳自己**（`BlockPossibleShape`）。它们都靠**自己的** `CatalogGuide` +
+`StatementEndPossibleShape` 收口，与宿主是不是 `SourceFileShape` 无关，所以挂到块体括号上可直接复用
+（与 `BodyGuideUtil.MountBodyGuide` 给 interface body 挂成员目录同一模式）。
+
+**块壳也在目录里（Stage 4e）**：`{ { a; } }` 的内层 `{` 与根层块语句是同一个起点判据
+（`Decide == ShellBlock`），只是宿主换成了外层块体 `{` 括号。候选实例无状态（判定状态在
+`CatalogGuide.PossibleShapesComputeCache`），把 `BlockPossibleShape` 放进自己的目录不会递归建目录
+（目录只建一份，工厂里不调用 `CreateBodyPossibleShapes()`）。内层块收口时由括号闭合驱动
+`StatementShape.TryToClose` 的括号分支，外层块在 `CollectBodyStatements` 里按序收到内层块形状。
 ```ts
 BlockPossibleShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
   BlockPossibleShape.CreateBodyPossibleShapesCache,
-  () => [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape()]);
+  () => [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape(), new BlockPossibleShape()]);
 return BlockPossibleShape.CreateBodyPossibleShapesCache;
 ```
 
