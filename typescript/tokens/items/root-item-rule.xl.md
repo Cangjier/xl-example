@@ -223,6 +223,22 @@ while (at < code.length) {
         this.Watermark = at;
         return;
       }
+      // 边界建不出来（前一条是 ASI 收口的 import：`ImportDeclarationShape.FromUnits` 要求末单元是 `;`，
+      // 而 `import x from "m"` ⏎ `type T = A;` 里它没有 `;`）、且下一格是 `type` 时，必须**在这里 raw 收口**：
+      // `type` 不能给前一条声明当续接尾巴，继续扫只会把它连同别名名字一起吃进前一条的 item 区间
+      // （#81 实测：`type`/`T` 被 splice 掉，整条类型别名再也建不回来）。
+      // raw 段交给 `SourceFileTailBuilder.BuildTrailingItems` 逐段重建：它建得出无分号的 import，
+      // 也建得出类型别名（TypeAliasDeclaration）。
+      // 只对 `type` 开这一格：其它声明词的边界在「建不出来」时继续扫描仍能收敛到正确切点，
+      // 提前 raw 收口会拆掉它们（实测不加限定净负 62 条）。
+      if (this.TextOf(code[at]) === "type") {
+        state.Complete = true;
+        state.End = closeEnd;
+        this.Winner = -1;
+        this.Pending = null;
+        this.Watermark = at;
+        return;
+      }
     }
   }
   const hostAt: number = state.CodeAt[at] - base;
