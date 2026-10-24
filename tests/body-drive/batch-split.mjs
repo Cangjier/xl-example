@@ -359,6 +359,88 @@ function runClauseSplit(host, context, k) {
 }
 
 // ---------------------------------------------------------------------------
+// case 族（WP-6-4）：`switch (x) { … }` 的花括号内层，item = 一条 case / default 子句，
+// 见 typescript/tokens/items/case-clause-item-rule.xl.md
+// ---------------------------------------------------------------------------
+// 捕获：`StatementBuilder.BuildCaseBlock` 拿到的 `bracket.Data` 就是 case block 的原始代码单元
+// （WP-6-4 起 item 表在克隆括号上驱动，容器 `bracket.Data` 一个字节都不动），正好当 item 表宿主。
+const { CaseClauseItemHost, CaseClauseItemRule } = require(path.join(root, "build/ts/typescript/tokens/items/case-clause-item-rule.js"));
+const { CaseClauseBuildAdapter } = require(path.join(root, "build/ts/typescript/tokens/statements/statement-builder.js"));
+
+const CASE_SOURCES = [
+  `function f() { switch (a) { case 1: break; } }`,
+  `function f() { switch (a) { case 1: g(); break; default: h(); } }`,
+  `function f() { switch (a) { case a ? b : c: g(); break; case 2: case 3: h(); break; } }`,
+  `function f() { switch (a) { default: g(); } }`,
+  `function f() { switch (a) { } }`,
+  `function f() { switch (a) { case 1: switch (b) { case 2: g(); } break; } }`,
+  `function f() { switch (a) { case 1: let x = 1; { let y = 2; } break; case 2: g(); } }`,
+  `function f() { switch (a) { case o.default: g(); break; } }`,
+];
+
+const caseBrackets = [];
+const originalBuildCaseBlock = StatementBuilder.prototype.BuildCaseBlock;
+StatementBuilder.prototype.BuildCaseBlock = function (bracket, bracketIndex) {
+  caseBrackets.push(bracket);
+  return originalBuildCaseBlock.call(this, bracket, bracketIndex);
+};
+for (let i = 0; i < CASE_SOURCES.length; i++) {
+  try {
+    SourceFileRunner.Parse(CASE_SOURCES[i], `batch-split-case-${i}.ts`);
+  } catch (e) {
+    console.error(`case 语料 #${i} 解析失败: ${e && e.message ? e.message : e}`);
+  }
+}
+StatementBuilder.prototype.BuildCaseBlock = originalBuildCaseBlock;
+
+function makeCaseHost(code) {
+  const source = caseBrackets.find((b) => b.Data === code);
+  if (source === undefined) {
+    return makeHost(code);
+  }
+  const bracket = new Bracket(source.Template);
+  bracket.Data = code.slice();
+  bracket.SourceRange = source.SourceRange.Clone();
+  bracket.StartBracketChar = source.StartBracketChar;
+  bracket.EndBracketChar = source.EndBracketChar;
+  return bracket;
+}
+
+function makeCaseRule(host) {
+  const rule = new CaseClauseItemRule();
+  rule.ClauseBuilder = new CaseClauseBuildAdapter();
+  rule.Host = host;
+  return rule;
+}
+
+function runCaseWhole(host, context) {
+  const adapter = new CaseClauseItemHost(host, [makeCaseRule(host)]);
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, true);
+  batch.Sealed = true;
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, closed] };
+}
+
+function runCaseSplit(host, context, k) {
+  const adapter = new CaseClauseItemHost(host, [makeCaseRule(host)]);
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, false);
+  batch.To = Math.max(1, Math.min(k, host.Data.length));
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  batch.To = host.Data.length;
+  batch.AtEof = true;
+  batch.Sealed = false;
+  batch.Recompute();
+  const second = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, second, closed] };
+}
+
+// ---------------------------------------------------------------------------
 // 族表（骨架）：以后加族只在这里追加配置
 // ---------------------------------------------------------------------------
 const FAMILIES = [
@@ -385,6 +467,14 @@ const FAMILIES = [
     contextOf,
     runWhole: runClauseWhole,
     runSplit: runClauseSplit,
+  },
+  {
+    name: "case",
+    cases: () => caseBrackets.map((b) => b.Data),
+    makeHost: makeCaseHost,
+    contextOf,
+    runWhole: runCaseWhole,
+    runSplit: runCaseSplit,
   },
 ];
 
