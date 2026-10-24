@@ -42,6 +42,23 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 因为建壳的时机不同（控制流族在首代码单元建、标签在 `:` 那一格才建），计数也分开放
 （`LabelShellCount` / `ControlFlowShellCount`）。判界与建树仍走同一份 `ScanRoot` + `BuildStatement`。
 
+## static field ShellDeclarationFamily:int = 7
+
+**根层声明 / 导入导出族的通用语句壳**（Stage 4q）：语句首是 `interface` / `enum` / `type` /
+`namespace` / `module` / `declare` / `import` / `export` / `using` 时由本族建壳，壳的
+`Kind` 与终结候选的 `StatementKind` 都取这个值（与 `ShellStatementFamily` 分开取值，计数也分开：
+`DeclarationShellCount`）。**判界与建树不新写第二份**：收口仍是 `StatementBuilder.BuildStatement`
+原子建树（与 legacy `StatementPossibleShape` 同一份建造器、同一段 raw 单元），收口判据是
+`StatementBoundaryUtil` 的 `;` / EOF / ASI 三条（与表达式语句族同一套边界规则——
+声明与导入导出语句的边界规则本来就和表达式语句一致，不另立 `ScanRoot` 分支）。
+
+**只挂根目录，不挂块体目录**（Stage 4q）：块内的声明 / `import` / `export` 由并行成员的块体目录负责，
+本族**不注册进** `BlockPossibleShape.CreateBodyPossibleShapes`，避免同一条语句被两个目录双挂载。
+
+**不覆盖 `function` / `class`**：它们的体语句已由 `SourceFileShape` 的括号事件（`TryMountFunctionBody`
+/ 类体门控）接管；把它们也做成壳会改变体括号的宿主（壳而不是原父单元），从而与既有挂载路径双挂载。
+`abstract class` 同理留给 legacy（判据见 `DecideDeclaration` 的说明）。
+
 # class StatementClass
 
 `StatementRouteUtil.ClassOf` 的**单元分类码**（设计 §2.3）。Stage 1 只落地分类器，判定仍由 `Decide` 驱动；
@@ -228,6 +245,84 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 只增计数，语义与 `FunctionBodyMountCount` 相同：它只说明「挂了几次」，体里到底有没有语句被接管仍由
 `BlockBodyStatementCount` / `ControlFlowShellCount` 读数决定；两个数一起看才能区分「挂上但没接管」与
 「根本没挂」。
+
+## static field EnableDeclarationShell:bool = true
+
+**根层声明 / 导入导出族语句壳开关**（Stage 4q）。`true` = `Decide` 把这些起点判成
+`StatementRoute.ShellDeclarationFamily`，由 `ControlFlowStatementPossibleShape`（通用起点候选）建壳，
+壳 `Kind` / 终结候选的 `StatementKind` 都取 `ShellDeclarationFamily`；收口走
+`StatementBoundaryUtil` 的 `;` / EOF / ASI，建树走 `StatementBuilder.BuildStatement`。
+`false` = 这些起点重新判成 `Legacy`，行为逐位回到 Stage 4p（安全回退，不靠候选先后）。
+
+## static field DeclarationShellCount:int = 0
+
+进程内累计「被声明 / 导入导出候选建成壳的语句」条数（只增不减）。与 `ControlFlowShellCount` /
+`LabelShellCount` **分开计量**：三个族各有自己的建壳时机与关键字表，接管读数不能混在一个数里。
+
+## static method IsDeclarationHead:(text:string)=>bool
+
+`ShellDeclarationFamily` 的**关键字起点集合**（Stage 4q）。只收「能起一条声明 / 导入导出语句」的关键字：
+
+- `interface` / `enum` / `type` / `namespace` / `module` / `declare` —— 声明族；
+- `import` / `export` —— 导入导出族（`export` 必须在这里：`Legacy` 关键字表里也有它，但本族的判据先跑）；
+- `using` —— 显式资源管理声明（`using x = y;`；`await using` 由 `await` 那条路走，不在这里）。
+
+**不在集合里**：`function` / `class` / `abstract` / `async`。前三者的体语句已由括号事件接管（见
+`ShellDeclarationFamily` 的说明）；`async` 是「双角色」起点（`async x => …` 是表达式语句），归 `DecideCommon`。
+
+```ts
+return text === "interface" || text === "enum" || text === "type" || text === "namespace"
+  || text === "module" || text === "declare" || text === "import" || text === "export"
+  || text === "using";
+```
+
+## static method DecideDeclaration:(units:Array<Token>, headAt:int, text:string)=>int
+
+**声明 / 导入导出族的细分判据**（Stage 4q）：返回 `ShellDeclarationFamily` 或 `None`。
+`None` 的语义是「本族不管这一格，交回 `DecideCommon` 的既有判据」——**不是** `Reject`：
+`Reject` 被 `CatalogGuide` 永久删除，第二个代码单元还没到时判死会让整条语句再没有人接管。
+
+三条硬约束：
+
+1. **只认 `IsDeclarationHead`**：其余关键字（`function` / `class` / `if` / …）一律 `None`。
+2. **上下文关键字必须看下一格**：`type` / `module` / `namespace` / `declare` / `using` / `abstract`
+   在 JS 里都能当标识符（`type = 1`、`module.exports`）。下一格是符号且不是 `*` 时判 `None`
+   （`export *` 的 `*` 例外），让 `DecideCommon` 把 `type = 1` 判成表达式、`module.exports` 判成普通表达式。
+3. **`import` 的表达式位不抢**：`import(` / `import.meta` 与 `DecideCommon` 用**同一判据**判成
+   `ShellPlainExpression`（这里只返回 `None`，不重复写第二份判据）。
+
+```ts
+if (!StatementRouteUtil.EnableDeclarationShell) {
+  return StatementRoute.None;
+}
+if (!StatementRouteUtil.IsDeclarationHead(text)) {
+  return StatementRoute.None;
+}
+const nextAt = ItemUtil.NextCode(units, headAt + 1);
+if (nextAt >= units.length) {
+  // 第二个代码单元还没到：继续等（判死会让这一格之后没人能接管这条语句）。
+  return StatementRoute.None;
+}
+const next = units[nextAt];
+if (text === "import") {
+  // 表达式位的 `import`：`import(...)` / `import.meta`。判据与 `DecideCommon` 逐字同源。
+  if (next instanceof Bracket && (next as Bracket).StartBracketChar === "(") {
+    return StatementRoute.None;
+  }
+  if (next instanceof Symbol && (next as Symbol).Is(".")) {
+    return StatementRoute.None;
+  }
+  return StatementRoute.ShellDeclarationFamily;
+}
+// `export * from "m"` 的 `*` 是声明位；其余符号说明这个关键字被当成标识符用了。
+if (next instanceof Symbol) {
+  if (next instanceof Symbol && text === "export" && (next as Symbol).Is("*")) {
+    return StatementRoute.ShellDeclarationFamily;
+  }
+  return StatementRoute.None;
+}
+return StatementRoute.ShellDeclarationFamily;
+```
 
 ## static method IsControlFlowHead:(text:string)=>bool
 
@@ -464,7 +559,13 @@ if (head.IsTriviaToken || head instanceof EndOfFileTokenShape) {
   return StatementRoute.None;
 }
 if (head instanceof Common) {
-  return StatementRouteUtil.DecideCommon((head as Common).TempToString(), units, headAt);
+  // Stage 4q：声明 / 导入导出族先问一次（`None` = 本族不管，落回 `DecideCommon` 的既有判据）。
+  const headText = (head as Common).TempToString();
+  const declaration = StatementRouteUtil.DecideDeclaration(units, headAt, headText);
+  if (declaration !== StatementRoute.None) {
+    return declaration;
+  }
+  return StatementRouteUtil.DecideCommon(headText, units, headAt);
 }
 if (head instanceof Symbol) {
   const symbol = head as Symbol;

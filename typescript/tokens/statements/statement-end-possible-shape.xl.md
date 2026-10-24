@@ -137,7 +137,11 @@ if (state.Checked !== tokenIndex + 1) {
     || (unitEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, unitEnd) === "");
   state.Status = 0;
   state.End = -1;
-  if (this.StatementKind === StatementRoute.ShellPlainExpression) {
+  if (this.StatementKind === StatementRoute.ShellPlainExpression
+    || this.StatementKind === StatementRoute.ShellDeclarationFamily) {
+    // Stage 4q：声明 / 导入导出族与表达式语句族**共用同一套边界规则**（`;` / EOF / ASI）。合法声明
+    // 的收口点与表达式语句一致：`type T = 1;` / `import x from "m";` 收在 `;`，`interface I {}` ⏎ `const a`
+    // 收在 `}`（ASI 边界，`IsAsiBoundary` 对已闭合括号与表达式同口径）。
     // 只在「当前单元本身是代码」时判界（legacy 的 `IsAsiBoundary(host.Data, tokenIndex)` 同一口径）：
     // trivia 到达时 `Code` 的末单元是**上一条**代码单元，拿它当「新语句起点」会判出假的 ASI 边界。
     if (!units[tokenIndex].IsTriviaToken) {
@@ -231,8 +235,9 @@ if (current instanceof EndOfFileTokenShape) {
   // 受限产生式的 ASI 会在壳内留下**下一条语句**的起点（`throw` ⏎ `a` 的 `a` / `debugger` ⏎ `a`）：
   // 消费到最后一个单元会让 `BuildStatement` 读到两条语句（`At !== Units.length` → 拆壳 → 根终结候选只建回
   // 第一条），`a` 就丢了（ast-json `dts-recovery` 的 `throw\na` 结构差、token-ast 同类）。
-  // 表达式语句壳（`ShellPlainExpression`）继续消费到末单元：它的判界本来就不看 `ScanRoot`。
-  if (this.StatementKind !== StatementRoute.ShellPlainExpression) {
+  // 表达式 / 声明族的判界本来就不看 `ScanRoot`（Stage 4q 起两者同一档）。
+  if (this.StatementKind !== StatementRoute.ShellPlainExpression
+    && this.StatementKind !== StatementRoute.ShellDeclarationFamily) {
     const code:Array<Token> = [];
     const codeAt:Array<number> = [];
     for (let at = 0; at < host.Data.length; at++) {
@@ -263,7 +268,8 @@ if (current instanceof EndOfFileTokenShape) {
   const unitEnd = current.SourceRange.EndIndex;
   StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
     || (unitEnd >= 0 && StatementScanner.NextChar(current.SourceRange.Document, unitEnd) === "");
-  if (this.StatementKind === StatementRoute.ShellPlainExpression) {
+  if (this.StatementKind === StatementRoute.ShellPlainExpression
+    || this.StatementKind === StatementRoute.ShellDeclarationFamily) {
     // 直接给壳 `Data` 下标（与 `ComputeByIndex` 同一基准），不再二次折算。
     const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF);
     if (end >= 0 && end <= tokenIndex) {

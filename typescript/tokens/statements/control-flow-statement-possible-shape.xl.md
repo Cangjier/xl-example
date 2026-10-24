@@ -100,7 +100,11 @@ if (route === StatementRoute.ShellLabel) {
   return ShapeStates.Accept;
 }
 // 其余各族只在首代码单元那一格 Accept：建壳之后本条目归壳，后续格子由壳的终结候选判界。
-if (route !== StatementRoute.ShellStatementFamily || tokenIndex !== headAt) {
+// Stage 4q：声明 / 导入导出族（`ShellDeclarationFamily`）走同一个候选、同一条建壳路径。
+if (route !== StatementRoute.ShellStatementFamily && route !== StatementRoute.ShellDeclarationFamily) {
+  return ShapeStates.Reject;
+}
+if (tokenIndex !== headAt) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -129,6 +133,9 @@ if (route === StatementRoute.None) {
 if (route === StatementRoute.ShellLabel) {
   // Stage 4f：首格即可建标签壳（文档前瞻已判出 `:`）；`:` 那一格保留为兼容通道。
   return tokenIndex === headAt || tokenIndex === ItemUtil.NextCode(units, headAt + 1);
+}
+if (route === StatementRoute.ShellDeclarationFamily) {
+  return tokenIndex === headAt;
 }
 return route === StatementRoute.ShellStatementFamily && tokenIndex === headAt;
 ```
@@ -193,13 +200,22 @@ if (headStart >= 0) {
   shell.SignIn(headStart);
 }
 const endShape = new StatementEndPossibleShape();
-endShape.StatementKind = StatementRoute.ShellStatementFamily;
+// Stage 4q：声明 / 导入导出族的终结候选自称 `ShellDeclarationFamily`（收口判据走
+// `StatementBoundaryUtil` 的 `;` / EOF / ASI，与表达式语句族同一套边界规则；见
+// `statement-end-possible-shape.xl.md`）。其余两族（控制流 / 标签）仍自称 `ShellStatementFamily`。
+let endKind = StatementRoute.ShellStatementFamily;
+if (route === StatementRoute.ShellDeclarationFamily) {
+  endKind = StatementRoute.ShellDeclarationFamily;
+}
+endShape.StatementKind = endKind;
 shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
 if (route === StatementRoute.ShellLabel) {
   StatementRouteUtil.LabelShellCount += 1;
+} else if (route === StatementRoute.ShellDeclarationFamily) {
+  StatementRouteUtil.DeclarationShellCount += 1;
 } else {
   StatementRouteUtil.ControlFlowShellCount += 1;
 }
