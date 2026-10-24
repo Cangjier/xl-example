@@ -42,6 +42,7 @@ import { ThrowStatementPossibleShape } from "../statements/throw-statement-possi
 import { TryStatementPossibleShape } from "../statements/try-statement-possible-shape.xl.md"
 import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "../statements/control-flow-statement-possible-shape.xl.md"
+import { DeclarationStatementPossibleShape } from "../statements/declaration-statement-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { WhileStatementPossibleShape } from "../statements/while-statement-possible-shape.xl.md"
 import { WithStatementPossibleShape } from "../statements/with-statement-possible-shape.xl.md"
@@ -178,6 +179,10 @@ super.Process(context, buffer, index);
 ```ts
 if (SourceFileShape.CreatePossibleShapesCache === null) {
   SourceFileShape.CreatePossibleShapesCache = [
+    // Stage 4r：声明 / 导入导出族的专用壳候选放最前（只挂根目录；通用候选原位不动，块体目录不受影响）。
+    // legacy 声明候选在第 1-12 位且同格 Accept，排在它们之后时本族轮不到（S4q 的 DeclarationShellCount=0）；
+    // 让位由各候选顶部的 `Decide === ShellDeclarationFamily` 门控完成，这一行只让专用候选先被判。
+    new DeclarationStatementPossibleShape(),
     new ImportDeclarationPossibleShape(),
     new ExportDeclarationPossibleShape(),
     new StatementPossibleShape(),
