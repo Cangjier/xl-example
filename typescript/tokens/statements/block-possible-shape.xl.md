@@ -10,6 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "../declarations/body-guide-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
 import { RootExpressionStatementPossibleShape } from "./root-expression-statement-possible-shape.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
@@ -90,7 +91,7 @@ AST 逐节点一致。块内语句仍由 `BuildBlock` 原子递归（块内目�
 ```ts
 BlockPossibleShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
   BlockPossibleShape.CreateBodyPossibleShapesCache,
-  () => [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape()]);
+  () => [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape()]);
 return BlockPossibleShape.CreateBodyPossibleShapesCache;
 ```
 

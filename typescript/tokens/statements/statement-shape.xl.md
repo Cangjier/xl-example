@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
+import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
@@ -282,9 +283,29 @@ return BranchStates.Undo;
 if (!this.Closed) {
   const lastCode = ItemUtil.LastCodeInItem(this.Data);
   if (lastCode >= 0) {
+    // Stage 4c：EOF 收口也要先问一次 `ScanRoot` 的 `End`（仅控制流/变量族的壳；表达式壳仍消费到末单元）。
+    // 受限产生式的 ASI 会在壳里留下**下一条语句**（`throw` ⏎ `a` 的 `a`、`if (a) b` ⏎ `c` 的 `c`）：
+    // 一律消费到 `lastCode` 会让 `BuildStatement` 读到两条语句（`At !== Units.length` → 拆壳 →
+    // 根终结候选只建回第一条），后一条就丢了（ast-json `dts-recovery` 的 `throw\na` 结构差）。
+    let endIndex = lastCode;
+    if (this.Kind !== StatementRoute.ShellPlainExpression) {
+      const code:Array<Token> = [];
+      const codeAt:Array<number> = [];
+      for (let at = 0; at < this.Data.length; at++) {
+        if (!this.Data[at].IsTriviaToken) {
+          code.push(this.Data[at]);
+          codeAt.push(at);
+        }
+      }
+      StatementScanner.AtEOF = true;
+      const result = StatementScanner.ScanRoot(code);
+      if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
+        endIndex = codeAt[result.End];
+      }
+    }
     let built:Token | null = null;
     try {
-      built = StatementShape.BuildFromShell(this, lastCode, context);
+      built = StatementShape.BuildFromShell(this, endIndex, context);
     } catch {
       built = null;
     }

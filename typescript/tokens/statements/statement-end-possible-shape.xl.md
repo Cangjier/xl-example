@@ -227,6 +227,29 @@ if (current instanceof EndOfFileTokenShape) {
   if (endIndex < 0) {
     return host;
   }
+  // Stage 4c：EOF 这一格也要先问一次 `ScanRoot` 的 `End`，不能一律消费到最后一个代码单元。
+  // 受限产生式的 ASI 会在壳内留下**下一条语句**的起点（`throw` ⏎ `a` 的 `a` / `debugger` ⏎ `a`）：
+  // 消费到最后一个单元会让 `BuildStatement` 读到两条语句（`At !== Units.length` → 拆壳 → 根终结候选只建回
+  // 第一条），`a` 就丢了（ast-json `dts-recovery` 的 `throw\na` 结构差、token-ast 同类）。
+  // 表达式语句壳（`ShellPlainExpression`）继续消费到末单元：它的判界本来就不看 `ScanRoot`。
+  if (this.StatementKind !== StatementRoute.ShellPlainExpression) {
+    const code:Array<Token> = [];
+    const codeAt:Array<number> = [];
+    for (let at = 0; at < host.Data.length; at++) {
+      if (!host.Data[at].IsTriviaToken) {
+        code.push(host.Data[at]);
+        codeAt.push(at);
+      }
+    }
+    const owner = current.Parent;
+    const unitEnd = current.SourceRange.EndIndex;
+    StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
+      || (unitEnd >= 0 && StatementScanner.NextChar(current.SourceRange.Document, unitEnd) === "");
+    const result = StatementScanner.ScanRoot(code);
+    if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
+      endIndex = codeAt[result.End];
+    }
+  }
 } else {
   const code:Array<Token> = [];
   const codeAt:Array<number> = [];

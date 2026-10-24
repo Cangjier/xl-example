@@ -41,6 +41,7 @@ import { SwitchStatementPossibleShape } from "../statements/switch-statement-pos
 import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
 import { TryStatementPossibleShape } from "../statements/try-statement-possible-shape.xl.md"
 import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
+import { ControlFlowStatementPossibleShape } from "../statements/control-flow-statement-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { WhileStatementPossibleShape } from "../statements/while-statement-possible-shape.xl.md"
 import { WithStatementPossibleShape } from "../statements/with-statement-possible-shape.xl.md"
@@ -183,6 +184,8 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new TypeAliasDeclarationPossibleShape(),
     // 可行性原型 A：根层 `let` / `const` / `var` 声明先建 `StatementShape` 壳（`;` / ASI 由壳的终结候选收口）。
     new VariableStatementPossibleShape(),
+    // Stage 4c: generic control-flow / declaration-family statement shell.
+    new ControlFlowStatementPossibleShape(),
     // Stage 1 T1d：普通表达式起点建 `StatementShape` 壳（终结候选收口，AST 由 `StatementBuilder` 原子建）。
     new RootExpressionStatementPossibleShape(),
     new BlockPossibleShape(),
