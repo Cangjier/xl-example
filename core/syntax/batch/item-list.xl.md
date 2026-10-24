@@ -15,7 +15,7 @@ item 表引擎：**判定增量、建造整体**。每个容器一个引擎，�
 引擎不新建 AST（INV-7），只调用既有建造器；不完整时留 raw 回退。
 
 契约修正（见 `docs/refactor/batch-contract-amendment.md`，按 WP-2 的 G0–G6）：
-① 整批消费（一批内可连续建出多个 item）；② 先记 `PendingBuild`、消费完整批后从右向左 `splice`（INV-3）；
+① 整批消费（一批内可连续建出多个 item）；② 先记 `PendingBuild`、消费完整批后一次压实替换（INV-3）；
 ③ item 右界用 `State.End + 1`（`End >= 0`），否则 `Checked`；④ item 起点取首个**非 trivia** unit；
 ⑤ `batch.AtEof` 且无新增 unit 时也调一次 `Analyze`；⑥ `Flush` 把未收口尾巴写进 `RawFallback`；
 ⑦ 引擎**从未消费过任何 unit**（`Start < 0` 且 `Checked < 0`）时，批次起点之前那段连续的非形状 unit
@@ -24,8 +24,8 @@ item 表引擎：**判定增量、建造整体**。每个容器一个引擎，�
 
 # class PendingBuild
 
-批内一次**推迟的建造**：`Feed` 消费完整批后从右向左 `splice`（INV-3）。
-`From` / `To` 都是 **splice 之前**的宿主 `Data` 坐标（右向左 splice 只在被替换点右侧改变下标，
+批内一次**推迟的建造**：`Feed` 消费完整批后一次性压实替换（INV-3）。
+`From` / `To` 都是**替换之前**的宿主 `Data` 坐标（压实只在被替换点右侧改变下标，
 因此待处理点左侧的下标在整个批内保持有效）。
 
 ## field From:int = -1
@@ -115,7 +115,7 @@ this.Item = item;
 
 消费一个批次的**全部**未消费 unit `[batch.Cursor, batch.To)`（INV-1/INV-2/INV-4）。
 批内可以连续建出多个 item；建造立即发生（与 legacy 逐 token 建出的时机一致），
-`splice` 推迟到批末、从右向左做（INV-3）。
+替换推迟到批末、一次压实（INV-3）。
 
 **批首之前的补读（契约 ⑦）**：宿主给的批次起点是「刚关闭的那个 unit」，前提是它之前的 unit 都被喂过。
 这个前提在「basic token 没等到自己的关闭就被另一个 basic token 抢走字符」时会破（`const` 后紧跟 BOM：
@@ -280,8 +280,15 @@ this.State.Checked = to;
 
 ## private method ApplyBuilds:(host:Token, batch:BasicTokenBatch, builds:Array<PendingBuild>)=>void
 
-从右向左 `splice`（INV-3），然后把批次视图与 `State` 的宿主下标重定位到 splice 之后。
-`batch.Cursor` = 下一个未消费的宿主下标；宿主据此续喂（`NeedMore`）或清批（`Done`）。
+**批末一次压实**：把逐 item 的 `splice` 合成一次从左到右的线性搬移，然后把批次视图与 `State`
+的宿主下标重定位到压实之后。`batch.Cursor` = 下一个未消费的宿主下标；宿主据此续喂（`NeedMore`）
+或清批（`Done`）。
+
+逐 item `splice` 每次都要搬 `Data` 的剩余尾巴，item 多时叠加成 O(n²)；而批内替换区间互不重叠
+且从左到右（`Feed` 的顺序产出），所以一次「读 src / 写 dst」压实与「从右向左逐个 `splice`」
+得到逐位相同的数组：区间位置换成 item，区间外的 unit 保持原序。`dst <= src` 恒成立
+（每个区间至少换掉一格、只写入一个 item），前向复制不会覆盖还没读到的 unit，数组对象本身
+也不被替换。INV-3 的语义仍然成立：被替换点左侧的下标在整个批内始终有效。
 
 ```ts
 if (builds.length === 0) {
@@ -290,20 +297,43 @@ if (builds.length === 0) {
   }
   return;
 }
-let cursor = batch.To;
-for (let i = builds.length - 1; i >= 0; i--) {
+const data = host.Data;
+let src = 0;
+let dst = 0;
+let removed = 0;
+for (let i = 0; i < builds.length; i++) {
   const from = builds[i].From;
   const to = builds[i].To;
   if (from < 0 || to <= from) {
     continue;
   }
-  host.Data.splice(from, to - from, builds[i].Item as Token);
-  const removed = to - from - 1;
-  if (cursor > to) {
-    cursor = cursor - removed;
-  } else if (cursor > from) {
-    cursor = from + 1;
+  while (src < from) {
+    if (dst !== src) {
+      data[dst] = data[src];
+    }
+    src = src + 1;
+    dst = dst + 1;
   }
+  data[dst] = builds[i].Item as Token;
+  dst = dst + 1;
+  src = to;
+  removed = removed + (to - from - 1);
+}
+const oldLength = data.length;
+while (src < oldLength) {
+  if (dst !== src) {
+    data[dst] = data[src];
+  }
+  src = src + 1;
+  dst = dst + 1;
+}
+if (dst < oldLength) {
+  data.length = dst;
+}
+// 本批所有替换都在 `batch.To` 左侧：一次减掉净压缩量，与逐 build 的从右向左计数等价。
+let cursor = batch.To - removed;
+if (cursor > dst) {
+  cursor = dst;
 }
 if (this.State.Start >= 0) {
   this.State.Start = this.Rebase(this.State.Start, builds);
