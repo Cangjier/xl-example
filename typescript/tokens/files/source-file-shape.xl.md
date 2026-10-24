@@ -9,14 +9,14 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ClassDeclarationRule } from "../declarations/class-declaration-rule.xl.md"
-import { EnumDeclarationPossibleShape } from "../declarations/enum-declaration-possible-shape.xl.md"
+import { EnumDeclarationRule } from "../declarations/enum-declaration-rule.xl.md"
 import { ExportAssignmentRule } from "../declarations/export-assignment-rule.xl.md"
 import { ExportDeclarationPossibleShape } from "../declarations/export-declaration-possible-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { FunctionDeclarationRule } from "../declarations/function-declaration-rule.xl.md"
 import { ImportDeclarationRule } from "../declarations/import-declaration-rule.xl.md"
 import { ImportEqualsDeclarationRule } from "../declarations/import-equals-declaration-rule.xl.md"
-import { InterfaceDeclarationPossibleShape } from "../declarations/interface-declaration-possible-shape.xl.md"
+import { InterfaceDeclarationRule } from "../declarations/interface-declaration-rule.xl.md"
 import { ModuleDeclarationRule } from "../declarations/module-declaration-rule.xl.md"
 import { NamespaceExportDeclarationRule } from "../declarations/namespace-export-declaration-rule.xl.md"
 import { SourceFileTailBuilder } from "../items/source-file-tail-builder.xl.md"
@@ -195,16 +195,16 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // new NamespaceExportDeclarationRule(),
     new ImportEqualsDeclarationRule(),
     new ClassDeclarationRule(),
-    new InterfaceDeclarationPossibleShape(),
+    new InterfaceDeclarationRule(),
     new ExportAssignmentRule(),
     new NamespaceExportDeclarationRule(),
     // new ClassDeclarationRule(),
-    // new InterfaceDeclarationPossibleShape(),
+    // new InterfaceDeclarationRule(),
     // new FunctionDeclarationRule(),
     new FunctionDeclarationRule(),
-    new EnumDeclarationPossibleShape(),
+    new EnumDeclarationRule(),
     // new ModuleDeclarationRule(),
-    // new EnumDeclarationPossibleShape(),
+    // new EnumDeclarationRule(),
     new ModuleDeclarationRule(),
     new TypeAliasDeclarationRule(),
     // new VariableStatementPossibleShape(),

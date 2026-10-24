@@ -54,7 +54,7 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 条目 / 壳的 `Pos` 口径：`start` 之前最近一个非 trivia 单元的 `EndIndex`；前面没有非 trivia 单元时返回 `0`。
 
-与 `InterfaceDeclarationPossibleShape.BuildByIndex` 的 `Pos` 循环、`InterfaceDeclarationShape.FromUnits` 的 `pos` 循环、`MemberPossibleUtil.BasePos` 同一口径（只差「前面什么都没有」时是否回退到宿主起点，这里按壳的口径返回 `0`）。
+与 `InterfaceDeclarationRule.BuildByIndex` 的 `Pos` 循环、`InterfaceDeclarationShape.FromUnits` 的 `pos` 循环、`MemberPossibleUtil.BasePos` 同一口径（只差「前面什么都没有」时是否回退到宿主起点，这里按壳的口径返回 `0`）。
 
 ```ts
 for (let at = start - 1; at >= 0; at--) {
@@ -132,7 +132,7 @@ return guide;
 
 把 `host.Data[start .. tokenIndex]` 已经攒下的单元原样搬进 `shell`、按 `BasePos` 定壳的 `Pos`、在宿主 `Data` 里原地顶替成壳，并让宿主把后续字符交给壳（`host.MountedUnit = shell`）。
 
-由 `InterfaceDeclarationPossibleShape.BuildByIndex` 泛化而来，**顺序逐字一致**：先 `Add` 全部单元并 `SignIn` 首单元，再算 `Pos`（此时宿主 `Data` 尚未 splice），最后 splice / 认父 / 挂载。
+由 `InterfaceDeclarationRule.BuildByIndex` 泛化而来，**顺序逐字一致**：先 `Add` 全部单元并 `SignIn` 首单元，再算 `Pos`（此时宿主 `Data` 尚未 splice），最后 splice / 认父 / 挂载。
 
 `shell` 必须是**刚建出的空壳**（`new XxxShape(host.Template)`，`SourceRange.Start` 与 `Pos` 都还没定）；`Pos` 字段在 `ShapeToken` 上，所以内部按 `ShapeToken` 访问。`start` 越界（`< 0` 或 `> tokenIndex`）时不动宿主、原样返回壳，调用方应当在此之前返回宿主。
 

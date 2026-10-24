@@ -2,9 +2,8 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -38,7 +37,7 @@ import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 
 ## field PendingModifier:bool = false
 
-# class InterfaceDeclarationPossibleShape extends PossibleShape
+# class InterfaceDeclarationRule extends RootRule
 
 ```txt
 interface I {}
@@ -116,7 +115,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       }
       if (text === "interface") {
         // `declare` ⏎ `interface`：ASI 拆成两条语句，本候选退出，`declare` 交给表达式语句候选收口。
-        if (state.PendingModifier && InterfaceDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+        if (state.PendingModifier && InterfaceDeclarationRule.HasLineBreakBefore(units, at)) {
           state.Rejected = true;
           continue;
         }
@@ -216,14 +215,14 @@ const state = cache.GetState<InterfaceDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 把 `interface` 关键字的这一格变成**挂载的壳**：把 `state.Start..tokenIndex` 的单元原样搬进壳的 `Data`、签入，然后让壳挂到宿主上接管后续字符。
 
 壳的 `Pos` 在这里算：`state.Start` 前面最近一个非 trivia 单元的 `EndIndex`（没有就是 `0`）——与 `FromUnits` 的口径一致。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<InterfaceDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<InterfaceDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;

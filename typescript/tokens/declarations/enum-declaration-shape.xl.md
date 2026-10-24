@@ -52,7 +52,7 @@ declare const enum E { A = 1 }
 
 区间：从修饰符（没有就从 `enum`）的起点到 `}`；`Pos` 口径同 ClassDeclarationShape。
 
-**提前挂载的壳**：`EnumDeclarationPossibleShape` 在认下 `enum` 关键字时就建出本形状并挂到父单元上；本形状随后吃
+**提前挂载的壳**：`EnumDeclarationRule` 在认下 `enum` 关键字时就建出本形状并挂到父单元上；本形状随后吃
 名字与枚举体括号。枚举体括号创建时 `OnBracketCreatedEvent` 认领它、给括号挂上 item 表引擎
 （`EnumBodyItemHost` = `ItemListEngine(EnumItemRule)`），闭合时由本形状的 `OnBasicTokenClosed` 收口
 （`BuildFromCode` + `BodyGuideUtil.FinishShell`）。导出 / 模块体 / 语句位置等一次性构建路径仍走 `FromUnits`。

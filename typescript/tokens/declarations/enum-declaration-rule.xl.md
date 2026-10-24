@@ -2,9 +2,8 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -40,7 +39,7 @@ import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
 
 ## field PendingModifier:bool = false
 
-# class EnumDeclarationPossibleShape extends PossibleShape
+# class EnumDeclarationRule extends RootRule
 
 ```txt
 enum E {}
@@ -127,7 +126,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
         // so this candidate is the only one left for that form.
         // `declare` ⏎ `const enum` 同 `declare` ⏎ `enum`：ASI 把 declare 拆成独立的
         // ExpressionStatement，`const enum` 声明不带 DeclareKeyword（与上面 enum 分支同一判据）。
-        if (state.PendingModifier && EnumDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+        if (state.PendingModifier && EnumDeclarationRule.HasLineBreakBefore(units, at)) {
           state.Rejected = true;
           continue;
         }
@@ -136,7 +135,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       }
       if (text === "enum") {
         // `declare` ⏎ `enum`：ASI 拆成两条语句，本候选退出，`declare` 交给表达式语句候选收口。
-        if (state.PendingModifier && EnumDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+        if (state.PendingModifier && EnumDeclarationRule.HasLineBreakBefore(units, at)) {
           state.Rejected = true;
           continue;
         }
@@ -248,13 +247,13 @@ const state = cache.GetState<EnumDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 把 `enum` 关键字的这一格变成**挂载的壳**：`BodyGuideUtil.MountShell` 把 `state.Start..tokenIndex` 的单元原样搬进
 `EnumDeclarationShape` 的 `Data`、按 `BasePos` 定壳的 `Pos`、顶替进宿主，并让宿主把后续字符交给壳（`MountedUnit`）。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<EnumDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<EnumDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;

@@ -49,7 +49,7 @@ TS 的 children 顺序：名字 → 每个成员。成员就是**对象类型成
 
 ## field BodyBracket:Bracket | null = null
 
-根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationPossibleShape` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，由接口体括号的 `BatchAdapter`（`InterfaceBodyItemHost` = `ItemListEngine(InterfaceItemRule)`）增量建成员，括号闭合时本形状的 `OnBasicTokenClosed` 走 `FinishBody` 收口。
+根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationRule` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，由接口体括号的 `BatchAdapter`（`InterfaceBodyItemHost` = `ItemListEngine(InterfaceItemRule)`）增量建成员，括号闭合时本形状的 `OnBasicTokenClosed` 走 `FinishBody` 收口。
 
 `BodyBracket` 记「已经认定的接口体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（接口体里的嵌套括号父级是接口体，不会回到本形状）。
 
