@@ -16,7 +16,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
-import { ImportClausePossibleShape } from "./import-clause-possible-shape.xl.md"
+import { ImportClauseUtil } from "./import-clause-util.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
 import { NamedImportsShape } from "./named-imports-shape.xl.md"
 import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
@@ -115,7 +115,7 @@ let isTypeOnly = false;
 const keywordEnd = keyword.SourceRange.End;
 let childPos = keywordEnd < 0 ? 0 : keywordEnd;
 if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("type")
-  && ImportClausePossibleShape.IsTypePhaseModifier(code[index])) {
+  && ImportClauseUtil.IsTypePhaseModifier(code[index])) {
   isTypeOnly = true;
   const typeUnit = code[index] as Common;
   const typeEnd = typeUnit.SourceRange.End;
@@ -124,7 +124,7 @@ if (index < code.length - 1 && code[index] instanceof Common && (code[index] as 
 }
 // `import defer …`（TS 6.0.3）：`defer` 是 ImportClause 的 phase modifier，不是子节点、也不是默认导入名。
 // `import defer from "m"` 里 `defer` 就是默认名（后面是 `from`），所以判据与
-// `ImportClausePossibleShape.IsDeferPhaseModifier` 同一份：后面是 `*` / `{` / 其它名字才当修饰词。
+// `ImportClauseUtil.IsDeferPhaseModifier` 同一份：后面是 `*` / `{` / 其它名字才当修饰词。
 let phaseModifier = "";
 if (index < code.length - 1 && code[index] instanceof Common && (code[index] as Common).Is("defer")) {
   const afterDefer = code[index + 1];
