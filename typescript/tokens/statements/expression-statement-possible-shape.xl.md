@@ -629,7 +629,8 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 // Stage 1 T1d（设计 §3.2）：`ShellPlainExpression` 起点由 `RootExpressionStatementPossibleShape` 建壳接管，
 // 本候选在根格主动让位（`Reject` 永久，但 `Reset` 会复原，不会饿死后续条目）。只有 trivia 时 `Decide` 返回
 // `None`，这里不 Reject。本方法只被根目录调用；块内走 `ExpressionEnd` / `IsAsiBoundary`，不受影响。
-if (StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellPlainExpression) {
+if (StatementRouteUtil.EnableShellExpressions
+  && StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellPlainExpression) {
   return ShapeStates.Reject;
 }
 const name = this.Slot();

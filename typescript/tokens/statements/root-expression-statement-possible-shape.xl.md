@@ -37,6 +37,9 @@ ShellPlainExpression`）主动 `Reject`，本候选只对 `ShellPlainExpression`
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
+if (!StatementRouteUtil.EnableShellExpressions) {
+  return ShapeStates.Reject;
+}
 if (units[tokenIndex] instanceof EndOfFileTokenShape) {
   return ShapeStates.Reject;
 }
@@ -50,6 +53,12 @@ if (headAt >= units.length || headAt > tokenIndex) {
 if (units[tokenIndex].IsTriviaToken) {
   // 等第一个代码单元真的到齐再建壳，壳里只搬代码单元（与 VariableStatementPossibleShape 同口径）。
   return ShapeStates.Uncertain;
+}
+// 只在**首代码单元那一格** Accept：建壳之后本条目已经归壳，后续格子若再 Accept，会与根终结候选在
+// 收口那一格同时成立（CatalogGuide 抛「终结候选与其它候选同时成立」）。Reject 永久但 Reset 会复原，
+// 下一条语句重新参与。
+if (tokenIndex !== headAt) {
+  return ShapeStates.Reject;
 }
 if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellPlainExpression) {
   return ShapeStates.Reject;

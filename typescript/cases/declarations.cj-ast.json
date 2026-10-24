@@ -24885,24 +24885,37 @@
       "src": "a\n++b;",
       "ast": [
         {
-          "kind": "Common",
+          "kind": "ExpressionStatement",
           "pos": 0,
-          "end": 1
+          "end": 1,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
         },
         {
-          "kind": "Symbol",
-          "pos": 2,
-          "end": 4
-        },
-        {
-          "kind": "Common",
-          "pos": 4,
-          "end": 5
-        },
-        {
-          "kind": "Symbol",
-          "pos": 5,
-          "end": 6
+          "kind": "ExpressionStatement",
+          "pos": 1,
+          "end": 6,
+          "children": [
+            {
+              "kind": "PrefixUnaryExpression",
+              "pos": 1,
+              "end": 5,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 4,
+                  "end": 5,
+                  "text": "b"
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -24910,19 +24923,30 @@
       "src": "a\nb;",
       "ast": [
         {
-          "kind": "Common",
+          "kind": "ExpressionStatement",
           "pos": 0,
-          "end": 1
+          "end": 1,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
         },
         {
-          "kind": "Common",
-          "pos": 2,
-          "end": 3
-        },
-        {
-          "kind": "Symbol",
-          "pos": 3,
-          "end": 4
+          "kind": "ExpressionStatement",
+          "pos": 1,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 1,
+              "end": 3,
+              "text": "b"
+            }
+          ]
         }
       ]
     },

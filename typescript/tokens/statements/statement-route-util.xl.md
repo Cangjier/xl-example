@@ -148,9 +148,6 @@ return StatementRoute.ShellPlainExpression;
 **分流判据**（设计 §3.2，冻结签名）：本条目的首代码单元是什么，决定这条语句归谁建。
 
 ```ts
-if (!StatementRouteUtil.EnableShellExpressions) {
-  return StatementRoute.Legacy;
-}
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return StatementRoute.None;
 }

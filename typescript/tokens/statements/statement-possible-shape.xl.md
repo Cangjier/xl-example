@@ -2,6 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
@@ -73,9 +74,25 @@ const itemStart = ItemUtil.ItemStart(units);
 // `Reject`，不靠「谁先 Accept」——两边同时 Accept 会让 `CatalogGuide` 永远等不到唯一候选（AST 不变，但
 // 语句永远建不出来）。`None` = 路由还没判出（只有 trivia / 首代码单元未到）：**不能** Reject，否则候选会被
 // `CatalogGuide` 永久删除（token-ast 28 个 crash 的根因），继续走下面的状态机等下一格。
-const route = StatementRouteUtil.Decide(units, tokenIndex);
-if (route !== StatementRoute.Legacy && route !== StatementRoute.None) {
-  return ShapeStates.Reject;
+if (StatementRouteUtil.EnableShellExpressions) {
+  const route = StatementRouteUtil.Decide(units, tokenIndex);
+  if (route !== StatementRoute.Legacy && route !== StatementRoute.None) {
+    return ShapeStates.Reject;
+  }
+} else {
+  // 熔断关闭：逐字保留 Wave1 原型 A 的内联分流（legacy 路径必须与 Wave1 完全等价，双路对拍才有意义）。
+  if (itemStart < units.length) {
+    const headAt = ItemUtil.NextCode(units, itemStart);
+    if (headAt < units.length && units[headAt] instanceof Common) {
+      const headText = (units[headAt] as Common).TempToString();
+      if (headText === "let" || headText === "const" || headText === "var") {
+        const bindingAt = ItemUtil.NextCode(units, headAt + 1);
+        if (bindingAt < units.length && StatementScanner.StartsBinding(units, bindingAt)) {
+          return ShapeStates.Reject;
+        }
+      }
+    }
+  }
 }
 let state = cache.GetState<StatementScan>(name);
 if (state === null || state.Start !== itemStart) {

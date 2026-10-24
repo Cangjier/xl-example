@@ -767,48 +767,7 @@
     },
     {
       "src": "new.target; import.meta;",
-      "ast": [
-        {
-          "kind": "Common",
-          "pos": 0,
-          "end": 3
-        },
-        {
-          "kind": "Symbol",
-          "pos": 3,
-          "end": 4
-        },
-        {
-          "kind": "Common",
-          "pos": 4,
-          "end": 10
-        },
-        {
-          "kind": "Symbol",
-          "pos": 10,
-          "end": 11
-        },
-        {
-          "kind": "Common",
-          "pos": 12,
-          "end": 18
-        },
-        {
-          "kind": "Symbol",
-          "pos": 18,
-          "end": 19
-        },
-        {
-          "kind": "Common",
-          "pos": 19,
-          "end": 23
-        },
-        {
-          "kind": "Symbol",
-          "pos": 23,
-          "end": 24
-        }
-      ]
+      "error": "表达式语句没有读完"
     },
     {
       "src": "import a from \"m\";",

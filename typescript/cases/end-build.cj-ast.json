@@ -141,65 +141,11 @@
     },
     {
       "src": "throw\nx;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "x"
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "throw // c\ne;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 13,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 12,
-              "text": "e"
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "function f(){ throw e // c\n; }",
@@ -755,46 +701,7 @@
     },
     {
       "src": "type T = A // c\n[];",
-      "ast": [
-        {
-          "kind": "TypeAliasDeclaration",
-          "pos": 0,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 4,
-              "end": 6,
-              "text": "T"
-            },
-            {
-              "kind": "TypeReference",
-              "pos": 8,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "A"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 10,
-          "end": 19,
-          "children": [
-            {
-              "kind": "ArrayLiteralExpression",
-              "pos": 10,
-              "end": 18
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "type T = A // c\n[]",
@@ -936,54 +843,7 @@
     },
     {
       "src": "type T = A // c\n[0];",
-      "ast": [
-        {
-          "kind": "TypeAliasDeclaration",
-          "pos": 0,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 4,
-              "end": 6,
-              "text": "T"
-            },
-            {
-              "kind": "TypeReference",
-              "pos": 8,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "A"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 10,
-          "end": 20,
-          "children": [
-            {
-              "kind": "ArrayLiteralExpression",
-              "pos": 10,
-              "end": 19,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 17,
-                  "end": 18,
-                  "text": "0"
-                }
-              ]
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "type T = A // c\n| B;",
@@ -1089,89 +949,11 @@
     },
     {
       "src": "type T = A /* c */\n[];",
-      "ast": [
-        {
-          "kind": "TypeAliasDeclaration",
-          "pos": 0,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 4,
-              "end": 6,
-              "text": "T"
-            },
-            {
-              "kind": "TypeReference",
-              "pos": 8,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "A"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 10,
-          "end": 22,
-          "children": [
-            {
-              "kind": "ArrayLiteralExpression",
-              "pos": 10,
-              "end": 21
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "type T = A//c\n[];",
-      "ast": [
-        {
-          "kind": "TypeAliasDeclaration",
-          "pos": 0,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 4,
-              "end": 6,
-              "text": "T"
-            },
-            {
-              "kind": "TypeReference",
-              "pos": 8,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "A"
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 10,
-          "end": 17,
-          "children": [
-            {
-              "kind": "ArrayLiteralExpression",
-              "pos": 10,
-              "end": 16
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "type T = [string//c\n, number];",

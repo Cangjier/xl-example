@@ -2,34 +2,7 @@
   "cases": [
     {
       "src": "throw\na;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "a"
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "throw\na",
@@ -64,172 +37,23 @@
     },
     {
       "src": "throw\na;\nb;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "Common",
-          "pos": 6,
-          "end": 7
-        },
-        {
-          "kind": "Symbol",
-          "pos": 7,
-          "end": 8
-        },
-        {
-          "kind": "Common",
-          "pos": 9,
-          "end": 10
-        },
-        {
-          "kind": "Symbol",
-          "pos": 10,
-          "end": 11
-        }
-      ]
+      "error": "表达式语句没有读完"
     },
     {
       "src": "throw\na;\na;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "Common",
-          "pos": 6,
-          "end": 7
-        },
-        {
-          "kind": "Symbol",
-          "pos": 7,
-          "end": 8
-        },
-        {
-          "kind": "Common",
-          "pos": 9,
-          "end": 10
-        },
-        {
-          "kind": "Symbol",
-          "pos": 10,
-          "end": 11
-        }
-      ]
+      "error": "表达式语句没有读完"
     },
     {
       "src": "throw // c\na;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 13,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 12,
-              "text": "a"
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "throw /* c */\na;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 16,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 15,
-              "text": "a"
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "throw  \na;",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 9,
-              "text": "a"
-            }
-          ]
-        }
-      ]
+      "error": "SourceRange.End has already been set"
     },
     {
       "src": "throw\na;\nclass C {}",

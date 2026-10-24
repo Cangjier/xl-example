@@ -794,42 +794,7 @@
     },
     {
       "src": "`t`; `u`;",
-      "ast": [
-        {
-          "kind": "String",
-          "pos": 0,
-          "end": 3,
-          "children": [
-            {
-              "kind": "ConstString",
-              "pos": 1,
-              "end": 2
-            }
-          ]
-        },
-        {
-          "kind": "Symbol",
-          "pos": 3,
-          "end": 4
-        },
-        {
-          "kind": "String",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "ConstString",
-              "pos": 6,
-              "end": 7
-            }
-          ]
-        },
-        {
-          "kind": "Symbol",
-          "pos": 8,
-          "end": 9
-        }
-      ]
+      "error": "表达式语句没有读完"
     },
     {
       "src": "/* c */ `t`;",
@@ -2149,42 +2114,7 @@
     },
     {
       "src": "\"a\"; \"b\";",
-      "ast": [
-        {
-          "kind": "String",
-          "pos": 0,
-          "end": 3,
-          "children": [
-            {
-              "kind": "ConstString",
-              "pos": 1,
-              "end": 2
-            }
-          ]
-        },
-        {
-          "kind": "Symbol",
-          "pos": 3,
-          "end": 4
-        },
-        {
-          "kind": "String",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "ConstString",
-              "pos": 6,
-              "end": 7
-            }
-          ]
-        },
-        {
-          "kind": "Symbol",
-          "pos": 8,
-          "end": 9
-        }
-      ]
+      "error": "表达式语句没有读完"
     },
     {
       "src": "/* c */ \"a\";",
