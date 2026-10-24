@@ -8,7 +8,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
+
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
 ```
@@ -126,14 +126,11 @@ if (state.Checked !== tokenIndex + 1) {
 if (state.Code.length === 0) {
   return ShapeStates.Uncertain;
 }
-// 判据（T1d）：`;` / EOF / ASI 边界只有一个来源——`StatementBoundaryUtil.CanEndStatement`（设计 §2.2）。
-// `ScanRoot` 仍在上面负责「整条到齐 + End」（收口位置），这里不再自己写第二份 `;` / ASI 判据。
-// `;` 必须被接受：它是语句自己的终结符（`IsSemicolon` 为真），与 `SourceFileEndPossibleShape` 的
-// `CanEndStatement && !IsSemicolon` 分工不同（那边 `;` 由各语句候选自己消费）。
-const atEof = current instanceof EndOfFileTokenShape;
-const canEnd = StatementBoundaryUtil.CanEndStatement(units, tokenIndex, atEof)
-  || state.End < tokenIndex;
-if (state.Status === 1 && state.End >= 0 && canEnd) {
+// T1d 回退：判据保持 Wave1 的 `ScanRoot`（`Status == 1 && End >= 0`）。设计 §2.2 的
+// `StatementBoundaryUtil.CanEndStatement` 切换在壳路径收敛后由 Stage 2 接回：`CanEndStatement` 的
+// ASI 起点规则以「表达式语句」为前提，声明族（let/const/var 壳）在 ASI 处会被判 false，
+// 直接切换会让壳收不了口（详见 `HANDOFF-s1d.md` §5）。
+if (state.Status === 1 && state.End >= 0) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;

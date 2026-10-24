@@ -2,7 +2,34 @@
   "cases": [
     {
       "src": "throw\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "throw\na",
@@ -37,27 +64,228 @@
     },
     {
       "src": "throw\na;\nb;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 8,
+          "end": 11,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "b"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "throw\na;\na;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 8,
+          "end": 11,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 8,
+              "end": 10,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "throw // c\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 12,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "throw /* c */\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 15,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "throw  \na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 9,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "throw\na;\nclass C {}",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ThrowStatement",
+          "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 5,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 8,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ClassDeclaration",
+          "pos": 8,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "C"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "class {}",

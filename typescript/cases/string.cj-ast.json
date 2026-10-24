@@ -794,7 +794,34 @@
     },
     {
       "src": "`t`; `u`;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "t"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 9,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 4,
+              "end": 8,
+              "text": "u"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "/* c */ `t`;",
@@ -2114,7 +2141,34 @@
     },
     {
       "src": "\"a\"; \"b\";",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 4,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 0,
+              "end": 3,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 4,
+          "end": 9,
+          "children": [
+            {
+              "kind": "StringLiteral",
+              "pos": 4,
+              "end": 8,
+              "text": "b"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "/* c */ \"a\";",

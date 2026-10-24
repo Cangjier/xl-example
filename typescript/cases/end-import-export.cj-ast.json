@@ -715,7 +715,48 @@
     },
     {
       "src": "import x from \"m\"\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 17,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import x from \"m\"\n\nimport y from \"n\"",
@@ -778,7 +819,75 @@
     },
     {
       "src": "import x from \"m\"\nimport y from \"n\"\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ImportDeclaration",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 6,
+              "end": 8,
+              "name": "x",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "x"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 13,
+              "end": 17,
+              "text": "m"
+            }
+          ]
+        },
+        {
+          "kind": "ImportDeclaration",
+          "pos": 17,
+          "end": 35,
+          "children": [
+            {
+              "kind": "ImportClause",
+              "pos": 24,
+              "end": 26,
+              "name": "y",
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 24,
+                  "end": 26,
+                  "text": "y"
+                }
+              ]
+            },
+            {
+              "kind": "StringLiteral",
+              "pos": 31,
+              "end": 35,
+              "text": "n"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 35,
+          "end": 38,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 35,
+              "end": 37,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import x from \"m\"\n// c\nimport y from \"n\"",
@@ -1439,7 +1548,49 @@
     },
     {
       "src": "export { a }\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "NamedExports",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "ExportSpecifier",
+                  "pos": 8,
+                  "end": 10,
+                  "name": "a",
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 8,
+                      "end": 10,
+                      "text": "a"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 12,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 12,
+              "end": 14,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "import x\nfrom \"m\";",

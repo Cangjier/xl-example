@@ -70,10 +70,11 @@ Stage 3 的操作符候选在这里按类 `Accept`，`EndPossible` 按类互斥�
    `CatalogGuide` 把 `Reject` 的候选永久删除，文件以注释/空白开头时首次判定就落在只有 trivia 的那一格，
    这里若让调用方 `Reject`，整条语句再没人接管（token-ast 28 个 crash 的根因）。
 
-## static field EnableShellExpressions:bool = true
+## static field EnableShellExpressions:bool = false
 
-**熔断开关**（设计 §11）：置 `false` 时 `Decide` 一律返回 `Legacy`，新候选整体 `Reject`、legacy 全接管，
-用于新路径回归时一键退回 Wave1 行为（`tests/statement-possible/harness.mjs` 的双路对拍也用它）。
+**熔断开关**（设计 §11）：**T1d 交付时默认 `false`**——壳路径尚未收敛（见 `HANDOFF-s1d.md` §5），
+`RootExpressionStatementPossibleShape` 与 legacy `ExpressionStatementPossibleShape` 的路由让位都只在它为 `true` 时生效，
+`false` 时新候选整体 `Reject`、legacy 全接管，行为与 Wave1 逐位相同；harness 的双路对拍也用它。
 
 ## static field EnableShellStatements:int = 0
 

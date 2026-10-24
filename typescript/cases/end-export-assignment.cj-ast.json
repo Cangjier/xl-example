@@ -232,7 +232,34 @@
     },
     {
       "src": "export = 1\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 13,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 12,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export = 1\na",
@@ -367,11 +394,85 @@
     },
     {
       "src": "export = 1 /* c */\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export = { a: 1 }\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ObjectLiteralExpression",
+              "pos": 8,
+              "end": 17,
+              "children": [
+                {
+                  "kind": "PropertyAssignment",
+                  "pos": 10,
+                  "end": 15,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 13,
+                      "end": 15,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 17,
+          "end": 20,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 17,
+              "end": 19,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export = a.b\nconst x = 1;",
@@ -439,11 +540,65 @@
     },
     {
       "src": "export = 1\n  a;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 8,
+              "end": 10,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 15,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 10,
+              "end": 14,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default x\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 19,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 18,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default x\na",
@@ -478,19 +633,134 @@
     },
     {
       "src": "export default 1\n2;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 14,
+              "end": 16,
+              "text": "1"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 19,
+          "children": [
+            {
+              "kind": "NumericLiteral",
+              "pos": 16,
+              "end": 18,
+              "text": "2"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default f()\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "CallExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "f"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default x // c\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 24,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 23,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default x /* c */\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 16,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 14,
+              "end": 16,
+              "text": "x"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 16,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 16,
+              "end": 26,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default x\nfunction f() {}",
@@ -561,31 +831,294 @@
     },
     {
       "src": "export default { a: 1 }\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ObjectLiteralExpression",
+              "pos": 14,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "PropertyAssignment",
+                  "pos": 16,
+                  "end": 21,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 18,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 19,
+                      "end": 21,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default () => {}\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 23,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 14,
+              "end": 23,
+              "children": [
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 17,
+                  "end": 20
+                },
+                {
+                  "kind": "Block",
+                  "pos": 20,
+                  "end": 23
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 23,
+          "end": 26,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 23,
+              "end": 25,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default `t`\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "NoSubstitutionTemplateLiteral",
+              "pos": 14,
+              "end": 18,
+              "text": "t"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default /re/\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 19,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 14,
+              "end": 19,
+              "text": "/re/"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 19,
+          "end": 22,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 19,
+              "end": 21,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default a ? b : c\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 24,
+          "children": [
+            {
+              "kind": "ConditionalExpression",
+              "pos": 14,
+              "end": 24,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 14,
+                  "end": 16,
+                  "text": "a"
+                },
+                {
+                  "kind": "QuestionToken",
+                  "pos": 16,
+                  "end": 18
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 18,
+                  "end": 20,
+                  "text": "b"
+                },
+                {
+                  "kind": "ColonToken",
+                  "pos": 20,
+                  "end": 22
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 22,
+                  "end": 24,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 24,
+          "end": 27,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 24,
+              "end": 26,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default [a]\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 17,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default (a)\na;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "ExportAssignment",
+          "pos": 0,
+          "end": 18,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 14,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 16,
+                  "end": 17,
+                  "text": "a"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 18,
+          "end": 21,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 18,
+              "end": 20,
+              "text": "a"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "export default abstract\nclass C {}",

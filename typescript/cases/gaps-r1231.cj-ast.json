@@ -2,7 +2,65 @@
   "cases": [
     {
       "src": "const v1 = () => { }\n/re/g;",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 20,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 20,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 20,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 8,
+                      "text": "v1"
+                    },
+                    {
+                      "kind": "ArrowFunction",
+                      "pos": 10,
+                      "end": 20,
+                      "children": [
+                        {
+                          "kind": "EqualsGreaterThanToken",
+                          "pos": 13,
+                          "end": 16
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 16,
+                          "end": 20
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 20,
+          "end": 27,
+          "children": [
+            {
+              "kind": "RegularExpressionLiteral",
+              "pos": 20,
+              "end": 26,
+              "text": "/re/g"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "const v2 = function () { } / 2;",

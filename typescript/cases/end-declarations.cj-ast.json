@@ -884,7 +884,47 @@
     },
     {
       "src": "a\nb\nc;",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 1,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 1,
+          "end": 3,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 1,
+              "end": 3,
+              "text": "b"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 3,
+          "end": 6,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 3,
+              "end": 5,
+              "text": "c"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "function f() {}",
@@ -7247,15 +7287,127 @@
     },
     {
       "src": "a; b",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 2,
+          "end": 4,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 2,
+              "end": 4,
+              "text": "b"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "a; b; c",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 2,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 2,
+              "end": 4,
+              "text": "b"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
+          "end": 7,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 5,
+              "end": 7,
+              "text": "c"
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "a; b + c",
-      "error": "表达式语句没有读完"
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 2,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 1,
+              "text": "a"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 2,
+          "end": 8,
+          "children": [
+            {
+              "kind": "BinaryExpression",
+              "pos": 2,
+              "end": 8,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 2,
+                  "end": 4,
+                  "text": "b"
+                },
+                {
+                  "kind": "PlusToken",
+                  "pos": 4,
+                  "end": 6
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 6,
+                  "end": 8,
+                  "text": "c"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -2,7 +2,54 @@
   "cases": [
     {
       "src": "type T = A\n[\"k\"];",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 10,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 6,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 8,
+              "end": 10,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 8,
+                  "end": 10,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 10,
+          "end": 17,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 10,
+              "end": 16,
+              "children": [
+                {
+                  "kind": "StringLiteral",
+                  "pos": 12,
+                  "end": 15,
+                  "text": "k"
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "type X = number\nexport type { X }",
@@ -58,7 +105,46 @@
     },
     {
       "src": "type T11 = A//c\n[];",
-      "error": "SourceRange.End has already been set"
+      "ast": [
+        {
+          "kind": "TypeAliasDeclaration",
+          "pos": 0,
+          "end": 12,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 4,
+              "end": 8,
+              "text": "T11"
+            },
+            {
+              "kind": "TypeReference",
+              "pos": 10,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "A"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 12,
+          "end": 19,
+          "children": [
+            {
+              "kind": "ArrayLiteralExpression",
+              "pos": 12,
+              "end": 18
+            }
+          ]
+        }
+      ]
     },
     {
       "src": "type Y = 1\ntype Z = 2;",
