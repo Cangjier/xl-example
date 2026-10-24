@@ -117,15 +117,27 @@ return false;
 
 挂（白名单）：
 
-- 已闭合的 `)` 括号：`if` / `while` / `for` / `with` / `switch` 头、函数与方法体、匿名函数体；
-- `=>`（箭头块体）；
+- 已闭合的 `)` 括号：`if` / `while` / `for` / `with` / `switch` 头、函数与方法体；
 - 关键字 `else` / `try` / `finally` / `do`。
+
+**`=>` 故意不在白名单里（WP-2 回归修复）。** `=> {` 既是箭头函数体，也是**函数类型返回的对象类型字面量**
+（`type A4 = () => { a: number }`；`listener: () => { … }` 成片出现在 `@types/node`）。
+两种情况在 `{` 之前的尾部上下文完全一样（都是 `)` `=>`），`host.Data` 的尾部无法区分，往前多扫几个单元也只是猜。
+误挂的后果不是「少一个优化」而是抛异常：类型字面量的括号被装上 `StatementBodyItemHost`，
+块内的 `a: number` 被当语句建出，括号 `Data` 里不再是 basic token，类型建造器读到非 `Common` / `String`
+单元就抛「不支持的对象类型成员」（`tests/cases/token/types/type-fn-return-typeliteral.ts`，
+buffer-equivalence 曾因此 1 ERROR / 4503 PASS）。
+取舍：箭头体**不流式**，回退 `BuildBlock` 的旧循环，AST 与基线逐字节一致；其余语句块形态照常流式。
+真流式的证据在 `tests/body-drive/stream-proof.mjs`：`arrow-body` 用例按新行为钉住「箭头体不挂，
+其内部嵌套块因宿主是裸 `Bracket`（`BatchAdapter === null`）过不了身份闸、也一并回退旧循环，
+函数体照挂照流式」，`type-literal-after-arrow` 用例守卫类型位置的 `=> {` 绝不挂载。
 
 `switch (x) {` 虽然也是 `) {`，但 switch 体里是 `case` 子句，建造走 `BuildCaseBlock`（不是 `BuildBlock`），
 把语句 item 建进去就没人消费了——所以往前再看一个非 trivia 单元，是 `switch` 就**不挂**。
 `catch (e) {` 与 `with (x) {` 的体确实走 `BuildStatement → BuildBlock`，照挂。
 
-不挂：`=` / `,` / `(` / `[` / `:` / `return` / `typeof` / 任何运算符之后的 `{`（对象字面量、类型字面量）。
+不挂：`=>`（箭头体 / 函数类型返回的类型字面量）、`=` / `,` / `(` / `[` / `:` / `return` / `typeof` /
+任何运算符之后的 `{`（对象字面量、类型字面量）。
 
 ```ts
 const data = host.Data;
@@ -148,9 +160,7 @@ if (previous instanceof Bracket) {
   }
   return true;
 }
-if (previous instanceof Symbol) {
-  return (previous as Symbol).Is("=>");
-}
+// 运算符一律不挂：`=>` 就是在这里被排除的（箭头体与函数类型返回的类型字面量不可区分）。
 const text = StatementBlockStream.TextOf(previous);
 return text === "else" || text === "try" || text === "finally" || text === "do";
 ```
