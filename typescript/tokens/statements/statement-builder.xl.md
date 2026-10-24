@@ -1219,11 +1219,17 @@ return shape;
 
 块：`{` … `}` 是一个括号单元，里面的语句在它的 `Data` 里递归建。
 
-**WP-2：语句 item 表接管块体的语句切分**。`BatchMode !== 0` 时先把已闭合块的 `Data`
-整体喂给 `StatementBodyItemHost`（`StatementItemRule.Build` 用**同一个** `StatementBuilder`
-把每条语句建成形状并 splice 回 `Data`），然后只把「splice 后的非 basic、非 trivia 单元」
-当子节点；残留的 basic 单元（引擎 raw 回退的区间）仍走原来的逐条 `BuildStatement`。
-`BatchMode === 0`（legacy）时逐字保持改动前的路径。
+**WP-2 的语句 item 表接管块体，分两条路，按「这个块流式过没有」区分**：
+
+- **流式块**（`bracket.BatchAdapter !== null`，`StatementBlockStream` 在 `{` 创建时就挂了宿主）：
+  item 在**解析期**已经建进 `Data`，这里只 `FlushBatch` 补建最后一条「收口时才确定」的语句——
+  `FlushBatch` 在括号没有活动批次时是空操作（与枚举体收口同一个口径）。
+- **非流式块**（`BatchMode !== 0` 但没挂宿主）：走 WP-2-4 的兜底——把已闭合块的 `Data` 整体喂一遍
+  `StatementBodyItemHost`（`DriveBodyItems`）。
+
+两条路之后都只把「非 basic、非 trivia 单元」当块子节点（那就是 item），
+残留的 basic 单元（引擎 raw 回退的区间）仍走原来的逐条 `BuildStatement`。
+`BatchMode === 0`（legacy）时逐字保持改动前的路径，两条都不进。
 
 不改 `Finish` 的语义，也不改 `host.Data` 的形状口径：splice 由引擎在批末统一做。
 
@@ -1232,7 +1238,9 @@ const first = this.At;
 const bracket = this.Units[this.At] as Bracket;
 this.At++;
 const shape = new BlockShape(this.Template);
-if (this.Context.BatchMode !== 0) {
+if (bracket.BatchAdapter !== null) {
+  bracket.FlushBatch(this.Context);
+} else if (this.Context.BatchMode !== 0) {
   this.DriveBodyItems(bracket);
 }
 const inner = new StatementBuilder(this.Template, this.Context);

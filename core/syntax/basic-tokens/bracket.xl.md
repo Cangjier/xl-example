@@ -140,6 +140,10 @@ return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${t
 
 挂好并签入之后，**通知父单元 `OnBracketCreatedEvent`**：父单元可能借这个时机给新括号挂上目录向导（接口体的成员候选就是这么接上的）。父单元没实现 `IComputePossibleShapes` 就不通知，也不再往上找。
 
+最后再调一次**语言侧的创建钩子** `context.BracketHook`（未装配时是 `null`，只多一次判空）：
+钩子跑在父单元通知**之后**，所以壳刚给括号挂上的适配器它看得见（`BatchAdapter !== null` 即可早退）。
+钩子只做挂载、不建 token、不返回状态，不可能制造 `Reload`，这条路径的返回值因此完全不变。
+
 `\u{…}` 花括号转义进行中时不起新括号：这时 `{` 属于转义（`\u{61}`），返回 `Undo` 让 `Common` 吃掉。
 
 ```ts
@@ -159,6 +163,9 @@ unit.MountedUnit = mounted;
 mounted.Use(value).SignIn(index);
 if ("OnBracketCreatedEvent" in unit) {
   (unit as unknown as IComputePossibleShapes).OnBracketCreatedEvent(mounted, context);
+}
+if (context.BracketHook !== null) {
+  context.BracketHook(mounted, unit, context);
 }
 return BranchStates.Done;
 ```
