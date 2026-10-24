@@ -75,9 +75,18 @@ function load(relative) {
   return require(path.join(buildRoot, relative));
 }
 
+// T1d r13：文件级 fallback 取证。Parse 每次入口都会重置 LastFileFallback，
+// 所以每次 Parse 之后立刻读它，记下「哪些构造是靠整条文件回 legacy 才通过的」。
+const fallbackCases = [];
 function parseCj(source) {
   const { SourceFileRunner } = load("typescript/run/source-file-runner.js");
-  return SourceFileRunner.Parse(source, "case.ts");
+  const shape = SourceFileRunner.Parse(source, "case.ts");
+  const route = routeUtil();
+  if (route !== null && route.LastFileFallback === true) {
+    const shown = JSON.stringify(source.length > 70 ? `${source.slice(0, 70)}…` : source);
+    if (!fallbackCases.includes(shown)) fallbackCases.push(shown);
+  }
+  return shape;
 }
 
 function xmlOf(shape) {
@@ -895,6 +904,10 @@ function main() {
     console.log(
       `[statement-possible] groups run=${groupsRun} skipped=${groupsSkipped} | cases pass=${totalPassed} fail=${totalFailed} skip=${totalSkipped} known=${totalKnown} uncovered=${totalUncovered}`,
     );
+    const routeForFallback = routeUtil();
+    const fallbackTotal = routeForFallback === null ? 0 : routeForFallback.FileFallbackCount;
+    console.log(`[statement-possible] file-fallback total=${fallbackTotal} distinct=${fallbackCases.length}`);
+    for (const item of fallbackCases) console.log(`  fallback: ${item}`);
     if (failures.length > 0) {
       console.log("[statement-possible] 失败用例：");
       for (const failure of failures) console.log(`  ${failure.group}/${failure.name}: ${failure.problems.join(" | ")}`);

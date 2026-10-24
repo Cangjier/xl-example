@@ -83,6 +83,16 @@ r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改�
 `CanEndStatement` 为假时建壳）。剩余根因见 HANDOFF-s1d-r3.md §4。
 `false` 时新候选整体 `Reject`、legacy 全接管（Wave1 逐位行为），harness 的双路对拍也用它。
 
+## static field EnableFileFallback:bool = true
+
+文件级兜底开关（T1d r13 路线 A）：`SourceFileRunner.Parse` 在新路径抛错时，把**整条文件**按
+`EnableShellExpressions = false` 的候选目录重解析一次。只在开关 true 时读取；false 态不触发，行为逐字节不变。
+## static field FileFallbackCount:int = 0
+
+进程内累计的文件级兜底次数（只增不减）。harness / 集成表用它出「fallback 清单」的证据。
+## static field LastFileFallback:bool = false
+
+最近一次 `SourceFileRunner.Parse` 是否走了兜底；Parse 入口先重置，兜底成功后置 true。
 ## static field EnableShellStatements:int = 0
 
 Stage 4 位掩码（控制流语句族壳化），本阶段恒为 0。

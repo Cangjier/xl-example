@@ -4,6 +4,7 @@ import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { SourceFileShape } from "../tokens/files/source-file-shape.xl.md"
 import { TextDocument } from "./text-document.xl.md"
+import { StatementRouteUtil } from "../tokens/statements/statement-route-util.xl.md"
 import { TypescriptTemplate } from "./typescript-template.xl.md"
 ```
 
@@ -36,10 +37,44 @@ import { TypescriptTemplate } from "./typescript-template.xl.md"
 `docs/opt-basic-token-gc-analysis.md`。这里显式传参而不改 core 默认值，是为了把「性能口径」留在运行层，
 core 的 `SyntaxContext` 默认值仍是 32（其它语言的装配可以自选）。
 
+文件级兜底（T1d r13 路线 A）：`StatementRoute.Legacy` 只是家族码、不等于 Wave1 路径（HANDOFF-s1d-r12 §3），
+所以真兜底只能是**整条文件**按 `EnableShellExpressions = false` 的候选目录重解析。
+
+- 开关 false：Wave1 原样一次解析，**永不**兜底，false 态逐字节不变。
+- 开关 true 且 `EnableFileFallback = true`：先整条文件走新路径；**抛异常**时清掉现场（新模板 / 新根 / 新上下文，
+  不复用任何形状或 token），按 legacy 目录重建一次；只重试一次，重试仍抛错就如实抛出。
+
 ```ts
-const template = TypescriptTemplate.Create();
-const root = new SourceFileShape(template);
-const context = new SyntaxContext(root, 128);
-context.Process(new TextDocument(text, filePath));
-return root;
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableFileFallback) {
+  StatementRouteUtil.LastFileFallback = false;
+  return SourceFileRunner.ParseCore(text, filePath, StatementRouteUtil.EnableShellExpressions);
+}
+StatementRouteUtil.LastFileFallback = false;
+try {
+  return SourceFileRunner.ParseCore(text, filePath, true);
+} catch (error) {
+  StatementRouteUtil.FileFallbackCount = StatementRouteUtil.FileFallbackCount + 1;
+  const root = SourceFileRunner.ParseCore(text, filePath, false);
+  StatementRouteUtil.LastFileFallback = true;
+  return root;
+}
+```
+
+## static method ParseCore:(text:string, filePath:string, shell:bool)=>SourceFileShape
+
+真正的装配：模板 → 根 → 上下文 → 跑一遍。`shell` 只决定**这一次**解析读哪套候选目录，
+`finally` 里恢复，因此同一次 Parse 不会混用两套目录，也不会把状态漏给下一次。
+
+```ts
+const previous = StatementRouteUtil.EnableShellExpressions;
+StatementRouteUtil.EnableShellExpressions = shell;
+try {
+  const template = TypescriptTemplate.Create();
+  const root = new SourceFileShape(template);
+  const context = new SyntaxContext(root, 128);
+  context.Process(new TextDocument(text, filePath));
+  return root;
+} finally {
+  StatementRouteUtil.EnableShellExpressions = previous;
+}
 ```
