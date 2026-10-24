@@ -6,6 +6,9 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ShapeInsertUtil } from "../shape-insert-util.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { InterpolationString } from "../../../core/syntax/basic-tokens/string/interpolation-string.xl.md"
+import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -77,6 +80,45 @@ a-b-c   ->  -(-(a,b),c)
 AST 侧由 `StatementShapeAst` 走 legacy 的 `TrueKeywordShape` / `FalseKeywordShape` / `NullKeywordShape` /
 `ThisKeywordShape` 工厂（与 `ExpressionBuilder.ParsePrimary` 同一批），所以 XML 逐字段一致。
 
+## static field KindString:int = 7
+
+普通字符串字面量叶子（S3f）：`Raw` 是那个 `String` 单元，AST 侧走 `StringLiteralShape.FromBasicToken`
+（与 `ExpressionBuilder.ParsePrimary` 的 `String` 分支同一工厂）。内插模板**不是**本类：见 `KindTemplate`。
+
+## static field KindTemplate:int = 8
+
+**无内插**模板字面量叶子（S3f）：`` `abc` ``。`Raw` 仍是 `String` 单元，AST 侧走
+`NoSubstitutionTemplateLiteralShape.FromBasicToken`（= `ParseTemplateToken` 在 `interps.length === 0` 时的分支）。
+带内插的模板 `String.Data` 里有 `InterpolationString`，本片不接（`Decline` → legacy）。
+
+## static field KindRegex:int = 9
+
+正则字面量叶子（S3f）：`Raw` 是 `RegexToken`，AST 侧走 `RegularExpressionLiteralShape.FromBasicToken`
+（= `ParsePrimary` 的 `RegexToken` 分支）。
+
+## static field KindMember:int = 10
+
+成员访问节点（S3f）：`Data = [对象, 成员名]`，`Raw` 是那个 `.` 符号单元。
+
+**为什么成员名是子单元、而 `.` 不是**：legacy 的 `PropertyAccessExpressionShape` 只 `Add(expression)`、`Add(name)`，
+点号本身不投影进 AST（`a.b` 的 children 是 `a` 和 `b`）。所以形状树也照这个形状记：两个子节点、点号只在 `Raw` 里。
+
+## static field KindCall:int = 11
+
+调用节点（S3f）：`Data = [被调用者]`，`Raw` 是那个实参括号 `Bracket`。
+**实参不进形状树**：实参在括号单元自己的 `Data` 里，AST 侧用 legacy 的 `ParseBracketArguments` 整段建
+（与 `ParsePostfixSuffix` 的调用分支同一段代码），所以形状树只负责证明「调用接在谁身上」。
+
+## static field KindIndex:int = 12
+
+索引访问节点（S3f）：`Data = [对象, 下标表达式]`，`Raw` 是那个方括号 `Bracket`。
+下标走**嵌套体**（与圆括号同一套：`bracket.Data` 整段喂一遍），所以下标里的表达式同样由形状树逐节点建。
+
+## static field KindArray:int = 13
+
+数组字面量（S3f）：`Data = []`、`Raw` 是那个 `[` 括号单元。元素不进形状树，AST 侧走 legacy 的
+`ParseArrayLiteral`（元素 / 空槽 / 展开全由它建），形状树只证明「这是一个数组字面量操作数」。
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -138,6 +180,11 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 
 与 `Frames` 一一对应：`true` = 这个二元节点还在等右操作数。
 
+## field AwaitName:Token | null = null
+
+**正在等成员名**的成员节点（S3f）：读到 `.` 时建出来、插好位置，等下一个非 trivia 单元当名字。
+非空就表示状态机停在 `ExpectName`。名字到达后立刻清空。
+
 ## field Prefixes:Array<Token> = []
 
 已经读到、但操作数还没到的前缀节点（`-a` 的 `-`）。操作数到达时按后进先出包上去，再挂进当前帧。
@@ -188,6 +235,11 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 ## static field ExpectOperand:int = 1
 
 ## static field ExpectOperator:int = 2
+
+## static field ExpectName:int = 3
+
+成员名的状态（S3f）：`.` 之后要的不是操作数而是一个**名字**——名字不能被前缀包住（`a.-b` 不是成员访问），
+所以它单独一个状态，而不是复用 `ExpectOperand`。
 
 ## static field TotalBodies:int = 0
 
@@ -329,6 +381,10 @@ if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
   return;
 }
 const text = StatementOperatorBody.TextOfToken(unit);
+if (this.Expect === StatementOperatorBody.ExpectName) {
+  this.IngestName(unit, text, template);
+  return;
+}
 if (this.Expect === StatementOperatorBody.ExpectOperand) {
   if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
     const prefix = new StatementOperandShape(template);
@@ -351,6 +407,18 @@ if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
   this.PushBinary(unit, text, template);
   return;
 }
+if (text === ".") {
+  this.StartMember(unit, template);
+  return;
+}
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+  this.StartCall(unit as Bracket, template);
+  return;
+}
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[") {
+  this.StartIndex(unit as Bracket, template);
+  return;
+}
 if (unit instanceof Common && StatementOperatorBody.IsOperandText(text)) {
   this.Closed = true;
   return;
@@ -370,8 +438,36 @@ this.Fail(text === "" ? "单元" : "运算符 " + text);
 - 其余（字符串/模板/正则/`[`/`{`）：`null`。
 
 ```ts
+if (unit instanceof RegexToken) {
+  const shape = new StatementOperandShape(template);
+  shape.Kind = StatementOperandShape.KindRegex;
+  shape.Raw = unit;
+  return shape;
+}
+if (unit instanceof String) {
+  const token = unit as String;
+  if (StatementOperatorBody.IsTemplateUnit(token, template)) {
+    if (StatementOperatorBody.HasInterpolation(token)) {
+      return null;
+    }
+    const shape = new StatementOperandShape(template);
+    shape.Kind = StatementOperandShape.KindTemplate;
+    shape.Raw = unit;
+    return shape;
+  }
+  const shape = new StatementOperandShape(template);
+  shape.Kind = StatementOperandShape.KindString;
+  shape.Raw = unit;
+  return shape;
+}
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
+  if (bracket.StartBracketChar === "[") {
+    const arrayShape = new StatementOperandShape(template);
+    arrayShape.Kind = StatementOperandShape.KindArray;
+    arrayShape.Raw = unit;
+    return arrayShape;
+  }
   if (bracket.StartBracketChar !== "(") {
     return null;
   }
@@ -415,6 +511,155 @@ if (unit instanceof Common) {
   return shape;
 }
 return null;
+```
+
+## method InsertionPoint:()=>Array<Token>
+
+后缀构造（成员 / 调用 / 索引）要把新节点插到**当前表达式**的位置：`parent.Data` 里换掉那个子单元，子单元变成新节点的第一个子节点
+（`ShapeInsertUtil.InsertBetween`）。当前表达式就是 `Top()` 的最后一个子单元。
+
+**为什么要穿过前缀节点**：`-a.b` 在 legacy 里是 `-(a.b)`（`ParseUnary` 先递归到 `ParsePostfix`，后缀比前缀绑得紧）。
+形状层的前缀节点是**先建好**再把操作数包进去的，所以读到 `.` 时栈顶最后一个子单元还可能是 `KindPrefix`；
+这时要往里走一格，把成员插在操作数上，前缀才会包住整条后缀链。
+
+返回 `[父单元, 子单元]`；没有子单元时返回空数组（调用方据此 `Fail`，不建错树）。
+
+```ts
+const none:Array<Token> = [];
+let parent = this.Top();
+if (parent.Data.length === 0) {
+  return none;
+}
+let child = parent.Data[parent.Data.length - 1];
+while (true) {
+  if (!(child instanceof StatementOperandShape)) {
+    break;
+  }
+  if ((child as StatementOperandShape).Kind !== StatementOperandShape.KindPrefix) {
+    break;
+  }
+  if (child.Data.length === 0) {
+    break;
+  }
+  parent = child;
+  child = child.Data[child.Data.length - 1];
+}
+const point:Array<Token> = [];
+point.push(parent);
+point.push(child);
+return point;
+```
+
+## method StartMember:(unit:Token, template:Template)=>void
+
+`a.b` 的 `.`：立刻建成员节点、插到当前表达式的位置（对象原地成为它的第一个子单元），然后转 `ExpectName` 等名字。
+
+```ts
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  this.Fail("成员访问缺少对象");
+  return;
+}
+if (StatementOperatorBody.IsBareImport(point[1])) {
+  this.Fail("import 开头的成员访问");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindMember;
+shape.Raw = unit;
+ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.AwaitName = shape;
+this.Expect = StatementOperatorBody.ExpectName;
+```
+
+## method IngestName:(unit:Token, text:string, template:Template)=>void
+
+成员名：必须是 `Common` 标识符——关键字 / 数字 / 大整数 / 字面量都不行（`a.1` 不是成员访问）。
+建成 `KindIdentifier` 叶子挂进等待的成员节点，回到 `ExpectOperator`。
+
+```ts
+const awaitName = this.AwaitName;
+if (awaitName === null) {
+  this.Fail("没有等待成员名的节点");
+  return;
+}
+if (!(unit instanceof Common)) {
+  this.Fail("成员名不是标识符");
+  return;
+}
+const common = unit as Common;
+if (!StatementOperatorBody.IsOperandText(text) || common.IsNumber() || common.IsBigInt()) {
+  this.Fail("成员名 " + text);
+  return;
+}
+const name = new StatementOperandShape(template);
+name.Kind = StatementOperandShape.KindIdentifier;
+name.Text = text;
+name.Raw = unit;
+awaitName.Add(name);
+this.AwaitName = null;
+this.Expect = StatementOperatorBody.ExpectOperator;
+```
+
+## method StartCall:(bracket:Bracket, template:Template)=>void
+
+`f(x)`：调用节点插到被调用者的位置；实参不进形状树（AST 侧用 `ParseBracketArguments` 整段建）。
+
+```ts
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  this.Fail("调用缺少被调用者");
+  return;
+}
+if (StatementOperatorBody.IsBareImport(point[1])) {
+  this.Fail("import 开头的调用");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindCall;
+shape.Raw = bracket;
+ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Expect = StatementOperatorBody.ExpectOperator;
+```
+
+## method StartIndex:(bracket:Bracket, template:Template)=>void
+
+`a[b]`：下标走**嵌套体**（`bracket.Data` 整段，与圆括号同一套）。**先建内层再插节点**：
+内层没接全就直接 `Fail`，不在树上留下半条链。
+
+```ts
+if (bracket.Data.length === 0) {
+  this.Fail("索引里没有表达式");
+  return;
+}
+const inner = new StatementOperatorBody(template);
+inner.Nested = true;
+inner.IngestAll(bracket.Data, template);
+if (inner.Incomplete || !inner.IsComplete()) {
+  this.Fail("索引里的表达式");
+  return;
+}
+if (inner.Root === null || inner.Root.Data.length !== 1) {
+  this.Fail("索引里的表达式不是单节点");
+  return;
+}
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  this.Fail("索引缺少对象");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindIndex;
+shape.Raw = bracket;
+ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
+shape.Add(inner.Root.Data[0]);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Expect = StatementOperatorBody.ExpectOperator;
 ```
 
 ## method AttachOperand:(built:Token)=>void
@@ -528,6 +773,32 @@ if (token instanceof StatementOperandShape) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
     return "(" + only + ")";
   }
+  if (shape.Kind === StatementOperandShape.KindMember) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    const name = shape.Data.length > 1 ? StatementOperatorBody.Render(shape.Data[1]) : "?";
+    return "member(" + object + "," + name + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindCall) {
+    const callee = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "call(" + callee + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindIndex) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    const subscript = shape.Data.length > 1 ? StatementOperatorBody.Render(shape.Data[1]) : "?";
+    return "index(" + object + "," + subscript + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindString) {
+    return "string";
+  }
+  if (shape.Kind === StatementOperandShape.KindTemplate) {
+    return "template";
+  }
+  if (shape.Kind === StatementOperandShape.KindRegex) {
+    return "regex";
+  }
+  if (shape.Kind === StatementOperandShape.KindArray) {
+    return "array";
+  }
   return shape.Text;
 }
 return "?";
@@ -553,6 +824,32 @@ if (token instanceof StatementOperandShape) {
   if (shape.Kind === StatementOperandShape.KindParen) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
     return "(" + only + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindMember) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    const name = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
+    return "member(" + object + "," + name + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindCall) {
+    const callee = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    return "call(" + callee + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindIndex) {
+    const object = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    const subscript = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
+    return "index(" + object + "," + subscript + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindString) {
+    return "string";
+  }
+  if (shape.Kind === StatementOperandShape.KindTemplate) {
+    return "template";
+  }
+  if (shape.Kind === StatementOperandShape.KindRegex) {
+    return "regex";
+  }
+  if (shape.Kind === StatementOperandShape.KindArray) {
+    return "array";
   }
   return shape.Text;
 }
@@ -593,6 +890,48 @@ if (text === "++" || text === "--") {
   return false;
 }
 return OperatorTable.IsPrefixOperator(text);
+```
+
+## static method IsBareImport:(unit:Token)=>bool
+
+**保守拒绝**：`import.meta` 在 legacy 里是 `MetaProperty`、`import("m")` 是 `ImportKeyword` + 调用，
+两者都不是「标识符 + 成员/调用」那棵树。形状层不区分 `import.foo` 与 `import.meta`，
+所以只要成员 / 调用的**基底**是裸标识符 `import`，一律 `Fail`（少接管一条，legacy 仍然对）。
+
+```ts
+if (!(unit instanceof StatementOperandShape)) {
+  return false;
+}
+const shape = unit as StatementOperandShape;
+return shape.Kind === StatementOperandShape.KindIdentifier && shape.Text === "import";
+```
+
+## static method IsTemplateUnit:(unit:String, template:Template)=>bool
+
+是不是「引号内嵌」的模板串单元：与 `ExpressionBuilder.IsTemplateToken` **同一判据**——`String`、开了内插、
+且引号属于模板配置的 `InterpolationQuoteChars`。TS 只有反引号在这个集合里，所以 `"…"` 永远走普通字符串。
+
+```ts
+if (!unit.IsSupportInterpolation) {
+  return false;
+}
+const config = template.StringTemplate;
+return config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.includes(unit.StringChar);
+```
+
+## static method HasInterpolation:(unit:String)=>bool
+
+模板里有没有内插段：`String.Data` 里出现 `InterpolationString` 就是有。
+带内插的模板本片不接（`BuildOperand` 返回 `null` → `Fail` → legacy）：它要拆成 `TemplateHead` + 若干 `TemplateSpan`，
+形状层还没有对应节点（见 `HANDOFF-s3f.md` 未覆盖清单）。
+
+```ts
+for (const part of unit.Data) {
+  if (part instanceof InterpolationString) {
+    return true;
+  }
+}
+return false;
 ```
 
 ## static method IsKeywordLeafText:(text:string)=>bool
@@ -674,7 +1013,16 @@ while (nextIndex < units.length && units[nextIndex].IsTriviaToken) {
   nextIndex++;
 }
 const next = nextIndex < units.length ? units[nextIndex] : null;
-return next !== null && next instanceof Bracket && (next as Bracket).StartBracketChar === "(";
+if (next === null) {
+  return false;
+}
+if (next instanceof Bracket && (next as Bracket).StartBracketChar === "(") {
+  return true;
+}
+// S3f：`f<T>`t`` 的 `>` 是**类型实参的收口**，不是大于号——模板单元（String）紧跟 `>` 时同样判为类型实参。
+// 判成类型实参只会少接管一条（legacy 仍对）；漏判则会建出「>(f,T) 把模板当右操作数」的错树。
+// 因此这里连普通字符串 `a < b > "s"` 也一并放弃（保守方向是安全的）。
+return next instanceof String;
 ```
 
 ## static method HasTypeArgumentCall:(units:Array<Token>)=>bool

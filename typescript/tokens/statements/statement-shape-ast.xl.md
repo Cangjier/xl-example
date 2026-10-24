@@ -7,6 +7,9 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
+import { CallExpressionShape } from "../expressions/call-expression-shape.xl.md"
+import { ElementAccessExpressionShape } from "../expressions/element-access-expression-shape.xl.md"
+import { PropertyAccessExpressionShape } from "../expressions/property-access-expression-shape.xl.md"
 import { DeleteExpressionShape } from "../expressions/delete-expression-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ParenthesizedExpressionShape } from "../expressions/parenthesized-expression-shape.xl.md"
@@ -19,7 +22,12 @@ import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
+import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
+import { RegularExpressionLiteralShape } from "../literals/regular-expression-literal-shape.xl.md"
+import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
+import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { StatementOperandShape } from "./statement-operator-body.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 ```
@@ -166,6 +174,161 @@ if (shape.Kind === StatementOperandShape.KindIdentifier || shape.Kind === Statem
   const identifier = IdentifierShape.FromBasicToken(raw as Common, context);
   identifier.Pos = builder.Positions[index];
   return identifier;
+}
+if (shape.Kind === StatementOperandShape.KindString
+  || shape.Kind === StatementOperandShape.KindTemplate
+  || shape.Kind === StatementOperandShape.KindRegex) {
+  const raw = shape.Raw;
+  if (raw === null) {
+    return StatementShapeAst.Decline("字面量叶子没有 raw 单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("字面量单元不在表达式里");
+  }
+  covered.push(index);
+  if (shape.Kind === StatementOperandShape.KindString) {
+    if (!(raw instanceof String)) {
+      return StatementShapeAst.Decline("字符串叶子不是 String 单元");
+    }
+    const literal = StringLiteralShape.FromBasicToken(raw as String, context);
+    literal.Pos = builder.Positions[index];
+    return literal;
+  }
+  if (shape.Kind === StatementOperandShape.KindTemplate) {
+    if (!(raw instanceof String)) {
+      return StatementShapeAst.Decline("模板叶子不是 String 单元");
+    }
+    const literal = NoSubstitutionTemplateLiteralShape.FromBasicToken(raw as String, context);
+    literal.Pos = builder.Positions[index];
+    return literal;
+  }
+  if (!(raw instanceof RegexToken)) {
+    return StatementShapeAst.Decline("正则叶子不是 RegexToken");
+  }
+  const regex = RegularExpressionLiteralShape.FromBasicToken(raw as RegexToken, context);
+  regex.Pos = builder.Positions[index];
+  return regex;
+}
+if (shape.Kind === StatementOperandShape.KindArray) {
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof Bracket)) {
+    return StatementShapeAst.Decline("数组字面量没有括号单元");
+  }
+  const bracket = raw as Bracket;
+  if (bracket.StartBracketChar !== "[") {
+    return StatementShapeAst.Decline("数组字面量不是方括号");
+  }
+  const index = builder.Units.indexOf(bracket);
+  if (index < 0) {
+    return StatementShapeAst.Decline("数组字面量单元不在表达式里");
+  }
+  covered.push(index);
+  return builder.ParseArrayLiteral(bracket, index);
+}
+if (shape.Kind === StatementOperandShape.KindMember) {
+  if (shape.Data.length !== 2) {
+    return StatementShapeAst.Decline("成员访问不是两个子节点");
+  }
+  const at = covered.length;
+  const object = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (object === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const dotRaw = shape.Raw;
+  if (dotRaw === null) {
+    return StatementShapeAst.Decline("成员访问没有点号单元");
+  }
+  const dotIndex = builder.Units.indexOf(dotRaw);
+  if (dotIndex < 0) {
+    return StatementShapeAst.Decline("成员点号不在表达式里");
+  }
+  covered.push(dotIndex);
+  const nameShape = StatementShapeAst.BuildNode(shape.Data[1], builder, context, covered);
+  if (nameShape === null) {
+    return null;
+  }
+  const access = new PropertyAccessExpressionShape(builder.Template);
+  access.Add(object);
+  access.Add(nameShape);
+  return builder.SpanNode(access, firstIndex, covered[covered.length - 1]);
+}
+if (shape.Kind === StatementOperandShape.KindCall) {
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("调用节点不是单个被调用者");
+  }
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof Bracket)) {
+    return StatementShapeAst.Decline("调用节点没有实参括号");
+  }
+  const bracket = raw as Bracket;
+  if (bracket.StartBracketChar !== "(") {
+    return StatementShapeAst.Decline("调用实参不是圆括号");
+  }
+  const at = covered.length;
+  const callee = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (callee === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const bracketIndex = builder.Units.indexOf(bracket);
+  if (bracketIndex < 0) {
+    return StatementShapeAst.Decline("调用括号不在表达式里");
+  }
+  covered.push(bracketIndex);
+  const call = new CallExpressionShape(builder.Template);
+  call.Add(callee);
+  const args = builder.ParseBracketArguments(bracket);
+  for (const arg of args) {
+    call.Add(arg);
+  }
+  return builder.SpanNode(call, firstIndex, bracketIndex);
+}
+if (shape.Kind === StatementOperandShape.KindIndex) {
+  if (shape.Data.length !== 2) {
+    return StatementShapeAst.Decline("索引不是两个子节点");
+  }
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof Bracket)) {
+    return StatementShapeAst.Decline("索引节点没有方括号");
+  }
+  const bracket = raw as Bracket;
+  if (bracket.StartBracketChar !== "[") {
+    return StatementShapeAst.Decline("索引不是方括号");
+  }
+  const at = covered.length;
+  const object = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (object === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const bracketIndex = builder.Units.indexOf(bracket);
+  if (bracketIndex < 0) {
+    return StatementShapeAst.Decline("索引括号不在表达式里");
+  }
+  covered.push(bracketIndex);
+  const inner = new ExpressionBuilder(builder.Template, context);
+  let base = 0;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
+  }
+  inner.Load(bracket.Data, base);
+  if (inner.Units.length === 0) {
+    return StatementShapeAst.Decline("索引里没有单元");
+  }
+  const innerCovered:Array<number> = [];
+  const value = StatementShapeAst.BuildNode(shape.Data[1], inner, context, innerCovered);
+  if (value === null) {
+    return null;
+  }
+  if (!StatementShapeAst.Covers(innerCovered, inner.Units.length)) {
+    return StatementShapeAst.Decline("索引内的形状树没有覆盖整段单元");
+  }
+  const access = new ElementAccessExpressionShape(builder.Template);
+  access.Add(object);
+  access.Add(value);
+  return builder.SpanNode(access, firstIndex, bracketIndex);
 }
 if (shape.Kind === StatementOperandShape.KindParen) {
   const raw = shape.Raw;
