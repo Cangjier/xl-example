@@ -135,6 +135,48 @@ r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改�
 
 Stage 4 位掩码（控制流语句族壳化），本阶段恒为 0。
 
+## static field EnableControlFlowShell:bool = true
+
+**控制流 / 声明族语句壳化开关**（Stage 4c）。`true` = `Decide` 把 `if` / `while` / `do` / `for` /
+`switch` / `try` / `return` / `throw` / `break` / `continue` / `debugger` / `with`、标签语句（标识符 + `:`）
+与空语句（`;`）判成 `StatementRoute.ShellStatementFamily`，由 `ControlFlowStatementPossibleShape` 建壳；
+`false` 时这些起点重新判成 `Legacy`，行为逐位回到 Stage 4b 之前（安全回退，不靠候选先后）。
+`EnableShellExpressions == false`（文件级 fallback 与 harness 的 legacy 对拍）时同样一律 `Legacy`。
+
+## static field EnableControlFlowLabel:bool = false
+
+标签语句是否随控制流壳接管（`lbl: f();`），**默认关**。标签的头是标识符，与普通表达式语句同格；
+壳在首代码单元那一格就建，而 `:` 还没到，所以「ident + `:`」的 lookahead 在首格拿不到第二格，
+接管与否取决于单元到达时机（不确定）。默认关 = 标签继续走已经验证过的表达式壳：
+`StatementShape.BuildFromShell` → `StatementBuilder.BuildStatement` 的标签分派，
+XML / AST 与 legacy 逐字节一致（stage4c 的 `s4c-label` / `s4c-label-loop` 用例覆盖）。
+打开只在「首格之前 `:` 已经到齐」的时机生效，行为与表达式壳等价。
+
+## static field EnableControlFlowEmpty:bool = false
+
+空语句（语句首的 `;`）是否随控制流壳接管，**默认关**。实测（stage4c r1，`if (a) {}` ⏎ `;` ⏎ `while (b) {}` ⏎ `;`）：
+末尾的 `;` 是 `FinishShell` 把 ASI 边界留下的 leftover 重放回来的，重放那一格上条目的 `ItemStart`
+仍是上一条语句的起点，`Decide` 据旧头判型、控制流候选又只认首格，这个 `;` 就没人建
+（token-ast `stmt-semicolon-after-block-body` 少一条 `EmptyStatement`）。空语句由 legacy 建与由壳建
+走的是同一个 `StatementBuilder.BuildStatement` → `BuildEmpty`，接管收益为零、风险不为零，所以默认关。
+
+## static field ControlFlowShellCount:int = 0
+
+进程内累计「被控制流候选建成壳的控制流/声明族语句」条数（只增不减），与 `BlockShellCount` 同一定位：
+harness / 集成表用它出「这类语句确实走了新路径」的计数证据，不靠 XML/AST 猜。
+
+## static method IsControlFlowHead:(text:string)=>bool
+
+`ShellStatementFamily` 的**关键字起点集合**：只有真正能起一条语句的控制流关键字。
+`else` / `catch` / `finally` / `case` / `default` 不在里面——它们只能出现在上一条语句内部，
+语句首出现就是非法输入，留给 legacy 与文件级 fallback，不在这里另起判据。
+
+```ts
+return text === "if" || text === "while" || text === "do" || text === "for"
+  || text === "switch" || text === "try" || text === "return" || text === "throw"
+  || text === "break" || text === "continue" || text === "debugger" || text === "with";
+```
+
 ## static method IsLegacyKeyword:(text:string)=>bool
 
 `StatementRoute.Legacy` 的关键字集合：声明族、导入导出族、控制流族与「双角色」起点（`async` / `using` /
@@ -193,6 +235,19 @@ if (text === "let" || text === "const" || text === "var") {
   }
   return StatementRoute.Legacy;
 }
+if (StatementRouteUtil.EnableShellExpressions) {
+  if (StatementRouteUtil.EnableControlFlowShell && StatementRouteUtil.IsControlFlowHead(text)) {
+    return StatementRoute.ShellStatementFamily;
+  }
+  // 标签语句：标识符之后的下一个代码单元是 `:`（`lbl: f();`）。`a ? b : c` 的头是 `a`、下一格是 `?`，
+  // 不会命中；对象字面量的 `a: 1` 不在语句首。所以「语句首 ident + `:`」只可能是标签。
+  if (StatementRouteUtil.EnableControlFlowLabel && !StatementRouteUtil.IsLegacyKeyword(text)) {
+    const colonAt = ItemUtil.NextCode(units, headAt + 1);
+    if (colonAt < units.length && units[colonAt] instanceof Symbol && (units[colonAt] as Symbol).Is(":")) {
+      return StatementRoute.ShellStatementFamily;
+    }
+  }
+}
 if (StatementRouteUtil.IsLegacyKeyword(text)) {
   return StatementRoute.Legacy;
 }
@@ -226,7 +281,11 @@ if (head instanceof Common) {
 if (head instanceof Symbol) {
   const symbol = head as Symbol;
   if (symbol.Is(";")) {
-    // 空语句：Stage 4 之前仍归 Legacy（本阶段不壳化空语句）。
+    // 空语句：默认仍归 Legacy（见 `EnableControlFlowEmpty` 的理由：重放回来的 `;` 会因旧 ItemStart 失管）。
+    if (StatementRouteUtil.EnableShellExpressions && StatementRouteUtil.EnableControlFlowShell
+      && StatementRouteUtil.EnableControlFlowEmpty) {
+      return StatementRoute.ShellStatementFamily;
+    }
     return StatementRoute.Legacy;
   }
   if (StatementRouteUtil.IsPrefixSymbol(symbol)) {
