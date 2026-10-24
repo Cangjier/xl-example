@@ -946,6 +946,52 @@ if (at < 0 || at >= code.length) {
 return this.TextOf(code[at]) === text;
 ```
 
+## private method QuickRejectBraceBody:(host:Token, start:int, end:int, minHead:int)=>boolean
+
+Shape fast-reject for brace-bodied declarations (class / enum / interface): the last non-trivia unit of
+`[start, end]` must be a `{` bracket, and the range must hold at least `minHead` non-trivia units.
+
+Both are NECESSARY conditions of the matching `BuildFromCode`: it throws when either is violated and the
+caller's `catch` turns that throw into `null`. So returning true here only skips the exception machinery
+(Error construction + stack capture) and never changes which shape gets built. `BuildByKind` is called
+speculatively once per candidate cell, so that throw path is paid thousands of times per parse.
+
+```ts
+let lastAt: number = end;
+while (lastAt >= start && host.Data[lastAt].IsTriviaToken) {
+  lastAt = lastAt - 1;
+}
+if (lastAt < start) {
+  return true;
+}
+const lastUnit: Token = host.Data[lastAt];
+if (!(lastUnit instanceof Bracket) || (lastUnit as Bracket).StartBracketChar !== "{") {
+  return true;
+}
+let headCount: number = 0;
+for (let headAt = start; headAt <= lastAt && headCount < minHead; headAt++) {
+  if (!host.Data[headAt].IsTriviaToken) {
+    headCount = headCount + 1;
+  }
+}
+return headCount < minHead;
+```
+
+## private method QuickRejectFewerThan:(host:Token, start:int, end:int, minCount:int)=>boolean
+
+Shape fast-reject for declarations that need a minimum number of code units: `TypeAliasDeclarationShape`
+throws when the range holds fewer than four non-trivia units (`type` / name / `=` / type). Counting stops
+at `minCount`, so the check is O(minCount) on the speculative path.
+
+```ts
+let count: number = 0;
+for (let at = start; at <= end && count < minCount; at++) {
+  if (!host.Data[at].IsTriviaToken) {
+    count = count + 1;
+  }
+}
+return count < minCount;
+```
 ## private method BuildByKind:(kind:int, host:Token, start:int, end:int, context:SyntaxContext)=>Token | null
 
 按族分派到候选的静态建造入口（**不是** `BuildByIndex`：class/interface/enum 的 `BuildByIndex` 走
@@ -1054,6 +1100,13 @@ try {
     return ExportDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 3) {
+    // Fast-reject (same result, no exception): `ClassDeclarationShape.BuildFromCode` throws when the last
+    // non-trivia unit is not the class-body `{` bracket, and when the range cannot hold the minimum
+    // `class` / name / body units. That throw is caught one frame up and becomes `null`, so rejecting it
+    // here is bit-for-bit the same outcome without building an Error or capturing a stack.
+    if (this.QuickRejectBraceBody(host, start, end, 3)) {
+      return null;
+    }
     return ClassDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 4) {
@@ -1090,6 +1143,11 @@ try {
     return InterfaceDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 5) {
+    // Fast-reject (same result, no exception): `EnumDeclarationShape.BuildFromCode` requires the enum
+    // body `{` bracket as the last unit and at least `enum` / name / body units; both violations throw.
+    if (this.QuickRejectBraceBody(host, start, end, 3)) {
+      return null;
+    }
     return EnumDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 6) {
@@ -1113,6 +1171,11 @@ try {
     return SourceFileTailBuilder.BuildModuleItem(host, start, end, context);
   }
   if (kind === 8) {
+    // Fast-reject (same result, no exception): `TypeAliasDeclarationShape.BuildFromCode` throws when the
+    // range holds fewer than four non-trivia units (`type` / name / `=` / type).
+    if (this.QuickRejectFewerThan(host, start, end, 4)) {
+      return null;
+    }
     return TypeAliasDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 10) {
