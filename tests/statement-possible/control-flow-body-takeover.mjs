@@ -70,8 +70,8 @@ const cases = [
   { source: "if (a) b;", brace: 0, body: 0, cf: 1 },
   { source: "if (a) b\n{}", brace: 0, body: 0, cf: null },
   { source: "switch (x) { case 1: { g; } }", brace: 0, body: 0, cf: null },
-  { source: "({ m() { let z = 1; } });", brace: 0, body: 0, cf: null },
-  { source: "const f = x => { let z = 1; };", brace: 0, body: 0, cf: null },
+  { source: "({ m() { let z = 1; } });", brace: 0, body: 1, cf: null },
+  { source: "const f = x => { let z = 1; };", brace: 0, body: 1, cf: null },
   { source: "{ function f() { let x = 1; } }", brace: 0, body: 0, cf: null },
 ];
 
