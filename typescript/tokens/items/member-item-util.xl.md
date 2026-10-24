@@ -2,26 +2,29 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ItemScanState } from "../../../core/syntax/batch/item-scan-state.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
-import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
-import { AngleJudge } from "./angle-judge.xl.md"
-import { MemberBoundary, MemberBoundaryScan } from "./member-boundary.xl.md"
-import { PropertySignatureShape } from "./property-signature-shape.xl.md"
-import { TypeBuilder } from "./type-builder.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
+import { MemberBoundary, MemberBoundaryScan } from "../types/member-boundary.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+对象类型成员（interface 体 / type literal）的公共判据：从 `property-signature-possible-shape.xl.md`
+**逐字搬出**的 `MemberPossibleScan` / `MemberItemStartShared` / `MemberScanShared` / `MemberPossibleUtil`。
 
+搬出的目的：interface 体迁到 `ItemListEngine(InterfaceItemRule)` 之后，判据不能再住在某个
+possible 候选文件里；class 体仍在用的 index / get / set 三个候选改为从这里 import 同一份实现，
+`MemberBoundary`（`../types/member-boundary.xl.md`）保持不动。
+`MemberItemUtil` 是同一套判据在 `core/syntax/batch/item-scan-state` 上的入口（item 表用）。
 # class MemberPossibleScan
 
 接口 / 对象类型体里「当前成员」的判定状态。**七个成员候选共用这一份**：候选目录里每个形状都在同一个 `PossibleShapeCache` 里读写，键固定为 `MemberPossibleUtil.CacheKey`——同一次判定里只有一个形状真的去扫，其余直接读结论。
@@ -877,82 +880,78 @@ if (builder.OriginalConsumed() !== consumedLength) {
 return true;
 ```
 
-# class PropertySignaturePossibleShape extends PossibleShape
+# class MemberItemUtil
 
-```txt
-interface I { a: number; }
-interface I { a?: A; }
-interface I { readonly b: B; }
-interface I { [expr]: A; }
-interface I { "abort": Event }
-```
+接口体 item 表（`InterfaceItemRule`）的判定入口：把 `MemberPossibleUtil` 的结论（判型 / 收口 / 边界）
+搬到 `core/syntax/batch/item-scan-state` 上。
 
-对象类型里的属性签名候选：`readonly` 修饰词、可选 `?`、计算属性名 `[expr]`、字符串 / 数字字面量名、任意类型、成员边界 `;` / `,` / 换行 / 容器收口。
+与 possible 路径的差别只有「状态从哪来」：`Code` / `CodeAt` / `Angle` 由引擎的 `ItemScanState` 维护
+（`Angle` 由 `MemberItemUtil.Extend` 折进 `AngleJudge.ScanDepth`），`Analyze` 每次从当前前缀重算
+（一条成员很短，重算比维护一份跨 item 的增量状态便宜）；判据本身逐字沿用 `MemberPossibleUtil`
+（`ClassifyHead` / `MemberBoundary.FindTypeMemberBoundary` / 三条收口证据 / 参数表收敛）。
 
-判定与建形状分离：`ComputeByIndex` 只读 `MemberPossibleUtil.Scan` 的结论（可能种类里没有属性签名就 `Reject`；收住了就 `Accept`），消费范围由扫描状态的 `End` 给，`BuildByIndex` 才用 `TypeBuilder.ParseTypeMember()` 建一次形状并断言产出的是 `PropertySignatureShape`。
+## static method Extend:(state:ItemScanState)=>void
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
-
-只读共享扫描结论：可能种类里没有属性签名就 `Reject`；收住了就 `Accept`；其余 `Uncertain`（继续等）。
+把刚追加的代码单元折进角/括号深度（`AngleJudge.ScanDepth`，与 `MemberPossibleUtil.AngleDepth` 同口径）。
 
 ```ts
-if (tokenIndex < 0 || tokenIndex >= units.length) {
-  return ShapeStates.Uncertain;
+const code = state.Code;
+if (code.length === 0) {
+  return;
 }
-const state = MemberPossibleUtil.Scan(units, tokenIndex, cache);
-if (!MemberPossibleUtil.HasKind(state.Kinds, MemberPossibleUtil.PropertyKind)) {
-  return ShapeStates.Reject;
-}
-if (state.Complete) {
-  return ShapeStates.Accept;
-}
-return ShapeStates.Uncertain;
+state.Angle = AngleJudge.ScanDepth(code[code.length - 1], state.Angle);
 ```
 
-## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+## static method Analyze:(state:ItemScanState)=>void
 
-收住了才建：`;` / `,` / 下一个成员起点 / 容器收口，三选一的证据在 `Analyze` 里已经算好。
-
-```ts
-const state = cache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
-if (state === null) {
-  return false;
-}
-return state.Complete && state.End >= 0
-  && MemberPossibleUtil.HasKind(state.Kinds, MemberPossibleUtil.PropertyKind);
-```
-
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-消费 `state.Start .. CodeAt[state.End]` 这一段（含成员自己的 `;` / `,`），用 `TypeBuilder.ParseTypeMember()` 建出属性签名，然后 `host.Data.splice(start, consumed, shape)` 原地顶替。
-
-成员区间尾部的 trivia 不属于成员：`splice` 只吃到最后一个代码单元，后面的 trivia 留给下一条目当先行 trivia（下一条目的 `Pos` 由 `BasePos` 按「前一个非 trivia 单元」算，与整段解析同口径）。
-
-读不完 / 消费范围不一致时**不顶替**，raw 代码原样留给收口时的 `BuildMembers`（见 `MemberPossibleUtil.MemberParsedWhole`）。
+收口判定：把「当前成员是否收住、收在哪个代码单元」写进 `state.Complete` / `state.End`
+（`End` 是宿主 `Data` 下标，经 `state.CodeAt` 映射）。三条证据与 `MemberPossibleUtil.Analyze` 逐条相同：
+① 前缀里找到了下一个成员的起点；② 最后一个代码单元是 `;` / `,`（它自己进成员区间）；
+③ 最后一个代码单元之后的下一个字符是容器收口字符。三条都只在角深度 0 时生效。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<MemberPossibleScan>(MemberPossibleUtil.CacheKey);
-if (state === null || state.End < 0 || state.End >= state.CodeAt.length) {
-  throw new Error("PropertySignaturePossibleShape.BuildByIndex: 判定状态缺失");
+const code = state.Code;
+state.Complete = false;
+state.End = -1;
+if (code.length === 0) {
+  return;
 }
-const start = state.Start;
-const end = state.CodeAt[state.End];
-if (start < 0 || end < start) {
-  return host;
+if (MemberPossibleUtil.IsSeparator(code[0])) {
+  return;
 }
-const basePos = MemberPossibleUtil.BasePos(host, start);
-const builder = new TypeBuilder(host.Template, context);
-const consumedLength = builder.LoadFrom(host.Data, start, end + 1, basePos);
-const built = builder.ParseTypeMember();
-if (!MemberPossibleUtil.MemberParsedWhole(builder, consumedLength)) {
-  return host;
+const head = MemberPossibleUtil.WithoutPending(MemberPossibleUtil.ClassifyHead(code));
+if (head === 0) {
+  return;
 }
-if (!(built instanceof PropertySignatureShape)) {
-  throw new Error("PropertySignaturePossibleShape.BuildByIndex: 产出不是 PropertySignatureShape");
+const last = code[code.length - 1];
+const boundary = MemberBoundary.FindTypeMemberBoundary(code, 0);
+let complete = false;
+let end = -1;
+if (state.Angle === 0) {
+  if (boundary >= 0 && boundary < code.length) {
+    complete = true;
+    end = boundary - 1;
+  } else if (MemberPossibleUtil.IsSeparator(last)) {
+    complete = true;
+    end = code.length - 1;
+  } else if (MemberPossibleUtil.IsCompletionBoundary(MemberPossibleUtil.NextChar(last.SourceRange))) {
+    complete = true;
+    end = code.length - 1;
+  }
 }
-host.Data.splice(start, consumedLength, built);
-// Share 由 Build 阶段更新：条目起点前进一格（被建的形状正好坐在 start 上）。
-MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
-built.Parent = host;
-return built;
+let kinds = head;
+if (complete && (kinds & (kinds - 1)) !== 0
+  && MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.PropertyKind)) {
+  if (MemberPossibleUtil.HasKind(kinds, MemberPossibleUtil.MethodKind)
+    && MemberPossibleUtil.HasParameterList(code, end)) {
+    kinds = MemberPossibleUtil.OnlyKind(MemberPossibleUtil.MethodKind);
+  } else {
+    kinds = MemberPossibleUtil.OnlyKind(MemberPossibleUtil.PropertyKind);
+  }
+}
+if (!complete || kinds === 0 || end < 0 || end >= code.length) {
+  return;
+}
+state.Complete = true;
+state.End = state.CodeAt[end];
 ```

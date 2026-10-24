@@ -7,8 +7,8 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { GetAccessorShape } from "./get-accessor-shape.xl.md"
-import { MemberPossibleScan } from "./property-signature-possible-shape.xl.md"
-import { MemberPossibleUtil } from "./property-signature-possible-shape.xl.md"
+import { MemberPossibleScan } from "../items/member-item-util.xl.md"
+import { MemberPossibleUtil } from "../items/member-item-util.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
 ```
 

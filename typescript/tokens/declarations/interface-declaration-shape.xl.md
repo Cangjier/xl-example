@@ -2,7 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
@@ -10,21 +10,15 @@ import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
-import { CallSignaturePossibleShape } from "../types/call-signature-possible-shape.xl.md"
-import { ConstructSignaturePossibleShape } from "../types/construct-signature-possible-shape.xl.md"
-import { GetAccessorPossibleShape } from "../types/get-accessor-possible-shape.xl.md"
-import { IndexSignaturePossibleShape } from "../types/index-signature-possible-shape.xl.md"
-import { MethodSignaturePossibleShape } from "../types/method-signature-possible-shape.xl.md"
-import { PropertySignaturePossibleShape } from "../types/property-signature-possible-shape.xl.md"
-import { SetAccessorPossibleShape } from "../types/set-accessor-possible-shape.xl.md"
-import { InterfaceDeclarationEndPossibleShape } from "./interface-declaration-end-possible-shape.xl.md"
+import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { InterfaceBodyItemHost, InterfaceItemRule } from "../items/interface-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -55,7 +49,7 @@ TS 的 children 顺序：名字 → 每个成员。成员就是**对象类型成
 
 ## field BodyBracket:Bracket | null = null
 
-根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationPossibleShape` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，`Close` 之外由终结候选 `InterfaceDeclarationEndPossibleShape` 在接口体括号闭合时收口。
+根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationPossibleShape` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，由接口体括号的 `BatchAdapter`（`InterfaceBodyItemHost` = `ItemListEngine(InterfaceItemRule)`）增量建成员，括号闭合时本形状的 `OnBasicTokenClosed` 走 `FinishBody` 收口。
 
 `BodyBracket` 记「已经认定的接口体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（接口体里的嵌套括号父级是接口体，不会回到本形状）。
 
@@ -91,8 +85,7 @@ if (!this.IsDefinitelyBodyBracket(bracket as Bracket)) {
 }
 const body = bracket as Bracket;
 this.BodyBracket = body;
-body.CatalogGuide = new CatalogGuide(InterfaceDeclarationShape.CreateBodyPossibleShapes());
-this.CatalogGuide = new CatalogGuide([], new InterfaceDeclarationEndPossibleShape());
+body.BatchAdapter = new InterfaceBodyItemHost(body, InterfaceDeclarationShape.CreateBodyItemRules());
 ```
 
 ## method IsDefinitelyBodyBracket:(bracket:Bracket)=>bool
@@ -126,27 +119,68 @@ if (previous instanceof Common) {
 return text !== "extends" && text !== "implements" && text !== ",";
 ```
 
-## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
+## private static field CreateBodyItemRulesCache:Array<ItemRule> | null = null
 
-## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
+## static method CreateBodyItemRules:()=>Array<ItemRule>
 
-接口体括号的候选目录：接口体成员与类型字面量的对象类型成员同口径（属性 / 方法 / 索引 / 调用 / 构造签名 / get / set 访问器）。目录只建一份，所有接口体括号共用；判定状态在各自的 `CatalogGuide` 缓存里。
+接口体 item 表的规则表：接口体只有一条规则 `InterfaceItemRule`（一条 item 就是一条对象类型成员，
+具体是哪一类由 `TypeBuilder.ParseTypeMember()` 决定）。规则表只建一份，所有接口体括号共用；
+判定状态在各自的引擎里（`InterfaceBodyItemHost.Engine`），规则实例本身无状态，共用安全。
 
-七类成员各有一个候选，`BuildFromCode` 收口时把括号 `Data` 里**已经建好的成员形状**按序收进 `Members`；仍留 raw basic token 的路径（导出 / 模块体 / 语句位置的 `FromUnits`、以及最后一个没来得及增量建出的成员）走 `BuildMembers` 兜底。
+`BuildFromCode` 收口时把括号 `Data` 里**已经建好的成员形状**按序收进 `Members`；仍留 raw basic token 的路径
+（导出 / 模块体 / 语句位置的 `FromUnits`、以及最后一个没来得及增量建出的成员）走 `BuildMembers` 兜底。
 
 ```ts
-if (InterfaceDeclarationShape.CreateBodyPossibleShapesCache === null) {
-  InterfaceDeclarationShape.CreateBodyPossibleShapesCache = [
-    new PropertySignaturePossibleShape(),
-    new MethodSignaturePossibleShape(),
-    new IndexSignaturePossibleShape(),
-    new CallSignaturePossibleShape(),
-    new ConstructSignaturePossibleShape(),
-    new GetAccessorPossibleShape(),
-    new SetAccessorPossibleShape(),
-  ];
+if (InterfaceDeclarationShape.CreateBodyItemRulesCache !== null) {
+  return InterfaceDeclarationShape.CreateBodyItemRulesCache;
 }
-return InterfaceDeclarationShape.CreateBodyPossibleShapesCache;
+InterfaceDeclarationShape.CreateBodyItemRulesCache = [new InterfaceItemRule()];
+return InterfaceDeclarationShape.CreateBodyItemRulesCache;
+```
+
+## method OnBasicTokenClosed:(token:Token, context:SyntaxContext)=>CloseStates
+
+basic token 关闭的宿主侧入口（`Bracket.Close` 只问父单元；接口体括号的父单元就是本形状）。
+
+接口体括号关闭时先 flush 括号上的 item 表引擎（把最后一条成员建掉），再把壳收口成完整声明；
+其余 basic token（头部阶段的名字 / 类型参数 / heritage 等）交回 `UnitToken` 的默认实现。
+
+```ts
+if (this.BodyBracket !== null && token === this.BodyBracket) {
+  return this.FinishBody(context);
+}
+return super.OnBasicTokenClosed(token, context);
+```
+
+## private method FinishBody:(context:SyntaxContext)=>CloseStates
+
+接口体括号闭合：flush 引擎 → 用壳自己的 `Data` 走 `BuildFromCode` → `FinishShell` 原地顶替。
+
+收口用 splice 顶替而不是 `Token.Replace`，所以 `BodyBracket` 先清空，避免重复收口；
+`FlushBatch` 在括号没有活动批次时是空操作，`Engine.Flush` 只补建「收口时才确定」的最后一条成员。
+
+```ts
+const body = this.BodyBracket;
+if (body === null) {
+  return CloseStates.Nothing;
+}
+const parent = this.Parent;
+if (parent === null) {
+  return CloseStates.Nothing;
+}
+this.BodyBracket = null;
+if (body.BatchAdapter !== null) {
+  body.FlushBatch(context);
+}
+const code:Array<Token> = [];
+for (const unit of this.Data) {
+  if (!unit.IsTriviaToken) {
+    code.push(unit);
+  }
+}
+const built = InterfaceDeclarationShape.BuildFromCode(this, code, this.Pos, context);
+BodyGuideUtil.FinishShell(parent, this, built);
+return CloseStates.Built;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>InterfaceDeclarationShape
