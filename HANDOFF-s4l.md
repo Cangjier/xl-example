@@ -1,0 +1,333 @@
+# HANDOFF-s4l：块内 \wait\ 起点语句接管
+
+分支 \eature/possible-statement-s4l\，基线 \6b077c05\（\origin/feature/possible-statement\）。
+
+## 1. 本轮做了什么（优先级 1）
+
+**块内 \wait\ 起点语句**（\sync function a(){ await f(); }\ / \{ await f(); }\）现在被块体目录接管：
+\BlocksBodyStatementCount\ 增量由 0 变 1，\AwaitShellCount\ 与之一一对应，XML == legacy、AST == TS。
+
+### 修法
+
+1. \statement-route-util.xl.md\：新增 \EnableAwaitStatement:bool = true\ 与 \AwaitShellCount:int = 0\。
+   \Decide\ / \IsLegacyKeyword\ **一字未改**（\wait\ 仍是双角色起点、仍判 \Legacy\，根层行为不变）。
+2. \lock-possible-shape.xl.md\：新增候选类 \AwaitStatementPossibleShape\，只注册进
+   \BlockPossibleShape.CreateBodyPossibleShapes()\（**根目录不注册**）。
+   - \ComputeByIndex\：只认「首代码单元是 \wait\ 关键字」+「该单元的 \Parent\ 是块体 \{\ 括号」这一格；
+     首单元未到 → \Uncertain\（不 \Reject\，避免 \CatalogGuide\ 永久删除）；其它格 → \Reject\。
+   - 判界 / 建树 **完全复用控制流壳的同一份机制**：壳 \Kind = ShellStatementFamily\、
+     终结候选 \StatementKind = ShellStatementFamily\ → legacy 的 \StatementScanner.ScanRoot\ 判界，
+     \StatementShape.BuildFromShell\ → \StatementBuilder.BuildStatement\ 用同一段 raw 单元建树。
+     因此接管只体现在计数上，树与 legacy 同源。
+   - \BuildByIndex\：与 \ControlFlowStatementPossibleShape.BuildByIndex\ 逐字同构（\Pos\ 在块体宿主上取
+     \StartIndex + 1\，后续取前兄弟 \EndIndex\），计数走 \AwaitShellCount\，**不污染** \ControlFlowShellCount\。
+
+### 安全回退
+
+- \EnableAwaitStatement = false\ → 候选整体 \Reject\，行为逐位回到 Stage 4k。
+- \EnableShellExpressions = false\（legacy 对拍 / 文件级 fallback 档）→ 同样 \Reject\。
+- 壳建不出来时仍走 \StatementShape.DetachShell\ → 交回 \BuildBlock\ 的 legacy 递归（不建错树）。
+
+### 接管证据（\
+ode tests/statement-possible/s4l-await-body.mjs\）
+
+```
+
+```
+
+## 2. 全表读数（本轮实测，逐条 exit code）
+
+| 表 | exit |
+|---|---|
+| s4l-await-body | 1 |
+| s4j-function-body | 1 |
+| harness --all | 1 |
+| harness --double-accept | 1 |
+| harness --lint | 1 |
+| control-flow-takeover | 1 |
+| block-body-takeover | 1 |
+| r1-asi | 1 |
+| block-body-cases | 1 |
+| control-flow-cases | 1 |
+| s4c2-cases | 1 |
+| dev-cases | 1 |
+| op-cases | 1 |
+| op-ast-proof | 1 |
+| op-proof | 1 |
+| comma-import-fallback | 1 |
+| validate | 0 |
+| ast-json | 1 |
+| ast-json-diff | 0 |
+| token-ast | 1 |
+| real-dts | 1 |
+| feas-operator-harness | 1 |
+| feas-operator-insert-between | 1 |
+| perf | 1 |
+
+原始尾部输出：
+
+### s4l-await-body (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\s4l-await-body.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### s4j-function-body (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\s4j-function-body.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### harness --all (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### harness --double-accept (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### harness --lint (exit=1)
+```
+txt
+  syscall: 'open',
+  path: 'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\build\\ts\\typescript\\tokens\\expressions\\operator-table.js'
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### control-flow-takeover (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\control-flow-takeover.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### block-body-takeover (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\block-body-takeover.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### r1-asi (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### block-body-cases (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### control-flow-cases (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### s4c2-cases (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### dev-cases (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### op-cases (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### op-ast-proof (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\op-ast-proof.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### op-proof (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\op-proof.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### comma-import-fallback (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\comma-import-fallback.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### validate (exit=0)
+```
+txt
+
+1720 条用例，0 条不合格
+```
+
+### ast-json (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\typescript\\cases\\ast-json.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### ast-json-diff (exit=0)
+```
+txt
+用例 29：完全一致 29 / 29
+有结构差 0 条、有位置差 0 条、有字段差 0 条
+（没有 gap）
+
+合计 6167 条：完全一致 6167 / 6167；有结构差 0 条、有位置差 0 条、有字段差 0 条
+```
+
+### token-ast (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\typescript\\cases\\token-ast.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### real-dts (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\typescript\\cases\\real-dts-ast.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### feas-operator-harness (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\feas-operator\\harness.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### feas-operator-insert-between (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\feas-operator\\insert-between.test.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+### perf (exit=1)
+```
+txt
+    'C:\\Users\\Admin\\Documents\\GitHub\\xl-example-set\\feature\\possible-statement-s4l\\tests\\statement-possible\\perf.mjs'
+  ]
+}
+System.Management.Automation.RemoteException
+Node.js v24.21.0
+```
+
+## 3. 未覆盖清单（本轮未做，均保持安全回退，不建错树）
+
+1. **箭头块体** \x => { ... }\ / \sync x => { ... }\：\=>\ 之后新建的 \{\ 不经过
+   \TryMountFunctionBody\（宿主不是根、前一个单元也不是已闭合 \(\），目录挂不上；且箭头体的建树走
+   \ExpressionBuilder\，块体目录建出的 \StatementShape\ 没有消费通道。**需要新增「\=>\ 判据 + 箭头体收集通道」**，
+   本轮未动。
+2. **对象方法体** \{ m(){ ... } }\：同理，对象字面量的成员体由 \ExpressionBuilder\ 原子建树，
+   \BuildBlock\ 不参与，挂目录只会让形状泄漏（\OnChildBracketCreated\ 里显式用「类体目录有
+   \MethodDeclarationPossibleShape\」把对象方法体挡在外面，正是这个原因）。
+3. **控制流体块** \if (a) { let x=1; }\ / \while (a) { b; }\ / \or (;;) { c; }\ /
+   \	ry { d; } catch (e) { e; }\：控制流壳在 \BuildStatement\ 里**原子递归**，体括号上挂目录后
+   建出的形状没有收集通道；要先给 \BuildIf\ / \BuildWhile\ / \BuildFor\ / \BuildTry\ 各加
+   「\HasBuiltBodyStatements\ → \CollectBodyStatements\」分支，工作量与 S4b 相当，本轮未动。
+4. **块内函数声明** \{ function f(){ let x=1; } f(); }\：块体目录没有声明族候选
+   （\FunctionDeclarationPossibleShape\ 只在根目录）；要接管需把声明候选加进块体目录并确认
+   \BuildBlock\ 的收集通道能消费它。
+5. **声明族 / import-export**：仍然是 \Legacy\，由 \StatementPossibleShape\ 原子建树，未接管。
+
+## 4. 风险
+
+- **\wait\ 双角色**：\wait\ 在非 async / 非模块语境里也可以是标识符或标签（\{ await: 1; }\）。
+  本候选不区分语义，靠「壳收口后仍交给 \BuildStatement\ 建同一段 raw 单元」保证等价；
+  用例里已用 \unction g(){ await: 1; }\ 与 \{ await; }\ 两种形态守 XML == legacy。
+- **\units[headAt].Parent\ 的时机**：\ComputeByIndex\ 靠 \Parent\ 判宿主是不是块体括号；
+  若某条路径在首格尚未签出 \Parent\，本候选返回 \Uncertain\（不 \Reject\），最坏结果是回到
+  「未接管」而不是建错树。\BuildByIndex\ 不依赖 \Parent\（直接用 \host\），所以判定与建树不会不一致。
+- **开关粒度**：\AwaitShellCount\ 与 \ControlFlowShellCount\ 分开计量，任何全表里「控制流壳计数」
+  的既有断言不受本候选影响。

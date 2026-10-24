@@ -186,6 +186,24 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 进程内累计「被标签候选建成壳的标签语句」条数（只增不减）。与 `ControlFlowShellCount` 分开计量：
 标签在 `:` 那一格建壳，控制流族在首代码单元建壳，两者的接管读数不能混在一个数里。
 
+## static field EnableAwaitStatement:bool = true
+
+**Stage 4l：块体目录里的 `await` 起点语句**。`await` 在冻结的 `IsLegacyKeyword` 里是**双角色起点**
+（`await f()` 的关键字前缀，与旧式 `await` 标识符 / 标签），`Decide` 一律判成 `StatementRoute.Legacy`：
+根层由 `StatementPossibleShape` 原子建树，行为一字不改。块体目录里没有 legacy 候选，所以
+`async function a(){ await f(); }` 的 `await` 语句只能整段留在 raw 段（`BlockBodyStatementCount` 不增；
+`BuildBlock` 的 legacy 递归仍建对树——那是「未接管」，不是「建错」）。
+
+`true` = `BlockPossibleShape.CreateBodyPossibleShapes` 多注册一个 `AwaitStatementPossibleShape`，
+只对**块体 `{` 括号**上的 `await` 首代码单元 `Accept`，壳 `Kind` / 终结候选都取
+`StatementRoute.ShellStatementFamily`——判界走 legacy 的 `ScanRoot`、建树走 `StatementBuilder.BuildStatement`
+（同一段 raw 单元、同一份建造器），所以接管只体现在计数上，XML / AST 与 legacy 逐字节一致。
+`false` = 该候选整体 `Reject`，行为逐位回到 Stage 4k（安全回退，不靠候选先后）。
+
+## static field AwaitShellCount:int = 0
+
+进程内累计「块体目录里由 `await` 起点建成壳的语句」条数（只增不减）。与 `ControlFlowShellCount` **分开计量**：
+`await` 走同一条壳机制，但它是双角色起点、只在块体目录补的入口，接管读数必须能从计数里直接读出来。
 ## static method IsControlFlowHead:(text:string)=>bool
 
 `ShellStatementFamily` 的**关键字起点集合**：只有真正能起一条语句的控制流关键字。
