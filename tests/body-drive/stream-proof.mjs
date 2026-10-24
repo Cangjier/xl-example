@@ -302,7 +302,121 @@ for (const testCase of CASES) {
   );
 }
 
-console.log(`\nPASS ${pass} / FAIL ${fail}（${CASES.length} 段语料）`);
+// ---------------------------------------------------------------------------
+// 第六段（WP-6-5）：try / catch / finally —— 三个块的块体由 `StatementBodyItemHost` 驱动，
+// 且流式挂载与闭合后批处理的整树 XML 逐字节一致。
+//
+// 三个块都走 `BuildTry → BuildStatement → BuildBlock`：`try {` / `finally {` / `catch ( … ) {`
+// 在 `StatementBlockStream` 的前缀白名单里，`{` 创建时就挂宿主，item 在解析期建出；
+// `catch {`（可选绑定）不在白名单里，退回 `BuildBlock` 的 legacy 循环 —— 空块用例把它钉住。
+// ---------------------------------------------------------------------------
+const TRY_CASES = [
+  { name: "try-finally", empty: false, source: `function f(){ try { let a = 1; if (a) { a = 2; } } finally { let b = 3; } }` },
+  { name: "try-catch", empty: false, source: `function f(){ try { let a = 1; } catch (e) { throw e; } }` },
+  { name: "try-catch-finally", empty: false, source: `function f(){ try { let a = 1; return a; } catch (e) { let b = 2; } finally { let c = 3; } }` },
+  { name: "nested-try", empty: false, source: `function f(){ try { try { let a = 1; } finally { let b = 2; } } catch (e) { let c = 3; } }` },
+  { name: "catch-annotation", empty: false, source: `function f(){ try { let a = 1; } catch (e: any) { let b = 2; } }` },
+  { name: "empty-blocks", empty: true, source: `function f(){ try { } catch { } finally { } }` },
+];
+
+function tryHeadKind(units, at) {
+  let i = at - 1;
+  while (i >= 0 && units[i].IsTriviaToken) i--;
+  if (i < 0) return "other";
+  const unit = units[i];
+  let text = "";
+  try {
+    text = unit instanceof Bracket ? "" : (typeof unit.TempToString === "function" ? unit.TempToString() : "");
+  } catch (e) {
+    text = "";
+  }
+  if (text === "try" || text === "finally" || text === "catch") return text;
+  if (unit instanceof Bracket && unit.StartBracketChar === "(") {
+    let j = i - 1;
+    while (j >= 0 && units[j].IsTriviaToken) j--;
+    if (j >= 0) {
+      try {
+        if (typeof units[j].TempToString === "function" && units[j].TempToString() === "catch") return "catch";
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }
+  return "other";
+}
+
+// `Bracket` 的导入：本文件的打桩段只用到 SourceFileRunner / StatementBlockStream / StatementItemRule，
+// try 族判定需要构造器身份。
+const { Bracket } = require(path.join(root, "build/ts/core/syntax/basic-tokens/bracket.js"));
+
+console.log("\n## try/catch/finally：三个块都挂 StatementBodyItemHost，整树 XML 与批处理一致");
+let tryMounts = [];
+const tryHookBefore = StatementBlockStream.Hook;
+StatementBlockStream.Hook = function (bracket, host, context) {
+  const prior = bracket.BatchAdapter;
+  tryHookBefore.call(StatementBlockStream, bracket, host, context);
+  if (bracket.BatchAdapter !== prior && bracket.BatchAdapter !== null) {
+    tryMounts.push({
+      kind: tryHeadKind(host.Data, host.Data.length - 1),
+      bracket,
+      adapter: bracket.BatchAdapter.constructor.name,
+    });
+  }
+};
+try {
+  for (const testCase of TRY_CASES) {
+    tryMounts = [];
+    let streamed = "";
+    try {
+      streamed = SourceFileRunner.Parse(testCase.source, `${testCase.name}-try-stream.ts`).ToXmlString();
+    } catch (e) {
+      check(false, `${testCase.name}: 流式解析成功`, String(e && e.message ? e.message : e));
+      continue;
+    }
+    const counts = { try: 0, catch: 0, finally: 0 };
+    for (const mount of tryMounts) {
+      if (counts[mount.kind] === undefined) continue;
+      counts[mount.kind]++;
+      check(
+        mount.adapter === "StatementBodyItemHost",
+        `${testCase.name}: ${mount.kind} 块挂 StatementBodyItemHost`,
+        mount.adapter,
+      );
+      const items = mount.bracket.Data.filter((u) => !u.IsBasicToken && !u.IsTriviaToken).length;
+      if (testCase.empty) {
+        check(items === 0, `${testCase.name}: ${mount.kind} 空块建出 0 item`, `items=${items}`);
+      } else {
+        check(items > 0, `${testCase.name}: ${mount.kind} 块内 item 在解析期建出`, `items=${items}`);
+      }
+    }
+    const expectedTry = (testCase.source.match(/\btry\s*\{/g) || []).length;
+    const expectedCatch = (testCase.source.match(/\bcatch\s*\(/g) || []).length;
+    const expectedFinally = (testCase.source.match(/\bfinally\s*\{/g) || []).length;
+    check(counts.try === expectedTry, `${testCase.name}: try 块全部挂载`, `${counts.try}/${expectedTry}`);
+    check(counts.catch === expectedCatch, `${testCase.name}: catch (…) 块全部挂载`, `${counts.catch}/${expectedCatch}`);
+    check(counts.finally === expectedFinally, `${testCase.name}: finally 块全部挂载`, `${counts.finally}/${expectedFinally}`);
+    StatementBlockStream.Enabled = false;
+    let batch = "";
+    try {
+      batch = SourceFileRunner.Parse(testCase.source, `${testCase.name}-try-batch.ts`).ToXmlString();
+    } catch (e) {
+      check(false, `${testCase.name}: 批处理解析成功`, String(e && e.message ? e.message : e));
+      StatementBlockStream.Enabled = true;
+      continue;
+    }
+    StatementBlockStream.Enabled = true;
+    check(
+      streamed === batch,
+      `${testCase.name}: try 族流式 == 闭合后批处理（XML 逐字节）`,
+      `stream=${streamed.length}B batch=${batch.length}B`,
+    );
+  }
+} finally {
+  StatementBlockStream.Hook = tryHookBefore;
+  StatementBlockStream.Enabled = true;
+}
+
+console.log(`\nPASS ${pass} / FAIL ${fail}（${CASES.length + TRY_CASES.length} 段语料）`);
 if (fail > 0) {
   console.log("失败项：");
   for (const line of failures) {
