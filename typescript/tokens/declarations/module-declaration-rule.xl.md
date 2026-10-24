@@ -1,12 +1,11 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -28,7 +27,7 @@ import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 
 ## field End:int = -1
 
-# class ModuleDeclarationPossibleShape extends PossibleShape
+# class ModuleDeclarationRule extends RootRule
 
 根级模块声明候选：`[export | declare] namespace|module` + 名字（标识符或字符串）+ 可选限定名 `.` 链 + 闭合的 `{ … }`。
 
@@ -258,13 +257,13 @@ const state = cache.GetState<ModuleDeclarationScan>(this.Slot());
 return state !== null && state.Status === 1 && state.End >= 0;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 按 `state.End`（`{` 在 `host.Data` 里的下标）只消费到该格为止；`Pos` 口径与 `StatementPossibleShape` 一致：
 先取 `start` 之前最后一个非 trivia 单元的 `EndIndex`，再逐格推进（trivia 不推进 `Pos`）。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ModuleDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<ModuleDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 let end = state === null ? tokenIndex : state.End;
 if (end < start) {

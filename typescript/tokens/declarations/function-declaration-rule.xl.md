@@ -2,9 +2,8 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -57,7 +56,7 @@ import { StatementScanner } from "../statements/statement-scanner.xl.md"
 
 ## field SplitAt:int = -1
 
-# class FunctionDeclarationPossibleShape extends PossibleShape
+# class FunctionDeclarationRule extends RootRule
 
 ```txt
 function f() {}
@@ -140,7 +139,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       continue;
     }
     if (unit instanceof Common && (unit as Common).Is("function")) {
-      if (FunctionDeclarationPossibleShape.NoNewlineBefore(units, at)) {
+      if (FunctionDeclarationRule.NoNewlineBefore(units, at)) {
         state.Stage = 1;
         continue;
       }
@@ -233,13 +232,13 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 3) {
     // ASI: a statement word after a line break ends this declaration here (e.g. "declare function f(): void\nclass C {}").
-    if (FunctionDeclarationPossibleShape.IsDecoratedDeclarationStart(units, at)) {
+    if (FunctionDeclarationRule.IsDecoratedDeclarationStart(units, at)) {
       // 换行后的 `@dec` 是**下一条声明**（装饰器属于它），本条无体函数到此结束。
       state.Rejected = true;
       continue;
     }
     if (unit instanceof Common
-      && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
+      && FunctionDeclarationRule.LineBreakBefore(units, at)
       && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
       state.Rejected = true;
       continue;
@@ -265,14 +264,14 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   }
   if (state.Stage === 4) {
     // ASI: a statement word after a line break ends the no-body declaration, even inside the return type.
-    if (FunctionDeclarationPossibleShape.IsDecoratedDeclarationStart(units, at)) {
+    if (FunctionDeclarationRule.IsDecoratedDeclarationStart(units, at)) {
       // 返回类型之后换行、下一行以 `@` 开头：装饰器属于下一条声明，本函数在换行处截断（不再把
       // 下一条声明的 `{…}` 当成函数体）。与 `class` 等 statement word 同一条 ASI 边界，只是 `@` 是 Symbol。
       state.Rejected = true;
       continue;
     }
     if (unit instanceof Common
-      && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
+      && FunctionDeclarationRule.LineBreakBefore(units, at)
       && ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
       state.Rejected = true;
       continue;
@@ -304,7 +303,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       || nextText === "import";
     if (unit instanceof Common
       && !typeContinuation
-      && FunctionDeclarationPossibleShape.LineBreakBefore(units, at)
+      && FunctionDeclarationRule.LineBreakBefore(units, at)
       && !ExpressionStatementPossibleShape.IsStatementWord((unit as Common).TempToString())) {
       let previous = at - 1;
       while (previous >= 0 && units[previous].IsTriviaToken) {
@@ -387,10 +386,10 @@ const state = cache.GetState<FunctionDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<FunctionDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<FunctionDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;

@@ -1061,7 +1061,7 @@ return !StatementScanner.NoLineBreakBetween(units[previous], units[at]);
 装饰器在 TS 词法里是 Symbol `@`（不是 `Common`），`IsStatementWord` 那条 ASI 判据看不到它；
 `declare function f(): void` ⏎ `@dec class C {}` 会在 `@` 处被继续当成返回类型内容，最终把下一条声明
 的 `{…}` 收成函数体。这里把「换行后的 `@`」与 statement word 同等对待（与
-`FunctionDeclarationPossibleShape.IsDecoratedDeclarationStart` 同一份判据，两处共读这一个函数）。
+`FunctionDeclarationRule.IsDecoratedDeclarationStart` 同一份判据，两处共读这一个函数）。
 
 ```ts
 if (at < 0 || at >= units.length) {

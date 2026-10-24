@@ -1,10 +1,9 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -57,7 +56,7 @@ Stage 1 直接 `Reject`，把位置留给 export 候选。
 
 ## field SawDecorator:bool = false
 
-# class TypeAliasDeclarationPossibleShape extends PossibleShape
+# class TypeAliasDeclarationRule extends RootRule
 
 ```txt
 type T = number;
@@ -206,7 +205,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     while (typeAt >= 0 && units[typeAt].IsTriviaToken) {
       typeAt--;
     }
-    if (typeAt >= 0 && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(units, typeAt, at)) {
+    if (typeAt >= 0 && TypeAliasDeclarationRule.HasLineBreakBetween(units, typeAt, at)) {
       state.Rejected = true;
       continue;
     }
@@ -234,12 +233,12 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     continue;
   }
   if (state.SeenEqual && state.LastCode >= 0
-    && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(units, state.LastCode, at)
-    && TypeAliasDeclarationPossibleShape.CanEndTypeAt(units[state.LastCode])
+    && TypeAliasDeclarationRule.HasLineBreakBetween(units, state.LastCode, at)
+    && TypeAliasDeclarationRule.CanEndTypeAt(units[state.LastCode])
     // 函数类型的类型参数表 `= <U>` 之后那个 `(` 是参数表，不是新语句。
     && !(unit instanceof Bracket && (unit as Bracket).StartBracketChar === "("
-      && TypeAliasDeclarationPossibleShape.ClosesFunctionTypeParameters(units, state.LastCode))
-    && TypeAliasDeclarationPossibleShape.IsAsiBoundary(units, state.LastCode, at)) {
+      && TypeAliasDeclarationRule.ClosesFunctionTypeParameters(units, state.LastCode))
+    && TypeAliasDeclarationRule.IsAsiBoundary(units, state.LastCode, at)) {
     state.Done = true;
     state.AsiEnd = true;
     if (state.DoneAt < 0) {
@@ -318,7 +317,7 @@ if (unit instanceof Bracket) {
     return false;
   }
   // 泛型函数类型的参数表：`<T>` ⏎ `(a: T) => T` 的 `(` 不是新语句。
-  return !TypeAliasDeclarationPossibleShape.IsTypeParameterListTail(units, last);
+  return !TypeAliasDeclarationRule.IsTypeParameterListTail(units, last);
 }
 if (unit instanceof String || unit instanceof RegexToken) {
   // 字面量（含模板 / 正则）不能续接类型：`type T = A` ⏎ 字符串 / 模板 / 正则 都是下一条语句。
@@ -483,13 +482,13 @@ const state = cache.GetState<TypeAliasDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 行末 ASI 收口时 `tokenIndex` 是下一条语句的首 token：先把它排除，只把声明本体的单元切出来；
 `host.Data.splice` 也少吞一格，边界 token 留在原处由下一条语句重新处理。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<TypeAliasDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<TypeAliasDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 let end = tokenIndex;
 if (state !== null && state.AsiEnd) {

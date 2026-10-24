@@ -1,10 +1,9 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
@@ -19,7 +18,7 @@ import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.
 # namespace cangjie
 
 `import x = require("m");` / `import x = A.B;` 的候选：第一条代码单元必须是 `import`，`<名字>` `=` `<require(...) | 实体名>` `;`。
-扫描按阶段推进（`Stage`），任何一步不符即 `Reject`；顶层 `;` 到且阶段收束时 `Done`，`IsBuildable` 只在 `;` 那一格为真——与 `TypeAliasDeclarationPossibleShape` 同一套时序。
+扫描按阶段推进（`Stage`），任何一步不符即 `Reject`；顶层 `;` 到且阶段收束时 `Done`，`IsBuildable` 只在 `;` 那一格为真——与 `TypeAliasDeclarationRule` 同一套时序。
 
 # class ImportEqualsDeclarationScan
 
@@ -39,7 +38,7 @@ import { ImportEqualsDeclarationShape } from "./import-equals-declaration-shape.
 
 ## field AsiEnd:bool = false
 
-# class ImportEqualsDeclarationPossibleShape extends PossibleShape
+# class ImportEqualsDeclarationRule extends RootRule
 
 ```txt
 import x = require("m");
@@ -87,7 +86,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
   if (state.Stage === 6 && previousCode >= 0
     && units[previousCode] instanceof Common
     && !(unit instanceof Symbol && ((unit as Symbol).Is(".") || (unit as Symbol).Is(";")))
-    && ImportEqualsDeclarationPossibleShape.HasLineBreakBetween(units, previousCode, at)) {
+    && ImportEqualsDeclarationRule.HasLineBreakBetween(units, previousCode, at)) {
     // 实体名行末 ASI：`import A = foo` ⏎ `("m");`——边界 token 不属于本声明。
     state.Done = true;
     state.AsiEnd = true;
@@ -112,7 +111,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     // import-equals declaration: <name> followed by "=". Anything else (from / "," / "{" / quote / "*")
     // rejects now, so ImportDeclarationPossibleShape stays the only candidate and mounts its shell
     // at exactly the same token as before this candidate existed.
-    if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange) !== "=") {
+    if (ImportEqualsDeclarationRule.NextAfterName(unit.SourceRange) !== "=") {
       state.Rejected = true;
     }
     continue;
@@ -121,7 +120,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     // after `export`: the next code unit must be `import`, then the same "=" lookahead decides.
     if (unit instanceof Common && (unit as Common).Is("import")) {
       state.Stage = 1;
-      if (ImportEqualsDeclarationPossibleShape.NextAfterName(unit.SourceRange) !== "=") {
+      if (ImportEqualsDeclarationRule.NextAfterName(unit.SourceRange) !== "=") {
         state.Rejected = true;
       }
     } else {
@@ -149,7 +148,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
         break;
       }
     }
-    if (!hasLaterCode && ImportEqualsDeclarationPossibleShape.NextChar(unit.SourceRange) !== "=") {
+    if (!hasLaterCode && ImportEqualsDeclarationRule.NextChar(unit.SourceRange) !== "=") {
       state.Rejected = true;
     }
     continue;
@@ -237,10 +236,10 @@ const state = cache.GetState<ImportEqualsDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ImportEqualsDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<ImportEqualsDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
@@ -278,7 +277,7 @@ if (document === null) {
 const count = document.GetCount();
 const whole = SourceRange.Whole(document);
 let at = last.EndIndex;
-at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
+at = ImportEqualsDeclarationRule.SkipTrivia(document, at, count);
 const wordStart = at;
 let wordLength = 0;
 while (at < count) {
@@ -300,7 +299,7 @@ if (wordLength === 4
   && whole.At(wordStart + 1) === "y"
   && whole.At(wordStart + 2) === "p"
   && whole.At(wordStart + 3) === "e") {
-  at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
+  at = ImportEqualsDeclarationRule.SkipTrivia(document, at, count);
   let nameLength = 0;
   while (at < count) {
     const ch = whole.At(at);
@@ -315,7 +314,7 @@ if (wordLength === 4
     return "";
   }
 }
-at = ImportEqualsDeclarationPossibleShape.SkipTrivia(document, at, count);
+at = ImportEqualsDeclarationRule.SkipTrivia(document, at, count);
 if (at >= count) {
   return "";
 }

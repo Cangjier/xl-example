@@ -13,15 +13,15 @@ import { EnumDeclarationPossibleShape } from "../declarations/enum-declaration-p
 import { ExportAssignmentRule } from "../declarations/export-assignment-rule.xl.md"
 import { ExportDeclarationPossibleShape } from "../declarations/export-declaration-possible-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
-import { FunctionDeclarationPossibleShape } from "../declarations/function-declaration-possible-shape.xl.md"
+import { FunctionDeclarationRule } from "../declarations/function-declaration-rule.xl.md"
 import { ImportDeclarationPossibleShape } from "../declarations/import-declaration-possible-shape.xl.md"
-import { ImportEqualsDeclarationPossibleShape } from "../declarations/import-equals-declaration-possible-shape.xl.md"
+import { ImportEqualsDeclarationRule } from "../declarations/import-equals-declaration-rule.xl.md"
 import { InterfaceDeclarationPossibleShape } from "../declarations/interface-declaration-possible-shape.xl.md"
-import { ModuleDeclarationPossibleShape } from "../declarations/module-declaration-possible-shape.xl.md"
+import { ModuleDeclarationRule } from "../declarations/module-declaration-rule.xl.md"
 import { NamespaceExportDeclarationRule } from "../declarations/namespace-export-declaration-rule.xl.md"
 import { SourceFileTailBuilder } from "../items/source-file-tail-builder.xl.md"
 import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
-import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
+import { TypeAliasDeclarationRule } from "../declarations/type-alias-declaration-rule.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
 
@@ -190,23 +190,23 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new ImportDeclarationPossibleShape(),
     new ExportDeclarationPossibleShape(),
     new StatementPossibleShape(),
-    // new ImportEqualsDeclarationPossibleShape(),
+    // new ImportEqualsDeclarationRule(),
     // new ExportAssignmentRule(),
     // new NamespaceExportDeclarationRule(),
-    new ImportEqualsDeclarationPossibleShape(),
+    new ImportEqualsDeclarationRule(),
     new ClassDeclarationPossibleShape(),
     new InterfaceDeclarationPossibleShape(),
     new ExportAssignmentRule(),
     new NamespaceExportDeclarationRule(),
     // new ClassDeclarationPossibleShape(),
     // new InterfaceDeclarationPossibleShape(),
-    // new FunctionDeclarationPossibleShape(),
-    new FunctionDeclarationPossibleShape(),
+    // new FunctionDeclarationRule(),
+    new FunctionDeclarationRule(),
     new EnumDeclarationPossibleShape(),
-    // new ModuleDeclarationPossibleShape(),
+    // new ModuleDeclarationRule(),
     // new EnumDeclarationPossibleShape(),
-    new ModuleDeclarationPossibleShape(),
-    new TypeAliasDeclarationPossibleShape(),
+    new ModuleDeclarationRule(),
+    new TypeAliasDeclarationRule(),
     // new VariableStatementPossibleShape(),
     // new BlockPossibleShape(),
     // new EmptyStatementPossibleShape(),

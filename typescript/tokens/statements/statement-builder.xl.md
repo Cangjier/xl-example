@@ -15,7 +15,7 @@ import { ClassDeclarationShape } from "../declarations/class-declaration-shape.x
 import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
-import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
+import { TypeAliasDeclarationRule } from "../declarations/type-alias-declaration-rule.xl.md"
 import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -1179,7 +1179,7 @@ return text === "class" || text === "abstract" || text === "interface" || text =
 ## method BuildTypeAliasDeclaration:()=>Token
 
 块 / 被标体位置的 `type X = …`：交给 `TypeAliasDeclarationShape.FromUnits`，末单元是 `;` 或本段最后单元（无分号 ASI）。
-无分号时与根级的 `TypeAliasDeclarationPossibleShape` 读同一套收口判据（`=` 之后类型已完整 + 换行 +
+无分号时与根级的 `TypeAliasDeclarationRule` 读同一套收口判据（`=` 之后类型已完整 + 换行 +
 `IsAsiBoundary`）：`{ type T = A` ⏎ `(b) }` 的 `(b)` 是下一条语句，不能喂给类型解析。
 
 ```ts
@@ -1200,9 +1200,9 @@ for (let at = first; at < this.Units.length; at++) {
     break;
   }
   if (at > first && seenEqual && lastCode >= first
-    && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(this.Units, lastCode, at)
-    && TypeAliasDeclarationPossibleShape.CanEndTypeAt(this.Units[lastCode])
-    && TypeAliasDeclarationPossibleShape.IsAsiBoundary(this.Units, lastCode, at)) {
+    && TypeAliasDeclarationRule.HasLineBreakBetween(this.Units, lastCode, at)
+    && TypeAliasDeclarationRule.CanEndTypeAt(this.Units[lastCode])
+    && TypeAliasDeclarationRule.IsAsiBoundary(this.Units, lastCode, at)) {
     end = lastCode;
     break;
   }

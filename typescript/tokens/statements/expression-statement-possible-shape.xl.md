@@ -259,7 +259,7 @@ if (units[index] instanceof Common) {
     }
   }
   if (keywordText === "type") {
-    // 声明头判据与 TypeAliasDeclarationPossibleShape 的 Stage 1 读同一份：
+    // 声明头判据与 TypeAliasDeclarationRule 的 Stage 1 读同一份：
     // 同行 + 名字 + `=`/`<`。两者不一致会一边判「别名」一边判「表达式」（候选共存 crash）。
     const headCode:Array<Token> = [units[index]];
     for (let at = index + 1; at < units.length; at++) {
