@@ -22,7 +22,6 @@ import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
-import { NoSubstitutionTemplateLiteralShape } from "../literals/no-substitution-template-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { RegularExpressionLiteralShape } from "../literals/regular-expression-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
@@ -47,8 +46,13 @@ legacy 逐字段一致是**结构性**的，而不是靠对拍凑出来的。
 
 **S3d 覆盖子集**：标识符 / 数字 / 大整数 / `true false null this` 关键字 / 圆括号叶子，`+ - * / %` 之外再加
 比较族、逻辑、位、移位、`**`、`instanceof`/`in` 的全部二元节点，以及 `! ~ + - typeof void delete` 前缀节点。
-成员访问、调用、索引、数组/对象字面量、字符串 / 模板 / 正则、赋值 / 逗号 / 条件、`++ --`、`new` 等一律返回 `null`
+成员访问、调用、索引、数组字面量、字符串 / 正则、赋值 / 逗号 / 条件、`++ --` 等一律返回 `null`
 （见 `HANDOFF-s3d.md` 未覆盖清单），由调用方回 legacy。
+
+**S3g 追加覆盖**：对象字面量（`KindObject` → `ParseObjectLiteral`）、`new`（`KindNew` → `ParseNew`）、
+可选链三种形态（`?.` 的 `QuestionDotTokenShape` 用 `MakeOperatorToken` 建，与 `ParsePostfixSuffix` 同口径）、
+带内插模板（`KindTemplate` 统一走 `ParseTemplateToken`：无内插时它返回 `NoSubstitutionTemplateLiteralShape`，
+有内插时返回 `TemplateExpressionShape`，两者由同一段 legacy 代码决定 `Pos` 与区间）。
 
 **覆盖判据**：形状树覆盖的单元下标必须**恰好**是 `0..Units.length-1`（递增、无空洞、无多余）。这条比
 `IsComplete()` 更强——它证明「整段表达式都被这棵树解释掉了」，任何一格没被解释就回 legacy。
@@ -199,9 +203,11 @@ if (shape.Kind === StatementOperandShape.KindString
     if (!(raw instanceof String)) {
       return StatementShapeAst.Decline("模板叶子不是 String 单元");
     }
-    const literal = NoSubstitutionTemplateLiteralShape.FromBasicToken(raw as String, context);
-    literal.Pos = builder.Positions[index];
-    return literal;
+    const savedAt = builder.At;
+    builder.At = index;
+    const templateLiteral = builder.ParseTemplateToken();
+    builder.At = savedAt;
+    return templateLiteral;
   }
   if (!(raw instanceof RegexToken)) {
     return StatementShapeAst.Decline("正则叶子不是 RegexToken");
@@ -454,6 +460,172 @@ if (shape.Kind === StatementOperandShape.KindPrefix) {
   }
   prefix.Add(operand);
   return builder.SpanNode(prefix, opIndex, lastIndex);
+}
+if (shape.Kind === StatementOperandShape.KindObject) {
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof Bracket)) {
+    return StatementShapeAst.Decline("对象字面量没有括号单元");
+  }
+  const bracket = raw as Bracket;
+  if (bracket.StartBracketChar !== "{") {
+    return StatementShapeAst.Decline("对象字面量不是花括号");
+  }
+  const index = builder.Units.indexOf(bracket);
+  if (index < 0) {
+    return StatementShapeAst.Decline("对象字面量单元不在表达式里");
+  }
+  covered.push(index);
+  return builder.ParseObjectLiteral(bracket, index);
+}
+if (shape.Kind === StatementOperandShape.KindNew) {
+  const raw = shape.Raw;
+  if (raw === null) {
+    return StatementShapeAst.Decline("new 没有关键字单元");
+  }
+  const newIndex = builder.Units.indexOf(raw);
+  if (newIndex < 0) {
+    return StatementShapeAst.Decline("new 关键字不在表达式里");
+  }
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("new 不是单个被构造者");
+  }
+  const savedAt = builder.At;
+  builder.At = newIndex;
+  let value:Token | null = null;
+  try {
+    value = builder.ParseNew();
+  } catch (error) {
+    builder.At = savedAt;
+    return StatementShapeAst.Decline("new 表达式交给 legacy 解析失败");
+  }
+  const after = builder.At;
+  builder.At = savedAt;
+  if (after <= newIndex) {
+    return StatementShapeAst.Decline("new 表达式没有消费单元");
+  }
+  for (let at = newIndex; at < after; at++) {
+    covered.push(at);
+  }
+  return value;
+}
+if (shape.Kind === StatementOperandShape.KindOptionalMember) {
+  if (shape.Data.length !== 2) {
+    return StatementShapeAst.Decline("可选成员访问不是两个子节点");
+  }
+  const dotRaw = shape.Raw;
+  if (dotRaw === null) {
+    return StatementShapeAst.Decline("可选成员没有 ?. 单元");
+  }
+  const at = covered.length;
+  const object = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (object === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const dotIndex = builder.Units.indexOf(dotRaw);
+  if (dotIndex < 0) {
+    return StatementShapeAst.Decline("?. 单元不在表达式里");
+  }
+  covered.push(dotIndex);
+  const name = StatementShapeAst.BuildNode(shape.Data[1], builder, context, covered);
+  if (name === null) {
+    return null;
+  }
+  const access = new PropertyAccessExpressionShape(builder.Template);
+  access.Add(object);
+  access.Add(builder.MakeOperatorToken(dotRaw, dotIndex));
+  access.Add(name);
+  return builder.SpanNode(access, firstIndex, covered[covered.length - 1]);
+}
+if (shape.Kind === StatementOperandShape.KindOptionalCall) {
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("可选调用不是单个被调用者");
+  }
+  const dotRaw = shape.Raw;
+  const rawArgs = shape.Args;
+  if (dotRaw === null || rawArgs === null || !(rawArgs instanceof Bracket)) {
+    return StatementShapeAst.Decline("可选调用缺少 ?. 或实参括号");
+  }
+  const bracket = rawArgs as Bracket;
+  if (bracket.StartBracketChar !== "(") {
+    return StatementShapeAst.Decline("可选调用实参不是圆括号");
+  }
+  const at = covered.length;
+  const callee = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (callee === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const dotIndex = builder.Units.indexOf(dotRaw);
+  if (dotIndex < 0) {
+    return StatementShapeAst.Decline("?. 单元不在表达式里");
+  }
+  covered.push(dotIndex);
+  const bracketIndex = builder.Units.indexOf(bracket);
+  if (bracketIndex < 0) {
+    return StatementShapeAst.Decline("可选调用括号不在表达式里");
+  }
+  covered.push(bracketIndex);
+  const call = new CallExpressionShape(builder.Template);
+  call.Add(callee);
+  call.Add(builder.MakeOperatorToken(dotRaw, dotIndex));
+  const args = builder.ParseBracketArguments(bracket);
+  for (const arg of args) {
+    call.Add(arg);
+  }
+  return builder.SpanNode(call, firstIndex, bracketIndex);
+}
+if (shape.Kind === StatementOperandShape.KindOptionalIndex) {
+  if (shape.Data.length !== 2) {
+    return StatementShapeAst.Decline("可选索引不是两个子节点");
+  }
+  const dotRaw = shape.Raw;
+  const rawArgs = shape.Args;
+  if (dotRaw === null || rawArgs === null || !(rawArgs instanceof Bracket)) {
+    return StatementShapeAst.Decline("可选索引缺少 ?. 或方括号");
+  }
+  const bracket = rawArgs as Bracket;
+  if (bracket.StartBracketChar !== "[") {
+    return StatementShapeAst.Decline("可选索引不是方括号");
+  }
+  const at = covered.length;
+  const object = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (object === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const dotIndex = builder.Units.indexOf(dotRaw);
+  if (dotIndex < 0) {
+    return StatementShapeAst.Decline("?. 单元不在表达式里");
+  }
+  covered.push(dotIndex);
+  const bracketIndex = builder.Units.indexOf(bracket);
+  if (bracketIndex < 0) {
+    return StatementShapeAst.Decline("可选索引括号不在表达式里");
+  }
+  covered.push(bracketIndex);
+  const inner = new ExpressionBuilder(builder.Template, context);
+  let base = 0;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
+  }
+  inner.Load(bracket.Data, base);
+  if (inner.Units.length === 0) {
+    return StatementShapeAst.Decline("可选索引里没有单元");
+  }
+  const innerCovered:Array<number> = [];
+  const value = StatementShapeAst.BuildNode(shape.Data[1], inner, context, innerCovered);
+  if (value === null) {
+    return null;
+  }
+  if (!StatementShapeAst.Covers(innerCovered, inner.Units.length)) {
+    return StatementShapeAst.Decline("可选索引内的形状树没有覆盖整段单元");
+  }
+  const access = new ElementAccessExpressionShape(builder.Template);
+  access.Add(object);
+  access.Add(builder.MakeOperatorToken(dotRaw, dotIndex));
+  access.Add(value);
+  return builder.SpanNode(access, firstIndex, bracketIndex);
 }
 return StatementShapeAst.Decline("未覆盖的形状类型");
 ```
