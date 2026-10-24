@@ -5422,35 +5422,28 @@
           ]
         },
         {
-          "kind": "Common",
-          "pos": 18,
-          "end": 22
-        },
-        {
-          "kind": "Common",
-          "pos": 23,
-          "end": 24
-        },
-        {
-          "kind": "Symbol",
-          "pos": 25,
-          "end": 26
-        },
-        {
-          "kind": "Symbol",
-          "pos": 26,
-          "end": 26
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 26,
+          "kind": "TypeAliasDeclaration",
+          "pos": 17,
           "end": 29,
           "children": [
             {
               "kind": "Identifier",
+              "pos": 22,
+              "end": 24,
+              "text": "T"
+            },
+            {
+              "kind": "TypeReference",
               "pos": 26,
               "end": 28,
-              "text": "A"
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "A"
+                }
+              ]
             }
           ]
         }
