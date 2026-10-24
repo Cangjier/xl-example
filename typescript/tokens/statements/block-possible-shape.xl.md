@@ -335,6 +335,125 @@ for (let scan = previous; scan >= 0; scan--) {
 return false;
 ```
 
+## static method OnShellBracketCreated:(shell:Token, bracket:Token, context:SyntaxContext)=>void
+
+**控制流壳里的体括号创建事件**（Stage 4n，由 `StatementShape.OnBracketCreatedEvent` 转调）。块体壳把自己
+的 `MountedUnit` 指到体括号（`{` 成了它的子单元），所以走到这里的只可能是**控制流壳**
+（`if` / `while` / `do` / `for` / `with` / `try`）。判据与挂载全在 `TryMountControlFlowBody`；本方法只做
+「开关 + 是 `{` + 还没挂过目录」三道前置检查，且**不重算任何宿主的 `ComputePossibleShapes*`**。
+
+**安全回退**：判据不成立（`switch`、对象方法体、箭头块体、块内函数声明……）时一个字也不改，
+`BuildStatement` 的 legacy 递归照旧建树——那是「未接管」，不是「建错」。
+
+```ts
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableBlockBodyCatalog) {
+  return;
+}
+if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
+  return;
+}
+if (!(shell instanceof StatementShape)) {
+  return;
+}
+const body = bracket as Bracket;
+if (body.CatalogGuide !== null) {
+  return;
+}
+BlockPossibleShape.TryMountControlFlowBody(shell, body, context);
+```
+
+## static method TryMountControlFlowBody:(shell:Token, bracket:Bracket, context:SyntaxContext)=>bool
+
+给**控制流体的 `{`** 挂块体语句目录（Stage 4n）。判据两段：
+
+1. 壳是控制流构造：`Kind === StatementRoute.ShellStatementFamily`，且**首代码单元**的文本是
+   `if` / `while` / `do` / `for` / `with` / `try`（`else` / `catch` / `finally` 只能出现在上一条语句内部，
+   不可能起一个壳，所以不在集合里）；
+2. 这个 `{` 处在**体位置**：前一个非 trivia 单元是 `do` / `else` / `try` / `finally` / `catch`，
+   或前一个单元是**已闭合的 `(` 括号**且再往前一格的文本是 `if` / `while` / `for` / `with` / `catch`。
+
+本语法里 `(` `)` 是同一个 `Bracket` 单元，`if (a) {` 与 `catch (e) {` 的「前一个单元」是同一个东西，
+所以**必须再往前看一格**才能区分；靠这一格把 `catch (e) {` 收进来、把 `switch (x) {` 排除在外
+（`switch` 的体括号同样满足第 2 段，但 `SwitchStatementShape → CaseBlockShape` 的建树路径本轮没读通，
+挂上有形状泄漏风险 —— 故意不挂，见 HANDOFF-s4n §5）。
+
+**为什么挂目录是安全的**：挂上去只影响「谁来建体里的语句」，树的形状仍由同一批 builder 产出——已建形状按序
+`shape.Add`，raw 段由内层 `BuildStatement()` 逐条建（`HasBuiltBodyStatements` / `CollectBodyStatements`，
+与块体同一条通道）。`BlockBodyWaitingPossibleShape` 是终结候选，一个候选都不接时**不抛错**（S4i 的抛错出口
+只在 `EndPossible === null` 时存在），所以「挂上但一条也没接」= 未接管，不是错树。
+
+```ts
+if (!(shell instanceof StatementShape)) {
+  return false;
+}
+if ((shell as StatementShape).Kind !== StatementRoute.ShellStatementFamily) {
+  return false;
+}
+const data:Array<Token> = shell.Data;
+let head = -1;
+for (let at = 0; at < data.length; at++) {
+  if (data[at].IsTriviaToken) {
+    continue;
+  }
+  head = at;
+  break;
+}
+if (head < 0 || !(data[head] instanceof Common)) {
+  return false;
+}
+const headText = (data[head] as Common).TempToString();
+if (headText !== "if" && headText !== "while" && headText !== "do"
+  && headText !== "for" && headText !== "with" && headText !== "try") {
+  return false;
+}
+let braceAt = -1;
+for (let at = data.length - 1; at >= 0; at--) {
+  if (data[at] === bracket) {
+    braceAt = at;
+    break;
+  }
+}
+if (braceAt <= 0) {
+  return false;
+}
+let previous = braceAt - 1;
+while (previous >= 0 && data[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+let mount = false;
+const before = data[previous];
+if (before instanceof Common) {
+  const text = (before as Common).TempToString();
+  if (text === "do" || text === "else" || text === "try" || text === "finally" || text === "catch") {
+    mount = true;
+  }
+}
+if (!mount && before instanceof Bracket
+  && (before as Bracket).StartBracketChar === "(" && (before as Bracket).Closed) {
+  let keyword = previous - 1;
+  while (keyword >= 0 && data[keyword].IsTriviaToken) {
+    keyword--;
+  }
+  if (keyword >= 0 && data[keyword] instanceof Common) {
+    const text = (data[keyword] as Common).TempToString();
+    if (text === "if" || text === "while" || text === "for" || text === "with" || text === "catch") {
+      mount = true;
+    }
+  }
+}
+if (!mount) {
+  return false;
+}
+bracket.CatalogGuide = new CatalogGuide(
+  BlockPossibleShape.CreateBodyPossibleShapes(),
+  new BlockBodyWaitingPossibleShape());
+StatementRouteUtil.ControlFlowBodyBraceCount += 1;
+return true;
+```
+
 ## static method OnChildBracketCreated:(parent:Token, bracket:Token, context:SyntaxContext)=>void
 
 内部括号创建事件（由 `Bracket.OnBracketCreatedEvent` 转调）：**只给类体括号里的方法 / 构造器 / 访问器体**挂

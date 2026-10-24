@@ -45,11 +45,14 @@ const cases = [
   { source: "throw e;", cf: 1 },
   { source: "debugger;", cf: 1 },
   { source: "if (a) b;\nwhile (c) d;", cf: 2 },
-  { source: "if (a) { while (b) { c; } }", cf: 1 },
-  { source: "{ if (a) { b; } }", cf: 1, body: 1 },
+  { source: "if (a) { while (b) { c; } }", cf: 2 },
+  // Stage 4n：控制流体体括号挂上块体目录后，**体内语句也被接管**，下面两条的 BlockBodyStatementCount
+  // 读数因此上移（`{ if (a) { b; } }` 1→2：`b;` 也被 if 体目录接管；`{ while (a) { b; } let x = 1; }`
+  // 2→3：`while` 体里的 `b;` 同样被接管）。XML / AST 断言未变，只有接管计数变深——见 HANDOFF-s4n.md §3。
+  { source: "{ if (a) { b; } }", cf: 1, body: 2 },
   { source: "{ if (a) b; else c; d; }", cf: 1, body: 2 },
   { source: "{ ; }", cf: 1, body: 1 },
-  { source: "{ while (a) { b; } let x = 1; }", cf: 1, body: 2 },
+  { source: "{ while (a) { b; } let x = 1; }", cf: 1, body: 3 },
   // Stage 4d：空语句**已接管**（`EnableControlFlowEmpty` 默认 true；旧读数见 HANDOFF-s4d.md §3）
   { source: ";", cf: 1 },
   { source: ";;", cf: 2 },
