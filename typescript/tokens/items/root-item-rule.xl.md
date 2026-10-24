@@ -17,6 +17,9 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
+import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { ExportAssignmentShape } from "../declarations/export-assignment-shape.xl.md"
@@ -291,6 +294,30 @@ while (at < code.length) {
             }
           }
           if (lastAt >= 0) {
+            // 注：这里试过「收在当前可用代码最后一格时先不收口、等下一格再判」，用来吸收紧随的
+            // `;`（`a` ⏎ `;`）。实测**净负**（6122→6117）：`if (a) f()` ⏎ `else g()` /
+            // `try {}` ⏎ `catch` / `const` ⏎ `enum E {}` 会在 `else` / `catch` / `enum` 那一格
+            // 重新 `Build` 出一个**截断**的形状（cj[0,10] vs ts[0,19]）。别再试这个形状。
+            // C 类：item 在**建成功的那一格**就收口，紧随其后的 `;` 会被引擎读成下一条 item 的
+            // `EmptyStatement`（`import x from "m"` ⏎ `a;` 的 `a`、`type T = A | B // c` ⏎ `;`、
+            // `import x from "m"` ⏎ `import y from "n"` ⏎ `a;` 的尾巴）。TS 侧那个 `;` 一律属于
+            // **前一条** item——跨行也算（实测 `a` ⏎ `;` 是 `ExpressionStatement[0,3]`、
+            // `type T = A` ⏎ `;` 是 `TypeAliasDeclaration[0,12]`）。所以这里向前看一格：形状
+            // 还没吃到 `;` 时按含 `;` 重建一次，收口到 `;` 上；重建不出来就仍按原样收口。
+            const semiAt: number = lastAt + 1;
+            if (semiAt < code.length && this.IsSymbolAt(code, semiAt, ";")
+              && builtEnd >= 0 && builtEnd < code[semiAt].SourceRange.EndIndex) {
+              const withSemi: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, state.CodeAt[semiAt], this.Context);
+              if (withSemi !== null
+                && withSemi.SourceRange.EndIndex >= code[semiAt].SourceRange.EndIndex) {
+                state.Complete = true;
+                state.End = state.CodeAt[semiAt];
+                this.Winner = only;
+                this.Pending = withSemi;
+                this.Watermark = semiAt + 1;
+                return;
+              }
+            }
             state.Complete = true;
             state.End = state.CodeAt[lastAt];
             this.Winner = only;
@@ -583,6 +610,82 @@ try {
   // 一律退回 6080 状态已经验证过的旧入口（`FromUnits` / `BuildModuleItem`），所以每个分支只增不减。
   const stop: number = end + 1;
   if (kind === 1) {
+    // 带修饰词的 import（`export import a from "m"` / `declare import …` / `export declare import …`）：
+    // `ImportDeclarationShape.FromUnits` 不认前导修饰词（抛），整条会落进 `StatementBuilder`
+    // 报「表达式语句没有读完」（HANDOFF.wp3-11 的 E 类 3 条）。TS 侧它们是 **ImportDeclaration
+    // 带 ExportKeyword / DeclareKeyword 子节点**，所以这里跳过修饰词建 import 本体，再把修饰词
+    // 按原顺序插到 children 最前（Pos = 前一个非 trivia 单元的右界，与尾巴同口径）。
+    let modifiedStart: number = start;
+    let modifiedFound: boolean = false;
+    while (modifiedStart <= end) {
+      const modifiedUnit: Token = host.Data[modifiedStart];
+      if (modifiedUnit.IsTriviaToken) {
+        modifiedStart = modifiedStart + 1;
+        continue;
+      }
+      const modifiedText: string = this.TextOf(modifiedUnit);
+      if (modifiedText === "export" || modifiedText === "declare") {
+        modifiedFound = true;
+        modifiedStart = modifiedStart + 1;
+        continue;
+      }
+      break;
+    }
+    if (modifiedFound && modifiedStart <= end
+      && this.TextOf(host.Data[modifiedStart]) === "import") {
+      let modified: Token | null = null;
+      try {
+        modified = ImportDeclarationShape.FromUnits(host, modifiedStart, end, context);
+      } catch (error) {
+        modified = null;
+      }
+      if (modified !== null) {
+        let modifierPos: number = 0;
+        for (let probe = start - 1; probe >= 0; probe--) {
+          if (!host.Data[probe].IsTriviaToken) {
+            const previousEnd: number = host.Data[probe].SourceRange.EndIndex;
+            if (previousEnd >= 0) {
+              modifierPos = previousEnd;
+            }
+            break;
+          }
+        }
+        const shapePos: number = modifierPos;
+        // 修饰词的 `Pos` 是**前一个非 trivia 单元的右界**（`export declare import` 里
+        // DeclareKeyword 的 Pos 是 `export` 的 End，不是 0）。
+        const modifiers: Array<Token> = [];
+        for (let probe = start; probe < modifiedStart; probe++) {
+          const modifierUnit: Token = host.Data[probe];
+          if (modifierUnit.IsTriviaToken) {
+            continue;
+          }
+          const modifierText: string = this.TextOf(modifierUnit);
+          if (modifierText === "export") {
+            const exportKeyword = ExportKeywordShape.FromBasicToken(modifierUnit as Common, context);
+            (exportKeyword as ShapeToken).Pos = modifierPos;
+            modifiers.push(exportKeyword);
+          } else if (modifierText === "declare") {
+            const declareKeyword = DeclareKeywordShape.FromBasicToken(modifierUnit as Common, context);
+            (declareKeyword as ShapeToken).Pos = modifierPos;
+            modifiers.push(declareKeyword);
+          } else {
+            continue;
+          }
+          if (modifierUnit.SourceRange.EndIndex >= 0) {
+            modifierPos = modifierUnit.SourceRange.EndIndex;
+          }
+        }
+        // 逆序 unshift：`export declare import` 的 children 顺序是 ExportKeyword → DeclareKeyword。
+        for (let index = modifiers.length - 1; index >= 0; index--) {
+          modifiers[index].Parent = modified;
+          modified.Data.unshift(modifiers[index]);
+        }
+        if (modifiers.length > 0) {
+          (modified as ShapeToken).Pos = shapePos;
+        }
+        return modified;
+      }
+    }
     // `import defer …`：`defer` 的 phase modifier 只在挂壳路径里实现，`FromUnits` 会把它当默认导入名。
     // 普通 import 仍走已验证的 `FromUnits`：本波实测把 `import` 全量切到 `BuildDirect` 会红 254 条
     // （`ImportDeclarationShape.BuildDirect` 与 `FromUnits` 在 import-clause 口径上并不等价）。
