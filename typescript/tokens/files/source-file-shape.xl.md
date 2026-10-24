@@ -35,6 +35,7 @@ import { ReturnStatementPossibleShape } from "../statements/return-statement-pos
 import { RootExpressionStatementPossibleShape } from "../statements/root-expression-statement-possible-shape.xl.md"
 import { SourceFileEndPossibleShape } from "./source-file-end-possible-shape.xl.md"
 import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
+import { StatementRoute } from "../statements/statement-route-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
 import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
@@ -96,16 +97,23 @@ return CloseStates.Nothing;
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
 
-块体目录的**建壳时机**（Stage 4b，只在 `EnableBlockBodyCatalog` 打开时生效）：括号创建不触发父目录判定，
-所以块壳默认要到 `}` 关闭时才建出来，块体目录再挂也没有格子可判。这里在 `{` 刚 `SignIn` 之后把根目录
-判一格，块壳「在 `{` 就建」、块体目录随即挂上（`BlockPossibleShape.BuildByIndex` 里 MountBodyGuide）。
-默认开关 false 时本方法**什么都不做**，逐位保持既有行为。
+块体目录的**建壳时机**（Stage 4b）：括号创建不触发父目录判定，所以块壳默认要到 `}` 关闭时才建出来
+（同文件第二块时第二个 `{` 还会被第一个壳吞掉）。这里在 `{` 刚 `SignIn` 之后把根目录判一格：块壳「在 `{` 就建」，
+块体目录（`EnableBlockBodyCatalog`）随即挂上。
+
+**默认档也生效**（r2）：建壳只决定「谁来建这个 `BlockShape`」，块内语句仍由 `BuildBlock` 的 legacy 递归建
+（块体目录未挂），XML / AST 与在 `}` 才建壳逐字节相同；两档的差别只是壳的时机。`EnableShellExpressions=false`
+（legacy 对拍档）时仍然什么都不做。
+
+**只在语句首建壳**：`Decide(Data, 这个下标) == ShellBlock` 才是块语句的 `{`。标签体（`en:\n{ f() }`）的 `{`
+不是语句首（条目的首代码单元是 `en`），这里不建壳，否则根表达式候选会借「晚建壳」把 `en : {` 整条吞进壳、
+逼出一次文件级 fallback。判据仍只有 `Decide` 一份，不在这里新写。
 
 ```ts
 if (StatementRouteUtil.EnableShellExpressions
-  && StatementRouteUtil.EnableBlockBodyCatalog
   && bracket instanceof Bracket
-  && (bracket as Bracket).StartBracketChar === "{") {
+  && (bracket as Bracket).StartBracketChar === "{"
+  && StatementRouteUtil.Decide(this.Data, this.Data.length - 1) === StatementRoute.ShellBlock) {
   this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
 }
 ```

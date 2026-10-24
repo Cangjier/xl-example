@@ -97,18 +97,23 @@ r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改�
 最近一次 `SourceFileRunner.Parse` 是否走了兜底；Parse 入口先重置，兜底成功后置 true。
 ## static field EnableShellStatements:int = 0
 
-## static field EnableBlockBodyCatalog:bool = false
+## static field EnableBlockBodyCatalog:bool = true
 
-块体语句目录开关（Stage 4a 接入，Stage 4b 落地收集通道，**默认仍关**）。`true` = 把变量声明与普通表达式两类语句候选挂到块体 `{` 括号上，块内语句由 possible 增量建 `StatementShape` 形状；收口时 `StatementBuilder.BuildBlock()` 调
+块体语句目录开关（Stage 4a 接入，Stage 4b 落地收集通道，**r2 起默认打开**）。`true` = 把变量声明与普通表达式两类语句候选挂到块体 `{` 括号上，块内语句由 possible 增量建 `StatementShape` 形状；收口时 `StatementBuilder.BuildBlock()` 调
 `StatementBuilder.CollectBodyStatements()` 按序收集这些已建语句（raw 尾巴仍由同一个 `BuildStatement()` 逐条建），
 不再把形状单元当 raw 喂给建造器。
 
-**为什么默认仍是 false（实测，不是保守）**：打开后块内接管确实发生（counters：`{ let x = 1; f(); }` → 2 条、
-`{ f(); g(); }` → 2 条、`{ a; b; c; }` → 3 条、`BlockBodyStatementCount>0`），但块内第一条语句的 `pos` 仍按
-「根口径」取到 `0`，而 TS 的块内第一条语句 `pos = { 之后第一个字符`（`{ a; }` → 1），AST range 差一格；
-且块内最后一条无分号的语句在 `}` 前收口仍依赖 `StatementShape.ExitOrPre` 的 Reload 兜底（已实现，但组合形态
-`{ let a = 1 ⏎ let b = 2 ⏎ f() }` 仍需逐条核）。打开会让 `stage4-block` 的 4 条 AST range 用例变红，
-按方法论「未覆盖构造安全回退、不伪造绿」先关。剩余两处见 `HANDOFF-s4b.md` §6。
+**r2 修完两处后才默认打开**（HANDOFF-s4b-r2 §2/§3）：
+
+- **D1 块内首句 `pos`**：块体目录建壳时宿主是块体 `{` 括号，`Pos` 改按 `bracket.StartIndex + 1` 取
+  （与 legacy `BuildBlock` 的 `base` 同口径），不再因为没有前一个兄弟单元退回 `0`；后续语句仍取前一个兄弟的 `EndIndex`。
+- **D2 块内末句无分号**：`StatementShape.ExitOrPre` 在「父单元是 `{` 括号、当前字符正是该括号的 `}`」时
+  先按 ASI 收口（`BuildFromShell` + `FinishShell`）再 `Reload`，`}` 由驱动层重放给括号自己关闭；
+  收口失败时 `DetachShell` 退回 raw、同样放行 `}`（安全回退，不建错树）。
+
+证据：`tests/statement-possible/block-body-takeover.mjs`（17 条：`BlockShellCount` / `BlockBodyStatementCount`
+增量、无文件级 fallback、XML == legacy、AST == TS 逐节点）。块内未覆盖语句族（if / while / try / …）不建壳，
+整段 raw 交回 legacy 递归，XML / AST 与 legacy 逐字节一致。
 
 ## static field BlockShellCount:int = 0
 
