@@ -133,10 +133,7 @@ if (state.Checked !== tokenIndex + 1) {
   // 与 `StatementPossibleShape.ComputeByIndex` 同一口径：宿主已签出，或当前单元之后文档里已经没有内容。
   const owner = units[tokenIndex].Parent;
   const unitEnd = units[tokenIndex].SourceRange.EndIndex;
-  // `AtEOF` 是 `StatementScanner` 的**全局静态位**：只允许在真正调用扫描器的一小段里临时设置，
-  // 调完立刻复原。不复原的话「本层已经到顶」会泄漏到下一条语句 / 下一个文件（token-ast 整批串跑时
-  // 全量 crash 的根因），也会让后面的语句被提前判成 ASI 收口（`SourceRange.End has already been set`）。
-  const atEof = (owner !== null && owner.SourceRange.EndIndex >= 0)
+  StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
     || (unitEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, unitEnd) === "");
   state.Status = 0;
   state.End = -1;
@@ -144,17 +141,14 @@ if (state.Checked !== tokenIndex + 1) {
     // 只在「当前单元本身是代码」时判界（legacy 的 `IsAsiBoundary(host.Data, tokenIndex)` 同一口径）：
     // trivia 到达时 `Code` 的末单元是**上一条**代码单元，拿它当「新语句起点」会判出假的 ASI 边界。
     if (!units[tokenIndex].IsTriviaToken) {
-      const end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt, atEof);
+      const end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt, StatementScanner.AtEOF);
       if (end >= 0 && end <= tokenIndex) {
         state.End = end;
         state.Status = 1;
       }
     }
   } else {
-    const savedAtEof = StatementScanner.AtEOF;
-    StatementScanner.AtEOF = atEof;
     const result = StatementScanner.ScanRoot(state.Code);
-    StatementScanner.AtEOF = savedAtEof;
     state.Status = result.Status;
     if (result.Status === 1 && result.End >= 0 && result.End < state.CodeAt.length) {
       state.End = state.CodeAt[result.End];
@@ -244,20 +238,16 @@ if (current instanceof EndOfFileTokenShape) {
   }
   const owner = current.Parent;
   const unitEnd = current.SourceRange.EndIndex;
-  // 同上：静态位用完立刻复原，不把「到顶」泄漏给后续语句。
-  const atEof = (owner !== null && owner.SourceRange.EndIndex >= 0)
+  StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
     || (unitEnd >= 0 && StatementScanner.NextChar(current.SourceRange.Document, unitEnd) === "");
   if (this.StatementKind === StatementRoute.ShellPlainExpression) {
     // 直接给壳 `Data` 下标（与 `ComputeByIndex` 同一基准），不再二次折算。
-    const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, atEof);
+    const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF);
     if (end >= 0 && end <= tokenIndex) {
       endIndex = end;
     }
   } else {
-    const savedAtEof = StatementScanner.AtEOF;
-    StatementScanner.AtEOF = atEof;
     const result = StatementScanner.ScanRoot(code);
-    StatementScanner.AtEOF = savedAtEof;
     if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
       endIndex = codeAt[result.End];
     }
