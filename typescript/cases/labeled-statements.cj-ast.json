@@ -1830,43 +1830,34 @@
       "src": "a;\nlbl: b;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "LabeledStatement",
-          "pos": 2,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 6,
-              "text": "lbl"
-            },
-            {
-              "kind": "ExpressionStatement",
-              "pos": 7,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 7,
-                  "end": 9,
-                  "text": "b"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
+        },
+        {
+          "kind": "Common",
+          "pos": 3,
+          "end": 6
+        },
+        {
+          "kind": "Symbol",
+          "pos": 6,
+          "end": 7
+        },
+        {
+          "kind": "Common",
+          "pos": 8,
+          "end": 9
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
         }
       ]
     },
@@ -1874,72 +1865,54 @@
       "src": "a ? b : c;\nlbl: d;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 10,
-          "children": [
-            {
-              "kind": "ConditionalExpression",
-              "pos": 0,
-              "end": 9,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "a"
-                },
-                {
-                  "kind": "QuestionToken",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 3,
-                  "end": 5,
-                  "text": "b"
-                },
-                {
-                  "kind": "ColonToken",
-                  "pos": 5,
-                  "end": 7
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 7,
-                  "end": 9,
-                  "text": "c"
-                }
-              ]
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "LabeledStatement",
-          "pos": 10,
-          "end": 18,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 10,
-              "end": 14,
-              "text": "lbl"
-            },
-            {
-              "kind": "ExpressionStatement",
-              "pos": 15,
-              "end": 18,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 15,
-                  "end": 17,
-                  "text": "d"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Symbol",
+          "pos": 6,
+          "end": 7
+        },
+        {
+          "kind": "Common",
+          "pos": 8,
+          "end": 9
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 14
+        },
+        {
+          "kind": "Symbol",
+          "pos": 14,
+          "end": 15
+        },
+        {
+          "kind": "Common",
+          "pos": 16,
+          "end": 17
+        },
+        {
+          "kind": "Symbol",
+          "pos": 17,
+          "end": 18
         }
       ]
     },

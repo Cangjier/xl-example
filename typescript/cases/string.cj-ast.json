@@ -796,30 +796,38 @@
       "src": "`t`; `u`;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "String",
           "pos": 0,
-          "end": 4,
+          "end": 3,
           "children": [
             {
-              "kind": "NoSubstitutionTemplateLiteral",
-              "pos": 0,
-              "end": 3,
-              "text": "t"
+              "kind": "ConstString",
+              "pos": 1,
+              "end": 2
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 4,
-          "end": 9,
+          "kind": "Symbol",
+          "pos": 3,
+          "end": 4
+        },
+        {
+          "kind": "String",
+          "pos": 5,
+          "end": 8,
           "children": [
             {
-              "kind": "NoSubstitutionTemplateLiteral",
-              "pos": 4,
-              "end": 8,
-              "text": "u"
+              "kind": "ConstString",
+              "pos": 6,
+              "end": 7
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 8,
+          "end": 9
         }
       ]
     },
@@ -2143,30 +2151,38 @@
       "src": "\"a\"; \"b\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "String",
           "pos": 0,
-          "end": 4,
+          "end": 3,
           "children": [
             {
-              "kind": "StringLiteral",
-              "pos": 0,
-              "end": 3,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 1,
+              "end": 2
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 4,
-          "end": 9,
+          "kind": "Symbol",
+          "pos": 3,
+          "end": 4
+        },
+        {
+          "kind": "String",
+          "pos": 5,
+          "end": 8,
           "children": [
             {
-              "kind": "StringLiteral",
-              "pos": 4,
-              "end": 8,
-              "text": "b"
+              "kind": "ConstString",
+              "pos": 6,
+              "end": 7
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 8,
+          "end": 9
         }
       ]
     },

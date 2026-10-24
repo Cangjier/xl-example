@@ -79,30 +79,24 @@
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "a"
-            }
-          ]
+          "kind": "Common",
+          "pos": 6,
+          "end": 7
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 8,
-          "end": 11,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 8,
-              "end": 10,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Symbol",
+          "pos": 10,
+          "end": 11
         }
       ]
     },
@@ -123,30 +117,24 @@
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "a"
-            }
-          ]
+          "kind": "Common",
+          "pos": 6,
+          "end": 7
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 8,
-          "end": 11,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 8,
-              "end": 10,
-              "text": "a"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Symbol",
+          "pos": 10,
+          "end": 11
         }
       ]
     },
@@ -245,47 +233,7 @@
     },
     {
       "src": "throw\na;\nclass C {}",
-      "ast": [
-        {
-          "kind": "ThrowStatement",
-          "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 5,
-              "text": ""
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "a"
-            }
-          ]
-        },
-        {
-          "kind": "ClassDeclaration",
-          "pos": 8,
-          "end": 19,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 14,
-              "end": 16,
-              "text": "C"
-            }
-          ]
-        }
-      ]
+      "error": "表达式语句没有读完"
     },
     {
       "src": "class {}",

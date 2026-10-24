@@ -5812,97 +5812,68 @@
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 16,
-          "end": 21,
+          "kind": "Bracket",
+          "pos": 17,
+          "end": 20,
           "children": [
             {
-              "kind": "ParenthesizedExpression",
-              "pos": 16,
-              "end": 20,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 18,
-                  "end": 19,
-                  "text": "c"
-                }
-              ]
+              "kind": "Common",
+              "pos": 18,
+              "end": 19
             }
           ]
         },
         {
-          "kind": "VariableStatement",
-          "pos": 21,
-          "end": 38,
+          "kind": "Symbol",
+          "pos": 20,
+          "end": 21
+        },
+        {
+          "kind": "Common",
+          "pos": 22,
+          "end": 27
+        },
+        {
+          "kind": "Common",
+          "pos": 28,
+          "end": 29
+        },
+        {
+          "kind": "Symbol",
+          "pos": 30,
+          "end": 31
+        },
+        {
+          "kind": "Common",
+          "pos": 32,
+          "end": 33
+        },
+        {
+          "kind": "Common",
+          "pos": 34,
+          "end": 36
+        },
+        {
+          "kind": "Common",
+          "pos": 37,
+          "end": 38
+        },
+        {
+          "kind": "Bracket",
+          "pos": 39,
+          "end": 42,
           "children": [
             {
-              "kind": "VariableDeclarationList",
-              "pos": 21,
-              "end": 38,
-              "children": [
-                {
-                  "kind": "VariableDeclaration",
-                  "pos": 27,
-                  "end": 38,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 27,
-                      "end": 29,
-                      "text": "d"
-                    },
-                    {
-                      "kind": "AsExpression",
-                      "pos": 31,
-                      "end": 38,
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 31,
-                          "end": 33,
-                          "text": "e"
-                        },
-                        {
-                          "kind": "TypeReference",
-                          "pos": 36,
-                          "end": 38,
-                          "children": [
-                            {
-                              "kind": "Identifier",
-                              "pos": 36,
-                              "end": 38,
-                              "text": "U"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
+              "kind": "Common",
+              "pos": 40,
+              "end": 41
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 38,
-          "end": 43,
-          "children": [
-            {
-              "kind": "ParenthesizedExpression",
-              "pos": 38,
-              "end": 42,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 40,
-                  "end": 41,
-                  "text": "f"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 42,
+          "end": 43
         }
       ]
     },
@@ -5997,82 +5968,51 @@
       "src": "x = a as T[]\n(c);",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 12,
+          "end": 1
+        },
+        {
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Common",
+          "pos": 6,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Bracket",
+          "pos": 10,
+          "end": 12
+        },
+        {
+          "kind": "Bracket",
+          "pos": 13,
+          "end": 16,
           "children": [
             {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 12,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "x"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "AsExpression",
-                  "pos": 3,
-                  "end": 12,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 3,
-                      "end": 5,
-                      "text": "a"
-                    },
-                    {
-                      "kind": "ArrayType",
-                      "pos": 8,
-                      "end": 12,
-                      "children": [
-                        {
-                          "kind": "TypeReference",
-                          "pos": 8,
-                          "end": 10,
-                          "children": [
-                            {
-                              "kind": "Identifier",
-                              "pos": 8,
-                              "end": 10,
-                              "text": "T"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
+              "kind": "Common",
+              "pos": 14,
+              "end": 15
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 12,
-          "end": 17,
-          "children": [
-            {
-              "kind": "ParenthesizedExpression",
-              "pos": 12,
-              "end": 16,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 14,
-                  "end": 15,
-                  "text": "c"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 16,
+          "end": 17
         }
       ]
     },
@@ -6080,88 +6020,61 @@
       "src": "x = a as T<U>\n(c);",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 13,
+          "end": 1
+        },
+        {
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Common",
+          "pos": 6,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Symbol",
+          "pos": 10,
+          "end": 11
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 12
+        },
+        {
+          "kind": "Symbol",
+          "pos": 12,
+          "end": 13
+        },
+        {
+          "kind": "Bracket",
+          "pos": 14,
+          "end": 17,
           "children": [
             {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 13,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "x"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "AsExpression",
-                  "pos": 3,
-                  "end": 13,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 3,
-                      "end": 5,
-                      "text": "a"
-                    },
-                    {
-                      "kind": "TypeReference",
-                      "pos": 8,
-                      "end": 13,
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 8,
-                          "end": 10,
-                          "text": "T"
-                        },
-                        {
-                          "kind": "TypeReference",
-                          "pos": 11,
-                          "end": 12,
-                          "children": [
-                            {
-                              "kind": "Identifier",
-                              "pos": 11,
-                              "end": 12,
-                              "text": "U"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
+              "kind": "Common",
+              "pos": 15,
+              "end": 16
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 13,
-          "end": 18,
-          "children": [
-            {
-              "kind": "ParenthesizedExpression",
-              "pos": 13,
-              "end": 17,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 15,
-                  "end": 16,
-                  "text": "c"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 17,
+          "end": 18
         }
       ]
     },
@@ -6169,82 +6082,53 @@
       "src": "x = a as (T)\n(c);",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
+          "end": 1
+        },
+        {
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Common",
+          "pos": 6,
+          "end": 8
+        },
+        {
+          "kind": "Bracket",
+          "pos": 9,
           "end": 12,
           "children": [
             {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 12,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "x"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "AsExpression",
-                  "pos": 3,
-                  "end": 12,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 3,
-                      "end": 5,
-                      "text": "a"
-                    },
-                    {
-                      "kind": "ParenthesizedType",
-                      "pos": 8,
-                      "end": 12,
-                      "children": [
-                        {
-                          "kind": "TypeReference",
-                          "pos": 10,
-                          "end": 11,
-                          "children": [
-                            {
-                              "kind": "Identifier",
-                              "pos": 10,
-                              "end": 11,
-                              "text": "T"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
+              "kind": "Common",
+              "pos": 10,
+              "end": 11
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 12,
-          "end": 17,
+          "kind": "Bracket",
+          "pos": 13,
+          "end": 16,
           "children": [
             {
-              "kind": "ParenthesizedExpression",
-              "pos": 12,
-              "end": 16,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 14,
-                  "end": 15,
-                  "text": "c"
-                }
-              ]
+              "kind": "Common",
+              "pos": 14,
+              "end": 15
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 16,
+          "end": 17
         }
       ]
     },
@@ -6252,66 +6136,46 @@
       "src": "x = () => {}\n(1);",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 12,
+          "end": 1
+        },
+        {
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Bracket",
+          "pos": 4,
+          "end": 6
+        },
+        {
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 9
+        },
+        {
+          "kind": "Bracket",
+          "pos": 10,
+          "end": 12
+        },
+        {
+          "kind": "Bracket",
+          "pos": 13,
+          "end": 16,
           "children": [
             {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 12,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "x"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "ArrowFunction",
-                  "pos": 3,
-                  "end": 12,
-                  "children": [
-                    {
-                      "kind": "EqualsGreaterThanToken",
-                      "pos": 6,
-                      "end": 9
-                    },
-                    {
-                      "kind": "Block",
-                      "pos": 9,
-                      "end": 12
-                    }
-                  ]
-                }
-              ]
+              "kind": "Common",
+              "pos": 14,
+              "end": 15
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 12,
-          "end": 17,
-          "children": [
-            {
-              "kind": "ParenthesizedExpression",
-              "pos": 12,
-              "end": 16,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 14,
-                  "end": 15,
-                  "text": "1"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 16,
+          "end": 17
         }
       ]
     },
@@ -6380,71 +6244,51 @@
       "src": "x = async () => {}\n(1);",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 18,
+          "end": 1
+        },
+        {
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 9
+        },
+        {
+          "kind": "Bracket",
+          "pos": 10,
+          "end": 12
+        },
+        {
+          "kind": "Symbol",
+          "pos": 13,
+          "end": 15
+        },
+        {
+          "kind": "Bracket",
+          "pos": 16,
+          "end": 18
+        },
+        {
+          "kind": "Bracket",
+          "pos": 19,
+          "end": 22,
           "children": [
             {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 18,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "x"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "ArrowFunction",
-                  "pos": 3,
-                  "end": 18,
-                  "children": [
-                    {
-                      "kind": "AsyncKeyword",
-                      "pos": 3,
-                      "end": 9
-                    },
-                    {
-                      "kind": "EqualsGreaterThanToken",
-                      "pos": 12,
-                      "end": 15
-                    },
-                    {
-                      "kind": "Block",
-                      "pos": 15,
-                      "end": 18
-                    }
-                  ]
-                }
-              ]
+              "kind": "Common",
+              "pos": 20,
+              "end": 21
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 18,
-          "end": 23,
-          "children": [
-            {
-              "kind": "ParenthesizedExpression",
-              "pos": 18,
-              "end": 22,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 20,
-                  "end": 21,
-                  "text": "1"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 22,
+          "end": 23
         }
       ]
     },
@@ -6452,48 +6296,36 @@
       "src": "() => {}\n(1);",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Bracket",
           "pos": 0,
-          "end": 8,
+          "end": 2
+        },
+        {
+          "kind": "Symbol",
+          "pos": 3,
+          "end": 5
+        },
+        {
+          "kind": "Bracket",
+          "pos": 6,
+          "end": 8
+        },
+        {
+          "kind": "Bracket",
+          "pos": 9,
+          "end": 12,
           "children": [
             {
-              "kind": "ArrowFunction",
-              "pos": 0,
-              "end": 8,
-              "children": [
-                {
-                  "kind": "EqualsGreaterThanToken",
-                  "pos": 2,
-                  "end": 5
-                },
-                {
-                  "kind": "Block",
-                  "pos": 5,
-                  "end": 8
-                }
-              ]
+              "kind": "Common",
+              "pos": 10,
+              "end": 11
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 8,
-          "end": 13,
-          "children": [
-            {
-              "kind": "ParenthesizedExpression",
-              "pos": 8,
-              "end": 12,
-              "children": [
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 10,
-                  "end": 11,
-                  "text": "1"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 12,
+          "end": 13
         }
       ]
     },
@@ -8788,62 +8620,51 @@
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 23,
-          "end": 28,
+          "kind": "Bracket",
+          "pos": 24,
+          "end": 27,
           "children": [
             {
-              "kind": "ParenthesizedExpression",
-              "pos": 23,
-              "end": 27,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 25,
-                  "end": 26,
-                  "text": "b"
-                }
-              ]
+              "kind": "Common",
+              "pos": 25,
+              "end": 26
             }
           ]
         },
         {
-          "kind": "VariableStatement",
-          "pos": 28,
-          "end": 48,
-          "children": [
-            {
-              "kind": "ExportKeyword",
-              "pos": 28,
-              "end": 35
-            },
-            {
-              "kind": "VariableDeclarationList",
-              "pos": 35,
-              "end": 47,
-              "children": [
-                {
-                  "kind": "VariableDeclaration",
-                  "pos": 41,
-                  "end": 47,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 41,
-                      "end": 43,
-                      "text": "z"
-                    },
-                    {
-                      "kind": "NumericLiteral",
-                      "pos": 45,
-                      "end": 47,
-                      "text": "1"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 27,
+          "end": 28
+        },
+        {
+          "kind": "Common",
+          "pos": 29,
+          "end": 35
+        },
+        {
+          "kind": "Common",
+          "pos": 36,
+          "end": 41
+        },
+        {
+          "kind": "Common",
+          "pos": 42,
+          "end": 43
+        },
+        {
+          "kind": "Symbol",
+          "pos": 44,
+          "end": 45
+        },
+        {
+          "kind": "Common",
+          "pos": 46,
+          "end": 47
+        },
+        {
+          "kind": "Symbol",
+          "pos": 47,
+          "end": 48
         }
       ]
     },
@@ -12234,68 +12055,49 @@
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 4,
-          "end": 11,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 4,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 4,
-                  "end": 6,
-                  "text": "T"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 6,
-                  "end": 8
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "1"
-                }
-              ]
-            }
-          ]
+          "kind": "Common",
+          "pos": 5,
+          "end": 6
         },
         {
-          "kind": "VariableStatement",
-          "pos": 11,
-          "end": 24,
-          "children": [
-            {
-              "kind": "VariableDeclarationList",
-              "pos": 11,
-              "end": 23,
-              "children": [
-                {
-                  "kind": "VariableDeclaration",
-                  "pos": 17,
-                  "end": 23,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 17,
-                      "end": 19,
-                      "text": "x"
-                    },
-                    {
-                      "kind": "NumericLiteral",
-                      "pos": 21,
-                      "end": 23,
-                      "text": "2"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Symbol",
+          "pos": 10,
+          "end": 11
+        },
+        {
+          "kind": "Common",
+          "pos": 12,
+          "end": 17
+        },
+        {
+          "kind": "Common",
+          "pos": 18,
+          "end": 19
+        },
+        {
+          "kind": "Symbol",
+          "pos": 20,
+          "end": 21
+        },
+        {
+          "kind": "Common",
+          "pos": 22,
+          "end": 23
+        },
+        {
+          "kind": "Symbol",
+          "pos": 23,
+          "end": 24
         }
       ]
     },
@@ -12316,79 +12118,39 @@
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 4,
-          "end": 10,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 4,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 4,
-                  "end": 6,
-                  "text": "T"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 6,
-                  "end": 8
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "1"
-                }
-              ]
-            }
-          ]
+          "kind": "Common",
+          "pos": 5,
+          "end": 6
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 10,
-          "end": 15,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 10,
-              "end": 15,
-              "text": "type"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 8
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 15,
-          "end": 21,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 15,
-              "end": 21,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 15,
-                  "end": 17,
-                  "text": "U"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 17,
-                  "end": 19
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 19,
-                  "end": 21,
-                  "text": "2"
-                }
-              ]
-            }
-          ]
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "Common",
+          "pos": 16,
+          "end": 17
+        },
+        {
+          "kind": "Symbol",
+          "pos": 18,
+          "end": 19
+        },
+        {
+          "kind": "Common",
+          "pos": 20,
+          "end": 21
         }
       ]
     },

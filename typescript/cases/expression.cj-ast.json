@@ -10254,30 +10254,24 @@
       "src": "a; b;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 2,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 4,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
+        },
+        {
+          "kind": "Common",
+          "pos": 3,
+          "end": 4
+        },
+        {
+          "kind": "Symbol",
+          "pos": 4,
+          "end": 5
         }
       ]
     },
@@ -10285,30 +10279,24 @@
       "src": "a;b;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
+        },
+        {
+          "kind": "Common",
           "pos": 2,
-          "end": 4,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 3,
-              "text": "b"
-            }
-          ]
+          "end": 3
+        },
+        {
+          "kind": "Symbol",
+          "pos": 3,
+          "end": 4
         }
       ]
     },
@@ -10316,43 +10304,34 @@
       "src": "a; b; c;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 2,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 4,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "c"
-            }
-          ]
+          "kind": "Common",
+          "pos": 3,
+          "end": 4
+        },
+        {
+          "kind": "Symbol",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Common",
+          "pos": 6,
+          "end": 7
+        },
+        {
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 8
         }
       ]
     },
@@ -10360,56 +10339,44 @@
       "src": "a; b; c; d;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 2,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 4,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "c"
-            }
-          ]
+          "kind": "Common",
+          "pos": 3,
+          "end": 4
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 8,
-          "end": 11,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 8,
-              "end": 10,
-              "text": "d"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Common",
+          "pos": 6,
+          "end": 7
+        },
+        {
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Symbol",
+          "pos": 10,
+          "end": 11
         }
       ]
     },
@@ -10417,30 +10384,24 @@
       "src": "a; /* c */ b;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 2,
-          "end": 13,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 12,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 12
+        },
+        {
+          "kind": "Symbol",
+          "pos": 12,
+          "end": 13
         }
       ]
     },
@@ -10448,43 +10409,34 @@
       "src": "a; /* c */ b; /* d */ c;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 2,
-          "end": 13,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 12,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 13,
-          "end": 24,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 13,
-              "end": 23,
-              "text": "c"
-            }
-          ]
+          "kind": "Common",
+          "pos": 11,
+          "end": 12
+        },
+        {
+          "kind": "Symbol",
+          "pos": 12,
+          "end": 13
+        },
+        {
+          "kind": "Common",
+          "pos": 22,
+          "end": 23
+        },
+        {
+          "kind": "Symbol",
+          "pos": 23,
+          "end": 24
         }
       ]
     },
@@ -10492,30 +10444,24 @@
       "src": "a; // c\nb;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 2,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 2,
-              "end": 9,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
+        },
+        {
+          "kind": "Common",
+          "pos": 8,
+          "end": 9
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
         }
       ]
     },
@@ -10523,30 +10469,24 @@
       "src": "\na;\nb;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
-          "pos": 0,
-          "end": 3,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 2,
-              "text": "a"
-            }
-          ]
+          "kind": "Common",
+          "pos": 1,
+          "end": 2
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 3,
-          "end": 6,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 3,
-              "end": 5,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Symbol",
+          "pos": 5,
+          "end": 6
         }
       ]
     },
@@ -10554,30 +10494,24 @@
       "src": "1; 2;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 2,
-          "children": [
-            {
-              "kind": "NumericLiteral",
-              "pos": 0,
-              "end": 1,
-              "text": "1"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 2,
-          "end": 5,
-          "children": [
-            {
-              "kind": "NumericLiteral",
-              "pos": 2,
-              "end": 4,
-              "text": "2"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 1,
+          "end": 2
+        },
+        {
+          "kind": "Common",
+          "pos": 3,
+          "end": 4
+        },
+        {
+          "kind": "Symbol",
+          "pos": 4,
+          "end": 5
         }
       ]
     },
@@ -10585,43 +10519,36 @@
       "src": "f(a); b;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 5,
+          "end": 1
+        },
+        {
+          "kind": "Bracket",
+          "pos": 1,
+          "end": 4,
           "children": [
             {
-              "kind": "CallExpression",
-              "pos": 0,
-              "end": 4,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "f"
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 2,
-                  "end": 3,
-                  "text": "a"
-                }
-              ]
+              "kind": "Common",
+              "pos": 2,
+              "end": 3
             }
           ]
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 5,
-          "end": 8,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 5,
-              "end": 7,
-              "text": "b"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Common",
+          "pos": 6,
+          "end": 7
+        },
+        {
+          "kind": "Symbol",
+          "pos": 7,
+          "end": 8
         }
       ]
     },
@@ -10629,66 +10556,44 @@
       "src": "a = 1; b = 2;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 6,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 0,
-              "end": 5,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 0,
-                  "end": 1,
-                  "text": "a"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 3,
-                  "end": 5,
-                  "text": "1"
-                }
-              ]
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 6,
-          "end": 13,
-          "children": [
-            {
-              "kind": "BinaryExpression",
-              "pos": 6,
-              "end": 12,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 6,
-                  "end": 8,
-                  "text": "b"
-                },
-                {
-                  "kind": "FirstAssignment",
-                  "pos": 8,
-                  "end": 10
-                },
-                {
-                  "kind": "NumericLiteral",
-                  "pos": 10,
-                  "end": 12,
-                  "text": "2"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Symbol",
+          "pos": 5,
+          "end": 6
+        },
+        {
+          "kind": "Common",
+          "pos": 7,
+          "end": 8
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 12
+        },
+        {
+          "kind": "Symbol",
+          "pos": 12,
+          "end": 13
         }
       ]
     },

@@ -769,44 +769,44 @@
       "src": "new.target; import.meta;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 11,
-          "children": [
-            {
-              "kind": "MetaProperty",
-              "pos": 0,
-              "end": 10,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 4,
-                  "end": 10,
-                  "text": "target"
-                }
-              ]
-            }
-          ]
+          "end": 3
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 11,
-          "end": 24,
-          "children": [
-            {
-              "kind": "MetaProperty",
-              "pos": 11,
-              "end": 23,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 19,
-                  "end": 23,
-                  "text": "meta"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 3,
+          "end": 4
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 10
+        },
+        {
+          "kind": "Symbol",
+          "pos": 10,
+          "end": 11
+        },
+        {
+          "kind": "Common",
+          "pos": 12,
+          "end": 18
+        },
+        {
+          "kind": "Symbol",
+          "pos": 18,
+          "end": 19
+        },
+        {
+          "kind": "Common",
+          "pos": 19,
+          "end": 23
+        },
+        {
+          "kind": "Symbol",
+          "pos": 23,
+          "end": 24
         }
       ]
     },

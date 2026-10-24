@@ -8,6 +8,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
 ```
@@ -125,7 +126,14 @@ if (state.Checked !== tokenIndex + 1) {
 if (state.Code.length === 0) {
   return ShapeStates.Uncertain;
 }
-if (state.Status === 1 && state.End >= 0) {
+// 判据（T1d）：`;` / EOF / ASI 边界只有一个来源——`StatementBoundaryUtil.CanEndStatement`（设计 §2.2）。
+// `ScanRoot` 仍在上面负责「整条到齐 + End」（收口位置），这里不再自己写第二份 `;` / ASI 判据。
+// `;` 必须被接受：它是语句自己的终结符（`IsSemicolon` 为真），与 `SourceFileEndPossibleShape` 的
+// `CanEndStatement && !IsSemicolon` 分工不同（那边 `;` 由各语句候选自己消费）。
+const atEof = current instanceof EndOfFileTokenShape;
+const canEnd = StatementBoundaryUtil.CanEndStatement(units, tokenIndex, atEof)
+  || state.End < tokenIndex;
+if (state.Status === 1 && state.End >= 0 && canEnd) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;

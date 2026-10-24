@@ -4,44 +4,41 @@
       "src": "a\nimport b from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 20,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 10,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
         }
       ]
     },
@@ -49,57 +46,51 @@
       "src": "a\nimport b from \"m\";\nc;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 20,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 10,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 20,
-          "end": 23,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 20,
-              "end": 22,
-              "text": "c"
-            }
-          ]
+          "kind": "Common",
+          "pos": 21,
+          "end": 22
+        },
+        {
+          "kind": "Symbol",
+          "pos": 22,
+          "end": 23
         }
       ]
     },
@@ -152,30 +143,31 @@
       "src": "a\nimport \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "String",
+          "pos": 9,
+          "end": 12,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 10,
+              "end": 11
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 13,
-          "children": [
-            {
-              "kind": "StringLiteral",
-              "pos": 8,
-              "end": 12,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 12,
+          "end": 13
         }
       ]
     },
@@ -183,58 +175,58 @@
       "src": "a\nimport { b } from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Bracket",
+          "pos": 9,
+          "end": 14,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "WrapSymbol",
+              "pos": 10,
+              "end": 11
+            },
+            {
+              "kind": "Common",
+              "pos": 11,
+              "end": 12
+            },
+            {
+              "kind": "WrapSymbol",
+              "pos": 12,
+              "end": 13
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 24,
+          "kind": "Common",
+          "pos": 15,
+          "end": 19
+        },
+        {
+          "kind": "String",
+          "pos": 20,
+          "end": 23,
           "children": [
             {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 14,
-              "children": [
-                {
-                  "kind": "NamedImports",
-                  "pos": 8,
-                  "end": 14,
-                  "children": [
-                    {
-                      "kind": "ImportSpecifier",
-                      "pos": 10,
-                      "end": 12,
-                      "name": "b",
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 10,
-                          "end": 12,
-                          "text": "b"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 19,
-              "end": 23,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 21,
+              "end": 22
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 23,
+          "end": 24
         }
       ]
     },
@@ -242,51 +234,51 @@
       "src": "a\nimport * as ns from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 13
+        },
+        {
+          "kind": "Common",
+          "pos": 14,
+          "end": 16
+        },
+        {
+          "kind": "Common",
+          "pos": 17,
+          "end": 21
+        },
+        {
+          "kind": "String",
+          "pos": 22,
+          "end": 25,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 23,
+              "end": 24
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 26,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 16,
-              "children": [
-                {
-                  "kind": "NamespaceImport",
-                  "pos": 8,
-                  "end": 16,
-                  "name": "ns",
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 13,
-                      "end": 16,
-                      "text": "ns"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 21,
-              "end": 25,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 25,
+          "end": 26
         }
       ]
     },
@@ -294,65 +286,68 @@
       "src": "a\nimport b, { c } from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Symbol",
+          "pos": 10,
+          "end": 11
+        },
+        {
+          "kind": "Bracket",
+          "pos": 12,
+          "end": 17,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "WrapSymbol",
+              "pos": 13,
+              "end": 14
+            },
+            {
+              "kind": "Common",
+              "pos": 14,
+              "end": 15
+            },
+            {
+              "kind": "WrapSymbol",
+              "pos": 15,
+              "end": 16
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 27,
+          "kind": "Common",
+          "pos": 18,
+          "end": 22
+        },
+        {
+          "kind": "String",
+          "pos": 23,
+          "end": 26,
           "children": [
             {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 17,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                },
-                {
-                  "kind": "NamedImports",
-                  "pos": 11,
-                  "end": 17,
-                  "children": [
-                    {
-                      "kind": "ImportSpecifier",
-                      "pos": 13,
-                      "end": 15,
-                      "name": "c",
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 13,
-                          "end": 15,
-                          "text": "c"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 22,
-              "end": 26,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 24,
+              "end": 25
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 26,
+          "end": 27
         }
       ]
     },
@@ -360,60 +355,63 @@
       "src": "a\nimport type { T } from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 13
+        },
+        {
+          "kind": "Bracket",
+          "pos": 14,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "WrapSymbol",
+              "pos": 15,
+              "end": 16
+            },
+            {
+              "kind": "Common",
+              "pos": 16,
+              "end": 17
+            },
+            {
+              "kind": "WrapSymbol",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 29,
-          "isTypeOnly": true,
+          "kind": "Common",
+          "pos": 20,
+          "end": 24
+        },
+        {
+          "kind": "String",
+          "pos": 25,
+          "end": 28,
           "children": [
             {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 19,
-              "isTypeOnly": true,
-              "children": [
-                {
-                  "kind": "NamedImports",
-                  "pos": 13,
-                  "end": 19,
-                  "children": [
-                    {
-                      "kind": "ImportSpecifier",
-                      "pos": 15,
-                      "end": 17,
-                      "name": "T",
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 15,
-                          "end": 17,
-                          "text": "T"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 24,
-              "end": 28,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 26,
+              "end": 27
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 28,
+          "end": 29
         }
       ]
     },
@@ -421,44 +419,41 @@
       "src": "a /* c */\nimport b from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 10,
+          "end": 16
+        },
+        {
+          "kind": "Common",
+          "pos": 17,
+          "end": 18
+        },
+        {
+          "kind": "Common",
+          "pos": 19,
+          "end": 23
+        },
+        {
+          "kind": "String",
+          "pos": 24,
+          "end": 27,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 25,
+              "end": 26
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 28,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 16,
-              "end": 18,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 16,
-                  "end": 18,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 23,
-              "end": 27,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 27,
+          "end": 28
         }
       ]
     },
@@ -466,44 +461,41 @@
       "src": "a\n/* c */ import b from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 10,
+          "end": 16
+        },
+        {
+          "kind": "Common",
+          "pos": 17,
+          "end": 18
+        },
+        {
+          "kind": "Common",
+          "pos": 19,
+          "end": 23
+        },
+        {
+          "kind": "String",
+          "pos": 24,
+          "end": 27,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 25,
+              "end": 26
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 28,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 16,
-              "end": 18,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 16,
-                  "end": 18,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 23,
-              "end": 27,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 27,
+          "end": 28
         }
       ]
     },
@@ -511,44 +503,41 @@
       "src": "a\n// c\nimport b from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 7,
+          "end": 13
+        },
+        {
+          "kind": "Common",
+          "pos": 14,
+          "end": 15
+        },
+        {
+          "kind": "Common",
+          "pos": 16,
+          "end": 20
+        },
+        {
+          "kind": "String",
+          "pos": 21,
+          "end": 24,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 22,
+              "end": 23
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 25,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 13,
-              "end": 15,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 13,
-                  "end": 15,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 20,
-              "end": 24,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 24,
+          "end": 25
         }
       ]
     },
@@ -556,44 +545,41 @@
       "src": "a\n\nimport b from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 3,
+          "end": 9
+        },
+        {
+          "kind": "Common",
+          "pos": 10,
+          "end": 11
+        },
+        {
+          "kind": "Common",
+          "pos": 12,
+          "end": 16
+        },
+        {
+          "kind": "String",
+          "pos": 17,
+          "end": 20,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 18,
+              "end": 19
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 21,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 9,
-              "end": 11,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 9,
-                  "end": 11,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 16,
-              "end": 20,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 20,
+          "end": 21
         }
       ]
     },
@@ -601,71 +587,73 @@
       "src": "a\nimport b from \"m\";\nimport c from \"n\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 20,
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
+        },
+        {
+          "kind": "Common",
+          "pos": 21,
+          "end": 27
+        },
+        {
+          "kind": "Common",
+          "pos": 28,
+          "end": 29
+        },
+        {
+          "kind": "Common",
+          "pos": 30,
+          "end": 34
+        },
+        {
+          "kind": "String",
+          "pos": 35,
+          "end": 38,
           "children": [
             {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 10,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 36,
+              "end": 37
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 20,
-          "end": 39,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 27,
-              "end": 29,
-              "name": "c",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 27,
-                  "end": 29,
-                  "text": "c"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 34,
-              "end": 38,
-              "text": "n"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 38,
+          "end": 39
         }
       ]
     },
@@ -673,84 +661,83 @@
       "src": "a\nimport b from \"m\";\nimport c from \"n\";\nd;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 20,
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
+        },
+        {
+          "kind": "Common",
+          "pos": 21,
+          "end": 27
+        },
+        {
+          "kind": "Common",
+          "pos": 28,
+          "end": 29
+        },
+        {
+          "kind": "Common",
+          "pos": 30,
+          "end": 34
+        },
+        {
+          "kind": "String",
+          "pos": 35,
+          "end": 38,
           "children": [
             {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 10,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 36,
+              "end": 37
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 20,
-          "end": 39,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 27,
-              "end": 29,
-              "name": "c",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 27,
-                  "end": 29,
-                  "text": "c"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 34,
-              "end": 38,
-              "text": "n"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 38,
+          "end": 39
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 39,
-          "end": 42,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 39,
-              "end": 41,
-              "text": "d"
-            }
-          ]
+          "kind": "Common",
+          "pos": 40,
+          "end": 41
+        },
+        {
+          "kind": "Symbol",
+          "pos": 41,
+          "end": 42
         }
       ]
     },
@@ -758,45 +745,41 @@
       "src": "a\nexport { b };",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Bracket",
+          "pos": 9,
+          "end": 14,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "WrapSymbol",
+              "pos": 10,
+              "end": 11
+            },
+            {
+              "kind": "Common",
+              "pos": 11,
+              "end": 12
+            },
+            {
+              "kind": "WrapSymbol",
+              "pos": 12,
+              "end": 13
             }
           ]
         },
         {
-          "kind": "ExportDeclaration",
-          "pos": 1,
-          "end": 15,
-          "children": [
-            {
-              "kind": "NamedExports",
-              "pos": 8,
-              "end": 14,
-              "children": [
-                {
-                  "kind": "ExportSpecifier",
-                  "pos": 10,
-                  "end": 12,
-                  "name": "b",
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 10,
-                      "end": 12,
-                      "text": "b"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 14,
+          "end": 15
         }
       ]
     },
@@ -804,51 +787,58 @@
       "src": "a\nexport { b } from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Bracket",
+          "pos": 9,
+          "end": 14,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "WrapSymbol",
+              "pos": 10,
+              "end": 11
+            },
+            {
+              "kind": "Common",
+              "pos": 11,
+              "end": 12
+            },
+            {
+              "kind": "WrapSymbol",
+              "pos": 12,
+              "end": 13
             }
           ]
         },
         {
-          "kind": "ExportDeclaration",
-          "pos": 1,
-          "end": 24,
+          "kind": "Common",
+          "pos": 15,
+          "end": 19
+        },
+        {
+          "kind": "String",
+          "pos": 20,
+          "end": 23,
           "children": [
             {
-              "kind": "NamedExports",
-              "pos": 8,
-              "end": 14,
-              "children": [
-                {
-                  "kind": "ExportSpecifier",
-                  "pos": 10,
-                  "end": 12,
-                  "name": "b",
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 10,
-                      "end": 12,
-                      "text": "b"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 19,
-              "end": 23,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 21,
+              "end": 22
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 23,
+          "end": 24
         }
       ]
     },
@@ -856,30 +846,41 @@
       "src": "a\nexport * from \"m\";",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ExportDeclaration",
-          "pos": 1,
-          "end": 20,
-          "children": [
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
         }
       ]
     },
@@ -887,30 +888,29 @@
       "src": "a\nexport default 1;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExportAssignment",
-          "pos": 1,
-          "end": 19,
-          "children": [
-            {
-              "kind": "NumericLiteral",
-              "pos": 16,
-              "end": 18,
-              "text": "1"
-            }
-          ]
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 16
+        },
+        {
+          "kind": "Common",
+          "pos": 17,
+          "end": 18
+        },
+        {
+          "kind": "Symbol",
+          "pos": 18,
+          "end": 19
         }
       ]
     },
@@ -918,55 +918,39 @@
       "src": "a\nexport const x = 1;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "VariableStatement",
-          "pos": 1,
-          "end": 21,
-          "children": [
-            {
-              "kind": "ExportKeyword",
-              "pos": 1,
-              "end": 8
-            },
-            {
-              "kind": "VariableDeclarationList",
-              "pos": 8,
-              "end": 20,
-              "children": [
-                {
-                  "kind": "VariableDeclaration",
-                  "pos": 14,
-                  "end": 20,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 14,
-                      "end": 16,
-                      "text": "x"
-                    },
-                    {
-                      "kind": "NumericLiteral",
-                      "pos": 18,
-                      "end": 20,
-                      "text": "1"
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 14
+        },
+        {
+          "kind": "Common",
+          "pos": 15,
+          "end": 16
+        },
+        {
+          "kind": "Symbol",
+          "pos": 17,
+          "end": 18
+        },
+        {
+          "kind": "Common",
+          "pos": 19,
+          "end": 20
+        },
+        {
+          "kind": "Symbol",
+          "pos": 20,
+          "end": 21
         }
       ]
     },
@@ -974,38 +958,32 @@
       "src": "a\nexport class C {};",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ClassDeclaration",
-          "pos": 1,
-          "end": 19,
-          "children": [
-            {
-              "kind": "ExportKeyword",
-              "pos": 1,
-              "end": 8
-            },
-            {
-              "kind": "Identifier",
-              "pos": 14,
-              "end": 16,
-              "text": "C"
-            }
-          ]
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
         },
         {
-          "kind": "EmptyStatement",
+          "kind": "Common",
+          "pos": 9,
+          "end": 14
+        },
+        {
+          "kind": "Common",
+          "pos": 15,
+          "end": 16
+        },
+        {
+          "kind": "Bracket",
+          "pos": 17,
+          "end": 19
+        },
+        {
+          "kind": "Symbol",
           "pos": 19,
           "end": 20
         }
@@ -1046,43 +1024,34 @@
       "src": "a\nclass C {}\nb;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ClassDeclaration",
-          "pos": 1,
-          "end": 12,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 7,
-              "end": 9,
-              "text": "C"
-            }
-          ]
+          "kind": "Common",
+          "pos": 2,
+          "end": 7
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 12,
-          "end": 15,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 12,
-              "end": 14,
-              "text": "b"
-            }
-          ]
+          "kind": "Common",
+          "pos": 8,
+          "end": 9
+        },
+        {
+          "kind": "Bracket",
+          "pos": 10,
+          "end": 12
+        },
+        {
+          "kind": "Common",
+          "pos": 13,
+          "end": 14
+        },
+        {
+          "kind": "Symbol",
+          "pos": 14,
+          "end": 15
         }
       ]
     },
@@ -1152,35 +1121,34 @@
       "src": "a\ntype T = number;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "TypeAliasDeclaration",
-          "pos": 1,
-          "end": 18,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 6,
-              "end": 8,
-              "text": "T"
-            },
-            {
-              "kind": "NumberKeyword",
-              "pos": 10,
-              "end": 17
-            }
-          ]
+          "kind": "Common",
+          "pos": 2,
+          "end": 6
+        },
+        {
+          "kind": "Common",
+          "pos": 7,
+          "end": 8
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 17
+        },
+        {
+          "kind": "Symbol",
+          "pos": 17,
+          "end": 18
         }
       ]
     },
@@ -1188,40 +1156,44 @@
       "src": "a\ndeclare function f(): void;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "FunctionDeclaration",
-          "pos": 1,
-          "end": 29,
-          "children": [
-            {
-              "kind": "DeclareKeyword",
-              "pos": 1,
-              "end": 9
-            },
-            {
-              "kind": "Identifier",
-              "pos": 18,
-              "end": 20,
-              "text": "f"
-            },
-            {
-              "kind": "VoidKeyword",
-              "pos": 23,
-              "end": 28
-            }
-          ]
+          "kind": "Common",
+          "pos": 2,
+          "end": 9
+        },
+        {
+          "kind": "Common",
+          "pos": 10,
+          "end": 18
+        },
+        {
+          "kind": "Common",
+          "pos": 19,
+          "end": 20
+        },
+        {
+          "kind": "Bracket",
+          "pos": 20,
+          "end": 22
+        },
+        {
+          "kind": "Symbol",
+          "pos": 22,
+          "end": 23
+        },
+        {
+          "kind": "Common",
+          "pos": 24,
+          "end": 28
+        },
+        {
+          "kind": "Symbol",
+          "pos": 28,
+          "end": 29
         }
       ]
     },
@@ -1229,37 +1201,24 @@
       "src": "a\n++b;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 1,
-          "end": 6,
-          "children": [
-            {
-              "kind": "PrefixUnaryExpression",
-              "pos": 1,
-              "end": 5,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 4,
-                  "end": 5,
-                  "text": "b"
-                }
-              ]
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 2,
+          "end": 4
+        },
+        {
+          "kind": "Common",
+          "pos": 4,
+          "end": 5
+        },
+        {
+          "kind": "Symbol",
+          "pos": 5,
+          "end": 6
         }
       ]
     },
@@ -1267,30 +1226,19 @@
       "src": "a\nb;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
-            }
-          ]
+          "end": 1
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 1,
-          "end": 4,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 1,
-              "end": 3,
-              "text": "b"
-            }
-          ]
+          "kind": "Common",
+          "pos": 2,
+          "end": 3
+        },
+        {
+          "kind": "Symbol",
+          "pos": 3,
+          "end": 4
         }
       ]
     },
@@ -1396,44 +1344,41 @@
       "src": "a\nimport b from 'm';",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 20,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 10,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
         }
       ]
     },
@@ -1441,58 +1386,58 @@
       "src": "a\nimport { b } from 'm';",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Bracket",
+          "pos": 9,
+          "end": 14,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "WrapSymbol",
+              "pos": 10,
+              "end": 11
+            },
+            {
+              "kind": "Common",
+              "pos": 11,
+              "end": 12
+            },
+            {
+              "kind": "WrapSymbol",
+              "pos": 12,
+              "end": 13
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 24,
+          "kind": "Common",
+          "pos": 15,
+          "end": 19
+        },
+        {
+          "kind": "String",
+          "pos": 20,
+          "end": 23,
           "children": [
             {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 14,
-              "children": [
-                {
-                  "kind": "NamedImports",
-                  "pos": 8,
-                  "end": 14,
-                  "children": [
-                    {
-                      "kind": "ImportSpecifier",
-                      "pos": 10,
-                      "end": 12,
-                      "name": "b",
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 10,
-                          "end": 12,
-                          "text": "b"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 19,
-              "end": 23,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 21,
+              "end": 22
             }
           ]
+        },
+        {
+          "kind": "Symbol",
+          "pos": 23,
+          "end": 24
         }
       ]
     },
@@ -1500,51 +1445,51 @@
       "src": "a\nimport * as ns from 'm';",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Symbol",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 13
+        },
+        {
+          "kind": "Common",
+          "pos": 14,
+          "end": 16
+        },
+        {
+          "kind": "Common",
+          "pos": 17,
+          "end": 21
+        },
+        {
+          "kind": "String",
+          "pos": 22,
+          "end": 25,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 23,
+              "end": 24
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 26,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 16,
-              "children": [
-                {
-                  "kind": "NamespaceImport",
-                  "pos": 8,
-                  "end": 16,
-                  "name": "ns",
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 13,
-                      "end": 16,
-                      "text": "ns"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 21,
-              "end": 25,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 25,
+          "end": 26
         }
       ]
     },
@@ -1552,57 +1497,51 @@
       "src": "a\nimport b from 'm';\nc;",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 20,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 10,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
         },
         {
-          "kind": "ExpressionStatement",
-          "pos": 20,
-          "end": 23,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 20,
-              "end": 22,
-              "text": "c"
-            }
-          ]
+          "kind": "Common",
+          "pos": 21,
+          "end": 22
+        },
+        {
+          "kind": "Symbol",
+          "pos": 22,
+          "end": 23
         }
       ]
     },
@@ -1697,71 +1636,73 @@
       "src": "a\nimport b from 'm';\nimport c from 'n';",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 2,
+          "end": 8
+        },
+        {
+          "kind": "Common",
+          "pos": 9,
+          "end": 10
+        },
+        {
+          "kind": "Common",
+          "pos": 11,
+          "end": 15
+        },
+        {
+          "kind": "String",
+          "pos": 16,
+          "end": 19,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 17,
+              "end": 18
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 20,
+          "kind": "Symbol",
+          "pos": 19,
+          "end": 20
+        },
+        {
+          "kind": "Common",
+          "pos": 21,
+          "end": 27
+        },
+        {
+          "kind": "Common",
+          "pos": 28,
+          "end": 29
+        },
+        {
+          "kind": "Common",
+          "pos": 30,
+          "end": 34
+        },
+        {
+          "kind": "String",
+          "pos": 35,
+          "end": 38,
           "children": [
             {
-              "kind": "ImportClause",
-              "pos": 8,
-              "end": 10,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 8,
-                  "end": 10,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 15,
-              "end": 19,
-              "text": "m"
+              "kind": "ConstString",
+              "pos": 36,
+              "end": 37
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 20,
-          "end": 39,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 27,
-              "end": 29,
-              "name": "c",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 27,
-                  "end": 29,
-                  "text": "c"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 34,
-              "end": 38,
-              "text": "n"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 38,
+          "end": 39
         }
       ]
     },
@@ -1769,44 +1710,41 @@
       "src": "a /* c */\nimport b from 'm';",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 10,
+          "end": 16
+        },
+        {
+          "kind": "Common",
+          "pos": 17,
+          "end": 18
+        },
+        {
+          "kind": "Common",
+          "pos": 19,
+          "end": 23
+        },
+        {
+          "kind": "String",
+          "pos": 24,
+          "end": 27,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 25,
+              "end": 26
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 28,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 16,
-              "end": 18,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 16,
-                  "end": 18,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 23,
-              "end": 27,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 27,
+          "end": 28
         }
       ]
     },
@@ -1814,44 +1752,41 @@
       "src": "a\n// c\nimport b from 'm';",
       "ast": [
         {
-          "kind": "ExpressionStatement",
+          "kind": "Common",
           "pos": 0,
-          "end": 1,
+          "end": 1
+        },
+        {
+          "kind": "Common",
+          "pos": 7,
+          "end": 13
+        },
+        {
+          "kind": "Common",
+          "pos": 14,
+          "end": 15
+        },
+        {
+          "kind": "Common",
+          "pos": 16,
+          "end": 20
+        },
+        {
+          "kind": "String",
+          "pos": 21,
+          "end": 24,
           "children": [
             {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 1,
-              "text": "a"
+              "kind": "ConstString",
+              "pos": 22,
+              "end": 23
             }
           ]
         },
         {
-          "kind": "ImportDeclaration",
-          "pos": 1,
-          "end": 25,
-          "children": [
-            {
-              "kind": "ImportClause",
-              "pos": 13,
-              "end": 15,
-              "name": "b",
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 13,
-                  "end": 15,
-                  "text": "b"
-                }
-              ]
-            },
-            {
-              "kind": "StringLiteral",
-              "pos": 20,
-              "end": 24,
-              "text": "m"
-            }
-          ]
+          "kind": "Symbol",
+          "pos": 24,
+          "end": 25
         }
       ]
     }
