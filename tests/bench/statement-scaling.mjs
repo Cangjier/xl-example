@@ -46,6 +46,12 @@ const buildDir = take("--build", "build");
 const baseDir = take("--base", null);
 const rounds = Number(take("--rounds", "15"));
 const warmup = Number(take("--warmup", "2"));
+// 网格上限：慢机器/中间态上 N=T=D=2000 的整张网格要跑十几分钟（阶段 1 的 O(L²)），
+// 用 --max-size 收小网格先拿到读数；默认 2000 = 完整网格。
+const maxSize = Number(take("--max-size", "2000"));
+const SIZES = [250, 500, 1000, 2000].filter((n) => n <= maxSize);
+const DEPTHS = [125, 250, 500, 1000].filter((d) => d <= maxSize);
+if (SIZES.length < 2 || DEPTHS.length < 2) throw new Error("--max-size 太小：至少保留两档才谈得上标度，收到 " + maxSize);
 const ratioLimit = Number(take("--ratio-limit", "1.10"));
 const asJson = args.includes("--json");
 if (args.includes("--json")) args.splice(args.indexOf("--json"), 1);
@@ -73,15 +79,17 @@ const base = baseDir === null ? null : loadRunner(baseDir, "--base");
 // ---------- 合成源 ----------
 const IDS = "abcdefghijklmnopqrstuvwxyz";
 function ident(i) {
-  let s = "";
-  let n = i;
-  do {
-    s = IDS[n % 26] + s;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  // 前缀 `v`：不留前缀时 bijective base-26 会生成保留字（i=248 → `in` → `let in = 248;`），
-  // 当前解析器与 baseline 构建都会在「表达式没有读完」上崩（与本重构无关）。加前缀后语料恒可解析。
-  return "v" + s;
+  // 直接用数值后缀（`v0`、`v1` …），**不用** bijective base-26。
+  //
+  // 为什么（WP-2 wave 4 实测，见 HANDOFF.wp2-4.md §既有缺陷定位）：
+  // 前任把 bijective 名字加上 `v` 前缀只是躲开了保留字（`in`），却把缺陷换了个位置——
+  // `let vs = 44;` 这一类名字在「函数体 ≥ 44 条语句」时会让解析器报 `表达式没有读完`
+  // （`StatementBuilder.BuildExpressionStatement → BuildExpressionRange`）。
+  // 同一份源码在 `..\baseline-build\build`（重构前）上崩在同一处、同一句，
+  // 所以这是**既有缺陷，不是本重构引入的**；但它也**不是语句数缺陷**：
+  // 换成数值名字后，函数体 2000 条语句两份构建都解析成功且 XML 逐字节一致。
+  // 因此语料固定用数值名字，标度读数才反映语句路径本身。
+  return "v" + i;
 }
 // 档 1：函数体语句数 N
 function stmtCountSource(n) {
@@ -176,37 +184,37 @@ function pairedRatio(later, earlier) {
 
 const build = {};
 build.functionCount = runSeries(
-  [250, 500, 1000, 2000].map((n) => ({ n, name: `stmt-count-${n}.ts`, text: stmtCountSource(n) })),
+  SIZES.map((n) => ({ n, name: `stmt-count-${n}.ts`, text: stmtCountSource(n) })),
   target,
 );
 build.rootCount = runSeries(
-  [250, 500, 1000, 2000].map((n) => ({ n, name: `root-count-${n}.ts`, text: rootStmtCountSource(n) })),
+  SIZES.map((n) => ({ n, name: `root-count-${n}.ts`, text: rootStmtCountSource(n) })),
   target,
 );
 build.longStatement = runSeries(
-  [250, 500, 1000, 2000].map((t) => ({ t, name: `long-stmt-${t}.ts`, text: longStatementSource(t) })),
+  SIZES.map((t) => ({ t, name: `long-stmt-${t}.ts`, text: longStatementSource(t) })),
   target,
 );
 build.longIf = runSeries(
-  [250, 500, 1000, 2000].map((t) => ({ t, name: `long-if-${t}.ts`, text: longIfSource(t) })),
+  SIZES.map((t) => ({ t, name: `long-if-${t}.ts`, text: longIfSource(t) })),
   target,
 );
 build.blockDepth = runSeries(
-  [125, 250, 500, 1000].map((d) => ({ d, name: `block-depth-${d}.ts`, text: blockDepthSource(d) })),
+  DEPTHS.map((d) => ({ d, name: `block-depth-${d}.ts`, text: blockDepthSource(d) })),
   target,
 );
 // 合成大用例的统一清单（--base 的同规模比与 XML 等价都围绕它）
 function syntheticCases() {
   const out = [];
-  for (const n of [250, 500, 1000, 2000]) {
+  for (const n of SIZES) {
     out.push({ name: `stmt-count-${n}`, text: stmtCountSource(n) });
     out.push({ name: `root-count-${n}`, text: rootStmtCountSource(n) });
   }
-  for (const t of [250, 500, 1000, 2000]) {
+  for (const t of SIZES) {
     out.push({ name: `long-stmt-${t}`, text: longStatementSource(t) });
     out.push({ name: `long-if-${t}`, text: longIfSource(t) });
   }
-  for (const d of [125, 250, 500, 1000]) out.push({ name: `block-depth-${d}`, text: blockDepthSource(d) });
+  for (const d of DEPTHS) out.push({ name: `block-depth-${d}`, text: blockDepthSource(d) });
   return out;
 }
 
