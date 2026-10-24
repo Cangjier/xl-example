@@ -809,20 +809,44 @@ return depth > 0 ? open : -1;
 形状树里有没有一个**右界正好停在 `endIndex`** 的 `NewExpressionShape`——即「整条 item 的末尾
 是一个没有实参表的 `new` 表达式」（`new a.b.C`）。有的话，紧随的 `(` 属于它的被调用者。
 
+实现要点（WP-F 性能收口，判据不变）：去掉了自递归，改成一个显式栈的**按区间剪枝**的前序扫描。
+一个右界正好是 `endIndex` 的节点，必然落在「区间包含 `endIndex`」的子树里；于是每个节点只把
+`StartIndex <= endIndex <= EndIndex` 的子节点压栈（合成节点 `StartIndex < 0` 保守压栈）。常见情形
+（尾节点不是 `NewExpressionShape`）只沿包含 `endIndex` 的那一条右侧路径下降，代价 O(深度) 而不是
+O(形状树节点数)。结论与递归版逐项等价：检查的谓词相同（`constructor.name` + `EndIndex === endIndex`），
+剪枝只跳过**不可能**含该右界的子树（祖先右界更小的子树、起点已经越过右界的子树）。
+
 ```ts
 if (unit === null) {
   return false;
 }
-if (unit.constructor.name === "NewExpressionShape" && unit.SourceRange.EndIndex === endIndex) {
-  return true;
-}
-const data: Array<Token> = unit.Data;
-if (data === null || data.length === 0) {
-  return false;
-}
-for (const child of data) {
-  if (child !== null && RootItemRule.HasTailNew(child, endIndex)) {
+const stack: Array<Token> = [unit];
+while (stack.length > 0) {
+  const node: Token | null = stack.pop()!;
+  if (node === null) {
+    continue;
+  }
+  if (node.constructor.name === "NewExpressionShape" && node.SourceRange.EndIndex === endIndex) {
     return true;
+  }
+  const data: Array<Token> = node.Data;
+  if (data === null || data.length === 0) {
+    continue;
+  }
+  for (let i = data.length - 1; i >= 0; i--) {
+    const child: Token = data[i];
+    if (child === null) {
+      continue;
+    }
+    const childEnd: number = child.SourceRange.EndIndex;
+    if (childEnd >= 0 && childEnd < endIndex) {
+      continue;
+    }
+    const childStart: number = child.SourceRange.StartIndex;
+    if (childStart >= 0 && childStart > endIndex) {
+      continue;
+    }
+    stack.push(child);
   }
 }
 return false;

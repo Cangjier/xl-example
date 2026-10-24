@@ -317,8 +317,39 @@ if (this.State.End >= 0) {
 if (this.State.LastCode >= 0) {
   this.State.LastCode = this.Rebase(this.State.LastCode, builds);
 }
-for (let i = 0; i < this.State.CodeAt.length; i++) {
-  this.State.CodeAt[i] = this.Rebase(this.State.CodeAt[i], builds);
+// CodeAt 是**升序**的，`builds` 也是升序的（Feed 从左到右产出）：把「逐下标 × 逐 build」的
+// O(单元数 × 本批 item 数) 重定位换成一次双指针合并 O(单元数 + 本批 item 数)。
+// 与 `Rebase` 逐项等价：左侧 build（`To <= value`）累计压缩量；落在 `(From, To)` 内部的点收束到 `From`。
+const codeAt = this.State.CodeAt;
+let buildAt = 0;
+let shift = 0;
+for (let i = 0; i < codeAt.length; i++) {
+  let value = codeAt[i];
+  if (value < 0) {
+    continue;
+  }
+  while (buildAt < builds.length) {
+    const from = builds[buildAt].From;
+    const to = builds[buildAt].To;
+    if (to <= from) {
+      buildAt = buildAt + 1;
+      continue;
+    }
+    if (value < to) {
+      break;
+    }
+    shift = shift + (to - from - 1);
+    buildAt = buildAt + 1;
+  }
+  if (buildAt < builds.length) {
+    const from = builds[buildAt].From;
+    const to = builds[buildAt].To;
+    if (value > from && value < to) {
+      codeAt[i] = from;
+      continue;
+    }
+  }
+  codeAt[i] = value - shift;
 }
 const length = host.Data.length;
 if (cursor > length) {
