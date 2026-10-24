@@ -1191,15 +1191,18 @@ for (let at = first; at < this.Units.length; at++) {
   if (unit.IsTriviaToken) {
     continue;
   }
+  // `;` 先判：TS 的声明的 `parseSemicolon` **不看换行**（`type T = A // c` ⏎ `;` 仍是
+  // `TypeAliasDeclaration[0,21]`），所以收口点不能让上面的 ASI 判据先把它切出去——否则那个 `;`
+  // 会变成下一条 `EmptyStatement`（end-build #33/#37）。
+  if (this.IsSymbol(unit, ";")) {
+    end = at;
+    break;
+  }
   if (at > first && seenEqual && lastCode >= first
     && TypeAliasDeclarationPossibleShape.HasLineBreakBetween(this.Units, lastCode, at)
     && TypeAliasDeclarationPossibleShape.CanEndTypeAt(this.Units[lastCode])
     && TypeAliasDeclarationPossibleShape.IsAsiBoundary(this.Units, lastCode, at)) {
     end = lastCode;
-    break;
-  }
-  if (this.IsSymbol(unit, ";")) {
-    end = at;
     break;
   }
   if (this.IsSymbol(unit, "=")) {

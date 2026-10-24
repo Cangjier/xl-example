@@ -340,9 +340,12 @@ while (at < code.length) {
       }
     }
     // 收口到**上一格**，把这一格留给下一条：引擎按 `End + 1` 切，这一格会被重新读一次。
+    // 例外：这一格是 `;` 时**留在本条**——TS 里 `;` 一律属于前一条语句/声明（`parseSemicolon`
+    // 不看换行），留给下一条只会变成 `EmptyStatement`（#20/#22/#126 的尾巴 `a;`）。
+    // 这里整段 raw 收口，`;` 由尾巴的 `BuildStatementSegments` 按段建时当成语句右界。
     if (at > 0) {
       state.Complete = true;
-      state.End = state.CodeAt[at - 1];
+      state.End = this.IsSymbolAt(code, at, ";") ? state.CodeAt[at] : state.CodeAt[at - 1];
       this.Winner = -1;
       this.Watermark = at;
       return;
