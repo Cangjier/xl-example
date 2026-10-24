@@ -274,13 +274,29 @@ if (!this.Incomplete && !this.Closed && StatementOperatorBody.HasTypeArgumentCal
 if (this.Nested) {
   return;
 }
-StatementOperatorBody.LastText = this.Text();
-StatementOperatorBody.LastComplete = this.IsComplete();
-if (StatementOperatorBody.LastComplete && StatementOperatorBody.LastText !== "") {
-  this.Publish(StatementOperatorBody.LastText);
-}
+
 ```
 
+## method Finish:()=>void
+
+本体的**收口**：语句建树前由壳调用一次（`StatementShape.BuildFromShell`），把最终结构文本求值并发布。
+
+**为什么不在 `IngestAll` 每格求**：`Text()` 要递归渲染整棵形状树，而 `IngestAll` 是**逐格**调的
+（`a1+a2+…+aN` 每来一个操作数就一次），每格都渲染 = O(n²) 字符拷贝。结构文本只在语句收口时被读
+（`ShapeTexts` / `LastText`），中间的「恰好完整」结构会被后一格覆盖，所以每格求值没有消费者：
+改成收口时求一次，`ShapeTexts` 的最终槽位内容与顺序完全不变（每体一个槽位、按语句建树顺序占位）。
+
+```ts
+if (this.Nested || this.Incomplete || !this.IsComplete()) {
+  return;
+}
+const text = this.Text();
+StatementOperatorBody.LastText = text;
+StatementOperatorBody.LastComplete = true;
+if (text !== "") {
+  this.Publish(text);
+}
+```
 ## method IsComplete:()=>bool
 
 结构是否已完整：不再等任何右操作数，且最后一个代码单元是操作数。**不看 `Frames.length`**（栈里压着的都是已建完的节点，

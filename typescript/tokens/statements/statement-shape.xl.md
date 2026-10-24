@@ -103,6 +103,7 @@ if (endIndex < 0) {
 // `IngestAll` 只从 `Ingested` 往后追加、遇 `Closed` / `Incomplete` 即停，所以这一步对已经喂完的体是空操作。
 if (shell.OperatorBody !== null) {
   shell.OperatorBody.IngestAll(shell.Data, host.Template);
+  shell.OperatorBody.Finish();
 }
 const consumed:Array<Token> = host.Data.slice(0, endIndex + 1);
 const builder = new StatementBuilder(host.Template, context);
