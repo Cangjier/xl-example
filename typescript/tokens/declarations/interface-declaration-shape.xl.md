@@ -322,6 +322,25 @@ const bodyUnit = code[code.length - 1];
 if (!(bodyUnit instanceof Bracket) || (bodyUnit as Bracket).StartBracketChar !== "{") {
   throw new Error("接口声明的接口体不是花括号");
 }
+// `interface I5 extends { a: 1 } { }`（#25）：item 边界停在 heritage 的类型字面量上时，
+// `code` 的最后一格就是这个类型字面量，前面紧挨着 `extends` / `implements` / `,`。
+// 它在 TS 里是 HeritageClause 里的 ObjectLiteralExpression，**不是**接口体；把整段当接口体会
+// 建出一个错误的 InterfaceDeclaration（body=类型字面量、HeritageClause 无 children），
+// 后面真正的 `{ }` 还会掉成顶层 Block。这里直接拒绝，让 item 层的「含这一格建」（②）拿到
+// 真正的接口体括号（与壳的 `IsDefinitelyBodyBracket` 同一条判据）。
+if (code.length >= 2) {
+  const beforeBody = code[code.length - 2];
+  let isHeritageLiteral = false;
+  if (beforeBody instanceof Common) {
+    const beforeText = (beforeBody as Common).TempToString();
+    isHeritageLiteral = beforeText === "extends" || beforeText === "implements";
+  } else if (beforeBody instanceof Symbol) {
+    isHeritageLiteral = (beforeBody as Symbol).Is(",");
+  }
+  if (isHeritageLiteral) {
+    throw new Error("接口体被 heritage 里的类型字面量误认");
+  }
+}
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, context);
 name.Pos = keyword.SourceRange.End < 0 ? pos : keyword.SourceRange.EndIndex;
 const heritageBase = heritageBasePos;
