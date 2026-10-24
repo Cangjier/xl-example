@@ -36,6 +36,12 @@ let b = 2
 
 本语句 `Pos`（含前导 trivia 的起点）：建壳时由宿主按「前一个非 trivia 单元 `EndIndex`」算好，收口时直接沿用。
 
+## field Kind:int = 0
+
+本壳的**语句族标记**（§1.2「根上按语句族、壳内按构件」）：族在壳建立时已由根目录的起点候选决定，记在壳上，
+壳内目录据此选构件候选，**不再重复语句族判型**。`0` = 未定；族常量随 `statement-route-util.xl.md` 落地
+（`StatementRoute.ShellVariable` 等），Stage 1 先留字段与注释，不定义常量、不改变任何判定。
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -98,11 +104,51 @@ for (let at = 0; at < leftover.length; at++) {
 }
 ```
 
+## static method DetachShell:(shell:Token)=>bool
+
+拆壳兜底（从 `TryToClose` 里抽出来的那一段，行为等价）：把壳 `Data` 里剩下的 raw 单元**原位**退回父单元、清父单元的
+`MountedUnit`、把壳自己从父单元摘掉并置 `Closed`。
+
+- 拆掉返回 `true`：壳已退出树，父单元按基线口径继续（根终结候选建剩下的语句）；
+- 无可拆（壳没有父单元 / 壳已经不在父单元 `Data` 里）返回 `false`：调用方照旧退回基类 `TryToClose`，由父单元的关闭流程报错。
+
+为什么必须有这一手：壳里这一段建不出来时（例如 `satisfies` / 类型实参这种扫描器给不出 `Status==1` 的形态），
+不拆壳它就会以「未建树的形状」留在父单元里，AST 少整条语句（token-ast 4 个 diff 的根因）。
+壳**不进 AST**，所以拆壳必须把 raw 单元按原顺序放回原位（`splice(index + at, 0, ...)`，从原下标开始、逐格插），
+并把每个单元的 `Parent` 一并改回父单元。
+
+```ts
+const shape = shell as StatementShape;
+const parent = shell.Parent;
+if (parent === null) {
+  return false;
+}
+const index = parent.Data.indexOf(shell);
+if (index < 0) {
+  return false;
+}
+const raw:Array<Token> = shell.Data.slice();
+shell.Data.length = 0;
+parent.Data.splice(index, 1);
+for (let at = 0; at < raw.length; at++) {
+  raw[at].Parent = parent;
+  parent.Data.splice(index + at, 0, raw[at]);
+}
+if (parent.MountedUnit === shell) {
+  parent.MountedUnit = null;
+}
+shape.Parent = null;
+shape.Closed = true;
+return true;
+```
+
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
 文件末尾的兜底：根单元在 EOF 前先把挂载单元 `TryToClose`，此时壳里可能还攒着一条没有 `;` 的语句
 （`let x = 1` 在文件末尾）。这时用 `BuildFromShell` 建最后一条语句并 `FinishShell` 收口；
 建不出来（空壳 / 建造器抛错）才退回基类，交给父单元的关闭流程报错。
+
+建不出来时先调 `DetachShell` 把壳拆掉（见上）；拆不掉才退回基类。
 
 ```ts
 if (!this.Closed) {
@@ -115,31 +161,15 @@ if (!this.Closed) {
       built = null;
     }
     if (built !== null) {
-        StatementShape.FinishShell(this, built);
-        return CloseStates.Nothing;
-      }
-      // 兜底：壳里这一段建不出来（例如 `satisfies` / 类型实参这种扫描器给不出 Status==1 的形态），
-      // 就把 raw 单元按原位退回父单元、把自己摘掉，让根终结候选按基线口径建剩下的语句。
-      // 不这么做时壳会以「未建树的形状」留在根里，AST 少整条语句（4 个 diff 的根因）。
-      const parent = this.Parent;
-      if (parent !== null) {
-        const index = parent.Data.indexOf(this);
-        if (index >= 0) {
-          const raw:Array<Token> = this.Data.slice();
-          this.Data.length = 0;
-          parent.Data.splice(index, 1);
-          for (let at = 0; at < raw.length; at++) {
-            raw[at].Parent = parent;
-            parent.Data.splice(index + at, 0, raw[at]);
-          }
-          if (parent.MountedUnit === this) {
-            parent.MountedUnit = null;
-          }
-          this.Parent = null;
-          this.Closed = true;
-          return CloseStates.Nothing;
-        }
-      }
+      StatementShape.FinishShell(this, built);
+      return CloseStates.Nothing;
+    }
+    // 兜底：壳里这一段建不出来（例如 `satisfies` / 类型实参这种扫描器给不出 Status==1 的形态），
+    // 就把 raw 单元按原位退回父单元、把自己摘掉，让根终结候选按基线口径建剩下的语句。
+    // 不这么做时壳会以「未建树的形状」留在根里，AST 少整条语句（4 个 diff 的根因）。
+    if (StatementShape.DetachShell(this)) {
+      return CloseStates.Nothing;
+    }
   }
 }
 return super.TryToClose(context);
