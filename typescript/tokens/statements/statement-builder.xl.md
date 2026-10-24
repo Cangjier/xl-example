@@ -32,6 +32,7 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { BasicTokenBatch } from "../../../core/syntax/batch/basic-token-batch.xl.md"
 import { StatementBodyItemHost } from "../items/statement-item-rule.xl.md"
+import { CaseClauseBuild, CaseClauseDrive } from "../items/case-clause-item-rule.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
@@ -2179,74 +2180,41 @@ return this.Finish(shape, first, blockIndex);
 
 ## method BuildCaseBlock:(bracket:Bracket, bracketIndex:int)=>Token
 
+`switch` 的 case 块：`{` … `}` 是一个括号单元，里面只有 `case` / `default` 子句。
+
+**接线（WP-6-4）**：`BatchMode !== 0` 时先把已闭合括号的 `Data` 交给 case block item 表
+（`CaseClauseDrive.Drive`，**全有或全无**：在克隆括号上驱动，全部子句建出且无 raw 残留才接管），
+接管成功就直接把返回的子句逐个 `Add`；接管不了（或 `BatchMode === 0`）逐字走原来的逐子句循环。
+两条路的子句都由同一个 `BuildCaseClause` 建出——边界判据只有一份，所以 item 边界永远不会切出
+「半条子句」：建造器自己的右端安全阀（`BuildCaseClauseAt`）会把不一致的切片退回 `null`。
+
+接管时**不** `inner.Load(bracket.Data)`：子句是 item 表建出来的，容器 `bracket.Data` 一个字节都不动。
+
 ```ts
 const caseBlock = new CaseBlockShape(this.Template);
-const inner = new StatementBuilder(this.Template, this.Context);
-let base = 0;
-if (bracket.SourceRange.StartIndex >= 0) {
-  base = bracket.SourceRange.StartIndex + 1;
+let adopt = false;
+let clauses:Array<Token> = [];
+if (this.Context.BatchMode !== 0) {
+  const driven = CaseClauseDrive.Drive(bracket, this.Context, new CaseClauseBuildAdapter());
+  if (driven !== null) {
+    adopt = true;
+    clauses = driven;
+  }
 }
-inner.Load(bracket.Data, base);
-while (inner.At < inner.Units.length) {
-  const unit = inner.Units[inner.At];
-  if (inner.IsKeywordUnit(unit, "case")) {
-    const clauseFirst = inner.At;
-    inner.At++;
-    let colonAt = inner.At;
-    // The ":" that closes a case label is the first one at ternary depth 0:
-    // "case a ? b : c:" -- '?' raises depth, the matching ':' lowers it again.
-    // Brackets/commas/operators are atomic units here, so nothing else can hide a ":".
-    let ternaryDepth = 0;
-    while (colonAt < inner.Units.length) {
-      const candidate = inner.Units[colonAt];
-      if (inner.IsSymbol(candidate, "?")) {
-        ternaryDepth++;
-        colonAt++;
-        continue;
-      }
-      if (inner.IsSymbol(candidate, ":")) {
-        if (ternaryDepth > 0) {
-          ternaryDepth--;
-          colonAt++;
-          continue;
-        }
-        break;
-      }
-      colonAt++;
-    }
-    if (colonAt >= inner.Units.length) {
-      throw new Error("case 缺少冒号");
-    }
-    if (colonAt <= inner.At) {
-      throw new Error("case 缺少表达式");
-    }
-    const value = inner.BuildExpressionRange(inner.At, colonAt - 1);
-    inner.At = colonAt + 1;
-    const clause = new CaseClauseShape(this.Template);
-    clause.Add(value);
-    while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
-      clause.Add(inner.BuildStatement());
-    }
-    inner.Finish(clause, clauseFirst, inner.At - 1);
+if (adopt) {
+  for (const clause of clauses) {
     caseBlock.Add(clause);
-    continue;
   }
-  if (inner.IsKeywordUnit(unit, "default")) {
-    const clauseFirst = inner.At;
-    inner.At++;
-    if (inner.At >= inner.Units.length || !inner.IsSymbol(inner.Units[inner.At], ":")) {
-      throw new Error("default 缺少冒号");
-    }
-    inner.At++;
-    const clause = new DefaultClauseShape(this.Template);
-    while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
-      clause.Add(inner.BuildStatement());
-    }
-    inner.Finish(clause, clauseFirst, inner.At - 1);
-    caseBlock.Add(clause);
-    continue;
+} else {
+  const inner = new StatementBuilder(this.Template, this.Context);
+  let base = 0;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
   }
-  throw new Error("switch 块里出现了 case / default 之外的单元");
+  inner.Load(bracket.Data, base);
+  while (inner.At < inner.Units.length) {
+    caseBlock.Add(StatementBuilder.BuildCaseClause(inner));
+  }
 }
 if (bracket.SourceRange.StartIndex >= 0) {
   caseBlock.SignIn(bracket.SourceRange.StartIndex);
@@ -2257,6 +2225,140 @@ if (bracket.SourceRange.EndIndex >= 0) {
 caseBlock.Pos = this.Positions[bracketIndex];
 caseBlock.TryToClose(this.Context);
 return caseBlock;
+```
+
+## static method BuildCaseClause:(inner:StatementBuilder)=>Token
+
+**一条子句**的建造（case / default 两族）：从 `inner.At` 的 `case` / `default` 关键字起，
+建出**恰好一条**子句并返回，游标推到子句末尾之后。`BuildCaseBlock` 的 legacy 循环与
+`BuildCaseClauseAt`（item 表路径）都只调本方法，所以两条路的分段判据不可能漂移。
+
+`case` 的收口规则（原 `BuildCaseBlock` 的注释，一字不改）：
+收尾 `case` 标签的 `:` 是**三元深度 0** 的第一个 `:`——`case a ? b : c:` 的 `?` 加深度、
+配对 `:` 减深度；括号 / 逗号 / 运算符在这里都是原子单元，藏不住别的 `:`。
+体读到下一个 `case` / `default` 关键字或本层单元末尾为止。
+
+```ts
+const unit = inner.Units[inner.At];
+if (inner.IsKeywordUnit(unit, "case")) {
+  const clauseFirst = inner.At;
+  inner.At++;
+  let colonAt = inner.At;
+  // The ":" that closes a case label is the first one at ternary depth 0:
+  // "case a ? b : c:" -- '?' raises depth, the matching ':' lowers it again.
+  // Brackets/commas/operators are atomic units here, so nothing else can hide a ":".
+  let ternaryDepth = 0;
+  while (colonAt < inner.Units.length) {
+    const candidate = inner.Units[colonAt];
+    if (inner.IsSymbol(candidate, "?")) {
+      ternaryDepth++;
+      colonAt++;
+      continue;
+    }
+    if (inner.IsSymbol(candidate, ":")) {
+      if (ternaryDepth > 0) {
+        ternaryDepth--;
+        colonAt++;
+        continue;
+      }
+      break;
+    }
+    colonAt++;
+  }
+  if (colonAt >= inner.Units.length) {
+    throw new Error("case 缺少冒号");
+  }
+  if (colonAt <= inner.At) {
+    throw new Error("case 缺少表达式");
+  }
+  const value = inner.BuildExpressionRange(inner.At, colonAt - 1);
+  inner.At = colonAt + 1;
+  const clause = new CaseClauseShape(inner.Template);
+  clause.Add(value);
+  while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
+    clause.Add(inner.BuildStatement());
+  }
+  inner.Finish(clause, clauseFirst, inner.At - 1);
+  return clause;
+}
+if (inner.IsKeywordUnit(unit, "default")) {
+  const clauseFirst = inner.At;
+  inner.At++;
+  if (inner.At >= inner.Units.length || !inner.IsSymbol(inner.Units[inner.At], ":")) {
+    throw new Error("default 缺少冒号");
+  }
+  inner.At++;
+  const clause = new DefaultClauseShape(inner.Template);
+  while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
+    clause.Add(inner.BuildStatement());
+  }
+  inner.Finish(clause, clauseFirst, inner.At - 1);
+  return clause;
+}
+throw new Error("switch 块里出现了 case / default 之外的单元");
+```
+
+## static method BuildCaseClauseAt:(bracket:Bracket, start:int, end:int, context:SyntaxContext)=>Token | null
+
+**一子句建造入口**（case block item 表的建造器调它）：把宿主 `Data` 的 `[start, end]`（含两端）
+建成**恰好一条**子句并返回，不往任何容器里放。分段判据与 legacy 同一份——切片之后没有单元，
+`BuildCaseClause` 的体循环天然停在 item 边界。
+
+`Pos` 口径与 legacy 路径逐字相同：切片里第一个代码单元的 `Pos` 是「宿主 `Data` 里它前面那个
+**代码**单元的 `EndIndex`」（没有前置代码单元时是 `{` 的 `EndIndex`，即
+`bracket.SourceRange.StartIndex + 1`），后续单元按 `Load` 的链式口径推进。这里只载入切片（不含 trivia），
+所以这个起点就是 `Load` 的 `basePos`。
+
+**安全阀（全有或全无的判据之一）**：建出的子句必须**恰好**收在 item 的最后一个代码单元上
+（`SourceRange.EndIndex` 相等，多了少了都算「边界不一致」）——多切 / 少切 / 从子句中间开始，
+都返回 `null`，让整段 case block 退回 legacy。不做「事后补救」，也不放宽成 `<=`。
+
+```ts
+if (bracket.StartBracketChar !== "{") {
+  return null;
+}
+if (start < 0 || end < start || end >= bracket.Data.length) {
+  return null;
+}
+const code:Array<Token> = [];
+for (let at = start; at <= end; at++) {
+  const unit = bracket.Data[at];
+  if (!unit.IsTriviaToken) {
+    code.push(unit);
+  }
+}
+if (code.length === 0) {
+  return null;
+}
+let basePos = 0;
+if (bracket.SourceRange.StartIndex >= 0) {
+  basePos = bracket.SourceRange.StartIndex + 1;
+}
+for (let at = 0; at < start; at++) {
+  const unit = bracket.Data[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit.SourceRange.EndIndex >= 0) {
+    basePos = unit.SourceRange.EndIndex;
+  }
+}
+try {
+  const inner = new StatementBuilder(bracket.Template, context);
+  inner.Load(code, basePos);
+  const clause = StatementBuilder.BuildCaseClause(inner);
+  if (inner.At !== inner.Units.length) {
+    return null;
+  }
+  const itemEnd = bracket.Data[end].SourceRange.EndIndex;
+  if (clause.SourceRange.EndIndex >= 0 && itemEnd >= 0
+    && clause.SourceRange.EndIndex !== itemEnd) {
+    return null;
+  }
+  return clause;
+} catch (e) {
+  return null;
+}
 ```
 
 ## method BuildTry:()=>Token
@@ -2386,5 +2488,22 @@ const shape = new WithStatementShape(this.Template);
 shape.Add(condition);
 shape.Add(body);
 return this.Finish(shape, first, this.At - 1);
+```
+
+# class CaseClauseBuildAdapter implements CaseClauseBuild
+
+case block item 表的**一子句建造器**：`CaseClauseItemRule.Build` 只认 `CaseClauseBuild` 接口
+（item 表不 import 语句建造器，避免循环依赖），本类把调用转给
+`StatementBuilder.BuildCaseClauseAt`——分段判据只有那一份，本类不带任何状态。
+
+## method BuildAt:(host:Token, start:int, end:int, context:SyntaxContext)=>Token | null
+
+`host` 必须是 case block 括号（`{ … }`）；其余形态返回 `null`（走 raw 回退）。
+
+```ts
+if (!(host instanceof Bracket)) {
+  return null;
+}
+return StatementBuilder.BuildCaseClauseAt(host as Bracket, start, end, context);
 ```
 
