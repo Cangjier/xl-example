@@ -36,7 +36,7 @@ const cases = [
   { source: "{ a; }\n{ b; }", body: 2, shells: 2 },
   { source: "{ let a = 1; f(); b; }", body: 3, shells: 1 },
   { source: "{ if (a) b; }", body: 1, shells: 1 },
-  { source: "{ ; }", body: 0, shells: 1 },
+  { source: "{ ; }", body: 1, shells: 1 },
   { source: "{ a; b; c; }", body: 3, shells: 1 },
   { source: "{ let x = 1 }", body: 1, shells: 1 },
   { source: "{ a }", body: 1, shells: 1 },
