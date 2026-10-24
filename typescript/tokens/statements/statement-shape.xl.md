@@ -2,8 +2,11 @@
 ```xl
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
+import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -219,6 +222,52 @@ if (parent.MountedUnit === shell) {
 shape.Parent = null;
 shape.Closed = true;
 return true;
+```
+
+## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
+
+**块体末句在 `}` 前收口**（Stage 4b 收尾，HANDOFF-s4b §6 D2）：块体目录建出的语句壳挂在块体 `{` 括号上，
+括号的结束 `}` 会先被这个壳吃掉（`UnitToken.Process` 把字符整段交给 `MountedUnit`），括号自己再也看不到它，
+于是块体目录里留下一个「未收口的语句壳」：末句没有 `;` 的形（`{ a }` / `{ f() }` / `{ let x = 1 }`）最后只能
+靠文件级 fallback 或干脆建不出块（AST 里剩下一个裸 `Bracket`）。
+
+这里只拦一种字符：**父单元是 `{` 括号、且字符正是那个括号的 `}`**。此时把壳里已经到齐的最后一条语句按
+`BuildFromShell` 建出来并 `FinishShell` 收口，然后返回 `Reload`——当前字符没被消费，由驱动层重放，
+这次落到括号自己身上，括号正常关闭、块壳随即收口。壳建不出来（未覆盖构造）时先 `DetachShell` 把 raw 单元
+按原位退回括号、同样 `Reload`：块体退回 legacy 递归（安全回退，不建错树）。
+
+根级语句壳（父单元是 `SourceFileShape`）与其它括号里的壳都不命中这条守卫，行为逐位不变。
+
+```ts
+if (this.Closed) {
+  return BranchStates.Undo;
+}
+const parent = this.Parent;
+if (parent === null || !(parent instanceof Bracket)) {
+  return BranchStates.Undo;
+}
+const bracket = parent as Bracket;
+if (bracket.StartBracketChar !== "{" || value !== bracket.EndBracketChar) {
+  return BranchStates.Undo;
+}
+const lastCode = ItemUtil.LastCodeInItem(this.Data);
+if (lastCode < 0) {
+  return BranchStates.Undo;
+}
+let built:Token | null = null;
+try {
+  built = StatementShape.BuildFromShell(this, lastCode, context);
+} catch {
+  built = null;
+}
+if (built !== null) {
+  StatementShape.FinishShell(this, built, context);
+  return BranchStates.Reload;
+}
+if (StatementShape.DetachShell(this)) {
+  return BranchStates.Reload;
+}
+return BranchStates.Undo;
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
