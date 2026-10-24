@@ -640,6 +640,152 @@
                     "shapeTexts": [
                         "=(a,b)"
                     ]
+                },
+                {
+                    "name": "s3l-arrow-ident",
+                    "source": "x => x + 1;",
+                    "note": "单标识符参数箭头：体是表达式，箭头整段交给 legacy ParseAssign 的箭头分支",
+                    "shapeTexts": [
+                        "arrow(x)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "s3l-arrow-empty",
+                    "source": "() => 1;",
+                    "note": "空参数箭头：`()` 是未解析参数表（params），AST 由 legacy 建",
+                    "shapeTexts": [
+                        "arrow(params)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "s3l-arrow-params",
+                    "source": "(a, b) => a + b;",
+                    "note": "逗号参数表：形状层不解释参数（括号内嵌套体放弃），整套交给 legacy 箭头分支",
+                    "shapeTexts": [
+                        "arrow(params)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "s3l-arrow-paren",
+                    "source": "(x) => x;",
+                    "note": "单参数括号：参数表能作为表达式解析时保留括号结构",
+                    "shapeTexts": [
+                        "arrow((x))"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "s3l-arrow-block",
+                    "source": "x => { return x; };",
+                    "note": "块体箭头：`{…}` 是一个括号单元，体整段吞掉",
+                    "shapeTexts": [
+                        "arrow(x)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "ArrowFunctionShape": 1
+                    }
+                },
+                {
+                    "name": "s3l-arrow-paren-expr",
+                    "source": "(x => x + 1);",
+                    "note": "括号里的箭头：括号内嵌套体接住箭头，AST 仍由 legacy ParseAssign",
+                    "shapeTexts": [
+                        "(arrow(x))"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "ArrowFunctionShape": 1
+                    }
+                },
+                {
+                    "name": "s3l-arrow-call",
+                    "source": "(x => x)(1);",
+                    "note": "组合：箭头作为调用者，调用后缀接在括号上",
+                    "shapeTexts": [
+                        "call((arrow(x)))"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "ArrowFunctionShape": 1,
+                        "CallExpressionShape": 1
+                    }
+                },
+                {
+                    "name": "s3l-arrow-add",
+                    "source": "(x => x) + 1;",
+                    "note": "组合：箭头作为二元左操作数",
+                    "shapeTexts": [
+                        "+((arrow(x)),1)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "ArrowFunctionShape": 1,
+                        "BinaryExpressionShape": 1
+                    }
+                },
+                {
+                    "name": "s3l-function-paren",
+                    "source": "(function(){});",
+                    "note": "匿名函数表达式：不透明操作数，头部与体由 ExpectBody 跳过",
+                    "shapeTexts": [
+                        "(function)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "FunctionExpressionShape": 1
+                    }
+                },
+                {
+                    "name": "s3l-function-named",
+                    "source": "(function(a){ return a; });",
+                    "note": "具名函数表达式 + 参数 + 块体",
+                    "shapeTexts": [
+                        "(function)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "FunctionExpressionShape": 1
+                    }
+                },
+                {
+                    "name": "s3l-class-bare",
+                    "source": "(class {});",
+                    "note": "匿名类表达式：S3g 的 class 守卫换成 ExpectBody 跳过 `<`/`>`/`{}`",
+                    "shapeTexts": [
+                        "(class)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "ClassExpressionShape": 1
+                    }
+                },
+                {
+                    "name": "s3l-class-named",
+                    "source": "(class C { m(){} });",
+                    "note": "具名类表达式 + 成员方法：成员全由 legacy BuildMembers 建",
+                    "shapeTexts": [
+                        "(class)"
+                    ],
+                    "tsTexts": [],
+                    "shapeAst": 1,
+                    "counts": {
+                        "ClassExpressionShape": 1
+                    }
                 }
             ]
         },
