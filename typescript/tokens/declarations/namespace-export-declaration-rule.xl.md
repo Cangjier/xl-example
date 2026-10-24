@@ -1,10 +1,9 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -16,7 +15,7 @@ import { NamespaceExportDeclarationShape } from "./namespace-export-declaration-
 # namespace cangjie
 
 `export as namespace N;` 的候选：`export` `as` `namespace` `<名字>` `;` 五格。
-`ExportDeclarationPossibleShape` 在第二格见到 `as` 就 `Reject`，`ExportAssignmentPossibleShape` 在第二格要求 `=` 也会 `Reject`。
+`ExportDeclarationPossibleShape` 在第二格见到 `as` 就 `Reject`，`ExportAssignmentRule` 在第二格要求 `=` 也会 `Reject`。
 时序与 `TypeAliasDeclarationPossibleShape` 相同：`;` 那一格 `Done`，`IsBuildable` 只在那一格为真。
 
 # class NamespaceExportDeclarationScan
@@ -33,7 +32,7 @@ import { NamespaceExportDeclarationShape } from "./namespace-export-declaration-
 
 ## field Rejected:bool = false
 
-# class NamespaceExportDeclarationPossibleShape extends PossibleShape
+# class NamespaceExportDeclarationRule extends RootRule
 
 ```txt
 export as namespace NS;
@@ -127,10 +126,10 @@ const state = cache.GetState<NamespaceExportDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<NamespaceExportDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<NamespaceExportDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;

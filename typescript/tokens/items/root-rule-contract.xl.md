@@ -51,6 +51,13 @@ import { Token } from "../../../core/syntax/token.xl.md"
 （根引擎只调 `IRootRule.Slot`，旧 `CatalogGuide` 路径只调 `PossibleShape.Slot`），
 所以两张表各自从 0 发号不会撞车。全部迁完之后 `PossibleShape.Slots` 随 D-2 一起消失。
 
+## static field SlotBase:int = 100000
+
+迁移期两个发号器并存：`PossibleShape.Slots` 从 0 开始，本类也从 0 开始，而两者共用同一份
+`PossibleShapeCache`（槽位就是数组下标）——直接混用会让已迁移的规则与尚未迁移的候选**撞槽**，
+读到对方的状态对象。所以本类从 `100000` 起发号：数组因此稀疏，但每个宿主最多只用掉几个槽，
+代价可忽略；D-2 只剩一套发号器时本字段随之删除。
+
 ## static method SlotOf:(ruleClass:any)=>int
 
 问一个规则类要槽位号；没发过号就现在发一个。
@@ -60,7 +67,7 @@ const known = RootRule.Slots.get(ruleClass);
 if (known !== undefined) {
   return known;
 }
-const slot = RootRule.Slots.size;
+const slot = RootRule.SlotBase + RootRule.Slots.size;
 RootRule.Slots.set(ruleClass, slot);
 return slot;
 ```

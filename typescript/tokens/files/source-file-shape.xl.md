@@ -2,7 +2,7 @@
 ```xl
 import { SourceFileBodyItemHost } from "../items/root-item-rule.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { IRootRule } from "../items/root-rule-contract.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
@@ -10,7 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ClassDeclarationPossibleShape } from "../declarations/class-declaration-possible-shape.xl.md"
 import { EnumDeclarationPossibleShape } from "../declarations/enum-declaration-possible-shape.xl.md"
-import { ExportAssignmentPossibleShape } from "../declarations/export-assignment-possible-shape.xl.md"
+import { ExportAssignmentRule } from "../declarations/export-assignment-rule.xl.md"
 import { ExportDeclarationPossibleShape } from "../declarations/export-declaration-possible-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { FunctionDeclarationPossibleShape } from "../declarations/function-declaration-possible-shape.xl.md"
@@ -18,7 +18,7 @@ import { ImportDeclarationPossibleShape } from "../declarations/import-declarati
 import { ImportEqualsDeclarationPossibleShape } from "../declarations/import-equals-declaration-possible-shape.xl.md"
 import { InterfaceDeclarationPossibleShape } from "../declarations/interface-declaration-possible-shape.xl.md"
 import { ModuleDeclarationPossibleShape } from "../declarations/module-declaration-possible-shape.xl.md"
-import { NamespaceExportDeclarationPossibleShape } from "../declarations/namespace-export-declaration-possible-shape.xl.md"
+import { NamespaceExportDeclarationRule } from "../declarations/namespace-export-declaration-rule.xl.md"
 import { SourceFileTailBuilder } from "../items/source-file-tail-builder.xl.md"
 import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
 import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
@@ -180,9 +180,9 @@ if (this.SourceRange.Start < 0) {
 super.Process(context, buffer, index);
 ```
 
-## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
+## private static field CreatePossibleShapesCache:Array<IRootRule> | null = null
 
-## static method CreatePossibleShapes:()=>Array<PossibleShape>
+## static method CreatePossibleShapes:()=>Array<IRootRule>
 
 ```ts
 if (SourceFileShape.CreatePossibleShapesCache === null) {
@@ -191,13 +191,13 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new ExportDeclarationPossibleShape(),
     new StatementPossibleShape(),
     // new ImportEqualsDeclarationPossibleShape(),
-    // new ExportAssignmentPossibleShape(),
-    // new NamespaceExportDeclarationPossibleShape(),
+    // new ExportAssignmentRule(),
+    // new NamespaceExportDeclarationRule(),
     new ImportEqualsDeclarationPossibleShape(),
     new ClassDeclarationPossibleShape(),
     new InterfaceDeclarationPossibleShape(),
-    new ExportAssignmentPossibleShape(),
-    new NamespaceExportDeclarationPossibleShape(),
+    new ExportAssignmentRule(),
+    new NamespaceExportDeclarationRule(),
     // new ClassDeclarationPossibleShape(),
     // new InterfaceDeclarationPossibleShape(),
     // new FunctionDeclarationPossibleShape(),

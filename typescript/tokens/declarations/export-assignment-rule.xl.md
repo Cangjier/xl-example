@@ -1,10 +1,9 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -41,7 +40,7 @@ import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 换行收口：`ComputeByIndex` 在等 `;` 的阶段命中下一条语句起点时置 `true`；
 `BuildByIndex` 据此建到边界之前、splice 不含边界单元（边界单元留在根里给下一条语句）。
 
-# class ExportAssignmentPossibleShape extends PossibleShape
+# class ExportAssignmentRule extends RootRule
 
 ```txt
 export = x;
@@ -134,10 +133,10 @@ const state = cache.GetState<ExportAssignmentScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ExportAssignmentScan>(this.Slot());
+const state = table.Cache.GetState<ExportAssignmentScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
