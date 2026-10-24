@@ -563,6 +563,16 @@ if (next instanceof Symbol) {
     return false;
   }
 }
+// 声明体的 `{`（`module N` ⏎ `{}` / `namespace N` ⏎ `{}`）：`{…}` 是**整单元 Bracket**，
+// 不是 Symbol `"{"`（上一条只覆盖符号形态），落到下面就成「不能续接」。但 class / interface /
+// enum / function / module 的体正好从这一格开始，换行不改变归属（G 类 #71）。
+// 只有表达式尾巴才把换行后的 `{` 当块语句——那时 `KindOf` 是 9（或 export 子句 2），不走这条豁免。
+if (next instanceof Bracket && (next as Bracket).StartBracketChar === "{") {
+  const bodyKind: number = this.KindOf(code);
+  if (bodyKind === 3 || bodyKind === 4 || bodyKind === 5 || bodyKind === 6 || bodyKind === 7) {
+    return false;
+  }
+}
 // 调用位（`(` / `[` / 反引号模板）：上一格是普通表达式尾巴时换行**继续**同一条表达式
 // （`const x = a` ⏎ `(b)` = `a(b)`），只有当上一格当不了调用者（`as`/`satisfies` 的类型、
 // 块体箭头 `=> {}`、后缀 `++`/`--`）时才是声明边界。判据与 `EndsAtLineBreak` 同源。
