@@ -305,7 +305,28 @@ if (at >= start && host.Data[at].IsBasicToken) {
     const trailingStatement = trailingBuilder.BuildStatement();
     host.Data.splice(start, at - start + 1, trailingStatement);
     trailingStatement.Parent = host;
-  } else if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
+  } else {
+    // r6：尾段未必只有一条语句。`lab: a` ⏎ `c;` / `a++; ++` ⏎ `b;` / `const a = b as T` ⏎ `(c);`
+    // 这些形态里 BuildTrailingDeclaration 会把「两条语句」当一条表达式建，抛
+    // 「表达式语句没有读完」/「表达式意外结束」。整条建不出来时退回**按 ASI 边界切段**
+    // （BuildStatementSegments：逐条 StatementBuilder 建、按已建形状的 End 定位下一段）——
+    // 这正是 EOF 兜底该做的事：尾段有几句就建几句。切段也建不出（非语句垃圾）才走旧的
+    // 单条 ExpressionStatement 兜底，行为与改前一致。
+    let trailHandled = false;
+    try {
+      trailHandled = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context);
+    } catch (trailError) {
+      trailHandled = false;
+    }
+    if (!trailHandled) {
+      let segmented = false;
+      try {
+        SourceFileEndPossibleShape.BuildStatementSegments(host, start, at, context);
+        segmented = true;
+      } catch (segmentError) {
+        segmented = false;
+      }
+      if (!segmented) {
     // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
     // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
     const tailIsSemicolon = host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";");
@@ -317,6 +338,8 @@ if (at >= start && host.Data[at].IsBasicToken) {
       : ExpressionStatementShape.FromUnits(host, start, at, context, false);
     host.Data.splice(start, at - start + 1, built);
     built.Parent = host;
+      }
+    }
   }
 }
 let tail = host.Data.length - 1;
