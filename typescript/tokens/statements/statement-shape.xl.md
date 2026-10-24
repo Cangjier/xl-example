@@ -115,9 +115,31 @@ if (!this.Closed) {
       built = null;
     }
     if (built !== null) {
-      StatementShape.FinishShell(this, built);
-      return CloseStates.Nothing;
-    }
+        StatementShape.FinishShell(this, built);
+        return CloseStates.Nothing;
+      }
+      // 兜底：壳里这一段建不出来（例如 `satisfies` / 类型实参这种扫描器给不出 Status==1 的形态），
+      // 就把 raw 单元按原位退回父单元、把自己摘掉，让根终结候选按基线口径建剩下的语句。
+      // 不这么做时壳会以「未建树的形状」留在根里，AST 少整条语句（4 个 diff 的根因）。
+      const parent = this.Parent;
+      if (parent !== null) {
+        const index = parent.Data.indexOf(this);
+        if (index >= 0) {
+          const raw:Array<Token> = this.Data.slice();
+          this.Data.length = 0;
+          parent.Data.splice(index, 1);
+          for (let at = 0; at < raw.length; at++) {
+            raw[at].Parent = parent;
+            parent.Data.splice(index + at, 0, raw[at]);
+          }
+          if (parent.MountedUnit === this) {
+            parent.MountedUnit = null;
+          }
+          this.Parent = null;
+          this.Closed = true;
+          return CloseStates.Nothing;
+        }
+      }
   }
 }
 return super.TryToClose(context);

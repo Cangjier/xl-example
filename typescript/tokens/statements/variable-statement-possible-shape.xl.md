@@ -74,6 +74,11 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (units[tokenIndex] instanceof EndOfFileTokenShape) {
   return ShapeStates.Reject;
 }
+// 只有 trivia、还没有任何代码单元时不能 Reject：CatalogGuide 会把 Reject 的候选从 Candidates 里永久删除。
+// 文件以注释开头时首次判定就落在这一格，Reject 会让整条 let/const/var 声明无人接管（token-ast 28 个 crash 的根因）。
+if (ItemUtil.NextCode(units, ItemUtil.ItemStart(units)) >= units.length) {
+  return ShapeStates.Uncertain;
+}
 const start = ItemUtil.ItemStart(units);
 if (start >= units.length) {
   return ShapeStates.Reject;
