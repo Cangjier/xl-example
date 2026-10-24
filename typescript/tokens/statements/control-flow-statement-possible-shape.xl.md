@@ -35,7 +35,7 @@ import { StatementShape } from "./statement-shape.xl.md"
 - 空语句：语句首的 `;`（**默认关**，`EnableControlFlowEmpty = false`）：重放回来的 `;` 会因旧 `ItemStart`
   失管，而 legacy 与壳建空语句是同一份 `BuildEmpty`，所以默认留给 legacy，只保留开关与专用用例守正确性。
 
-**标签语句**（`EnableControlFlowLabel`，4c-2 起默认打开）：路由 `ShellLabel` 与 `ShellStatementFamily`
+**标签语句**（`EnableControlFlowLabel`，**默认关**；4c-2 的注释写成「默认打开」与默认值不符，4d 修 F1）：路由 `ShellLabel` 与 `ShellStatementFamily`
 是**同一个候选**的两条入口，只有建壳时机不同——标签头是标识符，`Decide` 在首格返回 `None`（等第二个代码
 单元），`:` 到达那一格才判成 `ShellLabel`，本候选就在 `:` 格 Accept 并搬 `ident` + `:` 建壳
 （`Kind = ShellLabel`），判界走 `ScanRoot`、建树走 `StatementBuilder.BuildStatement` 的标签分派。
