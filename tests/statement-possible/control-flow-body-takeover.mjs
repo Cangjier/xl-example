@@ -66,13 +66,22 @@ const cases = [
   { source: "function f() { if (a) { let x = 1; } }", brace: 1, body: 2, cf: 1 },
   { source: "{ if (a) { let x = 1; } }", brace: 1, body: null, cf: null },
   { source: "async function f() { if (a) { await g(); } }", brace: 1, body: null, cf: null },
+  // —— Stage 4p：switch case 体「尝试 → 安全回退」的证据组 ——
+  // 挂 case 体的 `{` 会让 `case <表达式>:` 的建树抛 `SourceRange is not set`（`default:` 不抛），
+  // 整条文件因此走文件级 fallback。开关 `EnableSwitchCaseBody` 默认关，下面四条钉住「不接管」：
+  // switch 的体括号与 case 体的 `{` 都不挂目录（brace 0），体内语句留 raw（body 0），只有 switch 壳（cf 1）。
+  { source: "switch (x) { case 1: { let y = 1; } }", brace: 0, body: 0, cf: 1 },
+  { source: "switch (x) { case 1: f(); case 2: { g(); } break; }", brace: 0, body: 0, cf: 1 },
+  { source: "switch (x) { default: { let y = 2; } }", brace: 0, body: 0, cf: 1 },
+  { source: "switch (x) { case 1: { if (a) { b; } } }", brace: 0, body: null, cf: 1 },
   // —— 对照 / 冒名组：必须**不挂**（安全回退，brace 与 body 均为 0）——
   { source: "if (a) b;", brace: 0, body: 0, cf: 1 },
   { source: "if (a) b\n{}", brace: 0, body: 0, cf: null },
-  { source: "switch (x) { case 1: { g; } }", brace: 0, body: 0, cf: null },
   { source: "({ m() { let z = 1; } });", brace: 0, body: 1, cf: null },
   { source: "const f = x => { let z = 1; };", brace: 0, body: 1, cf: null },
-  { source: "{ function f() { let x = 1; } }", brace: 0, body: 0, cf: null },
+  // Stage 4p：块内函数声明的体**挂上了目录但没有被收集**（mount 1、body 0）——挂载不等于接管，
+  // switch case 体在 `EnableSwitchCaseBody = false` 下**不接管**（见上面的 4p 证据组）。
+  { source: "{ function f() { let x = 1; } }", brace: 0, body: 0, cf: 0 },
 ];
 
 function describeError(error) {

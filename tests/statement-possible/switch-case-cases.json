@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "description": "Stage 4p dedicated cases. Two outcomes, both recorded honestly. (A) Block-scoped function declarations (`{ function f(){ let x = 1; } f(); }`): the function body `{` gets the block-body catalog at bracket-creation time (predicate: scanning back from the body brace over the return type, the closed parameter list, an optional type-parameter `<...>`, an optional `*` and the name must land on the `function` keyword), so the body's statements are built by the SAME collection channel as every other body (`StatementBuilder.BuildBlock()` -> `HasBuiltBodyStatements` / `CollectBodyStatements`). The declaration itself stays RAW: no declaration-family shell is created, no declaration-family judgement is touched, and the tree is still produced by the legacy `BuildFunctionDeclaration` recursion. (B) Switch case bodies (`switch (x) { case 1: { ... } }`): mounting the catalog on the case body `{` was implemented and then DISABLED by default (`BlockPossibleShape.EnableSwitchCaseBody = false`) because `case <expression>:` makes the build throw `SourceRange is not set` (a `default:` clause works), which sends the whole file through the file-level fallback - not a deliverable state. With the flag off, case bodies stay raw and are built by `BuildCaseBlock`'s legacy recursion: unchanged tree, zero fallback. Every case below therefore asserts: (1) shell-path XML == legacy-path XML byte for byte; (2) AST node-for-node == ts.createSourceFile; (3) two parses give identical XML; (4) no StatementShape/PossibleShape/CatalogGuide leak in XML; (5) no file-level fallback. Takeover counters (`BlockFunctionBodyMountCount` / `SwitchCaseBodyMountCount` / `ControlFlowBodyBraceCount` / `BlockBodyStatementCount`) are asserted by the Stage 4p cases appended to tests/statement-possible/control-flow-body-takeover.mjs and recorded in HANDOFF-s4p.md. The trap group is the safety gate: the switch body `{`, case bodies (flag off), clause-level statements without braces, type literals, object literals and label bodies must NOT mount.",
+  "groups": {
+    "stage4p": {
+      "stage": "Stage 4p (block-scoped function declaration bodies taken over; switch case bodies attempted then safely rolled back)",
+      "description": "Block-scoped function declarations (simple, two statements, return type, generic, nested in a function, inside an if body, inside a case body block) - taken over; switch case bodies (single block, clause-level statements plus a block, default clause, nested control flow inside the case body, nested switch, two case blocks, no trailing semicolon, inside a block, empty case body, mixed statements) - XML/AST gates with the takeover flag off (raw legacy path, zero fallback); arrow/object nesting confirmations; and the trap group (switch without case bodies, type literal with nested object type, object literal without methods, object method, label body, class method).",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4p-switch-case-block", "source": "switch (x) { case 1: { let a = 1; } default: }" },
+        { "name": "s4p-switch-case-expr", "source": "switch (x) { case 1: f(); case 2: { g(); } break; }" },
+        { "name": "s4p-switch-case-default", "source": "switch (x) { default: { let y = 2; } }" },
+        { "name": "s4p-switch-case-ctrl", "source": "switch (x) { case 1: { if (a) { b; } } }" },
+        { "name": "s4p-switch-case-nested-switch", "source": "switch (a) { case 1: { switch (b) { case 2: { c; } } } }" },
+        { "name": "s4p-switch-case-two-blocks", "source": "switch (x) { case 1: { a; } case 2: { b; } }" },
+        { "name": "s4p-switch-case-no-semi", "source": "switch (x) { case 1: { let a = 1 } }" },
+        { "name": "s4p-switch-case-in-block", "source": "{ switch (x) { case 1: { a; } } }" },
+        { "name": "s4p-switch-case-empty", "source": "switch (x) { case 1: {} default: {} }" },
+        { "name": "s4p-switch-case-mixed", "source": "switch (x) { case 1: { let a = 1; f(); { g(); } } }" },
+        { "name": "s4p-fn-block", "source": "{ function f(){ let x = 1; } f(); }" },
+        { "name": "s4p-fn-block-two", "source": "{ function g(){ a; b; } }" },
+        { "name": "s4p-fn-block-return-type", "source": "{ function h(): number { let y = 1; return y; } }" },
+        { "name": "s4p-fn-block-generic", "source": "{ function f<T>(a: T){ let x = a; } }" },
+        { "name": "s4p-fn-in-fn", "source": "function outer(){ function inner(){ let z = 1; } inner(); }" },
+        { "name": "s4p-fn-in-if", "source": "if (a) { function f(){ b; } }" },
+        { "name": "s4p-fn-in-case", "source": "switch (x) { case 1: { function f(){ a; } } }" },
+        { "name": "s4p-arrow-ctrl-nested", "source": "const f = () => { if (a) { b; } };" },
+        { "name": "s4p-obj-ctrl-nested", "source": "const o = { m(){ while (a) { b; } } };" },
+        { "name": "s4p-trap-switch-no-case-body", "source": "switch (x) { case 1: f(); default: g(); }" },
+        { "name": "s4p-trap-type-literal-nested", "source": "let o: { a: { b: number } } = x;" },
+        { "name": "s4p-trap-obj-no-method", "source": "const o = { a: 1, b: 2 };" },
+        { "name": "s4p-trap-obj-method", "source": "const o = { m(){ let y = 2; } };" },
+        { "name": "s4p-trap-label-body", "source": "en: { a; }" },
+        { "name": "s4p-trap-class-method", "source": "class C { m(){ let y = 1; } }" }
+      ]
+    }
+  }
+}
