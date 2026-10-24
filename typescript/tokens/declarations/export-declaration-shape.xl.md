@@ -21,6 +21,7 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { NamedExportsShape } from "./named-exports-shape.xl.md"
 import { NamespaceExportShape } from "./namespace-export-shape.xl.md"
 import { ParenthesizedExpressionShape } from "../expressions/parenthesized-expression-shape.xl.md"
+import { DeclarationSpan } from "../items/module-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -311,4 +312,74 @@ for (const item of this.Data) {
   }
 }
 return CloseStates.Nothing;
+```
+
+## static method FromCode:(template:Template, code:Array<Token>, pos:int, context:SyntaxContext, hasSemicolon:bool)=>ExportDeclarationShape
+
+用**已切好的代码单元**建一条 export 声明：`code` 是 `DeclarationSpan.Slice` 的结果，`pos` 是全片的 `Pos`。
+`FromUnits`（宿主切片）与 `BuildDirect`（item 区间）都落到这里。
+
+无分号（ASI）时只在本次调用自己的 `units` 数组末尾放一个零宽合成 `;`（签出仍落在最后一个真实单元的
+`End` 上），给 `FromUnits` 的「末格必须是 `;`」口径一个终点；**不动 `host.Data`**。
+
+```ts
+const units:Array<Token> = [];
+for (const unit of code) {
+  units.push(unit);
+}
+if (!hasSemicolon && units.length > 0) {
+  const last = units[units.length - 1];
+  const lastEnd = last.SourceRange.End;
+  if (lastEnd >= 0) {
+    const semi = new Symbol(template);
+    semi.SignIn(lastEnd);
+    semi.AppendValueAndSignOut(";", lastEnd - 1);
+    units.push(semi);
+  }
+}
+const hostLike:any = { Data: units, Template: template };
+const shape = ExportDeclarationShape.FromUnits(hostLike, 0, units.length - 1, context);
+shape.Pos = pos;
+return shape;
+```
+
+## static method BuildDirect:(host:Token, start:int, end:int, context:SyntaxContext)=>ExportDeclarationShape | null
+
+**直接建造入口**（WP-3 根级用）：`host.Data[start, end)` 恰好是一条 `export { … } / export * … /
+export type { … }` 声明（`end` 不含，结尾 `;` 可有可无）。
+
+- 不依赖 `BuildByIndex` / `MountShell` / `CatalogGuide`；
+- **不改 `host.Data`**；
+- 返回 `null` = 这一片不是一条完整的 export 声明（调用方走 raw 兜底）；不抛异常。
+
+`export = <expr>` / `export default <expr>` **不**走这里（那是 `ExportAssignmentShape.BuildDirect`，
+children 只有表达式）。
+
+```ts
+if (start < 0 || end <= start) {
+  return null;
+}
+const code = DeclarationSpan.Slice(host, start, end);
+if (code.length < 3) {
+  return null;
+}
+const keyword = code[0];
+if (!(keyword instanceof Common) || !(keyword as Common).Is("export")) {
+  return null;
+}
+const second = code[1];
+if (second instanceof Symbol && (second as Symbol).Is("=")) {
+  return null;
+}
+if (second instanceof Common && ((second as Common).Is("default") || (second as Common).Is("import")
+  || (second as Common).Is("as"))) {
+  return null;
+}
+const hasSemicolon = DeclarationSpan.EndsWithSemicolon(code);
+const pos = DeclarationSpan.PosBefore(host, start);
+try {
+  return ExportDeclarationShape.FromCode(host.Template, code, pos, context, hasSemicolon);
+} catch {
+  return null;
+}
 ```

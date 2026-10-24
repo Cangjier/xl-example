@@ -190,6 +190,83 @@ function describe(unit) {
 }
 
 // ---------------------------------------------------------------------------
+// module 族（WP-6）：模块体括号 = `Bracket` 宿主，`ModuleItemRule` 的 item = 一个成员
+// ---------------------------------------------------------------------------
+// 捕获：模块体括号由 `ModuleBlockShape.FromBracket` 接手，那里拿到的 `bracket.Data` 还是原始代码单元
+// （成员是「读出来建」的，不 splice 括号自己的 Data），正好可以当 item 表的宿主。
+// 每次跑都克隆一个括号（Data 换副本），否则整批那一趟建出的形状会留在下一次跑的宿主里。
+const { Bracket } = require(path.join(root, "build/ts/core/syntax/basic-tokens/bracket.js"));
+const { ModuleBlockShape } = require(path.join(root, "build/ts/typescript/tokens/declarations/module-block-shape.js"));
+const { ModuleBodyItemHost } = require(path.join(root, "build/ts/typescript/tokens/items/module-item-rule.js"));
+
+const MODULE_SOURCES = [
+  `declare module "m" { export let x: number; export function f(): void; }`,
+  `namespace N { let a = 1; function g(): void }`,
+  `declare namespace P { const k: string; interface I { a: number; } }`,
+  `namespace Q { export import x = require("m") }`,
+  `declare module "n" {
+  export as namespace NN;
+  const v: number;
+  class C {}
+}`,
+];
+
+const moduleBrackets = [];
+const originalFromBracket = ModuleBlockShape.FromBracket;
+ModuleBlockShape.FromBracket = function (bracket, pos, context) {
+  moduleBrackets.push(bracket);
+  return originalFromBracket.call(this, bracket, pos, context);
+};
+for (let i = 0; i < MODULE_SOURCES.length; i++) {
+  try {
+    SourceFileRunner.Parse(MODULE_SOURCES[i], `batch-split-module-${i}.ts`);
+  } catch (e) {
+    console.error(`module 语料 #${i} 解析失败: ${e && e.message ? e.message : e}`);
+  }
+}
+ModuleBlockShape.FromBracket = originalFromBracket;
+
+function makeModuleHost(code) {
+  const source = moduleBrackets.find((b) => b.Data === code);
+  if (source === undefined) {
+    return makeHost(code);
+  }
+  const bracket = new Bracket(source.Template);
+  bracket.Data = code.slice();
+  bracket.SourceRange = source.SourceRange.Clone();
+  bracket.StartBracketChar = source.StartBracketChar;
+  bracket.EndBracketChar = source.EndBracketChar;
+  return bracket;
+}
+
+function runModuleWhole(host, context) {
+  const adapter = new ModuleBodyItemHost(host, ModuleBlockShape.CreateBodyItemRules());
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, true);
+  batch.Sealed = true;
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, closed] };
+}
+
+function runModuleSplit(host, context, k) {
+  const adapter = new ModuleBodyItemHost(host, ModuleBlockShape.CreateBodyItemRules());
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, false);
+  batch.To = Math.max(1, Math.min(k, host.Data.length));
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  batch.To = host.Data.length;
+  batch.AtEof = true;
+  batch.Sealed = false;
+  batch.Recompute();
+  const second = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, second, closed] };
+}
+
+// ---------------------------------------------------------------------------
 // 族表（骨架）：以后加族只在这里追加配置
 // ---------------------------------------------------------------------------
 const FAMILIES = [
@@ -200,6 +277,14 @@ const FAMILIES = [
     contextOf,
     runWhole,
     runSplit,
+  },
+  {
+    name: "module",
+    cases: () => moduleBrackets.map((b) => b.Data),
+    makeHost: makeModuleHost,
+    contextOf,
+    runWhole: runModuleWhole,
+    runSplit: runModuleSplit,
   },
 ];
 

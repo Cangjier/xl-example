@@ -26,6 +26,8 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
+import { ModuleItemRule, ModuleMemberBuild } from "../items/module-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -798,5 +800,106 @@ if (texts[0] === "declare") {
   return true;
 }
 return texts[0] === "export" && texts.length > 1 && texts[1] === "declare";
+```
+
+## private static field CreateBodyItemRulesCache:Array<ItemRule> | null = null
+
+## static method CreateBodyItemRules:()=>Array<ItemRule>
+
+模块体 item 表的规则表：模块体只有一条规则 `ModuleItemRule`（一条 item 就是一个成员），
+一成员建造器由本类的 `ModuleBlockMemberBuild` 注入（它复用 `BuildMember` 的现成分派，不复制判据）。
+规则表只建一份；判定状态在各自的引擎里，规则实例本身无状态。
+
+**本阶段未接线**：模块体括号的创建发生在 `ModuleDeclarationPossibleShape` 一次性建整棵声明的时候，
+括号已经闭合，没有可挂 `BatchAdapter` 的创建钩子（见 `items/module-item-rule.xl.md` 文件头）。
+所以这个方法目前只被隔离测试驱动，不进解析路径。
+
+```ts
+if (ModuleBlockShape.CreateBodyItemRulesCache !== null) {
+  return ModuleBlockShape.CreateBodyItemRulesCache;
+}
+const rule = new ModuleItemRule();
+rule.MemberBuilder = new ModuleBlockMemberBuild();
+ModuleBlockShape.CreateBodyItemRulesCache = [rule];
+return ModuleBlockShape.CreateBodyItemRulesCache;
+```
+
+## static method BuildMemberAt:(block:ModuleBlockShape, bracket:Bracket, dataStart:int, context:SyntaxContext)=>Token | null
+
+**一成员建造入口**：从 `bracket.Data` 的 `dataStart` 起建**恰好一个**成员并返回它，不把它留在 `block` 里
+（item 表建出的形状由引擎 splice 进 `bracket.Data`，收口时再由 `ModuleBlockShape` 的收集路径收进 children）。
+
+复用 `BuildMember`（成员分派一个字都没复制）：装一个 `StatementBuilder` 到 `bracket.Data`，把游标推到
+`dataStart` 对应的代码单元，调一次 `BuildMember`，再从 `block` 尾巴上摘下刚建出的成员。
+`block` 必须是**同一个模块体的那个 block 实例**（`DataCursorAt` 游标要跨成员前进，否则 `DataIndex`
+会退化成每个成员一次线性扫描）。
+
+```ts
+let basePos = 0;
+if (bracket.SourceRange.StartIndex >= 0) {
+  basePos = bracket.SourceRange.StartIndex + 1;
+}
+const inner = new StatementBuilder(bracket.Template, context);
+inner.Load(bracket.Data, basePos);
+let at = 0;
+let index = 0;
+while (index < dataStart && at < inner.Units.length) {
+  if (!bracket.Data[index].IsTriviaToken) {
+    at++;
+  }
+  index++;
+}
+inner.At = at;
+const before = block.Data.length;
+ModuleBlockShape.BuildMember(inner, bracket, block, context);
+if (block.Data.length <= before) {
+  return null;
+}
+const member = block.Data[block.Data.length - 1];
+block.Data.splice(block.Data.length - 1, 1);
+member.Parent = null;
+return member;
+```
+
+# class ModuleBlockMemberBuild implements ModuleMemberBuild
+
+模块体成员的一成员建造器：把 `ModuleItemRule.Build` 的 `[start, end]`（宿主下标、含 `end`）交给
+`ModuleBlockShape.BuildMemberAt`。模块体 block 实例按宿主括号缓存（同一个括号的多次建造共用一个游标）。
+
+## static field Blocks:Map<Token, ModuleBlockShape> = new Map<Token, ModuleBlockShape>()
+
+每个模块体括号一个 block（只为承载 `DataCursorAt` 与 `Add`，不进任何语法树）。
+
+## method BuildAt:(host:Token, start:int, end:int, context:SyntaxContext)=>Token | null
+
+`host` 必须是模块体括号（`{ … }`）；否则返回 `null`。切片末尾不在本方法里裁：`BuildMember` 自己按
+`;` / 换行 / 体括号收口，`end` 只用于「不要越过本 item」。
+
+```ts
+if (!(host instanceof Bracket)) {
+  return null;
+}
+const bracket = host as Bracket;
+if (bracket.StartBracketChar !== "{") {
+  return null;
+}
+let block = ModuleBlockMemberBuild.Blocks.get(bracket);
+if (block === undefined) {
+  block = new ModuleBlockShape(bracket.Template);
+  ModuleBlockMemberBuild.Blocks.set(bracket, block);
+}
+if (start < 0 || end < start) {
+  return null;
+}
+const member = ModuleBlockShape.BuildMemberAt(block, bracket, start, context);
+if (member === null) {
+  return null;
+}
+if (member.SourceRange.EndIndex >= 0 && bracket.Data[end].SourceRange.EndIndex >= 0) {
+  if (member.SourceRange.EndIndex > bracket.Data[end].SourceRange.EndIndex + 1) {
+    return null;
+  }
+}
+return member;
 ```
 
