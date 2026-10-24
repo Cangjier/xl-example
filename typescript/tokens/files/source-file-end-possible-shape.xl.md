@@ -309,15 +309,12 @@ if (at >= start && host.Data[at].IsBasicToken) {
     // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
     // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
     const tailIsSemicolon = host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";");
+    // r5：`;` 一起交给 `FromUnits` 的 requireSemicolon 分支——它把 `;` 从表达式里摘掉、却用 `;` 的 End 收口，
+    // 正是 TS 的 ExpressionStatement 区间（含 `;`）。旧写法「先按无分号建、再 SignOut 第二次」对同一个 shape
+    // 二次签出 `SourceRange.End`，抛 `SourceRange.End has already been set`（missing-end 24 的直接成因）。
     const built = tailIsSemicolon && at > start
-      ? ExpressionStatementShape.FromUnits(host, start, at - 1, context, false)
+      ? ExpressionStatementShape.FromUnits(host, start, at, context, true)
       : ExpressionStatementShape.FromUnits(host, start, at, context, false);
-    if (tailIsSemicolon && at > start) {
-      const semiEnd = host.Data[at].SourceRange.EndIndex;
-      if (semiEnd >= 0) {
-        built.SignOut(semiEnd);
-      }
-    }
     host.Data.splice(start, at - start + 1, built);
     built.Parent = host;
   }
