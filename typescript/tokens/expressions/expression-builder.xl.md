@@ -369,7 +369,7 @@ while (true) {
   if (this.IsTypeOperator(unit)) {
     // `as` / `satisfies`：与关系运算符同级（TS 实测 `a + b as T` = `(a + b) as T`、
     // `a as T + b` = `(a as T) + b`），右操作数是类型不是表达式。
-    const precedence = 11;
+    const precedence = OperatorTable.AsPrecedence;
     if (precedence < minPrecedence) {
       break;
     }
@@ -410,14 +410,13 @@ return left;
 
 ## method IsTypeOperator:(unit:Token)=>bool
 
-`as` / `satisfies` 是类型运算符：`ParseBinary` 在二元循环里按关系运算符的优先级处理它们，右操作数交给 `ParseFollowingType`。
+`as` / `satisfies` 是类型运算符：优先级与集合都由 `OperatorTable` 提供（`AsPrecedence` / `IsAsOperator`），`ParseBinary` 在二元循环里只做一次委托；右操作数交给 `ParseFollowingType`。
 
 ```ts
 if (!(unit instanceof Common)) {
   return false;
 }
-const text = (unit as Common).TempToString();
-return text === "as" || text === "satisfies";
+return OperatorTable.IsAsOperator((unit as Common).TempToString());
 ```
 
 ## method ParseFollowingType:()=>Token
