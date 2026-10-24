@@ -298,8 +298,18 @@ if (builds.length === 0) {
   return;
 }
 const data = host.Data;
-let src = 0;
-let dst = 0;
+// 第一个有效替换点左侧的 unit 一个都不搬：从它开始压实，省掉每批扫一遍前缀。
+let start = 0;
+for (let i = 0; i < builds.length; i++) {
+  const from = builds[i].From;
+  const to = builds[i].To;
+  if (from >= 0 && to > from && from <= data.length) {
+    start = from;
+    break;
+  }
+}
+let src = start;
+let dst = start;
 let removed = 0;
 for (let i = 0; i < builds.length; i++) {
   const from = builds[i].From;
