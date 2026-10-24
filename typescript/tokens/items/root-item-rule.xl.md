@@ -249,6 +249,37 @@ while (at < code.length) {
           return;
         }
       }
+      // E：`const f = a < b` 换行 `>`——`>` 是类型实参段的闭合，属于**本条** item。候选在 `>`
+      // 上全灭后如果只走下面的 ①（收口到 `b`），这个 `>` 就被留成下一条语句的开头（raw），
+      // 后一行整条语句也跟着丢（wp3-14 §3.2）。判据只有一个：`AngleJudge.CanStart` 认定这个
+      // `<` 开的是类型实参段（它已经包含 TS 的「配对 `>` 后有换行」规则）。判住了就走同分支
+      // 下方已有的 `over` 路径：含这一格建、End 按实际右界反推；建不出来就照原样落到 ①。
+      if (at > 0 && this.IsSymbolAt(code, at, ">")) {
+        const ltAt: number = this.LastOpenAngle(code, at - 1);
+        if (ltAt >= 0 && AngleJudge.CanStart(units, state.CodeAt[ltAt] - base)) {
+          const angleOver: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, state.CodeAt[at], this.Context);
+          if (angleOver !== null && !this.IsEmptyVariableStatement(code, angleOver)) {
+            const angleEnd: number = angleOver.SourceRange.EndIndex;
+            let angleAt: number = at;
+            if (angleEnd >= 0) {
+              while (angleAt >= 0) {
+                const angleStart: number = code[angleAt].SourceRange.Start;
+                if (angleStart >= 0 && angleStart < angleEnd) {
+                  break;
+                }
+                angleAt = angleAt - 1;
+              }
+            }
+            if (angleAt >= 0) {
+              state.Complete = true;
+              state.End = state.CodeAt[angleAt];
+              this.Pending = angleOver;
+              this.Watermark = angleAt + 1;
+              return;
+            }
+          }
+        }
+      }
       // ① 先按「不含这一格」建：这一格通常是下一条语句的开头（ASI 边界），不属于本条 item。
       if (at > 0) {
         const beforeEnd: number = state.CodeAt[at - 1];
