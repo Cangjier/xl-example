@@ -308,7 +308,7 @@ if (head instanceof Common) {
 if (head instanceof Symbol) {
   const symbol = head as Symbol;
   if (symbol.Is(";")) {
-    // 空语句：默认仍归 Legacy（见 `EnableControlFlowEmpty` 的理由：重放回来的 `;` 会因旧 ItemStart 失管）。
+    // 空语句：默认归壳（`EnableControlFlowEmpty = true`；4d 的父目录重放已修好 `;` 的失管）。
     if (StatementRouteUtil.EnableShellExpressions && StatementRouteUtil.EnableControlFlowShell
       && StatementRouteUtil.EnableControlFlowEmpty) {
       return StatementRoute.ShellStatementFamily;

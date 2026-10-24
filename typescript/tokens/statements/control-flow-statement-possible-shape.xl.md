@@ -32,8 +32,9 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 - 关键字族：`if` / `while` / `do` / `for`（含 `for-in` / `for-of`）/ `switch` / `try` /
   `return` / `throw` / `break` / `continue` / `debugger` / `with`；
-- 空语句：语句首的 `;`（**默认关**，`EnableControlFlowEmpty = false`）：重放回来的 `;` 会因旧 `ItemStart`
-  失管，而 legacy 与壳建空语句是同一份 `BuildEmpty`，所以默认留给 legacy，只保留开关与专用用例守正确性。
+- 空语句：语句首的 `;`（**默认开**，`EnableControlFlowEmpty = true`；4d 的 `FinishShell` 父目录重放
+  修好了「重放回来的 `;` 因旧 `ItemStart` 失管」，legacy 与壳建空语句仍是同一份 `BuildEmpty`）。
+  历史读数（4c-2 默认关）保留在 `HANDOFF-s4d.md` §3 与 `statement-route-util.xl.md`。
 
 **标签语句**（`EnableControlFlowLabel`，**默认关**；4c-2 的注释写成「默认打开」与默认值不符，4d 修 F1）：路由 `ShellLabel` 与 `ShellStatementFamily`
 是**同一个候选**的两条入口，只有建壳时机不同——标签头是标识符，`Decide` 在首格返回 `None`（等第二个代码
