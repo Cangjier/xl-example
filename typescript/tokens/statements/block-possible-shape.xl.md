@@ -126,6 +126,11 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 if (!StatementRouteUtil.EnableShellExpressions) {
   return ShapeStates.Reject;
 }
+// 括号宿主监听必须**早于**任何一个箭头体 / 对象方法体括号：根层 `const f = () => { … }` 的 `(`
+// 父单元是变量壳而不是根，`SourceFileShape.OnBracketCreatedEvent` 的懒安装会错过它。
+if (StatementRouteUtil.EnableBlockBodyCatalog) {
+  BlockPossibleShape.EnsureChildBracketHook();
+}
 if (units[tokenIndex] instanceof EndOfFileTokenShape) {
   return ShapeStates.Reject;
 }
@@ -238,6 +243,48 @@ return shell;
 ## static field FunctionBodyMountCount:int = 0
 
 进程内累计「函数体 / 方法体 / 构造器体括号挂上语句目录」的次数（只增不减，供测试断言接管确实发生）。
+
+## static field ArrowBodyMountCount:int = 0
+
+进程内累计「箭头块体 / 对象字面量方法体括号挂上语句目录」的次数（Stage 4o，只增不减）。
+与 `FunctionBodyMountCount` 分开计量，任何既有的「函数体挂载」断言不受影响。
+
+## static method IsArrowUnit:(unit:Token)=>bool
+
+`unit` 是不是箭头 `=>`（只看 `Symbol` 文本，不建状态）。
+```ts
+if (!(unit instanceof Symbol)) {
+  return false;
+}
+return (unit as Symbol).Is("=>");
+```
+
+## static method PreviousCodeUnit:(unit:Token, bracket:Token)=>Token | null
+
+宿主 `Data` 里紧挨在 `bracket` 之前的**非 trivia 单元**（跳过 `bracket` 自己）。
+箭头块体的 `=>`、函数体 / 方法体的 `)` 与返回类型都靠它认；判据只读宿主 `Data`，
+不触发任何 `ComputePossibleShapes*`（S4i 方案 A 的抛错出口因此不会被打开）。
+```ts
+for (let at = unit.Data.length - 1; at >= 0; at--) {
+  const item = unit.Data[at];
+  if (item === bracket || item.IsTriviaToken) {
+    continue;
+  }
+  return item;
+}
+return null;
+```
+
+## static method EnsureChildBracketHook:()=>void
+
+装一次括号宿主监听（进程级静态字段，懒安装）。**安装点必须早于任何一个箭头体 / 对象方法体括号**：
+根层 `const f = () => { … }` 的 `(` 父单元是变量壳而不是根，`SourceFileShape.OnBracketCreatedEvent` 的
+懒安装因此可能错过它，所以候选判定入口也补一次（只判 null，命中即返回）。
+```ts
+if (Bracket.ChildBracketCreatedHook === null) {
+  Bracket.ChildBracketCreatedHook = new BlockBodyChildBracketHook();
+}
+```
 
 ## private static method CanEndTypeUnit:(unit:Token)=>bool
 
@@ -468,11 +515,36 @@ if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableBloc
 if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
   return;
 }
+if (parent instanceof StatementShape) {
+  // 语句壳上的子括号：只有**箭头块体**走这里（`x => { … }` 的 `{` 前面是 `=>`，不是 `)`）。
+  // 根层 `const f = () => { … }` / 块内 `{ const f = () => { … }; }` 的父单元都是语句壳。
+  if (!StatementRouteUtil.EnableArrowBodyCatalog) {
+    return;
+  }
+  BlockPossibleShape.TryMountFunctionBody(parent, bracket, context, true);
+  return;
+}
 if (!(parent instanceof Bracket)) {
   return;
 }
 const body = parent as Bracket;
+const previous = BlockPossibleShape.PreviousCodeUnit(parent, bracket);
+if (previous !== null && BlockPossibleShape.IsArrowUnit(previous)) {
+  // 箭头块体，宿主是括号（调用参数 / 数组 / 括号内的箭头）：`f(x => { … })`。
+  if (!StatementRouteUtil.EnableArrowBodyCatalog) {
+    return;
+  }
+  BlockPossibleShape.TryMountFunctionBody(parent, bracket, context, true);
+  return;
+}
 if (body.CatalogGuide === null) {
+  // **对象字面量方法体**（Stage 4o）：宿主括号没有目录，说明它是对象字面量 / 数组 / 调用参数，
+  // 不是块体（块体括号建壳时就挂了目录）。成员体的建树是 `ExpressionBuilder.ParseObjectLiteral`
+  // 里的 `new StatementBuilder(...).BuildStatement()`，落到 `BuildBlock()` → `HasBuiltBodyStatements`
+  // / `CollectBodyStatements`，与函数体**同一条收集通道**，所以挂目录不会泄漏形状。
+  if (StatementRouteUtil.EnableObjectMethodBodyCatalog) {
+    BlockPossibleShape.TryMountFunctionBody(parent, bracket, context);
+  }
   return;
 }
 let classBody = false;
@@ -488,7 +560,7 @@ if (!classBody) {
 BlockPossibleShape.TryMountFunctionBody(parent, bracket, context);
 ```
 
-## static method TryMountFunctionBody:(unit:Token, bracket:Token, context:SyntaxContext)=>bool
+## static method TryMountFunctionBody:(unit:Token, bracket:Token, context:SyntaxContext, arrowOnly?:bool)=>bool
 
 给**函数体括号**挂块体语句目录（Stage 4j 步骤 3）。挂载点只有一个判据：新括号是 `{`、且宿主 `Data` 里
 它前面那个非 trivia 单元是一个**已闭合的 `(` 括号单元**。本语法里 `(` `)` 是**同一个** `Bracket` 单元，
@@ -532,18 +604,26 @@ for (let at = unit.Data.length - 1; at >= 0; at--) {
 if (previous === null) {
   return false;
 }
-if (previous instanceof Bracket
-  && (previous as Bracket).StartBracketChar === "("
-  && (previous as Bracket).Closed) {
-  // `function f() {` / `m() {` / `constructor() {`：`)` 之后紧跟 `{`。
-} else if (!BlockPossibleShape.IsReturnTypeBrace(unit.Data, unit.Data.length - 1)) {
-  // 带返回类型：`function g(): number {` / `function h(): { a: number } {`。
+const arrow = BlockPossibleShape.IsArrowUnit(previous);
+if (arrowOnly === true && !arrow) {
   return false;
+}
+if (!arrow) {
+  const closedParameters = previous instanceof Bracket
+    && (previous as Bracket).StartBracketChar === "("
+    && (previous as Bracket).Closed;
+  if (!closedParameters && !BlockPossibleShape.IsReturnTypeBrace(unit.Data, unit.Data.length - 1)) {
+    // 带返回类型：`function g(): number {` / `function h(): { a: number } {`。
+    return false;
+  }
 }
 body.CatalogGuide = new CatalogGuide(
   BlockPossibleShape.CreateBodyPossibleShapes(),
   new BlockBodyWaitingPossibleShape());
 BlockPossibleShape.FunctionBodyMountCount += 1;
+if (arrow) {
+  BlockPossibleShape.ArrowBodyMountCount += 1;
+}
 return true;
 ```
 

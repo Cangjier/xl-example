@@ -24,8 +24,10 @@ const cases = [
   { name: "class 方法体+构造器（Stage 4k 已接管）", source: "class C{ m(){ let y=2; while(y) f(); } constructor(){ this.x=1; } }", wantMount: 2 },
   { name: "class 方法带返回类型（Stage 4k 已接管）", source: "class C{ m(): number { let y=2; return y; } }", wantMount: 1 },
   { name: "class getter 体", source: "class C{ get x(): number { let y=1; return y; } }", wantMount: 1 },
-  { name: "对象方法体（未覆盖：不挂目录）", source: "const o = { m(){ let z=1; } };", wantMount: 0 },
-  { name: "箭头块体（未覆盖：不挂目录）", source: "const f = () => { let y=1; return y; };", wantMount: 0 },
+  // Stage 4o 起这两条**已接管**（S4j 当时列为未覆盖）：对象方法体 / 箭头块体的体括号现在挂块体目录，
+  // 建树仍走 `ExpressionBuilder` → `BuildStatement` / `BuildBlock` 的同一条收集通道。
+  { name: "对象方法体（Stage 4o 起挂目录）", source: "const o = { m(){ let z=1; } };", wantMount: 1 },
+  { name: "箭头块体（Stage 4o 起挂目录）", source: "const f = () => { let y=1; return y; };", wantMount: 1 },
   { name: "深层块 3 层裸语句", source: "{ { { a; } } }", wantMount: 0 },
   { name: "深层块 3 层 let", source: "{ { { let x=1; } } }", wantMount: 0 },
   { name: "深层块 4 层 let", source: "{ { { { let x=1; } } } }", wantMount: 0 },
@@ -38,7 +40,7 @@ const cases = [
   { name: "陷阱：接口方法的对象返回类型", source: "interface I { m(): { a: number }; }", wantMount: 0 },
   { name: "陷阱：switch case 块", source: "switch(x){ case 1: { let y=1; } }", wantMount: 0 },
   { name: "陷阱：标签块", source: "label: { a; }", wantMount: 0 },
-  { name: "陷阱：对象字面量方法体", source: "({ m(){ let z=1; } });", wantMount: 0 },
+  { name: "陷阱：对象字面量方法体（Stage 4o 起挂目录，XML/AST 仍须 == legacy）", source: "({ m(){ let z=1; } });", wantMount: 1 },
   { name: "陷阱：无体函数声明（返回类型后接 `;`）", source: "function f(): void;", wantMount: 0 },
 ];
 

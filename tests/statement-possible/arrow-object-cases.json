@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "description": "Stage 4o dedicated cases: arrow block bodies (`x => { let y = 1; return y; }`) and object literal method bodies (`({ m(){ let y = 2; } })`). Both constructs mount the block body catalog on the body `{` at bracket-creation time (predicate: the previous non-trivia unit is `=>` for arrow bodies; the host bracket has no catalog and the previous unit is a closed `(` or a return-type brace for object methods) and are then built through the SAME collection channel as function bodies: `StatementBuilder.BuildBlock()` -> `HasBuiltBodyStatements` / `CollectBodyStatements`. Each case asserts: (1) shell-path XML == legacy-path XML byte for byte; (2) AST node-for-node == ts.createSourceFile; (3) two parses of the same source give identical XML; (4) no StatementShape shell leaks into the shape tree. The takeover counters (`ArrowBodyMountCount` / `FunctionBodyMountCount` / `BlockBodyStatementCount`) and the no-fallback expectation are asserted by tests/statement-possible/s4o-arrow-object.mjs and recorded in HANDOFF-s4o.md. The trap group is the safety gate: type literals, object literals without methods, control-flow bodies, label bodies and switch case blocks must NOT mount a catalog.",
+  "groups": {
+    "stage4o": {
+      "stage": "Stage 4o (arrow block bodies + object literal method bodies taken over by possible)",
+      "description": "Arrow block bodies (single param, parameter list, async, nested if, expression statement at root, inside a block, nested block body, as a call argument, empty, no trailing semicolon), object literal method bodies (method, two members, get/set accessors, async method, return-typed method, inside a block, nested block body, method in a call argument), and the trap group (type literal, object literal without methods, plain arrow expression body, control-flow body, label body, switch case block, class method body).",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4o-arrow-single", "source": "const f = x => { let y = 1; return y; };" },
+        { "name": "s4o-arrow-params", "source": "const f = (a, b) => { a; };" },
+        { "name": "s4o-arrow-async", "source": "const f = async x => { await g(); };" },
+        { "name": "s4o-arrow-if", "source": "const f = x => { if (x) { y; } };" },
+        { "name": "s4o-arrow-root", "source": "x => { let y = 1; return y; };" },
+        { "name": "s4o-arrow-in-block", "source": "{ const f = x => { let y = 1; }; }" },
+        { "name": "s4o-arrow-nested-block", "source": "const f = () => { { a; } b; };" },
+        { "name": "s4o-arrow-call-arg", "source": "f(x => { let y = 1; });" },
+        { "name": "s4o-arrow-empty", "source": "const f = () => { };" },
+        { "name": "s4o-arrow-no-semi", "source": "const f = () => { let y = 1 }" },
+        { "name": "s4o-obj-method", "source": "const o = { m(){ let y = 2; } };" },
+        { "name": "s4o-obj-two", "source": "({ m(){ a; }, n(){ b; } });" },
+        { "name": "s4o-obj-accessors", "source": "const o = { get x(){ let y = 1; return y; }, set x(v){ let z = v; } };" },
+        { "name": "s4o-obj-async", "source": "const o = { async m(){ await g(); } };" },
+        { "name": "s4o-obj-return-type", "source": "const o = { m(): number { let y = 2; return y; } };" },
+        { "name": "s4o-obj-in-block", "source": "{ const o = { m(){ let y = 2; } }; }" },
+        { "name": "s4o-obj-nested", "source": "const o = { m(){ { let y = 2; } } };" },
+        { "name": "s4o-obj-call-arg", "source": "f({ m(){ let y = 2; } });" },
+        { "name": "s4o-trap-type-literal", "source": "let o: { a: number } = { a: 1 };" },
+        { "name": "s4o-trap-obj-no-method", "source": "const o = { a: 1, b: 2 };" },
+        { "name": "s4o-trap-arrow-expr", "source": "const f = x => x + 1;" },
+        { "name": "s4o-trap-control-body", "source": "if (a) { let x = 1; }" },
+        { "name": "s4o-trap-label-body", "source": "en: { a; }" },
+        { "name": "s4o-trap-switch-case", "source": "switch (x) { case 1: { let y = 1; } }" },
+        { "name": "s4o-trap-class-method", "source": "class C { m(){ let y = 1; } }" },
+        { "name": "s4o-trap-await-key", "source": "const t = { await: 1 };" },
+        { "name": "s4o-trap-return-object", "source": "function f(){ return { m(){ let y = 2; } }; }" }
+      ]
+    }
+  }
+}

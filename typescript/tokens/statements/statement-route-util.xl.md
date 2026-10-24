@@ -121,6 +121,21 @@ r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改�
 增量、无文件级 fallback、XML == legacy、AST == TS 逐节点）。块内未覆盖语句族（if / while / try / …）不建壳，
 整段 raw 交回 legacy 递归，XML / AST 与 legacy 逐字节一致。
 
+## static field EnableArrowBodyCatalog:bool = true
+
+**箭头块体目录开关**（Stage 4o）。`true` = `x => { … }` / `async x => { … }` / `(a, b) => { … }` 的块体括号
+在创建时挂上块体语句目录（判据：`{` 前面那个非 trivia 单元是 `=>`）。箭头体的建树是
+`ExpressionBuilder.ParseArrowBody` → `ParseBlock` → `StatementBuilder.BuildBlock()`，
+收集通道与函数体完全相同（`HasBuiltBodyStatements` / `CollectBodyStatements`），不新增第二条建树路径。
+`false` → 一律不挂，行为逐位回到 Stage 4n。
+
+## static field EnableObjectMethodBodyCatalog:bool = true
+
+**对象字面量方法体目录开关**（Stage 4o）。`true` = `{ m(){ … } }` / `{ get x(){ … } }` 的成员体括号
+在创建时挂上块体语句目录（判据：宿主括号**没有目录**＝不是块体，且 `{` 前面是已闭合 `(` 或返回类型的 `{`）。
+成员体建树是 `ExpressionBuilder.ParseObjectLiteral` 的 `new StatementBuilder(...).BuildStatement()`，
+同样落到 `BuildBlock()` 的收集通道。`false` → 行为逐位回到 Stage 4n（对象方法体保持 raw / legacy）。
+
 ## static field BlockShellCount:int = 0
 
 进程内累计「被块候选建成壳的块语句」条数（只增不减），与 `FileFallbackCount` 同一定位：harness / 集成表用它出「块语句确实走了新路径」的计数证据。
