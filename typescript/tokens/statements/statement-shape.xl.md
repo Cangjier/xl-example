@@ -1,12 +1,14 @@
 # dependencies
 ```xl
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
+import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
+import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 ```
 
 # namespace cangjie
@@ -42,10 +44,39 @@ let b = 2
 壳内目录据此选构件候选，**不再重复语句族判型**。`0` = 未定；族常量随 `statement-route-util.xl.md` 落地
 （`StatementRoute.ShellVariable` 等），Stage 1 先留字段与注释，不定义常量、不改变任何判定。
 
+## field OperatorBody:StatementOperatorBody | null = null
+
+**壳内的表达式体状态机**（Stage 3 S3a/S3b）：只有 `Kind == StatementRoute.ShellPlainExpression` 的壳才由
+`RootExpressionStatementPossibleShape.BuildByIndex` 建它；其它族的壳保持 `null`（变量声明壳行为逐位不变）。
+
+壳每攒到一个新的 basic token，`ComputePossibleShapes` 就先把新单元喂给它（遇操作数建叶子、遇二元运算符
+用 `ShapeInsertUtil.InsertBetween` 增量插入），再把同一格交给壳自己的目录（终结候选 = `StatementEndPossibleShape`）。
+`Kind` 只在建壳时判一次，这里直接读字段，不再重判族。
+
+**它与 AST 的关系**：`StatementBuilder` 仍然从壳里的 raw 单元建 AST（`BuildFromShell` 一行不改），
+所以 `StatementOperatorBody` 建的是**形状层**的表达式树（S3a/S3b 的增量成果，供 S3c+ 接管 AST 用），
+XML 与 legacy 的逐字节一致由「同一份 raw 单元 + 同一个建造器」结构性保证。
+
+
 ## constructor:(template:Template)=>void
 
 ```ts
 super(template);
+```
+
+## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+
+**表达式体候选的接入点**（Stage 3 S3a/S3b）：每个新单元先喂给 `OperatorBody`（只追加、遇未实现构造就停），
+再把同一格交给基类——基类把壳自己的目录（终结候选 `StatementEndPossibleShape`）问一遍。
+
+顺序是刻意的：摄入必须发生在**收口判定之前**，否则「表达式已完整」的格上壳会先被建掉、新单元再也没机会进状态机。
+摄入**不抛错、不改树**（只在壳的字段里建形状树），所以即使摄入判 `Incomplete`，本格的收口判定与基线逐位相同。
+
+```ts
+if (this.OperatorBody !== null) {
+  this.OperatorBody.IngestAll(this.Data, this.Template);
+}
+return super.ComputePossibleShapes(context);
 ```
 
 ## static method BuildFromShell:(host:Token, endIndex:int, context:SyntaxContext)=>Token

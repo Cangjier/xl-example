@@ -12,6 +12,7 @@ import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
+import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
 ```
@@ -128,6 +129,8 @@ host.Data.splice(start, moved.length);
 const shell = new StatementShape(host.Template);
 shell.Pos = pos;
 shell.Kind = StatementRoute.ShellPlainExpression;
+// Stage 3 S3a/S3b：表达式体状态机随壳一起建（同一条语句一个），壳每攒到一个单元就把新单元喂给它。
+shell.OperatorBody = new StatementOperatorBody(shell.Template);
 for (const item of moved) {
   shell.Add(item);
 }
