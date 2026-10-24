@@ -16,6 +16,7 @@ import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { VariableStatementThreeLayer } from "./variable-statement-three-layer.xl.md"
+import { BlockPossibleShape } from "./block-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -320,6 +321,19 @@ if (StatementShape.DetachShell(this)) {
   return BranchStates.Reload;
 }
 return BranchStates.Undo;
+```
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+控制流壳里的**语句体 `{`** 创建事件（Stage 4n）。`Bracket.Transit` 把新括号挂进宿主 `Data` 之后，若宿主
+实现了本方法就回调（core/syntax/basic-tokens/bracket.xl.md 的第二条回调）。块体壳自己就把 `MountedUnit`
+指到体括号、括号成了它的子单元，所以只有**控制流壳**能走到这里。
+
+只做转调，判据与挂载全在 `BlockPossibleShape.OnShellBracketCreated`：本类不新增任何状态，也不换建树路径
+（`BuildIf` / `BuildWhile` / `BuildDo` / `BuildFor` / `BuildTry` / `BuildWith` 仍走 `BuildStatement`）。
+
+```ts
+BlockPossibleShape.OnShellBracketCreated(this, bracket, context);
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates

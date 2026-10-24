@@ -204,6 +204,16 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 
 进程内累计「块体目录里由 `await` 起点建成壳的语句」条数（只增不减）。与 `ControlFlowShellCount` **分开计量**：
 `await` 走同一条壳机制，但它是双角色起点、只在块体目录补的入口，接管读数必须能从计数里直接读出来。
+## static field ControlFlowBodyBraceCount:int = 0
+
+进程内累计「**控制流体的 `{` 被挂上块体语句目录**」的个数（只增不减，Stage 4n）。与 `FunctionBodyMountCount`
+（函数体挂载）分开计量：控制流体的括号宿主是**控制流壳**而不是 `Bracket`，走的是
+`StatementShape.OnBracketCreatedEvent → BlockPossibleShape.TryMountControlFlowBody` 这条独立入口。
+
+只增计数，语义与 `FunctionBodyMountCount` 相同：它只说明「挂了几次」，体里到底有没有语句被接管仍由
+`BlockBodyStatementCount` / `ControlFlowShellCount` 读数决定；两个数一起看才能区分「挂上但没接管」与
+「根本没挂」。
+
 ## static method IsControlFlowHead:(text:string)=>bool
 
 `ShellStatementFamily` 的**关键字起点集合**：只有真正能起一条语句的控制流关键字。
