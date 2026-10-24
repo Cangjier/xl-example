@@ -285,11 +285,23 @@ while (at < code.length) {
         const beforeEnd: number = state.CodeAt[at - 1];
         const before: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, beforeEnd, this.Context);
         if (before !== null && !this.IsEmptyVariableStatement(code, before)) {
-          state.Complete = true;
-          state.End = beforeEnd;
-          this.Pending = before;
-          this.Watermark = at;
-          return;
+          // 只有**真的吃掉了** at-1 才按它收口；没吃掉就落到 ②（含这一格建）。
+          const beforeShapeEnd: number = before.SourceRange.EndIndex;
+          const coversBefore: boolean = beforeShapeEnd >= code[at - 1].SourceRange.EndIndex;
+          // `new a.b.C` ⏎ `()`：`()` 已经是一个**闭合**的空实参表（一个 Bracket 单元），属于
+          // 被构造者。按 `C` 收口会把它留成下一条 item（raw `()`，wp3-14 §3.2 的 ex-new）。
+          // 这种情况不按 ① 收口，改走 ②：含 `()` 建，`ParseNew` 会吃进空实参表。
+          const tailEmptyArgs: boolean = beforeShapeEnd >= 0
+            && RootItemRule.HasTailNew(before, beforeShapeEnd)
+            && code[at] instanceof Bracket
+            && (code[at] as Bracket).StartBracketChar === "(";
+          if (coversBefore && !tailEmptyArgs) {
+            state.Complete = true;
+            state.End = beforeEnd;
+            this.Pending = before;
+            this.Watermark = at;
+            return;
+          }
         }
       }
       // ② 再按「含这一格」建：声明族的终结符 `;` 就落在这一格（`import …;` 的候选在 `;` 上 Reject）。
