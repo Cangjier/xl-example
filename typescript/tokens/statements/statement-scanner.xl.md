@@ -803,6 +803,20 @@ for (let cursor = at; cursor < code.length; cursor++) {
     && StatementScanner.EndsAtLineBreak(code, cursor - 1, cursor)) {
     return StatementScanner.Complete(cursor - 1);
   }
+  // 体的终点是下一条块语句的 `{`：上一单元能收住表达式，且**从体起点往回看**没有等体的头。
+  // `if (a) b` 的 `if` 是这条语句自己的头（体 `b` 已经给了），不算等体；
+  // `if (a) function f ()` 的 `function` 在体起点上，仍在界内，照样算等体（`{` 是函数体）。
+  // 同行块也算：TS 里 `if (a) b { }` 是 if(b) + 块两条语句；`{` 在表达式后面永远不是续接符。
+  let bodyTail = cursor - 1;
+  while (bodyTail > at && code[bodyTail].IsTriviaToken) {
+    bodyTail--;
+  }
+  if (bodyTail >= at
+    && code[cursor] instanceof Bracket && (code[cursor] as Bracket).StartBracketChar === "{"
+    && ExpressionStatementPossibleShape.CanEndExpression(code[bodyTail])
+    && !ExpressionStatementPossibleShape.ExpectsBodyBefore(code, bodyTail, at)) {
+    return StatementScanner.Complete(bodyTail);
+  }
   // ASI：换行处收口语句体（`while (a) b` ⏎ `c;` / `if (a) b` ⏎ `else c` / `lab: a` ⏎ `c;`）。
   // 判据只有一份：`StatementBoundaryUtil.EndsAtLineBreak`（设计 §2.4 第 5 步、§5 Stage 2）。
   if (cursor > at

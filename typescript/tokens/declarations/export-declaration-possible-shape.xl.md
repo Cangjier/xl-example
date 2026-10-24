@@ -493,7 +493,13 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       // `export const|let|var …` / `export declare …` 的无分号收口：与根变量语句读**同一个**
       // `StatementScanner.EndsAtLineBreak`（含调用位与类型实参收尾 `>` 两条判据）：
       // `export const x = a as T` ⏎ `(b)` 在 `(` 那一格收口，`(b)` 是下一条语句。
-      if (state.LastBodyCode >= 0 && StatementScanner.EndsAtLineBreakBefore(units, index)) {
+      // 换行后的 `{` 是块起点时同样收口：`export let a=1` ⏎ `{}` 是导出声明 + 块两条语句。
+      // R3 起与根变量语句共用 `IsUncontinuableTailBoundary`（含对象字面量收尾那条窄判据），
+      // 所以 `export const o = { a: 1 }` ⏎ `{ b; }` 也在 `{` 前收口。
+      const asiBoundary = state.LastBodyCode >= 0
+        && (StatementScanner.EndsAtLineBreakBefore(units, index)
+          || ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(units, index));
+      if (asiBoundary) {
         state.Done = true;
         state.DoneAt = index;
         state.Asi = true;

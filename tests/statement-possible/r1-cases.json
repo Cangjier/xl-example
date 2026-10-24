@@ -1,7 +1,7 @@
 {
   "groups": {
     "r1-asi": {
-      "description": "R2 方向 A 专用 cases：换行后的 `{` 是块起点时必须在 ASI 边界收口（`let a = 1` ⏎ `{ b; }`），同时不得切断函数/类/箭头/类型字面量/控制体的 `{`。每条都与 ts.createSourceFile 逐节点对拍；forceShell=true 钉住新壳路径，skipLegacyCompare=true 因为 legacy 同缺陷已被有意让位。",
+      "description": "R2 方向 A 专用 cases：换行后的 `{` 是块起点时必须在 ASI 边界收口（`let a = 1` ⏎ `{ b; }`），同时不得切断函数/类/箭头/类型字面量/控制体的 `{`。每条都与 ts.createSourceFile 逐节点对拍；forceShell=true 钉住新壳路径，skipLegacyCompare=true 因为 legacy 同缺陷已被有意让位。 R3 追加：if/while/for/label 单语句体后的 `{` 块（含同行）、对象字面量初始化后的块、export 变量声明后的块，各自带对照。 修剪 3 条（r3-if-body-block-sameline / r3-object-then-block-assign / r3-ctrl-type-object）：带 TS 语法诊断或命中既有赋值/返回类型缺陷，理由见 HANDOFF-r3。",
       "needs": [],
       "cases": [
         {
@@ -108,6 +108,118 @@
           "forceShell": true,
           "skipLegacyCompare": true,
           "note": "未覆盖：declare 声明后换行块"
+        },
+        {
+          "name": "r3-if-body-block",
+          "source": "if (a) b\n{}",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "R3 坏形：if 单语句体后换行块（原 THROW 语句没有读完）"
+        },
+        {
+          "name": "r3-if-body-block-stmt",
+          "source": "if (a) b\n{ c; }",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "R3 坏形：块内有语句"
+        },
+        {
+          "name": "r3-if-body-semicolon",
+          "source": "if (a) b;\n{}",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "对照：分号收口后块"
+        },
+        {
+          "name": "r3-if-single-body",
+          "source": "if (a) b",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "对照：单个 if 体"
+        },
+        {
+          "name": "r3-if-block-else",
+          "source": "if (a) {}\nelse {}",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "对照：if/else 块"
+        },
+        {
+          "name": "r3-while-body-block",
+          "source": "while (a) b\n{}",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "同源：while 单语句体后换行块"
+        },
+        {
+          "name": "r3-for-body-block",
+          "source": "for (;;) b\n{}",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "同源：for 单语句体后换行块"
+        },
+        {
+          "name": "r3-label-body-block",
+          "source": "lbl: b\n{}",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "同源：标签语句体后换行块"
+        },
+        {
+          "name": "r3-object-then-block",
+          "source": "const o = { a: 1 }\n{ b: 2 }",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "R3 坏形：对象字面量初始化后换行标签块（原 THROW 表达式语句没有读完）"
+        },
+        {
+          "name": "r3-return-object-block",
+          "source": "function f() { return { a: 1 }\n{ b; } }",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "R3 坏形：return 操作数是对象字面量，后跟块"
+        },
+        {
+          "name": "r3-ctrl-object-next-decl",
+          "source": "const o = { a: 1 }\nconst p = 2;",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "对照：对象字面量后是下一条声明"
+        },
+        {
+          "name": "r3-export-decl-block",
+          "source": "export let a=1\n{}",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "R3 坏形：export 变量声明后换行块（原 DIFF 少一条 BlockStatement）"
+        },
+        {
+          "name": "r3-export-const-block",
+          "source": "export const a=1\n{ b; }",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "R3 坏形：export const + 非空块"
+        },
+        {
+          "name": "r3-export-object-block",
+          "source": "export const o = { a: 1 }\n{ b; }",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "R3：export 的对象字面量收尾 + 块"
+        },
+        {
+          "name": "r3-ctrl-export-fn-expr",
+          "source": "export const f = function ()\n{ }",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "对照：export 的函数表达式体"
+        },
+        {
+          "name": "r3-ctrl-export-arrow",
+          "source": "export const f = () =>\n{ }",
+          "forceShell": true,
+          "skipLegacyCompare": true,
+          "note": "对照：export 的箭头体"
         }
       ]
     }

@@ -23,8 +23,10 @@ const buildRoot = path.join(root, "build/ts");
 const require = createRequire(import.meta.url);
 
 function parseFlags(argv) {
-  const flags = { reps: 5, long: 300, many: 2000, verbose: argv.includes("--verbose") };
-  for (const name of ["reps", "long", "many"]) {
+  // R3：加 `--warmup`（默认 2）。首轮样本含模块加载 / JIT 冷启动：同一份 build 曾把 long 读成
+  // 3.62ms，下一轮又读成 5.87ms。预热轮不计入样本，口径从「首轮含冷启动」变成「热态中位数」。
+  const flags = { reps: 5, long: 300, many: 2000, warmup: 2, verbose: argv.includes("--verbose") };
+  for (const name of ["reps", "long", "many", "warmup"]) {
     const hit = argv.find((item) => item.startsWith(`--${name}=`));
     if (hit !== undefined) flags[name] = Number(hit.slice(name.length + 3));
   }
@@ -63,10 +65,14 @@ function median(values) {
   return (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function timeParse(source, reps) {
+function timeParse(source, reps, warmup) {
   const samples = [];
   let lastTokens = 0;
   let lastCalls = 0;
+  for (let index = 0; index < warmup; index++) {
+    const shape = parse(source);
+    if (shape === null) throw new Error("Parse 返回 null");
+  }
   for (let index = 0; index < reps; index++) {
     const started = performance.now();
     const shape = parse(source);
@@ -109,10 +115,10 @@ function format(value) {
 
 function main() {
   console.log(`[perf] build=${buildRoot}`);
-  console.log(`[perf] reps=${flags.reps} long=${flags.long} many=${flags.many}（中位数；不设硬阈值）`);
+  console.log(`[perf] reps=${flags.reps} warmup=${flags.warmup} long=${flags.long} many=${flags.many}（预热后中位数；不设硬阈值）`);
 
   const longSource = longStatement(flags.long);
-  const long = timeParse(longSource, flags.reps);
+  const long = timeParse(longSource, flags.reps, flags.warmup);
   const longCallsPerToken = long.tokens > 0 ? long.calls / long.tokens : 0;
   console.log(
     `[perf] long n=${flags.long} median=${format(long.median)}ms tokens=${long.tokens} ` +
@@ -121,7 +127,7 @@ function main() {
   if (flags.verbose) console.log(`[perf] long samples=${long.samples.map(format).join(",")}`);
 
   const manySource = manyStatements(flags.many);
-  const many = timeParse(manySource, flags.reps);
+  const many = timeParse(manySource, flags.reps, flags.warmup);
   const manyCallsPerToken = many.tokens > 0 ? many.calls / many.tokens : 0;
   console.log(
     `[perf] many statements=${flags.many} median=${format(many.median)}ms tokens=${many.tokens} ` +
@@ -131,7 +137,7 @@ function main() {
 
   const scaling = [];
   for (const n of [100, 200, 400]) {
-    const measured = timeParse(longStatement(n), Math.max(3, Math.min(flags.reps, 5)));
+    const measured = timeParse(longStatement(n), Math.max(3, Math.min(flags.reps, 5)), flags.warmup);
     scaling.push({ n, median: measured.median, tokens: measured.tokens, calls: measured.calls });
     console.log(
       `[perf] scale n=${n} median=${format(measured.median)}ms tokens=${measured.tokens} candidateCalls=${measured.calls}`,
