@@ -70,9 +70,9 @@ Stage 3 的操作符候选在这里按类 `Accept`，`EndPossible` 按类互斥�
    `CatalogGuide` 把 `Reject` 的候选永久删除，文件以注释/空白开头时首次判定就落在只有 trivia 的那一格，
    这里若让调用方 `Reject`，整条语句再没人接管（token-ast 28 个 crash 的根因）。
 
-## static field EnableShellExpressions:bool = false
+## static field EnableShellExpressions:bool = true
 
-**表达式语句壳路径**（设计 §11）：T1d 收口修复已落地，但**默认仍关闭**（熔断，见 HANDOFF-s1d-r3.md §3）。
+**表达式语句壳路径**（设计 §11）：T1d 收口修复已落地；r13 加文件级 fallback 兜底后**默认开启**（见 HANDOFF-s1d-r13.md）。
 
 r3 实测（`true` 时）：`harness --all` **72/0/1known 全绿**（含 stage1/stage1-mixed）、`--double-accept` 冲突 0、
 `--lint` PASS、`ast-json-diff` 0/0/0、`real-dts` 226/226；但 `ast-json` 仍 **6037/6167**（`missing-end` 24 +
