@@ -18,6 +18,18 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 括号单元：`( )` / `{ }` / `[ ]` 三对括号共用这一个类，靠 `StartBracketChar` / `EndBracketChar` 两个字段区分。它只认「配对的结束括号」这一个字符——括号里的内容全靠挂载的子单元自己啃。
 
+# class BracketChildCreatedHook
+
+括号宿主上的「子括号创建」监听接口（Stage 4k）。`Bracket.OnBracketCreatedEvent` 在把新括号挂到自己 `Data`
+之后转调它一次。core 只留接口，实现放在 typescript 侧（类体里方法 / 构造器体括号补挂块体语句目录），
+这样 core 不反向依赖 typescript。
+
+## method OnChildBracketCreated:(parent:Token, bracket:Token, context:SyntaxContext)=>void
+
+```ts
+throw new Error("abstract: OnChildBracketCreated");
+```
+
 # class Bracket extends UnitToken
 
 括号。
@@ -120,6 +132,35 @@ if (value === this.EndBracketChar) {
   return BranchStates.Done;
 }
 return BranchStates.Undo;
+```
+
+## static field ChildBracketCreatedHook:BracketChildCreatedHook | null = null
+
+进程内唯一的子括号创建监听（typescript 侧在第一次根层括号事件时装上；legacy 对拍档不装、也不做任何事）。
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+括号自己作为宿主时的括号创建事件（Stage 4k）。`Bracket.Transit` 建出新括号、挂进本括号 `Data` 之后调用。
+
+两件事，顺序固定：
+
+1. **转调监听**：给类体里的方法 / 构造器体补挂块体语句目录（只挂目录，不改任何 AST 决定）；
+2. **安全重算**：本括号的目录**有终结候选**（`EndPossible !== null`）时就地对新括号判一格。函数体 / 块体的
+   块体目录都是这种（终结候选 `BlockBodyWaitingPossibleShape`），候选全灭时返回 `Waiting` 而不是抛错，所以
+   这一格是安全的；类体 / 接口体 / 枚举体的成员目录没有终结候选，**一律不重算**——S4i 方案 A 的抛错出口
+   （`size === 0 && EndPossible === null`）正是后者。
+
+早判一格是**嵌套块深度 ≥2** 的修法：内层 `{` 刚建出来时外层块体目录就把它收成块壳（并给它的括号挂上块体
+目录），而不是等它闭合后才收——那时它内部的语句早已按 raw 吃完。
+
+```ts
+if (Bracket.ChildBracketCreatedHook !== null) {
+  Bracket.ChildBracketCreatedHook.OnChildBracketCreated(this, bracket, context);
+}
+if (this.CatalogGuide !== null && this.CatalogGuide.EndPossible !== null
+  && bracket instanceof Bracket && (bracket as Bracket).StartBracketChar === "{") {
+  this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
+}
 ```
 
 ## method ToXmlString:()=>string

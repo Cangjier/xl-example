@@ -31,14 +31,15 @@ const { StatementRouteUtil: R } = load("typescript/tokens/statements/statement-r
 const cases = [
   { source: "{ let x = 1; f(); }", body: 2, shells: 1 },
   { source: "{ f(); g(); }", body: 2, shells: 1 },
-  // Stage 4e：块体目录加入 BlockPossibleShape，内层 `{` 也建壳（嵌套块接管）。
-  // body 计数 = 某一层块体目录实际收集到的语句数；内层块体内容仍走 legacy raw 递归（不计入），
-  // 所以 `{ { a; } }` 读到 2 壳 / 1 条收集（外层收集到内层块形状）。第 3 层不再建壳（深度 2 边界，见 HANDOFF-s4e.md §4）。
-  { source: "{ { a; } }", body: 1, shells: 2 },
-  { source: "{ { let x = 1; } }", body: 1, shells: 2 },
-  { source: "{ { { a; } } }", body: 1, shells: 2 },
-  { source: "{ { a; } b; }", body: 2, shells: 2 },
-  { source: "{ { f(); } { g(); } }", body: 2, shells: 3 },
+  // Stage 4e：块体目录加入 BlockPossibleShape，内层 `{` 也建壳 —— 深度 2 边界。
+  // Stage 4k：括号宿主在子 `{` 创建时就判一格（安全子集：只对目录有终结候选的宿主），内层块体也由
+  // 目录接管，深度不再止于 2。body 计数改为**各层分别收集**：`{ { a; } }` 外层收内层块、内层收 `a`，
+  // 所以 body=2；`{ { { a; } } }` 三个壳、三层各收一条，body=3。
+  { source: "{ { a; } }", body: 2, shells: 2 },
+  { source: "{ { let x = 1; } }", body: 2, shells: 2 },
+  { source: "{ { { a; } } }", body: 3, shells: 3 },
+  { source: "{ { a; } b; }", body: 3, shells: 2 },
+  { source: "{ { f(); } { g(); } }", body: 4, shells: 3 },
   { source: "{ let a = 1\nlet b = 2\nf() }", body: 3, shells: 1 },
   { source: "{ a; }\n{ b; }", body: 2, shells: 2 },
   { source: "{ let a = 1; f(); b; }", body: 3, shells: 1 },

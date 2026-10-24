@@ -1,7 +1,9 @@
 # dependencies
 ```xl
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
-import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Bracket, BracketChildCreatedHook } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -46,6 +48,17 @@ return false;
 
 ```ts
 return host;
+```
+
+# class BlockBodyChildBracketHook extends BracketChildCreatedHook
+
+括号宿主上的子括号监听实现：把工作交给 `BlockPossibleShape.OnChildBracketCreated`（判据 / 开关 / 类体门控
+都在那里）。core 只认这个接口，不认 typescript 的类。
+
+## method OnChildBracketCreated:(parent:Token, bracket:Token, context:SyntaxContext)=>void
+
+```ts
+BlockPossibleShape.OnChildBracketCreated(parent, bracket, context);
 ```
 
 # class BlockPossibleShape extends PossibleShape
@@ -226,6 +239,136 @@ return shell;
 
 进程内累计「函数体 / 方法体 / 构造器体括号挂上语句目录」的次数（只增不减，供测试断言接管确实发生）。
 
+## private static method CanEndTypeUnit:(unit:Token)=>bool
+
+一个单元能不能**收住一个类型**：`{` 前面那个单元如果还等着操作数（`:` / `|` / `&` / `<` / `,` / `=` / `=>` / `?`
+/ `-` / `+` 以及 `extends` / `keyof` / `typeof` / `infer` / `new` / `readonly` / `unique` / `is` / `asserts` /
+`in` / `of` / `as` / `satisfies`），后面那个 `{` 就是类型的一部分而不是体。口径与 `TypeBuilder.IsBodyBrace`
+逐字相同（这里不引 `TypeBuilder`，避免块候选反向依赖类型构建器）。
+
+```ts
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  if (text === ":" || text === "|" || text === "&" || text === "<" || text === ","
+    || text === "=" || text === "=>" || text === "?" || text === "-" || text === "+") {
+    return false;
+  }
+  return true;
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  if (text === "extends" || text === "keyof" || text === "readonly" || text === "unique"
+    || text === "typeof" || text === "infer" || text === "new" || text === "abstract"
+    || text === "asserts" || text === "is" || text === "in" || text === "of"
+    || text === "as" || text === "satisfies") {
+    return false;
+  }
+  return true;
+}
+return true;
+```
+
+## static method IsReturnTypeBrace:(units:Array<Token>, braceIndex:int)=>bool
+
+带返回类型的函数 / 方法体：`{` 前面是一个已经收住的类型，再往前扫到返回类型的 `:`，且 `:` 前面是本条声明的
+参数表 `(`（已闭合）。`function g(): number {`、`function h(): { a: number } {`、`function f(a: T): U {`
+都命中。
+
+只扫**平铺单元**：类型里的对象字面量 / 函数类型 / 元组都是**单个括号单元**，里面的 `:` 不可见，所以扫到的
+第一个可见 `:` 就是返回类型的那个 `:`；扫到 `;` / `=` / `=>` 立即停（跨语句或落进箭头体时一律不挂）。
+`case 1: {` / `label: {` 的 `{` 前面直接是 `:`，`CanEndTypeUnit` 先把它排掉。
+
+```ts
+let previous = braceIndex - 1;
+while (previous >= 0 && units[previous].IsTriviaToken) {
+  previous--;
+}
+if (previous < 0) {
+  return false;
+}
+if (!BlockPossibleShape.CanEndTypeUnit(units[previous])) {
+  return false;
+}
+for (let scan = previous; scan >= 0; scan--) {
+  const item = units[scan];
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (item instanceof Common) {
+    // 往回扫时遇到**语句 / 声明起点**就停：`declare function f(): void ⏎ export enum E {` 里
+    // 枚举体的 `{` 不是 `f` 的体，不能跨过 `enum` / `export` 去认前一条声明的返回类型冒号。
+    const text = (item as Common).TempToString();
+    if (text === "export" || text === "import" || text === "enum" || text === "class"
+      || text === "interface" || text === "type" || text === "namespace" || text === "module"
+      || text === "declare" || text === "const" || text === "let" || text === "var"
+      || text === "function" || text === "if" || text === "while" || text === "for"
+      || text === "return" || text === "switch" || text === "case" || text === "default"
+      || text === "throw" || text === "try" || text === "catch" || text === "finally"
+      || text === "do" || text === "with" || text === "break" || text === "continue"
+      || text === "debugger" || text === "else" || text === "await" || text === "yield"
+      || text === "async" || text === "using") {
+      return false;
+    }
+  }
+  if (item instanceof Symbol) {
+    const symbol = item as Symbol;
+    if (symbol.Is(":")) {
+      let before = scan - 1;
+      while (before >= 0 && units[before].IsTriviaToken) {
+        before--;
+      }
+      if (before < 0) {
+        return false;
+      }
+      const beforeUnit = units[before];
+      if (!(beforeUnit instanceof Bracket)) {
+        return false;
+      }
+      const parameters = beforeUnit as Bracket;
+      return parameters.StartBracketChar === "(" && parameters.Closed;
+    }
+    if (symbol.Is(";") || symbol.Is("=") || symbol.Is("=>")) {
+      return false;
+    }
+  }
+}
+return false;
+```
+
+## static method OnChildBracketCreated:(parent:Token, bracket:Token, context:SyntaxContext)=>void
+
+内部括号创建事件（由 `Bracket.OnBracketCreatedEvent` 转调）：**只给类体括号里的方法 / 构造器 / 访问器体**挂
+块体目录。判据是宿主括号的成员目录里有没有 `MethodDeclarationPossibleShape`（类体目录唯一的成员），这样
+对象字面量方法体、箭头块体即使 `{` 前面同样是 `)` / 类型，也不会被挂上目录（它们的建树路径不经过
+`StatementBuilder.BuildBlock`，挂目录只会让形状泄漏）。
+
+```ts
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableBlockBodyCatalog) {
+  return;
+}
+if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
+  return;
+}
+if (!(parent instanceof Bracket)) {
+  return;
+}
+const body = parent as Bracket;
+if (body.CatalogGuide === null) {
+  return;
+}
+let classBody = false;
+for (const shape of body.CatalogGuide.PossibleShapes) {
+  if (shape.constructor.name === "MethodDeclarationPossibleShape") {
+    classBody = true;
+    break;
+  }
+}
+if (!classBody) {
+  return;
+}
+BlockPossibleShape.TryMountFunctionBody(parent, bracket, context);
+```
+
 ## static method TryMountFunctionBody:(unit:Token, bracket:Token, context:SyntaxContext)=>bool
 
 给**函数体括号**挂块体语句目录（Stage 4j 步骤 3）。挂载点只有一个判据：新括号是 `{`、且宿主 `Data` 里
@@ -267,11 +410,15 @@ for (let at = unit.Data.length - 1; at >= 0; at--) {
   previous = item;
   break;
 }
-if (previous === null || !(previous instanceof Bracket)) {
+if (previous === null) {
   return false;
 }
-const parameters = previous as Bracket;
-if (parameters.StartBracketChar !== "(" || !parameters.Closed) {
+if (previous instanceof Bracket
+  && (previous as Bracket).StartBracketChar === "("
+  && (previous as Bracket).Closed) {
+  // `function f() {` / `m() {` / `constructor() {`：`)` 之后紧跟 `{`。
+} else if (!BlockPossibleShape.IsReturnTypeBrace(unit.Data, unit.Data.length - 1)) {
+  // 带返回类型：`function g(): number {` / `function h(): { a: number } {`。
   return false;
 }
 body.CatalogGuide = new CatalogGuide(
