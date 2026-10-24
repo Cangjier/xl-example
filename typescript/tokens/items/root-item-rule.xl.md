@@ -34,6 +34,7 @@ import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaratio
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { StatementScanner } from "../statements/statement-scanner.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 ```
 
@@ -88,6 +89,25 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 
 `Analyze` 试建成功的 item；`Build` 直接取用，同一段不建两次。
 
+## field HoldAt:int = -1
+
+挂起中的 item 最后一格（`Code` 下标）。`new a.b.C` ⏎ `()` / `a<b` ⏎ `>` 这类
+「续接符还没进 `code`」的收口先**挂起一格**，下一格到了再由 `TryResolveHold` 决定
+（只挂这两种明确可续接的形状，不是整体推迟——wp3-12 的「推迟一格」净负 6122→6117）。
+
+## field HoldGt:int = -1
+
+挂起里已经看到的闭合 `>` 的 `Code` 下标（`-1` = 还没看到 / 不是尖括号形状）。
+
+## field HoldLt:int = -1
+
+挂起里那个**未闭合**的 `<` 的宿主 `Data` 下标（`AngleJudge.CanStart` 用它判「`>` 是不是
+类型实参段的闭合」）；`-1` = 不是尖括号形状。
+
+## field HoldKind:int = 9
+
+挂起 item 的族号：`KindOf` 在挂起那一刻算好，下一格到了不必重算（`code` 已经变长）。
+
 ## field Context:SyntaxContext | null = null
 
 判定上下文。`ItemRule.Analyze(state)` 没有 context 形参，而候选的 `IsBuildable(units, index, cache, context)`
@@ -115,6 +135,10 @@ for (let index = 0; index < this.Guide.PossibleShapes.length; index++) {
 this.Watermark = 0;
 this.Winner = -1;
 this.Pending = null;
+this.HoldAt = -1;
+this.HoldGt = -1;
+this.HoldLt = -1;
+this.HoldKind = 9;
 this.Guide.PossibleShapesComputeCache.Clear();
 ```
 
@@ -170,7 +194,17 @@ const cache: PossibleShapeCache = this.Guide.PossibleShapesComputeCache;
 const base: number = state.Start >= 0 ? state.Start : 0;
 const units: Array<Token> = base === 0 ? owner.Data : owner.Data.slice(base);
 let at: number = this.Watermark;
+if (this.HoldAt >= 0 && at > this.HoldAt) {
+  if (this.TryResolveHold(state, code, at, base, owner, units)) {
+    return;
+  }
+}
 while (at < code.length) {
+  if (this.HoldAt >= 0 && at > this.HoldAt) {
+    if (this.TryResolveHold(state, code, at, base, owner, units)) {
+      return;
+    }
+  }
   // 声明族在换行处的收口：`export const x = a as T` ⏎ `(b);` 里声明在 `T` 收口，
   // `(b);` 是**下一条语句**（TS 实测，HANDOFF.wp3-8 类 2/3）。候选扫描本身不会在这一格退出
   // （`(b)` 语法上续得下去），所以必须在淘汰候选之前按「这一格不能续接」判一次收口。
@@ -293,6 +327,23 @@ while (at < code.length) {
             }
           }
           if (lastAt >= 0) {
+            // E：`new a.b.C` ⏎ `()` / `a < b` ⏎ `>`——表达式在**最后可用的一格**收口时，紧随的
+            // `()`（被调用者的实参表）/ `>`（类型实参段的闭合）还没进 `code`。TS 里它们属于
+            // **本条** item：`new a.b.C()` 的 `()` 进 `NewExpression`、`a<b>` 的 `>` 让 `<…>`
+            // 成为类型实参。所以这两形状先挂起一格，下一格到了再判（`TryResolveHold`）。
+            // 只挂这两种**明确可续接**的形状，不是「收在最后一格就等下一格」——后者 wp3-12
+            // 实测净负 6122→6117（`if (a) f()` ⏎ `else g()` 会在 `else` 那格建出截断形状）。
+            const holdEnd: number = code[lastAt].SourceRange.EndIndex;
+            const holdLt: number = this.LastOpenAngle(code, lastAt);
+            const holdNew: boolean = holdEnd >= 0 && RootItemRule.HasTailNew(built, holdEnd);
+            if (lastAt === code.length - 1 && !state.AtEof && (holdLt >= 0 || holdNew)) {
+              this.HoldAt = lastAt;
+              this.HoldKind = this.KindOf(code);
+              this.HoldLt = holdLt;
+              this.HoldGt = -1;
+              this.Watermark = lastAt + 1;
+              return;
+            }
             // 注：这里试过「收在当前可用代码最后一格时先不收口、等下一格再判」，用来吸收紧随的
             // `;`（`a` ⏎ `;`）。实测**净负**（6122→6117）：`if (a) f()` ⏎ `else g()` /
             // `try {}` ⏎ `catch` / `const` ⏎ `enum E {}` 会在 `else` / `catch` / `enum` 那一格
@@ -506,6 +557,139 @@ if (at < 0 || at >= code.length) {
 const unit: Token = code[at];
 if (unit instanceof Symbol) {
   return (unit as Symbol).Is(text);
+}
+return false;
+```
+
+## private method TryResolveHold:(state:ItemScanState, code:Array<Token>, at:int, base:int, owner:Token, units:Array<Token>)=>bool
+
+挂起的 item 在下一格到了之后收口：能续接（配对的 `>` / 被调用者的 `(`）就按**含**这一格重建，
+否则按挂起前的那一格原样建（与不挂起时逐字节相同）。返回 `true` = 本格已有结论（收口或继续挂起）。
+
+```ts
+const holdAt: number = this.HoldAt;
+if (holdAt < 0) {
+  return false;
+}
+// 尖括号形状：`>` 已经看到、但 follower 还没进 `code`——再等一格。`AngleJudge.CanStart`
+// 要看配对 `>` **之后**那一格是不是「类型实参段接得上」的东西，没有 follower 判不了。
+if (this.HoldGt < 0 && this.HoldLt >= 0 && at < code.length
+  && this.IsSymbolAt(code, at, ">") && at + 1 >= code.length && !state.AtEof) {
+  this.HoldGt = at;
+  this.Watermark = at + 1;
+  return true;
+}
+let includeAt: number = -1;
+const context: SyntaxContext | null = this.Context;
+if (context === null || state.Start < 0) {
+  return false;
+}
+if (this.HoldLt >= 0) {
+  const gtAt: number = this.HoldGt >= 0 ? this.HoldGt : at;
+  if (this.IsSymbolAt(code, gtAt, ">")) {
+    // `a<b>` 的 `>` 是类型实参段的闭合，还是比较式的右半边？判据只用一个：`AngleJudge.CanStart`。
+    if (AngleJudge.CanStart(units, this.HoldLt - base)) {
+      includeAt = gtAt;
+    }
+  }
+} else if (at < code.length) {
+  // `new a.b.C` ⏎ `()`：空实参表属于被调用者（`ParseNew` 会把它吃进 `NewExpression`）。
+  const nextUnit: Token = code[at];
+  if (nextUnit instanceof Bracket && (nextUnit as Bracket).StartBracketChar === "(") {
+    includeAt = at;
+  }
+}
+if (includeAt >= 0 && state.Start >= 0) {
+  const over: Token | null = this.BuildByKind(this.HoldKind, owner, state.Start, state.CodeAt[includeAt], context);
+  if (over !== null) {
+    this.HoldAt = -1;
+    this.HoldGt = -1;
+    this.HoldLt = -1;
+    state.Complete = true;
+    state.End = state.CodeAt[includeAt];
+    this.Winner = -1;
+    this.Pending = over;
+    this.Watermark = includeAt + 1;
+    return true;
+  }
+}
+// 不续接（或按含这一格建不出）：按挂起前的那一格原样收口，与不挂起时行为相同。
+const held: Token | null = this.BuildByKind(this.HoldKind, owner, state.Start, state.CodeAt[holdAt], context);
+this.HoldAt = -1;
+this.HoldGt = -1;
+this.HoldLt = -1;
+if (held !== null) {
+  state.Complete = true;
+  state.End = state.CodeAt[holdAt];
+  this.Winner = -1;
+  this.Pending = held;
+  this.Watermark = holdAt + 1;
+  return true;
+}
+return false;
+```
+
+## private method LastOpenAngle:(code:Array<Token>, lastAt:int)=>int
+
+`code[0..lastAt]` 里**最后一个没有闭合**的 `<` 的 `Code` 下标（`-1` = 没有这样的 `<`）。
+只数角符号（`>>` / `>>>` 按层拆），其它单元原样跳过——它只回答「表达式末尾是不是吊着一个 `<`」，
+「`>` 该不该算类型实参」由 `AngleJudge.CanStart` 回答（两件事分开）。
+
+```ts
+let depth: number = 0;
+let open: number = -1;
+for (let at = 0; at <= lastAt && at < code.length; at++) {
+  const unit: Token = code[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text: string = (unit as Symbol).TempToString();
+  if (text === "<") {
+    depth = depth + 1;
+    if (depth === 1) {
+      open = at;
+    }
+    continue;
+  }
+  if (text === ">") {
+    depth = depth - 1;
+    if (depth <= 0) {
+      depth = 0;
+      open = -1;
+    }
+    continue;
+  }
+  if (AngleJudge.IsSplitClose(text)) {
+    depth = depth - text.length;
+    if (depth <= 0) {
+      depth = 0;
+      open = -1;
+    }
+  }
+}
+return depth > 0 ? open : -1;
+```
+
+## private static method HasTailNew:(unit:Token, endIndex:int)=>bool
+
+形状树里有没有一个**右界正好停在 `endIndex`** 的 `NewExpressionShape`——即「整条 item 的末尾
+是一个没有实参表的 `new` 表达式」（`new a.b.C`）。有的话，紧随的 `(` 属于它的被调用者。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit.constructor.name === "NewExpressionShape" && unit.SourceRange.EndIndex === endIndex) {
+  return true;
+}
+const data: Array<Token> = unit.Data;
+if (data === null || data.length === 0) {
+  return false;
+}
+for (const child of data) {
+  if (child !== null && RootItemRule.HasTailNew(child, endIndex)) {
+    return true;
+  }
 }
 return false;
 ```
