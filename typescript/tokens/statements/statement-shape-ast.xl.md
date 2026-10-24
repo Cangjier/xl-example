@@ -24,6 +24,8 @@ import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { MetaPropertyShape } from "../expressions/meta-property-shape.xl.md"
+import { ImportKeywordShape } from "../keywords/import-keyword-shape.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { RegularExpressionLiteralShape } from "../literals/regular-expression-literal-shape.xl.md"
@@ -244,9 +246,54 @@ if (shape.Kind === StatementOperandShape.KindArray) {
   covered.push(index);
   return builder.ParseArrayLiteral(bracket, index);
 }
+if (shape.Kind === StatementOperandShape.KindImportKeyword) {
+  // 动态 `import(` 的 `import` 关键字叶子：与 legacy `MakeKeywordLeaf(new ImportKeywordShape(...))` 同口径。
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof Common) || !(raw as Common).Is("import")) {
+    return StatementShapeAst.Decline("import 关键字没有 raw 单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("import 关键字不在表达式里");
+  }
+  covered.push(index);
+  return builder.SpanLeaf(new ImportKeywordShape(builder.Template), index);
+}
 if (shape.Kind === StatementOperandShape.KindMember) {
   if (shape.Data.length !== 2) {
     return StatementShapeAst.Decline("成员访问不是两个子节点");
+  }
+  if (shape.Data[0] instanceof StatementOperandShape
+    && (shape.Data[0] as StatementOperandShape).Kind === StatementOperandShape.KindImportKeyword) {
+    // `import.meta`：legacy `ExpressionBuilder.ParsePrimary` 的 import 分支建 `MetaPropertyShape`，
+    // children 只有名字 `meta`（`import` 与 `.` 只进区间）。形状层把 `import` 建关键字叶子、由成员后缀
+    // 接上 `meta`，所以这一格要改写回 MetaProperty，而不是普通成员访问；名字不是 `meta` 一律退回 legacy。
+    const importRaw = (shape.Data[0] as StatementOperandShape).Raw;
+    const dotRaw = shape.Raw;
+    if (importRaw === null || dotRaw === null) {
+      return StatementShapeAst.Decline("import.meta 缺少单元");
+    }
+    const importIndex = builder.Units.indexOf(importRaw);
+    const dotIndex = builder.Units.indexOf(dotRaw);
+    if (importIndex < 0 || dotIndex < 0) {
+      return StatementShapeAst.Decline("import.meta 单元不在表达式里");
+    }
+    let nameIndex = dotIndex + 1;
+    while (nameIndex < builder.Units.length && builder.Units[nameIndex].IsTriviaToken) {
+      nameIndex++;
+    }
+    if (nameIndex >= builder.Units.length || !(builder.Units[nameIndex] instanceof Common)
+      || !(builder.Units[nameIndex] as Common).Is("meta")) {
+      return StatementShapeAst.Decline("import.meta 的名字不是 meta");
+    }
+    covered.push(importIndex);
+    covered.push(dotIndex);
+    covered.push(nameIndex);
+    const metaProperty = new MetaPropertyShape(builder.Template);
+    const identifier = IdentifierShape.FromBasicToken(builder.Units[nameIndex] as Common, context);
+    identifier.Pos = builder.Positions[nameIndex];
+    metaProperty.Add(identifier);
+    return builder.SpanNode(metaProperty, importIndex, nameIndex);
   }
   const at = covered.length;
   const object = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);

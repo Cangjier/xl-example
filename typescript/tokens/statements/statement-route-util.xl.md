@@ -257,6 +257,24 @@ if (text === "let" || text === "const" || text === "var") {
   return StatementRoute.Legacy;
 }
 if (StatementRouteUtil.EnableShellExpressions) {
+  // **表达式位的 `import`**（S3k-3）：只有 `import(` 与 `import.meta` 是表达式语句；
+  // `import x` / `import {` / `import *` / `import "m"` / `import type` 都是声明，留在 legacy。
+  // 第二个代码单元还没到时必须 `None`（继续等）：`Reject` 被 `CatalogGuide` 永久删除，
+  // 首格判死之后 `.` / `(` 那一格就再没有候选能建壳（s3k2 HANDOFF 里定位到的首格死锁）。
+  if (text === "import") {
+    const nextAt = ItemUtil.NextCode(units, headAt + 1);
+    if (nextAt >= units.length) {
+      return StatementRoute.None;
+    }
+    const next = units[nextAt];
+    if (next instanceof Bracket && (next as Bracket).StartBracketChar === "(") {
+      return StatementRoute.ShellPlainExpression;
+    }
+    if (next instanceof Symbol && (next as Symbol).Is(".")) {
+      return StatementRoute.ShellPlainExpression;
+    }
+    return StatementRoute.Legacy;
+  }
   if (StatementRouteUtil.EnableControlFlowShell && StatementRouteUtil.IsControlFlowHead(text)) {
     return StatementRoute.ShellStatementFamily;
   }

@@ -62,7 +62,14 @@ if (units[tokenIndex].IsTriviaToken) {
 // 收口那一格同时成立（CatalogGuide 抛「终结候选与其它候选同时成立」）。Reject 永久但 Reset 会复原，
 // 下一条语句重新参与。
 if (tokenIndex === headAt) {
-  if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellPlainExpression) {
+  const headRoute = StatementRouteUtil.Decide(units, tokenIndex);
+  // `None` = 族还没判出（第二个代码单元还没到，`import` 就是第一个例子）：只能继续等。
+  // 这里若 `Reject`，CatalogGuide 会把本候选永久删除，`import .` / `import (` 那一格
+  // 就再没有候选能建壳——s3k2 定位到的首格死锁。安全回退不变：真判成 `Legacy` 时照旧 `Reject`。
+  if (headRoute === StatementRoute.None) {
+    return ShapeStates.Uncertain;
+  }
+  if (headRoute !== StatementRoute.ShellPlainExpression) {
     return ShapeStates.Reject;
   }
   return ShapeStates.Accept;
@@ -82,7 +89,11 @@ const lateAtEof = (lateOwner !== null && lateOwner.SourceRange.EndIndex >= 0)
 if (StatementBoundaryUtil.CanEndStatement(units, tokenIndex, lateAtEof)) {
   return ShapeStates.Reject;
 }
-if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellPlainExpression) {
+const lateRoute = StatementRouteUtil.Decide(units, tokenIndex);
+if (lateRoute === StatementRoute.None) {
+  return ShapeStates.Uncertain;
+}
+if (lateRoute !== StatementRoute.ShellPlainExpression) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;

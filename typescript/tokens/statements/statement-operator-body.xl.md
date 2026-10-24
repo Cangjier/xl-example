@@ -183,6 +183,16 @@ children 比普通成员多一个 `QuestionDotTokenShape`（`ExpressionBuilder.P
 ## static field KindNonNull:int = 22
 
 后缀非空断言 `!` 的形状节点（S3i）：`Raw` 是那个 `!` 单元，`Data` 是唯一的操作数。
+## static field KindImportKeyword:int = 23
+
+表达式位 `import` 的关键字叶子（S3k-3）：`Data = []`、`Raw` 是 `import` 单元、`Text = "import"`。
+`import.meta` 由随后的普通成员后缀接上 `meta`，AST 侧在 `StatementShapeAst` 里改写回 legacy 的
+`MetaPropertyShape`；动态 `import("m")` 由随后的普通调用后缀接上实参括号，AST 侧就是
+`ImportKeywordShape` + `CallExpressionShape`（与 `ExpressionBuilder.ParsePrimary` 的 import 分支同一棵树）。
+
+只吃 `import` 一格是**刻意的**：壳可能在任何一格建起来（`import .` 那一格 / `import (` 那一格），
+向前看会因为后面的单元还没到而失败；逐格接后缀则不管壳何时建都能接上。
+
 ## static field KindPostfix:int = 21
 
 后缀自增自减（S3h）：`Data = [操作数]`、`Raw` 是 `++` / `--` 单元、`Text` 是同一个文本。
@@ -590,6 +600,14 @@ this.Fail(text === "" ? "单元" : "运算符 " + text);
 - 其余（字符串/模板/正则/`[`/`{`）：`null`。
 
 ```ts
+if (unit instanceof Common && (unit as Common).Is("import")) {
+  // 表达式位的 `import`：只吃一格建关键字叶子，`.` / `(` 交给后面的普通后缀候选。
+  const keyword = new StatementOperandShape(template);
+  keyword.Kind = StatementOperandShape.KindImportKeyword;
+  keyword.Text = "import";
+  keyword.Raw = unit;
+  return keyword;
+}
 if (unit instanceof RegexToken) {
   const shape = new StatementOperandShape(template);
   shape.Kind = StatementOperandShape.KindRegex;
@@ -1370,9 +1388,14 @@ return OperatorTable.IsPrefixOperator(text);
 
 ## static method IsBareImport:(unit:Token)=>bool
 
-**保守拒绝**：`import.meta` 在 legacy 里是 `MetaProperty`、`import("m")` 是 `ImportKeyword` + 调用，
-两者都不是「标识符 + 成员/调用」那棵树。形状层不区分 `import.foo` 与 `import.meta`，
-所以只要成员 / 调用的**基底**是裸标识符 `import`，一律 `Fail`（少接管一条，legacy 仍然对）。
+**只拒绝「裸标识符 `import`」**（S3k-3 收窄）：表达式位的 `import` 现在建
+`KindImportKeyword` 关键字叶子（不是 `KindIdentifier`），所以它接成员 / 调用不再被挡——
+`import.meta` 是 `member(import, meta)`、`import("m")` 是 `call(import)`，两者的 AST 由
+`StatementShapeAst` 按 legacy `ParsePrimary` 的同一棵树重建（`MetaPropertyShape` / `ImportKeywordShape`）。
+
+留下来的这一条只挡「`import` 被当成普通标识符」那棵树（形状层若把它建成了 `KindIdentifier`，
+成员 / 调用的 AST 会是 `PropertyAccessExpression(Identifier"import", …)`，与 legacy 不同）。
+判据不放开，只是新形态根本不进这个分支。
 
 ```ts
 if (!(unit instanceof StatementOperandShape)) {
