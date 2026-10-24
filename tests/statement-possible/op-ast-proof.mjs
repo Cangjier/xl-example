@@ -178,6 +178,18 @@ function tsPrefix(node, sourceFile) {
     if (callee === null) return null;
     return "new(" + callee + ")";
   }
+  if (ts.isConditionalExpression(node)) {
+    const condition = tsPrefix(node.condition, sourceFile);
+    const whenTrue = tsPrefix(node.whenTrue, sourceFile);
+    const whenFalse = tsPrefix(node.whenFalse, sourceFile);
+    if (condition === null || whenTrue === null || whenFalse === null) return null;
+    return "?(" + condition + "," + whenTrue + "," + whenFalse + ")";
+  }
+  if (ts.isPostfixUnaryExpression(node)) {
+    const operand = tsPrefix(node.operand, sourceFile);
+    if (operand === null) return null;
+    return "post(" + operand + ")";
+  }
   if (ts.isBinaryExpression(node)) {
     const left = tsPrefix(node.left, sourceFile);
     const right = tsPrefix(node.right, sourceFile);
@@ -398,3 +410,4 @@ for (const caseDef of cases) {
 console.log("");
 console.log(`[op-ast-proof] group=${groupName} cases=${cases.length} pass=${passed} fail=${failures.length} | 形状树接管计数已核 ${astChecked} 条、TS 逐节点已核 ${tsChecked} 条、AST 数字叶子已核 ${leafChecked} 条`);
 if (failures.length > 0) process.exit(1);
+

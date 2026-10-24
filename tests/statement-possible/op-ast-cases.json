@@ -457,9 +457,11 @@
                 {
                     "name": "ast-fallback-postfix",
                     "source": "a++;",
-                    "note": "未覆盖：postfix ++ 不接管（PrefixUnaryExpressionShape 不带 operator，接管会建错树）——declined + legacy，XML 逐字节一致",
-                    "shapeTexts": [],
-                    "shapeAst": 0
+                    "note": "S3h 起后缀 ++ 已接管（原先在这里钉「declined」）：AST 由 PostfixUnaryExpressionShape 逐节点建，运算符只进区间",
+                    "shapeTexts": [
+                        "post(a)"
+                    ],
+                    "shapeAst": 1
                 },
                 {
                     "name": "s3g-template-interp",
@@ -633,8 +635,213 @@
                 {
                     "name": "s3g-declined-assign",
                     "source": "a = b;",
-                    "note": "赋值仍未覆盖：形状层 Fail（declined），不建错树",
+                    "note": "S3h 起赋值已接管（原先在这里钉「declined」）：复用 BinaryExpressionShape + FirstAssignmentShape，与 legacy ParseAssign 同源",
+                    "shapeAst": 1,
+                    "shapeTexts": [
+                        "=(a,b)"
+                    ]
+                }
+            ]
+        },
+        "stage3h-shapes": {
+            "description": "S3h 专用证据：赋值 / 复合赋值、条件 ?:、后缀 ++/-- 的 AST 由形状树逐节点产出。每条断五件事：①壳路径 XML 与同源码 legacy（EnableShellExpressions=false）逐字节一致；②StatementShapeAst.TotalShapeAst 达到期望条数（未覆盖必须 declined>0，不接受静默回退）；③结构文本 = ts.createSourceFile 逐节点渲染；④未覆盖构造（函数 / 类表达式）declined 而不是建错树；⑤赋值与后缀的运算符投影（FirstAssignmentShape / FirstCompoundAssignmentShape / PostfixUnaryExpressionShape）与 legacy 同源。",
+            "needs": [],
+            "cases": [
+                {
+                    "name": "ast-s3h-assign",
+                    "source": "x = 1;",
+                    "note": "赋值=/=右结合帧",
+                    "shapeTexts": [
+                        "=(x,1)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-compound",
+                    "source": "x += 1;",
+                    "note": "复合赋值",
+                    "shapeTexts": [
+                        "+=(x,1)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-chain",
+                    "source": "a = b = 1;",
+                    "note": "连续赋值右结合",
+                    "shapeTexts": [
+                        "=(a,=(b,1))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-precedence",
+                    "source": "x *= y + 1;",
+                    "note": "赋值优先级最低",
+                    "shapeTexts": [
+                        "*=(x,+(y,1))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-member",
+                    "source": "a.b = 1;",
+                    "note": "成员赋值",
+                    "shapeTexts": [
+                        "=(member(a,b),1)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-index",
+                    "source": "a[b] += 2;",
+                    "note": "索引复合赋值",
+                    "shapeTexts": [
+                        "+=(index(a,b),2)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-logical",
+                    "source": "x ||= y;",
+                    "note": "逻辑复合赋值",
+                    "shapeTexts": [
+                        "||=(x,y)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-shift",
+                    "source": "x >>= 1;",
+                    "note": "移位复合赋值",
+                    "shapeTexts": [
+                        ">>=(x,1)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-cond",
+                    "source": "a ? b : c;",
+                    "note": "条件表达式 ConditionalExpressionShape",
+                    "shapeTexts": [
+                        "?(a,b,c)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-cond-right",
+                    "source": "a ? b : c ? d : e;",
+                    "note": "条件右结合",
+                    "shapeTexts": [
+                        "?(a,b,?(c,d,e))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-cond-true",
+                    "source": "a ? b ? c : d : e;",
+                    "note": "真分支嵌套条件",
+                    "shapeTexts": [
+                        "?(a,?(b,c,d),e)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-cond-assign",
+                    "source": "x = a ? b : c;",
+                    "note": "赋值右支是条件",
+                    "shapeTexts": [
+                        "=(x,?(a,b,c))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-post",
+                    "source": "a++;",
+                    "note": "后缀自增 PostfixUnaryExpressionShape",
+                    "shapeTexts": [
+                        "post(a)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-post-dec",
+                    "source": "a--;",
+                    "note": "后缀自减",
+                    "shapeTexts": [
+                        "post(a)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-post-add",
+                    "source": "a++ + b;",
+                    "note": "后缀结果参与二元",
+                    "shapeTexts": [
+                        "+(post(a),b)"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-post-assign",
+                    "source": "a = b++;",
+                    "note": "赋值右支是后缀",
+                    "shapeTexts": [
+                        "=(a,post(b))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-post-prefix",
+                    "source": "-a++;",
+                    "note": "前缀包后缀",
+                    "shapeTexts": [
+                        "-(post(a))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-assign-deep",
+                    "source": "x = y = z = 0;",
+                    "note": "三层连续赋值",
+                    "shapeTexts": [
+                        "=(x,=(y,=(z,0)))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-decline-fn",
+                    "source": "a = function () {};",
+                    "note": "函数表达式未覆盖：declined 而不是建错树",
+                    "shapeTexts": [],
+                    "tsTexts": [],
                     "shapeAst": 0
+                },
+                {
+                    "name": "ast-s3h-decline-class",
+                    "source": "a = class {};",
+                    "note": "类表达式未覆盖：declined",
+                    "shapeTexts": [],
+                    "tsTexts": [],
+                    "shapeAst": 0
+                },
+                {
+                    "name": "ast-s3h-cond-assign-false",
+                    "source": "a ? b : c = d;",
+                    "note": "假分支是赋值：条件帧不被赋值弹掉（legacy ParseAssign 同形）",
+                    "shapeTexts": [
+                        "?(a,b,=(c,d))"
+                    ],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-s3h-cond-assign-true",
+                    "source": "a ? b = 1 : c;",
+                    "note": "真分支是赋值：CloseConditional 前先弹掉 = 帧",
+                    "shapeTexts": [
+                        "?(a,=(b,1),c)"
+                    ],
+                    "shapeAst": 1
                 }
             ]
         }

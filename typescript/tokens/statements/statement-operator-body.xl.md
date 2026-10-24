@@ -53,6 +53,13 @@ a-b-c   ->  -(-(a,b),c)
 `KindNew` 的实参括号（`new X(a)` 的那个 `(`），或 `KindOptionalCall` / `KindOptionalIndex` 的括号。
 它不是子节点（括号里的内容不进形状树），AST 侧仍由 legacy 的 `ParseBracketArguments` / 内层嵌套体整段建。
 
+## field Colon:Token | null = null
+
+`KindConditional` 的冒号单元（S3h）：`?` 记在 `Raw` 里、`:` 记在这里。两者都要作为子节点投影进 AST
+（`ConditionalExpressionShape` 的 children 是「条件, ?, 真, :, 假」五格，由 `MakeOperatorToken` 建
+`QuestionTokenShape` / `ColonTokenShape`），而形状树只表达**结构**（`Data = [条件, 真, 假]`），
+所以两个标点各占一个字段。
+
 ## field Open:bool = false
 
 `KindNew` 的被构造者后缀链是否还开着：被构造者挂上后置 `true`，`(` 被 `AcceptNewArgs` 收走时置 `false`。
@@ -162,6 +169,24 @@ children 比普通成员多一个 `QuestionDotTokenShape`（`ExpressionBuilder.P
 
 可选索引（S3g）：`Data = [对象, 下标表达式]`、`Raw` 是 `?.` 单元、`Args` 是方括号。下标走嵌套体。
 
+## static field KindConditional:int = 20
+
+条件表达式（S3h）：`Data = [条件, 真分支, 假分支]`、`Raw` 是 `?`、`Colon` 是 `:`。
+它走一个**优先级 1 的普通帧**（低于一切二元运算符、高于赋值），所以：
+
+- `a + b ? c : d` 到达 `?` 时先弹掉完整的 `+` 帧 → 条件是 `+(a,b)` 整条；
+- `x = a ? b : c` 到达 `?` 时赋值帧（优先级 0）留在栈上 → 条件只是 `a`，条件是 `=(x, ?(a,b,c))` 的左支。
+
+`?` 与 `:` 之间、`:` 之后都回到 `ExpectOperand`，所以真 / 假分支各自可以再是赋值或条件（`?` 右结合、
+真分支里也能嵌套）。AST 用 `ConditionalExpressionShape`。
+
+## static field KindPostfix:int = 21
+
+后缀自增自减（S3h）：`Data = [操作数]`、`Raw` 是 `++` / `--` 单元、`Text` 是同一个文本。
+**运算符不投影成子节点**（legacy `ParsePostfixSuffix` 只 `Add(expression)`，运算符只进区间），
+所以形状树也只记一个操作数；AST 用 `PostfixUnaryExpressionShape`，`Pos` 取
+`SpanNode(操作数首单元, 运算符单元)`——与 `ParsePostfixSuffix` 的 `SpanNode(start, At - 1)` 同口径。
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -237,6 +262,11 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 
 已经读到、但操作数还没到的前缀节点（`-a` 的 `-`）。操作数到达时按后进先出包上去，再挂进当前帧。
 
+## field Conditionals:Array<Token> = []
+
+**正在等冒号**的条件节点栈（S3h）：`a ? b ? c : d : e` 的外侧与内侧同时等冒号，而最近一个 `:` 属于最内层，
+所以用栈而不是单指针。入栈于 `StartConditional`、出栈于 `CloseConditional`。
+
 ## field Expect:int = 1
 
 期望状态：`1` = 下一个代码单元应当是操作数（或前缀）；`2` = 应当是一个二元运算符，或表达式到此为止。
@@ -297,6 +327,12 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 
 `?.` 之后的状态（S3g）：要的不是普通操作数也不是成员名，而是「成员名 / `(` / `[`」三选一，
 所以单独一个状态（`IngestOptional` 分派）。
+
+## static field CondPrecedence:int = 1
+
+条件表达式的帧优先级（S3h）：比一切二元运算符（最低 `??` = 4）低、比赋值
+（`OperatorTable.AssignmentPrecedence` = 0）高。这个数值决定了 `?` 到达时弹到哪一层，见 `StartConditional`。
+
 ## static field TotalBodies:int = 0
 
 进程内建过的表达式体个数（每建一条走壳的表达式语句 +1；圆括号内部的嵌套体不计）。
@@ -491,11 +527,25 @@ if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
   this.Expect = StatementOperatorBody.ExpectOperator;
   return;
 }
-if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
+  if (text !== "" && OperatorTable.IsAssignmentOperator(text)) {
+    this.PushAssignment(unit, text, template);
+    return;
+  }if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
   this.PushBinary(unit, text, template);
   return;
 }
-if (text === "?.") {
+  if (text === "?") {
+    this.StartConditional(unit, template);
+    return;
+  }
+  if (text === ":") {
+    this.CloseConditional(unit);
+    return;
+  }
+  if (text === "++" || text === "--") {
+    this.StartPostfix(unit, text, template);
+    return;
+  }if (text === "?.") {
   this.StartQuestionDot(unit, template);
   return;
 }
@@ -787,16 +837,40 @@ if (this.Frames.length > 0) {
 
 ## method PushBinary:(unit:Token, text:string, template:Template)=>void
 
-遇二元运算符**立刻**建节点：先按 `OperatorTable` 的优先级/结合性弹掉已经完整的栈顶（左结合收敛），
+二元运算符：优先级取自 `OperatorTable.Precedence`，结合性取自 `OperatorTable.AssociationOf`（唯一来源），
+其余交给 `PushOperator`。`**` 右结合、其余左结合，与 `ParseBinary` 同口径。
+
+```ts
+this.PushOperator(unit, text, OperatorTable.Precedence(text), OperatorTable.AssociationOf(text) === "right", template);
+```
+
+## method PushAssignment:(unit:Token, text:string, template:Template)=>void
+
+赋值 / 复合赋值（S3h）：**优先级固定取 `OperatorTable.AssignmentPrecedence`（0，比一切二元都低）、右结合**。
+右结合意味着连续赋值 `a = b = 1` 不弹栈，第二个 `=` 直接成为第一个 `=` 的右支（`=(a,=(b,1))`）；
+左结合会建出 `=(=(a,b),1)`，与 legacy `ParseAssign` 的递归不一致。
+
+```ts
+this.PushOperator(unit, text, OperatorTable.AssignmentPrecedence, true, template);
+```
+
+## method PushOperator:(unit:Token, text:string, precedence:int, rightAssoc:bool, template:Template)=>void
+
+遇运算符**立刻**建节点：先按优先级/结合性弹掉已经完整的栈顶（左结合收敛），
 再用 `ShapeInsertUtil.InsertBetween` 把新节点插进「父单元与最后一个子单元」之间——**这一步就是 S3b 的增量插入**，
 左操作数原地变成新节点的子单元。最后压栈、转「等操作数」。
 
 弹栈的条件与 `FeasOperatorParser` 的整段版**同一口径**：栈顶完整且（栈顶优先级 > 当前，或等于且非右结合）。
+二元与赋值共用本方法，差别只在调用方给出的两个数。
+
+**条件帧永不在这里被弹掉**（S3h 的坑）：条件表达式的假分支在文法里是一个 `ParseAssign`，所以
+`a ? b : c = d` 里那个 `=` 属于假分支（legacy 建 `?(a,b,=(c,d))`），而不是把整个条件当左操作数
+（那会建出非法的 `=(?(a,b,c),d)`，`ast-json` 的 expression 夹具会因此变化）。条件帧的优先级是 1，
+只有赋值（优先级 0）才满足「栈顶 > 当前」把它弹掉，所以这里对 `CondPrecedence` 显式封一格。
 
 ```ts
-const precedence = OperatorTable.Precedence(text);
-const rightAssoc = OperatorTable.IsRightAssociative(text);
 while (this.Frames.length > 0 && !this.FramePending[this.Frames.length - 1]
+  && this.FramePrecs[this.FramePrecs.length - 1] !== StatementOperatorBody.CondPrecedence
   && (this.FramePrecs[this.FramePrecs.length - 1] > precedence
     || (this.FramePrecs[this.FramePrecs.length - 1] === precedence && !rightAssoc))) {
   this.CompleteTop();
@@ -818,6 +892,97 @@ this.Frames.push(shape);
 this.FramePrecs.push(precedence);
 this.FramePending.push(true);
 this.Expect = StatementOperatorBody.ExpectOperand;
+```
+
+## method StartConditional:(unit:Token, template:Template)=>void
+
+`a ? b : c` 的 `?`（S3h）：先弹掉所有**完整的二元帧**（条件是整条二元表达式），再建一个
+`KindConditional` 帧压在剩下的栈顶上（赋值帧 / 外层条件帧因此成为它的父），`Data` 先只有条件。
+
+`ExpectOperand` 之后的操作数由 `AttachOperand` 挂进 `Top()`——那就是本节点，于是它成为真分支；
+`Expect` 转回 `ExpectOperator` 后遇到 `:` 由 `CloseConditional` 收真分支、等假分支。
+
+栈顶若还在等右操作数（`a + ? b : c`）则判非法，**不建错树**。
+
+```ts
+while (this.Frames.length > 0 && !this.FramePending[this.Frames.length - 1]
+  && this.FramePrecs[this.FramePrecs.length - 1] > StatementOperatorBody.CondPrecedence) {
+  this.CompleteTop();
+}
+if (this.Frames.length > 0 && this.FramePending[this.FramePending.length - 1]) {
+  this.Fail("条件表达式缺少条件");
+  return;
+}
+const parent = this.Top();
+if (parent.Data.length === 0) {
+  this.Fail("条件表达式缺少条件");
+  return;
+}
+const child = parent.Data[parent.Data.length - 1];
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindConditional;
+shape.Raw = unit;
+ShapeInsertUtil.InsertBetween(parent, child, shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Frames.push(shape);
+this.FramePrecs.push(StatementOperatorBody.CondPrecedence);
+this.FramePending.push(true);
+this.Conditionals.push(shape);
+this.Expect = StatementOperatorBody.ExpectOperand;
+```
+
+## method CloseConditional:(unit:Token)=>void
+
+`:`（S3h）：真分支已经挂在最内层等待中的条件节点上。先弹掉它上面所有**已完整**的帧
+（`a ? b + c : d` 的 `+` 帧在下面、`a ? b : c ? d : e` 的内层条件已完整），直到栈顶正是
+`Conditionals` 的栈顶；记下冒号单元、把该帧重新标成「等右操作数」，让假分支挂进同一个节点。
+
+栈顶还在等操作数（`a ? b + : c`）或根本没有等待中的条件（裸 `:`）则判非法。
+
+```ts
+while (this.Frames.length > 0 && (this.Conditionals.length === 0
+  || this.Frames[this.Frames.length - 1] !== this.Conditionals[this.Conditionals.length - 1])) {
+  if (this.FramePending[this.FramePending.length - 1]) {
+    this.Fail("条件表达式缺少分支");
+    return;
+  }
+  this.CompleteTop();
+}
+if (this.Conditionals.length === 0 || this.Frames.length === 0) {
+  this.Fail("冒号没有对应的条件表达式");
+  return;
+}
+if (this.FramePending[this.FramePending.length - 1]) {
+  this.Fail("条件表达式缺少真分支");
+  return;
+}
+const target = this.Conditionals[this.Conditionals.length - 1];
+(target as StatementOperandShape).Colon = unit;
+this.Conditionals.pop();
+this.FramePending[this.FramePending.length - 1] = true;
+this.Expect = StatementOperatorBody.ExpectOperand;
+```
+
+## method StartPostfix:(unit:Token, text:string, template:Template)=>void
+
+后缀 `++` / `--`（S3h）：与成员访问同一条插入路径（`InsertionPoint` 会穿过前缀节点，所以 `-a++` 是 `-(post(a))`），
+插完仍在 `ExpectOperator`——后缀运算的结果还是操作数。
+
+```ts
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  this.Fail("后缀自增自减缺少操作数");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindPostfix;
+shape.Text = text;
+shape.Raw = unit;
+ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Expect = StatementOperatorBody.ExpectOperator;
 ```
 
 ## method CompleteTop:()=>void
@@ -995,6 +1160,16 @@ if (token instanceof StatementOperandShape) {
     const right = shape.Data.length > 1 ? StatementOperatorBody.Render(shape.Data[1]) : "?";
     return shape.Text + "(" + left + "," + right + ")";
   }
+  if (shape.Kind === StatementOperandShape.KindConditional) {
+    const condition = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    const whenTrue = shape.Data.length > 1 ? StatementOperatorBody.Render(shape.Data[1]) : "?";
+    const whenFalse = shape.Data.length > 2 ? StatementOperatorBody.Render(shape.Data[2]) : "?";
+    return "?(" + condition + "," + whenTrue + "," + whenFalse + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindPostfix) {
+    const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "post(" + only + ")";
+  }
   if (shape.Kind === StatementOperandShape.KindPrefix) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
     return shape.Text + "(" + only + ")";
@@ -1070,6 +1245,16 @@ if (token instanceof StatementOperandShape) {
     const left = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
     const right = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
     return left + shape.Text + right;
+  }
+  if (shape.Kind === StatementOperandShape.KindConditional) {
+    const condition = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    const whenTrue = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
+    const whenFalse = shape.Data.length > 2 ? StatementOperatorBody.RenderInfix(shape.Data[2]) : "?";
+    return "?(" + condition + "," + whenTrue + "," + whenFalse + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindPostfix) {
+    const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    return "post(" + only + ")";
   }
   if (shape.Kind === StatementOperandShape.KindPrefix) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";

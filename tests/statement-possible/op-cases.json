@@ -384,10 +384,12 @@
         {
           "name": "op-unsupported-postfix",
           "source": "a++;",
-          "note": "未覆盖：postfix ++ 不接管（-- 同理），体判 Incomplete、XML 仍逐字节一致",
+          "note": "S3h 起后缀 ++ 已接管（原先列在未覆盖清单里）：形状层建 KindPostfix 节点，运算符不进 children",
           "operatorShapes": {
-            "texts": [],
-            "incomplete": true
+            "texts": [
+              "post(a)"
+            ],
+            "minInserts": 1
           }
         },
         {
@@ -441,6 +443,188 @@
           "operatorShapes": {
             "texts": [
               "member(member(a,b),c)"
+            ],
+            "minInserts": 2
+          }
+        }
+      ]
+    },
+    "stage3h-live": {
+      "description": "S3h 专用 cases：赋值 / 复合赋值（优先级 0、右结合、经 ShapeInsertUtil.InsertBetween 增量插入）、条件 ?:（优先级 1 的帧 + Conditionals 栈）、后缀 ++/--（运算符不进 children）；每条都要求壳路径 XML 与同源码 legacy 逐字节一致、结构文本逐字相符、插入次数达标。",
+      "needs": [],
+      "cases": [
+        {
+          "name": "live-assign",
+          "source": "x = 1;",
+          "note": "赋值：左操作数已就绪、遇 = 建右结合最低优先级帧",
+          "operatorShapes": {
+            "texts": [
+              "=(x,1)"
+            ],
+            "minInserts": 1
+          }
+        },
+        {
+          "name": "live-compound",
+          "source": "x += 1;",
+          "note": "复合赋值 += ",
+          "operatorShapes": {
+            "texts": [
+              "+=(x,1)"
+            ],
+            "minInserts": 1
+          }
+        },
+        {
+          "name": "live-chain",
+          "source": "a = b = 1;",
+          "note": "连续赋值右结合：=(a,=(b,1))",
+          "operatorShapes": {
+            "texts": [
+              "=(a,=(b,1))"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-precedence",
+          "source": "x *= y + 1;",
+          "note": "赋值优先级最低：右支收进整条二元",
+          "operatorShapes": {
+            "texts": [
+              "*=(x,+(y,1))"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-member",
+          "source": "a.b = 1;",
+          "note": "成员赋值：左操作数是成员访问",
+          "operatorShapes": {
+            "texts": [
+              "=(member(a,b),1)"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-index",
+          "source": "a[b] += 2;",
+          "note": "索引复合赋值：左操作数是索引访问",
+          "operatorShapes": {
+            "texts": [
+              "+=(index(a,b),2)"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-logical",
+          "source": "x ||= y;",
+          "note": "逻辑复合赋值 ||=",
+          "operatorShapes": {
+            "texts": [
+              "||=(x,y)"
+            ],
+            "minInserts": 1
+          }
+        },
+        {
+          "name": "live-cond",
+          "source": "a ? b : c;",
+          "note": "条件表达式：? 帧优先级 1、: 收真分支",
+          "operatorShapes": {
+            "texts": [
+              "?(a,b,c)"
+            ],
+            "minInserts": 1
+          }
+        },
+        {
+          "name": "live-cond-right",
+          "source": "a ? b : c ? d : e;",
+          "note": "条件右结合：假分支再嵌一层",
+          "operatorShapes": {
+            "texts": [
+              "?(a,b,?(c,d,e))"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-cond-true",
+          "source": "a ? b ? c : d : e;",
+          "note": "真分支嵌条件：Conditionals 栈",
+          "operatorShapes": {
+            "texts": [
+              "?(a,?(b,c,d),e)"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-post",
+          "source": "a++;",
+          "note": "后缀自增：运算符只进区间不进 children",
+          "operatorShapes": {
+            "texts": [
+              "post(a)"
+            ],
+            "minInserts": 1
+          }
+        },
+        {
+          "name": "live-post-add",
+          "source": "a++ + b;",
+          "note": "后缀结果参与二元",
+          "operatorShapes": {
+            "texts": [
+              "+(post(a),b)"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-mix",
+          "source": "x = a ? b : c;",
+          "note": "赋值右支是条件",
+          "operatorShapes": {
+            "texts": [
+              "=(x,?(a,b,c))"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-prefix-post",
+          "source": "-a++;",
+          "note": "前缀包后缀（InsertionPoint 穿过前缀）",
+          "operatorShapes": {
+            "texts": [
+              "-(post(a))"
+            ],
+            "minInserts": 1
+          }
+        },
+        {
+          "name": "live-cond-assign-false",
+          "source": "a ? b : c = d;",
+          "note": "假分支是赋值：= 落在条件内部，不是把条件当左操作数",
+          "operatorShapes": {
+            "texts": [
+              "?(a,b,=(c,d))"
+            ],
+            "minInserts": 2
+          }
+        },
+        {
+          "name": "live-cond-assign-true",
+          "source": "a ? b = 1 : c;",
+          "note": "真分支是赋值：: 之前先把 = 帧收掉",
+          "operatorShapes": {
+            "texts": [
+              "?(a,=(b,1),c)"
             ],
             "minInserts": 2
           }
