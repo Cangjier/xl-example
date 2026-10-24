@@ -57,8 +57,8 @@ declare class C {}
 类型参数 / 类体内容全是壳的事，`class` 之后出现什么都不影响本候选的判定。
 
 `declare` / `abstract` 与 `class` 之间换行时 TS 的 ASI 把修饰词收成独立的 ExpressionStatement、类声明不带该修饰词，
-本候选必须退出。`export class` / `export default class` 走 `ExportDeclarationPossibleShape`（原子建，见
-`export-declaration-possible-shape.xl.md`），本候选在首格 `export` 上就退出。
+本候选必须退出。`export class` / `export default class` 走 `ExportDeclarationRule`（原子建，见
+`export-declaration-rule.xl.md`），本候选在首格 `export` 上就退出。
 
 ## private static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
 

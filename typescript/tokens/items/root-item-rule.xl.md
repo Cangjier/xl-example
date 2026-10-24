@@ -56,7 +56,7 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 根级唯一的一族 item：**一条根单元**（import / export / 各类声明 / 语句）。
 `Classify` 恒认领（root 拥有全部 item），判定交给 13 个候选在前缀上逐个淘汰。
 
-候选表由构造器注入（`SourceFileShape.CreatePossibleShapes()`），本文件**不 import** `SourceFileShape`：
+候选表由构造器注入（`SourceFileShape.CreateRules()`），本文件**不 import** `SourceFileShape`：
 根形状反过来要 import 本文件的 host，双向 import 会成环。
 
 ## static field Item:int = 1
@@ -115,7 +115,7 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 
 ## constructor:(shapes:Array<IRootRule>)=>void
 
-以候选表（`SourceFileShape.CreatePossibleShapes()`）创建，初始即复位。
+以候选表（`SourceFileShape.CreateRules()`）创建，初始即复位。
 
 ```ts
 this.Table = new RootRuleTable(shapes);
@@ -1349,7 +1349,7 @@ this.Fallback.Reset();
 
 ## static method CreateRules:(shapes:Array<IRootRule>)=>Array<ItemRule>
 
-根的规则表：只占 1 条规则；候选表由调用方给（`SourceFileShape.CreatePossibleShapes()`），
+根的规则表：只占 1 条规则；候选表由调用方给（`SourceFileShape.CreateRules()`），
 本文件因此不必 import 根形状，双向 import 不成环。
 
 ```ts

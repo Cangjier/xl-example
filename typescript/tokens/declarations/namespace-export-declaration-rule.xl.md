@@ -15,7 +15,7 @@ import { NamespaceExportDeclarationShape } from "./namespace-export-declaration-
 # namespace cangjie
 
 `export as namespace N;` 的候选：`export` `as` `namespace` `<名字>` `;` 五格。
-`ExportDeclarationPossibleShape` 在第二格见到 `as` 就 `Reject`，`ExportAssignmentRule` 在第二格要求 `=` 也会 `Reject`。
+`ExportDeclarationRule` 在第二格见到 `as` 就 `Reject`，`ExportAssignmentRule` 在第二格要求 `=` 也会 `Reject`。
 时序与 `TypeAliasDeclarationRule` 相同：`;` 那一格 `Done`，`IsBuildable` 只在那一格为真。
 
 # class NamespaceExportDeclarationScan

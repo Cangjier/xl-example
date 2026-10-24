@@ -11,7 +11,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ClassDeclarationRule } from "../declarations/class-declaration-rule.xl.md"
 import { EnumDeclarationRule } from "../declarations/enum-declaration-rule.xl.md"
 import { ExportAssignmentRule } from "../declarations/export-assignment-rule.xl.md"
-import { ExportDeclarationPossibleShape } from "../declarations/export-declaration-possible-shape.xl.md"
+import { ExportDeclarationRule } from "../declarations/export-declaration-rule.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { FunctionDeclarationRule } from "../declarations/function-declaration-rule.xl.md"
 import { ImportDeclarationRule } from "../declarations/import-declaration-rule.xl.md"
@@ -45,7 +45,7 @@ const queue = template.BranchTemplate.Get(this.constructor);
 if (queue !== null) {
   this.ProcessQueue = queue;
 }
-this.AdapterRoot = new SourceFileBodyItemHost(this, SourceFileBodyItemHost.CreateRules(SourceFileShape.CreatePossibleShapes()));
+this.AdapterRoot = new SourceFileBodyItemHost(this, SourceFileBodyItemHost.CreateRules(SourceFileShape.CreateRules()));
 this.BatchAdapter = this.AdapterRoot;
 ```
 
@@ -180,15 +180,15 @@ if (this.SourceRange.Start < 0) {
 super.Process(context, buffer, index);
 ```
 
-## private static field CreatePossibleShapesCache:Array<IRootRule> | null = null
+## private static field CreateRulesCache:Array<IRootRule> | null = null
 
-## static method CreatePossibleShapes:()=>Array<IRootRule>
+## static method CreateRules:()=>Array<IRootRule>
 
 ```ts
-if (SourceFileShape.CreatePossibleShapesCache === null) {
-  SourceFileShape.CreatePossibleShapesCache = [
+if (SourceFileShape.CreateRulesCache === null) {
+  SourceFileShape.CreateRulesCache = [
     new ImportDeclarationRule(),
-    new ExportDeclarationPossibleShape(),
+    new ExportDeclarationRule(),
     new StatementPossibleShape(),
     // new ImportEqualsDeclarationRule(),
     // new ExportAssignmentRule(),
@@ -228,5 +228,5 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // new DebuggerStatementPossibleShape(),
   ];
 }
-return SourceFileShape.CreatePossibleShapesCache;
+return SourceFileShape.CreateRulesCache;
 ```

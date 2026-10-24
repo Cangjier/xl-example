@@ -16,7 +16,7 @@ import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 # namespace cangjie
 
 `export = <表达式>;` 的候选：`export` `=` 之后至少一个代码单元，顶层 `;` 收尾。
-`ExportDeclarationPossibleShape` 在第二格见到 `=` 就 `Reject`，`ExpressionStatementPossibleShape.CanStart` 又保留 `export`，
+`ExportDeclarationRule` 在第二格见到 `=` 就 `Reject`，`ExpressionStatementPossibleShape.CanStart` 又保留 `export`，
 所以这里只要阶段推进正确，`;` 那一格只剩本候选。时序与 `TypeAliasDeclarationRule` 相同。
 
 # class ExportAssignmentScan

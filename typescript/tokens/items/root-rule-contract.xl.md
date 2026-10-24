@@ -88,8 +88,7 @@ return RootRule.SlotOf(this.constructor);
 
 ## field Rules:Array<IRootRule>
 
-根候选，顺序即竞争顺序。由 `SourceFileShape.CreateRules()` 注入
-（迁移期仍是 `CreatePossibleShapes()`，返回类型同为数组）。
+根候选，顺序即竞争顺序。由 `SourceFileShape.CreateRules()` 注入（返回类型同为数组）。
 
 ## field Cache:PossibleShapeCache = new PossibleShapeCache()
 

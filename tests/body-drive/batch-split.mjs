@@ -231,7 +231,7 @@ function runSplit(host, context, k) {
 }
 
 function rootRules() {
-  return SourceFileBodyItemHost.CreateRules(SourceFileShape.CreatePossibleShapes());
+  return SourceFileBodyItemHost.CreateRules(SourceFileShape.CreateRules());
 }
 
 function runWholeRoot(host, context) {

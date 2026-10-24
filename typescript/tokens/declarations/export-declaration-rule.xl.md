@@ -2,12 +2,11 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { NamedExportsShape } from "./named-exports-shape.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -66,7 +65,7 @@ stage 13（变量声明 / 类型别名体）里上一个已吃进的**代码**�
 `StatementScanner.EndsAtLineBreakBefore(units, index)` 判边界，所以边界只在「已经有一个体单元」之后才可能成立，
 不会把 `export const` 之后的换行（那是声明头的一部分）当成语句边界。
 
-# class ExportDeclarationPossibleShape extends PossibleShape
+# class ExportDeclarationRule extends RootRule
 
 ```txt
 export { a };
@@ -371,7 +370,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 3;
       continue;
     }
-    if (ExportDeclarationPossibleShape.IsNewDeclarationAfterLineBreak(units, index)) {
+    if (ExportDeclarationRule.IsNewDeclarationAfterLineBreak(units, index)) {
       // 换行后是下一条声明（`export default function (): void` ⏎ `interface I {}`）：本条是无体签名，
       // 在 ASI 处收口。不 Reject 的话会把下一条声明的 `{…}` 当函数体（Y13：吞 interface 体）。
       state.Stage = 3;
@@ -438,7 +437,7 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 3;
       continue;
     }
-    if (ExportDeclarationPossibleShape.IsNewDeclarationAfterLineBreak(units, index)) {
+    if (ExportDeclarationRule.IsNewDeclarationAfterLineBreak(units, index)) {
       // 同上，换行后是下一条声明（`export function f(): void` ⏎ `interface I {}`）：无体签名在 ASI 收口。
       state.Stage = 3;
       continue;
@@ -524,10 +523,10 @@ if (state.Done) {
 return ShapeStates.Uncertain;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ExportDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<ExportDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;
