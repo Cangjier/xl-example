@@ -170,6 +170,15 @@ while (at < code.length) {
   at = at + 1;
 }
 this.Watermark = at;
+if (state.AtEof) {
+  // 到 EOF 还有候选没被淘汰、但谁都建不出（`IsBuildable` 恒 false）：**无条件收口**。
+  // 不收口的话引擎一条 item 都不建，`Flush` 既走不了「能建就建」也走不了「raw 回退」。
+  // 收口后 `Winner = -1` → `Build` 返回 `null` → 引擎记 raw 回退，
+  // 由容器的 `FinishBody` 用 `BuildTrailingItems` 把这段尾巴整段建对（legacy 里是「终结候选」干的事）。
+  state.Complete = true;
+  state.End = state.CodeAt[code.length - 1];
+  this.Winner = -1;
+}
 ```
 
 ## static method FirstOf:(set:Set<int>)=>int
@@ -486,7 +495,10 @@ return CloseStates.Nothing;
 
 ## method CloseBatch:(context:SyntaxContext)=>BatchStates
 
-硬边界收口：把引擎里没建完的 item 交给 `Flush`（能建就建，建不出记 raw 回退），然后复位口袋。
+硬边界收口：把引擎里没建完的 item 交给 `Flush`（能建就建，建不出记 raw 回退）。
+
+**不在这里 `Fallback.Reset()`**：raw 口袋是给容器读的，容器 `FinishBody` 读完并 splice 之后才清零
+（`SourceFileShape.FinishBody` 里有那句 `raw.Reset()`）。在这里擦掉，容器永远读到 `{From:-1,To:-1}`。
 
 ```ts
 const host = this.Host;
@@ -494,7 +506,6 @@ if (host === null) {
   return BatchStates.Done;
 }
 this.Engine.Flush(host, context, this.Fallback);
-this.Fallback.Reset();
 return BatchStates.Done;
 ```
 
