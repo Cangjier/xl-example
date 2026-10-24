@@ -3,6 +3,7 @@
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { BasicTokenBatch } from "../../../core/syntax/batch/basic-token-batch.xl.md"
 import { BatchPolicy } from "../../../core/syntax/batch/batch-policy.xl.md"
 import { BatchStates } from "../../../core/syntax/batch/batch-states.xl.md"
@@ -288,10 +289,11 @@ while (at < code.length) {
       // （实测 `VariableStatement[0,11] + ExpressionStatement[11,15]`）。判据与
       // `StatementScanner.EndsAtLineBreak` 的调用位分支同一份，不另写一套：
       // 有换行 + 下一格是调用位（`(` / `[` / 反引号）+ 上一格**可**当调用者 ⇒ 不是 ASI 边界，并进本条。
-      const continuesCall: boolean = at > 0
+      const continuesCall: boolean = (at > 0
         && StatementScanner.IsCallishUnit(code[at])
         && !StatementScanner.NoLineBreakBetween(code[at - 1], code[at])
-        && !StatementScanner.EndsAtLineBreak(code, at - 1, at);
+        && !StatementScanner.EndsAtLineBreak(code, at - 1, at))
+        || this.ContinuesTagOrCall(code, at, base, units, state.CodeAt);
       // ① 先按「不含这一格」建：这一格通常是下一条语句的开头（ASI 边界），不属于本条 item。
       if (at > 0) {
         const beforeEnd: number = state.CodeAt[at - 1];
@@ -704,6 +706,44 @@ if (held !== null) {
   this.Pending = held;
   this.Watermark = holdAt + 1;
   return true;
+}
+return false;
+```
+
+## private method ContinuesTagOrCall:(code:Array<Token>, at:int, base:int, units:Array<Token>, codeAt:Array<int>)=>bool
+
+同一行上的「标签模板 / 调用」续接：`f<T>` + 反引号模板是 `TaggedTemplateExpression`，模板后同一行的 `(`
+是它的调用。TS 的 ASI 只在行终止符处发生，所以这两格**不能**按 ① 收口——
+`const t1 = f<T>` + 模板 收在 `>` 会把模板留成下一条 ExpressionStatement（#13/#61），
+`typeof f<T>` + 模板 + `()` 收在模板会把 `()` 留成顶层 `Block`（#15）。
+
+判据不另写一套：`>` 必须由 `AngleJudge.CanStart` 认定是类型实参段的闭合（与 `TryResolveHold` / E 分支同一份），
+模板后紧跟的 `(` 只认同一行。
+
+```ts
+if (at <= 0) {
+  return false;
+}
+const current: Token = code[at];
+const previous: Token = code[at - 1];
+if (!StatementScanner.NoLineBreakBetween(previous, current)) {
+  return false;
+}
+if (current instanceof String) {
+  if ((current as String).StringChar !== "`") {
+    return false;
+  }
+  if (!this.IsSymbolAt(code, at - 1, ">")) {
+    return false;
+  }
+  const ltAt: number = this.LastOpenAngle(code, at - 2);
+  if (ltAt < 0) {
+    return false;
+  }
+  return AngleJudge.CanStart(units, codeAt[ltAt] - base);
+}
+if (current instanceof Bracket && (current as Bracket).StartBracketChar === "(") {
+  return previous instanceof String && (previous as String).StringChar === "`";
 }
 return false;
 ```
