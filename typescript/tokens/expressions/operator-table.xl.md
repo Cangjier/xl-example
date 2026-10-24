@@ -60,6 +60,23 @@ return text === "**";
 return OperatorTable.Precedence(text) >= 0;
 ```
 
+## static field AsPrecedence:int = 11
+
+`as` / `satisfies` 的优先级（S3j 迁移）：与关系运算符同级（`<` `>` `<=` `>=` `instanceof` `in`），
+所以 `a + b as T` = `(a + b) as T`、`a as T + b` = `(a as T) + b`。这个数值此前硬编码在
+`ExpressionBuilder.ParseBinary` 里（lint 记为 KNOWN 的架构债），现在只在 `OperatorTable` 出现一次；
+`Precedence` 对它仍返回 -1，因为 `as` 的右操作数是**类型**、必须由 `ParseFollowingType` 交给
+`TypeBuilder`，不能被二元循环当普通运算符吃掉。
+
+## static method IsAsOperator:(text:string)=>bool
+
+`as` / `satisfies` 是**类型运算符**（S3j）：两者同优先级、右操作数都是类型而不是表达式，因此
+**不在** `IsBinaryOperator` 里。`ExpressionBuilder.IsTypeOperator` 只做一次委托，集合本身只在这里定义。
+
+```ts
+return text === "as" || text === "satisfies";
+```
+
 ## static method IsPrefixOperator:(text:string)=>bool
 
 一元前缀运算符集合也与历史实现逐字一致（`!` `~` `+` `-` `++` `--` `typeof` `void` `delete`）。
