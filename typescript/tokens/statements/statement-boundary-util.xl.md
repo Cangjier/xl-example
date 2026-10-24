@@ -242,6 +242,46 @@ if ((current instanceof Bracket
 return !ExpressionStatementPossibleShape.IsContinuation(current);
 ```
 
+## static method EndsAtLineBreak:(code:Array<Token>, previousIndex:int, nextIndex:int)=>bool
+
+**扫描器侧的换行收口判据**（`StatementScanner` 的唯一实现点，设计 §2.4 第 5 步）：
+
+`previous` 能收尾、`next` 接不上、两者之间有换行 —— 三者都成立就是 ASI 边界。
+调用 / 下标 / 标签模板位另有一条：`next` 虽然「接得上」（`(` 通常是续接），但当上一条表达式
+不能当调用者时就接不上——与 `IsAsiBoundary` 读同一个判据。
+
+> 本方法体自 `statement-scanner.xl.md` **逐字搬迁**（`EndsAtLineBreak` 原 :666-688），一字未改；
+> 扫描器侧只剩一行委托，所以 `ScanExpressionBody`（块内表达式语句）/ `ScanToSemicolon`
+> （声明尾）/ `ScanBreakOrContinue` / `ScanSimpleSemicolon` 读的是这一份实现。
+> 与 `IsAsiBoundary` 的分工：`IsAsiBoundary` 是「候选层」判据（含声明头 / 标签 / 双角色关键字
+> 的互斥），`EndsAtLineBreak` 是「扫描器层」判据（只做三条件 + 调用位），两者不可互换——
+> 把扫描器那一格换成 `IsAsiBoundary` 会让 47 条 token-ast 用例回退
+> （`不支持的表达式起点`），这一点已在 S2 第一轮实测过。
+
+```ts
+const previous = code[previousIndex];
+const next = code[nextIndex];
+if (StatementScanner.NoLineBreakBetween(previous, next)) {
+  return false;
+}
+// 类型实参 / 类型断言收尾的 `>`（`a as T<U>` / `f<T>`）不是 `EndsExpression` 认的表达式尾
+//（它只认 `++` / `--`），但类型之后接 `(` / `[` / 模板同样是语法错 → 换行处是 ASI 边界。
+if (StatementScanner.IsCallishUnit(next) && previous instanceof Symbol) {
+  const previousSymbol = (previous as Symbol).TempToString();
+  if ((previousSymbol === ">" || previousSymbol === ">>" || previousSymbol === ">>>")
+    && StatementScanner.IsCallPositionBlocked(code, previousIndex)) {
+    return true;
+  }
+}
+if (!StatementScanner.EndsExpression(previous)) {
+  return false;
+}
+if (StatementScanner.IsCallishUnit(next) && StatementScanner.IsCallPositionBlocked(code, previousIndex)) {
+  return true;
+}
+return !StatementScanner.ContinuesAcrossLine(next);
+```
+
 ## static method IsSemicolon:(unit:Token)=>bool
 
 这个代码单元是不是 `;`（语句自己的终结符）。

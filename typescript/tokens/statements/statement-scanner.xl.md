@@ -10,6 +10,7 @@ import { RegexToken } from "../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
@@ -664,27 +665,9 @@ return false;
 不能当调用者时就接不上——与 `ExpressionStatementPossibleShape.IsAsiBoundary` 读同一个判据。
 
 ```ts
-const previous = code[previousIndex];
-const next = code[nextIndex];
-if (StatementScanner.NoLineBreakBetween(previous, next)) {
-  return false;
-}
-// 类型实参 / 类型断言收尾的 `>`（`a as T<U>` / `f<T>`）不是 `EndsExpression` 认的表达式尾
-//（它只认 `++` / `--`），但类型之后接 `(` / `[` / 模板同样是语法错 → 换行处是 ASI 边界。
-if (StatementScanner.IsCallishUnit(next) && previous instanceof Symbol) {
-  const previousSymbol = (previous as Symbol).TempToString();
-  if ((previousSymbol === ">" || previousSymbol === ">>" || previousSymbol === ">>>")
-    && StatementScanner.IsCallPositionBlocked(code, previousIndex)) {
-    return true;
-  }
-}
-if (!StatementScanner.EndsExpression(previous)) {
-  return false;
-}
-if (StatementScanner.IsCallishUnit(next) && StatementScanner.IsCallPositionBlocked(code, previousIndex)) {
-  return true;
-}
-return !StatementScanner.ContinuesAcrossLine(next);
+// 单一来源：函数体已搬到 `StatementBoundaryUtil.EndsAtLineBreak`（逐字搬迁，零行为变化）。
+// 扫描器这里只留一行委托，形态与 `ExpressionStatementPossibleShape.IsAsiBoundary` 的委托一致。
+return StatementBoundaryUtil.EndsAtLineBreak(code, previousIndex, nextIndex);
 ```
 
 ## static method EndsAtLineBreakBefore:(units:Array<Token>, current:int)=>bool
@@ -821,6 +804,7 @@ for (let cursor = at; cursor < code.length; cursor++) {
     return StatementScanner.Complete(cursor - 1);
   }
   // ASI：换行处收口语句体（`while (a) b` ⏎ `c;` / `if (a) b` ⏎ `else c` / `lab: a` ⏎ `c;`）。
+  // 判据只有一份：`StatementBoundaryUtil.EndsAtLineBreak`（设计 §2.4 第 5 步、§5 Stage 2）。
   if (cursor > at
     && !StatementScanner.IsSymbol(code[cursor], ";")
     && StatementScanner.EndsAtLineBreak(code, cursor - 1, cursor)) {
