@@ -4,6 +4,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { StatementRoute } from "./statement-route-util.xl.md"
+import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
@@ -67,18 +69,27 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const name = this.Slot();
 const itemStart = ItemUtil.ItemStart(units);
-// 显式分流（可行性原型 A）：根层 `let` / `const` / `var` 声明由 `VariableStatementPossibleShape` 接管
-// （它在关键字格后建 `StatementShape` 壳，由壳自己的终结候选在 `;` / ASI 处收口）。本候选对这些起点主动
+// 显式分流（设计 §3.2，T1d）：本候选只做 `StatementRoute.Legacy` 家族。`ShellPlainExpression` 起点归
+// `RootExpressionStatementPossibleShape`、`ShellVariable` 归 `VariableStatementPossibleShape`，这里主动
 // `Reject`，不靠「谁先 Accept」——两边同时 Accept 会让 `CatalogGuide` 永远等不到唯一候选（AST 不变，但
-// 语句永远建不出来）。判据只认「关键字 + 下一格能起绑定」，与 `StatementScanner.StartsBinding` 同源。
-if (itemStart < units.length) {
-  const headAt = ItemUtil.NextCode(units, itemStart);
-  if (headAt < units.length && units[headAt] instanceof Common) {
-    const headText = (units[headAt] as Common).TempToString();
-    if (headText === "let" || headText === "const" || headText === "var") {
-      const bindingAt = ItemUtil.NextCode(units, headAt + 1);
-      if (bindingAt < units.length && StatementScanner.StartsBinding(units, bindingAt)) {
-        return ShapeStates.Reject;
+// 语句永远建不出来）。`None` = 路由还没判出（只有 trivia / 首代码单元未到）：**不能** Reject，否则候选会被
+// `CatalogGuide` 永久删除（token-ast 28 个 crash 的根因），继续走下面的状态机等下一格。
+if (StatementRouteUtil.EnableShellExpressions) {
+  const route = StatementRouteUtil.Decide(units, tokenIndex);
+  if (route !== StatementRoute.Legacy && route !== StatementRoute.None) {
+    return ShapeStates.Reject;
+  }
+} else {
+  // 熔断关闭：逐字保留 Wave1 原型 A 的内联分流（legacy 路径必须与 Wave1 完全等价，双路对拍才有意义）。
+  if (itemStart < units.length) {
+    const headAt = ItemUtil.NextCode(units, itemStart);
+    if (headAt < units.length && units[headAt] instanceof Common) {
+      const headText = (units[headAt] as Common).TempToString();
+      if (headText === "let" || headText === "const" || headText === "var") {
+        const bindingAt = ItemUtil.NextCode(units, headAt + 1);
+        if (bindingAt < units.length && StatementScanner.StartsBinding(units, bindingAt)) {
+          return ShapeStates.Reject;
+        }
       }
     }
   }

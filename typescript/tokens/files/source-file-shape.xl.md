@@ -30,6 +30,7 @@ import { LabeledStatementPossibleShape } from "../statements/labeled-statement-p
 import { ModuleDeclarationPossibleShape } from "../declarations/module-declaration-possible-shape.xl.md"
 import { NamespaceExportDeclarationPossibleShape } from "../declarations/namespace-export-declaration-possible-shape.xl.md"
 import { ReturnStatementPossibleShape } from "../statements/return-statement-possible-shape.xl.md"
+import { RootExpressionStatementPossibleShape } from "../statements/root-expression-statement-possible-shape.xl.md"
 import { SourceFileEndPossibleShape } from "./source-file-end-possible-shape.xl.md"
 import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
@@ -155,6 +156,8 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new TypeAliasDeclarationPossibleShape(),
     // 可行性原型 A：根层 `let` / `const` / `var` 声明先建 `StatementShape` 壳（`;` / ASI 由壳的终结候选收口）。
     new VariableStatementPossibleShape(),
+    // Stage 1 T1d：普通表达式起点建 `StatementShape` 壳（终结候选收口，AST 由 `StatementBuilder` 原子建）。
+    new RootExpressionStatementPossibleShape(),
     // new BlockPossibleShape(),
     // new EmptyStatementPossibleShape(),
     new ExpressionStatementPossibleShape(),

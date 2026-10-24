@@ -305,21 +305,41 @@ if (at >= start && host.Data[at].IsBasicToken) {
     const trailingStatement = trailingBuilder.BuildStatement();
     host.Data.splice(start, at - start + 1, trailingStatement);
     trailingStatement.Parent = host;
-  } else if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
+  } else {
+    // r6：尾段未必只有一条语句。`lab: a` ⏎ `c;` / `a++; ++` ⏎ `b;` / `const a = b as T` ⏎ `(c);`
+    // 这些形态里 BuildTrailingDeclaration 会把「两条语句」当一条表达式建，抛
+    // 「表达式语句没有读完」/「表达式意外结束」。整条建不出来时退回**按 ASI 边界切段**
+    // （BuildStatementSegments：逐条 StatementBuilder 建、按已建形状的 End 定位下一段）——
+    // 这正是 EOF 兜底该做的事：尾段有几句就建几句。切段也建不出（非语句垃圾）才走旧的
+    // 单条 ExpressionStatement 兜底，行为与改前一致。
+    let trailHandled = false;
+    try {
+      trailHandled = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context);
+    } catch (trailError) {
+      trailHandled = false;
+    }
+    if (!trailHandled) {
+      let segmented = false;
+      try {
+        SourceFileEndPossibleShape.BuildStatementSegments(host, start, at, context);
+        segmented = true;
+      } catch (segmentError) {
+        segmented = false;
+      }
+      if (!segmented) {
     // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
     // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
     const tailIsSemicolon = host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";");
+    // r5：`;` 一起交给 `FromUnits` 的 requireSemicolon 分支——它把 `;` 从表达式里摘掉、却用 `;` 的 End 收口，
+    // 正是 TS 的 ExpressionStatement 区间（含 `;`）。旧写法「先按无分号建、再 SignOut 第二次」对同一个 shape
+    // 二次签出 `SourceRange.End`，抛 `SourceRange.End has already been set`（missing-end 24 的直接成因）。
     const built = tailIsSemicolon && at > start
-      ? ExpressionStatementShape.FromUnits(host, start, at - 1, context, false)
+      ? ExpressionStatementShape.FromUnits(host, start, at, context, true)
       : ExpressionStatementShape.FromUnits(host, start, at, context, false);
-    if (tailIsSemicolon && at > start) {
-      const semiEnd = host.Data[at].SourceRange.EndIndex;
-      if (semiEnd >= 0) {
-        built.SignOut(semiEnd);
-      }
-    }
     host.Data.splice(start, at - start + 1, built);
     built.Parent = host;
+      }
+    }
   }
 }
 let tail = host.Data.length - 1;
@@ -376,7 +396,60 @@ while (cursor <= limit) {
     statement = null;
   }
   if (statement === null) {
-    break;
+    // r9：`StatementBuilder` 不认声明族（`enum E { A }` 这类剩余段）。先把剩余段整段交给
+    // `BuildTrailingDeclaration`：它按「最后一个换行处开始的声明」递归拆段，建出来就说明剩余单元都有主。
+    let remainingBuilt = false;
+    try {
+      remainingBuilt = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, limit, context);
+    } catch (declarationError) {
+      remainingBuilt = false;
+    }
+    if (remainingBuilt) {
+      built++;
+      break;
+    }
+    // 段内再切一刀：第一个 ASI 边界之前的部分当一条语句建，成功则继续循环。
+    let asiCut = -1;
+    for (let index = cursor + 1; index <= limit; index++) {
+      if (ExpressionStatementPossibleShape.IsAsiBoundary(host.Data, index, cursor)) {
+        asiCut = index;
+        break;
+      }
+    }
+    if (asiCut > cursor) {
+      let headEnd = asiCut - 1;
+      while (headEnd > cursor && !host.Data[headEnd].IsBasicToken) {
+        headEnd--;
+      }
+      if (host.Data[headEnd].IsBasicToken) {
+        const headBuilder = new StatementBuilder(host.Template, context);
+        headBuilder.Load(host.Data.slice(cursor, headEnd + 1), basePos);
+        const headStatement = headBuilder.BuildStatement();
+        const headEndIndex = headStatement.SourceRange.EndIndex;
+        let headConsumed = 0;
+        if (headEndIndex < 0) {
+          headConsumed = headEnd - cursor + 1;
+        } else {
+          while (cursor + headConsumed <= limit
+            && host.Data[cursor + headConsumed].SourceRange.Start < headEndIndex) {
+            headConsumed++;
+          }
+        }
+        if (headConsumed > 0) {
+          host.Data.splice(cursor, headConsumed, headStatement);
+          headStatement.Parent = host;
+          built++;
+          limit -= headConsumed - 1;
+          cursor++;
+          while (cursor <= limit && (host.Data[cursor].IsTriviaToken || !host.Data[cursor].IsBasicToken)) {
+            cursor++;
+          }
+          continue;
+        }
+      }
+    }
+    // 显式失败：不再静默 break 把剩余单元留给 legacy 在 EOF 报「语句没有读完」。
+    throw new Error("语句没有读完：EOF 尾段无法按语句切分");
   }
   const endIndex = statement.SourceRange.EndIndex;
   let consumed = 0;

@@ -497,6 +497,14 @@ OperatorTable.Precedence / IsRightAssociative / IsBinaryOperator / IsPrefixOpera
 
 ---
 
+## 13. Stage 1 T1d 实现回写（事实校准）
+
+1. **`SourceFileEndPossibleShape` 的判据是 `CanEndStatement && !IsSemicolon`**（§2.2 / §2.4）：根终结候选只在「没有语句候选会消费这一格」时建语句；`;` 由语句候选自己收口，两边同格 `Accept` 会撞 `CatalogGuide`。
+2. **`StatementBoundaryUtil.IsAsiBoundary` 有可选第三参 `limit:int`**（§11 冻结签名的补充）：块体里的 `units` 还没建形状，调用方（`StatementBuilder`）必须传段首，否则会走回上一条语句的声明关键字。
+3. **lint 白名单事实**：`type-alias-declaration` 的类型层判据**保留**（它是类型层、不是语句边界）；`statement-boundary-util` 是**语句层唯一实现**，`ExpressionStatementPossibleShape.IsAsiBoundary` 只是单行委托。
+4. **已知遗留：util ↔ expression-statement 循环 import**（`statement-boundary-util` 需要 `CanEndExpressionAt` / `HasLineBreakBefore` 等静态辅助）。当前生成的 TS 只在方法体内引用，运行期无 TDZ 问题；**Stage 2 计划把这些静态辅助方法迁入 `StatementBoundaryUtil`**，循环随之消失。
+5. **T1d 分流落地口径**：`StatementRouteUtil.Decide` 是唯一分流点（全函数；首代码单元未到时返回 `None`，调用方**不得**据此 `Reject`）；`StatementEndPossibleShape` 的 `;` / EOF / ASI 判据改由 `CanEndStatement` 提供，`ScanRoot` 只保留「整条到齐 + `End`」。扫描器**已经提前收口**（`End < tokenIndex`，ASI 边界 token 属于下一条语句）时沿用 `End` 证据，避免声明族在 ASI 处被「只有表达式语句才 ASI」的起点规则卡住——这条是 Stage 2 把 ASI 判据按语句族细分时要收掉的遗留。
+
 ## 14. 表达式壳收口修订（S1b）
 
 > Stage 1 Wave2 连续 4 任未收敛后的设计修订。完整版见 `docs/possible-statement-s1b-design.md`（含 file:line 证据与分步验收读数）。本节只记结论，供后续 Stage 引用。

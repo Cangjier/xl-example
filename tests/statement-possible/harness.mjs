@@ -37,7 +37,7 @@ const require = createRequire(import.meta.url);
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { tsAst } = createAstCore(ts);
 
-const GROUP_ORDER = ["stage1", "asi", "trivia", "route", "satisfies", "operators", "stage4", "stage5"];
+const GROUP_ORDER = ["dev", "stage1", "asi", "trivia", "route", "satisfies", "operators", "stage4", "stage5"];
 
 /** 组能力 → 未满足时的 skip 原因。 */
 const NEED_REASONS = {
@@ -75,9 +75,18 @@ function load(relative) {
   return require(path.join(buildRoot, relative));
 }
 
+// T1d r13：文件级 fallback 取证。Parse 每次入口都会重置 LastFileFallback，
+// 所以每次 Parse 之后立刻读它，记下「哪些构造是靠整条文件回 legacy 才通过的」。
+const fallbackCases = [];
 function parseCj(source) {
   const { SourceFileRunner } = load("typescript/run/source-file-runner.js");
-  return SourceFileRunner.Parse(source, "case.ts");
+  const shape = SourceFileRunner.Parse(source, "case.ts");
+  const route = routeUtil();
+  if (route !== null && route.LastFileFallback === true) {
+    const shown = JSON.stringify(source.length > 70 ? `${source.slice(0, 70)}…` : source);
+    if (!fallbackCases.includes(shown)) fallbackCases.push(shown);
+  }
+  return shape;
 }
 
 function xmlOf(shape) {
@@ -342,9 +351,25 @@ function firstXmlDifference(left, right) {
   return null;
 }
 
-// ---------------------------------------------------------------------------
 // 用例
 function runCase(groupName, caseDef, instrument) {
+  // 开发期专用 cases：forceShell=true 时把受测路径钉死在新壳路径上（与全局开关默认值无关），
+  // 跑完恢复原值，避免污染同进程后续用例。
+  const route = routeUtil();
+  const previous = route === null ? null : route.EnableShellExpressions;
+  if (route !== null && caseDef.forceShell === true) {
+    route.EnableShellExpressions = true;
+  }
+  try {
+    return runCaseBody(groupName, caseDef, instrument);
+  } finally {
+    if (route !== null && caseDef.forceShell === true) {
+      route.EnableShellExpressions = previous;
+    }
+  }
+}
+
+function runCaseBody(groupName, caseDef, instrument) {
   const source = caseDef.source;
   const problems = [];
   const notes = [];
@@ -361,6 +386,13 @@ function runCase(groupName, caseDef, instrument) {
     instrument.state.currentSource = "";
     if (diagnostics > 0) {
       return { status: "skip", reason: `CJ 解析抛错且 TS 有 ${diagnostics} 个语法诊断（不合法输入，不作判据）` };
+    }
+    if (caseDef.uncovered !== undefined) {
+      const verdict = classifyUncovered(caseDef, { ok: false, err: describeError(error) }, instrument);
+      if (verdict.ok) {
+        return { status: "uncovered", reason: verdict.reason, evidence: verdict.evidence, problems: [`CJ 解析抛错：${describeError(error)}`], notes, caseCalls: 0 };
+      }
+      return { status: "fail", problems: [`CJ 解析抛错：${describeError(error)}`, verdict.problem], notes };
     }
     return { status: "fail", problems: [`CJ 解析抛错：${describeError(error)}`], notes };
   }
@@ -416,7 +448,7 @@ function runCase(groupName, caseDef, instrument) {
     }
     // b) 壳路径 vs legacy 路径（StatementRouteUtil 存在时）。
     const route = routeUtil();
-    if (route !== null && typeof route.EnableShellExpressions === "boolean") {
+    if (route !== null && typeof route.EnableShellExpressions === "boolean" && caseDef.skipLegacyCompare !== true) {
       const previous = route.EnableShellExpressions;
       instrument.state.paused = true;
       let legacyXml = null;
@@ -447,9 +479,67 @@ function runCase(groupName, caseDef, instrument) {
   }
 
   if (problems.length > 0) {
+    if (caseDef.uncovered !== undefined) {
+      const shellOutcome = xml === null ? { ok: false, err: "无 XML" } : { ok: true, xml };
+      const verdict = classifyUncovered(caseDef, shellOutcome, instrument);
+      if (verdict.ok) {
+        return { status: "uncovered", reason: verdict.reason, evidence: verdict.evidence, problems, notes, caseCalls };
+      }
+      problems.push(verdict.problem);
+    }
     return { status: "fail", problems, notes, caseCalls };
   }
   return { status: "pass", notes, caseCalls };
+}
+
+// ---------------------------------------------------------------------------
+// 「本 Stage 不覆盖」标注（uncovered={reason}）：不是允许失败，必须带证据。
+// 只有同时满足才算 uncovered，否则照样 FAIL：
+//   1) reason 非空；
+//   2) 开关 true 的结局（抛错文本 / XML）能与开关 false（legacy = 基线）对拍；
+//   3) 结论为「与基线一致」：抛同一异常文本，或 XML 逐字节相同。
+// legacy 成功而 true 抛错、或 XML 不同 → 新路径引入差异，不许标 uncovered。
+function legacyOutcome(source, instrument) {
+  const route = routeUtil();
+  if (route === null) {
+    return { ok: false, err: "StatementRouteUtil 不存在（无法取 fallback 基线）" };
+  }
+  const previous = route.EnableShellExpressions;
+  instrument.state.paused = true;
+  try {
+    route.EnableShellExpressions = false;
+    return { ok: true, xml: xmlOf(parseCj(source)) };
+  } catch (error) {
+    return { ok: false, err: describeError(error) };
+  } finally {
+    route.EnableShellExpressions = previous;
+    instrument.state.paused = false;
+  }
+}
+
+function classifyUncovered(caseDef, shell, instrument) {
+  const reason = caseDef.uncovered === undefined ? "" : (caseDef.uncovered.reason || "");
+  if (typeof reason !== "string" || reason.trim() === "") {
+    return { ok: false, problem: "uncovered 标注必须有非空 reason" };
+  }
+  const legacy = legacyOutcome(caseDef.source, instrument);
+  if (!shell.ok) {
+    if (!legacy.ok) {
+      if (legacy.err !== shell.err) {
+        return { ok: false, problem: `uncovered 证据不足：true 抛「${shell.err}」，legacy 抛「${legacy.err}」` };
+      }
+      return { ok: true, reason, evidence: `true 与 legacy 抛同一异常「${shell.err}」→ 与基线逐字一致` };
+    }
+    return { ok: false, problem: `uncovered 不成立：true 抛「${shell.err}」而 legacy 解析成功（回归）` };
+  }
+  if (!legacy.ok) {
+    return { ok: false, problem: `uncovered 不成立：true 解析成功而 legacy 抛「${legacy.err}」` };
+  }
+  const diff = firstXmlDifference(shell.xml, legacy.xml);
+  if (diff !== null) {
+    return { ok: false, problem: `uncovered 不成立：true/legacy XML 不同（${diff}）` };
+  }
+  return { ok: true, reason, evidence: "true XML == legacy XML（逐字节）→ 与基线一致" };
 }
 
 // ---------------------------------------------------------------------------
@@ -749,6 +839,7 @@ function main() {
     let totalFailed = 0;
     let totalSkipped = 0;
     let totalKnown = 0;
+    let totalUncovered = 0;
     let groupsRun = 0;
     let groupsSkipped = 0;
     const failures = [];
@@ -776,6 +867,7 @@ function main() {
       let passed = 0;
       let failed = 0;
       let skipped = 0;
+      let uncovered = 0;
       for (const caseDef of cases) {
         const result = runCase(name, caseDef, instrument);
         if (result.status === "pass") {
@@ -784,6 +876,12 @@ function main() {
         } else if (result.status === "skip") {
           skipped++;
           console.log(`SKIP  ${name}/${caseDef.name} —— ${result.reason}`);
+                } else if (result.status === "uncovered") {
+          uncovered++;
+          totalUncovered++;
+          console.log(`UNCOVERED ${name}/${caseDef.name}  ${JSON.stringify(caseDef.source)}`);
+          console.log(`      理由: ${result.reason}`);
+          console.log(`      证据: ${result.evidence}`);
         } else if (result.status === "known") {
           totalKnown++;
           console.log(`KNOWN ${name}/${caseDef.name}  ${JSON.stringify(caseDef.source)}`);
@@ -798,13 +896,18 @@ function main() {
       totalPassed += passed;
       totalFailed += failed;
       totalSkipped += skipped;
-      console.log(`[group] ${name}: pass=${passed} fail=${failed} skip=${skipped}`);
+      totalUncovered += uncovered;
+      console.log(`[group] ${name}: pass=${passed} fail=${failed} skip=${skipped} uncovered=${uncovered}`);
     }
 
     const conflicts = reportConflicts(instrument);
     console.log(
-      `[statement-possible] groups run=${groupsRun} skipped=${groupsSkipped} | cases pass=${totalPassed} fail=${totalFailed} skip=${totalSkipped} known=${totalKnown}`,
+      `[statement-possible] groups run=${groupsRun} skipped=${groupsSkipped} | cases pass=${totalPassed} fail=${totalFailed} skip=${totalSkipped} known=${totalKnown} uncovered=${totalUncovered}`,
     );
+    const routeForFallback = routeUtil();
+    const fallbackTotal = routeForFallback === null ? 0 : routeForFallback.FileFallbackCount;
+    console.log(`[statement-possible] file-fallback total=${fallbackTotal} distinct=${fallbackCases.length}`);
+    for (const item of fallbackCases) console.log(`  fallback: ${item}`);
     if (failures.length > 0) {
       console.log("[statement-possible] 失败用例：");
       for (const failure of failures) console.log(`  ${failure.group}/${failure.name}: ${failure.problems.join(" | ")}`);
