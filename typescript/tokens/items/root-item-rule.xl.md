@@ -168,6 +168,25 @@ const base: number = state.Start >= 0 ? state.Start : 0;
 const units: Array<Token> = base === 0 ? owner.Data : owner.Data.slice(base);
 let at: number = this.Watermark;
 while (at < code.length) {
+  // 声明族在换行处的收口：`export const x = a as T` ⏎ `(b);` 里声明在 `T` 收口，
+  // `(b);` 是**下一条语句**（TS 实测，HANDOFF.wp3-8 类 2/3）。候选扫描本身不会在这一格退出
+  // （`(b)` 语法上续得下去），所以必须在淘汰候选之前按「这一格不能续接」判一次收口。
+  if (at > 0 && state.Start >= 0 && this.Context !== null
+    && this.IsDeclarationBoundary(code, at)) {
+    const closeKind: number = this.KindOf(code);
+    if (closeKind !== 9) {
+      const closeEnd: number = state.CodeAt[at - 1];
+      const closed: Token | null = this.BuildByKind(closeKind, owner, state.Start, closeEnd, this.Context);
+      if (closed !== null) {
+        state.Complete = true;
+        state.End = closeEnd;
+        this.Winner = -1;
+        this.Pending = closed;
+        this.Watermark = at;
+        return;
+      }
+    }
+  }
   const hostAt: number = state.CodeAt[at] - base;
   for (const index of this.Alive) {
     if (this.Guide.PossibleShapes[index].ComputeByIndex(units, hostAt, cache) === ShapeStates.Reject) {
@@ -181,6 +200,18 @@ while (at < code.length) {
     // 先按「把这一格也算进来」建一次，再看形状实际右界截到哪一格：声明会吃进 `;`，
     // 语句则按 ASI 停在前一格（`StatementBuilder` 自己就在换行处收口）。
     if (this.Context !== null && state.Start >= 0 && !this.ShouldDeferToTail(code)) {
+      // 这一格是 `;`：声明族的终结符属于本条 item（`module "m";`、`type T = A | B // c` ⏎ `;`），
+      // 先按「含这一格」建；只有建出来且**真的吃掉了** `;` 才用它，否则仍走下面两条。
+      if (this.IsSymbolAt(code, at, ";") && at > 0) {
+        const withSemi: Token | null = this.BuildByKind(this.KindOf(code), owner, state.Start, state.CodeAt[at], this.Context);
+        if (withSemi !== null && withSemi.SourceRange.EndIndex >= code[at].SourceRange.EndIndex) {
+          state.Complete = true;
+          state.End = state.CodeAt[at];
+          this.Pending = withSemi;
+          this.Watermark = at + 1;
+          return;
+        }
+      }
       // ① 先按「不含这一格」建：这一格通常是下一条语句的开头（ASI 边界），不属于本条 item。
       if (at > 0) {
         const beforeEnd: number = state.CodeAt[at - 1];
@@ -343,6 +374,48 @@ if (document === null || from < 0 || to < 0 || to <= from) {
   return false;
 }
 return document.GetRaw(from, to).indexOf("\n") >= 0;
+```
+
+## private method IsDeclarationBoundary:(code:Array<Token>, at:int)=>bool
+
+`code[at]` 前面**有换行**、且 `code[at]` **不能续接**前一个表达式时返回 true——声明族在换行处的
+收口判据（与 TS 同口径：`export const x = a as T` ⏎ `(b);` 是两条）。
+
+续接集合只放「语法上真能把表达式接下去」的单元：运算符、`;` `,` `.`，以及 `as` / `satisfies` /
+`extends` 这类关键字。`(` `[` 与模板字符串**不在**里面（`export const x = a` ⏎ `(b)` 在 TS 里
+是 VariableStatement + ExpressionStatement，实测见 HANDOFF.wp3-8 类 2）。
+
+```ts
+if (at <= 0 || at >= code.length) {
+  return false;
+}
+const previous = code[at - 1];
+const next = code[at];
+const document = previous.SourceRange.Document;
+const from: number = previous.SourceRange.EndIndex;
+const to: number = next.SourceRange.StartIndex;
+if (document === null || from < 0 || to < 0 || to <= from) {
+  return false;
+}
+if (document.GetRaw(from, to).indexOf("\n") < 0) {
+  return false;
+}
+if (next instanceof Symbol) {
+  if ((next as Symbol).IsAny([";", ",", ".", ":", "?", "=", "+", "-", "*", "/", "%",
+    "<", ">", "&", "|", "^", "~", "{"])) {
+    return false;
+  }
+}
+if (next instanceof Common) {
+  const word: string = (next as Common).TempToString();
+  if (word === "as" || word === "satisfies" || word === "extends" || word === "implements"
+    || word === "instanceof" || word === "in" || word === "of" || word === "else"
+    || word === "catch" || word === "finally" || word === "while" || word === "from"
+    || word === "with" || word === "assert" || word === "is") {
+    return false;
+  }
+}
+return true;
 ```
 
 ## private method ResetAfterBuild:()=>void
@@ -511,7 +584,8 @@ try {
   const stop: number = end + 1;
   if (kind === 1) {
     // `import defer …`：`defer` 的 phase modifier 只在挂壳路径里实现，`FromUnits` 会把它当默认导入名。
-    // 普通 import 仍走已验证的 `FromUnits`（它们不是本波要修的类别）。
+    // 普通 import 仍走已验证的 `FromUnits`：本波实测把 `import` 全量切到 `BuildDirect` 会红 254 条
+    // （`ImportDeclarationShape.BuildDirect` 与 `FromUnits` 在 import-clause 口径上并不等价）。
     if (this.TextOf(host.Data[start + 1]) === "defer") {
       const direct1: Token | null = ImportDeclarationShape.BuildDirect(host, start, stop, context);
       if (direct1 !== null) {
@@ -521,6 +595,8 @@ try {
     return ImportDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 2) {
+    // 本波实测：`ExportDeclarationShape.BuildDirect` 与 `FromUnits` 不等价（全量切换后红 254 条），
+    // 所以 kind 2 仍走旧口径。类 2（`export const …` ⏎ `(b);`）的残余由 `Analyze` 的换行收口负责。
     return ExportDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 3) {

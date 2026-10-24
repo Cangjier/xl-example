@@ -386,6 +386,8 @@ const FAMILIES = [
     contextOf,
     runWhole: runWholeRoot,
     runSplit: runSplitRoot,
+  },
+  {
     name: "module",
     cases: () => moduleBrackets.map((b) => b.Data),
     makeHost: makeModuleHost,
