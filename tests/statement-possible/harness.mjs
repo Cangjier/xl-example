@@ -37,7 +37,7 @@ const require = createRequire(import.meta.url);
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { tsAst } = createAstCore(ts);
 
-const GROUP_ORDER = ["stage1", "asi", "trivia", "route", "satisfies", "operators", "stage4", "stage5"];
+const GROUP_ORDER = ["dev", "stage1", "asi", "trivia", "route", "satisfies", "operators", "stage4", "stage5"];
 
 /** 组能力 → 未满足时的 skip 原因。 */
 const NEED_REASONS = {
@@ -345,6 +345,23 @@ function firstXmlDifference(left, right) {
 // ---------------------------------------------------------------------------
 // 用例
 function runCase(groupName, caseDef, instrument) {
+  // 开发期专用 cases：forceShell=true 时把受测路径钉死在新壳路径上（与全局开关默认值无关），
+  // 跑完恢复原值，避免污染同进程后续用例。
+  const route = routeUtil();
+  const previous = route === null ? null : route.EnableShellExpressions;
+  if (route !== null && caseDef.forceShell === true) {
+    route.EnableShellExpressions = true;
+  }
+  try {
+    return runCaseBody(groupName, caseDef, instrument);
+  } finally {
+    if (route !== null && caseDef.forceShell === true) {
+      route.EnableShellExpressions = previous;
+    }
+  }
+}
+
+function runCaseBody(groupName, caseDef, instrument) {
   const source = caseDef.source;
   const problems = [];
   const notes = [];
@@ -416,7 +433,7 @@ function runCase(groupName, caseDef, instrument) {
     }
     // b) 壳路径 vs legacy 路径（StatementRouteUtil 存在时）。
     const route = routeUtil();
-    if (route !== null && typeof route.EnableShellExpressions === "boolean") {
+    if (route !== null && typeof route.EnableShellExpressions === "boolean" && caseDef.skipLegacyCompare !== true) {
       const previous = route.EnableShellExpressions;
       instrument.state.paused = true;
       let legacyXml = null;
