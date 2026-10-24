@@ -1,0 +1,159 @@
+{
+    "groups":  {
+                   "ast-from-shapes":  {
+                                           "description":  "S3c 专用证据：受支持表达式语句的 AST 由增量形状树产出（StatementShapeAst），未覆盖构造仍走 legacy。每条断言四件事：①壳路径 XML 与同源码 legacy（EnableShellExpressions=false）逐字节一致；②形状树实际接管了 AST（StatementShapeAst.TotalShapeAst 达到期望条数，不接受「静默回退」）；③形状结构 = TypeScript 自己的 AST 结构（ts.createSourceFile 逐节点渲染成前缀文本后逐字比较）；④未覆盖构造必须 declined 而不是建错树。",
+                                           "needs":  [
+
+                                                     ],
+                                           "cases":  [
+                                                         {
+                                                             "name":  "ast-mul-add",
+                                                             "source":  "1*2+3;",
+                                                             "note":  "最小接管：+(*(1,2),3)，AST 由形状树逐节点组装",
+                                                             "shapeTexts":  [
+                                                                                "+(*(1,2),3)"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-add-mul",
+                                                             "source":  "a+b*c;",
+                                                             "note":  "低优先级先到、高优先级后到：+(a,*(b,c))",
+                                                             "shapeTexts":  [
+                                                                                "+(a,*(b,c))"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-sub-left",
+                                                             "source":  "a-b-c;",
+                                                             "note":  "同优先级左结合：-(-(a,b),c)",
+                                                             "shapeTexts":  [
+                                                                                "-(-(a,b),c)"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-paren-right",
+                                                             "source":  "a*(b+c);",
+                                                             "note":  "括号操作数：*(a,(b+c))，括号内用新的 ExpressionBuilder 载入 bracket.Data",
+                                                             "shapeTexts":  [
+                                                                                "*(a,(b+c))"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-paren-left",
+                                                             "source":  "(a+b)*c;",
+                                                             "note":  "括号在左：(a+b) 是 ParenthesizedExpression，跨度取括号单元自己",
+                                                             "shapeTexts":  [
+                                                                                "*((a+b),c)"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-mixed",
+                                                             "source":  "a+b*c-d/e;",
+                                                             "note":  "四级优先级混排：-(+(a,*(b,c)),/(d,e))",
+                                                             "shapeTexts":  [
+                                                                                "-(+(a,*(b,c)),/(d,e))"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-div-mul",
+                                                             "source":  "1/2*3;",
+                                                             "note":  "同优先级左结合：*(/(1,2),3)",
+                                                             "shapeTexts":  [
+                                                                                "*(/(1,2),3)"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-ident-only",
+                                                             "source":  "a;",
+                                                             "note":  "单标识符叶子：形状树就是一片叶子",
+                                                             "shapeTexts":  [
+                                                                                "a"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-no-semicolon",
+                                                             "source":  "a+b",
+                                                             "note":  "文件末尾无分号：判界与 legacy 同一套（本层末尾）",
+                                                             "shapeTexts":  [
+                                                                                "+(a,b)"
+                                                                            ],
+                                                             "shapeAst":  1
+                                                         },
+                                                         {
+                                                             "name":  "ast-two-on-one-line",
+                                                             "source":  "1*2+3;a+b*c;",
+                                                             "note":  "同一行两条语句：每条各建一个体、各由形状树建 AST",
+                                                             "shapeTexts":  [
+                                                                                "+(*(1,2),3)",
+                                                                                "+(a,*(b,c))"
+                                                                            ],
+                                                             "shapeAst":  2
+                                                         },
+                                                         {
+                                                             "name":  "ast-multi-statement",
+                                                             "source":  "1*2+3;\na+b*c;\nlet z = a+b*c;",
+                                                             "note":  "变量声明语句不建体（族不同），两条表达式语句各由形状树建 AST",
+                                                             "shapeTexts":  [
+                                                                                "+(*(1,2),3)",
+                                                                                "+(a,*(b,c))"
+                                                                            ],
+                                                             "shapeAst":  2
+                                                         },
+                                                         {
+                                                             "name":  "ast-asi",
+                                                             "source":  "a+b\nc*d;",
+                                                             "note":  "ASI：a+b 在换行处收口，c*d 是下一条语句的体；两条都由形状树建 AST",
+                                                             "shapeTexts":  [
+                                                                                "+(a,b)",
+                                                                                "*(c,d)"
+                                                                            ],
+                                                             "shapeAst":  2
+                                                         },
+                                                         {
+                                                             "name":  "ast-fallback-call",
+                                                             "source":  "f(1, 2);",
+                                                             "note":  "未覆盖构造（实参列表）：体判 Incomplete、形状树拒绝接管（declined），AST 由 legacy 建，XML 仍逐字节一致",
+                                                             "shapeTexts":  [
+
+                                                                            ],
+                                                             "shapeAst":  0
+                                                         },
+                                                         {
+                                                             "name":  "ast-fallback-element",
+                                                             "source":  "a[0];",
+                                                             "note":  "未覆盖构造（索引访问）：形状树拒绝接管（declined），legacy 建 AST",
+                                                             "shapeTexts":  [
+
+                                                                            ],
+                                                             "shapeAst":  0
+                                                         },
+                                                         {
+                                                             "name":  "ast-fallback-prefix",
+                                                             "source":  "-a+b;",
+                                                             "note":  "前缀节点 S3c 不接管：结构文本仍是 +(-(a),b)（体完整），但 AST 必须由 legacy 建——这一条防「形状树没接管却假装接管」",
+                                                             "shapeTexts":  [
+                                                                                "+(-(a),b)"
+                                                                            ],
+                                                             "shapeAst":  0
+                                                         },
+                                                         {
+                                                             "name":  "ast-fallback-member",
+                                                             "source":  "a.b;",
+                                                             "note":  "未覆盖构造（成员访问）：declined + legacy",
+                                                             "shapeTexts":  [
+
+                                                                            ],
+                                                             "shapeAst":  0
+                                                         }
+                                                     ]
+                                       }
+               }
+}
