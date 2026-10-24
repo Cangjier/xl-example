@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "description": "Stage 4b dedicated cases: block body statements, the takeover path (StatementBuilder.CollectBodyStatements + EnableBlockBodyCatalog) and the two known gaps (same-file second block; `let a = 1` newline `{ b; }`). With the shipped default (EnableBlockBodyCatalog=false) each case asserts: (1) shell-path XML == legacy-path XML byte for byte; (2) AST node-for-node == ts.createSourceFile; (3) two parses of the same source give identical XML; (4) no StatementShape shell leaks into the shape tree. Turning the catalog on exercises the takeover path; the measured counters and the two open defects are recorded in HANDOFF-s4b.md.",
+  "groups": {
+    "stage4b": {
+      "stage": "Stage 4b (block body statements taken over by possible)",
+      "description": "Block body takeover: mixed let/expression body, two calls, nested block, in-block ASI, two blocks in a row, `let a = 1` newline `{ b; }` (ASI boundary before a block), mixed body, uncovered control flow inside a block (safe fallback or legacy), empty statement inside a block, three expression statements.",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4b-let-call", "source": "{ let x = 1; f(); }" },
+        { "name": "s4b-two-calls", "source": "{ f(); g(); }" },
+        { "name": "s4b-nested-block", "source": "{ { a; } }" },
+        { "name": "s4b-asi", "source": "{ let a = 1\nlet b = 2\nf() }" },
+        { "name": "s4b-two-blocks", "source": "{ a; }\n{ b; }" },
+        { "name": "s4b-mixed", "source": "{ let a = 1; f(); b; }" },
+        { "name": "s4b-control-flow", "source": "{ if (a) b; }" },
+        { "name": "s4b-empty", "source": "{ ; }" },
+        { "name": "s4b-three", "source": "{ a; b; c; }" }
+      ]
+    }
+  }
+}
