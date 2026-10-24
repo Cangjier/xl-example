@@ -39,6 +39,15 @@ import { StatementItemScan } from "./statement-item-scan.xl.md"
 
 本族唯一的 kind 号（`ItemRule.Classify` 的返回值）。
 
+## field Scan:StatementItemScan | null = null
+
+**驻留**扫描状态（阶段 2）：`Analyze` 每吃一个 unit 调一次，`StatementItemScan` 的
+`ScannedTo` / `LastState` 必须跨调用活着，否则每条 item 都要重扫前缀（O(L²)）。
+
+一条 item 结束时引擎把 `ItemScanState` 复位（`Code = []`），下一条 item 的第一个 unit 一定是
+`Code.length === 1`——所以「`Code.length <= 1` 就用新实例」是**每 item 一把**的判据，不需要
+比较宿主下标（那些下标在 splice 之后会重排）。
+
 ## method Classify:(code:Array<Token>)=>Array<int>
 
 首单元判型。`AtEof` 故意置 `false`：判型只看「这个头是不是本族的」，
@@ -59,8 +68,9 @@ return [StatementItemRule.Statement];
 
 ## method Extend:(state:ItemScanState, units:Array<Token>, tokenIndex:int)=>void
 
-不需要族内增量状态：`Run` 每次在前缀上重算（`Watermark` 命中也只是复用结果），
-`state.Checked` / `state.Code` / `state.CodeAt` 由引擎维护，本方法不改任何已算过的结论。
+不需要族内增量状态：增量全部由 `StatementItemScan` 自己带着（`ScannedTo` / `LastState`，
+见 `statement-item-scan.xl.md`），`state.Checked` / `state.Code` / `state.CodeAt` 由引擎维护，
+本方法不改任何已算过的结论。
 
 ```ts
 if (units.length === 0) {
@@ -77,10 +87,17 @@ if (unit === null) {
 收口判定：把 `Run(state.Code)` 的 `Status/End` 翻译成 `ItemScanState.Complete/End`（宿主下标）。
 `Mismatch` 不置 `Complete`：整条留 raw（引擎在硬边界处 `Flush` → `RawFallback`）。
 
+`Scan` 是**驻留**的（每条 item 一个）：引擎每吃一个 unit 就调一次本方法，把同一个实例续着用，
+`Run` 才能只判新增的那一格。判据一个字没变——续扫点只影响「从哪一格起步」。
+
 ```ts
 state.Complete = false;
 state.End = -1;
-const scan = new StatementItemScan();
+let scan = this.Scan;
+if (scan === null || state.Code.length <= 1) {
+  scan = new StatementItemScan();
+  this.Scan = scan;
+}
 scan.AtEof = state.AtEof;
 const result = scan.Run(state.Code);
 if (result.Status !== 1) {
@@ -154,9 +171,33 @@ item 表引擎（core 契约实现）。
 
 建不出 item 的区间口袋；收口时引擎用它记 raw 回退。
 
-## field BatchPolicy:BatchPolicy | null = null
+## field BatchPolicy:BatchPolicy | null = StatementBodyItemHost.CreatePolicy()
 
-软边界策略：语句容器不需要（每个 basic token 关闭就消费一批），只留 `null` 满足契约。
+软边界策略：**一条语句收尾（`;`）就交一批**，另加 `MaxTokens = 16` 兜住长语句与没有 `;` 的连续输入。
+
+为什么不再「每个 basic token 关闭就交一批」：那样每个 token 都要 `BasicTokenBatch.Recompute` +
+`Feed` 一趟，一条 500 单元的语句就是 500 次摊还 O(批长) 的重算（对照实验：把流式关掉后
+`statement-scaling` 的 long-stmt-500 从 ×2.44 回到 ×1.00，根因就在这里）。攒批之后每 token 只剩
+「推进批尾 + 一次策略判定」，item 的**最终结论**不变（`batch-split` / `stream-proof` 守的就是这条
+INV-6 批次无关性），变的只是它被建出的时刻。
+
+## static method CreatePolicy:()=>BatchPolicy
+
+语句容器的软边界策略：**分号收尾**（一条语句的自然边界）、**以 `}` 收尾的单元**（`if (…) { … }` 这类
+没有 `;` 的语句，在上层块还开着的时候就把 item 建出来）、每 16 个单元（长表达式 / 没有 `;` 的连续输入）、
+文档末尾。
+
+三条软边界 + 硬边界让 item 的建出时刻与「每个 basic token 关闭就交一批」几乎一致——`stream-proof` 的
+「块内 item 都在解析期建出」守的就是这一条；而每 token 的 `Recompute` 被砍掉，一笔省下来。
+
+```ts
+const policy = new BatchPolicy();
+policy.FlushOnSemicolon = true;
+policy.FlushOnBraceClose = true;
+policy.MaxTokens = 16;
+policy.FlushOnEof = true;
+return policy;
+```
 
 ## constructor:(host:Token, rules:Array<ItemRule>)=>void
 

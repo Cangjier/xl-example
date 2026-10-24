@@ -10,6 +10,9 @@
 //   b) `StatementScanner.ScanRoot(code[0..n])`，同样 `AtEOF = (n === N)`；
 //   c) 两边 `Status` 与 `End` 必须**完全一致**（不只首个收口点）。不一致就是状态机与 scanner 分叉，
 //      先修状态机，不要改 scanner（scanner 是 oracle）。
+//   d) 阶段 2（续扫）：**同一个** `StatementItemScan` 实例从 n=1 续着喂到 N，每个前缀的结果必须与
+//      (a) 的「每个前缀一个新实例」逐字一致。这条是流式路径真正依赖的不变量：`StatementItemRule`
+//      每条 item 只用一个驻留实例，`ScannedTo` 一旦算错，这里与 AST 都会红。
 //
 // 语料从真实解析里取：monkeypatch `StatementBuilder.prototype.Load`（运行时打桩，不改源码），
 // 记录每次「一段代码单元」的载入（块体、if/while/for/do/try 体、case 体、根级片段……），
@@ -253,6 +256,7 @@ for (const capture of captures) {
   const count = code.length;
   let firstOracleComplete = { n: -1, end: -1 };
   let firstMineComplete = { n: -1, end: -1 };
+  const fresh = [];
   let bad = 0;
   for (let n = 1; n <= count; n++) {
     const prefix = code.slice(0, n);
@@ -274,6 +278,7 @@ for (const capture of captures) {
     const oe = end(oracle);
     const ms = status(mine);
     const me = end(mine);
+    fresh.push({ status: ms, end: me });
     if (firstOracleComplete.n < 0 && os === 1) {
       firstOracleComplete = { n, end: oe };
     }
@@ -294,6 +299,34 @@ for (const capture of captures) {
     }
   }
   compared++;
+  // 阶段 2：驻留实例续着喂全部前缀，结果必须与「每前缀一个新实例」逐字一致。
+  const resident = new StatementItemScan();
+  for (let n = 1; n <= count; n++) {
+    const prefix = code.slice(0, n);
+    const eof = n === count;
+    let result;
+    try {
+      resident.AtEof = eof;
+      result = resident.Run(prefix);
+    } catch (e) {
+      result = { Status: -1, End: -1, threw: String(e && e.message ? e.message : e) };
+    }
+    const rs = status(result);
+    const re = end(result);
+    const base = fresh[n - 1];
+    if (rs !== base.status || (rs === 1 && re !== base.end)) {
+      bad++;
+      if (mismatch.length < 20) {
+        mismatch.push({
+          n,
+          count,
+          resident: [rs, re],
+          fresh: [base.status, base.end],
+          head: code.slice(0, Math.min(n, 8)).map((u) => textOf(u)).join(" "),
+        });
+      }
+    }
+  }
   if (firstOracleComplete.n !== firstMineComplete.n || firstOracleComplete.end !== firstMineComplete.end) {
     bad++;
     if (mismatch.length < 20) {
@@ -342,11 +375,15 @@ if (captures.length === 0) {
 console.log(`  代码段   : ${compared}`);
 console.log(`  前缀总数 : ${prefixes}`);
 if (mismatch.length === 0) {
-  console.log("  RESULT: PASS（逐前缀 Status/End 与 oracle 完全一致）");
+  console.log("  RESULT: PASS（逐前缀 Status/End 与 oracle 完全一致；驻留续扫与逐前缀新实例一致）");
   process.exit(0);
 }
 console.error(`  RESULT: FAIL（${mismatch.length} 处分叉，最多列 20 处）`);
 for (const item of mismatch) {
+  if (item.resident !== undefined) {
+    console.error(`    [n=${item.n}/${item.count}] 驻留续扫 mine=${item.resident[0]}/${item.resident[1]} vs 新实例 ${item.fresh[0]}/${item.fresh[1]}  <${item.head}>`);
+    continue;
+  }
   if (item.n === -1) {
     const mine = item.firstComplete[0];
     const oracle = item.firstComplete[1];
