@@ -26,6 +26,7 @@ const { SourceFileRunner } = load("typescript/run/source-file-runner.js");
 const { StatementRouteUtil } = load("typescript/tokens/statements/statement-route-util.js");
 const { StatementOperatorBody } = load("typescript/tokens/statements/statement-operator-body.js");
 const { StatementShapeAst } = load("typescript/tokens/statements/statement-shape-ast.js");
+const { NumericLiteralShape } = load("typescript/tokens/literals/numeric-literal-shape.js");
 
 const argOf = (name, fallback) => {
   const hit = process.argv.find((item) => item.startsWith(`--${name}=`));
@@ -134,6 +135,39 @@ function tsShapeTexts(source) {
   return texts;
 }
 
+// ---- ④ AST 里的数字叶子：用来钉住「前导点 .5 只能是 NumericLiteral」----
+// 一边从壳路径真正建出的 AST（SourceFileShape 的 Data 树）里按源码顺序收集 NumericLiteralShape 的规范化文本，
+// 一边用 ts.createSourceFile 收集 NumericLiteral.text（TS 同样规范化：.5→0.5、0x1f→31），
+// 两边都与用例声明的 astLeaves 逐字比。若 .5 退化成 Identifier，壳这边会少一条，立刻红。
+function numericLeavesOfShape(shape, out) {
+  if (shape === null || shape === undefined) return out;
+  if (shape instanceof NumericLiteralShape) {
+    out.push("Numeric:" + shape.Text);
+    return out;
+  }
+  const data = shape.Data;
+  if (Array.isArray(data)) {
+    for (const child of data) numericLeavesOfShape(child, out);
+  }
+  return out;
+}
+
+function tsNumericLeaves(source) {
+  const sourceFile = ts.createSourceFile("case.ts", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const out = [];
+  const walk = (node) => {
+    if (ts.isNumericLiteral(node)) {
+      out.push("Numeric:" + node.text);
+      return;
+    }
+    node.forEachChild(walk);
+  };
+  for (const statement of sourceFile.statements) {
+    if (ts.isExpressionStatement(statement)) walk(statement.expression);
+  }
+  return out;
+}
+
 function asList(value) {
   if (value === undefined || value === null) return null;
   return Array.isArray(value) ? value : [value];
@@ -156,6 +190,7 @@ function runShell(source) {
   StatementRouteUtil.EnableShellExpressions = true;
   const shape = SourceFileRunner.Parse(source, "case.ts");
   return {
+    shape,
     xml: xmlOf(shape),
     fallback: StatementRouteUtil.LastFileFallback === true,
     texts: StatementOperatorBody.ShapeTexts.slice(),
@@ -181,6 +216,7 @@ const failures = [];
 let passed = 0;
 let astChecked = 0;
 let tsChecked = 0;
+let leafChecked = 0;
 
 for (const caseDef of cases) {
   const problems = [];
@@ -234,6 +270,19 @@ for (const caseDef of cases) {
         problems.push(`与 ts.createSourceFile 逐节点渲染不符：TS=${JSON.stringify(fromTs)} 期望=${JSON.stringify(tsExpected)}`);
       }
     }
+    // ④ AST 数字叶子：壳路径真建出的 AST、用例声明、TS 的 NumericLiteral.text 三者一致
+    const wantLeaves = asList(caseDef.astLeaves);
+    if (wantLeaves !== null) {
+      leafChecked++;
+      const fromShape = numericLeavesOfShape(shell.shape, []);
+      if (JSON.stringify(fromShape) !== JSON.stringify(wantLeaves)) {
+        problems.push(`AST 数字叶子不符（形状树建的 AST）：期望 ${JSON.stringify(wantLeaves)} 实际 ${JSON.stringify(fromShape)}`);
+      }
+      const fromTsLeaves = tsNumericLeaves(caseDef.source);
+      if (JSON.stringify(fromTsLeaves) !== JSON.stringify(wantLeaves)) {
+        problems.push(`AST 数字叶子与 ts.createSourceFile 不符：TS=${JSON.stringify(fromTsLeaves)} 期望=${JSON.stringify(wantLeaves)}`);
+      }
+    }
   }
   if (problems.length === 0) {
     passed++;
@@ -246,5 +295,5 @@ for (const caseDef of cases) {
 }
 
 console.log("");
-console.log(`[op-ast-proof] group=${groupName} cases=${cases.length} pass=${passed} fail=${failures.length} | 形状树接管计数已核 ${astChecked} 条、TS 逐节点已核 ${tsChecked} 条`);
+console.log(`[op-ast-proof] group=${groupName} cases=${cases.length} pass=${passed} fail=${failures.length} | 形状树接管计数已核 ${astChecked} 条、TS 逐节点已核 ${tsChecked} 条、AST 数字叶子已核 ${leafChecked} 条`);
 if (failures.length > 0) process.exit(1);
