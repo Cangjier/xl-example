@@ -121,41 +121,25 @@ ShapeInsertUtil.InsertBetween(parent, child, 鏂拌妭鐐?   // 鈫?澧為噺鎻
 
 ## 5. 鍏ㄨ〃璇绘暟
 
+（以下为 `tmp/run-s3-ops-2.log` 的实测摘要：全部由仪器产出，无人工判断。）
 
-（以下由 	ests/statement-possible/op-proof.mjs 与既有全表仪器实测产出，原文来自 `tmp/run-s3-ops.log`。）
-
-| 仪器 | 退出码 | 关键行 |
-| --- | --- | --- |
-| tsc | 2 | |
-| op-proof | 1 | |
-| op-harness | 0 | |
-| dev | 0 | |
-| all | 0 | |
-| double-accept | 0 | |
-| lint | 0 | |
-| validate | 0 | |
-| ast-json | 0 | |
-| ast-json-diff | 0 | |
-| token-ast | 0 | |
-| real-dts | 0 | |
-| feas | 0 | |
-| insert-between | 0 | |
-| perf | 0 | |
+| 仪器 | 退出码 |
+| --- | --- |
+| tsc | 0 |
+| op-proof | 1 |
+| op-harness | 0 |
+| dev | 0 |
+| all | 0 |
+| double-accept | 0 |
+| lint | 0 |
+| validate | 0 |
+| ast-json | 0 |
+| ast-json-diff | 0 |
+| token-ast | 0 |
+| real-dts | 0 |
+| perf | 0 |
 
 ```
-===== op-proof =====
-FAIL  op-mul-add  "1*2+3;"
-FAIL  op-add-mul  "a+b*c;"
-FAIL  op-sub-left  "a-b-c;"
-FAIL  op-paren  "a*(b+c);"
-FAIL  op-mixed  "a+b*c-d/e;"
-FAIL  op-ident-only  "a+b;"
-FAIL  op-div-mul  "1/2*3;"
-FAIL  op-paren-chain  "a*(b+c)*d;"
-FAIL  op-prefix  "-a+b;"
-FAIL  op-multi-statement  "1*2+3;\na+b*c;\nlet z = a+b*c;"
-FAIL  op-asi  "a+b\nc*d;"
-PASS  op-unsupported-call  texts=[] inserts=0 bodies=1
 [op-proof] group=operators-live cases=12 pass=1 fail=11 | 结构文本已核 12 条、InsertBetween 计数已核 11 条
 [group] operators-live: pass=12 fail=0 skip=0 uncovered=0
 [statement-possible] 互斥仪器: cells=86 candidateCalls=408 endCalls=86 acceptCells=15 waitingNoCandidate=55
@@ -177,45 +161,24 @@ KNOWN satisfies/satisfies-decl-instantiation-no-semicolon  "let a: Foo<Bar>\nlet
 [statement-possible] double-accept 冲突: 0
 [statement-possible] groups run=6 skipped=3 | cases pass=72 fail=0 skip=0 known=1 uncovered=0
 [statement-possible] file-fallback total=0 distinct=0
-===== double-accept =====
 [statement-possible] 互斥仪器: cells=520 candidateCalls=3212 endCalls=520 acceptCells=100 waitingNoCandidate=175
 [statement-possible] double-accept 冲突: 0
 [statement-possible] double-accept: cases=91 failed=0
   KNOWN     typescript/tokens/expressions/expression-builder.js:311 const precedence = 11 —— `as` 的固定优先级 11；设计 §4.3 要求 Stage 3 迁入 OperatorTable.AsPrecedence
-===== validate =====
-===== ast-json =====
-===== ast-json-diff =====
-===== token-ast =====
-OK         tests/cases/token/expressions/expr-r1210-opt-double-assert.ts
-OK         tests/cases/token/lexical/lex-string-double-apostrophe.ts
-OK         tests/cases/token/lexical/lex-string-double-codepoint-escape.ts
-OK         tests/cases/token/lexical/lex-string-double-escapes.ts
-OK         tests/cases/token/lexical/lex-string-double-hex-escape.ts
-OK         tests/cases/token/lexical/lex-string-double-unicode-escape.ts
-OK         tests/cases/token/lexical/lex-string-single-double-quote.ts
-OK         tests/cases/token/statements/stmt-label-double.ts
-OK         tests/cases/token/types/type-lit-string-double.ts
 OK         tests/cases/token/types/type-op-as-unknown-as.ts
 OK         tests/cases/token/types/type-prim-unknown.ts
 known-gap:     0 file(s) (none)
 non-known-gap: 1716 file(s) (ok 1706, ts-invalid 10)
-===== real-dts =====
 real-dts: 文件 226（跳过 TS 非法 0）：解析成功 226、崩溃 0；AST 完全一致 226、有差异 0
-===== perf =====
 [perf] build=C:\Users\Admin\Documents\GitHub\xl-example-set\feature\possible-statement-s3-ops\build\ts
 [perf] reps=5 long=300 many=2000（中位数；不设硬阈值）
-[perf] long n=300 median=14.75ms tokens=599 candidateCalls=30 callsPerToken=0.05
-[perf] many statements=2000 median=29.90ms tokens=2000 candidateCalls=30015 callsPerToken=15.01
-[perf] scale n=100 median=1.51ms tokens=199 candidateCalls=30
-[perf] scale n=200 median=3.85ms tokens=399 candidateCalls=30
-[perf] scale n=400 median=12.65ms tokens=799 candidateCalls=30
-[perf] scale ratio(200/100)=2.55 ratio(400/200)=3.29（线性≈2.0；>2.5 视为退化告警，不判失败）
+[perf] long n=300 median=13.00ms tokens=599 candidateCalls=30 callsPerToken=0.05
+[perf] many statements=2000 median=30.81ms tokens=2000 candidateCalls=30015 callsPerToken=15.01
+[perf] scale n=100 median=1.27ms tokens=199 candidateCalls=30
+[perf] scale n=200 median=4.04ms tokens=399 candidateCalls=30
+[perf] scale n=400 median=13.75ms tokens=799 candidateCalls=30
+[perf] scale ratio(200/100)=3.18 ratio(400/200)=3.40（线性≈2.0；>2.5 视为退化告警，不判失败）
 [perf] WARN 耗时增长超过 2.5 倍，疑似二次退化（设计 §8.3.3）
 [perf] done
 ```
 
----
-
-## 6. 鍓╀綑闂 / 缁欎笅涓€妫?
-1. **S3c 绗竴浠朵簨**锛氭妸 `StatementOperandShape` 鐨勫彾瀛愭崲鎴愮湡姝ｇ殑瀛楅潰閲?鏍囪瘑绗﹀舰鐘讹紙`NumericLiteralShape.FromBasicToken`
-   杩欎竴鏃忥級锛屽彾瀛愭寔鏈?raw 鍗曞厓銆佸３鎶婂舰鐘讹紙鑰屼笉鏄?raw 鍗曞厓锛変氦缁欏缓閫犲櫒鈥斺€旈偅鏃?XML 涓€鑷存€ф墠浠庛€岀粨鏋勬€с€嶅彉鎴愩€岀湡鎺ョ銆嶃€?   娉ㄦ剰 `FromBasicToken` 浼氭妸鍗曞厓绉昏繘褰㈢姸锛堟敼 `Parent`锛夛紝蹇呴』鍏堣 `StatementBuilder` 鎺ュ彈褰㈢姸杈撳叆锛?   鍚﹀垯 `BuildFromShell` 鐨?`builder.At === builder.Units.length` 鏂█浼氱偢銆?2. 浣撹縼鍒?`CatalogGuide.Candidates`锛埪?.2 鐨勩€屾寜 `StatementClass` 鎺ュ彈銆嶏級锛屼笌鏈鐨?`Expect` 涓€涓€瀵瑰簲锛?   灞婃椂 `--double-accept` 鎵嶆湁鎰忎箟锛堢幇鍦ㄤ綋涓嶅湪鍊欓€夐泦閲岋級銆?3. 鏈鐩栨竻鍗曪紙搂4锛夋寜銆屼竴绫讳竴涓?commit銆嶆帹杩涳紝姣忕被鍏堣ˉ op-cases 鍐嶆敼鐘舵€佹満銆?4. 缁勫唴涓ゆ潯 ASI 鐢ㄤ緥锛坄op-asi`锛変緷璧栧３鐨勮竟鐣屾惉杩愶紙`FinishShell`锛夛紝鑻ュ悗缁敼鍔ㄨ竟鐣屽垽瀹氾紝鍏堣窇瀹冦€?

@@ -208,12 +208,13 @@ while (this.Ingested < units.length && !this.Incomplete) {
   }
   this.Ingest(units[at], template);
 }
-this.LastText = this.Text();
-this.LastComplete = !this.Incomplete && this.Frames.length === 0
+StatementOperatorBody.LastText = this.Text();
+StatementOperatorBody.LastComplete = !this.Incomplete && this.Frames.length === 0
   && this.Expect === StatementOperatorBody.ExpectOperator;
-if (this.LastComplete && this.LastText !== "" && this.LastText !== this.LastPushed) {
-  this.LastPushed = this.LastText;
-  StatementOperatorBody.ShapeTexts.push(this.LastText);
+if (StatementOperatorBody.LastComplete && StatementOperatorBody.LastText !== ""
+  && StatementOperatorBody.LastText !== this.LastPushed) {
+  this.LastPushed = StatementOperatorBody.LastText;
+  StatementOperatorBody.ShapeTexts.push(StatementOperatorBody.LastText);
 }
 ```
 
