@@ -35,10 +35,11 @@ import { StatementShape } from "./statement-shape.xl.md"
 - 空语句：语句首的 `;`（**默认关**，`EnableControlFlowEmpty = false`）：重放回来的 `;` 会因旧 `ItemStart`
   失管，而 legacy 与壳建空语句是同一份 `BuildEmpty`，所以默认留给 legacy，只保留开关与专用用例守正确性。
 
-**标签语句不在接管清单里**（`EnableControlFlowLabel` 默认 `false`）：标签的头是标识符，壳在首代码单元那一格
-就建，此时 `:` 还没到，lookahead 拿不到第二格。标签继续走已经验证过的表达式壳
-（`RootExpressionStatementPossibleShape` → `BuildFromShell` → `StatementBuilder.BuildStatement` 的标签分派），
-XML / AST 与 legacy 逐字节一致；Stage 4c 只用 `s4c-label` / `s4c-label-loop` 守住这条正确性，不声称接管。
+**标签语句**（`EnableControlFlowLabel`，4c-2 起默认打开）：路由 `ShellLabel` 与 `ShellStatementFamily`
+是**同一个候选**的两条入口，只有建壳时机不同——标签头是标识符，`Decide` 在首格返回 `None`（等第二个代码
+单元），`:` 到达那一格才判成 `ShellLabel`，本候选就在 `:` 格 Accept 并搬 `ident` + `:` 建壳
+（`Kind = ShellLabel`），判界走 `ScanRoot`、建树走 `StatementBuilder.BuildStatement` 的标签分派。
+标签体不分流：`en:\n{ f() }` 的 `{` 在标签壳里由建造器原子递归，块候选看不到它。
 
 **不在本候选里**：`function` / `class` / `interface` / `enum` / `namespace` / `module` /
 `import` / `export` / `declare` / `abstract` / `type` / `using` / 装饰器 / `async` 等声明与导入导出族
@@ -79,12 +80,22 @@ if (headAt >= units.length || headAt > tokenIndex) {
 if (units[tokenIndex].IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
-// 只在**首代码单元那一格** Accept：建壳之后本条目归壳，后续格子由壳的终结候选判界。
-// Reject 永久但 Reset 会复原，下一条语句重新参与。
-if (tokenIndex !== headAt) {
-  return ShapeStates.Reject;
+// 族在**首代码单元**判一次（`Decide` 是唯一判据，本候选不写第二份关键字表）。
+const route = StatementRouteUtil.Decide(units, tokenIndex);
+if (route === StatementRoute.None) {
+  // 标签候选的「`:` 还没到」：继续等。这里**不能 Reject**——Reject 被 `CatalogGuide` 永久删除，
+  // `:` 到达那一格就再没有候选能建标签壳（Stage 4c 的默认关正是被这一步挡掉的）。
+  return ShapeStates.Uncertain;
 }
-if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellStatementFamily) {
+if (route === StatementRoute.ShellLabel) {
+  // 标签在**第二个代码单元（`:`）那一格**建壳：`ident` 与 `:` 一起搬进壳。
+  if (tokenIndex !== ItemUtil.NextCode(units, headAt + 1)) {
+    return ShapeStates.Reject;
+  }
+  return ShapeStates.Accept;
+}
+// 其余各族只在首代码单元那一格 Accept：建壳之后本条目归壳，后续格子由壳的终结候选判界。
+if (route !== StatementRoute.ShellStatementFamily || tokenIndex !== headAt) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -106,10 +117,14 @@ if (headAt >= units.length || headAt > tokenIndex) {
 if (units[tokenIndex].IsTriviaToken) {
   return false;
 }
-if (tokenIndex !== headAt) {
+const route = StatementRouteUtil.Decide(units, tokenIndex);
+if (route === StatementRoute.None) {
   return false;
 }
-return StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellStatementFamily;
+if (route === StatementRoute.ShellLabel) {
+  return tokenIndex === ItemUtil.NextCode(units, headAt + 1);
+}
+return route === StatementRoute.ShellStatementFamily && tokenIndex === headAt;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -125,6 +140,8 @@ const start = ItemUtil.ItemStart(host.Data);
 if (start > tokenIndex) {
   throw new Error("控制流语句候选没有可搬的单元");
 }
+// 族在搬单元**之前**判：插壳之后 `ItemStart` 已经指向壳自己，再判就是另一条语句了。
+const route = StatementRouteUtil.Decide(host.Data, tokenIndex);
 let pos = 0;
 if (host instanceof Bracket && (host as Bracket).StartBracketChar === "{") {
   // 块体目录的宿主是块体 `{` 括号：块内**第一条**语句的 `pos` 是「`{` 之后第一个字符」（含前导 trivia），
@@ -161,7 +178,7 @@ const moved:Array<Token> = host.Data.slice(start, tokenIndex + 1);
 host.Data.splice(start, moved.length);
 const shell = new StatementShape(host.Template);
 shell.Pos = pos;
-shell.Kind = StatementRoute.ShellStatementFamily;
+shell.Kind = route;
 for (const item of moved) {
   shell.Add(item);
 }
@@ -175,6 +192,10 @@ shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
-StatementRouteUtil.ControlFlowShellCount += 1;
+if (route === StatementRoute.ShellLabel) {
+  StatementRouteUtil.LabelShellCount += 1;
+} else {
+  StatementRouteUtil.ControlFlowShellCount += 1;
+}
 return shell;
 ```
