@@ -73,8 +73,8 @@
         {
           "name": "op-unsupported-call",
           "source": "f(1, 2);",
-          "note": "未覆盖构造（实参列表）：体判 Incomplete 后停止摄入，不建错树；XML 仍与 legacy 逐字节一致",
-          "operatorShapes": { "texts": [], "incomplete": true }
+          "note": "S3f 已接管（调用链）：实参不进形状树（AST 侧用 ParseBracketArguments 整段建），体完整不判 Incomplete；XML 仍与 legacy 逐字节一致",
+          "operatorShapes": { "texts": ["call(f)"], "incomplete": false }
         },
         {
           "name": "op-cmp-lt",
@@ -217,8 +217,8 @@
         {
           "name": "op-unsupported-string",
           "source": "\"s\" + a;",
-          "note": "未覆盖：字符串叶子没有可复用的形状层文本来源，体判 Incomplete（安全回退）",
-          "operatorShapes": { "texts": [], "incomplete": true }
+          "note": "S3f 已接管（字符串叶子）：字面量只记种类 string，值由 XML 逐字节钉住",
+          "operatorShapes": { "texts": ["+(string,a)"], "incomplete": false }
         }
       ]
     }
