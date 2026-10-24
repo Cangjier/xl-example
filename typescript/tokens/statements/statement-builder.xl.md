@@ -48,6 +48,8 @@ import { DebuggerStatementShape } from "./debugger-statement-shape.xl.md"
 import { DoStatementShape } from "./do-statement-shape.xl.md"
 import { EmptyStatementShape } from "./empty-statement-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
+import { StatementOperatorBody } from "./statement-operator-body.xl.md"
+import { StatementShapeAst } from "./statement-shape-ast.xl.md"
 import { ForInStatementShape } from "./for-in-statement-shape.xl.md"
 import { ForOfStatementShape } from "./for-of-statement-shape.xl.md"
 import { ForStatementShape } from "./for-statement-shape.xl.md"
@@ -1300,8 +1302,78 @@ this.At = statementLast + 1;
 return this.Finish(shape, first, statementLast);
 ```
 
-## static method EndsExpression:(unit:Token)=>bool
+## method BuildExpressionStatementFromShapes:(body:StatementOperatorBody)=>Token | null
 
+**S3c：表达式语句的 AST 由形状树产出**（设计 §4.4）。收口条件与 legacy `BuildExpressionStatement`
+**同一套判界**（`;` 老的终止符、换行 ASI、`yield` 受限产生式），只是表达式节点不再由
+`BuildExpressionRange` 重解析 raw 单元，而由 `StatementShapeAst` 从壳里已经建好的形状树逐节点组装。
+
+**返回 `null` = 本条语句不归形状树**：`this.At` 不动、不建任何形状、不改任何状态，调用方原样回
+`BuildStatement()`（legacy 逐位行为）。拒绝的精确原因在 `StatementShapeAst.LastDeclineReason`。
+
+**为什么先判界再建树**：形状树的覆盖判据是「单元下标恰好 `0..n-1`」，而 `n` 正是表达式的单元数。
+判界必须先在本层 `Units` 上做完（`;` / ASI 才是本层的边界），否则「形状树只盖了半条表达式」会被
+误当成整条。
+
+```ts
+const first = this.At;
+if (first >= this.Units.length) {
+  return null;
+}
+let last = -1;
+let asiEnd = -1;
+// `yield` 是受限产生式，判界与 `BuildExpressionStatement` 逐字相同（本路径虽然只接普通表达式起点，
+// 但判界口径不允许出现两份，否则同一条源码会有两条边界）。
+if (this.IsText(this.Units[first], "yield")) {
+  let afterYield = first + 1;
+  while (afterYield < this.Units.length && this.Units[afterYield].IsTriviaToken) {
+    afterYield++;
+  }
+  if (afterYield < this.Units.length
+    && ExpressionStatementPossibleShape.HasLineBreakBefore(this.Units, afterYield)) {
+    asiEnd = first;
+  }
+}
+if (asiEnd < 0) {
+  for (let at = first; at < this.Units.length; at++) {
+    if (this.IsSymbol(this.Units[at], ";")) {
+      last = at;
+      break;
+    }
+    if (at > first && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
+      || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
+      asiEnd = at - 1;
+      break;
+    }
+  }
+}
+let statementLast = this.Units.length - 1;
+let expressionLast = this.Units.length - 1;
+if (last >= 0) {
+  statementLast = last;
+  expressionLast = last - 1;
+} else if (asiEnd >= 0) {
+  statementLast = asiEnd;
+  expressionLast = asiEnd;
+}
+if (expressionLast < first) {
+  return null;
+}
+const units:Array<Token> = [];
+for (let at = first; at <= expressionLast; at++) {
+  units.push(this.Units[at]);
+}
+const expression = StatementShapeAst.Build(body, units, this.Positions[first], this.Template, this.Context);
+if (expression === null) {
+  return null;
+}
+const shape = new ExpressionStatementShape(this.Template);
+shape.Add(expression);
+this.At = statementLast + 1;
+return this.Finish(shape, first, statementLast);
+```
+
+## static method EndsExpression:(unit:Token)=>bool
 标识符 / 括号 / 字面量 / 后缀自增自减可以收尾一个表达式；`as` / `typeof` 这类前缀词不算。
 
 ```ts

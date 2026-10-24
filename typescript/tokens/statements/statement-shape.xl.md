@@ -9,6 +9,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
+import { StatementRoute } from "./statement-route-util.xl.md"
 ```
 
 # namespace cangjie
@@ -53,9 +54,10 @@ let b = 2
 用 `ShapeInsertUtil.InsertBetween` 增量插入），再把同一格交给壳自己的目录（终结候选 = `StatementEndPossibleShape`）。
 `Kind` 只在建壳时判一次，这里直接读字段，不再重判族。
 
-**它与 AST 的关系**：`StatementBuilder` 仍然从壳里的 raw 单元建 AST（`BuildFromShell` 一行不改），
-所以 `StatementOperatorBody` 建的是**形状层**的表达式树（S3a/S3b 的增量成果，供 S3c+ 接管 AST 用），
-XML 与 legacy 的逐字节一致由「同一份 raw 单元 + 同一个建造器」结构性保证。
+**它与 AST 的关系**（S3c 改写）：收口时先试 `BuildExpressionStatementFromShapes`——`OperatorBody` 已完整
+（`IsComplete()`）且形状树覆盖整段表达式单元时，AST **由形状树逐节点产出**（`StatementShapeAst`，节点工厂
+与 `ExpressionBuilder` 同一份）；否则照旧由 `StatementBuilder` 从壳里 raw 单元整段建（legacy 逐位不变）。
+XML 的逐字节一致由「同一份 raw 单元 + 同一批节点工厂 + 同一套 Pos/SignIn/SignOut 口径」结构性保证。
 
 
 ## constructor:(template:Template)=>void
@@ -95,10 +97,32 @@ const shell = host as StatementShape;
 if (endIndex < 0) {
   throw new Error("语句壳没有可建的代码单元");
 }
+// S3c：收口前把壳里**还没喂过**的单元补齐给表达式体。壳的 `ComputePossibleShapes` 只在「有新单元流进来」
+// 时被调用，因此「本条目最后一格」之后不再有格子来喂它（`a;` / 文件末尾的 `a+b`），体就会停在
+// `Ingested == 0`、`IsComplete()` 永远假——那不是「形状树不支持」，而是「状态机没吃到单元」。
+// `IngestAll` 只从 `Ingested` 往后追加、遇 `Closed` / `Incomplete` 即停，所以这一步对已经喂完的体是空操作。
+if (shell.OperatorBody !== null) {
+  shell.OperatorBody.IngestAll(shell.Data, host.Template);
+}
 const consumed:Array<Token> = host.Data.slice(0, endIndex + 1);
 const builder = new StatementBuilder(host.Template, context);
 builder.Load(consumed, shell.Pos);
-const built = builder.BuildStatement();
+// S3c（设计 §4.4）：**有完整 OperatorBody 的表达式语句**先用形状树建 AST；形状树拒绝（未覆盖构造 /
+// 覆盖不全 / 不完整）时 `built` 仍是 null，`builder.At` 未被消费，下面照旧走 legacy `BuildStatement()`——
+// 两条路读的是同一份 `consumed` 与同一个 `Pos`，所以「接管与否」不改变任何其它语句的行为。
+// 捕获异常只用于「形状路径自己出错」这一种情形（记录后回 legacy，绝不吞掉成假绿：
+// `StatementShapeAst.TotalShapeAst` 不会因此增加，op-ast-proof 会红）。
+let built:Token | null = null;
+if (shell.Kind === StatementRoute.ShellPlainExpression && shell.OperatorBody !== null) {
+  try {
+    built = builder.BuildExpressionStatementFromShapes(shell.OperatorBody);
+  } catch {
+    built = null;
+  }
+}
+if (built === null) {
+  built = builder.BuildStatement();
+}
 if (builder.At !== builder.Units.length) {
   throw new Error("语句没有读完");
 }

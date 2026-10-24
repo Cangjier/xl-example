@@ -36,6 +36,15 @@ a-b-c   ->  -(-(a,b),c)
 
 叶子/运算符的字面文本：标识符与数字就是它的正文，运算符就是 `+` `-` `*` `/` `%`。
 
+## field Raw:Token | null = null
+
+**S3c：本节点对应的那个 raw 基本单元**（标识符/数字叶子 → 那个 `Common`；二元/前缀节点 → 那个运算符
+`Symbol`；括号节点 → 那个 `Bracket`）。它**只是一个引用**：单元仍留在壳 `Data` 里由 legacy 建造器使用，
+本节点不移动、不改 `Parent`、不参与 XML。
+
+为什么必须持它：S3c 的收口器（`StatementShapeAst`）用它与 `ExpressionBuilder.Units` 对齐，从而把
+`Pos` / `SignIn` / `SignOut` 落在与 legacy **同一个单元**上——节点类型与范围因此逐字段一致。
+
 ## static field KindHolder:int = 0
 
 根持有者（`StatementOperatorBody.Root`）：不是表达式节点，只用来挂最外层 shape，所以它永远不要被渲染。
@@ -46,7 +55,8 @@ a-b-c   ->  -(-(a,b),c)
 
 ## static field KindNumber:int = 2
 
-数字字面量叶子（判定见 `StatementOperatorBody.LooksNumber`）。
+数字字面量叶子（判定见 `StatementOperatorBody.LooksNumber`：与 `NumericLiteralShape` / `BigIntLiteralShape`
+的接受集同一口径，含前导点写法 `.5`）。
 
 ## static field KindOperator:int = 3
 
@@ -305,6 +315,7 @@ if (this.Expect === StatementOperatorBody.ExpectOperand) {
     const prefix = new StatementOperandShape(template);
     prefix.Kind = StatementOperandShape.KindPrefix;
     prefix.Text = text;
+    prefix.Raw = unit;
     this.Prefixes.push(prefix);
     return;
   }
@@ -318,7 +329,7 @@ if (this.Expect === StatementOperatorBody.ExpectOperand) {
   return;
 }
 if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
-  this.PushBinary(text, template);
+  this.PushBinary(unit, text, template);
   return;
 }
 if (unit instanceof Common && StatementOperatorBody.IsOperandText(text)) {
@@ -334,7 +345,9 @@ this.Fail(text === "" ? "单元" : "运算符 " + text);
 
 - `(`…`)`：用**一个新的嵌套本体**把括号里的单元全部喂一遍，再包一个 `KindParen` 节点。括号里的 raw 单元是括号自己的
   `Data`（不是壳的 `Data`），所以可以整段喂——这正是「括号可选」在 S3b 里的落地方式；
-- `Common` 且不是保留字/前缀关键字：`LooksNumber` 分 `KindNumber` / `KindIdentifier`；
+- `Common` 且不是保留字/前缀关键字：`LooksNumber` 分 `KindNumber` / `KindIdentifier`——`KindNumber` 用的是
+  `Common.IsNumber()` / `Common.IsBigInt()`（即两个字面量工厂的入参判据），所以 `.5` / `.5e2` / `1.` 都归数字；
+  「像数字开头但不是合法字面量」的非法源码（`1_` 之类）返回 `null`，既不建 Identifier 也不建错树；
 - 其余（字符串/模板/正则/`[`/`{`）：`null`。
 
 ```ts
@@ -351,21 +364,28 @@ if (unit instanceof Bracket) {
   }
   const shape = new StatementOperandShape(template);
   shape.Kind = StatementOperandShape.KindParen;
+  shape.Raw = bracket;
   if (inner.Root !== null && inner.Root.Data.length > 0) {
     shape.Add(inner.Root.Data[0]);
   }
   return shape;
 }
 if (unit instanceof Common) {
-  const text = (unit as Common).TempToString();
+  const common = unit as Common;
+  const text = common.TempToString();
   if (!StatementOperatorBody.IsOperandText(text)) {
     return null;
   }
+  const number = StatementOperatorBody.LooksNumber(common);
+  if (!number && common.CanStartNumber()) {
+    return null;
+  }
   const shape = new StatementOperandShape(template);
-  shape.Kind = StatementOperatorBody.LooksNumber(text)
+  shape.Kind = number
     ? StatementOperandShape.KindNumber
     : StatementOperandShape.KindIdentifier;
   shape.Text = text;
+  shape.Raw = unit;
   return shape;
 }
 return null;
@@ -388,7 +408,7 @@ if (this.Frames.length > 0) {
 }
 ```
 
-## method PushBinary:(text:string, template:Template)=>void
+## method PushBinary:(unit:Token, text:string, template:Template)=>void
 
 遇二元运算符**立刻**建节点：先按 `OperatorTable` 的优先级/结合性弹掉已经完整的栈顶（左结合收敛），
 再用 `ShapeInsertUtil.InsertBetween` 把新节点插进「父单元与最后一个子单元」之间——**这一步就是 S3b 的增量插入**，
@@ -413,6 +433,7 @@ const child = parent.Data[parent.Data.length - 1];
 const shape = new StatementOperandShape(template);
 shape.Kind = StatementOperandShape.KindOperator;
 shape.Text = text;
+shape.Raw = unit;
 ShapeInsertUtil.InsertBetween(parent, child, shape);
 this.Inserts++;
 StatementOperatorBody.TotalInserts++;
@@ -546,17 +567,19 @@ if (unit instanceof Symbol) {
 return text === "typeof" || text === "void" || text === "delete";
 ```
 
-## static method LooksNumber:(text:string)=>bool
+## static method LooksNumber:(unit:Common)=>bool
 
-数字字面量的开头判定：首字符是 `0..9`（十六进制 `0x`、小数点 `.5` 里只有 `.5` 会漏判，S3b 不要 `.5`，
-它没有小数点在前的写法；这条列进未覆盖清单）。
+这个 `Common` 是不是数字叶子——判据**直接复用字面量工厂的接受集**，不另写一份字符规则：
+`Common.IsNumber()`（= `NumericLiteralShape.FromBasicToken` 的入参校验）或 `Common.IsBigInt()`
+（= `BigIntLiteralShape`）。所以前导点 `.5` / `.5e2` / `.5e+2`、尾点 `1.`、十六进制 `0x1f`、分隔符 `1_000`
+全部归 `KindNumber`，与 legacy `ExpressionBuilder.ParsePrimary` 的
+`StartsNumber` → `IsBigInt() ? BigInt : Numeric` 分派同口径。
+
+**BigInt 仍判 `KindNumber`**（不是 Identifier）：收口器 `StatementShapeAst` 对它 `Decline` 并回 legacy 建
+`BigIntLiteral`，因此它既不会走错分支、也不会静默退化成标识符（见 `HANDOFF-s3c-r2.md` 未覆盖清单）。
 
 ```ts
-if (text === "") {
-  return false;
-}
-const head = text.charAt(0);
-return head >= "0" && head <= "9";
+return unit.IsNumber() || unit.IsBigInt();
 ```
 
 ## static method IsOperandText:(text:string)=>bool
