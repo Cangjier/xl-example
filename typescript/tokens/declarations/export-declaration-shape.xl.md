@@ -1,20 +1,13 @@
 # dependencies
 ```xl
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { ExportDeclarationEndPossibleShape } from "./export-declaration-end-possible-shape.xl.md"
-import { ImportAttributesPossibleShape } from "./import-attributes-possible-shape.xl.md"
-import { NamedExportsPossibleShape } from "./named-exports-possible-shape.xl.md"
-import { NamespaceExportPossibleShape } from "./namespace-export-possible-shape.xl.md"
-import { StringLiteralPossibleShape } from "../literals/string-literal-possible-shape.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
@@ -51,7 +44,6 @@ export type { T };
 
 ```ts
 super(template);
-this.CatalogGuide = new CatalogGuide(ExportDeclarationShape.CreatePossibleShapes(), new ExportDeclarationEndPossibleShape());
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
@@ -82,22 +74,6 @@ if (mounted) {
   }
 }
 return super.TryToClose(context);
-```
-
-## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
-
-## static method CreatePossibleShapes:()=>Array<PossibleShape>
-
-```ts
-if (ExportDeclarationShape.CreatePossibleShapesCache === null) {
-  ExportDeclarationShape.CreatePossibleShapesCache = [
-    new NamedExportsPossibleShape(),
-    new NamespaceExportPossibleShape(),
-    new StringLiteralPossibleShape(),
-    new ImportAttributesPossibleShape(),
-  ];
-}
-return ExportDeclarationShape.CreatePossibleShapesCache;
 ```
 
 ## static method FromUnits:(host:Token, start:int, end:int, context:SyntaxContext)=>ExportDeclarationShape
