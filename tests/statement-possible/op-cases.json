@@ -1,0 +1,82 @@
+{
+  "groups": {
+    "operators-live": {
+      "description": "S3a+S3b 实时操作符体（专用 cases）：壳内按格建操作数叶子 / 二元节点，遇不高于栈顶的优先级时用 ShapeInsertUtil.InsertBetween 增量插入；判据 = XML 与同源码 legacy（开关 false）逐字节一致 + 无文件级 fallback + 壳里不泄漏节点。结构判据（+(*(1,2),3) 等）与 InsertBetween 计数由同目录的 op-proof.mjs 用同一份 cases 复核。",
+      "needs": [],
+      "cases": [
+        {
+          "name": "op-mul-add",
+          "source": "1*2+3;",
+          "note": "S3b 核心：乘先建、加来了把乘包成左操作数 → +(*(1,2),3)",
+          "operatorShapes": { "texts": ["+(*(1,2),3)"], "minInserts": 2 }
+        },
+        {
+          "name": "op-add-mul",
+          "source": "a+b*c;",
+          "note": "低优先级先到、高优先级后到：新节点插进 + 与 b 之间",
+          "operatorShapes": { "texts": ["+(a,*(b,c))"], "minInserts": 2 }
+        },
+        {
+          "name": "op-sub-left",
+          "source": "a-b-c;",
+          "note": "同优先级左结合：先弹栈再插入 → -(-(a,b),c)",
+          "operatorShapes": { "texts": ["-(-(a,b),c)"], "minInserts": 2 }
+        },
+        {
+          "name": "op-paren",
+          "source": "a*(b+c);",
+          "note": "圆括号操作数：括号里的单元整段喂给一个新的本体",
+          "operatorShapes": { "texts": ["*(a,(b+c))"], "minInserts": 1 }
+        },
+        {
+          "name": "op-mixed",
+          "source": "a+b*c-d/e;",
+          "note": "四级优先级混排：两个弹栈 + 三次插入",
+          "operatorShapes": { "texts": ["-(+(a,*(b,c)),/(d,e))"], "minInserts": 3 }
+        },
+        {
+          "name": "op-ident-only",
+          "source": "a+b;",
+          "note": "最小二元式：插入发生在根持有者与 a 之间",
+          "operatorShapes": { "texts": ["+(a,b)"], "minInserts": 1 }
+        },
+        {
+          "name": "op-div-mul",
+          "source": "1/2*3;",
+          "note": "同优先级左结合（除法先建、乘法把它包起来）",
+          "operatorShapes": { "texts": ["*(/(1,2),3)"], "minInserts": 2 }
+        },
+        {
+          "name": "op-paren-chain",
+          "source": "a*(b+c)*d;",
+          "note": "括号 + 同优先级左结合 → *(*(a,(b+c)),d)",
+          "operatorShapes": { "texts": ["*(*(a,(b+c)),d)"], "minInserts": 2 }
+        },
+        {
+          "name": "op-prefix",
+          "source": "-a+b;",
+          "note": "可选：前缀一元先压栈、操作数到达时包上，再插入 +",
+          "operatorShapes": { "texts": ["+(-(a),b)"], "minInserts": 1 }
+        },
+        {
+          "name": "op-multi-statement",
+          "source": "1*2+3;\na+b*c;\nlet z = a+b*c;",
+          "note": "多语句混排：两条表达式语句各建一个体，变量声明语句不建体（族不同）",
+          "operatorShapes": { "texts": ["+(*(1,2),3)", "+(a,*(b,c))"], "minInserts": 4, "bodies": 2 }
+        },
+        {
+          "name": "op-asi",
+          "source": "a+b\nc*d;",
+          "note": "ASI 混排：a+b 在换行处收口，c*d 是下一条语句的体",
+          "operatorShapes": { "texts": ["+(a,b)", "*(c,d)"], "minInserts": 2 }
+        },
+        {
+          "name": "op-unsupported-call",
+          "source": "f(1, 2);",
+          "note": "未覆盖构造（实参列表）：体判 Incomplete 后停止摄入，不建错树；XML 仍与 legacy 逐字节一致",
+          "operatorShapes": { "texts": [], "incomplete": true }
+        }
+      ]
+    }
+  }
+}
