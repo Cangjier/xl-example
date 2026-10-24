@@ -30,7 +30,7 @@ import { LabeledStatementPossibleShape } from "../statements/labeled-statement-p
 import { ModuleDeclarationPossibleShape } from "../declarations/module-declaration-possible-shape.xl.md"
 import { NamespaceExportDeclarationPossibleShape } from "../declarations/namespace-export-declaration-possible-shape.xl.md"
 import { ReturnStatementPossibleShape } from "../statements/return-statement-possible-shape.xl.md"
-import { SourceFileEndPossibleShape } from "./source-file-end-possible-shape.xl.md"
+import { SourceFileTailBuilder } from "../items/source-file-tail-builder.xl.md"
 import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
 import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
@@ -62,27 +62,35 @@ const queue = template.BranchTemplate.Get(this.constructor);
 if (queue !== null) {
   this.ProcessQueue = queue;
 }
-this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileEndPossibleShape());
+this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileTailBuilder());
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 ```ts
 this.Closed = true;
-for (const item of this.Data.slice()) {
+// 单次 live 遍历：每个未关闭的单元最多尝试关闭两次（与重构前「快照扫一遍 + 再扫一遍」等价），
+// 两次之后仍关不掉就是真缺陷。原实现对 `this.Data` 做了三次全扫（slice 快照、再扫、校验扫），
+// 这里并成一次，并把 `slice()` 的每文件分配也去掉（PLAN §6.3 WP-3「消三次全扫」）。
+let index = 0;
+while (index < this.Data.length) {
+  const item = this.Data[index];
+  if (item.Closed) {
+    index++;
+    continue;
+  }
+  item.TryToClose(context);
   if (!item.Closed) {
     item.TryToClose(context);
   }
-}
-for (const item of this.Data) {
-  if (!item.Closed) {
-    item.TryToClose(context);
-  }
-}
-for (const item of this.Data) {
   if (!item.Closed) {
     throw new Error("SourceFileShape.Close: 有子单元无法关闭");
   }
+  // 关闭过程中该格可能被替换/拼接成别的单元：不退格，下一轮检查新单元是否已关闭。
+  if (index < this.Data.length && this.Data[index] !== item) {
+    continue;
+  }
+  index++;
 }
 // AST 的 children 只有子形状：文件末尾没人认领的 trivia（空格 / 行尾注释 / 换行）与 EOF 哨兵在收尾时丢掉。
 this.Data = this.Data.filter((item) => !item.IsTriviaToken && !(item instanceof EndOfFileTokenShape));
@@ -97,7 +105,7 @@ return CloseStates.Nothing;
 1. 还有挂载单元就先关掉它（没有分号的 import / export 也在这一刻收口）；
 2. 关掉最后一个还开着的子单元——文件末尾不会再有下一个字符来关它，标识符 / 符号 / 字符串 / 空白 / 注释谁开着就关谁；
 3. 造一个 `EndOfFileTokenShape`，签入签出文件末尾位置（`index === count`，空区间）、加进根，再 `TryToClose`。
-   它关闭时会问父单元重算候选，根单元的终结候选 `SourceFileEndPossibleShape` 随即签出根并关闭根。
+   它关闭时会问父单元重算候选，根单元的终结候选 `SourceFileTailBuilder` 随即签出根并关闭根。
 
 ```ts
 if (buffer.IsEof()) {

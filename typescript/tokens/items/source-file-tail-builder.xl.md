@@ -37,13 +37,24 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 
 # namespace cangjie
 
-# class SourceFileEndPossibleShape extends PossibleShape
+# class SourceFileTailBuilder extends PossibleShape
 
 ```txt
 a
 ++b;
 ^ 换行这里上一条就到齐了
 ```
+
+根单元的**尾部建造器**：文件末尾那些「没有 `;` 结尾」的尾巴由它收口。
+
+> **WP-3 迁移状态（U4：先整文件机械搬，再拆三入口）**：本文件从
+> `typescript/tokens/files/source-file-end-possible-shape.xl.md` **逐字搬来**（类名
+> `SourceFileEndPossibleShape` → `SourceFileTailBuilder`，逻辑一字未改），因此暂时仍
+> `extends PossibleShape`、由 `CatalogGuide` 当「终结候选」驱动（`ComputeByIndex` / `BuildByIndex`
+> 是旧协议入口，行为与搬迁前逐字节相同）。
+> 三个**建造入口**已提升为 public，就是本类对外的 API：
+> `BuildTrailingDeclaration`（声明尾巴）/ `BuildStatementSegments`（多条语句分段）/ `BuildModuleDeclaration`（module 头）。
+> 下一个波次：`RootItemRule.Build` 改调这三个入口，本类的 PossibleShape 外壳随之删除。
 
 根单元的终结候选：认两种「这条语句到这里该结束了」。
 
@@ -67,13 +78,13 @@ if (current instanceof EndOfFileTokenShape) {
 if (ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
   // 前导装饰器属于**下一条声明**，不是换行处结束的表达式语句：`@dec\nclass C {}`。
   // 类候选还在吃这串装饰器时，终结候选不许 Accept，否则 CatalogGuide 会报「终结候选与其它候选同时成立」。
-  if (SourceFileEndPossibleShape.HasDecoratorPrefix(units, tokenIndex)) {
+  if (SourceFileTailBuilder.HasDecoratorPrefix(units, tokenIndex)) {
     return ShapeStates.Uncertain;
   }
   // 被标语句（`lab: a` ⏎ `c;`）不是表达式语句：`lab: a` 只能由 StatementPossibleShape
   // 按 LabeledStatement 建。ASI 判据把它当成「`a` 处结束的表达式语句」，于是终结候选 Accept
   // 时普通候选还活着 → CatalogGuide 抛「终结候选与其它候选同时成立」。这里让位给语句候选。
-  if (SourceFileEndPossibleShape.HasLabelPrefix(units, tokenIndex)) {
+  if (SourceFileTailBuilder.HasLabelPrefix(units, tokenIndex)) {
     return ShapeStates.Uncertain;
   }
   return ShapeStates.Accept;
@@ -285,7 +296,7 @@ if (at >= start && host.Data[at].IsBasicToken) {
   // 也各是一条语句（上一条语句在 ASI 边界收口时把这个边界 token 原样留下：`type T = A` ⏎ `return`）。
   // 统一交给 StatementBuilder 按正常语句路径建——走 ExpressionStatement 的话块会被投成对象字面量、
   // 关键字会报「表达式语句没有读完」。
-  if (firstCode === at && SourceFileEndPossibleShape.IsStandaloneTrailingStatement(host.Data[at])) {
+  if (firstCode === at && SourceFileTailBuilder.IsStandaloneTrailingStatement(host.Data[at])) {
     let trailingPos = 0;
     for (let index = start - 1; index >= 0; index--) {
       if (!host.Data[index].IsTriviaToken) {
@@ -301,7 +312,7 @@ if (at >= start && host.Data[at].IsBasicToken) {
     const trailingStatement = trailingBuilder.BuildStatement();
     host.Data.splice(start, at - start + 1, trailingStatement);
     trailingStatement.Parent = host;
-  } else if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context)) {
+  } else if (!SourceFileTailBuilder.BuildTrailingDeclaration(host, start, at, context)) {
     // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
     // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
     const tailIsSemicolon = host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";");
@@ -332,7 +343,7 @@ unit.TryToClose(context);
 return host;
 ```
 
-## private static method BuildStatementSegments:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
+## static method BuildStatementSegments:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
 把 `host.Data[start..at]` 里的 leftover 单元按「一条语句一段」逐段建 shape：每段交给 StatementBuilder，
 **段的消费量按语句右边界 `SourceRange.EndIndex`（半开终点）数 Data 槽位**（不用 `builder.At`——它不是可靠的消费量，
@@ -426,7 +437,7 @@ while (at >= 0 && code[at] instanceof Common) {
 return false;
 ```
 
-## private static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
+## static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
 EOF 边界补一条「必须分号、但 ASI 允许省略分号」的声明：`type T = A` 与 `import x = require("m")`
 （两者在 TS 里都能不带 `;` 收在文件末尾）。它们的 `FromUnits` 都要求 `tokenIndex` 落在 `;` 上，
@@ -471,7 +482,7 @@ if (code[0] instanceof Common) {
       standaloneNext++;
     }
     if (standaloneNext <= standaloneLimit) {
-      SourceFileEndPossibleShape.BuildStatementSegments(host, standaloneNext, standaloneLimit, context);
+      SourceFileTailBuilder.BuildStatementSegments(host, standaloneNext, standaloneLimit, context);
     }
     return true;
   }
@@ -557,7 +568,7 @@ if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
           decoratedNext++;
         }
         if (decoratedNext <= decoratedLimit) {
-          SourceFileEndPossibleShape.BuildStatementSegments(host, decoratedNext, decoratedLimit, context);
+          SourceFileTailBuilder.BuildStatementSegments(host, decoratedNext, decoratedLimit, context);
         }
         return true;
       }
@@ -598,7 +609,7 @@ for (let index = 1; index < code.length; index++) {
   // export / default / as / import 不看换行）。分界若落在链内部，前缀只剩半截声明头
   //（`export default` / `export as`）→ 表达式路径 crash。判据只看「从 export 起、还没走完的
   // 修饰词链」——`declare` / `abstract` / `async` 与下一格之间换行时 TS 侧是另一条语句，不能吞。
-  if (SourceFileEndPossibleShape.IsInsideExportModifierChain(code, index)) {
+  if (SourceFileTailBuilder.IsInsideExportModifierChain(code, index)) {
     continue;
   }
   // 老判据：下一行以声明 / 语句关键字开头。声明头本身可以跨行（`interface I` ⏎ `extends B`），
@@ -658,7 +669,7 @@ for (let index = 1; index < code.length; index++) {
 }
 if (boundary > 0) {
   const prefixEnd = codeAt[boundary - 1];
-  if (!SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, prefixEnd, context)) {
+  if (!SourceFileTailBuilder.BuildTrailingDeclaration(host, start, prefixEnd, context)) {
     const prefix = ExpressionStatementShape.FromUnits(host, start, prefixEnd, context, false);
     host.Data.splice(start, prefixEnd - start + 1, prefix);
     prefix.Parent = host;
@@ -677,7 +688,7 @@ if (boundary > 0) {
   const suffixAt = cursor + (at - codeAt[boundary]);
   // 后缀自己也可能建不出来：整条返回 false 会让调用方拿**已经 splice 过**的旧下标来兜底
   // （`已建前缀 + export 子句` 就是这样越界读到 undefined 的）。所以后缀先内部兜底成表达式语句。
-  const suffixBuilt = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, suffixAt, context);
+  const suffixBuilt = SourceFileTailBuilder.BuildTrailingDeclaration(host, cursor, suffixAt, context);
   if (!suffixBuilt) {
     // 后缀常以 `;` 结尾：`declare module "m"` ⏎ `z;` 的后缀就是 `z ;`。
     // 这时要走 `requireSemicolon = true` 的入口（它会把 `;` 从表达式单元里切掉、End 停在 `;` 上）；
@@ -724,7 +735,7 @@ if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")) {
     } else if (headText === "function") {
       decorated = FunctionDeclarationShape.FromUnits(host, start, at, context);
     } else if (headText === "namespace" || headText === "module" || headText === "global") {
-      decorated = SourceFileEndPossibleShape.BuildModuleDeclaration(host, start, at, context);
+      decorated = SourceFileTailBuilder.BuildModuleDeclaration(host, start, at, context);
     } else {
       // `class`（含 `@dec abstract class`：`abstract` 是修饰词，装饰器声明头认出的声明词是 class）。
       // ClassDeclarationShape.FromUnits 自己消费 export / default / declare / abstract 与装饰器。
@@ -781,7 +792,7 @@ if (isLoneEmptyVariable) {
 if (isVariableKeyword || isDeclareVariable) {
   // 无分号 EOF 尾巴：可能连排多条语句（`const a = 1` ⏎ `console.log(a)`）——按段逐条建，
   // 每段按语句右边界算消费量，不能整段 splice（会吞掉后面的语句）。
-  return SourceFileEndPossibleShape.BuildStatementSegments(host, start, at, context);
+  return SourceFileTailBuilder.BuildStatementSegments(host, start, at, context);
 }
 // 控制语句 / 简单语句无分号到 EOF（statements 文档 F 组：`do x++` ⏎ `while (c);`）：
 // 这些形态没有专门的 FromUnits，交给 StatementBuilder 按正常语句路径建，别落进 ExpressionStatement。
@@ -1012,7 +1023,7 @@ if (isExportDefault) {
   // TS 6 把 ExportKeyword / DefaultKeyword 当声明**自身的修饰词**（ClassDeclaration /
   // FunctionDeclaration / InterfaceDeclaration 的 children），不是 ExportAssignment；default 后面
   // 若是声明形，必须建声明，不能走下面的表达式路。
-  const defaultDeclarationAt = SourceFileEndPossibleShape.BodyDeclarationKeyword(code, 2);
+  const defaultDeclarationAt = SourceFileTailBuilder.BodyDeclarationKeyword(code, 2);
   if (defaultDeclarationAt >= 0) {
     const declarationText = (code[defaultDeclarationAt] as Common).TempToString();
     const closedBody = code[code.length - 1] instanceof Bracket
@@ -1194,7 +1205,7 @@ if (isBodylessAmbientModule) {
 }
 // 声明关键字按「修饰词 + 声明词」识别：`abstract class` / `declare abstract class` 与 `class` /
 // `declare class` 一样都是 ClassDeclaration（ClassDeclarationShape.FromUnits 自己消费修饰词）。
-const leadingAt = SourceFileEndPossibleShape.LeadingDeclarationKeyword(code);
+const leadingAt = SourceFileTailBuilder.LeadingDeclarationKeyword(code);
 const leadingText = leadingAt >= 0 ? (code[leadingAt] as Common).TempToString() : "";
 const isClass = leadingText === "class";
 const isInterface = text === "interface"
@@ -1484,7 +1495,7 @@ declared.Parent = host;
 return true;
 ```
 
-## private static method BuildModuleDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>Token
+## static method BuildModuleDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>Token
 
 段首是装饰器的模块声明（`@dec namespace N {}` / `@dec export module "m" {}` 等）：
 `ModuleDeclarationShape.FromUnits` 要 `code` + `positions` 两个数组（`positions[i]` 是 `code[i]`
