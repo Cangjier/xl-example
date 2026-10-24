@@ -72,9 +72,15 @@ Stage 3 的操作符候选在这里按类 `Accept`，`EndPossible` 按类互斥�
 
 ## static field EnableShellExpressions:bool = false
 
-**表达式语句壳路径**（设计 §11）：T1d 收口修复已落地、但**默认仍关闭**（熔断，见 HANDOFF-s1d-r2.md §5）——表达式族（标识符 / 字面量 / `(` / `[` /
-一元前缀符号）由 `RootExpressionStatementPossibleShape` 建壳，收口判据是
-`StatementBoundaryUtil.CanEndStatement`（见 `statement-end-possible-shape.xl.md` 的 `StatementKind` 分派）。
+**表达式语句壳路径**（设计 §11）：T1d 收口修复已落地，但**默认仍关闭**（熔断，见 HANDOFF-s1d-r3.md §3）。
+
+r3 实测（`true` 时）：`harness --all` **72/0/1known 全绿**（含 stage1/stage1-mixed）、`--double-accept` 冲突 0、
+`--lint` PASS、`ast-json-diff` 0/0/0、`real-dts` 226/226；但 `ast-json` 仍 **6037/6167**（`missing-end` 24 +
+`possible-compute` 49 等 130 条结构差）且 `token-ast` crash=**14**（基线 0），所以还不能默认打开。
+
+r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改回 **`host.Data` + `CodeAt` 折算**；
+`RootExpressionStatementPossibleShape` 增加**头格被上一条语句吞掉时的补建**（`tokenIndex > headAt` 且
+`CanEndStatement` 为假时建壳）。剩余根因见 HANDOFF-s1d-r3.md §4。
 `false` 时新候选整体 `Reject`、legacy 全接管（Wave1 逐位行为），harness 的双路对拍也用它。
 
 ## static field EnableShellStatements:int = 0

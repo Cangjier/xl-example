@@ -8,9 +8,11 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
+import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
 ```
 
@@ -54,10 +56,28 @@ if (units[tokenIndex].IsTriviaToken) {
   // 等第一个代码单元真的到齐再建壳，壳里只搬代码单元（与 VariableStatementPossibleShape 同口径）。
   return ShapeStates.Uncertain;
 }
-// 只在**首代码单元那一格** Accept：建壳之后本条目已经归壳，后续格子若再 Accept，会与根终结候选在
+// 首选**首代码单元那一格** Accept：建壳之后本条目已经归壳，后续格子若再 Accept，会与根终结候选在
 // 收口那一格同时成立（CatalogGuide 抛「终结候选与其它候选同时成立」）。Reject 永久但 Reset 会复原，
 // 下一条语句重新参与。
-if (tokenIndex !== headAt) {
+if (tokenIndex === headAt) {
+  if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellPlainExpression) {
+    return ShapeStates.Reject;
+  }
+  return ShapeStates.Accept;
+}
+// **头格被上一条语句吞掉时的补建**（r3 根因）：上一条语句的壳在 ASI 边界收口时，边界那一格正是本条语句的
+// 首代码单元（`let a = 1` ⏎ `f();` 的 `f`），它已经被交给上一条语句的壳、由 `FinishShell` 搬回父单元，
+// 根目录**从未在头格求值**；到下一格（`(`）再求值时 `tokenIndex > headAt`，若照旧 Reject，本条永远拿不到壳，
+// 只能等 EOF 的 legacy 兜底 → 「表达式语句没有读完」/ missing-end / 结构差。
+// 补建只在「本条条目还收不了口」的格上做：
+//   * `CanEndStatement` 为真（`;` / EOF / ASI 边界）→ 不补建：那一格上要收的是**上一条**语句，
+//     两候选同格 Accept 会撞 CatalogGuide，而且这一格与后面的单元不属于本条语句；
+//   * 其余格（表达式中间）→ 补建，把 `[start..tokenIndex]` 一起搬进壳（与 import 声明「壳晚建」同一手法）。
+const lateOwner = units[tokenIndex].Parent;
+const lateEnd = units[tokenIndex].SourceRange.EndIndex;
+const lateAtEof = (lateOwner !== null && lateOwner.SourceRange.EndIndex >= 0)
+  || (lateEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, lateEnd) === "");
+if (StatementBoundaryUtil.CanEndStatement(units, tokenIndex, lateAtEof)) {
   return ShapeStates.Reject;
 }
 if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellPlainExpression) {
@@ -121,5 +141,10 @@ if (headStart >= 0) {
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
+// 晚建壳（头格被上一条语句吞掉）：已经搬进壳的 raw 单元不会再触发本条目求值，补一次
+// （与 `ImportDeclarationPossibleShape` 的「壳晚建」同一手法）。
+if (tokenIndex > start) {
+  shell.ComputePossibleShapes(context);
+}
 return shell;
 ```
