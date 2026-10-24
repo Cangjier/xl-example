@@ -180,6 +180,9 @@ children 比普通成员多一个 `QuestionDotTokenShape`（`ExpressionBuilder.P
 `?` 与 `:` 之间、`:` 之后都回到 `ExpectOperand`，所以真 / 假分支各自可以再是赋值或条件（`?` 右结合、
 真分支里也能嵌套）。AST 用 `ConditionalExpressionShape`。
 
+## static field KindNonNull:int = 22
+
+后缀非空断言 `!` 的形状节点（S3i）：`Raw` 是那个 `!` 单元，`Data` 是唯一的操作数。
 ## static field KindPostfix:int = 21
 
 后缀自增自减（S3h）：`Data = [操作数]`、`Raw` 是 `++` / `--` 单元、`Text` 是同一个文本。
@@ -544,6 +547,10 @@ if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
   }
   if (text === "++" || text === "--") {
     this.StartPostfix(unit, text, template);
+    return;
+  }
+  if (text === "!") {
+    this.StartNonNull(unit, template);
     return;
   }if (text === "?.") {
   this.StartQuestionDot(unit, template);
@@ -1166,6 +1173,10 @@ if (token instanceof StatementOperandShape) {
     const whenFalse = shape.Data.length > 2 ? StatementOperatorBody.Render(shape.Data[2]) : "?";
     return "?(" + condition + "," + whenTrue + "," + whenFalse + ")";
   }
+  if (shape.Kind === StatementOperandShape.KindNonNull) {
+    const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "nonnull(" + only + ")";
+  }
   if (shape.Kind === StatementOperandShape.KindPostfix) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
     return "post(" + only + ")";
@@ -1251,6 +1262,10 @@ if (token instanceof StatementOperandShape) {
     const whenTrue = shape.Data.length > 1 ? StatementOperatorBody.RenderInfix(shape.Data[1]) : "?";
     const whenFalse = shape.Data.length > 2 ? StatementOperatorBody.RenderInfix(shape.Data[2]) : "?";
     return "?(" + condition + "," + whenTrue + "," + whenFalse + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindNonNull) {
+    const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    return "nonnull(" + only + ")";
   }
   if (shape.Kind === StatementOperandShape.KindPostfix) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
@@ -1344,14 +1359,12 @@ return OperatorTable.IsBinaryOperator(text);
 
 ## static method IsPrefixText:(text:string, unit:Token)=>bool
 
-前缀运算符集合也委托给 `OperatorTable.IsPrefixOperator`（`! ~ + - typeof void delete` 全在），
-但**显式排除 `++` / `--`**：自增自减的 AST 需要 `PrefixUnaryExpressionShape` 带 operator 字段，legacy 目前只是
-`PrefixUnaryExpressionShape` + 操作数（operator 不进节点），S3d 不接管，走 `Incomplete`（未覆盖清单）。
+前缀运算符集合也委托给 `OperatorTable.IsPrefixOperator`（`! ~ + - ++ -- typeof void delete` 全在）。
+S3i 起 `++` / `--` 不再排除：legacy `ParseUnary` 对它们走的就是通用分支（`PrefixUnaryExpressionShape` + 操作数，
+运算符不进 children、不进 operator 字段），与 `-a` 完全同构，所以形状层按同一口径接管。
+语句**首格**是 `++`/`--` 时路由层按 `StatementClass.Postfix` 分类，但实测仍由表达式壳接管（`++a;` 的 `shapeAst=1`，见 s3i-cases）。
 
 ```ts
-if (text === "++" || text === "--") {
-  return false;
-}
 return OperatorTable.IsPrefixOperator(text);
 ```
 
@@ -1545,4 +1558,25 @@ if (text === "instanceof" || text === "in" || text === "as" || text === "satisfi
   return false;
 }
 return true;
+```
+
+## method StartNonNull:(unit:Token, template:Template)=>void
+
+后缀非空断言 `!`（S3i）：与后缀自增自减同一条插入路径（`InsertionPoint` 会穿过前缀节点，
+所以 `-a!` 在 legacy 里是 `-(a!)`，这里同样把 `!` 插在前缀的操作数上），插完仍在 `ExpectOperator`。
+
+```ts
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  this.Fail("非空断言缺少操作数");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindNonNull;
+shape.Text = "!";
+shape.Raw = unit;
+ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Expect = StatementOperatorBody.ExpectOperator;
 ```

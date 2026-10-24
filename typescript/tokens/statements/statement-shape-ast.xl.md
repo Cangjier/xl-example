@@ -16,6 +16,7 @@ import { DeleteExpressionShape } from "../expressions/delete-expression-shape.xl
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ParenthesizedExpressionShape } from "../expressions/parenthesized-expression-shape.xl.md"
 import { PrefixUnaryExpressionShape } from "../expressions/prefix-unary-expression-shape.xl.md"
+import { NonNullExpressionShape } from "../expressions/non-null-expression-shape.xl.md"
 import { TypeOfExpressionShape } from "../expressions/type-of-expression-shape.xl.md"
 import { VoidExpressionShape } from "../expressions/void-expression-shape.xl.md"
 import { FalseKeywordShape } from "../keywords/false-keyword-shape.xl.md"
@@ -61,6 +62,9 @@ legacy 逐字段一致是**结构性**的，而不是靠对拍凑出来的。
 `FirstCompoundAssignmentShape`，所以无需新分支）、条件表达式（`KindConditional` → `ConditionalExpressionShape`，
 `?` 与 `:` 都用 `MakeOperatorToken` 投影）、后缀自增自减（`KindPostfix` → `PostfixUnaryExpressionShape`，
 运算符只进区间不进 children）。三者都**只**在整段覆盖（`Covers`）成立时才接管。
+
+**S3i 追加覆盖**：后缀非空断言（`KindNonNull` → `NonNullExpressionShape`，`!` 只进区间不进 children，
+与 `ParsePostfixSuffix` 同口径：`Add(操作数)` + `SpanNode(链首, !)`）。
 
 **覆盖判据**：形状树覆盖的单元下标必须**恰好**是 `0..Units.length-1`（递增、无空洞、无多余）。这条比
 `IsComplete()` 更强——它证明「整段表达式都被这棵树解释掉了」，任何一格没被解释就回 legacy。
@@ -675,6 +679,29 @@ if (shape.Kind === StatementOperandShape.KindConditional) {
   conditional.Add(builder.MakeOperatorToken(colonRaw, colonIndex));
   conditional.Add(whenFalse);
   return builder.SpanNode(conditional, firstIndex, covered[covered.length - 1]);
+}
+if (shape.Kind === StatementOperandShape.KindNonNull) {
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("非空断言不是单操作数");
+  }
+  const at = covered.length;
+  const operand = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (operand === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const opRaw = shape.Raw;
+  if (opRaw === null) {
+    return StatementShapeAst.Decline("非空断言没有 ! 单元");
+  }
+  const opIndex = builder.Units.indexOf(opRaw);
+  if (opIndex < 0) {
+    return StatementShapeAst.Decline("非空断言的 ! 单元不在表达式里");
+  }
+  covered.push(opIndex);
+  const nonNull = new NonNullExpressionShape(builder.Template);
+  nonNull.Add(operand);
+  return builder.SpanNode(nonNull, firstIndex, opIndex);
 }
 if (shape.Kind === StatementOperandShape.KindPostfix) {
   if (shape.Data.length !== 1) {

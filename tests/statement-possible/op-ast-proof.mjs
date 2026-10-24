@@ -136,6 +136,11 @@ function tsInfix(node, sourceFile) {
     if (operand === null) return null;
     return prefixOperatorText(node) + operand;
   }
+  if (ts.isNonNullExpression(node)) {
+    const operand = tsInfix(node.expression, sourceFile);
+    if (operand === null) return null;
+    return "nonnull(" + operand + ")";
+  }
   if (ts.isParenthesizedExpression(node)) {
     const inner = tsInfix(node.expression, sourceFile);
     if (inner === null) return null;
@@ -200,6 +205,11 @@ function tsPrefix(node, sourceFile) {
     const operand = tsPrefix(node.operand, sourceFile);
     if (operand === null) return null;
     return prefixOperatorText(node) + "(" + operand + ")";
+  }
+  if (ts.isNonNullExpression(node)) {
+    const operand = tsPrefix(node.expression, sourceFile);
+    if (operand === null) return null;
+    return "nonnull(" + operand + ")";
   }
   if (ts.isParenthesizedExpression(node)) {
     const inner = tsInfix(node.expression, sourceFile);
