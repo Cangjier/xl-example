@@ -1530,3 +1530,51 @@ for (let index = start; index <= at; index++) {
 return ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
 ```
 
+## static method BuildTrailingItems:(host:Token, start:int, at:int, context:SyntaxContext)=>Array<Token>
+
+尾巴段（EOF / 硬边界）的**只建造、不落盘**入口。`BuildTrailingDeclaration` 自己会 splice `host.Data`，
+这里用 Data journal（快照 → 跑旧逻辑 → 按长度差取出这一段的新内容 → 还原）把「建造」与「落盘」分开：
+判据与建造逻辑一字不动（INV-2），只是调用方拿到的不是「已落盘」而是「要落盘的内容」。
+
+一次调用可能建出**多条**形状（前缀 / 后缀 / 合成 `;`），所以返回数组；`ItemRule.Build` 不许改 `host.Data`，
+落盘由引擎的 `ApplyBuilds` 或容器的 `FinishBody` 自己做。
+
+```ts
+const before:Array<Token> = host.Data.slice();
+const length:number = host.Data.length;
+SourceFileTailBuilder.BuildTrailingDeclaration(host, start, at, context);
+const delta:number = host.Data.length - length;
+const replaced:Array<Token> = host.Data.slice(start, at + 1 + delta);
+host.Data = before;
+return replaced;
+```
+
+## static method BuildSegmentItems:(host:Token, start:int, at:int, context:SyntaxContext)=>Array<Token>
+
+`BuildStatementSegments` 的同款只建造入口：逐段建造、可能建出多条形状，落盘交调用方。
+
+```ts
+const before:Array<Token> = host.Data.slice();
+const length:number = host.Data.length;
+SourceFileTailBuilder.BuildStatementSegments(host, start, at, context);
+const delta:number = host.Data.length - length;
+const replaced:Array<Token> = host.Data.slice(start, at + 1 + delta);
+host.Data = before;
+return replaced;
+```
+
+## static method BuildModuleItem:(host:Token, start:int, at:int, context:SyntaxContext)=>Token | null
+
+`BuildModuleDeclaration` 本来就只建形状、不 splice（splice 在调用方），这里只补上 journal 与 `null` 判定：
+根 item 表要的是「建出来了吗」，没建出来就走 raw 回退，不要把 `host` 自己当成形状返回。
+
+```ts
+const before:Array<Token> = host.Data.slice();
+const built:Token | null = SourceFileTailBuilder.BuildModuleDeclaration(host, start, at, context);
+host.Data = before;
+if (built === null || built === host) {
+  return null;
+}
+return built;
+```
+
