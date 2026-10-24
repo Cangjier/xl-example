@@ -36,6 +36,12 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 ## static field ShellBlock:int = 5
 
+## static field ShellLabel:int = 6
+
+**标签语句族**（Stage 4c-2）：语句首 `标识符` + 下一代码单元 `:`。它与 `ShellStatementFamily` 分开取值，
+因为建壳的时机不同（控制流族在首代码单元建、标签在 `:` 那一格才建），计数也分开放
+（`LabelShellCount` / `ControlFlowShellCount`）。判界与建树仍走同一份 `ScanRoot` + `BuildStatement`。
+
 # class StatementClass
 
 `StatementRouteUtil.ClassOf` 的**单元分类码**（设计 §2.3）。Stage 1 只落地分类器，判定仍由 `Decide` 驱动；
@@ -143,27 +149,38 @@ Stage 4 位掩码（控制流语句族壳化），本阶段恒为 0。
 `false` 时这些起点重新判成 `Legacy`，行为逐位回到 Stage 4b 之前（安全回退，不靠候选先后）。
 `EnableShellExpressions == false`（文件级 fallback 与 harness 的 legacy 对拍）时同样一律 `Legacy`。
 
-## static field EnableControlFlowLabel:bool = false
+## static field EnableControlFlowLabel:bool = true
 
-标签语句是否随控制流壳接管（`lbl: f();`），**默认关**。标签的头是标识符，与普通表达式语句同格；
-壳在首代码单元那一格就建，而 `:` 还没到，所以「ident + `:`」的 lookahead 在首格拿不到第二格，
-接管与否取决于单元到达时机（不确定）。默认关 = 标签继续走已经验证过的表达式壳：
-`StatementShape.BuildFromShell` → `StatementBuilder.BuildStatement` 的标签分派，
-XML / AST 与 legacy 逐字节一致（stage4c 的 `s4c-label` / `s4c-label-loop` 用例覆盖）。
-打开只在「首格之前 `:` 已经到齐」的时机生效，行为与表达式壳等价。
+标签语句是否随控制流壳接管（`lbl: f();`），**Stage 4c-2 起默认打开**。Stage 4c 默认关的理由是判据问题，不是标签不可接管：首格上第二个代码单元还没到，`Decide` 当时直接落到了 `ShellPlainExpression`，标签就被锁进表达式壳。
+
+Stage 4c-2 把那一格改成 **`None`（继续等，不判死、不判族）**：下一个代码单元到达后，`:` 才把这条语句判成 `ShellLabel`，`ControlFlowStatementPossibleShape` 在 `:` 那一格建壳（搬 `ident` + `:`，`Kind = ShellLabel`），判界走 legacy 的 `StatementScanner.ScanRoot`、建树走 `StatementBuilder.BuildStatement` 的标签分派——与 legacy 建标签语句是同一份 scanner / 同一份建造器。
+
+两个守卫：① `Reject` 是被 `CatalogGuide` **永久删除**的，所以那一格只能 `None`（`Uncertain`），否则 `:` 到达时再没有候选能建壳；② `?` / `=` / `(` 紧跟标识符时 `colonAt` 不是 `:`，照常判成 `ShellPlainExpression`（`a ? b : c` 与 `a = 1` 不受影响）。
+
+**标签体不分流**：`en:\n{ f() }` 的 `{` 是在标签壳里建的，由 `BuildStatement` 的标签分派原子递归，`SourceFileShape.OnBracketCreatedEvent` 的 `Decide == ShellBlock` 门控因此看不到它——这正是「标签体不得被表达式壳 / 块候选吞掉」那条不变量的守点。
+
+**历史**（Stage 4c 的旧理由，已由上面的判据修掉）：标签的头是标识符、与普通表达式语句同格，壳在首代码单元那一格就建，而 `:` 还没到——于是默认关、继续走表达式壳（`StatementShape.BuildFromShell` → `StatementBuilder.BuildStatement` 的标签分派）。
 
 ## static field EnableControlFlowEmpty:bool = false
 
-空语句（语句首的 `;`）是否随控制流壳接管，**默认关**。实测（stage4c r1，`if (a) {}` ⏎ `;` ⏎ `while (b) {}` ⏎ `;`）：
-末尾的 `;` 是 `FinishShell` 把 ASI 边界留下的 leftover 重放回来的，重放那一格上条目的 `ItemStart`
-仍是上一条语句的起点，`Decide` 据旧头判型、控制流候选又只认首格，这个 `;` 就没人建
-（token-ast `stmt-semicolon-after-block-body` 少一条 `EmptyStatement`）。空语句由 legacy 建与由壳建
-走的是同一个 `StatementBuilder.BuildStatement` → `BuildEmpty`，接管收益为零、风险不为零，所以默认关。
+**Stage 4c-2 实测（打开后回退，默认关）**：把开关打开后，'';'' 作为**别人壳里的 leftover**（if (a) {} ⏎ ;、{ ; ; } 的第二格、; ⏎ ;）没有重放通道 —— FinishShell 只把 leftover 挪回父单元、不再问父目录，那一格永远没有人建，实测 if (a) {} ⏎ ; ⏎ while (b) {} ⏎ ; 少一条 EmptyStatement（AST 节点 8 vs 7，XML 同步不同）。这不是标签那种「判据时机」问题，而是 FinishShell 缺一次父目录重放（HANDOFF-s4c §7 风险 1 的同一条）。因此默认关：空语句由 legacy 的 BuildEmpty 建，s4c2-empty* 用例守 XML/AST 与 legacy 逐字节一致；接管证据与复现读数见 HANDOFF-s4c2.md。
+
+空语句（语句首的 `;`）是否随控制流壳接管，**默认关**。
+
+Stage 4c 默认关的理由是「重放回来的 `;` 会因旧 `ItemStart` 失管」（`if (a) {}` ⏎ `;` 少一条 `EmptyStatement`）。
+4c-2 用专用用例把这条形态钉住（`s4c2-empty-after-block` / `s4c2-empty-table`），并由
+`tests/statement-possible/control-flow-takeover.mjs` 的 `cf` 增量给出接管读数：一旦这条形态回退，
+计数与 AST 会同时红，不会静默少语句。安全回退仍在——单开关置 `false` 即回到 legacy 的 `BuildEmpty`。
 
 ## static field ControlFlowShellCount:int = 0
 
 进程内累计「被控制流候选建成壳的控制流/声明族语句」条数（只增不减），与 `BlockShellCount` 同一定位：
 harness / 集成表用它出「这类语句确实走了新路径」的计数证据，不靠 XML/AST 猜。
+
+## static field LabelShellCount:int = 0
+
+进程内累计「被标签候选建成壳的标签语句」条数（只增不减）。与 `ControlFlowShellCount` 分开计量：
+标签在 `:` 那一格建壳，控制流族在首代码单元建壳，两者的接管读数不能混在一个数里。
 
 ## static method IsControlFlowHead:(text:string)=>bool
 
@@ -241,10 +258,16 @@ if (StatementRouteUtil.EnableShellExpressions) {
   }
   // 标签语句：标识符之后的下一个代码单元是 `:`（`lbl: f();`）。`a ? b : c` 的头是 `a`、下一格是 `?`，
   // 不会命中；对象字面量的 `a: 1` 不在语句首。所以「语句首 ident + `:`」只可能是标签。
+  // **第二个代码单元还没到时必须 `None`（继续等）**：此时 `:` / `?` / `=` / `(` 还不可区分。
+  // 判成表达式语句会把标签锁进表达式壳；判死更不行——`Reject` 被 `CatalogGuide` 永久删除，
+  // `:` 到达那一格就再没有候选能建标签壳（Stage 4c 默认关的根因，4c-2 在这里修掉）。
   if (StatementRouteUtil.EnableControlFlowLabel && !StatementRouteUtil.IsLegacyKeyword(text)) {
     const colonAt = ItemUtil.NextCode(units, headAt + 1);
-    if (colonAt < units.length && units[colonAt] instanceof Symbol && (units[colonAt] as Symbol).Is(":")) {
-      return StatementRoute.ShellStatementFamily;
+    if (colonAt >= units.length) {
+      return StatementRoute.None;
+    }
+    if (units[colonAt] instanceof Symbol && (units[colonAt] as Symbol).Is(":")) {
+      return StatementRoute.ShellLabel;
     }
   }
 }
