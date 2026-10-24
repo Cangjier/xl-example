@@ -28,6 +28,7 @@ import { ModuleDeclarationShape } from "../declarations/module-declaration-shape
 import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { StatementBoundaryUtil } from "../statements/statement-boundary-util.xl.md"
 import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -64,7 +65,10 @@ const current = units[tokenIndex];
 if (current instanceof EndOfFileTokenShape) {
   return ShapeStates.Accept;
 }
-if (ExpressionStatementPossibleShape.IsAsiBoundary(units, tokenIndex)) {
+// `;` 由语句候选自己吃（语句的 `Done` 那一条路），终结候选在 `;` 格必须让位，
+// 否则 CatalogGuide 抛「终结候选与其它候选同时成立」：IsAsiBoundary 对 `;` 本来就返回 false。
+if (StatementBoundaryUtil.CanEndStatement(units, tokenIndex, false)
+  && !StatementBoundaryUtil.IsSemicolon(units[tokenIndex])) {
   // 前导装饰器属于**下一条声明**，不是换行处结束的表达式语句：`@dec\nclass C {}`。
   // 类候选还在吃这串装饰器时，终结候选不许 Accept，否则 CatalogGuide 会报「终结候选与其它候选同时成立」。
   if (SourceFileEndPossibleShape.HasDecoratorPrefix(units, tokenIndex)) {
