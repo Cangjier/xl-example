@@ -36,6 +36,15 @@ a-b-c   ->  -(-(a,b),c)
 
 叶子/运算符的字面文本：标识符与数字就是它的正文，运算符就是 `+` `-` `*` `/` `%`。
 
+## field Raw:Token | null = null
+
+**S3c：本节点对应的那个 raw 基本单元**（标识符/数字叶子 → 那个 `Common`；二元/前缀节点 → 那个运算符
+`Symbol`；括号节点 → 那个 `Bracket`）。它**只是一个引用**：单元仍留在壳 `Data` 里由 legacy 建造器使用，
+本节点不移动、不改 `Parent`、不参与 XML。
+
+为什么必须持它：S3c 的收口器（`StatementShapeAst`）用它与 `ExpressionBuilder.Units` 对齐，从而把
+`Pos` / `SignIn` / `SignOut` 落在与 legacy **同一个单元**上——节点类型与范围因此逐字段一致。
+
 ## static field KindHolder:int = 0
 
 根持有者（`StatementOperatorBody.Root`）：不是表达式节点，只用来挂最外层 shape，所以它永远不要被渲染。
@@ -305,6 +314,7 @@ if (this.Expect === StatementOperatorBody.ExpectOperand) {
     const prefix = new StatementOperandShape(template);
     prefix.Kind = StatementOperandShape.KindPrefix;
     prefix.Text = text;
+    prefix.Raw = unit;
     this.Prefixes.push(prefix);
     return;
   }
@@ -318,7 +328,7 @@ if (this.Expect === StatementOperatorBody.ExpectOperand) {
   return;
 }
 if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
-  this.PushBinary(text, template);
+  this.PushBinary(unit, text, template);
   return;
 }
 if (unit instanceof Common && StatementOperatorBody.IsOperandText(text)) {
@@ -351,6 +361,7 @@ if (unit instanceof Bracket) {
   }
   const shape = new StatementOperandShape(template);
   shape.Kind = StatementOperandShape.KindParen;
+  shape.Raw = bracket;
   if (inner.Root !== null && inner.Root.Data.length > 0) {
     shape.Add(inner.Root.Data[0]);
   }
@@ -366,6 +377,7 @@ if (unit instanceof Common) {
     ? StatementOperandShape.KindNumber
     : StatementOperandShape.KindIdentifier;
   shape.Text = text;
+  shape.Raw = unit;
   return shape;
 }
 return null;
@@ -388,7 +400,7 @@ if (this.Frames.length > 0) {
 }
 ```
 
-## method PushBinary:(text:string, template:Template)=>void
+## method PushBinary:(unit:Token, text:string, template:Template)=>void
 
 遇二元运算符**立刻**建节点：先按 `OperatorTable` 的优先级/结合性弹掉已经完整的栈顶（左结合收敛），
 再用 `ShapeInsertUtil.InsertBetween` 把新节点插进「父单元与最后一个子单元」之间——**这一步就是 S3b 的增量插入**，
@@ -413,6 +425,7 @@ const child = parent.Data[parent.Data.length - 1];
 const shape = new StatementOperandShape(template);
 shape.Kind = StatementOperandShape.KindOperator;
 shape.Text = text;
+shape.Raw = unit;
 ShapeInsertUtil.InsertBetween(parent, child, shape);
 this.Inserts++;
 StatementOperatorBody.TotalInserts++;
