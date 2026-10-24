@@ -548,6 +548,14 @@ while (previous >= 0 && units[previous].IsTriviaToken) {
 if (previous < 0) {
   return false;
 }
+// 换行后的 `{`：上一单元能收住一条表达式，且前缀上下文不是「还在等体」的头
+//（`function ()` / `class A` / `=>` / 控制头 `(...)`）——那么这里只能是**块语句**的起点，
+//就是 ASI 边界。否则扫描器会把下一条块语句吸进本条语句（`let a = 1` ⏎ `{ b; }`）。
+if (current instanceof Bracket && (current as Bracket).StartBracketChar === "{"
+  && ExpressionStatementPossibleShape.CanEndExpression(units[previous])
+  && !ExpressionStatementPossibleShape.ExpectsBodyBefore(units, previous)) {
+  return true;
+}
 const currentIsCallPosition = (current instanceof Bracket
     && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
   || (current instanceof String && (current as String).StringChar === "`");
@@ -568,6 +576,104 @@ if (ExpressionStatementPossibleShape.IsPostfixOperatorAt(units, previous)
   }
 }
 return false;
+```
+
+## static method ExpectsBodyBefore:(units:Array<Token>, previousIndex:int)=>bool
+
+`previousIndex` 处的收尾单元后面紧跟的 `{`，是不是**某个头还欠着的体**？
+
+只有「还在等体」时返回 true：`function ()` / `class A` / `class A extends B` / `interface A` / `enum A` /
+`namespace A` / 箭头 `=>` / 控制头 `if (a)` `for (…)` `while (…)` `switch (…)` `with (…)` `catch (…)`。
+其余一律 false——那时换行后的 `{` 只能是一条新的块语句。
+
+```ts
+if (previousIndex < 0 || previousIndex >= units.length) {
+  return false;
+}
+const tail = units[previousIndex];
+if (tail instanceof Bracket) {
+  // 已经闭合的体 / 对象字面量：头不可能还在等体。
+  if ((tail as Bracket).StartBracketChar === "{") {
+    return false;
+  }
+  // `if (a)` 这种紧邻控制头的调用位括号：体还没出现。
+  if ((tail as Bracket).StartBracketChar === "(") {
+    let before = previousIndex - 1;
+    while (before >= 0 && units[before].IsTriviaToken) {
+      before--;
+    }
+    if (before >= 0 && units[before] instanceof Common) {
+      if (ExpressionStatementPossibleShape.IsBodyExpectingHead((units[before] as Common).TempToString())) {
+        return true;
+      }
+    }
+  }
+} else if (tail instanceof Common) {
+  if (ExpressionStatementPossibleShape.IsBodyExpectingHead((tail as Common).TempToString())) {
+    return true;
+  }
+} else if (tail instanceof Symbol) {
+  if ((tail as Symbol).TempToString() === "=>") {
+    return true;
+  }
+}
+for (let at = previousIndex - 1; at >= 0; at--) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Bracket) {
+    if ((unit as Bracket).StartBracketChar === "{") {
+      return false;
+    }
+    continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === ";") {
+      return false;
+    }
+    if (text === "=>") {
+      return true;
+    }
+    continue;
+  }
+  if (unit instanceof Common) {
+    const text = (unit as Common).TempToString();
+    if (ExpressionStatementPossibleShape.IsBodyExpectingHead(text)) {
+      return true;
+    }
+    if (ExpressionStatementPossibleShape.IsStatementHead(text)) {
+      return false;
+    }
+    continue;
+  }
+  return false;
+}
+return false;
+```
+
+## static method IsBodyExpectingHead:(text:string)=>bool
+
+`text` 是不是一个「后面必须有一个 `{` 体」的头关键字。
+
+```ts
+return text === "function" || text === "class" || text === "extends" || text === "interface"
+  || text === "enum" || text === "namespace" || text === "module" || text === "implements"
+  || text === "abstract" || text === "if" || text === "for" || text === "while"
+  || text === "switch" || text === "with" || text === "catch" || text === "else"
+  || text === "do" || text === "try" || text === "finally";
+```
+
+## static method IsStatementHead:(text:string)=>bool
+
+`text` 能否开头一条语句：向回扫头关键字时遇到它就停下（跨语句不算）。
+
+```ts
+return text === "let" || text === "const" || text === "var" || text === "using"
+  || text === "export" || text === "declare" || text === "import" || text === "return"
+  || text === "throw" || text === "case" || text === "default" || text === "yield"
+  || text === "await" || text === "type" || text === "break" || text === "continue";
 ```
 
 ## static method IsPostfixOperatorAt:(units:Array<Token>, index:int)=>bool
