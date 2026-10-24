@@ -2,13 +2,23 @@
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
+import { DeleteExpressionShape } from "../expressions/delete-expression-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ParenthesizedExpressionShape } from "../expressions/parenthesized-expression-shape.xl.md"
+import { PrefixUnaryExpressionShape } from "../expressions/prefix-unary-expression-shape.xl.md"
+import { TypeOfExpressionShape } from "../expressions/type-of-expression-shape.xl.md"
+import { VoidExpressionShape } from "../expressions/void-expression-shape.xl.md"
+import { FalseKeywordShape } from "../keywords/false-keyword-shape.xl.md"
+import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
+import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
+import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { StatementOperandShape } from "./statement-operator-body.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
@@ -27,8 +37,10 @@ import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 `ExpressionBuilder.SpanLeaf` / `SpanNode` 的同一口径（同一份 `Units` / `Positions`）。所以本类产出的节点与
 legacy 逐字段一致是**结构性**的，而不是靠对拍凑出来的。
 
-**只做已覆盖子集**：标识符 / 数字字面量叶子、`+ - * / %` 二元节点、圆括号节点。前缀节点、成员访问、调用、
-字符串 / 模板 / 正则、大整数、`**` 等一律返回 `null`（见 `HANDOFF-s3c.md` 未覆盖清单），由调用方回 legacy。
+**S3d 覆盖子集**：标识符 / 数字 / 大整数 / `true false null this` 关键字 / 圆括号叶子，`+ - * / %` 之外再加
+比较族、逻辑、位、移位、`**`、`instanceof`/`in` 的全部二元节点，以及 `! ~ + - typeof void delete` 前缀节点。
+成员访问、调用、索引、数组/对象字面量、字符串 / 模板 / 正则、赋值 / 逗号 / 条件、`++ --`、`new` 等一律返回 `null`
+（见 `HANDOFF-s3d.md` 未覆盖清单），由调用方回 legacy。
 
 **覆盖判据**：形状树覆盖的单元下标必须**恰好**是 `0..Units.length-1`（递增、无空洞、无多余）。这条比
 `IsComplete()` 更强——它证明「整段表达式都被这棵树解释掉了」，任何一格没被解释就回 legacy。
@@ -116,7 +128,12 @@ return true;
   `ParenthesizedExpressionShape`，跨度取括号单元自己（`SpanNode(index, index)`，与 `ParsePrimary` 一致）；
 - `KindOperator`：`Raw` 是那个二元运算符单元，先建左、再取运算符 token、再建右，最后
   `SpanNode(最左单元, 最右单元)`——与 `ParseBinary` 的 `SpanNode(start, At - 1)` 同口径；
-- `KindPrefix`：S3c 不接管（未覆盖清单），返回 `null`。
+- `KindPrefix`：`Raw` 是那个前缀运算符单元（`+ - ! ~` 是 `Symbol`，`typeof/void/delete` 是 `Common`）。
+  先记运算符下标、再建操作数，然后按运算符文本选 legacy 工厂：`typeof` → `TypeOfExpressionShape`、
+  `void` → `VoidExpressionShape`、`delete` → `DeleteExpressionShape`、其余 → `PrefixUnaryExpressionShape`，
+  最后 `SpanNode(运算符下标, 操作数末单元)`——与 `ParseUnary` 的 `SpanNode(start, At-1)` 同口径
+  （运算符 token 不投影成子节点，legacy 也不投影）；
+- `KindKeyword`：`true`/`false`/`null`/`this`，用 `SpanLeaf` 与 legacy `MakeKeywordLeaf` 同一口径。
 
 ```ts
 if (!(node instanceof StatementOperandShape)) {
@@ -135,7 +152,9 @@ if (shape.Kind === StatementOperandShape.KindIdentifier || shape.Kind === Statem
   covered.push(index);
   if (shape.Kind === StatementOperandShape.KindNumber) {
     if ((raw as Common).IsBigInt()) {
-      return StatementShapeAst.Decline("大整数字面量");
+      const bigint = BigIntLiteralShape.FromBasicToken(raw as Common, context);
+      bigint.Pos = builder.Positions[index];
+      return bigint;
     }
     if (!(raw as Common).IsNumber()) {
       return StatementShapeAst.Decline("不是数字字面量");
@@ -215,6 +234,63 @@ if (shape.Kind === StatementOperandShape.KindOperator) {
   binary.Add(builder.MakeOperatorToken(raw, opIndex));
   binary.Add(right);
   return builder.SpanNode(binary, firstIndex, lastIndex);
+}
+if (shape.Kind === StatementOperandShape.KindKeyword) {
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof Common)) {
+    return StatementShapeAst.Decline("关键字叶子没有 raw 单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("关键字叶子不在表达式里");
+  }
+  covered.push(index);
+  const keywordText = (raw as Common).TempToString();
+  if (keywordText === "true") {
+    return builder.SpanLeaf(new TrueKeywordShape(builder.Template), index);
+  }
+  if (keywordText === "false") {
+    return builder.SpanLeaf(new FalseKeywordShape(builder.Template), index);
+  }
+  if (keywordText === "null") {
+    return builder.SpanLeaf(new NullKeywordShape(builder.Template), index);
+  }
+  if (keywordText === "this") {
+    return builder.SpanLeaf(new ThisKeywordShape(builder.Template), index);
+  }
+  return StatementShapeAst.Decline("不认识的关键字叶子 " + keywordText);
+}
+if (shape.Kind === StatementOperandShape.KindPrefix) {
+  const raw = shape.Raw;
+  if (raw === null) {
+    return StatementShapeAst.Decline("前缀节点没有运算符单元");
+  }
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("前缀节点不是单操作数");
+  }
+  const opIndex = builder.Units.indexOf(raw);
+  if (opIndex < 0) {
+    return StatementShapeAst.Decline("前缀运算符单元不在表达式里");
+  }
+  covered.push(opIndex);
+  const operand = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (operand === null) {
+    return null;
+  }
+  const lastIndex = covered[covered.length - 1];
+  const prefixText = StatementOperatorBody.TextOfToken(raw);
+  let prefix:ShapeToken;
+  if (prefixText === "typeof") {
+    prefix = new TypeOfExpressionShape(builder.Template);
+  } else if (prefixText === "void") {
+    prefix = new VoidExpressionShape(builder.Template);
+  } else if (prefixText === "delete") {
+    prefix = new DeleteExpressionShape(builder.Template);
+  } else {
+    prefix = new PrefixUnaryExpressionShape(builder.Template);
+  }
+  prefix.Add(operand);
+  return builder.SpanNode(prefix, opIndex, lastIndex);
 }
 return StatementShapeAst.Decline("未覆盖的形状类型");
 ```
