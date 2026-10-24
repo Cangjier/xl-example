@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { AngleJudge } from "../types/angle-judge.xl.md"
+import { OperatorTable } from "./operator-table.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
@@ -243,63 +244,19 @@ return shape;
 ## method IsPrefixOperator:(text:string)=>bool
 
 ```ts
-return text === "!"
-  || text === "~"
-  || text === "+"
-  || text === "-"
-  || text === "++"
-  || text === "--"
-  || text === "typeof"
-  || text === "void"
-  || text === "delete";
+return OperatorTable.IsPrefixOperator(text);
 ```
 
 ## method BinaryPrecedence:(text:string)=>int
 
 ```ts
-if (text === "**") {
-  return 15;
-}
-if (text === "*" || text === "/" || text === "%") {
-  return 14;
-}
-if (text === "+" || text === "-") {
-  return 13;
-}
-if (text === "<<" || text === ">>" || text === ">>>") {
-  return 12;
-}
-if (text === "<" || text === ">" || text === "<=" || text === ">=" || text === "instanceof" || text === "in") {
-  return 11;
-}
-if (text === "==" || text === "!=" || text === "===" || text === "!==") {
-  return 10;
-}
-if (text === "&") {
-  return 9;
-}
-if (text === "^") {
-  return 8;
-}
-if (text === "|") {
-  return 7;
-}
-if (text === "&&") {
-  return 6;
-}
-if (text === "||") {
-  return 5;
-}
-if (text === "??") {
-  return 4;
-}
-return -1;
+return OperatorTable.Precedence(text);
 ```
 
 ## method IsRightAssociative:(text:string)=>bool
 
 ```ts
-return text === "**";
+return OperatorTable.IsRightAssociative(text);
 ```
 
 ## method IsAssignmentText:(text:string)=>bool
