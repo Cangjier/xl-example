@@ -867,8 +867,44 @@ if (isExportVariable) {
   statement.Data.unshift(exportKeyword);
   exportKeyword.Parent = statement;
   (statement as ShapeToken).Pos = pos;
-  host.Data.splice(start, at - start + 1, statement);
+  // **只吃掉本条语句实际覆盖的槽位**，不是整段：`export const x = a as T` ⏎ `(b);` /
+  // `export const a = 1;export const b = 2;` 里后面那条语句与这一段在同一片 raw 区间
+  // （item 表建不出 `export const …`，整段走 raw 回退到这里），原来
+  // `splice(start, at - start + 1, statement)` 会把后面那条语句一起吞掉。
+  // 消费量与 `BuildStatementSegments` 同一口径：按语句右边界 `SourceRange.EndIndex`（半开终点）
+  // 数 Data 槽位，不用 `builder.At`。
+  const statementEnd:number = statement.SourceRange.EndIndex;
+  let consumed = 0;
+  if (statementEnd < 0) {
+    consumed = at - start + 1;
+  } else {
+    while (start + consumed <= at) {
+      const unitStart = host.Data[start + consumed].SourceRange.Start;
+      if (unitStart >= 0 && unitStart >= statementEnd) {
+        break;
+      }
+      consumed++;
+    }
+  }
+  if (consumed <= 0) {
+    consumed = at - start + 1;
+  }
+  host.Data.splice(start, consumed, statement);
   statement.Parent = host;
+  // 后面还有代码单元（同一片 raw 里的下一条语句）：按尾巴的正常口径继续收口——
+  // 先当声明建（`export const b = 2;` 仍是 `isExportVariable`），建不出来再按语句分段。
+  const restLimit = at - (consumed - 1);
+  let restNext = start + 1;
+  while (restNext <= restLimit
+    && (host.Data[restNext].IsTriviaToken || !host.Data[restNext].IsBasicToken)) {
+    restNext++;
+  }
+  if (restNext > restLimit) {
+    return true;
+  }
+  if (!SourceFileTailBuilder.BuildTrailingDeclaration(host, restNext, restLimit, context)) {
+    SourceFileTailBuilder.BuildStatementSegments(host, restNext, restLimit, context);
+  }
   return true;
 }
 // `export class C {…}` / `export interface I {…}` / `export [declare] namespace N {…}`

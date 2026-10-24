@@ -595,8 +595,11 @@ try {
     return ImportDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 2) {
-    // 本波实测：`ExportDeclarationShape.BuildDirect` 与 `FromUnits` 不等价（全量切换后红 254 条），
-    // 所以 kind 2 仍走旧口径。类 2（`export const …` ⏎ `(b);`）的残余由 `Analyze` 的换行收口负责。
+    // 本波实测：`ExportDeclarationShape.BuildDirect` 与 `FromUnits` 不等价（全量切换后红 254 条，
+    // 「FromUnits 失败再退 BuildDirect」的兜底也红 88 条、6167→6020），所以 kind 2 仍走旧口径。
+    // `export const …` 这类带声明词的 export 在 item 表里建不出来（`FromUnits` 抛），整段落进
+    // raw 回退，由 `source-file-tail-builder` 的 `isExportVariable` 分支建——**类 A/B 的收口点在
+    // 那里**（该分支原来把整段 splice 成一条语句，后面的语句整体丢失）。
     return ExportDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 3) {
