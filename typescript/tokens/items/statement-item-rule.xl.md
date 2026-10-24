@@ -39,6 +39,15 @@ import { StatementItemScan } from "./statement-item-scan.xl.md"
 
 本族唯一的 kind 号（`ItemRule.Classify` 的返回值）。
 
+## field Scan:StatementItemScan | null = null
+
+**驻留**扫描状态（阶段 2）：`Analyze` 每吃一个 unit 调一次，`StatementItemScan` 的
+`ScannedTo` / `LastState` 必须跨调用活着，否则每条 item 都要重扫前缀（O(L²)）。
+
+一条 item 结束时引擎把 `ItemScanState` 复位（`Code = []`），下一条 item 的第一个 unit 一定是
+`Code.length === 1`——所以「`Code.length <= 1` 就用新实例」是**每 item 一把**的判据，不需要
+比较宿主下标（那些下标在 splice 之后会重排）。
+
 ## method Classify:(code:Array<Token>)=>Array<int>
 
 首单元判型。`AtEof` 故意置 `false`：判型只看「这个头是不是本族的」，
@@ -59,8 +68,9 @@ return [StatementItemRule.Statement];
 
 ## method Extend:(state:ItemScanState, units:Array<Token>, tokenIndex:int)=>void
 
-不需要族内增量状态：`Run` 每次在前缀上重算（`Watermark` 命中也只是复用结果），
-`state.Checked` / `state.Code` / `state.CodeAt` 由引擎维护，本方法不改任何已算过的结论。
+不需要族内增量状态：增量全部由 `StatementItemScan` 自己带着（`ScannedTo` / `LastState`，
+见 `statement-item-scan.xl.md`），`state.Checked` / `state.Code` / `state.CodeAt` 由引擎维护，
+本方法不改任何已算过的结论。
 
 ```ts
 if (units.length === 0) {
@@ -77,10 +87,17 @@ if (unit === null) {
 收口判定：把 `Run(state.Code)` 的 `Status/End` 翻译成 `ItemScanState.Complete/End`（宿主下标）。
 `Mismatch` 不置 `Complete`：整条留 raw（引擎在硬边界处 `Flush` → `RawFallback`）。
 
+`Scan` 是**驻留**的（每条 item 一个）：引擎每吃一个 unit 就调一次本方法，把同一个实例续着用，
+`Run` 才能只判新增的那一格。判据一个字没变——续扫点只影响「从哪一格起步」。
+
 ```ts
 state.Complete = false;
 state.End = -1;
-const scan = new StatementItemScan();
+let scan = this.Scan;
+if (scan === null || state.Code.length <= 1) {
+  scan = new StatementItemScan();
+  this.Scan = scan;
+}
 scan.AtEof = state.AtEof;
 const result = scan.Run(state.Code);
 if (result.Status !== 1) {

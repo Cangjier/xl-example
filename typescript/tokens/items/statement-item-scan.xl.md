@@ -11,16 +11,19 @@ import { StatementScanResult, StatementScanner } from "../statements/statement-s
 
 语句族 item 的扫描状态机（WP-2）。
 
-**阶段 1（本文件当前实现）**：状态机把「一条语句从起点到哪一格收口」表达成一条**显式状态**，
+**阶段 2（本文件当前实现）**：状态机把「一条语句从起点到哪一格收口」表达成一条**显式状态**，
 每个状态对应 `StatementScanner` 的一族判据（组号见表），`Run` 在**当前代码前缀**上调用那一族的
 **同一个** `Scan*` 方法——判据仍然只有一份实现（在 `StatementScanner` 里），状态机只负责
 「用哪一族、从哪里起步、收口点怎么映射回宿主下标」。
 
+与阶段 1 的唯一区别是**起步下标**：阶段 1 每次都从族的入口重扫整个前缀（每条 item O(前缀长度)，
+一条长 item 累计 O(L²)）；阶段 2 保存 `LastState` + `ScannedTo`，把上一次「逐格判到哪」交回
+scanner 的 `startAt`（续扫点），所以每个新 unit 只推进一次，整条 item 是 O(L)。
+
 为什么不让状态机自己重写 `Scan*` 的判据：`ScanRoot` 的头分派里 `declare` / `const enum` /
 `let [a] = b` / `using x` / `await using` 这些分支的**同一个头**会落到标签或表达式体，
 判据依赖 `NextWord` / `NextChar` / `AtEOF`；在状态机里复制一份，等于第二套判据（INV-2 与本包禁令）。
-因此阶段 1 用「状态号 = 族 + 入口下标」，族内判据单点调用；**逐 unit 直译（O(1)/unit）留给下一包**，
-本节末尾写明接法。
+阶段 2 没有复制任何判据：续扫走的是同一个函数，只是把循环的起步下标前移。
 
 状态号与前任交接 `impl-wp2/HANDOFF.wp2.md` 的 13 组映射表一一对应：
 
@@ -49,18 +52,29 @@ import { StatementScanResult, StatementScanner } from "../statements/statement-s
 | 20 | FinallyHead | `ScanFinally` 内部 | 保留 |
 | 21 | Done | 已收口 | — |
 
-`保留` 的状态号已经分配但阶段 1 不单独进入：`if` 体 / `do` 体 / `try` 体内层由 `ScanIf` /
+`保留` 的状态号已经分配但状态机不单独进入：`if` 体 / `do` 体 / `try` 体内层由 `ScanIf` /
 `ScanDo` / `ScanTry` 自己递归推进（同一次调用里完成），状态机只在**根/块内一条语句**这一层收口。
-逐 unit 直译时这些状态才成为真正的驻留点（见本文末「下一包接法」）。
+这些内层段的续扫点由 scanner 自己逐层传下来（`ScanBody` / `ScanIf` 把 `startAt` 交给体），
+所以状态机只需要**一个** `ScannedTo`：它在任何一个时刻都指「上一次判定结束时、本 item 里
+最后一个被逐格判过的下标」。
 
 # class StatementItemScan
 
-一条语句的扫描状态：`State` 是显式状态号，`Watermark` 是上次判定时的代码前缀长度（前缀没变就直接复用
-`Result`，不重算），`PendingEnd` 是「已判定收口」时的 `Code` 下标（还没映射到宿主），`AtEof` 从
+一条语句的扫描状态：`State` 是显式状态号，`ScannedTo` 是**续扫点**（上一次判定逐格判到 `Code` 的哪一格），
+`LastState` 是上一次判定用的状态号（状态换了就不能续扫——新状态的入口在旧进度之前），
+`PendingEnd` 是「已判定收口」时的 `Code` 下标（还没映射到宿主），`AtEof` 从
 `ItemScanState.AtEof` 抄进来（G0：文档级事实）。
 
 `Run` 只读 `code`（当前 item 的代码前缀）与 `AtEof`，不碰宿主、不建 AST、不改任何全局状态
 （`StatementScanner.AtEOF` 保存-恢复）。
+
+**续扫的正确性**（本文件的关键约定）：`StatementScanner` 的纯向前循环逐格结论只依赖
+`code[0..at]`，而前缀只追加，所以「已经判过的格子」再判一次结论不变——不判等价于判。
+需要跨格回看的判据（`ScanIf` 等 `else`、`ScanDo` 等 `while` 头）在「体已收口、只等下一格」时
+返回 `Resume = -1`，状态机于是丢掉续扫点、下一次从族的入口重来（那时前缀很短，代价 O(1)）。
+
+**状态换了必须重来**：`LastState !== State` 时 `ScannedTo` 不可用（旧进度的下标在新族里没有意义），
+所以 `Run` 只在 `State === LastState` 时才把 `ScannedTo` 交出去。
 
 ## static field StateBegin:int = 0
 
@@ -156,8 +170,20 @@ finally 体（保留）。
 
 ## field Watermark:int = -1
 
-上次判定时的代码前缀长度。同一个前缀重复 `Analyze` 时直接返回 `Result`（lookahead 判定可重算，
-但只在文档真的变了时才重算）。
+上一次判定时的代码前缀长度。**只作观测**（调试 / 断言用），不参与判据：
+`AtEof` 会在前缀长度不变时翻成 `true`（G5：批末无新 unit 也要再判一次），
+那时结论会变（「文件末尾无分号的语句」要在这一格收口），拿前缀长度当缓存键会漏掉这一次。
+
+## field ScannedTo:int = -1
+
+续扫点：本 item 已被逐格判过的最后一个 `Code` 下标 + 1（`-1` = 没有可续扫的进度）。
+只在 `State === LastState` 时交给 scanner 的 `startAt`，并且**单调不减**（scanner 给的
+`Resume` 比它小就整段丢弃，回到入口重扫）。
+
+## field LastState:int = -1
+
+上一次判定用的状态号。与当前 `State` 不同 → 丢 `ScannedTo`（新状态的入口在旧进度之前，
+旧下标在新族里没有意义）。
 
 ## field State:int = 0
 
@@ -165,7 +191,7 @@ finally 体（保留）。
 
 ## field Entry:int = 0
 
-当前族在 `code` 里的入口下标（`Scan*` 的 `at` 参数）。阶段 1 的族入口都是 0（`break` / `continue` /
+当前族在 `code` 里的入口下标（`Scan*` 的 `at` 参数）。阶段 2 的族入口都是 0（`break` / `continue` /
 `debugger` 的扫描从 1 开始，由状态机内部固定）。
 
 ## field PendingEnd:int = -1
@@ -179,7 +205,8 @@ finally 体（保留）。
 
 ## method Run:(code:Array<Token>)=>StatementScanResult
 
-在当前代码前缀上判定一次。前缀长度与上次相同 → 复用；否则按状态号选族、调用该族**同一个** `Scan*`。
+在当前代码前缀上判定一次：状态没变就带着 `ScannedTo` 续扫（每格只判一次），
+状态变了就从头扫（判据不变，只是重新起步）。
 
 **`AtEof` 的收窄（本文件的关键约定）**：`ItemScanState.AtEof` 是**文档级**事实（G0），而
 `StatementScanner` 的 EOF 规则假设「本层已经没有后续内容」（旧路径里那个 `AtEOF` 是根级候选算出来的）。
@@ -188,21 +215,30 @@ finally 体（保留）。
 「文档到末尾 **且** 本 item 的最后一个代码单元就是容器的最后一个非 trivia 单元」（`AtContainerEnd`）。
 收窄只可能把 `true` 变 `false`，所以「逐前缀 AtEof=(n===N)」的 oracle 对拍口径不变（n<N 时本来就是 false）。
 
+续扫与 `AtEof` 是正交的：`Scan*` 的逐格判据里没有任何一处读 `AtEOF`（EOF 只在**循环之后的收尾分支**
+与**头分派**里用），所以「续扫点之后」的格子与「从头扫」完全同结论；`AtEof` 翻真时即使没有新 unit，
+`Run` 也照样进一次 scanner（循环空转、收尾分支生效），G5 的「批末再判一次」因此仍然成立。
+
 ```ts
-if (this.Watermark === code.length && this.Result.Status !== 0) {
-  return this.Result;
-}
+const resume = this.State === this.LastState ? this.ScannedTo : -1;
 const previous = StatementScanner.AtEOF;
 StatementScanner.AtEOF = this.AtEof && StatementItemScan.AtContainerEnd(code);
-this.Watermark = code.length;
-const result = this.Decide(code);
+const result = this.Decide(code, resume);
 StatementScanner.AtEOF = previous;
 this.Result = result;
+this.Watermark = code.length;
+this.LastState = this.State;
 if (result.Status === 1) {
   this.PendingEnd = result.End;
   this.State = StatementItemScan.Done;
+  this.ScannedTo = -1;
+  return result;
+}
+this.PendingEnd = -1;
+if (result.Status === 0 && result.Resume >= 0 && result.Resume >= this.ScannedTo) {
+  this.ScannedTo = result.Resume;
 } else {
-  this.PendingEnd = -1;
+  this.ScannedTo = -1;
 }
 return result;
 ```
@@ -238,13 +274,16 @@ for (let at = data.length - 1; at >= 0; at--) {
 return true;
 ```
 
-## method Decide:(code:Array<Token>)=>StatementScanResult
+## method Decide:(code:Array<Token>, resume:int)=>StatementScanResult
 
-按首单元选族。**只在本文件的头分派与 `ScanRoot` 逐字一致时才走显式族**（块 / 空语句 / `if` /
-`while` / `switch` / `with` / `for` / `try` / `do` / `return` / `throw` / `break` / `continue` /
-`debugger`——这些分支在 `ScanRoot` 里是**独占**的，不会落到标签或表达式体）；
+按首单元选族，把续扫点 `resume` 交给该族。**只在本文件的头分派与 `ScanRoot` 逐字一致时才走显式族**
+（块 / 空语句 / `if` / `while` / `switch` / `with` / `for` / `try` / `do` / `return` / `throw` /
+`break` / `continue` / `debugger`——这些分支在 `ScanRoot` 里是**独占**的，不会落到标签或表达式体）；
 其余头（`declare` / `const` / `var` / `let` / `using` / `await` / 标签 / 标识符起头）整条交回
 `ScanRoot`，因为它们的判据本身依赖 lookahead 与 `AtEof`，复制就会分叉。
+
+分派本身每次都要重做（头的判据依赖 `code[0]` 与后一格，O(1)）：前缀变长后同一个头可能换族
+（`let` 从「还要等」变成变量声明或标签），所以「状态没变」是续扫的前提，而不是「头没变」。
 
 ```ts
 this.State = StatementItemScan.Head;
@@ -269,27 +308,27 @@ if (first instanceof Common) {
   const text = (first as Common).TempToString();
   if (text === "if") {
     this.State = StatementItemScan.IfHead;
-    return StatementScanner.ScanIf(code, 0);
+    return StatementScanner.ScanIf(code, 0, resume);
   }
   if (text === "while" || text === "switch" || text === "with") {
     this.State = StatementItemScan.LoopHead;
-    return StatementScanner.ScanLoop(code, 0);
+    return StatementScanner.ScanLoop(code, 0, resume);
   }
   if (text === "for") {
     this.State = StatementItemScan.ForHead;
-    return StatementScanner.ScanFor(code, 0);
+    return StatementScanner.ScanFor(code, 0, resume);
   }
   if (text === "try") {
     this.State = StatementItemScan.TryBlock;
-    return StatementScanner.ScanTry(code, 0);
+    return StatementScanner.ScanTry(code, 0, resume);
   }
   if (text === "do") {
     this.State = StatementItemScan.DoBody;
-    return StatementScanner.ScanDo(code, 0);
+    return StatementScanner.ScanDo(code, 0, resume);
   }
   if (text === "return" || text === "throw") {
     this.State = StatementItemScan.ReturnThrow;
-    return StatementScanner.ScanReturnOrThrow(code, 0);
+    return StatementScanner.ScanReturnOrThrow(code, 0, resume);
   }
   if (text === "break" || text === "continue") {
     this.State = StatementItemScan.BreakContinue;
@@ -300,7 +339,7 @@ if (first instanceof Common) {
     return StatementScanner.ScanSimpleSemicolon(code, 1);
   }
 }
-return StatementScanner.ScanRoot(code);
+return StatementScanner.ScanRoot(code, resume);
 ```
 
 ## static method BasePos:(host:Token, start:int)=>int
