@@ -249,6 +249,41 @@ for (const testCase of CASES) {
 StatementBlockStream.Hook = originalHook;
 StatementItemRule.prototype.Build = originalBuild;
 
+// ---------------------------------------------------------------------------
+// 第五段断言：**流式路径 == 闭合后批处理路径 == legacy**，整棵树 XML 逐字节一致。
+//
+// 这是 `batch-split` 的 stream 族想说的那件事的更强形式：同一份语料
+//   a) Enabled=true  —— 块在 `{` 创建时就挂宿主，item 在解析期建出（真流式）；
+//   b) Enabled=false —— 同一个 `BuildBlock` 走 `DriveBodyItems`（闭合后批处理，WP-2-4 的兜底）；
+// 两条路径的根 XML 必须逐字节相同。切点不再由测试手工给：真实解析里的每一格都是切点。
+// ---------------------------------------------------------------------------
+console.log("\n## stream-vs-batch 等价性（同一语料、两条驱动路径、整树 XML 逐字节）");
+for (const testCase of CASES) {
+  let streamed = "";
+  let batch = "";
+  StatementBlockStream.Enabled = true;
+  try {
+    streamed = SourceFileRunner.Parse(testCase.source, `${testCase.name}-stream.ts`).ToXmlString();
+  } catch (e) {
+    check(false, `${testCase.name}: 流式路径解析成功`, String(e && e.message ? e.message : e));
+    continue;
+  }
+  StatementBlockStream.Enabled = false;
+  try {
+    batch = SourceFileRunner.Parse(testCase.source, `${testCase.name}-batch.ts`).ToXmlString();
+  } catch (e) {
+    check(false, `${testCase.name}: 批处理路径解析成功`, String(e && e.message ? e.message : e));
+    StatementBlockStream.Enabled = true;
+    continue;
+  }
+  StatementBlockStream.Enabled = true;
+  check(
+    streamed === batch,
+    `${testCase.name}: 流式 == 闭合后批处理（XML 逐字节）`,
+    `stream=${streamed.length}B batch=${batch.length}B`,
+  );
+}
+
 console.log(`\nPASS ${pass} / FAIL ${fail}（${CASES.length} 段语料）`);
 if (fail > 0) {
   console.log("失败项：");
