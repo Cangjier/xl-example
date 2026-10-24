@@ -1,6 +1,8 @@
 # dependencies
 ```xl
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -33,6 +35,7 @@ import { ReturnStatementPossibleShape } from "../statements/return-statement-pos
 import { RootExpressionStatementPossibleShape } from "../statements/root-expression-statement-possible-shape.xl.md"
 import { SourceFileEndPossibleShape } from "./source-file-end-possible-shape.xl.md"
 import { StatementPossibleShape } from "../statements/statement-possible-shape.xl.md"
+import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
 import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
 import { TryStatementPossibleShape } from "../statements/try-statement-possible-shape.xl.md"
@@ -90,6 +93,22 @@ this.Data = this.Data.filter((item) => !item.IsTriviaToken && !(item instanceof 
 return CloseStates.Nothing;
 ```
 
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+块体目录的**建壳时机**（Stage 4b，只在 `EnableBlockBodyCatalog` 打开时生效）：括号创建不触发父目录判定，
+所以块壳默认要到 `}` 关闭时才建出来，块体目录再挂也没有格子可判。这里在 `{` 刚 `SignIn` 之后把根目录
+判一格，块壳「在 `{` 就建」、块体目录随即挂上（`BlockPossibleShape.BuildByIndex` 里 MountBodyGuide）。
+默认开关 false 时本方法**什么都不做**，逐位保持既有行为。
+
+```ts
+if (StatementRouteUtil.EnableShellExpressions
+  && StatementRouteUtil.EnableBlockBodyCatalog
+  && bracket instanceof Bracket
+  && (bracket as Bracket).StartBracketChar === "{") {
+  this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
+}
+```
 
 ## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
