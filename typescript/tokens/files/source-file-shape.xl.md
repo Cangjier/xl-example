@@ -9,7 +9,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
+import { BlockBodyChildBracketHook, BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { BreakStatementPossibleShape } from "../statements/break-statement-possible-shape.xl.md"
 import { ClassDeclarationPossibleShape } from "../declarations/class-declaration-possible-shape.xl.md"
 import { ContinueStatementPossibleShape } from "../statements/continue-statement-possible-shape.xl.md"
@@ -121,6 +121,10 @@ return CloseStates.Nothing;
 
 ```ts
 if (StatementRouteUtil.EnableShellExpressions && StatementRouteUtil.EnableBlockBodyCatalog) {
+  // 装一次括号宿主监听：类体里的方法 / 构造器体括号由 `Bracket.OnBracketCreatedEvent` 转调回来。
+  if (Bracket.ChildBracketCreatedHook === null) {
+    Bracket.ChildBracketCreatedHook = new BlockBodyChildBracketHook();
+  }
   BlockPossibleShape.TryMountFunctionBody(this, bracket, context);
 }
 if (StatementRouteUtil.EnableShellExpressions
