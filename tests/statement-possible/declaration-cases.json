@@ -1,0 +1,23 @@
+[
+  { "name": "let-empty", "source": "let x;", "takeover": true, "declarations": 1, "note": "最小声明，分号收口" },
+  { "name": "let-init", "source": "let x = 1;", "takeover": true, "declarations": 1, "note": "声明级：名字 + 初始化器" },
+  { "name": "const-binary", "source": "const y = a + b;", "takeover": true, "declarations": 1, "note": "初始化器是二元表达式" },
+  { "name": "var-empty", "source": "var z;", "takeover": true, "declarations": 1, "note": "var 同一条列表级判据" },
+  { "name": "let-two", "source": "let a = 1, b = 2;", "takeover": true, "declarations": 2, "note": "列表级：顶层 , 切两条" },
+  { "name": "const-two", "source": "const x = 1, y = 2;", "takeover": true, "declarations": 2, "note": "const 多声明" },
+  { "name": "let-annotation", "source": "let a: T = 1;", "takeover": true, "declarations": 1, "note": "声明级：类型注解后再接 =" },
+  { "name": "let-generic-annotation", "source": "let a: Map<string, number> = new Map();", "takeover": true, "declarations": 1, "note": "类型里的 , 由 <> 深度挡掉，不算下一条声明" },
+  { "name": "let-asi", "source": "let a = 1\nlet b = 2", "takeover": true, "declarations": 2, "note": "ASI：两条语句，各自一次接管，无分号收口" },
+  { "name": "const-arrow-eof", "source": "const f = () => {}", "takeover": true, "declarations": 1, "note": "无分号 EOF 尾巴" },
+  { "name": "let-in-block", "source": "function f() { let x = 1; }", "takeover": true, "declarations": 1, "note": "块内 let 走同一条语句级接管" },
+  { "name": "const-destructure-object", "source": "const {a} = o;", "takeover": true, "declarations": 1, "note": "解构绑定（{…} 是一个 Bracket 单元）" },
+  { "name": "const-destructure-array", "source": "const [a] = x;", "takeover": true, "declarations": 1, "note": "数组解构：括号内的 , 不切条目" },
+  { "name": "let-destructure-array", "source": "let [a, b] = xs;", "takeover": true, "declarations": 1, "note": "数组解构多名字" },
+  { "name": "let-multi-statement", "source": "let a = 1; let b = 2; console.log(a + b);", "takeover": true, "declarations": 2, "note": "多语句混排，只有变量语句被接管" },
+  { "name": "for-head-let", "source": "for (let i = 0; i < 3; i++) {}", "takeover": false, "declarations": 0, "note": "for 头里的 let 不由语句级接管（legacy）" },
+  { "name": "let-label", "source": "let: foo;", "takeover": false, "declarations": 0, "note": "let 作标签：标签壳，StartsBinding=false → 安全回退" },
+  { "name": "declare-const", "source": "declare const x: number;", "takeover": false, "declarations": 0, "note": "declare 修饰由 legacy 负责" },
+  { "name": "export-const", "source": "export const q = 1;", "takeover": false, "declarations": 0, "note": "export 修饰由 legacy 负责" },
+  { "name": "using-declaration", "source": "using x = f();", "takeover": false, "declarations": 0, "note": "using 不在本层接管范围" },
+  { "name": "let-as-identifier", "source": "let = 1;", "takeover": false, "declarations": 0, "knownTsDiff": true, "note": "let 作标识符：不是声明，回退表达式语句" }
+]

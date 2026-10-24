@@ -15,6 +15,7 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
+import { VariableStatementThreeLayer } from "./variable-statement-three-layer.xl.md"
 ```
 
 # namespace cangjie
@@ -140,6 +141,13 @@ if (shell.Kind === StatementRoute.ShellPlainExpression && shell.OperatorBody !==
   } catch {
     built = null;
   }
+}
+if (built === null && (shell.Kind === StatementRoute.ShellVariable || shell.Kind === 0)) {
+  // Stage 5c：三层 possible（列表级 / 声明级只判型，语句级复用同一建造器）先决定这一条是不是
+  // `let` / `const` / `var` 声明列表。不成立时 `TryBuild` 返回 null 且零副作用，下面逐字节走基线；
+  // 成立时它执行的仍是同一句 `builder.BuildStatement()`（同一 `builder`、同一 `consumed`、同一
+  // `shell.Pos`），因此接管不改变任何节点 / Pos / End——AST 相等由构造保证，不是靠测试兜住。
+  built = VariableStatementThreeLayer.TryBuild(builder, consumed);
 }
 if (built === null) {
   built = builder.BuildStatement();
