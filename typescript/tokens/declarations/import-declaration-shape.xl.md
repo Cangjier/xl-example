@@ -1,12 +1,10 @@
 # dependencies
 ```xl
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -18,14 +16,11 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
-import { ImportAttributesPossibleShape } from "./import-attributes-possible-shape.xl.md"
-import { ImportDeclarationEndPossibleShape } from "./import-declaration-end-possible-shape.xl.md"
 import { ImportClausePossibleShape } from "./import-clause-possible-shape.xl.md"
 import { ImportClauseShape } from "./import-clause-shape.xl.md"
 import { NamedImportsShape } from "./named-imports-shape.xl.md"
 import { NamespaceImportShape } from "./namespace-import-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
-import { StringLiteralPossibleShape } from "../literals/string-literal-possible-shape.xl.md"
 import { DeclarationSpan } from "../items/module-item-rule.xl.md"
 ```
 
@@ -59,7 +54,6 @@ import a from "m" with { type: "json" };
 
 ```ts
 super(template);
-this.CatalogGuide = new CatalogGuide(ImportDeclarationShape.CreatePossibleShapes(), new ImportDeclarationEndPossibleShape());
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
@@ -90,21 +84,6 @@ if (mounted) {
   }
 }
 return super.TryToClose(context);
-```
-
-## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
-
-## static method CreatePossibleShapes:()=>Array<PossibleShape>
-
-```ts
-if (ImportDeclarationShape.CreatePossibleShapesCache === null) {
-  ImportDeclarationShape.CreatePossibleShapesCache = [
-    new ImportClausePossibleShape(),
-    new StringLiteralPossibleShape(),
-    new ImportAttributesPossibleShape(),
-  ];
-}
-return ImportDeclarationShape.CreatePossibleShapesCache;
 ```
 
 ## static method FromUnits:(host:Token, start:int, end:int, context:SyntaxContext)=>ImportDeclarationShape
