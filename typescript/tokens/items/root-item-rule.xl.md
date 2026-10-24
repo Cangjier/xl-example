@@ -280,6 +280,18 @@ while (at < code.length) {
           }
         }
       }
+      // 换行处的调用位续接（D 类 #290 / #184）：`const x = a` ⏎ `(b)` 在 TS 里是**一条**
+      // VariableStatement（`a(b)` 是 CallExpression，换行处没有 ASI）；`const f = () => 1` ⏎ `(y)` 同理
+      // （箭头体是 `1`，`1(y)` 是调用）。这两条之所以在这里 `Alive` 全灭，是因为变量语句的收口扫描
+      // `ScanToSemicolon` 在 EOF 尾巴上「有换行、下一格却是调用位」时给不出结论（`stopAtEof` 走 Mismatch）。
+      // 此时**不能**按 ① 收口到上一格：那样 `(b)` 会被留成下一条 item，另起一条 ExpressionStatement
+      // （实测 `VariableStatement[0,11] + ExpressionStatement[11,15]`）。判据与
+      // `StatementScanner.EndsAtLineBreak` 的调用位分支同一份，不另写一套：
+      // 有换行 + 下一格是调用位（`(` / `[` / 反引号）+ 上一格**可**当调用者 ⇒ 不是 ASI 边界，并进本条。
+      const continuesCall: boolean = at > 0
+        && StatementScanner.IsCallishUnit(code[at])
+        && !StatementScanner.NoLineBreakBetween(code[at - 1], code[at])
+        && !StatementScanner.EndsAtLineBreak(code, at - 1, at);
       // ① 先按「不含这一格」建：这一格通常是下一条语句的开头（ASI 边界），不属于本条 item。
       if (at > 0) {
         const beforeEnd: number = state.CodeAt[at - 1];
@@ -295,7 +307,7 @@ while (at < code.length) {
             && RootItemRule.HasTailNew(before, beforeShapeEnd)
             && code[at] instanceof Bracket
             && (code[at] as Bracket).StartBracketChar === "(";
-          if (coversBefore && !tailEmptyArgs) {
+          if (coversBefore && !tailEmptyArgs && !continuesCall) {
             state.Complete = true;
             state.End = beforeEnd;
             this.Pending = before;
