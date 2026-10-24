@@ -51,12 +51,22 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 本宿主挂载的批次消费者：`ItemListEngine`（新引擎）或 `LegacyBatchAdapter`（旧目录）二选一。
 `null` 表示本宿主未迁移；`BatchMode=0` 时全部宿主都是 `null`。
 
+## private field BatchGated:bool = false
+
+本批的 flush 时机是否**由 `BatchPolicy` 决定**（即适配器给了非 `null` 的策略）。
+
+为 `true` 时 `OnBasicTokenClosed` 只在 `ShouldFlush` 为真时才把批次交出去，未 flush 的 token 只推进
+`batch.To` / `batch.AtEof`；`FlushBatch`（硬边界）负责先把尚未交出去的尾巴喂一遍再收口。
+为 `false`（策略为 `null` 的宿主，如枚举体）时逐字保持改动前的「每个 basic token 关闭就交一批」。
+
 ## method OnBasicTokenClosed:(token:Token, context:SyntaxContext)=>CloseStates
 
 basic token 关闭的唯一回调入口（11 个 basic 单元都调它，不再各自问目录）。
 
 - `BatchMode=0` 或未挂适配器 → 逐字走 `Token.OnBasicTokenClosed` 的 legacy 实现；
-- 否则入批，由适配器消费；`Done`/`Reload` 时清批，`Reload` 映射成 `CloseStates.Built`。
+- 挂了适配器且有 `BatchPolicy` → 只入批，**软边界为真才**把批交给适配器（否则只推进批尾，不 `Recompute`、
+  不 `Feed`）；`Done`/`Reload` 时清批，`Reload` 映射成 `CloseStates.Built`；
+- 挂了适配器但策略是 `null` → 每个 token 关闭就交一批（改动前的路径，逐字不变）。
 
 ```ts
 if (context.BatchMode === 0 || this.BatchAdapter === null) {
@@ -76,6 +86,13 @@ if (batch === null) {
 batch.To = last + 1;
 batch.AtEof = this.IsAtEof();
 batch.Sealed = false;
+const policy = this.BatchAdapter.BatchPolicy;
+if (policy !== null) {
+  this.BatchGated = true;
+  if (!policy.ShouldFlush(this, batch, token)) {
+    return CloseStates.Nothing;
+  }
+}
 batch.Recompute();
 const state = this.BatchAdapter.OnBasicTokens(batch, context);
 if (state === BatchStates.Done || state === BatchStates.Reload) {
@@ -89,13 +106,23 @@ return CloseStates.Nothing;
 
 ## method FlushBatch:(context:SyntaxContext)=>BatchStates
 
-硬边界 flush：把尚未收口的批次交给适配器，然后清批。
+硬边界 flush：先把「软边界策略攒下来的尾巴」交出去，再封批、把尚未收口的批次交给适配器，然后清批。
+
+**这一步是软边界的配平**：`OnBasicTokenClosed` 攒了多少没交出去的 token，这里一次性喂进去
+（`Feed` 自己消费 `[Cursor, To)` 的全部 unit），所以「攒批」不改变 item 的最终结论，只改变它被建出的时刻。
+未开软边界的宿主（策略 `null`）在每次关闭时已经喂完（`Cursor === To`），这里什么都不做。
 
 ```ts
 const batch = this.BatchSink;
 if (batch === null || this.BatchAdapter === null) {
   this.ClearBatch();
   return BatchStates.Done;
+}
+batch.To = this.Data.length;
+batch.AtEof = this.IsAtEof();
+if (this.BatchGated && batch.Cursor < batch.To) {
+  batch.Recompute();
+  this.BatchAdapter.OnBasicTokens(batch, context);
 }
 batch.Sealed = true;
 batch.To = this.Data.length;
@@ -112,6 +139,7 @@ return state;
 ```ts
 this.BatchFrom = -1;
 this.BatchSink = null;
+this.BatchGated = false;
 ```
 
 ## private method AdvanceBatch:(batch:BasicTokenBatch)=>void
