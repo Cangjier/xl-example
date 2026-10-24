@@ -2,6 +2,7 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -66,6 +67,22 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const name = this.Slot();
 const itemStart = ItemUtil.ItemStart(units);
+// 显式分流（可行性原型 A）：根层 `let` / `const` / `var` 声明由 `VariableStatementPossibleShape` 接管
+// （它在关键字格后建 `StatementShape` 壳，由壳自己的终结候选在 `;` / ASI 处收口）。本候选对这些起点主动
+// `Reject`，不靠「谁先 Accept」——两边同时 Accept 会让 `CatalogGuide` 永远等不到唯一候选（AST 不变，但
+// 语句永远建不出来）。判据只认「关键字 + 下一格能起绑定」，与 `StatementScanner.StartsBinding` 同源。
+if (itemStart < units.length) {
+  const headAt = ItemUtil.NextCode(units, itemStart);
+  if (headAt < units.length && units[headAt] instanceof Common) {
+    const headText = (units[headAt] as Common).TempToString();
+    if (headText === "let" || headText === "const" || headText === "var") {
+      const bindingAt = ItemUtil.NextCode(units, headAt + 1);
+      if (bindingAt < units.length && StatementScanner.StartsBinding(units, bindingAt)) {
+        return ShapeStates.Reject;
+      }
+    }
+  }
+}
 let state = cache.GetState<StatementScan>(name);
 if (state === null || state.Start !== itemStart) {
   state = new StatementScan();
