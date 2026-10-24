@@ -827,11 +827,9 @@ if (head === "import") {
   return 1;
 }
 if (head === "class") {
-  // `class<T> {}`：TS 里 `class` 后**紧跟 `<`** 不是 ClassDeclaration（没有名字），而是
-  // ClassExpression 语句（`<T>` 是类型参数前导）→ 交给 `StatementBuilder`。
-  if (this.IsSymbolAt(code, at + 1, "<")) {
-    return 9;
-  }
+  // `class<T> {}` / `class<T> extends B {}`：TS 建的是**无名字的 ClassDeclaration**（`<T>` 是它的
+  // TypeParameters，不是表达式前导），所以 `class` 后紧跟 `<` 仍然走 class 声明族（3）。
+  // 无名头的接受在 `ClassDeclarationShape.BuildFromCode` 的 `anonymousHead` 里（#14/#15）。
   return 3;
 }
 if (head === "interface") {

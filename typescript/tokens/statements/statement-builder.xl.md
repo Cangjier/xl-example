@@ -1303,16 +1303,23 @@ return this.Finish(shape, first, first);
 const first = this.At;
 let last = -1;
 let asiEnd = -1;
-// yield 是受限产生式：`yield` 与操作数之间出现行终止符 ⇒ 本条语句在 `yield` 处收口
-// （`function* g(){ yield⏎(x) }` = `yield;` + `(x);`；块注释里的换行也算）。
+// yield 是受限产生式：只在 **generator 上下文**里 `yield` 才是关键字。TS 的 `isYieldExpression`
+// 判据先看上下文——脚本顶层 / 普通函数里 `yield` 是普通标识符，`yield⏎(1)` 是调用 `yield(1)`
+// （#169/#171/#179），语句层不能按 ASI 在这里切断。上下文判定复用
+// `ExpressionBuilder.EnclosingFunctionFlags`（词法、被函数边界重置），不另写一套判据。
 if (this.IsText(this.Units[first], "yield")) {
-  let afterYield = first + 1;
-  while (afterYield < this.Units.length && this.Units[afterYield].IsTriviaToken) {
-    afterYield++;
-  }
-  if (afterYield < this.Units.length
-    && ExpressionStatementPossibleShape.HasLineBreakBefore(this.Units, afterYield)) {
-    asiEnd = first;
+  const yieldContext = new ExpressionBuilder(this.Template, this.Context);
+  yieldContext.Load(this.Units, 0);
+  const yieldFlags = yieldContext.EnclosingFunctionFlags(first);
+  if (yieldFlags === 1 || yieldFlags === 3) {
+    let afterYield = first + 1;
+    while (afterYield < this.Units.length && this.Units[afterYield].IsTriviaToken) {
+      afterYield++;
+    }
+    if (afterYield < this.Units.length
+      && ExpressionStatementPossibleShape.HasLineBreakBefore(this.Units, afterYield)) {
+      asiEnd = first;
+    }
   }
 }
 if (asiEnd < 0) {

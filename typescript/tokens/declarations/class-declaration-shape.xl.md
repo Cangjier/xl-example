@@ -355,8 +355,16 @@ if (index < code.length && code[index] instanceof Common
   && !(code[index] as Common).Is("extends") && !(code[index] as Common).Is("implements")) {
   nameUnit = code[index];
   index++;
-} else if (!allowAnonymous) {
-  throw new Error("class declaration requires a name");
+} else {
+  // `class<T> {}` / `class<T> extends B {}` / `class {}`：TS 造的是**无名字的 ClassDeclaration**
+  // （名字缺省 + TypeParameters / 直接类体），语句位与块体位都是静默恢复。头是 `<`（Symbol）
+  // 或类体括号时同样接受无名，不再要求 `allowAnonymous`（那条只区分一次性路径与壳收口）。
+  const anonymousHead: boolean = index < code.length
+    && (code[index] instanceof Bracket
+      || (code[index] instanceof Symbol && (code[index] as Symbol).Is("<")));
+  if (!allowAnonymous && !anonymousHead) {
+    throw new Error("class declaration requires a name");
+  }
 }
 if (index >= code.length) {
   throw new Error("class declaration is incomplete");
