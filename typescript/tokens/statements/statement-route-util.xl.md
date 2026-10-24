@@ -336,7 +336,39 @@ if (StatementRouteUtil.EnableShellExpressions) {
     }
     return StatementRoute.Legacy;
   }
-  if (StatementRouteUtil.EnableControlFlowShell && StatementRouteUtil.IsControlFlowHead(text)) {
+  // S3m: statement-start async arrows only. `async function ...` is a declaration and stays legacy.
+  // Return None while the deciding unit has not arrived: Reject is permanent in CatalogGuide.
+  if (text === "async") {
+    const nextAt = ItemUtil.NextCode(units, headAt + 1);
+    if (nextAt >= units.length) {
+      return StatementRoute.None;
+    }
+    const next = units[nextAt];
+    if (next instanceof Common && (next as Common).Is("function")) {
+      return StatementRoute.Legacy;
+    }
+    if (next instanceof Bracket && (next as Bracket).StartBracketChar === "(") {
+      const arrowAt = ItemUtil.NextCode(units, nextAt + 1);
+      if (arrowAt >= units.length) {
+        return StatementRoute.None;
+      }
+      if (units[arrowAt] instanceof Symbol && (units[arrowAt] as Symbol).Is("=>")) {
+        return StatementRoute.ShellPlainExpression;
+      }
+      return StatementRoute.Legacy;
+    }
+    if (next instanceof Common && !(next as Common).CanStartNumber()) {
+      const arrowAt = ItemUtil.NextCode(units, nextAt + 1);
+      if (arrowAt >= units.length) {
+        return StatementRoute.None;
+      }
+      if (units[arrowAt] instanceof Symbol && (units[arrowAt] as Symbol).Is("=>")) {
+        return StatementRoute.ShellPlainExpression;
+      }
+      return StatementRoute.Legacy;
+    }
+    return StatementRoute.Legacy;
+  }  if (StatementRouteUtil.EnableControlFlowShell && StatementRouteUtil.IsControlFlowHead(text)) {
     return StatementRoute.ShellStatementFamily;
   }
   // 标签语句：标识符之后的下一个代码单元是 `:`（`lbl: f();`）。`a ? b : c` 的头是 `a`、下一格是 `?`，

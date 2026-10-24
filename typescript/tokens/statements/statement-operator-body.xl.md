@@ -603,6 +603,18 @@ if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
   this.Expect = StatementOperatorBody.ExpectOperator;
   return;
 }
+  // S3m：`async function …` 的 `function` 出现在操作数 `async` 之后，必须继续走声明操作数，
+  // 不能落到最后的 `Fail`（否则括号内本体不完整，整段退成 `params`，永远接不住 async 函数表达式）。
+  if (text === "function") {
+    const top = this.Top();
+    const last = top.Data.length > 0 ? top.Data[top.Data.length - 1] : null;
+    if (last instanceof StatementOperandShape
+      && (last as StatementOperandShape).Kind === StatementOperandShape.KindIdentifier
+      && (last as StatementOperandShape).Text === "async") {
+      this.StartDeclarationOperand(unit, text, StatementOperandShape.KindFunction, template);
+      return;
+    }
+  }
   if (text === "=>") {
     this.StartArrow(unit, template);
     return;
@@ -653,6 +665,20 @@ if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[") {
   return;
 }
 if (unit instanceof Common && StatementOperatorBody.IsOperandText(text)) {
+  // S3m：`async x => …` 的 `x` 紧跟在 `async` 之后。普通规则会把它当「下一个语句的起点」（`Closed`），
+  // 于是表达式只建出 `async` 一个根、`x => x` 落在壳外。这里只在「前一子单元正是 async 标识符」时
+  // 把它收成第二个操作数；后面真来 `=>` 就由 StartArrow 把 async 摘进参数（否则 AST 收口时多根 Decline，退回 legacy）。
+  const top = this.Top();
+  const last = top.Data.length > 0 ? top.Data[top.Data.length - 1] : null;
+  if (last instanceof StatementOperandShape
+    && (last as StatementOperandShape).Kind === StatementOperandShape.KindIdentifier
+    && (last as StatementOperandShape).Text === "async") {
+    const leaf = this.BuildOperand(unit, template);
+    if (leaf !== null) {
+      this.AttachOperand(leaf);
+      return;
+    }
+  }
   this.Closed = true;
   return;
 }
@@ -1468,7 +1494,19 @@ const shape = new StatementOperandShape(template);
 shape.Kind = kind;
 shape.Text = text;
 shape.Raw = unit;
-this.Top().Add(shape);
+const top = this.Top();
+// S3m：`async function …`（表达式位置）——async 先作为标识符操作数进了 Top()，
+// `function` 到达时把它摘成函数节点的 Data[0]（不进形状树正文，只给 AST 当 AsyncKeyword）。
+if (kind === StatementOperandShape.KindFunction && top.Data.length >= 1) {
+  const previous = top.Data[top.Data.length - 1];
+  if (previous instanceof StatementOperandShape
+    && (previous as StatementOperandShape).Kind === StatementOperandShape.KindIdentifier
+    && (previous as StatementOperandShape).Text === "async") {
+    top.Data.pop();
+    shape.Add(previous);
+  }
+}
+top.Add(shape);
 this.AwaitBody = shape;
 this.Expect = StatementOperatorBody.ExpectBody;
 ```
@@ -1512,6 +1550,35 @@ if (!(params instanceof StatementOperandShape)) {
   return;
 }
 const paramShape = params as StatementOperandShape;
+// S3m：`async (x) => …` 在形状层先被建成 `call(async)`（async 是操作数、括号是实参），
+// 到 `=>` 时把这个 call 原地收成**未解析参数表**（与 `(a, b) => …` 同形），async 单元记进参数的 `Raw`——
+// AST 侧从 async 那格起调用 legacy `ParseAssign`，与 `async x => …` 同一条路。
+let asyncUnit:Token | null = null;
+if (paramShape.Kind === StatementOperandShape.KindCall && paramShape.Data.length === 1) {
+  const callee = paramShape.Data[0];
+  if (callee instanceof StatementOperandShape
+    && (callee as StatementOperandShape).Kind === StatementOperandShape.KindIdentifier
+    && (callee as StatementOperandShape).Text === "async") {
+    asyncUnit = (callee as StatementOperandShape).Raw;
+    paramShape.Kind = StatementOperandShape.KindParen;
+    paramShape.Data.length = 0;
+    paramShape.Raw = null;
+  }
+}
+// S3m：`async x => …` 的 async 与 x 是 Top() 里的两个兄弟；摘掉 async，参数的 `Raw` 指向它，
+// 形状树因此只有一个根（不会「表达式体没有唯一的根节点」）。
+if (asyncUnit === null && top.Data.length >= 2) {
+  const previous = top.Data[top.Data.length - 2];
+  if (previous instanceof StatementOperandShape
+    && (previous as StatementOperandShape).Kind === StatementOperandShape.KindIdentifier
+    && (previous as StatementOperandShape).Text === "async") {
+    asyncUnit = (previous as StatementOperandShape).Raw;
+    top.Data.splice(top.Data.length - 2, 1);
+  }
+}
+if (asyncUnit !== null) {
+  paramShape.Raw = asyncUnit;
+}
 if (paramShape.Kind !== StatementOperandShape.KindIdentifier
   && paramShape.Kind !== StatementOperandShape.KindParen) {
   this.Fail("箭头函数参数形态");
