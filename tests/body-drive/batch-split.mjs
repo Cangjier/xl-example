@@ -267,6 +267,98 @@ function runModuleSplit(host, context, k) {
 }
 
 // ---------------------------------------------------------------------------
+// clause 族（WP-6-3）：`import { … }` / `export { … }` 的花括号内层，
+// item = 一个 specifier（含它的 `,`），见 typescript/tokens/items/clause-item-rule.xl.md
+// ---------------------------------------------------------------------------
+// 捕获：`NamedImportsShape.FromBracket` / `NamedExportsShape.FromBracket` 拿到的是**原始**代码单元
+// （WP-6-3 起 shell 在克隆括号上跑 item 表，容器 `bracket.Data` 一个字节都不动），正好当 item 表宿主。
+const { NamedImportsShape } = require(path.join(root, "build/ts/typescript/tokens/declarations/named-imports-shape.js"));
+const { NamedExportsShape } = require(path.join(root, "build/ts/typescript/tokens/declarations/named-exports-shape.js"));
+const { ImportSpecifierClauseBuild } = require(path.join(root, "build/ts/typescript/tokens/declarations/named-imports-shape.js"));
+const { ExportSpecifierClauseBuild } = require(path.join(root, "build/ts/typescript/tokens/declarations/named-exports-shape.js"));
+const { ClauseItemHost, ClauseItemRule } = require(path.join(root, "build/ts/typescript/tokens/items/clause-item-rule.js"));
+
+const CLAUSE_SOURCES = [
+  `import { a, b } from "m";`,
+  `import { a as b, type c } from "m";`,
+  `export { x as "y", z };`,
+  `export { a, b, } from "m";`,
+  `import { } from "m";`,
+  `export { type A as B } from "m";`,
+];
+
+const clauseBrackets = [];
+const originalNamedImports = NamedImportsShape.FromBracket;
+const originalNamedExports = NamedExportsShape.FromBracket;
+NamedImportsShape.FromBracket = function (bracket, context) {
+  clauseBrackets.push({ kind: "imports", bracket, code: bracket.Data.slice() });
+  return originalNamedImports.call(this, bracket, context);
+};
+NamedExportsShape.FromBracket = function (bracket, context) {
+  clauseBrackets.push({ kind: "exports", bracket, code: bracket.Data.slice() });
+  return originalNamedExports.call(this, bracket, context);
+};
+for (let i = 0; i < CLAUSE_SOURCES.length; i++) {
+  try {
+    SourceFileRunner.Parse(CLAUSE_SOURCES[i], `batch-split-clause-${i}.ts`);
+  } catch (e) {
+    console.error(`clause 语料 #${i} 解析失败: ${e && e.message ? e.message : e}`);
+  }
+}
+NamedImportsShape.FromBracket = originalNamedImports;
+NamedExportsShape.FromBracket = originalNamedExports;
+
+function makeClauseHost(code) {
+  const source = clauseBrackets.find((c) => c.code === code);
+  if (source === undefined) {
+    return makeHost(code);
+  }
+  const bracket = new Bracket(source.bracket.Template);
+  bracket.Data = code.slice();
+  bracket.SourceRange = source.bracket.SourceRange.Clone();
+  bracket.StartBracketChar = source.bracket.StartBracketChar;
+  bracket.EndBracketChar = source.bracket.EndBracketChar;
+  bracket.ClauseKind = source.kind;
+  return bracket;
+}
+
+function makeClauseRule(host) {
+  const rule = new ClauseItemRule();
+  rule.ClauseBuilder = host.ClauseKind === "exports"
+    ? new ExportSpecifierClauseBuild(host)
+    : new ImportSpecifierClauseBuild(host);
+  rule.Host = host;
+  return rule;
+}
+
+function runClauseWhole(host, context) {
+  const adapter = new ClauseItemHost(host, [makeClauseRule(host)]);
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, true);
+  batch.Sealed = true;
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, closed] };
+}
+
+function runClauseSplit(host, context, k) {
+  const adapter = new ClauseItemHost(host, [makeClauseRule(host)]);
+  const batch = new BasicTokenBatch();
+  batch.Reset(host, 0, false);
+  batch.To = Math.max(1, Math.min(k, host.Data.length));
+  batch.Recompute();
+  const first = adapter.OnBasicTokens(batch, context);
+  batch.To = host.Data.length;
+  batch.AtEof = true;
+  batch.Sealed = false;
+  batch.Recompute();
+  const second = adapter.OnBasicTokens(batch, context);
+  const closed = adapter.CloseBatch(context);
+  return { items: collectItems(host), states: [first, second, closed] };
+}
+
+// ---------------------------------------------------------------------------
 // 族表（骨架）：以后加族只在这里追加配置
 // ---------------------------------------------------------------------------
 const FAMILIES = [
@@ -285,6 +377,14 @@ const FAMILIES = [
     contextOf,
     runWhole: runModuleWhole,
     runSplit: runModuleSplit,
+  },
+  {
+    name: "clause",
+    cases: () => clauseBrackets.map((c) => c.code),
+    makeHost: makeClauseHost,
+    contextOf,
+    runWhole: runClauseWhole,
+    runSplit: runClauseSplit,
   },
 ];
 

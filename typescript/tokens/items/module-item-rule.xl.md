@@ -28,12 +28,18 @@ import { StatementScanner } from "../statements/statement-scanner.xl.md"
 2. `ModuleItemRule` / `ModuleBodyItemHost` —— 模块体（`namespace N { … }` / `declare module "m" { … }`）
    的 item 表：一条 item 就是一个成员（语句 / 声明 / export 修饰的声明）。
 
-模块体 item 表的**接线点**还缺一个洞：模块体括号的创建发生在模块声明候选（`ModuleDeclarationPossibleShape`）
-一次性建整棵声明的时候，括号已经闭合，没有「按模块形态区分的创建钩子」可以挂 `BatchAdapter`
-（与 WP-2 的 `{` 同一类阻塞，见 `statement-item-rule.xl.md` 的说明）。所以 `ModuleItemRule` /
-`ModuleBodyItemHost` 目前只被隔离测试驱动（`tests/body-drive/batch-split.mjs --family=module`），
-**不进解析路径**，AST 因此不受影响。接线所需的另一半（模块体括号的创建钩子）留给 WP-3 的
-`SourceFileTailBuilder` 与 WP-7 的候选退役一起做：那时 `ModuleBlockShape.BuildMemberAt` 已经是现成的一成员建造入口。
+模块体 item 表的**接线点已接上**（WP-6-3）：`ModuleBlockShape.FromBracket` 里的
+`ModuleBlockShape.DriveBodyItems` 在**克隆括号**上把整段喂一遍 `ModuleBodyItemHost`，
+全部 item 建出（无 raw 残留、且每个成员的右端都由 `ModuleBlockMemberBuild.BuildAt` 的安全阀
+按「`SourceRange.EndIndex` 恰好等于 item 末单元」逐个校验过）才把成员表接管为 `ModuleBlock`
+的子节点；任何一条不成立就整段退回 legacy 逐成员 `BuildMember`。
+
+**容器 `bracket.Data` 一个字节都不动**（splice 只发生在克隆的 `Data` 上）：这样同一括号的第二次
+`FromBracket`（候选重试）不会把上一次建出的形状当成员头再建一遍。WP-6-2 的接线实验正是
+在容器上直接 splice，才让 44 份 real-dts 崩溃；证据与三步修法见 `HANDOFF.wp6-2.md` §2。
+
+成员的边界判据必须与 `ModuleBlockShape.BuildMember` **逐字同构**（`Analyze` 的单遍交错），
+这不能靠事后校验补——见下面 `Analyze` 的说明。
 
 # class DeclarationSpan
 
@@ -192,6 +198,19 @@ if (units.length === 0) {
 
 三条都不成立时不置 `Complete`：整段留 raw，收口时由 `ModuleBlockShape.FromBracket` 按重构前口径恢复。
 
+**证据 1 / 2 必须单遍交错判**（WP-6-3）：每读一个 unit，先看 `;`（含），再看
+「换行处的下一个成员首词」（收在 `at - 1`）。这与 `BuildMember` 各分支的扫描循环逐字同构——
+后者在同一个 `for` 里先 `IsSymbol(…, ";")`、再 `IsMemberStartWord` + `NoLineBreakBetween`。
+
+写成两遍（先扫完整段的第一个 `;`，两遍都失败才扫成员首词）会在
+`export { a } from "m"` ⏎ `let b = 1;` 这类输入上把 `End` 取到**后一条语句**的 `;`，
+切出「从语句中间开始」的片段。WP-6-2 的接线实验正是因此让 44 份 real-dts 崩溃
+（`表达式没有读完`），所以边界判据不能靠事后校验补，必须与建造器同一份。
+
+`at > 1` 的前提：`at = 1` 是成员的第二个代码单元（`declStart + 1`，`declStart = 0`），
+`BuildMember` 的各无分号分支也都从 `declStart + 1` 之后才开始看成员首词
+（`export as namespace NN` 的 `as` / `namespace` 因此不会被误切）。
+
 ```ts
 state.Complete = false;
 state.End = -1;
@@ -206,19 +225,9 @@ for (let at = 1; at < code.length; at++) {
     endAt = at;
     break;
   }
-}
-if (endAt < 0) {
-  for (let at = 1; at < code.length; at++) {
-    const unit = code[at];
-    if (!(unit instanceof Common)) {
-      continue;
-    }
-    if (!ModuleItemRule.IsMemberStartWord((unit as Common).TempToString())) {
-      continue;
-    }
-    if (StatementScanner.NoLineBreakBetween(code[at - 1], unit)) {
-      continue;
-    }
+  if (at > 1 && unit instanceof Common
+    && ModuleItemRule.IsMemberStartWord((unit as Common).TempToString())
+    && !StatementScanner.NoLineBreakBetween(code[at - 1], unit)) {
     endAt = at - 1;
     break;
   }
@@ -281,9 +290,9 @@ return text === "export" || text === "declare" || text === "function" || text ==
 
 # class ModuleBodyItemHost implements IBatchHost
 
-模块体括号的批次宿主（**本阶段未接线**，见文件头）。接上之后：`Bracket.BatchAdapter` 指向本对象，
-括号里每个 basic token 关闭时由 `UnitToken.OnBasicTokenClosed` 交给 `Engine.Feed`；括号闭合时由
-模块声明形状的收口路径调 `FlushBatch → CloseBatch → Engine.Flush`，把最后一个成员建掉。
+模块体括号的批次宿主（**已接线**，见文件头）：`ModuleBlockShape.DriveBodyItems` 用
+`BasicTokenBatch.Reset(clone, 0, true)` + `Sealed` 把克隆括号的**整段**一次喂进来，
+括号闭合时由驱动方调 `CloseBatch → Engine.Flush` 兜最后一个成员。
 
 ## field Host:Token | null = null
 

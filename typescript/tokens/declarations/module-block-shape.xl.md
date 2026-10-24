@@ -26,8 +26,9 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { BasicTokenBatch } from "../../../core/syntax/batch/basic-token-batch.xl.md"
 import { ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
-import { ModuleItemRule, ModuleMemberBuild } from "../items/module-item-rule.xl.md"
+import { ModuleItemRule, ModuleBodyItemHost, ModuleMemberBuild } from "../items/module-item-rule.xl.md"
 ```
 
 # namespace cangjie
@@ -71,8 +72,10 @@ super(template);
 
 1. 签入签出用括号单元自己的首尾（`ModuleBlock` 的区间就是 `{` … `}`）；
 2. `Pos` 由调用方给（见上）；
-3. 括号单元的 `Data` 交给 `StatementBuilder`，**逐个成员**建（`BuildMember`）；
-4. 成员 `Add` 成子节点后关闭自己。
+3. 括号单元的 `Data` 先交给模块体 item 表（`DriveBodyItems`，**全有或全无**：在**克隆括号**上驱动，
+   全部 item 建出且无 raw 残留才返回成员表，否则返回 `null` 整段退回 legacy）；
+4. 接管成功时把返回的成员逐个 `Add` 成子节点；失败时逐成员 `BuildMember`（原口径）；
+5. 关闭自己。
 
 ```ts
 const shape = new ModuleBlockShape(bracket.Template);
@@ -83,17 +86,84 @@ if (bracket.SourceRange.EndIndex >= 0) {
   shape.SignOut(bracket.SourceRange.End);
 }
 shape.Pos = pos;
-const inner = new StatementBuilder(bracket.Template, context);
-let base = 0;
-if (bracket.SourceRange.StartIndex >= 0) {
-  base = bracket.SourceRange.StartIndex + 1;
-}
-inner.Load(bracket.Data, base);
-while (inner.At < inner.Units.length) {
-  ModuleBlockShape.BuildMember(inner, bracket, shape, context);
+const built = ModuleBlockShape.DriveBodyItems(bracket, context);
+if (built !== null) {
+  for (const member of built) {
+    shape.Add(member);
+  }
+} else {
+  const inner = new StatementBuilder(bracket.Template, context);
+  let base = 0;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
+  }
+  inner.Load(bracket.Data, base);
+  while (inner.At < inner.Units.length) {
+    ModuleBlockShape.BuildMember(inner, bracket, shape, context);
+  }
 }
 shape.TryToClose(context);
 return shape;
+```
+
+## static method DriveBodyItems:(bracket:Bracket, context:SyntaxContext)=>Array<Token> | null
+
+模块体 item 表的**接管点**：把已闭合模块体括号的 `Data` 作为**一个**批次交给
+`ModuleBodyItemHost`（`From = 0`、`AtEof = true`，与 `StatementBuilder.DriveBodyItems` 逐行同构），
+返回 item 建出的成员表；接管不了返回 `null`。
+
+**在克隆括号上驱动**（`Data` 浅拷贝，token 是同一批对象，`SourceRange` / 括号字符照抄）：容器
+`bracket.Data` 一个字节都不动，`{` / `}` 之间的原文始终是 raw。这一条是 WP-6-2 教训的直接产物——
+splice 容器会让「同一括号的第二次 `FromBracket`」（候选重试）把已建形状当成员头再建一遍，
+`BuildStatement` 于是从语句中间起表达式并崩溃。
+
+判据（三条同时成立才接管）：
+
+1. 驱动过程没有抛异常（形状建造器对切片的形态有断言，异常即「这一片不是我能建的」）；
+2. 克隆里**没有 raw 残留**：所有非 trivia 单元都是 item 建出的形状（`IsBasicToken === false`；
+   trivia 与嵌套括号都是 basic，所以不会被误判）；
+3. item 建造器自己的安全阀已逐个校验过右端（`ModuleBlockMemberBuild.BuildAt`：成员的
+   `SourceRange.EndIndex` 必须**恰好等于** item 末单元的 `EndIndex`，多了少了都返回 `null`）。
+
+这样「item 边界与建造器边界不一致」永远不会切出中间片段——WP-6-2 的失败形态（44 份 real-dts
+`表达式没有读完` / `不支持的表达式起点`）在结构上被排除，代价只是那一段退回 legacy。
+
+`ModuleBlockMemberBuild.Blocks` 的括号缓存（只承载 `DataCursorAt`）在每次驱动后清掉：
+克隆是新的，不清会一直增长。
+
+```ts
+const clone = new Bracket(bracket.Template);
+clone.Data = bracket.Data.slice();
+clone.SourceRange = bracket.SourceRange.Clone();
+clone.StartBracketChar = bracket.StartBracketChar;
+clone.EndBracketChar = bracket.EndBracketChar;
+let ok = true;
+try {
+  const host = new ModuleBodyItemHost(clone, ModuleBlockShape.CreateBodyItemRules());
+  const batch = new BasicTokenBatch();
+  batch.Reset(clone, 0, true);
+  batch.Sealed = true;
+  batch.Recompute();
+  host.OnBasicTokens(batch, context);
+  host.CloseBatch(context);
+} catch (e) {
+  ok = false;
+}
+ModuleBlockMemberBuild.Blocks.delete(clone);
+if (!ok) {
+  return null;
+}
+const built:Array<Token> = [];
+for (const unit of clone.Data) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit.IsBasicToken) {
+    return null;
+  }
+  built.push(unit);
+}
+return built;
 ```
 
 ## static method BuildMember:(inner:StatementBuilder, bracket:Bracket, block:ModuleBlockShape, context:SyntaxContext)=>void
@@ -808,11 +878,11 @@ return texts[0] === "export" && texts.length > 1 && texts[1] === "declare";
 
 模块体 item 表的规则表：模块体只有一条规则 `ModuleItemRule`（一条 item 就是一个成员），
 一成员建造器由本类的 `ModuleBlockMemberBuild` 注入（它复用 `BuildMember` 的现成分派，不复制判据）。
-规则表只建一份；判定状态在各自的引擎里，规则实例本身无状态。
+规则表只建一份；判定状态在各自的引擎里，规则实例本身无状态（`ModuleItemRule` 的建造器与
+`ClauseItemRule` 的 `Host` 都是驱动时注入的一次性状态，不进缓存）。
 
-**本阶段未接线**：模块体括号的创建发生在 `ModuleDeclarationPossibleShape` 一次性建整棵声明的时候，
-括号已经闭合，没有可挂 `BatchAdapter` 的创建钩子（见 `items/module-item-rule.xl.md` 文件头）。
-所以这个方法目前只被隔离测试驱动，不进解析路径。
+**已接线**（WP-6-3）：`FromBracket` 的 `DriveBodyItems` 在克隆括号上驱动本规则表，
+全有或全无地接管模块体（见 `DriveBodyItems`）。
 
 ```ts
 if (ModuleBlockShape.CreateBodyItemRulesCache !== null) {
@@ -875,6 +945,11 @@ return member;
 `host` 必须是模块体括号（`{ … }`）；否则返回 `null`。切片末尾不在本方法里裁：`BuildMember` 自己按
 `;` / 换行 / 体括号收口，`end` 只用于「不要越过本 item」。
 
+**安全阀（全有或全无的判据之一）**：建出的成员必须**恰好**收在 item 的最后一个代码单元上
+（`SourceRange.EndIndex` 相等，多了少了都算「边界不一致」）——多切一个 `;`（`class C {};` 的空语句）、
+少切一个单元（`export as namespace` 的合成 `;`）、或 item 从构造中间开始，都返回 `null`，
+让整段模块体退回 legacy。不做「事后补救」，也不放宽成 `<=`。
+
 ```ts
 if (!(host instanceof Bracket)) {
   return null;
@@ -888,17 +963,17 @@ if (block === undefined) {
   block = new ModuleBlockShape(bracket.Template);
   ModuleBlockMemberBuild.Blocks.set(bracket, block);
 }
-if (start < 0 || end < start) {
+if (start < 0 || end < start || end >= bracket.Data.length) {
   return null;
 }
 const member = ModuleBlockShape.BuildMemberAt(block, bracket, start, context);
 if (member === null) {
   return null;
 }
-if (member.SourceRange.EndIndex >= 0 && bracket.Data[end].SourceRange.EndIndex >= 0) {
-  if (member.SourceRange.EndIndex > bracket.Data[end].SourceRange.EndIndex + 1) {
-    return null;
-  }
+const itemEnd = bracket.Data[end].SourceRange.EndIndex;
+if (member.SourceRange.EndIndex >= 0 && itemEnd >= 0
+  && member.SourceRange.EndIndex !== itemEnd) {
+  return null;
 }
 return member;
 ```
