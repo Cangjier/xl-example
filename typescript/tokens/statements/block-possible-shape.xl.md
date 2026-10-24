@@ -192,15 +192,16 @@ host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
 let bodyBracket:Bracket | null = null;
-if (moved.length === 1 && moved[0] instanceof Bracket) {
-  const bracket = moved[0] as Bracket;
-  if (bracket.StartBracketChar === "{") {
-    bodyBracket = bracket;
+for (const item of moved) {
+  if (item instanceof Bracket && (item as Bracket).StartBracketChar === "{") {
+    bodyBracket = item as Bracket;
   }
 }
 // 块体括号是在壳之前建出来的（`Bracket.Transit` 先把它 Add 到宿主并 `host.MountedUnit = 括号`），
 // 壳接管之后必须把括号挂回**自己**名下：否则后续字符按宿主的 MountedUnit 落到壳上、块内语句进不了括号，
 // `}` 也关不到括号，壳就一直挂着去吞下一条语句（S4b 修「同文件第二块不建壳」的根）。
+// 搬进来的单元可能以 `{` 之前的 trivia（同文件第二块的换行空白块）开头，所以按类型扫出括号，
+// 不能要求 `moved` 恰好只有一个单元——否则括号拿不到 `MountedUnit`，块内字符全落到壳上。`
 if (bodyBracket !== null) {
   shell.MountedUnit = bodyBracket;
 }

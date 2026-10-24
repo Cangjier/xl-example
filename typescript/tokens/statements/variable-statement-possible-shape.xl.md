@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -130,13 +131,36 @@ if (start > tokenIndex) {
   throw new Error("变量声明语句候选没有可搬的单元");
 }
 let pos = 0;
-for (let at = start - 1; at >= 0; at--) {
-  if (!host.Data[at].IsTriviaToken) {
-    const previousEnd = host.Data[at].SourceRange.EndIndex;
+if (host instanceof Bracket && (host as Bracket).StartBracketChar === "{") {
+  // 块体目录的宿主是块体 `{` 括号：块内**第一条**语句的 `pos` 是「`{` 之后第一个字符」（含前导 trivia），
+  // 与 legacy `BuildBlock` 的 `base = bracket.StartIndex + 1` 同口径；后续语句仍取前一个兄弟的 `EndIndex`。
+  // 括号自己的 `Data` 里没有前一个兄弟单元，按「前一个非 trivia 单元 EndIndex」找会退回 0，正好差一格（HANDOFF-s4b §6 D1）。
+  let previous = -1;
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      previous = at;
+      break;
+    }
+  }
+  if (previous < 0) {
+    if (host.SourceRange.StartIndex >= 0) {
+      pos = host.SourceRange.StartIndex + 1;
+    }
+  } else {
+    const previousEnd = host.Data[previous].SourceRange.EndIndex;
     if (previousEnd >= 0) {
       pos = previousEnd;
     }
-    break;
+  }
+} else {
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      const previousEnd = host.Data[at].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        pos = previousEnd;
+      }
+      break;
+    }
   }
 }
 const moved:Array<Token> = host.Data.slice(start, tokenIndex + 1);
