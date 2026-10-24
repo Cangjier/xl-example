@@ -12,9 +12,8 @@ import { IBatchHost } from "../../../core/syntax/batch/i-batch-host.xl.md"
 import { ItemListEngine, ItemRule } from "../../../core/syntax/batch/item-list.xl.md"
 import { ItemScanState } from "../../../core/syntax/batch/item-scan-state.xl.md"
 import { RawFallback } from "../../../core/syntax/batch/raw-fallback.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { IRootRule, RootRuleTable } from "./root-rule-contract.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -64,9 +63,9 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 
 本族唯一的 kind 号（`ItemRule.Classify` 的返回值）。
 
-## field Guide:CatalogGuide
+## field Table:RootRuleTable
 
-候选目录：13 个根候选 + 判定缓存。**终结候选为 `null`**：尾巴（EOF / 硬边界）由容器的
+根规则表：13 个根候选 + 判定缓存。**终结候选为 `null`**：尾巴（EOF / 硬边界）由容器的
 `FinishBody` 收（`SourceFileTailBuilder.BuildTrailingItems`），不走 item 表。
 
 ## field Alive:Set<int> = new Set()
@@ -114,12 +113,12 @@ import { SourceFileTailBuilder } from "./source-file-tail-builder.xl.md"
 判定上下文。`ItemRule.Analyze(state)` 没有 context 形参，而候选的 `IsBuildable(units, index, cache, context)`
 需要它，所以由宿主 `SourceFileBodyItemHost.OnBasicTokens` **每批注入**。
 
-## constructor:(shapes:Array<PossibleShape>)=>void
+## constructor:(shapes:Array<IRootRule>)=>void
 
 以候选表（`SourceFileShape.CreatePossibleShapes()`）创建，初始即复位。
 
 ```ts
-this.Guide = new CatalogGuide(shapes, null);
+this.Table = new RootRuleTable(shapes);
 this.Reseed();
 ```
 
@@ -130,7 +129,7 @@ this.Reseed();
 
 ```ts
 this.Alive.clear();
-for (let index = 0; index < this.Guide.PossibleShapes.length; index++) {
+for (let index = 0; index < this.Table.Count(); index++) {
   this.Alive.add(index);
 }
 this.Watermark = 0;
@@ -140,7 +139,7 @@ this.HoldAt = -1;
 this.HoldGt = -1;
 this.HoldLt = -1;
 this.HoldKind = 9;
-this.Guide.PossibleShapesComputeCache.Clear();
+this.Table.Reset();
 ```
 
 ## method Classify:(code:Array<Token>)=>Array<int>
@@ -188,7 +187,7 @@ const owner: Token | null = this.Owner;
 if (owner === null) {
   return;
 }
-const cache: PossibleShapeCache = this.Guide.PossibleShapesComputeCache;
+const cache: PossibleShapeCache = this.Table.Cache;
 // 候选按「从本条目起点开始的数组」判定：`ItemUtil.ItemStart(units)` 取的是「最后一个非 basic
 // 单元之后」——只有把本条目之前的单元切掉，它才等于本条目的起点。上一段留下的 raw basic token
 // 若还在数组里，`ItemStart` 会落回它们身上，所有候选的判据都会被带偏（`a` ⏎ `b;` 的 `b`）。
@@ -243,7 +242,7 @@ while (at < code.length) {
   }
   const hostAt: number = state.CodeAt[at] - base;
   for (const index of this.Alive) {
-    if (this.Guide.PossibleShapes[index].ComputeByIndex(units, hostAt, cache) === ShapeStates.Reject) {
+    if (this.Table.At(index)!.ComputeByIndex(units, hostAt, cache) === ShapeStates.Reject) {
       this.Alive.delete(index);
     }
   }
@@ -376,7 +375,7 @@ while (at < code.length) {
   }
   if (this.Alive.size === 1) {
     const only: number = RootItemRule.FirstOf(this.Alive);
-    const shape: PossibleShape = this.Guide.PossibleShapes[only];
+    const shape: IRootRule = this.Table.At(only)!;
     if (this.Context !== null && shape.IsBuildable(units, hostAt, cache, this.Context)) {
       // 修饰词与声明词之间换行时 TS 按 ASI 拆成两条（`declare` ⏎ `enum E {}`）：
       // 这种段交给尾巴的 `BuildTrailingDeclaration`（它的多语句分界按这个口径写）。
@@ -1348,7 +1347,7 @@ this.Engine.Reset();
 this.Fallback.Reset();
 ```
 
-## static method CreateRules:(shapes:Array<PossibleShape>)=>Array<ItemRule>
+## static method CreateRules:(shapes:Array<IRootRule>)=>Array<ItemRule>
 
 根的规则表：只占 1 条规则；候选表由调用方给（`SourceFileShape.CreatePossibleShapes()`），
 本文件因此不必 import 根形状，双向 import 不成环。
