@@ -149,9 +149,9 @@ Stage 4 位掩码（控制流语句族壳化），本阶段恒为 0。
 `false` 时这些起点重新判成 `Legacy`，行为逐位回到 Stage 4b 之前（安全回退，不靠候选先后）。
 `EnableShellExpressions == false`（文件级 fallback 与 harness 的 legacy 对拍）时同样一律 `Legacy`。
 
-## static field EnableControlFlowLabel:bool = false
+## static field EnableControlFlowLabel:bool = true
 
-标签语句是否随控制流壳接管（lbl: f();），**默认关（4c-2 实测回退）**。路由与候选都已落地（ShellLabel / LabelShellCount / 在 `:` 格建壳），实测 7 条标签用例全部 XML==legacy、AST==TS、label=1；但打开后**全表回归**：表达式壳的建壳时机被推迟一格，op-ast-proof 11/62、op-proof 8/40、lock-body-takeover 11/17 —— 表达式体状态机拿不到首个运算符。所以默认关，标签继续走已经验证过的表达式壳（Stage 4c 行为），s4c2-label* 只守正确性、不声称接管。详见 HANDOFF-s4c2.md §3。
+标签语句是否随控制流壳接管（lbl: f();），**默认关（4c-2 实测回退）**。路由与候选都已落地（ShellLabel / LabelShellCount / 在 `:` 格建壳），实测 7 条标签用例全部 XML==legacy、AST==TS、label=1；但打开后**全表回归**：表达式壳的建壳时机被推迟一格，op-ast-proof 11/62、op-proof 8/40、lock-body-takeover 11/17 —— 表达式体状态机拿不到首个运算符。**Stage 4f 起改为默认打开**（上面这段 4c-2 的读数与「默认关」的结论保留为历史）：根因是「第二个代码单元还没到时 `Decide` 返回 `None`」，于是表达式根候选的头格永远等不到 `ShellPlainExpression`、到下一格被永久 `Reject`。4f 把那一格改成**文档级前瞻**（`IsLabelColonAhead`：只看源码字符判 `:`，跳过空白与注释），头格即可判族：`:` → `ShellLabel`（控制流候选在**首格**建壳），否则 → `ShellPlainExpression`（与标签关闭时逐位一致）。因此不再有「表达式壳建壳被推迟一格」，op-ast-proof / op-proof 回到 62/62、40/40。详见 `HANDOFF-s4f.md` §1。
 
 Stage 4c-2 把那一格改成 **`None`（继续等，不判死、不判族）**：下一个代码单元到达后，`:` 才把这条语句判成 `ShellLabel`，`ControlFlowStatementPossibleShape` 在 `:` 那一格建壳（搬 `ident` + `:`，`Kind = ShellLabel`），判界走 legacy 的 `StatementScanner.ScanRoot`、建树走 `StatementBuilder.BuildStatement` 的标签分派——与 legacy 建标签语句是同一份 scanner / 同一份建造器。
 
@@ -240,6 +240,67 @@ return symbol.Is("+") || symbol.Is("-") || symbol.Is("*") || symbol.Is("/") || s
   || symbol.Is("&&=") || symbol.Is("||=") || symbol.Is("??=");
 ```
 
+## static method IsLabelColonAhead:(units:Array<Token>, headAt:int)=>bool
+
+**文档级前瞻**（Stage 4f）：语句首标识符之后的下一个**非空白、非注释**字符是不是 `:`。
+
+只在「第二个代码单元还没到」的窗口里被 `DecideCommon` 调用：此时 `units` 里除了 trivia 没有任何 token
+可看，唯一的事实来源是 `SourceRange.Document` 的源码字符。跳过空白（含换行，`en` ⏎ `: a;` 是合法标签）
+与两种注释（`//` 到行尾、`/* */`），遇到其余任何字符立即返回它是不是 `:`。
+
+**只读、不建状态**：不缓存、不改任何 token，和 `Document.GetValue` 一样是零分配的纯查询。
+
+```ts
+if (headAt < 0 || headAt >= units.length) {
+  return false;
+}
+const range = units[headAt].SourceRange;
+if (range.Document === null || range.EndIndex < 0) {
+  return false;
+}
+const document = range.Document!;
+const count = document.GetCount();
+let at = range.EndIndex;
+while (at < count) {
+  const ch = document.GetValue(at);
+  at += 1;
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
+    continue;
+  }
+  if (ch === "/" && at < count) {
+    const next = document.GetValue(at);
+    if (next === "/") {
+      at += 1;
+      while (at < count && document.GetValue(at) !== "\n") {
+        at += 1;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 1;
+      let previous = "";
+      let closed = false;
+      while (at < count) {
+        const inside = document.GetValue(at);
+        at += 1;
+        if (previous === "*" && inside === "/") {
+          closed = true;
+          break;
+        }
+        previous = inside;
+      }
+      if (!closed) {
+        return false;
+      }
+      continue;
+    }
+    return false;
+  }
+  return ch === ":";
+}
+return false;
+```
+
 ## static method DecideCommon:(text:string, units:Array<Token>, headAt:int)=>int
 
 普通标识符与关键字的细分：`let/const/var` 看下一代码单元能否起绑定（与 `StatementScanner.StartsBinding` 同源）；
@@ -286,7 +347,14 @@ if (StatementRouteUtil.EnableShellExpressions) {
   if (StatementRouteUtil.EnableControlFlowLabel && !StatementRouteUtil.IsLegacyKeyword(text)) {
     const colonAt = ItemUtil.NextCode(units, headAt + 1);
     if (colonAt >= units.length) {
-      return StatementRoute.None;
+      // **Stage 4f**：第二个代码单元还没到 → 只问文档字符（`IsLabelColonAhead`），**不再返回 `None`**。
+      // 4c-2/4d/4e 在这里返回 `None`，表达式根候选于是在头格 Uncertain、到下一格（`;` / EOF / ASI 边界）
+      // 走「不能补建」分支被 `CatalogGuide` 永久 `Reject`，整条表达式语句拿不到壳 —— op-ast-proof 11/62。
+      // 现在这一格就能判：`:` → 标签；否则 → 表达式（与标签关闭时的判据逐位一致）。
+      if (StatementRouteUtil.IsLabelColonAhead(units, headAt)) {
+        return StatementRoute.ShellLabel;
+      }
+      return StatementRoute.ShellPlainExpression;
     }
     if (units[colonAt] instanceof Symbol && (units[colonAt] as Symbol).Is(":")) {
       return StatementRoute.ShellLabel;
