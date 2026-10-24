@@ -396,7 +396,105 @@ while (cursor <= limit) {
     statement = null;
   }
   if (statement === null) {
-    break;
+    // r9：`StatementBuilder` 不认声明族（`enum E { A }` 这类剩余段）。先把剩余段整段交给
+    // `BuildTrailingDeclaration`：它按「最后一个换行处开始的声明」递归拆段，建出来就说明剩余单元都有主。
+    let remainingBuilt = false;
+    try {
+      remainingBuilt = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, cursor, limit, context);
+    } catch (declarationError) {
+      remainingBuilt = false;
+    }
+    if (remainingBuilt) {
+      built++;
+      break;
+    }
+    // 段内再切一刀：第一个 ASI 边界之前的部分当一条语句建，成功则继续循环。
+    let asiCut = -1;
+    for (let index = cursor + 1; index <= limit; index++) {
+      if (ExpressionStatementPossibleShape.IsAsiBoundary(host.Data, index, cursor)) {
+        asiCut = index;
+        break;
+      }
+    }
+    if (asiCut > cursor) {
+      let headEnd = asiCut - 1;
+      while (headEnd > cursor && !host.Data[headEnd].IsBasicToken) {
+        headEnd--;
+      }
+      if (host.Data[headEnd].IsBasicToken) {
+        const headBuilder = new StatementBuilder(host.Template, context);
+        headBuilder.Load(host.Data.slice(cursor, headEnd + 1), basePos);
+        const headStatement = headBuilder.BuildStatement();
+        const headEndIndex = headStatement.SourceRange.EndIndex;
+        let headConsumed = 0;
+        if (headEndIndex < 0) {
+          headConsumed = headEnd - cursor + 1;
+        } else {
+          while (cursor + headConsumed <= limit
+            && host.Data[cursor + headConsumed].SourceRange.Start < headEndIndex) {
+            headConsumed++;
+          }
+        }
+        if (headConsumed > 0) {
+          host.Data.splice(cursor, headConsumed, headStatement);
+          headStatement.Parent = host;
+          built++;
+          limit -= headConsumed - 1;
+          cursor++;
+          while (cursor <= limit && (host.Data[cursor].IsTriviaToken || !host.Data[cursor].IsBasicToken)) {
+            cursor++;
+          }
+          continue;
+        }
+      }
+    }
+    // 最后手段：按「能建出来的最长前缀」切一刀。`StatementBuilder` 一次只吃一条语句，
+    // 尾段里还剩整条语句时它会报「语句没有读完」（`en:` ⏎ `{ f() }` ⏎ `enum E { A }` 与
+    // `if (a) { a++; }` ⏎（下一行 `--a;`）都是这种形态）。从 limit 往回收，第一个建得出来的
+    // 前缀就是这一条语句，建完继续切剩余部分；全部失败才抛错。
+    let cutDone = false;
+    let cut = limit - 1;
+    while (cut > cursor) {
+      const probeBuilder = new StatementBuilder(host.Template, context);
+      probeBuilder.Load(host.Data.slice(cursor, cut + 1), basePos);
+      let probe:Token | null = null;
+      try {
+        probe = probeBuilder.BuildStatement();
+      } catch (probeError) {
+        probe = null;
+      }
+      if (probe !== null) {
+        const probeEnd = probe.SourceRange.EndIndex;
+        let probeConsumed = 0;
+        if (probeEnd < 0) {
+          probeConsumed = cut - cursor + 1;
+        } else {
+          while (cursor + probeConsumed <= cut
+            && host.Data[cursor + probeConsumed].SourceRange.Start < probeEnd) {
+            probeConsumed++;
+          }
+        }
+        if (probeConsumed > 0) {
+          host.Data.splice(cursor, probeConsumed, probe);
+          probe.Parent = host;
+          built++;
+          limit -= probeConsumed - 1;
+          cursor += probeConsumed - 1;
+          cursor++;
+          while (cursor <= limit && (host.Data[cursor].IsTriviaToken || !host.Data[cursor].IsBasicToken)) {
+            cursor++;
+          }
+          cutDone = true;
+          break;
+        }
+      }
+      cut--;
+    }
+    if (cutDone) {
+      continue;
+    }
+    // 显式失败：不再静默 break 把剩余单元留给 legacy 在 EOF 报「语句没有读完」。
+    throw new Error("语句没有读完：EOF 尾段无法按语句切分");
   }
   const endIndex = statement.SourceRange.EndIndex;
   let consumed = 0;

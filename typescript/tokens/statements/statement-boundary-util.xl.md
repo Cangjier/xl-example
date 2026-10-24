@@ -61,6 +61,20 @@ while (prev >= 0 && units[prev].IsTriviaToken) {
 if (prev < 0) {
   return false;
 }
+// 前缀位置的 `++` / `--` 收不住上一条表达式：它的操作数可以落在下一行
+// （`a++; --` ⏎ `a;` 的第二条是 `--a;`）。只有 `++` / `--` 前面还有能收住表达式的单元时
+// 它才是后缀、才可能构成 ASI 边界。
+if (units[prev] instanceof Symbol
+  && ((units[prev] as Symbol).Is("++") || (units[prev] as Symbol).Is("--"))) {
+  let operatorStart = prev - 1;
+  while (operatorStart >= 0 && units[operatorStart].IsTriviaToken) {
+    operatorStart--;
+  }
+  if (operatorStart < (limit ?? 0)
+    || !ExpressionStatementPossibleShape.CanEndExpressionAt(units, operatorStart)) {
+    return false;
+  }
+}
 // 换行判据按源位置找（块体 / 体里的 Units 不带 trivia 单元，见 HasLineBreakBefore）。
 if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
   return false;
