@@ -71,6 +71,12 @@ a-b-c   ->  -(-(a,b),c)
 圆括号节点：`Data = [括号内表达式]`。括号的意义就是「把一段中缀运算整体当成一个操作数」，
 所以它渲染成 `(b+c)`，不是 `(+(b,c))`——见 `RenderInfix`。
 
+## static field KindKeyword:int = 6
+
+关键字字面量叶子（S3d）：`true` / `false` / `null` / `this`。它们是 `Common`，`Text` 就是关键字本身；
+AST 侧由 `StatementShapeAst` 走 legacy 的 `TrueKeywordShape` / `FalseKeywordShape` / `NullKeywordShape` /
+`ThisKeywordShape` 工厂（与 `ExpressionBuilder.ParsePrimary` 同一批），所以 XML 逐字段一致。
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -82,8 +88,11 @@ super(template);
 **表达式体的增量状态机**（Stage 3 S3a/S3b，设计 §4.2）：壳（`StatementShape`，`Kind = ShellPlainExpression`）每攒到一个
 basic token 就把新单元喂进来一格，本类**立刻**建对应的节点：
 
-- 需要操作数（`Expect == 1`）时：标识符 / 数字 / 圆括号 → 建叶子；前缀 `+ - ! ~` 与 `typeof/void/delete` → 建前缀节点；
-- 需要运算符（`Expect == 2`）时：`+ - * / %` → 从 `OperatorTable` 读优先级与结合性，**立刻**建 `KindOperator` 节点，
+- 需要操作数（`Expect == 1`）时：标识符 / 数字 / 大整数 / `true false null this` / 圆括号 → 建叶子；
+  前缀 `! ~ + -` 与 `typeof/void/delete` → 建前缀节点（S3d 的集合直接取自 `OperatorTable.IsPrefixOperator`，
+  `++`/`--` 仍不接，留给未覆盖清单）；
+- 需要运算符（`Expect == 2`）时：**全部** `OperatorTable` 二元运算符（S3d：比较族、逻辑 `&& || ??`、位 `& | ^`、
+  移位 `<< >> >>>`、右结合幂 `**`、关键字 `instanceof`/`in`）→ 从 `OperatorTable` 读优先级与结合性，**立刻**建 `KindOperator` 节点，
   用 `ShapeInsertUtil.InsertBetween` 把它插到「当前帧（帧空则是根持有者）与最后一个子单元」之间——
   已经建好的子表达式原地变成新节点的左操作数。优先级不高于栈顶且栈顶已完整时先弹栈（左结合收敛），
   右结合（`**`）按 `OperatorTable.IsRightAssociative` 处理。
@@ -103,8 +112,9 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 遇到「期望运算符、却来了一个能当操作数起点的 `Common`」时判为**语句边界**（`Closed`）并撒手，
 不算未实现构造——否则会把已经完整的 `a+b` 撤回、还丢掉一条结构证明。
 
-**不支持就停**：任何没实现的单元（成员访问 `.`、调用 `(`、索引 `[`、对象字面量 `{`、字符串/模板/正则字面量、
-`**` 之外的其它优先级运算符、赋值 `=`、逗号、类型断言 `as` …）一律 `Incomplete = true` 并**停止摄入**，
+**不支持就停**：任何没实现的单元（成员访问 `.`、调用 `(`、索引 `[`、数组 `[` / 对象 `{` 字面量、
+字符串/模板/正则字面量、赋值 `=` 与复合赋值、逗号、条件 `?:`、`as`/`satisfies`、`++`/`--`、`new` …）
+一律 `Incomplete = true` 并**停止摄入**，
 **不抛错、不建错树**——AST 仍由既有 `StatementBuilder` 从 raw 单元逐字节建成（XML 与 legacy 一致），
 未接的构造逐条列在 `HANDOFF-s3-ops.md` 的未覆盖清单里。
 
@@ -139,6 +149,11 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 ## field Ingested:int = 0
 
 已经喂进本状态机的单元数（含 trivia）：`IngestAll` 只从它往后扫，**只追加**，不重扫前缀。
+
+## field Units:Array<Token> = []
+
+本壳当前的单元序列（`IngestAll` 每次覆盖成入参）。只给「`<` 是小于号还是类型实参表」这一处向前看用，
+不参与建树：`Ingest` 拿 `Ingested - 1` 当游标去 `AmbiguousTypeArguments` 里看后面的单元。
 
 ## field Incomplete:bool = false
 
@@ -238,6 +253,7 @@ return this.Holder();
 嵌套体（圆括号内部）只建树，不刷新进程级读数、不发布。
 
 ```ts
+this.Units = units;
 if (!this.Counted) {
   this.Counted = true;
   if (!this.Nested) {
@@ -251,6 +267,9 @@ while (this.Ingested < units.length && !this.Incomplete && !this.Closed) {
     continue;
   }
   this.Ingest(units[at], template);
+}
+if (!this.Incomplete && !this.Closed && StatementOperatorBody.HasTypeArgumentCall(this.Units)) {
+  this.Fail("类型实参调用");
 }
 if (this.Nested) {
   return;
@@ -373,6 +392,13 @@ if (unit instanceof Bracket) {
 if (unit instanceof Common) {
   const common = unit as Common;
   const text = common.TempToString();
+  if (StatementOperatorBody.IsKeywordLeafText(text)) {
+    const shape = new StatementOperandShape(template);
+    shape.Kind = StatementOperandShape.KindKeyword;
+    shape.Text = text;
+    shape.Raw = unit;
+    return shape;
+  }
   if (!StatementOperatorBody.IsOperandText(text)) {
     return null;
   }
@@ -549,22 +575,125 @@ return "";
 
 ## static method IsSupportedBinary:(text:string)=>bool
 
-S3b 实现的二元运算符**恰好**是这五个：优先级/结合性仍从 `OperatorTable` 读，不在这里写数值。
-其余优先级 >= 0 的运算符（`**` `&&` `||` `<<` …）S3b 不支持，走 `Incomplete`（未覆盖清单）。
+S3d：二元运算符集合**整体委托**给 `OperatorTable`（优先级数值仍只在那一处写），所以比较族 / 逻辑 / 位 / 移位 /
+`**` / `instanceof` / `in` 全都在内，赋值与逗号（优先级 -1）自然被排除，不在这里另写一份清单。
 
 ```ts
-return text === "+" || text === "-" || text === "*" || text === "/" || text === "%";
+return OperatorTable.IsBinaryOperator(text);
 ```
 
 ## static method IsPrefixText:(text:string, unit:Token)=>bool
 
-前缀运算符：`+ - ! ~`（符号）与 `typeof/void/delete`（`Common`）。`++ / --`（自增自减）S3b 不支持。
+前缀运算符集合也委托给 `OperatorTable.IsPrefixOperator`（`! ~ + - typeof void delete` 全在），
+但**显式排除 `++` / `--`**：自增自减的 AST 需要 `PrefixUnaryExpressionShape` 带 operator 字段，legacy 目前只是
+`PrefixUnaryExpressionShape` + 操作数（operator 不进节点），S3d 不接管，走 `Incomplete`（未覆盖清单）。
 
 ```ts
-if (unit instanceof Symbol) {
-  return text === "+" || text === "-" || text === "!" || text === "~";
+if (text === "++" || text === "--") {
+  return false;
 }
-return text === "typeof" || text === "void" || text === "delete";
+return OperatorTable.IsPrefixOperator(text);
+```
+
+## static method IsKeywordLeafText:(text:string)=>bool
+
+关键字字面量叶子（S3d）：只认这四个。它们必须在 `IsOperandText` 之前判定——`IsOperandText` 仍把关键字判 false
+（那是「下一个语句的起点」判据，不是「能不能建叶子」判据）。
+
+```ts
+return text === "true" || text === "false" || text === "null" || text === "this";
+```
+
+## static method AmbiguousTypeArguments:(units:Array<Token>, at:int)=>bool
+
+`<` 在操作数之后**既可能是小于号，也可能是类型实参表的开头**：`f < T > (x)` 在 legacy 里是 `f<T>(x)` 调用
+（`ExpressionBuilder.ParseBinary` 用 `CanStartTypeArgumentCall` 判的）。形状层不做类型解析，所以用**保守的向前看**：
+
+- 从 `<` 之后扫到**深度归零的那个 `>`**（`<` / `>` 记深度，`>>`/`>>>` 按连续的 `>` 记）；
+- 深度归零的那个 `>` 后面紧跟一个 `(` 圆括号单元 → 判为类型实参调用，放弃本体（legacy 会按类型实参解析）；
+- 其它一切情形（看不见 `>`、`;` / EOF 先到、深度 0 处出现无法进入类型实参表的括号、`>>` 跨过深度 0）
+  一律按普通小于号处理。
+
+判错的代价不对称：**多判成类型实参 = 少接管一条（legacy 仍然对）**；少判成类型实参 = 建出与 legacy 不同的错树。
+所以这里只在证据足够时才返回 `true`。
+
+```ts
+let depth = 0;
+let close = -1;
+for (let index = at + 1; index < units.length; index++) {
+  const unit = units[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof EndOfFileTokenShape) {
+    return false;
+  }
+  if (!(unit instanceof Symbol)) {
+    if (depth === 0 && unit instanceof Bracket) {
+      return false;
+    }
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === ";") {
+    return false;
+  }
+  if (text === "<") {
+    depth++;
+    continue;
+  }
+  if (text === ">") {
+    if (depth > 1) {
+      depth--;
+      continue;
+    }
+    close = index;
+    break;
+  }
+  if (text === ">>" || text === ">>>") {
+    if (depth > text.length) {
+      depth -= text.length;
+      continue;
+    }
+    if (depth === text.length) {
+      depth = 0;
+      continue;
+    }
+    if (text.length - depth === 1) {
+      close = index;
+      break;
+    }
+    return false;
+  }
+}
+if (close < 0) {
+  return false;
+}
+let nextIndex = close + 1;
+while (nextIndex < units.length && units[nextIndex].IsTriviaToken) {
+  nextIndex++;
+}
+const next = nextIndex < units.length ? units[nextIndex] : null;
+return next !== null && next instanceof Bracket && (next as Bracket).StartBracketChar === "(";
+```
+
+## static method HasTypeArgumentCall:(units:Array<Token>)=>bool
+
+**为什么判据不在 `Ingest` 里做**：壳是**逐格**喂单元的（每来一个 basic token 就 `IngestAll(this.Data)` 一次），
+所以读到 `<` 的那一格后面还没有单元——向前看只能看到「还没读到」。因此这条判据放在 `IngestAll` **每格收尾处**、
+在 `Units` 已经是当前全部单元之后跑一遍：一旦某个 `<` 满足「深度归零的 `>` 紧跟 `(`」，本体立刻 `Fail`（撤槽位、
+停止接管），AST 由 legacy 按类型实参调用解析。判错只损失接管条数，不会建错树。
+
+```ts
+for (let index = 0; index < units.length; index++) {
+  const unit = units[index];
+  if (unit instanceof Symbol && (unit as Symbol).TempToString() === "<") {
+    if (StatementOperatorBody.AmbiguousTypeArguments(units, index)) {
+      return true;
+    }
+  }
+}
+return false;
 ```
 
 ## static method LooksNumber:(unit:Common)=>bool
@@ -575,8 +704,9 @@ return text === "typeof" || text === "void" || text === "delete";
 全部归 `KindNumber`，与 legacy `ExpressionBuilder.ParsePrimary` 的
 `StartsNumber` → `IsBigInt() ? BigInt : Numeric` 分派同口径。
 
-**BigInt 仍判 `KindNumber`**（不是 Identifier）：收口器 `StatementShapeAst` 对它 `Decline` 并回 legacy 建
-`BigIntLiteral`，因此它既不会走错分支、也不会静默退化成标识符（见 `HANDOFF-s3c-r2.md` 未覆盖清单）。
+**BigInt 仍判 `KindNumber`**（不是 Identifier）：S3d 起收口器 `StatementShapeAst` 用
+`BigIntLiteralShape.FromBasicToken` 建它（与 legacy `ParsePrimary` 同一工厂），所以它既不会走错分支、
+也不会静默退化成标识符。
 
 ```ts
 return unit.IsNumber() || unit.IsBigInt();

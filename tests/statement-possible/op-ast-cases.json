@@ -103,11 +103,11 @@
                     "shapeAst": 0
                 },
                 {
-                    "name": "ast-fallback-prefix",
+                    "name": "ast-prefix-minus",
                     "source": "-a+b;",
-                    "note": "前缀节点 S3c 不接管：结构文本仍是 +(-(a),b)（体完整），但 AST 必须由 legacy 建——这一条防「形状树没接管却假装接管」",
+                    "note": "S3d 起前缀一元由形状树接管：结构 +(-(a),b)，AST = PrefixUnaryExpression + BinaryExpression，跨度与 ParseUnary 同口径",
                     "shapeTexts": ["+(-(a),b)"],
-                    "shapeAst": 0
+                    "shapeAst": 1
                 },
                 {
                     "name": "ast-fallback-member",
@@ -181,11 +181,171 @@
                     "astLeaves": ["Numeric:0.5", "Numeric:1000", "Numeric:50"]
                 },
                 {
-                    "name": "ast-num-bigint-gap",
-                    "source": "1n;",
-                    "note": "BigInt 仍是未覆盖构造：形状树把它判成 Number（不进 Identifier 分支——这一点是回归防线），但收口器 Decline、AST 由 legacy 建。shapeAst=0 + declined>0 就是「明确不支持」而不是「静默建错树」",
-                    "shapeTexts": ["1n"],
+                    "name": "ast-num-bigint",
+                    "source": "1n + 2n;",
+                    "note": "S3d 起大整数由形状树接管：形状层仍判 KindNumber，收口器用 BigIntLiteralShape.FromBasicToken 建叶子（与 legacy 同一工厂）",
+                    "shapeTexts": ["+(1n,2n)"],
                     "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-cmp-lt",
+                    "source": "a < b;",
+                    "note": "比较族 <：形状树建 BinaryExpression + FirstBinaryOperator(<)",
+                    "shapeTexts": ["<(a,b)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-cmp-chain",
+                    "source": "a <= b >= c;",
+                    "note": "比较链左结合：>=(<=(a,b),c)",
+                    "shapeTexts": [">=(<=(a,b),c)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-eq-strict",
+                    "source": "a === b !== c;",
+                    "note": "相等族：=== 与 !== 各建自己的运算符 token，链左结合",
+                    "shapeTexts": ["!==(===(a,b),c)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-logical",
+                    "source": "x || y && z;",
+                    "note": "逻辑：&& 比 || 紧",
+                    "shapeTexts": ["||(x,&&(y,z))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-nullish",
+                    "source": "a ?? b;",
+                    "note": "?? 最低优先级二元，运营商 token = QuestionQuestionToken",
+                    "shapeTexts": ["??(a,b)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-bitwise",
+                    "source": "a & b | c ^ d;",
+                    "note": "位运算三级：|(&(a,b),^(c,d))",
+                    "shapeTexts": ["|(&(a,b),^(c,d))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-shift",
+                    "source": "a << b >> c >>> d;",
+                    "note": "移位三连同级左结合：>>>(>>(<<(a,b),c),d)，>>> 用自己的 token 工厂",
+                    "shapeTexts": [">>>(>>(<<(a,b),c),d)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-power-right",
+                    "source": "a ** b ** c;",
+                    "note": "幂右结合：**(a,**(b,c))，OperatorTable.IsRightAssociative 驱动的不弹栈路径",
+                    "shapeTexts": ["**(a,**(b,c))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-power-mul",
+                    "source": "a * b ** c;",
+                    "note": "** 优先级 15 高于 * 的 14",
+                    "shapeTexts": ["*(a,**(b,c))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-instanceof",
+                    "source": "a instanceof B;",
+                    "note": "关键字二元运算符 instanceof（Common 单元）：运算符 token = InstanceOfKeywordShape",
+                    "shapeTexts": ["instanceof(a,B)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-in",
+                    "source": "a in b;",
+                    "note": "关键字二元运算符 in：运算符 token = InKeywordShape",
+                    "shapeTexts": ["in(a,b)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-prefix-not",
+                    "source": "!a && b;",
+                    "note": "前缀 !（PrefixUnaryExpression）与 &&：&&(!(a),b)",
+                    "shapeTexts": ["&&(!(a),b)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-prefix-tilde",
+                    "source": "~a | b;",
+                    "note": "前缀 ~ 与 |：|(~(a),b)",
+                    "shapeTexts": ["|(~(a),b)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-prefix-plus",
+                    "source": "+a * b;",
+                    "note": "前缀 + 与 *：*(+(a),b)，一元比二元紧",
+                    "shapeTexts": ["*(+(a),b)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-prefix-typeof",
+                    "source": "typeof x === y;",
+                    "note": "typeof 前缀由形状树建 TypeOfExpression（operator 不进子节点，legacy 同口径）；TS 侧渲染不了 TypeOfExpression，故 tsTexts=[]",
+                    "shapeTexts": ["===(typeof(x),y)"],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-prefix-void",
+                    "source": "void a;",
+                    "note": "void 前缀 → VoidExpressionShape；TS 渲染不了，tsTexts=[]",
+                    "shapeTexts": ["void(a)"],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-prefix-delete",
+                    "source": "delete a;",
+                    "note": "delete 前缀 → DeleteExpressionShape；TS 渲染不了，tsTexts=[]",
+                    "shapeTexts": ["delete(a)"],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-leaf-true",
+                    "source": "true && false;",
+                    "note": "S3d 关键字叶子：True/FalseKeywordShape 由 SpanLeaf 建；TS 侧 true/false 不是 Identifier/NumericLiteral，tsTexts=[]",
+                    "shapeTexts": ["&&(true,false)"],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-leaf-null",
+                    "source": "null ?? a;",
+                    "note": "null 关键字叶子 + ??",
+                    "shapeTexts": ["??(null,a)"],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-leaf-this",
+                    "source": "this;",
+                    "note": "this 关键字叶子（ThisKeywordShape）；单叶子也要走覆盖判据 covered=0..0",
+                    "shapeTexts": ["this"],
+                    "tsTexts": [],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-paren-logical",
+                    "source": "(a && b) || c;",
+                    "note": "括号里的逻辑式整段当操作数：||((a&&b),c)，括号内用新的 ExpressionBuilder 载入 bracket.Data",
+                    "shapeTexts": ["||((a&&b),c)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "ast-fallback-postfix",
+                    "source": "a++;",
+                    "note": "未覆盖：postfix ++ 不接管（PrefixUnaryExpressionShape 不带 operator，接管会建错树）——declined + legacy，XML 逐字节一致",
+                    "shapeTexts": [],
                     "shapeAst": 0
                 }
             ]
