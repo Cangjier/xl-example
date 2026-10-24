@@ -200,6 +200,27 @@ children 比普通成员多一个 `QuestionDotTokenShape`（`ExpressionBuilder.P
 所以形状树也只记一个操作数；AST 用 `PostfixUnaryExpressionShape`，`Pos` 取
 `SpanNode(操作数首单元, 运算符单元)`——与 `ParsePostfixSuffix` 的 `SpanNode(start, At - 1)` 同口径。
 
+## static field KindArrow:int = 24
+
+箭头函数（S3l）：`Data = [参数]`、`Raw` 是 `=>` 单元、`Text = "=>"`。
+参数要么是一个 `KindIdentifier`（`x => …`），要么是一个 `KindParen`（`(…) => …`，含空参数 `()` 与
+**未解析参数表**——`(a, b)` / `({x})` 这类形状层不解释的括号，`Data` 为空、渲染成 `params`）。
+体**不进形状树**：箭头体是赋值表达式或块，AST 侧由 legacy `ParseAssign` 从参数单元起整段建
+（`ArrowFunctionShape` / `ParameterShape` / `EqualsGreaterThanToken` 全由那段代码决定）。
+
+## static field KindFunction:int = 25
+
+函数表达式的不透明操作数（S3l）：`Data = []`、`Raw` 是 `function` 关键字单元、`Text = "function"`。
+头部（名字 / 类型参数 / 实参括号 / 返回类型）与函数体 `{…}` 都**不建节点**，由 `ExpectBody` 吞掉；
+AST 侧 `ParseFunctionExpression` 从关键字起整段建。只在**操作数位置**接受（语句首 `function` 是声明，走路由层）。
+
+## static field KindClass:int = 26
+
+类表达式的不透明操作数（S3l）：`Data = []`、`Raw` 是 `class` 关键字单元、`Text = "class"`。
+与 `KindFunction` 同构；`<` / `>` / `{` 在 `ExpectBody` 里被跳过，所以 S3g 记录的
+「`class < T > {object}`」错树路径不再成立（它们不再作为二元运算符 / 对象字面量进入形状树）。
+AST 侧 `ParseClassExpression` 从关键字起整段建。
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -275,6 +296,17 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 
 已经读到、但操作数还没到的前缀节点（`-a` 的 `-`）。操作数到达时按后进先出包上去，再挂进当前帧。
 
+## field AwaitBody:Token | null = null
+
+**正在等类体的函数/类节点**（S3l）：`function` / `class` 在操作数位置建出 `KindFunction` / `KindClass` 之后，
+状态机停在 `ExpectBody`，头部单元（名字 / 类型参数 / `extends` 遗产子句 / 实参括号）一律跳过，
+第一个 `{` 括号（函数体 / 类体）到达后收口并清空。它和 `AwaitName` / `AwaitOptional` 一样只是「等什么」的标记。
+
+## field ArrowBodyUnits:int = 0
+
+**箭头体已经吞掉的单元数**（S3l）：`ExpectArrowTail` 下 `IsComplete()` 的唯一判据——箭头体可以是一个表达式
+（多个单元）也可以是一个块（一个 `{…}` 括号单元），只要体里至少来了一格，箭头就完整了。
+
 ## field Conditionals:Array<Token> = []
 
 **正在等冒号**的条件节点栈（S3h）：`a ? b ? c : d : e` 的外侧与内侧同时等冒号，而最近一个 `:` 属于最内层，
@@ -340,6 +372,17 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 
 `?.` 之后的状态（S3g）：要的不是普通操作数也不是成员名，而是「成员名 / `(` / `[`」三选一，
 所以单独一个状态（`IngestOptional` 分派）。
+
+## static field ExpectBody:int = 5
+
+`function` / `class` 的操作数位置（S3l）：要的是**函数体 / 类体**那个 `{…}` 括号，中间的头部单元全部跳过
+（`IngestBody` 分派）。它不能复用 `ExpectOperand`：头部里的 `(` 是实参括号、`<` `>` 是类型参数、
+名字是标识符，按表达式解释就会建出错树——S3g 的 `class` 守卫记录的正是这条错树路径。
+
+## static field ExpectArrowTail:int = 6
+
+`=>` 之后的状态（S3l）：箭头体整段吞掉（表达式体 / 块体都由 legacy 解析）。
+箭头体是**赋值表达式**，优先级比任何二元运算符都低，所以 `=>` 一到，后面的单元全部属于这条箭头。
 
 ## static field CondPrecedence:int = 1
 
@@ -460,7 +503,14 @@ if (text !== "") {
 弹栈只发生在优先级收敛时，收口时不需要也不应该弹）。
 
 ```ts
-if (this.Incomplete || this.Expect !== StatementOperatorBody.ExpectOperator) {
+if (this.Incomplete) {
+  return false;
+}
+if (this.Expect === StatementOperatorBody.ExpectArrowTail) {
+  // S3l：箭头体全部吞掉，`Expect` 永远回不到 `ExpectOperator`；体里至少有一格就算完整。
+  return this.ArrowBodyUnits > 0;
+}
+if (this.Expect !== StatementOperatorBody.ExpectOperator) {
   return false;
 }
 for (let index = 0; index < this.FramePending.length; index++) {
@@ -513,10 +563,23 @@ if (this.Expect === StatementOperatorBody.ExpectOptional) {
   this.IngestOptional(unit, text, template);
   return;
 }
+if (this.Expect === StatementOperatorBody.ExpectBody) {
+  this.IngestBody(unit);
+  return;
+}
+if (this.Expect === StatementOperatorBody.ExpectArrowTail) {
+  // S3l：箭头体整段吞掉（表达式体的每一格 / 块体那一个括号单元），不建节点。
+  this.ArrowBodyUnits++;
+  return;
+}
 
 if (this.Expect === StatementOperatorBody.ExpectOperand) {
   if (text === "class") {
-    this.Fail("class 表达式");
+    this.StartDeclarationOperand(unit, text, StatementOperandShape.KindClass, template);
+    return;
+  }
+  if (text === "function") {
+    this.StartDeclarationOperand(unit, text, StatementOperandShape.KindFunction, template);
     return;
   }
   if (text === "new") {
@@ -540,6 +603,14 @@ if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
   this.Expect = StatementOperatorBody.ExpectOperator;
   return;
 }
+  if (text === "=>") {
+    this.StartArrow(unit, template);
+    return;
+  }
+  if (this.HasLooseParen()) {
+    this.Fail("圆括号参数表后面不是 =>");
+    return;
+  }
   if (text !== "" && OperatorTable.IsAssignmentOperator(text)) {
     this.PushAssignment(unit, text, template);
     return;
@@ -651,7 +722,13 @@ if (unit instanceof Bracket) {
   inner.Nested = true;
   inner.IngestAll(bracket.Data, template);
   if (inner.Incomplete || !inner.IsComplete()) {
-    return null;
+    // S3l：`(a, b) => …` 的参数表 / 空参数 `()` / 解构参数不是表达式，形状层不解释括号内容，
+    // 只留一个**未解析参数表**（`Data` 为空、渲染成 `params`）。只有后面真的来 `=>` 才成立，
+    // 否则 `HasLooseParen` 会 Fail（安全退回 legacy，不建错树）。
+    const loose = new StatementOperandShape(template);
+    loose.Kind = StatementOperandShape.KindParen;
+    loose.Raw = bracket;
+    return loose;
   }
   const shape = new StatementOperandShape(template);
   shape.Kind = StatementOperandShape.KindParen;
@@ -1204,7 +1281,10 @@ if (token instanceof StatementOperandShape) {
     return shape.Text + "(" + only + ")";
   }
   if (shape.Kind === StatementOperandShape.KindParen) {
-    const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    if (shape.Data.length === 0) {
+      return "params";
+    }
+    const only = StatementOperatorBody.RenderInfix(shape.Data[0]);
     return "(" + only + ")";
   }
   if (shape.Kind === StatementOperandShape.KindMember) {
@@ -1223,6 +1303,16 @@ if (token instanceof StatementOperandShape) {
   }
   if (shape.Kind === StatementOperandShape.KindObject) {
     return "object";
+  }
+  if (shape.Kind === StatementOperandShape.KindArrow) {
+    const parameter = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "arrow(" + parameter + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindFunction) {
+    return "function";
+  }
+  if (shape.Kind === StatementOperandShape.KindClass) {
+    return "class";
   }
   if (shape.Kind === StatementOperandShape.KindNew) {
     const callee = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
@@ -1294,7 +1384,10 @@ if (token instanceof StatementOperandShape) {
     return shape.Text + only;
   }
   if (shape.Kind === StatementOperandShape.KindParen) {
-    const only = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
+    if (shape.Data.length === 0) {
+      return "params";
+    }
+    const only = StatementOperatorBody.RenderInfix(shape.Data[0]);
     return "(" + only + ")";
   }
   if (shape.Kind === StatementOperandShape.KindMember) {
@@ -1313,6 +1406,16 @@ if (token instanceof StatementOperandShape) {
   }
   if (shape.Kind === StatementOperandShape.KindObject) {
     return "object";
+  }
+  if (shape.Kind === StatementOperandShape.KindArrow) {
+    const parameter = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "arrow(" + parameter + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindFunction) {
+    return "function";
+  }
+  if (shape.Kind === StatementOperandShape.KindClass) {
+    return "class";
   }
   if (shape.Kind === StatementOperandShape.KindNew) {
     const callee = shape.Data.length > 0 ? StatementOperatorBody.RenderInfix(shape.Data[0]) : "?";
@@ -1350,6 +1453,96 @@ if (token instanceof StatementOperandShape) {
   return shape.Text;
 }
 return "?";
+```
+
+## method StartDeclarationOperand:(unit:Token, text:string, kind:int, template:Template)=>void
+
+`function` / `class` 在**操作数位置**（S3l）：建一个不透明节点挂进 `Top()`，转 `ExpectBody` 等函数体 / 类体。
+
+**为什么不像 S3g 那样直接 `Fail("class 表达式")`**：那条守卫挡住的是「不建错树」，代价是 `(class {})` 永远回 legacy。
+现在 `<` / `>` / `{` 在头部里被 `ExpectBody` **整格跳过**，不再进 `PushBinary` / `BuildOperand`，
+S3g 记录的错树路径（`class` `<` `T` `>` `{object}` 三格拼成「恰好完整」）因此不成立。
+
+```ts
+const shape = new StatementOperandShape(template);
+shape.Kind = kind;
+shape.Text = text;
+shape.Raw = unit;
+this.Top().Add(shape);
+this.AwaitBody = shape;
+this.Expect = StatementOperatorBody.ExpectBody;
+```
+
+## method IngestBody:(unit:Token)=>void
+
+`function` / `class` 的头部之后（S3l）：第一个 `{` 括号就是函数体 / 类体，收口回到 `ExpectOperator`，
+并把父二元帧标成「右操作数已到」（本节点就是那个右操作数）。名字 / 类型参数 / 遗产子句 / 实参括号一律跳过。
+
+**只在 `ExpectBody` 里跳过**：`a + function(){}` 的 `+` 帧仍在等右操作数，`IngestBody` 只吞头部、
+不碰 `Frames`，所以优先级收敛与普通操作数完全一致。
+
+```ts
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+  this.AwaitBody = null;
+  this.Expect = StatementOperatorBody.ExpectOperator;
+  if (this.Frames.length > 0) {
+    this.FramePending[this.Frames.length - 1] = false;
+  }
+}
+```
+
+## method StartArrow:(unit:Token, template:Template)=>void
+
+`=>`（S3l）：参数只能是「一个标识符」或「一个圆括号参数表」（含 `()` 与未解析的 `(a, b)` / 解构参数）。
+参数已经是当前表达式的最后一个子单元，用 `InsertBetween` 把它原地变成 `KindArrow` 的唯一子节点，
+转 `ExpectArrowTail` 吞掉箭头体。
+
+参数形态不认识（`a.b => …`、`async (x) => …` 里的 `call(async)`、前缀包着的 `-x => …`）就 `Fail`：
+legacy 的箭头文法只接受这两种参数前缀，形状层多认一种就会建出 legacy 不会建的树。
+
+```ts
+const top = this.Top();
+if (top.Data.length === 0) {
+  this.Fail("箭头函数缺少参数");
+  return;
+}
+const params = top.Data[top.Data.length - 1];
+if (!(params instanceof StatementOperandShape)) {
+  this.Fail("箭头函数参数不是形状节点");
+  return;
+}
+const paramShape = params as StatementOperandShape;
+if (paramShape.Kind !== StatementOperandShape.KindIdentifier
+  && paramShape.Kind !== StatementOperandShape.KindParen) {
+  this.Fail("箭头函数参数形态");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindArrow;
+shape.Raw = unit;
+shape.Text = "=>";
+ShapeInsertUtil.InsertBetween(top, params, shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Expect = StatementOperatorBody.ExpectArrowTail;
+```
+
+## method HasLooseParen:()=>bool
+
+当前表达式最后挂的是不是**未解析参数表**（`KindParen` 且 `Data` 为空）。它只可能是箭头的参数，
+所以后面不是 `=>` 就不是合法表达式——`Fail` 回 legacy，不让半棵树冒充结构证明。
+
+```ts
+const top = this.Top();
+if (top.Data.length === 0) {
+  return false;
+}
+const last = top.Data[top.Data.length - 1];
+if (!(last instanceof StatementOperandShape)) {
+  return false;
+}
+const shape = last as StatementOperandShape;
+return shape.Kind === StatementOperandShape.KindParen && shape.Data.length === 0;
 ```
 
 ## static method TextOfToken:(unit:Token)=>string

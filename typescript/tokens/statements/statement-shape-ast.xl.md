@@ -773,5 +773,77 @@ if (shape.Kind === StatementOperandShape.KindPostfix) {
   postfix.Add(operand);
   return builder.SpanNode(postfix, firstIndex, opIndex);
 }
+if (shape.Kind === StatementOperandShape.KindArrow) {
+  // S3l：箭头函数整段交给 legacy。参数形态与体（表达式体 / 块体）由 `ParseAssign` 的箭头分支决定，
+  // 所以 `ArrowFunctionShape` / `ParameterShape` / `EqualsGreaterThanToken` 的 children、`Pos` 与区间
+  // 与 legacy `EnableShellExpressions=false` 逐字段同源。参数单元就是本节点的起点（标识符或括号）。
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("箭头函数不是单一参数");
+  }
+  const params = shape.Data[0];
+  if (!(params instanceof StatementOperandShape)) {
+    return StatementShapeAst.Decline("箭头函数参数不是形状节点");
+  }
+  const paramRaw = (params as StatementOperandShape).Raw;
+  if (paramRaw === null) {
+    return StatementShapeAst.Decline("箭头函数参数没有单元");
+  }
+  const first = builder.Units.indexOf(paramRaw);
+  if (first < 0) {
+    return StatementShapeAst.Decline("箭头函数参数单元不在表达式里");
+  }
+  const savedAt = builder.At;
+  builder.At = first;
+  let value:Token | null = null;
+  let after = first;
+  try {
+    value = builder.ParseAssign();
+    after = builder.At;
+  } catch (error) {
+    builder.At = savedAt;
+    return StatementShapeAst.Decline("箭头函数交给 legacy 解析失败");
+  }
+  builder.At = savedAt;
+  if (value === null || after <= first) {
+    return StatementShapeAst.Decline("箭头函数没有消费单元");
+  }
+  for (let at = first; at < after; at++) {
+    covered.push(at);
+  }
+  return value;
+}
+if (shape.Kind === StatementOperandShape.KindFunction || shape.Kind === StatementOperandShape.KindClass) {
+  // S3l：函数表达式 / 类表达式整段交给 legacy（`ParseFunctionExpression` / `ParseClassExpression`），
+  // 关键字单元就是本节点的起点；头部与体都不进形状树，所以这里只按 legacy 的消费长度记覆盖。
+  const raw = shape.Raw;
+  if (raw === null) {
+    return StatementShapeAst.Decline("函数/类表达式没有关键字单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("函数/类关键字不在表达式里");
+  }
+  const savedAt = builder.At;
+  builder.At = index;
+  let value:Token | null = null;
+  let after = index;
+  try {
+    value = shape.Kind === StatementOperandShape.KindClass
+      ? builder.ParseClassExpression()
+      : builder.ParseFunctionExpression();
+    after = builder.At;
+  } catch (error) {
+    builder.At = savedAt;
+    return StatementShapeAst.Decline("函数/类表达式交给 legacy 解析失败");
+  }
+  builder.At = savedAt;
+  if (value === null || after <= index) {
+    return StatementShapeAst.Decline("函数/类表达式没有消费单元");
+  }
+  for (let at = index; at < after; at++) {
+    covered.push(at);
+  }
+  return value;
+}
 return StatementShapeAst.Decline("未覆盖的形状类型");
 ```
