@@ -433,6 +433,11 @@ if (head === "import") {
   return 1;
 }
 if (head === "class") {
+  // `class<T> {}`：TS 里 `class` 后**紧跟 `<`** 不是 ClassDeclaration（没有名字），而是
+  // ClassExpression 语句（`<T>` 是类型参数前导）→ 交给 `StatementBuilder`。
+  if (this.IsSymbolAt(code, at + 1, "<")) {
+    return 9;
+  }
   return 3;
 }
 if (head === "interface") {
@@ -500,7 +505,19 @@ return this.TextOf(code[at]) === text;
 
 ```ts
 try {
+  // WP-6 的直接建造入口：`[start, stop)` 是**半开**区间，ASI（`;` 可有可无）与 End 重锚都由入口自己
+  // 处理，不依赖 `BuildByIndex` / `MountShell`，也不改 `host.Data`。返回 `null` = 这一片不是该形态 →
+  // 一律退回 6080 状态已经验证过的旧入口（`FromUnits` / `BuildModuleItem`），所以每个分支只增不减。
+  const stop: number = end + 1;
   if (kind === 1) {
+    // `import defer …`：`defer` 的 phase modifier 只在挂壳路径里实现，`FromUnits` 会把它当默认导入名。
+    // 普通 import 仍走已验证的 `FromUnits`（它们不是本波要修的类别）。
+    if (this.TextOf(host.Data[start + 1]) === "defer") {
+      const direct1: Token | null = ImportDeclarationShape.BuildDirect(host, start, stop, context);
+      if (direct1 !== null) {
+        return direct1;
+      }
+    }
     return ImportDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 2) {
@@ -519,18 +536,42 @@ try {
     return FunctionDeclarationShape.FromUnits(host, start, end, context, false, false);
   }
   if (kind === 7) {
+    // 无体 ambient 模块（`declare module "m"` ⏎ `class C {}`）：直接入口按「名字单元 / `;`」重锚 End，
+    // 不看尾随 trivia；带体的模块仍走尾巴的 `BuildModuleItem`（它的体括号口径不变）。
+    let hasBody: boolean = false;
+    for (let probe = start; probe <= end; probe++) {
+      if (host.Data[probe] instanceof Bracket) {
+        hasBody = true;
+      }
+    }
+    if (!hasBody) {
+      const direct7: Token | null = ModuleDeclarationShape.BuildDirect(host, start, stop, context);
+      if (direct7 !== null) {
+        return direct7;
+      }
+    }
     return SourceFileTailBuilder.BuildModuleItem(host, start, end, context);
   }
   if (kind === 8) {
     return TypeAliasDeclarationShape.FromUnits(host, start, end, context);
   }
   if (kind === 10) {
-    // `export = …` / `export default …`：`;` 在区间里才要求分号（ASI 的尾巴没有分号）。
+    // `export = …` / `export default …`：ASI 的尾巴没有分号，直接入口按表达式末尾收口；
+    // 建不出时退回旧口径（`;` 在区间里才要求分号）。
+    const direct10: Token | null = ExportAssignmentShape.BuildDirect(host, start, stop, context);
+    if (direct10 !== null) {
+      return direct10;
+    }
     const lastUnit: Token = host.Data[end];
     const hasSemi: boolean = lastUnit instanceof Symbol && (lastUnit as Symbol).Is(";");
     return ExportAssignmentShape.FromUnits(host, start, end, context, hasSemi);
   }
   if (kind === 11) {
+    // `import x = require("m")` 的 ASI 尾巴没有 `;`，而 `FromUnits` 强制要 `;`（本波 8 条）。
+    const direct11: Token | null = ImportEqualsDeclarationShape.BuildDirect(host, start, stop, context);
+    if (direct11 !== null) {
+      return direct11;
+    }
     return ImportEqualsDeclarationShape.FromUnits(host, start, end, context);
   }
   return this.BuildStatement(host, start, end, context);
