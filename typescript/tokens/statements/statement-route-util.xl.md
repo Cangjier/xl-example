@@ -161,7 +161,11 @@ Stage 4c-2 把那一格改成 **`None`（继续等，不判死、不判族）**�
 
 **历史**（Stage 4c 的旧理由，已由上面的判据修掉）：标签的头是标识符、与普通表达式语句同格，壳在首代码单元那一格就建，而 `:` 还没到——于是默认关、继续走表达式壳（`StatementShape.BuildFromShell` → `StatementBuilder.BuildStatement` 的标签分派）。
 
-## static field EnableControlFlowEmpty:bool = false
+## static field EnableControlFlowEmpty:bool = true
+
+**Stage 4d：尾巴重放落地后默认打开**。`StatementShape.FinishShell` 收口后把 leftover 按原位送回父目录判定一次
+（`LeftoverReplayCount` / `LeftoverReplayFailed` 计量），`;` 不再因为「壳收口后没人再判这一格」而丢节点；
+证据见 `HANDOFF-s4d.md` §2 与 `s4c2-empty*` / `control-flow-takeover` 的空语句读数。旧读数保留作历史：
 
 **Stage 4c-2 实测（打开后回退，默认关）**：把开关打开后，'';'' 作为**别人壳里的 leftover**（if (a) {} ⏎ ;、{ ; ; } 的第二格、; ⏎ ;）没有重放通道 —— FinishShell 只把 leftover 挪回父单元、不再问父目录，那一格永远没有人建，实测 if (a) {} ⏎ ; ⏎ while (b) {} ⏎ ; 少一条 EmptyStatement（AST 节点 8 vs 7，XML 同步不同）。这不是标签那种「判据时机」问题，而是 FinishShell 缺一次父目录重放（HANDOFF-s4c §7 风险 1 的同一条）。因此默认关：空语句由 legacy 的 BuildEmpty 建，s4c2-empty* 用例守 XML/AST 与 legacy 逐字节一致；接管证据与复现读数见 HANDOFF-s4c2.md。
 
