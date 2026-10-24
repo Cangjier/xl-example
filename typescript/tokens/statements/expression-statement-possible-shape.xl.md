@@ -469,6 +469,38 @@ if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
 return false;
 ```
 
+## static method IsExpressionPositionBefore:(units:Array<Token>, bracketIndex:int)=>bool
+
+`bracketIndex` 处是一个 `{…}`；它**前面**那一格是不是只可能出现在**表达式位**（初始化 / 实参 /
+数组元素 / 条件 / `return` 操作数 / 箭头体）：`=` `(` `[` `,` `?` `=>` `return`。
+
+用来把对象字面量与类型字面量分开：`const o = { a: 1 }` 的 `{` 前是 `=`（表达式位），
+`let a: { x: number }` 的 `{` 前是 `:`（类型位，**不是**表达式位）。只有表达式位才允许
+「换行后的 `{` 是这个对象字面量的结束、下一条块语句的开始」；`:` 位必须留给
+`function (): { a: number }` ⏎ `{ }` 的函数体。
+
+```ts
+if (bracketIndex <= 0 || bracketIndex >= units.length) {
+  return false;
+}
+let before = bracketIndex - 1;
+while (before >= 0 && units[before].IsTriviaToken) {
+  before--;
+}
+if (before < 0) {
+  return false;
+}
+const unit = units[before];
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  return text === "=" || text === "(" || text === "[" || text === "," || text === "?" || text === "=>";
+}
+if (unit instanceof Common) {
+  return (unit as Common).TempToString() === "return";
+}
+return false;
+```
+
 ## static method IsStatementBoundaryAfterExpression:(units:Array<Token>, tokenIndex:int)=>bool
 
 「换行之后，下一条语句的第一个代码单元到了」——`export =` / `export default` 两个候选在等 `;` 的阶段用它收口。
@@ -556,6 +588,16 @@ if (current instanceof Bracket && (current as Bracket).StartBracketChar === "{"
   && !ExpressionStatementPossibleShape.ExpectsBodyBefore(units, previous)) {
   return true;
 }
+// 换行后的 `{`，上一单元是**已闭合的对象字面量** `{…}` 且它坐在表达式位（`= { … }` /
+// `return { … }` / `f({ … })`）——那么当前 `{` 只能是块语句起点。`CanEndExpression` 故意不认
+// `{` 括号（它分不清对象字面量与裸块），所以这里换一条更窄的判据：括号 + 表达式位。
+// `let a: { x: number }` 的 `{` 前面是 `:`，不在表达式位，保持原状。
+if (current instanceof Bracket && (current as Bracket).StartBracketChar === "{"
+  && units[previous] instanceof Bracket
+  && (units[previous] as Bracket).StartBracketChar === "{"
+  && ExpressionStatementPossibleShape.IsExpressionPositionBefore(units, previous)) {
+  return true;
+}
 const currentIsCallPosition = (current instanceof Bracket
     && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
   || (current instanceof String && (current as String).StringChar === "`");
@@ -578,9 +620,13 @@ if (ExpressionStatementPossibleShape.IsPostfixOperatorAt(units, previous)
 return false;
 ```
 
-## static method ExpectsBodyBefore:(units:Array<Token>, previousIndex:int)=>bool
+## static method ExpectsBodyBefore:(units:Array<Token>, previousIndex:int, fromIndex?:int)=>bool
 
 `previousIndex` 处的收尾单元后面紧跟的 `{`，是不是**某个头还欠着的体**？
+
+`fromIndex`（缺省 0）是回扫的下界。控制流体的扫描器（`ScanExpressionBody`）调用它时传**体起点**：
+`if (a) b` ⏎ `{ }` 里的 `if` 是这条 `if` 自己的头、体 `b` 已经给了，不能被当成「还在等体」；
+而 `if (a) function f ()` ⏎ `{ }` 的 `function` 就在体起点上，仍在界内，照样算等体。
 
 只有「还在等体」时返回 true：`function ()` / `class A` / `class A extends B` / `interface A` / `enum A` /
 `namespace A` / 箭头 `=>` / 控制头 `if (a)` `for (…)` `while (…)` `switch (…)` `with (…)` `catch (…)`。
@@ -588,6 +634,10 @@ return false;
 
 ```ts
 if (previousIndex < 0 || previousIndex >= units.length) {
+  return false;
+}
+const from = fromIndex ?? 0;
+if (previousIndex < from) {
   return false;
 }
 const tail = units[previousIndex];
@@ -599,7 +649,7 @@ if (tail instanceof Bracket) {
   // `if (a)` 这种紧邻控制头的调用位括号：体还没出现。
   if ((tail as Bracket).StartBracketChar === "(") {
     let before = previousIndex - 1;
-    while (before >= 0 && units[before].IsTriviaToken) {
+    while (before >= from && units[before].IsTriviaToken) {
       before--;
     }
     if (before >= 0 && units[before] instanceof Common) {
@@ -617,7 +667,7 @@ if (tail instanceof Bracket) {
     return true;
   }
 }
-for (let at = previousIndex - 1; at >= 0; at--) {
+for (let at = previousIndex - 1; at >= from; at--) {
   const unit = units[at];
   if (unit.IsTriviaToken) {
     continue;
