@@ -10,6 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
+import { StatementRouteUtil } from "./statement-route-util.xl.md"
 ```
 
 # namespace cangjie
@@ -146,12 +147,19 @@ host.Data.splice(0, consumed.length);
 return built;
 ```
 
-## static method FinishShell:(shell:Token, built:Token)=>void
+## static method FinishShell:(shell:Token, built:Token, context:SyntaxContext | null)=>void
 
 壳收口：把壳从父单元里**原位**换成建好的语句形状，并把壳 `Data` 里剩下的 raw 单元按原顺序插在语句形状之后；
 父单元的 `MountedUnit` 若还指着壳就清掉（本条语句已经结束，后续字符回到父单元）。
 
 两处必须显式：`built.Parent`（`splice` 不设父）、`parent.MountedUnit`（`splice` 不清挂载）。
+
+**尾巴重放（Stage 4b）**：ASI 边界收口时留在壳里的边界单元（典型是 `let a = 1` ⏎ `{ b; }` 的 `{` 括号）
+是在壳**挂着**的时候建出来的，父目录从没见过它们；不重放，父目录只能等到 EOF 才看到这对残留单元，
+再由 `SourceFileEndPossibleShape` 按 legacy 表达式语句整段建 —— 这正是「表达式语句没有读完」+ 文件级 fallback 的根。
+所以收口后把每个非 trivia 尾巴格子按原位送进父目录判定一次（`context` 为 `null` 时不做，保持旧行为）。
+重放是**尽力而为**：抛错立刻停下并计数（`LeftoverReplayFailed`），让原有 EOF / fallback 路径接管——
+重放只增加接管机会，绝不让一次本来能过的解析变成失败。
 
 ```ts
 const parent = shell.Parent;
@@ -232,7 +240,7 @@ if (!this.Closed) {
       built = null;
     }
     if (built !== null) {
-      StatementShape.FinishShell(this, built);
+      StatementShape.FinishShell(this, built, context);
       return CloseStates.Nothing;
     }
     // 兜底：壳里这一段建不出来（例如 `satisfies` / 类型实参这种扫描器给不出 Status==1 的形态），

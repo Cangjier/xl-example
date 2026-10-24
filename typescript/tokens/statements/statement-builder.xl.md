@@ -30,6 +30,7 @@ import { ExportAssignmentShape } from "../declarations/export-assignment-shape.x
 import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
@@ -50,6 +51,7 @@ import { EmptyStatementShape } from "./empty-statement-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementShapeAst } from "./statement-shape-ast.xl.md"
+import { StatementShape } from "./statement-shape.xl.md"
 import { ForInStatementShape } from "./for-in-statement-shape.xl.md"
 import { ForOfStatementShape } from "./for-of-statement-shape.xl.md"
 import { ForStatementShape } from "./for-statement-shape.xl.md"
@@ -1219,21 +1221,113 @@ return shape;
 
 块：`{` … `}` 是一个括号单元，里面的语句在它的 `Data` 里递归建。
 
+**块体已由目录增量建成语句形状时（`EnableBlockBodyCatalog`）**，走 `CollectBodyStatements()` 按序收集：
+已建形状直接成为 `BlockShape` 的子语句（不重新建树），中间/尾部仍是 raw basic token 的段落由内层
+`BuildStatement()` 逐条建。两条路产出的 `BlockShape.Data` 都是「语句形状按源码顺序」，区间 / `Pos` 不变；
+只有「谁来建这一条语句」不同（possible 增量 vs 一次性 raw 递归）。
+
 ```ts
 const first = this.At;
 const bracket = this.Units[this.At] as Bracket;
 this.At++;
 const shape = new BlockShape(this.Template);
-const inner = new StatementBuilder(this.Template, this.Context);
-let base = 0;
-if (bracket.SourceRange.StartIndex >= 0) {
-  base = bracket.SourceRange.StartIndex + 1;
-}
-inner.Load(bracket.Data, base);
-while (inner.At < inner.Units.length) {
-  shape.Add(inner.BuildStatement());
+if (StatementBuilder.HasBuiltBodyStatements(bracket)) {
+  this.CollectBodyStatements(bracket, shape);
+} else {
+  const inner = new StatementBuilder(this.Template, this.Context);
+  let base = 0;
+  if (bracket.SourceRange.StartIndex >= 0) {
+    base = bracket.SourceRange.StartIndex + 1;
+  }
+  inner.Load(bracket.Data, base);
+  while (inner.At < inner.Units.length) {
+    shape.Add(inner.BuildStatement());
+  }
 }
 return this.Finish(shape, first, first);
+```
+
+## static method HasBuiltBodyStatements:(bracket:Bracket)=>bool
+
+块体括号里是否已有**已建语句形状**（非 basic、非 trivia 的单元）。没有就整段走 legacy raw 递归（逐字节不变）；有就走收集。
+
+```ts
+for (const unit of bracket.Data) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (!unit.IsBasicToken) {
+    return true;
+  }
+}
+return false;
+```
+
+## method CollectBodyStatements:(bracket:Bracket, shape:BlockShape)=>void
+
+**块体语句收集**（Stage 4b，对齐 `BodyGuideUtil.CollectBodyMembers` 的两条路）：
+
+- 括号 `Data` 里已由块体目录增量建出的语句形状：**按序原样收集**（`shape.Add` 设 `Parent`），不再让建造器啃；
+- 形状之间的 raw 段（本族还没有候选的语句，例如未壳化的控制流）：切出来交给一个内层 `StatementBuilder`，
+  `Load(段, base)` 后 `BuildStatement()` 逐条建，拼在已建语句之后；
+- `base` 口径与 `BuildBlock` 相同：首段是 `{` 的 `StartIndex + 1`，之后每段是**前一个已建语句的 `SourceRange.EndIndex`**
+  （TS 的 `pos` 含前导 trivia，与 `BuildBlock` / `StatementShape.BuildFromShell` 同口径）。
+
+**安全回退**：`StatementShape` 壳残留（收口失败）或 `if (a) f();` 这类 raw 语句把已建形状当成自己子语句时，
+内层建造器会读到非 basic 单元 —— 这里直接抛错，由 `SourceFileRunner.Parse` 的文件级 fallback 整条重解析
+（AST 与 legacy 一致）。不吞错、不建错树。
+
+```ts
+let at = 0;
+let rawFrom = 0;
+let rawBase = 0;
+if (bracket.SourceRange.StartIndex >= 0) {
+  rawBase = bracket.SourceRange.StartIndex + 1;
+}
+while (at < bracket.Data.length) {
+  const unit = bracket.Data[at];
+  if (unit.IsTriviaToken || unit.IsBasicToken) {
+    at++;
+    continue;
+  }
+  if (unit instanceof StatementShape) {
+    throw new Error("块体里有未收口的语句壳");
+  }
+  if (rawFrom < at) {
+    const inner = new StatementBuilder(this.Template, this.Context);
+    inner.Load(bracket.Data.slice(rawFrom, at), rawBase);
+    while (inner.At < inner.Units.length) {
+      shape.Add(inner.BuildStatement());
+    }
+  }
+  // 第一条语句的 `Pos` 口径：块内第一条语句的 `pos` 是 `{` 之后第一个字符（含前导 trivia），
+  // 而块体目录建壳时宿主括号前面没有非 trivia 单元，壳按「根口径」取了 0。这里按块口径纠正一次，
+  // 之后每条（已建或 raw）都从前一个兄弟的 `EndIndex` 起算，与 legacy `BuildBlock` 的 base 一致。
+  if (shape.Data.length === 0 && (unit as ShapeToken).Pos < rawBase) {
+    (unit as ShapeToken).Pos = rawBase;
+  }
+  shape.Add(unit);
+  StatementRouteUtil.BlockBodyStatementCount += 1;
+  if (unit.SourceRange.EndIndex >= 0) {
+    rawBase = unit.SourceRange.EndIndex;
+  }
+  at++;
+  rawFrom = at;
+}
+let hasRaw = false;
+for (let index = rawFrom; index < bracket.Data.length; index++) {
+  if (!bracket.Data[index].IsTriviaToken) {
+    hasRaw = true;
+    break;
+  }
+}
+if (hasRaw) {
+  const inner = new StatementBuilder(this.Template, this.Context);
+  inner.Load(bracket.Data.slice(rawFrom), rawBase);
+  while (inner.At < inner.Units.length) {
+    shape.Add(inner.BuildStatement());
+  }
+}
 ```
 
 ## method BuildEmpty:()=>Token

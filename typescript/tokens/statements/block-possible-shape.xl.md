@@ -20,6 +20,33 @@ import { VariableStatementPossibleShape } from "./variable-statement-possible-sh
 
 # namespace cangjie
 
+# class BlockBodyWaitingPossibleShape extends PossibleShape
+
+块体目录的**占位终结候选**：永远 `Uncertain`、永远不建。
+
+它只负责一件事：块内第一个代码单元不属于任何已接管族时（`;` / `if` / 嵌套 `{` …），目录不会因为
+「候选全被拒 + 没有终结候选」抛 `没有候选形状可以构成`（那会把整条文件逼进 fallback）。
+那些语句保持 raw，留给 `BuildBlock` 的 legacy 递归或 `CollectBodyStatements` 的 raw 段建——
+这是块内未覆盖构造的安全回退，而不是失败。
+
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+
+```ts
+return ShapeStates.Uncertain;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+```ts
+return false;
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+```ts
+return host;
+```
+
 # class BlockPossibleShape extends PossibleShape
 
 ```txt
@@ -164,11 +191,24 @@ shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
-if (StatementRouteUtil.EnableBlockBodyCatalog && moved.length === 1 && moved[0] instanceof Bracket) {
-  const bodyBracket = moved[0] as Bracket;
-  if (bodyBracket.StartBracketChar === "{") {
-    BodyGuideUtil.MountBodyGuide(bodyBracket, BlockPossibleShape.CreateBodyPossibleShapes());
+let bodyBracket:Bracket | null = null;
+if (moved.length === 1 && moved[0] instanceof Bracket) {
+  const bracket = moved[0] as Bracket;
+  if (bracket.StartBracketChar === "{") {
+    bodyBracket = bracket;
   }
+}
+// 块体括号是在壳之前建出来的（`Bracket.Transit` 先把它 Add 到宿主并 `host.MountedUnit = 括号`），
+// 壳接管之后必须把括号挂回**自己**名下：否则后续字符按宿主的 MountedUnit 落到壳上、块内语句进不了括号，
+// `}` 也关不到括号，壳就一直挂着去吞下一条语句（S4b 修「同文件第二块不建壳」的根）。
+if (bodyBracket !== null) {
+  shell.MountedUnit = bodyBracket;
+}
+if (StatementRouteUtil.EnableBlockBodyCatalog && bodyBracket !== null) {
+  BodyGuideUtil.MountBodyGuide(bodyBracket, BlockPossibleShape.CreateBodyPossibleShapes());
+  bodyBracket.CatalogGuide = new CatalogGuide(
+    BlockPossibleShape.CreateBodyPossibleShapes(),
+    new BlockBodyWaitingPossibleShape());
 }
 StatementRouteUtil.BlockShellCount += 1;
 return shell;

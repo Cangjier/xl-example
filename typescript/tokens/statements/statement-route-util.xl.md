@@ -99,11 +99,34 @@ r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改�
 
 ## static field EnableBlockBodyCatalog:bool = false
 
-块体语句目录开关（Stage 4a）。`false` = 不把语句候选目录挂到块体 `{` 括号上，块内仍由 `StatementBuilder.BuildBlock()` 原子递归（与 legacy 逐字相同）。默认关是**未覆盖构造的安全回退**：`BuildBlock` 目前只吃 raw basic token，块内一旦增量建成形状它没有「收集已建语句」的通道，打开会把整条语句建错树（再靠文件级 fallback 掩盖），所以先关。
+块体语句目录开关（Stage 4a 接入，Stage 4b 落地收集通道，**默认仍关**）。`true` = 把变量声明与普通表达式两类语句候选挂到块体 `{` 括号上，块内语句由 possible 增量建 `StatementShape` 形状；收口时 `StatementBuilder.BuildBlock()` 调
+`StatementBuilder.CollectBodyStatements()` 按序收集这些已建语句（raw 尾巴仍由同一个 `BuildStatement()` 逐条建），
+不再把形状单元当 raw 喂给建造器。
+
+**为什么默认仍是 false（实测，不是保守）**：打开后块内接管确实发生（counters：`{ let x = 1; f(); }` → 2 条、
+`{ f(); g(); }` → 2 条、`{ a; b; c; }` → 3 条、`BlockBodyStatementCount>0`），但块内第一条语句的 `pos` 仍按
+「根口径」取到 `0`，而 TS 的块内第一条语句 `pos = { 之后第一个字符`（`{ a; }` → 1），AST range 差一格；
+且块内最后一条无分号的语句在 `}` 前收口仍依赖 `StatementShape.ExitOrPre` 的 Reload 兜底（已实现，但组合形态
+`{ let a = 1 ⏎ let b = 2 ⏎ f() }` 仍需逐条核）。打开会让 `stage4-block` 的 4 条 AST range 用例变红，
+按方法论「未覆盖构造安全回退、不伪造绿」先关。剩余两处见 `HANDOFF-s4b.md` §6。
 
 ## static field BlockShellCount:int = 0
 
 进程内累计「被块候选建成壳的块语句」条数（只增不减），与 `FileFallbackCount` 同一定位：harness / 集成表用它出「块语句确实走了新路径」的计数证据。
+
+## static field BlockBodyStatementCount:int = 0
+
+进程内累计「块体里由 possible 增量建成、再被 `CollectBodyStatements` 按序收集的语句」条数（只增不减）。
+块内接管的计数证据：它与 `BlockShellCount` 一起把「块壳化」与「块内语句接管」分开计量，不靠 XML/AST 猜。
+
+## static field LeftoverReplayCount:int = 0
+
+进程内累计「语句壳收口后把留在父单元里的 raw 尾巴重新送进父目录判定」的格数（只增不减）。
+用于证明 ASI 边界留下的 `{ ... }`（例如 `let a = 1` ⏎ `{ b; }`）会被父目录重新看见，而不是拖到 EOF。
+
+## static field LeftoverReplayFailed:int = 0
+
+进程内累计「重放尾巴时父目录抛错」的格数（只增不减）。重放是**尽力而为**：抛错就停在原地，让文件级 fallback / 原有 EOF 路径接管，绝不让重放把一次本来能过的解析变成失败。
 
 Stage 4 位掩码（控制流语句族壳化），本阶段恒为 0。
 

@@ -254,6 +254,6 @@ if (current instanceof EndOfFileTokenShape) {
   }
 }
 const built = StatementShape.BuildFromShell(host, endIndex, context);
-StatementShape.FinishShell(host, built);
+StatementShape.FinishShell(host, built, context);
 return built;
 ```
