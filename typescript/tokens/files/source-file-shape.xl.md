@@ -153,7 +153,8 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // new EnumDeclarationPossibleShape(),
     new ModuleDeclarationPossibleShape(),
     new TypeAliasDeclarationPossibleShape(),
-    // new VariableStatementPossibleShape(),
+    // 可行性原型 A：根层 `let` / `const` / `var` 声明先建 `StatementShape` 壳（`;` / ASI 由壳的终结候选收口）。
+    new VariableStatementPossibleShape(),
     // new BlockPossibleShape(),
     // new EmptyStatementPossibleShape(),
     new ExpressionStatementPossibleShape(),
