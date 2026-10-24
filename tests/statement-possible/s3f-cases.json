@@ -1,0 +1,171 @@
+{
+    "groups": {
+        "s3f-leaves-and-chains": {
+            "description": "S3f 专用取证：字面量叶子（字符串 / 无内插模板 / 正则 / 数组）与成员访问 / 索引 / 调用链。每条断言五件事与 op-ast 同源：①壳路径 XML 与同源码 legacy 逐字节一致；②形状树确实接管了 AST（StatementShapeAst.TotalShapeAst 达到期望条数，不接受静默回退）；③形状结构 == ts.createSourceFile 逐节点渲染；④未覆盖构造必须 declined 而不是建错树（shapeAst=0 时 declined 必须 >0）；⑤形状节点不泄漏进 XML。结构文本里字面量只记种类（string / template / regex / array）：字面量的**值**由 ①（XML 逐字节）钉住——AST 里的文本若与 legacy 不同，XML 必然不同。",
+            "needs": [],
+            "cases": [
+                {
+                    "name": "str-leaf",
+                    "source": "\"abc\";",
+                    "note": "普通字符串叶子：StringLiteralShape.FromBasicToken，与 ParsePrimary 的 String 分支同一工厂",
+                    "shapeTexts": ["string"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "str-add",
+                    "source": "\"a\" + \"b\";",
+                    "note": "字符串当二元操作数：+(string,string)",
+                    "shapeTexts": ["+(string,string)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "regex-leaf",
+                    "source": "/a+/g;",
+                    "note": "正则叶子：RegularExpressionLiteralShape.FromBasicToken",
+                    "shapeTexts": ["regex"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "template-leaf",
+                    "source": "`abc`;",
+                    "note": "无内插模板叶子：NoSubstitutionTemplateLiteralShape.FromBasicToken（= ParseTemplateToken 的无内插分支）",
+                    "shapeTexts": ["template"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "member",
+                    "source": "a.b;",
+                    "note": "最小成员访问：member(a,b)；点号不入 AST（legacy 的 PropertyAccessExpression 也只有两个子节点）",
+                    "shapeTexts": ["member(a,b)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "member-deep",
+                    "source": "a.b.c;",
+                    "note": "成员链左结合：member(member(a,b),c)",
+                    "shapeTexts": ["member(member(a,b),c)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "index",
+                    "source": "a[0];",
+                    "note": "最小索引：index(a,0)，下标走嵌套体",
+                    "shapeTexts": ["index(a,0)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "index-expr",
+                    "source": "a[i + 1];",
+                    "note": "下标里是表达式：嵌套体把 i+1 建成 +(i,1)",
+                    "shapeTexts": ["index(a,+(i,1))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "call-no-arg",
+                    "source": "f();",
+                    "note": "无实参调用：call(f)",
+                    "shapeTexts": ["call(f)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "call-two-args",
+                    "source": "f(1, 2);",
+                    "note": "两个实参：实参不进形状树，由 ParseBracketArguments 整段建",
+                    "shapeTexts": ["call(f)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "array-leaf",
+                    "source": "[1, 2];",
+                    "note": "数组字面量操作数：AST 走 ParseArrayLiteral",
+                    "shapeTexts": ["array"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "array-index",
+                    "source": "[1, 2][0];",
+                    "note": "数组字面量再索引：index(array,0)",
+                    "shapeTexts": ["index(array,0)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "chain-mix",
+                    "source": "f(x)[0].y + 1;",
+                    "note": "组合：调用→索引→成员→二元，+(member(index(call(f),0),y),1)",
+                    "shapeTexts": ["+(member(index(call(f),0),y),1)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "members-mul",
+                    "source": "a.b * c.d;",
+                    "note": "组合：两个成员访问当乘法的两个操作数",
+                    "shapeTexts": ["*(member(a,b),member(c,d))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "str-plus-ident",
+                    "source": "\"s\" + x;",
+                    "note": "组合：字面量 + 标识符",
+                    "shapeTexts": ["+(string,x)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "calls-add",
+                    "source": "f(1,2) + g(3);",
+                    "note": "组合：两个调用当加法的两个操作数",
+                    "shapeTexts": ["+(call(f),call(g))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "paren-member",
+                    "source": "(a + b).c;",
+                    "note": "括号再取成员：member((a+b),c)",
+                    "shapeTexts": ["member((a+b),c)"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "method-call",
+                    "source": "o.m(x);",
+                    "note": "成员再调用：call(member(o,m))",
+                    "shapeTexts": ["call(member(o,m))"],
+                    "shapeAst": 1
+                },
+                {
+                    "name": "decline-template-interp",
+                    "source": "`a${b}c`;",
+                    "note": "未覆盖：带内插的模板 → declined → legacy（不建错树）",
+                    "shapeTexts": [],
+                    "shapeAst": 0
+                },
+                {
+                    "name": "decline-object-literal",
+                    "source": "({a: 1}).a;",
+                    "note": "未覆盖：对象字面量（语句首 { 有二义）→ declined → legacy",
+                    "shapeTexts": [],
+                    "shapeAst": 0
+                },
+                {
+                    "name": "decline-new",
+                    "source": "new X();",
+                    "note": "未覆盖：new 表达式 → declined → legacy",
+                    "shapeTexts": [],
+                    "shapeAst": 0
+                },
+                {
+                    "name": "decline-optional",
+                    "source": "a?.b;",
+                    "note": "未覆盖：可选链 → declined → legacy",
+                    "shapeTexts": [],
+                    "shapeAst": 0
+                },
+                {
+                    "name": "decline-tagged-template-angle",
+                    "source": "f<T>`t`;",
+                    "note": "保守拒绝：`f<T>`t`` 的 `>` 是类型实参收口（legacy: TaggedTemplateExpression），模板紧跟 `>` 时判为类型实参 → declined → legacy",
+                    "shapeTexts": [],
+                    "shapeAst": 0
+                }
+            ]
+        }
+    }
+}

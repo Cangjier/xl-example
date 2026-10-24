@@ -74,10 +74,53 @@ function leafText(node, sourceFile) {
   return null;
 }
 
+function tsLiteralText(node) {
+  if (ts.isNoSubstitutionTemplateLiteral(node)) return "template";
+  if (ts.isRegularExpressionLiteral(node)) return "regex";
+  if (ts.isStringLiteral(node)) return "string";
+  if (ts.isArrayLiteralExpression(node)) return "array";
+  return null;
+}
+
+function tsBareImport(node) {
+  if (!ts.isPropertyAccessExpression(node) && !ts.isElementAccessExpression(node) && !ts.isCallExpression(node)) {
+    return false;
+  }
+  return ts.isIdentifier(node.expression) && node.expression.text === "import";
+}
+
 function tsInfix(node, sourceFile) {
   const leaf = leafText(node, sourceFile);
   if (leaf !== null) {
     return leaf;
+  }
+  if (node.questionDotToken !== undefined) {
+    // 可选链是 S3f 的未覆盖构造：形状层不接管，这里也不渲染（用例用 shapeAst=0 声明）
+    return null;
+  }
+  if (tsBareImport(node)) {
+    // `import.meta` / `import("m")` 被形状层保守拒绝（legacy 树不同），这里同样不渲染
+    return null;
+  }
+  const literal = tsLiteralText(node);
+  if (literal !== null) {
+    return literal;
+  }
+  if (ts.isPropertyAccessExpression(node)) {
+    const object = tsInfix(node.expression, sourceFile);
+    if (object === null) return null;
+    return "member(" + object + "," + node.name.getText(sourceFile) + ")";
+  }
+  if (ts.isElementAccessExpression(node)) {
+    const object = tsInfix(node.expression, sourceFile);
+    const subscript = tsInfix(node.argumentExpression, sourceFile);
+    if (object === null || subscript === null) return null;
+    return "index(" + object + "," + subscript + ")";
+  }
+  if (ts.isCallExpression(node)) {
+    const callee = tsInfix(node.expression, sourceFile);
+    if (callee === null) return null;
+    return "call(" + callee + ")";
   }
   if (ts.isBinaryExpression(node)) {
     const left = tsInfix(node.left, sourceFile);
@@ -102,6 +145,34 @@ function tsPrefix(node, sourceFile) {
   const leaf = leafText(node, sourceFile);
   if (leaf !== null) {
     return leaf;
+  }
+  if (node.questionDotToken !== undefined) {
+    // 可选链是 S3f 的未覆盖构造：形状层不接管，这里也不渲染（用例用 shapeAst=0 声明）
+    return null;
+  }
+  if (tsBareImport(node)) {
+    // `import.meta` / `import("m")` 被形状层保守拒绝（legacy 树不同），这里同样不渲染
+    return null;
+  }
+  const literal = tsLiteralText(node);
+  if (literal !== null) {
+    return literal;
+  }
+  if (ts.isPropertyAccessExpression(node)) {
+    const object = tsPrefix(node.expression, sourceFile);
+    if (object === null) return null;
+    return "member(" + object + "," + node.name.getText(sourceFile) + ")";
+  }
+  if (ts.isElementAccessExpression(node)) {
+    const object = tsPrefix(node.expression, sourceFile);
+    const subscript = tsPrefix(node.argumentExpression, sourceFile);
+    if (object === null || subscript === null) return null;
+    return "index(" + object + "," + subscript + ")";
+  }
+  if (ts.isCallExpression(node)) {
+    const callee = tsPrefix(node.expression, sourceFile);
+    if (callee === null) return null;
+    return "call(" + callee + ")";
   }
   if (ts.isBinaryExpression(node)) {
     const left = tsPrefix(node.left, sourceFile);

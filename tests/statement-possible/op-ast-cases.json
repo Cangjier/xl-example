@@ -91,16 +91,16 @@
                 {
                     "name": "ast-fallback-call",
                     "source": "f(1, 2);",
-                    "note": "未覆盖构造（实参列表）：体判 Incomplete、形状树拒绝接管（declined），AST 由 legacy 建，XML 仍逐字节一致",
-                    "shapeTexts": [],
-                    "shapeAst": 0
+                    "note": "S3f 已接管（调用）：形状树接管 AST，实参由 legacy 的 ParseBracketArguments 整段建，XML 仍逐字节一致",
+                    "shapeTexts": ["call(f)"],
+                    "shapeAst": 1
                 },
                 {
                     "name": "ast-fallback-element",
                     "source": "a[0];",
-                    "note": "未覆盖构造（索引访问）：形状树拒绝接管（declined），legacy 建 AST",
-                    "shapeTexts": [],
-                    "shapeAst": 0
+                    "note": "S3f 已接管（索引）：下标走嵌套体，形状树接管 AST",
+                    "shapeTexts": ["index(a,0)"],
+                    "shapeAst": 1
                 },
                 {
                     "name": "ast-prefix-minus",
@@ -112,9 +112,9 @@
                 {
                     "name": "ast-fallback-member",
                     "source": "a.b;",
-                    "note": "未覆盖构造（成员访问）：declined + legacy",
-                    "shapeTexts": [],
-                    "shapeAst": 0
+                    "note": "S3f 已接管（成员访问）：点号不入 AST，形状树接管 AST",
+                    "shapeTexts": ["member(a,b)"],
+                    "shapeAst": 1
                 },
                 {
                     "name": "ast-num-leading-dot",
