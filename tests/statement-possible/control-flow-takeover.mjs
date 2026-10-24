@@ -57,14 +57,21 @@ const cases = [
   { source: ";\n;", cf: 2 },
   { source: "{ ; ; }", cf: 2, body: 2 },
   { source: "if (a) {}\n;\nwhile (b) {}\n;", cf: 4 },
-  // Stage 4c-2：标签**未接管**（`EnableControlFlowLabel` 默认 false；打开后实测全表回归，见 HANDOFF-s4c2.md §3）
-  { source: "en: a;", cf: 0, label: 0 },
-  { source: "lab: { f(); }", cf: 0, label: 0 },
-  { source: "en:\n{ f() }", cf: 0, label: 0 },
-  { source: "outer: while (a) { break outer; }", cf: 0, label: 0 },
-  { source: "l1: f();\nl2: g();", cf: 0, label: 0 },
-  { source: "en: ;", cf: 0, label: 0 },
+  // Stage 4f：标签**已接管**（`EnableControlFlowLabel` 默认 true；文档级前瞻修掉「第二代码单元未到」的死锁）
+  { source: "en: a;", cf: 0, label: 1 },
+  { source: "lab: { f(); }", cf: 0, label: 1 },
+  { source: "en:\n{ f() }", cf: 0, label: 1 },
+  { source: "outer: while (a) { break outer; }", cf: 0, label: 1 },
+  { source: "l1: f();\nl2: g();", cf: 0, label: 2 },
+  { source: "en: ;", cf: 0, label: 1 },
   { source: "a ? b : c;", cf: 0, label: 0 },
+  // Stage 4f：嵌套标签（只有外层建壳，标签体由建造器原子递归）/ 标签体多语句 / 块内标签 / 标签后接语句
+  { source: "l1: l2: f();", cf: 0, label: 1 },
+  { source: "en: { a; b; }", cf: 0, label: 1 },
+  { source: "en: while (a) b;", cf: 0, label: 1 },
+  { source: "{ en: a; g(); }", cf: 0, label: 1 },
+  { source: "en: a;\nb;", cf: 0, label: 1 },
+  { source: "en /* c */ : a;", cf: 0, label: 1 },
 ];
 
 function describeError(error) {
@@ -115,8 +122,8 @@ function xmlDifference(left, right) {
 }
 
 const failures = [];
-const defaultFlag = R.EnableControlFlowShell === true;
-if (!defaultFlag) failures.push("出厂默认 EnableControlFlowShell 不是 true");
+const defaultFlag = R.EnableControlFlowShell === true && R.EnableControlFlowLabel === true;
+if (!defaultFlag) failures.push("出厂默认 EnableControlFlowShell / EnableControlFlowLabel 不都是 true");
 
 for (const item of cases) {
   const problems = [];

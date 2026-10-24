@@ -36,10 +36,10 @@ import { StatementShape } from "./statement-shape.xl.md"
   修好了「重放回来的 `;` 因旧 `ItemStart` 失管」，legacy 与壳建空语句仍是同一份 `BuildEmpty`）。
   历史读数（4c-2 默认关）保留在 `HANDOFF-s4d.md` §3 与 `statement-route-util.xl.md`。
 
-**标签语句**（`EnableControlFlowLabel`，**默认关**；4c-2 的注释写成「默认打开」与默认值不符，4d 修 F1）：路由 `ShellLabel` 与 `ShellStatementFamily`
-是**同一个候选**的两条入口，只有建壳时机不同——标签头是标识符，`Decide` 在首格返回 `None`（等第二个代码
-单元），`:` 到达那一格才判成 `ShellLabel`，本候选就在 `:` 格 Accept 并搬 `ident` + `:` 建壳
-（`Kind = ShellLabel`），判界走 `ScanRoot`、建树走 `StatementBuilder.BuildStatement` 的标签分派。
+**标签语句**（`EnableControlFlowLabel`，**Stage 4f 起默认打开**；4c-2/4d/4e 期间默认关）：路由 `ShellLabel` 与 `ShellStatementFamily`
+是**同一个候选**的两条入口，只有建壳时机不同——标签头是标识符，4f 用**文档级前瞻**（`IsLabelColonAhead`）在首格就判出 `ShellLabel`，
+本候选在**首格** Accept 并搬 `ident` 建壳（`Kind = ShellLabel`；`:` 与标签体随后作为普通单元喂入壳，
+`:` 那一格仍保留 Accept 作为兼容通道），判界走 `ScanRoot`、建树走 `StatementBuilder.BuildStatement` 的标签分派。
 标签体不分流：`en:\n{ f() }` 的 `{` 在标签壳里由建造器原子递归，块候选看不到它。
 
 **不在本候选里**：`function` / `class` / `interface` / `enum` / `namespace` / `module` /
@@ -89,7 +89,11 @@ if (route === StatementRoute.None) {
   return ShapeStates.Uncertain;
 }
 if (route === StatementRoute.ShellLabel) {
-  // 标签在**第二个代码单元（`:`）那一格**建壳：`ident` 与 `:` 一起搬进壳。
+  // **Stage 4f：标签在首格建壳**（`Decide` 用文档前瞻在首格就判出了 `ShellLabel`），先把 `ident` 搬进壳，
+  // `:` 与标签体作为后续普通单元喂给壳；`:` 那一格仍保留 Accept 作为兼容通道（旧路径/延迟到达）。
+  if (tokenIndex === headAt) {
+    return ShapeStates.Accept;
+  }
   if (tokenIndex !== ItemUtil.NextCode(units, headAt + 1)) {
     return ShapeStates.Reject;
   }
@@ -123,7 +127,8 @@ if (route === StatementRoute.None) {
   return false;
 }
 if (route === StatementRoute.ShellLabel) {
-  return tokenIndex === ItemUtil.NextCode(units, headAt + 1);
+  // Stage 4f：首格即可建标签壳（文档前瞻已判出 `:`）；`:` 那一格保留为兼容通道。
+  return tokenIndex === headAt || tokenIndex === ItemUtil.NextCode(units, headAt + 1);
 }
 return route === StatementRoute.ShellStatementFamily && tokenIndex === headAt;
 ```
