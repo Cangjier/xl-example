@@ -50,7 +50,7 @@ const cases = [
   { source: "{ if (a) b; else c; d; }", cf: 1, body: 2 },
   { source: "{ ; }", cf: 1, body: 1 },
   { source: "{ while (a) { b; } let x = 1; }", cf: 1, body: 2 },
-  // Stage 4c-2：空语句**未接管**（`EnableControlFlowEmpty` 默认 false；打开过，实测丢节点后回退）
+  // Stage 4d：空语句**已接管**（`EnableControlFlowEmpty` 默认 true；旧读数见 HANDOFF-s4d.md §3）
   { source: ";", cf: 1 },
   { source: ";;", cf: 2 },
   { source: "a;\n;\nb;", cf: 1 },
