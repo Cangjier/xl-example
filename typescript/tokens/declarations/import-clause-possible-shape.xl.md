@@ -48,7 +48,7 @@ const name = this.Slot();
 let state = cache.GetState<ImportClauseScan>(name);
 if (state === null) {
   state = new ImportClauseScan();
-  state.Start = ItemUtil.ItemStart(units);
+  state.Start = ItemUtil.ItemStartCached(units, cache);
   cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {

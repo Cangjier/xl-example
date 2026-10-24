@@ -68,7 +68,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.Slot();
-const itemStart = ItemUtil.ItemStart(units);
+const itemStart = ItemUtil.ItemStartCached(units, cache);
 // 显式分流（设计 §3.2，T1d）：本候选只做 `StatementRoute.Legacy` 家族。`ShellPlainExpression` 起点归
 // `RootExpressionStatementPossibleShape`、`ShellVariable` 归 `VariableStatementPossibleShape`，这里主动
 // `Reject`，不靠「谁先 Accept」——两边同时 Accept 会让 `CatalogGuide` 永远等不到唯一候选（AST 不变，但

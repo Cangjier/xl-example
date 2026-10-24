@@ -43,7 +43,7 @@ const name = this.Slot();
 let state = cache.GetState<StringLiteralScan>(name);
 if (state === null) {
   state = new StringLiteralScan();
-  state.Start = ItemUtil.ItemStart(units);
+  state.Start = ItemUtil.ItemStartCached(units, cache);
   cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {

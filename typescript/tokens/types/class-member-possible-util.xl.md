@@ -708,7 +708,7 @@ let shared = cache.GetShare<ClassMemberItemStartShared>(ClassMemberPossibleUtil.
 if (shared !== null && ClassMemberPossibleUtil.ItemStartValid(units, shared)) {
   return shared.Start;
 }
-const start = ItemUtil.ItemStart(units);
+const start = ItemUtil.ItemStartCached(units, cache);
 if (shared === null) {
   shared = new ClassMemberItemStartShared();
   shared.Host = units;

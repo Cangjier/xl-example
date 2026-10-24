@@ -48,7 +48,7 @@ const name = this.Slot();
 let state = cache.GetState<ImportDeclarationScan>(name);
 if (state === null) {
   state = new ImportDeclarationScan();
-  state.Start = ItemUtil.ItemStart(units);
+  state.Start = ItemUtil.ItemStartCached(units, cache);
   state.At = state.Start - 1;
   cache.SetState(name, state);
 }

@@ -87,12 +87,12 @@ const name = this.Slot();
 let state = cache.GetState<EnumDeclarationScan>(name);
 if (state === null) {
   state = new EnumDeclarationScan();
-  state.Start = ItemUtil.ItemStart(units);
+  state.Start = ItemUtil.ItemStartCached(units, cache);
   state.Checked = state.Start;
   cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {
-  state.Start = ItemUtil.ItemStart(units);
+  state.Start = ItemUtil.ItemStartCached(units, cache);
   state.Checked = state.Start;
   state.Stage = 0;
   state.Done = false;

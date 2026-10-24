@@ -78,6 +78,37 @@ this.Share[possibleShapeSlot] = value;
 this.Share = [];
 ```
 
+## field ItemStartValue:int = -1
+
+当前条目已经算出的 `ItemUtil.ItemStart` 值；`-1` 表示还没算过。
+
+**生命周期 = `Clear()`**：所以它是**按条目**的记忆。这与 `Values` 的边界完全一致——`Clear()` 只在
+`CatalogGuide.Reset()` 里被调用，而 `Reset()` 紧跟每一次 `BuildByIndex`，于是「两次 `Clear` 之间」恰好就是
+「`host.Data` 不再变动的那一段」。跨条目要复用的数据必须走 `Share`，不是这里。
+
+## field ItemStartLength:int = -1
+
+`ItemStartValue` 是对**长度为此值**的 units 算出来的。`Clear()` 一并复位；长度对不上就重算——
+`host.Data` 的整条目 splice 只会让它变短，长度变了必然意味着条目已经换了。
+
+## method GetItemStart:(unitsLength:int)=>int
+
+取当前条目的 `ItemStart`；没算过、或 units 长度已经变了，给 `-1`（调用方据此重算）。
+```ts
+if (this.ItemStartValue < 0 || this.ItemStartLength !== unitsLength) {
+  return -1;
+}
+return this.ItemStartValue;
+```
+
+## method SetItemStart:(value:int, unitsLength:int)=>void
+
+记住当前条目的 `ItemStart`。值本身可以是 `0`（整条 units 都是基本 token），所以「没算过」只能用 `-1` 表示。
+```ts
+this.ItemStartValue = value;
+this.ItemStartLength = unitsLength;
+```
+
 ## method Clear:()=>void
 
 清空**逐条目判定状态**（`Values`）。形状建完之后由 `CatalogGuide` 调一次——下一条目的判定必须从零开始，留着上一条的状态会判错。
@@ -88,4 +119,6 @@ this.Share = [];
 
 ```ts
 this.Values = [];
+this.ItemStartValue = -1;
+this.ItemStartLength = -1;
 ```

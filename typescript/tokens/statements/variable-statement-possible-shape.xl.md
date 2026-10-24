@@ -76,10 +76,10 @@ if (units[tokenIndex] instanceof EndOfFileTokenShape) {
 }
 // 只有 trivia、还没有任何代码单元时不能 Reject：CatalogGuide 会把 Reject 的候选从 Candidates 里永久删除。
 // 文件以注释开头时首次判定就落在这一格，Reject 会让整条 let/const/var 声明无人接管（token-ast 28 个 crash 的根因）。
-if (ItemUtil.NextCode(units, ItemUtil.ItemStart(units)) >= units.length) {
+if (ItemUtil.NextCode(units, ItemUtil.ItemStartCached(units, cache)) >= units.length) {
   return ShapeStates.Uncertain;
 }
-const start = ItemUtil.ItemStart(units);
+const start = ItemUtil.ItemStartCached(units, cache);
 if (start >= units.length) {
   return ShapeStates.Reject;
 }
@@ -106,7 +106,7 @@ return ShapeStates.Accept;
 绑定已经到齐才建壳：关键字格只攒了关键字本身时不建（壳里还得能看见绑定）。
 
 ```ts
-const start = ItemUtil.ItemStart(units);
+const start = ItemUtil.ItemStartCached(units, cache);
 if (start >= units.length) {
   return false;
 }

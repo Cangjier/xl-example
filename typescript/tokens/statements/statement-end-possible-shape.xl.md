@@ -104,7 +104,7 @@ if (current instanceof EndOfFileTokenShape) {
   return ShapeStates.Accept;
 }
 const name = this.Slot();
-const itemStart = ItemUtil.ItemStart(units);
+const itemStart = ItemUtil.ItemStartCached(units, cache);
 let state = cache.GetState<StatementEndScan>(name);
 if (state === null || state.Start !== itemStart) {
   state = new StatementEndScan();
