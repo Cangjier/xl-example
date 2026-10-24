@@ -714,7 +714,7 @@ if (boundary > 0) {
 // `@dec interface I {}` / `@dec enum E { A }` / `@dec type T = number;` / `@dec namespace N {}` /
 // `@dec function g() {}`）：段首是 `@`（不是 Common），下面的字面分支都会漏掉。
 // 「装饰器前缀（可跨行、可多个）+ 修饰词 + 声明词」由
-// `StatementScanner.DecoratedHeadKeyword` 一次认出——与 `function-declaration-possible-shape` 的
+// `StatementScanner.DecoratedHeadKeyword` 一次认出——与 `function-declaration-rule` 的
 // ASI 判据、`statement-builder.ScanDecoratedHead` 同口径——再按**声明词**分派到对应的 `FromUnits`：
 // 它们都从段首重新扫装饰器，把 Decorator 放进 children 最前，整段建出来就是 TS 的声明节点。
 // 建不出来（装饰器后面不是声明头 / 段被切在声明头中间）按原路返回 false。

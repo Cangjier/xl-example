@@ -72,7 +72,7 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `EndIndex`。
 成员的 `Pos` = 前一个成员（或 `{`）的 `EndIndex`，`end` = 函数体 `}` / 属性末尾的 `;`。
 
-根层的类声明是**提前挂载的壳**：`class` 关键字那一格 `ClassDeclarationPossibleShape` 就把本形状建出来、挂到父单元上
+根层的类声明是**提前挂载的壳**：`class` 关键字那一格 `ClassDeclarationRule` 就把本形状建出来、挂到父单元上
 （`BodyGuideUtil.MountShell`）；本形状随后吃名字 / 类型参数 / heritage / 类体。拿到类体括号后，由类体括号的
 `BatchAdapter`（`ClassBodyItemHost` = `ItemListEngine(ClassItemRule)`）增量建成员，括号闭合时本形状的
 `OnBasicTokenClosed` 走 `FinishBody` 收口（`BuildFromCode` → `FinishShell`）。

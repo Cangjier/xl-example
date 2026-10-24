@@ -109,7 +109,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
     // Decide at the first trigger. Right after "import" the raw text decides whether this is an
     // import-equals declaration: <name> followed by "=". Anything else (from / "," / "{" / quote / "*")
-    // rejects now, so ImportDeclarationPossibleShape stays the only candidate and mounts its shell
+    // rejects now, so ImportDeclarationRule stays the only candidate and mounts its shell
     // at exactly the same token as before this candidate existed.
     if (ImportEqualsDeclarationRule.NextAfterName(unit.SourceRange) !== "=") {
       state.Rejected = true;

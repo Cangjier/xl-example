@@ -2,9 +2,8 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -41,7 +40,7 @@ import { ClassDeclarationShape } from "./class-declaration-shape.xl.md"
 
 ## field Rejected:bool = false
 
-# class ClassDeclarationPossibleShape extends PossibleShape
+# class ClassDeclarationRule extends RootRule
 
 ```txt
 class C {}
@@ -53,7 +52,7 @@ declare class C {}
 见到 `class` 关键字的这一格就 `Done` + `Accept`。
 
 根层的类声明是**提前挂载的壳**：本候选一眼认下 `class`（连同前面的装饰器 / `declare` / `abstract` 前缀）就被
-`CatalogGuide` 建出 `ClassDeclarationShape` 壳，壳随后吃名字 / 类型参数 / heritage / 类体；类体括号闭合时由壳的
+`RootRuleTable` 建出 `ClassDeclarationShape` 壳，壳随后吃名字 / 类型参数 / heritage / 类体；类体括号闭合时由壳的
 终结候选（`ClassDeclarationEndPossibleShape`）收口。所以本候选**不再扫描到类体**：`extends` / `implements` /
 类型参数 / 类体内容全是壳的事，`class` 之后出现什么都不影响本候选的判定。
 
@@ -128,7 +127,7 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       if (text === "class") {
         // 修饰词与 `class` 之间换行：TS 的 ASI 把修饰词收成独立 ExpressionStatement，
         // `class` 另起一条声明。本候选退出，交给根级边界收尾。
-        if (state.PendingModifier && ClassDeclarationPossibleShape.HasLineBreakBefore(units, at)) {
+        if (state.PendingModifier && ClassDeclarationRule.HasLineBreakBefore(units, at)) {
           state.Rejected = true;
           continue;
         }
@@ -207,7 +206,7 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-只要已经认下 `class` 就能建壳：建壳时机由 `CatalogGuide` 的唯一候选决定（`@dec class` 这类前缀要等其它候选都退出，
+只要已经认下 `class` 就能建壳：建壳时机由 `RootRuleTable` 的唯一候选决定（`@dec class` 这类前缀要等其它候选都退出，
 可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
 
 ```ts
@@ -215,7 +214,7 @@ const state = cache.GetState<ClassDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 把 `class` 关键字的这一格变成**挂载的壳**：把 `state.Start..tokenIndex` 的单元原样搬进壳的 `Data`、签入，然后让壳
 挂到宿主上接管后续字符（`BodyGuideUtil.MountShell`）。
@@ -224,7 +223,7 @@ return state !== null && state.Done && !state.Rejected;
 `FromUnits` 的口径一致。
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ClassDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<ClassDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start < 0 || start > tokenIndex) {
   return host;

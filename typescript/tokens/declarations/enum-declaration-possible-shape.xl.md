@@ -62,7 +62,7 @@ const enum E { A = 1 }
 
 `at` 这个代码单元与它前面第一个代码单元之间有没有换行（中间的 trivia 逐格看，块注释里的换行也算）。
 `declare` 与 `enum` 之间换行时 TS 的 ASI 把 `declare` 收成独立的 ExpressionStatement、枚举声明
-不带 DeclareKeyword，本候选必须退出（与 `class-declaration-possible-shape.xl.md` 的同款守卫一致）。
+不带 DeclareKeyword，本候选必须退出（与 `class-declaration-rule.xl.md` 的同款守卫一致）。
 
 ```ts
 for (let index = at - 1; index >= 0; index--) {

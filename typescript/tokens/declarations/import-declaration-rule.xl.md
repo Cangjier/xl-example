@@ -1,8 +1,7 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { RootRule, RootRuleTable } from "../items/root-rule-contract.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -26,7 +25,7 @@ import { ImportDeclarationShape } from "./import-declaration-shape.xl.md"
 
 ## field Stage:int = 0
 
-# class ImportDeclarationPossibleShape extends PossibleShape
+# class ImportDeclarationRule extends RootRule
 
 ```txt
 import a from "m";
@@ -105,10 +104,10 @@ if (state.Stage === 2) {
 return ShapeStates.Uncertain;
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, table:RootRuleTable, context:SyntaxContext)=>Token
 
 ```ts
-const state = catalog.PossibleShapesComputeCache.GetState<ImportDeclarationScan>(this.Slot());
+const state = table.Cache.GetState<ImportDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;

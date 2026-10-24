@@ -8,13 +8,13 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { ClassDeclarationPossibleShape } from "../declarations/class-declaration-possible-shape.xl.md"
+import { ClassDeclarationRule } from "../declarations/class-declaration-rule.xl.md"
 import { EnumDeclarationPossibleShape } from "../declarations/enum-declaration-possible-shape.xl.md"
 import { ExportAssignmentRule } from "../declarations/export-assignment-rule.xl.md"
 import { ExportDeclarationPossibleShape } from "../declarations/export-declaration-possible-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { FunctionDeclarationRule } from "../declarations/function-declaration-rule.xl.md"
-import { ImportDeclarationPossibleShape } from "../declarations/import-declaration-possible-shape.xl.md"
+import { ImportDeclarationRule } from "../declarations/import-declaration-rule.xl.md"
 import { ImportEqualsDeclarationRule } from "../declarations/import-equals-declaration-rule.xl.md"
 import { InterfaceDeclarationPossibleShape } from "../declarations/interface-declaration-possible-shape.xl.md"
 import { ModuleDeclarationRule } from "../declarations/module-declaration-rule.xl.md"
@@ -187,18 +187,18 @@ super.Process(context, buffer, index);
 ```ts
 if (SourceFileShape.CreatePossibleShapesCache === null) {
   SourceFileShape.CreatePossibleShapesCache = [
-    new ImportDeclarationPossibleShape(),
+    new ImportDeclarationRule(),
     new ExportDeclarationPossibleShape(),
     new StatementPossibleShape(),
     // new ImportEqualsDeclarationRule(),
     // new ExportAssignmentRule(),
     // new NamespaceExportDeclarationRule(),
     new ImportEqualsDeclarationRule(),
-    new ClassDeclarationPossibleShape(),
+    new ClassDeclarationRule(),
     new InterfaceDeclarationPossibleShape(),
     new ExportAssignmentRule(),
     new NamespaceExportDeclarationRule(),
-    // new ClassDeclarationPossibleShape(),
+    // new ClassDeclarationRule(),
     // new InterfaceDeclarationPossibleShape(),
     // new FunctionDeclarationRule(),
     new FunctionDeclarationRule(),
