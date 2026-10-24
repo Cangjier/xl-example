@@ -19,6 +19,7 @@ import { PrefixUnaryExpressionShape } from "../expressions/prefix-unary-expressi
 import { NonNullExpressionShape } from "../expressions/non-null-expression-shape.xl.md"
 import { TypeOfExpressionShape } from "../expressions/type-of-expression-shape.xl.md"
 import { VoidExpressionShape } from "../expressions/void-expression-shape.xl.md"
+import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { FalseKeywordShape } from "../keywords/false-keyword-shape.xl.md"
 import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
@@ -823,6 +824,27 @@ if (shape.Kind === StatementOperandShape.KindFunction || shape.Kind === Statemen
   if (index < 0) {
     return StatementShapeAst.Decline("函数/类关键字不在表达式里");
   }
+  // S3m：`async function` 的 async 单元在 Data[0]（不透明节点正文不进形状树）。
+  // legacy `ParseFunctionExpression(asyncKeyword?, spanStart?)` 正好接受它：
+  // At 仍指向 `function`，async 作为第一个子节点，spanStart 让节点区间从 async 开始。
+  let asyncKeyword:Token | null = null;
+  let spanStart = index;
+  if (shape.Kind === StatementOperandShape.KindFunction && shape.Data.length > 0) {
+    const firstChild = shape.Data[0];
+    if (firstChild instanceof StatementOperandShape
+      && (firstChild as StatementOperandShape).Text === "async") {
+      const asyncRaw = (firstChild as StatementOperandShape).Raw;
+      if (asyncRaw !== null) {
+        const asyncIndex = builder.Units.indexOf(asyncRaw);
+        if (asyncIndex >= 0) {
+          // 与 legacy `ParseAssign` 的 async function 分支同一工厂、同一位置：
+          // AsyncKeyword 必须建 `AsyncKeywordShape`（不是 raw Common），否则 XML 与 legacy 不同字节。
+          asyncKeyword = builder.MakeKeywordLeaf(new AsyncKeywordShape(builder.Template), asyncIndex);
+          spanStart = asyncIndex;
+        }
+      }
+    }
+  }
   const savedAt = builder.At;
   builder.At = index;
   let value:Token | null = null;
@@ -830,7 +852,9 @@ if (shape.Kind === StatementOperandShape.KindFunction || shape.Kind === Statemen
   try {
     value = shape.Kind === StatementOperandShape.KindClass
       ? builder.ParseClassExpression()
-      : builder.ParseFunctionExpression();
+      : (asyncKeyword === null
+        ? builder.ParseFunctionExpression()
+        : builder.ParseFunctionExpression(asyncKeyword, spanStart));
     after = builder.At;
   } catch (error) {
     builder.At = savedAt;
@@ -840,7 +864,7 @@ if (shape.Kind === StatementOperandShape.KindFunction || shape.Kind === Statemen
   if (value === null || after <= index) {
     return StatementShapeAst.Decline("函数/类表达式没有消费单元");
   }
-  for (let at = index; at < after; at++) {
+  for (let at = spanStart; at < after; at++) {
     covered.push(at);
   }
   return value;
