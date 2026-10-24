@@ -1166,7 +1166,20 @@ const isExportAsNamespace = text === "export"
   && code[1] instanceof Common && (code[1] as Common).Is("as")
   && code[2] instanceof Common && (code[2] as Common).Is("namespace");
 if (isExportAsNamespace) {
-  const namespaceEnd = host.Data[at].SourceRange.EndIndex;
+  // 边界单元可能是 trivia（换行 / 尾注释）：合成的 `;` 必须落在**最后一个代码单元**的末尾，
+  // 否则 NamespaceExportDeclaration 的 End 会把行尾 trivia 吃进来（#95 / #9）。
+  let namespaceEnd = host.Data[at].SourceRange.EndIndex;
+  if (host.Data[at].IsTriviaToken) {
+    for (let index = at - 1; index >= start; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const codeEnd = host.Data[index].SourceRange.EndIndex;
+        if (codeEnd >= 0) {
+          namespaceEnd = codeEnd;
+        }
+        break;
+      }
+    }
+  }
   if (namespaceEnd < 0) {
     return false;
   }
@@ -1195,7 +1208,19 @@ const isQuotedBodylessModule = text === "module"
     || (code.length === 3 && code[2] instanceof Symbol && (code[2] as Symbol).Is(";")));
 const isBodylessAmbientModule = isDeclareBodylessModule || isQuotedBodylessModule;
 if (isBodylessAmbientModule) {
-  const moduleEnd = host.Data[at].SourceRange.EndIndex;
+  // 同 namespace export：边界是 trivia 时，合成 `;` 落在最后一个代码单元末尾（#48 / #49）。
+  let moduleEnd = host.Data[at].SourceRange.EndIndex;
+  if (host.Data[at].IsTriviaToken) {
+    for (let index = at - 1; index >= start; index--) {
+      if (!host.Data[index].IsTriviaToken) {
+        const codeEnd = host.Data[index].SourceRange.EndIndex;
+        if (codeEnd >= 0) {
+          moduleEnd = codeEnd;
+        }
+        break;
+      }
+    }
+  }
   if (moduleEnd < 0) {
     return false;
   }

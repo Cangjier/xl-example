@@ -266,5 +266,11 @@ const hostLike:any = { Data: units, Template: host.Template };
 const pos = DeclarationSpan.PosBefore(host, start);
 const shape = ImportEqualsDeclarationShape.FromUnits(hostLike, 0, units.length - 1, context);
 shape.Pos = pos;
+// FromUnits 在切片 hostLike 上倒扫，拿不到段前的 pos（= 0）；ExportKeyword 的 Pos 与声明 Pos 同口径
+// （TS 的 Pos 含前导 trivia，即前一个非 trivia 单元的 EndIndex），在这里补正（#72 / #155）。
+const exportHead = shape.Data.length > 0 ? shape.Data[0] : null;
+if (exportHead !== null && exportHead instanceof ExportKeywordShape) {
+  (exportHead as ShapeToken).Pos = pos;
+}
 return shape;
 ```
