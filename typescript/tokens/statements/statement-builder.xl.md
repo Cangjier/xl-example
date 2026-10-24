@@ -1323,8 +1323,15 @@ if (asiEnd < 0) {
     // `x++` ⏎ `++y` 这类前缀运算）取并集：两边各自覆盖对方没有的形态。
     // 块体里的 units 还没有建形状，`limit` 必须传段首，否则 IsAsiBoundary 会一路走回
     // 上一条语句的声明关键字（`{ const z = 1; a ⏎ (b) }` 的 `a` 不在声明头后面）。
-    if (at > first && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
-      || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
+    // 前缀 `++` / `--` 在行尾**不是**语句结束：它必须等下一行的操作数
+    // （`--` ⏎ `b;` = `--b;`）。`EndsExpression` 只按「`++`/`--` 能收尾」判，
+    // 分不出前缀还是后缀；表达式从 `first` 起就以 `++`/`--` 开头时它一定是前缀
+    // （单独一个 `--` 也不是合法语句），所以这里不认换行边界。
+    const prefixOperand = at - 1 === first
+      && (this.IsSymbol(this.Units[at - 1], "++") || this.IsSymbol(this.Units[at - 1], "--"));
+    if (at > first && !prefixOperand
+      && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
+        || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
       asiEnd = at - 1;
       break;
     }
