@@ -46,7 +46,7 @@ if (!StatementRouteUtil.EnableShellExpressions) {
 if (units[tokenIndex] instanceof EndOfFileTokenShape) {
   return ShapeStates.Reject;
 }
-const start = ItemUtil.ItemStart(units);
+const start = ItemUtil.ItemStartCached(units, cache);
 const headAt = ItemUtil.NextCode(units, start);
 if (headAt >= units.length || headAt > tokenIndex) {
   // 首代码单元还没到（只有 trivia）：不能 Reject——CatalogGuide 会把 Reject 的候选永久删除，
@@ -92,7 +92,7 @@ return ShapeStates.Accept;
 首代码单元到齐即可建壳；建壳之后由 `StatementEndPossibleShape` 收口。
 
 ```ts
-const start = ItemUtil.ItemStart(units);
+const start = ItemUtil.ItemStartCached(units, cache);
 const headAt = ItemUtil.NextCode(units, start);
 if (headAt >= units.length || headAt > tokenIndex) {
   return false;

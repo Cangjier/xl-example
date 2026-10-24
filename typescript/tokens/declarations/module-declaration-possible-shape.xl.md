@@ -142,7 +142,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const name = this.Slot();
-const itemStart = ItemUtil.ItemStart(units);
+const itemStart = ItemUtil.ItemStartCached(units, cache);
 let state = cache.GetState<ModuleDeclarationScan>(name);
 if (state === null || state.Start !== itemStart) {
   state = new ModuleDeclarationScan();

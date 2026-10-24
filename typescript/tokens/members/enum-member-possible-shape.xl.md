@@ -213,7 +213,7 @@ if (EnumMemberPossibleUtil.IsCompletionBoundary(EnumMemberPossibleUtil.NextChar(
 取（必要时重算）当前条目的判定状态。条目起点变化 / 缓存越过当前下标 / 目录复位后残留，就地重建。
 
 ```ts
-const start = ItemUtil.ItemStart(units);
+const start = ItemUtil.ItemStartCached(units, cache);
 let state = cache.GetState<EnumMemberPossibleScan>(EnumMemberPossibleUtil.CacheKey);
 if (state === null || state.Start !== start || state.Checked > tokenIndex + 1) {
   state = new EnumMemberPossibleScan();

@@ -637,12 +637,12 @@ const name = this.Slot();
 let state = cache.GetState<ExpressionStatementScan>(name);
 if (state === null) {
   state = new ExpressionStatementScan();
-  state.Start = ItemUtil.ItemStart(units);
+  state.Start = ItemUtil.ItemStartCached(units, cache);
   state.Checked = state.Start;
   cache.SetState(name, state);
 }
 if (state.Checked > tokenIndex + 1) {
-  state.Start = ItemUtil.ItemStart(units);
+  state.Start = ItemUtil.ItemStartCached(units, cache);
   state.Checked = state.Start;
   state.Admitted = false;
   state.Done = false;
