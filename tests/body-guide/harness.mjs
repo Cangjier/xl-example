@@ -72,24 +72,15 @@ const BODY_TARGETS = {
     memberStart: () => ENUM_MEMBER_START_CASES,
     recovery: () => ENUM_RECOVERY_CASES,
   },
-  // T6b：类体成员候选（属性 / 方法 / 兜底）。兜底候选永远留在目录里（pinned），
-  // 否则 `--only=` 裁剪后遇到构造 / 访问器 / static 块会让 CatalogGuide 0 候选抛错。
+  // WP-5：class 体成员判定由 item 表引擎（ItemListEngine(ClassItemRule)）驱动，
+  // 裁剪点从 possible 目录缓存换成规则表缓存；`--all` 时不加载候选模块，正常路径每类体一份规则。
   class: {
     shapeName: "ClassDeclarationShape",
     modulePath: "typescript/tokens/declarations/class-declaration-shape.js",
-    cacheField: "CreateBodyPossibleShapesCache",
+    cacheField: "CreateBodyItemRulesCache",
     candidates: {
-      PropertyDeclarationPossibleShape: "typescript/tokens/types/property-declaration-possible-shape.js",
-      MethodDeclarationPossibleShape: "typescript/tokens/types/method-declaration-possible-shape.js",
-      ConstructorPossibleShape: "typescript/tokens/types/constructor-possible-shape.js",
-      GetAccessorPossibleShape: "typescript/tokens/types/class-get-accessor-possible-shape.js",
-      SetAccessorPossibleShape: "typescript/tokens/types/class-set-accessor-possible-shape.js",
-      ClassStaticBlockDeclarationPossibleShape: "typescript/tokens/types/class-static-block-declaration-possible-shape.js",
-      IndexSignaturePossibleShape: "typescript/tokens/types/class-index-signature-possible-shape.js",
-      SemicolonClassElementPossibleShape: "typescript/tokens/expressions/semicolon-class-element-possible-shape.js",
-      ClassMemberCatchAllPossibleShape: "typescript/tokens/types/class-member-catch-all-possible-shape.js",
+      ClassItemRule: "typescript/tokens/items/class-item-rule.js",
     },
-    pinned: ["ClassMemberCatchAllPossibleShape"],
     cases: () => CLASS_CASES,
     genericBoundary: () => CLASS_GENERIC_BOUNDARY_CASES,
     memberStart: () => CLASS_MEMBER_START_CASES,
