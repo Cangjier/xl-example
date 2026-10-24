@@ -494,3 +494,57 @@ OperatorTable.Precedence / IsRightAssociative / IsBinaryOperator / IsPrefixOpera
 4. 独立验证：从零 clone 复跑 10 道门读数一致；13 条对抗用例与 TS 逐节点一致；`OperatorTable` 唯一定义、`IsAsiBoundary` 无第二份——`VERIFY-REPORT.md` §1–§3。
 5. `CatalogGuide` 语义（Reject 永久删除、EndPossible 仅 0 候选时建、build 后 Reset）：`core/syntax/catalog-guide.xl.md:77-135`；basic token 只问直接父单元：`core/syntax/basic-tokens/common.xl.md:232-243`、`bracket.xl.md:136-166`。
 6. 缓存纪律（`Share` 只影响何时建）：`docs/share-cache-and-body-guide.md:75-100`；`ItemUtil.ItemStart` O(k) 退化实测 2012ms → 22.5ms 同源。
+
+---
+
+## 14. 表达式壳收口修订（S1b）
+
+> Stage 1 Wave2 连续 4 任未收敛后的设计修订。完整版见 `docs/possible-statement-s1b-design.md`（含 file:line 证据与分步验收读数）。本节只记结论，供后续 Stage 引用。
+
+### 14.1 三个「边界」必须分开命名（修订 §2.3 / §3.4）
+
+此前把三件事混成一个「边界」：`StatementScanner.End`（代码下标，变量族用）、`StatementEndScan.End`（宿主 `Data` 下标，表达式族用）、`codeAt`（唯一换算表）。冻结结论：
+
+- **I1 边界格归属**：表达式族 `ExpressionEndCode` 返回的是「**已归本条语句的最后一格**」；ASI / EOF 的边界格是**下一条**语句的首代码单元，**不属于**本条语句，它留在壳里由 `FinishShell` 原序搬回父单元。
+- **I2 消费口径**：`BuildFromShell` 消费 `[0..endIndex]` 并断言 `builder.At === Units.length`，**多一格必抛**。
+- **I3 `;` 例外**：`;` 进 `consumed` 但不进语句 `Data`。
+- **I4/I5**：壳收口只有 `FinishShell` / `DetachShell` 两个出口，一层只收口一次。
+
+### 14.2 「本层已关闭」必须是显式信号，且按宿主对象记账
+
+`StatementScanner.AtEOF` 的注释写的是**层语义**（「本层没有后续单元」），实现却是**全局静态位**，写入值用 `owner.SourceRange.EndIndex >= 0`（「宿主签出过」）这个**不等价**的启发式。r4 实测证明：把静态位改成局部值会让 true 态从 130 失败恶化到 329 失败——**泄漏是承重的拐杖**，它把「本层到底」错误地传给了下一条语句，而**下一条语句确实需要这个信号**（它的 `Data` 被壳截断过）。
+
+因此修订为：**不消除静态位，而是把值做对**。静态位降级为「本次求值的入参镜像」，值由新文件 `statement-shell-signal-util.xl.md`（`StatementShellSignal`，Wave2 owner 自有）显式提供：
+
+- 写入者只有三个收口动作：`FinishShell`、`DetachShell`、父层 `TryToClose`，且必须在「父单元 `Data` 已稳定」**之后**写；
+- 载体**不能**是 `PossibleShapeCache`（`Reset()` 会 `Clear()`，且该缓存的契约禁止放「会让建成什么不同的东西」），**不能**是 `SyntaxContext`（跨条目污染），**不能**是 `StatementShape` 单字段（下一条语句看不到）；
+- `ComputeByIndex(units, tokenIndex, cache)` 拿不到 `host` 时，统一用 **`units[0].Parent`** 取宿主（**不用** `units[tokenIndex].Parent`——当前格可能已被搬回父单元，会提前读到父层）；空数组 / 已摘链时返回「未关闭」，方向与「只有 trivia 时 `Uncertain`」一致。
+
+**与 `CatalogGuide` 契约的兼容**：不新增 `Reject` 分支（`Reject` 永久删候选）、壳目录普通候选恒空（`EndPossible` 只在 0 候选建）、旁表不随 `Reset` 清空。
+
+### 14.3 三道门的根因收敛（修订 §13 的失败分类）
+
+| 症状 | 读数（true 态） | 根因（S1b 判定） | 修法 |
+|---|---|---|---|
+| `missing-end` | 24 | `DetachShell` 兜底只包住 `TryToClose`（EOF 路径），**未**包住 `StatementEndPossibleShape.BuildByIndex`（`;` / ASI 路径）；`BuildFromShell` 一抛错就穿透成未捕获异常或「AST 少一条语句」 | `BuildByIndex` 里 `try` + `DetachShell` + `return host`（壳让位给 legacy） |
+| `possible-compute` | 49 | `RootExpressionStatementPossibleShape` 的「晚建补建」只排除了 `CanEndStatement`，其余任何 `tokenIndex > headAt` 的格都补建 | 收窄到**正向证据**：`ClassOf ∈ {OperandStart, BinaryOperator, MemberAccess, Postfix}`；无证据返回 `Uncertain`（不是 `Reject`） |
+| `token-ast` crash | 14 | 与 `missing-end` **同一缺陷的两个刻度**：`DetachShell` 存在但只生效在 1/2 的收口路径 | 同 `missing-end`（一处 `try/catch` 同时覆盖两道门） |
+
+### 14.4 已否证的方向（勿重做）
+
+- **消除 `StatementScanner.AtEOF` 静态位**：r4 实测 true 态 130 → 329 失败，已回退。结论是「值错」，不是「机制错」。
+- **把 `ExpressionEndCode` 的判界基准改回 code-only 数组**：r3 已修，改回会造成「该断处判 false → 拖到 EOF」「不该断处判 true → missing-end」双向错误。
+
+### 14.5 落地方案要点（细节见 S1b 文档 §6）
+
+1 个新文件 + 4 个文件的函数级改动，6 个可独立回滚的步：
+
+`S1` 记账诊断（不改源码）→ `S2` `BuildByIndex` 兜底 + 信号写入（先不接消费者）→ `S3` 边界格守卫 → `S4` 三个 `AtEOF` 写点换成 `IsClosedOfLayer` → `S5` 补建收窄 → `S6` 单独 commit 打开 `EnableShellExpressions`。
+
+新增二级熔断开关 `StatementShellSignal.EnableLayerClosed`，使「语义替换」可以单独回滚，不必回滚前序步骤。
+
+**硬熔断线**（任一出现立即回滚该步）：`ast-json < 6037`、`token-ast crash > 0`、`--double-accept > 0`、`real-dts < 226/226`、perf `ratio(400/200) > 2.5`。
+
+### 14.6 替代架构判断
+
+**现路径可行，为首选（A）**。B 计划（保留 legacy 决定边界、壳内先 raw 攒、`EndPossible` 只做审计）代价约一个 Stage，且会失去增量建树（Stage 3 操作符候选的 `Frames` 栈无处挂）；仅当 S2 之后「抛错与 crash 归零但 `ast-json` 仍 `< 6100` 且结构差 `> 80`」时启用。给 token 加「已认领位」以跳过二次 `SignOut`（C）**不采纳**：它把结构性错误变成静默跳过，读数会假绿。
