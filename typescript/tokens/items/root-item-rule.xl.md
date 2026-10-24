@@ -534,8 +534,13 @@ return false;
 收口判据（与 TS 同口径：`export const x = a as T` ⏎ `(b);` 是两条）。
 
 续接集合只放「语法上真能把表达式接下去」的单元：运算符、`;` `,` `.`，以及 `as` / `satisfies` /
-`extends` 这类关键字。`(` `[` 与模板字符串**不在**里面（`export const x = a` ⏎ `(b)` 在 TS 里
-是 VariableStatement + ExpressionStatement，实测见 HANDOFF.wp3-8 类 2）。
+`extends` 这类关键字。
+
+调用位（`(` / `[` / 反引号模板）**单独判**：TS 只在上一格**当不了调用者**时才插 ASI——
+`export const x = a as T` ⏎ `(b)` 是两条语句（类型之后不是调用者），而 `const x = a` ⏎ `(b)`
+仍是 `a(b)` 一条（`HANDOFF.wp3-8 类 2` 的旧口径把这两种混成一种，是 #290 的根因）。
+判据复用 `StatementScanner.IsCallPositionBlocked`，与 `EndsAtLineBreak` 的调用位分支同一份。
+（#290 = `const x = a` ⏎ `(b)`，无 `;` 的 EOF 尾巴段正是本条判据收口的地方。）
 
 ```ts
 if (at <= 0 || at >= code.length) {
@@ -557,6 +562,12 @@ if (next instanceof Symbol) {
     "<", ">", "&", "|", "^", "~", "{"])) {
     return false;
   }
+}
+// 调用位（`(` / `[` / 反引号模板）：上一格是普通表达式尾巴时换行**继续**同一条表达式
+// （`const x = a` ⏎ `(b)` = `a(b)`），只有当上一格当不了调用者（`as`/`satisfies` 的类型、
+// 块体箭头 `=> {}`、后缀 `++`/`--`）时才是声明边界。判据与 `EndsAtLineBreak` 同源。
+if (StatementScanner.IsCallishUnit(next)) {
+  return StatementScanner.IsCallPositionBlocked(code, at - 1);
 }
 if (next instanceof Common) {
   const word: string = (next as Common).TempToString();
