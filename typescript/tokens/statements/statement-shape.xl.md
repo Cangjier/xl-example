@@ -151,6 +151,12 @@ host.Data.splice(0, consumed.length);
 return built;
 ```
 
+## static field LeftoverReplayDepth:int = 0
+
+尾巴重放的**重入深度**（Stage 4d）。只有最外层那次收口做重放；重放过程中新建的壳收口时会看到深度 > 0 而跳过，
+改由最外层的快照循环继续扫这些格子（它们仍在父单元 `Data` 里、还是同一批对象）。这样重放既不递归、
+也不漏格：**幂等由「按单元对象查当前下标」保证**——已经被前一次重放建进形状的格子（`indexOf < 0`）直接跳过。
+
 ## static method FinishShell:(shell:Token, built:Token, context:SyntaxContext | null)=>void
 
 壳收口：把壳从父单元里**原位**换成建好的语句形状，并把壳 `Data` 里剩下的 raw 单元按原顺序插在语句形状之后；
@@ -158,12 +164,20 @@ return built;
 
 两处必须显式：`built.Parent`（`splice` 不设父）、`parent.MountedUnit`（`splice` 不清挂载）。
 
-**尾巴重放（Stage 4b）**：ASI 边界收口时留在壳里的边界单元（典型是 `let a = 1` ⏎ `{ b; }` 的 `{` 括号）
-是在壳**挂着**的时候建出来的，父目录从没见过它们；不重放，父目录只能等到 EOF 才看到这对残留单元，
-再由 `SourceFileEndPossibleShape` 按 legacy 表达式语句整段建 —— 这正是「表达式语句没有读完」+ 文件级 fallback 的根。
-所以收口后把每个非 trivia 尾巴格子按原位送进父目录判定一次（`context` 为 `null` 时不做，保持旧行为）。
-重放是**尽力而为**：抛错立刻停下并计数（`LeftoverReplayFailed`），让原有 EOF / fallback 路径接管——
-重放只增加接管机会，绝不让一次本来能过的解析变成失败。
+**尾巴重放（Stage 4d）**：ASI / 受限产生式收口时留在壳里的边界单元（`if (a) {}` ⏎ `;` 的 `;`、
+`{ ; ; }` 的第二格、`let a = 1` ⏎ `{ b; }` 的 `{` 括号）是在壳**挂着**的时候建出来的，父目录从没见过它们；
+不重放，父目录只能等到 EOF / 块收口时才看到这批残留单元 —— 这正是空语句丢节点（HANDOFF-s4c2 §2）与
+`FinishShell` 缺父目录重放（HANDOFF-s4c §7 风险 1）的共同根因。
+
+所以收口后把每个非 trivia 尾巴格子按**它当前在父单元里的下标**送进父目录判定一次
+（`context` 为 `null` 时不做，保持旧行为；父单元没有 `CatalogGuide` 时同样不做）。
+父目录可能是根（`SourceFileShape`）、块体括号（`{` 的 `CatalogGuide`）或块壳——它们的候选集各自决定这一格归谁，
+本方法不写第二份判据。重放是**尽力而为**：抛错立刻停下并计数（`LeftoverReplayFailed`），
+让原有 EOF / fallback 路径接管 —— 重放只增加接管机会，绝不让一次本来能过的解析变成失败。
+
+**为什么用快照 + 深度而不是递归**：重放里建出的壳会自己 `FinishShell`（嵌套），若它也重放就会递归；
+若把剩下的格子直接交给它，最外层就再也看不到那些对象。快照循环按对象查下标，所以「被谁建掉」都能正确跳过、
+「还没建」都还在父单元里，天然幂等；`LeftoverReplayDepth` 只负责把重入挡在第二层。
 
 ```ts
 const parent = shell.Parent;
@@ -184,6 +198,35 @@ if (parent.MountedUnit === shell) {
 for (let at = 0; at < leftover.length; at++) {
   leftover[at].Parent = parent;
   parent.Data.splice(index + 1 + at, 0, leftover[at]);
+}
+if (context !== null && leftover.length > 0 && StatementShape.LeftoverReplayDepth === 0) {
+  const host = parent as unknown as ShapeToken;
+  const guide = host.CatalogGuide;
+  if (guide !== null) {
+    StatementShape.LeftoverReplayDepth += 1;
+    try {
+      for (const unit of leftover) {
+        if (unit.IsTriviaToken) {
+          continue;
+        }
+        const at = parent.Data.indexOf(unit);
+        if (at < 0) {
+          // 这一格已经被前一次重放建进某条形状里（父目录消费了它），跳过。
+          continue;
+        }
+        try {
+          guide.ComputePossibleShapesByIndex(parent, at, context);
+          StatementRouteUtil.LeftoverReplayCount += 1;
+        } catch {
+          // 尽力而为：父目录拒收 / 抛错就停在这里，后续格子交回 EOF / fallback 路径。
+          StatementRouteUtil.LeftoverReplayFailed += 1;
+          break;
+        }
+      }
+    } finally {
+      StatementShape.LeftoverReplayDepth -= 1;
+    }
+  }
 }
 ```
 
