@@ -246,14 +246,24 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 `BlockBodyStatementCount` / `ControlFlowShellCount` 读数决定；两个数一起看才能区分「挂上但没接管」与
 「根本没挂」。
 
-## static field EnableDeclarationShell:bool = false
+## static field EnableDeclarationShell:bool = true
 
-**Stage 4r 实测后默认关（安全回退）**：专用候选 `DeclarationStatementPossibleShape` 与 13 个 legacy 候选的
+**Stage 4r 实测后曾默认关（安全回退）**：专用候选 `DeclarationStatementPossibleShape` 与 13 个 legacy 候选的
 `Decide === ShellDeclarationFamily` 让位门控都已落地，打开时 27 条专用用例中 **25 条单条形态逐条通过**
 （`DeclarationShellCount=1`、XML==legacy、AST==TS、fallback 0），但有 **2 条多语句组合**双建壳
 （`interface I { }` ⏎ `const a = 1;`：decl=2；`type T = 1;` ⏎ `enum E { A }` ⏎ `export { T, E };`：enum 退化成 raw），
 并且全表回归出 **1 条 ASI 用例**（`asi-type-then-return`：`type T = A` ⏎ `return;` 的声明壳在 ASI 边界既没建树也没重放，
-整条退化成 raw）。按纪律不伪造绿：默认关，行为逐位回到 Stage 4q（`EnableShellExpressions=false` 的对拍档同样不受影响）。
+整条退化成 raw）。按纪律不伪造绿，Stage 4r 起默认关，行为逐位回到 Stage 4q。
+
+**Stage 4af 转正（默认开）**：上述残差与打开态全表残留已由 4af-A…4af-G 逐项清除——声明壳起点统一改用
+`IsDeclarationFollowBoundary`（含 EOF 闭合括号、普通单词起点）、换行后的 `@` 认作装饰器声明起点、
+`StatementEndCode` 收口实现上移并被 `StatementShape.TryToClose` 复用（EOF 收口不再有第二份判据）、
+`possible-compute` 收尾残差（`export let` / 调用位）已清。打开态实测（本字段置 `true`）：
+`token-ast` diff=0、`real-dts` 226/226、`ast-json` **6171/6171 且结构/位置/字段差 0/0/0**
+（此前 57 条残差 = F 7 + E 47 + G 2，全清）、`declaration-statement-takeover` 33/33 knownGap=0、
+`harness --all` 101/0/known1、`double-accept` 120/0、`final-matrix` 38/38，四个新门
+（`export-no-semicolon-eof` 13/13、`eof-last-token-close` 13/13、`declaration-shell-call-position` 24/24、
+`decorated-declaration-takeover` 14/14）全绿。
 
 **根层声明 / 导入导出族语句壳开关**（Stage 4q）。`true` = `Decide` 把这些起点判成
 `StatementRoute.ShellDeclarationFamily`，由 `ControlFlowStatementPossibleShape`（通用起点候选）建壳，
