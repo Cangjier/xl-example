@@ -23,6 +23,10 @@ import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 直建路径**唯一**允许的「运算符 token / 操作数叶子」工厂：运算符一律复用 `ExpressionBuilder.MakeOperatorToken`
 （与旧路径同一张映射表，直建侧不复制 if 链）；操作数判定只有这一处（数值 / BigInt / 字符串 / 关键字 / 标识符）。
 
+> **契约补录（R6，Lead 追认）**：R5-A2 把 `as` / `satisfies` 移出**操作数保留字表**的改动已由 Lead
+> 追认为契约内改动 —— R6-CONTRACT §3.2 把本文件列入 `feat-r6-harden` 的授权行、§4.6 写明口径，不再靠事后追认。
+> **R6 只补这段注释，不改行为**：保留字表内容与 R5 `045416dd` 逐字相同。
+
 # class DirectTokenUtil
 
 ```txt
