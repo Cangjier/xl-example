@@ -285,7 +285,25 @@ return text === "="
 
 ```ts
 const start = this.At;
-let left = this.ParseAssign();
+return this.ParseExpressionFrom(this.ParseAssign(), start);
+```
+
+## method ParseExpressionFrom:(left:Token, start:int)=>Token
+
+从**已经建好的左操作数**继续读：先按赋值 / 条件 / 二元爬升读完 `left` 的右邻，再把逗号链读成 `BinaryExpression`。
+`start` 是 `left` 的首单元下标（调用方给，跨度用它，与 `ParseExpression` 的 `start` 同一口径）。
+
+**为什么需要它**：`a<b> as T` / `a<b> instanceof C` 这种「类型实参尾巴之后还能接运算符」的形态，
+形状层把 `<` 之后整段交给了 `Expr…`——`ParsePostfixSuffix` 只管后缀，读到 `as` / `instanceof` 就停。
+有了这一格，收口器就能让 legacy 自己「从后缀链的结果继续往下读」，与 `ParseExpression` 走**同一段**
+赋值 / 条件 / 二元 / 逗号逻辑，所以节点、`Pos`、区间都逐字段同源。
+
+```ts
+let value = left;
+if (value === null) {
+  return left;
+}
+value = this.ParseAssignFrom(value, start);
 while (true) {
   const unit = this.Peek(0);
   if (unit === null) {
@@ -298,32 +316,42 @@ while (true) {
   this.At++;
   const right = this.ParseAssign();
   const shape = new BinaryExpressionShape(this.Template);
-  shape.Add(left);
+  shape.Add(value);
   shape.Add(this.MakeOperatorToken(unit, opIndex));
   shape.Add(right);
-  left = this.SpanNode(shape, start, this.At - 1);
+  value = this.SpanNode(shape, start, this.At - 1);
 }
-return left;
+return value;
 ```
 
 ## method ParseAssign:()=>Token
 
 ```ts
 const start = this.At;
-const left = this.ParseConditional();
+return this.ParseAssignFrom(this.ParseConditional(), start);
+```
+
+## method ParseAssignFrom:(left:Token, start:int)=>Token
+
+`ParseAssign` 的「左操作数已建好」版本：先让 `left` 走完条件 / 二元爬升（`ParseConditionalFrom`），
+再看后面是不是赋值运算符——是就把 `right` 交给 `ParseAssign`（右结合），外层仍是 `BinaryExpressionShape`。
+判定与 `ParseAssign` 逐字相同，两者共用同一段代码，只是起点不同。
+
+```ts
+let value = this.ParseConditionalFrom(left, start);
 const unit = this.Peek(0);
 if (unit === null) {
-  return left;
+  return value;
 }
 const text = this.TextOf(unit);
 if (!this.IsAssignmentText(text)) {
-  return left;
+  return value;
 }
 const opIndex = this.At;
 this.At++;
 const right = this.ParseAssign();
 const shape = new BinaryExpressionShape(this.Template);
-shape.Add(left);
+shape.Add(value);
 shape.Add(this.MakeOperatorToken(unit, opIndex));
 shape.Add(right);
 return this.SpanNode(shape, start, this.At - 1);
@@ -333,7 +361,16 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ```ts
 const start = this.At;
-const condition = this.ParseBinary(4);
+return this.ParseConditionalFrom(this.ParseBinary(4), start);
+```
+
+## method ParseConditionalFrom:(left:Token, start:int)=>Token
+
+`ParseConditional` 的「左操作数已建好」版本。条件仍是 `left` 走完二元爬升（优先级 4，与
+`ParseConditional` 同一数值），`?` / `:` 与两个分支的读法与 legacy 逐字相同。
+
+```ts
+const condition = this.ParseBinaryFrom(left, start, 4);
 const unit = this.Peek(0);
 if (unit === null || !this.IsText(unit, "?")) {
   return condition;
@@ -361,7 +398,18 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ```ts
 const start = this.At;
-let left = this.ParseUnary();
+return this.ParseBinaryFrom(this.ParseUnary(), start, minPrecedence);
+```
+
+## method ParseBinaryFrom:(left:Token, start:int, minPrecedence:int)=>Token
+
+`ParseBinary` 的「左操作数已建好」版本：`left` 已经是操作数（例如类型实参后缀链 `a<b>` 建出来的
+`ExpressionWithTypeArguments`），这里只负责按优先级把它右边的运算符读出来。循环体与 `ParseBinary`
+**逐字相同**（含 `as` / `satisfies` 的类型运算符分支与右结合判定），所以两种入口产出的节点、
+`Pos`、区间完全同源。
+
+```ts
+let value = left;
 while (true) {
   const unit = this.Peek(0);
   if (unit === null) {
@@ -384,9 +432,9 @@ while (true) {
     } else {
       shape = new SatisfiesExpressionShape(this.Template);
     }
-    shape.Add(left);
+    shape.Add(value);
     shape.Add(type);
-    left = this.SpanNode(shape, start, this.At - 1);
+    value = this.SpanNode(shape, start, this.At - 1);
     continue;
   }
   const opText = this.BinaryOperatorText(unit);
@@ -401,12 +449,12 @@ while (true) {
   this.At++;
   const right = this.ParseBinary(this.IsRightAssociative(opText) ? precedence : precedence + 1);
   const shape = new BinaryExpressionShape(this.Template);
-  shape.Add(left);
+  shape.Add(value);
   shape.Add(this.MakeOperatorToken(unit, opIndex));
   shape.Add(right);
-  left = this.SpanNode(shape, start, this.At - 1);
+  value = this.SpanNode(shape, start, this.At - 1);
 }
-return left;
+return value;
 ```
 
 ## method IsTypeOperator:(unit:Token)=>bool
