@@ -272,8 +272,8 @@ node tests/statement-possible/legacy-retirement.mjs --legacy-only   # 底座，�
   逐构造 42 条全部 `legacy = 0`（5d-1a 基线里 31 条为 1、`break-continue` 3、`switch` 4、`multi-statement-body` 3）。
 - **剩余 78 的构成（全部同一形态）**：`declare const|let|var` 的 **ambient 变量语句**——它要在建造器内部
   `At++`、建变量语句、把 `DeclareKeywordShape` 插回 `Data` 最前、把 `Pos` 倒回 `declare` 起点，属于
-  建造器内部状态改写（`Positions` / `Data` 的直接改写），本阶段刻意不搬。分布：69 个用例
-  （66 个整文件用例 + 12 条 `typescript/cases` 逐行用例；`--top` 可逐个查）。
+  建造器内部状态改写（`Positions` / `Data` 的直接改写），本阶段刻意不搬。分布：**69 个用例 / 78 次**
+  = 57 个整文件用例（66 次）+ 12 条 `typescript/cases` 逐行用例（12 次）；`--top` / `--json` 可逐个查。
 - **全门零回归**：`ast-json 6171/6171`、`ast-json-diff 0/0/0`、`token-ast 1706/0`、`real-dts 226/226`、
   `harness --all 102/0/known=0`、`--double-accept 120/0`、`declaration-statement-takeover 33/33`、
   `final-matrix 38/38`、`validate 1720/0`、`op-ast-proof 94/94`、`short-family-boundary 44/44`、`ast-kind-names PASS`。
