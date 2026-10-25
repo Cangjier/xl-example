@@ -20,6 +20,8 @@
   { "name": "multi-interface-then-const", "source": "interface I { }\nconst a = 1;", "declarationShells": 1, "note": "组合：声明壳收在 `}`（ASI），下一条语句照常" },
   { "name": "multi-import-export", "source": "import x from \"y\";\nexport { x };", "declarationShells": 2, "note": "组合：两条都建壳，各自分号收口" },
   { "name": "multi-three", "source": "type T = 1;\nenum E { A }\nexport { T, E };", "declarationShells": 3, "note": "组合：三条声明/导出各自建壳" },
+  { "name": "multi-interface-then-call", "source": "interface I {}\nfoo();", "declarationShells": 1, "note": "族 B：已闭合接口体后跟普通标识符语句（Stage 4af-B）" },
+  { "name": "multi-declare-function-then-generic-inst", "source": "declare function f<T>(): T\nf<string>;", "declarationShells": 1, "knownGap": "打开态判据三在 `T` 收口（AST/XML 均正确），但 builder 的 ambient 函数声明要求 `;` → 走文件级 fallback；builder 侧接受无分号签名是另一处改动（Stage 4af-B 未做）", "note": "族 B：泛型函数签名后跟泛型实例化表达式语句（Stage 4af-B）" },
   { "name": "control-function-body", "source": "function f(): void { }", "declarationShells": 0, "note": "对照：function 不做语句壳（体由既有括号事件负责）" },
   { "name": "control-class-body", "source": "class A { m() { } }", "declarationShells": 0, "note": "对照：class 不做语句壳，避免与类体挂载双挂载" },
   { "name": "control-abstract-class", "source": "abstract class A {}", "declarationShells": 0, "note": "对照：abstract class 安全回退（legacy），见 HANDOFF-s4q §5" },

@@ -330,6 +330,18 @@ return StatementBoundaryUtil.IsSemicolon(units[tokenIndex])
 换行、可收尾、非延续三条仍旧读 `ExpressionStatementPossibleShape` 的同一批判据；
 条件 5 只在 `IsAsiBoundary` 里保留（本方法不调用它，也不改它）。
 
+**Stage 4af-B：补两条普通单词起点判据**（判据一原样保留，`IsAsiBoundary` 函数体不动）：
+
+- **判据二**：`prev` 是已闭合的 `{…}` 括号单元时（`interface` / `enum` / `namespace` / `module` /
+  `export {…}` 的体收尾），下一格的普通单词就是下一条语句的起点。能接在闭合 `{}` 后面继续同一条声明的
+  单词只有 `from`（`export { a }` ⏎ `from "m"`），因此排除。
+- **判据三**：`prev` 能收住一条完整表达式（`declare function f<T>(): T` ⏎ `f<string>;` 的 `T`）时同样成立。
+  泛型实例化的下一条语句以普通单词开头，判据一（只认关键字）看不见它，壳会把两条一起吞掉。
+- 判据二 / 三的「不能是续接词」清单是：`from`、`extends`、`implements`（声明头续接），
+  再加 `ExpressionStatementPossibleShape.IsContinuation`（`in` / `instanceof` / `as` / `satisfies`，
+  `export default { … }` ⏎ `satisfies T` 仍是一条）。这份清单与 `IsAsiBoundary` 读同一个 `IsContinuation`，
+  不新写第二套表达式续接判据；符号起点（`|` / `&` / `[` / `<` …）在判据一之前就被排除，不受影响。
+
 ```ts
 if (tokenIndex < 1 || tokenIndex >= units.length) {
   return false;
@@ -346,10 +358,6 @@ if (!(current instanceof Common)) {
   return false;
 }
 const text = (current as Common).TempToString();
-if (!StatementRouteUtil.IsLegacyKeyword(text)
-  && text !== "let" && text !== "const" && text !== "var") {
-  return false;
-}
 let prev = tokenIndex - 1;
 while (prev >= 0 && units[prev].IsTriviaToken) {
   prev--;
@@ -363,9 +371,32 @@ if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
 }
 // 声明体的收尾是闭合的 `{…}`（interface / enum / namespace / module / export {…}）：
 // `CanEndExpression` 分不清 `{` 与裸块、统一按 false 处理，这里按「已闭合」计入。
-if (units[prev] instanceof Bracket && (units[prev] as Bracket).StartBracketChar === "{") {
+const prevIsClosedBody = units[prev] instanceof Bracket
+  && (units[prev] as Bracket).StartBracketChar === "{";
+// 判据一（Stage 4ab）：下一格是能起一条新语句的声明 / 变量关键字。
+if (StatementRouteUtil.IsLegacyKeyword(text)
+  || text === "let" || text === "const" || text === "var") {
+  if (prevIsClosedBody) {
+    return true;
+  }
+  return ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev);
+}
+// 判据二 / 三共用的「这个单词是声明的续接词」判据：
+// - `from`：`export { a }` ⏎ `from "m"` / `import { a }` ⏎ `from "m"` 仍是同一条声明；
+// - `extends` / `implements`：`interface I` ⏎ `extends J` 的声明头续接；
+// - `in` / `instanceof` / `as` / `satisfies`：表达式续接词，与 `IsAsiBoundary` 读同一个 `IsContinuation`。
+const isContinuationWord = text === "from" || text === "extends" || text === "implements"
+  || ExpressionStatementPossibleShape.IsContinuation(current);
+if (isContinuationWord) {
+  return false;
+}
+// 判据二（Stage 4af-B）：声明体已闭合，下一格只要是普通单词就是下一条语句的起点。
+// `interface I {}` ⏎ `foo();` 的 `foo` 既不是关键字、闭合 `{}` 也收不住表达式尾巴，判据一因此看不见它。
+if (prevIsClosedBody) {
   return true;
 }
+// 判据三（Stage 4af-B）：声明头末尾是能收住表达式的类型引用（`declare function f<T>(): T` ⏎ `f<string>;`）。
+// 要求换行前那一格确实能收住表达式，所以 `declare function f(` / `interface I<` 一类还没收尾的格子不会误切。
 return ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev);
 ```
 
