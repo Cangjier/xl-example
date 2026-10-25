@@ -21,8 +21,9 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 # class CaseClauseStatementPossibleShape extends PossibleShape
 
-**switch 子句级语句的起点候选**（Stage 4y 落地，Stage 4aa 转正）。**默认开**（`StatementRouteUtil.EnableSwitchCaseClause`
-与 `BlockPossibleShape.EnableSwitchCaseClause` 双开关同开，均为 `true`）。S4y 的「壳在 `;` 处不收口」根因是终结
+**switch 子句级语句的起点候选**（Stage 4y 落地，Stage 4aa 转正）。**默认开**（唯一门控
+`StatementRouteUtil.EnableSwitchCaseClause`；Stage 4ae 起 `BlockPossibleShape` 上的同名重复字段已删除）。
+S4y 的「壳在 `;` 处不收口」根因是终结
 候选的族标记挂错：子句壳的 `Data` 里没有 `{` 前缀，`StatementKind = 0` 会走 `StatementScanner.ScanRoot`，而它只认
 `{` / `;` / 声明关键字起点；Stage 4aa 改成 `ShellPlainExpression`（`;` / EOF / ASI 判界）后 `;` 处正常收口。
 
@@ -131,15 +132,25 @@ for (let at = start - 1; at >= 0; at--) {
 }
 const moved:Array<Token> = host.Data.slice(start, tokenIndex + 1);
 host.Data.splice(start, moved.length);
+// **Stage 4ae：按子句语句的首代码单元分族**。以带体关键字（if / for / while / do / try / with /
+// class / function）开头的子句语句，边界是**闭合的 `}`**（`do … while (…) ;` 是 `;`），不是表达式语句
+// 那一套 `;` / EOF / ASI：壳若继续用 `ShellPlainExpression` 的终结候选，`if (x) { y; }` 永远不会在
+// `}` 处收口，壳会吞掉下一条语句 `b;`（HANDOFF-s4ac §2.1 的 gap ①）。这一族改用控制流族标记
+// （Kind 与终结候选都取 `ShellStatementFamily`），判界走 legacy 的 `StatementScanner.ScanRoot`，
+// 建树仍是同一个 `StatementBuilder.BuildStatement`；体括号由 `StatementShape.OnBracketCreatedEvent`
+// → `BlockPossibleShape.TryMountControlFlowBody` 挂块体目录（与 `if (a) { … }` 在块内完全同一条通道）。
+const statementFamily = moved.length > 0
+  && CaseClauseStatementPossibleShape.IsStatementFamilyHead(moved[0]);
 const shell = new StatementShape(host.Template);
 shell.Pos = pos;
-// 与 `BlockPossibleShape.BuildByIndex` 的块壳**逐字同构**的族标记：`Kind = ShellBlock` +
-// `BodyKind = BodyKindBlock`，终结候选 `StatementKind = 0`。这不是随便挑的：Stage 4y 实测
-// `Kind = ShellStatementFamily` 时 `;` 不触发收口（壳一直涨到 case 块的 `}`，`ExitOrPre` 整体建树
-// 失败后 `DetachShell` 退回 raw：树仍正确，但第一条之后的子句语句永远不接管，且后续 case 体的
-// 目录挂载会被壳吞掉）。块壳这一套族标记是被 Stage 4b 验证过「`;` 收口」的唯一组合。
-shell.Kind = StatementRoute.ShellBlock;
-shell.BodyKind = StatementShape.BodyKindBlock;
+if (statementFamily) {
+  shell.Kind = StatementRoute.ShellStatementFamily;
+} else {
+  // 其余子句语句仍是表达式语句那一套：`Kind = ShellBlock` + `BodyKind = BodyKindBlock`，
+  // 终结候选 `StatementKind = ShellPlainExpression`（`;` / EOF / ASI）。这是 Stage 4aa 验证过的组合。
+  shell.Kind = StatementRoute.ShellBlock;
+  shell.BodyKind = StatementShape.BodyKindBlock;
+}
 for (const item of moved) {
   shell.Add(item);
 }
@@ -156,13 +167,38 @@ const endShape = new StatementEndPossibleShape();
 // 第一个单元就 `Complete`，「块壳靠 `ScanRoot` 收口」并不能推广到子句壳。子句语句真正的收口规则是
 // 表达式语句那一套（`;` / EOF / ASI），所以族标记必须是 `ShellPlainExpression`
 // （走 `StatementEndPossibleShape.ExpressionEndCode`，与 `RootExpressionStatementPossibleShape` 同源）。
-endShape.StatementKind = StatementRoute.ShellPlainExpression;
+// **Stage 4ae**：带体关键字族例外——它的边界是 `}`，必须走 `ScanRoot`（与 legacy `if` / `try` /
+// `class` 同一条判界），否则 `if (x) { y; }` 不在 `}` 收口、壳吞掉下一条语句（gap ①）。
+endShape.StatementKind = statementFamily
+  ? StatementRoute.ShellStatementFamily
+  : StatementRoute.ShellPlainExpression;
 shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
 StatementRouteUtil.SwitchCaseClauseShellCount += 1;
 return shell;
+```
+
+## static method IsStatementFamilyHead:(unit:Token)=>bool
+
+**Stage 4ae：子句语句的「带体关键字」族判据**。只认首代码单元是 `Common` 且文本属于
+`if` / `for` / `while` / `do` / `try` / `with` / `class` / `function`。这些语句的边界是闭合的 `}`
+（`do … while (…) ;` 是 `;`），必须由 `StatementScanner.ScanRoot` 判界；其余子句语句（表达式 / 变量 /
+`return` / `throw` 等）仍用表达式语句的 `;` / EOF / ASI。
+
+`switch` **不在集合里**（Stage 4ae 的保守取舍）：嵌套 switch 的内层子句接管是 HANDOFF-s4ac §5 已记录的
+独立缺口；本阶段只修「带体语句以 `}` 收尾」这一格，打开嵌套 switch 会把
+`switch (x) { case 1: switch (y) { case 2: f(); } }` 的壳计数从 1 变成 2，改变既有 stage4y 读数与建树
+时序，留待后续单独交付。
+
+```ts
+if (!(unit instanceof Common)) {
+  return false;
+}
+const text = (unit as Common).TempToString();
+return text === "if" || text === "for" || text === "while" || text === "do"
+  || text === "try" || text === "with" || text === "class" || text === "function";
 ```
 
 ## static method IsClauseStatementStart:(units:Array<Token>, tokenIndex:int)=>bool

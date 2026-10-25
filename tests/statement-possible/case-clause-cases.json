@@ -47,6 +47,22 @@
         { "name": "s4aa-clause-default-multi", "source": "switch (x) { default: a; b; }" },
         { "name": "s4aa-clause-in-block", "source": "{ switch (x) { case 1: a; b; } }" }
       ]
+    },
+    "stage4ae": {
+      "stage": "Stage 4ae (clause statement family split: body-bearing keywords close at `}`)",
+      "description": "A clause statement whose first code unit is a body-bearing keyword (if / for / while / do / try / with / class / function) uses the control-flow family marker: the clause shell closes at its body `}` (StatementScanner.ScanRoot) and its body brace mounts the block-body catalog, so a following clause statement is a separate shell instead of being swallowed. Covers the Stage 4ac gap ① form `case 1: if (x) { y; } b;` plus if/else, for, while, do, try, a trailing if, class and function. Every case asserts XML == legacy, AST == TS, deterministic XML, no shape leak and no file-level fallback.",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4ae-clause-if-then-stmt", "source": "switch (x) { case 1: if (x) { y; } b; }" },
+        { "name": "s4ae-clause-if-else", "source": "switch (x) { case 1: if (a) { b; } else { c; } d; }" },
+        { "name": "s4ae-clause-if-last", "source": "switch (x) { case 1: if (x) { y; } }" },
+        { "name": "s4ae-clause-for-body", "source": "switch (x) { case 1: for (;;) { y; } b; }" },
+        { "name": "s4ae-clause-while-body", "source": "switch (x) { case 1: while (a) { b; } c; }" },
+        { "name": "s4ae-clause-do-body", "source": "switch (x) { case 1: do { a; } while (b); c; }" },
+        { "name": "s4ae-clause-try-body", "source": "switch (x) { case 1: try { a; } catch (e) { b; } c; }" },
+        { "name": "s4ae-clause-class-body", "source": "switch (x) { case 1: class C {} b; }" },
+        { "name": "s4ae-clause-function-body", "source": "switch (x) { case 1: function f() { g(); } b; }" }
+      ]
     }
   }
 }

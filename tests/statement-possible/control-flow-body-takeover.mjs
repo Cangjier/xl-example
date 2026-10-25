@@ -93,10 +93,13 @@ const cases = [
   { source: "{ function k<T>(): { a: T } { return null; } }", brace: 0, body: 1, cf: 1 },
   // Stage 4w: block-level declarations stay raw at the default gates (declaration family shell is off);
   // XML/AST are still gate-checked for every case, so these prove the new registration is inert.
-  { source: "{ class C {} }", brace: 0, body: 0, cf: 0 },
+  // Stage 4ae: EnableBlockClassShell ships true, so the block-level class shell is taken over:
+  // the class statement itself is collected (body +1) and it is a ShellStatementFamily shell (cf +1).
+  { source: "{ class C {} }", brace: 0, body: 1, cf: 1 },
   { source: "{ enum E { A } }", brace: 0, body: 0, cf: 0 },
   { source: "{ declare const x: number; }", brace: 0, body: 0, cf: 0 },
-  { source: "{ class C { m(){ let y = 1; } } }", brace: 0, body: 1, cf: 0 },
+  // +1 for the class statement itself, +1 for `let y = 1;` collected inside the method body.
+  { source: "{ class C { m(){ let y = 1; } } }", brace: 0, body: 2, cf: 1 },
   // no false positive: object-literal generic method body must NOT mount (host is the object literal, not a block).
   { source: "const o = { m<T>(a: T){ let z = a; } };", brace: 0, body: 1, cf: null },
   { source: "switch (x) { case a + 1: { g(); } }", brace: 0, body: 1, cf: 1 },

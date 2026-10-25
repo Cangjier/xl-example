@@ -630,15 +630,6 @@ for (let scan = previous; scan >= 0; scan--) {
 return false;
 ```
 
-## static field EnableSwitchCaseClause:bool = true
-
-**switch 子句级语句目录开关**（Stage 4y，**实测后默认关**，见 `StatementRouteUtil.EnableSwitchCaseClause` 与
-`HANDOFF-s4y.md` §1）：壳在 `;` 处不收口，接管只在「子句最后一条语句」上完整，跨子句 / 多条语句会把
-后续 case 体的目录挂载吞掉。`false` = 不挂，行为逐位回到 Stage 4s。`true` = switch 的 case 块括号挂
-`[CaseClauseStatementPossibleShape]`（终结候选 `BlockBodyWaitingPossibleShape`），`case 1: f();` 的
-`f();` 在冒号之后建壳，由 `StatementBuilder.BuildCaseBlock` 的子句收集分支收进 `CaseClauseShape`。
-`false` = 不挂，行为逐位回到 Stage 4s。
-
 ## static method IsSwitchKeywordShell:(shell:Token)=>bool
 
 `shell` 是不是一个以 `switch` 起头的控制流壳（即刚创建的 `{` 是 switch 的 **case 块括号**）。
@@ -688,7 +679,10 @@ if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
   // **switch 的 case 块括号**（Stage 4y）：挂**只含子句语句候选**的目录。绝不能挂块体目录：
   // 目录里的表达式 / 变量候选会把整段 `case <表达式>:` 当一条语句建壳（Stage 4p 的
   // `SourceRange is not set` 就是这么抛的）。
-  if (BlockPossibleShape.EnableSwitchCaseClause) {
+  // **Stage 4ae：单一开关**。本类原先另有一个同名 `EnableSwitchCaseClause`，与
+  // `StatementRouteUtil.EnableSwitchCaseClause` 必须同开同关——只开一处就是假空转（挂载侧不开则
+  // mount=0，壳计数永远是 0）。同名门控已删除，挂载只问 `StatementRouteUtil` 那一份。
+  if (StatementRouteUtil.EnableSwitchCaseClause) {
     body.CatalogGuide = new CatalogGuide(
       [new CaseClauseStatementPossibleShape()],
       new BlockBodyWaitingPossibleShape());
