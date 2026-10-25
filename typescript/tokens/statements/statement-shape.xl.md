@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
@@ -342,18 +343,49 @@ BlockPossibleShape.OnShellBracketCreated(this, bracket, context);
 （`let x = 1` 在文件末尾）。这时用 `BuildFromShell` 建最后一条语句并 `FinishShell` 收口；
 建不出来（空壳 / 建造器抛错）才退回基类，交给父单元的关闭流程报错。
 
+**为什么收回口位置是这一步的关键（Stage 4af-F）**：壳的终结候选只在**有新代码单元流入**时被求值，
+而一个 token 的「流入」要等它自己之后的那一个字符。文件以「下一条语句只有一个 token」结尾时
+（`type T = A` ⏎ `a` / `f` / `1` / `return` / `debugger` / `break` / `continue`、`export default x` ⏎ `a`），
+末 token 的求值要等的那一个字符就是 EOF —— 它永远等不到，`StatementEndPossibleShape` 因此从没被问过，
+`TryToClose` 是唯一的机会。它原来对非表达式族一律读 `ScanRoot` 的 `End`，而 `ScanRoot` 对「壳里塞了
+两条语句」只回 `Mismatch`（`Status == 2`、`End == -1`），`endIndex` 就落回最后一个代码单元 →
+`BuildFromShell` 读到两条语句 → 抛错 → `DetachShell` → 首条退 raw（首节点 `Common`、`Identifier -2`）。
+
+所以声明族（`ShellDeclarationFamily`）这一格改读**终结候选同一份判据**
+`StatementBoundaryUtil.StatementEndCode`（`;` / ASI / 声明跟随边界 / EOF，见那里的四条顺序），
+不再走 `ScanRoot`。这不是第二套 ASI：表达式族与声明族本来就用这一份判据收口（Stage 4q），
+本方法只是把「EOF 兜底」接到**同一个**实现上——两边不再可能给出不同的 `End`。
+
+其余族逐位不变：变量族（Wave1，`Kind == ShellVariable`）仍读 `ScanRoot`，表达式族仍消费到末单元。
+声明族读到的 `End` 若 `>= 0` 就用它（它只可能 ≤ 末代码单元）：`type T = A` ⏎ `a` 收在 `A`，
+`a` 由 `FinishShell` 搬回根单元、再经尾巴重放建出第二条语句。
+
 建不出来时先调 `DetachShell` 把壳拆掉（见上）；拆不掉才退回基类。
 
 ```ts
 if (!this.Closed) {
   const lastCode = ItemUtil.LastCodeInItem(this.Data);
   if (lastCode >= 0) {
-    // Stage 4c：EOF 收口也要先问一次 `ScanRoot` 的 `End`（仅控制流/变量族的壳；表达式壳仍消费到末单元）。
+    // Stage 4c：EOF 收口也要先问一次扫描器 / 判据的 `End`（变量族 / 声明族；表达式壳仍消费到末单元）。
     // 受限产生式的 ASI 会在壳里留下**下一条语句**（`throw` ⏎ `a` 的 `a`、`if (a) b` ⏎ `c` 的 `c`）：
     // 一律消费到 `lastCode` 会让 `BuildStatement` 读到两条语句（`At !== Units.length` → 拆壳 →
     // 根终结候选只建回第一条），后一条就丢了（ast-json `dts-recovery` 的 `throw\na` 结构差）。
     let endIndex = lastCode;
-    if (this.Kind !== StatementRoute.ShellPlainExpression) {
+    if (this.Kind === StatementRoute.ShellDeclarationFamily) {
+      // Stage 4af-F：声明族的 EOF 收口与终结候选读同一份判据（`StatementBoundaryUtil.StatementEndCode`）。
+      // `atEof` 传 `true`（这里就是文件末尾）；声明跟随边界在它**之前**判，所以
+      // `type T = A` ⏎ `a` 收在 `A` 而不是吞掉 `a`。
+      const codeAt:Array<number> = [];
+      for (let at = 0; at < this.Data.length; at++) {
+        if (!this.Data[at].IsTriviaToken) {
+          codeAt.push(at);
+        }
+      }
+      const end = StatementBoundaryUtil.StatementEndCode(this.Data, codeAt, true, true);
+      if (end >= 0) {
+        endIndex = end;
+      }
+    } else if (this.Kind !== StatementRoute.ShellPlainExpression) {
       const code:Array<Token> = [];
       const codeAt:Array<number> = [];
       for (let at = 0; at < this.Data.length; at++) {

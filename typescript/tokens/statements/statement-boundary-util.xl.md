@@ -470,6 +470,77 @@ while (at < index) {
 return true;
 ```
 
+## static method StatementEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, declarationShell?:bool)=>int
+
+**语句收口位置的唯一实现点**（Stage 4af-F）：返回**宿主 `Data` 的下标**（与 `StatementScanner` 的
+`End` / `CodeAt` 折算同一基准），`-1` = 还不能收口。判据只有这一份（`;` / EOF / ASI / 声明跟随边界），
+不在别处写第二套 ASI。
+
+> 本方法体自 `statement-end-possible-shape.xl.md` 的 `StatementEndPossibleShape.ExpressionEndCode`
+> **逐字搬迁**（Stage 4af-F），一字未改：那里的 `ExpressionEndCode` 只剩一行委托。
+> 搬家的原因是它有**第二个调用方**——`StatementShape.TryToClose`（见下），而 `statement-shape` 不能
+> 反向 import `statement-end-possible-shape`（后者已经 import 前者，会成环）。
+> 两个调用方读的是同一份实现，所以「终结候选怎么收口」与「EOF 兜底怎么收口」不可能分叉。
+
+**第二个调用方（Stage 4af-F）**：文件以「下一条语句只有一个 token」结尾时（`type T = A` ⏎ `a`），
+最后一个 token 的 `ComputePossibleShapes` 永远没有机会被问（壳只在**新单元流入**时求值，末 token 的
+求值要等它自己之后那一个字符，而那个字符是 EOF）——于是 `StatementShape.TryToClose` 是唯一的机会。
+它原来对非表达式族一律读 `ScanRoot` 的 `End`，而 `ScanRoot` 对「壳里塞了两条语句」只回 `Mismatch`
+（`Status == 2`、`End == -1`），`endIndex` 落回最后一个代码单元 → `BuildFromShell` 读到两条 →
+抛错 → `DetachShell` → 首条退 raw（`Common`）。改走本方法后：末 token 一行判出声明跟随边界，
+`endIndex` 收在 `A`，剩下的 `a` 由 `FinishShell` 搬回根、再经尾巴重放建第二条。
+
+**基准必须是 `host.Data`（含 trivia），不能只传 code-only 数组**：`IsAsiBoundary` 与 legacy 调用点
+（`SourceFileEndPossibleShape` / `ExpressionStatementPossibleShape` / `StatementBuilder`）读的是同一个
+`units`，它的 `prev` 回走、`CanEndExpressionAt` 的「前一格是 `.` / `?.`」、`head` 的 basic-token 回走
+全部按**含 trivia 的下标**解释。传 code-only 数组等于混用两套下标：该断处判 `false`（语句拖到 EOF →
+`BuildFromShell` 抛「表达式语句没有读完」），不该断处判 `true`（语句切早 → `missing-end` / 结构差）。
+`codeAt` 是「代码下标 → `host.Data` 下标」的映射，判界结果一律经它折算回宿主下标。
+
+1. 末代码单元是 `;` → 收在它身上（`;` 归本条语句，`StatementBuilder` 建完语句后不把它放进 `Data`）；
+2. 末代码单元是 ASI 边界（`IsAsiBoundary(units, lastAt)`，与 legacy 同基、同下标）→ 收在**前一个代码单元**：
+   边界单元是下一条语句的开头（`a` ⏎ `b` 的 `b`），必须留在壳里交给 `FinishShell` 搬回父单元；
+3. 已经在文件末尾（`atEof`）→ 收在末代码单元；
+4. 其余 → `-1`（继续等）。
+
+`atEof` 排在 ASI 之后：文件末尾的 `a` ⏎ `b` 仍然是两条语句。
+`declarationShell === true` 时多一条**只属于声明壳**的判据（`IsDeclarationFollowBoundary`），
+位置排在 `atEof` **之前**——否则「声明已完整、下一条语句的 token 已到」这一格会被 `atEof` 吞掉。
+
+```ts
+if (codeAt.length === 0) {
+  return -1;
+}
+const lastAt = codeAt[codeAt.length - 1];
+if (StatementBoundaryUtil.IsEof(lastAt, units)) {
+  return codeAt.length === 1 ? -1 : codeAt[codeAt.length - 2];
+}
+if (StatementBoundaryUtil.IsSemicolon(units[lastAt])) {
+  return lastAt;
+}
+if (StatementBoundaryUtil.IsAsiBoundary(units, lastAt)) {
+  if (codeAt.length === 1) {
+    return -1;
+  }
+  return codeAt[codeAt.length - 2];
+}
+// Stage 4ab：声明壳的收口。`IsAsiBoundary` 的条件 5 对声明开头的条目一律返回 false，
+// 所以 `interface I { }` ⏎ `const a`、`type T = A` ⏎ `return`、`enum E { A }` ⏎ `export { … }`
+// 这些「上一条声明已完整、下一条语句已到」的换行永远判不出边界 —— 壳会把下一条语句一起吞进去，
+// `BuildFromShell` 读到两条语句抛错 → `DetachShell` 退成 raw（decl=2/3、CJ 首节点 Common 的根因）。
+// 这里补一条只属于声明壳的判据：当前单元是**能起一条新语句的单词**、且换行之前那段已经完整。
+if (declarationShell === true && StatementBoundaryUtil.IsDeclarationFollowBoundary(units, lastAt)) {
+  if (codeAt.length === 1) {
+    return -1;
+  }
+  return codeAt[codeAt.length - 2];
+}
+if (atEof) {
+  return lastAt;
+}
+return -1;
+```
+
 ## static method IsLateAtEof:(units:Array<Token>, tokenIndex:int)=>bool
 
 **晚建守卫的 EOF 半边**（Stage 4x）：从 `statement-possible-shape` 的 `declaration-statement-possible-shape`
