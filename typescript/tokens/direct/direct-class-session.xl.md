@@ -27,6 +27,13 @@ R6-D1 `class` 声明的直建 session（`ShellClassDeclaration` kind 9 / `ShellD
 
 期望值逐条见 `_coord/R6-TARGET-CASES.md` 的 `CLS` 表（`a6ExpectStmtLoads` / `a6ExpectExprLoads`）。
 
+**实测（`feat-r6-class`，24/24）**：注册 kind 9/10 后逐条跑 `CLS` 24 条，`built` / A6 精确值 /
+A1=YES / XML==基线 全部命中（8 条补测见 `_tmp-r6class/probe-cls.mjs`；`/tmp` 不入库）。
+47 个真实 `.ts` 语料 `FILES=47 XML-DIFF=1 CRASH-DIFF=0` 与**未注册时逐字节相同**（唯一差异仍是
+`angle.ts` 的 `f<T>` tagged template，属引擎，归 R6-A3 / `feat-r6-harden`）⇒ class 直建本身不引入
+任何语料差异。**未合入窗口**：只注册本 session 时 189 条里有 3 条按设计变红（`R2-SAFE-02` /
+`R5-DC-neg-02` / `R5-DC-neg-03` = §5.3 的改判项），与 `feat-r6-verify` 的改判同批收口。
+
 **不做（R7）**：类表达式（`const C = class {}`，`class` 作操作数，走引擎 ⇒ 旧路径建树正确，保持
 `var.init` 显式 Decline，`R6-Q5`）；成员体内引擎不接受的表达式（`super()` / 部分 `new` / 字符串字面量）
 让**整个 class 回落旧路径**——`BuildFromCode` 抛错即 `return null`，绝不建半棵树（`R6-CLS-neg-01/02`）。
