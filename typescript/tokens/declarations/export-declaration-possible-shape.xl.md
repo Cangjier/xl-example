@@ -99,9 +99,9 @@ export declare function f(): void;
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
-if (StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellDeclarationFamily) {
-  // Stage 4r：声明 / 导入导出族由 `DeclarationStatementPossibleShape` 建壳，本 legacy 候选让位。
-  // 不 Reject 就会被 `CatalogGuide` 当成「还能长」，与专用候选同格成立而永远等不到唯一候选。
+if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
+  // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
+  // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
   return ShapeStates.Reject;
 }
 if (tokenIndex < 0 || tokenIndex >= units.length) {

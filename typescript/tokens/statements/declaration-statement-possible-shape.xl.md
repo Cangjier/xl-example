@@ -10,7 +10,6 @@ import { ControlFlowStatementPossibleShape } from "./control-flow-statement-poss
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
-import { StatementScanner } from "./statement-scanner.xl.md"
 ```
 
 # namespace cangjie
@@ -84,11 +83,7 @@ if (tokenIndex === headAt) {
 // 晚建补建（`type T` / `declare const` 的族在第二格才判出来）：与 `RootExpressionStatementPossibleShape`
 // 的晚建守卫同一条判据——上一单元已能结束语句时（`}` ⏎ `const`、`;` ⏎ `enum`）**不补建**，
 // 把这一格交回 legacy，否则已闭合的壳会被连同下一条语句的头一起搬进新壳（S4r 的 decl=2 / raw Common）。
-const lateOwner = units[tokenIndex].Parent;
-const lateEnd = units[tokenIndex].SourceRange.EndIndex;
-const lateAtEof = (lateOwner !== null && lateOwner.SourceRange.EndIndex >= 0)
-  || (lateEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, lateEnd) === "");
-if (StatementBoundaryUtil.CanEndStatement(units, tokenIndex, lateAtEof)) {
+if (StatementBoundaryUtil.CanEndStatementAt(units, tokenIndex)) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -116,9 +111,5 @@ if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellDeclara
 if (tokenIndex === headAt) {
   return true;
 }
-const lateOwner = units[tokenIndex].Parent;
-const lateEnd = units[tokenIndex].SourceRange.EndIndex;
-const lateAtEof = (lateOwner !== null && lateOwner.SourceRange.EndIndex >= 0)
-  || (lateEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, lateEnd) === "");
-return !StatementBoundaryUtil.CanEndStatement(units, tokenIndex, lateAtEof);
+return !StatementBoundaryUtil.CanEndStatementAt(units, tokenIndex);
 ```

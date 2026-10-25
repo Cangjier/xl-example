@@ -317,3 +317,31 @@ return StatementBoundaryUtil.IsSemicolon(units[tokenIndex])
   || StatementBoundaryUtil.IsEof(tokenIndex, units)
   || StatementBoundaryUtil.IsAsiBoundary(units, tokenIndex);
 ```
+## static method IsLateAtEof:(units:Array<Token>, tokenIndex:int)=>bool
+
+**晚建守卫的 EOF 半边**（Stage 4x）：从 `statement-possible-shape` 的 `declaration-statement-possible-shape`
+里原样上移，供 `CanEndStatementAt` 与 legacy 让位门控共用一份判据。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const owner = units[tokenIndex].Parent;
+const end = units[tokenIndex].SourceRange.EndIndex;
+return (owner !== null && owner.SourceRange.EndIndex >= 0)
+  || (end >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, end) === "");
+```
+
+## static method CanEndStatementAt:(units:Array<Token>, tokenIndex:int)=>bool
+
+**「这一格之前能不能收口」的唯一入口**（Stage 4x）：`CanEndStatement` + `IsLateAtEof` 的组合，
+原先在 `DeclarationStatementPossibleShape.ComputeByIndex` / `IsBuildable` 里**各抄了一遍**。
+现在三处（`ComputeByIndex`、`IsBuildable`、`StatementRouteUtil.ShouldYieldToDeclarationShell`）
+读同一个函数，判据不会分叉。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+return StatementBoundaryUtil.CanEndStatement(units, tokenIndex, StatementBoundaryUtil.IsLateAtEof(units, tokenIndex));
+```
