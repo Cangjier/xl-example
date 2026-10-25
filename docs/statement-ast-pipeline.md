@@ -684,6 +684,7 @@ cd $clone
 node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0
 
 # 2) 目标 case harness（一次性只读拷入；本分支不提交 tests/direct-build）
+#    若当前分支/集成目标已含 tests/direct-build/target-cases.mjs（main 在 75a5c4a1 已正式合入），跳过本步
 New-Item -ItemType Directory -Force tests\direct-build | Out-Null
 Copy-Item C:\Users\Admin\Documents\GitHub\xl-example-set\feat-all-possible-verify\tests\direct-build\target-cases.mjs tests\direct-build\
 node tests/direct-build/target-cases.mjs                     # 默认 10 条：exit 0，CASES=10 FAILED=0 READING-FAIL=1

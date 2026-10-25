@@ -649,7 +649,8 @@ cd $clone
 #    （warning 全部是既有 W3102/W3103；orphans:false 关掉 dist 历史残留的 E2004 噪音）
 node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0
 
-# 1) harness 一次性只读拷入（本分支不提交 tests/direct-build）
+# 1) harness 一次性只读拷入（本文所在分支不提交 tests/direct-build）
+#    若当前分支/集成目标已含 tests/direct-build/target-cases.mjs（main 在 75a5c4a1 已正式合入），跳过本步
 New-Item -ItemType Directory -Force tests\direct-build | Out-Null
 Copy-Item C:\Users\Admin\Documents\GitHub\xl-example-set\feat-all-possible-verify\tests\direct-build\target-cases.mjs tests\direct-build\
 
