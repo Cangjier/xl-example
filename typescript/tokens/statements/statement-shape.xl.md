@@ -13,6 +13,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { StatementLegacyMetrics } from "./statement-legacy-metrics.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
@@ -152,6 +153,14 @@ if (built === null && (shell.Kind === StatementRoute.ShellVariable || shell.Kind
   built = VariableStatementThreeLayer.TryBuild(builder, consumed);
 }
 if (built === null) {
+  // Stage 5d-1a（零行为变化）：这一格是 legacy「整段 raw 分派建树」的唯一入口——形状树与三层 possible 都没接住时，
+  // 整条语句交回 `StatementBuilder.BuildStatement()`。两个计数器只记录事实，不改变任何分支 / 顺序 / 状态：
+  //   `ShapeAstDeclinedCount`：本格**本可以**由形状树建 AST（表达式族 + 有 `OperatorBody`）却停在 `null`（拒绝或抛错）；
+  //   `LegacyStatementDispatchCount`：本格确实退回了 legacy 分派（含非表达式族的壳）。
+  if (shell.Kind === StatementRoute.ShellPlainExpression && shell.OperatorBody !== null) {
+    StatementLegacyMetrics.ShapeAstDeclinedCount++;
+  }
+  StatementLegacyMetrics.LegacyStatementDispatchCount++;
   built = builder.BuildStatement();
 }
 if (builder.At !== builder.Units.length) {
