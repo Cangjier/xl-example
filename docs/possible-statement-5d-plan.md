@@ -496,3 +496,66 @@ node tests/statement-possible/legacy-retirement.mjs --legacy-only   # 底座，�
    要动「标签体挂目录」机制，属结构性改动。
 2. 块内函数 / `async function` 声明留下的 raw 段（~20 条）：块体目录不含声明族候选，需要声明壳 + 体挂载一起动。
 
+
+## 10. Stage 5d-6：`yield` / `await` 判界迁出 `ScanRoot` + raw 尾巴收尾
+
+### 10.1 结论先行
+
+| 指标 | 5d-4 终点 | 5d-6 起点 | 5d-6 终点 | 变化 |
+| --- | --- | --- | --- | --- |
+| `LegacyStatementDispatchCount` | 0 | 0 | **0** | 0 |
+| `ScanRootCallCount` | 19427（5d-4 分支） | **18124** | **17718** | **−406** |
+| `RawTailBuildCount` | 218 | **215** | **139** | **−76** |
+| `ShapeAstDeclinedCount` | 328 | 328 | 328 | 0（本轮未动） |
+| `FileFallbackCount` | 50 | 50 | 50 | 0（没有靠整文件重解析换数字） |
+
+`ScanRoot` 的 −406 拆得开：`yield` 族 −184（正是 5d-4 记的 +184）、`await` 族 −222（同一台机器、同一轮迁）。
+`RawTail` 的 −76 拆得开：`yield` / `await` 判界迁出后体里后续语句交回块体目录（−18）、标签体挂目录（−58）。
+
+### 10.2 A：`yield` 判界迁 boundary（不调 `ScanRoot`）
+
+- `statement-boundary-util.xl.md`：新增 **`IsYieldFamilyCode`** 与 **`YieldFamilyEndCode`**。判据是
+  `StatementBuilder.BuildExpressionStatement` 的**同一套**边界规则——① 受限产生式（`yield` 之后有行终止符
+  ⇒ 停在 `yield` 上，`yield⏎(x)` 不再被调用位续接骗走）；② 表达式语句的 `;` / ASI（`EndsAtLineBreak` 是
+  扫描器侧唯一实现点，`IsAsiBoundary` 是候选侧唯一实现点）。**不新写 ASI**。
+- `statement-end-possible-shape.xl.md`：`ComputeByIndex` 在控制流族之后、`ScanRoot` 之前插入 `yield` 分支；
+  两个 `BuildByIndex` 分支同样加一格（与 `ComputeByIndex` 同一个 `atEof`）。
+- `statement-shape.xl.md`：`TryToClose`（块体 `}` / EOF 兜底）加同一条分支，`atEof = true`。
+- `yield:` 标签**仍归控制流族**（`IsLabelHead` 先命中），与 `let:` 的分工同构；族与族不重叠。
+
+### 10.3 B：`await` 同构迁移 + 标签体挂目录（raw 尾巴 215 → 139）
+
+1. **`await` 族**（与 `yield` 同一台机器）：`IsAwaitFamilyCode` + `AwaitFamilyEndCode`。`await` 没有受限
+   产生式，收口就是 `ScanToSemicolonIncremental` 的 `;` / ASI。5d-4 之前 `ScanRoot` 给不出 `await` 语句的
+   `End`，这一族只在「整段体恰好一条语句」时收得住；迁出后按 `;` 正常收口，体里后续语句交回块体目录。
+2. **标签体挂目录**（`EnableLabelBodyCatalog` / `LabelBodyMountCount`）：`TryMountControlFlowBody` 增加
+   `allowLabel`，认 `ShellLabel` 壳 + 体位置（`lbl: { … }` 的 `:`、`lbl: while (…) { … }` 的 `(…)`），
+   挂载走 `MountBodyCatalog` 的同一条通道。这是 `break` / `continue` / `let` 那 ~58 条 raw 的根因
+   （5d-4 §5 记的「结构性」清单里最大的一族），挂上后一条不改建树路径。
+
+### 10.4 剩余 raw 尾巴（139 条，按首单元归族；`--top` 探针读数）
+
+| 族 | 条数 | 原因 |
+| --- | --- | --- |
+| `async` | 22 | 体首语句是 `async function` 声明：`Decide` 在块体里返回 `Legacy`（5d-3 的根层声明壳只认 `!(Parent instanceof Bracket)`），块体目录没有对应候选 |
+| `return` | 18 | 函数**表达式**体（`const f = function () { return … }`）没挂目录：`OnChildBracketCreated` 对语句壳上的子括号只认 `=>`（arrowOnly） |
+| `function` | 16 | 体首语句是 `function` 声明（同上第一条，`function` 不在 `IsDeclarationHead`） |
+| `@` | 14 | 块内装饰器声明：`Decide` 对块体里的 `@` 返回 `Legacy`（5d-3 只放根层） |
+| `export` | 10 | 块内 `export`（非法位置的恢复形）：`IsDeclarationHead` 有 `export`，但块体里没有声明族候选 |
+| `a` / `this` / `const` / `A` / `setup` … | 20 | **类静态块**（`class C { static { … } }`）的体没挂目录 |
+| `yield` / `await` | 6 / 3 | 上面几种体的**组合**（函数表达式体内的 `yield`、体首是函数声明的体里的 `await`） |
+| 其它零散 | 30 | `abstract class`、`import`、静态块外的前缀运算 ASI 等 |
+
+**为什么没继续做**：剩下的族**全部**要动「谁进块体目录 / 谁判路由」——`Decide` 的块体分支（route-util）与
+函数表达式体挂载（block-possible-shape）。前者一次改动覆盖全部 `function` / `async` / `@` 起点（22+16+14 = 52 条），
+收益最大但波及每一个含块内函数声明的用例，需要单独一轮全门 + 反事实；本轮预算（9 轮）在第 7 轮按纪律收尾，
+不硬塞。
+
+### 10.5 新增探针
+
+- `tests/statement-possible/yield-boundary.mjs`：56 条 `yield` 形态，五个面（AST==TS、XML==legacy、
+  无 fallback、终结候选路径 / `TryToClose` 上本族 `ScanRoot = 0`、正对照 > 0）。3 条 `astKnownGap`
+  （`yield⏎;`、`yield;⏎yield;` 第二条、生成器内 `yield: 1`）都是**本轮之前**就存在的形状缺口，
+  `EnableYieldStatement=false` 与默认态 XML 逐字节相同，已实测确认与判界迁移无关。
+- `tests/statement-possible/raw-tail-attribution.mjs`：按「首单元」归族列出 `RawTailBuildCount` 的每一条
+  （带源码片段），总数必须与官方指标**同源相等**，否则退出码 1。

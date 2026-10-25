@@ -67,9 +67,14 @@ import { StatementShape } from "./statement-shape.xl.md"
 `StatementBoundaryUtil.ShortFamilyEndCode`；**Stage 5d-2b** 再问
 `StatementBoundaryUtil.IsControlFlowFamilyCode(state.Code)`：`if`（含 else 链）/ `while` / `do-while` /
 `for`·`for-in`·`for-of` / `try`·`catch`·`finally` / `switch` / `with` / 标签 / 块十个族改读
-`StatementBoundaryUtil.ControlFlowFamilyEndCode`。两条分支都**不再调 `StatementScanner.ScanRoot`**；
+`StatementBoundaryUtil.ControlFlowFamilyEndCode`；**Stage 5d-6** 再问
+`StatementBoundaryUtil.IsYieldFamilyCode(state.Code)`：`yield` 表达式语句改读
+`StatementBoundaryUtil.YieldFamilyEndCode`，然后再问 `StatementBoundaryUtil.IsAwaitFamilyCode(state.Code)`：
+`await` 起点语句改读 `StatementBoundaryUtil.AwaitFamilyEndCode`。四条分支都**不再调
+`StatementScanner.ScanRoot`**；
 其余族（`declare` 的 ambient 变量语句 / `using` 系列 / `class`·`function` 等带体声明 / 子句级声明体）
-仍走 `ScanRoot` + `DeclarationBodyEndCode` 兜底（`HANDOFF-5d2a.md` §2、`HANDOFF-5d2b.md` §2）。
+仍走 `ScanRoot` + `DeclarationBodyEndCode` 兜底（`HANDOFF-5d2a.md` §2、`HANDOFF-5d2b.md` §2、
+`HANDOFF-5d6.md` §2）。
 
 **语句终结候选**（可行性原型 A）：装在 `StatementShape` 壳自己的 `CatalogGuide` 里（壳的普通候选为空，所以
 `EndPossible` 永远不会撞 `CatalogGuide` 的「终结候选与其它候选同时成立」）。
@@ -109,6 +114,14 @@ import { StatementShape } from "./statement-shape.xl.md"
     `StatementBoundaryUtil.IsControlFlowFamilyCode`（`if`·`else` / `while` / `do-while` / `for` /
     `try`·`catch`·`finally` / `switch` / `with` / 标签 / 块）时，收口位置读
     `StatementBoundaryUtil.ControlFlowFamilyEndCode`——同样**不调 `ScanRoot`**；
+  - **`yield` / 生成器语句族（Stage 5d-6）**：首代码单元属
+    `StatementBoundaryUtil.IsYieldFamilyCode`（`yield` 表达式语句；`yield:` 标签仍归上一行的控制流族）时，
+    收口位置读 `StatementBoundaryUtil.YieldFamilyEndCode`——**不调 `ScanRoot`**，受限产生式
+    （`yield` ⏎ 操作数 ⇒ 停在 `yield` 上）先于任何调用位判断；
+  - **`await` 起点语句族（Stage 5d-6 B）**：首代码单元属
+    `StatementBoundaryUtil.IsAwaitFamilyCode`（`await` 表达式 / `await using` 变量语句）时，收口位置读
+    `StatementBoundaryUtil.AwaitFamilyEndCode`——同样**不调 `ScanRoot`**，`await` 没有受限产生式，
+    收口就是表达式语句的 `;` / ASI；
   - 其余族（`declare` 的 ambient 变量语句 / `using` 系列 / `class`·`function` 带体声明 / 子句级声明体）：
     **逐位保留** `ScanRoot` 的 `Status == 1 && End >= 0`，并保留 `DeclarationBodyEndCode` 兜底。
 
@@ -223,6 +236,23 @@ if (state.Checked !== tokenIndex + 1) {
     const controlEnd = StatementBoundaryUtil.ControlFlowFamilyEndCode(state.Code);
     if (controlEnd >= 0 && controlEnd < state.CodeAt.length) {
       state.End = state.CodeAt[controlEnd];
+      state.Status = 1;
+    }
+  } else if (StatementBoundaryUtil.IsYieldFamilyCode(state.Code)) {
+    // **Stage 5d-6：`yield` / 生成器语句族的判界已迁到 boundary 层**：收口位置读 `YieldFamilyEndCode`，
+    // **不调 `StatementScanner.ScanRoot`**。判据与 `BuildExpressionStatement` 同一套（受限产生式 +
+    // `;` / ASI），所以壳的 `End` 与建造器算出的末格不会分叉（`HANDOFF-5d6.md` §2）。
+    const yieldEnd = StatementBoundaryUtil.YieldFamilyEndCode(state.Code, StatementScanner.AtEOF);
+    if (yieldEnd >= 0 && yieldEnd < state.CodeAt.length) {
+      state.End = state.CodeAt[yieldEnd];
+      state.Status = 1;
+    }
+  } else if (StatementBoundaryUtil.IsAwaitFamilyCode(state.Code)) {
+    // **Stage 5d-6：`await` 起点语句族（B）的判界已迁到 boundary 层**：收口位置读 `AwaitFamilyEndCode`，
+    // **不调 `StatementScanner.ScanRoot`**。`await` 没有受限产生式，收口就是表达式语句的 `;` / ASI。
+    const awaitEnd = StatementBoundaryUtil.AwaitFamilyEndCode(state.Code, StatementScanner.AtEOF);
+    if (awaitEnd >= 0 && awaitEnd < state.CodeAt.length) {
+      state.End = state.CodeAt[awaitEnd];
       state.Status = 1;
     }
   } else {
@@ -445,6 +475,18 @@ if (current instanceof EndOfFileTokenShape) {
       if (controlEnd >= 0 && controlEnd < codeAt.length) {
         endIndex = codeAt[controlEnd];
       }
+    } else if (StatementBoundaryUtil.IsYieldFamilyCode(code)) {
+      // Stage 5d-6：`yield` 族走 boundary 层的同一份判据（与 `ComputeByIndex` 同一个入口、同一个 `atEof`）。
+      const yieldEnd = StatementBoundaryUtil.YieldFamilyEndCode(code, StatementScanner.AtEOF);
+      if (yieldEnd >= 0 && yieldEnd < codeAt.length) {
+        endIndex = codeAt[yieldEnd];
+      }
+    } else if (StatementBoundaryUtil.IsAwaitFamilyCode(code)) {
+      // Stage 5d-6：`await` 族同一条路（`AwaitFamilyEndCode`）。
+      const awaitEnd = StatementBoundaryUtil.AwaitFamilyEndCode(code, StatementScanner.AtEOF);
+      if (awaitEnd >= 0 && awaitEnd < codeAt.length) {
+        endIndex = codeAt[awaitEnd];
+      }
     } else {
       const result = StatementScanner.ScanRoot(code);
       if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
@@ -505,6 +547,18 @@ if (current instanceof EndOfFileTokenShape) {
     const controlEnd = StatementBoundaryUtil.ControlFlowFamilyEndCode(code);
     if (controlEnd >= 0 && controlEnd < codeAt.length) {
       endIndex = codeAt[controlEnd];
+    }
+  } else if (StatementBoundaryUtil.IsYieldFamilyCode(code)) {
+    // Stage 5d-6：`yield` 族改读 boundary 层的判据，**不调 `ScanRoot`**；基准仍是壳 `Data` 下标。
+    const yieldEnd = StatementBoundaryUtil.YieldFamilyEndCode(code, StatementScanner.AtEOF);
+    if (yieldEnd >= 0 && yieldEnd < codeAt.length) {
+      endIndex = codeAt[yieldEnd];
+    }
+  } else if (StatementBoundaryUtil.IsAwaitFamilyCode(code)) {
+    // Stage 5d-6：`await` 族同一条路（`AwaitFamilyEndCode`），**不调 `ScanRoot`**。
+    const awaitEnd = StatementBoundaryUtil.AwaitFamilyEndCode(code, StatementScanner.AtEOF);
+    if (awaitEnd >= 0 && awaitEnd < codeAt.length) {
+      endIndex = codeAt[awaitEnd];
     }
   } else {
     const result = StatementScanner.ScanRoot(code);
