@@ -138,8 +138,18 @@ if (keyword === "default" && modifier !== null) {
   // `export default abstract class C {}` / `export default async function f() {}`：`default` 后面的
   // 声明词也可能是 `abstract` / `async`（TS 的 children 是 [ExportKeyword, DefaultKeyword,
   // AbstractKeyword/AsyncKeyword, …]），所以这两个也要认成「default 后跟声明」。
-  if (afterText === "class" || afterText === "function" || afterText === "interface"
-    || afterText === "enum" || afterText === "abstract" || afterText === "async") {
+  // gap-edge2：**必须再看一格**——`async` / `abstract` 只有再接上真正的声明词（`function` / `class`）
+  // 才是修饰词。`export default async () => {}` 是 **ExportAssignment**（表达式是 async 箭头），
+  // `export default async\nfunction(){}` 之流也不该在这里被当成声明头；原来只看 `async` 一格，
+  // 于是 `namespace N { export default async () => {} }` 被当成 `async` 修饰的成员丢给语句建造器，
+  // 建出 ExpressionStatement（children 还是裸的 ExportKeyword / DefaultKeyword 形状）。
+  const afterNext = declStart + 2 < inner.Units.length ? inner.Units[declStart + 2] : null;
+  const afterNextText = afterNext !== null && afterNext instanceof Common ? (afterNext as Common).TempToString() : "";
+  const afterIsDeclaration = afterText === "class" || afterText === "function" || afterText === "interface"
+    || afterText === "enum"
+    || (afterText === "abstract" && afterNextText === "class")
+    || (afterText === "async" && afterNextText === "function");
+  if (afterIsDeclaration) {
     const defaultUnit = unit as Common;
     defaultModifier = new DefaultKeywordShape(bracket.Template);
     if (defaultUnit.SourceRange.StartIndex >= 0) {
@@ -528,8 +538,19 @@ if (keyword === "as") {
 let bodyInner = -1;
 let semiInner = -1;
 let tailInner = -1;
+// gap-edge2：`export default async function …` 里 `default` 已被当作修饰词吃掉，剩下的头是
+// `async` + `function`。它必须与 `export default function …` 走同一条路（本层按函数声明建），
+// 否则匿名形态 `export default async function () {}`（TS 合法、parseDiagnostics=0）会落进
+// 语句建造器并抛「函数声明的名字不是标识符」。
+let asyncFunctionHead = false;
+if (defaultModifier !== null && keyword === "async") {
+  const afterAsync = declStart + 1 < inner.Units.length ? inner.Units[declStart + 1] : null;
+  asyncFunctionHead = afterAsync !== null && afterAsync instanceof Common
+    && (afterAsync as Common).Is("function");
+}
+const functionHead = keyword === "function" || declareFunctionMember || asyncFunctionHead;
 if (special === null
-  && (keyword === "class" || keyword === "interface" || keyword === "enum" || keyword === "function"
+  && (keyword === "class" || keyword === "interface" || keyword === "enum" || functionHead
     || keyword === "namespace" || keyword === "module" || keyword === "global"
     || constEnumMember || declareFunctionMember)) {
   for (let scan = declStart + 1; scan < inner.Units.length; scan++) {
@@ -542,20 +563,20 @@ if (special === null
       break;
     }
     // 无体函数声明（ambient / 重载签名）：本层终结符是分号。
-    if ((keyword === "function" || declareFunctionMember) && scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
+    if (functionHead && scanned instanceof Symbol && (scanned as Symbol).Is(";")) {
       semiInner = scan;
       break;
     }
     // 无分号的 ambient 函数（namespace 体常态：`function f(): B` 换行接下一个成员）：
     // 换行之后出现新成员的首词时，本函数签名收在前一个单元。
-    if ((keyword === "function" || declareFunctionMember) && scan > declStart + 1
+    if (functionHead && scan > declStart + 1
       && scanned instanceof Common && ModuleBlockShape.IsMemberStartWord((scanned as Common).TempToString())
       && !StatementScanner.NoLineBreakBetween(inner.Units[scan - 1], scanned)) {
       tailInner = scan - 1;
       break;
     }
   }
-  if (tailInner < 0 && (keyword === "function" || declareFunctionMember)
+  if (tailInner < 0 && functionHead
     && bodyInner < 0 && semiInner < 0 && inner.Units.length > declStart + 1) {
     // 体里最后一条无分号 ambient 函数：收在最后一个代码单元。
     tailInner = inner.Units.length - 1;
@@ -602,7 +623,11 @@ if (special !== null) {
       context,
     );
   } else {
-    member = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context);
+    // `export default [async] function () {}` 的**匿名**默认导出：TS 合法（parseDiagnostics=0），
+    // children 里没有名字。`defaultModifier !== null` 是这条路径的闸门——没有 `export default`
+    // 的匿名函数（`function () {}`）在 TS 里 parseDiagnostics≠0，仍按原样抛错。
+    member = FunctionDeclarationShape.FromUnits(bracket, dataStart, dataEnd, context, false,
+      defaultModifier !== null);
   }
   (member as ShapeToken).Pos = inner.Positions[declStart];
   inner.At = bodyInner + 1;

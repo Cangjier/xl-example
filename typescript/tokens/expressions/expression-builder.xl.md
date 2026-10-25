@@ -725,7 +725,15 @@ while (index >= 0) {
     return this.ArrowBodyFlags(whole, index - 1);
   }
   if (ch === ";") {
-    return 0;
+    // gap-edge2：`;` 只是**同一花括号层里**的语句分界，不是函数边界——真正的边界是那个还没闭合的
+    // `{`（上面 `ch === "{"` 那一支）。原来在这里 `return 0`，于是从 `yield` / `await` 往回扫时，
+    // 先撞到上一条语句的 `;` 就判成「函数外上下文」：`function* g(){ a; yield* b; }` 的非首句
+    // `yield*` 落成 `Identifier * b`，`async function f(){ a; await (b) }` 落成调用 `await(b)`，
+    // 而首句（往回先撞 `{`）是对的。跨过 `;` 继续往回扫，函数边界仍由 `{` 判定，不会串到函数外：
+    // 已闭合的 `}` / `)` / `]` 在上面的分支里成对跳过（`function f(){}` ⏎ `yield* x` 会跳过整个
+    // 函数体再一路走到文件头，返回 0）。
+    index--;
+    continue;
   }
   index--;
 }

@@ -249,11 +249,29 @@ return -1;
 类型实参段在这里就收口；否则声明层的顶层 `,` 扫描会把 `<A, B>` 里的逗号当声明分隔符。
 
 ```ts
-const followerIndex = close + 1;
+// follower 必须是**下一个代码单元**：`host.Data` 里 `>` 与下一格之间常夹着空白 / 换行 trivia，
+// 直接读 `units[close + 1]` 会读到那个 trivia 单元（它既不是 Symbol 也不是 Bracket），
+// `a < b >` ⏎ `c` 因此被判成「接不上」——而 TS 的 `canFollowTypeArgumentsInExpression`
+// 先看 `>` 后第一个 **token**（换行只作为 `hasPrecedingLineBreak` 参与判断）。
+let followerIndex = close + 1;
+while (followerIndex < units.length && units[followerIndex].IsTriviaToken) {
+  followerIndex++;
+}
 if (followerIndex >= units.length) {
   return true;
 }
 const follower = units[followerIndex];
+// **换行规则之前**先排掉 TS 明确排除的四类 token（`canFollowTypeArgumentsInExpression` 的
+// `switch`：`<` / `>` 与 `>>` / `>>>` 同形歧义，`+` / `-` 在这个位置是一元运算符，不是二元）。
+// 换行救不了它们：`a < b >` ⏎ `+c` 在 TS 里仍是比较链 `(a<b) > (+c)`，`a < b >` ⏎ `< c >` 也是
+// 比较链而不是两个实例化表达式。少了这一格，换行分支会把它们全判成「类型实参之后接得上」。
+if (follower instanceof Symbol) {
+  const excluded = (follower as Symbol).TempToString();
+  if (excluded === "<" || excluded === ">" || excluded === ">>" || excluded === ">>>"
+    || excluded === "+" || excluded === "-") {
+    return false;
+  }
+}
 // 配对的 `>` 与 follower 之间**有换行**时，follow 什么其实无所谓：上一条语句在换行处已经结束
 // （`const { [k]: v } = { a: 1 } as Record<string, number>` 换行 `console.log(v)`）。
 // 例外是「换行也接得上」的续接符：`(` / `[` / `.` / `?.` / 模板串——那是同一条表达式。
@@ -289,6 +307,83 @@ if (follower instanceof String) {
   return true;
 }
 return false;
+```
+
+## static method IsInstantiationClose:(units:Array<Token>, index:int)=>bool
+
+`units[index]` 是不是**实例化表达式**（instantiation expression）的收尾 `>`：`f<T>` / `a.b<T>` /
+`a < b >` 这种「类型实参表后面没有调用」的形态。TS 把它建 `ExpressionWithTypeArguments`，而且它是
+**一条完整的表达式**——`a < b >` ⏎ `c` 在 TS 里是两条语句（`canFollowTypeArgumentsInExpression`：
+`>` 之后是标识符但**有换行** ⇒ 类型实参成立，表达式到此为止）。
+
+判据只用本类已有的三条，不新写角括号扫描：
+1. `index` 是 `>` / `>>` / `>>>`，且某个 `<` 的 `FindClose` 正好是它；
+2. 那个 `<` 的前驱能当被调用者（`PredecessorAllows`），且**不是**一个比较运算符 `>` / `>>` / `>>>`；
+3. 收尾之后那一格允许类型实参（`FollowerAllows`，已跳过 trivia）；
+4. follower **不是** `(` / 反引号模板：那两种 TS 建的是带类型实参的 `CallExpression` /
+   `TaggedTemplateExpression`（`a < b > (c)` 是一条调用，不是两条语句），不算实例化收尾。
+
+第 2 条的限定来自 TS 的语法位置：实例化表达式是在 `parseMemberExpressionRest` 里试出来的，
+`<` 前面必须是**一个表达式**（LeftHandSideExpression 的结尾）。`a < b > < c >` ⏎ `d` 里第二个
+`<` 前面是**比较运算符** `>`，整个 `(a<b) > (<c>d)` 是一条比较链（TS 的 `<c>d` 是类型断言），
+不能在这里收句；否则会在 `d` 处误插 ASI 并让类型断言后面的操作数缺失（抛「表达式意外结束」）。
+
+`>>` / `>>>` 是嵌套类型实参的合符号，`FindClose` 会在那一格收多层，与 `IsTypeArgumentClose` 同口径。
+
+```ts
+if (index < 0 || index >= units.length) {
+  return false;
+}
+const closeUnit = units[index];
+if (!(closeUnit instanceof Symbol)) {
+  return false;
+}
+const closeText = (closeUnit as Symbol).TempToString();
+if (closeText !== ">" && !AngleJudge.IsSplitClose(closeText)) {
+  return false;
+}
+let opener = -1;
+for (let at = index - 1; at >= 0; at--) {
+  const unit = units[at];
+  if (unit.IsTriviaToken || !(unit instanceof Symbol) || !(unit as Symbol).Is("<")) {
+    continue;
+  }
+  if (AngleJudge.FindClose(units, at) !== index) {
+    continue;
+  }
+  opener = at;
+  break;
+}
+if (opener < 0) {
+  return false;
+}
+if (!AngleJudge.PredecessorAllows(units, opener)) {
+  return false;
+}
+let openBefore = opener - 1;
+while (openBefore >= 0 && units[openBefore].IsTriviaToken) {
+  openBefore--;
+}
+if (openBefore >= 0 && units[openBefore] instanceof Symbol) {
+  const beforeText = (units[openBefore] as Symbol).TempToString();
+  if (beforeText === ">" || beforeText === ">>" || beforeText === ">>>") {
+    return false;
+  }
+}
+let follower = index + 1;
+while (follower < units.length && units[follower].IsTriviaToken) {
+  follower++;
+}
+if (follower < units.length) {
+  const followerUnit = units[follower];
+  if (followerUnit instanceof Bracket && (followerUnit as Bracket).StartBracketChar === "(") {
+    return false;
+  }
+  if (followerUnit instanceof String && (followerUnit as String).StringChar === "`") {
+    return false;
+  }
+}
+return AngleJudge.FollowerAllows(units, index);
 ```
 
 ## static method CanStart:(units:Array<Token>, index:int)=>bool

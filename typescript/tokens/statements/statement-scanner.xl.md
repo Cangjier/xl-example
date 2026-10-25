@@ -642,6 +642,19 @@ for (let at = index - 1; at >= 0; at--) {
 return false;
 ```
 
+## static method IsInstantiationClose:(code:Array<Token>, index:int)=>bool
+
+`code[index]` 是不是**实例化表达式**（`f<T>` / `a < b >`，类型实参表后面没有调用）的收尾 `>`。
+
+和 `IsTypeArgumentClose` 的分工：那里问的是「`<` 坐在**类型位**」（声明头的类型收尾，
+`let a: Foo<Bar>`）；这里问的是「`<` 坐在**表达式位**且表达式到 `>` 为止」。两条都只做委托，
+角括号 / 前驱 / follower 判据的唯一实现是 `AngleJudge.IsInstantiationClose`
+（`a < b >` ⏎ `c` 的 `<` 不在类型位，但**是**实例化表达式的起点 ⇒ 这里为 true、那里为 false）。
+
+```ts
+return AngleJudge.IsInstantiationClose(code, index);
+```
+
 ## static method IsCallishUnit:(unit:Token)=>bool
 
 换行之后到来的这一格是不是「调用 / 下标 / 标签模板」位：`(`、`[` 括号或反引号模板。
