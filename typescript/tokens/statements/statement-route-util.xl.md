@@ -719,6 +719,23 @@ if (head instanceof Symbol) {
   if (StatementRouteUtil.IsPrefixSymbol(symbol)) {
     return StatementRoute.ShellPlainExpression;
   }
+  // **装饰器声明起点（Stage 4af-E）**：`@dec class C {}` / `@a @b interface I {}` 的语句首是
+  // 装饰器前缀的 `@`（Symbol），既不是表达式、也不是语句关键字。它归 `Legacy`：legacy 的声明
+  // 候选（class / interface / enum / module / type / function）自己认装饰器前缀，`state.Start`
+  // 落在 `@` 上，建出的声明 children 最前就是 Decorator。
+  //
+  // 判成 `None`（本方法原来的落点）会让声明族 / 控制流族 / 表达式根候选在 `@` 这一格一直
+  // `Uncertain`：装饰器声明要到 `class` 之后才能让 legacy 声明候选变成唯一候选，而 `@` 格活着的
+  // 那几个候选不改判、拖到 EOF 与根终结候选撞「同时成立」——`@dec class C {}` 单独一个文件因此
+  // 只能靠**文件级 fallback** 建对（HANDOFF-s4af-E §2）。归 `Legacy` 后这一格只有 legacy 声明
+  // 候选还活着，装饰器声明在 root 目录里就能建出来（也是声明壳收口后 leftover replay 能建出
+  // 装饰器类的前提：重放把 `@` 这一格送回 root 时，必须有候选能认下它）。
+  //
+  // 只改「这一格归哪一族」，不新写任何装饰器判据：`@` 之后是不是一条声明仍由各 legacy 候选
+  // （以及声明壳收口后的 `SourceFileEndPossibleShape.BuildTrailingDeclaration`）判。
+  if (symbol.Is("@")) {
+    return StatementRoute.Legacy;
+  }
   return StatementRoute.None;
 }
 if (head instanceof Bracket) {

@@ -348,6 +348,14 @@ return StatementBoundaryUtil.IsSemicolon(units[tokenIndex])
 （`undici-types/index.d.ts` 打开态唯一 real-dts 残留）。判据只多认 `void` 一格（见
 `CanEndDeclarationTail`），换行 / 续接 / 关键字三条仍是这一份实现。
 
+**Stage 4af-E：换行后的 `@` 是下一条装饰器声明的起点**。装饰器在词法上是 Symbol `@`、不是 Common，
+所以「只认单词起点」那一格把它整条挡掉了：`declare function gf(): void` ⏎ `@dec class C {}` 的壳不在
+`@` 收口，把装饰器声明一起吞进函数声明，`BuildFromShell` 只建出前一条（`end-build` 47 条结构差的
+根因）。这一格只在**声明壳**里认（`@` + 前面有换行 + 上一段能收尾，条件与
+`StatementScanner.IsDecoratedDeclarationStart` 同口径）：符号起点里的 `@` 是唯一能起一条新声明的
+一个，其余符号（`|` / `&` / `[` / `<` / `=` / `(`）仍可能是续接，照旧不算。`@` 之后到底是不是
+一条声明、是哪一条，仍由 legacy 候选 / 根终结候选自己的装饰器扫描判，这里不新写第二份。
+
 ```ts
 if (tokenIndex < 1 || tokenIndex >= units.length) {
   return false;
@@ -359,11 +367,6 @@ if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
 if (current instanceof Symbol && (current as Symbol).Is(";")) {
   return false;
 }
-// 只认单词起点：`{` / `<` / `=` / `(` 等符号既可能是声明内部构件，也可能是续接，一律不算。
-if (!(current instanceof Common)) {
-  return false;
-}
-const text = (current as Common).TempToString();
 let prev = tokenIndex - 1;
 while (prev >= 0 && units[prev].IsTriviaToken) {
   prev--;
@@ -375,6 +378,20 @@ if (prev < 0) {
 if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
   return false;
 }
+// **Stage 4af-E：换行后的 `@` 是下一条装饰器声明的起点**（`declare function gf(): void` ⏎
+// `@dec class C {}`）。装饰器在词法上是 Symbol `@`（不是 Common），原来的「只认单词起点」
+// 让这一格直接落空，声明壳因此不在 `@` 收口：整条装饰器声明被吞进上一条声明，`BuildFromShell`
+// 只建出前一条，装饰器类整条消失（ast-json `end-build` 47 条）。判据与
+// `StatementScanner.IsDecoratedDeclarationStart` 同口径（`@` + 前面有换行），「上一段已完整」
+// 仍读 `CanEndDeclarationTail` 那一份，不新写第二套表达式 / 类型尾巴判据。
+if (current instanceof Symbol && (current as Symbol).Is("@")) {
+  return StatementBoundaryUtil.CanEndDeclarationTail(units, prev);
+}
+// 只认单词起点：`{` / `<` / `=` / `(` 等符号既可能是声明内部构件，也可能是续接，一律不算。
+if (!(current instanceof Common)) {
+  return false;
+}
+const text = (current as Common).TempToString();
 // 声明体的收尾是闭合的 `{…}`（interface / enum / namespace / module / export {…}）：
 // `CanEndExpression` 分不清 `{` 与裸块、统一按 false 处理，这里按「已闭合」计入。
 const prevIsClosedBody = units[prev] instanceof Bracket

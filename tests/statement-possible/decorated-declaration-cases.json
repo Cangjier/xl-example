@@ -1,0 +1,16 @@
+[
+  { "name": "root-decorated-class", "source": "@dec class C {}", "declarationShells": 0, "decorators": 1, "top": ["ClassDeclaration"], "note": "装饰器类单独成文件：root 目录在 `@` 起点没有候选、以前只能靠文件级 fallback 建对（Stage 4af-E 前）" },
+  { "name": "root-two-decorators", "source": "@a @b class C {}", "declarationShells": 0, "decorators": 2, "top": ["ClassDeclaration"], "note": "装饰器前缀可多个、同一行" },
+  { "name": "root-decorator-call", "source": "@dec() class C {}", "declarationShells": 0, "decorators": 1, "top": ["ClassDeclaration"], "note": "装饰器调用 `@dec()`：括号整单元，Decorator.Expression 是 CallExpression" },
+  { "name": "root-decorator-qualified", "source": "@a.b class C {}", "declarationShells": 0, "decorators": 1, "top": ["ClassDeclaration"], "note": "限定名装饰器 `@a.b`" },
+  { "name": "root-decorated-abstract-class", "source": "@dec abstract class C {}", "declarationShells": 0, "decorators": 1, "top": ["ClassDeclaration"], "note": "装饰器 + abstract 修饰词" },
+  { "name": "root-decorated-export-default-class", "source": "@dec export default class C {}", "declarationShells": 0, "decorators": 1, "top": ["ClassDeclaration"], "note": "装饰器 + export default 修饰词链" },
+  { "name": "after-ambient-function-void", "source": "declare function gf(): void\n@dec class C {}", "declarationShells": 1, "decorators": 1, "top": ["FunctionDeclaration", "ClassDeclaration"], "note": "Stage 4af-E 的主形态：声明壳在 `void` 后的换行处收口，`@dec class` 由 leftover replay 在 root 建出" },
+  { "name": "after-ambient-function-newline-class", "source": "declare function gf(): void\n@dec\nclass C {}", "declarationShells": 1, "decorators": 1, "top": ["FunctionDeclaration", "ClassDeclaration"], "note": "装饰器与 `class` 分行的装饰器声明头（装饰器前缀允许跨行）" },
+  { "name": "after-ambient-function-two-decorators", "source": "declare function gf(): void\n@a @b class C {}", "declarationShells": 1, "decorators": 2, "top": ["FunctionDeclaration", "ClassDeclaration"], "note": "两个装饰器同一行" },
+  { "name": "after-ambient-function-decorated-interface", "source": "declare function gf(): void\n@dec\ninterface I {}", "declarationShells": 1, "decorators": 1, "top": ["FunctionDeclaration", "InterfaceDeclaration"], "note": "装饰器 + interface（TS 的恢复形同样是 InterfaceDeclaration 带 Decorator）" },
+  { "name": "after-ambient-generic-function", "source": "declare function gf<T>(): T\n@dec class C {}", "declarationShells": 1, "decorators": 1, "top": ["FunctionDeclaration", "ClassDeclaration"], "note": "泛型 ambient 签名（返回类型以 `T` 收尾）后接装饰器类" },
+  { "name": "after-export-function", "source": "export function f(): void\n@dec class C {}", "declarationShells": 1, "decorators": 1, "top": ["FunctionDeclaration", "ClassDeclaration"], "note": "`export function` 也是声明壳（无 declare，靠类型尾巴收口）" },
+  { "name": "after-ambient-function-then-variable", "source": "declare function f(): void\n@dec\nclass C {}\nlet z = 1", "declarationShells": 1, "decorators": 1, "top": ["FunctionDeclaration", "ClassDeclaration", "VariableStatement"], "note": "装饰器类后面还有一条语句：重放/收口不能吞掉后续单元" },
+  { "name": "after-ambient-function-decorated-body", "source": "declare function gf(): void\n@dec class C { m() {} }", "declarationShells": 1, "decorators": 1, "top": ["FunctionDeclaration", "ClassDeclaration"], "note": "类体里还有方法：装饰器类整条（含体）都由 root 建，不靠文件级 fallback" }
+]
