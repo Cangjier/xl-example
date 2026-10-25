@@ -11,7 +11,8 @@
 //   4. 打开态 DeclarationShellCount 增量大于 0 才算「真的接管过了」。
 //
 // 覆盖族 A 的 8 种收尾形态 + 2 条带 `;` 的对照（`;` 本来就正常，防回归）
-// + 1 条族 B（闭合 `{…}` 之后无边界）known-gap：只记录打开态读数，不判失败。
+// + 族 B 的「闭合 `{…}` 后接下一句」（Stage 4af-B 修好，Stage 4af-D 转为正式期望）
+// + Stage 4af-D 的两条 undici 收尾形态（`export {…}` ⏎ `export default`、`: void` 签名 + export 列表）。
 // 退出码：失败 > 0 → 1。
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -43,13 +44,16 @@ const CASES = [
   // 对照：带 `;` 的两条在打开态本来就走 `;` 收口，不许被本次改动带坏。
   { name: "control-export-semicolon", source: "export { a };", declarationShells: 1 },
   { name: "control-import-semicolon", source: "import \"m\";", declarationShells: 1 },
-  // 对照：闭合 `{…}` 后还有下一条语句。打开态是已知的**族 B** 缺陷（`export` 壳吞掉下一句，
-  // decl=2 + 文件级 fallback），本次族 A 修复不覆盖它，只记录、不判失败；默认态正常。
+  // 对照：闭合 `{…}` 后还有下一条语句。Stage 4af-B 之后按普通单词起点收口（判据二 / 三），
+  // Stage 4af-D 起转为**正式期望**：不再允许退回「吞下一句 + 文件级 fallback」。
+  { name: "control-next-statement", source: "export { a }\nfoo();", declarationShells: 1 },
+  // Stage 4af-D：无分号 `export { … }` 后随 `export default`（undici-types/index.d.ts 的收尾形态）。
+  { name: "export-list-then-export-default", source: "export { a }\nexport default b", declarationShells: 2 },
+  // Stage 4af-D：`: void` 收尾的 ambient 签名 + 无分号 export 列表 + `export default` 同文件组合。
   {
-    name: "control-next-statement",
-    source: "export { a }\nfoo();",
-    declarationShells: 1,
-    knownGap: "族 B：已闭合 {…} 之后无边界（壳吞下一句，decl=2 + 文件级 fallback）",
+    name: "declare-void-then-export-list",
+    source: "declare function f (): void\n\nexport { A, B }\nexport default U\n",
+    declarationShells: 3,
   },
 ];
 
