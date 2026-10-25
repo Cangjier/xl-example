@@ -273,3 +273,8 @@ class C { static #s = 1; static #m() {} }
 class C { async *m /* c */ () {} }
 class C { static /* c */ async *g() {} }
 class C { #p = 1; m() { this. /* c */ #p.q; } }
+// ===== base 17：对象方法 + 对象返回类型（返回类型以 `{` 开头，Stage 2-C）=====
+({ m(): { a: number } { return { a: 1 }; } });
+({ m(): { a: number } {} });
+({ m(): { a: 1 } | { b: 2 } { return { a: 1 }; } });
+const o = { m(): { a: number } { return { a: 1 }; } };

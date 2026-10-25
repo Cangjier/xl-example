@@ -4,3 +4,11 @@
 // xl:absent Field,TypeDefine,ParenthesizedType
 const o = { a: 1, b, [k]: 2, ...rest, m() { return 1; } };
 const p = (a + b) * 2;
+
+// ===== 对象方法 + 对象返回类型（返回类型以 `{` 开头，Stage 2-C）=====
+// 返回类型截断走类型解析器（MemberBoundary + TypeBuilder），体判定走 IsBodyBrace。
+// `const` 形态专门钉「整文件静默退化成 raw 基本 token」不再回来。
+({ m(): { a: number } { return { a: 1 }; } });
+({ m(): { a: number } {} });
+({ m(): { a: 1 } | { b: 2 } { return { a: 1 }; } });
+const ret = { m(): { a: number } { return { a: 1 }; } };
