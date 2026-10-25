@@ -14,6 +14,7 @@ import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
+import { DirectStatementHook } from "../direct/direct-statement-hook.xl.md"
 ```
 
 # namespace cangjie
@@ -232,5 +233,8 @@ if (tokenIndex > start && (route === StatementRoute.ShellDeclarationFamily
   || route === StatementRoute.ShellFunctionDeclaration || route === StatementRoute.ShellClassDeclaration)) {
   shell.ComputePossibleShapes(context);
 }
+// H3-b（R3-CONTRACT §4.1）：建壳候选的通用挂载点，只有这一句。kind 从壳自己取（`shell.Kind`），
+// 未注册的 kind 由 `Create` 返回 null ⇒ 行为逐字节不变。
+DirectStatementHook.Attach(shell, context);
 return shell;
 ```
