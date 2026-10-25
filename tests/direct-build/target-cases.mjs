@@ -891,13 +891,16 @@ const CASES = [
   { id: "R5-CL-pos-01", src: "a\nb\nc", expect: "pos", expectInsert: false, expectBuilt: 3,
     note: "C-1 删除后 ASI 判据必须仍按行切 3 条（现状 built=3 A1=YES）；`IsAsiBoundary` 的 fallback 一行不动",
     markerScope: "statementShape", markers: ["TryToClose", "ShellPlainExpression"] },
-  { id: "R5-CL-pos-02", src: "let x = a\nas b", expect: "pos", expectInsert: false, expectBuilt: 3, noBaseline: true,
-    note: "**审批 R5-A2**：`as` 进受限后缀闭集 ⇒ 行首 `as` 另起语句。tsc 实测 3 条（FirstStatement + `as` + `b`），" +
-      "现状 nOurs=1 且 A1=NO；修好后 A1=MATCH。**noBaseline**：旧基线把错 AST 逐字节复制进了 8456ec3c，" +
-      "修好后必然 DIFF（与 R4-D7 同构）；判据 = A1 + expectBuilt + A11",
+  { id: "R5-CL-pos-02", src: "let x = a\nas;\nb;", expect: "pos", expectInsert: false, expectBuilt: 3, noBaseline: true,
+    note: "**审批 R5-A2**：`as` 进受限后缀闭集 ⇒ 行首 `as` 另起语句。源为**合法等价输入** `let x = a` ⏎ `as;` ⏎ `b;`：" +
+      "原 `let x = a` ⏎ `as b` 在 TS 里是**非法输入**（两个操作数相邻、缺分号），tsc 的 3 条是 missing-semicolon " +
+      "**recovery** 的结果，R5 不引入该恢复语义（语句层 `CanEndStatement`/`TryToClose`，**R6**）；" +
+      "改用合法源后 A2 已能验证「行首 `as` 不能跨行续接」⇒ built=3、A1=MATCH（harden §5.4 实测）。" +
+      "**noBaseline**：旧基线把错 AST 逐字节复制进了 8456ec3c，修好后必然 DIFF（与 R4-D7 同构）；判据 = A1 + expectBuilt + A11",
     markerScope: "boundary", markers: ["IsRestrictedPostfixText", "StatementTokenSets"] },
-  { id: "R5-CL-pos-03", src: "let x = a\nsatisfies b", expect: "pos", expectInsert: false, expectBuilt: 3, noBaseline: true,
-    note: "同上（`satisfies` 与 `as` 同族，**审批 R5-A2**）；tsc 实测 3 条；noBaseline 口径同 CL-pos-02",
+  { id: "R5-CL-pos-03", src: "let x = a\nsatisfies;\nb;", expect: "pos", expectInsert: false, expectBuilt: 3, noBaseline: true,
+    note: "同上（`satisfies` 与 `as` 同族，**审批 R5-A2**），源同样是合法等价输入 `let x = a` ⏎ `satisfies;` ⏎ `b;`：" +
+      "`satisfies` 单条语句与 `as` 同构（harden §5.4：built=3、A1=MATCH），原非法源留给 R6 的恢复语义；noBaseline 口径同 CL-pos-02",
     markerScope: "boundary", markers: ["IsRestrictedPostfixText", "StatementTokenSets"] },
   { id: "R5-CL-guard-01", src: "a\n+ b\n+ c", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "**防过度收缩**：`+` 是合法续接，删死分支后仍必须是 **1** 条（现状 built=1 A1=YES）；" +
