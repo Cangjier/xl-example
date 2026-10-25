@@ -50,6 +50,7 @@ import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
+import { DirectObjectMemberAssembly } from "./direct-object-member-assembly.xl.md"
 import { DirectTokenUtil } from "./direct-token-util.xl.md"
 ```
 
@@ -752,6 +753,9 @@ this.TakeOperand(shape);
 // A2：对象字面量。成员按**顶层逗号**切段（括号 / 计算属性名里的逗号在各自的 Bracket 里，不会串层）。
 const data = bracket.Data;
 const reference = bracket.SourceRange.StartIndex;
+// 成员的 `Positions` base = 对象 `{` 之后第一个字符（= legacy `Load(bracket.Data, StartIndex+1)`）；
+// 成员方法体里的 `BlockFrom` 也读同一张表。
+const memberBase = reference >= 0 ? reference + 1 : 0;
 let slotStart = reference >= 0 ? reference + 1 : 0;
 let at = 0;
 const shape = new ObjectLiteralExpressionShape(this.Template);
@@ -776,7 +780,7 @@ while (at < data.length) {
     }
     end += 1;
   }
-  if (!this.BuildObjectMember(shape, data, at, end, slotStart)) {
+  if (!this.BuildObjectMember(shape, data, at, end, slotStart, memberBase)) {
     return;
   }
   at = end;
@@ -792,7 +796,7 @@ shape.TryToClose(this.Context);
 this.TakeOperand(shape);
 ```
 
-## private method BuildObjectMember:(shape:ShapeToken, data:Array<Token>, from:int, to:int, memberPos:int)=>bool
+## private method BuildObjectMember:(shape:ShapeToken, data:Array<Token>, from:int, to:int, memberPos:int, memberBase:int)=>bool
 
 ```ts
 const first = data[from];
@@ -809,22 +813,60 @@ if (firstText === "...") {
   shape.Add(spread);
   return true;
 }
+// R4-B4-c：`async` / 生成器成员的**前缀**本轮不做（contract §1.2 B4-c 的 neg）：先记 `expr.member`
+// 分类再 Fail。`({ async() {} })` / `({ *m() {} })` 这类形态随后回落 legacy，AST 不变。
+if (firstText === "async" || firstText === "*") {
+  this.MemberFail("对象成员前缀不在本轮范围: " + firstText);
+  return false;
+}
 let cursor = from + 1;
 while (cursor < to && data[cursor].IsTriviaToken) {
   cursor += 1;
+}
+// R4-B4-c：访问器 `get x(…)` / `set x(…)` —— `get`/`set` 之后是名字、名字之后是 `(` 才是访问器；
+// `{ get: 1 }` / `{ get }` 仍走属性 / 简写老路（R2 的 PropertyAssignment 分支不许回归）。
+let accessorKind = "";
+let nameIndex = from;
+if ((firstText === "get" || firstText === "set") && cursor < to) {
+  const candidate = data[cursor];
+  let afterName = cursor + 1;
+  while (afterName < to && data[afterName].IsTriviaToken) {
+    afterName += 1;
+  }
+  const candidateIsName = candidate instanceof Common || candidate instanceof String;
+  const afterIsParen = afterName < to && data[afterName] instanceof Bracket
+    && (data[afterName] as Bracket).StartBracketChar === "(";
+  if (candidateIsName && afterIsParen) {
+    accessorKind = firstText;
+    nameIndex = cursor;
+    cursor = afterName;
+  }
+}
+const nextUnit:Token | null = cursor < to ? data[cursor] : null;
+// R4-B4-c：名字之后是 `(` ⇒ 方法 / get / set。装配只此一处（`DirectObjectMemberAssembly`）：
+// 名字 / 参数表 / 区间 / Pos 由它复刻 `ExpressionBuilder.ParseObjectLiteral` 的成员分支；
+// 方法体由它用 `DirectStatementAssembly.BlockFrom` 收口，本引擎**不代建**（A6）。
+if (nextUnit !== null && nextUnit instanceof Bracket && (nextUnit as Bracket).StartBracketChar === "(") {
+  const member = DirectObjectMemberAssembly.MemberFrom(data, from, to, nameIndex, accessorKind,
+    memberPos, memberBase, this.Template, this.Context);
+  if (member === null) {
+    this.MemberFail(DirectObjectMemberAssembly.LastReason);
+    return false;
+  }
+  shape.Add(member);
+  return true;
 }
 const name = this.BuildPropertyName(first, memberPos);
 if (name === null) {
   return false;
 }
-if (cursor >= to) {
+if (nextUnit === null) {
   // `{a}`：简写属性，只有一个名字子节点。
   const shorthand = ShorthandPropertyAssignmentShape.FromParts(name, null, this.Context);
   shorthand.Pos = memberPos;
   shape.Add(shorthand);
   return true;
 }
-const nextUnit = data[cursor];
 const nextText = DirectTokenUtil.TextOf(nextUnit);
 if (nextText === ":") {
   const valueBase = nextUnit.SourceRange.EndIndex >= 0 ? nextUnit.SourceRange.EndIndex : memberPos;
@@ -850,16 +892,22 @@ if (nextText === "=") {
   shape.Add(shorthand);
   return true;
 }
-if (nextUnit instanceof Bracket && (nextUnit as Bracket).StartBracketChar === "(") {
-  this.Fail("对象方法体不在本轮范围");
-  return false;
-}
 if (nextText === "<") {
-  this.Fail("对象方法的类型参数不在本轮范围");
+  this.MemberFail("对象方法的类型参数不在本轮范围");
   return false;
 }
 this.Fail("对象字面量的成员不在本轮范围: " + (nextText === "" ? "成员" : nextText));
 return false;
+```
+
+## private method MemberFail:(reason:string)=>void
+
+```ts
+// R4-B4-c（contract §4.7）：`expr.member` 在引擎这一层记一条分类。`direct-expression-session` 是
+// 只读文件，它只会把 Fail 记成 `expr.decline`；`NoteDecline` 只写分类表、不碰 `Declined`，
+// 所以「分类命中 expr.member」与「计数仍由 session 的 Decline 加」两件事互不干扰（A9 只要求命中）。
+DirectBuildMetrics.NoteDecline(reason, "expr.member");
+this.Fail(reason);
 ```
 
 ## private method BuildPropertyName:(unit:Token, pos:int)=>Token | null
