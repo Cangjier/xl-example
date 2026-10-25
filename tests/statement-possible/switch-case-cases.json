@@ -60,6 +60,28 @@
         { "name": "s4s-trap-class-method", "source": "class C { m(){ let y = 1; } }" },
         { "name": "s4s-trap-switch-no-body", "source": "switch (x) { case 1: f(); default: g(); }" }
       ]
+    },
+    "stage4w": {
+      "stage": "Stage 4w (block-scoped generic function bodies collected; block-level declarations registered but inert)",
+      "description": "Generic function declarations inside a block: the type-parameter list is a flat run of Symbol units (< T >) in the host Data, not a Bracket, so the body predicate used to reject the body brace and the body statements stayed raw. The predicate now skips the symbol run (including nested generics and merged >> units) and requires the same name + `function` tail as before. Block-level class/enum/declare: the declaration-family candidate is registered on the block-body catalog behind EnableBlockDeclarationCatalog, which is inert while the declaration shell gate is off, so those declarations stay raw (body count 0) and the tree is unchanged. Every case asserts XML==legacy, AST==ts, determinism, no shape leak, zero fallback.",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4w-fn-block-generic", "source": "{ function f<T>(a: T) { let x = a; } }" },
+        { "name": "s4w-fn-block-generic-two", "source": "{ function g<T>(){ a; b; } }" },
+        { "name": "s4w-fn-block-generic-nested-angle", "source": "{ function h<T extends A<B>>(x: T) { let y = x; } }" },
+        { "name": "s4w-fn-block-generic-return", "source": "{ function f<T>(a: T): T { return a; } }" },
+        { "name": "s4w-fn-block-generic-obj-return", "source": "{ function k<T>(): { a: T } { return null; } }" },
+        { "name": "s4w-fn-block-generic-in-if", "source": "if (a) { function f<T>(x: T) { let y = x; } }" },
+        { "name": "s4w-fn-block-generic-in-case", "source": "switch (x) { case 1: { function f<T>(a: T) { let y = a; } } }" },
+        { "name": "s4w-block-class", "source": "{ class C {} }" },
+        { "name": "s4w-block-class-method", "source": "{ class C { m(){ let y = 1; } } }" },
+        { "name": "s4w-block-enum", "source": "{ enum E { A } }" },
+        { "name": "s4w-block-declare-const", "source": "{ declare const x: number; }" },
+        { "name": "s4w-block-declare-fn", "source": "{ declare function f(): void; }" },
+        { "name": "s4w-block-class-and-stmt", "source": "{ class C {} f(); }" },
+        { "name": "s4w-trap-obj-generic-method", "source": "const o = { m<T>(a: T){ let z = a; } };" },
+        { "name": "s4w-trap-arrow-generic", "source": "const f = <T>(a: T) => { let z = a; };" }
+      ]
     }
   }
 }
