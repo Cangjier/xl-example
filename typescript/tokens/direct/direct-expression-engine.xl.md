@@ -12,6 +12,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { AsExpressionShape } from "../expressions/as-expression-shape.xl.md"
+import { AwaitExpressionShape } from "../expressions/await-expression-shape.xl.md"
 import { ArrowFunctionShape } from "../expressions/arrow-function-shape.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
 import { CallExpressionShape } from "../expressions/call-expression-shape.xl.md"
@@ -43,6 +44,7 @@ import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { ShapeInsertUtil } from "../shape-insert-util.xl.md"
 import { BlockShape } from "../statements/block-shape.xl.md"
@@ -204,6 +206,22 @@ A3 `new`：实参括号已消费（之后紧跟的 `(` 属于「new 之后再调
 
 箭头的**表达式体**子引擎（懒建：第一个体单元到达时才 new，`BasePos` = 那一格的 pos）。
 
+## field AsyncPending:Token | null = null
+
+**R5-D3-b（R5-CONTRACT §4.6-B）**：语句首的 `async` 单元。引擎没有前瞻，`async` 到底是
+「async 箭头的 AsyncKeyword」还是「名叫 async 的标识符（调用 `async(a)` / 成员 `async.b`）」，
+要看**下一格**：`async` + `(` ⇒ 挂起参数表等 `=>`；否则退回标识符 + 正常后缀链。
+这一格只在等待下一格时非空，`IngestCode` 的第一个分支就把它消费掉。
+
+## field AsyncPendingPos:int = -1
+
+挂起中的 `async` 的 Pos（= 传进来那一格的 pos，含前导 trivia）。
+
+## field AsyncParams:bool = false
+
+挂起中的参数表括号是「`async` 之后的那个 `(`」（`ParamWait` 为真时有效）：命中 `=>` 就把
+`AsyncKeywordShape` 作为 `ArrowFunction` 的**第一个**子节点（tsc 实测顺序 `[AsyncKeyword, Parameter…, =>, body]`）。
+
 ## constructor:(template:Template, context:SyntaxContext, basePos:int)=>void
 
 ```ts
@@ -258,12 +276,18 @@ if (!this.Declined && !this.Held && !this.LayerEnded) {
 ```ts
 // 三个「非普通」入口先分流：后缀等待位、`as` 的类型缓冲、余下的等操作数 / 等运算符。
 // R3-B2-2 再加两个：挂起中的箭头参数表（等 `=>`）、以及箭头体（整段尾巴交给子引擎）。
+// R5-D3-b 再加一个：挂起中的 `async` 头（等下一格判「箭头」还是「标识符」）。注意它必须排在
+// `ParamWait` **之后**：`async (` 已挂起参数表时，下一格 `=>` 属于参数表那一格，不是 async 头那一格。
 if (this.ParamWait) {
   this.IngestAfterParams(unit, pos);
   return;
 }
 if (this.ArrowPending !== null) {
   this.IngestArrowPart(unit, pos);
+  return;
+}
+if (this.AsyncPending !== null) {
+  this.IngestAfterAsyncHead(unit, pos);
   return;
 }
 if (this.PostfixWait !== DirectExpressionEngine.PostfixNone) {
@@ -331,6 +355,18 @@ if (this.Declined) {
 }
 if (!this.FlushAllAs()) {
   return null;
+}
+// R5-D3-b：挂起到最后的 `async`（后面再没有单元）是标识符操作数 —— 先冲成操作数再照常收尾。
+// 例：`async` 单独作为一个实参 / 属性值（`f(async)` / `{ a: async }`），以及 `async` 结尾的片段。
+if (this.AsyncPending !== null) {
+  const asyncUnit = this.AsyncPending;
+  const asyncPos = this.AsyncPendingPos;
+  this.AsyncPending = null;
+  this.AsyncPendingPos = -1;
+  this.AsyncParams = false;
+  const identifier = IdentifierShape.FromBasicToken(asyncUnit as Common, this.Context);
+  identifier.Pos = asyncPos;
+  this.TakeOperand(identifier);
 }
 // R3-B2-2：挂起到最后的参数表是**普通括号**（后面没有 `=>`）；箭头体则在这里收口。
 if (this.ParamWait) {
@@ -459,6 +495,17 @@ if (unit instanceof Common) {
     this.IngestKeywordPrefix(unit, text, pos);
     return;
   }
+  // R5-D3-b（R5-CONTRACT §4.6）：`await` = 一元前缀（与 typeof 同级）；`async` = 待定的箭头头。
+  if (text === "await") {
+    this.IngestAwaitPrefix(unit, pos);
+    return;
+  }
+  if (text === "async") {
+    // 引擎没有前瞻：`async` 到底是 AsyncKeyword 还是标识符，要看**下一格**。
+    this.AsyncPending = unit;
+    this.AsyncPendingPos = pos;
+    return;
+  }
   const literal = this.KeywordOrLiteral(unit, text, pos);
   if (literal !== null) {
     this.TakeOperand(literal);
@@ -559,6 +606,26 @@ if (text === "typeof") {
 } else {
   shape = new DeleteExpressionShape(this.Template);
 }
+if (unit.SourceRange.StartIndex >= 0) {
+  shape.SignIn(unit.SourceRange.StartIndex);
+}
+shape.Pos = pos;
+(shape as any).OperatorToken = unit;
+this.Prefixes.push(shape);
+this.Expect = DirectExpressionEngine.ExpectOperand;
+```
+
+## private method IngestAwaitPrefix:(unit:Token, pos:int)=>void
+
+```ts
+// R5-D3-b（R5-CONTRACT §4.6-A）：`await` 进「前缀操作数」那一格，与 `typeof` 同级 ⇒ 优先级 = 一元前缀。
+// 因此 `await g() + 1` = `BinaryExpression[AwaitExpression[Call], 1]`（= `(await g()) + 1`），
+// `await a.b!` = `NonNull(Await(PropertyAccess))`，`-await a` = `Prefix(-)[Await[a]]`。
+// `await` token **不进 Data**（TS 的 AwaitExpression children 只有 operand），只做 Pos / 区间起点。
+// **不做上下文判定**（R5-Q5 裁决）：`function a2() { await g(); }` 的 tsc 同样建 AwaitExpression（实测
+// parseDiagnostics=0、`AwaitExpression[CallExpression g]`），所以「壳存在即建」与 tsc 一致；
+// 裸 `await;` 这种「后面没有操作数」的形态会在操作数位置 Fail ⇒ session Decline ⇒ 旧路径照旧建 Identifier。
+const shape = new AwaitExpressionShape(this.Template);
 if (unit.SourceRange.StartIndex >= 0) {
   shape.SignIn(unit.SourceRange.StartIndex);
 }
@@ -817,20 +884,49 @@ if (firstText === "...") {
   shape.Add(spread);
   return true;
 }
-// R4-B4-c：`async` / 生成器成员的**前缀**本轮不做（contract §1.2 B4-c 的 neg）：先记 `expr.member`
-// 分类再 Fail。`({ async() {} })` / `({ *m() {} })` 这类形态随后回落 legacy，AST 不变。
-if (firstText === "async" || firstText === "*") {
-  this.MemberFail("对象成员前缀不在本轮范围: " + firstText);
-  return false;
+// R5-D3-d（R5-CONTRACT §4.7）：方法前缀 `async` / `*`。
+//   async m ( ) { }   -> MethodDeclaration[AsyncKeyword, Identifier m, Block]
+//   * m ( ) { }       -> MethodDeclaration[AsteriskToken, Identifier m, Block]
+//   async * m ( ) { } -> 不做（async 生成器方法的 children 是 [AsyncKeyword, AsteriskToken, …]）⇒ expr.member
+//   async ( ) { }     -> 名字就是 `async`（`(` 紧跟在后面），不带前缀
+//   async : 1 / async -> 属性 / 简写属性，不带前缀（R2 的 PropertyAssignment 分支一个字节不变）
+const prefixes:Array<number> = [];
+if (firstText === "*") {
+  prefixes.push(from);
+} else if (firstText === "async") {
+  let afterAsync = from + 1;
+  while (afterAsync < to && data[afterAsync].IsTriviaToken) {
+    afterAsync += 1;
+  }
+  if (afterAsync < to) {
+    if (DirectTokenUtil.TextOf(data[afterAsync]) === "*") {
+      this.MemberFail("async 生成器方法不在本轮范围");
+      return false;
+    }
+    const candidate = data[afterAsync];
+    if (candidate instanceof Common || candidate instanceof String) {
+      prefixes.push(from);
+    }
+  }
 }
-let cursor = from + 1;
+let nameIndex = from;
+if (prefixes.length > 0) {
+  nameIndex = prefixes[prefixes.length - 1] + 1;
+  while (nameIndex < to && data[nameIndex].IsTriviaToken) {
+    nameIndex += 1;
+  }
+  if (nameIndex >= to) {
+    this.MemberFail("对象成员缺少名字");
+    return false;
+  }
+}
+let cursor = nameIndex + 1;
 while (cursor < to && data[cursor].IsTriviaToken) {
   cursor += 1;
 }
 // R4-B4-c：访问器 `get x(…)` / `set x(…)` —— `get`/`set` 之后是名字、名字之后是 `(` 才是访问器；
 // `{ get: 1 }` / `{ get }` 仍走属性 / 简写老路（R2 的 PropertyAssignment 分支不许回归）。
 let accessorKind = "";
-let nameIndex = from;
 if ((firstText === "get" || firstText === "set") && cursor < to) {
   const candidate = data[cursor];
   let afterName = cursor + 1;
@@ -852,13 +948,18 @@ const nextUnit:Token | null = cursor < to ? data[cursor] : null;
 // 方法体由它用 `DirectStatementAssembly.BlockFrom` 收口，本引擎**不代建**（A6）。
 if (nextUnit !== null && nextUnit instanceof Bracket && (nextUnit as Bracket).StartBracketChar === "(") {
   const member = DirectObjectMemberAssembly.MemberFrom(data, from, to, nameIndex, accessorKind,
-    memberPos, memberBase, this.Template, this.Context);
+    memberPos, memberBase, this.Template, this.Context, prefixes);
   if (member === null) {
     this.MemberFail(DirectObjectMemberAssembly.LastReason);
     return false;
   }
   shape.Add(member);
   return true;
+}
+if (prefixes.length > 0) {
+  // 前缀之后不是 `(`（`({ *m: 1 })` / `({ async m })` 这类非法或非方法形态）：显式 Decline，不静默建。
+  this.MemberFail("对象成员的前缀之后不是方法");
+  return false;
 }
 const name = this.BuildPropertyName(first, memberPos);
 if (name === null) {
@@ -1870,22 +1971,89 @@ for (const unit of bracket.Data) {
 return true;
 ```
 
+## private method IngestAfterAsyncHead:(unit:Token, pos:int)=>void
+
+```ts
+// R5-D3-b（R5-CONTRACT §4.6-B）：上一格是语句首的 `async`，这一格决定它是什么。
+//   `async` + `(`（纯 Identifier 参数表） ⇒ 挂起参数表等 `=>`（`async (a) => …`）；
+//   其余（`async(a)` 调用 / `async.b` 成员 / `async` 后的任何后缀） ⇒ 回退成 Identifier `async`
+//   + 正常后缀链 —— 这正是「不许静默错建」的回退口：认不出箭头就一个字节都不改。
+const asyncUnit = this.AsyncPending;
+const asyncPos = this.AsyncPendingPos;
+if (asyncUnit === null) {
+  this.Fail("async 头丢失");
+  return;
+}
+const isParen = unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(";
+if (isParen && this.CouldBeArrowParameters(unit as Bracket)) {
+  // 参数表挂起：`async` 单元**留在** `AsyncPending` 里，等 `=>` 那一格才知道它是不是 AsyncKeyword；
+  // 不是箭头时由 `IngestAfterParams` 走「标识符 + 调用后缀」的回退。
+  this.ParamWait = true;
+  this.AsyncParams = true;
+  this.ParamBracket = unit as Bracket;
+  this.ParamPos = pos;
+  return;
+}
+this.AsyncPending = null;
+this.AsyncPendingPos = -1;
+// 回退：`async` 是标识符操作数。先把它交给操作数位置，再把这一格按常规重新分派。
+const identifier = IdentifierShape.FromBasicToken(asyncUnit as Common, this.Context);
+identifier.Pos = asyncPos;
+this.TakeOperand(identifier);
+if (this.Declined || this.Held || this.LayerEnded) {
+  return;
+}
+if (isParen) {
+  // `async(a)`：`(` 是调用的实参表（不是括号表达式）。
+  this.IngestBracketSuffix(unit as Bracket, pos);
+  return;
+}
+this.IngestCode(unit, pos);
+```
+
 ## private method IngestAfterParams:(unit:Token, pos:int)=>void
 
 ```ts
-// 挂起的那一格到了：`=>` ⇒ 建箭头；否则这个括号只是**普通括号表达式**，
+// 挂起的那一格到了：`=>` ⇒ 建箭头；否则这个括号只是**普通括号表达式**（`async (a)` 则是调用），
 // 先按老口径建出 `ParenthesizedExpressionShape`，再把当前这一格按常规重新分派。
+// R5-D3-b：`AsyncParams` 为真时，`async` 单元还挂在 `AsyncPending` 里 —— 命中 `=>` 就是 AsyncKeyword，
+// 否则先回退成 Identifier 操作数（+ 调用后缀），与「认不出箭头就一个字节都不改」同一条口径。
 const bracket = this.ParamBracket;
 const bracketPos = this.ParamPos;
+const asyncParams = this.AsyncParams;
+const asyncUnit = asyncParams ? this.AsyncPending : null;
+const asyncPos = this.AsyncPendingPos;
 this.ParamWait = false;
+this.AsyncParams = false;
 this.ParamBracket = null;
 this.ParamPos = -1;
+this.AsyncPending = null;
+this.AsyncPendingPos = -1;
 if (bracket === null) {
   this.Fail("箭头参数表丢失");
   return;
 }
 if (DirectTokenUtil.TextOf(unit) === "=>") {
-  this.StartArrowFromParams(bracket, bracketPos, unit, pos);
+  this.StartArrowFromParams(bracket, bracketPos, unit, pos, asyncUnit, asyncPos);
+  return;
+}
+if (asyncUnit !== null) {
+  // `async(a)` / `async (a)`：`async` 是标识符，`(` 是**调用实参表**（不是括号表达式）。
+  const identifier = IdentifierShape.FromBasicToken(asyncUnit as Common, this.Context);
+  identifier.Pos = asyncPos;
+  this.TakeOperand(identifier);
+  if (this.Declined || this.Held || this.LayerEnded) {
+    return;
+  }
+  this.IngestBracketSuffix(bracket, bracketPos);
+  if (this.Declined || this.Held || this.LayerEnded) {
+    return;
+  }
+  if (this.ArrowPending !== null) {
+    this.IngestArrowPart(unit, pos);
+    return;
+  }
+  this.IngestCode(unit, pos);
   return;
 }
 this.IngestParen(bracket, bracketPos);
@@ -1900,19 +2068,35 @@ if (this.ArrowPending !== null) {
 this.IngestCode(unit, pos);
 ```
 
-## private method StartArrowFromParams:(bracket:Bracket, bracketPos:int, arrowUnit:Token, arrowPos:int)=>void
+## private method StartArrowFromParams:(bracket:Bracket, bracketPos:int, arrowUnit:Token, arrowPos:int, asyncUnit:Token | null, asyncPos:int)=>void
 
 ```ts
-// `(a) => a` / `(a, b) => …` / `() => …`：参数表已经挂在手上（`CouldBeArrowParameters` 保证是
-// 纯 Identifier 列表），这里直接建 `ParameterShape`，**不跑内层引擎**——内层引擎会把 `a` 建成一个
-// 裸 Identifier，那样每个参数都得多包一层，而且 `()` 空表在引擎里根本不合法。
+// `(a) => a` / `(a, b) => …` / `() => …` / R5 的 `async (a) => …`：参数表已经挂在手上
+// （`CouldBeArrowParameters` 保证是纯 Identifier 列表），这里直接建 `ParameterShape`，**不跑内层引擎**——
+// 内层引擎会把 `a` 建成一个裸 Identifier，那样每个参数都得多包一层，而且 `()` 空表在引擎里根本不合法。
 // Pos 口径 = `ExpressionBuilder.Load(bracket.Data, bracket.StartIndex + 1)` 的 Positions：
 // 第一格是 `(` 之后第一个字符，其后每格是前一个**代码**单元的 EndIndex。
+// **R5-D3-b**：`asyncUnit !== null` 时先挂 `AsyncKeywordShape`（TS 实测 children 顺序
+// `[AsyncKeyword, Parameter…, EqualsGreaterThanToken, body]`，`AsyncKeyword.Pos` = `async` 那一格的 pos，
+// `ArrowFunction.Pos` 也随之 = `async` 的 pos，区间从 `async` 起）。
 const arrow = new ArrowFunctionShape(this.Template);
-if (bracket.SourceRange.StartIndex >= 0) {
-  arrow.SignIn(bracket.SourceRange.StartIndex);
+if (asyncUnit !== null) {
+  const asyncKeyword = new AsyncKeywordShape(this.Template);
+  asyncKeyword.SignInToken(asyncUnit);
+  asyncKeyword.SignOutToken(asyncUnit);
+  asyncKeyword.Pos = asyncPos;
+  asyncKeyword.TryToClose(this.Context);
+  arrow.Add(asyncKeyword);
+  if (asyncUnit.SourceRange.StartIndex >= 0) {
+    arrow.SignIn(asyncUnit.SourceRange.StartIndex);
+  }
+  arrow.Pos = asyncPos;
+} else {
+  if (bracket.SourceRange.StartIndex >= 0) {
+    arrow.SignIn(bracket.SourceRange.StartIndex);
+  }
+  arrow.Pos = bracketPos;
 }
-arrow.Pos = bracketPos;
 let parameterPos = bracket.SourceRange.StartIndex >= 0 ? bracket.SourceRange.StartIndex + 1 : 0;
 for (const inner of bracket.Data) {
   if (inner.IsTriviaToken) {
@@ -1995,6 +2179,19 @@ this.Expect = DirectExpressionEngine.ExpectOperand;
 // 因此 `a => b => c` 是递归的（子引擎自己会在 `=>` 上走同一段代码），
 // `a => a + 1` 的 `+` / 优先级 / 括号也全部由子引擎按同一套规则建。
 if (this.ArrowPending === null) {
+  return;
+}
+// R5：**箭头体 = AssignmentExpression**，顶层逗号属于外层（tsc 实测
+// `async () => await a, async (b) => await b` = `BinaryExpression(,)[Arrow, Arrow]`）。
+// 子引擎会把 `,` 当二元逗号吞进体里，因此这一格必须先收口箭头，再把逗号当**本层**的运算符。
+if (this.ArrowBody !== null && DirectTokenUtil.TextOf(unit) === ",") {
+  if (!this.FinishArrowBody()) {
+    return;
+  }
+  if (this.Declined || this.Held || this.LayerEnded) {
+    return;
+  }
+  this.IngestBinary(unit, ",", pos);
   return;
 }
 if (this.ArrowBody === null) {
