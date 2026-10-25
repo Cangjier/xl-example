@@ -790,9 +790,12 @@ if (shape.Kind === StatementOperandShape.KindTypeAssert) {
   // `ExpressionBuilder.ParseBinary` 的 `IsTypeOperator` 分支同一个调用、同一批工厂
   // （`AsExpressionShape` / `SatisfiesExpressionShape`）、同一段区间口径（`SpanNode(左首单元, 类型末单元)`）。
   //
-  // **安全条件**：类型必须**恰好**吃到最后一个单元（`after === builder.Units.length`）。`a as T + b` 这种
-  // 「类型之后还有表达式」的形状层不解释（`+ b` 已被操作符体吞进类型区域），这里判否、整条回 legacy，
-  // 绝不建出「只吃了一半源码」的树。链式断言（`a as T as U`）在循环里逐层包，与 legacy 的左结合一致。
+  // **安全条件**：类型必须**恰好**吃到本形状节点声明的最后一个单元（`claimedLast + 1`，Stage 5d-8b）。
+  // 原先要求吃到**整条语句末尾**，而 `a as T + b` / `a ? b as T : c` 的 `+ b` / `: c` 属于外层节点，
+  // 于是那种形态一律判死。现在形状层在「类型之后不可能再是类型」的那一格收口（`EndsTypeTail`），
+  // 本节点声明到类型末单元为止；只要 legacy 的 `ParseFollowingType` 消费长度与它一致就接管，
+  // 不一致（类型比形状层以为的长 / 短）仍然判否、整条回 legacy，绝不建出「只吃了一半源码」的树。
+  // 链式断言（`a as T as U`）在循环里逐层包，与 legacy 的左结合一致。
   if (shape.Data.length !== 1) {
     return StatementShapeAst.Decline("类型断言不是单操作数");
   }
@@ -810,6 +813,17 @@ if (shape.Kind === StatementOperandShape.KindTypeAssert) {
     return null;
   }
   const firstIndex = covered[at];
+  // 本节点声明的**类型区域末单元**：形状层吞类型时逐格记下的最后一格（`StatementOperandShape.TailEnd`）。
+  // 没有它就无从知道「本节点到哪结束」——类型区域不进 `Data`，而如果退回「必须吃到语句末尾」，
+  // `a as T + b` / `a ? b as T : c` 这类「类型之后还有表达式」就永远接管不了。
+  const tailEnd = shape.TailEnd;
+  if (tailEnd === null) {
+    return StatementShapeAst.Decline("类型断言没有类型单元");
+  }
+  const tailIndex = builder.Units.indexOf(tailEnd);
+  if (tailIndex < 0) {
+    return StatementShapeAst.Decline("类型断言的类型单元不在表达式里");
+  }
   const savedAt = builder.At;
   builder.At = index;
   let value:Token = operand;
@@ -841,8 +855,8 @@ if (shape.Kind === StatementOperandShape.KindTypeAssert) {
   }
   const after = builder.At;
   builder.At = savedAt;
-  if (lastIndex < index || after !== builder.Units.length) {
-    return StatementShapeAst.Decline("类型断言没有覆盖整段表达式单元");
+  if (lastIndex < index || after !== tailIndex + 1) {
+    return StatementShapeAst.Decline("类型断言没有覆盖本节点的类型区域");
   }
   for (let cursor = index; cursor < after; cursor++) {
     covered.push(cursor);
@@ -915,6 +929,14 @@ if (shape.Kind === StatementOperandShape.KindTypeArguments) {
   builder.At = ltIndex;
   try {
     value = builder.ParsePostfixSuffix(left, firstIndex);
+    // Stage 5d-8b：`ParsePostfixSuffix` 只管**后缀**，读到 `as` / `satisfies` / `instanceof` / `in` / `&&`
+    // 就停（`a<b> as T`、`a<b> instanceof C`、`a<b> in c`）。这些运算符属于「类型实参尾巴之后」的表达式位，
+    // 交给 `ParseExpressionFrom`——它是 `ParseExpression` 的「左操作数已建好」入口，走同一段赋值 / 条件 /
+    // 二元 / 逗号逻辑（节点、`Pos`、区间同源）。它只在本条语句还剩单元时才调，读到的运算符仍必须
+    // **恰好**吃到最后一个单元，否则下面判否、整条回 legacy。
+    if (value !== null && builder.At < builder.Units.length) {
+      value = builder.ParseExpressionFrom(value, firstIndex);
+    }
     after = builder.At;
   } catch (error) {
     builder.At = savedAt;
@@ -1024,6 +1046,11 @@ if (shape.Kind === StatementOperandShape.KindArrow) {
   if (first < 0) {
     return StatementShapeAst.Decline("箭头函数参数单元不在表达式里");
   }
+  // Stage 5d-8b：本节点声明的**箭头体末单元**（`Ingest` 吞体时逐格记下的最后一格）。顶层逗号不在体里
+  // （`x => a, b` = `(x => a), b`），所以体不再总是吃到语句末尾——这时必须核「legacy `ParseAssign`
+  // 恰好消费到本节点声明的那一格」，多一格或少一格都判否、整条回 legacy。
+  const arrowTail = shape.TailEnd;
+  const arrowTailIndex = arrowTail === null ? -1 : builder.Units.indexOf(arrowTail);
   const savedAt = builder.At;
   builder.At = first;
   let value:Token | null = null;
@@ -1039,8 +1066,54 @@ if (shape.Kind === StatementOperandShape.KindArrow) {
   if (value === null || after <= first) {
     return StatementShapeAst.Decline("箭头函数没有消费单元");
   }
+  if (arrowTailIndex >= 0 && after !== arrowTailIndex + 1) {
+    return StatementShapeAst.Decline("箭头函数交给 legacy 解析后与形状树不一致");
+  }
   for (let at = first; at < after; at++) {
     covered.push(at);
+  }
+  return value;
+}
+if (shape.Kind === StatementOperandShape.KindAwait || shape.Kind === StatementOperandShape.KindYield) {
+  // Stage 5d-8b：`await` / `yield` 作为操作数（`x = yield y` / `x ? await a : await b` / `(yield 1) + 2`）。
+  // **判型不在这里**：AwaitExpression / YieldExpression / 普通 Identifier 由 `ExpressionBuilder.ParseUnary`
+  // 里的上下文判据（`IsAwaitExpressionStart` / `ParseYield` 的 generator 上下文 + lookahead + 换行）决定，
+  // 这里只把关键字那一格交给它，再核「消费到的末单元」正好是本形状节点声明的最后一个单元
+  // （`claimedLast + 1`）。不一致就判否回 legacy——`yield a + b` 这种「`+` 落在 KindYield 之外、
+  // 而 legacy 的 yield 操作数是 `ParseAssign`」的分歧因此不会建出错树。
+  if (shape.Data.length > 1) {
+    return StatementShapeAst.Decline("await/yield 不是单操作数");
+  }
+  const raw = shape.Raw;
+  if (raw === null) {
+    return StatementShapeAst.Decline("await/yield 没有关键字单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("await/yield 关键字不在表达式里");
+  }
+  covered.push(index);
+  if (shape.Data.length === 1) {
+    const operand = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+    if (operand === null) {
+      return null;
+    }
+  }
+  const claimedLast = covered[covered.length - 1];
+  const savedAt = builder.At;
+  builder.At = index;
+  let value:Token | null = null;
+  let after = index;
+  try {
+    value = builder.ParseUnary();
+    after = builder.At;
+  } catch (error) {
+    builder.At = savedAt;
+    return StatementShapeAst.Decline("await/yield 交给 legacy 解析失败");
+  }
+  builder.At = savedAt;
+  if (value === null || after !== claimedLast + 1) {
+    return StatementShapeAst.Decline("await/yield 交给 legacy 解析后与形状树不一致");
   }
   return value;
 }
