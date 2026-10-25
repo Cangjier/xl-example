@@ -403,9 +403,13 @@ DirectBuildMetrics.Trace("engine-decline: " + reason);
 ## private method IsRestrictedPostfix:(text:string)=>bool
 
 ```ts
-// 与 `OperatorTable.IsPrefixOperator` 同源的受限后缀集合：这三个都**不能跨行**当后缀
+// 与 `OperatorTable.IsPrefixOperator` 同源的受限后缀集合：这些都**不能跨行**当后缀
 // （TS `parsePostfixExpressionOrHigher` 的 `scanner.hasPrecedingLineBreak()` 守卫，见 statement-operator-body:569）。
-return text === "++" || text === "--" || text === "!";
+// R4（D7 残留，A-3）：与 `statement-boundary-util.IsRestrictedPostfixUnit` 同时补 `~` 与 `typeof`。
+// 边界层把 `let x = a⏎~b` / `a⏎typeof b` 收口成两条语句后，壳里仍会带进下一段的 `~` / `typeof`；
+// 引擎这一侧若不 Hold 就会把它当后缀吃掉（实测 `let x = a⏎~b` → Fail「表达式运算符不在本轮范围: ~」
+// → 变量族 Decline、built 只有 1）。Hold 与 C1 的 `++`/`--`/`!` 完全同义：不是 Fail，是「下一条语句」。
+return text === "++" || text === "--" || text === "!" || text === "~" || text === "typeof";
 ```
 
 ## private method TakeOperand:(operand:Token)=>void
