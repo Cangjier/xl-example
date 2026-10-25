@@ -60,13 +60,16 @@ import { StatementShape } from "./statement-shape.xl.md"
 由建壳方在 `BuildByIndex` 里设好（`RootExpressionStatementPossibleShape` 设表达式族；其它建壳方不设、保持 0），
 终结候选只读它分派，**不在每次 Compute 时重新判族**（免得每格 O(k) 重走 `Decide`）。
 
-**Stage 5d-2a：`0` 桶内部再按「短语句族」分流**。`StatementKind == 0` 同时装着变量声明壳与
+**Stage 5d-2a / 5d-2b：`0` 桶内部再按语句族分流**。`StatementKind == 0` 同时装着变量声明壳与
 控制流 / 标签 / 块 / 子句语句壳（它们都不设 `StatementKind`），所以不能在 `0` 上整体换判据；
 终结候选在 `ScanRoot` 之前先问 `StatementBoundaryUtil.IsShortFamilyCode(state.Code)`：
 `return` / `throw` / `break` / `continue` / `debugger` / `let`·`const`·`var` 六个族改读
-`StatementBoundaryUtil.ShortFamilyEndCode`，**不再调 `StatementScanner.ScanRoot`**；其余族
-（`if` / `while` / `do` / `for` / `try` / `switch` / `with` / 标签 / 块 / 子句带体语句 / 声明体）
-本轮**仍走 `ScanRoot`**（`HANDOFF-5d2a.md` §2）。
+`StatementBoundaryUtil.ShortFamilyEndCode`；**Stage 5d-2b** 再问
+`StatementBoundaryUtil.IsControlFlowFamilyCode(state.Code)`：`if`（含 else 链）/ `while` / `do-while` /
+`for`·`for-in`·`for-of` / `try`·`catch`·`finally` / `switch` / `with` / 标签 / 块十个族改读
+`StatementBoundaryUtil.ControlFlowFamilyEndCode`。两条分支都**不再调 `StatementScanner.ScanRoot`**；
+其余族（`declare` 的 ambient 变量语句 / `using` 系列 / `class`·`function` 等带体声明 / 子句级声明体）
+仍走 `ScanRoot` + `DeclarationBodyEndCode` 兜底（`HANDOFF-5d2a.md` §2、`HANDOFF-5d2b.md` §2）。
 
 **语句终结候选**（可行性原型 A）：装在 `StatementShape` 壳自己的 `CatalogGuide` 里（壳的普通候选为空，所以
 `EndPossible` 永远不会撞 `CatalogGuide` 的「终结候选与其它候选同时成立」）。
@@ -98,11 +101,15 @@ import { StatementShape } from "./statement-shape.xl.md"
   `Mismatch`；即便碰巧给出 `End`，那个位置也早于壳里已经攒下的全部代码单元，正是「表达式语句没有读完」
   的根因（`HANDOFF-s1d.md` §5.3）。`End` 只作「上一格已经判过」的增量提示（`Checked`）。
 - 其余（`StatementKind == 0` / `ShellStatementFamily`）：
-  - **短语句族（Stage 5d-2a，本轮的迁移对象）**：首代码单元属
+  - **短语句族（Stage 5d-2a）**：首代码单元属
     `StatementBoundaryUtil.IsShortFamilyCode`（`return` / `throw` / `break` / `continue` / `debugger` /
     `let`·`const`·`var`）时，收口位置读 `StatementBoundaryUtil.ShortFamilyEndCode`——**不调
     `StatementScanner.ScanRoot`**。族判定与收口规则都在 boundary 层，`ScanRoot` 一字不改；
-  - 其余族（`if` / `while` / `do` / `for` / `try` / `switch` / `with` / 标签 / 块 / 带体声明）：
+  - **带体 / 链式控制流族（Stage 5d-2b）**：首代码单元属
+    `StatementBoundaryUtil.IsControlFlowFamilyCode`（`if`·`else` / `while` / `do-while` / `for` /
+    `try`·`catch`·`finally` / `switch` / `with` / 标签 / 块）时，收口位置读
+    `StatementBoundaryUtil.ControlFlowFamilyEndCode`——同样**不调 `ScanRoot`**；
+  - 其余族（`declare` 的 ambient 变量语句 / `using` 系列 / `class`·`function` 带体声明 / 子句级声明体）：
     **逐位保留** `ScanRoot` 的 `Status == 1 && End >= 0`，并保留 `DeclarationBodyEndCode` 兜底。
 
 `End` 一律折算成「壳 `Data` 里的下标」（`CodeAt[codeIndex]`），`BuildFromShell` 只消费到它。
@@ -189,6 +196,17 @@ if (state.Checked !== tokenIndex + 1) {
     const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(state.Code, StatementScanner.AtEOF);
     if (shortEnd >= 0 && shortEnd < state.CodeAt.length) {
       state.End = state.CodeAt[shortEnd];
+      state.Status = 1;
+    }
+  } else if (StatementBoundaryUtil.IsControlFlowFamilyCode(state.Code)) {
+    // **Stage 5d-2b：带体 / 链式控制流族（if·else / while / do-while / for·for-in·for-of / try·catch·finally /
+    // switch / with / 标签 / 块）的判界已迁到 boundary 层**：收口位置读 `ControlFlowFamilyEndCode`，
+    // **不调 `StatementScanner.ScanRoot`**。链式前瞻（else / while / catch / finally）与体终点都读
+    // `ControlFlowFamilyEndCode` 那一份（`ScanIf` 等的逐字搬迁 + `ScanBody` 唯一实现点）。
+    // 判据 `-1` 时**不能**退回 `ScanRoot`；`DeclarationBodyEndCode` 也不问（首单元不是 class / function）。
+    const controlEnd = StatementBoundaryUtil.ControlFlowFamilyEndCode(state.Code);
+    if (controlEnd >= 0 && controlEnd < state.CodeAt.length) {
+      state.End = state.CodeAt[controlEnd];
       state.Status = 1;
     }
   } else {
@@ -395,6 +413,12 @@ if (current instanceof EndOfFileTokenShape) {
       if (shortEnd >= 0 && shortEnd < codeAt.length) {
         endIndex = codeAt[shortEnd];
       }
+    } else if (StatementBoundaryUtil.IsControlFlowFamilyCode(code)) {
+      // Stage 5d-2b：带体 / 链式控制流族走 boundary 层的同一份判据（与 `ComputeByIndex` 同一个入口）。
+      const controlEnd = StatementBoundaryUtil.ControlFlowFamilyEndCode(code);
+      if (controlEnd >= 0 && controlEnd < codeAt.length) {
+        endIndex = codeAt[controlEnd];
+      }
     } else {
       const result = StatementScanner.ScanRoot(code);
       if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
@@ -439,6 +463,12 @@ if (current instanceof EndOfFileTokenShape) {
     const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(code, StatementScanner.AtEOF);
     if (shortEnd >= 0 && shortEnd < codeAt.length) {
       endIndex = codeAt[shortEnd];
+    }
+  } else if (StatementBoundaryUtil.IsControlFlowFamilyCode(code)) {
+    // Stage 5d-2b：带体 / 链式控制流族改读 boundary 层的判据，**不调 `ScanRoot`**；基准仍是壳 `Data` 下标。
+    const controlEnd = StatementBoundaryUtil.ControlFlowFamilyEndCode(code);
+    if (controlEnd >= 0 && controlEnd < codeAt.length) {
+      endIndex = codeAt[controlEnd];
     }
   } else {
     const result = StatementScanner.ScanRoot(code);

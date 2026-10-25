@@ -847,6 +847,360 @@ if (atEof && code.length > 0) {
 return -1;
 ```
 
+## static method IsControlFlowFamilyCode:(code:Array<Token>)=>bool
+
+**Stage 5d-2b：带体 / 链式控制流族的「是不是本族」判据**（族判定，不判收口位置）。认三类起点：
+
+| 起点 | 族 | 收口规则 | 判据实现 |
+| --- | --- | --- | --- |
+| `{`（`{…}` 括号） | 块语句 | 首单元就是**已闭合**的块 | `ControlFlowFamilyEndCode` → `0` |
+| `if` | 带体 + `else` 链 | `(…)` 头 + 体，体后按文档前瞻等 `else` | `IfStatementEndCode` |
+| `while` / `switch` / `with` | 带体 | `(…)` 头 + 体 | `LoopStatementEndCode` |
+| `for` / `for await` | 带体 | 可选 `await` + `(…)` 头 + 体 | `ForStatementEndCode` |
+| `do` | 带体 + `while (…)` 链 | 体（`stopAtWhile`）+ `while (…)` + `;` / ASI | `DoStatementEndCode` |
+| `try` | 带体 + `catch` / `finally` 链 | `{…}` + 可选 `catch` / `finally`（文档前瞻） | `TryStatementEndCode` |
+| `标识符 :` | 标签 | `:` 后的那条语句 | `ScanBodyEndCode(code, 2)` |
+
+**族判定必须与 `ScanRoot` 的分派条件逐条一致**（否则「本族」与「扫描器认的族」会错位，收口位置就会分叉）：
+
+- 七个控制流关键字在 `ScanRoot` 里各自 `return`，这里无条件认；
+- `declare` / `await` / `using` 在 `ScanRoot` 里有专门分支且都提前 `return`，**不会**落到标签判据；
+- 短语句族（`return` / `throw` / `break` / `continue` / `debugger` / `let`·`const`·`var`）由
+  `IsShortFamilyCode` 在族分派里**先**分流，本方法对它们只在「`let:` 标签形态」这一格接住
+  （此时 `IsShortFamilyCode` 已答 `false`，`ScanRoot` 也会落到最后的标签判据）；
+- 其余 `Common` 起点在 `ScanRoot` 里只剩**标签判据**一条路（`标识符 :`），所以这里也只认它。
+
+`code` 与 `IsShortFamilyCode` 的入参同一基准：只含代码单元（无 trivia）的已扫前缀。
+
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (head instanceof Bracket) {
+  // 块语句：`ScanRoot` 对首单元 `{` 也答 `Complete(0)`。
+  return (head as Bracket).StartBracketChar === "{";
+}
+if (!(head instanceof Common)) {
+  return false;
+}
+const text = (head as Common).TempToString();
+if (text === "if" || text === "while" || text === "do" || text === "for"
+  || text === "try" || text === "switch" || text === "with") {
+  return true;
+}
+// `ScanRoot` 的专门分支（ambient 变量 / `await using` / `using`）都提前 `return`；
+// 短语句族也已在族分派里先被 `IsShortFamilyCode` 接走。这里保持「不认」，让它们仍走各自的分支。
+if (text === "declare" || text === "await" || text === "using"
+  || text === "const" || text === "var" || text === "return" || text === "throw"
+  || text === "break" || text === "continue" || text === "debugger") {
+  return false;
+}
+// 其余 Common：`ScanRoot` 只可能落到最后的标签判据（`标识符 :`）。
+return StatementBoundaryUtil.IsLabelHead(code);
+```
+
+## static method IsLabelHead:(code:Array<Token>)=>bool
+
+**标签语句的头判据**（与 `ScanRoot` 的标签分支同一口径）：首单元是 `Common`，且
+
+- 下一格已经是 `:`（`code[1]`），或
+- 只有一个单元、文档里紧随的字符（跳过空白与注释）是 `:`（`:` 还没被 token 化）。
+
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+if (code.length >= 2) {
+  return code[1] instanceof Symbol && (code[1] as Symbol).Is(":");
+}
+return StatementScanner.NextChar(head.SourceRange.Document, head.SourceRange.EndIndex) === ":";
+```
+
+## static method ControlFlowFamilyEndCode:(code:Array<Token>)=>int
+
+**Stage 5d-2b：带体 / 链式控制流族的收口位置**（唯一入口）。返回**代码下标**（`code` 基准），
+`-1` = 还不能收口。只对 `IsControlFlowFamilyCode(code) === true` 的条目有意义（调用方先问族、再问位置）。
+
+链式族的关键字前瞻（`else` / `while` / `catch` / `finally`）**逐条搬在 boundary 层**，判据来源是
+`StatementScanner` 的 `NextWord` / `NextChar`（`else` / `catch` / `finally` 可能还没被 token 化，
+必须读文档；do-while 的 `;` 也一样）——不是第二套前瞻，就是扫描器里那一条。
+
+**语句体的终点仍读 `StatementScanner.ScanBody`**（唯一实现点）：体可以是任意语句（块 / 表达式 /
+短语句 / 嵌套控制流 / 声明体），把它在 boundary 层重写一遍就是第二套语句文法。`ScanBody` 本身
+**不调用 `ScanRoot`**（它按首单元分派到各族的体扫描），所以终结候选这条路径上 `ScanRoot` 归零。
+
+**`AtEOF` 读的是调用方刚设置的 `StatementScanner.AtEOF`**（`ComputeByIndex` / `BuildByIndex` /
+`TryToClose` 都在分派前算过同一个值，与 `ScanRoot` 读的是同一个事实），不在这里重算，避免出现第二个口径。
+
+```ts
+if (code.length === 0) {
+  return -1;
+}
+const head = code[0];
+if (head instanceof Bracket) {
+  // 块语句：首单元 `{…}` 就是整条语句（与 `ScanRoot` 的 `Complete(0)` 同一位）。
+  return (head as Bracket).StartBracketChar === "{" ? 0 : -1;
+}
+if (!(head instanceof Common)) {
+  return -1;
+}
+const text = (head as Common).TempToString();
+if (text === "if") {
+  return StatementBoundaryUtil.IfStatementEndCode(code);
+}
+if (text === "while" || text === "switch" || text === "with") {
+  return StatementBoundaryUtil.LoopStatementEndCode(code);
+}
+if (text === "for") {
+  return StatementBoundaryUtil.ForStatementEndCode(code);
+}
+if (text === "try") {
+  return StatementBoundaryUtil.TryStatementEndCode(code);
+}
+if (text === "do") {
+  return StatementBoundaryUtil.DoStatementEndCode(code);
+}
+// 标签：`标识符 :` 之后的那条语句（`let: 1` 的 `:` 也在这里，单 `let` 还在等 `:` 时答 -1）。
+if (!StatementBoundaryUtil.IsLabelHead(code)) {
+  return -1;
+}
+return StatementBoundaryUtil.ScanBodyEndCode(code, 2);
+```
+
+## static method ScanBodyEndCode:(code:Array<Token>, at:int, stopAtWhile?:bool)=>int
+
+**语句体的收口位置**：把 `StatementScanner.ScanBody(code, at, stopAtWhile)` 的 `Complete` 折算成
+「最后一个属于体的代码下标」，其余（`NeedMore` / `Mismatch`）一律 `-1`。
+
+`stopAtWhile` 只由 `DoStatementEndCode` 传 `true`（do 体的表达式语句在换行处遇到 `while` 要收口，
+那一格属于 do-while 的条件头），与 `ScanDo` 的传法逐字相同。
+
+```ts
+if (at < 0 || at >= code.length) {
+  return -1;
+}
+const body = StatementScanner.ScanBody(code, at, stopAtWhile);
+if (body.Status !== 1 || body.End < 0 || body.End >= code.length) {
+  return -1;
+}
+return body.End;
+```
+
+## static method IfStatementEndCode:(code:Array<Token>)=>int
+
+**`if` 的收口**（含 `else` / `else if` 链）：`if` + `(…)` 头 + 体；体到齐后
+
+- 本层已有下一格：是 `else` 就再吃一条体、收在 `else` 体末尾；否则收在 if 体末尾；
+- 本层没有下一格：文档里紧接着的词是 `else` 就**继续等**（`if (a) {}` ⏎ `else {}` 的 `else`
+  可能还没被 token 化），否则收在 if 体末尾。
+
+`else` 体仍交给 `ScanBody`，所以 `else if` 链是自然的递归（`ScanBody` 认 `if`），不需要在这里再写一层。
+
+**迁移来源**：`StatementScanner.ScanIf(code, 0)`（链式前瞻逐字搬迁）。
+
+```ts
+if (code.length < 2) {
+  return -1;
+}
+if (!StatementScanner.IsBracket(code[1], "(")) {
+  return -1;
+}
+const bodyEnd = StatementBoundaryUtil.ScanBodyEndCode(code, 2);
+if (bodyEnd < 0) {
+  return -1;
+}
+const next = bodyEnd + 1;
+if (next < code.length) {
+  if (StatementScanner.IsKeyword(code[next], "else")) {
+    return StatementBoundaryUtil.ScanBodyEndCode(code, next + 1);
+  }
+  return bodyEnd;
+}
+if (StatementScanner.NextWord(code[bodyEnd].SourceRange.Document, code[bodyEnd].SourceRange.EndIndex) === "else") {
+  return -1;
+}
+return bodyEnd;
+```
+
+## static method LoopStatementEndCode:(code:Array<Token>)=>int
+
+**`while` / `switch` / `with` 的收口**：头是一个 `( … )` 括号单元，后面跟体。三者同构
+（`ScanRoot` 把 `switch` / `with` 也交给 `ScanLoop`），所以共用这一份。
+
+```ts
+if (code.length < 2) {
+  return -1;
+}
+if (!StatementScanner.IsBracket(code[1], "(")) {
+  return -1;
+}
+return StatementBoundaryUtil.ScanBodyEndCode(code, 2);
+```
+
+## static method ForStatementEndCode:(code:Array<Token>)=>int
+
+**`for` / `for-in` / `for-of` / `for await` 的收口**：可选一个 `await`，然后 `( … )` 头，再跟体。
+`for-in` / `for-of` 的区别只在头括号**内部**（头是整单元，这里不看），所以判据同一条。
+
+```ts
+if (code.length < 2) {
+  return -1;
+}
+let bracketAt = 1;
+if (StatementScanner.IsKeyword(code[bracketAt], "await")) {
+  bracketAt++;
+  if (bracketAt >= code.length) {
+    return -1;
+  }
+}
+if (!StatementScanner.IsBracket(code[bracketAt], "(")) {
+  return -1;
+}
+return StatementBoundaryUtil.ScanBodyEndCode(code, bracketAt + 1);
+```
+
+## static method DoStatementEndCode:(code:Array<Token>)=>int
+
+**`do-while` 的收口**：体（`stopAtWhile`：换行处遇到 `while` 就收住，那个 `while` 是条件头）→
+`while` + `( … )` → 条件头之后
+
+- 原始文本的下一个字符**不是 `;`**：语句已经完整，收在条件头的 `)` 括号单元上
+  （TS 的 `do {} while (b)` 后面即使同一行还有一条语句，也是两条语句）；
+- 是 `;` 且本层已有这一格：收在 `;`；是 EOF 哨兵则收在条件括号上；
+- 是 `;` 但本层还没到：继续等。
+
+**缺 `while` 的恢复形**（`do b` ⏎ `{}`）：条件位就是一个表达式，交给
+`StatementScanner.ScanConditionEnd`（唯一实现点）找条件表达式的末尾；`-1` 时继续等。
+
+```ts
+const bodyEnd = StatementBoundaryUtil.ScanBodyEndCode(code, 1, true);
+if (bodyEnd < 0) {
+  return -1;
+}
+const whileAt = bodyEnd + 1;
+if (whileAt >= code.length) {
+  // 体已经收口、本层再没有单元：`while` 缺失（`do` ⏎ `{}`）。到文件末尾按体尾收口，
+  // 还没到 EOF 就继续等（后面可能还有 `while`）。
+  if (StatementScanner.AtEOF) {
+    return bodyEnd;
+  }
+  return -1;
+}
+if (StatementScanner.IsKeyword(code[whileAt], "while")) {
+  if (whileAt + 1 >= code.length) {
+    return -1;
+  }
+  if (!StatementScanner.IsBracket(code[whileAt + 1], "(")) {
+    return -1;
+  }
+  const header = code[whileAt + 1] as Bracket;
+  const semiAt = whileAt + 2;
+  // 只有字面 `;` 才能续上 do-while：条件头之后的下一个原始字符不是 `;` 就已经完整
+  // （文件末尾 / `}` 前 / 换行处 / 同一行起下一条语句，都是完整语句）。
+  const nextChar = StatementScanner.NextChar(header.SourceRange.Document, header.SourceRange.EndIndex);
+  if (nextChar !== ";") {
+    return whileAt + 1;
+  }
+  if (semiAt >= code.length) {
+    return -1;
+  }
+  if (StatementBoundaryUtil.IsSemicolon(code[semiAt])) {
+    return semiAt;
+  }
+  if (StatementBoundaryUtil.IsEof(semiAt, code)) {
+    return semiAt - 1;
+  }
+  return -1;
+}
+// 缺 `while` 的恢复形：条件位是一个表达式（`do b` ⏎ `{}` 的 `{}` 是条件位的对象字面量）。
+return StatementScanner.ScanConditionEnd(code, whileAt);
+```
+
+## static method TryStatementEndCode:(code:Array<Token>)=>int
+
+**`try` 的收口**（含 `catch` / `finally` 链）：`try` + `{…}`，然后
+
+- 本层已有下一格：`catch` / `finally` 就继续吃，其余收在 try 块上；
+- 本层没有下一格：文档里紧接着的词是 `catch` / `finally` 就**继续等**，否则收在 try 块上。
+
+```ts
+if (code.length < 2) {
+  return -1;
+}
+if (!StatementScanner.IsBracket(code[1], "{")) {
+  return -1;
+}
+const tryBlock = 1;
+const next = tryBlock + 1;
+if (next < code.length) {
+  if (StatementScanner.IsKeyword(code[next], "catch")) {
+    return StatementBoundaryUtil.TryCatchEndCode(code, next);
+  }
+  if (StatementScanner.IsKeyword(code[next], "finally")) {
+    return StatementBoundaryUtil.TryFinallyEndCode(code, next);
+  }
+  return tryBlock;
+}
+const word = StatementScanner.NextWord(code[tryBlock].SourceRange.Document, code[tryBlock].SourceRange.EndIndex);
+if (word === "catch" || word === "finally") {
+  return -1;
+}
+return tryBlock;
+```
+
+## static method TryCatchEndCode:(code:Array<Token>, catchAt:int)=>int
+
+**`catch` 子句**：可选一个 `( 绑定 )`，然后必须是一个 `{ … }` 块；块到齐后再看 `finally`
+（与 `ScanTry` 的 `catch` / `finally` 前瞻同一条文档前瞻）。
+
+```ts
+let cursor = catchAt + 1;
+if (cursor >= code.length) {
+  return -1;
+}
+if (StatementScanner.IsBracket(code[cursor], "(")) {
+  cursor++;
+}
+if (cursor >= code.length) {
+  return -1;
+}
+if (!StatementScanner.IsBracket(code[cursor], "{")) {
+  return -1;
+}
+const catchBlock = cursor;
+const next = catchBlock + 1;
+if (next < code.length) {
+  if (StatementScanner.IsKeyword(code[next], "finally")) {
+    return StatementBoundaryUtil.TryFinallyEndCode(code, next);
+  }
+  return catchBlock;
+}
+if (StatementScanner.NextWord(code[catchBlock].SourceRange.Document, code[catchBlock].SourceRange.EndIndex) === "finally") {
+  return -1;
+}
+return catchBlock;
+```
+
+## static method TryFinallyEndCode:(code:Array<Token>, finallyAt:int)=>int
+
+**`finally` 子句**：`finally` 之后必须是一个 `{ … }` 块，收在它上面。
+
+```ts
+const blockAt = finallyAt + 1;
+if (blockAt >= code.length) {
+  return -1;
+}
+if (!StatementScanner.IsBracket(code[blockAt], "{")) {
+  return -1;
+}
+return blockAt;
+```
+
 ## static method IsLateAtEof:(units:Array<Token>, tokenIndex:int)=>bool
 
 **晚建守卫的 EOF 半边**（Stage 4x）：从 `statement-possible-shape` 的 `declaration-statement-possible-shape`

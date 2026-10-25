@@ -369,6 +369,10 @@ BlockPossibleShape.OnShellBracketCreated(this, bracket, context);
 声明族读到的 `End` 若 `>= 0` 就用它（它只可能 ≤ 末代码单元）：`type T = A` ⏎ `a` 收在 `A`，
 `a` 由 `FinishShell` 搬回根单元、再经尾巴重放建出第二条语句。
 
+**Stage 5d-2b**：带体 / 链式控制流族（`IsControlFlowFamilyCode`）的 EOF 兜底改读**终结候选同一份**
+`StatementBoundaryUtil.ControlFlowFamilyEndCode`，同样不再走 `ScanRoot`（只加这一条同源分支，
+不改既有分支的顺序与判据）。
+
 建不出来时先调 `DetachShell` 把壳拆掉（见上）；拆不掉才退回基类。
 
 ```ts
@@ -404,9 +408,19 @@ if (!this.Closed) {
         }
       }
       StatementScanner.AtEOF = true;
-      const result = StatementScanner.ScanRoot(code);
-      if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
-        endIndex = codeAt[result.End];
+      if (StatementBoundaryUtil.IsControlFlowFamilyCode(code)) {
+        // Stage 5d-2b：带体 / 链式控制流族的 EOF 兜底与终结候选读**同一份**判据
+        // （`ControlFlowFamilyEndCode`），不再经 `ScanRoot`。这里只加这一条同源分支，
+        // 其余族逐位不变。
+        const controlEnd = StatementBoundaryUtil.ControlFlowFamilyEndCode(code);
+        if (controlEnd >= 0 && controlEnd < codeAt.length) {
+          endIndex = codeAt[controlEnd];
+        }
+      } else {
+        const result = StatementScanner.ScanRoot(code);
+        if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
+          endIndex = codeAt[result.End];
+        }
       }
     }
     let built:Token | null = null;
