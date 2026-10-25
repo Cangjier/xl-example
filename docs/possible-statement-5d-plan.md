@@ -410,3 +410,33 @@ node tests/statement-possible/legacy-retirement.mjs --legacy-only   # 底座，�
    让每阶段的「壳侧还剩多少」有分母。改这两个模式**不改变**默认读数。
 6. **本轮没有验证「语料外形态」**：`ast-json` 6171 条 + `token-ast` 1716 文件仍是既有覆盖面，
    指标归零不等于「TS 全语法都建对了」——5d-5 的风险 5 已写明这一点。
+
+---
+
+## 8. 阶段执行记录
+
+### 8.1 5d-3（根层声明语句壳化）——已交付
+
+分支 `feature/possible-statement-5d3`，基线 `49209483`。详见 `HANDOFF-5d3.md`，要点：
+
+- **新族码**：`StatementRoute.ShellFunctionDeclaration = 8` / `ShellClassDeclaration = 9` /
+  `ShellDecoratedDeclaration = 10`；开关 `EnableRootDeclarationShell = true`（关掉逐位回到 5d-2a）。
+- **路由**：`Decide` 首格识别 `function` / 同一行 `async function` / `class` / 同一行 `abstract class` /
+  语句首 `@`；**只认根层**（语句首 `Parent` 不是块体括号），块内 `class` 仍 `ShellStatementFamily`、
+  块内 `function` / 装饰器声明仍 `Legacy`（未迁）。
+- **判界**：唯一实现点 `StatementBoundaryUtil.DeclarationShellEndCode`（体括号 `TypeBuilder.IsBodyBrace` /
+  `;` / 声明跟随边界 / EOF；装饰器族不认 ASI），终结候选与 `StatementShape.TryToClose` 读同一份，
+  **不调 `ScanRoot`**。
+- **建树**：`StatementShape.BuildFromShell` 直接调 `BuildFunctionDeclaration()` / `BuildClassDeclaration()` /
+  `BuildDecoratedStatement()`（不经过 `BuildStatement()`）。
+- **指标**：全量 `ScanRootCallCount` **22467 → 21164**；族作用域 ScanRoot（文件半边）**427 → 0**；
+  legacy 根候选 `BuildByIndex`（shell 模式主路径，文件半边）**477 → 3**；`RawTailBuild` **292 → 288**；
+  `LegacyStatementDispatch` **4471 → 4470**；`FileFallback` **50 → 50**；`Declined` **328 → 328**。
+- **全门**：ast-json 6171/6171、diff 0/0/0、token-ast 1706/0、real-dts 226/226、harness 102/0/known=0、
+  double-accept 120/0、takeover 33/33、final-matrix 38/38、validate 1720/0、op-ast 94/94；新探针
+  `declaration-shell-boundary` 74/74（含 55 条反事实敏感性）。
+- **未迁**：`declare` / `export` 前缀（声明族壳）、块内 `function` / 装饰器声明、`async` ⏎ `function` /
+  `abstract` ⏎ `class`（TS 的 ASI 拆分）、装饰器 + 变量 + 无分号（本族不认 ASI 的已知边界）。
+- **既有红（不是本轮引入）**：`control-flow-body-takeover.mjs` 的 `{ enum E { A } }` /
+  `{ declare const x: number; }` 两条（`BlockBodyStatementCount` 期望 0、实测 1）；在 HEAD 上复现同样两条。
+

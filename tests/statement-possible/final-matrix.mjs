@@ -84,7 +84,18 @@ const COUNTERS = [
   "ArrowBodyMountCount",
   "SwitchCaseBodyMountCount",
   "BlockFunctionBodyMountCount",
+  "FunctionDeclarationShellCount",
+  "ClassDeclarationShellCount",
+  "DecoratedDeclarationShellCount",
 ];
+
+// **Stage 5d-3：根层 `function` 声明的三个用例改看 `BlockFunctionBodyMountCount`**。
+// 声明壳化之后，函数体 `{` 的宿主从根单元换成了 `StatementShape` 壳：挂载点从
+// `TryMountFunctionBody`（计数 `FunctionBodyMountCount`）改走
+// `BlockPossibleShape.OnShellBracketCreated` 的 `IsFunctionDeclarationBody` 分支
+// （计数 `BlockFunctionBodyMountCount`）。挂的是同一个 `{`、同一个块体目录、同一条
+// `BuildBlock` 收集通道——`BlockBodyStatementCount` 读数不变（下面三个用例仍是 1/1/1），
+// 所以这里只把「被断言的那个计数器」换成这条路径自己的账，能力断言本身没有放松。
 
 function snap() {
   const values = {};
@@ -165,12 +176,12 @@ const CASES = [
   { family: "控制流族", name: "for-of", src: "for (const a of o) { y; }", expect: { ControlFlowShellCount: 1 } },
   { family: "控制流族", name: "try-catch", src: "try { f(); } catch (e) { g(); }", expect: { ControlFlowShellCount: 1 } },
   { family: "控制流族", name: "do-while", src: "do f(); while (x);", expect: { ControlFlowShellCount: 1 } },
-  { family: "控制流族", name: "return", src: "function f() { return 1; }", expect: { FunctionBodyMountCount: 1 } },
+  { family: "控制流族", name: "return", src: "function f() { return 1; }", expect: { BlockFunctionBodyMountCount: 1 } },
   { family: "空语句", name: "empty-root", src: ";" },
   { family: "空语句", name: "empty-in-block", src: "{ ; }", expect: { BlockShellCount: 1 } },
   { family: "标签", name: "label", src: "lbl: f();", expect: { LabelShellCount: 1 } },
-  { family: "await 体语句", name: "await-block", src: "async function a() { await f(); }", expect: { AwaitShellCount: 1, FunctionBodyMountCount: 1 } },
-  { family: "函数体", name: "function-body", src: "function f() { let x = 1; }", expect: { FunctionBodyMountCount: 1, BlockBodyStatementCount: 1 } },
+  { family: "await 体语句", name: "await-block", src: "async function a() { await f(); }", expect: { AwaitShellCount: 1, BlockFunctionBodyMountCount: 1 } },
+  { family: "函数体", name: "function-body", src: "function f() { let x = 1; }", expect: { BlockFunctionBodyMountCount: 1, BlockBodyStatementCount: 1 } },
   { family: "箭头体", name: "arrow-body", src: "const g = () => { f(); };", expect: { ArrowBodyMountCount: 1 } },
   { family: "对象方法体", name: "object-method", src: "const o = { m() { f(); } };" },
   { family: "switch 子句级", name: "clause-one", src: "switch (x) { case 1: f(); }", expect: { SwitchCaseClauseMountCount: 1, SwitchCaseClauseShellCount: 1 } },

@@ -1118,6 +1118,11 @@ while (index < this.Units.length && this.Units[index] instanceof Symbol
 }
 // 装饰器之后还可能有修饰词（`@dec export class C {}`：export 在装饰器后面；`@dec declare class` 同理），
 // 跳过它们再认声明关键字。`abstract` 只有在后面是 `class` 时才算修饰词。
+// **Stage 5d-3**：`async` 也在这里跳过，但只在后面同一行是 `function` 时（`@dec async function f() {}`）。
+// 跳过之前这一格认出的关键字是 `async`，`BuildDecoratedStatement` 没有这条分派 → 返回 null → 表达式
+// 兜底抛错 → 文件级 fallback；而 legacy 的函数声明候选本来就认这个前缀（装饰器 + async + function）。
+// 跳过后 `DecoratedKeyword = "function"`，走 `BuildFunctionDeclaration`（各 `FromUnits` 自己重扫装饰器），
+// 与 legacy 建的是同一个形状。`async` 后面不是同一行的 `function`（箭头 / 标识符）时照旧不跳过。
 while (index < this.Units.length && this.Units[index] instanceof Common) {
   const text = (this.Units[index] as Common).TempToString();
   if (text === "export" || text === "declare" || text === "default") {
@@ -1127,6 +1132,14 @@ while (index < this.Units.length && this.Units[index] instanceof Common) {
   if (text === "abstract") {
     const after = index + 1 < this.Units.length ? this.Units[index + 1] : null;
     if (after !== null && this.IsText(after, "class")
+      && StatementScanner.NoLineBreakBetween(this.Units[index], after)) {
+      index++;
+      continue;
+    }
+  }
+  if (text === "async") {
+    const after = index + 1 < this.Units.length ? this.Units[index + 1] : null;
+    if (after !== null && this.IsText(after, "function")
       && StatementScanner.NoLineBreakBetween(this.Units[index], after)) {
       index++;
       continue;

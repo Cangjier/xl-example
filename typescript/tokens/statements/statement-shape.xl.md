@@ -153,6 +153,23 @@ if (built === null && (shell.Kind === StatementRoute.ShellVariable || shell.Kind
   // `shell.Pos`），因此接管不改变任何节点 / Pos / End——AST 相等由构造保证，不是靠测试兜住。
   built = VariableStatementThreeLayer.TryBuild(builder, consumed);
 }
+// **Stage 5d-3：根层声明语句壳直接调 family builder**（不经过 `BuildStatement()` 的整段 raw 分派）。
+// 三个族都只把**同一段** `consumed` 交给同一个 `FromUnits` / 声明建造器，所以节点 / Pos / End 与 legacy
+// 逐位相同；接管的证据只看 `FunctionDeclarationShellCount` / `ClassDeclarationShellCount` 与
+// `LegacyStatementDispatchCount` 的差值，别的计数器一个都不动。
+//
+// 装饰器族的判型**不新写**：`BuildDecoratedStatement` 用 `ScanDecoratedHead` 认出装饰器之后的声明关键字
+// 再分派到对应声明 builder（`class` / `abstract` → Class，`function` → Function，`interface` / `enum` /
+// `type` / `namespace` 走各自声明建造器，变量族走 `BuildDecoratedVariableStatement`）。它与
+// `BuildStatement()` 里 `@` 分支调用的是**同一个方法**，所以接管不改变分派判据；返回 null（`@` 后面
+// 不是声明，TS 侧本就非法）时照旧落回下面的 `BuildStatement()`。
+if (built === null && shell.Kind === StatementRoute.ShellFunctionDeclaration) {
+  built = builder.BuildFunctionDeclaration();
+} else if (built === null && shell.Kind === StatementRoute.ShellClassDeclaration) {
+  built = builder.BuildClassDeclaration();
+} else if (built === null && shell.Kind === StatementRoute.ShellDecoratedDeclaration) {
+  built = builder.BuildDecoratedStatement();
+}
 if (built === null) {
   // Stage 5d-1a（零行为变化）：这一格是 legacy「整段 raw 分派建树」的唯一入口——形状树与三层 possible 都没接住时，
   // 整条语句交回 `StatementBuilder.BuildStatement()`。两个计数器只记录事实，不改变任何分支 / 顺序 / 状态：
@@ -405,6 +422,23 @@ if (!this.Closed) {
         }
       }
       const end = StatementBoundaryUtil.StatementEndCode(this.Data, codeAt, true, true);
+      if (end >= 0) {
+        endIndex = end;
+      }
+    } else if (this.Kind === StatementRoute.ShellFunctionDeclaration
+      || this.Kind === StatementRoute.ShellClassDeclaration
+      || this.Kind === StatementRoute.ShellDecoratedDeclaration) {
+      // **Stage 5d-3**：根层声明语句壳的 EOF 兜底与终结候选读**同一份**判据
+      // （`StatementBoundaryUtil.DeclarationShellEndCode`：体括号 / `;` / 声明跟随边界 / EOF），
+      // 不再走 `ScanRoot`。壳里若已收着体括号，收在它身上；ambient 无体签名收在末代码单元。
+      const codeAt:Array<number> = [];
+      for (let at = 0; at < this.Data.length; at++) {
+        if (!this.Data[at].IsTriviaToken) {
+          codeAt.push(at);
+        }
+      }
+      const end = StatementBoundaryUtil.DeclarationShellEndCode(this.Data, codeAt, true,
+        this.Kind === StatementRoute.ShellDecoratedDeclaration);
       if (end >= 0) {
         endIndex = end;
       }

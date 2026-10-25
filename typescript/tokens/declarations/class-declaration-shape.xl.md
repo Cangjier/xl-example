@@ -190,9 +190,15 @@ return ClassDeclarationShape.BuildFromUnits(host, start, tokenIndex, context, tr
 ## static method HasNoName:(units:Array<Token>, start:int, end:int)=>bool
 
 `start` / `end` 是这条类声明的首格与类体 `{...}` 括号在 `units` 里的下标：`class` 关键字后面
-（跳过 trivia）直接是类体括号 / `extends` / `implements` ⇒ 没有名字。TS 对语句位 / 块体位的匿名
-`class {}` 是**静默恢复**（`parseDiagnostics=0`，造无名字 ClassDeclaration），语句建造器与
-`ModuleBlockShape` 用本判据打开 `FromUnitsAllowAnonymous`。
+（跳过 trivia）直接是类体括号 / `extends` / `implements` / **类型参数 `<…>`** ⇒ 没有名字。TS 对语句位 /
+块体位的匿名 `class {}` 是**静默恢复**（`parseDiagnostics=0`，造无名字 ClassDeclaration），
+语句建造器与 `ModuleBlockShape` 用本判据打开 `FromUnitsAllowAnonymous`。
+
+**Stage 5d-3 补 `<`**：`class<T> {}` / `class<T> extends B {}` 是 TS 的**无名字类**恢复形（名字位置直接是
+类型参数表，`parseDiagnostics=0`，AST 是 `ClassDeclaration` + `TypeParameter`）。根层声明壳收口后走
+`BuildClassDeclaration`，原先这里判「有名字」→ `FromUnits` 抛「名字不是标识符」→ 这两行只能靠文件级
+fallback（`dts-recovery.ts` L21/L22 的 `fileFallbacks` 0→1）。判据只多认第一格是 `<`：它不可能是名字，
+也不可能是 heritage，只可能是类型参数表的开头。
 
 ```ts
 let keyword = -1;
@@ -216,6 +222,10 @@ if (next > end || next >= units.length) {
 }
 const candidate = units[next];
 if (candidate instanceof Bracket) {
+  return true;
+}
+if (candidate instanceof Symbol && (candidate as Symbol).Is("<")) {
+  // `class<T> …`：名字位直接是类型参数表 → TS 的无名字类恢复形。
   return true;
 }
 if (candidate instanceof Common) {
