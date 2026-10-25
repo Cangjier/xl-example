@@ -7,6 +7,9 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
+import { AsExpressionShape } from "../expressions/as-expression-shape.xl.md"
+import { SatisfiesExpressionShape } from "../expressions/satisfies-expression-shape.xl.md"
+import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { CallExpressionShape } from "../expressions/call-expression-shape.xl.md"
 import { ConditionalExpressionShape } from "../expressions/conditional-expression-shape.xl.md"
 import { PostfixUnaryExpressionShape } from "../expressions/postfix-unary-expression-shape.xl.md"
@@ -23,9 +26,12 @@ import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { FalseKeywordShape } from "../keywords/false-keyword-shape.xl.md"
 import { NullKeywordShape } from "../keywords/null-keyword-shape.xl.md"
 import { ThisKeywordShape } from "../keywords/this-keyword-shape.xl.md"
+import { SuperKeywordShape } from "../keywords/super-keyword-shape.xl.md"
 import { TrueKeywordShape } from "../keywords/true-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { PrivateIdentifierShape } from "../names/private-identifier-shape.xl.md"
 import { MetaPropertyShape } from "../expressions/meta-property-shape.xl.md"
+import { TaggedTemplateExpressionShape } from "../expressions/tagged-template-expression-shape.xl.md"
 import { ImportKeywordShape } from "../keywords/import-keyword-shape.xl.md"
 import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
@@ -487,6 +493,10 @@ if (shape.Kind === StatementOperandShape.KindKeyword) {
   if (keywordText === "this") {
     return builder.SpanLeaf(new ThisKeywordShape(builder.Template), index);
   }
+  if (keywordText === "super") {
+    // Stage 5d-7：`super` 与 legacy `ParsePrimary` 的 super 分支同一工厂（`SuperKeywordShape` + `MakeKeywordLeaf`）。
+    return builder.MakeKeywordLeaf(new SuperKeywordShape(builder.Template), index);
+  }
   return StatementShapeAst.Decline("不认识的关键字叶子 " + keywordText);
 }
 if (shape.Kind === StatementOperandShape.KindPrefix) {
@@ -773,6 +783,227 @@ if (shape.Kind === StatementOperandShape.KindPostfix) {
   const postfix = new PostfixUnaryExpressionShape(builder.Template);
   postfix.Add(operand);
   return builder.SpanNode(postfix, firstIndex, opIndex);
+}
+if (shape.Kind === StatementOperandShape.KindTypeAssert) {
+  // Stage 5d-7：类型断言（`a as T` / `a satisfies T`）。左边仍是形状树的节点；右边是**类型**，
+  // 形状层没有类型节点，所以从 `as` 之后整段交给 legacy `ParseFollowingType`——与
+  // `ExpressionBuilder.ParseBinary` 的 `IsTypeOperator` 分支同一个调用、同一批工厂
+  // （`AsExpressionShape` / `SatisfiesExpressionShape`）、同一段区间口径（`SpanNode(左首单元, 类型末单元)`）。
+  //
+  // **安全条件**：类型必须**恰好**吃到最后一个单元（`after === builder.Units.length`）。`a as T + b` 这种
+  // 「类型之后还有表达式」的形状层不解释（`+ b` 已被操作符体吞进类型区域），这里判否、整条回 legacy，
+  // 绝不建出「只吃了一半源码」的树。链式断言（`a as T as U`）在循环里逐层包，与 legacy 的左结合一致。
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("类型断言不是单操作数");
+  }
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof Common)) {
+    return StatementShapeAst.Decline("类型断言没有 as / satisfies 单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("类型断言的运算符单元不在表达式里");
+  }
+  const at = covered.length;
+  const operand = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (operand === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const savedAt = builder.At;
+  builder.At = index;
+  let value:Token = operand;
+  let lastIndex = index - 1;
+  try {
+    while (builder.At < builder.Units.length) {
+      const operatorUnit = builder.Units[builder.At];
+      if (!(operatorUnit instanceof Common)
+        || !OperatorTable.IsAsOperator((operatorUnit as Common).TempToString())) {
+        break;
+      }
+      const operatorText = (operatorUnit as Common).TempToString();
+      builder.At++;
+      const type = builder.ParseFollowingType();
+      let assertShape:ShapeToken;
+      if (operatorText === "as") {
+        assertShape = new AsExpressionShape(builder.Template);
+      } else {
+        assertShape = new SatisfiesExpressionShape(builder.Template);
+      }
+      assertShape.Add(value);
+      assertShape.Add(type);
+      value = builder.SpanNode(assertShape, firstIndex, builder.At - 1);
+      lastIndex = builder.At - 1;
+    }
+  } catch (error) {
+    builder.At = savedAt;
+    return StatementShapeAst.Decline("类型断言交给 legacy 类型解析失败");
+  }
+  const after = builder.At;
+  builder.At = savedAt;
+  if (lastIndex < index || after !== builder.Units.length) {
+    return StatementShapeAst.Decline("类型断言没有覆盖整段表达式单元");
+  }
+  for (let cursor = index; cursor < after; cursor++) {
+    covered.push(cursor);
+  }
+  return value;
+}
+if (shape.Kind === StatementOperandShape.KindPrivateName) {
+  // Stage 5d-7：私有名（`this.#x` 的成员名 / `#x in obj` 的操作数）。token 层把它拆成 `#` + 名字两格，
+  // `PrivateIdentifierShape` 把它们合成一个节点：`SignInToken(#)` + `SignOutToken(名字)` +
+  // `Pos = Positions[#]`——与 `ExpressionBuilder.ParsePostfixSuffix` 的私有成员分支、
+  // `ParsePrimary` 的私有名字分支逐字段同口径（children 为空：TS 的 PrivateIdentifier 不投影 text）。
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("私有名不是单个名字");
+  }
+  const hashRaw = shape.Raw;
+  if (hashRaw === null) {
+    return StatementShapeAst.Decline("私有名没有 # 单元");
+  }
+  const hashIndex = builder.Units.indexOf(hashRaw);
+  if (hashIndex < 0) {
+    return StatementShapeAst.Decline("私有名的 # 单元不在表达式里");
+  }
+  const nameShape = shape.Data[0];
+  if (!(nameShape instanceof StatementOperandShape)) {
+    return StatementShapeAst.Decline("私有名的名字不是形状节点");
+  }
+  const nameRaw = (nameShape as StatementOperandShape).Raw;
+  if (nameRaw === null) {
+    return StatementShapeAst.Decline("私有名的名字没有单元");
+  }
+  const nameIndex = builder.Units.indexOf(nameRaw);
+  if (nameIndex < 0) {
+    return StatementShapeAst.Decline("私有名的名字单元不在表达式里");
+  }
+  covered.push(hashIndex);
+  covered.push(nameIndex);
+  const privateShape = new PrivateIdentifierShape(builder.Template);
+  privateShape.SignInToken(hashRaw);
+  privateShape.SignOutToken(nameRaw);
+  privateShape.Pos = builder.Positions[hashIndex];
+  privateShape.TryToClose(context);
+  return privateShape;
+}
+if (shape.Kind === StatementOperandShape.KindTypeArguments) {
+  // Stage 5d-7：类型实参尾巴（`f<T>(a)` / `a<b>?.[0]` / `f<T>` / `a<b>\`t\``）。
+  // 左边是形状树建好的表达式；`<` 之后（类型实参 + 调用 / 实例化 / `?.` 链）整段交给 legacy
+  // `ExpressionBuilder.ParsePostfixSuffix`——那是这条文法的唯一实现（`CanStartTypeArgumentCall` /
+  // `CanStartTypeArguments` / `ParseTypeArgumentsAtCurrent` 都在里面），所以节点与 legacy 逐字段同源。
+  // 安全条件：它必须**恰好**吃到最后一个单元（`after === builder.Units.length`），否则判否、整条回 legacy。
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("类型实参尾巴不是单个左表达式");
+  }
+  const raw = shape.Raw;
+  if (raw === null) {
+    return StatementShapeAst.Decline("类型实参尾巴没有 < 单元");
+  }
+  const ltIndex = builder.Units.indexOf(raw);
+  if (ltIndex < 0) {
+    return StatementShapeAst.Decline("类型实参的 < 单元不在表达式里");
+  }
+  const at = covered.length;
+  const left = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (left === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  const savedAt = builder.At;
+  let value:Token | null = null;
+  let after = ltIndex;
+  builder.At = ltIndex;
+  try {
+    value = builder.ParsePostfixSuffix(left, firstIndex);
+    after = builder.At;
+  } catch (error) {
+    builder.At = savedAt;
+    return StatementShapeAst.Decline("类型实参尾巴交给 legacy 解析失败");
+  }
+  builder.At = savedAt;
+  if (value === null || after <= ltIndex || after !== builder.Units.length) {
+    return StatementShapeAst.Decline("类型实参尾巴没有覆盖整段表达式单元");
+  }
+  for (let cursor = ltIndex; cursor < after; cursor++) {
+    covered.push(cursor);
+  }
+  return value;
+}
+if (shape.Kind === StatementOperandShape.KindNewTarget) {
+  // Stage 5d-7：`new.target`（`new` `.` `target` 三格）。整格交给 legacy `ExpressionBuilder.ParseNew()`——
+  // 它对 `new` 之后紧跟 `. target` 本来就有专门分支（`MetaPropertyShape`，children 只有名字 `target`，
+  // `new` 与 `.` 只进区间，`Pos` 取 `new` 的含前导 trivia 起点）。这里只按 legacy 的消费长度记覆盖，
+  // 与 `KindNew` / `KindArrow` / `KindFunction` 的委派口径一致。
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("new.target 不是单个名字");
+  }
+  const raw = shape.Raw;
+  const dotRaw = shape.Args;
+  if (raw === null || dotRaw === null) {
+    return StatementShapeAst.Decline("new.target 缺少 new 或点号单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("new 关键字不在表达式里");
+  }
+  const nameShape = shape.Data[0];
+  if (!(nameShape instanceof StatementOperandShape) || (nameShape as StatementOperandShape).Text !== "target") {
+    return StatementShapeAst.Decline("new 之后的成员名不是 target");
+  }
+  const savedAt = builder.At;
+  builder.At = index;
+  let value:Token | null = null;
+  let after = index;
+  try {
+    value = builder.ParseNew();
+    after = builder.At;
+  } catch (error) {
+    builder.At = savedAt;
+    return StatementShapeAst.Decline("new.target 交给 legacy 解析失败");
+  }
+  builder.At = savedAt;
+  if (value === null || after <= index) {
+    return StatementShapeAst.Decline("new.target 没有消费单元");
+  }
+  for (let at = index; at < after; at++) {
+    covered.push(at);
+  }
+  return value;
+}
+if (shape.Kind === StatementOperandShape.KindTaggedTemplate) {
+  // Stage 5d-7：标签模板（`` tag`t` ``）。被标宿主（标签）本身仍是形状树的节点，所以它由上面的分支
+  // 逐个建；模板单元这一格交给 legacy `ParseTemplateToken`（与 `KindTemplate` 同一工厂：无内插 →
+  // `NoSubstitutionTemplateLiteralShape`，有内插 → `TemplateExpressionShape`，`Pos` 与区间由同一段代码定）。
+  // 外层 `TaggedTemplateExpressionShape` 的 children 顺序（标签、模板）、`Pos`（标签的 `Pos`）与区间
+  // （标签首单元 → 模板单元）与 `ExpressionBuilder.ParsePostfixSuffix` 的模板分支**逐字段同源**：
+  // 那个分支就是 `shape.Add(tag)` + `shape.Add(template)` + `SignIn(tag.StartIndex)` + `SignOut(template.EndIndex)`，
+  // 而 `SpanNode(firstIndex, index)` 做的是同一件事。
+  if (shape.Data.length !== 1) {
+    return StatementShapeAst.Decline("标签模板不是单个标签");
+  }
+  const raw = shape.Raw;
+  if (raw === null || !(raw instanceof String)) {
+    return StatementShapeAst.Decline("标签模板没有模板单元");
+  }
+  const index = builder.Units.indexOf(raw);
+  if (index < 0) {
+    return StatementShapeAst.Decline("模板单元不在表达式里");
+  }
+  const at = covered.length;
+  const tag = StatementShapeAst.BuildNode(shape.Data[0], builder, context, covered);
+  if (tag === null) {
+    return null;
+  }
+  const firstIndex = covered[at];
+  covered.push(index);
+  const savedAt = builder.At;
+  builder.At = index;
+  const templateLiteral = builder.ParseTemplateToken();
+  builder.At = savedAt;
+  const tagged = new TaggedTemplateExpressionShape(builder.Template);
+  tagged.Add(tag);
+  tagged.Add(templateLiteral);
+  return builder.SpanNode(tagged, firstIndex, index);
 }
 if (shape.Kind === StatementOperandShape.KindArrow) {
   // S3l：箭头函数整段交给 legacy。参数形态与体（表达式体 / 块体）由 `ParseAssign` 的箭头分支决定，
