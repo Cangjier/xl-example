@@ -13,6 +13,7 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { DirectSession } from "./direct-build-session.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
+import { ModuleFamilyDirectSession } from "./direct-module-session.xl.md"
 ```
 
 # namespace cangjie
@@ -24,10 +25,15 @@ R5-D2 声明族的直建 session（`ShellDeclarationFamily` kind 7 / `ShellClass
 三个工厂在「无装饰器 / 无成员初始值」时的唯一建树路径都是 `TypeBuilder`（A6 不计 TypeBuilder，
 与 R2 `as` 分支同一口径，`R5-CONTRACT §2.1`）。
 
-**class 不直建（R6）**：`class` 声明（kind 9）与装饰器声明（kind 10）在本轮**显式 Decline + 分类**
-（`decl.class`），旧路径建树；`ClassDeclarationShape` 里有 2 处 `new StatementBuilder`，A6 不可能为 0。
-`namespace` / `module` / `import` / `export` / `declare` / `using` 同属声明壳（kind 7）但本轮不做，
-按 `decl.head` 显式 Decline。`const enum` 根层 `Decide` 根本不建壳（实测 sessions=0）⇒ 走不到这里。
+**class 不直建（归 D1）**：`class` 声明（kind 9）与装饰器声明（kind 10）在 `feat-r6-class` 里由
+`ClassDeclarationDirectSession` 接管；**本文件不碰那两个 kind**（脚本层的注册行由 `feat-r6-harden` 改）。
+`const enum` 根层 `Decide` 根本不建壳（实测 sessions=0）⇒ 走不到这里。
+
+**R6-D2 的头分派（`R6-CONTRACT §4.2`）**：kind 7 同时承载 `interface`/`type`/`enum`（R5）与
+`import` / `export` / `namespace` / `module` / `declare`（R6）⇒ `RecognizeHead` 多识别两格：
+`HeadModule`（五个头，收口时整段转交 `ModuleFamilyDirectSession.Build`）与 `HeadUsing`
+（`using` 保持 `decl.head`，R6-Q5 留 R7）。**不新增注册行、不改 `direct-build-plugins`**：
+module 族与 interface/type/enum 共用一个 kind，分派在类内。
 
 **不要为了「没 case」把类型族拒掉**：`interface` 的成员、`type` 别名的 RHS、`enum` 成员名都由
 `TypeBuilder` 读（`CollectBodyMembers` 在成员已闭合时直接取、未闭合时 `BuildMembers`），R5 只换通道。
@@ -44,9 +50,10 @@ type T = A;                         -> TypeAliasDeclarationShape[Identifier T, T
 type T = A | B;                     -> TypeAliasDeclarationShape[Identifier T, UnionType]
 enum E { A, B }                     -> EnumDeclarationShape[Identifier E, EnumMember A, EnumMember B]
 enum E { A = 1 }                    -> Decline(decl.enum)（成员初始值会拉 ExpressionBuilder）
-class C {}                          -> Decline(decl.class)（kind 9，R6）
-@dec class C {}                     -> Decline(decl.class)（kind 10，R6）
-namespace N { … } / import / export / declare … -> Decline(decl.head)
+class C {}                          -> Decline(decl.class)（kind 9，归 D1 / feat-r6-class）
+@dec class C {}                     -> Decline(decl.class)（kind 10，归 D1 / feat-r6-class）
+import / export / namespace / module / declare … -> ModuleFamilyDirectSession.Build（R6-D2）
+using x = a;                        -> Decline(decl.head)（R6-Q5 留 R7）
 const enum E { A, B }               -> 不建壳（sessions=0，走不到这里）
 ```
 
@@ -63,6 +70,10 @@ const enum E { A, B }               -> 不建壳（sessions=0，走不到这里�
 ## static field HeadDecorator:int = 5
 
 ## static field HeadOther:int = 6
+
+## static field HeadModule:int = 7
+
+## static field HeadUsing:int = 8
 
 ## field Owner:Token | null = null
 
@@ -91,6 +102,8 @@ const enum E { A, B }               -> 不建壳（sessions=0，走不到这里�
 ## field HeadKind:int = 0
 
 ## field HeadText:string = ""
+
+## field Module:ModuleFamilyDirectSession | null = null
 
 ## constructor:(template:Template, context:SyntaxContext, basePos:int, owner:Token)=>void
 
@@ -152,9 +165,8 @@ if (DirectBuildMetrics.Strict) {
 // 与 R2/R3/R4 的 session 同构（增量 / 幂等 / 只读）：从 `Ingested` 往后逐单元吃，trivia 跳过。
 // Ingest 期只做两件**纯 token** 判定：
 //   ① 壳自己的 kind 已经决定「这一族本轮做不做」（9/10 = class / 装饰器 ⇒ 立刻 Decline，不判 head）；
-//   ② kind 7 的首代码单元必须是 interface / type / enum 之一，其余（namespace / import / export /
-//      declare / using / class）由 `ApplyHead`（内部用 `RecognizeHead` 分类）按 `decl.head` /
-//      `decl.class` 显式 Decline。
+//   ② kind 7 的首代码单元必须是 interface / type / enum / import / export / namespace / module /
+//      declare 之一（`using` 单独识别后按 `decl.head` Decline），其余由 `ApplyHead` 显式 Decline。
 // 结构判定全部在 `Finish`（要整段已就位：体括号闭合、类型别名读到 `;` / ASI）。
 if (this.Declined || this.Finished) {
   return;
@@ -210,6 +222,19 @@ if (text === "class") {
 if (this.IsSymbolText(unit, "@")) {
   return DeclarationFamilyDirectSession.HeadDecorator;
 }
+// R6-D2：module 族的五个头（`import` / `export` / `namespace` / `module` / `declare`）单独识别成
+// `HeadModule`，收口时整段转交 `ModuleFamilyDirectSession`（`R6-CONTRACT §4.2`）。
+// 判据只看首代码单元那一格（`declare` 的第二格由 module session 自己再看）。
+if (text === "import" || text === "export" || text === "namespace"
+  || text === "module" || text === "declare") {
+  return DeclarationFamilyDirectSession.HeadModule;
+}
+// `using`（TS 5.2 显式资源管理）需要一个**单独的**头：它是变量声明的 Using 变体，
+// 不是 module 族；R6-Q5 裁决不做 ⇒ 显式 Decline(`decl.head`)，但不与 module 族混为一格
+//（否则 R6 之后 `using` 会被误送进 module session）。
+if (text === "using") {
+  return DeclarationFamilyDirectSession.HeadUsing;
+}
 return DeclarationFamilyDirectSession.HeadOther;
 ```
 
@@ -239,6 +264,19 @@ if (kind === DeclarationFamilyDirectSession.HeadInterface
   || kind === DeclarationFamilyDirectSession.HeadTypeAlias
   || kind === DeclarationFamilyDirectSession.HeadEnum) {
   DirectBuildMetrics.Trace("declaration ingest head: " + this.HeadText);
+  return;
+}
+if (kind === DeclarationFamilyDirectSession.HeadModule) {
+  // R6-D2：不再 `Decline(decl.head)` —— 记下头，收口时把整段交给 `ModuleFamilyDirectSession.Build`。
+  // 为什么不在 Ingest 期就建：`export default async () => {}` 是 `ExportAssignment`、
+  // `export default class` 是声明，两者只差 code[2] 一格，必须等整段（含 `;` / 体括号）就位。
+  DirectBuildMetrics.Trace("module family ingest head: " + this.HeadText);
+  return;
+}
+if (kind === DeclarationFamilyDirectSession.HeadUsing) {
+  // `using x = a;` 是变量声明的 Using 变体（tsc: `VariableStatement[VariableDeclarationList, ;]`），
+  // 要走 `DirectDeclarationAssembly` 的新口子 ⇒ R6-Q5 裁决不做，保持 R5 的读数（`decl.head`）。
+  this.Decline("using 声明属 R7", "decl.head");
   return;
 }
 this.Decline("声明族不在本轮范围: " + (this.HeadText === "" ? unit.constructor.name : this.HeadText),
@@ -325,9 +363,32 @@ if (this.HeadKind === DeclarationFamilyDirectSession.HeadTypeAlias) {
 if (this.HeadKind === DeclarationFamilyDirectSession.HeadEnum) {
   return this.BuildEnum(code, codeAt);
 }
+if (this.HeadKind === DeclarationFamilyDirectSession.HeadModule) {
+  return this.BuildModuleFamily(code, codeAt);
+}
 // 其余头已经在 `ApplyHead` 里 Decline；走到这里是「头识别了但没接住」的状态，显式拒绝。
 this.Decline("声明族不在本轮范围: " + this.HeadText, "decl.head");
 return null;
+```
+
+## method BuildModuleFamily:(code:Array<Token>, codeAt:Array<int>)=>Token | null
+
+```ts
+// R6-D2 的转发点（`R6-CONTRACT §3.2` 第 ③ 条）：同一 kind 的第二族，交给
+// `ModuleFamilyDirectSession.Build` 按 code[0] 四路分派（import / export / namespace·module / declare）。
+// 分类只在这一处：module 族的任何失败都落 `decl.module`（`R6-CONTRACT §4.5` 的新 category），
+// 不再散落成 `decl.head` / `decl.shape` —— 「为什么没直建」的第一层判据就是「是不是 module 族」。
+// 覆盖校验与 `StatementsBuilt` 由 `Finish` 统一做（与本文件另外三族同一口径），所以这里不计数。
+if (this.Module === null) {
+  this.Module = new ModuleFamilyDirectSession(this.Template, this.Context, this.BasePos,
+    this.Owner as Token);
+}
+const shape = this.Module.Build(code, codeAt);
+if (shape === null) {
+  this.Decline("module 族直建失败: " + this.Module.Reason, "decl.module");
+  return null;
+}
+return shape;
 ```
 
 ## method BodyBracketOf:(code:Array<Token>)=>Bracket | null
