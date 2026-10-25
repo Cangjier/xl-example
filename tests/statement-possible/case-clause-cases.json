@@ -28,6 +28,25 @@
         { "name": "s4y-trap-case-expression-call", "source": "switch (x) { case foo(): { g(); } }" },
         { "name": "s4y-trap-switch-no-clause-stmt", "source": "switch (x) { case 1: { let a = 1; } default: }" }
       ]
+    },
+    "stage4aa": {
+      "stage": "Stage 4aa (clause shell closes at ; / EOF / ASI: StatementKind = ShellPlainExpression)",
+      "description": "Clause-level statement takeover now delivered: multiple statements in one clause, declarations followed by statements, two clauses, ASI between clause statements (line break, and line break before the next case), case body after a clause, case body before a clause, three clauses, nested switch with two statements in the inner clause, empty statements in two clauses, default with two statements, and a switch inside a block.",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4aa-clause-multi-stmt", "source": "switch (x) { case 1: a; b; }" },
+        { "name": "s4aa-clause-three-stmt", "source": "switch (x) { case 1: a; b; c; }" },
+        { "name": "s4aa-clause-decl-then-stmt", "source": "switch (x) { case 1: let y = 1; f(); }" },
+        { "name": "s4aa-clause-two-clauses", "source": "switch (x) { case 1: f(); case 2: g(); }" },
+        { "name": "s4aa-clause-asi", "source": "switch (x) { case 1: a\n b; }" },
+        { "name": "s4aa-clause-asi-before-case", "source": "switch (x) { case 1: a\n case 2: b; }" },
+        { "name": "s4aa-clause-body-after-clause", "source": "switch (x) { case 1: f(); case 2: { g(); } }" },
+        { "name": "s4aa-clause-body-before-clause", "source": "switch (x) { case 1: { g(); } case 2: f(); }" },
+        { "name": "s4aa-clause-nested-switch", "source": "switch (x) { case 1: switch (y) { case 2: f(); g(); } }" },
+        { "name": "s4aa-clause-asi-then-body", "source": "switch (x) { case 1: f();\n case 2: { g(); } }" },
+        { "name": "s4aa-clause-default-multi", "source": "switch (x) { default: a; b; }" },
+        { "name": "s4aa-clause-in-block", "source": "{ switch (x) { case 1: a; b; } }" }
+      ]
     }
   }
 }

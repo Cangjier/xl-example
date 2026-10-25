@@ -1,127 +1,106 @@
-// Stage 4y proof: switch clause-level statements (SAFE ROLLBACK state) + the default-off block-class shell.
+// Stage 4aa proof: switch clause-level statements are ON BY DEFAULT (both gates).
 //
 //   node tests/statement-possible/s4y-case-clause-takeover.mjs
 //
-// Shipped default: `EnableSwitchCaseClause = false` (see HANDOFF-s4y.md §1: the clause shell does not close
-// at `;`, so the takeover is incomplete and would swallow the following case-body mounts). This script
-// therefore asserts the SAFE state for every source:
-//   (1) SwitchCaseClauseMountCount / SwitchCaseClauseShellCount deltas are 0;
-//   (2) shell-path XML == legacy-path XML byte for byte;
-//   (3) no file-level fallback.
-// It then re-runs each source with the flag FORCED ON and prints the measured numbers as diagnostics
-// (never as a pass/fail): those are the recorded gap readings, not a delivered feature.
+// Root cause fixed in 4aa: the clause shell's end candidate was mounted with
+// StatementKind = 0 (Wave1 variable family) so it judged with StatementScanner.ScanRoot,
+// which only recognises `{` / `;` / declaration-keyword starts. The clause shell data has
+// no `{` prefix, so `f`-starting clause statements were Mismatch and the shell never closed
+// at `;`. It is now StatementRoute.ShellPlainExpression (`;` / EOF / ASI).
 //
-// The block-class gate (`EnableBlockClassShell`, also default off) is measured the same way: forced on,
-// then XML == legacy + fallback + BlockBodyStatementCount are printed.
+// Asserted here (not just printed):
+//   (1) both gates ship DEFAULT TRUE, EnableBlockClassShell stays false;
+//   (2) with the gates off the raw path is byte-identical to the ON path (safe rollback);
+//   (3) with the gates on: XML == off-path XML for every source, no file fallback;
+//   (4) headline takeover counts: `a; b;` shell=2, `f(); case 2: g();` shell=2,
+//       `f(); case 2: { g(); }` body=1.
 import path from "node:path";
 import { createRequire } from "node:module";
-
 const root = process.cwd();
 const require = createRequire(import.meta.url);
 const load = (p) => require(path.join(root, "build/ts", p));
 const { SourceFileRunner } = load("typescript/run/source-file-runner.js");
 const { StatementRouteUtil: R } = load("typescript/tokens/statements/statement-route-util.js");
+const { BlockPossibleShape: B } = load("typescript/tokens/statements/block-possible-shape.js");
 
+// shells / body are the MEASURED on-state counts; null = print only (no assertion).
 const sources = [
-  "switch (x) { case 1: f(); }",
-  "switch (x) { case 1: a; b; }",
-  "switch (x) { case 1: f(); case 2: g(); }",
-  "switch (x) { default: f(); }",
-  "switch (x) { case a + 1: f(); }",
-  "switch (x) { case a ? b : c: f(); }",
-  "switch (x) { case 1: if (x) { y; } }",
-  "switch (x) { case 1: ; }",
-  "switch (x) { case 1: let y = 1; }",
-  "switch (x) { case 1: f() }",
-  "switch (x) { case 1: { g(); } }",
-  "switch (x) { case 1: f(); case 2: { g(); } }",
-  "switch (x) { case 1: f(); default: g(); }",
-  "switch (x) { }",
+  { source: "switch (x) { case 1: f(); }", shells: 1, body: 0 },
+  { source: "switch (x) { case 1: a; b; }", shells: 2, body: 0 },
+  { source: "switch (x) { case 1: f(); case 2: g(); }", shells: 2, body: 0 },
+  { source: "switch (x) { case 1: f(); case 2: { g(); } }", shells: 1, body: 1 },
+  { source: "switch (x) { default: f(); }", shells: 1, body: 0 },
+  { source: "switch (x) { case a + 1: f(); }", shells: 1, body: 0 },
+  { source: "switch (x) { case a ? b : c: f(); }", shells: 1, body: 0 },
+  { source: "switch (x) { case 1: if (x) { y; } }", shells: 1, body: 0 },
+  { source: "switch (x) { case 1: ; }", shells: 1, body: 0 },
+  { source: "switch (x) { case 1: let y = 1; }", shells: 1, body: 0 },
+  { source: "switch (x) { case 1: f() }", shells: 1, body: 0 },
+  { source: "switch (x) { case 1: { g(); } }", shells: 0, body: 1 },
+  { source: "switch (x) { case 1: f(); default: g(); }", shells: 2, body: 0 },
+  { source: "switch (x) { case 1: a; b; case 2: c; }", shells: 3, body: 0 },
+  { source: "switch (x) { case 1: f();\n case 2: g(); }", shells: 2, body: 0 },
+  { source: "switch (x) { case 1: a\n b; }", shells: 2, body: 0 },
+  { source: "switch (x) { case 1: switch (y) { case 2: f(); } }", shells: 1, body: 0 },
+  { source: "switch (x) { }", shells: 0, body: 0 },
+  // Known gap (Stage 4aa, recorded in HANDOFF): a clause statement that ends with a `}`
+  // followed by another statement (`if (x) { y; } b;`) closes the shell but the file-level
+  // builder falls back once. XML is still byte-identical; not asserted as green.
+  { source: "switch (x) { case 1: if (x) { y; } b; }", shells: null, body: null },
 ];
 
-function xmlOf(source) {
-  return SourceFileRunner.Parse(source, "case.ts").ToXmlString();
-}
-
-function setFlags(on) {
+function flags(on) {
   R.EnableShellExpressions = on;
-  R.EnableSwitchCaseClause = on;
   R.EnableBlockBodyCatalog = on;
+  R.EnableSwitchCaseClause = on;
+  B.EnableSwitchCaseClause = on;
   R.EnableBlockClassShell = false;
 }
 
 let failures = 0;
-function fail(message) {
-  failures += 1;
-  console.log(`FAIL ${message}`);
-}
+function fail(message) { failures += 1; console.log("FAIL " + message); }
 
-// 0. Shipped defaults are the safe rollback for both gates.
-if (R.EnableSwitchCaseClause !== false) {
-  fail("默认 EnableSwitchCaseClause 不是 false（安全回退被破坏）");
-}
-if (R.EnableBlockClassShell !== false) {
-  fail("默认 EnableBlockClassShell 不是 false（安全回退被破坏）");
-}
+// 0. Shipped defaults.
+if (R.EnableSwitchCaseClause !== true) fail("default EnableSwitchCaseClause is not true");
+if (B.EnableSwitchCaseClause !== true) fail("default BlockPossibleShape.EnableSwitchCaseClause is not true");
+if (R.EnableBlockClassShell !== false) fail("default EnableBlockClassShell is not false (out of scope for 4aa)");
 
-for (const source of sources) {
-  setFlags(false);
-  let legacyXml = null;
-  try {
-    legacyXml = xmlOf(source);
-  } catch (error) {
-    fail(`legacy threw ${source}: ${error && error.message}`);
-    continue;
-  }
+for (const entry of sources) {
+  const source = entry.source;
+  flags(false);
+  let offXml = null;
+  let offThrew = null;
+  try { offXml = SourceFileRunner.Parse(source, "case.ts").ToXmlString(); } catch (e) { offThrew = e; }
+  if (offThrew !== null) { fail("off path threw " + source + " :: " + offThrew.message); continue; }
 
-  // 1. Shipped (default) path: no clause catalog, raw legacy tree, zero fallback.
-  setFlags(true);
-  R.EnableSwitchCaseClause = false;
+  flags(true);
   const before = {
-    mount: R.SwitchCaseClauseMountCount,
-    shells: R.SwitchCaseClauseShellCount,
-    fallback: R.FileFallbackCount,
+    mount: R.SwitchCaseClauseMountCount, shells: R.SwitchCaseClauseShellCount,
+    body: R.BlockBodyStatementCount, fallback: R.FileFallbackCount,
   };
-  let shape = null;
-  try {
-    shape = SourceFileRunner.Parse(source, "case.ts");
-  } catch (error) {
-    fail(`default path threw ${source}: ${error && error.message}`);
-    continue;
-  }
-  const problems = [];
+  let shape = null, err = null;
+  try { shape = SourceFileRunner.Parse(source, "case.ts"); } catch (e) { err = e; }
+  if (err !== null) { fail("on path threw " + source + " :: " + err.message); continue; }
   const dm = R.SwitchCaseClauseMountCount - before.mount;
   const ds = R.SwitchCaseClauseShellCount - before.shells;
-  if (dm !== 0) problems.push(`mount ${dm} != 0`);
-  if (ds !== 0) problems.push(`shells ${ds} != 0`);
-  if (R.LastFileFallback === true || R.FileFallbackCount !== before.fallback) problems.push("file fallback");
-  if (shape.ToXmlString() !== legacyXml) problems.push("XML != legacy");
+  const db = R.BlockBodyStatementCount - before.body;
+  const fb = R.LastFileFallback === true || R.FileFallbackCount !== before.fallback;
+  const same = shape.ToXmlString() === offXml;
+  const problems = [];
+  if (!same) problems.push("XML != raw path");
+  if (dm !== 1) problems.push("mount " + dm + " != 1");
+  if (entry.shells !== null && ds !== entry.shells) problems.push("shell " + ds + " != " + entry.shells);
+  if (entry.body !== null && db !== entry.body) problems.push("body " + db + " != " + entry.body);
+  if (entry.shells !== null && fb) problems.push("file fallback");
+  const label = "mount=" + dm + " shell=" + ds + " body=" + db + " xml==raw=" + same + " fallback=" + fb;
   if (problems.length === 0) {
-    console.log(`OK   ${source}  default: mount=0 shell=0 xml==legacy`);
+    console.log("PASS " + label + " :: " + source.replace(/\n/g, "\\n"));
   } else {
-    fail(`${source}  ${problems.join("; ")}`);
+    fail(label + " [" + problems.join("; ") + "] :: " + source.replace(/\n/g, "\\n"));
   }
-
-  // 2. Forced-on diagnostics (the recorded gap; not asserted).
-  R.EnableSwitchCaseClause = true;
-  const onBefore = { mount: R.SwitchCaseClauseMountCount, shells: R.SwitchCaseClauseShellCount, body: R.BlockBodyStatementCount, fallback: R.FileFallbackCount };
-  let onShape = null;
-  try {
-    onShape = SourceFileRunner.Parse(source, "case.ts");
-  } catch (error) {
-    console.log(`ON-STATE (threw) ${source}: ${error && error.message}`);
-    R.EnableSwitchCaseClause = false;
-    continue;
-  }
-  const om = R.SwitchCaseClauseMountCount - onBefore.mount;
-  const os = R.SwitchCaseClauseShellCount - onBefore.shells;
-  const ob = R.BlockBodyStatementCount - onBefore.body;
-  const ofb = R.LastFileFallback === true || R.FileFallbackCount !== onBefore.fallback;
-  console.log(`ON-STATE mount=${om} shell=${os} body=${ob} xml==legacy=${onShape.ToXmlString() === legacyXml} fallback=${ofb} :: ${source}`);
-  R.EnableSwitchCaseClause = false;
 }
 
-// 3. Block-level class shell (default off): forced-on diagnostics.
+// Block-level class shell stays behind its default-off gate (Stage 4y, untouched by 4aa).
 const classCases = [
   "{ class C {} }",
   "{ class C { m(){ let y = 1; } } }",
@@ -129,32 +108,19 @@ const classCases = [
   "{ class C {} f(); }",
 ];
 for (const source of classCases) {
-  R.EnableShellExpressions = false;
-  R.EnableBlockClassShell = false;
+  flags(false);
   let legacyXml = null;
-  try {
-    legacyXml = xmlOf(source);
-  } catch (error) {
-    console.log(`CLASS-FLAG (legacy threw) ${source}: ${error && error.message}`);
-    continue;
-  }
-  R.EnableShellExpressions = true;
-  R.EnableBlockBodyCatalog = true;
+  try { legacyXml = SourceFileRunner.Parse(source, "case.ts").ToXmlString(); } catch (e) { console.log("CLASS-FLAG legacy threw " + source); continue; }
+  flags(true);
   R.EnableBlockClassShell = true;
   const before = { body: R.BlockBodyStatementCount, fallback: R.FileFallbackCount };
   let shape = null;
-  try {
-    shape = SourceFileRunner.Parse(source, "case.ts");
-  } catch (error) {
-    console.log(`CLASS-FLAG (threw) ${source}: ${error && error.message}`);
-    R.EnableBlockClassShell = false;
-    continue;
-  }
+  try { shape = SourceFileRunner.Parse(source, "case.ts"); } catch (e) { console.log("CLASS-FLAG threw " + source + " :: " + e.message); R.EnableBlockClassShell = false; continue; }
   const db = R.BlockBodyStatementCount - before.body;
   const fb = R.LastFileFallback === true || R.FileFallbackCount !== before.fallback;
-  console.log(`CLASS-FLAG body=${db} xml==legacy=${shape.ToXmlString() === legacyXml} fallback=${fb} :: ${source}`);
+  console.log("CLASS-FLAG body=" + db + " xml==legacy=" + (shape.ToXmlString() === legacyXml) + " fallback=" + fb + " :: " + source);
   R.EnableBlockClassShell = false;
 }
 
-console.log(failures === 0 ? "ALL PASS (safe rollback state)" : `FAILURES ${failures}`);
+console.log(failures === 0 ? "ALL PASS" : "FAILURES " + failures);
 if (failures !== 0) process.exitCode = 1;
