@@ -2,6 +2,7 @@
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -486,6 +487,49 @@ return text === "interface" || text === "enum" || text === "type" || text === "n
   || text === "using";
 ```
 
+## static method DeclinesDeclarationHead:(units:Array<Token>)=>bool
+
+本条目的首代码单元是**上下文声明头**（`type` / `module` / `namespace`），而它的「名字」那一格
+与前一词之间**有行终止符** ⇒ TS 侧它不是声明（`nextTokenIsOnSameLineAndCanFollowModifier`）：
+`type` ⏎ `T = 1` 是两条 `ExpressionStatement`；`module` ⏎ `"m" { }` 与 `namespace` ⏎ `N { }`
+都是「表达式语句 + 表达式语句 + 块」。
+
+**为什么它必须与 `DecideDeclaration` 分开成一份**：`Decide` 的 `None` 有两种含义——「第二格还没到，
+请继续等」与「已经判出来本族不管这一格」。前者不许 Reject（CatalogGuide 删掉候选就再没人建壳），
+后者必须 Reject（继续等就会与终结候选在同一格同时成立，抛
+`CatalogGuide: 终结候选与其它候选同时成立`）。本方法把后一种单独认出来，`DecideDeclaration` 与
+`DeclarationStatementPossibleShape.ComputeByIndex` 读的是同一份判据。
+
+判据只看首两格，与 `tokenIndex` 无关：名字一旦到齐，这条语句是不是声明就已经定了。
+
+```ts
+const itemStart = ItemUtil.ItemStart(units);
+if (itemStart < 0 || itemStart >= units.length) {
+  return false;
+}
+const headAt = ItemUtil.NextCode(units, itemStart);
+if (headAt >= units.length) {
+  return false;
+}
+const head = units[headAt];
+if (!(head instanceof Common)) {
+  return false;
+}
+const text = (head as Common).TempToString();
+if (text !== "type" && text !== "module" && text !== "namespace") {
+  return false;
+}
+const nextAt = ItemUtil.NextCode(units, headAt + 1);
+if (nextAt >= units.length) {
+  return false;
+}
+const next = units[nextAt];
+if (!(next instanceof Common || next instanceof String)) {
+  return false;
+}
+return !StatementScanner.NoLineBreakBetween(head, next);
+```
+
 ## static method DecideDeclaration:(units:Array<Token>, headAt:int, text:string)=>int
 
 **声明 / 导入导出族的细分判据**（Stage 4q）：返回 `ShellDeclarationFamily` 或 `None`。
@@ -557,6 +601,15 @@ if (next instanceof Symbol) {
 // `declare` 上，下一条声明各走各的壳。行终止符判据读 `StatementScanner.NoLineBreakBetween`
 // ——与 `DeclareIsAmbientVariable` 判 `declare const` 同一行用的是**同一个**函数，不新写第二套。
 if (text === "declare" && !StatementScanner.NoLineBreakBetween(units[headAt], next)) {
+  return StatementRoute.None;
+}
+// **Stage 5d-9a：`type` / `module` / `namespace` 与名字之间换行 ⇒ 该词是标识符，不是声明头**
+// （TS `nextTokenIsOnSameLineAndCanFollowModifier`）：`type` ⏎ `T = 1` 是两条 ExpressionStatement，
+// `module` ⏎ `"m" { }` 是表达式 + 块。与上面 `declare` 那条**同一个**行终止符判据
+//（`NoLineBreakBetween`），只是「名字」可以是标识符或字符串字面量。
+// `enum` / `interface` / `global` 刻意不在这一列：TS 对它们**不**要求同行
+//（`enum` ⏎ `E { A }` 仍是 EnumDeclaration，`global` ⏎ `{ }` 仍是 ModuleDeclaration）。
+if (StatementRouteUtil.DeclinesDeclarationHead(units)) {
   return StatementRoute.None;
 }
 // `export as namespace N`（UMD）留给 legacy：它不是普通导出声明，建造器没有这条分派。

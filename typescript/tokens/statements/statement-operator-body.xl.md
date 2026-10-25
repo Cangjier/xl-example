@@ -427,6 +427,15 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 本壳当前的单元序列（`IngestAll` 每次覆盖成入参）。只给「`<` 是小于号还是类型实参表」这一处向前看用，
 不参与建树：`Ingest` 拿 `Ingested - 1` 当游标去 `AmbiguousTypeArguments` 里看后面的单元。
 
+## field PreviousUnit:Token | null = null
+
+本壳上一次喂进 `Ingest` 的单元（`++` / `--` / `!` 的「换行即前缀」判据要看它，Stage 5d-9a）。
+
+**为什么记字段而不是从 `Ingested` 反推**：`Ingest` 会被自身递归调用（`,` 收箭头顶层逗号、
+类型区域收口两处 `this.Ingest(unit, template)`）——那两处 `Ingested` 不前进，反推会拿到错误的「前一格」。
+字段在 `Ingest` 开头无条件更新一次，递归那两格的「前一格」就是它自己（`HasBetween(x, x)` 恒假，
+所以换行判据在递归里不会误判）。
+
 ## field SawLessThan:bool = false
 
 本壳已经摄入过 `<`。`<` 是「类型实参调用」歧义的唯一来源，`IngestAll` 收尾的 `HasTypeArgumentCall` 是一遍全表扫描；
@@ -701,13 +710,22 @@ StatementOperatorBody.ShapeTexts[this.Slot] = text;
   其余一律 `Fail`。
 
 ```ts
+// Stage 5d-9a：**上一格的单元**（`++` / `--` / `!` 的换行判据用）。递归调用（`,` / 类型区域收口）
+// 不推进 `Ingested`，所以只能记字段；递归那一格的「上一格」是它自己，换行判据因此恒为假。
+const previousUnit = this.PreviousUnit;
+this.PreviousUnit = unit;
 // Stage 5d-8b：**类型区域 / 箭头体里的 `<` 不算歧义来源**。`a as A<B>` 的 `<` 属于 `as` 之后的类型
 // （`A<B>` 是类型引用），`x => f<T>(a)` 的 `<` 属于箭头体（由 legacy `ParseAssign` 整段建）。若照旧记
 // `SawLessThan`，收口时 `TryTypeArgumentTail` 会为它重放前缀——而重放停在 `as` / `=>` 处，
 // 本体从此只剩半条（后续单元既不摄入也不再完整），白白丢掉一条接管。这里只在**表达式位**记它。
+// Stage 5d-9a：**函数 / 类表达式的头部里的 `<` 同理**（`ExpectBody`）——`(function <T>(x: T) {…})`
+// 的 `<T>` 是类型参数表，不是类型实参调用；照旧记会让嵌套体在收口时被 `TryTypeArgumentTail` 重放，
+// 重放上界正好落在 `<` 上（`Expect` 停在 `ExpectBody`），嵌套体从此半条 → 括号退成未解析参数表
+// → 外层在 `(1)` 那一格 `Fail("圆括号参数表后面不是 =>")`。
 if (unit instanceof Symbol && (unit as Symbol).Is("<")
   && this.Expect !== StatementOperatorBody.ExpectTypeTail
-  && this.Expect !== StatementOperatorBody.ExpectArrowTail) {
+  && this.Expect !== StatementOperatorBody.ExpectArrowTail
+  && this.Expect !== StatementOperatorBody.ExpectBody) {
   this.SawLessThan = true;
 }
 if (unit instanceof EndOfFileTokenShape) {
@@ -920,6 +938,17 @@ if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
   }
   if (text === ":") {
     this.CloseConditional(unit);
+    return;
+  }
+  if ((text === "++" || text === "--" || text === "!") && previousUnit !== null
+    && LineTerminator.HasBetween(previousUnit.SourceRange, unit.SourceRange)) {
+    // Stage 5d-9a：`++` / `--` / `!` 是**不能跨行**的后缀（TS `parsePostfixExpressionOrHigher` 的
+    // `scanner.hasPrecedingLineBreak()` 守卫）：`a` ⏎ `++b` / `a` ⏎ `!b` 在 TS 里是两条语句，
+    // 换行之后那个 `++` / `--` / `!` 是**前缀**、操作数在下一行。本状态机原来无条件把它当后缀
+    // （`StartPostfix` / `StartNonNull`），于是形状树长出一格**语句单元之外**的操作符单元，
+    // 收口器只好拒绝（`后缀运算符单元不在表达式里` / `非空断言的 ! 单元不在表达式里`）。
+    // 这里按 TS 的同一句判据收口：表达式到此为止（`Closed`，不算未实现），下一格属于下一条语句。
+    this.Closed = true;
     return;
   }
   if (text === "++" || text === "--") {
@@ -1811,6 +1840,7 @@ this.Incomplete = false;
 this.Reason = "";
 this.Inserts = 0;
 this.SawLessThan = false;
+this.PreviousUnit = null;
 ```
 
 ## method ReplayUntil:(limit:int, template:Template)=>bool

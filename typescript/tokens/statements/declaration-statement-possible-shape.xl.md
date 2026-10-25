@@ -122,6 +122,15 @@ if (units[tokenIndex].IsTriviaToken) {
 const route = StatementRouteUtil.Decide(units, tokenIndex);
 if (route === StatementRoute.None) {
   // 上下文关键字的第二个代码单元还没到：继续等，不判死。
+  //
+  // **Stage 5d-9a**：`None` 还有第二种含义——「首两格已经到齐、并且已经判出来本族不管这一格」
+  //（`type` ⏎ `T = 1` 里 `type` 是标识符，TS 给两条 ExpressionStatement）。那一种继续等下去，
+  // 会在名字那一格与 `SourceFileEndPossibleShape` 的 ASI 边界同时成立 → CatalogGuide 抛
+  // 「终结候选与其它候选同时成立」→ 整条文件 fallback。所以那一格必须 Reject（本族对这条语句
+  // 确实没有归属）。两处读同一份判据：`StatementRouteUtil.DeclinesDeclarationHead`。
+  if (StatementRouteUtil.DeclinesDeclarationHead(units)) {
+    return ShapeStates.Reject;
+  }
   return ShapeStates.Uncertain;
 }
 if (route !== StatementRoute.ShellDeclarationFamily) {
