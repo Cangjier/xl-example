@@ -109,7 +109,8 @@ return ImportDeclarationShape.CreatePossibleShapesCache;
 ## static method FromUnits:(host:Token, start:int, end:int, context:SyntaxContext)=>ImportDeclarationShape
 
 Build one import declaration from a module-body token slice (host is the enclosing Bracket; start/end index host.Data),
-including an optional trailing `with`/`assert` attributes clause. Reuses the same children as the root path.
+including an optional `type` / `defer` phase modifier and an optional trailing `with`/`assert` attributes clause.
+Reuses the same children as the root path.
 
 ```ts
 const code:Array<Token> = [];
@@ -154,6 +155,27 @@ if (code[index] instanceof String) {
 } else {
   clause = new ImportClauseShape(host.Template);
   clause.IsTypeOnly = isTypeOnly;
+  // `import defer …`（TS 6.0 ImportClause.phaseModifier）：`defer` 是相位修饰词，不是默认导入名。
+  // 判据与 `ImportClausePossibleShape` 同源（`IsDeferPhaseModifier`：`import defer from "m"` 的
+  // `defer` 仍是名字，由 `defer` 之后那个词决定）。声明建造这一层再补 TS 判据的另一半：
+  // `defer` 后面紧接 `,` / `=` 时它是默认导入名（`import defer, { A } from "m"`），不是修饰词——
+  // `IsDeferPhaseModifier` 只看原始文本，看不到这两个符号。缺这一段时，`import defer * as ns`
+  // 会把 `defer` 当名字、再给子句挂一个 NamespaceImport —— 打开态由 `StatementBuilder` 走本入口
+  // 时就是这样多出一个 Identifier（C1，仅打开态；默认态的增量子句路径已走该判据）。
+  const deferUnit = code[index];
+  let deferPhaseModifier = false;
+  if (deferUnit instanceof Common && (deferUnit as Common).Is("defer")
+    && ImportClausePossibleShape.IsDeferPhaseModifier(deferUnit as Common)) {
+    const afterDefer = index + 1 < code.length ? code[index + 1] : null;
+    deferPhaseModifier = !(afterDefer instanceof Symbol
+      && ((afterDefer as Symbol).Is(",") || (afterDefer as Symbol).Is("=")));
+  }
+  if (deferPhaseModifier) {
+    const deferEnd = (deferUnit as Common).SourceRange.End;
+    clause.PhaseModifier = "defer";
+    childPos = deferEnd < 0 ? childPos : deferEnd;
+    index++;
+  }
   let clauseStart:Token = keyword;
   let clauseEnd:Token = keyword;
   let hasChild = false;
