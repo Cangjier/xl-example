@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { DirectBuildRouter } from "../direct/direct-build-router.xl.md"
+import { DirectBuildMetrics } from "../direct/direct-build-metrics.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
@@ -166,7 +167,30 @@ host.MountedUnit = shell;
 // 未注册该 kind 时 Create 返回 null（本轮 plugins 空表），直建不接管，行为与基线逐字节不变。
 shell.DirectSession = DirectBuildRouter.Create(StatementRoute.ShellPlainExpression, shell, context);
 if (shell.DirectSession !== null) {
-  shell.DirectSession.Ingest(shell.Data, context);
+  // R4 strict 全量化（R4-CONTRACT §1.5 / §2.6）：这是**第 3 个喂入点**（R3 只包了 H1 与变量壳）。
+  // 语义与 `StatementShape.ComputePossibleShapes` 的 H1′ **逐字相同**：`--strict` 时 `Decline` 在
+  // Ingest 期就抛（Declined+=1 → NoteDecline → StrictViolations+=1 → throw）；不在这里接住，异常会
+  // 从 `BuildByIndex` 穿出去、经 `TryToClose` 的 catch 变成拆壳重放，第二次抛就穿出 `Parse`。
+  // 接住之后：**已计数的 Decline 不再计 `Errors`**（判据是计数器，不是「有没有抛异常」），
+  // 只记 `LastError` / `Trace`，然后继续照原样返回壳 —— 旧路径（H2 的 `!direct.Declined`）接管建树，
+  // AST 不变。不是空 catch：非 Decline 的异常一定进 `Errors`。
+  const ingestSession = shell.DirectSession;
+  try {
+    ingestSession.Ingest(shell.Data, context);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // `--strict` 的 Decline / Incomplete 在抛出**之前已经计数**（`Declined` / `IncompleteFallback` 各 +1，
+    // 且 `StrictViolations` +1）⇒ 那类异常不是「异常兜底」，不得再记 `Errors`（R4-S-01/02 的口径是
+    // `errors==0 && strictViolations>=1`）。判据 = 抛错前缀（session 的两处抛错点都以它开头），
+    // 与「有没有抛异常」无关；非 strict 的真异常照旧计 `Errors` + `LastError`。
+    if (!ingestSession.Declined && message.indexOf("DirectBuild strict") !== 0) {
+      DirectBuildMetrics.Errors += 1;
+      DirectBuildMetrics.LastError = message;
+      DirectBuildMetrics.Trace("direct ingest error: " + message);
+    } else {
+      DirectBuildMetrics.Trace("direct ingest strict (already counted): " + message);
+    }
+  }
 }
 // 晚建壳（头格被上一条语句吞掉）：已经搬进壳的 raw 单元不会再触发本条目求值，补一次
 // （与 `ImportDeclarationPossibleShape` 的「壳晚建」同一手法）。
