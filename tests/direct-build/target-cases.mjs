@@ -27,7 +27,12 @@
 //                                        分组 ty/dc/rs/cl/r5、R5-A2 的 as/satisfies 行首（CL-pos-02/03 的 noBaseline）、
 //                                        A6 的 `TypeBuilder` 不计口径（R2 的 `as` 起就成立）
 //   _coord/R5-TARGET-CASES.md         —— R5 57 条逐条 ID / 期望 / expectBuilt（唯一权威编号表）
-//   Lead 裁决 R5-Q1                   —— 7 条改判：3 条 expectBuilt 1→2 且删 a6Skip、2 条 neg→pos、2 条 safe→pos；
+//   Lead 裁决 R5-Q1                   —— 8 条候选改判：3 条 expectBuilt 1→2 且删 a6Skip、3 条 neg→pos
+//                                        （含 Q1 遗漏的 R3-B2-neg-04）、2 条 safe→pos（R2-SAFE-01/03）；
+//   Lead 裁决 R5-Fix5-1（选 a）        —— R2-SAFE-01/03 **撤回 pos 改判、保持 safe**（实测 sessions=0 / built=0：
+//                                        顶层 await/yield 的语句壳要求父是 `{` 块，顶层父是 SourceFileShape ⇒ 首格
+//                                        Reject；根表达式路线又被 StatementRouteUtil.IsLegacyKeyword 判 Legacy。要直建
+//                                        须改 statement-route-util.xl.md，留 R6）⇒ 生效 6 条，旧 pos 读数只作历史留存；
 //                                        落盘为「新口径在 case 主字段 + 旧读数在 case.q5.legacy」，
 //                                        `--q5=pos|auto|legacy`（默认 auto）按 build/ts 的实现痕迹逐条决定，
 //                                        未合入窗口不造假红（与 R4-Q1 的 --q4 同构）
@@ -97,7 +102,9 @@
 //       【R5-Q1】Q5 的 body-legacy 三条（R4-B4-pos-01/02/04）在 R5 已按改判落盘：expectBuilt 1→2、a6Skip 删除；
 //         旧读数（expectBuilt=1 + a6Skip）移进 case.q5.legacy —— `--q5=auto`（默认）按 build/ts 里有没有
 //         BuildYield / BuildAwait 决定：有（residual 已合入）⇒ 正常 A6（强制 0）；没有 ⇒ 退回旧读数。
-//         同一个 --q5 也承载 R5-Q1 的另外 4 条（2 条 neg→pos、2 条 safe→pos）的运行时回退。
+//         同一个 --q5 也承载另外 3 条 neg→pos（R4-B4-neg-01/03、R3-B2-neg-04）的运行时回退。
+//         【R5-Fix5-1】R2-SAFE-01/03 的 safe→pos **已撤回**（保持 safe、不进 --q5）：顶层 await/yield 没有壳，
+//         直建须改 statement-route-util，留 R6。
 //   A7  --trace 时 Traces 含 `insert(`（仅 expectInsert 的 case；非正例 SKIP）
 //   A8  --expect-direct 时 A4/A6 强制（--strict 时再加 A5/A12；A9/A11 同口径）
 //   A9  【R2】负例（含 invalid）的 DeclineReasons 里期望 category 计数 >=1（无分类能力 → SKIP）
@@ -153,13 +160,14 @@ const SEP = "=".repeat(72);
 //   a6Skip       【R4-Q5/Q6】A6 只记读数不判的 reason（写进 A6 detail）：body-legacy 的 yield/await 语句、
 //                以及 switch 的子句语句（stmtLoads 必然 >0，与 switch 自己是否直建无关）
 //   a6ExpectStmtLoads 【R4-Q6】switch 类 case 的 stmtLoads 应等于子句语句数（0/1/2…）；只记录，不判失败
-//   q5           【R5-Q1】7 条改判（R4-B4-pos-01/02/04、R4-B4-neg-01/03、R2-SAFE-01/03）的运行时回退：
+//   q5           【R5-Q1】6 条改判（R4-B4-pos-01/02/04、R4-B4-neg-01/03、R3-B2-neg-04）的运行时回退：
 //                { probe:[…], file?, legacy:{ expect, expectBuilt, expectBodyBuilt, a6Skip } }；
 //                主字段 = 改判后的新口径，`--q5=auto`（默认）按 probe（build/ts 直建产物里的实现痕迹）逐条决定：
 //                痕迹出现（R5 实现已合入）→ 按新口径验收（A6 也恢复强制 0）；没出现 → 退回 legacy 的旧读数，
-//                避免「实现没到」被这 7 条记成回归。`--q5=pos` 强制新口径（合并态验收 / 让实现方看红），
+//                避免「实现没到」被这 6 条记成回归。`--q5=pos` 强制新口径（合并态验收 / 让实现方看红），
 //                `--q5=legacy` 强制旧口径（与 R4/R2 读数对照）。失败方向安全：痕迹没命中而实现其实已在
 //                ⇒ 退回的旧断言（built 精确值 / declined>=1）会读到更大的读数而**红**，不会假绿。
+//                【R5-Fix5-1】R2-SAFE-01/03 的 safe→pos 已按 Lead 裁决 1(a) 撤回（保持 safe，不进 q5）。
 // ---------------------------------------------------------------------------
 const CASES = [
   // ---- R1 原 10 条（不回归；R1-10 按 D1 翻为正例） ----
@@ -319,18 +327,17 @@ const CASES = [
 
   // ---- SAFE 无 session 构造（5）：不能断言 declined>=1（根本不进 DirectSession） ----
   // 期望统一：built==0 && AST MATCH && XML==baseline，A4 只断言「没被直建接管」。
-  { id: "R2-SAFE-01", src: "await a", expect: "pos", expectInsert: false, expectBuilt: 1,
-    q5: { probe: ["BuildAwait"], legacy: { expect: "safe" } },
-    note: "【R5-Q1 改判 safe→pos】Await 语句壳接 `Attach` 后由 ControlFlowStatementDirectSession 直建" +
-      "（R5-CONTRACT §2.3；R5-Q5 不做上下文判定），built=1；旧路径建树实测 A1=YES。" +
-      "R5 未合入时 --q5=auto 退回 safe（旧读数，不造假红）",
+  { id: "R2-SAFE-01", src: "await a", expect: "safe", expectInsert: false,
+    note: "【R5-Fix5-1 裁决 1(a)：pos 改判**撤回**，保持 safe】顶层 `await` 实测 built=0 declined=0 **sessions=0**" +
+      "（AwaitStatementPossibleShape 要求父是 `{` 块，顶层父是 SourceFileShape ⇒ 首格 Reject；根表达式路线被 " +
+      "StatementRouteUtil.IsLegacyKeyword 判 Legacy）⇒ 没有壳可直建，要落地须改 statement-route-util.xl.md，" +
+      "留 R6。历史读数：R5-Q1 曾改判 pos/expectBuilt=1，实测未达成，故撤回",
     markers: ["BuildAwait"] },
   { id: "R2-SAFE-02", src: "class {}", expect: "safe", expectInsert: false,
     note: "class 声明属语句族其它分支，不经 Variable/Expression session" },
-  { id: "R2-SAFE-03", src: "yield a", expect: "pos", expectInsert: false, expectBuilt: 1,
-    q5: { probe: ["BuildYield"], legacy: { expect: "safe" } },
-    note: "【R5-Q1 改判 safe→pos】Yield 语句壳接 `Attach` 后直建（同 R2-SAFE-01；R5-Q5 不做上下文判定），built=1。" +
-      "R5 未合入时 --q5=auto 退回 safe（旧读数）",
+  { id: "R2-SAFE-03", src: "yield a", expect: "safe", expectInsert: false,
+    note: "【R5-Fix5-1 裁决 1(a)：pos 改判**撤回**，保持 safe】同 R2-SAFE-01：顶层 `yield` sessions=0 / built=0，" +
+      "壳的宿主必须是 `{` 块；且顶层还缺引擎的 `yield` 前缀分支。要直建须改 statement-route-util.xl.md，留 R6",
     markers: ["BuildYield"] },
   { id: "R2-SAFE-04", src: "if (a) b", expect: "pos", expectInsert: false, q1: true,
     note: "**R3-Q1 改判 pos**：B1 注册后 if 不再 safe（safe 的定义是「该族没有 session」）。依赖 B1-2 单语句体（RawStatement）；" +
@@ -471,9 +478,12 @@ const CASES = [
     note: "【R4-Q1 改判 neg→pos】生成器形态：Data=[AsteriskToken, Identifier g, Block]（R4-CONTRACT §4.5）；" +
       "built=1（函数自己；空体没有别的壳）。--q4=legacy 时退回 R3 的 neg（stmt.func）",
     categories: ["stmt.func"], markers: ["FunctionDeclarationDirectSession", "AsteriskToken"] },
-  { id: "R3-B2-neg-04", src: "async (a) => a", expect: "neg", expectInsert: false,
-    note: "async 箭头 → R4（Decide 已判 ShellPlainExpression，负例落在表达式引擎）",
-    categories: ["expr.decline"] },
+  { id: "R3-B2-neg-04", src: "async (a) => a", expect: "pos", expectInsert: false, expectBuilt: 1,
+    q5: { probe: ["AsyncPending"], legacy: { expect: "neg" } },
+    note: "【R5-Fix5-2（Q1 第 8 条改判）neg→pos】与 R5-RS-pos-06 同一份源码：residual 的 `async` 箭头头落地后" +
+      "built=1 declined=0 A6=0 A1=YES / XML=IDENTICAL（REPORT-r5-residual §5.2 实测）⇒ 再按 neg（built==0 + " +
+      "expr.decline）判必然假红。`--q5=auto` 在 AsyncPending 痕迹出现后改用新口径；未出现时退回 R4 的 neg",
+    categories: ["expr.decline"], markers: ["AsyncPending"] },
 
   // ---- D7 语句边界（4：pos 3 + guard 1）—— 全部 noBaseline，A10 改判 SKIP ----
   { id: "R3-D7-01", src: "let x = a\n++b", expect: "pos", expectInsert: false, expectBuilt: 2, noBaseline: true,
@@ -1041,13 +1051,14 @@ function resolveQ4(flags) {
 }
 
 // ---------------------------------------------------------------------------
-// R5-Q1（Lead 已批准，见 R5-CONTRACT §5.3 / R5-TARGET-CASES §7.2）：
-//   7 条改判 —— R4-B4-pos-01/02/04 的 expectBuilt 1→2 且删 a6Skip、R4-B4-neg-01/03 的 neg→pos、
-//   R2-SAFE-01/03 的 safe→pos —— **已落盘在主字段**（expect / expectBuilt；a6Skip 已删），
-//   旧读数留在 `case.q5.legacy`。`--q5=auto`（默认）再按**直建产物里的实现痕迹**逐条决定：
+// R5-Q1（Lead 已批准，见 R5-CONTRACT §5.3 / R5-TARGET-CASES §7.2；R5-Fix5-1 修订）：
+//   生效 6 条改判 —— R4-B4-pos-01/02/04 的 expectBuilt 1→2 且删 a6Skip、R4-B4-neg-01/03 的 neg→pos、
+//   R3-B2-neg-04 的 neg→pos（Q1 第 8 条，Fix5-2 追加）—— **已落盘在主字段**（expect / expectBuilt；a6Skip 已删），
+//   旧读数留在 `case.q5.legacy`。R2-SAFE-01/03 的 safe→pos 由 Lead 裁决 1(a) **撤回**（保持 safe，不进 q5）。
+//   `--q5=auto`（默认）再按**直建产物里的实现痕迹**逐条决定：
 //   - 痕迹出现（R5 实现已合入）→ 按新口径验收，A6 也恢复强制 0；
 //   - 没出现（R5 实现还没合入）→ 退回 legacy 的旧读数（expectBuilt=1 + a6Skip / neg / safe），
-//     避免「实现没到」被这 7 条记成回归（与 R4-Q1 的 --q4 完全同构）；
+//     避免「实现没到」被这 6 条记成回归（与 R4-Q1 的 --q4 完全同构）；
 //   - 失败方向是安全的：痕迹没命中而实现其实已在 ⇒ 退回的旧断言（built 精确值 / declined>=1）会红，不假绿。
 //   `--q5=pos` 强制新口径（合并态验收 / 让实现方看红）；`--q5=legacy` 强制旧口径（与 R4/R2 读数对照）。
 //   R5-Q3：`--q1` / `--q4` / `--q5` 都保留到 R6 一次性移除（R5 只同步注释与 probe 名单）。
@@ -1126,10 +1137,11 @@ function usage() {
     "  --q4=pos|auto|legacy 【R4-Q1】R3-B1-neg-01/02/03 + R3-B2-neg-03 的 neg→pos 改判：pos=强制新口径；",
     "                   auto=默认，按 build/ts 直建产物里有无该构造的实现痕迹逐条决定（未合入 → 退回 R3 的 neg）；",
     "                   legacy=强制旧口径（与 R3 读数对照）",
-    "  --q5=pos|auto|legacy 【R5-Q1】7 条改判（R4-B4-pos-01/02/04 的 expectBuilt 1→2 + 删 a6Skip、",
-    "                   R4-B4-neg-01/03 的 neg→pos、R2-SAFE-01/03 的 safe→pos）：pos=强制新口径；",
+    "  --q5=pos|auto|legacy 【R5-Q1】6 条改判（R4-B4-pos-01/02/04 的 expectBuilt 1→2 + 删 a6Skip、",
+    "                   R4-B4-neg-01/03 + R3-B2-neg-04 的 neg→pos）：pos=强制新口径；",
     "                   auto=默认，按 build/ts 直建产物里有无该构造的实现痕迹逐条决定（未合入 → 退回 legacy 旧读数，",
     "                   含旧的 a6Skip 与 expectBuilt=1）；legacy=强制旧口径（与 R4/R2 读数对照）。",
+    "                   【R5-Fix5-1】R2-SAFE-01/03 的 safe→pos 已撤回（保持 safe），不在 --q5 范围；",
     "                   R5-Q3：--q1/--q4/--q5 都保留到 R6 一次性移除",
     "  --fault-inject=finish-throw  C4 专用：在 session 的 Finish 上熔断一次（进程内注入，不改源码）",
     "  --help           显示本帮助",
@@ -1222,7 +1234,7 @@ function selectCases(all, flags) {
       expectBodyBuilt = c.q4.legacyBodyBuilt;
       note = `${note}  [R4-Q1 回退 legacy：${q4.mode === "legacy" ? "--q4=legacy" : "auto：build/ts 里还没有该构造的实现痕迹"}]`;
     }
-    // R5-Q1：7 条改判的运行时回退（同 --q4 的形态；legacy 里同时承载旧的 expectBuilt 与 a6Skip）
+    // R5-Q1：6 条改判的运行时回退（同 --q4 的形态；legacy 里同时承载旧的 expectBuilt 与 a6Skip）
     const q5Reverted = Boolean(c.q5 && q5.byId.get(c.id) === "legacy");
     if (q5Reverted) {
       const legacy = c.q5.legacy || {};
@@ -2466,7 +2478,8 @@ function renderCaseHuman(result, flags) {
   }
   if (c.q5Reverted) {
     lines.push(
-      `Q5-REVERTED: R5-Q1 改判的 7 条之一；build/ts 里还没有该构造的实现痕迹 ⇒ 本条按 R4/R2 口径验收` +
+      `Q5-REVERTED: R5-Q1 改判的 6 条之一（R2-SAFE-01/03 已按裁决 1(a) 撤回，不在其中）；` +
+      `build/ts 里还没有该构造的实现痕迹 ⇒ 本条按 R4/R2 口径验收` +
         `（expect=${c.expect}${typeof c.expectBuilt === "number" ? ` expectBuilt=${c.expectBuilt}` : ""}` +
         `${c.a6Skip ? " + a6Skip" : ""}）。R5 实现合入后自动改判新口径；也可用 --q5=pos 强制`,
     );
@@ -2603,7 +2616,7 @@ function printSummaryHuman(results, impl, flags, totals, baseline, injection) {
   // ---- R4 新增：Q4 裁决（R4-Q1 的 4 条 neg→pos）落地状态 ----
   const q4r = flags.q4Resolution || { mode: "auto", effective: "legacy", why: "", ids: [] };
   console.log(`Q4: mode=${q4r.mode} → ${q4r.ids.join("/")} expect=${q4r.effective}（${q4r.why}）`);
-  // ---- R5 新增：Q5 裁决（R5-Q1 的 7 条改判）落地状态 ----
+  // ---- R5 新增：Q5 裁决（R5-Q1 的 6 条生效改判；R2-SAFE-01/03 已撤回）落地状态 ----
   const q5r = flags.q5Resolution || { mode: "auto", effective: "legacy", why: "", ids: [] };
   console.log(`Q5: mode=${q5r.mode} → ${q5r.ids.join("/")} expect=${q5r.effective}（${q5r.why}）`);
   console.log(
@@ -2765,7 +2778,7 @@ async function main() {
       schema: "dsh/xl-example/target-cases@5",
       contract:
         "R5-CONTRACT §5/§6.1/§6.2 / R5-TARGET-CASES（CASES=189 = R1 10 + R2 50 + R3 32 + R4 40 + R5 57；" +
-        "R5 57 = TY 20 + DC 20 + RS 12 + CL 5；R5-Q1 的 7 条改判不增数，--q5 只决定运行时口径）",
+        "R5 57 = TY 20 + DC 20 + RS 12 + CL 5；R5-Q1 的 6 条生效改判不增数，--q5 只决定运行时口径）",
       generatedAt: new Date().toISOString(),
       repo: REPO,
       baseline: baseline === null ? null : baseline.root,
