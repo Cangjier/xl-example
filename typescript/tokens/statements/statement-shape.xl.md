@@ -107,12 +107,22 @@ if (shell.OperatorBody !== null) {
   shell.OperatorBody.IngestAll(shell.Data, host.Template);
   shell.OperatorBody.Finish();
 }
-const consumed:Array<Token> = host.Data.slice(0, endIndex + 1);
+// R7-A1（落点 B，R7-CONTRACT §1.1.3）：直建会话在语句内报了**恢复切点** `StopAt`（壳 `Data` 下标，
+// `Units[0..StopAt-1]` 是本条语句）⇒ 本条目只消费到切点**前一位**，切点之后的单元**在同一个壳里续建**
+// （见下面的续建块），从而得到与 tsc 一致的「两条语句」。
+// **切点只能在 `Finish` 之后读**：EOF 收口时壳的最后几格还没喂过会话（与上面 S3c 的
+// `OperatorBody.IngestAll` 同一个滞后），`Finish` 自己会补齐到 `endIndex` 并发现切点。所以在直建
+// 成功之后才取 `StopAt` 决定 `consumed` 的长度 —— 不是「先缩再建」，而是「建完按实际消费量 splice」，
+// 结果与「先缩 endIndex」逐位相同（语句只到切点前一位、剩下的属于下一条语句）。
+// **一级回退点**：`AllowRecovery=false` ⇒ `StopAt` 恒 -1 ⇒ `consumed` 就是整条 `endIndex` 切片，
+// 本段逐字节是 `55b207da` 的行为（R7-CONTRACT §1.1.5）。
+// 会话类型是 `DirectSession` 接口，`StopAt` 只在其实现类上（接口本轮只读 ⇒ 这里按鸭子类型读）。
+const direct = shell.DirectSession;
+let consumed:Array<Token> = host.Data.slice(0, endIndex + 1);
 // H2（CONTRACT §4.1）：直建的唯一收口点。session 已把 AST 形状树建好时，在 `new StatementBuilder` **之前**
 // 直接交回：`host.Data.splice` 与旧路径末尾同源，`FinishShell` / leftover 重放照旧。覆盖范围外的语句
 // （session 为 null，或已 Decline）逐字节走下面的旧路径；三条收口路径（`;`/ASI、EOF、`}`）都经过这里，
 // 所以只需要这一个分支。直建成功时 builder 一次都不创建（验收口径 A6：builder.Load 调用数 == 0）。
-const direct = shell.DirectSession;
 if (direct !== null && !direct.Declined) {
   let directBuilt:Token | null = null;
   try {
@@ -135,7 +145,79 @@ if (direct !== null && !direct.Declined) {
     directBuilt = null;
   }
   if (directBuilt !== null) {
+    const recovery:any = direct;
+    const stopAt:any = recovery.StopAt;
+    let tailFrom = -1;
+    if (stopAt !== undefined && stopAt !== null && stopAt >= 0 && stopAt - 1 < endIndex) {
+      // 只消费到切点前一位：切点及其后属于**下一条语句**。
+      consumed = host.Data.slice(0, stopAt);
+      tailFrom = stopAt;
+    }
     host.Data.splice(0, consumed.length);
+    if (tailFrom >= 0) {
+      // **续建（R7-A1 落点 B 的第二半）**：为什么不能只靠 `FinishShell` 的 leftover 重放？
+      // 重放是「把 raw 单元原位插回父单元、再按父目录逐格判定」——它假定后面还有**字符流**把新壳喂满。
+      // 恢复的切点几乎总在**文件末尾**（`a b` / `as b` / `1 2` / `x = 1 y = 2` / `a b;`），此时字符流已经
+      // 结束：第二格之后的单元（`f() g()` 的 `()`、`x = 1 y = 2` 的 `= 2`、`a b;` 的 `;`）永远进不了新壳，
+      // 实测会得到「碎片语句」（`a b;` → 多余 EmptyStatement、`a b c` → 第三条 Pos=0）或直接抛错。
+      // 所以在这里按**同一条恢复规则**把尾巴逐条建完：每条一个新壳 + 一个新会话（同一批判据、同一批否决），
+      // 建好的语句按序插回父单元，壳的 `Data` 清空 ⇒ `FinishShell` 的 leftover 为空、不再重放。
+      // 只有「壳已挂在父单元里」时才这么做；递归调用（下面的 tailShell，`Parent === null`）不插手，
+      // 它的剩余单元由本循环接着建 —— 这就是 `a b c` 的三条语句。
+      const tailParent = host.Parent;
+      const tailAt = tailParent === null ? -1 : tailParent.Data.indexOf(host);
+      if (tailParent !== null && tailAt >= 0) {
+        let pending:Array<Token> = host.Data.slice();
+        const extras:Array<Token> = [];
+        let lastEnd = directBuilt.SourceRange.EndIndex;
+        while (pending.length > 0) {
+          let first = 0;
+          while (first < pending.length && pending[first].IsTriviaToken) {
+            first++;
+          }
+          if (first >= pending.length) {
+            break;
+          }
+          const tailShell = new StatementShape(host.Template);
+          tailShell.Kind = StatementRoute.ShellPlainExpression;
+          tailShell.Pos = lastEnd < 0 ? 0 : lastEnd;
+          tailShell.OperatorBody = new StatementOperatorBody(tailShell.Template);
+          for (const item of pending) {
+            tailShell.Add(item);
+          }
+          tailShell.DirectSession = DirectBuildRouter.Create(StatementRoute.ShellPlainExpression, tailShell, context);
+          let tailBuilt:Token | null = null;
+          try {
+            const tailLast = ItemUtil.LastCodeInItem(tailShell.Data);
+            if (tailLast >= 0) {
+              tailBuilt = StatementShape.BuildFromShell(tailShell, tailLast, context);
+            }
+          } catch (tailError) {
+            // 续建失败：尾巴原样留在本壳里，交回旧的重放通道（不吞错、不假装建好）。
+            host.Data.length = 0;
+            for (const item of pending) {
+              host.Data.push(item);
+            }
+            throw tailError;
+          }
+          if (tailBuilt === null) {
+            break;
+          }
+          extras.push(tailBuilt);
+          if (tailBuilt.SourceRange.EndIndex >= 0) {
+            lastEnd = tailBuilt.SourceRange.EndIndex;
+          }
+          pending = tailShell.Data.slice();
+        }
+        if (extras.length > 0) {
+          host.Data.length = 0;
+          for (let at = 0; at < extras.length; at++) {
+            extras[at].Parent = tailParent;
+            tailParent.Data.splice(tailAt + 1 + at, 0, extras[at]);
+          }
+        }
+      }
+    }
     return directBuilt;
   }
 }
