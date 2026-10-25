@@ -5,8 +5,12 @@
 //
 // 覆盖：`return` / `throw`（含受限产生式 ASI）/ `break` / `continue`（含标签与换行）/ `debugger` /
 // 空语句（根 / 块 / `if` 体 / 子句）/ 变量声明（`;` / EOF / ASI 收口，以及 `const enum`、`let` 当标识符、
-// `for (let …)` 一类**不该误判**的形态），外加 13 条 if / while / for / try / switch / do / with / label
-// / 块的对照用例。
+// `for (let …)` 一类**不该误判**的形态），外加 if / while / for / try / switch / do / with / label / 块。
+//
+// **Stage 5d-2b 起**：原来的 13 条「对照」控制流用例也迁出 `ScanRoot` 了（判据在
+// `StatementBoundaryUtil.ControlFlowFamilyEndCode`），所以这里的期望同步改成「0 次」；
+// 跨 Stage 的迁移范围仍然可测：正对照（块内 `class` 声明体壳）必须 > 0 次。
+// 本 Stage 的专用探针见 `control-flow-boundary.mjs`（85 条形态）。
 //
 // 每个用例四个面（与 eof-last-token-close.mjs / final-matrix.mjs 同口径）：
 //   1. AST 逐节点 == tsc（kind / pos / end / text / name / isTypeOnly）；
@@ -83,35 +87,48 @@ const CASES = [
   { name: "let-typearg-asi", source: "let a: Foo<Bar>\nlet b = 1;", migrated: true },
   { name: "const-enum-guard", source: "const enum E { A }", migrated: true },
   { name: "let-as-identifier", source: "let = 1;", migrated: true },
-  // ---- 对照：仍走 ScanRoot 的族 ----
-  { name: "control-if-block", source: "if (a) { b(); }", migrated: false },
-  { name: "control-if-else", source: "if (a) b; else c;", migrated: false },
-  { name: "control-while", source: "while (a) { b(); }", migrated: false },
-  { name: "control-for", source: "for (;;) { c(); }", migrated: false },
-  { name: "control-try", source: "try { a(); } catch (e) { b(); } finally { c(); }", migrated: false },
-  { name: "control-switch", source: "switch (a) { case 1: g(); break; default: h(); }", migrated: false },
-  { name: "control-do", source: "do { a(); } while (b);", migrated: false },
-  { name: "control-with", source: "with (a) { b(); }", migrated: false },
-  { name: "control-label-loop", source: "lbl: for (;;) { break lbl; }", migrated: false },
-  { name: "control-block", source: "{ a(); b(); }", migrated: false },
-  { name: "control-if-return", source: "if (a) return 1;", migrated: false },
-  { name: "control-while-throw", source: "while (a) throw e;", migrated: false },
-  { name: "control-clause-return", source: "switch (a) { case 1: return 1; }", migrated: false },
+  // ---- 5d-2b 起也已迁出（保留为跨 Stage 回归：读数必须保持 0） ----
+  { name: "control-if-block", source: "if (a) { b(); }", migrated: true },
+  { name: "control-if-else", source: "if (a) b; else c;", migrated: true },
+  { name: "control-while", source: "while (a) { b(); }", migrated: true },
+  { name: "control-for", source: "for (;;) { c(); }", migrated: true },
+  { name: "control-try", source: "try { a(); } catch (e) { b(); } finally { c(); }", migrated: true },
+  { name: "control-switch", source: "switch (a) { case 1: g(); break; default: h(); }", migrated: true },
+  { name: "control-do", source: "do { a(); } while (b);", migrated: true },
+  { name: "control-with", source: "with (a) { b(); }", migrated: true },
+  { name: "control-label-loop", source: "lbl: for (;;) { break lbl; }", migrated: true },
+  { name: "control-block", source: "{ a(); b(); }", migrated: true },
+  { name: "control-if-return", source: "if (a) return 1;", migrated: true },
+  { name: "control-while-throw", source: "while (a) throw e;", migrated: true },
+  { name: "control-clause-return", source: "switch (a) { case 1: return 1; }", migrated: true },
+  // ---- 正对照：块内 class 声明体壳仍走终结候选的 DeclarationBodyEndCode 分支（必须 > 0 次） ----
+  { name: "control-class-shell", source: "{ class C {} }", migrated: false },
+  { name: "control-clause-class-shell", source: "switch (a) { case 1: class C {} }", migrated: false },
 ];
 
 // ---- ScanRoot 计数（迁移读数） ----
 // 归族用**被扫代码的首单元文本**：容器的壳（`{` / `if` / `switch` / `for`）首单元不是迁出族，
 // 所以「`if (a) { return }` 里外层的 if 壳仍走 ScanRoot」不会被误判成迁出族残留；
 // 反过来，若 `return` 自己的壳还在走 ScanRoot，首单元就是 `return`，这里一定会抓到。
-const MIGRATED_HEADS = ["return", "throw", "break", "continue", "debugger", "let", "const", "var", ";"];
+const MIGRATED_HEADS = ["return", "throw", "break", "continue", "debugger", "let", "const", "var", ";",
+  "if", "while", "do", "for", "try", "switch", "with", "{"];
 
 function headOf(code) {
   if (code.length === 0) return "";
+  const first = code[0];
+  if (first !== null && typeof first === "object" && first.StartBracketChar === "{") return "{";
   try {
-    return String(StatementScanner.TextOf(code[0]) || "");
+    const text = String(StatementScanner.TextOf(first) || "");
+    if (code.length >= 2 && String(StatementScanner.TextOf(code[1]) || "") === ":") return `${text}:`;
+    return text;
   } catch {
     return "";
   }
+}
+
+// 标签头（`lbl:`）的族名一定是 `标识符:`；`StatementScanner.TextOf` 对 Bracket 返回空串，块用 `{` 标记。
+function isMigratedHead(head) {
+  return MIGRATED_HEADS.includes(head) || head.endsWith(":");
 }
 
 const originalScanRoot = StatementScanner.ScanRoot;
@@ -141,7 +158,7 @@ function withScanCounter(action) {
     scanCounts.byHead[head || "?"] = (scanCounts.byHead[head || "?"] || 0) + 1;
     if (caller === "end.ComputeByIndex" || caller === "end.BuildByIndex") {
       scanCounts.endPath += 1;
-      if (MIGRATED_HEADS.includes(head)) {
+      if (isMigratedHead(head)) {
         scanCounts.endPathMigrated += 1;
       }
     }
@@ -278,6 +295,6 @@ R.EnableDeclarationShell = DEFAULTS.declaration;
 
 const migrated = CASES.filter((item) => item.migrated).length;
 const controls = CASES.length - migrated;
-console.log(`[short-family-boundary] cases=${CASES.length}（迁出族 ${migrated} / 对照 ${controls}）` +
+console.log(`[short-family-boundary] cases=${CASES.length}（迁出族 ${migrated} / 正对照 ${controls}）` +
   ` pass=${passed} failed=${failures.length}`);
 process.exit(failures.length > 0 ? 1 : 0);
