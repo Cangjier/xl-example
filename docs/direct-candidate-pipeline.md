@@ -762,7 +762,7 @@ node tests/direct-build/target-cases.mjs
 ## 9. 目标 case 与实测读数（60 条）
 
 权威清单：`tests/direct-build/target-cases.mjs` 的 `CASES`（60 条）+ `_coord/REPORT-r2-verify-fix.md §3`。
-**60 = R1 原 10 + verify 的 43 + 收口校正新增/改判 17**；正例 41 / 非正例 19（NEG 组）。
+**60 = 收口前的 43 条（已含 R1 原 10）+ 收口校正新增/改判 17**；正例 41 / 非正例 19（NEG 组）。
 
 分组计数：R1=10、A1=5、A2=6、A3=7、A4=9、A5=3、C1=2、C2=1、C3=1、C4=1、GEN=8、SAFE=5、INC=2。
 
@@ -812,9 +812,13 @@ node tests/direct-build/target-cases.mjs
 | A5 | `--strict` 时计数器仍全 0（**只作用于正例**，见 §10 的 strict 口径） |
 | A6 | `stmtLoads + exprOtherDirect + exprLegacy == 0`（C4 只量第二次解析） |
 | A7 | `--trace` 时 `Traces` 含 `insert(`（仅 `expectInsert` 的 case） |
+| A8 | `--expect-direct` 时强制 A4/A6（`--strict` 时再加 A5；A9/A11 同口径）——是开关规则，不单独输出 `A8=` 行 |
 | A9 | 负例（含 invalid）的 `DeclineReasons` 含期望 category |
 | A10 | `XML==baseline`（`--baseline` 启用；invalid/incomplete 改比拒绝文案） |
 | A11 | 正例 `DeclineReasons` 全空 |
+
+> `ASSERT:` 行只列**本轮启用的**断言：不带 `--trace` 时没有 A7，A8 是 `--expect-direct` 的强制规则（无独立输出行），
+> 因此实测行是 `A1 A2 A3 A4 A5 A6 A9 A10 A11`——九个已启用断言全 PASS 即「A1–A11 全 PASS」的含义。
 
 > `R2-A4-pos-07 a ? (b, c) : d` 是**合法 TS 正例**（真分支是括号内的逗号表达式）；
 > `R2-CONTRACT §1.1` 曾把它写成负例，实测 `built=1 / declined=0 / AST MATCH / XML IDENTICAL`，harness 已按正例收口。
