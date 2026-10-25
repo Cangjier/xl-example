@@ -76,7 +76,7 @@ if (unit instanceof Symbol) {
 return "";
 ```
 
-## method Decline:(reason:string)=>void
+## method Decline:(reason:string, category:string)=>void
 
 ```ts
 if (this.Declined) {
@@ -85,8 +85,7 @@ if (this.Declined) {
 this.Declined = true;
 this.Reason = reason;
 DirectBuildMetrics.Declined += 1;
-DirectBuildMetrics.LastDeclineReason = reason;
-DirectBuildMetrics.Trace("expression session decline: " + reason);
+DirectBuildMetrics.NoteDecline(reason, category);
 if (DirectBuildMetrics.Strict) {
   DirectBuildMetrics.StrictViolations += 1;
   throw new Error("DirectBuild strict: " + reason + " [" + this.Summary() + "]");
@@ -135,7 +134,7 @@ while (this.Ingested < units.length && !this.Declined && this.StoppedAt < 0) {
   }
   this.Engine.IngestUnit(unit, pos);
   if (this.Engine.Declined) {
-    this.Decline("表达式范围外: " + this.Engine.Reason);
+    this.Decline("表达式范围外: " + this.Engine.Reason, "expr.decline");
     return;
   }
   if (this.Engine.Held) {
@@ -179,7 +178,7 @@ if (this.Declined) {
   return null;
 }
 if (this.StoppedAt >= 0 && this.StoppedAt <= endIndex) {
-  this.Decline("语句内出现无法接续的单元 idx=" + String(this.StoppedAt));
+  this.Decline("语句内出现无法接续的单元 idx=" + String(this.StoppedAt), "expr.stopped");
   return null;
 }
 if (this.Engine === null) {
@@ -206,6 +205,28 @@ if (endUnit.SourceRange.EndIndex >= 0) {
   shape.SignOut(endUnit.SourceRange.EndIndex);
 }
 shape.TryToClose(context);
+// C1 覆盖校验（R2-CONTRACT §3.3.3）：引擎在 H1 拿到的是**整个壳的 Data**（而不是 `consumed`），
+// 因此它可能多吃语句外的单元（`a⏎++b` 的 `++` 被当后缀）或提前收层（未实现逗号时的 `a, b`）。
+// 两种都会**静默错建**（built 计数照加，AST 却与 tsc 不一致），所以收口前必须要求
+// 「表达式精确覆盖语句的最后一个代码单元」。判据只用 token：`;` 属语句但不属表达式，
+// 期望终点退到它之前的那个代码单元。不一致 = 本层没收住 → Decline（category=expr.coverage），
+// 让旧路径接管（逐字节不变）。引擎侧的行终止符 Hold 守卫（feat-r2-expr）落地后本校验仍保留作安全网。
+let expectedUnit:Token | undefined = undefined;
+for (let at = 0; at <= endIndex && at < this.Units.length; at++) {
+  const candidate = this.Units[at];
+  if (candidate.IsTriviaToken) {
+    continue;
+  }
+  if (at === endIndex && this.TextOf(candidate) === ";") {
+    continue;
+  }
+  expectedUnit = candidate;
+}
+if (expectedUnit !== undefined && expression.SourceRange.EndIndex !== expectedUnit.SourceRange.EndIndex) {
+  this.Decline("表达式终点与语句终点不一致: exprEnd=" + String(expression.SourceRange.EndIndex)
+    + " stmtEnd=" + String(expectedUnit.SourceRange.EndIndex), "expr.coverage");
+  return null;
+}
 this.Finished = true;
 DirectBuildMetrics.StatementsBuilt += 1;
 DirectBuildMetrics.Trace("expression built: " + expression.constructor.name);

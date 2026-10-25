@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { DirectSession } from "../direct/direct-build-session.xl.md"
+import { DirectBuildMetrics } from "../direct/direct-build-metrics.xl.md"
 import { DirectBuildRouter } from "../direct/direct-build-router.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
 import { StatementFamilyDispatch } from "./statement-family-dispatch.xl.md"
@@ -91,7 +92,20 @@ const consumed:Array<Token> = host.Data.slice(0, endIndex + 1);
 // 所以只需要这一个分支。直建成功时 builder 一次都不创建（验收口径 A6：builder.Load 调用数 == 0）。
 const direct = shell.DirectSession;
 if (direct !== null && !direct.Declined) {
-  const directBuilt = direct.Finish(endIndex, context);
+  let directBuilt:Token | null = null;
+  try {
+    directBuilt = direct.Finish(endIndex, context);
+  } catch (error) {
+    // C4（R2-CONTRACT §3.2）：直建 `Finish` 抛错 = 「直建没收住」，必须计数后再回落旧路径
+    // （绝不静默变成绿）。若异常来自已计数的 Decline（`--strict` 的 StrictViolations 抛错），
+    // `Declined` 已为真，不重复计入 Errors —— 判据始终是计数器，不是「有没有抛异常」。
+    if (!direct.Declined) {
+      DirectBuildMetrics.Errors += 1;
+      DirectBuildMetrics.LastError = error instanceof Error ? error.message : String(error);
+      DirectBuildMetrics.Trace("direct finish error: " + DirectBuildMetrics.LastError);
+    }
+    directBuilt = null;
+  }
   if (directBuilt !== null) {
     host.Data.splice(0, consumed.length);
     return directBuilt;

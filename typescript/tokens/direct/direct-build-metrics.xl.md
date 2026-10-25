@@ -22,6 +22,8 @@
 
 ## static field LastDeclineReason:string = ""
 
+## static field DeclineReasons:Map<string, int> = new Map()
+
 ## static field LastError:string = ""
 
 ## static field Strict:bool = false
@@ -40,8 +42,23 @@ DirectBuildMetrics.IncompleteFallback = 0;
 DirectBuildMetrics.Errors = 0;
 DirectBuildMetrics.StrictViolations = 0;
 DirectBuildMetrics.LastDeclineReason = "";
+DirectBuildMetrics.DeclineReasons.clear();
 DirectBuildMetrics.LastError = "";
 DirectBuildMetrics.Traces.length = 0;
+```
+
+## static method NoteDecline:(reason:string, category:string)=>void
+
+```ts
+// C3（R2-CONTRACT §3.1）：Decline 的**分类计数**。键只做分组，细节留在 `LastDeclineReason` / trace。
+// 只记分类表 + 最近原因 + trace；**不动** `Declined`（由 session 自己加，保持 R1 调用点单一职责）。
+// 分类键是闭集（var.head/binding/type/init/stopped/coverage、expr.decline/stopped/coverage）；
+// 空串兜底成 `unknown`，不抛错（新增 category 必须先改 CONTRACT 那张表）。
+const key = category === "" ? "unknown" : category;
+const old = DirectBuildMetrics.DeclineReasons.get(key);
+DirectBuildMetrics.DeclineReasons.set(key, old === undefined ? 1 : old + 1);
+DirectBuildMetrics.LastDeclineReason = reason;
+DirectBuildMetrics.Trace("decline[" + key + "] " + reason);
 ```
 
 ## static method Trace:(line:string)=>void
