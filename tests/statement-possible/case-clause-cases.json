@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "description": "Stage 4y dedicated cases (SAFE ROLLBACK: EnableSwitchCaseClause ships DEFAULT OFF; this group is the XML/AST/fallback gate on the default raw path; the on-state readings are printed by s4y-case-clause-takeover.mjs and recorded in HANDOFF-s4y.md): clause-level statements in a switch (`case 1: f();` - no braces). The switch case-block brace gets a catalog holding ONLY CaseClauseStatementPossibleShape (never the block-body catalog: expression/variable candidates would swallow `case <expr>:` and throw SourceRange is not set, the Stage 4p failure). The candidate accepts only at the first code unit after a clause colon (or after a previous clause statement) and builds a ShellStatementFamily shell (ScanRoot end); StatementBuilder.BuildCaseBlock collects the built statement shapes into the CaseClauseShape. Each case asserts: (1) shell-path XML == legacy-path XML byte for byte; (2) AST node-for-node == ts.createSourceFile; (3) two parses give identical XML; (4) no shape/CatalogGuide leak in XML; (5) no file-level fallback. Takeover counters (SwitchCaseClauseMountCount / SwitchCaseClauseShellCount / BlockBodyStatementCount) are asserted by tests/statement-possible/s4y-case-clause-takeover.mjs and recorded in HANDOFF-s4y.md. The trap group is the safety gate: case bodies with braces, ternary case expressions, object literals, labels, nested switch, empty switch.",
+  "groups": {
+    "stage4y": {
+      "stage": "Stage 4y (switch clause-level statements taken over; block-level class shell behind a default-off flag)",
+      "description": "Clause-level statements (call, two statements in one clause, two clauses, default, arithmetic case expression, ternary case expression, if with a body, empty statement, let, no trailing semicolon, block-only clause, mixed clause forms, nested switch, empty switch) plus the trap group (object literal with a colon, label statement, object method containing a switch, plain switch case body).",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4y-clause-call", "source": "switch (x) { case 1: f(); }" },
+        { "name": "s4y-clause-two-stmts", "source": "switch (x) { case 1: a; b; }" },
+        { "name": "s4y-clause-two-clauses", "source": "switch (x) { case 1: f(); case 2: g(); }" },
+        { "name": "s4y-clause-default", "source": "switch (x) { default: f(); }" },
+        { "name": "s4y-clause-arith-case", "source": "switch (x) { case a + 1: f(); }" },
+        { "name": "s4y-clause-ternary-case", "source": "switch (x) { case a ? b : c: f(); }" },
+        { "name": "s4y-clause-if", "source": "switch (x) { case 1: if (x) { y; } }" },
+        { "name": "s4y-clause-empty-stmt", "source": "switch (x) { case 1: ; }" },
+        { "name": "s4y-clause-let", "source": "switch (x) { case 1: let y = 1; }" },
+        { "name": "s4y-clause-no-semi", "source": "switch (x) { case 1: f() }" },
+        { "name": "s4y-clause-block-only", "source": "switch (x) { case 1: { g(); } }" },
+        { "name": "s4y-clause-mixed", "source": "switch (x) { case 1: f(); case 2: { g(); } }" },
+        { "name": "s4y-clause-nested-switch", "source": "switch (x) { case 1: switch (y) { case 2: f(); } }" },
+        { "name": "s4y-clause-in-block", "source": "{ switch (x) { case 1: f(); } }" },
+        { "name": "s4y-trap-empty-switch", "source": "switch (x) { }" },
+        { "name": "s4y-trap-obj-literal", "source": "const o = { a: 1, b: 2 };" },
+        { "name": "s4y-trap-label", "source": "en: f();" },
+        { "name": "s4y-trap-switch-in-method", "source": "const o = { m(){ switch (x) { case 1: f(); } } };" },
+        { "name": "s4y-trap-case-expression-call", "source": "switch (x) { case foo(): { g(); } }" },
+        { "name": "s4y-trap-switch-no-clause-stmt", "source": "switch (x) { case 1: { let a = 1; } default: }" }
+      ]
+    }
+  }
+}

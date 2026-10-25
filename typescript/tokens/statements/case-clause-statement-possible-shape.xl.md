@@ -1,0 +1,260 @@
+# dependencies
+```xl
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ItemUtil } from "../item-util.xl.md"
+import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
+import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
+import { StatementRoute } from "./statement-route-util.xl.md"
+import { StatementRouteUtil } from "./statement-route-util.xl.md"
+import { StatementShape } from "./statement-shape.xl.md"
+```
+
+# namespace cangjie
+
+# class CaseClauseStatementPossibleShape extends PossibleShape
+
+**switch 子句级语句的起点候选**（Stage 4y）。**当前默认关**（`StatementRouteUtil.EnableSwitchCaseClause = false`）：
+候选本身按下面的设计工作，但壳在 `;` 处不收口，接管只在「子句最后一条语句」这一种形态上完整，
+跨子句 / 多条语句会把后续 case 体的目录挂载吞掉 —— 详见 `HANDOFF-s4y.md` §1，属安全回退。
+
+`switch (x) { case 1: f(); case 2: { g(); } }` 里 `case 1:` 之后的 `f();` **不在任何括号里**：
+它直接躺在 switch 的 case 块括号 `{ … }` 的 `Data` 上。Stage 4s 只给 case 体的 `{`（`case 1: { … }`）
+挂了块体目录，子句级语句因此没有宿主，整段留 raw（`BuildCaseBlock` 的内层 `BuildStatement()` 建树，
+树正确但未接管）。
+
+**为什么不做「伪 Bracket 宿主」**：给子句 units 造一个只在 possible 层存在、不进树的伪括号，要求
+`Bracket.Transit` 的字符路由把后续单元送进这个凭空插进去的括号，还要在 `BuildCaseBlock` 里把它摘掉；
+4s 已经证明「形状的宿主假设挂错一格」会直接抛 `SourceRange is not set`。本候选改用**已有的宿主**：
+switch 的 **case 块括号**本身就是这些子句语句的宿主，只要它的目录里放的不是块体目录（表达式 / 变量
+候选会把 `case 1:` 整套当一条语句建壳，4p 的抛错正是这么来的），而只放本候选——它只在
+「某个子句的冒号之后」`Accept`，在 `case` / 表达式 / 冒号格上全部 `Uncertain`。
+
+**为什么不 `Reject` 非起点格**：`CatalogGuide` 把 `Reject` 的候选**永久删除**，而这个目录里只有本候选。
+在 `case`、case 表达式、冒号那些格上判死，目录的 `Candidates` 会变空并从此停摆，后面整段子句再没有人
+接管（块体目录经得起删除是因为它有 6 个候选）。`Uncertain` 让候选一直活着，只在真正的起点建壳。
+
+**建壳 / 收口 / 建树全部复用既有机制**：壳 `Kind = ShellBlock` + `BodyKind = BodyKindBlock`、终结候选
+`StatementEndPossibleShape` 且 `StatementKind = 0`（与 `BlockPossibleShape.BuildByIndex` 逐字同构：
+这是被 Stage 4b 验证过「`;` 收口」的族标记组合；`ShellStatementFamily` 在本宿主上 `;` 不收口，见
+`BuildByIndex` 的注释）；收口时 `StatementShape.BuildFromShell` 用**同一段 raw 单元**
+调用**同一个** `StatementBuilder.BuildStatement()`。`Pos` 取「前一个非 trivia 单元的 `EndIndex`」
+（子句第一个语句 = 冒号末尾，后续语句 = 上一条语句末尾），与 `BuildCaseBlock` 里
+`inner.Load(bracket.Data, base)` 之后 `this.Positions[first]` 的口径逐位相同。
+
+**子句边界判据**（`IsClauseStatementStart`）：只读宿主 `Data`，不建状态、不调 `Decide`：
+
+1. 当前单元必须是 basic token、不是 trivia、不是 `{` 括号（case 体走 4s 的既有通道）、不是
+   `case` / `default` 关键字；
+2. 前一个非 trivia 单元是 `:`（子句第一条语句）或已经是**已建语句形状** / `;`（同一子句的后续语句）；
+3. 从当前位置往回找最近的 `case` / `default` 关键字，按 `BuildCaseBlock` **同一份**三元深度算法定位
+   该子句的冒号：`case` 分支取「`?` 深度 0 的第一个 `:`」，`default` 分支要求紧随其后的代码单元就是 `:`；
+   冒号必须正好是第 2 条里的那个 `:`（第一条语句）或位于它之前（后续语句）。
+
+第 3 条把 `case a ? b : c:` 的三元冒号排除在外（`b` / `c` 前面那个 `:` 不是子句冒号）；`case` 体
+`{ … }` 由第 1 条排除；`: ` 之后的 `{` 也由第 1 条挡住，行为逐位回到 Stage 4s。
+
+**安全回退**：`EnableSwitchCaseClause = false` 时整体 `Reject`，目录里一个候选都不剩但终结候选
+（`BlockBodyWaitingPossibleShape`）在场，只返回 `Waiting`、不抛错；没有任何形状被建出，
+`BuildCaseBlock` 的 raw 路径逐位回到 Stage 4s。
+
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return ShapeStates.Uncertain;
+}
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableSwitchCaseClause) {
+  return ShapeStates.Reject;
+}
+if (units[tokenIndex] instanceof EndOfFileTokenShape) {
+  // 括号里的 Data 不会有 EOF；真到了也等，不在这里判死（Reject 是永久删除）。
+  return ShapeStates.Uncertain;
+}
+if (units[tokenIndex].IsTriviaToken) {
+  return ShapeStates.Uncertain;
+}
+if (!CaseClauseStatementPossibleShape.IsClauseStatementStart(units, tokenIndex)) {
+  return ShapeStates.Uncertain;
+}
+return ShapeStates.Accept;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+与 `ComputeByIndex` 同一份判据（`IsClauseStatementStart`），否则「接受」与「可建」两处会分叉。
+
+```ts
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableSwitchCaseClause) {
+  return false;
+}
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+if (units[tokenIndex].IsTriviaToken) {
+  return false;
+}
+return CaseClauseStatementPossibleShape.IsClauseStatementStart(units, tokenIndex);
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+与 `BlockPossibleShape.BuildByIndex` 同构，只有两处不同：
+
+- **搬的起点是 `tokenIndex` 自己**，不是 `ItemUtil.ItemStart`：宿主是 case 块括号，`ItemStart` 指向
+  `case` 关键字（整段子句的起点），照搬会把 `case 1:` 一起搬进壳；
+- `Pos` 取前一个**非 trivia** 单元的 `EndIndex`（子句第一个语句取冒号末尾，后续语句取上一条语句末尾）。
+
+```ts
+const start = tokenIndex;
+if (start < 0 || start >= host.Data.length) {
+  throw new Error("case 子句语句候选没有可搬的单元");
+}
+let pos = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (host.Data[at].IsTriviaToken) {
+    continue;
+  }
+  const previousEnd = host.Data[at].SourceRange.EndIndex;
+  if (previousEnd >= 0) {
+    pos = previousEnd;
+  }
+  break;
+}
+const moved:Array<Token> = host.Data.slice(start, tokenIndex + 1);
+host.Data.splice(start, moved.length);
+const shell = new StatementShape(host.Template);
+shell.Pos = pos;
+// 与 `BlockPossibleShape.BuildByIndex` 的块壳**逐字同构**的族标记：`Kind = ShellBlock` +
+// `BodyKind = BodyKindBlock`，终结候选 `StatementKind = 0`。这不是随便挑的：Stage 4y 实测
+// `Kind = ShellStatementFamily` 时 `;` 不触发收口（壳一直涨到 case 块的 `}`，`ExitOrPre` 整体建树
+// 失败后 `DetachShell` 退回 raw：树仍正确，但第一条之后的子句语句永远不接管，且后续 case 体的
+// 目录挂载会被壳吞掉）。块壳这一套族标记是被 Stage 4b 验证过「`;` 收口」的唯一组合。
+shell.Kind = StatementRoute.ShellBlock;
+shell.BodyKind = StatementShape.BodyKindBlock;
+for (const item of moved) {
+  shell.Add(item);
+}
+const headStart = moved[0].SourceRange.Start;
+if (headStart >= 0) {
+  shell.SignIn(headStart);
+}
+const endShape = new StatementEndPossibleShape();
+endShape.StatementKind = 0;
+shell.CatalogGuide = new CatalogGuide([], endShape);
+host.Data.splice(start, 0, shell);
+shell.Parent = host;
+host.MountedUnit = shell;
+StatementRouteUtil.SwitchCaseClauseShellCount += 1;
+return shell;
+```
+
+## static method IsClauseStatementStart:(units:Array<Token>, tokenIndex:int)=>bool
+
+子句语句起点判据（只读 `units`）：
+
+```ts
+if (tokenIndex <= 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (unit.IsTriviaToken || !unit.IsBasicToken) {
+  return false;
+}
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+  // case 体 `{ … }` 由 Stage 4s 的「case 体括号挂块体目录」通道负责，这里不抢。
+  return false;
+}
+if (unit instanceof Common) {
+  const text = (unit as Common).TempToString();
+  if (text === "case" || text === "default") {
+    return false;
+  }
+}
+let previousAt = -1;
+for (let at = tokenIndex - 1; at >= 0; at--) {
+  if (!units[at].IsTriviaToken) {
+    previousAt = at;
+    break;
+  }
+}
+if (previousAt < 0) {
+  return false;
+}
+const previous = units[previousAt];
+const previousIsColon = previous instanceof Symbol && (previous as Symbol).Is(":");
+let afterStatement = false;
+if (previous instanceof Symbol && (previous as Symbol).Is(";")) {
+  afterStatement = true;
+} else if (!previous.IsBasicToken) {
+  // 同一子句里上一条语句已经被建成形状（`;` 被消费进那条语句）。
+  afterStatement = true;
+}
+if (!previousIsColon && !afterStatement) {
+  return false;
+}
+// 最近的 case / default 关键字（括号是原子单元，子句表达式里的关键字进不到这一层）。
+let keywordAt = -1;
+let keywordText = "";
+for (let at = previousAt; at >= 0; at--) {
+  const item = units[at];
+  if (!(item instanceof Common)) {
+    continue;
+  }
+  const text = (item as Common).TempToString();
+  if (text === "case" || text === "default") {
+    keywordAt = at;
+    keywordText = text;
+    break;
+  }
+}
+if (keywordAt < 0) {
+  return false;
+}
+let colonAt = -1;
+if (keywordText === "default") {
+  const afterDefault = ItemUtil.NextCode(units, keywordAt + 1);
+  if (afterDefault >= units.length) {
+    return false;
+  }
+  if (!(units[afterDefault] instanceof Symbol) || !(units[afterDefault] as Symbol).Is(":")) {
+    return false;
+  }
+  colonAt = afterDefault;
+} else {
+  // 与 `StatementBuilder.BuildCaseBlock` 同一份冒号判据：三元 `?` 深度 0 的第一个 `:`。
+  let ternaryDepth = 0;
+  for (let at = keywordAt + 1; at < units.length; at++) {
+    const item = units[at];
+    if (!(item instanceof Symbol)) {
+      continue;
+    }
+    if ((item as Symbol).Is("?")) {
+      ternaryDepth++;
+      continue;
+    }
+    if ((item as Symbol).Is(":")) {
+      if (ternaryDepth > 0) {
+        ternaryDepth--;
+        continue;
+      }
+      colonAt = at;
+      break;
+    }
+  }
+  if (colonAt < 0) {
+    return false;
+  }
+}
+if (previousIsColon) {
+  return previousAt === colonAt;
+}
+return previousAt > colonAt;
+```

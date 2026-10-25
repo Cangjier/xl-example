@@ -13,6 +13,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "../declarations/body-guide-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
+import { CaseClauseStatementPossibleShape } from "./case-clause-statement-possible-shape.xl.md"
 import { DeclarationStatementPossibleShape } from "./declaration-statement-possible-shape.xl.md"
 import { RootExpressionStatementPossibleShape } from "./root-expression-statement-possible-shape.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
@@ -629,6 +630,36 @@ for (let scan = previous; scan >= 0; scan--) {
 return false;
 ```
 
+## static field EnableSwitchCaseClause:bool = false
+
+**switch 子句级语句目录开关**（Stage 4y，**实测后默认关**，见 `StatementRouteUtil.EnableSwitchCaseClause` 与
+`HANDOFF-s4y.md` §1）：壳在 `;` 处不收口，接管只在「子句最后一条语句」上完整，跨子句 / 多条语句会把
+后续 case 体的目录挂载吞掉。`false` = 不挂，行为逐位回到 Stage 4s。`true` = switch 的 case 块括号挂
+`[CaseClauseStatementPossibleShape]`（终结候选 `BlockBodyWaitingPossibleShape`），`case 1: f();` 的
+`f();` 在冒号之后建壳，由 `StatementBuilder.BuildCaseBlock` 的子句收集分支收进 `CaseClauseShape`。
+`false` = 不挂，行为逐位回到 Stage 4s。
+
+## static method IsSwitchKeywordShell:(shell:Token)=>bool
+
+`shell` 是不是一个以 `switch` 起头的控制流壳（即刚创建的 `{` 是 switch 的 **case 块括号**）。
+判据只读壳自己的 `Data`：`Kind === ShellStatementFamily` 且首代码单元是 `switch`。
+
+```ts
+if (!(shell instanceof StatementShape)) {
+  return false;
+}
+if ((shell as StatementShape).Kind !== StatementRoute.ShellStatementFamily) {
+  return false;
+}
+for (const unit of shell.Data) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  return unit instanceof Common && (unit as Common).TempToString() === "switch";
+}
+return false;
+```
+
 ## static method OnShellBracketCreated:(shell:Token, bracket:Token, context:SyntaxContext)=>void
 
 **控制流壳里的体括号创建事件**（Stage 4n，由 `StatementShape.OnBracketCreatedEvent` 转调）。块体壳把自己
@@ -651,6 +682,18 @@ if (!(shell instanceof StatementShape)) {
 }
 const body = bracket as Bracket;
 if (body.CatalogGuide !== null) {
+  return;
+}
+if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
+  // **switch 的 case 块括号**（Stage 4y）：挂**只含子句语句候选**的目录。绝不能挂块体目录：
+  // 目录里的表达式 / 变量候选会把整段 `case <表达式>:` 当一条语句建壳（Stage 4p 的
+  // `SourceRange is not set` 就是这么抛的）。
+  if (BlockPossibleShape.EnableSwitchCaseClause) {
+    body.CatalogGuide = new CatalogGuide(
+      [new CaseClauseStatementPossibleShape()],
+      new BlockBodyWaitingPossibleShape());
+    StatementRouteUtil.SwitchCaseClauseMountCount += 1;
+  }
   return;
 }
 BlockPossibleShape.TryMountControlFlowBody(shell, body, context);

@@ -267,6 +267,46 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 进程内累计「被声明 / 导入导出候选建成壳的语句」条数（只增不减）。与 `ControlFlowShellCount` /
 `LabelShellCount` **分开计量**：三个族各有自己的建壳时机与关键字表，接管读数不能混在一个数里。
 
+## static field EnableSwitchCaseClause:bool = false
+
+**switch 子句级语句接管开关**（Stage 4y）。**实测后默认关（安全回退）**：专用候选与收集分支都已落地，
+但壳在 `;` 处不收口（`Kind = ShellStatementFamily` 与 `Kind = ShellBlock` 两套族标记都试过）：壳一直涨到
+case 块的 `}`，`ExitOrPre` 整体建树失败后 `DetachShell` 退回 raw。树仍与 legacy 逐字节一致
+（stage4y 20 条 XML/AST/fallback 全绿），但接管不完整（多条语句 / 跨子句只接管第一条），并且会吞掉
+后续 case 体的目录挂载（`case 1: f(); case 2: { g(); }` 的 `BlockBodyStatementCount` 变 0）。
+根因未定位，按纪律默认关；打开态的实测读数见 `HANDOFF-s4y.md` §1，`false` 时行为逐位回到 Stage 4s。
+
+`true` = switch 的 **case 块括号** `{ … }` 在创建时挂一份
+**只含 `CaseClauseStatementPossibleShape`** 的目录（终结候选 `BlockBodyWaitingPossibleShape`）：
+`case 1: f();` 的 `f();` 在冒号之后建壳，收口后由 `StatementBuilder.BuildCaseBlock` 按序收集进
+`CaseClauseShape`。目录里**不放**表达式 / 变量 / 块体候选——那正是 Stage 4p 挂错括号时
+`case <表达式>:` 被整套当语句建壳、抛 `SourceRange is not set` 的根因（见 HANDOFF-s4p/s4s）。
+`false` = 不挂，case 块括号保持纯 raw，行为逐位回到 Stage 4s（子句语句由 `BuildCaseBlock` 的
+legacy 递归建，树仍正确）。
+
+## static field SwitchCaseClauseMountCount:int = 0
+
+**switch case 块括号挂上子句语句目录**的次数（Stage 4y，只增不减）。与 `SwitchCaseBodyMountCount`
+（case 体 `{` 的挂载）分开计量：一个 switch 只有一次本计数，case 体可以有多个。
+
+## static field SwitchCaseClauseShellCount:int = 0
+
+**switch 子句级语句被建成壳**的条数（Stage 4y，只增不减）。与 `SwitchCaseBodyMountCount`（挂载）分开：
+挂上但一条子句语句都没接时本计数为 0（未接管，不是失败）。
+
+## static field EnableBlockClassShell:bool = false
+
+**块内 `class` 声明壳化开关**（Stage 4y，默认关 = 安全回退）。`true` = `Decide` 把**宿主是块体 `{` 括号**的
+`class` 起点判成 `StatementRoute.ShellStatementFamily`，由块体目录里既有的
+`ControlFlowStatementPossibleShape` 建壳（`ScanRoot` 判界，`}` 收口），从而让
+`{ class C {} }` / `{ class C { m(){} } }` 的 `BlockBodyStatementCount` 增量 > 0。
+
+`class` 原先在 `IsLegacyKeyword` 里、且 `IsDeclarationHead` 不含它：它的体语句按文档应由括号事件接管，
+做成声明壳会改变体括号的宿主。本开关只改**块内**这一类起点（根层 `class` 仍走 legacy），且用
+`ShellStatementFamily`（ScanRoot）而不是 `ShellDeclarationFamily`（`;` / EOF / ASI 边界）——带体声明的
+边界是 `}`，与 `if` / `while` 同一条判界。默认关：打开前必须在专用用例里核 XML / AST / fallback
+（见 HANDOFF-s4y.md 的块内 class 一节）；它不是「已交付」，只是可验证的候选路径。
+
 ## static method IsDeclarationHead:(text:string)=>bool
 
 `ShellDeclarationFamily` 的**关键字起点集合**（Stage 4q）。只收「能起一条声明 / 导入导出语句」的关键字：
@@ -653,6 +693,16 @@ if (head.IsTriviaToken || head instanceof EndOfFileTokenShape) {
 if (head instanceof Common) {
   // Stage 4q：声明 / 导入导出族先问一次（`None` = 本族不管，落回 `DecideCommon` 的既有判据）。
   const headText = (head as Common).TempToString();
+  // **Stage 4y：块内 class 声明壳**（默认关）。只认宿主是块体 `{` 括号的 `class`：根层 `class` 仍走
+  // legacy（体语句的括号事件与根级声明候选都按原路径走），本分支不改变根层任何一个字节。
+  // 判成 `ShellStatementFamily` 而不是 `ShellDeclarationFamily`：带体声明的边界是 `}`，
+  // 与 `if` / `while` 同一条 `ScanRoot` 判界；声明族的 `;` / EOF / ASI 边界不适用于它。
+  if (StatementRouteUtil.EnableBlockClassShell && headText === "class") {
+    const classOwner = head.Parent;
+    if (classOwner instanceof Bracket && (classOwner as Bracket).StartBracketChar === "{") {
+      return StatementRoute.ShellStatementFamily;
+    }
+  }
   const declaration = StatementRouteUtil.DecideDeclaration(units, headAt, headText);
   if (declaration !== StatementRoute.None) {
     return declaration;
