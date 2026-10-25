@@ -5,14 +5,13 @@
 >
 > 案例源码：`let x = 1;`（紧跟第二句 `let y = 2;`，用来展示「语句在文件中段如何收口」；文件末尾只有一句时的差异见 §7.2）。
 >
-> **2026-10-25 更新（R2 收口，`feature/all-possible` @ `a937244d`）**：变量语句与表达式语句已由**候选直建**接管
-> （`typescript/tokens/direct/*`），覆盖构造不再走本文 §6.3–§6.4 的事后 Build 路径。
-> R2 把直建覆盖范围扩到 A1–A5（字面量 / 模板 / BigInt、数组 / 对象、调用 / 成员 / 下标 / `new` / 可选链、
-> 赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空、`typeof`·`void`·`delete`），并加了 C1 行终止符守卫、C3 分类计数、
-> C4 H2 异常计数；目标 case 也从 10 条扩到 **60 条**。本文已把 §0 / §4.4 / §6.1 / §6.3 / §6.4 / §6.7 / §10 /
-> §11 / §12 里「已覆盖构造」与「已知口径」的部分改写为 R2 现状；**未覆盖语句族仍按原文走旧路径**。
-> 直建的目标、hook、状态机、优先级旋转算法与实测读数见 `docs/direct-candidate-pipeline.md`（R2 扩面 §5.8、
-> 硬化 §14）。
+> **2026-10-26 更新（R3 收口，`feature/all-possible` @ `b964fdb8`）**：直建已从「一条语句 = 一个表达式」推进到
+> **语句本身** —— 控制流（块 / 空语句 / if / else-if / while / do / for / for-in / for-of / return / throw / break /
+> continue）、函数声明与箭头函数、D7 语句边界修复、strict 全量化（H1′）；目标 case 从 60 条扩到 **92 条**。
+> 建壳候选的挂载点收敛为 `DirectStatementHook.Attach`（H3-b，R3 新增），注册仍在 `direct-build-plugins` 的 5 行。
+> 本文已把 §10（族差异表）、§11（复跑与读数）、§12（已知口径）改写为 R3 现状，并新增 §13（语句族直建流程）；
+> hook / 状态机 / 装配助手的细节见 `docs/direct-candidate-pipeline.md` §2.2–§2.3、§15–§19。
+
 
 ---
 
@@ -676,60 +675,71 @@ VariableStatementShape（Data = [VariableDeclarationListShape]）
 | 族 | 建壳候选 | 壳 `Kind` | 收口判据 | 建树入口 |
 | --- | --- | --- | --- | --- |
 | `let/const/var` | `VariableStatementPossibleShape` | 0（None） | 短语句族 `;`/ASI/EOF | **直建**：H3 建 `VariableStatementDirectSession`，H2 `Finish` → `VariableStatementShape`；Decline 时旧路径（三层 possible → `BuildStatement`）。R2：初始化器覆盖 A1–A5 全部构造 |
-| 普通表达式语句 | `RootExpressionStatementPossibleShape` | `ShellPlainExpression` | `;`/EOF/ASI（`ExpressionEndCode`） | **直建**：H3 建 `ExpressionStatementDirectSession`，H2 `Finish` → `ExpressionStatementShape`；Decline 时旧路径（形状树 → `StatementShapeAst.BuildExpressionStatementFromShapes`，拒绝则 `BuildStatement`）。R2：覆盖 A1–A5 全部构造 + C1 行终止符守卫 |
-| 控制流 / 块 / 标签 | `ControlFlowStatementPossibleShape`、`BlockPossibleShape` | `ShellStatementFamily` / `ShellBlock` / `ShellLabel` | 体括号 / 链式 `else/while/catch/finally` | `StatementFamilyDispatch.Build` → `BuildIf/BuildWhile/…`（**未覆盖，现状不变**） |
-| 根层 `function` / `class` / `@dec` | `ControlFlowStatementPossibleShape`（路由 8/9/10） | `ShellFunctionDeclaration` / `ShellClassDeclaration` / `ShellDecoratedDeclaration` | `DeclarationShellEndCode`（体括号 / `;` / 声明跟随边界） | `BuildFunctionDeclaration` / `BuildClassDeclaration` / `BuildDecoratedStatement`（**未覆盖**） |
+| 普通表达式语句 | `RootExpressionStatementPossibleShape` | `ShellPlainExpression` | `;`/EOF/ASI（`ExpressionEndCode`） | **直建**：H3 建 `ExpressionStatementDirectSession`，H2 `Finish` → `ExpressionStatementShape`；箭头函数也在这一路（表达式引擎自我激活） |
+| 控制流 / 块（**R3**） | `ControlFlowStatementPossibleShape`、`BlockPossibleShape` | `ShellStatementFamily` / `ShellBlock` | 体括号 / 链式 `else/while/catch/finally` | **直建**：`DirectStatementHook.Attach`（H3-b）建 `ControlFlowStatementDirectSession`（两个 kind 同一个类），H2 `Finish` → `BlockShape` / `EmptyStatementShape` / `If/While/Do/For/ForIn/ForOf/Return/Throw/Break/Continue`；体内语句**不代建**（各自 H2 收口后由 `BuiltChildren` 收集）。`switch`/`try`/`with`/`debugger` 入口 `Decline(stmt.head)`；`for (let …)` 也 `stmt.head`；带标签的 `break/continue` → `stmt.label` |
+| 根层 `function`（**R3**） | `ControlFlowStatementPossibleShape`（路由 8） | `ShellFunctionDeclaration` | `DeclarationShellEndCode`（体括号 / `;` / 声明跟随边界） | **直建**：`FunctionDeclarationDirectSession`。参数表只认 Identifier（借静态工厂 `BuildParameters`），**体走 `BlockFrom`**（不能用 `FromUnits`：它有体会 `new StatementBuilder`）；其余修饰词 / 泛型 / 返回类型 / 无体 → `stmt.func` |
+| 根层 `class` / `@dec` | `ControlFlowStatementPossibleShape`（路由 9/10） | `ShellClassDeclaration` / `ShellDecoratedDeclaration` | `DeclarationShellEndCode` | `BuildClassDeclaration` / `BuildDecoratedStatement`（**未覆盖**，该 kind 未注册） |
 | 声明族（`interface/enum/type/namespace/import/export/declare`） | `DeclarationStatementPossibleShape`（路由 7） | `ShellDeclarationFamily` | `ExpressionEndCode` + `DeclarationFamilyBodyEndCode` | `StatementFamilyDispatch.Build` → 各 `Build*Declaration`（**未覆盖**） |
-| 块内语句 | 块体 `Bracket` 的目录 | 同各族 | 同上 | 块体目录建壳后同一套；块内的变量 / 表达式语句同样走直建 |
+| 标签语句 | `ControlFlowStatementPossibleShape` | `ShellLabel` | `ExpressionEndCode` | **未覆盖**（`ShellLabel` 未注册；R4） |
+| 块内语句 | 块体 `Bracket` 的目录 | 同各族 | 同上 | 与根层同一套；块内的变量 / 表达式 / 控制流 / 函数语句都直建，`{ let x = 1; }` 因此 `built=2`（块 + 内层语句），根下节点仍是 1 |
 
 同一个 shell 机制在三处被复用：根目录、块体括号目录、控制流体括号目录；差别只在「谁持有目录、候选表有哪些、`Kind` 是什么」。
+R3 之后，「这个族是否直建」由 `direct-build-plugins` 的 5 行 `Register` 唯一回答（未注册 kind ⇒ `Attach` 里的 `Create`
+返回 null ⇒ 行为逐字节不变）。
 
----
+## 11. 复跑与验证（直建现状，R3）
 
-## 11. 复跑与验证（直建现状）
-
-前置（仓库根；`dist/`、`build/` 是生成物、被 gitignore）。命令在 `docs-r2` 克隆（`a937244d`）上实测可跑：
+前置（仓库根；`dist/`、`build/` 是生成物、被 gitignore）。命令在 `docs-r3` 克隆（`b964fdb8`）上实测可跑：
 
 ```powershell
-$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-r2"
+$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-r3"
+$setup = "C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup"   # 8456ec3c 黄金克隆
 cd $clone
 
 # 1) 规范 → dist/ts（本仓 xl 不在 PATH，用会话内 xl_build 工具，不是 shell 命令）
 #    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
-#    实测：548 written, 0 skipped, 0 planned, 0 error(s), 2535 warning(s)（warning 全是既有 W3102/W3103）
-#    （增量构建 / dist 缓存已热时显示 0 written, 548 skipped；判据仍是 0 error）
-node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0
+#    实测：552 written, 0 skipped, 0 planned, 0 error(s), 3 warning(s)（warning 全是既有 E1107 重复类型声明）
+node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0；build/ts = 552 个 .js
 
-# 2) 目标 case harness（R2 起已随主仓库跟踪，无需拷贝）
+# 2) 分组
 node tests/direct-build/target-cases.mjs --group=r1
-#    R1 原 10 条：exit 0，CASES=10 FAILED=0，builtCases=10/10 loads=0
+#    实测 exit 0；CASES=10 FAILED=0；builtCases=10/10 loads=0
+node tests/direct-build/target-cases.mjs --group=r2
+#    实测 exit 0；CASES=50 FAILED=0；builtCases=33/50 loads=64
 
-node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats `
-     --baseline=C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup
-#    全量 60 条：exit 0，CASES=60 FAILED=0，A1..A11 全 PASS
-#    builtCases=41/60 loads=69；DECLINE-STATS: total=12 categories=3
+# 3) R3 组（32 条）
+node tests/direct-build/target-cases.mjs --group=r3 --expect-direct --strict --decline-stats --baseline=$setup
+#    实测 exit 0；CASES=32 FAILED=0；A1..A12 全 PASS；builtCases=25/32 loads=32
+#    DECLINE-STATS: total=9 categories=4（stmt.func 3 / stmt.head 3 / expr.decline 2 / var.binding 1）
 
-node tests/direct-build/target-cases.mjs --only=R2-C4-01 --fault-inject=finish-throw --expect-direct --strict
-#    C4：exit 0，CASES=1 FAILED=0（注入后 errors=1，第二次 errors=0）
+# 4) 全量 92 条（唯一最终判据）
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --baseline=$setup
+#    实测 exit 0；CASES=92 FAILED=0；A1..A12 全 PASS；builtCases=68/92 loads=96
+#    DECLINE-STATS: total=21 categories=5（expr.decline 12 / stmt.func 3 / stmt.head 3 / var.binding 2 / expr.stopped 1）
 
-node tests/direct-build/target-cases.mjs --group=NEG
-#    非正例 19 条：exit 0，CASES=19 FAILED=0，builtCases=0/19 loads=69
+# 5) strict 全量化（必须与 --strict 联用；现状 2 条已知红，属 R4）
+node tests/direct-build/target-cases.mjs --strict --strict-all --expect-direct --decline-stats --baseline=$setup
+#    实测 exit 1；CASES=92 FAILED=2（R2-INC-01 `a +` / R2-INC-02 `a as`，A4/A12 FAIL、parse=THREW）
+#    ⚠️ 单独 --strict-all 是 no-op（strict=off strict-all=on），不能当证据
 ```
 
-实测读数（2026-10-25，`feature/all-possible` @ `a937244d`，本机）：
+实测读数（2026-10-26，`feature/all-possible` @ `b964fdb8`，本机）：
 
 | 检查 | 读数 |
 | --- | --- |
-| `xl_build` | `548 written, 0 error(s), 2535 warning(s)` |
-| `tsc` | exit 0（`build/ts` = 548 个 `.js`） |
-| `--group=r1` | `IMPL: state=wired … sessions=2`；`CASES=10 FAILED=0`；`builtCases=10/10 loads=0` |
-| 全量 60 条 | `ASSERT: A1=PASS A2=PASS A3=PASS A4=PASS A5=PASS A6=PASS A9=PASS A10=PASS A11=PASS`；`CASES=60 FAILED=0`；`builtCases=41/60 loads=69`；`DECLINE-STATS: total=12 categories=3` |
-| C4 注入 | `CASES=1 FAILED=0`；A4 PASS（`errors=1 / lastError 含 inject / declined=0 / 第二次 errors=0`） |
-| NEG | `CASES=19 FAILED=0`；`builtCases=0/19 loads=69` |
+| `xl_build` | `552 written, 0 error(s), 3 warning(s)`（warning 全是既有 E1107） |
+| `tsc` | exit 0（`build/ts` = 552 个 `.js`） |
+| `--group=r1` | `CASES=10 FAILED=0`；`builtCases=10/10 loads=0` |
+| `--group=r2` | `CASES=50 FAILED=0`；`builtCases=33/50 loads=64` |
+| `--group=r3` | `CASES=32 FAILED=0`；`CASES-SELECTED: 32/92`；`GROUPS: B1=15 B2=11 D7=4 S=2`；`ASSERT: A1…A12 全 PASS`；`builtCases=25/32 loads=32`；`DECLINE-STATS: total=9 categories=4` |
+| 全量 92 条 | `CASES=92 FAILED=0`；`CASES-SELECTED: 92/92`；`ASSERT: A1…A12 全 PASS`；`builtCases=68/92 loads=96`；`DECLINE-STATS: total=21 categories=5`；`Q1: mode=auto → SAFE-04/05 expect=pos` |
+| D7 组 | `CASES=4 FAILED=0`；三条 `built=2 A1 PASS A10 SKIP(noBaseline)`；guard `built=1 A10 PASS(len=383)` |
+| S 组 | `CASES=2 FAILED=0`；`A12 PASS`（`strictViolations=1 errors=0 parse=ok`）；S-01 `A10 PASS(len=366)`、S-02 `A10 PASS(len=242)` |
+| `--strict --strict-all` | **exit 1**；`CASES=92 FAILED=2`（R4 已知红，见 `docs/direct-candidate-pipeline.md` §18） |
 
 **本轮不跑**（用户明确口径）：`tests/gates`、全量 `typescript/cases/ast-json.mjs` / `ast-json-diff.mjs`（6171）、
-`tests/coverage`、`samples/check.mjs`、`tests/statement-possible/harness.mjs` 全量。直建前的门标准读数是
-`6171/6171`、结构差 / 位置差 / 字段差 0，但那是**另一轮口径的历史基线**，不能引用为直建验收。
+`tests/coverage`、`samples/check.mjs`、`tests/statement-possible/harness.mjs` 全量、47 文件 smoke。
+直建前的门标准读数（`6171/6171`、结构差 / 位置差 / 字段差 0）是**另一轮口径的历史基线**，不能引用为本轮验收。
 
 复现本文的 trace：直建侧直接开 `DirectBuildMetrics.TraceEnabled`（下面这段）；壳目录 / 终结候选的判定仍可
 用 `CatalogGuide.prototype.ComputePossibleShapesByIndex` 与 `StatementShape.BuildFromShell` 包一层
@@ -747,18 +757,10 @@ DirectBuildMetrics.TraceEnabled = true;
 SourceFileRunner.Parse('let x = 2*3+1', 'case.ts');
 console.log(DirectBuildMetrics.Traces.join('\n'));
 console.log('built=', DirectBuildMetrics.StatementsBuilt, 'declined=', DirectBuildMetrics.Declined);
-// variable ingest head: let
-// variable ingest binding: x
-// insert(*) prec14 owner=Holder
-// insert(+) prec13 owner=Holder
-// variable close declaration (initialized)
-// variable built: decls=1
-// built= 1 declined= 0
 ```
 
-（上面 7 行 trace 为 2026-10-25 在本仓 `build/ts` 上的实测输出。）
-
----
+R3 的语句级 trace 会长出 `control ingest head: if` / `control built: if units=…` / `function built: units=4` 这类行
+（`direct-control-session` 与 `direct-function-session` 各自打）；`--trace` 跑 harness 时它们出现在 `DIRECT` 行之前。
 
 ## 12. 已知口径偏差与残余（读代码时别踩）
 
@@ -769,27 +771,106 @@ console.log('built=', DirectBuildMetrics.StatementsBuilt, 'declined=', DirectBui
   复用映射表（CONTRACT §3.4 许可）；验收口径是 `stmtLoads == 0 && exprOtherDirect == 0 && exprLegacy == 0`
   （见 `docs/direct-candidate-pipeline.md` §8.3）。覆盖构造上 `StatementBuilder` **一次都不创建**
   （H2 在 `new StatementBuilder` 之前 return）。
-- **`DirectBuildMetrics.Errors` 从 R2 起有递增点（C4）**：H2 的 `catch`（`Finish` 抛错且未 Decline 时 +1，
-  写 `LastError` + trace `direct finish error: …`），随后回落旧路径；正常 / 负例输入上仍恒 0。
-  异常仍主要看 `Declined` / `IncompleteFallback` / `StrictViolations`。
-- **直建覆盖范围（R2）**：变量语句与表达式语句的 A1–A5 构造（字符串 / 模板 / BigInt、数组 / 对象、
-  调用 / 成员 / 下标 / `new` / 可选链、赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空、`typeof`·`void`·`delete`）
-  都是直建；正则 / 箭头 / 函数 / 类表达式 / 对象方法体 / 实参 spread / `satisfies` / 泛型实参 / 解构 binding /
-  类型注解 **仍 Decline 回旧路径**。逐条清单见 `docs/direct-candidate-pipeline.md` §1.2 / §1.3。
-  `await` / `class {}` / `yield` / `if` / `return` 这类语句**根本不进 DirectSession**（目标 case 的 `safe` 类别），
-  因此不能断言它们 `declined>=1`。
+- **R3 的 B1/B2 一行 `StatementBuilder` 都不许调**：`FunctionDeclarationShape.FromUnits` 在**有体**时会
+  `new StatementBuilder` + `BuildStatement()` 建体，所以函数声明 session **不用 `FromUnits`**，只借它的
+  `BuildParameters` 静态工厂与 `Pos` 口径，体走 `BlockFrom`（这是对 R3-CONTRACT §4.3.2 的实现口径修正）。
+- **`DirectBuildMetrics.Errors` 有三个来源**：H2 的 C4 `catch`（`Finish` 抛错且未 Decline 时 +1）、R3 H1′ 的
+  `catch`（Ingest 期抛错且未 Decline 时 +1）；正常 / 负例输入恒 0。strict 的 Decline 被接住时**不**计 `Errors`
+  （`StrictViolations` 才是判据）。
+- **直建覆盖范围（R3）**：变量语句 + 表达式语句（R1/R2 的 A1–A5 构造）+ **控制流族**（块 / 空语句 / if / else-if /
+  while / do / for / for-in / for-of / return / throw / break / continue）+ **函数声明**（Identifier 参数）+
+  **箭头函数**（语句首）。正则 / 函数表达式 / 类表达式 / 对象方法体 / 实参 spread / `satisfies` / 泛型实参 /
+  解构 binding / 类型注解 / 生成器 / `async` **仍 Decline 回旧路径**。逐条见 `docs/direct-candidate-pipeline.md` §1.2 / §1.3。
+  `await` / `yield` / `class {}` 这类语句**根本不进 DirectSession**（目标 case 的 `safe` 类别），不能断言 `declined>=1`。
 - **C1 行终止符守卫**：引擎在 `++`/`--`/`!` 前发现行终止符 → `Hold()`；session 侧还有一道覆盖校验
   （`expr.coverage` / `var.coverage`）兜「建多了」的情况。目标 case `a⏎++b` / `a⏎--b` / `a⏎!b` 实测
   `built=2 declined=0 AST MATCH XML==基线`。
-- **D7 基线历史缺陷不修**：`let x = a⏎++b` / `let x = a⏎!b` / `let x = a + b⏎++c` / `…⏎--c` 直建前后
-  `XML` 与 8456ec3c 逐字节一致、AST 与 tsc 均不匹配；属 8456ec3c 的历史缺陷（`var.stopped ×2`），
-  **不列入目标 case**，也不该记到直建头上。
-- **`--strict` 只对正例 Parse 生效**：`let {a} = b` 在 `Strict=true` 下变量 session 的 Decline 发生在
-  H1/Ingest（未包 `try/catch`），异常抛穿 `Parse`；harness 因此对 `expect != "pos"` 用 `Strict=false` 解析。
-  这是 strict 语义与「负例必须 AST MATCH」互斥，不是产品红；R3 给 H1 加 `try/catch` 后才能把 strict 全量化。
+- **D7 已修（R3）**：`let x = a⏎++b` / `let x = a + b⏎++c` / `let x = a⏎!b` 现在 `built=2 declined=0 AST MATCH`；
+  A10 对它们 **SKIP**（旧基线 8456ec3c 本身错，`noBaseline`）。守卫 `let x = a⏎+ b` 仍 `built=1`、XML 逐字节等于基线
+  （`len=383`）。**残留** `let x = a⏎~b`（`~` 不在闭集 `++`/`--`/`!`）属 R4。
+- **strict 全量化（R3）**：H1 已把 `Ingest` 包进 `try/catch`（H1′），`--strict` 下非正例的 Decline / Incomplete
+  **不再穿出 `Parse`**（S-01 `let {a} = b`：`strictViolations=1 errors=0 parse=ok`）。但 **`--strict-all` 必须与
+  `--strict` 联用**（单独给是 no-op），且现状 `--strict --strict-all` 仍有 **2 条已知红**（`R2-INC-01` `a +` /
+  `R2-INC-02` `a as`，root-expression 的 eager Ingest 未接住 `Incomplete`）——属 R4，**不要写成全绿**。
+- **`angle.ts` 的 `x<y>z` 歧义**：47 文件 smoke 里相对 8456ec3c 有 1 处既有差异（`angle.ts@4784`，标签模板 vs
+  比较链），B1/B2 开关前后完全一致，是 R1/R2 表达式层的既有差异，**不是 R3 引入**，不在 92 条内（R4 观察项）。
 - **表达式语句跨行 ASI `a⏎b` / `2⏎3` 仍是已知限制**：session 显式 Decline、旧路径 Detach 恢复、AST 仍 MATCH；
   按 R2-D4 保持（目标 case `R2-C2-01` 记 neg）。详见 `docs/direct-candidate-pipeline.md` §14.4。
-- **`build/ts` 的 0 字节孤儿**：主仓库 `build/ts/typescript/run/statement-block-stream.js`（0 字节，2026-10-24 起存在、
-  无任何引用）是累积构建目录的观察项，非本轮引入；干净克隆首次构建只有 548 个 `.js`，没有它。
-- 残余数字（整文件 fallback 4 例、块体 raw 尾巴 4 例、形状树拒绝 2 例、`ScanRoot` 46 次）是**直建前基线**的
-  门标准读数；本轮不跑门标准，未重新测量，读到时按历史值对待。
+- **`build/ts` 的 0 字节孤儿**：干净克隆首次构建 **552** 个 `.js`（没有那个文件）；主仓库累积目录仍多一个 0 字节
+  `typescript/run/statement-block-stream.js`，无任何引用、未清理。
+
+---
+
+## 13. R3：语句族直建流程（B1/B2）与 strict 全量化
+
+### 13.1 一条控制流语句的完整链路（以 `if (a) { b; }` 为例）
+
+```
+if 的 basic token 关闭
+  └─ 根目录判定：ControlFlowStatementPossibleShape（StatementRoute 4 = ShellStatementFamily）
+        └─ BuildByIndex：建 IfStatementShape 壳
+              ├─ 块体目录 TryMountControlFlowBody 挂好 `{…}`（体内 `b;` 因此有自己的壳）
+              └─ H3-b：DirectStatementHook.Attach(shell, context)
+                    ├─ Create(ShellStatementFamily) → ControlFlowStatementDirectSession（plugins 已注册）
+                    └─ 首次 Ingest(shell.Data)：认首代码单元 `if` → HeadText="if"
+
+壳里每个 basic token 关闭（`(a)` 括号、then 块）
+  ├─ H1：session.Ingest(shell.Data) —— 幂等增量（B1 只累积，不在这里判结构）
+  └─ 壳的终结候选：条件括号 / 体括号收口 → BuildFromShell（H2）
+
+H2：session.Finish(endIndex)
+  ├─ 折 code（跳过 trivia、截断到 endIndex）
+  ├─ BuildRange → BuildIf
+  │     ├─ ConditionOf(`(a)` 括号)：嵌套 DirectExpressionEngine（basePos = `(`.StartIndex+1）→ IdentifierShape
+  │     ├─ then 是 `{…}` → BlockFrom → BuiltChildren：体内 `b;` 已被它自己的表达式语句壳收口 → 收下
+  │     └─ Span(IfStatementShape, `if`, 体末, Pos=PositionAt(...))
+  └─ 成功 → StatementsBuilt += 1 → 交回；**不 new StatementBuilder**
+```
+
+三条要点：
+
+1. **体内语句不是父 session 建的**。块的 `Data` 是体内语句各自收口后的形状；`BuiltChildren` 只「收集 + 校验」，
+   见到未收口的 `StatementShape` 就 `Decline(stmt.nested)`（绝不代建，否则 A6 红或静默错建）。
+   因此 `built`（`StatementsBuilt`）包含体内语句：`{ let x = 1; }` = 2，而根下节点数 = 1（A3 与 A4 口径不同）。
+2. **判定全在 `Finish`**：`Ingest` 只认首代码单元（`; { if while do for return throw break continue`），
+   其余全在收口时按 `code` 形态分派——这是 B1 与变量 / 表达式 session 最大的不同（后者是逐格状态机）。
+3. **失败即旧路径**：任一 `Build*` 返回 null 时 session 已 `Decline` / `Incomplete`，H2 不 `splice`、旧路径完整接管，
+   AST / XML 与直建前逐字节相同。`if (a) { b }`（体末无 `;`，收口时序不确定）就走这条路。
+
+### 13.2 函数声明（`function f(a) { return a; }`）
+
+壳是 `ShellFunctionDeclaration`（kind 8），`Attach` 在 `Ingest` 期只认首单元 `function`（`async` / `declare` /
+装饰器前缀在这里就 `Decline(stmt.func)`）。`Finish` 要求**恰好 4 个代码单元**（`function` / 名字 / 参数表 / 体），
+参数表只认 Identifier（默认值 / rest / 类型注解 / 解构 → `stmt.func`，这是 A6 守卫），体走 `BlockFrom`：
+
+```ts
+const shape = new FunctionDeclarationShape(this.Template);
+shape.FunctionName = name;                                  // name.Pos = function 关键字的 EndIndex
+shape.Parameters = FunctionDeclarationShape.BuildParameters(this.Owner, parameters, this.Context);
+shape.Body = block;                                         // BlockFrom（体内语句各自收口）
+shape.Add(name); for (const p of shape.Parameters) shape.Add(p); shape.Add(block);
+DirectStatementAssembly.Span(shape, keyword, body, this.BasePos, this.Context);
+```
+
+**不用 `FromUnits`** 的原因只有一个：它**有体时**内部 `new StatementBuilder(...)` + `Load` + `BuildStatement()`
+建体（`function-declaration-shape.xl.md` 的 `bodyUnit !== null` 分支）——那就是 A6 的 `stmtLoads`，必须为 0。
+
+### 13.3 箭头函数（`(a) => a`，走表达式引擎，不新建 session）
+
+`ShellPlainExpression` 的 `ExpressionStatementDirectSession` 已经存在，所以箭头是 `direct-expression-engine` 的增量：
+`(` 参数表先挂起一格（`ParamWait`）等 `=>`；是 `=>` → `StartArrowFromParams`（参数逐个 `IdentifierShape`），
+否则退回普通括号表达式；裸参数在 `IngestOperator` 里由 `=>` 认出来（`StartArrow`，`async (a) => a` 在这里被拒）。
+体由 `ArrowBody` 子引擎吃（`a => b => c` 递归），体是 `{…}` 时 `BuildArrowBlock` 当场建块——口径与 `BlockFrom` 一致。
+
+### 13.4 注册点：唯一写者是 integration
+
+R3 新增 3 个 kind 的 `Register` 行，全部写在 `typescript/tokens/direct/direct-build-plugins.xl.md` 的 `Install()` 里
+（共 5 行，按 `StatementRoute` 常量升序；B1 的 `ShellStatementFamily` 与 `ShellBlock` 复用**同一个** session 类）。
+候选文件（`control-flow-statement-possible-shape`、`block-possible-shape`）里只有**一句** `DirectStatementHook.Attach`，
+registry 不在那里——这样两个分支不会改同一个文件，未注册 kind 也天然回退到「行为逐字节不变」。
+
+### 13.5 未覆盖族的现状（与 §10 表一致）
+
+`try` / `switch` / `with` / `debugger`、标签语句、`for (let …)`、生成器与 `async` 函数、对象方法、类型 / 声明族
+**仍走旧路径**（§6.4 的 `StatementBuilder` 四路分派），它们的 AST / XML 与 R2 逐字节相同；内层变量 / 表达式 /
+控制流 / 函数语句仍各自直建（例：`switch (a) { case 1: b; }` 实测 `built=1`）。

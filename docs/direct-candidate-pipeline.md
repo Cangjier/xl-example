@@ -1,22 +1,19 @@
 # 候选直建（direct candidate pipeline）——目标、实现与实测
 
-> 本文记录 `feature/all-possible` @ **`a937244d`**（R2 收口：`merge(r2-expr)` + `merge(r2-harden)` +
-> `merge(r2-verify)`，扩展 harness 60 条已入主仓库）上**已经落地**的直建实现：
-> 变量语句、表达式语句、以及它们共享的表达式引擎。所有口径以仓库里的 `*.xl.md` 与 `build/ts` 实测为准，
-> 不是设计稿的复述；设计稿与实现不一致的地方单独记在 §13。
+> 本文记录 `feature/all-possible` @ **`b964fdb8`**（R3 收口：`merge(r3-harden)` + `s01` 补丁 + `merge(r3-verify)`；
+> R1/R2/R3 三步已全部合入主仓库）上**已经落地**的直建实现：变量语句、表达式语句、控制流语句、函数声明与箭头，
+> 以及它们共享的表达式引擎。所有口径以仓库里的 `*.xl.md` 与 `build/ts` 实测为准，不是设计稿的复述；
+> 设计稿与实现不一致的地方单独记在 §13。
 >
-> R2 在 R1 的两类语句之上做了两件事：
-> **（A）覆盖范围扩面** —— 字面量 / 模板 / BigInt / 关键字操作数、数组 / 对象、调用 / 成员 / 下标 / `new` /
-> 可选链、赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空断言 / `typeof`·`void`·`delete` 全部转为直建（§1.2、§5.8）；
-> **（C）硬化** —— 行终止符守卫、`DeclineReasons` 分类、H2 异常计数、跨行 ASI 的明确口径（§14）。
-> 目标 case 从 10 条扩到 **60 条**（正例 41 / 非正例 19），读数见 §9。
->
-> 配套阅读：`docs/statement-ast-pipeline.md`（同一事件链的旧路径版本；已覆盖构造在该文里改标为直建）。
-> 设计背景：`_coord/DESIGN-all-possible.md`、`_coord/R2-CONTRACT.md`、`_coord/R2-TARGET-CASES.md`、`_coord/DECISIONS.md`。
->
-> 本轮验证口径（用户明确要求）：**只跑目标 case**，不跑 `tests/gates`、全量 `ast-json`（6171）、
-> `coverage` / `sweep`、`samples`。构建成功（`xl_build` 0 error + `tsc` exit 0）是前提，不算验收。
-> 文中所有命令都在本文所在的 `docs-r2` 克隆（`a937244d` + 548 个 `build/ts/*.js`）上实测过。
+> 三轮的增量：
+> - **R1**：变量语句 + 表达式语句两个 session（H1/H2/H3 三个 hook）。
+> - **R2**：**（A）覆盖范围扩面** —— 字面量 / 模板 / BigInt / 关键字操作数、数组 / 对象、调用 / 成员 / 下标 / `new` /
+>   可选链、赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空断言 / `typeof`·`void`·`delete` 全部转为直建（§1.2、§5.8）；
+>   **（C）硬化** —— 行终止符守卫、`DeclineReasons` 分类、H2 异常计数、跨行 ASI 的明确口径（§14）。目标 case 10 → 60。
+> - **R3**：**（B1）控制流语句**（块 / 空语句 / if / else-if / while / do / for / for-in / for-of / return / throw /
+>   break / continue，§15）；**（B2）函数声明与箭头**（§16）；**（D7）语句边界历史缺陷修复**（§17）；
+>   **（S）strict 全量化**（H1′，§18）。目标 case 60 → **92 条**，读数见 §9。
+
 
 ---
 
@@ -52,9 +49,9 @@ basic token Close
 **每个可以当场确定的构造，由候选建壳的同一刻起就由 session 直接建出 AST 形状**；收口只做「把私有形状树交回」，
 不再把整段 raw 单元交给 builder 重扫。边界判定（语句从哪开始、到哪结束）仍完全由 possible 层负责，直建不参与。
 
-### 1.2 覆盖范围（R2 收口）
+### 1.2 覆盖范围（R3 收口）
 
-下表是**当前**直建接管的构造；`case` 列是验证它的目标 case（§9 的 60 条里）。表下 §1.3 才是范围外。
+下表是**当前**直建接管的构造；`case` 列是验证它的目标 case（§9 的 92 条里）。表下 §1.3 才是范围外。
 
 | 构造 | 直建节点 | case |
 | --- | --- | --- |
@@ -62,9 +59,9 @@ basic token Close
 | 多声明 `let a=1,b=2` | list 下多个 declaration（`,` 不进 `Data`） | R1-05 |
 | 无初始化 `let x` / `var z` | declaration 只有 `IdentifierShape`（ASI 收口） | R1-09 |
 | 变量名 | `IdentifierShape`；解构 binding（`[]`/`{}`）→ `Decline(var.binding)` | R2-C3-01 |
-| 数值字面量 / 十六进制 / BigInt | `NumericLiteralShape` / `BigIntLiteralShape` | R2-A1-pos-03（`1n`）；`0x1fn` 见 §11 扩展 |
+| 数值 / 十六进制 / BigInt 字面量 | `NumericLiteralShape` / `BigIntLiteralShape` | R2-A1-pos-03（`1n`） |
 | 字符串 / 模板（含插值） | `StringLiteralShape` / `TemplateExpressionShape`（插值用**嵌套直建引擎**，不碰 `ExpressionBuilder`） | R2-A1-pos-01/02 |
-| `true` / `false` / `null` / `this` | 关键字叶子（token 不进 `Data`） | R2-A1-pos-04（`true && false`） |
+| `true` / `false` / `null` / `this` | 关键字叶子（token 不进 `Data`） | R2-A1-pos-04 |
 | 标识符操作数 | `IdentifierShape` | R1-04/07 |
 | 数组字面量（含 spread / 空槽） | `ArrayLiteralExpressionShape`（`SpreadElementShape`、零宽 `OmittedExpressionShape`） | R2-A2-pos-01/02 |
 | 对象字面量（property / shorthand / computed / spread） | `ObjectLiteralExpressionShape` + 各属性节点；**方法体 / 访问器 → Decline** | R2-A2-pos-03/04/05；负例 `({m(){}})` |
@@ -73,111 +70,123 @@ basic token Close
 | `new` | `NewExpressionShape`（被构造者的后缀链整体进 `new`） | R2-A3-pos-06 |
 | 赋值 / 复合赋值 | `BinaryExpressionShape`，运算符节点是 `EqualsTokenShape` 等；右结合 | R2-A4-pos-01/02 |
 | 条件 `?:` | `ConditionalExpressionShape`（`FrameStages`） | R2-A4-pos-03、R2-A4-pos-07 |
-| 逗号 `,` | `BinaryExpressionShape`（`CommaPrecedence`，左结合） | R2-A4-pos-04（`a, b`，D3 本轮落地） |
+| 逗号 `,` | `BinaryExpressionShape`（`CommaPrecedence`，左结合） | R2-A4-pos-04（`a, b`） |
 | `as`（+ 类型子树） | `AsExpressionShape`；类型子树走 `TypeBuilder.Load + ParseType`（不经过 `ExpressionBuilder`） | R2-A4-pos-05 |
-| 非空断言 `!` | `NonNullExpressionShape`（`!` 不进 `Data`，只做终点） | R2-A4-pos-06（须与 C1 守卫同时存在） |
+| 非空断言 `!` | `NonNullExpressionShape`（`!` 不进 `Data`，只做终点） | R2-A4-pos-06 |
 | `typeof` / `void` / `delete` | `TypeOfExpressionShape` / `VoidExpressionShape` / `DeleteExpressionShape` | R2-A5-pos-01/02/03 |
 | 一元前缀 `! ~ + - ++ --` | `PrefixUnaryExpressionShape`，`Data=[operand]`（运算符 token 不进 `Data`） | R1-07、R2-C1-02 |
 | 一元后缀 `++ --` | `PostfixUnaryExpressionShape`，`Data=[operand]`；**前置行终止符 → 引擎 `Hold()`**（C1） | R2-C1-01 |
 | 二元运算（`OperatorTable` 全表） | `BinaryExpressionShape`，`Data=[left, opToken, right]` | R1-01/04/06/07/08 |
 | 括号 `(expr)` | `ParenthesizedExpressionShape`，`Data=[inner]`（区间含两侧括号，括号 token 不进 `Data`） | R1-06 |
 | 表达式语句 | `ExpressionStatementShape`，`Data=[expr]`、`Expression=expr`（`;` 不是子节点，`end` 含 `;`） | R1-04、R2-A1-pos-01 等 |
+| **R3 空语句 `;`** | `EmptyStatementShape`（`Data` 空，区间 = `;`） | R3-B1-pos-01 |
+| **R3 块 `{}` / `{…}`** | `BlockShape`（体内**已收口**语句进 `Data`；有未收口语句 → Decline `stmt.nested`） | R3-B1-pos-02/03 |
+| **R3 `if` / `else` / `else if`** | `IfStatementShape`，`Data=[condition, then, else?]`（`else if` 就是 else 后接一条 if，内层 if **不单独计数**） | R3-B1-pos-04/05/06 |
+| **R3 `while` / `do…while`** | `WhileStatementShape` / `DoStatementShape`（`do` 的 `Data=[body, condition]`，`end` 含 `;`） | R3-B1-pos-07/08 |
+| **R3 `for`（表达式 init）/ `for(;;)`** | `ForStatementShape`，`Data=[init?, cond?, incr?, body]`（空槽不进 `Data`） | R3-B1-pos-09/10 |
+| **R3 `for-in` / `for-of`（表达式绑定）** | `ForInStatementShape` / `ForOfStatementShape`，`Data=[binding, collection, body]` | R3-B1-pos-11/12 |
+| **R3 `return` / `throw`（有操作数）/ `break` / `continue`（无标签）** | `ReturnStatementShape` / `ThrowStatementShape` / `BreakStatementShape` / `ContinueStatementShape` | 经 `R3-B2-pos-03` 的 `return`、`while (a) { break; }`（§7 扩展项） |
+| **R3 函数声明（Identifier 参数、无修饰词）** | `FunctionDeclarationShape`（参数表借静态工厂 `BuildParameters`，**体走 `BlockFrom`**） | R3-B2-pos-01…04 |
+| **R3 箭头函数（语句首，含块体）** | `ArrowFunctionShape`（表达式引擎 `ParamWait` / `ArrowPending` / `ArrowBody`） | R3-B2-pos-05/06/07 |
 
 > 泛型实参守卫：`f<T>(1)` / `a<b>(c)` / `new A<T>()` / `f<A<B>>(1)` 会被识别为泛型实参调用而
 > `Decline(expr.decline)`，不会静默建成比较链；对照正例 `x<y>z` / `a<b>c` / `a<<b>(c)` 仍是直建正例（§14.5）。
+>
+> R3 的三族有一个共同点：**体内语句不是父 session 建的**。块的 `Data` 是体内语句各自 H2 收口后的形状；
+> `if` / 循环 / 函数体的 `{}` 也一样（`DirectStatementAssembly.BuiltChildren` 只「收集 + 校验」，见 §15）。
+> 所以 `{ let x = 1; }` 的 `built` 是 **2**（外层块 + 内层变量语句），而根下节点数仍是 **1**（A3 与 A4 口径不同）。
 
 ### 1.3 覆盖范围外（保留旧路径）
 
-- 正则字面量 `/a/g`、标签模板 `` tag`x` ``、箭头 / 函数 / 类表达式、对象方法体与 `get`/`set`、调用实参 spread；
+- 正则字面量 `/a/g`、标签模板 `` tag`x` ``、函数 / 类表达式、对象方法体与 `get`/`set`、调用实参 spread、
+  箭头作为**变量初始化器**（`const f = (a) => a`，属变量 session 的引擎路径）；
 - `satisfies`（`as` 做，`satisfies` 不做）、`as const`、泛型实参 / 实例化表达式（显式 Decline，见 §14.5）；
-- `await` / `yield` / `class {}` / `if` / `return` 等**根本没有 session** 的语句（它们不是「Decline」而是「不进直建」，
-  目标 case 记为 `safe`：断言 `built==0 && AST MATCH`，**不断言 `declined>=1`**）；
-- 解构 binding、类型注解 `:`、确定赋值断言 `!`、`declare` / `using`、`@装饰器`、`const enum`；
-- 跨行 ASI（`a⏎b` / `2⏎3`）——按 R2-D4 **明确保持 Decline**（§14.4）；
-- 以及所有非变量 / 非表达式语句族（`if` / `for` / `while` / `do` / `switch` / `try` / `return` / `throw` /
-  `break` / `continue` / label / block / `function` / `class` / `interface` / `type` / `enum` / `namespace` /
-  `import` / `export`）。
+- **控制流族里本轮明确不做的**：`switch` / `try` / `with` / `debugger`（都会建壳、都会进 B1 session，
+  但在入口处 `Decline(stmt.head)`）、标签语句 `lbl: a;`（`ShellLabel` 未注册，R4）、
+  `for (let …)` / `for (const k in …)` / `for (const v of …)`（头部声明列表属声明建造器，`stmt.head`）、
+  `for await`（`stmt.head`）、带标签的 `break lbl;` / `continue lbl;`（`stmt.label`）；
+- **函数族里本轮明确不做的**：生成器 `function*`、`async function`、`async (a) => a`、默认参数 / rest /
+  类型注解 / 可选参数 / 解构参数、泛型函数、返回类型注解、`declare function`（ambient 无体）、对象方法体；
+- 声明族 / 类型族（`class` / `interface` / `type` / `enum` / `namespace` / `import` / `export` / `declare`）、装饰器；
+- `await` / `yield` / `class {}` 这类**仍没有 session** 的语句（目标 case 记 `safe`：断言 `built==0 && AST MATCH`，
+  **不断言 `declined>=1`**）；
+- 解构 binding、类型注解 `:`、确定赋值断言 `!`、`declare` / `using`、`const enum`；
+- 跨行 ASI（`a⏎b` / `2⏎3`）——按 R2-D4 **明确保持 Decline**（§14.4）。
 
 覆盖范围外**不是静默 fallback**：session 显式 `Decline(reason, category)` + 计数（`DirectBuildMetrics.Declined`）+
-分类（`DeclineReasons`，C3）+ `LastDeclineReason`；`Strict` 时先 `StrictViolations++` 再抛（D1）。范围外语句族内部如果出现变量 / 表达式语句，
-**内层仍然直建**（例：`if (a) { let x = 1; }` 外层 `if` 走旧路径，内层 `let` 直建，实测 `built=1`）。
+分类（`DeclineReasons`，C3）+ `LastDeclineReason`；`Strict` 时先 `StrictViolations++` 再抛（D1）。
+范围外语句族内部如果出现变量 / 表达式 / 控制流 / 函数语句，**内层仍然直建**
+（例：`switch (a) { case 1: b; }` 外层 `switch` Decline 走旧路径，内层 `b;` 仍直建，实测 `built=1`）。
 
-### 1.4 与「事后 Build」的差别
+### 2.2 H3：建 session（R3 起收敛为两个挂载点）
 
-| 维度 | 旧路径（范围外 / Decline） | 直建（覆盖范围） |
-| --- | --- | --- |
-| 节点确定时机 | 收口时 | 每个 basic token 关闭时 |
-| 语句的 raw 单元 | `builder.Load(consumed)` 整段重扫 | session 只读 `shell.Data`，增量吃新单元 |
-| 表达式树 | `ExpressionBuilder.ParseBinary` 递归下降（按 `minPrecedence` 再读一遍） | frame 栈 + `ShapeInsertUtil.InsertBetween` 增量插入 / 旋转 |
-| 变量声明判型 | `VariableStatementThreeLayer.TryBuild` | session 状态机直接建 |
-| 收口后的转换 | `StatementShapeAst` 折形状 / `BuildStatement` | 交回的形状树**本身就是 AST**，无需再折 |
-| 边界判定 | `StatementEndPossibleShape` + `StatementBoundaryUtil` | **完全一样**（直建不看边界判据） |
-
----
-
-## 2. 生命周期与 hook
-
-### 2.1 事件链
-
-直建不新增调度器，**只搭在既有的「子单元关闭 → 父单元重算候选」事件上**：
-
-1. `core/syntax/basic-tokens/*.xl.md` 的 `Close` 只问直接父单元（`common.xl.md` 的 `Close`：
-   `parent.ComputePossibleShapes(context)`；`WrapSymbol` 空白 trivia 不问）。
-2. 壳 `StatementShape` 是 `ShapeToken`，`ComputePossibleShapes` 被调用时先喂 session（**H1**），
-   再走既有的 `OperatorBody.IngestAll` 与 `super.ComputePossibleShapes`。
-3. 壳的 `CatalogGuide` 只有终结候选 `StatementEndPossibleShape`，所以边界判定与直建前逐字节相同。
-4. 收口时（三条触发都汇到 `StatementShape.BuildFromShell`）先问 session（**H2**）；
-   成功即交回，失败 / Decline 才建 builder。
-5. `FinishShell` 用返回的节点顶替壳，leftover 按原序回插并重放——**与旧路径同一套**，直建不碰。
-
-### 2.2 H3：建 session（两个建壳候选的 `BuildByIndex` 末尾）
-
-变量语句（`typescript/tokens/statements/variable-statement-possible-shape.xl.md`，`BuildByIndex` 末尾）：
+变量语句（`variable-statement-possible-shape.xl.md`）与表达式语句（`root-expression-statement-possible-shape.xl.md`）
+仍是 R1 那两行写死 kind 的调用；R3 的三个新族（控制流 / 块 / 函数声明）**不在候选里各写一句**，而是统一走
+`DirectStatementHook.Attach`（H3-b，R3-CONTRACT §4.1）：
 
 ```ts
+// 变量 / 表达式：直接按 kind 建（R1，未变）
 shell.DirectSession = DirectBuildRouter.Create(StatementRoute.ShellVariable, shell, context);
-if (shell.DirectSession !== null) {
-  shell.DirectSession.Ingest(shell.Data, context);
-}
+// 控制流 / 块 / 函数声明：建壳候选末尾只有这一句（kind 从壳自己取）
+DirectStatementHook.Attach(shell, context);
 ```
 
-表达式语句（`typescript/tokens/statements/root-expression-statement-possible-shape.xl.md`，`BuildByIndex` 末尾，
-**在晚建壳的 `shell.ComputePossibleShapes(context)` 之前**）：同样两行，kind 用 `StatementRoute.ShellPlainExpression`。
-晚建分支随后触发的 H1 只是幂等增量，不会重复建节点。
+`Attach`（`direct-statement-hook.xl.md`）的语义，逐条：
 
-`DirectBuildRouter.Create`（`direct-build-router.xl.md`）：
+- `shell.DirectSession` 已非 null → 直接返回（**幂等**：晚建 / 重复调用不重复建 session）；
+- `DirectBuildRouter.Create(shell.Kind, shell, context)` 返回 null（该 kind 未注册）→ 返回，**行为逐字节不变**
+  （R1 的安全回退形态）；
+- 否则挂上 `DirectSession` 并**立即 `Ingest(shell.Data)`** 一次（建壳前已经攒下的单元）；
+- 用 duck type（`DirectSession` / `Kind` / `Data`）而不是 `as StatementShape`：`direct/*` 反向 import
+  `statement-shape.xl.md` 会形成 `statement-shape → block-possible-shape → hook → statement-shape` 的循环
+  （XLD-MD-GUIDE §3）。
 
-- 首次调用先 `Install()`，`DirectBuildPlugins.Install()` 是**全仓唯一注册点**；
-- 未注册 kind 返回 `null`（= 该族本轮不直建）；
-- 已注册则 `new (factory as any)(shell.Template, context, (shell as ShapeToken).Pos, shell)`，
-  成功后 `DirectBuildMetrics.Sessions += 1`（session 自己不计数）。
+调用点只有 2 个（R3-CONTRACT §3.2，各 +1 行）：`ControlFlowStatementPossibleShape.BuildByIndex` 与
+`BlockPossibleShape.BuildByIndex` 的 `return shell;` 前一行。
 
-两个已注册 kind（`direct-build-plugins.xl.md`，两行必须在 `Install()` 方法体内，避免 CommonJS 循环 require 拿到半初始化 exports）：
+注册点仍然**唯一**（`direct-build-plugins.xl.md` 的 `Install()`，五行、按 `StatementRoute` 常量升序）：
 
 ```ts
-DirectBuildRouter.Register(StatementRoute.ShellVariable, VariableStatementDirectSession);
-DirectBuildRouter.Register(StatementRoute.ShellPlainExpression, ExpressionStatementDirectSession);
+DirectBuildRouter.Register(StatementRoute.ShellVariable, VariableStatementDirectSession);            // R1
+DirectBuildRouter.Register(StatementRoute.ShellPlainExpression, ExpressionStatementDirectSession);    // R1
+DirectBuildRouter.Register(StatementRoute.ShellStatementFamily, ControlFlowStatementDirectSession);   // R3-B1
+DirectBuildRouter.Register(StatementRoute.ShellBlock, ControlFlowStatementDirectSession);             // R3-B1（同类两个 kind）
+DirectBuildRouter.Register(StatementRoute.ShellFunctionDeclaration, FunctionDeclarationDirectSession); // R3-B2
 ```
 
-`DirectSession` 是 interface（编译后无运行期值），签名见 `direct-build-session.xl.md`：
-`Owner / Declined / Reason / Finished` + `Ingest / Finish / Summary`。
+`DirectBuildRouter.Create` 仍每次先 `Install()`；未注册 kind 恒返回 `null`——所以「R3 打开了哪几个族」完全由
+这张表回答（`ShellLabel` / `ShellClassDeclaration` / `ShellDeclarationFamily` 等仍未注册）。
+`IMPL: … sessions=4` 是**不同 session 类数**（4 个类 / 5 个 kind 项），不要按 kind 数读。
 
-### 2.3 H1：唯一喂入点
+### 2.3 H1：唯一喂入点（R3 起包 try/catch）
 
 `typescript/tokens/statements/statement-shape.xl.md` 的 `ComputePossibleShapes` 首行：
 
 ```ts
 if (this.DirectSession !== null) {
-  this.DirectSession.Ingest(this.Data, context);
+  const ingestSession = this.DirectSession;
+  try {
+    ingestSession.Ingest(this.Data, context);      // H1：逐格喂
+  } catch (error) {                                 // R3-S（H1′）：接住 Ingest 期的 Decline / Incomplete
+    if (!ingestSession.Declined) {
+      DirectBuildMetrics.Errors += 1;
+      DirectBuildMetrics.LastError = error instanceof Error ? error.message : String(error);
+      DirectBuildMetrics.Trace("direct ingest error: " + DirectBuildMetrics.LastError);
+    }
+  }
 }
 ```
 
-约束（实现必须满足，两个 session 都满足）：
+约束（实现必须满足，全部 session 都满足）：
 
 - **幂等**：session 自持游标 `Ingested`，重复 `Ingest` 只处理新单元；
 - trivia 跳过；
 - **只读**：不改 `units`、不改任何 raw token、不碰 `Parent` / `MountedUnit`；
 - 不改 `ComputePossibleShapes` 的返回值、不建形状、不碰 `CatalogGuide`。
+
+`try/catch` 的三个口径（§18 详述）：`catch` 里**不许**空实现、**不许** `return`；已计数的 Decline 不再计
+`Errors`（`StrictViolations` 已 +1）；接住之后继续走 `super.ComputePossibleShapes`，由 H2 的 `!direct.Declined`
+拦下 `Finish` ⇒ 旧路径建树、AST 不变。
 
 ### 2.4 H2：唯一收口点
 
@@ -759,49 +768,64 @@ node tests/direct-build/target-cases.mjs
 
 ---
 
-## 9. 目标 case 与实测读数（60 条）
+## 9. 目标 case 与实测读数（92 条）
 
-权威清单：`tests/direct-build/target-cases.mjs` 的 `CASES`（60 条）+ `_coord/REPORT-r2-verify-fix.md §3`。
-**60 = 收口前的 43 条（已含 R1 原 10）+ 收口校正新增/改判 17**；正例 41 / 非正例 19（NEG 组）。
+权威清单：`tests/direct-build/target-cases.mjs` 的 `CASES`（92 条）。**92 = R1 10 + R2 组 50 + R3 32**；
+旧的「60 条」是 R1 10 + R2 50 的口径。
 
-分组计数：R1=10、A1=5、A2=6、A3=7、A4=9、A5=3、C1=2、C2=1、C3=1、C4=1、GEN=8、SAFE=5、INC=2。
+R3 的 32 条 = **B1 15**（pos 12 / neg 3）+ **B2 11**（pos 7 / neg 4）+ **D7 4**（pos 3 / guard 1）+ **S 2**。
+`--group=all` 的 `GROUPS:` 行实测：`A1=5 A2=6 A3=7 A4=9 A5=3 B1=15 B2=11 C1=2 C2=1 C3=1 C4=1 D7=4 GEN=8 INC=2 R1=10 S=2 SAFE=5`。
 
 | expect | 条数 | 断言口径 |
 | --- | --- | --- |
-| `pos` | 41 | `built>=1`、`declined==0`、`incomplete==0`、`errors==0`、`strictViolations==0`、AST 逐字段 MATCH、`XML==baseline`、`DeclineReasons` 空（A11） |
-| `neg` | 11 | `declined>=1`、`built==0`、`errors==0`、AST MATCH、`XML==baseline`、`DeclineReasons` 含期望 category（A9） |
-| `safe` | 5 | **无 session 构造**：`built==0 && errors==0`（不断言 `declined`），AST MATCH、`XML==baseline` |
+| `pos` | 65 | `built>=1`（多语句用 `expectBuilt` 精确值）、`declined==0`、`incomplete==0`、`errors==0`、`strictViolations==0`、AST 逐字段 MATCH、`XML==baseline`、`DeclineReasons` 空（A11） |
+| `guard` | 1 | 同 `pos`，且 `expectBuilt` 是**不变的 1**（`R3-D7-guard-01`，防过度收缩） |
+| `neg` | 20 | `declined>=1`、`built==0`（或 `expectBodyBuilt` 指定的体内自建读数）、`errors==0`、AST MATCH、`XML==baseline`、`DeclineReasons` 含期望 category（A9） |
+| `safe` | 3 | **无 session 构造**：`built==0 && errors==0`（不断言 `declined`），AST MATCH、`XML==baseline` |
 | `invalid` | 1 | 语法非法：`declined>=1`、`built==0`、两侧 Parse **同源拒绝**（文案逐字相同），AST 不可比 |
 | `incomplete` | 2 | 收口期失败：`built==0`、`incomplete>=1`、`errors==0`、两侧同源拒绝 |
 
-### 9.1 逐组清单（源码 → expect）
+> `pos` 65 = R2 的 41 + Q1 改判的 2（`R2-SAFE-04` / `05`）+ R3 的 22；`neg` 20 = R2 11 + R3 9（含 S 组 2）。
+> `safe` 从 5 变 3 就是 Q1 那两条改判的结果（`safe` 的定义是「该族没有 session」，B1 注册后不再成立）。
+
+### 9.1 R3 逐组清单（源码 → expect）
 
 | 组 | case |
 | --- | --- |
-| R1-01…10 | `let x = 2*3+1` / `let x = 1;` / `const a = 2*3;` / `2*3+1` / `let a=1,b=2` / `2*(3+1)` / `-a*+b` / 两条语句 / `let x = 1` / **`let x = f()`（D1 pos）** |
-| A1 | `"s"` / `` `a${b}c` `` / `1n` / `let t = true && false`（4 pos）；`/a/g`（neg） |
-| A2 | `[1,2]` / `[a, ...b]` / `({a: 1})` / `({a, b})` / `({[k]: 1})`（5 pos）；`({m(){}})`（neg） |
-| A3 | `f()` / `f(1,2)` / `a.b` / `a[0]` / `a?.b?.(1)` / `new a.b()`（6 pos）；`f(...a)`（neg） |
-| A4 | `a = 1` / `a = b = c` / `a ? b : c` / `a, b` / `x as A[]` / `a.b!` / **`a ? (b, c) : d`（pos-07）**；`x satisfies T`（neg）、**`a ? b, c : d`（invalid）** |
-| A5 | `typeof a` / `void 0` / `delete a.b`（3 pos） |
-| C1 | `a⏎++b` / `a⏎!b`（pos） |
-| C2 | `a⏎b`（neg，**明确保持 Decline**，见 §14.4） |
-| C3 | `let {a} = b`（neg，期望 `var.binding`） |
-| C4 | `2*3+1` + `--fault-inject=finish-throw`（注入式，见 §14.3） |
-| GEN | `f<T>(1)` / `f<string, number>(1)` / `a<b>(c)` / `new A<T>()` / `f<A<B>>(1)`（5 neg）；`x<y>z` / `a<b>c` / `a<<b>(c)`（3 pos） |
-| SAFE | `await a` / `class {}` / `yield a` / `if (a) b` / `return a?b:c`（5 safe） |
-| INC | `a as` / `a +`（2 incomplete） |
+| B1 pos | `;` / `{}` / `{ let x = 1; }` / `if (a) { b; }` / `if (a) { b; } else { c; }` / `if (a) { b; } else if (c) { d; }` / `while (a) { b; }` / `do { b; } while (a);` / `for (i = 0; i < n; i++) { b; }` / `for (;;) { b; }` / `for (k in o) { b; }` / `for (v of xs) { b; }` |
+| B1 neg | `for (let i = 0; i < n; i++) { b; }`（`stmt.head`；`expectBodyBuilt:1`）/ `for (const k in o) { b; }`（同上）/ `switch (a) { case 1: b; }`（`stmt.head`） |
+| B2 pos | `function f() {}` / `function f(a) {}` / `function f(a) { return a; }` / `function f() { let x = 1; }` / `() => {}` / `(a) => a` / `a => a + 1` |
+| B2 neg | `function f(a = 1) {}` / `function f(...a) {}` / `function* g() {}`（三条 `stmt.func`）/ `async (a) => a`（`expr.decline`） |
+| D7 | `let x = a⏎++b` / `let x = a + b⏎++c` / `let x = a⏎!b`（pos，**`noBaseline: true`**）/ `let x = a⏎+ b`（guard，`built=1`，A10 照比） |
+| S | `let {a} = b`（`var.binding`）/ `f(...a)`（`expr.decline`）——`strictAll: true`，在 `--strict` 下解析，A12 判 |
 
-### 9.2 实测读数（本克隆，`a937244d` + 548 .js）
+### 9.2 实测读数（本克隆 `b964fdb8` + 552 个 `build/ts/*.js`，2026-10-26）
 
 | 命令 | 读数 | exit |
 | --- | --- | --- |
-| `--group=r1` | `CASES=10 FAILED=0`；`ASSERT: A1=PASS A2=PASS A3=PASS A4=READING A6=READING A9=SKIP A10=SKIP A11=READING`；`DIRECT-TOTAL: builtCases=10/10 loads=0` | 0 |
-| `--expect-direct --strict --decline-stats --baseline=<8456ec3c>` | `CASES=60 FAILED=0`；`ASSERT: A1..A11 全 PASS`；`builtCases=41/60 loads=69`；`DECLINE-STATS: total=12 categories=3`（`expr.decline 10` / `expr.stopped 1` / `var.binding 1`） | 0 |
-| `--only=R2-C4-01 --fault-inject=finish-throw --expect-direct --strict` | `CASES=1 FAILED=0`；A4 PASS（注入后 `errors=1`、`lastError` 含 inject、`declined=0`；第二次 `errors=0`；AST 仍 MATCH）；A6 PASS（只量第二次，`effectiveLoads=0`） | 0 |
-| `--group=NEG` | `CASES=19 FAILED=0`；`builtCases=0/19 loads=69` | 0 |
+| `--group=r1` | `CASES=10 FAILED=0`；`ASSERT: A1=PASS A2=PASS A3=PASS A4=READING A6=READING A9=SKIP A10=SKIP A11=READING`；`builtCases=10/10 loads=0` | 0 |
+| `--group=r2` | `CASES=50 FAILED=0`；`builtCases=33/50 loads=64` | 0 |
+| `--group=r3 --expect-direct --strict --decline-stats --baseline=<setup>` | `CASES=32 FAILED=0`；`CASES-SELECTED: 32/92`；`A1…A12 全 PASS`（非正例的 A5/A12 打 SKIP=未生效，属口径）；`builtCases=25/32 loads=32`；`DECLINE-STATS: total=9 categories=4` | 0 |
+| 全量 `--expect-direct --strict --decline-stats --baseline=<setup>` | `CASES=92 FAILED=0`；`CASES-SELECTED: 92/92`；`A1…A12 全 PASS`；`builtCases=68/92 loads=96`；`DECLINE-STATS: total=21 categories=5`；`Q1: mode=auto → SAFE-04/05 expect=pos` | 0 |
+| D7 组单跑 | `CASES=4 FAILED=0`；三条 `built=2 declined=0 A1 PASS A10 SKIP(noBaseline) A11 PASS`；guard `built=1 A10 PASS(len=383)` | 0 |
+| S 组单跑 | `CASES=2 FAILED=0`；`strictViolations=1 errors=0 parse=ok`；S-01 `A10 PASS(len=366)`、S-02 `A10 PASS(len=242)` | 0 |
+| `--strict --strict-all …` | `CASES=92 FAILED=2`（`R2-INC-01` `a +` / `R2-INC-02` `a as`，A4/A12 FAIL，`parse=THREW`）——**R4 已知红**，见 §18 | **1** |
 
-**A1–A11 断言索引**（harness 里逐条实现）：
+`DECLINE-STATS` 明细（全量 92 条）：`expr.decline 12` / `stmt.func 3` / `stmt.head 3` / `var.binding 2` /
+`expr.stopped 1`。R3 组内：`stmt.func 3` / `stmt.head 3` / `expr.decline 2` / `var.binding 1`（total=9）。
+
+### 9.3 A1–A12 断言索引（R3 增量）
+
+A1–A11 与 R2 相同（见 §9.4）；R3 只**追加 A12** 与两个**字段**，不新增失败码：
+
+| 断言 / 字段 | 含义 |
+| --- | --- |
+| A12 **R3** | 该 case 真的以 `Strict=true` 解析过时：非正例 `strictViolations>=1`、`errors==0`、`parse` 不抛（`ok`）；正例 `strictViolations==0`。未以 Strict 解析的 case 打 SKIP 并说明原因 |
+| `noBaseline` **R3** | A10 改判 **SKIP**（D7 三条：旧基线 8456ec3c 自身错），判据换成 A1 + 计数 + A11 |
+| `expectBodyBuilt` **R3** | 负例的 `built` 读数来自**体内语句自己的壳**时的精确值（`for (let …) { b; }` 的 `b;` 是它自己的表达式语句壳，基线本来就 `built=1`）；A4 断言 `declined>=1 && built==expectBodyBuilt`，**不是**放宽 |
+| `strictAll` **R3** | 即使 `expect != pos` 也在 `--strict` 下解析（S 组），A12 因此生效 |
+
+### 9.4 R2 的 A1–A11（沿用）
 
 | 断言 | 含义 |
 | --- | --- |
@@ -809,147 +833,133 @@ node tests/direct-build/target-cases.mjs
 | A2 | 同源解析两次 `ToXmlString()` 逐字节相同（C4 注入 case：注入那次 vs 不注入那次） |
 | A3 | XML 非空且根下节点数 == TS 顶层语句数 |
 | A4 | 按 `expect` 类别化（见上表） |
-| A5 | `--strict` 时计数器仍全 0（**只作用于正例**，见 §10 的 strict 口径） |
+| A5 | `--strict` 时计数器仍全 0（**只作用于正例**；非正例要 `strictAll` / `--strict-all`，见 A12） |
 | A6 | `stmtLoads + exprOtherDirect + exprLegacy == 0`（C4 只量第二次解析） |
 | A7 | `--trace` 时 `Traces` 含 `insert(`（仅 `expectInsert` 的 case） |
 | A8 | `--expect-direct` 时强制 A4/A6（`--strict` 时再加 A5；A9/A11 同口径）——是开关规则，不单独输出 `A8=` 行 |
 | A9 | 负例（含 invalid）的 `DeclineReasons` 含期望 category |
-| A10 | `XML==baseline`（`--baseline` 启用；invalid/incomplete 改比拒绝文案） |
+| A10 | `XML==baseline`（`--baseline` 启用；invalid/incomplete 改比拒绝文案；`noBaseline` 恒 SKIP） |
 | A11 | 正例 `DeclineReasons` 全空 |
 
-> `ASSERT:` 行只列**本轮启用的**断言：不带 `--trace` 时没有 A7，A8 是 `--expect-direct` 的强制规则（无独立输出行），
-> 因此实测行是 `A1 A2 A3 A4 A5 A6 A9 A10 A11`——九个已启用断言全 PASS 即「A1–A11 全 PASS」的含义。
+> `ASSERT:` 行只列**本轮启用的**断言：不带 `--trace` 时没有 A7，A8 是 `--expect-direct` 的强制规则（无独立输出行）。
+> `R3-B1-pos-06`（`else if`）的 `expectBuilt` 是 **3** 不是 4——`else if` 的里层 `if` 由外层 session 递归建、
+> `StatementsBuilt` 只 +1（与 `if (a) { b; }` = 2 自洽）；`R3-B1-neg-01/02` 用 `expectBodyBuilt=1` 而不是 `built==0`
+> （体内 `b;` 自有壳）。这两条口径以 harness 与 `REPORT-r3-verify-fix2` 的实测为准。
 
-> `R2-A4-pos-07 a ? (b, c) : d` 是**合法 TS 正例**（真分支是括号内的逗号表达式）；
-> `R2-CONTRACT §1.1` 曾把它写成负例，实测 `built=1 / declined=0 / AST MATCH / XML IDENTICAL`，harness 已按正例收口。
-> 真正的非法输入是**不带括号**的 `R2-A4-neg-02 a ? b, c : d`（TS 语法错误，两侧 Parse 同源拒绝）。
-
-正向 41 条的 AST 与 TS **逐字段一致**；XML 两次解析逐字节一致；根下节点数 == TS 顶层语句数；
-`--strict` 下计数器仍全 0（strict 异常没有吞出假绿）。
-
----
 
 ## 10. 复跑命令（本克隆实测可跑）
 
-`tests/direct-build/target-cases.mjs` 已随 `a937244d` 合入主仓库，**不需要再临时拷入**。
+`tests/direct-build/target-cases.mjs` 已随主仓库跟踪，**不需要再临时拷入**。下面读数都在本文所在的
+`docs-r3` 克隆（`b964fdb8`）上实测过。
 
 ```powershell
-$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-r2"
+$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-r3"
+$setup = "C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup"   # 8456ec3c 黄金克隆
 cd $clone
 
 # 0) 构建：xl_build 是会话工具，不是 shell 命令
 #    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
-#    实测：548 written, 0 skipped, 0 planned, 0 error(s), 2535 warning(s)
-#    （增量构建 / dist 缓存已热时显示 0 written, 548 skipped；判据仍是 0 error）
-#    （warning 全部是既有 W3102/W3103；orphans:false 关掉 dist 历史残留的 E2004 噪音）
-node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0
+#    实测：552 written, 0 skipped, 0 planned, 0 error(s), 3 warning(s)（warning 全是既有 E1107 重复类型声明）
+node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0；build/ts = 552 个 .js
 
-# 1) R1 原 10 条不回归（默认模式，只报读数）
+# 1) 分组（不回归判据）
 node tests/direct-build/target-cases.mjs --group=r1
 #    实测 exit 0；CASES=10 FAILED=0；builtCases=10/10 loads=0
+node tests/direct-build/target-cases.mjs --group=r2
+#    实测 exit 0；CASES=50 FAILED=0；builtCases=33/50 loads=64
+node tests/direct-build/target-cases.mjs --group=r3 --expect-direct --strict --decline-stats --baseline=$setup
+#    实测 exit 0；CASES=32 FAILED=0；A1..A12 全 PASS；builtCases=25/32 loads=32
+#    DECLINE-STATS: total=9 categories=4（stmt.func 3 / stmt.head 3 / expr.decline 2 / var.binding 1）
 
-# 2) 全量 60 条（唯一最终判据）
-node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats `
-     --baseline=C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup
-#    实测 exit 0；CASES=60 FAILED=0；A1..A11 全 PASS；builtCases=41/60 loads=69
-#    DECLINE-STATS: total=12 categories=3（expr.decline 10 / expr.stopped 1 / var.binding 1）
+# 2) 全量 92 条（唯一最终判据）
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --baseline=$setup
+#    实测 exit 0；CASES=92 FAILED=0；A1..A12 全 PASS；builtCases=68/92 loads=96
+#    DECLINE-STATS: total=21 categories=5（expr.decline 12 / stmt.func 3 / stmt.head 3 / var.binding 2 / expr.stopped 1）
+#    Q1: mode=auto → SAFE-04/05 expect=pos（build/ts 里已有 R3 控制流 session，自动改判为 pos）
 
-# 3) C4 故障注入（必须单跑：注入路径在整批里只影响这一条）
-node tests/direct-build/target-cases.mjs --only=R2-C4-01 --fault-inject=finish-throw --expect-direct --strict
-#    实测 exit 0；CASES=1 FAILED=0；A4 PASS（errors=1 / lastError 含 inject / declined=0 / 第二次 errors=0）
+# 3) D7 / S 单组（A10 SKIP 与 A12 的读法）
+node tests/direct-build/target-cases.mjs --group=d7 --expect-direct --strict --decline-stats --baseline=$setup
+#    实测 exit 0；CASES=4 FAILED=0；三条 built=2 A10=SKIP(noBaseline)；guard built=1 A10=PASS(len=383)
+node tests/direct-build/target-cases.mjs --group=s --expect-direct --strict --decline-stats --baseline=$setup
+#    实测 exit 0；CASES=2 FAILED=0；A12 PASS（strictViolations=1 errors=0 parse=ok）
 
-# 4) 非正例 19 条
-node tests/direct-build/target-cases.mjs --group=NEG
-#    实测 exit 0；CASES=19 FAILED=0；builtCases=0/19 loads=69
+# 4) strict 全量化（**必须与 --strict 联用**；现状 2 条已知红，属 R4）
+node tests/direct-build/target-cases.mjs --strict --strict-all --expect-direct --decline-stats --baseline=$setup
+#    实测 exit 1；CASES=92 FAILED=2：R2-INC-01(`a +`) / R2-INC-02(`a as`)
+#    A4/A12 FAIL：parse=THREW、errors=1、strictViolations=1
+#    ⚠️ 单独 --strict-all（不给 --strict）是 no-op：打印 strict=off strict-all=on、CASES=92 FAILED=0，不能当证据
 
 # 5) 机器可读证据（可选）
-node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats `
-     --baseline=C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup --json > r2-readings.json
-#    实测 exit 0（本机 510KB）。注意：本机 PowerShell 的 `>` 实测写的是 UTF-16LE（带 BOM、字节间有 \0），
-#    直接 require/JSON.parse 会报 "Unexpected token"；要给 node 解析请改用
-#    [IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
-#    或 node tests/direct-build/target-cases.mjs --json | Out-File -Encoding utf8 r2-readings.json
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --baseline=$setup --json > r3-readings.json
+#    注意：本机 PowerShell 的 `>` 写的是 UTF-16LE（带 BOM）；给 node 解析请改用 Out-File -Encoding utf8
 ```
 
-CLI 速查（`--help` 的输出就是权威）：
+CLI 速查（`--help` 的输出就是权威；R3 新增的已标 **R3**）：
 
 | 旗标 | 作用 |
 | --- | --- |
-| `--group=<g1,g2>` | `r1` / `r2` / `all` / `A1…A5` / `C1…C4` / `GEN` / `SAFE` / `INC` / `NEG` / `POS`（大小写不敏感） |
-| `--only=<id\|序号\|source>` | 先按 case ID 精确匹配（`R2-A3-pos-04`），再退回 R1 语义：全数字 = 1 基序号 / 精确 source / 子串 source |
+| `--group=<g1,g2>` | `r1` / `r2` / `r3` / `all` / **`b1` / `b2` / `d7` / `s`（R3）** / `A1…A5` / `C1…C4` / `GEN` / `SAFE` / `INC` / `NEG` / `POS`（大小写不敏感） |
+| `--only=<id\|序号\|source>` | 先按 case ID 精确匹配（`R3-B2-pos-05`），再退回 R1 语义：全数字 = 1 基序号 / 精确 source / 子串 source |
 | `--trace` | 打开 `TraceEnabled` 并断言 `Traces` 含 `insert(`（A7） |
-| `--strict` | 打开 `DirectBuildMetrics.Strict` 并断言计数器全 0（A5，**只对正例**，见下） |
-| `--expect-direct` | 强制 A4/A6（及 `--strict` 时的 A5、A9/A11） |
+| `--strict` | 打开 `DirectBuildMetrics.Strict`；正例走 strict Parse 并断言计数器全 0（A5） |
+| `--strict-all` **R3** | 让**非正例**也在 `--strict` 下解析（A12 判 `strictViolations>=1`）；**必须与 `--strict` 同时给** |
+| `--expect-direct` | 强制 A4/A6（及 `--strict` 时的 A5、A9/A11/A12） |
 | `--decline-stats` | 打印 `DECLINE-STATS`（count 降序、同数按 category 字典序；`last=` 取 trace） |
 | `--baseline=<repo>` | 用另一个已构建的 8456ec3c 克隆同源解析，比对 XML（A10） |
 | `--fault-inject=finish-throw` | C4 专用：给 `ExpressionStatementDirectSession.prototype.Finish` 包一层一次性抛错（进程内，不改源码） |
-| `--json` | stdout 只输出一份 JSON 读数（schema `dsh/xl-example/target-cases@2`，`expect` 枚举含 `safe/invalid/incomplete`） |
+| `--json` | stdout 只输出一份 JSON 读数（schema `dsh/xl-example/target-cases@3`；R3 纯追加 `noBaseline` / `strictAll` / `expectBodyBuilt`） |
 
-**输出兼容性**：R1 原 10 条的 `SOURCE / TS-AST / CJ-AST / AST-MATCH(ts) / XML / DIRECT` 六类输出行
-与新 harness **50 行 vs 50 行、差异 0**（`_coord/r2-verify-fix-r1-compat.txt`）；R2 新增的断言行只能**追加**在
-每条 case 之后（`CATEGORY:` / `A9:` / `A10:` / `A11:`），不改旧行。
+**输出兼容性**：R1 原 10 条的 `SOURCE / TS-AST / CJ-AST / AST-MATCH(ts) / XML / DIRECT` 六类输出行与 R1 一致；
+R3 只追加 `A12:`、`EXPECT-BODY-BUILT:` 两类行与 `CATEGORY:` 的 `guard` / `noBaseline` 措辞，不改旧行。
 
-**strict 口径（重要，勿误读为产品红）**：`--strict` 目前只对**正例** Parse 生效。`let {a} = b` 在 `Strict=true` 下，
-变量 session 的 `Decline` 发生在 **H1/Ingest**（`statement-shape` 的 H1 未包 `try/catch`），异常会抛穿 `Parse`
-（且抛出的不是 `Error`，`message` 为 `undefined`），AST 全没了、两次尝试还把 `var.binding` 计成 2。
-这是 **strict 语义（Decline 即抛）与「负例必须 AST MATCH」互斥**，不是产品红：harness 对 `expect != "pos"`
-的 case 用 `Strict=false` 解析，并在 A5 的 SKIP 文案里明说。**R3 若要给 H1 加 `try/catch`，才能把
-「strict 全量」变成真语义。**
+**不跑**（本轮口径）：`tests/gates/run.mjs`、`samples/check.mjs`、`typescript/cases/ast-json.mjs` / `ast-json-diff.mjs`
+（全量 6171）、`tests/coverage/*`、`tests/statement-possible/harness.mjs` 全量、`47 文件 smoke`（R3 不在验收口径）。
+这些数字不能引用为本轮验收。
 
-**不跑**（本轮口径，见 `_coord/R2-CONTRACT.md §6`）：`tests/gates/run.mjs`、`samples/check.mjs`、
-`typescript/cases/ast-json.mjs` / `ast-json-diff.mjs`（全量 6171）、`tests/coverage/*`、
-`tests/statement-possible/harness.mjs` 全量。这些数字不能引用为本轮验收。
-
----
-
-## 11. 已知限制（R2 收口态）
+## 11. 已知限制与遗留（R3 收口态）
 
 1. **表达式语句跨行 ASI `a⏎b` / `2⏎3` 仍 Decline 走旧路径（C2，按 R2-D4 明确保持）。** 根表达式壳在 EOF 才收口，
    传入的 `endIndex` 覆盖两条语句；session 显式 `Decline("语句内出现无法接续的单元 idx=2", "expr.stopped")`，
    旧路径 Detach 后恢复，AST 仍与 TS 一致（实测 `declined=1`、AST MATCH、`XML==baseline`）。
-   **目标 case 里它按 neg 收录（R2-C2-01），不是漏项。** R3 若直建化，才改为 pos（`built=2 declined=0`）。
+   **目标 case 里它按 neg 收录（R2-C2-01），不是漏项。**
 2. **泛型实参 / 实例化表达式一律 Decline**：`f<T>(1)` / `f<string, number>(1)` / `a<b>(c)` / `new A<T>()` /
-   `f<A<B>>(1)`（`expr.decline`）。这是 A3 覆盖调用后**必须保留的守卫**：没有它，`f<T>(1)` 会被静默建成比较链
-   （`built=1 AST NO`）——基线靠「调用未覆盖」侥幸正确，属 R2 引入的回归，已由 27ac618e 修掉。
-   对照正例 `x<y>z` / `a<b>c` / `a<<b>(c)` 证明比较链没有被误伤。
-3. **`a ? (b, c) : d` 是正例，`a ? b, c : d` 才是非法输入。** 前者真分支是括号内的逗号表达式
-   （`built=1 AST MATCH XML IDENTICAL`）；后者 TS 语法错误，两侧 `Parse` 同源拒绝、AST 无可比。
-   `R2-CONTRACT §1.1` 原先把前者写成负例，**已按实测改正**（见 §13.8）。
-4. **行终止符守卫只覆盖「前缀 `++` / `--` / `!` 出现在行首」这一族**：`a⏎++b` / `a⏎--b` / `a⏎!b` 已
-   `built=2 declined=0 AST MATCH XML==基线`。**变量声明里的同类缺陷不在本轮**（D7）：
-   `let x = a⏎++b`、`let x = a⏎!b`、`let x = a + b⏎++c`、`let x = a + b⏎--c` 仍 `AST NO`，
-   但直建前后 `XML` 与 8456ec3c **逐字节一致**（`var.stopped ×2`）——这是 **8456ec3c 的历史缺陷，不是本轮回归**，
-   按 R2-D7 **不列入目标 case**。
+   `f<A<B>>(1)`（`expr.decline`）。这是 A3 覆盖调用后**必须保留的守卫**。对照正例 `x<y>z` / `a<b>c` / `a<<b>(c)`
+   证明比较链没有被误伤。
+3. **`a ? (b, c) : d` 是正例，`a ? b, c : d` 才是非法输入。** 前者真分支是括号内的逗号表达式；后者 TS 语法错误，
+   两侧 `Parse` 同源拒绝、AST 无可比。
+4. **D7 已修（R3）**：`let x = a⏎++b` / `let x = a + b⏎++c` / `let x = a⏎!b` 现在 `built=2 declined=0 AST MATCH`；
+   A10 对它们 **SKIP**（旧基线 8456ec3c 自身错，`noBaseline`）。反向守卫 `let x = a⏎+ b` 仍是 1 条、XML 逐字节等于
+   基线（len=383）。**残留** `let x = a⏎~b`（`~` 不在 D7 闭集 `++`/`--`/`!` 里）仍按旧错切，源码已注释标记，属 **R4**。
 5. **A6 不是字面 `exprLoads == 0`**：`DirectTokenUtil.OperatorToken` 每个二元运算符一次
    `ExpressionBuilder.Load`（§8.3）；验收口径是 `stmtLoads==0 && exprOtherDirect==0 && exprLegacy==0`。
-6. **括号内的逗号**：R2 已按逗号运算符建，`(a, b)` / `f((a,b))` / `a ? b : c, d` 实测
-   `built=1 declined=0 AST MATCH`；它们**不在 60 条目标 case 里**（属 `R2-TARGET-CASES §6` 的扩展观察项）。
-   顶层 `a, b` 已是正例（D3）。
-7. **`Errors` 现在有递增点（C4）**：H2 的 `catch` ×1。但正常/负例输入上它**恒 0**；
-   不要把它当「运行期异常数为 0」的普遍证据，异常路径仍主要看 `Declined` / `IncompleteFallback` / `StrictViolations`。
-8. **`++a++` / `a++++`**：按 TS 结构建 `Prefix(Postfix(...))` / `Postfix(Postfix(...))`（与旧 builder 的
-   `InsertionPoint` 行为一致），没有按「非法输入」Decline；AST 对拍口径优先。
-9. **范围外语句族内部**仍可能出现被直建的内层语句（`if (a) { let x = 1; }`），这是预期：
-   直建按「构造」生效，不按「外层族」生效。
-10. **session 不判边界**：`let x = 1 2` 这类同一行无法接续的输入会 Decline 并回旧路径，
-    由旧路径给出与直建前相同的错误 / 恢复行为。
-11. **`build/ts` 的历史 0 字节孤儿**：主仓库 `build/ts/typescript/run/statement-block-stream.js`（0 字节，
-    2026-10-24 就已存在，`dist` / 源码 / 任何 `require` 都不引用）是**累积构建目录的观察项**，非本轮引入。
-    干净克隆首次构建只有 **548** 个 `.js`（没有这个文件）；主仓库因历史累积是 **903** 个。
-    不影响任何读数，未清理。
-
----
+6. **括号内的逗号**：R2 已按逗号运算符建；它们**不在 92 条目标 case 里**（属扩展观察项）。顶层 `a, b` 已是正例（D3）。
+7. **`Errors` 有递增点（H2 的 C4 + H1′ 的 catch）**：正常 / 负例输入恒 0；strict 的 Decline 被 H1′ 接住时**不**
+   计 `Errors`（`StrictViolations` 才是判据）。不要把它当「运行期异常数为 0」的普遍证据。
+8. **`++a++` / `a++++`**：按 TS 结构建 `Prefix(Postfix(...))` / `Postfix(Postfix(...))`，没有按「非法输入」Decline。
+9. **范围外语句族内部**仍可能出现被直建的内层语句（`switch (a) { case 1: b; }` 实测 `built=1`），这是预期。
+10. **session 不判边界**：`let x = 1 2` 这类同一行无法接续的输入会 Decline 并回旧路径。
+11. **`build/ts` 的历史 0 字节孤儿**：干净克隆首次构建 **552** 个 `.js`（没有那个文件）；主仓库因历史累积仍多一个
+    0 字节 `typescript/run/statement-block-stream.js`，未清理、不影响读数。
+12. **`--strict-all` 必须与 `--strict` 联用，且现状有 2 条已知红（R4）**：单独 `--strict-all` 是 **no-op**
+    （打印 `strict=off strict-all=on`、`CASES=92 FAILED=0`，不能当证据）；两条一起给时 `R2-INC-01`（`a +`）/
+    `R2-INC-02`（`a as`）A4/A12 红（`parse=THREW`、`errors=1`）——根因是 `root-expression-statement-possible-shape`
+    的 eager Ingest 没接住 `Incomplete`。**文档不得写「strict-all 全绿」。**
+13. **`angle.ts` 的 `x<y>z` 歧义**：47 文件 smoke 里相对 8456ec3c 有 1 处既有差异（`angle.ts@4784`，标签模板 vs
+    比较链），B1/B2 开关前后**完全一致**，是 R1/R2 表达式层的既有差异，**不是 R3 引入**；不在 92 条内，记 R4 观察项。
+14. **仍未覆盖（仍走旧路径）**：`try` / `switch` / `with` / `debugger`、标签语句、`for (let …)`、生成器 /
+    `async` 函数与箭头、对象方法、类型与声明族；`--strict-all` 完整化、C2 直建化属 R4。47 语料 smoke
+    **不在本轮验收口径**（不引用其数字作为验收）。
 
 ## 12. 与旧 `BuildFromShell` 的关系
 
-`StatementShape.BuildFromShell` 是本轮唯一被改动的收口函数；直建分支插在
-`consumed` 计算之后、`new StatementBuilder` 之前（§2.4），因此：
+`StatementShape.BuildFromShell` 是 R2 唯一被改动的收口函数（R3 **没有**再改 H2，只在 H1 加了 `try/catch`）；
+直建分支插在 `consumed` 计算之后、`new StatementBuilder` 之前（§2.4），因此：
 
 | 输入 | 行为 |
 | --- | --- |
 | 覆盖范围内、session 未 Decline、`Finish` 成功 | `splice` + `return directBuilt`；**旧路径一步都不执行**（不建 builder、不 `Load`、不三层 possible、不 family 分派、不 `BuildStatement`、不 `BuildExpressionStatementFromShapes`） |
 | 覆盖范围内但 session Decline（范围外构造） | `Finish` 返回 null → **完整走旧路径**；AST / XML 与直建前逐字节相同 |
-| 覆盖范围外的语句族（`if` / `function` / `class` / 声明族…） | 那些壳没有任何 H3 调用，`shell.DirectSession` 保持 `null`（`plugins` 里也没有它们的 kind）→ **完整走旧路径**，行为不变 |
+| 范围外的语句族（`switch` / `try` / `with` / `debugger` / `class` / 声明族…，即未注册的 kind） | `Attach` 里的 `Create` 返回 `null` ⇒ `shell.DirectSession` 保持 `null` → **完整走旧路径**，行为不变（R3 起 `if` / `while` / `for` / 块 / 函数声明已不在此行） |
 | 覆盖范围内但 `Finish` 不完整 | session 的 `Incomplete` / `Decline` 计数 → 旧路径（目标 case 上该计数为 0） |
 
 直建成功时 `host.Data.splice(0, consumed.length)` 与旧路径末尾的 splice 同源，随后
@@ -1081,17 +1091,195 @@ A3 覆盖调用后，`f<T>(1)` 会被建成 `f < T > (1)`（`built=1 declined=0`
 | `f<T>(1)` / `f<string, number>(1)` / `a<b>(c)` / `new A<T>()` / `f<A<B>>(1)` | 0 | 1 | MATCH | neg（`GEN` 组 5 条） |
 | `x<y>z` / `a<b>c` / `a<<b>(c)` | 1 | 0 | MATCH | pos（对照，证明比较链未被误伤） |
 
-### 14.6 D7 基线历史缺陷（**不列入目标 case**）
+### 14.6 D7 语句边界历史缺陷（R3 已修，见 §17）
 
-以下输入在 8456ec3c 上**本来就是坏的**（AST 与 tsc 不一致），直建前后 **XML 逐字节一致**，
-所以它们不是本轮回归，也不能写成目标 case（那等于要求 R2 顺手修旧路径的历史缺陷）：
+R2 曾把这几条记为「8456ec3c 的历史缺陷、不列入目标 case」。**R3 把 D7 转成目标 case 并修好**，所以本节口径已变：
 
-| 输入 | built | declined | AST-MATCH | XML vs 8456ec3c | 分类 |
-| --- | --- | --- | --- | --- | --- |
-| `let x = a⏎++b` | 0 | 2 | **NO** | **IDENTICAL** | `var.stopped ×2` |
-| `let x = a⏎!b` | 0 | 2 | **NO** | **IDENTICAL** | `var.stopped ×2` |
-| `let x = a + b⏎++c` | 0 | 2 | **NO** | **IDENTICAL** | `var.stopped ×2` |
-| `let x = a + b⏎--c` | 0 | 2 | **NO** | **IDENTICAL** | `var.stopped ×2` |
+| 输入 | R2（8456ec3c 旧边界） | R3 实测 |
+| --- | --- | --- |
+| `let x = a⏎++b` | built=0 declined=2 **AST NO**、XML IDENTICAL | **built=2 declined=0 AST MATCH**，A10 **SKIP**（旧基线自身错） |
+| `let x = a + b⏎++c` | built=0 declined=2 **AST NO**、XML IDENTICAL | **built=2 declined=0 AST MATCH**，A10 **SKIP** |
+| `let x = a⏎!b` | built=0 declined=2 **AST NO**、XML IDENTICAL | **built=2 declined=0 AST MATCH**，A10 **SKIP** |
+| `let x = a⏎+ b`（守卫） | built=1 AST YES、XML IDENTICAL | **built=1 AST MATCH**，A10 **PASS（len=383）** |
 
-- 与 `REPORT-r2-harden §7` / `REPORT-r2-merge-code §4.1` 的记录逐项一致；
-- 归属：**8456ec3c 的历史缺陷**，属 R3 的语句边界工作；本轮只保证「不因直建而变坏（XML 一致）」。
+- 根因：`let` 壳的收口只走 `ScanToSemicolonIncremental`，而 `EndsAtLineBreak` 的 `!ContinuesAcrossLine`
+  对 `++`/`--`/`!` 恒为 false、`IsUncontinuableTailBoundary` 又要求前一个单元已是后缀运算符 ⇒ `++b` 被吞进声明；
+  直建 session 在「等运算符」位看到 `++` 触发 C1 `Hold()` ⇒ `var.stopped` Decline（重放再 Decline 一次，故 `declined=2`），
+  回落旧路径同样接不上 ⇒ 根下全 raw。
+- 修法（§17）：在 `ScanToSemicolonIncremental` 里补一条「换行 + 受限后缀 + 前一单元能收住表达式」的断句判据
+  （`IsRestrictedPostfixUnit`），与 TS `parsePostfixExpressionOrHigher` 的 `hasPrecedingLineBreak` 守卫同源。
+- 残留：`let x = a⏎~b` 不在闭集，仍按旧错切，属 R4。
+
+---
+
+## 15. R3-B1：控制流语句直建
+
+### 15.1 三个新部件（都在 `typescript/tokens/direct/`）
+
+| 文件 | 类 | 职责 |
+| --- | --- | --- |
+| `direct-statement-hook.xl.md` | `DirectStatementHook` | **H3-b 通用挂载点**：`Attach(shell, context)`，从壳自己取 kind → `Create` → 幂等挂上 → 首次 `Ingest` |
+| `direct-statement-assembly.xl.md` | `DirectStatementAssembly` | 共用装配助手：`PositionAt`（复刻 `StatementBuilder.Load` 的 `Positions` 表）、`CodeAt`、`TextOf`、`Span`、`BuiltChildren`、`BlockFrom`、`ExpressionOf`、`ConditionOf`、`RawStatement` |
+| `direct-control-session.xl.md` | `ControlFlowStatementDirectSession` | B1 状态机；`ShellStatementFamily` 与 `ShellBlock` **两个 kind 共用同一个类** |
+
+`Attach` 的两个调用点见 §2.2；注册见 §2.2 的五行表。**B1 没有动** `Decide`、`StatementEndPossibleShape`、
+边界判据与 `StatementBuilder`——`if/while/do/for/switch/try/return/throw/break/continue/debugger/with` 与 `;`
+本来就被判成 `ShellStatementFamily`，`{` 判成 `ShellBlock`，壳的结束判据也早已挂好。
+
+### 15.2 状态机（与变量 / 表达式 session 不同：判定全在 `Finish`）
+
+- `Ingest`：只做两件事——累积单元、**认首代码单元**。起点不在 `; { if while do for return throw break continue`
+  集合里 → 立刻 `Decline(stmt.head)`（`switch` / `try` / `with` / `debugger` 就是在这里被拒的）。
+  不做逐格状态机：B1 的每条都要看整段（`else` 链、`do` 的 `while` 尾、`for` 头的分号数），逐格没有收益。
+- `Finish(endIndex)`：先把壳 `Data` 折成 `code` / `codeAt`（跳过 trivia 并**截断到 `endIndex`**），再按首代码单元
+  分派到 `BuildRange`；成功时 `StatementsBuilt += 1`、`Finished = true`。
+- `BuildRange` 是**唯一分派口**：顶层（`0..code.length`）与单语句体（then / else 分支）走同一张表，因此
+  `if (a) { b; } else if (c) { d; }` 的 `else` 分支只是递归到 `BuildRange` 的 `if` 分支——**内层 if 不另计 `StatementsBuilt`**，
+  这就是 `R3-B1-pos-06` 的 `built=3`（外层 if + then 块 + else 里的 if 体块）而不是 4 的原因。
+
+### 15.3 覆盖与拒收（逐条）
+
+| 形态 | 结构判据（只看 `code`） | 失败 category |
+| --- | --- | --- |
+| `;` | `code.length === 1` 且是 `;` | `stmt.shape` |
+| `{}` / `{…}` | `code[0]` 是 `{` 括号且 `code.length === 1`；体走 `BuiltChildren` | `stmt.nested`（体内有未收口语句） |
+| `if` | `code[1]` 是 `(` 括号；then = `code[2]`；块体必须是最后一个单元；`else` 在 then 之后 | `stmt.shape` / `stmt.body` / `stmt.expr` |
+| `while` | 同 `if` 但无 `else` | 同上 |
+| `do` | `code[1]` 是体；`code[2] === while`；`code[3]` 是 `(`；可选结尾 `;` | 同上 |
+| `for` | `code[1]` 是 `(` 括号；头内 `;` 计数 = 2 → `for`；= 0 且有 `in`/`of` → for-in/of；其它 → `stmt.head` | `stmt.head` / `stmt.expr` |
+| `return` / `throw` | 表达式 = `code[1..]`（去掉末尾 `;`）；无操作数的 `throw` 不做 | `stmt.expr` |
+| `break` / `continue` | **只接受** `code.length === 1` 或 `code.length === 2 && code[1] === ";"` | `stmt.label` |
+
+- **已覆盖**（目标 case）：`;`、`{}`、`{ let x = 1; }`、`if` / `else` / `else if`、`while`、`do…while`、
+  `for`（表达式 init）、`for(;;)`、`for-in`、`for-of`、`return`（经 `R3-B2-pos-03`）、`throw`、`break` / `continue`（无标签）。
+- **明确拒收**：`for (let …)` / `for (const k in …)` / `for (const v of …)` —— 头部是 `VariableDeclarationList`，
+  属声明建造器；代建要么调 `StatementBuilder`（A6 红），要么重写 `BuildVariableDeclarationList`（静默错建风险），
+  所以 `Decline(stmt.head)`；`for await` 同样 `stmt.head`；`break lbl;` / `continue lbl;` → `stmt.label`；
+  `switch` / `try` / `with` / `debugger` → `stmt.head`；标签语句 `lbl: a;` 根本没有 session（`ShellLabel` 未注册）。
+- `for (let …) / (const k in …)` 的读数口径：**本条语句 Decline，但体内的 `b;` 仍由它自己的表达式语句壳直建**，
+  所以 `built=1` 不是 0。harness 用 `expectBodyBuilt: 1` 把这一点写成硬读数（A4 断言 `declined>=1 && built==1`），
+  A9 照旧要求 `DeclineReasons.stmt.head>=1`，A1 照旧 AST MATCH——**不是放宽**。
+
+### 15.4 嵌套原则：「只收集 + 校验，不代建」
+
+体内语句**不是**本 session 建的：块体目录（`BlockPossibleShape.TryMountControlFlowBody` / `IsFunctionDeclarationBody` /
+`TryMountFunctionBody`）在建壳期就挂好了，体内语句各自有自己的壳、收口时由各自的 H2 换成建好的形状。
+`BuiltChildren(bracket)` 只做三件事：
+
+1. trivia / basic token 跳过（它们不进 AST）；
+2. 见到 `StatementShape`（**未收口**，用 `Kind` 是 number 判定，故意不 import `statement-shape` 以免循环）→ 返回 `null`
+   ⇒ 调用方 `Decline(stmt.nested)`，旧路径接管（`if (a) { b }` 这种体末无 `;` 的时序不确定情形即走此路，`R3-R1`）；
+3. 其余非 basic 单元 = 已建好的语句，按原顺序收下。
+
+**绝不代建**：代建要么调 `StatementBuilder`（A6 硬红），要么重写一遍 `BuildStatement`（静默错建风险）。
+`BlockFrom` 另外复刻了 `CollectBodyStatements` 的「块内第一条语句 `Pos` 纠正」（`{ { a; } }` 的里层块 `pos=1` 就是靠它）。
+
+单语句体（`if (a) b;`，B1-2）走另一条：体目录只挂在 `{…}` 上，所以非括号体还是 raw，`RawStatement` **只认三种形态**
+——`;`（`EmptyStatementShape`）、表达式（`ExpressionStatementShape`）、`{…}`（递归 `BlockFrom`），其余
+（声明族 / 控制流族 / `return`）→ `Decline(stmt.body)`。
+
+---
+
+## 16. R3-B2：函数声明与箭头
+
+### 16.1 函数声明（`direct-function-session.xl.md`，kind = 8）
+
+注册：`DirectBuildRouter.Register(StatementRoute.ShellFunctionDeclaration, FunctionDeclarationDirectSession)`。
+形态判据很严：`code.length !== 4` 一律 `Decline(stmt.func)`（`function` / 名字 / 参数表 / 体），这一条同时挡住
+`function* g()`（5 格）、`function f<T>() {}`（多格）、`function f(): number {}`（6 格）、`async function` / `declare function`
+（首代码单元不是 `function`，在 `Ingest` 期就拒）。
+
+- **参数只做 Identifier**：`ParametersAreIdentifiers` 要求代码单元严格交替「Common 标识符」与 `,`，出现 `=` / `...` /
+  `:` / `?` / `{` / `[` / `@` 就拒。这不是保守，是 **A6 守卫**：`BuildParameters` 遇到默认值 / rest 会走
+  `ParseParameter` → `ExpressionBuilder`（`R3-R3` 的 `exprOtherDirect` 风险），所以**必须先拒**。
+  负例：`function f(a = 1) {}` / `function f(...a) {}` / `function* g() {}` → `stmt.func`。
+- **体走 `BlockFrom`，不用 `FunctionDeclarationShape.FromUnits`**：`FromUnits` 在**有体**时内部
+  `new StatementBuilder(...)` + `Load` + `BuildStatement()` 建体（`function-declaration-shape.xl.md` 的
+  `bodyUnit !== null` 分支）——那正是 A6 的 `stmtLoads`，必须为 0。所以只借它的**参数表静态工厂**
+  `BuildParameters` 与 `Pos` 口径（`name.Pos = function 关键字的 EndIndex`），体交给 `DirectStatementAssembly.BlockFrom`。
+  这是对 R3-CONTRACT §4.3.2 第 5 步的实现口径修正（见 `REPORT-r3-func §6`）。
+- `StatementsBuilt += 1` 只记函数声明本身；体内 `return a;` / `let x = 1;` 由它们自己的壳计（`R3-B2-pos-03/04` 的 `built=2`）。
+
+### 16.2 箭头函数（无新 session，表达式引擎自我激活）
+
+箭头在**语句首**时壳是 `ShellPlainExpression`，已有的 `ExpressionStatementDirectSession` 会建 session，
+所以 B2-2 完全落在 `direct-expression-engine.xl.md` 的增量里（`ArrowFunctionShape` + `DirectTokenUtil` 的 `=>` 工厂）：
+
+- **括号参数表**：`(` 那一格无法决断（引擎没有前瞻），先挂起一格（`ParamWait` = `ArrowPending` 的前置）；
+  下一格是 `=>` ⇒ 建箭头（`StartArrowFromParams`），否则退回普通括号表达式（`IngestParen`）。`CouldBeArrowParameters`
+  只认「纯标识符 + 逗号」的括号内容。
+- **裸参数**（`a => a + 1`）：`=>` 到达时 `PendingOperand` 就是那个标识符；`IngestOperator` 里 `=>` 不是二元 / 赋值运算符
+  （`OperatorTable` 里没有它），先判箭头（`StartArrow`）。`async (a) => a` 靠这条落进 `expr.decline`。
+- **体**：`ArrowBody` 子引擎吃剩下所有单元，所以 `a => b => c` **递归**；体是 `{…}` 时当场建块
+  （`BuildArrowBlock`，口径与 `DirectStatementAssembly.BlockFrom` 完全一致：`BuiltChildren` 收集 + 首语句 `Pos` 纠正）。
+  `(a, b) => ({ x: a })` 的体是括号包着的对象字面量，走普通括号递归，`Data` 里是 `ParenthesizedExpression{ ObjectLiteral }`。
+- 覆盖：`() => {}`、`(a) => a`、`a => a + 1`（目标 case）；`async (a) => a` 是负例（`expr.decline`）。
+
+---
+
+## 17. D7：语句边界修复（`++` / `--` / `!` 不跨行）
+
+**审批项 A-1**：R3 只改了 1 个 ReadOnly 文件 `statement-boundary-util.xl.md`（`ScanToSemicolonIncremental` 里 +1 个 `if`，
+并追加 `IsRestrictedPostfixUnit`）。判据：
+
+```ts
+if (at > from
+  && !StatementScanner.NoLineBreakBetween(code[at - 1], code[at])
+  && StatementBoundaryUtil.IsRestrictedPostfixUnit(code[at])      // 只认 ++ / -- / !
+  && StatementScanner.EndsExpression(code[at - 1])) {             // 前一个单元必须能收住表达式
+  return at - 1;
+}
+```
+
+- `EndsExpression(前一项)` 是**反过度收缩**的关键：`a = ⏎ ++b` / `let x = ⏎ ++b` 里 `=` 收不住表达式，`++` 是前缀，不能断；
+  `let x = a⏎+ b` / `⏎-b` / `⏎*b` 也不在受限后缀集合里。
+- 影响面：只有 `VariableStatementEndCode`（`let/const/var`）与 `ReturnThrowEndCode`；`break`/`continue`/`debugger` 走
+  另外两个函数，不经本函数。
+- 证据（§9.2）：三条目标 case `built=2 AST MATCH`、A10 SKIP；`R3-D7-guard-01`（`let x = a⏎+ b`）`built=1 A10 PASS(len=383)`；
+  `declined=0`、`DeclineReasons` 空（修好后不许再出现 `var.stopped`）。
+- 为什么不走 session 侧：session 拿不到「更短的语句终点」，要改就得动 H2（路线 B，R4 的 C2 方案）。
+- 残留 `let x = a⏎~b`：`~` 不在闭集（`R3-CONTRACT §4.5` 只列 `++`/`--`/`!`），源码已注释标记，属 R4。
+
+---
+
+## 18. strict 全量化（H1′）
+
+**做了一件小事**：`statement-shape.xl.md` 的 H1 把 `Ingest` 包进 `try/catch`（代码见 §2.3），于是 `Strict=true` 时
+在 **Ingest 期**抛出的 `Decline` / `Incomplete` **不再穿出 `Parse`**。计数语义与 H2 一致（**先计数再抛**；已计数的
+Decline 不重复计 `Errors`），接住后继续走候选计算，由 H2 的 `!direct.Declined` 拦下 `Finish` ⇒ 旧路径建树、AST 不变。
+
+- **Lead 裁决 A / S-01**：`let {a} = b` 在 `--strict` 下 `Parse` 不抛、`built=0 declined=1 strictViolations=1 errors=0`、
+  `DeclineReasons={"var.binding":1}`、AST MATCH、`XML==baseline(len=366)`。`S-02`（`f(...a)`）走**另一个** H3 站点
+  （表达式 session），证明 H1′ 对两条 H3 路径都成立（`len=242`）。
+- **`--strict` 下非正例不再穿 Parse**：`R3-S-01/02` 用 `strictAll: true` 在 `--strict` 下解析，A12 判
+  `strictViolations>=1`；正例仍要求 `strictViolations==0`（A5）。
+- **用法陷阱（必须写清）**：`--strict-all` 单独给是 **no-op**（`target-cases.mjs` 的 `strictForParse = flags.strict && …`），
+  实测打印 `strict=off strict-all=on`、`CASES=92 FAILED=0`，**不能当证据**。要打开全量化必须两条一起给：
+  `--strict --strict-all`。
+- **现状：`--strict --strict-all` 仍红 2 条（R4）**：`R2-INC-01`（`a +`）与 `R2-INC-02`（`a as`）A4/A12 FAIL
+  （`parse=THREW`、`errors=1`、`strictViolations=1`）。根因：`root-expression-statement-possible-shape` 的
+  **eager Ingest 没接住 `Incomplete`**（与 S-01 同族，只是走 `Incomplete` 而不是 `Decline`）。这两条不在 R3 的 32 条内，
+  且只在联合开启时出现；**文档不得把 strict-all 写成全绿**。`direct-statement-hook` 这一路在 92 条里未被触发。
+
+---
+
+## 19. 覆盖边界与遗留
+
+**仍未覆盖（仍走旧路径）**：
+
+1. `try` / `switch` / `with` / `debugger` —— 都会建壳进 session，但入口处 `Decline(stmt.head)`；
+2. 标签语句 `lbl: a;`（`ShellLabel` 未注册）与带标签的 `break lbl;` / `continue lbl;`（`stmt.label`）；
+3. `for (let …)` / `for (const k in …)` / `for (const v of …)` / `for await`（头部声明列表属声明建造器，`stmt.head`）；
+4. 生成器 `function*`、`async function`、`async (a) => a`、默认参数 / rest / 类型注解 / 泛型 / 返回类型 / ambient 函数；
+5. 对象方法体与访问器、函数 / 类表达式、箭头作为变量初始化器；
+6. 类型与声明族（`class` / `interface` / `type` / `enum` / `namespace` / `import` / `export` / `declare` / 装饰器）。
+
+**R4 观察项**（已在 §11 / §18 写明，不要在本轮当失败）：
+
+- `--strict-all` 完整化：`root-expression-statement-possible-shape` 的 eager Ingest 补 `try/catch`（实测 2 条红）；
+- D7 残留 `let x = a⏎~b`；
+- `angle.ts` 的 `x<y>z` 歧义（R1/R2 表达式层既有差异，B1/B2 开关前后一致）；
+- C2（`a⏎b`）直建化（路线 B：`DirectSession.PreferredEnd`）。
+
+**不在本轮验收口径**：`tests/gates/*`、`typescript/cases/ast-json*.mjs`（6171）、`tests/coverage/*`、
+`samples/check.mjs`、47 文件 smoke。只验 92 条目标 case。
