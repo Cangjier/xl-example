@@ -16,6 +16,7 @@ import { AwaitExpressionShape } from "../expressions/await-expression-shape.xl.m
 import { ArrowFunctionShape } from "../expressions/arrow-function-shape.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
 import { CallExpressionShape } from "../expressions/call-expression-shape.xl.md"
+import { ClassExpressionShape } from "../expressions/class-expression-shape.xl.md"
 import { ConditionalExpressionShape } from "../expressions/conditional-expression-shape.xl.md"
 import { DeleteExpressionShape } from "../expressions/delete-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "../expressions/element-access-expression-shape.xl.md"
@@ -40,6 +41,7 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { TemplateHeadShape } from "../literals/template-head-shape.xl.md"
 import { TemplateMiddleShape } from "../literals/template-middle-shape.xl.md"
 import { TemplateTailShape } from "../literals/template-tail-shape.xl.md"
+import { HeritageClauseShape } from "../members/heritage-clause-shape.xl.md"
 import { PropertyAssignmentShape } from "../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
@@ -52,6 +54,8 @@ import { StatementTokenSets } from "../statements/statement-token-sets.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { BodyGuideUtil } from "../declarations/body-guide-util.xl.md"
+import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 import { DirectObjectMemberAssembly } from "./direct-object-member-assembly.xl.md"
 import { DirectTokenUtil } from "./direct-token-util.xl.md"
@@ -62,6 +66,9 @@ import { DirectTokenUtil } from "./direct-token-util.xl.md"
 表达式直建引擎：token 一关闭就建节点。两层状态（等操作数 / 等运算符）+ 二元 frame 栈的优先级旋转 +
 括号嵌套引擎 + 前缀/后缀一元 + **R2 的表达式补全**（字面量与关键字、数组/对象、调用/成员/下标/new/可选链、
 赋值/条件/逗号/as/非空、typeof/void/delete）与 **C1 的行终止符守卫**。
+**R7-D2 再加一条操作数分支：类表达式**（`class` / `class X` / `class extends B` / 含成员的类体）——
+收口期只调公开静态工厂（`HeritageClauseShape.BuildClauses` + `BodyGuideUtil.CollectBodyMembers` /
+`ClassDeclarationShape.BuildMembers`），本文件一个新 Builder 都不建 ⇒ A6 残差与 class 声明逐条相同。
 **不做 fallback**：范围外构造 `Fail`（= Decline），接不上的单元只 `Held`。
 
 # class DirectExpressionEngine
@@ -74,6 +81,9 @@ a**b**c -> BinaryExpressionShape(**)[a, **, BinaryExpressionShape(**)[b, **, c]]
 a.b!    -> NonNullExpressionShape(PropertyAccessExpressionShape[a, b])
 a ? b:c -> ConditionalExpressionShape[a, ?, b, :, c]（FrameStages 的 StageColon/StageFalse）
 new a.b()-> NewExpressionShape[PropertyAccessExpressionShape[a, b]]
+const C = class X extends B { x = 1; }
+        -> ClassExpressionShape[Identifier X, HeritageClause[extends B], PropertyDeclaration[x, 1]]
+f(class {}) -> CallExpressionShape[f, ClassExpressionShape]（操作数位；括号里的 `(class {})` 仍 Decline，见 AllowClass）
 a⏎++b   -> 第一层在 `a` 收口（C1：换行后的 ++ 属于下一条语句，Hold 不 Fail）
 ```
 
@@ -224,6 +234,42 @@ R6-A3 起同一格再加一种后继单元：**模板串**（`f<T>` + `` `t` `` 
 挂起中的参数表括号是「`async` 之后的那个 `(`」（`ParamWait` 为真时有效）：命中 `=>` 就把
 `AsyncKeywordShape` 作为 `ArrowFunction` 的**第一个**子节点（tsc 实测顺序 `[AsyncKeyword, Parameter…, =>, body]`）。
 
+## field ClassPending:ClassExpressionShape | null = null
+
+**R7-D2（R7-CONTRACT §4.2）**：已经建好（`class` 关键字已 `SignIn`）但**类体还没到**的类表达式。
+引擎没有前瞻，`class` 之后的名字 / 继承子句要一格一格吃，类体 `{…}` 一到才收口 ⇒ 这一格非空期间
+`IngestCode` 把每一格都交给 `IngestClassExpressionPart`，不走「等操作数 / 等运算符」的常规两层。
+
+## field ClassUnits:Array<Token> = []
+
+挂起中的类表达式的**继承子句原始单元**（从 `extends` / `implements` 起到类体之前，含关键字本身），
+收口时整段交给 `HeritageClauseShape.BuildClauses`（与 `ClassDeclarationShape.BuildFromCode` 的
+`code.slice(index, code.length - 1)` 同口径）。
+
+## field ClassNameSeen:bool = false
+
+挂起中的类表达式是否已经吃过名字（类表达式允许匿名，所以「没名字」不是错误）。
+
+## field ClassHeritage:bool = false
+
+挂起中的类表达式是否已经进入继承子句（`extends` / `implements` 之后，名字位永久关闭）。
+
+## field ClassBase:int = -1
+
+挂起中的类表达式的 `Pos` 基准：名字的 `Pos` 与继承子句的 `basePos` 都取它（= `class` 关键字的
+`EndIndex`；吃到名字后改成名字的 `EndIndex`，与 `BuildFromCode` 的 `heritageBasePos` 同源）。
+
+## field ClassPos:int = -1
+
+挂起中的类表达式的整体 `Pos`（`class` 关键字那一格传入的 pos，含前导 trivia）。
+
+## field AllowClass:bool = true
+
+**R7-A3 的范围闸**：只有「操作数位」的类表达式归本轮。括号表达式（`(class {})`）由**嵌套引擎**代管，
+`IngestParen` 建子引擎时把这一格置 `false` ⇒ 括号里的 `class` 仍然显式 Decline、回落旧路径，
+`R7-CX-safe-02` 的「`Parenthesized[ClassExpression]` 留 R8」因此保持成立。
+调用实参 / 数组元素 / 对象值走的是 `BuildSlice`（新引擎，不置位）⇒ `f(class {})` 仍然直建（`R7-CX-pos-06`）。
+
 ## constructor:(template:Template, context:SyntaxContext, basePos:int)=>void
 
 ```ts
@@ -300,6 +346,11 @@ if (this.AsPending) {
   this.IngestAsPart(unit, pos);
   return;
 }
+// R7-D2：挂起中的类表达式（`class` 已吃、类体还没到）—— 名字 / 继承子句 / 类体三种单元都归它。
+if (this.ClassPending !== null) {
+  this.IngestClassExpressionPart(unit, pos);
+  return;
+}
 const text = DirectTokenUtil.TextOf(unit);
 if (this.Expect === DirectExpressionEngine.ExpectOperand) {
   this.IngestOperand(unit, text, pos);
@@ -318,6 +369,10 @@ if (this.Declined || this.Held) {
 }
 if (this.ParamWait || this.ArrowPending !== null) {
   // R3-B2-2：参数表还挂着 / 箭头体还没收口 ⇒ 不完整。
+  return false;
+}
+// R7-D2：类表达式还等着类体（`const C = class`）⇒ 不完整。
+if (this.ClassPending !== null) {
   return false;
 }
 if (this.PostfixWait !== DirectExpressionEngine.PostfixNone || this.AsPending) {
@@ -390,6 +445,11 @@ if (this.ArrowPending !== null) {
   if (!this.FinishArrowBody()) {
     return null;
   }
+}
+// R7-D2：到收尾还没等到类体 ⇒ 类表达式不完整（显式 Decline，不是「没接住」）。
+if (this.ClassPending !== null) {
+  this.Fail("类表达式没有闭合");
+  return null;
 }
 if (this.PostfixWait !== DirectExpressionEngine.PostfixNone) {
   this.Fail("成员访问缺少标识符");
@@ -491,6 +551,17 @@ if (unit instanceof Common) {
   const common = unit as Common;
   if (text === "new") {
     this.StartNew(unit, pos);
+    return;
+  }
+  // R7-D2（R7-CONTRACT §4.2）：**操作数位**的 `class` = 类表达式（语句首的 `class` 由 kind 9/10
+  // 的声明壳路由，不进引擎）。之后的「名字 / 继承子句 / 类体」由 `ClassPending` 那一支流式吃。
+  // 括号里的类表达式不在本轮范围（`R7-CX-safe-02`，R7-A3）：见 `AllowClass`。
+  if (text === "class") {
+    if (!this.AllowClass) {
+      this.Fail("括号内的类表达式留 R8");
+      return;
+    }
+    this.StartClassExpression(unit, pos);
     return;
   }
   if (text === "typeof" || text === "void" || text === "delete") {
@@ -707,6 +778,126 @@ this.SpanFromTo(shape, operand, bracket.SourceRange.EndIndex);
 this.TakeOperand(shape);
 ```
 
+## private method StartClassExpression:(unit:Token, pos:int)=>void
+
+```ts
+// R7-D2（R7-CONTRACT §4.2）：`class` **在操作数位**才是类表达式 —— 语句首的 `class` 仍由 kind 9/10
+// 的声明壳（`ClassDeclarationDirectSession`）路由，这条分支碰不到它。
+// 引擎是流式的、没有前瞻：`class` 之后可能跟「名字」或「extends / implements 继承子句」，两者都要等
+// 类体 `{…}` 到达才能收口 ⇒ 这里只建壳 + 置位，后续单元交给 `IngestClassExpressionPart`。
+// 收口时**只复用公开静态工厂**（与 `expression-builder.ParseClassExpression` 同源）：
+//   `HeritageClauseShape.BuildClauses` / `BodyGuideUtil.CollectBodyMembers` + `ClassDeclarationShape.BuildMembers`
+// ⇒ 成员体、属性初始值、装饰器表达式、计算名全部由形状工厂自己调，引擎**一个新 Builder 都不建**，
+// 所以 A6 的残差规则与 class 声明**逐条相同**（D8.2：有体成员 1、空体再 +1、初始值 / 装饰器 / 计算名各 1）。
+const shape = new ClassExpressionShape(this.Template);
+if (unit.SourceRange.StartIndex >= 0) {
+  shape.SignIn(unit.SourceRange.StartIndex);
+}
+shape.Pos = pos;
+this.ClassPending = shape;
+this.ClassUnits = [];
+this.ClassNameSeen = false;
+this.ClassHeritage = false;
+this.ClassPos = pos;
+// 名字的 Pos / 匿名时的 heritage basePos 都取 `class` 关键字的 EndIndex（= `BuildFromCode` 口径）。
+this.ClassBase = unit.SourceRange.End < 0 ? pos : unit.SourceRange.EndIndex;
+this.Expect = DirectExpressionEngine.ExpectOperand;
+```
+
+## private method IngestClassExpressionPart:(unit:Token, pos:int)=>void
+
+```ts
+// R7-D2：`class` 之后的三类单元，按到达顺序：
+//   ① 类体 `{…}`（已建好的 Bracket）⇒ 收口；
+//   ② `extends` / `implements`（含其后的实体名、`.`、泛型实参、`,`）⇒ 累积进 `ClassUnits`；
+//   ③ 名字（`Common` 且还没进继承子句、也还没吃过名字）⇒ `IdentifierShape`，立刻挂上（tsc 的子节点顺序
+//      是 [name?, typeParameters?, heritageClauses…, members…]，名字排在成员之前）。
+// 其余（`class<T> {}` 的 `<`、`class (…)` 的括号、字符串…）一律显式 Decline：R7-A3 只批准
+// 「无名 / extends / 有名 / 有成员 / 有初始值」5 个形态，泛型类表达式留 R8（`R7-CX-safe-01`）。
+const pending = this.ClassPending;
+if (pending === null) {
+  return;
+}
+if (unit instanceof Bracket) {
+  const bracket = unit as Bracket;
+  if (bracket.StartBracketChar === "{") {
+    this.CloseClassExpression(bracket);
+    return;
+  }
+}
+// 继承子句一旦开始，**任何**单元都是它的原始单元（`.` / `<` / `>` / `,` / `[` / `(` 都在里面），
+// 一律累积，不在这里判形态（`HeritageClauseShape.BuildClauses` 自己会判）。
+if (this.ClassHeritage) {
+  this.ClassUnits.push(unit);
+  return;
+}
+if (!(unit instanceof Common)) {
+  this.Fail("类表达式形态不在本轮范围: " + DirectTokenUtil.TextOf(unit));
+  return;
+}
+const common = unit as Common;
+const text = common.TempToString();
+if (text === "extends" || text === "implements") {
+  this.ClassHeritage = true;
+  this.ClassUnits.push(unit);
+  return;
+}
+if (!this.ClassNameSeen) {
+  const name = IdentifierShape.FromBasicToken(common, this.Context);
+  name.Pos = this.ClassBase;
+  this.ClassNameSeen = true;
+  this.ClassBase = unit.SourceRange.End < 0 ? 0 : unit.SourceRange.EndIndex;
+  pending.Add(name);
+  return;
+}
+this.Fail("类表达式形态不在本轮范围: 名字后面不是 extends / implements / 类体: " + text);
+```
+
+## private method CloseClassExpression:(bracket:Bracket)=>void
+
+```ts
+// R7-D2 收口：继承子句与成员体各交给**一个**公开静态工厂，然后按 tsc 的子节点顺序 Add、封区间、`TakeOperand`。
+// 任何一步抛错都只 `Fail`（= `expr.decline`，回落旧路径），**绝不建半棵树**（与 R6 class 声明同一口径）。
+const pending = this.ClassPending as ClassExpressionShape;
+this.ClassPending = null;
+const host = this.Root as Token;
+let clauses:Array<Token> = [];
+if (this.ClassUnits.length > 0) {
+  try {
+    clauses = HeritageClauseShape.BuildClauses(host, this.ClassUnits, this.ClassBase, this.Context);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : `${error}`;
+    this.Fail("类表达式的继承子句无法解析: " + message);
+    return;
+  }
+}
+let members:Array<Token> = [];
+try {
+  members = BodyGuideUtil.CollectBodyMembers(host, bracket, this.Context, ClassDeclarationShape.BuildMembers);
+} catch (error) {
+  const message = error instanceof Error ? error.message : `${error}`;
+  this.Fail("类表达式的成员体无法解析: " + message);
+  return;
+}
+this.ClassUnits = [];
+this.ClassNameSeen = false;
+this.ClassHeritage = false;
+this.ClassBase = -1;
+for (const clause of clauses) {
+  pending.Add(clause);
+}
+for (const member of members) {
+  pending.Add(member);
+}
+if (bracket.SourceRange.EndIndex >= 0) {
+  pending.SignOut(bracket.SourceRange.EndIndex);
+}
+pending.Pos = this.ClassPos;
+this.ClassPos = -1;
+pending.TryToClose(this.Context);
+this.TakeOperand(pending);
+```
+
 ## private method IngestParen:(bracket:Bracket, pos:int)=>void
 
 ```ts
@@ -717,6 +908,8 @@ if (this.PrevAngleClose !== null && this.PrevAngleClose === this.PreviousUnit) {
 }
 const base = bracket.SourceRange.StartIndex >= 0 ? bracket.SourceRange.StartIndex + 1 : 0;
 const inner = new DirectExpressionEngine(this.Template, this.Context, base);
+// R7-A3：括号里的类表达式归 R8（`(class {})` 保持回落，`R7-CX-safe-02`）。
+inner.AllowClass = false;
 inner.IngestAll(bracket.Data);
 if (inner.Declined) {
   this.Fail("括号内表达式：" + inner.Reason);
