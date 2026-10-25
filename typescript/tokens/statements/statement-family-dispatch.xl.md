@@ -18,11 +18,15 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 `StatementBuilder.BuildStatement()` 的整段 raw 分派，而是由本类**按壳 `Kind` 与首代码单元**直接调用
 `StatementBuilder` 的 family 方法（`BuildBlock` / `BuildVariableStatement` / `BuildIf` / `BuildInterfaceDeclaration` …）。
 
-`BuildStatement()` 仍是**唯一**的 legacy 入口，保留给两条路：
+`BuildStatement()` 仍是**唯一**的 legacy 入口，保留给**一条**路：
 
-1. 本类**拒绝**的**唯一**形态：`declare const|let|var|using` 的 ambient 变量语句（要改写建造器的
-   `At` / `Positions` / `Data`，见 `DeclareIsAmbientVariable` 与 `BuildDeclareFamily`）；
-2. 未建壳的语句（根层 legacy 候选 / 文件级 fallback），它们根本不经过本类。
+1. 未建壳的语句（根层 legacy 候选 / 文件级 fallback），它们根本不经过本类。
+
+**Stage 5d-4 之后本类不再拒绝任何壳内形态**：`declare const|let|var|using` 的 ambient 变量语句原先要
+`At++`、改写 `Positions` / `Data`，所以退回 `BuildStatement`；现在那段实现已逐字搬进
+`StatementBuilder.BuildDeclareVariableStatement()`（建造器自己的方法，仍读写同一个 `this` / `At` /
+`Positions` / `Pos`），本类直接调它——`LegacyStatementDispatchCount` 因此归零，AST 不变是因为**调用的是
+同一段代码**，不是因为测试兜住了。
 
 **为什么不是「按 Kind 各写一套」**：`Kind` 有三个值**不能**唯一决定建树族——
 
@@ -104,12 +108,12 @@ return true;
 `abstract` / `const` / `var` / `let` / `interface` / `enum` / `type` / 控制流关键字 / `using` / `await` →
 标签 → 表达式）。
 
-**`null` 的两种情形**（= 只有 `BuildStatement` 能判的上下文形态）：
+**`null` 的唯一情形**：**调用点已经越界**（`builder.At` 不在 `Units` 里，正常不会发生）。
 
-1. **调用点已经越界**（`builder.At` 不在 `Units` 里，正常不会发生）；
-2. **`declare` + 变量关键字**（`declare const|let|var|using` 的 ambient 变量语句）：它要 `At++` 之后建
-   变量语句、把 `DeclareKeywordShape` 插回 `Data` 最前、并把语句 `Pos` 倒回 `declare` 起点——那是
-   建造器内部状态（`Positions` / `Data` 的直接改写），本阶段不搬。
+**`declare const|let|var|using`**（ambient 变量语句）现在由本类直接调
+`builder.BuildDeclareVariableStatement()`：实现已在建造器内（Stage 5d-4 逐字搬出 `BuildStatement`），
+本类不需要触碰 `Positions` / `Data`。`DeclareIsAmbientVariable` 仍然是**同一个判据**，只是决定「调这个
+方法」而不是「交回 legacy」。
 
 **其余「本类不管」的上下文形态一律走 `BuildTail`（标签 / 表达式），而不是返回 `null`**：`import(` /
 `import.meta`、`export default` 的非声明头、`module.exports`、`type` 当标识符、`let` 不能起绑定、
@@ -170,10 +174,10 @@ if (text === "async") {
   return StatementFamilyDispatch.BuildTail(builder);
 }
 if (text === "declare") {
-  // `declare const|let|var|using`（ambient 变量语句）必须交回 `BuildStatement`：它要在建造器内部
-  // 改写 `At` / `Positions` / `Data` 的最前面插 `DeclareKeywordShape`。其余 `declare …` 都是纯分派。
+  // `declare const|let|var|using`（ambient 变量语句）：Stage 5d-4 起由建造器的独立方法建树
+  // （`BuildDeclareVariableStatement`，与 `BuildStatement` 同一格逐字同源）。
   if (StatementFamilyDispatch.DeclareIsAmbientVariable(builder)) {
-    return null;
+    return builder.BuildDeclareVariableStatement();
   }
   const declared = StatementFamilyDispatch.BuildDeclareFamily(builder);
   if (declared !== null) {
@@ -297,7 +301,7 @@ return builder.BuildExpressionStatement();
 （那一条在 `declare` 的声明子族里已经建 enum）。
 
 判据与 `BuildStatement` 的 ambient 分支逐字相同（`IsVariableKeyword` + `NoLineBreakBetween` +
-`const` 的第三格不是 `enum`），只是用来决定「**这一条本类不接**」。
+`const` 的第三格不是 `enum`），用来决定「**这一条调 `BuildDeclareVariableStatement`**」。
 
 ```ts
 const afterDeclare = builder.Peek(1);
@@ -346,7 +350,8 @@ return third !== null && (builder.IsSymbol(third, "=") || builder.IsSymbol(third
 （三个第三格判据与 `BuildStatement` 的 `declare` 分支逐字相同）。
 
 **ambient 变量语句不在这里**：`declare const|let|var|using` 已在调用方由
-`DeclareIsAmbientVariable` 拦下并交回 `BuildStatement`（它要改写建造器的 `At` / `Positions` / `Data`）。
+`DeclareIsAmbientVariable` 拦下并交给 `builder.BuildDeclareVariableStatement()`（Stage 5d-4：实现在
+建造器内，本类只调它）。
 本方法返回 `null` 表示「这一格不是上面任何一条声明子族」——调用方随即走 `BuildTail`
 （`declare abstract` 后面不是 `class`、`declare async` 后面不是 `function` 等），
 与 `BuildStatement` 落空后的出口相同。

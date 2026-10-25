@@ -337,18 +337,10 @@ if (unit instanceof Common) {
     // Ambient variable statement (`declare const x: number;`): TS keeps a DeclareKeyword CHILD node
     // (ast-json compares it), so build the normal variable statement after skipping the keyword,
     // prepend the modifier shape, and rewind the statement Pos to the declare keyword.
+    // Stage 5d-4：实现搬到 `BuildDeclareVariableStatement()`（语句壳收口也直接调它），这里只留判据。
     if (afterDeclare !== null && this.IsVariableKeyword(afterDeclare)
       && StatementScanner.NoLineBreakBetween(unit, afterDeclare)) {
-      const declarePos = this.Positions[this.At];
-      const declareIndex = this.At;
-      this.At++;
-      const ambient = this.BuildVariableStatement();
-      (ambient as ShapeToken).Pos = declarePos;
-      const modifier = DeclareKeywordShape.FromBasicToken(unit as Common, this.Context);
-      modifier.Pos = this.Positions[declareIndex];
-      ambient.Data.splice(0, 0, modifier);
-      modifier.Parent = ambient;
-      return ambient;
+      return this.BuildDeclareVariableStatement();
     }
   }
   if (text === "abstract") {
@@ -1665,6 +1657,40 @@ if (index <= 0 || index >= limit) {
   return false;
 }
 return AngleJudge.CanStart(units, index);
+```
+
+## method BuildDeclareVariableStatement:()=>Token
+
+**Ambient 变量语句**（`declare const x: T;` / `declare let a: number, b: string;` / `declare var` /
+`declare using`）的建树：TS 在 `VariableStatement` 的 children 里保留一个 `DeclareKeyword` 节点
+（`ast-json` 逐节点比对它），而 `VariableStatementShape.FromUnits` 只接受 `let` / `const` / `var` /
+`using` 起头，所以这里手工把 `declare` 摘成修饰词形状：
+
+1. 记住 `declare` 的下标与 Pos（语句 `Pos` 要倒回 `declare` 起点——TS 的 `VariableStatement.pos` 含修饰词）；
+2. `At++` 跳过 `declare` 再交给 `BuildVariableStatement()`（它按变量关键字起算声明列表）；
+3. 把语句 `Pos` 改成 `declare` 的 Pos，`DeclareKeywordShape` 插到 `Data` 最前（TS 的 children 顺序是修饰词在前），
+   并补 `Parent`（`splice` 不设父）。
+
+**前置条件**：`this.At` 指向 `declare`，下一代码单元是与它**同一行**的变量关键字（`const` 后不得是 `enum`
+——那一条是 `declare const enum`，在 `declare` 的声明子族里已建 enum）。判据在调用方（`BuildStatement` 的
+`declare` 分支 / possible 层的 `StatementFamilyDispatch.DeclareIsAmbientVariable`），两处读的是同一套条件。
+
+这是 Stage 5d-4 从 `BuildStatement` 的 `declare` 分支**逐字搬出来**的方法：语句壳收口时
+`StatementFamilyDispatch` 直接调它，`BuildStatement` 的同一格也调它——两条路读同一个 `this`、同一个
+`At` / `Positions` / `Pos`，所以 `LegacyStatementDispatchCount` 的下降不改变任何 AST / Pos / `consumed`。
+
+```ts
+const unit = this.Units[this.At];
+const declarePos = this.Positions[this.At];
+const declareIndex = this.At;
+this.At++;
+const ambient = this.BuildVariableStatement();
+(ambient as ShapeToken).Pos = declarePos;
+const modifier = DeclareKeywordShape.FromBasicToken(unit as Common, this.Context);
+modifier.Pos = this.Positions[declareIndex];
+ambient.Data.splice(0, 0, modifier);
+modifier.Parent = ambient;
+return ambient;
 ```
 
 ## method BuildVariableStatement:(decoratedFirst?:int)=>Token

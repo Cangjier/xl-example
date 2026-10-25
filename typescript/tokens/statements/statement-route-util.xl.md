@@ -271,6 +271,23 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 
 进程内累计「块体目录里由 `await` 起点建成壳的语句」条数（只增不减）。与 `ControlFlowShellCount` **分开计量**：
 `await` 走同一条壳机制，但它是双角色起点、只在块体目录补的入口，接管读数必须能从计数里直接读出来。
+
+## static field EnableYieldStatement:bool = true
+
+**Stage 5d-4：块体目录里的 `yield` 起点语句**。与 `EnableAwaitStatement` **同一个形状**的另一半：
+`yield` 也是 `IsLegacyKeyword` 里的双角色起点（生成器里是 `YieldExpression`，非生成器里是标识符 / 标签），
+`Decide` 一律判成 `StatementRoute.Legacy`，块体目录里没有 legacy 候选，于是
+`function* g() { yield 1; }` 的体只能整段留在 raw 段——这是退场指标 `RawTailBuildCount` 里最大的一族。
+
+`true` = `BlockPossibleShape.CreateBodyPossibleShapes` 多注册一个 `YieldStatementPossibleShape`，
+判据 / 建壳 / 收口 / 建树与 `AwaitStatementPossibleShape` **逐字同构**（壳 `Kind` 与终结候选都取
+`StatementRoute.ShellStatementFamily`：判界走 legacy 的 `ScanRoot`、建树走 `StatementBuilder` 的同一族方法），
+所以接管只体现在计数上，XML / AST 与 legacy 逐字节一致。`false` = 该候选整体 `Reject`，行为逐位回到本阶段之前。
+
+## static field YieldShellCount:int = 0
+
+进程内累计「块体目录里由 `yield` 起点建成壳的语句」条数（只增不减）。与 `AwaitShellCount` **分开计量**：
+两者是同一条壳机制的两个双角色关键字，接管读数必须能分别读出「这一族迁了几条」。
 ## static field ControlFlowBodyBraceCount:int = 0
 
 进程内累计「**控制流体的 `{` 被挂上块体语句目录**」的个数（只增不减，Stage 4n）。与 `FunctionBodyMountCount`
