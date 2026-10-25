@@ -11,6 +11,13 @@
 > 建壳候选的挂载点收敛为 `DirectStatementHook.Attach`（H3-b，R3 新增），注册仍在 `direct-build-plugins` 的 5 行。
 > 本文已把 §10（族差异表）、§11（复跑与读数）、§12（已知口径）改写为 R3 现状，并新增 §13（语句族直建流程）；
 > hook / 状态机 / 装配助手的细节见 `docs/direct-candidate-pipeline.md` §2.2–§2.3、§15–§19。
+>
+> **2026-10-26 更新（R4 → R5 收口，`feature/all-possible` @ `54c805e8`）**：R4 把剩余语句族（try / switch / with /
+> debugger / 标签 / `for` 声明头）、生成器与 `async` 函数、对象方法、C2 跨行 ASI 与 D7 的 `~` / `typeof` 收进直建
+> （目标 case 132）；R5 再扩**类型层与声明层**（变量 / 参数 / 返回 / `for` 头注解、`interface` / `type` / `enum`、
+> 函数体内 `yield` / `await`、`async` 箭头、`for await`、对象成员 `async` / `*` / 注解参数），并做
+> `StatementTokenSets` 单一来源与 `as` / `satisfies` 行首合法化（目标 case **189**）。
+> 本文 §10 / §11 / §12 已按 R5 更新，R4 的链路见 §14、**R5 的链路见 §15**。
 
 
 ---

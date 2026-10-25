@@ -1,17 +1,17 @@
 # 候选直建（direct candidate pipeline）——目标、实现与实测
 
-> 本文记录 `feature/all-possible` @ **`d8534a8c`**（R4 收口：`merge(r4-harden)` + `merge(r4-verify)`；
-> R1/R2/R3/R4 四步已全部合入主仓库）上**已经落地**的直建实现：变量语句、表达式语句、控制流语句（含 R4 的
-> 剩余族）、函数声明与箭头（含 R4 的生成器 / async / 对象方法）、跨行 ASI 与语句边界收口，
-> 以及它们共享的表达式引擎。所有口径以仓库里的 `*.xl.md` 与 `build/ts` 实测为准，不是设计稿的复述；
+> 本文记录 `feature/all-possible` @ **`54c805e8`**（R5 收口：`types/decl/residual/harden/verify` 全部合入，
+> A4 prune 已执行）上**已经落地**的直建实现：变量语句（含类型注解）、表达式语句、控制流语句（含 R4/R5 的剩余族）、
+> 函数声明与箭头（含生成器 / async / 对象方法）、`interface` / `type` / `enum` 声明族、跨行 ASI 与语句边界收口，
+> 以及它们共享的表达式引擎与类型子树入口。所有口径以仓库里的 `*.xl.md` 与 `build/ts` 实测为准，不是设计稿的复述；
 > 设计稿与实现不一致的地方单独记在 §13。
 >
-> **当前口径（R4）**：目标 case **132 条**（R1 10 / R2 50 / R3 32 / R4 40），合并态 `132/0`（`A1…A12` 全 PASS），
-> `--strict-all` 单独给也 `132/0`（D6：隐含 `--strict`）。R4 的机制与读数统一写在 **§20–§22**；
-> §9–§18 里凡是「92 条」「strict-all 仍红 2 条」「C2 仍 Decline」「D7 残留 `~`」的读数都是 R3 的历史口径，
-> 以 §20–§22 为准。
+> **当前口径（R5）**：目标 case **189 条**（R1 10 / R2 50 / R3 32 / R4 40 / R5 57：TY 20 / DC 20 / RS 12 / CL 5），
+> 合并态 **`189/0`**（`A1…A12` 全 PASS），`--strict-all` 单独给也 **`189/0`**（D6：隐含 `--strict`）。
+> **R5 的机制与读数统一写在 §23**；R4 在 §20–§22；§9–§18 里凡是「92 条」「132 条」「strict-all 仍红」
+> 「C2 仍 Decline」「D7 残留 `~`」「body-legacy 仍 SKIP」的读数都是历史口径，以 §23（及 §20–§22）为准。
 >
-> 四轮的增量：
+> 五轮的增量：
 > - **R1**：变量语句 + 表达式语句两个 session（H1/H2/H3 三个 hook）。
 > - **R2**：**（A）覆盖范围扩面** —— 字面量 / 模板 / BigInt / 关键字操作数、数组 / 对象、调用 / 成员 / 下标 / `new` /
 >   可选链、赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空断言 / `typeof`·`void`·`delete` 全部转为直建（§1.2、§5.8）；
@@ -24,8 +24,12 @@
 >   **（B4）函数形态外建** —— 生成器 `function*` / `async function`（`AsteriskToken` / `AsyncKeyword` 子节点）、
 >   对象方法 / `get` / `set`（新部件 `DirectObjectMemberAssembly`，§21）；**（C2）跨行 ASI 直建**与
 >   **（D7）残留 `~` / `typeof`**（§22.1/§22.2）；**（S）strict 全量化收口**（两处 eager Ingest +
->   `--strict-all` 隐含 `--strict`，§18 的更正 / §22.3）。目标 case 92 → **132 条**，读数见 §22.4；
->   已知限制与 R5 遗留见 §19。
+>   `--strict-all` 隐含 `--strict`，§18 的更正 / §22.3）。目标 case 92 → **132 条**，读数见 §22.4。
+> - **R5**：**（D1）类型层** —— `DirectTypeAssembly` 统一类型子树，变量 / 参数 / 返回 / `for` 头四个载体（TY）；
+>   **（D2）声明族** —— `DeclarationFamilyDirectSession` 接管 `interface` / `type` / `enum`，`class` 显式 `decl.class`（DC）；
+>   **（D3）R4 残余** —— 函数体内 `yield` / `await` 语句补 `Attach`、引擎 `await` 前缀 / `async` 箭头、`for await`、
+>   对象成员 `async` / `*` / 注解参数（RS）；**（D4）硬化** —— `StatementTokenSets` 单一来源、C2 死分支删除、
+>   `as`/`satisfies` 行首合法化（CL）。目标 case 132 → **189 条**，读数见 §23.7；R6 清单见 §23.9。
 
 
 ---
