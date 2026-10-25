@@ -173,56 +173,19 @@ return ShapeStates.Uncertain;
 
 ## static method ExpressionEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, declarationShell?:bool)=>int
 
-表达式语句族的收口位置：返回**壳 `Data` 的下标**（与 `StatementScanner` 的 `End` / `CodeAt` 折算同一基准），
-`-1` = 还不能收口。判据只有 `StatementBoundaryUtil` 一份（`;` / ASI 两条），不在这里写第二套 ASI。
+表达式语句族 / 声明族的收口位置：返回**壳 `Data` 的下标**（与 `StatementScanner` 的 `End` / `CodeAt`
+折算同一基准），`-1` = 还不能收口。
 
-**基准必须是 `host.Data`（含 trivia），不能只传 code-only 数组**：`IsAsiBoundary` 与 legacy 调用点
-（`SourceFileEndPossibleShape` / `ExpressionStatementPossibleShape` / `StatementBuilder`）读的是同一个
-`units`，它的 `prev` 回走、`CanEndExpressionAt` 的「前一格是 `.` / `?.`」、`head` 的 basic-token 回走
-全部按**含 trivia 的下标**解释。传 code-only 数组等于混用两套下标：该断处判 `false`（语句拖到 EOF →
-`BuildFromShell` 抛「表达式语句没有读完」），不该断处判 `true`（语句切早 → `missing-end` / 结构差）。
-`codeAt` 是「代码下标 → `host.Data` 下标」的映射，判界结果一律经它折算回壳下标。
-
-1. 末代码单元是 `;` → 收在它身上（`;` 归本条语句，`StatementBuilder` 建完语句后不把它放进 `Data`）；
-2. 末代码单元是 ASI 边界（`IsAsiBoundary(units, lastAt)`，与 legacy 同基、同下标）→ 收在**前一个代码单元**：
-   边界单元是下一条语句的开头（`a` ⏎ `b` 的 `b`），必须留在壳里交给 `FinishShell` 搬回父单元；
-3. 已经在文件末尾（`atEof`）→ 收在末代码单元；
-4. 其余 → `-1`（继续等）。
-
-`atEof` 排在 ASI 之后：文件末尾的 `a` ⏎ `b` 仍然是两条语句。
+**Stage 4af-F 起判据已上移到 `StatementBoundaryUtil.StatementEndCode`**（逐字搬迁，一字未改），
+这里只剩一行委托。搬家的理由：`StatementShape.TryToClose`（EOF 兜底）需要读**同一份**判据，
+而 `statement-shape` 不能反向 import 本文件（本文件已经 import 它，会成环）。
+委托保留而不是让调用方直接换名，是因为本文件的两个 `ComputeByIndex` / `BuildByIndex` 调用点、
+以及 `handoff` 里记录的口径都按这个名字读；改名会让「谁在读哪一份判据」变得不可追。
+判据的语义、四条顺序（`;` → ASI → 声明跟随边界 → EOF）、以及「基准必须是含 trivia 的 `host.Data`」
+的理由，全部见 `StatementBoundaryUtil.StatementEndCode` 的说明，这里不复制第二份。
 
 ```ts
-if (codeAt.length === 0) {
-  return -1;
-}
-const lastAt = codeAt[codeAt.length - 1];
-if (StatementBoundaryUtil.IsEof(lastAt, units)) {
-  return codeAt.length === 1 ? -1 : codeAt[codeAt.length - 2];
-}
-if (StatementBoundaryUtil.IsSemicolon(units[lastAt])) {
-  return lastAt;
-}
-if (StatementBoundaryUtil.IsAsiBoundary(units, lastAt)) {
-  if (codeAt.length === 1) {
-    return -1;
-  }
-  return codeAt[codeAt.length - 2];
-}
-// Stage 4ab：声明壳的收口。`IsAsiBoundary` 的条件 5 对声明开头的条目一律返回 false，
-// 所以 `interface I { }` ⏎ `const a`、`type T = A` ⏎ `return`、`enum E { A }` ⏎ `export { … }`
-// 这些「上一条声明已完整、下一条语句已到」的换行永远判不出边界 —— 壳会把下一条语句一起吞进去，
-// `BuildFromShell` 读到两条语句抛错 → `DetachShell` 退成 raw（decl=2/3、CJ 首节点 Common 的根因）。
-// 这里补一条只属于声明壳的判据：当前单元是**能起一条新语句的单词**、且换行之前那段已经完整。
-if (declarationShell === true && StatementBoundaryUtil.IsDeclarationFollowBoundary(units, lastAt)) {
-  if (codeAt.length === 1) {
-    return -1;
-  }
-  return codeAt[codeAt.length - 2];
-}
-if (atEof) {
-  return lastAt;
-}
-return -1;
+return StatementBoundaryUtil.StatementEndCode(units, codeAt, atEof, declarationShell);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
