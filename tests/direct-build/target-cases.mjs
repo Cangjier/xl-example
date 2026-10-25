@@ -11,7 +11,7 @@
 //                                        KNOWN_GROUPS + b1/b2/d7/s/r3、noBaseline（A10 SKIP）、
 //                                        strict 全量化（--strict-all / case.strictAll + A12）、guard 类别
 //   _coord/R3-TARGET-CASES.md         —— R3 32 条逐条 ID / 期望 / 断言差异（唯一权威编号表）
-//   Lead 裁决 R3-Q1                   —— R2-SAFE-04/05 从 safe 改判 pos；--q1=pos|auto|safe（默认 auto）
+//   Lead 裁决 R3-Q1                   —— R2-SAFE-04/05 从 safe 改判 pos（--q1=pos|auto|safe 已于 R6-A4 退役，只留 DEPRECATED 读取）
 //   Lead 裁决 R3-Q2 + A-1             —— D7 组 noBaseline=true（A10 SKIP），判据 = A1（AST==tsc）+ 计数证据
 //   _coord/R4-CONTRACT.md §5/§6.1/§6.2 —— R4：40 条目标 case（B3 16 / B4 12 / C2 5 / D7 4 / S 3）、
 //                                        分组 b3/b4/c2/d7/s/r4、A12 对 invalid/incomplete 的口径修正（R4-Q2）、
@@ -34,9 +34,8 @@
 //                                        Reject；根表达式路线又被 StatementRouteUtil.IsLegacyKeyword 判 Legacy。要直建
 //                                        须改 statement-route-util.xl.md，留 R6）⇒ 生效 6 条，旧 pos 读数只作历史留存；
 //                                        落盘为「新口径在 case 主字段 + 旧读数在 case.q5.legacy」
-//                                        （**R6-A4 起 case.q5.legacy 与 --q5 一起删除**，见下）
-//                                        `--q5=pos|auto|legacy`（默认 auto）按 build/ts 的实现痕迹逐条决定，
-//                                        未合入窗口不造假红（与 R4-Q1 的 --q4 同构）
+//                                        （**R6-A4 起 case.q5.legacy 与 --q5 一起删除**：只保留一行 DEPRECATED 读取，
+//                                        `--q5=pos|auto|legacy` 的 auto 口径已不存在）
 //   Lead 裁决 R5-Q2                   —— 条件类型 / 映射类型 / 模板字面量类型**收为 pos**（不写类型节点白名单）
 //   Lead 裁决 R5-Q3                   —— `--q1` / `--q4` R5 保留、R6 一次性移除（R5 只同步注释）
 //   Lead 裁决 R5-Q5                   —— 不做 `yield` / `await` 的上下文判定（壳存在即建）
@@ -48,8 +47,17 @@
 //   Lead 裁决 R6-Q1                   —— 6 条改判：R2-SAFE-02 + R5-DC-neg-02/03/04/05 safe/neg→pos（按实测落盘）
 //   Lead 裁决 R6-Q2                   —— A6 精确值档：新字段 a6ExpectExprLoads（精确相等，不等即红，不是 SKIP）
 //   Lead 裁决 R6-A4                   —— --q1/--q4/--q5 兼容开关退役（合并态全 pos；保留 deprecated 读取并打印）
+//   _coord/R7-CONTRACT.md §5/§6.2     —— R7：55 条目标 case（rec 18 / cx 8 / mod2 9 / dec2 5 / awa 5 / en2 2 /
+//                                        a3r 3 / a6r 3 / hd2 2）、分组 rec/cx/mod2/dec2/awa/en2/a3r/a6r/hd2、
+//                                        A10 **三种口径**（base-throw / noBaseline / IDENTICAL）、新增
+//                                        expectThrew（文案精确相等）+ assertReadings（A14 读数钉）+ baseThrow
+//   _coord/R7-TARGET-CASES.md         —— R7 55 条逐条 ID / 期望 / expectBuilt / A6 期望（唯一权威编号表）
+//   Lead 裁决 R7-Q1                   —— A6 **不加新 SKIP 档**：rec/cx/mod2/dec2 的 pos 走精确值档
+//                                        （初值 0/0，实测后只改 a6Expect* 两个数）
+//   Lead 裁决 R7-Q2                   —— R6-CLS-neg-01/02 **改判 pos**（ID 不删；builtCases 210→212）
+//   Lead 裁决 R7-Q3                   —— 顶层 `await a⏎let b` 留 R8（本文件只写 neg 钉子，标 P2）
 //
-//   期望类别（expect；R1 10 + R2 50 + R3 32 + R4 40 + R5 57 = 189 条 + R6 55 条 = **244 条**）：
+//   期望类别（expect；R1 10 + R2 50 + R3 32 + R4 40 + R5 57 = 189 条 + R6 55 条 = **244 条** + R7 55 条 = **299 条**）：
 //     pos         正例：直建必须接管（built>=1 / declined==0 / incomplete==0 / errors==0）
 //     guard       【R3】同 pos，但 expectBuilt 是**不变的 1**（D7 防过度收缩：`let x = a⏎+ b` 仍是一条）
 //     neg         负例：显式 Decline（declined>=1 / built==0 / errors==0）+ AST 仍与 tsc 一致（旧路径保证）
@@ -90,7 +98,7 @@
 //   node tests/direct-build/target-cases.mjs --only=R2-C4-01 --fault-inject=finish-throw --expect-direct
 //   node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --json > r2-readings.json
 //
-// 断言（R1 A1–A8 + R2 A9–A11 + R3 A12）：
+// 断言（R1 A1–A8 + R2 A9–A11 + R3 A12 + R7 A14）：
 //   A1  cjAst(root.Data) JSON === sf.statements.map(tsAst) JSON（唯一归一表 ast-compare.mjs）  —— 全部 case
 //   A2  同源解析两次 ToXmlString() 逐字节相同（C4 注入 case：注入那次 vs 不注入那次）
 //   A3  XML 非空且根下节点数 == TS 顶层语句数（`{ let x = 1; }` 是 1；built 是 2 —— 两层口径不同）
@@ -107,7 +115,8 @@
 //       ② 精确值档（R6 新增）：case.a6ExpectStmtLoads / case.a6ExpectExprLoads 任给一个即启用（缺省 0）——
 //          `stmtLoads === N && exprOtherDirect + exprLegacy === M`，**不等即红**（--expect-direct 下 FAIL，
 //          不是 SKIP；默认模式记 READING）。class 成员体 wrapper / namespace 体语句的固有 Load 用它钉住（R6-CONTRACT §2.1/§2.3）
-//       ③ SKIP 档（R4-Q5/Q6 遗留 3 条）：case.a6Skip 只记读数、不判（switch 子句 2 条 + C4 注入 1 条）
+//       ③ SKIP 档：只剩 **2 条显式 a6Skip**（switch 子句语句）；C4 注入 1 条**不计 A6**（A6 量第二次「不注入」
+//          解析），它不是 a6Skip。R7 **不新增 SKIP 档**（R7-Q1：rec/cx/mod2/dec2 的 pos 全走精确值档）
 //       口径补充：TypeBuilder 内部走 direct-token-util 的 ExpressionBuilder.Load 不计入（R2 起）；只有
 //       exprOtherDirect + exprLegacy 进精确值档的 M。
 //       C4 注入 case 的口径：A6 量**第二次（不注入）解析**——注入那次必然回落旧路径，量它没有意义（见 REPORT §4）
@@ -127,6 +136,10 @@
 //        【R4-Q2】invalid / incomplete **不再要求 Parse 不抛**（定义就是两侧 Parse 都抛）：改为
 //        errors==0 && strictViolations>=1 && **两侧拒绝文案同源**（PARSE-REJECT-PARITY，与 A10 的 invalid 规则同口径）
 //   A13 无（R4 不新增断言）；R4 只用 A1–A12，新增的只是负例 category 键与 `--strict-all` 的隐含 strict
+//   A14 【R7】读数钉（case.assertReadings）：astMatch / built / declined / sessions / nOurs / declineReasons 精确相等；
+//        默认模式只记录（PASS/READING），--expect-direct 时强制。只对登记了 assertReadings 的 case 判定，其余 SKIP
+//   【R7】A10 的 `BASE-THROW` 是**独立记法**（基线 8456ec3c 解析即抛）：既不是 PASS（没有 XML 逐字节比对），
+//        也不是 SKIP（那会丢掉「基线确实抛了」这个事实）；汇总行会单独打印 A10-口径 的条数分布
 //
 // 「没实现 / 实现错了 / 未接线」三态区分（R1 起就有的口径，R2 扩到构造级）：
 //   - DirectBuildMetrics 缺失 → A4=SKIP（默认）/ FAIL IMPLEMENTATION-ABSENT（--expect-direct）
@@ -148,7 +161,7 @@ const REPO = path.resolve(import.meta.dirname, "..", "..");
 const SEP = "=".repeat(72);
 
 // ---------------------------------------------------------------------------
-// CASES —— 目标 case（244 条：R1 10 + R2 50 + R3 32 + R4 40 + R5 57 + R6 55）
+// CASES —— 目标 case（299 条：R1 10 + R2 50 + R3 32 + R4 40 + R5 57 + R6 55 + R7 55）
 //   id           唯一编号；--only=<id> 精确匹配、--group=<组> 分组
 //   expect       pos（直建必须接管）| guard（同 pos，built 恒 1）| neg（显式 Decline）| safe（无 session，built==0）
 //                | invalid（语法非法：Decline + 两侧同源拒绝）| incomplete（收口期失败：IncompleteFallback）
@@ -165,8 +178,13 @@ const SEP = "=".repeat(72);
 //   noBaseline   【R3】A10 改判 SKIP（旧基线 8456ec3c 自身错；D7 组）
 //   strictAll    【R3】即使 expect != pos 也在 --strict 下解析（R3-S；A12 判 strictViolations）
 //   incompleteOk 【R4】invalid 的直建拒绝机制是 IncompleteFallback（R4-S-01/02）：A4 允许 incomplete>=1 代替 declined>=1
-//   a6Skip       【R4-Q5/Q6】A6 只记读数不判的 reason（写进 A6 detail）：只剩 switch 的子句语句 2 条 + C4 注入 1 条
-//                （stmtLoads 必然 >0，与 switch 自己是否直建无关）
+//   a6Skip       【R4-Q5/Q6】A6 只记读数不判的 reason（写进 A6 detail）：只剩 switch 的子句语句 **2 条**；
+//                C4 注入 1 条**不计 A6**（A6 量第二次「不注入」解析），不是 a6Skip。R7-Q1 不新增 SKIP 档
+//   【R7】baseThrow     A10 记 `BASE-THROW`（基线 8456ec3c 解析即抛；不是 SKIP、不是 DIFF）
+//   【R7】expectThrew   本侧今天必须仍抛，且文案**精确相等**（== 而不是 includes）；A1 变 THREW-PIN
+//   【R7】expectDeclined expectThrew 的 case 同时钉 declined 精确值（缺省不判）
+//   【R7】assertReadings 读数钉 → A14（astMatch / built / declined / sessions / nOurs / declineReasons 精确相等）
+//   【R7】a10Note       noBaseline / baseThrow 的理由（写进 A10 detail，报告可直接引用）
 //   a6ExpectStmtLoads 【R4-Q6】switch 类 case 的 stmtLoads 读数（配 a6Skip 时只记录）
 //   a6ExpectStmtLoads / a6ExpectExprLoads 【R6-Q2】**A6 精确值档**（两者同给，缺省 0）：
 //                `stmtLoads === N && exprOtherDirect + exprLegacy === M`；--expect-direct 下**不等即红**（不是 SKIP），
@@ -1010,14 +1028,16 @@ const CASES = [
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
     note: "**跨族邻接**：声明族 session（kind 7）后紧跟 class 壳（kind 9），两条各 +1",
     markers: ["ClassDeclarationDirectSession"] },
-  { id: "R6-CLS-neg-01", src: "const C = class {};", expect: "neg", expectInsert: false,
-    categories: ["var.init"],
-    note: "**类表达式本轮不做（R6-Q5 / 留 R7）**：要动引擎的操作数分支（`class` 作 primary）；旧路径建树正确 ⇒ 保持显式 Decline；现状 A1=YES XML==基线",
-    markers: ["var.init"] },
-  { id: "R6-CLS-neg-02", src: "let c = class X { m() {} };", expect: "neg", expectInsert: false,
-    categories: ["var.init"],
-    note: "有名类表达式同理（`var.init`）；旧路径建树正确 ⇒ 显式 Decline",
-    markers: ["var.init"] },
+  { id: "R6-CLS-neg-01", src: "const C = class {};", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "【R7-Q2 **改判 pos**（ID 不删，R6 口径见 R6-TARGET-CASES §1.3）】R6 时类表达式不做、显式 Decline " +
+      "`var.init`；R7-D2 在引擎操作数位接住 `class` ⇒ 直建（A6 0/0）。A10 仍是硬断言：与基线 XML IDENTICAL",
+    markers: ["StartClassExpression"] },
+  { id: "R6-CLS-neg-02", src: "let c = class X { m() {} };", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "【R7-Q2 **改判 pos**（同 neg-01，ID 不删）】有名 + 有体成员的类表达式：直建后 built=1、A6 2/0" +
+      "（有体成员 +1、空体再 +1，D8.2 规则 1+2）；A10 IDENTICAL",
+    markers: ["StartClassExpression"] },
 
   // ---- MOD 声明族 module / import / export / declare（25：pos 22 + safe 1 + neg 1 + guard 1；feat-r6-module） ----
   //   import 6 / export 子句 4：实测 A6 全 0；`export <声明>` 6 + `export default` 4：需一层 DirectExportAssembly。
@@ -1158,6 +1178,289 @@ const CASES = [
       "A6 = 1/0：class 空体 0 + 空 namespace 体的 wrapper 1（R6-CONTRACT §2.2 实测 `namespace N {}` = 1/0；" +
       "R6-TARGET-CASES §3 表里写作 0/0 是笔误，见 REPORT 的口径更正）",
     markers: ["ClassDeclarationDirectSession", "ModuleFamilyDirectSession"] },
+
+  // ---- R7 目标 case（55 条：rec 18 + cx 8 + mod2 9 + dec2 5 + awa 5 + en2 2 + a3r 3 + a6r 3 + hd2 2） ----
+  //   规格：_coord/R7-TARGET-CASES.md（唯一权威编号表）+ _coord/R7-CONTRACT.md §5/§6.2。
+  //   【R7】新增字段（只用于 R7 的 55 条；旧 244 条一个都不用）：
+  //     baseThrow      A10 记 `BASE-THROW`：基线 8456ec3c 自己就抛（本侧解析成功）⇒ A10 无可比 XML；
+  //                    **不是 SKIP、不是 DIFF**（R7-CONTRACT §6.2 口径 ①）。基线未抛反而 FAIL（前提被推翻）。
+  //     noBaseline     A10 恒 SKIP：基线是「OK n=1 的错树」（R7-CONTRACT §6.2 口径 ②，仅 rec pos-08/09）。
+  //     expectThrew    本侧今天必须仍抛，抛错文案**精确相等**（用 includes 会让「表达式没有读完」吞掉
+  //                    「表达式语句没有读完」）⇒ A1 变成 THREW-PIN；A10 比「两侧同抛」（§5.4 第 3 条）。
+  //     expectDeclined expectThrew 的 case 同时钉 declined 精确值（缺省不判）。
+  //     assertReadings 读数钉 → A14：astMatch / built / declined / sessions / nOurs / declineReasons（精确相等）；
+  //                    默认模式只记录，--expect-direct 时强制（§5.4 第 3 条）。
+  //     a10Note        noBaseline / baseThrow 的一行理由，写进 A10 detail。
+  //
+  //   分组：rec / cx / mod2 / dec2 / awa / en2 / a3r / a6r / hd2（groupOf 走 `^R7-<组>-`，与 r1–r6 前缀互不吞）。
+  //   期望：pos 6 组 + guard/safe 的钉子；awa/en2/a3r/a6r 是「本轮不做」的可执行钉子（R7-A5）。
+  //   A10 三种口径（**不许合并成一句「A10 通过」**）：
+  //     ① rec pos-01…07 = base-throw ② rec pos-08/09 = noBaseline（基线是错树，D8.4，A10 SKIP + note）
+  //     ③ 其余 = XML=IDENTICAL；neg 的 THREW 钉子按「两侧同抛」记 BASE-THROW（基线也抛）。
+
+  // ---- rec：missing-semicolon / 相邻操作数恢复（18：pos 9 + guard 5 + neg 4；feat-r7-recovery） ----
+  //   pos 01–07 的基线（8456ec3c）解析即抛 ⇒ A10 = base-throw（R7-CONTRACT §6.2 口径 ①）。
+  //   pos 08/09 的基线是 `OK n=1` 的**错树** ⇒ noBaseline + note（口径 ②，D8.4 的闭环，R7 唯一合法改树形处）。
+  { id: "R7-REC-pos-01", src: "a b", expect: "pos", expectInsert: false, expectBuilt: 2,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "最小形：两条都是 ExpressionStatement（tsc nTS=2/diag=1）。R7-A1 的切点在 `b` 前，leftover 重放建第二条；A6 初值 0/0",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-02", src: "as b", expect: "pos", expectInsert: false, expectBuilt: 2,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "首单元 `as` 是标识符（R5-A2 已放行）⇒ `As` 不再被当续接词；tsc nTS=2",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-03", src: "f() g()", expect: "pos", expectInsert: false, expectBuilt: 2,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "前一条是 CallExpression，`g()` 是新语句（不是调用链）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-04", src: "1 2", expect: "pos", expectInsert: false, expectBuilt: 2,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "两个字面量相邻 ⇒ 切点 + 重放（引擎在 `2` 处 Hold）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-05", src: "a b c", expect: "pos", expectInsert: false, expectBuilt: 3,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "**多于两条**：证明 leftover 重放能连续发生（tsc nTS=3/diag=2）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-06", src: "a b;", expect: "pos", expectInsert: false, expectBuilt: 2,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "走 ExpressionStatementPossibleShape.BuildByIndex（R7-CONTRACT §1.1.3 落点 C）；不分号时走壳（落点 B）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-07", src: "x = 1 y = 2", expect: "pos", expectInsert: true, expectBuilt: 2,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "赋值链在 `y` 处断开；两条各含一次赋值插入 ⇒ --trace 时 A7 期望 insert(",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-08", src: "let x = a\nas b", expect: "pos", expectInsert: false, expectBuilt: 3,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, noBaseline: true,
+    a10Note: "基线 8456ec3c 是 `OK n=1` 的**错树**（R5-A2 的副作用：R4 也是 OK n=1、R5 起 THREW）；" +
+      "R7 恢复成 tsc 的 3 条 ⇒ A10 记 SKIP（noBaseline）+ 本 note，依据 D8.4。这是 R7 唯一合法改变相对基线树形的两处之一",
+    note: "**R5-A2 副作用的闭环**（D8.4）：`let` 那条由 ASI 收口，`as`+`b` 由 R7 恢复收口；A6 初值 0/0（实现期实测后只改这两个数）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-pos-09", src: "let x = a\nsatisfies b", expect: "pos", expectInsert: false, expectBuilt: 3,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, noBaseline: true,
+    a10Note: "同 pos-08：基线 8456ec3c = `OK n=1` 的错树 ⇒ noBaseline（D8.4）；R7 恢复成 3 条",
+    note: "`satisfies` 由引擎 Decline ⇒ 那条走旧路径（A1 必须仍 YES），恢复只负责 `satisfies b` 这一条，共 3 条",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-guard-01", src: "a satisfies b;", expect: "neg", expectInsert: false, expectBuilt: 0,
+    categories: ["expr.decline"],
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "expr.decline": 1 } },
+    note: "**guard**：引擎不认 `satisfies` ⇒ 回落旧路径（A1=YES、1 条）。恢复规则**不许**因 Held 把它切成两条",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-guard-02", src: "a`t`;", expect: "neg", expectInsert: false, expectBuilt: 0,
+    categories: ["expr.stopped"],
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "expr.stopped": 1 } },
+    note: "**guard**：标识符后接模板串 = TaggedTemplate，**不许**当切点（准入否决 ⑤）；今天 decline expr.stopped",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-guard-03", src: "let x = a\nin b", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "**guard**：跨行 `in` 是合法续接（tsc nTS=1）⇒ 恢复**不得**切；A6 实测 0/0（`in b` 由引擎直建，旧路径 0 次）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-guard-04", src: "a\n!b", expect: "guard", expectInsert: false, expectBuilt: 2,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "**guard**：换行类 ASI 已经对了（tsc 2 条）；准入 ③（同一行）保证不被恢复接管；A6 0/0",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-guard-05", src: "let x = a\nas;\nb;", expect: "guard", expectInsert: false, expectBuilt: 3,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    note: "**guard**：R5-CL-pos-02 的同源形（tsc 3 条），**不许**因恢复变成 2 条；基线 8456ec3c 抛 ⇒ A10 base-throw；A6 0/0",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-neg-01", src: "let x = a b", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: false, built: 0, declined: 2, sessions: 2, nOurs: 5,
+      declineReasons: { "var.stopped": 2 } },
+    note: "**not-in-scope**：tsc nTS=**1**（不切）⇒ 变量族不得恢复（准入否决 ⑥）。今天 A1=NO / nOurs=5，" +
+      "钉住它防止规则外溢；A10 与基线仍 IDENTICAL（两侧同为旧路径的 5 条）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-neg-02", src: "if (c) a b", expect: "neg", expectInsert: false, expectBuilt: 0,
+    expectThrew: "表达式没有读完", expectDeclined: 1, categories: ["stmt.body"],
+    assertReadings: { declined: 1, declineReasons: { "stmt.body": 1 } },
+    note: "**not-in-scope**：控制族留 R8（准入否决 ⑦：壳族不是 ShellPlainExpression）。抛错文案 = " +
+      "`表达式没有读完`（**不是** `表达式语句没有读完`），必须精确断言",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-neg-03", src: "throw a b", expect: "neg", expectInsert: false, expectBuilt: 0,
+    expectThrew: "表达式没有读完", expectDeclined: 1, categories: ["stmt.expr"],
+    assertReadings: { declined: 1, declineReasons: { "stmt.expr": 1 } },
+    note: "**not-in-scope**：受限产生式留 R8（同 neg-02 的文案口径）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+  { id: "R7-REC-neg-04", src: "function g() { a b }", expect: "neg", expectInsert: false,
+    expectBodyBuilt: 1, categories: ["expr.stopped"], baseThrow: true,
+    assertReadings: { astMatch: false, built: 1, declined: 1, sessions: 2,
+      declineReasons: { "expr.stopped": 1 } },
+    note: "**not-in-scope（块体内恢复）**：今天 MIXED（built=1 = 函数声明自己的壳、体内表达式 Decline `expr.stopped`），" +
+      "A1=NO、基线抛（base-throw）。R7 **不承诺**块体内恢复；若实现后转绿，只改这条期望并写报告（R7-Q1 附注）",
+    markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
+
+  // ---- cx：类表达式（8：pos 6 + safe 2；feat-r7-classexpr） ----
+  //   R6-CLS-neg-01/02 在 R7 按 R7-Q2 **改判 pos**（ID 不删，见文件末尾的两条改判记录）。
+  //   A10 = XML=IDENTICAL（今天回落旧路径、树就是基线的）⇒ 直建出来的树必须与基线旧路径逐字节一致。
+  { id: "R7-CX-pos-01", src: "const C = class {};", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "无名 + 空体（= R6-CLS-neg-01 的 R7-Q2 改判形）；直建后 var.init 的 Decline 消失、A6 0/0",
+    markers: ["StartClassExpression"] },
+  { id: "R7-CX-pos-02", src: "const C = class extends B {};", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "继承子句走 HeritageClauseShape.BuildClauses（与 ParseClassExpression 同源）",
+    markers: ["StartClassExpression"] },
+  { id: "R7-CX-pos-03", src: "const C = class Named {};", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "名字是 Identifier 子节点（下一个代码单元非 extends/implements 且是 Common）",
+    markers: ["StartClassExpression"] },
+  { id: "R7-CX-pos-04", src: "let c = class X { m() {} };", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "有体成员 + 空体 = 2（D8.2 规则 1+2；= R6-CLS-neg-02 的 R7-Q2 改判形）；built=1（体内块不计 StatementsBuilt）",
+    markers: ["StartClassExpression"] },
+  { id: "R7-CX-pos-05", src: "const C = class { x = 1; };", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 1,
+    note: "属性初始值走 ExpressionBuilder ⇒ exprOther=1（D8.2 规则 3）",
+    markers: ["StartClassExpression"] },
+  { id: "R7-CX-pos-06", src: "f(class {});", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "**操作数位**的类表达式（不是 var.init）：今天 decline `expr.decline`；引擎的 IngestOperand Common 分支接住",
+    markers: ["StartClassExpression"] },
+  { id: "R7-CX-safe-01", src: "const C = class<T> {};", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "var.init": 1 } },
+    note: "**明确不做**：泛型类表达式留 R8；钉住 decline `var.init`（A1=YES，树由旧路径保证）",
+    markers: ["StartClassExpression"] },
+  { id: "R7-CX-safe-02", src: "const C = (class {});", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "var.init": 1 } },
+    note: "**明确不做**：ParenthesizedExpression[ClassExpression] 留 R8；钉住 decline `var.init`",
+    markers: ["StartClassExpression"] },
+
+  // ---- mod2：module 残形（9：pos 6 + safe 2 + guard 1；feat-r7-module2） ----
+  //   A10 = XML=IDENTICAL（今天全部是回落 / 旧路径建树）⇒ pos 落地后必须仍 IDENTICAL。
+  { id: "R7-MOD2-pos-01", src: "using x = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "`using` 无独立形状（statement-builder 的 StartsUsingDeclaration 分支建）：HeadUsing 转交变量族通道 + UsingKeyword ⇒ 0/0",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-pos-02", src: "export declare const x: number;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "`ExportKeyword + DeclareKeyword` 的顺序是 A1 的关键（DirectExportAssembly 的 declare 分支）",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-pos-03", src: "export declare function f(): void;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "空体函数的体 wrapper 2（与 `export function f() {}` 的 stmtLoads=2 同源，R6-MOD-pos-13 读数）",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-pos-04", src: "export as namespace N;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "NamespaceExportDeclarationShape；今天**旧路径建**（built=0、sessions=0）⇒ 直建接管后仍 0/0",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-pos-05", src: "import x = require(\"m\");", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "ImportEqualsDeclarationShape；今天旧路径建（built=0、sessions=0）⇒ 直建接管后 0/0",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-pos-06", src: "export = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "ExportAssignmentShape 的 `export =` 路；今天旧路径建（built=0、sessions=0）⇒ 直建接管后 0/0",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-safe-01", src: "export import x = A.B;", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "decl.module": 1 } },
+    note: "**明确不做**：`export import =` 组合留 R8；钉住 decline `decl.module`（A1=YES）",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-safe-02", src: "await using x = a;", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**明确不做**：`await using` 属 R8；今天旧路径建（sessions=0 / built=0），R7 只保证不退",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-guard-01", src: "declare global { interface X { a: number; } }", expect: "guard", expectInsert: false,
+    expectBuilt: 1, a6ExpectStmtLoads: 1, a6ExpectExprLoads: 0,
+    note: "**guard**：R6 已顺带直建（built=1、stmtLoads=1）；R7 改 declare 转发**不许**把它变成 safe（A10 IDENTICAL）",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+
+  // ---- dec2：声明级装饰器（5：pos 3 + guard 2；feat-r7-classexpr） ----
+  { id: "R7-DEC2-pos-01", src: "@dec function f() {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 1,
+    note: "转发到 FunctionDeclarationShape.FromUnits（与 export/declare 装配同源）；空体体 wrapper 2 + 装饰器表达式 1",
+    markers: ["TryDecoratedFunction"] },
+  { id: "R7-DEC2-pos-02", src: "@dec function f(): void {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 1,
+    note: "返回类型不影响 A6（同 pos-01）",
+    markers: ["TryDecoratedFunction"] },
+  { id: "R7-DEC2-pos-03", src: "@dec function f(a: number) { return a; }", expect: "pos", expectInsert: false,
+    expectBuilt: 1, a6ExpectStmtLoads: 1, a6ExpectExprLoads: 1,
+    note: "有体成员：`return` 由自己的壳直建 ⇒ stmtLoads=1（不是 2）；装饰器表达式 exprOther=1",
+    markers: ["TryDecoratedFunction"] },
+  { id: "R7-DEC2-guard-01", src: "@dec class C {}", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 1,
+    note: "**guard**：装饰器转发**不得**把 class 拉进 function 路（今天 green，A6 0/1）",
+    markers: ["TryDecoratedFunction"] },
+  { id: "R7-DEC2-guard-02", src: "class C { @dec m() {} }", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 1,
+    note: "**guard**：成员装饰器不受影响（今天 green，A6 2/1）",
+    markers: ["TryDecoratedFunction"] },
+
+  // ---- awa：顶层 await / yield（5；**不做，钉子**；R7-A5 / R7-Q3） ----
+  //   semantics 是「safe + 读数钉」：ID 沿用 guard/neg，但 expect 用 safe / neg + expectThrew，
+  //   因为今天它们**根本不进 DirectSession**（sessions=0、built=0），pos 的 built>=1 断言在这里是错的。
+  { id: "R7-AWA-guard-01", src: "await a", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**guard（safe 语义）**：旧路径正确（sessions=0 / A1=YES）；**不许**动 StatementRouteUtil.IsLegacyKeyword",
+    markers: ["IsLegacyKeyword"] },
+  { id: "R7-AWA-guard-02", src: "await(a)", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**guard（safe 语义）**：R6 实测「改路由会让它变 AwaitExpression ⇒ A1=NO」，所以保持 sessions=0",
+    markers: ["IsLegacyKeyword"] },
+  { id: "R7-AWA-guard-03", src: "yield a", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**guard（safe 语义）**：`yield` 同 await（R5-Q5 不做上下文判定）",
+    markers: ["IsLegacyKeyword"] },
+  { id: "R7-AWA-guard-04", src: "yield* a", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**guard（safe 语义）**：`yield*` 同 guard-03",
+    markers: ["IsLegacyKeyword"] },
+  { id: "R7-AWA-neg-01", src: "await a\nlet b = 1;", expect: "neg", expectInsert: false, expectBuilt: 0,
+    expectThrew: "表达式语句没有读完", expectDeclined: 0,
+    assertReadings: { declined: 0, sessions: 0, declineReasons: {} },
+    note: "**P2 既存 bug（合法源被我们抛错）**：`diag=0`（tsc 无诊断），根因 `IsAsiBoundary` 条件 5 把 `let` 当声明头" +
+      "一律不收口；R8 第一项（R7-Q3）。R7 只钉住今天的抛错文案，**不许**在 R7 修（改它 = 动 244 条主判据）",
+    markers: ["IsAsiBoundary"] },
+
+  // ---- en2：`const enum`（2；**不做，保持 safe**；R7-A5 / R7-D6） ----
+  { id: "R7-EN2-guard-01", src: "const enum E { A }", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**guard（safe 语义）**：旧路径建树正确（sessions=0 / A1=YES）；根层 Decide 不做 const enum 的壳（R5-Q4/R7-D6）",
+    markers: ["IsLegacyKeyword"] },
+  { id: "R7-EN2-guard-02", src: "export const enum E { A }", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "decl.module": 1 } },
+    note: "**safe**：`export const enum` 落 `decl.module`（回落，A1=YES）；R7 保持 safe，不收 pos",
+    markers: ["IsLegacyKeyword"] },
+
+  // ---- a3r：A3 判据（3；**不做，钉子**；R7-A5 / R7-D7） ----
+  { id: "R7-A3R-guard-01", src: "f<T>`t`;", expect: "neg", expectInsert: false, expectBuilt: 0,
+    categories: ["expr.decline"],
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "expr.decline": 1 } },
+    note: "**guard**：R6-A3 的显式 Decline 保持（47 语料 `angle.ts` 依赖它）；A10 与基线 IDENTICAL",
+    markers: ["PrevAngleClose"] },
+  { id: "R7-A3R-guard-02", src: "f`t`;", expect: "neg", expectInsert: false, expectBuilt: 0,
+    categories: ["expr.stopped"],
+    assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "expr.stopped": 1 } },
+    note: "**guard**：连裸 tagged template 都回落 ⇒ 「A3 放宽」不是一行改动（R7-D7 不做）",
+    markers: ["PrevAngleClose"] },
+  { id: "R7-A3R-guard-03", src: "let x = a < b > c;", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "**guard（防修过头）**：角括号二元链仍直建、A6 0/0（修 A3 **不许**波及它）",
+    markers: ["PrevAngleClose"] },
+
+  // ---- a6r：class 的 A6 敏感读数（3；精确值档，R7-D8 / R7-A5） ----
+  //   这 3 条是**读数钉**：`class-declaration-shape` 本轮只读，A6 不许归零（D8.2 的三条残差规则），
+  //   也是 cx 类表达式 A6 期望值的依据（同一批成员工厂）。
+  { id: "R7-A6R-01", src: "class C { m(a) { return a; } }", expect: "guard", expectInsert: false, expectBuilt: 2,
+    a6ExpectStmtLoads: 1, a6ExpectExprLoads: 0,
+    note: "D8.2 规则 1（有体成员 +1）；built=2 = class + `return a;` 自己的壳",
+    markers: ["ClassDeclarationDirectSession"] },
+  { id: "R7-A6R-02", src: "class C { m() {} }", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "规则 2（空体再 +1）⇒ 2/0",
+    markers: ["ClassDeclarationDirectSession"] },
+  { id: "R7-A6R-03", src: "class C { x = 1; }", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 1,
+    note: "规则 3（属性初始值 +1）⇒ 0/1",
+    markers: ["ClassDeclarationDirectSession"] },
+
+  // ---- hd2：清理项的回归钉子（2；feat-r7-verify / docs-r7 引用这两个读数） ----
+  { id: "R7-HD2-01", src: "export function f() {}", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "docs §24.5/§24.8 引用这个读数（「export 装配本身不计 A6」= 空体 wrapper 2、built=1）；docs-r7 改文档时不许漂",
+    markers: ["DirectExportAssembly"] },
+  { id: "R7-HD2-02", src: "export class C { m() {} }", expect: "guard", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "docs §24.6 的同一口径（`export class` 的 built 含体内语句 = 1，A6 2/0）；清理项 9.2/9.4 的钉子",
+    markers: ["DirectExportAssembly", "ClassDeclarationDirectSession"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1171,9 +1474,10 @@ const CASES = [
 // ---------------------------------------------------------------------------
 function groupOf(id) {
   if (id.startsWith("R1-")) return "R1";
-  // 【R2…R5】按「R<轮>-<组>-」取组名（R2-CONTRACT §5.1 + R3-CONTRACT §6.1）
+  // 【R2…R7】按「R<轮>-<组>-」取组名（R2-CONTRACT §5.1 + R3-CONTRACT §6.1）
   // 【R6】扩到 6：R6 的组名是 CLS / MOD / HD（`^R([23456])-`），与 R1–R5 的组名互不吞
-  const m = /^R([23456])-([A-Z]\d|[A-Z]+)-/.exec(id);
+  // 【R7】扩到 7，组名里允许数字（A3R / A6R / MOD2 / DEC2 / EN2 / HD2）：`^R([2-7])-([A-Z0-9]+)-`
+  const m = /^R([2-7])-([A-Z0-9]+)-/.exec(id);
   return m ? m[2] : "?";
 }
 
@@ -1182,14 +1486,21 @@ const R4_GROUP_NAMES = ["b3", "b4", "c2", "d7", "s"];
 const R5_GROUP_NAMES = ["ty", "dc", "rs", "cl"];
 // 【R6】cls/mod/hd 是 R6 的组名（R6- 前缀判定；`cls` 与 R5 的 `cl` 不同名，两者都不吞对方）
 const R6_GROUP_NAMES = ["cls", "mod", "hd"];
+// 【R7】rec/cx/mod2/dec2/awa/en2/a3r/a6r/hd2 是 R7 的组名（R7- 前缀判定；`hd2` 与 R6 的 `hd` 不同名，
+//   裸名 `hd2` 只取 R7、`hd` 只取 R6；R7 的 `a3r`/`a6r` 与 R2 的 a3/a4、R3 的 A-* 也互不吞）
+const R7_GROUP_NAMES = ["rec", "cx", "mod2", "dec2", "awa", "en2", "a3r", "a6r", "hd2"];
 
 const KNOWN_GROUPS = [
-  "r1", "r2", "r3", "r4", "r5", "r6", "all", "a1", "a2", "a3", "a4", "a5", "c1", "c2", "c3", "c4",
+  "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+  "all", "a1", "a2", "a3", "a4", "a5", "c1", "c2", "c3", "c4",
   "gen", "safe", "inc", "b1", "b2", "b3", "b4", "d7", "s", "neg", "pos",
   // R5 的四个子组（裸名；也接受 r5-ty 这种带轮次的写法）
   "ty", "dc", "rs", "cl", "r5-ty", "r5-dc", "r5-rs", "r5-cl",
   // R6 的三个子组（裸名；也接受 r6-cls 这种带轮次的写法）
   "cls", "mod", "hd", "r6-cls", "r6-mod", "r6-hd",
+  // R7 的九个子组（裸名；也接受 r7-rec 这种带轮次的写法）
+  "rec", "cx", "mod2", "dec2", "awa", "en2", "a3r", "a6r", "hd2",
+  "r7-rec", "r7-cx", "r7-mod2", "r7-dec2", "r7-awa", "r7-en2", "r7-a3r", "r7-a6r", "r7-hd2",
   // 旧轮同名子组的显式别名（R4 起裸名 c2/d7/s 归 R4；R5 起 r5-* 与 r1-*/r2-*/r3-* 同构）
   "r2-c2", "r3-d7", "r3-s",
 ];
@@ -1206,10 +1517,12 @@ function groupMatches(c, token) {
   if (t === "r4") return c.id.startsWith("R4-");
   if (t === "r5") return c.id.startsWith("R5-");
   if (t === "r6") return c.id.startsWith("R6-");
+  if (t === "r7") return c.id.startsWith("R7-");
   if (R4_GROUP_NAMES.includes(t)) return c.id.startsWith("R4-") && c.group.toLowerCase() === t;
   if (R5_GROUP_NAMES.includes(t)) return c.id.startsWith("R5-") && c.group.toLowerCase() === t;
   if (R6_GROUP_NAMES.includes(t)) return c.id.startsWith("R6-") && c.group.toLowerCase() === t;
-  const legacy = /^r([1-6])-([a-z]\d|[a-z]+)$/.exec(t);
+  if (R7_GROUP_NAMES.includes(t)) return c.id.startsWith("R7-") && c.group.toLowerCase() === t;
+  const legacy = /^r([1-7])-([a-z0-9]+)$/.exec(t);
   if (legacy) return c.id.startsWith(`R${legacy[1]}-`) && c.group.toLowerCase() === legacy[2];
   return c.group.toLowerCase() === t;
 }
@@ -1220,7 +1533,7 @@ function groupMatches(c, token) {
 //     R4-B4-neg-01/03 的期望全部直接落主字段（pos / expectBuilt），**不再有运行时回退**；
 //   - 旧读数的兼容读取（case.q1 / case.q4 / case.q5、resolveQ1/4/5、Q1:/Q4:/Q5: 行、MODE 的 q1=/q5= 段）
 //     **整体删除**；CLI 仍接受这三个开关，但只打印一行 DEPRECATED 提示（不改变任何期望）；
-//   - 行为钉子：R6-HD-guard-03（ ⏎  ⏎ c 仍按行切 3 条）与 R2-SAFE-04/05 的 pos 落盘。
+//   - 行为钉子：R6-HD-guard-03（`a⏎b⏎c` 仍按行切 3 条）与 R2-SAFE-04/05 的 pos 落盘。
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -1232,12 +1545,14 @@ function usage() {
     "                                            [--strict-all] [--expect-direct] [--json] [--decline-stats]",
     "                                            [--baseline=<repo>] [--fault-inject=finish-throw] [--help]",
     "",
-    "  --group=...      逗号分隔的组：r1 | r2 | r3 | r4 | r5 | r6 | all | A1…A5 | C1…C4 | GEN | SAFE | INC",
+    "  --group=...      逗号分隔的组：r1 | r2 | r3 | r4 | r5 | r6 | r7 | all | A1…A5 | C1…C4 | GEN | SAFE | INC",
     "                   | B1 | B2 | B3 | B4 | C2 | D7 | S | NEG | POS | TY | DC | RS | CL | CLS | MOD | HD",
-    "                   （大小写不敏感；未给 = all。r1…r6 都是**前缀**判定、互不吞：r2 = R2-* … r6 = R6-*）",
+    "                   | REC | CX | MOD2 | DEC2 | AWA | EN2 | A3R | A6R | HD2",
+    "                   （大小写不敏感；未给 = all。r1…r7 都是**前缀**判定、互不吞：r2 = R2-* … r7 = R7-*）",
     "                   【R4】b3/b4/c2/d7/s 是 **R4 的组名**（R4-CONTRACT §5.1 的 16/12/5/4/3）；",
     "                   旧轮的同名子组用 r2-c2 / r3-d7 / r3-s 显式选取（--group=r3 仍是 R3 全 32 条）",
-    "                   【R5】ty/dc/rs/cl = R5-* 的四个子组；【R6】cls/mod/hd = R6-* 的三个子组（24/25/6）",
+    "                   【R5】ty/dc/rs/cl = R5-* 四个子组；【R6】cls/mod/hd = R6-* 三个子组（24/25/6）；",
+    "                   【R7】rec/cx/mod2/dec2/awa/en2/a3r/a6r/hd2 = R7-* 九个子组（18/8/9/5/5/2/3/3/2）",
     "  --only=...       逗号分隔，先按 case ID 精确匹配（R6-CLS-pos-01），再退回 R1 语义：",
     "                   全数字 = 1 基序号（按 CASES 全表编号） / 精确 source / 子串 source",
     "  --trace          打开 DirectBuildMetrics.TraceEnabled，并断言 Traces 含 insert(（A7）",
@@ -1380,6 +1695,18 @@ function selectCases(all, flags) {
 // 小工具
 // ---------------------------------------------------------------------------
 const num = (v, fallback = 0) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+
+/** 【R7】DeclineReasons 的「非零键」快照：键按字典序，便于与 assertReadings 做 JSON 精确比对。 */
+function nonzeroReasons(reasons) {
+  const out = {};
+  if (reasons && typeof reasons === "object") {
+    for (const key of Object.keys(reasons).sort()) {
+      const count = num(reasons[key]);
+      if (count > 0) out[key] = count;
+    }
+  }
+  return out;
+}
 
 function readTextSafe(file) {
   try {
@@ -1827,6 +2154,9 @@ function evaluateCase(ctx, c) {
   const isGuard = kind === "guard";                 // 【R3】同 pos，但 expectBuilt 是「不变的 1」
   const isPosLike = kind === "pos" || isGuard;      // A4/A5/A6/A7/A11 都按正例口径处理
   const isInjection = c.injection === "finish-throw";
+  // 【R7】expectThrew：本条 case 期望「今天必须仍抛」，且抛错文案精确相等（见 R7-TARGET-CASES §1.3 的注意：
+  //   includes 会让「表达式没有读完」吞掉「表达式语句没有读完」，所以只认 ===）。
+  const expectsThrow = typeof c.expectThrew === "string";
   const isRejected = kind === "invalid" || kind === "incomplete";
   const injectionEnabled = isInjection && flags.faultInject === "finish-throw" && injection.available;
   const a = {};
@@ -1893,7 +2223,29 @@ function evaluateCase(ctx, c) {
 
   // A1 —— AST 逐字段（唯一归一表 ast-compare.mjs）
   // invalid / incomplete：两侧 Parse 都拒绝（同一个失败分支），AST 无可比 → 改判「拒绝一致性」
-  if (first.error) {
+  // 【R7】expectThrew：THREW-PIN（文案精确相等）。absentParse：预期直建但实现未合入（markers 未出现）+ Parse 抛错
+  //   ⇒ 默认模式记 SKIP + IMPLEMENTATION-ABSENT（R7-2 的「先写红」不崩口径）；--expect-direct 时仍走 A1 FAIL 显形。
+  const throwMessage = first.error ? String(first.error.message) : null;
+  const absentParse =
+    !flags.expectDirect && !isRejected && !expectsThrow && first.error !== null &&
+    (kind === "pos" || kind === "guard") && feature.present === false;
+  if (expectsThrow) {
+    if (throwMessage === null) {
+      add("A1", "FAIL",
+        `期望仍抛「${c.expectThrew}」，但本侧 Parse 成功（${kind}：这是「恢复规则外溢」或「行为已变」）`);
+    } else if (throwMessage === c.expectThrew) {
+      add("A1", "PASS",
+        `THREW-PIN: 抛错文案与钉住的读数**精确相等**「${throwMessage}」（expectThrew；不是 includes）`);
+    } else {
+      add("A1", "FAIL",
+        `抛错文案变了：ours="${throwMessage}" != expectThrew="${c.expectThrew}"` +
+          `（A/B 两种文案会被 includes 吞掉，所以这里只认精确相等）`);
+    }
+  } else if (absentParse) {
+    add("A1", "SKIP",
+      `IMPLEMENTATION-ABSENT: 期望直建，但本侧 Parse 抛错「${throwMessage}」且构造标记未出现` +
+        `（${feature.markers.join(" / ")}）⇒ 未实现；--expect-direct 时按 A1 FAIL 显形`);
+  } else if (first.error) {
     if (isRejected) {
       if (baseline === null) {
         add("A1", "PASS", `PARSE-REJECT: 本侧拒绝「${first.error.message}」（${kind}：非法/不完整输入；未启用 --baseline，拒绝文案未比对）`);
@@ -1913,6 +2265,14 @@ function evaluateCase(ctx, c) {
     add("A1", "FAIL", `期望 Parse 拒绝（${kind}），但本侧 Parse 成功：非法/不完整输入被接受了`);
   } else if (oursText === tsText) {
     add("A1", "PASS", "AST 与 tsc 逐字段一致");
+  } else if (c.assertReadings && c.assertReadings.astMatch === false) {
+    // 【R7】读数钉：本条 today 的 A1 就是 NO（已知不在 R7 范围，例如 `let x = a b` 的 tsc=1 而我们 5 条）。
+    //   钉住它是为了让「恢复规则外溢」显形，而不是把已知事实判成红；若实现后变成一致，A14 会报读数漂移。
+    const diff = firstDiff(ours, tsSide);
+    add("A1", "PASS",
+      `AST-PINNED=NO：本侧与 tsc **不一致是钉住的事实**（assertReadings.astMatch=false；` +
+        `${diff ? `首次差异 @ ${diff.trail}` : "JSON 不同"}；nOurs=${ours.length} vs nTS=${tsSide.length}）` +
+        `⇒ 不判红（A14 负责发现读数漂移）`);
   } else {
     const diff = firstDiff(ours, tsSide);
     add(
@@ -1927,7 +2287,11 @@ function evaluateCase(ctx, c) {
   // A2 —— XML 确定性（C4：注入那次 vs 不注入那次，等于「回落旧路径的树 == 直建的树」）
   const xml1 = first.xml;
   const xml2 = second.xml;
-  if (isRejected) {
+  if (expectsThrow) {
+    add("A2", "SKIP", `expectThrew：本条以「Parse 拒绝」为钉住的行为，没有 XML 可比（文案见 A1）`);
+  } else if (absentParse) {
+    add("A2", "SKIP", `IMPLEMENTATION-ABSENT：Parse 抛错「${throwMessage}」，没有 XML 可比（--expect-direct 时 A1 红）`);
+  } else if (isRejected) {
     add("A2", "SKIP", `${kind}：非法/不完整输入，两侧 Parse 都抛，没有 XML 可比`);
   } else if (first.error) {
     add("A2", "FAIL", `PARSE-ERROR: ${first.error.message}`);
@@ -1949,12 +2313,21 @@ function evaluateCase(ctx, c) {
 
   // A3 —— XML 非空 + 根下节点数 == TS 顶层语句数
   const nodeCount = first.root && Array.isArray(first.root.Data) ? first.root.Data.length : 0;
-  if (isRejected) {
+  if (expectsThrow) {
+    add("A3", "SKIP", `expectThrew：Parse 拒绝，没有根节点可比（A1 已判文案）`);
+  } else if (absentParse) {
+    add("A3", "SKIP", `IMPLEMENTATION-ABSENT：Parse 抛错「${throwMessage}」，没有根节点可比（--expect-direct 时 A1 红）`);
+  } else if (isRejected) {
     add("A3", "SKIP", `${kind}：非法/不完整输入，两侧 Parse 都抛，没有根节点可比`);
   } else if (first.error) {
     add("A3", "FAIL", `PARSE-ERROR: ${first.error.message}`);
   } else if (xml1 === null || xml1.length === 0) {
     add("A3", "FAIL", "XML 为空");
+  } else if (c.assertReadings && c.assertReadings.astMatch === false && nodeCount !== tsSide.length) {
+    // 【R7】同 A1 的读数钉：nOurs=5 vs nTS=1 这种已知不一致是钉住的事实（A14 负责发现漂移）。
+    add("A3", "SKIP",
+      `读数钉 astMatch=false：根下节点数 ${nodeCount} != TS 顶层语句数 ${tsSide.length} 是钉住的事实` +
+        `（A1 已记 PINNED=NO；漂移由 A14 报）`);
   } else if (nodeCount !== tsSide.length) {
     add("A3", "FAIL", `根下节点数 ${nodeCount} != TS 顶层语句数 ${tsSide.length}`);
   } else {
@@ -2085,6 +2458,24 @@ function evaluateCase(ctx, c) {
       add("A4", "SKIP", `${detail}（未实现，默认模式记 SKIP；--expect-direct 时红）`, { label });
     } else {
       add("A4", "READING", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, readingPass: false, label });
+    }
+  } else if (expectsThrow) {
+    // 【R7】expectThrew 的 case 是「今天必须仍抛」的钉子：Parse 抛错是定义，所以只钉计数读数
+    //   （built 精确值 + errors==0 + 可选的 declined 精确值），不要求 declined>=1 —— `await a⏎let b` 的实测
+    //   就是 declined=0 / sessions=0（它根本不进 DirectSession），用 neg 的 declined>=1 会造出假红。
+    const wantBuilt = typeof c.expectBuilt === "number" ? c.expectBuilt : 0;
+    const wantDeclined = typeof c.expectDeclined === "number" ? c.expectDeclined : null;
+    const ok = m1.statementsBuilt === wantBuilt && m1.errors === 0 &&
+      (wantDeclined === null || m1.declined === wantDeclined);
+    let detail = `${countersText(m1)}（expectThrew「${c.expectThrew}」：期望 built=${wantBuilt} errors=0` +
+      `${wantDeclined === null ? "" : ` declined=${wantDeclined}`}；Parse 拒绝是定义）`;
+    if (m1.errors !== 0) detail += `  ← IMPLEMENTATION-ERROR-FALLBACK：异常兜底，Errors 必须 0`;
+    else if (m1.statementsBuilt !== wantBuilt) detail += `  ← IMPLEMENTATION-MISBUILT：built != ${wantBuilt}`;
+    else if (wantDeclined !== null && m1.declined !== wantDeclined) detail += `  ← 计数漂移：declined != ${wantDeclined}`;
+    if (flags.expectDirect) {
+      add("A4", ok ? "PASS" : "FAIL", detail, { enforced: true });
+    } else {
+      add("A4", "READING", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, readingPass: ok });
     }
   } else if (kind === "neg") {
     const ok = negCountersOk(m1);
@@ -2371,10 +2762,44 @@ function evaluateCase(ctx, c) {
     add(
       "A10",
       "SKIP",
-      "XML-BASELINE: SKIP (noBaseline: 旧基线 8456ec3c 自身错，见 R3-CONTRACT §1.3 / R4-CONTRACT §5.4)；" +
-        `判据 = A1(AST==tsc) + A4 计数 + A11${baseline === null ? "" : `（--baseline=${baseline.root} 已给也不比）`}`,
+      "XML-BASELINE: SKIP (noBaseline: 旧基线 8456ec3c 自身错，见 R3-CONTRACT §1.3 / R4-CONTRACT §5.4 / " +
+        `R7-CONTRACT §6.2 口径 ②)；判据 = A1(AST==tsc) + A4 计数 + A11` +
+        `${baseline === null ? "" : `（--baseline=${baseline.root} 已给也不比）`}` +
+        `${c.a10Note ? `；${c.a10Note}` : ""}`,
       { noBaseline: true },
     );
+  } else if (expectsThrow) {
+    // 【R7】expectThrew 的 A10：本侧抛是定义（A1 已判文案）⇒ 与基线比「是否同抛」。
+    if (baseline === null) {
+      add("A10", "SKIP", "未给 --baseline：expectThrew 的「两侧同抛」比对未启用");
+    } else if (baseError !== null) {
+      const same = baseError === throwMessage;
+      add("A10", "BASE-THROW",
+        `XML-BASELINE: base-throw —— 两侧都抛（ours="${throwMessage}" / baseline="${baseError}"；` +
+          `${same ? "文案一致" : "文案不同（记录，不作为判据）"}）；A10 无可比 XML，记 base-throw（不是 SKIP、不是 DIFF）`,
+        { baseThrow: true, bothThrew: true, sameMessage: same });
+    } else {
+      add("A10", "FAIL",
+        `本侧抛「${throwMessage}」，基线却解析成功 ⇒ 基线的行为已变（A10 不可比）`);
+    }
+  } else if (c.baseThrow) {
+    // 【R7】口径 ①：基线 8456ec3c 自己就抛（本侧会/已经解析成功）⇒ A10 记 BASE-THROW（不是 SKIP、不是 DIFF）。
+    //   这是 R7 唯一合法的「A10 无法逐字节比对」的 7 条 rec pos + guard-05；基线若没抛，说明前提被推翻 ⇒ FAIL。
+    if (baseline === null) {
+      add("A10", "BASE-THROW",
+        "XML-BASELINE: base-throw（未给 --baseline，仅记录口径；给 --baseline 时会核对基线确实抛）",
+        { baseThrow: true });
+    } else if (baseError !== null) {
+      add("A10", "BASE-THROW",
+        `XML-BASELINE: base-throw —— 基线 8456ec3c 解析即抛「${baseError}」，A10 无可比 XML；` +
+          `本侧 XML len=${xml1 === null ? "<none>" : xml1.length}；记 base-throw（不是 SKIP、不是 DIFF）` +
+          `${c.a10Note ? `；${c.a10Note}` : ""}`,
+        { baseThrow: true });
+    } else {
+      add("A10", "FAIL",
+        `期望 base-throw（基线解析即抛），但基线解析成功（len=${baseXml === null ? "<none>" : baseXml.length}）` +
+          `⇒ base-throw 的前提被推翻，检查基线克隆与 case 口径`);
+    }
   } else if (baseline === null) {
     add("A10", "SKIP", "未给 --baseline=<8456ec3c 克隆>：A10 未启用");
   } else if (isRejected) {
@@ -2425,6 +2850,50 @@ function evaluateCase(ctx, c) {
     }
   }
 
+  // A14 —— 【R7】读数钉（case.assertReadings）
+  //   逐项精确相等：astMatch（布尔，钉住今天的 A1 读数）、built / declined / sessions / nOurs、
+  //   declineReasons（非零键全等）。用途：把「今天确实是这样」写进断言，防止 R7 的恢复 / 类表达式 / module
+  //   改动把已知边界悄悄改掉（例如 `let x = a b` 的 nOurs=5、`function g() { a b }` 的 expr.stopped=1）。
+  //   口径与 A9/A11 同：默认模式只记录（READING），--expect-direct 时强制。
+  if (!c.assertReadings) {
+    add("A14", "SKIP", "该 case 未登记 assertReadings（R7 的读数钉）");
+  } else {
+    const pinned = c.assertReadings;
+    const observed = {
+      astMatch: oursText === tsText,
+      built: m1 === null ? null : m1.statementsBuilt,
+      declined: m1 === null ? null : m1.declined,
+      sessions: m1 === null ? null : m1.sessions,
+      nOurs: first.error ? -1 : ours.length,
+      declineReasons: nonzeroReasons(reasons),
+    };
+    const problems = [];
+    if (typeof pinned.astMatch === "boolean" && observed.astMatch !== pinned.astMatch) {
+      problems.push(`astMatch=${observed.astMatch}（钉住 ${pinned.astMatch}）`);
+    }
+    for (const key of ["built", "declined", "sessions", "nOurs"]) {
+      if (typeof pinned[key] === "number" && observed[key] !== pinned[key]) {
+        problems.push(`${key}=${observed[key]}（钉住 ${pinned[key]}）`);
+      }
+    }
+    if (pinned.declineReasons &&
+      JSON.stringify(observed.declineReasons) !== JSON.stringify(pinned.declineReasons)) {
+      problems.push(
+        `declineReasons=${JSON.stringify(observed.declineReasons)}（钉住 ${JSON.stringify(pinned.declineReasons)}）`);
+    }
+    const ok = problems.length === 0;
+    const detail = `读数钉：${JSON.stringify(observed)}` +
+      (ok ? "；与 assertReadings 逐项一致" : `  ← 读数漂移：${problems.join("；")}`);
+    if (flags.expectDirect) {
+      add("A14", ok ? "PASS" : "FAIL", detail, { enforced: true, observed, pinned });
+    } else if (ok) {
+      add("A14", "PASS", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, observed, pinned });
+    } else {
+      add("A14", "READING", `${detail}（只报读数；--expect-direct 时强制）`,
+        { enforced: false, readingPass: false, observed, pinned });
+    }
+  }
+
   // A12 —— 【R3】strict 全量化（R3-CONTRACT §4.4 / R3-TARGET-CASES §5）
   //   只在「该 case 真的以 Strict=true 解析」时判定（pos/guard 恒是；非正例要 strictAll 或 --strict-all）。
   //   「Parse 不抛」是 R3-S 的唯一必改行为：H1 的 Ingest 期异常必须被 H1′ 的 try/catch 接住，
@@ -2441,6 +2910,12 @@ function evaluateCase(ctx, c) {
       `--strict 未对该 case 生效（R2 抑制：expect=${kind} 默认以 Strict=false 解析；` +
         `strict 全量化的验收用 --strict-all，前提是 H1′ try/catch 已落地）；读数：${countersText(m1)}`,
     );
+  } else if (expectsThrow) {
+    // 【R7】expectThrew 的 case 以「Parse 拒绝」为钉住的行为（A1 = THREW-PIN），
+    //   strict 全量化的「非正例 Parse 不抛」前提在这里不适用（它不是「Decline 穿出 Parse」的 P0，是定义）。
+    add("A12", "SKIP",
+      `expectThrew：Parse 拒绝是钉住的行为（TREW-PIN 见 A1「${c.expectThrew}」），` +
+        `strict 全量化的「Parse 不抛」不适用；读数：${countersText(m1)}`);
   } else if (kind === "safe") {
     add("A12", "SKIP", `safe 不进 DirectSession，不要求 strictViolations（读数：${countersText(m1)}）`);
   } else if (isPosLike) {
@@ -2513,6 +2988,12 @@ function evaluateCase(ctx, c) {
       feature,
       declineReasons: reasons,
       reasonsCapable,
+      // 【R7】R7-A1 的切点是 DirectExpressionSession 的内部状态，DirectBuildMetrics 没有导出 ⇒ 恒 null；
+      //   **不是断言**，只是给实现期定位切点留一个 JSON 字段（R7-CONTRACT §5.4 第 4 条）。
+      stopAt: m1 && typeof m1.stopAt === "number" ? m1.stopAt : null,
+      assertReadings: c.assertReadings || null,
+      expectThrew: typeof c.expectThrew === "string" ? c.expectThrew : null,
+      pinned: a.A14 && a.A14.observed ? a.A14.observed : null,
       baseline: baseline === null ? null : (() => {
         const baseXml = baselineXmlOf(baseline, c);
         return {
@@ -2535,6 +3016,8 @@ function aggregate(results, id) {
   if (statuses.length === 0) return null;
   if (statuses.includes("FAIL")) return "FAIL";
   if (statuses.includes("PASS")) return "PASS";
+  // 【R7】A10 的 base-throw 是独立记法（不是 SKIP）：没有任何 PASS/FAIL 时才作为汇总状态出现。
+  if (statuses.includes("BASE-THROW")) return "BASE-THROW";
   if (statuses.includes("READING")) return "READING";
   return "SKIP";
 }
@@ -2583,7 +3066,7 @@ function renderCaseHuman(result, flags) {
   );
   /** 选中 case 的分组构成（证据行：--group=r3 必须恰好是 32 条 = B1 15 + B2 11 + D7 4 + S 2）。 */
   // ---- R3/R4 追加行（只对 R3/R4/R5 的 case 打印，R1/R2 的输出行保持 R2 的形状） ----
-  if (/^R[3456]-/.test(String(c.id))) {
+  if (/^R[345678]-/.test(String(c.id))) {
     if (typeof c.expectBuilt === "number") {
       lines.push(
         `EXPECT-BUILT: ${c.expectBuilt}（StatementsBuilt 精确值；**含体内语句**。A3 的根下节点数口径不同：` +
@@ -2598,8 +3081,8 @@ function renderCaseHuman(result, flags) {
     }
     if (c.noBaseline) {
       lines.push(
-        "NO-BASELINE: A10 改判 SKIP（旧基线 8456ec3c 自身错，R3-CONTRACT §1.3 / R4-CONTRACT §5.4）；" +
-          "判据 = A1（AST==tsc）+ A4 计数 + A11",
+        "NO-BASELINE: A10 改判 SKIP（旧基线 8456ec3c 自身错：R3-CONTRACT §1.3 / R4-CONTRACT §5.4 / " +
+          "R7-CONTRACT §6.2 口径 ②，R7 的 rec pos-08/09 也用它）；判据 = A1（AST==tsc）+ A4 计数 + A11",
       );
     }
     if (c.strictAll) {
@@ -2608,8 +3091,22 @@ function renderCaseHuman(result, flags) {
           "invalid/incomplete 按 R4-Q2 改判「两侧拒绝文案同源」）",
       );
     }
+    // 【R7】A10 的三种口径在每条 case 上显式留痕（不许合并成一句「A10 通过」）。
+    if (c.noBaseline) {
+      lines.push(`A10-口径: noBaseline（基线 8456ec3c 是错树，A10 SKIP）${c.a10Note ? `；${c.a10Note}` : ""}`);
+    } else if (c.baseThrow) {
+      lines.push("A10-口径: base-throw（基线 8456ec3c 解析即抛，A10 无可比 XML；不是 SKIP、不是 DIFF）");
+    } else if (typeof c.expectThrew === "string") {
+      lines.push("A10-口径: base-throw（expectThrew：两侧同抛；基线也抛）");
+    } else {
+      lines.push("A10-口径: XML=IDENTICAL（与基线逐字节一致是硬断言）");
+    }
+    if (typeof c.expectThrew === "string") {
+      lines.push(`THREW-PIN: ${c.expectThrew}（**精确相等**，不是 includes）`);
+    }
   }
   if (a.A9.status !== "SKIP") lines.push(`A9: ${a.A9.status}  ${a.A9.detail}`);
+  if (a.A14.status !== "SKIP") lines.push(`A14: ${a.A14.status}  ${a.A14.detail}`);
   if (a.A10.status !== "SKIP" || c.expect === "pos" || c.expect === "guard" || c.noBaseline) {
     lines.push(`A10: ${a.A10.status}  ${a.A10.detail}`);
   }
@@ -2673,6 +3170,8 @@ function printSummaryHuman(results, impl, flags, totals, baseline, injection) {
   if (flags.trace) assertionIds.push("A7");
   assertionIds.push("A9", "A10", "A11");
   if (flags.strict) assertionIds.push("A12");
+  // 【R7】A14 = assertReadings 的读数钉（只对登记了 assertReadings 的 case 判定，其余 SKIP）
+  assertionIds.push("A14");
   const agg = assertionIds
     .map((id) => {
       const status = aggregate(results, id);
@@ -2681,6 +3180,16 @@ function printSummaryHuman(results, impl, flags, totals, baseline, injection) {
     .filter(Boolean)
     .join(" ");
   console.log(`ASSERT: ${agg}`);
+  // 【R7】A10 的三种口径分开报数（R7-CONTRACT §6.2：base-throw / noBaseline / IDENTICAL 不许合并成一句「A10 通过」）
+  const a10Count = (status) =>
+    results.filter((r) => r.assertions.A10 && r.assertions.A10.status === status).length;
+  if (results.some((r) => r.assertions.A10 && r.assertions.A10.status === "BASE-THROW")) {
+    console.log(
+      `A10-口径: IDENTICAL(PASS)=${a10Count("PASS")} BASE-THROW=${a10Count("BASE-THROW")} ` +
+        `SKIP=${a10Count("SKIP")} FAIL=${a10Count("FAIL")}（base-throw = 基线自身抛；noBaseline = 基线是错树；` +
+        `IDENTICAL = 逐字节一致）`,
+    );
+  }
   const totalLine =
     `CASES=${totals.evaluated} FAILED=${totals.failedCases}` +
     (totals.skipped > 0 ? ` SKIPPED=${totals.skipped}` : "") +
@@ -2880,11 +3389,12 @@ async function main() {
 
   if (flags.json) {
     const output = {
-      schema: "dsh/xl-example/target-cases@6",
+      schema: "dsh/xl-example/target-cases@7",
       contract:
-        "R6-CONTRACT §5/§6.1/§6.2 / R6-TARGET-CASES（CASES=244 = R1 10 + R2 50 + R3 32 + R4 40 + R5 57 + R6 55；" +
-        "R6 55 = CLS 24 + MOD 25 + HD 6；R6-Q1 的 6 条改判不增数；R6-Q2 的 A6 精确值档 hard 断言；" +
-        "R6-A4 的 --q1/--q4/--q5 已退役，期望全部直接落主字段）",
+        "R7-CONTRACT §5/§6.2 / R7-TARGET-CASES（CASES=299 = R1 10 + R2 50 + R3 32 + R4 40 + R5 57 + R6 55 + R7 55；" +
+        "R7 55 = rec 18 + cx 8 + mod2 9 + dec2 5 + awa 5 + en2 2 + a3r 3 + a6r 3 + hd2 2；R7-Q2 的 R6-CLS-neg-01/02 " +
+        "改判 pos（ID 不删、builtCases 210→212）；R7-Q1 不新增 A6 SKIP 档；A10 三种口径 base-throw / noBaseline / IDENTICAL；" +
+        "expectThrew 精确文案 + assertReadings（A14）；--q1/--q4/--q5 仍为退役状态）",
       generatedAt: new Date().toISOString(),
       repo: REPO,
       baseline: baseline === null ? null : baseline.root,
@@ -2934,7 +3444,7 @@ async function main() {
           acc[r.case.group] = (acc[r.case.group] || 0) + 1;
           return acc;
         }, {}),
-        assertions: ["A1", "A2", "A3", "A4", "A6", "A9", "A10", "A11",
+        assertions: ["A1", "A2", "A3", "A4", "A6", "A9", "A10", "A11", "A14",
           ...(flags.strict ? ["A5", "A12"] : []), ...(flags.trace ? ["A7"] : [])]
           .map((id) => ({ id, status: aggregate(results, id) }))
           .filter((entry) => entry.status !== null),
@@ -2957,6 +3467,14 @@ async function main() {
         expectBuilt: typeof result.case.expectBuilt === "number" ? result.case.expectBuilt : null,
         expectBodyBuilt: typeof result.case.expectBodyBuilt === "number" ? result.case.expectBodyBuilt : null,
         noBaseline: Boolean(result.case.noBaseline),
+        // 【R7】A10 的另外两种口径 / 抛错钉 / 读数钉
+        baseThrow: Boolean(result.case.baseThrow),
+        a10Note: result.case.a10Note || null,
+        expectThrew: typeof result.case.expectThrew === "string" ? result.case.expectThrew : null,
+        expectDeclined: typeof result.case.expectDeclined === "number" ? result.case.expectDeclined : null,
+        assertReadings: result.case.assertReadings || null,
+        // 【R7】R7-A1 的切点读数（不是断言；DirectBuildMetrics 未导出 ⇒ 目前恒 null）
+        stopAt: result.readings.stopAt,
         strictAll: Boolean(result.case.strictAll),
         incompleteOk: Boolean(result.case.incompleteOk),
         a6Skip: result.case.a6Skip || null,
