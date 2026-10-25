@@ -1309,8 +1309,8 @@ Decline 不重复计 `Errors`），接住后继续走候选计算，由 H2 的 `
 1. **「已计数」判据扩到 strict(incomplete)**：H1′ 与 H2 两个 `catch` 的「已计数」条件从「`Declined` 已置」扩到
    「`Declined` **或** `strict(incomplete)` 已记」——`Incomplete` 在 strict 下也是先 `StrictViolations++` 再抛，
    不能重复计 `Errors`；`Errors` / `LastError` 的语义因此与 C4 完全同源。
-2. **两处 eager Ingest 补 `try/catch`**：`root-expression-statement-possible-shape.xl.md`（`:167-170` 附近）与
-   `direct-statement-hook.xl.md`（`:44` 的 `created.Ingest(...)`）。这两处**不在 H1/H2 的 catch 范围内**，
+2. **两处 eager Ingest 补 `try/catch`**：`root-expression-statement-possible-shape.xl.md`（`:178-191`）与
+   `direct-statement-hook.xl.md`（`:52-63` 的 `created.Ingest(...)`）。这两处**不在 H1/H2 的 catch 范围内**，
    `a +` / `a as` 的 `Incomplete` 就是从它们穿出去的（实测 `errors=1` 说明 H1 接住了、又被重新抛出）。
    包住后读数变成 `errors=0 strictViolations>=1 Parse` 仍抛**解析器自己的**拒绝文案。
 3. **`--strict-all` 隐含 `--strict`（D6）**：`target-cases.mjs` 的 `parseArgs` 里
