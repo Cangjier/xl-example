@@ -93,7 +93,7 @@
 | R1 | 晚建补建在 `BuildByIndex` 内重入壳内目录，可能与 CatalogGuide 的「终结候选与其它候选同格」相撞 | 打开时 double-accept 冲突 0；但可能正是 token-ast diff=4 的来源之一，需按 §5.2 排查 |
 | R2 | 晚建守卫用 `CanEndStatement` 判「上一单元能否结束语句」，对声明族可能过宽/过窄 | 26/27 通过；剩 1 条待定位 |
 | R3 | 两处修复在 flag=false 时惰性（route 不会判成声明族），但代码路径仍在 | 交付态全表与基线一致（§4） |
-| R4 | 2024 轮实测中 `token-ast`/`real-dts` 的回归说明「单条形态 XML/AST 全等」不足以证明等价 | 下一轮必须以 token-ast + real-dts 为门，而不是只看 27 条 |
+| R4 | 本轮实测中 `token-ast`/`real-dts` 的回归说明「单条形态 XML/AST 全等」不足以证明等价 | 下一轮必须以 token-ast + real-dts 为门，而不是只看 27 条 |
 
 ## 7. 复现命令
 
