@@ -38,7 +38,6 @@ import { StatementPossibleShape } from "../statements/statement-possible-shape.x
 import { StatementRoute } from "../statements/statement-route-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { SwitchStatementPossibleShape } from "../statements/switch-statement-possible-shape.xl.md"
-import { ThrowStatementPossibleShape } from "../statements/throw-statement-possible-shape.xl.md"
 import { TryStatementPossibleShape } from "../statements/try-statement-possible-shape.xl.md"
 import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "../statements/control-flow-statement-possible-shape.xl.md"
@@ -248,7 +247,6 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // new WithStatementPossibleShape(),
     // new SwitchStatementPossibleShape(),
     // new LabeledStatementPossibleShape(),
-    // new ThrowStatementPossibleShape(),
     // new TryStatementPossibleShape(),
     // new DebuggerStatementPossibleShape(),
   ];
