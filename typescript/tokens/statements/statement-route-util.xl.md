@@ -293,18 +293,25 @@ legacy 递归建，树仍正确）。
 **switch 子句级语句被建成壳**的条数（Stage 4y，只增不减）。与 `SwitchCaseBodyMountCount`（挂载）分开：
 挂上但一条子句语句都没接时本计数为 0（未接管，不是失败）。
 
-## static field EnableBlockClassShell:bool = false
+## static field EnableBlockClassShell:bool = true
 
-**块内 `class` 声明壳化开关**（Stage 4y，默认关 = 安全回退）。`true` = `Decide` 把**宿主是块体 `{` 括号**的
+**块内 `class` 声明壳化开关**（Stage 4y 落地，Stage 4ac **转正并默认开**；Stage 4ae 在本基线上重做并转正）。`true` = `Decide` 把**宿主是块体 `{` 括号**的
 `class` 起点判成 `StatementRoute.ShellStatementFamily`，由块体目录里既有的
 `ControlFlowStatementPossibleShape` 建壳（`ScanRoot` 判界，`}` 收口），从而让
 `{ class C {} }` / `{ class C { m(){} } }` 的 `BlockBodyStatementCount` 增量 > 0。
+打开态的专用计数与全表读数见 `HANDOFF-s4ae.md`（`ast-json` 6167 / `real-dts` 226 / token diff 0 /
+`--all` 101 全部在打开态实跑）。
 
 `class` 原先在 `IsLegacyKeyword` 里、且 `IsDeclarationHead` 不含它：它的体语句按文档应由括号事件接管，
 做成声明壳会改变体括号的宿主。本开关只改**块内**这一类起点（根层 `class` 仍走 legacy），且用
 `ShellStatementFamily`（ScanRoot）而不是 `ShellDeclarationFamily`（`;` / EOF / ASI 边界）——带体声明的
-边界是 `}`，与 `if` / `while` 同一条判界。默认关：打开前必须在专用用例里核 XML / AST / fallback
-（见 HANDOFF-s4y.md 的块内 class 一节）；它不是「已交付」，只是可验证的候选路径。
+边界是 `}`，与 `if` / `while` 同一条判界。
+
+Stage 4ac/4ae 转正依据（打开态实跑，见 `HANDOFF-s4ae.md`）：`{ class C {} }` body=1、
+`{ class C { m(){ let y = 1; } } }` body=2、`{ class C extends B {} }` body=1，三条 XML==legacy、fallback=0；
+`{ class C {} f(); }` body=0 是**未接管**（class 壳收口后 `f();` 这一格没有回到块体目录），树与 legacy 逐字节一致；
+打开态跑 `ast-json` 6167/6167、`ast-json-diff` 无差、`real-dts` 226/226、token diff 0、`--all` 101/0。
+只要这些读数中任何一项回落，本开关就退回 `false`（安全回退：行为逐位回到 Stage 4y 默认关）。
 
 ## static method IsDeclarationHead:(text:string)=>bool
 
