@@ -12756,6 +12756,448 @@
           ]
         }
       ]
+    },
+    {
+      "src": "({ m(): { a: number } { return { a: 1 }; } });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 46,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 45,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 44,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 42,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "TypeLiteral",
+                          "pos": 7,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "PropertySignature",
+                              "pos": 9,
+                              "end": 19,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "NumberKeyword",
+                                  "pos": 12,
+                                  "end": 19
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 21,
+                          "end": 42,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 23,
+                              "end": 40,
+                              "children": [
+                                {
+                                  "kind": "ObjectLiteralExpression",
+                                  "pos": 30,
+                                  "end": 39,
+                                  "children": [
+                                    {
+                                      "kind": "PropertyAssignment",
+                                      "pos": 32,
+                                      "end": 37,
+                                      "children": [
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 32,
+                                          "end": 34,
+                                          "text": "a"
+                                        },
+                                        {
+                                          "kind": "NumericLiteral",
+                                          "pos": 35,
+                                          "end": 37,
+                                          "text": "1"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ m(): { a: number } {} });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 28,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 27,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 26,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "TypeLiteral",
+                          "pos": 7,
+                          "end": 21,
+                          "children": [
+                            {
+                              "kind": "PropertySignature",
+                              "pos": 9,
+                              "end": 19,
+                              "children": [
+                                {
+                                  "kind": "Identifier",
+                                  "pos": 9,
+                                  "end": 11,
+                                  "text": "a"
+                                },
+                                {
+                                  "kind": "NumberKeyword",
+                                  "pos": 12,
+                                  "end": 19
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 21,
+                          "end": 24
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "({ m(): { a: 1 } | { b: 2 } { return { a: 1 }; } });",
+      "ast": [
+        {
+          "kind": "ExpressionStatement",
+          "pos": 0,
+          "end": 52,
+          "children": [
+            {
+              "kind": "ParenthesizedExpression",
+              "pos": 0,
+              "end": 51,
+              "children": [
+                {
+                  "kind": "ObjectLiteralExpression",
+                  "pos": 1,
+                  "end": 50,
+                  "children": [
+                    {
+                      "kind": "MethodDeclaration",
+                      "pos": 2,
+                      "end": 48,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 4,
+                          "text": "m"
+                        },
+                        {
+                          "kind": "UnionType",
+                          "pos": 7,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "TypeLiteral",
+                              "pos": 7,
+                              "end": 16,
+                              "children": [
+                                {
+                                  "kind": "PropertySignature",
+                                  "pos": 9,
+                                  "end": 14,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 9,
+                                      "end": 11,
+                                      "text": "a"
+                                    },
+                                    {
+                                      "kind": "LiteralType",
+                                      "pos": 12,
+                                      "end": 14,
+                                      "children": [
+                                        {
+                                          "kind": "NumericLiteral",
+                                          "pos": 12,
+                                          "end": 14,
+                                          "text": "1"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "TypeLiteral",
+                              "pos": 18,
+                              "end": 27,
+                              "children": [
+                                {
+                                  "kind": "PropertySignature",
+                                  "pos": 20,
+                                  "end": 25,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 20,
+                                      "end": 22,
+                                      "text": "b"
+                                    },
+                                    {
+                                      "kind": "LiteralType",
+                                      "pos": 23,
+                                      "end": 25,
+                                      "children": [
+                                        {
+                                          "kind": "NumericLiteral",
+                                          "pos": 23,
+                                          "end": 25,
+                                          "text": "2"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Block",
+                          "pos": 27,
+                          "end": 48,
+                          "children": [
+                            {
+                              "kind": "ReturnStatement",
+                              "pos": 29,
+                              "end": 46,
+                              "children": [
+                                {
+                                  "kind": "ObjectLiteralExpression",
+                                  "pos": 36,
+                                  "end": 45,
+                                  "children": [
+                                    {
+                                      "kind": "PropertyAssignment",
+                                      "pos": 38,
+                                      "end": 43,
+                                      "children": [
+                                        {
+                                          "kind": "Identifier",
+                                          "pos": 38,
+                                          "end": 40,
+                                          "text": "a"
+                                        },
+                                        {
+                                          "kind": "NumericLiteral",
+                                          "pos": 41,
+                                          "end": 43,
+                                          "text": "1"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "src": "const o = { m(): { a: number } { return { a: 1 }; } };",
+      "ast": [
+        {
+          "kind": "VariableStatement",
+          "pos": 0,
+          "end": 54,
+          "children": [
+            {
+              "kind": "VariableDeclarationList",
+              "pos": 0,
+              "end": 53,
+              "children": [
+                {
+                  "kind": "VariableDeclaration",
+                  "pos": 5,
+                  "end": 53,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 5,
+                      "end": 7,
+                      "text": "o"
+                    },
+                    {
+                      "kind": "ObjectLiteralExpression",
+                      "pos": 9,
+                      "end": 53,
+                      "children": [
+                        {
+                          "kind": "MethodDeclaration",
+                          "pos": 11,
+                          "end": 51,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 11,
+                              "end": 13,
+                              "text": "m"
+                            },
+                            {
+                              "kind": "TypeLiteral",
+                              "pos": 16,
+                              "end": 30,
+                              "children": [
+                                {
+                                  "kind": "PropertySignature",
+                                  "pos": 18,
+                                  "end": 28,
+                                  "children": [
+                                    {
+                                      "kind": "Identifier",
+                                      "pos": 18,
+                                      "end": 20,
+                                      "text": "a"
+                                    },
+                                    {
+                                      "kind": "NumberKeyword",
+                                      "pos": 21,
+                                      "end": 28
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "kind": "Block",
+                              "pos": 30,
+                              "end": 51,
+                              "children": [
+                                {
+                                  "kind": "ReturnStatement",
+                                  "pos": 32,
+                                  "end": 49,
+                                  "children": [
+                                    {
+                                      "kind": "ObjectLiteralExpression",
+                                      "pos": 39,
+                                      "end": 48,
+                                      "children": [
+                                        {
+                                          "kind": "PropertyAssignment",
+                                          "pos": 41,
+                                          "end": 46,
+                                          "children": [
+                                            {
+                                              "kind": "Identifier",
+                                              "pos": 41,
+                                              "end": 43,
+                                              "text": "a"
+                                            },
+                                            {
+                                              "kind": "NumericLiteral",
+                                              "pos": 44,
+                                              "end": 46,
+                                              "text": "1"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

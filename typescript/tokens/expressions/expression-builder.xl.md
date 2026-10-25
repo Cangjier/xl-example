@@ -95,6 +95,7 @@ import { ImportKeywordShape } from "../keywords/import-keyword-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { TypeParameterShape } from "../types/type-parameter-shape.xl.md"
+import { MemberBoundary } from "../types/member-boundary.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
 import { ExpressionWithTypeArgumentsShape } from "./expression-with-type-arguments-shape.xl.md"
 import { TypeAssertionExpressionShape } from "./type-assertion-expression-shape.xl.md"
@@ -1604,25 +1605,33 @@ while (inner.At < inner.Units.length) {
     if (colonUnit !== null && inner.IsText(colonUnit, ":")) {
       inner.At++;
       const typeStart = inner.At;
-      while (inner.At < inner.Units.length && !inner.IsBracketStart(inner.Units[inner.At], "{")) {
-        inner.At++;
-      }
-      const typeUnits:Array<Token> = inner.Units.slice(typeStart, inner.At);
-      if (typeUnits.length === 0) {
+      // 返回类型可能**以 `{` 开头**（`m(): { a: number } { … }`）：先截到「下一个成员起点」为止，
+      // 再把这一段交给类型解析器。旧口径「扫到第一个 `{` 就当函数体」会把类型字面量本身当成体，
+      // 于是类型段为空。与 class-declaration-shape.xl.md 的类方法同一条流程
+      //（MemberBoundary.FindMemberBoundary + TypeBuilder.LoadFrom + ParseReturnType）。
+      const typeBoundary = MemberBoundary.FindMemberBoundary(inner.Units, typeStart);
+      if (typeStart >= typeBoundary) {
         throw new Error("方法的返回类型为空");
       }
       const typeBuilder = new TypeBuilder(this.Template, this.Context);
-      typeBuilder.Load(typeUnits, inner.Positions[typeStart]);
+      typeBuilder.LoadFrom(inner.Units, typeStart, typeBoundary, inner.Positions[typeStart]);
       // Return types of object literal methods can be type predicates (`x is A`,
       // `asserts x is A`), same as class methods and function types: route through
       // ParseReturnType so the predicate becomes a TypePredicate node like TS.
       returnType = typeBuilder.ParseReturnType();
-      if (typeBuilder.At !== typeBuilder.Units.length) {
-        throw new Error("方法的返回类型没有读完");
-      }
+      // LoadFrom 把 `>>` / `>>>` 拆成虚拟单元，At 是虚拟编号：用 OriginalConsumed() 折回原单元数
+      //（与 class-declaration-shape.xl.md:1256-1286 的映射循环同口径：`>>` 一格按字符数折回，
+      // 同时跳过 trivia——本层的 Units 已去过 trivia，两法在此逐格等价）。
+      inner.At = typeStart + typeBuilder.OriginalConsumed();
     }
+    // 体判定的口径与类方法一致：`{` 且 TypeBuilder.IsBodyBrace 才是函数体。
+    // 返回类型里的对象字面量（`{ a: 1 }` / `{ a: 1 } | { b: 2 }`）在前一个单元能收住类型时
+    // 不会被误判成体；`{ new (a: number): I }` 这类无体签名仍走下面的签名分支。
     const bodyUnit = inner.Peek(0);
-    if (bodyUnit === null || !inner.IsBracketStart(bodyUnit, "{")) {
+    if (bodyUnit === null
+      || !(bodyUnit instanceof Bracket)
+      || (bodyUnit as Bracket).StartBracketChar !== "{"
+      || !TypeBuilder.IsBodyBrace(inner.Units, inner.At)) {
       // 值位对象字面量里**不带体**的方法签名（`{ new (a: number): I }`）：TS 仍然产出
       // MethodDeclaration —— 名字就是 `new`、形参表与返回类型照收，没有 Block 子节点。
       const signature = new MethodDeclarationShape(this.Template);
