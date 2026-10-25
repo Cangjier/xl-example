@@ -915,8 +915,9 @@ const CASES = [
   //   A6 = **精确值档**（R6-Q2）：`a6ExpectStmtLoads` + `a6ExpectExprLoads` 同时给出即启用；
   //   `stmtLoads === N && exprOtherDirect + exprLegacy === M`，**不等即红**（--expect-direct 下 FAIL，不是 SKIP）。
   //   数字来源：R6-CONTRACT §2.1（class 的成员体 wrapper / 空体再 +1）、§2.2（namespace 体语句 ×1 + 1）。
-  //   标 **[推断]** 的 10 条 `export <声明>` / `export default <expr>` 形态尚无实测（装配层 DirectExportAssembly 未实现），
-  //   按 R6-TARGET-CASES §2.3 的推断值落盘，**实现期按实测钉正**（R6-CONTRACT §5.1 的「实现期钉」）。
+  //   原先标 **[推断]** 的 10 条 `export <声明>` / `export default <expr>` 形态，**已按 class+module 合入树实测钉正**
+  //   （R6-MOD §2 + R6 实测：pos-11/12 = 0/0、pos-13/19 = built 1 + stmtLoads 2、pos-14..18/20 = 0/0；
+  //   见 REPORT-r6-verify-fix7）。数字为硬断言，--expect-direct 下不等即红。
   //   markers = 新会话 / 新装配的类名（build/ts 里没有它们 ⇒ IMPLEMENTATION-ABSENT，而不是「实现错了」）。
   //   R6 无新增 invalid / incomplete；`--expect-direct` 未开时 R6 组只报读数（IMPLEMENTATION-ABSENT 不崩）。
 
@@ -1061,44 +1062,47 @@ const CASES = [
     note: "NamespaceExport[*, as, Identifier ns]",
     markers: ["ModuleFamilyDirectSession"] },
   { id: "R6-MOD-pos-11", src: "export const x = 1;", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 1,
-    note: "**[推断]** 变量声明（R1 直建）+ 前插 ExportKeyword ⇒ 0/1（旧路径 1/1）；实现期按 DirectExportAssembly 实测钉正",
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "**实测钉正**：变量声明（R1 直建）+ 前插 ExportKeyword ⇒ 0/0" +
+      "（初始化器走 DirectExpressionEngine，**不计 A6**；旧路径才是 1/1）",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly"] },
   { id: "R6-MOD-pos-12", src: "export let y = 2;", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 1,
-    note: "**[推断]** 同 pos-11（`let` 同为变量声明 + ExportKeyword）",
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "**实测钉正**：同 pos-11（`let` 同为变量声明 + ExportKeyword，初始化器走引擎）⇒ 0/0",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly"] },
-  { id: "R6-MOD-pos-13", src: "export function f() {}", expect: "pos", expectInsert: false, expectBuilt: 2,
-    a6ExpectStmtLoads: 1, a6ExpectExprLoads: 0,
-    note: "**[推断]** 函数（R3 直建）+ ExportKeyword；空体函数体 wrapper 1（R3 口径已如此）",
+  { id: "R6-MOD-pos-13", src: "export function f() {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "**实测钉正**：空体函数的体 wrapper 2（BuildBlock + 空体再 1）⇒ stmtLoads=2；" +
+      "体内块**不计** StatementsBuilt ⇒ built=1（不是 2）",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly"] },
   { id: "R6-MOD-pos-14", src: "export interface X { a: number; }", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "**[推断]** 声明族（R5 直建）+ ExportKeyword ⇒ 应全 0（成员类型走 TypeBuilder）",
+    note: "**实测**：声明族（R5 直建）+ ExportKeyword ⇒ 全 0（成员类型走 TypeBuilder）",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly"] },
   { id: "R6-MOD-pos-15", src: "export type T = A;", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "**[推断]** 同上（type alias + ExportKeyword）",
+    note: "**实测**：同上（type alias + ExportKeyword）",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly"] },
   { id: "R6-MOD-pos-16", src: "export class C { m() {} }", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
-    note: "**[推断]** class（R6 D1）+ ExportKeyword；`m() {}` 空体 ⇒ 2/0",
+    note: "**实测（class 合入后复跑确认）**：class（R6 D1）+ ExportKeyword；`m() {}` 空体 ⇒ built=1、2/0",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly", "ClassDeclarationDirectSession"] },
   { id: "R6-MOD-pos-17", src: "export default class C {}", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "**[推断]** ClassDeclarationShape.BuildFromCode **自带** export/default 修饰词循环 ⇒ 零装配 0/0",
+    note: "**实测**：ClassDeclarationShape.BuildFromCode **自带** export/default 修饰词循环 ⇒ 零装配 0/0",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly", "ClassDeclarationDirectSession"] },
   { id: "R6-MOD-pos-18", src: "export default class {}", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "**[推断]** 无名：HasNoName ⇒ allowAnonymous=true（R6-CONTRACT §4.1 第 3 条）",
+    note: "**实测**：无名：HasNoName ⇒ allowAnonymous=true（R6-CONTRACT §4.1 第 3 条）",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly", "ClassDeclarationDirectSession"] },
-  { id: "R6-MOD-pos-19", src: "export default function f() {}", expect: "pos", expectInsert: false, expectBuilt: 2,
-    a6ExpectStmtLoads: 1, a6ExpectExprLoads: 0,
-    note: "**[推断]** FunctionDeclarationShape.FromUnits 不自带 export/default ⇒ 需装配（与 pos-17 的差别）",
+  { id: "R6-MOD-pos-19", src: "export default function f() {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
+    note: "**实测钉正**：FunctionDeclarationShape.FromUnits 不自带 export/default ⇒ 需装配（与 pos-17 的差别）；" +
+      "空体体 wrapper 2 ⇒ stmtLoads=2、built=1（同 pos-13）",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly"] },
   { id: "R6-MOD-pos-20", src: "export default 1;", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "**[推断]** ExportAssignment[ExportKeyword, DefaultKeyword, 1]：表达式走**引擎**（DirectStatementAssembly.ExpressionOf）⇒ exprOther=0",
+    note: "**实测**：ExportAssignment[ExportKeyword, DefaultKeyword, 1]：表达式走**引擎**（DirectStatementAssembly.ExpressionOf）⇒ exprOther=0",
     markers: ["ModuleFamilyDirectSession", "DirectExportAssembly"] },
   { id: "R6-MOD-pos-21", src: "namespace N {}", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 1, a6ExpectExprLoads: 0,
