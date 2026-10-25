@@ -154,8 +154,6 @@ r3 已修的两处：`ExpressionEndCode` 的判界基准从 code-only 数组改�
 ## static field LastFileFallback:bool = false
 
 最近一次 `SourceFileRunner.Parse` 是否走了兜底；Parse 入口先重置，兜底成功后置 true。
-## static field EnableShellStatements:int = 0
-
 ## static field EnableBlockBodyCatalog:bool = true
 
 块体语句目录开关（Stage 4a 接入，Stage 4b 落地收集通道，**r2 起默认打开**）。`true` = 把变量声明与普通表达式两类语句候选挂到块体 `{` 括号上，块内语句由 possible 增量建 `StatementShape` 形状；收口时 `StatementBuilder.BuildBlock()` 调

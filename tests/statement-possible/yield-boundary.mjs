@@ -19,7 +19,11 @@
 //      `yield` 族在终结候选路径（`StatementEndPossibleShape.ComputeByIndex` / `.BuildByIndex`）与
 //      `StatementShape.TryToClose` 上必须 0 次调用；残余只允许是 legacy 根候选自己的调用
 //      （`StatementPossibleShape.ComputeByIndex`，不在本轮允许修改的文件里）。
-//   5. 正对照：块内 `class` 声明体壳仍应由 `ScanRoot` 判界（必须 > 0 次），证明计数器不是空转。
+//   5. 正对照：**默认态 0 次、legacy 态 > 0 次**。5d-7 起块内 `class` 声明体壳的判界已迁出
+//      `ScanRoot`（`root-retirement.mjs` 的「默认态全语料 6300 用例 0 次 `ScanRoot`」是同一件事实的
+//      正面取证），所以正对照改成两条断言：默认态必须 0（与迁移结论一致），两条 legacy 开关关掉之后的
+//      legacy 态必须 > 0（证明计数器本身不是空转）。5d-10b 之前它只断言「默认态 > 0」，5d-5 起
+//      默认态归零后这条前提已经过期。
 //
 // 归族判据刻意**不复用** `StatementBoundaryUtil.IsYieldFamilyCode`：反事实实验会把它中和，
 // 若探针用它归族，中和之后读数会一起消失、探针照样全绿。这里只按「首单元文本 `yield`」独立判族；
@@ -241,7 +245,8 @@ let passed = 0;
 for (const item of CASES) {
   const problems = [];
 
-  // 1) legacy 基线 XML（两条开关都关）。
+  // 1) legacy 基线 XML（两条开关都关）。这里只取 XML；「计数器不是空转」的正对照证据改读
+  //    `ParseCore(..., false)`（纯 legacy 目录）——见下面 control 分支，理由写在那里。
   R.EnableShellExpressions = false;
   R.EnableDeclarationShell = false;
   let legacyXml = null;
@@ -299,8 +304,25 @@ for (const item of CASES) {
       }
     }
   }
-  if (item.control && counts.endPath <= 0) {
-    problems.push(`正对照在终结候选路径上 ${counts.endPath} 次 ScanRoot 调用（期望 > 0）`);
+  if (item.control) {
+    // 正对照（5d-10b 起的语义）：默认态**必须 0 次**——5d-5/5d-7 已把根 legacy 候选与块内
+    // `class` 壳的判界全部迁出 `ScanRoot`（`root-retirement.mjs` 的「默认态全语料 6300 用例 0 次」
+    // 是同一件事实的正面取证）。「计数器不是空转」改由 **false 态**证明：`ParseCore(..., false)`
+    // 挂的是纯 legacy 目录（根候选在原第 4 位），那条路径上 `ScanRoot` 必须 > 0。
+    if (counts.endPath !== 0) {
+      problems.push(`正对照在默认态终结候选路径上 ${counts.endPath} 次 ScanRoot 调用（期望 0：5d-7 起块内 class 壳不读 ScanRoot）`);
+    }
+    const legacyCounts = withScanCounter(() => {
+      try {
+        SourceFileRunner.ParseCore(item.source, "case.ts", false);
+      } catch (error) {
+        problems.push(`正对照的 false 态解析抛错：${describeError(error)}`);
+      }
+      return { total: scanCounts.total, endPath: scanCounts.endPath };
+    });
+    if (legacyCounts.total <= 0) {
+      problems.push(`正对照在 false 态（ParseCore shell=false）ScanRoot 调用 ${legacyCounts.total} 次（期望 > 0：计数器必须不是空转）`);
+    }
   }
 
   if (shape !== null) {

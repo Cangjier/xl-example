@@ -247,6 +247,16 @@ if (state.Checked !== tokenIndex + 1) {
   } else {
     state.End = -1;
   }
+  // **Stage 5d-10b：声明词与名字之间换行 ⇒ 不是声明**（TS 的
+  // `nextTokenIsOnSameLineAndCanFollowModifier`）：`module` ⏎ `M = 1;` / `namespace` ⏎ `N = 1;`
+  // 在 TS 里是两条 ExpressionStatement。判据与路由 / `DeclinesDeclarationHead` **同一份**
+  // （`type` / `module` / `namespace` + 名字换行），不新写第二套；本候选必须在这里退出，
+  // 否则它会在名字那一格与根终结候选同时 Accept（`CatalogGuide: 终结候选与其它候选同时成立`）。
+  // 与上面 `declare` ⏎ `namespace` 那条是同一族（都是「修饰词 / 声明词与后继之间的换行」）。
+  if (StatementRouteUtil.DeclinesDeclarationHead(units)) {
+    state.Status = 2;
+    state.End = -1;
+  }
   state.Checked = tokenIndex + 1;
 }
 if (state.Status === 2) {
