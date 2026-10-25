@@ -258,6 +258,28 @@ node tests/statement-possible/legacy-retirement.mjs --legacy-only   # 底座，�
 - **风险**：把表达式族的边界规则误用到标签 / 受限产生式（`yield`、`throw` ⏎ `a`、`debugger` ⏎ `a`）——
   靠 `tests/statement-possible/gap-*`、`harness --all` 的 102 条与逐构造行兜住；`IsAsiBoundary` 函数体不得改。
 
+### 4.1b —— 5d-1b2：语句壳收口建树所有权迁到 possible 层（**已完成**）
+
+- **目标**：`StatementShape.BuildFromShell` 的 `built === null` 分支不再直接调 `StatementBuilder.BuildStatement()`，
+  改由 possible 层的 `StatementFamilyDispatch`（`typescript/tokens/statements/statement-family-dispatch.xl.md`）
+  **按壳 `Kind` 与首代码单元**直接调用建造器的 family 方法（`BuildBlock` / `BuildIf` / `BuildVariableStatement` /
+  `BuildInterfaceDeclaration` / `BuildExportStatement` …，与 legacy 分派是同一批工厂方法）。
+  `BuildStatement()` 只保留给两处：**ambient 变量语句**（`declare const|let|var|using`）与**未建壳的语句**
+  （根 legacy 候选 / 文件级 fallback）。
+- **指标读数**（`tests/statement-possible/legacy-retirement.mjs`，同一语料 6300 用例）：
+  `LegacyStatementDispatchCount` **4471 → 78**（−4393，−98.3%）；`ScanRootCallCount` **22467（不变）**、
+  `RawTailBuildCount` **292（不变）**、`ShapeAstDeclinedCount` **328（不变）**、`FileFallbackCount` **50（不变）**。
+  逐构造 42 条全部 `legacy = 0`（5d-1a 基线里 31 条为 1、`break-continue` 3、`switch` 4、`multi-statement-body` 3）。
+- **剩余 78 的构成（全部同一形态）**：`declare const|let|var` 的 **ambient 变量语句**——它要在建造器内部
+  `At++`、建变量语句、把 `DeclareKeywordShape` 插回 `Data` 最前、把 `Pos` 倒回 `declare` 起点，属于
+  建造器内部状态改写（`Positions` / `Data` 的直接改写），本阶段刻意不搬。分布：69 个用例
+  （66 个整文件用例 + 12 条 `typescript/cases` 逐行用例；`--top` 可逐个查）。
+- **全门零回归**：`ast-json 6171/6171`、`ast-json-diff 0/0/0`、`token-ast 1706/0`、`real-dts 226/226`、
+  `harness --all 102/0/known=0`、`--double-accept 120/0`、`declaration-statement-takeover 33/33`、
+  `final-matrix 38/38`、`validate 1720/0`、`op-ast-proof 94/94`、`short-family-boundary 44/44`、`ast-kind-names PASS`。
+- **回退**：`git revert` 该 commit 即可（新增一个文件 + `statement-shape.xl.md` 的一处分支）；
+  判据实现（`StatementScanner` / `StatementBoundaryUtil` / `BuildStatement`）一字未动。
+
 ### 4.2 5d-2 —— bracket-chain 族判界
 
 - **目标**：控制流族（`if` / `else` / `while` / `do` / `for` / `for-in` / `for-of` / `switch` / `try` / `with` / 块 / 标签体）
@@ -343,6 +365,7 @@ node tests/statement-possible/legacy-retirement.mjs --legacy-only   # 底座，�
 | --- | --- | --- | --- | --- | --- |
 | 基线（b5f844ae） | 4471 | 32414 | 292 | 328 | 50 |
 | 5d-1b 短族判界 | ≤4471 | ≤32414（短族逐构造行回到底座） | ≤292 | ≤328 | ≤50 |
+| 5d-1b2 建树所有权转移（已完成） | **78** | **22467**（不变） | 292（不变） | 328（不变） | 50（不变） |
 | 5d-2 bracket-chain 判界 | ≤4471 | **严格下降**（控制流族逐构造行 ≤1） | ≤292 | ≤328 | ≤50 |
 | 5d-3 声明族自建树 | ≤2102 | ≤5d-2 读数 | ≤292 | ≤328 | ≤50 |
 | 5d-4 raw 尾巴 + 控制流形状 | 0 | ≤5d-3 读数 | **0** | **0** | **0** |
