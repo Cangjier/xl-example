@@ -145,7 +145,8 @@ if (state.Checked !== tokenIndex + 1) {
     // 只在「当前单元本身是代码」时判界（legacy 的 `IsAsiBoundary(host.Data, tokenIndex)` 同一口径）：
     // trivia 到达时 `Code` 的末单元是**上一条**代码单元，拿它当「新语句起点」会判出假的 ASI 边界。
     if (!units[tokenIndex].IsTriviaToken) {
-      const end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt, StatementScanner.AtEOF);
+      const end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt, StatementScanner.AtEOF,
+        this.StatementKind === StatementRoute.ShellDeclarationFamily);
       if (end >= 0 && end <= tokenIndex) {
         state.End = end;
         state.Status = 1;
@@ -170,7 +171,7 @@ if (state.End >= 0) {
 return ShapeStates.Uncertain;
 ```
 
-## static method ExpressionEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool)=>int
+## static method ExpressionEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, declarationShell?:bool)=>int
 
 表达式语句族的收口位置：返回**壳 `Data` 的下标**（与 `StatementScanner` 的 `End` / `CodeAt` 折算同一基准），
 `-1` = 还不能收口。判据只有 `StatementBoundaryUtil` 一份（`;` / ASI 两条），不在这里写第二套 ASI。
@@ -202,6 +203,17 @@ if (StatementBoundaryUtil.IsSemicolon(units[lastAt])) {
   return lastAt;
 }
 if (StatementBoundaryUtil.IsAsiBoundary(units, lastAt)) {
+  if (codeAt.length === 1) {
+    return -1;
+  }
+  return codeAt[codeAt.length - 2];
+}
+// Stage 4ab：声明壳的收口。`IsAsiBoundary` 的条件 5 对声明开头的条目一律返回 false，
+// 所以 `interface I { }` ⏎ `const a`、`type T = A` ⏎ `return`、`enum E { A }` ⏎ `export { … }`
+// 这些「上一条声明已完整、下一条语句已到」的换行永远判不出边界 —— 壳会把下一条语句一起吞进去，
+// `BuildFromShell` 读到两条语句抛错 → `DetachShell` 退成 raw（decl=2/3、CJ 首节点 Common 的根因）。
+// 这里补一条只属于声明壳的判据：当前单元是**能起一条新语句的单词**、且换行之前那段已经完整。
+if (declarationShell === true && StatementBoundaryUtil.IsDeclarationFollowBoundary(units, lastAt)) {
   if (codeAt.length === 1) {
     return -1;
   }
@@ -271,7 +283,8 @@ if (current instanceof EndOfFileTokenShape) {
   if (this.StatementKind === StatementRoute.ShellPlainExpression
     || this.StatementKind === StatementRoute.ShellDeclarationFamily) {
     // 直接给壳 `Data` 下标（与 `ComputeByIndex` 同一基准），不再二次折算。
-    const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF);
+    const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF,
+      this.StatementKind === StatementRoute.ShellDeclarationFamily);
     if (end >= 0 && end <= tokenIndex) {
       endIndex = end;
     }

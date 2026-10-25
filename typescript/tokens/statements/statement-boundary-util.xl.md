@@ -9,6 +9,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 ```
 
@@ -317,6 +318,57 @@ return StatementBoundaryUtil.IsSemicolon(units[tokenIndex])
   || StatementBoundaryUtil.IsEof(tokenIndex, units)
   || StatementBoundaryUtil.IsAsiBoundary(units, tokenIndex);
 ```
+## static method IsDeclarationFollowBoundary:(units:Array<Token>, tokenIndex:int)=>bool
+
+**声明壳的「下一条语句已到」边界**（Stage 4ab）：`IsAsiBoundary` 的条件 5 对以声明关键字开头的条目
+一律返回 `false`（`class C` ⏎ `{}` 的 `{` 是声明头的一部分，那里不存在「上一条表达式」）。
+声明壳因此永远收不了口：`interface I { }` ⏎ `const a = 1;` 的 `const` 到达时，壳把下一条语句也吞进去，
+最后 `BuildFromShell` 读到两条语句抛错 → `DetachShell` 整段退回 raw（decl=2 / 首节点 `Common` 的根因）。
+
+本方法只回答**声明壳**的收口：当前代码单元是一个**能起一条新语句的单词**，且换行之前那一段已经完整。
+它与 `IsAsiBoundary` 的分工是「收口对象不同」，不是第二份 ASI：
+换行、可收尾、非延续三条仍旧读 `ExpressionStatementPossibleShape` 的同一批判据；
+条件 5 只在 `IsAsiBoundary` 里保留（本方法不调用它，也不改它）。
+
+```ts
+if (tokenIndex < 1 || tokenIndex >= units.length) {
+  return false;
+}
+const current = units[tokenIndex];
+if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
+  return false;
+}
+if (current instanceof Symbol && (current as Symbol).Is(";")) {
+  return false;
+}
+// 只认单词起点：`{` / `<` / `=` / `(` 等符号既可能是声明内部构件，也可能是续接，一律不算。
+if (!(current instanceof Common)) {
+  return false;
+}
+const text = (current as Common).TempToString();
+if (!StatementRouteUtil.IsLegacyKeyword(text)
+  && text !== "let" && text !== "const" && text !== "var") {
+  return false;
+}
+let prev = tokenIndex - 1;
+while (prev >= 0 && units[prev].IsTriviaToken) {
+  prev--;
+}
+if (prev < 0) {
+  return false;
+}
+// 换行判据与 `IsAsiBoundary` 同一份（`HasLineBreakBefore` 按源位置找，块体 units 不带 trivia）。
+if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+  return false;
+}
+// 声明体的收尾是闭合的 `{…}`（interface / enum / namespace / module / export {…}）：
+// `CanEndExpression` 分不清 `{` 与裸块、统一按 false 处理，这里按「已闭合」计入。
+if (units[prev] instanceof Bracket && (units[prev] as Bracket).StartBracketChar === "{") {
+  return true;
+}
+return ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev);
+```
+
 ## static method IsLateAtEof:(units:Array<Token>, tokenIndex:int)=>bool
 
 **晚建守卫的 EOF 半边**（Stage 4x）：从 `statement-possible-shape` 的 `declaration-statement-possible-shape`
