@@ -60,6 +60,13 @@ DirectBuildMetrics.Traces.length = 0;
 //           **stmt.case**（R4-B3-b：`case` 子句形态超出闭集）/ **stmt.binding**（R4-B3：解构绑定）/
 //           **stmt.type**（R4-B3：注解 / 确定赋值 `!`）/ **stmt.expr**（R4-B3：子句表达式引擎 Decline）/
 //           **stmt.shape**（R4-B3：形状组装失败）/ stmt.label / stmt.func / stmt.body / stmt.nested
+//   声明族  decl.head / **decl.class** / **decl.enum** / **decl.shape** / **decl.coverage**（R5-D2，
+//           每条都有负例，R5-CONTRACT §4.9）：
+//             decl.head     —— 声明族里不做建的族头（namespace / module / import / export / declare / using）⇒ DC-neg-04/05
+//             decl.class    —— class 声明（kind 9）/ 装饰器声明（kind 10），建树归 R6 ⇒ DC-neg-02/04
+//             decl.enum     —— enum 成员带初始值（会拉 ExpressionBuilder）⇒ DC-neg-01
+//             decl.shape    —— `FromUnits` 抛错 / 形态不完整（无独立 case，形状失败即这里）
+//             decl.coverage —— 建出的声明区间与壳的区间不一致（无独立 case，同 var.coverage 口径）
 // 空串兜底成 `unknown`，不抛错（新增 category 必须先改 CONTRACT 那张表）。
 const key = category === "" ? "unknown" : category;
 const old = DirectBuildMetrics.DeclineReasons.get(key);
