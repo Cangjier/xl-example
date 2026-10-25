@@ -728,7 +728,7 @@ node tests/direct-build/target-cases.mjs --strict --strict-all --expect-direct -
 | 检查 | 读数 |
 | --- | --- |
 | `xl_build` | `552 written, 0 error(s), 3 warning(s)`（warning 全是既有 E1107） |
-| `tsc` | exit 0（`build/ts` = 552 个 `.js`） |
+| `tsc` | exit 0（干净 clone `build/ts` = 552 个 `.js`；主仓库 907，见 §12 末条） |
 | `--group=r1` | `CASES=10 FAILED=0`；`builtCases=10/10 loads=0` |
 | `--group=r2` | `CASES=50 FAILED=0`；`builtCases=33/50 loads=64` |
 | `--group=r3` | `CASES=32 FAILED=0`；`CASES-SELECTED: 32/92`；`GROUPS: B1=15 B2=11 D7=4 S=2`；`ASSERT: A1…A12 全 PASS`；`builtCases=25/32 loads=32`；`DECLINE-STATS: total=9 categories=4` |
@@ -796,8 +796,10 @@ R3 的语句级 trace 会长出 `control ingest head: if` / `control built: if u
   比较链），B1/B2 开关前后完全一致，是 R1/R2 表达式层的既有差异，**不是 R3 引入**，不在 92 条内（R4 观察项）。
 - **表达式语句跨行 ASI `a⏎b` / `2⏎3` 仍是已知限制**：session 显式 Decline、旧路径 Detach 恢复、AST 仍 MATCH；
   按 R2-D4 保持（目标 case `R2-C2-01` 记 neg）。详见 `docs/direct-candidate-pipeline.md` §14.4。
-- **`build/ts` 的 0 字节孤儿**：干净克隆首次构建 **552** 个 `.js`（没有那个文件）；主仓库累积目录仍多一个 0 字节
-  `typescript/run/statement-block-stream.js`，无任何引用、未清理。
+- **`build/ts` 的 552 与主仓库 907**：干净克隆首次构建 **552** 个 `.js`（552 个 `.xl.md` → 552 个 `.ts`）；
+  主仓库 `dist/ts` 还残留 **354** 个孤儿 `.ts`（`xl_orphans` 报 354，对应源已删除），所以 `build/ts` 实测
+  **907** 个 `.js` = 906 个由现存源编译 + 1 个无引用、未清理的 0 字节
+  `typescript/run/statement-block-stream.js`。不影响读数。
 
 ---
 

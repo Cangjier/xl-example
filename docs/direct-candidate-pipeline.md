@@ -799,7 +799,7 @@ R3 的 32 条 = **B1 15**（pos 12 / neg 3）+ **B2 11**（pos 7 / neg 4）+ **D
 | D7 | `let x = a⏎++b` / `let x = a + b⏎++c` / `let x = a⏎!b`（pos，**`noBaseline: true`**）/ `let x = a⏎+ b`（guard，`built=1`，A10 照比） |
 | S | `let {a} = b`（`var.binding`）/ `f(...a)`（`expr.decline`）——`strictAll: true`，在 `--strict` 下解析，A12 判 |
 
-### 9.2 实测读数（本克隆 `b964fdb8` + 552 个 `build/ts/*.js`，2026-10-26）
+### 9.2 实测读数（本克隆 `b964fdb8` + 552 个 `build/ts/*.js`；主仓库因 `dist/` 残留为 907，见 §11-11，2026-10-26）
 
 | 命令 | 读数 | exit |
 | --- | --- | --- |
@@ -938,8 +938,10 @@ R3 只追加 `A12:`、`EXPECT-BODY-BUILT:` 两类行与 `CATEGORY:` 的 `guard` 
 8. **`++a++` / `a++++`**：按 TS 结构建 `Prefix(Postfix(...))` / `Postfix(Postfix(...))`，没有按「非法输入」Decline。
 9. **范围外语句族内部**仍可能出现被直建的内层语句（`switch (a) { case 1: b; }` 实测 `built=1`），这是预期。
 10. **session 不判边界**：`let x = 1 2` 这类同一行无法接续的输入会 Decline 并回旧路径。
-11. **`build/ts` 的历史 0 字节孤儿**：干净克隆首次构建 **552** 个 `.js`（没有那个文件）；主仓库因历史累积仍多一个
-    0 字节 `typescript/run/statement-block-stream.js`，未清理、不影响读数。
+11. **`build/ts` 的 552 与主仓库 907**：干净克隆首次构建 **552** 个 `.js`（552 个 `.xl.md` → 552 个 `.ts`）；
+    主仓库的 `dist/ts` 因历史删除的 `*-possible-shape.xl.md` 仍残留 **354** 个孤儿 `.ts`（`xl_orphans` 报 354），
+    所以 `build/ts` 实测 **907** 个 `.js` = 906 个由现存源编译 + 1 个未清理的 0 字节
+    `typescript/run/statement-block-stream.js`。均不影响读数。
 12. **`--strict-all` 必须与 `--strict` 联用，且现状有 2 条已知红（R4）**：单独 `--strict-all` 是 **no-op**
     （打印 `strict=off strict-all=on`、`CASES=92 FAILED=0`，不能当证据）；两条一起给时 `R2-INC-01`（`a +`）/
     `R2-INC-02`（`a as`）A4/A12 红（`parse=THREW`、`errors=1`）——根因是 `root-expression-statement-possible-shape`
