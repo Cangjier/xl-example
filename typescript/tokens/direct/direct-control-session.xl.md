@@ -17,6 +17,7 @@ import { DebuggerStatementShape } from "../statements/debugger-statement-shape.x
 import { DefaultClauseShape } from "../members/default-clause-shape.xl.md"
 import { DoStatementShape } from "../statements/do-statement-shape.xl.md"
 import { EmptyStatementShape } from "../statements/empty-statement-shape.xl.md"
+import { AwaitExpressionShape } from "../expressions/await-expression-shape.xl.md"
 import { ExpressionStatementShape } from "../statements/expression-statement-shape.xl.md"
 import { ForInStatementShape } from "../statements/for-in-statement-shape.xl.md"
 import { ForOfStatementShape } from "../statements/for-of-statement-shape.xl.md"
@@ -32,6 +33,9 @@ import { TryStatementShape } from "../statements/try-statement-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 import { WhileStatementShape } from "../statements/while-statement-shape.xl.md"
 import { WithStatementShape } from "../statements/with-statement-shape.xl.md"
+import { YieldExpressionShape } from "../expressions/yield-expression-shape.xl.md"
+import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
+import { AwaitKeywordShape } from "../keywords/await-keyword-shape.xl.md"
 import { DirectSession } from "./direct-build-session.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 import { DirectDeclarationAssembly } from "./direct-declaration-assembly.xl.md"
@@ -60,6 +64,7 @@ if (a) b;                  -> IfStatementShape[condition, ExpressionStatement]�
 do { b; } while (a);       -> DoStatementShape[Block, condition]，end 含 `;`
 for (i = 0; i < n; i++)    -> ForStatementShape[init, cond, incr, body]
 for (k in o) / for (v of xs) -> ForIn/ForOfStatementShape[binding, collection, body]
+for await (const x of xs)  -> ForOfStatementShape[AwaitKeyword, binding, collection, body]（R5-D3-c）
 for (let i = 0; …)         -> ForStatementShape[list, cond, incr, body]（R4-B3-g，DirectDeclarationAssembly）
 try {…} catch (e) {…} finally {…} -> TryStatementShape[Block, CatchClause?, Block]（R4-B3-a）
 switch (a) { case 1: b; }  -> SwitchStatementShape[condition, CaseBlock]（R4-B3-b）
@@ -67,6 +72,8 @@ with (a) b;                -> WithStatementShape[condition, body]（R4-B3-c）
 debugger;                  -> DebuggerStatementShape（R4-B3-d）
 lbl: …                     -> LabeledStatementShape[Identifier, statement]（R4-B3-e，Kind=ShellLabel）
 break lbl; / continue lbl; -> Break/ContinueStatementShape[Identifier]（R4-B3-f）
+yield 1; / yield* a;       -> ExpressionStatementShape[YieldExpression(…)]（R5-D3-a）
+await g(); / await g() + 1;-> ExpressionStatementShape[AwaitExpression(…) | BinaryExpression(…)]（R5-D3-a）
 ```
 
 ## static field ExpectHead:int = 0
@@ -105,7 +112,7 @@ break lbl; / continue lbl; -> Break/ContinueStatementShape[Identifier]（R4-B3-f
 
 ## field FirstCodeAt:int = -1
 
-## static field AcceptedHeads:Array<string> = [";", "if", "while", "do", "for", "return", "throw", "break", "continue", "try", "switch", "with", "debugger"]
+## static field AcceptedHeads:Array<string> = [";", "if", "while", "do", "for", "return", "throw", "break", "continue", "try", "switch", "with", "debugger", "yield", "await"]
 
 ## constructor:(template:Template, context:SyntaxContext, basePos:int, owner:Token)=>void
 
@@ -357,6 +364,15 @@ if (text === "debugger") {
 if (text === "return" || text === "throw") {
   return this.BuildReturnThrow(code, codeAt, from, toExclusive, text === "throw");
 }
+// R5-D3-a：`yield` / `await` 语句（壳 = `YieldStatementPossibleShape` / `AwaitStatementPossibleShape`，
+// R5-A3 的两行 `Attach` 把它们送到本 session）。`yield` 建 YieldExpression（`*` 是子节点），
+// `await` 的**整条尾段**交给引擎的 `await` 前缀分支（优先级 `(await g()) + 1` 由引擎保证，§4.6-A）。
+if (text === "yield") {
+  return this.BuildYield(code, codeAt, from, toExclusive);
+}
+if (text === "await") {
+  return this.BuildAwait(code, codeAt, from, toExclusive);
+}
 if (text === "break" || text === "continue") {
   return this.BuildBreakContinue(code, codeAt, from, toExclusive, text === "continue");
 }
@@ -577,12 +593,26 @@ if (from + 2 >= toExclusive) {
   this.Decline("for 缺头部或语句体", "stmt.shape");
   return null;
 }
-const header = code[from + 1];
+// R5-D3-c：`for await ( … )`。`await` 是 `for` 与头部括号之间的一个单元（tsc 实测
+// `ForOfStatement[AwaitKeyword(3,9), …]`：`AwaitKeyword.Pos` = `for` 的 EndIndex、区间 = `await` 自己）。
+// 只有 `for await` 的 in/of 形态合法（`for await (;;)` 在 TS 里是语法错误）⇒ 头部带分号数 != 0 时 Decline。
+let keywordAt = from + 1;
+let awaitUnit:Token | null = null;
+if (this.IsText(code[keywordAt], "await")) {
+  awaitUnit = code[keywordAt];
+  keywordAt = keywordAt + 1;
+  if (keywordAt >= toExclusive) {
+    this.Decline("for await 缺少头部括号", "stmt.shape");
+    return null;
+  }
+}
+const header = code[keywordAt];
 if (!this.IsOpenParen(header)) {
   this.Decline("for 缺少头部括号", "stmt.shape");
   return null;
 }
 const bracket = header as Bracket;
+const bodyFrom = keywordAt + 1;
 const inner = bracket.Data;
 const innerCodeAt = DirectStatementAssembly.CodeAt(inner);
 const innerCode:Array<Token> = [];
@@ -590,7 +620,7 @@ for (const dataIndex of innerCodeAt) {
   innerCode.push(inner[dataIndex]);
 }
 const declarationHead = innerCode.length > 0 && this.IsDeclarationKeyword(innerCode[0]);
-if (innerCode.length > 0 && this.IsText(innerCode[0], "await")) {
+if (awaitUnit === null && innerCode.length > 0 && this.IsText(innerCode[0], "await")) {
   this.Decline("for await 属范围外", "stmt.head");
   return null;
 }
@@ -612,8 +642,13 @@ if (semicolons === 0) {
     this.Decline("for 头部既没有分号也没有 in/of", "stmt.head");
     return null;
   }
-  return this.BuildForInOf(code, codeAt, from, toExclusive, inner, innerCodeAt, bracket, inOfAt, inOfText,
-    declarationHead);
+  return this.BuildForInOf(code, codeAt, from, toExclusive, bodyFrom, inner, innerCodeAt, bracket, inOfAt,
+    inOfText, declarationHead, awaitUnit);
+}
+if (awaitUnit !== null) {
+  // `for await (;;)` / `for await (x;;)`：TS 语法错误（`await` 只允许 in/of 形态）。
+  this.Decline("for await 只支持 in/of 形态", "stmt.head");
+  return null;
 }
 if (semicolons !== 2) {
   this.Decline("for 头部的分号数量不在本轮范围: " + String(semicolons), "stmt.head");
@@ -669,7 +704,7 @@ if (innerCode.length > semi2 + 1) {
     return null;
   }
 }
-const body = this.BuildRange(code, codeAt, from + 2, toExclusive);
+const body = this.BuildRange(code, codeAt, bodyFrom, toExclusive);
 if (body === null) {
   return null;
 }
@@ -689,13 +724,15 @@ DirectStatementAssembly.Span(shape, code[from], code[toExclusive - 1],
 return shape;
 ```
 
-## method BuildForInOf:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int, inner:Array<Token>, innerCodeAt:Array<int>, bracket:Bracket, keywordAt:int, keywordText:string, declarationHead:bool)=>Token | null
+## method BuildForInOf:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int, bodyFrom:int, inner:Array<Token>, innerCodeAt:Array<int>, bracket:Bracket, keywordAt:int, keywordText:string, declarationHead:bool, awaitUnit:Token | null)=>Token | null
 
 ```ts
 // `BuildForInOrOf`（:1958-2003）的两条绑定分支（本轮都做，R4-B3-g）：
 //   ① 声明绑定 → `DirectDeclarationAssembly.ListFrom(0, keywordAt)`（`for (const k in o)` / `for (const v of xs)`）；
 //   ② 表达式绑定 → `DirectStatementAssembly.ExpressionOf(0, keywordAt)`（R3-B1-pos-11/12 的既有形态，不变）。
 // Data = [binding, collection, body]；`in` / `of` 是关键字、不进任何子节点。
+// **R5-D3-c**：`for await ( … )` 时 Data = [AwaitKeywordShape, binding, collection, body]，`bodyFrom` 是
+// 头部括号之后那一格（`for await (` 比 `for (` 多一个 `await` 单元）。
 const base = bracket.SourceRange.StartIndex >= 0 ? bracket.SourceRange.StartIndex + 1 : 0;
 let binding:Token | null = null;
 if (declarationHead) {
@@ -720,7 +757,7 @@ if (collection === null) {
   this.Decline("for-" + keywordText + " 集合表达式范围外: " + DirectStatementAssembly.LastReason, "stmt.expr");
   return null;
 }
-const body = this.BuildRange(code, codeAt, from + 2, toExclusive);
+const body = this.BuildRange(code, codeAt, bodyFrom, toExclusive);
 if (body === null) {
   return null;
 }
@@ -729,6 +766,20 @@ if (keywordText === "in") {
   shape = new ForInStatementShape(this.Template);
 } else {
   shape = new ForOfStatementShape(this.Template);
+}
+if (awaitUnit !== null) {
+  // tsc 实测：`AwaitKeyword` 是 ForOfStatement 的**第一个**子节点，Pos = `for` 的 EndIndex，
+  // 区间 = `await` 自己（`pos=3 start=4 end=9`）。
+  const awaitKeyword = new AwaitKeywordShape(this.Template);
+  awaitKeyword.Pos = code[from].SourceRange.End < 0 ? this.BasePos : code[from].SourceRange.EndIndex;
+  if (awaitUnit.SourceRange.StartIndex >= 0) {
+    awaitKeyword.SignIn(awaitUnit.SourceRange.StartIndex);
+  }
+  if (awaitUnit.SourceRange.EndIndex >= 0) {
+    awaitKeyword.SignOut(awaitUnit.SourceRange.EndIndex);
+  }
+  awaitKeyword.TryToClose(this.Context);
+  shape.Add(awaitKeyword);
 }
 shape.Add(binding);
 shape.Add(collection);
@@ -772,6 +823,115 @@ if (expression !== null) {
 DirectStatementAssembly.Span(shape, keyword, code[toExclusive - 1],
   DirectStatementAssembly.PositionAt(this.Units, codeAt, from, this.BasePos), this.Context);
 return shape;
+```
+
+## method BuildYield:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int)=>Token | null
+
+```ts
+// R5-D3-a（R5-CONTRACT §4.5）：`yield;` / `yield 操作数;` / `yield* 操作数;`。
+// 口径照 `ExpressionBuilder.ParseYield` 的 generator 分支（legacy 对 `yield 1;` 建出的就是这棵树）：
+//   YieldExpression: Pos = Positions[from]（= 壳的 Pos），SignIn = `yield` 起点，SignOut = 操作数末；
+//   Data = [AsteriskToken?, 操作数?]，`*` 是**子节点**（tsc 实测 `yield* a` 的 `AsteriskToken`
+//   pos = `yield` 的 EndIndex、区间 = `*` 自己）；操作数交给引擎（`ExpressionOf`，A6 安全）。
+//   ExpressionStatement: Data = [YieldExpression]，区间含 `;`（`;` 不是子节点）。
+// 不做：`yield` 与操作数之间的换行（受限产生式的 ASI 分支）—— 那种形态在边界层就把语句拆开了，
+// 壳里不会同时出现 `yield` 与下一行的操作数（`yield⏎(x)` 的壳在 `yield` 处收口）。
+const keyword = code[from];
+let end = toExclusive;
+if (end > from + 1 && this.IsSymbolText(code[end - 1], ";")) {
+  end = end - 1;
+}
+let asteriskUnit:Token | null = null;
+let operandFrom = from + 1;
+if (operandFrom < end && this.IsSymbolText(code[operandFrom], "*")) {
+  asteriskUnit = code[operandFrom];
+  operandFrom = operandFrom + 1;
+}
+// `yield (` 的语义取决于上下文（generator 里是 `YieldExpression[Parenthesized]`，别处是**调用**
+// `yield(...)`——`ExpressionBuilder.ParseYield` 的 lookahead 判据）。R5-Q5 不做上下文判定，所以这一格
+// 显式 Decline、交回旧路径（AST 由 legacy 的上下文判据保证，见 `function f() { yield (1); }`）。
+if (operandFrom < end && this.IsOpenParen(code[operandFrom])) {
+  this.Decline("yield 的操作数是括号形态，需上下文判据，交回旧路径", "stmt.expr");
+  return null;
+}
+const shape = new YieldExpressionShape(this.Template);
+if (asteriskUnit !== null) {
+  const asterisk = new AsteriskTokenShape(this.Template);
+  asterisk.SignInToken(asteriskUnit);
+  asterisk.SignOutToken(asteriskUnit);
+  // `ParseYield`：`asterisk.Pos = afterYieldPos`（`yield` 的 EndIndex），与 `function*` 的星号同口。
+  asterisk.Pos = keyword.SourceRange.End < 0 ? this.BasePos : keyword.SourceRange.EndIndex;
+  asterisk.TryToClose(this.Context);
+  shape.Add(asterisk);
+}
+let tail:Token = keyword;
+if (operandFrom < end) {
+  const operand = DirectStatementAssembly.ExpressionOf(this.Units, codeAt, operandFrom, end,
+    this.BasePos, this.Template, this.Context);
+  if (operand === null) {
+    this.Decline("yield 操作数范围外: " + DirectStatementAssembly.LastReason, "stmt.expr");
+    return null;
+  }
+  shape.Add(operand);
+  tail = code[end - 1];
+} else if (asteriskUnit !== null) {
+  // `yield*;` 在 TS 里是语法错误（DoYield 必须带操作数），不静默建半棵树。
+  this.Decline("yield* 缺少操作数", "stmt.shape");
+  return null;
+}
+if (keyword.SourceRange.StartIndex >= 0) {
+  shape.SignIn(keyword.SourceRange.StartIndex);
+}
+if (tail.SourceRange.EndIndex >= 0) {
+  shape.SignOut(tail.SourceRange.EndIndex);
+}
+shape.Pos = DirectStatementAssembly.PositionAt(this.Units, codeAt, from, this.BasePos);
+shape.TryToClose(this.Context);
+const statement = new ExpressionStatementShape(this.Template);
+statement.Expression = shape;
+statement.Add(shape);
+DirectStatementAssembly.Span(statement, keyword, code[toExclusive - 1],
+  DirectStatementAssembly.PositionAt(this.Units, codeAt, from, this.BasePos), this.Context);
+return statement;
+```
+
+## method BuildAwait:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int)=>Token | null
+
+```ts
+// R5-D3-a（R5-CONTRACT §4.5 / §4.6-A）：`await 操作数[;]`。
+// **整条尾段（含 `await` 自己）交给引擎**：引擎的 `await` 前缀分支按一元优先级建 AwaitExpression，
+// 所以 `await g() + 1;` 天然是 `BinaryExpression[AwaitExpression[Call], 1]`（= `(await g()) + 1`），
+// 不可能把 `+ 1` 吞进 AwaitExpression（R5-RS-pos-04 钉的就是这一条）。`await` token 不进 Data
+// （TS 的 AwaitExpression children 只有 operand）。
+// 不做：`await` 的上下文判定（非 async 上下文里 `await` 是标识符）——R5-Q5 裁决，壳存在即建。
+const keyword = code[from];
+let end = toExclusive;
+if (end > from + 1 && this.IsSymbolText(code[end - 1], ";")) {
+  end = end - 1;
+}
+if (end <= from + 1) {
+  this.Decline("await 缺少操作数", "stmt.shape");
+  return null;
+}
+// `await (` 与 `yield (` 同一个上下文问题：async 上下文里是 `AwaitExpression[Parenthesized]`，
+// 非 async 上下文里 TS 把它读成**调用** `await(...)`（`ExpressionBuilder.IsAwaitExpressionStart`）。
+// R5-Q5 不做上下文判定 ⇒ 这一格显式 Decline，AST 交回 legacy（`function f() { await (1); }` 实测如此）。
+if (this.IsOpenParen(code[from + 1])) {
+  this.Decline("await 的操作数是括号形态，需上下文判据，交回旧路径", "stmt.expr");
+  return null;
+}
+const expression = DirectStatementAssembly.ExpressionOf(this.Units, codeAt, from, end,
+  this.BasePos, this.Template, this.Context);
+if (expression === null) {
+  this.Decline("await 操作数范围外: " + DirectStatementAssembly.LastReason, "stmt.expr");
+  return null;
+}
+const statement = new ExpressionStatementShape(this.Template);
+statement.Expression = expression;
+statement.Add(expression);
+DirectStatementAssembly.Span(statement, keyword, code[toExclusive - 1],
+  DirectStatementAssembly.PositionAt(this.Units, codeAt, from, this.BasePos), this.Context);
+return statement;
 ```
 
 ## method BuildBreakContinue:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int, isContinue:bool)=>Token | null

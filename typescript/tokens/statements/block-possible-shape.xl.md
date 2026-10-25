@@ -989,6 +989,10 @@ shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
+// R5-D3-a（R5-CONTRACT §2.3 / 审批 R5-A3）：与 R3 的两个建壳候选同一条挂载点（唯一实现点 =
+// `DirectStatementHook.Attach`）。`ShellStatementFamily(4)` 已经注册给 `ControlFlowStatementDirectSession`
+// ⇒ 这一行把 `yield`/`await` 语句壳送进 session；未注册时 `Create` 返回 null，行为逐字节不变。
+DirectStatementHook.Attach(shell, context);
 StatementRouteUtil.AwaitShellCount += 1;
 return shell;
 ```
@@ -1124,6 +1128,8 @@ shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
+// R5-D3-a：同 `AwaitStatementPossibleShape.BuildByIndex`（R5-A3 批准的两行之一）。
+DirectStatementHook.Attach(shell, context);
 StatementRouteUtil.YieldShellCount += 1;
 return shell;
 ```
