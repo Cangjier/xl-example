@@ -21,9 +21,10 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 # class CaseClauseStatementPossibleShape extends PossibleShape
 
-**switch 子句级语句的起点候选**（Stage 4y）。**当前默认关**（`StatementRouteUtil.EnableSwitchCaseClause = false`）：
-候选本身按下面的设计工作，但壳在 `;` 处不收口，接管只在「子句最后一条语句」这一种形态上完整，
-跨子句 / 多条语句会把后续 case 体的目录挂载吞掉 —— 详见 `HANDOFF-s4y.md` §1，属安全回退。
+**switch 子句级语句的起点候选**（Stage 4y 落地，Stage 4aa 转正）。**默认开**（`StatementRouteUtil.EnableSwitchCaseClause`
+与 `BlockPossibleShape.EnableSwitchCaseClause` 双开关同开，均为 `true`）。S4y 的「壳在 `;` 处不收口」根因是终结
+候选的族标记挂错：子句壳的 `Data` 里没有 `{` 前缀，`StatementKind = 0` 会走 `StatementScanner.ScanRoot`，而它只认
+`{` / `;` / 声明关键字起点；Stage 4aa 改成 `ShellPlainExpression`（`;` / EOF / ASI 判界）后 `;` 处正常收口。
 
 `switch (x) { case 1: f(); case 2: { g(); } }` 里 `case 1:` 之后的 `f();` **不在任何括号里**：
 它直接躺在 switch 的 case 块括号 `{ … }` 的 `Data` 上。Stage 4s 只给 case 体的 `{`（`case 1: { … }`）
@@ -42,9 +43,9 @@ switch 的 **case 块括号**本身就是这些子句语句的宿主，只要它
 接管（块体目录经得起删除是因为它有 6 个候选）。`Uncertain` 让候选一直活着，只在真正的起点建壳。
 
 **建壳 / 收口 / 建树全部复用既有机制**：壳 `Kind = ShellBlock` + `BodyKind = BodyKindBlock`、终结候选
-`StatementEndPossibleShape` 且 `StatementKind = 0`（与 `BlockPossibleShape.BuildByIndex` 逐字同构：
-这是被 Stage 4b 验证过「`;` 收口」的族标记组合；`ShellStatementFamily` 在本宿主上 `;` 不收口，见
-`BuildByIndex` 的注释）；收口时 `StatementShape.BuildFromShell` 用**同一段 raw 单元**
+`StatementEndPossibleShape` 且 `StatementKind = ShellPlainExpression`（Stage 4aa 修复，见 `BuildByIndex`
+的注释：壳里没有 `{` 前缀，`StatementKind = 0` 的 `ScanRoot` 对 `f` 起头的子句语句一律 `Mismatch`，
+壳在 `;` 处不收口；子句语句的收口规则是表达式语句那一套 `;` / EOF / ASI）；收口时 `StatementShape.BuildFromShell` 用**同一段 raw 单元**
 调用**同一个** `StatementBuilder.BuildStatement()`。`Pos` 取「前一个非 trivia 单元的 `EndIndex`」
 （子句第一个语句 = 冒号末尾，后续语句 = 上一条语句末尾），与 `BuildCaseBlock` 里
 `inner.Load(bracket.Data, base)` 之后 `this.Positions[first]` 的口径逐位相同。
@@ -147,7 +148,15 @@ if (headStart >= 0) {
   shell.SignIn(headStart);
 }
 const endShape = new StatementEndPossibleShape();
-endShape.StatementKind = 0;
+// Stage 4aa 根因：壳里是**没有 `{` 前缀的 raw 子句单元**。`StatementKind = 0`（Wave1 变量族）让终结
+// 候选走 `StatementScanner.ScanRoot`，而 `ScanRoot` 只认 `{` / `;` / 声明关键字起点（`f` 起头一律
+// `Mismatch`，`statement-scanner.xl.md:167-309`），所以壳在 `;` 处不收口、一直涨到 case 块的 `}`，
+// `ExitOrPre` 整体建树失败 → `DetachShell` 退回 raw（树正确、接管归零，正是 S4y 的症状）。
+// 块壳（`BlockPossibleShape`）同样是 `StatementKind = 0`，但它的 `Data` 以 `{` 开头，`ScanRoot` 在
+// 第一个单元就 `Complete`，「块壳靠 `ScanRoot` 收口」并不能推广到子句壳。子句语句真正的收口规则是
+// 表达式语句那一套（`;` / EOF / ASI），所以族标记必须是 `ShellPlainExpression`
+// （走 `StatementEndPossibleShape.ExpressionEndCode`，与 `RootExpressionStatementPossibleShape` 同源）。
+endShape.StatementKind = StatementRoute.ShellPlainExpression;
 shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
