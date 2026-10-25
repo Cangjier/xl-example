@@ -261,14 +261,22 @@ return shell;
 声明本身不新建壳（仍留在 raw 段由 legacy 递归建树），接管只发生在体内语句上——与根层函数体同一条收集通道
 （`StatementBuilder.BuildBlock()` → `HasBuiltBodyStatements` / `CollectBodyStatements`）。
 
-## static field EnableSwitchCaseBody:bool = false
+## static field EnableSwitchCaseBody:bool = true
 
-**Stage 4p 开关，实测后默认关（安全回退）**：`true` = case 子句里的体 `{` 挂块体语句目录；但 `case <表达式>:` 会抛 `SourceRange is not set`（`default:` 不抛），整条文件走文件级 fallback，所以默认 `false`。`false` = 不挂，行为逐位回到 Stage 4o
-（case 体整段 raw，`BuildCaseBlock` 的 `BuildStatement()` 递归建树——那是「未接管」，不是「建错」）。
+**Stage 4s 起默认开**：`case` 子句里的体 `{` 挂块体语句目录，体内语句由 `BuildCaseBlock` → 内层
+`BuildStatement()` → `BuildBlock()` → `HasBuiltBodyStatements` / `CollectBodyStatements` 收集。
+Stage 4p 打开后必抛 `SourceRange is not set` 的根因是**挂错了括号**：把目录挂到了宿主（switch 的
+case 块括号），整段 `case …` 被块体目录当语句建壳；改为挂 case 体 `{` 自己后，case 表达式仍由
+`BuildExpressionRange` 建，`case 1:` / `case a + 1:` / `case foo():` 全部不受影响（见 HANDOFF-s4s.md §1）。
+`false` = 不挂，行为回到 Stage 4o（case 体整段 raw，未接管但树仍正确）。
 
-## static field EnableBlockFunctionBody:bool = false
+## static field EnableBlockFunctionBody:bool = true
 
-**Stage 4p 开关，实测后默认关（安全回退）**：`true` = 块内函数声明的体 `{` 挂块体语句目录。挂载确实发生（`BlockFunctionBodyMountCount` +1），但体内已建语句没有被 `BuildBlock()` 的收集通道收到（`BlockBodyStatementCount` 增量 0，见 HANDOFF-s4p.md §2），所以「挂上」不等于「接管」；默认 `false`，行为逐位回到 Stage 4o。
+**Stage 4s 起默认开**：`{ function f(){ … } }` 的函数体 `{` 挂块体语句目录。声明本身仍留在 raw 段
+（块体目录不补声明族候选），由 legacy `BuildFunctionDeclaration` → `BuildBlock()` 建；`BuildBlock` 看到
+`HasBuiltBodyStatements(bodyBracket)` 为真后走 `CollectBodyStatements` 收集体内语句。Stage 4p 的
+`mount +1 / body +0` 根因同样是**挂错括号**（挂到了外层块括号，把外层块体目录覆盖掉，函数体括号仍是
+纯 raw）；改为挂函数体 `{` 自己后 `BlockBodyStatementCount` 正常 +1（见 HANDOFF-s4s.md §2）。
 
 ## static method MountBodyCatalog:(bracket:Bracket)=>void
 
@@ -692,8 +700,13 @@ if (previous !== null && BlockPossibleShape.IsSwitchCaseBody(body, bracket, prev
   // `CollectBodyStatements` 收集——与块体 / 函数体同一条通道，`CaseBlockShape` / `CaseClauseShape`
   // 的建树路径一个字不改。`case 1: f();` 这种**不在 `{}` 里的子句语句**仍留 raw（未接管，树仍正确）。
   if (BlockPossibleShape.EnableSwitchCaseBody) {
-    BlockPossibleShape.MountBodyCatalog(body);
-    BlockPossibleShape.SwitchCaseBodyMountCount += 1;
+    // 挂的是**case 体的 `{` 本身**（`bracket`），不是宿主（switch 的 case 块括号 `body`）。
+    // 挂错宿主会把整段 `case …` 当语句喂给块体目录 → `case 1:` 抛 `SourceRange is not set`。
+    const caseBody = bracket as Bracket;
+    if (caseBody.CatalogGuide === null) {
+      BlockPossibleShape.MountBodyCatalog(caseBody);
+      BlockPossibleShape.SwitchCaseBodyMountCount += 1;
+    }
   }
   return;
 }
@@ -702,8 +715,13 @@ if (BlockPossibleShape.IsFunctionDeclarationBody(parent, bracket)) {
   // （块体目录里不补声明族候选），体括号却在 raw 递归的 `BuildFunctionDeclaration` → `BuildBlock()`
   // 上，所以只挂目录就能让体内语句走收集通道：mount > 0、XML / AST 与 legacy 逐字节一致。
   if (BlockPossibleShape.EnableBlockFunctionBody) {
-    BlockPossibleShape.MountBodyCatalog(body);
-    BlockPossibleShape.BlockFunctionBodyMountCount += 1;
+    // 挂的是**函数体 `{` 本身**（`bracket`）。挂到宿主（外层块括号）会覆盖外层块体目录，
+    // 体内语句永远走不到 `BuildBlock()` 的收集通道（mount +1 / body +0 的根因）。
+    const fnBody = bracket as Bracket;
+    if (fnBody.CatalogGuide === null) {
+      BlockPossibleShape.MountBodyCatalog(fnBody);
+      BlockPossibleShape.BlockFunctionBodyMountCount += 1;
+    }
   }
   return;
 }
