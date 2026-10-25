@@ -1,17 +1,17 @@
 # 候选直建（direct candidate pipeline）——目标、实现与实测
 
-> 本文记录 `feature/all-possible` @ **`d8534a8c`**（R4 收口：`merge(r4-harden)` + `merge(r4-verify)`；
-> R1/R2/R3/R4 四步已全部合入主仓库）上**已经落地**的直建实现：变量语句、表达式语句、控制流语句（含 R4 的
-> 剩余族）、函数声明与箭头（含 R4 的生成器 / async / 对象方法）、跨行 ASI 与语句边界收口，
-> 以及它们共享的表达式引擎。所有口径以仓库里的 `*.xl.md` 与 `build/ts` 实测为准，不是设计稿的复述；
+> 本文记录 `feature/all-possible` @ **`54c805e8`**（R5 收口：`types/decl/residual/harden/verify` 全部合入，
+> A4 prune 已执行）上**已经落地**的直建实现：变量语句（含类型注解）、表达式语句、控制流语句（含 R4/R5 的剩余族）、
+> 函数声明与箭头（含生成器 / async / 对象方法）、`interface` / `type` / `enum` 声明族、跨行 ASI 与语句边界收口，
+> 以及它们共享的表达式引擎与类型子树入口。所有口径以仓库里的 `*.xl.md` 与 `build/ts` 实测为准，不是设计稿的复述；
 > 设计稿与实现不一致的地方单独记在 §13。
 >
-> **当前口径（R4）**：目标 case **132 条**（R1 10 / R2 50 / R3 32 / R4 40），合并态 `132/0`（`A1…A12` 全 PASS），
-> `--strict-all` 单独给也 `132/0`（D6：隐含 `--strict`）。R4 的机制与读数统一写在 **§20–§22**；
-> §9–§18 里凡是「92 条」「strict-all 仍红 2 条」「C2 仍 Decline」「D7 残留 `~`」的读数都是 R3 的历史口径，
-> 以 §20–§22 为准。
+> **当前口径（R5）**：目标 case **189 条**（R1 10 / R2 50 / R3 32 / R4 40 / R5 57：TY 20 / DC 20 / RS 12 / CL 5），
+> 合并态 **`189/0`**（`A1…A12` 全 PASS），`--strict-all` 单独给也 **`189/0`**（D6：隐含 `--strict`）。
+> **R5 的机制与读数统一写在 §23**；R4 在 §20–§22；§9–§18 里凡是「92 条」「132 条」「strict-all 仍红」
+> 「C2 仍 Decline」「D7 残留 `~`」「body-legacy 仍 SKIP」的读数都是历史口径，以 §23（及 §20–§22）为准。
 >
-> 四轮的增量：
+> 五轮的增量：
 > - **R1**：变量语句 + 表达式语句两个 session（H1/H2/H3 三个 hook）。
 > - **R2**：**（A）覆盖范围扩面** —— 字面量 / 模板 / BigInt / 关键字操作数、数组 / 对象、调用 / 成员 / 下标 / `new` /
 >   可选链、赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空断言 / `typeof`·`void`·`delete` 全部转为直建（§1.2、§5.8）；
@@ -24,8 +24,12 @@
 >   **（B4）函数形态外建** —— 生成器 `function*` / `async function`（`AsteriskToken` / `AsyncKeyword` 子节点）、
 >   对象方法 / `get` / `set`（新部件 `DirectObjectMemberAssembly`，§21）；**（C2）跨行 ASI 直建**与
 >   **（D7）残留 `~` / `typeof`**（§22.1/§22.2）；**（S）strict 全量化收口**（两处 eager Ingest +
->   `--strict-all` 隐含 `--strict`，§18 的更正 / §22.3）。目标 case 92 → **132 条**，读数见 §22.4；
->   已知限制与 R5 遗留见 §19。
+>   `--strict-all` 隐含 `--strict`，§18 的更正 / §22.3）。目标 case 92 → **132 条**，读数见 §22.4。
+> - **R5**：**（D1）类型层** —— `DirectTypeAssembly` 统一类型子树，变量 / 参数 / 返回 / `for` 头四个载体（TY）；
+>   **（D2）声明族** —— `DeclarationFamilyDirectSession` 接管 `interface` / `type` / `enum`，`class` 显式 `decl.class`（DC）；
+>   **（D3）R4 残余** —— 函数体内 `yield` / `await` 语句补 `Attach`、引擎 `await` 前缀 / `async` 箭头、`for await`、
+>   对象成员 `async` / `*` / 注解参数（RS）；**（D4）硬化** —— `StatementTokenSets` 单一来源、C2 死分支删除、
+>   `as`/`satisfies` 行首合法化（CL）。目标 case 132 → **189 条**，读数见 §23.7；R6 清单见 §23.9。
 
 
 ---
@@ -53,6 +57,10 @@ basic token Close
 2. **覆盖范围内 `new StatementBuilder` 在 H2 的 `return` 之前不会被执行**；`StatementBuilder.Load` 为 0。
    唯一的 `ExpressionBuilder.Load` 是 `DirectTokenUtil.OperatorToken` 复用运算符映射表的那一次（§8.3、A6 口径）。
 
+3. **R5 把直建扩到类型层与声明层**（§23）：类型子树统一走 `DirectTypeAssembly`（只复用 `TypeBuilder`，不计 A6）；
+   `interface` / `type` / `enum` 由一个新 session 接管（`class` 显式 `decl.class` 留 R6）；函数体内的 `yield` / `await`、
+   `async` 箭头、`for await`、对象成员修饰词全部直建。目标 case 累计 **189** 条（`CASES=189 FAILED=0`）。
+
 ---
 
 ## 1. 目标与边界
@@ -62,10 +70,10 @@ basic token Close
 **每个可以当场确定的构造，由候选建壳的同一刻起就由 session 直接建出 AST 形状**；收口只做「把私有形状树交回」，
 不再把整段 raw 单元交给 builder 重扫。边界判定（语句从哪开始、到哪结束）仍完全由 possible 层负责，直建不参与。
 
-### 1.2 覆盖范围（R4 收口）
+### 1.2 覆盖范围（R5 收口）
 
-下表是**当前**直建接管的构造；`case` 列是验证它的目标 case（§22.4 的 132 条里）。表下 §1.3 才是范围外；
-R4 新增的行带 **R4** 前缀（机制与读数见 §20–§22）。
+下表是**当前**直建接管的构造；`case` 列是验证它的目标 case（§23.7 的 **189** 条里）。表下 §1.3 才是范围外；
+R4 新增的行带 **R4** 前缀（机制与读数见 §20–§22），**R5 新增的行带 R5 前缀**（机制与读数见 §23）。
 
 | 构造 | 直建节点 | case |
 | --- | --- | --- |
@@ -112,6 +120,14 @@ R4 新增的行带 **R4** 前缀（机制与读数见 §20–§22）。
 | **R4 生成器 `function*` / `async function`** | `FunctionDeclarationShape`，`Data=[AsteriskToken, name, params…, body]` / `[AsyncKeyword, name, params…, body]`；体内 `yield` / `await` **语句**仍 legacy（A6 SKIP，§21.3） | R4-B4-pos-01…04、R3-B2-neg-03（改判 pos）；负例 `function* g<T>() {}` |
 | **R4 对象方法 / `get` / `set`** | `MethodDeclarationShape` / `GetAccessorShape` / `SetAccessorShape`（`DirectObjectMemberAssembly.MemberFrom`；方法体 `BlockFrom`） | R4-B4-pos-05/06/07、R4-B4-guard-01/02 |
 | **R4 跨行 ASI `a⏎b` / `2⏎3`** | 两条 `ExpressionStatementShape`：表达式壳 EOF 收口问 `StatementEndCode`（`TryToClose` 的 `ShellPlainExpression` 分支），`built=2` | R4-C2-pos-01/02、R2-C2-01（改判 pos）；guard 3 条仍 1 条 |
+| **R5 变量注解 `let x: T [= e]`** | `VariableDeclarationShape`，`Data=[Identifier, Type, Initializer?]`（变量 session 新 `ExpectType` 态 + `DirectTypeAssembly.TypeOf`） | R5-TY-pos-01…10；负例 `let x!: T`（`var.type`） |
+| **R5 函数参数 / 返回类型** | `ParameterShape`（`?` / `...` / `: T` 都是子节点）+ 返回类型 `shape.ReturnType`（参数之后、体之前）；参数表仍借静态工厂 `BuildParameters` | R5-TY-pos-11…16；负例 `function f(a = 1)`（`stmt.func`）、guard `function f(a, b)` |
+| **R5 `for` 头类型注解**（尽力项，已实现） | `VariableDeclarationShape` + Type（`DirectDeclarationAssembly` 的 `:` 缓冲 ⇒ `DirectTypeAssembly`） | R5-TY-pos-17 |
+| **R5 `interface` / `type` / `enum`** | `InterfaceDeclarationShape` / `TypeAliasDeclarationShape` / `EnumDeclarationShape`（`DeclarationFamilyDirectSession` + 三个 `FromUnits`，`Pos = 壳 Pos`） | R5-DC-pos-01…13、guard `type T = A;⏎const a = 1;`；负例 enum 带初始值 / class / namespace / declare |
+| **R5 `yield` / `await` 语句** | `ExpressionStatementShape[YieldExpressionShape]` / `[AwaitExpressionShape]`（两个 possible-shape 各补一行 `Attach`） | R5-RS-pos-01…04；R4-B4-pos-01/02/04 的 `a6Skip` 已删、A6 强制 0 |
+| **R5 `await` 前缀 / `async` 箭头** | `AwaitExpressionShape`（一元前缀优先级：`await g() + 1` = `(await g()) + 1`）+ `ArrowFunctionShape[AsyncKeyword, Parameter…, EqualsGreaterThanToken, body]` | R5-RS-pos-05/06；R3-B2-neg-04、R4-B4-neg-01 改判 pos |
+| **R5 `for await (… of …)`** | `ForOfStatementShape[AwaitKeyword, binding, collection, body]`（`AwaitKeyword` 是子节点） | R5-RS-pos-07 |
+| **R5 对象成员 `async` / `*` / 注解参数** | `MethodDeclarationShape[AsyncKeyword?, AsteriskToken?, name, params…, body]`；参数门与函数声明**同一份** `ParametersAreTypeAnnotated` | R5-RS-pos-08/09/10；负例 `({ m(a = 1) {} })`（`expr.member`）、guard `({ set x(v) { } })` |
 
 > 泛型实参守卫：`f<T>(1)` / `a<b>(c)` / `new A<T>()` / `f<A<B>>(1)` 会被识别为泛型实参调用而
 > `Decline(expr.decline)`，不会静默建成比较链；对照正例 `x<y>z` / `a<b>c` / `a<<b>(c)` 仍是直建正例（§14.5）。
@@ -123,21 +139,27 @@ R4 新增的行带 **R4** 前缀（机制与读数见 §20–§22）。
 ### 1.3 覆盖范围外（保留旧路径）
 
 - 正则字面量 `/a/g`、标签模板 `` tag`x` ``、函数 / 类表达式、调用实参 spread、
-  箭头作为**变量初始化器**（`const f = (a) => a`，属变量 session 的引擎路径）；
-- `satisfies`（`as` 做，`satisfies` 不做）、`as const`、泛型实参 / 实例化表达式（显式 Decline，见 §14.5）；
-- **语句族里 R4 明确不做的**：`for await`（`stmt.head`）；`case 1: case 2: b;` 这种**空子句体**（`stmt.case`，
-  目标 case `R4-B3-neg-03`）；`switch` 的**子句语句**仍是 legacy（建壳但不接 `Attach`，A6 SKIP，§20.3）；
-  catch 绑定的**类型注解 / 解构 / 空绑定**（`stmt.catch`，`R4-B3-neg-01`）；`lbl: let x = 1;`（语法非法，
-  两侧 Parse 同拒）；嵌套标签 `a: b: c;`（扩展观察项，未收案）；
-- **函数族里 R4 明确不做的**：`async (a) => …`（引擎无 `AwaitExpression` 分支，`expr.decline`，R5）、
-  默认参数 / rest / 类型注解 / 可选参数 / 解构参数、泛型函数、返回类型注解、`declare function`（ambient 无体）、
-  对象成员的 `async` / `*` / 计算属性名 / 默认值（`expr.member`）；**函数体内的 `yield` / `await` 语句**仍由
-  各自壳走 legacy（A6 SKIP，R5，§21.3）；
-- 声明族 / 类型族（`class` / `interface` / `type` / `enum` / `namespace` / `import` / `export` / `declare` / `using`）、
-  装饰器；`as` / `satisfies` / `keyof` / `of` 的**类型位续接族**（D7 同族缺口，R5，§22.2）；
-- `await` / `yield` / `class {}` 这类**仍没有 session** 的语句（目标 case 记 `safe`：断言 `built==0 && AST MATCH`，
-  **不断言 `declined>=1`**）；
-- 解构 binding、类型注解 `:`、确定赋值断言 `!`、`declare` / `using`、`const enum`；
+  箭头作为**变量初始化器**（`const f = (a) => a`，属变量 session 的引擎路径，箭头自己的类型注解留 R6）；
+- `as const`、泛型实参 / 实例化表达式（显式 Decline，见 §14.5）；`keyof` / `of` / `unique` 的**行首续接**
+  （D7 同族缺口，R6；`as` / `satisfies` 已在 R5 合法化，§23.6）；
+- **语句族**：`case 1: case 2: b;` 这种**空子句体**（`stmt.case`，`R4-B3-neg-03`）；`switch` 的**子句语句**仍是
+  legacy（建壳但不接 `Attach`，A6 SKIP，§20.3）；catch 绑定的**类型注解 / 解构 / 空绑定**（`stmt.catch`）；
+  `lbl: let x = 1;`（语法非法，两侧 Parse 同拒）；嵌套标签 `a: b: c;`（扩展观察项，未收案）；
+  `for await (… in …)`（语法非法）；
+- **函数 / 对象成员**：默认参数 / 解构参数 / **无类型注解的 rest**（`function f(...a) {}` 仍 `stmt.func`，
+  保住 R3-B2-neg-02）/ 泛型函数头 / `declare function`（ambient 无体）/ `async *m()`（对象 async 生成器方法）；
+  箭头函数的参数注解与返回类型注解（引擎路径，R6）；
+- **声明族**：`class` 声明（kind 9）与装饰器声明（kind 10）**显式 `decl.class`**（`ClassDeclarationShape` 有 2 处
+  `new StatementBuilder` ⇒ R6）；`namespace` / `module` / `import` / `export` / `declare` / `using` **显式 `decl.head`**；
+  `const enum` 根层 `Decide` **根本不建壳**（`R5-DC-safe-01` 记 `safe`，R6）；`export interface` / `declare interface` /
+  `declare function` 由导出 / 源文件候选直接建，**不经过**声明族 session（也是 `safe`，不是 `decl.head` 负例）；
+- **类型位**：条件类型 / 映射类型 / 模板字面量类型**只做建树、不做类型检查**（收为 pos，§23.2）；`let x!: T`
+  确定赋值断言仍 `var.type`；
+- **顶层 `await` / `yield`**：语句壳要求父是 `{`，顶层父是 `SourceFileShape` ⇒ 仍没有 session
+  （目标 case 记 `safe`：断言 `built==0 && AST MATCH`，**不断言 `declined>=1`**；R5 一度改判 pos、后按裁决撤回，
+  函数**体内**的 `yield` / `await` 自 R5 起直建，§23.5）；
+- 解构 binding（`var.binding`）、确定赋值断言 `!`（`var.type`）、`declare` / `using`；
+- ~~类型注解 `:`~~ → **R5 已转直建**（变量 / 参数 / 返回 / `for` 头，§23.3）；
 - ~~跨行 ASI（`a⏎b` / `2⏎3`）——按 R2-D4 明确保持 Decline（§14.4）~~ → **R4 已转直建**（§14.4 的更正、§22.1）。
 
 覆盖范围外**不是静默 fallback**：session 显式 `Decline(reason, category)` + 计数（`DirectBuildMetrics.Declined`）+
@@ -743,6 +765,10 @@ variable built: decls=1
 | `exprLegacy` | 其它 `ExpressionBuilder.Load`（旧路径事后 Build） | **0** |
 | `effectiveLoads` | `stmtLoads + exprLegacy` | **0** |
 
+> **R5 多一条口径**：`TypeBuilder.prototype.Load` **不计入 A6**（R2 的 `as` 分支起就如此：它只读类型子树，不建语句 /
+> 表达式）。R5 的「类型子树唯一入口」`DirectTypeAssembly` 因此只 `new TypeBuilder`，TY / DC 正例仍要求
+> `stmtLoads == exprOtherDirect == exprLegacy == 0`，与 R1–R4 逐字一致；R5 **没有**新增任何计数器。
+
 `DirectTokenUtil.OperatorToken` 按 CONTRACT §3.4 复用唯一映射表：
 
 ```ts
@@ -795,7 +821,7 @@ node tests/direct-build/target-cases.mjs
 
 ---
 
-## 9. 目标 case 与实测读数（R3 时代的 92 条；现行 132 条见 §22.4）
+## 9. 目标 case 与实测读数（R3 时代的 92 条；R4 的 132 条见 §22.4；R5 的 189 条见 §23.7）
 
 > **口径变更（R4）**：`CASES` 已从 92 扩到 **132**（R4 新增 40 条：B3 16 / B4 12 / C2 5 / D7 4 / S 3），
 > 并**改判 6 条**（§22.4 的清单）。本节 §9.1–§9.2 的清单与读数保留为 R3 历史证据，**不再是当前判据**；
@@ -1373,7 +1399,7 @@ Decline 不重复计 `Errors`），接住后继续走候选计算，由 H2 的 `
 | --- | --- | --- |
 | `typescript/tokens/direct/direct-declaration-assembly.xl.md` | `DirectDeclarationAssembly` | `VariableDeclarationList` 的**直建**装配：`ListFrom` / `IdentifierBinding` / `IsIdentifierName` / `IsDeclarationKeyword`，失败写 `LastReason` / `LastCategory`。**不调** `TypeBuilder` / `ExpressionBuilder` / `StatementBuilder` |
 | `typescript/tokens/direct/direct-control-session.xl.md`（改） | `ControlFlowStatementDirectSession` | `AcceptedHeads` 追加 `try` / `switch` / `with` / `debugger`；新增 `BuildTry` / `BuildCatchBinding` / `BuildSwitch` / `BuildCaseBlock` / `BuildWith` / `BuildDebugger` / `BuildLabeled`；`BuildBreakContinue` 支持标签操作数；`RecognizeHead` 增 `Kind === ShellLabel(6)` 分支（`LabelText` / `HeadText = lbl:`） |
-| `typescript/tokens/direct/direct-build-plugins.xl.md`（改） | 注册点 | **6 行** `Register`（唯一写者 harden）：`ShellVariable` / `ShellPlainExpression` / `ShellStatementFamily` / `ShellBlock` / **`ShellLabel`（第 6 行，R4 新增）** / `ShellFunctionDeclaration`。物理顺序是常量顺序 `2,1,4,5,6,8`（R3 的 5 行相对顺序不变，`ShellLabel` 插在 `ShellBlock` 之后） |
+| `typescript/tokens/direct/direct-build-plugins.xl.md`（改） | 注册点 | **6 行** `Register`（R4 时；R5 起 9 行，见 §23.6）：`ShellVariable` / `ShellPlainExpression` / `ShellStatementFamily` / `ShellBlock` / **`ShellLabel`（第 6 行，R4 新增）** / `ShellFunctionDeclaration`。物理顺序是常量顺序 `2,1,4,5,6,8`（R3 的 5 行相对顺序不变，`ShellLabel` 插在 `ShellBlock` 之后） |
 
 `ShellLabel` 的语义要点：
 
@@ -1462,22 +1488,23 @@ Decline 不重复计 `Errors`），接住后继续走候选计算，由 H2 的 `
 - 组装（`Pos` / `SignIn` / `SignOut` / 参数表）由 `DirectObjectMemberAssembly.MemberFrom` 一处实现，
   失败写 `LastReason`；`({ m(a) { return a; } })` ⇒ 表达式语句(1) + 方法体 `return a;`(1) = **2**。
 
-### 21.3 body-legacy：函数体里的 `yield` / `await` 语句仍走旧路径（A6 SKIP，R5）
+### 21.3 body-legacy 已在 R5 清除：函数体内的 `yield` / `await` 直建（A6 强制 0）
 
-`YieldStatementPossibleShape` / `AwaitStatementPossibleShape` **不接 `Attach`** ⇒ `yield 1;` / `await g(a);`
-由 legacy 收口，`stmtLoads` / `exprLegacy` 必然 > 0。所以 B4 的四条 pos：
+> **R5 起本节结论被 §23.5 取代**；下面保留 R4 的历史读数（`a6Skip` 是怎么来的），便于对照旧日志。
+
+R4 时 `YieldStatementPossibleShape` / `AwaitStatementPossibleShape` **不接 `Attach`** ⇒ `yield 1;` / `await g(a);`
+由 legacy 收口，`stmtLoads` / `exprLegacy` 必然 > 0。所以 R4 的 B4 pos 是：
 
 - `R4-B4-pos-01` `function* g() { yield 1; }`：`built=1`、`stmtLoads=1 exprLoads=1 effectiveLoads=2`、**A6 SKIP**；
 - `R4-B4-pos-04` `async function f(a) { await g(a); }`：`built=1`、`stmtLoads=1 exprLoads=2`、**A6 SKIP**；
 - SKIP 的理由由 harness 打印：「body-legacy: yield/await 语句待 R5 直建（壳不接 Attach）⇒ 必须 >0，
-  与函数本身是否直建无关」——**读数照记，`--expect-direct` 不强制 0**。这是 R4 与 R3 的口径差异：
-  函数**本身**是直建的（`A1` / `built` / `declined` 全部按 pos 判），只有体内那一层仍 legacy。
+  与函数本身是否直建无关」——R5 已兑现：两个 `BuildByIndex` 各补一行 `Attach`，`ControlFlowStatementDirectSession`
+  加 `yield` / `await` 两个头（§23.5），于是 `expectBuilt` 1 → **2**、`a6Skip` **删除**、A6 实测 **0**；
+- `async (a) => …` 在 R5 不再是 neg：`async` 箭头头 + 引擎 `await` 前缀已落地（§23.5），
+  `R4-B4-neg-01` / `R3-B2-neg-04` 改判 pos。
 
-`async (a) => …` 仍是 neg（`expr.decline`，R5）：引擎里没有 `AwaitExpression` 分支，收益/风险不成立。
-
-**读数**：`--group=b4` → `CASES=12 FAILED=0`；`A1…A12` 全 PASS；`builtCases=9/12 loads=20`
-（3 条 neg 不进 builtCases）；`DECLINE-STATS: total=4 categories=3`（`stmt.func 2` / `expr.decline 1` /
-`expr.member 1`）。对象方法的两条 guard（`({ x, y: 1 })` / `({ m() {} })`）`built=1`、A10 PASS。
+**R4 历史读数**：`--group=b4` → `CASES=12 FAILED=0`；`builtCases=9/12 loads=20`；`DECLINE-STATS: total=4 categories=3`。
+**R5 读数**：`--group=r4` → **40/0**（组计数不变，只有上述 pos/neg 构成变化）；全量 **189/0**（§23.7）。
 
 ---
 
@@ -1621,3 +1648,272 @@ CLI 速查增补（R4）：
 
 > 旧命令仍然可跑：`--group=r1/r2/r3` 的条数不变（10/50/32），只是 R2-C2-01 与 R3 的 4 条改判后
 > `builtCases` / `loads` / `DECLINE-STATS` 与 §9.2 的 R3 读数不同。
+
+---
+
+## 23. R5：类型层 / 声明族 / 残余语句与 189 条目标 case
+
+> 权威口径：`_coord/R5-CONTRACT.md`（范围 / 所有权 / 接口增量）、`_coord/R5-TARGET-CASES.md`（编号表）。
+> 本节写**落地后的实现与实测**（本克隆 `docs-r5`，`feature/all-possible @ 54c805e8` + docs 分支，2026-10-26 复跑）。
+> R5 新增 **57** 条（`TY` 20 / `DC` 20 / `RS` 12 / `CL` 5），累计 **189**；改判历史 8 条、生效 6 条
+> （`R2-SAFE-01/03` 按裁决撤回 `safe`），逐条见 §23.7。
+
+### 23.1 新部件与改动面
+
+| 文件 | 角色 | A6 |
+| --- | --- | --- |
+| `typescript/tokens/direct/direct-type-assembly.xl.md`（新） | `DirectTypeAssembly`：类型子树的唯一入口（薄封装 `TypeBuilder`） | 只 `new TypeBuilder`，不计 A6 |
+| `typescript/tokens/direct/direct-declaration-session.xl.md`（新） | `DeclarationFamilyDirectSession`：kind 7/9/10 共用一个 session | 只调三个 `FromUnits`（无装饰器 / 无成员初始值时只走 `TypeBuilder`） |
+| `typescript/tokens/statements/statement-token-sets.xl.md`（新） | `StatementTokenSets`：D7 受限后缀闭集 + 表达式续接闭集的**唯一来源** | 纯判定，不建树 |
+| `direct-variable-session.xl.md` | 新 `ExpectType` 态 + `IngestType` / `FlushType` | 不新建 builder |
+| `direct-function-session.xl.md` | 新参数门 `ParametersAreTypeAnnotated` + 返回类型形态 | 不新建 builder（`BuildParameters` 静态工厂） |
+| `direct-declaration-assembly.xl.md` | `for` 头的 `:` 改为缓冲类型（尽力项） | 不新建 builder |
+| `direct-control-session.xl.md` | `yield` / `await` 头 + `BuildYield` / `BuildAwait` + `for await` | 体语句各自 H2 收口 |
+| `direct-expression-engine.xl.md` | `await` 前缀 + `async` 箭头头 + D7 委托一行 | 既有引擎 |
+| `direct-object-member-assembly.xl.md` | 方法前缀 `async` / `*` + 注解参数 | 既有引擎 |
+| `block-possible-shape.xl.md` | 两个 `BuildByIndex` 各 +1 行 `Attach` | —— |
+| `direct-build-plugins.xl.md` | **唯一注册点**：末尾追加 3 行（kind 7/9/10） | —— |
+| `direct-build-metrics.xl.md` | 只补 `decl.*` 5 键注释 | —— |
+| `statement-boundary-util.xl.md` | 删 C2 死分支 + 3 个 helper（111 行），`IsRestrictedPostfixUnit` 改委托 | —— |
+| `expression-statement-possible-shape.xl.md` | 仅 `IsContinuation` 方法体改委托 | —— |
+| `direct-token-util.xl.md` | `IsIdentifierOperand` 的保留字表**移出** `as` / `satisfies`（A2 配套，Lead 已追认） | —— |
+
+> R5 **没有**改 `statement-builder` / `expression-builder` / `type-builder` / 各声明形状工厂 / `statement-route-util`；
+> `DirectBuildRouter` / `DirectSession` 接口也未动。
+
+### 23.2 `DirectTypeAssembly`：类型子树的唯一入口
+
+`TypeBuilder` 本来就能读全部 R5 类型节点（设计期 20/20 `A1=YES`）；R5 不重写解析，只补三件 `TypeBuilder`
+不负责的事：
+
+1. **Pos 起点**：`Load(units, basePos)` 的 `basePos` = 类型**前一个单元**的 `EndIndex`（`:` / `=` / `,` 的终点），
+   与 legacy 调用点同口；`basePos` 传错会让整棵类型子树的 `Pos` 偏一格，`A1` 立刻红。
+2. **覆盖校验**：`OriginalConsumed() === LastCodeAt(units) + 1` —— 必须用 `OriginalConsumed()`，不能用
+   `builder.At`：`>>` 在 `Load` 内部被拆成两个虚拟 `>`（`Array<Array<T>>`），`At` 是**虚拟**下标。
+3. **失败即 `null`**：`ParseType` / `ParseReturnType` 抛错或返回 null ⇒ `LastReason` 置位、返回 null；调用方
+   `Decline(reason, "var.type" / "stmt.type" / "stmt.func" / "decl.coverage")`，**不交半棵树**。
+   另有 `EndsAtTypeEnd` 兜「`TypeBuilder` 提前收层」：类型节点区间终点必须等于最后一个类型单元的终点。
+
+接口（`typescript/tokens/direct/direct-type-assembly.xl.md`）：
+
+| 成员 | 用途 |
+| --- | --- |
+| `static TypeOf(units, basePos, template, context)` | 通用类型单元 → `ParseType()`（变量 / 参数 / `for` 头 / `type` 别名 RHS） |
+| `static ReturnTypeOf(units, basePos, template, context)` | 函数返回类型 → `ParseReturnType()`（类型谓词 `x is B` / `asserts x` 由它分流） |
+| `static EndsAtTypeEnd(type, lastUnit)` | 终点覆盖校验 |
+| `static LastCodeAt(units)` / `LastCodeUnit(units)` | 尾部 trivia 不算类型的一部分 |
+| `static LastReason` / `LastCategory` | 失败原因 / 保留字段（category 由调用方给） |
+
+**A6 边界**：本类只 `new TypeBuilder`，**不** `new ExpressionBuilder` / `StatementBuilder`。这是 `as` 分支（R2）
+就成立的既定口径，R5 只是把它从「`as` 一个位置」推广到变量 / 参数 / 返回 / `for` 头 / `type` 别名五个载体。
+
+**类型节点与载体**（★ = 有专门 case；未打星的由同一个 `ParseType` 分支顺带覆盖，**不拒绝**）：
+
+| 类型节点 | 载体 | case |
+| --- | --- | --- |
+| `TypeReference`（含 `Array<T>` / `Map<K,V>` / `A.B` / `Array<Array<T>>` 的 `>>` 拆分）★ | 变量注解 / `type` 别名 | `TY-pos-02/06`、`DC-pos-05/06` |
+| `UnionType` ★ / `IntersectionType` / `ArrayType` / `ParenthesizedType` / `ThisType` / `TemplateLiteralType` | 变量注解 / `type` 别名 | `TY-pos-05`、`DC-pos-07`；其余顺带 |
+| `TupleType` ★ / `LiteralType` | 变量注解 | `TY-pos-07` |
+| `TypeQuery`（`typeof`）★ / `TypeOperator`（`keyof` / `readonly`）★ / `IndexedAccessType` ★ | 变量注解 | `TY-pos-08/09/10` |
+| `FunctionType` ★ / 关键字类型（`NumberKeyword` 等） | 参数注解 + 返回类型 | `TY-pos-11…16` |
+| `TypeLiteral` ★ / `TypeParameter` ★ / `ConditionalType` ★ / `MappedType` ★ | `type` 别名 | `DC-pos-08/09/10/11` |
+| `TypePredicate` ★（尽力项，已实现） | `type` 别名 | `DC-pos-13` |
+
+**条件 / 映射 / 模板字面量类型收 `pos` 的口径**：`R5-Q2` 裁决 —— 它们在 legacy 下本来就 `A1=YES`，
+`TypeBuilder` 会读；若改成 `Decline`，必须额外写一层「按 `type.constructor.name` 判种类」的白名单去拒绝本来正确的树，
+且与引擎里 `as`（任意类型都收）口径分裂。因此 **R5 收为 pos，不写白名单**；负例改用「真的会拉 `ExpressionBuilder`
+或本族不做的构造」（enum 带初始值 / class / namespace / import / export / declare / 装饰器）。
+只做建树，**不做类型检查**。
+
+### 23.3 三个载体：变量注解 / 函数参数与返回 / `for` 头
+
+**(a) 变量注解**（`direct-variable-session.xl.md`，`TY-pos-01…10`）
+
+- 新状态 `ExpectType = 6`（既有 0–5 不变）；`:` 触发 `TypeStart = colon.EndIndex`，之后逐单元进 `TypeUnits`；
+- `=` / `,` / `;` 三个出口先 `FlushType()`（`DirectTypeAssembly.TypeOf`）再走原来的 `IngestEqualOrSep`；
+  EOF / ASI 由 `Finish` 收口（`let x: number` 无 `;` 也成立，`TY-pos-03`）；
+- 成功 ⇒ `declaration.Add(type)`，子节点顺序 **`[Identifier, Type, Initializer?]`**（tsc 实测；
+  `let x: number = 1` 的 `VariableDeclaration = [Identifier, NumberKeyword, NumericLiteral]`）；
+- 失败 ⇒ `Decline(reason, "var.type")`，旧路径接管；`let x!: number = 1` 仍 `var.type`（确定赋值断言不做）。
+
+**(b) 函数参数 / 返回类型**（`direct-function-session.xl.md`，`TY-pos-11…16`）
+
+- 新门 `ParametersAreTypeAnnotated` **与 R3 的 `ParametersAreIdentifiers` 并存**（纯标识符参数表仍走旧门，
+  `TY-guard-01` 钉住）；新门允许 `a` / `a?` / `...a: T` / `: T`（类型位里的任意单元），
+  **拒绝** `=` / `{` / `[` / `@`，并且 **rest 必须带类型注解**（`function f(...a) {}` 仍 `stmt.func`，
+  `R3-B2-neg-02` 不动）；默认值（`function f(a = 1)`）会走 `TakeParameterInitializer` → `ExpressionBuilder`，
+  因此仍是负例（`TY-neg-02`，A9 `stmt.func`）；
+- 返回类型不再只数 `code.length`：参数表之后、体之前若出现 `:`，把中间单元交 `DirectTypeAssembly.ReturnTypeOf`，
+  `shape.ReturnType = returnType` 且 `shape.Add(returnType)`；顺序 **name → params… → returnType → body**；
+- 参数节点仍由静态工厂 `FunctionDeclarationShape.BuildParameters` 建（`?` / `...` / `: T` 都是子节点），
+  **不复制第二份参数配方**；`StatementsBuilt` 只记函数本身 + 体内各自收口的语句。
+
+**(c) `for` 头注解**（`direct-declaration-assembly.xl.md`，`TY-pos-17`，设计上的尽力项，**已实现**）
+
+`for (let i: number = 0; ; ) { b; }`：`:` 分支不再直接 `Decline("stmt.type")`，而是缓冲类型单元 → `TypeOf` →
+`declaration.Add(type)`。实测 `built=2`（for + 体内 `b;`）、`A1 MATCH`、`A10 IDENTICAL`，`stmt.type` 从
+`DECLINE-STATS` 消失。
+
+### 23.4 `DeclarationFamilyDirectSession`：interface / type / enum（class 留 R6）
+
+**机制**：声明壳**早已存在**，`DeclarationStatementPossibleShape` 继承 `ControlFlowStatementPossibleShape`，
+R3 的 `DirectStatementHook.Attach` 就是唯一挂载点。R5 只需 **一个新 session 类 + 3 行 `Register`**
+（kind 7 / 9 / 10，§23.6），候选与壳**一行未改**。
+
+`Finish` 的流程（`direct-declaration-session.xl.md`）：
+
+1. `Kind === 9 / 10`（`ShellClassDeclaration` / `ShellDecoratedDeclaration`）⇒ 第一次喂入就
+   `Decline("类声明 / 装饰器声明属 R6", "decl.class")`；`ClassDeclarationShape` 里有 2 处 `new StatementBuilder`
+   （静态块 / 类体）⇒ A6 不可能为 0，**显式 Decline 比硬做安全**；
+2. `Kind === 7` ⇒ `RecognizeHead` 分 0..6（`interface` / `type` / `enum` / `class` / `@` / 其它）；
+   `namespace` / `module` / `import` / `export` / `declare` / `using` 等头 ⇒ `decl.head`；
+3. **头复核**：收口区间里的首代码单元必须与首格识别的是同一个头（壳被拆过 / 吞进下一条 ⇒ `decl.shape`，
+   不建半棵树）；
+4. 三个分支分别调 `InterfaceDeclarationShape.FromUnits` / `TypeAliasDeclarationShape.FromUnits` /
+   `EnumDeclarationShape.FromUnits`；**`shape.Pos = this.BasePos`** —— `FromUnits` 内部 `start=0` 会算成 0，
+   这是 R5 最容易被 A1 抓到的一个坑；
+5. **覆盖校验**：`built.SourceRange.EndIndex === 壳最后一个代码单元的 EndIndex`（含 `;`），不一致 ⇒
+   `decl.coverage`；空体（`interface X {}` / `enum E {}`）与无 `;` 的 `type T = A` 都必须过；
+6. `StatementsBuilt += 1` **只加一次**（体内语句 / 成员不是语句，不另计）。
+
+**`enum` 成员门**（`R5-R4`）：`enum E { A = 1 }` 的成员初始值会让 `BuildMember` 走 `ExpressionBuilder.Load`，
+计算名 `enum E { [k]: … }` 同理 ⇒ 在进入 `FromUnits` **之前**扫体括号的直接子单元，出现顶格 `=` 或 `[`
+就 `Decline("枚举成员带初始值 / 计算名…", "decl.enum")`。`enum E { A, B }` 才建。
+
+**`safe` 口径（不是 neg，写 neg 会假红）**：
+
+- `const enum E { A, B }`：根层 `Decide` 把它让给 legacy，**根本不建壳**（实测 `sessions=0 stmtLoads=0`）⇒
+  `R5-DC-safe-01` 只断言 `built==0 && errors==0 && A1 MATCH`，**不断言 `declined>=1`**；注册声明族 session
+  不改变它（R6 若要收，得改 `statement-route-util` 的 `Decide`）。
+- `export interface` / `declare interface` / `declare function` / `declare module`：由 `ExportDeclarationPossibleShape` /
+  源文件候选直接建，**走不到声明族 session**（`sessions=0`）⇒ 同样是 `safe`。
+- `class` / `@dec class` / `namespace` / `declare const` / `enum` 带初始值才是 `neg`，各自命中
+  `decl.class` / `decl.head` / `decl.enum`。
+
+### 23.5 R4 残余收口：`yield` / `await` / `async` 箭头 / `for await` / 对象成员
+
+| 缺口 | 实现 | case |
+| --- | --- | --- |
+| `yield` / `await` 语句 body-legacy | `block-possible-shape.xl.md` 的 `YieldStatementPossibleShape.BuildByIndex` 与 `AwaitStatementPossibleShape.BuildByIndex` 各 +1 行 `DirectStatementHook.Attach(shell, context)`；`ControlFlowStatementDirectSession` 的 `AcceptedHeads` 加 `yield` / `await`，新增 `BuildYield` / `BuildAwait` | `RS-pos-01…04`；`R4-B4-pos-01/02/04` 改判 |
+| `yield* a` | `YieldExpressionShape.Data = [AsteriskToken, operand]`；`*` **是子节点**，`Pos = yield.EndIndex` | `RS-pos-02` |
+| `await` 优先级 | 引擎 `ExpectOperand` 里 `await` 与 `typeof` 同级（操作数按一元前缀），`await` token 不进 `Data` ⇒ `await g() + 1` = `(await g()) + 1` | `RS-pos-04`（同 `RS-pos-03`） |
+| `async` 箭头 | 语句首 `async` + `(` ⇒ 记 `AsyncPending`；参数表闭合且下一格 `=>` ⇒ `ArrowFunctionShape[AsyncKeyword, Parameter…, =>, body]`；不是箭头 ⇒ 回退 Identifier `async` + 后缀链（`RS-pos-06` 钉无 `await` 的 async 箭头） | `RS-pos-05/06`；`R3-B2-neg-04` / `R4-B4-neg-01` 改判 |
+| `for await (… of …)` | `BuildFor` 识别 `for` `await` `(`；`Data = [AwaitKeyword, binding, collection, body]`，`AwaitKeyword.Pos = for.EndIndex` | `RS-pos-07` |
+| 对象成员 `async` / `*` | 方法前缀扩 `async` / `*`（顺序 `[AsyncKeyword?, AsteriskToken?, name, params…, body]`）；`async *m()` **不做**（`expr.member`） | `RS-pos-08/09`；`R4-B4-neg-03` 改判 |
+| 对象成员注解参数 | 参数门换 `ParametersAreTypeAnnotated`（**与函数声明同一个方法，不复制**）；默认值仍 `expr.member` | `RS-pos-10`；负例 `RS-neg-01`，guard `RS-guard-01`（setter） |
+
+**A6 / `--q5`**：两个 `Attach` 落地后，`R4-B4-pos-01/02/04` 的 A6 从 SKIP 变成**强制 0**（`stmtLoads=0`），
+`expectBuilt` 1→2。`R2-SAFE-01/03`（顶层 `await a` / `yield a`）**保持 `safe`**：语句壳要求父是 `{`，顶层父是
+`SourceFileShape` ⇒ 首格 Reject；要直建须改只读的 `statement-route-util`（`DecideCommon`）并补引擎 `yield` 前缀，
+留 R6。它们一度按 Q1 批成 pos，fix5 按裁决 1(a) **撤回 safe**（不计入 `--q5` 的 6 条）。
+
+### 23.6 硬化：`StatementTokenSets` 单一来源 / C2 死分支 / `as`·`satisfies` 合法化
+
+**(a) D7 闭集的唯一来源**（`typescript/tokens/statements/statement-token-sets.xl.md`，只 import `core`）：
+
+| 方法 | 闭集 | 消费者（纯委托） |
+| --- | --- | --- |
+| `IsRestrictedPostfixText(text)` | `++` `--` `!` `~` `typeof` `as` `satisfies` | `StatementBoundaryUtil.IsRestrictedPostfixUnit`（Token 版入口）、`DirectExpressionEngine.IsRestrictedPostfix`（text 入口） |
+| `IsRestrictedPostfixUnit(unit)` | 只做**类型判别**（`Symbol` / `Common`），闭集仍只有一份 | 边界层 |
+| `IsExpressionContinuation(unit)` | 换行后仍接得上上一表达式的单元（括号 / 模板 / 运算符 / `in`·`instanceof`·`as`·`satisfies` …） | `ExpressionStatementPossibleShape.IsContinuation` |
+
+三个消费者方法体现在都是**一条** `return StatementTokenSets.X(…)`，无第二份字面量表。
+`StatementScanner.ContinuesAcrossLine` / `StatementBuilder.ContinuesAcrossLine` **不动**（语义面不同，改它就是改整个语句层）。
+单测 `tests/direct-build/token-set-parity.mjs` 的 PASS 判据：① 三个导出齐全；② 三个消费者纯委托且方法体无引号字面量；
+③ 递归扫 `build/ts/**/*.js`，每个闭集**只有一份定义**（其余同名定义必须是纯委托）；④ `CORPUS` 59 个 token 供改闭集时同步。
+
+**(b) C2 死分支与 `IsContinuationToken` 副本**：`statement-boundary-util.xl.md` 删掉恒真分支
+（`if (IsLineStartOperandBoundary(...)) return true;`）与 3 个 helper（`IsLineStartOperandBoundary` /
+`IsOperandStartUnit` / `IsContinuationToken`，共 **111 行**）；`IsAsiBoundary` 的 `return !IsContinuation(current);`
+一行**未动**。C2 的真修复点仍是 `statement-shape.xl.md` `TryToClose` 的 `ShellPlainExpression` 分支（§22.1），
+`CL-pos-01` / `CL-guard-01` / `CL-guard-02` 钉住删除前后行为不变。
+
+**(c) `as` / `satisfies` 进受限后缀闭集（R5-A2）**：闭集加两个词后，声明族与引擎侧**自动继承**（纯委托）。
+同时 `DirectTokenUtil.IsIdentifierOperand` 把 `as` / `satisfies` 移出标识符保留字表 —— 它们在**运算符位**才是运算符
+（走引擎 `ExpectOperator`），在**操作数位**只能是标识符（tsc：`as⏎b` 是两条 `ExpressionStatement`，
+`Identifier("as")`）。这处文件不在 `R5-CONTRACT` 的逐行授权表里，属 A2 的必要配套，**Lead 已追认**。
+
+> **CL-pos-02/03 的源是合法等价源**：设计期的 `let x = a⏎as b` 在 TS 里是**非法输入**（两个操作数相邻、缺分号），
+> tsc 的 3 条来自 **missing-semicolon recovery**；R5 不引入恢复语义（`CanEndStatement` / `StatementEndPossibleShape` /
+> `TryToClose`，R6）。因此 case 改为 `let x = a⏎as;⏎b;` / `let x = a⏎satisfies;⏎b;`（同一条 A2 行为：行首 `as` /
+> `satisfies` 另起一条语句），实测 **built=3 / declined=0 / A1 MATCH**，`noBaseline: true` 保留（旧基线本身是错的）。
+> 表达式语句侧 `a⏎as` 仍是 PARSE-ERROR（控制组同样，非回归，R6）。
+
+**(d) 注册**：`direct-build-plugins.xl.md` 末尾追加 3 行，既有 6 行一字不改 ⇒ 物理行序
+**`2,1,4,5,6,8,7,9,10`**（按行序、不按常量值）。**只注册声明族 session 一件事**就能让 `--group=dc` 从 0/20 变 20/0。
+`DirectBuildMetrics` 只追加注释：`decl.head` / `decl.class` / `decl.enum` / `decl.shape` / `decl.coverage`（各带触发点与负例）。
+
+### 23.7 目标 case 189：构成、改判与实测
+
+**构成**：`132`（R1 10 + R2 50 + R3 32 + R4 40）+ `57` = **189**，R5 四组 `TY 20 / DC 20 / RS 12 / CL 5`。
+`TY` = pos 17（含尽力项 `TY-pos-17`）+ neg 2 + guard 1；`DC` = pos 13（含尽力项 `DC-pos-13`）+ neg 5 + safe 1 + guard 1；
+`RS` = pos 10 + neg 1 + guard 1；`CL` = pos 3 + guard 2。`expectBuilt=2` 的四条是
+`TY-pos-11/12/13` 与 `TY-guard-01`（函数体里的 `return …;` 各 +1；设计表原写 1，按 `StatementsBuilt` 实证校正）。
+
+**改判 8 条（历史）/ 生效 6 条**：
+
+| case | 源码 | 旧 → 新 | 状态 |
+| --- | --- | --- | --- |
+| `R4-B4-pos-01` | `function* g() { yield 1; }` | `expectBuilt` 1→**2**，删 `a6Skip` | 生效 |
+| `R4-B4-pos-02` | `function* g(a) { yield a; }` | 同上 | 生效 |
+| `R4-B4-pos-04` | `async function f(a) { await g(a); }` | 同上 | 生效 |
+| `R4-B4-neg-01` | `async (a) => await g(a)` | neg→**pos** `built=1` | 生效 |
+| `R4-B4-neg-03` | `({ async m() {} })` | neg→**pos** `built=1` | 生效 |
+| `R3-B2-neg-04` | `async (a) => a` | neg→**pos** `built=1` | 生效（Q1 第 8 条） |
+| `R2-SAFE-01` | `await a` | safe→pos→**撤回 safe** | **不生效**（顶层壳不可达，R6） |
+| `R2-SAFE-03` | `yield a` | safe→pos→**撤回 safe** | **不生效**（同上） |
+
+> 不要把它们与 R4 的 6 条改判（`R3-B1-neg-01/02/03`、`R3-B2-neg-03`、`R2-A2-neg-01`、`R2-C2-01`）混为一谈：
+> 那是 R4-Q1 的账，R5 未动。
+
+**`--q5=auto`**：6 条生效改判逐条在 `build/ts/typescript/tokens/direct/*.js` 里找实现痕迹
+（`BuildYield` / `BuildAwait` / `AwaitExpression` / `AsyncPending` / object-member 的 `async`），命中 ⇒ 新口径，
+未命中 ⇒ 退回 `legacy` 读数（**红，不假绿**）。合并态实测 `Q5: mode=auto → 6 条 expect=pos，未出现 0 条`。
+`--q1` / `--q4` 按 R5-Q3 **保留**（R6 一次性移除）；`schema` 升到 `@5`。
+
+**实测读数**（本克隆，2026-10-26；`$setup = …\xl-example-set\chore-all-possible-setup`）：
+
+| 命令 | 实测 |
+| --- | --- |
+| `--group=r1` | **10/0**，`builtCases=10/10 loads=0`，DECLINE `0/0` |
+| `--group=r2 --expect-direct --strict --decline-stats --baseline=$setup` | **50/0**，35/50，loads=53，DECLINE `11/3` |
+| `--group=r3 …` | **32/0**，28/32，loads=14，DECLINE `4/3` |
+| `--group=r4 …` | **40/0**，36/40，loads=35，DECLINE `4/4` |
+| `--group=ty …` | **20/0**，18/20，loads=6，DECLINE `2/2` |
+| `--group=dc …` | **20/0**，14/20，loads=11，DECLINE `5/3` |
+| `--group=rs …` | **12/0**，11/12，loads=7，DECLINE `2/2` |
+| `--group=cl …` | **5/0**，5/5，loads=0，DECLINE `0/0` |
+| `--group=r5 …` | **57/0**，48/57，loads=24，DECLINE `9/7` |
+| 全量 `--expect-direct --strict --decline-stats` | **CASES=189 FAILED=0**，`builtCases=157/189 loads=126`，`DECLINE-STATS: total=28 categories=11` |
+| `--strict-all --expect-direct --decline-stats` | **189/0**，MODE 含 `strict=on (implied by --strict-all)` |
+| `node tests/direct-build/token-set-parity.mjs` | **RESULT: PASS**（8 PASS + 1 INFO，exit 0） |
+
+构建：`xl_build(paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)` → **557 written / 0 error /
+3 warning**（3 条是既有 `E1107` 重复类型声明，非 R5 引入）；`tsc -p tsconfig.json` → **exit 0**。
+
+### 23.8 A4：`dist` 孤儿 prune（主仓库执行一次）
+
+| 项 | 值 |
+| --- | --- |
+| prune 前 | `dist/ts` **911**（557 xl 管理 + **354** 孤儿 `*-possible-shape.ts`）；`build/ts` **912**（含 355 陈旧 `.js`）|
+| `xl_orphans(out="dist", prune=true)` | **354 found / 354 removed**（只删带 xl header 的产物）|
+| prune 后 | `dist/ts` **557**、重新构建后 `build/ts` **557**、`xl_orphans` 只读复扫 **0 found** |
+| git | prune 前后 `git status --porcelain` 均空；`git ls-files dist build` = **0**；`dist` / `build` 分别被 `.gitignore:2-3` 忽略 ⇒ **零 git 差异** |
+| 复跑 | prune + 重建后全量仍 **189/0**、parity **PASS**、TY/DC 探针 20/20 |
+
+**主仓库交付口径**：`dist/ts` 与 `build/ts` 各 **557**，与 **557** 个 `.xl.md` 源一一对应；两者都不入库。
+
+### 23.9 R6 遗留清单（不阻塞 R5 交付）
+
+1. **`class` 声明 / 类表达式**（kind 9 目前只 Decline；`ClassDeclarationShape` 的 2 处 `new StatementBuilder`）。
+2. **`namespace` / `module` / `import` / `export` / `declare` / `using` 的建树**（目前 `decl.head`）。
+3. **装饰器建树**（`@` 开头的声明一律 `decl.class`；`FromUnits` 的装饰器循环会拉 `ExpressionBuilder`）。
+4. **missing-semicolon recovery**：`let x = a⏎as b` 这类相邻操作数非法源；落点 `CanEndStatement` /
+   `StatementEndPossibleShape` / `TryToClose`；`CL-pos-02/03` 现在是合法等价源。
+5. **顶层 `await` / `yield` 路由**：`statement-route-util.DecideCommon` + 引擎 `yield` 前缀（`R2-SAFE-01/03` 保持 safe）。
+6. **`const enum`**（根层 `Decide` 不建壳，要改只读路由文件）。
+7. **`--q1` / `--q4` 移除**（`--q5` 建议一并退役；合并态 `auto` 已 6/6 命中）。
+8. **`angle.ts` 的 `x<y>z` 歧义**：47 语料 `FILES=47 XML-DIFF=1 CRASH-DIFF=0`，唯一差异仍是它（R1/R2 既有）。
+9. **47 语料 smoke 是辅助指标**，不是验收门：`node _coord\smoke-r3-func.mjs <clone> <setup> 400`。
+10. 其它：`catch (e: T)` 绑定注解、泛型函数头、箭头函数参数 / 返回类型注解、对象成员计算属性名与默认值、
+    `switch` 子句语句的 A6 SKIP、条件 / 映射类型的语义检查。
