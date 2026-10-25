@@ -9,7 +9,8 @@
 // at `;`. It is now StatementRoute.ShellPlainExpression (`;` / EOF / ASI).
 //
 // Asserted here (not just printed):
-//   (1) both gates ship DEFAULT TRUE, EnableBlockClassShell stays false;
+//   (1) the SINGLE gate ships DEFAULT TRUE (Stage 4ae deleted BlockPossibleShape's duplicate field)
+//       and EnableBlockClassShell ships TRUE (Stage 4ac promotion, re-applied on this base);
 //   (2) with the gates off the raw path is byte-identical to the ON path (safe rollback);
 //   (3) with the gates on: XML == off-path XML for every source, no file fallback;
 //   (4) headline takeover counts: `a; b;` shell=2, `f(); case 2: g();` shell=2,
@@ -32,7 +33,9 @@ const sources = [
   { source: "switch (x) { default: f(); }", shells: 1, body: 0 },
   { source: "switch (x) { case a + 1: f(); }", shells: 1, body: 0 },
   { source: "switch (x) { case a ? b : c: f(); }", shells: 1, body: 0 },
-  { source: "switch (x) { case 1: if (x) { y; } }", shells: 1, body: 0 },
+  // Stage 4ae: a body-bearing clause statement (`if`) now closes at `}` via ScanRoot and its body
+  // brace mounts the block-body catalog, so `y;` is taken over (body 0 -> 1).
+  { source: "switch (x) { case 1: if (x) { y; } }", shells: 1, body: 1 },
   { source: "switch (x) { case 1: ; }", shells: 1, body: 0 },
   { source: "switch (x) { case 1: let y = 1; }", shells: 1, body: 0 },
   { source: "switch (x) { case 1: f() }", shells: 1, body: 0 },
@@ -43,17 +46,17 @@ const sources = [
   { source: "switch (x) { case 1: a\n b; }", shells: 2, body: 0 },
   { source: "switch (x) { case 1: switch (y) { case 2: f(); } }", shells: 1, body: 0 },
   { source: "switch (x) { }", shells: 0, body: 0 },
-  // Known gap (Stage 4aa, recorded in HANDOFF): a clause statement that ends with a `}`
-  // followed by another statement (`if (x) { y; } b;`) closes the shell but the file-level
-  // builder falls back once. XML is still byte-identical; not asserted as green.
-  { source: "switch (x) { case 1: if (x) { y; } b; }", shells: null, body: null },
+  // Stage 4ae gap ① closed: the `if` clause statement ends at its body `}` (ScanRoot), and the
+  // leftover `b;` is replayed into the case-block clause catalog => two shells, no file fallback.
+  { source: "switch (x) { case 1: if (x) { y; } b; }", shells: 2, body: 1 },
 ];
 
 function flags(on) {
   R.EnableShellExpressions = on;
   R.EnableBlockBodyCatalog = on;
+  // Stage 4ae: ONE gate. BlockPossibleShape's same-named field was deleted, so the mount site
+  // asks only this one; there is no longer a way to "open one and leave the other" (fake idle).
   R.EnableSwitchCaseClause = on;
-  B.EnableSwitchCaseClause = on;
   R.EnableBlockClassShell = false;
 }
 
@@ -62,8 +65,12 @@ function fail(message) { failures += 1; console.log("FAIL " + message); }
 
 // 0. Shipped defaults.
 if (R.EnableSwitchCaseClause !== true) fail("default EnableSwitchCaseClause is not true");
-if (B.EnableSwitchCaseClause !== true) fail("default BlockPossibleShape.EnableSwitchCaseClause is not true");
-if (R.EnableBlockClassShell !== false) fail("default EnableBlockClassShell is not false (out of scope for 4aa)");
+// Stage 4ae: the duplicate gate is gone. An own property here would mean a JS-side assignment
+// silently creates a dead switch again (the "only one opened = fake idle" trap from 4aa).
+if (Object.prototype.hasOwnProperty.call(B, "EnableSwitchCaseClause")) {
+  fail("BlockPossibleShape still owns a duplicate EnableSwitchCaseClause");
+}
+if (R.EnableBlockClassShell !== true) fail("default EnableBlockClassShell is not true (Stage 4ae)");
 
 for (const entry of sources) {
   const source = entry.source;

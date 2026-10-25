@@ -56,13 +56,13 @@ const FACTORY_BLOCK = BP ? {
   EnableBlockDeclarationCatalog: BP.EnableBlockDeclarationCatalog,
   EnableSwitchCaseBody: BP.EnableSwitchCaseBody,
   EnableBlockFunctionBody: BP.EnableBlockFunctionBody,
-  EnableSwitchCaseClause: BP.EnableSwitchCaseClause,
 } : {};
 
 if (useDecl) R.EnableDeclarationShell = true;
 if (useClass) R.EnableBlockClassShell = true;
-// 双开关必须同开同关（HANDOFF-s4aa §5.5）。
-if (BP && useDecl) { /* 声明族不吃 BlockPossibleShape 的 switch 子句开关，无联动 */ }
+// Stage 4ae: SwitchCaseClause is now a SINGLE gate (StatementRouteUtil only). BlockPossibleShape's
+// duplicate field was deleted, so there is nothing left that must be kept "in sync" (HANDOFF-s4aa §5.5).
+// EnableBlockClassShell also ships true now, so --class only re-asserts the default.
 if (BP && (useDecl || useClass)) { /* 保持其它开关不动 */ }
 
 function pickCounter(name) {
@@ -180,7 +180,7 @@ const CASES = [
   { family: "声明族（默认关）", name: "decl-type", src: "type T = 1;", expect: useDecl ? { DeclarationShellCount: 1 } : { DeclarationShellCount: 0 } },
   { family: "声明族（默认关）", name: "decl-import", src: "import x from \"y\";", expect: useDecl ? { DeclarationShellCount: 1 } : { DeclarationShellCount: 0 } },
   { family: "声明族（默认关）", name: "decl-export", src: "export const a = 1;", expect: useDecl ? { DeclarationShellCount: 1 } : { DeclarationShellCount: 0 } },
-  { family: "块内 class（默认关）", name: "block-class", src: "{ class C { m() { } } }", expect: useClass ? { ControlFlowShellCount: 1 } : {}, knownGap: useClass ? null : "EnableBlockClassShell=false（Stage 4y 未转正）" },
+  { family: "块内 class（Stage 4ae 默认开）", name: "block-class", src: "{ class C { m() { } } }", expect: { ControlFlowShellCount: 1 }, knownGap: null },
 ];
 
 const rows = [];
