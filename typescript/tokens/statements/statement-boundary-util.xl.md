@@ -1029,6 +1029,18 @@ for (let at = from; at < code.length; at++) {
     }
     return -1;
   }
+  // D7（R3-CONTRACT §4.5）：`++` / `--` / `!` **不能跨行**成为后缀（TS `parsePostfixExpressionOrHigher`
+  // 的 `scanner.hasPrecedingLineBreak()` 守卫；与 C1 的引擎守卫、`IsAsiBoundary` 是**同一条语义**）。
+  // 判据只补在这里一次，因为声明族（`let`/`const`/`var`）与 `return`/`throw` 的收口只走本函数，
+  // 而 `EndsAtLineBreak` 的 `!ContinuesAcrossLine(next)` 对这三个符号恒为 false。
+  // 前置条件 `EndsExpression(code[at-1])` 是关键：`a = ⏎ ++b` 里 `=` 收不住表达式，`++` 是**前缀**，
+  // 不能断（这一条就是「反过度收缩」守卫）；`let x = a⏎+ b` 的 `+` 不在受限集合里，同样不受影响。
+  if (at > from
+    && !StatementScanner.NoLineBreakBetween(code[at - 1], code[at])
+    && StatementBoundaryUtil.IsRestrictedPostfixUnit(code[at])
+    && StatementScanner.EndsExpression(code[at - 1])) {
+    return at - 1;
+  }
   // 换行 ASI：前一个代码单元能收住一条声明、当前单元接不上，就在这里收口——
   // 否则会把**下一条语句**的 `;` 也吞进来（`const last = …` ⏎ `f(...)` / 类型注解跨行读到下一个 `;`）。
   if (at > from && (StatementBoundaryUtil.EndsAtLineBreak(code, at - 1, at)
@@ -1053,6 +1065,21 @@ if (atEof && code.length > 0) {
   return code.length - 1;
 }
 return -1;
+```
+
+## static method IsRestrictedPostfixUnit:(unit:Token)=>bool
+
+```ts
+// D7（R3-CONTRACT §4.5）：跨行后**不能**继续上一条表达式的受限后缀单元。
+// `++` / `--` 在 TS 里是后缀运算符（`parsePostfixExpressionOrHigher` 用 `hasPrecedingLineBreak()`
+// 拒绝跨行）；`!` 不是运算符而是一元前缀的起点，同样接不上（`a ! b` 从来不是合法表达式）。
+// `~` 不在本轮闭集里（CONTRACT §4.5 只列 `++`/`--`/`!`）：`let x = a⏎~b` 是**同类残留**
+// （`~` 也只能作前缀），本轮按裁决不收，留 R4；列在这里是为了让下一个人一眼看到缺口，不假装已修。
+if (!(unit instanceof Symbol)) {
+  return false;
+}
+const text = (unit as Symbol).TempToString();
+return text === "++" || text === "--" || text === "!";
 ```
 
 ## static method IsYieldFamilyCode:(code:Array<Token>)=>bool
