@@ -21,6 +21,7 @@ import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
 import { VariableStatementPossibleShape } from "./variable-statement-possible-shape.xl.md"
+import { DirectStatementHook } from "../direct/direct-statement-hook.xl.md"
 ```
 
 # namespace cangjie
@@ -185,6 +186,8 @@ if (StatementRouteUtil.EnableBlockBodyCatalog && bodyBracket !== null) {
     new BlockBodyWaitingPossibleShape());
 }
 StatementRouteUtil.BlockShellCount += 1;
+// H3-b（R3-CONTRACT §4.1）：与 control-flow 候选同一句、同一个挂载点（kind = ShellBlock）。
+DirectStatementHook.Attach(shell, context);
 return shell;
 ```
 
