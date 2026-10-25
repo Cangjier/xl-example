@@ -13,6 +13,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "../declarations/body-guide-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
+import { DeclarationStatementPossibleShape } from "./declaration-statement-possible-shape.xl.md"
 import { RootExpressionStatementPossibleShape } from "./root-expression-statement-possible-shape.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
@@ -89,6 +90,21 @@ AST 逐节点一致。块内语句仍由 `BuildBlock` 原子递归（块内目�
 **互斥（不靠先后）**：`Decide` 判成 `ShellBlock` 后，`StatementPossibleShape` 在
 `ComputeByIndex` 顶部对「非 `Legacy`」主 `Reject`；`ExpressionStatementPossibleShape` 的
 `CanStart` 对 `{` 返回 `false` 本来就不接。两边永远不会同格 Accept。
+## static field EnableBlockDeclarationCatalog:bool = true
+
+**块内声明族候选的注册门控**（Stage 4w）：`true` = 在块体目录末尾追加
+`DeclarationStatementPossibleShape`（声明 / 导入导出族的专用起点候选）。
+
+默认 `true` 但**当前是惰性的**：该候选自己只认 `StatementRoute.ShellDeclarationFamily`，而
+`StatementRouteUtil.Decide` 在 `EnableDeclarationShell = false`（现行默认，Stage 4t 回退）时
+对声明头返回 `Legacy`，所以候选在块体目录里一格也不接——块内 `class` / `enum` / `declare`
+仍整段留 raw，由 `BuildBlock()` 的 legacy 递归建树（XML / AST 不变，计数不增）。
+`EnableDeclarationShell` 打开后，块内声明才走与本候选在根层完全相同的壳 / 收口 / 建树通道，
+**不需要第二份判据**。`false` = 连注册都不做，块体目录逐位回到 Stage 4s。
+
+**不修改 `declaration-statement-possible-shape` 文件本身**：本门控只决定「注册不注册」，
+候选的判定 / 晚建守卫 / 建壳全部复用那一份。
+
 ## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
 
 块体语句候选目录的缓存（所有块 `{` 共用一份：候选实例无状态，判定状态在
@@ -110,7 +126,13 @@ AST 逐节点一致。块内语句仍由 `BuildBlock` 原子递归（块内目�
 ```ts
 BlockPossibleShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
   BlockPossibleShape.CreateBodyPossibleShapesCache,
-  () => [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape(), new BlockPossibleShape(), new AwaitStatementPossibleShape()]);
+  () => {
+    const shapes:Array<PossibleShape> = [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape(), new BlockPossibleShape(), new AwaitStatementPossibleShape()];
+    if (BlockPossibleShape.EnableBlockDeclarationCatalog) {
+      shapes.push(new DeclarationStatementPossibleShape());
+    }
+    return shapes;
+  });
 return BlockPossibleShape.CreateBodyPossibleShapesCache;
 ```
 
@@ -328,6 +350,22 @@ if (!(unit instanceof Bracket)) {
 return (unit as Bracket).StartBracketChar === "(" && (unit as Bracket).Closed;
 ```
 
+## static method IsAllCloseAngle:(text:string)=>bool
+
+`text` 是不是**一个或多个连续的 `>`**（本语法会把 `>>` / `>>>` 合并成一个单元）。只用于反向跳过
+泛型类型参数列表：`>` 的单元可能带多个字符，必须按个数计深度。
+```ts
+if (text.length === 0) {
+  return false;
+}
+for (let ci = 0; ci < text.length; ci++) {
+  if (text[ci] !== ">") {
+    return false;
+  }
+}
+return true;
+```
+
 ## static method IsFunctionDeclarationBody:(host:Token, bracket:Token)=>bool
 
 **块内 / 体内函数声明体的判据**（Stage 4p）：从体 `{` 往回扫——先过返回类型（`:` 之后到参数表 `(`）、
@@ -354,6 +392,14 @@ while (at >= 0 && data[at].IsTriviaToken) {
   at--;
 }
 if (at < 0) {
+  return false;
+}
+// **Stage 4w 收窄**：`{` 必须处在**体位置**——前一个非 trivia 单元得能收住一个类型 / 参数表。
+// 这条排除「返回类型里的对象字面量」：`function f(): { a: T } { … }` 里类型 `{` 前面是 `:`，
+// `CanEndTypeUnit` 为假；真正的函数体 `{` 前面是 `)` 或已经收住的类型（对象字面量类型括号 / 标识符
+// / `]` / 字面量），为真。没有这条，类型括号也会被挂上块体目录，`a: T` 被当语句建壳，返回类型解析
+// 读到已建形状就抛错，整条文件走文件级 fallback（S4w 专用 case `k<T>(): { a: T }` 暴露）。
+if (!BlockPossibleShape.CanEndTypeUnit(data[at])) {
   return false;
 }
 if (!BlockPossibleShape.IsClosedParameterList(data[at])) {
@@ -383,6 +429,50 @@ while (at >= 0 && data[at].IsTriviaToken) {
   at--;
 }
 if (at >= 0 && data[at] instanceof Bracket && (data[at] as Bracket).StartBracketChar === "<") {
+  at--;
+  while (at >= 0 && data[at].IsTriviaToken) {
+    at--;
+  }
+} else if (at >= 0 && data[at] instanceof Symbol && BlockPossibleShape.IsAllCloseAngle((data[at] as Symbol).TempToString())) {
+  // **Stage 4w：泛型函数声明的类型参数在宿主 `Data` 里是平铺的 Symbol 单元**（`<` / `T` / `>`），
+  // 不是 Bracket——`FunctionDeclarationShape.FromUnits` 自己就按
+  // `code[paramIndex] instanceof Symbol && Is("<")` 判泛型头。原先只跳 Bracket 形态，泛型体 `{`
+  // 因此一路退到「名字不是 Common」返回 false：目录没挂上（mount 0），体内语句全部留 raw，
+  // `BlockBodyStatementCount` 不增——这就是 S4u 记录的 `mount +1 / body +0` 缺口。
+  // 反向扫到配对的 `<`：`>` 计 +1、`<` 计 -1（支持 `>>` / `>>>` 合并单元与 `A<B>` 嵌套），
+  // 归零后 `at` 停在那个 `<` 上。判据仍然严格要求再往前是函数名 + `function`，不放松。
+  let depth = 0;
+  const closeText = (data[at] as Symbol).TempToString();
+  for (let ci = 0; ci < closeText.length; ci++) {
+    depth++;
+  }
+  at--;
+  while (at >= 0) {
+    const inner = data[at];
+    if (inner.IsTriviaToken) {
+      at--;
+      continue;
+    }
+    if (inner instanceof Bracket && (inner as Bracket).StartBracketChar === "<") {
+      depth--;
+    } else if (inner instanceof Symbol) {
+      const innerText = (inner as Symbol).TempToString();
+      for (let ci = 0; ci < innerText.length; ci++) {
+        if (innerText[ci] === "<") {
+          depth--;
+        } else if (innerText[ci] === ">") {
+          depth++;
+        }
+      }
+    }
+    if (depth <= 0) {
+      break;
+    }
+    at--;
+  }
+  if (depth !== 0) {
+    return false;
+  }
   at--;
   while (at >= 0 && data[at].IsTriviaToken) {
     at--;
