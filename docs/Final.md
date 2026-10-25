@@ -194,12 +194,13 @@ node tests/statement-possible/file-fallback-attribution.mjs --json
 
 ## 8. `docs/` 构成
 
-`docs/` 只有三个文件，无子目录：
+`docs/` 只有四个文件，无子目录：
 
 | 文件 | 内容 |
 | --- | --- |
 | [`Final.md`](Final.md) | 本文件：当前现状（形态、构建、门禁读数、架构、残余、复跑） |
 | [`xl-to-cpp.md`](xl-to-cpp.md) | C++ 目标的生成契约：类型映射、部件划分、编译陷阱 |
 | [`cpp-design-notes.md`](cpp-design-notes.md) | C++ 目标上「只能这么写」的结构性取舍 |
+| [`statement-ast-pipeline.md`](statement-ast-pipeline.md) | 语句 → AST 全流程：以 `let x = 1;` 为案例的逐步解释与实测 trace |
 
-`README.md` 只链向这三个文件；仓库根不再有其他过程性文档。
+`README.md` 只链向这四个文件；仓库根不再有其他过程性文档。

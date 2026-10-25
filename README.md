@@ -45,6 +45,7 @@ node build/ts/cjcli.js samples/hello.ts
 
 - [docs/xl-to-cpp.md](docs/xl-to-cpp.md)：C++ 目标的生成规范（映射规则、部件划分、必读的编译陷阱）。
 - [docs/cpp-design-notes.md](docs/cpp-design-notes.md)：C++ 目标上那些「只能这么写」的结构性取舍。
+- [docs/statement-ast-pipeline.md](docs/statement-ast-pipeline.md)：一条语句如何从字符变成 AST（以 `let x = 1;` 为案例的全流程与实测 trace）。
 
 ## 类型约定
 

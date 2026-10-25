@@ -71,21 +71,15 @@
    - AST 节点约定由 `ParseFromShape(shape)` 从关闭后的 shape 产出。
    - 区间口径见第 4 条。
 
-4. **区间口径**
-   - shape 的 `SourceRange` 是**闭区间**（`start` / `end` 都是字符下标，含两端）；
-   - AST 节点的 `Pos` / `End` 是**左闭右开**（与 TS 一致）。
-   - shape 另有 `Pos` 字段：**含前导 trivia**（= 前一个非 trivia 单元的 `End.Index + 1`），与 TS 的 `pos` 同口径。
-   换算只发生在 `ParseFromShape` 里：`Pos = shape.Pos`、`End = shape.SourceRange.End.Index + 1`。
-   shape 层不得为了迁就 AST 去改自己的区间。
 
-5. `typescript/cases/*.ts` 的用例规范：每个语句形态必须**先有一条 base**（不含任何干扰信息），
+4. `typescript/cases/*.ts` 的用例规范：每个语句形态必须**先有一条 base**（不含任何干扰信息），
    再基于同一个 base 给出叠加干扰信息的变体。干扰信息分两类：
    - **trivia 类**：前导空格 / 前导注释 / 词间注释 / 词间多空格 / 词间换行 / 行尾注释；
    - **重复形**：该位置可以表达为集合时，多放几个元素（如具名导入 3~5 个、属性多条、同一文件多条语句），
      可与 trivia 叠加。
    一行一个用例；行内 `\n` 由生成器还原成真实换行。
 
-6. shape 问题分类
+5. shape 问题分类
    - basic token存在问题
    - 缺少possible
    - 缺少end
@@ -101,8 +95,8 @@
    - 什么时候close
    - 以及close时应该提取哪些信息
 
-7. possible 质量标准
+6. possible 质量标准
    质量等级为：差/一般/好
    - compute/build 如果每轮都进行寻找/遍历，则质量等级为差。解决思路：复用cache，将寻找的结果记录到cache，便于下次直接复用。
 
-8. 不支持tsx
+7. 不支持tsx
