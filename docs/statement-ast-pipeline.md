@@ -1252,7 +1252,7 @@ ShellDeclarationFamily(7)（interface / type / enum / class / namespace / import
 | --- | --- | --- | --- |
 | 0 档（默认） | 不写字段 | `stmtLoads + exprOtherDirect + exprLegacy == 0` | R1–R5 的 pos、R6 的 import / export 子句 / 无体成员 class |
 | **精确值档** | `a6ExpectStmtLoads` / `a6ExpectExprLoads`（任一即启用） | 与读数**精确比较**，`--expect-direct` 下**不等即红**（比 SKIP 更严） | R6 的 class / `namespace` / `export <声明>`，以及 5 条改判 |
-| SKIP 档 | `a6Skip` | 只记读数、不判 | **只剩 3 条**（switch 子句 2 + C4 注入 1） |
+| SKIP 档 | `a6Skip` | 只记读数、不判 | **只剩 2 条**（switch 子句 2：`R3-B1-neg-03` / `R4-B3-pos-08`；C4 注入 case 的 A6 量第二次解析，是 PASS） |
 
 R6 的两条确定规则（可据此推断任何新 case）：
 
@@ -1284,7 +1284,8 @@ $setup = "C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setu
 cd $clone
 
 # xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
-#   实测：560 written / 0 skipped / 0 planned / 0 error(s) / 3 warning(s)（3 条既有 E1107 重复类型名）
+#   实测：560 written / 0 skipped / 0 planned / 0 error(s) / 3 warning(s)（3 条既有 E1107 重复类型名；
+#   产物已就绪时读作 0 written / 560 skipped，0 error 不变）
 node node_modules/typescript/bin/tsc -p tsconfig.json     # exit 0
 
 node tests/direct-build/target-cases.mjs --group=cls --expect-direct --strict --decline-stats --baseline=$setup  # 24/0

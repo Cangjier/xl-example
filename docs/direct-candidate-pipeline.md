@@ -1945,7 +1945,7 @@ R3 的 `DirectStatementHook.Attach` 就是唯一挂载点。R5 只需 **一个�
 | --- | --- | --- |
 | `typescript/tokens/direct/direct-class-session.xl.md` | **新** | `ClassDeclarationDirectSession implements DirectSession`（kind 9 / 10） |
 | `typescript/tokens/direct/direct-module-session.xl.md` | **新** | `ModuleFamilyDirectSession implements DirectSession`（kind 7 的**内部分派目标**） |
-| `typescript/tokens/direct/direct-export-assembly.xl.md` | **新** | `DirectExportAssembly`（export 装配层，535 行） |
+| `typescript/tokens/direct/direct-export-assembly.xl.md` | **新** | `DirectExportAssembly`（export 装配层，485 行） |
 | `typescript/tokens/direct/direct-declaration-session.xl.md` | 改 | `RecognizeHead` 多认 `HeadModule`(7) / `HeadUsing`(8)；`ApplyHead` 对 module 头**不再** `Decline`（只记 trace）；`BuildDeclaration` 增 `BuildModuleFamily` 转发（懒建 session，失败落 `decl.module`） |
 | `typescript/tokens/direct/direct-build-plugins.xl.md` | 改 | kind 9 / 10 指向 `ClassDeclarationDirectSession`（+1 import、2 行改指向、2 处注释同步）；**`Register` 仍 9 行** |
 | `typescript/tokens/direct/direct-expression-engine.xl.md` | 改 | R6-A3 的 tagged-template 显式 `Decline`（+13 行） |
@@ -1986,6 +1986,7 @@ CoverageOk(built, expected) built.SourceRange.EndIndex === expectedEnd（开区�
 
 `stmt` = `a6ExpectStmtLoads`（`StatementBuilder.Load`），`expr` = `a6ExpectExprLoads`
 （`exprOtherDirect + exprLegacy`，即 `ExpressionBuilder.Load` 减去 `DirectTokenUtil.OperatorToken` 那 1 次，R2 起口径）。
+表中 case 省略了 `R6-` 前缀（harness 实为 `R6-CLS-pos-01` …；`--group=cls` 即这一族）。
 
 | # | case | 源码 | built | stmt | expr | A1 | A10 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -2175,14 +2176,14 @@ if (this.PrevAngleClose !== null && this.PrevAngleClose === this.PreviousUnit) {
 | 档 | 写法 | 判定 | 用在哪 |
 | --- | --- | --- | --- |
 | 0 档（默认） | 不写字段 | `stmtLoads + exprOtherDirect + exprLegacy == 0` | 全部 R1–R5 的 pos、R6 的 import / export 子句 / 无体成员 class |
-| **精确值档** | `a6ExpectStmtLoads` 和/或 `a6ExpectExprLoads` | `stmtLoads === N` **且** `exprOtherDirect + exprLegacy === M`（缺省 0）；`--expect-direct` 下**不等即 FAIL**（不是 SKIP）；默认模式只记 READING | R6 的 class / `namespace` / `export <声明>`，以及 5 条改判里的 4 条 |
-| SKIP 档 | `a6Skip` | 只记读数、不判 | **只剩 3 条**：`R3-B1-neg-03`（switch 子句）+ `R4-B1-neg-03` 同源 + C4 注入 1 条 |
+| **精确值档** | `a6ExpectStmtLoads` 和/或 `a6ExpectExprLoads` | `stmtLoads === N` **且** `exprOtherDirect + exprLegacy === M`（缺省 0）；`--expect-direct` 下**不等即 FAIL**（不是 SKIP）；默认模式只记 READING | R6 的 class / `namespace` / `export <声明>`，以及 5 条改判（`R2-SAFE-02` + `R5-DC-neg-02/03/04/05`）全部 |
+| SKIP 档 | `a6Skip` | 只记读数、不判 | **只剩 2 条**（都是 switch 子句）：`R3-B1-neg-03` + `R4-B3-pos-08`；C4 注入 case 的 A6 量**第二次（不注入）**解析，是 PASS 不是 SKIP |
 
 - 口径：`exprDirectTokenUtil` **不计入 M**（`TypeBuilder` 内部那次 `ExpressionBuilder.Load`，R2 起如此）；
   `effectiveLoads = stmtLoads + exprOtherDirect + exprLegacy` 照旧打印。JSON 侧新增
   `cases[].a6Expect = { stmtLoads, exprLoads }`（两者都没有 ⇒ `null`）。
-- 合并态逐条：**`A6: FAIL` = 0**；**精确值档 53 条全部 PASS**；`SKIP` 38 条（neg / safe / invalid / incomplete
-  + 2 条 Q6·C4 遗留）。**不许**为归零去 `new StatementBuilder` / `new ExpressionBuilder` 凑数（`D8.1` 末条）。
+- 合并态逐条：**`A6: FAIL` = 0**；**精确值档 53 条全部 PASS**；`SKIP` 38 条（neg 27 / safe 4 / invalid 3 / incomplete 2
+  + 2 条显式 `a6Skip` 的 switch 子句）。**不许**为归零去 `new StatementBuilder` / `new ExpressionBuilder` 凑数（`D8.1` 末条）。
 - 分组名：`cls` / `mod` / `hd` / `r6`（带轮次别名 `r6-cls` / `r6-mod` / `r6-hd`）；`cl`（R5 的 CL）不会被 `cls` 吞。
 
 ### 24.9 命令与实测读数（本文所用克隆 `docs-r6` @ `9efdcc82`，2026-10-26）
@@ -2194,7 +2195,8 @@ cd $clone
 
 # 0) 构建 / 类型：xl_build 是会话工具，不是 shell 命令
 #    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
-#    实测：560 written / 0 skipped / 0 planned / 0 error(s) / 3 warning(s)（3 条 E1107 是基座既有）
+#    实测：560 written / 0 skipped / 0 planned / 0 error(s) / 3 warning(s)（3 条 E1107 是基座既有；
+#    产物已就绪时同一构建读作 0 written / 560 skipped，0 error 不变）
 node node_modules/typescript/bin/tsc -p tsconfig.json          # exit 0
 
 # 1) R6 分组（窄 -> 宽）
@@ -2242,7 +2244,8 @@ node ..\_coord\smoke-r3-func.mjs . $setup 400                                   
   decl.head 1 / expr.member 1 / expr.stopped 1 / stmt.binding 1 / stmt.case 1 / stmt.catch 1 / var.type 1`。
   **没有 `decl.class`、没有 `decl.module`**（全绿态没有对应失败 case），`pos` 不出现在任何键里（A11 逐条 PASS）。
 - 47 语料里 **41 个 `BOTH-THROW`**（两侧同错，`CRASH-DIFF=0`）+ 6 个 `SAME`（脚本对 SAME 静默）；
-  `smoke-r3-func.mjs` 头注释的旧归因「`angle.ts` 的 `x<y>z`」已被 `D8.3` 更正为「`f<T>` + 模板串」。
+  `smoke-r3-func.mjs` 头注释**仍写**旧归因「`angle.ts` 的 `x<y>z`」（`_coord` 只读件，未改）；按 `D8.3`，
+  真实归因是「`f<T>` + 模板串」。
 
 ### 24.10 R7 清单（收口后剩余，按优先级）
 
