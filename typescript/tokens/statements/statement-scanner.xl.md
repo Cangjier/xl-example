@@ -12,6 +12,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -543,6 +544,99 @@ if (unit instanceof RegexToken) {
 return true;
 ```
 
+## static method IsTypePositionBefore:(code:Array<Token>, index:int)=>bool
+
+`code[index]` 是类型实参表的 `<`：它**左边**最近的那个「上下文决定词」是不是类型位。
+
+只认三种上下文：`:`（变量 / 参数 / 属性的类型注解）、`as` / `satisfies`（断言位）、`extends` /
+`implements`（heritage 位）。往前扫时跳过的都是类型引用自身可能出现的单元（标识符、`.`、`|`、`&`、
+`[]` 括号、`keyof` / `typeof` / `readonly` 等类型运算符）；**碰到 `=` 或值位运算符就判否**——
+`a < b >` 的 `<` 左边是 `a` 再往左就是语句起点，不可能是类型位，仍走旧的比较式路径。
+
+`?` 一律判否：条件类型 / 三元的分支里再出现 `<` 时，这里不做猜测（漏判只会退回旧行为，不会误切）。
+
+```ts
+if (index <= 0 || index >= code.length) {
+  return false;
+}
+for (let at = index - 1; at >= 0; at--) {
+  const unit = code[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === ":") {
+      return true;
+    }
+    if (text === "=>" || text === "?" || text === "=" || text === "+" || text === "-" || text === "*"
+      || text === "/" || text === "%" || text === "==" || text === "===" || text === "!="
+      || text === "!==" || text === "!" || text === "~" || text === ";" || text === "?.") {
+      // `=>` 是箭头体起点、`?` 是三元 / 条件类型分支：这里剩下的都是「值位」上下文，不能当类型位。
+      return false;
+    }
+    if (text === "|" || text === "&" || text === "." || text === "," || text === "["
+      || text === "]" || text === "(" || text === ")" || text === "<" || text === ">"
+      || text === ">>" || text === ">>>") {
+      continue;
+    }
+    return false;
+  }
+  if (unit instanceof Common) {
+    const text = (unit as Common).TempToString();
+    if (text === "as" || text === "satisfies" || text === "extends" || text === "implements") {
+      return true;
+    }
+    if (text === "keyof" || text === "typeof" || text === "readonly" || text === "unique"
+      || text === "infer" || text === "is" || text === "asserts" || text === "new") {
+      continue;
+    }
+    // 其余标识符是类型引用自身的名字（`Foo` / `Bar`），继续往左找上下文。
+    continue;
+  }
+  if (unit instanceof Bracket) {
+    continue;
+  }
+  continue;
+}
+return false;
+```
+
+## static method IsTypeArgumentClose:(code:Array<Token>, index:int)=>bool
+
+`code[index]` 是不是**类型实参表的闭合 `>`**（`Foo<Bar>` / `Foo<Bar<Baz>>` 的最后一格）。
+
+判据不新写角括号扫描：配对交给 `AngleJudge.FindClose`（唯一实现点），这里只补两件事——
+① 这个 `>` 必须是某个 `<` 的配对闭合；② 那个 `<` 必须坐在类型位（`IsTypePositionBefore`）。
+第二条是防误判的闸：`a < b >`（比较式）的 `<` 不在类型位，返回 false，仍走旧的表达式路径。
+
+`>>` / `>>>`（嵌套类型实参的合符号）同样成立：`FindClose` 会把它们在那一格收多层。
+
+```ts
+if (index < 0 || index >= code.length) {
+  return false;
+}
+const unit = code[index];
+if (!(unit instanceof Symbol)) {
+  return false;
+}
+const text = (unit as Symbol).TempToString();
+if (text !== ">" && !AngleJudge.IsSplitClose(text)) {
+  return false;
+}
+for (let at = index - 1; at >= 0; at--) {
+  const opener = code[at];
+  if (opener.IsTriviaToken || !(opener instanceof Symbol) || !(opener as Symbol).Is("<")) {
+    continue;
+  }
+  if (AngleJudge.FindClose(code, at) !== index) {
+    continue;
+  }
+  return StatementScanner.IsTypePositionBefore(code, at);
+}
+return false;
+```
+
 ## static method IsCallishUnit:(unit:Token)=>bool
 
 换行之后到来的这一格是不是「调用 / 下标 / 标签模板」位：`(`、`[` 括号或反引号模板。
@@ -923,36 +1017,91 @@ if (body.Status !== 1) {
 }
 const whileAt = body.End + 1;
 if (whileAt >= code.length) {
+  // 体已经收口、本层再没有单元：`while` 缺失（`do` ⏎ `{}`）。TS 的恢复形是
+  // DoStatement + 体 + 零宽 Identifier 条件；到 EOF 时按体尾收口（Builder 补那个零宽占位），
+  // 还没到 EOF 就继续等（后面可能还有 `while`）。
+  if (StatementScanner.AtEOF) {
+    return StatementScanner.Complete(body.End);
+  }
   return StatementScanner.NeedMore();
 }
-if (!StatementScanner.IsKeyword(code[whileAt], "while")) {
+if (StatementScanner.IsKeyword(code[whileAt], "while")) {
+  if (whileAt + 1 >= code.length) {
+    return StatementScanner.NeedMore();
+  }
+  if (!StatementScanner.IsBracket(code[whileAt + 1], "(")) {
+    return StatementScanner.Mismatch();
+  }
+  const semiAt = whileAt + 2;
+  // ASI: only a literal `;` can continue a do-while, so when the next raw char is not one the
+  // statement is already complete — at EOF, before `}`, after a line break, and even on the same
+  // line when the next token starts a new statement (TS parses `do {} while (b) a;` as two statements).
+  const headerEnd = (code[whileAt + 1] as Bracket).SourceRange.EndIndex;
+  const nextChar = StatementScanner.NextChar((code[whileAt + 1] as Bracket).SourceRange.Document, headerEnd);
+  if (nextChar !== ";") {
+    return StatementScanner.Complete(whileAt + 1);
+  }
+  if (semiAt >= code.length) {
+    return StatementScanner.NeedMore();
+  }
+  if (StatementScanner.IsSymbol(code[semiAt], ";")) {
+    return StatementScanner.Complete(semiAt);
+  }
+  if (StatementScanner.IsEOF(code[semiAt])) {
+    return StatementScanner.Complete(semiAt - 1);
+  }
   return StatementScanner.Mismatch();
 }
-if (whileAt + 1 >= code.length) {
-  return StatementScanner.NeedMore();
-}
-if (!StatementScanner.IsBracket(code[whileAt + 1], "(")) {
+// **缺 `while` 的恢复形**（TS parseDoStatement 的错误恢复：`parseExpected(WhileKeyword)` 报错但不消费）：
+// 条件位就是一个表达式——`do b` ⏎ `{}` 的 `{}` 在 TS 里是条件位的对象字面量（DoStatement [0,7]，
+// body=ExpressionStatement、condition=ObjectLiteralExpression）。体已经在 `b` 处按 ASI 收住（`stopAtWhile`
+// 那条判据），所以这里绝不能把 `{}` 再当体的续接。
+const conditionEnd = StatementScanner.ScanConditionEnd(code, whileAt);
+if (conditionEnd < 0) {
   return StatementScanner.Mismatch();
 }
-const semiAt = whileAt + 2;
-// ASI: only a literal `;` can continue a do-while, so when the next raw char is not one the
-// statement is already complete — at EOF, before `}`, after a line break, and even on the same
-// line when the next token starts a new statement (TS parses `do {} while (b) a;` as two statements).
-const headerEnd = (code[whileAt + 1] as Bracket).SourceRange.EndIndex;
-const nextChar = StatementScanner.NextChar((code[whileAt + 1] as Bracket).SourceRange.Document, headerEnd);
-if (nextChar !== ";") {
-  return StatementScanner.Complete(whileAt + 1);
+return StatementScanner.Complete(conditionEnd);
+```
+
+## static method ScanConditionEnd:(code:Array<Token>, from:int)=>int
+
+**do-while 条件位的恢复形尾界**：`while` / `(` 缺失时，TS 仍把条件位读成一个表达式，DoStatement 收在
+那个表达式的末尾。返回最后一个属于条件表达式的代码单元下标；`from >= code.length` 返回 `-1`（没有条件单元）。
+
+扫描只做「这个表达式还能不能接下去」：`ExpressionStatementPossibleShape.IsContinuation` 认的续接符继续吃，
+吃到 `;` / EOF / 接不上的单元为止。调用位括号（`(` / `[` / 反引号模板）是**整单元**，吃完还是完整表达式；
+其余续接符（二元 / 赋值 / 成员 / 三元 / 逗号 / 箭头 / `in` 等）后面必须再吃一格右操作数——
+`do b` ⏎ `{}` 的 `{}` 是完整对象字面量，后面紧跟的 `while` 不是续接符，条件就在 `{}` 收住。
+
+判据与 ASI / 表达式语句读同一张续接表（`IsContinuation`），不新写第二份表达式文法。
+
+```ts
+if (from < 0 || from >= code.length) {
+  return -1;
 }
-if (semiAt >= code.length) {
-  return StatementScanner.NeedMore();
+let at = from;
+let expectOperand = false;
+while (at + 1 < code.length) {
+  const next = code[at + 1];
+  if (StatementScanner.IsSymbol(next, ";") || StatementScanner.IsEOF(next)) {
+    break;
+  }
+  if (expectOperand) {
+    // 运算符 / 成员访问 / `?` `:` 之后的那一格就是右操作数。
+    expectOperand = false;
+    at++;
+    continue;
+  }
+  if (!ExpressionStatementPossibleShape.IsContinuation(next)) {
+    break;
+  }
+  at++;
+  // 调用 / 下标 / 标签模板是整单元，吃完仍是完整表达式；其余续接符要等右操作数。
+  const callish = next instanceof Bracket
+    || (next instanceof String && (next as String).StringChar === "`");
+  expectOperand = !callish;
 }
-if (StatementScanner.IsSymbol(code[semiAt], ";")) {
-  return StatementScanner.Complete(semiAt);
-}
-if (StatementScanner.IsEOF(code[semiAt])) {
-  return StatementScanner.Complete(semiAt - 1);
-}
-return StatementScanner.Mismatch();
+return at;
 ```
 
 ## static method NoLineBreakBetween:(left:Token, right:Token)=>bool

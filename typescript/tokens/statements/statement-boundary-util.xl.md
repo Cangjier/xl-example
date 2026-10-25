@@ -274,6 +274,19 @@ if (StatementScanner.IsCallishUnit(next) && previous instanceof Symbol) {
     return true;
   }
 }
+// **类型实参表收尾的 `>` + 换行后一条新语句**（gap-AS1）：`let a: Foo<Bar>` ⏎ `let b = 1;`。
+// `EndsExpression` 不认 `>`（它在值位是二元运算符），可这里那个 `>` 关闭的是**类型实参表**
+//（`IsTypeArgumentClose`：配对交给 `AngleJudge.FindClose`，再要求 `<` 坐在类型位），
+// 类型之后没有右操作数可再接 → 下一格接不上就是 ASI 边界。
+// 闸门是「类型位」本身：`a < b >` ⏎ `c` 的 `<` 不在类型位，仍走下面的旧路径（比较式尾不接受 ASI）。
+if (previous instanceof Symbol) {
+  const typeArgumentTail = (previous as Symbol).TempToString();
+  if ((typeArgumentTail === ">" || typeArgumentTail === ">>" || typeArgumentTail === ">>>")
+    && StatementScanner.IsTypeArgumentClose(code, previousIndex)
+    && !ExpressionStatementPossibleShape.IsContinuation(next)) {
+    return true;
+  }
+}
 if (!StatementScanner.EndsExpression(previous)) {
   return false;
 }
@@ -482,7 +495,13 @@ while (at < index) {
     continue;
   }
   // 变量声明：`export const x = a >` ⏎ `b` 的 `>` 是关系运算符，不是类型实参表的收尾。
-  return !(text === "const" || text === "let" || text === "var" || text === "using");
+  // **例外（gap-AS1）**：类型注解位上的 `>` 就是类型实参表的收尾（`declare const a: Foo<Bar>` ⏎
+  // `let b = 1`）——交给 `StatementScanner.IsTypeArgumentClose`（配对 + 类型位，唯一判据）回答，
+  // 不在这里新写第二套角括号扫描。`= a >` 的 `>` 不在类型位，仍判 false。
+  if (text === "const" || text === "let" || text === "var" || text === "using") {
+    return StatementScanner.IsTypeArgumentClose(units, index);
+  }
+  return true;
 }
 return true;
 ```
