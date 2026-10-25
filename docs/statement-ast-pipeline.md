@@ -5,10 +5,14 @@
 >
 > 案例源码：`let x = 1;`（紧跟第二句 `let y = 2;`，用来展示「语句在文件中段如何收口」；文件末尾只有一句时的差异见 §7.2）。
 >
-> **2026-10-25 更新（`feature/all-possible` @ `cdceb9ec`）**：变量语句与表达式语句已由**候选直建**接管
-> （`typescript/tokens/direct/*`），覆盖构造不再走本文 §6.3–§6.4 的事后 Build 路径。本文已把
-> §0 / §4.4 / §6.1 / §6.3 / §6.4 / §6.7 / §10 的已覆盖部分改写为直建流程；**未覆盖语句族仍按原文走旧路径**。
-> 直建的目标、hook、状态机、优先级旋转算法与实测读数见 `docs/direct-candidate-pipeline.md`。
+> **2026-10-25 更新（R2 收口，`feature/all-possible` @ `a937244d`）**：变量语句与表达式语句已由**候选直建**接管
+> （`typescript/tokens/direct/*`），覆盖构造不再走本文 §6.3–§6.4 的事后 Build 路径。
+> R2 把直建覆盖范围扩到 A1–A5（字面量 / 模板 / BigInt、数组 / 对象、调用 / 成员 / 下标 / `new` / 可选链、
+> 赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空、`typeof`·`void`·`delete`），并加了 C1 行终止符守卫、C3 分类计数、
+> C4 H2 异常计数；目标 case 也从 10 条扩到 **60 条**。本文已把 §0 / §4.4 / §6.1 / §6.3 / §6.4 / §6.7 / §10 /
+> §11 / §12 里「已覆盖构造」与「已知口径」的部分改写为 R2 现状；**未覆盖语句族仍按原文走旧路径**。
+> 直建的目标、hook、状态机、优先级旋转算法与实测读数见 `docs/direct-candidate-pipeline.md`（R2 扩面 §5.8、
+> 硬化 §14）。
 
 ---
 
@@ -27,8 +31,9 @@
                                 └─ 壳的终结候选 StatementEndPossibleShape（边界判据不变）
                                       └─ 在 `;` / ASI / EOF / `}` 上 Accept → BuildFromShell
                                             ├─ H2（直建，覆盖构造）：session.Finish(endIndex)
-                                            │     └─ 成功 → host.Data.splice + return 已建好的形状
-                                            │           （**不 new StatementBuilder**）
+                                            │     ├─ 成功 → host.Data.splice + return 已建好的形状
+                                            │     │           （**不 new StatementBuilder**）
+                                            │     └─ 抛错 → Errors++/LastError/Trace → 回落（C4）
                                             └─ 旧路径（Decline / 范围外）：
                                                   ├─ VariableStatementThreeLayer.TryBuild（三层 possible 判型）
                                                   └─ StatementBuilder.BuildStatement / BuildVariableStatement
@@ -69,9 +74,10 @@
 | 终结候选 | `typescript/tokens/statements/statement-end-possible-shape.xl.md` | 回答「这条语句到这一格该结束了吗」 |
 | 语句壳 | `typescript/tokens/statements/statement-shape.xl.md` | 收口后决定「形状树建 AST / 三层 possible / 族分派 / legacy 兜底」 |
 | 建树器（旧路径） | `typescript/tokens/statements/statement-builder.xl.md`、`typescript/tokens/expressions/expression-builder.xl.md` | 从无 trivia 的 `Units` + `Positions` 原子建节点；**只服务 Decline / 范围外** |
-| 直建契约 | `typescript/tokens/direct/direct-build-session.xl.md`、`direct-build-metrics.xl.md` | `DirectSession` 接口（`Ingest` / `Finish`）与计数 / strict / trace 出口 |
+| 直建契约 | `typescript/tokens/direct/direct-build-session.xl.md`、`direct-build-metrics.xl.md` | `DirectSession` 接口（`Ingest` / `Finish`）与计数 / 分类（`NoteDecline` + `DeclineReasons`）/ strict / trace 出口 |
 | 直建注册 | `typescript/tokens/direct/direct-build-router.xl.md`、`direct-build-plugins.xl.md` | 按 `StatementRoute` kind 建 session；`plugins` 是唯一注册点（`ShellVariable` / `ShellPlainExpression`） |
-| 直建建树 | `typescript/tokens/direct/direct-variable-session.xl.md`、`direct-expression-session.xl.md`、`direct-expression-engine.xl.md`、`direct-token-util.xl.md` | 变量语句 / 表达式语句状态机 + 增量表达式引擎（优先级旋转、括号嵌套、一元） |
+| 直建建树 | `typescript/tokens/direct/direct-variable-session.xl.md`、`direct-expression-session.xl.md`、`direct-expression-engine.xl.md`、`direct-token-util.xl.md` | 变量语句 / 表达式语句状态机 + 增量表达式引擎（优先级旋转、括号嵌套、一元；R2 扩到 A1–A5 + C1 守卫） |
+| 直建异常计数 | `typescript/tokens/statements/statement-shape.xl.md` 的 H2 | `try/catch` → `Errors++ / LastError / Trace` → 回落旧路径（C4） |
 | AST 投影 | `typescript/cases/ast-compare.mjs:106`、`core/syntax/token.xl.md:353` | `cjAst` 与 `ToXmlString` 读同一棵已关闭形状树 |
 
 区间口径（现行实现，以此为准）：
@@ -386,7 +392,17 @@ const consumed = host.Data.slice(0, endIndex + 1);        // 收口点之前的 
 // H2：直建收口（覆盖构造）
 const direct = shell.DirectSession;
 if (direct !== null && !direct.Declined) {
-  const directBuilt = direct.Finish(endIndex, context);
+  let directBuilt:Token | null = null;
+  try {
+    directBuilt = direct.Finish(endIndex, context);
+  } catch (error) {                                       // C4：异常计数后回落旧路径
+    if (!direct.Declined) {
+      DirectBuildMetrics.Errors += 1;
+      DirectBuildMetrics.LastError = error instanceof Error ? error.message : String(error);
+      DirectBuildMetrics.Trace("direct finish error: " + DirectBuildMetrics.LastError);
+    }
+    directBuilt = null;
+  }
   if (directBuilt !== null) {
     host.Data.splice(0, consumed.length);
     return directBuilt;                 // ← 在 new StatementBuilder 之前返回
@@ -539,8 +555,8 @@ ASI 不是预处理，也不插入 `;` 节点；它只是**终结候选在末代
 
 **表达式语句的 ASI** 有两条路，取决于「边界 token 有没有机会在壳里收尾」：
 
-- `f()\ng()` / `a\nf()`：下一条语句的首 token（`g` / `f`）到达时，它自己收尾触发壳目录 → 终结候选在边界格 `Accept`，`endIndex` 落在 `)` / `a`，`leftover` 被重放；走的是正常的壳路径。**直建现状**：`a\nf()` 的第一条 `a` 由直建成功交回（`built=1`），第二条 `f()` 因调用属范围外显式 Decline（`declined=1`）；`f()\ng()` 两条都 Decline，旧路径恢复，AST 仍 MATCH。
-- `a\nb`：第二个 `b` 在 EOF 前没有收尾事件，壳拿不到 Accept 机会；`StatementShape.TryToClose` 只能消费到末单元，`BuildFromShell` 读到两条语句抛「语句没有读完」→ `DetachShell` 退回 raw。**直建现状**：H2 先让 session 看到两条语句，按 §4.6 显式 `Decline("语句内出现无法接续的单元 idx=2")`（`declined=1`），随后旧路径照旧抛错并 Detach；AST 仍与 TS 完全一致（实测 `equal: true`）。`a++\nb` 也落在这一支。这是本轮已知限制（见 `docs/direct-candidate-pipeline.md` §11.1），不在 10 条目标 case 内。
+- `f()\ng()` / `a\nf()`：下一条语句的首 token（`g` / `f`）到达时，它自己收尾触发壳目录 → 终结候选在边界格 `Accept`，`endIndex` 落在 `)` / `a`，`leftover` 被重放；走的是正常的壳路径。**直建现状（R2）**：调用已被 A3 覆盖，`a\nf()` 与 `f()\ng()` 都是**两条都直建**（`built=2 declined=0`，实测 AST MATCH）；R1 时代 `a\nf()` 的「一正一反」读数（`built=1 declined=1`）已被淘汰。
+- `a\nb`：第二个 `b` 在 EOF 前没有收尾事件，壳拿不到 Accept 机会；`StatementShape.TryToClose` 只能消费到末单元，`BuildFromShell` 读到两条语句抛「语句没有读完」→ `DetachShell` 退回 raw。**直建现状**：H2 先让 session 看到两条语句，显式 `Decline("语句内出现无法接续的单元 idx=2", "expr.stopped")`（`declined=1`），随后旧路径照旧抛错并 Detach；AST 仍与 TS 完全一致（实测 `equal: true`）。`a++\nb` 也落在这一支。这是**按裁决保持**的已知限制（C2，`docs/direct-candidate-pipeline.md` §14.4），目标 case 里按 neg 收录（`R2-C2-01`）。
 
 **受限产生式不套用上面的三条件**：
 
@@ -659,8 +675,8 @@ VariableStatementShape（Data = [VariableDeclarationListShape]）
 
 | 族 | 建壳候选 | 壳 `Kind` | 收口判据 | 建树入口 |
 | --- | --- | --- | --- | --- |
-| `let/const/var` | `VariableStatementPossibleShape` | 0（None） | 短语句族 `;`/ASI/EOF | **直建**：H3 建 `VariableStatementDirectSession`，H2 `Finish` → `VariableStatementShape`；Decline 时旧路径（三层 possible → `BuildStatement`） |
-| 普通表达式语句 | `RootExpressionStatementPossibleShape` | `ShellPlainExpression` | `;`/EOF/ASI（`ExpressionEndCode`） | **直建**：H3 建 `ExpressionStatementDirectSession`，H2 `Finish` → `ExpressionStatementShape`；Decline 时旧路径（形状树 → `StatementShapeAst.BuildExpressionStatementFromShapes`，拒绝则 `BuildStatement`） |
+| `let/const/var` | `VariableStatementPossibleShape` | 0（None） | 短语句族 `;`/ASI/EOF | **直建**：H3 建 `VariableStatementDirectSession`，H2 `Finish` → `VariableStatementShape`；Decline 时旧路径（三层 possible → `BuildStatement`）。R2：初始化器覆盖 A1–A5 全部构造 |
+| 普通表达式语句 | `RootExpressionStatementPossibleShape` | `ShellPlainExpression` | `;`/EOF/ASI（`ExpressionEndCode`） | **直建**：H3 建 `ExpressionStatementDirectSession`，H2 `Finish` → `ExpressionStatementShape`；Decline 时旧路径（形状树 → `StatementShapeAst.BuildExpressionStatementFromShapes`，拒绝则 `BuildStatement`）。R2：覆盖 A1–A5 全部构造 + C1 行终止符守卫 |
 | 控制流 / 块 / 标签 | `ControlFlowStatementPossibleShape`、`BlockPossibleShape` | `ShellStatementFamily` / `ShellBlock` / `ShellLabel` | 体括号 / 链式 `else/while/catch/finally` | `StatementFamilyDispatch.Build` → `BuildIf/BuildWhile/…`（**未覆盖，现状不变**） |
 | 根层 `function` / `class` / `@dec` | `ControlFlowStatementPossibleShape`（路由 8/9/10） | `ShellFunctionDeclaration` / `ShellClassDeclaration` / `ShellDecoratedDeclaration` | `DeclarationShellEndCode`（体括号 / `;` / 声明跟随边界） | `BuildFunctionDeclaration` / `BuildClassDeclaration` / `BuildDecoratedStatement`（**未覆盖**） |
 | 声明族（`interface/enum/type/namespace/import/export/declare`） | `DeclarationStatementPossibleShape`（路由 7） | `ShellDeclarationFamily` | `ExpressionEndCode` + `DeclarationFamilyBodyEndCode` | `StatementFamilyDispatch.Build` → 各 `Build*Declaration`（**未覆盖**） |
@@ -672,40 +688,44 @@ VariableStatementShape（Data = [VariableDeclarationListShape]）
 
 ## 11. 复跑与验证（直建现状）
 
-前置（仓库根；`dist/`、`build/` 是生成物、被 gitignore）。命令在 `docs/direct-pipeline` 克隆上实测可跑：
+前置（仓库根；`dist/`、`build/` 是生成物、被 gitignore）。命令在 `docs-r2` 克隆（`a937244d`）上实测可跑：
 
 ```powershell
-$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-direct-pipeline"
+$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-r2"
 cd $clone
 
 # 1) 规范 → dist/ts（本仓 xl 不在 PATH，用会话内 xl_build 工具，不是 shell 命令）
 #    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
-#    实测：548 written, 0 skipped, 0 planned, 0 error(s), 2485 warning(s)（warning 全是既有 W3102/W3103）
+#    实测：548 written, 0 skipped, 0 planned, 0 error(s), 2535 warning(s)（warning 全是既有 W3102/W3103）
 #    （增量构建 / dist 缓存已热时显示 0 written, 548 skipped；判据仍是 0 error）
 node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0
 
-# 2) 目标 case harness（一次性只读拷入；本分支不提交 tests/direct-build）
-#    若当前分支/集成目标已含 tests/direct-build/target-cases.mjs（main 在 75a5c4a1 已正式合入），跳过本步
-New-Item -ItemType Directory -Force tests\direct-build | Out-Null
-Copy-Item C:\Users\Admin\Documents\GitHub\xl-example-set\feat-all-possible-verify\tests\direct-build\target-cases.mjs tests\direct-build\
-node tests/direct-build/target-cases.mjs                     # 默认 10 条：exit 0，CASES=10 FAILED=0 READING-FAIL=1
-node tests/direct-build/target-cases.mjs --expect-direct --strict --trace
-#    final 验收：exit 0，CASES=9 FAILED=0 SKIPPED=1，builtCases=9/9 loads=0，A1–A7 全 PASS
+# 2) 目标 case harness（R2 起已随主仓库跟踪，无需拷贝）
+node tests/direct-build/target-cases.mjs --group=r1
+#    R1 原 10 条：exit 0，CASES=10 FAILED=0，builtCases=10/10 loads=0
 
-# 3) 收尾（仅当 harness 是第 2 步「临时拷入」的才执行）
-#    若已随主分支正式合入（main 在 75a5c4a1 起已跟踪），跳过本步，勿删除已跟踪文件。
-Remove-Item -Recurse -Force tests\direct-build
-git clean -fd tests\direct-build
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats `
+     --baseline=C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup
+#    全量 60 条：exit 0，CASES=60 FAILED=0，A1..A11 全 PASS
+#    builtCases=41/60 loads=69；DECLINE-STATS: total=12 categories=3
+
+node tests/direct-build/target-cases.mjs --only=R2-C4-01 --fault-inject=finish-throw --expect-direct --strict
+#    C4：exit 0，CASES=1 FAILED=0（注入后 errors=1，第二次 errors=0）
+
+node tests/direct-build/target-cases.mjs --group=NEG
+#    非正例 19 条：exit 0，CASES=19 FAILED=0，builtCases=0/19 loads=69
 ```
 
-实测读数（2026-10-25，`feature/all-possible` @ `cdceb9ec`，本机）：
+实测读数（2026-10-25，`feature/all-possible` @ `a937244d`，本机）：
 
 | 检查 | 读数 |
 | --- | --- |
-| `xl_build` | `548 written, 0 error(s), 2485 warning(s)` |
-| `tsc` | exit 0 |
-| 默认 harness | `IMPL: state=wired … sessions=2`；`CASES=10 FAILED=0 READING-FAIL=1`；`builtCases=9/10 loads=3`（反例 `let x = f()` 的旧路径读数） |
-| final harness | `ASSERT: A1=PASS A2=PASS A3=PASS A4=PASS A5=PASS A6=PASS A7=PASS`；`CASES=9 FAILED=0 SKIPPED=1`；`builtCases=9/9 loads=0` |
+| `xl_build` | `548 written, 0 error(s), 2535 warning(s)` |
+| `tsc` | exit 0（`build/ts` = 548 个 `.js`） |
+| `--group=r1` | `IMPL: state=wired … sessions=2`；`CASES=10 FAILED=0`；`builtCases=10/10 loads=0` |
+| 全量 60 条 | `ASSERT: A1=PASS A2=PASS A3=PASS A4=PASS A5=PASS A6=PASS A9=PASS A10=PASS A11=PASS`；`CASES=60 FAILED=0`；`builtCases=41/60 loads=69`；`DECLINE-STATS: total=12 categories=3` |
+| C4 注入 | `CASES=1 FAILED=0`；A4 PASS（`errors=1 / lastError 含 inject / declined=0 / 第二次 errors=0`） |
+| NEG | `CASES=19 FAILED=0`；`builtCases=0/19 loads=69` |
 
 **本轮不跑**（用户明确口径）：`tests/gates`、全量 `typescript/cases/ast-json.mjs` / `ast-json-diff.mjs`（6171）、
 `tests/coverage`、`samples/check.mjs`、`tests/statement-possible/harness.mjs` 全量。直建前的门标准读数是
@@ -746,11 +766,30 @@ console.log('built=', DirectBuildMetrics.StatementsBuilt, 'declined=', DirectBui
 - `StatementPossibleShape` 仍存在，但默认根目录**不注册**它（`source-file-shape.xl.md:145` 的注释；只在 `EnableShellExpressions=false` 的 legacy 目录里插回第 4 位）。读默认路径时不要把它当成主入口。
 - `VariableStatementThreeLayer.TryBuild` 内部调的是 `BuildStatement()`，不是 `StatementFamilyDispatch`；`LegacyStatementDispatchCount` 计的是 `BuildFromShell` 里 family 分派返回 null 后的那次兜底，两者不是同一件事。
 - **直建 A6 不是字面 `exprLoads == 0`**：`DirectTokenUtil.OperatorToken` 每个二元运算符一次 `ExpressionBuilder.Load`
-  复用映射表（CONTRACT §3.4 许可）；验收口径是 `stmtLoads == 0 && exprLegacy == 0`（见 `docs/direct-candidate-pipeline.md` §8.3）。
-  覆盖构造上 `StatementBuilder` **一次都不创建**（H2 在 `new StatementBuilder` 之前 return）。
-- **`DirectBuildMetrics.Errors` 本轮没有递增点**（只有声明与 `Reset`），恒 0；不要把它当作「运行期异常为 0」的证据，
-  异常路径看 `Declined` / `IncompleteFallback` / `StrictViolations`。
+  复用映射表（CONTRACT §3.4 许可）；验收口径是 `stmtLoads == 0 && exprOtherDirect == 0 && exprLegacy == 0`
+  （见 `docs/direct-candidate-pipeline.md` §8.3）。覆盖构造上 `StatementBuilder` **一次都不创建**
+  （H2 在 `new StatementBuilder` 之前 return）。
+- **`DirectBuildMetrics.Errors` 从 R2 起有递增点（C4）**：H2 的 `catch`（`Finish` 抛错且未 Decline 时 +1，
+  写 `LastError` + trace `direct finish error: …`），随后回落旧路径；正常 / 负例输入上仍恒 0。
+  异常仍主要看 `Declined` / `IncompleteFallback` / `StrictViolations`。
+- **直建覆盖范围（R2）**：变量语句与表达式语句的 A1–A5 构造（字符串 / 模板 / BigInt、数组 / 对象、
+  调用 / 成员 / 下标 / `new` / 可选链、赋值 / 复合赋值 / 条件 / 逗号 / `as` / 非空、`typeof`·`void`·`delete`）
+  都是直建；正则 / 箭头 / 函数 / 类表达式 / 对象方法体 / 实参 spread / `satisfies` / 泛型实参 / 解构 binding /
+  类型注解 **仍 Decline 回旧路径**。逐条清单见 `docs/direct-candidate-pipeline.md` §1.2 / §1.3。
+  `await` / `class {}` / `yield` / `if` / `return` 这类语句**根本不进 DirectSession**（目标 case 的 `safe` 类别），
+  因此不能断言它们 `declined>=1`。
+- **C1 行终止符守卫**：引擎在 `++`/`--`/`!` 前发现行终止符 → `Hold()`；session 侧还有一道覆盖校验
+  （`expr.coverage` / `var.coverage`）兜「建多了」的情况。目标 case `a⏎++b` / `a⏎--b` / `a⏎!b` 实测
+  `built=2 declined=0 AST MATCH XML==基线`。
+- **D7 基线历史缺陷不修**：`let x = a⏎++b` / `let x = a⏎!b` / `let x = a + b⏎++c` / `…⏎--c` 直建前后
+  `XML` 与 8456ec3c 逐字节一致、AST 与 tsc 均不匹配；属 8456ec3c 的历史缺陷（`var.stopped ×2`），
+  **不列入目标 case**，也不该记到直建头上。
+- **`--strict` 只对正例 Parse 生效**：`let {a} = b` 在 `Strict=true` 下变量 session 的 Decline 发生在
+  H1/Ingest（未包 `try/catch`），异常抛穿 `Parse`；harness 因此对 `expect != "pos"` 用 `Strict=false` 解析。
+  这是 strict 语义与「负例必须 AST MATCH」互斥，不是产品红；R3 给 H1 加 `try/catch` 后才能把 strict 全量化。
 - **表达式语句跨行 ASI `a⏎b` / `2⏎3` 仍是已知限制**：session 显式 Decline、旧路径 Detach 恢复、AST 仍 MATCH；
-  不在 10 条目标 case 内。详见 `docs/direct-candidate-pipeline.md` §11。
+  按 R2-D4 保持（目标 case `R2-C2-01` 记 neg）。详见 `docs/direct-candidate-pipeline.md` §14.4。
+- **`build/ts` 的 0 字节孤儿**：主仓库 `build/ts/typescript/run/statement-block-stream.js`（0 字节，2026-10-24 起存在、
+  无任何引用）是累积构建目录的观察项，非本轮引入；干净克隆首次构建只有 548 个 `.js`，没有它。
 - 残余数字（整文件 fallback 4 例、块体 raw 尾巴 4 例、形状树拒绝 2 例、`ScanRoot` 46 次）是**直建前基线**的
   门标准读数；本轮不跑门标准，未重新测量，读到时按历史值对待。
