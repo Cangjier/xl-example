@@ -58,15 +58,7 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 ## field Asi:bool = false
 
-换行收口：`ComputeByIndex` 在等 `;` 的阶段（stage 22 / stage 25 的 `abstract` 边角，以及 stage 13 的
-`export const|let|var` / `export declare …`）命中下一条语句起点时置 `true`；
-`BuildByIndex` 据此建到边界之前、splice 不含边界单元（边界单元留在根里给下一条语句）。
-
 ## field LastBodyCode:int = -1
-
-stage 13（变量声明 / 类型别名体）里上一个已吃进的**代码**单元下标：无分号收口用
-`StatementScanner.EndsAtLineBreakBefore(units, index)` 判边界，所以边界只在「已经有一个体单元」之后才可能成立，
-不会把 `export const` 之后的换行（那是声明头的一部分）当成语句边界。
 
 # class ExportDeclarationPossibleShape extends PossibleShape
 
@@ -87,14 +79,6 @@ export declare class C {}
 export default function f() {}
 export declare function f(): void;
 ```
-
-`Stage` 0 = 首格 `export`；1 = 见 `type`；2 = 子句形（`{…}` / `*`，建 mounted shell）；3 = 退出。
-声明前缀形（`export <decl>`）：10 `class`、11 `interface`、12 `enum`、13 `const/let/var`、14 等 `declare` 之后的声明词、
-15 `declare function`（等 `;`）、20 等 `default` 之后的单元、21 `default class`、22 `default <表达式>`、23 `default function`。
-到类体 / 枚举体 / 接口体那个 `{`、或 `;` 时置 `Done`/`DoneAt`，只有 `DoneAt === tokenIndex` 才建。声明形建完**不挂载** shell：
-直接把根级声明形状（带 `ExportKeyword` / `DefaultKeyword` / `DeclareKeyword`）放回宿主。
-`export default <表达式>` 的节点是 `ExportAssignment`（`isExportEquals=false`，不在比较字段里），这里直接建
-`ExportAssignmentShape`，不碰 module-1 的 export-assignment 候选/文件。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -1385,13 +1369,6 @@ return built;
 ```
 
 ## private static method IsNewDeclarationAfterLineBreak:(units:Array<Token>, index:int)=>bool
-
-`index` 这一格是不是**换行之后开始的下一条声明 / 语句**（声明词、变量词、`export` / `import` /
-`declare` / `abstract` / `async`）。`export function f(): void` ⏎ `interface I {}` /
-`export default function (): void` ⏎ `class C {}` 里，函数签名在换行处 ASI 收口（TS 的
-`parseFunctionBlockOrSemicolon` 只看紧跟参数表 / 返回类型的那个 token，不是 `{` 就收在签名上），
-下一条声明的 `{…}` 不属于本条。候选的 Stage 16 / 23 原来「有闭合 `{` 就收作函数体」，
-会把下一条声明的体吞进来（Y13）。判据与 EOF 尾随分界同口径：真换行 + 声明/语句关键字。
 
 ```ts
 if (index < 0 || index >= units.length) {

@@ -80,29 +80,7 @@ this.Data = this.Data.filter((item) => !item.IsTriviaToken && !(item instanceof 
 return CloseStates.Nothing;
 ```
 
-
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-块体目录的**建壳时机**（Stage 4b）：括号创建不触发父目录判定，所以块壳默认要到 `}` 关闭时才建出来
-（同文件第二块时第二个 `{` 还会被第一个壳吞掉）。这里在 `{` 刚 `SignIn` 之后把根目录判一格：块壳「在 `{` 就建」，
-块体目录（`EnableBlockBodyCatalog`）随即挂上。
-
-**默认档也生效**（r2）：建壳只决定「谁来建这个 `BlockShape`」，块内语句仍由 `BuildBlock` 的 legacy 递归建
-（块体目录未挂），XML / AST 与在 `}` 才建壳逐字节相同；两档的差别只是壳的时机。`EnableShellExpressions=false`
-（legacy 对拍档）时仍然什么都不做。
-
-**只在语句首建壳**：`Decide(Data, 这个下标) == ShellBlock` 才是块语句的 `{`。标签体（`en:\n{ f() }`）的 `{`
-不是语句首（条目的首代码单元是 `en`），这里不建壳，否则根表达式候选会借「晚建壳」把 `en : {` 整条吞进壳、
-逼出一次文件级 fallback。判据仍只有 `Decide` 一份，不在这里新写。
-
-**函数体目录（Stage 4j 步骤 3）**：`function f() { … }` 的函数体括号创建时，`{` 前面那个非 trivia 单元是
-已闭合的参数表 `(` 括号。此时给**新括号**挂块体语句目录（`BlockPossibleShape.TryMountFunctionBody`），
-函数体里的语句由 possible 增量建 `StatementShape`，收口时 `FunctionDeclarationShape.FromUnits` 的
-`bodyBuilder.BuildStatement()` 落到 `BuildBlock()`，再由 `HasBuiltBodyStatements` / `CollectBodyStatements`
-按序收集 —— 与块体共用同一条收集通道，不新增第二条建树路径。
-
-这一步**不重算根目录**（S4i 方案 A 的全表红就是这么来的）：只读根 `Data` 找前一个单元，判错了也只是
-多挂一份**不会抛错**的目录（`BlockBodyWaitingPossibleShape` 是它的终结候选）。
 
 ```ts
 if (StatementRouteUtil.EnableShellExpressions && StatementRouteUtil.EnableBlockBodyCatalog) {
@@ -121,13 +99,6 @@ if (StatementRouteUtil.EnableShellExpressions
 ```
 
 ## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
-
-处理一个窗口。`buffer.IsEof()`（空区间 `[count,count)`，`index === count`）是文件末尾，走一条单独的收尾路径：
-
-1. 还有挂载单元就先关掉它（没有分号的 import / export 也在这一刻收口）；
-2. 关掉最后一个还开着的子单元——文件末尾不会再有下一个字符来关它，标识符 / 符号 / 字符串 / 空白 / 注释谁开着就关谁；
-3. 造一个 `EndOfFileTokenShape`，签入签出文件末尾位置（`index === count`，空区间）、加进根，再 `TryToClose`。
-   它关闭时会问父单元重算候选，根单元的终结候选 `SourceFileEndPossibleShape` 随即签出根并关闭根。
 
 ```ts
 if (buffer.IsEof()) {
@@ -158,24 +129,7 @@ super.Process(context, buffer, index);
 
 ## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
 
-默认解析（`EnableShellExpressions == true`）用的根目录：**不含**根 legacy 语句候选 `StatementPossibleShape`（Stage 5d-5 退场）。
-
 ## private static field CreateLegacyPossibleShapesCache:Array<PossibleShape> | null = null
-
-关闭态（`EnableShellExpressions == false`，即文件级 fallback 与 harness 的 legacy 对拍）用的根目录：
-上面那份 **+ 在原第 4 位（0 基下标 3）插回 `StatementPossibleShape`**，与 5d-5 之前的数组逐位相同。
-
-**为什么必须是两份缓存，而不是就地增删一份**：`CreatePossibleShapes()` 的返回值被 `CatalogGuide` 长期持有
-（`PossibleShapes` 字段，构造后一个字都不改），而**一次进程里两种态都会出现**——默认解析抛错时
-`SourceFileRunner.Parse` 会按 `shell=false` 再跑一遍整条文件。若只有一份缓存、按调用时的开关决定放不放
-根候选，那么「先跑过一次默认解析」就会把 false 态的目录永久钉成壳目录（反之亦然），false 态的读数与
-AST 立刻变。所以这里按态各建一份，false 态那份是从壳目录 `slice()` 出来再插回根候选——**同一批候选、
-同一个顺序**，只有根候选这一个差别。
-
-**插入点用下标 3**：`CatalogGuide` 按 `Candidates`（插入顺序）逐项询问，`StatementPossibleShape` 在
-5d-5 之前正好排在第 4 位（声明 / 导入 / 导出三个专用壳之后）。保持原位是「false 态逐位不变」的一部分：
-候选之间虽然不靠先后决定谁 Accept（同格双 Accept 会抛错），但判定的**副作用顺序**（谁先读写
-`ItemStartCached` / `AtEOF`）与改动前一致，才能说逐位等价，而不是「应该等价」。
 
 ## static method CreatePossibleShapes:()=>Array<PossibleShape>
 

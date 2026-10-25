@@ -31,8 +31,6 @@ super(template);
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, requireSemicolon?:bool)=>ExpressionStatementShape
 
-`requireSemicolon` 缺省为 `true`；终结候选在文件末尾（EOF）建最后一条语句时传 `false`，此时最后一个代码单元就是表达式的末尾，不再要求 `Symbol ";"`。
-
 ```ts
 const code:Array<Token> = [];
 for (let at = start; at <= tokenIndex; at++) {

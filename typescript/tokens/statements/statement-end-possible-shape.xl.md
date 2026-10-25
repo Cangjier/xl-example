@@ -20,114 +20,23 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 # class StatementEndScan
 
-本条目终结判定的**增量状态**（照 `StatementScan` 的「只追加」不变量，`statement-possible-shape.xl.md:19-35`）。
-
-放在 `PossibleShapeCache` 的槽里（`StatementEndPossibleShape` 自己一个槽）：`Values` 逐条目有效、`Reset` 清空，
-所以状态天然跟着条目走。**只放判定进度**（`Start` / `Checked` / `Status` / `End` / `Code` / `CodeAt`），
-不放任何会让「建成什么」不同的东西（§8.1：frame 栈 / `Kind` / 期望状态属于壳的字段，结构真值在树上）。
-
 ## field Start:int = -1
-
-本条目的起点（`ItemUtil.ItemStart`）。它一变就是换条目，状态整体重建。
 
 ## field Checked:int = -1
 
-已经扫到第几格（`Checked == tokenIndex + 1` 表示当前格已经判过，不必重扫）。`-1` = 还没扫过。
-
 ## field Status:int = 0
-
-`StatementScanner.ScanRoot` 上一次给出的状态（1 = 到齐，2 = 判死，其余 = 继续等）。
 
 ## field End:int = -1
 
-折算到宿主 `Data` 下标的收口位置；`-1` = 这一次扫描没有给出可用的 `End`（`Status != 1`，或扫描器给的
-`End` 不落在已扫的代码前缀里）。
-
 ## field Code:Array<Token> = []
 
-本条目已扫过的**代码单元**（非 trivia），下标与 `CodeAt` 一一对应。只追加：`Checked` 推进时把新单元 push 进来，换条目（`Start` 变化、状态重建）时才随状态一起从空开始。
-
 ## field CodeAt:Array<int> = []
-
-代码单元下标 → 宿主 `Data` 下标的映射（`End` 折算用）。
 
 # class StatementEndPossibleShape extends PossibleShape
 
 ## field StatementKind:int = 0
 
-本条语句的**族标记**（取值见 `StatementRoute`）：`0` = Wave1 的变量声明壳（`ScanRoot` 判界，行为逐位不变）；
-`StatementRoute.ShellPlainExpression` = 表达式语句壳（`StatementBoundaryUtil.CanEndStatement` 判界）。
-由建壳方在 `BuildByIndex` 里设好（`RootExpressionStatementPossibleShape` 设表达式族；其它建壳方不设、保持 0），
-终结候选只读它分派，**不在每次 Compute 时重新判族**（免得每格 O(k) 重走 `Decide`）。
-
-**Stage 5d-2a / 5d-2b：`0` 桶内部再按语句族分流**。`StatementKind == 0` 同时装着变量声明壳与
-控制流 / 标签 / 块 / 子句语句壳（它们都不设 `StatementKind`），所以不能在 `0` 上整体换判据；
-终结候选在 `ScanRoot` 之前先问 `StatementBoundaryUtil.IsShortFamilyCode(state.Code)`：
-`return` / `throw` / `break` / `continue` / `debugger` / `let`·`const`·`var` 六个族改读
-`StatementBoundaryUtil.ShortFamilyEndCode`；**Stage 5d-2b** 再问
-`StatementBoundaryUtil.IsControlFlowFamilyCode(state.Code)`：`if`（含 else 链）/ `while` / `do-while` /
-`for`·`for-in`·`for-of` / `try`·`catch`·`finally` / `switch` / `with` / 标签 / 块十个族改读
-`StatementBoundaryUtil.ControlFlowFamilyEndCode`；**Stage 5d-6** 再问
-`StatementBoundaryUtil.IsYieldFamilyCode(state.Code)`：`yield` 表达式语句改读
-`StatementBoundaryUtil.YieldFamilyEndCode`，然后再问 `StatementBoundaryUtil.IsAwaitFamilyCode(state.Code)`：
-`await` 起点语句改读 `StatementBoundaryUtil.AwaitFamilyEndCode`。四条分支都**不再调
-`StatementScanner.ScanRoot`**；
-其余族（`declare` 的 ambient 变量语句 / `using` 系列 / `class`·`function` 等带体声明 / 子句级声明体）
-仍走 `ScanRoot` + `DeclarationBodyEndCode` 兜底（`HANDOFF-5d2a.md` §2、`HANDOFF-5d2b.md` §2、
-`HANDOFF-5d6.md` §2）。
-
-**语句终结候选**（可行性原型 A）：装在 `StatementShape` 壳自己的 `CatalogGuide` 里（壳的普通候选为空，所以
-`EndPossible` 永远不会撞 `CatalogGuide` 的「终结候选与其它候选同时成立」）。
-
-它回答的问题只有一个：**这一条语句到这一格为止能不能建了**。判据**不新写第二份**，直接复用
-`StatementScanner.ScanRoot`——与 legacy 的 `StatementPossibleShape` 读同一个扫描器：`Status == 1`（到齐）且
-`End >= 0` 时 `Accept`。`End` 可能小于当前下标（`let x = 1` ⏎ `let y = 2` 的第二条 `let` 到来时才确定前一条在
-换行处收口），这时只消费到 `End`，剩下的单元由 `StatementShape.FinishShell` 挪回父单元。
-
-`EOF` 哨兵上同样 `Accept`（兜底；正常情况下 `StatementShape.TryToClose` 在 EOF 之前就已经收口）。
-
-**本轮（T1b）只建增量状态与更新路径**：`code` / `codeAt` 不再每格重建，改为 `StatementEndScan` 只追加；
-`ScanRoot` 仍每格调用（它本身就是增量友好的，`Code` 只追加，§8.1）。**最终判定与基线逐位一致**——
-判据仍是 `ScanRoot` 的 `Status == 1 && End >= 0`（且 `End` 落在已扫代码前缀内），**不改用**
-`StatementBoundaryUtil.CanEndStatement`（那是 T1a 合并之后 T1d 的事）。
-
-**只有 trivia 时禁止 `Reject`**（`Uncertain`）：`CatalogGuide` 把 `Reject` 的候选从 `Candidates` 里**永久删除**
-（`catalog-guide.xl.md:86`），而文件以注释开头时首次判定就落在只有 trivia 的那一格；那时若 `Reject`，整条语句
-再没有候选接管——这是 `VariableStatementPossibleShape` 那 5 行修复对应的 **token-ast 28 个 crash 的根因**，
-新候选一律照抄这条防御。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
-
-按语句族分派收口判据（`HANDOFF-s1d.md` §5.3）：
-
-- `StatementKind == StatementRoute.ShellPlainExpression`（表达式语句族）：**唯一判据是
-  `StatementBoundaryUtil.CanEndStatement`**（`;` / EOF / ASI 三条同源）。`StatementScanner.ScanRoot`
-  的 `End` 在这里**不参与判界**——`ScanRoot` 只认 `{` / `;` / 固定关键字起点，对表达式条目给
-  `Mismatch`；即便碰巧给出 `End`，那个位置也早于壳里已经攒下的全部代码单元，正是「表达式语句没有读完」
-  的根因（`HANDOFF-s1d.md` §5.3）。`End` 只作「上一格已经判过」的增量提示（`Checked`）。
-- 其余（`StatementKind == 0` / `ShellStatementFamily`）：
-  - **短语句族（Stage 5d-2a）**：首代码单元属
-    `StatementBoundaryUtil.IsShortFamilyCode`（`return` / `throw` / `break` / `continue` / `debugger` /
-    `let`·`const`·`var`）时，收口位置读 `StatementBoundaryUtil.ShortFamilyEndCode`——**不调
-    `StatementScanner.ScanRoot`**。族判定与收口规则都在 boundary 层，`ScanRoot` 一字不改；
-  - **带体 / 链式控制流族（Stage 5d-2b）**：首代码单元属
-    `StatementBoundaryUtil.IsControlFlowFamilyCode`（`if`·`else` / `while` / `do-while` / `for` /
-    `try`·`catch`·`finally` / `switch` / `with` / 标签 / 块）时，收口位置读
-    `StatementBoundaryUtil.ControlFlowFamilyEndCode`——同样**不调 `ScanRoot`**；
-  - **`yield` / 生成器语句族（Stage 5d-6）**：首代码单元属
-    `StatementBoundaryUtil.IsYieldFamilyCode`（`yield` 表达式语句；`yield:` 标签仍归上一行的控制流族）时，
-    收口位置读 `StatementBoundaryUtil.YieldFamilyEndCode`——**不调 `ScanRoot`**，受限产生式
-    （`yield` ⏎ 操作数 ⇒ 停在 `yield` 上）先于任何调用位判断；
-  - **`await` 起点语句族（Stage 5d-6 B）**：首代码单元属
-    `StatementBoundaryUtil.IsAwaitFamilyCode`（`await` 表达式 / `await using` 变量语句）时，收口位置读
-    `StatementBoundaryUtil.AwaitFamilyEndCode`——同样**不调 `ScanRoot`**，`await` 没有受限产生式，
-    收口就是表达式语句的 `;` / ASI；
-  - 其余族（`declare` 的 ambient 变量语句 / `using` 系列 / `class`·`function` 带体声明 / 子句级声明体）：
-    **逐位保留** `ScanRoot` 的 `Status == 1 && End >= 0`，并保留 `DeclarationBodyEndCode` 兜底。
-
-`End` 一律折算成「壳 `Data` 里的下标」（`CodeAt[codeIndex]`），`BuildFromShell` 只消费到它。
-ASI 边界收口时边界单元本身**不属于**本条语句（`a` ⏎ `b` 的 `b` 是下一条语句的开头），
-所以消费到 `last - 1`，剩下的单元由 `StatementShape.FinishShell` 搬回父单元。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -313,13 +222,6 @@ return ShapeStates.Uncertain;
 
 ## static method EmptyStatementEndCode:(units:Array<Token>, codeAt:Array<int>)=>int
 
-**空语句壳的收口位置**（gap-SW §1）：首代码单元是 `;` → 返回它在宿主 `Data` 里的下标；否则 `-1`。
-
-这条判据本来就是 `ScanRoot` 的一部分（`statement-scanner.xl.md:182-187`：首单元 `;` → `Complete(0)`），
-这里不复制它的逻辑，只把「首单元是 `;`」这**一个事实**提出来给所有族共用——表达式族（`;` / EOF / ASI）
-与声明族（`;` / 声明跟随边界）的判界都只看**末**代码单元，所以「壳在 `;` 这一格建出来、`;` 永远是首单元
-但从此没有新单元」的情形它们答不出来。
-
 ```ts
 if (codeAt.length === 0) {
   return -1;
@@ -335,20 +237,6 @@ return firstAt;
 ```
 
 ## static method DeclarationBodyEndCode:(code:Array<Token>)=>int
-
-**带体声明壳的收口位置**（gap-SW §3/§4）：首代码单元是 `class` / `function` 时，用
-`StatementScanner.ScanDeclarationBody` 找本层第一个闭合的 `{…}` 体括号，返回它的代码下标；其余一律 `-1`。
-
-**为什么 `ScanRoot` 答不出来**：`class` / `function` 在冻结的 `IsLegacyKeyword` 里是 legacy 声明族的起点，
-`ScanRoot` 只认控制流族与变量 / 语句关键字（`statement-scanner.xl.md:167-311`），对它们给 `Mismatch`。
-但 `StatementRoute.ShellStatementFamily` 的壳里**有**这两种起点：块内 `class`（`EnableBlockClassShell`）与
-子句级 `function`（`CaseClauseStatementPossibleShape.IsStatementFamilyHead`）。没有这一条，壳永远不认
-「体括号已闭合」，只能涨到外层 `}`；那里 `BuildFromShell` 读到两条语句 → `DetachShell` 退回 raw：
-树仍对，但**体里 / 后面的语句一条都没被接管**（`BlockBodyStatementCount` / `BlockFunctionBodyMountCount` 不增）。
-
-**判据不新写**：`ScanDeclarationBody` 就是 `ScanBody` 对 `function` / `class`（以及 `interface` / `enum` /
-`namespace` / `module`、Annex-B 的 `lbl: function f() {}`）已经在用的那一份。这里只把它接到**终结候选**
-的壳路径上，`ScanRoot` 与 legacy 根路径一字不改。
 
 ```ts
 if (code.length === 0) {
@@ -371,17 +259,6 @@ return scan.End;
 
 ## static method IsDeclarationBodyHead:(code:Array<Token>)=>bool
 
-**Stage 5d-5：带体声明壳的族判定**——首代码单元是 `class` / `function` 时，本壳的收口位置只由
-`DeclarationBodyEndCode` 决定（`ScanRoot` 对这两个起点一律 `Mismatch`，问它一次只是白问）。
-
-与 `IsShortFamilyCode` / `IsControlFlowFamilyCode` 同一层：**只判族，不判位置**。这三个判据互斥且穷尽
-`ShellStatementFamily` 壳的起点：控制流族（含 `yield:` 标签）、短语句族（含空语句）、带体声明族、
-`await` 族、`yield` 族，剩下的是兜底（语料 0 次）。
-
-**为什么不在 `block-possible-shape` 上复用 `AwaitStatementPossibleShape.IsAwaitHead`**：本文件已经 import
-了 `statement-shape`，而 `block-possible-shape` 又 import 本文件（它要 `new StatementEndPossibleShape()`），
-反向 import 会成环。这里只是「首单元文本是不是这三个词」的 3 行判据，不新写任何收口规则。
-
 ```ts
 if (code.length === 0) {
   return false;
@@ -396,7 +273,6 @@ return text === "class" || text === "function";
 
 ## static method IsAwaitHead:(code:Array<Token>)=>bool
 
-首代码单元是不是 `await` 关键字（只读文本，不建状态）。用途见 `AwaitUsingEndCode`。
 ```ts
 if (code.length === 0) {
   return false;
@@ -410,7 +286,6 @@ return (head as Common).TempToString() === "await";
 
 ## static method IsYieldHead:(code:Array<Token>)=>bool
 
-首代码单元是不是 `yield` 关键字（只读文本，不建状态）。
 ```ts
 if (code.length === 0) {
   return false;
@@ -424,18 +299,6 @@ return (head as Common).TempToString() === "yield";
 
 ## static method ExpressionEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, declarationShell?:bool)=>int
 
-表达式语句族 / 声明族的收口位置：返回**壳 `Data` 的下标**（与 `StatementScanner` 的 `End` / `CodeAt`
-折算同一基准），`-1` = 还不能收口。
-
-**Stage 4af-F 起判据已上移到 `StatementBoundaryUtil.StatementEndCode`**（逐字搬迁，一字未改），
-这里只剩一层：先问声明壳的**调用位收口**（`CallPositionEndCode`，Stage 4af-G 新增，只对声明壳成立），
-再委托给同一份判据。搬家的理由：`StatementShape.TryToClose`（EOF 兜底）需要读**同一份**判据，
-而 `statement-shape` 不能反向 import 本文件（本文件已经 import 它，会成环）。
-委托保留而不是让调用方直接换名，是因为本文件的两个 `ComputeByIndex` / `BuildByIndex` 调用点、
-以及 `handoff` 里记录的口径都按这个名字读；改名会让「谁在读哪一份判据」变得不可追。
-判据的语义、四条顺序（`;` → ASI → 声明跟随边界 → EOF）、以及「基准必须是含 trivia 的 `host.Data`」
-的理由，全部见 `StatementBoundaryUtil.StatementEndCode` 的说明，这里不复制第二份。
-
 ```ts
 const callPosition = StatementEndPossibleShape.CallPositionEndCode(units, codeAt, declarationShell);
 if (callPosition >= 0) {
@@ -445,30 +308,6 @@ return StatementBoundaryUtil.StatementEndCode(units, codeAt, atEof, declarationS
 ```
 
 ## static method CallPositionEndCode:(units:Array<Token>, codeAt:Array<int>, declarationShell?:bool)=>int
-
-**声明壳的「调用位」收口**（Stage 4af-G）：`export default () => {}` ⏎ `(b);` 里最后到达的 `(b)`
-是**下一条**语句的开头（TS 在这里插 ASI：块体箭头 / `as` / `satisfies` 之后不能再接调用），
-而声明壳的 ASI 分支（`IsAsiBoundary` 条件 5）对以声明关键字开头的条目一律 `false`，
-`StatementEndCode` 于是答 `-1`，壳把 `(b)` 一起吞进 `export default` 的表达式——
-AST 从「`ExportAssignment` + `ExpressionStatement`」变成「`ExportAssignment(CallExpression)`」
-（`possible-compute` #135）。
-
-判据不新写一份，全是 `StatementScanner` 的同一批静态方法：
-`IsCallishUnit`（这一格是 `(` / `[` / 反引号模板）+ `NoLineBreakBetween`（换行之后才是新语句）
-+ `IsCallPositionBlocked`（换行前那一格收尾的表达式不能当调用者 / 标签模板宿主）。
-这三者在 `IsAsiBoundary` 里就是这一组的实现，`ExpressionStatementPossibleShape.IsNonCallableExpressionTail`
-也只是第三行的一行委托。**只在 `declarationShell === true` 时成立**：表达式族的那一格 `IsAsiBoundary`
-本来就答得出来，这里不抢它的活。
-
-返回**换行前那一格**（`codeAt[codeAt.length - 2]`）：最后到达的这一格不属于本条语句，由
-`StatementShape.FinishShell` 搬回父单元。`;` 随后作为**下一条**语句的终结符正常流进新语句壳——
-所以重放出去的片段保留 `;`（`ExpressionStatement[23,28)`），不是 `ExpressionStatement` + `EmptyStatement`。
-
-**为什么只在「最后到达的代码单元」上判**：这一格是调用位是**到达时**就成立的事实——终结候选每格都会被
-问到，所以壳在 `(b)` 这一格就收口，那时 `;` 还没到。若改成「EOF 时再回壳里找最早的非调用位尾巴」，
-EOF 时最后到场的是**下一条**语句的 `;`，壳会连同它一起消费，尾巴重放把 `(b)` 建出来、`;` 掉成
-`EmptyStatement[31,32)`（`declare const x: A = a as T` ⏎ `(b);` 在 4af-F 之前的读数正是这个）——
-一修一坏。所以这一条**不能**挪到 `;` / `atEof` 之前当作「更早的优先判据」，只能作为「同格到达」的判据。
 
 ```ts
 if (declarationShell !== true) {
@@ -492,19 +331,6 @@ return tailAt;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-把本条语句建出来、让壳原位收口。收口位置与 `ComputeByIndex` **同一判据**
-（表达式族走 `ExpressionEndCode`，短语句族走 `ShortFamilyEndCode`，其余族走 `ScanRoot` 的 `End`），
-只是这里从 `host.Data` 重新折一遍 `code` / `codeAt`，再交给 `StatementShape.BuildFromShell`
-用**正确的 endIndex** 消费到那里。
-
-- `EOF` 哨兵：消费到最后一个代码单元；
-- 其它：算出「最后一条属于本条语句的单元」并折算成壳 `Data` 下标；算不出来时退回 `tokenIndex`
-  （`TryToClose` 会 `DetachShell` 兜底，不会把壳留在树里）。
-
-**Stage 5d-2a**：`EOF` 哨兵分支与普通分支都在 `ScanRoot` 之前先问 `IsShortFamilyCode`，
-短语句族改读 `ShortFamilyEndCode`（与 `ComputeByIndex` **同一个入口、同一个 `atEof`**），
-两个分支的 `ScanRoot` 调用次数因此对短语句族归零（`HANDOFF-5d2a.md` §3 有逐族读数）。
 
 ```ts
 let endIndex = tokenIndex;

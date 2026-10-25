@@ -12,52 +12,21 @@ import { LineTerminator } from "../../run/line-terminator.xl.md"
 
 # class MemberBoundaryScan
 
-对象类型成员边界的**增量扫描状态**：`MemberBoundary.ScanTypeMemberBoundary` 用它缓存「已经找到的边界」与「下一次该判哪一格」，把长成员的分界判定从「每个 basic token 都全前缀 O(k)」降到均摊 O(1)。
-
-`Boundary` 是 `FindTypeMemberBoundary(code, 0)` 的结果（`code` 下标，`-1` 表示还没找到）；`Checked` 是**下一个待判位置**（`code` 下标）。因为 `FindTypeMemberBoundary` 带一格 lookahead（`IsInitializerIndexContinuation` / `LooksLikeMemberStart` 的 `[...]` 分支都要看 `at + 1`），一次没命中时 `Checked` 回退到末位，下一次连末位一起复查。
-
 ## field Boundary:int = -1
-
-已经找到的下一个成员起点（`code` 下标）；`-1` 表示还没找到。找到即锁定：更长的前缀不会改变「第一个命中」。
 
 ## field Checked:int = 1
 
-下一个待判位置（`code` 下标）；`FindTypeMemberBoundary` 从 `from + 1` 起判，所以初始是 `1`。
-
 # class MemberBoundaryCache
-成员边界判定的**记忆化宿主**：`FindMemberBoundary` 算出第一条 `(code, from)` 的 `Boundary` 之后，
-只要 `code` 仍是同一个数组、且新 `from` 落在已扫过的单调区间里（`from >= From`，并且
-`from < Boundary` 或 `Boundary` 已经是 `code.length` 即整段无边界），答案就是同一个 `Boundary`，
-不必再扫一遍。
-
-**生命周期**：一次 `Load` 一份，挂在 `TypeBuilder` 实例上；`Load` 归零。`ParseTypeBounded` /
-`ParseReturnTypeBounded` 切出临时 `Units` 切片时，先把条目保存并清零、切回原数组后恢复——
-所以条目只对「同一个 `Units` 数组对象 + 同一段单调推进的 `At`」成立，不跨数组、不跨文件。
-判定本身仍是原来的纯扫描（只依赖 `code` 与 `from`），缓存只是把「同一前缀上重复问同一个边界」
-从 O(k) 降到 O(1)。
 
 ## field Code:Array<Token> | null = null
 
-条目对应的 `Units` 数组（按**引用**比较）；`null` 表示还没有条目。
-
 ## field From:int = -1
-
-条目算出 `Boundary` 时用的 `from`。之后的 `from` 必须更大（`At` 单调推进），更小就重算。
 
 ## field Boundary:int = -1
 
-`FindMemberBoundary(Code, From)` 的结果；`-1` 表示没有条目。
-
 # class MemberBoundary
-对象类型 / 类体里「一个成员的终点」的判据。成员的类型是**贪心**解析的，但 `[…]` 既可能是类型的
-索引访问后缀、也可能是下一个成员的计算名（`entries: () => X\n[Symbol.iterator]: () => Y`），
-所以解析类型之前要先用这个助手截出当前成员的范围。
 
 ## static method ScanTypeMemberBoundary:(code:Array<Token>, scan:MemberBoundaryScan)=>void
-
-`FindTypeMemberBoundary(code, 0)` 的**增量版**：`scan.Boundary` 已经找到就直接返回；否则从 `scan.Checked` 起只判新追加的位置。
-
-判据与 `FindTypeMemberBoundary` 逐条相同（换行 + 前一个单元能收住类型 + 当前单元是成员起点，外加 `(` / `<` 的成员起点例外与 ASI 例外）。两条带 lookahead 的判据在末位拿不到 `at + 1` 时都判 false，所以末位永远不会被提前锁定；一次扫到底就把 `Checked` 回退到末位，下一次复用同一格复查，均摊 O(1)。
 
 ```ts
 if (scan.Boundary >= 0) {
@@ -96,14 +65,6 @@ scan.Checked = code.length > 1 ? code.length - 1 : 1;
 ```
 ## static method FindMemberBoundary:(code:Array<Token>, from:int, cache?:MemberBoundaryCache | null)=>int
 
-从 `from` 起扫到第一个「换行 + 前一个代码单元能收住一个类型 + 当前单元看起来是成员起点」的位置；
-找不到就是 `code.length`。
-
-`cache` 是可选的**记忆化宿主**：同一个 `code` 上，若之前从更小的 `from` 算过 `Boundary`，
-且当前 `from` 还在 `Boundary` 之前（或 `Boundary` 已是 `code.length`），直接返回旧结果。
-`TypeBuilder.ParseTypeBounded` / `ParseReturnTypeBounded` 会传它，把「同一段前缀上反复问同一个
-成员边界」的 O(k) 扫描压成 O(1)；不传时行为与不带缓存的逐条扫描完全一致。
-
 ```ts
 if (cache !== undefined && cache !== null && cache.Code === code
   && cache.Boundary >= 0 && from >= cache.From
@@ -140,23 +101,6 @@ return code.length;
 ```
 
 ## static method FindTypeMemberBoundary:(code:Array<Token>, from:int)=>int
-
-**对象类型成员候选管线**（接口体；类型字面量将来可复用同一入口）的分界：与 `FindMemberBoundary` 同口径，
-另外把**换行后的 `(` / `<`** 当成新成员起点——`(): A` ⏎ `(): B`、`a: A` ⏎ `(): B`、`a: Foo<A>` ⏎ `(): B`
-都是两个成员。
-
-class 体不能直接复用这条例外：值初始化器里的 `foo` ⏎ `(bar)` / `foo` ⏎ `<T>(x)` 是**续接**（TS 不插 ASI），
-所以 `FindMemberBoundary` / `LooksLikeMemberStart` 保持原判据不动，class 体与 type literal 的既有解析不受影响；
-只有对象类型成员候选（`MemberPossibleUtil.Analyze`）走这个入口。
-
-`(` / `<` 前面是 `new`（`new` ⏎ `<T>` / `(` 是构造签名的类型参数表 / 参数表），
-或当前成员前缀**还没拿到参数表**（`m` ⏎ `(x: T): B`、`m<T>` ⏎ `(x: T): B`、`b?` ⏎ `(): E`、
-`<T>` ⏎ `(x: T): B`）时，`(` / `<` 是同一个签名自己的类型参数表 / 参数表，不是新成员：
-TS 的 `parseTypeMember` 在成员名与 `<` / `(` 之间**从不插 ASI**，只有成员自己已经收住
-（有了 `:` 类型、有了参数表、或根本是调用签名）时，换行后的 `(` / `<` 才是下一个成员。
-
-`(` 前面是 `import`、再前一个是 `typeof`（`f: typeof import` ⏎ `("m")`）时，`(` 是 import 类型的
-参数表（`TypeBuilder.ParseTypeQuery` 同口径），也不是新成员。
 
 ```ts
 for (let at = from + 1; at < code.length; at++) {
@@ -206,8 +150,6 @@ return code.length;
 
 ## private static method IsNewKeyword:(unit:Token)=>bool
 
-`unit` 是不是 `new` 关键字。
-
 ```ts
 if (unit instanceof Common) {
   return (unit as Common).TempToString() === "new";
@@ -216,18 +158,6 @@ return false;
 ```
 
 ## private static method IsMemberSignatureAwaitingParams:(code:Array<Token>, at:int)=>bool
-
-`at` 是换行后的 `(` / `<`。当前成员前缀（`code[0 .. at-1]`）还停在「成员名 / 可选标记 / 类型参数表」
-这一截、**还没拿到参数表**时，`at` 处的 `(` / `<` 属于同一个签名，不是新成员：
-
-- 前缀里已经出现过参数表 `(` 括号 ⇒ 成员已经收住（`(): A` / `m()`），`at` 是新成员；
-- 前缀顶层（角深度 0）出现过 `:` ⇒ 类型已经开始（`a: Foo<A>` ⏎ `(): B`），成员收得住，`at` 是新成员；
-- 前缀最后一个代码单元必须是「后面还能接类型参数表 / 参数表」的东西：名字 / 字符串名、
-  可选标记 `?` / `?:`、或类型参数表的收口 `>` / `>>` / `>>>`。
-
-`readonly` 是例外：`TypeBuilder.ParseTypeMember` 把**换行后的** `readonly` 当场收成无类型属性名
-（`readonly` ⏎ `readonly: number` 是两个成员，这是 TS 的 `nextTokenIsOnSameLineAndCanFollowModifier`），
-跨过这个换行会让它提前收口、留下 leftover，所以 `readonly` ⏎ `(` 保持既有分界（不跨）。
 
 ```ts
 for (let cursor = 0; cursor < at; cursor++) {
@@ -280,13 +210,6 @@ return false;
 
 ## private static method IsImportTypeArguments:(code:Array<Token>, at:int)=>bool
 
-`at` 是换行后的 `(`，`code[at - 1]` 是 `import`、`code[at - 2]` 是 `typeof` 时，这组括号是
-`typeof import(...)` 的参数表：TS 的 `parseTypeQuery` 在 `import` 之后直接读 `(`，不插 ASI；
-本仓 `TypeBuilder.ParseTypeQuery` 同口径，所以成员分界要跨过那个换行。
-
-`import` 只有紧跟 `typeof` 才是 import 类型；其它位置的 `import` 是成员名（`import` ⏎ `(): A`
-是名字为 `import` 的方法签名，`(` 照常是新成员起点）。
-
 ```ts
 if (at < 2) {
   return false;
@@ -300,10 +223,6 @@ return before instanceof Common && (before as Common).TempToString() === "typeof
 ```
 
 ## static method IsInitializerIndexContinuation:(code:Array<Token>, at:int)=>bool
-
-`at` 是换行后的 `[`，且这个 `[...]` 后面紧跟 `=`（计算名初始化的形态）时，它是上一行初始化器
-的下标续接，而不是新成员起点（TS 的 ASI 规则：`[` 可以续接表达式，不插分号）。
-类型上下文里的 `[K]: T`（后面是 `:`）不受影响。
 
 ```ts
 const unit = code[at];
@@ -320,16 +239,11 @@ return previous instanceof Common || previous instanceof String || previous inst
 
 ## static method HasLineBreakBetween:(left:Token, right:Token)=>bool
 
-两个代码单元的原文之间有没有换行（块注释里的换行也算）。
-行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
-
 ```ts
 return LineTerminator.HasBetween(left.SourceRange, right.SourceRange);
 ```
 
 ## static method CanEndTypeUnit:(unit:Token)=>bool
-
-一个代码单元能不能收住一个类型。
 
 ```ts
 if (unit instanceof Common || unit instanceof String || unit instanceof Bracket) {
@@ -342,8 +256,6 @@ return false;
 ```
 
 ## static method LooksLikeMemberStart:(code:Array<Token>, at:int)=>bool
-
-`at` 处的代码单元像不像一个新成员的起点。
 
 ```ts
 const unit = code[at];

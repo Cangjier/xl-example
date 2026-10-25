@@ -71,10 +71,6 @@ import { WithStatementShape } from "./with-statement-shape.xl.md"
 
 # class StatementBuilder
 
-语句的**递归下降建树器**：输入一段已经到齐的代码单元（根级一条语句，或块 / 体里的一条语句），输出形状树。
-
-它建的是「原子型」：一条语句到齐时一次建完，子语句在递归里各自建好；表达式片段交给 `ExpressionBuilder`。
-
 ## field Template:Template
 
 ## field Context:SyntaxContext
@@ -99,8 +95,6 @@ this.Context = context;
 ```
 
 ## method Load:(units:Array<Token>, basePos:int)=>void
-
-把一段单元载进来：跳过 trivia，同时算每个代码单元的 `Pos`（含前导 trivia）——口径与 `ExpressionBuilder.Load` 相同。
 
 ```ts
 this.Units = [];
@@ -165,8 +159,6 @@ return text === "let" || text === "const" || text === "var" || text === "using";
 
 ## method Finish:(shape:ShapeToken, first:int, last:int)=>ShapeToken
 
-签入签出、给 `Pos`、关闭：一条语句的收尾全在这一个方法里。
-
 ```ts
 const head = this.Units[first];
 const tail = this.Units[last];
@@ -182,8 +174,6 @@ return shape;
 ```
 
 ## method BuildExpressionRange:(first:int, last:int)=>Token
-
-把一个表达式片段（单元下标闭区间）交给 `ExpressionBuilder`，要求整段读完。
 
 ```ts
 if (last < first) {
@@ -204,8 +194,6 @@ return value;
 
 ## method ParseBracketExpression:(bracket:Bracket)=>Token
 
-括号里的整个表达式（条件 / 循环头 / `do-while` 条件）。
-
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
 let base = 0;
@@ -224,8 +212,6 @@ return value;
 ```
 
 ## method BuildStatement:()=>Token
-
-一条语句的分派：块 / 空语句 / 关键字族 / 标签 / 表达式语句。
 
 ```ts
 if (this.At >= this.Units.length) {
@@ -459,22 +445,6 @@ return this.BuildExpressionStatement();
 
 ## method BuildFunctionDeclaration:()=>Token
 
-Nested `function` / `async function` / `declare function` declaration inside a body. Delegates to
-`FunctionDeclarationShape.FromUnits` with a host-like adapter over this builder's code units
-(FromUnits only reads `host.Data` / `host.Template`), then fixes the shape `Pos` to this
-builder's `Positions[first]` (the first statement of a block has a base offset that the
-adapter cannot know). End of the declaration is the body `{...}` bracket or the `;` of an
-overload / ambient signature.
-
-起始格不假定是 `function`：`declare function` / `async function` 也走这里。无体形态（`;` 收尾）
-按 ambient 交给 FromUnits——块里的重载签名 / `declare function` 都没有函数体。
-
-**Stage 4af-D：ambient 签名允许无分号结束**。声明壳把**一条**声明交过来时，收口位置就是类型结束处，
-units 可能到此为止、既没有 `;` 也没有体（`declare function f<T>(): T` ⏎ `f<string>;`：壳在 `T` 收口）。
-`declare` 修饰词已经把这条声明标成 ambient（TS 里 `declare function` 的签名本来就不带体），
-所以单元用完就是它的结束；非 ambient 的 `function` 仍必须有体或 `;`，照旧抛错。
-判据只在本方法里、只读修饰词前缀，不新写第二套签名扫描。
-
 ```ts
 const first = this.At;
 let cursor = this.At;
@@ -555,11 +525,6 @@ return shape;
 
 ## private method AnchorFirstModifier:(shape:Token, first:int)=>void
 
-块 / 体里**首个**声明的第一个修饰词（`declare` / `abstract` / `export` / `default` / `async` /
-装饰器）：各声明形状按「前一个单元 `End+1`」推修饰词 `Pos`，块内第一个成员前面没有代码单元时
-会回退成 0；这里用本层 `Positions[first]` 重锚。后续修饰词是按 `End+1` 链式算的、本来就对，不动。
-与 `ModuleBlockShape.BuildMember` 对首成员修饰词的重锚同款。
-
 ```ts
 if (shape.Data.length === 0) {
   return;
@@ -575,15 +540,6 @@ if (name === "DeclareKeywordShape" || name === "AbstractKeywordShape"
 ```
 
 ## method BuildClassDeclaration:()=>Token
-
-Nested `class` declaration inside a body. Delegates to `ClassDeclarationShape.FromUnits` through the
-same host-like adapter as `BuildFunctionDeclaration` (FromUnits only reads `host.Data` /
-`host.Template`); the declaration end is the class body `{...}` bracket.
-
-起始格不假定是 `class`：`abstract class` / `declare class` / `export class`（export 已由
-`BuildExportedStatement` 摘掉）/ `@dec class` 都由调用方把 `this.At` 停在声明头第一格，
-`ClassDeclarationShape.FromUnits` 自己认这些前缀。类体按 `TypeBuilder.IsBodyBrace` 找
-（`class C<T extends {}> {}` 里类型参数的 `{}` 不是类体）。
 
 ```ts
 const first = this.At;
@@ -620,10 +576,6 @@ return shape;
 
 ## method BuildInterfaceDeclaration:()=>Token
 
-块 / 被标体位置的 `interface` 声明：交给 `InterfaceDeclarationShape.FromUnits`，体是那个 `{...}` 括号单元。
-起始格可以是修饰词 / 装饰器前缀（`declare interface` / `@dec interface`），由 FromUnits 自己认；
-接口体按 `TypeBuilder.IsBodyBrace` 找。
-
 ```ts
 const first = this.At;
 let end = -1;
@@ -648,9 +600,6 @@ return shape;
 
 ## method BuildEnumDeclaration:()=>Token
 
-块 / 被标体位置的 `enum` 声明：交给 `EnumDeclarationShape.FromUnits`（它接受 `declare` / `const` /
-`export` / 装饰器前缀），体是那个 `{...}` 括号单元。
-
 ```ts
 const first = this.At;
 let end = -1;
@@ -674,11 +623,6 @@ return shape;
 ```
 
 ## method BuildModuleDeclaration:()=>Token
-
-块 / 体位置的 `namespace` / `module` / `global` 声明：交给
-`ModuleDeclarationShape.FromUnits(code, positions, context)`——它认装饰器、`export` / `declare`
-修饰词、限定名（`namespace A.B {}`）、字符串名（`module "m" {}`）与 `global` 关键字，并把模块体
-递归交回 `ModuleBlockShape`（体内成员同样走本 builder）。
 
 ```ts
 const first = this.At;
@@ -715,10 +659,6 @@ return shape;
 
 ## method BuildExportedStatement:()=>Token
 
-块 / 体里 `export` 修饰的声明：先摘掉 `export`，建被修饰的语句，再把 `ExportKeywordShape`
-插回成员 `Data` 最前（TS 的 children 顺序是修饰词在最前）。与
-`ModuleBlockShape.BuildMember` 对 export 成员的处理同款，`Pos` 回到 `export` 起点。
-
 ```ts
 const first = this.At;
 const exportUnit = this.Units[first] as Common;
@@ -734,14 +674,6 @@ return member;
 
 ## method BuildExportedVariableStatement:()=>Token
 
-`export` + 变量声明关键字、且**后面没有绑定可跟**（`export let` / `export let;`）：TS 这里是
-带**空** `VariableDeclarationList` 的 `VariableStatement`（`LetKeyword` 是列表里唯一的东西）。
-
-与 `BuildExportedStatement` 同款：摘掉 `export`、建被修饰的语句、再把 `ExportKeywordShape` 插回
-`member.Data` 最前（TS 的 children 顺序是修饰词在最前），`Pos` 回到 `export` 起点。区别只有一处：
-被修饰的语句**直接**交给 `BuildVariableStatement`，不经过 `BuildStatement` —— 后者对裸 `let`
-只会给出标识符表达式语句（`let` 的双角色判据要求 `StartsBinding` 成立，而这里根本没有绑定可跟）。
-
 ```ts
 const first = this.At;
 const exportUnit = this.Units[first] as Common;
@@ -756,10 +688,6 @@ return member;
 ```
 
 ## method BuildDefaultModifierStatement:()=>Token
-
-`export default` 后面的声明（`class` / `abstract class` / `interface` / `function` / `@dec class`）：
-摘掉 `default`，建声明，把 `DefaultKeywordShape` 插回成员 `Data` 最前。
-`export default class {}` 的匿名类由 `AllowAnonymousClass` 在这条路径上放行。
 
 ```ts
 const first = this.At;
@@ -783,10 +711,6 @@ return member;
 
 ## method IsImportStatementHead:()=>bool
 
-`import` 在块 / 体里是不是 import 声明头（而不是 `import.meta` / `import(...)` 表达式）：
-下一个代码单元是字符串（side-effect）/ 标识符（默认导入 / `type` 前缀 / import-equals）/ `{`
-（具名导入）/ `*`（namespace 导入）。`import` 后面是 `.` 或 `(` 时是表达式，交回表达式语句。
-
 ```ts
 const after = this.Peek(1);
 if (after === null) {
@@ -806,10 +730,6 @@ return false;
 
 ## private method IsClauseContinuation:(unit:Token)=>bool
 
-`import` / `export` 子句在换行处还没完的延续词：`from` / `with` / `assert` / `as`
-（`export { a }` ⏎ `from "m"`、`import x from "m" with` ⏎ `{ … }` 都还是同一条语句）。
-续接符本身不让块级 ASI 判据成立，所以子句收口要显式放过它们。
-
 ```ts
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
@@ -823,10 +743,6 @@ return false;
 ```
 
 ## private method ClauseEnd:(from:int)=>int
-
-子句语句的收口下标：先找本层 `;`；没有 `;` 时按块级 ASI 判据（`StatementBuilder.EndsAtLineBreak`）
-找「上一格能收尾、下一格接不上」的换行边界，`from` / `with` / `assert` / `as` 这些延续词不算边界。
-返回最后一个属于本语句的代码单元下标（可能是 `;`，也可能不是）。
 
 ```ts
 for (let scan = from; scan < this.Units.length; scan++) {
@@ -847,11 +763,6 @@ return this.Units.length - 1;
 
 ## private method SynthesizeSemicolon:(end:int)=>int
 
-`ImportDeclarationShape` / `ExportDeclarationShape` / `ImportEqualsDeclarationShape` /
-`NamespaceExportDeclarationShape` 的 `FromUnits` 都要求末尾单元是 `;`：无分号收口时补一个零宽合成
-`;`（与 `ModuleBlockShape` 的无分号路径同款），返回它在 `Units` 里的下标；`Positions` 同步插一格
-保持两个数组对齐。
-
 ```ts
 const tailEnd = this.Units[end].SourceRange.EndIndex;
 if (tailEnd < 0) {
@@ -868,20 +779,12 @@ return end + 1;
 
 ## private method RemoveSemicolon:(index:int)=>void
 
-摘掉 `SynthesizeSemicolon` 插进去的零宽合成 `;`（建完形状就还原本层单元，不能让合成单元流到
-后续语句的 `Positions` 上）。
-
 ```ts
 this.Units.splice(index, 1);
 this.Positions.splice(index, 1);
 ```
 
 ## method BuildImportStatement:()=>Token
-
-块 / 体里的 import 声明（原先没有分派，`import` 落表达式兜底「表达式没有读完」）：
-`import x from "m"` / `import { a } from "m"` / `import * as ns from "m"` / `import "m"` /
-`import type …` / `import x = require("m")`（import-equals）。子句与模块体同源：复用
-`ImportDeclarationShape.FromUnits` / `ImportEqualsDeclarationShape.FromUnits`，无分号补合成 `;`。
 
 ```ts
 const first = this.At;
@@ -915,17 +818,6 @@ return shape;
 ```
 
 ## method BuildExportStatement:()=>Token
-
-块 / 体里的 `export` 语句分派（原先只有「export + 声明头」一条路，模块说明符形态 / ExportAssignment
-全落表达式兜底）：
-
-- `export as namespace X;` → `NamespaceExportDeclarationShape`
-- `export import x = require("m");` → `ImportEqualsDeclarationShape`（export 是它的子节点）
-- `export default <声明>` → `BuildExportedStatement`（保留声明路径）
-- `export = <expr>` / `export default <expr>` → `ExportAssignmentShape`（children 只有表达式）
-- `export { … }` / `export * …` / `export type { … }` → `ExportDeclarationShape`
-- `export let` / `export let;`（后面没有绑定、**空**声明列表）→ `BuildExportedVariableStatement`
-- 其余 `export <声明>` → `BuildExportedStatement`
 
 ```ts
 const first = this.At;
@@ -1023,10 +915,6 @@ return this.BuildExpressionStatement();
 
 ## private method BuildExportClauseStatement:()=>Token
 
-`export { … }` / `export * from "m"` / `export type { … }`：`ExportDeclarationShape.FromUnits`
-（`export` / `type` / `from` 不进 children；NamedExports / 模块字符串 / attributes 才是）。
-无分号时补合成 `;`。
-
 ```ts
 const first = this.At;
 let end = this.ClauseEnd(this.At + 1);
@@ -1047,8 +935,6 @@ return shape;
 ```
 
 ## private method BuildExportImportEquals:()=>Token
-
-`export import x = require("m");`：`ImportEqualsDeclarationShape` 自己投影 ExportKeyword 子节点。
 
 ```ts
 const first = this.At;
@@ -1072,9 +958,6 @@ return shape;
 
 ## private method BuildNamespaceExportDeclaration:()=>Token
 
-`export as namespace X;`：`NamespaceExportDeclarationShape.FromUnits`（children 只有名字，
-export / as / namespace 不进 children）。它要求末尾是 `;`，无分号时补合成 `;`。
-
 ```ts
 const first = this.At;
 let end = this.ClauseEnd(this.At + 1);
@@ -1096,10 +979,6 @@ return shape;
 
 ## private method BuildExportAssignmentStatement:()=>Token
 
-`export = <expr>` / `export default <expr>`：`ExportAssignmentShape.FromUnits`——TS 的
-ExportAssignment children 只有表达式（`export` / `=` / `default` / `;` 都不投影）。
-无分号时用 `requireSemicolon=false`，区间收在表达式末单元（与根终结候选的 ASI 口径一致）。
-
 ```ts
 const first = this.At;
 const end = this.ClauseEnd(this.At + 2);
@@ -1112,10 +991,6 @@ return shape;
 ```
 
 ## method ScanDecoratedHead:()=>void
-
-从 `this.At` 起的装饰器前缀：逐个 `@` 用 `ExpressionBuilder` 吃掉装饰器表达式（与各声明形状
-`FromUnits` 的 decorator 扫描同口径），把装饰器之后的声明关键字记进 `DecoratedKeyword`
-（不是声明关键字就置空）。只负责分类，不建形状——装饰器本身的形状由被分派到的声明形状建。
 
 ```ts
 this.DecoratedKeyword = "";
@@ -1180,10 +1055,6 @@ if (head instanceof Common) {
 
 ## method BuildDecoratedStatement:()=>Token | null
 
-块 / 体里以 `@` 开头的声明：按 `ScanDecoratedHead` 认出的关键字分派到对应声明 builder，
-`this.At` 仍停在第一个 `@` 上（各 `FromUnits` 从 Data 起点重新扫装饰器）。
-不是声明（TS 侧 parse 就非法）时返回 `null`，调用方退回表达式语句兜底。
-
 ```ts
 this.ScanDecoratedHead();
 const keyword = this.DecoratedKeyword;
@@ -1217,13 +1088,6 @@ return null;
 
 ## method BuildDecoratedVariableStatement:()=>Token
 
-块 / 体里以装饰器开头的变量声明：`@dec const x = 1;` / `@dec\nlet x = 1;` / `@dec\nvar x = 1;`。
-TS 的 `VariableStatement` children 顺序是 Decorator(s) → VariableDeclarationList（`@` 不进 children）。
-装饰器表达式与声明形状的 decorator 扫描同口径（`TypeBuilder.ParseDecorators` ⇄ `DecoratorShape`）；
-装饰器之后的关键字已由 `ScanDecoratedHead` 判过（`DecoratedKeyword`），这里从关键字起建变量语句，
-再把装饰器按原序插到 Data 最前、区间与 Pos 从第一个 `@` 起算（`BuildVariableStatement(decoratedFirst)`）。
-必须先建装饰器形状，才知道 `this.At` 要跳过多少个单元（装饰器表达式可以任意长）。
-
 ```ts
 const first = this.At;
 const decoratorBuilder = new TypeBuilder(this.Template, this.Context);
@@ -1243,9 +1107,6 @@ return shape;
 
 ## method IsModuleDeclarationHead:(text:string)=>bool
 
-`namespace` / `module` / `global` 是不是本位置的模块声明头：`namespace` / `module` 后面必须是
-名字（标识符或字符串），`global` 后面必须是 `{...}` 体。`module.exports` 这类成员访问不算。
-
 ```ts
 if (text === "global") {
   const after = this.Peek(1);
@@ -1262,10 +1123,6 @@ return false;
 ```
 
 ## method IsExportDeclarationHead:()=>bool
-
-`export` 后面跟的是不是声明头（`class` / `interface` / `type` / `enum` / `namespace` / `module` /
-`global` / `function` / `const` / `let` / `var` / `using` / `abstract` / `async` / `declare` /
-`default` / `@`）。模块说明符形态（`export { a }` / `export * from` / `export =`）不在这里处理。
 
 ```ts
 const after = this.Peek(1);
@@ -1286,15 +1143,6 @@ return text === "class" || text === "interface" || text === "type" || text === "
 ```
 
 ## method IsDefaultDeclarationHead:()=>bool
-
-`default` 后面跟的是不是声明头（`class` / `abstract` / `interface` / `enum` / `function` /
-`async function` / `declare` / `@`）。`export default <表达式>` 是 ExportAssignment，不在这里处理。
-
-`async` 只有后面**真的跟着 `function`** 时才算声明头（与 `BuildStatement` 的 `async` 分支、以及
-`BuildExportStatement` 里 `export default` 那一格的 `declarationHead` 同一判据）：
-`export default async () => {}` / `async x => x` / 裸 `async` 的 `async` 是 default 表达式，
-箭头函数自己的 `AsyncKeyword` 由表达式层建；少了这一条会走 `BuildDefaultModifierStatement`，
-把一条 ExportAssignment 建成 `ExpressionStatement(ExportKeyword, DefaultKeyword, …)`。
 
 ```ts
 const after = this.Peek(1);
@@ -1317,10 +1165,6 @@ return text === "class" || text === "abstract" || text === "interface" || text =
 ```
 
 ## method BuildTypeAliasDeclaration:()=>Token
-
-块 / 被标体位置的 `type X = …`：交给 `TypeAliasDeclarationShape.FromUnits`，末单元是 `;` 或本段最后单元（无分号 ASI）。
-无分号时与根级的 `TypeAliasDeclarationPossibleShape` 读同一套收口判据（`=` 之后类型已完整 + 换行 +
-`IsAsiBoundary`）：`{ type T = A` ⏎ `(b) }` 的 `(b)` 是下一条语句，不能喂给类型解析。
 
 ```ts
 const first = this.At;
@@ -1358,13 +1202,6 @@ return shape;
 
 ## method BuildBlock:()=>Token
 
-块：`{` … `}` 是一个括号单元，里面的语句在它的 `Data` 里递归建。
-
-**块体已由目录增量建成语句形状时（`EnableBlockBodyCatalog`）**，走 `CollectBodyStatements()` 按序收集：
-已建形状直接成为 `BlockShape` 的子语句（不重新建树），中间/尾部仍是 raw basic token 的段落由内层
-`BuildStatement()` 逐条建。两条路产出的 `BlockShape.Data` 都是「语句形状按源码顺序」，区间 / `Pos` 不变；
-只有「谁来建这一条语句」不同（possible 增量 vs 一次性 raw 递归）。
-
 ```ts
 const first = this.At;
 const bracket = this.Units[this.At] as Bracket;
@@ -1390,8 +1227,6 @@ return this.Finish(shape, first, first);
 
 ## static method HasBuiltBodyStatements:(bracket:Bracket)=>bool
 
-块体括号里是否已有**已建语句形状**（非 basic、非 trivia 的单元）。没有就整段走 legacy raw 递归（逐字节不变）；有就走收集。
-
 ```ts
 for (const unit of bracket.Data) {
   if (unit.IsTriviaToken) {
@@ -1405,18 +1240,6 @@ return false;
 ```
 
 ## method CollectBodyStatements:(bracket:Bracket, shape:BlockShape)=>void
-
-**块体语句收集**（Stage 4b，对齐 `BodyGuideUtil.CollectBodyMembers` 的两条路）：
-
-- 括号 `Data` 里已由块体目录增量建出的语句形状：**按序原样收集**（`shape.Add` 设 `Parent`），不再让建造器啃；
-- 形状之间的 raw 段（本族还没有候选的语句，例如未壳化的控制流）：切出来交给一个内层 `StatementBuilder`，
-  `Load(段, base)` 后 `BuildStatement()` 逐条建，拼在已建语句之后；
-- `base` 口径与 `BuildBlock` 相同：首段是 `{` 的 `StartIndex + 1`，之后每段是**前一个已建语句的 `SourceRange.EndIndex`**
-  （TS 的 `pos` 含前导 trivia，与 `BuildBlock` / `StatementShape.BuildFromShell` 同口径）。
-
-**安全回退**：`StatementShape` 壳残留（收口失败）或 `if (a) f();` 这类 raw 语句把已建形状当成自己子语句时，
-内层建造器会读到非 basic 单元 —— 这里直接抛错，由 `SourceFileRunner.Parse` 的文件级 fallback 整条重解析
-（AST 与 legacy 一致）。不吞错、不建错树。
 
 ```ts
 let at = 0;
@@ -1486,11 +1309,6 @@ return this.Finish(shape, first, first);
 
 ## method BuildExpressionStatement:()=>Token
 
-体里的表达式语句：从当前下标读到本层 `;`（或段末）。换行边界读**与根级终结候选同一个**
-`ExpressionStatementPossibleShape.IsAsiBoundary`（`;` 之外的边界：后缀 `++`/`--`/`!` 后接
-`(` `[` 反引号模板、`as`/`satisfies`/箭头块体后接调用位、`x++` ⏎ `++y` 这类前缀运算），
-以及 `yield` 受限产生式（关键字后换行 ⇒ 本条语句在 `yield` 处结束）。
-
 ```ts
 const first = this.At;
 let last = -1;
@@ -1542,17 +1360,6 @@ return this.Finish(shape, first, statementLast);
 ```
 
 ## method BuildExpressionStatementFromShapes:(body:StatementOperatorBody)=>Token | null
-
-**S3c：表达式语句的 AST 由形状树产出**（设计 §4.4）。收口条件与 legacy `BuildExpressionStatement`
-**同一套判界**（`;` 老的终止符、换行 ASI、`yield` 受限产生式），只是表达式节点不再由
-`BuildExpressionRange` 重解析 raw 单元，而由 `StatementShapeAst` 从壳里已经建好的形状树逐节点组装。
-
-**返回 `null` = 本条语句不归形状树**：`this.At` 不动、不建任何形状、不改任何状态，调用方原样回
-`BuildStatement()`（legacy 逐位行为）。拒绝的精确原因在 `StatementShapeAst.LastDeclineReason`。
-
-**为什么先判界再建树**：形状树的覆盖判据是「单元下标恰好 `0..n-1`」，而 `n` 正是表达式的单元数。
-判界必须先在本层 `Units` 上做完（`;` / ASI 才是本层的边界），否则「形状树只盖了半条表达式」会被
-误当成整条。
 
 ```ts
 const first = this.At;
@@ -1625,7 +1432,6 @@ return this.Finish(shape, first, statementLast);
 ```
 
 ## static method EndsExpression:(unit:Token)=>bool
-标识符 / 括号 / 字面量 / 后缀自增自减可以收尾一个表达式；`as` / `typeof` 这类前缀词不算。
 
 ```ts
 if (unit instanceof Common) {
@@ -1649,8 +1455,6 @@ return true;
 ```
 
 ## static method ContinuesAcrossLine:(unit:Token)=>bool
-
-下一行的这个单元能不能接着上一行继续同一个表达式 / 类型；接不上就说明换行处是 ASI 边界。
 
 ```ts
 if (unit instanceof Symbol) {
@@ -1676,8 +1480,6 @@ return true;
 
 ## static method EndsAtLineBreak:(previous:Token, next:Token)=>bool
 
-`previous` 能收尾、`next` 接不上、两者之间有换行 —— 三者都成立就是 ASI 边界。
-
 ```ts
 if (StatementScanner.NoLineBreakBetween(previous, next)) {
   return false;
@@ -1690,10 +1492,6 @@ return !StatementBuilder.ContinuesAcrossLine(next);
 
 ## static method IsTypeArgumentStart:(units:Array<Token>, index:int, limit:int)=>bool
 
-`units[index]` 是 `<`、且它开启的是类型实参段时才算开头。判据统一交给
-`AngleJudge.CanStart`（前驱 + 配对扫描 + follower 白名单 + 内层粗校验），
-本方法只保留 `limit` 越界检查这一层。
-
 ```ts
 if (index <= 0 || index >= limit) {
   return false;
@@ -1702,24 +1500,6 @@ return AngleJudge.CanStart(units, index);
 ```
 
 ## method BuildDeclareVariableStatement:()=>Token
-
-**Ambient 变量语句**（`declare const x: T;` / `declare let a: number, b: string;` / `declare var` /
-`declare using`）的建树：TS 在 `VariableStatement` 的 children 里保留一个 `DeclareKeyword` 节点
-（`ast-json` 逐节点比对它），而 `VariableStatementShape.FromUnits` 只接受 `let` / `const` / `var` /
-`using` 起头，所以这里手工把 `declare` 摘成修饰词形状：
-
-1. 记住 `declare` 的下标与 Pos（语句 `Pos` 要倒回 `declare` 起点——TS 的 `VariableStatement.pos` 含修饰词）；
-2. `At++` 跳过 `declare` 再交给 `BuildVariableStatement()`（它按变量关键字起算声明列表）；
-3. 把语句 `Pos` 改成 `declare` 的 Pos，`DeclareKeywordShape` 插到 `Data` 最前（TS 的 children 顺序是修饰词在前），
-   并补 `Parent`（`splice` 不设父）。
-
-**前置条件**：`this.At` 指向 `declare`，下一代码单元是与它**同一行**的变量关键字（`const` 后不得是 `enum`
-——那一条是 `declare const enum`，在 `declare` 的声明子族里已建 enum）。判据在调用方（`BuildStatement` 的
-`declare` 分支 / possible 层的 `StatementFamilyDispatch.DeclareIsAmbientVariable`），两处读的是同一套条件。
-
-这是 Stage 5d-4 从 `BuildStatement` 的 `declare` 分支**逐字搬出来**的方法：语句壳收口时
-`StatementFamilyDispatch` 直接调它，`BuildStatement` 的同一格也调它——两条路读同一个 `this`、同一个
-`At` / `Positions` / `Pos`，所以 `LegacyStatementDispatchCount` 的下降不改变任何 AST / Pos / `consumed`。
 
 ```ts
 const unit = this.Units[this.At];
@@ -1737,20 +1517,6 @@ return ambient;
 
 ## method BuildDeclaredImportStatement:()=>Token
 
-**Stage 5d-8c：`declare import a from "m";` / `export declare import a from "m";` 的恢复形**。
-TS 把这两种写法都读成一条 **ImportDeclaration**，`declare`（以及 `export`）是它的**修饰词子节点**：
-`children = [DeclareKeyword, ImportClause, StringLiteral]`（`export declare` 时最前面再多一个
-`ExportKeyword`，由外层 `BuildExportedStatement` 补）。原来的分派没有这一格：`declare` 落
-`BuildTail` → 表达式语句，读到 `from "m"` 时抛「表达式没有读完」→ 文件级 fallback。
-
-做法与 `BuildDeclareVariableStatement` 逐字同构：记住 `declare` 的 Pos → `At++` → 交给
-`BuildImportStatement()`（`import a from "m"` 的既有实现）→ 语句 `Pos` 倒回 `declare` 起点 →
-`DeclareKeywordShape` 插到 `Data` 最前。
-
-**前置条件**：`this.At` 指向 `declare`，下一代码单元是**同一行**的 `import`。调用方是
-`BuildStatement` 的 `declare` 分支与 possible 层的 `StatementFamilyDispatch.BuildDeclareFamily`
-（两处读同一套条件：`NoLineBreakBetween` + 下一格是 `import`）。
-
 ```ts
 const declareUnit = this.Units[this.At];
 const declarePos = this.Positions[this.At];
@@ -1766,13 +1532,6 @@ return member;
 ```
 
 ## method BuildVariableStatement:(decoratedFirst?:int)=>Token
-
-变量语句：`let` / `const` / `var` / `using` / `await using`。声明列表从关键字到 `;` 之前；`await` 与 `using` 都不进 AST
-（TS 只把它们记成 List 的 flags），`await using` 的 List 仍从 `await` 起算 `Pos`（listStart 传语句首）。
-
-`decoratedFirst` 是装饰器前缀的起点（`@dec const x = 1;` 里第一个 `@` 的下标）：TS 的 VariableStatement
-在变量关键字前面还有 Decorator children，区间与 `Pos` 要从装饰器起算；不传时就是普通变量语句（从关键字起算）。
-装饰器形状由调用方建好、按 TS 的 children 顺序（Decorator(s) 在 VariableDeclarationList 之前）插进 Data。
 
 ```ts
 const keywordStart = this.At;
@@ -1849,8 +1608,6 @@ if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
 return this.Finish(shape, first, this.At - 1);
 ```
 ## method BuildVariableDeclarationList:(keywordIndex:int, endExclusive:int, listStart?:int)=>ShapeToken
-
-声明列表：`let a = 1, b, c = f(x)`。每个声明 = 标识符 + 可选 `= 表达式`；`=` 之后到本层 `,` / 段末是初始化表达式。`Pos` 从关键字算起（与 TS 的 `VariableDeclarationList` 同口径）。
 
 ```ts
 const keyword = this.Units[keywordIndex];
@@ -2051,14 +1808,6 @@ return this.Finish(shape, first, this.At - 1);
 
 ## method BuildDo:()=>Token
 
-`while` 缺席时按 TS 的错误恢复建树（`parseDoStatement`：`parseExpected(WhileKeyword)` 报错但**不消费**，
-条件位照读一个表达式）：
-
-- `do b` ⏎ `{}` → DoStatement[0,7]，body 是 `ExpressionStatement(b)`，condition 是**对象字面量** `{}`；
-- `do` ⏎ `{}`（条件位没有单元）→ 零宽 `Identifier`（pos == end == 体尾），与 `throw` 无操作数同一条占位路径。
-
-扫描器侧已经在体尾按 ASI 收住、`ScanConditionEnd` 给出条件表达式尾界；这里只按同一份判据建树。
-
 ```ts
 const first = this.At;
 this.At++;
@@ -2112,8 +1861,6 @@ return this.Finish(shape, first, this.At - 1);
 ```
 
 ## method BuildFor:()=>Token
-
-头部括号里按本层 `;` 的个数分派：0 个且出现 `in` / `of` → `for-in` / `for-of`；否则三子句 `for`。
 
 ```ts
 const first = this.At;
@@ -2347,10 +2094,6 @@ return this.Finish(shape, first, this.At - 1);
 
 ## private static method HasLineBreakAfter:(last:Token)=>bool
 
-关键字后面（跳过空格与注释）是否先出现换行。`last` 是那个关键字单元；未签出（`EndIndex < 0`）时判否。
-注释里的换行也算：ASI 把注释中的 LineTerminator 视作换行。
-行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
-
 ```ts
 if (last.SourceRange.EndIndex < 0) {
   return false;
@@ -2423,8 +2166,6 @@ return this.Finish(shape, first, this.At - 1);
 
 ## method BuildLabeled:()=>Token
 
-标签语句：`标识符 : 语句`。根级标签与表达式语句候选冲突（都从标识符起头），所以本族只在块 / 体里建它。
-
 ```ts
 const first = this.At;
 const labelUnit = this.Units[this.At];
@@ -2458,11 +2199,6 @@ return this.IsKeywordUnit(unit, "case") || this.IsKeywordUnit(unit, "default");
 ```
 
 ## method NormalizeBindingPattern:(pattern:ShapeToken, bracket:Bracket)=>Token
-
-`ArrayBindingPatternShape.FromBracket` / `ObjectBindingPatternShape.FromBracket` 把元素建出来时，
-元素的 `Data` 只留了名字 token（`:` / `,` 这类分隔符被 FromTokens 吃掉了），而 AST 投影要的是 `Identifier` 且
-`Pos` 要按「前一个代码单元 `End+1`」算。这里按括号里的原始单元重新走一遍：按逗号分组，组内逐个 token 补
-`IdentifierShape` 的 `Pos`（分隔符也参与推进 `pos`），再把元素孩子换成标识符。
 
 ```ts
 let elements:Array<Token> = [];
@@ -2766,4 +2502,3 @@ shape.Add(condition);
 shape.Add(body);
 return this.Finish(shape, first, this.At - 1);
 ```
-

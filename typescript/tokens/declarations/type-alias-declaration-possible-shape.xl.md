@@ -24,19 +24,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # class TypeAliasDeclarationScan
 
-判定状态。`Stage`：0 = 等 `[export|declare] type`，1 = 刚见过 `type`（下一格决定是不是别名），
-2 = 别名正文（顶层 `;` 或行末 ASI 边界）；`Done` = 已见到收口点。
-
-括号是整块单元（`Bracket` 把 `(…)` / `[…]` / `{…}` 收在 `Data` 里），所以顶层扫描不必数括号深度。
-
-`type` 之后紧跟 `{` / `*` 的是 **export 声明**（`export type { T }` / `export type * from "m"`），不是别名，
-Stage 1 直接 `Reject`，把位置留给 export 候选。
-
-行末 ASI：`=` 之后已有类型单元、下一个非 trivia 单元在换行之后、又不是类型续接符时，
-别名在**上一个代码单元**收口（`AsiEnd=true`，`DoneAt` 记边界 token 下标）：
-`BuildByIndex` 只取到边界前一格，边界 token 原样留给下一条语句（`type T = A` ⏎ `["k"];` /
-`type X = number` ⏎ `export type { X }` / `type T11 = A//c` ⏎ `[];`）。
-
 ## field Start:int = -1
 
 ## field Checked:int = 0
@@ -72,11 +59,6 @@ type T = A
 type X = number
 export type { X }
 ```
-
-条目可以带 `export` / `declare` 修饰（`[export] [declare] type …`，顺序与 TS 一致；`export type T = A` 也合法），
-所以 Stage 0 先吞修饰词，见到 `type` 才进 Stage 1。扫描到顶层 `;` 时 `Accept`；
-扫描到行末 ASI 边界时也在边界 token 上 `Accept`（build 时排除该 token：它属于下一条语句）。
-`IsBuildable` 只在收口那一格为真——与 `ExpressionStatementPossibleShape` 同一套时机。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -272,11 +254,6 @@ return ShapeStates.Uncertain;
 
 ## static method HasLineBreakBetween:(units:Array<Token>, from:int, to:int)=>bool
 
-`from` 与 `to` 之间（不含两端）有没有换行。按**源位置**在两个代码单元之间找行终止符
-（LF / CR / U+2028 / U+2029，见 `LineTerminator`）：块体 / 体里的 `Units` 不一定带 trivia 单元
-（`StatementBuilder` 的块数据只有代码单元），只扫 trivia 单元会在那里永远判出「没有换行」；
-行注释 / 块注释里的换行同样算。
-
 ```ts
 const left = units[from].SourceRange;
 const right = units[to].SourceRange;
@@ -293,24 +270,6 @@ return false;
 ```
 
 ## static method IsAsiBoundary:(units:Array<Token>, last:int, at:int)=>bool
-
-换行处到来的这一格**不是类型续接符** ⇒ 上一条类型到这里已经完整，这里是下一条语句的起点。
-判据按**类型续接符**（而不是按语句关键字白名单）给出，因为类型之后的下一条语句可以是任何
-以表达式 / 标识符 / 模板 / `(` 开头的语句：
-
-- 符号续接：`|` `&` `>` `>>` `>>>` `.` `?` `:` `=>` `,` `=` `-`（联合 / 交叉 / 类型实参的
-  收尾 / 成员名 / 条件类型 / 函数类型 / 声明列表 / 类型标注 / 负数字面量）；
-- `<` **不在续接表里**：TS 的 `parseTypeArgumentsOfTypeReference` 要求类型实参紧跟类型名
-  （`scanner.hasPrecedingLineBreak()` 时直接不解析类型实参），本判据又只在「`last` 与 `at`
-  之间已有换行」时被调用 ⇒ 换行后的 `<` 一定是**下一条语句**的起点：`type T = A` ⏎ `<B>c;`
-  是 `TypeAliasDeclaration` + 独立的 TypeAssertion 表达式语句（B06–B14）；
-- 括号：`[` / `(` 是**新语句**（TS 的 `parsePostfixTypeOrHigher` 只在同一行吃下标访问；类型之后
-  不可能再跟调用参数）——但泛型函数类型的参数表例外：`type U = <U>` ⏎ `(a: U) => U` 的 `(`
-  仍是这个类型的一部分（`<` 紧跟在 `=` 之后）；`{` 不在这里判（函数体等由语句候选收口）；
-- 词续接：`extends` / `infer` / `keyof` / `typeof` / `readonly` / `unique` / `is` / `asserts` /
-  `import` / `new` / `in` / `out` / `abstract` / `as` / `satisfies`（前缀或中缀类型关键字）。
-
-其它单元（标识符 / 字面量 / 模板 / 语句关键字）都算语句边界。
 
 ```ts
 const unit = units[at];
@@ -366,9 +325,6 @@ return true;
 
 ## static method IsTypeParameterListTail:(units:Array<Token>, last:int)=>bool
 
-`last` 是 `>` / `>>` / `>>>`，且往回配对到的 `<` **紧跟在 `=` 之后** ⇒ 这是一个泛型函数类型 /
-泛型类型声明的参数表收尾，后面的 `(` 是参数表而不是新语句（`type U = <U>` ⏎ `(a: U) => U`）。
-
 ```ts
 const tail = units[last];
 if (!(tail instanceof Symbol) || !((tail as Symbol).Is(">") || (tail as Symbol).Is(">>") || (tail as Symbol).Is(">>>"))) {
@@ -416,10 +372,6 @@ return false;
 
 ## static method CanEndTypeAt:(unit:Token)=>bool
 
-上一个代码单元能不能收住一个类型：普通标识符 / 字面量 / 括号单元都可以；
-「还等着操作数」的运算符（`=`、`|`、`&`、`<`、`?`、`:`、`=>`、`.`、`,`）与**前缀类型关键字**
-（`keyof` / `typeof` / `readonly` / `unique` / `infer` / `new` / `abstract` / `asserts` / `import`）不行。
-
 ```ts
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
@@ -445,11 +397,6 @@ return true;
 ```
 
 ## static method ClosesFunctionTypeParameters:(units:Array<Token>, index:int)=>bool
-
-`index` 处的 `>` 是否闭合一个**函数类型参数表**（`type T = <U>(…) => …`）。往回配平 `<` / `>`，
-找到对应的 `<` 后看它前面的代码单元：是 `=` ⇒ 后面必须跟参数表 `(`，那个换行后的 `(` 不是新语句
-（TS：`type T = <U>` ⏎ `(a: U) => U` 是**一条**别名）。`type T = A<B>` ⏎ `(c)` 的 `<` 前面是
-类型名，不属这一支。
 
 ```ts
 if (index < 0 || index >= units.length || !(units[index] instanceof Symbol)) {
@@ -499,9 +446,6 @@ return state !== null && state.Done && !state.Rejected && state.DoneAt === token
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-行末 ASI 收口时 `tokenIndex` 是下一条语句的首 token：先把它排除，只把声明本体的单元切出来；
-`host.Data.splice` 也少吞一格，边界 token 留在原处由下一条语句重新处理。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<TypeAliasDeclarationScan>(this.Slot());

@@ -21,17 +21,7 @@ class C { readonly [k: string]: A }
 class C { [k: number]: A }
 ```
 
-类体里的索引签名成员候选。`[...]` 是索引签名还是计算属性名，判据与 `ClassDeclarationShape.BuildMembers` 同口径
-（`ClassMemberPossibleUtil.IsIndexSignatureBracket`：括号内至少三个代码单元、第一个是标识符、第二个是 `:`）：
-`[Symbol.iterator]: () => void` 里的括号是计算名，判型归 `PropertyKind` / `MethodKind`，本候选 `Reject`。
-
-判定与建形状分离：`ComputeByIndex` 只读 `ClassMemberPossibleUtil.Scan` 的结论；`BuildByIndex` 调用
-`ClassDeclarationShape.BuildMemberFromCode`——与壳收口时的 raw 兜底走**同一个** `BuildMembers`。产出不是
-`IndexSignatureShape` 时抛错（判型与建造器分叉的最后一道保险）。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
-
-只读共享扫描结论：可能种类里没有索引签名就 `Reject`；收住了就 `Accept`；其余 `Uncertain`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -49,8 +39,6 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-收住了才建：`;` / 下一成员起点 / 容器收口，三选一的证据在 `Analyze` 里已经算好。
-
 ```ts
 const state = cache.GetState<ClassMemberPossibleScan>(ClassMemberPossibleUtil.CacheKey);
 if (state === null) {
@@ -61,11 +49,6 @@ return state.Complete && state.End >= 0
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-消费 `state.Start .. CodeAt[state.End]` 这一段（含成员自己的 `;`），交给 `ClassDeclarationShape.BuildMemberFromCode`
-建一次形状，然后 `host.Data.splice(start, consumed, shape)` 原地顶替。
-
-整段没读完 / 产出不是 `IndexSignatureShape` 时**不建、不顶替**：raw 代码原样留给收口时的 `BuildMembers`。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<ClassMemberPossibleScan>(ClassMemberPossibleUtil.CacheKey);

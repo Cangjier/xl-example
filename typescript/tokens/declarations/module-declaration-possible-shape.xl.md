@@ -32,15 +32,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # class ModuleDeclarationPossibleShape extends PossibleShape
 
-根级模块声明候选：`[export | declare] namespace|module` + 名字（标识符或字符串）+ 可选限定名 `.` 链 + 闭合的 `{ … }`。
-
-只认本族起点；`export` / `declare` 开头只是**可能**属于本族，第二个代码单元（`namespace` / `module`）到了才定，
-所以 `export { a }` / `export const a = 1` / `declare import …` 这些会在第二格 `Reject`，位置仍留给对应候选。
-
-**建树是原子型**：模块体 `{ … }` 是一个已经闭合的括号单元，所以「到齐」= 括号单元出现在 `code` 里，
-这一刻一次建完整棵（`ModuleDeclarationShape.FromUnits`，体由 `ModuleBlockShape.FromBracket` 递归建语句），
-不需要挂载型（那个留给 augmentation / `global` 这些 chunk 2 才有的形态）。
-
 ```txt
 namespace N {}
 namespace N { let x = 1; }
@@ -51,8 +42,6 @@ namespace A.B {}
 ```
 
 ## method Scan:(code:Array<Token>)=>StatementScanResult
-
-`code` 是 `ItemStart` 起的非 trivia 单元。返回 `Status`：0 还要等、1 到齐（`End` 是 `{` 在 `code` 里的下标）、2 不是本形状。
 
 ```ts
 if (code.length === 0) {
@@ -276,9 +265,6 @@ return state !== null && state.Status === 1 && state.End >= 0;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-按 `state.End`（`{` 在 `host.Data` 里的下标）只消费到该格为止；`Pos` 口径与 `StatementPossibleShape` 一致：
-先取 `start` 之前最后一个非 trivia 单元的 `EndIndex`，再逐格推进（trivia 不推进 `Pos`）。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<ModuleDeclarationScan>(this.Slot());

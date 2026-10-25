@@ -137,10 +137,6 @@ return false;
 
 ## static method IsStatementWord:(text:string)=>bool
 
-语句 / 声明开头的关键字：它们既不能起始一条表达式语句（`CanStart` 的排除表），
-也收不住一条完整表达式（`CanEndExpression` 的排除表）——`export\n{ a };` 里那个 `export` 后面就不许断句。
-两张表共用这一份，免得一处放开、一处漏掉。
-
 ```ts
 return text === "import"
   || text === "export"
@@ -188,19 +184,11 @@ return text === "import"
 
 ## static method HasLineBreak:(unit:Token)=>bool
 
-这个 trivia 单元里有没有换行。空白块看 `Temp`；区域注释看 `Tmp`——**块注释里的换行同样是换行**
-（`a /* \n */ ++b` 与 `a \n ++b` 一样断句）。行注释自己不包含换行（换行是它后面那个空白块）。
-行终止符口径见 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
-
 ```ts
 return LineTerminator.HasLineBreakUnit(unit);
 ```
 
 ## static method CanEndExpression:(unit:Token)=>bool
-
-这个代码单元能不能收住一条完整的表达式。ASI 只在**前面这句话已经能独立成立**时才断句：
-`typeof` / `void` / `delete` / `new` 与二元关键字都还在等右操作数，`a +\nb` 里 `+` 后面换行也不能断。
-后缀 `++` / `--` 可以收尾（`a++\nb` 断句），前缀形态的 `++` / `--` 交给 `b` 自己去起始。
 
 ```ts
 if (unit instanceof Bracket) {
@@ -231,17 +219,6 @@ return false;
 ```
 
 ## static method CanEndExpressionAt:(units:Array<Token>, index:int)=>bool
-
-`CanEndExpression` 只看单元本身；但成员名后面换行时（`a.class` ⏎ `{}`）那个 `class` 是 `.` 之后的
-属性名，不是语句关键字。所以按上下文再放开两格：
-
-- 紧邻的前一代码单元是 `.` / `?.` 时，任何 Common 都能收住（TS 的 `a.class` 是 PropertyAccessExpression）；
-- `let` / `using` 是上下文关键字：后面**不能**起绑定时它们只是标识符，可以收住一条表达式
-  （`using` ⏎ `x = y;` 是两条语句；`let` 同理；与候选的 DualStage 同一判据）。
-- `type` 也是上下文关键字（同理）：只有「名字与 `type` 同行 + 名字后面紧跟 `=` / `<`」才是声明头
-  （`TypeAliasDeclarationShape.IsTypeAliasHead`）；否则 `type` 是标识符，可以收住一条表达式——
-  `type` ⏎ `T = 1` 是两条 ExpressionStatement（Z01–Z16）。没有这一格，换行处终结候选不会 Accept，
-  `type` 与 `T = 1` 会被并成一条 TypeAliasDeclaration（或者拖到 EOF 兜底 crash）。
 
 ```ts
 if (ExpressionStatementPossibleShape.CanEndExpression(units[index])) {
@@ -289,11 +266,6 @@ return false;
 ```
 
 ## static method IsContinuation:(unit:Token)=>bool
-
-换行之后到来的这个代码单元能不能接在上一条表达式后面——**能接就不许断句**。
-`(` / `[` 是调用与成员访问；反引号模板是标签模板（普通引号串不算，`a\n"s"` 要断成两条）；
-标点按正向清单（只收二元 / 赋值 / 三元 / 成员 / 逗号 / 箭头，`++` / `--` / `;` / `!` / `~` 都不收）；
-`in` / `instanceof` / `as` / `satisfies` 是关键字形态的延续符。
 
 ```ts
 if (unit instanceof Bracket) {
@@ -361,19 +333,6 @@ return false;
 
 ## static method IsAsiBoundary:(units:Array<Token>, tokenIndex:int, limit?:int)=>bool
 
-**ASI 判据**：`tokenIndex` 这个代码单元到得太晚——上一条表达式已经在换行处结束了。五条同时成立：
-
-1. 当前单元是代码（trivia 与 EOF 哨兵都不算）；
-2. 它前面还有代码单元 `prev`，且 `prev` 能收住一条完整表达式；
-3. `prev` 与它之间至少有一个换行 trivia（注释里的换行也算）；
-4. 当前单元接不上上一条表达式（不是延续符）；
-5. **本条语句是表达式语句**：以语句 / 声明关键字开头的条目（`class` / `interface` / `enum` / `declare` / …）
-   后面的换行不是 ASI 边界——`class C\n{}` 的 `{` 是类体，`C` 只是声明头的一部分，
-   那里根本不存在「上一条表达式」。
-
-它只回答「该断句」，不建形状：普通候选靠它 `Reject`，终结候选靠它 `Accept`，
-两侧读的是同一个函数，所以不会一边断、一边不断。
-
 ```ts
 // 唯一实现点 = StatementBoundaryUtil（函数体已逐字搬迁，本方法只做委托）。
 // Stage 5d-10b：gap-edge2 的「实例化收尾」不在 `IsAsiBoundary` 函数体里（那里要求与基线
@@ -385,16 +344,11 @@ return StatementBoundaryUtil.IsAsiBoundary(units, tokenIndex, limit)
 
 ## static method IsContextualIdentifier:(text:string)=>bool
 
-`declare` / `abstract`：既是语句 / 修改符关键字，也能当普通标识符（TS：`declare;` / `abstract;`
-都是 `ExpressionStatement(Identifier)`）。只有「同一行 + 合法声明关键字」那一种才是修改符。
-
 ```ts
 return text === "declare" || text === "abstract";
 ```
 
 ## static method IsModifierKeyword:(text:string)=>bool
-
-`declare` / `abstract` 后面能跟的、真正进入声明的关键字（同一行才算修改符）。
 
 ```ts
 return text === "const" || text === "let" || text === "var" || text === "using"
@@ -405,20 +359,12 @@ return text === "const" || text === "let" || text === "var" || text === "using"
 
 ## static method IsDeclarationHeadWord:(text:string)=>bool
 
-声明头关键字：它们后面换行跟 `{` 时那个 `{` 是**声明体**，不是 ASI 边界
-（`en: enum E` 换行 `{ A }`、`class C` 换行 `{}`）。与 `IsStatementWord` 不同：这里**不收**
-`const` / `let` / `var`（`const a = 1` 换行 `{}` 是两条语句）。
-
 ```ts
 return text === "class" || text === "interface" || text === "enum" || text === "namespace"
   || text === "module" || text === "function" || text === "declare" || text === "abstract";
 ```
 
 ## static method IsPostfixBangTail:(units:Array<Token>, last:int)=>bool
-
-`last` 是不是**后缀** `!`（非空断言）：只有紧贴同一行、且左边能收住表达式时才是后缀
-（`x!` ⏎ `g()` 里 `!` 是后缀，TS 在 `x!` 后插 ASI）；换行在 `!` 之前时它是前缀运算符，
-仍在等下一行的操作数（`a` ⏎ `!b` 是两条语句，但那条 `!b` 不是后缀）。
 
 ```ts
 if (!(units[last] instanceof Symbol) || (units[last] as Symbol).TempToString() !== "!") {
@@ -436,32 +382,16 @@ return operand >= 0 && !breakSeen && ExpressionStatementPossibleShape.CanEndExpr
 ```
 ## static method IsNonCallableExpressionTail:(units:Array<Token>, last:int)=>bool
 
-`last` 收尾的表达式是不是「不能当调用者 / 标签模板宿主」：`as` / `satisfies` 的类型之后、
-**块体**箭头函数 `() => {}` 之后。TS 只在「换行继续会变成语法错误」时才插 ASI，
-所以这两处换行后接 `(` `[` 反引号模板只能是下一条语句。
-
-实现只有一份：`StatementScanner.IsCallPositionBlocked`（语句候选的 ASI 判据也调它，
-两侧不会一边断、一边不断）。表达式体箭头不算：`() => x` ⏎ `(b)` 是 `() => x(b)`。
-
 ```ts
 return StatementScanner.IsCallPositionBlocked(units, last);
 ```
 ## static method HasLineBreakBefore:(units:Array<Token>, tokenIndex:int)=>bool
-
-`tokenIndex` 之前紧邻的那段 trivia 里有没有换行（块注释里的换行也算）。按**源位置**在
-前一代码单元与当前单元之间找行终止符（LF / CR / U+2028 / U+2029，见 `LineTerminator`）：
-块体 / 体里的 `Units` 不一定带 trivia 单元（`StatementBuilder` 的块数据只有代码单元），
-只扫 trivia 单元会在那里永远判出「没有换行」。
 
 ```ts
 return LineTerminator.HasBefore(units, tokenIndex);
 ```
 
 ## static method IsExpressionTail:(unit:Token)=>bool
-
-`export =` / `export default` 的表达式位置：这个代码单元能不能收住一条完整表达式。
-比 `CanEndExpression` 多认一个 `{` 括号——在这个位置上 `{` 只可能是对象字面量 / 箭头函数体，
-而 `CanEndExpression` 分不清 `{` 与裸块，统一按 false 处理。
 
 ```ts
 if (ExpressionStatementPossibleShape.CanEndExpression(unit)) {
@@ -474,14 +404,6 @@ return false;
 ```
 
 ## static method IsExpressionPositionBefore:(units:Array<Token>, bracketIndex:int)=>bool
-
-`bracketIndex` 处是一个 `{…}`；它**前面**那一格是不是只可能出现在**表达式位**（初始化 / 实参 /
-数组元素 / 条件 / `return` 操作数 / 箭头体）：`=` `(` `[` `,` `?` `=>` `return`。
-
-用来把对象字面量与类型字面量分开：`const o = { a: 1 }` 的 `{` 前是 `=`（表达式位），
-`let a: { x: number }` 的 `{` 前是 `:`（类型位，**不是**表达式位）。只有表达式位才允许
-「换行后的 `{` 是这个对象字面量的结束、下一条块语句的开始」；`:` 位必须留给
-`function (): { a: number }` ⏎ `{ }` 的函数体。
 
 ```ts
 if (bracketIndex <= 0 || bracketIndex >= units.length) {
@@ -506,18 +428,6 @@ return false;
 ```
 
 ## static method IsStatementBoundaryAfterExpression:(units:Array<Token>, tokenIndex:int)=>bool
-
-「换行之后，下一条语句的第一个代码单元到了」——`export =` / `export default` 两个候选在等 `;` 的阶段用它收口。
-四条同时成立：当前是代码（不是 trivia / EOF / `;`）；与前一代码单元之间有换行；
-前一代码单元能收住表达式（`IsExpressionTail`）；当前单元不是延续符（`IsContinuation`）。
-
-另加一条**窄判据**（与变量语句 / `return` 操作数共用 `IsUncontinuableTailBoundary`）：
-当前是调用位（`(` / `[` / 反引号模板）且上一格是**注定当不了调用者**的尾巴（块体箭头 `=> {}`、
-`as` / `satisfies` 的类型、后缀 `++` / `--`）时，无论 `IsContinuation` 怎么说都是边界——
-`export default a as T` ⏎ `(b)` 是两条语句，而 `export default a` ⏎ `(b)` 仍是 `a(b)` 一条。
-
-它不判「本条语句的起点是不是语句关键字」——那一条是 `IsAsiBoundary` 的，而 export 语句的起点永远是 `export`，
-所以那两个候选必须自己判，不能借 `IsAsiBoundary`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -550,18 +460,6 @@ return ExpressionStatementPossibleShape.IsExpressionTail(units[previous])
 ```
 
 ## static method IsUncontinuableTailBoundary:(units:Array<Token>, tokenIndex:int)=>bool
-
-「上一条表达式的尾巴注定接不上当前单元」——只认**确定**的几种，比 `IsStatementBoundaryAfterExpression`
-更窄（变量语句 / `return` 操作数用它：那里若把 `{` 也一律当边界，会把 `function (): number` ⏎ `{ … }`
-的函数体切断）：
-
-- 当前是调用位（`(` / `[` / 反引号模板），且上一条以**后缀 `++`/`--`**（UpdateExpression 不是
-  MemberExpression）或 **`=> {}` / `as` / `satisfies`** 收尾：`const a = x++` ⏎ `++y`、
-  `const f = () => {}` ⏎ `(y)`、`const v = x as T` ⏎ `(1)`；
-- 上一条是后缀 `++`/`--`/`!`，当前是 `++` `--` `!` `~`：这些都不是能续接的运算符。
-
-其余（`{` 可能是函数 / 类表达式的体、类型运算符词等）一律返回 false，交给老的
-`EndsAtLineBreak` / `ContinuesAcrossLine`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -625,16 +523,6 @@ return false;
 ```
 
 ## static method ExpectsBodyBefore:(units:Array<Token>, previousIndex:int, fromIndex?:int)=>bool
-
-`previousIndex` 处的收尾单元后面紧跟的 `{`，是不是**某个头还欠着的体**？
-
-`fromIndex`（缺省 0）是回扫的下界。控制流体的扫描器（`ScanExpressionBody`）调用它时传**体起点**：
-`if (a) b` ⏎ `{ }` 里的 `if` 是这条 `if` 自己的头、体 `b` 已经给了，不能被当成「还在等体」；
-而 `if (a) function f ()` ⏎ `{ }` 的 `function` 就在体起点上，仍在界内，照样算等体。
-
-只有「还在等体」时返回 true：`function ()` / `class A` / `class A extends B` / `interface A` / `enum A` /
-`namespace A` / 箭头 `=>`（仅当 `=>` 自己就是收尾单元）/ 控制头 `if (a)` `for (…)` `while (…)` `switch (…)` `with (…)` `catch (…)`。
-其余一律 false——那时换行后的 `{` 只能是一条新的块语句。
 
 ```ts
 if (previousIndex < 0 || previousIndex >= units.length) {
@@ -715,8 +603,6 @@ return false;
 
 ## static method IsBodyExpectingHead:(text:string)=>bool
 
-`text` 是不是一个「后面必须有一个 `{` 体」的头关键字。
-
 ```ts
 return text === "function" || text === "class" || text === "extends" || text === "interface"
   || text === "enum" || text === "namespace" || text === "module" || text === "implements"
@@ -727,8 +613,6 @@ return text === "function" || text === "class" || text === "extends" || text ===
 
 ## static method IsStatementHead:(text:string)=>bool
 
-`text` 能否开头一条语句：向回扫头关键字时遇到它就停下（跨语句不算）。
-
 ```ts
 return text === "let" || text === "const" || text === "var" || text === "using"
   || text === "export" || text === "declare" || text === "import" || text === "return"
@@ -737,17 +621,6 @@ return text === "let" || text === "const" || text === "var" || text === "using"
 ```
 
 ## static method IsPrefixOperatorWithoutOperand:(units:Array<Token>, index:int, limit?:int)=>bool
-
-`index` 处的 `++` / `--` **没有**左操作数 ⇒ 它是前缀运算符，操作数可以落在下一行
-（`a++; --` ⏎ `a;` 的第二条在 TS 里是 `--a;`）。这样的运算符收不住上一条表达式，
-所以它后面的换行不是 ASI 边界——判界一侧（`StatementBoundaryUtil.IsAsiBoundary`）与
-建树一侧（`StatementBuilder.BuildExpressionStatementFromShapes`）读的都是这一份实现。
-
-**它不问「有没有换行」**：那是 `IsPostfixOperatorAt` 的问题（`x++` ⏎ `++y` 的第二格是前缀，
-但换行处**确实**要断句）。这里只问「它前面还有没有能收住表达式的代码单元」。
-
-`limit` 是「本条语句所在段的起点」：段首之前的东西不属于这条语句，所以 `operatorStart < limit`
-一律算「没有左操作数」。
 
 ```ts
 if (index < 0 || index >= units.length) {
@@ -772,9 +645,6 @@ return !ExpressionStatementPossibleShape.CanEndExpressionAt(units, operand);
 
 ## static method IsPostfixOperatorAt:(units:Array<Token>, index:int)=>bool
 
-`index` 处的 `++` / `--` / `!` 是不是**后缀**（紧贴同一行、且左边能收住表达式）。
-只有后缀形态才「注定接不上」调用位；前缀形态还在等操作数（`x++` 与 `a ⏎ ++b` 要分开）。
-
 ```ts
 if (index < 0 || index >= units.length || !(units[index] instanceof Symbol)) {
   return false;
@@ -793,12 +663,6 @@ return operand >= 0
 ```
 
 ## static method ExpressionEnd:(units:Array<Token>, from:int)=>int
-
-块体里一条**表达式语句**读到哪一格结束：`;` 老的终止符、**换行 ASI 边界**、或本层末尾。
-返回 `-1` 表示本层已经没有后续单元（调用方按「读到末尾」处理，与改前行为一致）。
-
-判据与根级**同源**：`;` 是老路，ASI 直接读 `IsAsiBoundary`——解析期（`StatementScanner`）与
-收尾期（`BuildExpressionStatement`）必须问同一个函数，否则会出现「一边断句、一边不断」。
 
 ```ts
 for (let at = from; at < units.length; at++) {

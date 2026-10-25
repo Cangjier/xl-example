@@ -21,24 +21,7 @@ import { StatementRouteUtil } from "./statement-route-util.xl.md"
 
 # class VariableStatementPossibleShape extends PossibleShape
 
-**变量声明语句起点候选**（可行性原型 A，需求 2：`let` / `const` / `var` 有自己的 possible，不再被
-`StatementPossibleShape` 的整段扫描顺带吞掉）。
-
-它只判**起点**：本条目的第一个代码单元是 `let` / `const` / `var`，且关键字之后的下一个代码单元能起绑定
-（`StatementScanner.StartsBinding`，与 `ExpressionStatementPossibleShape` / `StatementScanner` 读同一个判据）。
-满足时 `Accept`，`BuildByIndex` 建一个 `StatementShape` 壳、把已经攒下的 raw 单元搬进壳、`host.MountedUnit = 壳`；
-语句怎么结束、怎么建树全部下放给壳自己的终结候选（`StatementEndPossibleShape`）。
-
-与 legacy 候选的**互斥**（显式分流，不靠「谁先 Accept」）：
-- `StatementPossibleShape` 在 `ComputeByIndex` 开头对「`let`/`const`/`var` + 下一格能起绑定」主动 `Reject`；
-- `ExpressionStatementPossibleShape` 本来就在绑定格对这类起点 `Reject`（`DualStage` / `CanStart` 判据）；
-  关键字格两边都 `Uncertain` 时目录继续等，绑定格一到本候选就是唯一存活者，随即建壳。
-
-只覆盖根层：本候选只注册进 `SourceFileShape` 的根目录，块体里的语句仍由 `StatementBuilder` 原子递归建。
-
 ## method HeadText:(units:Array<Token>, start:int)=>string
-
-本条目第一个代码单元的关键字文本；不是 `let` / `const` / `var` 时返回空串（判型只认它们）。
 
 ```ts
 const headAt = ItemUtil.NextCode(units, start);
@@ -58,8 +41,6 @@ return text;
 
 ## method BindingAt:(units:Array<Token>, start:int)=>int
 
-关键字之后第一个代码单元的下标；关键字之后没有代码单元就是 `units.length`。
-
 ```ts
 const headAt = ItemUtil.NextCode(units, start);
 if (headAt >= units.length) {
@@ -69,19 +50,6 @@ return ItemUtil.NextCode(units, headAt + 1);
 ```
 
 ## method IsConstEnumHead:(units:Array<Token>, start:int)=>bool
-
-**块内 `const enum`**（Stage 5d-8a）：`const` 之后**同一行**的下一个代码单元是 `enum`，
-**且这一条的宿主是块体 `{` 括号**。
-
-这一条与 `let` / `const` / `var` 的绑定声明共用本候选，是因为它**不是绑定**（`enum` 是关键字，
-`StatementScanner.StartsBinding` 对它一律 `false`），但 `StatementFamilyDispatch` 的 `const` 分支
-本来就把 `const enum` 建成 `EnumDeclaration`——差只差在「这一格由谁接」。判据与 `BuildStatement`
-的 `const` 分支逐字相同（`const` + 同一行的 `enum`），不新写关键字表。
-
-**为什么必须收紧到块体**：根层 `const enum` 由 legacy 的 `EnumDeclarationPossibleShape` 接（它认
-`const` 前缀）。本候选若在根层也 Accept，两个候选同格成立 → `CatalogGuide` 抛「终结候选与其它候选
-同时成立」→ 文件级 fallback（实测 `const enum E { A }` 单独一条文件就是这样崩的）。所以这里与
-`AsyncStatementPossibleShape` 一族的 `IsBlockHost` 同口径：只认**宿主是块体 `{` 括号**的语句首。
 
 ```ts
 const headAt = ItemUtil.NextCode(units, start);
@@ -152,8 +120,6 @@ return ShapeStates.Accept;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-绑定已经到齐才建壳：关键字格只攒了关键字本身时不建（壳里还得能看见绑定）。
-
 ```ts
 const start = ItemUtil.ItemStartCached(units, cache);
 if (start >= units.length) {
@@ -169,9 +135,6 @@ return bindingAt <= tokenIndex && bindingAt < units.length
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-建壳并挂载：把本条目从 `start` 到 `tokenIndex` 的 raw 单元搬进 `StatementShape`，壳原位插回宿主 `Data`，
-`Pos` 按「前一个非 trivia 单元 `EndIndex`」（与 legacy 建语句同一口径）。
 
 ```ts
 const start = ItemUtil.ItemStart(host.Data);

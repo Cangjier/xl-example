@@ -46,15 +46,6 @@ a
 ^ 换行这里上一条就到齐了
 ```
 
-根单元的终结候选：认两种「这条语句到这里该结束了」。
-
-- **EOF 哨兵**：`EndOfFileTokenShape` 关闭触发的那一次重算里 `Accept`；
-- **ASI 边界**：换行之后到来的代码单元接不上前一条表达式时 `Accept`（判据由
-  `ExpressionStatementPossibleShape.IsAsiBoundary` 给出，与普通候选**读同一个函数**）。
-
-两种情况下普通候选（import / export / expression statement）都已在同一处 `Reject`，
-所以 `Candidates == 0`，按 `CatalogGuide` 的契约由本候选结束这一条语句。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -87,14 +78,6 @@ return ShapeStates.Reject;
 
 ## static method HasLabelPrefix:(units:Array<Token>, tokenIndex:int)=>bool
 
-本条语句（`tokenIndex` 之前那一段）是不是**带标签的语句头** `标识符 :`。
-是的话 `tokenIndex` 处不是「一条表达式语句在换行处结束」，而是被标语句的体刚结束时——
-`lab: a` ⏎ `c;` 里 TS 侧是 `LabeledStatement(lab, ExpressionStatement(a))`，这条语句只能由
-`StatementPossibleShape` 建，终结候选不许抢。
-
-做法：先按 `IsAsiBoundary` 的口径回到本条语句的头（越过本条的 basic token、跳过前导 trivia），
-再看头后面的第一个代码单元是不是 `:`。`a ? b : c` 的头是 `a`、后面是 `?`，所以不会误判。
-
 ```ts
 const start = ItemUtil.ItemStart(units);
 let prev = tokenIndex - 1;
@@ -124,12 +107,6 @@ return afterHead < units.length
 ```
 
 ## static method HasDecoratorPrefix:(units:Array<Token>, tokenIndex:int)=>bool
-
-自 `tokenIndex` 往前看：这段开头的代码单元是否属于**装饰器前缀**（`@dec` / `@dec()` / `@a @b` / `@a.b`）。
-是的话 `tokenIndex` 处不是一条表达式语句的结尾，而是带装饰器声明的内部——终结候选不许把它当 ASI 边界。
-
-做法：从 `tokenIndex` 前一个代码单元起往回走，把「`.` / Common / `(…)` 括号单元」当成装饰器表达式的一部分，
-碰到 `@` 就成立；碰到别的（`;` / `}` / 二元运算符等）就说明不是装饰器前缀。
 
 ```ts
 const start = ItemUtil.ItemStart(units);
@@ -161,12 +138,6 @@ return false;
 
 ## static method LeadingDeclarationKeyword:(code:Array<Token>)=>int
 
-EOF 尾随段的**声明关键字下标**：从段首跳过修饰词（`export` / `default` / `declare` / `abstract` /
-`async` / `const`），返回第一个非修饰词单元的下标；它不是 `Common`（说明不是声明头）时返回 `-1`。
-`abstract class` / `declare abstract class` / `async function` / `declare async function` 都是
-「修饰词 + 声明词」：段首的表层文字不是声明词，但整段**就是**那条声明，交给对应的 `FromUnits`
-（它们自己消费修饰词）即可。只用于 EOF 兜底，不参与普通候选判定。
-
 ```ts
 let at = 0;
 while (at < code.length && code[at] instanceof Common) {
@@ -186,12 +157,6 @@ return at;
 
 ## static method BodyDeclarationKeyword:(code:Array<Token>, from:int)=>int
 
-`export default <声明>`：从 `from` 起跳过修饰词（`declare` / `abstract` / `async` / `const`），
-返回第一个声明词（`class` / `function` / `interface` / `enum`）的下标；不是声明形时返回 `-1`。
-TS 的 `export default class C {}` / `export default function f() {}` 是**声明自身**带
-`ExportKeyword` + `DefaultKeyword` 修饰词（不是 `ExportAssignment`），所以这里必须先把
-「default 后面是不是声明」判出来，再决定走哪条建树路。
-
 ```ts
 let at = from;
 while (at < code.length && code[at] instanceof Common) {
@@ -210,15 +175,6 @@ return -1;
 
 ## static method IsStandaloneTrailingStatement:(unit:Token)=>bool
 
-`unit` **单独一个代码单元**就能构成一条完整的根语句吗？只认两族：
-
-- 裸块 `{…}`（`Bracket`，`StartBracketChar` 是 `{`）：一条 BlockStatement，不是对象字面量；
-- `return` / `debugger` / `break` / `continue`：TS 的 ASI 让它们在这一格就收口，无分号、无操作数
-  （`type T = A` ⏎ `return` / `debugger` 各是一条语句）。
-
-`;` / `throw` / 变量声明 / 控制语句都不在这里：`throw` 缺操作数在 TS 里是语法错误，其余要么需要
-更多单元、要么由 `BuildTrailingDeclaration` 的其它分支建。
-
 ```ts
 if (unit instanceof Bracket) {
   return (unit as Bracket).StartBracketChar === "{";
@@ -231,13 +187,6 @@ return text === "return" || text === "debugger" || text === "break" || text === 
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-两条路各走各的：
-
-- **ASI**：只把「换行处结束的那一条」按边界收尾建出来（不要求 `;`），根继续吃后面的单元；
-- **EOF**：建最后一条等不到 `;` 的语句（声明 / 变量 / 控制语句 / 裸块 / 无分号简单语句——最后一段
-  只剩一个代码单元时走 `IsStandaloneTrailingStatement`），签出根（`SyntaxContext.Process` 在最后一个真实位置已经签过一次，
-  这里只在没签时补），关闭根。
 
 ```ts
 const unit = host as UnitToken;
@@ -358,10 +307,6 @@ return host;
 
 ## private static method BuildStatementSegments:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
 
-把 `host.Data[start..at]` 里的 leftover 单元按「一条语句一段」逐段建 shape：每段交给 StatementBuilder，
-**段的消费量按语句右边界 `SourceRange.EndIndex`（半开终点）数 Data 槽位**（不用 `builder.At`——它不是可靠的消费量，
-上一轮用它 splice 造成 114 个文件 ok→diff），再按段长 splice；整段都建完返 true。
-
 ```ts
 let cursor = start;
 let limit = at;
@@ -481,13 +426,6 @@ return built > 0;
 
 ## private static method IsInsideExportModifierChain:(code:Array<Token>, index:int)=>bool
 
-`code[index]` 这一格是不是一条**从 `export` 起、还没走完的修饰词链**的内部。TS 的 `parseModifiers`
-对 `export` / `default` / `as` / `import` 不看换行，所以这几格都还在**同一条**声明的声明头里，
-换行不构成多语句分界：`export` ⏎ `default` ⏎ `function f(): void` / `export as` ⏎ `namespace A` /
-`export` ⏎ `import` ⏎ `x = A.B`。只回溯这四种修饰词是刻意的——`declare` / `abstract` / `async`
-与下一格之间换行时 TS 侧是另一条语句（`export default async` ⏎ `function f(): void` =
-ExportAssignment + FunctionDeclaration；`declare` ⏎ `class C {}` 同理），不能一起吞掉。
-
 ```ts
 let at = index - 1;
 while (at >= 0 && code[at] instanceof Common) {
@@ -504,19 +442,6 @@ return false;
 ```
 
 ## private static method BuildTrailingDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>bool
-
-EOF 边界补一条「必须分号、但 ASI 允许省略分号」的声明：`type T = A` 与 `import x = require("m")`
-（两者在 TS 里都能不带 `;` 收在文件末尾）。它们的 `FromUnits` 都要求 `tokenIndex` 落在 `;` 上，
-所以这里在最后一个真实代码单元后面补一个**零宽合成 `Symbol ";"`**（`SignIn` / `SignOut` 用同一个
-半开终点 `EndIndex`——`AppendValueAndSignOut` 传 `EndIndex - 1` 签出到 `EndIndex`，它正好是声明的右边界），再按正常入口建。
-
-只认四族：`type` 开头、`import <名字> = …`（`code[2]` 是 `=`）、函数声明（`declare function …` /
-重载签名 `function …`，无体时最后一块是 `;`；有体时最后一块是 `{`）、以及紧邻的 `class … {}`。
-其余返回 `false`，由调用方退回 `ExpressionStatementShape`。返回值 = 有没有建出来。
-
-**多条无分号声明连排**：在 EOF 落下来的 leftovers 可能含多条（`declare function f(): void\ndeclare function g(): void`）。
-这里先找**最后一个换行处开始的声明**，把前面那段递归建掉（建不出来就按 `ExpressionStatement(…, false)` 收尾），
-再递归建最后一段——于是每条声明各得一个节点，和 TS 的 ASI 结果一致。
 
 ```ts
 const code:Array<Token> = [];
@@ -1563,11 +1488,6 @@ return true;
 
 ## private static method BuildModuleDeclaration:(host:Token, start:int, at:int, context:SyntaxContext)=>Token
 
-段首是装饰器的模块声明（`@dec namespace N {}` / `@dec export module "m" {}` 等）：
-`ModuleDeclarationShape.FromUnits` 要 `code` + `positions` 两个数组（`positions[i]` 是 `code[i]`
-含前导 trivia 的半开起点），且它自己从段首开始扫装饰器与 `export` / `declare` 修饰词。
-这里只负责把 `host.Data[start..at]` 收成这两个数组，建形状由它完成；splice 留给调用方。
-
 ```ts
 let pos = 0;
 for (let index = start - 1; index >= 0; index--) {
@@ -1595,4 +1515,3 @@ for (let index = start; index <= at; index++) {
 }
 return ModuleDeclarationShape.FromUnits(subCode, subPositions, context);
 ```
-

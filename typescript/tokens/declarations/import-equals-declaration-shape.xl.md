@@ -24,11 +24,6 @@ import x = require("m");
 import x = A.B.C;
 ```
 
-measurement 载体：`import <名字> = <引用>;`。TS 的 children **不含** `import` 关键字、`=` 与 `;`
-（`import x = require("m");` → `ImportEqualsDeclaration → [Identifier x, ExternalModuleReference → [StringLiteral "m"]]`；
-`import x = A.B;` → `ImportEqualsDeclaration → [Identifier x, QualifiedName → [Identifier A, Identifier B]]`），
-所以 `Data` 只装两个形状：名字 + 引用。区间从 `import` 起点到 `;`；`Pos` = 前一个非 trivia 单元 `EndIndex`。
-
 ## field LocalName:Token | null = null
 
 ## field Reference:Token | null = null
@@ -42,8 +37,6 @@ super(template);
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ImportEqualsDeclarationShape
-
-`tokenIndex` 必须落在 `;` 上；require 形的字符串从 `Bracket.Data` 里取。
 
 ```ts
 const code:Array<Token> = [];

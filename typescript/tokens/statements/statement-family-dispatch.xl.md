@@ -14,45 +14,7 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 # class StatementFamilyDispatch
 
-**语句壳收口建树的族分派**（Stage 5d-1b）：`StatementShape.BuildFromShell` 建树时不再先落到
-`StatementBuilder.BuildStatement()` 的整段 raw 分派，而是由本类**按壳 `Kind` 与首代码单元**直接调用
-`StatementBuilder` 的 family 方法（`BuildBlock` / `BuildVariableStatement` / `BuildIf` / `BuildInterfaceDeclaration` …）。
-
-`BuildStatement()` 仍是**唯一**的 legacy 入口，保留给**一条**路：
-
-1. 未建壳的语句（根层 legacy 候选 / 文件级 fallback），它们根本不经过本类。
-
-**Stage 5d-4 之后本类不再拒绝任何壳内形态**：`declare const|let|var|using` 的 ambient 变量语句原先要
-`At++`、改写 `Positions` / `Data`，所以退回 `BuildStatement`；现在那段实现已逐字搬进
-`StatementBuilder.BuildDeclareVariableStatement()`（建造器自己的方法，仍读写同一个 `this` / `At` /
-`Positions` / `Pos`），本类直接调它——`LegacyStatementDispatchCount` 因此归零，AST 不变是因为**调用的是
-同一段代码**，不是因为测试兜住了。
-
-**为什么不是「按 Kind 各写一套」**：`Kind` 有三个值**不能**唯一决定建树族——
-
-| 现象 | 事实 | 后果 |
-| --- | --- | --- |
-| Wave1 变量壳 | `VariableStatementPossibleShape` 建壳时**不设 `Kind`**（保持 `0`） | `Kind == 0` 与 `ShellVariable` 同义：`let` / `const` / `var` |
-| case 子句壳 | `CaseClauseStatementPossibleShape` 对非带体语句复用 `Kind = ShellBlock` + `BodyKindBlock` | `ShellBlock` 的壳里可能是 `f();`（没有 `{`） |
-| 标签兼容通道 | 标签壳可能在 `:` 那一格才建（`Kind = ShellLabel`，`Data` 是 `ident` + `:`） | 仍要按首单元判 |
-
-所以分工是：**`Kind` 负责「这一族允许哪些首单元」的门控**（`KindAllows`），**首代码单元负责选方法**
-（`BuildByHead`）。门控只在三个族上是完备的（变量族 / 声明族 / 标签族，每个族有 `StatementRouteUtil`
-与判据的**同一份**关键字集合或 `:` 判据）；其余 `Kind`（`ShellPlainExpression` / `ShellStatementFamily` /
-`ShellBlock`）不设门控——它们的首单元分布由 `Decide` 与各候选自己保证，多一道门只会白白少迁。
-
-**行为逐位一致的构造性理由**：本类**只复制 `BuildStatement` 的调用点**（`return this.BuildX()`），
-每个方法调用的**前置条件**逐条照抄，且所有「本类不管」的形态一律走同一条既有出口
-（`BuildTail` 的标签 / 表达式，或 `null` = 原样回 `BuildStatement`）。因此本类的任何漏判只减少迁移量，
-**不改变任何 AST / Pos / `consumed`**：两条路读的是同一个 `builder`、同一段 `consumed`、同一个 `Pos`，
-且同一个 family 方法。
-
 ## static method Build:(builder:StatementBuilder, kind:int)=>Token | null
-
-语句壳收口的族分派入口：`kind` 是壳的 `StatementRoute` 族标记，`builder` 已 `Load(consumed, Pos)`。
-
-**返回 `null` 的语义是「本类不接这一条」**，调用方必须原样退回 `builder.BuildStatement()`（不得当成错误）。
-返回非 `null` 时 `builder.At` 已推进到语句末尾（与 `BuildStatement` 的出口同一状态）。
 
 ```ts
 if (builder.At < 0 || builder.At >= builder.Units.length) {
@@ -66,15 +28,6 @@ return StatementFamilyDispatch.BuildByHead(builder);
 ```
 
 ## static method KindAllows:(builder:StatementBuilder, head:Token, kind:int)=>bool
-
-**`Kind` 的门控**：只对三个「族与首单元一一对应」的壳生效，其余 `Kind` 一律放行（见类说明）。
-
-- `ShellVariable` / `0`：首代码单元必须是 `let` / `const` / `var` / `using`（`const enum` 也在这一族，
-  建 enum 还是建变量语句由 `BuildByHead` 的 `const` 分支判，与 `BuildStatement` 同一判据）；
-- `ShellDeclarationFamily`：首代码单元必须在 `StatementRouteUtil.IsDeclarationHead` 的集合里
-  （与 `DecideDeclaration` 判族用的是**同一个函数**，不新写关键字表）；
-- `ShellLabel`：首单元是标识符且下一个代码单元是 `:`（与 `BuildStatement` 的标签出口同一判据）；
-- 其余（`ShellPlainExpression` / `ShellStatementFamily` / `ShellBlock` / `Legacy`）：放行。
 
 ```ts
 if (kind === StatementRoute.ShellLabel) {
@@ -101,25 +54,6 @@ return true;
 ```
 
 ## static method BuildByHead:(builder:StatementBuilder)=>Token | null
-
-**首代码单元分派**：与 `StatementBuilder.BuildStatement` 的调用点一一对应，下列每条的前置条件都与
-`BuildStatement` 的对应分支逐字相同。顺序即 `BuildStatement` 的分支顺序（`symbol` → `bracket` →
-`Common` 的 `import` / `export` / `default` / 模块头 / `function` / `class` / `async` / `declare` /
-`abstract` / `const` / `var` / `let` / `interface` / `enum` / `type` / 控制流关键字 / `using` / `await` →
-标签 → 表达式）。
-
-**`null` 的唯一情形**：**调用点已经越界**（`builder.At` 不在 `Units` 里，正常不会发生）。
-
-**`declare const|let|var|using`**（ambient 变量语句）现在由本类直接调
-`builder.BuildDeclareVariableStatement()`：实现已在建造器内（Stage 5d-4 逐字搬出 `BuildStatement`），
-本类不需要触碰 `Positions` / `Data`。`DeclareIsAmbientVariable` 仍然是**同一个判据**，只是决定「调这个
-方法」而不是「交回 legacy」。
-
-**其余「本类不管」的上下文形态一律走 `BuildTail`（标签 / 表达式），而不是返回 `null`**：`import(` /
-`import.meta`、`export default` 的非声明头、`module.exports`、`type` 当标识符、`let` 不能起绑定、
-`using` 不是声明、`await` 后面不是 `using`、`abstract` 后面不是 `class`、`async` 后面不是 `function`
-——它们在 `BuildStatement` 里都是**同一个分支的落空**，落空之后只有「标签 / 表达式」两条出口。
-`BuildTail` 就是那两条出口，所以这里**不是**新写判据，而是把落空后的同一条出口照抄过来。
 
 ```ts
 const head = builder.Units[builder.At];
@@ -283,9 +217,6 @@ return StatementFamilyDispatch.BuildTail(builder);
 
 ## static method BuildTail:(builder:StatementBuilder)=>Token
 
-`BuildStatement` 的分支**全部落空之后**的两条出口（原样照抄）：下一个代码单元是 `:` 就是标签语句，
-否则是表达式语句。
-
 ```ts
 const next = builder.Peek(1);
 if (next !== null && builder.IsText(next, ":")) {
@@ -295,13 +226,6 @@ return builder.BuildExpressionStatement();
 ```
 
 ## static method DeclareIsAmbientVariable:(builder:StatementBuilder)=>bool
-
-`declare` 后面是不是**ambient 变量语句**（`declare const x: number` / `declare let` / `declare var` /
-`declare using`）：下一个代码单元与 `declare` **同一行**、且是变量关键字，并且不是 `declare const enum`
-（那一条在 `declare` 的声明子族里已经建 enum）。
-
-判据与 `BuildStatement` 的 ambient 分支逐字相同（`IsVariableKeyword` + `NoLineBreakBetween` +
-`const` 的第三格不是 `enum`），用来决定「**这一条调 `BuildDeclareVariableStatement`**」。
 
 ```ts
 const afterDeclare = builder.Peek(1);
@@ -326,10 +250,6 @@ return true;
 
 ## static method IsTypeAliasHead:(builder:StatementBuilder, head:Token)=>bool
 
-`type` 是不是**类型别名声明头**：名字与 `type` 同一行，且第三个代码单元是 `=` 或 `<`
-（`{ type` ⏎ `T = 1 }` 的 `type` 是标识符；`type T` 后面直接 `;` 不是别名）。
-判据与 `StatementBuilder.BuildStatement` 的 `type` 分支逐字相同，只是搬到了 possible 层。
-
 ```ts
 const afterType = builder.Peek(1);
 if (afterType === null || !(afterType instanceof Common)) {
@@ -343,18 +263,6 @@ return third !== null && (builder.IsSymbol(third, "=") || builder.IsSymbol(third
 ```
 
 ## static method BuildDeclareFamily:(builder:StatementBuilder)=>Token | null
-
-`declare` 的**声明子族分派**：`declare class` / `declare interface` / `declare enum` /
-`declare function` / `declare type` / `declare namespace|module|global` 直接调用对应声明 builder；
-`declare const enum` / `declare abstract class` / `declare async function` 需要看第三格，也在这里判
-（三个第三格判据与 `BuildStatement` 的 `declare` 分支逐字相同）。
-
-**ambient 变量语句不在这里**：`declare const|let|var|using` 已在调用方由
-`DeclareIsAmbientVariable` 拦下并交给 `builder.BuildDeclareVariableStatement()`（Stage 5d-4：实现在
-建造器内，本类只调它）。
-本方法返回 `null` 表示「这一格不是上面任何一条声明子族」——调用方随即走 `BuildTail`
-（`declare abstract` 后面不是 `class`、`declare async` 后面不是 `function` 等），
-与 `BuildStatement` 落空后的出口相同。
 
 ```ts
 const afterDeclare = builder.Peek(1);

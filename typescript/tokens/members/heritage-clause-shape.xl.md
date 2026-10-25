@@ -22,11 +22,6 @@ class C implements I, J {}
 interface I extends J<K> {}
 ```
 
-继承子句。TS 的 HeritageClause children **只有** `ExpressionWithTypeArguments`（`extends` / `implements`
-关键字不投影成子节点），所以 Data 里只装这些项；关键字只参与本形状的区间与 `Pos`。
-
-区间：从关键字起点到最后一个类型表达式的终点；`Pos` = 关键字前一个非 trivia 单元（类名 / 接口名 / 上一个子句）`EndIndex`。
-
 ## field ClauseKind:string = ""
 
 ## field Types:Array<Token> = []
@@ -58,11 +53,6 @@ return shape;
 ```
 
 ## static method BuildClauses:(host:Token, units:Array<Token>, basePos:int, context:SyntaxContext)=>Array<Token>
-
-把 `extends` / `implements` 之后到类体 / 接口体之前的单元解析成子句数组。
-`units` 里只放非 trivia 单元（调用方过滤），`basePos` = 它们的父单元（类名 / 接口名）终点 + 1。
-逐个类型表达式建 `ExpressionWithTypeArgumentsShape`：名字用 `TypeBuilder.ParseName()`（Identifier），
-后面跟 `<` 时用 `TypeBuilder.ParseTypeArguments()` 取泛型实参（实参自己的 `Pos` 由 builder 的 Positions 给出）。
 
 ```ts
 const clauses:Array<Token> = [];

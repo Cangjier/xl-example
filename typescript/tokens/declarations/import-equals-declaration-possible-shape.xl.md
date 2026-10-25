@@ -20,9 +20,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # namespace cangjie
 
-`import x = require("m");` / `import x = A.B;` 的候选：第一条代码单元必须是 `import`，`<名字>` `=` `<require(...) | 实体名>` `;`。
-扫描按阶段推进（`Stage`），任何一步不符即 `Reject`；顶层 `;` 到且阶段收束时 `Done`，`IsBuildable` 只在 `;` 那一格为真——与 `TypeAliasDeclarationPossibleShape` 同一套时序。
-
 # class ImportEqualsDeclarationScan
 
 ## field Start:int = -1
@@ -47,8 +44,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import x = require("m");
 import x = A.B;
 ```
-
-`Stage`：0 等 `import`，1 等名字，2 等 `=`，3 等引用起点（`require` → 4；标识符 → 6），4 等 `(`，5 等 `;`（require 形），6 实体名部分（`Common` / `.`，`;` 收尾）。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -270,10 +265,6 @@ return built;
 
 ## static method NextAfterName:(last:SourceRange | null)=>string
 
-从 `last`（名字单元的区间）之后跳过空白与注释，读一个标识符词，再跳过空白与注释，返回它后面的那个字符；读不到返回空串。
-
-`= ` 还没被 token 化时用它回答「`import <名字>` 后面是不是 `=`」。
-
 ```ts
 if (last === null) {
   return "";
@@ -331,8 +322,6 @@ return whole.At(at);
 
 ## static method SkipTrivia:(document:any, from:int, count:int)=>int
 
-跳过空白与 `//` / `/* */` 注释，返回第一个非 trivia 字符的下标（越界返回 `count`）。
-
 ```ts
 const whole = SourceRange.Whole(document);
 let at = from;
@@ -366,10 +355,6 @@ return at;
 ```
 
 ## static method NextChar:(last:SourceRange | null)=>string
-
-从 `last`（名字单元的区间）之后的下一个位置起，跳过空白与 `//` / `/* */` 注释，返回第一个字符；越界返回空串。
-
-它只服务「名字后面是不是 `=`」这一条判据：`=` 还没被 token 化时，候选仍要能当场决定退不退出。
 
 ```ts
 if (last === null) {
@@ -410,4 +395,3 @@ while (at < count) {
 }
 return "";
 ```
-

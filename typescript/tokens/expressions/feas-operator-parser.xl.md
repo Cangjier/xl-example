@@ -33,10 +33,6 @@ a-b-c   ->  - ( -(a,b), c )
 a*(b+c) ->  *( a, (b+c) )
 ```
 
-可行性原型 B 的**增量表达式解析器**：按真实 basic token 单元逐格推进，遇操作数建叶子、遇二元操作符**立刻**建 `BinaryExpressionShape`，遇更高优先级操作符时用 `ShapeInsertUtil.InsertBetween` 把新 shape 插进当前父子之间（已建好的子表达式变成新 shape 的左操作数）。
-
-只覆盖 `+ - * /`、圆括号、数字 / 标识符，且**只用于对拍与可行性验证**：主解析路径一行都不接（见 `HANDOFF.md`）。位置 / 文本 / 运算符单元 / span 全部复用 `ExpressionBuilder` 的公开入口，保证与基线逐字节同口径；增量建树与插入是本类自己的逻辑。
-
 ## field Template:Template
 
 ## field Context:SyntaxContext
@@ -235,8 +231,6 @@ return "";
 ```
 
 ## method FinishNode:(shape:Token, startIndex:int, endIndex:int)=>void
-
-与 `ExpressionBuilder.SpanNode` 同一个 span 口径，只多一条保护：**起点已经签过的形状（被 `InsertBetween` 从子节点继承过范围）不再重签**——`SourceRange` 写一次就锁死，重签会抛 `SourceRangeStartIsSetted`。
 
 ```ts
 if (!(shape instanceof ShapeToken)) {

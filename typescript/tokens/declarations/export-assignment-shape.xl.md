@@ -18,11 +18,6 @@ export = x;
 export = f;
 ```
 
-measurement 载体：`export = <表达式>;`。TS 的 children 只有表达式一个，`export` / `=` / `;` 都不是节点
-（`export = x;` → `ExportAssignment → [Identifier x]`），所以 `Data` 只装表达式。
-`isExportEquals` 不在 `ast-json.mjs` 的比较字段里（那边只比 `text` / `name` / `isTypeOnly`），不用造字段。
-区间从 `export` 起点到 `;`；`Pos` = 前一个非 trivia 单元 `EndIndex`。
-
 ## field Expression:Token | null = null
 
 ## constructor:(template:Template)=>void
@@ -32,10 +27,6 @@ super(template);
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, requireSemicolon?:bool)=>ExportAssignmentShape
-
-`tokenIndex` 落在 `;` 上时要求最后一块是 `;`；初始化式交给 `ExpressionBuilder`（`export = 1;` / `export = a.b;` 同一套）。
-终结候选在无分号收口（EOF / ASI）时传 `requireSemicolon = false`：最后一个代码单元就是表达式的末尾，
-`End` 取它的 `End`（`;` 不是 `export =` 的节点，本就不该进区间）。
 
 ```ts
 const hasSemicolon = requireSemicolon ?? true;

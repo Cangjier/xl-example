@@ -38,23 +38,6 @@ declare module "m" { export let x: number; }
 namespace N { class C {} function f() {} }
 ```
 
-模块体的 `{ … }`。它不在 `Data` 里留下 basic token：`{` 是**一个已经闭合的括号单元**，
-里面的语句 / 声明由 `StatementBuilder` 与各声明形状的 `FromUnits` 在括号单元的 `Data` 上逐条递归建出来，
-`{` / `}` 自己不进 AST 子节点（`ModuleBlock` 的 children 只有语句 / 声明）。
-
-`Pos` 与 TS 同口径：`Pos = 前一个非 trivia 单元的 EndIndex`（含 `{` 前面的 trivia），
-由调用方算好传进来；区间是括号单元自己的 `[{, }]`。
-
-模块体里的成员有三类（chunk 2 + chunk 3）：
-
-- 普通语句：交 `StatementBuilder.BuildStatement`（typed 变量 `let x: number;` 由 statements chunk 2 负责）；
-- 带体声明：`class` / `interface` / `enum` / `function`——它们的体也是一个闭合的 `Bracket` 单元，
-  所以先在本层扫出**第一个 `{` 括号单元**（参数表的 `(` 括号不算），再把 `Data` 下标交给各形状的
-  `FromUnits(bracket, dataStart, dataEnd, context)`；返回后用本层 `Positions` 覆盖 `Pos`
-  （`FromUnits` 只看 `host.Data` 前一个单元，索引从 0 起时会算成 0）；
-- 带 `export` 修饰的成员：修饰词由本类提出、放进成员 `Data` 最前（TS 的 children 顺序是
-  `[ExportKeyword, …成员自己的 children]`），成员 `Pos` 回到修饰词起点。
-
 ## field DataCursorAt:int = 0
 
 ## constructor:(template:Template)=>void
@@ -64,13 +47,6 @@ super(template);
 ```
 
 ## static method FromBracket:(bracket:Bracket, pos:int, context:SyntaxContext)=>ModuleBlockShape
-
-把闭合的 `{ … }` 括号单元转成 `ModuleBlock`：
-
-1. 签入签出用括号单元自己的首尾（`ModuleBlock` 的区间就是 `{` … `}`）；
-2. `Pos` 由调用方给（见上）；
-3. 括号单元的 `Data` 交给 `StatementBuilder`，**逐个成员**建（`BuildMember`）；
-4. 成员 `Add` 成子节点后关闭自己。
 
 ```ts
 const shape = new ModuleBlockShape(bracket.Template);
@@ -95,22 +71,6 @@ return shape;
 ```
 
 ## static method BuildMember:(inner:StatementBuilder, bracket:Bracket, block:ModuleBlockShape, context:SyntaxContext)=>void
-
-建模块体里的一个成员并 Add 进模块体。分派顺序：
-
-1. 先看有没有 export 修饰（只吞一个），有就提出 ExportKeywordShape（Pos 取修饰词的 Pos）；
-2. export as namespace（export as namespace X;）：TS 的 NamespaceExportDeclaration children 里没有 ExportKeyword，
-   所以这个成员由本类直接调 NamespaceExportDeclarationShape.FromUnits（起始格含 export），修饰词不再插回；
-3. import-equals（import x = require("n"); / export import x = require("n");）：调 ImportEqualsDeclarationShape.FromUnits，
-   有 export 时仍按普通修饰词插回成员 Data 最前（TS 的 children 是 [ExportKeyword, Identifier, ExternalModuleReference]）；
-   import x from "n" 形仍暂缓（ImportDeclaration 没有 FromUnits，需要 import 侧改动）；
-4. 声明族（class / interface / enum / function / namespace / module）：从当前格往后扫第一个 { 括号单元当体，
-   按关键字把 Data 下标交给对应形状的 FromUnits；namespace / module 交 ModuleDeclarationShape.FromUnits
-   （它要 code / positions 两个数组，直接用本层非 trivia 单元与 Positions 切片）；Pos 用本层 Positions 覆盖，At 推到体之后；
-5. 其余交 StatementBuilder.BuildStatement；
-6. 有修饰词（且不是 namespace-export）时把它插到成员 Data 最前、Parent 指回去，并把成员 Pos 改回修饰词起点。
-
-暂缓（原因见 docs）：function f(); 这类无体无返回类型的 ambient 函数、import x from "n" 成员。
 
 ```ts
 const first = inner.At;
@@ -757,11 +717,6 @@ block.Add(member);
 
 ## private method DataIndex:(bracket:Bracket, unit:Token)=>int
 
-把「`inner.Units` 里的单元」换算回「`bracket.Data` 下标」：成员按源码顺序被消费，游标 `DataCursorAt` **只前进不回头**，
-所以一次 body 只走一遍，取代「每个成员两次线性 `indexOf`」的 O(成员数 × body 长度) 扫描。
-命中失败（游标越界，或单元落在游标之前——将来某分支若在成员之间改写 `bracket.Data`）时**回退线性 `bracket.Data.indexOf`**：
-宁可慢，也不返回错位下标。
-
 ```ts
 const data = bracket.Data;
 let at = this.DataCursorAt;
@@ -781,8 +736,6 @@ return found;
 
 ## private static method IsMemberStartWord:(text:string)=>bool
 
-模块体成员的首词集合：用于「无分号 ambient 函数在换行处收口」的判据。
-
 ```ts
 return text === "export" || text === "declare" || text === "function" || text === "class"
   || text === "interface" || text === "enum" || text === "const" || text === "let"
@@ -791,10 +744,6 @@ return text === "export" || text === "declare" || text === "function" || text ==
 ```
 
 ## private static method InAmbientDeclaration:(bracket:Bracket)=>bool
-
-`bracket` 是模块体括号单元；看它所在宿主 `Data` 里、它之前的代码单元：第一个代码单元是 `declare`
-（或 `export declare`）⇒ 这是一条 ambient 声明（`declare module "m"` / `declare namespace N`），
-体内的无体函数可以省返回类型（`function f();`）。`bracket.Parent` 为空或找不到下标时按非 ambient 处理。
 
 ```ts
 const parent = bracket.Parent;
@@ -824,4 +773,3 @@ if (texts[0] === "declare") {
 }
 return texts[0] === "export" && texts.length > 1 && texts[1] === "declare";
 ```
-

@@ -198,8 +198,6 @@ return this.TextOf(unit) === text;
 
 ## method StartsNumber:(text:string)=>bool
 
-文本能不能起一个数字字面量：首字符是数字，或 `.` 后面紧跟数字（前导点写法 `.5`）。与 `Common.CanStartNumber` 同一口径。
-
 ```ts
 if (text.length === 0) {
   return false;
@@ -290,14 +288,6 @@ return this.ParseExpressionFrom(this.ParseAssign(), start);
 
 ## method ParseExpressionFrom:(left:Token, start:int)=>Token
 
-从**已经建好的左操作数**继续读：先按赋值 / 条件 / 二元爬升读完 `left` 的右邻，再把逗号链读成 `BinaryExpression`。
-`start` 是 `left` 的首单元下标（调用方给，跨度用它，与 `ParseExpression` 的 `start` 同一口径）。
-
-**为什么需要它**：`a<b> as T` / `a<b> instanceof C` 这种「类型实参尾巴之后还能接运算符」的形态，
-形状层把 `<` 之后整段交给了 `Expr…`——`ParsePostfixSuffix` 只管后缀，读到 `as` / `instanceof` 就停。
-有了这一格，收口器就能让 legacy 自己「从后缀链的结果继续往下读」，与 `ParseExpression` 走**同一段**
-赋值 / 条件 / 二元 / 逗号逻辑，所以节点、`Pos`、区间都逐字段同源。
-
 ```ts
 let value = left;
 if (value === null) {
@@ -333,10 +323,6 @@ return this.ParseAssignFrom(this.ParseConditional(), start);
 
 ## method ParseAssignFrom:(left:Token, start:int)=>Token
 
-`ParseAssign` 的「左操作数已建好」版本：先让 `left` 走完条件 / 二元爬升（`ParseConditionalFrom`），
-再看后面是不是赋值运算符——是就把 `right` 交给 `ParseAssign`（右结合），外层仍是 `BinaryExpressionShape`。
-判定与 `ParseAssign` 逐字相同，两者共用同一段代码，只是起点不同。
-
 ```ts
 let value = this.ParseConditionalFrom(left, start);
 const unit = this.Peek(0);
@@ -365,9 +351,6 @@ return this.ParseConditionalFrom(this.ParseBinary(4), start);
 ```
 
 ## method ParseConditionalFrom:(left:Token, start:int)=>Token
-
-`ParseConditional` 的「左操作数已建好」版本。条件仍是 `left` 走完二元爬升（优先级 4，与
-`ParseConditional` 同一数值），`?` / `:` 与两个分支的读法与 legacy 逐字相同。
 
 ```ts
 const condition = this.ParseBinaryFrom(left, start, 4);
@@ -402,11 +385,6 @@ return this.ParseBinaryFrom(this.ParseUnary(), start, minPrecedence);
 ```
 
 ## method ParseBinaryFrom:(left:Token, start:int, minPrecedence:int)=>Token
-
-`ParseBinary` 的「左操作数已建好」版本：`left` 已经是操作数（例如类型实参后缀链 `a<b>` 建出来的
-`ExpressionWithTypeArguments`），这里只负责按优先级把它右边的运算符读出来。循环体与 `ParseBinary`
-**逐字相同**（含 `as` / `satisfies` 的类型运算符分支与右结合判定），所以两种入口产出的节点、
-`Pos`、区间完全同源。
 
 ```ts
 let value = left;
@@ -459,8 +437,6 @@ return value;
 
 ## method IsTypeOperator:(unit:Token)=>bool
 
-`as` / `satisfies` 是类型运算符：优先级与集合都由 `OperatorTable` 提供（`AsPrecedence` / `IsAsOperator`），`ParseBinary` 在二元循环里只做一次委托；右操作数交给 `ParseFollowingType`。
-
 ```ts
 if (!(unit instanceof Common)) {
   return false;
@@ -469,11 +445,6 @@ return OperatorTable.IsAsOperator((unit as Common).TempToString());
 ```
 
 ## method ParseFollowingType:()=>Token
-
-从当前 `At` 起，把**剩下的单元**交给 `TypeBuilder.ParseType()` 读一个完整类型（调用方保证后面还有单元）。
-`basePos` 取 `Positions[At]`（即 `<` / `as` 之后第一个单元的含前导 trivia 起点），与 TypeBuilder 的 `Pos` 口径一致。
-`TypeBuilder.Load` 会把 `>>` / `>>>` 拆成多格，`builder.At` 是展开后的格数；推进本层 `At` 必须用
-`OriginalConsumed()` 折回原单元数（否则 `a as Array<Array<number>>` 会越过表达式末尾）。
 
 ```ts
 const builder = new TypeBuilder(this.Template, this.Context);
@@ -489,20 +460,11 @@ return type;
 
 ## method FindTypeArgumentClose:(index:int)=>int
 
-类型实参前瞻用的**严格**配对扫描：只认 `<`、`>`、`>>` / `>>>`、`,` 这些符号与任意非符号单元
-（类型名 / 字面量 / 括号整块）；碰到别的符号（`&&`、`+` 等）就判否，避免把
-`a < b && c > (d)` 这类比较链当成泛型实参。返回闭合 `>` 所在的**原单元下标**
-（`>>` / `>>>` 在最后一格收多层），找不到返回 -1。
-
 ```ts
 return AngleJudge.FindClose(this.Units, index);
 ```
 
 ## method CanStartTypeArgumentCall:(index:int)=>bool
-
-泛型调用的前瞻：`index` 是 `<`，扫描到与它配对的 `>`，且 `>` 之后紧跟 `(` 才算泛型调用；
-否则返回 `false`，让调用方回退成二元比较（`a < b` 不受影响）。只认 `Symbol` 的 `<` / `>` / `,`，
-`>>` 这种组合符号直接判否（拆 `>>` 需要 basic token 决策，见本块暂缓）。
 
 ```ts
 const close = AngleJudge.FindClose(this.Units, index);
@@ -515,18 +477,11 @@ return after !== undefined && this.IsBracketStart(after, "(");
 
 ## method CanStartTypeArguments:(index:int)=>bool
 
-Instantiation expression lookahead (`f<string>` with no call)：判据统一交给 `AngleJudge.CanStart`
-（前驱 + 配对扫描 + follower 白名单 + 内层粗校验）。TS 保持 `f<string> + 1` 为比较、`f<T>`t`` 为标签模板，
-这些 follower 决策都在 `AngleJudge.FollowerAllows` 里。
-
 ```ts
 return AngleJudge.CanStart(this.Units, index);
 ```
 
 ## method ParseTypeArgumentsAtCurrent:()=>Array<Token>
-
-`At` 停在 `<` 上时读 `<A, B>`：返回实参数组并把 `At` 推进到 `>` 之后；`>` 本身不进 AST。
-`basePos` 取 `Positions[At]`，所以每个 `TypeReference` 的 `Pos` 与 TS 的 `pos` 同口径。
 
 ```ts
 const open = this.At;
@@ -633,14 +588,6 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ## method ParseYield:()=>Token
 
-ParseYield handles `yield` / `yield*`. In TS the YieldExpression children are an optional
-AsteriskToken (for `yield*`; the `yield` keyword itself is not a node) and an optional operand
-(an assignment expression). The terminators `,` `;` `:` `}` mean the yield has no operand.
-
-**先判关键字还是标识符**：TS 的 `isYieldExpression` 是「在 yield 上下文里 ⇒ YieldExpression；
-否则 `nextTokenIsIdentifierOrKeywordOrLiteralOnSameLine` 成立才是，否则是普通 Identifier」。
-`yield⏎(1)` 在脚本顶层因此是调用 `yield(1)`（Identifier + 后缀），不是 YieldExpression。
-
 ```ts
 const start = this.At;
 const yieldUnit = this.Units[start];
@@ -695,12 +642,6 @@ return this.SpanNode(shape, start, this.At - 1);
 ```
 
 ## method EnclosingFunctionFlags:(start:int)=>int
-
-`start` 是 `yield` / `await` 词所在的单元下标：沿原文往回找**包住它的函数**，返回标志位
-（`1` = generator，`2` = async，`3` = async generator，`0` = 没有函数包住 / 普通函数）。
-TS 的 yield / await 上下文字面量是**词法**的、且被函数边界重置：`async function` 体里是 async 上下文，
-非 async 函数体（含非 async 箭头体）里不是；`function*` 体里是 generator 上下文。
-块语句（`if (…) {` / `else {` / `try {` / 对象字面量 / 类体）不重置上下文，继续往外找。
 
 ```ts
 const unit = this.Units[start];
@@ -790,8 +731,6 @@ return 0;
 
 ## method ArrowBodyFlags:(whole:SourceRange, arrowIndex:int)=>int
 
-`arrowIndex` 是 `=>` 的 `=` 下标。往回跳过形参（`(…)` 或单标识符）与空白，看前面是不是 `async`。
-
 ```ts
 let at = arrowIndex - 1;
 while (at >= 0 && this.IsWhitespaceChar(whole.At(at))) {
@@ -823,9 +762,6 @@ return 0;
 ```
 
 ## method FunctionBodyFlags:(whole:SourceRange, wordStart:int, wordEnd:int)=>int
-
-形参表 `(` 之前那个词（`wordStart`..`wordEnd`，可能是函数名，也可能是 `function` 本身）：
-读出标志位。`function` / `*` / `async` 都可能在它前面。
 
 ```ts
 let at = wordStart;
@@ -888,16 +824,12 @@ return flags;
 
 ## method IsControlKeyword:(word:string)=>bool
 
-控制语句的关键字：它们的 `{` 是块语句体，不重置 yield / await 上下文（继续往外找函数）。
-
 ```ts
 return word === "if" || word === "for" || word === "while" || word === "switch"
   || word === "catch" || word === "with";
 ```
 
 ## method MatchParenBackward:(whole:SourceRange, closeAt:int)=>int
-
-`closeAt` 是 `)` 的下标：往回找配对的 `(`，返回其下标；找不到返回 -1。
 
 ```ts
 let depth = 0;
@@ -919,8 +851,6 @@ return -1;
 
 ## method ReadWord:(whole:SourceRange, from:int, to:int)=>string
 
-把 `from..to`（含两端，`to` 可能 < `from`）的标识符字符拼成词。
-
 ```ts
 let word = "";
 if (to < from) {
@@ -936,9 +866,6 @@ return word;
 
 ## method IsIdentifierKeywordOrLiteral:(unit:Token)=>bool
 
-TS 的 `nextTokenIsIdentifierOrKeywordOrLiteralOnSameLine` 的后半：标识符 / 关键字 / 数字 / 大整数 / 字符串
-字面量（模板串**不算**，`NoSubstitutionTemplateLiteral` 不在那个 token 集合里）。
-
 ```ts
 if (unit instanceof Common) {
   return true;
@@ -950,10 +877,6 @@ return false;
 ```
 
 ## method IsAwaitExpressionStart:(start:int)=>bool
-
-TS 的 `isAwaitExpression`：在 async 上下文里是 AwaitExpression；否则只有
-`nextTokenIsIdentifierOrKeywordOrLiteralOnSameLine` 成立才是。没有操作数（`await;`）按 Identifier 收
-（TS 那份输入本身非法，这里保持既有行为不让 parser 崩）。
 
 ```ts
 const keyword = this.Units[start];
@@ -1002,11 +925,6 @@ return this.ParsePostfixSuffix(expression, start);
 ```
 
 ## method ParsePostfixSuffix:(expression:Token, start:int)=>Token
-
-从一个已经读出的 `expression` 起继续吃后缀（`.` / `?.` / `!` / 泛型实参与调用 / 调用 / 下标 / 模板 /
-自增 / 单标识符箭头）。`ParsePostfix` 在 `ParsePrimary` 之后走这里；`yield` / `await` 在**非上下文**
-里回落成 Identifier 之后也走这里——TS 对它们先看是不是关键字表达式，不是就把词当标识符继续走后缀
-（`yield⏎(1)` / `await⏎(1)` 是调用 `yield(1)` / `await(1)`，cover9 C02/C03）。
 
 ```ts
 while (true) {
@@ -1374,9 +1292,6 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ## method IsTemplateToken:(unit:Token)=>bool
 
-是不是「引号内式内插」的模板串单元：`String`、开了内插、且它的引号属于模板配置的 `InterpolationQuoteChars`（ts 只有反引号）。
-C# 的 `$"…"` 也开 `IsSupportInterpolation`，但引号不在这个集合里，不会被当成模板。
-
 ```ts
 if (!(unit instanceof String)) {
   return false;
@@ -1390,17 +1305,6 @@ return config.HasInterpolationQuoteChars && config.InterpolationQuoteChars.inclu
 ```
 
 ## method ParseTemplateToken:()=>Token
-
-把「当前 At 上的模板 `String` 单元」拆成模板 AST。`At` 要停在模板单元上，方法自己前进一格。
-
-`String.Data` 里 `ConstString` 与 `InterpolationString` 交替：没有 `InterpolationString` → 无内插模板（一个叶子）；
-有 → `TemplateExpression` = `TemplateHead` + 若干个 `TemplateSpan`（每个 span = 插值表达式 + `TemplateMiddle` / `TemplateTail`）。
-
-区间口径（与 TS 对齐）：
-
-- 模板整体 / 头：`[String.Start, String.End]` / `[String.Start, interp.Start]`（`interp.Start` 是 `${` 的 `{`）；
-- 中段：`[interp.End, nextInterp.Start]`（从 `}` 到下一个 `${` 的 `{`）；尾段：`[interp.End, String.End]`；
-- span：`[interp.Start + 1, tail.End]`；插值里的表达式从 `interp.Start + 1` 起（含前导 trivia 的 `Pos` 口径）。
 
 ```ts
 const start = this.At;
@@ -1513,9 +1417,6 @@ return expression;
 
 ## method ParseComputedPropertyName:()=>Token
 
-`[expr]` 计算属性名（object literal 成员 / class 成员共用）：括号单元内部交给子 ExpressionBuilder，
-名字节点是 `ComputedPropertyName`（children 只有那个表达式），区间覆盖整个 `[...]`，`Pos` 含前导 trivia。
-
 ```ts
 const index = this.At;
 const unit = this.Peek(0);
@@ -1547,10 +1448,6 @@ return shape;
 ```
 
 ## method ParseObjectLiteral:(bracket:Bracket, start:int)=>Token
-
-`{…}` 对象字面量：逐个成员分派，逗号不进 AST。成员四种写法：`名字 : 值`（PropertyAssignment，两个子节点）、
-`名字` / `名字 = 值`（ShorthandPropertyAssignment，`=` 是中间那个子节点）、`...expr`（SpreadAssignment，`...` 只进区间）、
-以及字面量名（StringLiteral / NumericLiteral / BigIntLiteral 作为名字节点，不是 Identifier）。
 
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
@@ -1788,10 +1685,6 @@ return shape;
 
 ## method ParsePropertyName:()=>Token
 
-对象字面量的属性名：`PropertyName` 可以是 `IdentifierName` | `StringLiteral` | `NumericLiteral` | `BigIntLiteral`。
-标识符名（含关键字名）走 `ParseName`；字符串 / 数字 / bigint 走各自字面量的 `FromBasicToken`。
-`Pos` 一律按「前一个非 trivia 单元 End+1」赋值，与 TS 的 `pos` 同口径。
-
 ```ts
 const start = this.At;
 const unit = this.Peek(0);
@@ -1825,8 +1718,6 @@ return this.ParseName();
 ```
 
 ## method ParseArrayLiteral:(bracket:Bracket, start:int)=>Token
-
-`[…]` 数组字面量：逐个元素解析，逗号不进 AST。
 
 ```ts
 const inner = new ExpressionBuilder(this.Template, this.Context);
@@ -1889,12 +1780,6 @@ return shape;
 ```
 
 ## method ParseArrowFromBracket:(bracket:Bracket, start:int, asyncKeyword?:Token | null, typeParameters?:Array<Token> | null)=>Token
-
-`(…) => body` 的箭头：参数括号与函数表达式共用 `ParseFunctionParameters`（支持类型标注 / 默认值 / rest / 可选），
-`=>` 走 `EqualsGreaterThanToken`，body 交给 `ParseArrowBody`（表达式体或块体）。
-TS 的 children 顺序是 Parameter 们、EqualsGreaterThanToken、body；无参箭头没有 Parameter。
-`async` 前缀时 `AsyncKeywordShape` 在最前，泛型箭头时 `TypeParameter` 们紧随其后
-（`async <T>(…) => …` 的 TS 口径也是 AsyncKeyword 在前、TypeParameter 之后），两者都由调用方建好传进来。
 
 ```ts
 const arrow = new ArrowFunctionShape(this.Template);
@@ -1961,10 +1846,6 @@ return this.SpanNode(arrow, start, this.At - 1);
 ```
 
 ## method ParseClassExpression:()=>Token
-
-`class` 类表达式：可选名字、可选 `extends` 遗产子句、类体成员。成员与遗产子句**消费** declarations 家族的
-静态助手（`ClassDeclarationShape.BuildMembers` / `HeritageClauseShape.BuildClauses`，不编辑 declarations 文件）；
-TS 的 `ClassExpression` children 顺序：名字? → `HeritageClause` 们 → 成员。
 
 ```ts
 const start = this.At;
@@ -2036,9 +1917,6 @@ return this.SpanNode(shape, start, bodyIndex);
 
 ## method ParseArrowBody:()=>Token
 
-箭头 body：紧跟 `{` 是块体（`Block`），否则是按赋值表达式解析的表达式体。块体交给 statements 家族的
-`StatementBuilder`（**消费**，不编辑 statements 文件）。
-
 ```ts
 const unit = this.Peek(0);
 if (unit !== null && this.IsBracketStart(unit, "{")) {
@@ -2048,9 +1926,6 @@ return this.ParseAssign();
 ```
 
 ## method ParseBlock:()=>Token
-
-`{ … }` 语句块：`{` `}` 是一个括号单元，里面的语句交给 `StatementBuilder.BuildBlock()` 递归建。
-`StatementBuilder.Load` 的 `basePos` 取 `Positions[At]`，因此 `Block` 的 `Pos`（含前导 trivia）与 TS 同口径。
 
 ```ts
 const start = this.At;
@@ -2069,9 +1944,6 @@ return block;
 ```
 
 ## method HasArrowAfter:(from:int)=>bool
-
-从 `from` 起在同一段单元里找 `=>`，用于「带返回类型标注的箭头」前瞻（`(…): T => …`）。
-遇到语句界符 `;` / `,` 判否，避免把 `cond ? f(1) : x` 这类三元误当成箭头。
 
 ```ts
 for (let at = from; at < this.Units.length; at++) {
@@ -2093,12 +1965,6 @@ return false;
 ```
 
 ## method ParseFunctionExpression:(asyncKeyword?:Token | null, spanStart?:int)=>Token
-
-`function` 函数表达式：children 顺序与 TS 一致 —— `async`?、`*`?、可选的 `Identifier`（名字）、
-`TypeParameter` 们、`Parameter` 们、返回类型?、`Block`；参数括号与函数体各是一个 `Bracket` 单元，
-参数由 `ParseFunctionParameters` 从括号 `Data` 里建。
-TS 的 `FunctionExpression` 没有 `name` 字段（名字只是子节点之一），所以名字走 `Data`、不设字段；
-匿名函数表达式的类型参数段（`function <T>(…)`）与生成器 `*` 都不算名字，必须先跳过。
 
 ```ts
 const start = this.At;
@@ -2172,11 +2038,6 @@ return this.SpanNode(shape, signedStart, this.At - 1);
 ```
 
 ## method ParseFunctionParameters:(bracket:Bracket)=>Array<Token>
-
-参数括号里的逐个参数（箭头与函数表达式共用）：`...`? 名字（`?`）?（`: 类型`）?（`= 默认值`）?。
-children 顺序与 TS 的 `Parameter` 完全一致：`DotDotDotToken`、`Identifier`、`QuestionToken`、类型节点、initializer。
-注意 TS 的 `Parameter` **不含** `=` 这个 EqualsToken（实测 `{ a = 1 }` 那种 shorthand 才含），所以默认值只加 initializer。
-`Pos` 取参数第一个单元（`...` 或名字）的含前导 trivia 起点，区间到最后一个子节点结束；类型走 `TypeBuilder`。
 
 ```ts
 const parameters:Array<Token> = [];
@@ -2277,25 +2138,11 @@ return parameters;
 
 ## method MatchAngleClose:(openIndex:int)=>int
 
-从 `openIndex`（必须是 `<`）扫到与它配对的 `>`，返回 `>` 的下标；扫不到返回 `-1`。
-强制配对语境（尖括号断言 / 类型参数表）用它：只信 `AngleJudge.FindPair` 的配对结果，
-不再各写一份 `<`/`>`/`>>` 计数。
-
 ```ts
 return AngleJudge.FindPair(this.Units, openIndex);
 ```
 
 ## method ParseAngleType:(first:int, last:int, includesClose:bool)=>Token
-
-把 `Units[first..last]` 交给 `TypeBuilder.ParseType()` 读一个**完整**类型，读不完就抛错
-（尖括号断言里 `<` / `>` 不投影，只有类型节点与表达式节点进 AST）。
-`basePos` 取 `Positions[first]`，与 TypeBuilder 的 `Pos` 口径一致。
-
-区间右端若是**合符号** `>>` / `>>>`（`includesClose`），它会被 `TypeBuilder.Load` 拆成
-`n` 个单字符 `>` 虚拟单元；其中**最后一个** `>` 是断言自己那一格（`ParseAngleStart` 的外层 `<` 配对），
-类型只能消费前 `n - 1` 个。所以期望消费数是 `builder.Units.length - 1`（含合符号）或
-`builder.Units.length`（不含）——旧口径拿「原单元数」当期望值，只有 `>>`（n = 2）恰好相等，
-`>>>` / `>>>>` 就多出一格，误报「尖括号断言里的类型没有读完」。
 
 ```ts
 if (first > last) {
@@ -2313,9 +2160,6 @@ return type;
 
 ## method ParseAngleTypeParameters:(openIndex:int, closeIndex:int)=>Array<Token>
 
-泛型箭头的 `<T>` / `<T, U>`：只收**名字**形态的类型参数（`extends` / 默认值 / `const` / 变体标注
-留给 types 家族）；每个 `TypeParameter` 的 children 是名字 `Identifier`，区间到名字结束、`Pos` 取名字含前导 trivia 的起点。
-
 ```ts
 const builder = new TypeBuilder(this.Template, this.Context);
 builder.Load(this.Units.slice(openIndex), this.Positions[openIndex]);
@@ -2329,10 +2173,6 @@ return parameters;
 ```
 
 ## method ParseAngleStart:()=>Token
-
-语句 / 表达式起点是 `<`：先扫配对 `>`。`>` 之后紧跟 `(…) =>` 的按**泛型箭头**解析
-（TypeParameter 们走 `ParseArrowFromBracket`）；否则按**尖括号断言**解析（children = [Type, expression]，
-`<` / `>` 不投影）。类型解析失败会让 `TypeBuilder` / `ParseAngleType` 抛明确错误。
 
 ```ts
 const start = this.At;

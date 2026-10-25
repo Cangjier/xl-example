@@ -20,12 +20,6 @@ class C { a = 1 }
                   ^ 类声明在这里结束
 ```
 
-提前挂载的类声明壳的终结候选：类体括号一闭合就 `Accept`，`BuildByIndex` 把「壳」换成完整的 `ClassDeclarationShape`。
-
-壳的目录向导**只会在类体括号创建之后才装上**（见 `ClassDeclarationShape.OnBracketCreatedEvent`），所以这里的判定
-可以只看「当前格是不是一个已闭合的 `{` 括号」：头部里的类型字面量括号（heritage 泛型实参里的 `{…}`）在向导装上
-之前就已经关完了，不会走到这里。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -40,15 +34,6 @@ return ShapeStates.Reject;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-把壳收口成完整形状：用壳的 `Data`（头部代码单元 + 已闭合的类体括号）走 `BuildFromCode`，然后在父单元的 `Data` 里
-原地顶替掉壳（`BodyGuideUtil.FinishShell`，会一并清掉 `MountedUnit`）。
-
-壳的 `Pos` 在建壳时已经按「前一个非 trivia 单元的 `EndIndex`」算好，直接沿用——收口时父单元里壳已经是最后
-一个单元，重算会得到壳自己的右边界。
-
-`BuildFromCode` 的 `allowAnonymous` 传 `true`：壳可能是匿名的（`class {}` / `class<T> {}` / `class extends A {}` 在
-TS 里都是匿名的 `ClassDeclaration`，静默恢复）。
 
 ```ts
 const shell = host as ClassDeclarationShape;

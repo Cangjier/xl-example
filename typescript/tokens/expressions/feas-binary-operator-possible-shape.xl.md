@@ -15,8 +15,6 @@ import { OperatorTable } from "./operator-table.xl.md"
 
 # class FeasBinaryOperatorPossibleShape extends PossibleShape
 
-可行性原型的**二元操作符候选**：`OperatorTable` 判得优先级 `>= 0` 的这一格就是二元操作符。优先级数值不存在第二份。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -42,8 +40,6 @@ return ShapeStates.Reject;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-原型沿用 `ExpressionBuilder.MakeOperatorToken` 造运算符单元的同一个入口（避免「第二份运算符映射」），由 `FeasOperatorParser` 在插入新 shape 时调用。
 
 ```ts
 throw new Error("FeasBinaryOperatorPossibleShape.BuildByIndex: 原型由 FeasOperatorParser 增量建形状");

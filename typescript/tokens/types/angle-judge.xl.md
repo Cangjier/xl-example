@@ -10,27 +10,9 @@ import { StatementScanner } from "../statements/statement-scanner.xl.md"
 
 # namespace cangjie
 
-`<` / `>` 的**唯一**判据：一个 `<` 开的是「类型实参 / 类型参数」，还是算术 / 比较。
-
-原来这套判据散在 6 处（expression-builder 的 `FindTypeArgumentClose` / `CanStartTypeArgumentCall` /
-`CanStartTypeArguments` / `MatchAngleClose`、statement-builder 的 `IsTypeArgumentStart`、
-class/function/interface 声明候选里手写的 `<`/`>`/`>>` 计数、type-builder 的 `IsSplitClose` 调用方）。
-本类把「配对扫描 + 前驱 + follower 白名单 + 内层粗校验」收成一份，其余调用点只做薄包装。
-
-三段判据对应 TS `tryParseTypeArgumentsInExpression`：
-1. **前驱**：`<` 前一个代码单元必须是表达式结尾（标识符 / `)` `]` / `>` / `!` / 模板串 / `new` `typeof` 等关键字）；
-2. **配对扫描**：从 `<` 数层，`>>` / `>>>` 按层拆（basic token 是合符号，这里拆语义），返回**真实单元下标**；
-3. **follower 白名单**：配对 `>` 之后必须是「类型实参段之后接得上」的东西（`(`、模板串、`.`、`?.`、
-   `!`、`as`/`satisfies`/`instanceof`/`in`、`;` `,` `)` `]` `}`、EOF 等）；
-4. **内层粗校验**：只允许类型文法里的东西（非符号单元 + `.` `,` `|` `&` `:` `?` `=>` `-` `!` `[` `]` 等），
-   出现 `&&` / `||` / `=` / `+` 之类值位运算符就判否。
-
 # class AngleJudge
 
 ## static method IsSplitClose:(text:string)=>bool
-
-是不是「连续闭合尖括号」：长度 ≥ 2 且每个字符都是 `>`（`>>` / `>>>`）。这是 basic token 的合符号，
-类型位 / 表达式位都按层拆开消费。
 
 ```ts
 if (text.length < 2) {
@@ -45,10 +27,6 @@ return true;
 ```
 
 ## static method Shift:(unit:Token, depth:int)=>int
-
-候选扫描里的**宽松**数角（class 的 `<...>` 类型参数阶段 / function 的类型参数表）：`<` 进一层、`>` 出一层、
-`>>` / `>>>` 一次出两 / 三层；不是角符号时返回原深度，深度允许到 0 以下（调用方只判 `<= 0`）。
-这是「候选扫描数角」的唯一实现，与严格判据 `CanStart` / 强制配对 `FindPair` 并存、职责不同。
 
 ```ts
 if (!(unit instanceof Symbol)) {
@@ -69,9 +47,6 @@ return depth;
 
 ## static method Guard:(unit:Token, depth:int)=>int
 
-候选扫描的另一个变体（class / interface 的 heritage 段）：只认 `<` 与 `>`，`>` 只在深度 > 0 时出层，
-`>>` / `>>>` 原样当内容；深度夹在 0 以上。
-
 ```ts
 if (!(unit instanceof Symbol)) {
   return depth;
@@ -87,10 +62,6 @@ return depth;
 ```
 
 ## static method ScanDepth:(unit:Token, depth:int)=>int
-
-变量声明初始化器扫顶层 `,` 边界时用的**夹零**数角：`<` +1；`>` 仅在 depth > 0 时 -1；
-`>>` / `>>>` 一次 -2 / -3（不够时夹到 0）；其它单元原样。
-与 `Shift` 的唯一区别是深度不会变负（调用方拿 `=== 0` 判「顶层逗号」）。
 
 ```ts
 if (!(unit instanceof Symbol)) {
@@ -126,10 +97,6 @@ return false;
 
 ## private static method PredecessorAllows:(units:Array<Token>, index:int)=>bool
 
-`<` 前一个代码单元能不能当被调用者 / 类型引用的结尾：标识符类（含 `new` `typeof` 等关键字）、
-`)` `]` 这类括号整块、模板串、或 `>` / `!` 后缀。前面没有代码单元（语句起点的 `<` 断言 / 泛型箭头）
-由 expression-builder 的 `ParseAngleStart` 直接处理，不走本判据。
-
 ```ts
 for (let at = index - 1; at >= 0; at--) {
   const previous = units[at];
@@ -149,10 +116,6 @@ return false;
 ```
 
 ## static method FindClose:(units:Array<Token>, index:int)=>int
-
-**类型实参判据用**的严格配对扫描：从 `index`（必须是 `<`）数层，只认 `<` / `>` / `>>` / `>>>` / `,`
-这些符号与任意非符号单元（类型名 / 字面量 / 括号整块）；碰到别的符号（`&&`、`+`、`=` 等）判否。
-返回闭合 `>` 的**原单元下标**（`>>` / `>>>` 在那一格收多层），不是类型实参返回 `-1`。
 
 ```ts
 if (index < 0 || index >= units.length) {
@@ -199,10 +162,6 @@ return -1;
 
 ## static method FindPair:(units:Array<Token>, index:int)=>int
 
-**强制配对**用的宽松扫描（class / function / interface 的类型参数表、尖括号断言）：从 `index`（必须是 `<`）
-只数 `<` / `>` / `>>` / `>>>`，其它符号与括号整块原样跳过；返回闭合 `>` 的原单元下标，扫不到返回 `-1`。
-它只回答「配对的 `>` 在哪」，不回答「这是不是类型实参」——后者是 `CanStart`。
-
 ```ts
 if (index < 0 || index >= units.length) {
   return -1;
@@ -243,10 +202,6 @@ return -1;
 ```
 
 ## private static method FollowerAllows:(units:Array<Token>, close:int)=>bool
-
-配对 `>` 之后那一格是不是「类型实参段之后接得上」的东西。
-`[` 也是合法 follower：数组后缀 / 下标访问紧跟配对 `>`（`a as Foo<A, B>[]`、`f<T>[0]`），
-类型实参段在这里就收口；否则声明层的顶层 `,` 扫描会把 `<A, B>` 里的逗号当声明分隔符。
 
 ```ts
 // follower 必须是**下一个代码单元**：`host.Data` 里 `>` 与下一格之间常夹着空白 / 换行 trivia，
@@ -311,25 +266,6 @@ return false;
 
 ## static method IsInstantiationClose:(units:Array<Token>, index:int)=>bool
 
-`units[index]` 是不是**实例化表达式**（instantiation expression）的收尾 `>`：`f<T>` / `a.b<T>` /
-`a < b >` 这种「类型实参表后面没有调用」的形态。TS 把它建 `ExpressionWithTypeArguments`，而且它是
-**一条完整的表达式**——`a < b >` ⏎ `c` 在 TS 里是两条语句（`canFollowTypeArgumentsInExpression`：
-`>` 之后是标识符但**有换行** ⇒ 类型实参成立，表达式到此为止）。
-
-判据只用本类已有的三条，不新写角括号扫描：
-1. `index` 是 `>` / `>>` / `>>>`，且某个 `<` 的 `FindClose` 正好是它；
-2. 那个 `<` 的前驱能当被调用者（`PredecessorAllows`），且**不是**一个比较运算符 `>` / `>>` / `>>>`；
-3. 收尾之后那一格允许类型实参（`FollowerAllows`，已跳过 trivia）；
-4. follower **不是** `(` / 反引号模板：那两种 TS 建的是带类型实参的 `CallExpression` /
-   `TaggedTemplateExpression`（`a < b > (c)` 是一条调用，不是两条语句），不算实例化收尾。
-
-第 2 条的限定来自 TS 的语法位置：实例化表达式是在 `parseMemberExpressionRest` 里试出来的，
-`<` 前面必须是**一个表达式**（LeftHandSideExpression 的结尾）。`a < b > < c >` ⏎ `d` 里第二个
-`<` 前面是**比较运算符** `>`，整个 `(a<b) > (<c>d)` 是一条比较链（TS 的 `<c>d` 是类型断言），
-不能在这里收句；否则会在 `d` 处误插 ASI 并让类型断言后面的操作数缺失（抛「表达式意外结束」）。
-
-`>>` / `>>>` 是嵌套类型实参的合符号，`FindClose` 会在那一格收多层，与 `IsTypeArgumentClose` 同口径。
-
 ```ts
 if (index < 0 || index >= units.length) {
   return false;
@@ -387,9 +323,6 @@ return AngleJudge.FollowerAllows(units, index);
 ```
 
 ## static method CanStart:(units:Array<Token>, index:int)=>bool
-
-`units[index]` 是 `<` 时，判断它开启的是不是**类型实参 / 类型参数**。这是唯一判据；
-`expression-builder` / `statement-builder` / 声明候选都只调它（需要强制配对时用 `FindPair`）。
 
 ```ts
 if (index < 0 || index >= units.length) {

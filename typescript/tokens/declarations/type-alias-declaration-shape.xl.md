@@ -25,16 +25,6 @@ type T<U> = U;
 type T<U extends A = B, V = C> = [U, V];
 ```
 
-measurement 载体：`type T[<U, …>] = <type>;`。TS 的 children 是 `Identifier` + 泛型参数（`TypeParameter`，可无）
-+ 类型；`type` 关键字、`<` / `>` / `=` / `;` 都是 basic token，建完就丢。
-
-区间：从 `type` 的起点到 `;`；`Pos` = 前一个非 trivia 单元 `EndIndex`（没有就 `0`），与 TS 一致。
-`type` 与名字之间的 trivia 体现在名字的 `Pos` 上（`type /* c */ T` 的名字 `Pos` 仍是 `type` 之后）。
-
-字段不叫 `Name`：`cjAst` 会把 `Name` 读成 AST 的 `name`，而 TS 的 `TypeAliasDeclaration` 在尺子里只比 children。
-
-`export type …` / `declare type …` 暂缓：它们与 export/declare 声明候选抢同一格，需要先让根候选放行修饰词。
-
 ## field AliasName:Token | null = null
 
 ## field AliasParameters:Array<Token> = []
@@ -48,9 +38,6 @@ super(template);
 ```
 
 ## static method FindTypeParameterClose:(code:Array<Token>, start:int)=>int
-
-从 `start` 的 `<` 开始，按 `<` / `>` 深度找类型参数表的闭合 `>`；`>>` / `>>>` 是一个 `Symbol`，按 2 / 3 个闭合算。
-找不到返回 `-1`。
 
 ```ts
 let depth = 0;
@@ -83,15 +70,6 @@ return -1;
 ```
 
 ## static method IsTypeAliasHead:(code:Array<Token>, headText:string)=>bool
-
-`type` / `export type` / `declare type` / `export declare type` 之后必须紧跟声明名，再紧跟 `=` 或类型参数 `<`，
-才算「还没收口的类型别名」。只看前缀是会把 `type = 1` 这类以 `type` 作标识符的赋值表达式
-误丢给 `FromUnits`（它随即抛「类型别名声明不完整」——`type` ⏎ `T` 同理）。
-
-**名字必须与 `type` 同行**（TS `nextTokenIsIdentifierOnSameLine`）：换行之后的 `T` 是下一条语句的开头，
-`type` 只是标识符（TS 把 `type` ⏎ `T = 1` 解析成两条 ExpressionStatement）。换行口径按**源位置**：
-两个代码单元之间的原文里有行终止符（LF / CR / U+2028 / U+2029；行注释的换行、块注释里的换行都算）即为换行。
-`code` 是**代码单元**数组（调用方滤掉了 trivia），所以用 `LineTerminator.HasBetween` 比较相邻单元的源区间。
 
 ```ts
 let typeIndex = -1;
@@ -128,8 +106,6 @@ return nextText === "=" || nextText === "<";
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>TypeAliasDeclarationShape
-
-从根单元 `host.Data[start..tokenIndex]` 建一条类型别名声明。`tokenIndex` 落在 `;` 上，或（无分号 ASI 收口时）落在类型末单元上。
 
 ```ts
 const code:Array<Token> = [];

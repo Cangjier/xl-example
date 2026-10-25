@@ -11,37 +11,17 @@ import { VariableDeclarationUtil } from "./variable-declaration-scan-util.xl.md"
 
 # class VariableListVerdict
 
-三层 possible 的**列表级**判定结果。`State` 三态：`0` 还不知道（不接管）、`1` 成立（可接管）、
-`2` 不是变量声明列表（永久放弃，走 legacy）。
-
 ## field State:int = 0
 
 ## field Declarations:int = 0
 
-成立的条目数（由声明级给出，列表级不自己数第二条规则）。
-
 ## field KeywordText:string = ""
-
-`let` / `const` / `var`。
 
 ## field Semicolon:bool = false
 
-是否见到 `;` 收口；`false` 表示按段末（ASI / 文件末尾）收口。
-
 # class VariableDeclarationListUtil
 
-列表级只做三件事，全部**只判不建**（不碰 `CatalogGuide`、不碰 `StatementBuilder`、不写 `Parent`）：
-
-1. 关键字白名单：只认 `let` / `const` / `var`（`using` / `await using` / `declare` / `export` / `for (let …)` 仍走 legacy）；
-2. 族判型：`StatementScanner.StartsBinding` 回答「`let` 后面能不能起绑定」，与表达式候选 / 终结候选读同一份判据；
-3. 收口：最后一个代码单元要么是 `;`，要么整条列表正好落在段末（ASI）。
-
-条目怎么切、每条成不成立属于声明级（`VariableDeclarationUtil.VerifyItems`），这里只消费它的条数。
-
 ## static method Judge:(units:Array<Token>)=>VariableListVerdict
-
-对「本条语句的整段 raw 单元」给出三态判定。纯函数、无缓存、零副作用：入参就是
-`StatementShape.BuildFromShell` 里那份 `consumed`，判完原样交回去。
 
 ```ts
 const verdict = new VariableListVerdict();

@@ -91,10 +91,6 @@ return ShapeStates.Reject;
 
 ## static method CanEndAt:(units:Array<Token>, last:int)=>bool
 
-Raw lookahead after `last`: the declaration can end here when what follows is EOF, a comment, or a
-line break followed by a new statement; it must not end when the next code is `;` or a continuation keyword
-(`with` / `assert` / `from` / `as` / `type`) on the same or the next line.
-
 ```ts
 const lastRange = units[last].SourceRange;
 const document = lastRange.Document;
@@ -169,15 +165,6 @@ return true;
 ```
 
 ## static method IsCompleteAt:(units:Array<Token>, last:int)=>bool
-
-`last` 这个代码单元能不能收住一条完整的 export 声明（只看结构，不看后面）：
-
-- 模块说明符（`export … from "m"`）：字符串字面量，原文以引号开头；
-- 导出子句的 `}`（`export { … }`）或 `with` / `assert` 属性括号的 `}`：原文以 `}` 收尾。
-
-`;` 不走这里（它走 `Done` 那条路）。还没到这两处时（`export` / `export *` / `export * as ns` /
-`export type` / `export { …` 未闭合），这里一律 false——否则换行后的 `from` / `{` / `*` / `as`
-会被误当成下一条语句，与还活着的普通候选撞在一起。
 
 ```ts
 const range = units[last].SourceRange;

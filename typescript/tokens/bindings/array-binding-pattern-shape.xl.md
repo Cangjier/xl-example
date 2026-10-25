@@ -20,15 +20,7 @@ const [a, b] = xs;
 const [a, , b] = xs;
 ```
 
-`[...]` 数组绑定模式：结构由括号承载，逗号不进 AST，逐个元素建 `BindingElementShape`；
-空位（`[a, , b]` / `[, a]`）建零宽的 `OmittedExpressionShape`（TS 的 `ArrayBindingPattern` children 里有它）。
-
 ## field Elements:Array<Token> = []
-
-**本块固定留空**：元素直接 `Add` 进 `Data`（AST 只读 `Data`）。`statement-builder` 里旧的
-`NormalizeBindingPattern` workaround 会按 `Elements` 逐组重写 `Data`（只留 Common token），
-`Elements` 为空时它在第一个非空组就 `break`，等于 no-op —— 这样 statements 家族不用改一行，
-真正正确的子节点也不会被它覆盖。待 statements 家族删掉那条 workaround 后，可把本字段回填。
 
 ## constructor:(template:Template)=>void
 
@@ -37,9 +29,6 @@ super(template);
 ```
 
 ## static method FromBracket:(bracket:Bracket, context:SyntaxContext)=>ArrayBindingPatternShape
-
-按 `,` 切组：每组交给 `BindingElementShape.FromTokens`（嵌套 pattern / 默认值 / rest 都在里面建）；
-组位置 = 前一个非 trivia 单元 `End+1`（第一个组是 `[` 之后），与 TS 的 `pos` 同口径。
 
 ```ts
 const shape = new ArrayBindingPatternShape(bracket.Template);

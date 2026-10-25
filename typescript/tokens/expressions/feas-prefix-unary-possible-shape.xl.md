@@ -15,8 +15,6 @@ import { OperatorTable } from "./operator-table.xl.md"
 
 # class FeasPrefixUnaryPossibleShape extends PossibleShape
 
-可行性原型的**一元前缀操作符候选**：只在「需要一个操作数」的位置参与判定（由 `FeasOperatorParser` 控制时机），与二元操作符共用 `OperatorTable` 的前缀集合。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
