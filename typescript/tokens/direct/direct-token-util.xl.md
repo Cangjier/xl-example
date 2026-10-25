@@ -86,11 +86,15 @@ if (DirectTokenUtil.StartsNumber(text) || common.IsNumber() || common.IsBigInt()
 // 显式的保留字 / 范围外字面量集合：只写在这一处（CONTRACT §3.4「别散落」）。
 // true/false/null/this 是关键字字面量（R2 起由 LiteralOperand 建成叶子，见 A1）；
 // super/undefined 仍是范围外；typeof/void/delete/new 各有专门节点（R2 A3/A5）；
-// await/yield/import 也是专门节点；instanceof/in/as/satisfies/of 是运算符位，不是操作数。
+// await/yield/import 也是专门节点；instanceof/in/of 是运算符位，不是操作数。
+// R5-A2：`as` / `satisfies` **移出**本表——它们只在**运算符位**是运算符（`a as T` 走引擎的
+// ExpectOperator 分支），在**操作数位**只能是标识符（tsc：`as` ⏎ `b` 是两条 ExpressionStatement，
+// `Identifier("as")`；R5-TARGET-CASES CL-pos-02/03）。留着它们会让 `let x = a` ⏎ `as b` 的中间那条
+// 语句 Decline（built 只有 2，A4 红），而 `let as = 1` / `x + as` 在 tsc 里本来也合法。
 const reserved:Array<string> = [
   "true", "false", "null", "undefined", "this", "super",
   "typeof", "void", "delete", "new", "function", "class",
-  "await", "yield", "import", "instanceof", "in", "as", "satisfies", "of",
+  "await", "yield", "import", "instanceof", "in", "of",
 ];
 if (reserved.includes(text)) {
   return false;
