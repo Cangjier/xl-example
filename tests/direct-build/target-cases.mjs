@@ -80,6 +80,9 @@
 //   A5  --strict 时计数器仍全 0（只看计数器，不看是否抛；非正例 SKIP）
 //   A6  stmtLoads + exprOtherDirect + exprLegacy == 0（旧路径零次事后 Build/reparse；非正例 SKIP）
 //       C4 注入 case 的口径：A6 量**第二次（不注入）解析**——注入那次必然回落旧路径，量它没有意义（见 REPORT §4）
+//       【R4-Q5/Q6】带 case.a6Skip 的 case 只**记读数**、不判 0（--expect-direct 也不强制）：
+//         - Q5 body-legacy：函数体内 `yield 1;` / `await g(a);` 由 Yield/Await 壳走 legacy（待 R5 直建）；
+//         - Q6 switch：子句语句由 CaseClauseStatementPossibleShape 建壳、不接 Attach ⇒ stmtLoads == 子句语句数。
 //   A7  --trace 时 Traces 含 `insert(`（仅 expectInsert 的 case；非正例 SKIP）
 //   A8  --expect-direct 时 A4/A6 强制（--strict 时再加 A5/A12；A9/A11 同口径）
 //   A9  【R2】负例（含 invalid）的 DeclineReasons 里期望 category 计数 >=1（无分类能力 → SKIP）
@@ -132,6 +135,9 @@ const SEP = "=".repeat(72);
 //   incompleteOk 【R4】invalid 的直建拒绝机制是 IncompleteFallback（R4-S-01/02）：A4 允许 incomplete>=1 代替 declined>=1
 //   q4           【R4】R4-Q1 改判位（R3-B1-neg-01/02/03 + R3-B2-neg-03 的 neg→pos）：
 //                { probe:[…], legacyExpect, legacyBodyBuilt }；--q4=auto|pos|legacy，auto 按 probe 逐条决定
+//   a6Skip       【R4-Q5/Q6】A6 只记读数不判的 reason（写进 A6 detail）：body-legacy 的 yield/await 语句、
+//                以及 switch 的子句语句（stmtLoads 必然 >0，与 switch 自己是否直建无关）
+//   a6ExpectStmtLoads 【R4-Q6】switch 类 case 的 stmtLoads 应等于子句语句数（0/1/2…）；只记录，不判失败
 // ---------------------------------------------------------------------------
 const CASES = [
   // ---- R1 原 10 条（不回归；R1-10 按 D1 翻为正例） ----
@@ -248,9 +254,11 @@ const CASES = [
   { id: "R2-A1-neg-01", src: "/a/g", expect: "neg", expectInsert: false,
     note: "正则字面量本轮不做",
     categories: ["expr.decline"] },
-  { id: "R2-A2-neg-01", src: "({m(){}})", expect: "neg", expectInsert: false,
-    note: "对象方法体（函数体属语句族）；不得因「对象字面量已支持」而误建",
-    categories: ["expr.decline"] },
+  { id: "R2-A2-neg-01", src: "({m(){}})", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "【R4-Q4 改判 neg→pos】B4-c 对象方法落地后必然翻转（R4-CONTRACT §5.2 未列，REPORT-r4-func §6）：" +
+      "与 R4-B4-guard-02（`({ m() {} })`）**同源代码**，built=1（表达式语句；空方法体没有别的壳）。" +
+      "旧口径（neg + expr.decline）只在 B4-c 未合入时成立",
+    markers: ["DirectObjectMemberAssembly"] },
   { id: "R2-A3-neg-01", src: "f(...a)", expect: "neg", expectInsert: false,
     note: "调用参数 spread 本轮不做（数组里的 spread 是正例 A2-02）",
     categories: ["expr.decline"] },
@@ -393,8 +401,11 @@ const CASES = [
     categories: ["stmt.head"], markers: ["DirectDeclarationAssembly", "ForInStatementShape"] },
   { id: "R3-B1-neg-03", src: "switch (a) { case 1: b; }", expect: "pos", expectInsert: false, expectBuilt: 1,
     q4: { probe: ["BuildSwitch"], legacyExpect: "neg", legacyBodyBuilt: 0 },
+    a6Skip: "switch 子句语句由 CaseClauseStatementPossibleShape 建壳、不接 Attach（R4-CONTRACT §2.4）⇒ legacy 收口" +
+      "（R4-Q6，与 switch 自己是否直建无关）",
+    a6ExpectStmtLoads: 1,
     note: "【R4-Q1 改判 neg→pos】switch 自身直建（R4-CONTRACT §4.4）；子句语句的壳**不挂 session**（§2.4）" +
-      "⇒ built=1（只有 switch 自己）。--q4=legacy 时退回 R3 的 neg（stmt.head）",
+      "⇒ built=1（只有 switch 自己）、stmtLoads=1（=子句语句数，A6 SKIP）。--q4=legacy 时退回 R3 的 neg（stmt.head）",
     categories: ["stmt.head"], markers: ["BuildSwitch", "SwitchStatementShape"] },
 
   // ---- B2 函数 / 箭头（11：pos 7 + neg 4） ----
@@ -491,8 +502,12 @@ const CASES = [
     note: "块体已由 TryMountControlFlowBody 挂好 ⇒ `b;` 自己的壳建（built=2 = with + b;）",
     markers: ["BuildWith"] },
   { id: "R4-B3-pos-08", src: "switch (a) { case 1: b; default: c; }", expect: "pos", expectInsert: false, expectBuilt: 1,
-    note: "只有 switch 自己被计数：CaseClauseStatementPossibleShape **不调 Attach**（R4-CONTRACT §5.2）；" +
-      "CaseBlock[CaseClause[1, b;], DefaultClause[c;]]",
+    a6Skip: "switch 子句语句由 CaseClauseStatementPossibleShape 建壳、不接 Attach（R4-CONTRACT §2.4）⇒ 它们由 legacy " +
+      "收口，stmtLoads 必然 == 子句语句数（本 case 2；空 switch 0、1 子句 1、2 子句 2），与 switch 自己是否直建无关（R4-Q6）",
+    a6ExpectStmtLoads: 2,
+    note: "只有 switch 自己被计数（built=1）：CaseClauseStatementPossibleShape **不调 Attach**（R4-CONTRACT §2.4）；" +
+      "CaseBlock[CaseClause[1, b;], DefaultClause[c;]]。A6 **SKIP**（Q6）：只记 stmtLoads/exprOther 读数，" +
+      "stmtLoads=2（=子句语句数），不判 0",
     markers: ["BuildSwitch", "BuildCaseBlock"] },
   { id: "R4-B3-pos-09", src: "lbl: { a; }", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "标签(1) + `a;`(1)；LabeledStatement[Identifier lbl, Block]（ShellLabel(6) 注册 + BuildLabeled）",
@@ -526,17 +541,26 @@ const CASES = [
 
   // ---- B4 生成器 · async · 对象方法（12：pos 7 + neg 3 + guard 2） ----
   { id: "R4-B4-pos-01", src: "function* g() { yield 1; }", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6Skip: "body-legacy: yield/await 语句待 R5 直建（YieldStatementPossibleShape 的壳不接 Attach，legacy 收口）⇒ " +
+      "stmtLoads/exprOther 必然 >0，与函数本身是否直建无关（R4-Q5）",
     note: "函数本身(1)；`yield 1;` 由 YieldStatementPossibleShape 的壳走 legacy（**不计数**）；" +
-      "Data=[AsteriskToken, Identifier g, Block]",
+      "Data=[AsteriskToken, Identifier g, Block]。A6 **只记读数**（Q5：body-legacy，`yield 1;` 待 R5 直建）；" +
+      "断言仍要求 AST==tsc、XML==基线、expectBuilt 精确",
     markers: ["AsteriskToken"] },
   { id: "R4-B4-pos-02", src: "function* g(a) { yield a; }", expect: "pos", expectInsert: false, expectBuilt: 1,
-    note: "参数表仍是纯 Identifier（ParametersAreIdentifiers 判据不变）；built=1",
+    a6Skip: "body-legacy: yield/await 语句待 R5 直建（同 pos-01，YieldStatementPossibleShape 的壳 legacy 收口）⇒ " +
+      "stmtLoads/exprOther 必然 >0（R4-Q5）",
+    note: "参数表仍是纯 Identifier（ParametersAreIdentifiers 判据不变）；built=1。A6 **只记读数**（Q5：body-legacy）；" +
+      "AST==tsc、XML==基线、expectBuilt 精确仍强制",
     markers: ["AsteriskToken"] },
   { id: "R4-B4-pos-03", src: "async function f() {}", expect: "pos", expectInsert: false, expectBuilt: 1,
     note: "Data=[AsyncKeyword, Identifier f, Block]；AsyncKeyword.Pos=BasePos、区间= `async` 自己",
     markers: ["AsyncKeyword"] },
   { id: "R4-B4-pos-04", src: "async function f(a) { await g(a); }", expect: "pos", expectInsert: false, expectBuilt: 1,
-    note: "体内 `await g(a);` 由 AwaitStatementPossibleShape 的壳走 legacy（不计数）；A6 三个 Load 计数 0",
+    a6Skip: "body-legacy: yield/await 语句待 R5 直建（AwaitStatementPossibleShape 的壳不接 Attach，legacy 收口）⇒ " +
+      "stmtLoads/exprOther 必然 >0，与 async function 本身是否直建无关（R4-Q5）",
+    note: "体内 `await g(a);` 由 AwaitStatementPossibleShape 的壳走 legacy（不计数）。A6 **只记读数**（Q5：body-legacy，" +
+      "`await g(a);` 待 R5 直建），不强制 0；AST==tsc、XML==基线、expectBuilt 精确仍强制",
     markers: ["AsyncKeyword"] },
   { id: "R4-B4-pos-05", src: "({ m(a) { return a; } })", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "表达式语句(1) + 方法体 `return a;`(1)；ObjectLiteralExpression[MethodDeclaration[Identifier m, Parameter a, " +
@@ -1797,6 +1821,17 @@ function evaluateCase(ctx, c) {
     add("A6", "SKIP", `Load 计数不可用：${loads.error || "产物缺失"}`);
   } else if (!isPosLike) {
     add("A6", "SKIP", `${kind} 不断言（不走直建 session 或必然回落旧路径，Load >0）`);
+  } else if (c.a6Skip) {
+    // 【R4-Q5/Q6】只记读数、不判 0：body-legacy（yield/await 语句待 R5 直建）与 switch 子句语句的 legacy 收口
+    const expectNote = typeof c.a6ExpectStmtLoads === "number"
+      ? `；期望 stmtLoads=${c.a6ExpectStmtLoads}（=子句语句数）`
+      : "";
+    add("A6", "SKIP", `${loadDetail}${expectNote}（A6 SKIP：${c.a6Skip}；读数仅记录，--expect-direct 也不强制 0）`, {
+      enforced: false,
+      a6Skip: c.a6Skip,
+      a6ExpectStmtLoads: typeof c.a6ExpectStmtLoads === "number" ? c.a6ExpectStmtLoads : null,
+      loadSnap: { ...loadSnap, effectiveLoads: legacy },
+    });
   } else if (flags.expectDirect) {
     const ok = legacy === 0 && loadSnap.exprOtherDirect === 0;
     add("A6", ok ? "PASS" : "FAIL", `${loadDetail}（A6 口径：旧路径事后 Build/reparse 次数须为 0；R2-D5 要求 exprOtherDirect==0）`, {
@@ -2458,6 +2493,10 @@ async function main() {
         q1Reverted: Boolean(result.case.q1Reverted),
         q4Reverted: Boolean(result.case.q4Reverted),
         incompleteOk: Boolean(result.case.incompleteOk),
+        a6Skip: result.case.a6Skip || null,
+        a6ExpectStmtLoads: typeof result.case.a6ExpectStmtLoads === "number"
+          ? result.case.a6ExpectStmtLoads
+          : null,
         categories: result.case.categories || null,
         injection: result.case.injection || null,
         assertions: result.assertions,
