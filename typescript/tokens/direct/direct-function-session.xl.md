@@ -14,6 +14,7 @@ import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { DirectSession } from "./direct-build-session.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
+import { DirectTypeAssembly } from "./direct-type-assembly.xl.md"
 ```
 
 # namespace cangjie
@@ -48,9 +49,13 @@ async function f(a) { await g(a); } -> [AsyncKeyword async, Identifier f, Parame
 declare function f();           -> Decline(stmt.func)
 function f<T>() {}              -> Decline(stmt.func)（泛型头）
 function* g<T>() {}             -> Decline(stmt.func)（泛型头 + 生成器星号）
-function f(): number {}         -> Decline(stmt.func)（返回类型）
-function f(a = 1) {}            -> Decline(stmt.func)（默认值，参数表里有 `=`）
-function f(...a) {}             -> Decline(stmt.func)（rest，参数表里有 `...`）
+function f(): number {}         -> [Identifier f, NumberKeyword, Block]（R5-D1-b）
+function f(a: number): number { return a; } -> [Identifier f, Parameter(a, NumberKeyword), NumberKeyword, Block]
+function f(a?: number) {}       -> [Identifier f, Parameter(a, QuestionToken, NumberKeyword), Block]
+function f(...a: Array<number>) {} -> [Identifier f, Parameter(DotDotDotToken, a, ArrayType), Block]
+function f(a = 1) {}            -> Decline(stmt.func)（默认值，参数表里有 `=` ⇒ ExpressionBuilder）
+function f(...a) {}             -> Decline(stmt.func)（rest 无类型注解：R3 的旧口径不变）
+function f<T>() {}              -> Decline(stmt.func)（泛型头）
 ```
 
 ## field Owner:Token | null
@@ -266,56 +271,85 @@ return shape;
 ## method BuildDeclaration:(code:Array<Token>, codeAt:Array<int>)=>Token | null
 
 ```ts
-// R4-B4-a/b 的形态表（同一方法只看 `code` 的 token 布局；长度 + 文本判据，不做符号解析）：
-//   function name ( ) {}        = 4  [function, name, (), {}]            （R3 行为，不变）
-//   function * name ( ) {}      = 5  [function, *, name, (), {}]         （R4-B4-a）
-//   async function name ( ) {}  = 5  [async, function, name, (), {}]     （R4-B4-b）
-// 其余长度（修饰词 / 泛型头 / 返回类型 / ambient 无体）一律 Decline(`stmt.func`)：
-// `function* g<T>() {}` 是 8 格（`<` `T` `>` 各一格），自然落在表外。
+// R5-D1-b：形态判据从「长度表」改为「按位置扫描」——返回类型是**一段**单元（不是一格），
+// 长度表表达不了。位置口径与 legacy `FunctionDeclarationShape.FromUnits` 一致：
+//   [async?] function [*?] name ( params… ) [: returnType…] body
+// 其余形态（修饰词 / 泛型头 / ambient 无体）一律 Decline(`stmt.func`) ⇒ 旧路径建树（AST 不变）。
 //
 // 不调用 `FunctionDeclarationShape.FromUnits` 的理由见文件头注释（它有体会 `new StatementBuilder`）。
-let form = 0;
-if (code.length === 4 && this.IsText(code[0], "function")) {
-  form = 0;
-} else if (code.length === 5 && this.IsText(code[0], "function") && this.IsSymbolText(code[1], "*")) {
-  form = 1;
-} else if (code.length === 5 && this.IsText(code[0], "async") && this.IsText(code[1], "function")) {
-  form = 2;
-} else {
-  this.Decline("函数声明形态不在本轮范围（修饰词/泛型/返回类型/无体）: " + String(code.length) + " 个代码单元",
-    "stmt.func");
-  return null;
+let at = 0;
+let asyncUnit:Token | null = null;
+if (this.IsText(code[0], "async")) {
+  asyncUnit = code[0];
+  at = 1;
 }
-const asyncUnit = form === 2 ? code[0] : null;
-const keyword = form === 2 ? code[1] : code[0];
-if (!this.IsText(keyword, "function")) {
+if (at >= code.length || !this.IsText(code[at], "function")) {
   this.Decline("函数声明缺少 function 关键字", "stmt.func");
   return null;
 }
-// 生成器的 `*` 在 `function` 与名字之间（= code[1]），名字后移到 code[2]。
-const asteriskUnit = form === 1 ? code[1] : null;
-const nameUnit = form === 0 ? code[1] : code[2];
+const keyword = code[at];
+at = at + 1;
+let asteriskUnit:Token | null = null;
+if (at < code.length && this.IsSymbolText(code[at], "*")) {
+  asteriskUnit = code[at];
+  at = at + 1;
+}
+if (at >= code.length) {
+  this.Decline("函数声明缺少名字", "stmt.func");
+  return null;
+}
+const nameUnit = code[at];
+at = at + 1;
 if (!(nameUnit instanceof Common)) {
   this.Decline("函数声明的名字不是标识符", "stmt.func");
   return null;
 }
-const parameters = form === 0 ? code[2] : code[3];
-if (!this.IsOpenParen(parameters)) {
-  this.Decline("函数声明缺少参数表", "stmt.func");
+if (at >= code.length || !this.IsOpenParen(code[at])) {
+  this.Decline("函数声明缺少参数表（泛型头属 R6）", "stmt.func");
   return null;
 }
-const body = form === 0 ? code[3] : code[4];
+const parameters = code[at];
+at = at + 1;
+let returnColon:Token | null = null;
+if (at < code.length && this.IsSymbolText(code[at], ":")) {
+  returnColon = code[at];
+  at = at + 1;
+}
+if (at >= code.length) {
+  this.Decline("函数声明缺少函数体（ambient / 签名形态属 R6）", "stmt.func");
+  return null;
+}
+const body = code[code.length - 1];
 if (!this.IsOpenBrace(body)) {
-  this.Decline("函数声明缺少函数体（ambient / 签名形态属 R4）", "stmt.func");
+  this.Decline("函数声明缺少函数体（ambient / 签名形态属 R6）", "stmt.func");
   return null;
 }
-// 参数表只接受纯 Identifier 参数（R3-CONTRACT §1.2 B2-1）：默认值 / rest / 类型注解 / 可选 /
-// 解构 / 装饰器都在这一格拒掉。这一条是 A6 的守卫：`BuildParameters` 遇到这些形态会走
-// `ParseParameter` → `ExpressionBuilder`（R3-R3 的 `exprOtherDirect` 风险），所以**必须先拒**。
+const returnUnits:Array<Token> = [];
+if (returnColon !== null) {
+  if (at > code.length - 2) {
+    this.Decline("函数声明的返回类型为空", "stmt.func");
+    return null;
+  }
+  for (let cursor = at; cursor < code.length - 1; cursor++) {
+    returnUnits.push(code[cursor]);
+  }
+} else if (at !== code.length - 1) {
+  this.Decline("函数声明形态不在本轮范围（参数表与体之间还有单元）", "stmt.func");
+  return null;
+}
+// 参数门：**纯 Identifier 参数仍走 R3 的 `ParametersAreIdentifiers`**（guard：R3-B2-pos 读数不变），
+// 只有它拒掉、且新门认下「带类型注解的参数表」时才继续。这一条是 A6 的守卫：默认值会走
+// `TakeParameterInitializer` → `ExpressionBuilder`，所以 `=` 必须先拒（新门里拒）。
 if (!this.ParametersAreIdentifiers(parameters as Bracket)) {
-  this.Decline("函数参数不在本轮范围（默认值/rest/类型注解/解构）", "stmt.func");
-  return null;
+  if (!this.ParametersAreTypeAnnotated(parameters as Bracket)) {
+    this.Decline("函数参数不在本轮范围（默认值/解构/无类型注解的 rest）", "stmt.func");
+    return null;
+  }
+  DirectBuildMetrics.Trace("function parameters annotated");
 }
+// 体必须是**已收口**的块：体内语句由它们自己的壳建（`BuiltChildren` 见到未收口的 `StatementShape`
+// 就返回 null）。`BlockFrom` 已经包含 `CollectBodyStatements` 的第一条语句 Pos 纠正。
+// `yield a;` / `await g(a);` 也在这条通道里：它们由自己的壳（无 session）走 legacy 收口，本 session 只收集。
 // 体必须是**已收口**的块：体内语句由它们自己的壳建（`BuiltChildren` 见到未收口的 `StatementShape`
 // 就返回 null）。`BlockFrom` 已经包含 `CollectBodyStatements` 的第一条语句 Pos 纠正。
 // `yield a;` / `await g(a);` 也在这条通道里：它们由自己的壳（无 session）走 legacy 收口，本 session 只收集。
@@ -360,10 +394,24 @@ shape.FunctionName = name;
 const builtParameters = FunctionDeclarationShape.BuildParameters(this.Owner as Token, parameters as Bracket,
   this.Context);
 shape.Parameters = builtParameters;
+// R5-D1-b：返回类型在**参数之后、体之前**（tsc 实测），载体是 `shape.ReturnType` + 一个子节点。
+let returnType:Token | null = null;
+if (returnUnits.length > 0 && returnColon !== null) {
+  const typePos = returnColon.SourceRange.EndIndex >= 0 ? returnColon.SourceRange.EndIndex : this.BasePos;
+  returnType = DirectTypeAssembly.ReturnTypeOf(returnUnits, typePos, this.Template, this.Context);
+  if (returnType === null) {
+    this.Decline("函数返回类型无法直建: " + DirectTypeAssembly.LastReason, "stmt.func");
+    return null;
+  }
+  shape.ReturnType = returnType;
+}
 shape.Body = block;
 shape.Add(name);
 for (const parameter of builtParameters) {
   shape.Add(parameter);
+}
+if (returnType !== null) {
+  shape.Add(returnType);
 }
 shape.Add(block);
 // 区间 / Pos / 关闭 = `Finish(shape, first, last)`；`first` = `function`（async 形态是 `async`，
@@ -371,6 +419,74 @@ shape.Add(block);
 const head = asyncUnit === null ? keyword : asyncUnit;
 DirectStatementAssembly.Span(shape, head, body, this.BasePos, this.Context);
 return shape;
+```
+
+## method ParametersAreTypeAnnotated:(bracket:Bracket)=>bool
+
+```ts
+// R5-D1-b 的新参数门（**与 `ParametersAreIdentifiers` 并存**，不替换）：承认的形态是
+// 「至少一个参数带类型注解」+ 只含 `BuildParameters` / `ParseParameter` 能安全处理的单元。
+// 允许：参数名（Common 标识符）/ `,` / `...`（rest）/ `?` / `?:` / `:` / 类型位里的任意单元
+// （Common 关键字、Symbol、嵌套括号：函数类型 / 元组 / 类型字面量）。
+// 必须拒：`=`（默认值 ⇒ `TakeParameterInitializer` ⇒ ExpressionBuilder，A6 必然 >0）、
+// `@`（装饰器）、参数名位的括号（解构绑定）、以及**整表没有任何 `:`** 的形态
+// （`f(...a)` / `f(a?)`：R3 的旧口径必须保持 Decline，R3-B2-neg-02 钉住）。
+const inner:Array<Token> = bracket.Data;
+let expectName = true;
+let seen = 0;
+let sawColon = false;
+let lastWasComma = false;
+for (const unit of inner) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === ",") {
+      if (expectName) {
+        return false;                        // `f(,)` / `f(a,,b)`
+      }
+      expectName = true;
+      lastWasComma = true;
+      continue;
+    }
+    if (text === "=" || text === "@") {
+      return false;                          // 默认值 / 装饰器：都不在本轮直建范围
+    }
+    if (expectName) {
+      if (text !== "...") {
+        return false;                        // 参数名位只能是标识符（`...` 之后仍等名字）
+      }
+      lastWasComma = false;
+      continue;
+    }
+    if (text === ":" || text === "?:") {
+      sawColon = true;
+    }
+    lastWasComma = false;
+    continue;                                // 类型位里的符号（`?` / `=>` / `|` / `<` / `>` …）
+  }
+  if (unit instanceof Common) {
+    if (expectName) {
+      if ((unit as Common).CanStartNumber()) {
+        return false;                        // `f(1)`：数值不是标识符参数
+      }
+      expectName = false;
+      seen = seen + 1;
+    }
+    lastWasComma = false;
+    continue;
+  }
+  if (unit instanceof Bracket) {
+    if (expectName) {
+      return false;                          // 解构模式形参（`{a}` / `[a]`）：不在参数注解门内
+    }
+    lastWasComma = false;
+    continue;                                // 类型位里的括号（函数类型 / 元组 / 类型字面量）
+  }
+  return false;
+}
+return seen > 0 && sawColon && (!expectName || lastWasComma);
 ```
 
 ## method ParametersAreIdentifiers:(bracket:Bracket)=>bool

@@ -11,9 +11,11 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 import { VariableDeclarationListShape } from "../declarations/variable-declaration-list-shape.xl.md"
 import { VariableStatementShape } from "../statements/variable-statement-shape.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 import { DirectSession } from "./direct-build-session.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 import { DirectExpressionEngine } from "./direct-expression-engine.xl.md"
+import { DirectTypeAssembly } from "./direct-type-assembly.xl.md"
 ```
 
 # namespace cangjie
@@ -44,6 +46,11 @@ const enum E { … }   -> Decline（enum 属范围外语句族），走旧路径
 ## static field ExpectSep:int = 4
 
 ## static field Done:int = 5
+
+## static field ExpectType:int = 6
+
+R5-D1-a：`:` 之后缓冲类型单元；`=` / `,` / `;` 到达时先 `FlushType`（`DirectTypeAssembly`），
+再把这个分隔符交回 `IngestEqualOrSep`。既有 0–5 的含义**一个都没变**。
 
 ## field Owner:Token | null
 
@@ -86,6 +93,12 @@ const enum E { … }   -> Decline（enum 属范围外语句族），走旧路径
 ## field LastDeclarationEnd:int = -1
 
 ## field EqualAt:int = -1
+
+## field TypeUnits:Array<Token> = []
+
+## field TypeStart:int = -1
+
+## field TypeDepth:int = 0
 
 ## constructor:(template:Template, context:SyntaxContext, basePos:int, owner:Token)=>void
 
@@ -212,6 +225,10 @@ if (this.Expect === VariableStatementDirectSession.ExpectEqualOrSep) {
   this.IngestEqualOrSep(unit, at, pos, context);
   return;
 }
+if (this.Expect === VariableStatementDirectSession.ExpectType) {
+  this.IngestType(unit, at, pos, context);
+  return;
+}
 if (this.Expect === VariableStatementDirectSession.ExpectInitializer) {
   this.IngestInitializer(unit, at, pos, context);
   return;
@@ -295,11 +312,74 @@ if (unit instanceof Symbol) {
     return;
   }
   if (text === ":" || text === "!") {
-    this.Decline("变量声明的类型注解 / 确定赋值断言属范围外", "var.type");
+    if (text === ":") {
+      // R5-D1-a：冒号之后进入类型缓冲态（`TypeStart` = 冒号的 EndIndex，= legacy
+      // `BuildVariableDeclarationList` 的 `Positions[typeFirst]` / `TypeBuilder.Load` 的 `basePos`）。
+      this.TypeStart = unit.SourceRange.EndIndex >= 0 ? unit.SourceRange.EndIndex : pos;
+      this.TypeUnits = [];
+      this.TypeDepth = 0;
+      this.Expect = VariableStatementDirectSession.ExpectType;
+      DirectBuildMetrics.Trace("variable ingest annotation");
+      return;
+    }
+    // `let x!: T` 的确定赋值断言 `!` 仍属范围外（R5 不做）：Decline 后旧路径建树，AST 不变。
+    this.Decline("确定赋值断言属范围外", "var.type");
     return;
   }
 }
 this.StoppedAt = at;
+```
+
+## method IngestType:(unit:Token, at:int, pos:int, context:SyntaxContext)=>void
+
+```ts
+// 类型单元的缓冲态：`=` / `,` / `;`（**顶层**，即尖括号深度 0）才是类型结束。
+// 尖括号深度用 `AngleJudge.ScanDepth`（`<` +1 / `>` -1 / `>>` -2 / `>>>` -3），
+// 与 legacy `BuildVariableDeclarationList` 的内联写法同义 —— 只复用既有判据，不写第二份。
+// 括号（`(…)` / `[…]` / `{…}`）在扫描器里是**原子单元**，内部的 `,` 进不到这一层。
+if (this.TypeDepth === 0 && unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  if (text === "=" || text === "," || text === ";") {
+    if (!this.FlushType(context)) {
+      return;
+    }
+    this.IngestEqualOrSep(unit, at, pos, context);
+    return;
+  }
+}
+this.TypeUnits.push(unit);
+if (unit instanceof Symbol) {
+  this.TypeDepth = AngleJudge.ScanDepth(unit, this.TypeDepth);
+  if (this.TypeDepth < 0) {
+    this.TypeDepth = 0;
+  }
+}
+```
+
+## method FlushType:(context:SyntaxContext)=>bool
+
+```ts
+// 把缓冲下来的类型单元交给 `DirectTypeAssembly`（只读复用 `TypeBuilder`，A6 不计）。
+// 失败 ⇒ `Decline("…", "var.type")`（旧路径接管，AST 不变）；成功 ⇒ 类型作为声明子节点，
+// 子节点顺序 `[Identifier, Type(, Initializer)]` 与 legacy 逐位一致。
+if (this.Declaration === null) {
+  this.Decline("声明状态不完整", "var.type");
+  return false;
+}
+if (this.TypeUnits.length === 0) {
+  this.Decline("变量声明的类型注解为空", "var.type");
+  return false;
+}
+const type = DirectTypeAssembly.TypeOf(this.TypeUnits, this.TypeStart, this.Template, this.Context);
+if (type === null) {
+  this.Decline("变量声明的类型注解无法直建: " + DirectTypeAssembly.LastReason, "var.type");
+  return false;
+}
+this.TypeUnits = [];
+this.TypeDepth = 0;
+this.Declaration.Add(type);
+DirectBuildMetrics.Trace("variable flush type: end=" + String(type.SourceRange.EndIndex));
+return true;
 ```
 
 ## method IngestInitializer:(unit:Token, at:int, pos:int, context:SyntaxContext)=>void
@@ -408,9 +488,11 @@ if (this.Declaration === null || this.List === null) {
   this.Decline("声明状态不完整", "var.init");
   return;
 }
-const name = this.Declaration.Last();
-if (name !== null && name.SourceRange.EndIndex >= 0) {
-  this.Declaration.SignOut(name.SourceRange.EndIndex);
+// 无初始化器的声明：`let x`（只有名字）或 `let x: T`（名字 + 类型）。区间收到**最后一个子节点**
+// （有类型时是 Type，否则是 Identifier），与 legacy `Finish(declaration, nameIndex, declarationLast)` 同口。
+const lastChild = this.Declaration.Last();
+if (lastChild !== null && lastChild.SourceRange.EndIndex >= 0) {
+  this.Declaration.SignOut(lastChild.SourceRange.EndIndex);
 }
 this.Declaration.TryToClose(context);
 this.List.Add(this.Declaration);
@@ -448,6 +530,17 @@ if (this.Declined) {
 if (this.StoppedAt >= 0 && this.StoppedAt <= endIndex) {
   this.Decline("语句内出现无法接续的单元 idx=" + String(this.StoppedAt), "var.stopped");
   return null;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectType) {
+  // `let x: Array<T>;`（无初始化器）与 ASI `let x: number`（EOF 收口）：类型缓冲在这里结账。
+  if (!this.FlushType(context)) {
+    return null;
+  }
+  this.CloseDeclarationWithoutInitializer(context);
+  if (this.Declined) {
+    return null;
+  }
+  this.Expect = VariableStatementDirectSession.ExpectSep;
 }
 if (this.Expect === VariableStatementDirectSession.ExpectInitializer) {
   if (!this.CloseDeclarationWithInitializer(context, endIndex + 1)) {

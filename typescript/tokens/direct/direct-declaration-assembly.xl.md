@@ -9,23 +9,28 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { VariableDeclarationListShape } from "../declarations/variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
 import { DirectTokenUtil } from "./direct-token-util.xl.md"
+import { DirectTypeAssembly } from "./direct-type-assembly.xl.md"
 ```
 
 # namespace cangjie
 
-`VariableDeclarationList` 的**直建**版（R4-CONTRACT §4.3）：只做「Identifier 名字 + 可选初始化器」子集，
-给 `for` 头部的声明列表（`for (let i = 0; …)` / `for (const k in o)` / `for (const v of xs)`）用。
+`VariableDeclarationList` 的**直建**版（R4-CONTRACT §4.3）：只做「Identifier 名字 + 可选类型注解 +
+可选初始化器」子集，给 `for` 头部的声明列表（`for (let i = 0; …)` / `for (const k in o)` /
+`for (const v of xs)`）用。
 
-**A6（必须遵守）**：本类**不调** `StatementBuilder`、不调 `TypeBuilder`、不调 `ExpressionBuilder`，
-只抄 `StatementBuilder.BuildVariableDeclarationList`（`statement-builder.xl.md:1610-1767`）的
-Pos / 区间 / 子节点顺序；初始化器走 `DirectStatementAssembly.ExpressionOf`（= `DirectExpressionEngine`）。
+**A6（必须遵守）**：本类**不调** `StatementBuilder`、不调 `ExpressionBuilder`；类型注解经
+`DirectTypeAssembly` 只读复用 `TypeBuilder`（**不计 A6**，R2 `as` 起同口径）。Pos / 区间 / 子节点顺序
+仍逐条照抄 `StatementBuilder.BuildVariableDeclarationList`（`statement-builder.xl.md:1610-1767`）；
+初始化器走 `DirectStatementAssembly.ExpressionOf`（= `DirectExpressionEngine`）。
 
 范围外一律返回 `null` 并把原因写进 `LastReason` / `LastCategory`（调用方 `Decline`，不抛）：
 
 ```txt
-for (let i: number = 0; ;)   -> stmt.type     （类型注解 / 确定赋值断言 `!`）
+for (let i: number = 0; ;)   -> 直建（R5-D1-c 尽力项：类型注解与变量声明同口）
+for (let x!: T = 0; ;)       -> stmt.type     （确定赋值断言 `!` 仍不做）
 for (let {a} = b; ;)         -> stmt.binding  （解构绑定 / 名字不是标识符）
 for (let i = <范围外表达式>) -> stmt.expr
 for (using …)                -> stmt.head     （`using` 声明本轮不接）
@@ -118,15 +123,52 @@ while (at < endExclusive) {
   declaration.Add(name);
   let declarationLast = nameIndex;
   at = at + 1;
-  // 确定赋值断言 `let x!: T` 与类型注解 `let x: T`：都是 VariableDeclaration 的额外子节点
-  // （`ExclamationToken` / `Type`），本轮不做 ⇒ stmt.type。
-  if (at < endExclusive) {
-    const afterName = DirectStatementAssembly.TextOf(units[codeAt[at]]);
-    if (afterName === ":" || afterName === "!") {
-      DirectDeclarationAssembly.LastReason = "声明的类型注解 / 确定赋值断言属范围外";
+  // 确定赋值断言 `let x!: T` 仍属范围外（ExclamationToken 子节点本轮不做）⇒ stmt.type。
+  if (at < endExclusive && DirectStatementAssembly.TextOf(units[codeAt[at]]) === "!") {
+    DirectDeclarationAssembly.LastReason = "声明的确定赋值断言属范围外";
+    DirectDeclarationAssembly.LastCategory = "stmt.type";
+    return null;
+  }
+  // `let x: T`：类型注解是 VariableDeclaration 的子节点，位置在名字之后、初始化器之前。
+  // 扫描口径逐字照抄 legacy（尖括号深度 0 的 `=` / `,` 才是类型结束；括号是原子单元）。
+  if (at < endExclusive && DirectStatementAssembly.TextOf(units[codeAt[at]]) === ":") {
+    const colonUnit = units[codeAt[at]];
+    const typeFirst = at + 1;
+    let typeEnd = typeFirst;
+    let typeDepth = 0;
+    while (typeEnd < endExclusive) {
+      const typeUnit = units[codeAt[typeEnd]];
+      if (typeDepth === 0) {
+        const typeText = DirectStatementAssembly.TextOf(typeUnit);
+        if (typeText === "=" || typeText === ",") {
+          break;
+        }
+      }
+      typeDepth = AngleJudge.ScanDepth(typeUnit, typeDepth);
+      if (typeDepth < 0) {
+        typeDepth = 0;
+      }
+      typeEnd = typeEnd + 1;
+    }
+    if (typeEnd <= typeFirst) {
+      DirectDeclarationAssembly.LastReason = "声明的类型注解为空";
       DirectDeclarationAssembly.LastCategory = "stmt.type";
       return null;
     }
+    const typeUnits:Array<Token> = [];
+    for (let cursor = typeFirst; cursor < typeEnd; cursor++) {
+      typeUnits.push(units[codeAt[cursor]]);
+    }
+    const typePos = colonUnit.SourceRange.EndIndex >= 0 ? colonUnit.SourceRange.EndIndex : namePos;
+    const typeNode = DirectTypeAssembly.TypeOf(typeUnits, typePos, template, context);
+    if (typeNode === null) {
+      DirectDeclarationAssembly.LastReason = "声明的类型注解无法直建: " + DirectTypeAssembly.LastReason;
+      DirectDeclarationAssembly.LastCategory = "stmt.type";
+      return null;
+    }
+    declaration.Add(typeNode);
+    declarationLast = typeEnd - 1;
+    at = typeEnd;
   }
   if (at < endExclusive && DirectStatementAssembly.TextOf(units[codeAt[at]]) === "=") {
     const initializerFirst = at + 1;
