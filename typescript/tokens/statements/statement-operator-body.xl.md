@@ -350,6 +350,17 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 本实例是不是圆括号内部建的**嵌套体**（`BuildOperand` 里建）：嵌套体的结构只属于外层括号节点，
 **不单独发布**到 `ShapeTexts`，也不计入 `TotalBodies`。
 
+## field ArrowParamTable:bool = false
+
+「宿主括号后面紧跟 `=>`」的嵌套体标记（S3n 参数表保护）：为 `true` 时，本体内出现的逗号是**参数分隔符**
+而不是逗号运算符，`Ingest` 直接 `Fail`——`BuildOperand` 于是把括号退回**未解析参数表**（`params`），
+箭头仍由 legacy `ParseAssign` 的箭头分支建树，与 S3l 的 `(a, b) => …` 完全同形。
+
+**为什么需要它**：`(a, b)` 的圆括号同时是「参数表候选」与「括号表达式」。S3l 时代逗号不是运算符，
+括号内体必然失败、天然退成 `params`；S3n 让逗号可解析之后，若不看前瞻，`(a, b) => …` 会变成
+`arrow((a,b))`（参数表被当成逗号表达式），与 legacy 的箭头树不同形，`op-ast-proof` 的箭头用例立刻红。
+只看宿主括号之后的下一个代码单元是不是 `=>`，不改 `StartArrow`、不拆参数表。
+
 ## field Slot:int = -1
 
 本体在 `ShapeTexts` 里的槽位；`-1` 表示还没发布过。同一个体每格求值都把**同一个槽位覆盖**成最新结构——
@@ -626,10 +637,31 @@ if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
   if (text !== "" && OperatorTable.IsAssignmentOperator(text)) {
     this.PushAssignment(unit, text, template);
     return;
-  }if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
-  this.PushBinary(unit, text, template);
-  return;
-}
+  }
+  if (text === ",") {
+    // S3n：逗号表达式（`Expression := AssignmentExpression ("," AssignmentExpression)*`）。
+    // 优先级只取 `OperatorTable.CommaPrecedence`（比赋值帧还低、左结合），**不经过 `PushBinary`**——
+    // `Precedence(",")` 仍是未知哨兵 -1、`IsBinaryOperator(",")` 仍为 false，legacy 的二元循环看不见它。
+    if (this.ArrowParamTable) {
+      // 参数表保护：宿主括号后面紧跟 `=>`，这里的逗号是参数分隔符而不是运算符。让本嵌套体不完整，
+      // 括号因此退回未解析参数表（`params`），箭头仍由 legacy `ParseAssign` 的箭头分支建（与 S3l 同形）。
+      this.Fail("圆括号参数表里的逗号");
+      return;
+    }
+    if (this.Frames.length > 0
+      && this.FramePrecs[this.FramePrecs.length - 1] === StatementOperatorBody.CondPrecedence) {
+      // 条件帧永不被 `PushOperator` 弹掉（S3h：`a ? b : c = d` 的赋值属于假分支）。逗号比条件还低，
+      // 若落进那个帧会建出非法的 `?(a,b,,(c,d))`；这里判不完整、整条退 legacy（`a ? b : c, d` 由 legacy 正确建树）。
+      this.Fail("条件表达式与逗号的分层");
+      return;
+    }
+    this.PushOperator(unit, text, OperatorTable.CommaPrecedence, false, template);
+    return;
+  }
+  if (text !== "" && StatementOperatorBody.IsSupportedBinary(text)) {
+    this.PushBinary(unit, text, template);
+    return;
+  }
   if (text === "?") {
     this.StartConditional(unit, template);
     return;
@@ -746,6 +778,7 @@ if (unit instanceof Bracket) {
   }
   const inner = new StatementOperatorBody(template);
   inner.Nested = true;
+  inner.ArrowParamTable = StatementOperatorBody.ParenFeedsArrow(this.Units, bracket);
   inner.IngestAll(bracket.Data, template);
   if (inner.Incomplete || !inner.IsComplete()) {
     // S3l：`(a, b) => …` 的参数表 / 空参数 `()` / 解构参数不是表达式，形状层不解释括号内容，
@@ -1626,10 +1659,36 @@ if (unit instanceof Symbol) {
 return "";
 ```
 
+## static method ParenFeedsArrow:(units:Array<Token>, bracket:Bracket)=>bool
+
+**参数表前瞻**（S3n）：括号宿主之后的下一个**代码单元**是不是 `=>`。`(a, b) => …` 的圆括号同时是
+「参数表候选」与「括号表达式」，S3n 让逗号可解析之后，必须靠这一格前瞻把它们区分开：
+
+- 是 `=>`：括号内体标记 `ArrowParamTable`，逗号按参数分隔处理（本体失败 → `params`），
+  箭头树与 legacy 同形，`op-ast-proof` 的 `arrow(params)` 文本不变；
+- 不是：逗号按运算符处理，`(a, b) + c` 得到 `+((a,b),c)`。
+
+只读 `Units` 与文本，不改 `StartArrow`、不解析参数表、不建任何节点。找不到括号（不在本壳单元里）时返回 `false`。
+
+```ts
+const at = units.indexOf(bracket);
+if (at < 0) {
+  return false;
+}
+for (let scan = at + 1; scan < units.length; scan++) {
+  if (units[scan].IsTriviaToken) {
+    continue;
+  }
+  return StatementOperatorBody.TextOfToken(units[scan]) === "=>";
+}
+return false;
+```
+
 ## static method IsSupportedBinary:(text:string)=>bool
 
 S3d：二元运算符集合**整体委托**给 `OperatorTable`（优先级数值仍只在那一处写），所以比较族 / 逻辑 / 位 / 移位 /
-`**` / `instanceof` / `in` 全都在内，赋值与逗号（优先级 -1）自然被排除，不在这里另写一份清单。
+`**` / `instanceof` / `in` 全都在内，赋值与逗号（`Precedence` 对两者都返回 -1）自然被排除，不在这里另写一份清单。
+逗号有自己的帧级分支（S3n，取 `OperatorTable.CommaPrecedence`），同样不经过这里。
 
 ```ts
 return OperatorTable.IsBinaryOperator(text);

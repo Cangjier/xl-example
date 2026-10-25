@@ -1,15 +1,19 @@
 #!/usr/bin/env node
-// S3k 专用取证：逗号运算符 / `import.meta` / 动态 `import()` 的**安全回退契约**。
+// S3n 专用取证：逗号运算符**必须由形状树接管**；`import` 表达式 / 声明头仍是边界，台账保持。
 //
-// 本组**不**声称这些构造已被形状层接管——它们没有。它钉住的是三条当前事实：
-//   ① 壳路径 XML == legacy 路径 XML，逐字节（回退是安全的，不是另一棵树）；
-//   ② 壳路径没有触发文件级 fallback，也没有把形状节点泄漏进 XML；
-//   ③ 参数 / 数组 / 对象字面量**内部**的逗号不被误当序列：控制组仍由形状树接管（shapeAst >= 1）。
+// 分组语义（S3n 起与 S3k 相反，逗号从「保守回退」翻成「必须接管」）：
+//   comma    —— 逗号表达式必须由形状树接管：`shapeAst === 1`、`declined === 0`，且形状结构文本逐条断言。
+//               同时仍钉住安全契约：壳路径 XML == legacy 路径 XML 逐字节、无文件级 fallback、无形状节点泄漏。
+//   import   —— `import.meta` / 动态 `import()` 今天已经 `shapeAst=1`（表达式位），只进台账、不写成「必须回退」；
+//               `import x from "m";` 是**声明**，声明头仍走 legacy：显式断言 `shapeAst === 0 && declined === 0`。
+//   control  —— 参数 / 数组 / 对象字面量**内部**的逗号不是序列：控制组仍由形状树接管（shapeAst >= 1）。
+//
+// 逗号运算符的 AST 形状在 TS 6.0.3 里就是 `BinaryExpression + CommaToken`（**没有 SequenceExpression**），
+// 所以本组断言的是「谁来建树」与结构文本，不是节点种类——`ast-json` 的快照零变化才是树不变的证据。
 //
 // 每条用例同时打印 TotalShapeAst / TotalDeclined / LastDeclineReason / 形状文本 / TS 节点种类，
-// 作为「未覆盖构造保持保守拒绝」的可复核台账。将来若有人改了树却没改用例，这里会先红：
-// 要么 shapeAst 从 0 变 1（接管了，但没有 SequenceExpression 的专用断言），
-// 要么 XML 与 legacy 不再逐字节相同（回退契约被破坏）。
+// 作为可复核台账。将来若有人动了树却没改用例，这里会先红：
+// 要么逗号组的 shapeAst 掉回 0（退回 legacy）、要么结构文本变了、要么 XML 与 legacy 不再逐字节相同。
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -113,17 +117,31 @@ function tsKindOf(source) {
   };
 }
 
-// kind "comma" / "import"：未覆盖，只钉回退契约与台账。
+function sameList(left, right) {
+  if (left.length !== right.length) return false;
+  for (let at = 0; at < left.length; at++) {
+    if (left[at] !== right[at]) return false;
+  }
+  return true;
+}
+
+// kind "comma"：必须被形状树接管（shapeAst === 1、declined === 0），形状结构文本逐条断言。
+// kind "import"：表达式位只进台账；声明头（declaration:true）断言仍走 legacy（shapeAst === 0）。
 // kind "control"：参数 / 数组 / 对象内部的逗号，必须仍由形状树接管（shapeAst >= 1）。
 const cases = [
-  { name: "comma-plain", kind: "comma", source: "a, b;" },
-  { name: "comma-call", kind: "comma", source: "f(), g();" },
-  { name: "comma-assign", kind: "comma", source: "a = (1, 2);" },
-  { name: "comma-mixed", kind: "comma", source: "f(a, b), g(c);" },
-  { name: "comma-add", kind: "comma", source: "(a, b) + c;" },
+  { name: "comma-plain", kind: "comma", source: "a, b;", shapeTexts: [",(a,b)"] },
+  { name: "comma-call", kind: "comma", source: "f(), g();", shapeTexts: [",(call(f),call(g))"] },
+  { name: "comma-assign", kind: "comma", source: "a = (1, 2);", shapeTexts: ["=(a,(1,2))"] },
+  { name: "comma-mixed", kind: "comma", source: "f(a, b), g(c);", shapeTexts: [",(call(f),call(g))"] },
+  { name: "comma-add", kind: "comma", source: "(a, b) + c;", shapeTexts: ["+((a,b),c)"] },
+  { name: "comma-chain", kind: "comma", source: "a, b, c;", shapeTexts: [",(,(a,b),c)"] },
+  { name: "comma-assign-chain", kind: "comma", source: "a = 1, b = 2;", shapeTexts: [",(=(a,1),=(b,2))"] },
+  { name: "comma-paren", kind: "comma", source: "(a, b);", shapeTexts: ["(a,b)"] },
+  { name: "comma-nested-call", kind: "comma", source: "f((a, b));", shapeTexts: ["call(f)"] },
   { name: "import-meta-url", kind: "import", source: "import.meta.url;" },
   { name: "import-meta", kind: "import", source: "import.meta;" },
   { name: "import-dynamic", kind: "import", source: "import(\"x\");" },
+  { name: "import-declaration", kind: "import", source: "import x from \"m\";", declaration: true },
   { name: "control-call-args", kind: "control", source: "f(a, b);" },
   { name: "control-array", kind: "control", source: "[a, b];" },
   { name: "control-object", kind: "control", source: "({a: 1, b: 2});" },
@@ -160,6 +178,25 @@ for (const caseDef of cases) {
         if (shell.xml.includes(`<${tag}>`)) problems.push(`形状泄漏进 XML：<${tag}>`);
       }
     }
+    if (caseDef.kind === "comma") {
+      if (shell.shapeAst !== 1) {
+        problems.push(`逗号表达式未被形状树接管：shapeAst=${shell.shapeAst} declined=${shell.declined} 原因=${JSON.stringify(shell.declineReason)}`);
+      }
+      if (shell.declined !== 0) {
+        problems.push(`逗号表达式不应有拒绝记录：declined=${shell.declined} 原因=${JSON.stringify(shell.declineReason)}`);
+      }
+      if (!sameList(shell.texts, caseDef.shapeTexts)) {
+        problems.push(`逗号结构文本不符：期望 ${JSON.stringify(caseDef.shapeTexts)} 实际 ${JSON.stringify(shell.texts)}`);
+      }
+    }
+    if (caseDef.kind === "import" && caseDef.declaration === true) {
+      if (shell.shapeAst !== 0) {
+        problems.push(`import 声明头不应归形状树：shapeAst=${shell.shapeAst} texts=${JSON.stringify(shell.texts)}`);
+      }
+      if (shell.declined !== 0) {
+        problems.push(`import 声明头不应有拒绝记录：declined=${shell.declined} 原因=${JSON.stringify(shell.declineReason)}`);
+      }
+    }
     if (caseDef.kind === "control" && shell.shapeAst < 1) {
       problems.push(`控制组未由形状树接管：shapeAst=${shell.shapeAst} declined=${shell.declined}（参数/数组/对象内部逗号不能被误当序列，也不该整体退回 legacy）`);
     }
@@ -190,13 +227,19 @@ for (const caseDef of cases) {
 }
 
 console.log("");
-console.log("[ledger] 未覆盖构造的保守回退台账（形状层没有接管，AST 由 legacy 产出）：");
+console.log("[ledger] import 表达式 / 声明头台账（表达式位已由形状树接管，声明头仍走 legacy）：");
 for (const row of ledger) {
-  if (row.kind === "control") continue;
+  if (row.kind !== "import") continue;
   console.log(`  ${row.name}  source=${JSON.stringify(row.source)}  shapeAst=${row.shapeAst} declined=${row.declined}`);
   console.log(`      declineReason=${JSON.stringify(row.reason)}  tsExpression=${row.tsKind.expression}`);
   console.log(`      shapeNodes=${JSON.stringify(row.nodes)}  shapeTexts=${JSON.stringify(row.texts)}`);
 }
 console.log("");
-console.log(`[comma-import-fallback] cases=${cases.length} pass=${passed} fail=${failures.length}（契约：XML==legacy、无 fallback、无形状泄漏、控制组仍被接管）`);
+console.log("[ledger] 逗号表达式（S3n：由形状树接管，AST 仍是 BinaryExpression + CommaToken，与 TS 6.0.3 一致）：");
+for (const row of ledger) {
+  if (row.kind !== "comma") continue;
+  console.log(`  ${row.name}  source=${JSON.stringify(row.source)}  shapeAst=${row.shapeAst} declined=${row.declined} tsExpression=${row.tsKind.expression} texts=${JSON.stringify(row.texts)}`);
+}
+console.log("");
+console.log(`[comma-import-fallback] cases=${cases.length} pass=${passed} fail=${failures.length}（契约：逗号组 shapeAst=1/declined=0/文本逐条；XML==legacy、无 fallback、无形状泄漏；import 声明头仍 legacy；控制组仍被接管）`);
 if (failures.length > 0) process.exit(1);

@@ -99,6 +99,21 @@ return text === "!"
 把整条二元表达式收进赋值右支。`Precedence` 对它仍返回 -1（未知），因为 `ExpressionBuilder.ParseBinary` 的二元
 循环绝不能把 `=` 当二元运算符吃掉——赋值只由 `ParseAssign` 在条件表达式之后再判一次。本数值只给形状层建帧用。
 
+## static field CommaPrecedence:int = -1
+
+逗号运算符的帧优先级（S3n 形状层接管）：文法 `Expression := AssignmentExpression ("," AssignmentExpression)*`，
+所以逗号**比赋值帧 0 还低**——`a = 1, b = 2` 里逗号的左操作数是整条赋值（`",(=(a,1),=(b,2))"`），
+`a ? b : c, d` 里整个条件表达式是逗号左操作数。
+
+**这个 -1 与 `Precedence` 的 -1 不是同一语义**：`Precedence` 的 -1 是「未知运算符」哨兵，调用方据此拒绝；
+这里的 -1 是「本表认识、层级低于赋值」。因此：
+
+- `Precedence(",")` 仍返回 -1，`IsBinaryOperator(",")` 仍为 false——legacy `ParseBinary`、FEAS 与任何
+  既有 `IsBinaryOperator` 调用方逐位不变，逗号绝不会被二元循环吃进；
+- 本数值只给形状层建帧用（与 `AssignmentPrecedence` 同一约定），形状层也不把逗号交给 `PushBinary`，
+  只走 `PushOperator(…, CommaPrecedence, false /* 左结合 */)` 的显式分支；
+- 因为是左结合且最低，连续逗号 `a, b, c` 收敛成 `",(,(a,b),c)"`，与 TS 6.0.3 的 `BinaryExpression` 完全一致。
+
 ## static method IsAssignmentOperator:(text:string)=>bool
 
 赋值运算符集合（S3h，与 `ExpressionBuilder.IsAssignmentText` 逐字一致）：`=` 一个，复合赋值十五个
