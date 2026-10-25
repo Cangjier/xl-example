@@ -8,8 +8,10 @@
 // `for (let …)` 一类**不该误判**的形态），外加 if / while / for / try / switch / do / with / label / 块。
 //
 // **Stage 5d-2b 起**：原来的 13 条「对照」控制流用例也迁出 `ScanRoot` 了（判据在
-// `StatementBoundaryUtil.ControlFlowFamilyEndCode`），所以这里的期望同步改成「0 次」；
-// 跨 Stage 的迁移范围仍然可测：正对照（块内 `class` 声明体壳）必须 > 0 次。
+// `StatementBoundaryUtil.ControlFlowFamilyEndCode`），所以这里的期望同步改成「0 次」。
+// **Stage 5d-5 起**：最后一条对照（块内 `class` 声明体壳）也迁出了（判据 `DeclarationBodyEndCode`），
+// 因此默认解析里 `ScanRoot` 已经归零（只剩文件级 fallback 的 legacy 重解析）。计数器灵敏度改在
+// legacy 态证明：对照组默认态必须 0 次、legacy 态必须 > 0 次。
 // 本 Stage 的专用探针见 `control-flow-boundary.mjs`（85 条形态）。
 //
 // 每个用例四个面（与 eof-last-token-close.mjs / final-matrix.mjs 同口径）：
@@ -19,7 +21,7 @@
 //   4. **迁移读数**：monkeypatch `StatementScanner.ScanRoot`，按调用栈归因，
 //      迁出族（`migrated: true`）在终结候选路径
 //      （`StatementEndPossibleShape.ComputeByIndex` / `.BuildByIndex`）上必须 0 次调用；
-//      对照组必须 > 0 次——两边一起才算「迁移范围精确」。
+//      对照组（5d-5 起也已迁出）默认态必须 0 次、legacy 态必须 > 0 次——两边一起才算「迁移范围精确」。
 //
 // 退出码：失败 > 0 → 1。
 import path from "node:path";
@@ -101,7 +103,10 @@ const CASES = [
   { name: "control-if-return", source: "if (a) return 1;", migrated: true },
   { name: "control-while-throw", source: "while (a) throw e;", migrated: true },
   { name: "control-clause-return", source: "switch (a) { case 1: return 1; }", migrated: true },
-  // ---- 正对照：块内 class 声明体壳仍走终结候选的 DeclarationBodyEndCode 分支（必须 > 0 次） ----
+  // ---- 对照：块内 class 声明体壳（**Stage 5d-5 起也已迁出**：判界只读 `DeclarationBodyEndCode`） ----
+  // 这一族仍留在这里，是因为它充当「计数器灵敏度」的正对照——但灵敏度**改在 legacy 态证明**：
+  // 默认解析的 `ScanRoot` 已在 5d-5 归零（只剩文件级 fallback 的 legacy 重解析），
+  // 所以「默认态必须 > 0」这条断言不再成立；改成「默认态必须 0 + legacy 态必须 > 0」。
   { name: "control-class-shell", source: "{ class C {} }", migrated: false },
   { name: "control-clause-class-shell", source: "switch (a) { case 1: class C {} }", migrated: false },
 ];
@@ -224,12 +229,13 @@ for (const item of CASES) {
   R.EnableShellExpressions = false;
   R.EnableDeclarationShell = false;
   let legacyXml = null;
-  withScanCounter(() => {
+  const legacyCounts = withScanCounter(() => {
     try {
       legacyXml = SourceFileRunner.Parse(item.source, "case.ts").ToXmlString();
     } catch (error) {
       problems.push(`legacy 抛错：${describeError(error)}`);
     }
+    return { total: scanCounts.total };
   });
 
   // 2) 默认态（仓库默认开关）。
@@ -258,8 +264,16 @@ for (const item of CASES) {
     problems.push(`迁出族在终结候选路径上仍有 ${counts.endPathMigrated} 次 ScanRoot 调用（期望 0）` +
       ` byCaller=${JSON.stringify(counts.byCaller)} byHead=${JSON.stringify(counts.byHead)}`);
   }
-  if (!item.migrated && counts.endPath <= 0) {
-    problems.push(`对照组在终结候选路径上 ${counts.endPath} 次 ScanRoot 调用（期望 > 0）`);
+  if (!item.migrated) {
+    // Stage 5d-5：这一族（块内 class 声明体壳）也已迁出 ⇒ 默认态终结候选路径 0 次 ScanRoot；
+    // 计数器灵敏度改由 **legacy 态**证明（那里根候选仍逐格问 `ScanRoot`，必须 > 0）。
+    if (counts.endPath !== 0) {
+      problems.push(`对照组在默认态终结候选路径上仍有 ${counts.endPath} 次 ScanRoot 调用（期望 0）` +
+        ` byCaller=${JSON.stringify(counts.byCaller)} byHead=${JSON.stringify(counts.byHead)}`);
+    }
+    if (legacyCounts.total <= 0) {
+      problems.push("对照组在 legacy 态 0 次 ScanRoot 调用（计数器空转）");
+    }
   }
 
   if (shape !== null) {

@@ -397,6 +397,12 @@ BlockPossibleShape.OnShellBracketCreated(this, bracket, context);
 声明族读到的 `End` 若 `>= 0` 就用它（它只可能 ≤ 末代码单元）：`type T = A` ⏎ `a` 收在 `A`，
 `a` 由 `FinishShell` 搬回根单元、再经尾巴重放建出第二条语句。
 
+**Stage 5d-5**：变量族与空语句壳的 EOF 兜底也迁到了 boundary 层——首格 `;` 读 `IsSemicolon`（`Complete(0)`
+的同一条判据）、短语句族读 `ShortFamilyEndCode(code, true)`（与终结候选**同一个入口、同一个 `atEof`**），
+不再经 `ScanRoot`。这一条是本方法最后一个 `ScanRoot` 调用点（全语料 522 次）；迁移的等价性不是推测：
+对全语料每一次调用逐条比对「`ScanRoot` 给出 `Status == 1 && End >= 0`」与「`ShortFamilyEndCode` 给出同一个
+`End`」，**522 次 0 不一致**（`HANDOFF-5d5.md` §3 有读数）。
+
 **Stage 5d-2b**：带体 / 链式控制流族（`IsControlFlowFamilyCode`）的 EOF 兜底改读**终结候选同一份**
 `StatementBoundaryUtil.ControlFlowFamilyEndCode`，同样不再走 `ScanRoot`（只加这一条同源分支，
 不改既有分支的顺序与判据）。
@@ -461,7 +467,22 @@ if (!this.Closed) {
         if (controlEnd >= 0 && controlEnd < codeAt.length) {
           endIndex = codeAt[controlEnd];
         }
+      } else if (StatementBoundaryUtil.IsSemicolon(code[0])) {
+        // **Stage 5d-5**：空语句壳（首代码单元就是 `;`）——`ScanRoot` 对它答 `Complete(0)`，
+        // 这里读同一条事实（`IsSemicolon` 是 `ScanRoot` 那一条判据的唯一实现点）。
+        endIndex = codeAt[0];
+      } else if (StatementBoundaryUtil.IsShortFamilyCode(code)) {
+        // **Stage 5d-5**：短语句族（`return` / `throw` / `break` / `continue` / `debugger` /
+        // `let`·`const`·`var`）的 EOF 兜底与终结候选读**同一份**判据（`ShortFamilyEndCode`，
+        // `atEof = true` 与这里刚设的 `StatementScanner.AtEOF` 是同一个事实），不再经 `ScanRoot`。
+        // 迁移前它是本方法唯一的 `ScanRoot` 调用点（全语料 522 次，占默认解析残余的四成）。
+        const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(code, true);
+        if (shortEnd >= 0 && shortEnd < codeAt.length) {
+          endIndex = codeAt[shortEnd];
+        }
       } else {
+        // 兜底：未知族起点（语料 0 次；留着让「不在上面任何一族」的形态仍走今天的行为，
+        // 而不是悄悄换一条收口规则）。出现即说明有族没归位——指标里会直接看到 `ScanRoot > 0`。
         const result = StatementScanner.ScanRoot(code);
         if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
           endIndex = codeAt[result.End];

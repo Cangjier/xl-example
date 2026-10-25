@@ -158,7 +158,9 @@ const CASES = [
   { name: "control-declaration", source: "class C {}" },
   { name: "control-function", source: "function f() {}" },
   { name: "control-const-enum", source: "const enum E { A }" },
-  // ---- 正对照：块内 class 声明体壳仍在终结候选路径上读 ScanRoot（必须 > 0 次） ----
+  // ---- 正对照：块内 class 声明体壳（**Stage 5d-5 起也已迁出**，判据 `DeclarationBodyEndCode`） ----
+  // 正对照的作用是「证明计数器不是空转」。默认解析的 `ScanRoot` 已在 5d-5 归零，所以灵敏度
+  // 改在 legacy 态证明：默认态必须 0 次、legacy 态必须 > 0 次。
   { name: "positive-class-shell", source: "{ class C {} }", control: true },
   { name: "positive-clause-class-shell", source: "switch (a) { case 1: class C {} }", control: true },
 ];
@@ -290,12 +292,13 @@ for (const item of CASES) {
   R.EnableShellExpressions = false;
   R.EnableDeclarationShell = false;
   let legacyXml = null;
-  withScanCounter(() => {
+  const legacyCounts = withScanCounter(() => {
     try {
       legacyXml = SourceFileRunner.Parse(item.source, "case.ts").ToXmlString();
     } catch (error) {
       problems.push(`legacy 抛错：${describeError(error)}`);
     }
+    return { total: scanCounts.total };
   });
 
   // 2) 默认态（仓库默认开关）。
@@ -341,8 +344,15 @@ for (const item of CASES) {
       }
     }
   }
-  if (item.control && counts.endPath <= 0) {
-    problems.push(`正对照在终结候选路径上 ${counts.endPath} 次 ScanRoot 调用（期望 > 0）`);
+  if (item.control) {
+    // Stage 5d-5：这一族也已迁出 ⇒ 默认态 0 次；灵敏度改由 legacy 态证明（那里根候选仍逐格问 ScanRoot）。
+    if (counts.endPath !== 0) {
+      problems.push(`正对照在默认态终结候选路径上仍有 ${counts.endPath} 次 ScanRoot 调用（期望 0）` +
+        ` endPathByFamily=${JSON.stringify(counts.endPathByFamily)}`);
+    }
+    if (legacyCounts.total <= 0) {
+      problems.push("正对照在 legacy 态 0 次 ScanRoot 调用（计数器空转）");
+    }
   }
 
   if (shape !== null) {

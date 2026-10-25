@@ -41,6 +41,18 @@ import { StatementBuilder } from "./statement-builder.xl.md"
 根级语句候选（块 / 空语句 / 变量 / if / while / do / for / for-in / for-of / return / break / continue / throw / debugger）。
 只认本族起点（`{`、`;` 与固定关键字），其它起点一律 `Reject`，把位置留给 import / export / expression 候选。
 
+**Stage 5d-5：默认解析里本候选已退场**。它现在只出现在关闭态（`EnableShellExpressions === false`）的根目录里
+（`SourceFileShape.CreateLegacyPossibleShapesCache`，即文件级 fallback 与 harness 的 legacy 对拍）；默认解析的
+根目录（`SourceFileShape.CreatePossibleShapes`）不再注册它。原因与代价：
+
+- 它剩下的活只有 `StatementRoute.Legacy` 里还没壳化的几种（`await using` / `using` 声明 /
+  `let` `using` 当标签 / `async` 非箭头 …），默认解析里这些形态由 `SourceFileEndPossibleShape` 的收尾路径
+  用**同一个** `StatementBuilder` 建出来（全语料实测：本候选只建 7 条、门控后 AST 0 差、文件级 fallback 0 增）。
+- 代价是它每格都问一次 `StatementScanner.ScanRoot`（全语料 17129 次，占默认解析 `ScanRootCallCount` 的 94.5%）；
+  退场后这个数归零。
+
+本类的 `ComputeByIndex` / `BuildByIndex` **一个字不改**：false 态走的就是这两条，逐位保持 5d-5 之前的行为。
+
 ```txt
 ;
 { }
