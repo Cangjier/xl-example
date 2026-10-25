@@ -392,6 +392,24 @@ if (prev < 0) {
 if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
   return false;
 }
+// **Stage 5d-8c：import 的 `with` / `assert` 子句可以写在模块说明符的下一行**。
+// `import a from "m"` ⏎ `with { type: "json" };` 是**一条** ImportDeclaration（TS 实测），
+// 而 `with` 是 legacy 关键字 → 判据一会在字符串后面收口，把 `with { … }` 拆成一条 WithStatement
+// （AST 直接少一个 attributes 子句）。判据只看「上一格是模块说明符」：字符串前一格是 `from`
+// 或 `import`，才是 import 声明的说明符；其余字符串收尾照旧收口。
+if (units[prev] instanceof String) {
+  const prevText = (current as Common).TempToString();
+  if (prevText === "with" || prevText === "assert") {
+    let beforeString = prev - 1;
+    while (beforeString >= 0 && units[beforeString].IsTriviaToken) {
+      beforeString--;
+    }
+    if (beforeString >= 0 && units[beforeString] instanceof Common
+      && ((units[beforeString] as Common).Is("from") || (units[beforeString] as Common).Is("import"))) {
+      return false;
+    }
+  }
+}
 // **Stage 4af-E：换行后的 `@` 是下一条装饰器声明的起点**（`declare function gf(): void` ⏎
 // `@dec class C {}`）。装饰器在词法上是 Symbol `@`（不是 Common），原来的「只认单词起点」
 // 让这一格直接落空，声明壳因此不在 `@` 收口：整条装饰器声明被吞进上一条声明，`BuildFromShell`
@@ -468,6 +486,26 @@ if (unit instanceof Common) {
   if ((unit as Common).Is("void")) {
     return true;
   }
+  const word = (unit as Common).TempToString();
+  // **Stage 5d-8c：类型位上的类型运算符不能收尾**。`CanEndExpression` 只排除 `typeof` / `keyof` /
+  // `new`（它们在值位也是前缀运算符），但 `unique` / `readonly` / `infer` / `asserts` 在值位是普通
+  // 标识符、在类型位才等右操作数：`declare const t: unique` ⏎ `symbol;` 的 `unique` 若按表达式口径
+  // 收尾，别名 / 变量声明的类型就被切成两半（`unique symbol` 是两个字连排的类型运算符）。
+  // 类型位判据读 `StatementScanner.IsTypePositionBefore`（唯一实现点），不新写第二套。
+  if ((word === "unique" || word === "readonly" || word === "infer" || word === "asserts")
+    && StatementScanner.IsTypePositionBefore(units, index)) {
+    return false;
+  }
+  // **Stage 5d-8c：`asserts x` 后面还等着 `is`**。断言签名 `asserts x is T` 的 `is` 可以写在下一行
+  // （TS 实测是一条声明），所以 `asserts` 后面的名字不能当「类型尾巴已完整」。
+  let beforeName = index - 1;
+  while (beforeName >= 0 && units[beforeName].IsTriviaToken) {
+    beforeName--;
+  }
+  if (beforeName >= 0 && units[beforeName] instanceof Common
+    && (units[beforeName] as Common).Is("asserts")) {
+    return false;
+  }
   return ExpressionStatementPossibleShape.CanEndExpressionAt(units, index);
 }
 if (!(unit instanceof Symbol) || ((unit as Symbol).TempToString() !== ">"
@@ -541,8 +579,14 @@ return true;
 4. 其余 → `-1`（继续等）。
 
 `atEof` 排在 ASI 之后：文件末尾的 `a` ⏎ `b` 仍然是两条语句。
-`declarationShell === true` 时多一条**只属于声明壳**的判据（`IsDeclarationFollowBoundary`），
-位置排在 `atEof` **之前**——否则「声明已完整、下一条语句的 token 已到」这一格会被 `atEof` 吞掉。
+`declarationShell === true` 时多三条**只属于声明壳**的判据，全部排在 `atEof` **之前**——否则那些格子会被
+`atEof` 吞掉：
+
+- **声明体括号已闭合**（`IsClosedDeclarationBody`，排在 `;` 之前）：`interface I {}` 后面同行的任何 token
+  都是下一条语句（`;` 是独立的 EmptyStatement）；
+- **声明跟随边界**（`IsDeclarationFollowBoundary`）：换行 + 能起新语句的单词，声明到这里收口；
+- **类型别名的后缀 / 类型实参不吃跨行**（`IsTypeAliasLineBreakCut`）：`type T = A` ⏎ `["k"];` 是两条语句，
+  而这三格恰好都是 `IsContinuation` 认的续接符，上面两条看不见它们。
 
 ```ts
 if (codeAt.length === 0) {
@@ -551,6 +595,21 @@ if (codeAt.length === 0) {
 const lastAt = codeAt[codeAt.length - 1];
 if (StatementBoundaryUtil.IsEof(lastAt, units)) {
   return codeAt.length === 1 ? -1 : codeAt[codeAt.length - 2];
+}
+// **Stage 5d-8c：声明体括号已闭合 ⇒ 这条声明到体括号为止**（排在 `;` 之前）。
+// `interface I {}` ⏎ `function f() {}`、`enum E { A } type T = A;`、`namespace N {} class C {}`、
+// `export interface I {} export enum E { A }`、`export default abstract class C {};`、
+// `interface I1 { }` ⏎ `/re/g;` —— TS 在这些形态里都把闭合的声明体当作声明的**终点**：后面同行的
+// `;` 是独立的 EmptyStatement，后面任何 token 都是下一条语句的开头。原来的判据（`;` / ASI /
+// 声明跟随边界）三条都要求**换行**或 `;`，所以 `interface I {} interface J {}` 这种同行连排
+// 会被整个吞进一条壳，`BuildFromShell` 建出两条 → 抛「语句没有读完」→ 文件级 fallback。
+// 判据不新写：闭合体括号由 `TypeBuilder.IsBodyBrace` 认（`DeclarationShellEndCode` 同一份），
+// 「这条语句是带体声明」由段首关键字表认（`IsBodyBearingDeclarationCode`）。
+if (declarationShell === true && StatementBoundaryUtil.IsClosedDeclarationBody(units, codeAt)) {
+  if (codeAt.length === 1) {
+    return -1;
+  }
+  return codeAt[codeAt.length - 2];
 }
 if (StatementBoundaryUtil.IsSemicolon(units[lastAt])) {
   return lastAt;
@@ -572,10 +631,161 @@ if (declarationShell === true && StatementBoundaryUtil.IsDeclarationFollowBounda
   }
   return codeAt[codeAt.length - 2];
 }
+// **Stage 5d-8c：类型别名的后缀 / 类型实参不吃跨行**（TS 的 `parsePostfixTypeOrHigher` 只在同一行
+// 吃 `[`，`parseTypeArgumentsOfTypeReference` 要求 `<` 与类型名同一行）：`type T = A` ⏎ `["k"];` /
+// `type T = A` ⏎ `<B>c;` / `type T = A` ⏎ `(b);` 全部是「别名 + 一条表达式语句」。这三格的当前单元
+// 恰好都是 `IsContinuation` 认的续接符，`IsAsiBoundary` 因此不收口，`IsDeclarationFollowBoundary`
+// 又只认单词起点——两条判据都看不见它们，壳一路吃到 `;` / EOF。判据只看「段首是类型别名」+
+// 「换行前是能收尾的类型尾巴」+「当前是 `[` / `(` / `<`」三件事，不新写类型扫描。
+if (declarationShell === true && StatementBoundaryUtil.IsTypeAliasLineBreakCut(units, codeAt)) {
+  if (codeAt.length === 1) {
+    return -1;
+  }
+  return codeAt[codeAt.length - 2];
+}
 if (atEof) {
   return lastAt;
 }
 return -1;
+```
+
+## static method IsBodyBearingDeclarationCode:(code:Array<Token>)=>bool
+
+**Stage 5d-8c：这段代码是不是一条「带体声明」**（`class` / `function` / `interface` / `enum` / `namespace` /
+`module` / `global`，允许 `export` / `declare` / `default` / `abstract` / `async` / `const` 这些前缀修饰词）。
+
+用途只有一个：`StatementEndCode` 判断「上一条代码单元是闭合的声明体括号」时先确认这条语句**本来就有体**——
+否则 `export default { … }` / `export { a }` / `declare const x = { … }` 里的对象字面量与导出列表也会被
+当成体括号，在 `}` 处把语句切早。修饰词表只收**声明前缀位**上的词（它们后面必须紧跟声明关键字），
+所以 `export =` / `export {` 这类后面的符号单元会让判据直接返回 `false`；装饰器族（`@` 起头）走自己的壳
+（`ShellDecoratedDeclaration`），不经过这里。
+
+```ts
+let at = 0;
+while (at < code.length) {
+  const unit = code[at];
+  if (!(unit instanceof Common)) {
+    return false;
+  }
+  const text = (unit as Common).TempToString();
+  if (text === "export" || text === "declare" || text === "default" || text === "abstract"
+    || text === "async" || text === "const") {
+    at++;
+    continue;
+  }
+  return text === "class" || text === "function" || text === "interface" || text === "enum"
+    || text === "namespace" || text === "module" || text === "global";
+}
+return false;
+```
+
+## static method IsClosedDeclarationBody:(units:Array<Token>, codeAt:Array<int>)=>bool
+
+**Stage 5d-8c：上一条代码单元就是这条声明的闭合体括号**。`codeAt` 的末格是**当前到达**的单元，
+倒数第二格才是声明自己的最后一段。三件事同时成立才算：
+
+1. 它是 `{` 括号单元且**已闭合**（`SourceRange.EndIndex >= 0`）；
+2. `TypeBuilder.IsBodyBrace` 认它是**声明体**（不是返回类型 / `extends` / 类型参数里的类型字面量）；
+3. 段首是带体声明（`IsBodyBearingDeclarationCode`）。
+
+第二条不新写：`DeclarationShellEndCode` 的体括号判据读的是同一个实现。
+
+```ts
+if (codeAt.length < 2) {
+  return false;
+}
+const braceAt = codeAt[codeAt.length - 2];
+const brace = units[braceAt];
+if (!(brace instanceof Bracket) || (brace as Bracket).StartBracketChar !== "{") {
+  return false;
+}
+if (brace.SourceRange.EndIndex < 0) {
+  return false;
+}
+if (!TypeBuilder.IsBodyBrace(units, braceAt)) {
+  return false;
+}
+const code:Array<Token> = [];
+for (let at = 0; at < codeAt.length - 1; at++) {
+  code.push(units[codeAt[at]]);
+}
+return StatementBoundaryUtil.IsBodyBearingDeclarationCode(code);
+```
+
+## static method IsTypeAliasLineBreakCut:(units:Array<Token>, codeAt:Array<int>)=>bool
+
+**Stage 5d-8c：类型别名的后缀 / 类型实参不吃跨行**。TS 的 `parsePostfixTypeOrHigher` 只在同一行吃 `[`，
+`parseTypeArgumentsOfTypeReference` 要求 `<` 与类型名同一行，所以下面三条全是「别名 + 一条表达式语句」：
+
+| 形态 | TS 的两条语句 |
+| --- | --- |
+| `type T = A` ⏎ `["k"];` | TypeAliasDeclaration + ExpressionStatement |
+| `type T = A` ⏎ `<B>c;` | TypeAliasDeclaration + ExpressionStatement |
+| `type T = A` ⏎ `(b);` | TypeAliasDeclaration + ExpressionStatement |
+
+这三格的当前单元恰好都是 `IsContinuation` 认的续接符（`[` / `(` / `<`），`IsAsiBoundary` 因此不收口；
+`IsDeclarationFollowBoundary` 又只认单词起点（`@` 是唯一例外）。两条判据都看不见它们，声明壳会一路吃到
+`;` 或 EOF，`BuildFromShell` 建出一条别名 + 剩下的单元 → 抛「语句没有读完」→ 文件级 fallback。
+
+**为什么只对类型别名成立**：变量声明里同样的排版是**一条**语句（`let x = A` ⏎ `[0];` 的 `[` 是元素访问，
+值位没有「同一行」限制）。段首判据读 `TypeAliasDeclarationShape.IsTypeAliasHead`（唯一实现点，含
+`export type` / `declare type` / `export declare type` 三种前缀），「换行前那段能收尾」读
+`CanEndDeclarationTail`，「有换行」读 `HasLineBreakBefore`——三条都是既有实现。
+
+```ts
+if (codeAt.length < 3) {
+  return false;
+}
+const lastAt = codeAt[codeAt.length - 1];
+const current = units[lastAt];
+let currentText = "";
+if (current instanceof Symbol) {
+  currentText = (current as Symbol).TempToString();
+} else if (current instanceof Bracket) {
+  currentText = (current as Bracket).StartBracketChar;
+}
+if (currentText !== "[" && currentText !== "(" && currentText !== "<") {
+  return false;
+}
+if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, lastAt)) {
+  return false;
+}
+if (!StatementBoundaryUtil.CanEndDeclarationTail(units, codeAt[codeAt.length - 2])) {
+  return false;
+}
+const code:Array<Token> = [];
+for (let at = 0; at < codeAt.length - 1; at++) {
+  code.push(units[codeAt[at]]);
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+const headText = (head as Common).TempToString();
+if (headText !== "type" && headText !== "export" && headText !== "declare") {
+  return false;
+}
+if (!TypeAliasDeclarationShape.IsTypeAliasHead(code, headText)) {
+  return false;
+}
+// **泛型函数类型的形参表可以写在下一行**：`type U = <U>` ⏎ `(a: U) => U;` 是**一条**声明
+// （TS 的 `parseTypeParameters` 之后 `(` 是同一行的函数类型，不受硬换行限制，`type-alias-generic-fn-trivia`
+// 那族正是靠它）。判据只看「RHS 是不是以 `<` 起头」：以 `<` 起头的右值只能是泛型函数类型，它的 `(` 是续接；
+// 其余形态（`type T = A` ⏎ `(b);`）仍要切。
+if (currentText === "(") {
+  let typeIndex = 0;
+  if (headText === "export" || headText === "declare") {
+    typeIndex = 1;
+    if (code.length >= 2 && code[1] instanceof Common && (code[1] as Common).Is("declare")) {
+      typeIndex = 2;
+    }
+  }
+  const rhsAt = typeIndex + 3;
+  if (rhsAt < code.length && code[rhsAt] instanceof Symbol && (code[rhsAt] as Symbol).Is("<")) {
+    return false;
+  }
+}
+return true;
 ```
 
 ## static method DeclarationShellEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, decorated?:bool)=>int

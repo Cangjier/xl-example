@@ -333,6 +333,12 @@ if (unit instanceof Common) {
       if (nextText === "type") {
         return this.BuildTypeAliasDeclaration();
       }
+      // **Stage 5d-8c**：`declare import a from "m";` 是带 `DeclareKeyword` 修饰的 ImportDeclaration
+      // （TS 的 children 只有修饰词 + 子句 + 模块字符串）。`declare import x = A.B` 仍是无体申明，
+      // 归 `BuildImportStatement` 的 import-equals 分支（它按子句里有没有 `=` 选形状）。
+      if (nextText === "import") {
+        return this.BuildDeclaredImportStatement();
+      }
     }
     // Ambient variable statement (`declare const x: number;`): TS keeps a DeclareKeyword CHILD node
     // (ast-json compares it), so build the normal variable statement after skipping the keyword,
@@ -690,6 +696,14 @@ for (let scan = this.At; scan < this.Units.length; scan++) {
   }
 }
 if (end < 0) {
+  // **Stage 5d-8c：文件末尾的无体 ambient module**（`declare module "m"` 后面既没有 `;` 也没有体）。
+  // TS 的恢复形就是「修饰词 + 名字」的 ModuleDeclaration；`FromUnits` 现在按「代码读完了」认这一格。
+  // 这里只把切片的右端收到最后一个单元（末尾 trivia 由 `FromUnits` 过滤），不再抛错。
+  if (this.At < this.Units.length) {
+    end = this.Units.length - 1;
+  }
+}
+if (end < 0) {
   throw new Error("模块声明缺少模块体");
 }
 const code:Array<Token> = this.Units.slice(this.At, end + 1);
@@ -924,6 +938,22 @@ if (afterText === "as") {
   return this.BuildNamespaceExportDeclaration();
 }
 if (afterText === "import") {
+  // **Stage 5d-8c**：两档要分开。`export import x = A.B` 是 import-equals（export 是它的修饰词
+  // 子节点）；`export import a from "m"` **不是**——TS 读成一条带 `ExportKeyword` 的 ImportDeclaration
+  // （children 只有 ExportKeyword + ImportClause + 模块字符串）。原来的无条件分派把后者送进
+  // import-equals 建造器，抛「import equals 声明缺少等号」→ 文件级 fallback。
+  // 判据与 `BuildImportStatement` 选形状那一格相同：子句里有没有 `=`。
+  let exportImportHasEquals = false;
+  const exportImportEnd = this.ClauseEnd(this.At + 2);
+  for (let scan = this.At + 2; scan <= exportImportEnd; scan++) {
+    if (this.IsSymbol(this.Units[scan], "=")) {
+      exportImportHasEquals = true;
+      break;
+    }
+  }
+  if (!exportImportHasEquals) {
+    return this.BuildExportedStatement();
+  }
   return this.BuildExportImportEquals();
 }
 if (after instanceof Symbol && (after as Symbol).Is("=")) {
@@ -1691,6 +1721,36 @@ modifier.Pos = this.Positions[declareIndex];
 ambient.Data.splice(0, 0, modifier);
 modifier.Parent = ambient;
 return ambient;
+```
+
+## method BuildDeclaredImportStatement:()=>Token
+
+**Stage 5d-8c：`declare import a from "m";` / `export declare import a from "m";` 的恢复形**。
+TS 把这两种写法都读成一条 **ImportDeclaration**，`declare`（以及 `export`）是它的**修饰词子节点**：
+`children = [DeclareKeyword, ImportClause, StringLiteral]`（`export declare` 时最前面再多一个
+`ExportKeyword`，由外层 `BuildExportedStatement` 补）。原来的分派没有这一格：`declare` 落
+`BuildTail` → 表达式语句，读到 `from "m"` 时抛「表达式没有读完」→ 文件级 fallback。
+
+做法与 `BuildDeclareVariableStatement` 逐字同构：记住 `declare` 的 Pos → `At++` → 交给
+`BuildImportStatement()`（`import a from "m"` 的既有实现）→ 语句 `Pos` 倒回 `declare` 起点 →
+`DeclareKeywordShape` 插到 `Data` 最前。
+
+**前置条件**：`this.At` 指向 `declare`，下一代码单元是**同一行**的 `import`。调用方是
+`BuildStatement` 的 `declare` 分支与 possible 层的 `StatementFamilyDispatch.BuildDeclareFamily`
+（两处读同一套条件：`NoLineBreakBetween` + 下一格是 `import`）。
+
+```ts
+const declareUnit = this.Units[this.At];
+const declarePos = this.Positions[this.At];
+const declareIndex = this.At;
+this.At++;
+const member = this.BuildImportStatement();
+(member as ShapeToken).Pos = declarePos;
+const modifier = DeclareKeywordShape.FromBasicToken(declareUnit as Common, this.Context);
+modifier.Pos = this.Positions[declareIndex];
+member.Data.splice(0, 0, modifier);
+modifier.Parent = member;
+return member;
 ```
 
 ## method BuildVariableStatement:(decoratedFirst?:int)=>Token

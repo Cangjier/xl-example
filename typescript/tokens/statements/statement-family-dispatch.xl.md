@@ -376,6 +376,11 @@ if (afterDeclare !== null && afterDeclare instanceof Common
   if (nextText === "type") {
     return builder.BuildTypeAliasDeclaration();
   }
+  // **Stage 5d-8c**：`declare import a from "m";`（带 `DeclareKeyword` 子节点的 ImportDeclaration）。
+  // 与 `BuildStatement` 的 declare 分支读同一个 `NoLineBreakBetween` + 下一格关键字判据。
+  if (nextText === "import") {
+    return builder.BuildDeclaredImportStatement();
+  }
   if (nextText === "namespace" || nextText === "module" || nextText === "global") {
     return builder.BuildModuleDeclaration();
   }

@@ -516,6 +516,18 @@ if (next instanceof Symbol) {
   }
   return StatementRoute.None;
 }
+// **Stage 5d-8c：`declare` 与后继之间换行 ⇒ `declare` 是标识符，不是声明修饰词**。
+// TS 的修饰词解析要求 `!scanner.hasPrecedingLineBreak()`，所以 `declare` ⏎ `const x = 1;` /
+// `declare` ⏎ `module "m" {}` / `declare` ⏎ `class C {}` 一律是「ExpressionStatement(declare) +
+// 下一条声明」（12 种后继逐一实测，含块注释里的换行）。本族若在这一格建壳，壳会把两条都吞进去
+// （`BuildFromShell` 读到两条 → 「语句没有读完」→ 文件级 fallback）；`IsAsiBoundary` 的条件 5 又把
+// `declare` 当声明头、不给 ASI 边界，所以表达式壳也收不了口。唯一正确的做法是**不建壳**：交回
+// `DecideCommon`（`declare` 是普通标识符 → `ShellPlainExpression`），根表达式候选按 ASI 收在
+// `declare` 上，下一条声明各走各的壳。行终止符判据读 `StatementScanner.NoLineBreakBetween`
+// ——与 `DeclareIsAmbientVariable` 判 `declare const` 同一行用的是**同一个**函数，不新写第二套。
+if (text === "declare" && !StatementScanner.NoLineBreakBetween(units[headAt], next)) {
+  return StatementRoute.None;
+}
 // `export as namespace N`（UMD）留给 legacy：它不是普通导出声明，建造器没有这条分派。
 if (next instanceof Common && (next as Common).Is("as")) {
   return StatementRoute.None;

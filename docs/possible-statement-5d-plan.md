@@ -665,4 +665,40 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
 `new` 的非常规形态（2）、零散（3）。**没有一条是「改语料 / 改口径」消掉的**；也没有一条把 legacy 的
 错树当接管（全门 `ast-json-diff 0/0/0` + `token-ast diff=0` + `FileFallback 50` 不变）。
 
+---
 
+## 13. Stage 5d-8c 文件级 fallback 根因逐类修复（实测，2026-10-25，HEAD=`029aeeac` 之上）
+
+**结论**：`FileFallbackCount` **50 → 13**（−37，−74%）。随之下调：`ScanRootCallCount` 388 → **96**
+（默认态仍为 0，96 全部在 fallback 的 legacy 重解析里）、`RawTailBuildCount` 139 → 134、
+`ShapeAstDeclinedCount` 42 → 41；`LegacyStatementDispatchCount` 0 → 0。全门零回归。
+详见 `HANDOFF-5d8c.md`。
+
+### 13.1 修掉的 9 类（37 条）
+
+| 类 | 条数 | 判据 / 分派点 |
+| --- | --- | --- |
+| 声明体括号闭合后不收口（同行连排声明 / 尾随 `;` / 正则开头） | 18 | `StatementBoundaryUtil.IsClosedDeclarationBody` + `StatementEndCode` 的新分支 |
+| 类型别名换行后的 `[` / `<` / `(` 不断句 | 6 | `StatementBoundaryUtil.IsTypeAliasLineBreakCut` |
+| 类型别名换行后的 `;` 被当成下一条语句 | 1 | `TypeAliasDeclarationPossibleShape.IsAsiBoundary` 排除 `;` |
+| `declare` 与后继换行（TS 的修饰词解析要求同一行） | 1 | `StatementRouteUtil.DecideDeclaration` 返回 `None` |
+| import attributes 的 `with` 写在模块说明符下一行 | 1 | `IsDeclarationFollowBoundary` 的模块说明符判据 |
+| `declare import` / `export import … from`（带修饰词的 ImportDeclaration） | 3 | `BuildDeclaredImportStatement` + `BuildExportStatement` 按 `=` 分档 |
+| 无体 ambient module（EOF） | 3 | `ModuleDeclarationShape.FromUnits` + `BuildModuleDeclaration` |
+| `unique symbol` / `asserts x is T` 跨行 | 3 | `CanEndDeclarationTail` 的类型位 / `asserts` 判据 |
+| `export default function ()` 的匿名恢复形 | 1 | `FunctionDeclarationShape.FromUnits` 的两条下界 |
+
+### 13.2 剩余 13 条（4 类，机制已定位，未修）
+
+块内**晚建声明壳**搬走已打开的 `{…}` 括号（5，`SourceRange is not set`）、函数 / 构造签名的
+**返回类型字面量**（4，`=>` 后的 `{` 先被当成块语句建掉）、`type` + CR/LS/PS 的**双 Accept**（3）、
+前缀 `--` 换行接操作数（1）。四类的入口方法与「为什么本阶段不做」逐条写在 `HANDOFF-5d8c.md` §4；
+共同特征是修法都在「改一处、波及全身」的判据上（晚建时序 / 类型位与块的分岔 / 根终结候选的收口 /
+前缀运算符的壳收口），需要单独一轮全门 + 反事实。
+
+### 13.3 新增探针
+
+`tests/statement-possible/file-fallback-attribution.mjs`：两段归因（A 段量哪些用例 fallback、
+B 段关掉兜底让异常抛出来取**最内层** message），带一张 4 类 13 条的**归因台账**；
+判决口径是「观测集合是台账的子集 + 没有新类别 + 没有 crash」。它量的是**原因**而不是总数：
+后续阶段改判界 / 建造器时，fallback 的原因一变就会被看见。
