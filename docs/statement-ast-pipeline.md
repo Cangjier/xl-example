@@ -18,6 +18,15 @@
 > 函数体内 `yield` / `await`、`async` 箭头、`for await`、对象成员 `async` / `*` / 注解参数），并做
 > `StatementTokenSets` 单一来源与 `as` / `satisfies` 行首合法化（目标 case **189**）。
 > 本文 §10 / §11 / §12 已按 R5 更新，R4 的链路见 §14、**R5 的链路见 §15**。
+>
+> **2026-10-26 更新（R6 收口，`feature/all-possible` @ `9efdcc82`）**：R6 把直建推进到**声明层** ——
+> `class` 声明（含 `@dec class`）由 `ClassDeclarationDirectSession`（kind 9 / 10）走
+> `ClassDeclarationShape.BuildFromCode` 一次建树；`import` / `export` / `namespace`·`module` / `declare`
+> 由 `ModuleFamilyDirectSession` + `DirectExportAssembly` 接管（kind 7 内部头分派，**不新增注册行**）；
+> 同时收尾注册切换、R6-A3 的 tagged-template 显式 Decline（47 语料 `XML-DIFF` **1 → 0**）、
+> metrics 的 `decl.module`、`--q1`/`--q4`/`--q5` 退役，A6 由「0 / SKIP」两档扩成**三档**。
+> 目标 case 189 → **244**（R6 55 = CLS 24 / MOD 25 / HD 6），合并态 **`244/0`**、`--strict-all` 也 **`244/0`**。
+> **R6 的链路见 §16**（机制与逐条读数见 `docs/direct-candidate-pipeline.md` §24）。
 
 
 ---
@@ -1171,6 +1180,131 @@ node tests/direct-build/token-set-parity.mjs                                    
 `xl_orphans(out="dist", prune=true)` 实测 **354 found / 354 removed**，prune 前后 `git status --porcelain` 均空、
 `git ls-files dist build` = 0，prune 后重建复跑仍 **189/0**。
 
-**R6 遗留**（细节见 `docs/direct-candidate-pipeline.md` §23.9）：`class` / 声明族建树、装饰器、
-missing-semicolon recovery、顶层 `await`·`yield` 路由、`const enum`、`--q1`/`--q4` 退役、`angle.ts` 的 `x<y>z` 歧义
-（47 语料 `XML-DIFF=1`，辅助指标）。
+**R6 遗留**（细节见 `docs/direct-candidate-pipeline.md` §24.10）：missing-semicolon recovery、类表达式、
+module 族剩余（`using` / `export declare` / `export as namespace`）、类成员外的装饰器建树、
+顶层 `await`·`yield` 路由、`const enum`、A3 判据放宽（比较链 + 模板操作数）、A6=0 的 `BlockFrom` 方案。
+
+---
+
+## 16. R6：`class` 与 `import` / `export` 的完整链路（244 条）
+
+> 基线 `feature/all-possible` @ **`9efdcc82`**。与 §13–§15 一样，这一节回答「一条声明从壳到 AST，
+> 谁在什么时候建它」；R6 的**新意只在建树目标从语句换成了声明**，前三步（字符 → basic token →
+> 候选 → 壳）与 §3–§5 完全没有区别。
+
+### 16.1 `class` 声明：kind 9 / 10 → `ClassDeclarationDirectSession`
+
+```
+class C { m(a) { return a; } } ⏎ const a = 1;
+  └─ basic token Close                                                       （§3，不变）
+      └─ CatalogGuide：`class` 首单元 ⇒ ShellClassDeclaration(9)；`@` 开头 ⇒ ShellDecoratedDeclaration(10)
+          └─ DirectStatementHook.Attach（H3-b，§13.1）：把每个新单元喂给 session（Ingest 只推游标）
+              └─ 壳收口（体 `}` / `;` / ASI / EOF）⇒ BuildFromShell（H2）
+                  └─ session.Finish(endIndex)
+                       ① 补齐到 endIndex；② 折 code（跳 trivia、**截断到 endIndex**）
+                       ③ code.length < 2 ⇒ Incomplete；④ HasNoName ⇒ allowAnonymous
+                       ⑤ ClassDeclarationShape.BuildFromCode(Owner, code, BasePos, ctx, allowAnonymous)
+                       ⑥ 抛错 ⇒ Decline(decl.shape) ⑦ 区间不符 ⇒ Decline(decl.coverage)
+                       ⑧ StatementsBuilt += 1 ⇒ host.Data.splice(0, consumed) ⇒ return（旧路径不执行）
+```
+
+- **成员不是父 session 建的**：成员体 / 空体 / 属性初始值 / 装饰器表达式 / 计算名全部由
+  `ClassDeclarationShape` 内部自己调 `StatementBuilder` / `ExpressionBuilder` —— 这就是 class 的 A6 为什么是
+  **确定的非零值**（§16.3）。
+- **三处陷阱**（都有 case 钉住）：必须传 `BasePos` 而不是用 `FromUnits`（否则区间整体左移、A1=NO）；
+  折 code 必须截断到 `endIndex`（否则吞下一条语句，`R6-CLS-guard-01`）；成员体内引擎不接受
+  （`super()` 等）⇒ **整类** `return null`，绝不建半棵树。
+- **类表达式不进这条链**：`const C = class {}` 的 `class` 是**操作数**，落点是引擎的 primary 分支 ⇒
+  保持 `Decline(var.init)`（R7）。
+
+### 16.2 `import` / `export` / `namespace`：kind 7 内部头分派
+
+R6 **没有**新增注册行 —— `ShellDeclarationFamily(7)` 仍指向 `DeclarationFamilyDirectSession`（R5 的入口），
+它按壳的**首单元文本**再分一次路：
+
+```
+ShellDeclarationFamily(7)（interface / type / enum / class / namespace / import / export / declare / using）
+  └─ DeclarationFamilyDirectSession.ApplyHead
+       ├─ interface / type / enum → R5 的三个 FromUnits（未动，§15.3）
+       ├─ module 头（import / export / namespace / module / declare）→ 不 Decline、记 trace
+       └─ using → Decline(decl.head)（R7）
+  └─ BuildDeclaration → BuildModuleFamily（懒建 ModuleFamilyDirectSession）
+       ├─ import  → ImportDeclarationShape.FromUnits（+ 虚拟分号）
+       ├─ export  → DirectExportAssembly.Build（子句 / `export <声明>` / `export default`）
+       ├─ namespace·module → ModuleDeclarationShape.FromUnits
+       ├─ declare → ModuleDeclarationShape / ClassDeclarationShape / FunctionDeclarationShape /
+       │            VariableStatementShape / InterfaceDeclarationShape / TypeAliasDeclarationShape
+       └─ 失败 ⇒ Decline(decl.module)   ← R6 新增 category（不再散成 decl.head / decl.shape）
+```
+
+两个细节决定了正确性：
+
+1. **`export <声明>` 的判定顺序**是硬约束（抄自 `BuildExportStatement`）：`default` 分支必须先问
+   「`code[2]` 是声明头吗」——`export default class {}` 走 **class**，而 `export default async () => {}`
+   走 **`ExportAssignment`**（判据是「`async` 后面真的跟着 `function`」）；顺序错就把表达式建成了声明。
+2. **合成虚拟分号**：两个 `FromUnits` 硬要求末单元是 `;`，缺 `;` 时 `DirectExportAssembly.ClauseHost`
+   在**副本**上 push 一个零宽 `Symbol(";")`（`[tailEnd, tailEnd)`），父层覆盖校验仍看到区间相等。
+   `import "m"` / `export { a }` 的**无分号**形态目前壳根本到不了 `Finish`（边界层，R7）。
+
+### 16.3 A6 的**三档**（R6 起，`D8.1`）
+
+| 档 | 写法 | 判定 | 用在哪 |
+| --- | --- | --- | --- |
+| 0 档（默认） | 不写字段 | `stmtLoads + exprOtherDirect + exprLegacy == 0` | R1–R5 的 pos、R6 的 import / export 子句 / 无体成员 class |
+| **精确值档** | `a6ExpectStmtLoads` / `a6ExpectExprLoads`（任一即启用） | 与读数**精确比较**，`--expect-direct` 下**不等即红**（比 SKIP 更严） | R6 的 class / `namespace` / `export <声明>`，以及 5 条改判 |
+| SKIP 档 | `a6Skip` | 只记读数、不判 | **只剩 3 条**（switch 子句 2 + C4 注入 1） |
+
+R6 的两条确定规则（可据此推断任何新 case）：
+
+- **class**：`stmtLoads` = 每个有体成员（method / accessor / constructor / static block）**1 次**，空体 `{}` **再 +1**；
+  `exprOther` = 属性初始值 / 装饰器表达式 / 计算名**各 1 次**；`built` = 1 + 成员体块被独立建出来那层。
+  ⇒ `class C {}` 0/0、`class C { x = 1; }` 0/1、`class C { m(a){return a;} }` 1/0 built=2、`class C { m(){} }` 2/0。
+- **namespace / module**：`ModuleBlockShape` 建体一次（**空体也 1**）+ 体内每条语句 1 + 初始值 1。
+  ⇒ `namespace N {}` **1/0**、`namespace N { const a = 1; }` **2/1**。
+- 与旧路径的差异：同一句 `class C { m(a) { return a; } }` 旧路径 `stmtLoads=2`，直建 **1**。
+  `TypeBuilder` 不计 A6，引擎内的 `LiteralOperand` 记 `exprDirectTokenUtil`、**不**记 `exprOtherDirect`
+  （所以 `export const x = 1;` 是 0/0，不是 0/1）。
+
+### 16.4 注册点与收尾（R6-HD）
+
+- `direct-build-plugins.xl.md` 的 `Register(…)` **仍 9 行**，物理序 **`2,1,4,5,6,8,7,9,10`**：
+  kind 9 / 10 改指 `ClassDeclarationDirectSession`（module 族**不占行**，见 §16.2）。
+- `direct-declaration-session` 里 `Kind===9/10 ⇒ Decline(decl.class)` 成为**死分支**（保留，供历史读数对照）；
+  metrics 闭集补 `decl.module`，`decl.class` 语义收窄为「只剩覆盖校验失败」。
+- **R6-A3**：引擎的 `IngestOperand` String 分支在「`>` 是上一格」时显式 `Fail`
+  （`PrevAngleClose === PreviousUnit`，与 `f<T>(1)` 同一条守卫）⇒ `f<T>` + 模板串落 `expr.decline` 回落旧路径，
+  47 语料 `XML-DIFF` 1 → **0**；`HD-neg-02/03` 与 `HD-guard-01` 防它修过头。
+- **`--q1` / `--q4` / `--q5` 退役**：运行时回退删除，CLI 只打 `DEPRECATED`，`MODE:` 换 `q-switches=retired`。
+
+### 16.5 命令与实测读数（本克隆 `docs-r6` @ `9efdcc82`，2026-10-26）
+
+```powershell
+$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-r6"
+$setup = "C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup"
+cd $clone
+
+# xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
+#   实测：560 written / 0 skipped / 0 planned / 0 error(s) / 3 warning(s)（3 条既有 E1107 重复类型名）
+node node_modules/typescript/bin/tsc -p tsconfig.json     # exit 0
+
+node tests/direct-build/target-cases.mjs --group=cls --expect-direct --strict --decline-stats --baseline=$setup  # 24/0
+node tests/direct-build/target-cases.mjs --group=mod --expect-direct --strict --decline-stats --baseline=$setup  # 25/0
+node tests/direct-build/target-cases.mjs --group=hd  --expect-direct --strict --decline-stats --baseline=$setup  # 6/0
+node tests/direct-build/target-cases.mjs --group=r6  --expect-direct --strict --decline-stats --baseline=$setup  # 55/0
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --baseline=$setup             # 244/0
+node tests/direct-build/target-cases.mjs --strict-all --expect-direct --decline-stats --baseline=$setup          # 244/0
+node tests/direct-build/token-set-parity.mjs                                                                    # PASS
+node ..\_coord\smoke-r3-func.mjs . $setup 400                                                                    # FILES=47 XML-DIFF=0
+```
+
+实测汇总：`--group=cls` **24/0**（`builtCases=22/24 loads=24`）、`mod` **25/0**（23/25 · 12）、`hd` **6/0**（3/6 · 8）、
+`r6` **55/0**（48/55 · 44）；全量 **`CASES=244 FAILED=0`**（`builtCases=210/244 loads=164`、
+`DECLINE-STATS: total=29 categories=12`、`A1…A12` 全 PASS）；`--strict-all` **244/0**（MODE 含
+`strict=on (implied by --strict-all)` 与 `q-switches=retired`）；parity **`RESULT: PASS`**；
+47 语料 **`FILES=47 XML-DIFF=0 CRASH-DIFF=0`**（exit 0）。R1–R5 八组不回归：10/50/32/40/20/20/12/5 全 0 失败。
+
+### 16.6 R6 遗留 = R7 清单（详见 `docs/direct-candidate-pipeline.md` §24.10）
+
+missing-semicolon recovery（`as b` / `a b` / `f() g()` / `1 2`，R5-A2 之后 THREW，**第一优先级**且不得回退 A2）、
+类表达式、`using` / `export declare` / `export as namespace` 等 module 族剩余、类成员外的装饰器建树、
+顶层 `await`·`yield` 路由、`const enum`、A3 判据放宽（比较链 + 模板操作数）、A6 归零的 `BlockFrom` 方案。
