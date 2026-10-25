@@ -974,6 +974,42 @@
           ],
           "tsTexts": [],
           "shapeAst": 0
+        },
+        {
+          "name": "s3n-comma-chain",
+          "source": "a, b, c;",
+          "note": "S3n: comma expression, left-associative; the shape tree builds BinaryExpression + CommaToken (typescript 6.0.3 has no SequenceExpression)",
+          "shapeTexts": [
+            ",(,(a,b),c)"
+          ],
+          "shapeAst": 1
+        },
+        {
+          "name": "s3n-comma-assign",
+          "source": "a = 1, b = 2;",
+          "note": "S3n: comma is lower than the assignment frame; each assignment is a comma operand",
+          "shapeTexts": [
+            ",(=(a,1),=(b,2))"
+          ],
+          "shapeAst": 1
+        },
+        {
+          "name": "s3n-comma-paren",
+          "source": "(a, b);",
+          "note": "S3n: parenthesized comma expression; the nested body parses the comma, the AST is ParenthesizedExpression(BinaryExpression(comma))",
+          "shapeTexts": [
+            "(a,b)"
+          ],
+          "shapeAst": 1
+        },
+        {
+          "name": "s3n-comma-nested-call",
+          "source": "f((a, b));",
+          "note": "S3n: call arguments are still legacy ParseBracketArguments; the nested parenthesized comma stays outside the shape tree",
+          "shapeTexts": [
+            "call(f)"
+          ],
+          "shapeAst": 1
         }
       ]
     },
