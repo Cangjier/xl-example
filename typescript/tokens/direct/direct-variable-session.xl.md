@@ -1,0 +1,482 @@
+# dependencies
+```xl
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
+import { VariableDeclarationListShape } from "../declarations/variable-declaration-list-shape.xl.md"
+import { VariableStatementShape } from "../statements/variable-statement-shape.xl.md"
+import { DirectSession } from "./direct-build-session.xl.md"
+import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
+import { DirectExpressionEngine } from "./direct-expression-engine.xl.md"
+```
+
+# namespace cangjie
+
+变量语句（`let` / `const` / `var`）的直建 session：壳（`StatementShape`）每关一个子单元就喂一次，增量推进
+`Head→Binding→EqualOrSep→Initializer→Sep/Done`；收口时一次建出
+`VariableStatementShape → VariableDeclarationListShape → VariableDeclarationShape(+IdentifierShape/初始化器)`，
+不调用 `StatementBuilder`。范围外构造（解构、类型注解、`declare`、`const enum` 等）显式 Decline（计数），
+接不上的单元（可能是下一条语句）只 Held（`StoppedAt`），由 `Finish(endIndex)` 决定是正常收口还是 Decline。
+
+# class VariableStatementDirectSession implements DirectSession
+
+```txt
+let x = 2*3+1        -> VariableStatementShape(cl. list(cl. decl(Identifier x, BinaryExpression(+))))
+let a=1,b=2          -> 两个 declaration；`,` 不进 Data
+let x                -> 无初始化器，ASI 收口
+const enum E { … }   -> Decline（enum 属范围外语句族），走旧路径
+```
+
+## static field ExpectHead:int = 0
+
+## static field ExpectBinding:int = 1
+
+## static field ExpectEqualOrSep:int = 2
+
+## static field ExpectInitializer:int = 3
+
+## static field ExpectSep:int = 4
+
+## static field Done:int = 5
+
+## field Owner:Token | null
+
+## field Declined:bool = false
+
+## field Reason:string = ""
+
+## field Finished:bool = false
+
+## field Template:Template
+
+## field Context:SyntaxContext
+
+## field BasePos:int
+
+## field Ingested:int = 0
+
+## field Expect:int = 0
+
+## field StoppedAt:int = -1
+
+## field Statement:Token | null = null
+
+## field List:Token | null = null
+
+## field Declaration:Token | null = null
+
+## field Initializer:DirectExpressionEngine | null = null
+
+## field Units:Array<Token> = []
+
+## field HasUnits:bool = false
+
+## field PrevEnd:int = -1
+
+## field Keyword:Token | null = null
+
+## field KeywordAt:int = -1
+
+## field LastDeclarationEnd:int = -1
+
+## constructor:(template:Template, context:SyntaxContext, basePos:int, owner:Token)=>void
+
+```ts
+this.Template = template;
+this.Context = context;
+this.BasePos = basePos;
+this.Owner = owner;
+```
+
+## method TextOf:(unit:Token)=>string
+
+```ts
+if (unit instanceof Common) {
+  return (unit as Common).TempToString();
+}
+if (unit instanceof Symbol) {
+  return (unit as Symbol).TempToString();
+}
+return "";
+```
+
+## method IsSymbol:(unit:Token, text:string)=>bool
+
+```ts
+return unit instanceof Symbol && (unit as Symbol).Is(text);
+```
+
+## method IsReservedName:(text:string)=>bool
+
+```ts
+if (text === "true" || text === "false" || text === "null" || text === "this" || text === "super") {
+  return true;
+}
+if (text === "enum" || text === "class" || text === "function" || text === "interface" || text === "type") {
+  return true;
+}
+if (text === "namespace" || text === "import" || text === "export" || text === "declare" || text === "using") {
+  return true;
+}
+if (text === "if" || text === "else" || text === "for" || text === "while" || text === "do" || text === "switch") {
+  return true;
+}
+if (text === "case" || text === "default" || text === "break" || text === "continue" || text === "return") {
+  return true;
+}
+if (text === "throw" || text === "try" || text === "catch" || text === "finally" || text === "new") {
+  return true;
+}
+if (text === "delete" || text === "typeof" || text === "void" || text === "instanceof" || text === "in") {
+  return true;
+}
+if (text === "await" || text === "yield" || text === "abstract" || text === "implements" || text === "extends") {
+  return true;
+}
+return text === "let" || text === "const" || text === "var";
+```
+
+## method Decline:(reason:string)=>void
+
+```ts
+if (this.Declined) {
+  return;
+}
+this.Declined = true;
+this.Reason = reason;
+DirectBuildMetrics.Declined += 1;
+DirectBuildMetrics.LastDeclineReason = reason;
+DirectBuildMetrics.Trace("variable session decline: " + reason);
+if (DirectBuildMetrics.Strict) {
+  DirectBuildMetrics.StrictViolations += 1;
+  throw new Error("DirectBuild strict: " + reason + " [" + this.Summary() + "]");
+}
+```
+
+## method Incomplete:(reason:string)=>void
+
+```ts
+this.Reason = reason;
+DirectBuildMetrics.IncompleteFallback += 1;
+DirectBuildMetrics.Trace("variable session incomplete: " + reason);
+if (DirectBuildMetrics.Strict) {
+  DirectBuildMetrics.StrictViolations += 1;
+  throw new Error("DirectBuild strict(incomplete): " + reason + " [" + this.Summary() + "]");
+}
+```
+
+## method Ingest:(units:Array<Token>, context:SyntaxContext)=>void
+
+```ts
+if (this.Declined || this.Finished || this.StoppedAt >= 0) {
+  return;
+}
+if (!this.HasUnits) {
+  this.HasUnits = true;
+  this.Units = units;
+}
+while (this.Ingested < units.length && !this.Declined && this.StoppedAt < 0) {
+  const at = this.Ingested;
+  this.Ingested = at + 1;
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  const pos = this.PrevEnd < 0 ? this.BasePos : this.PrevEnd;
+  this.IngestCode(unit, at, pos, context);
+  if (!this.Declined && this.StoppedAt < 0 && unit.SourceRange.EndIndex >= 0) {
+    this.PrevEnd = unit.SourceRange.EndIndex;
+  }
+}
+```
+
+## method IngestCode:(unit:Token, at:int, pos:int, context:SyntaxContext)=>void
+
+```ts
+if (this.Expect === VariableStatementDirectSession.ExpectHead) {
+  this.IngestHead(unit, at);
+  return;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectBinding) {
+  this.IngestBinding(unit, at, pos, context);
+  return;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectEqualOrSep) {
+  this.IngestEqualOrSep(unit, at, pos, context);
+  return;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectInitializer) {
+  this.IngestInitializer(unit, at, pos, context);
+  return;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectSep) {
+  this.IngestSep(unit, at);
+  return;
+}
+this.StoppedAt = at;
+```
+
+## method IngestHead:(unit:Token, at:int)=>void
+
+```ts
+if (!(unit instanceof Common)) {
+  this.Decline("变量语句头不是关键字");
+  return;
+}
+const text = (unit as Common).TempToString();
+if (text !== "let" && text !== "const" && text !== "var") {
+  this.Decline("范围外变量语句头: " + text);
+  return;
+}
+this.Keyword = unit;
+this.KeywordAt = at;
+this.List = new VariableDeclarationListShape(this.Template);
+this.Expect = VariableStatementDirectSession.ExpectBinding;
+DirectBuildMetrics.Trace("variable ingest head: " + text);
+```
+
+## method IngestBinding:(unit:Token, at:int, pos:int, context:SyntaxContext)=>void
+
+```ts
+if (unit instanceof Bracket) {
+  this.Decline("解构绑定属范围外");
+  return;
+}
+if (!(unit instanceof Common)) {
+  this.Decline("变量绑定不是标识符");
+  return;
+}
+const text = (unit as Common).TempToString();
+if (this.IsReservedName(text)) {
+  this.Decline("变量绑定是保留字: " + text);
+  return;
+}
+const identifier = IdentifierShape.FromBasicToken(unit as Common, context);
+identifier.Pos = pos;
+const declaration = new VariableDeclarationShape(this.Template);
+declaration.Add(identifier);
+// 与 legacy `StatementBuilder.Finish(declaration, nameIndex, last)` 同口径：声明节点的 Pos 取名字的 pos。
+(declaration as ShapeToken).Pos = pos;
+if (identifier.SourceRange.StartIndex >= 0) {
+  declaration.SignIn(identifier.SourceRange.StartIndex);
+}
+this.Declaration = declaration;
+this.Expect = VariableStatementDirectSession.ExpectEqualOrSep;
+DirectBuildMetrics.Trace("variable ingest binding: " + text);
+```
+
+## method IngestEqualOrSep:(unit:Token, at:int, pos:int, context:SyntaxContext)=>void
+
+```ts
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  if (text === "=") {
+    const nextPos = unit.SourceRange.EndIndex >= 0 ? unit.SourceRange.EndIndex : pos;
+    this.Initializer = new DirectExpressionEngine(this.Template, this.Context, nextPos);
+    this.Expect = VariableStatementDirectSession.ExpectInitializer;
+    return;
+  }
+  if (text === ",") {
+    this.CloseDeclarationWithoutInitializer(context);
+    this.Expect = VariableStatementDirectSession.ExpectBinding;
+    return;
+  }
+  if (text === ";") {
+    this.CloseDeclarationWithoutInitializer(context);
+    this.Expect = VariableStatementDirectSession.Done;
+    return;
+  }
+  if (text === ":" || text === "!") {
+    this.Decline("变量声明的类型注解 / 确定赋值断言属范围外");
+    return;
+  }
+}
+this.StoppedAt = at;
+```
+
+## method IngestInitializer:(unit:Token, at:int, pos:int, context:SyntaxContext)=>void
+
+```ts
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  if (text === ";" || text === ",") {
+    if (!this.CloseDeclarationWithInitializer(context)) {
+      return;
+    }
+    if (text === ";") {
+      this.Expect = VariableStatementDirectSession.Done;
+      return;
+    }
+    this.Expect = VariableStatementDirectSession.ExpectBinding;
+    return;
+  }
+}
+if (this.Initializer === null) {
+  this.Decline("初始化器缺失");
+  return;
+}
+this.Initializer.IngestUnit(unit, pos);
+if (this.Initializer.Declined) {
+  this.Decline("初始化表达式范围外: " + this.Initializer.Reason);
+  return;
+}
+if (this.Initializer.Held) {
+  this.StoppedAt = at;
+  return;
+}
+```
+
+## method IngestSep:(unit:Token, at:int)=>void
+
+```ts
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  if (text === ";") {
+    this.Expect = VariableStatementDirectSession.Done;
+    return;
+  }
+  if (text === ",") {
+    this.Expect = VariableStatementDirectSession.ExpectBinding;
+    return;
+  }
+}
+this.StoppedAt = at;
+```
+
+## method CloseDeclarationWithInitializer:(context:SyntaxContext)=>bool
+
+```ts
+if (this.Initializer === null || this.Declaration === null || this.List === null) {
+  this.Decline("声明状态不完整");
+  return false;
+}
+const expression = this.Initializer.Finish();
+if (expression === null) {
+  this.Decline("初始化表达式不完整: " + this.Initializer.Reason);
+  return false;
+}
+this.Initializer = null;
+this.Declaration.Add(expression);
+if (expression.SourceRange.EndIndex >= 0) {
+  this.Declaration.SignOut(expression.SourceRange.EndIndex);
+}
+this.Declaration.TryToClose(context);
+this.List.Add(this.Declaration);
+if (this.Declaration.SourceRange.EndIndex >= 0) {
+  this.LastDeclarationEnd = this.Declaration.SourceRange.EndIndex;
+}
+this.Declaration = null;
+DirectBuildMetrics.Trace("variable close declaration (initialized)");
+return true;
+```
+
+## method CloseDeclarationWithoutInitializer:(context:SyntaxContext)=>void
+
+```ts
+if (this.Declaration === null || this.List === null) {
+  this.Decline("声明状态不完整");
+  return;
+}
+const name = this.Declaration.Last();
+if (name !== null && name.SourceRange.EndIndex >= 0) {
+  this.Declaration.SignOut(name.SourceRange.EndIndex);
+}
+this.Declaration.TryToClose(context);
+this.List.Add(this.Declaration);
+if (this.Declaration.SourceRange.EndIndex >= 0) {
+  this.LastDeclarationEnd = this.Declaration.SourceRange.EndIndex;
+}
+this.Declaration = null;
+DirectBuildMetrics.Trace("variable close declaration (no initializer)");
+```
+
+## method Finish:(endIndex:int, context:SyntaxContext)=>Token | null
+
+```ts
+if (this.Finished) {
+  return null;
+}
+if (this.Declined) {
+  return null;
+}
+if (endIndex < 0) {
+  this.Incomplete("endIndex 非法");
+  return null;
+}
+if (!this.HasUnits || this.Units.length === 0) {
+  this.Incomplete("壳里没有单元");
+  return null;
+}
+if (this.StoppedAt < 0 && this.Ingested <= endIndex) {
+  const upTo:Array<Token> = this.Units.slice(0, endIndex + 1);
+  this.Ingest(upTo, context);
+}
+if (this.Declined) {
+  return null;
+}
+if (this.StoppedAt >= 0 && this.StoppedAt <= endIndex) {
+  this.Decline("语句内出现无法接续的单元 idx=" + String(this.StoppedAt));
+  return null;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectInitializer) {
+  if (!this.CloseDeclarationWithInitializer(context)) {
+    return null;
+  }
+  this.Expect = VariableStatementDirectSession.ExpectSep;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectEqualOrSep) {
+  this.CloseDeclarationWithoutInitializer(context);
+  if (this.Declined) {
+    return null;
+  }
+  this.Expect = VariableStatementDirectSession.ExpectSep;
+}
+if (this.Expect === VariableStatementDirectSession.ExpectSep) {
+  this.Expect = VariableStatementDirectSession.Done;
+}
+if (this.Expect !== VariableStatementDirectSession.Done) {
+  this.Incomplete("语句没有收口, expect=" + String(this.Expect));
+  return null;
+}
+if (this.List === null || this.Keyword === null || this.LastDeclarationEnd < 0) {
+  this.Incomplete("缺少声明列表/关键字");
+  return null;
+}
+const list = this.List;
+if (this.Keyword.SourceRange.StartIndex >= 0) {
+  list.SignIn(this.Keyword.SourceRange.StartIndex);
+}
+list.SignOut(this.LastDeclarationEnd);
+(list as ShapeToken).Pos = this.BasePos;
+list.TryToClose(context);
+const statement = new VariableStatementShape(this.Template);
+statement.Add(list);
+statement.Pos = this.BasePos;
+if (this.Keyword.SourceRange.StartIndex >= 0) {
+  statement.SignIn(this.Keyword.SourceRange.StartIndex);
+}
+const endUnit = this.Units[endIndex];
+if (endUnit.SourceRange.EndIndex >= 0) {
+  statement.SignOut(endUnit.SourceRange.EndIndex);
+}
+statement.TryToClose(context);
+this.Statement = statement;
+this.Finished = true;
+DirectBuildMetrics.StatementsBuilt += 1;
+DirectBuildMetrics.Trace("variable built: decls=" + String(list.Data.length));
+return statement;
+```
+
+## method Summary:()=>string
+
+```ts
+const head = this.Keyword === null ? "?" : this.TextOf(this.Keyword);
+return "Variable@" + head + " expect=" + String(this.Expect) + " ingested=" + String(this.Ingested)
+  + (this.Declined ? " declined(" + this.Reason + ")" : "");
+```
