@@ -7,15 +7,17 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
+import { StatementScanner } from "./statement-scanner.xl.md"
 ```
 
 # namespace cangjie
 
 # class DeclarationStatementPossibleShape extends ControlFlowStatementPossibleShape
 
-**根层声明 / 导入导出族的专用起点候选**（Stage 4r）。
+**根层声明 / 导入导出族的专用起点候选**（Stage 4r，晚建守卫 Stage 4t）。
 
 它与 `ControlFlowStatementPossibleShape` 共用同一条建壳 / 收口 / 建树通道——**只重写两个判定**：
 `ComputeByIndex` / `IsBuildable` 只认 `StatementRoute.ShellDeclarationFamily`，建壳仍由继承来的
@@ -33,11 +35,18 @@ route 一旦判成 `ShellDeclarationFamily`，从**那一格起**都可以建壳
 `interface` / `enum` / `import` / `export` 都是这种形态），搬单元的范围仍由 `BuildByIndex` 的
 `start..tokenIndex` 决定，与 legacy 声明候选的晚建口径一致。
 
-**让位门控**：9 个 legacy 声明候选（Import / Export / ImportEquals / ExportAssignment / NamespaceExport /
-Class / Interface / Function / Enum / Module / TypeAlias）在 `ComputeByIndex` 顶部对
-`Decide === ShellDeclarationFamily` 主动 `Reject`——否则它们与本候选同格 Accept，`CatalogGuide` 会一直等
-（"接受"与"不确定"同义，只有只剩一个候选才建）。`EnableDeclarationShell=false` 时 `Decide` 重新返回
-`Legacy`，门控整体失效，行为逐位回到 Stage 4p。
+**晚建守卫（Stage 4t）**：`tokenIndex > headAt` 只在「本条语句还收不了口」的中间格上补建。上一条语句已经
+收口的那一格（`interface I { }` ⏎ `const a = 1;` 的 `const`、`type T = 1;` ⏎ `enum E` 的 `enum`）上
+`ItemStart` 仍指向前一条语句、route 仍是声明族，若照旧 `Accept`，`BuildByIndex` 会把「已闭合的壳 + 下一条
+语句的头」一起搬进新壳（S4r 的 `decl=2`、首节点 raw `Common`）。判据**不新写第二份**：与
+`RootExpressionStatementPossibleShape` 的晚建守卫同一份 `StatementBoundaryUtil.CanEndStatement`
+（`;` / EOF / ASI 三条同源），为真就 `Reject`、交回 legacy 在后面的格子 / EOF 建。
+
+**让位门控**：13 个 legacy 候选（Import / Export / ImportEquals / ExportAssignment / NamespaceExport /
+Class / Interface / Function / Enum / Module / TypeAlias + `expression-statement` + `variable-statement`）
+在 `ComputeByIndex` 顶部对 `Decide === ShellDeclarationFamily` 主动 `Reject`——否则它们与本候选同格
+`Accept`，`CatalogGuide` 会一直等（"接受"与"不确定"同义，只有只剩一个候选才建）。
+`EnableDeclarationShell=false` 时 `Decide` 重新返回 `Legacy`，门控整体失效，行为逐位回到 Stage 4q。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -68,11 +77,26 @@ if (route === StatementRoute.None) {
 if (route !== StatementRoute.ShellDeclarationFamily) {
   return ShapeStates.Reject;
 }
-// route 判成声明族之后，首格与晚一两格的补建都走同一条建壳路径。
+if (tokenIndex === headAt) {
+  // 首格：建壳，搬的范围就是 [start..头格]。
+  return ShapeStates.Accept;
+}
+// 晚建补建（`type T` / `declare const` 的族在第二格才判出来）：与 `RootExpressionStatementPossibleShape`
+// 的晚建守卫同一条判据——上一单元已能结束语句时（`}` ⏎ `const`、`;` ⏎ `enum`）**不补建**，
+// 把这一格交回 legacy，否则已闭合的壳会被连同下一条语句的头一起搬进新壳（S4r 的 decl=2 / raw Common）。
+const lateOwner = units[tokenIndex].Parent;
+const lateEnd = units[tokenIndex].SourceRange.EndIndex;
+const lateAtEof = (lateOwner !== null && lateOwner.SourceRange.EndIndex >= 0)
+  || (lateEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, lateEnd) === "");
+if (StatementBoundaryUtil.CanEndStatement(units, tokenIndex, lateAtEof)) {
+  return ShapeStates.Reject;
+}
 return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+与 `ComputeByIndex` 同一口径（同一个 `CanEndStatement` 晚建守卫），否则「可建」与「接受」两处判据会分叉。
 
 ```ts
 if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableControlFlowShell) {
@@ -86,5 +110,15 @@ if (headAt >= units.length || headAt > tokenIndex) {
 if (units[tokenIndex].IsTriviaToken) {
   return false;
 }
-return StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellDeclarationFamily;
+if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellDeclarationFamily) {
+  return false;
+}
+if (tokenIndex === headAt) {
+  return true;
+}
+const lateOwner = units[tokenIndex].Parent;
+const lateEnd = units[tokenIndex].SourceRange.EndIndex;
+const lateAtEof = (lateOwner !== null && lateOwner.SourceRange.EndIndex >= 0)
+  || (lateEnd >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, lateEnd) === "");
+return !StatementBoundaryUtil.CanEndStatement(units, tokenIndex, lateAtEof);
 ```
