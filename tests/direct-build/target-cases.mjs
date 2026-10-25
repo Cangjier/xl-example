@@ -22,6 +22,8 @@
 //     pos         正例：直建必须接管（built>=1 / declined==0 / incomplete==0 / errors==0）
 //     guard       【R3】同 pos，但 expectBuilt 是**不变的 1**（D7 防过度收缩：`let x = a⏎+ b` 仍是一条）
 //     neg         负例：显式 Decline（declined>=1 / built==0 / errors==0）+ AST 仍与 tsc 一致（旧路径保证）
+//                 【R3/D2】expectBodyBuilt 的 neg：built 必须等于**体内语句自己的壳**的读数（不是 0），
+//                 因为该负例的体里有已经实现的语句族（`for (let …) { b; }`：b; 本来 built=1）
 //     safe        无 session 构造（await / class / yield / if / return）：只断言 built==0 + AST 一致，
 //                 **不断言 declined>=1**（这些语句根本不进 DirectSession，R1 语义是「没调用」不是「Decline」）
 //     invalid     语法非法输入（`a ? b, c : d`）：直建显式 Decline，且本侧与基线同源拒绝同一文案；
@@ -33,6 +35,9 @@
 //     strictAll   true = 即使 expect != pos，也在 --strict 下解析（strict 全量化的证明 case → A12）
 //     markerScope "boundary" = 构造标记只看 statement-boundary-util 产物（D7 的唯一修改点）
 //     q1          true = R2-SAFE-04/05，R3-Q1 改判 pos，--q1=auto|safe 时可回退 safe
+//     expectBodyBuilt 【R3，REPORT-r3-control §6-D2】负例的 built 读数**来自体内语句自己的壳**（不是本条语句的壳）时，
+//                 用它代替 built==0：A4 断言 declined>=1 && built==expectBodyBuilt && errors==0，
+//                 分类 verdict 同 neg（A9 仍判该族的 category）。`for (let …) { b; }` / `for (const k in o) { b; }` 用它。
 //
 // 本脚本只读：不改产品源码、不改仓库文件、不跑任何全量门（gates / ast-json 6171 / coverage / samples）。
 // 唯一的「进程内修改」是 --fault-inject=finish-throw：给 session 的 Finish 包一层一次性抛错（R2-CONTRACT §5.1，
@@ -52,6 +57,7 @@
 //   A3  XML 非空且根下节点数 == TS 顶层语句数（`{ let x = 1; }` 是 1；built 是 2 —— 两层口径不同）
 //   A4  正例 / guard built>=1 && declined==0 && incomplete==0 && errors==0 && strictViolations==0
 //       负例 declined>=1 && built==0 && errors==0（C4 之后也不许走异常兜底）
+//                 【R3/D2】带 expectBodyBuilt 的负例：built 必须等于该值（体内语句自己的壳），仍要 declined>=1
 //       safe built==0 && errors==0（**不**断言 declined：这类语句不进 DirectSession）
 //       invalid / incomplete built==0 && errors==0，且 invalid 要 declined>=1、incomplete 要 incomplete>=1
 //       C4  注入后 errors==1 且 LastError 含 inject 且 declined==0；第二次解析（Reset 后、不注入）errors==0
@@ -98,6 +104,7 @@ const SEP = "=".repeat(72);
 //   categories   负例期望的 DeclineReasons category（A9；R2-CONTRACT §3.1 + R3-CONTRACT §4.6 闭集）
 //   expectInsert case 含二元/赋值/逗号运算符插入 → --trace 时期望 Traces 有 insert(
 //   expectBuilt  多语句 case 的 StatementsBuilt 精确值（**含体内语句**；R1-08 = 2，R3-B1-pos-03 = 2）
+//   expectBodyBuilt 【R3】负例的 built 来自**体内语句自己的壳**时的精确值（代替 built==0；详见上方 case 新字段）
 //   injection    C4：由 --fault-inject=finish-throw 注入，而不是源码 case
 //   d1           该 case 的期望因 Lead 裁决 D1 翻转（`let x = f()` 由负例改正例）
 //   noBaseline   【R3】A10 改判 SKIP（旧基线 8456ec3c 自身错；D7 组）
@@ -325,8 +332,11 @@ const CASES = [
   { id: "R3-B1-pos-05", src: "if (a) { b; } else { c; }", expect: "pos", expectInsert: false, expectBuilt: 3,
     note: "then / else 体各是一条已建语句（built=3）",
     markers: ["IfStatementShape"] },
-  { id: "R3-B1-pos-06", src: "if (a) { b; } else if (c) { d; }", expect: "pos", expectInsert: false, expectBuilt: 4,
-    note: "else-if 不是特殊语法：else 后面就是一条 if 语句（built=4）",
+  { id: "R3-B1-pos-06", src: "if (a) { b; } else if (c) { d; }", expect: "pos", expectInsert: false, expectBuilt: 3,
+    note: "else-if 不是特殊语法：else 后面就是一条 if 语句（built=3）。**口径修正（REPORT-r3-control §6-D1，control 实测）**：" +
+      "里层 if **没有自己的壳** —— 外层 if 壳的 Data 里就是 raw `if / (c) / {d}`（probe-r3-shells 实测外层壳 endIndex 覆盖整条链），" +
+      "由外层 session 的 BuildRange 递归建、只计外层一次；写成 4 与 `if (a) { b; }`（then 块不计数）自相矛盾。" +
+      "判据仍是 A1（AST==tsc 逐字段）+ A10（XML 与基线逐字节），两者在这条上都实测一致",
     markers: ["IfStatementShape"] },
   { id: "R3-B1-pos-07", src: "while (a) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "while + 体内已建语句",
@@ -347,10 +357,16 @@ const CASES = [
     note: "for-of",
     markers: ["ForOfStatementShape"] },
   { id: "R3-B1-neg-01", src: "for (let i = 0; i < n; i++) { b; }", expect: "neg", expectInsert: false,
-    note: "**声明 init**：头部 VariableDeclarationList 属声明建造器，不代建（代建 = A6 红或静默错建）",
+    expectBodyBuilt: 1,
+    note: "**声明 init**：头部 VariableDeclarationList 属声明建造器，不代建（代建 = A6 红或静默错建）。" +
+      "**口径修正（REPORT-r3-control §6-D2，control 实测）**：不能用 built==0 —— 体内的 `b;` 是**它自己的**表达式语句壳建的正例" +
+      "（基线 422a5e6f 上本来就 built=1），本 session 只 Decline 这条 for 自身。断言 = declined>=1 && 体内壳 built==1 && " +
+      "category==stmt.head（A9）+ AST MATCH（A1）",
     categories: ["stmt.head"], markers: ["ForStatementShape"] },
   { id: "R3-B1-neg-02", src: "for (const k in o) { b; }", expect: "neg", expectInsert: false,
-    note: "同上：const 是声明关键字（for-in 头）",
+    expectBodyBuilt: 1,
+    note: "同上：const 是声明关键字（for-in 头）。built=1 来自体内 `b;` 自己的壳（D2 同口径），断言 = declined>=1 + " +
+      "expectBodyBuilt=1 + stmt.head（A9）+ AST MATCH（A1）",
     categories: ["stmt.head"], markers: ["ForInStatementShape"] },
   { id: "R3-B1-neg-03", src: "switch (a) { case 1: b; }", expect: "neg", expectInsert: false,
     note: "switch 在 IsControlFlowHead 里（所以会建壳、会进 session），但子句结构本轮不做",
@@ -1205,7 +1221,10 @@ function evaluateCase(ctx, c) {
     m.incompleteFallback === 0 &&
     m.errors === 0 &&
     m.strictViolations === 0;
-  const negCountersOk = (m) => m.declined >= 1 && m.statementsBuilt === 0 && m.errors === 0;
+  // 【R3/D2】expectBodyBuilt：负例的 built 读数来自**体内语句自己的壳**（例如 `for (let …) { b; }` 的 `b;`），
+  // 此时不能断言 built==0；改成断言「恰好是那个体内读数」+ declined>=1（该族确实 Decline 了本条语句）。
+  const negBuiltWant = (c) => (typeof c.expectBodyBuilt === "number" ? c.expectBodyBuilt : 0);
+  const negCountersOk = (m) => m.declined >= 1 && m.statementsBuilt === negBuiltWant(c) && m.errors === 0;
   const builtOk = (m) => (typeof c.expectBuilt === "number" ? m.statementsBuilt === c.expectBuilt : true);
   const countersText = (m) =>
     `built=${m.statementsBuilt} declined=${m.declined} incomplete=${m.incompleteFallback} ` +
@@ -1325,13 +1344,21 @@ function evaluateCase(ctx, c) {
     // 【R3】该族的 session 还没注册/未挂载时，「既没建也没 Decline」是「没实现」的形态，不是实现错了。
     // （built 可能来自体内已实现的族，例如 `for (let …) { b; }` 里的 `b;` 由 R2 的表达式 session 建。）
     const familyAbsent = feature.present === false;
-    let detail = `${countersText(m1)}（负例期望 declined>=1 built=0 errors=0）`;
+    const wantBuilt = negBuiltWant(c);
+    // D2：expectBodyBuilt 的 case 把「built 来自体内语句自己的壳」写明，避免读者以为断言放宽
+    const builtClause = typeof c.expectBodyBuilt === "number"
+      ? `bodyBuilt=${c.expectBodyBuilt}（体内语句自己的壳；本条语句本身不建）`
+      : "built=0";
+    let detail = `${countersText(m1)}（负例期望 declined>=1 ${builtClause} errors=0${c.expectBodyBuilt ? "，A9 判该族 category" : ""}）`;
     if (!ok && familyAbsent) {
       detail +=
         `  ← IMPLEMENTATION-ABSENT：该族的 session 还没注册 / 未挂载到壳上${absentHint(feature)}；` +
         `「没 Decline」是「没实现」的形态，不是实现错了`;
-    } else if (m1.statementsBuilt !== 0) {
-      detail += `  ← IMPLEMENTATION-MISBUILT：该构造本轮应显式 Decline，但被直建接管/误建`;
+    } else if (m1.statementsBuilt !== wantBuilt) {
+      detail += `  ← IMPLEMENTATION-MISBUILT：该构造本轮应显式 Decline，但被直建接管/误建` +
+        (typeof c.expectBodyBuilt === "number"
+          ? `（built=${m1.statementsBuilt} != 体内自有壳的期望 ${wantBuilt}）`
+          : "");
     } else if (m1.errors !== 0) {
       detail += `  ← IMPLEMENTATION-ERROR-FALLBACK：异常兜底，C4 明令不许（Errors 必须 0）`;
     } else if (m1.declined === 0) {
@@ -1747,6 +1774,12 @@ function renderCaseHuman(result, flags) {
           `例如 \`{ let x = 1; }\` built=2 而根下节点数=1）`,
       );
     }
+    if (typeof c.expectBodyBuilt === "number") {
+      lines.push(
+        `EXPECT-BODY-BUILT: ${c.expectBodyBuilt}（负例：built 读数来自**体内语句自己的壳**，不是本条语句；` +
+          `本条断言 declined>=1 + category）`,
+      );
+    }
     if (c.noBaseline) {
       lines.push("NO-BASELINE: A10 改判 SKIP（旧基线 8456ec3c 自身错，R3-CONTRACT §1.3）；判据 = A1 + A4 计数 + A11");
     }
@@ -2077,6 +2110,7 @@ async function main() {
         note: result.case.note,
         expect: result.case.expect,
         expectBuilt: typeof result.case.expectBuilt === "number" ? result.case.expectBuilt : null,
+        expectBodyBuilt: typeof result.case.expectBodyBuilt === "number" ? result.case.expectBodyBuilt : null,
         noBaseline: Boolean(result.case.noBaseline),
         strictAll: Boolean(result.case.strictAll),
         q1Reverted: Boolean(result.case.q1Reverted),
