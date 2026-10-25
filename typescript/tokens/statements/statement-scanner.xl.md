@@ -11,6 +11,7 @@ import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
+import { StatementLegacyMetrics } from "./statement-legacy-metrics.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
@@ -169,7 +170,11 @@ return new StatementScanResult(2, -1);
 
 根级只认「本族语句的起点」：`{`（块）、`;`（空语句）、以及固定关键字。表达式 / import / export 一律交回其它候选。
 
+**Stage 5d-1a 计数器（零行为变化）**：入口先给 `StatementLegacyMetrics.ScanRootCallCount` 自增——只加一个静态整数，
+不读、不改任何状态，返回值与分支逐字节不变。它量的是「还有多少语句判界要问这支 legacy 扫描器」，退场判据是它归零。
+
 ```ts
+StatementLegacyMetrics.ScanRootCallCount++;
 if (code.length === 0) {
   return StatementScanner.NeedMore();
 }

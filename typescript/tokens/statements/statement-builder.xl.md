@@ -30,6 +30,7 @@ import { ExportAssignmentShape } from "../declarations/export-assignment-shape.x
 import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { StatementLegacyMetrics } from "./statement-legacy-metrics.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
@@ -1344,6 +1345,8 @@ if (StatementBuilder.HasBuiltBodyStatements(bracket)) {
   }
   inner.Load(bracket.Data, base);
   while (inner.At < inner.Units.length) {
+    // Stage 5d-1a（零行为变化）：整段 raw 块体的每一条语句都是「raw 尾巴」，只计数、不改建树路径。
+    StatementLegacyMetrics.RawTailBuildCount++;
     shape.Add(inner.BuildStatement());
   }
 }
@@ -1400,6 +1403,8 @@ while (at < bracket.Data.length) {
     const inner = new StatementBuilder(this.Template, this.Context);
     inner.Load(bracket.Data.slice(rawFrom, at), rawBase);
     while (inner.At < inner.Units.length) {
+      // Stage 5d-1a：已建语句之间的 raw 段，每建一条 +1（收集通道的目标是「一条 raw 都不剩」）。
+      StatementLegacyMetrics.RawTailBuildCount++;
       shape.Add(inner.BuildStatement());
     }
   }
@@ -1428,6 +1433,8 @@ if (hasRaw) {
   const inner = new StatementBuilder(this.Template, this.Context);
   inner.Load(bracket.Data.slice(rawFrom), rawBase);
   while (inner.At < inner.Units.length) {
+    // Stage 5d-1a：块体尾部的 raw 段，每建一条 +1。
+    StatementLegacyMetrics.RawTailBuildCount++;
     shape.Add(inner.BuildStatement());
   }
 }
