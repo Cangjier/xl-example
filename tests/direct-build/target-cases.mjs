@@ -1865,7 +1865,7 @@ function evaluateCase(ctx, c) {
     add(
       "A10",
       "SKIP",
-      "XML-BASELINE: SKIP (noBaseline: 旧基线 8456ec3c 自身错，见 R3-CONTRACT §1.3)；" +
+      "XML-BASELINE: SKIP (noBaseline: 旧基线 8456ec3c 自身错，见 R3-CONTRACT §1.3 / R4-CONTRACT §5.4)；" +
         `判据 = A1(AST==tsc) + A4 计数 + A11${baseline === null ? "" : `（--baseline=${baseline.root} 已给也不比）`}`,
       { noBaseline: true },
     );
@@ -2387,7 +2387,17 @@ async function main() {
         declineStats: flags.declineStats,
         faultInject: flags.faultInject,
         q1: flags.q1Resolution || { mode: flags.q1, effective: flags.q1 },
-        q4: flags.q4Resolution || { mode: flags.q4, effective: flags.q4 },
+        q4: flags.q4Resolution
+          ? {
+            mode: flags.q4Resolution.mode,
+            effective: flags.q4Resolution.effective,
+            why: flags.q4Resolution.why,
+            ids: flags.q4Resolution.ids,
+            reverted: [...flags.q4Resolution.byId.entries()]
+              .filter(([, value]) => value === "legacy")
+              .map(([id]) => id),
+          }
+          : { mode: flags.q4, effective: flags.q4 },
         strictImplied: Boolean(flags.strictImplied),
       },
       implementation: {
