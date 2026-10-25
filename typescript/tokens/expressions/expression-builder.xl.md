@@ -15,7 +15,6 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
-import { FirstAssignmentShape } from "../aliases/first-assignment-shape.xl.md"
 import { FirstBinaryOperatorShape } from "../aliases/first-binary-operator-shape.xl.md"
 import { FirstCompoundAssignmentShape } from "../aliases/first-compound-assignment-shape.xl.md"
 import { LastBinaryOperatorShape } from "../aliases/last-binary-operator-shape.xl.md"
@@ -38,6 +37,7 @@ import { DotDotDotTokenShape } from "../punctuation/dot-dot-dot-token-shape.xl.m
 import { EqualsEqualsEqualsTokenShape } from "../punctuation/equals-equals-equals-token-shape.xl.md"
 import { EqualsEqualsTokenShape } from "../punctuation/equals-equals-token-shape.xl.md"
 import { EqualsGreaterThanTokenShape } from "../punctuation/equals-greater-than-token-shape.xl.md"
+import { EqualsTokenShape } from "../punctuation/equals-token-shape.xl.md"
 import { ExclamationEqualsEqualsTokenShape } from "../punctuation/exclamation-equals-equals-token-shape.xl.md"
 import { ExclamationEqualsTokenShape } from "../punctuation/exclamation-equals-token-shape.xl.md"
 import { GreaterThanEqualsTokenShape } from "../punctuation/greater-than-equals-token-shape.xl.md"
@@ -2630,7 +2630,7 @@ return args;
 const text = this.TextOf(unit);
 let shape:ShapeToken;
 if (text === "=") {
-  shape = new FirstAssignmentShape(this.Template);
+  shape = new EqualsTokenShape(this.Template);
 } else if (text === "...") {
   shape = new DotDotDotTokenShape(this.Template);
 } else if (text === "=>") {

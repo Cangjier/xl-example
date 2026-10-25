@@ -29,6 +29,8 @@ const TS_KIND_ALIASES = new Map([
   ["FirstLiteralToken", "NumericLiteral"],
   ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
   ["LastTemplateToken", "TemplateTail"],
+  // 赋值运算符的反查名被别名 FirstAssignment 盖掉；产物侧已改用规范类 EqualsTokenShape。
+  ["FirstAssignment", "EqualsToken"],
   ["AssertClause", "ImportAttributes"],
   ["AssertEntry", "ImportAttribute"],
 ]);

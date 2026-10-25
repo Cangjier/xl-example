@@ -638,7 +638,7 @@
                           "text": "x"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 17,
                           "end": 19
                         },
@@ -698,7 +698,7 @@
                           "text": "x"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 17,
                           "end": 19
                         },
@@ -1338,7 +1338,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 17,
                           "end": 19
                         },

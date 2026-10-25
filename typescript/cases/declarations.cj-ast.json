@@ -37344,7 +37344,7 @@
                               ]
                             },
                             {
-                              "kind": "FirstAssignment",
+                              "kind": "EqualsToken",
                               "pos": 25,
                               "end": 27
                             },
@@ -38009,7 +38009,7 @@
                               ]
                             },
                             {
-                              "kind": "FirstAssignment",
+                              "kind": "EqualsToken",
                               "pos": 34,
                               "end": 36
                             },
@@ -40991,7 +40991,7 @@
                               "text": "x"
                             },
                             {
-                              "kind": "FirstAssignment",
+                              "kind": "EqualsToken",
                               "pos": 27,
                               "end": 29
                             },
