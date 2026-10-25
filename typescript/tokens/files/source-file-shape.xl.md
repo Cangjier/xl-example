@@ -174,6 +174,25 @@ super.Process(context, buffer, index);
 
 ## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
 
+默认解析（`EnableShellExpressions == true`）用的根目录：**不含**根 legacy 语句候选 `StatementPossibleShape`（Stage 5d-5 退场）。
+
+## private static field CreateLegacyPossibleShapesCache:Array<PossibleShape> | null = null
+
+关闭态（`EnableShellExpressions == false`，即文件级 fallback 与 harness 的 legacy 对拍）用的根目录：
+上面那份 **+ 在原第 4 位（0 基下标 3）插回 `StatementPossibleShape`**，与 5d-5 之前的数组逐位相同。
+
+**为什么必须是两份缓存，而不是就地增删一份**：`CreatePossibleShapes()` 的返回值被 `CatalogGuide` 长期持有
+（`PossibleShapes` 字段，构造后一个字都不改），而**一次进程里两种态都会出现**——默认解析抛错时
+`SourceFileRunner.Parse` 会按 `shell=false` 再跑一遍整条文件。若只有一份缓存、按调用时的开关决定放不放
+根候选，那么「先跑过一次默认解析」就会把 false 态的目录永久钉成壳目录（反之亦然），false 态的读数与
+AST 立刻变。所以这里按态各建一份，false 态那份是从壳目录 `slice()` 出来再插回根候选——**同一批候选、
+同一个顺序**，只有根候选这一个差别。
+
+**插入点用下标 3**：`CatalogGuide` 按 `Candidates`（插入顺序）逐项询问，`StatementPossibleShape` 在
+5d-5 之前正好排在第 4 位（声明 / 导入 / 导出三个专用壳之后）。保持原位是「false 态逐位不变」的一部分：
+候选之间虽然不靠先后决定谁 Accept（同格双 Accept 会抛错），但判定的**副作用顺序**（谁先读写
+`ItemStartCached` / `AtEOF`）与改动前一致，才能说逐位等价，而不是「应该等价」。
+
 ## static method CreatePossibleShapes:()=>Array<PossibleShape>
 
 ```ts
@@ -185,7 +204,12 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     new DeclarationStatementPossibleShape(),
     new ImportDeclarationPossibleShape(),
     new ExportDeclarationPossibleShape(),
-    new StatementPossibleShape(),
+    // **Stage 5d-5：根 legacy 语句候选在这里退场**。原第 4 位是 `new StatementPossibleShape()`。
+    // 它只剩「`Legacy` 路由里还没壳化的那几种」（`await using` / `using` 声明 / `let` `using` 当标签 /
+    // `async` 非箭头 …），而默认解析里这些形态本来就会被 `SourceFileEndPossibleShape` 的收尾路径
+    // 按同一段建造器建出来（实测 6300 用例上它只建 7 条、AST 0 差、fallback 0 增）；代价是它每格都问一次
+    // `StatementScanner.ScanRoot`（全语料 17129 次）。所以默认目录不再注册它；false 态仍在原位注册
+    // （`CreateLegacyPossibleShapesCache`），文件级 fallback 逐位不变。
     // new ImportEqualsDeclarationPossibleShape(),
     // new ExportAssignmentPossibleShape(),
     // new NamespaceExportDeclarationPossibleShape(),
@@ -229,5 +253,17 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // new DebuggerStatementPossibleShape(),
   ];
 }
-return SourceFileShape.CreatePossibleShapesCache;
+
+if (SourceFileShape.CreateLegacyPossibleShapesCache === null) {
+  // 同一批候选、同一个顺序，只在原第 4 位（0 基下标 3）插回根 legacy 语句候选。
+  const withRootLegacyStatement = SourceFileShape.CreatePossibleShapesCache.slice();
+  withRootLegacyStatement.splice(3, 0, new StatementPossibleShape());
+  SourceFileShape.CreateLegacyPossibleShapesCache = withRootLegacyStatement;
+}
+
+// 目录按**当前态**取：默认解析拿壳目录，关闭态拿回旧目录。两份都建一次就永久缓存，
+// 因为同一个进程里两种态会交替出现（文件级 fallback 就是同一次 Parse 里的第二次装配）。
+return StatementRouteUtil.EnableShellExpressions
+  ? SourceFileShape.CreatePossibleShapesCache
+  : SourceFileShape.CreateLegacyPossibleShapesCache;
 ```

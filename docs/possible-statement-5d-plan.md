@@ -496,3 +496,69 @@ node tests/statement-possible/legacy-retirement.mjs --legacy-only   # 底座，�
    要动「标签体挂目录」机制，属结构性改动。
 2. 块内函数 / `async function` 声明留下的 raw 段（~20 条）：块体目录不含声明族候选，需要声明壳 + 体挂载一起动。
 
+---
+
+## 10. Stage 5d-5 根扫描退场（实测，2026-10-25，HEAD=09ce8d8e 之上）
+
+本阶段只做 §4.5 的**第 1 项**（根 legacy 候选退场 → 默认解析 `ScanRootCallCount = 0`）。§4.5 的第 2–4 项
+（删 `ScanRoot` / 删文件级兜底 / 删 `StatementLegacyMetrics`）的前置条件都还没成立，**本轮不动**：
+最重要的一个是 `FileFallbackCount = 50`，它说明「新路径不再抛错」这条前置**还不满足**，兜底必须留着。
+
+### 10.1 四项指标前后（默认解析，`legacy-retirement.mjs`，语料 6300 用例不变）
+
+| 指标 | 5d-4 之后 | 5d-5 之后 | 差 |
+| --- | --- | --- | --- |
+| `LegacyStatementDispatchCount` | 0 | **0** | 0 |
+| `ScanRootCallCount` | 19427 | **388** | **−19039** |
+| `RawTailBuildCount` | 215 | **215** | 0 |
+| `ShapeAstDeclinedCount` | 328 | **328** | 0 |
+| `FileFallbackCount`（交叉校验） | 50 | **50** | 0（**没有用兜底换数字**） |
+
+`ScanRootCallCount = 388` 里的 **100% 是文件级 fallback 的 legacy 重解析**（专用探针
+`root-retirement.mjs` 按调用发生时的 `EnableShellExpressions` 分桶：默认态 **0**、fallback 态 **388**）。
+即：**默认解析的根 legacy 候选退场已完成**，剩下的这个数只在 `EnableShellExpressions === false` 时出现。
+
+### 10.2 门控点：根候选从默认目录里退出（两份缓存，按态取）
+
+`SourceFileShape.CreatePossibleShapes()` 现在有**两份缓存**：
+
+| 缓存 | 何时用 | 内容 |
+| --- | --- | --- |
+| `CreatePossibleShapesCache` | `EnableShellExpressions === true`（默认解析） | 17 个候选，**不含** `StatementPossibleShape` |
+| `CreateLegacyPossibleShapesCache` | `=== false`（文件级 fallback / harness 的 legacy 对拍） | 上面那份 + 在原第 4 位（下标 3）插回 `StatementPossibleShape` = 18 个 |
+
+**为什么必须是两份**：`CatalogGuide` 长期持有这个数组（`PossibleShapes` 构造后一字不改），而同一个进程里
+两种态会交替出现（文件级 fallback 就是同一次 `Parse` 里的第二次装配）。只用一份、按调用时的开关决定
+放不放根候选，会让「先跑过一次默认解析」把 false 态的目录永久钉成壳目录。两份缓存各自建一次、永久复用，
+false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、同一个顺序**。
+
+`StatementPossibleShape` 类的 `ComputeByIndex` / `BuildByIndex` **一字未改**：false 态走的就是这两条。
+
+### 10.3 判界残余的三处调用点（522 + 440 + 33）
+
+根候选退场后剩下的 `ScanRoot` 调用点按调用方归因（`tmp/scanroot-probe.mjs`）：
+
+| 调用方 | 次数 | 迁到哪里 |
+| --- | --- | --- |
+| `StatementPossibleShape.ComputeByIndex` | 17129 | 随根候选退场 → **0**（只剩 fallback 态 388） |
+| `StatementShape.TryToClose`（EOF 兜底） | 522 | 首格 `;` → `IsSemicolon`；短语句族 → `ShortFamilyEndCode(code, true)` |
+| `StatementEndPossibleShape.ComputeByIndex` | 440 | `class`/`function` → `DeclarationBodyEndCode`；`await` → `AwaitUsingEndCode`；`yield` → 不收口 |
+| `StatementEndPossibleShape.BuildByIndex` | 33 | 同上（两处 `else` 分支） |
+
+**等价性不是推测**（`tmp/scanroot-plan.mjs`：对全语料每一次调用逐条比对旧判据与新判据）：
+`TryToClose` 的 522 次**全部**给出同一个 `End`（0 不一致）；`End.Compute` 里 `yield` 184 次**从不 `Accept`**
+（`ScanRoot` 对它本来就是 `Mismatch`/`NeedMore`），`await` 211 次里只有 11 次 `Accept`、且全是
+`await using x = …;`——所以 `await` 迁到 `AwaitUsingEndCode`（`ScanRoot` 的 `await` 分支逐字搬迁，
+`End` 逐条相同）；`class`/`function` 那 45 次 `ScanRoot` 一律 `Mismatch`，分支的真实判据本来就是
+`DeclarationBodyEndCode`，去掉的是白问的那一次。
+
+三处都留了一条**不可达的兜底**（未知族起点仍走 `ScanRoot`）：语料 0 次；若某天有族没归位，指标会直接看到
+`ScanRoot > 0`，而不是悄悄换一条收口规则。
+
+### 10.4 本轮未做（与 §4.5 的差异，如实）
+
+1. 不删 `StatementScanner.ScanRoot`：`TryToClose` / `StatementEndPossibleShape` 仍各留一条兜底分支，
+   且 false 态（fallback）本来就靠它。
+2. 不删文件级兜底：`FileFallbackCount = 50`，前置条件（新路径不抛错）没满足。
+3. `RawTailBuildCount`（215）与 `ShapeAstDeclinedCount`（328）本轮**没有动**。
+

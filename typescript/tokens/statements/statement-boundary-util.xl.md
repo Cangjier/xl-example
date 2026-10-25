@@ -619,6 +619,54 @@ if (decorated === true) {
 return StatementBoundaryUtil.StatementEndCode(units, codeAt, atEof, true);
 ```
 
+## static method AwaitUsingEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**Stage 5d-5：`await` 起点语句的唯一可收口形态——`await using` 声明**。返回**代码下标**（`code` 基准），
+`-1` = 这一格不收口（也**不会**再收口）。
+
+`await` 在 `ScanRoot` 里只有一条会 `Complete` 的路：`await` 后紧跟 `using`、且 `using` 后面同一行能起绑定
+（`StatementScanner.StartsUsingDeclaration`），此时按声明列表 `ScanToSemicolon(code, 3)` 读到本层 `;`。
+其余所有 `await` 形态（`await f()` / `await` 单关键字 / `await using` 到头 / `await = 1` / `await: 1`）
+在 `ScanRoot` 里都是 `Mismatch` 或 `NeedMore`——**都不是「本条语句到此为止」的证据**。
+
+**迁移来源**：`StatementScanner.ScanRoot` 的 `await` 分支（逐字搬迁），只有两处语义化：
+
+1. 全局 `StatementScanner.AtEOF` 改为显式 `atEof` 入参（调用方在分派前刚算过同一个值）；
+2. `ScanToSemicolon(code, 3)` 改为 `ScanToSemicolonIncremental(code, 3, false, atEof)`（同一份实现，
+   下标语义见那里的说明）。
+
+**为什么需要它**：`await` 语句壳（`AwaitStatementPossibleShape`）的终结候选原来一律读 `ScanRoot`——
+每格 +1（全语料 211 次），而其中真正会 `Accept` 的只有 `await using x = …;` 这 11 次。搬到这里之后
+`await` 壳的判界不再进 legacy 扫描器，`await using` 的接管行为一字不改（`End` 与迁移前逐条相同，
+`HANDOFF-5d5.md` §4 有对拍读数）。
+
+```ts
+if (code.length === 0) {
+  return -1;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return -1;
+}
+if ((head as Common).TempToString() !== "await") {
+  return -1;
+}
+if (code.length === 1) {
+  // 单 `await`：还在等（`NeedMore`）或到头（`Mismatch`），两种都不收口。
+  return -1;
+}
+if (!StatementScanner.IsKeyword(code[1], "using")) {
+  return -1;
+}
+if (code.length === 2) {
+  return -1;
+}
+if (!StatementScanner.StartsUsingDeclaration(code, 1, 2)) {
+  return -1;
+}
+return StatementBoundaryUtil.ScanToSemicolonIncremental(code, 3, false, atEof);
+```
+
 ## static method IsShortFamilyCode:(code:Array<Token>)=>bool
 
 **Stage 5d-2a：短语句族的「是不是本族」判据**（族判定，不判收口位置）。只认六个起点：

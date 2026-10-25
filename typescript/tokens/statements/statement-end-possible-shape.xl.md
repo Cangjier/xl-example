@@ -225,7 +225,34 @@ if (state.Checked !== tokenIndex + 1) {
       state.End = state.CodeAt[controlEnd];
       state.Status = 1;
     }
+  } else if (StatementEndPossibleShape.IsDeclarationBodyHead(state.Code)) {
+    // **Stage 5d-5：带体声明壳（块内 `class` / 子句 `function`）的判界不再经 `ScanRoot`**。
+    // `ScanRoot` 对这两个起点一律 `Mismatch`（它不认声明起点，见 `ScanDeclarationBody` 的说明），
+    // 迁移前这条分支的真实判据本来就是下面的 `DeclarationBodyEndCode`；这里把「先问一次注定
+    // `Mismatch` 的扫描器」这一步去掉，判据仍是同一份 `StatementScanner.ScanDeclarationBody`。
+    const declarationEnd = StatementEndPossibleShape.DeclarationBodyEndCode(state.Code);
+    if (declarationEnd >= 0 && declarationEnd < state.CodeAt.length) {
+      state.End = state.CodeAt[declarationEnd];
+      state.Status = 1;
+    }
+  } else if (StatementEndPossibleShape.IsAwaitHead(state.Code)) {
+    // **Stage 5d-5：`await` 语句壳的判界迁到 boundary 层**（`AwaitUsingEndCode`）：只有
+    // `await using x = …;` 会收口，其余 `await` 形态本就不收口（`ScanRoot` 那里是 `Mismatch` /
+    // `NeedMore`，两者对「到齐了没有」是同一个答案：没有）。
+    const awaitEnd = StatementBoundaryUtil.AwaitUsingEndCode(state.Code, StatementScanner.AtEOF);
+    if (awaitEnd >= 0 && awaitEnd < state.CodeAt.length) {
+      state.End = state.CodeAt[awaitEnd];
+      state.Status = 1;
+    }
+  } else if (StatementEndPossibleShape.IsYieldHead(state.Code)) {
+    // **Stage 5d-5：`yield` 语句壳在这里不收口**——`yield` 的受限产生式（`yield⏎(x)`）没有 boundary
+    // 层实现，而 `ScanRoot` 对这一族给的本来就是 `Mismatch` / `NeedMore`（它没有 `yield` 分支；
+    // `yield:` 标签形态在族分派里已被 `IsControlFlowFamilyCode` → `IsLabelHead` 接走，到不了这里）。
+    // 所以这一格与迁移前逐位相同：`End` 保持 `-1`，壳在体 `}` 处按 `DetachShell` 退回 raw，
+    // 由 legacy 的 `BuildBlock` 递归建树（全语料 184 次调用、0 次 `Accept`，见 HANDOFF-5d5 §4）。
   } else {
+    // 兜底：未知族起点（语料 0 次；留着让「不在上面任何一族」的形态仍走今天的行为）。
+    // 出现即说明有族没归位——指标里会直接看到 `ScanRoot > 0`。
     const result = StatementScanner.ScanRoot(state.Code);
     state.Status = result.Status;
     if (result.Status === 1 && result.End >= 0 && result.End < state.CodeAt.length) {
@@ -310,6 +337,59 @@ if (scan.Status !== 1 || scan.End < 0 || scan.End >= code.length) {
   return -1;
 }
 return scan.End;
+```
+
+## static method IsDeclarationBodyHead:(code:Array<Token>)=>bool
+
+**Stage 5d-5：带体声明壳的族判定**——首代码单元是 `class` / `function` 时，本壳的收口位置只由
+`DeclarationBodyEndCode` 决定（`ScanRoot` 对这两个起点一律 `Mismatch`，问它一次只是白问）。
+
+与 `IsShortFamilyCode` / `IsControlFlowFamilyCode` 同一层：**只判族，不判位置**。这三个判据互斥且穷尽
+`ShellStatementFamily` 壳的起点：控制流族（含 `yield:` 标签）、短语句族（含空语句）、带体声明族、
+`await` 族、`yield` 族，剩下的是兜底（语料 0 次）。
+
+**为什么不在 `block-possible-shape` 上复用 `AwaitStatementPossibleShape.IsAwaitHead`**：本文件已经 import
+了 `statement-shape`，而 `block-possible-shape` 又 import 本文件（它要 `new StatementEndPossibleShape()`），
+反向 import 会成环。这里只是「首单元文本是不是这三个词」的 3 行判据，不新写任何收口规则。
+
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+const text = (head as Common).TempToString();
+return text === "class" || text === "function";
+```
+
+## static method IsAwaitHead:(code:Array<Token>)=>bool
+
+首代码单元是不是 `await` 关键字（只读文本，不建状态）。用途见 `AwaitUsingEndCode`。
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+return (head as Common).TempToString() === "await";
+```
+
+## static method IsYieldHead:(code:Array<Token>)=>bool
+
+首代码单元是不是 `yield` 关键字（只读文本，不建状态）。
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+return (head as Common).TempToString() === "yield";
 ```
 
 ## static method ExpressionEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, declarationShell?:bool)=>int
@@ -445,6 +525,22 @@ if (current instanceof EndOfFileTokenShape) {
       if (controlEnd >= 0 && controlEnd < codeAt.length) {
         endIndex = codeAt[controlEnd];
       }
+    } else if (StatementEndPossibleShape.IsDeclarationBodyHead(code)) {
+      // Stage 5d-5：带体声明壳（块内 `class` / 子句 `function`）与 `ComputeByIndex` 同一份判据，
+      // 不再经 `ScanRoot`（它对这两个起点一律 `Mismatch`）。
+      const declarationEnd = StatementEndPossibleShape.DeclarationBodyEndCode(code);
+      if (declarationEnd >= 0 && declarationEnd < codeAt.length) {
+        endIndex = codeAt[declarationEnd];
+      }
+    } else if (StatementEndPossibleShape.IsAwaitHead(code)) {
+      // Stage 5d-5：`await` 壳与 `ComputeByIndex` 同一份判据（`AwaitUsingEndCode`）。
+      const awaitEnd = StatementBoundaryUtil.AwaitUsingEndCode(code, StatementScanner.AtEOF);
+      if (awaitEnd >= 0 && awaitEnd < codeAt.length) {
+        endIndex = codeAt[awaitEnd];
+      }
+    } else if (StatementEndPossibleShape.IsYieldHead(code)) {
+      // Stage 5d-5：`yield` 壳不收口（与 `ComputeByIndex` 同一答案，见那里的说明）：保持 `endIndex`
+      // 为 `ItemUtil.LastCodeInItem(host.Data)`，随后 `BuildFromShell` 抛错 → `DetachShell` 退回 raw。
     } else {
       const result = StatementScanner.ScanRoot(code);
       if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
@@ -506,6 +602,21 @@ if (current instanceof EndOfFileTokenShape) {
     if (controlEnd >= 0 && controlEnd < codeAt.length) {
       endIndex = codeAt[controlEnd];
     }
+  } else if (StatementEndPossibleShape.IsDeclarationBodyHead(code)) {
+    // Stage 5d-5：带体声明壳（块内 `class` / 子句 `function`）与 `ComputeByIndex` 同一份判据。
+    const declarationEnd = StatementEndPossibleShape.DeclarationBodyEndCode(code);
+    if (declarationEnd >= 0 && declarationEnd < codeAt.length) {
+      endIndex = codeAt[declarationEnd];
+    }
+  } else if (StatementEndPossibleShape.IsAwaitHead(code)) {
+    // Stage 5d-5：`await` 壳与 `ComputeByIndex` 同一份判据（`AwaitUsingEndCode`）。
+    const awaitEnd = StatementBoundaryUtil.AwaitUsingEndCode(code, StatementScanner.AtEOF);
+    if (awaitEnd >= 0 && awaitEnd < codeAt.length) {
+      endIndex = codeAt[awaitEnd];
+    }
+  } else if (StatementEndPossibleShape.IsYieldHead(code)) {
+    // Stage 5d-5：`yield` 壳不收口（与 `ComputeByIndex` 同一答案）：`endIndex` 停在 `tokenIndex`，
+    // `BuildFromShell` 抛错 → `TryToClose` / 父单元按 `DetachShell` 退回 raw。
   } else {
     const result = StatementScanner.ScanRoot(code);
     if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
