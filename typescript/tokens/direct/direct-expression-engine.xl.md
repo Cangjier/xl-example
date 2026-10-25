@@ -182,6 +182,7 @@ A3 `new`：实参括号已消费（之后紧跟的 `(` 属于「new 之后再调
 
 刚刚把某个 `<` 合上的那个 `>` 单元。它只在 `PreviousUnit` 正好等于它时才有意义——
 即「`>` 后面紧跟着一个 `(`」，TS 会把它读成泛型实参调用（`f<T>(1)`），本轮不做，必须显式 Decline。
+R6-A3 起同一格再加一种后继单元：**模板串**（`f<T>` + `` `t` `` = tagged template），同样显式 Decline。
 
 ## field ParamWait:bool = false
 
@@ -527,6 +528,17 @@ if (unit instanceof Common) {
 }
 if (unit instanceof String) {
   if (DirectTokenUtil.IsTemplateUnit(unit, this.Template)) {
+    // R6-A3（R6-CONTRACT §3.2 / §8.1）：**`>` 之后紧跟模板单元** ⇒ 显式 Decline（`expr.decline`）。
+    // 这一格是「带类型实参的 tagged template」：`f<T>` + `` `t` ``。tsc 读成
+    // `TaggedTemplateExpression[Identifier f, TypeReference T, Template]`，而引擎是流式的、没有前瞻，
+    // 会把 `f<T>` 当二元链、建出 `BinaryExpression(BinaryExpression(f<T>) > Template)` ⇒ A1=NO
+    // （47 语料唯一差异 `angle.ts`）。旧路径本来就建对 ⇒ 回落即可（AST 逐字节回到基线）。
+    // 判据与 `IngestParen` 的同名守卫同形：只看「刚刚把 `<` 合上的那个 `>` 是否就是上一格」，
+    // 因此 `x<y>z` / `a < b > c`（后面是标识符）照常直建，不走这里。
+    if (this.PrevAngleClose !== null && this.PrevAngleClose === this.PreviousUnit) {
+      this.Fail("泛型实参后接模板串（带类型实参的 tagged template）不在本轮范围");
+      return;
+    }
     this.ParseTemplate(unit as String, pos);
     return;
   }
@@ -1568,6 +1580,7 @@ while (this.Frames.length > 0 && this.FrameStages[this.FrameStages.length - 1] =
 // 引擎是流式的、没有前瞻，所以用两个**只看本层**的事实代替前瞻：`<` 打开的角括号深度、
 // 以及「刚刚被 `>` 合上的是哪一个单元」。`(` 出现在操作数位且 `PreviousUnit` 正是那个 `>` 时，
 // 它就是泛型实参调用 / 实例化表达式 → 显式 Decline；**绝不静默建成比较链**。
+// R6-A3 把同一条守卫扩到**模板串**这一格（`f<T>` + `` `t` ``，见 `IngestOperand` 的 String 分支）。
 if (text === "<") {
   this.AngleDepth += 1;
 } else if (text === ">") {
