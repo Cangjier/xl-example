@@ -2328,6 +2328,15 @@ while (inner.At < inner.Units.length) {
     const clause = new CaseClauseShape(this.Template);
     clause.Add(value);
     while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
+      const clauseUnit = inner.Units[inner.At];
+      if (!clauseUnit.IsBasicToken) {
+        // **Stage 4y：子句级语句收集**。`case` 块括号上的目录（只含 `CaseClauseStatementPossibleShape`）
+        // 已经把 `case 1: f();` 的 `f();` 增量建成并收口的语句形状；这里按序原样收集，不再让建造器啃它。
+        // 形状的 `Parent` 在这里改指子句，树里只有语句本身（壳在 `FinishShell` 时已经被替换掉了）。
+        clause.Add(clauseUnit);
+        inner.At++;
+        continue;
+      }
       clause.Add(inner.BuildStatement());
     }
     inner.Finish(clause, clauseFirst, inner.At - 1);
@@ -2343,6 +2352,15 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     const clause = new DefaultClauseShape(this.Template);
     while (inner.At < inner.Units.length && !inner.IsClauseKeyword(inner.Units[inner.At])) {
+      const clauseUnit = inner.Units[inner.At];
+      if (!clauseUnit.IsBasicToken) {
+        // **Stage 4y：子句级语句收集**。`case` 块括号上的目录（只含 `CaseClauseStatementPossibleShape`）
+        // 已经把 `case 1: f();` 的 `f();` 增量建成并收口的语句形状；这里按序原样收集，不再让建造器啃它。
+        // 形状的 `Parent` 在这里改指子句，树里只有语句本身（壳在 `FinishShell` 时已经被替换掉了）。
+        clause.Add(clauseUnit);
+        inner.At++;
+        continue;
+      }
       clause.Add(inner.BuildStatement());
     }
     inner.Finish(clause, clauseFirst, inner.At - 1);
