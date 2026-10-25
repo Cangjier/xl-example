@@ -917,7 +917,7 @@ return shape;
 - `export default <声明>` → `BuildExportedStatement`（保留声明路径）
 - `export = <expr>` / `export default <expr>` → `ExportAssignmentShape`（children 只有表达式）
 - `export { … }` / `export * …` / `export type { … }` → `ExportDeclarationShape`
-- `export let`（后面没有绑定、**空**声明列表）→ `BuildExportedVariableStatement`
+- `export let` / `export let;`（后面没有绑定、**空**声明列表）→ `BuildExportedVariableStatement`
 - 其余 `export <声明>` → `BuildExportedStatement`
 
 ```ts
@@ -941,11 +941,18 @@ if (afterText === "default") {
   // （`IsDefaultDeclarationHead` 是相对 `this.At` 的，这里 At 还在 export 上，不能直接用）。
   const second = this.Peek(2);
   const secondText = second instanceof Common ? (second as Common).TempToString() : "";
+  // `async` 只有后面**真的跟着 `function`** 时才是声明头（与 `BuildStatement` 里 `async` 分支
+  // 同一个判据）：`export default async () => {}` / `async x => x` / 裸 `async` 里的 `async`
+  // 是 default 表达式（箭头函数自己的 async 修饰），TS 建的是 `ExportAssignment`，不是声明。
+  // 少了这一条，这里会走 `BuildExportedStatement` → `BuildDefaultModifierStatement`，
+  // 把 ExportAssignment 建成 `ExpressionStatement(ExportKeyword, DefaultKeyword, …)`。
+  const afterSecond = secondText === "async" ? this.Peek(3) : null;
   const declarationHead = second !== null && (
     (second instanceof Symbol && (second as Symbol).Is("@"))
     || (second instanceof Common && (secondText === "class" || secondText === "abstract"
       || secondText === "interface" || secondText === "enum" || secondText === "function"
-      || secondText === "async" || secondText === "declare")));
+      || secondText === "declare"
+      || (secondText === "async" && afterSecond !== null && this.IsText(afterSecond, "function")))));
   if (declarationHead) {
     return this.BuildExportedStatement();
   }
@@ -958,25 +965,24 @@ if (afterText === "type") {
     return this.BuildExportClauseStatement();
   }
 }
-// `export` 之后的 `let` 且**后面没有绑定可跟**（`export let`，含末尾只有 trivia 的形）：TS 建的是
-// 带**空** `VariableDeclarationList` 的 `VariableStatement`。这一格不能交给 `BuildStatement`——
+// `export` 之后的 `let` 且**后面没有绑定可跟**（`export let` / `export let;`，含末尾只有 trivia 的形）：
+// TS 建的是带**空** `VariableDeclarationList` 的 `VariableStatement`。这一格不能交给 `BuildStatement`——
 // `let` 是上下文关键字，单独成句时它只是标识符（`let;` / `let = 1` 是 ExpressionStatement），
 // `BuildStatement` 的 `let` 分支要求 `StartsBinding` 成立，裸 `let` 于是落进表达式语句
-// （`export let` 的 TS 侧是 VariableStatement，我们成了 ExpressionStatement(Identifier)）。
+// （`export let` / `export let;` 的 TS 侧都是 VariableStatement，我们成了 ExpressionStatement(Identifier)）。
 // 有绑定的形态（`export let x = 1`）仍走原路：`BuildExportedStatement` → `BuildStatement` →
 // `BuildVariableStatement`（那里 `StartsBinding` 成立）。`const` / `var` 没有双角色问题，
 // 同样走原路即可，不必在这里分叉。
 // 判据按「后面还有没有**代码**单元」而不是 `Peek(2) === null`：文件末尾的 `export let` ⏎ 后面只有
-// trivia（换行 / 注释），那些单元也在壳的 `Data` 里。
-// `let` 后面跟 `;` 的形（`export let;`）不在这一支里：它走的是 export 候选
-// （`ExportDeclarationPossibleShape.BuildByIndex`）→ `BuildStatement` 的既有路径，两档行为一致，
-// 本轮不动（见 HANDOFF §7）。
+// trivia（换行 / 注释），那些单元也在壳的 `Data` 里；带分号的形里下一个代码单元就是终结符 `;`。
+// `export let = 1;` **不**进这一支（下一个代码单元是 `=`，不是绑定也不是终结符）：TS 那一形本身是
+// `VariableStatement(空列表) + ExpressionStatement` 的分裂恢复，两档现状都不是本轮目标。
 if (afterText === "let") {
   let scan = this.At + 2;
   while (scan < this.Units.length && this.Units[scan].IsTriviaToken) {
     scan++;
   }
-  if (scan >= this.Units.length) {
+  if (scan >= this.Units.length || this.IsSymbol(this.Units[scan], ";")) {
     return this.BuildExportedVariableStatement();
   }
 }
@@ -1246,7 +1252,13 @@ return text === "class" || text === "interface" || text === "type" || text === "
 ## method IsDefaultDeclarationHead:()=>bool
 
 `default` 后面跟的是不是声明头（`class` / `abstract` / `interface` / `enum` / `function` /
-`async` / `declare` / `@`）。`export default <表达式>` 是 ExportAssignment，不在这里处理。
+`async function` / `declare` / `@`）。`export default <表达式>` 是 ExportAssignment，不在这里处理。
+
+`async` 只有后面**真的跟着 `function`** 时才算声明头（与 `BuildStatement` 的 `async` 分支、以及
+`BuildExportStatement` 里 `export default` 那一格的 `declarationHead` 同一判据）：
+`export default async () => {}` / `async x => x` / 裸 `async` 的 `async` 是 default 表达式，
+箭头函数自己的 `AsyncKeyword` 由表达式层建；少了这一条会走 `BuildDefaultModifierStatement`，
+把一条 ExportAssignment 建成 `ExpressionStatement(ExportKeyword, DefaultKeyword, …)`。
 
 ```ts
 const after = this.Peek(1);
@@ -1260,8 +1272,12 @@ if (!(after instanceof Common)) {
   return false;
 }
 const text = (after as Common).TempToString();
+if (text === "async") {
+  const afterAsync = this.Peek(2);
+  return afterAsync !== null && this.IsText(afterAsync, "function");
+}
 return text === "class" || text === "abstract" || text === "interface" || text === "enum"
-  || text === "function" || text === "async" || text === "declare";
+  || text === "function" || text === "declare";
 ```
 
 ## method BuildTypeAliasDeclaration:()=>Token
