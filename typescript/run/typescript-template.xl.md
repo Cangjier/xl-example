@@ -23,12 +23,12 @@ import { LineTerminator } from "./line-terminator.xl.md"
 - `StringTemplate.StrictTemplateEscapes = true`：模板串里的 legacy octal（`\1`–`\7`、`\00`）与
   NonOctalDecimalEscape（`\8` / `\9`）是非法转义——**带标签模板**里它们的 cooked 是 `undefined`、
   AST 的 `text` 取原文（`` tag`\8` `` → `text` 是 `\8`）。不带标签模板里这些转义是语法错误（ts 有诊断、不入尺子），
-  这里按「超集」口径统一产出原文（见 `docs/Final.md` §4.1）。
+  这里按「超集」口径统一产出原文（见 `docs/Final.md`）。
 - `StringTemplate.AllowLongUnicodeBraceEscape = true`：`\u{…}` **位数不限**（前导零任意多），
   只受 Unicode 标量上限 `U+10FFFF` 约束——`"\u{0000061}"` 的 cooked 是 `"a"`、`"\u{000000000010FFFF}"`
   是 `U+10FFFF`（代理对）。core 的默认值是历史行为（6 位上限、第 7 位起按原文），
   与标识符路径的 `SymbolTemplate.SupportUnicodeEscapeIdentifier` 同一套「逐位累计、越界即非法」口径
-  （共用 `Common.MaxUnicodeCodePoint`，见 `docs/Final.md` §4.1）。
+  （共用 `Common.MaxUnicodeCodePoint`，见 `docs/Final.md`）。
 
 `RegexTemplate` 描述 ts 的正则字面量：flags 的字符集与「哪些关键字之后可以直接起表达式」。起点判据本身是词法层的近似（`/` 之前最后一个代码单元），控制头 `)`、裸块 `}` 那一族由语法形状登记 `RegexStartAfter`，不在这里配。
 
