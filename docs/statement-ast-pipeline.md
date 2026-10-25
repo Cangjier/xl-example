@@ -189,6 +189,56 @@ this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new
 
 为什么其他族做的是 `Reject` 而不是「先 Accept 再说」？`StatementRouteUtil.Decide`（`statement-route-util.xl.md:548`）是**全函数分流**：`let` 在第二格判出 `ShellVariable`（`DecideCommon`，`statement-route-util.xl.md:373`），于是声明族、控制流族、表达式族都主动 `Reject`。候选按族互斥靠的是判据，不是先后；否则 `CatalogGuide` 永远等不到唯一候选（AST 也许对，但语句永远建不出来）。
 
+### 4.4 possible 的边界：`let` / `=` / `*` / `+` 都没有自己的候选
+
+一句话：**possible 只负责「条目从哪开始、能长成哪个形状」；关键字与运算符是 basic token，语义在 builder / `OperatorTable` 里。**
+
+| token | basic token | possible 层 | 谁真正处理 |
+| --- | --- | --- | --- |
+| `let` | `Common`（文本块） | 没有 `LetPossibleShape`。`VariableStatementPossibleShape` 只读 head 文本 + 下一格能否起绑定（`variable-statement-possible-shape.xl.md:24` / `:76`） | `BuildStatement` 看到文本 `let` + `StartsBinding` 才调 `BuildVariableStatement`（`statement-builder.xl.md:362`）。`LetKeywordShape` 只有类定义、全仓无引用——TS AST 里 `let` 本来也不是节点 |
+| `=` | `Symbol` | 无 | 声明里是 `BuildVariableDeclarationList` 的 `IsSymbol("=")` 分支（`statement-builder.xl.md:1701`）；表达式位由 `ParseAssign` / `StatementOperatorBody.PushAssignment` 处理 |
+| `*` / `+` | `Symbol` | 无 | 只有一张 `OperatorTable.Precedence`（`*`=14、`+`=13，`operator-table.xl.md:5`）；初始化器走 `ExpressionBuilder.ParseBinary`（`expression-builder.xl.md:380`），表达式语句走 `StatementOperatorBody.PushBinary`（`statement-operator-body.xl.md:940`）；`MakeOperatorToken` 产出 `AsteriskTokenShape` / `PlusTokenShape`（`expression-builder.xl.md:2532`） |
+
+`FeasOperandPossibleShape` / `FeasBinaryOperatorPossibleShape` / `FeasPrefixUnaryPossibleShape` 看起来像「运算符 possible」，但它们是**未接线的原型**：`BuildByIndex` 直接抛「原型由 `FeasOperatorParser` 增量建形状」，而 `FeasOperatorParser` 没有被任何语句/表达式路径实例化（全仓 grep 只在它自己的文件里出现）。真正的优先级只有 `OperatorTable` 一份。
+
+为什么不做逐 token possible：
+
+- `let` 是上下文关键字（`let = 1` / `let (a)` 里它是标识符），首格判死会永久 `Reject`，所以 `Decide` 在第二格判不出来时只能返回 `None`；
+- 运算符在语法位置上没有歧义（`2 * 3` 中间只能是运算符），候选淘汰机制在这里没有信息可用；
+- 优先级/结合性散进多个 possible 就会产生第二份优先级表。
+
+**案例实测**：`let x = 2*3+1\nlet y=4*5+6`
+
+壳的判定与 §6.7 完全同构：`x` 格建壳；终结候选在 `=`、`2`、`*`、`3`、`+`、`1` 上都 `Uncertain`；下一条语句的 `let` 到达那一格 `Accept`，`endIndex=10`（`1`，host.Data 下标）。`BuildFromShell(endIndex=10)` → 三层 possible → `BuildVariableStatement` → `BuildVariableDeclarationList` → `BuildExpressionRange(2*3+1)` → `ExpressionBuilder`：
+
+```
+ParseExpression → ParseAssign → ParseConditional → ParseBinary(4)
+  2                     （ParseUnary）
+  *  prec 14 ≥ 4        → 右操作数 ParseBinary(15)
+    3                   → 内层 BinaryExpression(*)
+  +  prec 13 < 15       → 内层收束；回到外层
+  +  prec 13 ≥ 4        → 右操作数 ParseBinary(14)
+    1                   → 外层 BinaryExpression(+)
+```
+
+AST（与 TS 逐字段一致，`equal: true`）：
+
+```json
+{ "kind": "BinaryExpression", "pos": 7, "end": 13, "children": [
+  { "kind": "BinaryExpression", "pos": 7, "end": 11, "children": [
+    { "kind": "NumericLiteral", "pos": 7, "end": 9, "text": "2" },
+    { "kind": "AsteriskToken", "pos": 9, "end": 10 },
+    { "kind": "NumericLiteral", "pos": 10, "end": 11, "text": "3" }
+  ] },
+  { "kind": "PlusToken", "pos": 11, "end": 12 },
+  { "kind": "NumericLiteral", "pos": 12, "end": 13, "text": "1" }
+] }
+```
+
+两条语句分别是 `0/13` 与 `13/25`（第二条 `pos` 含换行）；`*`、`+` 是 AST 里的 token 节点，不是语句节点。
+
+注意输入必须是「换行或 `;` 分隔」。同一行 `let x = 2*3+1 let y=4*5+6` 里 ASI 不成立（没有换行），第一条声明读到 `let` 时 `BuildFromShell` 抛「表达式没有读完」→ `DetachShell`，最终退成 raw token 形态（XML 里直接是 `<Common>let</Common>…`），不是合法程序。
+
 ---
 
 ## 5. 阶段三：建壳（StatementShape）
@@ -372,6 +422,59 @@ if (built === null) {
 
 第二句的 `;` 同样在文件末尾前没有后字符可顶掉，由 EOF 路径收口；随后根加 `EndOfFileTokenShape`，根目录判定：所有语句候选 `Reject`、`SourceFileEndPossibleShape.Accept` → 建 trailing（本案例没有 trailing raw，直接返回）。最后 `SourceFileShape.Close` 把 trivia 与 EOF 哨兵从 `Data` 里滤掉（`source-file-shape.xl.md:59`），留下两个 AST 节点。
 
+### 6.7 ASI：没有 `;` 时收口在哪
+
+ASI 不是预处理，也不插入 `;` 节点；它只是**终结候选在末代码单元上 Accept 的另一种判据**。判据在 `StatementBoundaryUtil.EndsAtLineBreak`（`statement-boundary-util.xl.md:339`），三个条件同时成立才算边界：
+
+1. 两个代码单元之间真有换行（按源位置判，注释里的换行也算）；
+2. 前一个单元能收住表达式（`StatementScanner.EndsExpression`，`statement-scanner.xl.md:455`）；
+3. 后一个单元接不上（`ContinuesAcrossLine`，`:478`；`(`/`[`/`{`、`.`、`+`、`=`、`as` … 都会续接）。
+
+另有几类特例也在这里收：类型实参 / 实例化收尾的 `>` + 换行后调用位、闭合 `{}` 收尾、行首 `;` 后面同一行还有代码时归下一条空语句。
+
+变量族的终结候选读 `VariableStatementEndCode` → `ScanToSemicolonIncremental(code, 1, true, atEof)`（`statement-boundary-util.xl.md:1013`）：从第 2 个代码单元往后扫，遇到 `;`、或 `EndsAtLineBreak` / 不可续接尾巴，就停在**前一个**单元。
+
+以 `let x = 1\nlet y = 2` 实测：
+
+| # | 宿主 | Shell.Data 下标 | 当前单元 | 终结候选 | 结果 |
+| --- | --- | --- | --- | --- | --- |
+| 4 | `StatementShape` | 6 | `1` | `Uncertain` | `Waiting` |
+| 5 | `StatementShape` | 8 | `let`（下一条语句的首 token） | **`Accept`** | **`Built`**（`endIndex=6`，即 `1`） |
+
+为什么不在 `1` 那一格收？`1` 收尾时后面只有一个换行 trivia，**下一个代码单元还没到**，「接不上」判不出来。等下一条语句的 `let` 到达、并且它自己收尾触发壳目录时，`EndsAtLineBreak(1, let)` 才成立 → 壳 Accept，`endIndex` 落到 `1`（host.Data 下标 6）。
+
+收口后的动作正是 §6.5 的 FinishShell：
+
+- `BuildFromShell` 只消费到 `1`，`\n` 与 `let` 成为 `leftover`；
+- `FinishShell` 把 `leftover` 插回 `built` 之后，并对 `let` 走一次 leftover replay；
+- 第二个壳的 `Pos=9`（第一条语句的 `EndIndex`），`builder.Load` 的 `Positions=[9,13,15,17]`。
+
+最终 AST（与 TS 逐字段一致，`equal: true`）：
+
+| 节点 | pos / end |
+| --- | --- |
+| `VariableStatement` #1 | 0 / 9（`end` 不含 `\n`） |
+| `VariableStatement` #2 | 9 / 19（`pos` 含 `\n`） |
+| `VariableDeclaration` #2 | 13 / 19 |
+| `Identifier` `y` | 13 / 15 |
+| `NumericLiteral` `2` | 17 / 19 |
+
+这里面没有 `SemicolonToken`；第一条语句的 `end` 停在 `1` 的右边界，第二条语句的 `pos` 从前一条的 `EndIndex` 起算（含前导 trivia），所以换行只被第二条的 `pos` 吃掉一次。
+
+**表达式语句的 ASI** 有两条路，取决于「边界 token 有没有机会在壳里收尾」：
+
+- `f()\ng()` / `a\nf()`：下一条语句的首 token（`g` / `f`）到达时，它自己收尾触发壳目录 → 终结候选在边界格 `Accept`，`endIndex` 落在 `)` / `a`，`leftover` 被重放；走的是正常的壳路径。
+- `a\nb`：第二个 `b` 在 EOF 前没有收尾事件，壳拿不到 Accept 机会；`StatementShape.TryToClose` 只能消费到末单元，`BuildFromShell` 读到两条语句抛「语句没有读完」→ `DetachShell` 退回 raw。随后由根终结候选 `SourceFileEndPossibleShape` 的 ASI 分支（`ExpressionStatementShape.FromUnits`，`source-file-end-possible-shape.xl.md:194`）建第一条，EOF 再建 `b`。AST 仍与 TS 完全一致（实测 `equal: true`）。`a++\nb` 也落在这一支。
+
+**受限产生式不套用上面的三条件**：
+
+- `return` / `throw`：`ReturnThrowEndCode`（`statement-boundary-util.xl.md:938`）——关键字后紧接换行就收在关键字本身（`return\nx` = `return;` + `x;`），否则扫到 `;`；
+- `break` / `continue`：`BreakContinueEndCode`（`:950`）同理，标签与 `;` 按同一格判；
+- 后缀 `++` / `--`：`IsAsiBoundary`（`:21`）对前缀位置显式返回 `false`（`a++; --` ⏎ `a;` 的第二条是 `--a;`），只有前面还有能收住表达式的单元时才可能构成边界；
+- `throw` ⏎ 操作数在 TS 里本身就是语法错误（restricted production），不进这条路径。
+
+建树器一侧读的是同一套判据：`BuildVariableStatement` 扫声明列表时用 `StatementBuilder.EndsAtLineBreak`（`statement-builder.xl.md:1550`），`BuildExpressionStatement` 用 `EndsAtLineBreak` + `StatementBoundaryUtil.IsAsiBoundary`（`:1339`）。终结候选与建树器必须同源，否则会出现「壳收在 `1`、builder 扫到 `let`」的错位。
+
 ---
 
 ## 7. 最终产物
@@ -493,9 +596,10 @@ node node_modules/typescript/bin/tsc -p tsconfig.json     # exit 0
 node typescript/cases/ast-json.mjs                         # total 6171 / cj-ok 6171 / cj-fail 0
 node typescript/cases/ast-json-diff.mjs                    # 6171/6171；结构差 0 / 位置差 0 / 字段差 0
 node tests/statement-possible/harness.mjs --only=stage1-let  # pass=2 fail=0；double-accept 冲突 0；file-fallback 0
+node tests/statement-possible/harness.mjs --group=asi        # ASI 组 pass=12 fail=0；冲突 0；file-fallback 0
 ```
 
-本机实测（2026-10-25，HEAD `11e0c68f`，定向构建 `core`+`typescript` 后）：`xl_build` 0 error、`tsc` exit 0；上面三条读数与 `docs/Final.md` §4 一致。
+本机实测（2026-10-25，HEAD `11e0c68f`，定向构建 `core`+`typescript` 后）：`xl_build` 0 error、`tsc` exit 0；上面四条读数与 `docs/Final.md` §4 一致。
 
 复现本文的 trace：在 `build/ts` 上包一层 `CatalogGuide.prototype.ComputePossibleShapesByIndex`，进入前记 `host.constructor.name / tokenIndex / host.Data`，调用时临时包装每个候选与 `EndPossible` 的 `ComputeByIndex` 记返回值，再包 `StatementShape.BuildFromShell` 与 `StatementBuilder.prototype.BuildStatement`。核心代码：
 
