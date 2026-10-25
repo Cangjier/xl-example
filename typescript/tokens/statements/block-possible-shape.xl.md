@@ -301,6 +301,51 @@ case 块括号），整段 `case …` 被块体目录当语句建壳；改为挂
 `mount +1 / body +0` 根因同样是**挂错括号**（挂到了外层块括号，把外层块体目录覆盖掉，函数体括号仍是
 纯 raw）；改为挂函数体 `{` 自己后 `BlockBodyStatementCount` 正常 +1（见 HANDOFF-s4s.md §2）。
 
+## static field EnableStaticBlockBody:bool = true
+
+**类静态块体挂块体目录**（Stage 5d-8a）。`true` = `class C { static { … } }` 的**静态块体 `{`** 也挂
+块体语句目录。
+
+**为什么是「未挂载」而不是「判界」问题**：静态块由 `ClassDeclarationShape` 自己建——
+`staticBuilder.Load([staticBody]); staticBuilder.BuildStatement()`（`class-declaration-shape.xl.md`），
+落到 `StatementBuilder.BuildBlock()`。而类体括号是 **legacy 建树**的，`OnChildBracketCreated` 既不会
+按目录认出它（类体括号没有目录），`TryMountFunctionBody` 又要求 `{` 前面是 `)` / 返回类型——`static`
+两个字都不满足，于是静态块体整段走 `BuildBlock` 的 legacy raw 循环，每一条语句都是一次
+`RawTailBuildCount`（5d-6 §5 的静态块 ~20 条）。
+
+**为什么挂目录是安全的**：与 `EnableBlockFunctionBody` / 对象方法体同一条论证——挂上去只改变「谁建
+体内的语句」，建树仍是同一个 `BuildBlock()` 的 `HasBuiltBodyStatements` / `CollectBodyStatements`，
+不新增任何建树路径。判据只看两样：括号是 `{`、前一个非 trivia 单元的文本是 `static`
+（`static x = { … }` 的 `{` 前一格是 `=`，不命中）。`false` = 行为逐位回到挂载之前。
+
+## static field StaticBlockBodyMountCount:int = 0
+
+进程内累计「静态块体 `{` 挂上块体语句目录」的次数（只增不减）。与 `FunctionBodyMountCount` /
+`BlockFunctionBodyMountCount` 分开计量：三者是同一条挂载通道的三个入口。
+
+## static field EnableFunctionExpressionBody:bool = true
+
+**函数表达式体挂块体目录**（Stage 5d-8a）。`true` = `const f = function (a) { … }` /
+`const g = function* () { … }` / `const h = async function () { … }` 的**函数体 `{`** 也挂块体语句目录。
+
+**缺口在哪**：这些 `{` 的父单元是**语句壳**（变量壳），走 `OnChildBracketCreated` 的
+`parent instanceof StatementShape` 分支。那条分支 4o 起只认**箭头块体**（`arrowOnly = true`）：
+判据是「`{` 前一个单元是 `=>`」。函数表达式体的 `{` 前面是 `)`，于是被拒；函数体整段由
+`BuildBlock` 的 legacy raw 循环建（`const f = function (a) { return a }` 的 `return` 就是 5d-6 §5 的
+`return` 族 18 条里的 13 条）。
+
+**判据复用**：`IsFunctionDeclarationBody(host, bracket, allowAnonymous = true)`——与块内函数声明体
+**同一份**判据，只多一个「名字可以省略」的开关。`function (a) {`（匿名）与 `function g(a) {`（具名）
+都命中；对象方法 `m(a) {` / 构造器 `constructor() {` / `if (a) {` 仍被拒（往回扫不到 `function`）。
+
+**为什么挂目录是安全的**：与上面几条同一条论证——函数表达式体的建树是
+`ExpressionBuilder` → `new StatementBuilder(...).BuildStatement()` → `BuildBlock()`，与块体 / 函数体
+**同一条收集通道**。`false` = 行为逐位回到 4o（函数表达式体整段 raw）。
+
+## static field FunctionExpressionBodyMountCount:int = 0
+
+进程内累计「函数表达式体 `{` 挂上块体语句目录」的次数（只增不减）。
+
 ## static method MountBodyCatalog:(bracket:Bracket)=>void
 
 把块体语句目录挂到 `bracket` 上（终结候选 `BlockBodyWaitingPossibleShape`：一个候选都不接也不抛错）。
@@ -367,14 +412,19 @@ for (let ci = 0; ci < text.length; ci++) {
 return true;
 ```
 
-## static method IsFunctionDeclarationBody:(host:Token, bracket:Token)=>bool
+## static method IsFunctionDeclarationBody:(host:Token, bracket:Token, allowAnonymous?:bool)=>bool
 
-**块内 / 体内函数声明体的判据**（Stage 4p）：从体 `{` 往回扫——先过返回类型（`:` 之后到参数表 `(`）、
-参数表那个已闭合的 `(`、可选的类型参数 `<…>`、可选的 `*`、函数名，再往前一格必须是 `function`。
-扫到 `;` / `=` / `=>` / `,` 立即停（跨语句 / 落进箭头体 / 落进对象字面量时一律不挂）。
+**块内 / 体内函数声明体（以及 5d-8a 起的函数表达式体）的判据**（Stage 4p）：从体 `{` 往回扫——先过
+返回类型（`:` 之后到参数表 `(`）、参数表那个已闭合的 `(`、可选的类型参数 `<…>`、可选的 `*`、
+（可选的）函数名，再往前一格必须是 `function`。扫到 `;` / `=` / `=>` / `,` 立即停（跨语句 / 落进箭头体 /
+落进对象字面量时一律不挂）。
 
 **为什么必须确认 `function`**：`m(){ … }`（对象方法）、`constructor(){ … }`（构造器）、`if (a) { … }`（控制流体）
 的 `{` 前面同样是「已闭合的 `(`」，只看那一格会把对象字面量 / 类体当成函数体挂目录（形状泄漏）。
+
+**`allowAnonymous`（Stage 5d-8a）**：`true` 时名字可以省略——`const f = function (a) { … }` 的 `{` 往回
+第三格就是 `function`，没有名字。只多这一格判断，其余逐字不变；函数表达式体与函数声明体因此共用
+**同一份**判据，不新写第二套。
 
 ```ts
 const data:Array<Token> = host.Data;
@@ -402,6 +452,15 @@ if (at < 0) {
 // 读到已建形状就抛错，整条文件走文件级 fallback（S4w 专用 case `k<T>(): { a: T }` 暴露）。
 if (!BlockPossibleShape.CanEndTypeUnit(data[at])) {
   return false;
+}
+// **Stage 5d-8a：返回类型自己收在一个括号里时先认它**（`function f(x: unknown): x is (string) { … }` /
+// `m(): (a: number) => void { … }` / `m(): () => void { … }`）。这类体 `{` 前面那个**已闭合的括号**
+// 是**返回类型**的一部分、不是形参表，往下走「参数表 → 名字 → `function`」的常规路径会把它当形参表，
+// 于是要求它前面是名字 → 落空 → 体不挂目录（5d-8a 归因里 `x is (string)` / `(a: number) => void`
+// 两组 `return`）。`IsReturnTypeBrace` 回答的正是「`{` 前面是收住的类型，再往前是本条声明的 `:`，
+// 且 `:` 前面是已闭合的形参表」——命中的就一定是带体声明的体，不需要再确认名字 / `function`。
+if (BlockPossibleShape.IsReturnTypeBrace(data, braceAt)) {
+  return true;
 }
 if (!BlockPossibleShape.IsClosedParameterList(data[at])) {
   while (at >= 0) {
@@ -477,6 +536,22 @@ if (at >= 0 && data[at] instanceof Bracket && (data[at] as Bracket).StartBracket
   at--;
   while (at >= 0 && data[at].IsTriviaToken) {
     at--;
+  }
+}
+// **Stage 5d-8a：函数表达式体允许省略名字**（`const f = function (a) { … }`）。
+// 名字位置可以是三种：`*`（`function* () { … }`，匿名生成器）、`function`（`function (a) { … }`，
+// 匿名函数）、或函数名（`function g(a) { … }`，具名）。匿名时 `function` 就在名字位置本身：
+// 只要这一格是 `function` 就命中，不需要再往回走一格。
+// 其余判据（类型参数 / 参数表 / 体位置）一个字不改。
+if (allowAnonymous ?? false) {
+  if (at >= 0 && data[at] instanceof Symbol && (data[at] as Symbol).Is("*")) {
+    at--;
+    while (at >= 0 && data[at].IsTriviaToken) {
+      at--;
+    }
+  }
+  if (at >= 0 && data[at] instanceof Common && (data[at] as Common).TempToString() === "function") {
+    return true;
   }
 }
 if (at < 0 || !(data[at] instanceof Common)) {
@@ -570,8 +645,15 @@ return true;
 都命中。
 
 只扫**平铺单元**：类型里的对象字面量 / 函数类型 / 元组都是**单个括号单元**，里面的 `:` 不可见，所以扫到的
-第一个可见 `:` 就是返回类型的那个 `:`；扫到 `;` / `=` / `=>` 立即停（跨语句或落进箭头体时一律不挂）。
+第一个可见 `:` 就是返回类型的那个 `:`；扫到 `;` / `=` 立即停（跨语句或落进赋值 / 箭头体时一律不挂）。
 `case 1: {` / `label: {` 的 `{` 前面直接是 `:`，`CanEndTypeUnit` 先把它排掉。
+
+**Stage 5d-8a：`=>` 不再是停止符**。返回类型本身可以是**函数类型**（`m(): (a: number) => void { … }` /
+`m(): () => void { … }`），它自带 `=>`；5d-8a 之前这里遇到 `=>` 就 `false`，于是这类方法 / 函数声明的体
+永远挂不上目录，体内语句整段 raw（5d-8a 归因里 `decl-method-function-return.ts` 的 `return` 4 条）。
+真正的箭头体不会走到本方法：`x => { … }` 的 `{` 前面**就是** `=>`，`OnChildBracketCreated` 的
+`IsArrowUnit(previous)` 分支先接走它；本方法只在「`{` 前面能收住一个类型」时被问。所以放宽这一格只会
+让「返回类型里带 `=>`」的带体声明挂上目录，不改任何收口判据。
 
 ```ts
 let previous = braceIndex - 1;
@@ -592,6 +674,10 @@ for (let scan = previous; scan >= 0; scan--) {
   if (item instanceof Common) {
     // 往回扫时遇到**语句 / 声明起点**就停：`declare function f(): void ⏎ export enum E {` 里
     // 枚举体的 `{` 不是 `f` 的体，不能跨过 `enum` / `export` 去认前一条声明的返回类型冒号。
+    // **Stage 5d-8a：`extends` 不在停止表里**——它也是**条件类型**的词（`m(): U extends any ? U : never {`），
+    // 5d-8a 之前它让这类返回类型的体永远挂不上目录。真正的 `class C extends B {` / `interface I extends J {`
+    // 不会误挂：本方法最终要求冒号前面是**已闭合的形参表**，而这两族往回扫到 `class` / `interface`
+    // （仍在停止表里）就返回 false。
     const text = (item as Common).TempToString();
     if (text === "export" || text === "import" || text === "enum" || text === "class"
       || text === "interface" || text === "type" || text === "namespace" || text === "module"
@@ -622,7 +708,7 @@ for (let scan = previous; scan >= 0; scan--) {
       const parameters = beforeUnit as Bracket;
       return parameters.StartBracketChar === "(" && parameters.Closed;
     }
-    if (symbol.Is(";") || symbol.Is("=") || symbol.Is("=>")) {
+    if (symbol.Is(";") || symbol.Is("=")) {
       return false;
     }
   }
@@ -818,6 +904,19 @@ if (!mount && before instanceof Bracket
     const text = (data[keyword] as Common).TempToString();
     if (text === "if" || text === "while" || text === "for" || text === "with" || text === "catch") {
       mount = true;
+    } else if (text === "await") {
+      // **Stage 5d-8a：`for await (…) { … }`**。`for await` 的体位置回看一格是 `await`、再往前一格才是
+      // `for`，只回看一格永远不成立（5d-6 §5 明确记下的已知小缺口，归属 `await` 那 3 条里的 2 条）。
+      // 这里只在**紧邻 `await` 的前一格**是 `for` 时认——`x = await (…) { … }` 这种形态不可能出现在
+      // 语句首的体位置（`await (…)` 后面跟 `{` 只会是块语句，由 `Decide` 判成 `ShellBlock`）。
+      let beforeAwait = keyword - 1;
+      while (beforeAwait >= 0 && data[beforeAwait].IsTriviaToken) {
+        beforeAwait--;
+      }
+      if (beforeAwait >= 0 && data[beforeAwait] instanceof Common
+        && (data[beforeAwait] as Common).TempToString() === "for") {
+        mount = true;
+      }
     }
   }
 }
@@ -849,12 +948,23 @@ if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "
   return;
 }
 if (parent instanceof StatementShape) {
-  // 语句壳上的子括号：只有**箭头块体**走这里（`x => { … }` 的 `{` 前面是 `=>`，不是 `)`）。
-  // 根层 `const f = () => { … }` / 块内 `{ const f = () => { … }; }` 的父单元都是语句壳。
-  if (!StatementRouteUtil.EnableArrowBodyCatalog) {
+  // 语句壳上的子括号：**箭头块体**（`x => { … }`，`{` 前面是 `=>`）与 **5d-8a 起的函数表达式体**
+  // （`const f = function (a) { … }`，`{` 前面是 `)`）。根层 `const f = () => { … }` / 块内
+  // `{ const f = () => { … }; }` 的父单元都是语句壳。
+  if (StatementRouteUtil.EnableArrowBodyCatalog
+    && BlockPossibleShape.TryMountFunctionBody(parent, bracket, context, true)) {
     return;
   }
-  BlockPossibleShape.TryMountFunctionBody(parent, bracket, context, true);
+  // **函数表达式体**（Stage 5d-8a）：判据与块内函数声明体同一份（`IsFunctionDeclarationBody`，
+  // 名字可省略）。只挂在这个 `{` 自己身上，建树仍走 `ExpressionBuilder` → `BuildBlock()` 的收集通道。
+  if (BlockPossibleShape.EnableFunctionExpressionBody
+    && BlockPossibleShape.IsFunctionDeclarationBody(parent, bracket, true)) {
+    const expressionBody = bracket as Bracket;
+    if (expressionBody.CatalogGuide === null) {
+      BlockPossibleShape.MountBodyCatalog(expressionBody);
+      BlockPossibleShape.FunctionExpressionBodyMountCount += 1;
+    }
+  }
   return;
 }
 if (!(parent instanceof Bracket)) {
@@ -862,6 +972,20 @@ if (!(parent instanceof Bracket)) {
 }
 const body = parent as Bracket;
 const previous = BlockPossibleShape.PreviousCodeUnit(parent, bracket);
+// **类静态块体**（Stage 5d-8a）：`class C { static { … } }` 的体 `{` 前一个非 trivia 单元是 `static`。
+// 类体括号是 legacy 建树的（没有目录），`TryMountFunctionBody` 的 `)` / 返回类型判据又不覆盖它，
+// 于是静态块体整段走 `BuildBlock` 的 raw 循环。判据只看这一个词。
+if (previous !== null && previous instanceof Common
+  && (previous as Common).TempToString() === "static") {
+  if (BlockPossibleShape.EnableStaticBlockBody) {
+    const staticBody = bracket as Bracket;
+    if (staticBody.CatalogGuide === null) {
+      BlockPossibleShape.MountBodyCatalog(staticBody);
+      BlockPossibleShape.StaticBlockBodyMountCount += 1;
+    }
+  }
+  return;
+}
 if (previous !== null && BlockPossibleShape.IsArrowUnit(previous)) {
   // 箭头块体，宿主是括号（调用参数 / 数组 / 括号内的箭头）：`f(x => { … })`。
   if (!StatementRouteUtil.EnableArrowBodyCatalog) {

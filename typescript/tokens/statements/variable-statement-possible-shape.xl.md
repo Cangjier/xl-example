@@ -68,6 +68,43 @@ if (headAt >= units.length) {
 return ItemUtil.NextCode(units, headAt + 1);
 ```
 
+## method IsConstEnumHead:(units:Array<Token>, start:int)=>bool
+
+**块内 `const enum`**（Stage 5d-8a）：`const` 之后**同一行**的下一个代码单元是 `enum`，
+**且这一条的宿主是块体 `{` 括号**。
+
+这一条与 `let` / `const` / `var` 的绑定声明共用本候选，是因为它**不是绑定**（`enum` 是关键字，
+`StatementScanner.StartsBinding` 对它一律 `false`），但 `StatementFamilyDispatch` 的 `const` 分支
+本来就把 `const enum` 建成 `EnumDeclaration`——差只差在「这一格由谁接」。判据与 `BuildStatement`
+的 `const` 分支逐字相同（`const` + 同一行的 `enum`），不新写关键字表。
+
+**为什么必须收紧到块体**：根层 `const enum` 由 legacy 的 `EnumDeclarationPossibleShape` 接（它认
+`const` 前缀）。本候选若在根层也 Accept，两个候选同格成立 → `CatalogGuide` 抛「终结候选与其它候选
+同时成立」→ 文件级 fallback（实测 `const enum E { A }` 单独一条文件就是这样崩的）。所以这里与
+`AsyncStatementPossibleShape` 一族的 `IsBlockHost` 同口径：只认**宿主是块体 `{` 括号**的语句首。
+
+```ts
+const headAt = ItemUtil.NextCode(units, start);
+if (headAt >= units.length) {
+  return false;
+}
+const head = units[headAt];
+if (!(head instanceof Common) || (head as Common).TempToString() !== "const") {
+  return false;
+}
+const headOwner = head.Parent;
+if (!(headOwner instanceof Bracket) || (headOwner as Bracket).StartBracketChar !== "{") {
+  return false;
+}
+const nextAt = ItemUtil.NextCode(units, headAt + 1);
+if (nextAt >= units.length) {
+  return false;
+}
+const next = units[nextAt];
+return next instanceof Common && (next as Common).TempToString() === "enum"
+  && StatementScanner.NoLineBreakBetween(head, next);
+```
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -104,7 +141,11 @@ if (units[bindingAt] instanceof EndOfFileTokenShape) {
 }
 if (!StatementScanner.StartsBinding(units, bindingAt)) {
   // `let` 后面是 `=` / `(` / `:` 等：`let` 只是标识符，本条不是声明（让位给表达式语句候选）。
-  return ShapeStates.Reject;
+  // **Stage 5d-8a**：`const enum` 是唯一例外——它不是绑定，但确实是这一族要建的带体声明
+  // （`StatementFamilyDispatch` 的 `const` 分支建 enum）。
+  if (!this.IsConstEnumHead(units, start)) {
+    return ShapeStates.Reject;
+  }
 }
 return ShapeStates.Accept;
 ```
@@ -124,7 +165,7 @@ if (this.HeadText(units, start) === "") {
 const bindingAt = this.BindingAt(units, start);
 return bindingAt <= tokenIndex && bindingAt < units.length
   && !(units[bindingAt] instanceof EndOfFileTokenShape)
-  && StatementScanner.StartsBinding(units, bindingAt);
+  && (StatementScanner.StartsBinding(units, bindingAt) || this.IsConstEnumHead(units, start));
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -137,6 +178,10 @@ const start = ItemUtil.ItemStart(host.Data);
 if (start > tokenIndex) {
   throw new Error("变量声明语句候选没有可搬的单元");
 }
+// **Stage 5d-8a：`const enum` 的判型必须在搬单元之前读**——下面 `host.Data.splice` 之后宿主 `Data`
+// 已经被搬空，`IsConstEnumHead` 只会看到空数组（实测：壳的终结候选退回默认族、每格问一次 `ScanRoot`，
+// `root-retirement` 的「默认态 ScanRoot = 0」由 0 变 8）。
+const constEnum = this.IsConstEnumHead(host.Data, start);
 let pos = 0;
 if (host instanceof Bracket && (host as Bracket).StartBracketChar === "{") {
   // 块体目录的宿主是块体 `{` 括号：块内**第一条**语句的 `pos` 是「`{` 之后第一个字符」（含前导 trivia），
@@ -181,7 +226,14 @@ const headStart = moved[0].SourceRange.Start;
 if (headStart >= 0) {
   shell.SignIn(headStart);
 }
-shell.CatalogGuide = new CatalogGuide([], new StatementEndPossibleShape());
+const endShape = new StatementEndPossibleShape();
+if (constEnum) {
+  // **Stage 5d-8a：`const enum` 是带体声明，收口读声明族那一份**（`DeclarationFamilyBodyEndCode` 的
+  // 体括号补充判据 + 表达式族原有的 `;` / ASI / 声明跟随边界 / EOF）。否则变量族的终结候选只认
+  // `;` / ASI，`const enum E { A }` 会一直收不了口 → `DetachShell` → 整段 raw。
+  endShape.StatementKind = StatementRoute.ShellDeclarationFamily;
+}
+shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
