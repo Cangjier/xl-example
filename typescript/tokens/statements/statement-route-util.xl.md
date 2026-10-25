@@ -6,6 +6,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 ```
 
@@ -593,6 +594,41 @@ if (StatementRouteUtil.IsLegacyKeyword(text)) {
 return StatementRoute.ShellPlainExpression;
 ```
 
+## static method ShouldYieldToDeclarationShell:(units:Array<Token>, tokenIndex:int)=>bool
+
+**legacy 让位门控的唯一判据**（Stage 4x）：`route` 命中 `ShellDeclarationFamily`，**并且**壳在这一格
+真的会建（`!StatementBoundaryUtil.CanEndStatementAt`）时，legacy 候选才让位。
+
+Stage 4r 的门控只看了 `route`，与壳的晚建守卫**不是同一份判据**：`enum E { A }` ⏎ `export { T, E };`
+的 `export` 那一格，`ItemStart` 仍指向上一条语句（`enum`），route 命中声明族，于是壳被晚建守卫
+`Reject`，而 13 个 legacy 候选照着 route 一起让位 —— 两边都退，只能文件级 fallback。
+现在门控把「壳会不会建」也算进来：壳不建的格子，legacy 照旧接管。
+
+```ts
+if (!StatementRouteUtil.EnableDeclarationShell || !StatementRouteUtil.EnableShellExpressions) {
+  return false;
+}
+if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellDeclarationFamily) {
+  return false;
+}
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const start = ItemUtil.ItemStart(units);
+const headAt = ItemUtil.NextCode(units, start);
+if (headAt >= units.length || headAt > tokenIndex) {
+  return false;
+}
+if (units[tokenIndex].IsTriviaToken) {
+  return false;
+}
+if (tokenIndex === headAt) {
+  // 首格：壳一定建（`DeclarationStatementPossibleShape` 首格 Accept），legacy 必须让位。
+  return true;
+}
+// 晚建格：壳在「这一格之前已能收口」时 Reject（S4t 守卫），legacy 此时**不**让位。
+return !StatementBoundaryUtil.CanEndStatementAt(units, tokenIndex);
+```
 ## static method Decide:(units:Array<Token>, tokenIndex:int)=>int
 
 **分流判据**（设计 §3.2，冻结签名）：本条目的首代码单元是什么，决定这条语句归谁建。
