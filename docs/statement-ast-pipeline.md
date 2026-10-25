@@ -1215,7 +1215,9 @@ class C { m(a) { return a; } } ⏎ const a = 1;
   折 code 必须截断到 `endIndex`（否则吞下一条语句，`R6-CLS-guard-01`）；成员体内引擎不接受
   （`super()` 等）⇒ **整类** `return null`，绝不建半棵树。
 - **类表达式不进这条链**：`const C = class {}` 的 `class` 是**操作数**，落点是引擎的 primary 分支 ⇒
-  保持 `Decline(var.init)`（R7）。
+  保持 `Decline(var.init)`（R6 时点）。
+  **R7 起已直建**：引擎的 `class` 操作数分支（`ClassPending`）在语句壳之前就把类表达式建好，
+  链路见 **§17.2**（`R7-CX-pos-01…06`）。
 
 ### 16.2 `import` / `export` / `namespace`：kind 7 内部头分派
 
@@ -1227,7 +1229,7 @@ ShellDeclarationFamily(7)（interface / type / enum / class / namespace / import
   └─ DeclarationFamilyDirectSession.ApplyHead
        ├─ interface / type / enum → R5 的三个 FromUnits（未动，§15.3）
        ├─ module 头（import / export / namespace / module / declare）→ 不 Decline、记 trace
-       └─ using → Decline(decl.head)（R7）
+       └─ using → **R6：Decline(decl.head)**；**R7 起转交 `BuildUsing`**（§17.3）
   └─ BuildDeclaration → BuildModuleFamily（懒建 ModuleFamilyDirectSession）
        ├─ import  → ImportDeclarationShape.FromUnits（+ 虚拟分号）
        ├─ export  → DirectExportAssembly.Build（子句 / `export <声明>` / `export default`）
@@ -1309,3 +1311,194 @@ node ..\_coord\smoke-r3-func.mjs . $setup 400                                   
 missing-semicolon recovery（`as b` / `a b` / `f() g()` / `1 2`，R5-A2 之后 THREW，**第一优先级**且不得回退 A2）、
 类表达式、`using` / `export declare` / `export as namespace` 等 module 族剩余、类成员外的装饰器建树、
 顶层 `await`·`yield` 路由、`const enum`、A3 判据放宽（比较链 + 模板操作数）、A6 归零的 `BlockFrom` 方案。
+
+> **R7 已收口前四项**（恢复 / 类表达式 / `using` 与 `export declare` / `@dec function`）——链路见 **§17**，
+> 收口后的剩余清单见 `docs/direct-candidate-pipeline.md` §25.7。本节保留 R6 时点的原文，作为 R7 的输入。
+
+---
+
+## 17. R7：恢复 / 类表达式 / module 残形 / 声明装饰器的完整链路（299 条）
+
+> 基线 `feature/all-possible` @ **`18df9bf9`**（`08616d1a` recovery → `efa91ea4` classexpr → `ceab9a19` module2+dec2 → `18df9bf9` harness）。
+> 前三步（字符 → basic token → 候选 → 壳）与 §3–§5 **完全没有区别**；R7 的新意只有两处：
+> **壳收口时多读一个「恢复切点」**，以及**表达式引擎多一条操作数分支**。
+> 其余（module2 / dec2）都是既有壳的**内部头分派**多一格，不改边界层与注册表（`Register` 仍 9 行）。
+
+### 17.1 恢复链路：`a b` 怎么变成两条语句
+
+```
+`a b`（无分号，EOF 收口）
+  └─ basic token Close / CatalogGuide → ShellPlainExpression（与 §5 相同，R7 没有改边界层）
+      └─ DirectStatementHook.Attach（H1）：每个新单元喂给 session（Ingest 只推游标）
+          ├─ idx=0 `a`  → Engine.IngestUnit(`a`)  → 表达式前缀 = a（完整）
+          └─ idx=1 `b`  → Engine.IngestUnit(`b`)  → **Engine.Held**（接不上：它不是运算符）
+                          ⇒ session.StoppedAt = 1
+                          ⇒ CanRecoverAt(1)：①代码单元 ②at>FirstCodeAt ③同一行 ④Held 且前缀完整 → 全真
+                          ⇒ session.StopAt = 1（trace: `expression recover at idx=1 ...`）
+                          ⇒ **return**（不 Decline、不 Incomplete）——这是 R7 唯一的策略增量
+      └─ 收口（EOF）⇒ BuildFromShell（H2）
+          ├─ direct.Finish(endIndex=1)：StopAt>=0 ⇒ cut = 0（切点前一位）
+          │     ⇒ `ExpressionStatementShape` 只建 `a`，语句 End 退到切点前的最后一个代码单元
+          │     ⇒ 覆盖校验（复用 `expr.coverage`）通过 ⇒ StatementsBuilt += 1
+          ├─ 回读 StopAt ⇒ consumed = host.Data.slice(0, 1) = [`a`] ⇒ host.Data.splice(0, 1)
+          └─ 续建尾巴（tailFrom = 1，壳仍在父单元里）：
+                逐条新壳（Kind=ShellPlainExpression、Pos=前一语句 EndIndex、新 OperatorBody、
+                          新 DirectBuildRouter.Create 会话）⇒ 递归 BuildFromShell ⇒ `b` 自己建一条
+                ⇒ 两条语句按序插回父单元 ⇒ 壳 Data 清空 ⇒ FinishShell 的 leftover 为空、不再重放
+```
+
+**三处必须一起看的事实**：
+
+1. **切点只能在 `Finish` 之后读**：EOF 收口时壳的最后几格还没喂过会话（与 §6.3 里 S3c 的
+   `OperatorBody.IngestAll` 是同一个滞后）——`a b` 在 `BuildFromShell` 入口处 `StopAt=-1`，
+   切点是在 `direct.Finish(endIndex)` **内部**才被发现的。所以实现顺序是「建完读实际消费量、按它 slice」，
+   而不是契约字面的「先缩 `endIndex` 再建」；两者结果逐位相同。
+2. **不能只靠 `FinishShell` 的 leftover 重放**：重放假定后面还有字符流把新壳喂满，而恢复的切点几乎总在文件末尾。
+   只重放会得到 `a b;` 多一个 `EmptyStatement`、`a b c` 第三条 `Pos=0`、`f() g()` / `x = 1 y = 2` 直接抛。
+   所以尾巴在**同一个壳**里逐条续建（同一批判据、同一批否决）；续建失败就把尾巴原样放回壳并抛出，不吞错。
+3. **两处读同一个 `StopAt`**（`Finish` 的 `cut` 与 `BuildFromShell` 的 `consumed`）是双向不变式；
+   不成对提交会让语句区间与壳消费区间不一致。`AllowRecovery=false` ⇒ `StopAt` 恒 -1 ⇒ 三个落点全部成为空操作，
+   行为逐字节回到 `55b207da`（一级回退；回退时必须**同一提交**把 `rec` 的 pos 降级为 safe，不许留半红）。
+
+**准入 4 条 / 否决 3 条**（`CanRecoverAt`，语义 = 「tsc 在这里也接受这个断点」）：
+
+| 类 | # | 判据 | 挡住什么 |
+| --- | --- | --- | --- |
+| 准入 | ① | `at` 在范围内且是**代码单元** | 没得切 |
+| 准入 | ② | `at > FirstCodeAt`（前缀非空） | `a b` 的 `b` 当第一条 |
+| 准入 | ③ | `!LineTerminator.HasBefore`（**同一行**） | 换行类 ASI（已由 C1 处理：`a⏎!b` / `a⏎++b`）——**244 条不回归的主保险** |
+| 准入 | ④ | 引擎 `Held` 且**前缀完整** | 半状态 / 不完整前缀 |
+| 否决 | ⑤ | `;` / EOF / **模板串** | `a\`t\`;` 必须保持 `expr.stopped`（TaggedTemplate 不是两条语句） |
+| 否决 | ⑥ | 会话不是**语句级** | 变量初始化器 / 实参 / 箭头体 / `new` 实参（`let x = a b` 的 tsc 是 **1** 条） |
+| 否决 | ⑦ | 壳的族不是 `ShellPlainExpression` | `if (c) a b` / `throw a b`（`stmt.body` / `stmt.expr` 不动，留 R8） |
+
+- ⑥ / ⑦ 是**结构性**的：`AllowRecovery` 只在语句级会话的构造器里置 `true`，而这个类只注册给 `ShellPlainExpression`。
+- ④ 的字面实现有个坑：引擎第一道守卫是 `if (Held) return false`，所以 `IsComplete()` 在 `Held` 为真时恒假；
+  实现是**临时清 `Held`、只读求值、`finally` 还原**（问的正是「把 Held 摘掉之后前缀完整不完整」）。
+- `HeldAt`（= `Ingested`）**不可用**：会话逐格 `IngestUnit`、从不调 `IngestAll` ⇒ 恒 -1。唯一可用的切点是会话自己的 `StoppedAt` / `StopAt`。
+
+**`rec` 18 条**：9 条 pos 全部 `A1=YES`（含语句条数）、`built` = 2/2/2/2/3/2/2/3/3、A6 **0/0**；
+5 条 guard 读数不变；4 条负例里 `let x = a b` 仍 `var.stopped:2`、`if (c) a b` / `throw a b` 仍抛
+（文案是 `表达式没有读完`，**不是** `表达式语句没有读完`），`function g() { a b }` 转 pos（`R7-Q8`）。
+设计探针的 `THREW` 由 18 降到 **4**（多恢复的 5 条形态全部 `A1=YES`，见 `docs/direct-candidate-pipeline.md` §25.2.5）。
+
+### 17.2 类表达式：`const C = class {};` 走引擎，不走 class 声明链
+
+```
+const C = class {};
+  └─ CatalogGuide：首单元 `const` ⇒ kind 1（变量语句壳）
+      └─ DirectStatementHook.Attach → DirectVariableSession（初始化器交给 DirectExpressionSession）
+          └─ DirectExpressionSession.Ingest：引擎逐格吃
+              ├─ IngestOperand 的 Common 分支：text === "class" ⇒ StartClassExpression
+              │     （`class` 在**操作数位**才是类表达式；语句首的 `class` 仍走 kind 9/10 的声明壳）
+              │     ⇒ ClassPending = ClassExpressionShape（class 关键字 SignIn、Pos 记下）
+              │     ⇒ Expect 停在「等类体 / 名字 / 继承子句」
+              ├─ IngestCode：ClassPending 非空 ⇒ IngestClassExpressionPart（不走「等操作数 / 等运算符」两层）
+              │     ├─ `{` 括号（已建好的 Bracket 单元）⇒ CloseClassExpression
+              │     │     HeritageClauseShape.BuildClauses(...) + BodyGuideUtil.CollectBodyMembers(
+              │     │        host, bracket, ctx, ClassDeclarationShape.BuildMembers)
+              │     │     ⇒ 按 tsc 子节点顺序 Add（name → heritage → members）
+              │     │     ⇒ SignOut(类体括号) ⇒ TakeOperand
+              │     └─ 名字 / 继承子句 / 其它 ⇒ 名字用 IdentifierShape；继承子句原样入 ClassUnits 等 BuildClauses
+              └─ Finish ⇒ 变量声明 + 初始化器 ⇒ VariableStatementShape（built=1、A6 0/0）
+```
+
+- **复用公开静态工厂，一个新 Builder 都不建**：成员体 / 属性初始值 / 装饰器表达式 / 计算名全由
+  `ClassDeclarationShape.BuildMembers` 自己调 ⇒ **A6 残差与 class 声明逐条相同**（§16.3 的三条规则原样适用）：
+  `class X { m() {} }` = **2/0**、`class { x = 1; }` = 0/**1**、其余 0/0。
+- **`AllowClass` 是范围闸**：`IngestParen` 建嵌套引擎时置 `false` ⇒ `(class {})` 保持 `Decline(var.init)`（R8 删一行即转 pos）；
+  调用实参走 `BuildSlice` 的**新**引擎（不置位）⇒ `f(class {})` 直建。
+- **超范围形态显式 `Fail`**（`class<T>`、`class (…)`、名字后不是继承子句/类体 …）⇒ `expr.decline` 回落旧路径，
+  **绝不建半棵树**；`ClassPending` 非空时 `IsComplete()` 为假，收尾还没等到类体 ⇒ `Fail("类表达式没有闭合")`。
+- **与 §16.1 的 class 声明链无交集**：kind 9/10 的注册行与口径一字未动；`@dec class C {}` 仍 **0/1**、
+  `class C { @dec m() {} }` 仍 **2/1**（两条 guard 逐项不变）。
+
+### 17.3 module2 与 dec2：既有壳的内部头分派多一格
+
+```
+kind 7（ShellDeclarationFamily）
+  └─ DeclarationFamilyDirectSession.ApplyHead
+       ├─ HeadModule(7) import / export / namespace / module / declare → 记 trace（R6）
+       ├─ HeadUsing(8) using → **R7：不再 Decline**，BuildDeclaration 转 BuildUsingDeclaration
+       └─ interface / type / enum → R5 的三个 FromUnits
+  └─ BuildModuleFamily → ModuleFamilyDirectSession.Build
+       ├─ export → DirectExportAssembly.BuildInner
+       │     ├─ code[1] = "declare" → BuildDeclare(startIndex=1)（R7 新增的一格）
+       │     │     class / function / namespace·module 三族：形状工厂**自带** declare 修饰词循环
+       │     │     变量声明：PrependDeclare(…, declareIndex) 自己插 DeclareKeyword（R7 多一个下标参数）
+       │     └─ code[1] = "as" / "=" / import-equals → 仍 return None 给 legacy（R7-Q6 = B，sessions=0）
+       └─ using → BuildUsing → DirectExportAssembly.BuildUsing
+             ⇒ VariableStatementShape[list[decl[x, a]]]（复用变量族装配、不新增文件；失败仍落 decl.head）
+```
+
+| 形态 | 读数 | 说明 |
+| --- | --- | --- |
+| `using x = a;` | built=1 · A6 **0/0** · IDENTICAL | `HeadUsing` 转交；类型注解 / 解构 / `await using` 显式回落 |
+| `export declare const x: number;` | built=1 · A6 **0/0** · IDENTICAL | `BuildInner` 的 declare 分支 → `BuildDeclare` → `PrependDeclare` |
+| `export declare function f(): void;` | built=1 · A6 **0/0** · IDENTICAL | 无体 ambient 函数不建体 wrapper（设计表写的 `2/0` 是笔误） |
+| `export as namespace N;` / `import x = require("m");` / `export = a;` | built=0 · **sessions=0** · A1=YES · IDENTICAL | 被 `StatementRouteUtil.DecideDeclaration` 的三处 `return None` 挡在壳之前（只读件）⇒ `safe` + A14 钉 `sessions=0`；路由本身已在 assembly 写好并模拟验证 |
+| `export import x = A.B;` | built=0 · `decl.module:1` · IDENTICAL | 保持 safe（`R7-A4`） |
+| `declare global { interface X {…} }` | built=1 · A6 **1/0** · IDENTICAL | guard，R7 改 `declare` 转发时**没有**把它变成 safe |
+
+**dec2（`@dec function`）**：kind 10 仍指向 `ClassDeclarationDirectSession`，**不加注册行**；
+`Finish` 在 `BuildFromCode` 之前先 `HasDecoratedFunctionHead`（只看**顶格单元**的 `function`——只看顶格是必须的，
+否则 `@dec class C {}` 的装饰器会被试探解析一次，A6 从 0/1 漂到 0/2），命中就
+`TryDecoratedFunction` → `FunctionDeclarationShape.FromUnits(codeAt[0], …)`（`codeAt[0]` 起点，**不是** 0）。
+
+| 形态 | built | A6 stmt/expr |
+| --- | --- | --- |
+| `@dec function f() {}` / `(): void {}` | 1 | **2 / 1**（空函数体 wrapper + 装饰器表达式） |
+| `@dec function f(a: number) { return a; }` | **2** | **1 / 1**（体内 `return` 自己的壳） |
+| `@dec declare function f(): void;` | 1 | 0 / 1（已转绿但**未立 case**，`R7-Q7`） |
+| `@dec class C {}`（guard） | 1 | **0 / 1**（不回归） |
+| `class C { @dec m() {} }`（guard） | 1 | **2 / 1**（不回归） |
+
+### 17.4 命令与实测读数（本克隆 `docs-r7` @ `18df9bf9`，2026-10-26）
+
+```powershell
+$clone = "C:\Users\Admin\Documents\GitHub\xl-example-set\docs-r7"
+$setup = "C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setup"
+cd $clone
+
+# xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
+#   实测：560 written / 0 error(s) / 3 warning(s)（既有 E1107 重复类型名）
+node node_modules/typescript/bin/tsc -p tsconfig.json     # exit 0
+
+# R7 九组（18/8/9/5/5/2/3/3/2，全 0 红）
+foreach ($g in 'rec','cx','mod2','dec2','awa','en2','a3r','a6r','hd2') {
+  node tests/direct-build/target-cases.mjs "--group=$g" --expect-direct --strict --decline-stats "--baseline=$setup"
+}
+# 两个交付门（全量 299 / strict 全量化）
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats "--baseline=$setup"             # 299/0
+node tests/direct-build/target-cases.mjs --strict-all --expect-direct --decline-stats "--baseline=$setup"          # 299/0
+# 辅助
+node tests/direct-build/token-set-parity.mjs                                                                      # PASS
+node ..\_coord\smoke-r3-func.mjs . $setup 400                                                                     # FILES=47 XML-DIFF=0 CRASH-DIFF=0
+```
+
+| 命令 | 实测 |
+| --- | --- |
+| 全量（`--expect-direct --strict --decline-stats --baseline`） | **`CASES=299 FAILED=0`**；`builtCases=247/299 loads=243`；`DECLINE-STATS 38/15`；A10 `278/12/9/0` |
+| `--strict-all` | **`CASES=299 FAILED=0`**；`MODE` 含 `strict=on (implied by --strict-all)` 与 `q-switches=retired` |
+| 15 组 | `r1 10 · r2 50 · r3 32 · r4 40 · r5 57 · r6 55` + `rec 18 · cx 8 · mod2 9 · dec2 5 · awa 5 · en2 2 · a3r 3 · a6r 3 · hd2 2`，全部 0 红 |
+| 旧 244 子集 | **244/0**；`builtCases=213/244 loads=158`；`DECLINE-STATS 26/10`（`var.init` / `decl.head` 两键随 3 条改判消失） |
+| parity / 47 语料 | **PASS**（8 PASS + 1 INFO）/ **`FILES=47 XML-DIFF=0 CRASH-DIFF=0`**（41 条两侧同抛） |
+
+**改判台账（10 行，ID 不删、条数不增）**：`R6-Q1` 6 行（`R2-SAFE-02` + `R5-DC-neg-02/03/04/05` 改 pos，
+`R5-DC-neg-01` 复核**不动**）、`R7-Q2` 2 行（`R6-CLS-neg-01/02` neg→pos，即两条类表达式）、
+`R7-Q5` 1 行（`R6-MOD-neg-01` `using` neg→pos）、`R7-Q8` 1 行（`R7-REC-neg-04` 块内恢复 neg→pos）。
+逐条 ID 与 `expectBuilt` 见 `docs/direct-candidate-pipeline.md` §25.5。
+
+### 17.5 R8 清单（收口后剩余，权威表见 `docs/direct-candidate-pipeline.md` §25.7）
+
+1. **module 三条路由例外**：`StatementRouteUtil.DecideDeclaration` 三处 `return None` → 三行窄判据
+   （`import x =` / `export =` / `export as namespace`），同步把 `R7-MOD2-pos-04/05/06` 与 `R6-MOD-safe-01` 转 pos。
+2. **`@dec declare function` 立 case**（`R7-DEC2-pos-04`，built=1 / A6 0/1）。
+3. **顶层 `await` / `yield` 路由**（`DecideCommon`）。
+4. **`await a⏎let b = 1;`** —— 合法源仍抛（`diag=0`），根因 `IsAsiBoundary` 条件 5（**P2**）。
+5. **`const enum`**（根层 `Decide`）。
+6. **A3 放宽**：`f<T>\`t\`` 应建 `TaggedTemplateExpression`；注意**裸 `f\`t\`` 今天也回落**。
+7. **A6=0 的 `BlockFrom` 方案**（R6-A2；前置条件 189+55+47 全量对拍）。
+8. **`(class {})` 的 `AllowClass` 转 pos**（删一行）。
+9. **恢复外溢收窄（可选）**：需 token 级 ASI 谓词，不建议。
+10. **门标准未跑**（gates / 6171 / coverage / samples）——是否作为最终验收由 Lead 决定。
