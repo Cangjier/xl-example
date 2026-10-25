@@ -1,26 +1,43 @@
 #!/usr/bin/env node
-// 目标 case 验证 harness（R1 T14/M4 交付 → R2 扩展）—— tests/direct-build/target-cases.mjs
+// 目标 case 验证 harness（R1 T14/M4 交付 → R2 扩展 → R3 扩展）—— tests/direct-build/target-cases.mjs
 //
 // 规格来源（只读）：
 //   _coord/CONTRACT.md §6             —— R1：CASES 10 条 / A1–A8 断言 / CLI / 输出 / 退出码
 //   _coord/R2-CONTRACT.md §5          —— R2：目标 case 的 CLI、A9/A10/A11、
 //                                        --group / --only=<case id> / --decline-stats / --baseline / --fault-inject
-//   _coord/R2-TARGET-CASES.md         —— 逐条 ID 与期望（唯一权威编号表）
+//   _coord/R2-TARGET-CASES.md         —— R2 逐条 ID 与期望（R2 中期口径）
 //   _coord/REPORT-r2-verify-fix.md    —— 收口校正：60 条（43 → 60 的追加与改判逐条在报告 §2）
+//   _coord/R3-CONTRACT.md §5/§6.1     —— R3：分组语义修正（r2 改 id.startsWith("R2-")，否则会吞掉 R3 造假绿）、
+//                                        KNOWN_GROUPS + b1/b2/d7/s/r3、noBaseline（A10 SKIP）、
+//                                        strict 全量化（--strict-all / case.strictAll + A12）、guard 类别
+//   _coord/R3-TARGET-CASES.md         —— R3 32 条逐条 ID / 期望 / 断言差异（唯一权威编号表）
+//   Lead 裁决 R3-Q1                   —— R2-SAFE-04/05 从 safe 改判 pos；--q1=pos|auto|safe（默认 auto）
+//   Lead 裁决 R3-Q2 + A-1             —— D7 组 noBaseline=true（A10 SKIP），判据 = A1（AST==tsc）+ 计数证据
+//   _coord/DECISIONS.md + Lead 裁决   —— D1（`let x = f()` 翻正例）、D3（逗号本轮做，`a, b` 等正例）、
+//                                        C2（跨行 ASI 本轮保持 Decline，不作验收门）
+//   _coord/DESIGN-all-possible.md §8  —— 三件套（AST 逐字段、XML、直建计数）
+//   _coord/HARNESS.md                 —— 构建链与已知坑（build/ts 入口、EOF 口径）
 //
-//   期望类别（expect；本文件在 verify 的 43 条上按 Engine-A 实测收口为 60 条）：
+//   期望类别（expect；R1 10 + R2 50 + R3 32 = 92 条）：
 //     pos         正例：直建必须接管（built>=1 / declined==0 / incomplete==0 / errors==0）
+//     guard       【R3】同 pos，但 expectBuilt 是**不变的 1**（D7 防过度收缩：`let x = a⏎+ b` 仍是一条）
 //     neg         负例：显式 Decline（declined>=1 / built==0 / errors==0）+ AST 仍与 tsc 一致（旧路径保证）
+//                 【R3/D2】expectBodyBuilt 的 neg：built 必须等于**体内语句自己的壳**的读数（不是 0），
+//                 因为该负例的体里有已经实现的语句族（`for (let …) { b; }`：b; 本来 built=1）
 //     safe        无 session 构造（await / class / yield / if / return）：只断言 built==0 + AST 一致，
 //                 **不断言 declined>=1**（这些语句根本不进 DirectSession，R1 语义是「没调用」不是「Decline」）
 //     invalid     语法非法输入（`a ? b, c : d`）：直建显式 Decline，且本侧与基线同源拒绝同一文案；
 //                 AST 无法与 tsc 比对（两侧 Parse 都抛），所以 A1/A10 改判「拒绝一致性」
 //     incomplete  收口期失败（`a as` / `a +`）：R1 语义记 IncompleteFallback，不是 Declined；
 //                 断言 built==0 + incomplete>=1 + errors==0，并与基线比对拒绝文案
-//   _coord/DECISIONS.md + Lead 裁决   —— D1（`let x = f()` 翻正例）、D3（逗号本轮做，`a, b` 等正例）、
-//                                        C2（跨行 ASI 本轮保持 Decline，不作验收门）
-//   _coord/DESIGN-all-possible.md §8  —— 三件套（AST 逐字段、XML、直建计数）
-//   _coord/HARNESS.md                 —— 构建链与已知坑（build/ts 入口、EOF 口径）
+//   【R3】case 新字段：
+//     noBaseline  true = A10 改判 SKIP（旧基线 8456ec3c 自身错，见 R3-CONTRACT §1.3），判据 = A1 + 计数
+//     strictAll   true = 即使 expect != pos，也在 --strict 下解析（strict 全量化的证明 case → A12）
+//     markerScope "boundary" = 构造标记只看 statement-boundary-util 产物（D7 的唯一修改点）
+//     q1          true = R2-SAFE-04/05，R3-Q1 改判 pos，--q1=auto|safe 时可回退 safe
+//     expectBodyBuilt 【R3，REPORT-r3-control §6-D2】负例的 built 读数**来自体内语句自己的壳**（不是本条语句的壳）时，
+//                 用它代替 built==0：A4 断言 declined>=1 && built==expectBodyBuilt && errors==0，
+//                 分类 verdict 同 neg（A9 仍判该族的 category）。`for (let …) { b; }` / `for (const k in o) { b; }` 用它。
 //
 // 本脚本只读：不改产品源码、不改仓库文件、不跑任何全量门（gates / ast-json 6171 / coverage / samples）。
 // 唯一的「进程内修改」是 --fault-inject=finish-throw：给 session 的 Finish 包一层一次性抛错（R2-CONTRACT §5.1，
@@ -34,12 +51,13 @@
 //   node tests/direct-build/target-cases.mjs --only=R2-C4-01 --fault-inject=finish-throw --expect-direct
 //   node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --json > r2-readings.json
 //
-// 断言（R1 A1–A8 + R2 A9–A11）：
+// 断言（R1 A1–A8 + R2 A9–A11 + R3 A12）：
 //   A1  cjAst(root.Data) JSON === sf.statements.map(tsAst) JSON（唯一归一表 ast-compare.mjs）  —— 全部 case
 //   A2  同源解析两次 ToXmlString() 逐字节相同（C4 注入 case：注入那次 vs 不注入那次）
-//   A3  XML 非空且根下节点数 == TS 顶层语句数
-//   A4  正例 built>=1 && declined==0 && incomplete==0 && errors==0 && strictViolations==0
+//   A3  XML 非空且根下节点数 == TS 顶层语句数（`{ let x = 1; }` 是 1；built 是 2 —— 两层口径不同）
+//   A4  正例 / guard built>=1 && declined==0 && incomplete==0 && errors==0 && strictViolations==0
 //       负例 declined>=1 && built==0 && errors==0（C4 之后也不许走异常兜底）
+//                 【R3/D2】带 expectBodyBuilt 的负例：built 必须等于该值（体内语句自己的壳），仍要 declined>=1
 //       safe built==0 && errors==0（**不**断言 declined：这类语句不进 DirectSession）
 //       invalid / incomplete built==0 && errors==0，且 invalid 要 declined>=1、incomplete 要 incomplete>=1
 //       C4  注入后 errors==1 且 LastError 含 inject 且 declined==0；第二次解析（Reset 后、不注入）errors==0
@@ -47,11 +65,13 @@
 //   A6  stmtLoads + exprOtherDirect + exprLegacy == 0（旧路径零次事后 Build/reparse；非正例 SKIP）
 //       C4 注入 case 的口径：A6 量**第二次（不注入）解析**——注入那次必然回落旧路径，量它没有意义（见 REPORT §4）
 //   A7  --trace 时 Traces 含 `insert(`（仅 expectInsert 的 case；非正例 SKIP）
-//   A8  --expect-direct 时 A4/A6 强制（--strict 时再加 A5；A9/A11 同口径）
+//   A8  --expect-direct 时 A4/A6 强制（--strict 时再加 A5/A12；A9/A11 同口径）
 //   A9  【R2】负例（含 invalid）的 DeclineReasons 里期望 category 计数 >=1（无分类能力 → SKIP）
 //   A10 【R2】XML == 基线（另一个已构建的 8456ec3c 克隆）；未给 --baseline → SKIP；
-//        invalid / incomplete 改比「两侧 Parse 拒绝文案一致」
-//   A11 【R2】正例的 DeclineReasons 全空（declined==0 的强形式；无分类能力 → SKIP）
+//        invalid / incomplete 改比「两侧 Parse 拒绝文案一致」；**noBaseline 的 case 恒 SKIP**（R3）
+//   A11 【R2】正例 / guard 的 DeclineReasons 全空（declined==0 的强形式；无分类能力 → SKIP）
+//   A12 【R3】strict 全量化：在该 case 真的以 Strict=true 解析时 —— Parse 不抛（负例）、errors==0、
+//        正例 strictViolations==0 / 非正例 strictViolations>=1（safe 不要求）。没在 strict 下解析 → SKIP
 //
 // 「没实现 / 实现错了 / 未接线」三态区分（R1 起就有的口径，R2 扩到构造级）：
 //   - DirectBuildMetrics 缺失 → A4=SKIP（默认）/ FAIL IMPLEMENTATION-ABSENT（--expect-direct）
@@ -59,6 +79,8 @@
 //   - 有 metrics 但 statement-shape 没接 hook → --expect-direct 时 FAIL IMPLEMENTATION-UNWIRED
 //   - 单条正例 built=0 && declined>=1 && 该构造的形状类在直建模块里根本没出现 → IMPLEMENTATION-ABSENT（未实现）
 //     同一读数但形状类已出现 → IMPLEMENTATION-PRESENT-BUT-DECLINED（实现错了 / 被覆盖校验回退）
+//   - 【R3】单条正例 built=0 && declined==0（该族根本没有 session 接进来）&& 形状类没出现 → IMPLEMENTATION-ABSENT
+//     （R3 新族的基线形态：B1/B2 的壳不进 DirectSession，所以既没建也没 Decline）
 //
 // 退出码：任一断言 FAIL → 1；全过（含只有 SKIP/READING）→ 0。
 
@@ -71,17 +93,23 @@ const REPO = path.resolve(import.meta.dirname, "..", "..");
 const SEP = "=".repeat(72);
 
 // ---------------------------------------------------------------------------
-// CASES —— R2 目标 case（60 条：R1 原 10 + verify 的 33 + 收口校正新增/改判 17）
+// CASES —— 目标 case（92 条：R1 10 + R2 50 + R3 32）
 //   id           唯一编号；--only=<id> 精确匹配、--group=<组> 分组
-//   expect       pos（直建必须接管）| neg（显式 Decline）| safe（无 session，built==0）
+//   expect       pos（直建必须接管）| guard（同 pos，built 恒 1）| neg（显式 Decline）| safe（无 session，built==0）
 //                | invalid（语法非法：Decline + 两侧同源拒绝）| incomplete（收口期失败：IncompleteFallback）
 //   markers      该 case 依赖的构造分支在直建产物里应该出现的形状/工厂名（只用于区分
 //                「没实现（absent）」与「实现错了」；不参与 PASS/FAIL 判定）
-//   categories   负例期望的 DeclineReasons category（A9；R2-CONTRACT §3.1 闭集）
+//   markerScope  缺省 "direct"（build/ts/.../direct/*.js）；"statementShape" 只看 statement-shape 产物；
+//                【R3】"boundary" 只看 statement-boundary-util 产物（D7 的唯一修改点）
+//   categories   负例期望的 DeclineReasons category（A9；R2-CONTRACT §3.1 + R3-CONTRACT §4.6 闭集）
 //   expectInsert case 含二元/赋值/逗号运算符插入 → --trace 时期望 Traces 有 insert(
-//   expectBuilt  多语句 case 的 StatementsBuilt 精确值（R1-08 = 2）
+//   expectBuilt  多语句 case 的 StatementsBuilt 精确值（**含体内语句**；R1-08 = 2，R3-B1-pos-03 = 2）
+//   expectBodyBuilt 【R3】负例的 built 来自**体内语句自己的壳**时的精确值（代替 built==0；详见上方 case 新字段）
 //   injection    C4：由 --fault-inject=finish-throw 注入，而不是源码 case
 //   d1           该 case 的期望因 Lead 裁决 D1 翻转（`let x = f()` 由负例改正例）
+//   noBaseline   【R3】A10 改判 SKIP（旧基线 8456ec3c 自身错；D7 组）
+//   strictAll    【R3】即使 expect != pos 也在 --strict 下解析（R3-S；A12 判 strictViolations）
+//   q1           【R3】R3-Q1 改判位（R2-SAFE-04/05）：--q1=auto|safe 时可回退成 safe
 // ---------------------------------------------------------------------------
 const CASES = [
   // ---- R1 原 10 条（不回归；R1-10 按 D1 翻为正例） ----
@@ -245,10 +273,13 @@ const CASES = [
     note: "class 声明属语句族其它分支，不经 Variable/Expression session" },
   { id: "R2-SAFE-03", src: "yield a", expect: "safe", expectInsert: false,
     note: "yield 需 generator 上下文" },
-  { id: "R2-SAFE-04", src: "if (a) b", expect: "safe", expectInsert: false,
-    note: "if 语句：DirectSession 只挂 VariableStatement / ExpressionStatement" },
-  { id: "R2-SAFE-05", src: "return a?b:c", expect: "safe", expectInsert: false,
-    note: "return 语句（函数体外）：不进直建 session；不得因为条件表达式已支持就去建它" },
+  { id: "R2-SAFE-04", src: "if (a) b", expect: "pos", expectInsert: false, q1: true,
+    note: "**R3-Q1 改判 pos**：B1 注册后 if 不再 safe（safe 的定义是「该族没有 session」）。依赖 B1-2 单语句体（RawStatement）；" +
+      "B1-2 未落地时用 --q1=safe 回退（默认 --q1=auto 会按 build/ts 里有无控制流 session 自动回退，基线不造假红）",
+    markers: ["IfStatementShape"] },
+  { id: "R2-SAFE-05", src: "return a?b:c", expect: "pos", expectInsert: false, q1: true,
+    note: "**R3-Q1 改判 pos**：只依赖 B1-d 的 return 分支（不依赖 RawStatement）；--q1=safe 可回退到 R2 口径",
+    markers: ["ReturnStatementShape"] },
 
   // ---- INC 收口期失败（2）：R1 语义记 IncompleteFallback，不是 Declined ----
   // 实测：built=0 / declined=0 / incomplete=1 / errors=0；旧路径与基线同源拒绝同一文案。
@@ -274,20 +305,147 @@ const CASES = [
   { id: "R2-C2-01", src: "a\nb", expect: "neg", expectInsert: false,
     note: "C2 跨行 ASI 本轮保持 Decline（R2-D4：不作验收门；R3 直建化时改 pos + built=2）",
     categories: ["expr.stopped"] },
+
+  // ===========================================================================
+  // R3 目标 case（32 条；_coord/R3-TARGET-CASES.md 是唯一权威编号表）
+  //   B1 15 = pos 12 + neg 3；B2 11 = pos 7 + neg 4；D7 4 = pos 3 + guard 1；S 2
+  //   `built` 是 StatementsBuilt（**含体内语句**），与 A3 的「根下节点数」是两个口径：
+  //     `{ let x = 1; }` → built=2（Block + VariableStatement），A3 根下节点数=1
+  //   D7 组 noBaseline=true：A10 改判 SKIP（旧基线 8456ec3c 自身错），判据 = A1 + A4 计数 + A11
+  // ===========================================================================
+
+  // ---- B1 控制流语句（15：pos 12 + neg 3） ----
+  { id: "R3-B1-pos-01", src: ";", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "空语句：EmptyStatementEndCode 在 `;` 那一格就 Accept，壳 endIndex = `;`",
+    markers: ["EmptyStatementShape"] },
+  { id: "R3-B1-pos-02", src: "{}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "空块：ShellBlock → BlockPossibleShape.BuildByIndex 的 Attach；built=1（块自身）",
+    markers: ["BlockFrom", "DirectStatementAssembly"] },
+  { id: "R3-B1-pos-03", src: "{ let x = 1; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "**嵌套直建的核心**：体内变量语句由它自己的 session 建（built=2），外层只 BuiltChildren 收集；" +
+      "A3 根下节点数=1（两层口径不同，不要混用）",
+    markers: ["BlockFrom", "DirectStatementAssembly"] },
+  { id: "R3-B1-pos-04", src: "if (a) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "if + 体内已建语句（built=2：IfStatement + ExpressionStatement）；条件走 DirectExpressionEngine" +
+      "（basePos = `(`.StartIndex+1）",
+    markers: ["IfStatementShape"] },
+  { id: "R3-B1-pos-05", src: "if (a) { b; } else { c; }", expect: "pos", expectInsert: false, expectBuilt: 3,
+    note: "then / else 体各是一条已建语句（built=3）",
+    markers: ["IfStatementShape"] },
+  { id: "R3-B1-pos-06", src: "if (a) { b; } else if (c) { d; }", expect: "pos", expectInsert: false, expectBuilt: 3,
+    note: "else-if 不是特殊语法：else 后面就是一条 if 语句（built=3）。**口径修正（REPORT-r3-control §6-D1，control 实测）**：" +
+      "里层 if **没有自己的壳** —— 外层 if 壳的 Data 里就是 raw `if / (c) / {d}`（probe-r3-shells 实测外层壳 endIndex 覆盖整条链），" +
+      "由外层 session 的 BuildRange 递归建、只计外层一次；写成 4 与 `if (a) { b; }`（then 块不计数）自相矛盾。" +
+      "判据仍是 A1（AST==tsc 逐字段）+ A10（XML 与基线逐字节），两者在这条上都实测一致",
+    markers: ["IfStatementShape"] },
+  { id: "R3-B1-pos-07", src: "while (a) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "while + 体内已建语句",
+    markers: ["WhileStatementShape"] },
+  { id: "R3-B1-pos-08", src: "do { b; } while (a);", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "do-while：结尾 `;` 属本语句（DoStatementEndCode）",
+    markers: ["DoStatementShape"] },
+  { id: "R3-B1-pos-09", src: "for (i = 0; i < n; i++) { b; }", expect: "pos", expectInsert: true, expectBuilt: 2,
+    note: "**表达式 init**（声明 init 是 neg #13）；头里的 i++ 有运算符插入（A7）",
+    markers: ["ForStatementShape"] },
+  { id: "R3-B1-pos-10", src: "for (;;) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "空槽 for：Data 里只有 body",
+    markers: ["ForStatementShape"] },
+  { id: "R3-B1-pos-11", src: "for (k in o) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "for-in（绑定是**表达式**；const k 是 neg #14）",
+    markers: ["ForInStatementShape"] },
+  { id: "R3-B1-pos-12", src: "for (v of xs) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "for-of",
+    markers: ["ForOfStatementShape"] },
+  { id: "R3-B1-neg-01", src: "for (let i = 0; i < n; i++) { b; }", expect: "neg", expectInsert: false,
+    expectBodyBuilt: 1,
+    note: "**声明 init**：头部 VariableDeclarationList 属声明建造器，不代建（代建 = A6 红或静默错建）。" +
+      "**口径修正（REPORT-r3-control §6-D2，control 实测）**：不能用 built==0 —— 体内的 `b;` 是**它自己的**表达式语句壳建的正例" +
+      "（基线 422a5e6f 上本来就 built=1），本 session 只 Decline 这条 for 自身。断言 = declined>=1 && 体内壳 built==1 && " +
+      "category==stmt.head（A9）+ AST MATCH（A1）",
+    categories: ["stmt.head"], markers: ["ForStatementShape"] },
+  { id: "R3-B1-neg-02", src: "for (const k in o) { b; }", expect: "neg", expectInsert: false,
+    expectBodyBuilt: 1,
+    note: "同上：const 是声明关键字（for-in 头）。built=1 来自体内 `b;` 自己的壳（D2 同口径），断言 = declined>=1 + " +
+      "expectBodyBuilt=1 + stmt.head（A9）+ AST MATCH（A1）",
+    categories: ["stmt.head"], markers: ["ForInStatementShape"] },
+  { id: "R3-B1-neg-03", src: "switch (a) { case 1: b; }", expect: "neg", expectInsert: false,
+    note: "switch 在 IsControlFlowHead 里（所以会建壳、会进 session），但子句结构本轮不做",
+    categories: ["stmt.head"], markers: ["SwitchStatementShape"] },
+
+  // ---- B2 函数 / 箭头（11：pos 7 + neg 4） ----
+  { id: "R3-B2-pos-01", src: "function f() {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "function 声明：走 FunctionDeclarationShape.FromUnits（静态工厂，**不是** builder）",
+    markers: ["FunctionDeclarationDirectSession", "FromUnits"] },
+  { id: "R3-B2-pos-02", src: "function f(a) {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "Identifier 参数由 FromUnits → BuildParameters 建（唯一正例参数形态）",
+    markers: ["FunctionDeclarationDirectSession"] },
+  { id: "R3-B2-pos-03", src: "function f(a) { return a; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "return 由 B1 的 return 分支建（built=2：FunctionDeclaration + ReturnStatement）",
+    markers: ["FunctionDeclarationDirectSession", "ReturnStatementShape"] },
+  { id: "R3-B2-pos-04", src: "function f() { let x = 1; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "与 R3-B1-pos-03 同一条嵌套通道（built=2：FunctionDeclaration + VariableStatement）",
+    markers: ["FunctionDeclarationDirectSession"] },
+  { id: "R3-B2-pos-05", src: "() => {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "B2-2（引擎）：体是块，BlockFrom 收集（空块）",
+    markers: ["ArrowFunction", "EqualsGreaterThanToken"] },
+  { id: "R3-B2-pos-06", src: "(a) => a", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "括号参数表（尽力项）",
+    markers: ["ArrowFunction"] },
+  { id: "R3-B2-pos-07", src: "a => a + 1", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "裸参数 + 表达式体（尽力项）",
+    markers: ["ArrowFunction"] },
+  { id: "R3-B2-neg-01", src: "function f(a = 1) {}", expect: "neg", expectInsert: false,
+    note: "默认参数：TakeParameterInitializer 走表达式解析（A6 风险 R3-R3）",
+    categories: ["stmt.func"], markers: ["FunctionDeclarationDirectSession"] },
+  { id: "R3-B2-neg-02", src: "function f(...a) {}", expect: "neg", expectInsert: false,
+    note: "rest 参数",
+    categories: ["stmt.func"], markers: ["FunctionDeclarationDirectSession"] },
+  { id: "R3-B2-neg-03", src: "function* g() {}", expect: "neg", expectInsert: false,
+    note: "生成器 → R4",
+    categories: ["stmt.func"], markers: ["FunctionDeclarationDirectSession"] },
+  { id: "R3-B2-neg-04", src: "async (a) => a", expect: "neg", expectInsert: false,
+    note: "async 箭头 → R4（Decide 已判 ShellPlainExpression，负例落在表达式引擎）",
+    categories: ["expr.decline"] },
+
+  // ---- D7 语句边界（4：pos 3 + guard 1）—— 全部 noBaseline，A10 改判 SKIP ----
+  { id: "R3-D7-01", src: "let x = a\n++b", expect: "pos", expectInsert: false, expectBuilt: 2, noBaseline: true,
+    note: "D7：AST 必须与 tsc 一致（`let x = a;` + `++b;`）。旧基线（8456ec3c）此处是错的（根下 6 个 raw token），" +
+      "所以 A10 必须 SKIP 而不是红",
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+  { id: "R3-D7-02", src: "let x = a + b\n++c", expect: "pos", expectInsert: true, expectBuilt: 2, noBaseline: true,
+    note: "初始器是二元表达式也要断在 b（A7：`a + b` 有运算符插入）",
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+  { id: "R3-D7-03", src: "let x = a\n!b", expect: "pos", expectInsert: false, expectBuilt: 2, noBaseline: true,
+    note: "`!` 与 `++`/`--` 同一族（IsRestrictedPostfixUnit）",
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+  { id: "R3-D7-guard-01", src: "let x = a\n+ b", expect: "guard", expectInsert: false, expectBuilt: 1,
+    note: "**防过度收缩**：`+` 能跨行接续，声明必须仍是**一条**（guard：built 恒为 1；这一条 A10 仍要求 XML==基线）",
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+
+  // ---- S strict 全量化（2；expect=neg，但 strictAll：在 --strict 下解析，靠 A12 判） ----
+  { id: "R3-S-01", src: "let {a} = b", expect: "neg", expectInsert: false, strictAll: true,
+    note: "R2 审计 §7 的原样缺陷：Strict 下 Decline 在 Ingest 抛穿 Parse。**Parse 不抛** + errors=0 + " +
+      "strictViolations>=1 才是本轮修复（与 R2-C3-01 同源码、不同口径：R2 那条以 Strict=false 跑）",
+    categories: ["var.binding"] },
+  { id: "R3-S-02", src: "f(...a)", expect: "neg", expectInsert: false, strictAll: true,
+    note: "走另一个 H3 站点（表达式 session），证明 H1′ 的 try/catch 对两条 H3 路径都成立",
+    categories: ["expr.decline"] },
 ];
 
 // ---------------------------------------------------------------------------
-// 分组（R2-CONTRACT §5.1）：R1 / A1…A5 / C1…C4 / NEG；--group 收 r1|r2|all 与这些别名
+// 分组（R2-CONTRACT §5.1 + R3-CONTRACT §6.1）：
+//   r1 = R1-*，r2 = **R2-***（R3 修正：旧实现是「非 R1」，加 R3 后会把 R3 case 吞进 --group=r2 造成假绿），
+//   r3 = R3-*，另按 ID 前缀取 A1…A5 / C1…C4 / GEN / SAFE / INC / B1 / B2 / D7 / S，以及 neg / pos 两个语义组。
 // ---------------------------------------------------------------------------
 function groupOf(id) {
   if (id.startsWith("R1-")) return "R1";
-  const m = /^R2-([A-Z]\d|[A-Z]+)-/.exec(id);
-  return m ? m[1] : "?";
+  const m = /^R([23])-([A-Z]\d|[A-Z]+)-/.exec(id);
+  return m ? m[2] : "?";
 }
 
 const KNOWN_GROUPS = [
-  "r1", "r2", "all", "a1", "a2", "a3", "a4", "a5", "c1", "c2", "c3", "c4",
-  "gen", "safe", "inc", "neg", "pos",
+  "r1", "r2", "r3", "all", "a1", "a2", "a3", "a4", "a5", "c1", "c2", "c3", "c4",
+  "gen", "safe", "inc", "b1", "b2", "d7", "s", "neg", "pos",
 ];
 
 function groupMatches(c, token) {
@@ -295,10 +453,48 @@ function groupMatches(c, token) {
   if (t === "all") return true;
   if (t === "neg") return c.neg;
   if (t === "pos") return !c.neg;
-  if (t === "r1") return c.group === "R1";
-  if (t === "r2") return c.group !== "R1";
+  if (t === "r1") return c.id.startsWith("R1-");
+  // R3-CONTRACT §6.1 第 1 条：必须是前缀判定，不能是「非 R1」——否则 R3 case 会混进 R2 组
+  if (t === "r2") return c.id.startsWith("R2-");
+  if (t === "r3") return c.id.startsWith("R3-");
   return c.group.toLowerCase() === t;
 }
+
+// ---------------------------------------------------------------------------
+// R3-Q1（Lead 已批准）：R2-SAFE-04/05 从 safe 改判 pos。
+//   默认 --q1=auto：build/ts 里存在 R3 控制流 session → 按 pos；不存在（R1+R2 基线）→ 回退 safe，
+//   让「R1/R2 组在基线上不回归」与「R3 落地后按 pos 验收」两件事同时成立，且不制造已知假红。
+//   --q1=pos 强制按 R3 口径（最终验收用）；--q1=safe 强制回退（B1-2 单语句体滑出本轮时用）。
+// ---------------------------------------------------------------------------
+function controlFlowSessionPresent() {
+  const dir = path.join(REPO, "build", "ts", "typescript", "tokens", "direct");
+  for (const name of ["direct-control-session.js", "direct-function-session.js"]) {
+    if (fs.existsSync(path.join(dir, name))) return true;
+  }
+  return false;
+}
+
+function resolveQ1(flags) {
+  const requested = String(flags.q1 || "auto").toLowerCase();
+  if (requested === "pos") {
+    return { mode: "pos", effective: "pos", why: "--q1=pos（强制 R3 口径：B1 已落地）" };
+  }
+  if (requested === "safe") {
+    return {
+      mode: "safe", effective: "safe",
+      why: "--q1=safe（回退 R2 口径：B1-2 单语句体未落地 / 只验 R1+R2 基线）",
+    };
+  }
+  const present = controlFlowSessionPresent();
+  return present
+    ? { mode: "auto", effective: "pos", why: "auto：build/ts 里已有 R3 控制流 session → SAFE-04/05 按 pos" }
+    : {
+      mode: "auto", effective: "safe",
+      why: "auto：build/ts 里没有 R3 控制流 session（R1+R2 基线）→ SAFE-04/05 回退 safe（不制造已知假红；" +
+        "R3 合入后自动变 pos，或用 --q1=pos 强制）",
+    };
+}
+
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -306,18 +502,24 @@ function groupMatches(c, token) {
 function usage() {
   return [
     "用法: node tests/direct-build/target-cases.mjs [--group=<g1,g2>] [--only=<id|序号|source>,...] [--trace] [--strict]",
-    "                                            [--expect-direct] [--json] [--decline-stats] [--baseline=<repo>]",
+    "                                            [--strict-all] [--expect-direct] [--json] [--decline-stats]",
+    "                                            [--baseline=<repo>] [--q1=pos|auto|safe]",
     "                                            [--fault-inject=finish-throw] [--help]",
     "",
-    "  --group=...      逗号分隔的组：r1 | r2 | all | A1…A5 | C1…C4 | GEN | SAFE | INC | NEG | POS（大小写不敏感；未给 = all）",
-    "  --only=...       逗号分隔，先按 case ID 精确匹配（R2-A3-pos-04），再退回 R1 语义：",
+    "  --group=...      逗号分隔的组：r1 | r2 | r3 | all | A1…A5 | C1…C4 | GEN | SAFE | INC | B1 | B2 | D7 | S | NEG | POS",
+    "                   （大小写不敏感；未给 = all。r2 = R2-* 前缀，r3 = R3-* 前缀，二者不重叠）",
+    "  --only=...       逗号分隔，先按 case ID 精确匹配（R3-B1-pos-04），再退回 R1 语义：",
     "                   全数字 = 1 基序号（按 CASES 全表编号） / 精确 source / 子串 source",
     "  --trace          打开 DirectBuildMetrics.TraceEnabled，并断言 Traces 含 insert(（A7）",
-    "  --strict         打开 DirectBuildMetrics.Strict，并断言计数器仍全 0（A5）",
-    "  --expect-direct  断言直建确实被使用：A4/A6（及 --strict 的 A5、A9/A11）强制（A8）",
+    "  --strict         打开 DirectBuildMetrics.Strict，并断言计数器仍全 0（A5）+ strict 全量化（A12）",
+    "  --strict-all     【R3】把 Strict=true 也用到非正例（默认只对正例生效，避免 H1 未捕获的 Decline 遮断 AST）；",
+    "                   用于 R3-harden 的 H1′ try/catch 落地后做「整套 case 全 strict」验收",
+    "  --expect-direct  断言直建确实被使用：A4/A6（及 --strict 的 A5/A12、A9/A11）强制（A8）",
     "  --json           stdout 只输出一份 JSON 读数（供存盘/报告）",
     "  --decline-stats  打印 DECLINE-STATS 段（按 category 计数 + 最近 reason；无分类能力时打印 SKIP）",
     "  --baseline=<repo> 用另一个已构建的克隆（8456ec3c 的 build/ts）同源解析同一 case，比对 XML（A10）",
+    "  --q1=pos|auto|safe  【R3-Q1】R2-SAFE-04/05 的期望：pos=强制改判后口径；auto=按 build/ts 里有无 R3",
+    "                   控制流 session 自动决定（默认）；safe=回退 R2 口径（B1-2 单语句体滑出本轮时用）",
     "  --fault-inject=finish-throw  C4 专用：在 session 的 Finish 上熔断一次（进程内注入，不改源码）",
     "  --help           显示本帮助",
   ].join("\n");
@@ -325,8 +527,8 @@ function usage() {
 
 function parseArgs(argv) {
   const flags = {
-    only: null, group: null, trace: false, strict: false, expectDirect: false,
-    json: false, declineStats: false, baseline: null, faultInject: null, help: false,
+    only: null, group: null, trace: false, strict: false, strictAll: false, expectDirect: false,
+    json: false, declineStats: false, baseline: null, faultInject: null, q1: "auto", help: false,
   };
   const readValue = (i, inline, name) => {
     if (inline !== undefined) return { value: inline, next: i };
@@ -345,8 +547,10 @@ function parseArgs(argv) {
       case "group": { const r = readValue(i, inline, name); flags.group = r.value; i = r.next; break; }
       case "baseline": { const r = readValue(i, inline, name); flags.baseline = r.value; i = r.next; break; }
       case "fault-inject": { const r = readValue(i, inline, name); flags.faultInject = r.value; i = r.next; break; }
+      case "q1": { const r = readValue(i, inline, name); flags.q1 = r.value; i = r.next; break; }
       case "trace": flags.trace = true; break;
       case "strict": flags.strict = true; break;
+      case "strict-all": flags.strictAll = true; break;
       case "expect-direct": flags.expectDirect = true; break;
       case "json": flags.json = true; break;
       case "decline-stats": flags.declineStats = true; break;
@@ -357,13 +561,35 @@ function parseArgs(argv) {
   if (flags.faultInject !== null && flags.faultInject !== "finish-throw") {
     throw new Error(`--fault-inject 只支持 finish-throw（收到 ${JSON.stringify(flags.faultInject)}）`);
   }
+  if (!["pos", "auto", "safe"].includes(String(flags.q1).toLowerCase())) {
+    throw new Error(`--q1 只支持 pos|auto|safe（收到 ${JSON.stringify(flags.q1)}）`);
+  }
   return flags;
 }
 
 /** 先把全表标注（index/group/neg），再按 --group 过滤，再按 --only 选择（R2-CONTRACT §5.1）。
- *  neg = 「非正例」：NEG 组覆盖 neg / invalid / incomplete / safe（safe 也不该被当正例口径断言）。 */
+ *  neg = 「非正例」：NEG 组覆盖 neg / invalid / incomplete / safe（safe 也不该被当正例口径断言）；
+ *  【R3】guard 是 pos 的强形式，**不算** neg；R3-Q1 的 SAFE-04/05 在这里按 --q1 决定 pos / safe。 */
 function selectCases(all, flags) {
-  const annotated = all.map((c, i) => ({ ...c, index: i + 1, group: groupOf(c.id), neg: c.expect !== "pos" }));
+  const q1 = resolveQ1(flags);
+  flags.q1Resolution = q1;
+  const annotated = all.map((c, i) => {
+    let expect = c.expect;
+    let note = c.note;
+    if (c.q1 && q1.effective === "safe") {
+      expect = "safe";
+      note = `${note}  [R3-Q1 回退 safe：${q1.why}]`;
+    }
+    return {
+      ...c,
+      note,
+      expect,
+      index: i + 1,
+      group: groupOf(c.id),
+      neg: expect !== "pos" && expect !== "guard",
+      q1Reverted: Boolean(c.q1 && q1.effective === "safe"),
+    };
+  });
   let pool = annotated;
   if (flags.group !== null && String(flags.group).trim() !== "") {
     const tokens = String(flags.group).split(",").map((s) => s.trim()).filter(Boolean);
@@ -476,6 +702,8 @@ const directDir = path.join(buildDir, "typescript", "tokens", "direct");
 const PATHS = {
   runner: path.join(buildDir, "typescript", "run", "source-file-runner.js"),
   statementShape: path.join(buildDir, "typescript", "tokens", "statements", "statement-shape.js"),
+  // 【R3】D7 的唯一修改点（A-1 批准）：statement-boundary-util 的 ScanToSemicolonIncremental
+  statementBoundary: path.join(buildDir, "typescript", "tokens", "statements", "statement-boundary-util.js"),
   statementBuilder: path.join(buildDir, "typescript", "tokens", "statements", "statement-builder.js"),
   expressionBuilder: path.join(buildDir, "typescript", "tokens", "expressions", "expression-builder.js"),
   directDir,
@@ -573,7 +801,8 @@ function describeImpl(impl) {
   return `IMPL: ${bits.join(" ")}`;
 }
 
-/** 直建产物全文（engine / token-util / sessions）与 statement-shape 的 hook 文件，用于「该构造有没有被引用」。 */
+/** 直建产物全文（engine / token-util / sessions）与 statement-shape / statement-boundary 的 hook 文件，
+ *  用于「该构造有没有被引用」。R3 的 D7 修改点在 statement-boundary-util，所以多收一份 boundaryText。 */
 function loadDirectText() {
   const parts = [];
   try {
@@ -585,19 +814,33 @@ function loadDirectText() {
   } catch {
     /* 产物缺失：全文为空 → 所有 marker 都算「未出现」 */
   }
-  return { directText: parts.join("\n"), statementShapeText: readTextSafe(PATHS.statementShape) || "" };
+  return {
+    directText: parts.join("\n"),
+    statementShapeText: readTextSafe(PATHS.statementShape) || "",
+    boundaryText: readTextSafe(PATHS.statementBoundary) || "",
+  };
 }
 
 /**
  * 构造标记探测：只用于区分「没实现（absent）」与「实现错了」。
  * markerScope = "statementShape" 时只看 statement-shape 的 hook 文件（C4 的 H2 计数代码在这里，
  * 而 `DirectBuildMetrics.Errors` 在 metrics 自己的 Reset 里就有，用全局文本会假阳）。
+ * 【R3】markerScope = "boundary" 时只看 statement-boundary-util 产物（D7 的 A-1 修改点；
+ *  direct-expression-engine 里的 IsRestrictedPostfixOperator 是 C1 守卫，不能当 D7 的依据）。
  */
 function probeFeature(c, texts) {
   const markers = Array.isArray(c.markers) ? c.markers : [];
   if (markers.length === 0) return { present: null, matched: null, markers, scope: c.markerScope || "direct" };
-  const scope = c.markerScope === "statementShape" ? "statementShape" : "direct";
-  const text = scope === "statementShape" ? texts.statementShapeText : texts.directText;
+  const scope = c.markerScope === "statementShape"
+    ? "statementShape"
+    : c.markerScope === "boundary"
+      ? "boundary"
+      : "direct";
+  const text = scope === "statementShape"
+    ? texts.statementShapeText
+    : scope === "boundary"
+      ? texts.boundaryText
+      : texts.directText;
   if (!text) return { present: false, matched: null, markers, scope };
   for (const marker of markers) {
     if (text.includes(marker)) return { present: true, matched: marker, markers, scope };
@@ -834,6 +1077,8 @@ function evaluateCase(ctx, c) {
     baseline, markerTexts, injection,
   } = ctx;
   const kind = c.expect;
+  const isGuard = kind === "guard";                 // 【R3】同 pos，但 expectBuilt 是「不变的 1」
+  const isPosLike = kind === "pos" || isGuard;      // A4/A5/A6/A7/A11 都按正例口径处理
   const isInjection = c.injection === "finish-throw";
   const isRejected = kind === "invalid" || kind === "incomplete";
   const injectionEnabled = isInjection && flags.faultInject === "finish-throw" && injection.available;
@@ -841,10 +1086,12 @@ function evaluateCase(ctx, c) {
   const add = (id, status, detail, extra = {}) => { a[id] = { status, detail, ...extra }; };
 
   // --- 解析（C4：第一次注入，第二次不注入；其余：同源两次） ---
-  // Strict 只对正例 Parse 生效：负例/非法/不完整 case 本身就以 Decline 为期望，Strict 的「Decline 抛错」
-  // 只会在 Ingest（statement-shape H1，未包 try/catch）里遮断整条语句的 AST，让本该 PASS 的负例变成假红。
+  // Strict 默认只对正例（含 guard）Parse 生效：负例/非法/不完整 case 本身就以 Decline 为期望，Strict 的「Decline 抛错」
+  // 只会在 Ingest（statement-shape H1，R3 之前未包 try/catch）里遮断整条语句的 AST，让本该 PASS 的负例变成假红。
   // 这不是放宽：负例的 A5 本来就不按正例计数断言（见 A5 SKIP）。
-  const strictForParse = flags.strict && kind === "pos";
+  // 【R3】case.strictAll / --strict-all 打开时**不再抑制**：那是「strict 全量化」的验收口径（R3-S / A12），
+  // 前提是 harden 已给 H1 加 try/catch —— 否则 A1 会以 PARSE-ERROR 显式变红，而不是静默转绿。
+  const strictForParse = flags.strict && (isPosLike || c.strictAll || flags.strictAll);
   loads.reset();
   let metricsError = null;
   if (metricsOk) {
@@ -974,7 +1221,10 @@ function evaluateCase(ctx, c) {
     m.incompleteFallback === 0 &&
     m.errors === 0 &&
     m.strictViolations === 0;
-  const negCountersOk = (m) => m.declined >= 1 && m.statementsBuilt === 0 && m.errors === 0;
+  // 【R3/D2】expectBodyBuilt：负例的 built 读数来自**体内语句自己的壳**（例如 `for (let …) { b; }` 的 `b;`），
+  // 此时不能断言 built==0；改成断言「恰好是那个体内读数」+ declined>=1（该族确实 Decline 了本条语句）。
+  const negBuiltWant = (c) => (typeof c.expectBodyBuilt === "number" ? c.expectBodyBuilt : 0);
+  const negCountersOk = (m) => m.declined >= 1 && m.statementsBuilt === negBuiltWant(c) && m.errors === 0;
   const builtOk = (m) => (typeof c.expectBuilt === "number" ? m.statementsBuilt === c.expectBuilt : true);
   const countersText = (m) =>
     `built=${m.statementsBuilt} declined=${m.declined} incomplete=${m.incompleteFallback} ` +
@@ -996,7 +1246,11 @@ function evaluateCase(ctx, c) {
   const absentHint = (feature) => {
     if (feature.present === null) return "";
     if (feature.present) return `（构造标记已出现：${feature.matched} → 不当作「未实现」）`;
-    const where = feature.scope === "statementShape" ? "statement-shape 产物" : "直建产物";
+    const where = feature.scope === "statementShape"
+      ? "statement-shape 产物"
+      : feature.scope === "boundary"
+        ? "statement-boundary-util 产物"
+        : "直建产物";
     return `（构造标记 ${feature.markers.join(" / ")} 在 ${where} 里都没出现）`;
   };
 
@@ -1087,9 +1341,24 @@ function evaluateCase(ctx, c) {
     }
   } else if (kind === "neg") {
     const ok = negCountersOk(m1);
-    let detail = `${countersText(m1)}（负例期望 declined>=1 built=0 errors=0）`;
-    if (m1.statementsBuilt !== 0) {
-      detail += `  ← IMPLEMENTATION-MISBUILT：该构造本轮应显式 Decline，但被直建接管/误建`;
+    // 【R3】该族的 session 还没注册/未挂载时，「既没建也没 Decline」是「没实现」的形态，不是实现错了。
+    // （built 可能来自体内已实现的族，例如 `for (let …) { b; }` 里的 `b;` 由 R2 的表达式 session 建。）
+    const familyAbsent = feature.present === false;
+    const wantBuilt = negBuiltWant(c);
+    // D2：expectBodyBuilt 的 case 把「built 来自体内语句自己的壳」写明，避免读者以为断言放宽
+    const builtClause = typeof c.expectBodyBuilt === "number"
+      ? `bodyBuilt=${c.expectBodyBuilt}（体内语句自己的壳；本条语句本身不建）`
+      : "built=0";
+    let detail = `${countersText(m1)}（负例期望 declined>=1 ${builtClause} errors=0${c.expectBodyBuilt ? "，A9 判该族 category" : ""}）`;
+    if (!ok && familyAbsent) {
+      detail +=
+        `  ← IMPLEMENTATION-ABSENT：该族的 session 还没注册 / 未挂载到壳上${absentHint(feature)}；` +
+        `「没 Decline」是「没实现」的形态，不是实现错了`;
+    } else if (m1.statementsBuilt !== wantBuilt) {
+      detail += `  ← IMPLEMENTATION-MISBUILT：该构造本轮应显式 Decline，但被直建接管/误建` +
+        (typeof c.expectBodyBuilt === "number"
+          ? `（built=${m1.statementsBuilt} != 体内自有壳的期望 ${wantBuilt}）`
+          : "");
     } else if (m1.errors !== 0) {
       detail += `  ← IMPLEMENTATION-ERROR-FALLBACK：异常兜底，C4 明令不许（Errors 必须 0）`;
     } else if (m1.declined === 0) {
@@ -1159,13 +1428,19 @@ function evaluateCase(ctx, c) {
     const ok = posCountersOk(m1) && builtOk(m1);
     let label = null;
     let detail = countersText(m1) + (typeof c.expectBuilt === "number" ? ` expectBuilt=${c.expectBuilt}` : "");
+    if (isGuard) detail += `（guard：built 必须恒为 ${c.expectBuilt}，防过度收缩）`;
     if (!ok) {
       detail += `  违反: ${missingBits(m1).join(",")}`;
-      if (m1.statementsBuilt === 0 && m1.declined >= 1) {
-        if (feature.present === false) {
-          label = "IMPLEMENTATION-ABSENT";
-          detail += `  ← ${label}：正例期望直建接管，但该构造在直建产物里没实现，Decline 后由旧路径接管${absentHint(feature)}`;
-        } else if (feature.present === true) {
+      if (feature.present === false) {
+        // 【R3】该构造在产物里一点痕迹都没有 → 这是「没实现」，不是「实现错了」。
+        // 读数里的 built 可能来自体内已实现的族（例如 `{ let x = 1; }` 的变量语句由 R2 的 session 建，
+        // 但 Block 本身没建 → StatementsBuilt=1 != 2），所以不能拿 built>0 就当 PRESENT-BUT-DECLINED。
+        label = "IMPLEMENTATION-ABSENT";
+        detail +=
+          `  ← ${label}：该构造在直建产物里没有任何实现痕迹${absentHint(feature)}；` +
+          `读数里的 built 来自**已实现的其它族**（不是本条期望的语句本身）`;
+      } else if (m1.statementsBuilt === 0 && m1.declined >= 1) {
+        if (feature.present === true) {
           label = "IMPLEMENTATION-PRESENT-BUT-DECLINED";
           detail += `  ← ${label}：构造标记已出现（${feature.matched}），但仍 Decline → 实现错了或被覆盖校验回退`;
         } else {
@@ -1203,12 +1478,14 @@ function evaluateCase(ctx, c) {
     add("A5", "SKIP", "--strict 已开，但 DirectBuildMetrics 未实现，无法看计数器");
   } else if (metricsError) {
     add("A5", "FAIL", `DirectBuildMetrics.Reset() 抛错: ${metricsError}`);
-  } else if (kind !== "pos") {
+  } else if (!isPosLike) {
     add(
       "A5",
       "SKIP",
-      `--strict 只作用于正例 Parse（Decline 类在 Strict 下抛错会遮断 AST 比对，故本 case 以 Strict=false 解析）；` +
-        `读数：${countersText(m1)}`,
+      (strictForParse
+        ? `--strict 已对该 case 生效（strictAll / --strict-all）：非正例的 strict 口径见 A12；读数：${countersText(m1)}`
+        : `--strict 只作用于正例 Parse（Decline 类在 Strict 下抛错会遮断 AST 比对，故本 case 以 Strict=false 解析；` +
+          `strict 全量化见 A12 / --strict-all）；读数：${countersText(m1)}`),
     );
   } else if (isInjection) {
     add("A5", "SKIP", "C4 注入 case 的 strict 口径不适用（注入本身要抛）");
@@ -1226,7 +1503,7 @@ function evaluateCase(ctx, c) {
     `exprLegacy=${loadSnap.exprLegacy}) effectiveLoads=${legacy}`;
   if (!loads.patched) {
     add("A6", "SKIP", `Load 计数不可用：${loads.error || "产物缺失"}`);
-  } else if (kind !== "pos") {
+  } else if (!isPosLike) {
     add("A6", "SKIP", `${kind} 不断言（不走直建 session 或必然回落旧路径，Load >0）`);
   } else if (flags.expectDirect) {
     const ok = legacy === 0 && loadSnap.exprOtherDirect === 0;
@@ -1250,7 +1527,7 @@ function evaluateCase(ctx, c) {
     add("A7", "SKIP", "未开 --trace");
   } else if (!metricsOk || traceMetrics === null) {
     add("A7", "SKIP", "--trace 已开，但 DirectBuildMetrics 未实现，无 Traces 可看");
-  } else if (kind !== "pos") {
+  } else if (!isPosLike) {
     add("A7", "SKIP", `${kind} 不期望 insert( 条目（不建树）`);
   } else if (!c.expectInsert) {
     add("A7", "SKIP", "该 case 不含二元/赋值/逗号插入，不期望 insert( 条目");
@@ -1291,7 +1568,16 @@ function evaluateCase(ctx, c) {
   }
 
   // A10 —— XML == 基线；invalid / incomplete 改比「两侧 Parse 拒绝文案一致」
-  if (baseline === null) {
+  // 【R3】noBaseline 的 case 恒 SKIP：旧基线（8456ec3c）本身是错的，A10 不能当判据（R3-CONTRACT §1.3）
+  if (c.noBaseline) {
+    add(
+      "A10",
+      "SKIP",
+      "XML-BASELINE: SKIP (noBaseline: 旧基线 8456ec3c 自身错，见 R3-CONTRACT §1.3)；" +
+        `判据 = A1(AST==tsc) + A4 计数 + A11${baseline === null ? "" : `（--baseline=${baseline.root} 已给也不比）`}`,
+      { noBaseline: true },
+    );
+  } else if (baseline === null) {
     add("A10", "SKIP", "未给 --baseline=<8456ec3c 克隆>：A10 未启用");
   } else if (isRejected) {
     if (baseError !== null && first.error && String(baseError) === String(first.error.message)) {
@@ -1322,8 +1608,8 @@ function evaluateCase(ctx, c) {
     );
   }
 
-  // A11 —— 正例的 DeclineReasons 全空
-  if (kind !== "pos") {
+  // A11 —— 正例 / guard 的 DeclineReasons 全空
+  if (!isPosLike) {
     add("A11", "SKIP", `${kind} 不适用（负例看 A9：期望 category 计数 >=1）`);
   } else if (!reasonsCapable) {
     add("A11", "SKIP", "DirectBuildMetrics.DeclineReasons 不存在（C3 分类未实现），A11 无法判定");
@@ -1338,6 +1624,57 @@ function evaluateCase(ctx, c) {
       add("A11", ok ? "PASS" : "FAIL", detail, { enforced: true, observed });
     } else {
       add("A11", "READING", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, readingPass: ok, observed });
+    }
+  }
+
+  // A12 —— 【R3】strict 全量化（R3-CONTRACT §4.4 / R3-TARGET-CASES §5）
+  //   只在「该 case 真的以 Strict=true 解析」时判定（pos/guard 恒是；非正例要 strictAll 或 --strict-all）。
+  //   「Parse 不抛」是 R3-S 的唯一必改行为：H1 的 Ingest 期异常必须被 H1′ 的 try/catch 接住，
+  //   已计数的 Decline 不再重复计 Errors，接着仍走旧路径建树（AST 不变）。
+  const parseThrew = first.error !== null;
+  if (!flags.strict) {
+    add("A12", "SKIP", "未开 --strict");
+  } else if (!metricsOk) {
+    add("A12", "SKIP", "--strict 已开，但 DirectBuildMetrics 未实现，无法看 StrictViolations");
+  } else if (!strictForParse) {
+    add(
+      "A12",
+      "SKIP",
+      `--strict 未对该 case 生效（R2 抑制：expect=${kind} 默认以 Strict=false 解析；` +
+        `strict 全量化的验收用 --strict-all，前提是 H1′ try/catch 已落地）；读数：${countersText(m1)}`,
+    );
+  } else if (kind === "safe") {
+    add("A12", "SKIP", `safe 不进 DirectSession，不要求 strictViolations（读数：${countersText(m1)}）`);
+  } else if (isPosLike) {
+    const ok = m1.strictViolations === 0 && m1.errors === 0;
+    const detail =
+      `strict 全量化：正例 strictViolations=${m1.strictViolations}（须 0）、errors=${m1.errors}（须 0）、` +
+      `parse=${parseThrew ? "THREW" : "ok"}`;
+    if (flags.expectDirect) {
+      add("A12", ok ? "PASS" : "FAIL", detail, { enforced: true });
+    } else if (ok) {
+      add("A12", "READING", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, readingPass: true });
+    } else {
+      add("A12", "READING", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, readingPass: false });
+    }
+  } else {
+    // 非正例：strict 下每次 Decline 都 +1（具体 1 还是 2 由壳是否重放决定，只断言 >=1）；
+    // errors 必须 0（「先计数再抛」）；非 invalid/incomplete 的输入 Parse 必须不抛。
+    const parseOk = isRejected ? parseThrew : !parseThrew;
+    const ok = m1.strictViolations >= 1 && m1.errors === 0 && parseOk;
+    let detail =
+      `strict 全量化：非正例 strictViolations=${m1.strictViolations}（须 >=1）、errors=${m1.errors}（须 0）、` +
+      `parse=${parseThrew ? "THREW" : "ok"}`;
+    if (!parseThrew && !isRejected) detail += "；Parse 不抛（该路径的 Decline 没有穿出 Parse）";
+    else if (parseThrew && !isRejected) {
+      detail += "  ← P0：H1′ 未落地，Decline 从 Ingest 抛穿 Parse（R3-S 的唯一必改行为）";
+    }
+    if (flags.expectDirect) {
+      add("A12", ok ? "PASS" : "FAIL", detail, { enforced: true });
+    } else if (ok) {
+      add("A12", "READING", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, readingPass: true });
+    } else {
+      add("A12", "READING", `${detail}（只报读数；--expect-direct 时强制）`, { enforced: false, readingPass: false });
     }
   }
 
@@ -1420,6 +1757,7 @@ function renderCaseHuman(result, flags) {
   if (flags.strict) lines.push(`A5: ${a.A5.status}  ${a.A5.detail}`);
   lines.push(`A6: ${a6.status}  ${a6.detail}`);
   if (flags.trace) lines.push(`A7: ${a.A7.status}  ${a.A7.detail}`);
+  if (flags.strict) lines.push(`A12: ${a.A12.status}  ${a.A12.detail}`);
 
   // ---- R2 新增行（R2-CONTRACT §5.4：只能追加在每条 case 之后） ----
   if (c.d1) {
@@ -1428,9 +1766,32 @@ function renderCaseHuman(result, flags) {
   lines.push(
     `CATEGORY: ${c.id} group=${c.group} expect=${c.expect} declineReasons=${JSON.stringify(readings.declineReasons)}`,
   );
+  // ---- R3 追加行（只对 R3 的 case 打印，R1/R2 的输出行保持 R2 的形状） ----
+  if (String(c.id).startsWith("R3-")) {
+    if (typeof c.expectBuilt === "number") {
+      lines.push(
+        `EXPECT-BUILT: ${c.expectBuilt}（StatementsBuilt 精确值；**含体内语句**。A3 的根下节点数口径不同：` +
+          `例如 \`{ let x = 1; }\` built=2 而根下节点数=1）`,
+      );
+    }
+    if (typeof c.expectBodyBuilt === "number") {
+      lines.push(
+        `EXPECT-BODY-BUILT: ${c.expectBodyBuilt}（负例：built 读数来自**体内语句自己的壳**，不是本条语句；` +
+          `本条断言 declined>=1 + category）`,
+      );
+    }
+    if (c.noBaseline) {
+      lines.push("NO-BASELINE: A10 改判 SKIP（旧基线 8456ec3c 自身错，R3-CONTRACT §1.3）；判据 = A1 + A4 计数 + A11");
+    }
+    if (c.strictAll) {
+      lines.push("STRICT-ALL: 该 case 在 --strict 下解析（A12 判 strictViolations；R3-S 的唯一必改行为是 Parse 不抛）");
+    }
+  }
   if (a.A9.status !== "SKIP") lines.push(`A9: ${a.A9.status}  ${a.A9.detail}`);
-  if (a.A10.status !== "SKIP" || c.expect === "pos") lines.push(`A10: ${a.A10.status}  ${a.A10.detail}`);
-  if (c.expect === "pos") lines.push(`A11: ${a.A11.status}  ${a.A11.detail}`);
+  if (a.A10.status !== "SKIP" || c.expect === "pos" || c.expect === "guard" || c.noBaseline) {
+    lines.push(`A10: ${a.A10.status}  ${a.A10.detail}`);
+  }
+  if (c.expect === "pos" || c.expect === "guard") lines.push(`A11: ${a.A11.status}  ${a.A11.detail}`);
   return lines;
 }
 
@@ -1474,6 +1835,13 @@ function accumulateDeclineStats(stats, result) {
   }
 }
 
+/** 选中 case 的分组构成（证据行：--group=r3 必须恰好是 32 条 = B1 15 + B2 11 + D7 4 + S 2）。 */
+function groupTally(cases) {
+  const tally = new Map();
+  for (const c of cases) tally.set(c.group, (tally.get(c.group) || 0) + 1);
+  return [...tally.keys()].sort().map((g) => `${g}=${tally.get(g)}`).join(" ");
+}
+
 function printSummaryHuman(results, impl, flags, totals, baseline, injection) {
   console.log(SEP);
   console.log(describeImpl(impl));
@@ -1482,6 +1850,7 @@ function printSummaryHuman(results, impl, flags, totals, baseline, injection) {
   assertionIds.push("A6");
   if (flags.trace) assertionIds.push("A7");
   assertionIds.push("A9", "A10", "A11");
+  if (flags.strict) assertionIds.push("A12");
   const agg = assertionIds
     .map((id) => {
       const status = aggregate(results, id);
@@ -1517,6 +1886,12 @@ function printSummaryHuman(results, impl, flags, totals, baseline, injection) {
   } else {
     console.log(`BASELINE: ${baseline.root}（A10 已启用：XML 与基线逐字节一致）`);
   }
+  // ---- R3 新增：Q1 裁决落地状态 + strict 全量化状态（都不是断言，是口径声明） ----
+  const q1r = flags.q1Resolution || { mode: "auto", effective: "pos", why: "" };
+  console.log(`Q1: mode=${q1r.mode} → SAFE-04/05 expect=${q1r.effective}（${q1r.why}）`);
+  console.log(
+    `STRICT-ALL: ${flags.strictAll ? "on（非正例也在 --strict 下解析，A12 判定）" : "off（--strict 只作用于正例 Parse 与 strictAll case）"}`,
+  );
   const injectionCases = results.filter((r) => r.case.injection === "finish-throw");
   if (injectionCases.length > 0 && flags.faultInject !== "finish-throw") {
     console.log(
@@ -1604,13 +1979,15 @@ async function main() {
     console.log(`REPO: ${REPO}`);
     console.log(
       `MODE: only=${flags.only === null ? "<all>" : flags.only} trace=${flags.trace ? "on" : "off"} ` +
-        `strict=${flags.strict ? "on" : "off"} expect-direct=${flags.expectDirect ? "on" : "off"} ` +
-        `group=${flags.group === null ? "<all>" : flags.group} ` +
+        `strict=${flags.strict ? "on" : "off"} strict-all=${flags.strictAll ? "on" : "off"} ` +
+        `expect-direct=${flags.expectDirect ? "on" : "off"} ` +
+        `group=${flags.group === null ? "<all>" : flags.group} q1=${flags.q1} ` +
         `baseline=${baseline === null ? "<none>" : baseline.root} ` +
         `fault-inject=${flags.faultInject === null ? "<none>" : flags.faultInject} ` +
         `decline-stats=${flags.declineStats ? "on" : "off"}`,
     );
     console.log(`CASES-SELECTED: ${selected.length}/${CASES.length}`);
+    console.log(`GROUPS: ${groupTally(selected)}`);
     console.log(describeImpl(impl));
   }
 
@@ -1665,8 +2042,8 @@ async function main() {
 
   if (flags.json) {
     const output = {
-      schema: "dsh/xl-example/target-cases@2",
-      contract: "R2-CONTRACT §5 / R2-TARGET-CASES（CASES=60，R2 收口校正；见 REPORT-r2-verify-fix）",
+      schema: "dsh/xl-example/target-cases@3",
+      contract: "R3-CONTRACT §5/§6.1 / R3-TARGET-CASES（CASES=92 = R1 10 + R2 50 + R3 32；R3 32 = B1 15 + B2 11 + D7 4 + S 2）",
       generatedAt: new Date().toISOString(),
       repo: REPO,
       baseline: baseline === null ? null : baseline.root,
@@ -1675,9 +2052,11 @@ async function main() {
         group: flags.group,
         trace: flags.trace,
         strict: flags.strict,
+        strictAll: flags.strictAll,
         expectDirect: flags.expectDirect,
         declineStats: flags.declineStats,
         faultInject: flags.faultInject,
+        q1: flags.q1Resolution || { mode: flags.q1, effective: flags.q1 },
       },
       implementation: {
         state: impl.state,
@@ -1706,7 +2085,12 @@ async function main() {
         builtCases,
         totalLoads,
         exitCode: failedCases > 0 ? 1 : 0,
-        assertions: ["A1", "A2", "A3", "A4", "A6", "A9", "A10", "A11", ...(flags.strict ? ["A5"] : []), ...(flags.trace ? ["A7"] : [])]
+        groups: results.reduce((acc, r) => {
+          acc[r.case.group] = (acc[r.case.group] || 0) + 1;
+          return acc;
+        }, {}),
+        assertions: ["A1", "A2", "A3", "A4", "A6", "A9", "A10", "A11",
+          ...(flags.strict ? ["A5", "A12"] : []), ...(flags.trace ? ["A7"] : [])]
           .map((id) => ({ id, status: aggregate(results, id) }))
           .filter((entry) => entry.status !== null),
       },
@@ -1725,6 +2109,11 @@ async function main() {
         source: result.case.src,
         note: result.case.note,
         expect: result.case.expect,
+        expectBuilt: typeof result.case.expectBuilt === "number" ? result.case.expectBuilt : null,
+        expectBodyBuilt: typeof result.case.expectBodyBuilt === "number" ? result.case.expectBodyBuilt : null,
+        noBaseline: Boolean(result.case.noBaseline),
+        strictAll: Boolean(result.case.strictAll),
+        q1Reverted: Boolean(result.case.q1Reverted),
         categories: result.case.categories || null,
         injection: result.case.injection || null,
         assertions: result.assertions,
