@@ -371,7 +371,7 @@ StatementShape.FinishShell(host, built, context);
 `BuildFromShell` 一共有三条触发路径：
 
 - **`;` / ASI 边界**：本文主路径——`;` 关闭时 `StatementEndPossibleShape.Accept`，`EndPossible.BuildByIndex` 收口（§6.1）。
-- **文件在 `;` 后立刻结束**（`let x = 1;` 无后续字符）：没有下一个字符来关闭 `;`，于是 `SourceFileShape.Process` 的 EOF 路径先 `mounted.TryToClose(context)`（`source-file-shape.xl.md:101`）→ `StatementShape.TryToClose`（`statement-shape.xl.md:289`）自己算 `lastCode` / 族边界，直接 `BuildFromShell` + `FinishShell`。实测单句 `let x = 1;` 的 `BuildFromShell(endIndex=7, Kind=0, Pos=0)` 与两句版第一句完全一致。
+- **文件在 `;` 后立刻结束**（`let x = 1;` 无后续字符）：没有下一个字符来关闭 `;`，于是 `SourceFileShape.Process` 的 EOF 路径先 `mounted.TryToClose(context)`（`source-file-shape.xl.md:106`）→ `StatementShape.TryToClose`（`statement-shape.xl.md:289`）自己算 `lastCode` / 族边界，直接 `BuildFromShell` + `FinishShell`。实测单句 `let x = 1;` 的 `BuildFromShell(endIndex=7, Kind=0, Pos=0)` 与两句版第一句完全一致。
 - **块里的语句遇到 `}`**：`StatementShape.ExitOrPre`（`statement-shape.xl.md:249`）在父单元是 `{` 括号、当前字符是 `}` 时先收口，再 `Reload`，让 `}` 回到块层。
 
 三条路，一个建树入口。
@@ -681,6 +681,7 @@ cd $clone
 # 1) 规范 → dist/ts（本仓 xl 不在 PATH，用会话内 xl_build 工具，不是 shell 命令）
 #    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
 #    实测：548 written, 0 skipped, 0 planned, 0 error(s), 2485 warning(s)（warning 全是既有 W3102/W3103）
+#    （增量构建 / dist 缓存已热时显示 0 written, 548 skipped；判据仍是 0 error）
 node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0
 
 # 2) 目标 case harness（一次性只读拷入；本分支不提交 tests/direct-build）
@@ -691,7 +692,8 @@ node tests/direct-build/target-cases.mjs                     # 默认 10 条：e
 node tests/direct-build/target-cases.mjs --expect-direct --strict --trace
 #    final 验收：exit 0，CASES=9 FAILED=0 SKIPPED=1，builtCases=9/9 loads=0，A1–A7 全 PASS
 
-# 3) 收尾
+# 3) 收尾（仅当 harness 是第 2 步「临时拷入」的才执行）
+#    若已随主分支正式合入（main 在 75a5c4a1 起已跟踪），跳过本步，勿删除已跟踪文件。
 Remove-Item -Recurse -Force tests\direct-build
 git clean -fd tests\direct-build
 ```
@@ -711,7 +713,7 @@ git clean -fd tests\direct-build
 
 复现本文的 trace：直建侧直接开 `DirectBuildMetrics.TraceEnabled`（下面这段）；壳目录 / 终结候选的判定仍可
 用 `CatalogGuide.prototype.ComputePossibleShapesByIndex` 与 `StatementShape.BuildFromShell` 包一层
-（只读、不改行为）。**注意**：本仓 `package.json` 是 ESM，带 `require` 的片段要存成 `.cjs` 才能直接 `node`：
+（只读、不改行为）。**注意**：本仓根 `package.json` 的 `type` 是 `commonjs`；带 `require` 的片段存成 `.cjs`（或 `.js`）都可直接 `node`，下面按 `.cjs` 存：
 
 ```js
 // 存成 tmp-trace.cjs，在仓库根执行：node tmp-trace.cjs

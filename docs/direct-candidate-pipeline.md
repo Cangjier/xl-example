@@ -646,6 +646,7 @@ cd $clone
 # 0) 构建：xl_build 是会话工具，不是 shell 命令
 #    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
 #    实测：548 written, 0 skipped, 0 planned, 0 error(s), 2485 warning(s)
+#    （增量构建 / dist 缓存已热时显示 0 written, 548 skipped；判据仍是 0 error）
 #    （warning 全部是既有 W3102/W3103；orphans:false 关掉 dist 历史残留的 E2004 噪音）
 node node_modules/typescript/bin/tsc -p tsconfig.json        # 实测 exit 0
 
@@ -669,7 +670,9 @@ node tests/direct-build/target-cases.mjs --expect-direct --strict --trace --json
 #    注意：PowerShell 5.1 的 > 写 UTF-16LE；要给 node 解析请改用
 #    [IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding($false)))
 
-# 5) 收尾：harness 不提交
+# 5) 收尾：仅当 harness 是第 1 步「临时拷入」的才执行
+#    若 tests/direct-build/target-cases.mjs 已随主分支正式合入（main 在 75a5c4a1 起已跟踪），**跳过本步**：
+#    勿删除已跟踪文件（误删可用 git restore 恢复）。
 Remove-Item -Recurse -Force tests\direct-build
 git clean -fd tests\direct-build
 ```
