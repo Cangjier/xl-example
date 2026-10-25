@@ -162,9 +162,16 @@ const route = StatementRouteUtil.Decide(host.Data, tokenIndex);
 // 一起塞进新壳（S4r 的 `decl=2`、首节点 raw `Common`）。这一格只搬**边界 token 自己**：
 // 起点收到 `tokenIndex`，`pos` 随之取「`tokenIndex - 1` 往前第一个非 trivia 单元的 `EndIndex`」，
 // `moved` 只剩边界 token，前一条语句保持原样。
-// 判据不新写第二份：与晚建守卫同一份 `StatementBoundaryUtil.CanEndStatementAt`（`;` / EOF / ASI）。
+// 判据不新写第二份：直接读声明壳的「下一条语句已到」边界
+// `StatementBoundaryUtil.IsDeclarationFollowBoundary`（Common 起点词 + 换行 + 上一段可收尾）。
+// **不能读 `CanEndStatementAt`**（Stage 4af-a）：它的 `IsLateAtEof` 半边回答的是「这一格是不是文件末尾」，
+// 在 `export { c }` / `import "x"` 这类**族在第二格才判出来、而第二格恰好是全文最后一个单元**的形态上，
+// 会把「声明自己的尾巴（闭合 `{…}` / 字符串）」误判成「上一条语句已经收口」，于是 `start` 收到 `tokenIndex`，
+// `export` 留在父单元、只剩括号进壳 → `BuildFromShell` 建出块/表达式语句、`DetachShell` 退 raw（族 A）。
+// `IsDeclarationFollowBoundary` 只在「当前格是**起一条新语句的词**且它前面有换行」时为真，声明头的续接
+// （`export {` / `import "x"` / `declare const`，都在同一行）恒为假，正是本判据要的语义。
 if (route === StatementRoute.ShellDeclarationFamily && tokenIndex > start
-  && StatementBoundaryUtil.CanEndStatementAt(host.Data, tokenIndex)) {
+  && StatementBoundaryUtil.IsDeclarationFollowBoundary(host.Data, tokenIndex)) {
   start = tokenIndex;
 }
 let pos = 0;

@@ -49,9 +49,11 @@ Class / Interface / Function / Enum / Module / TypeAlias + `expression-statement
 **晚建格一律 Accept（S4z-r2）**：`tokenIndex > headAt` 时不再问 `CanEndStatementAt`——边界格由壳接管。
 上一轮（Stage 4t）在这里 `Reject`，与 legacy 让位门控里同一个判据叠加，造成「门控让位 + 壳拒建」
 的双退；现在门控单调（只看 `route`），壳在晚建格一律 `Accept`，把「已闭合的壳 + 下一条语句的头」
-一起搬进新壳的问题改由 `BuildByIndex` 的**起点同步**解决（声明族且这一格之前已能收口时，
-搬单元的起点收到 `tokenIndex`，已闭合的壳留在原处）。判据仍是同一份
-`StatementBoundaryUtil.CanEndStatementAt`，只是搬到了 `BuildByIndex` 里。
+一起搬进新壳的问题改由 `BuildByIndex` 的**起点同步**解决（声明族且这一格已是一条新声明语句的起点时，
+搬单元的起点收到 `tokenIndex`，已闭合的壳留在原处）。判据是声明壳自己的收口边界
+`StatementBoundaryUtil.IsDeclarationFollowBoundary`（Stage 4af-a 从 `CanEndStatementAt` 改来：
+后者的 `IsLateAtEof` 半边会把「声明自己的尾巴恰好是全文最后单元」误判成上一句已收口，
+`export { c }` / `import "x"` 因此只剩括号进壳；详见 `control-flow-statement-possible-shape.xl.md`）。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
