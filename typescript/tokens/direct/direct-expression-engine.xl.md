@@ -167,6 +167,15 @@ A3 `new`：实参括号已消费（之后紧跟的 `(` 属于「new 之后再调
 
 ## field AsPositions:Array<int> = []
 
+## field AngleDepth:int = 0
+
+泛型实参判定的流式替代（引擎没有前瞻）：本层 `<` 打开的角括号深度。
+
+## field PrevAngleClose:Token | null = null
+
+刚刚把某个 `<` 合上的那个 `>` 单元。它只在 `PreviousUnit` 正好等于它时才有意义——
+即「`>` 后面紧跟着一个 `(`」，TS 会把它读成泛型实参调用（`f<T>(1)`），本轮不做，必须显式 Decline。
+
 ## constructor:(template:Template, context:SyntaxContext, basePos:int)=>void
 
 ```ts
@@ -540,6 +549,10 @@ this.TakeOperand(shape);
 
 ```ts
 // 括号 = 嵌套引擎（DESIGN §4.3）：`bracket.Data` 里没有两侧括号本身，内层用 `(` 之后的位置作 BasePos。
+if (this.PrevAngleClose !== null && this.PrevAngleClose === this.PreviousUnit) {
+  this.Fail("泛型实参调用不在本轮范围");
+  return;
+}
 const base = bracket.SourceRange.StartIndex >= 0 ? bracket.SourceRange.StartIndex + 1 : 0;
 const inner = new DirectExpressionEngine(this.Template, this.Context, base);
 inner.IngestAll(bracket.Data);
@@ -1313,6 +1326,22 @@ while (this.Frames.length > 0 && this.FrameStages[this.FrameStages.length - 1] =
     continue;
   }
   break;
+}
+// 泛型实参 vs 比较链（A3 的显式反例）：TS 只在「`< … >` 紧跟 `(`」时把 `<` 读成类型实参表的开头。
+// 引擎是流式的、没有前瞻，所以用两个**只看本层**的事实代替前瞻：`<` 打开的角括号深度、
+// 以及「刚刚被 `>` 合上的是哪一个单元」。`(` 出现在操作数位且 `PreviousUnit` 正是那个 `>` 时，
+// 它就是泛型实参调用 / 实例化表达式 → 显式 Decline；**绝不静默建成比较链**。
+if (text === "<") {
+  this.AngleDepth += 1;
+} else if (text === ">") {
+  if (this.AngleDepth > 0) {
+    this.AngleDepth -= 1;
+    this.PrevAngleClose = unit;
+  }
+} else if (text.length > 0 && text[0] === ">" && this.AngleDepth > 0) {
+  // `>>` / `>>>` / `>=`：嵌套泛型实参的收尾（`f<A<B>>(1)`）与类型实参拆分不在本轮。
+  this.Fail("嵌套泛型实参 / 类型实参拆分不在本轮范围: " + text);
+  return;
 }
 // 2) 逗号不进条件表达式的分支：TS 的 `?` 两侧是 AssignmentExpression，`a ? b, c : d` 是语法错误。
 //    完整的条件 frame（`a ? b : c, d`）会先被上面的循环收掉，所以这里只看「真分支已挂、等冒号」的那种。
