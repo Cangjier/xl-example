@@ -246,7 +246,7 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 `BlockBodyStatementCount` / `ControlFlowShellCount` 读数决定；两个数一起看才能区分「挂上但没接管」与
 「根本没挂」。
 
-## static field EnableDeclarationShell:bool = false
+## static field EnableDeclarationShell:bool = true
 
 **Stage 4r 实测后默认关（安全回退）**：专用候选 `DeclarationStatementPossibleShape` 与 13 个 legacy 候选的
 `Decide === ShellDeclarationFamily` 让位门控都已落地，打开时 27 条专用用例中 **25 条单条形态逐条通过**

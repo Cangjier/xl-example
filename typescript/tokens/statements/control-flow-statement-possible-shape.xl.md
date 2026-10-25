@@ -219,5 +219,12 @@ if (route === StatementRoute.ShellLabel) {
 } else {
   StatementRouteUtil.ControlFlowShellCount += 1;
 }
+// Stage 4t：声明族的**晚建壳**（`type` / `declare` / `interface` 的族在第二格才判出来）与
+// `RootExpressionStatementPossibleShape` 的晚建补建同一手法——已经搬进壳的 raw 单元不会再触发壳自己的求值，
+// 这里补一次，让壳内终结候选的增量状态（`StatementEndScan` 的 `Code` / `Checked`）从这一格起算；
+// 不补的话壳停在「有单元、没判过界」的状态，下一次收口只能等 EOF 的 legacy 兜底。
+if (tokenIndex > start && route === StatementRoute.ShellDeclarationFamily) {
+  shell.ComputePossibleShapes(context);
+}
 return shell;
 ```
