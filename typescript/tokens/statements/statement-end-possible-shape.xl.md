@@ -60,6 +60,14 @@ import { StatementShape } from "./statement-shape.xl.md"
 由建壳方在 `BuildByIndex` 里设好（`RootExpressionStatementPossibleShape` 设表达式族；其它建壳方不设、保持 0），
 终结候选只读它分派，**不在每次 Compute 时重新判族**（免得每格 O(k) 重走 `Decide`）。
 
+**Stage 5d-2a：`0` 桶内部再按「短语句族」分流**。`StatementKind == 0` 同时装着变量声明壳与
+控制流 / 标签 / 块 / 子句语句壳（它们都不设 `StatementKind`），所以不能在 `0` 上整体换判据；
+终结候选在 `ScanRoot` 之前先问 `StatementBoundaryUtil.IsShortFamilyCode(state.Code)`：
+`return` / `throw` / `break` / `continue` / `debugger` / `let`·`const`·`var` 六个族改读
+`StatementBoundaryUtil.ShortFamilyEndCode`，**不再调 `StatementScanner.ScanRoot`**；其余族
+（`if` / `while` / `do` / `for` / `try` / `switch` / `with` / 标签 / 块 / 子句带体语句 / 声明体）
+本轮**仍走 `ScanRoot`**（`HANDOFF-5d2a.md` §2）。
+
 **语句终结候选**（可行性原型 A）：装在 `StatementShape` 壳自己的 `CatalogGuide` 里（壳的普通候选为空，所以
 `EndPossible` 永远不会撞 `CatalogGuide` 的「终结候选与其它候选同时成立」）。
 
@@ -89,8 +97,13 @@ import { StatementShape } from "./statement-shape.xl.md"
   的 `End` 在这里**不参与判界**——`ScanRoot` 只认 `{` / `;` / 固定关键字起点，对表达式条目给
   `Mismatch`；即便碰巧给出 `End`，那个位置也早于壳里已经攒下的全部代码单元，正是「表达式语句没有读完」
   的根因（`HANDOFF-s1d.md` §5.3）。`End` 只作「上一格已经判过」的增量提示（`Checked`）。
-- 其余（`StatementKind == 0`，即 Wave1 的变量声明壳）：**逐位保留** `ScanRoot` 的
-  `Status == 1 && End >= 0`。
+- 其余（`StatementKind == 0` / `ShellStatementFamily`）：
+  - **短语句族（Stage 5d-2a，本轮的迁移对象）**：首代码单元属
+    `StatementBoundaryUtil.IsShortFamilyCode`（`return` / `throw` / `break` / `continue` / `debugger` /
+    `let`·`const`·`var`）时，收口位置读 `StatementBoundaryUtil.ShortFamilyEndCode`——**不调
+    `StatementScanner.ScanRoot`**。族判定与收口规则都在 boundary 层，`ScanRoot` 一字不改；
+  - 其余族（`if` / `while` / `do` / `for` / `try` / `switch` / `with` / 标签 / 块 / 带体声明）：
+    **逐位保留** `ScanRoot` 的 `Status == 1 && End >= 0`，并保留 `DeclarationBodyEndCode` 兜底。
 
 `End` 一律折算成「壳 `Data` 里的下标」（`CodeAt[codeIndex]`），`BuildFromShell` 只消费到它。
 ASI 边界收口时边界单元本身**不属于**本条语句（`a` ⏎ `b` 的 `b` 是下一条语句的开头），
@@ -166,6 +179,17 @@ if (state.Checked !== tokenIndex + 1) {
         state.End = end;
         state.Status = 1;
       }
+    }
+  } else if (StatementBoundaryUtil.IsShortFamilyCode(state.Code)) {
+    // **Stage 5d-2a：短语句族（return / throw / break / continue / debugger / let·const·var）的判界
+    // 已迁到 boundary 层**：收口位置读 `ShortFamilyEndCode`，**不调 `StatementScanner.ScanRoot`**。
+    // `atEof` 与下面 `ScanRoot` 分支读的是同一个事实（上面刚算出来的 `StatementScanner.AtEOF`）。
+    // 判据 `-1` 时**不能**再退回 `ScanRoot`（那等于没迁）；也**不**再问 `DeclarationBodyEndCode`
+    // ——短语句族的首单元不可能是 `class` / `function`，那一条对它恒为 `-1`。
+    const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(state.Code, StatementScanner.AtEOF);
+    if (shortEnd >= 0 && shortEnd < state.CodeAt.length) {
+      state.End = state.CodeAt[shortEnd];
+      state.Status = 1;
     }
   } else {
     const result = StatementScanner.ScanRoot(state.Code);
@@ -326,12 +350,17 @@ return tailAt;
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 把本条语句建出来、让壳原位收口。收口位置与 `ComputeByIndex` **同一判据**
-（表达式族走 `ExpressionEndCode`，变量族走 `ScanRoot` 的 `End`），只是这里从 `host.Data` 重新折一遍
-`code` / `codeAt`，再交给 `StatementShape.BuildFromShell` 用**正确的 endIndex** 消费到那里。
+（表达式族走 `ExpressionEndCode`，短语句族走 `ShortFamilyEndCode`，其余族走 `ScanRoot` 的 `End`），
+只是这里从 `host.Data` 重新折一遍 `code` / `codeAt`，再交给 `StatementShape.BuildFromShell`
+用**正确的 endIndex** 消费到那里。
 
 - `EOF` 哨兵：消费到最后一个代码单元；
 - 其它：算出「最后一条属于本条语句的单元」并折算成壳 `Data` 下标；算不出来时退回 `tokenIndex`
   （`TryToClose` 会 `DetachShell` 兜底，不会把壳留在树里）。
+
+**Stage 5d-2a**：`EOF` 哨兵分支与普通分支都在 `ScanRoot` 之前先问 `IsShortFamilyCode`，
+短语句族改读 `ShortFamilyEndCode`（与 `ComputeByIndex` **同一个入口、同一个 `atEof`**），
+两个分支的 `ScanRoot` 调用次数因此对短语句族归零（`HANDOFF-5d2a.md` §3 有逐族读数）。
 
 ```ts
 let endIndex = tokenIndex;
@@ -341,7 +370,7 @@ if (current instanceof EndOfFileTokenShape) {
   if (endIndex < 0) {
     return host;
   }
-  // Stage 4c：EOF 这一格也要先问一次 `ScanRoot` 的 `End`，不能一律消费到最后一个代码单元。
+  // Stage 4c：EOF 这一格也要先问一次终止判据的 `End`，不能一律消费到最后一个代码单元。
   // 受限产生式的 ASI 会在壳内留下**下一条语句**的起点（`throw` ⏎ `a` 的 `a` / `debugger` ⏎ `a`）：
   // 消费到最后一个单元会让 `BuildStatement` 读到两条语句（`At !== Units.length` → 拆壳 → 根终结候选只建回
   // 第一条），`a` 就丢了（ast-json `dts-recovery` 的 `throw\na` 结构差、token-ast 同类）。
@@ -360,13 +389,21 @@ if (current instanceof EndOfFileTokenShape) {
     const unitEnd = current.SourceRange.EndIndex;
     StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
       || (unitEnd >= 0 && StatementScanner.NextChar(current.SourceRange.Document, unitEnd) === "");
-    const result = StatementScanner.ScanRoot(code);
-    if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
-      endIndex = codeAt[result.End];
+    if (StatementBoundaryUtil.IsShortFamilyCode(code)) {
+      // Stage 5d-2a：短语句族走 boundary 层的同一份判据（与 `ComputeByIndex` 同一个 `atEof`）。
+      const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(code, StatementScanner.AtEOF);
+      if (shortEnd >= 0 && shortEnd < codeAt.length) {
+        endIndex = codeAt[shortEnd];
+      }
     } else {
-      const declarationEnd = StatementEndPossibleShape.DeclarationBodyEndCode(code);
-      if (declarationEnd >= 0 && declarationEnd < codeAt.length) {
-        endIndex = codeAt[declarationEnd];
+      const result = StatementScanner.ScanRoot(code);
+      if (result.Status === 1 && result.End >= 0 && result.End < codeAt.length) {
+        endIndex = codeAt[result.End];
+      } else {
+        const declarationEnd = StatementEndPossibleShape.DeclarationBodyEndCode(code);
+        if (declarationEnd >= 0 && declarationEnd < codeAt.length) {
+          endIndex = codeAt[declarationEnd];
+        }
       }
     }
   }
@@ -383,7 +420,7 @@ if (current instanceof EndOfFileTokenShape) {
   const unitEnd = current.SourceRange.EndIndex;
   StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
     || (unitEnd >= 0 && StatementScanner.NextChar(current.SourceRange.Document, unitEnd) === "");
-  // 与 `ComputeByIndex` 同一份判据（空语句壳 / 带体声明壳），只是这里从 `host.Data` 重新折一遍
+  // 与 `ComputeByIndex` 同一份判据（空语句壳 / 短语句族 / 带体声明壳），只是这里从 `host.Data` 重新折一遍
   // `code` / `codeAt`：收口位置必须与「接受」那一格算出同一个数，否则 `BuildFromShell` 消费到
   // 别的下标（空语句壳消费到下一条子句 → 「语句没有读完」）。
   const emptyEnd = StatementEndPossibleShape.EmptyStatementEndCode(host.Data, codeAt);
@@ -396,6 +433,12 @@ if (current instanceof EndOfFileTokenShape) {
       this.StatementKind === StatementRoute.ShellDeclarationFamily);
     if (end >= 0 && end <= tokenIndex) {
       endIndex = end;
+    }
+  } else if (StatementBoundaryUtil.IsShortFamilyCode(code)) {
+    // Stage 5d-2a：短语句族改读 boundary 层的判据，**不调 `ScanRoot`**；基准仍是壳 `Data` 下标。
+    const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(code, StatementScanner.AtEOF);
+    if (shortEnd >= 0 && shortEnd < codeAt.length) {
+      endIndex = codeAt[shortEnd];
     }
   } else {
     const result = StatementScanner.ScanRoot(code);
