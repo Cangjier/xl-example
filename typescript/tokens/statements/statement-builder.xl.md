@@ -470,6 +470,12 @@ overload / ambient signature.
 起始格不假定是 `function`：`declare function` / `async function` 也走这里。无体形态（`;` 收尾）
 按 ambient 交给 FromUnits——块里的重载签名 / `declare function` 都没有函数体。
 
+**Stage 4af-D：ambient 签名允许无分号结束**。声明壳把**一条**声明交过来时，收口位置就是类型结束处，
+units 可能到此为止、既没有 `;` 也没有体（`declare function f<T>(): T` ⏎ `f<string>;`：壳在 `T` 收口）。
+`declare` 修饰词已经把这条声明标成 ambient（TS 里 `declare function` 的签名本来就不带体），
+所以单元用完就是它的结束；非 ambient 的 `function` 仍必须有体或 `;`，照旧抛错。
+判据只在本方法里、只读修饰词前缀，不新写第二套签名扫描。
+
 ```ts
 const first = this.At;
 let cursor = this.At;
@@ -497,7 +503,42 @@ while (cursor < this.Units.length) {
   cursor++;
 }
 if (end < 0) {
-  throw new Error("函数声明缺少函数体或分号");
+  // Stage 4af-D：ambient 签名在声明壳里可能没有 `;`（见上）。允许的前提只有两种：
+  //   1. 头部带 `declare` 修饰词（`declare function f<T>(): T`）；
+  //   2. 参数表之后**只剩类型**（`.d.ts` 里的 `export function parseMIMEType (…): string | MIMEType`）。
+  // 第 2 种要挡住「壳吞掉了下一条语句」：参数表之后再出现任何声明 / 语句起头词就不是一条签名，
+  // 照旧抛错，让文件级兜底接手（宁可走 legacy，也不静默建错树）。
+  let ambient = false;
+  let params = -1;
+  for (let at = first; at < this.Units.length; at++) {
+    const unit = this.Units[at];
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+      params = at;
+      break;
+    }
+    if (unit instanceof Common && (unit as Common).Is("declare")) {
+      ambient = true;
+    }
+  }
+  if (!ambient && params >= 0) {
+    ambient = true;
+    for (let at = params + 1; at < this.Units.length; at++) {
+      const unit = this.Units[at];
+      if (!(unit instanceof Common)) {
+        continue;
+      }
+      const text = (unit as Common).TempToString();
+      if (StatementRouteUtil.IsLegacyKeyword(text)
+        || text === "const" || text === "let" || text === "var") {
+        ambient = false;
+        break;
+      }
+    }
+  }
+  if (!paramsSeen || params < 0 || !ambient) {
+    throw new Error("函数声明缺少函数体或分号");
+  }
+  end = this.Units.length - 1;
 }
 const hasBody = this.Units[end] instanceof Bracket
   && (this.Units[end] as Bracket).StartBracketChar === "{";

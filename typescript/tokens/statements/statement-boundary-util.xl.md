@@ -342,6 +342,12 @@ return StatementBoundaryUtil.IsSemicolon(units[tokenIndex])
   `export default { … }` ⏎ `satisfies T` 仍是一条）。这份清单与 `IsAsiBoundary` 读同一个 `IsContinuation`，
   不新写第二套表达式续接判据；符号起点（`|` / `&` / `[` / `<` …）在判据一之前就被排除，不受影响。
 
+**Stage 4af-D：判据一 / 判据三的「上一段已完整」改读 `CanEndDeclarationTail`**。原来的
+`CanEndExpressionAt` 是**表达式**口径，而声明头收尾的常常是**类型**：`declare function f(): void` ⏎
+`export { … }` 的 `void` 被判成「还在等操作数」，壳因此不收口，把后面的 `export` / `const` 整段吞进去
+（`undici-types/index.d.ts` 打开态唯一 real-dts 残留）。判据只多认 `void` 一格（见
+`CanEndDeclarationTail`），换行 / 续接 / 关键字三条仍是这一份实现。
+
 ```ts
 if (tokenIndex < 1 || tokenIndex >= units.length) {
   return false;
@@ -379,7 +385,7 @@ if (StatementRouteUtil.IsLegacyKeyword(text)
   if (prevIsClosedBody) {
     return true;
   }
-  return ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev);
+  return StatementBoundaryUtil.CanEndDeclarationTail(units, prev);
 }
 // 判据二 / 三共用的「这个单词是声明的续接词」判据：
 // - `from`：`export { a }` ⏎ `from "m"` / `import { a }` ⏎ `from "m"` 仍是同一条声明；
@@ -397,7 +403,71 @@ if (prevIsClosedBody) {
 }
 // 判据三（Stage 4af-B）：声明头末尾是能收住表达式的类型引用（`declare function f<T>(): T` ⏎ `f<string>;`）。
 // 要求换行前那一格确实能收住表达式，所以 `declare function f(` / `interface I<` 一类还没收尾的格子不会误切。
-return ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev);
+// Stage 4af-D：类型以 `void` / `>` 收尾时同一格由 `CanEndDeclarationTail` 认
+// （`declare function f(): void`、`declare function g(): Promise<T>`）。
+return StatementBoundaryUtil.CanEndDeclarationTail(units, prev);
+```
+
+## static method CanEndDeclarationTail:(units:Array<Token>, index:int)=>bool
+
+**声明壳收口时的「换行前那一格已经完整」判据**（Stage 4af-D）：`IsDeclarationFollowBoundary` 的判据一 /
+判据三原来直接读 `CanEndExpressionAt`——那是**表达式**口径，而声明头收尾的常常是**类型**。两处口径差在
+两类尾巴上：
+
+1. `void`：`CanEndExpression` 把它当成前缀运算符（`void x` 还在等操作数），但类型位置上
+   `declare function f(): void` / `declare const x: void` / `type T = () => void` 已经写完。
+   `void` 是唯一一个「能收尾类型、却落在表达式排除表里」的**词**：`typeof` / `keyof` / `asserts` /
+   `infer` / `new` / `readonly` / `unique` 都还要右操作数，不能收尾类型；`any` / `unknown` / `never` /
+   `string` / `number` / `boolean` / `object` / `symbol` / `bigint` / `undefined` / `intrinsic` / `null` /
+   `this` / `true` / `false` 本来就能收住表达式（`CanEndExpression` 为真）。
+2. `>` / `>>` / `>>>`：泛型实参表的收尾（`declare function request(): Promise<Dispatcher.ResponseData<T>>`、
+   `type O = Omit<X, 'a'>`）。`CanEndExpression` 不认符号尾巴（关系比较的 `>` 右边还在等操作数）。
+   **但变量声明的初始化表达式里 `>` 是关系运算符**（`export const x = a >` ⏎ `b` 是一条语句），
+   那里不能断句——所以这一类只对**非变量声明**成立（按段首关键字排除 `const` / `let` / `var` / `using`，
+   `export` / `declare` / `default` / `abstract` / `async` 前缀跳过）。
+
+两类之外仍读 `CanEndExpressionAt` 那一份——不是第二份 ASI，也不是第二份类型扫描。
+
+```ts
+if (index < 0 || index >= units.length) {
+  return false;
+}
+const unit = units[index];
+if (unit instanceof Common) {
+  if ((unit as Common).Is("void")) {
+    return true;
+  }
+  return ExpressionStatementPossibleShape.CanEndExpressionAt(units, index);
+}
+if (!(unit instanceof Symbol) || ((unit as Symbol).TempToString() !== ">"
+  && (unit as Symbol).TempToString() !== ">>" && (unit as Symbol).TempToString() !== ">>>")) {
+  // 其余（括号 / 字符串 / 正则 / 数字 …）一律照旧问表达式口径。
+  return ExpressionStatementPossibleShape.CanEndExpressionAt(units, index);
+}
+// 段首（本条语句的第一个代码单元）：往回跳过 basic token，停在形状 / 段首。
+let head = index;
+while (head > 0 && units[head - 1].IsBasicToken) {
+  head--;
+}
+let at = head;
+while (at < index) {
+  if (units[at].IsTriviaToken) {
+    at++;
+    continue;
+  }
+  if (!(units[at] instanceof Common)) {
+    break;
+  }
+  const text = (units[at] as Common).TempToString();
+  if (text === "export" || text === "declare" || text === "default"
+    || text === "abstract" || text === "async") {
+    at++;
+    continue;
+  }
+  // 变量声明：`export const x = a >` ⏎ `b` 的 `>` 是关系运算符，不是类型实参表的收尾。
+  return !(text === "const" || text === "let" || text === "var" || text === "using");
+}
+return true;
 ```
 
 ## static method IsLateAtEof:(units:Array<Token>, tokenIndex:int)=>bool
