@@ -163,10 +163,11 @@ if (built === null) {
   }
   // Stage 5d-1b：**语句壳收口的建树所有权**已迁到 possible 层——`StatementFamilyDispatch` 按壳 `Kind`
   // 与首代码单元直接调用 `StatementBuilder` 的 family 方法（`BuildBlock` / `BuildIf` / `BuildInterfaceDeclaration`
-  // …，与 legacy 分派是**同一批工厂方法**）。返回 `null` 只表示「这一条按族分派不接」（`declare const` 的
-  // ambient 变量语句等需要建造器内部状态的形态），此时才原样退回 `BuildStatement()`：同一个 `builder`、
-  // 同一段 `consumed`、同一个 `shell.Pos`，因此每条语句的 AST / Pos / End 与 5d-1a 逐位相同。
-  // `LegacyStatementDispatchCount` 只统计**真的**退回了 `BuildStatement()` 的次数（迁移成功的语句不再计数）。
+  // …，与 legacy 分派是**同一批工厂方法**）。返回 `null` 只表示「调用点越界」这一种退化情形，
+  // 此时才原样退回 `BuildStatement()`：同一个 `builder`、同一段 `consumed`、同一个 `shell.Pos`。
+  // Stage 5d-4 起连 `declare const|let|var|using` 也由 possible 层直接调
+  // `StatementBuilder.BuildDeclareVariableStatement()`（同一格逐字同源），因此默认解析下
+  // `LegacyStatementDispatchCount` = 0：`BuildStatement()` 只剩「未建壳的根层语句 / 文件级 fallback」在用。
   built = StatementFamilyDispatch.Build(builder, shell.Kind);
   if (built === null) {
     StatementLegacyMetrics.LegacyStatementDispatchCount++;

@@ -128,7 +128,7 @@ AST 逐节点一致。块内语句仍由 `BuildBlock` 原子递归（块内目�
 BlockPossibleShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
   BlockPossibleShape.CreateBodyPossibleShapesCache,
   () => {
-    const shapes:Array<PossibleShape> = [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape(), new BlockPossibleShape(), new AwaitStatementPossibleShape()];
+    const shapes:Array<PossibleShape> = [new VariableStatementPossibleShape(), new RootExpressionStatementPossibleShape(), new ControlFlowStatementPossibleShape(), new BlockPossibleShape(), new AwaitStatementPossibleShape(), new YieldStatementPossibleShape()];
     if (BlockPossibleShape.EnableBlockDeclarationCatalog) {
       shapes.push(new DeclarationStatementPossibleShape());
     }
@@ -1128,5 +1128,181 @@ host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
 StatementRouteUtil.AwaitShellCount += 1;
+return shell;
+```
+
+# class YieldStatementPossibleShape extends PossibleShape
+
+**块体目录里的 `yield` 起点语句候选**（Stage 5d-4）。
+
+与 `AwaitStatementPossibleShape`（Stage 4l）**逐字同构**：`yield` 同样是冻结的
+`StatementRouteUtil.IsLegacyKeyword` 里的**双角色起点**——生成器里 `yield 1` / `yield` / `yield* xs` 是
+`YieldExpression` 的关键字前缀，非生成器 / 非严格上下文里 `yield` 还能是标识符（`yield = 1`）或标签
+（`yield: 1`），所以 `Decide` 一律判成 `StatementRoute.Legacy`。根层照旧由 `StatementPossibleShape` 原子建树，
+行为一字不改；块体目录里没有 legacy 候选，`function* g() { yield 1; }` 的体因此整段留在 raw 段
+（`BuildBlock` 的 legacy 递归仍能建对树——那是「未接管」，不是「建错」）。
+
+**为什么这一族值得单独补**：它是退场指标 `RawTailBuildCount` 里最大的一族（`yield` 各种形态合计约占四成）。
+补上之后生成器体内的 `yield` 语句由本候选建壳、`CollectBodyStatements` 按序收，raw 段只剩它旁边仍未接管的语句。
+
+**判界与建树都复用 legacy 的同一份实现**：壳 `Kind` 与终结候选都取 `StatementRoute.ShellStatementFamily`
+→ 判界沿用 `StatementScanner.ScanRoot`（`yield` 的受限产生式 / ASI / `;` 由扫描器说，与 legacy 根候选同一份），
+收口时 `StatementShape.BuildFromShell` → `StatementFamilyDispatch` → `StatementBuilder.BuildExpressionStatement`
+用**同一段 raw 单元、同一个建造器**建树。所以 XML 逐字节、AST 逐节点与 legacy 一致，接管只体现在
+`YieldShellCount` 上。20 条专用对拍（含 `yield⏎(x)` / `yield⏎x` / `yield 1` ⏎ `yield* other()` / 标签 / 赋值）
+全部 AST+Pos 一致、**文件级 fallback = 0**。
+
+**已知代价（下一阶段的入口）**：走 `ScanRoot` 判界意味着这一族每格都 +1 `ScanRoot`——实测 `ScanRootCallCount`
+19243 → 19427（+184），同时 `RawTailBuildCount` 292 → 218（−74）。**不建议**把它改成表达式族判据
+（`ShellPlainExpression` + `CanEndStatement`）：`CanEndStatement` 到不了 `yield` 的受限产生式那一格，
+`yield⏎(x)` 会被收进同一个壳而建造器只建 `yield`，随即「语句没有读完」→ 文件级重解析（实测 20 条探针里 4 条）。
+真正的归零办法是像 5d-2a/5d-2b 那样在 boundary 层补 `yield` 族判界（`IsYieldFamilyCode` + 专用终结候选），
+那需要新增一个 `StatementKind` / 专用终结形状，超出本轮预算——留给下一阶段。
+
+**只认首代码单元那一格**：建壳之后本条语句归壳，后续格子由壳的终结候选判界；`Reject` 被 `CatalogGuide`
+永久删除，所以首代码单元还没到（只有 trivia）必须 `Uncertain`。
+
+**互斥（不靠先后）**：`ControlFlowStatementPossibleShape` / `RootExpressionStatementPossibleShape` /
+`VariableStatementPossibleShape` / `BlockPossibleShape` / `DeclarationStatementPossibleShape` 对 `yield` 首格
+全部 `Reject`（`Decide` 给 `Legacy`、首单元不是 `let` / `{` / 声明头），本候选只对「块体宿主 + `yield` 首单元」
+`Accept`，两边永不同格成立。与 `AwaitStatementPossibleShape` 也不会同格：首代码单元文本互斥。
+
+## static method IsYieldHead:(unit:Token)=>bool
+
+`unit` 是不是 `yield` 关键字。只看 `Common` 的文本，不建状态。
+```ts
+if (!(unit instanceof Common)) {
+  return false;
+}
+return (unit as Common).TempToString() === "yield";
+```
+
+## static method IsBlockHost:(host:Token | null)=>bool
+
+宿主是不是**块体 `{` 括号**（块体目录的宿主）。根层宿主是 `SourceFileShape`，不命中——本候选在根层永远不接。
+```ts
+if (!(host instanceof Bracket)) {
+  return false;
+}
+return (host as Bracket).StartBracketChar === "{";
+```
+
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return ShapeStates.Uncertain;
+}
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableYieldStatement) {
+  return ShapeStates.Reject;
+}
+if (units[tokenIndex] instanceof EndOfFileTokenShape) {
+  return ShapeStates.Reject;
+}
+const start = ItemUtil.ItemStartCached(units, cache);
+const headAt = ItemUtil.NextCode(units, start);
+if (headAt >= units.length || headAt > tokenIndex) {
+  return ShapeStates.Uncertain;
+}
+if (units[tokenIndex].IsTriviaToken) {
+  return ShapeStates.Uncertain;
+}
+if (tokenIndex !== headAt) {
+  return ShapeStates.Reject;
+}
+if (!YieldStatementPossibleShape.IsYieldHead(units[headAt])) {
+  return ShapeStates.Reject;
+}
+const owner = units[headAt].Parent;
+if (owner === null) {
+  return ShapeStates.Uncertain;
+}
+if (!YieldStatementPossibleShape.IsBlockHost(owner)) {
+  return ShapeStates.Reject;
+}
+return ShapeStates.Accept;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+首代码单元到齐即可建壳；建壳不需要等语句结束。
+```ts
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableYieldStatement) {
+  return false;
+}
+const start = ItemUtil.ItemStartCached(units, cache);
+const headAt = ItemUtil.NextCode(units, start);
+if (headAt >= units.length || headAt > tokenIndex) {
+  return false;
+}
+if (units[tokenIndex].IsTriviaToken || tokenIndex !== headAt) {
+  return false;
+}
+if (!YieldStatementPossibleShape.IsYieldHead(units[headAt])) {
+  return false;
+}
+return YieldStatementPossibleShape.IsBlockHost(units[headAt].Parent);
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+与 `AwaitStatementPossibleShape.BuildByIndex` 逐字同构：搬 raw 单元、`Pos` 取「前一个非 trivia 单元
+`EndIndex`」（宿主是块体 `{` 括号时首句取 `StartIndex + 1`，与 legacy `BuildBlock` 的 `base` 同口径）、
+原位插回壳、`Parent` / `MountedUnit` 显式设置。族标记固定为 `StatementRoute.ShellStatementFamily`
+（不看 `Decide` 给的 `Legacy`——`Legacy` 不是壳族标记）。
+```ts
+const start = ItemUtil.ItemStart(host.Data);
+if (start > tokenIndex) {
+  throw new Error("yield 语句候选没有可搬的单元");
+}
+let pos = 0;
+if (host instanceof Bracket && (host as Bracket).StartBracketChar === "{") {
+  let previous = -1;
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      previous = at;
+      break;
+    }
+  }
+  if (previous < 0) {
+    if (host.SourceRange.StartIndex >= 0) {
+      pos = host.SourceRange.StartIndex + 1;
+    }
+  } else {
+    const previousEnd = host.Data[previous].SourceRange.EndIndex;
+    if (previousEnd >= 0) {
+      pos = previousEnd;
+    }
+  }
+} else {
+  for (let at = start - 1; at >= 0; at--) {
+    if (!host.Data[at].IsTriviaToken) {
+      const previousEnd = host.Data[at].SourceRange.EndIndex;
+      if (previousEnd >= 0) {
+        pos = previousEnd;
+      }
+      break;
+    }
+  }
+}
+const moved:Array<Token> = host.Data.slice(start, tokenIndex + 1);
+host.Data.splice(start, moved.length);
+const shell = new StatementShape(host.Template);
+shell.Pos = pos;
+shell.Kind = StatementRoute.ShellStatementFamily;
+for (const item of moved) {
+  shell.Add(item);
+}
+const headStart = moved[0].SourceRange.Start;
+if (headStart >= 0) {
+  shell.SignIn(headStart);
+}
+const endShape = new StatementEndPossibleShape();
+endShape.StatementKind = StatementRoute.ShellStatementFamily;
+shell.CatalogGuide = new CatalogGuide([], endShape);
+host.Data.splice(start, 0, shell);
+shell.Parent = host;
+host.MountedUnit = shell;
+StatementRouteUtil.YieldShellCount += 1;
 return shell;
 ```

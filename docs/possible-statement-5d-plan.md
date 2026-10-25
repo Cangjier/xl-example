@@ -410,3 +410,62 @@ node tests/statement-possible/legacy-retirement.mjs --legacy-only   # 底座，�
    让每阶段的「壳侧还剩多少」有分母。改这两个模式**不改变**默认读数。
 6. **本轮没有验证「语料外形态」**：`ast-json` 6171 条 + `token-ast` 1716 文件仍是既有覆盖面，
    指标归零不等于「TS 全语法都建对了」——5d-5 的风险 5 已写明这一点。
+
+---
+
+## 8. Stage 5d-4 指标收尾（实测，2026-10-25，HEAD=9794534a 之上）
+
+### 8.1 四项指标前后（默认解析，`legacy-retirement.mjs`，语料 6300 用例不变）
+
+| 指标 | 5d-1b/2b 基线 | 5d-4 之后 | 差 |
+| --- | --- | --- | --- |
+| `LegacyStatementDispatchCount` | 78 | **0** | −78（**达标**） |
+| `ScanRootCallCount` | 19243 | 19427 | **+184**（`yield` 壳的判界仍由 `ScanRoot` 说，见 8.3） |
+| `RawTailBuildCount` | 292 | 218 | −74 |
+| `ShapeAstDeclinedCount` | 328 | 328 | 0（本轮未动） |
+| `FileFallbackCount`（交叉校验） | 50 | 50 | 0（**没有把 fallback 当接管**） |
+
+### 8.2 `LegacyStatementDispatchCount = 0` 的做法
+
+`declare const|let|var|using` 的 ambient 变量语句原先在 `StatementFamilyDispatch` 里返回 `null` 交回
+`StatementBuilder.BuildStatement()`（它要 `At++`、把语句 `Pos` 倒回 `declare`、把 `DeclareKeywordShape`
+插进 `Data` 最前）。5d-4 把那段实现**逐字搬进** `StatementBuilder.BuildDeclareVariableStatement()`——
+仍是同一个 `this` / `At` / `Positions` / `Pos`，所以壳收口可以直接调它，`BuildStatement` 的同一格也调它。
+外部分派从此**没有任何形态**退回整段 raw 分派（剩下的只是未建壳的根层 / 文件级 fallback）。
+
+### 8.3 `RawTailBuildCount 292 → 218`：新族 `yield` 语句壳
+
+`CreateBodyPossibleShapes` 多注册一个 `YieldStatementPossibleShape`（与 Stage 4l 的
+`AwaitStatementPossibleShape` 逐字同构，门控 `StatementRouteUtil.EnableYieldStatement`、计数 `YieldShellCount`）。
+它是 raw 尾巴里最大的一族（`yield 1;` / `yield;` / `yield* h();` 合计 ~57 条），补上之后生成器体内这些语句由壳建、
+`CollectBodyStatements` 按序收，raw 段只剩它们旁边仍未接管的语句（`break` / 函数声明 / 标签体等）。
+
+**代价（诚实记录）**：判界仍走 `StatementScanner.ScanRoot`（与 legacy 根候选同一份），所以
+`ScanRootCallCount` +184。改成表达式族判据（`ShellPlainExpression` + `CanEndStatement`）实测会把
+`yield⏎(x)` 这类受限产生式收进同一个壳、建造器只建 `yield` → 「语句没有读完」→ **4/20 条探针走文件级重解析**，
+因此**不采用**。归零办法是在 boundary 层补 `yield` 族判界（像 5d-2a/2b 的短族 / 控制流族），需要新增
+`StatementKind` / 专用终结形状，留待下一阶段。
+
+### 8.4 `ShapeAstDeclinedCount` 仍为 328（本轮未动，剩余清单）
+
+按文件聚类的 Top（`--json` 的 `perFile`，194 个文件有读数）：
+
+| 类别 | 代表用例 | 计数 |
+| --- | --- | --- |
+| **带 `as` / `!` / `[0]` 尾巴的标签模板**（非常规被标宿主：`a!`t``、`(a)`t``、`new C()`t``） | `expr-r1225-template-as.ts` 20、`expr-r1213-optional-chain-member-as.ts` 7 | ~35 |
+| **非标识符宿主的标签模板**（`[a,b]`t``、`/re/g`t``、`import.meta`t``、`new.target`t``） | `expr-r1229-regex-meta-tag.ts` 21、`expr-r1228-array-tag.ts` 18 | ~45 |
+| **类型实参 + 可选调用链 + 标签模板**（`a<b>?.(1)`t`` / `as` / `satisfies`） | `expr-r1222-instantiation-optional.ts` 16、`expr-r1227-opt-tagged-template.ts` 14 | ~38 |
+| `super` 调用 / `new.target` 成员族 | `decl-class-super.ts`、`expr-call-super.ts` | ~6 |
+| 其它零散（`angle.ts` 7、`string.ts` 2 …） | — | 余下 |
+
+共同点：**标签模板的被标表达式形状**只覆盖了简单标识符 / 成员链，`!` / `as` / `satisfies` / 数组字面量 /
+正则 / `import.meta` / `new.target` / 类型实参 + `?.()` 这些「先当被标宿主」的形态仍由形状树拒绝、
+退回 legacy 表达式重解析。补一类要动 `expression-statement-possible-shape` 的被标宿主判据（一处一处放行），
+本轮预算不够，**没有动**。
+
+### 8.5 本轮未做
+
+1. `break` / `continue` 与标签体 raw 段（~24 条）：它们的宿主 `{` 是标签语句的体、根本没挂块体目录，
+   要动「标签体挂目录」机制，属结构性改动。
+2. 块内函数 / `async function` 声明留下的 raw 段（~20 条）：块体目录不含声明族候选，需要声明壳 + 体挂载一起动。
+
