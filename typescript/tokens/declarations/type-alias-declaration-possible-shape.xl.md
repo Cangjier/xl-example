@@ -333,6 +333,14 @@ if (unit instanceof String || unit instanceof RegexToken) {
 }
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
+  // **Stage 5d-8c：`;` 是本条声明自己的终结符，不是 ASI 边界**。TS 的 `parseSemicolon` 不看换行，
+  // 所以 `type T = A | B` ⏎ `;` 的 `;` 属于这条类型别名（类型末尾跟着一条行注释时同样如此）。
+  // 少了这一条，`BuildTypeAliasDeclaration` 的扫描会把换行后的 `;` 当成下一条语句的开头：
+  // 别名在 `B` 收尾，`;` 留在壳里没人消费 → `BuildFromShell` 抛「语句没有读完」→ 文件级 fallback。
+  // 状态机那一侧（`ComputeByIndex`）在 ASI 判据之前就有 `;` 分支，所以这一格只影响建造器。
+  if (text === ";") {
+    return false;
+  }
   // `<` 只有在同一行才能续接一个类型（TS 的 parseTypeArgumentsOfTypeReference 在
   // `scanner.hasPrecedingLineBreak()` 时根本不解析类型实参）。本判据只在调用方已经确认
   // 「`last` 与 `at` 之间有换行」时被调用，所以这里的 `<` 是下一条语句的起点：

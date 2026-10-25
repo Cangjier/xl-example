@@ -80,7 +80,12 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
-if (code.length < 3) {
+// **Stage 5d-8c：`export default function ()` 的恢复形**。匿名声明的代码单元只有
+// `function` + 空参数表 `()` 两格（`()` 是一个括号单元），原来按「至少三格」判死 →
+// 文件级 fallback。TS 对这种写法给的是「只有修饰词的 FunctionDeclaration」（没有名字 / 参数 / 体），
+// 所以 `allowAnonymous` 的调用点把下界放宽到两格；其余位置仍要求三格（`function` + 名字 + 参数表）。
+const minimumCode = (allowAnonymous ?? false) ? 2 : 3;
+if (code.length < minimumCode) {
   throw new Error("函数声明不完整");
 }
 // 装饰器前缀（根 / 块里的 `@dec function f() {}`；TS 的 Decorator 是 FunctionDeclaration children
@@ -143,7 +148,9 @@ while (cursor < code.length) {
   }
   break;
 }
-if (code.length < cursor + 3) {
+// 名字之后至少还要有参数表那一格；匿名恢复形（`export default function ()`）允许只有 `function` + `()`。
+const minimumAfterModifiers = (allowAnonymous ?? false) ? 2 : 3;
+if (code.length < cursor + minimumAfterModifiers) {
   throw new Error("函数声明不完整");
 }
 const keyword = code[cursor];
@@ -221,7 +228,10 @@ if (bodyIsLast) {
 } else if (!lastIsBrace && !lastIsSemicolon) {
   // ambient 的无体、无分号函数（namespace 体里 `function f(): B` 换行接下一个成员）：
   // 调用方显式传 ambient=true 时才允许。
-  if (!(ambient ?? false)) {
+  // **Stage 5d-8c**：`export default function ()` 的恢复形同样没有体、没有分号、也没有返回类型，
+  // TS 仍给一条 FunctionDeclaration（只有修饰词）。`allowAnonymous` 是从 `export default` 那一格
+  // 传下来的（能走到这里的匿名函数只有这一种），所以这一格与 ambient 同等放行。
+  if (!(ambient ?? false) && !(allowAnonymous ?? false)) {
     throw new Error("函数声明缺少函数体或分号");
   }
 }
@@ -259,10 +269,13 @@ if (afterParams < tailIndex) {
       throw new Error("函数声明的返回类型没有读完");
     }
   }
-} else if (bodyUnit === null && declareUnit === null && (ambient ?? false) === false) {
+} else if (bodyUnit === null && declareUnit === null && (ambient ?? false) === false
+  && (allowAnonymous ?? false) === false) {
   // A no-body declaration without "declare" needs a return type (overload signature) --
   // unless the caller says we are inside an ambient context (`declare module/namespace`, where the
   // declare is implicit and the return type may be omitted: `function f();`).
+  // **Stage 5d-8c**：`export default function ()` 同样没有体也没有返回类型，TS 给的是只有修饰词的
+  // FunctionDeclaration —— 与上一格同一个理由（`allowAnonymous` 放行）。
   throw new Error("function 声明没有函数体时必须带返回类型（或 declare）");
 }
 let pos = 0;

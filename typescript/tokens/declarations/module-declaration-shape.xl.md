@@ -148,8 +148,15 @@ while (at < code.length) {
   }
   throw new Error("模块声明里出现无法识别的单元");
 }
+// **Stage 5d-8c：文件末尾的无体 ambient module**（`declare module "m"` 后面既没有 `;` 也没有体）。
+// TS 对这种恢复形给的就是「修饰词 + 名字」的 ModuleDeclaration（区间到名字为止），与带 `;` 的
+// 无体形只差一个终止符。原来的判据在这里抛「模块声明缺少模块体」→ 整条文件级 fallback；
+// 现在按「代码读完了」等同于「没有终止符」处理，终止单元取最后一个代码单元。
 if (bodyIndex < 0 && terminatorIndex < 0) {
-  throw new Error("模块声明缺少模块体");
+  if (nameIndices.length !== 1) {
+    throw new Error("无体模块声明不支持限定名");
+  }
+  terminatorIndex = code.length - 1;
 }
 if (bodyIndex < 0) {
   // declare module "m";：没有体，children 只有修饰词 + 名字；区间到分号为止（AST 的 End 含分号）。

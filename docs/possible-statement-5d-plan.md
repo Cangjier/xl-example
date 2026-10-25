@@ -673,7 +673,7 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
 `LegacyStatementDispatchCount` 保持 **0**，`Declined` 保持 **42**，`FileFallback` **50 → 27**（−23，
 更好）。逐族修法与残余清单见 `HANDOFF-5d8a.md`。
 
-### 13.1 三类根因（5d-6 §5 的归因被证实并放大）
+### 14.1 三类根因（5d-6 §5 的归因被证实并放大）
 
 | 族 | 条数（139 里） | 根因 | 修法 |
 | --- | --- | --- | --- |
@@ -684,13 +684,13 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
 **「只增」的证据**：所有收口改动都是「既有判据给 `-1` 时才问新判据」，所以 6171 条 `ast-json-diff`
 仍是 **0/0/0**——不是「差一条补一条」，而是既有收口点一个字节都没动。
 
-### 13.2 一次实测到的坑（写进代码注释）
+### 14.2 一次实测到的坑（写进代码注释）
 
 `const enum` 的壳在 `BuildByIndex` 里判型时，`host.Data` 已经被 `splice` 搬空 → 判型恒 `false` →
 壳的终结候选退回默认族 → **每格一次 `ScanRoot`**（`root-retirement` 的「默认态 0 次」当场变 8）。
 修法是把判型提到搬单元之前。这条教训同样适用于任何「建壳时按 `host.Data` 判后续行为」的候选。
 
-### 13.3 残余 6 条（逐条见 `HANDOFF-5d8a.md` §4）
+### 14.3 残余 6 条（逐条见 `HANDOFF-5d8a.md` §4）
 
 `prefix-operand-newline.ts`（前缀运算符 ASI）、`stmt-asi-return-newline-object.ts`（`return` ⏎ `{ a: 1 }`
 的块内标签）、`stmt-r1235-bare-block-tail.ts`（裸块后那一截）、`type-combination-adversarial.ts`
@@ -698,7 +698,7 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
 （`namespace N { { let x = 1; } }` 的模块体目录）。都是**单条用例**，且都落在「模块体 / 装饰器成员 /
 标点级 ASI」这些**本轮没动的层**，不是判界问题。
 
-### 13.4 全门读数（默认态，最终树）
+### 14.4 全门读数（默认态，最终树）
 
 `ast-json 6171/6171`、`ast-json-diff 0/0/0`、`token-ast 1706/0`、`real-dts 226/226`、
 `harness --all 102/0/known=0`、`--double-accept 120/0`、`declaration-statement-takeover 33/33`、
@@ -712,3 +712,38 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
 （本轮实测：stash 本轮改动、重建、复跑，仍是 55/56），不是本轮引入的。
 
 
+## 14. Stage 5d-8c 文件级 fallback 根因逐类修复（实测，2026-10-25，HEAD=`029aeeac` 之上）
+
+**结论**：`FileFallbackCount` **50 → 13**（−37，−74%）。随之下调：`ScanRootCallCount` 388 → **96**
+（默认态仍为 0，96 全部在 fallback 的 legacy 重解析里）、`RawTailBuildCount` 139 → 134、
+`ShapeAstDeclinedCount` 42 → 41；`LegacyStatementDispatchCount` 0 → 0。全门零回归。
+详见 `HANDOFF-5d8c.md`。
+
+### 14.1 修掉的 9 类（37 条）
+
+| 类 | 条数 | 判据 / 分派点 |
+| --- | --- | --- |
+| 声明体括号闭合后不收口（同行连排声明 / 尾随 `;` / 正则开头） | 18 | `StatementBoundaryUtil.IsClosedDeclarationBody` + `StatementEndCode` 的新分支 |
+| 类型别名换行后的 `[` / `<` / `(` 不断句 | 6 | `StatementBoundaryUtil.IsTypeAliasLineBreakCut` |
+| 类型别名换行后的 `;` 被当成下一条语句 | 1 | `TypeAliasDeclarationPossibleShape.IsAsiBoundary` 排除 `;` |
+| `declare` 与后继换行（TS 的修饰词解析要求同一行） | 1 | `StatementRouteUtil.DecideDeclaration` 返回 `None` |
+| import attributes 的 `with` 写在模块说明符下一行 | 1 | `IsDeclarationFollowBoundary` 的模块说明符判据 |
+| `declare import` / `export import … from`（带修饰词的 ImportDeclaration） | 3 | `BuildDeclaredImportStatement` + `BuildExportStatement` 按 `=` 分档 |
+| 无体 ambient module（EOF） | 3 | `ModuleDeclarationShape.FromUnits` + `BuildModuleDeclaration` |
+| `unique symbol` / `asserts x is T` 跨行 | 3 | `CanEndDeclarationTail` 的类型位 / `asserts` 判据 |
+| `export default function ()` 的匿名恢复形 | 1 | `FunctionDeclarationShape.FromUnits` 的两条下界 |
+
+### 14.2 剩余 13 条（4 类，机制已定位，未修）
+
+块内**晚建声明壳**搬走已打开的 `{…}` 括号（5，`SourceRange is not set`）、函数 / 构造签名的
+**返回类型字面量**（4，`=>` 后的 `{` 先被当成块语句建掉）、`type` + CR/LS/PS 的**双 Accept**（3）、
+前缀 `--` 换行接操作数（1）。四类的入口方法与「为什么本阶段不做」逐条写在 `HANDOFF-5d8c.md` §4；
+共同特征是修法都在「改一处、波及全身」的判据上（晚建时序 / 类型位与块的分岔 / 根终结候选的收口 /
+前缀运算符的壳收口），需要单独一轮全门 + 反事实。
+
+### 14.3 新增探针
+
+`tests/statement-possible/file-fallback-attribution.mjs`：两段归因（A 段量哪些用例 fallback、
+B 段关掉兜底让异常抛出来取**最内层** message），带一张 4 类 13 条的**归因台账**；
+判决口径是「观测集合是台账的子集 + 没有新类别 + 没有 crash」。它量的是**原因**而不是总数：
+后续阶段改判界 / 建造器时，fallback 的原因一变就会被看见。
