@@ -2,6 +2,7 @@
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ShapeInsertUtil } from "../shape-insert-util.xl.md"
@@ -221,6 +222,44 @@ AST 侧 `ParseFunctionExpression` 从关键字起整段建。只在**操作数�
 「`class < T > {object}`」错树路径不再成立（它们不再作为二元运算符 / 对象字面量进入形状树）。
 AST 侧 `ParseClassExpression` 从关键字起整段建。
 
+## static field KindTaggedTemplate:int = 27
+
+标签模板（Stage 5d-7）：`Data = [标签（被标宿主）]`、`Raw` 是那个模板 `String` 单元。
+**模板本身不进形状树**（它是 `String`，内容在内插段里），AST 侧由 legacy `ParseTemplateToken` 建——
+与 `KindTemplate`（普通模板操作数）同一工厂，与 `ExpressionBuilder.ParsePostfixSuffix` 的模板分支同一个调用。
+宿主可以是**任何**已建好的表达式：``tag`t` `` / ``a!`t` `` / ``[a,b]`t` `` / ``new C()`t` `` / ``a?.b()`t` ``
+——因为本节点走 `InsertionPoint` 把「当前表达式」原地变成它的第一个子节点，与成员 / 调用 / 非空断言同一条插入路径。
+
+## static field KindTypeAssert:int = 28
+
+类型断言（Stage 5d-7）：`Data = [被断言表达式]`、`Raw` 是那个 `as` / `satisfies` 单元、`Text` 是同一个文本。
+**类型不进形状树**（形状层没有类型节点）：`BuildNode` 把左边那棵子树建好之后，从 `as` 之后整段交给 legacy
+`ExpressionBuilder.ParseFollowingType`，外层节点用 `AsExpressionShape` / `SatisfiesExpressionShape`——
+与 `ExpressionBuilder.ParseBinary` 的 `IsTypeOperator` 分支同一批工厂、同一段区间口径。
+
+## static field KindNewTarget:int = 29
+
+`new.target`（Stage 5d-7）：`Data = [名字（`target`）]`、`Raw` 是 `new` 单元、`Args` 是那个 `.` 单元。
+AST 侧（`StatementShapeAst`）把整格交给 legacy `ExpressionBuilder.ParseNew()`——它对 `new . target`
+本来就有专门分支（`MetaPropertyShape` + 只投影名字），所以节点与 legacy 逐字段同源。
+
+## static field KindTypeArguments:int = 30
+
+类型实参尾巴（Stage 5d-7）：`Data = [左表达式]`、`Raw` 是那个 `<` 单元。
+`<` 是小于号还是类型实参表，只有看到整条语句的全部单元才判得了（`AngleJudge.CanStart`），
+所以本体在 `IngestAll` 收尾处判成「类型实参」时**重放前缀**（`ResetState` + 逐格 `Ingest` 到 `<` 之前），
+把前缀表达式包成这一格、停在 `Closed`。AST 侧把 `<` 之后整段交给 legacy
+`ExpressionBuilder.ParsePostfixSuffix`（类型实参调用 / 实例化表达式 / `?.<T>(…)` 的唯一实现），
+并要求它恰好吃到最后一个单元——判否就整条回 legacy，绝不建半截树。
+
+## static field KindPrivateName:int = 31
+
+私有名（Stage 5d-7）：`Data = [名字]`、`Raw` 是那个 `#` 符号单元。
+token 层把 `#x` 拆成 `Symbol "#"` + `Common "x"` 两格，AST 侧由 `PrivateIdentifierShape` 合成
+（`SignInToken(#)` + `SignOutToken(x)` + `Pos = Positions[#]`，与 `ExpressionBuilder.ParsePostfixSuffix`
+的私有成员分支、`ParsePrimary` 的私有名字分支逐字段同口径）。
+成员位（`this.#x` / `obj.#x`）与操作数位（`#x in obj`）共用这一格。
+
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -292,6 +331,18 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 **正在等 `?.` 之后那个单元**的节点（S3g）：读到 `?.` 时建出来、插好位置，转 `ExpectOptional`。
 名字 / 调用 / 索引到达后立刻清空。
 
+## field AwaitMeta:bool = false
+
+**正在等 `new.target` 的 `target`**（Stage 5d-7）：`new` 之后紧跟 `.` 时，那个 `KindNew` 前缀节点被改写成
+`KindNewTarget` 并挂成 `AwaitName`；`true` 表示名字到达后要把它当作**操作数**挂进当前帧
+（它不是 `new` 的被构造者，没有「构造」这一步）。
+
+## field AwaitPrivate:Token | null = null
+
+**正在等私有名（`#x`）那个名字**的节点（Stage 5d-7）：`#` 是独立的一格（`Symbol`），名字是下一格 `Common`，
+两格合成一个 `PrivateIdentifier`。本字段非空就表示「还差名字」：
+成员位（`this.#x`）由 `IngestName` 接名字，操作数位（`#x in obj`）由 `ExpectPrivateName` 接名字。
+
 ## field Prefixes:Array<Token> = []
 
 已经读到、但操作数还没到的前缀节点（`-a` 的 `-`）。操作数到达时按后进先出包上去，再挂进当前帧。
@@ -306,6 +357,14 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 
 **箭头体已经吞掉的单元数**（S3l）：`ExpectArrowTail` 下 `IsComplete()` 的唯一判据——箭头体可以是一个表达式
 （多个单元）也可以是一个块（一个 `{…}` 括号单元），只要体里至少来了一格，箭头就完整了。
+
+## field TypeTailUnits:int = 0
+
+**类型断言之后吞掉的单元数**（Stage 5d-7）：`ExpectTypeTail` 下 `IsComplete()` 的唯一判据。
+`as` / `satisfies` 右边是**类型**不是表达式，形状层不解析类型（那是 `TypeBuilder` 的事），所以这里只负责
+「把 `as` 之后的单元全部吞掉、停在完整」；真正的类型区间由收口器从 `as` 之后交给 legacy
+`ExpressionBuilder.ParseFollowingType`，并要求它**恰好**吃到最后一个单元（否则拒绝接管、回 legacy）。
+判错的代价不对称：吞多了收口器会因「没覆盖整段」而拒绝（少接管一条，legacy 仍对）；不会建错树。
 
 ## field Conditionals:Array<Token> = []
 
@@ -395,6 +454,18 @@ basic token 就把新单元喂进来一格，本类**立刻**建对应的节点�
 `=>` 之后的状态（S3l）：箭头体整段吞掉（表达式体 / 块体都由 legacy 解析）。
 箭头体是**赋值表达式**，优先级比任何二元运算符都低，所以 `=>` 一到，后面的单元全部属于这条箭头。
 
+## static field ExpectTypeTail:int = 7
+
+`as` / `satisfies` 之后的状态（Stage 5d-7）：右边是类型，形状层不解释，把剩下的单元全部吞掉
+（`TypeTailUnits` 计数）。它不能复用 `ExpectOperand`：类型里的 `{}` / `[]` / `<` `>` 都会被当成表达式构造，
+建出错树（`a as { x: 1 }` 的对象字面量、`a as T[]` 的数组字面量、`a as A<B>` 的比较链）。
+
+## static field ExpectPrivateName:int = 8
+
+`#` 之后的状态（Stage 5d-7）：要的是私有名的**名字**（`Common`），不是操作数、也不是成员名。
+两格合成 `KindPrivateName` 之后才回到 `ExpectOperator`——操作数位（`#x in obj`）走这里；
+成员位（`this.#x`）仍停在 `ExpectName`，由 `IngestName` 接名字。
+
 ## static field CondPrecedence:int = 1
 
 条件表达式的帧优先级（S3h）：比一切二元运算符（最低 `??` = 4）低、比赋值
@@ -479,6 +550,20 @@ while (this.Ingested < units.length && !this.Incomplete && !this.Closed) {
   }
   this.Ingest(units[at], template);
 }
+// 根层壳是**逐格**喂单元的：读到 `<` / `?.` 的那一格后面还没有单元，判据（要看配对 `>` 与 follower）
+// 这时根本不成立。所以根层壳的类型实参尾巴一律推迟到 `Finish`（收口时 `Units` 是整条语句的全部单元）；
+// 这里只处理**嵌套体**（圆括号 / 索引内部）：它们的 `Units` 就是括号 `Data`，一次给全。
+if (this.SawLessThan && !this.Closed && this.Nested
+  && (this.Incomplete || StatementOperatorBody.HasTypeArgumentCall(this.Units))) {
+  // Stage 5d-7：`<` 既可能是小于号，也可能是**类型实参表的开头**。判成类型实参时重放前缀
+  // （`ResetState` + 逐格 `Ingest` 到 `<` 之前）、把整段左表达式包成一格 `KindTypeArguments`，
+  // 之后本体停在 `Closed`；AST 由收口器把 `<` 之后交给 legacy `ExpressionBuilder.ParsePostfixSuffix`
+  // （那是类型实参调用 / 实例化表达式的唯一实现）。判否就保持原样（`Fail("类型实参调用")` 仍在，
+  // 保守方向不变：少接管一条，legacy 仍对）。
+  if (this.TryTypeArgumentTail(template)) {
+    return;
+  }
+}
 if (this.SawLessThan && !this.Incomplete && !this.Closed && StatementOperatorBody.HasTypeArgumentCall(this.Units)) {
   this.Fail("类型实参调用");
 }
@@ -498,6 +583,13 @@ if (this.Nested) {
 改成收口时求一次，`ShapeTexts` 的最终槽位内容与顺序完全不变（每体一个槽位、按语句建树顺序占位）。
 
 ```ts
+// Stage 5d-7：根层壳的类型实参尾巴在这里才判——`Units` 现在是整条语句的全部单元，
+// `AngleJudge.CanStart` 的配对扫描与 follower 白名单才有意义（见 `TryTypeArgumentTail`）。
+// 条件里**不**要求 `HasTypeArgumentCall`：实例化表达式（`f<string>` / `f<string, number>`）后面
+// 没有调用括号，`HasTypeArgumentCall` 判否，只有 `AngleJudge.CanStart` 认得出它。
+if (!this.Closed && this.SawLessThan) {
+  this.TryTypeArgumentTail(this.Template);
+}
 if (this.Nested || this.Incomplete || !this.IsComplete()) {
   return;
 }
@@ -520,6 +612,11 @@ if (this.Incomplete) {
 if (this.Expect === StatementOperatorBody.ExpectArrowTail) {
   // S3l：箭头体全部吞掉，`Expect` 永远回不到 `ExpectOperator`；体里至少有一格就算完整。
   return this.ArrowBodyUnits > 0;
+}
+if (this.Expect === StatementOperatorBody.ExpectTypeTail) {
+  // Stage 5d-7：`as` / `satisfies` 的类型区域已经吞到末尾；类型区间本身的正确性由收口器核
+  // （`StatementShapeAst` 必须让 `ParseFollowingType` 恰好吃完剩余单元，否则拒绝接管）。
+  return this.TypeTailUnits > 0;
 }
 if (this.Expect !== StatementOperatorBody.ExpectOperator) {
   return false;
@@ -583,6 +680,28 @@ if (this.Expect === StatementOperatorBody.ExpectArrowTail) {
   this.ArrowBodyUnits++;
   return;
 }
+if (this.Expect === StatementOperatorBody.ExpectTypeTail) {
+  // Stage 5d-7：`as` / `satisfies` 之后的类型区域整段吞掉（不建节点、不看成表达式构造）。
+  this.TypeTailUnits++;
+  return;
+}
+if (this.Expect === StatementOperatorBody.ExpectPrivateName) {
+  // Stage 5d-7：`#x` 的第二格（名字）。两格合成 `KindPrivateName` 之后才是操作数。
+  const pending = this.AwaitPrivate;
+  if (pending === null || !(unit instanceof Common)) {
+    this.Fail("私有名不是标识符");
+    return;
+  }
+  const leaf = new StatementOperandShape(template);
+  leaf.Kind = StatementOperandShape.KindIdentifier;
+  leaf.Text = text;
+  leaf.Raw = unit;
+  pending.Add(leaf);
+  this.AwaitPrivate = null;
+  this.AttachOperand(pending);
+  this.Expect = StatementOperatorBody.ExpectOperator;
+  return;
+}
 
 if (this.Expect === StatementOperatorBody.ExpectOperand) {
   if (text === "class") {
@@ -597,12 +716,25 @@ if (this.Expect === StatementOperatorBody.ExpectOperand) {
     this.StartNew(unit, template);
     return;
   }
+  if (text === "." && this.StartNewTarget(unit, template)) {
+    // `new.target`（Stage 5d-7）：`new` 之后紧跟 `.` 且 `new` 还没有被构造者 —— 这一格是 MetaProperty。
+    return;
+  }
 if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
     const prefix = new StatementOperandShape(template);
     prefix.Kind = StatementOperandShape.KindPrefix;
     prefix.Text = text;
     prefix.Raw = unit;
     this.Prefixes.push(prefix);
+    return;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("#")) {
+    // Stage 5d-7：操作数位的私有名（`#x in obj`）：`#` 一格、名字下一格，合成 `KindPrivateName`。
+    const privateShape = new StatementOperandShape(template);
+    privateShape.Kind = StatementOperandShape.KindPrivateName;
+    privateShape.Raw = unit;
+    this.AwaitPrivate = privateShape;
+    this.Expect = StatementOperatorBody.ExpectPrivateName;
     return;
   }
   const leaf = this.BuildOperand(unit, template);
@@ -632,6 +764,13 @@ if (text !== "" && StatementOperatorBody.IsPrefixText(text, unit)) {
   }
   if (this.HasLooseParen()) {
     this.Fail("圆括号参数表后面不是 =>");
+    return;
+  }
+  if (text !== "" && OperatorTable.IsAsOperator(text)) {
+    // Stage 5d-7：`as` / `satisfies` 是**类型运算符**（优先级与集合都由 `OperatorTable` 提供，
+    // 与 `ExpressionBuilder.IsTypeOperator` 同一判据）：右边是类型，形状层不建它，
+    // 只把「当前表达式」包成一格 `KindTypeAssert`，随后进入 `ExpectTypeTail` 把类型区域吞掉。
+    this.StartTypeAssert(unit, text, template);
     return;
   }
   if (text !== "" && OperatorTable.IsAssignmentOperator(text)) {
@@ -694,6 +833,14 @@ if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
 }
 if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[") {
   this.StartIndex(unit as Bracket, template);
+  return;
+}
+if (unit instanceof String && StatementOperatorBody.IsTemplateUnit(unit as String, template)) {
+  // Stage 5d-7：操作数位置之后的模板串是**标签模板**（`tag`t``）——不是普通模板操作数
+  // （那个只在 ExpectOperand 里由 `BuildOperand` 建 `KindTemplate`）。宿主就是当前表达式：
+  // StartTaggedTemplate 走 InsertionPoint 原地插节点，所以 `a!` / `[a,b]` / `new C()` / `a?.b()` 这些
+  // 「非常规被标宿主」不需要各自判据——它们已经作为形状节点在树上了。
+  this.StartTaggedTemplate(unit, template);
   return;
 }
 if (unit instanceof Common && StatementOperatorBody.IsOperandText(text)) {
@@ -807,6 +954,16 @@ if (unit instanceof Common) {
     shape.Raw = unit;
     return shape;
   }
+  if (text === "super") {
+    // Stage 5d-7：`super` 也是关键字叶子（`super()` / `super.m()` / `super[k]` 由随后的普通后缀接上）。
+    // legacy `ExpressionBuilder.ParsePrimary` 的 super 分支用 `SuperKeywordShape` + `MakeKeywordLeaf`，
+    // 收口器（`StatementShapeAst` 的 `KindKeyword` 分支）用同一个工厂，所以节点逐字段同源。
+    const shape = new StatementOperandShape(template);
+    shape.Kind = StatementOperandShape.KindKeyword;
+    shape.Text = text;
+    shape.Raw = unit;
+    return shape;
+  }
   if (!StatementOperatorBody.IsOperandText(text)) {
     return null;
   }
@@ -899,12 +1056,46 @@ if (awaitName === null) {
   this.Fail("没有等待成员名的节点");
   return;
 }
+const pendingPrivate = this.AwaitPrivate;
+if (pendingPrivate !== null) {
+  // Stage 5d-7：`#` 之后的那个名字。两格合成 `KindPrivateName` 挂进成员节点。
+  if (!(unit instanceof Common)) {
+    this.Fail("私有名不是标识符");
+    return;
+  }
+  const privateCommon = unit as Common;
+  if (privateCommon.IsNumber() || privateCommon.IsBigInt()) {
+    this.Fail("私有名不是标识符");
+    return;
+  }
+  const leaf = new StatementOperandShape(template);
+  leaf.Kind = StatementOperandShape.KindIdentifier;
+  leaf.Text = text;
+  leaf.Raw = unit;
+  pendingPrivate.Add(leaf);
+  this.AwaitPrivate = null;
+  awaitName.Add(pendingPrivate);
+  this.AwaitName = null;
+  this.Expect = StatementOperatorBody.ExpectOperator;
+  return;
+}
+if (unit instanceof Symbol && (unit as Symbol).Is("#")) {
+  // Stage 5d-7：`this.#x` / `obj.#x` 的 `#`：建一个待名字的私有名节点，名字下一格到。
+  const privateShape = new StatementOperandShape(template);
+  privateShape.Kind = StatementOperandShape.KindPrivateName;
+  privateShape.Raw = unit;
+  this.AwaitPrivate = privateShape;
+  return;
+}
 if (!(unit instanceof Common)) {
   this.Fail("成员名不是标识符");
   return;
 }
 const common = unit as Common;
-if (!StatementOperatorBody.IsOperandText(text) || common.IsNumber() || common.IsBigInt()) {
+if (common.IsNumber() || common.IsBigInt()) {
+  // Stage 5d-7：成员名只排除**数字字面量**（`a.1` 不是成员访问）。`as` / `satisfies` / `true` / `null`
+  // 这些关键字在 TS 里是合法的属性名（`obj.as` / `obj.true`），legacy `ParseName` 也照收，
+  // 所以这里不再用 `IsOperandText`（那是「能不能当表达式操作数」的判据，不是「能不能当名字」的判据）。
   this.Fail("成员名 " + text);
   return;
 }
@@ -914,6 +1105,13 @@ name.Text = text;
 name.Raw = unit;
 awaitName.Add(name);
 this.AwaitName = null;
+if (this.AwaitMeta) {
+  // Stage 5d-7：`new.target` 的名字到了——这一格是**操作数**（MetaProperty），不是 `new` 的被构造者。
+  this.AwaitMeta = false;
+  this.AttachOperand(awaitName);
+  this.Expect = StatementOperatorBody.ExpectOperator;
+  return;
+}
 this.Expect = StatementOperatorBody.ExpectOperator;
 ```
 
@@ -1168,8 +1366,41 @@ shape.Raw = unit;
 this.Prefixes.push(shape);
 ```
 
-## method AcceptNewArgs:(bracket:Bracket)=>bool
+## method StartNewTarget:(unit:Token, template:Template)=>bool
 
+`new.target`（Stage 5d-7）：`new` 之后紧跟 `.`、而 `new` 还没等到被构造者时，这一格不是成员访问
+（legacy `ParseNew` 在 `new` 之后专门判 `. target`），而是 `MetaProperty`。
+
+**为什么在这里判而不是在收口器里判**：`new .` 那一格到达时本体还停在 `ExpectOperand`，
+按普通规则会 `BuildOperand(".")` → `Fail`（`new.target` 于是永远回 legacy）。所以这一格必须由状态机接住：
+把 `new` 前缀节点改写成 `KindNewTarget`（不再是前缀，去掉 `Prefixes` 里的那一格），
+转 `ExpectName` 等 `target`，`AwaitMeta` 告诉 `IngestName` 名字到达后把它当**操作数**挂进当前帧。
+
+条件不成立（`new` 已经有被构造者，或 `new` 不是栈顶前缀）时返回 `false`，让普通成员访问路径照旧处理——
+判据只认「栈顶前缀正是还没挂操作数的 `KindNew`」这一种形态。
+
+```ts
+if (this.Prefixes.length === 0) {
+  return false;
+}
+const top = this.Prefixes[this.Prefixes.length - 1];
+if (!(top instanceof StatementOperandShape)) {
+  return false;
+}
+const shape = top as StatementOperandShape;
+if (shape.Kind !== StatementOperandShape.KindNew || shape.Data.length !== 0) {
+  return false;
+}
+this.Prefixes.pop();
+shape.Kind = StatementOperandShape.KindNewTarget;
+shape.Args = unit;
+this.AwaitName = shape;
+this.AwaitMeta = true;
+this.Expect = StatementOperatorBody.ExpectName;
+return true;
+```
+
+## method AcceptNewArgs:(bracket:Bracket)=>bool
 `new X(...)` 的实参括号（S3g）：当前表达式最外层若是还开着的 `KindNew`，这一对圆括号属于它，
 不是对构造结果的调用。记下括号、关掉后缀链并返回 `true`；否则返回 `false` 交给 `StartCall`。
 
@@ -1297,6 +1528,136 @@ this.Incomplete = true;
 this.Reason = reason;
 ```
 
+## method ResetState:()=>void
+
+把状态机还原到「刚建出来」的样子（Stage 5d-7 的类型实参尾巴重放用）：`Root` / 帧栈 / 前缀栈 /
+条件栈 / 各种「等什么」的标记 / `Ingested` / `Closed` / `Incomplete` / `Inserts` 全部清空。
+
+**只清「摄入过程写过的」字段**：`Units` / `Template` / `Nested` / `Counted` / `Slot` 不动——
+`Slot` 是本体在 `ShapeTexts` 里的槽位，重放后发布的是同一个槽位（原来的半棵树因此被覆盖，不是新占一格）。
+
+```ts
+this.Root = null;
+this.Frames = [];
+this.FramePrecs = [];
+this.FramePending = [];
+this.AwaitName = null;
+this.AwaitOptional = null;
+this.AwaitBody = null;
+this.AwaitMeta = false;
+this.Prefixes = [];
+this.ArrowBodyUnits = 0;
+this.TypeTailUnits = 0;
+this.Conditionals = [];
+this.Expect = StatementOperatorBody.ExpectOperand;
+this.Ingested = 0;
+this.Closed = false;
+this.Incomplete = false;
+this.Reason = "";
+this.Inserts = 0;
+this.SawLessThan = false;
+```
+
+## method ReplayUntil:(limit:int, template:Template)=>bool
+
+重放 `Units[0..limit-1]`（不含 trivia 的单元照普通规则喂）：返回「重放完正好停在操作符位置」。
+中途再失败 / 判成语句边界（`Closed`）就返回 `false`——调用方据此放弃接管（保持 `Incomplete`）。
+
+只从 `Ingested` 往后走，`IngestAll` 那套「逐格 + 停条件」在这里显式写一遍，因为它有**上界**。
+
+```ts
+while (this.Ingested < limit && !this.Incomplete && !this.Closed) {
+  const at = this.Ingested;
+  this.Ingested = at + 1;
+  if (this.Units[at].IsTriviaToken) {
+    continue;
+  }
+  this.Ingest(this.Units[at], template);
+}
+if (this.Incomplete || this.Closed) {
+  return false;
+}
+return this.Expect === StatementOperatorBody.ExpectOperator;
+```
+
+## method TryTypeArgumentTail:(template:Template)=>bool
+
+把「`<` 是类型实参表开头」这一种解释落到本体上（Stage 5d-7）：找第一个判成类型实参的 `<`，
+重放它**之前**的单元，再把整段前缀表达式包成 `KindTypeArguments`，停在 `Closed`（后面的单元交给收口器）。
+
+**为什么不逐格判**：`AmbiguousTypeArguments` / `AngleJudge.CanStart` 都要看 `<` 的配对 `>` 与它之后的
+follower，而壳是逐格喂单元的——读到 `<` 那一格后面还没有单元。所以判据放在 `IngestAll` 收尾、
+`Units` 已经是全部单元之后；这也意味着此时前缀可能已经被 `<` / `?.` 弄脏，只能**重放**。
+
+**排除 `new X<T>()`**：那里的类型实参属于 `NewExpression`（legacy 在 `ParseNew` 里建），
+`ParsePostfixSuffix` 会把它建成一个对 `new` 结果的调用，树不同形。所以前缀若是还开着的 `KindNew`，这里判否。
+
+**计数口径**：重放前本体可能已经 `Fail` 过（`TotalIncomplete` 已 +1）；重放成功就是「那一次失败被撤销」，
+这里把计数减回去，保持 `TotalIncomplete` = 「最终仍未接住的体数」。
+
+```ts
+const units = this.Units;
+let ltIndex = -1;
+for (let index = 0; index < units.length; index++) {
+  const unit = units[index];
+  if (!(unit instanceof Symbol) || !(unit as Symbol).Is("<")) {
+    continue;
+  }
+  if (AngleJudge.CanStart(units, index)) {
+    ltIndex = index;
+    break;
+  }
+}
+if (ltIndex <= 0) {
+  return false;
+}
+// `a?.<T>(b)`：`<` 紧跟在 `?.` 之后。那时 `<` 属于**可选调用**的类型实参段（legacy 在
+// `ParsePostfixSuffix` 的 `?.` 分支里建），不是 `<` 这一格自己开的——所以尾巴要从 `?.` 那一格起，
+// 前缀重放到 `?.` 之前（重放后 `Expect` 才会是 `ExpectOperator`）。
+let tailIndex = ltIndex;
+for (let index = ltIndex - 1; index >= 0; index--) {
+  const unit = units[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("?.")) {
+    tailIndex = index;
+  }
+  break;
+}
+const wasIncomplete = this.Incomplete;
+this.ResetState();
+if (!this.ReplayUntil(tailIndex, template)) {
+  // 重放不了：把「已经失败过」这件事恢复回去（调用方会再 Fail 一次或保持原状）。
+  if (!wasIncomplete) {
+    this.Incomplete = false;
+  }
+  return false;
+}
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  return false;
+}
+const child = point[1];
+if (child instanceof StatementOperandShape) {
+  const shape = child as StatementOperandShape;
+  if (shape.Kind === StatementOperandShape.KindNew && shape.Open && shape.Args === null) {
+    return false;
+  }
+}
+const np = new StatementOperandShape(template);
+np.Kind = StatementOperandShape.KindTypeArguments;
+np.Raw = units[tailIndex];
+ShapeInsertUtil.InsertBetween(point[0], point[1], np);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Closed = true;
+if (wasIncomplete && StatementOperatorBody.TotalIncomplete > 0) {
+  StatementOperatorBody.TotalIncomplete--;
+}
+return true;
+```
+
 ## method Text:()=>string
 
 本体的结构文本（`+(*(1,2),3)` 这种前缀写法），只在 `Root` 有子单元时非空。
@@ -1330,6 +1691,22 @@ if (token instanceof StatementOperandShape) {
   if (shape.Kind === StatementOperandShape.KindNonNull) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
     return "nonnull(" + only + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindTaggedTemplate) {
+    const tag = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "tagged(" + tag + ",template)";
+  }
+  if (shape.Kind === StatementOperandShape.KindTypeAssert) {
+    const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return shape.Text + "(" + only + ",type)";
+  }
+  if (shape.Kind === StatementOperandShape.KindTypeArguments) {
+    const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "typeArgs(" + only + ")";
+  }
+  if (shape.Kind === StatementOperandShape.KindPrivateName) {
+    const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
+    return "private(" + only + ")";
   }
   if (shape.Kind === StatementOperandShape.KindPostfix) {
     const only = shape.Data.length > 0 ? StatementOperatorBody.Render(shape.Data[0]) : "?";
@@ -1916,6 +2293,87 @@ if (point.length !== 2) {
 const shape = new StatementOperandShape(template);
 shape.Kind = StatementOperandShape.KindNonNull;
 shape.Text = "!";
+shape.Raw = unit;
+ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Expect = StatementOperatorBody.ExpectOperator;
+```
+
+## method StartTypeAssert:(unit:Token, text:string, template:Template)=>void
+
+类型断言 `as` / `satisfies`（Stage 5d-7）：**按二元运算符的插入路径**建一格 `KindTypeAssert`
+（优先级取 `OperatorTable.AsPrecedence`，与 `ExpressionBuilder.ParseBinary` 的 `IsTypeOperator` 分支同一数值），
+随后转 `ExpectTypeTail`——`as` 右边的**类型**整段吞掉。
+
+**为什么不能复用 `StartNonNull` 的「包住最后一个操作数」**：`as` 是关系级运算符，不是后缀。
+`a + b as T` 在 TS 里是 `(a + b) as T`（`+` 优先级更高、先收敛），包住 `b` 会建出 `a + (b as T)`——
+`ast-json-diff` 的 `expression` 夹具 #293 立刻报位置差（`AsExpression[0,10]` vs `[3,10]`）。
+所以这里先按优先级弹栈（与 `PushOperator` 同一个 while），再把整段左表达式插进新节点。
+
+**为什么插入后立刻把帧标成完整**：右边不是操作数而是类型，`AttachOperand` 永远不会来把它清成 complete；
+类型区域由 `ExpectTypeTail` 吞掉、由收口器交给 legacy 解析。链式断言（`a as T as U`）整段在收口器里逐层包，
+不回到本状态机（后面所有单元都已经属于类型区域）。
+
+```ts
+const precedence = OperatorTable.AsPrecedence;
+while (this.Frames.length > 0 && !this.FramePending[this.Frames.length - 1]
+  && this.FramePrecs[this.FramePrecs.length - 1] !== StatementOperatorBody.CondPrecedence
+  && this.FramePrecs[this.FramePrecs.length - 1] > precedence) {
+  this.CompleteTop();
+}
+if (this.Frames.length > 0 && this.FramePending[this.FramePending.length - 1]) {
+  this.Fail("类型断言缺少左操作数");
+  return;
+}
+const parent = this.Top();
+if (parent.Data.length === 0) {
+  this.Fail("类型断言缺少左操作数");
+  return;
+}
+const child = parent.Data[parent.Data.length - 1];
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindTypeAssert;
+shape.Text = text;
+shape.Raw = unit;
+ShapeInsertUtil.InsertBetween(parent, child, shape);
+this.Inserts++;
+StatementOperatorBody.TotalInserts++;
+this.Frames.push(shape);
+this.FramePrecs.push(precedence);
+// 右边是类型，不会走 `AttachOperand`：这一帧直接标完整（`IsComplete` 的帧判据因此成立）。
+this.FramePending.push(false);
+this.Expect = StatementOperatorBody.ExpectTypeTail;
+```
+
+## method StartTaggedTemplate:(unit:Token, template:Template)=>void
+
+标签模板的后缀（Stage 5d-7）：模板串单元读到**操作数之后**，当前表达式原地成为 `KindTaggedTemplate` 的标签。
+
+**与成员 / 调用 / 非空断言同一条插入路径**（`InsertionPoint` + `ShapeInsertUtil.InsertBetween`）：
+所以「标签」不必是标识符——`a!`（非空断言节点）、`[a,b]`（数组字面量）、`new C()`（`new` 前缀节点）、
+`a?.b()`（可选链 + 调用）、`(a)`（括号节点）、`String.raw`（成员链）都由**各自已有的分支**先在树上建好，
+这里只是把刚建好的那个节点包一格。AST 侧（`StatementShapeAst` 的 `KindTaggedTemplate` 分支）再把这一格
+交给 legacy `ParseTemplateToken` 建模板、`TaggedTemplateExpressionShape` 建外层，children / `Pos` / 区间
+与 `ExpressionBuilder.ParsePostfixSuffix` 的模板分支逐字段同源。
+
+插完仍在 `ExpectOperator`：``tag`t`.b `` / ``tag`t`(1) `` / ``tag`t`! `` 的后续后缀由普通后缀分支接上。
+
+**类型实参 + 模板**（``a<T>`t` ``）不在这里判：那个 `<` 会被 `IngestAll` 收尾处的
+`AmbiguousTypeArguments` 判据（`>` 后面紧跟模板串即判类型实参）整条放弃，仍然安全退出。
+
+```ts
+const point = this.InsertionPoint();
+if (point.length !== 2) {
+  this.Fail("标签模板缺少标签");
+  return;
+}
+if (StatementOperatorBody.IsBareImport(point[1])) {
+  this.Fail("import 开头的标签模板");
+  return;
+}
+const shape = new StatementOperandShape(template);
+shape.Kind = StatementOperandShape.KindTaggedTemplate;
 shape.Raw = unit;
 ShapeInsertUtil.InsertBetween(point[0], point[1], shape);
 this.Inserts++;

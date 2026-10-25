@@ -628,3 +628,41 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
   `EnableYieldStatement=false` 与默认态 XML 逐字节相同，已实测确认与判界迁移无关。
 - `tests/statement-possible/raw-tail-attribution.mjs`：按「首单元」归族列出 `RawTailBuildCount` 的每一条
   （带源码片段），总数必须与官方指标**同源相等**，否则退出码 1。
+
+---
+
+## 12. Stage 5d-7 表达式形状层覆盖收尾（实测，2026-10-25，HEAD=`09ce8d8e` 之上）
+
+**结论**：`ShapeAstDeclinedCount` **328 → 42**（−286，−87.2%），其余四项指标不动
+（`LegacyStatementDispatch` 0 / `ScanRoot` 18124 / `RawTail` 215 / `FileFallback` 50），全门零回归。
+详见 `HANDOFF-5d7.md`。
+
+### 12.1 口径订正（9.4 的归类需要修正）
+
+9.4 是按**文件**聚类的猜测（标签模板 ~80、类型实参 ~38、`super`/`new.target` ~6）。5d-7 用探针按
+`StatementShapeAst.LastDeclineReason` 逐条归因之后，事实是：**328 条里 123 条是「表达式体不完整（单元）」**——
+即**标签模板的模板串单元在操作数位置之后到来时，状态机把它当成了「认不出的单元」**（不是 9.4 说的
+「被标宿主判据太窄」：被标宿主根本不是单独判据，而是 `InsertionPoint` 的通用插入路径）。
+其余：类型实参调用 41、`as` 39、`satisfies` 12、`super` 16、`new.target` 15、`?.` 24、
+私有名 19、箭头参数表 ~30、`yield`/`await` ~8、零散 ~20。
+
+### 12.2 本轮补的四类（全部在 `statement-operator-body` + `statement-shape-ast`）
+
+| 类 | 形状节点 | AST 侧怎么建 | 消掉的条数 |
+| --- | --- | --- | --- |
+| 标签模板 `tag`t``（任何宿主） | `KindTaggedTemplate`（`Data=[标签]`，`Raw`=模板单元） | `ParseTemplateToken` + `TaggedTemplateExpressionShape`，与 `ParsePostfixSuffix` 模板分支逐字段同源 | ~121 |
+| 类型断言 `as` / `satisfies` | `KindTypeAssert`（`Data=[左]`，按 `OperatorTable.AsPrecedence` 进二元帧） | `ParseFollowingType` + `As/SatisfiesExpressionShape`；必须恰好吃完剩余单元 | ~74 |
+| 类型实参（含实例化 / `?.<T>`） | `KindTypeArguments`（`Data=[左]`，`Raw`=`<` 或 `?.`） | `ParsePostfixSuffix`（类型实参调用 / 实例化表达式 / `?.<T>(…)` 的唯一实现） | ~100（含 `?.` 链） |
+| `super` / `new.target` / 私有名 | `KindKeyword`(super) / `KindNewTarget` / `KindPrivateName` | `SuperKeywordShape` / `ParseNew`（`new . target` 分支）/ `PrivateIdentifierShape` | ~50 |
+
+**判据口径不变**：`as`（`OperatorTable.IsAsOperator`）、`<`（`AngleJudge.CanStart`）、`super`/`new`
+（字面文本）都只读既有唯一判据，没有第二份。
+
+### 12.3 剩余 42（34 个用例）
+
+按用例 + 最终拒绝原因逐条列在 `HANDOFF-5d7.md` §5：实例化表达式后面接 `as`/`instanceof`/`&&`（14）、
+箭头参数表（带类型标注 / 默认值 / 展开 / 逗号，~10）、`yield`/`await` 操作数（6）、ASI 边界的前后缀混排（7）、
+`new` 的非常规形态（2）、零散（3）。**没有一条是「改语料 / 改口径」消掉的**；也没有一条把 legacy 的
+错树当接管（全门 `ast-json-diff 0/0/0` + `token-ast diff=0` + `FileFallback 50` 不变）。
+
+
