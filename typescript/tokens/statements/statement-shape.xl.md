@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
+import { StatementFamilyDispatch } from "./statement-family-dispatch.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementLegacyMetrics } from "./statement-legacy-metrics.xl.md"
@@ -160,8 +161,17 @@ if (built === null) {
   if (shell.Kind === StatementRoute.ShellPlainExpression && shell.OperatorBody !== null) {
     StatementLegacyMetrics.ShapeAstDeclinedCount++;
   }
-  StatementLegacyMetrics.LegacyStatementDispatchCount++;
-  built = builder.BuildStatement();
+  // Stage 5d-1b：**语句壳收口的建树所有权**已迁到 possible 层——`StatementFamilyDispatch` 按壳 `Kind`
+  // 与首代码单元直接调用 `StatementBuilder` 的 family 方法（`BuildBlock` / `BuildIf` / `BuildInterfaceDeclaration`
+  // …，与 legacy 分派是**同一批工厂方法**）。返回 `null` 只表示「这一条按族分派不接」（`declare const` 的
+  // ambient 变量语句等需要建造器内部状态的形态），此时才原样退回 `BuildStatement()`：同一个 `builder`、
+  // 同一段 `consumed`、同一个 `shell.Pos`，因此每条语句的 AST / Pos / End 与 5d-1a 逐位相同。
+  // `LegacyStatementDispatchCount` 只统计**真的**退回了 `BuildStatement()` 的次数（迁移成功的语句不再计数）。
+  built = StatementFamilyDispatch.Build(builder, shell.Kind);
+  if (built === null) {
+    StatementLegacyMetrics.LegacyStatementDispatchCount++;
+    built = builder.BuildStatement();
+  }
 }
 if (builder.At !== builder.Units.length) {
   throw new Error("语句没有读完");
