@@ -422,8 +422,18 @@ for (let index = state.At + 1; index <= tokenIndex; index++) {
       state.Stage = 23;
       continue;
     }
-    state.Stage = 3;
-    continue;
+    // `async` 后面**不是** `function`：`async` 是 default 表达式（`async () => {}` / `async x => x` /
+    // 裸 `async` 里的 `async` 属于表达式，箭头函数的 `AsyncKeyword` 由表达式层建），TS 建的是
+    // `ExportAssignment`。原来这里直接 `Stage = 3`（Reject）把整条候选让给
+    // `SourceFileEndPossibleShape` 的 EOF 分支——那里会把**下一条语句**并进这个表达式
+    // （`export default async () => {}` ⏎ `(b);` 被并成 `ExportAssignment(CallExpression[14,33))`）。
+    // 现在改判到 Stage 22（`export default <表达式>`）并让当前这一格**就地**按 Stage 22 的规则处理
+    // （`;` 收口 / 换行边界收口），所以不 `continue`，落到下面 Stage 22 那一段。
+    // 判据只能在**下一格到达时**看，不能在 `async` 那一格往后偷看：单元是流式产出的，
+    // `async` 到达时后面的单元还不存在（`NextCode` 会给出 `units.length`，把
+    // `export default async` ⏎ `function(){}` 误判成表达式）。同 Stage 29 / 33 的时序。
+    state.Stage = 22;
+    state.Kind = 6;
   }
   if (state.Stage === 33) {
     // after `export declare async`: must be `function`, then wait for the terminating `;`.
@@ -674,9 +684,27 @@ if (kind === 4) {
   if (exportUnit.SourceRange.End >= 0) {
     basePos = exportUnit.SourceRange.EndIndex;
   }
+  // `export let;`（带分号、**空**声明列表）：TS 是 `VariableStatement` + 空 `VariableDeclarationList`。
+  // `let` 是上下文关键字，交给 `BuildStatement` 会被它的双角色判据（要求 `StartsBinding`）判成
+  // 标识符表达式（`let;` 单独成句就是 ExpressionStatement），于是整条声明退化成
+  // `ExpressionStatement(ExportKeyword, Identifier)`。这里与 `StatementBuilder.BuildExportStatement`
+  // 的裸 `let` 分支读同一个判据：关键字之后**没有代码单元**（只有终结符 `;` 或什么都没有）时
+  // 直接建变量语句。`export let = 1;` 不算（`=` 是代码单元），仍走原路。
+  let bodyCode = 0;
+  for (let at = declIndex + 1; at < endExclusive; at++) {
+    if (host.Data[at].IsTriviaToken) {
+      continue;
+    }
+    if (at === tokenIndex && host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";")) {
+      continue;
+    }
+    bodyCode++;
+  }
+  const keywordText = host.Data[declIndex] instanceof Common ? (host.Data[declIndex] as Common).TempToString() : "";
+  const bareLet = keywordText === "let" && bodyCode === 0;
   const builder = new StatementBuilder(host.Template, context);
   builder.Load(consumed, basePos);
-  const statement = builder.BuildStatement();
+  const statement = bareLet ? builder.BuildVariableStatement() : builder.BuildStatement();
   if (builder.At !== builder.Units.length) {
     throw new Error("export 变量语句没有读完");
   }
@@ -713,9 +741,24 @@ if (kind === 12) {
   if (declareUnit.SourceRange.End >= 0) {
     basePos = declareUnit.SourceRange.EndIndex;
   }
+  // `export declare let;` 与 `export let;` 同形（空声明列表）：`let` 的双角色判据会把它判成
+  // 标识符表达式，所以关键字之后没有代码单元时同样直接建变量语句。
+  let bodyCode = 0;
+  for (let at = keywordIndex + 1; at < endExclusive; at++) {
+    if (host.Data[at].IsTriviaToken) {
+      continue;
+    }
+    if (at === tokenIndex && host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";")) {
+      continue;
+    }
+    bodyCode++;
+  }
+  const keywordText2 = host.Data[keywordIndex] instanceof Common
+    ? (host.Data[keywordIndex] as Common).TempToString() : "";
+  const bareLet2 = keywordText2 === "let" && bodyCode === 0;
   const builder = new StatementBuilder(host.Template, context);
   builder.Load(consumed, basePos);
-  const statement = builder.BuildStatement();
+  const statement = bareLet2 ? builder.BuildVariableStatement() : builder.BuildStatement();
   if (builder.At !== builder.Units.length) {
     throw new Error("export declare 变量语句没有读完");
   }
