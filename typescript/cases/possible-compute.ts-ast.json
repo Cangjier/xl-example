@@ -4433,7 +4433,7 @@
                   "text": "let"
                 },
                 {
-                  "kind": "FirstCompoundAssignment",
+                  "kind": "PlusEqualsToken",
                   "pos": 3,
                   "end": 6
                 },

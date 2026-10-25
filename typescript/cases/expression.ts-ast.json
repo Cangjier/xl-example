@@ -8453,7 +8453,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstCompoundAssignment",
+                  "kind": "PlusEqualsToken",
                   "pos": 1,
                   "end": 4
                 },
@@ -9130,7 +9130,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstCompoundAssignment",
+                  "kind": "PlusEqualsToken",
                   "pos": 1,
                   "end": 4
                 },
@@ -9146,7 +9146,7 @@
                       "text": "b"
                     },
                     {
-                      "kind": "FirstCompoundAssignment",
+                      "kind": "PlusEqualsToken",
                       "pos": 6,
                       "end": 9
                     },
@@ -18048,7 +18048,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstCompoundAssignment",
+                  "kind": "PlusEqualsToken",
                   "pos": 1,
                   "end": 4
                 },
@@ -18138,7 +18138,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstCompoundAssignment",
+                  "kind": "PlusEqualsToken",
                   "pos": 1,
                   "end": 12
                 },

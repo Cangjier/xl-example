@@ -31,6 +31,10 @@ const TS_KIND_ALIASES = new Map([
   ["LastTemplateToken", "TemplateTail"],
   // 赋值运算符的反查名被别名 FirstAssignment 盖掉；产物侧已改用规范类 EqualsTokenShape。
   ["FirstAssignment", "EqualsToken"],
+  // 复合赋值 `+=` / `^=` 的反查名分别是 FirstCompoundAssignment / LastBinaryOperator；
+  // 产物侧 A4 起改用规范类 PlusEqualsTokenShape / CaretEqualsTokenShape。
+  ["FirstCompoundAssignment", "PlusEqualsToken"],
+  ["LastBinaryOperator", "CaretEqualsToken"],
   ["AssertClause", "ImportAttributes"],
   ["AssertEntry", "ImportAttribute"],
 ]);

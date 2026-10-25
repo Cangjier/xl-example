@@ -139,7 +139,7 @@
                           "text": "total"
                         },
                         {
-                          "kind": "FirstCompoundAssignment",
+                          "kind": "PlusEqualsToken",
                           "pos": 57,
                           "end": 60
                         },

@@ -8755,7 +8755,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstCompoundAssignment",
+                  "kind": "PlusEqualsToken",
                   "pos": 1,
                   "end": 4
                 },

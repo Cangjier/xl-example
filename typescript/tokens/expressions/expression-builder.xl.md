@@ -16,8 +16,6 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { FirstBinaryOperatorShape } from "../aliases/first-binary-operator-shape.xl.md"
-import { FirstCompoundAssignmentShape } from "../aliases/first-compound-assignment-shape.xl.md"
-import { LastBinaryOperatorShape } from "../aliases/last-binary-operator-shape.xl.md"
 import { AmpersandAmpersandEqualsTokenShape } from "../punctuation/ampersand-ampersand-equals-token-shape.xl.md"
 import { AmpersandAmpersandTokenShape } from "../punctuation/ampersand-ampersand-token-shape.xl.md"
 import { AmpersandEqualsTokenShape } from "../punctuation/ampersand-equals-token-shape.xl.md"
@@ -30,6 +28,7 @@ import { BarBarEqualsTokenShape } from "../punctuation/bar-bar-equals-token-shap
 import { BarBarTokenShape } from "../punctuation/bar-bar-token-shape.xl.md"
 import { BarEqualsTokenShape } from "../punctuation/bar-equals-token-shape.xl.md"
 import { BarTokenShape } from "../punctuation/bar-token-shape.xl.md"
+import { CaretEqualsTokenShape } from "../punctuation/caret-equals-token-shape.xl.md"
 import { CaretTokenShape } from "../punctuation/caret-token-shape.xl.md"
 import { ColonTokenShape } from "../punctuation/colon-token-shape.xl.md"
 import { CommaTokenShape } from "../punctuation/comma-token-shape.xl.md"
@@ -53,6 +52,7 @@ import { MinusEqualsTokenShape } from "../punctuation/minus-equals-token-shape.x
 import { MinusTokenShape } from "../punctuation/minus-token-shape.xl.md"
 import { PercentEqualsTokenShape } from "../punctuation/percent-equals-token-shape.xl.md"
 import { PercentTokenShape } from "../punctuation/percent-token-shape.xl.md"
+import { PlusEqualsTokenShape } from "../punctuation/plus-equals-token-shape.xl.md"
 import { PlusTokenShape } from "../punctuation/plus-token-shape.xl.md"
 import { QuestionDotTokenShape } from "../punctuation/question-dot-token-shape.xl.md"
 import { QuestionQuestionEqualsTokenShape } from "../punctuation/question-question-equals-token-shape.xl.md"
@@ -2645,9 +2645,9 @@ if (text === "=") {
 } else if (text === "=>") {
   shape = new EqualsGreaterThanTokenShape(this.Template);
 } else if (text === "+=") {
-  shape = new FirstCompoundAssignmentShape(this.Template);
+  shape = new PlusEqualsTokenShape(this.Template);
 } else if (text === "^=") {
-  shape = new LastBinaryOperatorShape(this.Template);
+  shape = new CaretEqualsTokenShape(this.Template);
 } else if (text === "<") {
   shape = new FirstBinaryOperatorShape(this.Template);
 } else if (text === "+") {
