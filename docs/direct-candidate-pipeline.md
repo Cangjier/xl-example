@@ -1847,8 +1847,10 @@ R3 的 `DirectStatementHook.Attach` 就是唯一挂载点。R5 只需 **一个�
 
 **构成**：`132`（R1 10 + R2 50 + R3 32 + R4 40）+ `57` = **189**，R5 四组 `TY 20 / DC 20 / RS 12 / CL 5`。
 `TY` = pos 17（含尽力项 `TY-pos-17`）+ neg 2 + guard 1；`DC` = pos 13（含尽力项 `DC-pos-13`）+ neg 5 + safe 1 + guard 1；
-`RS` = pos 10 + neg 1 + guard 1；`CL` = pos 3 + guard 2。`expectBuilt=2` 的四条是
-`TY-pos-11/12/13` 与 `TY-guard-01`（函数体里的 `return …;` 各 +1；设计表原写 1，按 `StatementsBuilt` 实证校正）。
+`RS` = pos 10 + neg 1 + guard 1；`CL` = pos 3 + guard 2。`TY` 里 `expectBuilt=2` 的五条是
+`TY-pos-11/12/13`、`TY-guard-01`（函数体里的 `return …;` 各 +1；设计表原写 1，按 `StatementsBuilt` 实证校正）与
+`TY-pos-17`（`for` 头 + 体内 `b;` = 2，尽力项）。其它组也有 `expectBuilt=2` 的条目（`DC-guard-01`、`RS-pos-01…04/07…09`、
+`CL-guard-02`），各自在 case 定义里写实。
 
 **改判 8 条（历史）/ 生效 6 条**：
 
@@ -1888,8 +1890,9 @@ R3 的 `DirectStatementHook.Attach` 就是唯一挂载点。R5 只需 **一个�
 | `--strict-all --expect-direct --decline-stats` | **189/0**，MODE 含 `strict=on (implied by --strict-all)` |
 | `node tests/direct-build/token-set-parity.mjs` | **RESULT: PASS**（8 PASS + 1 INFO，exit 0） |
 
-构建：`xl_build(paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)` → **557 written / 0 error /
-3 warning**（3 条是既有 `E1107` 重复类型声明，非 R5 引入）；`tsc -p tsconfig.json` → **exit 0**。
+构建：`xl_build(paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)` → **557 个产物、0 error /
+3 warning**（冷构建 `557 written`；已构建过则是 `0 written / 557 skipped`。3 条 warning 是既有 `E1107` 重复类型声明，
+非 R5 引入）；`tsc -p tsconfig.json` → **exit 0**。
 
 ### 23.8 A4：`dist` 孤儿 prune（主仓库执行一次）
 

@@ -1144,7 +1144,8 @@ $setup = "C:\Users\Admin\Documents\GitHub\xl-example-set\chore-all-possible-setu
 cd $clone
 
 # xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
-#   实测：557 written, 0 error(s), 3 warning(s)（既有 E1107 重复类型声明）
+#   实测：557 个产物、0 error(s)、3 warning(s)（冷构建 557 written；已构建过则 0 written / 557 skipped；
+#   warning 均为既有 E1107 重复类型声明）
 node node_modules/typescript/bin/tsc -p tsconfig.json      # exit 0；build/ts = 557 个 .js
 
 node tests/direct-build/target-cases.mjs --group=r1        # 10/0
