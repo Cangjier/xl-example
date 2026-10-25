@@ -721,8 +721,8 @@ git clean -fd tests\direct-build
 直建成功时 `host.Data.splice(0, consumed.length)` 与旧路径末尾的 splice 同源，随后
 `StatementEndPossibleShape.BuildByIndex` 照旧调 `StatementShape.FinishShell(host, built, context)`：
 壳被节点顶替、leftover 回插并重放、`LeftoverReplayDepth` 防递归——全部不变。
-`OperatorBody` 在覆盖构造上仍会被 H1 后面的 `IngestAll` 喂（既有行为），但直建**不读它**，
-也不把它的产物转成 AST。
+表达式语句的壳在覆盖构造上仍会被 H1 后面的 `OperatorBody.IngestAll` 喂（既有行为；变量壳的 `OperatorBody`
+为 `null`），但直建**不读它**，也不把它的产物转成 AST。
 
 ---
 
