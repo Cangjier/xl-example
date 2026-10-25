@@ -64,9 +64,16 @@ DirectBuildMetrics.Traces.length = 0;
 //           每条都有负例，R5-CONTRACT §4.9）：
 //             decl.head     —— 声明族里不做建的族头（namespace / module / import / export / declare / using）⇒ DC-neg-04/05
 //             decl.class    —— class 声明（kind 9）/ 装饰器声明（kind 10），建树归 R6 ⇒ DC-neg-02/04
+//                             （R6-D1 起 class 已由 ClassDeclarationDirectSession 直建 ⇒ 本键只剩
+//                              「class 建出后覆盖校验失败」这一格，R6-CONTRACT §4.5；键名不删）
 //             decl.enum     —— enum 成员带初始值（会拉 ExpressionBuilder）⇒ DC-neg-01
 //             decl.shape    —— `FromUnits` 抛错 / 形态不完整（无独立 case，形状失败即这里）
 //             decl.coverage —— 建出的声明区间与壳的区间不一致（无独立 case，同 var.coverage 口径）
+//             decl.module   —— **R6-D2 新增**：kind 7 内部头分派到 module 族
+//                              （import / export / namespace / module / declare）后直建失败
+//                              （`DirectExportAssembly.LastReason` / `ModuleFamilyDirectSession.Reason`），
+//                              由 `DeclarationFamilyDirectSession` 一处落键（R6-CONTRACT §4.5）。
+//                              `using` **不**进这一格（仍是 decl.head，R6-Q5 留 R7）。
 // 空串兜底成 `unknown`，不抛错（新增 category 必须先改 CONTRACT 那张表）。
 const key = category === "" ? "unknown" : category;
 const old = DirectBuildMetrics.DeclineReasons.get(key);
