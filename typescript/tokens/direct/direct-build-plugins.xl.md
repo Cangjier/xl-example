@@ -6,6 +6,7 @@ import { VariableStatementDirectSession } from "./direct-variable-session.xl.md"
 import { ExpressionStatementDirectSession } from "./direct-expression-session.xl.md"
 import { ControlFlowStatementDirectSession } from "./direct-control-session.xl.md"
 import { FunctionDeclarationDirectSession } from "./direct-function-session.xl.md"
+import { DeclarationFamilyDirectSession } from "./direct-declaration-session.xl.md"
 ```
 
 # namespace cangjie
@@ -19,6 +20,8 @@ let x = 2*3+1                -> ShellVariable(2)        -> VariableStatementDire
 2*3+1                        -> ShellPlainExpression(1) -> ExpressionStatementDirectSession
 if (a) b; / { … }            -> ShellStatementFamily(4) / ShellBlock(5) -> ControlFlowStatementDirectSession
 function f() { return 1; }   -> ShellFunctionDeclaration(8) -> FunctionDeclarationDirectSession
+interface X {} / type T = A; / enum E { A } -> ShellDeclarationFamily(7) -> DeclarationFamilyDirectSession
+class C {} / @dec class C {}  -> ShellClassDeclaration(9) / ShellDecoratedDeclaration(10) -> DeclarationFamilyDirectSession（只为显式 Decline）
 其它未注册的 kind             -> Router.Create 返回 null（旧路径，行为不变）
 ```
 
@@ -33,10 +36,18 @@ function f() { return 1; }   -> ShellFunctionDeclaration(8) -> FunctionDeclarati
 // kind 是允许的（Create(kind) 只看 kind）。
 // R4-B3-e：`lbl: a;` 的壳是 ShellLabel(6)，R4 之前没有注册行 ⇒ 壳由 legacy 收口（绿但零直建）；
 // 箭头函数 / 生成器**不**额外注册（生成器复用 ShellFunctionDeclaration=8，箭头自我激活）。
+// R5-D2（R5-CONTRACT §3.3 第 3 条）：只在**末尾**追加 3 行，既有 6 行一个字不改、不调序
+// ⇒ 物理顺序 `2,1,4,5,6,8,7,9,10`（按行序、不按常量值；R4 审计已接受同一形态）。
+// 7 = ShellDeclarationFamily（interface / type / enum 直建；namespace / import / export / declare → decl.head）；
+// 9 / 10 注册**只为显式 Decline**（`decl.class`）：`ClassDeclarationShape` 里有 2 处 `new StatementBuilder`，
+// A6 不可能为 0 ⇒ 建树归 R6。三个 kind 共用一个 session 是允许的（Create(kind) 只看 kind）。
 DirectBuildRouter.Register(StatementRoute.ShellVariable, VariableStatementDirectSession);
 DirectBuildRouter.Register(StatementRoute.ShellPlainExpression, ExpressionStatementDirectSession);
 DirectBuildRouter.Register(StatementRoute.ShellStatementFamily, ControlFlowStatementDirectSession);
 DirectBuildRouter.Register(StatementRoute.ShellBlock, ControlFlowStatementDirectSession);
 DirectBuildRouter.Register(StatementRoute.ShellLabel, ControlFlowStatementDirectSession);
 DirectBuildRouter.Register(StatementRoute.ShellFunctionDeclaration, FunctionDeclarationDirectSession);
+DirectBuildRouter.Register(StatementRoute.ShellDeclarationFamily, DeclarationFamilyDirectSession);
+DirectBuildRouter.Register(StatementRoute.ShellClassDeclaration, DeclarationFamilyDirectSession);
+DirectBuildRouter.Register(StatementRoute.ShellDecoratedDeclaration, DeclarationFamilyDirectSession);
 ```
