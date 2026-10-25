@@ -12,6 +12,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { AsExpressionShape } from "../expressions/as-expression-shape.xl.md"
+import { ArrowFunctionShape } from "../expressions/arrow-function-shape.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
 import { CallExpressionShape } from "../expressions/call-expression-shape.xl.md"
 import { ConditionalExpressionShape } from "../expressions/conditional-expression-shape.xl.md"
@@ -44,6 +45,8 @@ import { SpreadAssignmentShape } from "../members/spread-assignment-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { ShapeInsertUtil } from "../shape-insert-util.xl.md"
+import { BlockShape } from "../statements/block-shape.xl.md"
+import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
@@ -176,6 +179,30 @@ A3 `new`：实参括号已消费（之后紧跟的 `(` 属于「new 之后再调
 刚刚把某个 `<` 合上的那个 `>` 单元。它只在 `PreviousUnit` 正好等于它时才有意义——
 即「`>` 后面紧跟着一个 `(`」，TS 会把它读成泛型实参调用（`f<T>(1)`），本轮不做，必须显式 Decline。
 
+## field ParamWait:bool = false
+
+**R3-B2-2 箭头（§4.3.3）**：上一格是「**可能**是箭头参数表」的 `(` 括号，等这一格判是不是 `=>`。
+引擎没有前瞻，所以 `(` 不能当场决定：参数表形态的括号**先挂起一格**，是 `=>` 就建箭头，
+否则退回原来的 `IngestParen`（括号表达式 / 调用实参都不是这里的事）。
+
+## field ParamBracket:Bracket | null = null
+
+挂起中的参数表括号（`ParamWait` 为真时有效）。
+
+## field ParamPos:int = -1
+
+挂起中的参数表括号的 Pos（= 传进来那一格的 pos，含前导 trivia）。
+
+## field ArrowPending:Token | null = null
+
+**R3-B2-2**：已经建好（参数 + `=>` 都挂上）但**体还没收口**的 `ArrowFunctionShape`。
+体是表达式时由一个**子引擎**吃剩下所有单元（嵌套箭头 `a => b => c` 因此是递归的），
+体是 `{…}` 时当场建块。收口后 `TakeOperand(arrow)`，与普通操作数同一条通道。
+
+## field ArrowBody:DirectExpressionEngine | null = null
+
+箭头的**表达式体**子引擎（懒建：第一个体单元到达时才 new，`BasePos` = 那一格的 pos）。
+
 ## constructor:(template:Template, context:SyntaxContext, basePos:int)=>void
 
 ```ts
@@ -229,6 +256,15 @@ if (!this.Declined && !this.Held && !this.LayerEnded) {
 
 ```ts
 // 三个「非普通」入口先分流：后缀等待位、`as` 的类型缓冲、余下的等操作数 / 等运算符。
+// R3-B2-2 再加两个：挂起中的箭头参数表（等 `=>`）、以及箭头体（整段尾巴交给子引擎）。
+if (this.ParamWait) {
+  this.IngestAfterParams(unit, pos);
+  return;
+}
+if (this.ArrowPending !== null) {
+  this.IngestArrowPart(unit, pos);
+  return;
+}
 if (this.PostfixWait !== DirectExpressionEngine.PostfixNone) {
   this.IngestPostfixPart(unit, pos);
   return;
@@ -251,6 +287,10 @@ this.IngestOperator(unit, text, pos);
 // 「再调一次 Finish 会不会成功」。末尾那个 `PendingOperand` 会补进栈顶那个「等右操作数」的 frame，
 // 所以它还在时不能因为 frame 未完成就报不完整。
 if (this.Declined || this.Held) {
+  return false;
+}
+if (this.ParamWait || this.ArrowPending !== null) {
+  // R3-B2-2：参数表还挂着 / 箭头体还没收口 ⇒ 不完整。
   return false;
 }
 if (this.PostfixWait !== DirectExpressionEngine.PostfixNone || this.AsPending) {
@@ -290,6 +330,27 @@ if (this.Declined) {
 }
 if (!this.FlushAllAs()) {
   return null;
+}
+// R3-B2-2：挂起到最后的参数表是**普通括号**（后面没有 `=>`）；箭头体则在这里收口。
+if (this.ParamWait) {
+  const waitingBracket = this.ParamBracket;
+  const waitingPos = this.ParamPos;
+  this.ParamWait = false;
+  this.ParamBracket = null;
+  this.ParamPos = -1;
+  if (waitingBracket === null) {
+    this.Fail("箭头参数表丢失");
+    return null;
+  }
+  this.IngestParen(waitingBracket, waitingPos);
+  if (this.Declined) {
+    return null;
+  }
+}
+if (this.ArrowPending !== null) {
+  if (!this.FinishArrowBody()) {
+    return null;
+  }
 }
 if (this.PostfixWait !== DirectExpressionEngine.PostfixNone) {
   this.Fail("成员访问缺少标识符");
@@ -427,6 +488,22 @@ if (unit instanceof String) {
 if (unit instanceof Bracket) {
   const bracket = unit as Bracket;
   if (bracket.StartBracketChar === "(") {
+    // R3-B2-2：参数表形态的括号先挂起一格（等 `=>`）；不是箭头就退回 IngestParen。
+    // **泛型实参调用（`a<b>(c)` / `new A<T>()`）不许挂起**：R2 的口径是「在 Ingest 期就 Decline」
+    // （`IngestParen` 的同一条 `PrevAngleClose` 守卫，category `expr.decline`）。挂起会把这次 Fail
+    // 推迟到 `Finish`，而 session 把 `Finish` 的失败记成 `Incomplete` 而不是 `Declined`——
+    // 那就是 R2-A9/A4 的口径回归（实测 `a<b>(c)` / `new A<T>()` 两条）。所以这一条守卫必须在
+    // 「挂起」之前原样判一次：命中就直接走老路。
+    if (this.PrevAngleClose !== null && this.PrevAngleClose === this.PreviousUnit) {
+      this.IngestParen(bracket, pos);
+      return;
+    }
+    if (this.CouldBeArrowParameters(bracket)) {
+      this.ParamWait = true;
+      this.ParamBracket = bracket;
+      this.ParamPos = pos;
+      return;
+    }
     this.IngestParen(bracket, pos);
     return;
   }
@@ -1036,6 +1113,12 @@ if (this.IsRestrictedPostfix(text) && this.PreviousUnit !== null
   return;
 }
 if (unit instanceof Symbol) {
+  // R3-B2-2：`=>` 是**箭头**的运算符，不是二元 / 赋值运算符（`OperatorTable` 里没有它）。
+  // 裸参数形态（`a => …`）在这一格才认出来；括号参数表形态在 ParamWait 里已经处理掉了。
+  if (text === "=>") {
+    this.StartArrow(unit, pos);
+    return;
+  }
   if (text === ".") {
     this.StartMemberAccess(unit, pos);
     return;
@@ -1706,4 +1789,274 @@ this.FramePending.pop();
 while (this.Frames.length > 0) {
   this.CompleteTop();
 }
+```
+
+## private method CouldBeArrowParameters:(bracket:Bracket)=>bool
+
+```ts
+// R3-B2-2（R3-CONTRACT §4.3.3）：回答「这个 `(` 有没有可能是箭头的**参数表**」——
+// 只认 `()` / `(a)` / `(a, b)` / `(a,)` 这种「空或纯 Identifier 逗号列表」。
+// 是 ⇒ 调用方挂起一格等 `=>`（引擎没有前瞻，`(` 那一格无法决断）；
+// 否 ⇒ 当场走原来的 `IngestParen`，**一个字节的行为都不变**（`(a = 1)` / `(a: T)` 因此走老路）。
+// 判据与 `FunctionDeclarationShape.BuildParameters` 的「裸标识符」分支同一张表：
+// `Common` 且 `!CanStartNumber()`（`f(1)` 不是标识符参数）。trivia 跳过。
+for (const unit of bracket.Data) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Common) {
+    if ((unit as Common).CanStartNumber()) {
+      return false;
+    }
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is(",")) {
+    continue;
+  }
+  return false;
+}
+return true;
+```
+
+## private method IngestAfterParams:(unit:Token, pos:int)=>void
+
+```ts
+// 挂起的那一格到了：`=>` ⇒ 建箭头；否则这个括号只是**普通括号表达式**，
+// 先按老口径建出 `ParenthesizedExpressionShape`，再把当前这一格按常规重新分派。
+const bracket = this.ParamBracket;
+const bracketPos = this.ParamPos;
+this.ParamWait = false;
+this.ParamBracket = null;
+this.ParamPos = -1;
+if (bracket === null) {
+  this.Fail("箭头参数表丢失");
+  return;
+}
+if (DirectTokenUtil.TextOf(unit) === "=>") {
+  this.StartArrowFromParams(bracket, bracketPos, unit, pos);
+  return;
+}
+this.IngestParen(bracket, bracketPos);
+if (this.Declined || this.Held || this.LayerEnded) {
+  return;
+}
+if (this.ArrowPending !== null) {
+  this.IngestArrowPart(unit, pos);
+  return;
+}
+// 重入时 `PreviousUnit` 仍是那个括号（`IngestUnit` 在返回后才更新），C1 的行终止符守卫照旧成立。
+this.IngestCode(unit, pos);
+```
+
+## private method StartArrowFromParams:(bracket:Bracket, bracketPos:int, arrowUnit:Token, arrowPos:int)=>void
+
+```ts
+// `(a) => a` / `(a, b) => …` / `() => …`：参数表已经挂在手上（`CouldBeArrowParameters` 保证是
+// 纯 Identifier 列表），这里直接建 `ParameterShape`，**不跑内层引擎**——内层引擎会把 `a` 建成一个
+// 裸 Identifier，那样每个参数都得多包一层，而且 `()` 空表在引擎里根本不合法。
+// Pos 口径 = `ExpressionBuilder.Load(bracket.Data, bracket.StartIndex + 1)` 的 Positions：
+// 第一格是 `(` 之后第一个字符，其后每格是前一个**代码**单元的 EndIndex。
+const arrow = new ArrowFunctionShape(this.Template);
+if (bracket.SourceRange.StartIndex >= 0) {
+  arrow.SignIn(bracket.SourceRange.StartIndex);
+}
+arrow.Pos = bracketPos;
+let parameterPos = bracket.SourceRange.StartIndex >= 0 ? bracket.SourceRange.StartIndex + 1 : 0;
+for (const inner of bracket.Data) {
+  if (inner.IsTriviaToken) {
+    continue;
+  }
+  if (inner instanceof Common) {
+    const identifier = IdentifierShape.FromBasicToken(inner as Common, this.Context);
+    identifier.Pos = parameterPos;
+    const parameter = new ParameterShape(this.Template);
+    parameter.Add(identifier);
+    if (inner.SourceRange.StartIndex >= 0) {
+      parameter.SignIn(inner.SourceRange.StartIndex);
+    }
+    if (inner.SourceRange.EndIndex >= 0) {
+      parameter.SignOut(inner.SourceRange.EndIndex);
+    }
+    parameter.Pos = parameterPos;
+    parameter.TryToClose(this.Context);
+    arrow.Add(parameter);
+  }
+  if (inner.SourceRange.EndIndex >= 0) {
+    parameterPos = inner.SourceRange.EndIndex;
+  }
+}
+this.StartArrowBody(arrow, arrowUnit, arrowPos);
+```
+
+## private method StartArrow:(unit:Token, pos:int)=>void
+
+```ts
+// 裸参数形态（`a => a + 1`）：`=>` 到达时 `PendingOperand` 就是那个参数标识符。
+// 别的形态（调用 `async(a) => …` / 赋值 `(a = 1) => …` / 条件 `(a ? b : c) => …`）一律 Decline：
+// 箭头参数表里没有这些东西，认了就是静默错建（`async (a) => a` 靠这一条落进 `expr.decline`）。
+const operand = this.PendingOperand;
+if (operand === null) {
+  this.Fail("箭头缺少参数");
+  return;
+}
+if (!(operand instanceof IdentifierShape)) {
+  this.Fail("箭头函数的参数只支持标识符: " + operand.constructor.name);
+  return;
+}
+const parameter = new ParameterShape(this.Template);
+parameter.Add(operand);
+if (operand.SourceRange.StartIndex >= 0) {
+  parameter.SignIn(operand.SourceRange.StartIndex);
+}
+if (operand.SourceRange.EndIndex >= 0) {
+  parameter.SignOut(operand.SourceRange.EndIndex);
+}
+// 与 `ExpressionBuilder.ParsePostfixSuffix` 的裸参数箭头同口：Parameter 的 Pos = 标识符自己的 Pos
+// （它已经含前导 trivia），区间就是标识符本身。
+parameter.Pos = (operand as ShapeToken).Pos;
+parameter.TryToClose(this.Context);
+const arrow = new ArrowFunctionShape(this.Template);
+if (operand.SourceRange.StartIndex >= 0) {
+  arrow.SignIn(operand.SourceRange.StartIndex);
+}
+arrow.Pos = (operand as ShapeToken).Pos;
+this.PendingOperand = null;
+arrow.Add(parameter);
+this.StartArrowBody(arrow, unit, pos);
+```
+
+## private method StartArrowBody:(arrow:ShapeToken, unit:Token, pos:int)=>void
+
+```ts
+// `=>` 这个运算符是**子节点**（`EqualsGreaterThanTokenShape`），唯一工厂是 `DirectTokenUtil`。
+// 体还没到：先挂进 `ArrowPending`，之后每一格都走 `IngestArrowPart`。
+arrow.Add(DirectTokenUtil.OperatorToken(unit, pos, this.Template, this.Context));
+this.ArrowPending = arrow;
+this.ArrowBody = null;
+this.Expect = DirectExpressionEngine.ExpectOperand;
+```
+
+## private method IngestArrowPart:(unit:Token, pos:int)=>void
+
+```ts
+// 箭头体：`{…}` 是块体（当场建、区间 = 括号自己）；其余全部喂给**体子引擎**，
+// 因此 `a => b => c` 是递归的（子引擎自己会在 `=>` 上走同一段代码），
+// `a => a + 1` 的 `+` / 优先级 / 括号也全部由子引擎按同一套规则建。
+if (this.ArrowPending === null) {
+  return;
+}
+if (this.ArrowBody === null) {
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+    const block = this.BuildArrowBlock(unit as Bracket, pos);
+    if (block === null) {
+      return;                        // Fail 已置位
+    }
+    this.CompleteArrow(block);
+    return;
+  }
+  this.ArrowBody = new DirectExpressionEngine(this.Template, this.Context, pos);
+}
+const bodyEngine = this.ArrowBody as DirectExpressionEngine;
+bodyEngine.IngestUnit(unit, pos);
+if (bodyEngine.Declined) {
+  this.Fail("箭头体范围外: " + bodyEngine.Reason);
+  return;
+}
+// 结束符（`;` / `)` / `]` / `}`）让子引擎干净收口（`LayerEnded`），箭头也在这一格收口；
+// `Held` 同理——体到此为止，剩下的不属于本层。
+if (bodyEngine.LayerEnded || bodyEngine.Held) {
+  this.CloseArrowLayer();
+}
+```
+
+## private method CloseArrowLayer:()=>void
+
+```ts
+// 体已经喂到结束符：收口箭头，并让**本层**也就此结束（与 `;` 走同一条 `EndLayer`）。
+if (!this.FinishArrowBody()) {
+  return;
+}
+this.EndLayer();
+```
+
+## private method FinishArrowBody:()=>bool
+
+```ts
+// 把体子引擎收口成节点，再 `TakeOperand(arrow)`——之后箭头就是一个普通操作数，
+// `Finish` / `EndLayer` / 二元 frame 都不需要知道它的存在。
+const bodyEngine = this.ArrowBody;
+if (bodyEngine === null) {
+  this.Fail("箭头缺少函数体");
+  return false;
+}
+if (bodyEngine.Held) {
+  this.Fail("箭头体提前收口: " + bodyEngine.Reason);
+  return false;
+}
+const body = bodyEngine.Finish();
+if (body === null) {
+  this.Fail("箭头体不完整: " + bodyEngine.Reason);
+  return false;
+}
+this.CompleteArrow(body);
+return true;
+```
+
+## private method CompleteArrow:(body:Token)=>void
+
+```ts
+const arrow = this.ArrowPending;
+this.ArrowPending = null;
+this.ArrowBody = null;
+if (arrow === null) {
+  return;
+}
+const shape = arrow as ShapeToken;
+shape.Add(body);
+// 终点 = 体最后一个字符之后（`SpanNode(arrow, start, At - 1)` 同口）；起点/Pos 在建箭头时已经封好。
+if (body.SourceRange.EndIndex >= 0) {
+  shape.SignOut(body.SourceRange.EndIndex);
+}
+shape.TryToClose(this.Context);
+this.TakeOperand(shape);
+```
+
+## private method BuildArrowBlock:(bracket:Bracket, pos:int)=>Token | null
+
+```ts
+// 箭头块体：`() => {}` / `() => { return 1; }`。**口径与 `DirectStatementAssembly.BlockFrom` 完全一致**
+// （那边是 canonical 实现）：体内已收口的语句按原顺序进 Data、区间 = 括号自己的 `{`…`}`、
+// Pos = 传进来那一格（= `=>` 的 EndIndex），并复刻 `CollectBodyStatements` 的「块内第一条语句 Pos 纠正」。
+// **为什么在这里复刻一份**：`direct-statement-assembly` 已经 import 本引擎（assembly → engine），
+// 反向 import 就是循环依赖（XLD-MD-GUIDE §3：依赖只许「新 → 旧」、不许成环）。两处口径必须同步，
+// R4 建议把 `BuiltChildren` 抽到一个不依赖引擎的叶子模块，这里就能直接调用。
+const shape = new BlockShape(this.Template);
+let rawBase = bracket.SourceRange.StartIndex >= 0 ? bracket.SourceRange.StartIndex + 1 : 0;
+for (const unit of bracket.Data) {
+  if (unit.IsTriviaToken || unit.IsBasicToken) {
+    continue;
+  }
+  // 未收口的语句壳（`StatementShape` 有 `Kind`，其它形状没有）：与 `BuiltChildren` 同一条判据。
+  if (typeof (unit as any).Kind === "number") {
+    this.Fail("箭头块体内还有未收口的语句");
+    return null;
+  }
+  const child = unit as ShapeToken;
+  if (shape.Data.length === 0 && child.Pos < rawBase) {
+    child.Pos = rawBase;
+  }
+  shape.Add(child);
+  if (child.SourceRange.EndIndex >= 0) {
+    rawBase = child.SourceRange.EndIndex;
+  }
+}
+if (bracket.SourceRange.StartIndex >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
+}
+if (bracket.SourceRange.EndIndex >= 0) {
+  shape.SignOut(bracket.SourceRange.EndIndex);
+}
+shape.Pos = pos;
+shape.TryToClose(this.Context);
+return shape;
 ```
