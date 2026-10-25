@@ -2,6 +2,8 @@
 ```xl
 import { DirectBuildRouter } from "./direct-build-router.xl.md"
 import { StatementRoute } from "../statements/statement-route-util.xl.md"
+import { VariableStatementDirectSession } from "./direct-variable-session.xl.md"
+import { ExpressionStatementDirectSession } from "./direct-expression-session.xl.md"
 ```
 
 # namespace cangjie
@@ -11,19 +13,17 @@ import { StatementRoute } from "../statements/statement-route-util.xl.md"
 # class DirectBuildPlugins
 
 ```txt
-// M1/M2 合入后 Install() 的全部内容：
-DirectBuildRouter.Register(StatementRoute.ShellVariable, VariableStatementDirectSession);
-DirectBuildRouter.Register(StatementRoute.ShellPlainExpression, ExpressionStatementDirectSession);
+let x = 2*3+1                -> ShellVariable(2)        -> VariableStatementDirectSession
+2*3+1                        -> ShellPlainExpression(1) -> ExpressionStatementDirectSession
+function f() { return 1; }   -> 未注册的 kind            -> Router.Create 返回 null（旧路径，行为不变）
 ```
 
 ## static method Install:()=>void
 
 ```ts
-// TODO(M3-wire)：M1 的 DirectExpressionEngine / DirectTokenUtil 与 M2 的两个 session 合入后，在这里打开
-// 下面两行——扩展点规则是「新族 = 新 direct-<family>-session.xl.md + 本文件里一行 Register」。
-// 本轮（契约 + hooks 骨架）刻意保持空实现：`DirectBuildRouter.Factories` 为空
-// → `DirectBuildRouter.Create` 恒返回 null → 没有任何语句交给直建，行为与基线逐字节不变。
-//
-// DirectBuildRouter.Register(StatementRoute.ShellVariable, VariableStatementDirectSession);
-// DirectBuildRouter.Register(StatementRoute.ShellPlainExpression, ExpressionStatementDirectSession);
+// 唯一注册点（CONTRACT §3.3）。两行必须留在本方法体内：router ↔ plugins 是 CommonJS 循环 require，
+// 只有方法体内的属性访问才会延迟到两个模块都初始化完成之后（放到模块顶层会拿到半初始化的 exports）。
+// Strict 由 DirectBuildMetrics.Strict 控制（本文件不碰，默认 false；验收脚本自己置 true）。
+DirectBuildRouter.Register(StatementRoute.ShellVariable, VariableStatementDirectSession);
+DirectBuildRouter.Register(StatementRoute.ShellPlainExpression, ExpressionStatementDirectSession);
 ```
