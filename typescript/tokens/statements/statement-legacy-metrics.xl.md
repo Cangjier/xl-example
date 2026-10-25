@@ -10,7 +10,7 @@
 不改任何顺序**——每个字段都只是「这件事发生了」的进程内累计值，供 `tests/statement-possible/legacy-retirement.mjs`
 逐文件 Reset → Parse → 读数。
 
-四个字段各自钉住一条退场判据（定义见 `docs/possible-statement-5d-plan.md`）：
+四个字段各自钉住一条退场判据（定义见下表；当前读数与判据现状见 `docs/Final.md`）：
 
 | 字段 | 含义 | 目标 |
 | --- | --- | --- |
