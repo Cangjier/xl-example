@@ -10,6 +10,8 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { DirectSession } from "../direct/direct-build-session.xl.md"
+import { DirectBuildRouter } from "../direct/direct-build-router.xl.md"
 import { StatementBuilder } from "./statement-builder.xl.md"
 import { StatementFamilyDispatch } from "./statement-family-dispatch.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
@@ -41,6 +43,8 @@ let b = 2
 
 ## field OperatorBody:StatementOperatorBody | null = null
 
+## field DirectSession:DirectSession | null = null
+
 ## static field BodyKindBlock:int = 1
 
 ## static field BodyKindObjectLiteral:int = 2
@@ -54,6 +58,11 @@ super(template);
 ## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
 
 ```ts
+// H1（CONTRACT §4.1）：直建的唯一喂入点——子单元关闭事件先喂 session，再走既有候选计算。
+// 不改返回值、不建形状、不碰 CatalogGuide；`DirectSession === null` 时本句是空操作。
+if (this.DirectSession !== null) {
+  this.DirectSession.Ingest(this.Data, context);
+}
 if (this.OperatorBody !== null) {
   this.OperatorBody.IngestAll(this.Data, this.Template);
 }
@@ -76,6 +85,18 @@ if (shell.OperatorBody !== null) {
   shell.OperatorBody.Finish();
 }
 const consumed:Array<Token> = host.Data.slice(0, endIndex + 1);
+// H2（CONTRACT §4.1）：直建的唯一收口点。session 已把 AST 形状树建好时，在 `new StatementBuilder` **之前**
+// 直接交回：`host.Data.splice` 与旧路径末尾同源，`FinishShell` / leftover 重放照旧。覆盖范围外的语句
+// （session 为 null，或已 Decline）逐字节走下面的旧路径；三条收口路径（`;`/ASI、EOF、`}`）都经过这里，
+// 所以只需要这一个分支。直建成功时 builder 一次都不创建（验收口径 A6：builder.Load 调用数 == 0）。
+const direct = shell.DirectSession;
+if (direct !== null && !direct.Declined) {
+  const directBuilt = direct.Finish(endIndex, context);
+  if (directBuilt !== null) {
+    host.Data.splice(0, consumed.length);
+    return directBuilt;
+  }
+}
 const builder = new StatementBuilder(host.Template, context);
 builder.Load(consumed, shell.Pos);
 // S3c（设计 §4.4）：**有完整 OperatorBody 的表达式语句**先用形状树建 AST；形状树拒绝（未覆盖构造 /

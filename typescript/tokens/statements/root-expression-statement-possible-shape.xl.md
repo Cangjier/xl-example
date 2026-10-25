@@ -8,6 +8,7 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { DirectBuildRouter } from "../direct/direct-build-router.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
@@ -160,6 +161,13 @@ if (headStart >= 0) {
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
+// H3（CONTRACT §4.3）：壳挂好后立刻挂直建 session 并喂一次已有的 Data，位置在晚建壳的
+// `ComputePossibleShapes` **之前**——晚建分支随后触发的 H1 只做幂等的增量 `Ingest`。
+// 未注册该 kind 时 Create 返回 null（本轮 plugins 空表），直建不接管，行为与基线逐字节不变。
+shell.DirectSession = DirectBuildRouter.Create(StatementRoute.ShellPlainExpression, shell, context);
+if (shell.DirectSession !== null) {
+  shell.DirectSession.Ingest(shell.Data, context);
+}
 // 晚建壳（头格被上一条语句吞掉）：已经搬进壳的 raw 单元不会再触发本条目求值，补一次
 // （与 `ImportDeclarationPossibleShape` 的「壳晚建」同一手法）。
 if (tokenIndex > start) {

@@ -9,6 +9,7 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { DirectBuildRouter } from "../direct/direct-build-router.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
@@ -200,5 +201,11 @@ shell.CatalogGuide = new CatalogGuide([], endShape);
 host.Data.splice(start, 0, shell);
 shell.Parent = host;
 host.MountedUnit = shell;
+// H3（CONTRACT §4.2）：壳挂好后立刻挂直建 session 并喂一次已有的 Data。`Ingest` 幂等，后续由 H1 增量喂；
+// 未注册该 kind 时 Create 返回 null（本轮 plugins 空表），直建不接管，行为与基线逐字节不变。
+shell.DirectSession = DirectBuildRouter.Create(StatementRoute.ShellVariable, shell, context);
+if (shell.DirectSession !== null) {
+  shell.DirectSession.Ingest(shell.Data, context);
+}
 return shell;
 ```
