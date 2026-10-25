@@ -7,6 +7,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
+import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
+import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { DirectSession } from "./direct-build-session.xl.md"
@@ -37,10 +39,15 @@ function f() {}                 -> FunctionDeclarationShape[Identifier f, Block]
 function f(a) {}                -> FunctionDeclarationShape[Identifier f, Parameter a, Block]
 function f(a) { return a; }     -> [Identifier f, Parameter a, Block[ReturnStatement]]（return 由 B1 建）
 function f() { let x = 1; }     -> [Identifier f, Block[VariableStatement]]（let 由 R1 建）
-function* g() {}                -> Decline(stmt.func)
-async function f() {}           -> Decline(stmt.func)（壳从 `async` 起）
+function* g() {}                -> [AsteriskToken *, Identifier g, Block]
+function* g(a) { yield a; }     -> [AsteriskToken *, Identifier g, Parameter a, Block]
+                                   （`yield a;` 由 YieldStatementPossibleShape 的壳走 legacy，不计数）
+async function f() {}           -> [AsyncKeyword async, Identifier f, Block]
+async function f(a) { await g(a); } -> [AsyncKeyword async, Identifier f, Parameter a, Block]
+                                   （`await g(a);` 由 AwaitStatementPossibleShape 的壳走 legacy，不计数）
 declare function f();           -> Decline(stmt.func)
 function f<T>() {}              -> Decline(stmt.func)（泛型头）
+function* g<T>() {}             -> Decline(stmt.func)（泛型头 + 生成器星号）
 function f(): number {}         -> Decline(stmt.func)（返回类型）
 function f(a = 1) {}            -> Decline(stmt.func)（默认值，参数表里有 `=`）
 function f(...a) {}             -> Decline(stmt.func)（rest，参数表里有 `...`）
@@ -69,6 +76,14 @@ function f(...a) {}             -> Decline(stmt.func)（rest，参数表里有 `
 ## field FirstCodeAt:int = -1
 
 ## field HeadText:string = ""
+
+## field AsyncHead:bool = false
+
+R4-B4-b：首代码单元是 `async` 时置真，等**下一格**必须是 `function`（壳从 `async` 起，见 §4.5）。
+
+## field HeadChecked:bool = false
+
+`async` 头的第二格已经校验过（只校验一次）。
 
 ## field StoppedAt:int = -1
 
@@ -144,9 +159,9 @@ if (DirectBuildMetrics.Strict) {
 
 ```ts
 // 与 R2 两个 session / B1 同构（增量 / 幂等 / 只读）：从 `Ingested` 往后逐单元吃，trivia 跳过。
-// 唯一的 Ingest 期判定是「首代码单元是不是 `function`」——`async` / `declare` / `export` /
-// 装饰器前缀都在这里就被拒（否则后面每一步都要处理修饰词锚点，见 R3-CONTRACT §2.3 的
-// `AnchorFirstModifier`）。结构判定全部在 `Finish`（要整段已就位）。
+// Ingest 期只做两件**纯 token** 判定：① 首代码单元是 `function` 或 `async`（`declare` / `export` /
+// 装饰器前缀仍在这里就拒）；② 首格是 `async` 时第二格必须是 `function`（R4-B4-b）。
+// 结构判定全部在 `Finish`（要整段已就位）。
 if (this.Declined || this.Finished) {
   return;
 }
@@ -164,6 +179,16 @@ while (this.Ingested < units.length && !this.Declined) {
   if (this.FirstCodeAt < 0) {
     this.FirstCodeAt = at;
     this.RecognizeHead(unit);
+    continue;
+  }
+  // R4-B4-b：`async` 头之后必须是 `function`（`async\nfunction` 在 TS 里是两条语句，壳不会走到这里；
+  // 这一格只防「壳以 async 起、后面却不是 function」的形态）。只校验一次。
+  if (this.AsyncHead && !this.HeadChecked) {
+    this.HeadChecked = true;
+    if (this.TextOf(unit) !== "function") {
+      this.Decline("async 之后不是 function", "stmt.func");
+      return;
+    }
   }
 }
 ```
@@ -171,12 +196,19 @@ while (this.Ingested < units.length && !this.Declined) {
 ## method RecognizeHead:(unit:Token)=>void
 
 ```ts
-// `function` 是本 session 唯一接手的起点。其余三种形态（`async function` / `declare function` /
-// 装饰器）在本轮都不做 ⇒ 显式 Decline(`stmt.func`)，旧路径接管（AST 不变）。
+// `function` / `async` 是本 session 接手的两个起点（R4-B4-a/b）。其余三种形态（`declare function` /
+// 装饰器 / `export`）在本轮都不做 ⇒ 显式 Decline(`stmt.func`)，旧路径接管（AST 不变）。
+// `async` 只在这里**记下头**；「下一格必须是 function」由 `Ingest` 的第二格校验。
 const text = this.TextOf(unit);
 if (text === "function") {
   this.HeadText = text;
   DirectBuildMetrics.Trace("function ingest head: function");
+  return;
+}
+if (text === "async") {
+  this.HeadText = text;
+  this.AsyncHead = true;
+  DirectBuildMetrics.Trace("function ingest head: async");
   return;
 }
 this.Decline("函数声明起点不在本轮范围: " + (text === "" ? unit.constructor.name : text), "stmt.func");
@@ -234,34 +266,45 @@ return shape;
 ## method BuildDeclaration:(code:Array<Token>, codeAt:Array<int>)=>Token | null
 
 ```ts
-// 正例的形态是**唯一**的：`function` `名字` `(参数表)` `{体}` —— 四个代码单元。
-// 少/多一个单元就是范围外的形态（修饰词 / 泛型头 / 返回类型注解 / generate 星号 / ambient 无体），
-// 一律 Decline(`stmt.func`)：`code.length !== 4` 是最省事也最严的判据（它同时挡住
-// `function* g()` 的 5 格、`function f<T>() {}` 的多格、`function f(): number {}` 的 6 格）。
+// R4-B4-a/b 的形态表（同一方法只看 `code` 的 token 布局；长度 + 文本判据，不做符号解析）：
+//   function name ( ) {}        = 4  [function, name, (), {}]            （R3 行为，不变）
+//   function * name ( ) {}      = 5  [function, *, name, (), {}]         （R4-B4-a）
+//   async function name ( ) {}  = 5  [async, function, name, (), {}]     （R4-B4-b）
+// 其余长度（修饰词 / 泛型头 / 返回类型 / ambient 无体）一律 Decline(`stmt.func`)：
+// `function* g<T>() {}` 是 8 格（`<` `T` `>` 各一格），自然落在表外。
 //
 // 不调用 `FunctionDeclarationShape.FromUnits` 的理由见文件头注释（它有体会 `new StatementBuilder`）。
-if (code.length !== 4) {
-  this.Decline("函数声明形态不在本轮范围（修饰词/泛型/返回类型/生成器）: " + String(code.length) + " 个代码单元",
+let form = 0;
+if (code.length === 4 && this.IsText(code[0], "function")) {
+  form = 0;
+} else if (code.length === 5 && this.IsText(code[0], "function") && this.IsSymbolText(code[1], "*")) {
+  form = 1;
+} else if (code.length === 5 && this.IsText(code[0], "async") && this.IsText(code[1], "function")) {
+  form = 2;
+} else {
+  this.Decline("函数声明形态不在本轮范围（修饰词/泛型/返回类型/无体）: " + String(code.length) + " 个代码单元",
     "stmt.func");
   return null;
 }
-const keyword = code[0];
+const asyncUnit = form === 2 ? code[0] : null;
+const keyword = form === 2 ? code[1] : code[0];
 if (!this.IsText(keyword, "function")) {
-  this.Decline("函数声明起点不是 function", "stmt.func");
+  this.Decline("函数声明缺少 function 关键字", "stmt.func");
   return null;
 }
-const nameUnit = code[1];
+// 生成器的 `*` 在 `function` 与名字之间（= code[1]），名字后移到 code[2]。
+const asteriskUnit = form === 1 ? code[1] : null;
+const nameUnit = form === 0 ? code[1] : code[2];
 if (!(nameUnit instanceof Common)) {
-  // `function* g()` 的名字位是 `*` 符号。
   this.Decline("函数声明的名字不是标识符", "stmt.func");
   return null;
 }
-const parameters = code[2];
+const parameters = form === 0 ? code[2] : code[3];
 if (!this.IsOpenParen(parameters)) {
   this.Decline("函数声明缺少参数表", "stmt.func");
   return null;
 }
-const body = code[3];
+const body = form === 0 ? code[3] : code[4];
 if (!this.IsOpenBrace(body)) {
   this.Decline("函数声明缺少函数体（ambient / 签名形态属 R4）", "stmt.func");
   return null;
@@ -275,6 +318,7 @@ if (!this.ParametersAreIdentifiers(parameters as Bracket)) {
 }
 // 体必须是**已收口**的块：体内语句由它们自己的壳建（`BuiltChildren` 见到未收口的 `StatementShape`
 // 就返回 null）。`BlockFrom` 已经包含 `CollectBodyStatements` 的第一条语句 Pos 纠正。
+// `yield a;` / `await g(a);` 也在这条通道里：它们由自己的壳（无 session）走 legacy 收口，本 session 只收集。
 const block = DirectStatementAssembly.BlockFrom(body as Bracket, this.Template, this.Units, codeAt,
   this.BasePos, this.Context);
 if (block === null) {
@@ -282,24 +326,50 @@ if (block === null) {
   return null;
 }
 const shape = new FunctionDeclarationShape(this.Template);
+// AST 子节点顺序照 `FromUnits`：async 修饰词 → 生成器星号 → 名字 → 参数 → 体。
+// （`FromUnits` 里 asterisk 与 modifier 都在 name 之前；本轮两种前缀不会同时出现。）
+if (asyncUnit !== null) {
+  const asyncKeyword = new AsyncKeywordShape(this.Template);
+  if (asyncUnit.SourceRange.StartIndex >= 0) {
+    asyncKeyword.SignIn(asyncUnit.SourceRange.StartIndex);
+  }
+  if (asyncUnit.SourceRange.EndIndex >= 0) {
+    asyncKeyword.SignOut(asyncUnit.SourceRange.EndIndex);
+  }
+  asyncKeyword.Pos = this.BasePos;
+  asyncKeyword.TryToClose(this.Context);
+  shape.Add(asyncKeyword);
+}
+if (asteriskUnit !== null) {
+  const asterisk = new AsteriskTokenShape(this.Template);
+  asterisk.SignInToken(asteriskUnit);
+  asterisk.SignOutToken(asteriskUnit);
+  asterisk.Pos = keyword.SourceRange.End < 0 ? this.BasePos : keyword.SourceRange.EndIndex;
+  asterisk.TryToClose(this.Context);
+  shape.Add(asterisk);
+}
 const name = IdentifierShape.FromBasicToken(nameUnit as Common, this.Context);
-// `FromUnits` 的名字锚点：`name.Pos = function 关键字的 EndIndex`（`AnchorFirstModifier` 同理，
-// 本轮没有修饰词，所以只此一处）。
-name.Pos = keyword.SourceRange.End < 0 ? this.BasePos : keyword.SourceRange.EndIndex;
+// `FromUnits` 的名字锚点：普通 / async = `function` 的 EndIndex；生成器 = `*` 的 EndIndex
+//（async 形态也锚在 `function` 之后，不是 `async` 之后 —— TS 的 Identifier pos 是名字本身的位置）。
+let nameAnchor:Token = keyword;
+if (asteriskUnit !== null) {
+  nameAnchor = asteriskUnit;
+}
+name.Pos = nameAnchor.SourceRange.End < 0 ? this.BasePos : nameAnchor.SourceRange.EndIndex;
 shape.FunctionName = name;
 const builtParameters = FunctionDeclarationShape.BuildParameters(this.Owner as Token, parameters as Bracket,
   this.Context);
 shape.Parameters = builtParameters;
 shape.Body = block;
-// AST 子节点顺序照 `FromUnits`：名字 → 类型参数 → 参数列表 → 返回类型 → 体（本轮后三项只有参数与体）。
 shape.Add(name);
 for (const parameter of builtParameters) {
   shape.Add(parameter);
 }
 shape.Add(block);
-// 区间 / Pos / 关闭 = `Finish(shape, first, last)`；`first` = `function`、`last` = 体的 `}`，
-// `Pos` = 壳的 Pos（与 `FromUnits` 末尾的 `shape.Pos = pos` 同值）。
-DirectStatementAssembly.Span(shape, keyword, body, this.BasePos, this.Context);
+// 区间 / Pos / 关闭 = `Finish(shape, first, last)`；`first` = `function`（async 形态是 `async`，
+// 与 `FromUnits` 的 `modifierUnits[0]` 同口），`last` = 体的 `}`，`Pos` = 壳的 Pos。
+const head = asyncUnit === null ? keyword : asyncUnit;
+DirectStatementAssembly.Span(shape, head, body, this.BasePos, this.Context);
 return shape;
 ```
 
