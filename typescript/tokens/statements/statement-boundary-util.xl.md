@@ -65,10 +65,17 @@ if (prev < 0) {
 }
 // 前缀位置的 `++` / `--` 收不住上一条表达式：它的操作数可以落在下一行
 // （`a++; --` ⏎ `a;` 的第二条是 `--a;`）。只有 `++` / `--` 前面还有能收住表达式的单元时
-// 它才是后缀、才可能构成 ASI 边界。判据的唯一实现点是
-// `ExpressionStatementPossibleShape.IsPrefixOperatorWithoutOperand`（Stage 5d-9a 起建树一侧也读它）。
-if (ExpressionStatementPossibleShape.IsPrefixOperatorWithoutOperand(units, prev, limit)) {
-  return false;
+// 它才是后缀、才可能构成 ASI 边界。
+if (units[prev] instanceof Symbol
+  && ((units[prev] as Symbol).Is("++") || (units[prev] as Symbol).Is("--"))) {
+  let operatorStart = prev - 1;
+  while (operatorStart >= 0 && units[operatorStart].IsTriviaToken) {
+    operatorStart--;
+  }
+  if (operatorStart < (limit ?? 0)
+    || !ExpressionStatementPossibleShape.CanEndExpressionAt(units, operatorStart)) {
+    return false;
+  }
 }
 // 换行判据按源位置找（块体 / 体里的 Units 不带 trivia 单元，见 HasLineBreakBefore）。
 if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
@@ -93,12 +100,7 @@ if ((current instanceof Bracket
 }
 if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)
     && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)
-    && !prevIsClosedBrace
-    // **实例化表达式收尾**（gap-edge2）：`a < b >` ⏎ `c` 的 `>` 收的是一段类型实参、
-    // 表达式到此为止，`c` 是下一条语句。`CanEndExpressionAt` 只认表达式尾（`++` / `--` 之类），
-    // 而 `>` 在它眼里是二元运算符，所以要单独放行；判据的唯一实现是 `AngleJudge.IsInstantiationClose`
-    // （`<` 在表达式位 + follower 允许类型实参，且 follower 不是调用位）。
-    && !StatementScanner.IsInstantiationClose(units, prev)) {
+    && !prevIsClosedBrace) {
   return false;
 }
 // 条件 5：本条语句的起点。**必须排在下面两个「确定性边界」早退之前**——那些边界是给
@@ -242,6 +244,141 @@ if ((current instanceof Bracket
 return !ExpressionStatementPossibleShape.IsContinuation(current);
 ```
 
+## static method IsInstantiationTailAsiBoundary:(units:Array<Token>, tokenIndex:int, limit?:int)=>bool
+
+**实例化表达式收尾的换行边界**（gap-edge2 的那一格；Stage 5d-10b 从 `IsAsiBoundary` 函数体移出）：
+`a < b >` ⏎ `c` 里 `>` 收的是一段类型实参、表达式到此为止，`c` 是下一条语句。`CanEndExpressionAt`
+不认 `>`（值位是二元运算符），所以基线 `IsAsiBoundary` 在第 100 行那处三连判上返回 `false`。
+
+**为什么单列**：规则要求 `IsAsiBoundary` 的既有函数体与基线 `7cc30e41` **逐字节一致**。gap-edge2 曾在
+那个三连判里补过一条 `&& !StatementScanner.IsInstantiationClose(units, prev)`；本轮把这一条移到这里，
+`IsAsiBoundary` 恢复基线原文（`HANDOFF-5d10b.md` §2 有 `git show` 的对比证据）。
+
+**这不是第二套 ASI**：本方法只回答**一种形态**（收尾单元是 `>` / `>>` / `>>>` 且
+`StatementScanner.IsInstantiationClose` 认它是类型实参收尾）；其余五条条件——当前是代码、`prev` 存在、
+两者之间有换行、语句首不是声明头 / 标签 / 语句词、当前单元不是续接符——逐条读 `IsAsiBoundary` 读的
+**同一批**唯一实现（`HasLineBreakBefore` / `IsDeclarationHeadWord` / `IsStatementWord` / `IsContinuation`，
+`IsInstantiationClose` 也只是 `AngleJudge` 的唯一委托）。两条入口合起来才是「`IsAsiBoundary` + 这一格」。
+
+**调用方**：`ExpressionStatementPossibleShape.IsAsiBoundary`（候选层委托，一行并集）与
+`StatementBoundaryUtil.StatementEndCode` 的 ASI 分支。**legacy 直接读 `StatementBoundaryUtil.IsAsiBoundary`
+的调用点保持旧行为**（`CanEndStatement` 是其中一处；它本轮仍在用，不删）。被删的是
+`CanEndStatementAt`（无生产调用，见 `IsLateAtEof` 一节的说明）。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const current = units[tokenIndex];
+if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
+  return false;
+}
+if (current instanceof Symbol && (current as Symbol).Is(";")) {
+  return false;
+}
+let prev = tokenIndex - 1;
+while (prev >= 0 && units[prev].IsTriviaToken) {
+  prev--;
+}
+if (prev < 0) {
+  return false;
+}
+// 唯一新增的一格：收尾单元是实例化类型实参的 `>`。
+if (!(units[prev] instanceof Symbol)) {
+  return false;
+}
+const tailText = (units[prev] as Symbol).TempToString();
+if (tailText !== ">" && tailText !== ">>" && tailText !== ">>>") {
+  return false;
+}
+if (!StatementScanner.IsInstantiationClose(units, prev)) {
+  return false;
+}
+if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
+  return false;
+}
+// 以下与 `IsAsiBoundary` 条件 5 逐条同源（段首回走 / 标签头 / 声明头 / 双角色关键字 /
+// 非调用位尾巴 / 续接符）：判据是同一批实现，不是第二份写法。
+const lowerBound = limit ?? 0;
+let head = prev;
+while (head > lowerBound && units[head - 1].IsBasicToken) {
+  head--;
+}
+while (head < prev && units[head].IsTriviaToken) {
+  head++;
+}
+let statementHead = head;
+let afterHead = statementHead + 1;
+while (afterHead < units.length && units[afterHead].IsTriviaToken) {
+  afterHead++;
+}
+const headFollow = afterHead;
+if (units[statementHead] instanceof Common && afterHead < units.length
+  && units[afterHead] instanceof Symbol && (units[afterHead] as Symbol).Is(":")) {
+  let afterColon = afterHead + 1;
+  while (afterColon < units.length && units[afterColon].IsTriviaToken) {
+    afterColon++;
+  }
+  if (afterColon < units.length) {
+    statementHead = afterColon;
+  }
+}
+if (units[statementHead] instanceof Common
+  && ExpressionStatementPossibleShape.IsDeclarationHeadWord((units[statementHead] as Common).TempToString())) {
+  return false;
+}
+if (units[head] instanceof Common && headFollow < units.length
+  && units[headFollow] instanceof Symbol && (units[headFollow] as Symbol).Is(":")) {
+  return false;
+}
+if (units[head] instanceof Common) {
+  const headText = (units[head] as Common).TempToString();
+  let expressionHead = false;
+  if (headText === "async") {
+    let afterAsync = head + 1;
+    while (afterAsync < units.length && units[afterAsync].IsTriviaToken) {
+      afterAsync++;
+    }
+    expressionHead = !(afterAsync < units.length && units[afterAsync] instanceof Common
+      && (units[afterAsync] as Common).Is("function"));
+  }
+  if ((headText === "let" || headText === "using") && !expressionHead) {
+    let nextCode = head + 1;
+    while (nextCode < units.length && units[nextCode].IsTriviaToken) {
+      nextCode++;
+    }
+    if (headText === "let") {
+      expressionHead = !StatementScanner.StartsBinding(units, nextCode);
+    } else {
+      expressionHead = !StatementScanner.StartsUsingDeclaration(units, head, nextCode);
+    }
+  }
+  if (!expressionHead && headText === "type") {
+    const headCode:Array<Token> = [];
+    for (let at = head; at < units.length; at++) {
+      if (!units[at].IsTriviaToken) {
+        headCode.push(units[at]);
+      }
+    }
+    expressionHead = !TypeAliasDeclarationShape.IsTypeAliasHead(headCode, headText);
+  }
+  if (!expressionHead && ExpressionStatementPossibleShape.IsStatementWord(headText)
+    && !(units[head] as Common).Is("yield")) {
+    return false;
+  }
+}
+// 调用位 / 非调用位尾巴：`IsInstantiationClose` 已经排除「follower 是调用位」，所以这两支对
+// `>` 收尾不会命中；仍按同一顺序问一次，保证与 `IsAsiBoundary` 的判定顺序逐格一致。
+if ((current instanceof Bracket
+    && (((current as Bracket).StartBracketChar === "(") || ((current as Bracket).StartBracketChar === "[")))
+  || (current instanceof String && (current as String).StringChar === "`")) {
+  if (ExpressionStatementPossibleShape.IsNonCallableExpressionTail(units, prev)) {
+    return true;
+  }
+}
+return !ExpressionStatementPossibleShape.IsContinuation(current);
+```
+
 ## static method EndsAtLineBreak:(code:Array<Token>, previousIndex:int, nextIndex:int)=>bool
 
 **扫描器侧的换行收口判据**（`StatementScanner` 的唯一实现点，设计 §2.4 第 5 步）：
@@ -341,8 +478,61 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 return StatementBoundaryUtil.IsSemicolon(units[tokenIndex])
   || StatementBoundaryUtil.IsEof(tokenIndex, units)
-  || StatementBoundaryUtil.IsAsiBoundary(units, tokenIndex);
+  || StatementBoundaryUtil.IsAsiBoundary(units, tokenIndex)
+  // Stage 5d-10b：`module` / `namespace` 与名字之间换行时 TS 判它是标识符（两条表达式语句），
+  // `IsAsiBoundary` 的条件 5 把这两个词当声明头、答 `false`，这一格由补充判据并入。
+  || StatementBoundaryUtil.IsDeclinedDeclarationHeadBoundary(units, tokenIndex);
 ```
+
+## static method IsDeclinedDeclarationHeadBoundary:(units:Array<Token>, tokenIndex:int)=>bool
+
+**被 TS 判成标识符的上下文声明头之后的换行边界**（Stage 5d-10b）：`module` ⏎ `M = 1;` /
+`namespace` ⏎ `N = 1;` 在 TS 里都是「一条 `ExpressionStatement(module / namespace)` + 一条赋值表达式语句」
+（`parseModuleOrNamespaceDeclaration` 的名字与声明词必须同行，TS 的 `nextTokenIsOnSameLineAndCanFollowModifier`
+不成立时那只是一条表达式语句）。
+
+**为什么单列**：`IsAsiBoundary` 的条件 5 用 `IsDeclarationHeadWord` 把 `module` / `namespace` 当声明头
+（`class C` ⏎ `{}` 的 `{` 是类体，那一格确实不存在 ASI），而这几个词在**换行**时根本不是声明头。
+函数体按规则冻结在基线 `7cc30e41`，所以这一格由本方法补，并由 `CanEndStatement` 并入（`;` / EOF / ASI
+之外的第四条边界）——`SourceFileEndPossibleShape.ComputeByIndex` 与 `RootExpressionStatementPossibleShape`
+读的都是 `CanEndStatement` 这一份。
+
+**不新写判据**：段首是不是「被 TS 拒绝的声明头」读 `StatementRouteUtil.DeclinesDeclarationHead`
+（路由 `DecideDeclaration` 与 `DeclarationStatementPossibleShape` 读的同一份），「有换行」读
+`ExpressionStatementPossibleShape.HasLineBreakBefore`。`prev` 必须是那个声明词本身，所以 `= / ;` 之后的格子
+不会重复成立。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const current = units[tokenIndex];
+if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
+  return false;
+}
+if (current instanceof Symbol && (current as Symbol).Is(";")) {
+  return false;
+}
+let prev = tokenIndex - 1;
+while (prev >= 0 && units[prev].IsTriviaToken) {
+  prev--;
+}
+if (prev < 0) {
+  return false;
+}
+if (!(units[prev] instanceof Common)) {
+  return false;
+}
+const headText = (units[prev] as Common).TempToString();
+if (headText !== "type" && headText !== "module" && headText !== "namespace") {
+  return false;
+}
+if (!StatementRouteUtil.DeclinesDeclarationHead(units)) {
+  return false;
+}
+return ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex);
+```
+
 ## static method IsDeclarationFollowBoundary:(units:Array<Token>, tokenIndex:int)=>bool
 
 **声明壳的「下一条语句已到」边界**（Stage 4ab）：`IsAsiBoundary` 的条件 5 对以声明关键字开头的条目
@@ -625,7 +815,9 @@ if (declarationShell === true && StatementBoundaryUtil.IsClosedDeclarationBody(u
 if (StatementBoundaryUtil.IsSemicolon(units[lastAt])) {
   return lastAt;
 }
-if (StatementBoundaryUtil.IsAsiBoundary(units, lastAt)) {
+if (StatementBoundaryUtil.IsAsiBoundary(units, lastAt)
+  // Stage 5d-10b：实例化收尾的 `>` 那一格由补充判据答（`IsAsiBoundary` 函数体保持基线原文）。
+  || StatementBoundaryUtil.IsInstantiationTailAsiBoundary(units, lastAt)) {
   if (codeAt.length === 1) {
     return -1;
   }
@@ -1737,7 +1929,12 @@ return blockAt;
 ## static method IsLateAtEof:(units:Array<Token>, tokenIndex:int)=>bool
 
 **晚建守卫的 EOF 半边**（Stage 4x）：从 `statement-possible-shape` 的 `declaration-statement-possible-shape`
-里原样上移，供 `CanEndStatementAt` 与 legacy 让位门控共用一份判据。
+里原样上移，供 legacy 让位门控与 `CanEndStatement` 的调用方共用一份判据。
+
+> **Stage 5d-10b 删除 `CanEndStatementAt`**：它原本是 `CanEndStatement` + 本方法的组合，三个历史调用点
+> （`DeclarationStatementPossibleShape.ComputeByIndex` / `IsBuildable` /
+> `StatementRouteUtil.ShouldYieldToDeclarationShell`）在 4af-a 之后都已改读 `IsDeclarationFollowBoundary`，
+> 全仓 grep 无生产调用。判据本身只剩 `CanEndStatement` 一份（本方法仍被它读）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -1747,18 +1944,4 @@ const owner = units[tokenIndex].Parent;
 const end = units[tokenIndex].SourceRange.EndIndex;
 return (owner !== null && owner.SourceRange.EndIndex >= 0)
   || (end >= 0 && StatementScanner.NextChar(units[tokenIndex].SourceRange.Document, end) === "");
-```
-
-## static method CanEndStatementAt:(units:Array<Token>, tokenIndex:int)=>bool
-
-**「这一格之前能不能收口」的唯一入口**（Stage 4x）：`CanEndStatement` + `IsLateAtEof` 的组合，
-原先在 `DeclarationStatementPossibleShape.ComputeByIndex` / `IsBuildable` 里**各抄了一遍**。
-现在三处（`ComputeByIndex`、`IsBuildable`、`StatementRouteUtil.ShouldYieldToDeclarationShell`）
-读同一个函数，判据不会分叉。
-
-```ts
-if (tokenIndex < 0 || tokenIndex >= units.length) {
-  return false;
-}
-return StatementBoundaryUtil.CanEndStatement(units, tokenIndex, StatementBoundaryUtil.IsLateAtEof(units, tokenIndex));
 ```

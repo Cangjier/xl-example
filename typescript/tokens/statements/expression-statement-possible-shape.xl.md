@@ -376,7 +376,11 @@ return false;
 
 ```ts
 // 唯一实现点 = StatementBoundaryUtil（函数体已逐字搬迁，本方法只做委托）。
-return StatementBoundaryUtil.IsAsiBoundary(units, tokenIndex, limit);
+// Stage 5d-10b：gap-edge2 的「实例化收尾」不在 `IsAsiBoundary` 函数体里（那里要求与基线
+// `7cc30e41` 逐字节一致），由 `StatementBoundaryUtil.IsInstantiationTailAsiBoundary` 单列；
+// 候选层两条一起问，与 gap-edge2 之前的行为逐格相同。
+return StatementBoundaryUtil.IsAsiBoundary(units, tokenIndex, limit)
+  || StatementBoundaryUtil.IsInstantiationTailAsiBoundary(units, tokenIndex, limit);
 ```
 
 ## static method IsContextualIdentifier:(text:string)=>bool

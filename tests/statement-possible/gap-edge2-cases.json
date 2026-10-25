@@ -214,6 +214,21 @@
           "name": "edge2-await-second-statement",
           "source": "async function f(){ a; await b; }",
           "note": "E 的 await 对照（修复前就对，靠 lookahead 侥幸）：修 EnclosingFunctionFlags 后必须仍然对。"
+        },
+        {
+          "name": "edge2-declined-head-module",
+          "source": "module\nM = 1;",
+          "note": "Stage 5d-10b B：TS = ExpressionStatement(module)[0,6] + ExpressionStatement(M = 1)[6,13]（0 诊断）。修复前 CJ 抛「表达式语句没有读完」→ 文件级 fallback：`IsAsiBoundary` 的条件 5 把 `module` 当声明头不给 ASI 边界，`ModuleDeclarationPossibleShape` 又在名字格与终结候选同时 Accept。修法：`CanEndStatement` 并入 `IsDeclinedDeclarationHeadBoundary`（读 `DeclinesDeclarationHead` 同一份判据），模块候选在同一格 Reject。"
+        },
+        {
+          "name": "edge2-declined-head-namespace-u2028",
+          "source": "namespace N = 1;",
+          "note": "B 的 U+2028 形态（行分隔符也是行终止符）：TS 同样是两条 ExpressionStatement。CJ 修复前与 module 那条同因同果；修复后 AST 逐节点一致，`namespace` 与 `N` 各是一条语句。"
+        },
+        {
+          "name": "edge2-declined-head-type-control",
+          "source": "type\nT = 1;",
+          "note": "B 的对照：`type` 不在 `IsDeclarationHeadWord` 里，5d-9a 之前就已是两条 ExpressionStatement；本轮的补充判据不许改变它（逐节点对拍）。"
         }
       ]
     },

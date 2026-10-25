@@ -556,3 +556,38 @@ OperatorTable.Precedence / IsRightAssociative / IsBinaryOperator / IsPrefixOpera
 ### 14.6 替代架构判断
 
 **现路径可行，为首选（A）**。B 计划（保留 legacy 决定边界、壳内先 raw 攒、`EndPossible` 只做审计）代价约一个 Stage，且会失去增量建树（Stage 3 操作符候选的 `Frames` 栈无处挂）；仅当 S2 之后「抛错与 crash 归零但 `ast-json` 仍 `< 6100` 且结构差 `> 80`」时启用。给 token 加「已认领位」以跳过二次 `SignOut`（C）**不采纳**：它把结构性错误变成静默跳过，读数会假绿。
+
+## 15. 最终实现状态（Stage 5d 收尾，5d-10b）
+
+> 本节是设计文档的**收尾回写**：上面各节写的是「设计时怎么想」，这里写「最后落成了什么」。
+> 读数与 `HANDOFF-5d10b.md` §5、`docs/possible-statement-completion-matrix.md` §6 同源（HEAD `fa3d32af` 之上）。
+
+### 15.1 落成状态
+
+- **语句壳**：表达式 / 变量 / 控制流 / 块 / 标签 / 空语句 / 块体语句 / `yield`·`await` / switch 子句 /
+  **声明与导入导出族 / 根层与块内 `function`·`class` / 装饰器声明** 全部由 possible 形状壳驱动，默认开关即最终态
+  （`EnableShellExpressions` / `EnableDeclarationShell` / `EnableRootDeclarationShell` /
+  `EnableBlockDeclarationShell` / `EnableBlockClassShell` 全为 `true`）。
+- **判界**：`;` / EOF / ASI / 声明跟随边界 / 体括号 / 类型别名跨行切分的唯一实现点是
+  `StatementBoundaryUtil`；默认态 `ScanRoot` **0** 次（6300 用例），`ScanRoot` 只在文件级 fallback 的
+  legacy 重解析里出现（46 次 / 4 个文件）。
+- **根 legacy 候选**：默认目录不再注册 `StatementPossibleShape`；`--legacy-only` / `ParseCore(..., false)`
+  逐位等价于「默认目录 + 原第 4 位插回根候选」，11 个用例逐节点 AST 与默认态一致。
+- **退场指标**：`LegacyStatementDispatch 0` / `ScanRoot 46`（默认 0）/ `RawTail 4` / `ShapeAstDeclined 2` /
+  `FileFallback 4`。
+- **`IsAsiBoundary` 函数体**：自 Stage 5d-10b 起与基线 `7cc30e41` **逐字节一致**（sha256 相同）；gap-edge2 的
+  「实例化收尾 `>`」一格单列为 `StatementBoundaryUtil.IsInstantiationTailAsiBoundary`，由候选层委托与
+  `StatementEndCode` 并入——这是「规则要求既有函数体不改」带来的唯一结构代价。
+- **`module` / `namespace` 与名字跨行**：TS 判成标识符（两条 `ExpressionStatement`），CJ 现在同判
+  （`IsDeclinedDeclarationHeadBoundary` 并入 `CanEndStatement`，`ModuleDeclarationPossibleShape` 同格退出）。
+
+### 15.2 没有落成的部分（设计层面的诚实边界）
+
+- **建树层没有重写**：壳收口后仍把同一份 raw 切片交给 `StatementBuilder.BuildStatement` 原子建树。
+  「完整重构」在本项目的判据是**判界 / 挂载 / 建壳由 possible 完成、legacy 派发退场**，那一条已达成；
+  「形状树逐节点产出 AST」只在表达式层（`StatementShapeAst`）成立，语句层没有。
+- **残余 4 / 2 / 4**（RawTail / Declined / FileFallback）逐条登记在
+  `docs/possible-statement-completion-matrix.md` §5，都是「改一处、波及全身」的判据（晚建时序 / 类型位与块的分岔 /
+  前缀栈区间），没有为了读数好看而改判据。
+- **`yield` 的根层建树仍是 legacy 原子建**（`Decide` 判 `Legacy`）：块内走壳、根层走 legacy，
+  两条通道行为逐位一致——这是族与族的分工，不是未完成项。

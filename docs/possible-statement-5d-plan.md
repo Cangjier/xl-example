@@ -6,6 +6,11 @@
 **本阶段零行为变化**：只新增 `StatementLegacyMetrics` 的静态整数自增与探针 / 文档，不改任何判据、分支、顺序。
 证据见 §6（默认全门读数与基线逐项相同）。
 
+> **状态说明（Stage 5d-10b 收尾）**：本文档是 Stage 5d 的**过程记录**——§0 的读数是 5d-1a 开工时的基线，
+> §6/§9/§10/§11/§13/§14 各自记录那一阶段交付后的实测。**Stage 5d 已全部完成**；逐阶段完成状态、
+> 最终指标（`0 / 46 / 4 / 2 / 2 / 4`）、残余清单与全门读数集中在 **§15**，
+> 交付说明见 `HANDOFF-5d10b.md`。
+
 ---
 
 ## 0. 结论先行
@@ -747,3 +752,57 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
 B 段关掉兜底让异常抛出来取**最内层** message），带一张 4 类 13 条的**归因台账**；
 判决口径是「观测集合是台账的子集 + 没有新类别 + 没有 crash」。它量的是**原因**而不是总数：
 后续阶段改判界 / 建造器时，fallback 的原因一变就会被看见。
+
+## 15. Stage 5d 收尾：逐阶段完成状态与最终指标（5d-10b，实测 2026-10-25，HEAD `fa3d32af` 之上）
+
+### 15.1 逐阶段完成状态
+
+| 阶段 | 内容 | 状态 | 交付证据 |
+| --- | --- | --- | --- |
+| 5d-1a | 四大指标 + 基线 + 计划（零行为变化） | **完成** | `StatementLegacyMetrics`、`legacy-retirement.mjs`；本文 §1/§2/§6 |
+| 5d-1b / 1b2 | 短族判界迁 boundary；收口建树所有权迁 possible 层 | **完成** | `HANDOFF-5d1a.md` / `HANDOFF-5d1b.md`；`short-family-boundary` 46/46 |
+| 5d-2a / 2b | 短语句族 / 控制流链式族收口位置（`ShortFamilyEndCode` / `ControlFlowFamilyEndCode`） | **完成** | `control-flow-boundary` 85/85、`cf-body-takeover` 46/0、`block-body-takeover` 21/0 |
+| 5d-3 | 根层 `function` / `class` / 装饰器声明壳（`DeclarationShellEndCode`） | **完成** | `HANDOFF-5d3.md`；`decorated-declaration-takeover` 14/14 |
+| 5d-4 | `yield` / 控制流 / 分支族语句形状与 raw 尾巴 | **完成** | `HANDOFF-5d4.md`；`yield-boundary`（最终 56/56） |
+| 5d-5 | 根 legacy 候选退场（默认目录不再注册 `StatementPossibleShape`） | **完成** | `HANDOFF-5d5.md`；`root-retirement`：默认 0 / false 态 69 |
+| 5d-6 | `yield` / `await` 判界迁出 `ScanRoot` + 标签体目录 | **完成** | `HANDOFF-5d6.md` |
+| 5d-8a / 8b / 8c | 块内声明壳 / 形状层覆盖 / 文件级 fallback 根因逐类修复 | **完成** | `HANDOFF-5d8a/b/c.md`；FileFallback 50 → 13 → 4 |
+| 5d-9a | 退场残余清零（fallback / raw 尾巴 / 形状拒绝 / 前缀操作数） | **完成** | `HANDOFF-5d9a.md`；0 / 46 / 4 / 2 / 2 / 4 |
+| gap-sw / gap-as1 / gap-a4 / gap-edge2 / r2 / r3 | 转正前 gap 与边缘形态 | **完成（已合并）** | 各 `HANDOFF-gap-*.md`；`gap-edge2-cases.json` 46/0/known=7 |
+| **5d-10b** | `IsAsiBoundary` 原体恢复 / `module`·`namespace` 跨行 / 探针更新 / 死代码 / 文档收尾 | **完成** | `HANDOFF-5d10b.md` |
+
+### 15.2 最终指标（`legacy-retirement.mjs`，官方基线）
+
+| 指标 | 5d-1a 基线 | 最终 | 说明 |
+| --- | --- | --- | --- |
+| `LegacyStatementDispatchCount` | 4471 | **0** | 默认解析不再走 `StatementRoute.Legacy` 派发 |
+| `ScanRootCallCount` | 32414 | **46** | 默认态 0；46 全部来自 4 个文件级 fallback 的 legacy 重解析 |
+| `RawTailBuildCount` | 292 | **4** | 3 族：`return` 后裸块 / 裸块尾巴 / 装饰器成员条件返回类型 / 模块体括号 |
+| `ShapeAstDeclinedCount` | 328 | **2** | `new new A()()` 与箭头参数表带类型谓词 |
+| `FileFallbackCount` | 50 | **4** | 全在 `file-fallback-attribution.mjs` 的 4 类 13 条台账内 |
+| `KnownGap`（harness） | 0 | **0** | `harness --all`：102/0/known=0 |
+
+### 15.3 5d-10b 这一轮做了什么
+
+1. **`StatementBoundaryUtil.IsAsiBoundary` 函数体恢复为基线 `7cc30e41` 逐字节原文**（sha256 相同）；
+   gap-edge2 的「实例化收尾 `>`」那一格移到新方法 `IsInstantiationTailAsiBoundary`，由候选层委托与
+   `StatementEndCode` 的 ASI 分支并入（`HANDOFF-5d10b.md` §2 有 `git show` 对比证据）。
+2. **`module` ⏎ `M = 1;` / `namespace` ⏎ `N = 1;` 修到 AST==TS**：新增
+   `IsDeclinedDeclarationHeadBoundary`（读 `DeclinesDeclarationHead` 同一份判据）并入 `CanEndStatement`，
+   `ModuleDeclarationPossibleShape` 在同一格退出；3 条用例进 `gap-edge2-cases.json` 合法组。
+3. **`yield-boundary.mjs` 的正对照按实际语义更新**：默认态断言 0、`ParseCore(..., false)` 的 false 态断言 > 0
+   （5d-5/5d-7 后「默认态 > 0」的前提已不成立），56/56。
+4. **死代码删除**：`StatementBoundaryUtil.CanEndStatementAt`（无生产调用）与
+   `StatementRouteUtil.EnableShellStatements`（从未接线、全仓无引用）；`xl_build` + `tsc` 双过。
+5. **文档收尾**：本文件 §15、`possible-statement-completion-matrix.md`（目标四判定为达成 + §6 读数表）、
+   `possible-statement-final-inventory.md`（legacy 面改为「默认路径已无 legacy」）、
+   `possible-statement-design.md`（「最终实现状态」）。
+
+### 15.4 未完成 / 保留的风险
+
+- `StatementBuilder.BuildStatement` 仍是收口后的**原子建树者**（§6.9）：判界层退场 ≠ 建树层重写。
+- RawTail 4 / Declined 2 / FileFallback 4 逐条在 §15.2 与 `possible-statement-completion-matrix.md` §5 留档，
+  没有为了「读数好看」改判据。
+- `IsInstantiationTailAsiBoundary` 是 `IsAsiBoundary` 的**补充**而不是第二套 ASI：它只多问「收尾是
+  `AngleJudge.IsInstantiationClose` 认的类型实参 `>`」，其余条件全部读同一批实现；
+  但「两条入口」这件事本身是函数体冻结带来的结构代价，记在这里。
