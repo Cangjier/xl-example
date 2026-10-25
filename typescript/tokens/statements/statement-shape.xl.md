@@ -71,10 +71,18 @@ if (this.DirectSession !== null) {
   try {
     ingestSession.Ingest(this.Data, context);
   } catch (error) {
-    if (!ingestSession.Declined) {
+    // R4（R4-CONTRACT §1.5 / R4-Q2）：`--strict` 的两处抛错点在抛出**之前**都已经计数
+    // （Decline ⇒ `Declined`+`StrictViolations`；Incomplete ⇒ `IncompleteFallback`+`StrictViolations`），
+    // 所以这一类异常不是「异常兜底」，**不得**再记 `Errors`（R4-S-01/02 要 `errors==0 &&
+    // strictViolations>=1`）。判据 = 抛错前缀，与 session 的两个抛错点一一对应；非 strict 的真异常照旧
+    // 计 `Errors` + `LastError`。这不是放宽：`StrictViolations` 仍然是 `>=1` 的硬断言。
+    const message = error instanceof Error ? error.message : String(error);
+    if (!ingestSession.Declined && message.indexOf("DirectBuild strict") !== 0) {
       DirectBuildMetrics.Errors += 1;
-      DirectBuildMetrics.LastError = error instanceof Error ? error.message : String(error);
-      DirectBuildMetrics.Trace("direct ingest error: " + DirectBuildMetrics.LastError);
+      DirectBuildMetrics.LastError = message;
+      DirectBuildMetrics.Trace("direct ingest error: " + message);
+    } else {
+      DirectBuildMetrics.Trace("direct ingest strict (already counted): " + message);
     }
   }
 }
@@ -113,10 +121,16 @@ if (direct !== null && !direct.Declined) {
     // C4（R2-CONTRACT §3.2）：直建 `Finish` 抛错 = 「直建没收住」，必须计数后再回落旧路径
     // （绝不静默变成绿）。若异常来自已计数的 Decline（`--strict` 的 StrictViolations 抛错），
     // `Declined` 已为真，不重复计入 Errors —— 判据始终是计数器，不是「有没有抛异常」。
-    if (!direct.Declined) {
+    // R4（R4-CONTRACT §1.5）：`--strict` 的 **Incomplete** 抛错同理——`IncompleteFallback` 与
+    // `StrictViolations` 在抛出前都已 +1（`a +` / `a as` 的读数就是 `incomplete=1 strictViolations=1`），
+    // 它是「解析器自己的拒绝」，不是异常兜底，因此也不记 `Errors`（R4-S-01/02 的 `errors==0`）。
+    const message = error instanceof Error ? error.message : String(error);
+    if (!direct.Declined && message.indexOf("DirectBuild strict") !== 0) {
       DirectBuildMetrics.Errors += 1;
-      DirectBuildMetrics.LastError = error instanceof Error ? error.message : String(error);
-      DirectBuildMetrics.Trace("direct finish error: " + DirectBuildMetrics.LastError);
+      DirectBuildMetrics.LastError = message;
+      DirectBuildMetrics.Trace("direct finish error: " + message);
+    } else {
+      DirectBuildMetrics.Trace("direct finish strict (already counted): " + message);
     }
     directBuilt = null;
   }
@@ -353,6 +367,25 @@ if (!this.Closed) {
       }
       const end = StatementBoundaryUtil.DeclarationShellEndCode(this.Data, codeAt, true,
         this.Kind === StatementRoute.ShellDecoratedDeclaration);
+      if (end >= 0) {
+        endIndex = end;
+      }
+    } else if (this.Kind === StatementRoute.ShellPlainExpression) {
+      // R4-C2（R4-CONTRACT §1.3 / §4.1，审批 A-2）：表达式壳在 EOF 收口时也必须先问一次**同一份**
+      // ASI 判据（`StatementBoundaryUtil.StatementEndCode` → `IsAsiBoundary`，其中包含 C2 新增的
+      // 「行首操作数起点」分支）。这一支原来把 `endIndex` 直接钉在 `lastCode` 上：`a⏎b` 整段被吞进
+      // 一条壳，壳里明明已经是 ASI 边界、直建 session 却只能在 Finish 里 Decline(`expr.stopped`)。
+      // 现在与声明族/控制流族同一口径：判据先答在哪收口，`endIndex` 跟着判据走。
+      // 只接 ShellPlainExpression 这一支——其它族一位不动（R3 的 5d-2a/2b/3 各自分支保持原样）。
+      const code:Array<Token> = [];
+      const codeAt:Array<number> = [];
+      for (let at = 0; at < this.Data.length; at++) {
+        if (!this.Data[at].IsTriviaToken) {
+          code.push(this.Data[at]);
+          codeAt.push(at);
+        }
+      }
+      const end = StatementBoundaryUtil.StatementEndCode(this.Data, codeAt, true, false);
       if (end >= 0) {
         endIndex = end;
       }

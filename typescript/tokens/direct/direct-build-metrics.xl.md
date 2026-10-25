@@ -52,7 +52,14 @@ DirectBuildMetrics.Traces.length = 0;
 ```ts
 // C3（R2-CONTRACT §3.1）：Decline 的**分类计数**。键只做分组，细节留在 `LastDeclineReason` / trace。
 // 只记分类表 + 最近原因 + trace；**不动** `Declined`（由 session 自己加，保持 R1 调用点单一职责）。
-// 分类键是闭集（var.head/binding/type/init/stopped/coverage、expr.decline/stopped/coverage）；
+// 分类键是**闭集**（R4-CONTRACT §4.7；只补注释，不改计数语义）：
+//   变量族  var.head / var.binding / var.type / var.init / var.stopped / var.coverage
+//   表达式族 expr.decline / expr.stopped / expr.coverage / **expr.member**（R4-B4-c：对象成员是
+//           async / 生成器 / 计算属性名 / 默认参数）
+//   语句族  stmt.head / **stmt.catch**（R4-B3-a：catch 绑定是类型注解 / 解构 / 非 Identifier）/
+//           **stmt.case**（R4-B3-b：`case` 子句形态超出闭集）/ **stmt.binding**（R4-B3：解构绑定）/
+//           **stmt.type**（R4-B3：注解 / 确定赋值 `!`）/ **stmt.expr**（R4-B3：子句表达式引擎 Decline）/
+//           **stmt.shape**（R4-B3：形状组装失败）/ stmt.label / stmt.func / stmt.body / stmt.nested
 // 空串兜底成 `unknown`，不抛错（新增 category 必须先改 CONTRACT 那张表）。
 const key = category === "" ? "unknown" : category;
 const old = DirectBuildMetrics.DeclineReasons.get(key);
