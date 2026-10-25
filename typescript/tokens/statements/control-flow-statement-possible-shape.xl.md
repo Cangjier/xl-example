@@ -102,11 +102,27 @@ if (route === StatementRoute.ShellLabel) {
 }
 // 其余各族只在首代码单元那一格 Accept：建壳之后本条目归壳，后续格子由壳的终结候选判界。
 // Stage 4q：声明 / 导入导出族（`ShellDeclarationFamily`）走同一个候选、同一条建壳路径。
-if (route !== StatementRoute.ShellStatementFamily && route !== StatementRoute.ShellDeclarationFamily) {
+// **Stage 5d-3**：根层 `function` / `class` / 装饰器声明（`ShellFunctionDeclaration` /
+// `ShellClassDeclaration` / `ShellDecoratedDeclaration`）也走这一条——它们各有自己的终结判据
+// （`StatementBoundaryUtil.DeclarationShellEndCode`）与 family builder，候选只负责建壳。
+const declarationShell = route === StatementRoute.ShellFunctionDeclaration
+  || route === StatementRoute.ShellClassDeclaration
+  || route === StatementRoute.ShellDecoratedDeclaration;
+if (route !== StatementRoute.ShellStatementFamily && route !== StatementRoute.ShellDeclarationFamily
+  && !declarationShell) {
   return ShapeStates.Reject;
 }
 if (tokenIndex !== headAt) {
-  return ShapeStates.Reject;
+  // **Stage 5d-3 的晚建窗口**（只给 `async function` / `abstract class`）：族要到第二个代码单元
+  // （`function` / `class`）才判得出来，`Decide` 在第一个代码单元那一格只能返回 `None`（等待）。
+  // 两格窗口是**刻意的上界**：再往后的格子说明这一条早就该由别的候选接管，不在这里无限补建
+  // （`@` 装饰器族在 `@` 那一格就判出来了，不需要晚建）。
+  if (!declarationShell) {
+    return ShapeStates.Reject;
+  }
+  if (tokenIndex !== ItemUtil.NextCode(units, headAt + 1)) {
+    return ShapeStates.Reject;
+  }
 }
 return ShapeStates.Accept;
 ```
@@ -137,6 +153,11 @@ if (route === StatementRoute.ShellLabel) {
 }
 if (route === StatementRoute.ShellDeclarationFamily) {
   return tokenIndex === headAt;
+}
+if (route === StatementRoute.ShellFunctionDeclaration || route === StatementRoute.ShellClassDeclaration
+  || route === StatementRoute.ShellDecoratedDeclaration) {
+  // Stage 5d-3：与 `ComputeByIndex` 同一个两格窗口（否则「可建」与「接受」两处判据会分叉）。
+  return tokenIndex === headAt || tokenIndex === ItemUtil.NextCode(units, headAt + 1);
 }
 return route === StatementRoute.ShellStatementFamily && tokenIndex === headAt;
 ```
@@ -225,6 +246,12 @@ const endShape = new StatementEndPossibleShape();
 let endKind = StatementRoute.ShellStatementFamily;
 if (route === StatementRoute.ShellDeclarationFamily) {
   endKind = StatementRoute.ShellDeclarationFamily;
+} else if (route === StatementRoute.ShellFunctionDeclaration
+  || route === StatementRoute.ShellClassDeclaration
+  || route === StatementRoute.ShellDecoratedDeclaration) {
+  // Stage 5d-3：根层声明壳的终结候选自称本族，收口走 `DeclarationShellEndCode`
+  // （体括号 / `;` / 声明跟随边界 / EOF，**不调 `ScanRoot`**）。
+  endKind = route;
 }
 endShape.StatementKind = endKind;
 shell.CatalogGuide = new CatalogGuide([], endShape);
@@ -235,6 +262,12 @@ if (route === StatementRoute.ShellLabel) {
   StatementRouteUtil.LabelShellCount += 1;
 } else if (route === StatementRoute.ShellDeclarationFamily) {
   StatementRouteUtil.DeclarationShellCount += 1;
+} else if (route === StatementRoute.ShellFunctionDeclaration) {
+  StatementRouteUtil.FunctionDeclarationShellCount += 1;
+} else if (route === StatementRoute.ShellClassDeclaration) {
+  StatementRouteUtil.ClassDeclarationShellCount += 1;
+} else if (route === StatementRoute.ShellDecoratedDeclaration) {
+  StatementRouteUtil.DecoratedDeclarationShellCount += 1;
 } else {
   StatementRouteUtil.ControlFlowShellCount += 1;
 }
@@ -242,7 +275,9 @@ if (route === StatementRoute.ShellLabel) {
 // `RootExpressionStatementPossibleShape` 的晚建补建同一手法——已经搬进壳的 raw 单元不会再触发壳自己的求值，
 // 这里补一次，让壳内终结候选的增量状态（`StatementEndScan` 的 `Code` / `Checked`）从这一格起算；
 // 不补的话壳停在「有单元、没判过界」的状态，下一次收口只能等 EOF 的 legacy 兜底。
-if (tokenIndex > start && route === StatementRoute.ShellDeclarationFamily) {
+// Stage 5d-3：`async function` / `abstract class` 的晚建（两格窗口）同理。
+if (tokenIndex > start && (route === StatementRoute.ShellDeclarationFamily
+  || route === StatementRoute.ShellFunctionDeclaration || route === StatementRoute.ShellClassDeclaration)) {
   shell.ComputePossibleShapes(context);
 }
 return shell;

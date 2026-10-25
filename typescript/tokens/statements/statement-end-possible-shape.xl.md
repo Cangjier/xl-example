@@ -180,6 +180,22 @@ if (state.Checked !== tokenIndex + 1) {
         state.Status = 1;
       }
     }
+  } else if (this.StatementKind === StatementRoute.ShellFunctionDeclaration
+    || this.StatementKind === StatementRoute.ShellClassDeclaration
+    || this.StatementKind === StatementRoute.ShellDecoratedDeclaration) {
+    // **Stage 5d-3：根层声明语句壳（function / class / 装饰器）的收口**。判据只有一份——
+    // `StatementBoundaryUtil.DeclarationShellEndCode`（体括号已闭合 → 收在体括号；ambient 无体 →
+    // `;` / 声明跟随边界 / EOF），**不调 `StatementScanner.ScanRoot`**。
+    // 只在「当前单元本身是代码」时判界（与上面声明族同一口径）：trivia 到达时 `Code` 的末单元是上一条
+    // 代码单元，拿它当「新语句起点」会判出假边界。
+    if (!units[tokenIndex].IsTriviaToken) {
+      const end = StatementBoundaryUtil.DeclarationShellEndCode(units, state.CodeAt, StatementScanner.AtEOF,
+        this.StatementKind === StatementRoute.ShellDecoratedDeclaration);
+      if (end >= 0 && end <= tokenIndex) {
+        state.End = end;
+        state.Status = 1;
+      }
+    }
   } else if (StatementBoundaryUtil.IsShortFamilyCode(state.Code)) {
     // **Stage 5d-2a：短语句族（return / throw / break / continue / debugger / let·const·var）的判界
     // 已迁到 boundary 层**：收口位置读 `ShortFamilyEndCode`，**不调 `StatementScanner.ScanRoot`**。
@@ -389,7 +405,17 @@ if (current instanceof EndOfFileTokenShape) {
     const unitEnd = current.SourceRange.EndIndex;
     StatementScanner.AtEOF = (owner !== null && owner.SourceRange.EndIndex >= 0)
       || (unitEnd >= 0 && StatementScanner.NextChar(current.SourceRange.Document, unitEnd) === "");
-    if (StatementBoundaryUtil.IsShortFamilyCode(code)) {
+    const declarationShell = this.StatementKind === StatementRoute.ShellFunctionDeclaration
+      || this.StatementKind === StatementRoute.ShellClassDeclaration
+      || this.StatementKind === StatementRoute.ShellDecoratedDeclaration;
+    if (declarationShell) {
+      // Stage 5d-3：与 `ComputeByIndex` 同一份判据（`DeclarationShellEndCode`），不调 `ScanRoot`。
+      const end = StatementBoundaryUtil.DeclarationShellEndCode(host.Data, codeAt, StatementScanner.AtEOF,
+        this.StatementKind === StatementRoute.ShellDecoratedDeclaration);
+      if (end >= 0 && end <= endIndex) {
+        endIndex = end;
+      }
+    } else if (StatementBoundaryUtil.IsShortFamilyCode(code)) {
       // Stage 5d-2a：短语句族走 boundary 层的同一份判据（与 `ComputeByIndex` 同一个 `atEof`）。
       const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(code, StatementScanner.AtEOF);
       if (shortEnd >= 0 && shortEnd < codeAt.length) {
@@ -431,6 +457,16 @@ if (current instanceof EndOfFileTokenShape) {
     // 直接给壳 `Data` 下标（与 `ComputeByIndex` 同一基准），不再二次折算。
     const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF,
       this.StatementKind === StatementRoute.ShellDeclarationFamily);
+    if (end >= 0 && end <= tokenIndex) {
+      endIndex = end;
+    }
+  } else if (this.StatementKind === StatementRoute.ShellFunctionDeclaration
+    || this.StatementKind === StatementRoute.ShellClassDeclaration
+    || this.StatementKind === StatementRoute.ShellDecoratedDeclaration) {
+    // Stage 5d-3：根层声明语句壳与 `ComputeByIndex` 同一份判据（体括号 / `;` / 声明跟随边界 / EOF），
+    // 基准同样是壳 `Data` 下标，不再二次折算。
+    const end = StatementBoundaryUtil.DeclarationShellEndCode(host.Data, codeAt, StatementScanner.AtEOF,
+      this.StatementKind === StatementRoute.ShellDecoratedDeclaration);
     if (end >= 0 && end <= tokenIndex) {
       endIndex = end;
     }

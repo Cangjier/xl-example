@@ -11,6 +11,7 @@ import { ExpressionStatementPossibleShape } from "./expression-statement-possibl
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
+import { TypeBuilder } from "../types/type-builder.xl.md"
 ```
 
 # namespace cangjie
@@ -575,6 +576,47 @@ if (atEof) {
   return lastAt;
 }
 return -1;
+```
+
+## static method DeclarationShellEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, decorated?:bool)=>int
+
+**带体声明语句壳（根层 `function` / `class` / 装饰器声明）的收口位置**（Stage 5d-3）：返回宿主 `Data`
+的下标，`-1` = 还不能收口。判据只有这一份——终结候选（`StatementEndPossibleShape` 的
+`ComputeByIndex` / `BuildByIndex`）与 EOF 兜底（`StatementShape.TryToClose`）读同一个实现，
+所以「怎么收口」与「兜底收到哪」不可能分叉。
+
+四条顺序：
+
+1. **体括号已闭合**：末代码单元是 `{…}` 括号单元，且 `TypeBuilder.IsBodyBrace` 认它是**声明体**
+   （不是返回类型 / `extends` / 类型参数里的类型字面量）→ 收在它身上。这是 `function` / `class`
+   唯一的主路径：体里的语句都在括号单元内部，壳在这一格就把整条声明交出去。
+2. **`;`**：ambient / 重载签名（`function f(a: A): B;`）收在 `;` 上——与 `StatementEndCode` 的第 1 条同义，
+   这里提前挡住，避免 `;` 之后的声明跟随判据把它算到前一个代码单元上。
+3. **装饰器族（`decorated === true`）到此为止**：`@dec` ⏎ `class C {}` 的换行是**装饰器与声明之间**的
+   合法换行，不是 ASI 边界——`IsAsiBoundary` 只看「语句首」是 `@`（不是 Common 声明头词），
+   会把 `@dec` 当场判成一条语句。所以本族只认体括号 / `;`，其余交给 EOF 兜底。
+4. 其余 → `StatementEndCode(units, codeAt, atEof, true)`（声明跟随边界 / EOF，与声明族同一份）。
+
+**为什么不给 `function` / `class` 走 ASI 主判据**：`IsAsiBoundary` 的条件 5 对以声明关键字开头的条目
+一律返回 `false`（`class C` ⏎ `{}` 的 `{` 是声明头的一部分），所以这两族本来就不会被 ASI 提前切断；
+真正会提前切断的是 `IsDeclarationFollowBoundary`（下一条语句的词已到），第 4 条读的就是它。
+
+```ts
+if (codeAt.length === 0) {
+  return -1;
+}
+const lastAt = codeAt[codeAt.length - 1];
+if (units[lastAt] instanceof Bracket && (units[lastAt] as Bracket).StartBracketChar === "{"
+  && TypeBuilder.IsBodyBrace(units, lastAt)) {
+  return lastAt;
+}
+if (StatementBoundaryUtil.IsSemicolon(units[lastAt])) {
+  return lastAt;
+}
+if (decorated === true) {
+  return atEof ? lastAt : -1;
+}
+return StatementBoundaryUtil.StatementEndCode(units, codeAt, atEof, true);
 ```
 
 ## static method IsShortFamilyCode:(code:Array<Token>)=>bool
