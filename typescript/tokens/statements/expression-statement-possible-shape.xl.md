@@ -779,6 +779,11 @@ return -1;
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
+if (StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellDeclarationFamily) {
+  // Stage 4r：声明 / 导入导出族由 `DeclarationStatementPossibleShape` 建壳，本 legacy 候选让位。
+  // 不 Reject 就会被 `CatalogGuide` 当成「还能长」，与专用候选同格成立而永远等不到唯一候选。
+  return ShapeStates.Reject;
+}
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }

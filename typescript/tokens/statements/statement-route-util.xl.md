@@ -246,7 +246,14 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 `BlockBodyStatementCount` / `ControlFlowShellCount` 读数决定；两个数一起看才能区分「挂上但没接管」与
 「根本没挂」。
 
-## static field EnableDeclarationShell:bool = true
+## static field EnableDeclarationShell:bool = false
+
+**Stage 4r 实测后默认关（安全回退）**：专用候选 `DeclarationStatementPossibleShape` 与 13 个 legacy 候选的
+`Decide === ShellDeclarationFamily` 让位门控都已落地，打开时 27 条专用用例中 **25 条单条形态逐条通过**
+（`DeclarationShellCount=1`、XML==legacy、AST==TS、fallback 0），但有 **2 条多语句组合**双建壳
+（`interface I { }` ⏎ `const a = 1;`：decl=2；`type T = 1;` ⏎ `enum E { A }` ⏎ `export { T, E };`：enum 退化成 raw），
+并且全表回归出 **1 条 ASI 用例**（`asi-type-then-return`：`type T = A` ⏎ `return;` 的声明壳在 ASI 边界既没建树也没重放，
+整条退化成 raw）。按纪律不伪造绿：默认关，行为逐位回到 Stage 4q（`EnableShellExpressions=false` 的对拍档同样不受影响）。
 
 **根层声明 / 导入导出族语句壳开关**（Stage 4q）。`true` = `Decide` 把这些起点判成
 `StatementRoute.ShellDeclarationFamily`，由 `ControlFlowStatementPossibleShape`（通用起点候选）建壳，
@@ -292,7 +299,8 @@ return text === "interface" || text === "enum" || text === "type" || text === "n
    `ShellPlainExpression`（这里只返回 `None`，不重复写第二份判据）。
 
 ```ts
-if (!StatementRouteUtil.EnableDeclarationShell) {
+if (!StatementRouteUtil.EnableDeclarationShell || !StatementRouteUtil.EnableShellExpressions
+  || !StatementRouteUtil.EnableControlFlowShell) {
   return StatementRoute.None;
 }
 if (!StatementRouteUtil.IsDeclarationHead(text)) {
@@ -304,6 +312,10 @@ if (nextAt >= units.length) {
   return StatementRoute.None;
 }
 const next = units[nextAt];
+if (next instanceof EndOfFileTokenShape) {
+  // 裸关键字（`type` / `interface` 后直接 EOF）：不是声明，交回 legacy。
+  return StatementRoute.None;
+}
 if (text === "import") {
   // 表达式位的 `import`：`import(...)` / `import.meta`。判据与 `DecideCommon` 逐字同源。
   if (next instanceof Bracket && (next as Bracket).StartBracketChar === "(") {
@@ -312,16 +324,60 @@ if (text === "import") {
   if (next instanceof Symbol && (next as Symbol).Is(".")) {
     return StatementRoute.None;
   }
+  if (next instanceof Common) {
+    // `import x = require("m")` 是 import-equals 声明，留给 legacy；`import x from` 才是本族。
+    // 第二个代码单元之后的那格还没到时返回 None（= 等待，由 `IsDeclarationPending` 放行）。
+    const afterAt = ItemUtil.NextCode(units, nextAt + 1);
+    if (afterAt >= units.length) {
+      return StatementRoute.None;
+    }
+    if (units[afterAt] instanceof Symbol && (units[afterAt] as Symbol).Is("=")) {
+      return StatementRoute.None;
+    }
+  }
   return StatementRoute.ShellDeclarationFamily;
 }
 // `export * from "m"` 的 `*` 是声明位；其余符号说明这个关键字被当成标识符用了。
 if (next instanceof Symbol) {
-  if (next instanceof Symbol && text === "export" && (next as Symbol).Is("*")) {
+  if ((next as Symbol).Is("*")) {
     return StatementRoute.ShellDeclarationFamily;
   }
   return StatementRoute.None;
 }
+// `export as namespace N`（UMD）留给 legacy：它不是普通导出声明，建造器没有这条分派。
+if (next instanceof Common && (next as Common).Is("as")) {
+  return StatementRoute.None;
+}
 return StatementRoute.ShellDeclarationFamily;
+```
+
+## static method IsDeclarationPending:(units:Array<Token>, headAt:int, text:string)=>bool
+
+**声明族判据的「还没到」判据**（Stage 4r）：`DecideDeclaration` 需要看下一个代码单元才能把
+`type T` 与 `type = 1`、`declare const` 与 `declare`、`import x from` 与 `import x =` 分开。
+第二个代码单元还没到时**不能落回 `DecideCommon`**（它会把 `declare` / `type` 直接判成 `Legacy`），
+也不能判成声明族（可能误吞标识符起点）——所以 `Decide` 在这一格返回 `None`（等待），
+让专用候选保持 `Uncertain`。
+
+```ts
+if (!StatementRouteUtil.EnableDeclarationShell || !StatementRouteUtil.EnableShellExpressions
+  || !StatementRouteUtil.EnableControlFlowShell) {
+  return false;
+}
+if (!StatementRouteUtil.IsDeclarationHead(text)) {
+  return false;
+}
+const nextAt = ItemUtil.NextCode(units, headAt + 1);
+if (nextAt >= units.length) {
+  return true;
+}
+if (units[nextAt] instanceof EndOfFileTokenShape) {
+  return false;
+}
+if (text === "import" && units[nextAt] instanceof Common) {
+  return ItemUtil.NextCode(units, nextAt + 1) >= units.length;
+}
+return false;
 ```
 
 ## static method IsControlFlowHead:(text:string)=>bool
@@ -564,6 +620,11 @@ if (head instanceof Common) {
   const declaration = StatementRouteUtil.DecideDeclaration(units, headAt, headText);
   if (declaration !== StatementRoute.None) {
     return declaration;
+  }
+  // Stage 4r：上下文关键字的判据要等下一个代码单元（`type T` / `declare const` / `import x from`）。
+  // 这一格必须 None（等待）：落回 DecideCommon 会把 `declare` 判成 Legacy，专用候选当场被永久 Reject。
+  if (StatementRouteUtil.IsDeclarationPending(units, headAt, headText)) {
+    return StatementRoute.None;
   }
   return StatementRouteUtil.DecideCommon(headText, units, headAt);
 }
