@@ -1933,26 +1933,63 @@ return this.Finish(shape, first, this.At - 1);
 
 ## method BuildDo:()=>Token
 
+`while` 缺席时按 TS 的错误恢复建树（`parseDoStatement`：`parseExpected(WhileKeyword)` 报错但**不消费**，
+条件位照读一个表达式）：
+
+- `do b` ⏎ `{}` → DoStatement[0,7]，body 是 `ExpressionStatement(b)`，condition 是**对象字面量** `{}`；
+- `do` ⏎ `{}`（条件位没有单元）→ 零宽 `Identifier`（pos == end == 体尾），与 `throw` 无操作数同一条占位路径。
+
+扫描器侧已经在体尾按 ASI 收住、`ScanConditionEnd` 给出条件表达式尾界；这里只按同一份判据建树。
+
 ```ts
 const first = this.At;
 this.At++;
 const body = this.BuildStatement();
-if (this.At >= this.Units.length || !this.IsText(this.Units[this.At], "while")) {
-  throw new Error("do-while 缺少 while");
+// 正常形态：`while ( … )`。判据保持原样（缺 `(` 仍报错）。
+if (this.At < this.Units.length && this.IsText(this.Units[this.At], "while")) {
+  this.At++;
+  const conditionBracket = this.Units[this.At];
+  if (!(conditionBracket instanceof Bracket) || (conditionBracket as Bracket).StartBracketChar !== "(") {
+    throw new Error("do-while 缺少条件括号");
+  }
+  this.At++;
+  const condition = this.ParseBracketExpression(conditionBracket as Bracket);
+  if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
+    this.At++;
+  }
+  const shape = new DoStatementShape(this.Template);
+  shape.Add(body);
+  shape.Add(condition);
+  return this.Finish(shape, first, this.At - 1);
 }
-this.At++;
-const conditionBracket = this.Units[this.At];
-if (!(conditionBracket instanceof Bracket) || (conditionBracket as Bracket).StartBracketChar !== "(") {
-  throw new Error("do-while 缺少条件括号");
+// 恢复形：条件位是一个表达式（可能没有单元）。
+let condition:Token | null = null;
+const conditionEnd = StatementScanner.ScanConditionEnd(this.Units, this.At);
+if (conditionEnd >= 0) {
+  condition = this.BuildExpressionRange(this.At, conditionEnd);
+  this.At = conditionEnd + 1;
 }
-this.At++;
-const condition = this.ParseBracketExpression(conditionBracket as Bracket);
 if (this.At < this.Units.length && this.IsSymbol(this.Units[this.At], ";")) {
   this.At++;
 }
 const shape = new DoStatementShape(this.Template);
 shape.Add(body);
-shape.Add(condition);
+if (condition !== null) {
+  shape.Add(condition);
+} else {
+  // 零宽 Identifier：`Pos` = TS 的 pos == end（体尾之后那一格）；区间取 [tailEnd-1, tailEnd)
+  // 与 `throw` / `return` 的零宽占位同口径。
+  const tailEnd = this.At > 0 ? this.Units[this.At - 1].SourceRange.EndIndex : -1;
+  if (tailEnd >= 0) {
+    const zero = new IdentifierShape(this.Template);
+    zero.EscapedText = "";
+    zero.SourceRange.Start = tailEnd - 1;
+    zero.SourceRange.End = tailEnd;
+    zero.Pos = tailEnd;
+    zero.TryToClose(this.Context);
+    shape.Add(zero);
+  }
+}
 return this.Finish(shape, first, this.At - 1);
 ```
 

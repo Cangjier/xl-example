@@ -106,7 +106,7 @@
         { "name": "satisfies-type-arg-ambig", "source": "a<b>;", "allowTsDiagnostics": true },
         { "name": "satisfies-record-annot", "source": "const t: Record<string, number> = {};" },
         { "name": "satisfies-decl-instantiation-line-end", "source": "let a: Foo<Bar>;\nlet b = 1;" },
-        { "name": "satisfies-decl-instantiation-no-semicolon", "source": "let a: Foo<Bar>\nlet b = 1;", "knownBaselineFail": true },
+        { "name": "satisfies-decl-instantiation-no-semicolon", "source": "let a: Foo<Bar>\nlet b = 1;", "note": "gap-AS1 转正：类型实参表收尾的 `>` 后面换行是 ASI 边界（StatementScanner.IsTypeArgumentClose），不再是 known 缺陷" },
         { "name": "satisfies-gap-instantiation-line-end", "source": "let a = new Foo<Bar>()\nlet b = 1" },
         { "name": "satisfies-decl-obj-destructure-computed-key", "source": "const {[k]: v} = o;" },
         { "name": "satisfies-ty-satisfies", "source": "const x = y satisfies T;" },
