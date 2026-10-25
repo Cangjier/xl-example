@@ -466,7 +466,7 @@
                       ]
                     },
                     {
-                      "kind": "FirstAssignment",
+                      "kind": "EqualsToken",
                       "pos": 31,
                       "end": 33
                     },

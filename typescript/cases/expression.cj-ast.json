@@ -7935,7 +7935,7 @@
                       "text": "b"
                     },
                     {
-                      "kind": "FirstAssignment",
+                      "kind": "EqualsToken",
                       "pos": 5,
                       "end": 7
                     },
@@ -8265,7 +8265,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -8301,7 +8301,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -8317,7 +8317,7 @@
                       "text": "b"
                     },
                     {
-                      "kind": "FirstAssignment",
+                      "kind": "EqualsToken",
                       "pos": 5,
                       "end": 7
                     },
@@ -8368,7 +8368,7 @@
                   ]
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 3,
                   "end": 5
                 },
@@ -8417,7 +8417,7 @@
                   ]
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 4,
                   "end": 6
                 },
@@ -8993,7 +8993,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -9058,7 +9058,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -9074,7 +9074,7 @@
                       "text": "b"
                     },
                     {
-                      "kind": "FirstAssignment",
+                      "kind": "EqualsToken",
                       "pos": 5,
                       "end": 7
                     },
@@ -9090,7 +9090,7 @@
                           "text": "c"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 9,
                           "end": 11
                         },
@@ -9351,7 +9351,7 @@
                       "text": "a"
                     },
                     {
-                      "kind": "FirstAssignment",
+                      "kind": "EqualsToken",
                       "pos": 1,
                       "end": 3
                     },
@@ -9380,7 +9380,7 @@
                       "text": "c"
                     },
                     {
-                      "kind": "FirstAssignment",
+                      "kind": "EqualsToken",
                       "pos": 8,
                       "end": 10
                     },
@@ -9733,7 +9733,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -9832,7 +9832,7 @@
                       "text": "c"
                     },
                     {
-                      "kind": "FirstAssignment",
+                      "kind": "EqualsToken",
                       "pos": 9,
                       "end": 11
                     },
@@ -10645,7 +10645,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -10676,7 +10676,7 @@
                   "text": "b"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 8,
                   "end": 10
                 },
@@ -11137,7 +11137,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -12354,7 +12354,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -13280,7 +13280,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -14444,7 +14444,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -15316,7 +15316,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -15358,7 +15358,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -18102,7 +18102,7 @@
                   "text": "a"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 11
                 },
@@ -20511,7 +20511,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -20867,7 +20867,7 @@
                   "text": "x"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 1,
                   "end": 3
                 },
@@ -23778,7 +23778,7 @@
                               ]
                             },
                             {
-                              "kind": "FirstAssignment",
+                              "kind": "EqualsToken",
                               "pos": 31,
                               "end": 33
                             },
@@ -29931,7 +29931,7 @@
                           "text": "x"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 18,
                           "end": 20
                         },

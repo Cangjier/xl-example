@@ -1852,7 +1852,7 @@
                   "text": "i"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 6,
                   "end": 8
                 },
@@ -9826,7 +9826,7 @@
                           "text": "a"
                         },
                         {
-                          "kind": "FirstAssignment",
+                          "kind": "EqualsToken",
                           "pos": 19,
                           "end": 21
                         },
@@ -18848,7 +18848,7 @@
                   "text": "i"
                 },
                 {
-                  "kind": "FirstAssignment",
+                  "kind": "EqualsToken",
                   "pos": 6,
                   "end": 8
                 },
