@@ -937,6 +937,147 @@ if (atEof && code.length > 0) {
 return -1;
 ```
 
+## static method IsYieldFamilyCode:(code:Array<Token>)=>bool
+
+**Stage 5d-6：`yield` / 生成器语句族的「是不是本族」判据**（族判定，不判收口位置）。只认一个起点：
+首代码单元是 `yield` 关键字的**表达式语句**（`yield` / `yield 1` / `yield* xs` / `yield = 1`）。
+
+| 起点 | 族 | 收口规则 | 判据实现 |
+| --- | --- | --- | --- |
+| `yield`（非标签） | 受限产生式表达式语句 | 关键字后换行 ⇒ 停在关键字上；否则到本层 `;` / ASI | `YieldFamilyEndCode` |
+
+`yield` 与 `return` / `throw` 同样是**受限产生式**（`yield [no LineTerminator here] *? AssignmentExpression`），
+但它是**双角色起点**：`Decide` 一律判成 `StatementRoute.Legacy`，根层由 `StatementPossibleShape` 原子建树
+（行为一字不改），块体目录里由 `YieldStatementPossibleShape`（Stage 5d-4）建壳。本方法只服务后者——
+壳的终结候选在 `ScanRoot` 之前先问它，收口位置改读 `YieldFamilyEndCode`。
+
+**为什么不认 `yield:`（标签）**：`标识符 :` 是控制流族的标签格（`IsControlFlowFamilyCode` →
+`ScanBodyEndCode(code, 2)`），`yield: 1` 在非生成器里是合法标签、在生成器里是 TS 的恢复形，
+两条都由那一格负责。这里让开，族与族之间不重叠——与 `IsShortFamilyCode` 对 `let:` 的让法同一口径。
+
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+if ((head as Common).TempToString() !== "yield") {
+  return false;
+}
+// `yield:` 是标签语句（`IsControlFlowFamilyCode` 的标签格），仍归控制流族。
+return !StatementBoundaryUtil.IsLabelHead(code);
+```
+
+## static method YieldFamilyEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**Stage 5d-6：`yield` 表达式语句的收口位置**（唯一入口）。返回**代码下标**（`code` 基准），
+`-1` = 还不能收口。只对 `IsYieldFamilyCode(code) === true` 的条目有意义（调用方先问族、再问位置）。
+
+判据与 `StatementBuilder.BuildExpressionStatement` **同一套**（那是 legacy 建这一族的唯一实现），只做两件事：
+
+1. **受限产生式**（`yield` 之后、操作数之前有行终止符 ⇒ 本条语句停在 `yield` 上）：
+   `function* g(){ yield⏎(x) }` = `yield;` + `(x);`。块注释里的换行同样算（`NoLineBreakBetween` 的
+   `LineTerminator` 口径）。`yield` ⏎ `;` 与建造器一致：`;` 留给下一条空语句，收口仍是 `0`。
+2. 否则按**表达式语句**收口：本层 `;` 收在 `;` 上；换行处前一个代码单元能收尾、当前单元接不上
+   （`EndsAtLineBreak`）或候选层的 ASI（`IsAsiBoundary`）成立 ⇒ 收在前一个代码单元上。
+   两条判据都是 `StatementBoundaryUtil` 的**既有唯一实现**，不新写 ASI。
+
+**与扫描器 / 建造器的关系**：收口规则本来就在 `StatementBuilder.BuildExpressionStatement` 里有一份
+（`;` / `EndsAtLineBreak` / `IsAsiBoundary` / `yield` 受限产生式），这里读的是同一批边界判据——
+`StatementBoundaryUtil.EndsAtLineBreak` 是扫描器侧的**唯一实现点**（`ScanExpressionBody` /
+`ScanToSemicolon` 都读它），`ExpressionStatementPossibleShape.IsAsiBoundary` 是候选侧的**唯一实现点**
+（建造器读的也是它）。所以壳的 `End` 与建造器自己算出的末格**不会分叉**：`BuildFromShell` 的
+`At === Units.length` 由构造保证，不是靠捕获异常兜住。
+
+**为什么不能直接用 `CanEndStatement` / 表达式族那一格**：`CanEndStatement` 只在**当前格**回答「能不能
+收」，它把 `yield⏎(x)` 的换行判成「`(` 能接上 `yield` 这个标识符」（调用位续接），于是受限产生式那一格
+收不住——5d-4 实测 20 条探针里 4 条因此整文件重解析（`HANDOFF-5d4.md` §4）。本方法把「`yield` 之后换行」
+放在最前面，受限产生式先于任何调用位判断。
+
+```ts
+if (code.length === 0) {
+  return -1;
+}
+if (!StatementBoundaryUtil.IsYieldFamilyCode(code)) {
+  return -1;
+}
+// 1) 受限产生式：`yield` 与下一个代码单元之间有行终止符 ⇒ 没有操作数，本条语句停在 `yield` 上。
+if (code.length >= 2 && !StatementScanner.NoLineBreakBetween(code[0], code[1])) {
+  return 0;
+}
+// 2) 表达式语句的 `;` / ASI（与 `BuildExpressionStatement` 的循环同一顺序：先 `;`，再 ASI）。
+for (let at = 1; at < code.length; at++) {
+  if (StatementBoundaryUtil.IsSemicolon(code[at])) {
+    return at;
+  }
+  if (StatementBoundaryUtil.EndsAtLineBreak(code, at - 1, at)
+    || ExpressionStatementPossibleShape.IsAsiBoundary(code, at, 0)) {
+    return at - 1;
+  }
+}
+if (atEof && code.length > 0) {
+  return code.length - 1;
+}
+return -1;
+```
+
+## static method IsAwaitFamilyCode:(code:Array<Token>)=>bool
+
+**Stage 5d-6：`await` 起点语句族的「是不是本族」判据**（族判定，不判收口位置）。只认一个起点：
+首代码单元是 `await` 关键字的表达式 / 变量语句（`await f()` / `await x` / `await using r = f()`）。
+
+| 起点 | 族 | 收口规则 | 判据实现 |
+| --- | --- | --- | --- |
+| `await`（非标签） | 一元表达式语句（**无**受限产生式） | 到本层 `;` / ASI | `AwaitFamilyEndCode` |
+
+`await` 是 `StatementRouteUtil.IsLegacyKeyword` 里的双角色起点（`await f()` 的关键字前缀，`await` 标识符 /
+`await: 1` 标签），`Decide` 一律判成 `StatementRoute.Legacy`；根层由 `StatementPossibleShape` 原子建树，
+块体目录里由 `AwaitStatementPossibleShape`（Stage 4l）建壳。本方法只服务后者——壳的终结候选在
+`ScanRoot` 之前先问它，收口位置改读 `AwaitFamilyEndCode`。
+
+**为什么不认 `await:`（标签）**：与 `yield:` 同一口径，`标识符 :` 是控制流族的标签格，让开。
+
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+if ((head as Common).TempToString() !== "await") {
+  return false;
+}
+return !StatementBoundaryUtil.IsLabelHead(code);
+```
+
+## static method AwaitFamilyEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**Stage 5d-6：`await` 语句的收口位置**（唯一入口）。返回**代码下标**（`code` 基准），`-1` = 还不能收口。
+只对 `IsAwaitFamilyCode(code) === true` 的条目有意义（调用方先问族、再问位置）。
+
+`await` 是**一元运算符**，没有 `yield` / `return` / `throw` 的受限产生式：`await` ⏎ `x` 仍是 `await x`
+（TS 的 `parseAwaitExpression` 不看换行）。所以收口只有一条：**表达式语句的 `;` / ASI**——
+`await f()` / `await using r = f()` / `await(x)` / `await = 1` 都收在本层 `;` 上，没有 `;` 时收在 ASI
+边界或末代码单元上。
+
+判据不新写：`ScanToSemicolonIncremental` 就是 `StatementScanner.ScanToSemicolon` 的逐字搬迁
+（`;` / 换行 ASI / 不可续接尾巴 / EOF），与 `BuildExpressionStatement` / `BuildVariableStatement`
+读同一批 `StatementBoundaryUtil.EndsAtLineBreak` 与 `ExpressionStatementPossibleShape.IsUncontinuableTailBoundary`。
+`stopAtEof = false`：`await` 在文件末尾同样收口（它不是声明，没有 `BuildTrailingDeclaration` 兜底）。
+
+```ts
+if (code.length === 0) {
+  return -1;
+}
+if (!StatementBoundaryUtil.IsAwaitFamilyCode(code)) {
+  return -1;
+}
+return StatementBoundaryUtil.ScanToSemicolonIncremental(code, 1, false, atEof);
+```
+
 ## static method IsControlFlowFamilyCode:(code:Array<Token>)=>bool
 
 **Stage 5d-2b：带体 / 链式控制流族的「是不是本族」判据**（族判定，不判收口位置）。认三类起点：
@@ -958,7 +1099,9 @@ return -1;
 - 短语句族（`return` / `throw` / `break` / `continue` / `debugger` / `let`·`const`·`var`）由
   `IsShortFamilyCode` 在族分派里**先**分流，本方法对它们只在「`let:` 标签形态」这一格接住
   （此时 `IsShortFamilyCode` 已答 `false`，`ScanRoot` 也会落到最后的标签判据）；
-- 其余 `Common` 起点在 `ScanRoot` 里只剩**标签判据**一条路（`标识符 :`），所以这里也只认它。
+- 其余 `Common` 起点在 `ScanRoot` 里只剩**标签判据**一条路（`标识符 :`），所以这里也只认它；
+- **Stage 5d-6**：`yield`（非标签形态）由 `IsYieldFamilyCode` 在族分派里**先**接走，本方法对它只在
+  「`yield:` 标签形态」这一格接住（那时 `IsYieldFamilyCode` 已答 `false`，与 `let:` 的分工同构）。
 
 `code` 与 `IsShortFamilyCode` 的入参同一基准：只含代码单元（无 trivia）的已扫前缀。
 

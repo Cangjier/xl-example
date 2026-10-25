@@ -263,8 +263,13 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 
 `true` = `BlockPossibleShape.CreateBodyPossibleShapes` 多注册一个 `AwaitStatementPossibleShape`，
 只对**块体 `{` 括号**上的 `await` 首代码单元 `Accept`，壳 `Kind` / 终结候选都取
-`StatementRoute.ShellStatementFamily`——判界走 legacy 的 `ScanRoot`、建树走 `StatementBuilder.BuildStatement`
-（同一段 raw 单元、同一份建造器），所以接管只体现在计数上，XML / AST 与 legacy 逐字节一致。
+`StatementRoute.ShellStatementFamily`——建树走 `StatementBuilder`（同一段 raw 单元、同一份建造器），
+所以接管只体现在计数上，XML / AST 与 legacy 逐字节一致。
+
+**Stage 5d-6：判界已迁到 boundary 层**（与 `yield` 同一轮）。此前收口沿用 `StatementScanner.ScanRoot`，
+它给不出 `await` 语句的 `End`，于是这一族只在「整段体恰好一条语句」时收得住；现在终结候选先问
+`StatementBoundaryUtil.IsAwaitFamilyCode`，收口位置读 `StatementBoundaryUtil.AwaitFamilyEndCode`
+（`await` 没有受限产生式，就是表达式语句的 `;` / ASI），**不再调 `ScanRoot`**。
 `false` = 该候选整体 `Reject`，行为逐位回到 Stage 4k（安全回退，不靠候选先后）。
 
 ## static field AwaitShellCount:int = 0
@@ -279,10 +284,19 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 `Decide` 一律判成 `StatementRoute.Legacy`，块体目录里没有 legacy 候选，于是
 `function* g() { yield 1; }` 的体只能整段留在 raw 段——这是退场指标 `RawTailBuildCount` 里最大的一族。
 
-`true` = `BlockPossibleShape.CreateBodyPossibleShapes` 多注册一个 `YieldStatementPossibleShape`，
-判据 / 建壳 / 收口 / 建树与 `AwaitStatementPossibleShape` **逐字同构**（壳 `Kind` 与终结候选都取
-`StatementRoute.ShellStatementFamily`：判界走 legacy 的 `ScanRoot`、建树走 `StatementBuilder` 的同一族方法），
-所以接管只体现在计数上，XML / AST 与 legacy 逐字节一致。`false` = 该候选整体 `Reject`，行为逐位回到本阶段之前。
+`true` = `BlockPossibleShape.CreateBodyPossibleShapes` 多注册一个 `YieldStatementPossibleShape`，建壳判据与
+`AwaitStatementPossibleShape` **逐字同构**，壳 `Kind` 与终结候选都取 `StatementRoute.ShellStatementFamily`，
+建树走 `StatementBuilder` 的同一族方法（同一段 raw 单元、同一份建造器），所以接管只体现在计数上，
+XML / AST 与 legacy 逐字节一致。
+
+**Stage 5d-6：判界已迁到 boundary 层**。5d-4 时这一族的收口沿用 `StatementScanner.ScanRoot`
+（每格 +1，实测 +184 `ScanRootCallCount`）；5d-6 起终结候选在 `ScanRoot` 之前先问
+`StatementBoundaryUtil.IsYieldFamilyCode`，收口位置读 `StatementBoundaryUtil.YieldFamilyEndCode`
+（受限产生式 + `;` / ASI，与 `BuildExpressionStatement` 同一套边界判据），**不再调 `ScanRoot`**。
+`Kind` 仍是 `ShellStatementFamily`——判界分派按**首代码单元**（族判据）而不是新增一个 `Kind`，
+所以壳的建树路径、计数与 `false` 时的回退语义都没有变化。
+
+`false` = 该候选整体 `Reject`，行为逐位回到本阶段之前。
 
 ## static field YieldShellCount:int = 0
 
@@ -297,6 +311,24 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 只增计数，语义与 `FunctionBodyMountCount` 相同：它只说明「挂了几次」，体里到底有没有语句被接管仍由
 `BlockBodyStatementCount` / `ControlFlowShellCount` 读数决定；两个数一起看才能区分「挂上但没接管」与
 「根本没挂」。
+
+## static field EnableLabelBodyCatalog:bool = true
+
+**Stage 5d-6（B）：标签壳里的体括号挂块体语句目录**。标签语句从 Stage 4f 起由 `ShellLabel` 壳接管，
+但标签体（`lbl: { … }` 的块 / `lbl: while (a) { … }` 的循环体）的 `{` 是**壳里的子括号**，
+`OnShellBracketCreated` 原先只认六个控制流关键字，标签壳的体括号因此一直没挂目录——
+`StatementBuilder.BuildLabeled` 的 `BuildBlock()` 只能走整段 raw 递归，
+`break` / `continue` / `let` 这些体内语句一条都没被壳接住（`RawTailBuildCount` 里最大的一族）。
+
+`true` = `TryMountControlFlowBody` 也认「标签壳 + 体位置」，挂的是同一条通道
+（`MountBodyCatalog` → `BuildBlock` 的 `HasBuiltBodyStatements` / `CollectBodyStatements`），
+不新增任何建树路径与判据；`false` = 行为逐位回到本阶段之前（安全回退，不需要改源码）。
+
+## static field LabelBodyMountCount:int = 0
+
+进程内累计「**标签体 `{` 被挂上块体语句目录**」的个数（只增不减，Stage 5d-6 B）。与
+`ControlFlowBodyBraceCount` / `FunctionBodyMountCount` 分开计量：三者是同一条挂载通道的三个入口，
+分开才能读出「这一族到底挂了几次」。
 
 ## static field EnableDeclarationShell:bool = true
 

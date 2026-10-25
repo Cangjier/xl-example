@@ -655,8 +655,10 @@ return false;
 
 **控制流壳里的体括号创建事件**（Stage 4n，由 `StatementShape.OnBracketCreatedEvent` 转调）。块体壳把自己
 的 `MountedUnit` 指到体括号（`{` 成了它的子单元），所以走到这里的只可能是**控制流壳**
-（`if` / `while` / `do` / `for` / `with` / `try`）。判据与挂载全在 `TryMountControlFlowBody`；本方法只做
-「开关 + 是 `{` + 还没挂过目录」三道前置检查，且**不重算任何宿主的 `ComputePossibleShapes*`**。
+（`if` / `while` / `do` / `for` / `with` / `try`）；**Stage 5d-6（B）** 起还包括**标签壳**
+（`ShellLabel`，`lbl: { … }` / `lbl: while (a) { … }` 的体括号）。判据与挂载全在
+`TryMountControlFlowBody`；本方法只做「开关 + 是 `{` + 还没挂过目录」三道前置检查，
+且**不重算任何宿主的 `ComputePossibleShapes*`**。
 
 **安全回退**：判据不成立（`switch`、对象方法体、箭头块体、块内函数声明……）时一个字也不改，
 `BuildStatement` 的 legacy 递归照旧建树——那是「未接管」，不是「建错」。
@@ -702,7 +704,8 @@ if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
   }
   return;
 }
-if (BlockPossibleShape.TryMountControlFlowBody(shell, body, context)) {
+if (BlockPossibleShape.TryMountControlFlowBody(shell, body, context,
+  StatementRouteUtil.EnableLabelBodyCatalog)) {
   return;
 }
 if (BlockPossibleShape.IsFunctionDeclarationBody(shell, bracket)) {
@@ -717,15 +720,18 @@ if (BlockPossibleShape.IsFunctionDeclarationBody(shell, bracket)) {
 }
 ```
 
-## static method TryMountControlFlowBody:(shell:Token, bracket:Bracket, context:SyntaxContext)=>bool
+## static method TryMountControlFlowBody:(shell:Token, bracket:Bracket, context:SyntaxContext, allowLabel?:bool)=>bool
 
 给**控制流体的 `{`** 挂块体语句目录（Stage 4n）。判据两段：
 
 1. 壳是控制流构造：`Kind === StatementRoute.ShellStatementFamily`，且**首代码单元**的文本是
    `if` / `while` / `do` / `for` / `with` / `try`（`else` / `catch` / `finally` 只能出现在上一条语句内部，
-   不可能起一个壳，所以不在集合里）；
-2. 这个 `{` 处在**体位置**：前一个非 trivia 单元是 `do` / `else` / `try` / `finally` / `catch`，
-   或前一个单元是**已闭合的 `(` 括号**且再往前一格的文本是 `if` / `while` / `for` / `with` / `catch`。
+   不可能起一个壳，所以不在集合里）；**Stage 5d-6（B）**：`allowLabel === true` 时也认
+   `Kind === StatementRoute.ShellLabel` 且首代码单元之后是 `:` 的**标签壳**（`lbl: { … }` /
+   `lbl: while (a) { … }`），体位置的判据只多一条「`:` 紧跟的那个块就是标签体」；
+2. 这个 `{` 处在**体位置**：前一个非 trivia 单元是 `do` / `else` / `try` / `finally` / `catch`
+   （标签壳时还认 `:`），或前一个单元是**已闭合的 `(` 括号**且再往前一格的文本是
+   `if` / `while` / `for` / `with` / `catch`。
 
 本语法里 `(` `)` 是同一个 `Bracket` 单元，`if (a) {` 与 `catch (e) {` 的「前一个单元」是同一个东西，
 所以**必须再往前看一格**才能区分；靠这一格把 `catch (e) {` 收进来、把 `switch (x) {` 排除在外
@@ -741,7 +747,8 @@ if (BlockPossibleShape.IsFunctionDeclarationBody(shell, bracket)) {
 if (!(shell instanceof StatementShape)) {
   return false;
 }
-if ((shell as StatementShape).Kind !== StatementRoute.ShellStatementFamily) {
+const shellKind = (shell as StatementShape).Kind;
+if (shellKind !== StatementRoute.ShellStatementFamily && shellKind !== StatementRoute.ShellLabel) {
   return false;
 }
 const data:Array<Token> = shell.Data;
@@ -757,8 +764,19 @@ if (head < 0 || !(data[head] instanceof Common)) {
   return false;
 }
 const headText = (data[head] as Common).TempToString();
-if (headText !== "if" && headText !== "while" && headText !== "do"
-  && headText !== "for" && headText !== "with" && headText !== "try") {
+const controlHead = headText === "if" || headText === "while" || headText === "do"
+  || headText === "for" || headText === "with" || headText === "try";
+// **Stage 5d-6（B）**：`allowLabel === true` 时也认「`标识符 :`」的标签壳——体位置的判据一个字不改。
+let labelHead = false;
+if (!controlHead && (allowLabel ?? false) && shellKind === StatementRoute.ShellLabel) {
+  let colonAt = head + 1;
+  while (colonAt < data.length && data[colonAt].IsTriviaToken) {
+    colonAt++;
+  }
+  labelHead = colonAt < data.length && data[colonAt] instanceof Symbol
+    && (data[colonAt] as Symbol).Is(":");
+}
+if (!controlHead && !labelHead) {
   return false;
 }
 let braceAt = -1;
@@ -780,6 +798,10 @@ if (previous < 0) {
 }
 let mount = false;
 const before = data[previous];
+if (labelHead && before instanceof Symbol && (before as Symbol).Is(":")) {
+  // `lbl: { … }`：标签体就是紧跟 `:` 的那个块。
+  mount = true;
+}
 if (before instanceof Common) {
   const text = (before as Common).TempToString();
   if (text === "do" || text === "else" || text === "try" || text === "finally" || text === "catch") {
@@ -806,6 +828,9 @@ bracket.CatalogGuide = new CatalogGuide(
   BlockPossibleShape.CreateBodyPossibleShapes(),
   new BlockBodyWaitingPossibleShape());
 StatementRouteUtil.ControlFlowBodyBraceCount += 1;
+if (labelHead) {
+  StatementRouteUtil.LabelBodyMountCount += 1;
+}
 return true;
 ```
 
@@ -979,10 +1004,14 @@ return true;
 `BlockBodyStatementCount` 不增（`BuildBlock` 的 legacy 递归仍能建对树，所以这是「未接管」而不是「建错」）。
 本候选只在**块体目录**（`CreateBodyPossibleShapes`）里补这一条入口，根目录不注册。
 
-**判界与建树完全复用控制流壳的同一份机制**：壳 `Kind = StatementRoute.ShellStatementFamily`、
-终结候选 `StatementKind = StatementRoute.ShellStatementFamily` → 沿用 legacy 的 `StatementScanner.ScanRoot`
-判界；收口时 `StatementShape.BuildFromShell` → `StatementBuilder.BuildStatement` 用**同一段 raw 单元**
+**判界（Stage 5d-6 起已迁到 boundary 层）与建树完全复用控制流壳的同一份机制**：壳
+`Kind = StatementRoute.ShellStatementFamily`、终结候选 `StatementKind = StatementRoute.ShellStatementFamily`；
+终结候选在 `ScanRoot` 之前先问 `StatementBoundaryUtil.IsAwaitFamilyCode`，收口位置读
+`StatementBoundaryUtil.AwaitFamilyEndCode`（`await` 没有受限产生式，收口就是表达式语句的 `;` / ASI，
+**不调 `ScanRoot`**）；收口时 `StatementShape.BuildFromShell` → `StatementBuilder` 用**同一段 raw 单元**
 建树。所以 XML 逐字节、AST 逐节点与 legacy 一致，接管只体现在 `AwaitShellCount` 上。
+5d-4 之前这一族用 `ScanRoot` 判界，`await` 语句因此只在「整段体恰好一条语句」时才收得住；
+5d-6 让它按 `;` / ASI 正常收口，体里 `await` 之后的语句才交回块体目录（raw 尾巴因此下降）。
 
 **只认首代码单元那一格**：建壳之后本条语句归壳，后续格子由壳的终结候选判界；`Reject` 被 `CatalogGuide`
 永久删除，所以首代码单元还没到（只有 trivia）必须 `Uncertain`。
@@ -1145,19 +1174,21 @@ return shell;
 **为什么这一族值得单独补**：它是退场指标 `RawTailBuildCount` 里最大的一族（`yield` 各种形态合计约占四成）。
 补上之后生成器体内的 `yield` 语句由本候选建壳、`CollectBodyStatements` 按序收，raw 段只剩它旁边仍未接管的语句。
 
-**判界与建树都复用 legacy 的同一份实现**：壳 `Kind` 与终结候选都取 `StatementRoute.ShellStatementFamily`
-→ 判界沿用 `StatementScanner.ScanRoot`（`yield` 的受限产生式 / ASI / `;` 由扫描器说，与 legacy 根候选同一份），
-收口时 `StatementShape.BuildFromShell` → `StatementFamilyDispatch` → `StatementBuilder.BuildExpressionStatement`
-用**同一段 raw 单元、同一个建造器**建树。所以 XML 逐字节、AST 逐节点与 legacy 一致，接管只体现在
-`YieldShellCount` 上。20 条专用对拍（含 `yield⏎(x)` / `yield⏎x` / `yield 1` ⏎ `yield* other()` / 标签 / 赋值）
-全部 AST+Pos 一致、**文件级 fallback = 0**。
+**判界与建树**：建树仍复用 legacy 的同一份实现——收口时 `StatementShape.BuildFromShell` →
+`StatementFamilyDispatch` → `StatementBuilder.BuildExpressionStatement` 用**同一段 raw 单元、同一个建造器**
+建树，所以 XML 逐字节、AST 逐节点与 legacy 一致，接管只体现在 `YieldShellCount` 上。20 条专用对拍
+（含 `yield⏎(x)` / `yield⏎x` / `yield 1` ⏎ `yield* other()` / 标签 / 赋值）全部 AST+Pos 一致、
+**文件级 fallback = 0**。
 
-**已知代价（下一阶段的入口）**：走 `ScanRoot` 判界意味着这一族每格都 +1 `ScanRoot`——实测 `ScanRootCallCount`
-19243 → 19427（+184），同时 `RawTailBuildCount` 292 → 218（−74）。**不建议**把它改成表达式族判据
-（`ShellPlainExpression` + `CanEndStatement`）：`CanEndStatement` 到不了 `yield` 的受限产生式那一格，
-`yield⏎(x)` 会被收进同一个壳而建造器只建 `yield`，随即「语句没有读完」→ 文件级重解析（实测 20 条探针里 4 条）。
-真正的归零办法是像 5d-2a/5d-2b 那样在 boundary 层补 `yield` 族判界（`IsYieldFamilyCode` + 专用终结候选），
-那需要新增一个 `StatementKind` / 专用终结形状，超出本轮预算——留给下一阶段。
+**判界（Stage 5d-6 起已迁到 boundary 层）**：壳 `Kind` 仍是 `StatementRoute.ShellStatementFamily`，
+但终结候选在 `ScanRoot` 之前先问 `StatementBoundaryUtil.IsYieldFamilyCode`，收口位置读
+`StatementBoundaryUtil.YieldFamilyEndCode`（受限产生式 + `;` / ASI，**不调 `ScanRoot`**）。5d-4 先用
+`ScanRoot` 判界，代价是这一族每格 +1 `ScanRoot`（实测 19243 → 19427）；5d-6 把这一族迁出之后
+读数回落（`HANDOFF-5d6.md` §2 有前后数字）。**不能**把它改成表达式族判据（`ShellPlainExpression` +
+`CanEndStatement`）：`CanEndStatement` 到不了 `yield` 的受限产生式那一格（`yield⏎(x)` 的 `(` 被当成调用位续接），
+`yield⏎(x)` 会被收进同一个壳而建造器只建 `yield`，随即「语句没有读完」→ 文件级重解析
+（5d-4 实测 20 条探针里 4 条；5d-6 的 `YieldFamilyEndCode` 把「`yield` 之后换行」放在调用位判断之前，
+所以这一条不再复发）。
 
 **只认首代码单元那一格**：建壳之后本条语句归壳，后续格子由壳的终结候选判界；`Reject` 被 `CatalogGuide`
 永久删除，所以首代码单元还没到（只有 trivia）必须 `Uncertain`。

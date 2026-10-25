@@ -407,6 +407,11 @@ BlockPossibleShape.OnShellBracketCreated(this, bracket, context);
 `StatementBoundaryUtil.ControlFlowFamilyEndCode`，同样不再走 `ScanRoot`（只加这一条同源分支，
 不改既有分支的顺序与判据）。
 
+**Stage 5d-6**：`yield` / 生成器语句族（`IsYieldFamilyCode`）的 EOF 兜底改读
+`StatementBoundaryUtil.YieldFamilyEndCode`（受限产生式 + `;` / ASI，与建造器同一套边界判据），
+同样不再走 `ScanRoot`；`atEof` 在这里恒为 `true`，与其他两族读的是同一个事实。`await` 起点语句族
+（`IsAwaitFamilyCode`）同一条分支结构，读 `StatementBoundaryUtil.AwaitFamilyEndCode`。
+
 建不出来时先调 `DetachShell` 把壳拆掉（见上）；拆不掉才退回基类。
 
 ```ts
@@ -479,6 +484,20 @@ if (!this.Closed) {
         const shortEnd = StatementBoundaryUtil.ShortFamilyEndCode(code, true);
         if (shortEnd >= 0 && shortEnd < codeAt.length) {
           endIndex = codeAt[shortEnd];
+        }
+      } else if (StatementBoundaryUtil.IsYieldFamilyCode(code)) {
+        // Stage 5d-6：`yield` 族的 EOF 兜底与终结候选读**同一份**判据（`YieldFamilyEndCode`，
+        // `atEof` 传 `true`——这里就是块体 / 文件末尾），不再经 `ScanRoot`。
+        const yieldEnd = StatementBoundaryUtil.YieldFamilyEndCode(code, true);
+        if (yieldEnd >= 0 && yieldEnd < codeAt.length) {
+          endIndex = codeAt[yieldEnd];
+        }
+      } else if (StatementBoundaryUtil.IsAwaitFamilyCode(code)) {
+        // Stage 5d-6：`await` 族同一条 EOF 兜底（`AwaitFamilyEndCode`），同样不再经 `ScanRoot`。
+        const awaitEnd = StatementBoundaryUtil.AwaitFamilyEndCode(code, true);
+        if (awaitEnd >= 0 && awaitEnd < codeAt.length) {
+          endIndex = codeAt[awaitEnd];
+        }
         }
       } else {
         // 兜底：未知族起点（语料 0 次；留着让「不在上面任何一族」的形态仍走今天的行为，
