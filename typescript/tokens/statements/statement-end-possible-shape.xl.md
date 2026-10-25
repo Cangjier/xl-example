@@ -177,7 +177,8 @@ return ShapeStates.Uncertain;
 折算同一基准），`-1` = 还不能收口。
 
 **Stage 4af-F 起判据已上移到 `StatementBoundaryUtil.StatementEndCode`**（逐字搬迁，一字未改），
-这里只剩一行委托。搬家的理由：`StatementShape.TryToClose`（EOF 兜底）需要读**同一份**判据，
+这里只剩一层：先问声明壳的**调用位收口**（`CallPositionEndCode`，Stage 4af-G 新增，只对声明壳成立），
+再委托给同一份判据。搬家的理由：`StatementShape.TryToClose`（EOF 兜底）需要读**同一份**判据，
 而 `statement-shape` 不能反向 import 本文件（本文件已经 import 它，会成环）。
 委托保留而不是让调用方直接换名，是因为本文件的两个 `ComputeByIndex` / `BuildByIndex` 调用点、
 以及 `handoff` 里记录的口径都按这个名字读；改名会让「谁在读哪一份判据」变得不可追。
@@ -185,7 +186,58 @@ return ShapeStates.Uncertain;
 的理由，全部见 `StatementBoundaryUtil.StatementEndCode` 的说明，这里不复制第二份。
 
 ```ts
+const callPosition = StatementEndPossibleShape.CallPositionEndCode(units, codeAt, declarationShell);
+if (callPosition >= 0) {
+  return callPosition;
+}
 return StatementBoundaryUtil.StatementEndCode(units, codeAt, atEof, declarationShell);
+```
+
+## static method CallPositionEndCode:(units:Array<Token>, codeAt:Array<int>, declarationShell?:bool)=>int
+
+**声明壳的「调用位」收口**（Stage 4af-G）：`export default () => {}` ⏎ `(b);` 里最后到达的 `(b)`
+是**下一条**语句的开头（TS 在这里插 ASI：块体箭头 / `as` / `satisfies` 之后不能再接调用），
+而声明壳的 ASI 分支（`IsAsiBoundary` 条件 5）对以声明关键字开头的条目一律 `false`，
+`StatementEndCode` 于是答 `-1`，壳把 `(b)` 一起吞进 `export default` 的表达式——
+AST 从「`ExportAssignment` + `ExpressionStatement`」变成「`ExportAssignment(CallExpression)`」
+（`possible-compute` #135）。
+
+判据不新写一份，全是 `StatementScanner` 的同一批静态方法：
+`IsCallishUnit`（这一格是 `(` / `[` / 反引号模板）+ `NoLineBreakBetween`（换行之后才是新语句）
++ `IsCallPositionBlocked`（换行前那一格收尾的表达式不能当调用者 / 标签模板宿主）。
+这三者在 `IsAsiBoundary` 里就是这一组的实现，`ExpressionStatementPossibleShape.IsNonCallableExpressionTail`
+也只是第三行的一行委托。**只在 `declarationShell === true` 时成立**：表达式族的那一格 `IsAsiBoundary`
+本来就答得出来，这里不抢它的活。
+
+返回**换行前那一格**（`codeAt[codeAt.length - 2]`）：最后到达的这一格不属于本条语句，由
+`StatementShape.FinishShell` 搬回父单元。`;` 随后作为**下一条**语句的终结符正常流进新语句壳——
+所以重放出去的片段保留 `;`（`ExpressionStatement[23,28)`），不是 `ExpressionStatement` + `EmptyStatement`。
+
+**为什么只在「最后到达的代码单元」上判**：这一格是调用位是**到达时**就成立的事实——终结候选每格都会被
+问到，所以壳在 `(b)` 这一格就收口，那时 `;` 还没到。若改成「EOF 时再回壳里找最早的非调用位尾巴」，
+EOF 时最后到场的是**下一条**语句的 `;`，壳会连同它一起消费，尾巴重放把 `(b)` 建出来、`;` 掉成
+`EmptyStatement[31,32)`（`declare const x: A = a as T` ⏎ `(b);` 在 4af-F 之前的读数正是这个）——
+一修一坏。所以这一条**不能**挪到 `;` / `atEof` 之前当作「更早的优先判据」，只能作为「同格到达」的判据。
+
+```ts
+if (declarationShell !== true) {
+  return -1;
+}
+if (codeAt.length < 2) {
+  return -1;
+}
+const lastAt = codeAt[codeAt.length - 1];
+const tailAt = codeAt[codeAt.length - 2];
+if (!StatementScanner.IsCallishUnit(units[lastAt])) {
+  return -1;
+}
+if (StatementScanner.NoLineBreakBetween(units[tailAt], units[lastAt])) {
+  return -1;
+}
+if (!StatementScanner.IsCallPositionBlocked(units, tailAt)) {
+  return -1;
+}
+return tailAt;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
