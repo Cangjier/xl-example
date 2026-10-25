@@ -630,9 +630,11 @@ for (let scan = previous; scan >= 0; scan--) {
 return false;
 ```
 
-## static field EnableSwitchCaseClause:bool = true
+## static field EnableSwitchCaseClause:bool = false
 
-**switch 子句级语句目录开关**（Stage 4y）：`true` = switch 的 case 块括号挂
+**switch 子句级语句目录开关**（Stage 4y，**实测后默认关**，见 `StatementRouteUtil.EnableSwitchCaseClause` 与
+`HANDOFF-s4y.md` §1）：壳在 `;` 处不收口，接管只在「子句最后一条语句」上完整，跨子句 / 多条语句会把
+后续 case 体的目录挂载吞掉。`false` = 不挂，行为逐位回到 Stage 4s。`true` = switch 的 case 块括号挂
 `[CaseClauseStatementPossibleShape]`（终结候选 `BlockBodyWaitingPossibleShape`），`case 1: f();` 的
 `f();` 在冒号之后建壳，由 `StatementBuilder.BuildCaseBlock` 的子句收集分支收进 `CaseClauseShape`。
 `false` = 不挂，行为逐位回到 Stage 4s。

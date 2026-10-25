@@ -21,7 +21,9 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 # class CaseClauseStatementPossibleShape extends PossibleShape
 
-**switch 子句级语句的起点候选**（Stage 4y）。
+**switch 子句级语句的起点候选**（Stage 4y）。**当前默认关**（`StatementRouteUtil.EnableSwitchCaseClause = false`）：
+候选本身按下面的设计工作，但壳在 `;` 处不收口，接管只在「子句最后一条语句」这一种形态上完整，
+跨子句 / 多条语句会把后续 case 体的目录挂载吞掉 —— 详见 `HANDOFF-s4y.md` §1，属安全回退。
 
 `switch (x) { case 1: f(); case 2: { g(); } }` 里 `case 1:` 之后的 `f();` **不在任何括号里**：
 它直接躺在 switch 的 case 块括号 `{ … }` 的 `Data` 上。Stage 4s 只给 case 体的 `{`（`case 1: { … }`）

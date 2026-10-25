@@ -266,9 +266,16 @@ harness / 集成表用它出「这类语句确实走了新路径」的计数证�
 进程内累计「被声明 / 导入导出候选建成壳的语句」条数（只增不减）。与 `ControlFlowShellCount` /
 `LabelShellCount` **分开计量**：三个族各有自己的建壳时机与关键字表，接管读数不能混在一个数里。
 
-## static field EnableSwitchCaseClause:bool = true
+## static field EnableSwitchCaseClause:bool = false
 
-**switch 子句级语句接管开关**（Stage 4y）。`true` = switch 的 **case 块括号** `{ … }` 在创建时挂一份
+**switch 子句级语句接管开关**（Stage 4y）。**实测后默认关（安全回退）**：专用候选与收集分支都已落地，
+但壳在 `;` 处不收口（`Kind = ShellStatementFamily` 与 `Kind = ShellBlock` 两套族标记都试过）：壳一直涨到
+case 块的 `}`，`ExitOrPre` 整体建树失败后 `DetachShell` 退回 raw。树仍与 legacy 逐字节一致
+（stage4y 20 条 XML/AST/fallback 全绿），但接管不完整（多条语句 / 跨子句只接管第一条），并且会吞掉
+后续 case 体的目录挂载（`case 1: f(); case 2: { g(); }` 的 `BlockBodyStatementCount` 变 0）。
+根因未定位，按纪律默认关；打开态的实测读数见 `HANDOFF-s4y.md` §1，`false` 时行为逐位回到 Stage 4s。
+
+`true` = switch 的 **case 块括号** `{ … }` 在创建时挂一份
 **只含 `CaseClauseStatementPossibleShape`** 的目录（终结候选 `BlockBodyWaitingPossibleShape`）：
 `case 1: f();` 的 `f();` 在冒号之后建壳，收口后由 `StatementBuilder.BuildCaseBlock` 按序收集进
 `CaseClauseShape`。目录里**不放**表达式 / 变量 / 块体候选——那正是 Stage 4p 挂错括号时
