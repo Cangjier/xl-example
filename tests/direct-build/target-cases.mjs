@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 目标 case 验证 harness（R1 T14/M4 交付 → R2 扩展 → R3 扩展）—— tests/direct-build/target-cases.mjs
+// 目标 case 验证 harness（R1 T14/M4 交付 → R2 / R3 / R4 / R5 扩展）—— tests/direct-build/target-cases.mjs
 //
 // 规格来源（只读）：
 //   _coord/CONTRACT.md §6             —— R1：CASES 10 条 / A1–A8 断言 / CLI / 输出 / 退出码
@@ -23,9 +23,25 @@
 //   _coord/DECISIONS.md + Lead 裁决   —— D1（`let x = f()` 翻正例）、D3（逗号本轮做，`a, b` 等正例）、
 //                                        C2（跨行 ASI 本轮保持 Decline，不作验收门）
 //   _coord/DESIGN-all-possible.md §8  —— 三件套（AST 逐字段、XML、直建计数）
+//   _coord/R5-CONTRACT.md §5/§6.1/§6.2 —— R5：57 条目标 case（TY 20 / DC 20 / RS 12 / CL 5）、
+//                                        分组 ty/dc/rs/cl/r5、R5-A2 的 as/satisfies 行首（CL-pos-02/03 的 noBaseline）、
+//                                        A6 的 `TypeBuilder` 不计口径（R2 的 `as` 起就成立）
+//   _coord/R5-TARGET-CASES.md         —— R5 57 条逐条 ID / 期望 / expectBuilt（唯一权威编号表）
+//   Lead 裁决 R5-Q1                   —— 8 条候选改判：3 条 expectBuilt 1→2 且删 a6Skip、3 条 neg→pos
+//                                        （含 Q1 遗漏的 R3-B2-neg-04）、2 条 safe→pos（R2-SAFE-01/03）；
+//   Lead 裁决 R5-Fix5-1（选 a）        —— R2-SAFE-01/03 **撤回 pos 改判、保持 safe**（实测 sessions=0 / built=0：
+//                                        顶层 await/yield 的语句壳要求父是 `{` 块，顶层父是 SourceFileShape ⇒ 首格
+//                                        Reject；根表达式路线又被 StatementRouteUtil.IsLegacyKeyword 判 Legacy。要直建
+//                                        须改 statement-route-util.xl.md，留 R6）⇒ 生效 6 条，旧 pos 读数只作历史留存；
+//                                        落盘为「新口径在 case 主字段 + 旧读数在 case.q5.legacy」，
+//                                        `--q5=pos|auto|legacy`（默认 auto）按 build/ts 的实现痕迹逐条决定，
+//                                        未合入窗口不造假红（与 R4-Q1 的 --q4 同构）
+//   Lead 裁决 R5-Q2                   —— 条件类型 / 映射类型 / 模板字面量类型**收为 pos**（不写类型节点白名单）
+//   Lead 裁决 R5-Q3                   —— `--q1` / `--q4` R5 保留、R6 一次性移除（R5 只同步注释）
+//   Lead 裁决 R5-Q5                   —— 不做 `yield` / `await` 的上下文判定（壳存在即建）
 //   _coord/HARNESS.md                 —— 构建链与已知坑（build/ts 入口、EOF 口径）
 //
-//   期望类别（expect；R1 10 + R2 50 + R3 32 + R4 40 = 132 条）：
+//   期望类别（expect；R1 10 + R2 50 + R3 32 + R4 40 + R5 57 = 189 条）：
 //     pos         正例：直建必须接管（built>=1 / declined==0 / incomplete==0 / errors==0）
 //     guard       【R3】同 pos，但 expectBuilt 是**不变的 1**（D7 防过度收缩：`let x = a⏎+ b` 仍是一条）
 //     neg         负例：显式 Decline（declined>=1 / built==0 / errors==0）+ AST 仍与 tsc 一致（旧路径保证）
@@ -83,6 +99,12 @@
 //       【R4-Q5/Q6】带 case.a6Skip 的 case 只**记读数**、不判 0（--expect-direct 也不强制）：
 //         - Q5 body-legacy：函数体内 `yield 1;` / `await g(a);` 由 Yield/Await 壳走 legacy（待 R5 直建）；
 //         - Q6 switch：子句语句由 CaseClauseStatementPossibleShape 建壳、不接 Attach ⇒ stmtLoads == 子句语句数。
+//       【R5-Q1】Q5 的 body-legacy 三条（R4-B4-pos-01/02/04）在 R5 已按改判落盘：expectBuilt 1→2、a6Skip 删除；
+//         旧读数（expectBuilt=1 + a6Skip）移进 case.q5.legacy —— `--q5=auto`（默认）按 build/ts 里有没有
+//         BuildYield / BuildAwait 决定：有（residual 已合入）⇒ 正常 A6（强制 0）；没有 ⇒ 退回旧读数。
+//         同一个 --q5 也承载另外 3 条 neg→pos（R4-B4-neg-01/03、R3-B2-neg-04）的运行时回退。
+//         【R5-Fix5-1】R2-SAFE-01/03 的 safe→pos **已撤回**（保持 safe、不进 --q5）：顶层 await/yield 没有壳，
+//         直建须改 statement-route-util，留 R6。
 //   A7  --trace 时 Traces 含 `insert(`（仅 expectInsert 的 case；非正例 SKIP）
 //   A8  --expect-direct 时 A4/A6 强制（--strict 时再加 A5/A12；A9/A11 同口径）
 //   A9  【R2】负例（含 invalid）的 DeclineReasons 里期望 category 计数 >=1（无分类能力 → SKIP）
@@ -115,7 +137,7 @@ const REPO = path.resolve(import.meta.dirname, "..", "..");
 const SEP = "=".repeat(72);
 
 // ---------------------------------------------------------------------------
-// CASES —— 目标 case（132 条：R1 10 + R2 50 + R3 32 + R4 40）
+// CASES —— 目标 case（189 条：R1 10 + R2 50 + R3 32 + R4 40 + R5 57）
 //   id           唯一编号；--only=<id> 精确匹配、--group=<组> 分组
 //   expect       pos（直建必须接管）| guard（同 pos，built 恒 1）| neg（显式 Decline）| safe（无 session，built==0）
 //                | invalid（语法非法：Decline + 两侧同源拒绝）| incomplete（收口期失败：IncompleteFallback）
@@ -138,6 +160,14 @@ const SEP = "=".repeat(72);
 //   a6Skip       【R4-Q5/Q6】A6 只记读数不判的 reason（写进 A6 detail）：body-legacy 的 yield/await 语句、
 //                以及 switch 的子句语句（stmtLoads 必然 >0，与 switch 自己是否直建无关）
 //   a6ExpectStmtLoads 【R4-Q6】switch 类 case 的 stmtLoads 应等于子句语句数（0/1/2…）；只记录，不判失败
+//   q5           【R5-Q1】6 条改判（R4-B4-pos-01/02/04、R4-B4-neg-01/03、R3-B2-neg-04）的运行时回退：
+//                { probe:[…], file?, legacy:{ expect, expectBuilt, expectBodyBuilt, a6Skip } }；
+//                主字段 = 改判后的新口径，`--q5=auto`（默认）按 probe（build/ts 直建产物里的实现痕迹）逐条决定：
+//                痕迹出现（R5 实现已合入）→ 按新口径验收（A6 也恢复强制 0）；没出现 → 退回 legacy 的旧读数，
+//                避免「实现没到」被这 6 条记成回归。`--q5=pos` 强制新口径（合并态验收 / 让实现方看红），
+//                `--q5=legacy` 强制旧口径（与 R4/R2 读数对照）。失败方向安全：痕迹没命中而实现其实已在
+//                ⇒ 退回的旧断言（built 精确值 / declined>=1）会读到更大的读数而**红**，不会假绿。
+//                【R5-Fix5-1】R2-SAFE-01/03 的 safe→pos 已按 Lead 裁决 1(a) 撤回（保持 safe，不进 q5）。
 // ---------------------------------------------------------------------------
 const CASES = [
   // ---- R1 原 10 条（不回归；R1-10 按 D1 翻为正例） ----
@@ -298,11 +328,17 @@ const CASES = [
   // ---- SAFE 无 session 构造（5）：不能断言 declined>=1（根本不进 DirectSession） ----
   // 期望统一：built==0 && AST MATCH && XML==baseline，A4 只断言「没被直建接管」。
   { id: "R2-SAFE-01", src: "await a", expect: "safe", expectInsert: false,
-    note: "await 需 async 上下文：语句壳不进直建 session（旧路径保证 AST）" },
+    note: "【R5-Fix5-1 裁决 1(a)：pos 改判**撤回**，保持 safe】顶层 `await` 实测 built=0 declined=0 **sessions=0**" +
+      "（AwaitStatementPossibleShape 要求父是 `{` 块，顶层父是 SourceFileShape ⇒ 首格 Reject；根表达式路线被 " +
+      "StatementRouteUtil.IsLegacyKeyword 判 Legacy）⇒ 没有壳可直建，要落地须改 statement-route-util.xl.md，" +
+      "留 R6。历史读数：R5-Q1 曾改判 pos/expectBuilt=1，实测未达成，故撤回",
+    markers: ["BuildAwait"] },
   { id: "R2-SAFE-02", src: "class {}", expect: "safe", expectInsert: false,
     note: "class 声明属语句族其它分支，不经 Variable/Expression session" },
   { id: "R2-SAFE-03", src: "yield a", expect: "safe", expectInsert: false,
-    note: "yield 需 generator 上下文" },
+    note: "【R5-Fix5-1 裁决 1(a)：pos 改判**撤回**，保持 safe】同 R2-SAFE-01：顶层 `yield` sessions=0 / built=0，" +
+      "壳的宿主必须是 `{` 块；且顶层还缺引擎的 `yield` 前缀分支。要直建须改 statement-route-util.xl.md，留 R6",
+    markers: ["BuildYield"] },
   { id: "R2-SAFE-04", src: "if (a) b", expect: "pos", expectInsert: false, q1: true,
     note: "**R3-Q1 改判 pos**：B1 注册后 if 不再 safe（safe 的定义是「该族没有 session」）。依赖 B1-2 单语句体（RawStatement）；" +
       "B1-2 未落地时用 --q1=safe 回退（默认 --q1=auto 会按 build/ts 里有无控制流 session 自动回退，基线不造假红）",
@@ -442,24 +478,27 @@ const CASES = [
     note: "【R4-Q1 改判 neg→pos】生成器形态：Data=[AsteriskToken, Identifier g, Block]（R4-CONTRACT §4.5）；" +
       "built=1（函数自己；空体没有别的壳）。--q4=legacy 时退回 R3 的 neg（stmt.func）",
     categories: ["stmt.func"], markers: ["FunctionDeclarationDirectSession", "AsteriskToken"] },
-  { id: "R3-B2-neg-04", src: "async (a) => a", expect: "neg", expectInsert: false,
-    note: "async 箭头 → R4（Decide 已判 ShellPlainExpression，负例落在表达式引擎）",
-    categories: ["expr.decline"] },
+  { id: "R3-B2-neg-04", src: "async (a) => a", expect: "pos", expectInsert: false, expectBuilt: 1,
+    q5: { probe: ["AsyncPending"], legacy: { expect: "neg" } },
+    note: "【R5-Fix5-2（Q1 第 8 条改判）neg→pos】与 R5-RS-pos-06 同一份源码：residual 的 `async` 箭头头落地后" +
+      "built=1 declined=0 A6=0 A1=YES / XML=IDENTICAL（REPORT-r5-residual §5.2 实测）⇒ 再按 neg（built==0 + " +
+      "expr.decline）判必然假红。`--q5=auto` 在 AsyncPending 痕迹出现后改用新口径；未出现时退回 R4 的 neg",
+    categories: ["expr.decline"], markers: ["AsyncPending"] },
 
   // ---- D7 语句边界（4：pos 3 + guard 1）—— 全部 noBaseline，A10 改判 SKIP ----
   { id: "R3-D7-01", src: "let x = a\n++b", expect: "pos", expectInsert: false, expectBuilt: 2, noBaseline: true,
     note: "D7：AST 必须与 tsc 一致（`let x = a;` + `++b;`）。旧基线（8456ec3c）此处是错的（根下 6 个 raw token），" +
       "所以 A10 必须 SKIP 而不是红",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
   { id: "R3-D7-02", src: "let x = a + b\n++c", expect: "pos", expectInsert: true, expectBuilt: 2, noBaseline: true,
     note: "初始器是二元表达式也要断在 b（A7：`a + b` 有运算符插入）",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
   { id: "R3-D7-03", src: "let x = a\n!b", expect: "pos", expectInsert: false, expectBuilt: 2, noBaseline: true,
     note: "`!` 与 `++`/`--` 同一族（IsRestrictedPostfixUnit）",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
   { id: "R3-D7-guard-01", src: "let x = a\n+ b", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "**防过度收缩**：`+` 能跨行接续，声明必须仍是**一条**（guard：built 恒为 1；这一条 A10 仍要求 XML==基线）",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
 
   // ---- S strict 全量化（2；expect=neg，但 strictAll：在 --strict 下解析，靠 A12 判） ----
   { id: "R3-S-01", src: "let {a} = b", expect: "neg", expectInsert: false, strictAll: true,
@@ -541,27 +580,30 @@ const CASES = [
     markers: ["BuildLabeled"] },
 
   // ---- B4 生成器 · async · 对象方法（12：pos 7 + neg 3 + guard 2） ----
-  { id: "R4-B4-pos-01", src: "function* g() { yield 1; }", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6Skip: "body-legacy: yield/await 语句待 R5 直建（YieldStatementPossibleShape 的壳不接 Attach，legacy 收口）⇒ " +
-      "stmtLoads/exprOther 必然 >0，与函数本身是否直建无关（R4-Q5）",
-    note: "函数本身(1)；`yield 1;` 由 YieldStatementPossibleShape 的壳走 legacy（**不计数**）；" +
-      "Data=[AsteriskToken, Identifier g, Block]。A6 **只记读数**（Q5：body-legacy，`yield 1;` 待 R5 直建）；" +
-      "断言仍要求 AST==tsc、XML==基线、expectBuilt 精确",
+  { id: "R4-B4-pos-01", src: "function* g() { yield 1; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    q5: { probe: ["BuildYield"], legacy: { expect: "pos", expectBuilt: 1,
+      a6Skip: "body-legacy: yield/await 语句待 R5 直建（YieldStatementPossibleShape 的壳不接 Attach，legacy 收口）⇒ " +
+        "stmtLoads/exprOther 必然 >0，与函数本身是否直建无关（R4-Q5）" } },
+    note: "【R5-Q1 改判】expectBuilt 1→2 且删 a6Skip：`yield 1;` 由自己的壳直建（R5-CONTRACT §2.3）⇒ " +
+      "函数(1) + `yield 1;`(1) = 2；A6 恢复强制 0。`--q5=auto`（默认）在 BuildYield 痕迹出现后自动改用新口径，" +
+      "未出现（residual 未合入）时退回 R4 的 expectBuilt=1 + a6Skip。Data=[AsteriskToken, Identifier g, Block]",
     markers: ["AsteriskToken"] },
-  { id: "R4-B4-pos-02", src: "function* g(a) { yield a; }", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6Skip: "body-legacy: yield/await 语句待 R5 直建（同 pos-01，YieldStatementPossibleShape 的壳 legacy 收口）⇒ " +
-      "stmtLoads/exprOther 必然 >0（R4-Q5）",
-    note: "参数表仍是纯 Identifier（ParametersAreIdentifiers 判据不变）；built=1。A6 **只记读数**（Q5：body-legacy）；" +
-      "AST==tsc、XML==基线、expectBuilt 精确仍强制",
+  { id: "R4-B4-pos-02", src: "function* g(a) { yield a; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    q5: { probe: ["BuildYield"], legacy: { expect: "pos", expectBuilt: 1,
+      a6Skip: "body-legacy: yield/await 语句待 R5 直建（同 pos-01，YieldStatementPossibleShape 的壳 legacy 收口）⇒ " +
+        "stmtLoads/exprOther 必然 >0（R4-Q5）" } },
+    note: "【R5-Q1 改判】expectBuilt 1→2 且删 a6Skip（同 pos-01）；参数表仍是纯 Identifier" +
+      "（ParametersAreIdentifiers 判据不变）。AST==tsc / XML==基线 / expectBuilt 精确仍强制",
     markers: ["AsteriskToken"] },
   { id: "R4-B4-pos-03", src: "async function f() {}", expect: "pos", expectInsert: false, expectBuilt: 1,
     note: "Data=[AsyncKeyword, Identifier f, Block]；AsyncKeyword.Pos=BasePos、区间= `async` 自己",
     markers: ["AsyncKeyword"] },
-  { id: "R4-B4-pos-04", src: "async function f(a) { await g(a); }", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6Skip: "body-legacy: yield/await 语句待 R5 直建（AwaitStatementPossibleShape 的壳不接 Attach，legacy 收口）⇒ " +
-      "stmtLoads/exprOther 必然 >0，与 async function 本身是否直建无关（R4-Q5）",
-    note: "体内 `await g(a);` 由 AwaitStatementPossibleShape 的壳走 legacy（不计数）。A6 **只记读数**（Q5：body-legacy，" +
-      "`await g(a);` 待 R5 直建），不强制 0；AST==tsc、XML==基线、expectBuilt 精确仍强制",
+  { id: "R4-B4-pos-04", src: "async function f(a) { await g(a); }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    q5: { probe: ["BuildAwait"], legacy: { expect: "pos", expectBuilt: 1,
+      a6Skip: "body-legacy: yield/await 语句待 R5 直建（AwaitStatementPossibleShape 的壳不接 Attach，legacy 收口）⇒ " +
+        "stmtLoads/exprOther 必然 >0，与 async function 本身是否直建无关（R4-Q5）" } },
+    note: "【R5-Q1 改判】expectBuilt 1→2 且删 a6Skip：体内 `await g(a);` 由自己的壳直建 ⇒ " +
+      "async function(1) + await 语句(1) = 2；A6 恢复强制 0。AST==tsc / XML==基线仍强制",
     markers: ["AsyncKeyword"] },
   { id: "R4-B4-pos-05", src: "({ m(a) { return a; } })", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "表达式语句(1) + 方法体 `return a;`(1)；ObjectLiteralExpression[MethodDeclaration[Identifier m, Parameter a, " +
@@ -573,14 +615,20 @@ const CASES = [
   { id: "R4-B4-pos-07", src: "({ m(a) { return a; }, n: 1 })", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "方法 + PropertyAssignment 混排（R2 的既有成员分支不许回归）；built=2 = 表达式语句 + 体内 return",
     markers: ["DirectObjectMemberAssembly"] },
-  { id: "R4-B4-neg-01", src: "async (a) => await g(a)", expect: "neg", expectInsert: false,
-    note: "R4-Q3：async 箭头本轮**仍 neg**（引擎无 AwaitExpression 分支），归 R5；A9 命中 expr.decline",
+  { id: "R4-B4-neg-01", src: "async (a) => await g(a)", expect: "pos", expectInsert: false, expectBuilt: 1,
+    q5: { probe: ["AwaitExpression"], legacy: { expect: "neg" } },
+    note: "【R5-Q1 改判 neg→pos】引擎补 `await` 前缀操作数 + `async` 箭头头（R5-CONTRACT §4.6）⇒ built=1；" +
+      "tsc 形态 ArrowFunction[AsyncKeyword(0,5), Parameter(a), =>(9,12), AwaitExpression(12,23)]。" +
+      "`--q5=auto` 在 AwaitExpression 痕迹出现后改用新口径，未出现时退回 R4 的 neg（expr.decline）",
     categories: ["expr.decline"] },
   { id: "R4-B4-neg-02", src: "function* g<T>() {}", expect: "neg", expectInsert: false,
     note: "泛型生成器头 ⇒ stmt.func（参数表/泛型头仍不在本轮）；built=0",
     categories: ["stmt.func"], markers: ["AsteriskToken"] },
-  { id: "R4-B4-neg-03", src: "({ async m() {} })", expect: "neg", expectInsert: false,
-    note: "对象成员是 async ⇒ expr.member（R4-CONTRACT §4.6：async / `*` 前缀本轮 Decline）",
+  { id: "R4-B4-neg-03", src: "({ async m() {} })", expect: "pos", expectInsert: false, expectBuilt: 1,
+    q5: { probe: ["async"], file: "direct-object-member-assembly.js", legacy: { expect: "neg" } },
+    note: "【R5-Q1 改判 neg→pos】对象成员方法前缀扩到 `async` / `*`（R5-CONTRACT §4.7）⇒ " +
+      "MethodDeclaration[AsyncKeyword, Identifier m, Block]，built=1（空体不多计）。" +
+      "`--q5=auto` 只在 direct-object-member-assembly 产物里出现 `async` 痕迹后才改用新口径，未出现时退回 neg（expr.member）",
     categories: ["expr.member"], markers: ["DirectObjectMemberAssembly"] },
   { id: "R4-B4-guard-01", src: "({ x, y: 1 })", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "**防误判**：没有 `(` 的成员仍走 PropertyAssignment / ShorthandPropertyAssignment（R2 读数不变）；built 恒 1",
@@ -589,39 +637,42 @@ const CASES = [
     note: "**防空体多计**：空方法体不得计成 2（BuiltChildren 收集到 0 条）；built 恒 1 = 表达式语句",
     markers: ["DirectObjectMemberAssembly"] },
 
-  // ---- C2 跨行 ASI（5：pos 2 + guard 3）—— 修改点是 statement-boundary-util 的 IsAsiBoundary ----
+  // ---- C2 跨行 ASI（5：pos 2 + guard 3）—— 真修复点是 statement-shape 的 TryToClose / ShellPlainExpression ----
+  //   【R5-C1/C2】statement-boundary-util 的 `IsAsiBoundary` 死分支（IsLineStartOperandBoundary / IsContinuationToken，
+  //   R5-CONTRACT §1.4）在 R5 被删除 ⇒ markers 改看 statement-shape 产物 ["TryToClose","ShellPlainExpression"]；
+  //   markers 只影响「没实现 / 实现错了」的诊断分类，不参与 PASS/FAIL 判定（R5-CONTRACT §6.2 第 3 条）。
   { id: "R4-C2-pos-01", src: "a\nb", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "两条 ExpressionStatement(Identifier)；A10 要求 XML==基线（legacy 的 2 条与直建的 2 条必须逐字节同形）；" +
       "与 R2-C2-01 同源码（该条已随本轮改判 pos + built=2）",
-    markerScope: "boundary", markers: ["IsLineStartOperandBoundary", "IsContinuationToken"] },
+    markerScope: "statementShape", markers: ["TryToClose", "ShellPlainExpression"] },
   { id: "R4-C2-pos-02", src: "2\n3", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "两条 ExpressionStatement(NumericLiteral)；built=2",
-    markerScope: "boundary", markers: ["IsLineStartOperandBoundary", "IsContinuationToken"] },
+    markerScope: "statementShape", markers: ["TryToClose", "ShellPlainExpression"] },
   { id: "R4-C2-guard-01", src: "a\n+ b", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "**二元续接必须仍是一条**（`+` 在 IsContinuationToken 里）；built 恒 1",
-    markerScope: "boundary", markers: ["IsLineStartOperandBoundary", "IsContinuationToken"] },
+    markerScope: "statementShape", markers: ["TryToClose", "ShellPlainExpression"] },
   { id: "R4-C2-guard-02", src: "a\n(b)", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "调用位续接（`(`）；built 恒 1",
-    markerScope: "boundary", markers: ["IsLineStartOperandBoundary", "IsContinuationToken"] },
+    markerScope: "statementShape", markers: ["TryToClose", "ShellPlainExpression"] },
   { id: "R4-C2-guard-03", src: "a\n[b]", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "下标位续接（`[`）；built 恒 1。同类 guard 还有 R3-D7-guard-01（声明里的 `+` 续接）",
-    markerScope: "boundary", markers: ["IsLineStartOperandBoundary", "IsContinuationToken"] },
+    markerScope: "statementShape", markers: ["TryToClose", "ShellPlainExpression"] },
 
   // ---- D7 边界残留（4：pos 2 + guard 2）—— pos 两条 noBaseline（旧基线自身错，A10 SKIP） ----
   { id: "R4-D7-pos-01", src: "let x = a\n~b", expect: "pos", expectInsert: false, expectBuilt: 2, noBaseline: true,
     note: "`~` 进受限集合（IsRestrictedPostfixUnit）；现状 declined=2 var.init、A1 **NO**、根下 6 个 raw、XML=IDENTICAL" +
       "（旧路径把错 AST 逐字节复制进基线）⇒ noBaseline；判据 = A1 + expectBuilt + A11",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
   { id: "R4-D7-pos-02", src: "let x = a\ntypeof b", expect: "pos", expectInsert: false, expectBuilt: 2, noBaseline: true,
     note: "`typeof` 是 Common（不是 Symbol）⇒ IsRestrictedPostfixUnit 的类型判别要一起改；现状 declined=2 var.stopped、" +
       "A1 **NO**、XML=IDENTICAL ⇒ noBaseline",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
   { id: "R4-D7-guard-01", src: "let x = \n~b", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "前缀形态：`=` 收不住表达式（EndsExpression=false）⇒ **一条**；A10 照比 XML（这一条本来就是对的）",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
   { id: "R4-D7-guard-02", src: "let x = \ntypeof b", expect: "guard", expectInsert: false, expectBuilt: 1,
     note: "同上；这条同时钉住「`typeof` 进了受限集合但没把前缀位误伤」`=` 之后仍是同一条声明",
-    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText"] },
+    markerScope: "boundary", markers: ["IsRestrictedPostfixUnit", "IsRestrictedPostfixText", "StatementTokenSets"] },
 
   // ---- S strict-all 收口（3：invalid 2 + pos 1）—— A12 按 R4-Q2 的 PARSE-REJECT-PARITY 判 ----
   { id: "R4-S-01", src: "a +", expect: "invalid", expectInsert: false, expectBuilt: 0, strictAll: true,
@@ -634,6 +685,230 @@ const CASES = [
   { id: "R4-S-pos-01", src: "if (a) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2, strictAll: true,
     note: "strictAll: true（在 --strict 下解析）：全量化**不许误伤正例**（strictViolations==0、errors==0、A1/A10 PASS）",
     markers: ["IfStatementShape"] },
+
+  // ===========================================================================
+  // R5 目标 case（57 条；_coord/R5-TARGET-CASES.md 是唯一权威编号表）
+  //   TY 20 = pos 17（含 1 条尽力）+ neg 2 + guard 1；
+  //   DC 20 = pos 13（含 1 条尽力）+ neg 5 + safe 1 + guard 1；
+  //   RS 12 = pos 10 + neg 1 + guard 1；
+  //   CL 5  = pos 3 + guard 2（pos 的 2 条依赖审批 R5-A2，不批则整条删除）。
+  //   **R5 的 A6 口径**：`TypeBuilder` 的 `Load` **不计入 A6**（R2 的 `as` 分支起就如此，
+  //   R5-CONTRACT §2.1.1）；R5 的 pos 仍要求 stmtLoads + exprOtherDirect + exprLegacy == 0。
+  //   `built` 仍是 StatementsBuilt（**含体内语句 / 自己的壳**）：例如
+  //   `function f(a: number) { return a; }` 是 1(函数) + 1(体内 return) = 2，
+  //   与 R3-B2-pos-03 的 `function f(a) { return a; }` 同口径（tsc 顶层语句数仍是 1，A3 用另一个口径）。
+  //   `--expect-direct` 未实现时红、默认模式报 IMPLEMENTATION-ABSENT（不崩）——
+  //   这是 R5 的「先写红」，不是回归。
+  // ===========================================================================
+
+  // ---- TY 类型注解与类型节点（20：pos 17 + neg 2 + guard 1；feat-r5-types） ----
+  //   变量注解：`VariableStatementDirectSession` 的 ExpectType 态（R5-CONTRACT §4.2）
+  { id: "R5-TY-pos-01", src: "let x: number = 1;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "变量注解的最简形态：VariableDeclaration[Identifier x(3,5), NumberKeyword(6,13), NumericLiteral 1(15,17)]；" +
+      "**关键字类型是独立形状（NumberKeyword），不是 TypeReference**（R5-CONTRACT §4.2）",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-02", src: "let x: Array<T>;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "**无初始化器**：`[Identifier, TypeReference]`；走 Finish 的 ExpectType 收口" +
+      "（`let x: number;` 同路径）",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-03", src: "let x: number = 1", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "ASI（无 `;`）：类型 + 初始化器 + 壳在 EOF 收口；类型后遇 `=` 必须先把类型 flush 掉",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-04", src: "let a: number = 1, b: string = s;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "多声明：`,` 之后回 ExpectBinding，两个声明各自带 Type；子节点顺序仍是 [Identifier, Type, Initializer]",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-05", src: "let x: A | B = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "UnionType[A, B]",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-06", src: "let x: Array<Array<T>> = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "**`>>` 是 ONE Symbol**：TypeBuilder.Load 内部拆成两个 `>`；覆盖校验必须用 `OriginalConsumed()`" +
+      "（`At` 是虚拟单元数）—— R5-R10",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-07", src: "let x: [A, B] = t;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "TupleType[A, B]（`[` `,` `]` 不进 children）",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-08", src: "let x: typeof a = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "TypeQuery[Identifier a]；**类型位的 `typeof` 与 D7 行首的 `typeof` 是两件事**（不许互相干扰）",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-09", src: "let x: keyof A = k;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "TypeOperator(keyof)[TypeReference A]",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-pos-10", src: "let x: A[B] = c;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "IndexedAccessType[TypeReference A, TypeReference B]",
+    markers: ["DirectTypeAssembly", "ExpectType"] },
+  //   函数参数 / 返回类型：ParametersAreTypeAnnotated 门 + 形态表扩「返回类型可选」（§4.3）
+  { id: "R5-TY-pos-11", src: "function f(a: number) { return a; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "Parameter[Identifier a, NumberKeyword]；参数表**复用** FunctionDeclarationShape.BuildParameters" +
+      "（A6 安全：只有默认值才走 ExpressionBuilder，已被新门拒掉）。built=2 = 函数 + 体内 return" +
+      "（与 R3-B2-pos-03 同口径；R5-TARGET-CASES §1.2 写的 1 只数了语句本身）",
+    markers: ["ParametersAreTypeAnnotated"] },
+  { id: "R5-TY-pos-12", src: "function f(): number { return 1; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "FunctionDeclaration[Identifier f, NumberKeyword, Block]：返回类型在**参数之后、体之前**；built=2",
+    markers: ["ParametersAreTypeAnnotated"] },
+  { id: "R5-TY-pos-13", src: "function f(a: number): number { return a; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "参数注解 + 返回类型同时存在（形态表不再只数 code.length，要按位置扫描 `:`）；built=2",
+    markers: ["ParametersAreTypeAnnotated"] },
+  { id: "R5-TY-pos-14", src: "function f(a?: number) {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "Parameter[Identifier, QuestionToken, NumberKeyword]：`?` 是**子节点**；空体 ⇒ built=1",
+    markers: ["ParametersAreTypeAnnotated"] },
+  { id: "R5-TY-pos-15", src: "function f(...a: Array<number>) {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "Parameter[DotDotDotToken, Identifier, ArrayType[...]]：rest 是**首子节点**",
+    markers: ["ParametersAreTypeAnnotated"] },
+  { id: "R5-TY-pos-16", src: "function f(cb: (a: A) => B): void {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "参数里是 FunctionType、返回是 VoidKeyword（关键字类型 + 函数类型的组合）",
+    markers: ["ParametersAreTypeAnnotated"] },
+  { id: "R5-TY-pos-17", src: "for (let i: number = 0; ; ) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "**尽力项**：DirectDeclarationAssembly 的 `:` 分支改为缓冲类型（原先 Decline stmt.type）⇒ " +
+      "for(1) + 体内 `b;`(1) = 2。**不实现 ⇒ 整条删除**（不是改 neg）",
+    markers: ["DirectDeclarationAssembly", "DirectTypeAssembly"] },
+  { id: "R5-TY-neg-01", src: "let x!: number = 1;", expect: "neg", expectInsert: false,
+    note: "**确定赋值断言 `!` 不在 R5**（R5-CONTRACT §1.1 D1-e）⇒ 仍是 var.type；A1/A10 由旧路径保证",
+    categories: ["var.type"], markers: ["DirectTypeAssembly", "ExpectType"] },
+  { id: "R5-TY-neg-02", src: "function f(a = 1) {}", expect: "neg", expectInsert: false,
+    note: "**默认值必须继续拒**：`=` 会走 TakeParameterInitializer → ExpressionBuilder（A6 必然 >0）；" +
+      "现状 exprLoads=1 就是证据 ⇒ ParametersAreTypeAnnotated 遇 `=` 必须 false",
+    categories: ["stmt.func"], markers: ["ParametersAreTypeAnnotated"] },
+  { id: "R5-TY-guard-01", src: "function f(a, b) { return a; }", expect: "guard", expectInsert: false, expectBuilt: 2,
+    note: "**防误伤**：纯标识符参数表仍走 R3 的 ParametersAreIdentifiers 门（新门必须与旧门**并存**，不许替换）；" +
+      "R3-B2-pos-03 的读数必须不变（built=2 = 函数 + 体内 return）",
+    markers: ["FunctionDeclarationDirectSession"] },
+
+  // ---- DC 声明族（20：pos 13 + neg 5 + safe 1 + guard 1；feat-r5-decl） ----
+  //   声明壳已存在、DirectStatementHook.Attach 已调用 ⇒ 缺的只有 3 行 Register + 一个 session（§2.2）；
+  //   `shape.Pos = this.BasePos` 是必需的（FromUnits 内部 start=0 会算出 0，R5-R2）。
+  { id: "R5-DC-pos-01", src: "interface X { a: number; }", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "InterfaceDeclaration[Identifier X, PropertySignature(a, NumberKeyword)]；成员已闭合 ⇒ CollectBodyMembers 直接取",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-02", src: "interface X { m(a: number): void; }", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "MethodSignature[Identifier m, Parameter(a, NumberKeyword), VoidKeyword]（`interface` 内只有 TypeBuilder ⇒ A6=0）",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-03", src: "interface X {}", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "**空体**：覆盖校验不能把「体只有 `{}`」判成不完整（R5-R3）",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-04", src: "interface X<T> { a: T; }", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "TypeParameter[Identifier T] 走 ParseTypeParameterList；`>>` 拆分同 TY-pos-06",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-05", src: "type T = A;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "TypeAliasDeclaration[Identifier T, TypeReference A]：**类型节点的免费载体**（RHS 由 TypeBuilder 全量读）",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-06", src: "type T = Array<number>;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "泛型实参",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-07", src: "type T = A | B;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "UnionType",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-08", src: "type T = { a: number; };", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "TypeLiteral[PropertySignature]；**与 enum 的体括号要区分**（IsBodyBrace 判据）",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-09", src: "type T<U> = U;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "类型参数表 + 引用",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-10", src: "type T = A extends B ? C : D;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "ConditionalType —— **R5-Q2 裁决：收为 pos，不 Decline**（TypeBuilder 本来就会读，A1 是硬判据；" +
+      "写白名单去拒反而是新增风险，R5-CONTRACT §2.1.3）",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-11", src: "type T = { [K in A]: B };", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "MappedType（同 R5-Q2 的口径）",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-12", src: "enum E { A, B }", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "EnumDeclaration[Identifier E, EnumMember(A), EnumMember(B)]；**成员门**：体括号内不得有顶格 `=`",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-pos-13", src: "type T = (x: A) => x is B;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "**尽力项**：TypePredicate（ParseReturnType 分流）。**不实现 ⇒ 整条删除**",
+    markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-neg-01", src: "enum E { A = 1 }", expect: "neg", expectInsert: false,
+    note: "成员初始值会调 ExpressionBuilder.Load（现状 exprLoads=2 就是证据）⇒ 必须 Decline，A6 才能为 0（R5-R4）",
+    categories: ["decl.enum"], markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-neg-02", src: "class C {}", expect: "neg", expectInsert: false,
+    note: "kind 9 ⇒ decl.class（ClassDeclarationShape 里有 2 处 `new StatementBuilder` ⇒ A6 不可能为 0，归 R6）",
+    categories: ["decl.class"], markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-neg-03", src: "@dec class C {}", expect: "neg", expectInsert: false,
+    note: "kind 10（装饰器声明）⇒ decl.class；**不许调 FromUnits**（装帧器循环会拉 ExpressionBuilder）",
+    categories: ["decl.class"], markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-neg-04", src: "namespace N { const a = 1; }", expect: "neg", expectInsert: false,
+    note: "namespace / module 不在 R5 ⇒ decl.head",
+    categories: ["decl.head"], markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-neg-05", src: "declare const x: number;", expect: "neg", expectInsert: false,
+    note: "`declare` 前缀的声明族本轮不做 ⇒ decl.head",
+    categories: ["decl.head"], markers: ["DeclarationFamilyDirectSession"] },
+  { id: "R5-DC-safe-01", src: "const enum E { A, B }", expect: "safe", expectInsert: false, expectBuilt: 0,
+    note: "**不建壳**（根层 Decide 把 `const enum` 让给 legacy，实测 sessions=0 stmtLoads=0）；" +
+      "注册声明族 session **不许**改变它。safe = 该族没有 session，不断言 declined（R5-Q4：不进 R5）" },
+  { id: "R5-DC-guard-01", src: "type T = A;\nconst a = 1;", expect: "guard", expectInsert: false, expectBuilt: 2,
+    note: "**防过度建树 / 防吞下一条**：type 的壳在 `;` 收口，`const` 走自己的变量 session ⇒ 两条各 +1（built=2，" +
+      "tsc 顶层也是 2）；A10 必须 PASS（R5-R2 的 Pos 陷阱专用钉子）",
+    markers: ["DeclarationFamilyDirectSession"] },
+
+  // ---- RS 残余表达式 / 语句（12：pos 10 + neg 1 + guard 1；feat-r5-residual） ----
+  //   yield / await 的壳已存在但不调 Attach（block-possible-shape 两处）⇒ 各加 1 行即可送到 session（§2.3）；
+  //   **不做上下文判定**（R5-Q5）：壳存在即建 YieldExpression / AwaitExpression。
+  { id: "R5-RS-pos-01", src: "function* g() { yield 1; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "函数(1) + `yield 1;`(1)；ExpressionStatement[YieldExpression[NumericLiteral]]；**A6 必须 0**" +
+      "（与 R4 的 a6Skip 相反，R5-Q1 已改判）",
+    markers: ["BuildYield"] },
+  { id: "R5-RS-pos-02", src: "function* g() { yield* a; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "YieldExpression[AsteriskToken(21,22), Identifier a]：`*` **是子节点**（不是 Data 之外的标记）",
+    markers: ["BuildYield"] },
+  { id: "R5-RS-pos-03", src: "async function f() { await g(); }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "ExpressionStatement[AwaitExpression[CallExpression]]；`await` token **不进 Data**；built=2",
+    markers: ["BuildAwait"] },
+  { id: "R5-RS-pos-04", src: "async function f() { await g() + 1; }", expect: "pos", expectInsert: true, expectBuilt: 2,
+    note: "**优先级硬证据**：`(await g()) + 1`（不是 `await (g() + 1)`）⇒ await 必须进引擎的「前缀操作数」那一格，" +
+      "优先级 = 一元前缀（R5-R5）；语句内 `+` 有运算符插入（A7）",
+    markers: ["BuildAwait"] },
+  { id: "R5-RS-pos-05", src: "async (a) => await g(a)", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "ArrowFunction[AsyncKeyword(0,5), Parameter(a), EqualsGreaterThanToken(9,12), AwaitExpression(12,23)]" +
+      "（R4-B4-neg-01 的改判源，R5-Q1）",
+    markers: ["AwaitExpression"] },
+  { id: "R5-RS-pos-06", src: "async (a) => a", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "**没有 await 的 async 箭头**：证明 `async` 头本身已认（不靠 await 兜）；" +
+      "不是箭头（`async(...)` 调用 / `async [x]` 下标）必须回退成 Identifier + 后缀链（R5-R6）",
+    markers: ["AsyncPending"] },
+  { id: "R5-RS-pos-07", src: "for await (const x of xs) { b; }", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "ForOfStatement[AwaitKeyword(3,9), VariableDeclarationList, Identifier xs, Block]：" +
+      "`AwaitKeyword` **是子节点**（R5-R11）；built=2 = for + 体内 `b;`",
+    markers: ["BuildFor"] },
+  { id: "R5-RS-pos-08", src: "({ async m() { return 1; } })", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "MethodDeclaration[AsyncKeyword, Identifier m, Block[ReturnStatement]]；built=2 = 表达式语句 + 体内 return" +
+      "（R4-B4-neg-03 的改判源）",
+    markers: ["DirectObjectMemberAssembly"] },
+  { id: "R5-RS-pos-09", src: "({ *m() { yield 1; } })", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "MethodDeclaration[AsteriskToken, Identifier m, Block[ExpressionStatement[YieldExpression]]]；built=2",
+    markers: ["DirectObjectMemberAssembly"] },
+  { id: "R5-RS-pos-10", src: "({ m(a: number) {} })", expect: "pos", expectInsert: false, expectBuilt: 1,
+    note: "方法参数注解走**同一个** ParametersAreTypeAnnotated 门（直接引用，不复制第二份判据）；空体 ⇒ built=1",
+    markers: ["DirectObjectMemberAssembly"] },
+  { id: "R5-RS-neg-01", src: "({ m(a = 1) {} })", expect: "neg", expectInsert: false,
+    note: "默认值 ⇒ ExpressionBuilder（现状 exprLoads=4）⇒ expr.member；成员门不许把 `=` 放过",
+    categories: ["expr.member"], markers: ["DirectObjectMemberAssembly"] },
+  { id: "R5-RS-guard-01", src: "({ set x(v) { } })", expect: "guard", expectInsert: false, expectBuilt: 1,
+    note: "**防误伤**：R4 的 setter 分支读数必须不变（SetAccessor[Identifier x, Parameter(v), Block]；" +
+      "现状 built=1 stmtLoads=0）",
+    markers: ["DirectObjectMemberAssembly"] },
+
+  // ---- CL 清理回归（5：pos 3 + guard 2；feat-r5-harden + R5-A2） ----
+  //   本节不是「修 bug」，是给 C-1（删死分支）/ C-3（D7 单一来源）/ R5-A2（as·satisfies 行首）留可复跑的钉子。
+  { id: "R5-CL-pos-01", src: "a\nb\nc", expect: "pos", expectInsert: false, expectBuilt: 3,
+    note: "C-1 删除后 ASI 判据必须仍按行切 3 条（现状 built=3 A1=YES）；`IsAsiBoundary` 的 fallback 一行不动",
+    markerScope: "statementShape", markers: ["TryToClose", "ShellPlainExpression"] },
+  { id: "R5-CL-pos-02", src: "let x = a\nas;\nb;", expect: "pos", expectInsert: false, expectBuilt: 3, noBaseline: true,
+    note: "**审批 R5-A2**：`as` 进受限后缀闭集 ⇒ 行首 `as` 另起语句。源为**合法等价输入** `let x = a` ⏎ `as;` ⏎ `b;`：" +
+      "原 `let x = a` ⏎ `as b` 在 TS 里是**非法输入**（两个操作数相邻、缺分号），tsc 的 3 条是 missing-semicolon " +
+      "**recovery** 的结果，R5 不引入该恢复语义（语句层 `CanEndStatement`/`TryToClose`，**R6**）；" +
+      "改用合法源后 A2 已能验证「行首 `as` 不能跨行续接」⇒ built=3、A1=MATCH（harden §5.4 实测）。" +
+      "**noBaseline**：旧基线把错 AST 逐字节复制进了 8456ec3c，修好后必然 DIFF（与 R4-D7 同构）；判据 = A1 + expectBuilt + A11",
+    markerScope: "boundary", markers: ["IsRestrictedPostfixText", "StatementTokenSets"] },
+  { id: "R5-CL-pos-03", src: "let x = a\nsatisfies;\nb;", expect: "pos", expectInsert: false, expectBuilt: 3, noBaseline: true,
+    note: "同上（`satisfies` 与 `as` 同族，**审批 R5-A2**），源同样是合法等价输入 `let x = a` ⏎ `satisfies;` ⏎ `b;`：" +
+      "`satisfies` 单条语句与 `as` 同构（harden §5.4：built=3、A1=MATCH），原非法源留给 R6 的恢复语义；noBaseline 口径同 CL-pos-02",
+    markerScope: "boundary", markers: ["IsRestrictedPostfixText", "StatementTokenSets"] },
+  { id: "R5-CL-guard-01", src: "a\n+ b\n+ c", expect: "guard", expectInsert: false, expectBuilt: 1,
+    note: "**防过度收缩**：`+` 是合法续接，删死分支后仍必须是 **1** 条（现状 built=1 A1=YES）；" +
+      "这一条 A10 仍照比 XML（基线本来就是对的）",
+    markerScope: "boundary", markers: ["IsContinuation"] },
+  { id: "R5-CL-guard-02", src: "for (const x of xs) { b; }", expect: "guard", expectInsert: false, expectBuilt: 2,
+    note: "**防 `of` 误伤**：`of` 出现在 for 头（不是行首表达式位）时必须是正常的 for-of（built=2 = for + 体内 `b;`）",
+    markers: ["DirectDeclarationAssembly"] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -647,16 +922,20 @@ const CASES = [
 // ---------------------------------------------------------------------------
 function groupOf(id) {
   if (id.startsWith("R1-")) return "R1";
-  const m = /^R([234])-([A-Z]\d|[A-Z]+)-/.exec(id);
+  const m = /^R([2345])-([A-Z]\d|[A-Z]+)-/.exec(id);
   return m ? m[2] : "?";
 }
 
 const R4_GROUP_NAMES = ["b3", "b4", "c2", "d7", "s"];
+// 【R5】ty/dc/rs/cl 是 R5 的组名（R5 前缀判定，与 R1–R4 互不吞；裸名本身不与任何旧组重名）
+const R5_GROUP_NAMES = ["ty", "dc", "rs", "cl"];
 
 const KNOWN_GROUPS = [
-  "r1", "r2", "r3", "r4", "all", "a1", "a2", "a3", "a4", "a5", "c1", "c2", "c3", "c4",
+  "r1", "r2", "r3", "r4", "r5", "all", "a1", "a2", "a3", "a4", "a5", "c1", "c2", "c3", "c4",
   "gen", "safe", "inc", "b1", "b2", "b3", "b4", "d7", "s", "neg", "pos",
-  // 旧轮同名子组的显式别名（R4 起裸名 c2/d7/s 归 R4）
+  // R5 的四个子组（裸名；也接受 r5-ty 这种带轮次的写法）
+  "ty", "dc", "rs", "cl", "r5-ty", "r5-dc", "r5-rs", "r5-cl",
+  // 旧轮同名子组的显式别名（R4 起裸名 c2/d7/s 归 R4；R5 起 r5-* 与 r1-*/r2-*/r3-* 同构）
   "r2-c2", "r3-d7", "r3-s",
 ];
 
@@ -670,8 +949,10 @@ function groupMatches(c, token) {
   if (t === "r2") return c.id.startsWith("R2-");
   if (t === "r3") return c.id.startsWith("R3-");
   if (t === "r4") return c.id.startsWith("R4-");
+  if (t === "r5") return c.id.startsWith("R5-");
   if (R4_GROUP_NAMES.includes(t)) return c.id.startsWith("R4-") && c.group.toLowerCase() === t;
-  const legacy = /^r([123])-([a-z]\d|[a-z]+)$/.exec(t);
+  if (R5_GROUP_NAMES.includes(t)) return c.id.startsWith("R5-") && c.group.toLowerCase() === t;
+  const legacy = /^r([12345])-([a-z]\d|[a-z]+)$/.exec(t);
   if (legacy) return c.id.startsWith(`R${legacy[1]}-`) && c.group.toLowerCase() === legacy[2];
   return c.group.toLowerCase() === t;
 }
@@ -772,6 +1053,61 @@ function resolveQ4(flags) {
   return { mode: requested, effective, byId, why, ids: q4Cases.map((c) => c.id) };
 }
 
+// ---------------------------------------------------------------------------
+// R5-Q1（Lead 已批准，见 R5-CONTRACT §5.3 / R5-TARGET-CASES §7.2；R5-Fix5-1 修订）：
+//   生效 6 条改判 —— R4-B4-pos-01/02/04 的 expectBuilt 1→2 且删 a6Skip、R4-B4-neg-01/03 的 neg→pos、
+//   R3-B2-neg-04 的 neg→pos（Q1 第 8 条，Fix5-2 追加）—— **已落盘在主字段**（expect / expectBuilt；a6Skip 已删），
+//   旧读数留在 `case.q5.legacy`。R2-SAFE-01/03 的 safe→pos 由 Lead 裁决 1(a) **撤回**（保持 safe，不进 q5）。
+//   `--q5=auto`（默认）再按**直建产物里的实现痕迹**逐条决定：
+//   - 痕迹出现（R5 实现已合入）→ 按新口径验收，A6 也恢复强制 0；
+//   - 没出现（R5 实现还没合入）→ 退回 legacy 的旧读数（expectBuilt=1 + a6Skip / neg / safe），
+//     避免「实现没到」被这 6 条记成回归（与 R4-Q1 的 --q4 完全同构）；
+//   - 失败方向是安全的：痕迹没命中而实现其实已在 ⇒ 退回的旧断言（built 精确值 / declined>=1）会红，不假绿。
+//   `--q5=pos` 强制新口径（合并态验收 / 让实现方看红）；`--q5=legacy` 强制旧口径（与 R4/R2 读数对照）。
+//   R5-Q3：`--q1` / `--q4` / `--q5` 都保留到 R6 一次性移除（R5 只同步注释与 probe 名单）。
+// ---------------------------------------------------------------------------
+function directFileText(name) {
+  return readTextSafe(path.join(directDir, name)) || "";
+}
+
+function resolveQ5(flags) {
+  const requested = String(flags.q5 || "auto").toLowerCase();
+  const q5Cases = CASES.filter((c) => c.q5);
+  const byId = new Map();
+  let effective;
+  let why;
+  const hitOf = (c) => {
+    const text = c.q5.file ? directFileText(c.q5.file) : directTextAll();
+    const matched = (c.q5.probe || []).find((marker) => text.includes(marker));
+    return { hit: matched !== undefined, matched };
+  };
+  if (requested === "pos") {
+    effective = "pos";
+    why = `--q5=pos（强制 R5-Q1 改判后的口径：${q5Cases.length} 条按新期望验收）`;
+    for (const c of q5Cases) byId.set(c.id, "pos");
+  } else if (requested === "legacy") {
+    effective = "legacy";
+    why = `--q5=legacy（强制回退 R4/R2 口径：${q5Cases.length} 条按 legacy 旧读数验收）`;
+    for (const c of q5Cases) byId.set(c.id, "legacy");
+  } else {
+    const present = [];
+    const absent = [];
+    for (const c of q5Cases) {
+      const { hit, matched } = hitOf(c);
+      byId.set(c.id, hit ? "pos" : "legacy");
+      (hit ? present : absent).push(hit ? `${c.id}（命中 ${matched}）` : c.id);
+    }
+    effective = absent.length === 0 ? "pos" : present.length === 0 ? "legacy" : "mixed";
+    why =
+      `auto：按 build/ts 直建产物里的实现痕迹逐条决定 R5-Q1 的 ${q5Cases.length} 条 —— 已出现 ${present.length} 条` +
+      (present.length > 0 ? `（${present.join("、")}）` : "") +
+      `，未出现 ${absent.length} 条` +
+      (absent.length > 0 ? `（${absent.join("、")}）→ 退回 legacy 旧读数` : "") +
+      (absent.length > 0 ? "；R5 实现合入后自动改判新口径，或用 --q5=pos 强制" : "");
+  }
+  return { mode: requested, effective, byId, why, ids: q5Cases.map((c) => c.id) };
+}
+
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -781,10 +1117,10 @@ function usage() {
     "用法: node tests/direct-build/target-cases.mjs [--group=<g1,g2>] [--only=<id|序号|source>,...] [--trace] [--strict]",
     "                                            [--strict-all] [--expect-direct] [--json] [--decline-stats]",
     "                                            [--baseline=<repo>] [--q1=pos|auto|safe] [--q4=pos|auto|legacy]",
-    "                                            [--fault-inject=finish-throw] [--help]",
+    "                                            [--q5=pos|auto|legacy] [--fault-inject=finish-throw] [--help]",
     "",
-    "  --group=...      逗号分隔的组：r1 | r2 | r3 | r4 | all | A1…A5 | C1…C4 | GEN | SAFE | INC",
-    "                   | B1 | B2 | B3 | B4 | C2 | D7 | S | NEG | POS",
+    "  --group=...      逗号分隔的组：r1 | r2 | r3 | r4 | r5 | all | A1…A5 | C1…C4 | GEN | SAFE | INC",
+    "                   | B1 | B2 | B3 | B4 | C2 | D7 | S | NEG | POS | TY | DC | RS | CL",
     "                   （大小写不敏感；未给 = all。r2 = R2-* / r3 = R3-* / r4 = R4-*，三者都是前缀判定、互不吞）",
     "                   【R4】b3/b4/c2/d7/s 是 **R4 的组名**（R4-CONTRACT §5.1 的 16/12/5/4/3）；",
     "                   旧轮的同名子组用 r2-c2 / r3-d7 / r3-s 显式选取（--group=r3 仍是 R3 全 32 条）",
@@ -804,6 +1140,12 @@ function usage() {
     "  --q4=pos|auto|legacy 【R4-Q1】R3-B1-neg-01/02/03 + R3-B2-neg-03 的 neg→pos 改判：pos=强制新口径；",
     "                   auto=默认，按 build/ts 直建产物里有无该构造的实现痕迹逐条决定（未合入 → 退回 R3 的 neg）；",
     "                   legacy=强制旧口径（与 R3 读数对照）",
+    "  --q5=pos|auto|legacy 【R5-Q1】6 条改判（R4-B4-pos-01/02/04 的 expectBuilt 1→2 + 删 a6Skip、",
+    "                   R4-B4-neg-01/03 + R3-B2-neg-04 的 neg→pos）：pos=强制新口径；",
+    "                   auto=默认，按 build/ts 直建产物里有无该构造的实现痕迹逐条决定（未合入 → 退回 legacy 旧读数，",
+    "                   含旧的 a6Skip 与 expectBuilt=1）；legacy=强制旧口径（与 R4/R2 读数对照）。",
+    "                   【R5-Fix5-1】R2-SAFE-01/03 的 safe→pos 已撤回（保持 safe），不在 --q5 范围；",
+    "                   R5-Q3：--q1/--q4/--q5 都保留到 R6 一次性移除",
     "  --fault-inject=finish-throw  C4 专用：在 session 的 Finish 上熔断一次（进程内注入，不改源码）",
     "  --help           显示本帮助",
   ].join("\n");
@@ -812,7 +1154,7 @@ function usage() {
 function parseArgs(argv) {
   const flags = {
     only: null, group: null, trace: false, strict: false, strictAll: false, expectDirect: false,
-    json: false, declineStats: false, baseline: null, faultInject: null, q1: "auto", q4: "auto",
+    json: false, declineStats: false, baseline: null, faultInject: null, q1: "auto", q4: "auto", q5: "auto",
     strictImplied: false, help: false,
   };
   const readValue = (i, inline, name) => {
@@ -834,6 +1176,7 @@ function parseArgs(argv) {
       case "fault-inject": { const r = readValue(i, inline, name); flags.faultInject = r.value; i = r.next; break; }
       case "q1": { const r = readValue(i, inline, name); flags.q1 = r.value; i = r.next; break; }
       case "q4": { const r = readValue(i, inline, name); flags.q4 = r.value; i = r.next; break; }
+      case "q5": { const r = readValue(i, inline, name); flags.q5 = r.value; i = r.next; break; }
       case "trace": flags.trace = true; break;
       case "strict": flags.strict = true; break;
       case "strict-all": flags.strictAll = true; break;
@@ -853,6 +1196,9 @@ function parseArgs(argv) {
   if (!["pos", "auto", "legacy"].includes(String(flags.q4).toLowerCase())) {
     throw new Error(`--q4 只支持 pos|auto|legacy（收到 ${JSON.stringify(flags.q4)}）`);
   }
+  if (!["pos", "auto", "legacy"].includes(String(flags.q5).toLowerCase())) {
+    throw new Error(`--q5 只支持 pos|auto|legacy（收到 ${JSON.stringify(flags.q5)}）`);
+  }
   // 【R4 / D6】--strict-all 隐含 --strict（R4-CONTRACT §6.2 第 3 条、DECISIONS D6）：
   //   单独给 --strict-all 在 R3 里是 **no-op**（实测 strict=off，与不加任何开关逐字段相同），留着就是陷阱。
   //   从 R4 起它 = strict=true + 非正例也在 strict 下解析；MODE 行打印 `strict=on (implied by --strict-all)`。
@@ -871,6 +1217,8 @@ function selectCases(all, flags) {
   flags.q1Resolution = q1;
   const q4 = resolveQ4(flags);
   flags.q4Resolution = q4;
+  const q5 = resolveQ5(flags);
+  flags.q5Resolution = q5;
   const annotated = all.map((c, i) => {
     let expect = c.expect;
     let note = c.note;
@@ -881,6 +1229,7 @@ function selectCases(all, flags) {
     // R4-Q1：4 条改判的运行时回退（只在 --q4=legacy，或 auto 且实现痕迹未出现时）
     let expectBuilt = c.expectBuilt;
     let expectBodyBuilt = c.expectBodyBuilt;
+    let a6Skip = c.a6Skip;
     const q4Reverted = Boolean(c.q4 && q4.byId.get(c.id) === "legacy");
     if (q4Reverted) {
       expect = c.q4.legacyExpect;
@@ -888,17 +1237,29 @@ function selectCases(all, flags) {
       expectBodyBuilt = c.q4.legacyBodyBuilt;
       note = `${note}  [R4-Q1 回退 legacy：${q4.mode === "legacy" ? "--q4=legacy" : "auto：build/ts 里还没有该构造的实现痕迹"}]`;
     }
+    // R5-Q1：6 条改判的运行时回退（同 --q4 的形态；legacy 里同时承载旧的 expectBuilt 与 a6Skip）
+    const q5Reverted = Boolean(c.q5 && q5.byId.get(c.id) === "legacy");
+    if (q5Reverted) {
+      const legacy = c.q5.legacy || {};
+      if (legacy.expect !== undefined) expect = legacy.expect;
+      expectBuilt = legacy.expectBuilt;
+      expectBodyBuilt = legacy.expectBodyBuilt;
+      a6Skip = legacy.a6Skip;
+      note = `${note}  [R5-Q1 回退 legacy：${q5.mode === "legacy" ? "--q5=legacy" : "auto：build/ts 里还没有该构造的实现痕迹"}]`;
+    }
     return {
       ...c,
       note,
       expect,
       expectBuilt,
       expectBodyBuilt,
+      a6Skip,
       index: i + 1,
       group: groupOf(c.id),
       neg: expect !== "pos" && expect !== "guard",
       q1Reverted: Boolean(c.q1 && q1.effective === "safe"),
       q4Reverted,
+      q5Reverted,
     };
   });
   let pool = annotated;
@@ -2118,8 +2479,16 @@ function renderCaseHuman(result, flags) {
         `R4 实现合入后自动变 pos；也可用 --q4=pos 强制`,
     );
   }
-  // ---- R3/R4 追加行（只对 R3/R4 的 case 打印，R1/R2 的输出行保持 R2 的形状） ----
-  if (/^R[34]-/.test(String(c.id))) {
+  if (c.q5Reverted) {
+    lines.push(
+      `Q5-REVERTED: R5-Q1 改判的 6 条之一（R2-SAFE-01/03 已按裁决 1(a) 撤回，不在其中）；` +
+      `build/ts 里还没有该构造的实现痕迹 ⇒ 本条按 R4/R2 口径验收` +
+        `（expect=${c.expect}${typeof c.expectBuilt === "number" ? ` expectBuilt=${c.expectBuilt}` : ""}` +
+        `${c.a6Skip ? " + a6Skip" : ""}）。R5 实现合入后自动改判新口径；也可用 --q5=pos 强制`,
+    );
+  }
+  // ---- R3/R4 追加行（只对 R3/R4/R5 的 case 打印，R1/R2 的输出行保持 R2 的形状） ----
+  if (/^R[345]-/.test(String(c.id))) {
     if (typeof c.expectBuilt === "number") {
       lines.push(
         `EXPECT-BUILT: ${c.expectBuilt}（StatementsBuilt 精确值；**含体内语句**。A3 的根下节点数口径不同：` +
@@ -2250,6 +2619,9 @@ function printSummaryHuman(results, impl, flags, totals, baseline, injection) {
   // ---- R4 新增：Q4 裁决（R4-Q1 的 4 条 neg→pos）落地状态 ----
   const q4r = flags.q4Resolution || { mode: "auto", effective: "legacy", why: "", ids: [] };
   console.log(`Q4: mode=${q4r.mode} → ${q4r.ids.join("/")} expect=${q4r.effective}（${q4r.why}）`);
+  // ---- R5 新增：Q5 裁决（R5-Q1 的 6 条生效改判；R2-SAFE-01/03 已撤回）落地状态 ----
+  const q5r = flags.q5Resolution || { mode: "auto", effective: "legacy", why: "", ids: [] };
+  console.log(`Q5: mode=${q5r.mode} → ${q5r.ids.join("/")} expect=${q5r.effective}（${q5r.why}）`);
   console.log(
     `STRICT-ALL: ${flags.strictAll
       ? `on（非正例也在 --strict 下解析，A12 判定${flags.strictImplied ? "；并**隐含 --strict**：MODE 行 strict=on (implied by --strict-all)" : ""}）`
@@ -2345,7 +2717,7 @@ async function main() {
         `strict=${flags.strict ? (flags.strictImplied ? "on (implied by --strict-all)" : "on") : "off"} ` +
         `strict-all=${flags.strictAll ? "on" : "off"} ` +
         `expect-direct=${flags.expectDirect ? "on" : "off"} ` +
-        `group=${flags.group === null ? "<all>" : flags.group} q1=${flags.q1} ` +
+        `group=${flags.group === null ? "<all>" : flags.group} q1=${flags.q1} q5=${flags.q5} ` +
         `baseline=${baseline === null ? "<none>" : baseline.root} ` +
         `fault-inject=${flags.faultInject === null ? "<none>" : flags.faultInject} ` +
         `decline-stats=${flags.declineStats ? "on" : "off"}`,
@@ -2406,10 +2778,10 @@ async function main() {
 
   if (flags.json) {
     const output = {
-      schema: "dsh/xl-example/target-cases@4",
+      schema: "dsh/xl-example/target-cases@5",
       contract:
-        "R4-CONTRACT §5/§6.1/§6.2 / R4-TARGET-CASES（CASES=132 = R1 10 + R2 50 + R3 32 + R4 40；" +
-        "R4 40 = B3 16 + B4 12 + C2 5 + D7 4 + S 3；R4-Q1 的 4 条改判不增数）",
+        "R5-CONTRACT §5/§6.1/§6.2 / R5-TARGET-CASES（CASES=189 = R1 10 + R2 50 + R3 32 + R4 40 + R5 57；" +
+        "R5 57 = TY 20 + DC 20 + RS 12 + CL 5；R5-Q1 的 6 条生效改判不增数，--q5 只决定运行时口径）",
       generatedAt: new Date().toISOString(),
       repo: REPO,
       baseline: baseline === null ? null : baseline.root,
@@ -2434,6 +2806,17 @@ async function main() {
               .map(([id]) => id),
           }
           : { mode: flags.q4, effective: flags.q4 },
+        q5: flags.q5Resolution
+          ? {
+            mode: flags.q5Resolution.mode,
+            effective: flags.q5Resolution.effective,
+            why: flags.q5Resolution.why,
+            ids: flags.q5Resolution.ids,
+            reverted: [...flags.q5Resolution.byId.entries()]
+              .filter(([, value]) => value === "legacy")
+              .map(([id]) => id),
+          }
+          : { mode: flags.q5, effective: flags.q5 },
         strictImplied: Boolean(flags.strictImplied),
       },
       implementation: {
@@ -2493,6 +2876,7 @@ async function main() {
         strictAll: Boolean(result.case.strictAll),
         q1Reverted: Boolean(result.case.q1Reverted),
         q4Reverted: Boolean(result.case.q4Reverted),
+        q5Reverted: Boolean(result.case.q5Reverted),
         incompleteOk: Boolean(result.case.incompleteOk),
         a6Skip: result.case.a6Skip || null,
         a6ExpectStmtLoads: typeof result.case.a6ExpectStmtLoads === "number"
