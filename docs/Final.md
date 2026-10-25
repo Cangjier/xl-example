@@ -28,9 +28,9 @@
   连带结果：`dist/ts/cjcli.ts`、`build/ts/cjcli.js` 不存在，`bin/cjcli.js` 与 `samples/check.mjs` 跑不起来。
   这是仓库形态问题，与解析器能力无关。
 - **唯一可复跑口径**是定向构建 `core` + `typescript`（见 §3、§7）——所有门禁读数都在这个口径下取得。
-- 分支形态（以 `git branch -vv` / `git log` 为准）：当前工作分支 `feature/possible-statement-cleanup-docs`，
-  与 `feature/possible-statement` 同一基线；两分支都在，远端 `origin` 指向主仓库本地路径（非网络远端）。
-  仓库没有 `main` 分支。当前工作分支**未 push、未合并**，工作树干净。
+- 分支形态（以 `git branch -vv` / `git log` 为准）：主工作分支 `feature/possible-statement`；`main` 分支存在，
+  保持基线未改动；当前工作分支 `feature/possible-statement-final-doc-fix` 未 push 到 origin。
+  远端 `origin` 指向主仓库本地路径（非网络远端）。工作树干净。
 - 权威尺子是 `typescript/cases/{ast-json,ast-json-diff,token-ast,real-dts-ast}.mjs`、
   `tests/statement-possible/*.mjs` 与 `tests/parse/validate.mjs`；`tests/parse/*` 其余脚本不是本分支的口径依据。
 
