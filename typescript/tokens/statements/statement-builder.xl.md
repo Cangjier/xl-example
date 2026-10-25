@@ -1579,8 +1579,20 @@ if (asiEnd < 0) {
       last = at;
       break;
     }
-    if (at > first && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
-      || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
+    // Stage 5d-9a：**前缀 `++` / `--` 后面的换行不是 ASI 边界**——它的操作数可以写在下一行
+    // （`a++; --` ⏎ `a;` 的第二条在 TS 里是 `--a;`，一条 PrefixUnaryExpression）。
+    // `EndsAtLineBreak` 的「前一个单元能收尾表达式」一列里 `++` / `--` 算能收尾（那是对的，
+    // `a++` 能），但它分不出前后缀；这里补的正是「没有左操作数 ⇒ 前缀」这一问，
+    // 判据的唯一实现点与 `IsAsiBoundary` 同一份（`IsPrefixOperatorWithoutOperand`）。
+    let previousAt = at - 1;
+    while (previousAt > first && this.Units[previousAt].IsTriviaToken) {
+      previousAt--;
+    }
+    const prefixSplit = at > first
+      && ExpressionStatementPossibleShape.IsPrefixOperatorWithoutOperand(this.Units, previousAt, first);
+    if (at > first && !prefixSplit
+      && (StatementBuilder.EndsAtLineBreak(this.Units[at - 1], this.Units[at])
+        || ExpressionStatementPossibleShape.IsAsiBoundary(this.Units, at, first))) {
       asiEnd = at - 1;
       break;
     }

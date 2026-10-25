@@ -732,6 +732,40 @@ return text === "let" || text === "const" || text === "var" || text === "using"
   || text === "await" || text === "type" || text === "break" || text === "continue";
 ```
 
+## static method IsPrefixOperatorWithoutOperand:(units:Array<Token>, index:int, limit?:int)=>bool
+
+`index` 处的 `++` / `--` **没有**左操作数 ⇒ 它是前缀运算符，操作数可以落在下一行
+（`a++; --` ⏎ `a;` 的第二条在 TS 里是 `--a;`）。这样的运算符收不住上一条表达式，
+所以它后面的换行不是 ASI 边界——判界一侧（`StatementBoundaryUtil.IsAsiBoundary`）与
+建树一侧（`StatementBuilder.BuildExpressionStatementFromShapes`）读的都是这一份实现。
+
+**它不问「有没有换行」**：那是 `IsPostfixOperatorAt` 的问题（`x++` ⏎ `++y` 的第二格是前缀，
+但换行处**确实**要断句）。这里只问「它前面还有没有能收住表达式的代码单元」。
+
+`limit` 是「本条语句所在段的起点」：段首之前的东西不属于这条语句，所以 `operatorStart < limit`
+一律算「没有左操作数」。
+
+```ts
+if (index < 0 || index >= units.length) {
+  return false;
+}
+if (!(units[index] instanceof Symbol)) {
+  return false;
+}
+const text = (units[index] as Symbol).TempToString();
+if (text !== "++" && text !== "--") {
+  return false;
+}
+let operand = index - 1;
+while (operand >= 0 && units[operand].IsTriviaToken) {
+  operand--;
+}
+if (operand < (limit ?? 0)) {
+  return true;
+}
+return !ExpressionStatementPossibleShape.CanEndExpressionAt(units, operand);
+```
+
 ## static method IsPostfixOperatorAt:(units:Array<Token>, index:int)=>bool
 
 `index` 处的 `++` / `--` / `!` 是不是**后缀**（紧贴同一行、且左边能收住表达式）。
