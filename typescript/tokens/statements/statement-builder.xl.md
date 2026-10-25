@@ -725,6 +725,29 @@ modifier.Parent = member;
 return member;
 ```
 
+## method BuildExportedVariableStatement:()=>Token
+
+`export` + 变量声明关键字、且**后面没有绑定可跟**（`export let` / `export let;`）：TS 这里是
+带**空** `VariableDeclarationList` 的 `VariableStatement`（`LetKeyword` 是列表里唯一的东西）。
+
+与 `BuildExportedStatement` 同款：摘掉 `export`、建被修饰的语句、再把 `ExportKeywordShape` 插回
+`member.Data` 最前（TS 的 children 顺序是修饰词在最前），`Pos` 回到 `export` 起点。区别只有一处：
+被修饰的语句**直接**交给 `BuildVariableStatement`，不经过 `BuildStatement` —— 后者对裸 `let`
+只会给出标识符表达式语句（`let` 的双角色判据要求 `StartsBinding` 成立，而这里根本没有绑定可跟）。
+
+```ts
+const first = this.At;
+const exportUnit = this.Units[first] as Common;
+this.At++;
+const member = this.BuildVariableStatement();
+const modifier = ExportKeywordShape.FromBasicToken(exportUnit, this.Context);
+modifier.Pos = this.Positions[first];
+member.Data.splice(0, 0, modifier);
+modifier.Parent = member;
+(member as ShapeToken).Pos = this.Positions[first];
+return member;
+```
+
 ## method BuildDefaultModifierStatement:()=>Token
 
 `export default` 后面的声明（`class` / `abstract class` / `interface` / `function` / `@dec class`）：
@@ -894,6 +917,7 @@ return shape;
 - `export default <声明>` → `BuildExportedStatement`（保留声明路径）
 - `export = <expr>` / `export default <expr>` → `ExportAssignmentShape`（children 只有表达式）
 - `export { … }` / `export * …` / `export type { … }` → `ExportDeclarationShape`
+- `export let`（后面没有绑定、**空**声明列表）→ `BuildExportedVariableStatement`
 - 其余 `export <声明>` → `BuildExportedStatement`
 
 ```ts
@@ -932,6 +956,28 @@ if (afterText === "type") {
   if (second !== null && (this.IsSymbol(second, "*")
     || (second instanceof Bracket && (second as Bracket).StartBracketChar === "{"))) {
     return this.BuildExportClauseStatement();
+  }
+}
+// `export` 之后的 `let` 且**后面没有绑定可跟**（`export let`，含末尾只有 trivia 的形）：TS 建的是
+// 带**空** `VariableDeclarationList` 的 `VariableStatement`。这一格不能交给 `BuildStatement`——
+// `let` 是上下文关键字，单独成句时它只是标识符（`let;` / `let = 1` 是 ExpressionStatement），
+// `BuildStatement` 的 `let` 分支要求 `StartsBinding` 成立，裸 `let` 于是落进表达式语句
+// （`export let` 的 TS 侧是 VariableStatement，我们成了 ExpressionStatement(Identifier)）。
+// 有绑定的形态（`export let x = 1`）仍走原路：`BuildExportedStatement` → `BuildStatement` →
+// `BuildVariableStatement`（那里 `StartsBinding` 成立）。`const` / `var` 没有双角色问题，
+// 同样走原路即可，不必在这里分叉。
+// 判据按「后面还有没有**代码**单元」而不是 `Peek(2) === null`：文件末尾的 `export let` ⏎ 后面只有
+// trivia（换行 / 注释），那些单元也在壳的 `Data` 里。
+// `let` 后面跟 `;` 的形（`export let;`）不在这一支里：它走的是 export 候选
+// （`ExportDeclarationPossibleShape.BuildByIndex`）→ `BuildStatement` 的既有路径，两档行为一致，
+// 本轮不动（见 HANDOFF §7）。
+if (afterText === "let") {
+  let scan = this.At + 2;
+  while (scan < this.Units.length && this.Units[scan].IsTriviaToken) {
+    scan++;
+  }
+  if (scan >= this.Units.length) {
+    return this.BuildExportedVariableStatement();
   }
 }
 if (this.IsExportDeclarationHead()) {
