@@ -85,6 +85,8 @@ const enum E { … }   -> Decline（enum 属范围外语句族），走旧路径
 
 ## field LastDeclarationEnd:int = -1
 
+## field EqualAt:int = -1
+
 ## constructor:(template:Template, context:SyntaxContext, basePos:int, owner:Token)=>void
 
 ```ts
@@ -142,7 +144,7 @@ if (text === "await" || text === "yield" || text === "abstract" || text === "imp
 return text === "let" || text === "const" || text === "var";
 ```
 
-## method Decline:(reason:string)=>void
+## method Decline:(reason:string, category:string)=>void
 
 ```ts
 if (this.Declined) {
@@ -151,8 +153,7 @@ if (this.Declined) {
 this.Declined = true;
 this.Reason = reason;
 DirectBuildMetrics.Declined += 1;
-DirectBuildMetrics.LastDeclineReason = reason;
-DirectBuildMetrics.Trace("variable session decline: " + reason);
+DirectBuildMetrics.NoteDecline(reason, category);
 if (DirectBuildMetrics.Strict) {
   DirectBuildMetrics.StrictViolations += 1;
   throw new Error("DirectBuild strict: " + reason + " [" + this.Summary() + "]");
@@ -226,12 +227,12 @@ this.StoppedAt = at;
 
 ```ts
 if (!(unit instanceof Common)) {
-  this.Decline("变量语句头不是关键字");
+  this.Decline("变量语句头不是关键字", "var.head");
   return;
 }
 const text = (unit as Common).TempToString();
 if (text !== "let" && text !== "const" && text !== "var") {
-  this.Decline("范围外变量语句头: " + text);
+  this.Decline("范围外变量语句头: " + text, "var.head");
   return;
 }
 this.Keyword = unit;
@@ -245,16 +246,16 @@ DirectBuildMetrics.Trace("variable ingest head: " + text);
 
 ```ts
 if (unit instanceof Bracket) {
-  this.Decline("解构绑定属范围外");
+  this.Decline("解构绑定属范围外", "var.binding");
   return;
 }
 if (!(unit instanceof Common)) {
-  this.Decline("变量绑定不是标识符");
+  this.Decline("变量绑定不是标识符", "var.binding");
   return;
 }
 const text = (unit as Common).TempToString();
 if (this.IsReservedName(text)) {
-  this.Decline("变量绑定是保留字: " + text);
+  this.Decline("变量绑定是保留字: " + text, "var.binding");
   return;
 }
 const identifier = IdentifierShape.FromBasicToken(unit as Common, context);
@@ -279,6 +280,7 @@ if (unit instanceof Symbol) {
   if (text === "=") {
     const nextPos = unit.SourceRange.EndIndex >= 0 ? unit.SourceRange.EndIndex : pos;
     this.Initializer = new DirectExpressionEngine(this.Template, this.Context, nextPos);
+    this.EqualAt = at;
     this.Expect = VariableStatementDirectSession.ExpectInitializer;
     return;
   }
@@ -293,7 +295,7 @@ if (unit instanceof Symbol) {
     return;
   }
   if (text === ":" || text === "!") {
-    this.Decline("变量声明的类型注解 / 确定赋值断言属范围外");
+    this.Decline("变量声明的类型注解 / 确定赋值断言属范围外", "var.type");
     return;
   }
 }
@@ -306,7 +308,7 @@ this.StoppedAt = at;
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
   if (text === ";" || text === ",") {
-    if (!this.CloseDeclarationWithInitializer(context)) {
+    if (!this.CloseDeclarationWithInitializer(context, at)) {
       return;
     }
     if (text === ";") {
@@ -318,12 +320,12 @@ if (unit instanceof Symbol) {
   }
 }
 if (this.Initializer === null) {
-  this.Decline("初始化器缺失");
+  this.Decline("初始化器缺失", "var.init");
   return;
 }
 this.Initializer.IngestUnit(unit, pos);
 if (this.Initializer.Declined) {
-  this.Decline("初始化表达式范围外: " + this.Initializer.Reason);
+  this.Decline("初始化表达式范围外: " + this.Initializer.Reason, "var.init");
   return;
 }
 if (this.Initializer.Held) {
@@ -349,16 +351,39 @@ if (unit instanceof Symbol) {
 this.StoppedAt = at;
 ```
 
-## method CloseDeclarationWithInitializer:(context:SyntaxContext)=>bool
+## method CloseDeclarationWithInitializer:(context:SyntaxContext, boundHigh:int)=>bool
 
 ```ts
 if (this.Initializer === null || this.Declaration === null || this.List === null) {
-  this.Decline("声明状态不完整");
+  this.Decline("声明状态不完整", "var.init");
   return false;
 }
 const expression = this.Initializer.Finish();
 if (expression === null) {
-  this.Decline("初始化表达式不完整: " + this.Initializer.Reason);
+  this.Decline("初始化表达式不完整: " + this.Initializer.Reason, "var.init");
+  return false;
+}
+// 覆盖校验（R2-CONTRACT §3.1 的 `var.coverage`，与表达式 session 的 `expr.coverage` 同构）：
+// 初始化器必须精确覆盖**本声明的最后一个代码单元**。H1 喂给引擎的是整壳 Data，引擎可能多吃
+// （`let x = a⏎++b` 里换行后的 `++` 被当成后缀）或提前收层，两种情况都会静默错建；
+// 不一致 = 本声明没收住 → Decline，旧路径接管。
+// `boundHigh` 是「最后一个代码单元的索引上界（不含）」：`;` / `,` 到达时是分隔符下标，
+// `Finish` 收口时是 `endIndex + 1`；`=` 的下标（`EqualAt`）之前不属于初始化器。
+const high = boundHigh < this.Units.length ? boundHigh : this.Units.length;
+let expectedEnd = -1;
+for (let index = high - 1; index > this.EqualAt; index--) {
+  const unit = this.Units[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit.SourceRange.EndIndex >= 0) {
+    expectedEnd = unit.SourceRange.EndIndex;
+  }
+  break;
+}
+if (expectedEnd >= 0 && expression.SourceRange.EndIndex !== expectedEnd) {
+  this.Decline("初始化器终点与声明终点不一致: initEnd=" + String(expression.SourceRange.EndIndex)
+    + " declEnd=" + String(expectedEnd), "var.coverage");
   return false;
 }
 this.Initializer = null;
@@ -380,7 +405,7 @@ return true;
 
 ```ts
 if (this.Declaration === null || this.List === null) {
-  this.Decline("声明状态不完整");
+  this.Decline("声明状态不完整", "var.init");
   return;
 }
 const name = this.Declaration.Last();
@@ -421,11 +446,11 @@ if (this.Declined) {
   return null;
 }
 if (this.StoppedAt >= 0 && this.StoppedAt <= endIndex) {
-  this.Decline("语句内出现无法接续的单元 idx=" + String(this.StoppedAt));
+  this.Decline("语句内出现无法接续的单元 idx=" + String(this.StoppedAt), "var.stopped");
   return null;
 }
 if (this.Expect === VariableStatementDirectSession.ExpectInitializer) {
-  if (!this.CloseDeclarationWithInitializer(context)) {
+  if (!this.CloseDeclarationWithInitializer(context, endIndex + 1)) {
     return null;
   }
   this.Expect = VariableStatementDirectSession.ExpectSep;
