@@ -630,7 +630,7 @@ for (let scan = previous; scan >= 0; scan--) {
 return false;
 ```
 
-## static field EnableSwitchCaseClause:bool = false
+## static field EnableSwitchCaseClause:bool = true
 
 **switch 子句级语句目录开关**（Stage 4y，**实测后默认关**，见 `StatementRouteUtil.EnableSwitchCaseClause` 与
 `HANDOFF-s4y.md` §1）：壳在 `;` 处不收口，接管只在「子句最后一条语句」上完整，跨子句 / 多条语句会把
