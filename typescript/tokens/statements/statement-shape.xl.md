@@ -61,8 +61,22 @@ super(template);
 ```ts
 // H1（CONTRACT §4.1）：直建的唯一喂入点——子单元关闭事件先喂 session，再走既有候选计算。
 // 不改返回值、不建形状、不碰 CatalogGuide；`DirectSession === null` 时本句是空操作。
+// **R3-S（R3-CONTRACT §4.4）**：`--strict` 时 `Decline` / `Incomplete` **在 Ingest 期**就会抛
+// （`Decline`：`Declined+=1` → `NoteDecline` → `StrictViolations+=1` → `throw`）。不在这里接住，
+// 异常会穿出 `Parse`（R2 审计 §7 R2 条：`let {a} = b` 在 Strict 下抛穿）。计数语义与 H2 完全一致：
+// 已计数的 Decline 不再计 `Errors`；接住之后**继续走** `super.ComputePossibleShapes(context)`，
+// 由 H2 的 `!direct.Declined` 拦下 Finish ⇒ 旧路径建树（AST 不变）。
 if (this.DirectSession !== null) {
-  this.DirectSession.Ingest(this.Data, context);
+  const ingestSession = this.DirectSession;
+  try {
+    ingestSession.Ingest(this.Data, context);
+  } catch (error) {
+    if (!ingestSession.Declined) {
+      DirectBuildMetrics.Errors += 1;
+      DirectBuildMetrics.LastError = error instanceof Error ? error.message : String(error);
+      DirectBuildMetrics.Trace("direct ingest error: " + DirectBuildMetrics.LastError);
+    }
+  }
 }
 if (this.OperatorBody !== null) {
   this.OperatorBody.IngestAll(this.Data, this.Template);
