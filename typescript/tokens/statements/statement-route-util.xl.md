@@ -6,7 +6,6 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 ```
 
@@ -636,38 +635,24 @@ return StatementRoute.ShellPlainExpression;
 
 ## static method ShouldYieldToDeclarationShell:(units:Array<Token>, tokenIndex:int)=>bool
 
-**legacy 让位门控的唯一判据**（Stage 4x）：`route` 命中 `ShellDeclarationFamily`，**并且**壳在这一格
-真的会建（`!StatementBoundaryUtil.CanEndStatementAt`）时，legacy 候选才让位。
+**legacy 让位门控的唯一判据**（Stage 4x / S4z-r2）：`route` 命中 `ShellDeclarationFamily` 就让位，
+**单调**。
 
-Stage 4r 的门控只看了 `route`，与壳的晚建守卫**不是同一份判据**：`enum E { A }` ⏎ `export { T, E };`
-的 `export` 那一格，`ItemStart` 仍指向上一条语句（`enum`），route 命中声明族，于是壳被晚建守卫
-`Reject`，而 13 个 legacy 候选照着 route 一起让位 —— 两边都退，只能文件级 fallback。
-现在门控把「壳会不会建」也算进来：壳不建的格子，legacy 照旧接管。
+Stage 4x 曾在门控里再问一次「壳在这一格真的会建吗」（`!StatementBoundaryUtil.CanEndStatementAt`），
+把门控与壳的晚建守卫绑成同一份判据。S4z 证伪：**判据必须单调**——门控只看 `route`，
+壳在边界格上一律 `Accept` 并在 `BuildByIndex` 里做起点同步（见
+`declaration-statement-possible-shape.xl.md` 与 `control-flow-statement-possible-shape.xl.md`）。
+两边各问一次「会不会建」，就会出现「门控让位、壳拒建」的双退（`enum E { A }` ⏎ `export { T, E };`
+只能文件级 fallback），或者反过来「壳建了、legacy 也建」的双建（S4r 的 `decl=2`）。
+
+所以这一格只回答一个问题：**route 是不是声明族**。是，legacy 候选就整族让位；
+壳到底在哪一格建、搬多少单元，由壳自己的 `BuildByIndex` 决定，不在这里预判。
 
 ```ts
 if (!StatementRouteUtil.EnableDeclarationShell || !StatementRouteUtil.EnableShellExpressions) {
   return false;
 }
-if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellDeclarationFamily) {
-  return false;
-}
-if (tokenIndex < 0 || tokenIndex >= units.length) {
-  return false;
-}
-const start = ItemUtil.ItemStart(units);
-const headAt = ItemUtil.NextCode(units, start);
-if (headAt >= units.length || headAt > tokenIndex) {
-  return false;
-}
-if (units[tokenIndex].IsTriviaToken) {
-  return false;
-}
-if (tokenIndex === headAt) {
-  // 首格：壳一定建（`DeclarationStatementPossibleShape` 首格 Accept），legacy 必须让位。
-  return true;
-}
-// 晚建格：壳在「这一格之前已能收口」时 Reject（S4t 守卫），legacy 此时**不**让位。
-return !StatementBoundaryUtil.CanEndStatementAt(units, tokenIndex);
+return StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellDeclarationFamily;
 ```
 ## static method Decide:(units:Array<Token>, tokenIndex:int)=>int
 

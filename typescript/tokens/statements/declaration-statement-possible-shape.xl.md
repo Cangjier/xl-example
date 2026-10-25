@@ -7,7 +7,6 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
-import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 ```
@@ -47,6 +46,13 @@ Class / Interface / Function / Enum / Module / TypeAlias + `expression-statement
 `Accept`，`CatalogGuide` 会一直等（"接受"与"不确定"同义，只有只剩一个候选才建）。
 `EnableDeclarationShell=false` 时 `Decide` 重新返回 `Legacy`，门控整体失效，行为逐位回到 Stage 4q。
 
+**晚建格一律 Accept（S4z-r2）**：`tokenIndex > headAt` 时不再问 `CanEndStatementAt`——边界格由壳接管。
+上一轮（Stage 4t）在这里 `Reject`，与 legacy 让位门控里同一个判据叠加，造成「门控让位 + 壳拒建」
+的双退；现在门控单调（只看 `route`），壳在晚建格一律 `Accept`，把「已闭合的壳 + 下一条语句的头」
+一起搬进新壳的问题改由 `BuildByIndex` 的**起点同步**解决（声明族且这一格之前已能收口时，
+搬单元的起点收到 `tokenIndex`，已闭合的壳留在原处）。判据仍是同一份
+`StatementBoundaryUtil.CanEndStatementAt`，只是搬到了 `BuildByIndex` 里。
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -76,22 +82,14 @@ if (route === StatementRoute.None) {
 if (route !== StatementRoute.ShellDeclarationFamily) {
   return ShapeStates.Reject;
 }
-if (tokenIndex === headAt) {
-  // 首格：建壳，搬的范围就是 [start..头格]。
-  return ShapeStates.Accept;
-}
-// 晚建补建（`type T` / `declare const` 的族在第二格才判出来）：与 `RootExpressionStatementPossibleShape`
-// 的晚建守卫同一条判据——上一单元已能结束语句时（`}` ⏎ `const`、`;` ⏎ `enum`）**不补建**，
-// 把这一格交回 legacy，否则已闭合的壳会被连同下一条语句的头一起搬进新壳（S4r 的 decl=2 / raw Common）。
-if (StatementBoundaryUtil.CanEndStatementAt(units, tokenIndex)) {
-  return ShapeStates.Reject;
-}
+// 首格与晚建格一视同仁：都 Accept。晚建格（`type T` / `declare const` 的族在第二格才判出来、
+// `interface I { }` ⏎ `const a = 1;` 的 `const`）搬多少单元由 `BuildByIndex` 的起点同步决定。
 return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-与 `ComputeByIndex` 同一口径（同一个 `CanEndStatement` 晚建守卫），否则「可建」与「接受」两处判据会分叉。
+与 `ComputeByIndex` 同一口径（同一个 `Decide` 判据 + 晚建格一律可建），否则「可建」与「接受」两处判据会分叉。
 
 ```ts
 if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableControlFlowShell) {
@@ -105,11 +103,5 @@ if (headAt >= units.length || headAt > tokenIndex) {
 if (units[tokenIndex].IsTriviaToken) {
   return false;
 }
-if (StatementRouteUtil.Decide(units, tokenIndex) !== StatementRoute.ShellDeclarationFamily) {
-  return false;
-}
-if (tokenIndex === headAt) {
-  return true;
-}
-return !StatementBoundaryUtil.CanEndStatementAt(units, tokenIndex);
+return StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellDeclarationFamily;
 ```

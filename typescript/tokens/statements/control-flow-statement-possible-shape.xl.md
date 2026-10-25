@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
@@ -149,12 +150,23 @@ return route === StatementRoute.ShellStatementFamily && tokenIndex === headAt;
 （`ComputeByIndex` 走 `ScanRoot` 分支，与 legacy 同一份判界）。
 
 ```ts
-const start = ItemUtil.ItemStart(host.Data);
+let start = ItemUtil.ItemStart(host.Data);
 if (start > tokenIndex) {
   throw new Error("控制流语句候选没有可搬的单元");
 }
 // 族在搬单元**之前**判：插壳之后 `ItemStart` 已经指向壳自己，再判就是另一条语句了。
 const route = StatementRouteUtil.Decide(host.Data, tokenIndex);
+// **起点同步（S4z-r2，W2）**：声明族的晚建格若落在「上一条语句已经收口」的边界上
+// （`interface I { }` ⏎ `const a = 1;` 的 `const`、`type T = 1;` ⏎ `enum E` 的 `enum`），
+// `ItemStart` 仍指向前一条语句，照旧搬 `[start..tokenIndex]` 会把已闭合的壳连同下一条语句的头
+// 一起塞进新壳（S4r 的 `decl=2`、首节点 raw `Common`）。这一格只搬**边界 token 自己**：
+// 起点收到 `tokenIndex`，`pos` 随之取「`tokenIndex - 1` 往前第一个非 trivia 单元的 `EndIndex`」，
+// `moved` 只剩边界 token，前一条语句保持原样。
+// 判据不新写第二份：与晚建守卫同一份 `StatementBoundaryUtil.CanEndStatementAt`（`;` / EOF / ASI）。
+if (route === StatementRoute.ShellDeclarationFamily && tokenIndex > start
+  && StatementBoundaryUtil.CanEndStatementAt(host.Data, tokenIndex)) {
+  start = tokenIndex;
+}
 let pos = 0;
 if (host instanceof Bracket && (host as Bracket).StartBracketChar === "{") {
   // 块体目录的宿主是块体 `{` 括号：块内**第一条**语句的 `pos` 是「`{` 之后第一个字符」（含前导 trivia），
