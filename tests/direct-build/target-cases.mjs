@@ -332,9 +332,10 @@ const CASES = [
     note: "C4 H2 异常计数：注入一次 Finish 抛错 → Errors=1 + LastError 含 inject + AST 仍 MATCH；第二次 errors=0",
     markerScope: "statementShape",
     markers: ["direct-build-metrics", "DirectBuildMetrics", "direct finish error"] },
-  { id: "R2-C2-01", src: "a\nb", expect: "neg", expectInsert: false,
-    note: "C2 跨行 ASI 本轮保持 Decline（R2-D4：不作验收门；R3 直建化时改 pos + built=2）",
-    categories: ["expr.stopped"] },
+  { id: "R2-C2-01", src: "a\nb", expect: "pos", expectInsert: false, expectBuilt: 2,
+    note: "**R4 改判 neg→pos（本 case 原 note 已预告：R3 直建化时改 pos + built=2）**：" +
+      "C2 跨行 ASI 落地后 `a; b;` 两条语句均直建（两条 ExpressionStatement(Identifier)）；" +
+      "与 R4-C2-pos-01 同源码；A10 仍强制 XML==基线（**不设 noBaseline**，基线可比）" },
 
   // ===========================================================================
   // R3 目标 case（32 条；_coord/R3-TARGET-CASES.md 是唯一权威编号表）
@@ -591,7 +592,7 @@ const CASES = [
   // ---- C2 跨行 ASI（5：pos 2 + guard 3）—— 修改点是 statement-boundary-util 的 IsAsiBoundary ----
   { id: "R4-C2-pos-01", src: "a\nb", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "两条 ExpressionStatement(Identifier)；A10 要求 XML==基线（legacy 的 2 条与直建的 2 条必须逐字节同形）；" +
-      "现状 Decline(expr.stopped)（R2-C2-01 同源码，R2 口径仍是 neg）",
+      "与 R2-C2-01 同源码（该条已随本轮改判 pos + built=2）",
     markerScope: "boundary", markers: ["IsLineStartOperandBoundary", "IsContinuationToken"] },
   { id: "R4-C2-pos-02", src: "2\n3", expect: "pos", expectInsert: false, expectBuilt: 2,
     note: "两条 ExpressionStatement(NumericLiteral)；built=2",
