@@ -15,11 +15,15 @@ import { ExportAssignmentShape } from "../declarations/export-assignment-shape.x
 import { ExportDeclarationShape } from "../declarations/export-declaration-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ImportDeclarationShape } from "../declarations/import-declaration-shape.xl.md"
+import { ImportEqualsDeclarationShape } from "../declarations/import-equals-declaration-shape.xl.md"
 import { InterfaceDeclarationShape } from "../declarations/interface-declaration-shape.xl.md"
 import { ModuleDeclarationShape } from "../declarations/module-declaration-shape.xl.md"
+import { NamespaceExportDeclarationShape } from "../declarations/namespace-export-declaration-shape.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 import { VariableDeclarationListShape } from "../declarations/variable-declaration-list-shape.xl.md"
+import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 import { VariableStatementShape } from "../statements/variable-statement-shape.xl.md"
 import { DirectDeclarationAssembly } from "./direct-declaration-assembly.xl.md"
 import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
@@ -46,12 +50,13 @@ R6-D2 的 `export` 装配层（`R6-CONTRACT §4.3`）：`export <声明>` / `exp
 ```txt
 code[0] = export
   ├ code[1] 不存在            -> 范围外（表达式语句）
-  ├ code[1] = "as"            -> 范围外（export as namespace N; 走 NamespaceExportDeclarationShape）
-  ├ code[1] = "import"        -> 子句里有 `=` ? 范围外（import-equals）: 内层 import 声明 + ExportKeyword
-  ├ code[1] = "="             -> 范围外（export = expr 由根候选直建，sessions=0）
+  ├ code[1] = "as"            -> NamespaceExportDeclarationShape（R7-D3；export as namespace N;）
+  ├ code[1] = "import"        -> 子句里有 `=` ? 范围外（export import，R8）: 内层 import 声明 + ExportKeyword
+  ├ code[1] = "="             -> ExportAssignment（R7-D3；表达式走引擎，A6 0/0）
   ├ code[1] = "default"       -> code[2] 是声明头（@ / class / abstract / interface / enum / function /
   │                             declare / async+function）? 内层声明 + [Export, Default] : BuildAssignment
   ├ code[1] = "type"          -> code[2] 是 `*` 或 `{` ? export 子句 : 落到下面的 IsDeclarationHead（type 别名）
+  ├ code[1] = "declare"       -> BuildDeclare（R7-D3；export declare const / function / class / namespace）
   ├ code[1] ∈ 声明头闭集      -> 内层声明 + ExportKeyword
   │   （class / interface / type / enum / namespace / module / global / function / const / let / var /
   │     using / abstract / async / declare / default / @）
@@ -59,6 +64,10 @@ code[0] = export
   ├ code[1] = "*"             -> export 子句（NamespaceExport / star）
   └ 其余                      -> 范围外（表达式语句）
 ```
+
+> **R7-D3 的 `as` / `=` 两条今天跑不到**（`sessions=0`）：`StatementRouteUtil.DecideDeclaration`
+> 对这两族显式 `return None`（只读件，`R7-CONTRACT §3.3`）。路由已按契约写好，实测见
+> `_coord/REPORT-r7-module2.md`（模拟路由例外时四条全部 `built=1 / A1=YES / XML=IDENTICAL`）。
 
 **A6 边界**（`R6-CONTRACT §2.3` 的精确值档）：本类**不调** `StatementBuilder`、**不 new**
 `ExpressionBuilder`（`ExportAssignmentShape.FromUnits` 内部 new 一个 ⇒ 本轮不用它，自己装配）；
@@ -211,8 +220,9 @@ if (code.length < 2) {
 const after = code[1];
 const afterText = DirectExportAssembly.TextOf(after);
 if (afterText === "as") {
-  DirectExportAssembly.LastReason = "export as namespace 属范围外";
-  return null;
+  // R7-D3：`export as namespace N;`（UMD）不是普通导出声明 —— TS 建 `NamespaceExportDeclaration`。
+  // 该形状工厂硬要求末单元是 `;`，缺分号时与 `import` / `export` 子句同一条 `ClauseHost` 虚拟分号通道。
+  return DirectExportAssembly.BuildNamespaceExport(owner, code, codeAt, basePos, template, context);
 }
 if (afterText === "import") {
   // `export import x = A.B`（import-equals，export 是修饰词）与 `export import a from "m"`
@@ -231,8 +241,10 @@ if (afterText === "import") {
   return DirectExportAssembly.BuildInner(owner, code, codeAt, 1, basePos, template, context);
 }
 if (DirectExportAssembly.IsSymbolText(after, "=")) {
-  DirectExportAssembly.LastReason = "export = 表达式由根候选直建（不走声明壳）";
-  return null;
+  // R7-D3：`export = <expr>` 是 `ExportAssignment`（不是声明）。`BuildAssignment` 与
+  // `export default <expr>` 逐条同源（code[1] 是分隔符、表达式从 code[2] 起），表达式走引擎
+  // ⇒ 不需要 `ExportAssignmentShape.FromUnits`（它内部 new `ExpressionBuilder`，A6 会红）。
+  return DirectExportAssembly.BuildAssignment(owner, code, codeAt, basePos, template, context);
 }
 if (afterText === "default") {
   if (DirectExportAssembly.IsDefaultDeclarationHead(code)) {
@@ -311,8 +323,28 @@ for (let at = startIndex + 1; at < code.length; at++) {
   }
 }
 if (hasEquals) {
-  DirectExportAssembly.LastReason = "import equals 属范围外（root 候选直建）";
-  return null;
+  // R7-D3：`import x = require("m")` / `import x = N.y` 是 `ImportEqualsDeclaration`。
+  // `startIndex > 0` 是 `export import x = A.B`（export 修饰词 + import-equals）—— 形状工厂
+  // `ImportEqualsDeclarationShape.FromUnits` 自带 `export` 分支（code[0] = export ⇒ base = 1），
+  // 但 `export import` 的 ExportKeyword 语义本轮不验（`R7-A4` 把它留 R8）⇒ 保持 Range-out。
+  if (startIndex > 0) {
+    DirectExportAssembly.LastReason = "export import x = A.B 属范围外（R8）";
+    return null;
+  }
+  let equals:Token | null = null;
+  try {
+    equals = ImportEqualsDeclarationShape.FromUnits(hostLike, codeAt[startIndex], host.length - 1, context);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    DirectExportAssembly.LastReason = "import equals 形状失败: " + message;
+    return null;
+  }
+  if (equals === null) {
+    DirectExportAssembly.LastReason = "import equals 形状为空";
+    return null;
+  }
+  (equals as ShapeToken).Pos = DirectExportAssembly.PosAt(code, startIndex, basePos);
+  return equals;
 }
 let shape:Token | null = null;
 try {
@@ -473,6 +505,13 @@ try {
   } else if (headText === "import") {
     built = DirectExportAssembly.BuildImport(owner, code, codeAt, modifierCount,
       basePos, template, context);
+  } else if (headText === "declare") {
+    // R7-D3：`export declare const x: number;` / `export declare function f(): void;`。
+    // `declare` 不是独立形状 —— 变量声明要自己插 `DeclareKeyword`，其余三族（class / function /
+    // namespace·module·global）的形状工厂自带 `declare` 循环。分派只写在 `BuildDeclare` 一处，
+    // 与 `ModuleFamilyDirectSession.BuildDeclare`（`declare <…>` 头位）同源，不复制第二份判据。
+    built = DirectExportAssembly.BuildDeclare(owner, code, codeAt, modifierCount,
+      DirectExportAssembly.PosAt(code, modifierCount, basePos), template, context);
   } else {
     DirectExportAssembly.LastReason = "export 之后的声明头不在本轮范围: " + headText;
     return null;
@@ -521,15 +560,213 @@ while (index >= 0) {
 return built;
 ```
 
-## static method PrependDeclare:(built:Token, code:Array<Token>, basePos:int, context:SyntaxContext)=>Token
+## static method PrependDeclare:(built:Token, code:Array<Token>, declareIndex:int, basePos:int, context:SyntaxContext)=>Token
 
 ```ts
 // `BuildDeclareVariableStatement`（:1502-1516）的尾部：`declare const x: number;` 的
 // `DeclareKeyword` 插为 `Data[0]`，`Pos` 回退到 `declare` 那一格（内层语句自己的 Pos 也被覆盖）。
-const modifier = DeclareKeywordShape.FromBasicToken(code[0] as Common, context);
-modifier.Pos = basePos;
+// R7-D3：`declareIndex` 显式传入 —— `export declare const x = 1;` 的 `declare` 在 code[1]，
+// 不是永远在 code[0]（Pos 也必须是 `declare` 那一格，不是整个壳的 Pos）。
+const unit = code[declareIndex];
+const modifierPos = DirectExportAssembly.PosAt(code, declareIndex, basePos);
+const modifier = DeclareKeywordShape.FromBasicToken(unit as Common, context);
+modifier.Pos = modifierPos;
 built.Data.splice(0, 0, modifier);
 modifier.Parent = built;
-(built as ShapeToken).Pos = basePos;
+(built as ShapeToken).Pos = modifierPos;
 return built;
+```
+
+## static method BuildNamespaceExport:(owner:Token, code:Array<Token>, codeAt:Array<int>, basePos:int, template:Template, context:SyntaxContext)=>Token | null
+
+```ts
+// R7-D3：`export as namespace N;`（UMD）的直建。形状工厂 `NamespaceExportDeclarationShape`
+// **硬要求**末单元是 `;`（`namespace-export-declaration-shape.xl.md` 末格判据），所以缺分号时
+// 走与 `import` / `export` 子句同一条 `ClauseHost` 零宽虚拟分号通道。
+const data:Array<Token> = (owner as any).Data;
+const lastCodeIndex = code.length - 1;
+const lastAt = codeAt[lastCodeIndex];
+const host = DirectExportAssembly.ClauseHost(data, lastAt, template);
+if (host === null) {
+  return null;
+}
+const hostLike:any = { Data: host, Template: template };
+let shape:Token | null = null;
+try {
+  shape = NamespaceExportDeclarationShape.FromUnits(hostLike, codeAt[0], host.length - 1, context);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  DirectExportAssembly.LastReason = "export as namespace 形状失败: " + message;
+  return null;
+}
+if (shape === null) {
+  DirectExportAssembly.LastReason = "export as namespace 形状为空";
+  return null;
+}
+(shape as ShapeToken).Pos = basePos;
+return shape;
+```
+
+## static method BuildDeclare:(owner:Token, code:Array<Token>, codeAt:Array<int>, startIndex:int, basePos:int, template:Template, context:SyntaxContext)=>Token | null
+
+```ts
+// R7-D3 的 `declare` 分派（`R6-CONTRACT §2.2` 最后三行的那张表），**只写这一处**：
+// `ModuleFamilyDirectSession.BuildDeclare`（头位 `declare <…>`）与 `BuildInner`（`export declare <…>`）
+// 都调它 —— `startIndex` 是 `declare` 在折好的 `code` 里的下标（0 或 1）。
+// 四个分支的共同点：`declare` **不是独立形状**（class / function / module 三个工厂自带 `declare`
+// 修饰词循环），只有变量声明要自己插 `DeclareKeyword`（= `PrependDeclare`）。
+const data:Array<Token> = (owner as any).Data;
+const lastCodeIndex = code.length - 1;
+const lastAt = codeAt[lastCodeIndex];
+if (startIndex + 1 >= code.length) {
+  DirectExportAssembly.LastReason = "declare 之后没有声明头";
+  return null;
+}
+const head2 = DirectExportAssembly.TextOf(code[startIndex + 1]);
+if (head2 === "namespace" || head2 === "module" || head2 === "global") {
+  const innerPos = DirectExportAssembly.PosAt(code, startIndex, basePos);
+  return DirectExportAssembly.BuildModuleShape(code.slice(startIndex), innerPos, context);
+}
+if (head2 === "class" || head2 === "abstract") {
+  // `BuildFromCode` 自带 declare / abstract 修饰词循环，整段喂进去即可（`declare class C { x: number; }`）。
+  const innerCode:Array<Token> = code.slice(startIndex);
+  const innerPos = DirectExportAssembly.PosAt(code, startIndex, basePos);
+  const anonymous = ClassDeclarationShape.HasNoName(innerCode, 0, innerCode.length - 1);
+  let declared:Token | null = null;
+  try {
+    declared = ClassDeclarationShape.BuildFromCode(owner, innerCode, innerPos, context, anonymous);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    DirectExportAssembly.LastReason = "declare class 形状失败: " + message;
+    return null;
+  }
+  if (declared === null) {
+    DirectExportAssembly.LastReason = "declare class 形状为空";
+    return null;
+  }
+  return declared;
+}
+if (head2 === "function" || head2 === "async") {
+  // `ambient=true`：`declare function f(): void;` 没有体，形状工厂按「无体 ambient」认这一格。
+  // `declare` 的 Data 下标（不是 `function` 的）就是 start —— 工厂自己扫 declare / async 修饰词。
+  const hostLike:any = { Data: data, Template: template };
+  let shape:Token | null = null;
+  try {
+    shape = FunctionDeclarationShape.FromUnits(hostLike, codeAt[startIndex], lastAt, context, true, false);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    DirectExportAssembly.LastReason = "declare function 形状失败: " + message;
+    return null;
+  }
+  if (shape === null) {
+    DirectExportAssembly.LastReason = "declare function 形状为空";
+    return null;
+  }
+  return shape;
+}
+if (head2 === "const" || head2 === "let" || head2 === "var") {
+  const built = DirectExportAssembly.BuildVariable(owner, code, codeAt, startIndex + 1,
+    basePos, template, context);
+  if (built === null) {
+    DirectExportAssembly.LastReason = "declare 变量声明失败: " + DirectExportAssembly.LastReason;
+    return null;
+  }
+  return DirectExportAssembly.PrependDeclare(built, code, startIndex, basePos, context);
+}
+DirectExportAssembly.LastReason = "declare 族头不在本轮范围: " + head2;
+return null;
+```
+
+## static method BuildUsing:(owner:Token, code:Array<Token>, codeAt:Array<int>, basePos:int, template:Template, context:SyntaxContext)=>Token | null
+
+```ts
+// R7-D3：`using x = a;`（TS 5.2 显式资源管理）的直建。TS 的 AST 把它建成
+// `VariableStatement[VariableDeclarationList[VariableDeclaration[Identifier, initializer?]]]` ——
+// **`using` 关键字不是子节点**（只是声明列表的区间起点，与 legacy `BuildVariableDeclarationList`
+// 的 `SignIn(keyword.Start)` 同口径）。
+// 为什么不能直接复用 `DirectDeclarationAssembly.ListFrom`：它的 `IsDeclarationKeyword` 只认
+// `let` / `const` / `var`（R4 的 `using` 留项）；本方法因此只做同一套 ListFrom 的 **Identifier 子集**
+// （名字 + 可选初始化器 + `,` 分隔），失败一律返回 null 交回旧路径（AST 不会更差）。
+const data:Array<Token> = (owner as any).Data;
+if (DirectExportAssembly.TextOf(code[0]) !== "using") {
+  DirectExportAssembly.LastReason = "头不是 using";
+  return null;
+}
+if (code.length < 4) {
+  DirectExportAssembly.LastReason = "using 声明不完整";
+  return null;
+}
+const lastCodeIndex = code.length - 1;
+const hasSemicolon = DirectExportAssembly.IsSymbolText(code[lastCodeIndex], ";");
+const bodyEnd = hasSemicolon ? lastCodeIndex : lastCodeIndex + 1;
+const list = new VariableDeclarationListShape(template);
+let at = 1;
+let lastIndex = 0;
+while (at < bodyEnd) {
+  const nameIndex = at;
+  const nameUnit = code[nameIndex];
+  const namePos = DirectExportAssembly.PosAt(code, nameIndex, basePos);
+  const name = DirectDeclarationAssembly.IdentifierBinding(nameUnit, namePos, context);
+  if (name === null) {
+    DirectExportAssembly.LastReason = "using 绑定的名字不是标识符: "
+      + DirectExportAssembly.TextOf(nameUnit);
+    return null;
+  }
+  const declaration = new VariableDeclarationShape(template);
+  declaration.Add(name);
+  let declarationLast = nameIndex;
+  at = at + 1;
+  // `using` 的初始化器是**必须**的（`using x;` 不是合法声明），没有就交回旧路径。
+  if (at >= bodyEnd || !DirectExportAssembly.IsSymbolText(code[at], "=")) {
+    DirectExportAssembly.LastReason = "using 声明缺少初始化器";
+    return null;
+  }
+  const initializerFirst = at + 1;
+  let initializerEnd = initializerFirst;
+  while (initializerEnd < bodyEnd
+    && !DirectExportAssembly.IsSymbolText(code[initializerEnd], ",")) {
+    initializerEnd = initializerEnd + 1;
+  }
+  if (initializerEnd <= initializerFirst) {
+    DirectExportAssembly.LastReason = "using 声明缺少初始化表达式";
+    return null;
+  }
+  const expression = DirectStatementAssembly.ExpressionOf(data, codeAt, initializerFirst,
+    initializerEnd, basePos, template, context);
+  if (expression === null) {
+    DirectExportAssembly.LastReason = "using 初始化器范围外: "
+      + DirectStatementAssembly.LastReason;
+    return null;
+  }
+  declaration.Add(expression);
+  declarationLast = initializerEnd - 1;
+  DirectStatementAssembly.Span(declaration, code[nameIndex], code[declarationLast],
+    namePos, context);
+  list.Add(declaration);
+  lastIndex = declarationLast;
+  at = initializerEnd;
+  if (at < bodyEnd) {
+    if (DirectExportAssembly.IsSymbolText(code[at], ",")) {
+      at = at + 1;
+      continue;
+    }
+    DirectExportAssembly.LastReason = "using 声明里有无法识别的单元: "
+      + DirectExportAssembly.TextOf(code[at]);
+    return null;
+  }
+}
+const headStart = code[0].SourceRange.StartIndex;
+if (headStart >= 0) {
+  list.SignIn(headStart);
+}
+const tailEnd = code[lastIndex].SourceRange.EndIndex;
+if (tailEnd >= 0) {
+  list.SignOut(tailEnd);
+}
+list.Pos = basePos;
+list.TryToClose(context);
+const statement = new VariableStatementShape(template);
+statement.Add(list);
+DirectStatementAssembly.Span(statement, code[0], code[lastCodeIndex], basePos, context);
+return statement;
 ```
