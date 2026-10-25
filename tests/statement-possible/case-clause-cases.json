@@ -63,6 +63,29 @@
         { "name": "s4ae-clause-class-body", "source": "switch (x) { case 1: class C {} b; }" },
         { "name": "s4ae-clause-function-body", "source": "switch (x) { case 1: function f() { g(); } b; }" }
       ]
+    },
+    "stage4agsw": {
+      "stage": "gap-SW (switch empty clause / nested switch inner clauses / block-level class followed by a statement / function declaration body inside a clause)",
+      "description": "Four shapes closed together. (1) Empty clause statement: the clause shell is created AT the `;`, so `;` never becomes the shell's last code unit and the expression-family boundary (`;` / EOF / ASI) cannot conclude - `case 1: ; case 2: ;` swallowed the next clause and the whole file went through the file-level fallback. StatementEndPossibleShape.EmptyStatementEndCode now answers the one fact ScanRoot already knew (first code unit `;` => complete at that index) for every family. (2) Nested switch: a clause statement whose head is `switch` joins the body-bearing family, so the outer clause shell is a ShellStatementFamily shell, IsSwitchKeywordShell holds for it, and the INNER case block brace gets the clause catalog: inner clauses are shells too (SwitchCaseClauseShellCount / SwitchCaseClauseMountCount both 2). (3) Block-level `class C {}` followed by `f();`: ScanRoot never answered for a declaration head, so the class shell grew to the block `}` and BuildFromShell read two statements -> DetachShell -> `f();` was never replayed into the block-body catalog. StatementEndPossibleShape.DeclarationBodyEndCode closes the class shell at its body brace (StatementScanner.ScanDeclarationBody, the same judgement ScanBody already uses) and the leftover replay takes `f();` (BlockBodyStatementCount 0 -> 2). (4) `case 1: function f() { g(); }`: the function body brace's host is the clause shell, which the bracket-child hook cannot see; BlockPossibleShape.OnShellBracketCreated now mounts the block catalog on it with the same IsFunctionDeclarationBody predicate (BlockFunctionBodyMountCount 0 -> 1, BlockBodyStatementCount 0 -> 1). Every case asserts XML == legacy, AST == TS, deterministic XML, no shape leak and no file-level fallback.",
+      "needs": ["root:BlockPossibleShape"],
+      "cases": [
+        { "name": "s4agsw-empty-clause-two", "source": "switch (x) {\n case 1: ;\n case 2: ;\n}" },
+        { "name": "s4agsw-empty-clause-one", "source": "switch (x) { case 1: ; }" },
+        { "name": "s4agsw-empty-then-stmt", "source": "switch (x) { case 1: ; case 2: f(); }" },
+        { "name": "s4agsw-empty-then-stmt-same-clause", "source": "switch (x) { case 1: ; f(); }" },
+        { "name": "s4agsw-nested-switch", "source": "switch (x) {\n case 1: switch (y) {\n case 2: f();\n }\n}" },
+        { "name": "s4agsw-nested-switch-two-inner", "source": "switch (x) { case 1: switch (y) { case 2: a; case 3: b; } }" },
+        { "name": "s4agsw-nested-switch-then-stmt", "source": "switch (x) { case 1: switch (y) { case 2: f(); } g(); }" },
+        { "name": "s4agsw-class-block-then-stmt", "source": "{\n class C {}\n f();\n}" },
+        { "name": "s4agsw-class-block-then-stmt-same-line", "source": "{ class C {} f(); }" },
+        { "name": "s4agsw-class-block-in-block", "source": "{ { class C {} f(); } }" },
+        { "name": "s4agsw-fn-in-clause", "source": "switch (x) {\n case 1: function f() { g(); }\n}" },
+        { "name": "s4agsw-fn-in-clause-then-stmt", "source": "switch (x) { case 1: function f() { g(); } b; }" },
+        { "name": "s4agsw-class-in-clause", "source": "switch (x) { case 1: class C {} b; }" },
+        { "name": "s4agsw-trap-plain-empty", "source": ";" },
+        { "name": "s4agsw-trap-block-class", "source": "{ class C {} }" },
+        { "name": "s4agsw-trap-root-class", "source": "class C {} f();" }
+      ]
     }
   }
 }

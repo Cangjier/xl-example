@@ -661,6 +661,18 @@ return false;
 **安全回退**：判据不成立（`switch`、对象方法体、箭头块体、块内函数声明……）时一个字也不改，
 `BuildStatement` 的 legacy 递归照旧建树——那是「未接管」，不是「建错」。
 
+**声明体分支（gap-SW §4）**：`TryMountControlFlowBody` 只认 `if` / `while` / `do` / `for` / `with` / `try`
+六族，所以**声明体**（`class` 体 / `function` 体）走不到它——块内 `class` 的体由内部括号事件接管
+（`OnChildBracketCreated` 的 `IsFunctionDeclarationBody` 分支，宿主是块体括号）；而**子句级**
+`function f() { … }` 的宿主是**语句壳**（子句壳），那条分支看不到它，函数体于是永远不挂目录
+（`BlockFunctionBodyMountCount` 不增、体内语句一条都不接管）。这里给同一条事件补上**同一份判据**：
+
+- 判据是 `IsFunctionDeclarationBody`（与括号宿主那条分支逐字相同），宿主换成壳——它本来就只读
+  `host.Data`，对壳同样成立；
+- 挂的是函数体 `{` 自己（`MountBodyCatalog(bracket)`），与块内函数声明体同一条收集通道
+  （`StatementBuilder.BuildBlock()` → `HasBuiltBodyStatements` / `CollectBodyStatements`），不新增建树路径；
+- `EnableBlockFunctionBody` 是同一个门控，关掉时行为逐位回到 gap-SW 之前。
+
 ```ts
 if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableBlockBodyCatalog) {
   return;
@@ -690,7 +702,19 @@ if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
   }
   return;
 }
-BlockPossibleShape.TryMountControlFlowBody(shell, body, context);
+if (BlockPossibleShape.TryMountControlFlowBody(shell, body, context)) {
+  return;
+}
+if (BlockPossibleShape.IsFunctionDeclarationBody(shell, bracket)) {
+  // **子句级 / 壳内函数声明体**（gap-SW §4）：`case 1: function f() { g(); }` 的函数体 `{` 的宿主是
+  // 子句壳（不是括号），上面那条 `OnChildBracketCreated` 的声明体分支看不到它。挂上之后体内语句
+  // 走 `BuildBlock()` 的收集通道，与块内函数声明体逐位相同；声明本身仍由壳收口时的
+  // `BuildStatement` 建，不新增任何建树路径。
+  if (BlockPossibleShape.EnableBlockFunctionBody && body.CatalogGuide === null) {
+    BlockPossibleShape.MountBodyCatalog(body);
+    BlockPossibleShape.BlockFunctionBodyMountCount += 1;
+  }
+}
 ```
 
 ## static method TryMountControlFlowBody:(shell:Token, bracket:Bracket, context:SyntaxContext)=>bool

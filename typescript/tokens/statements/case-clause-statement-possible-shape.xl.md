@@ -183,14 +183,22 @@ return shell;
 ## static method IsStatementFamilyHead:(unit:Token)=>bool
 
 **Stage 4ae：子句语句的「带体关键字」族判据**。只认首代码单元是 `Common` 且文本属于
-`if` / `for` / `while` / `do` / `try` / `with` / `class` / `function`。这些语句的边界是闭合的 `}`
-（`do … while (…) ;` 是 `;`），必须由 `StatementScanner.ScanRoot` 判界；其余子句语句（表达式 / 变量 /
+`if` / `for` / `while` / `do` / `try` / `with` / `class` / `function` / `switch`。这些语句的边界是闭合的
+`}`（`do … while (…) ;` 是 `;`），必须由 `StatementScanner.ScanRoot` 判界；其余子句语句（表达式 / 变量 /
 `return` / `throw` 等）仍用表达式语句的 `;` / EOF / ASI。
 
-`switch` **不在集合里**（Stage 4ae 的保守取舍）：嵌套 switch 的内层子句接管是 HANDOFF-s4ac §5 已记录的
-独立缺口；本阶段只修「带体语句以 `}` 收尾」这一格，打开嵌套 switch 会把
-`switch (x) { case 1: switch (y) { case 2: f(); } }` 的壳计数从 1 变成 2，改变既有 stage4y 读数与建树
-时序，留待后续单独交付。
+**`switch` 为什么在集合里（gap-SW §2）**：Stage 4ae 曾把它排除，理由是「打开嵌套 switch 会改变既有
+stage4y 读数」；但把它留在表达式族是**错的**——`switch (y) { … }` 的边界是 `}`，表达式族的 `;` / ASI 判界
+在 `case 1: switch (y) {` 这一格根本收不住，壳会把内层整段吞进来。反过来，判成 `ShellStatementFamily` 之后：
+
+- 外层子句壳的 `Kind === ShellStatementFamily` 且首代码单元是 `switch` →
+  `BlockPossibleShape.IsSwitchKeywordShell` 成立 → 内层 case 块括号**挂上子句目录** → 内层子句语句
+  （`case 2: f();`）也建壳，`SwitchCaseClauseShellCount` 从 1 变 2，`SwitchCaseClauseMountCount` 从 1 变 2；
+- 判界走 `ScanRoot` 的 `ScanLoop`（`switch` 与 `while` 同一条，见 `statement-scanner.xl.md:903-915`）：
+  内层体括号闭合即 `Complete`，外层子句壳在内层 `}` 处收口，不多吞一个单元。
+
+`class` / `function` 与 `switch` 同族，但它们的**声明体**起点 `ScanRoot` 不认（legacy 声明族的起点），
+所以终结候选另有一条 `StatementEndPossibleShape.DeclarationBodyEndCode`（gap-SW §3/§4）兜住收口位置。
 
 ```ts
 if (!(unit instanceof Common)) {
@@ -198,7 +206,8 @@ if (!(unit instanceof Common)) {
 }
 const text = (unit as Common).TempToString();
 return text === "if" || text === "for" || text === "while" || text === "do"
-  || text === "try" || text === "with" || text === "class" || text === "function";
+  || text === "try" || text === "with" || text === "class" || text === "function"
+  || text === "switch";
 ```
 
 ## static method IsClauseStatementStart:(units:Array<Token>, tokenIndex:int)=>bool
