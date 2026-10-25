@@ -578,9 +578,88 @@ if (atEof) {
 return -1;
 ```
 
+## static method IsBodyDeclarationHead:(units:Array<Token>, codeAt:Array<int>)=>bool
+
+**声明族 / 声明壳的「这一条声明带体」判据**（Stage 5d-8a）：壳的**首代码单元序列**跳过声明修饰词之后，
+第一个真关键字是不是一个**带体声明**的词。
+
+- 修饰词（跳过）：`export` / `declare` / `default` / `abstract` / `async` / `const`
+  （`const` 只为 `const enum` 与 `declare const enum` 而跳；`const x = {…}` 的下一个代码单元是名字，
+  不是真关键字，见下）；
+- 带体声明（返回 `true`）：`class` / `function` / `interface` / `enum` / `namespace` / `module` / `global`；
+- 其余（返回 `false`）：`import` / `type` / `using` / `as` / 名字 / 符号 / 括号。
+
+**为什么需要它**：`TypeBuilder.IsBodyBrace` 只回答「这个 `{` 是不是类型的一部分」，它把
+`export { a }` 的**导出列表**、`import { a }` 的**导入列表**、`export type { A } from "m"` 的列表、
+`export default { … }` 的**赋值表达式**都看成体括号（它们前面是 `export` / `type` / `default` 这类
+「能收住一个类型」的词）。声明族一旦也用体括号收口（`DeclarationFamilyBodyEndCode`），必须再回答
+「**这条声明本身有没有体**」——`export type { A } from "m"` 在列表 `}` 处收口会把 `from "m"` 丢掉。
+
+**首单元不是 `Common` 时返回 `true`（未知 → 保持既有行为）**：装饰器声明 `@dec class C {}` 的首单元是
+`@`（`Symbol`），`@` 后面是什么声明要到收口时由 `ScanDecoratedHead` 回答——本判据不抢那个判型，
+只让 5d-3 已有的「装饰器声明认体括号」逐位不变。
+
+```ts
+if (codeAt.length === 0) {
+  return false;
+}
+const first = units[codeAt[0]];
+if (!(first instanceof Common)) {
+  // `@dec class C {}`：首单元是 `@`，判型不在这里（见说明）。
+  return true;
+}
+let at = 0;
+while (at < codeAt.length) {
+  const unit = units[codeAt[at]];
+  if (!(unit instanceof Common)) {
+    return false;
+  }
+  const text = (unit as Common).TempToString();
+  if (text === "export" || text === "declare" || text === "default"
+    || text === "abstract" || text === "async" || text === "const") {
+    at += 1;
+    continue;
+  }
+  return text === "class" || text === "function" || text === "interface"
+    || text === "enum" || text === "namespace" || text === "module" || text === "global";
+}
+return false;
+```
+
+## static method DeclarationFamilyBodyEndCode:(units:Array<Token>, codeAt:Array<int>)=>int
+
+**声明族（`ShellDeclarationFamily`）的「声明体括号已闭合」补充判据**（Stage 5d-8a）：末代码单元是一个
+已闭合的 `{…}`、`TypeBuilder.IsBodyBrace` 认它是声明体、且 `IsBodyDeclarationHead` 认这一条声明带体
+→ 返回它的下标；否则 `-1`。
+
+**这是「只增」的一条判据，排在既有判据之后**：声明族原先与表达式族共用
+`StatementEndPossibleShape.ExpressionEndCode`（**调用位 ASI** + `;` / EOF / ASI / 声明跟随边界），它
+**不认体括号**——`{ export class A {} export const b = 1; }` 的第一条声明因此永远收不了口，把第二条
+一起吞进去，`BuildFromShell` 读到两条语句抛「语句没有读完」→ `DetachShell` → 块体整段 raw（5d-6 §5 的
+`export` 族 10 条）。调用方**先问 `ExpressionEndCode`，只有它给 `-1` 时才问本方法**，所以既有收口点
+一个字节都不变，本方法只在「原本收不了口」的格上生效。
+
+**为什么不并入 `DeclarationShellEndCode`**：那一份是 5d-3 的 `function` / `class` / 装饰器声明壳的判据，
+它的第 1 条（体括号）排在 `;` 之前、且**不做调用位 ASI**——把声明族并进去会丢掉
+`export default () => {}` ⏎ `(b);` 的调用位收口（AST 会把 `(b)` 并进 ExportAssignment，实测 1 条结构差）。
+两条判据各自保持原本的调用方，语义边界才清楚。
+
+```ts
+if (codeAt.length === 0) {
+  return -1;
+}
+const lastAt = codeAt[codeAt.length - 1];
+if (units[lastAt] instanceof Bracket && (units[lastAt] as Bracket).StartBracketChar === "{"
+  && TypeBuilder.IsBodyBrace(units, lastAt)
+  && StatementBoundaryUtil.IsBodyDeclarationHead(units, codeAt)) {
+  return lastAt;
+}
+return -1;
+```
+
 ## static method DeclarationShellEndCode:(units:Array<Token>, codeAt:Array<int>, atEof:bool, decorated?:bool)=>int
 
-**带体声明语句壳（根层 `function` / `class` / 装饰器声明）的收口位置**（Stage 5d-3）：返回宿主 `Data`
+**带体声明语句壳的收口位置**（Stage 5d-3 的根层 `function` / `class` / 装饰器声明）：返回宿主 `Data`
 的下标，`-1` = 还不能收口。判据只有这一份——终结候选（`StatementEndPossibleShape` 的
 `ComputeByIndex` / `BuildByIndex`）与 EOF 兜底（`StatementShape.TryToClose`）读同一个实现，
 所以「怎么收口」与「兜底收到哪」不可能分叉。

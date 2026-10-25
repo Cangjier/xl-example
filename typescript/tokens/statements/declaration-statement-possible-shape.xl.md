@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
@@ -55,6 +56,42 @@ Class / Interface / Function / Enum / Module / TypeAlias + `expression-statement
 后者的 `IsLateAtEof` 半边会把「声明自己的尾巴恰好是全文最后单元」误判成上一句已收口，
 `export { c }` / `import "x"` 因此只剩括号进壳；详见 `control-flow-statement-possible-shape.xl.md`）。
 
+**Stage 5d-8a 的一格例外**：晚建格若落在**还没闭合的括号**上（`import {` / `export {`），先 `Uncertain`
+等它闭合——见 `LateOnUnclosedBracket`。这一格不是「边界格」而是「半成品单元格」，壳在那一刻搬走括号
+就再没有第二次机会。
+
+## static method LateOnUnclosedBracket:(units:Array<Token>, tokenIndex:int)=>bool
+
+**晚建格落在「还没闭合的括号」上时先等一格**（Stage 5d-8a）。
+
+声明族的族要到**第二个代码单元**才判得出来（`import {` / `export {` / `interface I` 都是这种形态），
+所以 `BuildByIndex` 只能在那个格子补建，搬的是 `[start..tokenIndex]`。如果那个格子恰好是**刚创建、
+还没闭合的 `{`**（`import {` 的导入列表 / `export {` 的导出列表），搬进壳的就是一个**半成品括号单元**：
+
+- 括号是在宿主目录上创建时被 `Bracket.OnBracketCreatedEvent` 反过来问一次宿主目录的（`bracket.xl.md`
+  「落到 `}` 时再求值」那一格），此刻它 `Closed == false`、`Data` 还是空的；
+- 壳把它搬走之后，括号再没有机会被宿主目录看见，闭合时的 `Bracket.Close()` 问的是**壳自己的**目录
+  （`CatalogGuide([], endShape)`），而壳的终结判据认不出一条「导入 / 导出列表刚闭合」——于是壳一直
+  挂着到块体 `}`，`BuildFromShell` 读到整段 → 抛错 → `DetachShell` → 整段体 raw
+  （5d-6 §5 的 `import` 族 3 条 + `export {` 那几条）。
+
+**为什么等一格是对的**：这个括号闭合时，`Bracket.Close()` 会问一次宿主目录（`Close` 的第一件事），
+那时 `tokenIndex` 就是这个**已闭合**的括号，搬进壳的是一个完整单元——根层 `import { a } from "m";`
+一直是这么建的（根层不早问目录，所以从来只在闭合后补建）。本判据只把同一个时点搬到块体目录上，
+**不改任何收口判据**。
+
+**只对「晚建格」成立**：首格（`tokenIndex === headAt`）不是括号，不可能命中。
+
+```ts
+const start = ItemUtil.ItemStart(units);
+const headAt = ItemUtil.NextCode(units, start);
+if (headAt >= units.length || tokenIndex <= headAt) {
+  return false;
+}
+const unit = units[tokenIndex];
+return unit instanceof Bracket && !(unit as Bracket).Closed;
+```
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -66,6 +103,12 @@ if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableCont
 }
 if (units[tokenIndex] instanceof EndOfFileTokenShape) {
   return ShapeStates.Reject;
+}
+if (DeclarationStatementPossibleShape.LateOnUnclosedBracket(units, tokenIndex)) {
+  // **Stage 5d-8a**：晚建格是还没闭合的 `{`（`import {` / `export {`）→ 继续等它闭合，
+  // 闭合时 `Bracket.Close()` 会回来问一次宿主目录（见上面的说明）。这里**不能 Reject**：
+  // Reject 被 `CatalogGuide` 永久删除，闭合那一格就再没有候选能建壳了。
+  return ShapeStates.Uncertain;
 }
 const start = ItemUtil.ItemStartCached(units, cache);
 const headAt = ItemUtil.NextCode(units, start);
@@ -91,10 +134,15 @@ return ShapeStates.Accept;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-与 `ComputeByIndex` 同一口径（同一个 `Decide` 判据 + 晚建格一律可建），否则「可建」与「接受」两处判据会分叉。
+与 `ComputeByIndex` 同一口径（同一个 `Decide` 判据；晚建格除「括号还没闭合」那一格之外一律可建），
+否则「可建」与「接受」两处判据会分叉。
 
 ```ts
 if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableControlFlowShell) {
+  return false;
+}
+if (DeclarationStatementPossibleShape.LateOnUnclosedBracket(units, tokenIndex)) {
+  // 与 `ComputeByIndex` 同一条等待（否则「接受」= Uncertain 而「可建」= true，两处判据分叉）。
   return false;
 }
 const start = ItemUtil.ItemStartCached(units, cache);

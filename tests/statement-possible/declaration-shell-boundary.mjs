@@ -54,6 +54,11 @@ for (const arg of process.argv.slice(2)) {
 // fn / cls / dec = 期望的 `FunctionDeclarationShellCount` / `ClassDeclarationShellCount` /
 // `DecoratedDeclarationShellCount` 增量；缺省 0（包括 declare / export 档与块内声明：它们**不**由本族接管，
 // 如实断言 0，见 HANDOFF-5d3 §未迁清单）。
+// **Stage 5d-8a 起块内声明也由本族接管**（`EnableBlockDeclarationShell`）：块内 `function` /
+// `abstract class` / `async function` / 装饰器走同一条建壳通道，所以本文件里「块内 function 未迁」的
+// 三条用例改成如实断言 `fn: 1`（`keep-*` 改名为 `block-*` 并标 `migrated: true`），
+// 而 `fn-nested`（外层 + 块内内层）与 `class-body-method-function`（根 class + 方法体里的 function）
+// 的期望增量相应变成 2 条 / 各 1 条。
 // migrated: true = 关掉开关时必须回落到 legacy 根候选（反事实敏感性检查）。
 // migrated: false 的两种情形：① declare / export / 块内声明——本来就不该由本族接管；
 // ② **EOF 末尾的 ambient 签名**（`function f(): void` 无 `;`、`function f(): { a: A }`）与
@@ -79,7 +84,7 @@ const CASES = [
   { name: "fn-comment-after-keyword", src: "function /*c*/ f() {}", fn: 1, migrated: true },
   { name: "fn-newline-before-name", src: "function\nf() {}", fn: 1, migrated: true },
   { name: "fn-default-arrow-param", src: "function f(a: A = () => { return 1; }) {}", fn: 1, migrated: true },
-  { name: "fn-nested", src: "function outer() { function inner() { return 1; } }", fn: 1, migrated: true },
+  { name: "fn-nested", src: "function outer() { function inner() { return 1; } }", fn: 2, migrated: true },
   { name: "fn-body-class", src: "function f() { class C {} }", fn: 1, migrated: true },
   { name: "fn-trailing-comment", src: "function f() {} // done", fn: 1, migrated: true },
   { name: "fn-then-semicolon", src: "function f() {}\n;", fn: 1, migrated: true },
@@ -99,7 +104,7 @@ const CASES = [
   { name: "class-static-block", src: "class C { static { let x = 1; } }", cls: 1, migrated: true },
   { name: "class-newline-body", src: "class C\n{}", cls: 1, migrated: true },
   { name: "class-comment-head", src: "class /*c*/ C {}", cls: 1, migrated: true },
-  { name: "class-body-method-function", src: "class C { m() { function f() {} } }", cls: 1, migrated: true },
+  { name: "class-body-method-function", src: "class C { m() { function f() {} } }", cls: 1, fn: 1, migrated: true },
 
   // ── 根层装饰器声明（判型交给 BuildDecoratedStatement 的同一个 ScanDecoratedHead） ──
   { name: "dec-class", src: "@dec class C { }", dec: 1, migrated: true },
@@ -145,10 +150,19 @@ const CASES = [
   { name: "keep-export-default-class", src: "export default class {}" },
   { name: "keep-export-default-function", src: "export default function () {}" },
 
-  // ── 未迁：块内 function / class / 装饰器声明（块体目录里没有本族候选） ──
-  { name: "keep-block-function", src: "{ function f() { let x = 1; } }" },
+  // ── 块内 function / if 体 function（Stage 5d-8a 起由本族接管，**已迁**） ──
+  // 块体目录里现在挂着 `ControlFlowStatementPossibleShape`，而它认 `ShellFunctionDeclaration`，
+  // 所以 `{ function f() {} }` / `if (a) { function f() {} }` 与根层走同一条建壳 / 收口 / 建树通道。
+  // **`migrated: false` 是刻意的**：本文件的 `migrated` 检查的是「关掉开关后 **legacy 根候选**
+  // （`FunctionDeclarationPossibleShape` / `ClassDeclarationPossibleShape`）是否被调用」，而这两条
+  // 关掉开关后的回退是**块体 raw 循环**（`BuildBlock` → `BuildStatement`），根候选根本不参与——
+  // 那条回退由 `raw-tail-attribution.mjs` 的 raw 计数与本文件的 XML/AST 逐字节断言覆盖。
+  { name: "block-function", src: "{ function f() { let x = 1; } }", fn: 1 },
+  { name: "if-body-function", src: "if (a) { function f() {} }", fn: 1 },
+
+  // ── 仍未迁：块内 `class`（由 4ae 的 `EnableBlockClassShell` 判成 `ShellStatementFamily`，
+  //    走 `ScanRoot` + 体括号收口；不归本族，所以 `cls` 增量如实断言 0） ──
   { name: "keep-block-class", src: "{ class C { m() {} } }" },
-  { name: "keep-if-body-function", src: "if (a) { function f() {} }" },
 ];
 
 const FAMILY_HEADS = new Set(["function", "class", "@"]);

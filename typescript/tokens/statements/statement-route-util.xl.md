@@ -370,8 +370,39 @@ XML / AST 与 legacy 逐字节一致。
 建树直接调 `StatementBuilder.BuildFunctionDeclaration()` / `BuildClassDeclaration()`。
 `false` = 这些起点重新判成 `Legacy`，行为逐位回到 5d-2a（安全回退，不靠候选先后）。
 
-**只收紧根层**：`Decide` 只在语句首的 `Parent` 不是括号时判这三个族；块体里的同名声明路由一字不变
-（块体目录里没有这些候选，放开就是「零候选」等待，不是接管）。
+**5d-3 时只收紧根层**：`Decide` 只在语句首的 `Parent` 不是括号时判这三个族；块体里的同名声明路由
+一字不变（当时块体目录里没有这些候选，放开就是「零候选」等待，不是接管）。**Stage 5d-8a 起块体里也判**，
+由 `EnableBlockDeclarationShell` 单独门控，见下。
+
+## static field EnableBlockDeclarationShell:bool = true
+
+**块体里的 `function` / `class` / 装饰器声明语句壳开关**（Stage 5d-8a）。`true` = `Decide` 对
+**宿主是块体 `{` 括号**的语句首也判 `ShellFunctionDeclaration` / `ShellClassDeclaration` /
+`ShellDecoratedDeclaration`——与根层同一份判据、同一批候选（块体目录里注册的
+`ControlFlowStatementPossibleShape`）、同一个 `StatementBoundaryUtil.DeclarationShellEndCode`
+（体括号 / `;` / 声明跟随边界 / EOF）、同一批 family builder（`StatementFamilyDispatch`）。
+`false` = 块体里的这些起点重新判回 `Legacy`，行为逐位回到 5d-3。
+
+**为什么现在能开**：5d-3 时块体里判这三个族是「零候选等待」——块体目录里没有认这三族 `Kind` 的候选。
+`ControlFlowStatementPossibleShape` 现在**也在块体目录里**（`BlockPossibleShape.CreateBodyPossibleShapes`），
+而它认的正是这三个 `Kind`（`ComputeByIndex` 的 `declarationShell` 集合），所以块内声明从「没有候选」
+变成「与根层同一条通道」。**块内与根层的语义差异只有一个**：宿主括号的 `Data` 里第一条语句的 `Pos`
+由 `BuildByIndex` 的块口径给（`{` 之后第一个字符），与 legacy `BuildBlock` 的 `base` 同源——这一份
+已经在 `ControlFlowStatementPossibleShape.BuildByIndex` 里，不因为本开关另写。
+
+**`class` 不在本开关里**：块内 `class` 由 `EnableBlockClassShell`（4ae 转正）判成
+`ShellStatementFamily`（`ScanRoot` → 体括号收口），那条路径与本开关互斥且**先判**，行为一字不改。
+
+**`export` / `import` / `interface` / `enum` / `namespace` 等声明族**不走本开关：它们本来就在
+`IsDeclarationHead` 里、由 `DecideDeclaration` 判成 `ShellDeclarationFamily`（根层与块体同一个判据）。
+本开关只补 `function` / `abstract class` / `async function` / 装饰器这四类「5d-3 只放根层」的起点。
+
+## static field BlockDeclarationShellCount:int = 0
+
+进程内累计「**块体里**被判成 5d-3 声明壳族（`function` / `abstract class` / `async function` / 装饰器）的
+语句」条数（只增不减）。与 `FunctionDeclarationShellCount` / `ClassDeclarationShellCount` /
+`DecoratedDeclarationShellCount` 分开计量：后三者是**建壳**的账（根层与块体共用同一条建壳路径），
+本字段是**路由**的账——它只说明 `Decide` 在块体里判出了几格，壳到底建没建仍看那三个计数。
 
 ## static field FunctionDeclarationShellCount:int = 0
 
@@ -906,13 +937,26 @@ if (head instanceof Common) {
       return StatementRoute.ShellStatementFamily;
     }
   }
-  // **Stage 5d-3：根层 function / class / 装饰器声明的语句壳**。只认**根层**：语句首的 `Parent` 不是括号
-  // （根目录的宿主是 `SourceFileShape`）。块体里的 `class` 已由上一分支判成 `ShellStatementFamily`；
-  // 块体里的 `function` / 装饰器声明**不动**——块体目录里没有对应候选，路由一改就是「零候选」等待，
-  // 不是接管（安全回退的唯一正确形态是逐位保持 legacy）。
+  // **Stage 5d-3：根层 function / class / 装饰器声明的语句壳**。5d-3 只认**根层**：语句首的 `Parent`
+  // 不是括号（根目录的宿主是 `SourceFileShape`）。块体里的 `class` 已由上一分支判成
+  // `ShellStatementFamily`；块体里的 `function` / 装饰器声明 5d-3 时**不动**——当时块体目录里没有
+  // 对应候选，路由一改就是「零候选」等待，不是接管（安全回退的唯一正确形态是逐位保持 legacy）。
+  //
+  // **Stage 5d-8a：块体里也判**（`EnableBlockDeclarationShell`，默认开）。块体目录里现在挂着
+  // `ControlFlowStatementPossibleShape`，而它认的正是这三个 `Kind`（`declarationShell` 集合），所以块内
+  // 这些起点从「没有候选」变成「与根层同一条建壳 / 收口 / 建树通道」。判据一个字不新写：下面这一段
+  // 对根层与块体逐字相同，只有「宿主是不是块体 `{` 括号」这一格决定要不要进。
+  const headOwner = head.Parent;
+  const ownerIsBracket = headOwner instanceof Bracket;
+  const blockDeclarationShell = StatementRouteUtil.EnableBlockDeclarationShell
+    && StatementRouteUtil.EnableShellExpressions
+    && ownerIsBracket && (headOwner as Bracket).StartBracketChar === "{";
   if (StatementRouteUtil.EnableRootDeclarationShell && StatementRouteUtil.EnableShellExpressions
-    && !(head.Parent instanceof Bracket)) {
+    && (!ownerIsBracket || blockDeclarationShell)) {
     if (headText === "function") {
+      if (blockDeclarationShell) {
+        StatementRouteUtil.BlockDeclarationShellCount += 1;
+      }
       return StatementRoute.ShellFunctionDeclaration;
     }
     if (headText === "class") {
@@ -924,6 +968,9 @@ if (head instanceof Common) {
         // 第二个代码单元还没到：文档级前瞻（同一行下一个词是 `class`）→ 本族；否则等待
         // （判死会让这一格之后没人能接管；`abstract` 当标识符的形态下落回 `DecideCommon` 的 `Legacy`）。
         if (StatementRouteUtil.IsSameLineWordAhead(units, headAt, "class")) {
+          if (blockDeclarationShell) {
+            StatementRouteUtil.BlockDeclarationShellCount += 1;
+          }
           return StatementRoute.ShellClassDeclaration;
         }
         return StatementRoute.None;
@@ -931,6 +978,9 @@ if (head instanceof Common) {
       const next = units[nextAt];
       if (next instanceof Common && (next as Common).Is("class")
         && StatementScanner.NoLineBreakBetween(head, next)) {
+        if (blockDeclarationShell) {
+          StatementRouteUtil.BlockDeclarationShellCount += 1;
+        }
         return StatementRoute.ShellClassDeclaration;
       }
       // `abstract` ⏎ `class` 是 TS 的两条语句（修饰词自成 ExpressionStatement），落回 `DecideCommon`。
@@ -940,6 +990,9 @@ if (head instanceof Common) {
       if (nextAt >= units.length) {
         // 同 `abstract`：`async` 之后同一行的下一个词是 `function` 就是本族。
         if (StatementRouteUtil.IsSameLineWordAhead(units, headAt, "function")) {
+          if (blockDeclarationShell) {
+            StatementRouteUtil.BlockDeclarationShellCount += 1;
+          }
           return StatementRoute.ShellFunctionDeclaration;
         }
         return StatementRoute.None;
@@ -949,9 +1002,49 @@ if (head instanceof Common) {
       // function 声明」，那条拆分由 legacy 候选按原路径做（`DecideCommon` 也是这个判据）。
       if (next instanceof Common && (next as Common).Is("function")
         && StatementScanner.NoLineBreakBetween(head, next)) {
+        if (blockDeclarationShell) {
+          StatementRouteUtil.BlockDeclarationShellCount += 1;
+        }
         return StatementRoute.ShellFunctionDeclaration;
       }
       // 其余 `async` 形态（箭头 / 标识符 / 换行拆分）逐位交回 `DecideCommon`。
+    }
+  }
+  // **Stage 5d-8a：块内 `export` 一律是声明**。`export =` / `export as namespace` 这两条恢复形在
+  // `DecideDeclaration` 里被让给 legacy（根层有 `ExportAssignmentPossibleShape` / `NamespaceExportDeclarationPossibleShape`
+  // 两个专用候选），但**块体目录里没有 legacy 候选**，让出去只会整段留 raw。`export` 是保留字，
+  // 块内不可能起一条表达式语句，所以这一格可以在**首格**就判族，不必等第二个代码单元。
+  if (blockDeclarationShell && StatementRouteUtil.EnableDeclarationShell && headText === "export") {
+    return StatementRoute.ShellDeclarationFamily;
+  }
+  // **Stage 5d-8a：块内 `const enum`**。`const` 在 `DecideCommon` 里先问「下一格能不能起绑定」，
+  // `enum` 不是绑定（它是关键字），于是整条被让回 legacy——根层有 `EnumDeclarationPossibleShape` 接住，
+  // **块体目录里没有 legacy 候选**，只能整段留 raw（5d-8a 归因里 `const enum` 的 4 条）。
+  // 这里在块体里补一条：`const` + 同一行的 `enum` 判成 `ShellVariable`（`StatementFamilyDispatch` 的
+  // `KindAllows` 接受 `const`、`BuildByHead` 的 `const` 分支本来就建 enum），不新写关键字表。
+  if (blockDeclarationShell && StatementRouteUtil.EnableShellExpressions && headText === "const") {
+    const nextAt = ItemUtil.NextCode(units, headAt + 1);
+    if (nextAt < units.length) {
+      const next = units[nextAt];
+      if (next instanceof Common && (next as Common).Is("enum")
+        && StatementScanner.NoLineBreakBetween(head, next)) {
+        return StatementRoute.ShellVariable;
+      }
+    }
+  }
+  // **Stage 5d-8a：块内 `import` 声明**。`DecideDeclaration` 对 `import x = require("m")`（import-equals）
+  // 与 `import x from "m"` 的态度不同：前者被让给 legacy（根层有 `ImportEqualsDeclarationPossibleShape`），
+  // 后者判声明族。块体目录里没有 legacy 候选，让出去只会整段留 raw（归因里 `import x = require` 1 条）。
+  // 这里只补**表达式位以外**的形态：`import(` / `import.meta` 仍交回 `DecideCommon`（与那里同一份判据）。
+  if (blockDeclarationShell && StatementRouteUtil.EnableDeclarationShell && headText === "import") {
+    const nextAt = ItemUtil.NextCode(units, headAt + 1);
+    if (nextAt < units.length) {
+      const next = units[nextAt];
+      const expressionPosition = (next instanceof Bracket && (next as Bracket).StartBracketChar === "(")
+        || (next instanceof Symbol && (next as Symbol).Is("."));
+      if (!expressionPosition) {
+        return StatementRoute.ShellDeclarationFamily;
+      }
     }
   }
   const declaration = StatementRouteUtil.DecideDeclaration(units, headAt, headText);
@@ -978,6 +1071,13 @@ if (head instanceof Symbol) {
   if (StatementRouteUtil.IsPrefixSymbol(symbol)) {
     return StatementRoute.ShellPlainExpression;
   }
+  // **Stage 5d-8a：私有名起点**（`#x in obj;` / `#p in this;`）。`#` 只可能出现在表达式里（私有名），
+  // 不可能起声明 / 标签 / 控制流，所以这一格是确定的表达式语句起点。5d-8a 之前它落 `None`，
+  // 块体目录里没有候选能接（legacy 候选只在根目录），于是体内这条语句整段 raw（归因里 `#` 2 条）。
+  // 判据只看符号本身；建树仍走 `StatementFamilyDispatch` → `BuildExpressionStatement`（同一条 builder）。
+  if (symbol.Is("#")) {
+    return StatementRoute.ShellPlainExpression;
+  }
   // **装饰器声明起点（Stage 4af-E）**：`@dec class C {}` / `@a @b interface I {}` 的语句首是
   // 装饰器前缀的 `@`（Symbol），既不是表达式、也不是语句关键字。4af-E 时它归 `Legacy`：legacy 的声明
   // 候选（class / interface / enum / module / type / function）自己认装饰器前缀，`state.Start`
@@ -997,9 +1097,18 @@ if (head instanceof Symbol) {
     // **Stage 5d-3**：根层的装饰器声明改由语句壳驱动（`ShellDecoratedDeclaration`）。装饰器前缀后面是
     // 哪一种声明要到表达式吃完才知道，所以本族只负责「先建壳、体括号 / `;` / EOF 收口」，判型留给
     // 收口时的 `StatementBuilder.ScanDecoratedHead`（与 `BuildDecoratedStatement` 同一个判型点）。
-    // 块体里的 `@` 仍判 `Legacy`（块体目录没有装饰器候选，放开只会在块体里留一个零候选的等待）。
+    // **Stage 5d-8a**：块体里也判（`EnableBlockDeclarationShell`），判据与根层逐字相同——块体目录里
+    // `ControlFlowStatementPossibleShape` 认这个 `Kind`，收口 / 建树走同一条通道。
+    const atOwner = head.Parent;
+    const atOwnerIsBracket = atOwner instanceof Bracket;
+    const atBlockShell = StatementRouteUtil.EnableBlockDeclarationShell
+      && StatementRouteUtil.EnableShellExpressions
+      && atOwnerIsBracket && (atOwner as Bracket).StartBracketChar === "{";
     if (StatementRouteUtil.EnableRootDeclarationShell && StatementRouteUtil.EnableShellExpressions
-      && !(head.Parent instanceof Bracket)) {
+      && (!atOwnerIsBracket || atBlockShell)) {
+      if (atBlockShell) {
+        StatementRouteUtil.BlockDeclarationShellCount += 1;
+      }
       return StatementRoute.ShellDecoratedDeclaration;
     }
     return StatementRoute.Legacy;

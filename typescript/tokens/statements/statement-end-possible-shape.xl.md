@@ -185,16 +185,31 @@ if (state.Checked !== tokenIndex + 1) {
   if (emptyEnd >= 0) {
     state.Status = 1;
     state.End = emptyEnd;
-  } else if (this.StatementKind === StatementRoute.ShellPlainExpression
-    || this.StatementKind === StatementRoute.ShellDeclarationFamily) {
-    // Stage 4q：声明 / 导入导出族与表达式语句族**共用同一套边界规则**（`;` / EOF / ASI）。合法声明
-    // 的收口点与表达式语句一致：`type T = 1;` / `import x from "m";` 收在 `;`，`interface I {}` ⏎ `const a`
-    // 收在 `}`（ASI 边界，`IsAsiBoundary` 对已闭合括号与表达式同口径）。
+  } else if (this.StatementKind === StatementRoute.ShellPlainExpression) {
+    // 表达式语句族：**唯一判据是 `;` / EOF / ASI**（`ExpressionEndCode` → `StatementEndCode`）。
     // 只在「当前单元本身是代码」时判界（legacy 的 `IsAsiBoundary(host.Data, tokenIndex)` 同一口径）：
     // trivia 到达时 `Code` 的末单元是**上一条**代码单元，拿它当「新语句起点」会判出假的 ASI 边界。
     if (!units[tokenIndex].IsTriviaToken) {
-      const end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt, StatementScanner.AtEOF,
-        this.StatementKind === StatementRoute.ShellDeclarationFamily);
+      const end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt, StatementScanner.AtEOF, false);
+      if (end >= 0 && end <= tokenIndex) {
+        state.End = end;
+        state.Status = 1;
+      }
+    }
+  } else if (this.StatementKind === StatementRoute.ShellDeclarationFamily) {
+    // **Stage 5d-8a：声明族在既有判据之外**多问一条 `DeclarationFamilyBodyEndCode`（体括号已闭合 →
+    // 收在体括号）。顺序不能反：先问 `ExpressionEndCode`（调用位 ASI + `;` / EOF / ASI / 声明跟随边界，
+    // 与 4q 逐字相同），**只有它给 `-1` 时才问体括号**——`export default () => {}` ⏎ `(b);` 靠的正是
+    // `ExpressionEndCode` 的调用位 ASI 收在 `}`，先问体括号会把它并成一个 CallExpression（实测结构差）。
+    // 这条补充要修的是另一类：`{ export class A {} export const b = 1; }` 的第一条声明**永远**收不了口，
+    // 把第二条一起吞进去 → `BuildFromShell` 抛「语句没有读完」→ `DetachShell` → 块体整段 raw
+    // （5d-6 §5 的 `export` 族）。既有收口点因此一个字节都不变。
+    if (!units[tokenIndex].IsTriviaToken) {
+      let end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt,
+        StatementScanner.AtEOF, true);
+      if (end < 0) {
+        end = StatementBoundaryUtil.DeclarationFamilyBodyEndCode(units, state.CodeAt);
+      }
       if (end >= 0 && end <= tokenIndex) {
         state.End = end;
         state.Status = 1;
@@ -503,9 +518,10 @@ if (current instanceof EndOfFileTokenShape) {
   // 受限产生式的 ASI 会在壳内留下**下一条语句**的起点（`throw` ⏎ `a` 的 `a` / `debugger` ⏎ `a`）：
   // 消费到最后一个单元会让 `BuildStatement` 读到两条语句（`At !== Units.length` → 拆壳 → 根终结候选只建回
   // 第一条），`a` 就丢了（ast-json `dts-recovery` 的 `throw\na` 结构差、token-ast 同类）。
-  // 表达式 / 声明族的判界本来就不看 `ScanRoot`（Stage 4q 起两者同一档）。
-  if (this.StatementKind !== StatementRoute.ShellPlainExpression
-    && this.StatementKind !== StatementRoute.ShellDeclarationFamily) {
+  // 表达式族的判界本来就不看 `ScanRoot`（Stage 4q 起两者同一档）。**Stage 5d-8a**：声明族也不再跳过——
+  // 它走与 `ComputeByIndex` 同一个顺序（`ExpressionEndCode` → 体括号补充判据），EOF 兜底与终结候选
+  // 因此不会有第二份判据。
+  if (this.StatementKind !== StatementRoute.ShellPlainExpression) {
     const code:Array<Token> = [];
     const codeAt:Array<number> = [];
     for (let at = 0; at < host.Data.length; at++) {
@@ -525,6 +541,16 @@ if (current instanceof EndOfFileTokenShape) {
       // Stage 5d-3：与 `ComputeByIndex` 同一份判据（`DeclarationShellEndCode`），不调 `ScanRoot`。
       const end = StatementBoundaryUtil.DeclarationShellEndCode(host.Data, codeAt, StatementScanner.AtEOF,
         this.StatementKind === StatementRoute.ShellDecoratedDeclaration);
+      if (end >= 0 && end <= endIndex) {
+        endIndex = end;
+      }
+    } else if (this.StatementKind === StatementRoute.ShellDeclarationFamily) {
+      // **Stage 5d-8a**：声明族与 `ComputeByIndex` 同一个顺序——先 `ExpressionEndCode`，给 `-1` 才问
+      // 体括号（`DeclarationFamilyBodyEndCode`），不调 `ScanRoot`，基准同样是壳 `Data` 下标。
+      let end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF, true);
+      if (end < 0) {
+        end = StatementBoundaryUtil.DeclarationFamilyBodyEndCode(host.Data, codeAt);
+      }
       if (end >= 0 && end <= endIndex) {
         endIndex = end;
       }
@@ -590,11 +616,19 @@ if (current instanceof EndOfFileTokenShape) {
   const emptyEnd = StatementEndPossibleShape.EmptyStatementEndCode(host.Data, codeAt);
   if (emptyEnd >= 0 && emptyEnd <= tokenIndex) {
     endIndex = emptyEnd;
-  } else if (this.StatementKind === StatementRoute.ShellPlainExpression
-    || this.StatementKind === StatementRoute.ShellDeclarationFamily) {
+  } else if (this.StatementKind === StatementRoute.ShellPlainExpression) {
     // 直接给壳 `Data` 下标（与 `ComputeByIndex` 同一基准），不再二次折算。
-    const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF,
-      this.StatementKind === StatementRoute.ShellDeclarationFamily);
+    const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF, false);
+    if (end >= 0 && end <= tokenIndex) {
+      endIndex = end;
+    }
+  } else if (this.StatementKind === StatementRoute.ShellDeclarationFamily) {
+    // **Stage 5d-8a**：与 `ComputeByIndex` 同一个顺序——先 `ExpressionEndCode`（调用位 ASI / `;` / ASI /
+    // 声明跟随边界，与 4q 逐字相同），给 `-1` 才问体括号补充判据。基准同样是壳 `Data` 下标。
+    let end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF, true);
+    if (end < 0) {
+      end = StatementBoundaryUtil.DeclarationFamilyBodyEndCode(host.Data, codeAt);
+    }
     if (end >= 0 && end <= tokenIndex) {
       endIndex = end;
     }

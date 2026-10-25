@@ -665,4 +665,50 @@ false 态那份是壳目录 `slice()` 后插回根候选，**同一批候选、�
 `new` 的非常规形态（2）、零散（3）。**没有一条是「改语料 / 改口径」消掉的**；也没有一条把 legacy 的
 错树当接管（全门 `ast-json-diff 0/0/0` + `token-ast diff=0` + `FileFallback 50` 不变）。
 
+---
+
+## 13. Stage 5d-8a 体内 raw 尾巴收尾（实测，2026-10-25，HEAD=`029aeeac` 之上）
+
+`RawTailBuildCount` **139 → 6**（−133，−95.7%），`ScanRootCallCount` **388 → 226**（−162），
+`LegacyStatementDispatchCount` 保持 **0**，`Declined` 保持 **42**，`FileFallback` **50 → 27**（−23，
+更好）。逐族修法与残余清单见 `HANDOFF-5d8a.md`。
+
+### 13.1 三类根因（5d-6 §5 的归因被证实并放大）
+
+| 族 | 条数（139 里） | 根因 | 修法 |
+| --- | --- | --- | --- |
+| 块内 `function` / `async function` / `abstract class` / 装饰器 | 22+16+14+4 = **56** | `Decide` 的 5d-3 根层声明壳分支带 `!(Parent instanceof Bracket)` 门；块体目录里也没有认这三族的候选 | 新开关 `EnableBlockDeclarationShell`（`Decide` 对块体宿主也判三族）+ 计数 `BlockDeclarationShellCount`；候选 / 收口 / 建树全部复用 5d-3 那一份 |
+| 块内 `export` / `import` / `enum` / `namespace` / `const enum` | 10+3+3+2+4 = **22** | 族本来就判成 `ShellDeclarationFamily`，但**声明族的收口不认体括号**（`export class A {}` 永远收不了口 → 吞下一条 → `DetachShell` → 整段 raw）；`import x = require` / `const enum` 被让给 legacy，块体目录里没有 legacy 候选 | 新增 `DeclarationFamilyBodyEndCode`（**只增**：先 `ExpressionEndCode`，给 `-1` 才问体括号）+ `IsBodyDeclarationHead`（回答「这一条声明带体吗」）；块内 `export` / `import x =` 首格判族；`const enum` 走变量壳（`IsConstEnumHead`） |
+| 函数表达式体 / 类静态块体 / `for await` 体 | 13+~20+3 = **36** | 三处「这个 `{` 没挂目录」：语句壳上的子括号只认箭头（`arrowOnly`）、类体括号是 legacy 建树（`TryMountFunctionBody` 只认 `)`）、`for await (` 的体位置回看一格是 `await` 不是 `for` | `IsFunctionDeclarationBody` 加 `allowAnonymous`（匿名 / 具名 / `function*`）+ `EnableFunctionExpressionBody`；`static` 前的 `{` 挂目录 + `EnableStaticBlockBody`；`for await` 的体位置回看两格 |
+
+**「只增」的证据**：所有收口改动都是「既有判据给 `-1` 时才问新判据」，所以 6171 条 `ast-json-diff`
+仍是 **0/0/0**——不是「差一条补一条」，而是既有收口点一个字节都没动。
+
+### 13.2 一次实测到的坑（写进代码注释）
+
+`const enum` 的壳在 `BuildByIndex` 里判型时，`host.Data` 已经被 `splice` 搬空 → 判型恒 `false` →
+壳的终结候选退回默认族 → **每格一次 `ScanRoot`**（`root-retirement` 的「默认态 0 次」当场变 8）。
+修法是把判型提到搬单元之前。这条教训同样适用于任何「建壳时按 `host.Data` 判后续行为」的候选。
+
+### 13.3 残余 6 条（逐条见 `HANDOFF-5d8a.md` §4）
+
+`prefix-operand-newline.ts`（前缀运算符 ASI）、`stmt-asi-return-newline-object.ts`（`return` ⏎ `{ a: 1 }`
+的块内标签）、`stmt-r1235-bare-block-tail.ts`（裸块后那一截）、`type-combination-adversarial.ts`
+（装饰器 + 泛型 + 条件类型返回类型的方法体）、`type-tail-linecomment.ts`、`module-blocks.ts`
+（`namespace N { { let x = 1; } }` 的模块体目录）。都是**单条用例**，且都落在「模块体 / 装饰器成员 /
+标点级 ASI」这些**本轮没动的层**，不是判界问题。
+
+### 13.4 全门读数（默认态，最终树）
+
+`ast-json 6171/6171`、`ast-json-diff 0/0/0`、`token-ast 1706/0`、`real-dts 226/226`、
+`harness --all 102/0/known=0`、`--double-accept 120/0`、`declaration-statement-takeover 33/33`、
+`validate 1720/0`、`final-matrix 38/38`、`op-ast 94/94`、`op-proof 40/40`、`ast-kind-names PASS`、
+`short-family-boundary 46/46`、`control-flow-boundary 85/85`、`root-retirement PASS`、
+`declaration-shell-boundary 74/74`、`control-flow-body-takeover 46/46`、
+`block-body-takeover 21/0`、`decorated-declaration-takeover 14/14`、`eof-last-token-close 13/13`、
+`export-no-semicolon-eof 13/13`、`declaration-shell-call-position 24/24`、`import-expression 9/9`。
+**唯一非绿**：`yield-boundary 55/56`——它的正对照 `{ class C {} }` 期望「终结候选路径上 `ScanRoot > 0`」，
+而 5d-7 的 `DeclarationBodyEndCode` 早已把这一族迁到 0；**该失败在 `029aeeac` 基线上逐字相同**
+（本轮实测：stash 本轮改动、重建、复跑，仍是 55/56），不是本轮引入的。
+
 

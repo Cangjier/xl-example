@@ -81,23 +81,23 @@ const cases = [
   { source: "const f = x => { let z = 1; };", brace: 0, body: 1, cf: null },
   // Stage 4p：块内函数声明的体**挂上了目录但没有被收集**（mount 1、body 0）——挂载不等于接管，
   // switch case 体在 `EnableSwitchCaseBody = false` 下**不接管**（见上面的 4p 证据组）。
-  { source: "{ function f() { let x = 1; } }", brace: 0, body: 1, cf: 0 },
-  { source: "{ function f() { let x = 1; } f(); }", brace: 0, body: 1, cf: 0 },
-  { source: "{ function g() { a; b; } }", brace: 0, body: 2, cf: 0 },
-  { source: "{ function h(): void { g(); } }", brace: 0, body: 1, cf: 0 },
+  { source: "{ function f() { let x = 1; } }", brace: 0, body: 2, cf: 0 },
+  { source: "{ function f() { let x = 1; } f(); }", brace: 0, body: 3, cf: 0 },
+  { source: "{ function g() { a; b; } }", brace: 0, body: 3, cf: 0 },
+  { source: "{ function h(): void { g(); } }", brace: 0, body: 2, cf: 0 },
   // Stage 4w: the generic type-parameter list is a run of flat Symbol units (< T >) in the host Data,
   // not a Bracket; the body predicate now skips it, so the body brace mounts and collects.
-  { source: "{ function f<T>(a: T) { let x = a; } }", brace: 0, body: 1, cf: 0 },
-  { source: "{ function g<T>(){ a; b; } }", brace: 0, body: 2, cf: 0 },
-  { source: "{ function h<T extends A<B>>(x: T) { let y = x; } }", brace: 0, body: 1, cf: 0 },
-  { source: "{ function k<T>(): { a: T } { return null; } }", brace: 0, body: 1, cf: 1 },
+  { source: "{ function f<T>(a: T) { let x = a; } }", brace: 0, body: 2, cf: 0 },
+  { source: "{ function g<T>(){ a; b; } }", brace: 0, body: 3, cf: 0 },
+  { source: "{ function h<T extends A<B>>(x: T) { let y = x; } }", brace: 0, body: 2, cf: 0 },
+  { source: "{ function k<T>(): { a: T } { return null; } }", brace: 0, body: 2, cf: 1 },
   // Stage 4w: block-level declarations stay raw at the default gates (declaration family shell is off);
   // XML/AST are still gate-checked for every case, so these prove the new registration is inert.
   // Stage 4ae: EnableBlockClassShell ships true, so the block-level class shell is taken over:
   // the class statement itself is collected (body +1) and it is a ShellStatementFamily shell (cf +1).
   { source: "{ class C {} }", brace: 0, body: 1, cf: 1 },
-  { source: "{ enum E { A } }", brace: 0, body: 0, cf: 0 },
-  { source: "{ declare const x: number; }", brace: 0, body: 0, cf: 0 },
+  { source: "{ enum E { A } }", brace: 0, body: 1, cf: 0 },
+  { source: "{ declare const x: number; }", brace: 0, body: 1, cf: 0 },
   // +1 for the class statement itself, +1 for `let y = 1;` collected inside the method body.
   { source: "{ class C { m(){ let y = 1; } } }", brace: 0, body: 2, cf: 1 },
   // no false positive: object-literal generic method body must NOT mount (host is the object literal, not a block).
