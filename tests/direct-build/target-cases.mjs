@@ -56,6 +56,14 @@
 //                                        （初值 0/0，实测后只改 a6Expect* 两个数）
 //   Lead 裁决 R7-Q2                   —— R6-CLS-neg-01/02 **改判 pos**（ID 不删；builtCases 210→212）
 //   Lead 裁决 R7-Q3                   —— 顶层 `await a⏎let b` 留 R8（本文件只写 neg 钉子，标 P2）
+//   Lead 裁决 R7-Q5                   —— R6-MOD-neg-01（`using x = a;`）**改判 pos**（ID 不删；与 R7-MOD2-pos-01 同源，
+//                                        与 R7-Q2 同构；built=1 / A6 0/0，note 写 R7-Q5）
+//   Lead 裁决 R7-Q6（**选 B**）        —— 3 条 module 残形**保持回落**：`export as namespace N;` / `import x = require("m");` /
+//                                        `export = a;` 从 pos 降为 **safe** + A14 `sessions:0`（不期望 built；
+//                                        只读件 `statement-route-util.DecideDeclaration` 本轮不改）。
+//                                        多形态（`import x = N.y;` / `export = a`（EOF））实测同为 0/0/sessions=0 ⇒ 不另立 case
+//   Lead 裁决 R7-Q7                   —— **不加** R7-DEC2-pos-04（`@dec declare function`）：条数保持 55 / 299
+//   Lead 裁决 R7-Q8                   —— R7-REC-neg-04（`function g(){a b}`）MIXED → **pos**（built=3 / sessions=3 / A1=YES）
 //
 //   期望类别（expect；R1 10 + R2 50 + R3 32 + R4 40 + R5 57 = 189 条 + R6 55 条 = **244 条** + R7 55 条 = **299 条**）：
 //     pos         正例：直建必须接管（built>=1 / declined==0 / incomplete==0 / errors==0）
@@ -1136,10 +1144,11 @@ const CASES = [
     note: "**实测 sessions=0 built=0**（根层候选直接建，走不到声明壳）⇒ 注册 module 分派**不许**改变它；" +
       "safe = 该族没有 session，不断言 declined（A1 MATCH + XML==基线）",
     markers: ["ModuleFamilyDirectSession"] },
-  { id: "R6-MOD-neg-01", src: "using x = a;", expect: "neg", expectInsert: false,
-    categories: ["decl.head"],
-    note: "`using` 是 TS 5.2 的变量声明变体（tsc：VariableStatement[VariableDeclarationList, SemicolonToken]），" +
-      "本轮不做（R6-Q5）⇒ `decl.head` 保持",
+  { id: "R6-MOD-neg-01", src: "using x = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
+    note: "【**R7-Q5 改判 pos**（ID 不删，R6 口径见 R6-TARGET-CASES §1.3）】R6 时 `using` 不做、显式 Decline " +
+      "`decl.head`；R7-D3 module2 让 HeadUsing 转交变量族通道 + UsingKeyword ⇒ 直建（built=1 / declined=0 / A6 0/0）。" +
+      "与 R7-MOD2-pos-01 **同源码**（同一形态两种期望，与 R7-Q2 的 R6-CLS-neg-01/02 同构）；A10 仍是硬断言：XML IDENTICAL",
     markers: ["ModuleFamilyDirectSession"] },
   { id: "R6-MOD-guard-01", src: "import x from \"m\";\nconst a = 1;", expect: "guard", expectInsert: false, expectBuilt: 2,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
@@ -1193,14 +1202,16 @@ const CASES = [
   //     a10Note        noBaseline / baseThrow 的一行理由，写进 A10 detail。
   //
   //   分组：rec / cx / mod2 / dec2 / awa / en2 / a3r / a6r / hd2（groupOf 走 `^R7-<组>-`，与 r1–r6 前缀互不吞）。
-  //   期望：pos 6 组 + guard/safe 的钉子；awa/en2/a3r/a6r 是「本轮不做」的可执行钉子（R7-A5）。
+  //   期望：pos 3 组（rec / cx / dec2）+ mod2 的 3 条 pos（R7-Q6 = B，另外 3 条降 safe）
+  //         + guard/safe 的钉子；awa/en2/a3r/a6r 是「本轮不做」的可执行钉子（R7-A5）。
   //   A10 三种口径（**不许合并成一句「A10 通过」**）：
   //     ① rec pos-01…07 = base-throw ② rec pos-08/09 = noBaseline（基线是错树，D8.4，A10 SKIP + note）
-  //     ③ 其余 = XML=IDENTICAL；neg 的 THREW 钉子按「两侧同抛」记 BASE-THROW（基线也抛）。
+  //     ③ 其余 = XML=IDENTICAL；neg 的 THREW 钉子与 R7-Q8 后的 rec-neg-04 按「两侧同抛」记 BASE-THROW（基线也抛）。
 
-  // ---- rec：missing-semicolon / 相邻操作数恢复（18：pos 9 + guard 5 + neg 4；feat-r7-recovery） ----
+  // ---- rec：missing-semicolon / 相邻操作数恢复（18：pos 10 + guard 5 + neg 3；feat-r7-recovery） ----
   //   pos 01–07 的基线（8456ec3c）解析即抛 ⇒ A10 = base-throw（R7-CONTRACT §6.2 口径 ①）。
   //   pos 08/09 的基线是 `OK n=1` 的**错树** ⇒ noBaseline + note（口径 ②，D8.4 的闭环，R7 唯一合法改树形处）。
+  //   【R7-Q8】原 neg-04（`function g() { a b }`）实现后转绿 ⇒ 改判 pos（built=3 / A6 0/0 / A1=YES），ID 不删。
   { id: "R7-REC-pos-01", src: "a b", expect: "pos", expectInsert: false, expectBuilt: 2,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
     note: "最小形：两条都是 ExpressionStatement（tsc nTS=2/diag=1）。R7-A1 的切点在 `b` 前，leftover 重放建第二条；A6 初值 0/0",
@@ -1279,12 +1290,13 @@ const CASES = [
     assertReadings: { declined: 1, declineReasons: { "stmt.expr": 1 } },
     note: "**not-in-scope**：受限产生式留 R8（同 neg-02 的文案口径）",
     markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
-  { id: "R7-REC-neg-04", src: "function g() { a b }", expect: "neg", expectInsert: false,
-    expectBodyBuilt: 1, categories: ["expr.stopped"], baseThrow: true,
-    assertReadings: { astMatch: false, built: 1, declined: 1, sessions: 2,
-      declineReasons: { "expr.stopped": 1 } },
-    note: "**not-in-scope（块体内恢复）**：今天 MIXED（built=1 = 函数声明自己的壳、体内表达式 Decline `expr.stopped`），" +
-      "A1=NO、基线抛（base-throw）。R7 **不承诺**块体内恢复；若实现后转绿，只改这条期望并写报告（R7-Q1 附注）",
+  { id: "R7-REC-neg-04", src: "function g() { a b }", expect: "pos", expectInsert: false, expectBuilt: 3,
+    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0, baseThrow: true,
+    assertReadings: { astMatch: true, built: 3, declined: 0, sessions: 3, declineReasons: {} },
+    note: "【**R7-Q8 改判 pos**（ID 不删，原 neg 口径见 REPORT-r7-recovery §4.3）】块内语句壳也走恢复会话 ⇒ " +
+      "`function g() {` 自己的壳 + 体内两条 = built=3、sessions=3、A1=YES（tsc nTS=1）、A6 0/0、" +
+      "declineReasons 空（原 MIXED 的 `expr.stopped:1` 消失）。契约 §1.3 明确允许「若实现后转绿，只改这条期望并写报告」；" +
+      "**A10 仍是 base-throw**：基线 8456ec3c 解析即抛，与本侧无关",
     markers: ["StopAt", "CanRecoverAt", "AllowRecovery"] },
 
   // ---- cx：类表达式（8：pos 6 + safe 2；feat-r7-classexpr） ----
@@ -1323,8 +1335,11 @@ const CASES = [
     note: "**明确不做**：ParenthesizedExpression[ClassExpression] 留 R8；钉住 decline `var.init`",
     markers: ["StartClassExpression"] },
 
-  // ---- mod2：module 残形（9：pos 6 + safe 2 + guard 1；feat-r7-module2） ----
+  // ---- mod2：module 残形（9：pos 3 + safe 5 + guard 1；feat-r7-module2） ----
   //   A10 = XML=IDENTICAL（今天全部是回落 / 旧路径建树）⇒ pos 落地后必须仍 IDENTICAL。
+  //   【R7-Q6 = 选项 B】pos-04/05/06（`export as namespace` / import-equals / `export =`）**保持回落**：
+  //   只读件 `statement-route-util.DecideDeclaration` 的三处 `return None` 本轮不动 ⇒ sessions=0，
+  //   按 safe 口径验收（built=0 + A1=YES + A14 钉 sessions=0），**不期望 built**。
   { id: "R7-MOD2-pos-01", src: "using x = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
     note: "`using` 无独立形状（statement-builder 的 StartsUsingDeclaration 分支建）：HeadUsing 转交变量族通道 + UsingKeyword ⇒ 0/0",
@@ -1334,20 +1349,27 @@ const CASES = [
     note: "`ExportKeyword + DeclareKeyword` 的顺序是 A1 的关键（DirectExportAssembly 的 declare 分支）",
     markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
   { id: "R7-MOD2-pos-03", src: "export declare function f(): void;", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6ExpectStmtLoads: 2, a6ExpectExprLoads: 0,
-    note: "空体函数的体 wrapper 2（与 `export function f() {}` 的 stmtLoads=2 同源，R6-MOD-pos-13 读数）",
-    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
-  { id: "R7-MOD2-pos-04", src: "export as namespace N;", expect: "pos", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "NamespaceExportDeclarationShape；今天**旧路径建**（built=0、sessions=0）⇒ 直建接管后仍 0/0",
+    note: "**实测钉正（R7-Q6 落地后用 module2 实测值）**：无体 ambient 函数**不建体 wrapper** ⇒ A6 **0/0**" +
+      "（设计表写的 2/0 是 `export function f() {}` 的有体读数，REPORT-r7-module2 §5.1 已更正）",
     markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
-  { id: "R7-MOD2-pos-05", src: "import x = require(\"m\");", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "ImportEqualsDeclarationShape；今天旧路径建（built=0、sessions=0）⇒ 直建接管后 0/0",
+  { id: "R7-MOD2-pos-04", src: "export as namespace N;", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**R7-Q6 = 选项 B（保持回落，不期望 built）**：`StatementRouteUtil.DecideDeclaration` 对 " +
+      "`export as namespace` 显式 `return None`（只读件，本轮不改）⇒ sessions=0、旧路径建树。" +
+      "safe 口径 = built=0 && errors=0 && A1=YES（不断言 declined）+ A14 钉 sessions=0；A10 仍 IDENTICAL",
     markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
-  { id: "R7-MOD2-pos-06", src: "export = a;", expect: "pos", expectInsert: false, expectBuilt: 1,
-    a6ExpectStmtLoads: 0, a6ExpectExprLoads: 0,
-    note: "ExportAssignmentShape 的 `export =` 路；今天旧路径建（built=0、sessions=0）⇒ 直建接管后 0/0",
+  { id: "R7-MOD2-pos-05", src: "import x = require(\"m\");", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**R7-Q6 = 选项 B（保持回落）**：`DecideDeclaration` 对 `import x =`（startIndex>0 / `=`）显式 " +
+      "`return None`（「import-equals 留给 legacy」）⇒ sessions=0。多形态 `import x = N.y;` 实测同为 0/0/sessions=0 " +
+      "⇒ 一并按 safe 归类（**不加新 case**，R7-Q6 的「能绿的用 pos」在本轮不成立时不得造假）",
+    markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
+  { id: "R7-MOD2-pos-06", src: "export = a;", expect: "safe", expectInsert: false, expectBuilt: 0,
+    assertReadings: { astMatch: true, built: 0, declined: 0, sessions: 0, declineReasons: {} },
+    note: "**R7-Q6 = 选项 B（保持回落）**：`DecideDeclaration` 的 `next instanceof Symbol` 非 `*` 一律 None " +
+      "⇒ sessions=0（`export = a` 的 EOF 形态实测同样 0/0/sessions=0，不另立 case）。A10 仍 IDENTICAL" +
+      "（旧路径 legacy 的 stmt/exprOther 1/1 只是读数，safe 不断言 A6）",
     markers: ["NamespaceExportDeclarationShape", "DirectUsingAssembly"] },
   { id: "R7-MOD2-safe-01", src: "export import x = A.B;", expect: "safe", expectInsert: false, expectBuilt: 0,
     assertReadings: { astMatch: true, built: 0, declined: 1, sessions: 1, declineReasons: { "decl.module": 1 } },
@@ -1372,8 +1394,9 @@ const CASES = [
     note: "返回类型不影响 A6（同 pos-01）",
     markers: ["TryDecoratedFunction"] },
   { id: "R7-DEC2-pos-03", src: "@dec function f(a: number) { return a; }", expect: "pos", expectInsert: false,
-    expectBuilt: 1, a6ExpectStmtLoads: 1, a6ExpectExprLoads: 1,
-    note: "有体成员：`return` 由自己的壳直建 ⇒ stmtLoads=1（不是 2）；装饰器表达式 exprOther=1",
+    expectBuilt: 2, a6ExpectStmtLoads: 1, a6ExpectExprLoads: 1,
+    note: "**实测钉正（expectBuilt=2）**：函数体 `return a;` 自己一个壳（sessions=2）⇒ built=2 而非设计表的 1；" +
+      "有体成员：`return` 由自己的壳直建 ⇒ stmtLoads=1（不是 2）；装饰器表达式 exprOther=1（REPORT-r7-module2 §5.1）",
     markers: ["TryDecoratedFunction"] },
   { id: "R7-DEC2-guard-01", src: "@dec class C {}", expect: "guard", expectInsert: false, expectBuilt: 1,
     a6ExpectStmtLoads: 0, a6ExpectExprLoads: 1,
