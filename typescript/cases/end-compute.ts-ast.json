@@ -2557,7 +2557,7 @@
                           "text": "total"
                         },
                         {
-                          "kind": "FirstCompoundAssignment",
+                          "kind": "PlusEqualsToken",
                           "pos": 27,
                           "end": 30
                         },

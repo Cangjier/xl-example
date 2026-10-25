@@ -6,14 +6,18 @@
 // 已提交快照里 `literals.ts-ast.json` 写 `EqualsToken`、`literals.cj-ast.json` 写
 // `FirstAssignment`，6167/6167 却照常绿。本门直接比较**原始 kind 字符串**。
 //
-// 口径（本轮只断言 `=` 与 `,` 两类）：
-//   ① live：`x = 1;` / `x = y = 1;` / `x = 1, y = 2;` 现场解析，
-//      CJ 运算符 token 的构造函数名必须是规范类（EqualsTokenShape / CommaTokenShape），
-//      且「去 Shape 后的名字」== kindOf(ts.SyntaxKind[TS 运算符 token.kind])；
-//   ② snapshot：`typescript/cases/literals.{ts,cj}-ast.json` 里同 (pos,end) 的运算符节点，
-//      原始 kind 字符串必须相等（改前红在 FirstAssignment vs EqualsToken，改后绿）；
-//   ③ known-gap：`+=` / `^=` 仍是别名类（FirstCompoundAssignmentShape / LastBinaryOperatorShape），
-//      本轮 A4 未做，因此遇到时只打印 KNOWN-GAP，不判失败；全仓 fixtures 另做只读台账。
+// 口径（A4 起断言 `=` / `+=` / `^=` / `,` 四类，没有 known-gap 豁免）：
+//   ① live：`x = 1;` / `x = y = 1;` / `x += 1;` / `x ^= 1;` / `x = 1, y = 2;` 现场解析，
+//      CJ 运算符 token 的构造函数名必须是规范类
+//      （EqualsTokenShape / PlusEqualsTokenShape / CaretEqualsTokenShape / CommaTokenShape），
+//      且「去 Shape 后的名字」== kindOf(ts.SyntaxKind[TS 运算符 token.kind]);
+//   ② snapshot：`typescript/cases/literals.{ts,cj}-ast.json` 与**全部** fixtures 里，
+//      两侧同一用例、同一位置的运算符节点原始 kind 字符串必须相等；任何一栏出现
+//      TS 枚举别名（FirstAssignment / FirstCompoundAssignment / LastBinaryOperator /
+//      LastAssignment / LastCompoundAssignment / LastPunctuation）即失败——即便两侧同名，
+//      因为「两侧都是别名」= 规范名丢失，正是本门要防的退化;
+//   ③ self-test：用内存里的合成节点反证比较器有牙齿（别名残留 / 数量不同 / 原始名不同
+//      都必须被判为问题），不依赖产品代码。真实反例的构造方法见 HANDOFF。
 //
 // 只读：不写任何文件，不碰 build/ 与 typescript/cases/。
 //   node tests/statement-possible/ast-kind-names.mjs   # 退出码 0 = 全绿；1 = 有断言失败
@@ -29,44 +33,40 @@ const require = createRequire(import.meta.url);
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { SourceFileRunner } = require(path.join(root, "build", "ts", "typescript", "run", "source-file-runner.js"));
 
-// 规范运算符类 / 规范 kind 名。本轮只把 `=` / `,` 两类算作硬断言范围。
-const CANONICAL_OPERATOR_CLASSES = new Set(["EqualsTokenShape", "CommaTokenShape"]);
-
-// A4 未做时的已知别名残留：类名 → 它应该对应的规范 kind 名。
-const KNOWN_GAP_ALIASES = new Map([
-  ["FirstCompoundAssignmentShape", "PlusEqualsToken"],
-  ["LastBinaryOperatorShape", "CaretEqualsToken"],
-  ["FirstAssignmentShape", "EqualsToken"],
+// 规范运算符类 → 规范 kind 名（去 Shape 后必须相等）。A4 起四类全部硬断言。
+const CANONICAL_OPERATOR_CLASSES = new Map([
+  ["EqualsTokenShape", "EqualsToken"],
+  ["PlusEqualsTokenShape", "PlusEqualsToken"],
+  ["CaretEqualsTokenShape", "CaretEqualsToken"],
+  ["CommaTokenShape", "CommaToken"],
 ]);
 
-// 快照里可能出现的运算符 kind 名（TS 侧规范名 + 本仓别名残留）。
-// 只用于在 fixtures 里挑出「运算符节点」，不是第二张归一表：比较的是原始字符串。
-const OPERATOR_KINDS = new Set([
-  "EqualsToken", "CommaToken", "PlusEqualsToken", "CaretEqualsToken",
-  "PlusToken", "MinusToken", "AsteriskToken", "SlashToken", "PercentToken", "AsteriskAsteriskToken",
-  "LessThanToken", "GreaterThanToken", "LessThanEqualsToken", "GreaterThanEqualsToken",
-  "EqualsEqualsToken", "ExclamationEqualsToken", "EqualsEqualsEqualsToken", "ExclamationEqualsEqualsToken",
-  "AmpersandToken", "BarToken", "CaretToken", "LessThanLessThanToken", "GreaterThanGreaterThanToken",
-  "GreaterThanGreaterThanGreaterThanToken", "AmpersandAmpersandToken", "BarBarToken", "QuestionQuestionToken",
-  "EqualsGreaterThanToken", "QuestionToken", "ColonToken", "DotDotDotToken", "QuestionDotToken",
-  "MinusEqualsToken", "AsteriskEqualsToken", "SlashEqualsToken", "PercentEqualsToken",
-  "AsteriskAsteriskEqualsToken", "LessThanLessThanEqualsToken", "GreaterThanGreaterThanEqualsToken",
-  "GreaterThanGreaterThanGreaterThanEqualsToken", "AmpersandEqualsToken", "BarEqualsToken",
-  "AmpersandAmpersandEqualsToken", "BarBarEqualsToken", "QuestionQuestionEqualsToken",
-  // 别名残留（known-gap）：只用于识别节点，识别到后按 KNOWN-GAP 处理。
-  "FirstAssignment", "FirstCompoundAssignment", "LastBinaryOperator",
-  "LastAssignment", "LastCompoundAssignment", "LastPunctuation",
+// TS 枚举别名：反查名（或产物侧误用的别名类名）落到这些名字上就是缺陷。
+// 两侧同名也算缺陷（规范名丢失），不再有 known-gap 豁免。
+const ALIAS_KIND_NAMES = new Set([
+  "FirstAssignment",
+  "FirstCompoundAssignment",
+  "LastBinaryOperator",
+  "LastAssignment",
+  "LastCompoundAssignment",
+  "LastPunctuation",
 ]);
+
+// 本门认的运算符节点 = 四类规范名 + 它们的历史别名（识别到别名才能报错）。
+const TARGET_KINDS = new Set(["EqualsToken", "PlusEqualsToken", "CaretEqualsToken", "CommaToken"]);
+const OPERATOR_KINDS = new Set([...TARGET_KINDS, ...ALIAS_KIND_NAMES]);
 
 const LIVE_CASES = [
   { name: "assign", source: "x = 1;" },
   { name: "assign-chain", source: "x = y = 1;" },
+  { name: "plus-equals", source: "x += 1;" },
+  { name: "caret-equals", source: "x ^= 1;" },
   { name: "assign-comma", source: "x = 1, y = 2;" },
 ];
 
 const failures = [];
 let livePassed = 0;
-const knownGaps = [];
+let selfCheckPassed = 0;
 
 function fail(scope, message) {
   failures.push(`[${scope}] ${message}`);
@@ -123,7 +123,75 @@ function collectTsOperators(source) {
   return operators;
 }
 
-console.log("== live 用例（`=` / `,`：规范类名 + 归一后与 TS 一致） ==");
+// ---- 纯函数：一次「原始 kind 逐位比较」，供 snapshot 与 self-test 共用 ----
+// 输入是两侧按前序排好的运算符节点 { kind, pos, end }（kind 为原始字符串）。
+// 返回问题列表（空 = 通过）。不做任何归一，别名即问题。
+function compareOperatorNodes(tsNodes, cjNodes) {
+  const problems = [];
+  if (tsNodes.length !== cjNodes.length) {
+    problems.push(`运算符 token 数不同：TS=${tsNodes.length} CJ=${cjNodes.length}`);
+  }
+  const pairCount = Math.min(tsNodes.length, cjNodes.length);
+  for (let index = 0; index < pairCount; index++) {
+    const theirs = tsNodes[index];
+    const ours = cjNodes[index];
+    if (ours.pos !== theirs.pos || ours.end !== theirs.end) {
+      problems.push(`第 ${index} 个运算符位置不同：CJ ${ours.pos}-${ours.end} vs TS ${theirs.pos}-${theirs.end}`);
+    }
+    if (ALIAS_KIND_NAMES.has(theirs.kind)) {
+      problems.push(`第 ${index} 个运算符 TS 侧原始名是别名 ${theirs.kind}（规范名应为其枚举规范名）`);
+    }
+    if (ALIAS_KIND_NAMES.has(ours.kind)) {
+      problems.push(`第 ${index} 个运算符 CJ 侧仍是别名类 ${ours.kind}Shape`);
+    }
+    if (theirs.kind !== ours.kind) {
+      problems.push(`第 ${index} 个运算符原始 kind 不同：CJ=${ours.kind} TS=${theirs.kind}`);
+    }
+  }
+  return problems;
+}
+
+// ---- ③ self-test：合成节点证明比较器有牙齿 ----
+console.log("== self-test：比较器对别名 / 数量 / 原始名差都会报错 ==");
+const synthetic = (kind, pos) => ({ kind, pos, end: pos + 2 });
+const selfCheckCases = [
+  {
+    name: "canonical-passes",
+    tsNodes: [synthetic("PlusEqualsToken", 1), synthetic("CaretEqualsToken", 5)],
+    cjNodes: [synthetic("PlusEqualsToken", 1), synthetic("CaretEqualsToken", 5)],
+    wantProblems: 0,
+  },
+  {
+    name: "cj-alias-detected",
+    tsNodes: [synthetic("PlusEqualsToken", 1)],
+    cjNodes: [synthetic("FirstCompoundAssignment", 1)],
+    wantProblems: 2, // 别名 + 原始名不同
+  },
+  {
+    name: "both-alias-detected",
+    tsNodes: [synthetic("LastBinaryOperator", 1)],
+    cjNodes: [synthetic("LastBinaryOperator", 1)],
+    wantProblems: 2, // 两侧各报一次：两侧都是别名 = 规范名丢失
+  },
+  {
+    name: "count-mismatch-detected",
+    tsNodes: [synthetic("EqualsToken", 1)],
+    cjNodes: [],
+    wantProblems: 1,
+  },
+];
+for (const check of selfCheckCases) {
+  const problems = compareOperatorNodes(check.tsNodes, check.cjNodes);
+  if (problems.length === check.wantProblems) {
+    selfCheckPassed++;
+    console.log(`PASS  ${check.name.padEnd(24)} problems=${problems.length}`);
+  } else {
+    fail("self-test", `${check.name} 期望 problems=${check.wantProblems} 实际=${problems.length}：${problems.join("；")}`);
+  }
+}
+
+console.log("");
+console.log("== live 用例（四类运算符：规范类名 + 归一后与 TS 一致） ==");
 for (const caseDef of LIVE_CASES) {
   const problems = [];
   let cjOperators = [];
@@ -133,6 +201,8 @@ for (const caseDef of LIVE_CASES) {
     problems.push(`CJ Parse 抛错：${String(error && error.message ? error.message : error).split("\n")[0]}`);
   }
   const tsOperators = collectTsOperators(caseDef.source);
+  // live 的 TS 侧「原始名」本来就是枚举别名（FirstAssignment / FirstCompoundAssignment …），
+  // 所以这里不比原始名，而是比 **CJ 去 Shape 后的规范名 == kindOf(TS 原始名)**，见下方循环。
   if (cjOperators.length !== tsOperators.length) {
     problems.push(`运算符 token 数不同：CJ=${cjOperators.length} TS=${tsOperators.length}`);
   }
@@ -143,11 +213,21 @@ for (const caseDef of LIVE_CASES) {
     if (ours.pos !== theirs.pos || ours.end !== theirs.end) {
       problems.push(`第 ${index} 个运算符位置不同：CJ ${ours.pos}-${ours.end} vs TS ${theirs.pos}-${theirs.end}`);
     }
-    if (!CANONICAL_OPERATOR_CLASSES.has(ours.className)) {
-      problems.push(`第 ${index} 个运算符 ${JSON.stringify(caseDef.source.slice(theirs.pos, theirs.end))} 的类名 ${ours.className} 不在 {EqualsTokenShape, CommaTokenShape}`);
+    const expected = CANONICAL_OPERATOR_CLASSES.get(ours.className);
+    if (expected === undefined) {
+      problems.push(
+        `第 ${index} 个运算符 ${JSON.stringify(caseDef.source.slice(theirs.pos, theirs.end))} 的类名 ${ours.className} 不在 ` +
+          `${JSON.stringify([...CANONICAL_OPERATOR_CLASSES.keys()])}`,
+      );
+      continue;
     }
     if (ours.normalized !== theirs.normalized) {
-      problems.push(`第 ${index} 个运算符归一后不同：CJ ${ours.className} → ${ours.normalized} vs TS ${theirs.raw} → ${theirs.normalized}`);
+      problems.push(
+        `第 ${index} 个运算符规范化不同：CJ ${ours.className} → ${ours.normalized} vs TS ${theirs.raw} → ${theirs.normalized}`,
+      );
+    }
+    if (ours.normalized !== expected) {
+      problems.push(`第 ${index} 个运算符类名与规范映射不符：${ours.className} 应为 ${expected}`);
     }
   }
   if (problems.length === 0) {
@@ -161,7 +241,7 @@ for (const caseDef of LIVE_CASES) {
   }
 }
 
-// ---- snapshot：literals 两侧原始 kind 字符串必须相等（硬断言） ----
+// ---- snapshot：两侧原始 kind 逐位相等（四类运算符，严格，无豁免） ----
 const CASES_DIR = path.join(root, "typescript", "cases");
 
 function readSnapshot(stem, side) {
@@ -177,105 +257,81 @@ function flattenSnapshot(nodes, out = []) {
   return out;
 }
 
-// 键必须带用例序号：同一个文件里不同用例的运算符会落在同一个 (pos,end)
-//（例如 `a += 1;` 与 `a ^= 1;` 都是 1:3 / 1:4），只按 pos:end 做键会把后者覆盖掉。
-function operatorKindMap(snapshot) {
-  const map = new Map();
-  (snapshot.cases || []).forEach((caseEntry, caseIndex) => {
-    for (const node of flattenSnapshot(caseEntry.ast)) {
-      if (!OPERATOR_KINDS.has(node.kind)) continue;
-      map.set(`case[${caseIndex}] ${node.pos}:${node.end}`, node.kind);
-    }
-  });
-  return map;
+// 按用例收集四类运算符节点（原始 kind 字符串 + 位置），保持前序顺序。
+// 只认 OPERATOR_KINDS 里的名字：它既是「规范名」也是「历史别名」，识别别名才能报错。
+function collectSnapshotOperators(snapshot) {
+  return (snapshot.cases || []).map((caseEntry) =>
+    flattenSnapshot(caseEntry.ast)
+      .filter((node) => OPERATOR_KINDS.has(node.kind))
+      .map((node) => ({ kind: node.kind, pos: node.pos, end: node.end })),
+  );
 }
 
-function compareOperatorKinds(scope, tsMap, cjMap, strict) {
+function compareSnapshotPair(scope, tsSnapshot, cjSnapshot, strict) {
+  const tsByCase = collectSnapshotOperators(tsSnapshot);
+  const cjByCase = collectSnapshotOperators(cjSnapshot);
   let compared = 0;
-  const keys = new Set([...tsMap.keys(), ...cjMap.keys()]);
-  for (const key of keys) {
-    const tsKind = tsMap.get(key);
-    const cjKind = cjMap.get(key);
-    if (tsKind === undefined || cjKind === undefined) {
-      const message = `同一位置 ${key} 运算符节点只在一侧出现：TS=${String(tsKind)} CJ=${String(cjKind)}`;
-      if (strict) fail(scope, message);
-      else console.log(`WARN  ${scope}  ${message}`);
-      continue;
+  const caseCount = Math.max(tsByCase.length, cjByCase.length);
+  const problems = [];
+  for (let caseIndex = 0; caseIndex < caseCount; caseIndex++) {
+    const tsNodes = tsByCase[caseIndex] || [];
+    const cjNodes = cjByCase[caseIndex] || [];
+    for (const problem of compareOperatorNodes(tsNodes, cjNodes)) {
+      problems.push(`case[${caseIndex}] ${problem}`);
     }
-    compared++;
-    if (tsKind === cjKind) {
-      if (tsKind === "FirstAssignment") {
-        const message = `位置 ${key} 两侧原始 kind 都是别名 FirstAssignment（规范名 EqualsToken 丢失）`;
-        if (strict) fail(scope, message);
-        else console.log(`WARN  ${scope}  ${message}`);
-      } else if (KNOWN_GAP_ALIASES.has(`${tsKind}Shape`)) {
-        knownGaps.push(`${scope} ${key} 两侧=${tsKind}（别名类 ${tsKind}Shape，应规范为 ${KNOWN_GAP_ALIASES.get(`${tsKind}Shape`)}）`);
-      }
-      continue;
-    }
-    // 只让已列的 known-gap 通过：TS 规范名 vs CJ 别名残留。
-    if (tsKind === "CaretEqualsToken" && cjKind === "LastBinaryOperator") {
-      knownGaps.push(`${scope} ${key} TS=${tsKind} CJ=${cjKind}（别名类 LastBinaryOperatorShape，应规范为 CaretEqualsToken）`);
-      continue;
-    }
-    const message = `位置 ${key} 原始 kind 不同：TS=${tsKind} CJ=${cjKind}`;
-    if (strict) fail(scope, message);
-    else console.log(`WARN  ${scope}  ${message}`);
+    compared += Math.min(tsNodes.length, cjNodes.length);
+  }
+  if (strict) {
+    for (const problem of problems) fail(scope, problem);
+  } else {
+    for (const problem of problems) console.log(`WARN  ${scope}  ${problem}`);
   }
   return compared;
 }
 
 console.log("");
-console.log("== snapshot：literals.{ts,cj}-ast.json 同 (pos,end) 原始 kind 相等 ==");
+console.log("== snapshot：literals.{ts,cj}-ast.json 四类运算符原始 kind 逐位相等 ==");
 let literalsCompared = 0;
 try {
-  const tsMap = operatorKindMap(readSnapshot("literals", "ts"));
-  const cjMap = operatorKindMap(readSnapshot("literals", "cj"));
-  literalsCompared = compareOperatorKinds("literals", tsMap, cjMap, true);
+  literalsCompared = compareSnapshotPair(
+    "literals",
+    readSnapshot("literals", "ts"),
+    readSnapshot("literals", "cj"),
+    true,
+  );
 } catch (error) {
   fail("literals", `读取/解析快照失败：${String(error && error.message ? error.message : error).split("\n")[0]}`);
 }
 
-// ---- known-gap 台账：全仓 fixtures 只读扫描（不判失败；A4 的残留清单） ----
+// ---- 全仓 fixtures：同一口径，严格（A4 后不应再有 += / ^= 别名残留） ----
 console.log("");
-console.log("== known-gap 台账：全仓 fixtures 的别名运算符（只读，不判失败） ==");
+console.log("== 全仓 fixtures：四类运算符原始 kind 逐位相等（严格） ==");
 const fixtureFiles = fs
   .readdirSync(CASES_DIR)
   .filter((name) => name.endsWith(".cj-ast.json"))
   .sort();
-let gapFiles = 0;
+let scannedFiles = 0;
+let comparedNodes = literalsCompared;
 for (const fileName of fixtureFiles) {
   const stem = fileName.slice(0, -".cj-ast.json".length);
   const tsFile = path.join(CASES_DIR, `${stem}.ts-ast.json`);
   if (!fs.existsSync(tsFile)) continue;
   try {
-    const tsMap = operatorKindMap(readSnapshot(stem, "ts"));
-    const cjMap = operatorKindMap(readSnapshot(stem, "cj"));
-    const before = knownGaps.length;
-    compareOperatorKinds(stem, tsMap, cjMap, false);
-    if (knownGaps.length > before) gapFiles++;
+    const before = failures.length;
+    comparedNodes += compareSnapshotPair(stem, readSnapshot(stem, "ts"), readSnapshot(stem, "cj"), true);
+    scannedFiles++;
+    if (failures.length > before) console.log(`FAIL  ${stem}  见上方逐条差异`);
   } catch (error) {
-    console.log(`WARN  ${stem}  扫描失败：${String(error && error.message ? error.message : error).split("\n")[0]}`);
+    fail(stem, `扫描失败：${String(error && error.message ? error.message : error).split("\n")[0]}`);
   }
-}
-
-const uniqueKnownGaps = [...new Set(knownGaps)];
-const knownGapClasses = [...new Set(uniqueKnownGaps.map((line) => (line.includes("LastBinaryOperator") ? "LastBinaryOperatorShape(^=)" : "FirstCompoundAssignmentShape(+=)")))].sort();
-console.log("");
-if (uniqueKnownGaps.length > 0) {
-  console.log(`KNOWN-GAP  别名类运算符 ${uniqueKnownGaps.length} 处（${gapFiles} 个快照文件），A4 未做，本门不判失败：`);
-  for (const line of uniqueKnownGaps.slice(0, 10)) console.log(`  ${line}`);
-  if (uniqueKnownGaps.length > 10) console.log(`  （另有 ${uniqueKnownGaps.length - 10} 处）`);
-  console.log(`KNOWN-GAP  classes=${JSON.stringify(knownGapClasses)}`);
-} else {
-  console.log("KNOWN-GAP  无（`+=` / `^=` 也已是规范名？）");
 }
 
 console.log("");
 console.log(
-  `[ast-kind-names] live=${livePassed}/${LIVE_CASES.length} literals-compared=${literalsCompared} ` +
-    `known-gap=${uniqueKnownGaps.length} fail=${failures.length}（口径：只断言 = 与 ,）`,
+  `[ast-kind-names] live=${livePassed}/${LIVE_CASES.length} self-test=${selfCheckPassed}/${selfCheckCases.length} ` +
+    `fixtures=${scannedFiles} operator-nodes-compared=${comparedNodes} fail=${failures.length}` +
+    `（口径：硬断言 = / += / ^= / , 四类，无 known-gap 豁免）`,
 );
 if (failures.length > 0) process.exit(1);
-console.log("PASS  原始 kind 名一致（= / ,），known-gap 已如实列出");
+console.log("PASS  四类运算符原始 kind 名一致（= / += / ^= / ,），别名残留 0");
 process.exit(0);

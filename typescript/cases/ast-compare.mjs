@@ -37,6 +37,8 @@ export const TS_KIND_ALIASES = new Map([
   ["LastBinaryOperator", "CaretEqualsToken"],
   ["FirstPunctuation", "OpenBraceToken"],
   ["FirstAssignment", "EqualsToken"],
+  // SyntaxKind.PlusEqualsToken 的反查名被别名 FirstCompoundAssignment 盖掉。
+  ["FirstCompoundAssignment", "PlusEqualsToken"],
   // SyntaxKind.ImportAttributes 的反查名被旧名 AssertClause / AssertEntry 盖掉
   // （`with` 与 `assert` 用同一个 kind，产物侧叫 ImportAttributes / ImportAttribute）。
   ["AssertClause", "ImportAttributes"],
