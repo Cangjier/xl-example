@@ -629,7 +629,7 @@ return false;
 而 `if (a) function f ()` ⏎ `{ }` 的 `function` 就在体起点上，仍在界内，照样算等体。
 
 只有「还在等体」时返回 true：`function ()` / `class A` / `class A extends B` / `interface A` / `enum A` /
-`namespace A` / 箭头 `=>` / 控制头 `if (a)` `for (…)` `while (…)` `switch (…)` `with (…)` `catch (…)`。
+`namespace A` / 箭头 `=>`（仅当 `=>` 自己就是收尾单元）/ 控制头 `if (a)` `for (…)` `while (…)` `switch (…)` `with (…)` `catch (…)`。
 其余一律 false——那时换行后的 `{` 只能是一条新的块语句。
 
 ```ts
@@ -684,7 +684,13 @@ for (let at = previousIndex - 1; at >= from; at--) {
       return false;
     }
     if (text === "=>") {
-      return true;
+      // gap-edge2：回扫撞见的 `=>` **不是**还在等体的箭头。箭头的体只有一个
+      // AssignmentExpression，就是紧贴 `=>` 的那一段；既然 `=>` 与当前 `{` 之间已经有过收尾单元
+      // （`tail`），那个体早就写完了（`const g = () => 1` ⏎ `{ }` 的 `{` 只能是一条新块语句）。
+      // 「箭头还欠着体」的唯一形态是 `=>` **自己就是收尾单元**——上面 `tail instanceof Symbol`
+      // 那一支已经返回 true，所以这里必须返回 false。原来这里返回 true，把
+      // `const g = () => 1` ⏎ `{ }` 整个吞进一条语句，表达式语句建造器随后抛「表达式语句没有读完」。
+      return false;
     }
     continue;
   }

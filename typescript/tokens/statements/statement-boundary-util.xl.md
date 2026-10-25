@@ -100,7 +100,12 @@ if ((current instanceof Bracket
 }
 if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)
     && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)
-    && !prevIsClosedBrace) {
+    && !prevIsClosedBrace
+    // **实例化表达式收尾**（gap-edge2）：`a < b >` ⏎ `c` 的 `>` 收的是一段类型实参、
+    // 表达式到此为止，`c` 是下一条语句。`CanEndExpressionAt` 只认表达式尾（`++` / `--` 之类），
+    // 而 `>` 在它眼里是二元运算符，所以要单独放行；判据的唯一实现是 `AngleJudge.IsInstantiationClose`
+    // （`<` 在表达式位 + follower 允许类型实参，且 follower 不是调用位）。
+    && !StatementScanner.IsInstantiationClose(units, prev)) {
   return false;
 }
 // 条件 5：本条语句的起点。**必须排在下面两个「确定性边界」早退之前**——那些边界是给
@@ -285,6 +290,19 @@ if (previous instanceof Symbol) {
   if ((typeArgumentTail === ">" || typeArgumentTail === ">>" || typeArgumentTail === ">>>")
     && StatementScanner.IsTypeArgumentClose(code, previousIndex)
     && !ExpressionStatementPossibleShape.IsContinuation(next)) {
+    return true;
+  }
+}
+// **实例化表达式收尾的 `>` + 换行后一条新语句**（gap-edge2）：`a < b >` ⏎ `c`。
+// TS 的 `canFollowTypeArgumentsInExpression` 在 `>` 之后是标识符但**有换行**时接受类型实参 ⇒
+// `a < b >` 是一条完整的 `ExpressionWithTypeArguments` 语句，`c` 是下一条。`EndsExpression`
+// 不认 `>`（值位是二元运算符），所以这一支单独判：`<` 在**表达式位**且 `>` 收尾（判据唯一实现
+// = `AngleJudge.IsInstantiationClose`；follower 是 `(` / 模板时 TS 建的是带类型实参的调用，
+// 该判据自己返回 false，不会早断）。
+if (previous instanceof Symbol) {
+  const instantiationTail = (previous as Symbol).TempToString();
+  if ((instantiationTail === ">" || instantiationTail === ">>" || instantiationTail === ">>>")
+    && StatementScanner.IsInstantiationClose(code, previousIndex)) {
     return true;
   }
 }

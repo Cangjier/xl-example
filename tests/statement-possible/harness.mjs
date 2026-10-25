@@ -385,6 +385,17 @@ function runCaseBody(groupName, caseDef, instrument) {
   } catch (error) {
     instrument.state.currentSource = "";
     if (diagnostics > 0) {
+      // gap-edge2：TS **不合法**的恢复形不让 CJ 抛错本身成为判据（不合法输入没有「正确 AST」），
+      // 但用例显式声明 `knownBaselineFail` 时要把它记成 `known`（不是 skip、也不是 pass）：
+      // 这样「恢复形只记录、不为它改语义」这条约定在读数里看得见，也不会被 skip 藏掉。
+      if (caseDef.knownBaselineFail === true) {
+        return {
+          status: "known",
+          problems: [`CJ 解析抛错（TS 有 ${diagnostics} 个语法诊断的恢复形，按 known 记录）：${describeError(error)}`],
+          notes,
+          caseCalls: 0,
+        };
+      }
       return { status: "skip", reason: `CJ 解析抛错且 TS 有 ${diagnostics} 个语法诊断（不合法输入，不作判据）` };
     }
     if (caseDef.uncovered !== undefined) {
