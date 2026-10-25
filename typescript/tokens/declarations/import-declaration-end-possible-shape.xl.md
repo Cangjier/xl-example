@@ -90,14 +90,6 @@ return ShapeStates.Reject;
 
 ## static method CanEndAt:(units:Array<Token>, last:int)=>bool
 
-Raw lookahead after `last`: the declaration can end here when what follows is EOF, a comment, or a
-line break followed by a new statement; it must not end when the next code is `;` or a continuation keyword
-on the same or the next line. `from` / `as` / `defer` are genuine continuations after a complete-looking
-unit (`import { a }\nfrom "m"` — the clause `}` looks complete but still awaits `from`). `type` is **not**
-one of them: it only appears before the specifier (where `IsCompleteAt` already answers false), and listing
-it here broke a following type alias — `import x from "m"\ntype X = A;` had the import shell swallow `type`
-and Close threw "未识别的单元（Common）".
-
 ```ts
 const lastRange = units[last].SourceRange;
 const document = lastRange.Document;
@@ -161,10 +153,6 @@ return true;
 
 ## static method IsContinuationWordAt:(document:any, at:int, count:int)=>bool
 
-`at` 起（先跳过空白）读一个标识符词；它是 import 声明的续接关键字（`with` / `assert` / `from` /
-`as` / `defer`）时返回 true。行注释与换行两条路共用它，保证「注释后的下一行」和「纯换行后的下一行」
-读到同一份续接表。
-
 ```ts
 const whole = SourceRange.Whole(document);
 let scan = at;
@@ -190,16 +178,6 @@ return word === "with" || word === "assert" || word === "from" || word === "as" 
 ```
 
 ## static method IsCompleteAt:(units:Array<Token>, last:int)=>bool
-
-`last` 这个代码单元能不能收住一条完整的 import 声明（只看结构，不看后面）：
-
-- 模块说明符（`import x from "m"` / `import "m"`）：它是字符串字面量，原文以引号开头；
-- `with` / `assert` 属性括号：原文以 `}` 收尾（命名导入子句的 `}` 不是收尾——
-  它后面还等着 `from`，而 `CanEndAt` 会在下一行的 `from` 上返回 false）。
-
-`;` 不走这里（它走 `Done` 那条路）。声明还没到这两处时（`import` / `import x` / `import type` /
-`import { … }` / `import * as ns` / `import x from`），这里一律 false——否则换行后的
-`from` / `{` / `*` / `as` / `type` 会被误当成下一条语句，与还活着的普通候选撞在一起。
 
 ```ts
 const range = units[last].SourceRange;

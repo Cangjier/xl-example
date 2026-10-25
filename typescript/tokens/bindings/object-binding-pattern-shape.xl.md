@@ -19,13 +19,7 @@ const { a: b } = o;
 const { a = 1 } = o;
 ```
 
-`{...}` 对象绑定模式：与 `ArrayBindingPatternShape` 同构——结构由括号承载，逗号不进 AST；
-元素一律交给 `BindingElementShape.FromTokens`（`a` / `a: b` / `a = 1` / `...a` 都在那里建）。
-
 ## field Elements:Array<Token> = []
-
-**本块固定留空**：理由与 `ArrayBindingPatternShape.Elements` 完全相同——元素直接 `Add` 进 `Data`，
-`statement-builder` 的旧 `NormalizeBindingPattern` 会按 `Elements` 重写 `Data`；留空即让它成为 no-op。
 
 ## constructor:(template:Template)=>void
 

@@ -15,10 +15,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 abstract class C {}
 ```
 
-`abstract` 是 modifier，会作为 ClassDeclaration 的子节点出现。TS 的 SyntaxKind 反查把它印成
-`FirstContextualKeyword`（同一个枚举值被后一个名字覆盖），harness 的 `TS_KIND_ALIASES` 里有一条
-`["FirstContextualKeyword","AbstractKeyword"]` 把它归一到本形状的类名口径。
-
 ## constructor:(template:Template)=>void
 
 ```ts

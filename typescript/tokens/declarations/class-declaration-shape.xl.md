@@ -73,23 +73,6 @@ class C { get x() { return 1; } }
 class C { [k] = 1; }
 ```
 
-TS 的 children 顺序：修饰符 → 名字 → 每个 `Parameter` →（可选）返回类型 → `Block` 函数体；
-`class` 关键字、参数表括号、`:`、`=`、`;` 都不进 Data。成员由 `BuildMembers` 从类体 `Bracket.Data` 逐个建：
-PropertyDeclaration / MethodDeclaration / Constructor / GetAccessor / SetAccessor，名字可以是 Identifier 或
-ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` 的名字**不投影**（TS 的 Constructor 只有参数与函数体）。
-
-区间：从第一个修饰符（没有就从 `class`）的起点到 `}`；`Pos` = 前面那个非 trivia 单元 `EndIndex`。
-成员的 `Pos` = 前一个成员（或 `{`）的 `EndIndex`，`end` = 函数体 `}` / 属性末尾的 `;`。
-
-根层的类声明是**提前挂载的壳**：`class` 关键字那一格 `ClassDeclarationPossibleShape` 就把本形状建出来、挂到父单元上
-（`BodyGuideUtil.MountShell`）；本形状随后吃名字 / 类型参数 / heritage / 类体，拿到类体括号后由终结候选
-`ClassDeclarationEndPossibleShape` 在类体括号闭合时收口（`BuildFromCode` → `FinishShell`）。
-
-本阶段（T6b）**成员按成员增量构建**：类体括号上挂成员候选目录
-（`ClassDeclarationShape.CreateBodyPossibleShapes`：属性 / 方法 / 构造 / get / set / static 块 / `;` / 索引签名 / 兜底），
-已经认出的成员在 body 里就地建形状；尚未认出的成员（恢复形 / 判不清的装饰器成员）保持 raw basic token，由兜底候选占着目录，
-收口时由 `BuildMembers` 从 raw 尾巴逐个建——两条路径走同一个建造器，AST 逐节点一致。
-
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
@@ -102,9 +85,6 @@ ComputedPropertyName（`[k]`，内部再装一个表达式）。`constructor` �
 
 ## field BodyBracket:Bracket | null = null
 
-`BodyBracket` 记「已经认定的类体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（类体里的
-嵌套括号父级是类体括号，不会回到本形状）。
-
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -112,20 +92,6 @@ super(template);
 ```
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-监听括号创建：如果新括号**肯定是类体**，就给自己装上终结向导（类体括号关闭时由它收口）。
-
-- 已经认定过类体：忽略；
-- 不是 `{`：不是类体（类型参数 / heritage 里的 `(` / `[`）；
-- 尖括号深度不为 0：是类型实参里的类型字面量（`extends A<{ x: B }>`），不是类体；
-- 前一个代码单元是 `extends` / `implements` / `,`：`{` 处在「类型从这里开始」的位置，是 heritage 里的类型字面量。
-
-判据统一走 `BodyGuideUtil.IsBodyBracket`（与 interface 同一套，`blocked` 单词表是
-`["extends", "implements", ","]`）。
-
-**类体括号同时挂成员候选目录**：`BodyGuideUtil.MountBodyGuide` 用 `ClassDeclarationShape.CreateBodyPossibleShapes()`
-（目录只建一份、所有类体括号共用），已经认出的属性 / 方法在 body 里增量建出；没认出的成员由兜底候选占位，
-收口时交给 `CollectBodyMembers` 的 raw 尾巴。
 
 ```ts
 if (this.BodyBracket !== null) {
@@ -146,14 +112,6 @@ this.CatalogGuide = new CatalogGuide([], new ClassDeclarationEndPossibleShape())
 ## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
 
 ## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
-
-类体括号的成员候选目录。与接口体的区别：class 体的成员语法是**值世界的**（属性初始化器 / 方法体 / 构造 /
-访问器 / static 块），判型走独立的 `ClassMemberPossibleUtil`（`MemberBoundary.FindMemberBoundary` 口径，
-不是对象类型的 `FindTypeMemberBoundary`）。
-
-八类成员各有一个候选：属性、方法、构造、get / set 访问器、static 块、孤立 `;`、索引签名；`ClassMemberCatchAllPossibleShape`
-是兜底候选，保证目录永不因 0 候选抛错。兜底候选只在「已收住且 `Kinds` 全部落在 `ImplementedKinds()`」时让开，
-其余形态（装饰器成员 / 恢复形 / 判不清的条目）全部留在 raw 里由收口兜底——AST 与一次性构建逐节点一致。
 
 ```ts
 const cached = BodyGuideUtil.CreateShapesCache(
@@ -188,17 +146,6 @@ return ClassDeclarationShape.BuildFromUnits(host, start, tokenIndex, context, tr
 ```
 
 ## static method HasNoName:(units:Array<Token>, start:int, end:int)=>bool
-
-`start` / `end` 是这条类声明的首格与类体 `{...}` 括号在 `units` 里的下标：`class` 关键字后面
-（跳过 trivia）直接是类体括号 / `extends` / `implements` / **类型参数 `<…>`** ⇒ 没有名字。TS 对语句位 /
-块体位的匿名 `class {}` 是**静默恢复**（`parseDiagnostics=0`，造无名字 ClassDeclaration），
-语句建造器与 `ModuleBlockShape` 用本判据打开 `FromUnitsAllowAnonymous`。
-
-**Stage 5d-3 补 `<`**：`class<T> {}` / `class<T> extends B {}` 是 TS 的**无名字类**恢复形（名字位置直接是
-类型参数表，`parseDiagnostics=0`，AST 是 `ClassDeclaration` + `TypeParameter`）。根层声明壳收口后走
-`BuildClassDeclaration`，原先这里判「有名字」→ `FromUnits` 抛「名字不是标识符」→ 这两行只能靠文件级
-fallback（`dts-recovery.ts` L21/L22 的 `fileFallbacks` 0→1）。判据只多认第一格是 `<`：它不可能是名字，
-也不可能是 heritage，只可能是类型参数表的开头。
 
 ```ts
 let keyword = -1;
@@ -258,15 +205,6 @@ return ClassDeclarationShape.BuildFromCode(host, code, pos, context, allowAnonym
 ```
 
 ## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext, allowAnonymous:bool)=>ClassDeclarationShape
-
-从「已经按 AST 顺序排好的非 trivia 代码单元」建类声明。两个入口共用：`FromUnits` / `FromUnitsAllowAnonymous`
-（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`ClassDeclarationEndPossibleShape`）。
-
-`pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
-
-`allowAnonymous` 决定名字缺失时是静默建出匿名 `ClassDeclaration`（壳收口路径、`export default class {}`）还是抛错
-（一次性路径要求名字）；除此之外与 `FromUnits` 的解析逐字一致——壳 `Data` 里没有 trivia、host `Data` 里有，所以
-下标只按这份 `code` 数组走。
 
 ```ts
 const decorators:Array<Token> = [];
@@ -471,23 +409,6 @@ return shape;
 
 ## static method BuildMemberFromCode:(host:Token, code:Array<Token>, start:int, end:int, pos:int, context:SyntaxContext)=>Token | null
 
-从「一个成员自己的代码单元区间」建出**一个**成员，供 body 的成员候选复用。
-
-`start..end` 是候选判定出的成员区间（`CodeAt` 口径，含成员自己的 `;`），`pos` 是该成员的 `Pos`
-（`ClassMemberPossibleUtil.BasePos`：区间前一个非 trivia 单元的 `EndIndex`）。
-
-实现刻意**不复制** `BuildMembers` 的解析：把区间切出来包成一个临时括号视图、交给同一个 `BuildMembers`，
-这样增量路径与收口 raw 兜底走的是**同一份**建造器，区间 / `Pos` / `End` / children 顺序不可能分叉。
-
-- 临时视图的 `SourceRange.Start` 对齐到 `pos - 1`（`BuildMembers` 用它当首个 `previousEnd`，首成员因此得到
-  「`{` 之后」而不是 `0`），与整段构建时 `bracket.SourceRange.StartIndex` 的用途逐字一致；
-- 不是**恰好一个**成员、或成员的 `Pos` / 结束下标与区间不一致、或解析抛错 ⇒ 返回 `null`：调用方**不建、不 splice**，
-  raw 原样留给收口兜底（`docs/body-guide-contract.md` §2.3 的「整段没读完 ⇒ 不建」）；
-- 抛错一律按「这一段不止一条成员 / 判型与建造器不一致」处理：宁可回落 raw（结果正确、只是慢一点），
-  不可把半条成员硬建进 AST。
-
-视图不参与字符流、不签出、不关闭，只当一次调用参数（与 `BodyGuideUtil.CollectBodyMembers` 的 raw 尾巴视图同款）。
-
 ```ts
 if (start < 0 || end < start || end >= code.length) {
   return null;
@@ -560,9 +481,6 @@ return shape;
 
 ## static method CanFollowModifier:(unit:Token)=>bool
 
-TS 的 `canFollowModifier()`：修饰词后面这一格能否接成员名（`[` / `{` / `*` / `...` / 字面量属性名）。
-`static` 的判据用它（不看换行），`get` / `set` 与其余修饰词还要再过各自的「名字」那一关。
-
 ```ts
 if (unit instanceof Bracket) {
   const bracketChar = (unit as Bracket).StartBracketChar;
@@ -579,8 +497,6 @@ return unit instanceof String;
 ```
 
 ## static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
-
-参数表按逗号切组；带 `:` / `?:` 的组交给 `TypeBuilder.ParseParameter()`，不带类型的组只建 `Identifier`。
 
 ```ts
 const parameters:Array<Token> = [];
@@ -825,8 +741,6 @@ return parameters;
 
 ## static method TakeParameterInitializer:(host:Token, inner:TypeBuilder, parameter:ParameterShape, context:SyntaxContext)=>void
 
-形参默认值 `= Expr`：`ParseParameter` 之后若紧跟 `=`，把默认值段交给表达式构建器并延长参数区间。
-
 ```ts
 if (inner.At >= inner.Units.length || !inner.IsText(inner.Units[inner.At], "=")) {
   return;
@@ -866,11 +780,6 @@ inner.At = initEnd;
 ```
 
 ## static method BuildMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
-
-类体逐个成员：先吃修饰符（readonly/static/private/public/protected/abstract/declare/override/async 进 Data，
-`get`/`set` 只作访问器标志不进 Data），再名字（Identifier 或 `[expr]` ComputedPropertyName），
-然后按后面的单元分派：`(` → 方法 / 构造 / 访问器（可带 `: 返回类型` 与 `{…}` 函数体）；
-`:` / `=` / `;` → 属性。
 
 ```ts
 const code:Array<Token> = [];

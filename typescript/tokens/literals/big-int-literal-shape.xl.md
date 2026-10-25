@@ -18,8 +18,6 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 
 ## field Text:string = ""
 
-BigInt 字面量的值文本，口径同 ts 的 `BigIntLiteral.text`：十进制去掉 `_` 后保留数字；十六进制记成 `0x` + 小写数字；二进制 / 八进制换算成十进制。末尾的 `n` 保留。
-
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -46,8 +44,6 @@ return shape;
 
 ## static method ToText:(body:string)=>string
 
-把去掉 BigInt 后缀的正文按 ts 的 `BigIntLiteral.text` 规范化。
-
 ```ts
 let raw = "";
 for (const item of body) {
@@ -68,8 +64,6 @@ return raw + "n";
 ```
 
 ## static method ConvertToDecimal:(digits:string, radix:int)=>string
-
-把二进制 / 八进制数字串换成十进制字符串。用十进制数字数组逐位乘加，不经过浮点，`> 2^53` 的 BigInt 也不会丢精度。
 
 ```ts
 const decimal:number[] = [0];

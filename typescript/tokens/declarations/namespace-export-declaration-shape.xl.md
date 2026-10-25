@@ -17,10 +17,6 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 export as namespace NS;
 ```
 
-measurement 载体：`export as namespace <名字>;`。TS 的 children 只有名字一个
-（`export as namespace N;` → `NamespaceExportDeclaration → [Identifier N]`），关键字、`;` 都不是节点。
-区间从 `export` 起点到 `;`；名字 `Pos` = `namespace` 的 `EndIndex`；整体 `Pos` = 前一个非 trivia 单元 `EndIndex`。
-
 ## field ExportName:Token | null = null
 
 ## constructor:(template:Template)=>void
@@ -30,8 +26,6 @@ super(template);
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>NamespaceExportDeclarationShape
-
-`tokenIndex` 必须落在 `;` 上。
 
 ```ts
 const code:Array<Token> = [];

@@ -22,19 +22,6 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 # class RootExpressionStatementPossibleShape extends PossibleShape
 
-**普通表达式语句的根起点候选**（Stage 1 T1d，设计 §3.3）：只接 `StatementRoute.ShellPlainExpression` 起点
-（标识符 / 字面量 / `(` / `[` / 一元前缀符号），在首代码单元到齐时就建 `StatementShape` 壳、把已经攒下的 raw
-单元搬进壳、`host.MountedUnit = 壳`；语句怎么结束、怎么建树全部下放给壳自己的终结候选
-（`StatementEndPossibleShape` → `StatementShape.BuildFromShell` + `FinishShell`）。
-
-**互斥**（不靠先后）：legacy `ExpressionStatementPossibleShape.ComputeByIndex` 顶部对同一判据（`Decide ===
-ShellPlainExpression`）主动 `Reject`，本候选只对 `ShellPlainExpression` `Accept`，两边永不同格成立。
-
-**不做的事**：不换 legacy 表达式语句的状态机、不碰块内路径（块内走 `ExpressionEnd` / `IsAsiBoundary`）；
-增量表达式（操作符候选）是 Stage 3，本候选只做「原子建壳 + 交给 builder」的整段建树。
-
-只覆盖根层：本候选只注册进 `SourceFileShape` 的根目录。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -101,8 +88,6 @@ return ShapeStates.Accept;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-首代码单元到齐即可建壳；建壳之后由 `StatementEndPossibleShape` 收口。
-
 ```ts
 const start = ItemUtil.ItemStartCached(units, cache);
 const headAt = ItemUtil.NextCode(units, start);
@@ -116,10 +101,6 @@ return StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellPlai
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-与 `VariableStatementPossibleShape.BuildByIndex` **逐字同构**：搬 raw 单元、`Pos` 取「前一个非 trivia 单元
-`EndIndex`」、原位插回壳、`Parent` / `MountedUnit` 显式设置、壳的终结候选是 `StatementEndPossibleShape`。
-唯一不同：`Kind = StatementRoute.ShellPlainExpression`（表达式语句族，供壳内目录与 Stage 3 分流读取）。
 
 ```ts
 const start = ItemUtil.ItemStart(host.Data);

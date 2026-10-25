@@ -30,19 +30,6 @@ declare global {}
 export namespace N {}
 ```
 
-模块声明（`namespace` / `module` / `declare module "m"`）。
-
-**它的 `Data` 就是 AST children，不另立 `Name` / `Modifiers` 字段**：`ast-json` 的投影字段里没有模块名的 `name`
-（TS 侧对 `ModuleDeclaration` 不比 `name`），多一个 `Name` 字段会凭空多出「字段差」。所以：
-
-- `[ExportKeywordShape | DeclareKeywordShape]…` —— 修饰词，`Data` 最前；
-- 名字：`IdentifierShape`（`namespace N` / `module N`）或 `StringLiteralShape`（`module "m"`）；
-- 体：`ModuleBlockShape`；限定名 `namespace A.B {}` 时 TS 的结构是**嵌套 `ModuleDeclaration`**
-  （`A` 的 children 是 `Identifier A` + `ModuleDeclaration B`，中间**没有** `ModuleBlock`），
-  所以 `Data` 的第二个节点是嵌套声明，只有最内层挂 `ModuleBlock`。
-
-`Body` 是给后续（augmentation / `global`）留的字段：它不在 `ast-json` 的投影字段表里，不参与对拍。
-
 ## field Body:Token | null = null
 
 ## constructor:(template:Template)=>void
@@ -52,11 +39,6 @@ super(template);
 ```
 
 ## static method FromUnits:(code:Array<Token>, positions:Array<int>, context:SyntaxContext)=>ModuleDeclarationShape
-
-把一条到齐的模块声明（非 trivia 单元 + 每个单元的 `Pos`）建成形状树。
-
-`code` 的第一格是第一个修饰词或模块关键字（`namespace` / `module`），最后一格是闭合的 `{ … }` 括号单元。
-`positions[i]` 是 `code[i]` 的 `Pos`（含前导 trivia 的半开区间起点，与 TS 同口径），由候选算好传进来。
 
 ```ts
 let decoratorBase = positions.length > 0 ? positions[0] : 0;
@@ -208,13 +190,6 @@ return ModuleDeclarationShape.BuildLevel(code, positions, nameIndices, nameShape
 ```
 
 ## static method BuildLevel:(code:Array<Token>, positions:Array<int>, nameIndices:Array<int>, nameShapes:Array<ShapeToken>, level:int, body:ModuleBlockShape, modifiers:Array<ShapeToken>, context:SyntaxContext)=>ModuleDeclarationShape
-
-建一层（`level` 是第几段名字）：从最外层递归到最内层，内层当外层的第二（或第三）个 children 返回。
-
-- `level == 0`：先按顺序 `Add` 修饰词，`Pos` 取第一格（修饰词 / 关键字）的 `Pos`，签入也从第一格起；
-- 其余层：`Pos` 取本段名字的 `Pos`，签入从名字起；
-- 每层都 `SignOut` 到模块体结尾（所以 `end` 都是整条声明右边界，与 TS 一致）；
-- 最内层 `Add` 的是 `ModuleBlockShape`，`Body` 记体；中间层 `Add` 的是下一层 `ModuleDeclarationShape`（TS 的限定名结构）。
 
 ```ts
 const declaration = new ModuleDeclarationShape(code[0].Template);

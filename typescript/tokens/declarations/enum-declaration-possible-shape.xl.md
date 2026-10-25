@@ -22,12 +22,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # class EnumDeclarationScan
 
-判定状态。`Stage`：0 = 等 `declare` / `const` / `enum` / 装饰器，1 = `declare` 之后等 `enum` / `const`，
-5 = `const` 之后等 `enum`，6 = 装饰器前缀里等本族关键字，4 = 已经认下 `enum` 关键字（Done）。
-
-`Done` / `DoneAt` 记「认下 `enum` 关键字」那一格：从这里起本候选就能建壳，名字 / 枚举体由壳自己吃
-（不再扫描枚举体）。
-
 ## field Start:int = -1
 
 ## field Checked:int = 0
@@ -53,18 +47,7 @@ const enum E { A = 1 }
 @dec enum E { A }
 ```
 
-**提前挂载的壳**：`enum` 关键字（含 `declare` / `const` / 装饰器前缀）关闭时就 `Accept`，`BuildByIndex` 把
-`state.Start..tokenIndex` 搬进 `EnumDeclarationShape` 壳并挂到宿主上。名字、枚举体括号、成员都由壳自己吃；
-枚举体括号创建时壳的 `OnBracketCreatedEvent` 认领它、给枚举体挂成员候选目录，闭合时由
-`EnumDeclarationEndPossibleShape` 收口。
-
-提前 `Accept` 之前，`declare` / `const` 前缀的 ASI 守卫必须照旧判完（`declare` ⏎ `enum` 是两条语句）。
-
 ## private static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
-
-`at` 这个代码单元与它前面第一个代码单元之间有没有换行（中间的 trivia 逐格看，块注释里的换行也算）。
-`declare` 与 `enum` 之间换行时 TS 的 ASI 把 `declare` 收成独立的 ExpressionStatement、枚举声明
-不带 DeclareKeyword，本候选必须退出（与 `class-declaration-possible-shape.xl.md` 的同款守卫一致）。
 
 ```ts
 for (let index = at - 1; index >= 0; index--) {
@@ -247,18 +230,12 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-只要已经认下 `enum` 关键字就能建壳：建壳时机由 `CatalogGuide` 的唯一候选决定（装饰器前缀下要等其它候选都退出，
-可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
-
 ```ts
 const state = cache.GetState<EnumDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-把 `enum` 关键字的这一格变成**挂载的壳**：`BodyGuideUtil.MountShell` 把 `state.Start..tokenIndex` 的单元原样搬进
-`EnumDeclarationShape` 的 `Data`、按 `BasePos` 定壳的 `Pos`、顶替进宿主，并让宿主把后续字符交给壳（`MountedUnit`）。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<EnumDeclarationScan>(this.Slot());

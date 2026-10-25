@@ -18,8 +18,6 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 
 ## field Text:string = ""
 
-数字字面量的值文本，口径同 ts 的 `NumericLiteral.text`：先去掉语言配置的后缀与 `_` 分隔符，再按数值规范化（`0x1f` 记成 `31`、`.5` 记成 `0.5`、`1e3` 记成 `1000`），不保留源码写法。
-
 ## constructor:(template:Template)=>void
 
 ```ts

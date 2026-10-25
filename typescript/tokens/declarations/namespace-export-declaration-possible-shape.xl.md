@@ -17,10 +17,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # namespace cangjie
 
-`export as namespace N;` 的候选：`export` `as` `namespace` `<名字>` `;` 五格。
-`ExportDeclarationPossibleShape` 在第二格见到 `as` 就 `Reject`，`ExportAssignmentPossibleShape` 在第二格要求 `=` 也会 `Reject`。
-时序与 `TypeAliasDeclarationPossibleShape` 相同：`;` 那一格 `Done`，`IsBuildable` 只在那一格为真。
-
 # class NamespaceExportDeclarationScan
 
 ## field Start:int = -1
@@ -40,8 +36,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 ```txt
 export as namespace NS;
 ```
-
-`Stage`：0 等 `export`，1 等 `as`，2 等 `namespace`，3 等名字，4 等 `;`。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 

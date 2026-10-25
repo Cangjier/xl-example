@@ -21,18 +21,7 @@ class C { constructor(private a: A) {} }
 class C { static constructor() {} }
 ```
 
-类体里的构造函数成员候选。`constructor` 只有在**名字位置**且后面跟参数表 `(`（或泛型 `<` 再 `(`）时才归构造：
-`constructor = 1` / `constructor: A` 里的 `constructor` 是属性名，由 `ClassMemberPossibleUtil.ClassifyHead` 判成
-`PropertyKind` / `MethodKind`，本候选 `Reject`。
-
-判定与建形状分离：`ComputeByIndex` 只读 `ClassMemberPossibleUtil.Scan` 的结论；`BuildByIndex` 调用
-`ClassDeclarationShape.BuildMemberFromCode`——与壳收口时的 raw 兜底走**同一个** `BuildMembers`，所以区间 /
-`Pos` / `End` / children 顺序与一次性构建逐字一致。构造的 `instanceof` 断言同时是判型的最后一道保险：
-判成构造而建造器给出别的形状，说明判型与 `BuildMembers` 分叉，直接抛错。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
-
-只读共享扫描结论：可能种类里没有构造就 `Reject`；收住了就 `Accept`；其余 `Uncertain`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -50,8 +39,6 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-收住了才建：`;` / 下一成员起点 / 容器收口，三选一的证据在 `Analyze` 里已经算好。
-
 ```ts
 const state = cache.GetState<ClassMemberPossibleScan>(ClassMemberPossibleUtil.CacheKey);
 if (state === null) {
@@ -62,11 +49,6 @@ return state.Complete && state.End >= 0
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-消费 `state.Start .. CodeAt[state.End]` 这一段（含成员自己的 `;`），交给 `ClassDeclarationShape.BuildMemberFromCode`
-建一次形状，然后 `host.Data.splice(start, consumed, shape)` 原地顶替。
-
-整段没读完 / 产出不是 `ConstructorShape` 时**不建、不顶替**：raw 代码原样留给收口时的 `BuildMembers`。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<ClassMemberPossibleScan>(ClassMemberPossibleUtil.CacheKey);

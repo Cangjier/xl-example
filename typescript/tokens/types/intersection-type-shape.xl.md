@@ -14,8 +14,6 @@ type T = A & B;
 type T = A & B & C;
 ```
 
-children = 逐个成员（与 `UnionType` 同为平铺）；`&` 不进 AST。
-
 ## field Types:Array<Token> = []
 
 ## constructor:(template:Template)=>void

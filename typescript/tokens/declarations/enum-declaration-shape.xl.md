@@ -42,30 +42,11 @@ const enum E { A = 1 }
 declare const enum E { A = 1 }
 ```
 
-`enum E { A }` 的 TS children 是 [Identifier E, EnumMember A]；EnumMember 自己是 [Identifier A]，
-带初始化器时是 [Identifier A, 字面量/表达式]；成员名还可以是 StringLiteral（`"a"`）或 NumericLiteral（`1`）。
-修饰词按书写顺序进 Data（`declare` / `const` 都支持，`declare const enum` 两个都在）；
-`enum` / 花括号 / 逗号 / 等号都不进 Data。
-
-枚举成员由 `EnumMemberShape`（members 家族，构造函数已就绪）就地建：
-名字的 `Pos` = 枚举成员 `Pos` = 前一个单元（`{` 或 `,`）`EndIndex`，与 TS 的 `EnumMember.pos` 同口径；
-初始化器用 `ExpressionBuilder.ParseAssign()` 解析，区间到初始化器终点为止（`enum E { A }` 的成员区间不含 `}` 前的空间）。
-
-区间：从修饰符（没有就从 `enum`）的起点到 `}`；`Pos` 口径同 ClassDeclarationShape。
-
-**提前挂载的壳**：`EnumDeclarationPossibleShape` 在认下 `enum` 关键字时就建出本形状并挂到父单元上；本形状随后吃
-名字与枚举体括号。枚举体括号创建时 `OnBracketCreatedEvent` 认领它、给枚举体挂上成员候选目录
-（`EnumMemberPossibleShape`），闭合时由终结候选 `EnumDeclarationEndPossibleShape` 收口。导出 / 模块体 / 语句位置
-等一次性构建路径仍走 `FromUnits`。
-
 ## field EnumName:Token | null = null
 
 ## field Members:Array<Token> = []
 
 ## field BodyBracket:Bracket | null = null
-
-`BodyBracket` 记「已经认定的枚举体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**
-（枚举体里的嵌套括号父级是枚举体，不会回到本形状）。
 
 ## constructor:(template:Template)=>void
 
@@ -74,14 +55,6 @@ super(template);
 ```
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-监听括号创建：新括号**肯定是枚举体**时，给枚举体挂上成员候选目录，并给自己装上终结向导
-（枚举体括号关闭时由它收口）。
-
-- 不是 `{`：不是枚举体；
-- 已经认定过枚举体：忽略；
-- 尖括号深度不为 0 / 前一个代码单元在「后面还能接类型」的位置：不是枚举体（枚举头没有类型参数与 heritage，
-  这里仍走共享判据，`blocked` 给空表）。
 
 ```ts
 if (this.BodyBracket !== null) {
@@ -103,9 +76,6 @@ this.CatalogGuide = new CatalogGuide([], new EnumDeclarationEndPossibleShape());
 
 ## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
 
-枚举体括号的候选目录：枚举成员只有一个候选 `EnumMemberPossibleShape`。目录只建一份，所有枚举体括号共用；
-判定状态在各自的 `CatalogGuide` 缓存里。
-
 ```ts
 EnumDeclarationShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
   EnumDeclarationShape.CreateBodyPossibleShapesCache,
@@ -114,8 +84,6 @@ return EnumDeclarationShape.CreateBodyPossibleShapesCache;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>EnumDeclarationShape
-
-收集 `start..tokenIndex` 的非 trivia 代码单元、算 `Pos`，然后转调 `BuildFromCode`（与壳收口共用同一条建造路径）。
 
 ```ts
 const code:Array<Token> = [];
@@ -138,14 +106,6 @@ return EnumDeclarationShape.BuildFromCode(host, code, pos, context);
 ```
 
 ## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext)=>EnumDeclarationShape
-
-从「已经按 AST 顺序排好的非 trivia 代码单元」建枚举声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等
-一次性建形状）与本形状壳的收口（`EnumDeclarationEndPossibleShape` 把壳换成完整形状）。
-
-`pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
-
-成员由 `CollectBodyMembers` 取：枚举体里已经由成员候选增量建出的形状按序收集，仍留 raw basic token 的路径
-（一次性构建、最后一个没来得及建出的成员、恢复形）回退 `BuildMembers`。
 
 ```ts
 const decoratorBase = pos;
@@ -258,17 +218,11 @@ return shape;
 
 ## static method CollectBodyMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
-收口时取枚举体成员：已经由成员候选增量建出的形状按序收集（跳过 trivia 与残留的 `;` / `,`），
-后面剩下的 raw 代码包成临时括号视图交给同一个 `BuildMembers` 逐成员建。
-
 ```ts
 return BodyGuideUtil.CollectBodyMembers(host, bracket, context, EnumDeclarationShape.BuildMembers);
 ```
 
 ## static method BuildMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
-
-按顶层逗号切枚举成员（括号是整块 `Bracket`，所以成员初始化器里的逗号不在本层），逐个建 `EnumMemberShape`。
-尾随逗号（`enum E { A, }`）产生的空组跳过，与 TS 一致。
 
 ```ts
 const members:Array<Token> = [];
@@ -297,9 +251,6 @@ return members;
 ```
 
 ## static method BuildMember:(host:Token, group:Array<Token>, pos:int, context:SyntaxContext)=>Token | null
-
-`EnumMemberPossibleShape.BuildByIndex` 复用的**同一建造器**（不要另写一份，否则增量路径与 raw 路径的
-AST 会不一致）。`group` 是成员自己的非 trivia 代码单元，`pos` 是成员 `Pos`。
 
 ```ts
 if (group.length === 0) {

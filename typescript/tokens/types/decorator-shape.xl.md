@@ -17,9 +17,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 class C { @dec m() {} }
 ```
 
-A decorator: TS Decorator children contain only the decorator expression (Identifier / CallExpression /
-PropertyAccessExpression); the `@` token is not a child. pos starts at `@` (including leading trivia), end is expression end.
-
 ## field Expression:Token | null = null
 
 ## constructor:(template:Template)=>void

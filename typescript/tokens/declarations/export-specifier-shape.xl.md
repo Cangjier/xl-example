@@ -20,10 +20,6 @@ export { "a-b" as c } from "m";
 export { a as "b-c" } from "m";
 ```
 
-TS 4.5 起导出名可以是字符串字面量：`export { "a-b" as c }` 的 children 是 `[StringLiteral "a-b", Identifier c]`，
-`export { a as "b-c" }` 是 `[Identifier a, StringLiteral "b-c"]`。所以两个位置都接受 `Common`（Identifier 叶子）
-或 `String`（StringLiteral 叶子）。
-
 ## field PropertyName:Token | null = null
 
 ## field Name:Token | null = null

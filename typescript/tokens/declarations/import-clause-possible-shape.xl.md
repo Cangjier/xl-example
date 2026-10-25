@@ -288,9 +288,6 @@ return clause;
 
 ## static method IsDeferPhaseModifier:(unit:Token)=>bool
 
-Raw lookahead after `defer`: `import defer from "m"` is a default import named `defer`, every other
-continuation (`*`, `{`, or a name) makes `defer` a phase modifier (TS 6.0.3: ImportClause.phaseModifier).
-
 ```ts
 const range = unit.SourceRange;
 const document = range.Document;
@@ -342,18 +339,6 @@ while (at < count) {
 return !(word === "from");
 ```
 ## static method IsTypePhaseModifier:(unit:Token)=>bool
-
-`import type …` 里的 `type` 是**类型相位修饰符**还是默认导入名，取决于它后面那一格
-（TS 的 `parseImportDeclarationOrImportEqualsDeclaration` 对 `type` 的 lookahead）：
-
-- 后面是 `{` / `*` → 修饰符（`import type { A }` / `import type * as ns`）；
-- 后面是标识符 → 修饰符（`import type A from "m"`）；
-- 后面是 `from` → **只有** `from` 之后还是 `from` 或 `=` 时才是修饰符
-  （`import type from from "m"` / `import type from = require(…)`）；
-  否则 `type` 就是默认导入名（`import type from "m"` = ImportClause.name "type"）；
-- 其它（`,` / 字符串 / `;` / 到头）→ 默认导入名（`import type, { A } from "m"`）。
-
-与 TS 同口径；`defer` 的同款判据见 `IsDeferPhaseModifier`。
 
 ```ts
 const range = unit.SourceRange;

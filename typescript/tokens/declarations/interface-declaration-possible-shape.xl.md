@@ -22,10 +22,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # class InterfaceDeclarationScan
 
-判定状态。`Stage`：0 = 等修饰词 / `interface`，1 = 已见 `declare`、等 `interface`，6 = 装饰器前缀，7 = 装饰器后已见 `export`。
-
-`Done` 表示**已经确认是接口声明**（看到 `interface` 关键字），接口体与名字交给建出来的壳自己吃——本候选不再等接口体括号闭合。
-
 ## field Start:int = -1
 
 ## field Checked:int = 0
@@ -48,15 +44,7 @@ declare interface I {}
 @dec interface I {}
 ```
 
-根层的接口声明是**提前挂载的壳**：本候选一眼认下 `interface`（连同前面的装饰器 / `declare` 前缀）就 `Accept` 并被 `CatalogGuide` 建出 `InterfaceDeclarationShape` 壳，壳随后吃名字 / 类型参数 / heritage / 接口体，接口体括号闭合时由壳的终结候选收口。
-
-所以本候选**不再扫描到接口体**：`extends` / 类型参数 / 括号里的内容全是壳的事，`interface I` 之后出现什么都不影响本候选的判定。
-
-`declare` 与 `interface` 之间换行时 TS 的 ASI 把 `declare` 收成独立的 ExpressionStatement、接口声明不带 DeclareKeyword，本候选必须退出。
-
 ## private static method HasLineBreakBefore:(units:Array<Token>, at:int)=>bool
-
-`at` 这个代码单元与它前面第一个代码单元之间有没有换行（中间的 trivia 逐格看，块注释里的换行也算）。
 
 ```ts
 for (let index = at - 1; index >= 0; index--) {
@@ -216,18 +204,12 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-只要已经认下 `interface` 就能建壳：建壳时机由 `CatalogGuide` 的唯一候选决定（`@dec interface I` 这类前缀要等其它候选都退出，可能晚一两格），壳从 `state.Start` 起把已经攒下的代码单元全收进去。
-
 ```ts
 const state = cache.GetState<InterfaceDeclarationScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-把 `interface` 关键字的这一格变成**挂载的壳**：把 `state.Start..tokenIndex` 的单元原样搬进壳的 `Data`、签入，然后让壳挂到宿主上接管后续字符。
-
-壳的 `Pos` 在这里算：`state.Start` 前面最近一个非 trivia 单元的 `EndIndex`（没有就是 `0`）——与 `FromUnits` 的口径一致。
 
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<InterfaceDeclarationScan>(this.Slot());

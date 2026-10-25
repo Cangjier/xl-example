@@ -37,19 +37,6 @@ async function f(a: A): B { await a; }
 declare async function f(): void;
 ```
 
-TS 的 children 顺序：修饰符（可选 `DeclareKeyword` / `AsyncKeyword`，按书写顺序）→ 生成器的 `AsteriskToken`（可选，`function*`）→ 名字 →
-每个 `Parameter` →（可选）返回类型 →（可选）`Block` 函数体；
-`function` 关键字、参数表的括号、`:`、无体声明的 `;` 之外的分隔符都不进 Data。
-
-参数表由 `Bracket.Data` 逐组建：带类型标注的组交给 `TypeBuilder.ParseParameter()`（与函数类型同一口径），
-不带类型标注的组只建 `Identifier` 叶子（`function f(a)` 的 TS Parameter 只有 Identifier 一个子节点）。
-函数体交给 `StatementBuilder`：`{…}` 是整块括号单元，`BuildStatement()` 会走到 `BuildBlock()`。
-无函数体的声明（`declare function f(): void;` / 重载签名 `function f(a: A): B;`）最后一块是 `;`：
-Data 里没有 Block，区间到 `;` 为止（AST 的 End 含分号）。
-
-区间：从 `declare` 或 `function` 起点到函数体 `}` / `;`；`Pos` = 前面那个非 trivia 单元 `EndIndex`（没有就是 `0`）。
-名字 `Pos` = `function` 之后；参数 `Pos` = `(` 或 `,` 之后；返回类型 `Pos` = `:` 之后；函数体 `Pos` = `)` 或返回类型之后。
-
 ## field DeclareKeyword:Token | null = null
 
 ## field AsteriskToken:Token | null = null
@@ -69,9 +56,6 @@ super(template);
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool, allowAnonymous?:bool)=>FunctionDeclarationShape
-
-`allowAnonymous`：`export default function () {}` / `export default function* () {}` 的名字可以省略
-（TS 的 children 只有修饰词 / `*` / 参数 / 体）。其余位置仍要求名字。
 
 ```ts
 const code:Array<Token> = [];
@@ -379,8 +363,6 @@ return shape;
 
 ## private static method PreviousEnd:(unit:Token | null)=>int
 
-`)` 或返回类型之后那一格，也就是函数体 `Pos` 的取值。
-
 ```ts
 if (unit === null || unit.SourceRange.End < 0) {
   return 0;
@@ -389,9 +371,6 @@ return unit.SourceRange.EndIndex;
 ```
 
 ## static method TakeParameterInitializer:(host:Token, inner:TypeBuilder, parameter:ParameterShape, context:SyntaxContext)=>void
-
-形参默认值 `= Expr`：TS 的 Parameter children 里它就是 `Initializer`。`ParseParameter` 只读到名字/可选/类型，
-这里把 `=` 之后到组末（顶层 `,` 之前）的一段交给表达式构建器，并把参数的区间延到默认值末单元。
 
 ```ts
 if (inner.At >= inner.Units.length || !inner.IsText(inner.Units[inner.At], "=")) {
@@ -434,8 +413,6 @@ inner.At = initEnd;
 ```
 
 ## static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
-
-参数表按逗号切组；带 `:` / `?:` 的组交给 `TypeBuilder.ParseParameter()`，不带类型的组只建 `Identifier`。
 
 ```ts
 const parameters:Array<Token> = [];

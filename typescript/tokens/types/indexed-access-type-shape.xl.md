@@ -14,9 +14,6 @@ type T = A[B];
 type T = A["k"];
 ```
 
-索引访问类型：children = [对象类型, 索引类型]；方括号不进 AST。
-实测 `A[B]` → `IndexedAccessType[8,13)`，`Pos` 与对象类型同起点、终点是 `]`；左结合可叠加（`A[B][C]`）。
-
 ## field ObjectType:Token | null = null
 
 ## field IndexType:Token | null = null

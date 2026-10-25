@@ -18,10 +18,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # namespace cangjie
 
-`export = <表达式>;` 的候选：`export` `=` 之后至少一个代码单元，顶层 `;` 收尾。
-`ExportDeclarationPossibleShape` 在第二格见到 `=` 就 `Reject`，`ExpressionStatementPossibleShape.CanStart` 又保留 `export`，
-所以这里只要阶段推进正确，`;` 那一格只剩本候选。时序与 `TypeAliasDeclarationPossibleShape` 相同。
-
 # class ExportAssignmentScan
 
 ## field Start:int = -1
@@ -39,9 +35,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 ## field Rejected:bool = false
 
 ## field Asi:bool = false
-
-换行收口：`ComputeByIndex` 在等 `;` 的阶段命中下一条语句起点时置 `true`；
-`BuildByIndex` 据此建到边界之前、splice 不含边界单元（边界单元留在根里给下一条语句）。
 
 # class ExportAssignmentPossibleShape extends PossibleShape
 

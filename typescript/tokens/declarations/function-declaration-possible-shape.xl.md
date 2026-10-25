@@ -28,13 +28,6 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 
 # class FunctionDeclarationScan
 
-判定状态。`Stage`：0 = 等 `declare` / `function`，6 = 见过 `declare` 等 `function`，1 = 等名字，
-2 = 等参数表 `(`，3 = 参数表之后（等 `:` / 函数体 `{` / 无体 `;`），4 = 返回类型里（等函数体 `{` / `;`），
-5 = 已经完整；`DoneAt` 记收尾那一格（函数体 `Bracket` 或 `;`）。
-
-`SplitDeclare`：`declare` 与 `function` 之间换行时 TS 会按 ASI 拆成「ExpressionStatement(declare) + FunctionDeclaration」，
-这时 `FunctionAt` 记 `function` 那一格的绝对下标，`BuildByIndex` 一次建两条。
-
 ## field Start:int = -1
 
 ## field Checked:int = 0
@@ -67,13 +60,6 @@ function f(a: A): B { return a; }
 function f(a: A): B;
 declare function f(): void;
 ```
-
-根候选：条目可以从 `declare` 起（同一行紧跟 `function` 才算修饰符），名字、参数表 `(…)` 之后可以跟 `: 类型`，
-最后一块是函数体 `{…}` 的 `Bracket` 或（无函数体声明）顶层 `;`。函数体内容由 `StatementBuilder` 建。
-无体的 `;` 要求「有 `declare`」或「有返回类型」，所以根级的 `function f();` 会被拒绝。
-`function*` 生成器的 `*` 在 Stage 1 被接受（仍等名字）；`async function` 与 `declare async function` 已支持（`AsyncKeyword` 子节点、按书写顺序），
-`declare` / `async` 与 `function` 之间换行时按 TS 的 ASI 拆成「ExpressionStatement(修饰词) + FunctionDeclaration」；
-泛型函数不在本批范围：`<` 会让扫描在对应 Stage 直接 `Reject`。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -351,37 +337,17 @@ return ShapeStates.Uncertain;
 
 ## static method NoNewlineBefore:(units:Array<Token>, at:int)=>bool
 
-`at` 是 `function` 那一格；看前一个非 trivia 单元（`declare`）与它之间有没有换行。
-TS 用换行触发 ASI，把 `declare` 拆成独立的 ExpressionStatement，所以这里必须区分。
-行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
-
 ```ts
 return !LineTerminator.HasBefore(units, at);
 ```
 
 ## static method LineBreakBefore:(units:Array<Token>, at:int)=>bool
 
-`at` 是 statement word 那一格；看前一个非 trivia 单元与它之间有没有换行（空白块与块注释里的换行都算）。
-ASI 用：`declare function f(): void\nclass C {}` 在 `class` 处结束前一条声明。
-行终止符口径统一交给 `LineTerminator`（LF / CR / U+2028 / U+2029，cover8-A）。
-
 ```ts
 return LineTerminator.HasBefore(units, at);
 ```
 
 ## static method IsDecoratedDeclarationStart:(units:Array<Token>, at:int)=>bool
-
-`at` 这一格是不是「换行之后开始一条**带装饰器**的新声明」：`unit = @` 且与上一个非 trivia 单元之间有换行。
-装饰器在 TS 词法里是 Symbol `@`（不是 `Common`），所以 `IsStatementWord` 那条 ASI 判据看不到它；
-`declare function f(): void` ⏎ `@dec class C {}` 会在 `@` 处被继续当成返回类型内容，最终把下一条声明的
-`{…}` 收成函数体。这里把「换行后的 `@`」与 statement word 同等对待：
-
-- Stage 3（参数表之后、返回类型冒号之前）与 Stage 4（返回类型里）遇到它都 `Reject`，本条无体函数
-  在换行处收口，装饰器声明留给下一条（EOF/ASI 收口侧）。
-- 同一行内的 `@` 不是边界（`function f(): @dec` 这种形态 TS 本身非法），所以只认带换行的。
-
-判据只有一份：`StatementScanner.IsDecoratedDeclarationStart`（与 `source-file-end` 的装饰器声明头
-分派、`statement-builder.ScanDecoratedHead` 同口径，见 cover9 A 组）。
 
 ```ts
 return StatementScanner.IsDecoratedDeclarationStart(units, at);

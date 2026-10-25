@@ -13,12 +13,6 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 type T = { [k: string]: A };
 ```
 
-对象类型里的索引签名。children 顺序与 TS 一致：可选的 `ReadonlyKeyword`、`Parameter`（`k: string`）、
-`TypeReference`（值类型）。`[`…`]`、`:` 不进 AST。
-
-实测 `{ [k: string]: A }` → `IndexSignature[10,25) → [Parameter[12,21), TypeReference[23,25)]`；
-参数从 `[` 之后起算、到 `string` 结束（`]` 不算进参数）。
-
 ## field Parameter:Token | null = null
 
 ## field Type:Token | null = null

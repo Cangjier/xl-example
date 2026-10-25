@@ -30,28 +30,9 @@ import { StatementBuilder } from "./statement-builder.xl.md"
 
 ## field Code:Array<Token> = []
 
-本条目已扫过的**代码单元**（非 trivia），下标与 `CodeAt` 一一对应。只追加：`Checked` 推进时把新单元 push 进来，换条目（`Start` 变化、状态重建）时才随状态一起从空开始。
-
 ## field CodeAt:Array<int> = []
 
-代码单元下标 → 宿主 `Data` 下标的映射（`End` 折算用）。
-
 # class StatementPossibleShape extends PossibleShape
-
-根级语句候选（块 / 空语句 / 变量 / if / while / do / for / for-in / for-of / return / break / continue / throw / debugger）。
-只认本族起点（`{`、`;` 与固定关键字），其它起点一律 `Reject`，把位置留给 import / export / expression 候选。
-
-**Stage 5d-5：默认解析里本候选已退场**。它现在只出现在关闭态（`EnableShellExpressions === false`）的根目录里
-（`SourceFileShape.CreateLegacyPossibleShapesCache`，即文件级 fallback 与 harness 的 legacy 对拍）；默认解析的
-根目录（`SourceFileShape.CreatePossibleShapes`）不再注册它。原因与代价：
-
-- 它剩下的活只有 `StatementRoute.Legacy` 里还没壳化的几种（`await using` / `using` 声明 /
-  `let` `using` 当标签 / `async` 非箭头 …），默认解析里这些形态由 `SourceFileEndPossibleShape` 的收尾路径
-  用**同一个** `StatementBuilder` 建出来（全语料实测：本候选只建 7 条、门控后 AST 0 差、文件级 fallback 0 增）。
-- 代价是它每格都问一次 `StatementScanner.ScanRoot`（全语料 17129 次，占默认解析 `ScanRootCallCount` 的 94.5%）；
-  退场后这个数归零。
-
-本类的 `ComputeByIndex` / `BuildByIndex` **一个字不改**：false 态走的就是这两条，逐位保持 5d-5 之前的行为。
 
 ```txt
 ;
@@ -68,10 +49,6 @@ break lbl;
 throw e;
 debugger;
 ```
-
-建树时机由 `StatementScanner` 回答：`Status == 1`（到齐）且 `End` 已知时建；`End` 可能小于当前下标（`if (a) b;` 后面来了新的代码单元才确定没有 `else`），这时只消费到 `End`，剩下的单元留给下一条语句。
-
-**EOF 哨兵上的让位**：`ItemStart > 0`（前面已经建出过语句）时，最后一段的边界 token 留给根终结候选在 EOF 建——上一条语句在 ASI 边界收口时会把边界 token 原样留下（`type T = A` ⏎ `return` / `debugger` / `{ a: 1 }`），它不再有自己的判定格；本候选若在哨兵上 Accept，两边同时成立，CatalogGuide 抛错（C04–C06）。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 

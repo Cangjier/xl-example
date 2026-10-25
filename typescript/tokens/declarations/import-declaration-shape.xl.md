@@ -63,17 +63,6 @@ this.CatalogGuide = new CatalogGuide(ImportDeclarationShape.CreatePossibleShapes
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
-关闭前补 End：挂载壳的 `Data` 里还留着尾随 trivia（空白 / 换行 / 行注释 / 块注释），
-而 EOF 收尾有两条路径都会把 `End` 撑到 trivia 末尾：
-
-- `ShapeToken.TryToClose` 的兜底取的是**最后一个 `Data` 单元**——那可能是 trivia；
-- `SyntaxContext.Process` 在处理完最后一个真实字符时会对根 `SignOut`，递归 `TrySignOut` 到挂载壳，
-  把壳的 `End` 先写成最后一个字符（空白 / 注释）的下标。
-
-所以这里**只在「壳还挂载着」时重算一次**：从 `Data` 末尾跳过 trivia 与未签出单元，取最后一个代码单元的 End
-（TS 的声明右边界）。`FromUnits` 这类直接建出来、从不挂载的入口保持原有 `SignOut` 结果——
-它们的 `End` 可能合法地落在 `;` 上，而 `;` 不在形状的 `Data` 里。
-
 ```ts
 const mounted = this.Parent !== null && this.Parent.MountedUnit === this;
 if (mounted) {
@@ -107,10 +96,6 @@ return ImportDeclarationShape.CreatePossibleShapesCache;
 ```
 
 ## static method FromUnits:(host:Token, start:int, end:int, context:SyntaxContext)=>ImportDeclarationShape
-
-Build one import declaration from a module-body token slice (host is the enclosing Bracket; start/end index host.Data),
-including an optional `type` / `defer` phase modifier and an optional trailing `with`/`assert` attributes clause.
-Reuses the same children as the root path.
 
 ```ts
 const code:Array<Token> = [];
@@ -308,11 +293,6 @@ return shape;
 ```
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
-关闭前**先自检、再过滤**：挂载壳在 `BuildByIndex` 里把 `import` / `from` 这些 basic token 原样收进了 `Data`，
-所以合法残留要按**白名单**放行（`import` / `from` / `type` / `as` / `;` / `,` / `*`）；白名单外的单元
-说明形状吃进了不认识的东西（`import.meta` 就是这一类），当场报错而不是静默丢弃、产出一个空声明。
-自检通过后再过滤出子形状字段，最后要求 `ModuleSpecifier` 非空。
-
 ```ts
 this.Closed = true;
 for (const item of this.Data) {
@@ -359,9 +339,6 @@ return CloseStates.Nothing;
 ```
 
 ## method IsLegalResidue:(item:Token)=>bool
-
-挂载壳里允许残留的 basic token 白名单：`import` / `from` / `type` / `as` 与 `;` / `,` / `*`。
-其余（括号、字符串、`.` 等）本该被子形状吃掉，留下来就是形状吃错了。
 
 ```ts
 if (item.IsTriviaToken) {

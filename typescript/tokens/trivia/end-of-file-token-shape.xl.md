@@ -17,13 +17,7 @@ const x = 1;
            ^ 文件末尾（下标 = 文本长度 count 的空区间位置）
 ```
 
-文件末尾哨兵：`SourceFileShape.Process` 在 `buffer.IsEof()`（空区间 `[count,count)`）时造一个、签入签出文件末尾位置（`SignIn(count)` / `SignOut(count)`，`[count,count)` 空区间）、加进根单元，然后 `TryToClose`。
-它不占真实字符、不读文档；`SourceFileShape.Close` 会把它从 `Data` 里过滤掉，所以它不进 XML、也不进 AST。
-
 ## field IsBasicToken:bool = true
-
-basic 单元：候选目录按 `ItemUtil.ItemStart` 跳过 basic token，所以 EOF 处普通候选能看见它、并在 `CanStart` 上拒绝；
-终结候选则靠它认「文件到头了」。
 
 ## constructor:(template:Template)=>void
 
@@ -32,11 +26,6 @@ super(template);
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
-
-关闭：标记已关闭，再**只问父单元**要不要重算候选。
-
-根单元的终结候选在这一刻 `Accept`：签出最后一个真实代码单元（如果根还没签出）、关闭根。所以根的关闭由 EOF 的关闭驱动，
-`SyntaxContext.Process` 末尾不再手动 `TryToClose`。
 
 ```ts
 this.Closed = true;

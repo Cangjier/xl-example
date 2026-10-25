@@ -38,13 +38,6 @@ interface I { m(): void; }
 interface I { [k: string]: A; }
 ```
 
-TS 的 children 顺序：名字 → 每个成员。成员就是**对象类型成员**的同一套语法
-（PropertySignature / MethodSignature / IndexSignature / CallSignature / 可选的 readonly 修饰符），
-所以这里直接复用 `TypeBuilder.ParseTypeMember()`：接口体 `Bracket.Data` 与类型字面量 `{…}` 的内容同口径，
-成员区间（含其后的 `;` / `,`）与 `Pos` 都由 TypeBuilder 算好。
-
-区间：从修饰符（没有就从 `interface`）的起点到 `}`；`Pos` 与名字 `Pos` 的口径同 ClassDeclarationShape。
-
 ## field NameToken:Token | null = null
 
 ## field DeclareKeyword:Token | null = null
@@ -55,10 +48,6 @@ TS 的 children 顺序：名字 → 每个成员。成员就是**对象类型成
 
 ## field BodyBracket:Bracket | null = null
 
-根层的接口声明是**提前挂载的壳**：`interface` 关键字关闭时 `InterfaceDeclarationPossibleShape` 就把本形状建出来、挂到父单元上；本形状随后吃名字 / 类型参数 / heritage / 接口体括号。拿到自己的接口体后，`Close` 之外由终结候选 `InterfaceDeclarationEndPossibleShape` 在接口体括号闭合时收口。
-
-`BodyBracket` 记「已经认定的接口体括号」：`null` 表示还没认定。认定之后，**后续括号创建事件一律忽略**（接口体里的嵌套括号父级是接口体，不会回到本形状）。
-
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -66,15 +55,6 @@ super(template);
 ```
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-监听括号创建：如果新括号**肯定是接口体**，就把接口体目录向导装到这个括号上，并给自己装上终结向导（接口体括号关闭时由它收口）。
-
-- 不是 `{`：不是接口体（类型参数 / heritage 里的 `(` / `[`）；
-- 已经认定过接口体：忽略；
-- 尖括号深度不为 0：是类型参数里的类型字面量，不是接口体；
-- 前一个代码单元是 `extends` / `implements` / `,`：`{` 处在「类型从这里开始」的位置，是 heritage 里的类型字面量，不是接口体。
-
-「肯定是 Body」就落在这里：只有上面四条都排除掉，才给括号初始化 `CatalogGuide`。**本形状自己的目录向导也在这一刻才装**——头部阶段不需要判候选，装早了只是一遍空转。
 
 ```ts
 if (this.BodyBracket !== null) {
@@ -96,10 +76,6 @@ this.CatalogGuide = new CatalogGuide([], new InterfaceDeclarationEndPossibleShap
 ```
 
 ## method IsDefinitelyBodyBracket:(bracket:Bracket)=>bool
-
-新括号已经在 `Data` 末尾；只看它前面的头部：尖括号深度回到 0，且最后一个代码单元不在「后面还能接类型字面量」的位置上。
-
-尖括号用 `AngleJudge.ScanDepth` 数：`>>` / `>>>` 是 basic token 的合符号，必须按层拆开；深度夹在 0 以上。
 
 ```ts
 let depth = 0;
@@ -129,10 +105,6 @@ return text !== "extends" && text !== "implements" && text !== ",";
 ## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
 
 ## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
-
-接口体括号的候选目录：接口体成员与类型字面量的对象类型成员同口径（属性 / 方法 / 索引 / 调用 / 构造签名 / get / set 访问器）。目录只建一份，所有接口体括号共用；判定状态在各自的 `CatalogGuide` 缓存里。
-
-七类成员各有一个候选，`BuildFromCode` 收口时把括号 `Data` 里**已经建好的成员形状**按序收进 `Members`；仍留 raw basic token 的路径（导出 / 模块体 / 语句位置的 `FromUnits`、以及最后一个没来得及增量建出的成员）走 `BuildMembers` 兜底。
 
 ```ts
 if (InterfaceDeclarationShape.CreateBodyPossibleShapesCache === null) {
@@ -172,10 +144,6 @@ return InterfaceDeclarationShape.BuildFromCode(host, code, pos, context);
 ```
 
 ## static method BuildFromCode:(host:Token, code:Array<Token>, pos:int, context:SyntaxContext)=>InterfaceDeclarationShape
-
-从「已经按 AST 顺序排好的非 trivia 代码单元」建接口声明。两个入口共用：`FromUnits`（导出 / 模块体 / 语句位置等一次性建形状）与本形状壳的收口（`InterfaceDeclarationEndPossibleShape` 把壳换成完整形状）。
-
-`pos` 是第一个代码单元前一个非 trivia 单元的 `EndIndex`（没有就是 `0`），也是装饰器的区间起点。
 
 ```ts
 const decoratorBase = pos;
@@ -347,8 +315,6 @@ return shape;
 
 ## static method BuildMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
-接口体成员逐个交给 `TypeBuilder.ParseTypeMember()`（`readonly` / 可选 `?` / 方法签名 / 索引签名 / 调用签名都覆盖）。
-
 ```ts
 const members:Array<Token> = [];
 const builder = new TypeBuilder(host.Template, context);
@@ -364,13 +330,6 @@ return members;
 ```
 
 ## static method CollectBodyMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
-
-收口时取接口体成员。两条路径必须产出同一棵 AST：
-
-- 括号 `Data` 里**没有已建好的成员形状**（导出 / 模块体 / 语句位置的一次性构建）：整段还是 raw basic token，原样交给 `BuildMembers`，与重构前逐字一致；
-- 已经由接口体 `CatalogGuide` 增量建出了成员形状：按序收集 `Members`，丢弃 trivia 与残留的 `;` / `,`；如果后面还留着一截没有增量建出的 raw 代码（例如最后一条成员在容器收口时才确定、或七类里还没有候选的类型），只用 `TypeBuilder` 解析这一截 raw 尾巴。
-
-两种情况成员顺序都是源码顺序，成员形状都由同一个 `TypeBuilder.ParseTypeMember()` 建，区间口径不变。
 
 ```ts
 // 单趟：按序收集已建成员，同时记住第一段 raw 代码的位置；成员次序即 XML 次序，不得改动。

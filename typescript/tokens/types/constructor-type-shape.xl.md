@@ -14,12 +14,6 @@ type T = new () => A;
 type T = new (a: A) => B;
 ```
 
-构造类型：`new` 不进 AST，children = 参数（`Parameter`，可能没有） + 返回类型；`=>` 也不进 AST。
-实测 `new () => A` 是 `ConstructorType[8,20) → TypeReference[18,20)`（没有参数孩子），
-`new (a: A) => B` 的 `Parameter` 从 `(` 之后起算。
-
-`abstract new` 暂缓：TS 侧会多一个 `FirstContextualKeyword` 修饰节点，需要单独的 TS kind 别名与形状。
-
 ## field AbstractToken:Token | null = null
 
 ## field Parameters:Array<Token> = []
