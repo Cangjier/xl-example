@@ -498,7 +498,6 @@ if (!this.Closed) {
         if (awaitEnd >= 0 && awaitEnd < codeAt.length) {
           endIndex = codeAt[awaitEnd];
         }
-        }
       } else {
         // 兜底：未知族起点（语料 0 次；留着让「不在上面任何一族」的形态仍走今天的行为，
         // 而不是悄悄换一条收口规则）。出现即说明有族没归位——指标里会直接看到 `ScanRoot > 0`。
