@@ -8,6 +8,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "./expression-statement-possible-shape.xl.md"
+import { StatementTokenSets } from "./statement-token-sets.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
@@ -217,128 +218,14 @@ if ((current instanceof Bracket
     return true;
   }
 }
-// C2（R4-CONTRACT §4.1，审批 A-2）：行首**操作数起点**是 ASI 边界。
-// 判据与 TS 的「表达式吃到接不上为止 + canParseSemicolon」同构：① 与前一代码单元之间有行终止符；
-// ② 前一单元能收住一条表达式（`= ⏎ a` / `( ⏎ a` 这类位置因此不受影响）；③ 当前单元是**操作数起点**；
-// ④ 当前单元不是续接位（`(` `[` 模板 / 二元运算符 / `.` `?.` / `<` / `?` `:` `=>` / `as` `satisfies`
-// `in` `of` `instanceof`）。四条在 `IsLineStartOperandBoundary` 里唯一实现，本分支只做接入。
-// 回归面：只有「换行 + 前项能收住 + 行首是操作数起点」这一种输入会走这一支；`ContinuesAcrossLine`
-// **一个字不改**（它是类型位 / `in`·`of` 子句共用的判据）。
-if (StatementBoundaryUtil.IsLineStartOperandBoundary(units, tokenIndex)) {
-  return true;
-}
+// C2 死分支已在 R5 删除（R5-CONTRACT §1.4 C-1/C-2，R5-A1）：原来的
+// `if (IsLineStartOperandBoundary(units, tokenIndex)) { return true; }` 与下面这一行**恒等**——
+// 它的第 ④ 条判据就是 `!IsContinuation(current)`，所以分支只在 fallback 也为 true 时才返回 true。
+// 同批删掉三个只为它存在的 helper（`IsLineStartOperandBoundary` / `IsOperandStartUnit` /
+// `IsContinuationToken`；最后一个还是 `IsContinuation` 的手工副本），续接闭集回到**单一来源**
+// `StatementTokenSets.IsExpressionContinuation`。R4 审计实验 A（把该分支首行改 `return false`）
+// 在 132 条目标 case 上 FAILED=0，是这次删除的经验证据。
 return !ExpressionStatementPossibleShape.IsContinuation(current);
-```
-
-## static method IsContinuationToken:(unit:Token)=>bool
-
-```ts
-// = 既有 `ExpressionStatementPossibleShape.IsContinuation` 的**同语义副本**。
-// 不能反向 import：boundary 层被候选层 import（`expression-statement-possible-shape` → 本文件），
-// 反向引用会成环。只列「换行后仍然接得上」的那一批，与本文件的其它判据共用同一个闭集口径。
-if (unit instanceof Bracket) {
-  const start = (unit as Bracket).StartBracketChar;
-  return start === "(" || start === "[";
-}
-if (unit instanceof String) {
-  return (unit as String).StringChar === "`";
-}
-if (unit instanceof Symbol) {
-  const text = (unit as Symbol).TempToString();
-  return text === "+" || text === "-" || text === "*" || text === "/" || text === "%"
-    || text === "**" || text === "<" || text === ">" || text === "<=" || text === ">="
-    || text === "==" || text === "!=" || text === "===" || text === "!=="
-    || text === "&" || text === "|" || text === "^" || text === "&&" || text === "||"
-    || text === "??" || text === "<<" || text === ">>" || text === ">>>" || text === "="
-    || text === "+=" || text === "-=" || text === "*=" || text === "/=" || text === "%="
-    || text === "**=" || text === "&=" || text === "|=" || text === "^=" || text === "&&="
-    || text === "||=" || text === "??=" || text === "<<=" || text === ">>=" || text === ">>>="
-    || text === "." || text === "?." || text === "," || text === "?" || text === ":"
-    || text === "=>" || text === "...";
-}
-if (unit instanceof Common) {
-  const text = (unit as Common).TempToString();
-  return text === "in" || text === "instanceof" || text === "as" || text === "satisfies";
-}
-return false;
-```
-
-## static method IsOperandStartUnit:(unit:Token)=>bool
-
-```ts
-// C2 条件③：当前单元能不能**起一个操作数**（= 新语句的第一格）。
-// 只认「只能起操作数、不能续接上一条表达式」的单元：Common（标识符 / 前缀关键字，但要排除续接词、
-// 语句词、声明头词）、数字、字符串、正则、BigInt；符号 / 括号一律不算（`(b)` `[b]` `+ b` 是续接位）。
-if (unit instanceof Common) {
-  const text = (unit as Common).TempToString();
-  if (StatementBoundaryUtil.IsContinuationToken(unit)) {
-    return false;                     // `in` / `instanceof` / `as` / `satisfies`
-  }
-  if (ExpressionStatementPossibleShape.IsStatementWord(text)) {
-    return false;                     // `if` / `for` / `return` / `let` … 起的是语句，不是操作数
-  }
-  if (ExpressionStatementPossibleShape.IsDeclarationHeadWord(text)) {
-    return false;                     // `class` / `function` / `interface` … 同上
-  }
-  // `of` / `keyof` / `unique` / `readonly` / `is` / `asserts` / `infer` 是上下文关键字：
-  // 它们在行首既可能起类型位也可能起标识符，交回原有判据（不在这里擅自断句）。
-  return text !== "of" && text !== "keyof" && text !== "unique" && text !== "readonly"
-    && text !== "is" && text !== "asserts" && text !== "infer";
-}
-if (unit instanceof Symbol) {
-  // `-a` / `+a` / `!a` / `~a` / `++a` 是**前缀**形态，但它们的第一个单元是符号——行首符号一律按
-  // 续接位处理（`a ⏎ + b` 必须仍是一条），所以这里答 false。这条就是 C2 的反过度收缩半边。
-  return false;
-}
-if (unit instanceof Bracket) {
-  return false;
-}
-if (unit.IsTriviaToken || unit instanceof EndOfFileTokenShape) {
-  return false;
-}
-// 数字 / 字符串 / 正则 / BigInt 等字面量单元：只能起操作数。
-return true;
-```
-
-## static method IsLineStartOperandBoundary:(units:Array<Token>, tokenIndex:int)=>bool
-
-```ts
-// C2（R4-CONTRACT §4.1）：①②③④ 四条的唯一实现点，逐条判、任一条不成立就答 false。
-if (tokenIndex <= 0 || tokenIndex >= units.length) {
-  return false;
-}
-const current = units[tokenIndex];
-if (current.IsTriviaToken || current instanceof EndOfFileTokenShape) {
-  return false;
-}
-if (current instanceof Symbol && (current as Symbol).Is(";")) {
-  return false;                       // `;` 是语句自己的终结符（`Done` 那条路），不在这里断
-}
-let prev = tokenIndex - 1;
-while (prev >= 0 && units[prev].IsTriviaToken) {
-  prev--;
-}
-if (prev < 0) {
-  return false;
-}
-// ① 换行：与 `IsAsiBoundary` 读同一份（按源位置找，块体 units 不带 trivia）。
-if (!ExpressionStatementPossibleShape.HasLineBreakBefore(units, tokenIndex)) {
-  return false;
-}
-// ② 前一单元能收住一条表达式（`= ⏎ a` / `( ⏎ a` / `, ⏎ a` 的位置因此不受影响）。
-if (!ExpressionStatementPossibleShape.CanEndExpressionAt(units, prev)
-  && !ExpressionStatementPossibleShape.IsPostfixBangTail(units, prev)) {
-  return false;
-}
-// ③ 当前单元是操作数起点。
-if (!StatementBoundaryUtil.IsOperandStartUnit(current)) {
-  return false;
-}
-// ④ 当前单元不是续接位（③ 已排除符号 / 括号，这一条对 Common 再做一次兜底）。
-if (StatementBoundaryUtil.IsContinuationToken(current)) {
-  return false;
-}
-return true;
 ```
 
 ## static method IsInstantiationTailAsiBoundary:(units:Array<Token>, tokenIndex:int, limit?:int)=>bool
@@ -1191,19 +1078,11 @@ return -1;
 ## static method IsRestrictedPostfixUnit:(unit:Token)=>bool
 
 ```ts
-// D7（R3-CONTRACT §4.5 + R4-CONTRACT §4.2 A-3）：跨行后**不能**继续上一条表达式的受限后缀单元。
-// `++` / `--` 在 TS 里是后缀运算符（`parsePostfixExpressionOrHigher` 用 `hasPrecedingLineBreak()`
-// 拒绝跨行）；`!` / `~` 不是二元运算符而是一元前缀的起点，同样接不上（`a ! b` / `a ~ b` 从来不是
-// 合法表达式）；`typeof` 同族（`a typeof b` 也不是表达式，它只能作**前缀**）。
-// R4 按 A-3 把 `~` 与 `typeof` 补进闭集：`let x = a⏎~b` / `let x = a⏎typeof b` 由扫描器在 `b` 之前收口
-// ⇒ 两条语句（tsc 实测同结论，见 R4-CONTRACT §2.3）。`typeof` 是 `Common`（不是 `Symbol`），
-// 所以类型判别必须同时认两种单元——这不是放宽：`++`/`--`/`!`/`~` 仍是 `Symbol` 文本比较。
-// 不追加 `as` / `satisfies` / `keyof` / `of`：它们是上下文关键字，要连带类型位判据 ⇒ R5（扩展观察项）。
-if (!(unit instanceof Symbol) && !(unit instanceof Common)) {
-  return false;
-}
-const text = (unit as Symbol | Common).TempToString();
-return text === "++" || text === "--" || text === "!" || text === "~" || text === "typeof";
+// D7（R3-CONTRACT §4.5 + R4-CONTRACT §4.2 A-3 + R5-A2）：跨行后**不能**继续上一条表达式的受限后缀单元。
+// 闭集**只有一份**，在 `StatementTokenSets.IsRestrictedPostfixText`（R5-C3 单一来源，R5-CONTRACT §4.8）；
+// 本方法只做 `Token` → 文本的转发，闭集内容（`++` `--` `!` `~` `typeof` + R5 的 `as` `satisfies`）与
+// 类型判别（`Symbol` / `Common` 两种单元）都在那里维护，别在这里再写第二份表。
+return StatementTokenSets.IsRestrictedPostfixUnit(unit);
 ```
 
 ## static method IsYieldFamilyCode:(code:Array<Token>)=>bool

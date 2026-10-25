@@ -20,6 +20,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
+import { StatementTokenSets } from "./statement-token-sets.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaration-shape.xl.md"
 ```
@@ -268,67 +269,10 @@ return false;
 ## static method IsContinuation:(unit:Token)=>bool
 
 ```ts
-if (unit instanceof Bracket) {
-  const start = (unit as Bracket).StartBracketChar;
-  return start === "(" || start === "[";
-}
-if (unit instanceof String) {
-  return (unit as String).StringChar === "`";
-}
-if (unit instanceof Symbol) {
-  const text = (unit as Symbol).TempToString();
-  return text === "+"
-    || text === "-"
-    || text === "*"
-    || text === "/"
-    || text === "%"
-    || text === "**"
-    || text === "<"
-    || text === ">"
-    || text === "<="
-    || text === ">="
-    || text === "=="
-    || text === "!="
-    || text === "==="
-    || text === "!=="
-    || text === "&"
-    || text === "|"
-    || text === "^"
-    || text === "&&"
-    || text === "||"
-    || text === "??"
-    || text === "<<"
-    || text === ">>"
-    || text === ">>>"
-    || text === "="
-    || text === "+="
-    || text === "-="
-    || text === "*="
-    || text === "/="
-    || text === "%="
-    || text === "**="
-    || text === "&="
-    || text === "|="
-    || text === "^="
-    || text === "&&="
-    || text === "||="
-    || text === "??="
-    || text === "<<="
-    || text === ">>="
-    || text === ">>>="
-    || text === "."
-    || text === "?."
-    || text === ","
-    || text === "?"
-    || text === ":"
-    || text === "=>"
-    || text === "...";
-}
-if (unit instanceof Common) {
-  const text = (unit as Common).TempToString();
-  return text === "in" || text === "instanceof" || text === "as" || text === "satisfies";
-}
-return false;
+// 闭集**只有一份**，在 `StatementTokenSets.IsExpressionContinuation`（R5-C3 单一来源，R5-CONTRACT §4.8）；
+// 本方法保留公开签名与语义，只做转发。原来 boundary 层还有一份手工副本（`IsContinuationToken`），
+// 随 R5-C2 清理项一并删除 ⇒ 现在整个仓只有这一个续接闭集。
+return StatementTokenSets.IsExpressionContinuation(unit);
 ```
 
 ## static method IsAsiBoundary:(units:Array<Token>, tokenIndex:int, limit?:int)=>bool

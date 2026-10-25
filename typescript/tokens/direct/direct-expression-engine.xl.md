@@ -48,6 +48,7 @@ import { AsyncKeywordShape } from "../keywords/async-keyword-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { ShapeInsertUtil } from "../shape-insert-util.xl.md"
 import { BlockShape } from "../statements/block-shape.xl.md"
+import { StatementTokenSets } from "../statements/statement-token-sets.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
@@ -441,11 +442,11 @@ DirectBuildMetrics.Trace("engine-decline: " + reason);
 ```ts
 // 与 `OperatorTable.IsPrefixOperator` 同源的受限后缀集合：这些都**不能跨行**当后缀
 // （TS `parsePostfixExpressionOrHigher` 的 `scanner.hasPrecedingLineBreak()` 守卫，见 statement-operator-body:569）。
-// R4（D7 残留，A-3）：与 `statement-boundary-util.IsRestrictedPostfixUnit` 同时补 `~` 与 `typeof`。
-// 边界层把 `let x = a⏎~b` / `a⏎typeof b` 收口成两条语句后，壳里仍会带进下一段的 `~` / `typeof`；
-// 引擎这一侧若不 Hold 就会把它当后缀吃掉（实测 `let x = a⏎~b` → Fail「表达式运算符不在本轮范围: ~」
-// → 变量族 Decline、built 只有 1）。Hold 与 C1 的 `++`/`--`/`!` 完全同义：不是 Fail，是「下一条语句」。
-return text === "++" || text === "--" || text === "!" || text === "~" || text === "typeof";
+// 闭集**只有一份**，在 `StatementTokenSets.IsRestrictedPostfixText`（R5-C3 单一来源，R5-CONTRACT §4.8；
+// 与 `StatementBoundaryUtil.IsRestrictedPostfixUnit` 共用同一张表）。R4 的 `~` / `typeof`、R5-A2 的
+// `as` / `satisfies` 都在那里维护。语义仍是 Hold（不是 Fail）：边界层把语句切开后，壳里可能还带进
+// 下一段的受限后缀（`let x = a⏎~b` / `let x = a⏎as b`），引擎这一侧若不 Hold 就会把它当后缀吃掉。
+return StatementTokenSets.IsRestrictedPostfixText(text);
 ```
 
 ## private method TakeOperand:(operand:Token)=>void
