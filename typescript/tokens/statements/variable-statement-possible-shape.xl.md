@@ -205,7 +205,19 @@ host.MountedUnit = shell;
 // 未注册该 kind 时 Create 返回 null（本轮 plugins 空表），直建不接管，行为与基线逐字节不变。
 shell.DirectSession = DirectBuildRouter.Create(StatementRoute.ShellVariable, shell, context);
 if (shell.DirectSession !== null) {
-  shell.DirectSession.Ingest(shell.Data, context);
+  // R3-S（与 R3-CONTRACT §4.4 的 H1 同一条语义）：`--strict` 时 `Decline` 在 Ingest 期**先计数再抛**。
+  // 这里是 R1 的「建壳即喂」eager 入口，是与 H1 并列的**第二个**喂入点：不接住，异常会经
+  // `Bracket.TryToClose` 包成 SyntaxException 后穿出 `Parse`（R3-S-01 `let {a} = b` 实测，
+  // 抛栈是 BuildByIndex → Ingest → IngestBinding → Decline，**没有** StatementShape.ComputePossibleShapes）。
+  // 语义与 H2/H1 一致：已计数（Declined 为真）的 Decline 不重复计 Errors、不再上抛；
+  // 非 Decline 的真错仍照旧上抛（本入口本轮不改诊断行为），因此 Strict=false 时本段是零影响。
+  try {
+    shell.DirectSession.Ingest(shell.Data, context);
+  } catch (error) {
+    if (!shell.DirectSession.Declined) {
+      throw error;
+    }
+  }
 }
 return shell;
 ```
