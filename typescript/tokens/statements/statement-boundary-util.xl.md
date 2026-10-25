@@ -577,6 +577,276 @@ if (atEof) {
 return -1;
 ```
 
+## static method IsShortFamilyCode:(code:Array<Token>)=>bool
+
+**Stage 5d-2a：短语句族的「是不是本族」判据**（族判定，不判收口位置）。只认六个起点：
+
+| 起点 | 族 | 收口规则 | 判据实现 |
+| --- | --- | --- | --- |
+| `return` / `throw` | 受限产生式 | 关键字后换行 = 没有操作数，语句停在关键字上；否则到本层 `;` / ASI | `ReturnThrowEndCode` |
+| `break` / `continue` | 受限产生式 + 可选标签 | 关键字 / 标签 / `;` 三选一的同一份换行判据 | `BreakContinueEndCode` |
+| `debugger` | 简单语句 | `;` / EOF / 换行 ASI | `SimpleSemicolonEndCode` |
+| `let` / `const` / `var` | 变量声明语句 | 到本层 `;`，换行处按 ASI 收口；文件末尾**不收口**（交 EOF 兜底） | `VariableStatementEndCode` |
+
+`code` 是**只含代码单元（无 trivia）的已扫前缀**，与 `StatementScanner.ScanRoot` 的入参同一基准——
+终结候选的 `StatementScan.Code` 本来就是这么攒的（只追加），所以这里是纯读、无状态、无分配。
+
+**族判定必须与 `ScanRoot` 的分派条件逐条一致**（否则「本族」与「扫描器认的族」会错位，收口位置就会分叉）：
+
+- `return` / `throw` / `break` / `continue` / `debugger`：`ScanRoot` 无条件交给各自的扫描器，这里无条件认；
+- `const` / `var`：`ScanRoot` 只在 `const enum …` 上交回 enum 声明候选（
+  `StatementScanner.NextWord` 同一判据），所以这一格**不算本族**，仍走 `ScanRoot`；
+- `let`：双角色上下文关键字，只有**下一格能起绑定**（`StatementScanner.StartsBinding`，与 `ScanRoot` /
+  `StatementRouteUtil.DecideCommon` 同一个判据）才是声明语句；单 `let` + 文档前瞻是 `:` 时是**标签语句**
+  （`ScanRoot` 交回 `ScanBody`），也不算本族。
+
+**空语句（`;`）不在本方法里**：它由 `StatementEndPossibleShape.EmptyStatementEndCode` 判（gap-SW §1），
+在族分派**之前**对所有族生效，本轮不新增第二份。空语句壳本来就不在 `ScanRoot` 分支上。
+
+```ts
+if (code.length === 0) {
+  return false;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return false;
+}
+const text = (head as Common).TempToString();
+if (text === "return" || text === "throw" || text === "break" || text === "continue"
+  || text === "debugger") {
+  return true;
+}
+if (text === "const" || text === "var") {
+  // `const enum E {…}`（含 `const` ⏎ `enum`）：归 enum 声明候选，`ScanRoot` 在这里也是 `Mismatch`。
+  if (text === "const"
+    && StatementScanner.NextWord(head.SourceRange.Document, head.SourceRange.EndIndex) === "enum") {
+    return false;
+  }
+  return true;
+}
+if (text === "let") {
+  if (code.length >= 2) {
+    // `let` 后面能起绑定才是变量声明；否则它只是标识符（`let = 1` / `let: 1` / `let (a)`）。
+    return StatementScanner.StartsBinding(code, 1);
+  }
+  // 只有一个 `let`：后面（跳过空白与注释）是 `:` 就是标签语句；其余（还在等绑定 / 已到文件末尾）
+  // 都归本族，收口位置由 `VariableStatementEndCode` 答 `-1`（与 `ScanRoot` 的 `NeedMore` / `Mismatch`
+  // 对终结判定是同一结果：都不到齐）。
+  return StatementScanner.NextChar(head.SourceRange.Document, head.SourceRange.EndIndex) !== ":";
+}
+return false;
+```
+
+## static method ShortFamilyEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**Stage 5d-2a：短语句族的收口位置**（唯一入口）。返回**代码下标**（`code` 基准），`-1` = 还不能收口。
+
+只对 `IsShortFamilyCode(code) === true` 的条目有意义（调用方先问族、再问位置）。每个族的判据都是
+`StatementScanner` 里那份扫描规则的**逐字搬迁**（`ScanReturnOrThrow` / `ScanBreakOrContinue` /
+`ScanSimpleSemicolon` / `ScanToSemicolon`），搬到这里是为了：
+
+1. 终界候选不再调 `StatementScanner.ScanRoot`（`ScanRoot` 只认 `{` / `;` / 固定关键字起点，是**根候选**的
+   分派器；短语句族的收口规则本来就不需要经过它）；
+2. 判据读的是 `StatementEndScan.Code` 这份**只追加**的增量前缀，入口是纯函数（`atEof` 显式传入，
+   不读全局 `StatementScanner.AtEOF`）。
+
+**与 `ScanRoot` 的一致性**：两条路径读的底层判据完全同一批——`IsSemicolon` / `IsEof` /
+`EndsAtLineBreak`（`StatementBoundaryUtil.EndsAtLineBreak` 就是 `StatementScanner.EndsAtLineBreak` 的
+唯一实现点）/ `NoLineBreakBetween` / `IsUncontinuableTailBoundary`。`ScanRoot` 本身**一字不改**：
+legacy 根候选（`StatementPossibleShape`）与块内原子建树仍读它，本轮只把「壳的终结候选」这一条调用点
+换到本方法（`HANDOFF-5d2a.md` §2 有逐族前后计数）。
+
+`atEof` 的语义与 `StatementEndCode` 的 `atEof` 完全相同：调用方已算出「当前单元之后文档里没有内容」。
+变量声明族在文件末尾**故意不收口**（`stopAtEof = true`）：`var a` 的收口交给
+`StatementShape.BuildTrailingDeclaration` / `TryToClose` 那条既有兜底，收口位置与基线逐位相同。
+
+```ts
+if (code.length === 0) {
+  return -1;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return -1;
+}
+const text = (head as Common).TempToString();
+if (text === "return" || text === "throw") {
+  return StatementBoundaryUtil.ReturnThrowEndCode(code, atEof);
+}
+if (text === "break" || text === "continue") {
+  return StatementBoundaryUtil.BreakContinueEndCode(code, atEof);
+}
+if (text === "debugger") {
+  return StatementBoundaryUtil.SimpleSemicolonEndCode(code, atEof);
+}
+if (text === "let" || text === "const" || text === "var") {
+  return StatementBoundaryUtil.VariableStatementEndCode(code, atEof);
+}
+return -1;
+```
+
+## static method ReturnThrowEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**`return` / `throw` 的受限产生式**（`return [no LineTerminator here] Expression? ;`）：
+关键字之后**换行** → 没有操作数，语句停在关键字上（`return` ⏎ `x` 是两条语句：`return;` 与 `x;`）。
+
+换行后的 `;` 仍归本条语句：TS 给 `throw` ⏎ `;` 的 AST 是 `ThrowStatement[0,7)` + 零宽 `Identifier`
+（`;` 计入 `End`，不再另起 `EmptyStatement`）——收在这一格上，否则它会被留给下一条空语句，
+根层 statement 候选就会拖到 EOF 哨兵上与根终结候选同时 `Accept`。
+
+**迁移来源**：`StatementScanner.ScanReturnOrThrow(code, 0)`（逐字搬迁；那边的 `keywordAt` 恒为 0）。
+
+```ts
+if (code.length >= 2 && !StatementScanner.NoLineBreakBetween(code[0], code[1])) {
+  if (StatementBoundaryUtil.IsSemicolon(code[1])) {
+    return 1;
+  }
+  return 0;
+}
+return StatementBoundaryUtil.ScanToSemicolonIncremental(code, 1, false, atEof);
+```
+
+## static method BreakContinueEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**`break` / `continue`**：`;` / EOF 之外，**关键字之后换行**也收口（`break` ⏎ `lbl` 是两条语句：
+`break;` 与 `lbl;`），此时换行后的单元属于下一条语句，收口位置是关键字自己。
+
+`break lbl` / `break lbl;` 走下面两条：标签之后有 `;` 收在 `;`，标签之后换行或到头收在标签上。
+关键字之后还没到时**不能**收口（还要看有没有标签）——除非已到文件末尾（`for (;;) break`）。
+
+**迁移来源**：`StatementScanner.ScanBreakOrContinue(code, 1)`（逐字搬迁；`from` 恒为 1）。
+
+```ts
+const from = 1;
+if (from >= code.length) {
+  // 本层已经读完：AtEOF 时按 ASI 收在最后一个代码单元（`for (;;) break` / `label: break label`），
+  // 否则还要等下一格才能判断后面有没有标签 / `;`。
+  if (atEof && code.length > 0) {
+    return code.length - 1;
+  }
+  return -1;
+}
+if (StatementBoundaryUtil.IsSemicolon(code[from])) {
+  return from;
+}
+if (StatementBoundaryUtil.IsEof(from, code)) {
+  return from - 1;
+}
+// 受限产生式：`break` / `continue` 之后换行 = 没有标签，语句在关键字处收口（`break` ⏎ `foo()`）。
+if (from > 0 && StatementBoundaryUtil.EndsAtLineBreak(code, from - 1, from)) {
+  return from - 1;
+}
+if (from + 1 >= code.length) {
+  if (atEof && code.length > 0) {
+    return code.length - 1;
+  }
+  return -1;
+}
+if (StatementBoundaryUtil.IsSemicolon(code[from + 1])) {
+  return from + 1;
+}
+if (StatementBoundaryUtil.IsEof(from + 1, code)) {
+  return from;
+}
+// 标签之后换行 / 到头：`break label` 后面没有 `;` 也收口（`break label` ⏎ 下一条语句）。
+if (StatementBoundaryUtil.EndsAtLineBreak(code, from, from + 1)) {
+  return from;
+}
+return -1;
+```
+
+## static method SimpleSemicolonEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**`debugger` 这类简单语句**：`;` / EOF 之外，**换行处也按 ASI 收口**——`debugger` ⏎ `c;` 是两条语句
+（TS 在 `debugger` 后插 ASI）。没有这一条，`debugger` 候选在 `c` 那一格 `Mismatch`，整段 leftover
+一直拖到 EOF 哨兵，再被 `BuildTrailingDeclaration` 按一条语句建出来，后面的语句整条丢掉。
+
+**迁移来源**：`StatementScanner.ScanSimpleSemicolon(code, 1)`（逐字搬迁；`from` 恒为 1）。
+
+```ts
+const from = 1;
+if (from >= code.length) {
+  if (atEof && code.length > 0) {
+    return code.length - 1;
+  }
+  return -1;
+}
+if (StatementBoundaryUtil.IsSemicolon(code[from])) {
+  return from;
+}
+if (StatementBoundaryUtil.IsEof(from, code)) {
+  return from - 1;
+}
+if (from > 0 && StatementBoundaryUtil.EndsAtLineBreak(code, from - 1, from)) {
+  return from - 1;
+}
+return -1;
+```
+
+## static method VariableStatementEndCode:(code:Array<Token>, atEof:bool)=>int
+
+**变量声明语句（`let` / `const` / `var`）**的收口：到本层 `;` 为止；`;` 之前遇到**换行 ASI** 就在换行前
+那一格收口（`let a = 1` ⏎ `let b = 2` 的第一条收在 `1`，`let a = 1` ⏎ `if (x) y;` 收在 `1`）。
+`stopAtEof = true`：文件末尾**不收口**（`var a` 的收口交给 `BuildTrailingDeclaration` / `TryToClose`）。
+
+**迁移来源**：`StatementScanner.ScanToSemicolon(code, 1, true)`；走的仍是同一份
+`StatementBoundaryUtil.EndsAtLineBreak` 与 `ExpressionStatementPossibleShape.IsUncontinuableTailBoundary`
+（与 `StatementBuilder.BuildVariableStatement` 同一批判据），不新写第二套 ASI。
+
+```ts
+return StatementBoundaryUtil.ScanToSemicolonIncremental(code, 1, true, atEof);
+```
+
+## static method ScanToSemicolonIncremental:(code:Array<Token>, from:int, stopAtEof:bool, atEof:bool)=>int
+
+**到本层 `;` 的收口走法**（`return` / `throw` 的操作数与变量声明共用）。
+
+**迁移来源**：`StatementScanner.ScanToSemicolon(code, from, stopAtEof)`（逐字搬迁），只有两处语义化：
+
+1. 全局 `StatementScanner.AtEOF` 改为显式 `atEof` 入参（调用方在分派前刚算过同一个值，
+   所以读的是同一个事实，不是第二个判据）；
+2. `statement-scanner` 里的 `afterSemi`（`at + 1 < code.length ? code[at + 1] : null`）改成下标判断，
+   行为一致。
+
+判据本身一条不新写：换行 ASI 读 `StatementBoundaryUtil.EndsAtLineBreak`，行首 `;` 读 `IsSemicolon`，
+表达式尾巴的不可续接读 `ExpressionStatementPossibleShape.IsUncontinuableTailBoundary`。
+
+```ts
+for (let at = from; at < code.length; at++) {
+  if (StatementBoundaryUtil.IsEof(at, code)) {
+    if (stopAtEof) {
+      return -1;
+    }
+    if (at > 0) {
+      return at - 1;
+    }
+    return -1;
+  }
+  // 换行 ASI：前一个代码单元能收住一条声明、当前单元接不上，就在这里收口——
+  // 否则会把**下一条语句**的 `;` 也吞进来（`const last = …` ⏎ `f(...)` / 类型注解跨行读到下一个 `;`）。
+  if (at > from && (StatementBoundaryUtil.EndsAtLineBreak(code, at - 1, at)
+    || ExpressionStatementPossibleShape.IsUncontinuableTailBoundary(code, at))) {
+    if (StatementBoundaryUtil.IsSemicolon(code[at])) {
+      // 行首 `;` 后面同一行还有代码（`;(() => 1)()`）：这个 `;` 是下一条空语句，不归本声明。
+      if (at + 1 < code.length && StatementScanner.NoLineBreakBetween(code[at], code[at + 1])) {
+        return at - 1;
+      }
+    } else {
+      return at - 1;
+    }
+  }
+  if (StatementBoundaryUtil.IsSemicolon(code[at])) {
+    return at;
+  }
+}
+if (atEof && code.length > 0) {
+  if (stopAtEof) {
+    return -1;
+  }
+  return code.length - 1;
+}
+return -1;
+```
+
 ## static method IsLateAtEof:(units:Array<Token>, tokenIndex:int)=>bool
 
 **晚建守卫的 EOF 半边**（Stage 4x）：从 `statement-possible-shape` 的 `declaration-statement-possible-shape`
