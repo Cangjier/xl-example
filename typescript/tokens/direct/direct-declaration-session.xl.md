@@ -32,7 +32,8 @@ R5-D2 声明族的直建 session（`ShellDeclarationFamily` kind 7 / `ShellClass
 **R6-D2 的头分派（`R6-CONTRACT §4.2`）**：kind 7 同时承载 `interface`/`type`/`enum`（R5）与
 `import` / `export` / `namespace` / `module` / `declare`（R6）⇒ `RecognizeHead` 多识别两格：
 `HeadModule`（五个头，收口时整段转交 `ModuleFamilyDirectSession.Build`）与 `HeadUsing`
-（`using` 保持 `decl.head`，R6-Q5 留 R7）。**不新增注册行、不改 `direct-build-plugins`**：
+（R6 起单独识别；**R7-D3 起不再 Decline**，转交同一个 `ModuleFamilyDirectSession` 的 `using`
+绑定通道，失败仍落 `decl.head`）。**不新增注册行、不改 `direct-build-plugins`**：
 module 族与 interface/type/enum 共用一个 kind，分派在类内。
 
 **不要为了「没 case」把类型族拒掉**：`interface` 的成员、`type` 别名的 RHS、`enum` 成员名都由
@@ -53,7 +54,7 @@ enum E { A = 1 }                    -> Decline(decl.enum)（成员初始值会�
 class C {}                          -> Decline(decl.class)（kind 9，归 D1 / feat-r6-class）
 @dec class C {}                     -> Decline(decl.class)（kind 10，归 D1 / feat-r6-class）
 import / export / namespace / module / declare … -> ModuleFamilyDirectSession.Build（R6-D2）
-using x = a;                        -> Decline(decl.head)（R6-Q5 留 R7）
+using x = a;                        -> ModuleFamilyDirectSession.Build → 变量族装配（R7-D3，pos）
 const enum E { A, B }               -> 不建壳（sessions=0，走不到这里）
 ```
 
@@ -274,9 +275,10 @@ if (kind === DeclarationFamilyDirectSession.HeadModule) {
   return;
 }
 if (kind === DeclarationFamilyDirectSession.HeadUsing) {
-  // `using x = a;` 是变量声明的 Using 变体（tsc: `VariableStatement[VariableDeclarationList, ;]`），
-  // 要走 `DirectDeclarationAssembly` 的新口子 ⇒ R6-Q5 裁决不做，保持 R5 的读数（`decl.head`）。
-  this.Decline("using 声明属 R7", "decl.head");
+  // R7-D3：`using x = a;` 是变量声明的 Using 变体（tsc: `VariableStatement[VariableDeclarationList, ;]`），
+  // 语句由 `ModuleFamilyDirectSession` 的绑定通道（`DirectExportAssembly.BuildUsing`）直建；
+  // 但**失败仍落 `decl.head`** —— 它不是 module 族，历史读数的 category 不该漂移。
+  DirectBuildMetrics.Trace("using ingest head: " + this.HeadText);
   return;
 }
 this.Decline("声明族不在本轮范围: " + (this.HeadText === "" ? unit.constructor.name : this.HeadText),
@@ -366,6 +368,9 @@ if (this.HeadKind === DeclarationFamilyDirectSession.HeadEnum) {
 if (this.HeadKind === DeclarationFamilyDirectSession.HeadModule) {
   return this.BuildModuleFamily(code, codeAt);
 }
+if (this.HeadKind === DeclarationFamilyDirectSession.HeadUsing) {
+  return this.BuildUsingDeclaration(code, codeAt);
+}
 // 其余头已经在 `ApplyHead` 里 Decline；走到这里是「头识别了但没接住」的状态，显式拒绝。
 this.Decline("声明族不在本轮范围: " + this.HeadText, "decl.head");
 return null;
@@ -386,6 +391,25 @@ if (this.Module === null) {
 const shape = this.Module.Build(code, codeAt);
 if (shape === null) {
   this.Decline("module 族直建失败: " + this.Module.Reason, "decl.module");
+  return null;
+}
+return shape;
+```
+
+## method BuildUsingDeclaration:(code:Array<Token>, codeAt:Array<int>)=>Token | null
+
+```ts
+// R7-D3：`using x = a;` 的第二族转发点。绑定通道在 `ModuleFamilyDirectSession.Build` →
+// `DirectExportAssembly.BuildUsing`（同一份 `using` 判据只有那一处），本方法与
+// `BuildModuleFamily` 的唯一差别是**失败 category**：`decl.head`（`using` 不是 module 族，
+// R6 起它的读数就记在 `decl.head`，R7 不改这个键）。
+if (this.Module === null) {
+  this.Module = new ModuleFamilyDirectSession(this.Template, this.Context, this.BasePos,
+    this.Owner as Token);
+}
+const shape = this.Module.Build(code, codeAt);
+if (shape === null) {
+  this.Decline("using 声明直建失败: " + this.Module.Reason, "decl.head");
   return null;
 }
 return shape;

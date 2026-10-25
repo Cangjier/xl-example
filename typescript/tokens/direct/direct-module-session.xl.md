@@ -3,8 +3,6 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
-import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 import { DirectSession } from "./direct-build-session.xl.md"
 import { DirectExportAssembly } from "./direct-export-assembly.xl.md"
@@ -14,13 +12,15 @@ import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
 # namespace cangjie
 
 R6-D2 的声明族（module 五路）直建 session（`R6-CONTRACT §4.2` / `§4.3`）：
-`import` / `export` / `namespace`·`module` / `declare` 四组，`using` 只做**识别 + 显式 Decline**。
+`import` / `export` / `namespace`·`module` / `declare` 四组；R7-D3 起再加 **`using` 的绑定通道**
+（`using x = a;` 与变量族同形，失败仍落 `decl.head`）。
 
 **注册点不在这里**：`direct-build-plugins` 的 `ShellDeclarationFamily(7)` 仍指向
 `DeclarationFamilyDirectSession`（那是 R5 的入口，`feat-r6-harden` 持有唯一注册权）。
 本类是它的**内部分派目标**：`DeclarationFamilyDirectSession.ApplyHead` 认出
 `import` / `export` / `namespace` / `module` / `declare` 五个头后不再 `Decline(decl.head)`，
 而是把收口整段交给 `Build`；失败由调用方落 `decl.module`（`R6-CONTRACT §4.5` 的新 category）。
+R7-D3 的 `using` 走同一个 `Build`（`HeadUsing` → `BuildUsing`），但失败 category 仍是 `decl.head`。
 
 ```txt
 import x from "m";                        -> ImportDeclarationShape[x, "m", ;]        A6 0 / 0
@@ -29,8 +29,12 @@ import * as ns from "m";                  -> ImportDeclarationShape[NamespaceImp
 import "m";                               -> ImportDeclarationShape["m"]（无 ImportClause）
 import x, { a } from "m";                 -> default 在前、NamedImports 在后
 import type { a } from "m";               -> TypeKeyword 是子节点
+import x = require("m");                  -> ImportEqualsDeclarationShape（R7-D3 路由；见下「R7 接线」）
 export { a };                             -> 交给 DirectExportAssembly（ExportDeclarationShape）
 export const x = 1;                       -> 交给 DirectExportAssembly（变量 + ExportKeyword）
+export declare const x: number;           -> 交给 DirectExportAssembly（declare 分支 → BuildDeclare）
+export as namespace N;                    -> NamespaceExportDeclarationShape（R7-D3 路由）
+export = a;                               -> ExportAssignmentShape（R7-D3 路由，表达式走引擎）
 export default class {}                   -> 交给 DirectExportAssembly（BuildFromCode，无名类）
 export default 1;                         -> 交给 DirectExportAssembly（ExportAssignment）
 namespace N {}                            -> ModuleDeclarationShape[N, ModuleBlock{}]  A6 1 / 0
@@ -41,8 +45,17 @@ declare module "m" { const a = 1; }       -> ModuleDeclarationShape[DeclareKeywo
 declare class C { x: number; }            -> ClassDeclarationShape（BuildFromCode 自带 declare）
 declare function f(): void;               -> FunctionDeclarationShape.FromUnits(…, ambient=true)
 declare const x: number;                  -> VariableStatementShape[DeclareKeyword, list]
-using x = a;                              -> Decline(decl.head)（R6-Q5：留 R7）
+using x = a;                              -> VariableStatementShape[list[decl[x, a]]]   A6 0 / 0
 ```
+
+**R7 接线（`R7-A4`，本分支只加路由、不改形状工厂）**：`import x = require("m")` /
+`import x = N.y` / `export as namespace N;` / `export = a;` 四条路由已接在
+`DirectExportAssembly.Build` / `BuildImport`。**它们今天跑不到**（`sessions=0`）：
+`StatementRouteUtil.DecideDeclaration` 对这三族显式 `return None`（「留给 legacy」三处注释），
+而 `statement-route-util.xl.md` 在 `R7-CONTRACT §3.3` 是只读件 ⇒ 让它们 `built=1` 需要一次
+**路由层例外**（Lead 裁决）。用 `_tmp-r7mod2/reg-route.cjs` 模拟该例外实测：四条全部
+`built=1 / A1=YES / XML=IDENTICAL / A6 0/0`，244 条只翻 `R6-MOD-safe-01`（safe→pos），
+47 语料仍 `XML-DIFF=0`（见 `_coord/REPORT-r7-module2.md`）。
 
 **A6 边界（精确值档，`R6-CONTRACT §2.3`）**：本类**不 new** `ExpressionBuilder`、**不 new**
 `StatementBuilder`。两个数字都是「形状工厂内部行为」的确定值，可以逐条钉住：
@@ -239,6 +252,10 @@ if (head === ModuleFamilyDirectSession.HeadNamespace
 if (head === ModuleFamilyDirectSession.HeadDeclare) {
   return this.BuildDeclare(code, codeAt);
 }
+if (head === ModuleFamilyDirectSession.HeadUsing) {
+  // R7-D3：`using x = a;` 的绑定通道（`R7-CONTRACT §1.3` 第 4 条：不新增文件，复用变量族装配）。
+  return this.BuildUsing(code, codeAt);
+}
 this.Reason = "模块族头不在本轮范围: " + head;
 return null;
 ```
@@ -299,69 +316,33 @@ return shape;
 
 ```ts
 // `declare` 族按 code[1] 分派（`R6-CONTRACT §2.2` 的最后三行）。
-// 注意 `declare` **不是**独立形状：每个形状工厂都自带 `declare` 修饰词循环
-//（class: `class-declaration-shape.xl.md:257`；module: `module-declaration-shape.xl.md:79`；
-//  function: `function-declaration-shape.xl.md:121`），所以三路都是「整段喂进去」；
-// 只有变量声明没有工厂，要自己插 `DeclareKeywordShape`（= `BuildDeclareVariableStatement`）。
-if (code.length < 2) {
-  this.Reason = "declare 之后没有声明头";
+// **判据只在 `DirectExportAssembly.BuildDeclare` 一处**（R7-D3 起）：`export declare <…>` 走
+// `BuildInner` 的同一条路，所以这里只是把「头位 declare」这一格转过去，不再写第二份分派表。
+const shape = DirectExportAssembly.BuildDeclare(this.Owner as Token, code, codeAt, 0,
+  this.BasePos, this.Template, this.Context);
+if (shape === null) {
+  this.Reason = DirectExportAssembly.LastReason;
   return null;
 }
-const head2 = this.TextOf(code[1]);
-const data:Array<Token> = (this.Owner as any).Data;
-const lastCodeIndex = code.length - 1;
-const lastAt = codeAt[lastCodeIndex];
-if (head2 === ModuleFamilyDirectSession.HeadNamespace
-  || head2 === ModuleFamilyDirectSession.HeadModule
-  || head2 === "global") {
-  return this.BuildModule(code, codeAt);
+DirectBuildMetrics.Trace("declare built: units=" + String(code.length));
+return shape;
+```
+
+## method BuildUsing:(code:Array<Token>, codeAt:Array<int>)=>Token | null
+
+```ts
+// R7-D3：`using x = a;`（TS 5.2）—— 语句形状与 `let` 同族（`VariableStatement[list]`），
+// 装配在 `DirectExportAssembly.BuildUsing`（Identifier 子集 + 引擎建初始化器 ⇒ A6 0/0）。
+// 失败返回 null + Reason，由调用方 `Decline(…, "decl.head")`（`using` 不是 module 族，
+// 但本轮它由 module session 的绑定通道承接，见 `R7-CONTRACT §1.3` 第 1 条）。
+const shape = DirectExportAssembly.BuildUsing(this.Owner as Token, code, codeAt,
+  this.BasePos, this.Template, this.Context);
+if (shape === null) {
+  this.Reason = "using 直建失败: " + DirectExportAssembly.LastReason;
+  return null;
 }
-if (head2 === "class" || head2 === "abstract") {
-  // `BuildFromCode` 自带 declare / abstract 修饰词循环，整段喂进去即可（`declare class C { x: number; }`）。
-  let declared:Token | null = null;
-  try {
-    declared = ClassDeclarationShape.BuildFromCode(this.Owner as Token, code, this.BasePos,
-      this.Context, false);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    this.Reason = "declare class 形状失败: " + message;
-    return null;
-  }
-  if (declared === null) {
-    this.Reason = "declare class 形状为空";
-    return null;
-  }
-  return declared;
-}
-if (head2 === "function" || head2 === "async") {
-  // `ambient=true`：`declare function f(): void;` 没有体，形状工厂按「无体 ambient」认这一格。
-  // `declare` 在 code[0]，工厂自己扫（所以 start 给 `declare` 的 Data 下标，不是 `function` 的）。
-  const hostLike:any = { Data: data, Template: this.Template };
-  let shape:Token | null = null;
-  try {
-    shape = FunctionDeclarationShape.FromUnits(hostLike, codeAt[0], lastAt, this.Context, true, false);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    this.Reason = "declare function 形状失败: " + message;
-    return null;
-  }
-  if (shape === null) {
-    this.Reason = "declare function 形状为空";
-    return null;
-  }
-  return shape;
-}
-if (head2 === "const" || head2 === "let" || head2 === "var") {
-  const built = DirectExportAssembly.BuildVariable(this.Owner as Token, code, codeAt, 1,
-    this.BasePos, this.Template, this.Context);
-  if (built === null) {
-    this.Reason = "declare 变量声明失败: " + DirectExportAssembly.LastReason;
-    return null;
-  }
-  return DirectExportAssembly.PrependDeclare(built, code, this.BasePos, this.Context);
-}
-this.Reason = "declare 族头不在本轮范围: " + head2;
-return null;
+DirectBuildMetrics.Trace("using built: units=" + String(code.length));
+return shape;
 ```
 
 ## method Summary:()=>string

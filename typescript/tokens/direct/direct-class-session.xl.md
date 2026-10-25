@@ -1,9 +1,12 @@
 # dependencies
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
+import { FunctionDeclarationShape } from "../declarations/function-declaration-shape.xl.md"
 import { DirectSession } from "./direct-build-session.xl.md"
 import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 ```
@@ -38,6 +41,15 @@ A1=YES / XML==基线 全部命中（8 条补测见 `_tmp-r6class/probe-cls.mjs`�
 `var.init` 显式 Decline，`R6-Q5`）；成员体内引擎不接受的表达式（`super()` / 部分 `new` / 字符串字面量）
 让**整个 class 回落旧路径**——`BuildFromCode` 抛错即 `return null`，绝不建半棵树（`R6-CLS-neg-01/02`）。
 
+**R7-A2 装饰器转发（`R7-CONTRACT §1.4`）**：kind 10（`ShellDecoratedDeclaration`）也承载
+`@dec function f() {}` / `@dec declare function f(): void;`。本文件在 `BuildFromCode` 之前加**一条**
+转发：`code[0]` 是 `@` 且**顶格**出现 `function` ⇒ `FunctionDeclarationShape.FromUnits`（它自带
+装饰器循环 + declare / async 修饰词 + 无体 ambient 判据），**不新增注册行、不改 9/10 的指向**。
+顶格预检（`HasDecoratedFunctionHead`）是必须的：没有它，`@dec class C {}` 会先被试探一次
+`FromUnits` 的装饰器 `ExpressionBuilder`，A6 从 0/1 漂到 0/2（`R7-DEC2-guard-01` 硬读数）。
+实测 4 条函数形态全 `built>=1 / A1=YES / XML=IDENTICAL`，`@dec class` / 成员装饰器读数逐项不变
+（`_coord/REPORT-r7-module2.md` §3）。
+
 # class ClassDeclarationDirectSession implements DirectSession
 
 ```txt
@@ -47,6 +59,8 @@ class C { x = 1; }                          -> PropertyDeclaration[Identifier x,
 class C { m(a) { return a; } }              -> MethodDeclaration[Identifier m, Parameter a, Block]
 class C { static { a; } }                   -> ClassStaticBlockDeclaration[Block[ExpressionStatement a]]
 @dec class C {}                             -> Decorator[Identifier dec] + ClassDeclaration[Identifier C]
+@dec function f() {}                        -> R7-A2 转 FunctionDeclarationShape.FromUnits（不是 class）
+@dec declare function f(): void;            -> 同上（ambient，无体，A6 0/1）
 class {}                                    -> 匿名 ClassDeclaration（allowAnonymous，R2-SAFE-02 改判 pos）
 class C extends B { constructor() { super(); } }
                                             -> BuildFromCode 抛（引擎不认 super()）=> return null => 旧路径
@@ -75,6 +89,8 @@ declare class C { x: number; }              -> 不到本 session（kind 7 的 de
 ## field HasUnits:bool = false
 
 ## field Kind:int = 0
+
+## field ForwardHandled:bool = false
 
 ## constructor:(template:Template, context:SyntaxContext, basePos:int, owner:Token)=>void
 
@@ -161,19 +177,35 @@ if (this.Ingested <= endIndex) {
 if (this.Declined) {
   return null;
 }
-// 折 code：**截断到 endIndex**（壳可能已经吞进了下一条语句，`TryToClose` 收口时只消费到 endIndex；
+// 折 code / codeAt：**截断到 endIndex**（壳可能已经吞进了下一条语句，`TryToClose` 收口时只消费到 endIndex；
 // 与 `R5-CONTRACT §4.4` / `DeclarationFamilyDirectSession.Finish` 同一口）。
 const code:Array<Token> = [];
+const codeAt:Array<number> = [];
 for (let at = 0; at <= endIndex && at < this.Units.length; at++) {
   if (this.Units[at].IsTriviaToken) {
     continue;
   }
   code.push(this.Units[at]);
+  codeAt.push(at);
 }
 // 最短形态 `class {}` 是 2 个代码单元（关键字 + 类体括号）；更短就是壳没收到类体。
 if (code.length < 2) {
   this.Incomplete("收口区间里没有类声明");
   return null;
+}
+// **R7-A2 装饰器转发**（`R7-CONTRACT §1.4`）：kind 10 也承载 `@dec function f() {}`。
+// 判据不新写：`HasDecoratedFunctionHead` 只做一次**只看顶格单元**的扫描 —— `@dec class C {}`
+// 在顶格看不见 `function`（类体是原子 Bracket）⇒ 连 `FromUnits` 都不试，A6 与 R6 逐项相同；
+// 真函数才交给 `FunctionDeclarationShape.FromUnits`（它自己带装饰器循环 + declare / async 修饰词）。
+if (code[0] instanceof Symbol && (code[0] as Symbol).Is("@")
+  && this.HasDecoratedFunctionHead(code)) {
+  const forwarded = this.TryDecoratedFunction(code, codeAt, context);
+  if (forwarded !== null) {
+    return forwarded;                       // Decline / 计数已在方法内处理
+  }
+  if (this.ForwardHandled) {
+    return null;                            // 转发已收口（Decline 已置位），不再走 class 支
+  }
 }
 // `class {}` / `export default class {}` 是 TS 的匿名 ClassDeclaration（`R2-SAFE-02` 改判 pos）：
 // 名字位的判据复用形状工厂自己的 `HasNoName`，本文件不新写第二份名字表。
@@ -207,6 +239,65 @@ DirectBuildMetrics.StatementsBuilt += 1;
 DirectBuildMetrics.Trace("class built: units=" + String(code.length)
   + " members=" + String(shape.Members.length)
   + (allowAnonymous ? " anonymous" : ""));
+return shape;
+```
+
+## method HasDecoratedFunctionHead:(code:Array<Token>)=>bool
+
+```ts
+// 装饰器之后**顶格**有没有 `function`。为什么必须先在顶格扫一遍、而不是直接试 `FromUnits`：
+// `FunctionDeclarationShape.FromUnits` 的装饰器循环会 `new ExpressionBuilder` 解析装饰器表达式
+// （A6 的 `exprOther` +1）。对 `@dec class C {}` 那次试探会先解析装饰器再在 `class` 上抛 ——
+// AST 不变，但 **A6 从 0/1 漂到 0/2**（`R7-DEC2-guard-01` 是硬读数）。本节只看顶格单元：
+// 类体 / 参数表 / 装饰器实参都是原子 `Bracket`，里面的 `function` 扫不到 ⇒ 保守地**不试**，
+// 行为与 R6 逐字节相同（漏判只是少一次直建，不会建错树）。
+for (let at = 1; at < code.length; at++) {
+  const unit = code[at];
+  if (unit instanceof Common && (unit as Common).TempToString() === "function") {
+    return true;
+  }
+}
+return false;
+```
+
+## method TryDecoratedFunction:(code:Array<Token>, codeAt:Array<int>, context:SyntaxContext)=>Token | null
+
+```ts
+// **R7-A2**（`R7-CONTRACT §1.4`）：kind 10（`ShellDecoratedDeclaration`）不只有 `@dec class`，
+// 还有 `@dec function f() {}` / `@dec declare function f(): void;`。R6 把 kind 10 注册到本 session
+// 之后，后者必然在 `ClassDeclarationShape.BuildFromCode` 里抛 ⇒ 落 `decl.shape`（A1=YES 的回落）。
+// 转发**只加在这里，不加注册行**：装饰器之后的第一个代码单元是不是 `function` 由形状工厂自己判
+//（`FunctionDeclarationShape.FromUnits` 带装饰器循环 + declare / async 修饰词 + 无体 ambient 判据），
+// 本文件不写第二份关键字表 ⇒ `@dec class` / `@dec abstract class` 抛错后原样落回 class 支。
+// `Pos` 口径与 class 同源：`start` 必须是装饰器在壳 `Data` 里的下标（`codeAt[0]`），**不能是 0**。
+const data:Array<Token> = (this.Owner as any).Data;
+const hostLike:any = { Data: data, Template: this.Template };
+const lastAt = codeAt[code.length - 1];
+let shape:Token | null = null;
+try {
+  shape = FunctionDeclarationShape.FromUnits(hostLike, codeAt[0], lastAt, context, false, false);
+} catch (error) {
+  // 装饰器后面不是函数（`@dec class C {}` / `@dec abstract class C {}` / `@dec interface I {}`）：
+  // 不是本方法的格子 —— `ForwardHandled` 保持 false，`Finish` 继续走 class 支（行为逐字节不变）。
+  DirectBuildMetrics.Trace("decorated function forward skipped: "
+    + (error instanceof Error ? error.message : String(error)));
+  return null;
+}
+if (shape === null) {
+  return null;
+}
+const expectedEnd = code[code.length - 1].SourceRange.EndIndex;
+if (!this.CoverageOk(shape, expectedEnd)) {
+  // 建出来了但区间不符：不交半棵树，也不再走 class 支（对函数必然抛，只会换个 category 记同一次失败）。
+  this.ForwardHandled = true;
+  this.Decline("装饰器函数声明覆盖不一致: built=" + String(shape.SourceRange.EndIndex)
+    + " units=" + String(expectedEnd), "decl.coverage");
+  return null;
+}
+this.Finished = true;
+this.ForwardHandled = true;
+DirectBuildMetrics.StatementsBuilt += 1;
+DirectBuildMetrics.Trace("decorated function built: units=" + String(code.length));
 return shape;
 ```
 
