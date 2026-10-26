@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **231** 条 case：throw 96 / atomic 85 / partial 50 / incremental 0
+共 **197** 条 case：throw 96 / atomic 85 / partial 16 / incremental 0
 
 ## throw
 
@@ -121,7 +121,7 @@
 | `throw/types/destructure-object-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/types/function-expression-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/types/generic-arrow-typed-param.ts` | 增量变量形状未支持：declaration 符号 < |  |
-| `throw/types/generic-call-type-args.ts` | CatalogGuide: 没有候选形状可以构成（宿主 BinaryExpressionShape，下标 2） |  |
+| `throw/types/generic-call-type-args.ts` | 增量变量形状未支持：declaration 符号 > |  |
 | `throw/types/let-annotation-no-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
 | `throw/types/nonnull-assertion.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 | `throw/types/paren-as-init.ts` | 增量变量形状未支持：declaration 括号 |  |
@@ -237,17 +237,6 @@
 
 ## partial
 
-### declarations
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `partial/declarations/const-string-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/declarations/let-identifier-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/declarations/let-regex-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/declarations/let-string-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/declarations/let-template-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/declarations/let-template-substitution-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-
 ### expressions
 
 | case | 判定依据 | 备注 |
@@ -255,49 +244,16 @@
 | `partial/expressions/as-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/assignment.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/bin-in.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-bigint.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-false.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-null.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-regex.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-string-double.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-string-escape.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-string-single.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-tagged.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-template-sub.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-template.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-true.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/lit-undefined.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/ref-ident.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/ref-new-no-parens.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/ref-this.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/satisfies-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/unary-typeof.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/unary-void.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-
-### lexical
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `partial/lexical/let-init-bigint.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-identifier.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-regex-class.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-regex-escaped-slash.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-regex-flags.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-string-double.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-string-escape.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-string-single.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-template-nested.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-template-plain.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-template-subst.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/lexical/let-init-template-tagged.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 
 ### statements
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `partial/statements/const-identifier-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/statements/let-continuation-identifier.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/statements/let-identifier-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 
 ### types
 
