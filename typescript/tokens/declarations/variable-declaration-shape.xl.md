@@ -9,6 +9,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
@@ -72,18 +73,31 @@ let x = 1;
 //   - 已进入类型面：不调基类，避免表达式候选在 `:` / `as` / 类型单元上误建或误 Reject。
 if (this.Incremental && !this.Closed) {
   // 只接管**根层**声明（挂载链 host←statement←list←declaration，host 的 `Parent === null`）。
-  // 块体内的声明暂不接管：块体收口走 `BlockPossibleShape` + 控制流壳的路径，提前落地形状会与
-  // 它「按字符区间重放 / 收口」的时机耦合（实测 `try { let y: number = 1 } catch { }` 会 divergent）。
+  // [A2-D2:ANNOT] 块体宿主（`if (a) { … }` / `try { … }` / 方法体 / 函数体）同样接管：它的 `}` 收口
+  // 已由 `DeclarationAsiBoundary` 的块体分支接上（[A2-D2:BLOCK-HOST]：边界格是宿主的 `}`，落在
+  // 最后一个代码单元那一拍），所以类型注解节点可以像 root 一样在字符流里提前落地，不会与块体的
+  // 「按字符区间重放 / 收口」时机耦合。旧注释说的 divergent（`try { let y: number = 1 } catch { }`）
+  // 是块体还没有边界判据时的实测；现在那一格由 `DeclarationAsiBoundary` 统一回答。
   const host = this.Parent !== null && this.Parent.Parent !== null
     ? this.Parent.Parent.Parent
     : null;
   const atRoot = host !== null && host.Parent === null;
-  if (atRoot) {
+  const atBlockHost = host !== null && host instanceof Bracket
+    && (host as Bracket).StartBracketChar === "{";
+  if (atRoot || atBlockHost) {
     const entered = this.TypeMode || TypeCatalogFactory.AnnotationColon(this.Data) >= 0
       || TypeCatalogFactory.StartsTypedInitializer(this.Data, TypeCatalogFactory.FirstEqual(this.Data));
     if (entered) {
       this.TypeMode = true;
       this.AdvanceTypeMode(context);
+      // [A2-D2:ANNOT] 块体宿主的 `}` 边界：类型面不再长之后，仍要把**终结候选**放到边界那一格问一次，
+      // 否则声明会把 `}`（以及后面的 `catch { }`）全吃进 `Data`——实测 `try { let y: number = 1 } catch { }`
+      // 在 EOF 变成 divergent（legacy 的 BlockShape 里只有这一条声明）。
+      // 这一格上表达式目录的候选全被 `DeclarationCellGuard` 按「块体边界」Reject，只剩终结候选，
+      // 因此不会出现「终结候选与其它候选同时成立」。
+      if (atBlockHost && DeclarationAsiBoundary.IsBlockHostBoundary(this.Data, this.Data.length - 1)) {
+        return super.ComputePossibleShapes(context);
+      }
       return ComputePossibleShapesStates.Waiting;
     }
   }
