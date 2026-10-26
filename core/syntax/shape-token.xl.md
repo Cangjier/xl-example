@@ -108,7 +108,31 @@ return typeof text === "string" ? text : "";
 
 运算符文本：声明了 `Op` 的形状（`AsteriskTokenShape` / `PlusTokenShape` 等）取它，没有就是空串。
 
+**两块建树路径的差别**：`Op` 只在增量工厂 `FromSymbol` 里赋值，legacy 建树的形状没有 `Op`。所以
+`Op` 为空时，**只对类名以 `TokenShape` 结尾的形状**按 `SourceRange` 切原文兜底（旧工具就是这么补的）；
+别的形状（`ShapeToken` 基类等）拿到的是空串，不去切一段与运算符无关的源码。
+
+兜底的文档顺序：先 `this.SourceRange.Document`，为 null 再用 `SourceRange.CurrentDocument`（由驱动层登记）；
+仍为 null、或范围还没签入（起止 `< 0`）就返回空串，绝不抛。
+
 ```ts
 const op = (this as any).Op;
-return typeof op === "string" ? op : "";
+if (typeof op === "string" && op.length > 0) {
+  return op;
+}
+if (!this.constructor.name.endsWith("TokenShape")) {
+  return "";
+}
+const range = this.SourceRange;
+if (range.Start < 0 || range.End < 0) {
+  return "";
+}
+let document = range.Document;
+if (document === null) {
+  document = SourceRange.CurrentDocument;
+}
+if (document === null) {
+  return "";
+}
+return document.GetRaw(range.Start, range.End);
 ```

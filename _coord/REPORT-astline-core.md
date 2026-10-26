@@ -251,6 +251,13 @@ EOF 段与 docs 文档逐字节一致：YES（期望 675 字符 / 实际 675 字
 （`tests/parse/token-time-shapes.mjs --diff` 走的是自己的 `dumpNode` 树打印，不调用 `ToXmlString`，
 所以测试工具本身不需要改也能照常跑。）
 
+### 冒烟（真实文件，非验收项）
+
+`tests/parse/token-time-shapes/let-x.ts` + `samples/*.ts` 共 4 个文件走 `SourceFileRunner.Parse` → `ToAstLine(0)`：
+3 个正常（`ToString() === ToAstLine(0)`、末尾无换行、合计 337 行）；`samples/generic.ts` 在 **`Parse` 阶段**
+就抛 `SyntaxException: throw by line 0 ---> at file: generic.ts:0`——canonical 主仓（基线 `633d22ed`）的既有
+`build/ts` 对同一文件抛**同一异常**，与本次改动无关。
+
 ## 6. 验收清单
 
 - [x] `xl_build` 0 error、3 个既有 E1107 warning 不变（566 文件）

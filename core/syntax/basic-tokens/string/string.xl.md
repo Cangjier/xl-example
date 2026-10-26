@@ -526,4 +526,3 @@ if (this.Translate.IsTranslating === false) {
 }
 return BranchStates.Undo;
 ```
-
