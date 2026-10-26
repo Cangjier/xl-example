@@ -72,7 +72,7 @@ try {
 只是换了一层壳 —— D3b §3 实测第二跳原地复现同一条 `CatalogGuide` 异常。所以 `shell=false` 时两个一起压成
 `false`，在同一个 `finally` 里恢复，调用方看到的开关值与本方法调用前逐位相同。
 
-**两个都要压，是量出来的，不是顺手。** `tmp/snap.mjs` 全语料三配置实测（`_reports/D4.md` §3）：
+**两个都要压，是量出来的，不是顺手。** `tmp/snap.mjs` 全语料三配置实测（`_reports/D4.md` §2.1）：
 只压 `EnableIncrementalVariableShapes` 崩溃 **32** / diff **107**；两个都压崩溃 **26** / diff **103**。
 `EnableIncrementalShapes` 那一步多救回 6 条崩溃，并把 3 条既有 diff 变干净。
 
