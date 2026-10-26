@@ -10,6 +10,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { NumericLiteralPossibleShape } from "./numeric-literal-possible-shape.xl.md"
+import { IncrementalItemPosition } from "./numeric-literal-possible-shape.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -25,6 +27,21 @@ import { NumericLiteralPossibleShape } from "./numeric-literal-possible-shape.xl
 - 卸载由 `Quit` 完成，后续字符回到父层（`VariableDeclarationShape`），于是 `Symbol("+")` 落在父层。
 
 不给 `BinaryExpressionShape` 加 core 钩子，也不改 `core/`：全部是 typescript 层的组合调用。
+
+## static method IsIdentifierText:(text:string)=>bool
+
+右操作数位允许的标识符文本：非空、不是关键字字面量（那些由 WP-A1/A4 的原子候选建各自的字面量形状）。
+判据只排除**会产生另一种 legacy 节点**的文本，其余一律按标识符处理（`B` / `foo` / `$x` / `_y`）。
+
+```ts
+if (text.length === 0) {
+  return false;
+}
+if (text === "true" || text === "false" || text === "null" || text === "undefined" || text === "this") {
+  return false;
+}
+return true;
+```
 
 ## static method Catalog:()=>Array<PossibleShape>
 
@@ -57,10 +74,15 @@ if (tokenIndex < start) {
 if (!(unit instanceof Common)) {
   return ShapeStates.Reject;
 }
-if (!(unit as Common).IsNumber()) {
-  return ShapeStates.Reject;
+if ((unit as Common).IsNumber()) {
+  return ShapeStates.Accept;
 }
-return ShapeStates.Accept;
+// WP-A2：右操作数是**标识符**时也在这里建（`a / b` 的 `b`、`a instanceof B` 的 `B`）。
+// 关键字 / 字面量（`true`/`false`/`null`/`undefined`/`this`…）留给 WP-A1/A4 的原子候选，这里 Reject。
+if (RightOperandPossibleShape.IsIdentifierText((unit as Common).TempToString())) {
+  return ShapeStates.Accept;
+}
+return ShapeStates.Reject;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -75,10 +97,19 @@ const token = host.Data[tokenIndex];
 if (!(token instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 右操作数");
 }
-if (!(token as Common).IsNumber()) {
-  throw new Error("增量变量形状未支持：expression 右操作数正文 " + token.TempToString());
+let shape: Token;
+if ((token as Common).IsNumber()) {
+  shape = NumericLiteralPossibleShape.BuildLiteral(token as Common, host, tokenIndex, context);
+} else {
+  // WP-A2：右操作数是标识符（`a / b` 的 `b`、`a instanceof B` 的 `B`）。
+  if (!RightOperandPossibleShape.IsIdentifierText((token as Common).TempToString())) {
+    throw new Error("增量变量形状未支持：expression 右操作数正文 " + token.TempToString());
+  }
+  const identifier = IdentifierShape.FromBasicToken(token as Common, context);
+  identifier.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, tokenIndex);
+  (token as Common).Replace(identifier);
+  shape = identifier;
 }
-const shape = NumericLiteralPossibleShape.BuildLiteral(token as Common, host, tokenIndex, context);
 if (!(host instanceof BinaryExpressionShape)) {
   throw new Error("增量变量形状未支持：expression 右操作数宿主不是二元表达式");
 }

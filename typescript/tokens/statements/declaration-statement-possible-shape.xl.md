@@ -10,6 +10,8 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
+import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ImportExportDeclarationMount } from "../declarations/forms/import-export-declaration-mount.xl.md"
 ```
 
 # namespace cangjie
@@ -96,4 +98,20 @@ if (units[tokenIndex].IsTriviaToken) {
   return false;
 }
 return StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellDeclarationFamily;
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+```ts
+// [XL-B5] WP-B5 的**唯一接线点**：增量模式（`IsIncrementalShapesEnabled()`）下，import / export 声明族
+// 不再先建 `StatementShape` 声明壳再在收口时整段建树，而是由 `ImportExportDeclarationMount` 直接挂族形状、
+// 逐单元喂它自己的 `CatalogGuide`。开关 false（默认）时 `TryBuild` 第一步就返回 `null`，
+// 这里逐字落回 `super.BuildByIndex` ⇒ legacy 路径一个字节都不变。
+// 未接管的形态（`export declare const` / `export default function` / `export class` …）同样返回 `null`，
+// 仍走既有声明壳（那是 B3/B4 的写域）。
+const mounted = ImportExportDeclarationMount.TryBuild(host, tokenIndex, context);
+if (mounted !== null) {
+  return mounted;
+}
+return super.BuildByIndex(host, tokenIndex, catalog, context);
 ```

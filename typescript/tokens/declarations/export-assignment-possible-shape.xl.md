@@ -14,6 +14,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { ExportAssignmentShape } from "./export-assignment-shape.xl.md"
 import { StatementRoute } from "../statements/statement-route-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
+import { ImportExportLegacyDeclarationMount } from "./forms/import-export-legacy-declaration-mount.xl.md"
 ```
 
 # namespace cangjie
@@ -47,6 +48,11 @@ export = a.b;
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
+if (ImportExportLegacyDeclarationMount.Ready(ImportExportLegacyDeclarationMount.KindExportAssignment, units, tokenIndex, cache)) {
+  // [XL-B5] 增量模式：本格正好是族判定格 ⇒ 立刻建族形状；开关 false 时 Ready 恒 false，逐字走原路径。
+  return ShapeStates.Accept;
+}
+
 if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
   // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
   // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
@@ -130,6 +136,10 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+if (ImportExportLegacyDeclarationMount.Ready(ImportExportLegacyDeclarationMount.KindExportAssignment, units, tokenIndex, cache)) {
+  return true;
+}
+
 const state = cache.GetState<ExportAssignmentScan>(this.Slot());
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
@@ -137,6 +147,13 @@ return state !== null && state.Done && !state.Rejected && state.DoneAt === token
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+if (ImportExportLegacyDeclarationMount.Ready(ImportExportLegacyDeclarationMount.KindExportAssignment, host.Data, tokenIndex, catalog.PossibleShapesComputeCache)) {
+  const mounted = ImportExportLegacyDeclarationMount.TryBuild(ImportExportLegacyDeclarationMount.KindExportAssignment, host, tokenIndex, context);
+  if (mounted !== null) {
+    return mounted;
+  }
+}
+
 const state = catalog.PossibleShapesComputeCache.GetState<ExportAssignmentScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {

@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **380** 条 case：throw 125 / atomic 202 / partial 53 / incremental 0
+共 **273** 条 case：throw 118 / atomic 102 / partial 53 / incremental 0
 
 ## throw
 
@@ -71,11 +71,7 @@
 | `throw/expressions/bin-ushr.ts` | 增量变量形状未支持：declaration 符号 >>> |  |
 | `throw/expressions/class-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/comma-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/computed-key.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/func-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/getter.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/method-shorthand.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/obj-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/paren-nested.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ref-call.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ref-import-meta.ts` | 增量变量形状未支持：declaration 符号 . |  |
@@ -87,9 +83,7 @@
 | `throw/expressions/ref-optional.ts` | 增量变量形状未支持：declaration 符号 ?. |  |
 | `throw/expressions/ref-super.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/expressions/seq-three.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/setter.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/spread-array.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/spread-object.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ternary.ts` | 增量变量形状未支持：declaration 符号 ? |  |
 | `throw/expressions/unary-bnot.ts` | 增量变量形状未支持：declaration 符号 ~ |  |
 | `throw/expressions/unary-chain-not.ts` | 增量变量形状未支持：declaration 符号 ! |  |
@@ -114,7 +108,6 @@
 | `throw/lexical/let-init-lt.ts` | 增量变量形状未支持：expression 运算符 < |  |
 | `throw/lexical/let-init-member-keyword.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/lexical/let-init-multi-decl.ts` | 增量变量形状未支持：declaration 符号 , |  |
-| `throw/lexical/let-init-object-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/lexical/let-init-semicolon.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/lexical/let-init-shift.ts` | 增量变量形状未支持：declaration 符号 >> |  |
 | `throw/lexical/let-init-unary-plus.ts` | 增量变量形状未支持：expression 左操作数不是形状 |  |
@@ -187,11 +180,7 @@
 | `atomic/declarations/enum-computed.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/enum-numeric.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-as-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-assignment.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/export-declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-named-from.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-star-as.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-async-generator.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-async.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
@@ -201,15 +190,6 @@
 | `atomic/declarations/function-overload.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-rest-param.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-return-type.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-default-named.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-default.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-equals-qualified.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-equals-require.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-inline-type.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-named.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-side-effect.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-type-only.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/interface-call-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/interface-construct-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/interface-extends-several.ts` | 增量开关对逐字符树没有任何影响 |  |
@@ -223,109 +203,22 @@
 | `atomic/declarations/namespace-export-function.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/namespace-nested.ts` | 增量开关对逐字符树没有任何影响 |  |
 
-### expressions
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `atomic/expressions/bin-add-mul.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/bin-and-comparison.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/bin-mul-add.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/bin-paren-mul.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/call-bare.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/cond-bare.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/ref-index.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/ref-property.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/unary-minus.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/expressions/unary-not.ts` | 增量开关对逐字符树没有任何影响 |  |
-
 ### lexical
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `atomic/lexical/asi-return-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-angle-chain.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-array-literal.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-async-arrow.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-block-comment-between.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-call-type-args.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/lexical/expression-let-identifier.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-new-call.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-object-in-paren.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-optional-ternary.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-paren-arrow.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-paren-assign.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-paren-sequence.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/lexical/expression-shift-generic.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ### statements
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `atomic/statements/asi-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/asi-postfix-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/asi-return-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/asi-same-line.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/block-empty.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/block-statements.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/break-label.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/break.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/continue.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/debugger.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/do-while.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/empty-statement.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-arrow.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-assign.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/expr-await.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-binary-arithmetic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-binary-bitwise.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-binary-comparison.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-binary-logical.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-call.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-class-expr.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-comma.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-function-expr.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-index.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-literal.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-member.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-new.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-nonnull.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-optional-chain.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-regex.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-spread-array.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-template.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-ternary.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-unary.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/expr-update-postfix.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/expr-yield.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-classic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-empty-clauses.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-head-let-atomic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-in.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-of-const.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-of.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/foreach-call.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/if-else-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/if-else-if-chain.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/if-no-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/label-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/label-nested.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/return-no-value.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/return-value.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/stmt-array-literal-start.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/stmt-async-function.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/stmt-let-as-identifier.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/stmt-object-literal-paren.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/stmt-object-vs-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/stmt-with.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/switch-case-let-atomic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/switch-fallthrough.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/switch-single-case.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/throw-new.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/try-catch-nobind.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/try-catch.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/try-finally.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/while-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/while-no-block.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ### types
 
@@ -369,22 +262,17 @@
 | `atomic/types/alias-tuple.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/alias-typeof-query.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/alias-union.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/as-expression-statement.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/catch-clause-annotation.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-ctor-param-property.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-implements-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-property-definite.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-property-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/declare-unique-symbol.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/for-init-annotation.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-param-return.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-predicate.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-this-param.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/import-inline-type.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/interface-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/interface-extends-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/satisfies-expression-statement.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ## partial
 
