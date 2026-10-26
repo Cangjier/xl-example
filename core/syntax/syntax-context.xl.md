@@ -16,7 +16,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 它一次处理**一个 buffer 窗口** `[Index, Index + BufferSize)`：把窗口交给根单元跑完，再消费消息队列；`ReloadMessage` 会把下标区间按升序重放（可能把游标拉回再前进）。
 
-变量表的键是 `string`、值是 `any`——ts 的 `object` 只表示「非原始值」，装不下 `string` / `number`。
+变量表的键是 `string`、值是 `unknown`——表里装的是任意值（`string` / `number` / 对象 / `null` 都出现过），读的一侧由泛型参数 `Item` 收窄（`GetDefault<Item>`），不伪装成某一类；`Get` 保留 `any` 的旧口径（调用方自己转型）。
 
 # class SyntaxContext
 
@@ -42,7 +42,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 `DrainMessages` 正在重放一个位置时为 `true`。重放的窗口固定 `[at, at+1)`，此时队列里可能还压着**更后面**的消息（它们按 FIFO 排在重放消息之后），单元不能因为「队列非空」就把这一个位置也让出去，否则重放原地无进展。
 
-## field VariableMap:Map<string, any> = new Map()
+## field VariableMap:Map<string, unknown> = new Map()
 
 上下文变量表。
 

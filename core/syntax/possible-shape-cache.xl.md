@@ -6,7 +6,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 槽位是**整数下标**，所以两层缓存都是**数组**：取值是一次下标读，不再经过字符串哈希，也不必再读一次 `constructor.name`。槽位由 `PossibleShape.SlotOf` 统一发号（见 `possible-shape.xl.md`）：**同一个类 == 同一个槽**，不同的类一定是不同的槽。
 
-状态是每个形状自己立的**具名类**（各形状的 `…Scan`）。底层只能写 `any`：xl 的类型标注不接受 `{[key:string]:any}`（`E1204`），`Array<any>` 是这套规范里能写的落地形式——明确性由取值那一侧的泛型补回来（与 `SyntaxContext.GetDefault` 同款）。
+状态是每个形状自己立的**具名类**（各形状的 `…Scan`）。槽位数组的元素类型记为 `unknown`：xl 的类型标注不接受内联索引签名类型（`E1204`），而这一层确实**异质**——每个槽装的是某一形状自己的状态类，底层说不出一个共同类型。明确性由取值那一侧的泛型补回来（`GetState<XxxScan>` / `GetShare<XxxShared>`）；`unknown` 与 `any` 的区别是**读的时候必须显式收窄**（`value as Item`），写的一侧两条 `Set` 仍然接受任何状态对象。
 
 缓存分两层，都按槽位分：`Values` 是**逐条目判定状态**，随 `Reset` 清空；`Share` 是**Shape 生命周期内可长期复用**的数据，不受 `Reset` 重置。
 
@@ -14,11 +14,11 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 # class PossibleShapeCache
 
-## field Values:Array<any> = []
+## field Values:Array<unknown> = []
 
 槽位号 → 该形状的判定状态。下标就是槽位；没写过的槽读出来是 `undefined`（`GetState` 把它折成 `null`）。
 
-## field Share:Array<any> = []
+## field Share:Array<unknown> = []
 
 槽位号 → 该形状**在 Shape 生命周期内长期复用**的数据（跨条目共享）。
 
