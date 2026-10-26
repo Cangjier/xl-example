@@ -16,6 +16,7 @@ import { StatementScanResult } from "../statements/statement-scanner.xl.md"
 import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 import { StatementRoute } from "../statements/statement-route-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
+import { DeclarationIncrementalRoute } from "./declaration-incremental-route.xl.md"
 ```
 
 # namespace cangjie
@@ -129,6 +130,8 @@ return new StatementScanResult(0, -1);
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
+// [E-DECL:ROUTE] 增量模式：让根层声明壳让出路由，由本族候选提前挂壳（开关 false 时恢复原路由）。
+DeclarationIncrementalRoute.Arm();
 if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
   // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
   // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
@@ -260,6 +263,7 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>bool
 
 ```ts
+DeclarationIncrementalRoute.Arm();
 const state = cache.GetState<ModuleDeclarationScan>(this.Slot());
 return state !== null && state.Status === 1 && state.End >= 0;
 ```
