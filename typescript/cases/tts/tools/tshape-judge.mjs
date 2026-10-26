@@ -152,7 +152,7 @@ function setIncremental(enabled) {
   StatementRouteUtil.EnableIncrementalVariableShapes = enabled;
 }
 
-function rawTrace(file) {
+function runIncremental(file) {
   const source = fs.readFileSync(file, "utf8");
   setIncremental(true);
   const template = TypescriptTemplate.Create();
@@ -173,7 +173,19 @@ function rawTrace(file) {
     const tree = shape.ToAstLine(0);
     steps.push({ kind: "char", index, char: source[index], tree, lines: tree.split("\n"), error });
     if (error !== null) {
-      return { source: file, mode: "incremental-full", modeApplied: true, count, steps, stopped: true, stage: "char", index };
+      setIncremental(false);
+      return {
+        source: file,
+        mode: "incremental-full",
+        modeApplied: true,
+        count,
+        steps,
+        rootShape: shape,
+        stopped: true,
+        stage: "char",
+        index,
+        error,
+      };
     }
   }
   let error = null;
@@ -187,15 +199,18 @@ function rawTrace(file) {
   }
   const tree = shape.ToAstLine(0);
   steps.push({ kind: "eof", index: count, char: null, tree, lines: tree.split("\n"), error });
+  setIncremental(false);
   return {
     source: file,
     mode: "incremental-full",
     modeApplied: true,
     count,
     steps,
+    rootShape: shape,
     stopped: error !== null,
     stage: error === null ? null : "eof",
     index: count,
+    error,
   };
 }
 
@@ -211,6 +226,61 @@ const errorText = (error) => {
   if (typeof error === "string") return error;
   return String(error.message ?? error.Message ?? JSON.stringify(error));
 };
+
+function traceJson(data) {
+  const { rootShape, ...rest } = data;
+  return rest;
+}
+
+function incrementalCompare(file, traceArg = null) {
+  // 第二部分的标准：**增量 EOF 树** vs ts.createSourceFile，不是默认完整解析。
+  const source = fs.readFileSync(file, "utf8");
+  const fileNode = ts.createSourceFile(
+    path.basename(file),
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const diagnostics = (fileNode.parseDiagnostics || []).map((d) =>
+    ts.flattenDiagnosticMessageText(d.messageText, " "),
+  );
+  if (diagnostics.length > 0) return { status: "ts-invalid", diagnostics };
+
+  const trace = traceArg ?? runIncremental(file);
+  if (trace.error) return { status: "incremental-error", step: trace.index, error: trace.error };
+
+  const theirs = flatten(fileNode.statements.map(tsAst));
+  const ours = flatten((trace.rootShape.Data || []).map((shape) => cjAst(shape)));
+  const theirKinds = groupByKind(theirs);
+  const ourKinds = groupByKind(ours);
+
+  const structural = [];
+  for (const kind of new Set([...theirKinds.keys(), ...ourKinds.keys()])) {
+    const delta = (ourKinds.get(kind)?.length || 0) - (theirKinds.get(kind)?.length || 0);
+    if (delta !== 0) structural.push(`${kind}${delta > 0 ? "+" : ""}${delta}`);
+  }
+  const moved = [];
+  const fields = [];
+  for (const [kind, theirList] of theirKinds) {
+    const ourList = ourKinds.get(kind);
+    if (!ourList || ourList.length !== theirList.length) continue;
+    for (let index = 0; index < theirList.length; index++) {
+      if (theirList[index].pos !== ourList[index].pos || theirList[index].end !== ourList[index].end) {
+        moved.push(
+          `${kind}[${index}] ${theirList[index].pos}-${theirList[index].end} vs ${ourList[index].pos}-${ourList[index].end}`,
+        );
+      }
+      for (const name of FIELD_NAMES) {
+        const a = fieldOf(theirList[index], name);
+        const b = fieldOf(ourList[index], name);
+        if (String(a) !== String(b)) fields.push(`${kind}[${index}].${name} ${JSON.stringify(a)} vs ${JSON.stringify(b)}`);
+      }
+    }
+  }
+  const ok = structural.length === 0 && moved.length === 0 && fields.length === 0;
+  return { status: ok ? "ok" : "diff", structural, moved, fields };
+}
 
 function digestTrace(file, data) {
   const steps = data.steps || [];
@@ -295,8 +365,8 @@ function oneFileArg() {
 function cmdTrace() {
   const file = oneFileArg();
   const dir = outDirFor(file);
-  const data = rawTrace(file);
-  writeJson(dir, "trace.json", data);
+  const data = runIncremental(file);
+  writeJson(dir, "trace.json", traceJson(data));
   writeSteps(dir, data);
   const digest = digestTrace(file, data);
   fs.writeFileSync(path.join(dir, "trace.md"), digest, "utf8");
@@ -306,18 +376,18 @@ function cmdTrace() {
 function cmdTs() {
   const file = oneFileArg();
   const dir = outDirFor(file);
-  const result = compareWithTs(file);
+  const result = incrementalCompare(file);
   writeJson(dir, "ts.json", result);
   console.log(JSON.stringify(result, null, 2));
-  if (result.status === "ts-invalid" || result.status === "parse-error" || result.status === "diff") process.exit(1);
+  if (result.status === "ts-invalid" || result.status === "incremental-error" || result.status === "diff") process.exit(1);
 }
 
 function cmdBundle() {
   const file = oneFileArg();
   const dir = outDirFor(file);
-  const data = rawTrace(file);
-  const result = compareWithTs(file);
-  writeJson(dir, "trace.json", data);
+  const data = runIncremental(file);
+  const result = incrementalCompare(file, data);
+  writeJson(dir, "trace.json", traceJson(data));
   writeSteps(dir, data);
   writeJson(dir, "ts.json", result);
   const digest = digestTrace(file, data);
@@ -354,7 +424,7 @@ function cmdBundle() {
   lines.push("");
   lines.push(digest);
   lines.push("");
-  lines.push("## 4. 完整解析 vs ts.createSourceFile");
+  lines.push("## 4. 增量 EOF 树 vs ts.createSourceFile");
   lines.push("");
   lines.push("```json");
   lines.push(JSON.stringify(result, null, 2));
@@ -386,7 +456,7 @@ function listCases() {
 
 function cmdSteps() {
   const file = oneFileArg();
-  const data = rawTrace(file);
+  const data = runIncremental(file);
   const from = Number(value("--from", "0"));
   const to = Number(value("--to", String(from + 20)));
   const steps = (data.steps || []).slice(from, to + 1);
@@ -405,7 +475,7 @@ function cmdTsAll() {
   const failures = [];
   let ok = 0;
   for (const file of files) {
-    const result = compareWithTs(file);
+    const result = incrementalCompare(file);
     if (result.status === "ok") ok++;
     else failures.push({ file: rel(file), ...result });
   }
@@ -419,7 +489,7 @@ function cmdTsAll() {
 }
 
 function scanOne(file) {
-  const data = rawTrace(file);
+  const data = runIncremental(file);
   const steps = data.steps || [];
   // 变量语句骨架在范本 char 5 本来就是“三层 + 绑定名”同刻出现，不算成批补建。
   const SKELETON = new Set([
