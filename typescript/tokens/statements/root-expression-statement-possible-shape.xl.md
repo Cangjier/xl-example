@@ -196,6 +196,12 @@ if (shell.DirectSession !== null) {
 // （与 `ImportDeclarationPossibleShape` 的「壳晚建」同一手法）。
 if (tokenIndex > start) {
   shell.ComputePossibleShapes(context);
+} else if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  // [E-STMT:CATALOG] 首格建壳：`shell.ComputePossibleShapes` 由「上一个单元关闭」触发，首格之后通常
+  // 要等下一格才跑；`f()` / `[...a]` / `(class { })` 这种「首格就是完整括号单元」的形态到下一格时
+  // 已经和收口撞在同一格。这里只喂表达式体 + 尝试物化（`PrimeIncremental` **不跑终结候选**），
+  // 收口时机与 legacy 逐字节一致；开关 false 时整段不执行。
+  shell.PrimeIncremental(context);
 }
 return shell;
 ```
