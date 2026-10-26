@@ -2885,7 +2885,7 @@ node tmp/smoke47.mjs . <chore-all-possible-setup> 400    # tmp/ 被 gitignore；
 | `token-set-parity` | **0** | `RESULT: PASS`（8 PASS + 1 INFO） |
 | `direct-lint` | **0** | `any：0 处`；`第三出口的约定 0 条违反` |
 | `validate.mjs` | **0** | `1720 条用例，0 条不合格` |
-| `smoke47` | **0** | `FILES=47 XML-DIFF=0 CRASH-DIFF=0`（41 条 `BOTH-THROW`、6 条 `SAME`） |
+| `smoke47` | **0** | `FILES=47 XML-DIFF=0 CRASH-DIFF=0`（41 条 `BOTH-THROW` + 6 条逐字节一致；脚本只打印差异，一致的 6 条不输出，没有 `SAME` 这个标签） |
 
 - `builtCases=247/299` / `loads=243` / A10 `278/12/9/0` / `DECLINE-STATS total=38 categories=15` 与 merge1、merge2、
   `REPORT-r7-astdiff-stmt` **逐项相同** ⇒ 快照重提没有改变任何直建覆盖面或 decline 分布。
