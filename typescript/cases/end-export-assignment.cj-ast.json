@@ -1124,23 +1124,25 @@
       "src": "export default abstract\nclass C {}",
       "ast": [
         {
-          "kind": "ExportAssignment",
-          "pos": 0,
-          "end": 23,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 14,
-              "end": 23,
-              "text": "abstract"
-            }
-          ]
-        },
-        {
           "kind": "ClassDeclaration",
-          "pos": 23,
+          "pos": 0,
           "end": 34,
           "children": [
+            {
+              "kind": "ExportKeyword",
+              "pos": 0,
+              "end": 6
+            },
+            {
+              "kind": "DefaultKeyword",
+              "pos": 6,
+              "end": 14
+            },
+            {
+              "kind": "AbstractKeyword",
+              "pos": 14,
+              "end": 23
+            },
             {
               "kind": "Identifier",
               "pos": 29,

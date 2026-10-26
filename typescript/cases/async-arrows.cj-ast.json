@@ -54,18 +54,26 @@
         {
           "kind": "ExpressionStatement",
           "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "async"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
           "end": 13,
           "children": [
             {
               "kind": "ArrowFunction",
-              "pos": 0,
+              "pos": 5,
               "end": 12,
               "children": [
-                {
-                  "kind": "AsyncKeyword",
-                  "pos": 0,
-                  "end": 5
-                },
                 {
                   "kind": "Parameter",
                   "pos": 5,
@@ -688,18 +696,26 @@
         {
           "kind": "ExpressionStatement",
           "pos": 0,
+          "end": 5,
+          "children": [
+            {
+              "kind": "Identifier",
+              "pos": 0,
+              "end": 5,
+              "text": "async"
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 5,
           "end": 17,
           "children": [
             {
               "kind": "ArrowFunction",
-              "pos": 0,
+              "pos": 5,
               "end": 16,
               "children": [
-                {
-                  "kind": "AsyncKeyword",
-                  "pos": 0,
-                  "end": 5
-                },
                 {
                   "kind": "Parameter",
                   "pos": 5,
@@ -754,12 +770,12 @@
         {
           "kind": "ExpressionStatement",
           "pos": 0,
-          "end": 29,
+          "end": 21,
           "children": [
             {
               "kind": "BinaryExpression",
               "pos": 0,
-              "end": 28,
+              "end": 21,
               "children": [
                 {
                   "kind": "ArrowFunction",
@@ -803,40 +819,48 @@
                   "end": 15
                 },
                 {
-                  "kind": "ArrowFunction",
+                  "kind": "Identifier",
                   "pos": 15,
-                  "end": 28,
+                  "end": 21,
+                  "text": "async"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "ExpressionStatement",
+          "pos": 21,
+          "end": 29,
+          "children": [
+            {
+              "kind": "ArrowFunction",
+              "pos": 21,
+              "end": 28,
+              "children": [
+                {
+                  "kind": "Parameter",
+                  "pos": 21,
+                  "end": 23,
                   "children": [
                     {
-                      "kind": "AsyncKeyword",
-                      "pos": 15,
-                      "end": 21
-                    },
-                    {
-                      "kind": "Parameter",
+                      "kind": "Identifier",
                       "pos": 21,
                       "end": 23,
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 21,
-                          "end": 23,
-                          "text": "b"
-                        }
-                      ]
-                    },
-                    {
-                      "kind": "EqualsGreaterThanToken",
-                      "pos": 23,
-                      "end": 26
-                    },
-                    {
-                      "kind": "Identifier",
-                      "pos": 26,
-                      "end": 28,
                       "text": "b"
                     }
                   ]
+                },
+                {
+                  "kind": "EqualsGreaterThanToken",
+                  "pos": 23,
+                  "end": 26
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 26,
+                  "end": 28,
+                  "text": "b"
                 }
               ]
             }

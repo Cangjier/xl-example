@@ -9794,55 +9794,55 @@
           "end": 14,
           "children": [
             {
-              "kind": "ConditionalExpression",
+              "kind": "BinaryExpression",
               "pos": 0,
               "end": 13,
               "children": [
                 {
-                  "kind": "Identifier",
+                  "kind": "ConditionalExpression",
                   "pos": 0,
-                  "end": 1,
-                  "text": "a"
-                },
-                {
-                  "kind": "QuestionToken",
-                  "pos": 1,
-                  "end": 3
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 3,
-                  "end": 5,
-                  "text": "b"
-                },
-                {
-                  "kind": "ColonToken",
-                  "pos": 5,
-                  "end": 7
-                },
-                {
-                  "kind": "BinaryExpression",
-                  "pos": 7,
-                  "end": 13,
+                  "end": 9,
                   "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 0,
+                      "end": 1,
+                      "text": "a"
+                    },
+                    {
+                      "kind": "QuestionToken",
+                      "pos": 1,
+                      "end": 3
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 3,
+                      "end": 5,
+                      "text": "b"
+                    },
+                    {
+                      "kind": "ColonToken",
+                      "pos": 5,
+                      "end": 7
+                    },
                     {
                       "kind": "Identifier",
                       "pos": 7,
                       "end": 9,
                       "text": "c"
-                    },
-                    {
-                      "kind": "EqualsToken",
-                      "pos": 9,
-                      "end": 11
-                    },
-                    {
-                      "kind": "Identifier",
-                      "pos": 11,
-                      "end": 13,
-                      "text": "d"
                     }
                   ]
+                },
+                {
+                  "kind": "EqualsToken",
+                  "pos": 9,
+                  "end": 11
+                },
+                {
+                  "kind": "Identifier",
+                  "pos": 11,
+                  "end": 13,
+                  "text": "d"
                 }
               ]
             }
