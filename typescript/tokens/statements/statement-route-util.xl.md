@@ -78,22 +78,25 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 ## static field EnableShellExpressions:bool = true
 
-## static field EnableIncrementalVariableShapes:bool = false
+## static field EnableIncrementalVariableShapes:bool = true
 
-**「basic tokens → shape」增量重构的唯一静态开关。默认 `false`。**
+**「basic tokens → shape」增量重构的唯一静态开关。默认 `true`（D7 波翻转；此前是 `false`）。**
 
 打开后只影响 `let` / `const` / `var` 声明族的建形状过程（`VariableStatementShape` /
-`VariableDeclarationListShape` / `VariableDeclarationShape` 及其子形状的逐单元签发与收口），
-默认解析路径（壳 + `StatementBuilder` 原子建树）逐字节不变。
+`VariableDeclarationListShape` / `VariableDeclarationShape` 及其子形状的逐单元签发与收口）；
+关掉（`false`）时这几种形状仍走「壳 + `StatementBuilder` 原子建树」的 legacy 路径。
 
-**为什么默认关**（Lead 决策，见 `_coord/CONTRACT-tts-incremental.md` C4）：
+**为什么现在默认开**（D7 决策，接 W4 / W5 / W6 的三道读数）：
 
-- 默认路径是全语料 / gates 的口径，增量过程还没覆盖全部形态（C10：全有或全无，未支持的后续形态
-  必须显式抛错）。默认关 ⇒ 未接通的形状不可能改变任何一份既有产物。
-- 目标用例工具（`tests/parse/token-time-shapes.mjs --incremental`）显式打开它验证新过程；
-  WP-B / WP-C 完成后由 Lead 决定是否翻默认值。
-- 它只做「选哪条建形状通道」这一件事，不携带任何跨次状态；`SourceFileRunner.ParseCore` 只翻
-  `EnableShellExpressions`，不碰本字段，所以同一进程里两种模式可以交替出现（目标工具就是这样用的）。
+- 增量路径的已知缺口已经收窄到可验收的量：宽语料下崩溃 5 条**全部**是外部 vendor
+  `lib.*.d.ts`（`INCREMENTAL_CRASH_EXPECTED` 逐字登记）、差异 32 ≤ 87、fallback 94 ≤ 94，
+  且 `policyProblems` 0 条 —— 再让它躺在默认开关后面，等于「修好的路径没人走」。
+- 未支持的后续形态仍按 C10 全有或全无：**显式抛错**，由 `SourceFileRunner.Parse` 的
+  整文件 legacy 重解析兜底（`ParseCore(shell=false)` 在 `finally` 里把本字段与
+  `EnableIncrementalShapes` 一起压 `false`，见 `source-file-runner.xl.md`）。
+- 要复核 legacy 读数不需要改产物：`tests/parse/wide-ast.mjs --legacy`（0/0/≤2）与
+  `tests/gates/run.mjs --legacy` 会在进程内把两个开关压回 `false`。
+- 它只做「选哪条建形状通道」这一件事，不携带任何跨次状态，所以同一进程里两种模式可以交替出现。
 
 ## static method IsIncrementalVariableShapesEnabled:()=>bool
 
@@ -103,16 +106,17 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 return StatementRouteUtil.EnableIncrementalVariableShapes;
 ```
 
-## static field EnableIncrementalShapes:bool = false
+## static field EnableIncrementalShapes:bool = true
 
-**「全场景逐字符形状路径」的一级开关。默认 `false`。**
+**「全场景逐字符形状路径」的一级开关。默认 `true`（D7 波与
+`EnableIncrementalVariableShapes` 一起翻转；此前是 `false`）。**
 
 打开后新路径才允许为语句 / 表达式 / 声明等**所有**语句族逐字符签发 shape；`false` 时新路径一步不走，
 所有形状仍走默认的「壳 + Builder 原子建树」路径，既有产物逐字节不变。
 
 它和 `EnableIncrementalVariableShapes` **相互独立**：后者只控制变量声明族的增量建形状（基础实现），
-本字段是把同一套机制推广到全场景的总闸（全场景重构的 bootstrap）。bootstrap 阶段本字段还没有任何
-消费方，翻它不改变任何产物；harness 在增量模式下两者同时打开、legacy 下同时关闭。
+本字段是把同一套机制推广到全场景的总闸（全场景重构的 bootstrap）。harness 在增量模式下两者同时打开、
+legacy 下同时关闭（`--legacy`）；`SourceFileRunner.ParseCore(shell=false)` 的整文件兜底也把两者一起压 `false`。
 
 ## static method IsIncrementalShapesEnabled:()=>bool
 

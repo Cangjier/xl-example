@@ -8,10 +8,16 @@
 // **用法**：`npm run gates`（或 `node tests/gates/run.mjs --jobs 6 --verbose`）。
 // **退出码**：任一**适用**的门红就是 1。
 //
-// **两个档（第 W4 波加）**：默认跑 `GATES` 那 11 道；`--incremental`（或 `XL_GATE_INCREMENTAL=1`）
-// 再叠上 `wide-ast:incr` 一道 —— 同一把尺子的 ON 档，阈值 `crash≤5（全在 lib.*.d.ts）/ diff≤87 /
-// fallback≤94`。**默认档不因 ON 档的 20 条崩溃变红**：两档各自有各自的显式天花板，
-// 理由与「今天为什么还没绿」写在 `_reports/W4.md`。
+// **两个档（W4 起是「默认档 / incremental 档」，D7 波起翻过来）**：默认跑 `GATES` 那 11 道，
+// 其中 `wide-ast` 与 `real-dts-ast` 量的是**产品默认路径**，而默认值自 D7 起就是增量形状
+// （`StatementRouteUtil.EnableIncrementalShapes` / `EnableIncrementalVariableShapes` 都是 `true`）。
+// 它们的判据按 `tests/parse/incremental-crash-expected.mjs` 那一份清单：
+// **崩溃 ≤5 且 5 条全在 `lib.*.d.ts` 预期清单里、差异 ≤87、fallback ≤94、`policyProblems === 0` ⇒ exit 0**。
+// `--legacy`（或 `XL_GATE_LEGACY=1`）把这两道的两个开关压回 `false`，用**对照档**读 0 / 0 / ≤2。
+// `--incremental` 保留为「显式点名默认档」的别名（不再叠第 12 道门）—— 默认档就是它。
+//
+// **不是放宽判据**：三个数都是显式天花板，预期清单逐字比对（换一个文件崩就红），legacy 档一个字没松。
+// 两档的理由与今天的读数写在 `_reports/D7.md`，`_reports/W4.md` 是分档本身的来历。
 //
 // **not-applicable（第 R7 收口加）**：有几道门读的源 / 产物**在本仓库根本不存在**
 // （`runtime/`、`tsrun.xl.md`、`typescript/print-ast-common.xl.md`、`dawn/` 与 C++ 产物；
@@ -113,18 +119,22 @@ const GATES = [
   // 「与本仓直建产物逐节点一致」，而不是「跑得动」。
   // - `wide-ast`（`tests/parse/wide-ast.mjs`）：**1945 件**宽语料（node_modules .d.ts +
   //   samples + tests/cases/token），直接读 `build/ts/typescript/run/source-file-runner.js`，
-  //   不依赖那条在本仓库不存在的 print-ast-common；差异数 / 崩溃 / 缺 range / 越界任一非 0 即红。
+  //   不依赖那条在本仓库不存在的 print-ast-common；判据见 `tests/parse/incremental-crash-expected.mjs`
+  //   （默认 = incremental 档：崩溃 ≤5 全 lib / 差异 ≤87 / fallback ≤94 / `policyProblems` 0；`--legacy` 0/0/≤2）。
   //   **`dist/ts` 的 628 件产物已剔出语料（W4 / D5 §3.2）**，但每一趟仍用 `distOnlyKinds` 复算一次
   //   「剔了不丢节点种类」；这一条不成立就红，所以「少扫几个文件」不能换来绿。
   // - `real-dts-ast`（`typescript/cases/real-dts-ast.mjs`）：226 件真实 `.d.ts`，即 `ast:dts` 那道门；
-  //   以前不在池子里，只有 `npm run ast:dts` 才会跑。
+  //   以前不在池子里，只有 `npm run ast:dts` 才会跑。**它读同一份清单**（D7 波）：默认档允许那 5 条
+  //   `lib.*.d.ts` 崩溃、其余一律红，差异 ≤87；`--legacy` 要求 0 崩溃。
   // 两道都**不写 notApplicable**：缺 `build/ts` 是真实失败（先 `npm run build`），不是「本仓库结构上
   // 不可能跑」——与上面 7 道 N/A 的区别正在这里。
   // **`summary`（第 D3e 波加）**：`FileFallbackCount` 是隐性债指标，挂在这里让它在 gates 摘要里可读，
-  // 不必把同一件事变成第二道门。**W4 起它进了判据**（默认档 ≤2 —— 现状 2），所以「只告警」这句话
-  // 已经不成立：阈值与两档口径都写在 `tests/parse/wide-ast.mjs` 顶部。
-  { name: "wide-ast", script: "tests/parse/wide-ast.mjs", summary: /^FileFallbackCount / },
-  { name: "real-dts-ast", script: "typescript/cases/real-dts-ast.mjs" },
+  // 不必把同一件事变成第二道门。**W4 起它进了判据**（默认档 ≤94 = 78 本仓 + 16 白名单），
+  // 阈值、两档口径与预期清单都写在 `tests/parse/incremental-crash-expected.mjs`（唯一来源）。
+  // **`usesTier`（D7 波）**：标了它的门在 `--legacy` 下会多拿一个 `--legacy` 参数 —— 档位只在这里
+  // 拨、不在门自己里面偷偷改默认值。
+  { name: "wide-ast", script: "tests/parse/wide-ast.mjs", summary: /^FileFallbackCount /, usesTier: true },
+  { name: "real-dts-ast", script: "typescript/cases/real-dts-ast.mjs", usesTier: true },
   // **`cases:tags`（第 633 轮加、第 1017 轮删）**：用例开头那几行 `xl:expect` / `xl:absent` 的
   // 专属尺子（外加「标签表体检」与一条 `<Label />` 结构不变式）。它量的是**产物标签**这一层，
   // 而既定口径是「XML 出口与 token 树质量的尺子不进判据」——**这一条留下的洞记在 README 里**
@@ -158,34 +168,26 @@ const value = (name, fallback = "") => {
 };
 const verbose = flag("--verbose");
 /**
- * **第二档：incremental（第 W4 波加，默认不跑）**
+ * **档位（D7 波翻过来）：默认 = incremental，对照档用 `--legacy`**
  *
- * `wide-ast` 有两把量尺，同一件事在两把上差两个数量级：默认路径今天 0/0/≤2，
- * 增量形状两开关 ON（D5 §4 的口径）今天 **crash 20 / diff 87 / fallback 94**。
- * 把 ON 档塞进默认门、再按默认阈值判，只会让「全量门」永久红一片（D3 §4 与 D5 §5.1 都记过这件事）；
- * 反过来只留默认档，ON 档就没有可以版本化的入口（以前只有 `tmp/wide-on.mjs`，而 `tmp/` 不进仓库）。
+ * 产品的默认值就是增量形状（`EnableIncrementalShapes` / `EnableIncrementalVariableShapes` 都是 `true`），
+ * 所以**默认这一趟不需要拨任何开关** —— 这样门量到的才是用户真拿到的那条路径。要看老口径
+ * （0 / 0 / ≤2）就显式 `--legacy`：它只给标了 `usesTier` 的两道门（`wide-ast` / `real-dts-ast`）
+ * 各加一个 `--legacy`，门的名单**一道都不增删**（仍是 11 道）。
  *
- * 所以这里把它做成**同一道门的第二个档**，用 `--incremental` 显式启用：
- *   node tests/gates/run.mjs --incremental
- * 阈值写在 `tests/parse/wide-ast.mjs` 里（`CRASH_CEILING` / `DIFF_CEILING` / `FALLBACK_BASELINE`
- * 在 `incrementalOn` 下的那一支）：**crash ≤ 5（且 5 条必须全在 `lib.*.d.ts` 预期清单里）、
- * diff ≤ 87、fallback ≤ 94** —— 三个数都是**显式天花板**，不是「不计」。白名单
- * （`tests/parse/external-dts-known-gap.txt`，16 件）只改 `FileFallbackCount` 的统计口径。
- *
- * **今天这一档会红**（crash 20 > 5，其中 15 条是 D5 §4 的 W3 ownership：legacy 根层 catalog 歧义），
- * 这是**读数**不是回归：默认档的 4/0/7 一个数都没动。等 W3 落地，这一档应当自己转绿。
+ * 以前（W4–W6）是反过来：默认档 legacy、`--incremental` 叠第 12 道 `wide-ast:incr`。现在
+ * `--incremental` 只是默认档的显式别名，不再叠门 —— 同一把尺子量两遍会给出两个可以互相矛盾的读数，
+ * 而 M-W6 §4.1 记的正是那一次「4 PASS / 1 FAIL」的口径冲突。
  */
-const INCREMENTAL_GATES = [
-  {
-    name: "wide-ast:incr",
-    script: "tests/parse/wide-ast.mjs",
-    args: ["--incremental-on"],
-    summary: /^FileFallbackCount /,
-    tier: "incremental",
-  },
-];
-const incremental = flag("--incremental") || process.env.XL_GATE_INCREMENTAL === "1";
-const gates = incremental ? [...GATES, ...INCREMENTAL_GATES] : GATES;
+const legacy = flag("--legacy") || process.env.XL_GATE_LEGACY === "1";
+const incrementalAlias = flag("--incremental") || process.env.XL_GATE_INCREMENTAL === "1";
+if (legacy && incrementalAlias) {
+  console.log("（--legacy 与 --incremental 互斥：incremental 已是默认档，本次按 --legacy 跑对照档）");
+}
+const tierArgs = legacy ? ["--legacy"] : [];
+const gates = legacy
+  ? GATES.map((gate) => (gate.usesTier ? { ...gate, args: [...(gate.args ?? []), ...tierArgs] } : gate))
+  : GATES;
 
 // **默认是「门数」而不是「核数」**：所有门同时开一条，而每一条自己还会再开用例级的并行
 // （`coverage` 那一道默认 8）——两层相乘会过载，所以这里给一个能把所有门**同时**放下的数就够。
@@ -265,15 +267,16 @@ const pool = async (items, run) => {
 };
 
 const started = Date.now();
-// **档位只影响「多跑哪几道」，不影响判据**：默认 11 道（其中 4 道适用、7 道 N/A），
-// `--incremental` 再叠上 `wide-ast:incr`（12 道）。未启用时把**怎么启用**印在头上，
+// **档位只影响「门怎么判」，不影响「跑哪几道」**：两种档都是 11 道（其中 4 道适用、7 道 N/A）。
+// 默认档 = 产品默认路径（incremental）；`--legacy` 是同一批门的对照口径。档位与阈值都印在头上，
 // 免得「这一档存在但没人知道」。
 console.log(`${gates.length} 道门并行跑（${jobs} 路，${os.cpus().length} 核）：${gates.map((g) => g.name).join(" · ")}`);
-if (!incremental) {
-  console.log(
-    "（incremental 档未启用：加 --incremental 跑 wide-ast:incr，阈值 crash≤5 / diff≤87 / fallback≤94；见 _reports/W4.md）",
-  );
-}
+console.log(
+  `档位：${legacy
+    ? "legacy（对照档）—— wide-ast / real-dts-ast 加 --legacy，判据 崩溃 0 / 差异 0 / fallback ≤2"
+    : "incremental（默认档）—— 判据 崩溃 ≤5 且全在 lib.*.d.ts 预期清单 / 差异 ≤87 / fallback ≤94 / policyProblems 0"}`,
+);
+console.log("（清单与天花板只有一处：tests/parse/incremental-crash-expected.mjs；读数的来历见 _reports/D7.md）");
 console.log("");
 /** **先把不适用的挑出来**：它们不运行、不计失败，但**每一道的理由都要印出来**（见 notApplicableReason）。 */
 const outcomes = new Map();
@@ -334,11 +337,12 @@ console.log("");
 console.log(
   `${gates.length} 道门：${passed} 道通过、${failed} 道失败、${skippedCount} 道不适用（NOT-APPLICABLE，按跳过计）；墙钟 ${((Date.now() - started) / 1000).toFixed(1)}s`,
 );
-// **档位也要在结尾说一句**：默认档的读数是 11 道 / 4 通过 / 0 失败 / 7 不适用；
-// 叠上 incremental 就是 12 道 —— 数对不上时，先看这一行再怀疑门。
-if (incremental) {
-  console.log("（incremental 档已启用：wide-ast:incr 按 crash≤5 / diff≤87 / fallback≤94 判，清单见 _reports/W4.md）");
-}
+// **档位也要在结尾说一句**：两种档都是 11 道 / 4 通过 / 0 失败 / 7 不适用 —— 数对不上时，
+// 先看这一行再怀疑门（`wide-ast` 与 `real-dts-ast` 在对照档里各多一个 `--legacy`，门数不变）。
+console.log(
+  `（档位：${legacy ? "legacy 对照档（0/0/≤2）" : "incremental 默认档（5 条 lib 预期崩溃 + 32 差异 + 94 fallback 是登记在案的读数）"}；` +
+    "清单见 tests/parse/incremental-crash-expected.mjs）",
+);
 // **不适用的理由在门那一行已经印过一遍了**，这里只再说一句「它不掩盖真实失败」。
 if (skippedCount > 0) {
   console.log("（不适用 = 命令依赖的源 / 产物在本仓库根本不存在；不是放过真实失败，清单见 tests/MIGRATION.md）");
