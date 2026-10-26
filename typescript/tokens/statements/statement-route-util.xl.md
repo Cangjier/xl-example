@@ -95,6 +95,25 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 return StatementRouteUtil.EnableIncrementalVariableShapes;
 ```
 
+## static field EnableIncrementalShapes:bool = false
+
+**「全场景逐字符形状路径」的一级开关。默认 `false`。**
+
+打开后新路径才允许为语句 / 表达式 / 声明等**所有**语句族逐字符签发 shape；`false` 时新路径一步不走，
+所有形状仍走默认的「壳 + Builder 原子建树」路径，既有产物逐字节不变。
+
+它和 `EnableIncrementalVariableShapes` **相互独立**：后者只控制变量声明族的增量建形状（基础实现），
+本字段是把同一套机制推广到全场景的总闸（全场景重构的 bootstrap）。bootstrap 阶段本字段还没有任何
+消费方，翻它不改变任何产物；harness 在增量模式下两者同时打开、legacy 下同时关闭。
+
+## static method IsIncrementalShapesEnabled:()=>bool
+
+读本开关的**唯一入口**：调用方不再直接读字段，翻开关只写字段（默认 `false`）。
+
+```ts
+return StatementRouteUtil.EnableIncrementalShapes;
+```
+
 ## static field EnableFileFallback:bool = true
 
 ## static field FileFallbackCount:int = 0
