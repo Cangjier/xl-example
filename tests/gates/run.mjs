@@ -8,6 +8,11 @@
 // **用法**：`npm run gates`（或 `node tests/gates/run.mjs --jobs 6 --verbose`）。
 // **退出码**：任一**适用**的门红就是 1。
 //
+// **两个档（第 W4 波加）**：默认跑 `GATES` 那 11 道；`--incremental`（或 `XL_GATE_INCREMENTAL=1`）
+// 再叠上 `wide-ast:incr` 一道 —— 同一把尺子的 ON 档，阈值 `crash≤5（全在 lib.*.d.ts）/ diff≤87 /
+// fallback≤94`。**默认档不因 ON 档的 20 条崩溃变红**：两档各自有各自的显式天花板，
+// 理由与「今天为什么还没绿」写在 `_reports/W4.md`。
+//
 // **not-applicable（第 R7 收口加）**：有几道门读的源 / 产物**在本仓库根本不存在**
 // （`runtime/`、`tsrun.xl.md`、`typescript/print-ast-common.xl.md`、`dawn/` 与 C++ 产物；
 // 清单与证据见 `tests/MIGRATION.md` 的「本仓库不适用的门」）。这些门以前各红一次，
@@ -106,15 +111,18 @@ const GATES = [
   { name: "cases:check", script: "tests/parse/validate.mjs" },
   // **`wide-ast` + `real-dts-ast`（本轮收编加进池子）**：两把**适用**的 AST 尺子，判据都是
   // 「与本仓直建产物逐节点一致」，而不是「跑得动」。
-  // - `wide-ast`（`tests/parse/wide-ast.mjs`）：2505 件宽语料（node_modules .d.ts + dist/ts +
+  // - `wide-ast`（`tests/parse/wide-ast.mjs`）：**1945 件**宽语料（node_modules .d.ts +
   //   samples + tests/cases/token），直接读 `build/ts/typescript/run/source-file-runner.js`，
   //   不依赖那条在本仓库不存在的 print-ast-common；差异数 / 崩溃 / 缺 range / 越界任一非 0 即红。
+  //   **`dist/ts` 的 628 件产物已剔出语料（W4 / D5 §3.2）**，但每一趟仍用 `distOnlyKinds` 复算一次
+  //   「剔了不丢节点种类」；这一条不成立就红，所以「少扫几个文件」不能换来绿。
   // - `real-dts-ast`（`typescript/cases/real-dts-ast.mjs`）：226 件真实 `.d.ts`，即 `ast:dts` 那道门；
   //   以前不在池子里，只有 `npm run ast:dts` 才会跑。
   // 两道都**不写 notApplicable**：缺 `build/ts` 是真实失败（先 `npm run build`），不是「本仓库结构上
   // 不可能跑」——与上面 7 道 N/A 的区别正在这里。
-  // **`summary`（第 D3e 波加）**：`FileFallbackCount` 是只读指标（基线 167、只告警不判红），
-  // 挂在这里让它在 gates 摘要里可读，而不必把它变成第二道门。
+  // **`summary`（第 D3e 波加）**：`FileFallbackCount` 是隐性债指标，挂在这里让它在 gates 摘要里可读，
+  // 不必把同一件事变成第二道门。**W4 起它进了判据**（默认档 ≤2 —— 现状 2），所以「只告警」这句话
+  // 已经不成立：阈值与两档口径都写在 `tests/parse/wide-ast.mjs` 顶部。
   { name: "wide-ast", script: "tests/parse/wide-ast.mjs", summary: /^FileFallbackCount / },
   { name: "real-dts-ast", script: "typescript/cases/real-dts-ast.mjs" },
   // **`cases:tags`（第 633 轮加、第 1017 轮删）**：用例开头那几行 `xl:expect` / `xl:absent` 的
@@ -149,9 +157,39 @@ const value = (name, fallback = "") => {
   return at >= 0 && at + 1 < args.length ? args[at + 1] : fallback;
 };
 const verbose = flag("--verbose");
+/**
+ * **第二档：incremental（第 W4 波加，默认不跑）**
+ *
+ * `wide-ast` 有两把量尺，同一件事在两把上差两个数量级：默认路径今天 0/0/≤2，
+ * 增量形状两开关 ON（D5 §4 的口径）今天 **crash 20 / diff 87 / fallback 94**。
+ * 把 ON 档塞进默认门、再按默认阈值判，只会让「全量门」永久红一片（D3 §4 与 D5 §5.1 都记过这件事）；
+ * 反过来只留默认档，ON 档就没有可以版本化的入口（以前只有 `tmp/wide-on.mjs`，而 `tmp/` 不进仓库）。
+ *
+ * 所以这里把它做成**同一道门的第二个档**，用 `--incremental` 显式启用：
+ *   node tests/gates/run.mjs --incremental
+ * 阈值写在 `tests/parse/wide-ast.mjs` 里（`CRASH_CEILING` / `DIFF_CEILING` / `FALLBACK_BASELINE`
+ * 在 `incrementalOn` 下的那一支）：**crash ≤ 5（且 5 条必须全在 `lib.*.d.ts` 预期清单里）、
+ * diff ≤ 87、fallback ≤ 94** —— 三个数都是**显式天花板**，不是「不计」。白名单
+ * （`tests/parse/external-dts-known-gap.txt`，16 件）只改 `FileFallbackCount` 的统计口径。
+ *
+ * **今天这一档会红**（crash 20 > 5，其中 15 条是 D5 §4 的 W3 ownership：legacy 根层 catalog 歧义），
+ * 这是**读数**不是回归：默认档的 4/0/7 一个数都没动。等 W3 落地，这一档应当自己转绿。
+ */
+const INCREMENTAL_GATES = [
+  {
+    name: "wide-ast:incr",
+    script: "tests/parse/wide-ast.mjs",
+    args: ["--incremental-on"],
+    summary: /^FileFallbackCount /,
+    tier: "incremental",
+  },
+];
+const incremental = flag("--incremental") || process.env.XL_GATE_INCREMENTAL === "1";
+const gates = incremental ? [...GATES, ...INCREMENTAL_GATES] : GATES;
+
 // **默认是「门数」而不是「核数」**：所有门同时开一条，而每一条自己还会再开用例级的并行
 // （`coverage` 那一道默认 8）——两层相乘会过载，所以这里给一个能把所有门**同时**放下的数就够。
-const jobs = Math.max(1, Math.min(GATES.length, Number(value("--jobs", String(GATES.length)))));
+const jobs = Math.max(1, Math.min(gates.length, Number(value("--jobs", String(gates.length)))));
 
 /**
  * **一道门在这个仓库里是否「不适用」**（not-applicable：按跳过计，不算失败）。
@@ -180,7 +218,7 @@ const runOne = (gate) =>
     // 所以由**这里**替它开 n 个（每个跑一组 ✓），并且**全都要绿** ✓。
     const shards = gate.shards || 1;
     const runs = Array.from({ length: shards }, (_, index) => {
-      const argv = [path.join(root, gate.script)];
+      const argv = [path.join(root, gate.script), ...(gate.args ?? [])];
       if (shards > 1) argv.push("--shard", `${index}/${shards}`);
       return new Promise((done) => {
         const child = spawn(process.execPath, argv, {
@@ -227,25 +265,33 @@ const pool = async (items, run) => {
 };
 
 const started = Date.now();
-console.log(`${GATES.length} 道门并行跑（${jobs} 路，${os.cpus().length} 核）：${GATES.map((g) => g.name).join(" · ")}`);
+// **档位只影响「多跑哪几道」，不影响判据**：默认 11 道（其中 4 道适用、7 道 N/A），
+// `--incremental` 再叠上 `wide-ast:incr`（12 道）。未启用时把**怎么启用**印在头上，
+// 免得「这一档存在但没人知道」。
+console.log(`${gates.length} 道门并行跑（${jobs} 路，${os.cpus().length} 核）：${gates.map((g) => g.name).join(" · ")}`);
+if (!incremental) {
+  console.log(
+    "（incremental 档未启用：加 --incremental 跑 wide-ast:incr，阈值 crash≤5 / diff≤87 / fallback≤94；见 _reports/W4.md）",
+  );
+}
 console.log("");
 /** **先把不适用的挑出来**：它们不运行、不计失败，但**每一道的理由都要印出来**（见 notApplicableReason）。 */
 const outcomes = new Map();
-for (const gate of GATES) {
+for (const gate of gates) {
   const why = notApplicableReason(gate);
   if (why !== null) outcomes.set(gate, { gate, skipped: why });
 }
-const runnable = GATES.filter((gate) => !outcomes.has(gate));
+const runnable = gates.filter((gate) => !outcomes.has(gate));
 const results = await pool(runnable, runOne);
 for (const result of results) outcomes.set(result.gate, result);
 
 /**
  * 每一门挑一行「结论」印出来（各自最后一行通常就是它 ✓）。
  *
- * **`gate.summary`（第 D3e 波加）**：有些门要印的**不是**结论行而是一条只读指标
- * （例如 `wide-ast` 的 `FileFallbackCount` —— 它只告警、不判红，所以不能当结论）。
- * 声明一个正则，这里把**最后一条**命中的行取出来，接在结论后面一起印。
- * 它只影响**怎么印**，不参与 PASS/FAIL：`code` 仍然只看子进程退出码。
+ * **`gate.summary`（第 D3e 波加）**：有些门要印的**不是**结论行而是一条量出来的指标
+ * （例如 `wide-ast` 的 `FileFallbackCount`）。声明一个正则，这里把**最后一条**命中的行取出来，
+ * 接在结论后面一起印。它只影响**怎么印**，不参与 PASS/FAIL：`code` 仍然只看子进程退出码
+ * ——阈值判在门自己那一侧（`tests/parse/wide-ast.mjs` 的 `FALLBACK_BASELINE`）。
  */
 const conclusion = (text) => {
   const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
@@ -260,7 +306,7 @@ const summaryOf = (gate, text) => {
 let failed = 0;
 let passed = 0;
 let skippedCount = 0;
-for (const gate of GATES) {
+for (const gate of gates) {
   const result = outcomes.get(gate);
   // **not-applicable 与 FAIL 是两种结论**：前者不运行、不计失败；理由照印（`--verbose` 再多一句去哪看清单）。
   if (result.skipped !== undefined) {
@@ -286,8 +332,13 @@ for (const gate of GATES) {
 
 console.log("");
 console.log(
-  `${GATES.length} 道门：${passed} 道通过、${failed} 道失败、${skippedCount} 道不适用（NOT-APPLICABLE，按跳过计）；墙钟 ${((Date.now() - started) / 1000).toFixed(1)}s`,
+  `${gates.length} 道门：${passed} 道通过、${failed} 道失败、${skippedCount} 道不适用（NOT-APPLICABLE，按跳过计）；墙钟 ${((Date.now() - started) / 1000).toFixed(1)}s`,
 );
+// **档位也要在结尾说一句**：默认档的读数是 11 道 / 4 通过 / 0 失败 / 7 不适用；
+// 叠上 incremental 就是 12 道 —— 数对不上时，先看这一行再怀疑门。
+if (incremental) {
+  console.log("（incremental 档已启用：wide-ast:incr 按 crash≤5 / diff≤87 / fallback≤94 判，清单见 _reports/W4.md）");
+}
 // **不适用的理由在门那一行已经印过一遍了**，这里只再说一句「它不掩盖真实失败」。
 if (skippedCount > 0) {
   console.log("（不适用 = 命令依赖的源 / 产物在本仓库根本不存在；不是放过真实失败，清单见 tests/MIGRATION.md）");
