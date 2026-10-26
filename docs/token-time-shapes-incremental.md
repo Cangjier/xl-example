@@ -44,10 +44,25 @@ npm run tts:incremental                                                         
 两条通用规则：`Pos` = 前一个非 trivia 单元的 `SourceRange.EndIndex`（`IncrementalItemPosition.AfterPreviousCode`）；
 运算符资格与优先级只**只读查询** `OperatorTable`，不复制运算符表、不在表里加状态。
 
-## 3. 覆盖边界
+## 3. 覆盖边界（历史边界，收尾前）
+
+### 3.1 2026-10 收尾状态
+
+> **本节 3.2 起是「收尾前」的历史边界，作为设计演进记录保留，不再是当前能力边界。**
+>
+> 收尾时原 56 条缺口（throw 40 / atomic 11 / partial 5）**已全部实现增量支持**，并各作为一条 case
+> 迁入 `tts-impl` 账本；终态读数：`tts` 账本 **0 条**、`tts-impl` **425 条**，空账本运行 **exit 0**
+> （`npm run tts:cases` / `npm run tts:impl` 两条 runner）。因此下文「不支持：… 一律按 C10 显式抛错」
+> 只描述收尾**前**的边界；这些形态现在各有 case 固化，判断能力边界请看 `tts-impl` 账本，不要看本节。
+>
+> 仍成立的一条是本节末条：开关默认 `false`，默认解析路径仍是「`StatementShape` 空壳 → EOF 时
+> `StatementBuilder` 原子建树」，与重构前逐字节相同；增量建树是被开关选中的路径（`npm run tts:incremental`
+> 与 harness 都显式打开），不是默认路径。
+
+### 3.2 历史边界（2026-10 收尾前）
 
 - 支持：`let` / `const` / `var` + **单个 `Common` 标识符**绑定 + 初始化器为**数字字面量**或
-  `*` / `+` 构成的二元表达式（当前运算符集合以 `ExpressionCatalogFactory` / `BuildOperator` 的白名单为准）。
+  `*` / `+` 构成的二元表达式（收尾前的运算符集合以 `ExpressionCatalogFactory` / `BuildOperator` 的白名单为准）。
 - 不支持：类型注解 `:`、多声明 `,`、`!`、解构、`;`、其它运算符、其它表达式形态 —— 一律按契约 **C10 显式抛错**
   （`增量变量形状未支持：<stage> <形态>`），**不会**静默产出错误的树。
 - 开关仍为 `false` 时上述代码路径一步都不走；`StatementBuilder` / `BuildFromShell` / `FinishShell` /
@@ -87,7 +102,12 @@ node tests/parse/token-time-shapes.mjs tests/parse/token-time-shapes/let-x.ts --
 3. **右操作数候选只有一份定义**：`RightOperandPossibleShape.Catalog()`；`ExpressionCatalogFactory.CreateRightOperandCatalog()`
    只是转调它，避免声明层与二元层各写一套判据而漂移。
 
-## 7. 后续路线
+## 7. 后续路线（历史：收尾前计划，已全部实现）
+
+> 下面这条路线在 2026-10 收尾时**已全部走完**：类型注解、多声明、解构、其它运算符、更多表达式形态
+> 都已在增量路径上实现，并各有 `tts-impl` case。保留原文是因为它的**验收链写法**仍然有效：
+> 每扩一步都用同一条链验证（legacy 14 步基线、`tts:incremental` 14/14、`tts:corpus` 0 差异，
+> 外加当时的缺口 case 台账 `tts` → 现在 `tts-impl`）。
 
 类型注解（`:` + 类型目录）→ 多声明（`,` 与列表重启）→ 解构（对象/数组 binding）→ 其它运算符（`BuildOperator`
 扩一个 `if` 分支 + 目录加候选）→ 更多表达式形态（调用、成员访问、括号）。每扩一步都用同一条验收链：
