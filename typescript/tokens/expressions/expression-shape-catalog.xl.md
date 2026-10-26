@@ -15,6 +15,7 @@ import { StringLiteralPrimaryPossibleShape } from "./forms/primary/string-litera
 import { TaggedTemplatePrimaryPossibleShape } from "./forms/primary/tagged-template-primary-possible-shape.xl.md"
 import { TemplatePrimaryPossibleShape } from "./forms/primary/template-primary-possible-shape.xl.md"
 import { ThisPrimaryPossibleShape } from "./forms/primary/this-primary-possible-shape.xl.md"
+import { PrefixUnaryPossibleShape } from "./forms/prefix/prefix-unary-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -148,4 +149,5 @@ return shapes;
   CompositeInitializerPossibleShape.AppendTo(shapes); // [A4]
 CompositeInitializerFormsPossibleShape.AppendTo(shapes); // [A4b]
 CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
+  PrefixUnaryPossibleShape.AppendTo(shapes); // [P3a]
 ```
