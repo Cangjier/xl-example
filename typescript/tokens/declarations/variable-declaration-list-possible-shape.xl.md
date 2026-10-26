@@ -124,7 +124,8 @@ return IncrementalVariableDeclarationListBuilder.CloseAtSemicolon(host as Variab
 
 # class DeclarationCellGuard extends PossibleShape
 
-表达式目录候选的**格子守卫**：`;` / `,` 格上一律 `Reject`（把这两格留给终结候选），其余格逐字委托内部候选。
+表达式目录候选的**格子守卫**：`;` / `,` 格上一律 `Reject`（把这两格留给终结候选），`!` 只在定值断言位
+（还没有 `=`）拒，其余格逐字委托内部候选。
 
 为什么需要它：`CatalogGuide` 在问终结候选时**不看** `Candidates` 里还有谁活着，只要终结候选 `Accept` 而
 `Candidates.size > 0` 就抛「终结候选与其它候选同时成立」。A4 的 `CompositeInitializerPossibleShape` 在 `;` 格
@@ -148,7 +149,14 @@ if (tokenIndex >= 0 && tokenIndex < units.length) {
   const unit = units[tokenIndex];
   if (!unit.IsTriviaToken && unit instanceof Symbol) {
     const text = (unit as Symbol).TempToString();
-    if (text === ";" || text === "," || text === "!" || text === "}") {
+    if (text === ";" || text === "," || text === "}") {
+      return ShapeStates.Reject;
+    }
+    // [P3c] `!` 只在**定值断言位**（这条声明还没有 `=`）才拒 —— `let x!: T` 走的就是这一支，行为一个字不变。
+    // `=` 之后的 `!` 属于初始化器：前缀 `!`（`let x = !y`，P3a 的 `PrefixUnaryPossibleShape`）与
+    // 后缀非空断言（`let x = a!`，P1 的 `NonNullPossibleShape`）都在这一格建树，守卫不能整格拒死。
+    // 判据与终结候选自己用的那一句是**同一份**（`IncrementalVariableDeclarationListBuilder.HasEqualBefore`）。
+    if (text === "!" && !IncrementalVariableDeclarationListBuilder.HasEqualBefore(units, tokenIndex)) {
       return ShapeStates.Reject;
     }
   }

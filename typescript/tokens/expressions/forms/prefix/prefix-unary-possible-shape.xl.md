@@ -60,16 +60,17 @@ PrefixUnaryExpressionShape       TypeOfExpressionShape
 于是：`- + ! ~` 格本身只 `Uncertain`（活着，压住 `BinaryExpressionPossibleShape` 的误建），
 到**操作数第一个代码单元**上 `Accept` 并一次建完（`!!y` / `- -y` 的整条运算符串自右向左逐层包起来）。
 
-**两条本 WP 修不了的阻塞（照实报告，不迁、不造假）**
+**两条 P3a 时期的阻塞，[P3c] 已解锁**（原始证据见 `_reports/p3a-prefix-unary.md` §4）
 
-- `!`：A6 的 `DeclarationCellGuard` 对 `;` `,` `!` `}` **整格 `Reject`**（服务 `let x!: T`），
-  `let x = !y` 的 `!` 格上 `Candidates` 归零且不会复活 ⇒ `unary-not` / `unary-chain-not` /
-  `let-init-bang` 三条达不到 `incremental`。本条**不认领 `!`**：认领只会把 `throw` 变成 `partial`，
-  既不是支持、又把账本从「显式拒绝」改坏。后缀 `!`（`let x = y!`）归 P1 的 `non-null-possible-shape`。
-- `typeof` / `void`：A1 的 `IdentifierPrimaryPossibleShape` 在两个格上一直活着（`typeof` 不在它的
-  排除表里），共享目录永远 `Waiting`；`ContinuationClaim` 只对 `Symbol` / `Bracket` 格被问，
-  `Common` 关键字拿不到任何钩子 ⇒ `unary-typeof` / `unary-void` 仍是 `partial`。
-  按 A1 §7 P3 的验收口径这是**未完成**，不是「不 throw 就算过」。
+- `!`：A6 的 `DeclarationCellGuard` 原来对 `;` `,` `!` `}` **整格 `Reject`**（服务 `let x!: T`），
+  `let x = !y` 的 `!` 格上 `Candidates` 归零且不会复活。P3c 把守卫收窄成「`=` 之前（定值断言位）才拒」
+  （判据是同文件现成的 `HasEqualBefore`），`!` 格重新有活口，本候选因此把 `!` 加回 `IsHandledText`。
+  `let x!: T` 的行为一个字不变（`=` 之前仍整格拒，终结候选照旧建定值断言）。
+- `typeof` / `void`：A1 的 `IdentifierPrimaryPossibleShape` 原来在两个格上并活（不在排除表里），
+  共享目录永远 `Waiting`。P3c 把 `typeof` / `void` 加进那张排除表 ⇒ 关键字格上只剩本候选。
+- 后缀 `!`（`let x = a!`）归 P1 的 `non-null-possible-shape`，P3c 同时启用了它；两者按位置互斥：
+  `let x = a!` 的 `!` 格上本候选的 `IsPrefixPosition` 为假（运算符串前一个代码单元是操作数 `a`，不是 `=`），
+  `let x = !y` 的 `!` 格上 P1 的 `MemberChainJudge.Kind` 为 `""`（`=` 之后第一个代码单元就是 `!`）。
 
 # class PrefixUnaryPossibleShape extends PossibleShape
 
@@ -98,12 +99,15 @@ return true;
 
 ## static method IsHandledText:(text:string)=>bool
 
-**本候选真能建完**的前缀文本：`-` `+` `~`。`!` 不在这里——它在 `DeclarationCellGuard` 的格上被整格拒掉
-（类头第二条阻塞），认领会把 `throw` 变成半截的 `partial`；`typeof` / `void` 是 `Common` 关键字，
-共享目录里有 `IdentifierPrimaryPossibleShape` 并活（第一条阻塞）。
+**本候选真能建完**的前缀文本：`-` `+` `!` `~` `typeof` `void`。
+
+[P3c] 三条解锁：① `DeclarationCellGuard` 的 `!` 收窄成「`=` 之前才拒」⇒ `let x = !y` 的 `!` 格不再归零；
+② `IdentifierPrimaryPossibleShape` 的排除表加了 `typeof` / `void` ⇒ 这两个关键字格上不再有并活候选。
+于是这两类可以加回本判据（`!!y` 的递归链由 `OperatorRunStart` 的连续运算符串支持，`:` 前缀之后自右向左
+逐层包起来）。`delete` / `++` / `--` 仍由 `IsPrefixText` 排除（P3b）。
 
 ```ts
-return PrefixUnaryPossibleShape.IsPrefixText(text) && text !== "!" && text !== "typeof" && text !== "void";
+return PrefixUnaryPossibleShape.IsPrefixText(text);
 ```
 
 ## static method TextOf:(unit:Token)=>string
@@ -364,7 +368,8 @@ return inner;
 - 这一格是本候选处理的前缀运算符（`IsPrefixPosition`）⇒ `true`，语义是「继续等」——
   真正的形状在**操作数那一格**由 `BuildByIndex` 一次建完（`-` / `+` 格上目录里有
   `BinaryExpressionPossibleShape` 并活，运算符格上建不了，见类头第 1 条）；
-- 其余（含 `!` / `typeof` / `void`：这两类本 WP 建不出来）⇒ `false`，兜底 throw / 既有 `partial` 按原样保留。
+- 其余（含后缀位的 `!`：`let x = a!` 的运算符串前面是操作数而不是 `=`，P1 认领）⇒ `false`，
+  兜底 throw / 既有 `partial` 按原样保留。
 
 ```ts
 return PrefixUnaryPossibleShape.IsPrefixPosition(units, tokenIndex);
