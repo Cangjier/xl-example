@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **177** 条 case：incremental **177** / 非 incremental **0**（非 incremental 即 FAIL）。
+共 **194** 条 case：incremental **194** / 非 incremental **0**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -19,6 +19,19 @@
 
 | case | 分类 | 判定依据 | 备注 |
 | --- | --- | --- | --- |
+| `declarations/class-abstract.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, MethodDeclarationShape@pos=18, AbstractKeywordShape@pos=18, IdentifierShape@pos=27, VoidKeywordShape@pos=32 |  |
+| `declarations/class-constructor-param-property.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, ConstructorShape@pos=9, ParameterShape@pos=22, PrivateKeywordShape@pos=22, IdentifierShape@pos=29, NumberKeywordShape@pos=32 |  |
+| `declarations/class-decorator.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0 |  |
+| `declarations/class-empty.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0 |  |
+| `declarations/class-extends-implements.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0 |  |
+| `declarations/class-field-modifiers.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, PropertyDeclarationShape@pos=9, PrivateKeywordShape@pos=9, StaticKeywordShape@pos=17, ReadonlyKeywordShape@pos=24, IdentifierShape@pos=33 |  |
+| `declarations/class-getter.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, GetAccessorShape@pos=9, IdentifierShape@pos=13, NumberKeywordShape@pos=18, BlockShape@pos=25 |  |
+| `declarations/class-method-decorator.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, MethodDeclarationShape@pos=9, DecoratorShape@pos=9, IdentifierShape@pos=11, IdentifierShape@pos=14, BlockShape@pos=18 |  |
+| `declarations/class-method.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, MethodDeclarationShape@pos=9, IdentifierShape@pos=9, BlockShape@pos=13 |  |
+| `declarations/class-parameter-decorator.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, ConstructorShape@pos=9, ParameterShape@pos=22, DecoratorShape@pos=22, IdentifierShape@pos=23, IdentifierShape@pos=26 |  |
+| `declarations/class-property-decorator.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, PropertyDeclarationShape@pos=9, DecoratorShape@pos=9, IdentifierShape@pos=11, IdentifierShape@pos=14, NumericLiteralShape@pos=18 |  |
+| `declarations/class-setter.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, SetAccessorShape@pos=9, IdentifierShape@pos=13, ParameterShape@pos=16, IdentifierShape@pos=16, NumberKeywordShape@pos=18 |  |
+| `declarations/class-static-block.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, ClassStaticBlockDeclarationShape@pos=9, BlockShape@pos=16 |  |
 | `declarations/const-number.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
 | `declarations/export-as-namespace.ts` | incremental | 提前的 shape 节点：NamespaceExportDeclarationShape@pos=0, IdentifierShape@pos=19 |  |
 | `declarations/export-assignment.ts` | incremental | 提前的 shape 节点：ExportAssignmentShape@pos=0, IdentifierShape@pos=8 |  |
@@ -208,6 +221,10 @@
 | --- | --- | --- | --- |
 | `types/as-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |
 | `types/catch-clause-annotation.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0 |  |
+| `types/class-ctor-param-property.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, ConstructorShape@pos=9, ParameterShape@pos=22, ReadonlyKeywordShape@pos=22, IdentifierShape@pos=30, StringKeywordShape@pos=33 |  |
+| `types/class-implements-multi.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0 |  |
+| `types/class-property-definite.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, PropertyDeclarationShape@pos=9, IdentifierShape@pos=9, ExclamationTokenShape@pos=11, StringKeywordShape@pos=13 |  |
+| `types/class-property-readonly.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, PropertyDeclarationShape@pos=9, StaticKeywordShape@pos=9, ReadonlyKeywordShape@pos=16, IdentifierShape@pos=25, StringKeywordShape@pos=28 |  |
 | `types/for-init-annotation.ts` | incremental | 提前的 shape 节点：ForStatementShape@pos=0 |  |
 | `types/import-inline-type.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=13, ImportSpecifierShape@pos=16 |  |
 | `types/satisfies-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |

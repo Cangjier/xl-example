@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **248** 条 case：throw 96 / atomic 102 / partial 50 / incremental 0
+共 **231** 条 case：throw 96 / atomic 85 / partial 50 / incremental 0
 
 ## throw
 
@@ -134,19 +134,6 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `atomic/declarations/class-abstract.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-constructor-param-property.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-empty.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-extends-implements.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-field-modifiers.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-getter.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-method-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-method.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-parameter-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-property-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-setter.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/class-static-block.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/const-enum.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-function.ts` | 增量开关对逐字符树没有任何影响 |  |
@@ -240,10 +227,6 @@
 | `atomic/types/alias-tuple.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/alias-typeof-query.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/alias-union.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/class-ctor-param-property.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/class-implements-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/class-property-definite.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/class-property-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/declare-unique-symbol.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-param-return.ts` | 增量开关对逐字符树没有任何影响 |  |
