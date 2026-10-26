@@ -196,6 +196,20 @@ if (parent === null) {
 const at = parent.Data.indexOf(shell);
 if (at >= 0) {
   parent.Data.splice(at, 1, built);
+  // [W2:UNMOUNT] 壳被 `built` 换掉 ⇒ 壳已死。死壳上如果还挂着 `MountedUnit`（函数体 / 类体 /
+  // 模块体的 `BlockShape` / `ModuleBlockShape`），那只子单元此刻正跑在自己的逐字符循环里，
+  // 每格只问一句「我还是不是我父单元的 `MountedUnit`」（`UnitToken.Process`）——死壳还指着它，
+  // 它就继续吃下一行的字符；而它已经 `Closed`，`ExitOrPre` 返回 `Nothing`、`Default` 是空实现，
+  // 于是那些字符**被吞掉且不产生任何单元**。
+  //
+  // 实测（`function f() { }` ⏎ `const w = 1;`）：块体的 `Process` 从 `}` 之后的第 16 字符一路吃到
+  // 第 22 字符，`const` 五个字符消失，根层 `Data` 里只剩 `w = 1;`；`VariableStatementPossibleShape`
+  // 在那一格看到的 `units[2]` 是 `w` 而不是 `const`，只能 `Uncertain`，
+  // `RootExpressionStatementPossibleShape` 随即建壳 ⇒ 变量语句壳「让位」给表达式语句壳。
+  // **首因在这只悬空指针，不在壳族选择**。
+  //
+  // 只在 `at >= 0`（壳确实被换掉）时清：`at < 0` 说明壳不是这里的直接子单元、它可能还活着。
+  shell.MountedUnit = null;
 }
 built.Parent = parent;
 if (parent.MountedUnit === shell) {
