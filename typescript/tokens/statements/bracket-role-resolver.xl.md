@@ -1,8 +1,10 @@
 # dependencies
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -95,6 +97,33 @@ A1 #7、#21 之外的声明体族。
 ## static field ObjectLiteralMethodBody:string = "ObjectLiteralMethodBody"
 
 对象字面量里的方法体 `{`（`{ m() {} }`）。A1 #24，**只可能是 Fallback**。
+
+## static field ObjectLiteral:string = "ObjectLiteral"
+
+**对象字面量 `{`（B4 / A2 #7）。** 只在**表达式上下文**成立：初始化器的 `=` 之后、
+复合字面量里的元素位（`[` / `(` / `{` 的 `Data` 里 `,` 之后）。块体、`case x:` 之后的块、
+`=> {` 的块体、`class {` 的成员体都**不是**本角色（它们在被更早的宿主规则里判走；
+判不出来的场合本类返回 `Fallback`，不硬猜）。
+
+## static field ArrayLiteral:string = "ArrayLiteral"
+
+**数组字面量 `[`（B4 / A2 #10）。** 判据同上（`= [` 或复合字面量里的元素位）。
+下标 `a[0]` / 计算属性名 / 解构 `[a, b]` 仍返回 `Fallback("square-bracket-owned-by-expression-side")`。
+
+## static field CallArgs:string = "CallArgs"
+
+**调用实参 `(`（B4 / A2 #1）。** 前一个代码单元是可调用者（已建形状，或标识符 `Common`），
+且不在 `new` 链上——`new` 的实参括号归 `NewPossibleShape`，这里必须让路（A2 #2）。
+
+## static field ParenExpression:string = "ParenExpression"
+
+**分组括号 `(`（B4 / A2 #3）。** 前一个代码单元是运算符形状（或 `?` / `:`）时的 `(...)`。
+
+## static field ArrowParams:string = "ArrowParams"
+
+**箭头形参 `(`（B4 / A2 #4 #5，Deferred）。** 初始化器起始格的 `(` 既可能是分组、也可能是箭头形参表，
+只能等 `=>` 到达才确定 ⇒ 登记 `Deferred`、**不在 `(` 格硬猜**（A4b 的 `arrowparen` 前瞻 + B3b 的
+`DeferredBracketCatalog` 是它的两条既有通道）。
 
 # class BracketRoleCatalog
 
@@ -324,6 +353,210 @@ for (let index = from; index >= 0; index--) {
 return null;
 ```
 
+## static method IsPlainIdentifierText:(text:string)=>bool
+
+标识符字面形态（首字符字母 / `_` / `$`，其余字母数字 / `_` / `$`）。与
+`ControlHeadPossibleShape.IsPlainIdentifier` 同一口径，但本文件不 import 表达式族（避开
+`expression-builder` 那条回边：`expression-builder` 已经 import 了 `control-head-possible-shape`，
+而后者 import 本文件——再反向 import 表达式族就成环）。
+
+```ts
+if (text.length === 0) {
+  return false;
+}
+const first = text.charAt(0);
+if (!((first >= "a" && first <= "z") || (first >= "A" && first <= "Z")
+  || first === "_" || first === "$")) {
+  return false;
+}
+for (let at = 1; at < text.length; at++) {
+  const ch = text.charAt(at);
+  if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9")
+    || ch === "_" || ch === "$") {
+    continue;
+  }
+  return false;
+}
+return true;
+```
+
+## static method IsOperatorBefore:(unit:Token | null)=>bool
+
+前一个代码单元是不是「运算符位」：**运算符形状**（类名以 `TokenShape` 结尾，A2 的
+`OperatorShapeMap` 产物同形）或 `Symbol("?")` / `Symbol(":")`。
+
+判据与 `parenthesized-possible-shape.xl.md` 的 `IsOperatorBefore` **同一口径**，但按本文件的纪律
+只比类名、不 import 表达式族（见 `IsPlainIdentifierText` 的成环说明）。语义变更必须两边同时改。
+
+```ts
+if (unit === null) {
+  return false;
+}
+if (unit instanceof ShapeToken) {
+  return unit.constructor.name.endsWith("TokenShape");
+}
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  return text === "?" || text === ":";
+}
+return false;
+```
+
+## static method IsInitializerPosition:(previous:Token | null)=>bool
+
+前一个代码单元是初始化器的 `=`（`let x = { … }` / `let x = [ … ]` / `let x = ( … )`）。
+**这一格是 A4b / B3b 与 B4 的共同入口**：`{` / `[` 归 B4 的对象 / 数组目录，
+`(` 归 `ArrowParams`（Deferred，等 `=>`），三者互不重叠。
+
+```ts
+if (previous === null || !(previous instanceof Symbol)) {
+  return false;
+}
+return (previous as Symbol).Is("=");
+```
+
+## static method IsElementPosition:(host:Token, previous:Token | null)=>bool
+
+复合字面量里的「下一个元素位」：宿主是**本机制已经判成表达式括号**的 `Bracket`，
+且它的 `Data` 里这只括号之前没有代码单元（第一个元素）或是 `,` / `:`（下一个元素 / 对象值）。
+
+只认本机制自己的括号（`ObjectLiteral` / `ArrayLiteral` / `CallArgs` / `ParenExpression`）——
+语句壳、声明壳、块体括号一个都不认，因此 `case x: { }` 的块、`=> { }` 的块体不会被误判成对象字面量。
+
+```ts
+if (!(host instanceof Bracket)) {
+  return false;
+}
+const hostShape = host as Bracket;
+const hostRole = hostShape.Role;
+if (hostRole !== BracketRole.ObjectLiteral && hostRole !== BracketRole.ArrayLiteral
+  && hostRole !== BracketRole.CallArgs && hostRole !== BracketRole.ParenExpression) {
+  return false;
+}
+if (previous === null || previous.IsTriviaToken) {
+  return true;
+}
+if (!(previous instanceof Symbol)) {
+  return false;
+}
+const text = (previous as Symbol).TempToString();
+if (hostRole === BracketRole.ObjectLiteral) {
+  // 对象字面量里 `:` 之后是值位（`{ a: { b: 1 } }`）。
+  return text === "," || text === ":";
+}
+return text === ",";
+```
+
+## static method IsExpressionHost:(host:Token)=>bool
+
+**表达式括号只在这几类宿主上成立**（B4 实测的护栏，见 `_reports/B4.md` §3）：
+
+- `VariableDeclarationShape`（`let x = …` 的初始化器位）；
+- `StatementShape` / `SourceFileShape`（语句壳还没拆分的早期格）；
+- **本机制自己的表达式括号**（`CallArgs` / `ArrayLiteral` / `ObjectLiteral` / `ParenExpression`
+  里的下一层元素 / 实参 / 值）。
+
+**其余宿主一律返回 `false`**，因为那些位置的括号内容归**别人**的收口入口读：
+
+| 宿主 | 谁在读 | 打开会怎样（实测） |
+|---|---|---|
+| `ClassDeclarationShape` / `InterfaceDeclarationShape` / `MethodDeclarationShape` | 成员族 `BuildParameters` / `MemberShellCatalog` | `set x(v)` / `constructor(private a: number)` → `类成员参数不是标识符` |
+| `TypeAliasDeclarationShape` | `TypeBuilder.ParseType` | `type A = { … }` / `type T = [a, b]` → `不支持的类型起点` |
+| `FunctionDeclarationShape` | 参数表族（B1 已注册 `ParameterList`） | 不需要本目录 |
+| 其余形状 | 各自的 legacy 入口 | 同上 |
+
+```ts
+const hostKey = host.constructor.name;
+if (hostKey === "VariableDeclarationShape") {
+  return true;
+}
+// 表达式容器宿主（`1 * (a + b)` 的 `BinaryExpressionShape`、三目的 `ConditionalExpressionShape`、
+// 嵌套的 `ParenthesizedExpressionShape`、`ObjectLiteralExpressionShape` …）：括号内容仍是表达式。
+if (hostKey.endsWith("ExpressionShape")) {
+  return true;
+}
+if (hostKey === "StatementShape" || hostKey === "SourceFileShape") {
+  // 语句壳还没拆分的早期格：只认**表达式 / 变量**两族。
+  // 声明族（`type A = { … }` / `interface` / `class` …）的 `{` 归 `TypeBuilder` / 成员族，
+  // 这里放行会让类型字面量里先垫出 `IdentifierShape`（实测：`不支持的类型起点`）。
+  const route = StatementRouteUtil.Decide(host.Data, host.Data.length - 1);
+  return route === StatementRoute.ShellVariable || route === StatementRoute.ShellPlainExpression;
+}
+if (!(host instanceof Bracket)) {
+  return false;
+}
+const role = (host as Bracket).Role;
+return role === BracketRole.ObjectLiteral || role === BracketRole.ArrayLiteral
+  || role === BracketRole.CallArgs || role === BracketRole.ParenExpression;
+```
+
+## static method IsCallCallee:(host:Token, bracket:Bracket, previous:Token | null)=>bool
+
+前一个代码单元能不能当被调用者（A2 #1 的 `CallPossibleShape.CanBeCallee` 同一判据）：
+
+- **已建形状**且不是运算符形状（`IdentifierShape` / `MemberAccessExpressionShape` / `CallExpressionShape` / `ParenthesizedExpressionShape` …）；
+- **标识符 `Common`**（`f(` 的 `f` 还没建形状）。
+
+**两条让路**：`new` 链上的实参括号归 `NewPossibleShape`（A2 #2，判据只看结构位：
+`new` 前一个代码单元）；对象字面量里**成员起始位**的 `m(` 是方法形参表（A2 #24 的
+`ObjectLiteralMethodBody`），不是调用 ⇒ 一律不认。
+
+```ts
+if (previous === null || previous.IsTriviaToken) {
+  return false;
+}
+// ① 对象字面量里的**成员起始位**（`{ m() {} }` / `{ get a() {} }` / `{ a, m() {} }`）：
+//    那个 `(` 是方法 / 访问器的形参表，归成员族（`BuildParameters`），不是调用。
+//    **这一条必须排在最前面**：`set a(v)` 的 `a` 已经被本目录建成 `IdentifierShape`，
+//    走到下面的「已建形状 ⇒ 可调用者」分支就会误判（B4 实测：`类成员参数不是标识符`）。
+if (host instanceof Bracket && (host as Bracket).Role === BracketRole.ObjectLiteral) {
+  const at = host.Data.indexOf(previous);
+  for (let index = at - 1; index >= 0; index--) {
+    const unit = host.Data[index];
+    if (unit.IsTriviaToken) {
+      continue;
+    }
+    if (unit instanceof Symbol) {
+      const mark = (unit as Symbol).TempToString();
+      if (mark === "," || mark === ":") {
+        return mark === ":";
+      }
+    }
+    break;
+  }
+  return false;
+}
+// ② `function (` / `async (` / `new (` …：关键字后面的 `(` 是函数 / 箭头的形参表。
+if (previous instanceof Common) {
+  const keyword = (previous as Common).TempToString();
+  if (StatementRouteUtil.IsLegacyKeyword(keyword) || keyword === "new") {
+    return false;
+  }
+}
+if (previous instanceof ShapeToken) {
+  return !previous.constructor.name.endsWith("TokenShape");
+}
+if (!(previous instanceof Common)) {
+  return false;
+}
+const text = (previous as Common).TempToString();
+if (!BracketRoleResolver.IsPlainIdentifierText(text)) {
+  return false;
+}
+const at = host.Data.indexOf(previous);
+for (let index = at - 1; index >= 0; index--) {
+  const unit = host.Data[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Common && (unit as Common).Is("new")) {
+    return false;
+  }
+  break;
+}
+return true;
+```
+
 ## static method Classify:(host:Token, bracket:Bracket, context:SyntaxContext)=>BracketRoleResult
 
 **宿主规则表**：括号字符 + 宿主类名 + 语句族，返回 `Known`（角色与宿主都有）/ `Deferred`（差宿主）
@@ -351,10 +584,32 @@ if (startChar === "(") {
     }
     return BracketRoleResult.Fallback("paren-not-a-control-head");
   }
+  // [B4] 表达式侧的三种 `(`（A2 #1 call / #2 new / #3 分组 / #4 #5 箭头形参）。
+  // 判据全部是**结构位**：只看宿主 `Data` 里这只括号前面的那一个非 trivia 单元。
+  const parenPrevious = BracketRoleResolver.PreviousCode(host, shape);
+  if (BracketRoleResolver.IsExpressionHost(host) && BracketRoleResolver.IsInitializerPosition(parenPrevious)) {
+    // 初始化器起始格：可能是 `(1+2)` 的分组、也可能是 `(a: T) => …` 的箭头形参表。
+    // 只有 `=>` 到达才确定 ⇒ 登记 Deferred，**不在 `(` 格硬猜**（A2 §3 #4/#5）。
+    return BracketRoleResult.Deferred(BracketRole.ArrowParams, "arrow-paren-wait-for-arrow",
+      null, "ArrowFunctionShape");
+  }
+  if (BracketRoleResolver.IsExpressionHost(host)
+    && BracketRoleResolver.IsCallCallee(host, shape, parenPrevious)) {
+    return BracketRoleResult.Known(null, null, BracketRole.CallArgs, host, hostKey);
+  }
+  if (BracketRoleResolver.IsExpressionHost(host) && BracketRoleResolver.IsOperatorBefore(parenPrevious)) {
+    return BracketRoleResult.Known(null, null, BracketRole.ParenExpression, host, hostKey);
+  }
   return BracketRoleResult.Fallback("no-host-rule:" + hostKey + startChar);
 }
-// 2. `[`：数组字面量 / 下标 / 计算名 / 元组，全部是表达式与类型侧（A2 #10/#11/#12/#18），B0 不认领。
+// 2. `[`：数组字面量归 B4；下标 / 计算名 / 元组仍归既有路径（A2 #10/#11/#12/#18）。
 if (startChar === "[") {
+  const bracketPrevious = BracketRoleResolver.PreviousCode(host, shape);
+  if (BracketRoleResolver.IsExpressionHost(host) && bracketPrevious !== null
+    && (BracketRoleResolver.IsInitializerPosition(bracketPrevious)
+      || BracketRoleResolver.IsElementPosition(host, bracketPrevious))) {
+    return BracketRoleResult.Known(null, null, BracketRole.ArrayLiteral, host, hostKey);
+  }
   return BracketRoleResult.Fallback("square-bracket-owned-by-expression-side");
 }
 if (startChar !== "{") {
@@ -397,6 +652,18 @@ if (hostKey === "ImportClauseShape" || hostKey === "ImportDeclarationShape"
 // 5. 对象字面量里的方法体（A1 #24）：只能在收口定 ⇒ 显式 Fallback，不再静默走启发式。
 if (hostKey === "ObjectLiteralExpressionShape") {
   return BracketRoleResult.Fallback("object-literal-method-body");
+}
+// 5b. [B4] 表达式上下文里的**对象字面量** `{`（A2 #7）：`= {` 或复合字面量里的元素位。
+// 语句 / 声明的块体、`case x:` 之后的块、`=> {` 的块体、`class {` 的成员体，全部在**前面的分支**里
+// 已经判走（句法路由 / 宿主类名 / 括号宿主）；到这一格还没判走的 `{`，只可能是表达式位置。
+// 判据仍然只看结构位，判不出来就保持后面的显式 Fallback——**不硬猜**（B4 任务书约束）。
+{
+  const literalPrevious = BracketRoleResolver.PreviousCode(host, shape);
+  if (BracketRoleResolver.IsExpressionHost(host)
+    && (BracketRoleResolver.IsInitializerPosition(literalPrevious)
+      || BracketRoleResolver.IsElementPosition(host, literalPrevious))) {
+    return BracketRoleResult.Known(null, null, BracketRole.ObjectLiteral, host, hostKey);
+  }
 }
 // 6. 括号宿主：嵌套块 `{ { … } }`。外层块体目录已经把这个 `{` 收成块语句（A1 #8 的早判一格）。
 if (host instanceof Bracket) {

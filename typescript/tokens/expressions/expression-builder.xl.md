@@ -127,6 +127,7 @@ import { TemplateHeadShape } from "../literals/template-head-shape.xl.md"
 import { TemplateMiddleShape } from "../literals/template-middle-shape.xl.md"
 import { TemplateTailShape } from "../literals/template-tail-shape.xl.md"
 import { ControlHeadPossibleShape } from "../statements/control-head-possible-shape.xl.md"
+import { ExpressionAtomRegistry } from "./forms/shared/expression-atom-registry.xl.md"
 ```
 
 # namespace cangjie
@@ -1464,6 +1465,14 @@ while (inner.At < inner.Units.length) {
     inner.At++;
     continue;
   }
+  // [B4:EXPR] 括号里已经逐字收口的成员（`a: 1` / `a` / `...a`）：
+  // `ExpressionBracketPossibleShape.SealMember` 把它们拼成成员形状并顶替了 `Data` 里的那几格，
+  // 这里直接收下，不再解析 raw（`Pos` / 区间 / 子节点顺序与下面的 raw 分支逐位相同）。
+  if (ExpressionAtomRegistry.HasMember(unit)) {
+    inner.At++;
+    shape.Add(unit);
+    continue;
+  }
   const memberIndex = inner.At;
   if (inner.IsText(unit, "...")) {
     inner.At++;
@@ -2233,6 +2242,14 @@ if (ControlHeadPossibleShape.IsAtom(unit)) {
   this.At++;
   return unit;
 }
+// [B4:EXPR] 表达式括号（对象 `{` / 数组 `[` / 调用实参 `(` / 分组 `(`）里已经逐字建好的原子。
+// 与上面 B3b 的分支同一条纪律：只认 `ExpressionBracketPossibleShape.BuildByIndex` 登记过的身份，
+// 不认任意 `ShapeToken`；登记表每文件被 `ExpressionAtomRegistry.Reset()` 清空，
+// 开关 `EnableExprBracketCatalog` 为假时恒空 ⇒ 这里只多一次 `Set.has`，legacy 产物一个字节不改。
+if (ExpressionAtomRegistry.Has(unit)) {
+  this.At++;
+  return unit;
+}
 if (unit instanceof Symbol && (unit as Symbol).Is("#")) {
   // PrivateIdentifier: the token layer splits `#x` into Symbol "#" + Common "x".
   // No Text field is set: TS PrivateIdentifier carries no `text` in the AST projection.
@@ -2474,7 +2491,16 @@ return this.SpanLeaf(shape, index);
 
 ```ts
 const unit = this.Peek(0);
-if (unit === null || !(unit instanceof Common)) {
+if (unit === null) {
+  throw new Error("缺少标识符");
+}
+// [B4:EXPR] 对象字面量的属性名位：`{ a: 1 }` 的 `a` 已经在括号里被建成 `IdentifierShape`
+// （`ExpressionBracketPossibleShape`），这里直接消费，不重建（`Pos` 由建它的地方按同一口径算好）。
+if (ExpressionAtomRegistry.Has(unit)) {
+  this.At++;
+  return unit;
+}
+if (!(unit instanceof Common)) {
   throw new Error("缺少标识符");
 }
 const index = this.At;
