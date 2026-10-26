@@ -12,6 +12,8 @@ import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { ImportExportDeclarationMount } from "../declarations/forms/import-export-declaration-mount.xl.md"
+import { InterfaceDeclarationMount } from "../declarations/forms/interface-declaration-mount.xl.md"
+import { TypeAliasDeclarationMount } from "../declarations/forms/type-alias-declaration-mount.xl.md"
 ```
 
 # namespace cangjie
@@ -113,5 +115,19 @@ const mounted = ImportExportDeclarationMount.TryBuild(host, tokenIndex, context)
 if (mounted !== null) {
   return mounted;
 }
-return super.BuildByIndex(host, tokenIndex, catalog, context);
+// [XL-B4a] WP-B4a：interface / type alias 声明族的**尽早挂壳**（在 B5 段之后追加，不重排上面的接线）。
+// 两个入口都自带 `IsIncrementalShapesEnabled()` 门控 + 根层 + 声明头判据；未命中返回 `null`，
+// 逐字落回 `super.BuildByIndex`（既有声明壳），因此 legacy 路径与未接管形态一个字节都不变。
+const declaredInterface = InterfaceDeclarationMount.TryBuild(host, tokenIndex, context);
+if (declaredInterface !== null) {
+  return declaredInterface;
+}
+const aliasPlaceholder = TypeAliasDeclarationMount.ShouldMount(host, tokenIndex);
+const built = super.BuildByIndex(host, tokenIndex, catalog, context);
+if (aliasPlaceholder) {
+  // type 别名没有括号那样的显式收口触发点，故用占位节点（类名/Pos 同 legacy 最终节点、IsTriviaToken=true），
+  // 收口仍走既有语句壳；壳被 legacy 子树替换时占位随之离开（EOF 树 = legacy 树）。
+  TypeAliasDeclarationMount.AttachPlaceholder(built, context);
+}
+return built;
 ```
