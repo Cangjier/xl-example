@@ -7,6 +7,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { CompositeInitializerJudge } from "../expressions/forms/primary/composite-initializer-judge.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
 
@@ -53,6 +54,12 @@ if (current instanceof Common) {
   return ShapeStates.Reject;
 }
 if (current instanceof Bracket) {
+  // [A4:COMPOSITE] 复合字面量初始化器（`= [...]` / `= {...}`）：交给 A4 的
+  // `CompositeInitializerPossibleShape` 在「括号关闭」那一格整棵建树，这里只等（Reject），
+  // 不再显式拒绝。其它括号形态仍按 C10 显式抛错（A6 的解构 / 多声明等由各自 WP 接管）。
+  if (CompositeInitializerJudge.Claims(units)) {
+    return ShapeStates.Reject;
+  }
   throw new Error("增量变量形状未支持：declaration 括号");
 }
 // WP-C 之后可能已经是表达式形状：等它自己长完更内层的单元，不在这里收口。
