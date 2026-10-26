@@ -4,6 +4,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shape.xl.md"
 import { CompositeInitializerPossibleShape } from "./forms/primary/composite-initializer-possible-shape.xl.md"
 import { NumericLiteralPossibleShape } from "./numeric-literal-possible-shape.xl.md"
+import { BinaryOperatorPossibleShape } from "./forms/operator/binary-operator-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -106,5 +107,6 @@ return shapes;
 
 ```ts
 // [E-CAT:FRAGMENTS] 以下是各形态片段，每行一个，按 WP id 排序（form WP 只在本行之后追加，不重排）：
+  BinaryOperatorPossibleShape.AppendTo(shapes); // [A2]
   CompositeInitializerPossibleShape.AppendTo(shapes); // [A4]
 ```

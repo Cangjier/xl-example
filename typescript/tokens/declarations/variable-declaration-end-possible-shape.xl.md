@@ -9,6 +9,9 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { CompositeInitializerJudge } from "../expressions/forms/primary/composite-initializer-judge.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { OperatorTable } from "../expressions/operator-table.xl.md"
+import { ItemUtil } from "../item-util.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 ```
 
 # namespace cangjie
@@ -40,11 +43,14 @@ if (current.IsTriviaToken) {
 }
 if (current instanceof Symbol) {
   const text = (current as Symbol).TempToString();
-  // 目标路径上的中间态：`=`（等初始化值）、`*` / `+`（二元运算符）。WP-C 接管前一律等待。
-  // `<` / `>` / `-` / `/` / `%` / `**` 也按运算符放行（同样的中间态，不改变任何结论）。
-  if (text === "="
-    || text === "*" || text === "+" || text === "-" || text === "/" || text === "%" || text === "**"
-    || text === "<" || text === ">") {
+  // `=`：等初始化值。
+  if (text === "=") {
+    return ShapeStates.Reject;
+  }
+  // 二元运算符：**只有当它确实有可归约的左操作数**（左操作数已是形状，或是紧跟 `=` 的首个标识符）
+  // 才让给 `BinaryOperatorPossibleShape`（WP-A2）。其余格（例如 `let x = a as T & U` 的 `&`）
+  // 保持原来的显式拒绝——那是类型上下文的运算符，物化成二元会建出与 legacy 不同的树（divergent）。
+  if (OperatorTable.IsBinaryOperator(text) && VariableDeclarationEndPossibleShape.HasReducibleLeft(units, tokenIndex)) {
     return ShapeStates.Reject;
   }
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
@@ -64,4 +70,31 @@ if (current instanceof Bracket) {
 }
 // WP-C 之后可能已经是表达式形状：等它自己长完更内层的单元，不在这里收口。
 return ShapeStates.Reject;
+```
+
+## static method HasReducibleLeft:(units:Array<Token>, tokenIndex:int)=>bool
+
+这个二元运算符格上有没有「`BinaryOperatorPossibleShape` 能用的左操作数」：
+
+- 前一个非 trivia 单元已经是**形状**（`1 && 2` 的 `1`、`a/b` 建完 `a` 之后）⇒ 有；
+- 前一个单元是**标识符 / 数字基本单元**，且它的前一个是 `=`（`let x = a < b` 的 `a`）⇒ 有；
+- 其余（`as T & U` 的 `T`、`(` 之后的 `?` 等）⇒ 没有，保持既有显式拒绝。
+
+```ts
+const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (leftIndex < 0) {
+  return false;
+}
+if (units[leftIndex] instanceof ShapeToken) {
+  return true;
+}
+const headIndex = ItemUtil.PreviousCode(units, leftIndex - 1);
+if (headIndex < 0) {
+  return false;
+}
+const head = units[headIndex];
+if (!(head instanceof Symbol)) {
+  return false;
+}
+return (head as Symbol).Is("=");
 ```

@@ -4,6 +4,7 @@ import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -57,6 +58,16 @@ if (text === "=") {
   return ShapeStates.Uncertain;
 }
 if (!OperatorTable.IsBinaryOperator(text)) {
+  return ShapeStates.Reject;
+}
+if (text === "*" || text === "+") {
+  return ShapeStates.Accept;
+}
+// WP-A2：其余二元运算符让给 `BinaryOperatorPossibleShape`（逐字符建形状，用 OperatorShapeMap）。
+// 但「左操作数还不是形状」的格上**保持旧行为**（`<` 可能是尖括号断言 / 类型实参，`in` / `instanceof`
+// 这类关键字也不该在这里被抢）：否则 angle-assert / generic-arrow 一类 case 会从 throw 漂移成 divergent。
+const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (leftIndex >= 0 && units[leftIndex] instanceof ShapeToken) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
