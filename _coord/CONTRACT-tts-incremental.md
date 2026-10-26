@@ -258,3 +258,88 @@ node tests/parse/token-time-shapes.mjs --legacy-corpus
 3. `npm run tts` → PASS 6 / FAIL 8 / 14 步，exit 1（与 `5ced7ace` 一致）。
 4. `node tests/parse/token-time-shapes.mjs tests/parse/token-time-shapes/let-x.ts --diff --incremental` → 同 6/8/14。
 5. `node tests/parse/token-time-shapes.mjs --legacy-corpus` → 1723 文件 / 差异 0。
+
+---
+
+# 最终实现与实测坑（WP-E 追加，`refactor/token-time-shapes` @ `b9b47f21` 定稿）
+
+本节是契约的**事后补记**：C1–C11 一条未改，只把实现过程中踩到的坑、跨包补丁的所有权与最终读数记下来，
+给后来扩形态的人省一次返工。目标用例最终读数：legacy 6/8/14（exit 1，既有基线）、
+**incremental 14/14（exit 0，char 11 标 `[annotation-only]`）**、语料 1723 文件 / 差异 0。
+
+## 1. char 6（`=`）候选必须回 `Uncertain`（`CatalogGuide` 不 Reset）
+
+`core/syntax/catalog-guide.xl.md` 的 `CatalogGuide` **只在建出形状之后才 `Reset()`**（重新填满 `Candidates`）；
+中途被 `Reject` 掉的候选**不会被放回来**。所以 `VariableDeclarationShape` 的表达式目录在 char 6（`=`）、
+char 7（空白 trivia）、char 8（数字字面量）被问到时：
+
+- `=` 与 trivia 必须回 **`Uncertain`**（等待，不消耗候选）；
+- 一旦回 `Reject`，到 char 8 的 `2` 时 `Candidates` 已经空了，`CatalogGuide` 只回 `Waiting`、永远不建。
+
+WP-C 第一版就卡在这里：读数停在 **10/4**（char 8 之前全绿、之后全红），树上仍是 raw `Common("2")`。
+判据的写法总结：**「现在还不能建，但以后可能建」= `Uncertain`；「这个形态我永远不支持」才用 `Reject`/抛 C10**。
+
+## 2. EOF 的尾单元必须显式 `TryToClose`
+
+EOF 时 `Common("1")` 仍是未关闭的 basic 单元，而它的 `Close` 才是「问父单元目录 → `RightOperandPossibleShape`
+→ 换成 `NumericLiteralShape(pos=12,[12,13))` 并 `SealRightOperand` 封 `Binary(+)` `[8,13)`」的唯一触发点。
+EOF 没有下一个字符，声明收口是最后一次机会，所以 `FinishIncremental` 在「已建 shape 直接收下」之前补一行
+`builtShape.TryToClose(context);`。
+
+**症状（补丁前）**：13/14 —— 除 EOF 外全绿，EOF 树里 `Common("1")` 没有被换成 `NumericLiteralShape`。
+**验证链**：`Binary.TryToClose`（用 `Common("1").End=13` 补右边界）→ `Binary.Close`（先关未关闭子单元）→
+`Common.Close` → 二元层目录 → `RightOperandPossibleShape` → `NumericLiteralShape(pos=12)` + 封 `[8,13)`。
+补丁对默认路径无影响：legacy 的 `builtShape` 恒为 `null`，走 `ExpressionBuilder` fallback 分支，该行不执行
+（语料 1723 / 0 差异即证据）。
+
+## 3. WP-B 文件里的 2 行跨包补丁（所有权记录）
+
+补丁落在 **WP-B 独有文件** `typescript/tokens/declarations/variable-declaration-shape.xl.md` 的
+`FinishIncremental` 里：`builtShape.TryToClose(context);` + 一行注释（Lead 已授权，属 WP-C 的第 2 条）。
+
+- 除这 2 行外 WP-B 的逻辑一字未动；合并（merge-3）时随 WP-B 文件一起带过去，没有冲突。
+- **后来改这个文件的人请保留这一行**：语义是「收下已建表达式之前先收口」，删掉会让 EOF 退回 13/14。
+- 归属约定：文件属于 WP-B，语义属于 WP-C 的封口链；两边报告（`REPORT-tts-wp-b.md` §3、
+  `REPORT-tts-wp-c.md` §7）都记了同一件事，避免以后互相「清理」掉。
+
+## 4. `RightOperandPossibleShape.Catalog()` 是单一来源
+
+右操作数候选只有一份定义（`typescript/tokens/expressions/right-operand-possible-shape.xl.md` 的
+`RightOperandPossibleShape.Catalog()`）；`ExpressionCatalogFactory.CreateRightOperandCatalog()` 只是转调它。
+声明层用 `ExpressionCatalogFactory.Create()`（数字字面量 + 二元运算符），二元层用
+`CreateRightOperandCatalog()`（右操作数 + 替宿主封口/卸载）。
+
+- 两个 `Create*` 都**每次返回新实例**（候选对象不缓存，C8）；把候选表做成静态缓存会让同一进程里的第二次
+  解析拿到已被 `Reset` 过的状态。
+- **不要**在别处再写一份右操作数判据：声明层与二元层的差别只有「建完要不要替宿主封口」，判据必须共用一份，
+  否则两边会漂移（这正是 WP-C 把 `Catalog()` 抽出来的原因）。
+
+## 5. 开关为什么保持默认 `false`
+
+C4 的四条理由在实现完成后全部成立，实测复核如下：
+
+1. **默认路径就是全语料 / 既有 gates 的口径**：增量模式只覆盖目标文法子集，未支持的形态按 C10 抛错；
+   默认 ON 会让大量既有用例从「解析成功」变成「显式抛错」。
+2. **默认关 ⇒ 增量形状不可能改变任何既有产物**：实测 legacy 目标用例仍为 6/8/14、与 `5ced7ace` 一致，
+   语料 1723 文件 0 差异（变化 0 / 缺失 0 / 新增 0），两次独立进程逐字节相同。
+3. **目标工具是唯一打开入口**（`applyMode`），同一进程两种模式可交替；`SourceFileRunner.ParseCore`
+   只翻 `EnableShellExpressions`，不碰本字段，所以语料基线不会混入增量状态。
+4. **翻默认值的时机应由 Lead 决定**，前提至少是：C10 的覆盖边界消失（类型注解 / 多声明 / 解构 / 其它运算符
+   都接通）并且全量 gates 在增量模式下重跑通过 —— 本阶段不满足，故保持 `false`。
+
+启用方式（只用于目标用例，不用于 CI）：
+
+```powershell
+node tests/parse/token-time-shapes.mjs tests/parse/token-time-shapes/let-x.ts --diff --incremental
+npm run tts:incremental
+```
+
+## 6. 最终读数（本契约的验收结论，详见 `_coord/REPORT-tts-final.md`）
+
+| 项 | 读数 |
+| --- | --- |
+| `xl_build`（paths=[core,typescript], targets=[ts], 不传 out） | **566 written / 0 skipped / 0 error / 3 warning**（3 条均为既有 `E1107`） |
+| `tsc -p .` | **exit 0** |
+| `npm run tts`（legacy） | **PASS 6 / FAIL 8 / 14**，exit 1 |
+| `npm run tts:incremental` | **PASS 14 / FAIL 0 / 14**，exit 0（char 11 `[annotation-only]`） |
+| `npm run tts:corpus` | **1723 文件 / 差异 0**（变化 0 / 缺失 0 / 新增 0），exit 0 |
