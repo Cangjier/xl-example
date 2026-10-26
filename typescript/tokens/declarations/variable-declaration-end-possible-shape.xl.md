@@ -10,6 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { CompositeInitializerJudge } from "../expressions/forms/primary/composite-initializer-judge.xl.md"
 import { CompositeInitializerFormsJudge } from "../expressions/forms/primary/composite-initializer-forms-judge.xl.md"
 import { CompositeInitializerTailJudge } from "../expressions/forms/primary/composite-initializer-tail-judge.xl.md"
+import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionContinuationCatalog } from "../expressions/expression-continuation-catalog.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
@@ -42,6 +43,17 @@ if (current instanceof EndOfFileTokenShape) {
   return ShapeStates.Accept;
 }
 if (current.IsTriviaToken) {
+  // [A2-D1:ASI] trivia 格上的两条边界判据：
+  //   ① `CanCloseAtLineBreak`——**换行这一格**就是收口点（下一行第一个显著字符起一个不续接的单词时成立）；
+  //      比「下一条语句首代码单元」早一拍，因此声明尾部的原子建树严格早于 legacy（分类靠这一拍）。
+  //   ② `CanClose`——对 trivia 恒 false（`IsAsiBoundary` 只在**代码单元**那一格判换行），
+  //      放在这里只是让「收口判据」在两类格子上的入口只有一个，块体宿主（D2）加分支时不至于漏掉 trivia 一路。
+  if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
+    return ShapeStates.Accept;
+  }
+  if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
+    return ShapeStates.Accept;
+  }
   return ShapeStates.Reject;
 }
 if (current instanceof Symbol) {
@@ -87,6 +99,18 @@ if (current instanceof Symbol) {
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
 }
 if (current instanceof Common) {
+  // [A2-D1:ASI] 两条收口判据，**行尾格优先**：
+  //   ① `CanCloseAtLineBreak`——本格是声明最后一个代码单元、后面换行、下一行起一个不续接的单词
+  //      ⇒ 在**这一格**收口（比下一条语句首代码单元早一拍，分类靠这一拍）；
+  //   ② `CanClose`——本格是下一条语句的首代码单元（`let x = 1` ⏎ `let y = 2` 的第二个 `let`）。
+  // 两条都转发给 `DeclarationAsiBoundary`（同一份 `CanEndStatement` / `CanEndDeclarationTail` +
+  // 「已有可结束形状」），本条文件不新写 ASI 词法；都不成立时逐字回到原来的「继续等」。
+  if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
+    return ShapeStates.Accept;
+  }
+  if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
+    return ShapeStates.Accept;
+  }
   // 初始化器里的标识符 / 数字基本单元：WP-C 建出字面量之前保持等待。
   return ShapeStates.Reject;
 }

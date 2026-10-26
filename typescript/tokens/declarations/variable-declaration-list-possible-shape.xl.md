@@ -12,6 +12,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionCatalogFactory } from "../expressions/expression-catalog-factory.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
+import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { VariableDeclarationEndPossibleShape } from "./variable-declaration-end-possible-shape.xl.md"
 import { VariableDeclarationListShape } from "./variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "./variable-declaration-shape.xl.md"
@@ -67,6 +68,18 @@ if (current instanceof Symbol) {
     return ShapeStates.Accept;
   }
 }
+// [A2-D1:ASI] 语句边界（换行 ASI）: 列表层自己收口（与 `;` / `,` / `}` 同一位），
+// 于是「收口发生在语句层而不是声明层」——声明层只负责把本条的字段提取出来，
+// 边界单元不进任何 `Data`，由 `CloseAtAsiBoundary` 交回父单元重放。
+// 两条判据与 `VariableDeclarationEndPossibleShape` 的 trivia / `Common` 分支是**同一份**
+//（`DeclarationAsiBoundary`），这里显式写出来是为了让列表层的收口点自己成立，不依赖父类某一个分支的实现细节。
+// `Symbol` 格全部在前面处理完；`CanClose*` 只在 trivia / `Common` 格为真，两处不会互相覆盖。
+if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
+  return ShapeStates.Accept;
+}
+if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
+  return ShapeStates.Accept;
+}
 return super.ComputeByIndex(units, tokenIndex, cache);
 ```
 
@@ -77,6 +90,17 @@ return super.ComputeByIndex(units, tokenIndex, cache);
 ```ts
 if (!(host instanceof VariableDeclarationShape)) {
   throw new Error("增量变量形状未支持：list 终结候选宿主不是变量声明");
+}
+// [A2-D1:ASI] 语句边界收口：
+//   ① 换行格（trivia）：本格**不消费**，声明尾部原地收口，下一行的字符之后正常回到父单元
+//      （比 `Common` 格早一拍，见 `DeclarationAsiBoundary.CanCloseAtLineBreak`）；
+//   ② 下一条语句首代码单元（`Common`）：整段交回父单元重放（`CloseAtAsiBoundary`）。
+// `Symbol` 格（`;` / `,` / `!` / `}`）逐字走下面的既有分支。
+if (DeclarationAsiBoundary.CanCloseAtLineBreak(host.Data, tokenIndex)) {
+  return IncrementalVariableDeclarationListBuilder.CloseAtLineBreak(host as VariableDeclarationShape, context, tokenIndex);
+}
+if (DeclarationAsiBoundary.CanClose(host.Data, tokenIndex, false)) {
+  return IncrementalVariableDeclarationListBuilder.CloseAtAsiBoundary(host as VariableDeclarationShape, context, tokenIndex);
 }
 const token = host.Data[tokenIndex];
 if (!(token instanceof Symbol)) {
@@ -128,6 +152,15 @@ if (tokenIndex >= 0 && tokenIndex < units.length) {
       return ShapeStates.Reject;
     }
   }
+}
+// [A2-D1:ASI] 语句边界格：本条语句要在这里收口，表达式候选一个都不许再长
+// （否则 `Common` 上的 primary 候选会 Accept 掉下一条语句的首单元，与终结候选同时成立 ⇒ CatalogGuide 抛错）。
+// 两条判据与终结候选**同一份**（`DeclarationAsiBoundary`），不是第二套 ASI 词法。
+if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
+  return ShapeStates.Reject;
+}
+if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
+  return ShapeStates.Reject;
 }
 return inner.ComputeByIndex(units, tokenIndex, cache);
 ```
@@ -439,6 +472,82 @@ shape.Pos = previousEnd >= 0 ? previousEnd : declaration.Pos;
 token.Replace(shape);
 return shape;
 ```
+## static method CloseAtLineBreak:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
+
+[A2-D1] **行尾格**上的收口：`tokenIndex` 是**本条声明的最后一个代码单元**在 `declaration.Data` 里的下标。
+
+与 `CloseAtAsiBoundary` 同一收口顺序，但**没有边界单元要交回**：下一行的字符还没到达（行尾格**先于**
+下一条语句的首 token 关闭），`Data` 里全是本声明的单元（可能还带车尾 trivia，`FinishIncremental` 本来也不收它，
+legacy 的 `VariableDeclarationShape.Data` 里同样没有 trivia），所以直接 declaration → list → statement
+逐层收口、卸载挂载链即可。下一行的字符随后正常回到父单元，由父目录在自己的那一格建下一条语句的壳。
+
+```ts
+declaration.TryToClose(context);
+const list = declaration.Parent;
+if (!(list instanceof VariableDeclarationListShape)) {
+  throw new Error("增量变量形状未支持：list 行尾收口缺少声明列表");
+}
+list.TryToClose(context);
+const statement = list.Parent;
+if (statement !== null) {
+  statement.TryToClose(context);
+  if (statement.Parent !== null) {
+    statement.Parent.MountedUnit = null;
+  }
+  list.MountedUnit = null;
+}
+return declaration;
+```
+
+## static method CloseAtAsiBoundary:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
+
+[A2-D1] 换行 ASI 收口：`tokenIndex` 是**下一条语句的首代码单元**在 `declaration.Data` 里的下标。
+
+步骤（与 `CloseAtSemicolon` 同一顺序，区别只在于**不消费**边界单元）：
+
+1. 把 `[tokenIndex, end)` 整段从 `declaration.Data` 摘下来（`tail`），声明 `Data` 只留自己这条；
+2. `declaration.TryToClose` → `VariableDeclarationShape.FinishIncremental` 提取字段 / 收下唯一的表达式根；
+3. `list.TryToClose`，再 `statement.TryToClose`；卸载挂载链（后续字符回到父单元）；
+4. 把 `tail` 按序插回父单元 `Data` 里**紧跟收口后的语句**的位置，再交给
+   `DeclarationAsiBoundary.ReplayLeftover` 在自己的那一格重放（`StatementShape.FinishShell` 的同一手法）——
+   下一条语句的壳因此在**边界那一格**建出来，而不是拖到 EOF。
+
+`Pos` / `src` 口径不新写：语句终点由 `ShapeToken.TryToClose` 从最后一个子单元补，与 legacy
+`VariableStatementShape` 无 `;` 时的区间同源。
+
+```ts
+const data = declaration.Data;
+const tail:Array<Token> = data.slice(tokenIndex);
+data.length = tokenIndex;
+declaration.TryToClose(context);
+const list = declaration.Parent;
+if (!(list instanceof VariableDeclarationListShape)) {
+  throw new Error("增量变量形状未支持：list ASI 收口缺少声明列表");
+}
+list.TryToClose(context);
+const statement = list.Parent;
+let host:Token | null = null;
+if (statement !== null) {
+  host = statement.Parent;
+  statement.TryToClose(context);
+  if (host !== null) {
+    host.MountedUnit = null;
+  }
+  list.MountedUnit = null;
+}
+if (host !== null && statement !== null && tail.length > 0) {
+  const at = host.Data.indexOf(statement);
+  if (at >= 0) {
+    for (let index = 0; index < tail.length; index++) {
+      tail[index].Parent = host;
+      host.Data.splice(at + 1 + index, 0, tail[index]);
+    }
+    DeclarationAsiBoundary.ReplayLeftover(host, tail, context);
+  }
+}
+return declaration;
+```
+
 ## static method CloseAtBoundary:(declaration:VariableDeclarationShape, context:SyntaxContext)=>Token
 
 [WP-B6b] Block body closed by `}`: close declaration -> list -> statement, with statement end derived from the
