@@ -51,9 +51,13 @@ npm run tts:incremental                                                         
 > **本节 3.2 起是「收尾前」的历史边界，作为设计演进记录保留，不再是当前能力边界。**
 >
 > 收尾时原 56 条缺口（throw 40 / atomic 11 / partial 5）**已全部实现增量支持**，并各作为一条 case
-> 迁入 `tts-impl` 账本；终态读数：`tts` 账本 **0 条**、`tts-impl` **425 条**，空账本运行 **exit 0**
+> 迁入 `tts-impl` 账本；收尾后的读数：`tts` 账本 **0 条**、`tts-impl` **425 条**，空账本运行 **exit 0**
 > （`npm run tts:cases` / `npm run tts:impl` 两条 runner）。因此下文「不支持：… 一律按 C10 显式抛错」
 > 只描述收尾**前**的边界；这些形态现在各有 case 固化，判断能力边界请看 `tts-impl` 账本，不要看本节。
+>
+> 2026-10 之后又新增了一批「复合 case」压力测试，其中 4 条仍是 `throw`（`tts/cases/throw/composite/`），
+> 账本暂时回到 **4 条 throw**；两条合法 TS 但触发 `divergent` / `invalid` 的复现文件放在
+> `typescript/cases/tts/_notes/composite-probes/`，按契约不入账。判断已支持形态仍以 `tts-impl` 的 425 条为准。
 >
 > 仍成立的一条是本节末条：开关默认 `false`，默认解析路径仍是「`StatementShape` 空壳 → EOF 时
 > `StatementBuilder` 原子建树」，与重构前逐字节相同；增量建树是被开关选中的路径（`npm run tts:incremental`

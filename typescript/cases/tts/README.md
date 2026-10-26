@@ -13,8 +13,9 @@ EOF     → 只补最后一个数字的收口
 直到最后一个标识符关闭、语句收口，才**一次性**建出整棵表达式树（见 [README 根目录](../../../README.md) 的 cjcli 一节）。
 
 本目录回答一个问题：**当前增量形状的覆盖边界在哪里——哪些形态还不支持？**
-每一条 case 都锚定一个「不支持」的具体形态。（账本已关闭：原本 `incremental` 目录的正向对照 case 与剩余缺口 case 已全部迁往
-[`../tts-impl`](../tts-impl/)，见文末「迁移已完成」。）
+每一条 case 都锚定一个「不支持」的具体形态。（2026-10 收尾时账本曾清空：原 56 条缺口已全部迁往
+[`../tts-impl`](../tts-impl/)。随后新增一批「复合 case」压力测试，重新打开账本，见「现状」与
+[`_notes/composite-probes/`](_notes/composite-probes/README.md)。）
 
 判据与目录标注由 [`run.mjs`](run.mjs) 实现；全部 case 的清单见 [INDEX.md](INDEX.md)。
 
@@ -97,35 +98,40 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 本目录是**覆盖边界账本**，不是「必须永远红」的缺口清单：
 
 - 某个形态的增量支持做上去了 ⇒ 实测分类从 `atomic` / `partial` / `throw` 升到 `partial` / `incremental`，
-  `run.mjs` 会打 **NOW-SUPPORTED**：按文末「迁移已完成（原迁出契约）」把 case 迁出，再重跑两处 `--write-index`。
+  `run.mjs` 会打 **NOW-SUPPORTED**：按文末「迁移契约」把 case 迁出，再重跑两处 `--write-index`。
 - 反过来（原来支持，现在退化）会打 **REGRESSION**。
 - 两种模式 EOF 形状结构不同（`divergent`）或 legacy 自己就抛错（`invalid`）属于 case/实现异常，同样是 FAIL。
 
-## 现状（账本已关闭）
+## 现状（复合 case 探索中）
 
-**0 条 case**。`node typescript/cases/tts/run.mjs --quiet` → PASS 0 / FAIL 0（空账本 exit 0）；
-[`../tts-impl`](../tts-impl/) → PASS 425 / FAIL 0。两次独立进程的 `--json` 输出逐字节相同。
+**4 条 case，全部 `throw`**。`node typescript/cases/tts/run.mjs --quiet` → PASS 4 / FAIL 0；
+[`../tts-impl`](../tts-impl/) → PASS 425 / FAIL 0。
 
-**结论：`tts` 账本记录的 56 条剩余缺口已全部实现增量支持并迁往 `tts-impl`，本账本已清空。**
-`tts` 现在只保留判据、目录约定与迁移契约作为历史档案；正向边界由 `tts-impl` 的 425 条回归表达。
+2026-10 收尾时本账本曾清空（原 56 条剩余缺口全部实现增量支持并迁往 `tts-impl`）。
+随后新增 7 条「自圆其说」的复合 case 做压力测试：
 
-清空前的分类矩阵（现全 0，分类不再适用）：
+- 4 条仍为 `throw`，保留为**新缺口**：`class-ball`、`generic-container`、`control-flow`、`expression-zoo`；
+- `async-pipeline` 判为 `incremental`，已按约定移除（不留在缺口账本）；
+- `class-inheritance`（`divergent`）与 `namespace-store`（`invalid`）是合法 TS 但触发结构异常，
+  按本目录契约不入账，复现文件保存在 [`_notes/composite-probes/`](_notes/composite-probes/README.md)。
 
-| 分类 | statements | declarations | expressions | types | lexical | controls | 合计 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `throw`（显式拒绝） | 0 | 0 | 0 | 0 | 0 | — | **0** |
-| `atomic`（开关无影响） | 0 | 0 | 0 | 0 | 0 | — | **0** |
-| `partial`（仅外层增量） | 0 | 0 | 0 | 0 | 0 | — | **0** |
-| `incremental`（真正增量，已迁出） | — | — | — | — | — | — | **0** |
-| 合计 | 0 | 0 | 0 | 0 | 0 | — | **0** |
+当前分类矩阵（新增 case 都在 `composite` 分区）：
+
+| 分类 | composite | 合计 |
+| --- | ---: | ---: |
+| `throw`（显式拒绝） | 4 | **4** |
+| `atomic`（开关无影响） | 0 | **0** |
+| `partial`（仅外层增量） | 0 | **0** |
+| `incremental`（真正增量，已迁出） | 0 | **0** |
+| 合计 | 4 | **4** |
 
 > 历史基线：清空前为 `throw` 125 / `atomic` 192 / `partial` 53（合计 370）；`tts-impl` 历史累计
 > 369 条，加上收尾迁出的 56 条剩余缺口，合计为 **425 条**。更早的 45 条 `incremental` 正向对照
-> case 已包含在历史 369 条中。迁移已完成（见 [`tts-impl` 现状 425](../tts-impl/README.md)）；
-> 本目录不再保留任何 case。
+> case 已包含在历史 369 条中。当前复合探索的 4 条新缺口尚未计入 `tts-impl`，
+> 因此 `tts` + `tts-impl` 暂时为 4 + 425 = **429**。
 
 分区覆盖与逐条清单：`_notes/<area>.md`（构造 → 分类、throw 文案、divergent/invalid 观察、未收录变体）
-是清空前的历史记录，保留供追溯；自动生成的 [INDEX.md](INDEX.md) 现在为 0 条。
+是清空前的历史记录，保留供追溯；自动生成的 [INDEX.md](INDEX.md) 现在为 4 条（全部 `throw/composite`）。
 
 覆盖边界（清空前的实测记录，保留供追溯；当前边界由 `tts-impl` 的 425 条表达）：
 
@@ -174,10 +180,10 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 这类只影响 `src` 区间的词法形态仍会被正确判成 `incremental`（INDEX 备注标 `EOF 区间含前导/尾随 trivia`），
 只有 `residualBasicLines` 会提示第 3 条。
 
-## 迁移已完成（原迁出契约，保留供历史追溯）
+## 迁移契约（历史 56 条已迁出；新缺口仍适用）
 
-迁移已完成：`tts` 0 条、[`tts-impl`](../tts-impl/) 425 条。以下规则不再需要执行，
-保留为历史契约，供追溯当时的判据与流程。
+历史迁移已完成：收尾时 `tts` 0 条、[`tts-impl`](../tts-impl/) 425 条。当前账本因复合探索重新有
+**4 条 `throw` 缺口**；这些新缺口一旦做成 `incremental`，仍按下面的迁出规则迁往 `tts-impl`。
 
 本目录是**覆盖边界账本**。一个形态支持上去之后，它的 case 不再属于账本，而属于
 [`../tts-impl`](../tts-impl/) 的**已支持回归基线**——**迁出，不是复制**。
