@@ -60,14 +60,15 @@ npm run tts:incremental                                                         
 >
 > 随后为用新判据（[`tshape-judge`](../typescript/cases/tts/tools/tshape-judge.md)：完整解析 vs
 > `ts.createSourceFile` + 逐字 AST line 按范本诊断）重新复核，`tts-impl` 的 425 条已全部迁回 `tts`。
-> 2026-10 结构修复（S1 `switch/case` 子句头 + 函数体目录、S2 `;` 收口 / `TypeMode`、S3 namespace 体声明 +
-> `?:` 拆分、S4b 未完成标识符操作数、S5 复合三目兜底）合入后，当前读数是 `tts` **429 条**
-> （`throw` **3** / `incremental` **426**，`control-flow` 已由 S1 从 `throw/composite` 迁到
-> `incremental/composite`、内容逐字节不变），`tts-impl` **0 条**（空账本）；`incremental` 只是旧 runner
-> 的 legacy 对拍标签，**不是新判据的结论**。剩余缺口：188 条 `moved`（`src` 末尾多一格）、
-> P1「成批补建」（class/function/interface/type alias 的壳 + 收口补子树）、三目仍走收口原子建树、
-> 字符串右操作数未支持，以及 3 条 `incremental-error` composite（`class-ball` / `expression-zoo` /
-> `generic-container`）。详见 [`tts/README.md`](../typescript/cases/tts/README.md)「仍开放的缺口」。
+> 2026-10 修复（S1 `switch/case` 子句头 + 函数体目录、S2 `;` 收口 / `TypeMode`、S3 namespace 体声明 +
+> `?:` 拆分、S4b 未完成标识符操作数、S5 复合三目兜底、S6 switch 子句头模式门控、R1 `src` 末尾 trivia）
+> 合入后，当前读数是 `ts` **429 条**（`throw` **3** / `incremental` **426**，`control-flow` 已由 S1 从
+> `throw/composite` 迁到 `incremental/composite`、内容逐字节不变），`tts-impl` **0 条**（空账本）；
+> `incremental` 只是旧 runner 的 legacy 对拍标签，**不是新判据的结论**。`tshape-judge ts-all` 为
+> **426 ok / 0 moved / 3 incremental-error / 0 structural / 0 fields**。剩余缺口：P1「成批补建」
+> （class/function/interface/type alias 的壳 + 收口补子树）、三目仍走收口原子建树、字符串右操作数未支持，
+> 以及 3 条 `incremental-error` composite（`class-ball` / `expression-zoo` / `generic-container`）。
+> 详见 [`tts/README.md`](../typescript/cases/tts/README.md)「仍开放的缺口」。
 >
 > 仍成立的一条是本节末条：开关默认 `false`，默认解析路径仍是「`StatementShape` 空壳 → EOF 时
 > `StatementBuilder` 原子建树」，与重构前逐字节相同；增量建树是被开关选中的路径（`npm run tts:incremental`

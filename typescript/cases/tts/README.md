@@ -125,7 +125,7 @@ node typescript/cases/tts/tools/tshape-judge.mjs ts-all   # 238 ok / 188 moved /
 
 ### 2026-10 结构修复
 
-S1–S6 六个结构修复已全部合入（`s1-switch-case` … `s6-switch-double-accept` 六条分支），落回主线后读数如上：
+S1–S6 + R1 七个修复已全部合入（`s1-switch-case` … `s6-switch-double-accept`、`r1-src-end`），落回主线后读数如上：
 
 | 修复 | 内容 | 效果 |
 | --- | --- | --- |
@@ -135,27 +135,24 @@ S1–S6 六个结构修复已全部合入（`s1-switch-case` … `s6-switch-doub
 | **S4b** | 未完成标识符操作数守卫（`identifier-incomplete-guard`）：`statement-operator-body` 不再把未闭合的标识符当操作数 | 少一类「早建半棵树」 |
 | **S5** | 复合条件三目兜底：`IsCompoundTernaryAhead` 在 `?` / `:` 那一格 `Reject`，等收口格原子建树 | `const i = typeof 1 === "number" ? 1 : 2;` 不再在 `"number"` 收尾引号处 `CatalogGuide` 抛错 |
 | **S6** | `switch` 子句头候选的模式门控：S1 把 `CaseClauseHeadPossibleShape` 无条件挂进子句块，legacy 解析也建增量壳，`BuildCaseBlock` 收不了口 | `wide-ast` 的 2 条 switch+注释用例崩溃 → 0；全量 `gates` 回到 **4 PASS / 0 FAIL / 7 N/A** |
+| **R1** | `src` 末尾 trivia：EOF 先 `SignOut(文件长度)` 把语句/列表/声明 End 写成文件长度，`FinishIncremental` 丢 trivia 却没回收 End；新增 `ShapeToken.TrimEndToLastCode`，只对「Data 已是代码子节点」的声明/列表/语句生效 | `ts-all` **moved 188 → 0、ok 238 → 426**；`src` 改为「最后一个非 trivia 子单元的 EndIndex」，`Pos` 前导 trivia 口径不动 |
 
-> S6 合入后的最终读数：`tts` PASS 429（throw 3 / incremental 426）；
-> `ts-all` **238 ok / 188 moved / 3 err / 0 structural / 0 fields**；
+> R1 合入后的最终读数：`tts` PASS 429（throw 3 / incremental 426）；
+> `ts-all` **426 ok / 0 moved / 3 err / 0 structural / 0 fields**；
 > 全量 `gates` **4 PASS / 0 FAIL / 7 N/A**，`wide-ast` 崩溃 0、差异 0。
 
 ### 仍开放的缺口
 
-结构修复把 `structural` / `fields` 两类硬缺陷清到 0，但以下仍然开放，**没有在本轮合入**：
+结构修复把 `structural` / `fields` / `moved` 三类硬缺陷清到 0，但以下仍然开放，**没有在本轮合入**：
 
-1. **`src` 末尾 +1（188 条 `moved`）**：增量 EOF 树的节点区间比 `ts.createSourceFile` 的对应节点末端多一格
-   （尾部换行 / 收口格）。其中 186 条正好相差 1；另 2 条 lexical case（`comment-block-after-init` /
-   `trailing-space-let`）把尾随注释 / 空格也吞进 `src`，与下文「缺陷 3、4」同源。分类不受影响
-   （identity 用 `pos`，比较 EOF 树时忽略 `src`），所以判据只记为 `moved`，不记 FAIL。
-2. **P1「成批补建」**：class / function / interface / type alias 的壳按时出现，但**整棵 legacy 子树在收口那一格
+1. **P1「成批补建」**：class / function / interface / type alias 的壳按时出现，但**整棵 legacy 子树在收口那一格
    一次性补上**（单格 20 / 12 / 9 / 7 个 shape，见 `_reports/S1-structural.md` §0 P1）。这是 B1 两段式架构的
    必然结果，修它要改 `StatementShellCatalog.Take` / `StatementFamilyDispatch.Build`，是架构级改动。
-3. **三目是「收口原子建树」**：S5 的修法是等收口格原子建树，所以 `?:` 各分支的形状并没有真正提前；
+2. **三目是「收口原子建树」**：S5 的修法是等收口格原子建树，所以 `?:` 各分支的形状并没有真正提前；
    现在不抛错、结构也对，但仍不是增量建造。
-4. **字符串右操作数**：`RightOperandPossibleShape.Catalog()` 只认数字 / 标识符，`x === "s"` 这类形态仍会落到
+3. **字符串右操作数**：`RightOperandPossibleShape.Catalog()` 只认数字 / 标识符，`x === "s"` 这类形态仍会落到
    `CatalogGuide: 没有候选形状可以构成`。补一个 `StringLiteralShape` 候选是独立 WP。
-5. **3 条 composite `incremental-error`**：`throw/composite/class-ball`（`declaration 符号 ?.`）、
+4. **3 条 composite `incremental-error`**：`throw/composite/class-ball`（`declaration 符号 ?.`）、
    `expression-zoo`（`declaration 括号`）、`generic-container`（`declaration 符号 <`）仍按旧路径显式抛错。
    它们是契约 C10 的**显式拒绝**（不是静默错树），所以留在 `throw/`，不迁 `incremental/`。
 
