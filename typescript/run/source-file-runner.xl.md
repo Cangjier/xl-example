@@ -65,9 +65,28 @@ try {
 真正的装配：模板 → 根 → 上下文 → 跑一遍。`shell` 只决定**这一次**解析读哪套候选目录，
 `finally` 里恢复，因此同一次 Parse 不会混用两套目录，也不会把状态漏给下一次。
 
+**`shell=false` 的语义是「这一次按 legacy 候选目录重建」，而 legacy 目录不止 `EnableShellExpressions` 一个开关。**
+`EnableIncrementalVariableShapes`（变量声明族）/ `EnableIncrementalShapes`（全场景一级开关）与它
+**相互独立**（`statement-route-util.xl.md` 的字段说明写明了两两独立）。只切外壳而把这两个留在 `true`：
+变量声明族仍走增量目录、声明挂载 / 块体 / 控制流 / 表达式体也仍读增量目录，所谓「legacy 重解析」
+只是换了一层壳 —— D3b §3 实测第二跳原地复现同一条 `CatalogGuide` 异常。所以 `shell=false` 时两个一起压成
+`false`，在同一个 `finally` 里恢复，调用方看到的开关值与本方法调用前逐位相同。
+
+**两个都要压，是量出来的，不是顺手。** `tmp/snap.mjs` 全语料三配置实测（`_reports/D4.md` §3）：
+只压 `EnableIncrementalVariableShapes` 崩溃 **32** / diff **107**；两个都压崩溃 **26** / diff **103**。
+`EnableIncrementalShapes` 那一步多救回 6 条崩溃，并把 3 条既有 diff 变干净。
+
 ```ts
-const previous = StatementRouteUtil.EnableShellExpressions;
+// shell=false 时两个增量开关一起压：只切 EnableShellExpressions 会让变量声明族 / 声明挂载 /
+// 块体 / 控制流 / 表达式体继续读增量目录（D3b §3：第二跳复现同一条 CatalogGuide 异常）。
+const previousShellExpressions = StatementRouteUtil.EnableShellExpressions;
+const previousIncrementalVariableShapes = StatementRouteUtil.EnableIncrementalVariableShapes;
+const previousIncrementalShapes = StatementRouteUtil.EnableIncrementalShapes;
 StatementRouteUtil.EnableShellExpressions = shell;
+if (!shell) {
+  StatementRouteUtil.EnableIncrementalVariableShapes = false;
+  StatementRouteUtil.EnableIncrementalShapes = false;
+}
 try {
   const template = TypescriptTemplate.Create();
   const root = new SourceFileShape(template);
@@ -75,6 +94,8 @@ try {
   context.Process(new TextDocument(text, filePath));
   return root;
 } finally {
-  StatementRouteUtil.EnableShellExpressions = previous;
+  StatementRouteUtil.EnableShellExpressions = previousShellExpressions;
+  StatementRouteUtil.EnableIncrementalVariableShapes = previousIncrementalVariableShapes;
+  StatementRouteUtil.EnableIncrementalShapes = previousIncrementalShapes;
 }
 ```
