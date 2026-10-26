@@ -51,6 +51,42 @@ git diff feature/print-direct-ast -- tests     # 唯一一处新增就是本文�
 `npm run gates` 把其中 8 道一次跑完（= 上表去掉 `cpp:check`），实测 **3 通过 / 5 失败，墙钟 9.1s**：
 通过的 3 道是 `cases:check`（真）、`cases:tsast` 与 `cases:direct`（都是假绿）。所以**当前状态下 `gates` 必然红**。
 
+> ↑ 这一段是 `feature/quick-parse` 时期的历史读数（当时的 `build/` 是另一个分支的产物）。
+> `feature/all-possible` @ `e41fb978` 的**两态实测**（基线 `8456ec3c` / 当前态）在
+> `_coord/REPORT-r7-gates.md`：两态都是 1 绿（`cases:check`）/ 7 红，其中 6 红的失败原因
+> **与 R1–R7 无关**——它们要读的源 / 产物在本仓库根本不存在。本节把这件事显式化，
+> 让「全量门」的读数分得清「真红」与「结构上不可能跑」。
+
+## 本仓库不适用的门（not-applicable，不构成失败）
+
+**口径**：`not-applicable` 只表示「这道门要读的**源 / 产物**在本仓库根本不存在」，
+不是「跑不过」，更不是「放宽判据」。证据见 `_coord/REPORT-r7-gates.md` §5（`git ls-files`
+可证缺的源；已知良好的对照克隆 `chore-all-possible-setup` 同样没有这些产物）。
+
+| 门 | 命令 | 为什么在本仓库不可用（缺的源 / 产物） | 证据 |
+| --- | --- | --- | --- |
+| `runtime:check` | `npm run runtime:check` | 读 `build/ts/runtime/**`；源目录 `runtime/` 不在本仓库，无 `runtime/**/*.xl.md` | 诊断 §5；`runtime/` 不存在 |
+| `runtime:cli` | `npm run runtime:cli` | 读 `build/ts/tsrun.js`；入口 `tsrun.xl.md` 不在本仓库 | 诊断 §5；`tsrun.xl.md` 不存在 |
+| `cases:tsast` | `npm run cases:tsast` | 读 `build/ts/typescript/print-ast-common.js`；源页 `typescript/print-ast-common.xl.md` 不在本仓库 | 诊断 §5；全仓无 `*print-ast-common*.xl.md` |
+| `cases:direct` | `npm run cases:direct` | 同上（同一个 TS 形状投影） | 诊断 §5 |
+| `coverage` | `npm run coverage` | 同上 | 诊断 §5 |
+| `samples` | `npm run samples` | 读 `build/ts/cjcli.js`；`cjcli.xl.md` 依赖 `./dawn/text/*.xl.md`，而本仓库没有 `dawn/` | 诊断 §1.4 / §5；全仓 `xl build` 报 2 个 `E1006` |
+| `cpp:check` | `npm run cpp:check` | `dist/cpp` 不存在；`xl.json` 的 `build.target` 只有 `["ts"]`，C++ 产物要 `xl_emit` 才有 | 诊断 §2.1 / §5 |
+
+**`tests/gates/run.mjs` 的行为**（第 R7 收口改）：
+
+- 对上面这些门**不运行**，打印 `N/A   <门名>   <原因>`；它们计入**跳过**，不计失败。
+- 判定只看 `gate.notApplicable` 里列的路径**是否存在**。**只要源出现**（例如 `runtime/` 落地、
+  `tsrun.xl.md` 落地、`dist/cpp` 由 `xl_emit` 生成），这一门就照常运行、照常可能红——
+  真实失败（脚本抛错、断言不过）不会被吞。
+- 汇总结论行分开印「通过 / 失败 / 不适用」三个数；**适用门全绿时 exit 0**。
+  `--verbose` 仍然保留每一门的输出尾巴。
+- 当前读数：**9 道门 = 2 通过（`cases:check` 1720/0、`direct:lint` 0 处 `any`）+ 7 不适用，exit 0**。
+
+**按 R7 收口口径，不为这些门补源文件**：`dawn/`、`runtime/`、`tsrun.xl.md`、
+`print-ast-common.xl.md` 都属另一条产物线，搬进来远超本次验收范围。
+门本身与 `package.json` 脚本都保留着，等那条产物线落地即可用。
+
 ## ⚠️ 假绿：`build/` 与 `dist/` 现在是**另一个分支**的产物
 
 `build/` 与 `dist/` 都在 `.gitignore` 里，所以 `git status` 干净并不代表它们是这个分支的。盘上这一批是上一次 checkout 留下的 **print-direct-ast 产物**：`dist/ts/` 下面是 `typescript/` `runtime/` `typescript-exec/` `token_next/`，**没有 `dawn/`**（本分支的语言层在 `dawn/text/`）。

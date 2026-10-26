@@ -203,8 +203,13 @@ npm run ast:verify        # 上面两条一起跑
 
 ```bash
 npm run cases:check     # 语料文件头 / 用例格式体检
-npm run gates           # 8 道门一次跑完（其中多数是旧分支的门，见 MIGRATION）
+npm run gates           # 9 道门一次跑完：适用门全绿，7 道结构上不适用（N/A，按跳过计，exit 0）
 ```
+
+其中 7 道门（`runtime:check` / `runtime:cli` / `cases:tsast` / `cases:direct` / `samples` /
+`coverage` / `cpp:check`）要读的源 / 产物在本仓库根本不存在，`gates` 会把它们打印成
+`NOT-APPLICABLE（原因）` 并计入跳过、而不是失败；清单、原因与证据见
+[tests/MIGRATION.md](tests/MIGRATION.md) 的「本仓库不适用的门」。
 
 ## 改这个项目
 
