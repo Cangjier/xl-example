@@ -359,6 +359,18 @@ if (block === null) {
   this.Decline("函数体内还有未收口的语句", "stmt.nested");
   return null;
 }
+// **R8：与 `ControlFlowStatementDirectSession.BuildBlock` 同一条残留判据。**
+// `BuiltChildren` 只收已建好的形状，basic 单元被静默跳过 ⇒ 体目录里没有候选愿意接的语句会被整条丢掉
+//（`function f(){ type ⏎ T = 1 }` 的函数体建成**空 Block**，tsc 侧是两条 ExpressionStatement）。
+// 语句建成形状后它的单元已被 splice 进形状，所以括号里还有非 trivia 的 basic 单元就是没建的那条 ⇒
+// Decline，旧路径重读这一段（最坏与今天逐字节相同）。
+for (const unit of (body as any).Data) {
+  if (unit.IsTriviaToken || !unit.IsBasicToken) {
+    continue;
+  }
+  this.Decline("函数体内还有未建树的裸单元", "stmt.body");
+  return null;
+}
 const shape = new FunctionDeclarationShape(this.Template);
 // AST 子节点顺序照 `FromUnits`：async 修饰词 → 生成器星号 → 名字 → 参数 → 体。
 // （`FromUnits` 里 asterisk 与 modifier 都在 name 之前；本轮两种前缀不会同时出现。）
