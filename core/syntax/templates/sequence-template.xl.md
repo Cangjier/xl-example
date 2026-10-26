@@ -25,7 +25,7 @@ import { Sequence } from "./sequence.xl.md"
 
 按单元类型给出的规则序列。
 
-派发以**类的构造器对象**为键：写类型时直接写类名，写实例时用 `x.constructor`。
+派发以**类的构造器对象**为键：写类型时直接写类名，写实例时用 `x.constructor`。三张缓存表的键在类型里写作 `Function`（构造器对象就是函数）。
 
 `Get` 有两种用法：只给单元类型，或者再给一个默认值解析器。
 
@@ -34,7 +34,7 @@ import { Sequence } from "./sequence.xl.md"
 没有专门覆盖时使用的默认序列。`TextContext` 构造时会通过 `ParsePipeline.Install` 把
 `BranchTemplate.DefaultValue` 设成通用跳转队列。
 
-## field CoverData:Map<any, Sequence<T> | null> = new Map()
+## field CoverData:Map<Function, Sequence<T> | null> = new Map()
 
 按单元类型的覆盖值。
 
@@ -42,11 +42,11 @@ import { Sequence } from "./sequence.xl.md"
 
 被禁用的序列项。
 
-## field CompletedData:Map<any, Sequence<T> | null> = new Map()
+## field CompletedData:Map<Function, Sequence<T> | null> = new Map()
 
 已完成计算的序列缓存：同一个类型只算一次，且修改器只施加一次。
 
-## field ModifyItem:Map<any, ItemModifier> = new Map()
+## field ModifyItem:Map<Function, ItemModifier> = new Map()
 
 按单元类型的就地修改器：给 `StringGuide.Branch` 额外加上反引号与单引号两个起始字符就是靠它。
 

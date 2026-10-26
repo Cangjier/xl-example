@@ -19,11 +19,11 @@ xl 规定一个类至多一个构造器（`E1206`），因此保留参数最全�
 
 异常信息，构造时就拼好。
 
-## field InnerException:any = null
+## field InnerException:unknown = null
 
 内层异常。
 
-BCL 类型不进规范，这里记为 `any`。
+BCL 类型不进规范，这里记为 `unknown`：写的这一侧接受任何抛出物（`catch` 拿到的本来就是 `unknown`），读的一侧必须先显式收窄 / 转型——这正是 `unknown` 与 `any` 的分界。
 
 ## constructor:(sourceRange:SourceRange, message:string, innerException:any, callerLineNumber?:int)=>void
 
