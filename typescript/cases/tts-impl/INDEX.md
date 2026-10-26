@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **310** 条 case：incremental **310** / 非 incremental **0**（非 incremental 即 FAIL）。
+共 **336** 条 case：incremental **335** / 非 incremental **1**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -71,6 +71,8 @@
 | `declarations/let-string-init.ts` | incremental | 提前的 shape 节点：StringLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `declarations/let-template-init.ts` | incremental | 提前的 shape 节点：NoSubstitutionTemplateLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `declarations/let-template-substitution-init.ts` | incremental | 提前的 shape 节点：TemplateExpressionShape@pos=7, TemplateHeadShape@pos=7, TemplateSpanShape@pos=11, IdentifierShape@pos=11, TemplateTailShape@pos=12 | EOF 区间含前导/尾随 trivia |
+| `declarations/let-type-annotation-init.ts` | incremental | 提前的 shape 节点：NumberKeywordShape@pos=6, NumericLiteralShape@pos=15 | EOF 区间含前导/尾随 trivia |
+| `declarations/let-type-annotation.ts` | incremental | 提前的 shape 节点：NumberKeywordShape@pos=6 | EOF 区间含前导/尾随 trivia |
 | `declarations/var-binding.ts` | incremental | 仅有骨架提前（4 个节点） | EOF 区间含前导/尾随 trivia |
 
 ## expressions
@@ -84,6 +86,7 @@
 | `expressions/arrow-destructure.ts` | incremental | 提前的 shape 节点：ArrowFunctionShape@pos=7, ParameterShape@pos=9, ObjectBindingPatternShape@pos=9, BindingElementShape@pos=10, IdentifierShape@pos=10, EqualsGreaterThanTokenShape@pos=15 | EOF 区间含前导/尾随 trivia |
 | `expressions/arrow-multi.ts` | incremental | 提前的 shape 节点：ArrowFunctionShape@pos=7, ParameterShape@pos=9, IdentifierShape@pos=9, ParameterShape@pos=11, IdentifierShape@pos=11, EqualsGreaterThanTokenShape@pos=14 | EOF 区间含前导/尾随 trivia |
 | `expressions/arrow-rest.ts` | incremental | 提前的 shape 节点：ArrowFunctionShape@pos=7, ParameterShape@pos=9, DotDotDotTokenShape@pos=9, IdentifierShape@pos=12, EqualsGreaterThanTokenShape@pos=14, IdentifierShape@pos=17 | EOF 区间含前导/尾随 trivia |
+| `expressions/as-expr.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=7, IdentifierShape@pos=7, NumberKeywordShape@pos=12 | EOF 区间含前导/尾随 trivia |
 | `expressions/await-expr.ts` | incremental | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
 | `expressions/bin-add-add.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
 | `expressions/bin-add-mul.ts` | incremental | 提前的 shape 节点：BinaryExpressionShape@pos=0, NumericLiteralShape@pos=0, PlusTokenShape@pos=1, NumericLiteralShape@pos=2, BinaryExpressionShape@pos=2, AsteriskTokenShape@pos=3 |  |
@@ -150,6 +153,7 @@
 | `expressions/ref-new-target.ts` | incremental | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
 | `expressions/ref-property.ts` | incremental | 提前的 shape 节点：PropertyAccessExpressionShape@pos=0, IdentifierShape@pos=0, IdentifierShape@pos=2 |  |
 | `expressions/ref-this.ts` | incremental | 提前的 shape 节点：ThisKeywordShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `expressions/satisfies-expr.ts` | incremental | 提前的 shape 节点：SatisfiesExpressionShape@pos=7, IdentifierShape@pos=7, NumberKeywordShape@pos=19 | EOF 区间含前导/尾随 trivia |
 | `expressions/seq-three.ts` | incremental | 提前的 shape 节点：ParenthesizedExpressionShape@pos=7, BinaryExpressionShape@pos=9, NumericLiteralShape@pos=9, CommaTokenShape@pos=10, NumericLiteralShape@pos=11, CommaTokenShape@pos=13 | EOF 区间含前导/尾随 trivia |
 | `expressions/setter.ts` | incremental | 提前的 shape 节点：ObjectLiteralExpressionShape@pos=7, SetAccessorShape@pos=9, IdentifierShape@pos=13, ParameterShape@pos=16, IdentifierShape@pos=16, BlockShape@pos=18 | EOF 区间含前导/尾随 trivia |
 | `expressions/spread-array.ts` | incremental | 提前的 shape 节点：ArrayLiteralExpressionShape@pos=7, SpreadElementShape@pos=9, IdentifierShape@pos=12 | EOF 区间含前导/尾随 trivia |
@@ -209,6 +213,7 @@
 | `lexical/let-init-template-plain.ts` | incremental | 提前的 shape 节点：NoSubstitutionTemplateLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `lexical/let-init-template-subst.ts` | incremental | 提前的 shape 节点：TemplateExpressionShape@pos=7, TemplateHeadShape@pos=7, TemplateSpanShape@pos=12, IdentifierShape@pos=12, TemplateTailShape@pos=13 | EOF 区间含前导/尾随 trivia |
 | `lexical/let-init-template-tagged.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=7, TaggedTemplateExpressionShape@pos=7, NoSubstitutionTemplateLiteralShape@pos=11 | EOF 区间含前导/尾随 trivia |
+| `lexical/let-type-annotation.ts` | incremental | 提前的 shape 节点：NumberKeywordShape@pos=6, NumericLiteralShape@pos=15 | EOF 区间含前导/尾随 trivia |
 | `lexical/shebang-let.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=27 | EOF 区间含前导/尾随 trivia |
 | `lexical/tab-indent-let.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
 | `lexical/trailing-space-let.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
@@ -330,17 +335,38 @@
 | `types/alias-tuple.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
 | `types/alias-typeof-query.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
 | `types/alias-union.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/arrow-async-typed-param.ts` | incremental | 提前的 shape 节点：ArrowFunctionShape@pos=9, AsyncKeywordShape@pos=9, ParameterShape@pos=17, IdentifierShape@pos=17, NumberKeywordShape@pos=19, EqualsGreaterThanTokenShape@pos=27 | EOF 区间含前导/尾随 trivia |
+| `types/arrow-typed-param.ts` | incremental | 提前的 shape 节点：ArrowFunctionShape@pos=9, ParameterShape@pos=11, IdentifierShape@pos=11, NumberKeywordShape@pos=13, EqualsGreaterThanTokenShape@pos=21, IdentifierShape@pos=24 | EOF 区间含前导/尾随 trivia |
+| `types/as-array-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, ArrayTypeShape@pos=14, TypeReferenceShape@pos=14, IdentifierShape@pos=14 | EOF 区间含前导/尾随 trivia |
+| `types/as-chain-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, UnknownKeywordShape@pos=14, TypeReferenceShape@pos=25, IdentifierShape@pos=25 | EOF 区间含前导/尾随 trivia |
+| `types/as-const-assertion.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, TypeReferenceShape@pos=14, IdentifierShape@pos=14 | EOF 区间含前导/尾随 trivia |
 | `types/as-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |
+| `types/as-intersection-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, IntersectionTypeShape@pos=14, TypeReferenceShape@pos=14, IdentifierShape@pos=14, TypeReferenceShape@pos=18 | EOF 区间含前导/尾随 trivia |
+| `types/as-keyof-typeof.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, TypeOperatorShape@pos=14, TypeQueryShape@pos=20, IdentifierShape@pos=27 | EOF 区间含前导/尾随 trivia |
+| `types/as-literal-string-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, LiteralTypeShape@pos=14, StringLiteralShape@pos=14 | EOF 区间含前导/尾随 trivia |
+| `types/as-primitive-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, StringKeywordShape@pos=14 | EOF 区间含前导/尾随 trivia |
+| `types/as-qualified-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, TypeReferenceShape@pos=14, QualifiedNameShape@pos=14, IdentifierShape@pos=14, IdentifierShape@pos=18 | EOF 区间含前导/尾随 trivia |
+| `types/as-template-literal-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, TemplateLiteralTypeShape@pos=14, TemplateHeadShape@pos=14, TemplateLiteralTypeSpanShape@pos=19, StringKeywordShape@pos=19 | EOF 区间含前导/尾随 trivia |
+| `types/as-union-type.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, IdentifierShape@pos=9, UnionTypeShape@pos=14, StringKeywordShape@pos=14, NumberKeywordShape@pos=23 | EOF 区间含前导/尾随 trivia |
 | `types/catch-clause-annotation.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0 |  |
 | `types/class-ctor-param-property.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, ConstructorShape@pos=9, ParameterShape@pos=22, ReadonlyKeywordShape@pos=22, IdentifierShape@pos=30, StringKeywordShape@pos=33 |  |
 | `types/class-implements-multi.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0 |  |
 | `types/class-property-definite.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, PropertyDeclarationShape@pos=9, IdentifierShape@pos=9, ExclamationTokenShape@pos=11, StringKeywordShape@pos=13 |  |
 | `types/class-property-readonly.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, PropertyDeclarationShape@pos=9, StaticKeywordShape@pos=9, ReadonlyKeywordShape@pos=16, IdentifierShape@pos=25, StringKeywordShape@pos=28 |  |
+| `types/const-annotation-init.ts` | incremental | 提前的 shape 节点：StringKeywordShape@pos=8, CallExpressionShape@pos=17, IdentifierShape@pos=17 | EOF 区间含前导/尾随 trivia |
 | `types/for-init-annotation.ts` | incremental | 提前的 shape 节点：ForStatementShape@pos=0 |  |
+| `types/function-expression-typed-param.ts` | incremental | 提前的 shape 节点：FunctionExpressionShape@pos=9, ParameterShape@pos=20, IdentifierShape@pos=20, NumberKeywordShape@pos=22, BlockShape@pos=30 | EOF 区间含前导/尾随 trivia |
 | `types/function-param-return.ts` | incremental | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
 | `types/function-predicate.ts` | incremental | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
 | `types/function-this-param.ts` | incremental | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
+| `types/generic-call-type-args.ts` | throw | CatalogGuide: 没有候选形状可以构成（宿主 BinaryExpressionShape，下标 2） |  |
 | `types/import-inline-type.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=13, ImportSpecifierShape@pos=16 |  |
 | `types/interface-basic.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, PropertySignatureShape@pos=13, IdentifierShape@pos=13, StringKeywordShape@pos=16 |  |
 | `types/interface-extends-multi.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0 |  |
+| `types/let-annotation-no-init.ts` | incremental | 提前的 shape 节点：NumberKeywordShape@pos=6 | EOF 区间含前导/尾随 trivia |
+| `types/paren-as-init.ts` | incremental | 提前的 shape 节点：ParenthesizedExpressionShape@pos=9, AsExpressionShape@pos=11, IdentifierShape@pos=11, TypeReferenceShape@pos=15, IdentifierShape@pos=15 | EOF 区间含前导/尾随 trivia |
 | `types/satisfies-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |
+| `types/satisfies-object-type.ts` | incremental | 提前的 shape 节点：SatisfiesExpressionShape@pos=9, IdentifierShape@pos=9, TypeLiteralShape@pos=21, PropertySignatureShape@pos=23, IdentifierShape@pos=23, NumberKeywordShape@pos=26 | EOF 区间含前导/尾随 trivia |
+| `types/satisfies-then-as.ts` | incremental | 提前的 shape 节点：AsExpressionShape@pos=9, SatisfiesExpressionShape@pos=9, IdentifierShape@pos=9, TypeReferenceShape@pos=21, IdentifierShape@pos=21, TypeReferenceShape@pos=26 | EOF 区间含前导/尾随 trivia |
+| `types/satisfies-type.ts` | incremental | 提前的 shape 节点：SatisfiesExpressionShape@pos=9, IdentifierShape@pos=9, TypeReferenceShape@pos=21, IdentifierShape@pos=21 | EOF 区间含前导/尾随 trivia |
+| `types/var-readonly-array-annotation.ts` | incremental | 提前的 shape 节点：TypeOperatorShape@pos=6, ArrayTypeShape@pos=15, StringKeywordShape@pos=15 | EOF 区间含前导/尾随 trivia |

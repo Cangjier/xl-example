@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **115** 条 case：throw 79 / atomic 22 / partial 14 / incremental 0
+共 **89** 条 case：throw 63 / atomic 22 / partial 4 / incremental 0
 
 ## throw
 
@@ -28,8 +28,6 @@
 | `throw/declarations/let-subtract-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/declarations/let-ternary-init.ts` | 增量变量形状未支持：declaration 符号 ? |  |
 | `throw/declarations/let-two-declarations.ts` | 增量变量形状未支持：declaration 符号 , |  |
-| `throw/declarations/let-type-annotation-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
-| `throw/declarations/let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
 | `throw/declarations/var-two-initialized.ts` | 增量变量形状未支持：declaration 符号 , |  |
 
 ### expressions
@@ -73,7 +71,6 @@
 | `throw/lexical/let-init-multi-decl.ts` | 增量变量形状未支持：declaration 符号 , |  |
 | `throw/lexical/let-init-semicolon.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/lexical/let-init-unary-plus.ts` | 增量变量形状未支持：declaration 符号 + |  |
-| `throw/lexical/let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
 
 ### statements
 
@@ -93,23 +90,10 @@
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
 | `throw/types/angle-assertion.ts` | 增量变量形状未支持：declaration 符号 < |  |
-| `throw/types/arrow-async-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/types/arrow-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/types/as-array-type.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/types/as-intersection-type.ts` | 增量变量形状未支持：declaration 符号 & |  |
-| `throw/types/as-qualified-type.ts` | 增量变量形状未支持：declaration 符号 . |  |
-| `throw/types/as-union-type.ts` | 增量变量形状未支持：declaration 符号 \| |  |
-| `throw/types/const-annotation-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
 | `throw/types/destructure-array-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/types/destructure-object-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
-| `throw/types/function-expression-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/types/generic-arrow-typed-param.ts` | 增量变量形状未支持：declaration 符号 < |  |
-| `throw/types/generic-call-type-args.ts` | CatalogGuide: 没有候选形状可以构成（宿主 BinaryExpressionShape，下标 2） |  |
-| `throw/types/let-annotation-no-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
 | `throw/types/nonnull-assertion.ts` | 增量变量形状未支持：declaration 符号 ! |  |
-| `throw/types/paren-as-init.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/types/satisfies-object-type.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/types/var-readonly-array-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
 
 ## atomic
 
@@ -161,22 +145,7 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `partial/expressions/as-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/assignment.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/ref-new-no-parens.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/satisfies-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/unary-typeof.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/unary-void.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-
-### types
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `partial/types/as-chain-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/types/as-const-assertion.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/types/as-keyof-typeof.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/types/as-literal-string-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/types/as-primitive-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/types/as-template-literal-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/types/satisfies-then-as.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/types/satisfies-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
