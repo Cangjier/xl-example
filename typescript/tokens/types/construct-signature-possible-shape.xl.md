@@ -11,6 +11,8 @@ import { MethodSignatureShape } from "./method-signature-shape.xl.md"
 import { MemberPossibleScan } from "./property-signature-possible-shape.xl.md"
 import { MemberPossibleUtil } from "./property-signature-possible-shape.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
+import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
+import { MemberShellFamily } from "./member-shell-catalog.xl.md"
 ```
 
 # namespace cangjie
@@ -75,6 +77,13 @@ for (let firstIndex = start; firstIndex < scanLimit; firstIndex++) {
 const modifierRecovery = firstCode !== null
   && (MemberPossibleUtil.TextOf(firstCode) === "abstract"
     || MemberPossibleUtil.TextOf(firstCode) === "readonly");
+if (state.Early) {
+  const earlyShell = MemberShellCatalog.Create(host, start, end, MemberShellFamily.Interface, catalog.PossibleShapesComputeCache, context);
+  if (earlyShell !== host) {
+    MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
+  }
+  return earlyShell;
+}
 const basePos = MemberPossibleUtil.BasePos(host, start);
 const builder = new TypeBuilder(host.Template, context);
 const consumedLength = builder.LoadFrom(host.Data, start, end + 1, basePos);

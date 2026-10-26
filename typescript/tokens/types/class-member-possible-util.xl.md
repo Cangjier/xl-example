@@ -10,7 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
-import { MemberBoundary, MemberBoundaryScan, MemberHeadScan } from "./member-boundary.xl.md"
+import { MemberBoundary, MemberBoundaryScan, MemberHeadKind, MemberHeadScan } from "./member-boundary.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 ```
 
@@ -40,8 +40,13 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 
 ## field Early:bool = false
 
-[B2] 本格是「成员头已定」的**早建**判定（见 `IsEarlyMemberHead`）：`Complete` 早于成员边界成立，
-`PropertyDeclarationPossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
+[B2] 本格是「成员头已定」的**早建**判定（见 `EarlyHeadKind`）：`Complete` 早于成员边界成立，
+`*PossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
+
+## field EarlyKind:int = -1
+
+[B2c] 早建时的**中性种类**（`MemberHeadKind`）：属性 / 方法 / 构造器 / 访问器 / 索引 / 静态块。
+`-1` = 不是早建格。各候选的 `BuildByIndex` 只在自己那一格建壳。
 
 # class ClassMemberItemStartShared
 
@@ -587,22 +592,70 @@ if (shared !== null) {
 }
 ```
 
-## static method IsEarlyMemberHead:(code:Array<Token>, head:Token)=>bool
+## static method HeadKindOf:(neutral:int)=>int
 
-[B2] **成员头已定**的判据：成员名（普通标识符）已经闭合，而且 document 里的下一个非 trivia 字符
-不是 `(` / `<`（那两种是方法 / 泛型方法，名字这一格判不出属性还是方法），而是属性的后续符号。
-
-这是「member 候选只在边界 Accept」的唯一放宽点：`;` / `:` / `=` / `?` / `!` / `}` 都只可能属于属性，
-所以这一格可以安全地先建一个**外壳**（正品仍由边界处的 legacy builder 产出）。
-
-`get` / `set` 前缀（`get x: A`）与 `@` 装饰器前缀不抢：它们要等完整头才判得清，交旧路径。
+把 `MemberHeadKind` 的中性种类映射到本扫描自己的 kind 常量；`-1` = 这一类**不早建**（交旧路径）。
 
 ```ts
-if (!(head instanceof Common) || !head.Closed) {
-  return false;
+if (neutral === MemberHeadKind.Property) {
+  return ClassMemberPossibleUtil.PropertyKind;
 }
+if (neutral === MemberHeadKind.Method) {
+  return ClassMemberPossibleUtil.MethodKind;
+}
+if (neutral === MemberHeadKind.Constructor) {
+  return ClassMemberPossibleUtil.ConstructorKind;
+}
+if (neutral === MemberHeadKind.Get) {
+  return ClassMemberPossibleUtil.GetKind;
+}
+if (neutral === MemberHeadKind.Set) {
+  return ClassMemberPossibleUtil.SetKind;
+}
+if (neutral === MemberHeadKind.Index) {
+  return ClassMemberPossibleUtil.IndexKind;
+}
+if (neutral === MemberHeadKind.StaticBlock) {
+  return ClassMemberPossibleUtil.StaticBlockKind;
+}
+return -1;
+```
+
+## static method EarlyHeadKind:(code:Array<Token>, head:Token)=>int
+
+**成员头已定**的判据（B2b 扩展 / B2c 方法族）：返回 `MemberHeadKind` 的中性种类，`-1` = 不早建。
+
+- **成员第一格**（`code.length === 1`）：`MemberHeadScan.Plan` 的 document 前瞻直接判种类。
+  class 侧没有构造签名 ⇒ `Construct` 让回旧路径。
+- **名字闭合格**（B2b 原判据）：只接受属性（`;` / `:` / `=` / `?` / `!` / `}` 只可能属于属性）。
+
+```ts
 if (code.length === 0 || code[code.length - 1] !== head) {
-  return false;
+  return -1;
+}
+if (code.length === 1) {
+  if (head instanceof Common) {
+    if (!(head as Common).Closed) {
+      return -1;
+    }
+  } else if (head instanceof Bracket) {
+    if (!(head as Bracket).Closed) {
+      return -1;
+    }
+  } else {
+    return -1;
+  }
+  const plan = MemberHeadScan.Plan(head, false);
+  if (plan === null) {
+    return -1;
+  }
+  if (plan.Kind === MemberHeadKind.Construct) {
+    return -1;
+  }
+  return plan.Kind;
+}
+if (!(head instanceof Common) || !head.Closed) {
+  return -1;
 }
 // 名字必须是**修饰词之后的第一格**：`abstract f(): void` 的 `void` 也是「闭合格 + 下一字符是 `;`」，
 // 但它前面还有名字 / 参数表 / 返回类型，早建会把整条方法吞成壳（实测 class-abstract 多出一个
@@ -612,27 +665,20 @@ while (nameAt < code.length - 1 && ClassMemberPossibleUtil.IsModifierWord(code[n
   nameAt++;
 }
 if (nameAt !== code.length - 1) {
-  return false;
-}
-// [B2b] **成员第一格**（修饰词或名字本身）闭合就建外壳：`member-boundary` 的 document 前瞻
-// （`MemberHeadScan.ModifierCount`）已经能判出「跳过修饰词链之后的名字后面是 `:` / `=` / `;` / `}`」，
-// 于是 `private` / `static` / `readonly` / `x` / `1` 各自在自己的闭合格成形状，而不是等整条成员。
-// 前瞻判不出（方法 `(` / `<`、计算名 `[`、静态块 `{`、装饰器 `@`、修饰词链跨行）一律 `-1` ⇒ 交旧路径。
-if (code.length === 1) {
-  return MemberHeadScan.ModifierCount(code[0]) >= 0;
+  return -1;
 }
 const next = ClassMemberPossibleUtil.NextChar(head.SourceRange);
 if (next !== ":" && next !== "=" && next !== "!" && next !== "?" && next !== ";" && next !== "}") {
-  return false;
+  return -1;
 }
 const first = ClassMemberPossibleUtil.TextOf(code[0]);
 if (first === "@") {
-  return false;
+  return -1;
 }
 if ((first === "get" || first === "set") && code.length >= 2) {
-  return false;
+  return -1;
 }
-return true;
+return MemberHeadKind.Property;
 ```
 
 ## static method Analyze:(state:ClassMemberPossibleScan)=>void
@@ -642,6 +688,7 @@ const code = state.Code;
 state.Complete = false;
 state.End = -1;
 state.Early = false;
+state.EarlyKind = -1;
 if (code.length === 0) {
   state.Kinds = ClassMemberPossibleUtil.AllKinds();
   return;
@@ -692,12 +739,21 @@ if (angle === 0) {
     complete = false;
     end = -1;
   }
-  // [B2] 成员头已定 ⇒ 早建外壳（只放宽「什么时候 Accept」，不改正品由谁建）：
-  // `x` / `x:` / `x =` / `x?` 这些格子的下一字符只可能属于属性成员。
-  if (!complete && angle === 0 && ClassMemberPossibleUtil.IsEarlyMemberHead(code, code[code.length - 1])) {
-    complete = true;
-    end = code.length - 1;
-    state.Early = true;
+  // [B2 / B2c] 成员头已定 ⇒ 早建外壳（只放宽「什么时候 Accept」，不改正品由谁建）：
+  // 第一格的前瞻判出属性 / 方法 / 构造器 / 访问器 / 索引 / 静态块时，种类当场钉死，
+  // 目录里只剩那一个候选存活（其余候选的 `ComputeByIndex` 会因为 Kinds 不含自己的 kind 而 Reject）。
+  if (!complete && angle === 0) {
+    const earlyKind = ClassMemberPossibleUtil.EarlyHeadKind(code, code[code.length - 1]);
+    if (earlyKind >= 0) {
+      complete = true;
+      end = code.length - 1;
+      state.Early = true;
+      state.EarlyKind = earlyKind;
+      const mapped = ClassMemberPossibleUtil.HeadKindOf(earlyKind);
+      if (mapped >= 0) {
+        state.Kinds = ClassMemberPossibleUtil.OnlyKind(mapped);
+      }
+    }
   }
 }
 let kinds = state.Kinds;

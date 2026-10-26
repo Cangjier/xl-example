@@ -9,6 +9,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { ClassMemberPossibleScan, ClassMemberPossibleUtil } from "./class-member-possible-util.xl.md"
 import { ClassStaticBlockDeclarationShape } from "./class-static-block-declaration-shape.xl.md"
+import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
+import { MemberShellFamily } from "./member-shell-catalog.xl.md"
 ```
 
 # namespace cangjie
@@ -58,6 +60,13 @@ const start = state.Start;
 const end = state.CodeAt[state.End];
 if (start < 0 || end < start) {
   return host;
+}
+if (state.Early) {
+  const earlyShell = MemberShellCatalog.Create(host, start, end, MemberShellFamily.Class, catalog.PossibleShapesComputeCache, context);
+  if (earlyShell !== host) {
+    ClassMemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
+  }
+  return earlyShell;
 }
 const basePos = ClassMemberPossibleUtil.BasePos(host, start);
 const consumed:Array<Token> = host.Data.slice(start, end + 1);

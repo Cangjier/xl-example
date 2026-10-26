@@ -9,6 +9,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { MemberPossibleScan, MemberPossibleUtil } from "./property-signature-possible-shape.xl.md"
 import { MethodSignatureShape } from "./method-signature-shape.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
+import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
+import { MemberShellFamily } from "./member-shell-catalog.xl.md"
 ```
 
 # namespace cangjie
@@ -62,6 +64,13 @@ const start = state.Start;
 const end = state.CodeAt[state.End];
 if (start < 0 || end < start) {
   return host;
+}
+if (state.Early) {
+  const earlyShell = MemberShellCatalog.Create(host, start, end, MemberShellFamily.Interface, catalog.PossibleShapesComputeCache, context);
+  if (earlyShell !== host) {
+    MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
+  }
+  return earlyShell;
 }
 const basePos = MemberPossibleUtil.BasePos(host, start);
 const builder = new TypeBuilder(host.Template, context);

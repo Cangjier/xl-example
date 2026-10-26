@@ -13,7 +13,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
-import { MemberBoundary, MemberBoundaryScan, MemberHeadScan } from "./member-boundary.xl.md"
+import { MemberBoundary, MemberBoundaryScan, MemberHeadKind, MemberHeadScan } from "./member-boundary.xl.md"
 import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
 import { MemberShellFamily } from "./member-shell-catalog.xl.md"
 import { PropertySignatureShape } from "./property-signature-shape.xl.md"
@@ -48,8 +48,12 @@ import { TypeBuilder } from "./type-builder.xl.md"
 
 ## field Early:bool = false
 
-[B2] 本格是「`name :` 已唯一确定属性签名」的**早建**判定：`Complete` 早于成员边界成立，
-`PropertySignaturePossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
+[B2] 本格是「成员头已定」的**早建**判定（见 `EarlyHeadKind`）：`Complete` 早于成员边界成立，
+各候选 `BuildByIndex` 据此建**成员外壳**而不是直接建正品。
+
+## field EarlyKind:int = -1
+
+[B2c] 早建时的**中性种类**（`MemberHeadKind`）。各候选的 `BuildByIndex` 只在自己那一格建壳。
 
 # class MemberItemStartShared
 
@@ -267,6 +271,79 @@ return depth;
 return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
 ```
 
+## static method HeadKindOf:(neutral:int)=>int
+
+把 `MemberHeadKind` 的中性种类映射到 interface 成员的 kind 位；`-1` = 不早建。
+interface 里 `constructor` 只是普通方法名，`new (` 才是构造签名。
+
+```ts
+if (neutral === MemberHeadKind.Property) {
+  return MemberPossibleUtil.PropertyKind;
+}
+if (neutral === MemberHeadKind.Method) {
+  return MemberPossibleUtil.MethodKind;
+}
+if (neutral === MemberHeadKind.Constructor) {
+  return MemberPossibleUtil.MethodKind;
+}
+if (neutral === MemberHeadKind.Construct) {
+  return MemberPossibleUtil.ConstructKind;
+}
+if (neutral === MemberHeadKind.Get) {
+  return MemberPossibleUtil.GetKind;
+}
+if (neutral === MemberHeadKind.Set) {
+  return MemberPossibleUtil.SetKind;
+}
+if (neutral === MemberHeadKind.Index) {
+  return MemberPossibleUtil.IndexKind;
+}
+return -1;
+```
+
+## static method EarlyHeadKind:(code:Array<Token>, head:Token)=>int
+
+**成员头已定**的判据（B2b 扩展 / B2c 方法族）：返回 `MemberHeadKind` 的中性种类，`-1` = 不早建。
+
+成员第一格直接用 document 前瞻判种类（方法 / 构造签名 / 访问器 / 索引 / 属性）；
+更晚的格子只接受 B2b 的属性判据（`name :` 与 名字闭合格 + 下一字符是属性符号）。
+
+```ts
+if (code.length === 0 || code[code.length - 1] !== head) {
+  return -1;
+}
+if (code.length === 1) {
+  if (head instanceof Common) {
+    if (!(head as Common).Closed) {
+      return -1;
+    }
+  } else if (head instanceof Bracket) {
+    if (!(head as Bracket).Closed) {
+      return -1;
+    }
+  } else {
+    return -1;
+  }
+  const plan = MemberHeadScan.Plan(head, true);
+  if (plan === null) {
+    return -1;
+  }
+  return plan.Kind;
+}
+if (head instanceof Symbol && (head as Symbol).Is(":") && head.Closed) {
+  // [B2] `name :` 已唯一确定属性签名（方法签名在 `(`、调用签名在头部括号）。
+  return MemberHeadKind.Property;
+}
+if (!(head instanceof Common) || !head.Closed) {
+  return -1;
+}
+const next = MemberPossibleUtil.NextChar(head.SourceRange);
+if (next === ":" || next === ";" || next === "}" || next === "," || next === "=") {
+  return MemberHeadKind.Property;
+}
+return -1;
+```
+
 ## static method ClassifyHead:(code:Array<Token>)=>int
 
 ```ts
@@ -456,6 +533,7 @@ const code = state.Code;
 state.Complete = false;
 state.End = -1;
 state.Early = false;
+state.EarlyKind = -1;
 if (code.length === 0) {
   state.Kinds = MemberPossibleUtil.AllKinds();
   return;
@@ -502,23 +580,21 @@ if (angle === 0) {
     complete = true;
     end = code.length - 1;
   }
-  // [B2] `name :` 已经唯一确定属性签名（方法签名在 `(`、调用签名在头部括号）：这一格就建外壳。
-  if (!complete && MemberPossibleUtil.HasKind(head, MemberPossibleUtil.PropertyKind)
-    && last instanceof Symbol && (last as Symbol).Is(":") && last.Closed) {
-    complete = true;
-    end = code.length - 1;
-    state.Early = true;
-  }
-  // [B2b] **名字第一格**闭合就建外壳：document 前瞻（`MemberHeadScan.ModifierCount`）判得出
-  // `name :` 形态时，`a` 在自己的闭合格就是 `IdentifierShape`，不必等到 `:`。
-  // 前瞻判不出（`(` / `<` / `[` / 换行 …）一律 `-1` ⇒ 交旧路径。
-  if (!complete && angle === 0 && code.length === 1
-    && MemberPossibleUtil.IsNameToken(code[0])
-    && MemberPossibleUtil.HasKind(head, MemberPossibleUtil.PropertyKind)
-    && MemberHeadScan.ModifierCount(code[0]) >= 0) {
-    complete = true;
-    end = 0;
-    state.Early = true;
+  // [B2 / B2c] 成员头已定 ⇒ 早建外壳：第一格的前瞻判出属性 / 方法签名 / 构造签名 / 访问器 /
+  // 索引时，种类当场钉死（其余候选因为 Kinds 不含自己的 kind 而 Reject）；更晚的格子仍只接受
+  // 属性判据（`name :` / 名字闭合格 + 下一字符是属性符号）。
+  if (!complete && angle === 0) {
+    const earlyKind = MemberPossibleUtil.EarlyHeadKind(code, code[code.length - 1]);
+    if (earlyKind >= 0) {
+      const mapped = MemberPossibleUtil.HeadKindOf(earlyKind);
+      if (mapped >= 0) {
+        complete = true;
+        end = code.length - 1;
+        state.Early = true;
+        state.EarlyKind = earlyKind;
+        head = mapped;
+      }
+    }
   }
 }
 let kinds = head;
@@ -638,6 +714,7 @@ state.Code.length = 0;
 state.CodeAt.length = 0;
 state.Angle = 0;
 state.Early = false;
+state.EarlyKind = -1;
 state.BoundaryScan.Boundary = -1;
 state.BoundaryScan.Checked = 1;
 shared.Host = units;

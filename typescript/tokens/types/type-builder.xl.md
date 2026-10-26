@@ -1556,7 +1556,28 @@ return this.SpanNode(shape, start, this.At - 1);
 
 ## method ParseParameterList:(bracket:Bracket)=>Array<Token>
 
+[B2c] 括号里已经有 B1 建好的 `ParameterShape`（成员参数表复用了 `ParameterListPossibleShape`）时
+直接收下；有任何残留代码单元就回退逐字解析。
+
 ```ts
+const prebuilt:Array<Token> = [];
+let residue = false;
+for (const item of bracket.Data) {
+  if (item.IsTriviaToken) {
+    continue;
+  }
+  if (item instanceof ParameterShape) {
+    prebuilt.push(item);
+    continue;
+  }
+  if (item instanceof Symbol && (item as Symbol).Is(",")) {
+    continue;
+  }
+  residue = true;
+}
+if (prebuilt.length > 0 && !residue) {
+  return prebuilt;
+}
 const parameters:Array<Token> = [];
 const inner = new TypeBuilder(this.Template, this.Context);
 let base = 0;
