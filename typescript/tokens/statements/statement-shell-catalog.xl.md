@@ -55,6 +55,36 @@ import { WithStatementShape } from "./with-statement-shape.xl.md"
 
 ## static field Lists:Array<Array<Token>> = []
 
+[B0b:SHELLID] **身份化**：`Shells` / `Lists` 之外多一条**同下标**的 `ShellIds`，每个 push 的壳在
+`Attach` 里领一个单调 `ShellId`（唯一分配点，计数器 `NextShellId`）。`Take` 不再默认取「栈顶 + 类名」，
+而是先按身份 `(壳的 Pos, 占位节点类名)` 找壳；身份不命中才退回旧的栈顶匹配，并且**每次都计数**。
+
+为什么需要它：`Take` 的旧判据是「`Lists` 最后一个 + `constructor.name`」。内层语句壳只要**提前 push**
+（`if (a) { … }` 的块壳在 `if` 壳收口前就进了栈），栈顶就不再是外层语句的壳；旧代码要么匹配不中（
+`return null`，占位节点悄悄留在壳里当 trivia），要么在类名相同的两层之间弹错壳。身份判据把这类
+「提前 push 的内层壳」从外层 `Take` 的搜索里排除。
+
+只读计数（全部可外部读取，只增不减）：
+
+| 计数 | 含义 |
+|---|---|
+| `ShellTakeByIdentityCount` | 按身份命中（正常路径） |
+| `ShellTakeFallbackCount` | 身份不命中、退回「栈顶 + 类名」并命中（旧行为；**不为 0 就是还没身份化的残留**） |
+| `ShellTakeMissCount` | 两条路径都不命中 ⇒ `return null`（不动栈，等本壳自己收口） |
+| `ShellTakeOutOfOrderCount` | 身份命中的壳**不是栈顶**（= 确实存在提前 push 的内层壳被排除） |
+
+## static field ShellIds:Array<int> = []
+
+## static field NextShellId:int = 0
+
+## static field ShellTakeByIdentityCount:int = 0
+
+## static field ShellTakeFallbackCount:int = 0
+
+## static field ShellTakeMissCount:int = 0
+
+## static field ShellTakeOutOfOrderCount:int = 0
+
 ## static method HeadText:(unit:Token)=>string
 
 ```ts
@@ -169,11 +199,57 @@ for (const shape of created) {
 // 未关闭的兄弟去 `TryToClose`（`WrapSymbol` / `BasicToken` 的常规路径），占位节点 `src.End` 还没签，
 // 会被误关并抛 `SourceRange is not set`。放在最前则 `Last()` 恒是真正的代码单元，扫描器按 trivia 跳过它。
 shell.Data.splice(0, 0, ...created);
+// [B0b:SHELLID] 给这个壳发身份号：**唯一分配点**。`Shells` / `ShellIds` / `Lists` 三个数组同下标，
+// `Take` 按 `ShellIds[at]` 反查（见 `FindShellByIdentity`），不再依赖「栈顶就是本壳」。
+StatementShellCatalog.NextShellId += 1;
+const shellId = StatementShellCatalog.NextShellId;
+(shell as any).ShellId = shellId;
 StatementShellCatalog.Shells.push(shell);
+StatementShellCatalog.ShellIds.push(shellId);
 StatementShellCatalog.Lists.push(created);
 ```
 
+## static method FindShellByIdentity:(built:Token)=>int
+
+[B0b:SHELLID] identity = `(壳的 Pos, 占位节点的 legacy 类名)`，返回 `Shells` / `Lists` / `ShellIds`
+里的下标，找不到返回 `-1`。
+
+`Pos` 是语句起始位，壳与 legacy 节点**同一口径**：`Attach` 里 `made.Pos = 壳的 Pos`，而 legacy
+`StatementBuilder.Finish` 用 `this.Positions[first]`（= 前一个非 trivia 单元的 `EndIndex`，见
+`Load` 的 `Positions` 推法）。所以「同一条语句的壳」与「别的壳」在这里可分——**提前 push 的内层语句壳**
+`Pos` 不同，不会命中。从栈顶往下扫：正常情况下最多一个壳命中。
+
+```ts
+const builtPos = (built as any).Pos as number;
+if (typeof builtPos !== "number") {
+  return -1;
+}
+const typeName = built.constructor.name;
+const shells = StatementShellCatalog.Shells;
+const lists = StatementShellCatalog.Lists;
+for (let at = shells.length - 1; at >= 0; at--) {
+  if (((shells[at] as any).Pos as number) !== builtPos) {
+    continue;
+  }
+  for (const shape of lists[at]) {
+    if (shape.constructor.name === typeName) {
+      return at;
+    }
+  }
+}
+return -1;
+```
+
 ## static method Take:(built:Token)=>Token | null
+
+[B0b:SHELLID] 取壳判据从「`Lists` 栈顶 + 类名」改成「**身份优先**、栈顶只作兜底」：
+
+1. `FindShellByIdentity(built)` 命中 ⇒ 用那个下标的壳（`ShellTakeByIdentityCount += 1`；下标不是栈顶时
+   再 `ShellTakeOutOfOrderCount += 1`，这是「提前 push 的内层壳被排除」的**唯一**证据）；
+2. 身份不命中 ⇒ 退回旧行为（只看栈顶 + 类名），命中则 `ShellTakeFallbackCount += 1`——**不静默降级**；
+3. 两条都不命中 ⇒ `ShellTakeMissCount += 1` 并 `return null`（不动栈，等本壳自己收口）。
+
+出栈用 `splice(at, 1)` 而不是 `pop()`：身份命中的壳不一定在栈顶。三个数组必须同下标地删。
 
 ```ts
 if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
@@ -182,8 +258,33 @@ if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
 if (StatementShellCatalog.Lists.length === 0) {
   return null;
 }
-const list = StatementShellCatalog.Lists[StatementShellCatalog.Lists.length - 1];
 const typeName = built.constructor.name;
+const top = StatementShellCatalog.Lists.length - 1;
+// [B0b:SHELLID] 先按身份取壳，**不再默认栈顶**：栈顶可能是提前 push 的内层语句壳。
+let at = StatementShellCatalog.FindShellByIdentity(built);
+if (at >= 0) {
+  StatementShellCatalog.ShellTakeByIdentityCount += 1;
+  if (at !== top) {
+    StatementShellCatalog.ShellTakeOutOfOrderCount += 1;
+  }
+} else {
+  // 身份不命中 ⇒ 退回旧判据（只看栈顶 + 类名）。这条路径必须计数：静默走它等于把「按身份」降级。
+  at = top;
+  let fallbackHit = false;
+  for (const shape of StatementShellCatalog.Lists[at]) {
+    if (shape.constructor.name === typeName) {
+      fallbackHit = true;
+      break;
+    }
+  }
+  if (!fallbackHit) {
+    // 不是本壳的族（例如控制流壳里先收口的裸表达式语句）：不动栈，等本壳自己收口。
+    StatementShellCatalog.ShellTakeMissCount += 1;
+    return null;
+  }
+  StatementShellCatalog.ShellTakeFallbackCount += 1;
+}
+const list = StatementShellCatalog.Lists[at];
 let matched:Token | null = null;
 for (const shape of list) {
   if (shape.constructor.name === typeName) {
@@ -192,11 +293,13 @@ for (const shape of list) {
   }
 }
 if (matched === null) {
-  // 不是本壳的族（例如控制流壳里先收口的裸表达式语句）：不动栈，等本壳自己收口。
+  // 防御：走到这里说明栈内三数组不同步，显式计数 + 不动栈（不静默弹错壳）。
+  StatementShellCatalog.ShellTakeMissCount += 1;
   return null;
 }
-StatementShellCatalog.Lists.pop();
-StatementShellCatalog.Shells.pop();
+StatementShellCatalog.Shells.splice(at, 1);
+StatementShellCatalog.ShellIds.splice(at, 1);
+StatementShellCatalog.Lists.splice(at, 1);
 const children:Array<Token> = built.Data.slice();
 built.Data.length = 0;
 for (const child of children) {
