@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **130** 条 case：throw 92 / atomic 22 / partial 16 / incremental 0
+共 **128** 条 case：throw 92 / atomic 22 / partial 14 / incremental 0
 
 ## throw
 
@@ -117,7 +117,7 @@
 | `throw/types/destructure-object-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/types/function-expression-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/types/generic-arrow-typed-param.ts` | 增量变量形状未支持：declaration 符号 < |  |
-| `throw/types/generic-call-type-args.ts` | 增量变量形状未支持：declaration 符号 > |  |
+| `throw/types/generic-call-type-args.ts` | CatalogGuide: 没有候选形状可以构成（宿主 BinaryExpressionShape，下标 2） |  |
 | `throw/types/let-annotation-no-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
 | `throw/types/nonnull-assertion.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 | `throw/types/paren-as-init.ts` | 增量变量形状未支持：declaration 括号 |  |
@@ -176,17 +176,10 @@
 | --- | --- | --- |
 | `partial/expressions/as-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/assignment.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-| `partial/expressions/bin-in.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/ref-new-no-parens.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/satisfies-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/unary-typeof.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/expressions/unary-void.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-
-### statements
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `partial/statements/let-continuation-identifier.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 
 ### types
 
