@@ -14,6 +14,7 @@ import { ExpressionStatementPossibleShape } from "../statements/expression-state
 import { ItemUtil } from "../item-util.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { EnumDeclarationShape } from "./enum-declaration-shape.xl.md"
+import { EnumDeclarationEndPossibleShape } from "./enum-declaration-end-possible-shape.xl.md"
 import { StatementRoute } from "../statements/statement-route-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { DeclarationIncrementalRoute } from "./declaration-incremental-route.xl.md"
@@ -68,10 +69,27 @@ return false;
 ```ts
 // [E-DECL:ROUTE] 增量模式：让根层声明壳让出路由，由本族候选提前挂壳（开关 false 时恢复原路由）。
 DeclarationIncrementalRoute.Arm();
+// [XL-B3c] 让位判据：legacy 下照旧让给通用声明壳；增量模式下**只对自己的声明头**（enum / const enum）
+// 跳过让位、自己提前挂壳（其它声明族仍然让位，否则会与各自的声明候选抢格）。
 if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
-  // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
-  // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
-  return ShapeStates.Reject;
+  const b3cStart = ItemUtil.ItemStartCached(units, cache);
+  const b3cHeadAt = ItemUtil.NextCode(units, b3cStart);
+  let b3cOwns = false;
+  if (b3cHeadAt >= 0 && b3cHeadAt < units.length && units[b3cHeadAt] instanceof Common) {
+    const b3cText = (units[b3cHeadAt] as Common).TempToString();
+    if (b3cText === "enum") {
+      b3cOwns = true;
+    } else if (b3cText === "const") {
+      const b3cNext = ItemUtil.NextCode(units, b3cHeadAt + 1);
+      b3cOwns = b3cNext < units.length && units[b3cNext] instanceof Common
+        && (units[b3cNext] as Common).Is("enum");
+    }
+  }
+  if (!(StatementRouteUtil.IsIncrementalShapesEnabled() && b3cOwns)) {
+    // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
+    // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
+    return ShapeStates.Reject;
+  }
 }
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
@@ -248,5 +266,13 @@ if (start < 0 || start > tokenIndex) {
   return host;
 }
 const shell = new EnumDeclarationShape(host.Template);
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  // [XL-B3c] 增量模式：关键字格即挂出 legacy 类名的枚举壳（`EnumDeclarationShape@pos`），
+  // 终结候选在 `{}` 体闭合那一格用 legacy `EnumDeclarationShape.BuildFromCode` 收口 + `FinishShell`
+  // ⇒ 壳节点严格早于 legacy，EOF 树与 legacy 逐节点一致。
+  BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
+  shell.CatalogGuide = new CatalogGuide([], new EnumDeclarationEndPossibleShape());
+  return shell;
+}
 return BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
 ```

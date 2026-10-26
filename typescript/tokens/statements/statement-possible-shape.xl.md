@@ -68,6 +68,19 @@ if (StatementRouteUtil.EnableShellExpressions) {
   if (route !== StatementRoute.Legacy && route !== StatementRoute.None) {
     return ShapeStates.Reject;
   }
+  // [XL-B3c] incremental 模式：`const enum` 的路由落在 `Legacy`（`const` 不在绑定位），
+  // 让位给 `EnumDeclarationPossibleShape` 提前挂壳；false 时本段不执行（legacy 逐字节不变）。
+  if (StatementRouteUtil.IsIncrementalShapesEnabled() && route === StatementRoute.Legacy) {
+    const b3cHeadAt = ItemUtil.NextCode(units, itemStart);
+    if (b3cHeadAt >= 0 && b3cHeadAt < units.length && units[b3cHeadAt] instanceof Common
+      && (units[b3cHeadAt] as Common).Is("const")) {
+      const b3cNextAt = ItemUtil.NextCode(units, b3cHeadAt + 1);
+      if (b3cNextAt < units.length && units[b3cNextAt] instanceof Common
+        && (units[b3cNextAt] as Common).Is("enum")) {
+        return ShapeStates.Reject;
+      }
+    }
+  }
 } else {
   // 熔断关闭：逐字保留 Wave1 原型 A 的内联分流（legacy 路径必须与 Wave1 完全等价，双路对拍才有意义）。
   if (itemStart < units.length) {
