@@ -228,9 +228,24 @@ list.MountedUnit = declaration;
 if (binding instanceof Bracket) {
   // [WP-A6c] Build runs at the closing bracket tick; Bracket.ExitOrPre calls Quit() right after
   // TryToClose, and Quit() clears Parent.MountedUnit - that would detach the statement we just
-  // mounted. Nulling the bracket's Parent makes that Quit() a no-op so the mount chain survives
-  // until '=' / initializer / ';'.
-  (binding as Bracket).Parent = null;
+  // mounted. Re-parenting the bracket onto its own binding-pattern shape makes that Quit() write to
+  // the pattern (whose `MountedUnit` is always null) instead of to the host, so the mount chain
+  // survives until '=' / initializer / ';'.
+  //
+  // **[W1:BRACKET-LOOP] 不能写成 `Parent = null`**：`UnitToken.Process` 的在飞循环退出守卫是
+  // 「`parent !== null && parent.MountedUnit !== this`」。`Parent = null` 让这条守卫**永远不成立**，
+  // 而 Build 是在括号自己的 `Process` 循环里被调用的（`}` 那一格 → `TryToClose` → 根目录 Accept），
+  // 于是括号的循环继续吃下一行的字符：`let { a } = obj` ⏎ `let { ["k"]: kk } = obj` 的后一条整条被
+  // `Add` 进**已经关闭**的括号（实测 `bracket.Data` 多出 `= obj ⏎ let ...`），根层只剩一条语句。
+  // 改挂到 pattern 上：`Quit()` 仍然无害（pattern.MountedUnit 恒为 null），而循环顶部的守卫看到
+  // `pattern.MountedUnit !== bracket` 立刻退出，字符回到父单元，由刚挂好的 statement → list →
+  // declaration 链接手（`=` / 初始化器 / `;` 因此正常到达）。
+  const bracketBinding = binding as Bracket;
+  if (pattern !== null) {
+    bracketBinding.Parent = pattern;
+  } else {
+    bracketBinding.Parent = null;
+  }
 }
 return statement;
 ```
