@@ -194,22 +194,29 @@ node samples/check.mjs --update # 用当前产物重写夹具
 读的是另一个分支的产物，见 [tests/MIGRATION.md](tests/MIGRATION.md)。**本分支权威的 AST 尺子**是：
 
 ```bash
-npm run ast:cases         # 语料：ast-json 生成快照 + ast-json-diff 逐条对拍（当前 6167/6167）
+npm run ast:cases         # 语料：ast-json 生成快照 + ast-json-diff 逐条对拍（当前 6171/6171）
 npm run ast:dts           # 真实 .d.ts 门禁：226 份全部解析成功且 AST 逐节点一致
-npm run ast:verify        # 上面两条一起跑
+npm run ast:wide          # 宽尺子：2505 件语料（node_modules .d.ts + dist/ts + samples + tests/cases/token），
+                          # 解析成功 2494 / 跳过 TS 非法 11 / 差异 0 / 崩溃 0
+npm run ast:verify        # 上面三条一起跑（需要先 npm run build）
 ```
 
 `tests/` 的语料体检仍然可用：
 
 ```bash
 npm run cases:check     # 语料文件头 / 用例格式体检
-npm run gates           # 9 道门一次跑完：适用门全绿，7 道结构上不适用（N/A，按跳过计，exit 0）
+npm run gates           # 11 道门一次跑完：4 道适用门全绿，7 道结构上不适用（N/A，按跳过计，exit 0）
 ```
 
-其中 7 道门（`runtime:check` / `runtime:cli` / `cases:tsast` / `cases:direct` / `samples` /
-`coverage` / `cpp:check`）要读的源 / 产物在本仓库根本不存在，`gates` 会把它们打印成
-`NOT-APPLICABLE（原因）` 并计入跳过、而不是失败；清单、原因与证据见
+其中 4 道适用门是 `cases:check`、`direct:lint`、`wide-ast`（2505 件、差异 0）与
+`real-dts-ast`（226/226）；另外 7 道（`runtime:check` / `runtime:cli` / `cases:tsast` /
+`cases:direct` / `samples` / `coverage` / `cpp:check`）要读的源 / 产物在本仓库根本不存在，
+`gates` 会把它们打印成 `NOT-APPLICABLE（原因）` 并计入跳过、而不是失败；清单、原因与证据见
 [tests/MIGRATION.md](tests/MIGRATION.md) 的「本仓库不适用的门」。
+
+**三把 AST 尺子的分工**：`ast:cases` 是 6171 条快照（构造覆盖，每类节点都有代表）；
+`ast:dts` 是 226 件真实 `.d.ts`（声明形态覆盖）；`ast:wide` 是 2505 件宽语料（全量与回归，
+含 `dist/ts/**` 自己的产物源码）。三者共用 `typescript/cases/ast-compare.mjs` 这一套投影口径。
 
 ## 改这个项目
 

@@ -104,6 +104,17 @@ const GATES = [
     ],
   },
   { name: "cases:check", script: "tests/parse/validate.mjs" },
+  // **`wide-ast` + `real-dts-ast`（本轮收编加进池子）**：两把**适用**的 AST 尺子，判据都是
+  // 「与本仓直建产物逐节点一致」，而不是「跑得动」。
+  // - `wide-ast`（`tests/parse/wide-ast.mjs`）：2505 件宽语料（node_modules .d.ts + dist/ts +
+  //   samples + tests/cases/token），直接读 `build/ts/typescript/run/source-file-runner.js`，
+  //   不依赖那条在本仓库不存在的 print-ast-common；差异数 / 崩溃 / 缺 range / 越界任一非 0 即红。
+  // - `real-dts-ast`（`typescript/cases/real-dts-ast.mjs`）：226 件真实 `.d.ts`，即 `ast:dts` 那道门；
+  //   以前不在池子里，只有 `npm run ast:dts` 才会跑。
+  // 两道都**不写 notApplicable**：缺 `build/ts` 是真实失败（先 `npm run build`），不是「本仓库结构上
+  // 不可能跑」——与上面 7 道 N/A 的区别正在这里。
+  { name: "wide-ast", script: "tests/parse/wide-ast.mjs" },
+  { name: "real-dts-ast", script: "typescript/cases/real-dts-ast.mjs" },
   // **`cases:tags`（第 633 轮加、第 1017 轮删）**：用例开头那几行 `xl:expect` / `xl:absent` 的
   // 专属尺子（外加「标签表体检」与一条 `<Label />` 结构不变式）。它量的是**产物标签**这一层，
   // 而既定口径是「XML 出口与 token 树质量的尺子不进判据」——**这一条留下的洞记在 README 里**
