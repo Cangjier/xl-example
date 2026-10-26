@@ -4,9 +4,13 @@
 - **分支**：`tts-wp-c`（本克隆 `C:\Users\Admin\Documents\GitHub\xl-example-set\tts-wp-c`），
   从 canonical 只读暂存分支 `origin/refactor/token-time-shapes` @ `5ced7ace` 切出，先并入 WP-A（`d35736b5`）。
 - **完整验收已并入 WP-B**：`tts-wp-b` @ `18d66eaf`（merge commit `chore(tts): 引入 WP-B 三层`，无冲突）。
-- **状态**：**13/14（char 9–12 全 PASS，含 char 11 annotation-only）；EOF 剩 1 步**，根因在 WP-B 的
-  `VariableDeclarationShape.FinishIncremental` 收口未关闭已建形状（见 §7 HANDOFF），需 1 行 WP-B 侧改动，
-  本包未改 WP-B 文件（C11）。
+- **状态**：**完成。incremental 14/14 PASS**（char 11 `[annotation-only]` 计 PASS），legacy 6/8/14、语料 1723 / 0 差异、
+  tsc exit 0、工作区干净。EOF 一步依赖一处**跨包最小补丁**（Lead 已授权，见 §7）。
+
+> **跨包最小补丁（所有权记录）**：WP-B 文件 `typescript/tokens/declarations/variable-declaration-shape.xl.md` 的
+> `FinishIncremental` 在**收下已建 shape 之前补一次 `TryToClose(context)`**（2 行 + 注释）。
+> 原因：EOF 没有下一个字符来触发尾单元关闭，而尾单元的 `Close` 才是「问父单元目录 → 右操作数候选 →
+> `Replace` 成 NumericLiteral + 封口」的唯一触发点。除这 2 行外未动 WP-B 任何逻辑。
 
 ---
 
@@ -60,7 +64,7 @@
 
 ## 2. 改动文件（全部 WP-C 归属，未碰 WP-B / core / IMPORTANCE / cjcli）
 
-**修改（4）**
+**修改（5）**
 
 | 文件 | 改动 |
 | --- | --- |
@@ -68,6 +72,7 @@
 | `typescript/tokens/expressions/binary-expression-shape.xl.md` | + `OperatorPrecedence`、`FromLeftAndOperator`（`src` 从左操作数签入、`Pos`=左操作数 `Pos`）、`SealRightOperand`（C3 封口 + 卸载）、`Close` 覆写（先关未关闭子单元，给 EOF 留机会） |
 | `typescript/tokens/punctuation/asterisk-token-shape.xl.md` | + `Op`、`FromSymbol`（沿用 basic 单元范围，`Pos` 由调用方赋） |
 | `typescript/tokens/punctuation/plus-token-shape.xl.md` | 同上（`"+"`） |
+| `typescript/tokens/declarations/variable-declaration-shape.xl.md` | **跨包最小补丁（WP-B 文件，Lead 授权）**：`FinishIncremental` 收下 `builtShape` 前补 `builtShape.TryToClose(context);` + 一行注释（EOF 触达尾单元关闭）；其它逻辑一字未动 |
 
 **新增（3）**
 
@@ -99,8 +104,8 @@ C5：方法体无 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`；
 | 命令 | 读数 | 退出码 |
 | --- | --- | --- |
 | `npm run tts`（legacy） | **PASS 6 / FAIL 8 / 14 步**（与 `5ced7ace` 基线逐字节一致） | 1 |
-| `--diff --incremental` | **PASS 13 / FAIL 1 / 14 步**（char 11 标 `[annotation-only]`） | 1 |
-| `--legacy-corpus --quiet` | 当前 1723 / 基线 1723，**差异 0**（变化 0 / 缺失 0 / 新增 0） | 0 |
+| `--diff --incremental` | **PASS 14 / FAIL 0 / 14 步**（char 11 标 `[annotation-only]`） | **0** |
+| `--legacy-corpus tests/cases/token --quiet` | 当前 1723 / 基线 1723，**差异 0**（变化 0 / 缺失 0 / 新增 0） | 0 |
 
 ## 5. 14 步逐项结果（`--diff --incremental`，实测）
 
@@ -111,7 +116,7 @@ C5：方法体无 `ctx.source` / `ctx.Text` / `ctx.TextOf` / `ctx.StringText`；
 | char 10 `3` | **PASS** | `Binary(*) pos=7 src=[8,未封)`，内含 Numeric/`AsteriskTokenShape pos=9 op="*"`/`Common("3")` |
 | char 11 `+` | **PASS `[annotation-only]`** | `Binary(*)` 当场封 `[8,11)` 并卸载；`Symbol("+") [11,12)` 落父层 |
 | char 12 `1` | **PASS** | `Binary(+) pos=7 src=[8,未封)` 嵌套已封 `Binary(*)` + `PlusTokenShape pos=11 op="+"` + `Common("1")` |
-| **EOF** | **FAIL** | 差异 1 行：`Common("1")` 未被换成 `NumericLiteralShape pos=12 src=[12,13)`（其余整棵树一致） |
+| **EOF** | **PASS** | `Common("1")` 在 `FinishIncremental` 收口前由补丁触发关闭 → `NumericLiteralShape pos=12 src=[12,13)`，`Binary(+)` 封 `[8,13)` |
 
 ## 6. 合成探针说明
 
@@ -120,34 +125,35 @@ char 9–12 的真实树与 `docs/expected-token-time-shapes.md` 逐行一致（
 已足以证明 `FromBasicToken` / `FromSymbol` / `Replace` / `PositionOf` 的正确性。
 临时探针 `tmp/probe-wp-c.mjs`（不提交、git 忽略）保留在本机，作为「合成宿主」备用证据，未作为验收依据。
 
-## 7. HANDOFF：EOF 一步需要 WP-B 侧 1 行（本包不改他人文件）
+## 7. 跨包最小补丁：EOF 收尾前关闭已建表达式尾单元（已落地，14/14）
 
-**现象**：EOF 树里 `Common("1")` 未被换成 `NumericLiteralShape`，其它一切正确。
+**现象（补丁前）**：EOF 树里 `Common("1")` 未被换成 `NumericLiteralShape pos=12`，其余整棵树一致 → 13/14。
 
-**根因**（已定位到文件:行）：`typescript/tokens/declarations/variable-declaration-shape.xl.md:98-104`
-`FinishIncremental` 在 `builtShape !== null` 分支里「已建 shape 直接收下」，但**没有先关闭它**。
-EOF 时 `Common("1")` 仍是未关闭 basic 单元，而它的 `Close` 才是「问父单元目录 → 右操作数候选 →
-`Replace` 成 NumericLiteral + `SealRightOperand` 封 `[8,13)`」的唯一触发点；
-声明收口是 EOF 唯一的机会（没有下一个字符），所以这一步永远不发生。
+**根因**：`typescript/tokens/declarations/variable-declaration-shape.xl.md` 的 `FinishIncremental`
+在 `builtShape !== null` 分支「已建 shape 直接收下」时**没有先关闭它**。EOF 时 `Common("1")` 还是未关闭
+basic 单元，而它的 `Close` 才是「问父单元目录 → 右操作数候选 → `Replace` 成 NumericLiteral +
+`SealRightOperand` 封 `[8,13)`」的唯一触发点；声明收口是 EOF 唯一机会（没有下一个字符），所以永不发生。
 
-**建议补丁（WP-B 文件，1 处 2 行）**：
+**补丁（Lead 授权 (b)，2 行 + 注释，其它 WP-B 逻辑未动）**：
 
 ```ts
   if (builtShape !== null) {
-    // WP-C：表达式形状可能还挂着未关闭的尾单元（EOF 没有下一个字符来关它）。
-    // 它自己的 Close 是「问父单元目录」的触发点，会就地换成 NumericLiteral 并封口。
+    // 跨包最小补丁（WP-C，Lead 授权）：表达式形状可能还挂着未关闭的尾单元——EOF 没有下一个字符来关它。
+    // 它自己的 `Close` 才是「问父单元目录」的触发点，会就地换成 NumericLiteral 并替宿主封口。
     builtShape.TryToClose(context);
     for (const unit of raw) {
       ...
 ```
 
-已按建形状后的实测路径验证这条链路可通：`Binary.TryToClose`（`ShapeToken.TryToClose` 用
-`Common("1").End=13` 补右边界）→ `Binary.Close`（本包覆写：先关未关闭子单元）→ `Common.Close`
-→ Binary 目录 → `RightOperandPossibleShape` → `NumericLiteralShape(pos=12)` +
-`SealRightOperand` 封 `[8,13)`；`FinishIncremental` 随后收下 `[Identifier, Binary]` 即为期望 EOF 树。
+**验证链**：`Binary.TryToClose`（`ShapeToken.TryToClose` 用 `Common("1").End=13` 补右边界）→
+`Binary.Close`（本包覆写：先关未关闭子单元）→ `Common.Close` → Binary 目录 →
+`RightOperandPossibleShape` → `NumericLiteralShape(pos=12)` + `SealRightOperand` 封 `[8,13)`；
+`FinishIncremental` 随后收下 `[Identifier, Binary]` = 期望 EOF 树。补丁后实测 **14/14 PASS（exit 0）**，
+legacy 6/8/14、语料 0 差异不变 —— 说明补丁对默认路径无影响（legacy 的 `builtShape` 恒为 `null`，
+走的是 `ExpressionBuilder` fallback 分支，补丁行不执行）。
 
-**给 merge 端 / Lead**：按上文补 2 行到 WP-B 的 `FinishIncremental`（或授权本包改这一处）后，
-重新 `xl_build` + `tsc` 再跑 `--diff --incremental` 即可 14/14；本包已提交的文件不需要再动。
+**交接注意**：该文件属 WP-B，合并回暂存分支时这条补丁必须一并带过去；若 WP-B 事后有改动，
+保留这一行 `builtShape.TryToClose(context);` 即可（它的语义是「收下前先收口」）。
 
 ## 8. 给后续的交接
 
