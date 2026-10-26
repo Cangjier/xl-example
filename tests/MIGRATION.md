@@ -22,10 +22,10 @@ git diff feature/print-direct-ast -- tests     # 唯一一处新增就是本文�
 | 目录 | 内容 |
 | --- | --- |
 | `tests/cases/` | 五类语料 4487 份（`token` 1707 / `stdlib` 966 / `exec` 793 / `runtime` 776 / `e2e` 245）+ `case-file.mjs`（文件头指令解析）+ `corpus.mjs`（语料发现层）+ `README.md` |
-| `tests/parse/` | 四把尺子（`validate.mjs` / `ts-ast.mjs` / `direct-ast.mjs` / `direct-lint.mjs`）+ `ts-shape.mjs`（转发层）+ `typescript-parsing-gaps.md`（缺口台账） |
+| `tests/parse/` | 五把尺子（`validate.mjs` / `ts-ast.mjs` / `direct-ast.mjs` / `direct-lint.mjs` / `wide-ast.mjs`）+ `ts-shape.mjs`（转发层）+ `typescript-parsing-gaps.md`（缺口台账） |
 | `tests/runtime/` | 执行引擎的判据（`check.mjs` 9000+ 行、`run-cli.mjs`）与 81 份运行时用例 |
 | `tests/coverage/` | 覆盖度尺子（`run.mjs` / `sweep.mjs` / `matrix.mjs` / `judge-batch.mjs` / `report.json` / `README.md`） |
-| `tests/gates/` | 门禁总入口（`run.mjs`，一次并行跑 8 道门） |
+| `tests/gates/` | 门禁总入口（`run.mjs`，一次并行跑 11 道门：4 道适用 + 7 道 N/A） |
 | `tests/cpp/` | C++ 产物自检（`check.mjs`） |
 
 ## 为什么需要这一页：两个分支差了约 1250 轮
@@ -81,13 +81,50 @@ git diff feature/print-direct-ast -- tests     # 唯一一处新增就是本文�
   真实失败（脚本抛错、断言不过）不会被吞。
 - 汇总结论行分开印「通过 / 失败 / 不适用」三个数；**适用门全绿时 exit 0**。
   `--verbose` 仍然保留每一门的输出尾巴。
-- 当前读数：**9 道门 = 2 通过（`cases:check` 1720/0、`direct:lint` 0 处 `any`）+ 7 不适用，exit 0**。
+- 当前读数：**11 道门 = 4 通过 + 7 不适用，exit 0**。4 道通过的是 `cases:check`（1720/0）、
+  `direct:lint`（0 处违反）、`wide-ast`（2494/2494，差异 0）与 `real-dts-ast`（226/226）。
 
 **按 R7 收口口径，不为这些门补源文件**：`dawn/`、`runtime/`、`tsrun.xl.md`、
 `print-ast-common.xl.md` 都属另一条产物线，搬进来远超本次验收范围。
 门本身与 `package.json` 脚本都保留着，等那条产物线落地即可用。
 
-## ⚠️ 假绿：`build/` 与 `dist/` 现在是**另一个分支**的产物
+## 适用的 AST 门：`wide-ast` 与 `real-dts-ast`（本轮收编）
+
+这两道门**不**在 not-applicable 清单里：它们读的是本仓库自己的构建产物，缺产物就是真实失败。
+
+| 门 | 命令 | 语料 / 判据 | 依赖 |
+| --- | --- | --- | --- |
+| `wide-ast` | `npm run ast:wide`（`node tests/parse/wide-ast.mjs`） | 2505 件：node_modules `.d.ts` 226 + `dist/ts/**` 560 + `samples/**` 3 + `tests/cases/token/**` 1716；跳过 TS 自己非法的 11 件；四方向（结构 / 位置 / 字段）+ 地基（缺 range / 越界 / 未映射）全 0 | `build/ts/typescript/run/source-file-runner.js`（`npm run build`） |
+| `real-dts-ast` | `npm run ast:dts`（同一支 `ast:dts`；门名 `real-dts-ast`） | node_modules 226 件真实 `.d.ts`；结构 / 位置 / 字段三栏 | 同上 |
+
+**为什么现在才进池子**：`wide-ast` 是宽尺子（`_coord/diag-wide-ast.mjs` 的正式收编），
+它不依赖那条在本仓库不存在的 `print-ast-common`，所以能在这里跑；`real-dts-ast` 一直可用，
+只是没被 `GATES` 收进去。两道门共用**唯一一套投影**：`typescript/cases/ast-compare.mjs` 的
+`tsAst` / `cjAst`；`real-dts-ast.mjs` 本地那份重复 `cjAst` 已删除（它以前少了字符串导出名的
+`Text` 那一格，是第二份真相）。
+
+**各自职责（别把绿点读串）**：
+
+- `ast:cases` + `ast-json-diff`（6171 条快照）：**构造覆盖**，快、每类节点都有代表；它证明「这些构造对」。
+- `real-dts-ast`（226 件真实 `.d.ts`）：**真实声明形态**，补手写语料没有的 ambient / 全局增强 / 计算名。
+- `wide-ast`（2505 件）：**全量与回归**，含 `dist/ts/**` 自己的产物源码与 `tests/cases/token/**` 全部语料，
+  以及 node_modules 里全部 `.d.ts`；它证明「换一份没整理过的输入也一致」。
+  三把尺子都绿才算「AST 与 TS 一致」这三层都守住。
+
+跑法（缺产物先 `npm run build`）：
+
+```bash
+node tests/parse/wide-ast.mjs                 # 门禁，exit 0/1
+node tests/parse/wide-ast.mjs --verbose       # 逐文件差异明细
+node tests/parse/wide-ast.mjs --per-file      # 每个文件一行状态（排障）
+node tests/parse/wide-ast.mjs --top 20        # 失败清单 / 目录族只印前 20 条
+node tests/parse/wide-ast.mjs --only <子串>   # 只跑路径匹配的文件（定位）
+```
+
+`wide-ast` 的 `BUILD-MISSING`：缺 `build/ts/typescript/run/source-file-runner.js` 时它直接报
+`BUILD-MISSING` 并 exit 1（不是抛 `MODULE_NOT_FOUND`），门里看到的就是这一条。
+
+## ⚠️ 历史读数：`build/` 与 `dist/` 曾经是**另一个分支**的产物
 
 `build/` 与 `dist/` 都在 `.gitignore` 里，所以 `git status` 干净并不代表它们是这个分支的。盘上这一批是上一次 checkout 留下的 **print-direct-ast 产物**：`dist/ts/` 下面是 `typescript/` `runtime/` `typescript-exec/` `token_next/`，**没有 `dawn/`**（本分支的语言层在 `dawn/text/`）。
 
@@ -126,11 +163,12 @@ npm run compile     # dist/ts → build/ts
 ## 现在该怎么用
 
 ```bash
-npm run cases:check      # 唯一一道现在就绿、且真的量了本分支的门
+npm run cases:check      # 语料体检：1720 条用例 0 条不合格（不依赖构建）
+npm run ast:wide         # 宽尺子：2505 件语料，解析成功 2494、差异 0（需要先 npm run build）
 ```
 
 等上面「缺什么」那几样落地、并且产物按本分支重建之后：
 
 ```bash
-npm run gates            # 8 道门一次跑完
+npm run gates            # 11 道门一次跑完：4 通过 + 7 不适用，exit 0
 ```
