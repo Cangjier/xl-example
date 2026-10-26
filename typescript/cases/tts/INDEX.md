@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **370** 条 case：throw 125 / atomic 192 / partial 53 / incremental 0
+共 **380** 条 case：throw 125 / atomic 202 / partial 53 / incremental 0
 
 ## throw
 
@@ -222,6 +222,21 @@
 | `atomic/declarations/namespace-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/namespace-export-function.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/namespace-nested.ts` | 增量开关对逐字符树没有任何影响 |  |
+
+### expressions
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `atomic/expressions/bin-add-mul.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/bin-and-comparison.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/bin-mul-add.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/bin-paren-mul.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/call-bare.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/cond-bare.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/ref-index.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/ref-property.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/unary-minus.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/expressions/unary-not.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ### lexical
 
