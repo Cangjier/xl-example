@@ -18,6 +18,7 @@ import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { StatementLegacyMetrics } from "../statements/statement-legacy-metrics.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -50,10 +51,14 @@ if (current.IsTriviaToken) {
   //      比「下一条语句首代码单元」早一拍，因此声明尾部的原子建树严格早于 legacy（分类靠这一拍）。
   //   ② `CanClose`——对 trivia 恒 false（`IsAsiBoundary` 只在**代码单元**那一格判换行），
   //      放在这里只是让「收口判据」在两类格子上的入口只有一个，块体宿主（D2）加分支时不至于漏掉 trivia 一路。
-  if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
+  // [D3c:ANGLE] 两条都要加「尖括号组已经关完」这一条：`const f = <T` ⏎ `,>(a: T) => a` 在换行那一格
+  // 两条判据都会说「可以收」，可组还开着——收下去就是把 `<T` 半个尖括号交给原子建树，
+  // `ExpressionBuilder.ParseAngleStart` 抛「尖括号断言/泛型箭头缺少配对的 >」（实测 7 条的另一半）。
+  const angleOpen = AngleJudge.IsOpenGroup(units, tokenIndex);
+  if (!angleOpen && DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
     return ShapeStates.Accept;
   }
-  if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
+  if (!angleOpen && DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
     return ShapeStates.Accept;
   }
   return ShapeStates.Reject;
@@ -93,6 +98,31 @@ if (current instanceof Symbol) {
   // 由 `CompositeInitializerTailPossibleShape` 在整条长完那一格建出。
   if ((text === "<" || text === ">") && CompositeInitializerTailJudge.Family(units) !== "") {
     return ShapeStates.Reject;
+  }
+  // [D3c:ANGLE] 本格是**尖括号组的一员**（开括号那一格 / 组内任何一格 / 配对的 `>`），且初始化器还是纯 raw
+  // ⇒ 继续等，把整条交给收口格的原子建树（legacy `ExpressionBuilder`：类型实参 / 实例化表达式 /
+  // 泛型箭头 / 尖括号断言 / 标签模板都由它建，与 legacy 同源）。
+  //
+  // 为什么必须在这里放行（实测 9 条 `declaration 符号 <` 的全部成因，见 `_reports/D3c.md` §1）：
+  //   `new A<T>` 的 `<` 前驱是 `Common("A")`、`a.b.c<string>` 的 `<` 前驱是 `Common("c")`、`async(): Promise<void> => …`
+  //   的 `<` 前驱是返回类型里的 `Common("Promise")`——三种都不是「形状」也不是「紧跟 `=` 的标识符」，
+  //   `HasReducibleLeft` 判否、`OperatorTable.IsBinaryOperator("<")` 那条分支不响，于是落到兜底 `throw`。
+  //   它们也不是 A4c 的 `angle` 族（那一族要求 `=` 之后**第一个**单元是 `<`），所以上面那条不覆盖。
+  //   同一格里还有一半是**真比较链**（`x == y < z`）：`<` 是二元运算符，可左操作数 `x == y` 还没成形状，
+  //   `HasReducibleLeft` 同样判否——这一半也要走原子建树，且 legacy 建出来的就是左结合的比较链。
+  //
+  // 反向边界（C10 不变）：
+  //   ① 初始化器里已经有形状落地（`IsRawInitializer` 为假）⇒ 原子重建不可能，逐字落回 `throw`
+  //      （`const y = f()<T>` 这种在形状之后再出现尖括号的形态不归本判据）；
+  //   ② 带类型注解的声明（`HasAnnotationColon`）⇒ 由 `TypeMode` 接管，不放行；
+  //   ③ 只有**组员**才放行：裸的 `<` / `>`（`AngleJudge` 配不上对的比较运算符，`a < b` ⏎ `c`）逐字落回
+  //      下面的既有分支——它们的左操作数判据没变，行为一个字不改。
+  if ((text === "<" || text === ">" || text === ">>" || text === ">>>")
+    && AngleJudge.IsGroupMember(units, tokenIndex)
+    && !VariableDeclarationEndPossibleShape.HasAnnotationColon(units)
+    && VariableDeclarationEndPossibleShape.IsRawInitializer(units)) {
+    StatementLegacyMetrics.DeclarationAngleWaitCount += 1;
+    return ShapeStates.Uncertain;
   }
   // [A5c] 类型实参调用 `f<string>()`：`<` 比 `>` 多时正处在类型实参列表内部，`>` / `>>` / `>>>`
   // 是列表的收口符，不是本模式未支持的符号 —— 让给 A5 的类型面（`VariableDeclarationShape` 的 TypeMode /
@@ -161,10 +191,12 @@ if (current instanceof Common) {
   //   ② `CanClose`——本格是下一条语句的首代码单元（`let x = 1` ⏎ `let y = 2` 的第二个 `let`）。
   // 两条都转发给 `DeclarationAsiBoundary`（同一份 `CanEndStatement` / `CanEndDeclarationTail` +
   // 「已有可结束形状」），本条文件不新写 ASI 词法；都不成立时逐字回到原来的「继续等」。
-  if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
+  // [D3c:ANGLE] 与 trivia 分支同一条附加条件：尖括号组还开着就不能收口。
+  const angleOpen = AngleJudge.IsOpenGroup(units, tokenIndex);
+  if (!angleOpen && DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
     return ShapeStates.Accept;
   }
-  if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
+  if (!angleOpen && DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
     return ShapeStates.Accept;
   }
   // 初始化器里的标识符 / 数字基本单元：WP-C 建出字面量之前保持等待。

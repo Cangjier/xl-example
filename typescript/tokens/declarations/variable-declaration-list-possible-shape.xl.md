@@ -17,6 +17,7 @@ import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { VariableDeclarationEndPossibleShape } from "./variable-declaration-end-possible-shape.xl.md"
 import { VariableDeclarationListShape } from "./variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "./variable-declaration-shape.xl.md"
+import { AngleJudge } from "../types/angle-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -59,6 +60,16 @@ if (current.IsTriviaToken) {
 }
 if (current instanceof Symbol) {
   const text = (current as Symbol).TempToString();
+  // [D3c:ANGLE] 尖括号组里的 `,` / `;` **不是**列表分隔符：`<T,>(a: T) => a` / `new Map<string, number>()` /
+  // `f<A, B>`t`` 的逗号还开在 `<…>` 里。判据是 `AngleJudge.IsGroupMember`（开括号那一格 / 组内任何一格 /
+  // 配对的 `>`），只认**配得上对**的 `<`，所以真比较链（`x < y` ⏎ `, z`）里的裸 `<` 不受影响。
+  //
+  // 不放行会在逗号那一格 Accept：声明带着半条初始化器收口，`FinishIncremental` 的原子建树拿到
+  // `<T` 这样半个尖括号，`ExpressionBuilder.ParseAngleStart` 抛「尖括号断言/泛型箭头缺少配对的 >」——
+  // 实测正是那 7 条（`_reports/D3c.md` §1）。放行之后声明等 `;` / EOF 再整段原子建出。
+  if (AngleJudge.IsGroupMember(units, tokenIndex)) {
+    return ShapeStates.Reject;
+  }
   if (text === ";" || text === ",") {
     return ShapeStates.Accept;
   }
@@ -75,10 +86,12 @@ if (current instanceof Symbol) {
 // 两条判据与 `VariableDeclarationEndPossibleShape` 的 trivia / `Common` 分支是**同一份**
 //（`DeclarationAsiBoundary`），这里显式写出来是为了让列表层的收口点自己成立，不依赖父类某一个分支的实现细节。
 // `Symbol` 格全部在前面处理完；`CanClose*` 只在 trivia / `Common` 格为真，两处不会互相覆盖。
-if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
+// [D3c:ANGLE] 与父类同一条附加条件：尖括号组还开着就不能收口（`<T` ⏎ `,>(a: T) => a` 那一格）。
+const angleOpen = AngleJudge.IsGroupMember(units, tokenIndex);
+if (!angleOpen && DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
-if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
+if (!angleOpen && DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
   return ShapeStates.Accept;
 }
 return super.ComputeByIndex(units, tokenIndex, cache);
