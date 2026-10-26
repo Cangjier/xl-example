@@ -25,6 +25,7 @@ import { MetaPropertyPossibleShape } from "./forms/postfix/meta-property-possibl
 import { SuperPrimaryPossibleShape } from "./forms/postfix/super-primary-possible-shape.xl.md"
 import { CallPossibleShape } from "./forms/postfix/call-possible-shape.xl.md"
 import { NewPossibleShape } from "./forms/postfix/new-possible-shape.xl.md"
+import { PrefixUnaryPossibleShape } from "./forms/prefix/prefix-unary-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -170,4 +171,5 @@ CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
   SuperPrimaryPossibleShape.AppendTo(shapes); // [P1]
   CallPossibleShape.AppendTo(shapes); // [P2]
   NewPossibleShape.AppendTo(shapes); // [P2]
+  PrefixUnaryPossibleShape.AppendTo(shapes); // [P3a]
 ```
