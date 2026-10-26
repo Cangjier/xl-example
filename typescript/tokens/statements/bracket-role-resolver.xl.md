@@ -114,6 +114,14 @@ A1 #7、#21 之外的声明体族。
 
 ## field End:PossibleShape | null = null
 
+## field FlushOnClose:bool = false
+
+**宿主关闭时要不要补判最后一格**（B3 新增，默认 `false`）。`Known` 时装进
+`CatalogGuide.FlushOnClose`（见 `bracket.xl.md` 的 `Close`）。
+
+只有「宿主的闭括号会终结最后一个内容单元」的角色需要它——控制流头 `(` 就是这种：
+`switch (a)` 的 `a` 是被 `)` 终结的。默认 `false` 保证既有目录（块体 / 函数体 / 参数表）逐字节不变。
+
 ## constructor:(role:string, shapes:Array<PossibleShape>, end:PossibleShape | null)=>void
 
 ```ts
@@ -156,6 +164,11 @@ Fallback  → State = BracketRoleState.Fallback, Reason = 为什么只能在收�
 
 ## field Reason:string = ""
 
+## field FlushOnClose:bool = false
+
+角色目录声明「宿主关闭时补判最后一格」时从 `BracketRoleCatalog.FlushOnClose` 带过来；
+`BracketCatalogInstaller.BuildGuide` 把它写到向导上（`CatalogGuide.FlushOnClose`）。
+
 ## static method Known:(catalog:BracketRoleCatalog | null, end:PossibleShape | null, role:string, owner:Token | null, ownerKey:string)=>BracketRoleResult
 
 `Known`：角色与宿主都已确定。
@@ -173,6 +186,7 @@ result.OwnerKey = ownerKey;
 result.End = end;
 if (catalog !== null) {
   result.Shapes = catalog.Shapes;
+  result.FlushOnClose = catalog.FlushOnClose;
   if (result.End === null) {
     result.End = catalog.End;
   }

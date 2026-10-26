@@ -1214,3 +1214,35 @@ R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一�
 判成箭头候选族、`OperatorContinuation` 随之失效，而 B3b 的 `ArrowParamsCatalog` 还没注册——
 那正是 A2 §7 R4 说的「所有权切换」事故。开关 + 目录注册必须同一个 WP 一起翻（B3b）。
 
+## static field EnableControlHeadCatalog:bool = true
+
+**[B3] 控制流头 `(` 的头目录开关（`control-head-possible-shape.xl.md`）。默认 `true`。**
+
+`true` 时 `SourceFileShape` 的构造器在装配 `BracketRoleHook` 之前先做两件事：
+`ControlHeadPossibleShape.EnsureRegistered()`（把 `ControlHead` 角色目录注册进
+`BracketRoleResolver`）与 `StatementRouteUtil.EnableBracketRoleCatalog = true`（打开 B0 的总闸）。
+
+`false` 时两件事都不做，`ControlHead` 角色回到 B0 的默认状态：
+`Resolve` 对控制流头的 `(` 返回 `Fallback("catalog-not-registered:ControlHead")`（只计数），
+括号内容逐字节保持 raw，legacy 在收口格照旧一次性建——即 B3 之前的产物。
+
+**为什么可以与 B1 的总闸分开翻**：B1 的总闸是在**第一只函数形参括号**上打开的
+（`function-declaration-shape.xl.md` 的 `OpenParameterList`），所以「文件里没有函数声明」时 B0 一次都不跑
+（`for (…)` 开头的文件就是这种）。B3 的控制流头出现在**任何**文件里，所以它自己把总闸打开；
+打开之后每个 `{` / `(` 都多走一次角色解析，族已装目录的一律 `AlreadyInstalled` +
+`SetEndPossible(null)`（一个字节都不改），没有目录的只计数。
+
+## static field ControlHeadGuideCount:int = 0
+
+[B3] 只读计数：**装上了头目录并且真的建出了头原子**的控制流头括号数
+（`ControlHeadPossibleShape.States` 里 `Enabled === true` 的条目数，每只括号最多 +1）。
+
+口径说明：没有可建原子的头（`if ()`、`while (/**/)`）不会产生状态条目，因此不计数——
+本计数是「这只头的逐字建真的发生了」的读数，不是「装了几只向导」的读数。
+
+## static field ControlHeadAtomCount:int = 0
+
+[B3] 只读计数：控制流头里**逐字建出**的头原子总数（每建一个 `IdentifierShape` /
+`NumericLiteralShape` +1）。它是 `for-classic.ts` 那条验收
+（`i` / `0` / `3` 各自在 token 关闭格成 shape）的机械读数。
+

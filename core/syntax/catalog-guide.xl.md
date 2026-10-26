@@ -38,6 +38,19 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 判定缓存。形状在自己名下读写，同一向导的所有判定共用这一份。
 
+## field FlushOnClose:bool = false
+
+**宿主关闭时是否补判最后一格**（B3 新增，默认 `false`）。
+
+`false`（所有既有向导）= B3 之前的行为：宿主关闭只问父单元，自己 `Data` 里最后一个子单元
+如果正好被宿主的闭括号终结，就**拿不到一次判定**（`switch (a)` 的 `a` 因此到收口格还是 `Common`）。
+
+`true` 只由 `BracketCatalogInstaller.BuildGuide` 在「角色目录声明了 `FlushOnClose`」时设置
+（`BracketRoleCatalog.FlushOnClose`），也就是**只有 B0/B3 装上去的向导**会补这一格。
+补判用的是同一个 `ComputePossibleShapesByIndex(host, Data.length - 1, context)`：
+候选还在等就是 `Waiting`，一个候选都不剩才可能抛错——而 B0 的向导一律带永不 `Accept` 的终结候选，
+所以这条路径对它们是安全的。
+
 ## constructor:(shapes:Array<PossibleShape>, endPossible?:PossibleShape | null)=>void
 
 以候选目录创建，把所有下标放进 `Candidates`；终结候选单独收下。

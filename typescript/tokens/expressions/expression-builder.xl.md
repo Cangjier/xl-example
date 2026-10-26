@@ -126,6 +126,7 @@ import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { TemplateHeadShape } from "../literals/template-head-shape.xl.md"
 import { TemplateMiddleShape } from "../literals/template-middle-shape.xl.md"
 import { TemplateTailShape } from "../literals/template-tail-shape.xl.md"
+import { ControlHeadPossibleShape } from "../statements/control-head-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -2221,6 +2222,16 @@ const start = this.At;
 const unit = this.Peek(0);
 if (unit === null) {
   throw new Error("表达式意外结束");
+}
+// [B3:HEAD] 控制流头里已经逐字建好的原子（`control-head-possible-shape.xl.md`）。
+// 它们是 `IdentifierShape` / `NumericLiteralShape`，与本方法下面会建的是**同一类节点、
+// 同一 Pos 口径**（`ControlHeadPossibleShape.PosAt` 与 `Positions` 同走法），所以这里直接消费、
+// 不重建：`if (a)` / `switch (a)` / `for (i = 0; …)` 的收口格因此看到的就是头里早就建好的那个节点。
+// 只认本候选登记过的原子（`IsAtom`），不认任意 `ShapeToken`——否则将来的语句壳 / 括号壳
+// 会被当成表达式起点吃进来。
+if (ControlHeadPossibleShape.IsAtom(unit)) {
+  this.At++;
+  return unit;
 }
 if (unit instanceof Symbol && (unit as Symbol).Is("#")) {
   // PrivateIdentifier: the token layer splits `#x` into Symbol "#" + Common "x".

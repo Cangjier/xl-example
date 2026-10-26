@@ -116,7 +116,11 @@ if (end === null || !(end instanceof WaitingEndPossible)) {
   BracketCatalogInstaller.DoubleAcceptGuardCount += 1;
   end = new WaitingEndPossible();
 }
-return new CatalogGuide(plan.Shapes, end);
+const guide = new CatalogGuide(plan.Shapes, end);
+// [B3:FLUSH] 角色目录声明了「宿主关闭时补判最后一格」时，把标记带到向导上
+// （`CatalogGuide.FlushOnClose` → `Bracket.Close`）。默认 `false` ⇒ 既有目录逐字节不变。
+guide.FlushOnClose = plan.FlushOnClose;
+return guide;
 ```
 
 ## static method Install:(bracket:Bracket, plan:BracketRoleResult, context:SyntaxContext)=>int
