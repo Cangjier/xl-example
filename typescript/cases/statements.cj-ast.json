@@ -1447,7 +1447,7 @@
             {
               "kind": "IfStatement",
               "pos": 6,
-              "end": 16,
+              "end": 24,
               "children": [
                 {
                   "kind": "Identifier",
@@ -1467,19 +1467,19 @@
                       "text": "c"
                     }
                   ]
-                }
-              ]
-            },
-            {
-              "kind": "ExpressionStatement",
-              "pos": 21,
-              "end": 24,
-              "children": [
+                },
                 {
-                  "kind": "Identifier",
+                  "kind": "ExpressionStatement",
                   "pos": 21,
-                  "end": 23,
-                  "text": "d"
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 21,
+                      "end": 23,
+                      "text": "d"
+                    }
+                  ]
                 }
               ]
             }
@@ -17644,7 +17644,7 @@
             {
               "kind": "IfStatement",
               "pos": 6,
-              "end": 18,
+              "end": 28,
               "children": [
                 {
                   "kind": "Identifier",
@@ -17671,24 +17671,24 @@
                       ]
                     }
                   ]
-                }
-              ]
-            },
-            {
-              "kind": "ExpressionStatement",
-              "pos": 23,
-              "end": 28,
-              "children": [
+                },
                 {
-                  "kind": "CallExpression",
+                  "kind": "ExpressionStatement",
                   "pos": 23,
-                  "end": 27,
+                  "end": 28,
                   "children": [
                     {
-                      "kind": "Identifier",
+                      "kind": "CallExpression",
                       "pos": 23,
-                      "end": 25,
-                      "text": "y"
+                      "end": 27,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 23,
+                          "end": 25,
+                          "text": "y"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -17793,7 +17793,7 @@
             {
               "kind": "IfStatement",
               "pos": 6,
-              "end": 25,
+              "end": 41,
               "children": [
                 {
                   "kind": "Identifier",
@@ -17804,7 +17804,7 @@
                 {
                   "kind": "IfStatement",
                   "pos": 13,
-                  "end": 25,
+                  "end": 33,
                   "children": [
                     {
                       "kind": "Identifier",
@@ -17831,21 +17831,34 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 30,
+                      "end": 33,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 30,
+                          "end": 32,
+                          "text": "y"
+                        }
+                      ]
                     }
                   ]
-                }
-              ]
-            },
-            {
-              "kind": "ExpressionStatement",
-              "pos": 30,
-              "end": 41,
-              "children": [
+                },
                 {
-                  "kind": "Identifier",
-                  "pos": 30,
-                  "end": 32,
-                  "text": "y"
+                  "kind": "ExpressionStatement",
+                  "pos": 38,
+                  "end": 41,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 38,
+                      "end": 40,
+                      "text": "z"
+                    }
+                  ]
                 }
               ]
             }
@@ -17870,7 +17883,7 @@
             {
               "kind": "IfStatement",
               "pos": 6,
-              "end": 18,
+              "end": 43,
               "children": [
                 {
                   "kind": "Identifier",
@@ -17897,50 +17910,50 @@
                       ]
                     }
                   ]
-                }
-              ]
-            },
-            {
-              "kind": "IfStatement",
-              "pos": 23,
-              "end": 43,
-              "children": [
-                {
-                  "kind": "Identifier",
-                  "pos": 28,
-                  "end": 29,
-                  "text": "c"
                 },
                 {
-                  "kind": "ExpressionStatement",
-                  "pos": 30,
-                  "end": 35,
-                  "children": [
-                    {
-                      "kind": "CallExpression",
-                      "pos": 30,
-                      "end": 34,
-                      "children": [
-                        {
-                          "kind": "Identifier",
-                          "pos": 30,
-                          "end": 32,
-                          "text": "y"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "kind": "ExpressionStatement",
-                  "pos": 40,
+                  "kind": "IfStatement",
+                  "pos": 23,
                   "end": 43,
                   "children": [
                     {
                       "kind": "Identifier",
+                      "pos": 28,
+                      "end": 29,
+                      "text": "c"
+                    },
+                    {
+                      "kind": "ExpressionStatement",
+                      "pos": 30,
+                      "end": 35,
+                      "children": [
+                        {
+                          "kind": "CallExpression",
+                          "pos": 30,
+                          "end": 34,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 30,
+                              "end": 32,
+                              "text": "y"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "ExpressionStatement",
                       "pos": 40,
-                      "end": 42,
-                      "text": "z"
+                      "end": 43,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 40,
+                          "end": 42,
+                          "text": "z"
+                        }
+                      ]
                     }
                   ]
                 }
@@ -21051,22 +21064,15 @@
               "text": "lbl"
             },
             {
-              "kind": "ExpressionStatement",
+              "kind": "ClassDeclaration",
               "pos": 4,
               "end": 15,
               "children": [
                 {
-                  "kind": "ClassExpression",
-                  "pos": 4,
-                  "end": 15,
-                  "children": [
-                    {
-                      "kind": "Identifier",
-                      "pos": 10,
-                      "end": 12,
-                      "text": "C"
-                    }
-                  ]
+                  "kind": "Identifier",
+                  "pos": 10,
+                  "end": 12,
+                  "text": "C"
                 }
               ]
             }

@@ -1277,26 +1277,18 @@
         {
           "kind": "ExpressionStatement",
           "pos": 0,
-          "end": 5,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 0,
-              "end": 5,
-              "text": "async"
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 5,
           "end": 13,
           "children": [
             {
               "kind": "ArrowFunction",
-              "pos": 5,
+              "pos": 0,
               "end": 12,
               "children": [
+                {
+                  "kind": "AsyncKeyword",
+                  "pos": 0,
+                  "end": 5
+                },
                 {
                   "kind": "Parameter",
                   "pos": 5,
@@ -17218,6 +17210,39 @@
                   ]
                 }
               ]
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 12,
+              "end": 18,
+              "children": [
+                {
+                  "kind": "TypeAssertionExpression",
+                  "pos": 12,
+                  "end": 17,
+                  "children": [
+                    {
+                      "kind": "TypeReference",
+                      "pos": 14,
+                      "end": 15,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 14,
+                          "end": 15,
+                          "text": "B"
+                        }
+                      ]
+                    },
+                    {
+                      "kind": "Identifier",
+                      "pos": 16,
+                      "end": 17,
+                      "text": "c"
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -17263,6 +17288,39 @@
                           "pos": 22,
                           "end": 24,
                           "text": "A"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 24,
+                  "end": 30,
+                  "children": [
+                    {
+                      "kind": "TypeAssertionExpression",
+                      "pos": 24,
+                      "end": 29,
+                      "children": [
+                        {
+                          "kind": "TypeReference",
+                          "pos": 26,
+                          "end": 27,
+                          "children": [
+                            {
+                              "kind": "Identifier",
+                              "pos": 26,
+                              "end": 27,
+                              "text": "B"
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Identifier",
+                          "pos": 28,
+                          "end": 29,
+                          "text": "c"
                         }
                       ]
                     }

@@ -2470,17 +2470,17 @@
         {
           "kind": "ExpressionStatement",
           "pos": 0,
-          "end": 7,
+          "end": 10,
           "children": [
             {
-              "kind": "BinaryExpression",
+              "kind": "AsExpression",
               "pos": 0,
-              "end": 7,
+              "end": 9,
               "children": [
                 {
-                  "kind": "BinaryExpression",
+                  "kind": "ExpressionWithTypeArguments",
                   "pos": 0,
-                  "end": 3,
+                  "end": 4,
                   "children": [
                     {
                       "kind": "Identifier",
@@ -2489,43 +2489,34 @@
                       "text": "a"
                     },
                     {
-                      "kind": "FirstBinaryOperator",
-                      "pos": 1,
-                      "end": 2
-                    },
-                    {
-                      "kind": "Identifier",
+                      "kind": "TypeReference",
                       "pos": 2,
                       "end": 3,
-                      "text": "b"
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 2,
+                          "end": 3,
+                          "text": "b"
+                        }
+                      ]
                     }
                   ]
                 },
                 {
-                  "kind": "GreaterThanToken",
-                  "pos": 3,
-                  "end": 4
-                },
-                {
-                  "kind": "Identifier",
-                  "pos": 4,
-                  "end": 7,
-                  "text": "as"
+                  "kind": "TypeReference",
+                  "pos": 7,
+                  "end": 9,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 7,
+                      "end": 9,
+                      "text": "T"
+                    }
+                  ]
                 }
               ]
-            }
-          ]
-        },
-        {
-          "kind": "ExpressionStatement",
-          "pos": 7,
-          "end": 10,
-          "children": [
-            {
-              "kind": "Identifier",
-              "pos": 7,
-              "end": 9,
-              "text": "T"
             }
           ]
         }
@@ -12143,16 +12134,9 @@
               "text": "a"
             },
             {
-              "kind": "ExpressionStatement",
+              "kind": "ClassDeclaration",
               "pos": 6,
-              "end": 15,
-              "children": [
-                {
-                  "kind": "ClassExpression",
-                  "pos": 6,
-                  "end": 15
-                }
-              ]
+              "end": 15
             }
           ]
         }
@@ -12173,16 +12157,9 @@
               "text": "a"
             },
             {
-              "kind": "ExpressionStatement",
+              "kind": "ClassDeclaration",
               "pos": 9,
-              "end": 18,
-              "children": [
-                {
-                  "kind": "ClassExpression",
-                  "pos": 9,
-                  "end": 18
-                }
-              ]
+              "end": 18
             }
           ]
         }

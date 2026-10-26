@@ -12398,7 +12398,53 @@
         {
           "kind": "Block",
           "pos": 0,
-          "end": 14
+          "end": 14,
+          "children": [
+            {
+              "kind": "ExpressionStatement",
+              "pos": 1,
+              "end": 6,
+              "children": [
+                {
+                  "kind": "Identifier",
+                  "pos": 1,
+                  "end": 6,
+                  "text": "type"
+                }
+              ]
+            },
+            {
+              "kind": "ExpressionStatement",
+              "pos": 6,
+              "end": 12,
+              "children": [
+                {
+                  "kind": "BinaryExpression",
+                  "pos": 6,
+                  "end": 12,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 6,
+                      "end": 8,
+                      "text": "T"
+                    },
+                    {
+                      "kind": "EqualsToken",
+                      "pos": 8,
+                      "end": 10
+                    },
+                    {
+                      "kind": "NumericLiteral",
+                      "pos": 10,
+                      "end": 12,
+                      "text": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     },
@@ -12488,7 +12534,53 @@
             {
               "kind": "Block",
               "pos": 12,
-              "end": 26
+              "end": 26,
+              "children": [
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 13,
+                  "end": 18,
+                  "children": [
+                    {
+                      "kind": "Identifier",
+                      "pos": 13,
+                      "end": 18,
+                      "text": "type"
+                    }
+                  ]
+                },
+                {
+                  "kind": "ExpressionStatement",
+                  "pos": 18,
+                  "end": 24,
+                  "children": [
+                    {
+                      "kind": "BinaryExpression",
+                      "pos": 18,
+                      "end": 24,
+                      "children": [
+                        {
+                          "kind": "Identifier",
+                          "pos": 18,
+                          "end": 20,
+                          "text": "T"
+                        },
+                        {
+                          "kind": "EqualsToken",
+                          "pos": 20,
+                          "end": 22
+                        },
+                        {
+                          "kind": "NumericLiteral",
+                          "pos": 22,
+                          "end": 24,
+                          "text": "1"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
