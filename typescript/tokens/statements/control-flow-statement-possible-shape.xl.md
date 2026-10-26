@@ -17,6 +17,8 @@ import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
 import { StatementShellCatalog } from "./statement-shell-catalog.xl.md"
 import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
+import { FunctionDeclarationPossibleShape } from "../declarations/function-declaration-possible-shape.xl.md"
+import { EnumDeclarationPossibleShape } from "../declarations/enum-declaration-possible-shape.xl.md"
 import { DirectStatementHook } from "../direct/direct-statement-hook.xl.md"
 ```
 
@@ -93,6 +95,20 @@ if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
       if (DeclareVariablePossibleShape.Owns(units, headAt, b3fSecondAt)) {
         return ShapeStates.Reject;
       }
+      // [A2-D4] `declare function` 也由族候选（`FunctionDeclarationPossibleShape`）提前挂壳；
+      // 判据与本段、declaration-statement 的同段、候选自己的让位绕过三处逐字同源。
+      if (FunctionDeclarationPossibleShape.Owns(units, headAt, b3fSecondAt)) {
+        return ShapeStates.Reject;
+      }
+    }
+  }
+  // [A2-D4:CONST-ENUM] `const` + 同一行的 `enum` 由 `EnumDeclarationPossibleShape` 提前挂壳；
+  // 判据与本段、declaration-statement 的同段、枚举候选自己的 `b3cOwns` 三处逐字同源。
+  if (b3cHeadText === "const") {
+    const c4SecondAt = ItemUtil.NextCode(units, headAt + 1);
+    if (c4SecondAt >= 0 && c4SecondAt < units.length && c4SecondAt <= tokenIndex
+      && EnumDeclarationPossibleShape.Owns(units, headAt, c4SecondAt)) {
+      return ShapeStates.Reject;
     }
   }
 }

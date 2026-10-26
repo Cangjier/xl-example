@@ -64,6 +64,29 @@ for (let index = at - 1; index >= 0; index--) {
 return false;
 ```
 
+## static method Owns:(units:Array<Token>, headAt:int, secondAt:int)=>bool
+
+[A2-D4] 三处同源判据的**唯一实现**：本候选自己的 `b3cOwns`、`declaration-statement-possible-shape` 的
+`[A2-D4:CONST-ENUM]` 段、`control-flow-statement-possible-shape` 的同段。条件 = item 首词 `const` &&
+下一词 `enum` && **同一行**（与 `DecideCommon` 里新加的那条 `const` + 同行 `enum` 分支同一判据，
+也与块体 5d-8a 的 `ShellVariable` 分支逐字同源）。
+
+```ts
+if (headAt < 0 || headAt >= units.length || !(units[headAt] instanceof Common)) {
+  return false;
+}
+if (!(units[headAt] as Common).Is("const")) {
+  return false;
+}
+if (secondAt < 0 || secondAt >= units.length || !(units[secondAt] instanceof Common)) {
+  return false;
+}
+if (!(units[secondAt] as Common).Is("enum")) {
+  return false;
+}
+return !EnumDeclarationPossibleShape.HasLineBreakBefore(units, secondAt);
+```
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
@@ -80,9 +103,10 @@ if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
     if (b3cText === "enum") {
       b3cOwns = true;
     } else if (b3cText === "const") {
-      const b3cNext = ItemUtil.NextCode(units, b3cHeadAt + 1);
-      b3cOwns = b3cNext < units.length && units[b3cNext] instanceof Common
-        && (units[b3cNext] as Common).Is("enum");
+      const b3cNext = b3cHeadAt < 0 ? -1 : ItemUtil.NextCode(units, b3cHeadAt + 1);
+      // [A2-D4] `const enum` 的 own 判据与 declaration-statement / control-flow 的
+      // `[A2-D4:CONST-ENUM]` 段同一份（`EnumDeclarationPossibleShape.Owns`）。
+      b3cOwns = EnumDeclarationPossibleShape.Owns(units, b3cHeadAt, b3cNext);
     }
   }
   if (!(StatementRouteUtil.IsIncrementalShapesEnabled() && b3cOwns)) {

@@ -14,6 +14,8 @@ import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { ImportExportDeclarationMount } from "../declarations/forms/import-export-declaration-mount.xl.md"
 import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
+import { FunctionDeclarationPossibleShape } from "../declarations/function-declaration-possible-shape.xl.md"
+import { EnumDeclarationPossibleShape } from "../declarations/enum-declaration-possible-shape.xl.md"
 import { InterfaceDeclarationMount } from "../declarations/forms/interface-declaration-mount.xl.md"
 import { TypeAliasDeclarationMount } from "../declarations/forms/type-alias-declaration-mount.xl.md"
 ```
@@ -105,6 +107,23 @@ if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
       if (DeclareVariablePossibleShape.Owns(units, headAt, b3fSecondAt)) {
         return ShapeStates.Reject;
       }
+      // [A2-D4] `declare function` 也由族候选（`FunctionDeclarationPossibleShape`）提前挂壳。
+      // 判据**就是** `FunctionDeclarationPossibleShape.Owns`：与本段、control-flow 的同段、候选自己的
+      // 让位绕过三处逐字同源（`declare` + 同行 `function`），不各写关键字表。
+      if (FunctionDeclarationPossibleShape.Owns(units, headAt, b3fSecondAt)) {
+        return ShapeStates.Reject;
+      }
+    }
+  }
+  // [A2-D4:CONST-ENUM] `const` + 同一行的 `enum` 也由 `EnumDeclarationPossibleShape` 提前挂壳。
+  // 首格（`const`）仍 Accept、第二格（`enum`）起 Reject，与 `[XL-B3f]` 的 `declare` 段同一形状。
+  // 判据**就是** `EnumDeclarationPossibleShape.Owns`：与本段、control-flow 的同段、枚举候选自己的
+  // `b3cOwns` 三处逐字同源（`const` + 同行 `enum`）。
+  if (b3cHeadText === "const") {
+    const c4SecondAt = ItemUtil.NextCode(units, headAt + 1);
+    if (c4SecondAt >= 0 && c4SecondAt < units.length && c4SecondAt <= tokenIndex
+      && EnumDeclarationPossibleShape.Owns(units, headAt, c4SecondAt)) {
+      return ShapeStates.Reject;
     }
   }
 }

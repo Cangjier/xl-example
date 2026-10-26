@@ -71,9 +71,20 @@ declare function f(): void;
 // （与 class 族同一模式，WP-B3b）。开关 false 时 Arm() 只做恢复，legacy 逐字节不变。
 DeclarationIncrementalRoute.Arm();
 if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
-  // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
-  // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
-  return ShapeStates.Reject;
+  // [A2-D4] `declare function` 的让位绕过（照 `module-declaration-possible-shape` 的 `b3cOwns` 范式）。
+  // `Decide` 按 item start（`declare`）把本条判成声明族；若照旧无条件让位，本候选在 `function` 格就被
+  // `Reject`，`state.Done` 永远设不上（`declare-function` 基线 atomic 的根因）。
+  // own 判据 = `FunctionDeclarationPossibleShape.Owns`，与 `declaration-statement-possible-shape` /
+  // `control-flow-statement-possible-shape` 两处 `[XL-B3f]` 段**逐字同源**（`declare` + 同行 `function`）。
+  const b3cStart = ItemUtil.ItemStartCached(units, cache);
+  const b3cHeadAt = ItemUtil.NextCode(units, b3cStart);
+  const b3cSecondAt = b3cHeadAt < 0 ? -1 : ItemUtil.NextCode(units, b3cHeadAt + 1);
+  const b3cOwns = FunctionDeclarationPossibleShape.Owns(units, b3cHeadAt, b3cSecondAt);
+  if (!(StatementRouteUtil.IsIncrementalShapesEnabled() && b3cOwns)) {
+    // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
+    // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
+    return ShapeStates.Reject;
+  }
 }
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
@@ -358,6 +369,29 @@ return ShapeStates.Uncertain;
 
 ```ts
 return !LineTerminator.HasBefore(units, at);
+```
+
+## static method Owns:(units:Array<Token>, headAt:int, secondAt:int)=>bool
+
+[A2-D4] 三处同源判据的**唯一实现**：本候选自己的让位绕过、`declaration-statement-possible-shape` 的
+`[XL-B3f]` 段、`control-flow-statement-possible-shape` 的同段。条件 = item 首词 `declare` && 下一词
+`function` && **同一行**。`declare` ⏎ `function f(): void;` 是 TS 的两条语句（修饰词必须同行，
+`DecideDeclaration` 判 `declare` 用的是同一个 `NoLineBreakBetween` 口径），换行时不认。
+
+```ts
+if (headAt < 0 || headAt >= units.length || !(units[headAt] instanceof Common)) {
+  return false;
+}
+if (!(units[headAt] as Common).Is("declare")) {
+  return false;
+}
+if (secondAt < 0 || secondAt >= units.length || !(units[secondAt] instanceof Common)) {
+  return false;
+}
+if (!(units[secondAt] as Common).Is("function")) {
+  return false;
+}
+return FunctionDeclarationPossibleShape.NoNewlineBefore(units, secondAt);
 ```
 
 ## static method LineBreakBefore:(units:Array<Token>, at:int)=>bool
