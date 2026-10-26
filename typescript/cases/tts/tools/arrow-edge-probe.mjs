@@ -90,15 +90,16 @@ const SNIPPETS = [
       "Deferred/ArrowParams/nested-arrow-paren-wait-for-arrow",
       "Deferred/ArrowParams/nested-arrow-paren-wait-for-arrow"],
   }],
-  // 内层 `(b)` 现在是 `Deferred`（base 是 `Fallback/no-host-rule`），但**这条片段在 base 上整文件回退**
-  // （`ArrowBodyPossibleShape` 只做 `Common` 体，`x => (` 那一格就抛）⇒ 回退后的 legacy 重解析不 replay。
-  // 见报告 §6 R5 的最小复现；这里断言的是**角色**与「不误 replay」。
-  ["nested-single-outer", "let n = x => (b) => b;\n", 0, [
+  // [B4g] 内层 `(b)` 现在真的 replay 了：体是 `(` 的箭头不再在增量里建（`ArrowPossibleShape`
+  // 在 `=>` 格保持 Uncertain），整条初始化器留 raw basic，收口格原子建树时 legacy
+  // `ParseArrowFromBracket → ParseFunctionParameters` 绑定这只括号 ⇒ replay 一次、fileFallback 消失。
+  // （base / B4f：replay 0 + 整文件 fallback，见 B4g §1）
+  ["nested-single-outer", "let n = x => (b) => b;\n", 1, [
     ["IdentifierShape"],
     ["IdentifierShape"],
   ], {
+    rejects: 0,
     roleFirst: "Deferred/ArrowParams/nested-arrow-paren-wait-for-arrow",
-    allowFallback: true,
   }],
   // ---- 负样本：一次都不许 replay ----
   ["paren-only", "let v = (a);\n", 0, [], {
