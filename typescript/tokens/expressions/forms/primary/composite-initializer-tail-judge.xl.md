@@ -10,6 +10,7 @@ import { Token } from "../../../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../../expression-builder.xl.md"
 import { CompositeInitializerFormsJudge } from "./composite-initializer-forms-judge.xl.md"
 import { CompositeInitializerJudge } from "./composite-initializer-judge.xl.md"
+import { InitializerTailJudge } from "../shared/initializer-tail-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -99,7 +100,9 @@ for (let at = equalAt + 1; at < units.length; at++) {
 if (raw.length === 0) {
   return false;
 }
-if (CompositeInitializerFormsJudge.NextSignificantChar(units[last]) !== "") {
+// [D0:TAIL] 尾巴判据统一走 `InitializerTailJudge.IsInitializerEnd`（跳过 trivia、允许一个或多个 `;`、
+// 之后必须输入结束），不再各处各写一份 `NextSignificantChar === ""`。
+if (!InitializerTailJudge.IsInitializerEnd(units, last)) {
   return false;
 }
 const equalUnit = units[equalAt];

@@ -95,6 +95,23 @@ return this.BuildByIndex(host, host.Data.length - 1, catalog, context);
 return true;
 ```
 
+## method ContinuationClaim:(units:Array<Token>, tokenIndex:int)=>bool
+
+**续接认领**（WP-D0）：在声明初始化器位置（`=` 之后）上，这一格是不是本候选能消费的续接位置
+（前缀位 / 后缀位 / 尾巴位）。
+
+默认 `false`：候选不参与「初始化器位置上的未知 token 交给表达式目录」这条通用委派
+（`ExpressionContinuationCatalog.Claims`）。加这个方法**不改变任何既有候选的行为**——返回 `false` 的
+候选在委派里等同于「没认领」，声明终结候选照旧按 C10 显式抛错。
+
+form WP 只覆写自己的候选文件（可选方法），注册仍然只有 `expression-shape-catalog` 的
+`// [E-CAT:FRAGMENTS]` 那一行：文件所有权互不重叠，注册也只有一个地方。
+
+```ts
+// [D0:CONTINUATION] 默认不认领：既有候选一概不参与初始化器位置的通用委派。
+return false;
+```
+
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 按**一个下标**把这个形状建出来，**返回建好的那个单元**。

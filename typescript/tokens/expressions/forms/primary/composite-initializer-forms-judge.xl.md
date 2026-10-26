@@ -9,6 +9,7 @@ import { Template } from "../../../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../../expression-builder.xl.md"
 import { CompositeInitializerJudge } from "./composite-initializer-judge.xl.md"
+import { InitializerTailJudge } from "../shared/initializer-tail-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -315,8 +316,9 @@ if (family !== "array" && family !== "paren") {
     return false;
   }
 }
-const lastUnit = units[last];
-if (CompositeInitializerFormsJudge.NextSignificantChar(lastUnit) !== "") {
+// [D0:TAIL] 「之后只剩输入结束」的唯一判据：跳过 trivia、允许一个或多个 `;`、之后必须输入结束。
+// 原来是 `NextSignificantChar(lastUnit) !== ""`，`;` 一律判「还没长完」⇒ `let x = [1, 2];` 在 `]` 格失配。
+if (!InitializerTailJudge.IsInitializerEnd(units, last)) {
   return false;
 }
 const equalUnit = units[equalAt];
@@ -363,6 +365,8 @@ return lookahead === "=" || lookahead === "{";
 只在真正要建的那一格返回 `true`（让终结候选 `Reject`、等候选建树）。之前/之后的格子一律 `false`：
 `let x = [1] as const` 在 `]` 关闭格上判据为假 ⇒ 终结候选仍按原样显式 throw（账本不变）。
 
+尾巴判据走 `InitializerTailJudge.IsInitializerEnd`（WP-D0）：跳过 trivia、允许一个或多个 `;`、之后必须输入结束。
+
 ```ts
 if (CompositeInitializerFormsJudge.Family(units) === "") {
   return false;
@@ -371,7 +375,7 @@ const last = CompositeInitializerFormsJudge.LastSignificant(units);
 if (last < 0) {
   return false;
 }
-return CompositeInitializerFormsJudge.NextSignificantChar(units[last]) === "";
+return InitializerTailJudge.IsInitializerEnd(units, last);
 ```
 
 ## static method Build:(host:Token, context:SyntaxContext)=>Token

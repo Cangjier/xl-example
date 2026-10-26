@@ -5,6 +5,7 @@ import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../../expression-builder.xl.md"
+import { InitializerTailJudge } from "../shared/initializer-tail-judge.xl.md"
 ```
 
 # namespace cangjie
@@ -92,10 +93,29 @@ return sole;
 
 ## static method Claims:(units:Array<Token>)=>bool
 
-本 WP 是否接管这份初始化器（`SoleCompositeUnit !== null`）。终结候选用它决定「等」还是「显式拒绝」。
+本 WP 是否接管这份初始化器（`SoleCompositeUnit !== null` 且**之后只剩输入结束**）。终结候选用它决定
+「等」还是「显式拒绝」。
+
+尾巴判据走 `InitializerTailJudge.IsInitializerEnd`（WP-D0 的唯一口径：跳过 trivia、允许一个或多个 `;`、
+之后必须输入结束），于是 `let x = { a: 1 };` 在 `}` 关闭那一格也能被认领，`let x = { a: 1 } as T`
+仍然不被认领（`as` 之后还有代码 ⇒ `IsInitializerEnd` 为假，保持原来的显式 throw）。
 
 ```ts
-return CompositeInitializerJudge.SoleCompositeUnit(units) !== null;
+const sole = CompositeInitializerJudge.SoleCompositeUnit(units);
+if (sole === null) {
+  return false;
+}
+let last = -1;
+for (let at = units.length - 1; at >= 0; at--) {
+  if (!units[at].IsTriviaToken) {
+    last = at;
+    break;
+  }
+}
+if (last < 0) {
+  return false;
+}
+return InitializerTailJudge.IsInitializerEnd(units, last);
 ```
 
 ## static method Build:(host:Token, context:SyntaxContext)=>Token
