@@ -8,7 +8,7 @@
 
 | 目录 | 回答的问题 | 允许的分类 |
 | --- | --- | --- |
-| [`typescript/cases/tts`](../tts/) | 覆盖边界在哪里？哪些形态**还不支持**？ | `throw` / `atomic` / `partial` / `incremental`（账本已于 2026-10 清空，保留分类定义） |
+| [`typescript/cases/tts`](../tts/) | 覆盖边界在哪里？哪些形态**还不支持**？ | `throw` / `atomic` / `partial` / `incremental`（账本 2026-10 曾清空、后因复合 case 重开，现 429 条） |
 | `typescript/cases/tts-impl`（本目录） | **已经支持**的形态有没有退化？ | 只有 `incremental`（其余一律 FAIL） |
 
 支持工作做完后，把 case 从 `tts` **单向**迁进来（见下文「迁移流程」）；本目录的 case
@@ -123,22 +123,26 @@ npm run tts:impl --silent
 - `git mv` 后必须重生成两处 INDEX —— 两个 INDEX 都是自动生成的，不手改。
 - 支持范围往往一次迁多条；一个功能智能体迁入的条数 = `tts-impl` PASS 数相对基线的增量。
 
-## 现状（已迁回 tts 重新诊断）
+## 现状（已迁回 tts、0 条）
 
-**0 条**。原 425 条已全部迁回 `typescript/cases/tts/cases/incremental/`，用于新判据
-[`tshape-judge`](../tts/tools/tshape-judge.md) 的逐批复核；本目录暂时只保留判据/迁移历史。
+**0 条**。历史 425 条已全部迁回 `typescript/cases/tts/cases/incremental/`（**历史动作，不再是当前读数**），
+用于新判据 [`tshape-judge`](../tts/tools/tshape-judge.md) 的逐批复核；本目录当前只保留判据 / 迁移历史。
+**当前能力边界与全部 case 清单以 [`tts`](../tts/) 为准**，看它那里的
+[README](../tts/README.md)「现状」与 [INDEX](../tts/INDEX.md)，不要看本页的历史表。
 
-旧 runner 读数：
+当前读数：
 
 ```powershell
 node typescript/cases/tts-impl/run.mjs --quiet   # PASS 0 / FAIL 0（空账本，exit 0）
-node typescript/cases/tts/run.mjs --quiet        # PASS 429 / FAIL 0（旧 legacy 对拍口径）
+node typescript/cases/tts/run.mjs --quiet        # PASS 429 / FAIL 0（throw 3 / incremental 426）
 ```
 
 > 新判据不再以 legacy 对拍为准；`tts-impl` 的旧 `incremental` 标签只表示“曾经通过旧 runner”，
-> 不代表逐字 AST line 已按范本复核。
+> 不代表逐字 AST line 已按范本复核。2026-10 结构修复（S1–S5）后 `tts` 的读数是
+> **throw 3 / incremental 426**（`control-flow` 由 S1 从 `throw/composite` 迁到 `incremental/composite`，
+> 内容逐字节不变）。
 
-历史（迁回前）：累计 **425 条**，全部 `incremental`（原 56 条缺口 + 历史 369 条）。
+历史（迁回前，已作废）：累计 **425 条**，全部 `incremental`（原 56 条缺口 + 历史 369 条）。
 area 表保留供追溯：
 
 | area | 条数 |

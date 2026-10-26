@@ -46,8 +46,8 @@ node typescript/cases/tts/tools/tshape-judge.mjs scan-all
 
 - `ts`：0 = 与 `ts.createSourceFile` 一致；1 = 不一致 / TS 非法 / 解析抛错。
 - `ts-all`：输出 `ok` / `diff` / `incremental-error` / `ts-invalid` 分类；有 diff、error 或 invalid 时 exit 1。
-  当前基线（2026-10）：429 条中 230 条 `ok`、195 条仅 `src` 末尾 +1、4 条 `incremental-error`，
-  425 条原基线内 0 条 `structural` / `fields`。
+  当前基线（2026-10 结构修复后）：429 条中 238 条 `ok`、188 条仅 `src` 末端差一格（186 条正好 +1，
+  2 条含尾随 trivia）、3 条 `incremental-error`；`structural` / `fields` 均为 0。
 - `trace` / `steps` / `bundle`：正常 0；缺参/环境错误 2。
 
 ## 注意

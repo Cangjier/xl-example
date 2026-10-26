@@ -102,38 +102,73 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 - 反过来（原来支持，现在退化）会打 **REGRESSION**。
 - 两种模式 EOF 形状结构不同（`divergent`）或 legacy 自己就抛错（`invalid`）属于 case/实现异常，同样是 FAIL。
 
-## 现状（全量迁回，待新判据复核）
+## 现状（2026-10 结构修复后）
 
-**429 条 case**：`throw` 4 + `incremental` 425。旧 runner 读数：
-`node typescript/cases/tts/run.mjs --quiet` → PASS 429 / FAIL 0；
-[`../tts-impl`](../tts-impl/) 已空（425 条全部迁回本目录）。
+**429 条 case**：`throw` 3 + `incremental` 426（`atomic` 0 / `partial` 0）。两条回读命令：
+
+```powershell
+node typescript/cases/tts/run.mjs --quiet                 # PASS 429 / FAIL 0，exit 0
+node typescript/cases/tts/tools/tshape-judge.mjs ts-all   # 238 ok / 188 moved / 3 err / 0 structural / 0 fields
+```
 
 2026-10 收尾时本账本曾清空（56 条剩余缺口迁往 tts-impl）。随后：
 
-- 新增 7 条复合 case：4 条 `throw` 保留；`async-pipeline` 判为 `incremental` 已移除；
-  `class-inheritance` / `namespace-store` 是合法 TS，旧判据的 `divergent` / `invalid` 已作废，
-  复现文件保存在 [`_notes/composite-probes/`](_notes/composite-probes/README.md)。
+- 新增 7 条复合 case：`async-pipeline` 判为 `incremental`，已移除；`class-inheritance` / `namespace-store`
+  是合法 TS，旧判据的 `divergent` / `invalid` 已作废，复现文件保存在
+  [`_notes/composite-probes/`](_notes/composite-probes/README.md)；其余 4 条进 `throw/composite/`。
 - 为用新判据（[`tshape-judge`](tools/tshape-judge.md)：完整解析 vs `ts.createSourceFile` +
-  逐字 AST line 按范本诊断）重新复核，**`tts-impl` 的 425 条已全部迁回本目录**，
-  暂放在 `incremental/<area>/`。
+  逐字 AST line 按范本诊断）重新复核，历史 425 条已全部迁回本目录，放在 `incremental/<area>/`。
 
-> `incremental` 只是旧 runner 的 legacy 对拍标签，**不是新判据的结论**；这些 case 正在逐批重跑新判据。
-> 旧 runner 的 `throw`/`atomic`/`partial`/`incremental` 分类仅用于兼容历史 INDEX，不再作为验收标准。
+> 旧 runner 的 `throw`/`atomic`/`partial`/`incremental` 分类是 **legacy 对拍标签**，不是新判据的结论；
+> 新判据的 `ok` / `moved` / `incremental-error` 才是逐字 AST line 的结论（见下）。旧标签保留，用来兼容历史
+> INDEX 与迁移契约的「分类目录 = 期望分类」约定。
+
+### 2026-10 结构修复
+
+S1–S5 五个结构修复已全部合入（`s1-switch-case` … `s5-endpossible-ternary` 五条分支），落回主线后读数如上：
+
+| 修复 | 内容 | 效果 |
+| --- | --- | --- |
+| **S1** | `switch`/`case` 子句头候选（`case-clause-head-possible-shape`）+ 根层函数体的块体目录（补 `OnBracketCreatedEvent`） | `control-flow` 从 `throw/composite/` 迁到 `incremental/composite/`（git 记为 **R100，内容逐字节不变**）⇒ `incremental` 425 → 426 |
+| **S2** | `;` 收口与 `TypeMode`：`VariableDeclarationShape.ComputePossibleShapes` 进入类型模式后永久 `Waiting`，声明终结候选不再被询问，后一条 `for-of` 被吞进前一条 `VariableStatementShape`；新增 `CanFinishTypedDeclaration` + `incremental-stuck-shell-recovery`（N=2 检测器、只读计数器、`ForceClose` 默认关） | `class-inheritance` 由 `diff` 转 `ok`（structural 8 → 0） |
+| **S3** | namespace 体声明挂载（`IsDeclarationHost` + `namespace-body-declaration-mount`）+ `?:` 拆成独立 token | namespace / 条件表达式不再走错目录 |
+| **S4b** | 未完成标识符操作数守卫（`identifier-incomplete-guard`）：`statement-operator-body` 不再把未闭合的标识符当操作数 | 少一类「早建半棵树」 |
+| **S5** | 复合条件三目兜底：`IsCompoundTernaryAhead` 在 `?` / `:` 那一格 `Reject`，等收口格原子建树 | `const i = typeof 1 === "number" ? 1 : 2;` 不再在 `"number"` 收尾引号处 `CatalogGuide` 抛错 |
+
+### 仍开放的缺口
+
+结构修复把 `structural` / `fields` 两类硬缺陷清到 0，但以下仍然开放，**没有在本轮合入**：
+
+1. **`src` 末尾 +1（188 条 `moved`）**：增量 EOF 树的节点区间比 `ts.createSourceFile` 的对应节点末端多一格
+   （尾部换行 / 收口格）。其中 186 条正好相差 1；另 2 条 lexical case（`comment-block-after-init` /
+   `trailing-space-let`）把尾随注释 / 空格也吞进 `src`，与下文「缺陷 3、4」同源。分类不受影响
+   （identity 用 `pos`，比较 EOF 树时忽略 `src`），所以判据只记为 `moved`，不记 FAIL。
+2. **P1「成批补建」**：class / function / interface / type alias 的壳按时出现，但**整棵 legacy 子树在收口那一格
+   一次性补上**（单格 20 / 12 / 9 / 7 个 shape，见 `_reports/S1-structural.md` §0 P1）。这是 B1 两段式架构的
+   必然结果，修它要改 `StatementShellCatalog.Take` / `StatementFamilyDispatch.Build`，是架构级改动。
+3. **三目是「收口原子建树」**：S5 的修法是等收口格原子建树，所以 `?:` 各分支的形状并没有真正提前；
+   现在不抛错、结构也对，但仍不是增量建造。
+4. **字符串右操作数**：`RightOperandPossibleShape.Catalog()` 只认数字 / 标识符，`x === "s"` 这类形态仍会落到
+   `CatalogGuide: 没有候选形状可以构成`。补一个 `StringLiteralShape` 候选是独立 WP。
+5. **3 条 composite `incremental-error`**：`throw/composite/class-ball`（`declaration 符号 ?.`）、
+   `expression-zoo`（`declaration 括号`）、`generic-container`（`declaration 符号 <`）仍按旧路径显式抛错。
+   它们是契约 C10 的**显式拒绝**（不是静默错树），所以留在 `throw/`，不迁 `incremental/`。
 
 当前分类矩阵（旧 runner 口径）：
 
 | 分类 | composite | incremental | 合计 |
 | --- | ---: | ---: | ---: |
-| `throw` | 4 | 0 | **4** |
-| `incremental` | 0 | 425 | **425** |
+| `throw` | 3 | 0 | **3** |
+| `incremental` | 1 | 425 | **426** |
 | 合计 | 4 | 425 | **429** |
 
-> 历史：清空前 `throw` 125 / `atomic` 192 / `partial` 53（370）；`tts-impl` 历史累计 425。
-> 这 425 条现已全部迁回 `tts/incremental/`，`tts-impl` 暂空。
+> 历史：清空前 `throw` 125 / `atomic` 192 / `partial` 53（370）；`tts-impl` 历史累计 425（迁回前）。
+> 复合探索新增 7 条后曾为 `throw` 4 / `incremental` 425；S1 把 `control-flow` 迁为 `incremental` 后
+> 变成 `throw` 3 / `incremental` 426。
 
 分区覆盖与逐条清单：`_notes/<area>.md`（构造 → 分类、throw 文案、divergent/invalid 观察、未收录变体）
 是清空前的历史记录，保留供追溯；自动生成的 [INDEX.md](INDEX.md) 现在为 429 条
-（4 条 `throw/composite` + 425 条 `incremental/<area>`）。
+（3 条 `throw/composite` + 426 条 `incremental/<area>`）。
 
 覆盖边界（清空前的实测记录，保留供追溯；当前判据见 [`tshape-judge`](tools/tshape-judge.md)）：
 
@@ -184,8 +219,11 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 
 ## 迁移契约（历史 56 条已迁出；新缺口仍适用）
 
-历史迁移已完成：收尾时 `tts` 0 条、[`tts-impl`](../tts-impl/) 425 条。当前账本因复合探索重新有
-**4 条 `throw` 缺口**；这些新缺口一旦做成 `incremental`，仍按下面的迁出规则迁往 `tts-impl`。
+历史迁移已完成：收尾时 `tts` 0 条、[`tts-impl`](../tts-impl/) 425 条（历史读数，现为空账本）。
+当前账本因复合探索重新有 **3 条 `throw` 缺口**（`class-ball` / `expression-zoo` / `generic-container`）；
+第 4 条 `control-flow` 已在 S1 里做成 `incremental`，并从 `throw/composite/` 迁到
+`incremental/composite/`（R100，内容逐字节不变）。它和其余 425 条一样**暂留本目录**供 `tshape-judge`
+逐批复核，批量迁往 `tts-impl` 的动作尚未执行；其余新缺口一旦做成 `incremental`，仍按下面的迁出规则迁出。
 
 本目录是**覆盖边界账本**。一个形态支持上去之后，它的 case 不再属于账本，而属于
 [`../tts-impl`](../tts-impl/) 的**已支持回归基线**——**迁出，不是复制**。

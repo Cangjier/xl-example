@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **429** 条 case：throw 4 / atomic 0 / partial 0 / incremental 425
+共 **429** 条 case：throw 3 / atomic 0 / partial 0 / incremental 426
 
 ## throw
 
@@ -11,12 +11,17 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `throw/composite/class-ball.ts` | 增量变量形状未支持：declaration 符号 . |  |
-| `throw/composite/control-flow.ts` | 表达式没有读完 |  |
+| `throw/composite/class-ball.ts` | 增量变量形状未支持：declaration 符号 ?. |  |
 | `throw/composite/expression-zoo.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/composite/generic-container.ts` | 增量变量形状未支持：declaration 符号 < |  |
 
 ## incremental
+
+### composite
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `incremental/composite/control-flow.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0, StringLiteralShape@pos=56, SwitchStatementShape@pos=60, CaseClauseShape@pos=79, CaseClauseShape@pos=126, CaseClauseShape@pos=138 | EOF 区间含前导/尾随 trivia |
 
 ### controls
 
@@ -48,19 +53,19 @@
 | `incremental/declarations/const-enum.ts` | 提前的 shape 节点：EnumDeclarationShape@pos=0, EnumMemberShape@pos=14, IdentifierShape@pos=14 |  |
 | `incremental/declarations/const-number.ts` | 提前的 shape 节点：NumericLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
 | `incremental/declarations/const-string-init.ts` | 提前的 shape 节点：StringLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
-| `incremental/declarations/declare-const.ts` | 提前的 shape 节点：DeclareKeywordShape@pos=0, NumberKeywordShape@pos=16 | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/declare-const.ts` | 提前的 shape 节点：DeclareKeywordShape@pos=0, NumberKeywordShape@pos=16 |  |
 | `incremental/declarations/declare-function.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
 | `incremental/declarations/declare-global.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
-| `incremental/declarations/declare-let.ts` | 提前的 shape 节点：DeclareKeywordShape@pos=0, NumberKeywordShape@pos=14 | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/declare-let.ts` | 提前的 shape 节点：DeclareKeywordShape@pos=0, NumberKeywordShape@pos=14 |  |
 | `incremental/declarations/declare-module-string.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
 | `incremental/declarations/declare-namespace.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
-| `incremental/declarations/declare-var.ts` | 提前的 shape 节点：DeclareKeywordShape@pos=0, NumberKeywordShape@pos=14 | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/declare-var.ts` | 提前的 shape 节点：DeclareKeywordShape@pos=0, NumberKeywordShape@pos=14 |  |
 | `incremental/declarations/enum-computed.ts` | 提前的 shape 节点：EnumDeclarationShape@pos=0, EnumMemberShape@pos=8, IdentifierShape@pos=8, BinaryExpressionShape@pos=12, NumericLiteralShape@pos=12, LessThanLessThanTokenShape@pos=14 |  |
 | `incremental/declarations/enum-numeric.ts` | 提前的 shape 节点：EnumDeclarationShape@pos=0, EnumMemberShape@pos=8, IdentifierShape@pos=8, NumericLiteralShape@pos=12, EnumMemberShape@pos=15, IdentifierShape@pos=15 |  |
 | `incremental/declarations/enum-string.ts` | 提前的 shape 节点：EnumDeclarationShape@pos=0, EnumMemberShape@pos=8, IdentifierShape@pos=8, StringLiteralShape@pos=12 |  |
 | `incremental/declarations/export-as-namespace.ts` | 提前的 shape 节点：NamespaceExportDeclarationShape@pos=0, IdentifierShape@pos=19 |  |
 | `incremental/declarations/export-assignment.ts` | 提前的 shape 节点：ExportAssignmentShape@pos=0, IdentifierShape@pos=8 |  |
-| `incremental/declarations/export-declare-const.ts` | 提前的 shape 节点：ExportKeywordShape@pos=0, DeclareKeywordShape@pos=6, NumberKeywordShape@pos=23 | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/export-declare-const.ts` | 提前的 shape 节点：ExportKeywordShape@pos=0, DeclareKeywordShape@pos=6, NumberKeywordShape@pos=23 |  |
 | `incremental/declarations/export-named-from.ts` | 提前的 shape 节点：ExportDeclarationShape@pos=0, NamedExportsShape@pos=6, ExportSpecifierShape@pos=8, IdentifierShape@pos=8, StringLiteralShape@pos=17 |  |
 | `incremental/declarations/export-star-as.ts` | 提前的 shape 节点：ExportDeclarationShape@pos=0, NamespaceExportShape@pos=6, IdentifierShape@pos=11, StringLiteralShape@pos=19 |  |
 | `incremental/declarations/function-async-generator.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
@@ -97,7 +102,7 @@
 | `incremental/declarations/let-binding.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
 | `incremental/declarations/let-call-init.ts` | 提前的 shape 节点：CallExpressionShape@pos=7, IdentifierShape@pos=7 |  |
 | `incremental/declarations/let-comparison-init.ts` | 提前的 shape 节点：IdentifierShape@pos=7, BinaryExpressionShape@pos=7, FirstBinaryOperatorShape@pos=9, IdentifierShape@pos=11 | EOF 区间含前导/尾随 trivia |
-| `incremental/declarations/let-definite-assignment.ts` | 提前的 shape 节点：ExclamationTokenShape@pos=5, NumberKeywordShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/let-definite-assignment.ts` | 提前的 shape 节点：ExclamationTokenShape@pos=5, NumberKeywordShape@pos=7 |  |
 | `incremental/declarations/let-exponent-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskAsteriskTokenShape@pos=9, NumericLiteralShape@pos=12 |  |
 | `incremental/declarations/let-identifier-init.ts` | 提前的 shape 节点：IdentifierShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `incremental/declarations/let-member-init.ts` | 提前的 shape 节点：PropertyAccessExpressionShape@pos=7, IdentifierShape@pos=7, IdentifierShape@pos=10 |  |
@@ -114,12 +119,12 @@
 | `incremental/declarations/let-template-substitution-init.ts` | 提前的 shape 节点：TemplateExpressionShape@pos=7, TemplateHeadShape@pos=7, TemplateSpanShape@pos=11, IdentifierShape@pos=11, TemplateTailShape@pos=12 | EOF 区间含前导/尾随 trivia |
 | `incremental/declarations/let-ternary-init.ts` | 提前的 shape 节点：ConditionalExpressionShape@pos=7, IdentifierShape@pos=7, QuestionTokenShape@pos=9, IdentifierShape@pos=11, ColonTokenShape@pos=13, IdentifierShape@pos=15 |  |
 | `incremental/declarations/let-two-declarations.ts` | 提前的 shape 节点： |  |
-| `incremental/declarations/let-type-annotation-init.ts` | 提前的 shape 节点：NumberKeywordShape@pos=6, NumericLiteralShape@pos=15 | EOF 区间含前导/尾随 trivia |
-| `incremental/declarations/let-type-annotation.ts` | 提前的 shape 节点：NumberKeywordShape@pos=6 | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/let-type-annotation-init.ts` | 提前的 shape 节点：NumberKeywordShape@pos=6, NumericLiteralShape@pos=15 |  |
+| `incremental/declarations/let-type-annotation.ts` | 提前的 shape 节点：NumberKeywordShape@pos=6 |  |
 | `incremental/declarations/module-shorthand.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
 | `incremental/declarations/namespace-basic.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
-| `incremental/declarations/namespace-export-function.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
-| `incremental/declarations/namespace-nested.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
+| `incremental/declarations/namespace-export-function.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0, FunctionDeclarationShape@pos=13, ExportKeywordShape@pos=13, IdentifierShape@pos=29, BlockShape@pos=33 |  |
+| `incremental/declarations/namespace-nested.ts` | 提前的 shape 节点：ModuleDeclarationShape@pos=0, IdentifierShape@pos=23, ModuleBlockShape@pos=25 |  |
 | `incremental/declarations/var-binding.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
 | `incremental/declarations/var-two-initialized.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 |  |
 
@@ -139,7 +144,7 @@
 | `incremental/expressions/as-const.ts` | 提前的 shape 节点：AsExpressionShape@pos=7, ArrayLiteralExpressionShape@pos=7, NumericLiteralShape@pos=9, TypeReferenceShape@pos=14, IdentifierShape@pos=14 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/as-expr.ts` | 提前的 shape 节点：AsExpressionShape@pos=7, IdentifierShape@pos=7, NumberKeywordShape@pos=12 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/assignment.ts` | 提前的 shape 节点：BinaryExpressionShape@pos=7, IdentifierShape@pos=7, EqualsTokenShape@pos=9, NumericLiteralShape@pos=11 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/await-expr.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
+| `incremental/expressions/await-expr.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0, AwaitExpressionShape@pos=28, IdentifierShape@pos=34 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/bin-add-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/bin-add-mul-decl.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=10, BinaryExpressionShape@pos=10, AsteriskTokenShape@pos=11 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/bin-add-mul.ts` | 提前的 shape 节点：BinaryExpressionShape@pos=0, NumericLiteralShape@pos=0, PlusTokenShape@pos=1, NumericLiteralShape@pos=2, BinaryExpressionShape@pos=2, AsteriskTokenShape@pos=3 |  |
@@ -209,7 +214,7 @@
 | `incremental/expressions/ref-index.ts` | 提前的 shape 节点：ElementAccessExpressionShape@pos=0, IdentifierShape@pos=0, IdentifierShape@pos=2 |  |
 | `incremental/expressions/ref-member.ts` | 提前的 shape 节点：PropertyAccessExpressionShape@pos=7, IdentifierShape@pos=7, IdentifierShape@pos=10 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/ref-new-no-parens.ts` | 提前的 shape 节点：NewExpressionShape@pos=7, IdentifierShape@pos=11 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/ref-new-target.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
+| `incremental/expressions/ref-new-target.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0, MetaPropertyShape@pos=22, IdentifierShape@pos=27 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/ref-new.ts` | 提前的 shape 节点：NewExpressionShape@pos=7, IdentifierShape@pos=11 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/ref-nonnull.ts` | 提前的 shape 节点：NonNullExpressionShape@pos=7, IdentifierShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/ref-optional.ts` | 提前的 shape 节点：PropertyAccessExpressionShape@pos=7, IdentifierShape@pos=7, QuestionDotTokenShape@pos=9, IdentifierShape@pos=11 | EOF 区间含前导/尾随 trivia |
@@ -236,14 +241,14 @@
 | `incremental/expressions/update-post-inc.ts` | 提前的 shape 节点：PostfixUnaryExpressionShape@pos=7, IdentifierShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/update-pre-dec.ts` | 提前的 shape 节点：PrefixUnaryExpressionShape@pos=7, IdentifierShape@pos=10 | EOF 区间含前导/尾随 trivia |
 | `incremental/expressions/update-pre-inc.ts` | 提前的 shape 节点：PrefixUnaryExpressionShape@pos=7, IdentifierShape@pos=10 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/yield-expr.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
+| `incremental/expressions/yield-expr.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0, YieldExpressionShape@pos=23, NumericLiteralShape@pos=29 | EOF 区间含前导/尾随 trivia |
 
 ### lexical
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
 | `incremental/lexical/asi-postfix-newline.ts` | 提前的 shape 节点：StringLiteralShape@pos=7, PostfixUnaryExpressionShape@pos=11, IdentifierShape@pos=11 |  |
-| `incremental/lexical/asi-return-newline.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
+| `incremental/lexical/asi-return-newline.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0, NumericLiteralShape@pos=22 |  |
 | `incremental/lexical/asi-two-declarations.ts` | 提前的 shape 节点：StringLiteralShape@pos=7, NumericLiteralShape@pos=19 | EOF 区间含前导/尾随 trivia |
 | `incremental/lexical/bom-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
 | `incremental/lexical/comment-block-after-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
@@ -309,7 +314,7 @@
 | --- | --- | --- |
 | `incremental/statements/asi-newline.ts` | 提前的 shape 节点：IdentifierShape@pos=0 |  |
 | `incremental/statements/asi-postfix-newline.ts` | 提前的 shape 节点：IdentifierShape@pos=0, PrefixUnaryExpressionShape@pos=1, IdentifierShape@pos=4 |  |
-| `incremental/statements/asi-return-newline.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
+| `incremental/statements/asi-return-newline.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0, NumericLiteralShape@pos=21 |  |
 | `incremental/statements/asi-same-line.ts` | 提前的 shape 节点：IdentifierShape@pos=0, IdentifierShape@pos=2 |  |
 | `incremental/statements/asi-two-declarations.ts` | 提前的 shape 节点：IdentifierShape@pos=7 |  |
 | `incremental/statements/block-empty.ts` | 提前的 shape 节点：BlockShape@pos=0 |  |
@@ -353,7 +358,7 @@
 | `incremental/statements/for-of-const.ts` | 提前的 shape 节点：ForOfStatementShape@pos=0 |  |
 | `incremental/statements/for-of.ts` | 提前的 shape 节点：ForOfStatementShape@pos=0 |  |
 | `incremental/statements/foreach-call.ts` | 提前的 shape 节点：PropertyAccessExpressionShape@pos=0, IdentifierShape@pos=0, IdentifierShape@pos=3, CallExpressionShape@pos=0, ArrowFunctionShape@pos=11, ParameterShape@pos=12 |  |
-| `incremental/statements/function-body-let-close-brace.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
+| `incremental/statements/function-body-let-close-brace.ts` | 提前的 shape 节点：FunctionDeclarationShape@pos=0, NumericLiteralShape@pos=22 | EOF 区间含前导/尾随 trivia |
 | `incremental/statements/if-block-let-destructuring.ts` | 提前的 shape 节点：IfStatementShape@pos=0, ObjectBindingPatternShape@pos=12, BindingElementShape@pos=14, IdentifierShape@pos=14 | EOF 区间含前导/尾随 trivia |
 | `incremental/statements/if-block-let-member-init.ts` | 提前的 shape 节点：IfStatementShape@pos=0, PropertyAccessExpressionShape@pos=16, IdentifierShape@pos=16, IdentifierShape@pos=19 | EOF 区间含前导/尾随 trivia |
 | `incremental/statements/if-block-let-semicolon.ts` | 提前的 shape 节点：IfStatementShape@pos=0, NumericLiteralShape@pos=16 | EOF 区间含前导/尾随 trivia |
@@ -376,9 +381,9 @@
 | `incremental/statements/stmt-object-literal-paren.ts` | 提前的 shape 节点：ParenthesizedExpressionShape@pos=0, ObjectLiteralExpressionShape@pos=1, PropertyAssignmentShape@pos=2, IdentifierShape@pos=2, NumericLiteralShape@pos=5 |  |
 | `incremental/statements/stmt-object-vs-block.ts` | 提前的 shape 节点：BlockShape@pos=0, LabeledStatementShape@pos=1 |  |
 | `incremental/statements/stmt-with.ts` | 提前的 shape 节点：WithStatementShape@pos=0 |  |
-| `incremental/statements/switch-case-let-atomic.ts` | 提前的 shape 节点：SwitchStatementShape@pos=0 |  |
-| `incremental/statements/switch-fallthrough.ts` | 提前的 shape 节点：SwitchStatementShape@pos=0 |  |
-| `incremental/statements/switch-single-case.ts` | 提前的 shape 节点：SwitchStatementShape@pos=0 |  |
+| `incremental/statements/switch-case-let-atomic.ts` | 提前的 shape 节点：SwitchStatementShape@pos=0, CaseClauseShape@pos=12 |  |
+| `incremental/statements/switch-fallthrough.ts` | 提前的 shape 节点：SwitchStatementShape@pos=0, CaseClauseShape@pos=12, CaseClauseShape@pos=20, DefaultClauseShape@pos=38 |  |
+| `incremental/statements/switch-single-case.ts` | 提前的 shape 节点：SwitchStatementShape@pos=0, CaseClauseShape@pos=12 |  |
 | `incremental/statements/throw-new.ts` | 提前的 shape 节点：ThrowStatementShape@pos=0 |  |
 | `incremental/statements/try-block-let-type-annotation.ts` | 提前的 shape 节点：TryStatementShape@pos=0, NumberKeywordShape@pos=12, NumericLiteralShape@pos=21 | EOF 区间含前导/尾随 trivia |
 | `incremental/statements/try-catch-nobind.ts` | 提前的 shape 节点：TryStatementShape@pos=0, IdentifierShape@pos=5, IdentifierShape@pos=18 |  |

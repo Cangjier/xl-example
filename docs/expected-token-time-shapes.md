@@ -3,7 +3,8 @@
 
 > **2026-10 收尾状态**：本文只定义 `let x = 2*3+1` 这一条样本的 14 步逐字符期望，**不登记能力边界**——
 > 它是验收口径，不随实现进度变化。增量 shape 的覆盖边界、缺口历史与 case 台账见
-> [token-time-shapes-incremental.md](token-time-shapes-incremental.md) §3（终态：`tts` 账本 0 条、`tts-impl` 425 条）。
+> [token-time-shapes-incremental.md](token-time-shapes-incremental.md) §3（终态：`tts` 429 条 =
+> `throw` 3 + `incremental` 426，`tts-impl` 0 条）。
 > 下面的逐字符期望**逐字节不变**，`--from-doc` 与 `--sync-expected` 继续以本文内容为准。
 
 # 预期 token 树（逐字）：`let x = 2*3+1`
