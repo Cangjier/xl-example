@@ -155,6 +155,14 @@ if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
         const b3cNextText = (units[b3cNext] as Common).TempToString();
         b3cOwns = b3cNextText === "namespace" || b3cNextText === "module";
       }
+    } else if (b3cText === "declare") {
+      // [XL-B3f] `declare namespace|module|global` 现在也归本候选（B3d 交接的第二步）：
+      // 让位判据与 Done 判据必须同一份，否则本候选在第一格就被通用声明壳的让位杀掉。
+      const b3fNext = ItemUtil.NextCode(units, b3cHeadAt + 1);
+      if (b3fNext < units.length && units[b3fNext] instanceof Common) {
+        const b3fNextText = (units[b3fNext] as Common).TempToString();
+        b3cOwns = b3fNextText === "namespace" || b3fNextText === "module" || b3fNextText === "global";
+      }
     }
   }
   if (!(StatementRouteUtil.IsIncrementalShapesEnabled() && b3cOwns)) {
@@ -288,7 +296,8 @@ if (state.Checked !== tokenIndex + 1) {
     }
     if (head < scanCode.length && scanCode[head] instanceof Common) {
       const keyword = (scanCode[head] as Common).TempToString();
-      if (keyword === "namespace" || keyword === "module") {
+      if (keyword === "namespace" || keyword === "module" || keyword === "global") {
+        // [XL-B3f] `global` = `declare global { … }`（无 namespace/module 关键字，名字就是 global）。
         state.Done = true;
         state.DoneAt = scanCodeAt[head];
       }
