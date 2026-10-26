@@ -13,6 +13,7 @@ import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
+import { StatementLegacyMetrics } from "../statements/statement-legacy-metrics.xl.md"
 ```
 
 # namespace cangjie
@@ -256,6 +257,9 @@ const expression = TypeCatalogFactory.ParseInitializer(raw, basePos, this.Templa
 if (expression === null) {
   return;
 }
+// [D1:ASI-TYPED] 初始化器完整的判据只有 `CanEndInitializer`（后面是 `;` / 输入结束）。
+// **不要**在这里并入「换行 ASI」：`as const` ⏎ 下一条语句时若提前落地，TypeMode 收不了口，
+// 下一条语句会被 `FinishIncremental` 静默丢掉（实测 structural diff）——那是 C10 禁止的错树。
 if (!TypeCatalogFactory.CanEndInitializer(this.Data[last])) {
   return;
 }
@@ -374,6 +378,14 @@ if (equalAt >= 0) {
     builtShape = unit;
   }
   if (builtShape !== null) {
+    // [D1:NO-SILENT-DROP] 已经有唯一表达式根、但 raw 里还留着一只**没被任何候选并入**的括号 ⇒ 收下根
+    // 就会把括号（以及它后面紧跟的后缀单元）静默丢掉，产出与 legacy 不同的错树。D1 允许终结候选在
+    // 后缀括号格「继续等」，所以这里必须把「等完之后没人消费」变成显式错误，而不是静默截断（C10）。
+    for (const unit of raw) {
+      if (unit instanceof Bracket) {
+        throw new Error("增量变量形状未支持：declaration 初始化器有未并入的括号");
+      }
+    }
     // 跨包最小补丁（WP-C，Lead 授权）：表达式形状可能还挂着未关闭的尾单元——EOF 没有下一个字符来关它。
     // 它自己的 `Close` 才是「问父单元目录」的触发点，会就地换成 NumericLiteral 并替宿主封口。
     // [E0B:INIT-ROOT] 新目录的候选沿用同一个收口点：根形状在这里封口，再作为唯一子节点收下。
@@ -390,6 +402,14 @@ if (equalAt >= 0) {
     const expression = builder.ParseExpression();
     if (builder.At !== builder.Units.length) {
       throw new Error("增量变量形状未支持：declaration 初始化器未读完");
+    }
+    // [D1] 这条初始化器里含括号（对象 / 数组 / 调用链…）时记一笔：它是「括号格继续等、
+    // 收口格整条原子建树」这条路径的计数（旧行为在括号关闭那一格就抛 `declaration 括号`）。
+    for (const unit of raw) {
+      if (unit instanceof Bracket) {
+        StatementLegacyMetrics.DeclarationInitializerAtomicCount += 1;
+        break;
+      }
     }
     kept.push(expression);
   }

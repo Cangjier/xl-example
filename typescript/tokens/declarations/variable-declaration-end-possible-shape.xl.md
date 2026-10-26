@@ -3,6 +3,7 @@
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
@@ -16,6 +17,7 @@ import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { StatementLegacyMetrics } from "../statements/statement-legacy-metrics.xl.md"
 ```
 
 # namespace cangjie
@@ -174,6 +176,31 @@ if (current instanceof Bracket) {
   // [A4c:TAIL] 尖括号断言的类型参数表 / 泛型箭头的参数括号 / `[1] as const` 的数组括号：族命中就继续等，
   // 整条由 `CompositeInitializerTailPossibleShape` 建（完成性由它的 `CanBuild` 判）。
   if (CompositeInitializerTailJudge.CanWait(units)) {
+    return ShapeStates.Reject;
+  }
+  // [D1:RAW-INITIALIZER] 初始化器里还有**未建的括号**（对象 / 数组 / 括号字面量、调用链的括号、
+  // `as`·`satisfies` 之前的对象字面量、类 / 函数表达式的体）：这一格**继续等**，不按 C10 抛错。
+  //
+  // 为什么等是对的，而不是「静默退回错树」：这条声明此后只有两个收口出口，两个都会**显式验证**——
+  //   ① 下一格起是 `as` / `satisfies` / 参数类型注解时，`VariableDeclarationShape` 的 TypeMode 接管，
+  //      `TypeCatalogFactory.ParseInitializer` 把整条（含括号）用 legacy `ExpressionBuilder` 建出，
+  //      再用 `CanEndInitializer` 判「后面不能再长」才落地；
+  //   ② 其余形态在声明收口格（`;` / EOF / ASI）由 `FinishIncremental` 的原子建树分支处理：
+  //      `ExpressionBuilder.Load(raw, = 的 EndIndex)` + `ParseExpression`，并要求
+  //      `builder.At === builder.Units.length`（读不完就抛「初始化器未读完」，不会产出半棵树）。
+  // 也就是说：括号不会留在 AST 里，要么整条建对，要么显式报错。
+  //
+  // 反向边界（C10 不变）：`=` 之前（解构绑定等）或初始化器里**已经落地了形状**（原子重建不可能）时，
+  // 逐字落回下面的 `throw`。计数器见 `StatementLegacyMetrics.DeclarationBracketWaitCount`。
+  if (VariableDeclarationEndPossibleShape.IsRawInitializer(units)) {
+    StatementLegacyMetrics.DeclarationBracketWaitCount += 1;
+    return ShapeStates.Reject;
+  }
+  // [D1:POSTFIX-BRACKET] 括号紧跟在**已建表达式形状**之后（`o["f"]` / `a.b[c]` / 调用括号）：
+  // 这是元素访问 / 调用 / 非空后缀候选的专属格，继续等，由它们在括号关闭这一格建出。
+  // 旧行为在这一格按 C10 抛错，等于把「后缀括号」整类形态挡死（D1 残项里的 7 条成员链 / 下标族）。
+  if (VariableDeclarationEndPossibleShape.PreviousIsShape(units, tokenIndex)) {
+    StatementLegacyMetrics.DeclarationBracketWaitCount += 1;
     return ShapeStates.Reject;
   }
   throw new Error("增量变量形状未支持：declaration 括号");
@@ -335,6 +362,34 @@ for (let at = equalAt + 1; at < units.length; at++) {
   }
 }
 return true;
+```
+
+## static method PreviousIsShape:(units:Array<Token>, tokenIndex:int)=>bool
+
+[D1:POSTFIX-BRACKET] 本括号格的前一个非 trivia 单元是不是**已经建出来的表达式形状**（或一只已闭合的括号 /
+模板字面量）——即本括号是不是「后缀括号」。
+
+是 ⇒ 这一格是元素访问 `o["f"]` / 调用 `f(x)` / `(a)(b)` / 标签模板后的后缀，归 P1 的后缀候选，
+终结候选只继续等，不抛 C10。只认「紧邻」：中间隔着运算符时仍走原有分支。
+
+为什么 `Bracket` / `String` 也算：`o["f"]()` 的**调用括号**紧跟在 `["f"]` 括号之后，这时下标格由
+元素访问候选接手（它建完，`(` 的左边就是这个候选），而终结候选在 `(` 这一格只该等；
+模板字面量同样是合法的后缀接收者（`` obj.tag`x`[0] ``）。误判的代价被 `FinishIncremental` 的
+「未并入的括号」显式错误兜住（不会静默丢括号）。
+
+```ts
+const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (previous < 0) {
+  return false;
+}
+const unit = units[previous];
+if (unit instanceof ShapeToken) {
+  return true;
+}
+if (unit instanceof Bracket) {
+  return true;
+}
+return unit instanceof String;
 ```
 
 ## static method HasReducibleLeft:(units:Array<Token>, tokenIndex:int)=>bool
