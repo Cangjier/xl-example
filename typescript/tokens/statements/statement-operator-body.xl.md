@@ -3,6 +3,7 @@
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
+import { IdentifierIncompleteGuard } from "../expressions/forms/primary/identifier-incomplete-guard.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ShapeInsertUtil } from "../shape-insert-util.xl.md"
@@ -296,6 +297,49 @@ if (text !== "") {
   this.Publish(text);
 }
 ```
+## method LastCodeIndex:()=>int
+
+[实例级增量判据·S4b] `Units` 里最后一个**代码单元**的下标（跳过尾随 trivia）。全是 trivia / 空表返回 `-1`。
+
+```ts
+let index = this.Units.length - 1;
+while (index >= 0 && this.Units[index].IsTriviaToken) {
+  index--;
+}
+return index;
+```
+
+## method IsOperandGrowing:()=>bool
+
+[实例级增量判据·S4b] 本格末位的操作数是不是「还在长的标识符」——`this.半` / `球.数` 这种**名字没闭合**的
+标识符。判据只有一份：`IdentifierIncompleteGuard.IsComplete`（WP-S4 的 R4-1，接线点在这里）。
+
+只对 `BuildOperand` 会建成 `KindIdentifier` 的单元下结论：关键字叶子（`this` / `super` / `import` / `true` …）、
+数字字面量、以及其它形态一律返回 `false`——`1` → `12` 的数字增长不属本判据（R4-4 另有 owner）。
+
+```ts
+const last = this.LastCodeIndex();
+if (last < 0) {
+  return false;
+}
+const unit = this.Units[last];
+if (!(unit instanceof Common)) {
+  return false;
+}
+const common = unit as Common;
+const text = common.TempToString();
+if (StatementOperatorBody.IsKeywordLeafText(text) || text === "super") {
+  return false;
+}
+if (!StatementOperatorBody.IsOperandText(text)) {
+  return false;
+}
+if (StatementOperatorBody.LooksNumber(common) || common.CanStartNumber()) {
+  return false;
+}
+return !IdentifierIncompleteGuard.IsComplete(this.Units, last);
+```
+
 ## method IsComplete:()=>bool
 
 ```ts
@@ -318,6 +362,13 @@ for (let index = 0; index < this.FramePending.length; index++) {
   if (this.FramePending[index]) {
     return false;
   }
+}
+// [S4b] 末位操作数还是**没闭合的标识符**（`this.半`）时，本条表达式不算完整：名字的下一格可能还是
+// 同一个标识符的后继字符，本格物化出来的 `IdentifierShape` 只会拿到半个名字（`text="半"`），
+// 而下一格必定要在同一格里把它拉长（S4 报告 §3 的「已发布形状被降级为 raw」）。
+// 这里只影响「本格要不要物化」：`;` / `=` / `)` 一分隔，末位就不再是标识符，收口路径不受影响。
+if (this.IsOperandGrowing()) {
+  return false;
 }
 return true;
 ```
