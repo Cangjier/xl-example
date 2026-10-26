@@ -125,6 +125,9 @@ A1 #7、#21 之外的声明体族。
 只能等 `=>` 到达才确定 ⇒ 登记 `Deferred`、**不在 `(` 格硬猜**（A4b 的 `arrowparen` 前瞻 + B3b 的
 `DeferredBracketCatalog` 是它的两条既有通道）。
 
+**[B4f] 三处入口**：① `=` 之后（初始化器位）、② `async` 之后、③ `=>` 之后（嵌套箭头的内层形参表，
+`x => (b) => b`）。三处都只登记、不建；`)=>` 成立时由 `ParseFunctionParameters` 那一拍定向 Bind 一次。
+
 # class BracketRoleCatalog
 
 一份「角色 → 候选目录」的登记条目。
@@ -661,6 +664,40 @@ for (let index = at - 1; index >= 0; index--) {
 return false;
 ```
 
+## static method IsArrowBodyPrefix:(host:Token, previous:Token | null)=>bool
+
+**[B4f]** 前一个代码单元是 `=>`：箭头体起始格的 `(`——嵌套箭头的**内层形参表**
+（`x => (b) => b` / `(a) => (b) => a + b` 的 `(b)`）。
+
+判据只有一条结构位：`host.Data` 里紧邻本括号之前的非 trivia 单元是 `=>`。`=>` 有两种形态，
+两种都认（都只比类名 / 符号文本，不 import 表达式族）：
+
+- `Symbol("=>")`：声明还没收口（`let o = (a) => (b) => …` 的宿主是 `VariableDeclarationShape`）；
+- `EqualsGreaterThanTokenShape`：单标识符箭头已经被增量建成了 `ArrowFunctionShape`，
+  那一格的 `=>` 早就是形状（`x => (b) => b` 的内层 `(` 宿主是 `ArrowFunctionShape`）。
+
+`=>` 之后紧跟的 `(` **只可能**是内层箭头的形参表或一个分组括号：
+
+- 内层形参表：`)` 之后还有 `=>` ⇒ `Deferred` 条目在 `ParseFunctionParameters` 那一拍被 Bind（replay 一次）；
+- 分组括号（`x => (a) + 1`）：`)=>` 不成立 ⇒ 条目永远留在 `Pending`、**一次都不 replay**，
+  分组括号原路交 legacy 读 raw。
+
+所以这条规则与初始化器位那条同形：**只登记、不建**，`=>` 到达才确定（A2 §3 #4/#5 的同一条纪律）。
+
+```ts
+if (previous === null) {
+  return false;
+}
+if (host === null || host.Data.indexOf(previous) < 0) {
+  return false;
+}
+if (previous instanceof Symbol) {
+  return (previous as Symbol).Is("=>");
+}
+return previous instanceof ShapeToken
+  && previous.constructor.name === "EqualsGreaterThanTokenShape";
+```
+
 ## static method Classify:(host:Token, bracket:Bracket, context:SyntaxContext)=>BracketRoleResult
 
 **宿主规则表**：括号字符 + 宿主类名 + 语句族，返回 `Known`（角色与宿主都有）/ `Deferred`（差宿主）
@@ -702,6 +739,20 @@ if (startChar === "(") {
   if (BracketRoleResolver.IsExpressionHost(host)
     && BracketRoleResolver.IsAsyncArrowPrefix(host, parenPrevious)) {
     return BracketRoleResult.Deferred(BracketRole.ArrowParams, "async-arrow-paren-wait-for-arrow",
+      null, "ArrowFunctionShape");
+  }
+  // [B4f] **嵌套箭头的内层形参表**：`x => (b) => b` / `(a) => (b) => a + b` 的 `(b)`——前一个代码单元是 `=>`。
+  // 之前这一格落到 `Fallback("no-host-rule:VariableDeclarationShape(")`（内层不 replay，B4d §6 R2）。
+  // 与初始化器位同形：只登记 Deferred、不建；`)=>` 成立时由 `ParseFunctionParameters` 那一拍 Bind。
+  // 箭头体若是分组括号（`x => (a) + 1`），永远等不到 Bind ⇒ 条目留在 Pending，**不会误 replay**。
+  //
+  // **宿主**只放两类，不放宽 `IsExpressionHost`（那会把 CallArgs 等目录引进箭头体 / 类型位）：
+  // ① 表达式宿主（`let o = (a) => (b) => …` 的宿主是 `VariableDeclarationShape`）；
+  // ② `ArrowFunctionShape` 自己（`x => (b) => b`：单标识符箭头已被增量建成箭头形状，内层 `(` 的宿主是它）。
+  // 类型位（`type F = (a) => (b) => C`）的宿主是 `TypeAliasDeclarationShape` / 类型族，这里**一个都不认**。
+  if (BracketRoleResolver.IsArrowBodyPrefix(host, parenPrevious)
+    && (BracketRoleResolver.IsExpressionHost(host) || hostKey === "ArrowFunctionShape")) {
+    return BracketRoleResult.Deferred(BracketRole.ArrowParams, "nested-arrow-paren-wait-for-arrow",
       null, "ArrowFunctionShape");
   }
   // [B4b] **复合字面量里的元素 / 值位 `(` 同样是 Deferred**（A2 §3 #4/#5 的第二处）：
