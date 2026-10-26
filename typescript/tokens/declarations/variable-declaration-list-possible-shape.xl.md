@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionCatalogFactory } from "../expressions/expression-catalog-factory.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { VariableDeclarationEndPossibleShape } from "./variable-declaration-end-possible-shape.xl.md"
 import { VariableDeclarationListShape } from "./variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "./variable-declaration-shape.xl.md"
@@ -59,6 +60,12 @@ if (current instanceof Symbol) {
   if (text === ";" || text === ",") {
     return ShapeStates.Accept;
   }
+  if (text === "!" && !IncrementalVariableDeclarationListBuilder.HasEqualBefore(units, tokenIndex)) {
+    return ShapeStates.Accept;
+  }
+  if (text === "}" && IncrementalVariableDeclarationListBuilder.IsPatternBinding(units)) {
+    return ShapeStates.Accept;
+  }
 }
 return super.ComputeByIndex(units, tokenIndex, cache);
 ```
@@ -78,6 +85,13 @@ if (!(token instanceof Symbol)) {
 const text = (token as Symbol).TempToString();
 if (text === ",") {
   return IncrementalVariableDeclarationListBuilder.OpenNext(host as VariableDeclarationShape, context, tokenIndex);
+}
+if (text === "!") {
+  return IncrementalVariableDeclarationListBuilder.BuildDefinite(host as VariableDeclarationShape, context, tokenIndex);
+}
+if (text === "}") {
+  (host as VariableDeclarationShape).TryToClose(context);
+  return host;
 }
 if (text !== ";") {
   return token;
@@ -111,7 +125,7 @@ if (tokenIndex >= 0 && tokenIndex < units.length) {
   const unit = units[tokenIndex];
   if (!unit.IsTriviaToken && unit instanceof Symbol) {
     const text = (unit as Symbol).TempToString();
-    if (text === ";" || text === ",") {
+    if (text === ";" || text === "," || text === "!" || text === "}") {
       return ShapeStates.Reject;
     }
   }
@@ -367,3 +381,63 @@ list.MountedUnit = next;
 next.TryToClose(context);
 return next;
 ```
+
+## static method HasEqualBefore:(units:Array<Token>, tokenIndex:int)=>bool
+
+[WP-A6c] definite-assignment `!` only when no `=` has been seen before it in this declaration.
+
+```ts
+for (let at = 0; at < tokenIndex && at < units.length; at++) {
+  const unit = units[at];
+  if (unit instanceof Symbol && (unit as Symbol).Is("=")) {
+    return true;
+  }
+}
+return false;
+```
+
+## static method IsPatternBinding:(units:Array<Token>)=>bool
+
+[WP-A6c] first significant unit is an Array/ObjectBindingPatternShape (destructuring declaration).
+
+```ts
+for (const unit of units) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  const name = unit.constructor.name;
+  return name === "ArrayBindingPatternShape" || name === "ObjectBindingPatternShape";
+}
+return false;
+```
+
+## static method BuildDefinite:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
+
+[WP-A6c] definite assignment `let x!: T`: turn the `!` Symbol into `ExclamationTokenShape` in place.
+`Pos` = previous non-trivia `EndIndex` (C1); `src` = the symbol's own range (legacy `pos=5 src=[5,6)`).
+
+```ts
+const data = declaration.Data;
+const token = data[tokenIndex];
+if (!(token instanceof Symbol)) {
+  throw new Error("增量变量形状未支持：list 确定赋值缺少感叹号");
+}
+if ((token as Symbol).TempToString() !== "!") {
+  throw new Error("增量变量形状未支持：list 确定赋值符号 " + (token as Symbol).TempToString());
+}
+let previousEnd = -1;
+for (let at = tokenIndex - 1; at >= 0; at--) {
+  if (!data[at].IsTriviaToken) {
+    previousEnd = data[at].SourceRange.EndIndex;
+    break;
+  }
+}
+const shape = new ExclamationTokenShape(token.Template);
+shape.SignInToken(token);
+const tokenEnd = token.SourceRange.EndIndex;
+shape.SignOut(tokenEnd >= 0 ? tokenEnd : token.SourceRange.StartIndex + 1);
+shape.Pos = previousEnd >= 0 ? previousEnd : declaration.Pos;
+token.Replace(shape);
+return shape;
+```
+

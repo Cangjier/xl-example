@@ -10,6 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
 ```
 
@@ -140,7 +141,14 @@ if (!TypeCatalogFactory.CanEndType(lastTypeUnit)) {
 }
 // 落地：Data 变成 [IdentifierShape, TypeNode] + （如果有 `=`）`=` 之后的原样单元。
 const identifier = this.Data[TypeCatalogFactory.FirstSignificant(this.Data, 0)];
-const kept:Array<Token> = [identifier, typeNode];
+const kept:Array<Token> = [];
+for (let at = TypeCatalogFactory.FirstSignificant(this.Data, 0); at < colon; at++) {
+  if (this.Data[at].IsTriviaToken) {
+    continue;
+  }
+  kept.push(this.Data[at]);
+}
+kept.push(typeNode);
 if (equal > colon) {
   for (let at = equal; at < this.Data.length; at++) {
     kept.push(this.Data[at]);
@@ -259,6 +267,10 @@ for (let at = 0; at < this.Data.length; at++) {
     throw new Error("增量变量形状未支持：declaration 括号");
   }
   // [WP-A5] 非 basic 形状且还没有到 `=`：只可能是已建好的类型注解节点（每个声明最多一个）。
+  if (unit instanceof ExclamationTokenShape) {
+    kept.push(unit);
+    continue;
+  }
   if (annotation === null) {
     annotation = unit;
     kept.push(unit);

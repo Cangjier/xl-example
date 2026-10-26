@@ -166,5 +166,12 @@ statement.Parent = host;
 host.MountedUnit = statement;
 statement.MountedUnit = list;
 list.MountedUnit = declaration;
+if (binding instanceof Bracket) {
+  // [WP-A6c] Build runs at the closing bracket tick; Bracket.ExitOrPre calls Quit() right after
+  // TryToClose, and Quit() clears Parent.MountedUnit - that would detach the statement we just
+  // mounted. Nulling the bracket's Parent makes that Quit() a no-op so the mount chain survives
+  // until '=' / initializer / ';'.
+  (binding as Bracket).Parent = null;
+}
 return statement;
 ```
