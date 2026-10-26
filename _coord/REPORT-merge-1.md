@@ -120,11 +120,30 @@ HEAD 父提交：`b0207ee1` ← (`9e587bea`, `49fdb695`)。
 
 ## 7. 推送结果
 
-（本次提交后推送，结果见 REPORT-merge-1-push 追加段）
+- 命令：`git push C:\Users\Admin\Documents\GitHub\xl-example HEAD:refs/heads/refactor/token-time-shapes`
+- 结果：**成功**，exit 0，输出 `3a0623c3..ce8520de  HEAD -> refactor/token-time-shapes`
+- canonical 侧验证：
+  - `git -C <canonical> rev-parse refactor/token-time-shapes` → `ce8520dec10e19dd8821a40fca406c19af7d8fa6`
+  - canonical 当前分支仍为 `feature/all-possible` @ `3a0623c31d5c9d7528394f1ba2c63a2b9b70eb06`，`git status --porcelain` 为空（其工作区未被 checkout/改动）
+- 说明：推送后本报告追加了推送与清理结果，因此又产生一次 `docs(coord)` 提交并再次快进推送；**分支最终 HEAD 以第 9 节的最终 sha 为准。**
 
 ## 8. 清理结果
 
-（推送确认后执行，结果见追加段）
+- 前置确认：`Test-Path` 两个目标均为 True，且路径精确为
+  - `C:\Users\Admin\Documents\GitHub\xl-example-set\tts-harness`
+  - `C:\Users\Admin\Documents\GitHub\xl-example-set\tts-plan`
+- 执行：`Remove-Item -Recurse -Force` 上述两个目录（**仅这两个**，merge-stage 未删）
+- 结果：两个目录均已删除（`Test-Path` 均为 False）；`merge-stage` 仍存在（True）
+- canonical 分支检查：`git branch --list tts-harness tts-plan` 为空（从未在 canonical 中创建过这两个分支，无需 `branch -D`）；`refactor/token-time-shapes` 保留
+- 工作仓库总览：`xl-example-set` 下仅剩 `merge-stage`
+
+## 9. 最终状态
+
+- 暂存分支：`refactor/token-time-shapes`（merge-stage 本地与 canonical 一致）
+- 合并 + 报告后 HEAD（本报告第 1 次提交时）：`ce8520dec10e19dd8821a40fca406c19af7d8fa6`
+- 追加本段后 HEAD：见 `git -C <canonical> rev-parse refactor/token-time-shapes` 的最终输出（推送输出中记录）
+- 构建与基线：560 written / 3 条既有 E1107 warning；tsc exit 0（4.7 s，560 个 .js）；`npm run tts` 两次均 PASS 6 / FAIL 8 / 14 步（exit 1），stdout 逐字节一致
+- 冲突：无
 
 ## 9. 异常与备注
 
