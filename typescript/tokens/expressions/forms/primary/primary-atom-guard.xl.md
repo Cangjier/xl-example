@@ -162,32 +162,6 @@ while (at < count) {
 return true;
 ```
 
-## static method NextCodeChar:(unit:Token)=>string
-
-该单元之后第一个非空白字符（EOF 给空串）；给 A2 的「`/` 前让路」判据复用（`SourceRange.CurrentDocument` 是
-进程级静态登记，`ComputeByIndex` 拿不到 `context`，只能走这一条）。
-
-```ts
-const document = SourceRange.CurrentDocument;
-if (document === null) {
-  return "";
-}
-const count = document.GetCount();
-let at = unit.SourceRange.EndIndex;
-if (at < 0) {
-  return "";
-}
-while (at < count) {
-  const ch = document.GetRaw(at, at + 1);
-  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\u2028" || ch === "\u2029") {
-    at += 1;
-    continue;
-  }
-  return ch;
-}
-return "";
-```
-
 ## static method IsLoneAtom:(units:Array<Token>, tokenIndex:int, context:SyntaxContext, allowTemplate:bool)=>bool
 
 两道闸门的合取：初始化器第一个代码单元 + 之后只剩收口。
