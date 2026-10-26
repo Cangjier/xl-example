@@ -11,12 +11,18 @@
 // 剔除**不是**少扫几个文件：`distOnlyKinds` 断言（见下）在每一趟都复算一次，只有它 == 0
 // 才允许剔除，否则剔除会悄悄丢掉一种节点种类。
 //
-//   node tests/parse/wide-ast.mjs                 # 门禁：任一崩溃 / 差异 / 缺 range / 越界 → 退出码 1
+//   node tests/parse/wide-ast.mjs                 # **默认档 = incremental**（产品默认就是增量形状）
+//   node tests/parse/wide-ast.mjs --legacy        # 对照档：两开关压回 false（0 / 0 / ≤2）
 //   node tests/parse/wide-ast.mjs --verbose       # 逐文件展开差异明细
 //   node tests/parse/wide-ast.mjs --per-file      # 每个文件一行状态（排障用）
 //   node tests/parse/wide-ast.mjs --top 20        # 失败清单 / 目录族只印前 20 条（0 = 不限）
 //   node tests/parse/wide-ast.mjs --only <子串>   # 只跑路径匹配的文件（定位用）
-//   node tests/parse/wide-ast.mjs --incremental-on  # 增量形状两开关 ON（incremental 档，见下）
+//   node tests/parse/wide-ast.mjs --incremental-on  # 显式点名默认档（保留的别名，与 --legacy 互斥）
+//
+// **两档（D7 波改口径）**：产品默认值翻成 `true` 之后，本门的**默认档就是 incremental**，
+// 读数不再靠门外拨开关；判据按 `tests/parse/incremental-crash-expected.mjs` 那一份清单：
+// 崩溃 ≤5 **且全部**是那 5 条外部 `lib.*.d.ts`、差异 ≤87、fallback ≤94（78 本仓 + 16 白名单），
+// **`policyProblems === 0` 即 exit 0**。legacy 档（`--legacy`）仍是 0 / 0 / ≤2、任一非 0 即红。
 //
 // **唯一 cjAst 口径**：本门**不再抄一份投影代码**，TS 侧 `tsAst` 与产物侧 `cjAst` 全部
 // 从 `typescript/cases/ast-compare.mjs` import（与 ast-json / ast-json-diff / real-dts-ast 同源）。
@@ -65,6 +71,14 @@ import {
   FIELD_NAMES,
   fieldOf,
 } from "../../typescript/cases/ast-compare.mjs";
+// **清单与天花板只写在这一处**（D7 波）：`real-dts-ast` 读的是同一份 —— 两处各抄一份就会漂，
+// 漂了的症状正是「白名单悄悄多一条」，那正是 W4 / D5 §3 要防的事。
+import {
+  INCREMENTAL_CRASH_EXPECTED,
+  expectedCrashList,
+  policyOf,
+  unexpectedCrashes,
+} from "./incremental-crash-expected.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..");
@@ -122,12 +136,15 @@ const top = Number.isFinite(topRaw) && topRaw > 0 ? Math.floor(topRaw) : 0; // 0
 const only = value("--only", "") || null;
 const show = (list) => (top > 0 ? list.slice(0, top) : list);
 
-// **incremental 档的那两个开关**（第 W4 波）：以前只有 `tmp/wide-on.mjs` 能在门外把它们拨开，
-// 而 `tmp/` 不进仓库 ⇒ 这道门的 ON 读数没有可以版本化的入口。现在它就是本文件的一个开关，
-// 拨法与 `tmp/wide-on.mjs` 逐字等价（在 `Parse` 第一次被调用之前写静态字段）。
-// **默认不拨**：默认档的门是 0/0/≤2，ON 档今天的读数是 20/87/94，拨开就红（见 _reports/W4.md）。
+// **两档怎么拨（D7 波）**：产品默认值已经是增量（两个开关 `true`），所以**默认档什么都不写** ——
+// 读数必须反映真实默认路径，否则门量的又变成门外拨出来的那一套。`--legacy` 在进程内把两个开关
+// 压回 `false`（对照档 0/0/≤2）；`--incremental-on` 保留为「显式点名默认档」的别名（互斥，后写生效）。
+const legacyFlag = flag("--legacy");
 const incrementalFlag = flag("--incremental-on");
-if (incrementalFlag) {
+if (legacyFlag) {
+  StatementRouteUtil.EnableIncrementalShapes = false;
+  StatementRouteUtil.EnableIncrementalVariableShapes = false;
+} else if (incrementalFlag) {
   StatementRouteUtil.EnableIncrementalShapes = true;
   StatementRouteUtil.EnableIncrementalVariableShapes = true;
 }
@@ -344,24 +361,17 @@ const fallbackFamilies = new Map();
 const allowlistHit = new Set();
 const allowlistStale = [];
 // **阈值按量尺分档**（同一件事在两把尺子上差两个数量级，写死一条就是错的红线）：
-//   · 默认档（本门默认读数）：crash 0 / diff 0 / fallback ≤ 2；
-//   · incremental 档（`--incremental-on`，D5 §3.5 与 §4 的目标值）：
-//     crash ≤ 5（且 5 条必须全在 `lib.*.d.ts` 那份预期清单里）/ diff ≤ 87 / fallback ≤ 94。
-//     今天的读数是 crash 20 / diff 87 / fallback 94 ⇒ **只满足后两条**，所以这一档默认不启用。
+//   · incremental 档（**D7 起是默认档**，产品默认就是增量形状）：崩溃 ≤5（且 5 条必须**全在**
+//     `lib.*.d.ts` 那份预期清单里）/ 差异 ≤87 / fallback ≤94（78 本仓 + 16 白名单）；
+//   · legacy 档（`--legacy`，对照用）：崩溃 0 / 差异 0 / fallback ≤2 —— D3e 的老口径，一个字没松。
+// 清单与三个天花板都来自 `./incremental-crash-expected.mjs`（real-dts-ast 读同一份）。
 const incrementalOn =
   StatementRouteUtil.EnableIncrementalShapes === true || StatementRouteUtil.EnableIncrementalVariableShapes === true;
-const FALLBACK_BASELINE = incrementalOn ? 94 : 2;
-const DIFF_CEILING = incrementalOn ? 87 : 0;
-const CRASH_CEILING = incrementalOn ? 5 : 0;
-// **crash 的那 5 条预期**（D5 §1.1 的 B1 桶）：incremental 档允许 ≤5，但**只许是这 5 个文件**——
-// 「少 5 条崩溃」不许是「换 5 条别的文件崩」。
-const INCREMENTAL_CRASH_EXPECTED = [
-  "node_modules/typescript/lib/lib.es2015.proxy.d.ts",
-  "node_modules/typescript/lib/lib.es2017.object.d.ts",
-  "node_modules/typescript/lib/lib.es2019.object.d.ts",
-  "node_modules/typescript/lib/lib.es2024.sharedmemory.d.ts",
-  "node_modules/typescript/lib/lib.esnext.typedarrays.d.ts",
-];
+const {
+  crashCeiling: CRASH_CEILING,
+  diffCeiling: DIFF_CEILING,
+  fallbackCeiling: FALLBACK_BASELINE,
+} = policyOf(incrementalOn);
 
 
 const crashLabels = [];
@@ -468,7 +478,9 @@ console.log(
 // **记号形状**：不计入 AST，只报数量当证据 —— 0 说明这一趟走的是默认路径（没有增量形状残留）。
 console.log(
   `记号形状（basic-token，按 isAstShape 不计入 AST）：${tokenTotal} 个` +
-    (tokenTotal > 0 ? `；它们本来是「未映射」与假结构差的来源` : "；本趟默认路径没有残留"),
+    (tokenTotal > 0
+      ? `；这是增量形状路径的记号残留（${incrementalOn ? "incremental 档正常" : "legacy 档却出现了 —— 异常"}）`
+      : "；本趟没有记号形状残留"),
 );
 console.log(
   `distOnlyKinds ${distOnlyKinds.length}（dist/ts ${distTsFiles.length} 件只当证据、不进语料：` +
@@ -478,12 +490,12 @@ console.log(
 // **隐性债**：`FileFallbackCount` 是本仓库基线的口径（`dist/ts` 已剔出、白名单外部文件单列）。
 console.log(
   `FileFallbackCount ${fileFallbackCount}（靠 EnableFileFallback legacy 重解析才通过的文件数；` +
-    `天花板 ${FALLBACK_BASELINE}${incrementalOn ? "，incremental 档 / D5 §3.5 的 94" : "，默认档 / D3e 实测"}）`,
+    `天花板 ${FALLBACK_BASELINE}${incrementalOn ? "，incremental 档（默认）= 78 本仓 + 16 白名单" : "，legacy 档 / D3e 实测"}）`,
 );
 console.log(
   `ExternalFallbackCount ${externalFallbackCount}（白名单外部 vendor：登记 ${allowlist.entries.size} 件、` +
     `这趟命中 ${allowlistHit.size} 件；不计入上面的基线` +
-    (incrementalOn ? "）" : " —— 默认档这 16 件本来就不走 fallback，白名单只在 incremental 档起作用）"),
+    (incrementalOn ? "）" : " —— legacy 档这 16 件本来就不走 fallback，白名单只在 incremental 档起作用）"),
 );
 console.log(
   `FileFallbackAttempts ${StatementRouteUtil.FileFallbackCount}（Parse 层 fallback 尝试次数，含救不回的崩溃）`,
@@ -527,13 +539,20 @@ if (crashed > CRASH_CEILING) {
   policyProblems.push(`崩溃 ${crashed} > 天花板 ${CRASH_CEILING}`);
 }
 // incremental 档的崩溃**只许是那 5 个外部 `lib.*.d.ts`**：换了文件崩就是新缺口，不许拿「总数没涨」糊过去。
-if (incrementalOn) {
-  const unexpected = crashLabels.filter((label) => !INCREMENTAL_CRASH_EXPECTED.includes(label));
-  if (unexpected.length > 0) {
-    policyProblems.push(
-      `incremental 档有 ${unexpected.length} 条崩溃不在 lib.*.d.ts 预期清单里：` + unexpected.slice(0, 5).join("、"),
-    );
-  }
+const unexpectedCrashLabels = unexpectedCrashes(crashLabels, incrementalOn);
+if (unexpectedCrashLabels.length > 0) {
+  policyProblems.push(
+    `${incrementalOn ? "incremental" : "legacy"} 档有 ${unexpectedCrashLabels.length} 条崩溃不在预期清单里：` +
+      unexpectedCrashLabels.slice(0, 5).join("、"),
+  );
+}
+// **地基在增量档也必须是 0**：这一条以前靠 `broken` 兜着（它对两档都生效），D7 把「是否 exit 0」
+// 收到 `policyProblems` 之后，它必须也进这个数组 —— 否则「policyProblems 0 就绿」会顺手放过缺 range。
+// legacy 档仍由下面的 `broken` 判，这里只在增量档重复登记一次（同一格，不重复计数）。
+if (incrementalOn && missingRangeTotal + outOfBoundsTotal > 0) {
+  policyProblems.push(
+    `地基：缺 range ${missingRangeTotal} 处、区间越界 ${outOfBoundsTotal} 处（incremental 档也必须是 0）`,
+  );
 }
 
 if (families.size > 0) {
@@ -547,12 +566,19 @@ if (failures.length > 0) {
   for (const line of show(failures)) console.log(`  ${line}`);
 }
 
-const broken = crashed + diffed + missingRangeTotal + outOfBoundsTotal;
+// **判据（D7 波改口径）**：增量档「能不能绿」只看 `policyProblems` —— 它已经是那一档的**全部**判据：
+// 崩溃天花板 + 5 条 `lib.*.d.ts` 白名单（逐字比对）、差异天花板、fallback 天花板、`distOnlyKinds`、
+// 白名单卫生，外加缺 range / 越界。5 条 lib 崩溃与 32 条差异是**登记在案的读数**，不是回归：
+// 让它们把整道门永久判红，只会让新冒出来的失败淹没在同一片红里（D5 §5.1、M-W6 §4.1 的口径冲突）。
+// legacy 档还是老规矩：崩溃 + 差异 + 地基 > 0 即红（0 / 0 / ≤2）。
+const broken = incrementalOn ? 0 : crashed + diffed + missingRangeTotal + outOfBoundsTotal;
 if (broken > 0 || policyProblems.length > 0) {
   console.log(
-    `FAIL 宽尺子：崩溃 ${crashed}、有差异 ${diffed}、缺 range ${missingRangeTotal}、越界 ${outOfBoundsTotal}` +
-      `（${incrementalOn ? "incremental" : "default"} 档天花板：崩溃 ${CRASH_CEILING}、差异 ${DIFF_CEILING}、fallback ${FALLBACK_BASELINE}）`,
+    `FAIL 宽尺子（${incrementalOn ? "incremental" : "legacy"} 档）：崩溃 ${crashed}/${CRASH_CEILING}、` +
+      `有差异 ${diffed}/${DIFF_CEILING}、缺 range ${missingRangeTotal}、越界 ${outOfBoundsTotal}、` +
+      `fallback ${fileFallbackCount}+${externalFallbackCount}=${fileFallbackCount + externalFallbackCount}/${FALLBACK_BASELINE}`,
   );
+  if (incrementalOn) console.log(`  预期崩溃清单（只许减）：${expectedCrashList()}`);
   if (policyProblems.length > 0) {
     console.log(`FAIL 口径：${policyProblems.length} 条`);
     for (const problem of policyProblems) console.log(`  ${problem}`);
@@ -560,7 +586,10 @@ if (broken > 0 || policyProblems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `PASS 宽尺子：全部解析成功、崩溃 0、AST 逐节点一致、地基 0 处（${incrementalOn ? "incremental" : "default"} 档：` +
-    `差异 ${diffed}/${DIFF_CEILING}、fallback ${fileFallbackCount}/${FALLBACK_BASELINE}、distOnlyKinds 0）`,
+  `PASS 宽尺子（${incrementalOn ? "incremental" : "legacy"} 档）：崩溃 ${crashed}/${CRASH_CEILING}` +
+    (incrementalOn ? `（全在预期清单：${expectedCrashList()}）` : "") +
+    `、差异 ${diffed}/${DIFF_CEILING}、fallback ${fileFallbackCount}+${externalFallbackCount}=` +
+    `${fileFallbackCount + externalFallbackCount}/${FALLBACK_BASELINE}、缺 range ${missingRangeTotal}、` +
+    `越界 ${outOfBoundsTotal}、distOnlyKinds ${distOnlyKinds.length}、policyProblems ${policyProblems.length}`,
 );
 process.exit(0);
