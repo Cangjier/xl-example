@@ -25,7 +25,9 @@ legacy EOF 口径（`expr-probe` 实测）：`IdentifierShape  pos=7  src=[8,9) 
 
 **与相邻候选的互斥（否则同一格两个 `Accept` ⇒ `Candidates` 永远 >1 ⇒ 建不出来）**：数字（含 bigint）归
 `NumericLiteralPossibleShape` / `BigIntLiteralPrimaryPossibleShape`，`true`/`false`/`null` 归
-`KeywordLiteralPrimaryPossibleShape`，`this` 归 `ThisPrimaryPossibleShape`；本候选对它们一律 `Reject`。
+`KeywordLiteralPrimaryPossibleShape`，`this` 归 `ThisPrimaryPossibleShape`，关键字运算符 `in` / `instanceof` 归
+A2 的 `BinaryOperatorPossibleShape`（A1b：本候选若在它们那一格也 `Accept`，会与 A2 候选同格并列 ⇒ 永远 `Waiting`）；
+本候选对它们一律 `Reject`。
 
 **约束①（E0b 实测）**：`=` 与 trivia 必须 `Uncertain`——`CatalogGuide` 只在建出形状后 `Reset`，中途 `Reject`
 的候选本条目内不会回来。
@@ -69,7 +71,7 @@ const common = unit as Common;
 if (common.IsBigInt() || common.IsNumber()) {
   return ShapeStates.Reject;
 }
-if (common.IsAny(["true", "false", "null", "this"])) {
+if (common.IsAny(["true", "false", "null", "this", "in", "instanceof"])) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -93,7 +95,7 @@ if (!(unit instanceof Common)) {
   return false;
 }
 const common = unit as Common;
-if (common.IsBigInt() || common.IsNumber() || common.IsAny(["true", "false", "null", "this"])) {
+if (common.IsBigInt() || common.IsNumber() || common.IsAny(["true", "false", "null", "this", "in", "instanceof"])) {
   return false;
 }
 return PrimaryAtomGuard.IsLoneAtom(units, tokenIndex, context, true);
@@ -109,7 +111,7 @@ const token = host.Data[tokenIndex];
 if (!(token instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 标识符");
 }
-if (token.IsBigInt() || token.IsNumber() || token.IsAny(["true", "false", "null", "this"])) {
+if (token.IsBigInt() || token.IsNumber() || token.IsAny(["true", "false", "null", "this", "in", "instanceof"])) {
   throw new Error("增量变量形状未支持：expression 标识符 " + token.TempToString());
 }
 const shape = IdentifierShape.FromBasicToken(token, context);
