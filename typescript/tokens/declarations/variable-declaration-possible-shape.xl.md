@@ -10,7 +10,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { VariableStatementShape } from "../statements/variable-statement-shape.xl.md"
-import { VariableDeclarationEndPossibleShape } from "./variable-declaration-end-possible-shape.xl.md"
+import { VariableDeclarationListEndPossibleShape } from "./variable-declaration-list-possible-shape.xl.md"
 import { VariableDeclarationListShape } from "./variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "./variable-declaration-shape.xl.md"
 ```
@@ -128,9 +128,10 @@ const identifier = IdentifierShape.FromBasicToken(binding as Common, context);
 identifier.Pos = declaration.Pos;
 declaration.Add(identifier);
 // C8：新增 possible 用 cache（`CatalogGuide` 自带）；终结候选是本模式自己的声明收口候选。
-// 表达式候选目录由 `ExpressionCatalogFactory` 提供——WP-A 阶段是空 stub，WP-C 负责填充。
+// WP-A6：终结候选换成 `VariableDeclarationListEndPossibleShape`（认识 `;` 收口 / 多声明 `,`），
+// 表达式候选目录由 `ExpressionCatalogFactory` 提供（E0b 之后是 E-base 目录的转调）。
 declaration.CatalogGuide = new CatalogGuide(ExpressionCatalogFactory.Create(),
-  new VariableDeclarationEndPossibleShape());
+  new VariableDeclarationListEndPossibleShape());
 list.Add(declaration);
 statement.Add(list);
 data.splice(start, 0, statement);
