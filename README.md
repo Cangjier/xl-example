@@ -206,8 +206,8 @@ node samples/check.mjs --update # 用当前产物重写夹具
 ```bash
 npm run ast:cases         # 语料：ast-json 生成快照 + ast-json-diff 逐条对拍（当前 6171/6171）
 npm run ast:dts           # 真实 .d.ts 门禁：226 份全部解析成功且 AST 逐节点一致
-npm run ast:wide          # 宽尺子：2505 件语料（node_modules .d.ts + dist/ts + samples + tests/cases/token），
-                          # 解析成功 2494 / 跳过 TS 非法 11 / 差异 0 / 崩溃 0
+npm run ast:wide          # 宽尺子：1945 件语料（node_modules .d.ts + samples + tests/cases/token；dist/ts 只当证据），
+                          # 崩溃 0 / 差异 33 / fallback 85+13=98（1945 件语料，dist/ts 已剔除）
 npm run ast:verify        # 上面三条一起跑（需要先 npm run build）
 ```
 
@@ -218,7 +218,7 @@ npm run cases:check     # 语料文件头 / 用例格式体检
 npm run gates           # 11 道门一次跑完：4 道适用门全绿，7 道结构上不适用（N/A，按跳过计，exit 0）
 ```
 
-其中 4 道适用门是 `cases:check`、`direct:lint`、`wide-ast`（2505 件、差异 0）与
+其中 4 道适用门是 `cases:check`、`direct:lint`、`wide-ast`（1945 件、崩溃 0、差异 33）与
 `real-dts-ast`（226/226）；另外 7 道（`runtime:check` / `runtime:cli` / `cases:tsast` /
 `cases:direct` / `samples` / `coverage` / `cpp:check`）要读的源 / 产物在本仓库根本不存在，
 `gates` 会把它们打印成 `NOT-APPLICABLE（原因）` 并计入跳过、而不是失败；清单、原因与证据见

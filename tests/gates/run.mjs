@@ -340,7 +340,7 @@ console.log(
 // **档位也要在结尾说一句**：两种档都是 11 道 / 4 通过 / 0 失败 / 7 不适用 —— 数对不上时，
 // 先看这一行再怀疑门（`wide-ast` 与 `real-dts-ast` 在对照档里各多一个 `--legacy`，门数不变）。
 console.log(
-  `（档位：${legacy ? "legacy 对照档（0/0/≤2）" : "incremental 默认档（5 条 lib 预期崩溃 + 32 差异 + 94 fallback 是登记在案的读数）"}；` +
+  `（档位：${legacy ? "legacy 对照档（0/0/≤2）" : "incremental 默认档（崩溃 0 + 差异 33 + fallback 85(+外部 13) 是登记在案的读数）"}；` +
     "清单见 tests/parse/incremental-crash-expected.mjs）",
 );
 // **不适用的理由在门那一行已经印过一遍了**，这里只再说一句「它不掩盖真实失败」。

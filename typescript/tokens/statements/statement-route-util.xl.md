@@ -88,8 +88,8 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 **为什么现在默认开**（D7 决策，接 W4 / W5 / W6 的三道读数）：
 
-- 增量路径的已知缺口已经收窄到可验收的量：宽语料下崩溃 5 条**全部**是外部 vendor
-  `lib.*.d.ts`（`INCREMENTAL_CRASH_EXPECTED` 逐字登记）、差异 32 ≤ 87、fallback 94 ≤ 94，
+- 增量路径的已知缺口已经收窄到可验收的量：宽语料下崩溃 **0** 条（预期清单已清空；原先 5 条全是外部 vendor
+  `lib.*.d.ts`（`INCREMENTAL_CRASH_EXPECTED` 逐字登记）、差异 33（天花板 33）、fallback 85 + 外部白名单 13 = 98，
   且 `policyProblems` 0 条 —— 再让它躺在默认开关后面，等于「修好的路径没人走」。
 - 未支持的后续形态仍按 C10 全有或全无：**显式抛错**，由 `SourceFileRunner.Parse` 的
   整文件 legacy 重解析兜底（`ParseCore(shell=false)` 在 `finally` 里把本字段与

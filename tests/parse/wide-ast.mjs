@@ -490,12 +490,12 @@ console.log(
 // **隐性债**：`FileFallbackCount` 是本仓库基线的口径（`dist/ts` 已剔出、白名单外部文件单列）。
 console.log(
   `FileFallbackCount ${fileFallbackCount}（靠 EnableFileFallback legacy 重解析才通过的文件数；` +
-    `天花板 ${FALLBACK_BASELINE}${incrementalOn ? "，incremental 档（默认）= 78 本仓 + 16 白名单" : "，legacy 档 / D3e 实测"}）`,
+    `天花板 ${FALLBACK_BASELINE}${incrementalOn ? "，incremental 档（默认）= 85 本仓 + 13 白名单（外部单列，不计入天花板）" : "，legacy 档 / D3e 实测"}）`,
 );
 console.log(
   `ExternalFallbackCount ${externalFallbackCount}（白名单外部 vendor：登记 ${allowlist.entries.size} 件、` +
     `这趟命中 ${allowlistHit.size} 件；不计入上面的基线` +
-    (incrementalOn ? "）" : " —— legacy 档这 16 件本来就不走 fallback，白名单只在 incremental 档起作用）"),
+    (incrementalOn ? "）" : " —— legacy 档这 13 件本来就不走 fallback，白名单只在 incremental 档起作用）"),
 );
 console.log(
   `FileFallbackAttempts ${StatementRouteUtil.FileFallbackCount}（Parse 层 fallback 尝试次数，含救不回的崩溃）`,
@@ -567,8 +567,8 @@ if (failures.length > 0) {
 }
 
 // **判据（D7 波改口径）**：增量档「能不能绿」只看 `policyProblems` —— 它已经是那一档的**全部**判据：
-// 崩溃天花板 + 5 条 `lib.*.d.ts` 白名单（逐字比对）、差异天花板、fallback 天花板、`distOnlyKinds`、
-// 白名单卫生，外加缺 range / 越界。5 条 lib 崩溃与 32 条差异是**登记在案的读数**，不是回归：
+// 崩溃天花板 + 空崩溃清单（逐字比对）、差异天花板、fallback 天花板、`distOnlyKinds`、
+// 白名单卫生，外加缺 range / 越界。33 条差异与 85 件 fallback 是**登记在案的读数**，不是回归：
 // 让它们把整道门永久判红，只会让新冒出来的失败淹没在同一片红里（D5 §5.1、M-W6 §4.1 的口径冲突）。
 // legacy 档还是老规矩：崩溃 + 差异 + 地基 > 0 即红（0 / 0 / ≤2）。
 const broken = incrementalOn ? 0 : crashed + diffed + missingRangeTotal + outOfBoundsTotal;

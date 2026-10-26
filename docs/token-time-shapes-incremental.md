@@ -9,12 +9,12 @@
 唯一静态开关（`typescript/tokens/statements/statement-route-util.xl.md`）：
 
 ```ts
-StatementRouteUtil.EnableIncrementalVariableShapes: bool = false   // 默认 false
+StatementRouteUtil.EnableIncrementalVariableShapes: bool = true    // 默认 true
 StatementRouteUtil.IsIncrementalVariableShapesEnabled(): bool      // 读开关的唯一入口
 ```
 
-- **默认 `false`**：默认解析路径 = 旧的「`StatementShape` 空壳 → EOF 时 `StatementBuilder` 原子建树」，
-  与重构前逐字节相同（1723 文件语料 0 差异即证据）。
+- **默认 `true`**（D7 波起，增量形状是产品默认）：旧的「`StatementShape` 空壳 → EOF 时 `StatementBuilder` 原子建树」
+  只剩 `--legacy` 复核档。当前读数（语料 1945，`dist/ts` 已剔除）：崩溃 **0**、差异 **33**、fallback **85 + 白名单外部 13 = 98**；`--legacy` **0 / 0 / ≤2**。天花板与清单都在 `tests/parse/incremental-crash-expected.mjs`（预期崩溃清单**已清空**）。
 - 只在目标用例工具里打开（`tests/parse/token-time-shapes.mjs`）：
 
 ```powershell

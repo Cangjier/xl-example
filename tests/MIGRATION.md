@@ -82,7 +82,7 @@ git diff feature/print-direct-ast -- tests     # 唯一一处新增就是本文�
 - 汇总结论行分开印「通过 / 失败 / 不适用」三个数；**适用门全绿时 exit 0**。
   `--verbose` 仍然保留每一门的输出尾巴。
 - 当前读数：**11 道门 = 4 通过 + 7 不适用，exit 0**。4 道通过的是 `cases:check`（1720/0）、
-  `direct:lint`（0 处违反）、`wide-ast`（2494/2494，差异 0）与 `real-dts-ast`（226/226）。
+  `direct:lint`（0 处违反）、`wide-ast`（1945 件、崩溃 0、差异 33）与 `real-dts-ast`（226/226）。
 
 **按 R7 收口口径，不为这些门补源文件**：`dawn/`、`runtime/`、`tsrun.xl.md`、
 `print-ast-common.xl.md` 都属另一条产物线，搬进来远超本次验收范围。
@@ -94,7 +94,7 @@ git diff feature/print-direct-ast -- tests     # 唯一一处新增就是本文�
 
 | 门 | 命令 | 语料 / 判据 | 依赖 |
 | --- | --- | --- | --- |
-| `wide-ast` | `npm run ast:wide`（`node tests/parse/wide-ast.mjs`） | 2505 件：node_modules `.d.ts` 226 + `dist/ts/**` 560 + `samples/**` 3 + `tests/cases/token/**` 1716；跳过 TS 自己非法的 11 件；四方向（结构 / 位置 / 字段）+ 地基（缺 range / 越界 / 未映射）全 0 | `build/ts/typescript/run/source-file-runner.js`（`npm run build`） |
+| `wide-ast` | `npm run ast:wide`（`node tests/parse/wide-ast.mjs`） | 1945 件（`dist/ts/**` 560 件只当证据、已剔除）：node_modules `.d.ts` 226 + `samples/**` 3 + `tests/cases/token/**` 1716；四方向（结构 / 位置 / 字段）+ 地基（缺 range / 越界 / 未映射）全 0 | `build/ts/typescript/run/source-file-runner.js`（`npm run build`） |
 | `real-dts-ast` | `npm run ast:dts`（同一支 `ast:dts`；门名 `real-dts-ast`） | node_modules 226 件真实 `.d.ts`；结构 / 位置 / 字段三栏 | 同上 |
 
 **为什么现在才进池子**：`wide-ast` 是宽尺子（`_coord/diag-wide-ast.mjs` 的正式收编），
@@ -164,7 +164,7 @@ npm run compile     # dist/ts → build/ts
 
 ```bash
 npm run cases:check      # 语料体检：1720 条用例 0 条不合格（不依赖构建）
-npm run ast:wide         # 宽尺子：2505 件语料，解析成功 2494、差异 0（需要先 npm run build）
+npm run ast:wide         # 宽尺子：1945 件语料（dist/ts 剔除），崩溃 0 / 差异 33 / fallback 85+13（需要先 npm run build）
 ```
 
 等上面「缺什么」那几样落地、并且产物按本分支重建之后：
