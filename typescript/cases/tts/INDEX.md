@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **72** 条 case：throw 53 / atomic 14 / partial 5 / incremental 0
+共 **68** 条 case：throw 49 / atomic 14 / partial 5 / incremental 0
 
 ## throw
 
@@ -27,9 +27,7 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `throw/expressions/angle-assert.ts` | 增量变量形状未支持：declaration 符号 < |  |
 | `throw/expressions/arrow-single.ts` | 增量变量形状未支持：declaration 符号 => |  |
-| `throw/expressions/as-const.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/bin-add-mul.ts` | 增量变量形状未支持：expression 新运算符结合更紧（优先级 14） |  |
 | `throw/expressions/bin-paren-mul.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ref-call.ts` | 增量变量形状未支持：declaration 括号 |  |
@@ -79,10 +77,8 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `throw/types/angle-assertion.ts` | 增量变量形状未支持：declaration 符号 < |  |
 | `throw/types/destructure-array-annotation.ts` | 不支持的表达式起点 |  |
 | `throw/types/destructure-object-annotation.ts` | 不支持的表达式起点 |  |
-| `throw/types/generic-arrow-typed-param.ts` | 增量变量形状未支持：declaration 符号 < |  |
 | `throw/types/nonnull-assertion.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 
 ## atomic
