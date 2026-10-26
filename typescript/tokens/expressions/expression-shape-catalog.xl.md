@@ -23,6 +23,8 @@ import { OptionalChainPossibleShape } from "./forms/postfix/optional-chain-possi
 import { NonNullPossibleShape } from "./forms/postfix/non-null-possible-shape.xl.md"
 import { MetaPropertyPossibleShape } from "./forms/postfix/meta-property-possible-shape.xl.md"
 import { SuperPrimaryPossibleShape } from "./forms/postfix/super-primary-possible-shape.xl.md"
+import { CallPossibleShape } from "./forms/postfix/call-possible-shape.xl.md"
+import { NewPossibleShape } from "./forms/postfix/new-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -166,4 +168,6 @@ CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
   NonNullPossibleShape.AppendTo(shapes); // [P1]
   MetaPropertyPossibleShape.AppendTo(shapes); // [P1]
   SuperPrimaryPossibleShape.AppendTo(shapes); // [P1]
+  CallPossibleShape.AppendTo(shapes); // [P2]
+  NewPossibleShape.AppendTo(shapes); // [P2]
 ```

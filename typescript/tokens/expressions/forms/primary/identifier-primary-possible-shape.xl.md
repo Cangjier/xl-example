@@ -71,7 +71,7 @@ const common = unit as Common;
 if (common.IsBigInt() || common.IsNumber()) {
   return ShapeStates.Reject;
 }
-if (common.IsAny(["true", "false", "null", "this", "in", "instanceof"])) {
+if (common.IsAny(["true", "false", "null", "this", "new", "in", "instanceof"])) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -95,7 +95,7 @@ if (!(unit instanceof Common)) {
   return false;
 }
 const common = unit as Common;
-if (common.IsBigInt() || common.IsNumber() || common.IsAny(["true", "false", "null", "this", "in", "instanceof"])) {
+if (common.IsBigInt() || common.IsNumber() || common.IsAny(["true", "false", "null", "this", "new", "in", "instanceof"])) {
   return false;
 }
 return PrimaryAtomGuard.IsLoneAtom(units, tokenIndex, context, true);
@@ -111,7 +111,7 @@ const token = host.Data[tokenIndex];
 if (!(token instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 标识符");
 }
-if (token.IsBigInt() || token.IsNumber() || token.IsAny(["true", "false", "null", "this", "in", "instanceof"])) {
+if (token.IsBigInt() || token.IsNumber() || token.IsAny(["true", "false", "null", "this", "new", "in", "instanceof"])) {
   throw new Error("增量变量形状未支持：expression 标识符 " + token.TempToString());
 }
 const shape = IdentifierShape.FromBasicToken(token, context);
