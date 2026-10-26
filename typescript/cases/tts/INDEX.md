@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **89** 条 case：throw 63 / atomic 22 / partial 4 / incremental 0
+共 **80** 条 case：throw 53 / atomic 22 / partial 5 / incremental 0
 
 ## throw
 
@@ -14,21 +14,14 @@
 | `throw/declarations/let-array-destructure-rest.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/declarations/let-array-destructure.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/declarations/let-array-init.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/declarations/let-arrow-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/declarations/let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/declarations/let-definite-assignment.ts` | 增量变量形状未支持：declaration 符号 ! |  |
-| `throw/declarations/let-exponent-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/declarations/let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/declarations/let-object-destructure-default.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/declarations/let-object-destructure-nested.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/declarations/let-object-destructure.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/declarations/let-parenthesized-init.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/declarations/let-semicolon-binding.ts` | 增量变量形状未支持：declaration 符号 ; |  |
-| `throw/declarations/let-semicolon-number.ts` | 增量变量形状未支持：declaration 符号 ; |  |
-| `throw/declarations/let-subtract-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/declarations/let-ternary-init.ts` | 增量变量形状未支持：declaration 符号 ? |  |
-| `throw/declarations/let-two-declarations.ts` | 增量变量形状未支持：declaration 符号 , |  |
-| `throw/declarations/var-two-initialized.ts` | 增量变量形状未支持：declaration 符号 , |  |
 
 ### expressions
 
@@ -68,8 +61,6 @@
 | `throw/lexical/comment-block-after-operator.ts` | 增量变量形状未支持：expression 右操作数 |  |
 | `throw/lexical/let-init-bang.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 | `throw/lexical/let-init-member-keyword.ts` | 增量变量形状未支持：declaration 符号 . |  |
-| `throw/lexical/let-init-multi-decl.ts` | 增量变量形状未支持：declaration 符号 , |  |
-| `throw/lexical/let-init-semicolon.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/lexical/let-init-unary-plus.ts` | 增量变量形状未支持：declaration 符号 + |  |
 
 ### statements
@@ -80,7 +71,6 @@
 | `throw/statements/do-while-let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/statements/if-block-let-destructuring.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/statements/if-block-let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
-| `throw/statements/if-block-let-semicolon.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/statements/label-block-let-unary-init.ts` | 增量变量形状未支持：declaration 符号 - |  |
 | `throw/statements/try-block-let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
 | `throw/statements/while-block-let-close-brace.ts` | 增量变量形状未支持：declaration 符号 } |  |
@@ -140,6 +130,12 @@
 | `atomic/types/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ## partial
+
+### declarations
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `partial/declarations/let-arrow-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 
 ### expressions
 
