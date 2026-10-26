@@ -405,9 +405,79 @@ if (equalAt >= 0) {
     // 后缀括号格「继续等」，所以这里必须把「等完之后没人消费」变成显式错误，而不是静默截断（C10）。
     for (const unit of raw) {
       if (unit instanceof Bracket) {
+        // [B4i:K1-TYPE-SLOT] 容器之后还有 basic 括号，并且这段初始化器里有 `as` / `satisfies`
+        // （`const [a] = [] as number[]` 的类型 `[` / `const {a} = {} as {...}` 的类型 `{`）：
+        // 那不是「未并入的括号」，是 `TypeCatalogFactory` 的**类型槽**。整条交给
+        // `ParseInitializer`（legacy 同一个建造器），并要求结果覆盖到最后一个代码单元
+        // （读不完 ⇒ 仍按 C10 抛错，不静默截断）。落地之后 `builtShape` 换成整条断言表达式，
+        // 后续的「根之外的运算符」检查与收下逻辑照旧。
+        if (ExpressionAtomRegistry.HasContainer(builtShape)
+          && TypeCatalogFactory.HasTypeAssert(raw)) {
+          const typed = TypeCatalogFactory.ParseInitializer(
+            raw, basePos < 0 ? 0 : basePos, this.Template, context);
+          let lastEnd = -1;
+          for (const candidate of raw) {
+            if (candidate.IsTriviaToken) {
+              continue;
+            }
+            const end = candidate.SourceRange.EndIndex;
+            if (end > lastEnd) {
+              lastEnd = end;
+            }
+          }
+          if (typed !== null && typed.SourceRange.EndIndex >= lastEnd) {
+            builtShape = typed;
+            break;
+          }
+        }
         throw new Error("增量变量形状未支持：declaration 初始化器有未并入的括号");
       }
     }
+    // [B4i:K1-CONTINUE] 关闭格上建出的容器是本机制的所有权。`=` 之后如果还有**其它**单元
+    // （`.b` / `(1)` / `[0]` / `!` / 模板 / `as` / `/ 2` …，或者容器左侧还有 `"s" /` 这样的前缀），
+    // 它们与容器属于**同一条**初始化器：legacy 在收口格是把整段交给 `ParseExpression` 的。
+    // 这里做同一件事，起点是**这一段 raw 的第一格**（`ParsePrimary` 的 `HasContainer` 分支原样
+    // 返回已建容器，不重建、不重算 `Pos`），收下整条表达式根。
+    //
+    // **不能只从容器起算**：前缀（`const c = "s" / f() / g` 的 `"s" /`）会被静默丢掉。
+    // 收下之前再用源区间验一次覆盖（首格 … 末格），覆盖不全就显式抛错（C10：宁可失败，不可错树）。
+    let tailCode = 0;
+    for (const unit of raw) {
+      if (unit === builtShape || unit.IsTriviaToken) {
+        continue;
+      }
+      tailCode += 1;
+    }
+    if (tailCode > 0 && ExpressionAtomRegistry.HasContainer(builtShape)) {
+      const builder = new ExpressionBuilder(this.Template, context);
+      builder.Load(raw, basePos < 0 ? 0 : basePos);
+      let firstStart = -1;
+      let lastEnd = -1;
+      for (const item of builder.Units) {
+        if (item.IsTriviaToken) {
+          continue;
+        }
+        if (firstStart < 0) {
+          firstStart = item.SourceRange.StartIndex;
+        }
+        const end = item.SourceRange.EndIndex;
+        if (end > lastEnd) {
+          lastEnd = end;
+        }
+      }
+      builder.At = 0;
+      const expression = builder.ParseExpression();
+      if (builder.At !== builder.Units.length) {
+        throw new Error("增量变量形状未支持：declaration 初始化器未读完");
+      }
+      const range = expression.SourceRange;
+      if (firstStart >= 0 && lastEnd >= 0
+        && (range.StartIndex > firstStart || range.EndIndex < lastEnd)) {
+        throw new Error("增量变量形状未支持：declaration 初始化器容器被截断");
+      }
+      expression.TryToClose(context);
+      kept.push(expression);
+    } else {
     // [D3a:ORPHAN-OPERATOR] 同一面 C10 墙的另一半：括号有显式错误，**运算符没有**。
     // 「唯一根 + 根之外的运算符」= 收下根之后那条运算符（以及它后面的一切）会被静默清掉，产出一棵
     // 看着成功、实际缺节点的树。判据只用**源区间**（不新写形态表）：根之外的 `Symbol` 一律显式报错。
@@ -440,6 +510,7 @@ if (equalAt >= 0) {
     builtShape.TryToClose(context);
     // WP-C 已接管：表达式形状已经在 `Data` 里，直接收下那个唯一的 shape（丢弃基本单元 / trivia）。
     kept.push(builtShape);
+    }
   } else if (codeCount === 0) {
     throw new Error("增量变量形状未支持：declaration 初始化器为空");
   } else {

@@ -51,9 +51,14 @@ P4 分组这些既有收口方按自己的所有权消费括号），然后调�
 **槽位**：`{` / `[` / `(` 的槽位就是括号自己的那一格；`CallArgs` 的槽位**前移到 callee 的第一格**
 （`f(1,2)` 的 `f` 与 `(` 一起被 `CallExpressionShape` 顶替，`f` 不再是父单元的子单元）。
 
-**闸**：`StatementRouteUtil.EnableContainerShape`（默认 `false`，实测见 `_reports/B4e.md` §4）且
-增量模式；`OnBracketClosed` 里再检查一次（同一进程里两种模式可以交替）。legacy 档
-`Current` 即使被上一次增量解析装上，本钩子也立即返回、一个字节不改。
+**闸**：`StatementRouteUtil.EnableContainerShape`（B4i 起默认 `true`；开关关闭时与 base 逐位相同，
+读数见 `_reports/B4i.md`）且增量模式；`OnBracketClosed` 里再检查一次（同一进程里两种模式可以交替）。
+legacy 档 `Current` 即使被上一次增量解析装上，本钩子也立即返回、一个字节不改。
+
+**位置闸（B4i）**：`RoleMatchesBracket` / `ArrowAhead` / `SequelAllowsBuild`（`<` / 反引号）/
+`InsideArrowTail` / `InsideNewExpression` / 后缀 `[` —— 这些格子的所有权归 legacy
+（`NewExpression`、箭头原子的建树、`ParsePostfix` 的模板 / 实例化后缀、数组绑定），
+本机制**不建**并计入 `RefusedCount`。`IsSafeHost` 仍只有 `VariableDeclarationShape`。
 
 # class ContainerShapeCatalog
 
@@ -110,9 +115,22 @@ return role === BracketRole.ObjectLiteral || role === BracketRole.ArrayLiteral
 `:` 一律让路（宁可少建：`(a): T => a` 不能被当成分组）。
 
 ```ts
+const text = ContainerShapeCatalog.NextCodeText(bracket, 2);
+if (text === "") {
+  return false;
+}
+return text === "=>" || text[0] === ":";
+```
+
+## static method NextCodeText:(bracket:Bracket, length:int)=>string
+
+闭括号之后（跳过空白与注释）的前 `length` 个字符；没有（EOF / 文档不可用）返回 `""`。
+**位置判据的唯一字符前瞻入口**：`ArrowAhead` 与 `SequelAllowsBuild` 读同一份，不各写一遍。
+
+```ts
 const range = bracket.SourceRange;
 if (range.Document === null || range.End < 0) {
-  return false;
+  return "";
 }
 let at = range.End;
 const count = range.Document.GetCount();
@@ -145,15 +163,97 @@ while (at < count) {
   }
   break;
 }
-if (at >= count) {
+let text = "";
+for (let index = at; index < count && text.length < length; index++) {
+  text += range.Document.GetValue(index);
+}
+return text;
+```
+
+## static method SequelAllowsBuild:(bracket:Bracket)=>bool
+
+[B4i:SEQUEL] 闭括号之后是 `<`（实例化表达式 `(a.b)<string>`）或反引号（标签模板 `` {p:1}`t` ``）时，
+这条续接归 legacy 的 `ParsePostfix` / `TypeCatalogFactory`，**本机制不建**：括号原样留给收口格。
+
+为什么不是「先建容器再让收口补」：这两种续接在 legacy 里都是「把左操作数当 basic 括号」的形态判据
+（模板标签名单 / 类型实参开始格），提前换成形状会让那一格判否，实测 `(a.b)<string>` 在容器之后
+`ParseExpression` 直接抛「表达式意外结束」、`{p:1}`t`()` 在收口格抛「未并入的括号」。
+方向与 `ArrowAhead` / `CalleeStart` 一致：宁可少建，不可建错。
+
+```ts
+const head = ContainerShapeCatalog.NextCodeText(bracket, 1);
+if (head === "<" || head === "`") {
   return false;
 }
-const head = range.Document.GetValue(at);
-if (head === ":") {
-  return true;
+return true;
+```
+
+## static method RoleMatchesBracket:(bracket:Bracket, role:string)=>bool
+
+角色与括号字符必须一致（`ObjectLiteral`↔`{`、`ArrayLiteral`↔`[`、`CallArgs`/`ParenExpression`↔`(`）。
+[B4i:ROLE-GUARD] 实测 `new ns[a]` 的 `[` 被角色解析器标成 `CallArgs`，`CalleeStart` 于是从 `ns` 起
+`ParsePostfix`，建出的 `CallExpressionShape` 把 `new ns` 留在容器之外（收口时静默丢掉）。
+角色名与字符不自洽 ⇒ 这一格让给 legacy（`Refused`），不猜。
+
+```ts
+if (role === BracketRole.ObjectLiteral) {
+  return bracket.StartBracketChar === "{";
 }
-if (head === "=" && at + 1 < count && range.Document.GetValue(at + 1) === ">") {
-  return true;
+if (role === BracketRole.ArrayLiteral) {
+  return bracket.StartBracketChar === "[";
+}
+if (role === BracketRole.CallArgs || role === BracketRole.ParenExpression) {
+  return bracket.StartBracketChar === "(";
+}
+return false;
+```
+
+## static method InsideArrowTail:(units:Array<Token>, at:int)=>bool
+
+[B4i:ARROW-TAIL] 括号的宿主 `Data` 里、本括号之前是否已经出现过 `=>`（在展开初始化器的 `=` 之后）。
+是 ⇒ 本括号在**箭头体 / 箭头表达式内部**，整条 arrow 归 legacy 的原子建树 / B4d 的 replay；
+本机制不建（否则 `async (a) => await g(a)` 里 `g(a)` 先被建成容器，收口格看到「容器 + 未并入的括号」）。
+反向截止在 `=`：初始化器之前的赋值号说明已经回到声明头，不继续往前找。
+
+```ts
+for (let index = at - 1; index >= 0; index--) {
+  const unit = units[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("=>")) {
+    return true;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("=")) {
+    return false;
+  }
+}
+return false;
+```
+
+## static method InsideNewExpression:(units:Array<Token>, at:int)=>bool
+
+[B4i:NEW-CALLEE] 本括号之前（同一段初始化器内，碰到 `=` / `;` 就停）出现过 `new` ⇒ 这条后缀链的
+所有权属于 `NewExpression`（`new ns[a].b()` 的 callee 包含下标 / 成员 / 参数括号整段）。
+`CalleeStart` 只回答「从哪里起」，回答不了「该不该由 `CallExpressionShape` 接手」；实测
+`new ns[a].b()` 会建出一个从 `new` 之后起算的 `CallExpressionShape`，把 `new ns` 留在容器之外，
+收口时静默丢掉（structural=5、`new` 一次都没进树）。方向同 `ArrowAhead`：让给 legacy。
+
+```ts
+for (let index = at - 1; index >= 0; index--) {
+  const unit = units[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === "=" || text === ";" || text === ",") {
+      return false;
+    }
+  }
+  if (unit instanceof Common && (unit as Common).TempToString() === "new") {
+    return true;
+  }
 }
 return false;
 ```
@@ -257,13 +357,40 @@ if (beforeStart >= 0) {
 return start;
 ```
 
+## static method IsPostfixBracketPosition:(bracket:Bracket, units:Array<Token>, at:int)=>bool
+
+`[` 的**位置**判据（B4i）：`[...]` 的括号角色只回答内容（`ArrayLiteral`），不回答位置。前面的代码单元
+是一个**已结束的操作数**时，这个 `[` 是**下标访问**（`ns[a]` / `f()[a]` / `arr[0]` / `(x)[i]`），
+legacy 会在收口格用 `ParsePostfix` 把它并进成员链；本机制若按数组字面量建出容器，`new ns[a]()`
+会变成「`new ns` + 数组字面量」（实测 `expr-new-callee-postfix-chain`：`NewExpression` / `ElementAccess`
+各少一个、`CallExpression` / `ArrayLiteralExpression` 各多一个）。这里**原样让给 legacy**（`Refused`
+方向，不建错），与 `CalleeStart` 对 `?.(` / `<T>(` 的让路同一口径。
+
+判据复用 `Template.RegexTemplate.IsOperandEnd`（与正则起点判据同一份：`Common` 非表达式关键字 /
+`String` / `RegexToken` / `Bracket`），再加一条「前一个是本机制建的容器」。
+
+```ts
+if (at <= 0) {
+  return false;
+}
+const previous = ContainerShapeCatalog.PreviousCodeIndex(units, at);
+if (previous < 0) {
+  return false;
+}
+const before = units[previous];
+if (ExpressionAtomRegistry.HasContainer(before)) {
+  return true;
+}
+return bracket.Template.RegexTemplate.IsOperandEnd(before);
+```
+
 ## static method IsSafeHost:(host:Token)=>bool
 
-**关闭格上允许本机制接手的宿主白名单**（K1 的实测边界，`_reports/B4e.md` §4）：
+**关闭格上允许本机制接手的宿主白名单**（K1 的实测边界）：
 只有 `VariableDeclarationShape`（声明初始化器）。其它宿主（`Bracket` / `StatementShape` /
 `BinaryExpressionShape` / 成员链形状）**不接手**：它们各有自己的收口方（P1 / P4 / 语句壳 /
-父括号的收口），提前换掉括号会把那一拍的所有权抢走。白名单是实测出来的边界，不是「默认关
-掩盖」：开关默认 `false` 的读数与理由见 `_reports/B4e.md` §4。
+父括号的收口），提前换掉括号会把那一拍的所有权抢走。B4i 打开默认开关之后这条白名单**没有放宽**：
+`0/29/95` 与开关关闭时逐位相同（`_reports/B4i.md`），四道门也没有新增 fallback。
 
 ```ts
 if (host instanceof Bracket) {
@@ -282,12 +409,15 @@ return host.constructor.name === "VariableDeclarationShape";
 
 1. **闸**：开关 / 增量模式 / `Bracket` 身份 / 角色（`Known` 四族，或 Deferred `ArrowParams` 且
    `ArrowAhead` 为假）；
-2. **宿主白名单**：只有 `VariableDeclarationShape` 接手；
-3. **父单元先手**：括号已经不在父单元 `Data` 里 ⇒ 父单元已经消费了它（`AlreadyConsumedCount + 1`），
+2. **位置闸（B4i）**：角色与括号字符自洽 / `(` 后是 `=>` / 闭括号后是 `<` 或反引号 —— 任一不成立
+   就**不建**（`RefusedCount + 1`）；
+3. **宿主白名单**：只有 `VariableDeclarationShape` 接手；
+4. **父单元先手**：括号已经不在父单元 `Data` 里 ⇒ 父单元已经消费了它（`AlreadyConsumedCount + 1`），
    本机制不参与那一格；
-4. **建**：`ExpressionBuilder.Load(父单元.Data, basePos)`，`ParsePrimary`（`CallArgs` 是
+5. **在飞位置**：`InsideArrowTail` / `InsideNewExpression` / 后缀 `[` —— 不建（`RefusedCount + 1`）；
+6. **建**：`ExpressionBuilder.Load(父单元.Data, basePos)`，`ParsePrimary`（`CallArgs` 是
    `ParsePostfix`），并要求 `At === 括号格 + 1`——必须恰好消费到本括号为止；
-5. **换**：把「起点…括号」这一段 `Data` 换成建出来的形状，登记 `Containers`，同步 `MountedUnit`。
+7. **换**：把「起点…括号」这一段 `Data` 换成建出来的形状，登记 `Containers`，同步 `MountedUnit`。
 
 任何一步不成立都**原样返回**：括号留给 legacy 收口（`RefusedCount + 1`），不产生半棵树。
 
@@ -319,6 +449,22 @@ if (shape.RoleState === BracketRoleState.Deferred && role === BracketRole.ArrowP
 if (!ContainerShapeCatalog.IsExpressionRole(role)) {
   return;
 }
+// [B4i] 三条**位置**闸（都在「建」之前，全部是 `Refused` 方向：括号原样留给 legacy 收口）：
+//   · 角色与括号字符必须自洽（`new ns[a]` 的 `[` 被标成 `CallArgs` 时不能从 `ns` 起建调用）；
+//   · `(` 后面紧跟 `=>` / `:` ⇒ 箭头形参表，归 B4d 的 replay；
+//   · 闭括号之后是 `<` / `` ` `` ⇒ 实例化表达式 / 标签模板，归 legacy 的后缀判据。
+if (!ContainerShapeCatalog.RoleMatchesBracket(shape, role)) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return;
+}
+if (shape.StartBracketChar === "(" && ContainerShapeCatalog.ArrowAhead(shape)) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return;
+}
+if (!ContainerShapeCatalog.SequelAllowsBuild(shape)) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return;
+}
 const parent = shape.Parent;
 if (parent === null || parent.Data === undefined) {
   ContainerShapeCatalog.RefusedCount += 1;
@@ -335,6 +481,21 @@ if (at < 0) {
   return;
 }
 if (!shape.Closed) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return;
+}
+// [B4i:POSTFIX-INDEX] `[` 在前一个操作数之后是下标访问，不是数组字面量：让给 legacy 收口。
+if (role === BracketRole.ArrayLiteral && ContainerShapeCatalog.IsPostfixBracketPosition(shape, units, at)) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return;
+}
+// [B4i:ARROW-TAIL] 已经在箭头体 / 箭头表达式内部：整条 arrow 归 legacy 的原子建树。
+if (ContainerShapeCatalog.InsideArrowTail(units, at)) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return;
+}
+// [B4i:NEW-CALLEE] `new` 构造的 callee / 参数链归 `NewExpression`，不建 `CallExpressionShape`。
+if (role === BracketRole.CallArgs && ContainerShapeCatalog.InsideNewExpression(units, at)) {
   ContainerShapeCatalog.RefusedCount += 1;
   return;
 }

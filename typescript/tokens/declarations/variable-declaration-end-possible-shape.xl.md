@@ -13,6 +13,7 @@ import { CompositeInitializerFormsJudge } from "../expressions/forms/primary/com
 import { CompositeInitializerTailJudge } from "../expressions/forms/primary/composite-initializer-tail-judge.xl.md"
 import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionContinuationCatalog } from "../expressions/expression-continuation-catalog.xl.md"
+import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -178,7 +179,8 @@ if (current instanceof Symbol) {
   //      静默丢掉（structural=7、声明区间拉到 EOF），即「崩溃 + legacy 兜底（对）」变成「增量路径
   //      静默错树」。C10 不允许，所以这一族原样留给 S5 / A5。
   if (!VariableDeclarationEndPossibleShape.HasAnnotationColon(units)
-    && VariableDeclarationEndPossibleShape.IsRawInitializer(units)
+    && (VariableDeclarationEndPossibleShape.IsRawInitializer(units)
+      || VariableDeclarationEndPossibleShape.HasContainerInitializer(units))
     && VariableDeclarationEndPossibleShape.CanDeferToAtomicInitializer(text)) {
     return ShapeStates.Uncertain;
   }
@@ -422,6 +424,29 @@ for (let at = equalAt + 1; at < units.length; at++) {
   }
 }
 return true;
+```
+
+## static method HasContainerInitializer:(units:Array<Token>)=>bool
+
+[B4i:K1-ROOT] `=` 之后的初始化器里是否已经有**本机制在括号关闭格建出的容器根**
+（`ExpressionAtomRegistry.Containers` 的身份，不认任意形状）。
+
+与 `IsRawInitializer` 互补：容器落地之后 raw 原子重建那条分支不可达，但**收口格仍然能建出整条**——
+`FinishIncremental` 现在从那个已建容器继续 `ParseExpression`（`.b` / `(1)` / `/ 2` / `as` 都在里面），
+读不完就显式抛错。所以「容器根 + 运算符」与「raw 初始化器 + 运算符」是同一个等待出口，
+不再落进 C10 的 `throw`（否则 `const v = { p: 1 }` ⏎ `/re/g` 会整条 fallback）。
+
+```ts
+const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
+if (equalAt < 0) {
+  return false;
+}
+for (let at = equalAt + 1; at < units.length; at++) {
+  if (ExpressionAtomRegistry.HasContainer(units[at])) {
+    return true;
+  }
+}
+return false;
 ```
 
 ## static method HasAnnotationColon:(units:Array<Token>)=>bool

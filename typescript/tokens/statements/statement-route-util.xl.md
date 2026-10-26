@@ -1297,12 +1297,12 @@ B3 最初只读本字段，于是 `--legacy` 档也装配了头目录：`FileFal
 `NumericLiteralShape` +1）。它是 `for-classic.ts` 那条验收
 （`i` / `0` / `3` 各自在 token 关闭格成 shape）的机械读数。
 
-## static field EnableContainerShape:bool = false
+## static field EnableContainerShape:bool = true
 
-**B4e / K1：容器 shape 在括号关闭格出现（`container-shape-catalog.xl.md`）。默认 `false`（见下）。**
+**B4i / K1：容器 shape 在括号关闭格出现（`container-shape-catalog.xl.md`）。默认 `true`。**
 
 `true` 且增量模式时 `SourceFileShape` 的构造器装上 `ContainerShapeCloseHook`：
-`{` / `[` / `(` 关闭的那一拍（`Bracket.Close` 里 `BracketCloseHook` 的位置），角色为
+`{` / `[` / `(` 关闭的那一拍（`Bracket.Close` 里 `BracketClosedHook` 的位置），角色为
 `ObjectLiteral` / `ArrayLiteral` / `CallArgs` / `ParenExpression` 的四类括号**就地**被 legacy
 `ExpressionBuilder` 建成 `ObjectLiteralExpressionShape` / `ArrayLiteralExpressionShape` /
 `CallExpressionShape` / `ParenthesizedExpressionShape`，并**顶替父单元 `Data` 里的那只括号**
@@ -1310,25 +1310,30 @@ B3 最初只读本字段，于是 `--legacy` 档也装配了头目录：`FileFal
 槽位前移到 callee 的第一格）。`src` / `pos` 由同一份 legacy `Positions` 口径给出，因此
 `pos` 与 TS 的 `node.pos`（前一个 token 的终点）逐位相同。
 
-**所有权切换**：容器建出来以后，legacy 收口不再重建它——
+**所有权切换（B4i 补齐）**：容器建出来以后，收口侧只**消费**、不重建——
 ① `ExpressionBuilder.ParsePrimary` 认 `ExpressionAtomRegistry.HasContainer` 并直接消费；
-② `VariableDeclarationShape.FinishIncremental` 的「唯一表达式根」分支收下它（既有路径）；
-③ 带 `as` / `satisfies` 的初始化器由 `TypeCatalogFactory.StartsTypedInitializer` 认容器头，
-`ParseInitializer` 从整段（容器 + `as` + 类型）建出 `AsExpressionShape`。
+② `VariableDeclarationShape.FinishIncremental`：容器是唯一根时直接收下；容器之外还有前缀 / 后缀
+（`.b` / `(1)` / `[0]` / `!` / `/ 2` …）时从**整段 raw 的第一格** `ParseExpression`，并用源区间
+验覆盖（截断即显式抛错）；`as` / `satisfies` 的类型槽（`[] as number[]` 的 `[`）走
+`TypeCatalogFactory.ParseInitializer` 并验覆盖；
+③ 带 `as` / `satisfies` 的初始化器由 `TypeCatalogFactory.StartsTypedInitializer` 认容器头；
+④ 语句尾判据（`ExpressionStatementPossibleShape.CanEndExpression`）把容器认成**已结束的操作数**
+（ASI / 行尾收口不再以为「最后一个单元是形状 ⇒ 收不住」）；
+⑤ 正则起点（`TypeScriptRegexTemplate.CanStartAt`）把容器之后的 `/` 认成**除号**。
 
 `false` 时不装钩子（`BracketClosedHook.Current` 保持 `null`），`{` / `[` / `(` 仍只在
-legacy 收口格由 A4 / A4b / P1 / P4 建出，读数与 B4d 逐位相同。
+legacy 收口格由 A4 / A4b / P1 / P4 建出，读数与 B4d 逐位相同（`ExprBracketCatalog` 那套不变）。
 
-**为什么默认仍是 `false`（B4e 实测，不是保守）**：打开后宽尺子从 `0/33/83+13` 变成
-`0/43/99+13`（`_reports/B4e.md` §4：10 条新 structural 差异、14 件新 fallback），
-多出的差异全部落在「声明初始化器里本机制先建、legacy 收口格再用 `TypeCatalogFactory` /
-`FinishIncremental` 消费」这一条链上；关掉后四道门与 base 逐位相同。四族的**创建格**在声明
-初始化器上其实已经由既有收口方（A4/A4b/P1/P4）在关闭那一拍完成（B4e 实测，见报告的
-「与任务书前提的偏差」），本机制补的是它们不接的那一半（`as` 初始化器 / 嵌套括号），
-所以默认关并不掩盖一个「本来没有」的能力；打开方式与逐条残留写在报告里。
+**为什么现在能默认打开（B4i 实测）**：B4e 打开时宽尺子是 `0/43/99+13`（10 条新 structural、
+14 件新 fallback）。B4i 把收口侧的消费补齐之后，打开与关闭**逐位相同**：`0/29/82+13=95`、
+`legacy 0/0/2`、`gates 4/0/7`、`ts-all 429/426/3`（`_reports/B4i.md`）。残留的是**位置闸**
+（`ArrowAhead` / `SequelAllowsBuild` / `InsideArrowTail` / `InsideNewExpression` /
+`RoleMatchesBracket` / 后缀 `[`）：这些位置的所有权归 legacy，本机制**不建**（`RefusedCount`
+计数），不是静默降级。
 
 **增量闸**：钩子只在该开关与 `IsIncrementalShapesEnabled()` 同时为真时装配；实现里再检查一次
-（同一进程里两种模式可以交替）。legacy 档 `--legacy` 因此逐字节回到 B4d 之前。
+（同一进程里两种模式可以交替）。legacy 档 `--legacy` 因此逐字节回到 B4d 之前；开关置 `false`
+则四道门与 base 逐位相同。
 
 ## static field ContainerShapeBuildCount:int = 0
 
