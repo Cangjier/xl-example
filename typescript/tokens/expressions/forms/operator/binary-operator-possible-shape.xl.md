@@ -71,9 +71,10 @@ EOF                     → FinishIncremental 收下唯一根（E0b 契约）
 3. **数字 `Common` ⇒ `Reject`**：数字格必须留给 `NumericLiteralPossibleShape` 独占（否则两候选同格，
    永远 `Waiting`，整个初始化器退化成 atomic）；其它基本 token（`Symbol("/")` 之外的符号、`String`、
    `Bracket`）⇒ `Reject`；
-4. **标识符 `Common`（非数字）⇒ `Uncertain`**：`let x = a < b` 的 `a` 先到，本候选必须活到 `<` 那一格
-   （`a` 格上 `IsBuildable` 为假，只等不建）。**集成注记**：WP-A1 的标识符候选合并后，这两行改成
-   `Reject`（由 A1 建标识符、本候选只做运算符），见 A2 报告 §6；
+4. **标识符 `Common`（非数字）⇒ `Reject`**：WP-A1 的标识符 primary 候选已合入，标识符格由 A1 独占
+   （否则两个候选同格 `Uncertain` ⇒ 永远 `Waiting`，A1 的原子退化成 `partial`：集成后 15 条 FAIL 的根因）。
+   这正是 A2 报告 §6 的「集成注记」——A6b 在集成分支上补做这一步；`let x = a < b` 的 `a` 格由 A1 的
+   `IsBuildable`（后面还有 `<` ⇒ 不建）保持等待，到 `<` 格再由本候选建运算符；
 5. `Symbol("=")` ⇒ `Uncertain`（初始化器还没开始）；
 6. `*` / `+` ⇒ `Reject`（让给既有 `BinaryExpressionPossibleShape`）；
 7. 其余二元运算符（含 `in` / `instanceof` 关键字）⇒ **有左操作数才 `Accept`**：
@@ -90,7 +91,8 @@ if (unit.IsTriviaToken) {
 const text = BinaryOperatorPossibleShape.TextOf(unit);
 if (text === "") {
   if (unit instanceof Common && !(unit as Common).IsNumber()) {
-    return ShapeStates.Uncertain;
+    // WP-A6b 集成：A1 的 IdentifierPrimaryPossibleShape 已合入，标识符格由 A1 独占（A2 报告 §6 的集成注记）。
+    return ShapeStates.Reject;
   }
   return ShapeStates.Reject;
 }
