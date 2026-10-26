@@ -450,6 +450,21 @@ if (shape === null) {
   this.Decline("块体内还有未收口的语句", "stmt.nested");
   return null;
 }
+// **R8：块体内还有「谁都没建成形状」的裸代码单元时不许交半棵树。**
+// `BuiltChildren` 只收已建好的形状，**basic 单元（标识符 / 符号 / 括号）被静默跳过** ——
+// 于是「块体目录里没有候选愿意接」的语句会被整条丢掉，块看起来是空的、也不报错。
+// 实测：`{ type; }` / `{ type = 1 }` / `{ type }` / `{ type ⏎ T = 1 }` 全部建出**空 Block**
+//（tsc 侧是 ExpressionStatement），块体直接少语句。
+// 判据只用「`bracket.Data` 里还留着非 trivia 的 basic 单元」这一条：语句建成形状后它的单元已被
+// splice 进形状、不再是括号的直接子单元，所以有残留就是没建的那条 ⇒ Decline，旧路径重读这一段
+//（最坏与今天逐字节相同，不会更差）。
+for (const unit of (bracket as any).Data) {
+  if (unit.IsTriviaToken || !unit.IsBasicToken) {
+    continue;
+  }
+  this.Decline("块体内还有未建树的裸单元", "stmt.body");
+  return null;
+}
 return shape;
 ```
 
