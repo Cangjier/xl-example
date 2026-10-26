@@ -34,6 +34,7 @@ import { ExpressionStatementShape } from "../statements/expression-statement-sha
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { IncrementalStuckShellRecovery } from "../statements/incremental-stuck-shell-recovery.xl.md"
 ```
 
 # namespace cangjie
@@ -190,6 +191,15 @@ return text === "return" || text === "debugger" || text === "break" || text === 
 
 ```ts
 const unit = host as UnitToken;
+// [S2:EOF-DISCARDED] **EOF 兜底只读计数**：收口之前先看一眼「剩下的 basic 代码单元里有没有一条
+// 语句被整段吞掉」——首个残留 basic 单元的文本是 `for` / `if` / `switch` / `while` / `try` /
+// `function` / `class` / `const` … 就说明上一条语句的壳一直张着口、把整条语句当 basic 吞下来，
+// 到 EOF 被静默清掉（`class-inheritance` 修复前的 66 个字符、终态缺 8 类节点正是这个形态）。
+//
+// **这里只计数，不抛错**：`ts-all` 的 195 条基线是「仅 `src` 末尾 +1」，它们靠「EOF 静默收尾」成立；
+// 把这一格翻成显式抛错会同时翻转「增量路径 0 抛错」这个全局卖点（C10 的落点要等计数读数稳定之后，
+// 由**单独的**提交来完成）。计数落在 `StatementRouteUtil.EofDiscardedStatementCount`。
+IncrementalStuckShellRecovery.CountEofLeftover(host.Data);
 if (!(host.Data[tokenIndex] instanceof EndOfFileTokenShape)) {
   // ASI：当前代码单元接不上上一条表达式，上一条在换行处就结束了。
   let end = tokenIndex - 1;

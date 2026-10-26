@@ -182,6 +182,35 @@ return StatementRouteUtil.EnableIncrementalShapes;
 
 ## static field EnableBlockClassShell:bool = true
 
+## static field EnableStuckShellRecovery:bool = true
+
+[S2:STUCK-SHELL] 卡死壳检测（`incremental-stuck-shell-recovery.xl.md`）的总开关。开着只代表
+「可以检测、可以计数」（`StuckShellRecoveryCount`），**不代表可以强制收口**——强制收口另有
+`IncrementalStuckShellRecovery.ForceClose`，默认 `false`。与 EOF 那条「先计数、后翻行为」同一条纪律。
+
+```ts
+true
+```
+
+## static field StuckShellRecoveryCount:int = 0
+
+只读计数：检测到「壳连续 ≥ `RecoveryCells` 格 `Uncertain`、而下一条语句的起始词已经到达」的次数。
+当前语料上应为 **0**（根因已在 `variable-declaration-shape.xl.md` 的 `[S2:CLOSE-TYPED]` 修掉）。
+
+```ts
+0
+```
+
+## static field EofDiscardedStatementCount:int = 0
+
+只读计数：EOF 收口时残留的 basic 代码单元里**以语句起始词开头**（`for` / `if` / `switch` / `while` /
+`try` / `function` / `class` / `const` …）的文件数。`class-inheritance` 在修复前为 1、修复后应为 0。
+**只计数、不抛错**：翻成显式抛错是后续独立提交（保护 195 条「仅 `src` +1」基线）。
+
+```ts
+0
+```
+
 ## static method IsDeclarationHead:(text:string)=>bool
 
 ```ts
