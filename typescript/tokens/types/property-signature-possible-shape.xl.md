@@ -13,7 +13,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
-import { MemberBoundary, MemberBoundaryScan } from "./member-boundary.xl.md"
+import { MemberBoundary, MemberBoundaryScan, MemberHeadScan } from "./member-boundary.xl.md"
 import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
 import { MemberShellFamily } from "./member-shell-catalog.xl.md"
 import { PropertySignatureShape } from "./property-signature-shape.xl.md"
@@ -507,6 +507,17 @@ if (angle === 0) {
     && last instanceof Symbol && (last as Symbol).Is(":") && last.Closed) {
     complete = true;
     end = code.length - 1;
+    state.Early = true;
+  }
+  // [B2b] **名字第一格**闭合就建外壳：document 前瞻（`MemberHeadScan.ModifierCount`）判得出
+  // `name :` 形态时，`a` 在自己的闭合格就是 `IdentifierShape`，不必等到 `:`。
+  // 前瞻判不出（`(` / `<` / `[` / 换行 …）一律 `-1` ⇒ 交旧路径。
+  if (!complete && angle === 0 && code.length === 1
+    && MemberPossibleUtil.IsNameToken(code[0])
+    && MemberPossibleUtil.HasKind(head, MemberPossibleUtil.PropertyKind)
+    && MemberHeadScan.ModifierCount(code[0]) >= 0) {
+    complete = true;
+    end = 0;
     state.Early = true;
   }
 }

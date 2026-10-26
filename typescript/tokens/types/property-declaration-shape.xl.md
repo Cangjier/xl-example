@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
+import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
@@ -34,4 +35,18 @@ if (MemberShellCatalog.IsOpen(this)) {
   }
 }
 return BranchStates.Undo;
+```
+
+## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+
+[B2b] **成员外壳的子 token 目录**：外壳里的 basic token 关闭时只问父单元（`this`），这一格就是那个入口——
+先把刚闭合的那一格按位置包成修饰词 / 名字 / 初始字面量形状，再判成员边界。
+
+非外壳（正品 `PropertyDeclarationShape`）保持基类行为：`CatalogGuide` 为空时什么都不做。
+
+```ts
+if (MemberShellCatalog.IsOpen(this)) {
+  return MemberShellCatalog.HeadCompute(this, context);
+}
+return super.ComputePossibleShapes(context);
 ```
