@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **280** 条 case：throw 125 / atomic 102 / partial 53 / incremental 0
+共 **273** 条 case：throw 118 / atomic 102 / partial 53 / incremental 0
 
 ## throw
 
@@ -71,11 +71,7 @@
 | `throw/expressions/bin-ushr.ts` | 增量变量形状未支持：declaration 符号 >>> |  |
 | `throw/expressions/class-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/comma-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/computed-key.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/func-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/getter.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/method-shorthand.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/obj-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/paren-nested.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ref-call.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ref-import-meta.ts` | 增量变量形状未支持：declaration 符号 . |  |
@@ -87,9 +83,7 @@
 | `throw/expressions/ref-optional.ts` | 增量变量形状未支持：declaration 符号 ?. |  |
 | `throw/expressions/ref-super.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/expressions/seq-three.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/setter.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/spread-array.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/spread-object.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ternary.ts` | 增量变量形状未支持：declaration 符号 ? |  |
 | `throw/expressions/unary-bnot.ts` | 增量变量形状未支持：declaration 符号 ~ |  |
 | `throw/expressions/unary-chain-not.ts` | 增量变量形状未支持：declaration 符号 ! |  |
@@ -114,7 +108,6 @@
 | `throw/lexical/let-init-lt.ts` | 增量变量形状未支持：expression 运算符 < |  |
 | `throw/lexical/let-init-member-keyword.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/lexical/let-init-multi-decl.ts` | 增量变量形状未支持：declaration 符号 , |  |
-| `throw/lexical/let-init-object-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/lexical/let-init-semicolon.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/lexical/let-init-shift.ts` | 增量变量形状未支持：declaration 符号 >> |  |
 | `throw/lexical/let-init-unary-plus.ts` | 增量变量形状未支持：expression 左操作数不是形状 |  |
