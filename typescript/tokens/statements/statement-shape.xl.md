@@ -25,6 +25,7 @@ import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { VariableStatementThreeLayer } from "./variable-statement-three-layer.xl.md"
 import { BlockPossibleShape } from "./block-possible-shape.xl.md"
+import { IncrementalStuckShellRecovery } from "./incremental-stuck-shell-recovery.xl.md"
 ```
 
 # namespace cangjie
@@ -47,6 +48,11 @@ let b = 2
 ## field OperatorBody:StatementOperatorBody | null = null
 
 ## field DirectSession:DirectSession | null = null
+
+## field WaitingCells:int = 0
+
+[S2:STUCK-SHELL] 连续多少格 `ComputePossibleShapes` 返回 `Waiting`（壳一直不肯收口）。任何一次非
+`Waiting` 的判定（`Built` / `Nothing`）都把它清零；计数只用于「卡死」检测，不参与建树。
 
 ## field IncrementalMounted:Token | null = null
 
@@ -106,6 +112,36 @@ if (this.OperatorBody !== null) {
   this.OperatorBody.IngestAll(this.Data, this.Template);
 }
 const state = super.ComputePossibleShapes(context);
+// [S2:STUCK-SHELL] **卡死壳检测**（`incremental-stuck-shell-recovery.xl.md`）：壳连续
+// `RecoveryCells`（= 2）格答 `Waiting`、而当前末单元已经是声明跟随边界 ⇒ 下一条语句的起始词到了、
+// 壳却不收口。这一格**先只计数**（`StatementRouteUtil.StuckShellRecoveryCount`），强制执行收口要
+// `IncrementalStuckShellRecovery.ForceClose` 显式打开（默认 `false`，与 EOF 那条「先计数、后翻行为」
+// 同一条纪律）。默认路径 = 计数 + 同一份返回值，逐字节与基线一致。
+// 收口走的是壳自己的收口路径（`BuildFromShell` + `FinishShell`），不新写建树；失败一律不抛错。
+if (StatementRouteUtil.EnableStuckShellRecovery) {
+  if (state === ComputePossibleShapesStates.Waiting) {
+    this.WaitingCells += 1;
+    if (IncrementalStuckShellRecovery.ShouldRecover(this.Data, this.WaitingCells)) {
+      IncrementalStuckShellRecovery.NoteRecovery();
+      if (IncrementalStuckShellRecovery.CanForceClose()) {
+        const stuckLast = ItemUtil.LastCodeInItem(this.Data);
+        if (stuckLast >= 0) {
+          let forced:Token | null = null;
+          try {
+            forced = StatementShape.BuildFromShell(this, stuckLast, context);
+          } catch {
+            forced = null;
+          }
+          if (forced !== null) {
+            StatementShape.FinishShell(this, forced, context);
+          }
+        }
+      }
+    }
+  } else {
+    this.WaitingCells = 0;
+  }
+}
 // 候选计算（含终结候选收口）之后才挂：壳若已在本格收口，`FinishShell` 已把壳换出、`Data` 已清空，
 // 下面的存活判据会把它挡掉——收口路径永远只看 raw `Data`。
 this.TryMountIncremental(context);

@@ -98,11 +98,53 @@ if (this.Incremental && !this.Closed) {
       if (atBlockHost && DeclarationAsiBoundary.IsBlockHostBoundary(this.Data, this.Data.length - 1)) {
         return super.ComputePossibleShapes(context);
       }
+      // [S2:CLOSE-TYPED] **类型面的收口格**：类型注解与初始化器都已经长完、而当前末单元就是
+      // 「这条声明到此为止」的那一格（`;` / 声明跟随边界 / 换行 ASI）时，交回基类**问一次终结候选**。
+      // 不交回的后果（实测 `class-inheritance` step 568 / `const shapes: Shape[] = [...]`）：
+      // `TypeMode` 是**粘连**的（进去之后再无出口），`ComputePossibleShapes` 永远返回 `Waiting`，
+      // `VariableDeclarationListEndPossibleShape` 的 `;` 分支从来没有被问过 ⇒ 声明一直张着口，
+      // 后面的 `for (…) { … }` 全部落进它的 `Data`，到 EOF 被「清剩余 basic」静默清掉（终态缺 8 类节点）。
+      // 为什么这里问基类是安全的：收口格上表达式目录的每个候选都套着 `DeclarationCellGuard`，
+      // 而守卫在 `;` / `,` / `}` 与 `DeclarationAsiBoundary.CanClose*` 两种格上一律 `Reject`
+      //（与终结候选同一份判据），所以 `Candidates` 必然为空，不会触发
+      // `CatalogGuide` 的「终结候选与其它候选同时成立」断言。
+      // 判据只有一份（`CanFinishTypedDeclaration`），本文件不新写 ASI / 边界词法。
+      if (VariableDeclarationShape.CanFinishTypedDeclaration(this.Data)) {
+        return super.ComputePossibleShapes(context);
+      }
       return ComputePossibleShapesStates.Waiting;
     }
   }
 }
 return super.ComputePossibleShapes(context);
+```
+
+## static method CanFinishTypedDeclaration:(data:Array<Token>)=>bool
+
+[S2:CLOSE-TYPED] 类型面（`TypeMode`）的声明**是否正处在一个收口格**上——也就是「本形状的末单元
+已经可以被 `VariableDeclarationListEndPossibleShape` 判成声明结束」：
+
+- 末单元是 `Symbol(";")`：语句分号，`VariableDeclarationListEndPossibleShape` 的 `;` 分支本来就认它；
+- 末单元是下一条语句的首代码单元（`DeclarationAsiBoundary.CanClose`）：换行 ASI，声明在此收口，
+  该单元**不消费**（由 `CloseAtAsiBoundary` 交回父单元重放）；
+- 末单元是最后一格代码单元、且下一行起一个不续接的单词（`DeclarationAsiBoundary.CanCloseAtLineBreak`）。
+
+判据全部转发 `DeclarationAsiBoundary` / `Symbol` 的既有事实，**不新写 ASI 词法、不新写边界表**。
+末单元是 trivia 时返回 `false`：那时 `Data` 还没有本格的新单元，收口由下一格决定。
+
+```ts
+if (data.length === 0) {
+  return false;
+}
+const last = data[data.length - 1];
+if (last.IsTriviaToken) {
+  return false;
+}
+if (last instanceof Symbol) {
+  return (last as Symbol).TempToString() === ";";
+}
+return DeclarationAsiBoundary.CanCloseAtLineBreak(data, data.length - 1)
+  || DeclarationAsiBoundary.CanClose(data, data.length - 1, false);
 ```
 
 ## private method AdvanceTypeMode:(context:SyntaxContext)=>void
