@@ -165,7 +165,12 @@ if (equal < 0) {
 if (!this.AnnotationDone && !TypeCatalogFactory.StartsTypedInitializer(this.Data, equal)) {
   return;
 }
-if (!TypeCatalogFactory.HasTypeAssert(this.Data)) {
+// [WP-A5] 只接管「带类型」的初始化器：`as`/`satisfies` 断言，或参数带 `:` 注解的函数/箭头表达式
+// （`HasParameterType`）。同族里不带类型的形态（`() => a` / `function () {}`）仍走原路径，
+// 账本分类不变（那是 A4 的写域）。
+if (!this.AnnotationDone && !TypeCatalogFactory.HasTypeAssert(this.Data)
+  && !TypeCatalogFactory.HasParameterType(this.Data)
+  && !TypeCatalogFactory.HasTypeArgumentCall(this.Data)) {
   return;
 }
 const last = TypeCatalogFactory.LastSignificant(this.Data);

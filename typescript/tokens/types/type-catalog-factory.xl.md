@@ -296,13 +296,16 @@ return false;
 
 ## static method StartsTypedInitializer:(units:Array<Token>, equalAt:int)=>bool
 
-初始化器是否属于本 WP 接管的「带类型断言」形态（`y as T` / `y satisfies T` / `(y as T)`）。
-返回值同时是「能否提前落地」的判据：
+初始化器是否属于本 WP 接管的「带类型」形态。返回值同时是「能否提前落地」的判据：
 
 - 左操作数是**普通标识符**：`raw[0]` 是 Common、`raw[1]` 是 `as`/`satisfies`；
-- 左操作数是**括号化表达式**：`raw[0]` 是 `(` 括号，且括号里递归出现 `as`/`satisfies`（`(y as T)`）。
+- 左操作数是**括号化表达式**：`raw[0]` 是 `(` 括号，且括号里递归出现 `as`/`satisfies`（`(y as T)`）；
+- **带类型参数的函数/箭头表达式**（`(a: number) => a` / `async (a: number) => a` /
+  `function (a: number) {}` / `<T>(a: T) => a`）：参数括号里出现「名字 `:`」——判据是
+  `HasParameterType`。同一族里**没有**类型注解的形态（`() => a` / `(a, b) => a` / `function () {}`）
+  不满足本判据，仍留给 A4 的表达式形态（不改变它们的账本分类）。
 
-数组字面量 / 调用 / 箭头等其它左操作数**不接管**（那是 A2/A3/A4 的写域，接管会改变它们的账本分类）。
+左操作数是数组字面量 / 调用 / 普通括号表达式等其它形态**不接管**（A2/A3/A4 的写域）。
 
 ```ts
 const first = TypeCatalogFactory.FirstSignificant(units, equalAt + 1);
@@ -318,12 +321,106 @@ if (head instanceof Common) {
   const op = units[next];
   if (op instanceof Common) {
     const text = (op as Common).TempToString();
-    return text === "as" || text === "satisfies";
+    if (text === "as" || text === "satisfies") {
+      return true;
+    }
   }
-  return false;
+  const headText = (head as Common).TempToString();
+  if (headText === "async" || headText === "function") {
+    return TypeCatalogFactory.HasParameterType(units);
+  }
+  // 泛型调用 `f<string>()`：`<` … `>` 之后紧跟调用括号（类型实参在这里是**类型面**的一部分）。
+  return TypeCatalogFactory.HasTypeArgumentCall(units);
 }
 if (head instanceof Bracket && (head as Bracket).StartBracketChar === "(") {
-  return TypeCatalogFactory.HasTypeAssert([head]);
+  if (TypeCatalogFactory.HasTypeAssert([head])) {
+    return true;
+  }
+  return TypeCatalogFactory.HasParameterType([head]);
+}
+if (head instanceof Symbol && (head as Symbol).Is("<")) {
+  // 泛型箭头 `<T>(a: T) => a`：类型参数表之后紧跟参数括号，且参数里带类型注解。
+  // 尖括号断言的左操作数形态（`<T>y` / `<number>y`）没有参数括号，因此不会命中这里，
+  // 仍然留在 legacy 的 throw 账本里（那是 A4 的写域）。
+  return TypeCatalogFactory.HasParameterType(units);
+}
+return false;
+```
+
+## static method HasTypeArgumentCall:(units:Array<Token>)=>bool
+
+这段单元里是否有「类型实参调用」形态：`<` … 配对的 `>` 之后**紧跟**调用括号 `(`。
+
+用于把 `f<string>()` 与关系表达式 `a < b` 区分开：后者没有配对的 `>` + `(`，判据不成立。
+
+```ts
+for (let at = 0; at < units.length; at++) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol) || !(unit as Symbol).Is("<")) {
+    continue;
+  }
+  let depth = 0;
+  for (let scan = at; scan < units.length; scan++) {
+    const inner = units[scan];
+    if (inner.IsTriviaToken) {
+      continue;
+    }
+    if (inner instanceof Symbol) {
+      const text = (inner as Symbol).TempToString();
+      if (text === "<") {
+        depth += 1;
+        continue;
+      }
+      if (text === ">") {
+        depth -= 1;
+        if (depth > 0) {
+          continue;
+        }
+        const next = TypeCatalogFactory.FirstSignificant(units, scan + 1);
+        if (next < 0) {
+          return false;
+        }
+        return units[next] instanceof Bracket && (units[next] as Bracket).StartBracketChar === "(";
+      }
+      if (text === ">>" || text === ">>>") {
+        depth -= text.length;
+        if (depth > 0) {
+          continue;
+        }
+        const next = TypeCatalogFactory.FirstSignificant(units, scan + 1);
+        if (next < 0) {
+          return false;
+        }
+        return units[next] instanceof Bracket && (units[next] as Bracket).StartBracketChar === "(";
+      }
+    }
+  }
+}
+return false;
+```
+
+## static method HasParameterType:(units:Array<Token>)=>bool
+
+这段单元里的「参数括号」是否带 `:` 类型注解（只看括号的**顶层**单元，嵌套括号由它自己的层负责）。
+
+用于区分「参数带类型的函数/箭头表达式」（本 WP 接管）与「参数不带类型的同族形态」（A4 接管）。
+
+```ts
+for (const unit of units) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "(") {
+    continue;
+  }
+  for (const child of (unit as Bracket).Data) {
+    if (child.IsTriviaToken) {
+      continue;
+    }
+    if (child instanceof Symbol && (child as Symbol).Is(":")) {
+      return true;
+    }
+  }
 }
 return false;
 ```
