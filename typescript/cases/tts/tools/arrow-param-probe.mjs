@@ -37,15 +37,16 @@ const SNIPPETS = [
   ["arrow-single", "let k = x => x;\n", 0],
   ["arrow-object-value", "let o = { m: (a: number) => a };\n", 1],
   ["arrow-call-arg", "let c = h((a: number) => a + 1);\n", 1],
-  // 嵌套箭头：内层 `(b) =>` 的 `(` 前一个是 `=>`，`BracketRoleResolver.Classify` 还没有这条规则
-  // （只有初始化器位与复合字面量元素位），因此内层括号是 `Fallback`、不 replay（见报告 §6 R2）。
-  ["arrow-nested", "let n = (a) => (b) => a + b;\n", 1],
+  // [B4f] 嵌套箭头：内层 `(b) =>` 的 `(` 前一个是 `=>`，`BracketRoleResolver.Classify` 现在有
+  // 这条规则（`nested-arrow-paren-wait-for-arrow`），外层与内层各 replay 一次 ⇒ 2。
+  ["arrow-nested", "let n = (a) => (b) => a + b;\n", 2],
   ["arrow-twice", "let p = (a: number) => a;\nlet q = (a, b) => b;\n", 2],
   ["paren-only", "let v = (a);\n", 0],
   ["paren-binop", "let w = (a) + 1;\n", 0],
   ["paren-call", "let q = f(a, b);\n", 0],
   ["function-params", "function fn(a: number) {}\n", 0],
-  ["arrow-default", "let d = (a: number, b = 1) => a;\n", 0],
+  // [B4f] R1 默认值参数：`IsSimpleArrowList` + `Probe` 动作 9 ⇒ 整份 replay 一次。
+  ["arrow-default", "let d = (a: number, b = 1) => a;\n", 1],
 ];
 
 function walk(token, visit) {

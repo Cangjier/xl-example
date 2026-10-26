@@ -16,6 +16,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
+import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { BracketRole } from "../statements/bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "../statements/bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
@@ -82,6 +83,12 @@ import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 解构 / 默认值 / 可选 `?` / 装饰器 / 泛型类型都走这条（任务书允许它们后置）。
 这样绝不会出现「半建」：目录要么整份装上，要么完全不装。
 
+**[B4f] 第二份闸 `IsSimpleArrowList`（只给箭头 site）**：`IsSimpleList` 是**文本**判据，
+遇到默认值里的 `(` / `{` 就放弃；箭头形参表的默认值恰恰长这样。所以箭头侧另有一份**单元级**判据
+（语法面相同：`[ '...' ] name [ ':' type ] [ '=' default ]`），`Probe` 多了动作 9 把
+`=` + 默认值整段建成一个子节点。`InstallIfSimple`（`function` 声明）仍然只用 `IsSimpleList`，
+**B1 的读数逐字节不变**。
+
 ## static field Enabled:bool = true
 
 功能开关（B1）。关掉 ⇒ `InstallIfSimple` 直接返回 `false`，括号逐字节回到本 WP 之前。
@@ -109,6 +116,11 @@ import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 ## static field BuildActionCount:int = 0
 
 逐字建造动作（建壳 / `...` / 名字 / 类型 / 数组包裹 / 逗号收口）的总次数。
+
+## static field DefaultValueCount:int = 0
+
+**[B4f]** 真正把「`=` + 默认值表达式」建成一个子节点、并从 `Data` 里逐字吃掉的次数。
+只在箭头形参表上可能非 0（`InstallIfSimple` 的文本闸仍然不接受 `=`，见 `IsSimpleArrowList`）。
 
 ## static field States:Array<ParameterScan> = []
 
@@ -242,11 +254,206 @@ for (const part of parts) {
 return true;
 ```
 
+## static method IsSimpleArrowList:(bracket:Bracket)=>bool
+
+**[B4f] 箭头形参表的第二份闸：按 `Data` 的结构位判，允许 `=` + 默认值。**
+
+`IsSimpleList` 的判据是**源码文本**（`TextBetween`），它遇到 `(` / `{` / `}` / `;` 就整段放弃——
+默认值里一个对象 / 数组 / 括号字面量就会让它判否（`(a = {x:1}) =>` 的 `{` 就是这一格）。
+所以箭头 site 另开这一份**单元级**判据：`bracket.Data` 里嵌套的括号本来是**一个单元**，
+默认值内部的 `,` / `:` / `{` 不会跑到这一层来，因此
+
+- 「默认值内部的对象 / 数组 / 括号」结构上不可能被当成形参表的分隔（A2 #5 R2 的要求）；
+- 「简单参数表」的语法面仍然是 `[ '...' ] name [ ':' type ] [ '=' default ]`，与 B1 同一套语法，不放大语义。
+
+**为什么另开一份而不是改 `IsSimpleList`**：那个文本闸是 `function` 声明参数表的入口
+（`InstallIfSimple`），改它会把 `function f(a = 1) {}` 一起拉进逐字建——那是 B1 的写域，
+本棒不动（保持「函数参数表的既有读数逐字节不变」）。这一份只被箭头侧
+（`ArrowParamsCatalog.IsArrowable`）调用。
+
+`phase`：0 = 等名字（可先吃 `...`）、1 = 名字已建（等 `:` / `=` / `,`）、2 = 类型位、3 = 默认值位。
+
+```ts
+const data = bracket.Data;
+let phase = 0;
+let parameters = 0;
+let defaultUnits = 0;
+for (const unit of data) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  const isSymbol = unit instanceof Symbol;
+  const text = isSymbol ? (unit as Symbol).TempToString() : "";
+  if (phase === 0) {
+    if (isSymbol && text === "...") {
+      continue;
+    }
+    if (!(unit instanceof Common) || (unit as Common).CanStartNumber()) {
+      // 解构 `{a}` / `[a]`、字符串、数字开头的参数名：都不是简单形参 ⇒ 整份交 legacy。
+      return false;
+    }
+    phase = 1;
+    parameters += 1;
+    continue;
+  }
+  if (phase === 1) {
+    if (isSymbol && text === ":") {
+      phase = 2;
+      continue;
+    }
+    if (isSymbol && text === "=") {
+      phase = 3;
+      defaultUnits = 0;
+      continue;
+    }
+    if (isSymbol && text === ",") {
+      phase = 0;
+      continue;
+    }
+    return false;
+  }
+  if (phase === 2) {
+    if (isSymbol && text === "=") {
+      phase = 3;
+      defaultUnits = 0;
+      continue;
+    }
+    if (isSymbol && text === ",") {
+      phase = 0;
+      continue;
+    }
+    // 类型位只认「标识符 + 零或多个 `[]`」——与 `IsSimpleParameter` 的正则同一口径。
+    if (unit instanceof Common) {
+      continue;
+    }
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[") {
+      continue;
+    }
+    return false;
+  }
+  // phase 3：默认值位。嵌套括号是一个单元，里面的 `,` 看不见；顶层的 `,` 才是下一个参数。
+  if (isSymbol && text === ",") {
+    phase = 0;
+    continue;
+  }
+  if (isSymbol && (text === ";" || text === "=>" || text === ")")) {
+    // 默认值里出现箭头 / 分号：交 legacy（`ExpressionBuilder.ParseAssign` 能读，但判据面先不放大）。
+    return false;
+  }
+  defaultUnits += 1;
+}
+if (parameters === 0 || phase === 0) {
+  // 空表 / 尾随 `,`：没东西可整份建。
+  return false;
+}
+if (phase === 3 && defaultUnits === 0) {
+  return false;
+}
+return true;
+```
+
+## static method DefaultValueEnd:(data:Array<Token>, at:int)=>int
+
+**[B4f]** 默认值在 `Data` 里的右边界：`at`（`=` 的下标）之后第一个**顶层** `,` 的下标；没有就是
+`data.length`。嵌套括号的 `,` 在括号自己的 `Data` 里，这一层看不见——这正是「默认值内部不得误当形参表」
+的结构保证。
+
+```ts
+for (let index = at + 1; index < data.length; index++) {
+  const unit = data[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is(",")) {
+    return index;
+  }
+}
+return data.length;
+```
+
+## static method BuildDefaultValue:(data:Array<Token>, at:int, end:int, context:SyntaxContext)=>Token | null
+
+**[B4f]** 用 **legacy 的同一个建造器**（`ExpressionBuilder.ParseAssign`）把 `[at+1, end)` 建成一个表达式节点。
+
+为什么必须是同一个建造器：默认值这一段的树，legacy `ExpressionBuilder.ParseFunctionParameters` 是
+`parameter.Add(inner.ParseAssign())` 建出来的；参数壳一旦由 replay 建好，那一段就不再经过 legacy。
+两份代码只要有一处不同，`(a: number, b = 1) => …` 的树就会与 base 差一个节点。所以这里**不写第二套**：
+
+- `Load(data.slice(at + 1, end), data[at].SourceRange.EndIndex)`：`Positions` 的口径与 legacy 的
+  `Load(bracket.Data, 括号起点+1)` 逐格一致（两者都取「前一个非 trivia 单元的 `EndIndex`」）；
+- `builder.At === builder.Units.length`：整段必须吃完，否则返回 `null`（**判据与建造同源**，
+  `CanBuildDefaults` 与 `Probe` 因此不会一个说能建、一个建不出来）。
+
+建不出来时**不改任何东西**（本方法只碰自己的 builder），调用方退回 legacy。
+
+```ts
+if (end <= at + 1) {
+  return null;
+}
+const unit = data[at];
+let base = 0;
+if (unit.SourceRange.EndIndex >= 0) {
+  base = unit.SourceRange.EndIndex;
+}
+const builder = new ExpressionBuilder(unit.Template, context);
+builder.Load(data.slice(at + 1, end), base);
+let value:Token | null = null;
+try {
+  value = builder.ParseAssign();
+} catch (error) {
+  return null;
+}
+if (value === null) {
+  return null;
+}
+if (builder.At !== builder.Units.length) {
+  return null;
+}
+return value;
+```
+
+## static method CanBuildDefaults:(bracket:Bracket, context:SyntaxContext)=>bool
+
+**[B4f]** 整份形参表里的**每一个**默认值都能像 legacy 那样建出来。
+
+这是 `ArrowParamsCatalog.BindArrowParen` 在 replay **之前**的干跑闸：判否就一只括号都不 replay
+（`RejectCount += 1`，整段照 B4d 的现状交 legacy）。有了它，「默认值建不出来」永远不会变成
+「参数名已经建好、`=` 还留在 `Data` 里」的半建括号——那条半建会让 legacy
+`ParseFunctionParameters` 报「函数参数只支持标识符或绑定模式」。
+
+```ts
+for (let at = 0; at < bracket.Data.length; at++) {
+  const unit = bracket.Data[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (!(unit instanceof Symbol) || !(unit as Symbol).Is("=")) {
+    continue;
+  }
+  const end = ParameterListPossibleShape.DefaultValueEnd(bracket.Data, at);
+  if (ParameterListPossibleShape.BuildDefaultValue(bracket.Data, at, end, context) === null) {
+    return false;
+  }
+}
+return true;
+```
+
 ## static method PreviousParamPos:(data:Array<Token>, at:int, bracket:Bracket, shell:ParameterShape | null)=>int
 
-新子节点的 `Pos`：**前一个非 trivia 单元的终点**；没有就退到括号起点 +1。
-参数壳还没签出时，退回壳里最后一个已建子单元的终点——`args` 的 `Pos = 14` 就靠这一条
-（`...` 的终点），否则会退成 `(` 后面的 11。
+新子节点的 `Pos`：**壳里最后一个已建子单元的终点**；壳还没有子单元时退到「`Data` 里前一个非 trivia
+单元的终点」；两者都没有就退到括号起点 +1。
+
+**顺序就是「先壳、后 `Data`」，不能反过来**：`...` / `:` 这些**已经被吃进壳里**的单元在下一次
+`Probe` 时已不在 `Data` 里，于是 `Data` 里上一个单元是那个**逗号**，它的终点比 `...` 的终点小 3
+（实测 `(a, b = 1, ...c)` 的 `c` 会退成 127 而不是 131，`expr-arrow-params-default-rest.ts`
+`Identifier[3] 131-132` 一条漂移就这么来的）。壳里的最后一个子单元才是「紧挨着本子节点的那个单元」：
+
+- `args` 的 `Pos = 14` 靠这一条（`...` 的终点），否则会退成 `(` 后面的 11；
+- `(a, b = 1, ...c)` 的 `c` 同理（`...` 的终点 131）。
+
+壳里没有子单元时（刚开壳、`Data` 里的上一个单元就是 `,` / `(`）仍按 `Data` 取，所以
+`b` 在 `(a, b = 1)` 里仍是逗号的终点 127——与 legacy `Positions[nameIndex]`（前一个非 trivia 单元的
+`EndIndex`）同口径。
 
 ```ts
 let pos = 0;
@@ -256,7 +463,8 @@ if (bracket.SourceRange.Start >= 0) {
 if (shell !== null) {
   const last = shell.Last();
   if (last !== null && last.SourceRange.End >= 0) {
-    pos = last.SourceRange.EndIndex;
+    // 壳里已有子单元：它才是「紧挨着本子节点的那个单元」（`...` / `:` 已被吃进壳，`Data` 里看不到）。
+    return last.SourceRange.EndIndex;
   }
 }
 for (let back = at - 1; back >= 0; back--) {
@@ -332,12 +540,16 @@ ParameterListPossibleShape.FinalizeCount += 1;
 
 `IsBuildable` 与 `BuildByIndex` 共用的**唯一判据**：返回下一步动作码
 （0 = 没有可建的东西）。动作码：1 建参数壳、2 `...`、3 名字、4 吃掉 `:`、5 类型、
-6 数组包裹、7 逗号收口。
+6 数组包裹、7 逗号收口、9 `=` + 默认值（[B4f]）。
 
 `context === null` 时只判不建；非 `null` 时按动作真的建一步。
 
 「可建」= 目标单元已经 `Closed` 或源区间已经定死。半开的 `Common`
 （`arg` 正在敲）绝不能建，否则名字会被截断。
+
+**[B4f] 动作 9（默认值）的两个前提**：① `shell.ParameterName !== null`（默认值只在名字之后）；
+② `BuildDefaultValue` 整段吃完。建不出来就返回 0、**一个字节都不动**——「判据与建造同源」，
+所以 `IsBuildable` 不会在 `BuildByIndex` 建不出来的时候说「能建」。
 
 ```ts
 const data = units;
@@ -433,6 +645,25 @@ if (unit instanceof Symbol && (unit as Symbol).Is(":")) {
   data.splice(at, 1);
   ParameterListPossibleShape.BuildActionCount += 1;
   return 4;
+}
+// [B4f] 默认值：`=` + 默认值表达式**逐字吃掉**（`(a: number, b = 1) =>` / `(a = {x:1}) =>`）。
+// 默认值内部的对象 / 数组 / 括号是**一个已建括号单元**，所以这一层永远看不到它们里面的 `,`，
+// 不可能被误当形参表的分隔；顶层 `,` 才是下一个参数（`DefaultValueEnd`）。
+if (unit instanceof Symbol && (unit as Symbol).Is("=") && shell.ParameterName !== null) {
+  if (context === null) {
+    return 9;
+  }
+  const valueEnd = ParameterListPossibleShape.DefaultValueEnd(data, at);
+  const value = ParameterListPossibleShape.BuildDefaultValue(data, at, valueEnd, context);
+  if (value === null) {
+    return 0;
+  }
+  shell.Add(value);
+  value.Parent = shell;
+  data.splice(at, valueEnd - at);
+  ParameterListPossibleShape.DefaultValueCount += 1;
+  ParameterListPossibleShape.BuildActionCount += 1;
+  return 9;
 }
 if (unit instanceof Symbol && (unit as Symbol).Is("...") && shell.RestToken === null) {
   if (context === null) {

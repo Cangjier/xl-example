@@ -36,7 +36,12 @@ import { ParameterShape } from "../../../types/parameter-shape.xl.md"
 **为什么 replay 只在「简单形参表」上做**：`ParameterListPossibleShape.IsSimpleList` 是
 `[ '...' ] name [ ':' type ]` 的整份判据（B1 §2）。判否的括号一个字节都不建 ⇒ **不 replay**、
 `RejectCount += 1`，整段照 B4b 的现状交给 legacy —— 这样绝不会出现「建了一半的形参表」
-（`(a: number, b = 1) =>` 的默认值、`?` 可选、解构、装饰器、泛型类型都在这条出口上，见报告 §6）。
+（`?` 可选、解构、装饰器、泛型类型都在这条出口上，见报告 §6）。
+
+**[B4f] 默认值参数（`(a: number, b = 1) =>`）不再走这条出口**：`IsArrowable` 补了 B1 的第二份
+单元级判据 `IsSimpleArrowList`（语法面相同，额外接受 `= <默认值>`），`Probe` 补了动作 9 把
+`=` + 默认值整段建成一个子节点。默认值内部的括号 / 对象 / 数组在 `Data` 里是**一个单元**，
+结构上不可能被误当形参表的分隔。建不出来（干跑 `CanBuildDefaults` 判否）仍然整份不 replay。
 
 **默认打开**：`Enabled = true`。关掉 ⇒ `BindArrowParen` 直接返回 `false`，括号回到 B4b 的现状
 （Deferred 条目留在 `Pending`，legacy 收口），产物逐字节不变。
@@ -103,9 +108,16 @@ BracketRoleResolver.RegisterCatalog(
 
 ## static method IsArrowable:(bracket:Token)=>bool
 
-这只括号的形参表能不能整份逐字建：`(` 且 `IsSimpleList` 判真。
+这只括号的形参表能不能整份逐字建：`(` 且形参表判真。
 
-判据**只读源码文本**（`ParameterListPossibleShape.TextBetween`），因此跨步稳定：
+两条判据，都是 B1 的（不写第三份）：
+
+1. `ParameterListPossibleShape.IsSimpleList` —— **源码文本**判据（B1 原版，`[ '...' ] name [ ':' type ]`）。
+   它遇到 `(` / `{` / `}` / `;` 就整段放弃，所以默认值里带对象 / 数组 / 括号的形参表在它手上判否。
+2. `ParameterListPossibleShape.IsSimpleArrowList` —— **[B4f] 单元级**判据，语法面与 ① 相同，额外接受
+   `= <默认值表达式>`（默认值内部的对象 / 数组 / 括号是**一个单元**，不会被当成形参表的分隔）。
+
+判据只读结构位与源码文本（不建任何东西），因此跨步稳定：
 `(` 格、`)` 格、`=>` 格的结论一致（A2 R7 的「Reject 永久」要求判据跨步稳定）。
 
 ```ts
@@ -116,7 +128,10 @@ const shape = bracket as Bracket;
 if (shape.StartBracketChar !== "(") {
   return false;
 }
-return ParameterListPossibleShape.IsSimpleList(shape);
+if (ParameterListPossibleShape.IsSimpleList(shape)) {
+  return true;
+}
+return ParameterListPossibleShape.IsSimpleArrowList(shape);
 ```
 
 ## static method IsPendingArrowParen:(bracket:Token)=>bool
@@ -177,16 +192,29 @@ return state.Finalized;
 **`=>` 确定那一格的唯一入口**（由 `ArrowFunctionShape.BindParameterBracket` 调）：
 
 1. `IsArrowable` 判否 ⇒ `RejectCount += 1`，返回 `false`（不 replay，不建任何东西）；
-2. `EnsureRegistered` + 给这只括号 `EnsureState`（`ParameterPossibleShape` 的 `IsBuildable` 靠它）；
-3. `DeferredBracketCatalog.Bind("ArrowFunctionShape", bracket)` —— **定向、一次**；
-4. replay 成功 ⇒ `FinalizeBracket`，再按残留判一次（`HalfBuildCount`）；
-5. 返回是否真的建出了参数。
+2. **[B4f]** `ParameterListPossibleShape.CanBuildDefaults` 干跑判否 ⇒ 同样 `RejectCount += 1`、不 replay。
+   默认值这一段的建造器是 legacy 的 `ExpressionBuilder.ParseAssign`，干跑就是「先整份建一遍再把结果丢掉」：
+   通过之后 `Probe` 的动作 9 一定建得出来，所以**不会出现「名字已建、`=` 还留在 `Data` 里」的半建括号**；
+3. `EnsureRegistered` + 给这只括号 `EnsureState`（`ParameterPossibleShape` 的 `IsBuildable` 靠它）；
+4. `DeferredBracketCatalog.Bind("ArrowFunctionShape", bracket)` —— **定向、一次**；
+5. replay 成功 ⇒ `FinalizeBracket`，再按残留判一次（`HalfBuildCount`）；
+6. 返回是否真的建出了参数。
 
 `Bind` 的返回值是「本次被唤醒并已 replay 的括号」；空 ⇒ 没命中（条目已不在 / replay 失败，
 失败已在 `DeferredBracketCatalog.ReplayFailureCount` 计数）⇒ 本方法返回 `false`，**不静默**。
 
+**[B4f] 「已经 replay 过」不算拒绝**：`=>` 之后同一只括号会被问第二次（`ParseFunctionParameters`
+里一次、收口一次）。replay 之后 `Data` 里已经是 `ParameterShape`，`IsArrowable` 自然判否——
+那是 R1 的一次性，返回 `false` 但**不涨 `RejectCount`**（否则 `RejectCount` 会把成功也算成拒绝）。
+
 ```ts
 if (!ArrowParamsCatalog.Enabled) {
+  return false;
+}
+// [B4f] 已经 replay 过的括号不再算「拒绝」：`=>` 之后同一只括号可能被问第二次
+// （`ParseFunctionParameters` 与收口各一次）。replay 之后 `Data` 里已是 `ParameterShape`，
+// `IsArrowable` 自然判否——那是 R1 的一次性，不是 reject，不能记成 `RejectCount`。
+if (bracket !== null && bracket instanceof Bracket && (bracket as Bracket).ReplayCount > 0) {
   return false;
 }
 if (!ArrowParamsCatalog.IsArrowable(bracket)) {
@@ -194,6 +222,11 @@ if (!ArrowParamsCatalog.IsArrowable(bracket)) {
   return false;
 }
 const shape = bracket as Bracket;
+// [B4f] 默认值干跑闸：建不出来就整份不 replay（一只括号都不动），整段照 B4d 的现状交 legacy。
+if (!ParameterListPossibleShape.CanBuildDefaults(shape, context)) {
+  ArrowParamsCatalog.RejectCount += 1;
+  return false;
+}
 ArrowParamsCatalog.EnsureRegistered();
 const state = ParameterListPossibleShape.EnsureState(shape.Data);
 state.Bracket = shape;
