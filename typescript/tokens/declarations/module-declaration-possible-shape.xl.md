@@ -14,6 +14,8 @@ import { ItemUtil } from "../item-util.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { StatementScanResult } from "../statements/statement-scanner.xl.md"
 import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
+import { ModuleDeclarationEndPossibleShape } from "./module-declaration-end-possible-shape.xl.md"
+import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { StatementRoute } from "../statements/statement-route-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { DeclarationIncrementalRoute } from "./declaration-incremental-route.xl.md"
@@ -30,6 +32,10 @@ import { DeclarationIncrementalRoute } from "./declaration-incremental-route.xl.
 ## field Status:int = 0
 
 ## field End:int = -1
+
+## field Done:bool = false
+
+## field DoneAt:int = -1
 
 # class ModuleDeclarationPossibleShape extends PossibleShape
 
@@ -132,10 +138,30 @@ return new StatementScanResult(0, -1);
 ```ts
 // [E-DECL:ROUTE] 增量模式：让根层声明壳让出路由，由本族候选提前挂壳（开关 false 时恢复原路由）。
 DeclarationIncrementalRoute.Arm();
+// [XL-B3c] 让位判据：legacy 下照旧让给通用声明壳；增量模式下**只对自己的声明头**
+// （namespace / module，或 export + namespace/module）跳过让位、自己提前挂壳。
+// `declare namespace|module|global` 不归本 WP，仍然让位（否则与声明壳同格双 Accept）。
 if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
-  // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
-  // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
-  return ShapeStates.Reject;
+  const b3cStart = ItemUtil.ItemStartCached(units, cache);
+  const b3cHeadAt = ItemUtil.NextCode(units, b3cStart);
+  let b3cOwns = false;
+  if (b3cHeadAt >= 0 && b3cHeadAt < units.length && units[b3cHeadAt] instanceof Common) {
+    const b3cText = (units[b3cHeadAt] as Common).TempToString();
+    if (b3cText === "namespace" || b3cText === "module") {
+      b3cOwns = true;
+    } else if (b3cText === "export") {
+      const b3cNext = ItemUtil.NextCode(units, b3cHeadAt + 1);
+      if (b3cNext < units.length && units[b3cNext] instanceof Common) {
+        const b3cNextText = (units[b3cNext] as Common).TempToString();
+        b3cOwns = b3cNextText === "namespace" || b3cNextText === "module";
+      }
+    }
+  }
+  if (!(StatementRouteUtil.IsIncrementalShapesEnabled() && b3cOwns)) {
+    // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
+    // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
+    return ShapeStates.Reject;
+  }
 }
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
@@ -249,6 +275,25 @@ if (state.Checked !== tokenIndex + 1) {
     state.Status = 2;
     state.End = -1;
   }
+  // [XL-B3c] 增量模式：声明头（namespace / module，可带 export / declare 修饰）与名字**同格到齐**
+  // 就记 Done，本候选随即在名字那一格挂出 legacy 类名的 `ModuleDeclarationShape` 壳。
+  // 收口交给 `ModuleDeclarationEndPossibleShape`（`{}` 体闭合 / `;` / EOF），走 legacy
+  // `ModuleDeclarationShape.FromUnits`，所以 EOF 树逐节点一致。开关 false 时本段不执行。
+  if (StatementRouteUtil.IsIncrementalShapesEnabled() && !state.Done
+    && state.Status !== 2 && scanCode.length >= 2) {
+    let head = 0;
+    while (head < scanCode.length && scanCode[head] instanceof Common
+      && ((scanCode[head] as Common).Is("export") || (scanCode[head] as Common).Is("declare"))) {
+      head++;
+    }
+    if (head < scanCode.length && scanCode[head] instanceof Common) {
+      const keyword = (scanCode[head] as Common).TempToString();
+      if (keyword === "namespace" || keyword === "module") {
+        state.Done = true;
+        state.DoneAt = scanCodeAt[head];
+      }
+    }
+  }
   state.Checked = tokenIndex + 1;
 }
 if (state.Status === 2) {
@@ -265,7 +310,14 @@ return ShapeStates.Uncertain;
 ```ts
 DeclarationIncrementalRoute.Arm();
 const state = cache.GetState<ModuleDeclarationScan>(this.Slot());
-return state !== null && state.Status === 1 && state.End >= 0;
+if (state === null) {
+  return false;
+}
+// [XL-B3c] 增量模式：声明头与名字到齐即可挂壳（legacy 的 `Status===1 && End>=0` 保持给 false 分支）。
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return state.Done && state.Status !== 2;
+}
+return state.Status === 1 && state.End >= 0;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -273,6 +325,14 @@ return state !== null && state.Status === 1 && state.End >= 0;
 ```ts
 const state = catalog.PossibleShapesComputeCache.GetState<ModuleDeclarationScan>(this.Slot());
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  // [XL-B3c] 增量模式：名字那一格挂出 legacy 类名的 module/namespace 壳（`ModuleDeclarationShape@pos`），
+  // 体内容仍是 raw 单元，收口由终结候选交给 legacy `ModuleDeclarationShape.FromUnits`。
+  const shell = new ModuleDeclarationShape(host.Template);
+  BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
+  shell.CatalogGuide = new CatalogGuide([], new ModuleDeclarationEndPossibleShape());
+  return shell;
+}
 let end = state === null ? tokenIndex : state.End;
 if (end < start) {
   end = tokenIndex;

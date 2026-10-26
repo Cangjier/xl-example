@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
@@ -75,6 +76,16 @@ if (route === StatementRoute.None) {
 }
 if (route !== StatementRoute.ShellDeclarationFamily) {
   return ShapeStates.Reject;
+}
+// [XL-B3c] WP-B3c（在 B5/B4a 段之后追加、不重排）：incremental 模式下 enum / namespace / module
+// 三个声明族改由各自的 `EnumDeclarationPossibleShape` / `ModuleDeclarationPossibleShape` 提前挂壳，
+// 本通用声明壳让位（否则它与声明族候选同格 Accept = 永远等不到唯一候选）。
+// false 时本段整体不执行 —— legacy 路径逐字节不变。
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  const b3cHeadText = units[headAt] instanceof Common ? (units[headAt] as Common).TempToString() : "";
+  if (b3cHeadText === "enum" || b3cHeadText === "namespace" || b3cHeadText === "module") {
+    return ShapeStates.Reject;
+  }
 }
 // 首格与晚建格一视同仁：都 Accept。晚建格（`type T` / `declare const` 的族在第二格才判出来、
 // `interface I { }` ⏎ `const a = 1;` 的 `const`）搬多少单元由 `BuildByIndex` 的起点同步决定。

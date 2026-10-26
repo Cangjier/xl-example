@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
@@ -67,6 +68,15 @@ if (route === StatementRoute.ShellLabel) {
 // **Stage 5d-3**：根层 `function` / `class` / 装饰器声明（`ShellFunctionDeclaration` /
 // `ShellClassDeclaration` / `ShellDecoratedDeclaration`）也走这一条——它们各有自己的终结判据
 // （`StatementBoundaryUtil.DeclarationShellEndCode`）与 family builder，候选只负责建壳。
+// [XL-B3c] WP-B3c（在 B1 段之后追加、不重排）：与 `DeclarationStatementPossibleShape` 同一份让位判据。
+// 本候选也认 `ShellDeclarationFamily`，若不让位会与 enum / namespace / module 的声明族候选同格双 Accept。
+// false 时本段整体不执行 —— legacy 路径逐字节不变。
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  const b3cHeadText = units[headAt] instanceof Common ? (units[headAt] as Common).TempToString() : "";
+  if (b3cHeadText === "enum" || b3cHeadText === "namespace" || b3cHeadText === "module") {
+    return ShapeStates.Reject;
+  }
+}
 const declarationShell = route === StatementRoute.ShellFunctionDeclaration
   || route === StatementRoute.ShellClassDeclaration
   || route === StatementRoute.ShellDecoratedDeclaration;
