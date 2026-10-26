@@ -2450,6 +2450,38 @@ if (unit instanceof Common) {
 if (unit instanceof Symbol && (unit as Symbol).Is("<")) {
   return this.ParseAngleStart();
 }
+// [D3a2:SHAPE-OPERAND] 已建好的形状单元可以当**操作数**用（C1：它的 `Pos` / `src` 已经落地，不能重算）。
+//
+// 为什么需要这一条：增量目录会在 `=` 之后先建出链头（`f()` / `a` / `typeof o` / `1 + o["f"]()`），
+// 后续的 `.` `[` `(` `!` `as` `+` 还停在 raw 单元里。这类初始化器只有整段 legacy 重建才能得到与 legacy
+// 逐节点同源的树（`MemberChainJudge.Build` / `ShapeRootedTailPossibleShape.BuildByIndex`），而重建的
+// `Units` 里必然带着那个已建形状。此前这里落到 `不支持的表达式起点`，于是整条重建路径不可用。
+//
+// 两条分支，按形状自己的生命周期判：
+//   - **还没封口**（`Closed` 为假，且已有一个操作数子单元）：它是前缀运算符在等操作数（`typeof o` 的
+//     `o` 只是头一个原子），把**后面的后缀链**接到那个操作数上再交回去——`typeof o["f"]().v` 的树是
+//     `typeof (o["f"]().v)`，不是 `(typeof o)["f"]().v`；
+//   - **已封口**：它就是一个完整的操作数，`ParsePostfixSuffix` 照常往外接。
+//
+// 只影响「`Units` 里本来就有形状」的重建路径：普通 legacy 解析的 `Units` 全是 basic token，
+// 永远走不到这两条分支（此前是 `不支持的表达式起点` 抛错，不是一条活路径）。
+if (unit instanceof ShapeToken) {
+  const shape = unit as ShapeToken;
+  if (!shape.Closed && shape.Data.length > 0) {
+    this.At++;
+    const operandIndex = shape.Data.length - 1;
+    const operand = this.ParsePostfixSuffix(shape.Data[operandIndex], start);
+    shape.Data[operandIndex] = operand;
+    operand.Parent = shape;
+    if (operand.SourceRange.EndIndex >= 0) {
+      shape.SignOut(operand.SourceRange.EndIndex);
+    }
+    shape.TryToClose(this.Context);
+    return shape;
+  }
+  this.At++;
+  return shape;
+}
 throw new Error("不支持的表达式起点");
 ```
 

@@ -22,6 +22,7 @@ import { MemberAccessPossibleShape } from "./forms/postfix/member-access-possibl
 import { ElementAccessPossibleShape } from "./forms/postfix/element-access-possible-shape.xl.md"
 import { OptionalChainPossibleShape } from "./forms/postfix/optional-chain-possible-shape.xl.md"
 import { NonNullPossibleShape } from "./forms/postfix/non-null-possible-shape.xl.md"
+import { ShapeRootedTailPossibleShape } from "./forms/postfix/member-chain-judge.xl.md"
 import { MetaPropertyPossibleShape } from "./forms/postfix/meta-property-possible-shape.xl.md"
 import { SuperPrimaryPossibleShape } from "./forms/postfix/super-primary-possible-shape.xl.md"
 import { CallPossibleShape } from "./forms/postfix/call-possible-shape.xl.md"
@@ -171,6 +172,7 @@ CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
   ElementAccessPossibleShape.AppendTo(shapes); // [P1]
   OptionalChainPossibleShape.AppendTo(shapes); // [P1]
   NonNullPossibleShape.AppendTo(shapes); // [P1]
+  ShapeRootedTailPossibleShape.AppendTo(shapes); // [D3a2]
   MetaPropertyPossibleShape.AppendTo(shapes); // [P1]
   SuperPrimaryPossibleShape.AppendTo(shapes); // [P1]
   CallPossibleShape.AppendTo(shapes); // [P2]
