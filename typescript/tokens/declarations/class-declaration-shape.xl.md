@@ -58,6 +58,7 @@ import { GetAccessorPossibleShape } from "../types/class-get-accessor-possible-s
 import { SetAccessorPossibleShape } from "../types/class-set-accessor-possible-shape.xl.md"
 import { ClassStaticBlockDeclarationPossibleShape } from "../types/class-static-block-declaration-possible-shape.xl.md"
 import { IndexSignaturePossibleShape } from "../types/class-index-signature-possible-shape.xl.md"
+import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 ```
 
 # namespace cangjie
@@ -105,7 +106,10 @@ if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, ["extends", "implemen
 }
 const body = bracket as Bracket;
 this.BodyBracket = body;
-BodyGuideUtil.MountBodyGuide(body, ClassDeclarationShape.CreateBodyPossibleShapes());
+// [B2] 成员块目录走 B0 安装器：`Known` 计划 + 永不 Accept 的终结候选（`WaitingEndPossible`）。
+// 外壳（B2 的早建成员壳）建出来之后块里不再有新单元，旧目录的候选会全部 Reject；没有终结候选时
+// `CatalogGuide` 会走「没有候选形状可以构成」的抛错出口，`WaitingEndPossible` 把它变成 `Waiting`。
+MemberShellCatalog.InstallBodyCatalog(body, ClassDeclarationShape.CreateBodyPossibleShapes(), "MemberList", this, context);
 this.CatalogGuide = new CatalogGuide([], new ClassDeclarationEndPossibleShape());
 ```
 
@@ -345,8 +349,10 @@ if (nameUnit !== null) {
 const clauses:Array<Token> = heritageUnits.length === 0
   ? []
   : HeritageClauseShape.BuildClauses(host, heritageUnits, heritageBase, context);
-const members = BodyGuideUtil.CollectBodyMembers(host, bodyUnit as Bracket, context, ClassDeclarationShape.BuildMembers);
-const shape = new ClassDeclarationShape(host.Template);
+// [B2] 收口前先把还没到边界的成员外壳（没有分隔符的最后一个成员）换成正品：整棵 AST 仍由
+// `BuildMembers` 产出，这里只决定「什么时候」。
+MemberShellCatalog.FinalizeAll(host, bodyUnit as Bracket, context);
+const members = BodyGuideUtil.CollectBodyMembers(host, bodyUnit as Bracket, context, ClassDeclarationShape.BuildMembers);const shape = new ClassDeclarationShape(host.Template);
 shape.NameToken = name;
 shape.HeritageClauses = clauses;
 shape.Members = members;

@@ -38,6 +38,11 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 
 ## field BoundaryAnchor:int = -1
 
+## field Early:bool = false
+
+[B2] 本格是「成员头已定」的**早建**判定（见 `IsEarlyMemberHead`）：`Complete` 早于成员边界成立，
+`PropertyDeclarationPossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
+
 # class ClassMemberItemStartShared
 
 ## field Host:Array<Token> = []
@@ -582,12 +587,54 @@ if (shared !== null) {
 }
 ```
 
+## static method IsEarlyMemberHead:(code:Array<Token>, head:Token)=>bool
+
+[B2] **成员头已定**的判据：成员名（普通标识符）已经闭合，而且 document 里的下一个非 trivia 字符
+不是 `(` / `<`（那两种是方法 / 泛型方法，名字这一格判不出属性还是方法），而是属性的后续符号。
+
+这是「member 候选只在边界 Accept」的唯一放宽点：`;` / `:` / `=` / `?` / `!` / `}` 都只可能属于属性，
+所以这一格可以安全地先建一个**外壳**（正品仍由边界处的 legacy builder 产出）。
+
+`get` / `set` 前缀（`get x: A`）与 `@` 装饰器前缀不抢：它们要等完整头才判得清，交旧路径。
+
+```ts
+if (!(head instanceof Common) || !head.Closed) {
+  return false;
+}
+if (code.length === 0 || code[code.length - 1] !== head) {
+  return false;
+}
+// 名字必须是**修饰词之后的第一格**：`abstract f(): void` 的 `void` 也是「闭合格 + 下一字符是 `;`」，
+// 但它前面还有名字 / 参数表 / 返回类型，早建会把整条方法吞成壳（实测 class-abstract 多出一个
+// SemicolonClassElement）。所以跳过修饰词链后必须正好剩这一格。
+let nameAt = 0;
+while (nameAt < code.length - 1 && ClassMemberPossibleUtil.IsModifierWord(code[nameAt])) {
+  nameAt++;
+}
+if (nameAt !== code.length - 1) {
+  return false;
+}
+const next = ClassMemberPossibleUtil.NextChar(head.SourceRange);
+if (next !== ":" && next !== "=" && next !== "!" && next !== "?" && next !== ";" && next !== "}") {
+  return false;
+}
+const first = ClassMemberPossibleUtil.TextOf(code[0]);
+if (first === "@") {
+  return false;
+}
+if ((first === "get" || first === "set") && code.length >= 2) {
+  return false;
+}
+return true;
+```
+
 ## static method Analyze:(state:ClassMemberPossibleScan)=>void
 
 ```ts
 const code = state.Code;
 state.Complete = false;
 state.End = -1;
+state.Early = false;
 if (code.length === 0) {
   state.Kinds = ClassMemberPossibleUtil.AllKinds();
   return;
@@ -637,6 +684,13 @@ if (angle === 0) {
   if (complete && end >= 0 && ClassMemberPossibleUtil.IsModifierWord(code[end])) {
     complete = false;
     end = -1;
+  }
+  // [B2] 成员头已定 ⇒ 早建外壳（只放宽「什么时候 Accept」，不改正品由谁建）：
+  // `x` / `x:` / `x =` / `x?` 这些格子的下一字符只可能属于属性成员。
+  if (!complete && angle === 0 && ClassMemberPossibleUtil.IsEarlyMemberHead(code, code[code.length - 1])) {
+    complete = true;
+    end = code.length - 1;
+    state.Early = true;
   }
 }
 let kinds = state.Kinds;
