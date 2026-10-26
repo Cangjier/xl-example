@@ -8,10 +8,22 @@
 // 真实 `.d.ts` 保证「源码形态」覆盖（无分号 ambient 成员、global 增强、计算名、真实 TS 版本自己
 // 的 lib 文件……）。修之前 112/226 解析崩溃、能解析的
 // 114 份 AST 一致；修之后 226/226 解析成功且 226/226 AST 完全一致。
+//
+// **唯一对拍口径**：tsAst / cjAst / flatten / groupByKind / fieldOf 全部从 `./ast-compare.mjs` import。
+// 本文件以前自带一份 `cjAst` 副本（缺 `Text` 字符串导出名那一格，是第二份真相）；收编之后
+// 这里只剩本门自己的语料发现与三栏比较，任何投影字段的修正都只改 `ast-compare.mjs` 一处。
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import {
+  createAstCore,
+  cjAst,
+  flatten,
+  groupByKind,
+  FIELD_NAMES,
+  fieldOf,
+} from "./ast-compare.mjs";
 
 const require = createRequire(import.meta.url);
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -19,106 +31,8 @@ const root = path.resolve(here, "..", "..");
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { SourceFileRunner } = require(path.join(root, "build", "ts", "typescript", "run", "source-file-runner.js"));
 
-const TS_KIND_ALIASES = new Map([
-  ["FirstStatement", "VariableStatement"],
-  ["FirstTypeNode", "TypePredicate"],
-  ["LastTypeNode", "ImportType"],
-  ["FirstContextualKeyword", "AbstractKeyword"],
-  ["FirstNode", "QualifiedName"],
-  ["LastStatement", "DebuggerStatement"],
-  ["FirstLiteralToken", "NumericLiteral"],
-  ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
-  ["LastTemplateToken", "TemplateTail"],
-  // 赋值运算符的反查名被别名 FirstAssignment 盖掉；产物侧已改用规范类 EqualsTokenShape。
-  ["FirstAssignment", "EqualsToken"],
-  // 复合赋值 `+=` / `^=` 的反查名分别是 FirstCompoundAssignment / LastBinaryOperator；
-  // 产物侧 A4 起改用规范类 PlusEqualsTokenShape / CaretEqualsTokenShape。
-  ["FirstCompoundAssignment", "PlusEqualsToken"],
-  ["LastBinaryOperator", "CaretEqualsToken"],
-  ["AssertClause", "ImportAttributes"],
-  ["AssertEntry", "ImportAttribute"],
-]);
-const kindOf = (kind) => TS_KIND_ALIASES.get(kind) || kind;
-
-function flatten(nodes, out = []) {
-  for (const node of nodes || []) {
-    out.push(node);
-    flatten(node.children, out);
-  }
-  return out;
-}
-
-function groupByKind(nodes) {
-  const map = new Map();
-  for (const node of nodes) {
-    const kind = kindOf(node.kind);
-    if (!map.has(kind)) map.set(kind, []);
-    map.get(kind).push(node);
-  }
-  return map;
-}
-
-const FIELD_NAMES = ["text", "name", "isTypeOnly", "attributes", "namedBindings"];
-function fieldOf(node, name) {
-  const lower = name[0].toLowerCase() + name.slice(1);
-  if (node[name] !== undefined) return node[name];
-  return node[lower];
-}
-
-function norm(node) {
-  const out = { kind: node.kind, pos: node.pos, end: node.end };
-  if (node.text !== undefined) out.text = node.text;
-  if (node.name !== undefined) out.name = node.name;
-  if (node.isTypeOnly === true) out.isTypeOnly = true;
-  if (node.children && node.children.length > 0) out.children = node.children;
-  return out;
-}
-
-// 与 ast-json.mjs 的 tsAst / cjAst 同口径。
-function tsAst(node) {
-  const kindRaw = ts.SyntaxKind[node.kind];
-  const out = { kind: TS_KIND_ALIASES.get(kindRaw) || kindRaw, pos: node.pos, end: node.end };
-  if (ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
-    || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
-    || ts.isNumericLiteral(node) || ts.isBigIntLiteral(node) || ts.isRegularExpressionLiteral(node)) {
-    out.text = node.text;
-  }
-  if (ts.isImportDeclaration(node) && node.importClause && node.importClause.isTypeOnly === true) out.isTypeOnly = true;
-  if (node.isTypeOnly === true) out.isTypeOnly = true;
-  if (ts.isImportClause(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isImportSpecifier(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isNamespaceImport(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isExportSpecifier(node) && node.name && node.name.text) out.name = node.name.text;
-  if (ts.isNamespaceExport(node) && node.name && node.name.text) out.name = node.name.text;
-  const children = [];
-  node.forEachChild((child) => {
-    children.push(tsAst(child));
-  });
-  if (children.length > 0) out.children = children.map(norm);
-  return norm(out);
-}
-
-function cjAst(shape) {
-  // buffer 契约 §1.6：SourceRange 半开 [Start, End)，Start / End 是 int（-1 = 未设置）；
-  // End 已是开区间终点（最后字符 + 1），与 TS 的 node.end 同口径，不再 +1。
-  const range = shape.SourceRange || {};
-  const startIndex = typeof range.StartIndex === "number" ? range.StartIndex : -1;
-  const endIndex = typeof range.EndIndex === "number" ? range.EndIndex : -1;
-  const out = {
-    kind: shape.constructor.name.replace("Shape", ""),
-    pos: shape.Pos >= 0 ? shape.Pos : startIndex >= 0 ? startIndex : 0,
-    end: endIndex >= 0 ? endIndex : 0,
-  };
-  // 空文本也是取值（throw 恢复形里的零宽 Identifier，TS 侧 text=""）。
-  if (typeof shape.EscapedText === "string") out.text = shape.EscapedText;
-  if (typeof shape.Text === "string") out.text = shape.Text;
-  if (shape.Name && shape.Name.text !== undefined) out.name = shape.Name.text;
-  if (shape.Name && shape.Name.EscapedText) out.name = shape.Name.EscapedText;
-  if (shape.IsTypeOnly === true) out.isTypeOnly = true;
-  const children = (shape.Data || []).map(cjAst);
-  if (children.length > 0) out.children = children;
-  return norm(out);
-}
+// 与 ast-json.mjs 的 tsAst / cjAst 同口径（唯一实现见 ast-compare.mjs）。
+const { tsAst } = createAstCore(ts);
 
 function collectFiles() {
   const files = [];
