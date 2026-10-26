@@ -102,3 +102,5 @@
    - compute/build 如果每轮都进行寻找/遍历，则质量等级为差。解决思路：复用cache，将寻找的结果记录到cache，便于下次直接复用。
 
 7. 不支持tsx
+
+8. 在语句中如何从basic tokens到shape，可以参考`docs/expected-token-time-shapes.md`
