@@ -8,6 +8,7 @@ import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { CompositeInitializerJudge } from "../expressions/forms/primary/composite-initializer-judge.xl.md"
+import { CompositeInitializerFormsJudge } from "../expressions/forms/primary/composite-initializer-forms-judge.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -53,6 +54,14 @@ if (current instanceof Symbol) {
   if (OperatorTable.IsBinaryOperator(text) && VariableDeclarationEndPossibleShape.HasReducibleLeft(units, tokenIndex)) {
     return ShapeStates.Reject;
   }
+  // [A4b:COMPOSITE-FORMS] 箭头 `=>`、三元 `?` / `:`：本 WP 认领的形态（`Family` 命中）里它们是**中间单元**，
+  // 交给 `CompositeInitializerFormsPossibleShape` 继续等（它会一直等到表达式长完）。
+  // 不放行的话，`let x = y => y` / `let x = a ? b : c` 会在 `=>` / `?` 那一格被显式拒绝。
+  if (text === "=>" || text === "?" || text === ":") {
+    if (CompositeInitializerFormsJudge.Family(units) !== "") {
+      return ShapeStates.Reject;
+    }
+  }
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
 }
 if (current instanceof Common) {
@@ -64,6 +73,18 @@ if (current instanceof Bracket) {
   // `CompositeInitializerPossibleShape` 在「括号关闭」那一格整棵建树，这里只等（Reject），
   // 不再显式拒绝。其它括号形态仍按 C10 显式抛错（A6 的解构 / 多声明等由各自 WP 接管）。
   if (CompositeInitializerJudge.Claims(units)) {
+    return ShapeStates.Reject;
+  }
+  // [A4b:COMPOSITE-FORMS] 数组 / 括号 / 箭头 / 函数 / 类 / 三元：只在「初始化器真的长完」那一格放行
+  // （`CanBuild` = 形态命中 + legacy `ExpressionBuilder` 整段吃完 + 之后只剩输入结束），
+  // 让 `CompositeInitializerFormsPossibleShape` 整棵建出。其余格子（还有 `as` 续接、`;` 收口、
+  // 半截括号）逐字保持原样：要么继续等，要么仍按 C10 显式抛错。
+  if (CompositeInitializerFormsJudge.ClaimsForEndPossible(units)) {
+    return ShapeStates.Reject;
+  }
+  // [A4b:COMPOSITE-FORMS] 还没长完、但括号之后仍是本族合法续接（`(...)` 后的 `=>`、`function (...)` 后的
+  // 函数体 `{`）：继续等，不要按 C10 抛「declaration 括号」。`as`/`satisfies` 等其它续接不在此列。
+  if (CompositeInitializerFormsJudge.ContinuationAllowed(units)) {
     return ShapeStates.Reject;
   }
   throw new Error("增量变量形状未支持：declaration 括号");
