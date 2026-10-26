@@ -14,6 +14,7 @@ import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
+import { StatementShellCatalog } from "./statement-shell-catalog.xl.md"
 import { DirectStatementHook } from "../direct/direct-statement-hook.xl.md"
 ```
 
@@ -236,5 +237,19 @@ if (tokenIndex > start && (route === StatementRoute.ShellDeclarationFamily
 // H3-b（R3-CONTRACT §4.1）：建壳候选的通用挂载点，只有这一句。kind 从壳自己取（`shell.Kind`），
 // 未注册的 kind 由 `Create` 返回 null ⇒ 行为逐字节不变。
 DirectStatementHook.Attach(shell, context);
+// [XL-ROUTE:control-flow] B1：增量总闸打开时，给控制流 / 标签壳挂「早期占位节点」（legacy 类名 + 壳 Pos），
+// 收口时由 `StatementFamilyDispatch.Build` 把 legacy 子树搬进占位节点。开关关闭时本句不进。
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  let headUnit:Token | null = null;
+  for (const item of moved) {
+    if (!item.IsTriviaToken) {
+      headUnit = item;
+      break;
+    }
+  }
+  if (headUnit !== null) {
+    StatementShellCatalog.Attach(shell, headUnit, route);
+  }
+}
 return shell;
 ```
