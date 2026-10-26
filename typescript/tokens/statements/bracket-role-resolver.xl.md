@@ -636,6 +636,31 @@ for (let index = at - 1; index >= 0; index--) {
 return true;
 ```
 
+## static method IsAsyncArrowPrefix:(host:Token, previous:Token | null)=>bool
+
+**[B4d]** 前一个代码单元是字面 `async`、且再前一个是初始化器的 `=`：`let f = async (…) => …` 的 `(`。
+
+与 `IsInitializerPosition` 同一格语义，只是中间多了一个 `async` 关键字——`async` 本身不是可调用者
+（`IsCallCallee` 对 `async` 已经让路），所以那条分支不会认领这只 `(`。
+
+```ts
+if (previous === null || !(previous instanceof Common)) {
+  return false;
+}
+if (!(previous as Common).IsAny(["async"])) {
+  return false;
+}
+const at = host.Data.indexOf(previous);
+for (let index = at - 1; index >= 0; index--) {
+  const unit = host.Data[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  return unit instanceof Symbol && (unit as Symbol).Is("=");
+}
+return false;
+```
+
 ## static method Classify:(host:Token, bracket:Bracket, context:SyntaxContext)=>BracketRoleResult
 
 **宿主规则表**：括号字符 + 宿主类名 + 语句族，返回 `Known`（角色与宿主都有）/ `Deferred`（差宿主）
@@ -670,6 +695,13 @@ if (startChar === "(") {
     // 初始化器起始格：可能是 `(1+2)` 的分组、也可能是 `(a: T) => …` 的箭头形参表。
     // 只有 `=>` 到达才确定 ⇒ 登记 Deferred，**不在 `(` 格硬猜**（A2 §3 #4/#5）。
     return BracketRoleResult.Deferred(BracketRole.ArrowParams, "arrow-paren-wait-for-arrow",
+      null, "ArrowFunctionShape");
+  }
+  // [B4d] `async (…) => …`：`async` 之后的 `(` 同样是 Deferred ArrowParams
+  // （`=>` 到达那一格由 `ArrowParamsCatalog` 一次 replay，见 `_reports/B4d.md`）。
+  if (BracketRoleResolver.IsExpressionHost(host)
+    && BracketRoleResolver.IsAsyncArrowPrefix(host, parenPrevious)) {
+    return BracketRoleResult.Deferred(BracketRole.ArrowParams, "async-arrow-paren-wait-for-arrow",
       null, "ArrowFunctionShape");
   }
   // [B4b] **复合字面量里的元素 / 值位 `(` 同样是 Deferred**（A2 §3 #4/#5 的第二处）：

@@ -6,6 +6,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BracketCatalogInstaller } from "./bracket-catalog-installer.xl.md"
 import { BracketRoleResult } from "./bracket-role-resolver.xl.md"
+import { BracketRoleResolver } from "./bracket-role-resolver.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { WaitingEndPossible } from "./waiting-end-possible.xl.md"
 ```
@@ -168,12 +169,27 @@ for (let at = 0; at < DeferredBracketCatalog.Pending.length; at++) {
 }
 ```
 
-## static method Bind:(owner:Token)=>Array<Token>
+## static method Bind:(owner:Token | string, narrow?:Token | null)=>Array<Token>
 
 **壳被建出来的那一刻调用**：返回本次被唤醒（并已 replay）的括号。
 
 匹配规则：`Owner === owner`（同一 token）**或** `OwnerKey === owner.constructor.name`
 **或** `OwnerKey === ""`（通配，声明族用）。
+
+**[B4d] 两条扩展（向后兼容：不传第二个形参时逐字节同旧行为）**：
+
+1. **`owner` 可以是角色键字符串**（`"ArrowFunctionShape"`）。箭头形参 `(` 的宿主在 `=>` 那一格
+   **还不存在**（整条箭头由 legacy 在收口格建），所以 `ArrowFunctionShape` 只能用键认领自己的括号；
+   造一个临时实例来满足 `constructor.name` 匹配是假所有者，这里不这么做。
+2. **`narrow` 把本次 `Bind` 限定到一只括号**。不带它时通配条目（声明族 `OwnerKey === ""`）会被
+   一并认领——对箭头 site 是错的：同文件里 `let a = (x), b = (y) => y` 的 `(x)` 也是
+   `Deferred ArrowParams`，用通配 `Bind` 会把它当形参表 replay（`(x)` 于是被建出参数壳，
+   legacy 的分组括号读不到 raw）。所以箭头侧的调用一律带括号身份。
+
+**[B4d] 计划升级（Deferred → Known）见 `UpgradePlan`**：`Classify` 给的 `Deferred` 计划
+`Shapes` 为空、`IsKnown() === false`，`BracketCatalogInstaller.BuildGuide` 会拒绝它
+（B4b §5.2 第 1 条）。本方法在 replay 之前用**已注册的角色目录**把它升级成合法 `Known` 计划——
+不是绕过 `BuildGuide` 的守卫，而是补上它要求的「非空 `Shapes`」。
 
 **所有权（B0c）**：命中的条目先装进 `claimed`（本次 replay 计划），**不**先摘除；`Replay` 拿到
 `entry.Plan`（显式形参）并在条目仍在 `Pending` 时按计划建向导。replay 返回后统一 `Drop`：
@@ -192,13 +208,27 @@ if (owner === null) {
 if (DeferredBracketCatalog.Replaying) {
   return matched;
 }
-const key = owner.constructor.name;
+let tokenOwner:Token | null = null;
+let key = "";
+if (typeof owner === "string") {
+  key = owner;
+} else {
+  tokenOwner = owner as Token;
+  key = tokenOwner.constructor.name;
+}
+let target:Token | null = null;
+if (narrow !== undefined && narrow !== null) {
+  target = narrow;
+}
 const claimed:Array<DeferredBracketEntry> = [];
 for (const entry of DeferredBracketCatalog.Pending) {
   if (entry.Bracket === null) {
     continue;
   }
-  const byToken = entry.Owner === owner;
+  if (target !== null && entry.Bracket !== target) {
+    continue;
+  }
+  const byToken = tokenOwner !== null && entry.Owner === tokenOwner;
   const byKey = entry.OwnerKey === key;
   const wildcard = entry.OwnerKey === "";
   if (byToken || byKey || wildcard) {
@@ -223,7 +253,9 @@ for (const entry of claimed) {
     continue;
   }
   // B0c：plan 随条目一起进 replay，条目**此刻仍在** `Pending` 里（`Find` 也还能找到它）。
-  const replayed = DeferredBracketCatalog.Replay(bracket, context, entry.Plan);
+  // [B4d] Deferred 计划在这里升级成 Known（补非空 Shapes），否则 `BuildGuide` 会拒绝并丢弃。
+  const plan = DeferredBracketCatalog.UpgradePlan(entry);
+  const replayed = DeferredBracketCatalog.Replay(bracket, context, plan);
   if (replayed >= 0) {
     matched.push(bracket);
   }
@@ -231,6 +263,35 @@ for (const entry of claimed) {
   DeferredBracketCatalog.Drop(bracket);
 }
 return matched;
+```
+
+## static method UpgradePlan:(entry:DeferredBracketEntry)=>BracketRoleResult | null
+
+**[B4d] 把 `Deferred` 计划升级成可挂的 `Known` 计划。**
+
+`Classify` 给的 `Deferred` 计划只带角色与 `OwnerKey`，`Shapes` 为空——那正是 `B4b` §5.2 说的
+「`BuildGuide` 要求 `IsKnown()` 且 `Shapes.length > 0`，Deferred 两条都不满足」。
+角色目录（`BracketRoleResolver.Catalogs`）在 replay 这一拍**已经注册**（`*_PossibleShape.EnsureRegistered`），
+所以这里用目录把 `Shapes` / `End` / `FlushOnClose` 补齐：`BracketCatalogInstaller.BuildGuide` 于是拿到
+一份合法的 `Known` 计划，**守卫一个字没放宽**。
+
+没有注册目录时原样返回 `null`（`Replay` 会按 R4/R6 计数并拒绝——**不静默**）。
+
+```ts
+if (entry === null || entry.Plan === null) {
+  return null;
+}
+const plan = entry.Plan;
+if (plan.IsKnown()) {
+  return plan;
+}
+const catalog = BracketRoleResolver.FindCatalog(plan.Role);
+if (catalog === null) {
+  return null;
+}
+const upgraded = BracketRoleResult.Known(catalog, null, plan.Role, entry.Owner, plan.OwnerKey);
+upgraded.Reason = "deferred-catalog-upgrade";
+return upgraded;
 ```
 
 ## static method IsRaw:(bracket:Bracket)=>bool
