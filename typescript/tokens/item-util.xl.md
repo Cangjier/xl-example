@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { SourceRange } from "../../core/syntax/source-range.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { PossibleShapeCache } from "../../core/syntax/possible-shape-cache.xl.md"
 ```
@@ -63,4 +64,134 @@ if (cached >= 0) {
 const value = ItemUtil.ItemStart(units);
 cache.SetItemStart(value, units.length);
 return value;
+```
+
+## static method IsCompoundTernaryAhead:(unit:Token)=>bool
+
+`unit` 之后（跳过空白 / 注释）沿**文档字符**前瞻：**顶层**（不在 `(` / `[` / `{` 之内）先出现一个
+**二元运算符**、之后出现三目的 `?`（不是 `?.` / `??`），且两者都在顶层的 `;` / `}` / 输入结束之前
+⇒ `true`。
+
+用途只有一个（`[S5:TERNARY]`）：识别「条件位是复合表达式」的三目
+（`typeof id === "number" ? id : Number(id)`），它的 `?` / `:` 在声明终结候选里撞兜底
+`throw ... declaration 符号 ?`（A4b 的 `Family` 只认「标识符 / 数字起首、紧跟 `?`」那一种条件位）。
+`a ? b : c` 这种简单条件位**不命中**（`?` 之前没有二元运算符），既有 `ConditionalPossibleShape` 一行不受影响。
+
+几个刻意的边界：
+
+- **按文档字符而不是 `units` 前瞻**：候选在 `typeof` / `1` / `===` 每一格被问到时必须得到同一个答案——
+  `CatalogGuide` 的 `Reject` 是永久的，只在 `?` 那一格才认出来就太晚了（前面的格已经死掉）。
+- **跳过字符串 / 模板内容**：`"a?b"` 里的 `?` 不是三目；这里只做「跳到配对引号」，不做模板插值嵌套解析
+  （插值里的 `?` 极罕见，且最坏后果只是「改走收口格原子建树」，不会建错树）。
+- **跳过两种注释**：`// ?`、`/* ? */` 不算。
+- **顶层 `;` / `}` 是硬边界**：下一条语句 / 外层块体的 `?` 不属于本条初始化器。
+- **运算符按「连续运算符字符的词」判**，只认这张表里的（`==` `===` `!=` `!==` `<` `>` `<=` `>=` `+` `-`
+  `*` `/` `%` `&` `|` `^` `&&` `||`）：`=>`（箭头）、`=`（赋值）、`!`（前缀非）都**不算**，
+  所以 `const f = () => a ? 1 : 2` 不命中本判据。
+
+```ts
+const range = unit.SourceRange;
+if (range === null || range.EndIndex < 0) {
+  return false;
+}
+let document = range.Document;
+if (document === null) {
+  document = SourceRange.CurrentDocument;
+}
+if (document === null) {
+  return false;
+}
+const count = document.GetCount();
+const operatorChars = "+-*/%<>=!&|^";
+let at = range.EndIndex;
+let depth = 0;
+let sawBinary = false;
+while (at < count) {
+  const ch = document.GetValue(at);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n"
+    || ch === "\f" || ch === "\v" || ch === "\u00a0" || ch === "\u2028" || ch === "\u2029") {
+    at += 1;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.GetValue(at + 1);
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.GetValue(at) !== "\n") {
+        at += 1;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count) {
+        if (document.GetValue(at) === "*" && document.GetValue(at + 1) === "/") {
+          at += 2;
+          break;
+        }
+        at += 1;
+      }
+      continue;
+    }
+  }
+  if (ch === "\"" || ch === "'" || ch === "`") {
+    const quote = ch;
+    at += 1;
+    while (at < count) {
+      const inner = document.GetValue(at);
+      if (inner === "\\") {
+        at += 2;
+        continue;
+      }
+      if (inner === quote) {
+        at += 1;
+        break;
+      }
+      at += 1;
+    }
+    continue;
+  }
+  if (ch === "(" || ch === "[" || ch === "{") {
+    depth += 1;
+    at += 1;
+    continue;
+  }
+  if (ch === ")" || ch === "]" || ch === "}") {
+    if (depth === 0) {
+      return false;
+    }
+    depth -= 1;
+    at += 1;
+    continue;
+  }
+  if (depth === 0 && ch === ";") {
+    return false;
+  }
+  if (depth === 0 && ch === "?") {
+    const next = at + 1 < count ? document.GetValue(at + 1) : "";
+    if (next === "." || next === "?") {
+      at += 2;
+      continue;
+    }
+    return sawBinary;
+  }
+  if (operatorChars.indexOf(ch) >= 0) {
+    let run = "";
+    while (at < count && operatorChars.indexOf(document.GetValue(at)) >= 0) {
+      run += document.GetValue(at);
+      at += 1;
+    }
+    if (depth > 0) {
+      continue;
+    }
+    if (run === "==" || run === "===" || run === "!=" || run === "!==" || run === "<" || run === ">"
+      || run === "<=" || run === ">=" || run === "+" || run === "-" || run === "*" || run === "/"
+      || run === "%" || run === "&" || run === "|" || run === "^" || run === "&&" || run === "||") {
+      sawBinary = true;
+    }
+    continue;
+  }
+  at += 1;
+}
+return false;
 ```

@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionCatalogFactory } from "../expressions/expression-catalog-factory.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { ItemUtil } from "../item-util.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { VariableDeclarationEndPossibleShape } from "./variable-declaration-end-possible-shape.xl.md"
@@ -159,6 +160,24 @@ if (tokenIndex >= 0 && tokenIndex < units.length) {
     if (text === "!" && !IncrementalVariableDeclarationListBuilder.HasEqualBefore(units, tokenIndex)) {
       return ShapeStates.Reject;
     }
+  }
+  // [S5:TERNARY] **条件位是复合表达式的三目**（`const key = typeof id === "number" ? id : Number(id)`）：
+  // 本目录的候选一个都不许建，整条初始化器保持 raw basic，由收口格（`;` / EOF）的
+  // legacy `ExpressionBuilder` 原子建出（`VariableDeclarationShape.FinishIncremental` 的
+  // `builtShape === null` 分支，与 `let x = a === 1;` 今天走的完全同一条路）。
+  //
+  // 为什么必须在**第一格**就拒：`CatalogGuide` 的 `Reject` 是本条目内永久的。三目的 `?` / `:` 在
+  // `VariableDeclarationEndPossibleShape` 的 `Symbol` 分支里是兜底 `throw`（A4b 的 `Family` 不认复合条件位），
+  // 而只要有任何候选先把 `typeof`（`TypeOfExpressionShape`）或 `===`（`BinaryExpressionShape`）建成形状，
+  // 收口格就再也走不到原子建树（`FinishIncremental` 只收「唯一根」，散落的 `?` / `1` / `:` / `2` 会被丢弃
+  // ⇒ 错树）；字符串右操作数还会在闭引号格上撞 `CatalogGuide: 没有候选形状可以构成`
+  // （`RightOperandPossibleShape.Catalog()` 只认数字 / 标识符）——`namespace-store.ts` 第 22 行就死在那里。
+  //
+  // 判定面（`ItemUtil.IsCompoundTernaryAhead`）**只认**「顶层先有二元运算符、后有 `?`」：
+  // `a ? b : c`（简单条件位，既有 `ConditionalPossibleShape` 负责）与 `f(a ? b : c)`
+  // （`?` 在括号内）都不命中，那两条路径逐字未变。
+  if (ItemUtil.IsCompoundTernaryAhead(unit)) {
+    return ShapeStates.Reject;
   }
 }
 // [A2-D1:ASI] 语句边界格：本条语句要在这里收口，表达式候选一个都不许再长
