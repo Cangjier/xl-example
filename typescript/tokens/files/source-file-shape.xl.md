@@ -29,6 +29,8 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "../statements/control-flow-statement-possible-shape.xl.md"
 import { ControlHeadPossibleShape } from "../statements/control-head-possible-shape.xl.md"
+import { ExpressionBracketPossibleShape } from "../expressions/forms/shared/expression-bracket-possible-shape.xl.md"
+import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
 import { DeclarationStatementPossibleShape } from "../statements/declaration-statement-possible-shape.xl.md"
 import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
@@ -72,6 +74,17 @@ this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new
 // `BracketRoleResult.FlushOnClose` 三条透传因此在 legacy 下全部保持各自的默认 `false` / 空表，
 // 逐字节回到 B3 之前。开关与默认值都保留、不删；关掉的是「legacy 也走增量装配」这一条错配。
 ControlHeadPossibleShape.ResetAtoms();
+// [B4:EXPR] 表达式括号内容目录（对象 / 数组 / 调用实参 / 分组）。与 B3b 同一条纪律：
+// ① 每文件先清登记表（`ExpressionAtomRegistry` 与 `ExpressionBracketPossibleShape.States`
+//    都是**身份表**，不清就会跨文件命中上一棵树的节点）；
+// ② 装配只在增量模式、且 `EnableExprBracketCatalog` 为真时做——装配会顺带打开 B0 的总闸，
+//    legacy 里没人需要它（B3b §3 实测过：legacy 也装配会让 `FileFallbackCount` 2 → 11）。
+ExpressionAtomRegistry.Reset();
+ExpressionBracketPossibleShape.Reset();
+if (StatementRouteUtil.EnableExprBracketCatalog && StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  ExpressionBracketPossibleShape.EnsureRegistered();
+  StatementRouteUtil.EnableBracketRoleCatalog = true;
+}
 if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncrementalShapesEnabled()) {
   ControlHeadPossibleShape.EnsureRegistered();
   StatementRouteUtil.EnableBracketRoleCatalog = true;

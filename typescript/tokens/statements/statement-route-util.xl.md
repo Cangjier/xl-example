@@ -1214,6 +1214,41 @@ R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一�
 判成箭头候选族、`OperatorContinuation` 随之失效，而 B3b 的 `ArrowParamsCatalog` 还没注册——
 那正是 A2 §7 R4 说的「所有权切换」事故。开关 + 目录注册必须同一个 WP 一起翻（B3b）。
 
+## static field EnableExprBracketCatalog:bool = false
+
+**[B4] 表达式括号内容目录的开关（`expression-bracket-possible-shape.xl.md`）。默认 `false`。**
+
+`true` 且增量模式时 `SourceFileShape` 的构造器在装配 `BracketRoleHook` 之前
+`ExpressionBracketPossibleShape.EnsureRegistered()`：把 `ObjectLiteral` / `ArrayLiteral` /
+`CallArgs` / `ParenExpression` 四个角色目录注册进 `BracketRoleResolver`，并打开 B0 的总闸。
+之后 `= { … }` / `= [ … ]` / `f( … )` / `( … )` 的括号里每建出一个标识符 / 数字 / 对象成员，
+都会登记到 `ExpressionAtomRegistry`，由 legacy 收口路径（`ParsePrimary` / `ParseName` /
+`ParseObjectLiteral`）**消费**，不重建。
+
+`false`（默认）时一格都不建：登记表恒空，`ParsePrimary` / `ParseName` / `ParseObjectLiteral`
+的三处 `Has` 恒为 `false`，两档逐字节回到 B4 之前（实测见 `_reports/B4.md` §2）。
+
+**为什么默认关（B4 实测，不是保守）**：打开它以后宽尺子从 `0/33/98` 变成
+**`227 崩溃 / 75 差异 / 131 fallback`**、`tts` 从 `429 PASS` 变成 `406 / 23 FAIL`——
+每一处崩溃都是 A2 §7 R8 预言的同一件事：legacy 的参数表 / 数组元素 / 计算名入口
+（`ClassDeclarationShape.BuildParameters`、`ParseArrayLiteral` 的元素段、`ParseComputedPropertyName`）
+**只吃 basic token**，括号里先垫出的原子它们读不到（首跳 `缺少标识符` / `不支持的类型起点`）。
+这些入口的「消费已建子节点」分支不在 B4 的写域（`parameter-*` / `class-declaration-*` /
+`type-builder` / `variable-declaration-*`），所以开关默认关、机制与探针照常交付。
+逐族读数与最小复现写在 `_reports/B4.md` §3 / §4。
+
+## static field ExprBracketGuideCount:int = 0
+
+**只读计数**：表达式括号目录真正装上（`ExpressionBracketScan.Enabled === true`）的括号数。
+
+## static field ExprBracketAtomCount:int = 0
+
+**只读计数**：表达式括号里逐字建出的原子数（`IdentifierShape` / `NumericLiteralShape`）。
+
+## static field ExprBracketMemberCount:int = 0
+
+**只读计数**：表达式括号里逐字收口的成员数（`PropertyAssignmentShape` / 短写 / 展开）。
+
 ## static field EnableControlHeadCatalog:bool = true
 
 **[B3] 控制流头 `(` 的头目录开关（`control-head-possible-shape.xl.md`）。默认 `true`。**
