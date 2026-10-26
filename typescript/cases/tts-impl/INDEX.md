@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **120** 条 case：incremental **120** / 非 incremental **0**（非 incremental 即 FAIL）。
+共 **145** 条 case：incremental **145** / 非 incremental **0**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -111,8 +111,14 @@
 | `statements/asi-postfix-newline.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0, PrefixUnaryExpressionShape@pos=1, IdentifierShape@pos=4 |  |
 | `statements/asi-return-newline.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=21 |  |
 | `statements/asi-same-line.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0, IdentifierShape@pos=2 |  |
-| `statements/block-statements.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=1, IdentifierShape@pos=4 |  |
-| `statements/do-while.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=4 |  |
+| `statements/block-empty.ts` | incremental | 提前的 shape 节点：BlockShape@pos=0 |  |
+| `statements/block-statements.ts` | incremental | 提前的 shape 节点：BlockShape@pos=0, IdentifierShape@pos=1, IdentifierShape@pos=4 |  |
+| `statements/break-label.ts` | incremental | 提前的 shape 节点：LabeledStatementShape@pos=0 |  |
+| `statements/break.ts` | incremental | 提前的 shape 节点：WhileStatementShape@pos=0 |  |
+| `statements/continue.ts` | incremental | 提前的 shape 节点：WhileStatementShape@pos=0 |  |
+| `statements/debugger.ts` | incremental | 提前的 shape 节点：DebuggerStatementShape@pos=0 |  |
+| `statements/do-while.ts` | incremental | 提前的 shape 节点：DoStatementShape@pos=0, IdentifierShape@pos=4 |  |
+| `statements/empty-statement.ts` | incremental | 提前的 shape 节点：EmptyStatementShape@pos=0 |  |
 | `statements/expr-arrow.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0, ArrowFunctionShape@pos=0, ParameterShape@pos=0, EqualsGreaterThanTokenShape@pos=1, IdentifierShape@pos=4 |  |
 | `statements/expr-assign.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0, BinaryExpressionShape@pos=0, EqualsTokenShape@pos=1, IdentifierShape@pos=3 |  |
 | `statements/expr-binary-arithmetic.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0, BinaryExpressionShape@pos=0, PlusTokenShape@pos=1, IdentifierShape@pos=3 |  |
@@ -135,22 +141,41 @@
 | `statements/expr-ternary.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0, ConditionalExpressionShape@pos=0, QuestionTokenShape@pos=1, IdentifierShape@pos=3, ColonTokenShape@pos=5, IdentifierShape@pos=7 |  |
 | `statements/expr-unary.ts` | incremental | 提前的 shape 节点：PrefixUnaryExpressionShape@pos=0, IdentifierShape@pos=1 |  |
 | `statements/expr-update-postfix.ts` | incremental | 提前的 shape 节点：PostfixUnaryExpressionShape@pos=0, IdentifierShape@pos=0 |  |
+| `statements/for-classic.ts` | incremental | 提前的 shape 节点：ForStatementShape@pos=0 |  |
+| `statements/for-empty-clauses.ts` | incremental | 提前的 shape 节点：ForStatementShape@pos=0 |  |
+| `statements/for-head-let-atomic.ts` | incremental | 提前的 shape 节点：ForStatementShape@pos=0 |  |
+| `statements/for-in.ts` | incremental | 提前的 shape 节点：ForInStatementShape@pos=0 |  |
+| `statements/for-of-const.ts` | incremental | 提前的 shape 节点：ForOfStatementShape@pos=0 |  |
+| `statements/for-of.ts` | incremental | 提前的 shape 节点：ForOfStatementShape@pos=0 |  |
 | `statements/foreach-call.ts` | incremental | 提前的 shape 节点：PropertyAccessExpressionShape@pos=0, IdentifierShape@pos=0, IdentifierShape@pos=3, CallExpressionShape@pos=0, ArrowFunctionShape@pos=11, ParameterShape@pos=12 |  |
-| `statements/if-else-block.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=8, IdentifierShape@pos=20 |  |
+| `statements/if-else-block.ts` | incremental | 提前的 shape 节点：IfStatementShape@pos=0, IdentifierShape@pos=8, IdentifierShape@pos=20 |  |
+| `statements/if-else-if-chain.ts` | incremental | 提前的 shape 节点：IfStatementShape@pos=0 |  |
+| `statements/if-no-block.ts` | incremental | 提前的 shape 节点：IfStatementShape@pos=0 |  |
+| `statements/label-block.ts` | incremental | 提前的 shape 节点：LabeledStatementShape@pos=0 |  |
+| `statements/label-nested.ts` | incremental | 提前的 shape 节点：LabeledStatementShape@pos=0 |  |
 | `statements/let-continuation-number.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=11 | 残留 basic 行 +1 |
 | `statements/let-newline-before-init.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `statements/let-number-statement.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
 | `statements/stmt-array-literal-start.ts` | incremental | 提前的 shape 节点：ArrayLiteralExpressionShape@pos=0, IdentifierShape@pos=1 |  |
 | `statements/stmt-object-literal-paren.ts` | incremental | 提前的 shape 节点：ParenthesizedExpressionShape@pos=0, ObjectLiteralExpressionShape@pos=1, PropertyAssignmentShape@pos=2, IdentifierShape@pos=2, NumericLiteralShape@pos=5 |  |
-| `statements/try-catch-nobind.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=5, IdentifierShape@pos=18 |  |
-| `statements/try-catch.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=5, IdentifierShape@pos=22 |  |
-| `statements/try-finally.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=5, IdentifierShape@pos=20 |  |
-| `statements/while-block.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=11 |  |
+| `statements/stmt-object-vs-block.ts` | incremental | 提前的 shape 节点：BlockShape@pos=0, LabeledStatementShape@pos=1 |  |
+| `statements/stmt-with.ts` | incremental | 提前的 shape 节点：WithStatementShape@pos=0 |  |
+| `statements/switch-case-let-atomic.ts` | incremental | 提前的 shape 节点：SwitchStatementShape@pos=0 |  |
+| `statements/switch-fallthrough.ts` | incremental | 提前的 shape 节点：SwitchStatementShape@pos=0 |  |
+| `statements/switch-single-case.ts` | incremental | 提前的 shape 节点：SwitchStatementShape@pos=0 |  |
+| `statements/throw-new.ts` | incremental | 提前的 shape 节点：ThrowStatementShape@pos=0 |  |
+| `statements/try-catch-nobind.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0, IdentifierShape@pos=5, IdentifierShape@pos=18 |  |
+| `statements/try-catch.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0, IdentifierShape@pos=5, IdentifierShape@pos=22 |  |
+| `statements/try-finally.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0, IdentifierShape@pos=5, IdentifierShape@pos=20 |  |
+| `statements/while-block.ts` | incremental | 提前的 shape 节点：WhileStatementShape@pos=0, IdentifierShape@pos=11 |  |
+| `statements/while-no-block.ts` | incremental | 提前的 shape 节点：WhileStatementShape@pos=0 |  |
 
 ## types
 
 | case | 分类 | 判定依据 | 备注 |
 | --- | --- | --- | --- |
 | `types/as-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |
+| `types/catch-clause-annotation.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0 |  |
+| `types/for-init-annotation.ts` | incremental | 提前的 shape 节点：ForStatementShape@pos=0 |  |
 | `types/import-inline-type.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=13, ImportSpecifierShape@pos=16 |  |
 | `types/satisfies-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |

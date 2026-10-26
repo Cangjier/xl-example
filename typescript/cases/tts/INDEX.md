@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **305** 条 case：throw 125 / atomic 127 / partial 53 / incremental 0
+共 **280** 条 case：throw 125 / atomic 102 / partial 53 / incremental 0
 
 ## throw
 
@@ -220,35 +220,12 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `atomic/statements/block-empty.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/break-label.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/break.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/continue.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/debugger.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/empty-statement.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/expr-await.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/expr-yield.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-classic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-empty-clauses.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-head-let-atomic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-in.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-of-const.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/for-of.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/if-else-if-chain.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/if-no-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/label-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/label-nested.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/return-no-value.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/return-value.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/stmt-async-function.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/statements/stmt-let-as-identifier.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/stmt-object-vs-block.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/stmt-with.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/switch-case-let-atomic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/switch-fallthrough.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/switch-single-case.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/throw-new.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/statements/while-no-block.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ### types
 
@@ -292,14 +269,12 @@
 | `atomic/types/alias-tuple.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/alias-typeof-query.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/alias-union.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/catch-clause-annotation.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-ctor-param-property.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-implements-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-property-definite.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/class-property-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/declare-unique-symbol.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/for-init-annotation.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-param-return.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-predicate.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-this-param.ts` | 增量开关对逐字符树没有任何影响 |  |
