@@ -63,6 +63,22 @@ return ShapeStates.Accept;
 **注意**：本方法只回答「这一格本候选还在不在场」。真正的建树条件（整段吃完 + 只剩输入结束）在
 `IsBuildable` 里判——`Accept` 但 `IsBuildable === false` 时目录只会 `Waiting`，不会建。
 
+## method ContinuationClaim:(units:Array<Token>, tokenIndex:int)=>bool
+
+**P4b**：`= (...)` 的括号关闭格上、`)` 之后紧跟二元运算符时**认领这一格**（D0 的通用委派
+`ExpressionContinuationCatalog.Claims` 唯一问得到的入口；语义是「继续等」，不是「支持」）。
+
+不放行的话，声明终结候选会在 `)` 格按 C10 抛「declaration 括号」，`let x = (1+2)*3` 的增量路径连
+`*` / `3` 那两格都到不了——这正是 `bin-paren-mul` 长期停在 `throw` 的根因（A4b 的 `CanBuild` 要求
+「之后只剩输入结束」，`*` 没到之前它永远判假）。
+
+判据本体在 `CompositeInitializerFormsJudge.OperatorContinuation`（限定 paren 族 + 已闭合的 `(` 括号 +
+二元运算符首字符），这里只做一次转调，不在候选里另写一份。
+
+```ts
+return CompositeInitializerFormsJudge.OperatorContinuation(units);
+```
+
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 `CanBuild` 为真才建：形态命中 + legacy `ExpressionBuilder` 整段吃完 + 最后一个代码单元之后只剩输入结束。

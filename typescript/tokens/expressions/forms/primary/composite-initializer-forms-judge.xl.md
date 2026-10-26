@@ -355,6 +355,61 @@ if (last < 0) {
 const lookahead = CompositeInitializerFormsJudge.NextSignificantChar(units[last]);
 return lookahead === "=" || lookahead === "{";
 ```
+## static method IsBinaryOperatorStart:(ch:string)=>bool
+
+**P4b**：`= (...)` 之后紧跟的字符是不是一个**二元运算符的首字符**。
+
+白名单只收「不可能与别的续接混淆」的首字符（`*` `/` `%` `+` `-` `<` `>` `&` `|` `^`）：
+
+- `=` **不在**白名单：`(a) => a` 的 `=>`、`(a) == b` 的 `==` 与箭头 / 赋值在同一格上无法用首字符区分；
+- `?` **不在**：`(a) ? b : c` 是条件表达式的条件位（P4 的形态），不是二元运算符右接；
+- `.` / `(` / `[` **不在**：成员链 / 调用 / 下标（P1 / P2）各有自己的格，不归本判据。
+
+```ts
+return ch === "*" || ch === "/" || ch === "%" || ch === "+" || ch === "-"
+  || ch === "<" || ch === ">" || ch === "&" || ch === "|" || ch === "^";
+```
+
+## static method OperatorContinuation:(units:Array<Token>)=>bool
+
+**P4b**：`= (...)` 的括号关闭那一格，`)` 之后紧跟一个二元运算符 ⇒ 这**还不是**「初始化器长完」
+（`let x = (1+2)*3` 的 `*` 还没到达），但也不是「本族不认领」。
+
+它只服务一件事：让声明终结候选（`VariableDeclarationEndPossibleShape` 的 `Bracket` 分支）在这一格
+**继续等**，而不是按 C10 抛「declaration 括号」——那个 throw 会把整条增量路径在 `)` 格上当场打死，
+后面的 `*` / `3` 一格都走不到（`bin-paren-mul` 的根因，见 `_reports/p4-paren-conditional.md` §4.1）。
+
+**范围被刻意钉死在三处**，不是放宽全局语义：
+
+1. 只在 **paren 族**（`Family(units) === "paren"`）上成立——`[` / `{` / 箭头 / 函数 / 类 / 三元一律不命中；
+2. 最后一个代码单元必须正是那只**已闭合的** `(` 括号（`let x = (a) + b` 的括号），括号后面还没有别的单元；
+3. `)` 之后必须是二元运算符首字符（`IsBinaryOperatorStart`）——`as` / `:` / `?` / `=>` / `.` / `(` / `;` 都不命中。
+
+`InitializerTailJudge.IsInitializerEnd` 的全局语义**一个字没动**：`CanBuild` 仍旧要求「之后只剩输入结束 /
+一个或多个 `;`」，所以本判据只换来「多等几格」，建树时机与建树条件仍由原来的完成闸门决定。
+
+```ts
+if (CompositeInitializerFormsJudge.Family(units) !== "paren") {
+  return false;
+}
+const last = CompositeInitializerFormsJudge.LastSignificant(units);
+if (last < 0) {
+  return false;
+}
+const unit = units[last];
+if (!(unit instanceof Bracket)) {
+  return false;
+}
+if (!(unit as Bracket).Closed) {
+  return false;
+}
+if ((unit as Bracket).StartBracketChar !== "(") {
+  return false;
+}
+const lookahead = CompositeInitializerFormsJudge.NextSignificantChar(unit);
+return CompositeInitializerFormsJudge.IsBinaryOperatorStart(lookahead);
+```
+
 ## static method ClaimsForEndPossible:(units:Array<Token>)=>bool
 
 声明终结候选（`variable-declaration-end-possible-shape.xl.md`）的放行判据。**这个签名没有 context / template**
