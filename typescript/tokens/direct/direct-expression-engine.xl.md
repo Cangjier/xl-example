@@ -2759,13 +2759,25 @@ this.TakeOperand(shape);
 // 箭头块体：`() => {}` / `() => { return 1; }`。**口径与 `DirectStatementAssembly.BlockFrom` 完全一致**
 // （那边是 canonical 实现）：体内已收口的语句按原顺序进 Data、区间 = 括号自己的 `{`…`}`、
 // Pos = 传进来那一格（= `=>` 的 EndIndex），并复刻 `CollectBodyStatements` 的「块内第一条语句 Pos 纠正」。
+// **[D4b:RAW-BODY]** 两头都多一条纪律：体内只剩 basic token（体目录没挂上，`EnableShellExpressions === false`
+// 的 legacy 全关路径就是这样）时，收集结果是 `[]`，若照旧建树就得到一个**空块**、语句被静默丢掉。
+// 这条纪律与 `BuiltChildren` 逐字同步：raw 代码 + 零已建语句 ⇒ Decline（`Fail` + `null`），绝不建空块。
 // **为什么在这里复刻一份**：`direct-statement-assembly` 已经 import 本引擎（assembly → engine），
 // 反向 import 就是循环依赖（XLD-MD-GUIDE §3：依赖只许「新 → 旧」、不许成环）。两处口径必须同步，
 // R4 建议把 `BuiltChildren` 抽到一个不依赖引擎的叶子模块，这里就能直接调用。
 const shape = new BlockShape(this.Template);
 let rawBase = bracket.SourceRange.StartIndex >= 0 ? bracket.SourceRange.StartIndex + 1 : 0;
+// [D4b:RAW-BODY] 体内有**未挂载的 raw 代码**（只有 basic token、没有一条已收口语句）时不能静默建成空块：
+// 那会把 `{ return 3; }` 建成 `{}`（`st-comment-holds-brace` / `expr-yield-await-context` 的 ok→diff）。
+// 按「本引擎不代建」的纪律 Decline（Fail + null），由上层换 `ExpressionBuilder` + `StatementBuilder.BuildBlock`
+// 的 raw 分支去建（那条分支本来就会逐条 `BuildStatement`）。只有 trivia 的真空体 `{}` 仍然是空块。
+let raw = false;
 for (const unit of bracket.Data) {
-  if (unit.IsTriviaToken || unit.IsBasicToken) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit.IsBasicToken) {
+    raw = true;
     continue;
   }
   // 未收口的语句壳（`StatementShape` 有 `Kind`，其它形状没有）：与 `BuiltChildren` 同一条判据。
@@ -2781,6 +2793,10 @@ for (const unit of bracket.Data) {
   if (child.SourceRange.EndIndex >= 0) {
     rawBase = child.SourceRange.EndIndex;
   }
+}
+if (raw && shape.Data.length === 0) {
+  this.Fail("箭头块体内还有未挂载的语句");
+  return null;
 }
 if (bracket.SourceRange.StartIndex >= 0) {
   shape.SignIn(bracket.SourceRange.StartIndex);

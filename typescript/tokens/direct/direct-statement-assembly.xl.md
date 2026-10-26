@@ -105,19 +105,34 @@ return typeof (unit as any).Kind === "number";
 // 嵌套直建的核心（R3-CONTRACT §4.2）：体内语句**不是**本 session 建的，它们各自有自己的壳
 // （`BlockPossibleShape.TryMountControlFlowBody` / `IsFunctionDeclarationBody` / `TryMountFunctionBody`
 // 已经把体目录挂好了），收口时由各自的 H2 换成了建好的形状。这里只做「收集 + 校验」：
-//   ① trivia / basic token → 跳过（它们不进 AST：Bracket / Common / Symbol 全是 basic）；
+//   ① trivia → 跳过（它们不进 AST）；basic token 记下「这里有 raw 代码」再跳过；
 //   ② `StatementShape`（未收口）→ 返回 null（调用方 Decline，category `stmt.nested`）；
-//   ③ 其余非 basic 单元 → 已建好的语句，收下。
+//   ③ 其余非 basic 单元 → 已建好的语句，收下；
+//   ④ **[D4b:RAW-BODY] 有 raw 代码、却一条已收口语句都没有 → 返回 null**（不静默建空块）。
+//      体目录没挂上时（`EnableShellExpressions === false` 的 legacy 全关路径），`{ return 3; }` 的
+//      `bracket.Data` 里只剩 basic token，按旧口径收集出 `[]`，`BlockFrom` 就建出一个**空块**——
+//      语句被静默丢掉（`st-comment-holds-brace` / `expr-yield-await-context` 的 ok→diff 根因）。
+//      Decline 之后由上层换 `ExpressionBuilder.ParseObjectLiteral` → `StatementBuilder.BuildBlock`
+//      的 raw 分支逐条建，树与 TS 一致。只有 trivia 的真空体 `{}` 仍然是空块。
 // **绝不代建**：代建要么调 `StatementBuilder`（A6 红），要么重写一遍 `BuildStatement`（静默错建风险）。
 const collected:Array<Token> = [];
+let raw = false;
 for (const unit of bracket.Data) {
-  if (unit.IsTriviaToken || unit.IsBasicToken) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit.IsBasicToken) {
+    raw = true;
     continue;
   }
   if (DirectStatementAssembly.IsUnclosedStatement(unit)) {
     return null;
   }
   collected.push(unit);
+}
+// [D4b:RAW-BODY] raw 代码 + 零已建语句 = 「体没挂上」，不是「空体」：交给 raw 建树路径，不静默丢掉。
+if (raw && collected.length === 0) {
+  return null;
 }
 return collected;
 ```
@@ -128,6 +143,7 @@ return collected;
 // = `BuildBlock`（statement-builder.xl.md:1203-1226）的收集通道 + `Finish(shape, first, first)`：
 // 体内已建语句按原顺序进 `Data`（括号 / trivia 不进），区间 = 括号自己的 `{`…`}`，Pos = 括号在壳里的 Positions。
 // 括号在 `units` 里找不到（例如调用方传的不是壳 Data）时退回 basePos —— 与 `Load` 的第 0 格同值。
+// **[D4b:RAW-BODY]** `BuiltChildren` 因「raw 代码 + 零已建语句」返回 null 时，这里也返回 null（不建空块）。
 const children = DirectStatementAssembly.BuiltChildren(bracket);
 if (children === null) {
   return null;
