@@ -15,6 +15,12 @@ import { StringLiteralPrimaryPossibleShape } from "./forms/primary/string-litera
 import { TaggedTemplatePrimaryPossibleShape } from "./forms/primary/tagged-template-primary-possible-shape.xl.md"
 import { TemplatePrimaryPossibleShape } from "./forms/primary/template-primary-possible-shape.xl.md"
 import { ThisPrimaryPossibleShape } from "./forms/primary/this-primary-possible-shape.xl.md"
+import { MemberAccessPossibleShape } from "./forms/postfix/member-access-possible-shape.xl.md"
+import { ElementAccessPossibleShape } from "./forms/postfix/element-access-possible-shape.xl.md"
+import { OptionalChainPossibleShape } from "./forms/postfix/optional-chain-possible-shape.xl.md"
+import { NonNullPossibleShape } from "./forms/postfix/non-null-possible-shape.xl.md"
+import { MetaPropertyPossibleShape } from "./forms/postfix/meta-property-possible-shape.xl.md"
+import { SuperPrimaryPossibleShape } from "./forms/postfix/super-primary-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -148,4 +154,12 @@ return shapes;
   CompositeInitializerPossibleShape.AppendTo(shapes); // [A4]
 CompositeInitializerFormsPossibleShape.AppendTo(shapes); // [A4b]
 CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
+// [P1] 成员链族（`.` / `?.` / `!` / `[` / `import.meta` / `super.m`）：一形态一个候选；族由
+// `MemberChainJudge.Kind` 按「链头 + 第一个后缀」落定，同一条链上只有一个候选在场。
+  MemberAccessPossibleShape.AppendTo(shapes); // [P1]
+  ElementAccessPossibleShape.AppendTo(shapes); // [P1]
+  OptionalChainPossibleShape.AppendTo(shapes); // [P1]
+  NonNullPossibleShape.AppendTo(shapes); // [P1]
+  MetaPropertyPossibleShape.AppendTo(shapes); // [P1]
+  SuperPrimaryPossibleShape.AppendTo(shapes); // [P1]
 ```
