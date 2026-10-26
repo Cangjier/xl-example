@@ -53,7 +53,7 @@
                                                   ├─ VariableStatementThreeLayer.TryBuild（三层 possible 判型）
                                                   └─ StatementBuilder.BuildStatement / BuildVariableStatement
                                                         └─ IdentifierShape + NumericLiteralShape + 声明/列表/语句节点
-                                                              └─ 关闭后的形状树 = AST（cjAst / ToXmlString 直接读它）
+                                                              └─ 关闭后的形状树 = AST（cjAst / ToAstLine 直接读它）
 ```
 
 两条路都产出同一棵「关闭后的形状树」：直建是**逐 token 增量**建，旧路径是**收口时整段重扫**建；
@@ -63,7 +63,7 @@
 
 1. **AST 不是另建的一棵树**。`StatementBuilder` / 直建 session 建出来的都是 `ShapeToken` 子类节点
    （`VariableStatementShape`、`IdentifierShape`、`BinaryExpressionShape` …），关闭即 AST；`cjAst` 只是把
-   `constructor.name` 去掉 `Shape` 后缀，`ToXmlString` 用同一个类名当 XML 标签。见
+   `constructor.name` 去掉 `Shape` 后缀，`ToAstLine` 用同一个类名当节点名。见
    `typescript/cases/ast-compare.mjs:106` 与 `core/syntax/token.xl.md:353`。
 2. **语句的「边界」与「建树」是两件事，分两步发生**：possible 层只决定「从哪里开始、到哪里结束、归哪个族」；
    建树层只做「给定一段连续 raw 单元（旧路径）或逐格单元（直建），原子地建出节点」。
@@ -93,7 +93,7 @@
 | 直建注册 | `typescript/tokens/direct/direct-build-router.xl.md`、`direct-build-plugins.xl.md` | 按 `StatementRoute` kind 建 session；`plugins` 是唯一注册点（`ShellVariable` / `ShellPlainExpression`） |
 | 直建建树 | `typescript/tokens/direct/direct-variable-session.xl.md`、`direct-expression-session.xl.md`、`direct-expression-engine.xl.md`、`direct-token-util.xl.md` | 变量语句 / 表达式语句状态机 + 增量表达式引擎（优先级旋转、括号嵌套、一元；R2 扩到 A1–A5 + C1 守卫） |
 | 直建异常计数 | `typescript/tokens/statements/statement-shape.xl.md` 的 H2 | `try/catch` → `Errors++ / LastError / Trace` → 回落旧路径（C4） |
-| AST 投影 | `typescript/cases/ast-compare.mjs:106`、`core/syntax/token.xl.md:353` | `cjAst` 与 `ToXmlString` 读同一棵已关闭形状树 |
+| AST 投影 | `typescript/cases/ast-compare.mjs:106`、`core/syntax/token.xl.md:353` | `cjAst` 与 `ToAstLine` 读同一棵已关闭形状树 |
 
 区间口径（现行实现，以此为准）：
 
@@ -588,7 +588,7 @@ ASI 不是预处理，也不插入 `;` 节点；它只是**终结候选在末代
 
 ### 7.1 `let x = 1; let y = 2;`
 
-XML（`root.ToXmlString()`，标签名就是运行时类名；为可读性分行，实际输出是单行）：
+AST 线（`root.ToAstLine(0)`，节点名就是运行时类名；每层 3 列、`├─`/`└─` 连接线。下面保留重构前 XML 口径的历史快照）：
 
 ```xml
 <SourceFileShape>

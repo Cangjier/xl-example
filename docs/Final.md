@@ -15,7 +15,7 @@
 - 两套可观测产物，互为门禁：
   - **TS 兼容 AST**：与 `ts.createSourceFile` 逐节点三栏对拍（kind / pos / end / text / name / children），
     语料是 `typescript/cases/*.ts`（47 个构造）与真实 `.d.ts`（226 份）。
-  - **XML token 树**：`Token.ToXmlString()`，标签名取 `this.constructor.name`；
+  - **AST 线 token 树**：`Token.ToAstLine(0)`，节点名取 `this.constructor.name`；
     同一份源码两次解析必须逐字节相同，形状树里不得出现壳类（`StatementShape` / `PossibleShape` / `CatalogGuide`）。
 - 构建链路：`*.xl.md --xl build--> dist/ts/**/*.ts --tsc--> build/ts/**/*.js`。
   `dist/`、`build/` 均被 `.gitignore` 忽略，是纯生成物，不入库。

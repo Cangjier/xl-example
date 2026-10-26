@@ -111,9 +111,9 @@ function fail(message) {
 
 for (const entry of cases) {
   flags(false);
-  let legacyXml = null;
+  let legacyAstLine = null;
   try {
-    legacyXml = parse(entry.source).ToXmlString();
+    legacyAstLine = parse(entry.source).ToAstLine(0);
   } catch (error) {
     fail(`${entry.name}: legacy path threw ${error.Message || error.message}`);
     continue;
@@ -142,10 +142,10 @@ for (const entry of cases) {
     fallback: R.FileFallbackCount - before.fallback,
   };
   const problems = [];
-  const xml = shape.ToXmlString();
-  if (xml !== legacyXml) problems.push("XML != legacy path");
+  const xml = shape.ToAstLine(0);
+  if (xml !== legacyAstLine) problems.push("XML != legacy path");
   for (const tag of ["StatementShape", "PossibleShape", "CatalogGuide"]) {
-    if (xml.includes(`<${tag}>`)) problems.push(`shape leak <${tag}>`);
+    if (xml.includes(`${tag}  `)) problems.push(`shape leak <${tag}>`);
   }
   if (R.LastFileFallback) problems.push("LastFileFallback is true");
   if (after.fallback !== 0) problems.push(`file fallback ${after.fallback} != 0`);
@@ -155,7 +155,7 @@ for (const entry of cases) {
   const diff = astDiff(entry.source, shape);
   if (diff !== null) problems.push("AST != TS: " + diff);
   const label = `shells=${after.shells} mount=${after.mount} body=${after.body} fnBody=${after.fnBody}`
-    + ` fallback=${after.fallback} xml==legacy=${xml === legacyXml} ast==ts=${diff === null}`;
+    + ` fallback=${after.fallback} xml==legacy=${xml === legacyAstLine} ast==ts=${diff === null}`;
   if (problems.length === 0) {
     console.log(`PASS ${entry.name}: ${label}`);
   } else {

@@ -269,7 +269,7 @@ function firstDifference(tsNodes, cjNodes) {
   return null;
 }
 
-function xmlDifference(left, right) {
+function astLineDifference(left, right) {
   const count = Math.min(left.length, right.length);
   for (let index = 0; index < count; index++) {
     if (left[index] !== right[index]) return `第 ${index} 个字符起不同`;
@@ -291,10 +291,10 @@ for (const item of CASES) {
   // 1) legacy 基线 XML（两条开关都关）。
   R.EnableShellExpressions = false;
   R.EnableDeclarationShell = false;
-  let legacyXml = null;
+  let legacyAstLine = null;
   const legacyCounts = withScanCounter(() => {
     try {
-      legacyXml = SourceFileRunner.Parse(item.source, "case.ts").ToXmlString();
+      legacyAstLine = SourceFileRunner.Parse(item.source, "case.ts").ToAstLine(0);
     } catch (error) {
       problems.push(`legacy 抛错：${describeError(error)}`);
     }
@@ -356,13 +356,13 @@ for (const item of CASES) {
   }
 
   if (shape !== null) {
-    const xml = shape.ToXmlString();
-    if (legacyXml !== null) {
-      const diff = xmlDifference(xml, legacyXml);
+    const xml = shape.ToAstLine(0);
+    if (legacyAstLine !== null) {
+      const diff = astLineDifference(xml, legacyAstLine);
       if (diff !== null) problems.push(`XML != legacy：${diff}`);
     }
     for (const tag of ["StatementShape", "PossibleShape", "CatalogGuide"]) {
-      if (xml.includes(`<${tag}>`)) problems.push(`形状树泄漏 <${tag}>`);
+      if (xml.includes(`${tag}  `)) problems.push(`形状树泄漏 <${tag}>`);
     }
   // 只在**合法形态**上做逐节点对拍。`try { a(); }`（缺 catch/finally）是 TS 的错误恢复形：
   // TS 会在末尾插一个零宽 `Block [12,12)`，legacy 路径本来就不建它（**本轮之前就存在的缺口**，

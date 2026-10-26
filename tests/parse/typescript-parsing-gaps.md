@@ -1752,7 +1752,7 @@ TS 的 `ArrowFunction` 是 `[10,21)`），而 `print-ast-common.xl.md` 的 `proj
   （`MetaProperty` / `TemplateHead` / `TemplateMiddle` / `TemplateTail` / `AssertClause` / `AssertEntry`），
   `PropertyAssignment` 不在里面 ⇒ 诊断落在含糊的那一句上。这一轮把它**补齐成整片**：
   `build/ts/typescript/` 下每个 `.js` 里的 `kind: "X"` 共 **71** 个，与 `dist/ts` 里 **282** 个类名
-  （`ToXmlString` 取的就是类名，见 `token.xl.md`）取差集 ⇒ **59** 个，其中 4 个本来就在表里，
+  （`ToAstLine` 取的就是类名，见 `token.xl.md`）取差集 ⇒ **59** 个，其中 4 个本来就在表里，
   补进余下 **55** 个 ⇒ 幽灵标签 **12 → 67** 种，一个都没漏进产物。以后 `xl:expect` 里写 TS 那边的
   kind 名，报的是「永远不进产物、只能写进 `xl:absent`」这一句真因。
 - **那一条用例改成什么**：`ObjectLiteral:2,Lamda:1,LamdaBody:1,LamdaParameters:1,Bracket:1,AreaAnnotation:1`

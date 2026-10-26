@@ -12,7 +12,7 @@
 // 三件套：
 //   1. AST 逐节点对拍：SourceFileRunner.Parse + ast-compare.cjAst vs ts.createSourceFile + tsAst
 //      （kind / pos / end / text / name / isTypeOnly / children），口径与 tests/member-possible 一致。
-//   2. 形状对拍：ToXmlString() 逐字节。三条子判据：
+//   2. 形状对拍：ToAstLine() 逐字节。三条子判据：
 //      a) 同一源码两次 Parse 的 XML 必须逐字节相同（确定性）；
 //      b) 形状树里不得出现壳/向导节点（设计 I1：StatementShape 不进 AST）；
 //      c) 若 StatementRouteUtil 已存在，把 EnableShellExpressions 置 false 再跑一次，
@@ -89,11 +89,11 @@ function parseCj(source) {
   return shape;
 }
 
-function xmlOf(shape) {
-  if (shape === null || shape === undefined || typeof shape.ToXmlString !== "function") {
+function astLineOf(shape) {
+  if (shape === null || shape === undefined || typeof shape.ToAstLine !== "function") {
     return null;
   }
-  return shape.ToXmlString();
+  return shape.ToAstLine(0);
 }
 
 function describeError(error) {
@@ -337,7 +337,7 @@ function firstDifference(tsNodes, cjNodes) {
   return null;
 }
 
-function firstXmlDifference(left, right) {
+function firstAstLineDifference(left, right) {
   const count = Math.min(left.length, right.length);
   for (let index = 0; index < count; index++) {
     if (left[index] !== right[index]) {
@@ -409,12 +409,12 @@ function runCaseBody(groupName, caseDef, instrument) {
   }
   instrument.state.parsed++;
   const caseCalls = instrument.state.candidateCalls - beforeCalls;
-  const xml = xmlOf(rootShape);
+  const xml = astLineOf(rootShape);
   if (xml === null) {
-    notes.push("SourceFileShape 没有 ToXmlString()，形状对拍跳过");
+    notes.push("SourceFileShape 没有 ToAstLine()，形状对拍跳过");
   } else {
     for (const tag of ["StatementShape", "PossibleShape", "CatalogGuide"]) {
-      if (xml.includes(`<${tag}>`)) problems.push(`形状树泄漏节点 <${tag}>（设计 I1：壳不进 AST）`);
+      if (xml.includes(`${tag}  `)) problems.push(`形状树泄漏节点 <${tag}>（设计 I1：壳不进 AST）`);
     }
   }
 
@@ -447,14 +447,14 @@ function runCaseBody(groupName, caseDef, instrument) {
     instrument.state.paused = true;
     let xmlAgain = null;
     try {
-      xmlAgain = xmlOf(parseCj(source));
+      xmlAgain = astLineOf(parseCj(source));
     } catch (error) {
       problems.push(`第二次 Parse 抛错：${describeError(error)}`);
     } finally {
       instrument.state.paused = false;
     }
     if (xmlAgain !== null) {
-      const diff = firstXmlDifference(xml, xmlAgain);
+      const diff = firstAstLineDifference(xml, xmlAgain);
       if (diff !== null) problems.push(`XML 非确定：${diff}`);
     }
     // b) 壳路径 vs legacy 路径（StatementRouteUtil 存在时）。
@@ -462,18 +462,18 @@ function runCaseBody(groupName, caseDef, instrument) {
     if (route !== null && typeof route.EnableShellExpressions === "boolean" && caseDef.skipLegacyCompare !== true) {
       const previous = route.EnableShellExpressions;
       instrument.state.paused = true;
-      let legacyXml = null;
+      let legacyAstLine = null;
       try {
         route.EnableShellExpressions = false;
-        legacyXml = xmlOf(parseCj(source));
+        legacyAstLine = astLineOf(parseCj(source));
       } catch (error) {
         problems.push(`legacy 路径 Parse 抛错：${describeError(error)}`);
       } finally {
         route.EnableShellExpressions = previous;
         instrument.state.paused = false;
       }
-      if (legacyXml !== null) {
-        const diff = firstXmlDifference(xml, legacyXml);
+      if (legacyAstLine !== null) {
+        const diff = firstAstLineDifference(xml, legacyAstLine);
         if (diff !== null) problems.push(`壳路径与 legacy 路径 XML 不同：${diff}`);
         else notes.push("壳路径 XML == legacy 路径 XML");
       }
@@ -484,7 +484,7 @@ function runCaseBody(groupName, caseDef, instrument) {
     const goldenPath = path.join(here, "golden", groupName, `${caseDef.name}.xml`);
     if (fs.existsSync(goldenPath)) {
       const golden = fs.readFileSync(goldenPath, "utf8");
-      const diff = firstXmlDifference(golden, xml);
+      const diff = firstAstLineDifference(golden, xml);
       if (diff !== null) problems.push(`与 golden 不同：${diff}`);
     }
   }
@@ -519,7 +519,7 @@ function legacyOutcome(source, instrument) {
   instrument.state.paused = true;
   try {
     route.EnableShellExpressions = false;
-    return { ok: true, xml: xmlOf(parseCj(source)) };
+    return { ok: true, xml: astLineOf(parseCj(source)) };
   } catch (error) {
     return { ok: false, err: describeError(error) };
   } finally {
@@ -546,7 +546,7 @@ function classifyUncovered(caseDef, shell, instrument) {
   if (!legacy.ok) {
     return { ok: false, problem: `uncovered 不成立：true 解析成功而 legacy 抛「${legacy.err}」` };
   }
-  const diff = firstXmlDifference(shell.xml, legacy.xml);
+  const diff = firstAstLineDifference(shell.xml, legacy.xml);
   if (diff !== null) {
     return { ok: false, problem: `uncovered 不成立：true/legacy XML 不同（${diff}）` };
   }

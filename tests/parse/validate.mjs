@@ -47,7 +47,7 @@ const ts = require(path.join(root, "node_modules", "typescript"));
 export const DOMAINS = ["declarations", "statements", "expressions", "types", "modules", "lexical", "ambiguous"];
 
 /**
- * `xl:expect` / `xl:absent` 里允许出现的**产物标签名**（`ToXmlString` 取的是类名；
+ * `xl:expect` / `xl:absent` 里允许出现的**产物标签名**（`ToAstLine` 取的是类名；
  * 写错标签会造出假缺口）。
  *
  * 口径是「**这个名字真的可能出现在产物 XML 里**」。第 1017 轮之前这一格由
@@ -104,7 +104,7 @@ export const TAGS = new Set([
  * 写进了 `xl:expect`，而它不在表里 ⇒ `cases:check` 报的是「标签不在标签表里」（像写错了名字），
  * 不是「这个名字永远不进产物」（真因）。于是把整片量出来：`build/ts/typescript/` 下每个 `.js` 里的
  * `kind: "X"` 一共 **71** 个，与 `dist/ts` 声明的 **282** 个类名（类名就是 XML 标签名，
- * 见 `token.xl.md` 的 `ToXmlString`）取差集 ⇒ **59** 个；上面两类已经盖掉其中 4 个，
+ * 见 `token.xl.md` 的 `ToAstLine`）取差集 ⇒ **59** 个；上面两类已经盖掉其中 4 个，
  * 余下 **55** 个全列在下面。**写 `xl:expect` 时拿 TS 那边的 kind 名来指产物，当场就会被逮住。**
  *
  * **这两个方向第 1017 轮起没有门盯着了**（原来由 `tests/parse/tags.mjs` 的标签表体检核）：

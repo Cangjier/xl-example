@@ -43,14 +43,14 @@ function describeError(error) {
   return message.split("\n")[0] || "unknown error";
 }
 
-// AST 顶层语句：用 TsAst 的对拍口径太重，这里只数 XML 里的语句壳节点名。
+// AST 顶层语句：用 TsAst 的对拍口径太重，这里只数 AST 线里的语句壳节点名（行首类名 + 两个空格）。
 function topKinds(shape) {
-  if (shape === null || shape === undefined || typeof shape.ToXmlString !== "function") return null;
-  const xml = shape.ToXmlString();
+  if (shape === null || shape === undefined || typeof shape.ToAstLine !== "function") return null;
+  const astLine = shape.ToAstLine(0);
   const kinds = [];
-  const re = /<([A-Za-z0-9_.]*Statement[A-Za-z0-9_.]*)[ >]/g;
+  const re = /^([A-Za-z0-9_.]*Statement[A-Za-z0-9_.]*)(?=  )/gm;
   let match;
-  while ((match = re.exec(xml)) !== null) kinds.push(match[1]);
+  while ((match = re.exec(astLine)) !== null) kinds.push(match[1]);
   return kinds.length === 0 ? ["<none>"] : kinds;
 }
 

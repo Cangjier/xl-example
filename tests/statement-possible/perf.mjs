@@ -85,15 +85,23 @@ function timeParse(source, reps, warmup) {
   return { median: median(samples), samples, tokens: lastTokens, calls: lastCalls };
 }
 
-/** 语法树的叶子形状数（近似 basic token 数）：XML 里没有子节点的 <X></X>。 */
+/** 语法树的叶子形状数（近似 basic token 数）：AST 线里「下一行不再缩进」的节点。 */
 function countCodeTokens(shape) {
-  let xml = "";
+  let astLine = "";
   try {
-    xml = shape.ToXmlString();
+    astLine = shape.ToAstLine(0);
   } catch {
     return 0;
   }
-  const leaves = (xml.match(/<[A-Za-z][\w]*><\/[A-Za-z][\w]*>/g) || []).length;
+  const prefixLength = (line) => {
+    const match = /^[│├└─ ]*/.exec(line);
+    return match === null ? 0 : match[0].length;
+  };
+  const lines = astLine.split("\n").filter((line) => line.length > 0);
+  let leaves = 0;
+  for (let index = 0; index < lines.length; index++) {
+    if (index === lines.length - 1 || prefixLength(lines[index + 1]) <= prefixLength(lines[index])) leaves += 1;
+  }
   return leaves;
 }
 

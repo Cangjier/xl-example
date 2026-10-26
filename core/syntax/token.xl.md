@@ -11,7 +11,7 @@ import { Sequence } from "./templates/sequence.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
 `Token` 是整棵树的地基：它记录自己覆盖的源码范围（半开 `[Start, End)`）、自己的子单元、以及处理每个字符时该跑哪些跳转。
 
@@ -350,25 +350,143 @@ if (this.Parent.MountedUnit === this) {
 this.Parent.Data.splice(index, 1);
 ```
 
-## method ToXmlString:()=>string
+## method ToAstLine:(indent:int)=>string
 
-产出 XML：标签名是**运行时类型名**，内容是子单元的 XML 串接。
+产出**本节点及全部后代的整棵 AST 行文本**：行与行之间用 `"\n"` 连接，末尾不带换行。
 
-标签名取 `this.constructor.name`，所以类名就是它产出的 XML 标签名。
+`indent` 是 0 基深度，**每层缩进 3 列**——正好是连接线 `├─ ` / `└─ ` / `│  ` 的宽度，所以下层 label 总是从 `depth * 3` 列开始。`indent < 0` 按 `0` 处理。
+
+每行的构成：
+
+- 自己的行：`pad + AstLabel()`，其中 `pad = " ".repeat(depth * 3)`。
+- 第 `i` 个子单元：先取 `block = child.ToAstLine(depth + 1).split("\n")`、`cut = (depth + 1) * 3`，
+  第一行拼成 `pad + (是否最后一个 ? "└─ " : "├─ ") + block[0].slice(cut)`，
+  其余行拼成 `pad + (是否最后一个 ? "   " : "│  ") + block[j].slice(cut)`。
+  子单元按 `Data` 的顺序遍历，不重排。
+
+`slice(cut)` 是这套口径的关键：子串自带的那 `cut` 列缩进由父级换成连接线前缀，所以整棵树只有一套缩进口径。
 
 ```ts
-const name = this.constructor.name;
-const temp: string[] = [];
-for (const item of this.Data) {
-  temp.push(item.ToXmlString());
+const depth = indent < 0 ? 0 : indent;
+const pad = " ".repeat(depth * 3);
+const cut = (depth + 1) * 3;
+const lines: string[] = [pad + this.AstLabel()];
+for (let i = 0; i < this.Data.length; i++) {
+  const last = i === this.Data.length - 1;
+  const block = this.Data[i].ToAstLine(depth + 1).split("\n");
+  lines.push(pad + (last ? "└─ " : "├─ ") + block[0].slice(cut));
+  for (let j = 1; j < block.length; j++) {
+    lines.push(pad + (last ? "   " : "│  ") + block[j].slice(cut));
+  }
 }
-return `<${name}>${temp.join("")}</${name}>`;
+return lines.join("\n");
+```
+
+## method AstLabel:()=>string
+
+本行自己的 label：**运行时类型名**起头，随后按固定顺序追加字段，字段之间**两个空格**。
+
+字段顺序固定为 `pos` → `src` → `text` → `op`：
+
+| 字段 | 何时出现 | 形态 |
+| --- | --- | --- |
+| `pos` | `AstPos()` 非 `null` | `pos=<v>`；`v < 0` 印成 `pos=-` |
+| `src` | 总是出现 | `src=[<start>,<end>)`；`start < 0` 印 `-`，`end < 0` 印 `未封` |
+| `text` | `AstText()` 非空 | `text="<转义后>"` |
+| `op` | `AstOperator()` 非空 | `op="<转义后>"` |
+
+例：`NumericLiteralShape  pos=7  src=[8,9)  text="2"`、`AsteriskTokenShape  pos=9  src=[9,10)  op="*"`、
+`Common  src=[0,3)  text="let"`、`SourceFileShape  pos=-  src=[0,未封)`。
+
+标签名取 `this.constructor.name`，所以类名就是它印出来的节点名。
+
+```ts
+const parts: string[] = [this.constructor.name];
+const pos = this.AstPos();
+if (pos !== null) {
+  parts.push(`pos=${pos < 0 ? "-" : String(pos)}`);
+}
+const start = this.SourceRange.Start;
+const end = this.SourceRange.End;
+parts.push(`src=[${start < 0 ? "-" : String(start)},${end < 0 ? "未封" : String(end)})`);
+const text = this.AstText();
+if (text.length > 0) {
+  parts.push(`text="${this.AstEscape(text)}"`);
+}
+const op = this.AstOperator();
+if (op.length > 0) {
+  parts.push(`op="${this.AstEscape(op)}"`);
+}
+return parts.join("  ");
+```
+
+## method AstPos:()=>int | null
+
+虚钩子：本节点在 AST 里的起点，`null` 表示「这一行不印 `pos`」。
+
+`Token` 默认 `null`（basic token 没有 `Pos` 这个概念）；`ShapeToken` 覆写成自己的 `Pos` 字段，所以形状一律带 `pos`——`-1`（还没算出来）印成 `pos=-`。
+
+```ts
+return null;
+```
+
+## method AstText:()=>string
+
+虚钩子：本节点的文本，空串表示「这一行不印 `text`」。
+
+`Token` 默认空串；`BlockToken` 覆写成 `Temp`，两个注释单元覆写成 `Tmp`，`ConstString` 覆写成 `Temp`，`RegexToken` 覆写成 `ToText()`；`ShapeToken` 覆写成「有 `Text` 字段就取它」，`IdentifierShape` 再覆写成 `EscapedText`。
+
+```ts
+return "";
+```
+
+## method AstOperator:()=>string
+
+虚钩子：本节点的运算符文本，空串表示「这一行不印 `op`」。
+
+`Token` 默认空串；`ShapeToken` 覆写成「有 `Op` 字段就取它」——七十来个 `*TokenShape` 都声明了 `Op`，这一条覆写就够，不必逐个改。
+
+```ts
+return "";
+```
+
+## private method AstEscape:(value:string)=>string
+
+把文本转义成可以安全放进双引号里的形式：`\` → `\\`、`"` → `\"`、CR → `\r`、LF → `\n`、TAB → `\t`，其余字符原样。
+
+`text` 与 `op` 两个字段都走这一条。
+
+```ts
+let result = "";
+for (const ch of value) {
+  switch (ch) {
+    case "\\":
+      result += "\\\\";
+      break;
+    case '"':
+      result += '\\"';
+      break;
+    case "\r":
+      result += "\\r";
+      break;
+    case "\n":
+      result += "\\n";
+      break;
+    case "\t":
+      result += "\\t";
+      break;
+    default:
+      result += ch;
+      break;
+  }
+}
+return result;
 ```
 
 ## method ToString:()=>string
 
-`Root.ToString()` 就是 XML 的入口。
+`Root.ToString()` 就是 AST 行文本的入口：从深度 0 起打成整棵树。
 
 ```ts
-return this.ToXmlString();
+return this.ToAstLine(0);
 ```

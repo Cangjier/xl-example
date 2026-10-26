@@ -52,7 +52,7 @@ function parseWith(flag, source) {
   const before = snapshot();
   const shape = SourceFileRunner.Parse(source, "case.ts");
   const after = snapshot();
-  return { xml: shape.ToXmlString(), delta: {
+  return { xml: shape.ToAstLine(0), delta: {
     mount: after.mount - before.mount, body: after.body - before.body,
     shell: after.shell - before.shell, fallback: after.fallback - before.fallback } };
 }
@@ -68,7 +68,7 @@ for (const item of cases) {
   if (takeover.delta.fallback !== 0) problems.push("触发了文件级 fallback");
   if (takeover.xml !== legacy.xml) problems.push("XML != legacy");
   if (takeover.xml !== again.xml) problems.push("两次接管档 XML 不同");
-  if (/<StatementShape[ >]/.test(takeover.xml)) problems.push("壳节点泄漏");
+  if (/StatementShape  /.test(takeover.xml)) problems.push("壳节点泄漏");
   if (item.wantMount !== null && takeover.delta.mount !== item.wantMount) problems.push(`mount=${takeover.delta.mount} 期望 ${item.wantMount}`);
   const ok = problems.length === 0;
   if (!ok) failed += 1;
