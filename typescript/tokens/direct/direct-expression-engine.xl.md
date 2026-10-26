@@ -234,6 +234,18 @@ R6-A3 起同一格再加一种后继单元：**模板串**（`f<T>` + `` `t` `` 
 挂起中的参数表括号是「`async` 之后的那个 `(`」（`ParamWait` 为真时有效）：命中 `=>` 就把
 `AsyncKeywordShape` 作为 `ArrowFunction` 的**第一个**子节点（tsc 实测顺序 `[AsyncKeyword, Parameter…, =>, body]`）。
 
+## field AsyncRawUnit:Token | null = null
+
+**R7-AST-1（async 无括号单参数箭头）**：`async` 之后紧跟一个**裸 Identifier 参数**、且两者同一行时，
+`async` 已被认成 `AsyncKeyword`、那个 Identifier 已按 `PendingOperand` 挂在等运算符位；本字段留住
+`async` 单元本身，等 `=>` 到了由 `StartArrow` 把它补成 `ArrowFunction` 的第一个子节点。
+与 `AsyncPending` 分工：`AsyncPending`（+ `AsyncParams`）是「参数表括号形态」的挂起位，本字段是
+「裸参数形态」的挂起位；两者互斥，且都只在 `=>` 那一格之前非空。
+
+## field AsyncRawPos:int = -1
+
+挂起中的裸参数 `async` 的 Pos（= `async` 那一格传入的 pos，含前导 trivia）。
+
 ## field ClassPending:ClassExpressionShape | null = null
 
 **R7-D2（R7-CONTRACT §4.2）**：已经建好（`class` 关键字已 `SignIn`）但**类体还没到**的类表达式。
@@ -371,6 +383,10 @@ if (this.ParamWait || this.ArrowPending !== null) {
   // R3-B2-2：参数表还挂着 / 箭头体还没收口 ⇒ 不完整。
   return false;
 }
+// R7-AST-1：裸参数 `async` 还等着 `=>` ⇒ 不完整（收尾会显式 Decline）。
+if (this.AsyncRawUnit !== null) {
+  return false;
+}
 // R7-D2：类表达式还等着类体（`const C = class`）⇒ 不完整。
 if (this.ClassPending !== null) {
   return false;
@@ -408,6 +424,12 @@ return roots === 1;
 // `Held` 不是失败：它只表示「后面那个单元可能不属于本层」，留给 session 判边界（DESIGN §4.6）。
 // R2：`as` 的类型缓冲、`new` 的收口、后缀等待位都要在这里先结算，否则会漏掉半个节点。
 if (this.Declined) {
+  return null;
+}
+// R7-AST-1：`async` 的裸参数一直挂到收尾（`async a` 这种非法串，没有 `=>`）⇒ 不是 async 箭头，
+// 显式 Decline 交回旧路径（与 `IngestOperator` 的同一条守卫同口）。
+if (this.AsyncRawUnit !== null) {
+  this.Fail("async 裸参数缺少 =>");
   return null;
 }
 if (!this.FlushAllAs()) {
@@ -1471,6 +1493,12 @@ if (this.IsRestrictedPostfix(text) && this.PreviousUnit !== null
   this.Hold();
   return;
 }
+// R7-AST-1：裸参数 `async` 之后只可能跟 `=>`（`async a => a`）。别的单元说明这不是 async 箭头
+// （`async a` / `async a + b` 都是非法串）⇒ 显式 Fail 交回旧路径，不静默把 `async` 当操作数。
+if (this.AsyncRawUnit !== null && text !== "=>") {
+  this.Fail("async 裸参数后不是 =>");
+  return;
+}
 if (unit instanceof Symbol) {
   // R3-B2-2：`=>` 是**箭头**的运算符，不是二元 / 赋值运算符（`OperatorTable` 里没有它）。
   // 裸参数形态（`a => …`）在这一格才认出来；括号参数表形态在 ParamWait 里已经处理掉了。
@@ -2201,6 +2229,23 @@ if (isParen && this.CouldBeArrowParameters(unit as Bracket)) {
   this.ParamPos = pos;
   return;
 }
+// R7-AST-1（tsc：`AsyncArrowFunction` 的 `equalsGreaterThanToken` 前允许一个裸 BindingIdentifier）：
+//   `async a => a` / `async x => x` —— `async` 之后是**裸 Identifier 参数**（不是括号表），
+//   且 `async` 与它**同一行**（`async⏎a => a` 在 tsc 里是 `async;` + `a => a` 两条语句，走回退）。
+// 这一格还不能决断（可能是 `async a` 这种非法串），所以把 `async` 单元存进 `AsyncRawUnit`、
+// 把这一格按**裸参数操作数**挂进 `PendingOperand`；下一格若不是 `=>`，`IngestOperator` / `Finish`
+// 显式 Fail ⇒ session Decline ⇒ 旧路径，行为与改动前逐字节相同（不静默错建）。
+if (!isParen && unit instanceof Common && DirectTokenUtil.IsIdentifierOperand(unit)
+  && !LineTerminator.HasBetween(asyncUnit.SourceRange, unit.SourceRange)) {
+  const identifier = IdentifierShape.FromBasicToken(unit as Common, this.Context);
+  identifier.Pos = pos;
+  this.AsyncPending = null;
+  this.AsyncPendingPos = -1;
+  this.AsyncRawUnit = asyncUnit;
+  this.AsyncRawPos = asyncPos;
+  this.TakeOperand(identifier);
+  return;
+}
 this.AsyncPending = null;
 this.AsyncPendingPos = -1;
 // 回退：`async` 是标识符操作数。先把它交给操作数位置，再把这一格按常规重新分派。
@@ -2358,11 +2403,31 @@ if (operand.SourceRange.EndIndex >= 0) {
 // （它已经含前导 trivia），区间就是标识符本身。
 parameter.Pos = (operand as ShapeToken).Pos;
 parameter.TryToClose(this.Context);
+// R7-AST-1：裸参数形态的 `async` 在 `IngestAfterAsyncHead` 里已存进 `AsyncRawUnit`；
+// 命中 `=>` 就在参数之前补 `AsyncKeywordShape`，并把箭头整体拉到 `async` 那一格（口径与
+// `StartArrowFromParams` 的 async 分支逐条相同：Pos = async 的 pos、起点 = async 的代码起点）。
+const rawAsyncUnit = this.AsyncRawUnit;
+const rawAsyncPos = this.AsyncRawPos;
+this.AsyncRawUnit = null;
+this.AsyncRawPos = -1;
 const arrow = new ArrowFunctionShape(this.Template);
-if (operand.SourceRange.StartIndex >= 0) {
-  arrow.SignIn(operand.SourceRange.StartIndex);
+if (rawAsyncUnit !== null) {
+  const asyncKeyword = new AsyncKeywordShape(this.Template);
+  asyncKeyword.SignInToken(rawAsyncUnit);
+  asyncKeyword.SignOutToken(rawAsyncUnit);
+  asyncKeyword.Pos = rawAsyncPos;
+  asyncKeyword.TryToClose(this.Context);
+  arrow.Add(asyncKeyword);
+  if (rawAsyncUnit.SourceRange.StartIndex >= 0) {
+    arrow.SignIn(rawAsyncUnit.SourceRange.StartIndex);
+  }
+  arrow.Pos = rawAsyncPos;
+} else {
+  if (operand.SourceRange.StartIndex >= 0) {
+    arrow.SignIn(operand.SourceRange.StartIndex);
+  }
+  arrow.Pos = (operand as ShapeToken).Pos;
 }
-arrow.Pos = (operand as ShapeToken).Pos;
 this.PendingOperand = null;
 arrow.Add(parameter);
 this.StartArrowBody(arrow, unit, pos);
