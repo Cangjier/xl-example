@@ -47,11 +47,13 @@
    需要注意的是：
    - shape **禁止用 `ExitOrPre` 结束自己**，禁止覆盖`ExitOrPre`。
    - shape 禁止覆盖 ComputePossibleShapes
-   - 被真实消费的baisc tokens一律丢弃，对未真实消费的basic tokens一律走`Reload Message`。basic tokens要么丢弃，要么Reload，禁止其他操作。
+   - 被真实消费的baisc tokens一律丢弃，对未真实消费的basic tokens分为两种情况：
+      - 如果baisc tokens明确后续消费路线，则直接move并消费丢弃。
+      - 如果basic tokens不明确后续消费路线，则走`Reload Message`。
 
    3.4 cache 的重要性：possible 与 build 两个阶段都要读同一份。
 
-   `PossibleShape.Compute` / `ComputeByIndex` **必须使用 `PossibleShapeCache`**（`cache.GetState` / `SetState`），把「已经扫到哪」记进状态（各形状自己立的具名类，如 `StringLiteralScan` 的 `Start` / `Checked`），禁止每次从头上全量重扫。
+   `PossibleShape.Compute` / `ComputeByIndex` **必须使用 `PossibleShapeCache`**（`cache.GetState` / `SetState` / `GetShare` / `SetShare`）。把「已经扫到哪」记进状态（各形状自己立的具名类，如 `StringLiteralScan` 的 `Start` / `Checked`），禁止每次从头上全量重扫。对于公共可共享的数据走`Share`。
 
    **`BuildByIndex` 也要复用同一份 cache**：用 `catalog.PossibleShapesComputeCache.GetState` 取到的 `Start` 当扫描下界，不要在建形状时又 `ItemUtil.ItemStart` 重算一遍（缓存为 `null` 时才回退到它）——建与判必须读同一份状态。缓存按形状名分槽、一个 `CatalogGuide` 一份，`Reset` 清空；终结候选也拿到同一份 cache 参数，可以用它记自己的状态。
 
