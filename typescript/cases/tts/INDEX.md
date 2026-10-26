@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **68** 条 case：throw 49 / atomic 14 / partial 5 / incremental 0
+共 **60** 条 case：throw 41 / atomic 14 / partial 5 / incremental 0
 
 ## throw
 
@@ -11,15 +11,9 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `throw/declarations/let-array-destructure-rest.ts` | 不支持的表达式起点 |  |
-| `throw/declarations/let-array-destructure.ts` | 不支持的表达式起点 |  |
 | `throw/declarations/let-array-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/declarations/let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/declarations/let-definite-assignment.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 | `throw/declarations/let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
-| `throw/declarations/let-object-destructure-default.ts` | 不支持的表达式起点 |  |
-| `throw/declarations/let-object-destructure-nested.ts` | 不支持的表达式起点 |  |
-| `throw/declarations/let-object-destructure.ts` | 不支持的表达式起点 |  |
 | `throw/declarations/let-parenthesized-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/declarations/let-ternary-init.ts` | 增量变量形状未支持：declaration 符号 ? |  |
 
@@ -67,7 +61,7 @@
 | --- | --- | --- |
 | `throw/statements/asi-two-declarations.ts` | 增量变量形状未支持：declaration 初始化器未读完 |  |
 | `throw/statements/do-while-let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/statements/if-block-let-destructuring.ts` | 不支持的表达式起点 |  |
+| `throw/statements/if-block-let-destructuring.ts` | 增量变量形状未支持：declaration 初始化器未读完 |  |
 | `throw/statements/if-block-let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/statements/label-block-let-unary-init.ts` | 增量变量形状未支持：declaration 符号 - |  |
 | `throw/statements/try-block-let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
@@ -77,8 +71,6 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `throw/types/destructure-array-annotation.ts` | 不支持的表达式起点 |  |
-| `throw/types/destructure-object-annotation.ts` | 不支持的表达式起点 |  |
 | `throw/types/nonnull-assertion.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 
 ## atomic
