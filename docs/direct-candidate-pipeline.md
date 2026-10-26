@@ -2657,17 +2657,258 @@ stmt.catch 1 / stmt.expr 1 / var.type 1`。其中 `expr.stopped` 3 条 = `R7-REC
    加 token 级白名单（把「判据」降级成「枚举」）⇒ **不建议**，除非门标准证明某形态必须回落。
 10. **47 语料 41 条 `BOTH-THROW`**：两侧同错（`CRASH-DIFF=0`），属恢复范围之外的既有无覆盖文件；
     R7 只承诺 `FILES=47 XML-DIFF=0 CRASH-DIFF=0` 不变，**不承诺**它们转绿。
-11. **门标准未跑**（`R7-Q4`）：`tests/gates/*`、ast-json 6171、coverage、`samples/check.mjs` 至此仍未跑。
-    R7 落在 ASI 核心（`statement-shape` / `direct-expression-session`），R4–R6 三轮都动过这一层 ⇒
-    **是否把这批门标准作为最终验收，由 Lead 决定**；本文只对「目标 case + 构建 + 244 不回归 + 47 语料 + parity」背书。
+11. ~~**门标准未跑**（`R7-Q4`）~~ → **已在 2026-10-26 收口验收跑完并全绿**（见 §26）：
+    `tests/gates/run.mjs` exit 0（2 通过 + 7 N/A）、`ast-json` 6171/6171、`ast-json-diff` 6171/6171（0/0/0）、
+    `cases:check` 1720/0、`direct:lint` 0 `any`、299/0（`--strict` 与 `--strict-all` 双份）、`token-set-parity` PASS、
+    47 语料 `FILES=47 XML-DIFF=0 CRASH-DIFF=0`。**保留历史事实**：R1–R6 期间、以及 R7 交付当时，这批门确实没跑，
+    因此前 25 节的结论仍只对「目标 case + 构建 + 244 不回归 + 47 语料 + parity」背书，门读数由 §26 单独背书。
+12. **`ast-json-diff` 判据化（`--strict`）**：该脚本 **exit code 恒 0**（见 §26.6），全不一致也不会让门变红 ⇒
+    建议加 `--strict`（有任一 gap 即 exit 1）并挂进 `tests/gates/run.mjs`。**尚未落地**，列为 R8 第一优先。
+13. **快照与解析器绑定规则**：`typescript/cases/*.cj-ast.json` 现在与 `b3bca2a8` 的解析器**逐字节绑定**。
+    任何人改 `typescript/tokens/**` 或 `core/syntax/**` 之后，**必须**重跑 `node typescript/cases/ast-json.mjs`
+    并把实际被改写的快照一起提交，否则 `ast-json-diff` 会重新跌回非 6171。判据两句：
+    `ast-json` 之后 `git status --porcelain` 必须为空；`ast-json-diff` 必须读到「完全一致 == 6171」。
+    建议进 CI（`ast-json` 后工作区非空即红）。
 
 ### 25.8 边界（读这一节就不会把 R7 的结论用过头）
 
 1. **只验目标 case**：299 条 + 构建（`xl_build` 0 error / `tsc` exit 0）+ 244 不回归 + 47 语料 + `token-set-parity`。
-   **门标准没跑**（§25.7 第 11 项）⇒ 「R7 没把语料外的形态改坏」这句话**没有证据**，只有「目标 case 与语料没有变化」。
+   **R7 交付当时门标准没跑**（原 §25.7 第 11 项）⇒ 当时「R7 没把语料外的形态改坏」这句话**没有证据**，
+   只有「目标 case 与语料没有变化」。**这一条已在 2026-10-26 收口验收关闭**：门池 exit 0（2 通过 + 7 N/A）、
+   `ast-json` 6171/6171、`ast-json-diff` 6171/6171（0/0/0），见 §26 ——「当时没跑」仍是历史事实（R1–R6 同样没跑），
+   只是结论的边界现在由 §26 的门读数补上了。
 2. **恢复只对 `ShellPlainExpression` 生效**：变量族 / 控制流族 / 箭头体 / `new` 实参 **不被恢复**（否决 ⑥/⑦），
    这是「tsc 也这么切」与「244 条不回归」两条判据共同要求的；扩展到别的族 = R8 的独立裁决。
 3. **`rec` 的 pos 是非法源**（`diag > 0`）：tsc 自己也在恢复。别把「建出 2–3 条语句」当成「这个源是合法的」。
 4. **A10 的 `BASE-THROW` 不是「通过」**：它只表示「基线也抛，所以没有可比 XML」；真正的判据是 A1 + A4 +（pos 的）`expectBuilt`。
 5. **行数只在本节给**：R7 的 `direct-export-assembly` 从 535 → 772 行是 module2 的实际增量；下次要引用行数请先
    `[IO.File]::ReadAllLines` 现测，别再手写（`485` 那个错就是这么来的）。
+
+---
+
+## 26. 收口验收：全量门 + 快照重提（2026-10-26）
+
+本节补记「收口验收」这一轮的事实：**全量门读数、快照重提、B 类回归 6134 → 6171 的修复史、以及三条判据口径**。
+前 25 节的结论不改写；与本文冲突时，以本节的门读数与 `_coord/REPORT-final-gates.md` 为准。
+（同轮的另一半在 `docs/statement-ast-pipeline.md` §18，视角是语句/声明线。）
+
+### 26.1 进线与交付
+
+| 项 | 进线 | 交付 |
+| --- | --- | --- |
+| 分支 / HEAD | `feature/all-possible` @ `4405f1ed` | 同分支 @ **`b3bca2a8`** |
+| 工作区 | `git status --porcelain` 0 行 | **0 行** |
+| 本轮唯一改动 | — | **9 份 `typescript/cases/*.cj-ast.json`**（+380 / −273） |
+| push | — | **未 push**（`origin..HEAD = 107`） |
+| 未动 | — | 产品源、测试、`_coord/`、来源克隆（`fix-r7-astdiff*` / `chore-all-possible-setup` 只读引用） |
+
+**交付物就是快照**：产品修复已在 `e6bab86a` / `e82817a9` / `973b8488` / `4405f1ed` 合入，本轮不再改一行解析器。
+
+### 26.2 全量门结果（逐条，全部 exit 0）
+
+| 判据 | 目标 | 实测 | 判定 |
+| --- | --- | --- | --- |
+| `xl_build`（core,typescript→ts） | 0 error | **0 error / 3 warning** | ✅ |
+| `tsc -p tsconfig.json` | exit 0 | **exit 0** | ✅ |
+| `ast-json`（47 构造） | 6171/6171 | **6171 / 6171**，`cj-fail=0`，exit 0 | ✅ |
+| `ast-json-diff` | **6171/6171** | **6171 / 6171**；结构 **0** / 位置 **0** / 字段 **0** | ✅ |
+| `tests/gates/run.mjs` | exit 0，2 通过 + 7 N/A | **exit 0**：2 通过 / 0 失败 / 7 不适用 | ✅ |
+| `direct:lint` | 0 `any` | **0 处**（7 处已修，见 §26.2.1） | ✅ |
+| `cases:check`（`validate.mjs`） | 1720/0 | **1720 条用例，0 条不合格** | ✅ |
+| 299（`--strict`） | 299/0 | **`CASES=299 FAILED=0`**，A10 `278/12/9/0` | ✅ |
+| 299（`--strict-all`） | 299/0 | **`CASES=299 FAILED=0`** | ✅ |
+| `token-set-parity` | PASS | **`RESULT: PASS`**（8 PASS + 1 INFO） | ✅ |
+| 47 语料 | `FILES=47 XML-DIFF=0` | **`FILES=47 XML-DIFF=0 CRASH-DIFF=0`** | ✅ |
+
+**3 条 warning 仍是既有 `E1107` 类型重名**（`GetAccessorPossibleShape` / `IndexSignaturePossibleShape` /
+`SetAccessorPossibleShape`），与 R7 基线同款，不是本轮引入。
+
+#### 26.2.1 `direct:lint` 的 7 处 `any`：列表与修法
+
+`direct:lint` 的 `any` 判据此前是**红**（打印上限 5 条会让人以为只有 5 处，真实是 7 处），本轮前已由
+gate-fix2（`e82817a9`）修完，实测 `## field / ## property 的类型里出现 any：0 处`：
+
+| 文件 | 处数 | 修法 |
+| --- | --- | --- |
+| `core/exceptions/syntax-exception.xl.md` | 1 | 字段类型改为显式具名/`unknown` |
+| `core/syntax/possible-shape-cache.xl.md` | 2 | 两张缓存表的键/值改 `Function` / `unknown` |
+| `core/syntax/syntax-context.xl.md` | 1 | 同上，显式类型 |
+| `core/syntax/templates/sequence-template.xl.md` | 3 | 同上，显式类型 |
+| **合计** | **7** | 纯类型收紧，**不改运行时行为**（当轮 `ast-json` / 299 / 47 语料读数逐项不变可证） |
+
+`unknown` / `Function` 是「合法但宽」的显式类型；要更窄需先在 `core` 立具名类型，属 R8 的可选优化，不在本轮。
+
+### 26.3 快照重提：9 份、幂等、提交
+
+**为什么是 9 份**：语句线 7 份 + 引擎线 2 份（`async-arrows` / `expression`），与「6171/6171」这一读数自洽
+（只看语句线的报告记 7 份，是因为当时引擎族尚未合入）。
+
+| # | 快照 | 增删 | 归属 |
+| --- | --- | --- | --- |
+| 1 | `typescript/cases/async-arrows.cj-ast.json` | 104 行 | 引擎（async 裸参数箭头） |
+| 2 | `typescript/cases/end-build.cj-ast.json` | 8 行 | 语句（悬垂 `else` 的 If end） |
+| 3 | `typescript/cases/end-compute.cj-ast.json` | 86 行 | 语句（同上） |
+| 4 | `typescript/cases/end-export-assignment.cj-ast.json` | 28 行 | 语句（`export default abstract` 两条语句） |
+| 5 | `typescript/cases/expression.cj-ast.json` | 68 行 | 引擎（条件假分支 end） |
+| 6 | `typescript/cases/missing-possible.cj-ast.json` | 6 行 | 语句（装饰器起点 + `<B>c`） |
+| 7 | `typescript/cases/possible-build.cj-ast.json` | 81 行 | 语句（语句位 class）+ 引擎（`a<b> as T`） |
+| 8 | `typescript/cases/possible-compute.cj-ast.json` | 96 行 | 语句（语句位 class / 函数体残留） |
+| 9 | `typescript/cases/statements.cj-ast.json` | 176 行 | 语句（悬垂 else / `type` ⏎ / 标签 class） |
+
+**幂等三跑**（快照不是「第一次凑巧对上」）：
+
+```
+第 1 次 node typescript/cases/ast-json.mjs → 6171/6171；git status = 9 行，全部 .cj-ast.json（0 处非快照改动）
+第 2 次 node typescript/cases/ast-json.mjs → 6171/6171；git status 仍是同样 9 行，无新增文件
+第 3 次（哈希法）Get-FileHash 全部 47 份 → 跑 → 再 Get-FileHash
+  → IDEMPOTENT: all 47 snapshot hashes identical
+```
+
+**提交**：`b3bca2a8`，`9 files changed, 380 insertions(+), 273 deletions(-)`；暂存区实测 9 行全为 `.cj-ast.json`，
+`build/` / `dist/` / `_coord/` / `tmp/` 均未进提交；提交后 `git status` 0 行；**提交后再跑一次 `ast-json` 仍是 0 行**。
+即已提交的快照就是解析器的当前输出 —— 这是后面门读数可信的前提。
+
+### 26.4 门池口径：9 道 = 2 通过 + 7 N/A
+
+`tests/gates/run.mjs` exit 0，墙钟 ~0.7s：
+
+| # | 门 | 状态 | 依据（缺失路径 / 读数） |
+| --- | --- | --- | --- |
+| 1 | `runtime:check` | **N/A** | `runtime/` 不存在（执行引擎源目录不在本仓库） |
+| 2 | `runtime:cli` | **N/A** | `tsrun.xl.md` 不存在（运行时入口不在本仓库） |
+| 3 | `cases:tsast` | **N/A** | `typescript/print-ast-common.xl.md` 不存在（TS 形状投影源页，全仓无 `*print-ast-common*.xl.md`） |
+| 4 | `cases:direct` | **N/A** | 同上 |
+| 5 | `direct:lint` | **通过** | `第三出口的约定 0 条违反`（0.4s） |
+| 6 | `samples` | **N/A** | `dawn/` 不存在（`cjcli.xl.md` 依赖 `./dawn/text/*.xl.md`，全仓 xl build 报 `E1006`） |
+| 7 | `cases:check` | **通过** | `1720 条用例，0 条不合格`（0.7s） |
+| 8 | `coverage` | **N/A** | 同 #3 |
+| 9 | `cpp:check` | **N/A** | `dist/cpp` 不存在（需 `xl_emit`；`xl.json` 的 `build.target` 只有 `ts`） |
+
+**口径三句话**：
+
+1. **N/A 是「本仓库结构上不适用」，不是绿灯**。7 道门的依赖源（`runtime/`、`tsrun.xl.md`、
+   `print-ast-common.xl.md`、`dawn/`、`dist/cpp`）在本仓库根本不存在；门池把它们从「假红」变成「明示不适用」，
+   每道都打印了缺失路径 + 人话原因，并指向 `tests/MIGRATION.md`，没有「跑不动就跳过」的兜底。
+2. **exit 0 的含义是「适用的 2 道全绿」**，不是「9 道全绿」。引用门池时必须连 2/7 一起说，不能只说 exit 0。
+3. **新克隆上跑门前必须先构建**：`dist/`、`build/` 都在 gitignore 内，缺
+   `build/ts/typescript/run/source-file-runner.js` 时 `ast-json.mjs` 会直接失败 —— 那不是门红，是环境未构建。
+   顺序固定为 `xl_build` → `tsc` → 其余。
+
+### 26.5 B 类回归修复史：6134 → 6148 → 6154 → 6165 → 6171
+
+**先看序列**（两处「口径」不同，别把它们当成一条单调曲线）：
+
+| 步 | 改了什么 | 完全一致 | 结构 | 位置 | 口径 |
+| --- | --- | --- | --- | --- | --- |
+| 0 | 进线（R7 合流后） | **6134** | 14 | 29 | 快照法（`ast-json-diff`） |
+| 1 | 族 1 · `declare function` 的 `Pos` 回退到壳 `basePos` | **6148** | 14 | 15 | 快照法 |
+| 2 | 引擎 3 族（async 裸参数 / 条件假分支 / `a<b> as T`） | **6154** | 9 | 10 | live 口径（快照未重写） |
+| 3 | 语句 5 族 + 块内 `<B>c` | **6165** | 5 | 5 | 快照法（跑完立即还原） |
+| 4 | **合流 + 重提 9 份快照** | **6171** | **0** | **0** | 快照法（`b3bca2a8`） |
+
+> **两条线是并行分支，不是一条线**：引擎线与语句线都从 `e82817a9` 拉出，各自在克隆里读数，
+> 所以 6154 / 6165 是「各自线上」的读数（6154 用 live 口径，因为它没重写快照）。
+> 只有 **6134 / 6148 / 6171** 是主线快照读数；合流（`973b8488` 引擎 + `4405f1ed` 语句）之后才 6171。
+
+**8 个族与关键判据**（37 处差的真实族谱；「收于」= 该族在哪一步转绿）：
+
+| # | 族 | 结构 / 位置 | 关键判据（口径写死在这里） | 收于 |
+| --- | --- | --- | --- | --- |
+| 1 | 起点 `Pos`：`declare function` / 装饰器转发 / class | 0 / 20 | 形状从**壳**建，`FromUnits` 两处「向前找上一个非 trivia 单元的 End」扫到 `Data[0]` 是 trivia 就退到 −1、停在初值 **0**；回退值必须是壳 `basePos`（= 修饰词前那一格 = 前 token 的 End，**含前导 trivia**）。**只搬与形状同 `Pos` 的那个首修饰词**（`declare async function` 的 `AsyncKeyword` 已记成 `declare.End`，不能一起搬） | 6148（declare）+ 6153（装饰器） |
+| 2 | async 无括号单参数箭头 | 4 / 4 | `IngestAfterAsyncHead` 原只有两出口（`async (` 参数列表 / 回退成 Identifier `async` + 后缀）⇒ `async a` 落回退口 ⇒ `async` 成操作数、`a` 接不上 ⇒ `Held` ⇒ 被 R7 恢复拆成两条语句。**第三出口**：`async` 后紧邻**同一行**的裸 `Identifier` 且是合法操作数时，把 `async` 单元存进 `AsyncRawUnit`/`AsyncRawPos`、把该格按裸参 `TakeOperand`；`StartArrow` 命中 `=>` 时补 `AsyncKeywordShape`（`Pos` = `async` 那一格）。**负例守卫**：`AsyncRawUnit` 非空时，非 `=>` 单元 / `Finish` / `IsComplete` 一律显式 `Fail` ⇒ `async(a)`（调用）/ `async.b`（成员）/ `async` 单用 不变 | 6154 |
+| 3 | 表达式 / 语句 end 截断（条件假分支为例） | 0 / 6 | `PushOperator` 的收口循环只看 `FramePrecs`：`=`（`AssignmentPrecedence=0`）会先把已完成的 Cond frame（`CondPrecedence=2`）收掉再插到外层 ⇒ `(a ? b : c) = d`。**帧判据**：栈顶是**已完成的 `ConditionalExpressionShape`** 且新运算符 `prec >= AssignmentPrecedence` 时**不弹**，直接插进条件 frame 的最后一个子节点（假分支），与 `a ? b : c + d` 同一条路径；条件 end 由 `CompleteTop` 按最终最后子节点封。逗号（`CommaPrecedence` 更低）仍按 `(a ? b : c), d` 收口（tsc 同口） | 6154 |
+| 4 | 语句位 `class` | 3 / 0 | 块体里的 `class C {}` 有自己的语句壳，但 **`if` / `while` / 标签体 / `else` 的单语句体是 raw 单元** ⇒ 落到 `RawStatement` ⇒ `ExpressionStatement + ClassExpression`（ts 是 `ClassDeclaration`）。判据：`BuildRange` 在 `RawStatement` **之前**按 `text === "class"` 分派 `BuildStatementClass`（`ClassDeclarationShape.BuildFromCode` + `HasNoName` 判匿名 + `basePos` + 覆盖校验），**失败一律 `Decline(decl.class)` 回落旧路径，不交半棵树** | 6156 |
+| 5 | `export default abstract` ⏎ `class C {}` | 1 / 1 | **期望树易写错**：tsc 给的是**两条语句** —— `ExportAssignment[0,23]`（`Identifier "abstract"`）+ 独立 `ClassDeclaration[23,34]`；因为修饰词与声明关键字之间有行终止符时，修饰词不能再当声明修饰词（ASI 在 `abstract` 之后收口）。判据：`IsDefaultDeclarationHead` 对 `abstract` / `declare` / `async` 三个修饰词补一条**换行判据**（`StatementScanner.NoLineBreakBetween`），换行 ⇒ false ⇒ 交回 Stage 25 的 ASI 分支拆两条。`export default async` / `export default declare` 同口径 | 6157 |
+| 6 | `type` ⏎ `T = 1`（块体里被整条丢掉） | 2 / 0 | **任务书的描述是反的**：tsc 是**两条 `ExpressionStatement`**（`Identifier "type"` + `BinaryExpression T = 1`），不是 `TypeAlias`。真缺口不在 alias 判定（它早有换行判据），而是**块体里任何以 `type` 起头的语句都被静默丢掉**：`BuiltChildren` 只收已建形状、basic 单元被跳过 ⇒ 空 `Block`、不报错不计数。判据：`BuildBlock` 的 `BlockFrom` 之后，`bracket.Data` 里仍有**非 trivia 的 basic 单元**（残留 = 没建的那条）⇒ `Decline(stmt.body)` 让旧路径重读 | 6159 → 6165 |
+| 7 | `a<b> as T`（实例化表达式） | 1 / 0 | `>` 那一格没有前瞻 ⇒ 先建完比较链（`(a<b) > as`）、`T` 接不上 ⇒ 两条语句。**单 token 前瞻**：`>` 先挂起一格（`AngleWaitUnit` / `AngleWaitPos`），下一格到了才决断 —— `as` / `satisfies` 且左操作数形态合法 ⇒ `<` frame 换成 `ExpressionWithTypeArguments`（区间到 `>` 止）再按运算符重放；**其余 ⇒ `ResolveAngleCloseAsComparison` 退回比较链**（`x<y>z` / `f<T>(1)` / `f<T>` + 模板逐字节不变）。保守边界：栈顶必须是**已完成**的 `<` 二元 frame、运算符只占 1 字符、左操作数仅引用形态、类型实参仅单个 `Identifier` | 6154 |
+| 8 | 块内 `<B>c` 类型断言 | 2 / 0 | 块体里一条以 `<` 开头的语句会让**它及其后所有语句**都不进 `BlockShape.Data`（既无 direct session 的 decline，legacy 块收集也没收）。**没有为它单开判据**：族 6 的「残留非 trivia basic 单元」判据不认语句文本 ⇒ `{ type T = A` ⏎ `<B>c; }` 的 `#310/#311` 随族 6 一并转绿 | 6163–6165 |
+
+**两条同族但独立成判据的**（不占 8 族名额，写在族表外，避免下次又被当成「同一个根因的余数」）：
+
+- **块 / 函数体裸单元不交半棵树**：族 6 的 `Decline(stmt.body)` 是**新增 Decline**，语义是「这一块还有没建的基本单元 ⇒
+  让旧路径重读同一段」；**最坏情况与改动前逐字节相同**，不会更差。函数体由 `FunctionDeclarationDirectSession` 收集，
+  同一条判据加在它的 `BlockFrom` 之后（`possible-compute #204` 因此转绿）。
+- **悬垂 `else`**：`BuildIf` 的单语句体分支原「扫到本条自己的 `;`（含）或 `else`（不含）」⇒ 体只切到 `c;`，
+  后面那个 `else` 被**外层** if 吃掉（内层 If 少 else、end 停住）。判据：新增 `StatementExtent`（块 = 1 格 / `if` 递归 /
+  其余扫到 `;` 或下一个 `else`）与 `IfExtent`（把自己的 `else` 链一并吃掉），then / else 两支都「先算结束再切片」。
+  递归即 TS 的悬垂 `else` 规则：`else` 归**最近那个还没配对的 `if`**。这是**结构性行为变化**（外层不再吃内层的 else），
+  已由 299 / strict-all / 47 语料 / `ast-json` 6171 四项覆盖。
+
+### 26.6 验收口径：`ast-json-diff` 的 exit code 恒 0，不能用它判据
+
+```
+node typescript/cases/ast-json-diff.mjs
+  → 合计 6171 条：完全一致 6171 / 6171；有结构差 0 条、有位置差 0 条、有字段差 0 条
+  → exit 0        # ← 6171 条全不一致时，exit code 同样是 0
+```
+
+- 该脚本**没有「有 gap 就 exit 1」的分支**，因此**唯一判据是读数**：`完全一致 == 6171`，且
+  `结构差 == 0 && 位置差 == 0 && 字段差 == 0`。只看 `$LASTEXITCODE` 会把 6134 和 6171 判成同一件事。
+- **建议 `--strict`（未落地，R8）**：有任一 gap 即 exit 1，并挂进 `tests/gates/run.mjs` —— 否则这类回归在门层面永远不可见。
+  本轮不改脚本（验收成员无权改测试），只把口径写死在这里。
+- 其余判据**可以**用 exit code：`gates`（适用门全绿 = 0）、`299` / `strict-all`（`FAILED=0`）、`parity`（PASS）、
+  47 语料（`XML-DIFF=0 CRASH-DIFF=0`）、`direct-lint`（0 违反）、`validate`（0 不合格）。
+
+### 26.7 命令与实测读数（本克隆 `docs-final`，基于 `b3bca2a8`，2026-10-26）
+
+```
+# 0) 构建 / 类型（新克隆必做；dist/ 与 build/ 都在 gitignore 内）
+#    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
+#    实测（冷构建）：560 written / 0 skipped / 0 planned / 0 error(s) / 3 warning(s)（3 条既有 E1107）
+node node_modules/typescript/bin/tsc -p tsconfig.json              # exit 0
+
+# 1) 快照与差异（幂等：跑完 git status 必须为空）
+node typescript/cases/ast-json.mjs         # 6171/6171（47 构造），exit 0；status 0 行
+node typescript/cases/ast-json-diff.mjs    # 完全一致 6171 / 6171；0 / 0 / 0；exit 0（恒 0，看读数）
+
+# 2) 门池
+node tests/gates/run.mjs                   # exit 0：2 通过 + 0 失败 + 7 不适用
+
+# 3) 目标 case 与辅助
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --baseline=<chore-all-possible-setup>
+node tests/direct-build/target-cases.mjs --expect-direct --strict-all --decline-stats --baseline=<chore-all-possible-setup>
+node tests/direct-build/token-set-parity.mjs
+node tests/parse/direct-lint.mjs
+node tests/parse/validate.mjs
+node tmp/smoke47.mjs . <chore-all-possible-setup> 400    # tmp/ 被 gitignore；脚本从主仓库拷入
+```
+
+| 命令 | exit | 关键读数 |
+| --- | --- | --- |
+| `xl_build` | 0 error | `560 written, 0 skipped, 0 planned, 0 error(s), 3 warning(s)` |
+| `tsc -p tsconfig.json` | **0** | 无输出 |
+| `ast-json` | **0** | `total cases=6171 cj-ok=6171 cj-fail=0（47 个构造）`；跑后 `git status` **0 行** |
+| `ast-json-diff` | **0** | `完全一致 6171 / 6171`；结构 0 / 位置 0 / 字段 0 |
+| `gates/run.mjs` | **0** | `9 道门：2 道通过、0 道失败、7 道不适用`；墙钟 0.7s |
+| `target-cases --strict` | **0** | `CASES=299 FAILED=0`；`A10-口径: IDENTICAL=278 BASE-THROW=12 SKIP=9 FAIL=0`；`builtCases=247/299 loads=243`；`DECLINE-STATS: total=38 categories=15` |
+| `target-cases --strict-all` | **0** | 同上；`STRICT-ALL: on` |
+| `token-set-parity` | **0** | `RESULT: PASS`（8 PASS + 1 INFO） |
+| `direct-lint` | **0** | `any：0 处`；`第三出口的约定 0 条违反` |
+| `validate.mjs` | **0** | `1720 条用例，0 条不合格` |
+| `smoke47` | **0** | `FILES=47 XML-DIFF=0 CRASH-DIFF=0`（41 条 `BOTH-THROW`、6 条 `SAME`） |
+
+- `builtCases=247/299` / `loads=243` / A10 `278/12/9/0` / `DECLINE-STATS total=38 categories=15` 与 merge1、merge2、
+  `REPORT-r7-astdiff-stmt` **逐项相同** ⇒ 快照重提没有改变任何直建覆盖面或 decline 分布。
+- 47 语料的 41 条 `BOTH-THROW` 是**两侧同抛**（`CRASH-DIFF=0`）—— 语料按「一行一用例」组织，整文件解析在两侧同样被拒，
+  属既有语料特性，不是本轮回归；`CRASH-DIFF=0` 表示没有一条「一侧抛一侧不抛」。
+
+### 26.8 最终状态与边界
+
+| 项 | 值 |
+| --- | --- |
+| HEAD / 分支 | **`b3bca2a8`** / `feature/all-possible` |
+| 工作区 | **0 行** |
+| 299 / `--strict-all` | **299/0 / 299/0**（A10 `278/12/9/0`） |
+| `ast-json` / `ast-json-diff` | **6171/6171 / 6171/6171（0/0/0）** |
+| 门池 | **exit 0**：2 通过 + 7 N/A（不是 9 道全绿，见 §26.4） |
+| parity / 47 语料 | **PASS** / **`FILES=47 XML-DIFF=0 CRASH-DIFF=0`** |
+| 门标准 | **至此已跑并全绿**（原先「未跑」的表述见 §25.7 第 11 项、§25.8 第 1 项，均已更新；R1–R6 期间未跑是历史事实） |
+
+**边界（别把本节用过头）**：
+
+1. 本轮**只改快照**，没有改一行解析器 —— 门读数证明「快照 == 解析器输出」，不证明「解析器与 tsc 同构」超出 6171 条语料。
+   47 语料里 41 条两侧同抛，`CRASH-DIFF=0` 只说明**两侧一致地失败**。
+2. 7 道 N/A 仍未修好（见 §26.4），`exit 0` 不等于「门全绿」。
+3. `ast-json-diff` 的 `--strict` 未落地（§26.6 / R8 第 12 项），所以**门池目前看不见 AST 回归**，
+   回归只能靠人读 `ast-json-diff` 的读数或 CI 里那句「`ast-json` 后工作区必须为空」。
+4. 快照与解析器绑定在 `b3bca2a8`（R8 第 13 项）：改 tokens/core 不重提快照 = 立刻跌回非 6171。
