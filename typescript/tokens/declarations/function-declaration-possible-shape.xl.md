@@ -15,6 +15,9 @@ import { StatementBuilder } from "../statements/statement-builder.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
+import { BodyGuideUtil } from "./body-guide-util.xl.md"
+import { FunctionDeclarationEndPossibleShape } from "./function-declaration-end-possible-shape.xl.md"
+import { DeclarationIncrementalRoute } from "./declaration-incremental-route.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { AngleJudge } from "../types/angle-judge.xl.md"
@@ -64,6 +67,9 @@ declare function f(): void;
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
+// [E-DECL:ROUTE] 增量模式：让根层声明壳让出路由，由本族候选在 `function` 关键字格提前 MountShell
+// （与 class 族同一模式，WP-B3b）。开关 false 时 Arm() 只做恢复，legacy 逐字节不变。
+DeclarationIncrementalRoute.Arm();
 if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {
   // Stage 4x：与壳的晚建守卫同一判据（route 命中 && 壳这一格不会建壳）才让位。
   // 只看 route 会让「上一条语句已收口」的格子（`}` ⏎ `export`）两边都退 → 文件级 fallback。
@@ -115,6 +121,11 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
       continue;
     }
     if (unit instanceof Common && (unit as Common).Is("function")) {
+      if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+        // WP-B3b：增量模式下关键字格就认下（Done），后续单元直接进壳；legacy 下 DoneAt 仍由体 `{` 定。
+        state.Done = true;
+        state.DoneAt = at;
+      }
       state.Stage = 1;
       continue;
     }
@@ -134,6 +145,10 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     }
     if (unit instanceof Common && (unit as Common).Is("function")) {
       if (FunctionDeclarationPossibleShape.NoNewlineBefore(units, at)) {
+        if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+          state.Done = true;
+          state.DoneAt = at;
+        }
         state.Stage = 1;
         continue;
       }
@@ -152,6 +167,10 @@ for (let at = state.Checked; at <= tokenIndex; at++) {
     if (unit instanceof Common) {
       const text = (unit as Common).TempToString();
       if (text === "function") {
+        if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+          state.Done = true;
+          state.DoneAt = at;
+        }
         state.Stage = 1;
         continue;
       }
@@ -356,7 +375,12 @@ return StatementScanner.IsDecoratedDeclarationStart(units, at);
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+DeclarationIncrementalRoute.Arm();
 const state = cache.GetState<FunctionDeclarationScan>(this.Slot());
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  // WP-B3b：增量模式只看「关键字格已认下」。壳挂出后后续单元进壳，本候选不会再被问到。
+  return state !== null && state.Done && !state.Rejected;
+}
 return state !== null && state.Done && !state.Rejected && state.DoneAt === tokenIndex;
 ```
 
@@ -367,6 +391,14 @@ const state = catalog.PossibleShapesComputeCache.GetState<FunctionDeclarationSca
 const start = state === null ? ItemUtil.ItemStart(host.Data) : state.Start;
 if (start > tokenIndex) {
   return host;
+}
+// WP-B3b：增量模式在关键字格提前 MountShell（正确 legacy 类名 / Pos），后续 raw 单元进壳；
+// 收口由壳的 CatalogGuide（终结候选 `FunctionDeclarationEndPossibleShape`）负责。
+// legacy 走下面原有的整段建树，逐字节不变。
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  const shell = new FunctionDeclarationShape(host.Template);
+  shell.CatalogGuide = new CatalogGuide([], new FunctionDeclarationEndPossibleShape());
+  return BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
 }
 if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
   let declareAt = start;
