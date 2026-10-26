@@ -63,7 +63,7 @@ if (current instanceof Symbol) {
   if (text === "!" && !IncrementalVariableDeclarationListBuilder.HasEqualBefore(units, tokenIndex)) {
     return ShapeStates.Accept;
   }
-  if (text === "}" && IncrementalVariableDeclarationListBuilder.IsPatternBinding(units)) {
+  if (text === "}") {
     return ShapeStates.Accept;
   }
 }
@@ -90,8 +90,7 @@ if (text === "!") {
   return IncrementalVariableDeclarationListBuilder.BuildDefinite(host as VariableDeclarationShape, context, tokenIndex);
 }
 if (text === "}") {
-  (host as VariableDeclarationShape).TryToClose(context);
-  return host;
+  return IncrementalVariableDeclarationListBuilder.CloseAtBoundary(host as VariableDeclarationShape, context);
 }
 if (text !== ";") {
   return token;
@@ -440,4 +439,28 @@ shape.Pos = previousEnd >= 0 ? previousEnd : declaration.Pos;
 token.Replace(shape);
 return shape;
 ```
+## static method CloseAtBoundary:(declaration:VariableDeclarationShape, context:SyntaxContext)=>Token
+
+[WP-B6b] Block body closed by `}`: close declaration -> list -> statement, with statement end derived from the
+last child (no semicolon to take as the statement end). The host (block bracket) MountedUnit is cleared so the
+closing bracket does not close the statement a second time.
+
+```ts
+declaration.TryToClose(context);
+const list = declaration.Parent;
+if (!(list instanceof VariableDeclarationListShape)) {
+  throw new Error("增量变量形状未支持：list 块体收口缺少声明列表");
+}
+list.TryToClose(context);
+const statement = list.Parent;
+if (statement !== null) {
+  statement.TryToClose(context);
+  if (statement.Parent !== null) {
+    statement.Parent.MountedUnit = null;
+  }
+  list.MountedUnit = null;
+}
+return declaration;
+```
+
 
