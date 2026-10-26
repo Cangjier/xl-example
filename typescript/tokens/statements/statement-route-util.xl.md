@@ -70,6 +70,31 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 ## static field EnableShellExpressions:bool = true
 
+## static field EnableIncrementalVariableShapes:bool = false
+
+**「basic tokens → shape」增量重构的唯一静态开关。默认 `false`。**
+
+打开后只影响 `let` / `const` / `var` 声明族的建形状过程（`VariableStatementShape` /
+`VariableDeclarationListShape` / `VariableDeclarationShape` 及其子形状的逐单元签发与收口），
+默认解析路径（壳 + `StatementBuilder` 原子建树）逐字节不变。
+
+**为什么默认关**（Lead 决策，见 `_coord/CONTRACT-tts-incremental.md` C4）：
+
+- 默认路径是全语料 / gates 的口径，增量过程还没覆盖全部形态（C10：全有或全无，未支持的后续形态
+  必须显式抛错）。默认关 ⇒ 未接通的形状不可能改变任何一份既有产物。
+- 目标用例工具（`tests/parse/token-time-shapes.mjs --incremental`）显式打开它验证新过程；
+  WP-B / WP-C 完成后由 Lead 决定是否翻默认值。
+- 它只做「选哪条建形状通道」这一件事，不携带任何跨次状态；`SourceFileRunner.ParseCore` 只翻
+  `EnableShellExpressions`，不碰本字段，所以同一进程里两种模式可以交替出现（目标工具就是这样用的）。
+
+## static method IsIncrementalVariableShapesEnabled:()=>bool
+
+读本开关的**唯一入口**：调用方不再直接读字段，翻开关只写字段（默认 `false`）。
+
+```ts
+return StatementRouteUtil.EnableIncrementalVariableShapes;
+```
+
 ## static field EnableFileFallback:bool = true
 
 ## static field FileFallbackCount:int = 0
