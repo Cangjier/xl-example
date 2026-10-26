@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **415** 条 case：throw 125 / atomic 192 / partial 53 / incremental 45
+共 **370** 条 case：throw 125 / atomic 192 / partial 53 / incremental 0
 
 ## throw
 
@@ -450,75 +450,3 @@
 | `partial/types/as-template-literal-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/types/satisfies-then-as.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
 | `partial/types/satisfies-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
-
-## incremental
-
-### controls
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `incremental/controls/const-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=9, BinaryExpressionShape@pos=9, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
-| `incremental/controls/let-binding-only.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
-| `incremental/controls/let-mul-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11 |  |
-| `incremental/controls/let-number.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/controls/var-mul-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
-
-### declarations
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `incremental/declarations/const-number.ts` | 提前的 shape 节点：NumericLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
-| `incremental/declarations/let-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=11 | 残留 basic 行 +1 |
-| `incremental/declarations/let-binding.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
-| `incremental/declarations/var-binding.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
-
-### expressions
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `incremental/expressions/bin-add-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/bin-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=10 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/bin-mul-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/bin-mul-mul.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, AsteriskTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/bin-mul.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/num-bin.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/num-dec.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/num-exp.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/num-hex.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/num-oct.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/expressions/num-separator.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-
-### lexical
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `incremental/lexical/bom-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/comment-block-after-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/comment-block-around-operator.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=19 | 残留 basic 行 +1 |
-| `incremental/lexical/comment-block-equals-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/comment-block-let-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=15 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/comment-jsdoc-before-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=18 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/comment-line-after-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/crlf-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/ident-chinese-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/ident-dollar-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/ident-escape-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/ident-underscore-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/ident-unicode-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=10 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/let-init-binary.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/let-init-exponent.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/let-init-hex.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/let-init-leading-dot.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/let-init-octal.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/let-init-separator.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/shebang-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=27 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/tab-indent-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
-| `incremental/lexical/trailing-space-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-
-### statements
-
-| case | 判定依据 | 备注 |
-| --- | --- | --- |
-| `incremental/statements/let-continuation-number.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=11 | 残留 basic 行 +1 |
-| `incremental/statements/let-newline-before-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
-| `incremental/statements/let-number-statement.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |

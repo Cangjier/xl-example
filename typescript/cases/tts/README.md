@@ -13,7 +13,8 @@ EOF     → 只补最后一个数字的收口
 直到最后一个标识符关闭、语句收口，才**一次性**建出整棵表达式树（见 [README 根目录](../../../README.md) 的 cjcli 一节）。
 
 本目录回答一个问题：**当前增量形状的覆盖边界在哪里——哪些形态还不支持？**
-每一条 case 都锚定一个「不支持」的具体形态（`incremental` 目录是正向对照边界，用来证明判据不是永远说「不支持」）。
+每一条 case 都锚定一个「不支持」的具体形态。（原本 `incremental` 目录的正向对照 case 已全部迁往
+[`../tts-impl`](../tts-impl/)，见文末「支持后迁往 tts-impl」。）
 
 判据与目录标注由 [`run.mjs`](run.mjs) 实现；全部 case 的清单见 [INDEX.md](INDEX.md)。
 
@@ -41,7 +42,7 @@ EOF     → 只补最后一个数字的收口
 | `throw` | incremental 抛错（`增量变量形状未支持：…`），legacy 正常 | C10「全有或全无」的**显式拒绝**：增量路径拒绝该形态，不会静默产出错树 |
 | `atomic` | 两遍的逐字符 shape 树**完全相同** | 开关对该形态没有任何影响：整棵树等语句/文件收口时原子建出 |
 | `partial` | 有节点提前，但提前的只有变量声明骨架（三层容器 + 绑定名） | **只有外层增量**：初始化器/子语句仍原子建树 |
-| `incremental` | 骨架之外的标的形状首次出现严格早于 legacy | **真正增量**（正向对照 case，不是缺口） |
+| `incremental` | 骨架之外的标的形状首次出现严格早于 legacy | **真正增量**（正向对照 case，不是缺口；现已迁往 `tts-impl`） |
 
 > 为什么不只看「EOF 前有没有出现」：`a < b && c > d\n` 的全部表达式形状恰好在 EOF 前一步出现，
 > 但那是语句收口时一次性建出来的。和 legacy 对拍是「增量建造真的发生了」的唯一可靠证据。
@@ -57,7 +58,8 @@ INDEX.md                            全部 case + 判定依据 + 备注（`--wri
 
 - case 文件是**最小可复现片段**，合法 TS，**以换行结尾**（让最后一个 token 有机会在 EOF 之前关闭，
   从而把「增量收口」与「EOF 兜底」区分开；`let x = 1` 不带尾随换行时最后一个数字只能在 EOF 兜底）。
-  唯一例外是 `incremental/controls/let-mul-add.ts`：它就是目标文档的样本本身（13 字节、无尾随换行）。
+  唯一例外是迁出前的 `incremental/controls/let-mul-add.ts`（现在是
+  `tts-impl/cases/controls/let-mul-add.ts`）：它就是目标文档的样本本身（13 字节、无尾随换行）。
 - 一条 case 只放一个语法构造；`atomic` case 里不要嵌**可变声明 + 支持形态**的初始化器
   （那会让开关在内部生效、把整条 case 判成 `partial`/`incremental`）。
 - 不加注释、不写多段无关代码：逐字符时序是判据的一部分，任何多余字符都会改变步号。
@@ -75,7 +77,7 @@ node node_modules/typescript/bin/tsc -p .
 
 ```powershell
 node typescript/cases/tts/run.mjs                          # 全量：逐条 PASS/FAIL + 汇总
-node typescript/cases/tts/run.mjs --quiet                  # 只打汇总
+node typescript/cases/tts/run.mjs --quiet                  # 只打汇总（0 失败时静音，仅退出码）
 node typescript/cases/tts/run.mjs --filter expressions     # 只跑某个 area
 node typescript/cases/tts/run.mjs --show atomic/statements/if-no-block
 node typescript/cases/tts/run.mjs --json tmp/tts-report.json
@@ -95,13 +97,13 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 本目录是**覆盖边界账本**，不是「必须永远红」的缺口清单：
 
 - 某个形态的增量支持做上去了 ⇒ 实测分类从 `atomic` / `partial` / `throw` 升到 `partial` / `incremental`，
-  `run.mjs` 会打 **NOW-SUPPORTED**：把 case 移到新的分类目录、重跑 `--write-index` 即可。
+  `run.mjs` 会打 **NOW-SUPPORTED**：先按文末「支持后迁往 tts-impl」把 case 迁出，再重跑两处 `--write-index`。
 - 反过来（原来支持，现在退化）会打 **REGRESSION**。
 - 两种模式 EOF 形状结构不同（`divergent`）或 legacy 自己就抛错（`invalid`）属于 case/实现异常，同样是 FAIL。
 
 ## 现状
 
-**415 条 case，全部与目录标注一致**（`node typescript/cases/tts/run.mjs` → PASS 415 / FAIL 0，约 1.5s；
+**370 条 case，全部与目录标注一致**（`node typescript/cases/tts/run.mjs` → PASS 370 / FAIL 0；
 两次独立进程的 `--json` 输出逐字节相同）。分类 × 分区：
 
 | 分类 | statements | declarations | expressions | types | lexical | controls | 合计 |
@@ -109,8 +111,11 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 | `throw`（显式拒绝） | 9 | 20 | 66 | 18 | 12 | — | **125** |
 | `atomic`（开关无影响） | 65 | 59 | 0 | 54 | 14 | — | **192** |
 | `partial`（仅外层增量） | 3 | 7 | 23 | 8 | 12 | — | **53** |
-| `incremental`（真正增量，对照） | 3 | 4 | 11 | 0 | 22 | 5 | **45** |
-| 合计 | 80 | 90 | 100 | 80 | 60 | 5 | **415** |
+| `incremental`（真正增量，已迁出） | — | — | — | — | — | — | **0** |
+| 合计 | 77 | 86 | 89 | 80 | 38 | — | **370** |
+
+> 原本 45 条 `incremental` 正向对照 case 已全部迁往 [`typescript/cases/tts-impl`](../tts-impl/)；
+> 本目录不再保留正向 case，正向边界由 `tts-impl` 的 PASS 数表达。
 
 分区覆盖与逐条清单：`_notes/<area>.md`（构造 → 分类、throw 文案、divergent/invalid 观察、未收录变体），
 以及自动生成的 [INDEX.md](INDEX.md)。
@@ -120,13 +125,14 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 - **支持**：`let` / `const` / `var` + **单个 `Common` 标识符绑定** + 初始化器为**数字字面量**或
   `*` / `+` 组成的二元表达式；**语句末尾不能有 `;`**（`let x = 1;` 也会在 `;` 处 `throw`，
   现有目标用例没有分号，所以文档没暴露这一点）；同一文件里**不能再跟第二条语句**（见缺陷 1）。
+  这些已支持形态的 case 已整体迁往 [`../tts-impl`](../tts-impl/)，本目录只留 `throw` / `atomic` / `partial` 账本。
 - **throw 125 条**：变量声明族遇到类型注解 `:`、多声明 `,`、`!`、解构、`;`、括号、非白名单符号/运算符
   —— 在 `statement` / `declaration` / `expression` 各阶段显式拒绝（**38 种**文案，见各 notes 与 INDEX）。
 - **atomic 192 条**：开关只挂在「变量语句」这一条产生式上，所以其它全部语句、声明、import/export、
   type alias/interface/enum、for 头里的 `let`、switch case 里的声明……一律原子建树。
 - **partial 53 条**：变量声明骨架已经增量，但初始化器仍是原子建树——字符串 / 模板 / regex / 标识符 /
   `a < b` / `typeof` / `void` / `in` / `instanceof` / `as` / `satisfies` 等**不被拒绝**的表达式形态。
-  这些是下一步扩表达式形态时最先会变成 `incremental` 的 case。
+  这些是下一步扩表达式形态时最先会变成 `incremental` 的 case，支持后按文末契约迁往 `tts-impl`。
 - **`/` 与多语句文件不在 cases 里**：它们不是「不支持」而是 incremental 产出错误树（`divergent`），
   见下面的实现缺陷 1、2；判据会明确 FAIL，不会把错误树收成 case。
 
@@ -157,3 +163,49 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 比较 EOF 树时忽略 `src` 区间与 basic token 行。因此「前导注释 / shebang / BOM / 缩进 / CRLF / 尾随空白」
 这类只影响 `src` 区间的词法形态仍会被正确判成 `incremental`（INDEX 备注标 `EOF 区间含前导/尾随 trivia`），
 只有 `residualBasicLines` 会提示第 3 条。
+
+## 支持后迁往 tts-impl（迁出契约）
+
+本目录是**覆盖边界账本**。一个形态支持上去之后，它的 case 不再属于账本，而属于
+[`../tts-impl`](../tts-impl/) 的**已支持回归基线**——**迁出，不是复制**。
+
+### 迁出规则
+
+1. **只迁判成 `incremental` 的 case**。先在 `tts` 里确认实测分类：
+
+   ```powershell
+   node typescript/cases/tts/run.mjs --show incremental/<area>/<name>
+   # 判定：actual=incremental —— 已支持，可以迁出
+   ```
+
+   `throw` / `atomic` / `partial` 不迁——它们还不是「已支持」。
+2. **用 `git mv`，原样搬家**：目标路径去掉 `incremental` 这一层，**内容逐字节不变**
+   （判定步号依赖源码的逐字符时序，顺手格式化/改注释会把分类改掉）：
+
+   ```powershell
+   git mv typescript/cases/tts/cases/incremental/<area>/<name>.ts `
+          typescript/cases/tts-impl/cases/<area>/<name>.ts
+   ```
+
+3. **两处 INDEX 都重生成**（两个 INDEX 都是自动生成的，不要手改）：
+
+   ```powershell
+   node typescript/cases/tts/run.mjs --write-index
+   node typescript/cases/tts-impl/run.mjs --write-index
+   ```
+
+4. **`tts` 侧的分类目录随迁出消失**：`cases/incremental/<area>/` 空了就删；
+   本 README 的「现状」表与上面的分类矩阵一并更新（条数减少、矩阵重算）。
+5. **验收（两个 harness 都必须绿）**：
+
+   ```powershell
+   node typescript/cases/tts/run.mjs --quiet          # 剩余账本条数 PASS / FAIL 0
+   node typescript/cases/tts-impl/run.mjs --quiet     # 累计已支持条数 PASS / FAIL 0
+   npm run tts:impl --silent                          # = 上面那条的 npm 入口
+   ```
+
+6. **单向**：`tts-impl` 的 case 若回归成非 `incremental`，要修增量实现（那就是回归信号），
+   **不要**把它挪回 `tts` 来消红。只有上游明确降级时，才按「改 `tts` 分类目录 + 改本 README 现状表 +
+   从 `tts-impl` 删除」一起做，并在提交说明里写清原因。
+7. **不重复收录**：同一条 case 不能同时存在于 `tts` 与 `tts-impl`。迁出后本目录不再有正向对照 case，
+   正向边界改由 `tts-impl` 的 PASS 数表达（见 [`../tts-impl/README.md`](../tts-impl/README.md)）。
