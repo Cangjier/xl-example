@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { ShapeToken } from "../../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../../core/syntax/source-range.xl.md"
@@ -73,8 +74,13 @@ if (!(current instanceof Common)) {
   return false;
 }
 // 判据一：语句边界（与根表达式语句同一份实现，不新写 ASI 词法）。
-if (!StatementBoundaryUtil.CanEndStatement(units, tokenIndex, false)) {
-  return false;
+// [A2-D2:BLOCK-HOST] 块体宿主：边界格是宿主块体的 `}`——`}` 是 `Bracket` 的结束括号、**不是**
+// `units` 里的单元（它由深层的 `VariableDeclarationShape` 当符号吃掉），所以 `CanEndStatement`
+// 看不到它。这一支只把「字符流里下一个显著字符就是宿主的 `}`」并进来，不新写第二套边界词法。
+if (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex)) {
+  if (!StatementBoundaryUtil.CanEndStatement(units, tokenIndex, false)) {
+    return false;
+  }
 }
 // 判据二：本条声明已经有可结束的形状（初始化器根已存在，或从未出现 `=` 且绑定已完整）。
 return DeclarationAsiBoundary.HasClosableShape(units, tokenIndex);
@@ -118,12 +124,124 @@ if (DeclarationAsiBoundary.LastCodeIndex(units, units.length) !== tokenIndex) {
   return false;
 }
 if (!StatementBoundaryUtil.CanEndDeclarationTail(units, tokenIndex)) {
-  return false;
+  // [A2-D2:BLOCK-HOST] 块体宿主上的一个例外：初始化器**已经建出形状根**（`b.c` / `super.m` / `f()` / `1`）
+  // 时，尾判据对非 basic 形状单元答 `false`（`CanEndExpressionAt` 只认 basic 单元的表达式尾）。
+  // 这时「根是非 basic 形状」本身就是「初始化器已长完」的证据——与 `FinishIncremental` 的
+  // `builtShape !== null` 同一条口径。只在块体宿主的边界格上生效，root 的行尾 ASI 判据一个字都不改。
+  if (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex) || current.IsBasicToken) {
+    return false;
+  }
 }
 if (!DeclarationAsiBoundary.HasClosableShape(units, units.length)) {
   return false;
 }
-return DeclarationAsiBoundary.StartsNewStatementLine(current);
+// [A2-D2:BLOCK-HOST] 块体宿主的边界格是宿主块体的 `}`：与「行尾 + 下一行起新语句」同一落点口径
+// （声明最后一个代码单元那一格、边界单元之前），所以并进同一条早收口判据里。
+return DeclarationAsiBoundary.StartsNewStatementLine(current)
+  || DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex);
+```
+
+## static method IsBlockHostBoundary:(units:Array<Token>, tokenIndex:int)=>bool
+
+[A2-D2:BLOCK-HOST] **块体宿主下的收口边界**：本格之后第一个显著字符就是宿主块体的结束括号 `}`。
+
+为什么必须由字符流回答：块体里的声明挂载链是 `块体 Bracket ← statement ← list ← declaration`，`}` 到达时
+最内层的 `declaration` 先把它当 `Symbol("}")` 吃进 `Data`（`Bracket.ExitOrPre` 要等挂载链卸完才轮到），
+所以 `units` 里永远看不到这个 `}`——`CanEndStatement` / `IsAsiBoundary` 的 `}` 分支在块体宿主上一格都不成立。
+`IsInitializerTailJudge` 与 `PrimaryAtomGuard.IsTerminalAfter` 同样只认 `;` / EOF，块内初始化器因此
+永远等不到「长完」的那一拍。
+
+**不是第二套边界词法**：本判据只回答「宿主是块体括号、且它的结束括号就在眼前」，与
+`CanCloseAtLineBreak` 的字符级前瞻同源（跳过空白 / 行注释 / 块注释后取第一个显著字符）。
+宿主由**挂载链**给出（`unit.Parent` 四级：declaration → list → statement → host），不看 `ctx.Text`。
+
+- 宿主不是 `{` 括号（根 `SourceFileShape` / 类体以外的一切）⇒ `false`，root 路径一个字都不变；
+- 宿主是 `{` 括号但下一个显著字符不是它的结束括号（`if (a) { let y = b.c + 1 }` 的 `+`）⇒ `false`；
+- 文档不可用（探针没设 `CurrentDocument`）⇒ `false`（保守：判不出边界就交下一格）。
+
+```ts
+if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return false;
+}
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const current = units[tokenIndex];
+if (current.IsTriviaToken) {
+  return false;
+}
+const host = DeclarationAsiBoundary.BlockHost(current);
+if (host === null) {
+  return false;
+}
+return DeclarationAsiBoundary.NextCodeChar(current) === (host as Bracket).EndBracketChar;
+```
+
+## static method BlockHost:(unit:Token)=>Token | null
+
+[A2-D2:BLOCK-HOST] 由**挂载链**取声明的宿主：`unit.Parent`（declaration）→ list → statement → host。
+返回 `null` 表示宿主不是块体 `{` 括号（root 的 `SourceFileShape`、类体 / 接口体等都不算）。
+
+```ts
+let owner = unit.Parent;
+if (owner === null || owner.Parent === null || owner.Parent.Parent === null) {
+  return null;
+}
+const host = owner.Parent.Parent.Parent;
+if (host === null) {
+  return null;
+}
+if (!(host instanceof Bracket)) {
+  return null;
+}
+return (host as Bracket).StartBracketChar === "{" ? host : null;
+```
+
+## static method NextCodeChar:(unit:Token)=>string
+
+`unit` 之后第一个显著字符（跳过空白 / 行注释 / 块注释）；EOF 或文档不可用返回 `""`。
+与 `InitializerTailJudge` / `PrimaryAtomGuard.IsTerminalAfter` 的前瞻同一套字符口径。
+
+```ts
+const document = SourceRange.CurrentDocument;
+if (document === null) {
+  return "";
+}
+let at = unit.SourceRange.EndIndex;
+if (at < 0) {
+  return "";
+}
+const count = document.GetCount();
+while (at < count) {
+  const ch = document.GetRaw(at, at + 1);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v" || ch === "\u2028" || ch === "\u2029") {
+    at += 1;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.GetRaw(at + 1, at + 2);
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.GetRaw(at, at + 1) !== "\n") {
+        at += 1;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count) {
+        if (document.GetRaw(at, at + 1) === "*" && document.GetRaw(at + 1, at + 2) === "/") {
+          at += 2;
+          break;
+        }
+        at += 1;
+      }
+      continue;
+    }
+  }
+  return ch;
+}
+return "";
 ```
 
 ## static method EndsWithLineBreak:(unit:Token)=>bool
