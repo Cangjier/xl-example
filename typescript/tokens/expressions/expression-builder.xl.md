@@ -2056,9 +2056,25 @@ let base = 0;
 if (bracket.SourceRange.StartIndex >= 0) {
   base = bracket.SourceRange.StartIndex + 1;
 }
+// [B4d] **箭头形参 `(` 的 Deferred replay 就在这里发生**（`=>` 确定的唯一证据是调用方
+// `ParseArrowFromBracket` —— 它只在 `)=>` 成立后才被调）。`ArrowFunctionShape.BindParameterBracket`
+// 对「已经登记为 Deferred ArrowParams 且形参表可整份建」的括号做**一次** replay（R1 由
+// `DeferredBracketCatalog` 保证），其余括号（函数 / 方法 / 普通分组 / 构造器）一次都不碰：
+// 它们没有 Deferred 条目，`BindArrowParen` 立即返回 `false`，本方法逐字节走原路。
+ArrowFunctionShape.BindParameterBracket(bracket, this.Context);
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
+  // [B4d] **已建的形参直接收下**：箭头形参 `(` 的 Deferred replay（`ArrowParamsCatalog`）在 `=>`
+  // 那一格已经把 `a` / `a: number` 建成了 `ParameterShape`（`ParameterListPossibleShape` 的口径：
+  // 名字 / 类型注解 / `...` 是它的子节点，`:` 已经被它吃掉）。这里不能再按 raw 重建一遍
+  // （`Common` 已不在 `Data` 里，按名字位读会抛「函数参数只支持标识符或绑定模式」）。
+  // 只加这一条分支，其余形态（解构 / 默认值 / 可选 / 装饰器）逐字节走原路。
+  if (unit instanceof ParameterShape) {
+    parameters.push(unit);
+    inner.At++;
+    continue;
+  }
   if (inner.IsText(unit, ",")) {
     inner.At++;
     continue;
