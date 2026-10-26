@@ -82,6 +82,8 @@ function rel(file) {
 
 // ---------------------------------------------------------------- part 2: TS AST
 function compareWithTs(file) {
+  // Part 2 必须是默认（开关关闭）的完整解析；否则会被逐字 trace 的双开关污染。
+  setIncremental(false);
   const source = fs.readFileSync(file, "utf8");
   const fileNode = ts.createSourceFile(
     path.basename(file),
