@@ -13,6 +13,7 @@ import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { ImportExportDeclarationMount } from "../declarations/forms/import-export-declaration-mount.xl.md"
+import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
 import { InterfaceDeclarationMount } from "../declarations/forms/interface-declaration-mount.xl.md"
 import { TypeAliasDeclarationMount } from "../declarations/forms/type-alias-declaration-mount.xl.md"
 ```
@@ -96,6 +97,12 @@ if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
         ? (units[b3fSecondAt] as Common).TempToString() : "";
       if (b3fSecondText === "namespace"
         || b3fSecondText === "module" || b3fSecondText === "global") {
+        return ShapeStates.Reject;
+      }
+      // [A2-D3] `declare const|let|var` 也由族候选（`DeclareVariablePossibleShape`）提前挂变量三层壳。
+      // 判据**就是** `DeclareVariablePossibleShape.Owns`：与本文件同段、control-flow 的同段、候选自己的
+      // own 三处逐字同源（`declare` + 同行 `const|let|var`，排除 `declare const enum`），不各写关键字表。
+      if (DeclareVariablePossibleShape.Owns(units, headAt, b3fSecondAt)) {
         return ShapeStates.Reject;
       }
     }
