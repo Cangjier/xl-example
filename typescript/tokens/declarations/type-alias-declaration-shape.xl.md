@@ -21,6 +21,9 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { TypeLiteralShape } from "../types/type-literal-shape.xl.md"
 import { UnionTypeShape } from "../types/union-type-shape.xl.md"
+import { FunctionTypeShape } from "../types/function-type-shape.xl.md"
+import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
+import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
@@ -60,6 +63,24 @@ super(template);
 ## field UnionShape:UnionTypeShape | null = null
 
 `[B4c]` 在第一个 `|` 闭合格建出的 `UnionTypeShape`（后续成员逐个追加）。
+
+## field FunctionType:FunctionTypeShape | null = null
+
+`[B4h]` 在类型位置的 `(` **创建格**建出的 `FunctionTypeShape` 外壳（只有 `= (` 这一格会建）。
+
+## field ParamsBracket:Bracket | null = null
+
+`[B4h]` 这只函数类型的参数表括号。参数由 B1 的 `ParameterPossibleShape` 在括号自己的 `Data` 里逐字建，
+`=>` 闭合格由本类把它们搬进 `FunctionType` 并摘掉括号。
+
+## field ArrowConsumed:bool = false
+
+`[B4h]` `=>` 已经从 `Data` 里吃掉（参数已搬进 `FunctionType`，返回类型还没建）。
+
+## field ArrowEnd:int = 0
+
+`[B4h]` `=>` 的 `EndIndex`：返回类型那个 builder 的 `Pos` 基底，与 legacy
+`ParseFunctionType` 里 `Positions[返回类型首单元]` 同源。
 
 ## field NameBuilt:bool = false
 
@@ -109,6 +130,13 @@ if (!this.Incremental || this.Finished || !this.SeenEqual) {
   return;
 }
 if (!(bracket instanceof Bracket)) {
+  return;
+}
+if ((bracket as Bracket).StartBracketChar === "(") {
+  // [B4h] 类型位置的 `(`：函数类型参数表。角色 / 目录由 B0 的机制装（见 `MountFunctionType`
+  // 与 `BracketRoleResolver.Classify` 的 `FunctionTypeParams` 分支），这里只负责「建壳」与
+  // 「把参数表状态挂上」两件族内的事。
+  this.MountFunctionType(bracket as Bracket, context);
   return;
 }
 if ((bracket as Bracket).StartBracketChar !== "{") {
@@ -181,6 +209,14 @@ if (!this.NameBuilt) {
       return ComputePossibleShapesStates.Built;
     }
   }
+  // [B4h] 函数类型：`)` 格收口最后一个参数壳；`=>` 格把参数搬进外壳、吃掉 `=>`；
+  // 返回类型在自己的词完成格建出（`TryBuildFunctionStep` 内部按结构位分支）。
+  if (this.TryFinalizeFunctionParams(context)) {
+    return ComputePossibleShapesStates.Built;
+  }
+  if (this.TryBuildFunctionStep(context)) {
+    return ComputePossibleShapesStates.Built;
+  }
 }
 const end = this.ComputeEndIndex(false);
 if (end >= 0) {
@@ -196,6 +232,9 @@ return super.ComputePossibleShapes(context);
 
 ```ts
 if (this.Incremental && !this.Finished) {
+  // [B4h] EOF / 父单元收口：函数类型还没建返回类型就先把 `=>` 之后的整段建成返回类型，
+  // 否则半截壳（`FunctionType` 还没有 ReturnType）会被当成完整类型交给 `FromUnits`。
+  this.FlushFunctionReturn(context);
   const end = this.ComputeEndIndex(true);
   if (end >= 0) {
     this.FinishAt(end, context);
@@ -214,6 +253,8 @@ return super.TryToClose(context);
 const parent = this.Parent;
 if (this.Incremental && !this.Finished && parent !== null && parent instanceof Bracket
   && value === (parent as Bracket).EndBracketChar) {
+  // [B4h] 父括号关闭前同样要先补函数类型的返回类型（`{ type T = (a: A) => B }` 的 `}`）。
+  this.FlushFunctionReturn(context);
   const end = this.ComputeEndIndex(true);
   if (end >= 0) {
     this.FinishAt(end, context);
@@ -227,6 +268,11 @@ return BranchStates.Undo;
 
 `[B4c]` 记住 `=` 的位置（类型位基底）。名字先出现在 `<` 格时，`=` 这一格仍要记。
 
+`[B4h]` **只有顶层的 `=` 才是别名的等号**：类型参数默认值里的 `=`（`type F<T = A> = (x: T) => B`）
+在 `<` 与 `>` 之间，记成基底会把 `FunctionTypeShape.Pos` 拉到 57 个字符之前
+（实测 `typescript.d.ts` 的 `type Visitor<TIn …, TOut … = …> = (node) => …`）。
+判据用 `Data` 里已经出现的 `<` / `>` 符号的**配对深度**，不读文本。
+
 ```ts
 const data = this.Data;
 let last = data.length - 1;
@@ -238,6 +284,33 @@ if (last < 0 || this.SeenEqual) {
 }
 const unit = data[last];
 if (!(unit instanceof Symbol) || !(unit as Symbol).Is("=")) {
+  return false;
+}
+// `<>` 深度：`=` 只在深度 0 时才是别名等号。`=>` / `>=` 这类符号不参与深度（它们的文本不是单个 `>`）。
+let depth = 0;
+for (let at = 0; at < last; at++) {
+  const probe = data[at];
+  if (!(probe instanceof Symbol)) {
+    continue;
+  }
+  const text = (probe as Symbol).TempToString();
+  if (text === "<") {
+    depth++;
+    continue;
+  }
+  if (text === ">") {
+    depth--;
+    continue;
+  }
+  if (text === ">>") {
+    depth -= 2;
+    continue;
+  }
+  if (text === ">>>") {
+    depth -= 3;
+  }
+}
+if (depth > 0) {
   return false;
 }
 this.SeenEqual = true;
@@ -502,12 +575,431 @@ shell.Literal = null;
 shell.AliasType = null;
 ```
 
+## method MountFunctionType:(bracket:Bracket, context:SyntaxContext)=>void
+
+`[B4h]` 类型位置的 `(` 创建格。四步，全部只读结构位：
+
+1. 配对 `)` 之后必须是 `=>`（`BracketRoleResolver.HasFunctionArrowAfterParen`，与 legacy
+   `ParseType` 在 `(` 上的判据同源）。不是 ⇒ 什么都不做（`type A = (B)` / `(B)[]` / `(B) | C`）。
+2. 把 `FunctionTypeParams` 目录注册进 `BracketRoleResolver`（本方法先于 `BracketRoleHook`，
+   注册后同一格 `Resolve` 才会是 `Known`）。
+3. `ParameterListPossibleShape.InstallForFunctionType`：只有**简单参数表**才挂状态（`?` 的开关在状态上）。
+4. `before` 恰是 `=`（本别名的类型槽起点）且状态挂上时，才建 `FunctionTypeShape` 外壳并插在括号前。
+   `>`（泛型函数类型头 `<T>(x: T) => T`）与返回类型里的 `(` 只挂状态、不建壳：它们的
+   `FunctionTypeShape` 仍由 legacy `ParseType` 建，参数表里的 `ParameterShape` 由
+   `ParseParameterList` 的「已建参数」分支直接消费。
+
+```ts
+if (this.FunctionType !== null || this.Literal !== null || this.UnionShape !== null
+  || this.BodyBracket !== null) {
+  return;
+}
+if (!BracketRoleResolver.HasFunctionArrowAfterParen(bracket)) {
+  return;
+}
+ParameterListPossibleShape.EnsureRegisteredForFunctionType();
+const installed = ParameterListPossibleShape.InstallForFunctionType(bracket);
+const at = this.Data.indexOf(bracket);
+if (at < 0) {
+  return;
+}
+let previous = -1;
+for (let index = at - 1; index >= 0; index--) {
+  if (!this.Data[index].IsTriviaToken) {
+    previous = index;
+    break;
+  }
+}
+if (previous < 0) {
+  return;
+}
+const before = this.Data[previous];
+if (!(before instanceof Symbol) || !(before as Symbol).Is("=")) {
+  return;
+}
+if (!installed) {
+  // 复杂参数表：不建壳、不建参数，收口格整段交 legacy `ParseFunctionType`。
+  return;
+}
+const shape = new FunctionTypeShape(this.Template);
+// `Pos` 取**紧邻这只括号的那个 `=`** 的 `EndIndex`（legacy `ParseFunctionType` 的 `Positions[start]`），
+// 而不是缓存的 `TypeBasePos`：类型参数默认值里的 `=` 不算（`NoteEqualStep` 的深度判据同一条口径）。
+shape.Pos = before.SourceRange.End >= 0 ? before.SourceRange.EndIndex : this.TypeBasePos;
+if (bracket.SourceRange.Start >= 0) {
+  shape.SignIn(bracket.SourceRange.StartIndex);
+}
+this.Data.splice(at, 0, shape);
+shape.Parent = this;
+this.FunctionType = shape;
+this.ParamsBracket = bracket;
+this.ArrowConsumed = false;
+```
+
+## method TryFinalizeFunctionParams:(context:SyntaxContext)=>bool
+
+`[B4h]` `)` 闭合格：`Data` 末尾就是那只已闭合的 `(`，且括号里登记过参数状态 ⇒
+把还没收口的参数壳补完（最后一个参数的 `)` 是 Terminator，不补就永远差一步）。
+
+**不要求它是本别名建的壳**：泛型函数类型头 `<T>(x: T) => T` 与返回类型里的函数类型都不建壳，
+但它们的参数表状态一样要在这里收口，否则 legacy `ParseParameterList` 会看到「半截参数 + 残留 raw」。
+
+```ts
+const data = this.Data;
+let last = data.length - 1;
+while (last >= 0 && data[last].IsTriviaToken) {
+  last--;
+}
+if (last < 0) {
+  return false;
+}
+const unit = data[last];
+if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "("
+  || !(unit as Bracket).Closed) {
+  return false;
+}
+const state = ParameterListPossibleShape.FindState((unit as Bracket).Data);
+if (state === null || state.FinalizeDone) {
+  // `)` 关格之后这只括号还会是 `Data` 的末尾（注释 / `=>` 到达之前）：再收一次会为空壳
+  // 另建一只 `ParameterShape`（实测 `gap-r676-func-type-comment-before-arrow.ts` 的整文件 fallback）。
+  return false;
+}
+const before = ParameterListPossibleShape.FinalizeCount;
+ParameterListPossibleShape.Finalize(this, context);
+return ParameterListPossibleShape.FinalizeCount !== before;
+```
+
+## method TryBuildFunctionStep:(context:SyntaxContext)=>bool
+
+`[B4h]` 函数类型的两格：`=>` 闭合格（搬参数、吃 `=>`）与返回类型的完成格（建 `ReturnType`）。
+
+```ts
+const shape = this.FunctionType;
+if (shape === null) {
+  return false;
+}
+if (!this.ArrowConsumed) {
+  return this.ConsumeFunctionArrow(context);
+}
+if (shape.ReturnType === null) {
+  return this.TryBuildFunctionReturn(context);
+}
+return false;
+```
+
+## method ConsumeFunctionArrow:(context:SyntaxContext)=>bool
+
+`[B4h]` `=>` 闭合格：把括号里已经建好的 `ParameterShape` 搬进 `FunctionTypeShape`，把括号与 `=>`
+从 `Data` 里摘掉，记下 `=>` 的 `EndIndex`（返回类型的 `Pos` 基底）。
+
+参数**不再重新解析**：`CollectBuiltParameters` 收下的就是 B1 在括号 `Data` 里逐字建出的那些形状
+（`ParameterShape` 的 `Pos` / 区间 / 子节点与 legacy `ParseParameter` 同口径）。
+空参数表 `()` 没有可收的参数（`CollectBuiltParameters` 对零参数返回 `null`），只要括号里没有残留代码单元就算完整。
+
+```ts
+const bracket = this.ParamsBracket;
+const shape = this.FunctionType;
+if (bracket === null || shape === null || !bracket.Closed) {
+  return false;
+}
+const data = this.Data;
+let last = data.length - 1;
+while (last >= 0 && data[last].IsTriviaToken) {
+  last--;
+}
+if (last < 0) {
+  return false;
+}
+const arrow = data[last];
+if (!(arrow instanceof Symbol) || !(arrow as Symbol).Is("=>")) {
+  return false;
+}
+let parameters:Array<Token> = [];
+if (ParameterListPossibleShape.FindState(bracket.Data) !== null) {
+  const collected = ParameterListPossibleShape.CollectBuiltParameters(bracket);
+  if (collected !== null) {
+    parameters = collected;
+  } else {
+    for (const unit of bracket.Data) {
+      if (!unit.IsTriviaToken) {
+        throw new Error("函数类型参数没有读完");
+      }
+    }
+  }
+} else {
+  for (const unit of bracket.Data) {
+    if (!unit.IsTriviaToken) {
+      throw new Error("函数类型参数没有读完");
+    }
+  }
+}
+shape.Parameters = parameters;
+for (const parameter of parameters) {
+  shape.Add(parameter);
+}
+if (arrow.SourceRange.End >= 0) {
+  this.ArrowEnd = arrow.SourceRange.EndIndex;
+}
+const bracketAt = data.indexOf(bracket);
+if (bracketAt >= 0) {
+  data.splice(bracketAt, 1);
+}
+const arrowAt = data.indexOf(arrow);
+if (arrowAt >= 0) {
+  data.splice(arrowAt, 1);
+}
+this.ParamsBracket = null;
+this.ArrowConsumed = true;
+return true;
+```
+
+## method TryBuildFunctionReturn:(context:SyntaxContext)=>bool
+
+`[B4h]` 返回类型的完成格：`=>` 之后到当前最后一个代码单元整段用 **legacy** `TypeBuilder.ParseReturnType`
+建出（所以 `a is string` 是 `TypePredicateShape`，`void` 是 `VoidKeywordShape`）。
+
+只在「下一个代码词能收一条类型」时动手（`IsFunctionReturnTerminator`）：`;` / `)` / `}` / `]` / `,`、
+EOF、或换行后的非续接词。`|` / `&` / `[` / `?` / `.` / `extends` 等续接符一律等下一格。
+
+```ts
+const shape = this.FunctionType;
+if (shape === null || shape.ReturnType !== null) {
+  return false;
+}
+const data = this.Data;
+const shapeAt = data.indexOf(shape);
+if (shapeAt < 0) {
+  return false;
+}
+let end = data.length - 1;
+while (end > shapeAt && data[end].IsTriviaToken) {
+  end--;
+}
+if (end <= shapeAt) {
+  return false;
+}
+const lastUnit = data[end];
+if (!lastUnit.Closed) {
+  return false;
+}
+// [B4h] `<…>` 还没配平 ⇒ 这一格只是**类型实参内部**的一格（`Record<K, V>` 的 `K` 后面是 `,`、
+// `V` 后面是 `>`）。这里按已经到达的 `<` / `>` 符号数深度，深度 > 0 一律继续等：
+// 提前收会把 `Record<K` 交给 `ParseTypeArguments`，报「泛型实参缺少 >」。
+let angle = 0;
+for (let at = shapeAt + 1; at <= end; at++) {
+  const unit = data[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    angle++;
+    continue;
+  }
+  if (text === ">") {
+    angle--;
+    continue;
+  }
+  if (text === ">>") {
+    angle -= 2;
+    continue;
+  }
+  if (text === ">>>") {
+    angle -= 3;
+  }
+}
+if (angle > 0) {
+  return false;
+}
+if (!TypeAliasDeclarationShape.IsFunctionReturnTerminator(lastUnit)) {
+  return false;
+}
+return this.BuildFunctionReturn(shapeAt, end, context);
+```
+
+## method BuildFunctionReturn:(shapeAt:int, end:int, context:SyntaxContext)=>bool
+
+`[B4h]` 把 `Data[shapeAt+1 .. end]` 建成 `FunctionTypeShape.ReturnType`。`Pos` 基底 = `=>` 的 `EndIndex`
+（legacy `ParseFunctionType` 里 `Positions[返回类型首单元]` 同源）。
+
+```ts
+const shape = this.FunctionType;
+if (shape === null || shape.ReturnType !== null || end <= shapeAt) {
+  return false;
+}
+const data = this.Data;
+const units:Array<Token> = [];
+for (let at = shapeAt + 1; at <= end; at++) {
+  const unit = data[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  units.push(unit);
+}
+if (units.length === 0) {
+  return false;
+}
+const builder = new TypeBuilder(this.Template, context);
+builder.Load(units, this.ArrowEnd);
+const type = builder.ParseReturnType();
+if (builder.At !== builder.Units.length) {
+  throw new Error("函数类型的返回类型没有读完");
+}
+shape.ReturnType = type;
+shape.Add(type);
+if (type.SourceRange.End >= 0) {
+  shape.SourceRange.End = type.SourceRange.End;
+}
+shape.TryToClose(context);
+data.splice(shapeAt + 1, end - shapeAt);
+return true;
+```
+
+## method FlushFunctionReturn:(context:SyntaxContext)=>void
+
+`[B4h]` EOF / 父括号收口前的兜底：返回类型还没建就把 `=>` 之后的整段建成它。
+`TryToClose` / `ExitOrPre` 在 `ComputeEndIndex` **之前**调用（`ComputeEndIndex` 会拒绝「返回类型未建」的格）。
+
+```ts
+const shape = this.FunctionType;
+if (shape === null || shape.ReturnType !== null) {
+  return;
+}
+const shapeAt = this.Data.indexOf(shape);
+if (shapeAt < 0) {
+  return;
+}
+let end = this.Data.length - 1;
+while (end > shapeAt && this.Data[end].IsTriviaToken) {
+  end--;
+}
+this.BuildFunctionReturn(shapeAt, end, context);
+```
+
+## method FlushFunctionReturnAt:(context:SyntaxContext, endIndex:int)=>int
+
+`[B4h]` `FinishAt` 内的兜底（与 `FlushUnion` 同一位置、同一职责）：返回类型没建就建到 `endIndex`
+（跳过末尾的 `;` / `,` / trivia），并把 `endIndex` 换算成**摘掉已建单元之后**的位置。
+
+```ts
+const shape = this.FunctionType;
+if (shape === null || shape.ReturnType !== null) {
+  return endIndex;
+}
+const shapeAt = this.Data.indexOf(shape);
+if (shapeAt < 0) {
+  return endIndex;
+}
+let end = endIndex;
+while (end > shapeAt) {
+  const unit = this.Data[end];
+  if (unit.IsTriviaToken
+    || (unit instanceof Symbol && ((unit as Symbol).Is(";") || (unit as Symbol).Is(",")))) {
+    end--;
+    continue;
+  }
+  break;
+}
+if (!this.BuildFunctionReturn(shapeAt, end, context)) {
+  return endIndex;
+}
+const removed = end - shapeAt;
+if (removed > 0 && endIndex > end) {
+  return endIndex - removed;
+}
+return endIndex;
+```
+
+## static method IsFunctionReturnTerminator:(unit:Token)=>bool
+
+`[B4h]` 返回类型在 `unit` 之后是否已经**完整**：下一个代码字符是 `;` `)` `}` `]` `,`、文件尾，
+或隔了行终止符之后是**非续接词**。
+
+**为什么需要行终止符这一档**：`(a) => a is string` 里 `a` 之后的 `is` 是同一行的续接词（谓词），
+不能因为「后面是标识符」就提前收；反过来 `void` ⏎ `type G…` 的 `type` 隔了换行，就是下一条语句。
+
+```ts
+const range = unit.SourceRange;
+const document = range.Document;
+if (document === null || range.EndIndex < 0) {
+  return false;
+}
+const count = document.GetCount();
+const whole = SourceRange.Whole(document);
+let at = range.EndIndex;
+let lineBreak = false;
+while (at < count) {
+  const ch = whole.At(at);
+  if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f"
+    || ch === "\u2028" || ch === "\u2029") {
+    at++;
+    continue;
+  }
+  if (ch === "\r" || ch === "\n") {
+    lineBreak = true;
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = whole.At(at + 1);
+    if (next === "/") {
+      at += 2;
+      while (at < count && whole.At(at) !== "\n") {
+        at++;
+      }
+      lineBreak = true;
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
+        if (whole.At(at) === "\n" || whole.At(at) === "\r") {
+          lineBreak = true;
+        }
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  break;
+}
+if (at >= count) {
+  return true;
+}
+const first = whole.At(at);
+if (first === ";" || first === ")" || first === "}" || first === "]" || first === ",") {
+  return true;
+}
+if (!lineBreak) {
+  return false;
+}
+let word = first;
+let cursor = at + 1;
+while (cursor < count) {
+  const ch = whole.At(cursor);
+  const code = ch.charCodeAt(0);
+  if ((code >= 97 && code <= 122) || (code >= 65 && code <= 90)
+    || (code >= 48 && code <= 57) || ch === "_" || ch === "$") {
+    word += ch;
+    cursor++;
+    continue;
+  }
+  break;
+}
+return !TypeAliasDeclarationShape.IsNewLineContinuation(word);
+```
+
 ## method ComputeEndIndex:(atEof:bool)=>int
 
 `[B4c]` 别名的结束格：`;` / 换行 ASI / EOF（父括号闭括号由 `ExitOrPre` 走同一条 `atEof` 口径）。
 判定只比结构位与文档下一个代码词，不另写一份类型文法。
 
 ```ts
+// [B4h] 函数类型还没建返回类型 ⇒ 这一格**不是**结束格：`=>` 之后的内容还没读完。
+// 这一条同时挡住 `(` 关格 / `=>` 关格两处可能被 `CanEndType(非 basic)` 误判为「类型已完」的收口。
+if (this.FunctionType !== null && this.FunctionType.ReturnType === null) {
+  return -1;
+}
 const data = this.Data;
 const count = data.length;
 let last = -1;
@@ -682,6 +1174,15 @@ return "";
 
 ```ts
 endIndex = this.FlushUnion(context, endIndex);
+// [B4h] 函数类型的返回类型兜底：逐词判据没赶上的极端摆放（EOF / 父括号 / 注释尾）在这里一次补齐，
+// 之后 `FromUnits` 看到的仍是「单个已建类型节点」，不新增第二条建树路径。
+endIndex = this.FlushFunctionReturnAt(context, endIndex);
+// [B4h] 参数表状态不随别名壳的生命周期结束而泄漏：收口后把 `Data` 里残留括号的扫描状态清掉。
+for (const unit of this.Data) {
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+    ParameterListPossibleShape.DropState((unit as Bracket).Data);
+  }
+}
 const tail = this.Data.splice(endIndex + 1);
 // 只在这一次收口里允许 `ParseTypeLiteral` 消费早建成员（保留给「字面量后还有续接」的放弃路径）；
 // 其它任何建树（interface 成员 / legacy / 别的族）都不看这个标志。

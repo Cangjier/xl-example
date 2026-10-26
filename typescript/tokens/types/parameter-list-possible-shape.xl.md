@@ -9,6 +9,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ParameterShape } from "./parameter-shape.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { QuestionTokenShape } from "../punctuation/question-token-shape.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
@@ -66,6 +67,19 @@ import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 ## field Finalized:bool = false
 
 `Finalize` 是否已经收过口（幂等）。
+
+## field FinalizeDone:bool = false
+
+**[B4h]** `Finalize` **真的跑完过**（与 `Finalized` 不同：后者在第一个 `,` 收壳时就置真）。
+`Finalize` 用它做幂等闸：同一只括号第二次被问到直接返回，不推进任何候选。
+
+## field AllowQuestion:bool = false
+
+**[B4h] 只有函数类型参数表才置真**：允许名字之后、`:` 之前出现 `?`（`type G = (b?: number) => …`）。
+`function` 声明 / 箭头形参表的状态保持 `false`，B1 / B4f 的读数逐字节不变。
+
+`?` 那一格由 `Probe` 的动作 10 建 `QuestionTokenShape`（`ParameterShape.QuestionToken`，与 legacy
+`ParseParameter` 同字段、同 child 顺序：Identifier → QuestionToken → Type）。
 
 # class ParameterListPossibleShape
 
@@ -128,6 +142,12 @@ import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 
 ## private static field CatalogRegistered:bool = false
 
+## private static field FunctionTypeCatalogRegistered:bool = false
+
+## static field FunctionTypeMountCount:int = 0
+
+**[B4h]** 函数类型参数表括号挂上目录的次数（证据用；B1 的 `MountCount` 读数不含它）。
+
 ## private static field CreatePossibleShapesCache:Array<PossibleShape> | null = null
 
 ## static method Shapes:()=>Array<PossibleShape>
@@ -152,6 +172,47 @@ if (ParameterListPossibleShape.CatalogRegistered) {
 ParameterListPossibleShape.CatalogRegistered = true;
 BracketRoleResolver.RegisterCatalog(
   new BracketRoleCatalog(BracketRole.ParameterList, ParameterListPossibleShape.Shapes(), null));
+```
+
+## static method EnsureRegisteredForFunctionType:()=>void
+
+**[B4h]** 把 `FunctionTypeParams` 角色目录注册进 `BracketRoleResolver`，幂等。
+目录里的候选是**同一份** `ParameterPossibleShape`（`Shapes()`，进程内一份）：函数类型参数表与
+`function` 声明 / 箭头形参表共用同一套逐字建造，区别只在状态的 `AllowQuestion`。
+
+调用点在 `TypeAliasDeclarationShape.OnBracketCreatedEvent`（类型别名壳的 `(` 创建格，先于
+`BracketRoleHook` 的 `Resolve`），注册后同一格自动变 `Known` 并装上目录。
+
+```ts
+if (ParameterListPossibleShape.FunctionTypeCatalogRegistered) {
+  return;
+}
+ParameterListPossibleShape.FunctionTypeCatalogRegistered = true;
+BracketRoleResolver.RegisterCatalog(
+  new BracketRoleCatalog(BracketRole.FunctionTypeParams, ParameterListPossibleShape.Shapes(), null));
+```
+
+## static method InstallForFunctionType:(bracket:Bracket)=>bool
+
+**[B4h]** 给类型位置的函数类型参数表挂状态：**只接 `IsSimpleFunctionTypeParams` 认的形态**。
+返回 `true` = 这一次真的挂了（`AllowQuestion` 置真，`?` 才可建）。
+
+判否（默认值 / 解构 / 非简单类型）⇒ **不登记状态、一个字节都不动**：目录虽然装上了，但
+`ParameterPossibleShape.IsBuildable` 按 `FindState` 返回 `false`，这一格永远不会建出半步；
+创建格也不会建 `FunctionTypeShape` 壳，整段留给 legacy `ParseFunctionType`。
+
+```ts
+if (!ParameterListPossibleShape.Enabled) {
+  return false;
+}
+if (!BracketRoleResolver.IsSimpleFunctionTypeParams(bracket)) {
+  return false;
+}
+const state = ParameterListPossibleShape.EnsureState(bracket.Data);
+state.Bracket = bracket;
+state.AllowQuestion = true;
+ParameterListPossibleShape.FunctionTypeMountCount += 1;
+return true;
 ```
 
 ## static method FindState:(units:Array<Token>)=>ParameterScan | null
@@ -646,6 +707,29 @@ if (unit instanceof Symbol && (unit as Symbol).Is(":")) {
   ParameterListPossibleShape.BuildActionCount += 1;
   return 4;
 }
+// [B4h] 可选形参 `?`（只给函数类型参数表：`type G = (b?: number) => …`）。
+// `state.AllowQuestion` 为假时**不进这一支**——B1 的 function 形参表 / B4f 的箭头形参表读数逐字节不变。
+// 位置 / 字段与 legacy `ParseParameter` 完全同口径：`QuestionToken.Pos = 名字的终点`（= `PreviousParamPos`），
+// 区间只盖 `?` 一个字符，child 顺序是 Identifier → QuestionToken → Type。
+if (unit instanceof Symbol && (unit as Symbol).Is("?") && state.AllowQuestion
+  && shell.ParameterName !== null && shell.QuestionToken === null) {
+  if (context === null) {
+    return 10;
+  }
+  const question = new QuestionTokenShape(unit.Template);
+  if (unit.SourceRange.Start >= 0) {
+    question.SignIn(unit.SourceRange.StartIndex);
+    question.SignOut(unit.SourceRange.StartIndex + 1);
+  }
+  question.Pos = ParameterListPossibleShape.PreviousParamPos(data, at, bracket, shell);
+  question.TryToClose(context);
+  shell.QuestionToken = question;
+  shell.Add(question);
+  question.Parent = shell;
+  data.splice(at, 1);
+  ParameterListPossibleShape.BuildActionCount += 1;
+  return 10;
+}
 // [B4f] 默认值：`=` + 默认值表达式**逐字吃掉**（`(a: number, b = 1) =>` / `(a = {x:1}) =>`）。
 // 默认值内部的对象 / 数组 / 括号是**一个已建括号单元**，所以这一层永远看不到它们里面的 `,`，
 // 不可能被误当形参表的分隔；顶层 `,` 才是下一个参数（`DefaultValueEnd`）。
@@ -827,7 +911,12 @@ if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "("
 }
 const bracket = unit as Bracket;
 const state = ParameterListPossibleShape.FindState(bracket.Data);
-if (state === null) {
+if (state === null || state.FinalizeDone) {
+  // [B4h] 幂等：`Finalize` 可能被同一只括号问到不止一次（括号关格之后它仍可能是宿主的末单元，
+  // 注释 / `=>` 到达之前还会再算一格）。已经收过口就不再推进——再进一次 `Probe` 的
+  // 「没有开壳」分支会为空壳另建一只 `ParameterShape`。
+  // **不看 `Finalized`**：那个标志在第一个 `,` 收壳时就置真了（B1 的既有语义），
+  // 拿它当「收口已做完」会让多参数函数声明最后一个参数永远建不出来。
   return;
 }
 state.Bracket = bracket;
@@ -838,6 +927,7 @@ while (guard < 64 && ParameterListPossibleShape.Step(state, bracket, context)) {
 if (state.Open !== null && state.Open instanceof ParameterShape) {
   ParameterListPossibleShape.CloseShell(state, state.Open as ParameterShape, context);
 }
+state.FinalizeDone = true;
 ```
 
 ## static method CollectBuiltParameters:(bracket:Bracket)=>Array<Token> | null
