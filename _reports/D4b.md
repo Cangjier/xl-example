@@ -6,7 +6,7 @@
 | 分支 | `feature/d4b-initializer` |
 | 目录 | `C:\Users\Admin\Documents\GitHub\xl-example-set\d4b-initializer` |
 | base | `609f5526` `merge(d4): make file fallback truly legacy` |
-| 提交 | `a5edbbe5` `fix(d4b): decline instead of building an empty block in the legacy body collection channel` |
+| 提交 | `f80b69a4` `fix(d4b): decline instead of building an empty block in the legacy body collection channel` |
 | 交付 | `typescript/tokens/direct/direct-statement-assembly.xl.md`、`typescript/tokens/direct/direct-expression-engine.xl.md`（2 个文件） |
 | 构建 | `xl_build` **628 页 / 0 error / 3 warning**（3 条 E1107 是 base 已有的）；`tsc -p .` **exit 0** |
 
