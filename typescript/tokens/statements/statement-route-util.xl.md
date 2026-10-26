@@ -425,6 +425,14 @@ if (text === "let" || text === "const" || text === "var") {
   if (StatementScanner.StartsBinding(units, bindingAt)) {
     return StatementRoute.ShellVariable;
   }
+  // [A2-D5:ROUTE] `let` / `const` / `var` 之后**不是绑定** ⇒ 这个词是标识符，本条是**表达式语句**
+  // （`let = 1` / `let = 1;`）。原判 `Legacy` 会让根表达式候选在头格 `Reject`，整条只剩 legacy 原子建树。
+  // 改判 `ShellPlainExpression`：根表达式候选在头格建 `StatementShape`，表达式体由 `StatementOperatorBody`
+  // 建 `IdentifierShape("let")` + `=`——两处能力都已存在，这里只改「归哪一族」。
+  // 只在既有的 `EnableShellExpressions` 开关内生效；开关 false 时逐字节回到 `Legacy`（legacy 半程不变）。
+  if (StatementRouteUtil.EnableShellExpressions) {
+    return StatementRoute.ShellPlainExpression;
+  }
   return StatementRoute.Legacy;
 }
 if (StatementRouteUtil.EnableShellExpressions) {
