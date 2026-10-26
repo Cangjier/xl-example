@@ -20,6 +20,7 @@ import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { StatementShape } from "./statement-shape.xl.md"
+import { StatementShellCatalog } from "./statement-shell-catalog.xl.md"
 import { VariableStatementPossibleShape } from "./variable-statement-possible-shape.xl.md"
 import { DirectStatementHook } from "../direct/direct-statement-hook.xl.md"
 ```
@@ -188,6 +189,20 @@ if (StatementRouteUtil.EnableBlockBodyCatalog && bodyBracket !== null) {
 StatementRouteUtil.BlockShellCount += 1;
 // H3-b（R3-CONTRACT §4.1）：与 control-flow 候选同一句、同一个挂载点（kind = ShellBlock）。
 DirectStatementHook.Attach(shell, context);
+// [XL-ROUTE:block] B1：增量总闸打开时给块壳挂早期 `BlockShape` 占位节点（类名 / Pos 抄 legacy），
+// 收口时由 `StatementFamilyDispatch.Build` 搬进 legacy 子树。开关关闭时本句不进。
+if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  let headUnit:Token | null = null;
+  for (const item of moved) {
+    if (!item.IsTriviaToken) {
+      headUnit = item;
+      break;
+    }
+  }
+  if (headUnit !== null) {
+    StatementShellCatalog.Attach(shell, headUnit, StatementRoute.ShellBlock);
+  }
+}
 return shell;
 ```
 

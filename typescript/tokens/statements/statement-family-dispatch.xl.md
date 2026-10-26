@@ -8,6 +8,7 @@ import { StatementBuilder } from "./statement-builder.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
+import { StatementShellCatalog } from "./statement-shell-catalog.xl.md"
 ```
 
 # namespace cangjie
@@ -24,7 +25,17 @@ const head = builder.Units[builder.At];
 if (!StatementFamilyDispatch.KindAllows(builder, head, kind)) {
   return null;
 }
-return StatementFamilyDispatch.BuildByHead(builder);
+const built = StatementFamilyDispatch.BuildByHead(builder);
+// [XL-ROUTE:family-take] B1：增量总闸打开时，把 legacy 刚建出的语句子树搬进「早期占位节点」
+// （`StatementShellCatalog`，类名 / Pos 与 legacy 相同）并返回它；先出现的节点与 EOF 树逐节点一致。
+// 匹配不到（不是本壳的族）时原样返回 legacy 节点，行为不变。
+if (built !== null && StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  const early = StatementShellCatalog.Take(built);
+  if (early !== null) {
+    return early;
+  }
+}
+return built;
 ```
 
 ## static method KindAllows:(builder:StatementBuilder, head:Token, kind:int)=>bool
