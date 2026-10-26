@@ -5,6 +5,14 @@ import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shap
 import { CompositeInitializerPossibleShape } from "./forms/primary/composite-initializer-possible-shape.xl.md"
 import { NumericLiteralPossibleShape } from "./numeric-literal-possible-shape.xl.md"
 import { BinaryOperatorPossibleShape } from "./forms/operator/binary-operator-possible-shape.xl.md"
+import { BigIntLiteralPrimaryPossibleShape } from "./forms/primary/big-int-literal-primary-possible-shape.xl.md"
+import { IdentifierPrimaryPossibleShape } from "./forms/primary/identifier-primary-possible-shape.xl.md"
+import { KeywordLiteralPrimaryPossibleShape } from "./forms/primary/keyword-literal-primary-possible-shape.xl.md"
+import { RegexLiteralPrimaryPossibleShape } from "./forms/primary/regex-literal-primary-possible-shape.xl.md"
+import { StringLiteralPrimaryPossibleShape } from "./forms/primary/string-literal-primary-possible-shape.xl.md"
+import { TaggedTemplatePrimaryPossibleShape } from "./forms/primary/tagged-template-primary-possible-shape.xl.md"
+import { TemplatePrimaryPossibleShape } from "./forms/primary/template-primary-possible-shape.xl.md"
+import { ThisPrimaryPossibleShape } from "./forms/primary/this-primary-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -107,6 +115,14 @@ return shapes;
 
 ```ts
 // [E-CAT:FRAGMENTS] 以下是各形态片段，每行一个，按 WP id 排序（form WP 只在本行之后追加，不重排）：
+  BigIntLiteralPrimaryPossibleShape.AppendTo(shapes); // [A1]
+  IdentifierPrimaryPossibleShape.AppendTo(shapes); // [A1]
+  KeywordLiteralPrimaryPossibleShape.AppendTo(shapes); // [A1]
+  RegexLiteralPrimaryPossibleShape.AppendTo(shapes); // [A1]
+  StringLiteralPrimaryPossibleShape.AppendTo(shapes); // [A1]
+  TaggedTemplatePrimaryPossibleShape.AppendTo(shapes); // [A1]
+  TemplatePrimaryPossibleShape.AppendTo(shapes); // [A1]
+  ThisPrimaryPossibleShape.AppendTo(shapes); // [A1]
   BinaryOperatorPossibleShape.AppendTo(shapes); // [A2]
   CompositeInitializerPossibleShape.AppendTo(shapes); // [A4]
 ```
