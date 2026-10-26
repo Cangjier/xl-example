@@ -2266,6 +2266,15 @@ if (ExpressionAtomRegistry.Has(unit)) {
   this.At++;
   return unit;
 }
+// [B4e:K1] **容器 shape 的创建格**：`{` / `[` / `(` 在关闭那一拍已经被
+// `ContainerShapeCloseHook` 换成 `ObjectLiteralExpressionShape` / `ArrayLiteralExpressionShape` /
+// `CallExpressionShape` / `ParenthesizedExpressionShape`（`_reports/B4e.md`）。这里是它在收口格的
+// **唯一消费点**：直接收下、不重建（括号已经不在 `Data` 里，重建也无从重建）。
+// 只认登记过身份的形状（`HasContainer`），不认任意 `ShapeToken`。
+if (ExpressionAtomRegistry.HasContainer(unit)) {
+  this.At++;
+  return unit;
+}
 if (unit instanceof Symbol && (unit as Symbol).Is("#")) {
   // PrivateIdentifier: the token layer splits `#x` into Symbol "#" + Common "x".
   // No Text field is set: TS PrivateIdentifier carries no `text` in the AST projection.

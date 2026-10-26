@@ -9,6 +9,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
 ```
 
@@ -316,6 +317,13 @@ if (first < 0) {
   return false;
 }
 const head = units[first];
+// [B4e:K1] **容器形状作头**：`{ a: 1 } as T` / `[1, 2] satisfies X` / `(a + b) as T` 的容器已经在
+// 括号关闭格由 `ContainerShapeCloseHook` 建出，`raw[0]` 因此不再是括号。整条仍然交给
+// `ParseInitializer`（同一个 `ExpressionBuilder`：`ParsePrimary` 消费容器，`ParseBinaryFrom` 建 `as`），
+// 所以这里与「括号作头」走同一个答案：有断言就接管。
+if (ExpressionAtomRegistry.HasContainer(head)) {
+  return TypeCatalogFactory.HasTypeAssert(units);
+}
 if (head instanceof Common) {
   const next = TypeCatalogFactory.FirstSignificant(units, first + 1);
   if (next < 0) {

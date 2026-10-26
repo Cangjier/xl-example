@@ -87,6 +87,35 @@ throw new Error("abstract: OnBracketCreated");
 throw new Error("abstract: OnBracketClosing");
 ```
 
+# class BracketClosedHook
+
+**括号关闭后的通知（B4e/K1）。** `Bracket.Close` 在「问完父单元」之后调用 `Current` 一次。
+
+为什么不是 B4b 的 `BracketCloseHook`：那个时机在「问父单元」**之前**，实现方一旦在那里把括号
+换成容器形状，父单元的候选（A4 对象 / A4b 数组·括号 / P1 调用 / P4 分组）就整族被跳过——
+它们不只是建树的竞争者，还是「右操作数封口 / 卸载在飞单元」的**收口方**。实测把括号提前换掉
+会让 `BinaryExpressionShape` 的右操作数永不封口，下一个字符（`;`）落进二元形状的 `Data`，
+`CatalogGuide` 抛「没有候选形状可以构成（宿主 BinaryExpressionShape）」。所以容器形状的落槽
+必须排在父单元之后：先让既有收口方按自己的所有权消费括号，**只有它们都不要这只括号**时，
+本钩子才把括号换成容器形状（`_reports/B4e.md` §4）。
+
+`Current` 默认 `null`：默认状态下 `Close` 只是多做一次 `null` 比较，既有产物逐字节不变。
+
+## static field Current:BracketClosedHook | null = null
+
+进程内唯一的括号关闭后监听。`null` = 没装（默认）。
+
+## method OnBracketClosed:(bracket:Token, context:SyntaxContext)=>void
+
+`bracket` 是刚关闭的括号：`Closed` 已置真、`Data` 已经完整、父单元已经被问过。
+**父单元可能已经把它消费掉**（`bracket.Parent.Data.indexOf(bracket) < 0`）——实现方必须先判这一条。
+
+抽象方法，core 不给实现。
+
+```ts
+throw new Error("abstract: OnBracketClosed");
+```
+
 # class Bracket extends UnitToken
 
 括号。
@@ -174,6 +203,10 @@ return this;
 
 重算的返回值原样带上去：建出了形状时，正在收尾的这个 token 要让当前字符重放。
 
+问完父单元之后还有一次**关闭后的通知**（`BracketClosedHook`，B4e/K1）：父单元的候选先按自己的
+所有权消费括号（对象 / 数组 / 调用 / 分组的既有收口方都在这一拍建树），只有它们都不要这只括号时，
+实现方才把括号换成容器形状。`Current` 默认 `null` ⇒ 只多一次 `null` 比较。
+
 ```ts
 this.Closed = true;
 // [B4b:CLOSE] 关闭前的通知（B0）：容器形状的「创建格」只能落在这一拍——`Data` 已经完整、
@@ -190,14 +223,23 @@ if (BracketCloseHook.Current !== null) {
 if (this.CatalogGuide !== null && this.CatalogGuide.FlushOnClose && this.Data.length > 0) {
   this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
 }
+// [B4e:K1] 关闭后的通知（**父单元问完之后**）：容器形状只能在这里落槽——父单元的候选
+// （A4 对象 / A4b 数组·括号 / P1 调用 / P4 分组）会先按自己的所有权消费括号；只有它们都不要
+// 这只括号时，实现方才把括号换成容器形状。放在「问父单元」之前改 `Data` 会把这些候选整族跳过，
+// 实测会让 `BinaryExpressionShape` 的右操作数永不封口（`_reports/B4e.md` §4）。
+// `Current` 默认 `null` ⇒ 只多一次 `null` 比较，既有产物逐字节不变。
 const parent = this.Parent;
+let closedState = CloseStates.Nothing;
 if (parent !== null && "ComputePossibleShapes" in parent) {
   const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);
   if (state === ComputePossibleShapesStates.Built) {
-    return CloseStates.Built;
+    closedState = CloseStates.Built;
   }
 }
-return CloseStates.Nothing;
+if (BracketClosedHook.Current !== null) {
+  BracketClosedHook.Current.OnBracketClosed(this, context);
+}
+return closedState;
 ```
 
 ## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
