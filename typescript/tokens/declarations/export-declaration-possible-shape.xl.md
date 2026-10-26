@@ -80,6 +80,58 @@ export default function f() {}
 export declare function f(): void;
 ```
 
+## static method OwnsExportInner:(units:Array<Token>, headAt:int, secondAt:int, thirdAt:int)=>int
+
+[A2-D6:OWN] `export` **内层声明委托**的 own 判据（WP-A2-D6）：本族只认两种「声明前缀形 + 内层声明」，
+其余前缀形（`export class` / `export interface` / `export declare function` / `export default class` …）
+仍归既有声明壳。
+
+- 返回 `1`：`export declare const|let|var …`（内层是变量三层；`declare const enum` 排除，归 enum 族）；
+- 返回 `2`：`export default function …`；
+- 返回 `0`：不是本族。
+
+三处用法：`ExportInnerDelegate.ProbeKind`（流式前瞻）在**第三格到达前**就读文档字符判族；
+本方法供 `ExportInnerStartPossibleShape`（第三格到达后按已到齐的单元复核）与
+`ExportInnerDelegate.BuildInner` 共用——不各写一份关键字表。`declare` / `default` 与内层关键字之间
+必须**同一行**（TS 的修饰词解析要求；换行时是两条语句），与 D3 的 `DeclareVariablePossibleShape.Owns`、
+D4 的 `FunctionDeclarationPossibleShape.Owns` 同一个 `StatementScanner.NoLineBreakBetween` 口径。
+
+```ts
+if (headAt < 0 || headAt >= units.length || secondAt < 0 || secondAt >= units.length
+  || thirdAt < 0 || thirdAt >= units.length) {
+  return 0;
+}
+const head = units[headAt];
+const second = units[secondAt];
+const third = units[thirdAt];
+if (!(head instanceof Common) || !(second instanceof Common) || !(third instanceof Common)) {
+  return 0;
+}
+if (!(head as Common).Is("export")) {
+  return 0;
+}
+if (!StatementScanner.NoLineBreakBetween(second, third)) {
+  return 0;
+}
+const secondText = (second as Common).TempToString();
+const thirdText = (third as Common).TempToString();
+if (secondText === "declare") {
+  if (!(thirdText === "const" || thirdText === "let" || thirdText === "var")) {
+    return 0;
+  }
+  // `declare const enum E {}` 归 enum 声明族（与 `DeclareVariablePossibleShape.Owns` 同一判据、同一函数）。
+  if (thirdText === "const"
+    && StatementScanner.NextWord(third.SourceRange.Document, third.SourceRange.EndIndex) === "enum") {
+    return 0;
+  }
+  return 1;
+}
+if (secondText === "default" && thirdText === "function") {
+  return 2;
+}
+return 0;
+```
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
 ```ts
