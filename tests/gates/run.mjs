@@ -113,7 +113,9 @@ const GATES = [
   //   以前不在池子里，只有 `npm run ast:dts` 才会跑。
   // 两道都**不写 notApplicable**：缺 `build/ts` 是真实失败（先 `npm run build`），不是「本仓库结构上
   // 不可能跑」——与上面 7 道 N/A 的区别正在这里。
-  { name: "wide-ast", script: "tests/parse/wide-ast.mjs" },
+  // **`summary`（第 D3e 波加）**：`FileFallbackCount` 是只读指标（基线 167、只告警不判红），
+  // 挂在这里让它在 gates 摘要里可读，而不必把它变成第二道门。
+  { name: "wide-ast", script: "tests/parse/wide-ast.mjs", summary: /^FileFallbackCount / },
   { name: "real-dts-ast", script: "typescript/cases/real-dts-ast.mjs" },
   // **`cases:tags`（第 633 轮加、第 1017 轮删）**：用例开头那几行 `xl:expect` / `xl:absent` 的
   // 专属尺子（外加「标签表体检」与一条 `<Label />` 结构不变式）。它量的是**产物标签**这一层，
@@ -237,10 +239,22 @@ const runnable = GATES.filter((gate) => !outcomes.has(gate));
 const results = await pool(runnable, runOne);
 for (const result of results) outcomes.set(result.gate, result);
 
-/** 每一门挑一行「结论」印出来（各自最后一行通常就是它 ✓）。 */
+/**
+ * 每一门挑一行「结论」印出来（各自最后一行通常就是它 ✓）。
+ *
+ * **`gate.summary`（第 D3e 波加）**：有些门要印的**不是**结论行而是一条只读指标
+ * （例如 `wide-ast` 的 `FileFallbackCount` —— 它只告警、不判红，所以不能当结论）。
+ * 声明一个正则，这里把**最后一条**命中的行取出来，接在结论后面一起印。
+ * 它只影响**怎么印**，不参与 PASS/FAIL：`code` 仍然只看子进程退出码。
+ */
 const conclusion = (text) => {
   const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
   return lines.length === 0 ? "（没有输出）" : lines[lines.length - 1].trim();
+};
+const summaryOf = (gate, text) => {
+  if (!gate.summary) return "";
+  const hit = text.split(/\r?\n/).filter((line) => gate.summary.test(line)).pop();
+  return hit === undefined ? "" : `  ·  ${hit.trim()}`;
 };
 
 let failed = 0;
@@ -262,7 +276,7 @@ for (const gate of GATES) {
   if (ok) passed += 1;
   else failed += 1;
   const seconds = (result.ms / 1000).toFixed(1);
-  console.log(`${ok ? "ok  " : "FAIL"}  ${gate.name.padEnd(14)} ${seconds.padStart(6)}s  ${conclusion(result.out)}`);
+  console.log(`${ok ? "ok  " : "FAIL"}  ${gate.name.padEnd(14)} ${seconds.padStart(6)}s  ${conclusion(result.out)}${summaryOf(gate, result.out)}`);
   if (!ok || verbose) {
     const tail = (result.out + result.err).split(/\r?\n/).filter((line) => line.trim() !== "").slice(-8);
     for (const line of tail) console.log(`        ${line}`);

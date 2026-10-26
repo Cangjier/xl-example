@@ -26,6 +26,14 @@
 //   outOfBounds  子节点区间越出父节点区间 / 反向区间
 //   unmapped     产物侧出现了 ts.SyntaxKind 里不存在的 kind（等价于投影层缺映射；
 //                正常情况下它必然同时表现为 structural 差）
+//
+// **两条只读计数（第 D3e 波加，都不参与判据）**：
+//   FileFallbackCount       靠 `EnableFileFallback` 那条 legacy 重解析才**通过**的文件数。
+//                           D3 全量实测基线 **167**；超过基线只 WARN、不判红 —— 本波的任务是
+//                           先把这笔隐性债**变成可读指标**，红了会把今天的 167 一起变红。
+//   token 形状（basic-token）  `Data` 里摆着的记号形状（`WrapSymbol` / `Common` / `Symbol` / …）。
+//                           它们**不计入** AST 对拍（见 `ast-compare.mjs` 的 `isAstShape`）：
+//                           默认路径一个都没有，只有增量形状路径会把它们留在 `Data` 里。
 
 import fs from "node:fs";
 import path from "node:path";
@@ -37,6 +45,7 @@ import {
   cjAst,
   flatten,
   groupByKind,
+  isAstShape,
   FIELD_NAMES,
   fieldOf,
 } from "../../typescript/cases/ast-compare.mjs";
@@ -60,9 +69,15 @@ if (missing.length > 0) {
 
 let ts;
 let SourceFileRunner;
+let StatementRouteUtil;
 try {
   ts = require(path.join(root, "node_modules", "typescript"));
   ({ SourceFileRunner } = require(path.join(root, "build", "ts", "typescript", "run", "source-file-runner.js")));
+  // `Parse` 的两级结构：`ParseCore(shell=true)` 抛异常 → catch → `ParseCore(shell=false)` 救回来，
+  // 并置 `LastFileFallback`（成功后）与 `FileFallbackCount`（每次尝试 +1）。本条门只**读**这两个字段。
+  ({ StatementRouteUtil } = require(
+    path.join(root, "build", "ts", "typescript", "tokens", "statements", "statement-route-util.js"),
+  ));
 } catch (error) {
   console.error("BUILD-MISSING 产物无法加载（重新跑 npm run build）：" + String(error && error.message));
   process.exit(1);
@@ -112,8 +127,15 @@ function collectFiles() {
 }
 
 // **地基**：读形状对象的原始区间字段。它不是第二份投影 —— 不比较 kind / text / children，
-// 只累计「缺 range / 越界 / 未映射」三个数。父区间用归一后的 pos/end（与 cjAst 同算法）。
+// 只累计「缺 range / 越界 / 未映射 / 记号形状」四个数。父区间用归一后的 pos/end（与 cjAst 同算法）。
 function walkFoundation(shape, parent, stats) {
+  // **记号形状先摘掉**：`IsBasicToken` 的形状是 token 层的（`WrapSymbol` / `Common` / `Symbol` / …），
+  // 不是 AST 节点，TS 侧 `forEachChild` 从不交出它们（口径写在 `ast-compare.mjs` 的 `isAstShape`）。
+  // 只计数、不递归 —— basic token 是叶子（字符收在 `Temp` 里，不再挂子形状）。
+  if (!isAstShape(shape)) {
+    stats.tokens.push(shape.constructor.name.replace("Shape", ""));
+    return;
+  }
   const range = shape.SourceRange || {};
   const start = typeof range.StartIndex === "number" ? range.StartIndex : -1;
   const end = typeof range.EndIndex === "number" ? range.EndIndex : -1;
@@ -146,7 +168,7 @@ function diffOne(file, src) {
     }
     return { error: (message.split("\n")[0] || "unknown").slice(0, 160) };
   }
-  const foundation = { missingRange: [], outOfBounds: [], unmapped: [] };
+  const foundation = { missingRange: [], outOfBounds: [], unmapped: [], tokens: [] };
   for (const shape of rootShape.Data || []) walkFoundation(shape, null, foundation);
 
   const theirs = flatten(fileNode.statements.map(tsAst));
@@ -196,6 +218,17 @@ let fieldTotal = 0;
 let missingRangeTotal = 0;
 let outOfBoundsTotal = 0;
 let unmappedTotal = 0;
+let tokenTotal = 0;
+// **隐性债的两个只读计数器**：`FileFallbackCount` 数「靠 legacy 重解析才通过」的文件数（基线 167），
+// 按目录族分桶；两者都**不进** `broken`，只印出来 + 过基线时 WARN。
+let fileFallbackCount = 0;
+const fallbackFamilies = new Map();
+// **基线按量尺分两条**（同一件事在两把尺子上差两个数量级，写死一条就是错的红线）：
+//   · 默认路径（本门自己的读数）：**2** —— 全语料只有 2 件走 shell 路径失败；
+//   · 增量形状 ON（`tmp/wide-on.mjs`，D3 §4 的 167 就是在这一把尺子上量的）：**167**。
+const incrementalOn =
+  StatementRouteUtil.EnableIncrementalShapes === true || StatementRouteUtil.EnableIncrementalVariableShapes === true;
+const FALLBACK_BASELINE = incrementalOn ? 167 : 2;
 
 for (const file of files) {
   const src = fs.readFileSync(file, "utf8");
@@ -212,12 +245,20 @@ for (const file of files) {
     if (perFile) console.log(`CRASH ${label}  ${result.error}`);
     continue;
   }
+  // `LastFileFallback` 是「这一次 `Parse` 是靠 `ParseCore(shell=false)` 救回来的」；救不回的
+  // （= 崩溃）根本走不到这里，所以这个数就是「靠 fallback 才通过的文件数」。
+  if (StatementRouteUtil.LastFileFallback) {
+    fileFallbackCount++;
+    const family = path.relative(root, file).replace(/\\/g, "/").split("/").slice(0, 3).join("/");
+    fallbackFamilies.set(family, (fallbackFamilies.get(family) || 0) + 1);
+  }
   structuralTotal += result.structural.length;
   movedTotal += result.moved.length;
   fieldTotal += result.fields.length;
   missingRangeTotal += result.missingRange.length;
   outOfBoundsTotal += result.outOfBounds.length;
   unmappedTotal += result.unmapped.length;
+  tokenTotal += result.tokens.length;
   const clean =
     result.structural.length === 0 &&
     result.moved.length === 0 &&
@@ -272,6 +313,29 @@ console.log(
   `四方向：缺/多出来 ${structuralTotal} 条、区间漂移 ${movedTotal} 条、字段名 ${fieldTotal} 条；` +
     `地基：缺 range ${missingRangeTotal} 处、区间越界 ${outOfBoundsTotal} 处、未映射 ${unmappedTotal} 处`,
 );
+// **记号形状**：不计入 AST，只报数量当证据 —— 0 说明这一趟走的是默认路径（没有增量形状残留）。
+console.log(
+  `记号形状（basic-token，按 isAstShape 不计入 AST）：${tokenTotal} 个` +
+    (tokenTotal > 0 ? `；它们本来是「未映射」与假结构差的来源` : "；本趟默认路径没有残留"),
+);
+// **隐性债（只读 + 阈值告警，不判红）**：默认禁用宽度下，约 11% 的语料其实走的是 legacy 重解析。
+console.log(
+  `FileFallbackCount ${fileFallbackCount}（靠 EnableFileFallback legacy 重解析才通过的文件数；` +
+    `基线 ${FALLBACK_BASELINE}${incrementalOn ? "，增量形状 ON / D3 §4 实测 167" : "，默认路径 / D3e 实测"}）`,
+);
+console.log(
+  `FileFallbackAttempts ${StatementRouteUtil.FileFallbackCount}（Parse 层 fallback 尝试次数，含救不回的崩溃）`,
+);
+if (fallbackFamilies.size > 0) {
+  const top = [...fallbackFamilies.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  console.log(`FileFallbackByFamily ${top.map(([name, count]) => `${name}=${count}`).join("、")}`);
+}
+if (fileFallbackCount > FALLBACK_BASELINE) {
+  console.log(
+    `WARN FileFallbackCount 比基线 ${FALLBACK_BASELINE} 多了 ${fileFallbackCount - FALLBACK_BASELINE} 个文件` +
+      `（隐性债增长；本波只告警不判红，见 _reports/D3e.md）`,
+  );
+}
 if (families.size > 0) {
   console.log("失败文件按目录族聚类：");
   for (const [family, list] of show([...families.entries()].sort((a, b) => b[1].length - a[1].length))) {
