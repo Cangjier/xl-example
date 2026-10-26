@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **106** 条 case：incremental **106** / 非 incremental **0**（非 incremental 即 FAIL）。
+共 **120** 条 case：incremental **120** / 非 incremental **0**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -20,6 +20,19 @@
 | case | 分类 | 判定依据 | 备注 |
 | --- | --- | --- | --- |
 | `declarations/const-number.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
+| `declarations/export-as-namespace.ts` | incremental | 提前的 shape 节点：NamespaceExportDeclarationShape@pos=0, IdentifierShape@pos=19 |  |
+| `declarations/export-assignment.ts` | incremental | 提前的 shape 节点：ExportAssignmentShape@pos=0, IdentifierShape@pos=8 |  |
+| `declarations/export-named-from.ts` | incremental | 提前的 shape 节点：ExportDeclarationShape@pos=0, NamedExportsShape@pos=6, ExportSpecifierShape@pos=8, IdentifierShape@pos=8, StringLiteralShape@pos=17 |  |
+| `declarations/export-star-as.ts` | incremental | 提前的 shape 节点：ExportDeclarationShape@pos=0, NamespaceExportShape@pos=6, IdentifierShape@pos=11, StringLiteralShape@pos=19 |  |
+| `declarations/import-default-named.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, IdentifierShape@pos=6, NamedImportsShape@pos=9, ImportSpecifierShape@pos=11, IdentifierShape@pos=11 |  |
+| `declarations/import-default.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, IdentifierShape@pos=6, StringLiteralShape@pos=13 |  |
+| `declarations/import-equals-qualified.ts` | incremental | 提前的 shape 节点：ImportEqualsDeclarationShape@pos=0, IdentifierShape@pos=6, QualifiedNameShape@pos=10, IdentifierShape@pos=10, IdentifierShape@pos=13 |  |
+| `declarations/import-equals-require.ts` | incremental | 提前的 shape 节点：ImportEqualsDeclarationShape@pos=0, IdentifierShape@pos=6, ExternalModuleReferenceShape@pos=10, StringLiteralShape@pos=19 |  |
+| `declarations/import-inline-type.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=13, ImportSpecifierShape@pos=16 |  |
+| `declarations/import-named.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=8, StringLiteralShape@pos=17 |  |
+| `declarations/import-namespace.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamespaceImportShape@pos=6, IdentifierShape@pos=11, StringLiteralShape@pos=19 |  |
+| `declarations/import-side-effect.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, StringLiteralShape@pos=6 |  |
+| `declarations/import-type-only.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=11, ImportSpecifierShape@pos=13, IdentifierShape@pos=13, StringLiteralShape@pos=22 |  |
 | `declarations/let-add.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=11 | 残留 basic 行 +1 |
 | `declarations/let-binding.ts` | incremental | 仅有骨架提前（4 个节点） | EOF 区间含前导/尾随 trivia |
 | `declarations/var-binding.ts` | incremental | 仅有骨架提前（4 个节点） | EOF 区间含前导/尾随 trivia |
@@ -139,4 +152,5 @@
 | case | 分类 | 判定依据 | 备注 |
 | --- | --- | --- | --- |
 | `types/as-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |
+| `types/import-inline-type.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=13, ImportSpecifierShape@pos=16 |  |
 | `types/satisfies-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |

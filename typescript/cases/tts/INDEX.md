@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **319** 条 case：throw 125 / atomic 141 / partial 53 / incremental 0
+共 **305** 条 case：throw 125 / atomic 127 / partial 53 / incremental 0
 
 ## throw
 
@@ -187,11 +187,7 @@
 | `atomic/declarations/enum-computed.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/enum-numeric.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-as-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-assignment.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/export-declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-named-from.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/export-star-as.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-async-generator.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-async.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
@@ -201,15 +197,6 @@
 | `atomic/declarations/function-overload.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-rest-param.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-return-type.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-default-named.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-default.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-equals-qualified.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-equals-require.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-inline-type.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-named.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-side-effect.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/import-type-only.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/interface-call-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/interface-construct-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/interface-extends-several.ts` | 增量开关对逐字符树没有任何影响 |  |
@@ -316,7 +303,6 @@
 | `atomic/types/function-param-return.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-predicate.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-this-param.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/import-inline-type.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/interface-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/interface-extends-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
 
