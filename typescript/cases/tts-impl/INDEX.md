@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **228** 条 case：incremental **225** / 非 incremental **3**（非 incremental 即 FAIL）。
+共 **276** 条 case：incremental **273** / 非 incremental **3**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -47,6 +47,14 @@
 | `declarations/import-namespace.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamespaceImportShape@pos=6, IdentifierShape@pos=11, StringLiteralShape@pos=19 |  |
 | `declarations/import-side-effect.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, StringLiteralShape@pos=6 |  |
 | `declarations/import-type-only.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=11, ImportSpecifierShape@pos=13, IdentifierShape@pos=13, StringLiteralShape@pos=22 |  |
+| `declarations/interface-call-signature.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, CallSignatureShape@pos=13, VoidKeywordShape@pos=17 |  |
+| `declarations/interface-construct-signature.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, ConstructSignatureShape@pos=13, TypeReferenceShape@pos=21, IdentifierShape@pos=21 |  |
+| `declarations/interface-extends-several.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0 |  |
+| `declarations/interface-generic-method.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, MethodSignatureShape@pos=13, IdentifierShape@pos=13, TypeParameterShape@pos=16, IdentifierShape@pos=16, ParameterShape@pos=19 |  |
+| `declarations/interface-index-signature.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, IndexSignatureShape@pos=13, ParameterShape@pos=15, IdentifierShape@pos=15, StringKeywordShape@pos=17, NumberKeywordShape@pos=26 |  |
+| `declarations/interface-method.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, MethodSignatureShape@pos=13, IdentifierShape@pos=13, VoidKeywordShape@pos=18 |  |
+| `declarations/interface-optional-readonly.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, PropertySignatureShape@pos=13, ReadonlyKeywordShape@pos=13, IdentifierShape@pos=22, QuestionTokenShape@pos=24, NumberKeywordShape@pos=26 |  |
+| `declarations/interface-property.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, PropertySignatureShape@pos=13, IdentifierShape@pos=13, NumberKeywordShape@pos=16 |  |
 | `declarations/let-add.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=11 | 残留 basic 行 +1 |
 | `declarations/let-binding.ts` | incremental | 仅有骨架提前（4 个节点） | EOF 区间含前导/尾随 trivia |
 | `declarations/let-comparison-init.ts` | partial | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
@@ -253,6 +261,44 @@
 
 | case | 分类 | 判定依据 | 备注 |
 | --- | --- | --- | --- |
+| `types/alias-array.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-asserts.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-conditional-infer.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-conditional.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-ctor-type-abstract.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-fn-type-generic.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-fn-type.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-generic-args.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-generic-default.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-import-type.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-indexed-access.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-indexed-generic.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-infer-constraint.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-intersection.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-keyof.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-literal-string.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-mapped-modifiers.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-mapped-remap.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-mapped.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-object-call-construct.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-object-index-readonly.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-object-method.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-object-optional-readonly.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-object.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-parenthesized.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-predicate.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-primitive.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-readonly-array.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-recursive.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-reference.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-template-infer.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-template-literal.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-tuple-named.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-tuple-optional.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-tuple-rest.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-tuple.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-typeof-query.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
+| `types/alias-union.ts` | incremental | 提前的 shape 节点：TypeAliasDeclarationShape@pos=0 |  |
 | `types/as-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |
 | `types/catch-clause-annotation.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0 |  |
 | `types/class-ctor-param-property.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, ConstructorShape@pos=9, ParameterShape@pos=22, ReadonlyKeywordShape@pos=22, IdentifierShape@pos=30, StringKeywordShape@pos=33 |  |
@@ -261,4 +307,6 @@
 | `types/class-property-readonly.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, PropertyDeclarationShape@pos=9, StaticKeywordShape@pos=9, ReadonlyKeywordShape@pos=16, IdentifierShape@pos=25, StringKeywordShape@pos=28 |  |
 | `types/for-init-annotation.ts` | incremental | 提前的 shape 节点：ForStatementShape@pos=0 |  |
 | `types/import-inline-type.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=13, ImportSpecifierShape@pos=16 |  |
+| `types/interface-basic.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, PropertySignatureShape@pos=13, IdentifierShape@pos=13, StringKeywordShape@pos=16 |  |
+| `types/interface-extends-multi.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0 |  |
 | `types/satisfies-expression-statement.ts` | incremental | 提前的 shape 节点：IdentifierShape@pos=0 |  |

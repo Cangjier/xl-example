@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **197** 条 case：throw 96 / atomic 85 / partial 16 / incremental 0
+共 **149** 条 case：throw 96 / atomic 37 / partial 16 / incremental 0
 
 ## throw
 
@@ -155,14 +155,6 @@
 | `atomic/declarations/function-overload.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-rest-param.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-return-type.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-call-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-construct-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-extends-several.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-generic-method.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-index-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-method.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-optional-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/interface-property.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/module-shorthand.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/namespace-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/namespace-export-function.ts` | 增量开关对逐字符树没有任何影响 |  |
@@ -189,51 +181,11 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `atomic/types/alias-array.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-asserts.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-conditional-infer.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-conditional.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-ctor-type-abstract.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-fn-type-generic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-fn-type.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-generic-args.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-generic-default.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-import-type.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-indexed-access.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-indexed-generic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-infer-constraint.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-intersection.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-keyof.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-literal-string.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-mapped-modifiers.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-mapped-remap.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-mapped.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-object-call-construct.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-object-index-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-object-method.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-object-optional-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-object.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-parenthesized.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-predicate.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-primitive.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-readonly-array.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-recursive.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-reference.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-template-infer.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-template-literal.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-tuple-named.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-tuple-optional.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-tuple-rest.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-tuple.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-typeof-query.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/alias-union.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/declare-unique-symbol.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-param-return.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-predicate.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/types/function-this-param.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/interface-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/interface-extends-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ## partial
 
