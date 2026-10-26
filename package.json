@@ -34,7 +34,9 @@
     "coverage:sweep": "node ./tests/coverage/sweep.mjs",
     "cpp:check": "node tests/cpp/check.mjs",
     "gates:verbose": "node ./tests/gates/run.mjs --verbose",
-    "tts": "node ./tests/parse/token-time-shapes.mjs ./tests/parse/token-time-shapes/let-x.ts --diff"
+    "tts": "node ./tests/parse/token-time-shapes.mjs ./tests/parse/token-time-shapes/let-x.ts --diff",
+    "tts:incremental": "node ./tests/parse/token-time-shapes.mjs ./tests/parse/token-time-shapes/let-x.ts --diff --incremental",
+    "tts:corpus": "node ./tests/parse/token-time-shapes.mjs --legacy-corpus tests/cases/token"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
