@@ -141,13 +141,17 @@ if (!StatementBoundaryUtil.CanEndDeclarationTail(units, tokenIndex)) {
   // **只对带类型注解的声明生效**（`HasAnnotationShape`：`=` 之前已有注解形状）：普通初始化器的形状根
   // 在下一格由 `CanClose`（`CloseAtAsiBoundary`）收口，行为一个字都不改；放给它们会把「形状落地的那一拍」
   // 提前成收口拍，`undici-types/index.d.ts` 一类没换行的 d.ts 会因此掉节点（D2 实测 structural=14）。
-  // **类型节点以闭括号收尾时也不走这一支**（`EndsWithClosingBracket`）：`declare const c: { … }` /
-  // `: (A) => B` / `: T[]` 的右括号 / 右方括号之后紧跟下一条语句时，早收口会把下一条语句（尤其
-  // `export { … }` 这种带括号的）并进声明里（D2 实测 `undici-types/index.d.ts` 少一条 export）。
-  // 那一类仍走原来的「下一格 / 兜底」路径。
+  // **类型节点以闭括号收尾时，收不收由「下一行起的是什么」决定**（`BlocksTypedTailClose`）：
+  // D2 原来一律挡住 `}` / `)` / `]` 收尾的类型（`{ … }` 类型字面量、`: (A) => B`、`: T[]`），
+  // 实测代价是 4 条 `declaration 声明体`：`declare const o: { m: … }` ⏎ `o.m ()` 的注解永远不收口，
+  // 下一行的语句被 `FinishIncremental` 当成**第二个**注解形状 ⇒ 显式抛错。
+  // 字符级闸不能回答「下一行是不是一条新语句」，所以换成词级判据：下一行起的词**不能**是
+  // 会把类型 / 声明继续写下去的词（`BlockedAfterTypeClose`，目前只有 `export`——`undici-types/index.d.ts`
+  // 的 `declare const cacheStores: { … }` ⏎ `export * from './util'` 早收后会静默产出少 14 个节点的错树）。
+  // 判不出下一行的词（EOF / 注释后没有词 / 文档不可用）仍按保守口径挡住。
   const shapeTail = !current.IsBasicToken
     && DeclarationAsiBoundary.HasAnnotationShape(units)
-    && !DeclarationAsiBoundary.EndsWithClosingBracket(current)
+    && !DeclarationAsiBoundary.BlocksTypedTailClose(current)
     && DeclarationAsiBoundary.StartsNewStatementLine(current);
   if (!shapeTail && (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex) || current.IsBasicToken)) {
     return false;
@@ -320,14 +324,33 @@ return -1;
   （`+` / `(` / `[` / `.` / 模板 / 数字 / 运算符…都可能续接，一律留给下一格的原判据）；
 - 读出整个单词，命中续接词闭集 ⇒ `false`。
 
+**字符前瞻只有一份**：扫描与取词在 `NextLineWord`（下面那一条），本判据只叠加「续接词」这一个否决。
+
+```ts
+const word = DeclarationAsiBoundary.NextLineWord(unit);
+if (word === "") {
+  return false;
+}
+return !DeclarationAsiBoundary.ContinuationWords.includes(word);
+```
+
+## static method NextLineWord:(unit:Token)=>string
+
+`unit` 之后跨过行终止符 / 空白 / 注释，下一行**第一个显著单词**的原文；拿不到（没跨行、EOF、
+首个显著字符不是标识符起头、文档不可用）返回 `""`。
+
+- 只有**跨过行终止符**才算「下一行」：同一行后面的单词是续接，不是新语句起点；
+- 跳过 `//` 到行尾、跳过 `/* … */`（与 `NextCodeChar` 同一套字符口径）；
+- 单词的字符集与 `StartsNewStatementLine` 原实现逐字相同（字母 / 数字 / `_` / `$`）。
+
 ```ts
 const document = SourceRange.CurrentDocument;
 if (document === null) {
-  return false;
+  return "";
 }
 const end = unit.SourceRange.EndIndex;
 if (end < 0) {
-  return false;
+  return "";
 }
 const count = document.GetCount();
 let at = end;
@@ -371,12 +394,12 @@ while (at < count) {
   break;
 }
 if (!crossedLineBreak || at >= count) {
-  return false;
+  return "";
 }
 const first = document.GetRaw(at, at + 1);
 const isLetter = (first >= "a" && first <= "z") || (first >= "A" && first <= "Z");
 if (!isLetter && first !== "_" && first !== "$") {
-  return false;
+  return "";
 }
 let word = "";
 let scan = at;
@@ -389,7 +412,7 @@ while (scan < count) {
   word += ch;
   scan += 1;
 }
-return !DeclarationAsiBoundary.ContinuationWords.includes(word);
+return word;
 ```
 
 ## static method HasAnnotationShape:(units:Array<Token>)=>bool
@@ -425,9 +448,9 @@ return false;
 ## static method EndsWithClosingBracket:(unit:Token)=>bool
 
 `unit` 的源码区间最后一个字符是不是 `}` / `)` / `]`（类型字面量 / 函数类型 / 数组 / 元组收尾）。
-[D2:TYPED-TAIL] 的分流用：这类类型节点之后早收口会把下一条语句并进声明，所以不早收。
+只是一个**事实判据**（不回答收不收口）：分流由 `BlocksTypedTailClose` 读它再叠加「下一行起什么词」。
 
-拿不到文档时返回 `true`（保守：不早收，交下一格）。
+拿不到文档时返回 `true`（保守：按「以闭括号收尾」处理，交 `BlocksTypedTailClose` 的保守分支）。
 
 ```ts
 const document = SourceRange.CurrentDocument;
@@ -440,6 +463,51 @@ if (end <= 0) {
 }
 const last = document.GetRaw(end - 1, end);
 return last === "}" || last === ")" || last === "]";
+```
+
+## static field BlockedAfterTypeClose:Array<string> = ["export"]
+
+闭括号收尾的类型节点后面**仍不早收**的下一行首词闭集。
+
+为什么只有 `export`：`[D2:TYPED-TAIL]` 的危险不是「文本上能不能续接类型」，而是**下一行会不会被
+这条声明的收口吞掉**。`export … from` 的 `export` 在 `VariableDeclarationEndPossibleShape` 的
+`Common` 格上过不了 `CanEndStatement`（上一个代码单元是非 basic 类型节点），所以早收之后
+`export` 这一格由重放交给父单元：实测 `undici-types/index.d.ts` 的
+`declare const cacheStores: { … }` ⏎ `export * from './util'` 在早收之后**不再抛错、也不再走文件级
+fallback**，树少 14 个节点（D2 §3 的实测结构差）——即「崩溃 + legacy 兜底（对）」变成「静默错树」，
+C10 禁止。其余能起语句的词（`o` / `if` / `while` / `for` / `type` / `const` / `function` …）放行：
+它们不会把声明的注解继续写下去，收口是安全的（D2b 实测 4 条 `declaration 声明体` 全部因此转好，
+`undici-types` 与 `lib.*.d.ts` 全量回测无新增差异）。
+
+```ts
+["export"]
+```
+
+## static method BlocksTypedTailClose:(unit:Token)=>bool
+
+[D2:TYPED-TAIL] 的**收口否决**：`unit` 是这条声明的最后一个代码单元，返回 `true` 表示「这一格不早收」。
+
+- 不是闭括号收尾 ⇒ `false`（与 D2 之前一个字都不变：类型名 / 字面量类型等仍按原口径早收）；
+- 闭括号收尾 ⇒ 看**下一行的第一个单词**（`NextLineWord`）：
+  - 拿不到词（EOF / 没跨行 / 下一行是符号 / 文档不可用）⇒ `true`，保守不早收；
+  - 命中续接词闭集（`in` / `instanceof` / `as` / `satisfies`，`StartsNewStatementLine` 同样否决）⇒ `true`；
+  - 命中 `BlockedAfterTypeClose`（`export`）⇒ `true`；
+  - 其余（任意标识符 / 语句关键字）⇒ `false`，本格就是收口点。
+
+判据只读字符流与词表，不建树、不看 token 类型；与 `StartsNewStatementLine` 共用同一份前瞻。
+
+```ts
+if (!DeclarationAsiBoundary.EndsWithClosingBracket(unit)) {
+  return false;
+}
+const word = DeclarationAsiBoundary.NextLineWord(unit);
+if (word === "") {
+  return true;
+}
+if (DeclarationAsiBoundary.ContinuationWords.includes(word)) {
+  return true;
+}
+return DeclarationAsiBoundary.BlockedAfterTypeClose.includes(word);
 ```
 
 ## static method HasClosableShape:(units:Array<Token>, tokenIndex:int)=>bool
