@@ -123,9 +123,23 @@ npm run tts:impl --silent
 - `git mv` 后必须重生成两处 INDEX —— 两个 INDEX 都是自动生成的，不手改。
 - 支持范围往往一次迁多条；一个功能智能体迁入的条数 = `tts-impl` PASS 数相对基线的增量。
 
-## 现状
+## 现状（已迁回 tts 重新诊断）
 
-累计 **425 条**，全部 `incremental`。构成：原 `tts` 账本的 **56 条剩余缺口** + 历史 **369 条** = **425**。
+**0 条**。原 425 条已全部迁回 `typescript/cases/tts/cases/incremental/`，用于新判据
+[`tshape-judge`](../tts/tools/tshape-judge.md) 的逐批复核；本目录暂时只保留判据/迁移历史。
+
+旧 runner 读数：
+
+```powershell
+node typescript/cases/tts-impl/run.mjs --quiet   # PASS 0 / FAIL 0（空账本，exit 0）
+node typescript/cases/tts/run.mjs --quiet        # PASS 429 / FAIL 0（旧 legacy 对拍口径）
+```
+
+> 新判据不再以 legacy 对拍为准；`tts-impl` 的旧 `incremental` 标签只表示“曾经通过旧 runner”，
+> 不代表逐字 AST line 已按范本复核。
+
+历史（迁回前）：累计 **425 条**，全部 `incremental`（原 56 条缺口 + 历史 369 条）。
+area 表保留供追溯：
 
 | area | 条数 |
 | --- | ---: |
@@ -137,16 +151,10 @@ npm run tts:impl --silent
 | types | 80 |
 | 合计 | **425** |
 
-验收读数：
-
-```powershell
-node typescript/cases/tts-impl/run.mjs --quiet   # PASS 425 / FAIL 0
-node typescript/cases/tts/run.mjs --quiet        # PASS 0 / FAIL 0（空账本，exit 0）
-```
-
 迁移叙事：基线 `feature/all-possible` @ `980edc1d` 起首批迁入 45 条；其后各 WP 持续迁入，
 至 `tts` 清空时历史累计 369 条。最后 56 条剩余缺口（原 `throw` / `atomic` / `partial` 账本）
-在 2026-10 收尾中全部实现增量支持并迁入，`tts` 账本归零，本目录成为唯一回归基线。
+在 2026-10 收尾中全部实现增量支持并迁入，`tts` 账本归零。随后为用新判据复核，
+425 条又全部迁回 `tts`；本目录当前为空。
 
 ## FAIL 的含义与处理
 

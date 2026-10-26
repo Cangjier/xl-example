@@ -545,7 +545,10 @@ function main() {
     return;
   }
 
-  let files = listCaseFiles(CASES_DIR);
+  const allFiles = listCaseFiles(CASES_DIR);
+  // 空账本是收尾状态：425 条已全部迁回 tts 重新诊断；--show / --filter 找不到仍按错误处理。
+  const ledgerEmpty = allFiles.length === 0 && options.show === null;
+  let files = allFiles;
   if (options.show !== null) {
     const located = locateCase(options.show);
     if (located === null) fail(`找不到 case：${options.show}`);
@@ -553,7 +556,7 @@ function main() {
   } else if (options.filters.length > 0) {
     files = files.filter((file) => options.filters.some((filter) => caseId(file).includes(filter)));
   }
-  if (files.length === 0) fail(`没有找到 case（目录：${CASES_DIR}）`);
+  if (files.length === 0 && !ledgerEmpty) fail(`没有找到 case（目录：${CASES_DIR}）`);
 
   const records = [];
   for (const file of files) {

@@ -55,9 +55,13 @@ npm run tts:incremental                                                         
 > （`npm run tts:cases` / `npm run tts:impl` 两条 runner）。因此下文「不支持：… 一律按 C10 显式抛错」
 > 只描述收尾**前**的边界；这些形态现在各有 case 固化，判断能力边界请看 `tts-impl` 账本，不要看本节。
 >
-> 2026-10 之后又新增了一批「复合 case」压力测试，其中 4 条仍是 `throw`（`tts/cases/throw/composite/`），
-> 账本暂时回到 **4 条 throw**；两条合法 TS 但触发 `divergent` / `invalid` 的复现文件放在
-> `typescript/cases/tts/_notes/composite-probes/`，按契约不入账。判断已支持形态仍以 `tts-impl` 的 425 条为准。
+> 2026-10 之后新增 7 条「复合 case」；其中 4 条仍是 `throw`（`tts/cases/throw/composite/`），
+> 两条合法 TS 但触发旧判据 `divergent`/`invalid` 的复现文件放在 `tts/_notes/composite-probes/`。
+>
+> 随后为用新判据（[`tshape-judge`](../typescript/cases/tts/tools/tshape-judge.md)：完整解析 vs
+> `ts.createSourceFile` + 逐字 AST line 按范本诊断）重新复核，`tts-impl` 的 425 条已全部迁回 `tts`。
+> 当前 `tts` **429 条**（`throw` 4 / `incremental` 425），`tts-impl` **0 条**；`incremental` 只是旧 runner
+> 的 legacy 对拍标签，**不是新判据的结论**。新判据正在逐批重跑，旧标签不再作为能力边界。
 >
 > 仍成立的一条是本节末条：开关默认 `false`，默认解析路径仍是「`StatementShape` 空壳 → EOF 时
 > `StatementBuilder` 原子建树」，与重构前逐字节相同；增量建树是被开关选中的路径（`npm run tts:incremental`

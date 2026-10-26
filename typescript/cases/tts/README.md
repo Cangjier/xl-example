@@ -102,38 +102,40 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 - 反过来（原来支持，现在退化）会打 **REGRESSION**。
 - 两种模式 EOF 形状结构不同（`divergent`）或 legacy 自己就抛错（`invalid`）属于 case/实现异常，同样是 FAIL。
 
-## 现状（复合 case 探索中）
+## 现状（全量迁回，待新判据复核）
 
-**4 条 case，全部 `throw`**。`node typescript/cases/tts/run.mjs --quiet` → PASS 4 / FAIL 0；
-[`../tts-impl`](../tts-impl/) → PASS 425 / FAIL 0。
+**429 条 case**：`throw` 4 + `incremental` 425。旧 runner 读数：
+`node typescript/cases/tts/run.mjs --quiet` → PASS 429 / FAIL 0；
+[`../tts-impl`](../tts-impl/) 已空（425 条全部迁回本目录）。
 
-2026-10 收尾时本账本曾清空（原 56 条剩余缺口全部实现增量支持并迁往 `tts-impl`）。
-随后新增 7 条「自圆其说」的复合 case 做压力测试：
+2026-10 收尾时本账本曾清空（56 条剩余缺口迁往 tts-impl）。随后：
 
-- 4 条仍为 `throw`，保留为**新缺口**：`class-ball`、`generic-container`、`control-flow`、`expression-zoo`；
-- `async-pipeline` 判为 `incremental`，已按约定移除（不留在缺口账本）；
-- `class-inheritance`（`divergent`）与 `namespace-store`（`invalid`）是合法 TS 但触发结构异常，
-  按本目录契约不入账，复现文件保存在 [`_notes/composite-probes/`](_notes/composite-probes/README.md)。
+- 新增 7 条复合 case：4 条 `throw` 保留；`async-pipeline` 判为 `incremental` 已移除；
+  `class-inheritance` / `namespace-store` 是合法 TS，旧判据的 `divergent` / `invalid` 已作废，
+  复现文件保存在 [`_notes/composite-probes/`](_notes/composite-probes/README.md)。
+- 为用新判据（[`tshape-judge`](tools/tshape-judge.md)：完整解析 vs `ts.createSourceFile` +
+  逐字 AST line 按范本诊断）重新复核，**`tts-impl` 的 425 条已全部迁回本目录**，
+  暂放在 `incremental/<area>/`。
 
-当前分类矩阵（新增 case 都在 `composite` 分区）：
+> `incremental` 只是旧 runner 的 legacy 对拍标签，**不是新判据的结论**；这些 case 正在逐批重跑新判据。
+> 旧 runner 的 `throw`/`atomic`/`partial`/`incremental` 分类仅用于兼容历史 INDEX，不再作为验收标准。
 
-| 分类 | composite | 合计 |
-| --- | ---: | ---: |
-| `throw`（显式拒绝） | 4 | **4** |
-| `atomic`（开关无影响） | 0 | **0** |
-| `partial`（仅外层增量） | 0 | **0** |
-| `incremental`（真正增量，已迁出） | 0 | **0** |
-| 合计 | 4 | **4** |
+当前分类矩阵（旧 runner 口径）：
 
-> 历史基线：清空前为 `throw` 125 / `atomic` 192 / `partial` 53（合计 370）；`tts-impl` 历史累计
-> 369 条，加上收尾迁出的 56 条剩余缺口，合计为 **425 条**。更早的 45 条 `incremental` 正向对照
-> case 已包含在历史 369 条中。当前复合探索的 4 条新缺口尚未计入 `tts-impl`，
-> 因此 `tts` + `tts-impl` 暂时为 4 + 425 = **429**。
+| 分类 | composite | incremental | 合计 |
+| --- | ---: | ---: | ---: |
+| `throw` | 4 | 0 | **4** |
+| `incremental` | 0 | 425 | **425** |
+| 合计 | 4 | 425 | **429** |
+
+> 历史：清空前 `throw` 125 / `atomic` 192 / `partial` 53（370）；`tts-impl` 历史累计 425。
+> 这 425 条现已全部迁回 `tts/incremental/`，`tts-impl` 暂空。
 
 分区覆盖与逐条清单：`_notes/<area>.md`（构造 → 分类、throw 文案、divergent/invalid 观察、未收录变体）
-是清空前的历史记录，保留供追溯；自动生成的 [INDEX.md](INDEX.md) 现在为 4 条（全部 `throw/composite`）。
+是清空前的历史记录，保留供追溯；自动生成的 [INDEX.md](INDEX.md) 现在为 429 条
+（4 条 `throw/composite` + 425 条 `incremental/<area>`）。
 
-覆盖边界（清空前的实测记录，保留供追溯；当前边界由 `tts-impl` 的 425 条表达）：
+覆盖边界（清空前的实测记录，保留供追溯；当前判据见 [`tshape-judge`](tools/tshape-judge.md)）：
 
 - **支持**：`let` / `const` / `var` + **单个 `Common` 标识符绑定** + 初始化器为**数字字面量**或
   `*` / `+` 组成的二元表达式；**语句末尾不能有 `;`**（`let x = 1;` 也会在 `;` 处 `throw`，
