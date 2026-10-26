@@ -61,6 +61,32 @@ throw new Error("abstract: OnChildBracketCreated");
 throw new Error("abstract: OnBracketCreated");
 ```
 
+# class BracketCloseHook
+
+**括号关闭前的通知（B0，B4b）。** `Bracket.Close` 在「标记 `Closed`」之后、`FlushOnClose` 补判与
+「问父单元」之前调用 `Current` 一次。
+
+为什么需要它（A2 §1 / B4 §4 的容器形状卡点）：`CatalogGuide.FlushOnClose` 只能补判**最后一格**，
+没有「宿主即将关闭」的信号；而「括号里已经攒出的内容该收成容器形状」这件事，只能发生在**关闭那一拍**，
+并且要能改**父单元的 `Data`**。本钩子只提供这个时机，**不新增任何建树路径**：实现方拿到的是括号与
+上下文，自不自在、要不要改父单元，全由它在自己的开关下决定。
+
+`Current` 默认 `null`：默认状态下 `Close` 只是多做一次 `null` 比较，既有产物逐字节不变。
+
+## static field Current:BracketCloseHook | null = null
+
+进程内唯一的括号关闭监听。`null` = 没装（默认）。
+
+## method OnBracketClosing:(bracket:Token, context:SyntaxContext)=>void
+
+`bracket` 是正在关闭的括号（`Closed` 已置真、`Data` 已经完整、**尚未**问父单元）。
+
+抽象方法，core 不给实现。
+
+```ts
+throw new Error("abstract: OnBracketClosing");
+```
+
 # class Bracket extends UnitToken
 
 括号。
@@ -150,6 +176,11 @@ return this;
 
 ```ts
 this.Closed = true;
+// [B4b:CLOSE] 关闭前的通知（B0）：容器形状的「创建格」只能落在这一拍——`Data` 已经完整、
+// 父单元还没被问过。默认 `null` ⇒ 这一行只多一次 `null` 比较，既有产物逐字节不变。
+if (BracketCloseHook.Current !== null) {
+  BracketCloseHook.Current.OnBracketClosing(this, context);
+}
 // [B3:FLUSH] 宿主关闭前补判自己的最后一格：`switch (a)` / `if (a)` 的 `a` 是被**本括号的闭括号**
 // 终结的，它上一次「basic token 关闭时问父单元」那一格没有机会发生，于是向导一次都没被问到，
 // `a` 到收口格仍然是 `Common`。
