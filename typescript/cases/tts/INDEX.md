@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **128** 条 case：throw 92 / atomic 22 / partial 14 / incremental 0
+共 **115** 条 case：throw 79 / atomic 22 / partial 14 / incremental 0
 
 ## throw
 
@@ -14,7 +14,7 @@
 | `throw/declarations/let-array-destructure-rest.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/declarations/let-array-destructure.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
 | `throw/declarations/let-array-init.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/declarations/let-arrow-init.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/declarations/let-arrow-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
 | `throw/declarations/let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/declarations/let-definite-assignment.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 | `throw/declarations/let-exponent-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
@@ -37,21 +37,10 @@
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
 | `throw/expressions/angle-assert.ts` | 增量变量形状未支持：declaration 符号 < |  |
-| `throw/expressions/arr-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/arrow-async.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/arrow-block.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/arrow-default.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/arrow-destructure.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/arrow-multi.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/arrow-rest.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/arrow-single.ts` | 增量变量形状未支持：declaration 符号 => |  |
 | `throw/expressions/as-const.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/bin-add-mul.ts` | 增量变量形状未支持：expression 新运算符结合更紧（优先级 14） |  |
 | `throw/expressions/bin-paren-mul.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/class-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/comma-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/func-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/paren-nested.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ref-call.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ref-import-meta.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/expressions/ref-index.ts` | 增量变量形状未支持：declaration 括号 |  |
@@ -60,8 +49,6 @@
 | `throw/expressions/ref-nonnull.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 | `throw/expressions/ref-optional.ts` | 增量变量形状未支持：declaration 符号 ?. |  |
 | `throw/expressions/ref-super.ts` | 增量变量形状未支持：declaration 符号 . |  |
-| `throw/expressions/seq-three.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/expressions/spread-array.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/expressions/ternary.ts` | 增量变量形状未支持：declaration 符号 ? |  |
 | `throw/expressions/unary-bnot.ts` | 增量变量形状未支持：declaration 符号 ~ |  |
 | `throw/expressions/unary-chain-not.ts` | 增量变量形状未支持：declaration 符号 ! |  |
