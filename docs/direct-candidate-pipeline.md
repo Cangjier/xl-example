@@ -2630,6 +2630,10 @@ stmt.catch 1 / stmt.expr 1 / var.type 1`。其中 `expr.stopped` 3 条 = `R7-REC
 
 ### 25.7 R8 清单（收口后剩余，按优先级）
 
+> **2026-10-26 更新**：AST 尺子一侧的待办已在 **§27** 收口（宽尺子转正为 `tests/parse/wide-ast.mjs`、
+> `real-dts-ast.mjs` 收编为单一 `cjAst`）；新增项与状态变化见 **§27.8**。本节第 1–10 项与第 12 / 13 项不变。
+> 第 11 项的门池数字按 §27.6 读作 **11 道 = 4 通过 + 7 N/A**。
+
 1. **module 三条路由例外**（`R7-Q6` 选 A 的那一半）：在 `StatementRouteUtil.DecideDeclaration` 的**三处** `return None`
    前各加一条窄判据（`import x =` / `export =` / `export as namespace` → `ShellDeclarationFamily`），
    路由代码已在 `DirectExportAssembly` 就位 ⇒ 只缺壳。**必须同步改判**：`R7-MOD2-pos-04/05/06` safe→pos，
@@ -2911,4 +2915,269 @@ node tmp/smoke47.mjs . <chore-all-possible-setup> 400    # tmp/ 被 gitignore；
 2. 7 道 N/A 仍未修好（见 §26.4），`exit 0` 不等于「门全绿」。
 3. `ast-json-diff` 的 `--strict` 未落地（§26.6 / R8 第 12 项），所以**门池目前看不见 AST 回归**，
    回归只能靠人读 `ast-json-diff` 的读数或 CI 里那句「`ast-json` 后工作区必须为空」。
+   （**2026-10-26 更新**：宽门 `wide-ast` 已进池、差异或崩溃 > 0 即 exit 1 ⇒ **AST 回归在门层面可见**了；
+   但快照路线的回归仍看不见 —— `ast-json-diff` 的 `--strict` 仍未落地。见 §27.6 / §27.8。）
 4. 快照与解析器绑定在 `b3bca2a8`（R8 第 13 项）：改 tokens/core 不重提快照 = 立刻跌回非 6171。
+
+---
+
+## 27. 宽 AST 门：三把尺子、2505 件收口与两处真差异（2026-10-26）
+
+本节记「AST 与 TS 完全一致」这一轮的收口：**三把 AST 尺子的职责边界、宽门转正后的 0 差异读数、
+本轮两处真差异与一处尺子假阳性、门池 9 → 11、以及 R8 清单的更新**。前 26 节不改写；
+与本文冲突时，以本节的实测读数与 `_coord/REPORT-ast-ts-diagnose.md`、`REPORT-wide-newchain.md`、
+`REPORT-wide-types.md`、`REPORT-gate-wide-adopt.md`、`REPORT-merge-gate-wide.md` 为准。
+（同轮的另一半在 `docs/statement-ast-pipeline.md` §19，视角是语句 / 声明线。）
+
+### 27.1 三把尺子：谁量什么
+
+「AST 和 tsc 一致」不是一条判据，是三条互补的判据。三把尺子的语料、量法、退出码都不同，
+**任何一把绿都不能代替另外两把**：
+
+| # | 尺子 | 文件 | 语料 | 量什么 | 判据 / 退出码 | 不量什么 |
+| --- | --- | --- | --- | --- | --- | --- |
+| ① | 快照对拍 | `typescript/cases/ast-json.mjs` + `ast-json-diff.mjs` | **6171 条**（47 个构造，整理过的语料） | **节点种类覆盖**：树结构 / 区间 / 字段，逐条与提交在仓库里的 `.cj-ast.json` 快照比 | 读数：`完全一致 == 6171` 且三条差全 0；**exit 恒 0**（见 §26.6，不能拿退出码判） | 源码形态、全量语料；快照与解析器逐字节绑定（改 tokens 不重提快照即跌回非 6171） |
+| ② | 真实 `.d.ts` | `typescript/cases/real-dts-ast.mjs` | **226 件**真实声明文件（`node_modules` 的 `typescript/lib` + `@types/node` + `undici-types`） | **声明形态**：直接 `ts.createSourceFile` 对拍，四方向 + 地基 | **exit 0**：`226/226`、崩溃 0、差异 0 | 表达式 / 语句 / token 级构造；数量小，覆盖不到新语料 |
+| ③ | 宽语料 | `tests/parse/wide-ast.mjs` | **2505 件** = 226 `.d.ts` + 560 `dist/ts` + 3 `samples` + 1716 `tests/cases/token` | **全量回归**：直接 `ts.createSourceFile` 对拍，四方向（结构·缺 / 结构·多出来 / 区间·漂移 / 字段·差异）+ 三栏地基（缺 `SourceRange` / 子区间越界 / 未映射标签） | **exit 0**：`差异 > 0 || 崩溃 > 0` ⇒ **exit 1**（这是三把里唯一自己会变红的一把） | 跳过的 11 件 TS 自身非法文件；产物时效（只查存在，见 §27.2）；N/A 的 `print-ast-common` 投影层 |
+
+**一把口径，不许有第二份**：三把尺子的投影都从 `typescript/cases/ast-compare.mjs` 取
+（`createAstCore(ts)` 产 `tsAst`，另导出 `cjAst` / `flatten` / `groupByKind` / `fieldOf` /
+`FIELD_NAMES` / `TS_KIND_ALIASES`）。**每一份手抄的 `cjAst` 都是一次假阳性的伏笔**——本轮 A-1 就是这么来的（§27.5）。
+
+三把尺子的分工一句话：**① 守节点种类，② 守声明形态，③ 守全量回归**。
+①③ 都读 `build/ts` 的 `SourceFileRunner.Parse`（直建那条产物路径），都不依赖本仓库不存在的
+`typescript/print-ast-common.xl.md`；②③ 的比较核心已合并为同一份（② 删掉了 114 行本地副本）。
+
+### 27.2 宽门怎么用：参数、判据、缺产物
+
+```powershell
+# 三种等价入口
+node tests/parse/wide-ast.mjs
+npm run ast:wide            # 同一脚本
+npm run wide-ast            # 门池里的门名 ↔ 脚本名一一对应
+
+# 排障参数
+node tests/parse/wide-ast.mjs --verbose              # 逐文件展开每个差异条目（kind / 区间 / 字段）
+node tests/parse/wide-ast.mjs --per-file             # 每个文件一行 OK / SKIP / DIFF / CRASH
+node tests/parse/wide-ast.mjs --top 20               # 失败清单与目录族聚类只印前 20 条（0 = 不限，默认）
+node tests/parse/wide-ast.mjs --only declarations   # 只跑路径含该子串的文件（实测可选中 1 件）
+```
+
+- **判据**：`crashed + diffed + missingRange + outOfBounds > 0` ⇒ **exit 1**；
+  `SKIP`（TS 自己非法）**不算红**，只计入「跳过」。
+- **缺产物**：缺 `build/ts/typescript/run/source-file-runner.js` 时不再抛 `MODULE_NOT_FOUND`，而是打
+  `BUILD-MISSING 宽尺子需要先构建：缺 build/ts/.../source-file-runner.js —— 编译产物（npm run build = xl build + tsc）`
+  并 **exit 1**（已实测：临时改名产物 → exit 1 + 上述两行 → 恢复）。
+- **产物时效**：宽门与其它门一样**只检查产物存在，不检查是否与源码同步**。改了
+  `typescript/**/*.xl.md` / `core/**` 之后必须先 `npm run build`（`xl_build` + `tsc`），否则量的是旧产物。
+  门槛本身不会静默（缺产物必红），但「改了源没重建」它是看不见的 —— 这是使用者的纪律，不是门的能力。
+
+### 27.3 收口读数（本克隆 `docs-wide` @ `efa6370a`，2026-10-26 实跑）
+
+| 项 | 目标 | 实测 | 判定 |
+| --- | --- | --- | --- |
+| 宽语料 | 2505 件 | 2505（226 + 560 + 3 + 1716）；跳过 TS 非法 **11** | ✅ |
+| 宽门 | 差异 0 / 崩溃 0 | 解析成功 **2494**、崩溃 **0**；**AST 完全一致 2494、有差异 0** | ✅ |
+| 宽门四方向 | 0 / 0 / 0 | 缺·多出来 0、区间漂移 0、字段名 0 | ✅ |
+| 宽门三栏地基 | 0 / 0 / 0 | 缺 range 0、区间越界 0、未映射 0 | ✅ |
+| `real-dts` | 226/226 | **226/226**，崩溃 0，差异 0，exit 0（3.8s） | ✅ |
+| 快照 | 6171/6171 | **6171/6171**（`cj-fail=0`，47 构造）；对拍结构 0 / 位置 0 / 字段 0 | ✅ |
+| 门池 | 11 道 = 4 + 0 + 7 | **4 通过 / 0 失败 / 7 N/A，exit 0**，墙钟 **8.2s** | ✅ |
+| 299 | 299/0 ×2 | `--strict` 与 `--strict-all` 均 **`CASES=299 FAILED=0`**；A10 `278/12/9/0`、`builtCases=247/299 loads=243` | ✅ |
+
+**这 8 行是本轮「AST 与 TS 完全一致」的全部证据**。读法：
+`2494 + 11 = 2505`（被跳过的 11 件是**我们自己也让 tsc 判非法**的语料，不是我们解析失败）；
+`2494/2494` 一致 = 宽语料上**没有一处**结构 / 区间 / 字段差。
+
+### 27.4 本轮修复的两处真差异
+
+诊断阶段宽尺子共 **4 个差异文件**；本轮两处修复（§27.4.1 / §27.4.2）加一处尺子口径补齐（§27.5）后归零。
+
+#### 27.4.1 `new` 的 `NewArgsSeen` 未按每个 `new` 重置（B-1 / B-3）
+
+`DirectExpressionEngine` 的字段 `NewArgsSeen`（注释原是「实参括号已消费」）只在 `CloseNewWithArgs` 里置 `true`，
+`StartNew` **不清零** ⇒ 同一条表达式里**第二个** `new X(...)` 的 `(` 走 CallExpression 分支，
+`new` 再把这条链整体吞成子节点。
+
+| 文件 | 修前差异 | 机理 |
+| --- | --- | --- |
+| `tests/cases/token/declarations/cls-semicolon-member.ts` | 结构 `CallExpression +1`；区间 `PropertyAccessExpression[2]` TS 215-225 vs 我们 219-225、`NewExpression[1]` TS 215-223 vs 我们 215-227 | `console.log(new C().x + new C().m())` —— 一行两个 `new` |
+| `dist/ts/typescript/tokens/direct/direct-control-session.ts` | 结构 `CallExpression +2` | 三元里两个 `new`：`isThrow ? new ThrowStatementShape(t) : new ReturnStatementShape(t)` |
+
+修法是 `StartNew` 里 `this.NewArgsSeen = false;`（**1 行 + 注释**，没有删字段）：
+字段语义改成「**当前这个** `new` 的实参表已消费」。两个文件合计 **3 处结构差**（+1 与 +2）。
+「不删字段」的理由：`new X()()` 的 Decline 走的是**形状上**的 `DirectNewWithArgs` 分支，与 `NewArgsSeen` 无关；
+保留字段只改语义，成本最低，也不牵动 `CloseNewWithArgs` 的其它调用点。
+`new X()()` / `new new X()` 仍是**显式 Decline**（口径未放宽，见 §27.8）。
+
+#### 27.4.2 直建 `as` 收口用 `>` 而非 `>=`（B-2）
+
+`DirectExpressionEngine.StartAs` 收口 frame 的条件原为 `FramePrecs[top] > OperatorTable.AsPrecedence`（= 11），
+而 `in` 的 frame 优先级 `OperatorTable.Precedence("in")` **也是 11** ⇒ 同级不收口，
+`AsExpression` 被 `ShapeInsertUtil.InsertBetween` 插成 `K in T` 那个二元节点的**右操作数**，
+二元节点的 end 被撑到模板字面量末尾。
+
+| 文件 | 修前差异 | 修后 |
+| --- | --- | --- |
+| `tests/cases/token/expressions/gap-r949-object-computed-in-name.ts` | 区间 `AsExpression[0]` TS 1560-1579 vs 我们 1564-1579（start **+4**）；`BinaryExpression[1]` TS 1560-1566 vs 我们 1560-1579（end **+13**） | 两者**完全一致**，该文件 0 差异 |
+
+tsc 的口径（`node_modules/typescript/lib/typescript.js`，ver 6.0）：
+`getBinaryOperatorPrecedence` 把 `InKeyword` / `AsKeyword` / `SatisfiesKeyword` **同归 11（Relational）**，
+`parseBinaryExpressionRest` 的 `newPrecedence > precedence` 在**同为 11** 时**不再往里收** ⇒
+`K in T as X` = `AsExpression(BinaryExpression(K in T), X)`。
+
+修法：`StartAs` 的收口条件 `>` → **`>=`**（1 行 + 注释）。同级 frame（`in` / `instanceof` / `<` / `>` / `<=` / `>=`）
+先收干净，`as` / `satisfies` 于是包住整个关系表达式；更高优先级（`+` 及以上）本来就满足 `>`，行为不变。
+**没有改恢复层、没有改测试、没有改 `OperatorTable`**（11 这个值本来就是对的，错的是比较方向）。
+24 条片段探针（用唯一口径 `ast-compare.mjs`）23 条一致，唯一 DIFF 是 `const z = a in b, c as T;`
+—— **TS 自己就非法**（2 条 parseDiagnostics），不进宽尺子。
+
+### 27.5 A-1 是尺子的假阳性：唯一 `cjAst` 口径
+
+`tests/cases/token/modules/mod-export-string-name.ts`（`export { "a-b" as c, "d" }`）曾报
+`fields ExportSpecifier[1].name "d" vs undefined`。实查的结论是**产品早已正确**：
+
+```
+产品树：ExportSpecifier[1] Name = StringLiteralShape{ Text:"d" }
+形状层约定：IdentifierShape 用 EscapedText，StringLiteralShape 用 Text（字段名不同）
+```
+
+唯一口径 `typescript/cases/ast-compare.mjs` 的 `cjAst` 三行都读了（`name.text` / `name.EscapedText` /
+**`typeof name.Text === "string"`**），所以官方 6171 那把尺子一直是绿的
+（`typescript/cases/export.cj-ast.json` 里 11 处 `"name": "d"` 可查）。
+**红的只有两份手抄的旧 `cjAst`**：`_coord/diag-wide-ast.mjs` 与 `typescript/cases/real-dts-ast.mjs` 各抄了一份，
+都停在 `EscapedText` 为止 ⇒ 读成 `undefined`。
+
+处置（本轮落地）：
+
+| 项 | 结论 |
+| --- | --- |
+| 产品 | **零改动**（不给 `StringLiteralShape` 硬塞 `EscapedText` 去迎合尺子——那会造出第二个真相） |
+| `real-dts-ast.mjs` | 删除本地 `TS_KIND_ALIASES` / `kindOf` / `flatten` / `groupByKind` / `FIELD_NAMES` / `fieldOf` / `norm` / `tsAst` / `cjAst`（**−114 行**），改 `import { createAstCore, cjAst, flatten, groupByKind, FIELD_NAMES, fieldOf } from "./ast-compare.mjs"`；仍 **226/226** |
+| `tests/parse/wide-ast.mjs` | 新建时就只从 `ast-compare.mjs` 取投影，**没有第二份** `tsAst` / `cjAst` / 别名表；只另做两件投影之外的事：四方向比较、三栏地基 |
+| `tests/statement-possible/s4afc-opendts-locate.mjs` | **仍有第三份** `TS_KIND_ALIASES` / `tsAst` / `cjAst`（诊断脚本、属别的线），本轮**登记未改**（§27.8） |
+
+全仓现状：`function cjAst` 只剩 `typescript/cases/ast-compare.mjs` 一处（外加 `s4afc` 那处登记的副本）。
+
+### 27.6 门池：9 道 → 11 道（4 通过 + 0 失败 + 7 N/A）
+
+`tests/gates/run.mjs` 新增两条（**没有** `notApplicable`：缺 `build/ts` 是真实失败，不是「本仓库不适用」）：
+
+```js
+{ name: "wide-ast",     script: "tests/parse/wide-ast.mjs" },
+{ name: "real-dts-ast", script: "typescript/cases/real-dts-ast.mjs" },
+```
+
+| # | 门 | 状态 | 依据 / 读数 |
+| --- | --- | --- | --- |
+| 1 | `runtime:check` | **N/A** | `runtime/` 不存在（执行引擎源目录不在本仓库） |
+| 2 | `runtime:cli` | **N/A** | `tsrun.xl.md` 不存在（运行时入口不在本仓库） |
+| 3 | `cases:tsast` | **N/A** | `typescript/print-ast-common.xl.md` 不存在（全仓无 `*print-ast-common*.xl.md`） |
+| 4 | `cases:direct` | **N/A** | 同上 |
+| 5 | `direct:lint` | **通过** | `第三出口的约定 0 条违反`（0.4s） |
+| 6 | `samples` | **N/A** | `dawn/` 不存在（`cjcli.xl.md` 依赖 `./dawn/text/*.xl.md`） |
+| 7 | `cases:check` | **通过** | `1720 条用例，0 条不合格`（0.6s） |
+| 8 | `wide-ast` | **通过** | `PASS 宽尺子：全部解析成功、崩溃 0、AST 逐节点一致、地基 0 处`（8.1s） |
+| 9 | `real-dts-ast` | **通过** | `真实 .d.ts 全量解析成功且 AST 逐节点一致`（3.4s） |
+| 10 | `coverage` | **N/A** | 同 #3 |
+| 11 | `cpp:check` | **N/A** | `dist/cpp` 不存在（需 `xl_emit`；`xl.json` 的 `build.target` 只有 `ts`） |
+
+**口径三句话（与 §26.4 同，数字变了）**：
+
+1. **N/A 是「本仓库结构上不适用」，不是绿灯**。7 道门的依赖源（`runtime/`、`tsrun.xl.md`、
+   `print-ast-common.xl.md`、`dawn/`、`dist/cpp`）在本仓库根本不存在；每道都打印缺失路径 + 人话原因。
+2. **`exit 0` 的含义是「适用的 4 道全绿」**，不是「11 道全绿」。引用门池必须连 **4/7** 一起说。
+3. **新克隆上跑门前必须先构建**（`xl_build` → `tsc`），否则 `ast-json` / `wide-ast` 都失败 —— 那是环境未构建，不是门红。
+
+**门池现在能看见 AST 回归了**：`wide-ast` 是本轮唯一「自己会红」的 AST 尺子（差异或崩溃 > 0 ⇒ exit 1），
+它进池后，§26.6 的「门池目前看不见 AST 回归」**部分解除**——前提是产物已按源码重建。
+`ast-json-diff` 的 `--strict` **仍未落地**（快照路线的回归仍只能靠读数，见 §27.8）。
+
+**脚本同步**（`package.json`）：
+
+```json
+"ast:cases": "node ./typescript/cases/ast-json.mjs && node ./typescript/cases/ast-json-diff.mjs",
+"ast:dts":   "node ./typescript/cases/real-dts-ast.mjs",
+"ast:wide":  "node ./tests/parse/wide-ast.mjs",
+"ast:verify": "npm run ast:cases && npm run ast:dts && npm run ast:wide",
+"wide-ast":  "node ./tests/parse/wide-ast.mjs",
+"real-dts-ast": "node ./typescript/cases/real-dts-ast.mjs"
+```
+
+`npm run ast:verify` 从两条扩成**三条**（`ast:cases` → `ast:dts` → `ast:wide`）：一次跑完三把尺子。
+`tests/MIGRATION.md` 与 `README.md` 同步更新（门数 9 → 11、三把尺子分工、`BUILD-MISSING`、`ast:wide` 读数）。
+
+### 27.7 命令与实测读数（本克隆 `docs-wide` @ `efa6370a`，2026-10-26）
+
+所有命令都在克隆根目录跑，读数是**本克隆实测**（不是引用前一轮报告）：
+
+```powershell
+# 0) 构建 / 类型（新克隆必做；dist/ 与 build/ 都在 gitignore 内）
+#    xl_build(cwd=$clone, paths=["core","typescript"], targets=["ts"], out="dist", orphans=false)
+#    实测（冷构建）：560 written / 0 skipped / 0 planned / 0 error(s) / 3 warning(s)
+node node_modules/typescript/bin/tsc -p tsconfig.json      # exit 0（4.5s）
+
+# 1) 三把 AST 尺子
+node typescript/cases/ast-json.mjs         # 6171/6171（47 构造），exit 0；跑后 git status 0 行
+node typescript/cases/ast-json-diff.mjs    # 完全一致 6171/6171；结构 0 / 位置 0 / 字段 0；exit 0（恒 0，看读数）
+node typescript/cases/real-dts-ast.mjs     # 226/226；崩溃 0；差异 0；exit 0
+node tests/parse/wide-ast.mjs              # 2505 件；跳过 11；解析 2494；崩溃 0；一致 2494；差异 0；exit 0
+npm run ast:verify                         # 三条串跑，全 exit 0
+
+# 2) 门池（11 道 = 4 通过 + 0 失败 + 7 N/A）
+node tests/gates/run.mjs                   # exit 0；墙钟 8.2s
+
+# 3) 目标 case（不许退）
+node tests/direct-build/target-cases.mjs --expect-direct --strict --decline-stats --baseline=<chore-all-possible-setup>
+node tests/direct-build/target-cases.mjs --expect-direct --strict-all --decline-stats --baseline=<chore-all-possible-setup>
+```
+
+| 命令 | exit | 耗时 | 关键读数 |
+| --- | --- | --- | --- |
+| `xl_build`（core+typescript→ts） | 0 error | — | `560 written, 0 skipped, 0 planned, 0 error(s), 3 warning(s)`（3 条既有 `E1107` 重复类型名） |
+| `tsc -p tsconfig.json` | **0** | 4.5s | 无输出 |
+| `ast-json` | **0** | 2.5s | `total cases=6171 cj-ok=6171 cj-fail=0（47 个构造）`；跑后 `git status -uall` **0 行** |
+| `ast-json-diff` | **0** | 0.3s | 完全一致 **6171/6171**；结构 0 / 位置 0 / 字段 0；无 gap |
+| `real-dts-ast` | **0** | 3.8s | 文件 **226**（跳过 0）：解析 226、崩溃 0；**一致 226、差异 0** |
+| `wide-ast` | **0** | 7.6s | 语料 **2505**；跳过 **11**；解析 **2494**、崩溃 **0**；**一致 2494、差异 0**；四方向 0/0/0；地基 0/0/0 |
+| `gates/run.mjs` | **0** | 8.3s（墙钟 8.2s） | **11 道：4 通过、0 失败、7 不适用** |
+| `target-cases --strict` | **0** | 1.5s | `CASES=299 FAILED=0`；`A10 278/12/9/0`；`builtCases=247/299 loads=243`；A1…A14 全 PASS |
+| `target-cases --strict-all` | **0** | 1.5s | 同上；`STRICT-ALL: on` |
+
+**只验目标 case + 三把 AST 尺子**：本轮不改产品源码（本克隆只改 `docs/`），因此不重跑 parity / smoke47 /
+`direct-lint` 的独立读，它们在门池里各有一席（`direct:lint` 4 通过之一）。
+
+### 27.8 R8 / 后续清单更新
+
+**已收编、不再挂 R8 的两条**：
+
+| 原待办 | 处置 |
+| --- | --- |
+| 宽尺子长期化（诊断 §6 的建议：把等价尺子收编成仓库门） | ✅ **已落地** `tests/parse/wide-ast.mjs`，并进 `tests/gates/run.mjs` |
+| `real-dts-ast.mjs` 的 `cjAst` 收编到 `ast-compare.mjs`（消掉第二份真相，`REPORT-wide-types` §2.3 建议） | ✅ **已落地**（−114 行本地副本，改 import），226/226 不变 |
+
+**新增 / 保留的待办**（与 §25.7 的 13 项并存，本节只记「AST 尺子一侧」的变化）：
+
+| # | 待办 | 现状 / 为什么现在不做 | 归属 |
+| --- | --- | --- | --- |
+| 1 | `tests/parse/ts-ast.mjs`（1506 件宽门）**仍不可用** | 缺 `build/ts/typescript/print-ast-common.js`；源页 `typescript/print-ast-common.xl.md` 不在本仓库（全仓无 `*print-ast-common*.xl.md`）。**属另一条产物线**，`tests/MIGRATION.md` 记 N/A；本轮的宽门**不依赖它**，所以它不再是阻塞项 | 产物线（可选） |
+| 2 | `typescript/tokens/statements/statement-operator-body.xl.md` 的 `StartTypeAssert` **同款 `>` 未修** | 与 §27.4.2 是同一个 bug 的另一个实现（`FramePrecs > precedence`）；**当前无错误 AST 产出**（该线不产 AST / 299 与宽尺子全绿），故按「不改恢复层」未动。若那条线开始产 AST，按同一口径改 `>=`（1 行） | 语句形状线 |
+| 3 | `tests/statement-possible/s4afc-opendts-locate.mjs` 的**第三份** `cjAst` | 诊断脚本、属别的线；`function cjAst` 全仓已只剩它 + `ast-compare.mjs` 两处。若要「全仓唯一投影」改为 import 即可 | 语句可能形状线 |
+| 4 | `new X()()` / `new new X()` | 仍**显式 Decline**（`DirectNewWithArgs` 形状守卫未动；`new new X()` TS 自身非法）。§27.4.1 只保证「多个 `new` 不串状态」，**没有放宽**范围 | 直建表达式线（R8 原口径） |
+| 5 | 宽门**不查产物时效** | 只查产物存在；改 `.xl.md` 后必须先 `npm run build`。缺产物报 `BUILD-MISSING`，不会静默 | 使用纪律 / 门池（无「构建」门） |
+| 6 | `ast-json-diff --strict` 仍未落地 | 快照路线的回归在门层面仍不可见（`wide-ast` 只覆盖宽语料，二者语料不重叠） | R8 第一优先（§25.7 第 12 项不变） |
+
+其余 R8 项（§25.7 第 1–10 项、第 12 / 13 项）**不变**；§25.7 第 11 项的「门标准未跑」历史结论也不改写，
+但门池数字按 §27.6 更新为 **11 道 = 4 通过 + 7 N/A**。
+
+### 27.9 边界（别把本节用过头）
+
+1. **2505 件 ≠ 全 TS 语料**：它覆盖本仓库能拿到的全部 `.d.ts` + 自己的产物 + token 用例，
+   但仍是抽样；「2494/2494」证明的是**这 2505 件上逐节点一致**，不是「与 tsc 同构」。
+2. **11 件被跳过**是我们与 tsc **一致地判非法**的语料，不是我们解析失败；跳过的清单不会静默（读数里印了「跳过 TS 非法 11」）。
+3. **位置对比只配对同类节点**（与 `ast-json-diff` 同规则）：**结构差会盖住同类的位置差**，
+   所以宽门报「结构 +N」时不要以为区间就没问题。
+4. **三栏地基里的「未映射」是脚本自定的口径**（产物侧 `kind` 不在 `ts.SyntaxKind` 规范名全集里），
+   它与 structural 差同向，正常情况下为 0；它不是 `print-ast-common` 那条投影层的替代品。
+5. **`exit 0` 不等于 11 道全绿**：是 4 道适用门全绿 + 7 道明示不适用（§27.6）。
+6. **宽门只查产物存在、不查时效**：改了源不重建，宽门会把旧产物判绿 —— 这是最容易被误读成「全绿」的一条。
