@@ -1,6 +1,9 @@
 # dependencies
 ```xl
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shape.xl.md"
+import { NumericLiteralPossibleShape } from "./numeric-literal-possible-shape.xl.md"
+import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -25,17 +28,33 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
   逐条目槽位记忆，`Reset` 时自动作废）；跨条目的数据只能放 `cache.GetShare` / `SetShare`。
 - **候选只做判定与建形状**：`ComputeByIndex` / `IsBuildable` / `BuildByIndex` 三个入口，与目录里
   其它候选同口；建出来的子形状自己 `SignIn` / `SignOut`，父形状只负责收口与建树。
-- WP-A 阶段本方法返回空目录（`[]`）：此时增量模式只能解析到「还没有初始值」的形态，
-  遇到需要表达式候选的后续单元会由 WP-B 的显式抛错接住（CONTRACT C10）。WP-C 按目标用例
-  （`tests/parse/token-time-shapes.mjs` 的 char 8 起）逐个补候选。
 
 ## static method Create:()=>Array<PossibleShape>
 
-新建一份表达式候选目录。
+新建一份声明层「初始值」表达式候选目录。每次调用都是**新的候选实例**。
+
+目录内容（WP-C 填）：
+
+1. `NumericLiteralPossibleShape`：`Common("2")` → `NumericLiteralShape`（`Replace` 原位换），覆盖 char 8；
+2. `BinaryExpressionPossibleShape`：`Symbol("*")` / `Symbol("+")` → 运算符形状 + `BinaryExpressionShape`
+   （原位替换左操作数那一格），覆盖 char 9–12 的两次建形状。
+
+两个候选判据互斥（`Common` vs `Symbol`），所以同一个位置只会有一个 `Accept`。
 
 ```ts
-// WP-C 在这里返回候选（每次调用都是新实例，见上方契约）。WP-A 阶段是空目录：
-// 还没有任何形状接这个工厂，所以空数组不改变任何模式下的解析结果。
 const shapes:Array<PossibleShape> = [];
+shapes.push(new NumericLiteralPossibleShape());
+shapes.push(new BinaryExpressionPossibleShape());
 return shapes;
+```
+
+## static method CreateRightOperandCatalog:()=>Array<PossibleShape>
+
+新建一份**二元表达式右操作数**候选目录（给 `BinaryExpressionShape` 自己挂，C3 的封口就发生在它建形状那一次）。
+
+它只有一项 `RightOperandPossibleShape`：判据与声明层数字字面量相同，多一步「建完就替宿主封口 + 卸载」。
+定义只有 `RightOperandPossibleShape.Catalog()` 一份，这里转调，不另写列表（加右操作数形态只改那一处）。
+
+```ts
+return RightOperandPossibleShape.Catalog();
 ```

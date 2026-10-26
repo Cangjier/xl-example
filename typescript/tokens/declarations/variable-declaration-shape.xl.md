@@ -96,6 +96,9 @@ if (equalAt >= 0) {
     }
   }
   if (builtShape !== null) {
+    // 跨包最小补丁（WP-C，Lead 授权）：表达式形状可能还挂着未关闭的尾单元——EOF 没有下一个字符来关它。
+    // 它自己的 `Close` 才是「问父单元目录」的触发点，会就地换成 NumericLiteral 并替宿主封口。
+    builtShape.TryToClose(context);
     // WP-C 已接管：表达式形状已经在 `Data` 里，直接收下非 basic 的 shape（丢弃基本单元 / trivia）。
     for (const unit of raw) {
       if (!unit.IsTriviaToken && !unit.IsBasicToken) {
