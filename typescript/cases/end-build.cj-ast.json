@@ -9437,12 +9437,12 @@
         },
         {
           "kind": "FunctionDeclaration",
-          "pos": 26,
+          "pos": 0,
           "end": 47,
           "children": [
             {
               "kind": "Decorator",
-              "pos": 26,
+              "pos": 0,
               "end": 31,
               "children": [
                 {
@@ -9496,12 +9496,12 @@
         },
         {
           "kind": "FunctionDeclaration",
-          "pos": 26,
+          "pos": 0,
           "end": 65,
           "children": [
             {
               "kind": "Decorator",
-              "pos": 26,
+              "pos": 0,
               "end": 31,
               "children": [
                 {
