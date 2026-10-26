@@ -78,6 +78,7 @@ import { MappedTypeShape } from "./mapped-type-shape.xl.md"
 import { TemplateLiteralTypeShape } from "./template-literal-type-shape.xl.md"
 import { TemplateLiteralTypeSpanShape } from "./template-literal-type-span-shape.xl.md"
 import { TypeLiteralShape } from "./type-literal-shape.xl.md"
+import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { TypeOperatorShape } from "./type-operator-shape.xl.md"
 import { TypeParameterShape } from "./type-parameter-shape.xl.md"
 import { TypePredicateShape } from "./type-predicate-shape.xl.md"
@@ -898,6 +899,11 @@ shape.TryToClose(this.Context);
 return shape;
 ```
 
+## static field ConsumeBuiltMembers:bool = false
+
+[B4c] 只在**类型别名早建收口**这一拍为真：ParseTypeLiteral 消费早建成员形状。
+普通 legacy / 其它族一律 false，行为逐字节不变。
+
 ## method ParseTypeLiteral:(bracket:Bracket, start:int)=>Token
 
 ```ts
@@ -916,6 +922,13 @@ if (this.HasCode(bracket.Data)) {
     const unit = inner.Units[inner.At];
     if (inner.IsText(unit, ";") || inner.IsText(unit, ",")) {
       inner.At++;
+      continue;
+    }
+    // [B4c] 早建成员（PropertySignatureShape 等已有形状）直接消费：类型字面量的成员目录
+    // 在 { 创建格之后按格建出成员，收口这一格只把它们收进 TypeLiteral，不再二次解析。
+    if (!unit.IsBasicToken && TypeBuilder.ConsumeBuiltMembers) {
+      inner.At++;
+      shape.Add(unit);
       continue;
     }
     shape.Add(inner.ParseTypeMember());

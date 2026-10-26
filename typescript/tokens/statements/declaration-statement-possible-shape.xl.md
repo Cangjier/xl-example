@@ -187,12 +187,12 @@ const declaredInterface = InterfaceDeclarationMount.TryBuild(host, tokenIndex, c
 if (declaredInterface !== null) {
   return declaredInterface;
 }
-const aliasPlaceholder = TypeAliasDeclarationMount.ShouldMount(host, tokenIndex);
-const built = super.BuildByIndex(host, tokenIndex, catalog, context);
-if (aliasPlaceholder) {
-  // type 别名没有括号那样的显式收口触发点，故用占位节点（类名/Pos 同 legacy 最终节点、IsTriviaToken=true），
-  // 收口仍走既有语句壳；壳被 legacy 子树替换时占位随之离开（EOF 树 = legacy 树）。
-  TypeAliasDeclarationMount.AttachPlaceholder(built, context);
+// [B4c] type 别名：`type` 关键字关闭格直接挂真壳（同 B4a 的时机、但不再是 trivia 占位）。
+// 名字 / 类型节点由壳自己的 `ComputePossibleShapes` 逐格建；收口仍走同一份 legacy `FromUnits`。
+// 未接管（`export type` / `declare type` / 非声明宿主）返回 null，逐字落回下面的 `super`。
+const declaredTypeAlias = TypeAliasDeclarationMount.TryBuild(host, tokenIndex, context);
+if (declaredTypeAlias !== null) {
+  return declaredTypeAlias;
 }
-return built;
+return super.BuildByIndex(host, tokenIndex, catalog, context);
 ```
