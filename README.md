@@ -2,14 +2,14 @@
 
 用 xl 写成的一套语言前端：**`*.xl.md` 是唯一的事实来源**，同一份规范可以生成多种目标语言。
 
-它解析 TypeScript 风格的源码——把字符流啃成一棵 token 树，再把树打印成 XML。
-产物里带一个命令行入口 `cjcli`，可以直接拿一个源文件跑出这棵树。
+它解析 TypeScript 风格的源码——把字符流啃成一棵 token 树，再把树打印成逐行 AST（`Token.ToAstLine`）。
+产物里带一个命令行入口 `cjcli`，可以**逐字符**看这棵树怎么长出来。
 
-> **当前状态提示（2026-10-22）**：仓库已删除 `dawn/` 旧语言层（`1cf6d30d`），当前可复跑的是
-> `core/` + `typescript/` 的定向构建与 AST 门禁；根入口 `cjcli.xl.md` 仍引用 `dawn/**`，完整构建与
-> `samples/check.mjs` 在当前 HEAD 跑不起来。**当前状态、验证读数、语法覆盖与遗留缺口以
-> [docs/Final.md](docs/Final.md) 为准**；本 README 的「解析优先级」「cjcli」「样本验收」等章节是 dawn 时代的
-> 历史描述，已知缺口一节也已按当前实测重写。
+> **当前状态提示（2026-10-26）**：仓库已删除 `dawn/` 旧语言层（`1cf6d30d`），当前可复跑的是
+> `core/` + `typescript/` 的构建、AST 门禁与根入口 `cjcli`（它自己逐字符驱动 `SyntaxContext.ProcessRange`，
+> 每吃一个字符打一次 AST 行）。`samples/check.mjs` 仍按 dawn 时代的 XML 夹具与已移除的 `-o` 调用，
+> 因此不适用。**当前状态、验证读数、语法覆盖与遗留缺口以 [docs/Final.md](docs/Final.md) 为准**；
+> 本 README 的「解析优先级」等章节是 dawn 时代的历史描述，已知缺口一节也已按当前实测重写。
 
 ## 构建链路
 
@@ -136,32 +136,42 @@ node build/ts/cjcli.js samples/hello.ts
 
 ## cjcli
 
-> **当前不可用**：`cjcli.xl.md` 仍 `import "./dawn/text/*"`（`dawn/` 已于 `1cf6d30d` 删除），根级 `xl build`
-> 会以 E1006 中止，`build/ts/cjcli.js` 不存在。下面几小节是 dawn 时代的用法说明，恢复入口（把 `cjcli.xl.md`
-> 的依赖改到现行 `core/` + `typescript/`）之前不可执行。
-
 [cjcli.xl.md](cjcli.xl.md) → `dist/ts/cjcli.ts` → `build/ts/cjcli.js`。它是命令行入口，不属于语法层本体。
+
+它**不做整篇一次解析**：每吃一个字符，就把当前的 AST 行打一遍。口径与
+[docs/expected-token-time-shapes.md](docs/expected-token-time-shapes.md) 一致——同一份 `Root.ToAstLine(0)`
+渲染器、同样的逐字符推进，`let x = 2*3+1` 打出 14 步（13 个字符 + EOF），每步一节，与文档小节逐行相同。
+推进用 `SyntaxContext.ProcessRange` 一次一个字符（窗口 `[i, i+1)`），EOF 照 `SyntaxContext.Process` 的尾巴收；
+入口先打开 `StatementRouteUtil.EnableIncrementalVariableShapes`，因为文档的预期形状就是增量形状树。
+
+```
+cjcli <文件>       逐字符推进文件，每步打一次 AST 行
+cjcli             从标准输入读源码，同样逐字符推进
+```
+
+输出形状（与 `tests/parse/token-time-shapes.mjs` 的 dump 相同，步与步之间空一行）：
+
+```text
+## [char 0] "l"
+SourceFileShape  pos=-  src=[0,...)
+└─ Common  src=[0,1)  text="l"
+```
+
+退出码：`0` 成功；`1` 表示用法错误 / 读不到输入 / 解析抛错。`-o` / `-h` / `-v` 一类选项已移除，
+多余参数按用法错误处理。
+
+```bash
+node build/ts/cjcli.js tests/parse/token-time-shapes/let-x.ts
+echo "a < b && c > d;" | node build/ts/cjcli.js
+```
 
 **产物是自执行的**：`cjcli.xl.md` 末尾的 `# statement` 段把 `Main(process.argv.slice(2))` 原样写进产物，
 所以 `node build/ts/cjcli.js` 直接就是命令行工具——没有加载器、没有包装进程、没有第三方运行时。
 
-```
-cjcli <文件>              解析源文件，XML 打到标准输出
-cjcli <文件> -o <文件>    解析后写入指定文件（按 >< 断行）
-cjcli                    从标准输入读源码
-cjcli -h, --help         打印本说明
-cjcli -v, --version      打印版本
-```
-
-退出码：`0` 成功；`1` 表示用法错误 / 读不到文件 / 解析抛错。
-
-```bash
-node build/ts/cjcli.js samples/hello.ts
-echo "let x = 1" | node build/ts/cjcli.js
-node build/ts/cjcli.js samples/hello.ts -o out.xml
-```
-
 ## 样本验收
+
+> **当前不适用**：`samples/*.expected.xml` 是 dawn 时代的 XML 夹具，[samples/check.mjs](samples/check.mjs)
+> 还按 `cjcli <文件> -o <临时文件>` 调用——`cjcli` 现在逐字符打 AST 行、`-o` 已移除。下面几行是历史用法。
 
 [samples/check.mjs](samples/check.mjs)：`samples/*.ts` 与同名 `*.expected.xml` 逐字节对照。
 

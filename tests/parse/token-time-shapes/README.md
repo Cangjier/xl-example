@@ -134,7 +134,7 @@ node tests/parse/token-time-shapes.mjs --legacy-corpus tests/cases/token
 工具只保留「逐字符推进 + 与期望逐行比对」。下面是渲染器约定的输出格式：
 
 - 每层缩进：子行 `├─ `（非末子）/ `└─ `（末子），子层前缀 `│  ` / `   `；根行无前缀。
-- 形状节点：`<ClassName>  pos=<Pos>  src=[<Start>,<End>)`；`End < 0` → `未封`；`Pos < 0` / 缺省 → `pos=-`（basic token 无 `Pos` 字段，故不打印 `pos`）。
+- 形状节点：`<ClassName>  pos=<Pos>  src=[<Start>,<End>)`；`End < 0` → `...`；`Pos < 0` / 缺省 → `pos=-`（basic token 无 `Pos` 字段，故不打印 `pos`）。
 - 文本字段：basic token（`Common` / `WrapSymbol` / `Symbol`）`text="..."`（来自 `TempToString()`）；
   `IdentifierShape` 取 `EscapedText`、`NumericLiteralShape` 取 `Text`；
   运算符形状（`AsteriskTokenShape` / `PlusTokenShape` …）`op="..."`，由 `src` 区间原文切片。

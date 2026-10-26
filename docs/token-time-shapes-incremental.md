@@ -30,12 +30,12 @@ npm run tts:incremental                                                         
 
 | 步 | 触发时机 | 谁建什么 | 要点 |
 | --- | --- | --- | --- |
-| char 0–4 `let x` | `Common("x")` 关闭 | `VariableStatementPossibleShape` 分流 → `VariableStatementShape`(pos=0) → `VariableDeclarationListShape`(pos=0) → `VariableDeclarationShape`(pos=3,[4,未封))，`Common("x")` 原位换成 `IdentifierShape`(pos=3,[4,5)) | 三层按 C1 签入；`let` 与前导 trivia 被语句吸收；挂载链 `host → statement → list → declaration`，之后字符直接落进最内层 |
+| char 0–4 `let x` | `Common("x")` 关闭 | `VariableStatementPossibleShape` 分流 → `VariableStatementShape`(pos=0) → `VariableDeclarationListShape`(pos=0) → `VariableDeclarationShape`(pos=3,[4,...))，`Common("x")` 原位换成 `IdentifierShape`(pos=3,[4,5)) | 三层按 C1 签入；`let` 与前导 trivia 被语句吸收；挂载链 `host → statement → list → declaration`，之后字符直接落进最内层 |
 | char 5 `" "` | 空白 trivia | `WrapSymbol[5,6)` 进 declaration 的 `Data` | 中间态保留 trivia（C2），`Close` 时才丢弃 |
 | char 6 `=` | `Symbol("=")` 关闭 | declaration 目录被问一次 | 表达式候选此时必须回 **`Uncertain`**（不是 `Reject`），见第 6 节 |
 | char 7 `" "` | 空白 trivia | `WrapSymbol[7,8)` | 同上，`Uncertain` |
 | char 8 `2` | `Common("2")` 关闭 | `NumericLiteralPossibleShape` → `NumericLiteralShape(pos=7,[8,9))` | `Replace` 原位换；`CloseStates.Built` → `Reload` 重放 |
-| char 9 `*` | `Symbol("*")` 关闭 | `BinaryExpressionPossibleShape` → `AsteriskTokenShape(pos=9,[9,10))` + `BinaryExpressionShape(pos=7,[8,未封))` | Binary 顶替左操作数那一格，`host.MountedUnit = binary` |
+| char 9 `*` | `Symbol("*")` 关闭 | `BinaryExpressionPossibleShape` → `AsteriskTokenShape(pos=9,[9,10))` + `BinaryExpressionShape(pos=7,[8,...))` | Binary 顶替左操作数那一格，`host.MountedUnit = binary` |
 | char 10 `3` | `Common("3")` 关闭 | `RightOperandPossibleShape` → `NumericLiteralShape(pos=10,[10,11))`，同一判定内 `SealRightOperand` | `TryToClose` 用右操作数终点封 `[8,11)` → `Quit()` 卸载 → 重放后 `+` 落回 declaration |
 | char 11 `+` | `Symbol("+")` 关闭 | `BinaryExpressionPossibleShape` → `PlusTokenShape(pos=11,[11,12))` + `BinaryExpressionShape(+)` | 已封口的 `Binary(*)` 作左操作数 |
 | char 12 `1` | `Common("1")` 关闭 | 进 `Binary(+)` 的 `Data`（仍是 basic 单元） | — |

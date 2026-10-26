@@ -391,12 +391,14 @@ return lines.join("\n");
 | 字段 | 何时出现 | 形态 |
 | --- | --- | --- |
 | `pos` | `AstPos()` 非 `null` | `pos=<v>`；`v < 0` 印成 `pos=-` |
-| `src` | 总是出现 | `src=[<start>,<end>)`；`start < 0` 印 `-`，`end < 0` 印 `未封` |
+| `src` | 总是出现 | `src=[<start>,<end>)`；`start < 0` 印 `-`，`end < 0` 印 `...` |
 | `text` | `AstText()` 非空 | `text="<转义后>"` |
 | `op` | `AstOperator()` 非空 | `op="<转义后>"` |
 
 例：`NumericLiteralShape  pos=7  src=[8,9)  text="2"`、`AsteriskTokenShape  pos=9  src=[9,10)  op="*"`、
-`Common  src=[0,3)  text="let"`、`SourceFileShape  pos=-  src=[0,未封)`。
+`Common  src=[0,3)  text="let"`、`SourceFileShape  pos=-  src=[0,...)`。
+
+**整行只用 ASCII**：`src` 的终点没封时印 `...`（旧版在这里印一个中文词，已去掉——AST 行是产物，要能直接进任何终端 / 比较工具）。
 
 标签名取 `this.constructor.name`，所以类名就是它印出来的节点名。
 
@@ -408,7 +410,7 @@ if (pos !== null) {
 }
 const start = this.SourceRange.Start;
 const end = this.SourceRange.End;
-parts.push(`src=[${start < 0 ? "-" : String(start)},${end < 0 ? "未封" : String(end)})`);
+parts.push(`src=[${start < 0 ? "-" : String(start)},${end < 0 ? "..." : String(end)})`);
 const text = this.AstText();
 if (text.length > 0) {
   parts.push(`text="${this.AstEscape(text)}"`);

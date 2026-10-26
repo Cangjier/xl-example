@@ -26,12 +26,13 @@
 
 ## 2. `AstLabel()`：一行的字段
 
-`AstLabel()` 由**运行时类名** `this.constructor.name` 起头，随后按**固定顺序**追加字段，**字段之间两个空格**：
+`AstLabel()` 由**运行时类名** `this.constructor.name` 起头，随后按**固定顺序**追加字段，**字段之间两个空格**。
+整行只用 ASCII——`src` 的终点没封时印 `...`，不印中文。
 
 | 字段 | 何时出现 | 形态 | 说明 |
 | --- | --- | --- | --- |
 | a. `pos` | `AstPos()` 返回非 `null` | `pos=<v>` | `v < 0` 打印成 `pos=-` |
-| b. `src` | 总是出现 | `src=[<start>,<end>)` | 取 `this.SourceRange.Start` / `.End`；`start < 0` 打印 `-`，`end < 0` 打印 `未封` |
+| b. `src` | 总是出现 | `src=[<start>,<end>)` | 取 `this.SourceRange.Start` / `.End`；`start < 0` 打印 `-`，`end < 0` 打印 `...` |
 | c. `text` | `AstText()` 非空 | `text="<escaped>"` | 空串＝不出现 |
 | d. `op` | `AstOperator()` 非空 | `op="<escaped>"` | 空串＝不出现 |
 
@@ -41,7 +42,7 @@
 NumericLiteralShape  pos=7  src=[8,9)  text="2"
 AsteriskTokenShape  pos=9  src=[9,10)  op="*"
 Common  src=[0,3)  text="let"
-SourceFileShape  pos=-  src=[0,未封)
+SourceFileShape  pos=-  src=[0,...)
 ```
 
 ## 3. 虚钩子（运行时多态，写成普通方法）
