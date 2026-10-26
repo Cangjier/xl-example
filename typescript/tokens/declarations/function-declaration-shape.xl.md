@@ -18,6 +18,7 @@ import { MemberBoundary } from "../types/member-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
+import { BlockShape } from "../statements/block-shape.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { BracketCatalogInstaller } from "../statements/bracket-catalog-installer.xl.md"
 import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.xl.md"
@@ -55,6 +56,10 @@ declare async function f(): void;
 ## field ReturnType:Token | null = null
 
 ## field Body:Token | null = null
+
+## static field BodyShellOpenCount:int = 0
+
+`OpenFunctionBody` 真正在 `{` 格提前建出 `BlockShape` 壳的次数（B1b 只读计数）。
 
 ## constructor:(template:Template)=>void
 
@@ -112,6 +117,9 @@ if (!TypeBuilder.IsBodyBrace(this.Data, this.Data.length - 1)) {
 // 首见从 69 退到 268、`SwitchCaseClauseMountCount` 归 0）。
 BlockPossibleShape.MountBodyCatalog(body);
 StatementRouteUtil.FunctionBodyShellCatalogCount += 1;
+// [B1b] 目录挂好之后立刻把体括号换成 `BlockShape` 壳：`BlockShape` 在 `{` 那一格出现，
+// `}` 那一格只收口（见 OpenFunctionBody 与 block-shape.xl.md 的 ComputePossibleShapes）。
+FunctionDeclarationShape.OpenFunctionBody(this, body, context);
 ```
 
 ## static method PromoteName:(host:Token, bracket:Bracket, context:SyntaxContext)=>void
@@ -188,6 +196,49 @@ const plan = BracketRoleResolver.Resolve(host, bracket, context);
 if (plan.IsKnown()) {
   BracketCatalogInstaller.Install(bracket, plan, context);
 }
+```
+
+## static method OpenFunctionBody:(host:FunctionDeclarationShape, body:Bracket, context:SyntaxContext)=>BlockShape
+
+**[B1b] 函数体壳在 `{` 那一格就建**：把体括号从「声明壳里的 raw 括号」换成一只 `BlockShape` 壳。
+
+- `Pos` 按 legacy `BuildBlock` 同一口径（前一个非 trivia 单元的 `EndIndex`：`function f() {}` 是 `)` 的 29）；
+- 括号挂进块壳（`block.Add(body)`），`MountedUnit` 按块语句既有的那条通道挪过去
+  （`host.MountedUnit = block` / `block.MountedUnit = body`，与 `BlockPossibleShape.BuildByIndex` 同款）；
+- 括号上已经挂好的块体语句目录**留在括号自己身上**，体内语句照旧走语句壳 + `CollectBodyStatements`。
+
+于是 `BlockShape` 在 30 格（`{`）出现，`}` 那一格只收口：`Bracket.Close` 问父单元（块壳）→ 块壳
+`ComputePossibleShapes` 自检并 `TryToClose`，再把通知转给声明壳的 `CatalogGuide`，终结候选接受已闭合的
+`BlockShape`；`FromUnits` 仍然用**同一个 legacy `BuildBlock`** 把括号建成体（最终树逐节点不变）。
+
+```ts
+const block = new BlockShape(host.Template);
+const at = host.Data.indexOf(body);
+let pos = 0;
+if (at >= 0) {
+  for (let back = at - 1; back >= 0; back--) {
+    if (!host.Data[back].IsTriviaToken) {
+      const end = host.Data[back].SourceRange.EndIndex;
+      if (end >= 0) {
+        pos = end;
+      }
+      break;
+    }
+  }
+}
+block.Add(body);
+if (body.SourceRange.Start >= 0) {
+  block.SignIn(body.SourceRange.StartIndex);
+}
+block.Pos = pos;
+if (at >= 0) {
+  host.Data.splice(at, 1, block);
+  block.Parent = host;
+}
+host.MountedUnit = block;
+block.MountedUnit = body;
+FunctionDeclarationShape.BodyShellOpenCount += 1;
+return block;
 ```
 
 ## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
@@ -361,16 +412,31 @@ if (!(paramUnit instanceof Bracket) || (paramUnit as Bracket).StartBracketChar !
   throw new Error("函数声明缺少参数表");
 }
 const last = code[code.length - 1];
-const lastIsBrace = last instanceof Bracket && (last as Bracket).StartBracketChar === "{";
+let lastIsBrace = last instanceof Bracket && (last as Bracket).StartBracketChar === "{";
+// [B1b] 函数体在 `{` 那格已经被 `OpenFunctionBody` 包进 `BlockShape`：`last` 是块壳，
+// 真正要交给 `StatementBuilder.BuildStatement` 的仍是它包着的那只 `{` 括号（legacy 建树逐字不变）。
+let prebuiltBody:Bracket | null = null;
+if (last instanceof BlockShape) {
+  for (const unit of last.Data) {
+    if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{") {
+      prebuiltBody = unit as Bracket;
+      break;
+    }
+  }
+  if (prebuiltBody !== null) {
+    lastIsBrace = true;
+  }
+}
 const lastIsSemicolon = last instanceof Symbol && (last as Symbol).Is(";");
 // 末尾的 `{…}` 只有在「前一个单元能收住一个类型」时才是函数体；否则它是返回类型里的对象字面量
 // （`declare function f(): { a: A }` 的最后一块就是类型，没有函数体）。
-const bodyIsLast = lastIsBrace && TypeBuilder.IsBodyBrace(code, code.length - 1);
+const bodyIsLast = prebuiltBody !== null
+  || (lastIsBrace && TypeBuilder.IsBodyBrace(code, code.length - 1));
 let tailIndex = bodyIsLast || lastIsSemicolon ? code.length - 1 : code.length;
 let signOutUnit:Token = last;
 let bodyUnit:Token | null = null;
 if (bodyIsLast) {
-  bodyUnit = last;
+  bodyUnit = prebuiltBody !== null ? prebuiltBody : last;
 } else if (!lastIsBrace && !lastIsSemicolon) {
   // ambient 的无体、无分号函数（namespace 体里 `function f(): B` 换行接下一个成员）：
   // 调用方显式传 ambient=true 时才允许。

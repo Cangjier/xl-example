@@ -10,6 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
+import { BlockShape } from "../statements/block-shape.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
 ```
@@ -53,6 +54,11 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
+// [B1b] 函数体 `{` 在创建格就被 `OpenFunctionBody` 包成 `BlockShape`：块壳闭合即声明结束。
+// （只有函数体括号会这样包，返回类型里的对象字面量不会；所以不必再跑 `IsBodyBrace`。）
+if (unit instanceof BlockShape) {
+  return (unit as BlockShape).Closed ? ShapeStates.Accept : ShapeStates.Reject;
+}
 if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{" && (unit as Bracket).Closed) {
   if (TypeBuilder.IsBodyBrace(units, tokenIndex)) {
     return ShapeStates.Accept;
@@ -95,6 +101,10 @@ if (lastCode < 0) {
 let hasBody = false;
 for (let at = 0; at <= lastCode; at++) {
   const candidate = shell.Data[at];
+  if (candidate instanceof BlockShape) {
+    hasBody = true;
+    break;
+  }
   if (candidate instanceof Bracket && (candidate as Bracket).StartBracketChar === "{" && (candidate as Bracket).Closed) {
     hasBody = true;
     break;
