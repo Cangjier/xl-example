@@ -27,6 +27,9 @@ legacy EOF 口径（`expr-probe` 实测）：`IdentifierShape  pos=7  src=[8,9) 
 `NumericLiteralPossibleShape` / `BigIntLiteralPrimaryPossibleShape`，`true`/`false`/`null` 归
 `KeywordLiteralPrimaryPossibleShape`，`this` 归 `ThisPrimaryPossibleShape`，关键字运算符 `in` / `instanceof` 归
 A2 的 `BinaryOperatorPossibleShape`（A1b：本候选若在它们那一格也 `Accept`，会与 A2 候选同格并列 ⇒ 永远 `Waiting`）；
+前缀一元关键字 `typeof` / `void` 归 P3a 的 `PrefixUnaryPossibleShape`（[P3c] 加回排除表：这两个词是**前缀运算符**
+而不是标识符，本候选在它们那一格 `Accept` 会让共享目录永远 `Candidates.size > 1`，P3a 的
+`unary-typeof` / `unary-void` 就永远停在 `partial`）；`new` 同理归 P2。
 本候选对它们一律 `Reject`。
 
 **约束①（E0b 实测）**：`=` 与 trivia 必须 `Uncertain`——`CatalogGuide` 只在建出形状后 `Reset`，中途 `Reject`
@@ -42,7 +45,7 @@ shapes.push(new IdentifierPrimaryPossibleShape());
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
-判据：当前格是**已关闭**的 `Common`，不是 bigint / 数字 / 关键字字面量 / `this`。
+判据：当前格是**已关闭**的 `Common`，不是 bigint / 数字 / 关键字字面量 / `this` / `new` / `typeof` / `void`。
 
 扫描下界走 `ItemUtil.ItemStartCached`（C8）；`Symbol` 只对 `=` 放行（`Uncertain`），其余符号判死（不是原子）。
 
@@ -71,7 +74,7 @@ const common = unit as Common;
 if (common.IsBigInt() || common.IsNumber()) {
   return ShapeStates.Reject;
 }
-if (common.IsAny(["true", "false", "null", "this", "new", "in", "instanceof"])) {
+if (common.IsAny(["true", "false", "null", "this", "new", "typeof", "void", "in", "instanceof"])) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -95,7 +98,7 @@ if (!(unit instanceof Common)) {
   return false;
 }
 const common = unit as Common;
-if (common.IsBigInt() || common.IsNumber() || common.IsAny(["true", "false", "null", "this", "new", "in", "instanceof"])) {
+if (common.IsBigInt() || common.IsNumber() || common.IsAny(["true", "false", "null", "this", "new", "typeof", "void", "in", "instanceof"])) {
   return false;
 }
 return PrimaryAtomGuard.IsLoneAtom(units, tokenIndex, context, true);
@@ -111,7 +114,7 @@ const token = host.Data[tokenIndex];
 if (!(token instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 标识符");
 }
-if (token.IsBigInt() || token.IsNumber() || token.IsAny(["true", "false", "null", "this", "new", "in", "instanceof"])) {
+if (token.IsBigInt() || token.IsNumber() || token.IsAny(["true", "false", "null", "this", "new", "typeof", "void", "in", "instanceof"])) {
   throw new Error("增量变量形状未支持：expression 标识符 " + token.TempToString());
 }
 const shape = IdentifierShape.FromBasicToken(token, context);

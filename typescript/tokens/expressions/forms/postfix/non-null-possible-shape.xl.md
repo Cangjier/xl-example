@@ -8,8 +8,6 @@ import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../../../core/syntax/token.xl.md"
-import { IdentifierShape } from "../../../names/identifier-shape.xl.md"
-import { NonNullExpressionShape } from "../../non-null-expression-shape.xl.md"
 import { MemberChainJudge } from "./member-chain-judge.xl.md"
 ```
 
@@ -17,22 +15,25 @@ import { MemberChainJudge } from "./member-chain-judge.xl.md"
 
 # class NonNullPossibleShape extends PossibleShape
 
-WP-P1：声明初始化器位置的**后缀非空断言**候选——`let x = a!` / `const x = y!`。
+WP-P1 / WP-P3c：声明初始化器位置的**后缀非空断言**候选——`let x = a!` / `const x = y!`。
 
 **这是表达式位置的 `!`**（`NonNullExpressionShape`，legacy EOF 树 `pos=7 src=[8,10)`、唯一子节点是操作数），
 不是 A6 的定值断言 `let x!: T`（那条走 `VariableDeclarationShape` 的 `ExclamationTokenShape` 分支）。
 
-**为什么不在 `!` 那一格建树**：增量声明的候选目录被 `DeclarationCellGuard` 包着，它在 `!` 格上**一律**
-`Reject`（`variable-declaration-list-possible-shape.xl.md` 的 `DeclarationCellGuard.ComputeByIndex`，为 A6 的
-`let x!: T` 准备的守卫）。`Reject` 在 `CatalogGuide` 里是永久的，所以 `!` 关闭那一格上本候选已经不在
-`Candidates` 里了——在那一格建树是不可能的。
+**建树格（[P3c] 起启用）**：`!` 关闭那一格。P1 交付时那一格被 `DeclarationCellGuard` 一律 `Reject`
+（A6 为 `let x!: T` 准备的守卫），候选在那里根本不在场，只能提前一格（链头格）猜着建，而链头格上
+`IdentifierPrimaryPossibleShape` / `MemberAccessPossibleShape` 同时在场 ⇒ `Candidates.size > 1` ⇒ 这条路径
+建不出来（`_reports/p1-member-chain.md` §4.1 的实测）。**P3c 把守卫收窄成「`=` 之前才拒」**之后，`!` 格
+（Kind 已落定为 `nonnull`，本候选是该格唯一的活口）就能按成员链五族的同一套惯用法整棵建出：
+`MemberChainJudge.CanBuild` 判「链已长完 + 之后只剩输入结束（允许 `;`）」，`MemberChainJudge.Build`
+把 `=` 之后的 raw 单元交给 legacy `ExpressionBuilder`，类名 / 层级 / `Pos` / `src` 与 legacy EOF 逐节点同源。
 
-因此本候选**提前一格建**：链头（操作数）闭合的那一格就看文档前瞻，确认「之后紧接 `!`、`!` 之后只剩输入结束」
-（`MemberChainJudge.PostfixEnd`），当场用 `IdentifierShape` + `NonNullExpressionShape` 建出整棵。
-`!` 本身不是 `NonNullExpressionShape` 的 legacy 子节点（legacy 只有操作数一个子节点），所以它随后作为普通
-单元落进声明、由 `FinishIncremental` 收口时丢弃——与 legacy `Data` 逐节点一致。
+**与 P3a 前缀 `!` 按位置互斥**：`let x = !y` 的 `!` 格上 `MemberChainJudge.Kind` 返回 `""`（`=` 之后第一个
+代码单元是 `!` 本身，不是链头）⇒ 本候选 `Claims` 为假、`IsBuildable` 为假；反过来 `let x = a!` 的 `!` 格上
+`PrefixUnaryPossibleShape.IsPrefixPosition` 为假（运算符串的前一个代码单元是操作数 `a`，不是 `=`）。
+两个候选在同一格上永不同时 `Accept`。
 
-**闸门必须是「整条链就是 `<操作数>!` 且之后只剩输入结束」**：`a! + b` / `a!.b` 这类续接形态不前移，
+**闸门必须是「整条链就是 `<操作数>!` 且之后只剩输入结束」**：`a! + b` / `a!.b` 这类续接形态不建，
 `!` 格上照旧由终结候选显式抛错（C10，账本不变）。
 
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
@@ -84,7 +85,8 @@ return ShapeStates.Uncertain;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-`!` 已经进 `units` 的格上不建（那一格被守卫挡住，轮不到本候选）；只在前移的链头格上放行。
+族已落定（`!` 格）⇒ 交给 `MemberChainJudge.CanBuild`（「链长完 + 之后只剩输入结束」）；
+族未落定的链头格仍保留 P1 的前移兜底判据（`PostfixEnd`），在 `!` 格另有活口时不会用到。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -94,8 +96,12 @@ const unit = units[tokenIndex];
 if (unit.IsTriviaToken) {
   return false;
 }
-if (MemberChainJudge.Kind(units) !== "") {
-  return false;
+const kind = MemberChainJudge.Kind(units);
+if (kind !== "") {
+  if (kind !== "nonnull") {
+    return false;
+  }
+  return MemberChainJudge.CanBuild(units, context.Root.Template, context);
 }
 if (!(unit instanceof Common)) {
   return false;
@@ -116,57 +122,25 @@ return MemberChainJudge.PostfixEnd(unit) >= 0;
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
-链头格上建出 `NonNullExpressionShape`：`Pos` = `=` 的 `EndIndex`（C1），`src` 从操作数起点到 `!` 之后
-（legacy `pos=7 src=[8,10)`），操作数按 `IdentifierShape.FromBasicToken` 物化、`Pos` 与父同口径；随后把
-`=` 之后的全部单元换成这一个根。
+`!` 格上整棵交给 legacy 建造器（与 P1 其余五族同一份实现）：`MemberChainJudge.Build` 把 `=` 之后的全部
+raw 单元建成 `NonNullExpressionShape` 并原位替换，`Pos` = `=` 的 `EndIndex`、`src` = 操作数起点到 `!` 之后
+（legacy `pos=7 src=[8,10)`），随后 `host.MountedUnit = null`，后续单元仍归声明层。
 
 ```ts
-const token = host.Data[tokenIndex];
-if (!(token instanceof Common)) {
-  throw new Error("增量变量形状未支持：expression 非空断言操作数");
-}
-const bangEnd = MemberChainJudge.PostfixEnd(token);
-if (bangEnd < 0) {
-  throw new Error("增量变量形状未支持：expression 非空断言缺少感叹号");
-}
-const equalAt = MemberChainJudge.EqualIndex(host.Data);
-if (equalAt < 0) {
-  throw new Error("增量变量形状未支持：declaration 非空断言缺赋值符");
-}
-const equalUnit = host.Data[equalAt];
-let pos = equalUnit.SourceRange.EndIndex;
-if (pos < 0) {
-  pos = equalUnit.SourceRange.StartIndex;
-}
-const identifier = IdentifierShape.FromBasicToken(token, context);
-identifier.Pos = pos;
-const nonNull = new NonNullExpressionShape(host.Template);
-nonNull.Add(identifier);
-nonNull.Pos = pos;
-const operandStart = token.SourceRange.StartIndex;
-nonNull.SignIn(operandStart >= 0 ? operandStart : pos);
-nonNull.SignOut(bangEnd);
-nonNull.TryToClose(context);
-const start = equalAt + 1;
-const removed = host.Data.length - start;
-host.Data.splice(start, removed, nonNull);
-nonNull.Parent = host;
-host.MountedUnit = null;
-return nonNull;
+return MemberChainJudge.Build(host, context);
 ```
 
 ## method ContinuationClaim:(units:Array<Token>, tokenIndex:int)=>bool
 
-**暂时恒 `false`（本包未完成项，见 `_reports/p1-member-chain.md`）**。
+`!` 格上的**认领**（D0 的 `ExpressionContinuationCatalog` 在 `VariableDeclarationEndPossibleShape` 的兜底
+throw 之前问这一句）：
 
-认领 `!` 格会让终结候选 `Reject`（继续等），但本候选**没有可用的建树格**：`!` 关闭那一格被 A6 的
-`DeclarationCellGuard` 一律 `Reject`，链头格上又因为 `IdentifierPrimaryPossibleShape` 同时在场而
-`Candidates.size > 1`。于是唯一的结果是从 `throw` 漂移成 `atomic`（EOF 兜底原子建）——账本不允许
-（`tts` 的目录标注是 `throw`，`partial` / `atomic` 都不算完成），所以这里**显式不认领**，保留 C10 的
-原有抛错。等 A6 把守卫的 `!` 收窄成「`=` 之前才拒」之后，这里只需改回
-`MemberChainJudge.Claims("nonnull", units, tokenIndex)` + 尾巴闸门即可。
+- 这一格是**本族的后缀 `!`**（`MemberChainJudge.Claims("nonnull", …)`：族已落定为 `nonnull`，且当前单元是
+  `!`，也就是「前一个代码单元是链头、当前是 `!`」）⇒ `true`，语义是「继续等」，本格随后的
+  `CatalogGuide` 会把它建成形状；
+- 其余（含前缀位的 `!`：`let x = !y` 的链头是 `!` 本身，族不命中）⇒ `false`，前缀那一格留给 P3a，
+  族不命中的续接形态保留 C10 的显式 `throw`。
 
 ```ts
-// [P1:BLOCKED] `!` 格被 DeclarationCellGuard 拒掉 ⇒ 没有建树格；认领只会把 throw 漂移成 atomic。
-return false;
+return MemberChainJudge.Claims("nonnull", units, tokenIndex);
 ```
