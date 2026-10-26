@@ -152,4 +152,54 @@ typescript/tokens/types/class-set-accessor-possible-shape.xl.md:16: warning[E110
 
 ## 10. 推送验证
 
-（本节在推送完成后追加）
+### 10.1 第一次推送（合并 + 本报告）
+
+命令：
+
+```
+git push C:\Users\Admin\Documents\GitHub\xl-example HEAD:refs/heads/refactor/token-time-shapes
+```
+
+输出（`PUSH_EXIT=0`）：
+
+```
+To C:\Users\Admin\Documents\GitHub\xl-example
+   5ced7ace..1829f36b  HEAD -> refactor/token-time-shapes
+```
+
+推送的 HEAD：`1829f36be3a028f09eb661889c67d2605be708fe`
+（= 合并提交 `8fcdf654` + 本报告提交 `1829f36b`）
+
+### 10.2 canonical 侧验证
+
+```
+git -C C:\Users\Admin\Documents\GitHub\xl-example rev-parse refactor/token-time-shapes
+→ 1829f36be3a028f09eb661889c67d2605be708fe
+```
+
+- canonical ref 已指向 `1829f36b`，与 merge-stage 本地 HEAD 一致。
+- canonical 当前分支仍为 `feature/all-possible` @ `3a0623c31d5c9d7528394f1ba2c63a2b9b70eb06`，`git status --porcelain` 为空（其工作区全程未被 checkout/改动）。
+
+### 10.3 第二次快进推送（记录本节）
+
+本节内容本身产生一次 `docs(coord)` 追加提交，并按同样命令再次快进推送；两次推送均为 fast-forward，无 force。
+
+- 合并后的功能 HEAD（含 WP-A 与全部读数）：`1829f36be3a028f09eb661889c67d2605be708fe`
+- 追加本节后的最终 staging HEAD：见最后一次 `git push` 输出（`1829f36b..<final>  HEAD -> refactor/token-time-shapes`）与交付回复；为避免「报告回写自身 sha」的循环，不再回写本文件。
+- 最终 `git -C <canonical> rev-parse refactor/token-time-shapes` = 最后一次推送的 `<final>`。
+
+## 11. 交付摘要
+
+| 项 | 值 |
+| --- | --- |
+| 合并前 staging sha | `5ced7ace6abd2240af1535319c0b415094e0309c` |
+| 合并提交 sha | `8fcdf6548c1760eb21dcc5bd3a28f9b60b59c0d5`（父：`5ced7ace` + `d35736b5`） |
+| 合并规模 | 7 files, +7912 / −43，无冲突 |
+| xl_build（全量） | `561 written / 0 skipped / 0 planned / 0 error / 3 warning`（3 条均为既有 E1107） |
+| tsc | `exit 0`，约 4.2 s，561 个 `.js` |
+| tts 1 | `npm run tts` → legacy，PASS 6 / FAIL 8 / 14，exit 1 |
+| tts 2 | `--diff --incremental` → incremental，PASS 6 / FAIL 8 / 14，exit 1 |
+| tts 3 | `--diff --quiet` → `token-time-shapes: PASS 6 / FAIL 8 / 14 步（模式 legacy）`，exit 1 |
+| 工作区 | `git status --porcelain` 0 行 |
+| tts-wp-a 文件夹 | **保留**（`Test-Path` = True，HEAD `d35736b5`） |
+| 既有 gate | 未运行 |
