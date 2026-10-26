@@ -20,6 +20,7 @@ import { ClassExpressionShape } from "../expressions/class-expression-shape.xl.m
 import { ConditionalExpressionShape } from "../expressions/conditional-expression-shape.xl.md"
 import { DeleteExpressionShape } from "../expressions/delete-expression-shape.xl.md"
 import { ElementAccessExpressionShape } from "../expressions/element-access-expression-shape.xl.md"
+import { ExpressionWithTypeArgumentsShape } from "../expressions/expression-with-type-arguments-shape.xl.md"
 import { ArrayLiteralExpressionShape } from "../expressions/array-literal-expression-shape.xl.md"
 import { NewExpressionShape } from "../expressions/new-expression-shape.xl.md"
 import { NonNullExpressionShape } from "../expressions/non-null-expression-shape.xl.md"
@@ -52,6 +53,7 @@ import { ShapeInsertUtil } from "../shape-insert-util.xl.md"
 import { BlockShape } from "../statements/block-shape.xl.md"
 import { StatementTokenSets } from "../statements/statement-token-sets.xl.md"
 import { ParameterShape } from "../types/parameter-shape.xl.md"
+import { TypeReferenceShape } from "../types/type-reference-shape.xl.md"
 import { ComputedPropertyNameShape } from "../types/computed-property-name-shape.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { BodyGuideUtil } from "../declarations/body-guide-util.xl.md"
@@ -246,6 +248,20 @@ R6-A3 起同一格再加一种后继单元：**模板串**（`f<T>` + `` `t` `` 
 
 挂起中的裸参数 `async` 的 Pos（= `async` 那一格传入的 pos，含前导 trivia）。
 
+## field AngleWaitUnit:Token | null = null
+
+**R7-AST-4（`a<b> as T` 的实例化表达式）**：一个把 `AngleDepth` 关掉一层的 `>` 单元。
+引擎没有前瞻，`a < b >` 既可能是比较链（`x<y>z`，直建正例），也可能是**类型实参表的收尾**
+（tsc 自 4.7 起把 `a<b>` 读成 `ExpressionWithTypeArguments`，只要 `>` 后面那一格允许
+`canFollowTypeArgumentsInExpression`——`as` / `satisfies` 就在白名单里）。
+所以 `>` 这一格**先挂起**，下一格到了才决断：`as`（且左操作数形态合法）⇒ 实例化表达式；
+其余一律按比较链**原样重放**（`ResolveAngleCloseAsComparison` 与改动前逐字节等价）。
+本字段只在 `>` 与下一格之间非空。
+
+## field AngleWaitPos:int = -1
+
+挂起中的 `>` 的 Pos（= 那一格传入的 pos，含前导 trivia）。
+
 ## field ClassPending:ClassExpressionShape | null = null
 
 **R7-D2（R7-CONTRACT §4.2）**：已经建好（`class` 关键字已 `SignIn`）但**类体还没到**的类表达式。
@@ -350,6 +366,11 @@ if (this.AsyncPending !== null) {
   this.IngestAfterAsyncHead(unit, pos);
   return;
 }
+// R7-AST-4：挂起中的 `>`（等下一格判「比较链」还是「类型实参表收尾 + as」）。
+if (this.AngleWaitUnit !== null) {
+  this.IngestAfterAngleWait(unit, pos);
+  return;
+}
 if (this.PostfixWait !== DirectExpressionEngine.PostfixNone) {
   this.IngestPostfixPart(unit, pos);
   return;
@@ -385,6 +406,10 @@ if (this.ParamWait || this.ArrowPending !== null) {
 }
 // R7-AST-1：裸参数 `async` 还等着 `=>` ⇒ 不完整（收尾会显式 Decline）。
 if (this.AsyncRawUnit !== null) {
+  return false;
+}
+// R7-AST-4：`>` 还等着下一格决断 ⇒ 不完整（收尾会按比较链重放）。
+if (this.AngleWaitUnit !== null) {
   return false;
 }
 // R7-D2：类表达式还等着类体（`const C = class`）⇒ 不完整。
@@ -431,6 +456,12 @@ if (this.Declined) {
 if (this.AsyncRawUnit !== null) {
   this.Fail("async 裸参数缺少 =>");
   return null;
+}
+// R7-AST-4：`>` 挂起到收尾（后面再没有下一格）⇒ 按比较链重放，与改动前同态。
+if (this.AngleWaitUnit !== null) {
+  if (!this.ResolveAngleCloseAsComparison()) {
+    return null;
+  }
 }
 if (!this.FlushAllAs()) {
   return null;
@@ -1500,6 +1531,23 @@ if (this.AsyncRawUnit !== null && text !== "=>") {
   return;
 }
 if (unit instanceof Symbol) {
+  // R7-AST-4：关掉一层尖括号的 `>` 先挂起一格（下一格决定它是比较链还是类型实参收尾）。
+  // 只在 `AngleDepth > 0`（= 这个 `>` 是引擎自己见过的那个 `<` 配对的）时挂起，其余 `>` 一个字节都不变。
+  if (text === ">" && this.AngleDepth > 0) {
+    // 与改动前同一格的两步（与运算符文本无关）：`new` 收口 + 把挂起的右操作数挂上。
+    // 只把 PushOperator 推迟到下一格 —— 是否按比较链入栈由下一格决定。
+    this.CloseNew();
+    if (this.Declined) {
+      return;
+    }
+    this.FlushOperand();
+    if (this.Declined) {
+      return;
+    }
+    this.AngleWaitUnit = unit;
+    this.AngleWaitPos = pos;
+    return;
+  }
   // R3-B2-2：`=>` 是**箭头**的运算符，不是二元 / 赋值运算符（`OperatorTable` 里没有它）。
   // 裸参数形态（`a => …`）在这一格才认出来；括号参数表形态在 ParamWait 里已经处理掉了。
   if (text === "=>") {
@@ -2219,6 +2267,138 @@ for (const unit of bracket.Data) {
 return true;
 ```
 
+## private method IngestAfterAngleWait:(unit:Token, pos:int)=>void
+
+```ts
+// R7-AST-4：挂起的 `>` 之后的**那一格**到了，这时才能定它是比较链还是类型实参表的收尾。
+//   `as` / `satisfies`（且左操作数形态合法） ⇒ `a<b>` 是实例化表达式（`ExpressionWithTypeArguments`）；
+//   其余 ⇒ 一律按比较链**原样重放**，再把这一格按常规处理（与改动前逐字节同态）。
+const text = DirectTokenUtil.TextOf(unit);
+if ((text === "as" || text === "satisfies") && this.TryInstantiationExpression()) {
+  // 树已经换成 `ExpressionWithTypeArguments`（一个已完成的操作数），这一格按运算符重放：
+  // `as` 走 `StartAs`；`satisfies` 仍显式 Fail（范围外，回落旧路径）。
+  this.IngestOperator(unit, text, pos);
+  return;
+}
+if (!this.ResolveAngleCloseAsComparison()) {
+  return;
+}
+this.IngestCode(unit, pos);
+```
+
+## private method ResolveAngleCloseAsComparison:()=>bool
+
+```ts
+// R7-AST-4 的「比较链」出口：把挂起的 `>` 按**改动前那一格**的路径重放 ——
+// `IngestOperator` 的二元分支就是 `CloseNew()` + `IngestBinary()`，尖括号记账仍在 `PushOperator` 里。
+const unit = this.AngleWaitUnit;
+const pos = this.AngleWaitPos;
+this.AngleWaitUnit = null;
+this.AngleWaitPos = -1;
+if (unit === null) {
+  this.Fail("尖括号收尾丢失");
+  return false;
+}
+this.PushOperator(unit, ">", this.PrecedenceOf(">"), this.IsRightAssocOf(">"), pos);
+return !this.Declined && !this.Held && !this.LayerEnded;
+```
+
+## private method TryInstantiationExpression:()=>bool
+
+```ts
+// R7-AST-4：`a<b>` 后面跟 `as` ⇒ tsc 建 `ExpressionWithTypeArguments[a, TypeReference b]`
+// （TS 4.7 的实例化表达式：`<` 后按类型实参读，`>` 的 follower 在
+//  `canFollowTypeArgumentsInExpression` 白名单里时**不**退化成调用/比较）。
+// 引擎没有前瞻，这里用「下一格是 as」这**一个 token** 的挂起位代替前瞻（与 ParamWait 同一手法）。
+// 保守边界（命中任一条就退回比较链，不静默错建）：
+//   - 栈顶必须是**已完成**的二元 frame，优先级 = `<`，且运算符只占 1 个字符（排除 `<=` / `<<`）；
+//   - 左操作数只允许引用形态（Identifier / 属性访问 / 下标）—— tsc 也是在
+//     `ParseLeftHandSideExpressionOrHigher` 之后才试类型实参，`a * b < c > as T` 因此不会误判；
+//   - 类型实参只认**单个裸 Identifier**（更复杂的类型实参保持旧路径，行为不变）。
+if (this.Frames.length === 0) {
+  return false;
+}
+const index = this.Frames.length - 1;
+if (this.FrameStages[index] !== DirectExpressionEngine.StageDone) {
+  return false;
+}
+const frame = this.Frames[index];
+if (!(frame instanceof BinaryExpressionShape)) {
+  return false;
+}
+if (this.FramePrecs[index] !== this.PrecedenceOf("<")) {
+  return false;
+}
+if (frame.Data.length !== 3) {
+  return false;
+}
+const open = frame.Data[1];
+if (open.SourceRange.StartIndex < 0 || open.SourceRange.EndIndex < 0) {
+  return false;
+}
+if (open.SourceRange.EndIndex - open.SourceRange.StartIndex !== 1) {
+  return false;
+}
+const name = frame.Data[0];
+if (!(name instanceof IdentifierShape) && !(name instanceof PropertyAccessExpressionShape)
+  && !(name instanceof ElementAccessExpressionShape)) {
+  return false;
+}
+const argument = frame.Data[2];
+if (!(argument instanceof IdentifierShape)) {
+  return false;
+}
+const parent = index === 0 ? this.Root : this.Frames[index - 1];
+if (parent === null || parent.Data.length === 0) {
+  return false;
+}
+if (parent.Data[parent.Data.length - 1] !== frame) {
+  return false;
+}
+const gtUnit = this.AngleWaitUnit;
+if (gtUnit === null) {
+  return false;
+}
+// 类型实参：`TypeReference[Identifier]`，与 `TypeBuilder.ParseTypeReference` 的裸实体名同形。
+const typeReference = new TypeReferenceShape(this.Template);
+typeReference.TypeName = argument;
+typeReference.Add(argument);
+typeReference.Pos = (argument as ShapeToken).Pos;
+if (argument.SourceRange.StartIndex >= 0) {
+  typeReference.SignIn(argument.SourceRange.StartIndex);
+}
+if (argument.SourceRange.EndIndex >= 0) {
+  typeReference.SignOut(argument.SourceRange.EndIndex);
+}
+typeReference.TryToClose(this.Context);
+// 实例化表达式：区间从**表达式**起、到 `>` 止（tsc `SpanNode(arrow, start, At - 1)` 同口）。
+const instantiation = ExpressionWithTypeArgumentsShape.FromParts(
+  name, [typeReference], gtUnit, (name as ShapeToken).Pos, this.Context);
+// `>` 关掉一层尖括号：与 `PushOperator` 里 `text === ">"` 的记账同一格口径。
+if (this.AngleDepth > 0) {
+  this.AngleDepth -= 1;
+  this.PrevAngleClose = gtUnit;
+}
+this.AngleWaitUnit = null;
+this.AngleWaitPos = -1;
+// 出栈那个 `<` frame，并用实例化表达式**顶替**它在父容器里的位置（它就是父容器的最后一个子节点）。
+this.Frames.pop();
+this.FramePrecs.pop();
+this.FrameStages.pop();
+this.FramePending.pop();
+const at = parent.Data.length - 1;
+parent.Data[at] = instantiation;
+instantiation.Parent = parent;
+instantiation.LastIndex = frame.LastIndex;
+if (parent.MountedUnit === frame) {
+  parent.MountedUnit = instantiation;
+}
+frame.Parent = null;
+this.Expect = DirectExpressionEngine.ExpectOperator;
+DirectBuildMetrics.Trace("instantiation-expr: <...> + " + DirectTokenUtil.TextOf(gtUnit));
+return true;
+```
+
 ## private method IngestAfterAsyncHead:(unit:Token, pos:int)=>void
 
 ```ts
@@ -2594,3 +2774,4 @@ shape.Pos = pos;
 shape.TryToClose(this.Context);
 return shape;
 ```
+
