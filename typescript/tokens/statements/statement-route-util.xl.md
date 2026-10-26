@@ -425,6 +425,22 @@ if (text === "let" || text === "const" || text === "var") {
   if (StatementScanner.StartsBinding(units, bindingAt)) {
     return StatementRoute.ShellVariable;
   }
+  // [A2-D4:CONST-ENUM] `const` + 同一行的 `enum` 是**枚举声明**，不是变量声明、也不是表达式语句
+  //（`enum` 是关键字而不是绑定，上面 `StartsBinding` 已经把它排除）。这一格必须判回声明族：
+  // 若落 `Legacy` / `ShellPlainExpression`，根表达式候选会与 `EnumDeclarationPossibleShape` 一起活到
+  // 枚举体 `}`，枚举壳永远等不到唯一候选，而 legacy 半程的 raw 枚举壳（`BuildByIndex` 的 legacy 分支
+  // 只挂壳、不挂终结目录）与增量半程的 `EnumDeclarationShape.BuildFromCode` 树不同 ⇒ 只能 divergent。
+  // 判回 `ShellDeclarationFamily` 之后：legacy 由声明壳在 EOF 用 `StatementBuilder.BuildEnumDeclaration`
+  // 建树，增量半程由枚举族候选提前挂壳（本 WP 的 `[A2-D4:CONST-ENUM]` 两处 Reject + `b3cOwns` 让位）。
+  // 判据与块体 5d-8a 的同一条（`const` + `NoLineBreakBetween` 的 `enum`）逐字同源，不新写关键字表。
+  if (text === "const") {
+    const enumAt = ItemUtil.NextCode(units, headAt + 1);
+    if (enumAt < units.length && units[enumAt] instanceof Common
+      && (units[enumAt] as Common).Is("enum")
+      && StatementScanner.NoLineBreakBetween(units[headAt], units[enumAt])) {
+      return StatementRoute.ShellDeclarationFamily;
+    }
+  }
   // [A2-D5:ROUTE] `let` / `const` / `var` 之后**不是绑定** ⇒ 这个词是标识符，本条是**表达式语句**
   // （`let = 1` / `let = 1;`）。原判 `Legacy` 会让根表达式候选在头格 `Reject`，整条只剩 legacy 原子建树。
   // 改判 `ShellPlainExpression`：根表达式候选在头格建 `StatementShape`，表达式体由 `StatementOperatorBody`
