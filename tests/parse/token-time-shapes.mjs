@@ -13,7 +13,7 @@
 //
 // 增量模式（WP-A 契约 C4，见 _coord/CONTRACT-tts-incremental.md）：
 //   node tests/parse/token-time-shapes.mjs <file.ts> --diff --incremental
-//   打开 StatementRouteUtil.EnableIncrementalVariableShapes（默认 false）后再解析；
+//   打开 StatementRouteUtil.EnableIncrementalVariableShapes（默认 true；--legacy 显式关掉）后再解析；
 //   开关字段名可用环境变量 TTS_MODE_FIELD 覆盖。字段不存在时 stderr 一行提示并继续 legacy。
 //
 // legacy 语料基线（WP-E 用它证明默认模式零回归）：
