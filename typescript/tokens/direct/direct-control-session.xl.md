@@ -508,23 +508,21 @@ if (this.IsOpenBrace(code[at])) {
   thenStatement = thenBlock;
   at = at + 1;
 } else {
-  // 单语句体（B1-2）：扫到本条语句自己的 `;`（含）或 `else`（不含）。
-  let end = at;
-  while (end < toExclusive) {
-    if (end > at && this.IsText(code[end], "else")) {
-      break;
-    }
-    if (this.IsSymbolText(code[end], ";")) {
-      end = end + 1;
-      break;
-    }
-    end = end + 1;
+  // 单语句体（B1-2）：**先算这条语句自己的结束位置**再切片。
+  // **R8：悬垂 `else` 归最近的那个没配对的 `if`**（`StatementExtent` / `IfExtent` 的递归就是这条规则）；
+  // 以前这里「扫到本条自己的 `;` 或 `else` 为止」，于是 `if (a) if (b) c; else d;` 的体只切到 `c;`，
+  // 那个 `else` 被外层 if 吃掉 ⇒ 内层 IfStatement 少了 else、End 停在 16（ts 是 24），
+  // `if (a) if (b) if (c) x(); else y; else z;` 更是整条 `else y` 丢成表达式语句。
+  const thenEnd = this.StatementExtent(code, at, toExclusive);
+  if (thenEnd <= at) {
+    this.Decline("if 的单语句体为空", "stmt.shape");
+    return null;
   }
-  thenStatement = this.BuildRange(code, codeAt, at, end);
+  thenStatement = this.BuildRange(code, codeAt, at, thenEnd);
   if (thenStatement === null) {
     return null;
   }
-  at = end;
+  at = thenEnd;
 }
 const shape = new IfStatementShape(this.Template);
 shape.Add(condition);
@@ -535,11 +533,17 @@ if (at < toExclusive && this.IsText(code[at], "else")) {
     this.Decline("else 后面缺少语句", "stmt.shape");
     return null;
   }
-  const elseStatement = this.BuildRange(code, codeAt, at, toExclusive);
+  const elseEnd = this.StatementExtent(code, at, toExclusive);
+  if (elseEnd <= at) {
+    this.Decline("else 的单语句体为空", "stmt.shape");
+    return null;
+  }
+  const elseStatement = this.BuildRange(code, codeAt, at, elseEnd);
   if (elseStatement === null) {
     return null;
   }
   shape.Add(elseStatement);
+  at = elseEnd;
 } else if (at < toExclusive) {
   this.Decline("if 语句尾部有多余单元 idx=" + String(codeAt[at]), "stmt.shape");
   return null;
@@ -547,6 +551,56 @@ if (at < toExclusive && this.IsText(code[at], "else")) {
 DirectStatementAssembly.Span(shape, code[from], code[toExclusive - 1],
   DirectStatementAssembly.PositionAt(this.Units, codeAt, from, this.BasePos), this.Context);
 return shape;
+```
+
+## method StatementExtent:(code:Array<Token>, from:int, toExclusive:int)=>int
+
+```ts
+// 一条语句在**代码下标**上的结束（不含），悬垂 `else` 的归属由这里的 `if` 递归决定：
+// 体是块 ⇒ 一个括号单元就完；体是 `if` ⇒ 交给 `IfExtent`（它会把属于内层的 `else` 链一起吃掉）；
+// 其余 ⇒ 扫到本条自己的 `;`（含）或下一个 `else`（不含）。
+// 返回 `from` 表示这里没有语句（调用方 Decline）。
+if (from >= toExclusive) {
+  return from;
+}
+if (this.IsOpenBrace(code[from])) {
+  return from + 1;
+}
+if (this.IsText(code[from], "if")) {
+  return this.IfExtent(code, from, toExclusive);
+}
+let end = from;
+while (end < toExclusive) {
+  if (end > from && this.IsText(code[end], "else")) {
+    return end;
+  }
+  if (this.IsSymbolText(code[end], ";")) {
+    return end + 1;
+  }
+  end = end + 1;
+}
+return end;
+```
+
+## method IfExtent:(code:Array<Token>, from:int, toExclusive:int)=>int
+
+```ts
+// 一条 `if` 语句的结束（不含），含它自己该带走的 `else` 链 —— 递归就是 TS 的悬垂 `else` 规则：
+// `else` 归最近的那个还没配对的 `if`，所以 `if (a) if (b) c; else d;` 的 `else` 属于内层。
+if (from + 2 > toExclusive) {
+  return from;
+}
+if (!this.IsOpenParen(code[from + 1])) {
+  return from;
+}
+let at = this.StatementExtent(code, from + 2, toExclusive);
+if (at < toExclusive && this.IsText(code[at], "else")) {
+  if (at + 1 >= toExclusive) {
+    return at;
+  }
+  at = this.StatementExtent(code, at + 1, toExclusive);
+}
+return at;
 ```
 
 ## method BuildWhile:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int)=>Token | null
