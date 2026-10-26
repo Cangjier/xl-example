@@ -14,7 +14,7 @@ import { Common } from "./common.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
 括号单元：`( )` / `{ }` / `[ ]` 三对括号共用这一个类，靠 `StartBracketChar` / `EndBracketChar` 两个字段区分。它只认「配对的结束括号」这一个字符——括号里的内容全靠挂载的子单元自己啃。
 
@@ -39,6 +39,8 @@ throw new Error("abstract: OnChildBracketCreated");
 它同时**也是一个宿主**（与 `Shape` 同款）：`UnitToken` 已经给了 `CatalogGuide`（默认 `null`）和 `IComputePossibleShapes`，所以括号里的 basic token 关闭时问到的就是括号自己的目录向导。默认 `null` 表示括号里不判候选；谁需要判，就在括号建出来之后给它挂上——接口体就是这么做的：`InterfaceDeclarationShape` 在自己的括号创建事件里认出接口体，再把接口体目录向导装到这个括号上。
 
 括号自己的关闭仍然只问父单元，不因为自己挂了向导就改成问自己。
+
+输出也不覆写：括号自己只是 `Data` 的宿主，子单元由基类 `Token.ToAstLine` 串成树；`StartBracketChar` / `EndBracketChar` 是解析用的字段，不印进行文本。
 
 ## field IsBasicToken:bool = true
 
@@ -161,19 +163,6 @@ if (this.CatalogGuide !== null && this.CatalogGuide.EndPossible !== null
   && bracket instanceof Bracket && (bracket as Bracket).StartBracketChar === "{") {
   this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
 }
-```
-
-## method ToXmlString:()=>string
-
-产出 XML：标签名是运行时类型名，开标签上带 `StartBracketChar` / `EndBracketChar` 两个属性，内容是子单元的 XML 串接（子单元已经是 XML 串，这里只做拼接，不做转义）。
-
-```ts
-const name = this.constructor.name;
-const temp: string[] = [];
-for (const item of this.Data) {
-  temp.push(item.ToXmlString());
-}
-return `<${name} StartBracketChar="${this.StartBracketChar}" EndBracketChar="${this.EndBracketChar}">${temp.join("")}</${name}>`;
 ```
 
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates

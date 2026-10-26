@@ -13,7 +13,7 @@ import { UnitToken } from "../unit-token.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
 正则字面量 `/pattern/flags`：前一个 `/` 已经作为符号落在树上时，从第二个 `/` 开始把整段正则收成一个单元——正文进 `Temp`，结尾 `/` 之后的 flags 进 `Flags`。
 
@@ -27,7 +27,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元值类型是单字符的 `string`。
 
-没有覆写 `ToXmlString`，XML 由 `Token.ToXmlString` 产出（子单元串接）：正则单元没有子单元，落地是一个空标签。数据出口是 `ToText`。
+没有子单元，所以整棵子树只有一行；数据出口是 `ToText`，`AstText` 也返回它（`text="/pattern/flags"`）。
 
 ## field IsBasicToken:bool = true
 
@@ -90,6 +90,14 @@ return CloseStates.Nothing;
 
 ```ts
 return "/" + this.Temp + "/" + this.Flags;
+```
+
+## method AstText:()=>string
+
+行文本里的 `text` 就是整段字面量原文，与 `ToText` 同口径。
+
+```ts
+return this.ToText();
 ```
 
 ## method Consume:(context:SyntaxContext, buffer:SourceRange, index:int)=>BranchStates
