@@ -10,6 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { CompositeInitializerJudge } from "../expressions/forms/primary/composite-initializer-judge.xl.md"
 import { CompositeInitializerFormsJudge } from "../expressions/forms/primary/composite-initializer-forms-judge.xl.md"
 import { CompositeInitializerTailJudge } from "../expressions/forms/primary/composite-initializer-tail-judge.xl.md"
+import { ExpressionContinuationCatalog } from "../expressions/expression-continuation-catalog.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -45,6 +46,13 @@ if (current.IsTriviaToken) {
 }
 if (current instanceof Symbol) {
   const text = (current as Symbol).TempToString();
+  // [D0:CONTINUATION] 任何已注册形态认领这一格 ⇒ 继续等，不再逐形态手写白名单。
+  // 这是「初始化器位置上的未知 token 交给表达式目录」的唯一通用入口（`ExpressionContinuationCatalog`）；
+  // 认领 = `PossibleShape.ContinuationClaim` 为真，语义是「继续等」，不是「支持」。
+  // 没认领 ⇒ 逐字落到下面的既有分支 / 最终 throw（C10 不变）。
+  if (ExpressionContinuationCatalog.Claims(units, tokenIndex)) {
+    return ShapeStates.Reject;
+  }
   // `=`：等初始化值。
   if (text === "=") {
     return ShapeStates.Reject;
@@ -83,6 +91,11 @@ if (current instanceof Common) {
   return ShapeStates.Reject;
 }
 if (current instanceof Bracket) {
+  // [D0:CONTINUATION] 与 `Symbol` 分支同一条通用委派：已注册形态认领这一格 ⇒ 继续等。
+  // 认领之前 `(` / `[` 只能靠逐形态手写分支放行，新形态每加一个就要来改这里一行。
+  if (ExpressionContinuationCatalog.Claims(units, tokenIndex)) {
+    return ShapeStates.Reject;
+  }
   // [A5c] 类型实参调用的调用括号：`f<string>(…)` 的 `(` 括号由 A5 的类型面整体接管
   //（`VariableDeclarationShape.ComputePossibleShapes` → TypeMode → `TypeCatalogFactory.ParseInitializer`），
   // 这里只等（Reject），不再按 C10 抛「declaration 括号」。

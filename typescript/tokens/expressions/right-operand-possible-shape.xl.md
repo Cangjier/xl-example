@@ -85,6 +85,22 @@ if (RightOperandPossibleShape.IsIdentifierText((unit as Common).TempToString()))
 return ShapeStates.Reject;
 ```
 
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+当前格是 **trivia（空白 / 注释）时不建**。
+
+`let x = 1 + /* c */ 2`：注释单元先于 `2` 流进二元宿主，`ComputeByIndex` 对 trivia 只能保持 `Uncertain`
+（不能 `Reject`，E0b 实测约束 1：本条目内被拒就再也不回来）。`IsBuildable` 若是基类默认的 `true`，
+目录就会在**注释那一格**建，`BuildByIndex` 拿到的单元不是 `Common` ⇒ 直接抛「expression 右操作数」
+（`throw/lexical/comment-block-after-operator` 的成因）。注释格只等，`2` 到达那一格再建。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+return !units[tokenIndex].IsTriviaToken;
+```
+
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 建 `NumericLiteralShape` 原位换掉那个 `Common`，然后**同一判定内**封口 + 卸载宿主。
@@ -93,20 +109,33 @@ return ShapeStates.Reject;
 不静默产出错误的树。
 
 ```ts
-const token = host.Data[tokenIndex];
+// [D0] 定位要建的那一格：trivia（空白 / 注释）跳过走 `ItemUtil.NextCode`（与其它候选同一份工具，
+// 不在这里另写扫描）。正常情况 codeIndex === tokenIndex；只有目录在注释格被问到才会前移。
+let codeIndex = ItemUtil.NextCode(host.Data, tokenIndex);
+if (codeIndex < 0 || codeIndex >= host.Data.length) {
+  throw new Error("增量变量形状未支持：expression 右操作数");
+}
+// [D0] 运算符与右操作数之间的 trivia（`1 + /* c */ 2` 的注释）留在宿主里会变成增量树多出来的 basic 行
+// （legacy 的 `BinaryExpressionShape` 不保留它们，`residualBasicLines` 会 +N）。建之前从宿主摘掉：
+// 与 legacy 同树，且 `Pos` 仍取「前一个非 trivia 代码单元」的终点（C1）。
+while (codeIndex > 0 && host.Data[codeIndex - 1].IsTriviaToken) {
+  host.Data.splice(codeIndex - 1, 1);
+  codeIndex -= 1;
+}
+const token = host.Data[codeIndex];
 if (!(token instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 右操作数");
 }
 let shape: Token;
 if ((token as Common).IsNumber()) {
-  shape = NumericLiteralPossibleShape.BuildLiteral(token as Common, host, tokenIndex, context);
+  shape = NumericLiteralPossibleShape.BuildLiteral(token as Common, host, codeIndex, context);
 } else {
   // WP-A2：右操作数是标识符（`a / b` 的 `b`、`a instanceof B` 的 `B`）。
   if (!RightOperandPossibleShape.IsIdentifierText((token as Common).TempToString())) {
     throw new Error("增量变量形状未支持：expression 右操作数正文 " + token.TempToString());
   }
   const identifier = IdentifierShape.FromBasicToken(token as Common, context);
-  identifier.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, tokenIndex);
+  identifier.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, codeIndex);
   (token as Common).Replace(identifier);
   shape = identifier;
 }

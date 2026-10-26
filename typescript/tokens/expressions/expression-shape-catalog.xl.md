@@ -88,6 +88,25 @@ for (const shape of operators) {
 return shapes;
 ```
 
+## static method CreateRightOperand:()=>Array<PossibleShape>
+
+**二元表达式右操作数**候选目录（WP-D0）：与 `CreateStatement` 同构——`CreatePrimary()` 的原子 +
+`CreateOperators()` 的运算符 / 片段（注册区因此仍只调用一次）。
+
+它服务 `BinaryExpressionShape` 挂的右操作数目录（`RightOperandPossibleShape.Catalog()`）：右操作数位置上
+也可以长出「前缀一元 / 括号 / 调用 / `new` / 成员链」这些形态，而它们都已经在 `[E-CAT:FRAGMENTS]` 里注册过，
+不需要第二份列表。**本方法不 `AppendFragments`**（否则同一个候选在同一目录里出现两遍，`Candidates` 两个
+下标、永远等不到唯一候选——`CreateOperators` 已经调过一次）。
+
+```ts
+const shapes = ExpressionShapeCatalog.CreatePrimary();
+const operators = ExpressionShapeCatalog.CreateOperators();
+for (const shape of operators) {
+  shapes.push(shape);
+}
+return shapes;
+```
+
 ## static method CreateDeclarationInitializer:()=>Array<PossibleShape>
 
 **声明初始化器**候选目录（WP-E0b 用）：与语句目录同一份装配（原子 + 运算符 / 片段）。
