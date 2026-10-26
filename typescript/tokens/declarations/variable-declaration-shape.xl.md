@@ -110,7 +110,7 @@ if (this.Incremental && !this.Closed) {
       //（与终结候选同一份判据），所以 `Candidates` 必然为空，不会触发
       // `CatalogGuide` 的「终结候选与其它候选同时成立」断言。
       // 判据只有一份（`CanFinishTypedDeclaration`），本文件不新写 ASI / 边界词法。
-      if (VariableDeclarationShape.CanFinishTypedDeclaration(this.Data)) {
+      if (VariableDeclarationShape.CanFinishTypedDeclaration(this.Data, this.AnnotationDone || this.InitializerDone)) {
         return super.ComputePossibleShapes(context);
       }
       return ComputePossibleShapesStates.Waiting;
@@ -120,12 +120,16 @@ if (this.Incremental && !this.Closed) {
 return super.ComputePossibleShapes(context);
 ```
 
-## static method CanFinishTypedDeclaration:(data:Array<Token>)=>bool
+## static method CanFinishTypedDeclaration:(data:Array<Token>, bodyDone:bool)=>bool
 
 [S2:CLOSE-TYPED] 类型面（`TypeMode`）的声明**是否正处在一个收口格**上——也就是「本形状的末单元
 已经可以被 `VariableDeclarationListEndPossibleShape` 判成声明结束」：
 
 - 末单元是 `Symbol(";")`：语句分号，`VariableDeclarationListEndPossibleShape` 的 `;` 分支本来就认它；
+- 末单元是 `Symbol(",")` **且本条声明的体已经长完**（`bodyDone` = 注解 / 带类型初始化器已落地）：
+  多声明的列表分隔符（[D2:MULTI-DECL]）。`bodyDone` 是必需的：`Record<string, number>` 里的逗号
+  在注解落地前也停在 `Data` 里，无条件放行会让列表层在类型实参表内部 `OpenNext`（实测
+  `expr-satisfies-object` / `type-op-satisfies` 三条直接崩在 `泛型实参缺少 >`）；
 - 末单元是下一条语句的首代码单元（`DeclarationAsiBoundary.CanClose`）：换行 ASI，声明在此收口，
   该单元**不消费**（由 `CloseAtAsiBoundary` 交回父单元重放）；
 - 末单元是最后一格代码单元、且下一行起一个不续接的单词（`DeclarationAsiBoundary.CanCloseAtLineBreak`）。
@@ -142,7 +146,15 @@ if (last.IsTriviaToken) {
   return false;
 }
 if (last instanceof Symbol) {
-  return (last as Symbol).TempToString() === ";";
+  const lastText = (last as Symbol).TempToString();
+  // [D2:MULTI-DECL] `,` 是**列表层**的收口格（`VariableDeclarationListEndPossibleShape` 在 `,` 上
+  // `Accept` → `OpenNext` 重开下一条声明）。旧实现只放行 `;`，TypeMode 于是把 `,` 也当成「还没长完」
+  // 而一直 `Waiting`：整条 `declare const a: T, b: U;` 的多声明全被并进**第一条**声明的 `Data`，
+  // 到 `;` 收口时 `CloseAtSemicolon` 只能按段切出裸 `:` / 类型单元，`BuildNext` 不再走 TypeMode
+  // ⇒ 第二条声明的 `:` / 类型原样留在 `Data` 里。非 `declare` 抛 `declaration :`；`declare` 变体
+  // 外层语句壳活到 EOF ⇒ `CatalogGuide: 终结候选与其它候选同时成立（宿主 SourceFileShape）`。
+  // 判据只放行列表层真正认的两格，`!` / `}` 仍按既有分支（`BuildDefinite` / 块体边界）处理。
+  return lastText === ";" || (lastText === "," && bodyDone);
 }
 return DeclarationAsiBoundary.CanCloseAtLineBreak(data, data.length - 1)
   || DeclarationAsiBoundary.CanClose(data, data.length - 1, false);

@@ -127,8 +127,29 @@ if (!StatementBoundaryUtil.CanEndDeclarationTail(units, tokenIndex)) {
   // [A2-D2:BLOCK-HOST] 块体宿主上的一个例外：初始化器**已经建出形状根**（`b.c` / `super.m` / `f()` / `1`）
   // 时，尾判据对非 basic 形状单元答 `false`（`CanEndExpressionAt` 只认 basic 单元的表达式尾）。
   // 这时「根是非 basic 形状」本身就是「初始化器已长完」的证据——与 `FinishIncremental` 的
-  // `builtShape !== null` 同一条口径。只在块体宿主的边界格上生效，root 的行尾 ASI 判据一个字都不改。
-  if (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex) || current.IsBasicToken) {
+  // `builtShape !== null` 同一条口径。这一句原本只覆盖块体宿主；root 上的同类证据由下面的
+  // `[D2:TYPED-TAIL]` 补齐（同一个「已建形状 = 已长完」口径，边界来源从宿主 `}` 换成行尾 ASI）。
+  //
+  // [D2:TYPED-TAIL] **root 上的同一条证据**：带类型注解的声明在类型节点落地之后，`Data` 的末单元就是
+  // 那个已建形状（`AnyKeywordShape` / `TypeReferenceShape` …），`CanEndDeclarationTail` 同样答 `false`。
+  // 于是 `declare const s: unique symbol` ⏎ `type A = this` 永远不收口：声明把下一条语句吞进 `Data`，
+  // 外层 `declare` 语句壳活到 EOF，与根终结候选同格 ⇒ `CatalogGuide: 终结候选与其它候选同时成立
+  // （宿主 SourceFileShape）`（D2 的 41 条里有 11 条正是这条链）。
+  // 「已建形状 + 字符流证明下一行起一条不续接的语句」= 类型 / 初始化器已经长完，与块体那一支同一口径，
+  // 只是把边界来源从「宿主 `}`」换成「行尾 ASI」。判据仍是本类唯一一份（`StartsNewStatementLine`）。
+  //
+  // **只对带类型注解的声明生效**（`HasAnnotationShape`：`=` 之前已有注解形状）：普通初始化器的形状根
+  // 在下一格由 `CanClose`（`CloseAtAsiBoundary`）收口，行为一个字都不改；放给它们会把「形状落地的那一拍」
+  // 提前成收口拍，`undici-types/index.d.ts` 一类没换行的 d.ts 会因此掉节点（D2 实测 structural=14）。
+  // **类型节点以闭括号收尾时也不走这一支**（`EndsWithClosingBracket`）：`declare const c: { … }` /
+  // `: (A) => B` / `: T[]` 的右括号 / 右方括号之后紧跟下一条语句时，早收口会把下一条语句（尤其
+  // `export { … }` 这种带括号的）并进声明里（D2 实测 `undici-types/index.d.ts` 少一条 export）。
+  // 那一类仍走原来的「下一格 / 兜底」路径。
+  const shapeTail = !current.IsBasicToken
+    && DeclarationAsiBoundary.HasAnnotationShape(units)
+    && !DeclarationAsiBoundary.EndsWithClosingBracket(current)
+    && DeclarationAsiBoundary.StartsNewStatementLine(current);
+  if (!shapeTail && (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex) || current.IsBasicToken)) {
     return false;
   }
 }
@@ -293,8 +314,10 @@ return -1;
 
 - 跳过空白；必须遇到行终止符（否则同一行后面还有代码，不是 ASI 边界）；
 - EOF ⇒ `false`（EOF 收口由外层 `TryToClose` 负责，不抢那一拍）；
+- **注释不算「显著字符」**：下一行以 `//` / `/*` 开头时跳过注释（含它自己的行终止符）继续找，
+  与 `NextCodeChar` / `InitializerTailJudge` 的前瞻同一套字符口径（[D2:COMMENT]，见下）；
 - 首个显著字符不是标识符起头（字母 / `_` / `$`）⇒ `false`
-  （`+` / `(` / `[` / `.` / 模板 / 数字 / 注释…都可能续接，一律留给下一格的原判据）；
+  （`+` / `(` / `[` / `.` / 模板 / 数字 / 运算符…都可能续接，一律留给下一格的原判据）；
 - 读出整个单词，命中续接词闭集 ⇒ `false`。
 
 ```ts
@@ -320,6 +343,31 @@ while (at < count) {
     at += 1;
     continue;
   }
+  // [D2:COMMENT] 下一行的第一个显著字符是注释：注释不是语句起点，跳过它（以及它自己的行终止符）
+  // 再继续找。`declare const s: unique symbol` ⏎ `// c` ⏎ `type A = this` 就是死在这一格——
+  // 不跳注释 ⇒ 判不出「下一行起新语句」⇒ 带类型注解的声明吞掉下一条语句，到 EOF 变成根层双 Accept。
+  // 字符口径与 `NextCodeChar` 同源（跳过 `//` 到行尾、跳过 `/* … */`）。
+  if (ch === "/" && at + 1 < count) {
+    const next = document.GetRaw(at + 1, at + 2);
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.GetRaw(at, at + 1) !== "\n") {
+        at += 1;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count) {
+        if (document.GetRaw(at, at + 1) === "*" && document.GetRaw(at + 1, at + 2) === "/") {
+          at += 2;
+          break;
+        }
+        at += 1;
+      }
+      continue;
+    }
+  }
   break;
 }
 if (!crossedLineBreak || at >= count) {
@@ -342,6 +390,56 @@ while (scan < count) {
   scan += 1;
 }
 return !DeclarationAsiBoundary.ContinuationWords.includes(word);
+```
+
+## static method HasAnnotationShape:(units:Array<Token>)=>bool
+
+本条声明的 `=` **之前**是否已经有一个**已建形状**（`const x: T` 的注解节点、`let x!: T` 的定值
+`!` 之后的注解节点）。只看第一个 `=` 之前，且跳过第一个代码单元（绑定本身）：
+`=` 之后的形状是初始化器根，不属于注解。
+
+**为什么不用 `HasAnnotationColon`**：注解落地之后 `Data` = `[IdentifierShape, TypeNode]`，那个 `:`
+已经被 `TryBuildAnnotation` 消费掉——按「有没有 `:`」判会漏掉所有已经落地的注解（D2 实测会把
+`declare const s: unique symbol` 一类重新打回 SourceFileShape 双 Accept）。按「`=` 之前有第二个
+非 basic 形状」判，落地前后都成立。
+
+只用于 [D2:TYPED-TAIL] 的分流（带注解的声明允许「已建形状 + 行尾」提前收口），不参与任何建树。
+
+```ts
+let code = 0;
+for (let at = 0; at < units.length; at++) {
+  if (units[at].IsTriviaToken) {
+    continue;
+  }
+  if (units[at] instanceof Symbol && (units[at] as Symbol).Is("=")) {
+    return false;
+  }
+  code += 1;
+  if (code >= 2 && !units[at].IsBasicToken) {
+    return true;
+  }
+}
+return false;
+```
+
+## static method EndsWithClosingBracket:(unit:Token)=>bool
+
+`unit` 的源码区间最后一个字符是不是 `}` / `)` / `]`（类型字面量 / 函数类型 / 数组 / 元组收尾）。
+[D2:TYPED-TAIL] 的分流用：这类类型节点之后早收口会把下一条语句并进声明，所以不早收。
+
+拿不到文档时返回 `true`（保守：不早收，交下一格）。
+
+```ts
+const document = SourceRange.CurrentDocument;
+if (document === null) {
+  return true;
+}
+const end = unit.SourceRange.EndIndex;
+if (end <= 0) {
+  return true;
+}
+const last = document.GetRaw(end - 1, end);
+return last === "}" || last === ")" || last === "]";
 ```
 
 ## static method HasClosableShape:(units:Array<Token>, tokenIndex:int)=>bool
