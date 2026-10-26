@@ -4,6 +4,7 @@ import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
@@ -19,6 +20,7 @@ import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementLegacyMetrics } from "./statement-legacy-metrics.xl.md"
 import { StatementOperatorBody } from "./statement-operator-body.xl.md"
+import { StatementShapeAst } from "./statement-shape-ast.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { VariableStatementThreeLayer } from "./variable-statement-three-layer.xl.md"
@@ -46,6 +48,10 @@ let b = 2
 
 ## field DirectSession:DirectSession | null = null
 
+## field IncrementalMounted:Token | null = null
+
+## field IncrementalRaw:Array<Token> = []
+
 ## static field BodyKindBlock:int = 1
 
 ## static field BodyKindObjectLiteral:int = 2
@@ -59,6 +65,16 @@ super(template);
 ## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
 
 ```ts
+// [E-SHAPE:MOUNT] WP-B2：`EnableIncrementalShapes=true` 时，表达式体（`OperatorBody`）归约出的形状要
+// **物化并挂进壳的可见 `Data`**——否则形状只活在体的 `Frames` 里，`ToAstLine` 看不到，账本永远判 `atomic`。
+// 做法（与 PLAN §1.3 等价的实现）：每一步先把上一格挂上去的形状**卸回原始单元**（让壳的 `CatalogGuide`
+// / 终结候选 / 收口路径看到的始终是 raw `Data`，行为与 legacy 逐字节一致），喂完表达式体、跑完既有候选
+// 计算之后，若体已经归约到「完整表达式」，就用 S3c 的同一个形状→AST 桥（`StatementShapeAst.Build`）
+// 把当前前缀物化成 AST 形状并原地挂进 `Data`。于是账本在**归约发生的那一格**就看到最终树里的节点。
+// 开关 false 时本段不执行（逐字节 legacy）。
+if (StatementRouteUtil.IsIncrementalShapesEnabled() && this.OperatorBody !== null) {
+  this.UnpackIncremental();
+}
 // H1（CONTRACT §4.1）：直建的唯一喂入点——子单元关闭事件先喂 session，再走既有候选计算。
 // 不改返回值、不建形状、不碰 CatalogGuide；`DirectSession === null` 时本句是空操作。
 // **R3-S（R3-CONTRACT §4.4）**：`--strict` 时 `Decline` / `Incomplete` **在 Ingest 期**就会抛
@@ -89,13 +105,185 @@ if (this.DirectSession !== null) {
 if (this.OperatorBody !== null) {
   this.OperatorBody.IngestAll(this.Data, this.Template);
 }
-return super.ComputePossibleShapes(context);
+const state = super.ComputePossibleShapes(context);
+// 候选计算（含终结候选收口）之后才挂：壳若已在本格收口，`FinishShell` 已把壳换出、`Data` 已清空，
+// 下面的存活判据会把它挡掉——收口路径永远只看 raw `Data`。
+this.TryMountIncremental(context);
+return state;
+```
+
+## method UnpackIncremental:()=>void
+
+```ts
+// 把上一格挂上去的物化形状**卸回原始单元**。壳的 `Data` 在增量模式下有两种态：
+//   * 未挂载：`Data` 就是 raw 单元序列（与 legacy 同一个数组对象、同一批 Token）；
+//   * 已挂载：`Data = [挂载形状, ...挂载之后新流入的 raw 单元]`，被形状覆盖的 raw 单元保存在
+//     `IncrementalRaw` 里（**同一批 Token 对象、同一个顺序**）。
+// 卸回时必须把挂载之后的尾巴先并回 `IncrementalRaw`，再把 `Data` 原地还原成 raw 序列——数组对象不换，
+// `OperatorBody.Ingested` 的下标语义才继续有效（`IngestAll` 只从 `Ingested` 往后追加）。
+const mounted = this.IncrementalMounted;
+if (mounted === null) {
+  return;
+}
+const raw = this.IncrementalRaw;
+const at = this.Data.indexOf(mounted);
+if (at >= 0) {
+  for (let index = at + 1; index < this.Data.length; index++) {
+    raw.push(this.Data[index]);
+  }
+} else {
+  // 挂载形状被别的路径摘掉了（防御）：把当前 `Data` 里除它以外的单元并回去。
+  for (const unit of this.Data) {
+    if (unit !== mounted) {
+      raw.push(unit);
+    }
+  }
+}
+this.IncrementalMounted = null;
+this.Data.length = 0;
+for (const unit of raw) {
+  this.Data.push(unit);
+}
+this.IncrementalRaw = [];
+```
+
+## method TryMountIncremental:(context:SyntaxContext)=>void
+
+```ts
+// 表达式体已归约到一个**完整**表达式时，把当前前缀物化成 AST 形状挂进壳的 `Data`（PLAN §1.3 的「形状
+// 物化 + 挂载」）。物化用的是收口路径的**同一个**桥 `StatementShapeAst.Build`，所以挂出来的节点类名 /
+// `Pos` / 层级与 EOF 树逐节点一致，账本按 `(类名, pos)` 能对上；EOF 收口前会先 `UnpackIncremental`
+// 卸回 raw，走的仍是既有 S3c 路径，最终树不受影响。
+// 建不出来（未覆盖 / 不完整 / 桥拒绝）就**不挂**：本格照旧显示 raw 单元，绝不假装增量。
+if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return;
+}
+if (this.Kind !== StatementRoute.ShellPlainExpression) {
+  return;
+}
+if (this.IncrementalMounted !== null) {
+  return;
+}
+const body = this.OperatorBody;
+if (body === null) {
+  return;
+}
+// 壳必须还活着（本格没有收口 / 拆壳）：`FinishShell` 换出后壳不在父单元里、`DetachShell` 后 `Parent`
+// 为 null；这两种情况下都不得再挂，否则会往一个已死形状里塞单元。
+if (this.Parent === null || this.Data.length === 0) {
+  return;
+}
+if (this.Parent.Data.indexOf(this) < 0) {
+  return;
+}
+let built:Token | null = null;
+// 物化单元 = 「表达式单元」：壳里可能已经收着终结符 `;`（`"s";` / `/re/g;` 这类字面量在 `;` 那一格
+// 才关闭），桥会因「形状树没覆盖整段表达式单元」拒绝。把尾随的 `;` 与 trivia 从**参与覆盖核对的那份
+// 单元**里去掉即可；壳真实的 raw 序列（`IncrementalRaw`）仍然包含它们，收口时原样还原。
+let unitEnd = this.Data.length - 1;
+while (unitEnd >= 0 && this.Data[unitEnd].IsTriviaToken) {
+  unitEnd--;
+}
+if (unitEnd >= 0 && this.Data[unitEnd] instanceof Symbol && (this.Data[unitEnd] as Symbol).Is(";")) {
+  unitEnd--;
+}
+if (unitEnd < 0) {
+  return;
+}
+const units:Array<Token> = this.Data.slice(0, unitEnd + 1);
+if (!body.Incomplete && body.IsComplete() && body.Root !== null && body.Root.Data.length === 1
+  && body.Expect !== StatementOperatorBody.ExpectTypeTail && body.TypeTailUnits === 0) {
+  // `as` / `satisfies` 的类型尾部（`ExpectTypeTail`）归 Phase A / 类型目录（A5 / B4b-*），本 WP 不接管：
+  // 那些形态在 legacy 里同样是语句收口时一次建完，物化会让它们提前变绿、跨 WP 的 case 布局漂移。
+  try {
+    built = StatementShapeAst.Build(body, units, this.Pos, this.Template, context);
+  } catch {
+    built = null;
+  }
+}
+if (built === null) {
+  // **影子体**：壳的 `ComputePossibleShapes` 只在「上一个单元关闭」时被调用，`Data` 末尾常常还躺着
+  // 尚未喂给主状态机的新单元（`a.b` 的 `b`、`a[b]` 的 `]` 之后那格）。用同一个状态机在**当前全量
+  // raw 单元**上重放一遍，就能在本格判断「这已经是一个完整表达式」并把形状提前物化出来。影子体只读
+  // raw 单元、只写自己的 Frames，不碰主状态机（`Ingested` / `Units` / `Root` 全不动）。
+  const shadow = new StatementOperatorBody(this.Template);
+  try {
+    shadow.IngestAll(this.Data, this.Template);
+    shadow.Finish();
+  } catch {
+    return;
+  }
+  if (shadow.Incomplete || !shadow.IsComplete() || shadow.Root === null || shadow.Root.Data.length !== 1
+    || shadow.Expect === StatementOperatorBody.ExpectTypeTail || shadow.TypeTailUnits > 0) {
+    return;
+  }
+  try {
+    built = StatementShapeAst.Build(shadow, units, this.Pos, this.Template, context);
+  } catch {
+    built = null;
+  }
+}
+if (built === null) {
+  return;
+}
+this.IncrementalRaw = this.Data.slice();
+this.IncrementalMounted = built;
+this.Data.length = 0;
+this.Add(built);
+```
+
+## method PrimeIncremental:(context:SyntaxContext)=>void
+
+```ts
+// 壳刚建好（`RootExpressionStatementPossibleShape.BuildByIndex`）时喂一次表达式体并尝试物化。
+// 为什么需要：壳的 `ComputePossibleShapes` 由「上一个单元关闭」触发，首格之后往往要等下一格才跑；
+// 而像 `f()` / `[...a]` 这种**首格就是一个完整括号单元**的形态，壳建出来那一刻表达式体其实已经是
+// 完整表达式，等到下一次 `ComputePossibleShapes` 就已经和收口撞在同一格了。这里只做「喂 + 挂」，
+// **不跑终结候选**（不调 `super.ComputePossibleShapes`），所以收口时机与 legacy 逐字节一致；
+// 开关 false 时整段不执行。
+if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return;
+}
+if (this.Kind !== StatementRoute.ShellPlainExpression) {
+  return;
+}
+if (this.IncrementalMounted !== null) {
+  return;
+}
+this.UnpackIncremental();
+if (this.OperatorBody !== null) {
+  this.OperatorBody.IngestAll(this.Data, this.Template);
+}
+this.TryMountIncremental(context);
+```
+
+## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
+
+```ts
+// [E-SHAPE:MOUNT] 逐字符驱动从根单元把窗口交给**挂载单元**（`UnitToken.Process` → `MountedUnit.Process`），
+// 语句壳就是其中一层。`super.Process` 里每次 `Transit` 都会把新单元 `Add` 进 `Data`，但新单元的
+// `Close`（也就是父单元的 `ComputePossibleShapes`）要等到**下一格**；而 `a.b` / `-a` 这类形态的最后一格
+// 恰好就是「表达式完成」和「语句收口」同一格。所以在本窗口处理完之后再尝试一次物化：新单元已经在
+// `Data` 里，影子体能看见它，形状因此能提前一格出现在可见树上。
+// 收口路径不受影响：`TryMountIncremental` 只挂形状、不跑终结候选；下一次 `ComputePossibleShapes` /
+// `TryToClose` / `ExitOrPre` 会先 `UnpackIncremental` 还原 raw 单元。开关 false 时整段不执行。
+super.Process(context, buffer, index);
+if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return;
+}
+if (this.Kind !== StatementRoute.ShellPlainExpression || this.OperatorBody === null) {
+  return;
+}
+this.TryMountIncremental(context);
 ```
 
 ## static method BuildFromShell:(host:Token, endIndex:int, context:SyntaxContext)=>Token
 
 ```ts
 const shell = host as StatementShape;
+// [E-SHAPE:MOUNT] 收口前必须先把上一格物化挂载的形状卸回 raw 单元：下面的 `IngestAll` / `builder.Load`
+// / legacy 分派读的都是「壳里收着的原始单元」，两种模式的 `consumed` 与 `Pos` 才逐位相同。
+shell.UnpackIncremental();
 if (endIndex < 0) {
   throw new Error("语句壳没有可建的代码单元");
 }
@@ -373,6 +561,8 @@ return true;
 ## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 ```ts
+// [E-SHAPE:MOUNT] 块体 `}` 收口前同样先卸回 raw 单元（`lastCode` / `BuildFromShell` 都按 raw 下标算）。
+this.UnpackIncremental();
 if (this.Closed) {
   return BranchStates.Undo;
 }
@@ -413,6 +603,9 @@ BlockPossibleShape.OnShellBracketCreated(this, bracket, context);
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
 ```ts
+// [E-SHAPE:MOUNT] EOF / 父单元收口前先卸回 raw 单元：下面的 `lastCode` / 边界判据 / `BuildFromShell`
+// 全部按 raw `Data` 下标定位，两种模式的收口位必须逐位相同。
+this.UnpackIncremental();
 if (!this.Closed) {
   const lastCode = ItemUtil.LastCodeInItem(this.Data);
   if (lastCode >= 0) {
