@@ -2,6 +2,7 @@
 ```xl
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shape.xl.md"
+import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
 import { CompositeInitializerPossibleShape } from "./forms/primary/composite-initializer-possible-shape.xl.md"
 import { CompositeInitializerFormsPossibleShape } from "./forms/primary/composite-initializer-forms-possible-shape.xl.md"
 import { CompositeInitializerTailPossibleShape } from "./forms/primary/composite-initializer-tail-possible-shape.xl.md"
@@ -106,21 +107,19 @@ return shapes;
 
 ## static method CreateRightOperand:()=>Array<PossibleShape>
 
-**二元表达式右操作数**候选目录（WP-D0）：与 `CreateStatement` 同构——`CreatePrimary()` 的原子 +
-`CreateOperators()` 的运算符 / 片段（注册区因此仍只调用一次）。
+**二元表达式右操作数**候选目录（WP-D0）：**转调 `RightOperandPossibleShape.Catalog()`**（唯一一份定义）。
 
-它服务 `BinaryExpressionShape` 挂的右操作数目录（`RightOperandPossibleShape.Catalog()`）：右操作数位置上
-也可以长出「前缀一元 / 括号 / 调用 / `new` / 成员链」这些形态，而它们都已经在 `[E-CAT:FRAGMENTS]` 里注册过，
-不需要第二份列表。**本方法不 `AppendFragments`**（否则同一个候选在同一目录里出现两遍，`Candidates` 两个
-下标、永远等不到唯一候选——`CreateOperators` 已经调过一次）。
+它服务 `BinaryExpressionShape` 挂的右操作数目录（`RightOperandPossibleShape.Catalog()`）。
+
+**[D3b] 本方法不再自己拼 `CreatePrimary() + CreateOperators()`**（实测：那样拼出来的目录里
+`NumericLiteralPossibleShape` 与 `RightOperandPossibleShape` 在数字格上**双 Accept**、
+`CallPossibleShape` 与 `ParenthesizedPossibleShape` 在 `x + (y)` 的 `(` 格上**双 Accept**，
+整份挂上去崩溃 121 → 131、救回 0 条，见 `_reports/D3b.md` §2）。右操作数位要的是
+**操作数态的形态**，不是续接态（`Call` / `MemberAccess` / `ElementAccess` …）的候选；
+那份清单位于 `RightOperandPossibleShape.Catalog()`，两个入口因此逐项相同。
 
 ```ts
-const shapes = ExpressionShapeCatalog.CreatePrimary();
-const operators = ExpressionShapeCatalog.CreateOperators();
-for (const shape of operators) {
-  shapes.push(shape);
-}
-return shapes;
+return RightOperandPossibleShape.Catalog();
 ```
 
 ## static method CreateDeclarationInitializer:()=>Array<PossibleShape>
