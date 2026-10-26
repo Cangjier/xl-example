@@ -11,6 +11,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
@@ -255,10 +256,18 @@ const last = TypeCatalogFactory.LastSignificant(this.Data);
 if (last <= equal) {
   return;
 }
+// [B4e:K1] 初始化器里已经有**本机制在关闭格建出的容器形状**时，它不构成「表达式候选已经接管」
+// 的反例：那正是所有权切换后的正常形态（`let x = { a: 1 } as T` 的 `{ a: 1 }`）。
+// 这一段整条交给 `ParseInitializer`（legacy 同一建造器，`ParsePrimary` 认 `HasContainer` 直接消费），
+// 所以这里放行容器，只保留「其它非 basic 单元 ⇒ 让路」的旧判据。
 for (let at = equal + 1; at <= last; at++) {
-  if (!this.Data[at].IsBasicToken) {
-    return;
+  if (this.Data[at].IsBasicToken) {
+    continue;
   }
+  if (ExpressionAtomRegistry.HasContainer(this.Data[at])) {
+    continue;
+  }
+  return;
 }
 const raw:Array<Token> = this.Data.slice(equal + 1);
 const equalUnit = this.Data[equal];

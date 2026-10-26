@@ -18,6 +18,7 @@ B3b 给控制流头 `(` 建出的原子开了一条「legacy 收口时直接消�
 |---|---|---|
 | `Atoms` | `ExpressionBracketPossibleShape.BuildByIndex` 建出的 `IdentifierShape` / `NumericLiteralShape` | `ExpressionBuilder.ParsePrimary`（值位）、`ParseName`（对象字面量的属性名位） |
 | `Members` | 同上，把「名 + `:` + 值」拼成的 `PropertyAssignmentShape` / 短写 / 展开成员 | `ExpressionBuilder.ParseObjectLiteral`（成员循环） |
+| `Containers` | `ContainerShapeCatalog` 在**括号关闭格**建出并顶替括号的四个容器形状 | `ExpressionBuilder.ParsePrimary`（表达式起点）、`VariableDeclarationShape.TryBuildTypedInitializer`、`TypeCatalogFactory.StartsTypedInitializer` |
 
 **为什么必须是独立的一份**：`ControlHeadPossibleShape.Atoms` 的语义是「控制流头里的原子」，
 把它当全局表用会让 `IsAtom` 在两种完全不同的 site 上互相污染；分开之后，
@@ -34,6 +35,13 @@ B3b 给控制流头 `(` 建出的原子开了一条「legacy 收口时直接消�
 ## static field Members:Set<any> = new Set()
 
 本进程内由表达式括号目录建出的成员形状（对象字面量的 `a: 1` / `a` / `...a`）。
+
+## static field Containers:Set<any> = new Set()
+
+[B4e] 本进程内由 `ContainerShapeCatalog` 在**括号关闭格**建出、并顶替掉括号的容器形状
+（`ObjectLiteralExpressionShape` / `ArrayLiteralExpressionShape` / `CallExpressionShape` /
+`ParenthesizedExpressionShape`）。它只登记「这一个形状是本机制建的」这一件事实，
+收口路径据此**消费**而不是重建——这是 K1 的所有权切换表。
 
 ## static method Register:(unit:Token)=>void
 
@@ -71,6 +79,26 @@ if (unit === null) {
 return ExpressionAtomRegistry.Members.has(unit);
 ```
 
+## static method RegisterContainer:(unit:Token)=>void
+
+```ts
+if (unit === null) {
+  return;
+}
+ExpressionAtomRegistry.Containers.add(unit);
+```
+
+## static method HasContainer:(unit:Token)=>bool
+
+`unit` 是不是本机制在关闭格建出的容器形状（**唯一**的容器所有权判据；不认任意 `ShapeToken`）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+return ExpressionAtomRegistry.Containers.has(unit);
+```
+
 ## static method Reset:()=>void
 
 只清身份表，不动任何树的节点（`SourceFileShape` 构造器每文件调一次）。
@@ -78,4 +106,5 @@ return ExpressionAtomRegistry.Members.has(unit);
 ```ts
 ExpressionAtomRegistry.Atoms = new Set();
 ExpressionAtomRegistry.Members = new Set();
+ExpressionAtomRegistry.Containers = new Set();
 ```

@@ -31,6 +31,7 @@ import { ControlFlowStatementPossibleShape } from "../statements/control-flow-st
 import { ControlHeadPossibleShape } from "../statements/control-head-possible-shape.xl.md"
 import { ExpressionBracketPossibleShape } from "../expressions/forms/shared/expression-bracket-possible-shape.xl.md"
 import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
+import { ContainerShapeCatalog } from "../expressions/forms/shared/container-shape-catalog.xl.md"
 import { DeclarationStatementPossibleShape } from "../statements/declaration-statement-possible-shape.xl.md"
 import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
@@ -89,6 +90,11 @@ if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncremen
   ControlHeadPossibleShape.EnsureRegistered();
   StatementRouteUtil.EnableBracketRoleCatalog = true;
 }
+// [B4e:K1] 容器 shape 的创建格：把 `BracketCloseHook` 装上（`ContainerShapeCloseHook`）。
+// 顺序在 `BracketRoleCatalogHook.EnsureInstalled` 之前：关闭格的钩子必须在任何一只括号关闭之前就位。
+// 开关 `EnableContainerShape` 为假或非增量模式时 `EnsureInstalled` 立即返回、
+// `BracketCloseHook.Current` 保持 `null` ⇒ `Bracket.Close` 里只多一次 `null` 比较，产物逐字节不变。
+ContainerShapeCatalog.EnsureInstalled();
 BracketRoleCatalogHook.EnsureInstalled();
 ```
 
