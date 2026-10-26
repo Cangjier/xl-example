@@ -3,14 +3,16 @@
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
-import { ExpressionCatalogFactory } from "../expressions/expression-catalog-factory.xl.md"
+import { ArrayBindingPatternShape } from "../bindings/array-binding-pattern-shape.xl.md"
+import { ObjectBindingPatternShape } from "../bindings/object-binding-pattern-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { VariableStatementShape } from "../statements/variable-statement-shape.xl.md"
-import { VariableDeclarationEndPossibleShape } from "./variable-declaration-end-possible-shape.xl.md"
+import { IncrementalVariableDeclarationListBuilder, VariableDeclarationListEndPossibleShape } from "./variable-declaration-list-possible-shape.xl.md"
 import { VariableDeclarationListShape } from "./variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "./variable-declaration-shape.xl.md"
 ```
@@ -29,9 +31,14 @@ import { VariableDeclarationShape } from "./variable-declaration-shape.xl.md"
   与前导 trivia（它们不进任何 `Data`）。
 - `VariableDeclarationListShape`：`Pos` / `src` 与语句相同，直接吃掉语句的关键字前缀。
 - `VariableDeclarationShape`：`Pos` = 前一个非 trivia 单元（关键字）的 `EndIndex`；`src` 从首个绑定
-  （标识符）的起点起，跳过前导 trivia。
+  （标识符 / 解构括号）的起点起，跳过前导 trivia。
 - `IdentifierShape`：`Pos` 与 declaration 相同（C1），`SourceRange` 由 `IdentifierShape.FromBasicToken` 从
   basic token 取（工厂不设 `Pos`，必须由调用方补）。
+- **WP-A6b 解构绑定**：绑定位是 `Bracket`（`[` / `{`）时，直接复用 legacy 的
+  `ArrayBindingPatternShape.FromBracket` / `ObjectBindingPatternShape.FromBracket` 把**整棵绑定模式**
+  从已闭合的括号单元建出来（与 legacy `BindingElementShape.ParseName` 同一条工厂、同一套 Pos/src），
+  `Pos` = declaration 的 `Pos`，作为 declaration 的第一个子节点挂上。初始化器仍由 E-base 表达式目录
+  （A1 primary 已合入）逐字符建、`FinishIncremental` 在 EOF / `;` 收口——与 legacy 同树。
 
 **挂载链**：`host.MountedUnit = statement`、`statement.MountedUnit = list`、`list.MountedUnit = declaration`。
 之后到达的字符由最内层 declaration 直接吃（char 6/7/8 的 `=` / 空格 / `2` 因此自然落进它的 `Data`），
@@ -65,14 +72,26 @@ if (bindingAt >= moved.length) {
   throw new Error("增量变量形状未支持：statement 缺少绑定");
 }
 const binding = moved[bindingAt];
-if (!(binding instanceof Common)) {
+// WP-A6b：绑定位允许「单个标识符」或「解构括号」；解构整棵绑定模式在这里一次建出（括号已闭合）。
+let pattern:Token | null = null;
+if (binding instanceof Common) {
+  const bindingText = (binding as Common).TempToString();
+  if (headText === "const" && bindingText === "enum") {
+    throw new Error("增量变量形状未支持：statement const enum");
+  }
+} else if (binding instanceof Bracket) {
+  const bracket = binding as Bracket;
+  if (bracket.StartBracketChar === "[") {
+    pattern = ArrayBindingPatternShape.FromBracket(bracket, context);
+  } else if (bracket.StartBracketChar === "{") {
+    pattern = ObjectBindingPatternShape.FromBracket(bracket, context);
+  } else {
+    throw new Error("增量变量形状未支持：declaration 解构绑定");
+  }
+} else {
   throw new Error("增量变量形状未支持：declaration 解构绑定");
 }
-const bindingText = (binding as Common).TempToString();
-if (headText === "const" && bindingText === "enum") {
-  throw new Error("增量变量形状未支持：statement const enum");
-}
-// 目标只支持「单个标识符绑定」：绑定之后这一次 build 里不允许还有别的代码单元（`!` / `:` / `,` 都不行）。
+// 绑定之后这一次 build 里不允许还有别的代码单元（`!` / `:` / `,` 都不行）。
 const afterBinding = ItemUtil.NextCode(moved, bindingAt + 1);
 if (afterBinding < moved.length) {
   throw new Error("增量变量形状未支持：declaration 绑定后紧跟代码");
@@ -122,15 +141,24 @@ const declaration = new VariableDeclarationShape(host.Template);
 declaration.Incremental = true;
 const headEnd = (head as Common).SourceRange.EndIndex;
 declaration.Pos = headEnd >= 0 ? headEnd : pos;
-const bindingStart = binding.SourceRange.StartIndex;
-declaration.SignIn(bindingStart >= 0 ? bindingStart : declaration.Pos);
-const identifier = IdentifierShape.FromBasicToken(binding as Common, context);
-identifier.Pos = declaration.Pos;
-declaration.Add(identifier);
+if (pattern !== null) {
+  const patternShape = pattern as ShapeToken;
+  const patternStart = patternShape.SourceRange.StartIndex;
+  declaration.SignIn(patternStart >= 0 ? patternStart : declaration.Pos);
+  patternShape.Pos = declaration.Pos;
+  declaration.Add(patternShape);
+} else {
+  const bindingStart = binding.SourceRange.StartIndex;
+  declaration.SignIn(bindingStart >= 0 ? bindingStart : declaration.Pos);
+  const identifier = IdentifierShape.FromBasicToken(binding as Common, context);
+  identifier.Pos = declaration.Pos;
+  declaration.Add(identifier);
+}
 // C8：新增 possible 用 cache（`CatalogGuide` 自带）；终结候选是本模式自己的声明收口候选。
-// 表达式候选目录由 `ExpressionCatalogFactory` 提供——WP-A 阶段是空 stub，WP-C 负责填充。
-declaration.CatalogGuide = new CatalogGuide(ExpressionCatalogFactory.Create(),
-  new VariableDeclarationEndPossibleShape());
+// WP-A6b：终结候选继承 A2/A4 扩过的 `VariableDeclarationEndPossibleShape`（只多认 `;` / `,`），
+// 表达式候选目录逐个套 `DeclarationCellGuard`（`;` / `,` 格留给终结候选）。
+declaration.CatalogGuide = new CatalogGuide(IncrementalVariableDeclarationListBuilder.GuardedCatalog(),
+  new VariableDeclarationListEndPossibleShape());
 list.Add(declaration);
 statement.Add(list);
 data.splice(start, 0, statement);

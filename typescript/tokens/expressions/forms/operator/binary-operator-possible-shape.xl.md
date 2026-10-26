@@ -72,10 +72,12 @@ EOF                     → FinishIncremental 收下唯一根（E0b 契约）
 3. **数字 `Common` ⇒ `Reject`**：数字格必须留给 `NumericLiteralPossibleShape` 独占（否则两候选同格，
    永远 `Waiting`，整个初始化器退化成 atomic）；其它基本 token（`Symbol("/")` 之外的符号、`String`、
    `Bracket`）⇒ `Reject`；
-4. **标识符 `Common`（非数字）⇒ `Reject`**（**WP-A1b 执行 A2 报告 §6 的合并动作**）：A1 的
+4. **标识符 `Common`（非数字）⇒ `Reject`**（**WP-A1b / WP-A6b 执行 A2 报告 §6 的合并动作**）：A1 的
    `IdentifierPrimaryPossibleShape` 已在同一目录里负责标识符格，本候选绝不能在同一格再 `Accept`
-   （两候选同格 ⇒ 永远 `Waiting`）。A1 候选因续接白名单（`PrimaryAtomGuard`）可能在该格不建时（如
-   `let x = a as T`），本候选仍靠 `IsBuildable` 的「紧跟 `=` 的首个标识符」兜底在**运算符那一格**就地物化左操作数；
+   （两候选同格 ⇒ 永远 `Waiting`，A1 的原子退化成 `partial`：集成后 15 条 FAIL 的根因）。
+   A1 候选因续接白名单（`PrimaryAtomGuard`）可能在该格不建时（如 `let x = a as T`），本候选仍靠
+   `IsBuildable` 的「紧跟 `=` 的首个标识符」兜底在**运算符那一格**就地物化左操作数；
+   **除号是唯一例外**（A1b）：标识符后紧跟 `/` 时本候选保持 `Uncertain` 活到 `/` 格，见下方代码；
 5. `Symbol("=")` ⇒ `Uncertain`（初始化器还没开始）；
 6. `*` / `+` ⇒ `Reject`（让给既有 `BinaryExpressionPossibleShape`）；
 7. 其余二元运算符（含 `in` / `instanceof` 关键字）⇒ **有左操作数才 `Accept`**：
