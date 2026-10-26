@@ -25,7 +25,7 @@ const head = builder.Units[builder.At];
 if (!StatementFamilyDispatch.KindAllows(builder, head, kind)) {
   return null;
 }
-const built = StatementFamilyDispatch.BuildByHead(builder);
+const built = StatementFamilyDispatch.BuildByHead(builder, kind);
 // [XL-ROUTE:family-take] B1：增量总闸打开时，把 legacy 刚建出的语句子树搬进「早期占位节点」
 // （`StatementShellCatalog`，类名 / Pos 与 legacy 相同）并返回它；先出现的节点与 EOF 树逐节点一致。
 // 匹配不到（不是本壳的族）时原样返回 legacy 节点，行为不变。
@@ -45,8 +45,24 @@ if (kind === StatementRoute.ShellLabel) {
   if (!(head instanceof Common)) {
     return false;
   }
+  // **[WP-S1] R1-2**：标签名必须**能作标签名**——原来的判据只看「首单元是 `Common` + 下一个是 `:`」，
+  // 于是 `case 0:` 的 `0`（数字字面量也是 `Common`）被判成标签，`LabeledStatementShape` +
+  // legacy `BuildLabeled` 给 `0` 建 `IdentifierShape`。这一条同时是 `case`→`IdentifierShape("case")`
+  // 被「重新判族」降级的入口。判据与 `KindAllows` 的其余分支同源：数字 / 字面量 / 保留字都不是名字。
+  if (!StatementFamilyDispatch.IsLabelName(head)) {
+    return false;
+  }
   const next = builder.Peek(1);
   return next !== null && builder.IsText(next, ":");
+}
+if (kind === StatementRoute.ShellCaseClauseHead) {
+  // [WP-S1] 子句头壳：`case <表达式> :` / `default :`。关键字判据只有一处
+  // （`StatementRouteUtil.DecideCaseClauseHead` 已经判过族），这里只确认首单元确实是那两个词。
+  if (!(head instanceof Common)) {
+    return false;
+  }
+  const clauseHeadText = (head as Common).TempToString();
+  return clauseHeadText === "case" || clauseHeadText === "default";
 }
 if (kind === StatementRoute.ShellVariable || kind === StatementRoute.None) {
   if (!(head instanceof Common)) {
@@ -64,9 +80,39 @@ if (kind === StatementRoute.ShellDeclarationFamily) {
 return true;
 ```
 
-## static method BuildByHead:(builder:StatementBuilder)=>Token | null
+## static method IsLabelName:(unit:Token)=>bool
+
+[WP-S1] R1-2：一个单元能不能当**标签名**。与 `StatementRouteUtil.IsLegacyKeyword` 同源（保留字不是名字），
+再加上字面量三种：数字 / 字符串 / 正则（`Common.CanStartNumber` + `String` 由 `Common` 之外的类承载，
+所以这里只看 `Common` 侧的数字形态）。`0:` 因此不再被判成标签。
 
 ```ts
+if (!(unit instanceof Common)) {
+  return false;
+}
+if ((unit as Common).CanStartNumber()) {
+  return false;
+}
+const text = (unit as Common).TempToString();
+if (text.length === 0) {
+  return false;
+}
+if (StatementRouteUtil.IsLegacyKeyword(text)) {
+  return false;
+}
+if (text === "true" || text === "false" || text === "null" || text === "this" || text === "super") {
+  return false;
+}
+return true;
+```
+
+## static method BuildByHead:(builder:StatementBuilder, kind:int)=>Token | null
+
+```ts
+// [WP-S1] 子句头壳的建树入口：先于一切关键字分派——`case 0:` 的 `BuildTail` 会把 `0:` 当标签。
+if (kind === StatementRoute.ShellCaseClauseHead) {
+  return builder.BuildCaseClauseHead();
+}
 const head = builder.Units[builder.At];
 if (head instanceof Bracket) {
   if ((head as Bracket).StartBracketChar === "{") {

@@ -7,8 +7,10 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
 import { BreakStatementShape } from "./break-statement-shape.xl.md"
+import { CaseClauseShape } from "../members/case-clause-shape.xl.md"
 import { ContinueStatementShape } from "./continue-statement-shape.xl.md"
 import { DebuggerStatementShape } from "./debugger-statement-shape.xl.md"
+import { DefaultClauseShape } from "../members/default-clause-shape.xl.md"
 import { DoStatementShape } from "./do-statement-shape.xl.md"
 import { EmptyStatementShape } from "./empty-statement-shape.xl.md"
 import { ForInStatementShape } from "./for-in-statement-shape.xl.md"
@@ -102,6 +104,10 @@ const make = (typeName:string):void => {
   else if (typeName === "ContinueStatementShape") { made = new ContinueStatementShape(template); }
   else if (typeName === "ReturnStatementShape") { made = new ReturnStatementShape(template); }
   else if (typeName === "EmptyStatementShape") { made = new EmptyStatementShape(template); }
+  // [WP-S1] `switch` 子句头（`case <表达式> :` / `default :`）：两族类名不同，**不能像 `for` 那样三挂**
+  // ——`Take` 按 `constructor.name` 匹配，多挂的占位节点只会随 `consumed` 切片一起被挪出壳。
+  else if (typeName === "CaseClauseShape") { made = new CaseClauseShape(template); }
+  else if (typeName === "DefaultClauseShape") { made = new DefaultClauseShape(template); }
   if (made === null) {
     throw new Error("增量变量形状未支持：statement 占位节点类型 " + typeName);
   }
@@ -112,7 +118,17 @@ const make = (typeName:string):void => {
   }
   created.push(made);
 };
-if (route === StatementRoute.ShellLabel) {
+if (route === StatementRoute.ShellCaseClauseHead) {
+  // [WP-S1] 子句头：`case` 与 `default` 的最终类名**不同**，各挂各的（见 `make` 的说明）。
+  if (head instanceof Common) {
+    const clauseText = (head as Common).TempToString();
+    if (clauseText === "case") {
+      make("CaseClauseShape");
+    } else if (clauseText === "default") {
+      make("DefaultClauseShape");
+    }
+  }
+} else if (route === StatementRoute.ShellLabel) {
   make("LabeledStatementShape");
 } else if (head instanceof Bracket) {
   if ((head as Bracket).StartBracketChar === "{") {

@@ -37,6 +37,14 @@ if (units[tokenIndex] instanceof EndOfFileTokenShape) {
 if (units[tokenIndex].IsTriviaToken) {
   return ShapeStates.Uncertain;
 }
+// **[WP-S1] 让位给同目录的子句头候选**。`case <表达式> :` / `default :` 的**冒号之前**由
+// `CaseClauseHeadPossibleShape` 接管，本候选在那里必须**永久 `Reject`**（不是 `Uncertain`）：
+// 两个候选同时活着时 `CatalogGuide` 永远等不到「唯一候选」，`case` 一条壳都建不出来；
+// 而 `Reject` 只影响本条目，建完一条形状后 `Reset()` 会把候选全部放回。
+// 判据不新写：`StatementRouteUtil.Decide` 是 `case` / `default` 起语句的唯一判据。
+if (StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellCaseClauseHead) {
+  return ShapeStates.Reject;
+}
 if (!CaseClauseStatementPossibleShape.IsClauseStatementStart(units, tokenIndex)) {
   return ShapeStates.Uncertain;
 }
@@ -168,73 +176,69 @@ for (let at = tokenIndex - 1; at >= 0; at--) {
 if (previousAt < 0) {
   return false;
 }
-const previous = units[previousAt];
-const previousIsColon = previous instanceof Symbol && (previous as Symbol).Is(":");
-let afterStatement = false;
-if (previous instanceof Symbol && (previous as Symbol).Is(";")) {
-  afterStatement = true;
-} else if (!previous.IsBasicToken) {
-  // 同一子句里上一条语句已经被建成形状（`;` 被消费进那条语句）。
-  afterStatement = true;
-}
-if (!previousIsColon && !afterStatement) {
-  return false;
-}
-// 最近的 case / default 关键字（括号是原子单元，子句表达式里的关键字进不到这一层）。
-let keywordAt = -1;
-let keywordText = "";
-for (let at = previousAt; at >= 0; at--) {
-  const item = units[at];
-  if (!(item instanceof Common)) {
+return CaseClauseStatementPossibleShape.IsInsideClause(units, previousAt);
+```
+
+## static method IsInsideClause:(units:Array<Token>, at:int)=>bool
+
+**[WP-S1] 判据重写：往前的「上一个单元」既可能是 raw `:` / `;`，也可能是 WP-S1 建出的子句头形状
+（`CaseClauseShape` / `DefaultClauseShape`）。** 原判据只在 raw `Data` 里往回找 `case` / `default`
+关键字，子句头一旦被建成形状，关键字就进了形状里、再也找不到——`case 1: case 2: b; break;`
+的 `b;` / `break;` 因此全部退回 raw（实测 `SwitchCaseClauseShellCount` 从 1 卡住）。
+
+判据只有两条，按「离当前格最近的证据」取：
+
+- 最近的非 trivia 单元是**已建好的子句头形状** ⇒ 当前格是那条子句的第一条语句；
+- 或者是 raw `case` / `default` 关键字 ⇒ 用 `StatementBuilder.ClauseColonAt` 的**同一个**三元深度规则
+  找它的子句冒号，冒号在 `at` 之前 ⇒ 当前格在那条子句里。
+
+两处都不成立 ⇒ 不在任何子句里，本候选让位。
+
+```ts
+for (let cursor = at; cursor >= 0; cursor--) {
+  const item = units[cursor];
+  if (item.IsTriviaToken) {
     continue;
   }
-  const text = (item as Common).TempToString();
-  if (text === "case" || text === "default") {
-    keywordAt = at;
-    keywordText = text;
-    break;
+  const name = item.constructor.name;
+  if (name === "CaseClauseShape" || name === "DefaultClauseShape") {
+    return true;
+  }
+  if (item instanceof Common) {
+    const text = (item as Common).TempToString();
+    if (text === "case" || text === "default") {
+      const colonAt = CaseClauseStatementPossibleShape.ClauseColonAt(units, cursor + 1);
+      return colonAt >= 0 && colonAt <= at;
+    }
   }
 }
-if (keywordAt < 0) {
-  return false;
-}
-let colonAt = -1;
-if (keywordText === "default") {
-  const afterDefault = ItemUtil.NextCode(units, keywordAt + 1);
-  if (afterDefault >= units.length) {
-    return false;
+return false;
+```
+
+## static method ClauseColonAt:(units:Array<Token>, from:int)=>int
+
+[WP-S1] 与 `StatementBuilder.ClauseColonAt` **逐字同源**的三元深度 0 冒号扫描（`case a ? b : c: d;` 里
+第二个 `:` 才是子句冒号）。这里不建树、只判位，所以不能直接调建造器的实例方法。
+
+```ts
+let ternaryDepth = 0;
+for (let at = from; at < units.length; at++) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
   }
-  if (!(units[afterDefault] instanceof Symbol) || !(units[afterDefault] as Symbol).Is(":")) {
-    return false;
+  const text = (unit as Symbol).TempToString();
+  if (text === "?") {
+    ternaryDepth++;
+    continue;
   }
-  colonAt = afterDefault;
-} else {
-  // 与 `StatementBuilder.BuildCaseBlock` 同一份冒号判据：三元 `?` 深度 0 的第一个 `:`。
-  let ternaryDepth = 0;
-  for (let at = keywordAt + 1; at < units.length; at++) {
-    const item = units[at];
-    if (!(item instanceof Symbol)) {
+  if (text === ":") {
+    if (ternaryDepth > 0) {
+      ternaryDepth--;
       continue;
     }
-    if ((item as Symbol).Is("?")) {
-      ternaryDepth++;
-      continue;
-    }
-    if ((item as Symbol).Is(":")) {
-      if (ternaryDepth > 0) {
-        ternaryDepth--;
-        continue;
-      }
-      colonAt = at;
-      break;
-    }
-  }
-  if (colonAt < 0) {
-    return false;
+    return at;
   }
 }
-if (previousIsColon) {
-  return previousAt === colonAt;
-}
-return previousAt > colonAt;
+return -1;
 ```

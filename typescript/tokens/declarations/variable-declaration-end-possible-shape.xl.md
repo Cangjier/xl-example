@@ -96,6 +96,13 @@ if (current instanceof Symbol) {
     && VariableDeclarationEndPossibleShape.HasOpenTypeArgument(units, tokenIndex)) {
     return ShapeStates.Reject;
   }
+  // **[WP-S1] `new.target` / `new . target`**：`new` 是前缀运算符，`.` 是它的成员访问 —— 初始化器里的
+  // `.` 只可能是属性访问，本格**必须继续等**，由表达式目录在闭合格建出。不加这一条，
+  // `function f() { let x = new.target }` 会在 `.` 那一格抛「declaration 符号 .」；
+  // legacy 建树一直支持这条形态，根层函数体挂上控制流目录之后它第一次被走到（`ref-new-target`）。
+  if (text === ".") {
+    return ShapeStates.Reject;
+  }
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
 }
 if (current instanceof Common) {
