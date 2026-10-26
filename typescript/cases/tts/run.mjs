@@ -36,7 +36,8 @@
 // 例如 `a < b && c > d\n` 的全部表达式形状都赶在 EOF 前一步出现，但它们是一次性原子建出来的。
 // 开关对时序的影响是「增量建造真的发生了」的唯一可靠证据。
 //
-// 退出码：0 全部符合标注；1 有不符（新增支持 / 回归 / 结构异常）；2 环境错误（构建产物缺失等）。
+// 退出码：0 全部符合标注（含「账本已空」的 0 条 case）；1 有不符（新增支持 / 回归 / 结构异常）；
+// 2 环境错误（构建产物缺失等）。判据全部迁移到 tts-impl 后本目录会变成 0 条 case，这是正常的收尾状态。
 
 import fs from "node:fs";
 import path from "node:path";
@@ -449,6 +450,13 @@ function writeIndex(records) {
       CLASSES.map((cls) => `${cls} ${records.filter((record) => record.expected === cls).length}`).join(" / "),
     "",
   ];
+  if (records.length === 0) {
+    lines.push(
+      "> 共 0 条 case：`tts` 的增量形状判据已全部迁移到 `tts-impl`；",
+      "> [`tts-impl`](../tts-impl/README.md)（`node typescript/cases/tts-impl/run.mjs`）是此后的回归基线。",
+      "",
+    );
+  }
   for (const cls of CLASSES) {
     const groupKeys = [...groups.keys()].filter((key) => key.startsWith(cls + "/")).sort();
     if (groupKeys.length === 0) continue;
@@ -531,7 +539,11 @@ function main() {
     return;
   }
 
-  let files = listCaseFiles(CASES_DIR);
+  const allFiles = listCaseFiles(CASES_DIR);
+  // 空账本是收尾状态，不是错误：判据全部迁移到 tts-impl 后本目录必然 0 条。
+  // 只有「目录里根本没有 case」才算空账本；--show / --filter 找不到目标仍然按错误处理。
+  const ledgerEmpty = allFiles.length === 0 && options.show === null;
+  let files = allFiles;
   if (options.show !== null) {
     const located = locateCase(options.show);
     if (located === null) fail(`找不到 case：${options.show}`);
@@ -539,7 +551,7 @@ function main() {
   } else if (options.filters.length > 0) {
     files = files.filter((file) => options.filters.some((filter) => caseId(file).includes(filter)));
   }
-  if (files.length === 0) fail(`没有找到 case（目录：${CASES_DIR}）`);
+  if (files.length === 0 && !ledgerEmpty) fail(`没有找到 case（目录：${CASES_DIR}）`);
 
   const records = [];
   for (const file of files) {
@@ -596,6 +608,7 @@ function main() {
   const expectedCounts = {};
   for (const cls of CLASSES) expectedCounts[cls] = records.filter((record) => record.expected === cls).length;
 
+  const EMPTY_LEDGER = "PASS 0 / FAIL 0 (no cases: ledger empty; all migrated to tts-impl)";
   if (!options.quiet || failures.length > 0) {
     console.log("");
     console.log(
@@ -611,7 +624,9 @@ function main() {
       if (failure.reason !== null) console.log(`      reason: ${failure.reason}`);
       if (failure.tsProblems.length > 0) console.log(`      TS: ${failure.tsProblems.join(" | ")}`);
     }
-    console.log(`[tts] PASS ${records.length - failures.length} / FAIL ${failures.length} / ${records.length}`);
+    console.log(ledgerEmpty ? EMPTY_LEDGER : `[tts] PASS ${records.length - failures.length} / FAIL ${failures.length} / ${records.length}`);
+  } else if (ledgerEmpty) {
+    console.log(EMPTY_LEDGER);
   }
 
   if (options.json !== null) {
