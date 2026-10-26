@@ -96,7 +96,7 @@ function firstDifference(tsNodes, cjNodes) {
   return null;
 }
 
-function xmlDifference(left, right) {
+function astLineDifference(left, right) {
   const count = Math.min(left.length, right.length);
   for (let index = 0; index < count; index++) {
     if (left[index] !== right[index]) return `第 ${index} 个字符起不同`;
@@ -117,9 +117,9 @@ for (const item of CASES) {
   // legacy 基线：两条开关都关，走纯 legacy。
   R.EnableShellExpressions = false;
   R.EnableDeclarationShell = false;
-  let legacyXml = null;
+  let legacyAstLine = null;
   try {
-    legacyXml = SourceFileRunner.Parse(item.source, "case.ts").ToXmlString();
+    legacyAstLine = SourceFileRunner.Parse(item.source, "case.ts").ToAstLine(0);
   } catch (error) {
     problems.push(`legacy 抛错：${describeError(error)}`);
   }
@@ -145,13 +145,13 @@ for (const item of CASES) {
   }
 
   if (shape !== null) {
-    const xml = shape.ToXmlString();
-    if (legacyXml !== null) {
-      const diff = xmlDifference(xml, legacyXml);
+    const xml = shape.ToAstLine(0);
+    if (legacyAstLine !== null) {
+      const diff = astLineDifference(xml, legacyAstLine);
       if (diff !== null) problems.push(`XML != legacy：${diff}`);
     }
     for (const tag of ["StatementShape", "PossibleShape", "CatalogGuide"]) {
-      if (xml.includes(`<${tag}>`)) problems.push(`形状树泄漏 <${tag}>`);
+      if (xml.includes(`${tag}  `)) problems.push(`形状树泄漏 <${tag}>`);
     }
     const file = ts.createSourceFile("case.ts", item.source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const astDiff = firstDifference(file.statements.map(tsAst), shape.Data.map(cjAst));

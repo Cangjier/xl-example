@@ -5,7 +5,7 @@
 //
 // 两个通道：
 //   1) xml    —— 每个语料文件分别用两版 build 的 SourceFileRunner.Parse 解析，
-//                取 Root.ToString()（= ToXmlString，与 cjcli 写出的 XML 同源）
+//                取 Root.ToString()（= ToAstLine，与 cjcli 写出的 XML 同源）
 //                转 UTF-8 字节后逐字节比较。这是验收口径本身。
 //   2) digest —— 位置通道：遍历 token 树，输出「构造器名[Start,End) + Temp 文本」。
 //                旧版 build 的 SourceRange.Start/End 是 Source（闭区间，End.Index = 最后字符），
@@ -231,7 +231,7 @@ function tempText(token) {
   return "";
 }
 
-// digest = 每个 token 一行：构造器名[Start,End)  Temp=<JSON>。按 Data 先序遍历（与 ToXmlString 同构）。
+// digest = 每个 token 一行：构造器名[Start,End)  Temp=<JSON>。按 Data 先序遍历（与 ToAstLine 同构）。
 function buildDigest(shape) {
   const lines = [];
   const walk = (token) => {

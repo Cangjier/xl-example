@@ -14,9 +14,9 @@ import { Symbol } from "./symbol.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
-通用字符块：标识符、数字、布尔字面量。它把连续的「不是符号、也不是空白」的字符吞进自己的 `Temp`，最终吐成 `<Common>abc</Common>`。
+通用字符块：标识符、数字、布尔字面量。它把连续的「不是符号、也不是空白」的字符吞进自己的 `Temp`，最终作为一行 `Common  src=[…)  text="abc"` 出现。
 
 # class Common extends BlockToken
 
@@ -24,7 +24,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元值类型是单字符的 `string`。
 
-没有覆写 `ToXmlString`，XML 由 `BlockToken` 产出：`<Common>转义后的文本</Common>`。
+没有覆写 `AstText`：文本由 `BlockToken.AstText` 给出（就是 `Temp`），转义由 `Token.AstEscape` 在拼 label 时统一做。
 
 ## field IsBasicToken:bool = true
 

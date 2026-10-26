@@ -13,9 +13,9 @@ import { UnitToken } from "../unit-token.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
-区域注释 `/* … */`：从 `/*` 吃到 `*/`，正文攒进 `Tmp`。注释单元留在树里、会进 XML，产出里能看到 `<AreaAnnotation>正文</AreaAnnotation>`。
+区域注释 `/* … */`：从 `/*` 吃到 `*/`，正文攒进 `Tmp`。注释单元留在树里、会进 AST 行输出，那一行能看到 `AreaAnnotation  src=[…]  text="正文"`。
 
 # class AreaAnnotation extends UnitToken
 
@@ -23,7 +23,7 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 单元值类型是单字符的 `string`。
 
-覆写了 `ToXmlString`（`<AreaAnnotation>正文</AreaAnnotation>`，不转义），这是注释在 XML 里的最终形态。
+覆写了 `AstText`（返回 `Tmp`），注释正文因此落在 `text` 字段里；不另外覆写输出方法。
 
 ## field IsBasicToken:bool = true
 
@@ -193,13 +193,12 @@ if (pre === "*") {
 return BranchStates.Undo;
 ```
 
-## method ToXmlString:()=>string
+## method AstText:()=>string
 
-产出 XML：`<AreaAnnotation>注释正文</AreaAnnotation>`。标签名取运行时类型名；内容不做 XML 转义。
+本节点的文本是注释正文 `Tmp`：`Token.AstLabel` 把它印成 `text="正文"`，`ToAstLine` 因此只需要一行 label。
 
 ```ts
-const name = this.constructor.name;
-return `<${name}>${this.Tmp}</${name}>`;
+return this.Tmp;
 ```
 
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates

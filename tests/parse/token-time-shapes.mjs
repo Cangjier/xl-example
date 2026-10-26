@@ -20,7 +20,7 @@
 //   node tests/parse/token-time-shapes.mjs --legacy-corpus --write-baseline
 //   node tests/parse/token-time-shapes.mjs --legacy-corpus
 //   对 tests/cases/token/**/*.ts 与 samples/*.ts 逐文件做**整文档**解析
-//   （context.Process(document) → Root.ToXmlString()），按相对路径排序后算 sha256。
+//   （context.Process(document) → Root.ToAstLine(0)），按相对路径排序后算 sha256。
 //
 // 退出码：0 = 全部一致；1 = 存在差异；2 = 工具 / 环境错误。
 //
@@ -128,110 +128,22 @@ function reportModeNote(modeInfo) {
 }
 
 // ---------------------------------------------------------------------------
-// shape 树 dump
+// shape 树渲染
 //
-// 字段来源（全部是运行时对象上的真实字段，实测记录在 _coord/REPORT-tts-harness.md）：
-//   - 类名      : node.constructor.name
-//   - 区间      : node.SourceRange.Start / .End（End < 0 = 未封口）
-//   - pos       : node.Pos（只有 shape 有；basic token 上是 undefined，因此不打印 pos 字段）
-//   - text      : basic token → TempToString()（Common / WrapSymbol / Symbol 的 Temp）
-//                 IdentifierShape → EscapedText；NumericLiteralShape → Text
-//   - op        : 名字以 TokenShape 结尾的运算符形状（AsteriskTokenShape / PlusTokenShape …）
-//                 没有 text 访问器，取 SourceRange 覆盖的原文切片
+// 树不由本工具自绘：一律取 `Token.ToAstLine(0)`（W1 的渲染器：每层 3 列、
+// `├─` / `└─` 连接线、字段顺序 pos → src=[a,b)/未封 → text="…" → op="…"）。
+// 工具只负责「逐字符推进 + 与期望逐行比对」，格式实现只有 W1 那一处。
 // ---------------------------------------------------------------------------
-const TOKEN_SHAPE_SUFFIX = /TokenShape$/;
-
-function readText(node) {
-  if (node === null || node === undefined) return null;
-  if (node.IsBasicToken === true && typeof node.TempToString === "function") {
-    try {
-      const value = node.TempToString();
-      if (typeof value === "string") return value;
-    } catch {
-      /* 落到下面的字段探测 */
-    }
+function renderTree(shape) {
+  if (shape === null || shape === undefined || typeof shape.ToAstLine !== "function") {
+    fail("SourceFileShape 上没有 ToAstLine(indent)：需要 W1 的 Token.ToAstLine 渲染器（先构建 core + typescript）。");
   }
-  try {
-    if (typeof node.EscapedText === "string") return node.EscapedText;
-    if (typeof node.Text === "string") return node.Text;
-  } catch {
-    /* ignore */
+  const text = shape.ToAstLine(0);
+  if (typeof text !== "string") {
+    fail(`ToAstLine(0) 返回的不是字符串（${typeof text}）`);
   }
-  return null;
-}
-
-function readRaw(node) {
-  const range = node?.SourceRange;
-  if (!range || range.Document === null || range.Document === undefined) return null;
-  if (range.Start < 0 || range.End < 0) return null;
-  try {
-    if (typeof range.Document.GetRaw === "function") {
-      return range.Document.GetRaw(range.Start, range.End);
-    }
-  } catch {
-    /* 落到 Content 切片 */
-  }
-  try {
-    const content = range.Document.Content;
-    if (typeof content === "string") return content.slice(range.Start, range.End);
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-function dumpNode(node) {
-  const className = node?.constructor?.name ?? "?";
-  const range = node?.SourceRange ?? null;
-  const start = range ? range.Start : -1;
-  const end = range ? range.End : -1;
-  // shape 的 Pos 是数字（-1 表示未设置 → 打印 `pos=-`）；basic token 上没有 Pos 字段。
-  const pos = typeof node?.Pos === "number" ? node.Pos : undefined;
-  const text = readText(node);
-  let op = null;
-  if (text === null && TOKEN_SHAPE_SUFFIX.test(className)) {
-    op = readRaw(node);
-  }
-  const data = Array.isArray(node?.Data) ? node.Data : [];
-  return {
-    className,
-    pos,
-    start,
-    end,
-    text,
-    op,
-    children: data.map((child) => dumpNode(child)),
-  };
-}
-
-function formatNodeFields(node) {
-  let line = node.className;
-  if (node.pos !== undefined) {
-    line += `  pos=${node.pos < 0 ? "-" : String(node.pos)}`;
-  }
-  line += `  src=[${node.start},${node.end < 0 ? "未封" : String(node.end)})`;
-  if (node.text !== null && node.text !== undefined) {
-    line += `  text=${JSON.stringify(node.text)}`;
-  } else if (node.op !== null && node.op !== undefined) {
-    line += `  op=${JSON.stringify(node.op)}`;
-  }
-  return line;
-}
-
-function appendChildren(node, prefix, lines) {
-  const children = node.children;
-  for (let index = 0; index < children.length; index++) {
-    const child = children[index];
-    const last = index === children.length - 1;
-    lines.push(`${prefix}${last ? "└─ " : "├─ "}${formatNodeFields(child)}`);
-    appendChildren(child, `${prefix}${last ? "   " : "│  "}`, lines);
-  }
-}
-
-function treeLines(tree) {
-  const lines = [formatNodeFields(tree)];
-  appendChildren(tree, "", lines);
-  return lines;
+  // 渲染结果末尾可能带一个换行：按行切开时去掉它，避免多出一个空行。
+  return text.endsWith("\n") ? text.slice(0, -1) : text;
 }
 
 // ---------------------------------------------------------------------------
@@ -249,8 +161,8 @@ function collectSteps(source, filePath) {
 
   const makeStep = (kind, index, char) => {
     const step = { kind, index, char, lines: [], tree: null, error: null, annotationOnly: false };
-    step.tree = dumpNode(shape);
-    step.lines = treeLines(step.tree);
+    step.tree = renderTree(shape);
+    step.lines = step.tree.split("\n");
     return step;
   };
 
@@ -441,7 +353,7 @@ function compareWithExpected(steps, sections) {
 // ---------------------------------------------------------------------------
 // legacy 语料基线（契约 C7：默认模式零回归的证据）
 //
-// 每个文件跑**整文档**解析：context.Process(document) → Root.ToXmlString()，
+// 每个文件跑**整文档**解析：context.Process(document) → Root.ToAstLine(0)，
 // 按仓库相对路径（posix 分隔符）排序后取 sha256。基线固定 legacy 模式：
 // 本模式的存在意义就是证明「默认解析路径逐字节不变」，增量模式不采集语料基线。
 // ---------------------------------------------------------------------------
@@ -481,14 +393,14 @@ function collectCorpusFiles(dirRel) {
     .sort((left, right) => (left.rel < right.rel ? -1 : left.rel > right.rel ? 1 : 0));
 }
 
-// 一次整文档解析，返回根 shape 的 XML 指纹。
+// 一次整文档解析，返回根 shape 的 AST 线指纹。
 function corpusFingerprint(source, filePath) {
   const template = TypescriptTemplate.Create();
   const shape = new SourceFileShape(template);
   const context = new SyntaxContext(shape, CORPUS_BUFFER_SIZE);
   const document = new TextDocument(source, filePath);
   context.Process(document);
-  return shape.ToXmlString();
+  return shape.ToAstLine(0);
 }
 
 // 异常也进指纹，所以错误文案必须**确定且可区分**：SyntaxException 不是标准 Error
@@ -579,7 +491,7 @@ function runCorpus(options) {
       version: 1,
       tool: "tests/parse/token-time-shapes.mjs",
       mode: "legacy",
-      note: "整文档解析（context.Process）+ Root.ToXmlString() 的 sha256；按相对路径排序。默认模式零回归的基线。",
+      note: "整文档解析（context.Process）+ Root.ToAstLine(0) 的 sha256；按相对路径排序。默认模式零回归的基线。",
       bufferSize: CORPUS_BUFFER_SIZE,
       roots: [`${dirRel}/**/*.ts`, "samples/*.ts"],
       fileCount: current.entries.length,

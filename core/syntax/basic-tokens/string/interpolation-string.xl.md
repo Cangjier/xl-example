@@ -15,11 +15,11 @@ import { String } from "./string.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
 插值字符串：`{ … }` 这一段本身。它是**单元**（不是向导），括号里的内容由挂载的子单元自己啃；只有那个 `}` 归它管——它把 `}` 转交给 `InterpolationExitGuide` 去数。
 
-没有覆写 `ToXmlString`，XML 由基类 `Token.ToXmlString` 产出：`<InterpolationString>子单元</InterpolationString>`；标签名取类名。
+没有覆写输出方法：行文本由基类 `Token.ToAstLine` 产出，`InterpolationString` 自己只是一行 label，`{ … }` 里的内容由子单元表达；标签名取类名。
 
 # class InterpolationString extends UnitToken
 

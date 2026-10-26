@@ -35,9 +35,9 @@ if (group === undefined) {
   process.exit(1);
 }
 
-function xmlOf(shape) {
-  if (shape === null || shape === undefined || typeof shape.ToXmlString !== "function") return null;
-  return shape.ToXmlString();
+function astLineOf(shape) {
+  if (shape === null || shape === undefined || typeof shape.ToAstLine !== "function") return null;
+  return shape.ToAstLine(0);
 }
 
 function firstDiff(left, right) {
@@ -65,7 +65,7 @@ function runShell(source) {
   StatementRouteUtil.EnableShellExpressions = true;
   const shape = SourceFileRunner.Parse(source, "case.ts");
   const collected = {
-    xml: xmlOf(shape),
+    xml: astLineOf(shape),
     fallback: StatementRouteUtil.LastFileFallback === true,
     texts: StatementOperatorBody.ShapeTexts.slice(),
     inserts: StatementOperatorBody.TotalInserts,
@@ -80,7 +80,7 @@ function runLegacy(source) {
   reset();
   try {
     StatementRouteUtil.EnableShellExpressions = false;
-    return xmlOf(SourceFileRunner.Parse(source, "case.ts"));
+    return astLineOf(SourceFileRunner.Parse(source, "case.ts"));
   } finally {
     StatementRouteUtil.EnableShellExpressions = previous;
   }
@@ -102,21 +102,21 @@ for (const caseDef of cases) {
     problems.push(`壳路径 Parse 抛错：${String(error && error.message ? error.message : error).split("\n")[0]}`);
   }
   if (shell !== null) {
-    let legacyXml = null;
+    let legacyAstLine = null;
     try {
-      legacyXml = runLegacy(caseDef.source);
+      legacyAstLine = runLegacy(caseDef.source);
     } catch (error) {
       problems.push(`legacy 路径 Parse 抛错：${String(error && error.message ? error.message : error).split("\n")[0]}`);
     }
     if (shell.fallback) problems.push("壳路径触发了文件级 fallback（本组要求不 fallback）");
-    if (legacyXml !== null && shell.xml !== null) {
-      const diff = firstDiff(shell.xml, legacyXml);
+    if (legacyAstLine !== null && shell.xml !== null) {
+      const diff = firstDiff(shell.xml, legacyAstLine);
       if (diff !== null) problems.push(`壳 XML != legacy XML：${diff}`);
     }
-    if (legacyXml === null) problems.push("legacy 路径没有产出 XML");
+    if (legacyAstLine === null) problems.push("legacy 路径没有产出 XML");
     if (shell.xml !== null) {
       for (const tag of ["StatementShape", "StatementOperandShape", "StatementOperatorBody"]) {
-        if (shell.xml.includes(`<${tag}>`)) problems.push(`形状泄漏进 XML：<${tag}>`);
+        if (shell.xml.includes(`${tag}  `)) problems.push(`形状泄漏进 XML：<${tag}>`);
       }
     }
     const wantTexts = expect.texts;

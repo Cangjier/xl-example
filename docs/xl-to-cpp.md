@@ -443,7 +443,7 @@ class Keyword : public IndependentToken {
   std::string TypeName() const override { return "Keyword"; }
 
   std::string Value = "";                        // field
-  std::string ToXmlString() override { /* … */ } // method
+  std::string ToAstLine(int indent) override { /* … */ } // method
   std::shared_ptr<Token> Clone() override { /* … */ }
 };
 ```
@@ -519,11 +519,11 @@ int main(int argc, char** argv) {
 
 ## 3. XML 产物：一字不差
 
-`ToXmlString()` 决定验收结果（`samples/*.expected.xml`）。逐字对照规范正文里的模板串：
+`ToAstLine(0)` 决定验收结果（`samples/*.expected.xml`）。逐字对照规范正文里的模板串：
 
 - 属性之间的空格、`=` 两侧、引号，全部照抄；
 - 标签名用 `this->TypeName()`；
-- `temp.join("")` 就是用空串连接子单元的 `ToXmlString()`；
+- `temp.join("")` 就是用空串连接子单元的 `ToAstLine(0)`；
 - 只有规范明确要求转义的地方才调 `CommonUtil::XmlDecode`（`BlockToken`），
   `Bracket` / `String` 等**不转义**。
 

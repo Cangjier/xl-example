@@ -12,7 +12,7 @@
 | --- | --- |
 | `let-x.ts` | 样本源码 `let x = 2*3+1`，**正好 13 字节、无尾随换行**（文档 EOF 节 `src=[0,13)` 可自证） |
 | `let-x.expected.txt` | 文档期望的稳定抽取件：按 `## [char N]` / `## [EOF]` 分节，内容与文档 `text` 围栏块逐字节一致；由 `--sync-expected` 生成，**不要为让 diff 变绿而手改** |
-| `legacy-corpus-baseline.json` | legacy（默认）模式的语料 XML 指纹基线：`tests/cases/token/**/*.ts(x)` + `samples/*.ts` 共 **1723** 个文件，逐文件 sha256。WP-E 用它证明默认模式零回归；由 `--legacy-corpus --write-baseline` 生成 |
+| `legacy-corpus-baseline.json` | legacy（默认）模式的语料 AST 线指纹基线：`tests/cases/token/**/*.ts(x)` + `samples/*.ts` 共 **1723** 个文件，逐文件 sha256。WP-E 用它证明默认模式零回归；由 `--legacy-corpus --write-baseline` 生成。**渲染器切到 `Token.ToAstLine(0)` 后旧哈希全部失效，本基线已按新渲染器重算**；解析行为是否回归由最终 gates 把关（重构期不跑 gates） |
 
 工具本身在上一级：`tests/parse/token-time-shapes.mjs`。
 
@@ -53,7 +53,7 @@ npm run tts:corpus
 | `--diff` | 与稳定期望文件 `let-x.expected.txt` 逐节比对，打印 PASS/FAIL 明细与合计 |
 | `--from-doc` | `--diff` 的期望源改成 `docs/expected-token-time-shapes.md`（检测文档与稳定文件漂移） |
 | `--expected <路径>` | `--diff` 的期望源改为指定文件（合成 / 探针用；也可写 `--expected=<路径>`） |
-| `--json` | 输出 JSON（逐字符树 + 比对结果；含 `mode` / `modeField` / `modeApplied`） |
+| `--json` | 输出 JSON（逐字符树（`tree` 是 `ToAstLine(0)` 的字符串）+ 比对结果；含 `mode` / `modeField` / `modeApplied`） |
 | `--quiet` | diff / dump / 语料模式都只打一行汇总 |
 | `--incremental` | 解析前把 `StatementRouteUtil.EnableIncrementalVariableShapes` 置 `true` |
 | `--mode legacy\|incremental` | 与上一条等价；显式给 `legacy` 即强制默认路径（`--mode=incremental` 也可） |
@@ -114,8 +114,8 @@ node tests/parse/token-time-shapes.mjs --legacy-corpus tests/cases/token
 ```
 
 - 语料根缺省 `tests/cases/token`（另加 `samples/*.ts`），逐文件跑**整文档**解析
-  （`context.Process(document)` → `Root.ToXmlString()`），按仓库相对路径（`/` 分隔）排序后算 sha256。
-- 语料基线**固定 legacy 模式**：它的用途就是证明默认模式的 XML 逐字节不变；即使同时给
+  （`context.Process(document)` → `Root.ToAstLine(0)`），按仓库相对路径（`/` 分隔）排序后算 sha256。
+- 语料基线**固定 legacy 模式**：它的用途就是证明默认模式渲染出的 AST 线逐字节不变；即使同时给
   `--incremental` 也按 legacy 采集 / 比对（输出会写明）。
 - 解析抛异常的文件也进基线（指纹 = `sha256("ERROR\n" + 错误描述)`）：错误文案同样是行为的一部分。
 - 基线文件是**确定性产物**（无时间戳），重跑 `--write-baseline` 应得到逐字节相同的文件。
@@ -129,6 +129,10 @@ node tests/parse/token-time-shapes.mjs --legacy-corpus tests/cases/token
 
 ## 格式（与文档一致）
 
+树**不由本工具自绘**：每一步直接取 `Token.ToAstLine(0)`（W1 的渲染器，实现在 `core/syntax/token.xl.md`）。
+原先的 `dumpNode` / `formatNodeFields` / `appendChildren` / `treeLines` 已删除，格式只有那一处实现；
+工具只保留「逐字符推进 + 与期望逐行比对」。下面是渲染器约定的输出格式：
+
 - 每层缩进：子行 `├─ `（非末子）/ `└─ `（末子），子层前缀 `│  ` / `   `；根行无前缀。
 - 形状节点：`<ClassName>  pos=<Pos>  src=[<Start>,<End>)`；`End < 0` → `未封`；`Pos < 0` / 缺省 → `pos=-`（basic token 无 `Pos` 字段，故不打印 `pos`）。
 - 文本字段：basic token（`Common` / `WrapSymbol` / `Symbol`）`text="..."`（来自 `TempToString()`）；
@@ -141,13 +145,17 @@ node tests/parse/token-time-shapes.mjs --legacy-corpus tests/cases/token
   比对时**只容错期望侧的尾部注解**：期望行去掉 `/\s+←.*$/` 后与实际行相等 ⇒ 该行算一致，
   本步计 PASS 并在输出里标注 `[annotation-only]`；实际行的其它差异照旧 FAIL。
   工具不改文档、不改稳定期望文件。增量模式下 char 11 正是这样以 `[annotation-only]` 计 PASS。
-- 工具只 dump `Root.Data` 的 shape 树；「同一段源码两次跑结果逐字节相同」已实测。
+- 工具只渲染 `Root` 的 shape 树（`Root.ToAstLine(0)`）；「同一段源码两次跑结果逐字节相同」已实测。
+- **语料基线随渲染器重算**：旧渲染器（XML 时代）的哈希在 `ToAstLine(0)` 下必然全部不同，
+  所以 `legacy-corpus-baseline.json` 是用同一条 `--legacy-corpus --write-baseline` 按新渲染器重算并提交的
+  （1723 文件、解析异常 0）。它只保证「同一渲染器下解析行为逐字节不变」；解析行为的回归由最终 gates 把关，
+  重构期按约定不跑 gates。
 - 当前读数（暂存分支 `refactor/token-time-shapes` @ `b9b47f21`，本目录验收口径）：
 
   | 命令 | 读数 | exit |
   | --- | --- | --- |
   | `npm run tts`（legacy） | **PASS 6 / FAIL 8 / 14 步** | 1 |
   | `npm run tts:incremental` | **PASS 14 / FAIL 0 / 14 步**（char 11 `[annotation-only]`） | **0** |
-  | `npm run tts:corpus` | **1723 文件 / 差异 0**（变化 0 / 缺失 0 / 新增 0） | 0 |
+  | `npm run tts:corpus` | **1723 文件 / 差异 0**（变化 0 / 缺失 0 / 新增 0；基线已按 `ToAstLine(0)` 重算） | 0 |
 
   6/8/14 是重构前的 legacy 基线（char 5–12 未通过），不是回归；增量模式的 14/14 是本轮重构的验收结论。

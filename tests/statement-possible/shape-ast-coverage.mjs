@@ -4,7 +4,7 @@
 // 每一族一条或多条最小源码，逐条断言三件事：
 //   1. `StatementShapeAst.TotalShapeAst >= 1` —— 这条表达式的 AST **确实由形状树建出**（不是"恰好没红"）；
 //   2. `StatementShapeAst.TotalDeclined === 0` —— 形状树没有拒绝（`ShapeAstDeclinedCount` 为 0 的正面证据）；
-//   3. 默认解析（壳开）的 `ToXmlString()` 与 legacy 档（`EnableShellExpressions=false`）**逐字节相同** ——
+//   3. 默认解析（壳开）的 `ToAstLine()` 与 legacy 档（`EnableShellExpressions=false`）**逐字节相同** ——
 //      AST 由构造保证与 legacy 相同，不靠"看起来对"。
 //
 // 语料分族（族名与 `HANDOFF-5d7.md` 的归类一一对应）：
@@ -125,7 +125,7 @@ const GROUPS = [
 ];
 
 // 与 final-matrix.mjs 同口径的 XML 差异定位：只报第一处不同，足够定位。
-function xmlDifference(left, right) {
+function astLineDifference(left, right) {
   if (left === right) {
     return null;
   }
@@ -174,9 +174,9 @@ try {
       StatementRouteUtil.FileFallbackCount = 0;
       StatementShapeAst.TotalDeclined = 0;
       StatementShapeAst.TotalShapeAst = 0;
-      let legacyXml = null;
+      let legacyAstLine = null;
       try {
-        legacyXml = parse(source).ToXmlString();
+        legacyAstLine = parse(source).ToAstLine(0);
       } catch (error) {
         problems.push(`legacy 档解析抛错：${String(error && error.message ? error.message : error)}`);
       }
@@ -186,12 +186,12 @@ try {
       StatementRouteUtil.FileFallbackCount = 0;
       StatementShapeAst.TotalDeclined = 0;
       StatementShapeAst.TotalShapeAst = 0;
-      let shapeXml = null;
+      let shapeAstLine = null;
       let declined = 0;
       let shapeAst = 0;
       let fallback = 0;
       try {
-        shapeXml = parse(source).ToXmlString();
+        shapeAstLine = parse(source).ToAstLine(0);
         declined = StatementShapeAst.TotalDeclined;
         shapeAst = StatementShapeAst.TotalShapeAst;
         fallback = StatementRouteUtil.FileFallbackCount;
@@ -215,8 +215,8 @@ try {
       if (fallback !== 0) {
         problems.push(`FileFallbackCount=${fallback}（整条文件重解析）`);
       }
-      if (legacyXml !== null && shapeXml !== null) {
-        const diff = xmlDifference(shapeXml, legacyXml);
+      if (legacyAstLine !== null && shapeAstLine !== null) {
+        const diff = astLineDifference(shapeAstLine, legacyAstLine);
         if (diff !== null) {
           problems.push(`XML 与 legacy 不同（${diff}）`);
         }
