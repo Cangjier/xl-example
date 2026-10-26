@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **357** 条 case：incremental **356** / 非 incremental **1**（非 incremental 即 FAIL）。
+共 **357** 条 case：incremental **357** / 非 incremental **0**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -380,7 +380,7 @@
 | `types/function-predicate.ts` | incremental | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
 | `types/function-this-param.ts` | incremental | 提前的 shape 节点：FunctionDeclarationShape@pos=0 |  |
 | `types/generic-arrow-typed-param.ts` | incremental | 提前的 shape 节点：ArrowFunctionShape@pos=9, TypeParameterShape@pos=11, IdentifierShape@pos=11, ParameterShape@pos=14, IdentifierShape@pos=14, TypeReferenceShape@pos=16 | EOF 区间含前导/尾随 trivia |
-| `types/generic-call-type-args.ts` | throw | CatalogGuide: 没有候选形状可以构成（宿主 BinaryExpressionShape，下标 2） |  |
+| `types/generic-call-type-args.ts` | incremental | 提前的 shape 节点：CallExpressionShape@pos=9, IdentifierShape@pos=9, StringKeywordShape@pos=12 | EOF 区间含前导/尾随 trivia |
 | `types/import-inline-type.ts` | incremental | 提前的 shape 节点：ImportDeclarationShape@pos=0, ImportClauseShape@pos=6, NamedImportsShape@pos=6, ImportSpecifierShape@pos=8, IdentifierShape@pos=13, ImportSpecifierShape@pos=16 |  |
 | `types/interface-basic.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0, PropertySignatureShape@pos=13, IdentifierShape@pos=13, StringKeywordShape@pos=16 |  |
 | `types/interface-extends-multi.ts` | incremental | 提前的 shape 节点：InterfaceDeclarationShape@pos=0 |  |
