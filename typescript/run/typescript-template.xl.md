@@ -8,6 +8,7 @@ import { Common } from "../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { LineTerminator } from "./line-terminator.xl.md"
+import { ExpressionAtomRegistry } from "../tokens/expressions/forms/shared/expression-atom-registry.xl.md"
 ```
 
 # namespace cangjie
@@ -61,6 +62,18 @@ ts 的起点判据：先走 `RegexTemplate.CanStartAt` 的纯词法判据，再�
   （`=` / `=>` / `(` / `,` / `:` 之后的对象字面量、函数/类**表达式**的体）一律排除。
 
 ```ts
+// [B4i:K1-DIVISION] **容器形状之后的 `/` 是除号**。`RegexTemplate.CanStart` 的默认判据把「不是 basic
+// token 的最后一个代码单元」当语句边界（下一格必然是新语句 ⇒ 起正则）；关闭格上建出的容器
+// （`(4)` / `{…}` / `[…]` / `f()`）是一个**已结束的操作数**，不是语句形状——`const a = (4) / 2;`
+// 若判成正则，`/ 2;` 会被整段吃进 `RegexToken`（实测 `FinishIncremental` 收到 `RegexToken`，
+// 声明在 `)` 处收口、后半条语句消失）。这里按身份表否决，判据只查 `Containers`，开关关闭时恒空。
+const containerSlash = TypeScriptRegexTemplate.SlashIndex(units, index);
+if (containerSlash >= 0) {
+  const containerAt = TypeScriptRegexTemplate.PreviousCodeIndex(units, containerSlash - 1);
+  if (containerAt >= 0 && ExpressionAtomRegistry.HasContainer(units[containerAt])) {
+    return false;
+  }
+}
 if (super.CanStartAt(units, index)) {
   return true;
 }

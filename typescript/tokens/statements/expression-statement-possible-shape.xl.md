@@ -17,6 +17,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { WrapSymbol } from "../../../core/syntax/basic-tokens/wrap-symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
 import { StatementBoundaryUtil } from "./statement-boundary-util.xl.md"
@@ -192,6 +193,13 @@ return LineTerminator.HasLineBreakUnit(unit);
 ## static method CanEndExpression:(unit:Token)=>bool
 
 ```ts
+// [B4i:K1-TAIL] 关闭格上建出的容器是**已经结束的操作数**：它在 `Data` 里时，尾判据（ASI / 行尾收口 /
+// `CanEndDeclarationTail` → `CanEndExpressionAt`）必须答「能收住表达式」，与括号仍在 `Data` 里时的
+// `(` / `[` 同一档。少了这一句，容器落地之后声明在行尾收不了口，下一条语句的容器被并进本条声明
+// （`FinishIncremental` 的「初始化器多根」→ 文件级 fallback）。开关关闭时登记表恒空 ⇒ 零变化。
+if (ExpressionAtomRegistry.HasContainer(unit)) {
+  return true;
+}
 if (unit instanceof Bracket) {
   const start = (unit as Bracket).StartBracketChar;
   return start === "(" || start === "[";
