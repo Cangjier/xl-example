@@ -125,7 +125,7 @@ node typescript/cases/tts/tools/tshape-judge.mjs ts-all   # 238 ok / 188 moved /
 
 ### 2026-10 结构修复
 
-S1–S5 五个结构修复已全部合入（`s1-switch-case` … `s5-endpossible-ternary` 五条分支），落回主线后读数如上：
+S1–S6 六个结构修复已全部合入（`s1-switch-case` … `s6-switch-double-accept` 六条分支），落回主线后读数如上：
 
 | 修复 | 内容 | 效果 |
 | --- | --- | --- |
@@ -134,6 +134,11 @@ S1–S5 五个结构修复已全部合入（`s1-switch-case` … `s5-endpossible
 | **S3** | namespace 体声明挂载（`IsDeclarationHost` + `namespace-body-declaration-mount`）+ `?:` 拆成独立 token | namespace / 条件表达式不再走错目录 |
 | **S4b** | 未完成标识符操作数守卫（`identifier-incomplete-guard`）：`statement-operator-body` 不再把未闭合的标识符当操作数 | 少一类「早建半棵树」 |
 | **S5** | 复合条件三目兜底：`IsCompoundTernaryAhead` 在 `?` / `:` 那一格 `Reject`，等收口格原子建树 | `const i = typeof 1 === "number" ? 1 : 2;` 不再在 `"number"` 收尾引号处 `CatalogGuide` 抛错 |
+| **S6** | `switch` 子句头候选的模式门控：S1 把 `CaseClauseHeadPossibleShape` 无条件挂进子句块，legacy 解析也建增量壳，`BuildCaseBlock` 收不了口 | `wide-ast` 的 2 条 switch+注释用例崩溃 → 0；全量 `gates` 回到 **4 PASS / 0 FAIL / 7 N/A** |
+
+> S6 合入后的最终读数：`tts` PASS 429（throw 3 / incremental 426）；
+> `ts-all` **238 ok / 188 moved / 3 err / 0 structural / 0 fields**；
+> 全量 `gates` **4 PASS / 0 FAIL / 7 N/A**，`wide-ast` 崩溃 0、差异 0。
 
 ### 仍开放的缺口
 
