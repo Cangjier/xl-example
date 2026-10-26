@@ -9,6 +9,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { CompositeInitializerJudge } from "../expressions/forms/primary/composite-initializer-judge.xl.md"
 import { CompositeInitializerFormsJudge } from "../expressions/forms/primary/composite-initializer-forms-judge.xl.md"
+import { CompositeInitializerTailJudge } from "../expressions/forms/primary/composite-initializer-tail-judge.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -62,6 +63,11 @@ if (current instanceof Symbol) {
       return ShapeStates.Reject;
     }
   }
+  // [A4c:TAIL] 尖括号断言 / 泛型箭头的前缀符号（`<T>y` / `<T>(a: T) => a`）：族命中时继续等，
+  // 由 `CompositeInitializerTailPossibleShape` 在整条长完那一格建出。
+  if ((text === "<" || text === ">") && CompositeInitializerTailJudge.Family(units) !== "") {
+    return ShapeStates.Reject;
+  }
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
 }
 if (current instanceof Common) {
@@ -85,6 +91,11 @@ if (current instanceof Bracket) {
   // [A4b:COMPOSITE-FORMS] 还没长完、但括号之后仍是本族合法续接（`(...)` 后的 `=>`、`function (...)` 后的
   // 函数体 `{`）：继续等，不要按 C10 抛「declaration 括号」。`as`/`satisfies` 等其它续接不在此列。
   if (CompositeInitializerFormsJudge.ContinuationAllowed(units)) {
+    return ShapeStates.Reject;
+  }
+  // [A4c:TAIL] 尖括号断言的类型参数表 / 泛型箭头的参数括号 / `[1] as const` 的数组括号：族命中就继续等，
+  // 整条由 `CompositeInitializerTailPossibleShape` 建（完成性由它的 `CanBuild` 判）。
+  if (CompositeInitializerTailJudge.CanWait(units)) {
     return ShapeStates.Reject;
   }
   throw new Error("增量变量形状未支持：declaration 括号");

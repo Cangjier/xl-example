@@ -4,6 +4,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "./binary-expression-possible-shape.xl.md"
 import { CompositeInitializerPossibleShape } from "./forms/primary/composite-initializer-possible-shape.xl.md"
 import { CompositeInitializerFormsPossibleShape } from "./forms/primary/composite-initializer-forms-possible-shape.xl.md"
+import { CompositeInitializerTailPossibleShape } from "./forms/primary/composite-initializer-tail-possible-shape.xl.md"
 import { NumericLiteralPossibleShape } from "./numeric-literal-possible-shape.xl.md"
 import { BinaryOperatorPossibleShape } from "./forms/operator/binary-operator-possible-shape.xl.md"
 import { BigIntLiteralPrimaryPossibleShape } from "./forms/primary/big-int-literal-primary-possible-shape.xl.md"
@@ -127,4 +128,5 @@ return shapes;
   BinaryOperatorPossibleShape.AppendTo(shapes); // [A2]
   CompositeInitializerPossibleShape.AppendTo(shapes); // [A4]
 CompositeInitializerFormsPossibleShape.AppendTo(shapes); // [A4b]
+CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
 ```
