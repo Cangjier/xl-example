@@ -41,6 +41,13 @@ let b = 2
 
 ## field Pos:int = -1
 
+## field ShellId:int = 0
+
+[B0b:SHELLID] 语句壳的单调身份号，由 `StatementShellCatalog.Attach` **唯一**分配（`0` = 未挂壳）。
+`StatementShellCatalog.Take` 用它（连同 `Pos` 与占位节点类名）认出「这条语句自己的壳」，而不是像以前
+那样只取「`Lists` 栈顶 + 类名」——栈顶可能是**提前 push 的内层语句壳**（`if (a) { … }` 的块壳）。
+只读：除 `Attach` 之外任何地方都不写它。
+
 ## field Kind:int = 0
 
 ## field BodyKind:int = 0
