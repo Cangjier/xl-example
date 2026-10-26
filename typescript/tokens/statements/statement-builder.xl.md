@@ -2369,15 +2369,31 @@ while (inner.At < inner.Units.length) {
     const headClause = unit;
     inner.At++;
     let clauseTail:Token | null = null;
-    while (inner.At < inner.Units.length && !inner.Units[inner.At].IsBasicToken) {
+    // **D3d：子句体里没被增量建形的单元，按 legacy 的口径就地建。** S6 把子句头候选限定在增量模式后，
+    // 这条分支收到的是「头壳已建、体还没建」的混合序列：体里的 `case 1: { … }` 是 **basic 括号单元**
+    // （`Bracket` 一直是 basic），`case 1: break`（无 `;`）的短语句壳在 ASI 判据下收不了口会被卸回 raw，
+    // 两者都留下 basic 单元。原判据「非 basic 才收」于是让它们落进外层循环，被下面那句
+    // 「switch 块里出现了 case / default 之外的单元」拒掉（实测 `switch (a) { case 1: { break; } }`
+    // 100% 复现）。这里补的**不是新判据**：停止条件仍是 `IsClauseKeyword`，basic 单元仍由同一个
+    // `inner.BuildStatement()` 建（与下面 raw `case` / `default` 两段逐字同源），已建好的形状仍原样收下。
+    while (inner.At < inner.Units.length) {
       const clauseUnit = inner.Units[inner.At];
-      if (clauseUnit.constructor.name === "CaseClauseShape"
-        || clauseUnit.constructor.name === "DefaultClauseShape") {
+      if (!clauseUnit.IsBasicToken) {
+        if (clauseUnit.constructor.name === "CaseClauseShape"
+          || clauseUnit.constructor.name === "DefaultClauseShape") {
+          break;
+        }
+        headClause.Add(clauseUnit);
+        clauseTail = clauseUnit;
+        inner.At++;
+        continue;
+      }
+      if (inner.IsClauseKeyword(clauseUnit)) {
         break;
       }
-      headClause.Add(clauseUnit);
-      clauseTail = clauseUnit;
-      inner.At++;
+      const builtTail = inner.BuildStatement();
+      headClause.Add(builtTail);
+      clauseTail = builtTail;
     }
     if (clauseTail !== null && clauseTail.SourceRange.End >= 0) {
       // legacy 的 `inner.Finish(clause, clauseFirst, inner.At - 1)` 把子句 `End` 签在**最后一条语句**的
