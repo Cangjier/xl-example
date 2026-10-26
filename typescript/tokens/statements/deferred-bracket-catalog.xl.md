@@ -54,6 +54,17 @@ import { WaitingEndPossible } from "./waiting-end-possible.xl.md"
 | R6 失败不半装 | 先 `BuildGuide` 到本地变量；循环内抛错 ⇒ `CatalogGuide` 恢复 `null` + `Drop` | `ReplayFailureCount` |
 | R7 不自我重入 | `Replaying` 期间 `Replay` / `Bind` 一律返回空（条目留在 `Pending`，外层结束后可再次 `Bind`） | — |
 
+**所有权顺序（B0c 修）**：`Bind(owner)` 先把命中的条目装进**本次 replay 计划**（一个本地数组），
+条目在 replay 期间**仍留在 `Pending`** 里，`plan` 也作为形参显式交给 `Replay`；replay 返回之后才
+`Drop`——成功是「一次性消费」（R1），失败是「显式丢弃」（R6 已把向导撤回 `null`，不留半装）。
+旧写法「先 `Drop` 再 `Replay`」让 `Replay` 里的 `Find(plan)` 恒为 `null`，`BuildGuide(null)` 永远
+返回 `null` ⇒ `ReplayFailureCount += 1`、replay 一次也成功不了（B2 §3 #5）。`ReplayDropCount` 就是
+这两条出口的真实读数：`Drop` 每真正摘掉一条 +1，不猜。
+
+**「先 `Drop` 再 `Replay`」是禁式**：`Replay` 的入口**先**取计划（显式形参优先，其次 `Find`），
+**再**用计划建向导；本文件里任何「摘条目」都只允许发生在 `Replay` 返回之后（`Bind`）或
+`Replay` 的失败分支（R6）。
+
 [B0] 注册表默认是空的（没有角色目录 ⇒ 没有 `Known` ⇒ 没有 replay），所以本文件在默认开关下
 一分钱也不花；计数全为 0。
 
@@ -68,6 +79,12 @@ import { WaitingEndPossible } from "./waiting-end-possible.xl.md"
 ## static field ReplayFailureCount:int = 0
 
 replay 被拒绝 / 中途失败的次数（R2 / R4 / R5 / R6 各一条，见上表）。
+
+## static field ReplayDropCount:int = 0
+
+`Drop` **真正摘掉**条目的次数（成功 replay 的一次性消费 + 失败/`Abandon` 的显式丢弃）。
+与 `ReplayCount` 的差别正是失败读数：`ReplayCount == 0 && ReplayDropCount > 0` 说明条目全在
+失败出口上被消费掉了——不允许把它当绿。
 
 ## static field BindCount:int = 0
 
@@ -135,7 +152,7 @@ return DeferredBracketCatalog.Pending.length;
 ## static method Drop:(bracket:Token | null)=>void
 
 把一个条目从 `Pending` 里摘掉（R6 的 `Abandon` / A2 §3 的失效即丢弃）。**已经建出的形状不受影响**：
-本方法只动登记表。
+本方法只动登记表。每真正摘掉一条 `ReplayDropCount += 1`（找不到条目就不计数，重复 `Drop` 不会虚增）。
 
 ```ts
 if (bracket === null) {
@@ -144,6 +161,8 @@ if (bracket === null) {
 for (let at = 0; at < DeferredBracketCatalog.Pending.length; at++) {
   if (DeferredBracketCatalog.Pending[at].Bracket === bracket) {
     DeferredBracketCatalog.Pending.splice(at, 1);
+    DeferredBracketCatalog.ReplayDropCount += 1;
+    StatementRouteUtil.BracketRoleReplayDropCount += 1;
     return;
   }
 }
@@ -154,8 +173,13 @@ for (let at = 0; at < DeferredBracketCatalog.Pending.length; at++) {
 **壳被建出来的那一刻调用**：返回本次被唤醒（并已 replay）的括号。
 
 匹配规则：`Owner === owner`（同一 token）**或** `OwnerKey === owner.constructor.name`
-**或** `OwnerKey === ""`（通配，声明族用）。命中的条目**先从 `Pending` 摘除再 replay**：
-replay 期间新登记的括号因此不会被本次 `Bind` 二次命中（R7）。
+**或** `OwnerKey === ""`（通配，声明族用）。
+
+**所有权（B0c）**：命中的条目先装进 `claimed`（本次 replay 计划），**不**先摘除；`Replay` 拿到
+`entry.Plan`（显式形参）并在条目仍在 `Pending` 时按计划建向导。replay 返回后统一 `Drop`：
+`>= 0` ⇒ 一次性消费；`< 0` ⇒ 显式丢弃（R6 已在失败分支把 `CatalogGuide` 撤回 `null`）。
+因此 replay 期间新登记的括号不会被本次 `Bind` 二次命中（R7），而 replay 之后的重复 `Bind`
+再也找不到条目（`ReplayCount` 不涨）。
 
 `Replaying` 期间直接返回空（不自我重入）：条目**留在** `Pending` 里，外层 replay 结束后
 再 `Bind` 一次即可命中。
@@ -184,9 +208,6 @@ for (const entry of DeferredBracketCatalog.Pending) {
 if (claimed.length === 0) {
   return matched;
 }
-for (const entry of claimed) {
-  DeferredBracketCatalog.Drop(entry.Bracket);
-}
 DeferredBracketCatalog.BindCount += 1;
 for (const entry of claimed) {
   const bracket = entry.Bracket;
@@ -195,14 +216,19 @@ for (const entry of claimed) {
   }
   const context = entry.Context;
   if (context === null) {
-    // R5：登记时没留 context（不该发生），replay 无从进行 ⇒ 计数并放弃这一个。
+    // R5：登记时没留 context（不该发生），replay 无从进行 ⇒ 计数并显式丢弃这一个。
     DeferredBracketCatalog.ReplayFailureCount += 1;
+    StatementRouteUtil.BracketRoleReplayFailureCount += 1;
+    DeferredBracketCatalog.Drop(bracket);
     continue;
   }
-  const replayed = DeferredBracketCatalog.Replay(bracket, context);
+  // B0c：plan 随条目一起进 replay，条目**此刻仍在** `Pending` 里（`Find` 也还能找到它）。
+  const replayed = DeferredBracketCatalog.Replay(bracket, context, entry.Plan);
   if (replayed >= 0) {
     matched.push(bracket);
   }
+  // 成功 = 一次性消费；失败 = 显式丢弃。两处都在 Replay **返回之后**，不半装、不提前摘。
+  DeferredBracketCatalog.Drop(bracket);
 }
 return matched;
 ```
@@ -224,7 +250,7 @@ for (const unit of bracket.Data) {
 return true;
 ```
 
-## static method Replay:(bracket:Token, context:SyntaxContext)=>int
+## static method Replay:(bracket:Token, context:SyntaxContext, plan?:BracketRoleResult | null)=>int
 
 **一次升序 replay**：把 `bracket.Data` 里已经攒下的单元逐个喂给括号自己的目录向导，
 返回喂了几格（`0` = 没做/拒绝；`-1` = 失败）。
@@ -233,7 +259,12 @@ return true;
   是两条互不干扰的通道（A2 R3）；
 - 每格只调 `ComputePossibleShapesByIndex(at, context)`：`Candidates.size > 1` 时它返回 `Waiting`
   什么也不建，`size === 1` 且 `IsBuildable` 时才建并 `Reset`。replay 因此天然是「逐格推进目录」，
-  不需要第二套判据。
+  不需要第二套判据；
+- **计划来源（B0c）**：`plan` 形参优先（`Bind` 从命中条目带过来，这就是「所有权」）；没给才回落到
+  `Find(bracket)`。**先取计划、后建向导、最后才允许摘条目**——旧写法在调用方先 `Drop`，`Find`
+  恒为 `null`，本方法因此永远返回 `-1`。
+- **不 `Drop`**：条目由 `Bind` 在本次 replay 返回之后摘除（成功）或失败分支显式摘除（R6）。
+  单独调用本方法不会消费条目，但 `shape.ReplayCount > 0` 会让下一次调用直接返回 0（R1）。
 
 ```ts
 if (bracket === null || context === null) {
@@ -257,9 +288,13 @@ if (!DeferredBracketCatalog.IsRaw(shape)) {
   StatementRouteUtil.BracketRoleReplayFailureCount += 1;
   return -1;
 }
-const entry = DeferredBracketCatalog.Find(shape);
-const plan = entry === null ? null : entry.Plan;
-const guide = BracketCatalogInstaller.BuildGuide(plan);
+// B0c：先定计划（显式形参 = 所有权；回落 Find 只给直接调用者）。
+let effective:BracketRoleResult | null = plan === undefined ? null : plan;
+if (effective === null) {
+  const entry = DeferredBracketCatalog.Find(shape);
+  effective = entry === null ? null : entry.Plan;
+}
+const guide = BracketCatalogInstaller.BuildGuide(effective);
 if (guide === null) {
   DeferredBracketCatalog.ReplayFailureCount += 1;
   StatementRouteUtil.BracketRoleReplayFailureCount += 1;
@@ -306,6 +341,7 @@ return replayed;
 DeferredBracketCatalog.Pending = [];
 DeferredBracketCatalog.ReplayCount = 0;
 DeferredBracketCatalog.ReplayFailureCount = 0;
+DeferredBracketCatalog.ReplayDropCount = 0;
 DeferredBracketCatalog.BindCount = 0;
 DeferredBracketCatalog.Replaying = false;
 ```
@@ -318,5 +354,6 @@ DeferredBracketCatalog.Replaying = false;
 return "pending=" + DeferredBracketCatalog.Pending.length
   + " binds=" + DeferredBracketCatalog.BindCount
   + " replayed=" + DeferredBracketCatalog.ReplayCount
-  + " failed=" + DeferredBracketCatalog.ReplayFailureCount;
+  + " failed=" + DeferredBracketCatalog.ReplayFailureCount
+  + " dropped=" + DeferredBracketCatalog.ReplayDropCount;
 ```

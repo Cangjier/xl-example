@@ -1188,6 +1188,13 @@ B2 打开开关后，声明族与「语句族未判」的 `{` 会走到这里（
 [B0:ROLE] 只读计数：replay 被拒绝 / 中途失败的次数（R2 非 raw、R4 终结候选会 Accept、R5 丢 context、
 R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一条都不应该被触发。
 
+## static field BracketRoleReplayDropCount:int = 0
+
+[B0c:ROLE] 只读计数：`DeferredBracketCatalog.Drop` 真正摘掉条目的次数（成功 replay 的一次性消费 +
+失败 / `Abandon` 的显式丢弃；`DeferredBracketCatalog.ReplayDropCount` 同一口径的镜像）。
+它与 `BracketRoleReplayCount` 的差就是失败出口：**`ReplayCount == 0 && ReplayDropCount > 0` 说明条目
+全在失败出口被消费**，不允许当绿。
+
 ## static field EnableArrowParenCatalog:bool = false
 
 **[B0:PAREN] A4b `(` 格「箭头参数」前瞻（`"arrowparen"`）的开关。默认 `false`；由 B3b 打开。**
