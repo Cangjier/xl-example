@@ -246,6 +246,76 @@ true
 0
 ```
 
+## static field EnableNamespaceBodyDeclarations:bool = true
+
+**[S3:NAMESPACE-BODY]** 模块体（`namespace` / `module` / `declare global` 的 `{`…`}`）内的**声明族**开关。
+
+打开后 `namespace-body-declaration-mount.xl.md` 才会给模块体括号挂声明目录，`IsDeclarationHost` 才把
+「模块块」与「根层」并列为声明宿主。`false` 时模块体括号不挂目录，体内一切逐字节回到本 WP 之前的
+「整段 raw 建树」形态（`ts-all` 的 429 条基线因此不可能被本开关误伤）。
+
+## static field NamespaceBodyDeclarationMountCount:int = 0
+
+**[S3:NAMESPACE-BODY]** 只读计数：模块体括号挂上声明目录的次数（每个 `{`…`}` 体 +1）。
+
+## static method IsDeclarationHost:(host:Token | null)=>bool
+
+**[S3:NAMESPACE-BODY] 声明宿主的唯一判据（本方法与 WP-S3 的 `IsDeclarationHost` 一一对应）。**
+
+「声明族能在这里挂壳」的宿主只有两种：
+
+1. **根层**：宿主是文件单元（`SourceFileShape`），`Parent === null`；
+2. **模块块**：宿主是 `{` 括号，且这个括号的父单元是 `ModuleDeclarationShape`
+   （`namespace N { … }` / `module M { … }` / `declare global { … }` 的体）。
+
+**为什么模块体必须看「括号的父单元」而不是看括号自己**：增量路径里模块体在整条 trace 期间都是
+`Bracket`（`ModuleBlockShape` 只在 legacy 收口时由 `ModuleDeclarationShape.FromUnits` 建出来），
+所以「宿主是不是模块体」只能由 `ModuleDeclarationPossibleShape` 提前挂出的
+`ModuleDeclarationShape` 壳回答。这也是本判据不需要 import `ModuleDeclarationShape` 的原因——
+按类名比对（与 `DecideCaseClauseHead` 里 `shape.constructor.name === "CaseClauseHeadPossibleShape"`
+同一手法），避免 `statement-route-util ↔ module-declaration-shape` 的循环依赖。
+
+**刻意不认「所有块体」**：`{` 语句块 / 函数体 / 箭头体里的 `interface` / `type` 是**块级声明**，
+它们的建树通道由块体目录（`ControlFlowStatementPossibleShape` 的 `ShellDeclarationFamily`）负责；
+把它们也算成声明宿主会让声明族候选与块体语句壳同格双 Accept（`CatalogGuide` 抛「终结候选与其它
+候选同时成立」），这正是 WP-S3 §风险第一条要求避免的事故。
+
+```ts
+if (host === null) {
+  return false;
+}
+if (host.Parent === null) {
+  return true;
+}
+if (!(host instanceof Bracket) || (host as Bracket).StartBracketChar !== "{") {
+  return false;
+}
+const owner = host.Parent;
+if (owner === null) {
+  return false;
+}
+return owner.constructor.name === "ModuleDeclarationShape";
+```
+
+## static method IsRootDeclarationHost:(host:Token | null)=>bool
+
+**[S3:NAMESPACE-BODY] 根层限定判据（`IsDeclarationHost` 的另一半，两者刻意**分成两个**）。**
+
+`import` / `export` 这一族在模块体里的**合法面比根层窄**：`import x from "m"` / `export =` /
+`export as namespace N` 在 `namespace` 体内非法（TS 报 1148 / 1063），`import()` / `import.meta`
+则根本是表达式位。所以「导入导出族的专用候选」（`ImportExportDeclarationMount` /
+`ImportExportLegacyDeclarationMount` / `ImportDeclarationPossibleShape` /
+`ExportDeclarationPossibleShape` / `ImportEqualsDeclarationPossibleShape` /
+`ExportAssignmentPossibleShape`）**只能留在根层**——把它们放进模块体目录会与声明族的通用语句壳
+抢同一格。判据本体就是原来的 `host.Parent === null`，一个字都不新写。
+
+```ts
+if (host === null) {
+  return false;
+}
+return host.Parent === null;
+```
+
 ## static method IsDeclarationHead:(text:string)=>bool
 
 ```ts

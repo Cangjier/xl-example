@@ -13,6 +13,7 @@ import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { ModuleBlockShape } from "./module-block-shape.xl.md"
+import { NamespaceBodyDeclarationMount } from "./forms/namespace-body-declaration-mount.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
@@ -36,6 +37,28 @@ export namespace N {}
 
 ```ts
 super(template);
+```
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+**[S3:NAMESPACE-BODY] 模块体括号挂声明目录。**
+
+`Bracket.Transit` 在挂好子括号之后通知宿主 `OnBracketCreatedEvent`；本方法只在「宿主是本声明、
+子括号是 `{`」时做事。`ModuleDeclarationPossibleShape` 在名字格 `MountShell` 提前挂出本壳之后，
+体 `{` 的父单元就是本形状，所以这一格是模块体**唯一**能拿到目录的时机——不加这一格，
+`ModuleDeclarationShape.CatalogGuide` 只有终结候选，体内一条语句都拿不到格子
+（`namespace-store` 的 `interface` / `enum` / `type` / `const` / `function` 全无 shape 的直接原因）。
+
+只挂目录、不建树：`}` 闭合由 `ModuleDeclarationEndPossibleShape` 交给 legacy
+`ModuleDeclarationShape.FromUnits` → `ModuleBlockShape.FromBracket`，那条通道上
+`[S3:NAMESPACE-BODY]` 的「已建语句收集」分支负责把已收口的语句搬进 `ModuleBlockShape`。
+幂等由 `NamespaceBodyDeclarationMount.Install` 保证（括号已有目录时不覆盖）。
+
+```ts
+if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
+  return;
+}
+NamespaceBodyDeclarationMount.Install(bracket);
 ```
 
 ## static method FromUnits:(code:Array<Token>, positions:Array<int>, context:SyntaxContext)=>ModuleDeclarationShape

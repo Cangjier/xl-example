@@ -162,13 +162,27 @@ return StatementRouteUtil.Decide(units, tokenIndex) === StatementRoute.ShellDecl
 // 这里逐字落回 `super.BuildByIndex` ⇒ legacy 路径一个字节都不变。
 // 未接管的形态（`export declare const` / `export default function` / `export class` …）同样返回 `null`，
 // 仍走既有声明壳（那是 B3/B4 的写域）。
-const mounted = ImportExportDeclarationMount.TryBuild(host, tokenIndex, context);
-if (mounted !== null) {
-  return mounted;
+//
+// **[S3:NAMESPACE-BODY] 让位矩阵拆成两个判据（WP-S3 第 3 条）**：
+//
+// ① 导入导出族（本段）**仍然只认根层**——`import x from "m"` 在 `namespace` 体内非法（TS 1148），
+//    `export =` / `export as namespace N` 也只有模块顶层合法。所以 `ImportExportDeclarationMount`
+//    的入口用 `IsRootDeclarationHost(host)` 把住：模块体里的同名 token 不交给它，仍由
+//    通用声明壳 / 族候选按体成员的规则处理。判据本体在 `statement-route-util`，这里只调。
+// ② 声明族（interface / type alias）用 `IsDeclarationHost(host)`：根层 + 模块块都算宿主。
+//
+// 两处刻意不合成一个判据：合成之后要么把模块体排除在声明宿主之外（本 WP 之前的行为，namespace
+// 体内一条声明都不建），要么把 `import` / `export` 放进模块体（与通用声明壳同格双 Accept）。
+if (StatementRouteUtil.IsRootDeclarationHost(host)) {
+  const mounted = ImportExportDeclarationMount.TryBuild(host, tokenIndex, context);
+  if (mounted !== null) {
+    return mounted;
+  }
 }
 // [XL-B4a] WP-B4a：interface / type alias 声明族的**尽早挂壳**（在 B5 段之后追加，不重排上面的接线）。
-// 两个入口都自带 `IsIncrementalShapesEnabled()` 门控 + 根层 + 声明头判据；未命中返回 `null`，
-// 逐字落回 `super.BuildByIndex`（既有声明壳），因此 legacy 路径与未接管形态一个字节都不变。
+// 两个入口自带 `IsIncrementalShapesEnabled()` 门控 + `StatementRouteUtil.IsDeclarationHost`（根层 +
+// 模块块）+ 声明头判据；未命中返回 `null`，逐字落回 `super.BuildByIndex`（既有声明壳），
+// 因此 legacy 路径与未接管形态一个字节都不变。
 const declaredInterface = InterfaceDeclarationMount.TryBuild(host, tokenIndex, context);
 if (declaredInterface !== null) {
   return declaredInterface;

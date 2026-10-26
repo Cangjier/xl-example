@@ -34,8 +34,9 @@ interface I { a: number }   ← 在名字那一格挂 InterfaceDeclarationShape�
 
 - 只在 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为真时动作；false 时 `TryBuild` 一步不走、返回 `null`，
   调用方逐字落回 `super.BuildByIndex` ⇒ legacy 逐字节不变。
-- 只认**根层**（宿主 `Parent === null`）且**首代码单元就是 `interface`**（`export` / `declare` / 装饰器前缀形
-  仍走既有声明壳，交给 B3/B5）；块体 / 模块体里的同名形态不接管。
+- 只认**声明宿主**（`StatementRouteUtil.IsDeclarationHost`：根层 `Parent === null`，或模块块的 `{`…`}`），
+  且**首代码单元就是 `interface`**（`export` / `declare` / 装饰器前缀形仍走既有声明壳，交给 B3/B5）；
+  普通块体 / 函数体里的同名形态不接管（那里由块体目录的通用声明壳负责）。
 - 未支持形态不静默吞掉：返回 `null` 即交回既有声明壳（它自己会按 C10 显式 throw 或建树）。
 
 ## static field MountCount:int = 0
@@ -48,7 +49,10 @@ interface I { a: number }   ← 在名字那一格挂 InterfaceDeclarationShape�
 if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
   return null;
 }
-if (host.Parent !== null) {
+// [S3:NAMESPACE-BODY] 宿主判据参数化：根层与**模块块**都是声明宿主（唯一判据在
+// `StatementRouteUtil.IsDeclarationHost`）。本 WP 之前这里是 `host.Parent !== null` ——
+// 那一句就是「namespace 体内的 interface 永远不建壳」的全部原因。
+if (!StatementRouteUtil.IsDeclarationHost(host)) {
   return null;
 }
 const start = ItemUtil.ItemStart(host.Data);
