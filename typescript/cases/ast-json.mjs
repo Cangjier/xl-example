@@ -2,7 +2,7 @@
 //   <构造>.ts-ast.json   —— TypeScript 自己给的 AST（ts.createSourceFile，语义层）
 //   <构造>.cj-ast.json   —— 本仓当前解析出的形状树（形状类名 + 区间 + 字段 + 子节点）
 //
-//   node typescript/cases/ast-json.mjs              # 全量：typescript/cases/*.ts
+//   node typescript/cases/ast-json.mjs              # 全量：typescript/cases/astjson/*.ts
 //   node typescript/cases/ast-json.mjs import       # 只跑指定构造（可给多个）
 //
 // 两份都按「一行一个用例」对齐，逐条对比即可看出 gap：某条在 cj 侧是 error，
@@ -14,17 +14,19 @@ import { createRequire } from "node:module";
 import { createAstCore, cjAst } from "./ast-compare.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// 用例与两份快照统一放在 astjson/ 子目录：脚本留在 cases/ 根，语料不与尺子混放。
+const casesDir = path.join(here, "astjson");
 const root = path.resolve(here, "../..");
 const require = createRequire(import.meta.url);
 const ts = require(path.join(root, "node_modules", "typescript"));
 
 const { SourceFileRunner } = require(path.join(root, "build/ts/typescript/run/source-file-runner.js"));
 
-// 构造名 = 用例文件名去掉 .ts；目录里的 *.ts 就是全部可用构造。
+// 构造名 = 用例文件名去掉 .ts；astjson/ 里的 *.ts 就是全部可用构造。
 function availableStems() {
   return fs
-    .readdirSync(here)
-    .filter((name) => name.endsWith(".ts") && fs.statSync(path.join(here, name)).isFile())
+    .readdirSync(casesDir)
+    .filter((name) => name.endsWith(".ts") && fs.statSync(path.join(casesDir, name)).isFile())
     .map((name) => name.slice(0, -3))
     .sort();
 }
@@ -128,7 +130,7 @@ function decodeCaseText(line) {
 }
 
 function readCases(stem) {
-  const source = fs.readFileSync(path.join(here, `${stem}.ts`), "utf8");
+  const source = fs.readFileSync(path.join(casesDir, `${stem}.ts`), "utf8");
   return source
     .split("\n")
     .map((line) => line.trim())
@@ -161,8 +163,8 @@ for (const stem of stems) {
       cjCases.push({ src, error: message.split("\n")[0] || "unknown" });
     }
   }
-  fs.writeFileSync(path.join(here, `${stem}.ts-ast.json`), JSON.stringify({ cases: tsCases }, null, 2) + "\n");
-  fs.writeFileSync(path.join(here, `${stem}.cj-ast.json`), JSON.stringify({ cases: cjCases }, null, 2) + "\n");
+  fs.writeFileSync(path.join(casesDir, `${stem}.ts-ast.json`), JSON.stringify({ cases: tsCases }, null, 2) + "\n");
+  fs.writeFileSync(path.join(casesDir, `${stem}.cj-ast.json`), JSON.stringify({ cases: cjCases }, null, 2) + "\n");
   const ok = cjCases.filter((item) => !item.error).length;
   console.log(`[${stem}] cases=${cases.length} cj-ok=${ok} cj-fail=${cases.length - ok}`);
   total += cases.length;

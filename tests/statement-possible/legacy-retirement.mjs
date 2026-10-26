@@ -17,7 +17,7 @@
 //
 // 语料是**固定的**（不抽样），见下面的 CORPUS 常量：
 //   1. `tests/cases/token/**/*.ts` 全部，一份文件 = 一个用例；
-//   2. `typescript/cases/*.ts` 全部：整文件是合法 TS 时整文件一个用例；整文件不是合法 TS 时（那些文件本来是
+//   2. `typescript/cases/astjson/*.ts` 全部：整文件是合法 TS 时整文件一个用例；整文件不是合法 TS 时（那些文件本来是
 //      「一行一个用例」的集合，`ast-json.mjs` 按行消费它们）退化成**逐行用例**，每行一个用例。
 //   两半都按相对路径 / 行号排序，顺序固定。
 //
@@ -63,10 +63,10 @@ const CORPUS = [
     note: "tests/cases/token/**/*.ts 全量（token-ast 同一套语料），一份文件 = 一个用例",
   },
   {
-    root: "typescript/cases",
+    root: "typescript/cases/astjson",
     recursive: false,
     mode: "file-or-lines",
-    note: "typescript/cases/*.ts 全量：整文件合法 TS 时整文件一个用例，否则逐行一个用例（那些文件本来就是一行一例）",
+    note: "typescript/cases/astjson/*.ts 全量：整文件合法 TS 时整文件一个用例，否则逐行一个用例（那些文件本来就是一行一例）",
   },
 ];
 

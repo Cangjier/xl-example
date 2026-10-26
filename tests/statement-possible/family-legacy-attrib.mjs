@@ -3,7 +3,7 @@
 //
 //   node tests/statement-possible/family-legacy-attrib.mjs
 //
-// 同一份**文件半边**语料（`tests/cases/token/**/*.ts` + `typescript/cases/*.ts`，与
+// 同一份**文件半边**语料（`tests/cases/token/**/*.ts` + `typescript/cases/astjson/*.ts`，与
 // `legacy-retirement.mjs` 的两棵语料根相同；逐行用例不在本探针里）跑两遍：
 //
 //   1. `5d-3 on`：默认档（`EnableRootDeclarationShell = true`）；
@@ -93,8 +93,8 @@ function walk(dir, out) {
 
 const files = [];
 walk(path.join(root, "tests", "cases", "token"), files);
-for (const entry of fs.readdirSync(path.join(root, "typescript", "cases"))) {
-  if (entry.endsWith(".ts")) files.push(path.join(root, "typescript", "cases", entry));
+for (const entry of fs.readdirSync(path.join(root, "typescript", "cases", "astjson"))) {
+  if (entry.endsWith(".ts")) files.push(path.join(root, "typescript", "cases", "astjson", entry));
 }
 
 function run(label) {

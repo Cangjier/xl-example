@@ -14,7 +14,7 @@
   **字符流 → basic token → shape / possible 树 → TS 兼容 AST**。
 - 两套可观测产物，互为门禁：
   - **TS 兼容 AST**：与 `ts.createSourceFile` 逐节点三栏对拍（kind / pos / end / text / name / children），
-    语料是 `typescript/cases/*.ts`（47 个构造）与真实 `.d.ts`（226 份）。
+    语料是 `typescript/cases/astjson/*.ts`（47 个构造）与真实 `.d.ts`（226 份）。
   - **AST 线 token 树**：`Token.ToAstLine(0)`，节点名取 `this.constructor.name`；
     同一份源码两次解析必须逐字节相同，形状树里不得出现壳类（`StatementShape` / `PossibleShape` / `CatalogGuide`）。
 - 构建链路：`*.xl.md --xl build--> dist/ts/**/*.ts --tsc--> build/ts/**/*.js`。
@@ -41,7 +41,7 @@
 | `typescript/tokens/` | TS 语法层，按家族分目录：`aliases bindings declarations expressions files jsdoc jsx keywords literals members names punctuation statements synthetic trivia types`（`*.xl.md`，禁止散文） |
 | `typescript/ast/` | AST 节点规范（节点工厂，纯数据） |
 | `typescript/run/` | `source-file-runner`（入口）、`text-document`、语言模板（`typescript-template`、`typescript-symbol-template`、`line-terminator` 等） |
-| `typescript/cases/` | 47 个语料构造 + 全部尺子（`.mjs`） |
+| `typescript/cases/` | 47 个语料构造（`astjson/`）+ 全部尺子（`.mjs`）+ 增量形状边界 cases（`tts/`） |
 | `tests/statement-possible/` | 语句 possible 的行为仪器、退场指标探针、终态矩阵 |
 | `tests/parse/` | 语料文件体检（`validate.mjs`） |
 | `docs/` | 本文件 + 两份 C++ 规范（见 §8） |
@@ -143,7 +143,7 @@
 
 | 残余 | 数量 | 归因 / 边界 |
 | --- | --- | --- |
-| 文件级 fallback | **4** | 同一类：函数 / 构造签名的**返回类型字面量**（`type T = (a: A) => { b: B }`），`=>` 后那个 `{` 在语句层被当成块语句先建掉，类型别名建造器拿到坏切片。4 例：`tests/cases/token/types/gap-r1244-ctor-signature-generic-return-type.ts`、`tests/cases/token/types/type-fn-return-typeliteral.ts`、`typescript/cases/dts-types.ts:L68`、`typescript/cases/types.ts:L430` |
+| 文件级 fallback | **4** | 同一类：函数 / 构造签名的**返回类型字面量**（`type T = (a: A) => { b: B }`），`=>` 后那个 `{` 在语句层被当成块语句先建掉，类型别名建造器拿到坏切片。4 例：`tests/cases/token/types/gap-r1244-ctor-signature-generic-return-type.ts`、`tests/cases/token/types/type-fn-return-typeliteral.ts`、`typescript/cases/astjson/dts-types.ts:L68`、`typescript/cases/astjson/types.ts:L430` |
 | 块体 raw 尾巴 | **4** | 块内语句的整段 raw 递归与 raw 段收集仍由 `StatementBuilder.BuildStatement()` 建树 |
 | 形状树拒绝 | **2** | 表达式语句的形状树折不出 AST，`StatementShapeAst.Decline` 记一次并退回 legacy 建树 |
 | `ScanRoot` 调用 | **46** | 全在文件级 fallback 的重解析里；默认解析 0 |

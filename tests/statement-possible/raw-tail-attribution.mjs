@@ -9,7 +9,7 @@
 // `CollectBodyStatements` 时记录（这两个正是 `RawTailBuildCount` 的自增点，见 `statement-legacy-metrics`），
 // 于是探针的总数与官方指标**同源**：两数不等就是探针漏记，脚本直接失败（不许假绿）。
 //
-// 语料与 `legacy-retirement.mjs` 完全一致（`tests/cases/token/**/*.ts` + `typescript/cases/*.ts` 的
+// 语料与 `legacy-retirement.mjs` 完全一致（`tests/cases/token/**/*.ts` + `typescript/cases/astjson/*.ts` 的
 // 合法片段），跳过口径也一致（TS 自己 parseDiagnostics 非空的整文件 / 逐行不算）。
 //
 // 归族只看**首代码单元的文本**（`yield` / `async` / `function` / `@` / `export` …），不看任何开关或
@@ -85,8 +85,8 @@ function walk(dir, out) {
 }
 
 const tokenFiles = walk(path.join(root, "tests/cases/token"), []);
-const caseFiles = walk(path.join(root, "typescript/cases"), [])
-  .filter((file) => path.dirname(file) === path.join(root, "typescript/cases"));
+const caseFiles = walk(path.join(root, "typescript", "cases", "astjson"), [])
+  .filter((file) => path.dirname(file) === path.join(root, "typescript", "cases", "astjson"));
 const files = [...tokenFiles, ...caseFiles];
 
 const broken = (text) => {
@@ -99,7 +99,7 @@ let total = 0;
 for (const file of files) {
   let text = fs.readFileSync(file, "utf8");
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-  const isCaseDir = path.dirname(file) === path.join(root, "typescript/cases");
+  const isCaseDir = path.dirname(file) === path.join(root, "typescript", "cases", "astjson");
   const unitsOf = broken(text)
     ? (isCaseDir ? text.split("\n").map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("//")) : [])
     : [text];

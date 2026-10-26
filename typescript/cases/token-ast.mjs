@@ -2,7 +2,7 @@
 //
 // 与 typescript/cases/ast-json.mjs 是同一套口径（归一表、tsAst、cjAst、分组 / 配对
 // 全部 import ./ast-compare.mjs），区别只在语料形态：
-//   - ast-json.mjs 读 typescript/cases/*.ts，一行一个用例，按行切分；
+//   - ast-json.mjs 读 typescript/cases/astjson/*.ts，一行一个用例，按行切分；
 //   - 这里是真实多行文件：一份文件 = 一个用例，不做 `\n` 转义解码，只去 BOM。
 //
 // 判定：

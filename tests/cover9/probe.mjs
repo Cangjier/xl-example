@@ -13,7 +13,7 @@
 //
 // candidates.json 的 input 是转义写法，本脚本按下面的规则解码：
 //   \\ -> \    \n -> LF    \r -> CR    \u2028 -> U+2028    \u2029 -> U+2029
-// 写进 typescript/cases/*.ts 时：\n 继续用 `\n` 转义；LF/CR/LS/PS 中 CR/LS/PS 用**行内字面字符**
+// 写进 typescript/cases/astjson/*.ts 时：\n 继续用 `\n` 转义；LF/CR/LS/PS 中 CR/LS/PS 用**行内字面字符**
 // （CR 也可用真 CR 字节，见根目录 .gitattributes 的 -text 规则），不要写成 \r / \u2028 转义。
 import fs from "node:fs";
 import path from "node:path";

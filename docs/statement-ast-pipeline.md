@@ -1513,7 +1513,7 @@ node ..\_coord\smoke-r3-func.mjs . $setup 400                                   
     所以 §16–§17 的结论仍只对「目标 case + 构建 + 不回归 + 47 语料 + parity」背书，门读数由 §18 单独背书。
 11. **`ast-json-diff --strict` 判据化**：该脚本 **exit code 恒 0**（全不一致也 exit 0）⇒ 作为门永远不可见。
     建议加 `--strict`（有任一 gap 即 exit 1）并挂进 `tests/gates/run.mjs`。**未落地**（R8 第一优先）。
-12. **快照与解析器绑定规则**：`typescript/cases/*.cj-ast.json` 与 `b3bca2a8` 的解析器**逐字节绑定**；
+12. **快照与解析器绑定规则**：`typescript/cases/astjson/*.cj-ast.json` 与 `b3bca2a8` 的解析器**逐字节绑定**；
     改 `typescript/tokens/**` 或 `core/syntax/**` 后**必须**重跑 `node typescript/cases/ast-json.mjs` 并提交快照。
     判据两句：`ast-json` 后 `git status --porcelain` 为空 + `ast-json-diff` 读到「完全一致 == 6171」。
     详见 `docs/direct-candidate-pipeline.md` §25.7 第 13 项。
@@ -1531,7 +1531,7 @@ node ..\_coord\smoke-r3-func.mjs . $setup 400                                   
 | --- | --- |
 | 分支 / HEAD | `feature/all-possible` @ **`b3bca2a8`**（进线 `4405f1ed`） |
 | 工作区 | `git status --porcelain` **0 行** |
-| 本轮唯一改动 | **9 份 `typescript/cases/*.cj-ast.json`**（+380 / −273），其中 **7 份**属本线 |
+| 本轮唯一改动 | **9 份 `typescript/cases/astjson/*.cj-ast.json`**（+380 / −273），其中 **7 份**属本线 |
 | push | **未 push**（`origin..HEAD = 107`） |
 | 本线产品提交 | `2f0fd53f` / `8c312dda` / `df307258` / `5602d657` / `300d4cb8` / `b094c267`（6 个，已在 `4405f1ed` 合入） |
 

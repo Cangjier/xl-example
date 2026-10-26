@@ -4,7 +4,7 @@
 //   node tests/member-possible/harness.mjs --only=PropertySignaturePossibleShape
 //   node tests/member-possible/harness.mjs --only=PropertySignaturePossibleShape,MethodSignaturePossibleShape
 //   node tests/member-possible/harness.mjs --all                # 不裁剪候选（未实现的候选仍是桩，会崩）
-//   node tests/member-possible/harness.mjs --from-cases         # 从 typescript/cases/*.ts 自动挑「只含属性签名接口」的用例
+//   node tests/member-possible/harness.mjs --from-cases         # 从 typescript/cases/astjson/*.ts 自动挑「只含属性签名接口」的用例
 //   node tests/member-possible/harness.mjs --file=cases.json    # JSON 字符串数组，逐个源码
 //   node tests/member-possible/harness.mjs --no-generic         # 跳过泛型边界回归分组（默认跑，按候选自动启用）
 //   node tests/member-possible/harness.mjs --verbose
@@ -195,7 +195,7 @@ const RECOVERY_CASES = [
 ];
 
 // ---------------------------------------------------------------------------
-// 从 typescript/cases/*.ts 读用例：与 ast-json.mjs 相同的「一行一个用例 + `\n` 编码」口径。
+// 从 typescript/cases/astjson/*.ts 读用例：与 ast-json.mjs 相同的「一行一个用例 + `\n` 编码」口径。
 // （多构造快照工具不导出它的 readCases，这里保留同一份解码逻辑，只服务本 harness。）
 function decodeCaseText(line) {
   let out = "";
@@ -268,7 +268,7 @@ function decodeCaseText(line) {
 }
 
 function readCaseFile(stem) {
-  const source = fs.readFileSync(path.join(root, "typescript/cases", `${stem}.ts`), "utf8");
+  const source = fs.readFileSync(path.join(root, "typescript", "cases", "astjson", `${stem}.ts`), "utf8");
   return source
     .split("\n")
     .map((line) => line.trim())
@@ -305,7 +305,7 @@ function collectCases() {
     return DEFAULT_CASES;
   }
   const all = [];
-  const dir = path.join(root, "typescript/cases");
+  const dir = path.join(root, "typescript", "cases", "astjson");
   for (const name of fs.readdirSync(dir).sort()) {
     if (!name.endsWith(".ts") || !fs.statSync(path.join(dir, name)).isFile()) {
       continue;

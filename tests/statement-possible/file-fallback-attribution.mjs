@@ -45,7 +45,7 @@ const { StatementLegacyMetrics } = load("typescript/tokens/statements/statement-
 // 与 `legacy-retirement.mjs` 的 CORPUS 逐字相同（两边必须量同一套用例）。
 const CORPUS = [
   { root: "tests/cases/token", recursive: true, mode: "file" },
-  { root: "typescript/cases", recursive: false, mode: "file-or-lines" },
+  { root: "typescript/cases/astjson", recursive: false, mode: "file-or-lines" },
 ];
 
 // 本阶段收尾后的归因台账：message 是**最内层**异常的文本，count 是该类的用例条数。
@@ -105,7 +105,7 @@ function stripBom(text) {
 }
 
 // 与 `legacy-retirement.mjs` 的 `buildCases` 同口径：整文件合法 TS → 一文件一用例；
-// 否则（只对 `typescript/cases`）退化成逐行用例，单行不合法则跳过。
+// 否则（只对 `typescript/cases/astjson`）退化成逐行用例，单行不合法则跳过。
 function buildCases() {
   const files = [];
   for (const entry of CORPUS) {

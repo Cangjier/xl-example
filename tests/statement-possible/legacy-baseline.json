@@ -4,14 +4,14 @@
   "corpus": {
     "roots": [
       "tests/cases/token/**/*.ts",
-      "typescript/cases/*.ts"
+      "typescript/cases/astjson/*.ts"
     ],
     "files": 1763,
     "cases": 6300,
     "fileTsInvalid": 10,
     "lineSkipped": 1269,
     "bytes": 915111,
-    "caseListSha256": "c6d9890f3b0b61cc66165dd78d033393ef05c1d3d62743771d3f13938f13ed23"
+    "caseListSha256": "04e4c56857aec3c062585e986fe516da21f0a32fd2e59a9e2f2285eb470f41fc"
   },
   "totals": {
     "legacyStatementDispatch": 0,
@@ -386,10 +386,10 @@
     "tests/cases/token/types/gap-r1244-ctor-signature-generic-return-type.ts": [0,28,0,0,0,1],
     "tests/cases/token/types/type-combination-adversarial.ts": [0,0,1,0,0,0],
     "tests/cases/token/types/type-fn-return-typeliteral.ts": [0,13,0,0,0,1],
-    "typescript/cases/dts-types.ts:L68": [0,3,0,0,0,1],
-    "typescript/cases/expression.ts:L107": [0,0,0,1,1,0],
-    "typescript/cases/expression.ts:L704": [0,0,0,1,1,0],
-    "typescript/cases/module-blocks.ts:L9": [0,0,1,0,0,0],
-    "typescript/cases/types.ts:L430": [0,2,0,0,0,1]
+    "typescript/cases/astjson/dts-types.ts:L68": [0,3,0,0,0,1],
+    "typescript/cases/astjson/expression.ts:L107": [0,0,0,1,1,0],
+    "typescript/cases/astjson/expression.ts:L704": [0,0,0,1,1,0],
+    "typescript/cases/astjson/module-blocks.ts:L9": [0,0,1,0,0,0],
+    "typescript/cases/astjson/types.ts:L430": [0,2,0,0,0,1]
   }
 }

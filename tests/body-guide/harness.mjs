@@ -4,7 +4,7 @@
 //   node tests/body-guide/harness.mjs --all                    # interface 不裁剪候选（7 候选全量）
 //   node tests/body-guide/harness.mjs --only=PropertySignaturePossibleShape
 //   node tests/body-guide/harness.mjs --only=PropertySignaturePossibleShape,MethodSignaturePossibleShape
-//   node tests/body-guide/harness.mjs --from-cases             # 从 typescript/cases/*.ts 自动挑「只含属性签名接口」的用例
+//   node tests/body-guide/harness.mjs --from-cases             # 从 typescript/cases/astjson/*.ts 自动挑「只含属性签名接口」的用例
 //   node tests/body-guide/harness.mjs --file=cases.json        # JSON 字符串数组，逐个源码
 //   node tests/body-guide/harness.mjs --no-generic             # 跳过 generic-boundary / member-start / recovery 三组
 //   node tests/body-guide/harness.mjs --no-util                # 跳过 BodyGuideUtil 冒烟组
@@ -434,7 +434,7 @@ const ENUM_RECOVERY_CASES = [
 ];
 
 // ---------------------------------------------------------------------------
-// 从 typescript/cases/*.ts 读用例：与 ast-json.mjs 相同的「一行一个用例 + `\n` 编码」口径。
+// 从 typescript/cases/astjson/*.ts 读用例：与 ast-json.mjs 相同的「一行一个用例 + `\n` 编码」口径。
 function decodeCaseText(line) {
   let out = "";
   const stack = [];
@@ -506,7 +506,7 @@ function decodeCaseText(line) {
 }
 
 function readCaseFile(stem) {
-  const source = fs.readFileSync(path.join(root, "typescript/cases", `${stem}.ts`), "utf8");
+  const source = fs.readFileSync(path.join(root, "typescript", "cases", "astjson", `${stem}.ts`), "utf8");
   return source
     .split("\n")
     .map((line) => line.trim())
@@ -543,7 +543,7 @@ function collectCases() {
     return BODY_TARGETS.interface.cases();
   }
   const all = [];
-  const dir = path.join(root, "typescript/cases");
+  const dir = path.join(root, "typescript", "cases", "astjson");
   for (const name of fs.readdirSync(dir).sort()) {
     if (!name.endsWith(".ts") || !fs.statSync(path.join(dir, name)).isFile()) {
       continue;

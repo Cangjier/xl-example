@@ -14,7 +14,7 @@
 //                一通道看出来。
 //
 // 语料（固定四类，顺序确定）：
-//   - typescript/cases/**/*.ts（全部）
+//   - typescript/cases/**/*.ts（全部；含 astjson/ 语料与 tts/ 边界 cases）
 //   - tests/cases/**/*.ts（全部）
 //   - samples/*.ts（全部）
 //   - node_modules/typescript/lib 下最大 N 份 *.d.ts（默认 8，必需 4 份固定入选，

@@ -11,7 +11,7 @@
 //      CJ 运算符 token 的构造函数名必须是规范类
 //      （EqualsTokenShape / PlusEqualsTokenShape / CaretEqualsTokenShape / CommaTokenShape），
 //      且「去 Shape 后的名字」== kindOf(ts.SyntaxKind[TS 运算符 token.kind]);
-//   ② snapshot：`typescript/cases/literals.{ts,cj}-ast.json` 与**全部** fixtures 里，
+//   ② snapshot：`typescript/cases/astjson/literals.{ts,cj}-ast.json` 与**全部** fixtures 里，
 //      两侧同一用例、同一位置的运算符节点原始 kind 字符串必须相等；任何一栏出现
 //      TS 枚举别名（FirstAssignment / FirstCompoundAssignment / LastBinaryOperator /
 //      LastAssignment / LastCompoundAssignment / LastPunctuation）即失败——即便两侧同名，
@@ -242,7 +242,7 @@ for (const caseDef of LIVE_CASES) {
 }
 
 // ---- snapshot：两侧原始 kind 逐位相等（四类运算符，严格，无豁免） ----
-const CASES_DIR = path.join(root, "typescript", "cases");
+const CASES_DIR = path.join(root, "typescript", "cases", "astjson");
 
 function readSnapshot(stem, side) {
   const file = path.join(CASES_DIR, `${stem}.${side}-ast.json`);

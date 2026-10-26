@@ -19,12 +19,14 @@ import { fileURLToPath } from "node:url";
 import { flatten, groupByKind, FIELD_NAMES, fieldOf } from "./ast-compare.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+// 用例与快照统一在 astjson/ 子目录（见 ast-json.mjs）。
+const casesDir = path.join(here, "astjson");
 
-// 构造名 = 用例文件名去掉 .ts；目录里的 *.ts 就是全部可用构造。
+// 构造名 = 用例文件名去掉 .ts；astjson/ 里的 *.ts 就是全部可用构造。
 function availableStems() {
   return fs
-    .readdirSync(here)
-    .filter((name) => name.endsWith(".ts") && fs.statSync(path.join(here, name)).isFile())
+    .readdirSync(casesDir)
+    .filter((name) => name.endsWith(".ts") && fs.statSync(path.join(casesDir, name)).isFile())
     .map((name) => name.slice(0, -3))
     .sort();
 }
@@ -52,13 +54,13 @@ function selectedStems(args) {
 // TS 侧生成快照时已按同一张表归一，这里对快照 kind 再归一一次是幂等的，
 // 保证两边永远不会各自漂移出一份不同的归一表。
 function load(stem, suffix) {
-  return JSON.parse(fs.readFileSync(path.join(here, `${stem}${suffix}`), "utf8"));
+  return JSON.parse(fs.readFileSync(path.join(casesDir, `${stem}${suffix}`), "utf8"));
 }
 
 /** 比一个构造；快照缺失或不同步时返回 null（由调用方记成失败）。 */
 function diffStem(stem) {
-  const tsPath = path.join(here, `${stem}.ts-ast.json`);
-  const cjPath = path.join(here, `${stem}.cj-ast.json`);
+  const tsPath = path.join(casesDir, `${stem}.ts-ast.json`);
+  const cjPath = path.join(casesDir, `${stem}.cj-ast.json`);
   if (!fs.existsSync(tsPath) || !fs.existsSync(cjPath)) {
     console.error(`[${stem}] 缺少快照，先跑：node typescript/cases/ast-json.mjs ${stem}`);
     return null;

@@ -14,7 +14,7 @@ import { LineTerminator } from "./line-terminator.xl.md"
 
 运行层：**TypeScript 这一门语言的模板配置**。
 
-`Template` 是语言无关的规则表；**默认值本身就是 ts 的字符串形式**（三种引号、没有逐字串 / 原始串 / 前缀式内插；引号内内插打开、只认反引号），所以这里不再逐项覆盖 `StringTemplate` 的引号 / 逐字 / 原始串配置。`StringGuide` 会把反引号串标成 `IsSupportInterpolation=True`、`InterpolationCount=1`，`String` 在串内按 `${…}` 收内插——词法层已通；模板的 AST 还要等形状层（用例见 `typescript/cases/string.ts`）。
+`Template` 是语言无关的规则表；**默认值本身就是 ts 的字符串形式**（三种引号、没有逐字串 / 原始串 / 前缀式内插；引号内内插打开、只认反引号），所以这里不再逐项覆盖 `StringTemplate` 的引号 / 逐字 / 原始串配置。`StringGuide` 会把反引号串标成 `IsSupportInterpolation=True`、`InterpolationCount=1`，`String` 在串内按 `${…}` 收内插——词法层已通；模板的 AST 还要等形状层（用例见 `typescript/cases/astjson/string.ts`）。
 
 **三个扫描细节按 ECMAScript 覆盖**（core 的默认值是既有行为，ts 才收紧/放开）：
 

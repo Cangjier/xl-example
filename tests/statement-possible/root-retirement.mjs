@@ -66,7 +66,7 @@ function walkAll(dir, recursive) {
 function collectCases() {
   const files = [
     ...walkAll(path.join(root, "tests/cases/token"), true).map((abs) => ({ abs, fileOrLines: false })),
-    ...walkAll(path.join(root, "typescript/cases"), false).map((abs) => ({ abs, fileOrLines: true })),
+    ...walkAll(path.join(root, "typescript", "cases", "astjson"), false).map((abs) => ({ abs, fileOrLines: true })),
   ].sort((left, right) => (left.abs < right.abs ? -1 : left.abs > right.abs ? 1 : 0));
   const cases = [];
   for (const file of files) {

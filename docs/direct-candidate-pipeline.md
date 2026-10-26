@@ -2668,7 +2668,7 @@ stmt.catch 1 / stmt.expr 1 / var.type 1`。其中 `expr.stopped` 3 条 = `R7-REC
     因此前 25 节的结论仍只对「目标 case + 构建 + 244 不回归 + 47 语料 + parity」背书，门读数由 §26 单独背书。
 12. **`ast-json-diff` 判据化（`--strict`）**：该脚本 **exit code 恒 0**（见 §26.6），全不一致也不会让门变红 ⇒
     建议加 `--strict`（有任一 gap 即 exit 1）并挂进 `tests/gates/run.mjs`。**尚未落地**，列为 R8 第一优先。
-13. **快照与解析器绑定规则**：`typescript/cases/*.cj-ast.json` 现在与 `b3bca2a8` 的解析器**逐字节绑定**。
+13. **快照与解析器绑定规则**：`typescript/cases/astjson/*.cj-ast.json` 现在与 `b3bca2a8` 的解析器**逐字节绑定**。
     任何人改 `typescript/tokens/**` 或 `core/syntax/**` 之后，**必须**重跑 `node typescript/cases/ast-json.mjs`
     并把实际被改写的快照一起提交，否则 `ast-json-diff` 会重新跌回非 6171。判据两句：
     `ast-json` 之后 `git status --porcelain` 必须为空；`ast-json-diff` 必须读到「完全一致 == 6171」。
@@ -2702,7 +2702,7 @@ stmt.catch 1 / stmt.expr 1 / var.type 1`。其中 `expr.stopped` 3 条 = `R7-REC
 | --- | --- | --- |
 | 分支 / HEAD | `feature/all-possible` @ `4405f1ed` | 同分支 @ **`b3bca2a8`** |
 | 工作区 | `git status --porcelain` 0 行 | **0 行** |
-| 本轮唯一改动 | — | **9 份 `typescript/cases/*.cj-ast.json`**（+380 / −273） |
+| 本轮唯一改动 | — | **9 份 `typescript/cases/astjson/*.cj-ast.json`**（+380 / −273） |
 | push | — | **未 push**（`origin..HEAD = 107`） |
 | 未动 | — | 产品源、测试、`_coord/`、来源克隆（`fix-r7-astdiff*` / `chore-all-possible-setup` 只读引用） |
 
@@ -2749,15 +2749,15 @@ gate-fix2（`e82817a9`）修完，实测 `## field / ## property 的类型里出
 
 | # | 快照 | 增删 | 归属 |
 | --- | --- | --- | --- |
-| 1 | `typescript/cases/async-arrows.cj-ast.json` | 104 行 | 引擎（async 裸参数箭头） |
-| 2 | `typescript/cases/end-build.cj-ast.json` | 8 行 | 语句（悬垂 `else` 的 If end） |
-| 3 | `typescript/cases/end-compute.cj-ast.json` | 86 行 | 语句（同上） |
-| 4 | `typescript/cases/end-export-assignment.cj-ast.json` | 28 行 | 语句（`export default abstract` 两条语句） |
-| 5 | `typescript/cases/expression.cj-ast.json` | 68 行 | 引擎（条件假分支 end） |
-| 6 | `typescript/cases/missing-possible.cj-ast.json` | 6 行 | 语句（装饰器起点 + `<B>c`） |
-| 7 | `typescript/cases/possible-build.cj-ast.json` | 81 行 | 语句（语句位 class）+ 引擎（`a<b> as T`） |
-| 8 | `typescript/cases/possible-compute.cj-ast.json` | 96 行 | 语句（语句位 class / 函数体残留） |
-| 9 | `typescript/cases/statements.cj-ast.json` | 176 行 | 语句（悬垂 else / `type` ⏎ / 标签 class） |
+| 1 | `typescript/cases/astjson/async-arrows.cj-ast.json` | 104 行 | 引擎（async 裸参数箭头） |
+| 2 | `typescript/cases/astjson/end-build.cj-ast.json` | 8 行 | 语句（悬垂 `else` 的 If end） |
+| 3 | `typescript/cases/astjson/end-compute.cj-ast.json` | 86 行 | 语句（同上） |
+| 4 | `typescript/cases/astjson/end-export-assignment.cj-ast.json` | 28 行 | 语句（`export default abstract` 两条语句） |
+| 5 | `typescript/cases/astjson/expression.cj-ast.json` | 68 行 | 引擎（条件假分支 end） |
+| 6 | `typescript/cases/astjson/missing-possible.cj-ast.json` | 6 行 | 语句（装饰器起点 + `<B>c`） |
+| 7 | `typescript/cases/astjson/possible-build.cj-ast.json` | 81 行 | 语句（语句位 class）+ 引擎（`a<b> as T`） |
+| 8 | `typescript/cases/astjson/possible-compute.cj-ast.json` | 96 行 | 语句（语句位 class / 函数体残留） |
+| 9 | `typescript/cases/astjson/statements.cj-ast.json` | 176 行 | 语句（悬垂 else / `type` ⏎ / 标签 class） |
 
 **幂等三跑**（快照不是「第一次凑巧对上」）：
 
@@ -3044,7 +3044,7 @@ tsc 的口径（`node_modules/typescript/lib/typescript.js`，ver 6.0）：
 
 唯一口径 `typescript/cases/ast-compare.mjs` 的 `cjAst` 三行都读了（`name.text` / `name.EscapedText` /
 **`typeof name.Text === "string"`**），所以官方 6171 那把尺子一直是绿的
-（`typescript/cases/export.cj-ast.json` 里 11 处 `"name": "d"` 可查）。
+（`typescript/cases/astjson/export.cj-ast.json` 里 11 处 `"name": "d"` 可查）。
 **红的只有两份手抄的旧 `cjAst`**：`_coord/diag-wide-ast.mjs` 与 `typescript/cases/real-dts-ast.mjs` 各抄了一份，
 都停在 `EscapedText` 为止 ⇒ 读成 `undefined`。
 
