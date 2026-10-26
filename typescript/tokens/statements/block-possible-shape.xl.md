@@ -600,7 +600,23 @@ if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
   // **Stage 4ae：单一开关**。本类原先另有一个同名 `EnableSwitchCaseClause`，与
   // `StatementRouteUtil.EnableSwitchCaseClause` 必须同开同关——只开一处就是假空转（挂载侧不开则
   // mount=0，壳计数永远是 0）。同名门控已删除，挂载只问 `StatementRouteUtil` 那一份。
-  if (StatementRouteUtil.EnableSwitchCaseClause && StatementRouteUtil.EnableSwitchCaseClauseHead) {
+  // [S6] **子句头候选只在增量模式下参与**：`IsIncrementalShapesEnabled()` 是这道挂载的第三道闸。
+  // 它不是 legacy 能力——`CaseClauseHeadPossibleShape.BuildByIndex` 建的是
+  // `StatementShape(Kind = ShellCaseClauseHead)` 的**增量壳**，只有增量模式才会由
+  // `StatementShellCatalog.Attach` 把它换成 `CaseClauseShape` / `DefaultClauseShape` 占位节点
+  //（门控在本类同族文件 `case-clause-head-possible-shape.xl.md` 的 `BuildByIndex` 末尾）。
+  // legacy 模式下若也由它建壳，`StatementBuilder.BuildCaseBlock` 收到的就是
+  // 「既不是 `CaseClauseShape` 也不是 `DefaultClauseShape` 的非 basic 单元」⇒ 抛
+  // 「switch 块里出现了 case / default 之外的单元」⇒ switch 语句收不了口 ⇒ 根层
+  // `StatementPossibleShape` 活到 EOF、与 `SourceFileEndPossibleShape` 同格成立 ⇒
+  // `CatalogGuide: 终结候选与其它候选同时成立（宿主 SourceFileShape）`。
+  // 实测（wide-ast 全量 2566 份语料）：S1 之前 0 崩溃；不加上这道门控时
+  // `tests/cases/token/statements/stmt-switch-comment-before-case.ts`（下标 19）与
+  // `stmt-switch-inline-terminator-comment.ts`（下标 25）崩溃。关掉 `EnableSwitchCaseClauseHead`
+  // 也能消红，但那是把 S1 的增量能力一起关掉（control-flow / switch-fallthrough 的 S1 验收会退回
+  // legacy），所以门控必须挂在**模式**上，不能挂在功能开关上。
+  if (StatementRouteUtil.EnableSwitchCaseClause && StatementRouteUtil.EnableSwitchCaseClauseHead
+    && StatementRouteUtil.IsIncrementalShapesEnabled()) {
     // [WP-S1] 子句块目录 = **子句头候选在前、子句语句候选在后**。顺序不可颠倒：
     // `case` / `default` 那一格必须由 `CaseClauseHeadPossibleShape` 先接住并建壳，否则它落进
     // 子句语句候选、被当成表达式语句（`IdentifierShape("case")`）或标签（`LabeledStatementShape`）。
@@ -611,7 +627,8 @@ if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
       new BlockBodyWaitingPossibleShape());
     StatementRouteUtil.SwitchCaseClauseMountCount += 1;
   } else if (StatementRouteUtil.EnableSwitchCaseClause) {
-    // 子句头开关关闭：逐字节退回「只挂子句语句候选」的既有目录（WP-S1 之前的行为）。
+    // [S6] 非增量模式，或子句头开关关闭：逐字节退回「只挂子句语句候选」的既有目录
+    //（WP-S1 之前的行为；wide-ast / legacy 解析走的正是这一支）。
     body.CatalogGuide = new CatalogGuide(
       [new CaseClauseStatementPossibleShape()],
       new BlockBodyWaitingPossibleShape());
