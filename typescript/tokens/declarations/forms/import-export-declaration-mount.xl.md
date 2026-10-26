@@ -11,6 +11,7 @@ import { ImportDeclarationShape } from "../import-declaration-shape.xl.md"
 import { ExportDeclarationShape } from "../export-declaration-shape.xl.md"
 import { ReloadMessage } from "../../../../core/syntax/messages/reload-message.xl.md"
 import { StatementRouteUtil } from "../../statements/statement-route-util.xl.md"
+import { ExportInnerDelegate } from "./export-inner-declaration-delegate.xl.md"
 ```
 
 # namespace cangjie
@@ -100,6 +101,16 @@ if (second instanceof Bracket && (second as Bracket).StartBracketChar === "{") {
   return ImportExportDeclarationMount.Mount(host, shape, start, secondAt, tokenIndex, context);
 }
 // `export class` / `export default` / `export declare` / `export const` …：声明前缀形，留给既有声明壳。
+// [A2-D6:EXPORT-INNER] WP-A2-D6 的例外：`export declare const|let|var …` 与
+// `export default function …` 由 `ExportInnerDelegate` 在内层关键字格把内层声明族挂出来
+// （legacy 树里没有 ExportDeclarationShape 包一层，最终节点就是 VariableStatementShape /
+// FunctionDeclarationShape，`ExportKeywordShape` 只是它的第一个 child）。判据在
+// `ExportInnerDelegate.ProbeKind`（文档前瞻，见本文件不偷看流式单元的理由）；
+// 不认识的声明前缀形仍返回 null，逐字回既有声明壳。
+const innerDeclaration = ExportInnerDelegate.TryDelegate(host, start, secondAt, tokenIndex, context);
+if (innerDeclaration !== null) {
+  return innerDeclaration;
+}
 return null;
 ```
 
