@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **80** 条 case：throw 53 / atomic 22 / partial 5 / incremental 0
+共 **72** 条 case：throw 53 / atomic 14 / partial 5 / incremental 0
 
 ## throw
 
@@ -11,15 +11,15 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `throw/declarations/let-array-destructure-rest.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
-| `throw/declarations/let-array-destructure.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/declarations/let-array-destructure-rest.ts` | 不支持的表达式起点 |  |
+| `throw/declarations/let-array-destructure.ts` | 不支持的表达式起点 |  |
 | `throw/declarations/let-array-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/declarations/let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/declarations/let-definite-assignment.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 | `throw/declarations/let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
-| `throw/declarations/let-object-destructure-default.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
-| `throw/declarations/let-object-destructure-nested.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
-| `throw/declarations/let-object-destructure.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/declarations/let-object-destructure-default.ts` | 不支持的表达式起点 |  |
+| `throw/declarations/let-object-destructure-nested.ts` | 不支持的表达式起点 |  |
+| `throw/declarations/let-object-destructure.ts` | 不支持的表达式起点 |  |
 | `throw/declarations/let-parenthesized-init.ts` | 增量变量形状未支持：declaration 括号 |  |
 | `throw/declarations/let-ternary-init.ts` | 增量变量形状未支持：declaration 符号 ? |  |
 
@@ -69,7 +69,7 @@
 | --- | --- | --- |
 | `throw/statements/asi-two-declarations.ts` | 增量变量形状未支持：declaration 初始化器未读完 |  |
 | `throw/statements/do-while-let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
-| `throw/statements/if-block-let-destructuring.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/statements/if-block-let-destructuring.ts` | 不支持的表达式起点 |  |
 | `throw/statements/if-block-let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/statements/label-block-let-unary-init.ts` | 增量变量形状未支持：declaration 符号 - |  |
 | `throw/statements/try-block-let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
@@ -80,8 +80,8 @@
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
 | `throw/types/angle-assertion.ts` | 增量变量形状未支持：declaration 符号 < |  |
-| `throw/types/destructure-array-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
-| `throw/types/destructure-object-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/types/destructure-array-annotation.ts` | 不支持的表达式起点 |  |
+| `throw/types/destructure-object-annotation.ts` | 不支持的表达式起点 |  |
 | `throw/types/generic-arrow-typed-param.ts` | 增量变量形状未支持：declaration 符号 < |  |
 | `throw/types/nonnull-assertion.ts` | 增量变量形状未支持：declaration 符号 ! |  |
 
@@ -99,15 +99,8 @@
 | `atomic/declarations/declare-module-string.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-var.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/enum-computed.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/enum-numeric.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/export-declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-generic-export-default.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/module-shorthand.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/namespace-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/namespace-export-function.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/namespace-nested.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ### lexical
 
@@ -127,7 +120,6 @@
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
 | `atomic/types/declare-unique-symbol.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/types/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
 
 ## partial
 
@@ -135,7 +127,7 @@
 
 | case | 判定依据 | 备注 |
 | --- | --- | --- |
-| `partial/declarations/let-arrow-init.ts` | 增量变量形状未支持：declaration 符号 ; |  |
+| `partial/declarations/let-arrow-init.ts` | 只有 4 个骨架节点提前 |  |
 
 ### expressions
 
