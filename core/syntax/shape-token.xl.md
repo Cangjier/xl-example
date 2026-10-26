@@ -64,6 +64,34 @@ if (this.SourceRange.End < 0) {
 return super.TryToClose(context);
 ```
 
+## method TrimEndToLastCode:()=>void
+
+把已经签出的 `SourceRange.End` 收回「最后一个非 trivia 子单元的终点」（只收不放）。
+
+**什么时候需要它。** 文件末尾收口时驱动层先 `SignOut(文件长度)`，形状随后在 `Close` 里把尾随空白 / 注释
+从 `Data` 丢掉：区间于是比最后一个代码单元多出一截（`let x = 1\n` 的 `End` 是 10 而不是 9）。
+AST 的 `end` 是代码的半开终点，尾随 trivia 不属于任何节点，所以这里按**同一份 `Data`** 重取终点，
+口径与 `cjAst` 的 `EndIndex` 完全一致，不碰 `Pos`（前导 trivia 仍计入 `Pos`）。
+
+**只给「`Data` 恰好就是代码子节点」的形状用**（变量声明 / 声明列表 / 变量语句）：块 `{}`、括号这类
+含分隔符的形状不能用——它们的区间本来就大于最后一个子节点，收进来会把分隔符切掉。
+
+```ts
+if (this.SourceRange.End < 0) {
+  return;
+}
+for (let at = this.Data.length - 1; at >= 0; at--) {
+  const unit = this.Data[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit.SourceRange.EndIndex >= 0 && unit.SourceRange.EndIndex < this.SourceRange.End) {
+    this.SourceRange.End = unit.SourceRange.EndIndex;
+  }
+  return;
+}
+```
+
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 默认关闭：只把自己标记为已关闭。

@@ -46,12 +46,20 @@ super(template);
 // 所以这里先把最内层（真正持有字段和 Data 的那一层）关掉，再逐层补终点；最后交回基类关自己。
 if (this.Incremental) {
   const list = this.MountedUnit;
+  let listEndBefore = -1;
   if (list !== null && list instanceof VariableDeclarationListShape) {
+    listEndBefore = list.SourceRange.EndIndex;
     const declaration = list.MountedUnit;
     if (declaration !== null && declaration instanceof VariableDeclarationShape) {
       declaration.TryToClose(context);
     }
     list.TryToClose(context);
+  }
+  // 没有分号的 ASI 收口整条链都按文件长度签出，尾随 trivia 已经被 declaration / list 丢掉；
+  // 若语句终点原本与列表终点相同（说明多出来的只是 trivia，而不是 `;`），跟着列表收回代码终点。
+  // 有分号时 statement.End 比 list.End 大 1，保留分号（`let x = 1;\n` 的语句终点是 10）。
+  if (listEndBefore >= 0 && this.SourceRange.EndIndex === listEndBefore) {
+    this.TrimEndToLastCode();
   }
 }
 return super.TryToClose(context);

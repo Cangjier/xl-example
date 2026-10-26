@@ -399,4 +399,8 @@ this.Data.length = 0;
 for (const item of kept) {
   this.Add(item);
 }
+// 3) EOF 收口时驱动层先按文件长度 `SignOut`，尾随 trivia（换行 / 空格 / 注释）已经被第 2 步丢掉；
+//    声明的终点必须回到最后一个**保留**的子节点（identifier / 类型 / 初始化器），否则
+//    `let x = 1\n` 的声明会多吞一个换行（TS 是 [3,9)，不是 [3,10)）。
+this.TrimEndToLastCode();
 ```
