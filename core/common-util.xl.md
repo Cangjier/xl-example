@@ -2,7 +2,7 @@
 
 全局工具。`CommonUtil` 放在项目的根命名空间 `Cangjie` 下。
 
-本文件只包含解析路径需要的那一个方法：过去 `BlockToken.ToXmlString` 与各 token 的 XML 输出都要用 `XmlDecode`；AST 行输出改用 `Token.AstEscape` 之后，解析路径已不再调用它，方法保留不删（可能仍有引用）。
+本文件只包含解析路径需要的那一个方法：过去块级 token 与各 token 的 XML 输出都要用 `XmlDecode`；AST 行输出统一改走 `Token.ToAstLine` 之后，解析路径已不再调用它，方法保留不删（可能仍有引用）。
 
 # class CommonUtil
 
