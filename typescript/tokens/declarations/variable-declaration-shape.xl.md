@@ -2,6 +2,7 @@
 ```xl
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -9,6 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
 ```
 
 # namespace cangjie
@@ -46,6 +48,163 @@ let x = 1;
 
 是不是增量模式建出来的形状。`false` = legacy `StatementBuilder` 建的 AST 节点，本类新旧逻辑一个字都不碰它。
 
+## field TypeMode:bool = false
+
+[WP-A5] 是否进入「类型面」接管：类型注解 `:` 或初始化器里的 `as` / `satisfies`。一旦进入，本形状在
+`ComputePossibleShapes` 里不再转给表达式目录（避免目录在 `:` / `as` 上打转），改由 `AdvanceTypeMode`
+用 legacy 同源的 `TypeBuilder` / `ExpressionBuilder` 逐单元判定「类型 / 表达式是否已经长完」。
+
+## field AnnotationDone:bool = false
+
+[WP-A5] 类型注解的类型节点是否已经建出来（建出后 `Data` 变成 `[IdentifierShape, TypeNode, (=) …]`）。
+
+## field InitializerDone:bool = false
+
+[WP-A5] `as` / `satisfies` 初始化器是否已经提前落地（落地后 `Data` 里是唯一的表达式形状根）。
+
+## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+
+```ts
+// [WP-A5] 类型面接管：`:` 注解 / `as`·`satisfies` 断言不经过表达式候选目录。
+// 进入条件与「能否提前落地」的判据都在 `TypeCatalogFactory`（唯一入口），本方法只做转发：
+//   - 未进入类型面：逐字走基类（= 表达式候选目录），既有 45 条增量基线行为不变；
+//   - 已进入类型面：不调基类，避免表达式候选在 `:` / `as` / 类型单元上误建或误 Reject。
+if (this.Incremental && !this.Closed) {
+  // 只接管**根层**声明（挂载链 host←statement←list←declaration，host 的 `Parent === null`）。
+  // 块体内的声明暂不接管：块体收口走 `BlockPossibleShape` + 控制流壳的路径，提前落地形状会与
+  // 它「按字符区间重放 / 收口」的时机耦合（实测 `try { let y: number = 1 } catch { }` 会 divergent）。
+  const host = this.Parent !== null && this.Parent.Parent !== null
+    ? this.Parent.Parent.Parent
+    : null;
+  const atRoot = host !== null && host.Parent === null;
+  if (atRoot) {
+    const entered = this.TypeMode || TypeCatalogFactory.AnnotationColon(this.Data) >= 0
+      || TypeCatalogFactory.StartsTypedInitializer(this.Data, TypeCatalogFactory.FirstEqual(this.Data));
+    if (entered) {
+      this.TypeMode = true;
+      this.AdvanceTypeMode(context);
+      return ComputePossibleShapesStates.Waiting;
+    }
+  }
+}
+return super.ComputePossibleShapes(context);
+```
+
+## private method AdvanceTypeMode:(context:SyntaxContext)=>void
+
+```ts
+// [WP-A5] 每个新单元关闭时推进一次：先尝试把类型注解的类型节点落地，再尝试把
+// `as` / `satisfies` 初始化器整体落地。两个落地都要求「最后一个代码单元之后不能再长」
+// （`CanEndType` / `CanEndInitializer`），因此落地的时机是**类型/表达式完整的那一拍**，
+// 严格早于 legacy 在语句收口时的原子建树。
+if (!this.AnnotationDone) {
+  this.TryBuildAnnotation(context);
+}
+if (!this.InitializerDone) {
+  this.TryBuildTypedInitializer(context);
+}
+```
+
+## private method TryBuildAnnotation:(context:SyntaxContext)=>void
+
+```ts
+// 类型注解：`let x: <type>`。类型单元从 `:` 之后一直取到「`=` 之前 / 最后一个代码单元」，
+// 解析口径与 legacy `StatementBuilder.BuildVariableDeclaration` 完全一致：
+// `TypeBuilder.Load(typeUnits, Positions[typeFirst])`，而 `Positions[typeFirst]` 就是 `:` 的 `EndIndex`。
+const colon = TypeCatalogFactory.AnnotationColon(this.Data);
+if (colon < 0) {
+  return;
+}
+const last = TypeCatalogFactory.LastSignificant(this.Data);
+if (last <= colon) {
+  return;
+}
+const equal = TypeCatalogFactory.FirstEqual(this.Data);
+const typeEnd = equal > colon ? equal - 1 : last;
+const typeUnits:Array<Token> = [];
+for (let at = colon + 1; at <= typeEnd; at++) {
+  typeUnits.push(this.Data[at]);
+}
+const colonUnit = this.Data[colon];
+let basePos = colonUnit.SourceRange.EndIndex;
+if (basePos < 0) {
+  basePos = colonUnit.SourceRange.StartIndex;
+}
+const typeNode = TypeCatalogFactory.ParseType(typeUnits, basePos, this.Template, context);
+if (typeNode === null) {
+  return;
+}
+const lastTypeUnit = this.Data[typeEnd];
+if (!TypeCatalogFactory.CanEndType(lastTypeUnit)) {
+  return;
+}
+// 落地：Data 变成 [IdentifierShape, TypeNode] + （如果有 `=`）`=` 之后的原样单元。
+const identifier = this.Data[TypeCatalogFactory.FirstSignificant(this.Data, 0)];
+const kept:Array<Token> = [identifier, typeNode];
+if (equal > colon) {
+  for (let at = equal; at < this.Data.length; at++) {
+    kept.push(this.Data[at]);
+  }
+}
+this.Data.length = 0;
+for (const item of kept) {
+  this.Add(item);
+}
+this.AnnotationDone = true;
+```
+
+## private method TryBuildTypedInitializer:(context:SyntaxContext)=>void
+
+```ts
+// `as` / `satisfies` 初始化器：只在「本 WP 接管的形态」上提前落地（判定见 `StartsTypedInitializer`），
+// 并且要求初始化器里还没有任何已建形状（有形状 = 表达式候选已经接管，交给它们）。
+const equal = TypeCatalogFactory.FirstEqual(this.Data);
+if (equal < 0) {
+  return;
+}
+if (!this.AnnotationDone && !TypeCatalogFactory.StartsTypedInitializer(this.Data, equal)) {
+  return;
+}
+if (!TypeCatalogFactory.HasTypeAssert(this.Data)) {
+  return;
+}
+const last = TypeCatalogFactory.LastSignificant(this.Data);
+if (last <= equal) {
+  return;
+}
+for (let at = equal + 1; at <= last; at++) {
+  if (!this.Data[at].IsBasicToken) {
+    return;
+  }
+}
+const raw:Array<Token> = this.Data.slice(equal + 1);
+const equalUnit = this.Data[equal];
+let basePos = equalUnit.SourceRange.EndIndex;
+if (basePos < 0) {
+  basePos = equalUnit.SourceRange.StartIndex;
+}
+const expression = TypeCatalogFactory.ParseInitializer(raw, basePos, this.Template, context);
+if (expression === null) {
+  return;
+}
+if (!TypeCatalogFactory.CanEndInitializer(this.Data[last])) {
+  return;
+}
+const kept:Array<Token> = [];
+for (let at = 0; at <= equal; at++) {
+  if (this.Data[at].IsTriviaToken) {
+    continue;
+  }
+  kept.push(this.Data[at]);
+}
+kept.push(expression);
+this.Data.length = 0;
+for (const item of kept) {
+  this.Add(item);
+}
+this.InitializerDone = true;
+```
+
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
 ```ts
@@ -60,11 +219,14 @@ return super.TryToClose(context);
 ## method FinishIncremental:(context:SyntaxContext)=>void
 
 ```ts
-// 1) 先提取：第一个非 trivia 单元是标识符，之后要么没有、要么是 `=` + 初始化器。
-//    `:`（类型注解）/ `,`（多声明）/ `!`（确定赋值）/ 括号（解构 / 初始值表达式）都不在本模式支持范围，
-//    显式抛错（C10），绝不静默产出错树。
+// 1) 先提取：第一个非 trivia 单元是标识符，之后可选「类型注解的类型节点」，然后是「`=` + 初始化器」。
+//    [WP-A5] `:` 注解与 `as` / `satisfies` 由 `TypeCatalogFactory` 在字符流里提前建好：
+//    类型节点已经作为唯一的非 basic 子节点放在标识符之后（`AnnotationDone`），这里只把它收下。
+//    `,`（多声明）/ `!`（确定赋值）/ 解构还不在本模式支持范围，显式抛错（C10），绝不静默产出错树。
 let identifier:Token | null = null;
 let equalAt = -1;
+const kept:Array<Token> = [];
+let annotation:Token | null = null;
 for (let at = 0; at < this.Data.length; at++) {
   const unit = this.Data[at];
   if (unit.IsTriviaToken) {
@@ -72,6 +234,7 @@ for (let at = 0; at < this.Data.length; at++) {
   }
   if (identifier === null) {
     identifier = unit;
+    kept.push(unit);
     continue;
   }
   if (unit instanceof Symbol) {
@@ -80,17 +243,27 @@ for (let at = 0; at < this.Data.length; at++) {
       equalAt = at;
       break;
     }
+    if (text === ";") {
+      // [WP-A5] 语句分号：本条声明的 `;` 属于语句层（`VariableStatementShape` 的收口），
+      // 本形状不保留它——legacy 的 `VariableDeclarationShape.Data` 里也没有 `;`。
+      continue;
+    }
     throw new Error("增量变量形状未支持：declaration " + text);
   }
   if (unit instanceof Bracket) {
     throw new Error("增量变量形状未支持：declaration 括号");
+  }
+  // [WP-A5] 非 basic 形状且还没有到 `=`：只可能是已建好的类型注解节点（每个声明最多一个）。
+  if (annotation === null) {
+    annotation = unit;
+    kept.push(unit);
+    continue;
   }
   throw new Error("增量变量形状未支持：declaration 声明体");
 }
 if (identifier === null) {
   throw new Error("增量变量形状未支持：declaration 空声明");
 }
-const kept:Array<Token> = [identifier];
 if (equalAt >= 0) {
   const equalUnit = this.Data[equalAt];
   // 初始化器首单元的 `Pos` = `=` 的 `EndIndex`（C1：前一个非 trivia 单元的终点）。
@@ -98,7 +271,16 @@ if (equalAt >= 0) {
   if (basePos < 0) {
     basePos = equalUnit.SourceRange.StartIndex;
   }
-  const raw:Array<Token> = this.Data.slice(equalAt + 1);
+  const rawSlice:Array<Token> = this.Data.slice(equalAt + 1);
+  // [WP-A5] 语句分号不参与初始化器：`let x: number = 1;` 的 `;` 属于语句层（legacy 的
+  // `VariableDeclarationShape.Data` 里没有它），提前落地分支同样按这个口径过滤。
+  const raw:Array<Token> = [];
+  for (const unit of rawSlice) {
+    if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+      continue;
+    }
+    raw.push(unit);
+  }
   // [E0B:INIT-ROOT] 初始化器的表达式形状由 E-base 目录逐字符建出（A1–A4 的片段注册在那个目录里，
   // 本文件不持有候选），EOF 这里只做一件事：找到**唯一**的表达式根。
   // 旧实现把 `raw` 里所有非 basic 单元都收下；一旦某个候选把运算符形状 / 第二个操作数留在父层，
