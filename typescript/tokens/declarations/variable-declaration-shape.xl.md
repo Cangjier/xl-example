@@ -11,6 +11,7 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
+import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
 import { StatementLegacyMetrics } from "../statements/statement-legacy-metrics.xl.md"
@@ -396,6 +397,32 @@ if (equalAt >= 0) {
     for (const unit of raw) {
       if (unit instanceof Bracket) {
         throw new Error("增量变量形状未支持：declaration 初始化器有未并入的括号");
+      }
+    }
+    // [D3a:ORPHAN-OPERATOR] 同一面 C10 墙的另一半：括号有显式错误，**运算符没有**。
+    // 「唯一根 + 根之外的运算符」= 收下根之后那条运算符（以及它后面的一切）会被静默清掉，产出一棵
+    // 看着成功、实际缺节点的树。判据只用**源区间**（不新写形态表）：根之外的 `Symbol` 一律显式报错。
+    //
+    // 实测来源（D3a）：终结候选在 `[D3a:RAW-INITIALIZER]` 放行之后，`plan === undefined ? null : plan`
+    // 这一族会以 `IdentifierShape(plan)` 作唯一根收口，`=== …` 整段消失（structural=7、声明区间缩到
+    // `plan` 为止）；旧行为是 `declaration 符号 ===` 抛错 → 文件级 fallback → 树正确。C10 要求
+    // 「宁可显式失败，不可静默错树」。
+    const rootStart = builtShape.SourceRange.StartIndex;
+    const rootEnd = builtShape.SourceRange.EndIndex;
+    for (const unit of raw) {
+      if (unit === builtShape || unit.IsTriviaToken) {
+        continue;
+      }
+      if (!(unit instanceof Symbol) || !OperatorTable.IsBinaryOperator((unit as Symbol).TempToString())) {
+        continue;
+      }
+      const start = unit.SourceRange.StartIndex;
+      const end = unit.SourceRange.EndIndex;
+      if (start < 0 || end < 0) {
+        continue;
+      }
+      if (start < rootStart || end > rootEnd) {
+        throw new Error("增量变量形状未支持：declaration 初始化器根之外的运算符");
       }
     }
     // 跨包最小补丁（WP-C，Lead 授权）：表达式形状可能还挂着未关闭的尾单元——EOF 没有下一个字符来关它。

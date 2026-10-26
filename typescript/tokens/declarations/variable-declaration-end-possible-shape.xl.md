@@ -124,6 +124,34 @@ if (current instanceof Symbol) {
     && VariableDeclarationEndPossibleShape.HasCompoundTernary(units)) {
     return ShapeStates.Uncertain;
   }
+  // [D3a:RAW-INITIALIZER] 初始化器仍是**纯 raw 基本单元**（`=` 之后没有任何候选建出形状）时，这一格上的
+  // 运算符 / 后缀符号既不是「本模式未支持的形态」，也不该由本候选回答：收口格（`;` / EOF / 换行 ASI）的
+  // 原子建树会用 legacy `ExpressionBuilder` 从 `=` 之后整段重建（`VariableDeclarationShape.FinishIncremental`
+  // 的 `builtShape === null` 分支），读完不齐就显式抛「初始化器未读完」——两个出口都自证（legacy 同源 /
+  // 显式错误），没有静默错树。所以这里**继续等**，把这一格交给收口格。
+  //
+  // 为什么必须等而不是抛（D3a 的最大一族，实测）：`const g = o["f"]().v + 1` 的左操作数是**还没建形状的
+  // raw 后缀链**——`BinaryOperatorPossibleShape` 拿不到已建形状就永远不认领，上面那条 `HasReducibleLeft`
+  // 又只认「紧跟 `=` 的标识符」，于是 `+` 这一格既没有候选认领、又被 C10 判成未支持。同族的
+  // `-` `*` `/` `===` `|` `!` `?` 与「后缀 `!` 落在 raw 标签模板 / 下标链之后」全走这一个出口。
+  //
+  // 反向边界（C10 不变，四条）：
+  //   ① 初始化器里已经落地形状（`const y = f()!` / `const z = a as T`）⇒ `IsRawInitializer` 为假，
+  //      逐字落回下面的 `throw`——那一类要形状面自己认领（P1 的后缀格），不在本判据的写域；
+  //   ② 收口 / 列表符号（`;` `,`）不是本候选的格子，逐字落回 `throw`；
+  //   ③ 类型侧符号（`<` `>` 家族）与既有显式拒绝账本里的 `?.` `??` 不在本判据内，行为一个字都不改；
+  //   ④ **带类型注解的声明不在本判据内**（`HasAnnotationColon`）：它的初始化器由 `TypeMode` 接管，
+  //      收口走 `CanFinishTypedDeclaration` / `AdvanceTypeMode`，与本判据假设的「`FinishIncremental`
+  //      的 `builtShape === null` 原子重建」不是同一个出口。实测反例（D3a）：
+  //      `let effective:any = plan === undefined ? null : plan;` ——旧行为是 `===` 抛错 → 文件级
+  //      fallback → 树正确；放行 `===` 之后声明在 `;` 收口，`=== undefined ? null : plan` 整段被
+  //      静默丢掉（structural=7、声明区间拉到 EOF），即「崩溃 + legacy 兜底（对）」变成「增量路径
+  //      静默错树」。C10 不允许，所以这一族原样留给 S5 / A5。
+  if (!VariableDeclarationEndPossibleShape.HasAnnotationColon(units)
+    && VariableDeclarationEndPossibleShape.IsRawInitializer(units)
+    && VariableDeclarationEndPossibleShape.CanDeferToAtomicInitializer(text)) {
+    return ShapeStates.Uncertain;
+  }
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
 }
 if (current instanceof Common) {
@@ -362,6 +390,73 @@ for (let at = equalAt + 1; at < units.length; at++) {
   }
 }
 return true;
+```
+
+## static method HasAnnotationColon:(units:Array<Token>)=>bool
+
+[D3a:RAW-INITIALIZER] 本条声明**带类型注解**。两条**互补**的判据，缺一不可：
+
+- `=` 之前有 `Symbol(":")`——注解**还没落地**时成立；
+- `=` 之前已有第二个非 basic 单元——注解**已经落地**之后成立（那时 `:` 已被 `TryBuildAnnotation`
+  消费掉，`Data` 变成 `[IdentifierShape, TypeNode, (=) …]`）。
+
+为什么要两条：只看「第二个非 basic 单元」时，注解还停在一串 basic 单元（`any` / `BracketRoleResult` /
+`|` / `null` 都是 basic）就看不见它；只看 `:` 时，注解落地之后的声明全被漏掉。实测两条各漏一半。
+
+只用于 `[D3a:RAW-INITIALIZER]` 的反向边界 ④，不参与建树。
+
+```ts
+let code = 0;
+let colonSeen = false;
+for (let at = 0; at < units.length; at++) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("=")) {
+    return colonSeen;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is(":")) {
+    colonSeen = true;
+  }
+  code += 1;
+  if (code >= 2 && !unit.IsBasicToken) {
+    return true;
+  }
+}
+return colonSeen;
+```
+
+## static method CanDeferToAtomicInitializer:(text:string)=>bool
+
+[D3a:RAW-INITIALIZER] 这一格的符号是不是「可以整体交给收口格原子建树」的**运算符 / 后缀符号**。
+
+只有两类：
+
+1. 二元运算符（`OperatorTable.IsBinaryOperator`）——`+ - * / % ** && || & | ^ == === != !== << >>`；
+2. 后缀 / 条件位的非收口符号：`!`（非空断言）、`?`（三目条件位）、`:`（三目分支位）。
+
+**闭集之外的三种一律 `false`**（各自的账本不能被本判据改写）：
+
+| 符号 | 为什么不在这里 |
+| --- | --- |
+| `;` `,` | 列表层 / 语句层的收口格（`VariableDeclarationListEndPossibleShape`），不是初始化器内部的续接 |
+| `<` `>` `>>` `>>>` | 类型面（尖括号配对 / 类型实参），归 D3c；本判据放行会让 `尖括号断言…缺少配对的 >` 从 throw 变 partial |
+| `?.` `??` | 有既有显式拒绝账本（tts `throw/composite/class-ball`、`throw/composite/expression-zoo` 依赖它们保持抛错），行为一个字都不改 |
+
+判据只读符号文本（C2 口径），不读源码字符、不看候选状态。
+
+```ts
+if (text === "!" || text === "?" || text === ":") {
+  return true;
+}
+if (text === "<" || text === ">" || text === ">>" || text === ">>>") {
+  return false;
+}
+if (text === "?." || text === "??") {
+  return false;
+}
+return OperatorTable.IsBinaryOperator(text);
 ```
 
 ## static method PreviousIsShape:(units:Array<Token>, tokenIndex:int)=>bool
