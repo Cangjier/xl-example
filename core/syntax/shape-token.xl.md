@@ -10,7 +10,7 @@ import { UnitToken } from "./unit-token.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
 形状单元：形状建出来的单元的公共基类——建成之后仍然吃字符，跳转队列就是 basic token 那一条。
 
@@ -81,4 +81,34 @@ return CloseStates.Nothing;
 
 ```ts
 return BranchStates.Undo;
+```
+
+## method AstPos:()=>int | null
+
+AST 起点：形状自己有 `Pos` 字段，直接交给 `Token.AstLabel` 打印。
+
+`-1`（还没算出来）会印成 `pos=-`——`SourceFileShape` 就是这一档；已算出来的形状印数字，例如 `VariableStatementShape  pos=0`。
+
+```ts
+return this.Pos;
+```
+
+## method AstText:()=>string
+
+形状的文本：有 `Text` 字段的形状（`NumericLiteralShape` / `StringLiteralShape` / `BigIntLiteralShape` / 模板串三段 …）取它，没有就是空串。
+
+**为什么用字段探测而不是每个形状各写一条**：约七十个 `*TokenShape` 只声明 `Op`、不声明 `Text`，逐个覆写没有意义；`IdentifierShape` 用的是 `EscapedText`，它在自己那一层再覆写。
+
+```ts
+const text = (this as any).Text;
+return typeof text === "string" ? text : "";
+```
+
+## method AstOperator:()=>string
+
+运算符文本：声明了 `Op` 的形状（`AsteriskTokenShape` / `PlusTokenShape` 等）取它，没有就是空串。
+
+```ts
+const op = (this as any).Op;
+return typeof op === "string" ? op : "";
 ```

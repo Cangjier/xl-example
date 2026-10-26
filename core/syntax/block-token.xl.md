@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { CommonUtil } from "../common-util.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { Token } from "./token.xl.md"
@@ -9,9 +8,9 @@ import { Template } from "./templates/template.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
-块 token：把连续的同类字符吞进 `Temp`，最后整块吐成一个 XML 文本节点。标识符、数字、符号都是它——`<Common>abc</Common>` 就是这么来的。
+块 token：把连续的同类字符吞进 `Temp`，最后整块作为一行 AST 文本节点出现。标识符、数字、符号都是它——`Common  src=[0,3)  text="abc"` 就是这么来的。
 
 块 token 自己**永远只吃当前这一个字符**：`Default`（或子类的覆写）把它并进 `Temp`，然后由调度层统一把 `context.Index` 推进一格。
 
@@ -168,13 +167,10 @@ if (this.SourceRange.Document === null) {
 this.SourceRange.End = endIndex;
 ```
 
-## method ToXmlString:()=>string
+## method AstText:()=>string
 
-产出 XML：标签名是运行时类型名，内容是本块累积的字符（先转义）。
-
-标签名取 `this.constructor.name`，内容经 `CommonUtil.XmlDecode` 转义。
+本节点的文本就是这个块累积的字符：`Token.AstLabel` 把它印成 `text="<转义后>"`，`ToAstLine` 因此只需要一行 label，没有子节点。
 
 ```ts
-const name = this.constructor.name;
-return `<${name}>${CommonUtil.XmlDecode(this.Temp)}</${name}>`;
+return this.Temp;
 ```

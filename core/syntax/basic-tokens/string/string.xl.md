@@ -21,15 +21,15 @@ import { VerbatimQuoteGuide } from "./verbatim-quote-guide.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
 字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
 
 字符串单元：`StringGuide` 判定出是哪种字符串后就换成它。它是**单元**（能挂载子单元），按三个开关 `IsSupportInterpolation` / `IsSupportVerbatim` / `IsSupportRaw` 分成七条完全不同的处理路径：内插分两种形态——**前缀式**（C# 的 `$"{a}"`，见 `{` 就开）与**引号内式**（ts 的 `` `${a}` ``，要 `${` 两个字符），两者都挂载 `InterpolationString`；逐字看到引号就挂载 `VerbatimQuoteGuide`，原始串看到引号就挂载 `RawQuoteExitGuide`，其余字符一律攒进常量块 `ConstString`。
 
-三个开关与两个计数会直接印在 XML 标签上（`ToXmlString`）。
+三个开关与两个计数是**这一串的事实**，留在字段上供形状层读取；它们不再印进输出——本类不覆写 `AstText`，行文本里只有类名、`src` 与子单元，内容由 `ConstString` / `InterpolationString` 子单元表达。
 
-标签名取类名，所以本类的类名就是它产出的 XML 标签名。
+标签名取类名，所以本类的类名就是它印出来的节点名。
 
 # class String extends UnitToken
 
@@ -43,23 +43,23 @@ basic 单元：词法层记号。收集它的是 `StringGuide`，不是 `BasicBr
 
 ## field IsSupportInterpolation:bool = false
 
-是否支持内插字符串（`$"{a}"`），会写进 XML 标签。
+是否支持内插字符串（`$"{a}"`），是这一串的事实。
 
 ## field IsSupportVerbatim:bool = false
 
-是否支持逐字字符串（`@"D:\1"`），会写进 XML 标签。
+是否支持逐字字符串（`@"D:\1"`），是这一串的事实。
 
 ## field IsSupportRaw:bool = false
 
-是否支持原始字符串（`""" a """`），会写进 XML 标签。
+是否支持原始字符串（`""" a """`），是这一串的事实。
 
 ## field InterpolationCount:int = 0
 
-内插前缀 `$` 的个数（与内插串里 `{` 的数量一致），会写进 XML 标签。**引号内内插（ts 的 `${…}`）恒为 1**：一个内插由一个 `{` 开启——`InterpolationExitGuide` 就是按这一格数 `}` 的。
+内插前缀 `$` 的个数（与内插串里 `{` 的数量一致），是这一串的事实。**引号内内插（ts 的 `${…}`）恒为 1**：一个内插由一个 `{` 开启——`InterpolationExitGuide` 就是按这一格数 `}` 的。
 
 ## field RawQuoteCount:int = 0
 
-原始字符串的开引号个数，会写进 XML 标签。
+原始字符串的开引号个数，是这一串的事实。
 
 ## field StringChar:string = ""
 
@@ -527,20 +527,3 @@ if (this.Translate.IsTranslating === false) {
 return BranchStates.Undo;
 ```
 
-## method ToXmlString:()=>string
-
-产出 XML：标签名是运行时类型名，标签上带**五个属性**，内容是所有子单元的 XML 串接。
-
-两个细节：三个 `bool` 属性印成 `True` / `False`（首字母大写），不是 `true` / `false`；标签名取运行时类型名，属性之间、属性与 `>` 之间都是单个空格。
-
-```ts
-const name = this.constructor.name;
-const interpolation = this.IsSupportInterpolation ? "True" : "False";
-const verbatim = this.IsSupportVerbatim ? "True" : "False";
-const raw = this.IsSupportRaw ? "True" : "False";
-const temp: string[] = [];
-for (const item of this.Data) {
-  temp.push(item.ToXmlString());
-}
-return `<${name} IsSupportInterpolation=${interpolation} IsSupportVerbatim=${verbatim} IsSupportRaw=${raw} InterpolationCount=${this.InterpolationCount} RawQuoteCount=${this.RawQuoteCount}>${temp.join("")}</${name}>`;
-```

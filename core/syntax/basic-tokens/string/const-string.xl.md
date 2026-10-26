@@ -11,11 +11,11 @@ import { String } from "./string.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
+Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
 
-字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
+字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `String` 单元里挂一串 `ConstString` / `InterpolationString` 子单元。
 
-常量文本块：一个 `String` 里所有真正是文本的字符都攒在它里面。它自己是块 token，字符进 `Temp`；它的 XML 与基类不同——`<ConstString>` 里放的是转义后的文本（换行变 `\n`、`<` 变 `&lt;`…）。
+常量文本块：一个 `String` 里所有真正是文本的字符都攒在它里面。它自己是块 token，字符进 `Temp`；`AstText` 覆写成 `Temp`，所以整段文本作为一行的 `text="…"` 出现（转义交给 `Token.AstEscape`）。
 
 # class ConstString extends BlockToken
 
@@ -92,69 +92,14 @@ if (this.SourceRange.Start < 0) {
 return this;
 ```
 
-## method ToXmlString:()=>string
+## method AstText:()=>string
 
-产出 XML：标签名是运行时类型名，内容是 `Temp` 里**转义后**的文本。
+行文本里的 `text` 就是这个常量块累积的逐字文本。
 
-逐个字符按下表替换：
-
-| 原字符 | 替换成 | 说明 |
-| --- | --- | --- |
-| `'\r'` `'\n'` `'\t'` `'\a'` `'\b'` `'\f'` `'\\'` `'\''` `'\"'` `'\v'` | `\\r` `\\n` `\\t` `\\a` `\\b` `\\f` `\\\\` `\\'` `\\"` `\\v` | 控制字符与引号/反斜杠转成反斜杠转义 |
-| `'>'` `'<'` `'&'` | `&gt;` `&lt;` `&amp;` | XML 实体 |
-| 其余 | 原字符 | 原样 |
+**不再自带一套转义表**：老的 XML 输出要把 13 个字符换成反斜杠转义 + XML 实体，现在只剩 `Token.AstEscape` 的五条（`\` `"` CR LF TAB），因为它只需要能被放进双引号里。
 
 ```ts
-let str = "";
-for (const i of this.Temp) {
-  switch (i) {
-    case "\r":
-      str += "\\r";
-      break;
-    case "\n":
-      str += "\\n";
-      break;
-    case "\t":
-      str += "\\t";
-      break;
-    case "\x07":
-      //C# 的 '\a'
-      str += "\\a";
-      break;
-    case "\b":
-      str += "\\b";
-      break;
-    case "\f":
-      str += "\\f";
-      break;
-    case "\\":
-      str += "\\\\";
-      break;
-    case "'":
-      str += "\\'";
-      break;
-    case '"':
-      str += '\\"';
-      break;
-    case "\v":
-      str += "\\v";
-      break;
-    case ">":
-      str += "&gt;";
-      break;
-    case "<":
-      str += "&lt;";
-      break;
-    case "&":
-      str += "&amp;";
-      break;
-    default:
-      str += i;
-      break;
-  }
-}
-const name = this.constructor.name;
-return `<${name}>${str}</${name}>`;
+return this.Temp;
 ```
 
 ## method Contains:(Value:string)=>bool
