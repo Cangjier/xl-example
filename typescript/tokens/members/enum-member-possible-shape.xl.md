@@ -7,6 +7,8 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { EnumDeclarationShape } from "../declarations/enum-declaration-shape.xl.md"
 import { EnumMemberShape } from "./enum-member-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
+import { MemberShellFamily } from "../types/member-shell-catalog.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
@@ -31,6 +33,11 @@ import { Token } from "../../../core/syntax/token.xl.md"
 ## field NameAt:int = -1
 
 ## field CodeAt:Array<int> = []
+
+## field Early:bool = false
+
+[B2] 本格是「成员名已闭合」的**早建**判定（`= 初始化器` / `,` / `}` / EOF 的下一字符只可能属于本成员）：
+`Complete` 早于逗号成立，`EnumMemberPossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
 
 # class EnumMemberPossibleUtil
 
@@ -144,6 +151,7 @@ return host.SourceRange.StartIndex + 1;
 state.Complete = false;
 state.End = -1;
 state.NameAt = -1;
+state.Early = false;
 let nameAt = 0;
 while (nameAt < code.length && EnumMemberPossibleUtil.IsSeparator(code[nameAt])) {
   nameAt++;
@@ -156,6 +164,19 @@ if (!EnumMemberPossibleUtil.IsNameToken(code[nameAt])) {
   return;
 }
 state.NameAt = nameAt;
+// [B2] 成员名是最后一格且已闭合：下一非 trivia 字符只可能是 `=` / `,` / `}` / EOF ⇒ 成员头已定，先建外壳。
+if (nameAt === code.length - 1) {
+  const head = code[nameAt];
+  if ((head instanceof Common || head instanceof String) && head.Closed) {
+    const next = EnumMemberPossibleUtil.NextChar(head.SourceRange);
+    if (next === "=" || next === "," || next === "}" || next === "") {
+      state.Complete = true;
+      state.End = nameAt;
+      state.Early = true;
+      return;
+    }
+  }
+}
 for (let at = nameAt + 1; at < code.length; at++) {
   if (EnumMemberPossibleUtil.IsSeparator(code[at])) {
     state.Complete = true;
@@ -247,6 +268,10 @@ const start = state.CodeAt[state.NameAt];
 const end = state.CodeAt[state.End];
 if (start < 0 || end < start) {
   return host;
+}
+// [B2] 成员名已定：先建**外壳**，余下的 `= 初始化器` 由外壳吃掉，`,` / `}` 处交给 legacy builder 建正品。
+if (state.Early) {
+  return MemberShellCatalog.Create(host, start, end, MemberShellFamily.Enum, catalog.PossibleShapesComputeCache, context);
 }
 const group:Array<Token> = [];
 for (let at = start; at <= end; at++) {

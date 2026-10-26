@@ -9,6 +9,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { PropertyDeclarationShape } from "./property-declaration-shape.xl.md"
 import { ClassMemberPossibleScan, ClassMemberPossibleUtil } from "./class-member-possible-util.xl.md"
+import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
+import { MemberShellFamily } from "./member-shell-catalog.xl.md"
 ```
 
 # namespace cangjie
@@ -62,6 +64,14 @@ const start = state.Start;
 const end = state.CodeAt[state.End];
 if (start < 0 || end < start) {
   return host;
+}
+// [B2] 成员头已定（`Early`）：先建**外壳**，余下的单元由外壳吃掉，到边界再交给 legacy builder 建正品。
+if (state.Early) {
+  const shell = MemberShellCatalog.Create(host, start, end, MemberShellFamily.Class, catalog.PossibleShapesComputeCache, context);
+  if (shell !== host) {
+    ClassMemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
+  }
+  return shell;
 }
 const basePos = ClassMemberPossibleUtil.BasePos(host, start);
 const consumed:Array<Token> = host.Data.slice(start, end + 1);

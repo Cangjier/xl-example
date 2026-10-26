@@ -17,6 +17,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
@@ -68,7 +69,8 @@ if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, [])) {
 }
 const body = bracket as Bracket;
 this.BodyBracket = body;
-BodyGuideUtil.MountBodyGuide(body, EnumDeclarationShape.CreateBodyPossibleShapes());
+// [B2] 成员块目录走 B0 安装器（`Known` + `WaitingEndPossible`）：早建成员外壳之后块里不再有新单元。
+MemberShellCatalog.InstallBodyCatalog(body, EnumDeclarationShape.CreateBodyPossibleShapes(), "MemberList", this, context);
 this.CatalogGuide = new CatalogGuide([], new EnumDeclarationEndPossibleShape());
 ```
 
@@ -219,6 +221,9 @@ return shape;
 ## static method CollectBodyMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
 ```ts
+// [B2] 收口前先把还没到边界的成员外壳（没有逗号的最后一个成员）换成正品；整棵 AST 仍由
+// `BuildMembers` 产出，这里只决定「什么时候」。
+MemberShellCatalog.FinalizeAll(host, bracket, context);
 return BodyGuideUtil.CollectBodyMembers(host, bracket, context, EnumDeclarationShape.BuildMembers);
 ```
 

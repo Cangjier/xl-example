@@ -14,6 +14,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
 import { MemberBoundary, MemberBoundaryScan } from "./member-boundary.xl.md"
+import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
+import { MemberShellFamily } from "./member-shell-catalog.xl.md"
 import { PropertySignatureShape } from "./property-signature-shape.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
 ```
@@ -43,6 +45,11 @@ import { TypeBuilder } from "./type-builder.xl.md"
 ## field Angle:int = 0
 
 ## field BoundaryScan:MemberBoundaryScan = new MemberBoundaryScan()
+
+## field Early:bool = false
+
+[B2] 本格是「`name :` 已唯一确定属性签名」的**早建**判定：`Complete` 早于成员边界成立，
+`PropertySignaturePossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
 
 # class MemberItemStartShared
 
@@ -448,6 +455,7 @@ return 0;
 const code = state.Code;
 state.Complete = false;
 state.End = -1;
+state.Early = false;
 if (code.length === 0) {
   state.Kinds = MemberPossibleUtil.AllKinds();
   return;
@@ -493,6 +501,13 @@ if (angle === 0) {
   } else if (MemberPossibleUtil.IsCompletionBoundary(MemberPossibleUtil.NextChar(last.SourceRange))) {
     complete = true;
     end = code.length - 1;
+  }
+  // [B2] `name :` 已经唯一确定属性签名（方法签名在 `(`、调用签名在头部括号）：这一格就建外壳。
+  if (!complete && MemberPossibleUtil.HasKind(head, MemberPossibleUtil.PropertyKind)
+    && last instanceof Symbol && (last as Symbol).Is(":") && last.Closed) {
+    complete = true;
+    end = code.length - 1;
+    state.Early = true;
   }
 }
 let kinds = head;
@@ -611,6 +626,7 @@ state.HeadSettled = false;
 state.Code.length = 0;
 state.CodeAt.length = 0;
 state.Angle = 0;
+state.Early = false;
 state.BoundaryScan.Boundary = -1;
 state.BoundaryScan.Checked = 1;
 shared.Host = units;
@@ -717,6 +733,14 @@ const start = state.Start;
 const end = state.CodeAt[state.End];
 if (start < 0 || end < start) {
   return host;
+}
+// [B2] `name :` 已唯一确定属性签名：先建**外壳**，余下单元由外壳吃掉，边界处交给 legacy builder 建正品。
+if (state.Early) {
+  const shell = MemberShellCatalog.Create(host, start, end, MemberShellFamily.Interface, catalog.PossibleShapesComputeCache, context);
+  if (shell !== host) {
+    MemberPossibleUtil.UpdateItemStartAfterBuild(catalog.PossibleShapesComputeCache, host, start);
+  }
+  return shell;
 }
 const basePos = MemberPossibleUtil.BasePos(host, start);
 const builder = new TypeBuilder(host.Template, context);

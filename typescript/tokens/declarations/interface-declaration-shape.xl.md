@@ -23,6 +23,7 @@ import { GetAccessorPossibleShape } from "../types/get-accessor-possible-shape.x
 import { IndexSignaturePossibleShape } from "../types/index-signature-possible-shape.xl.md"
 import { MethodSignaturePossibleShape } from "../types/method-signature-possible-shape.xl.md"
 import { PropertySignaturePossibleShape } from "../types/property-signature-possible-shape.xl.md"
+import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { SetAccessorPossibleShape } from "../types/set-accessor-possible-shape.xl.md"
 import { InterfaceDeclarationEndPossibleShape } from "./interface-declaration-end-possible-shape.xl.md"
 ```
@@ -71,7 +72,9 @@ if (!this.IsDefinitelyBodyBracket(bracket as Bracket)) {
 }
 const body = bracket as Bracket;
 this.BodyBracket = body;
-body.CatalogGuide = new CatalogGuide(InterfaceDeclarationShape.CreateBodyPossibleShapes());
+// [B2] 成员块目录走 B0 安装器（`Known` + `WaitingEndPossible`）：早建成员外壳之后块里不再有新单元，
+// 旧目录的候选会全部 Reject，没有终结候选时 `CatalogGuide` 会抛「没有候选形状可以构成」。
+MemberShellCatalog.InstallBodyCatalog(body, InterfaceDeclarationShape.CreateBodyPossibleShapes(), "MemberList", this, context);
 this.CatalogGuide = new CatalogGuide([], new InterfaceDeclarationEndPossibleShape());
 ```
 
@@ -333,6 +336,8 @@ return members;
 
 ```ts
 // 单趟：按序收集已建成员，同时记住第一段 raw 代码的位置；成员次序即 XML 次序，不得改动。
+// [B2] 收口前先把还没到边界的成员外壳（没有分隔符的最后一个成员）换成正品。
+MemberShellCatalog.FinalizeAll(host, bracket, context);
 const members:Array<Token> = [];
 let hasBuiltMember = false;
 let at = 0;
