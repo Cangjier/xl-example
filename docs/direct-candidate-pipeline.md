@@ -2730,10 +2730,10 @@ gate-fix2（`e82817a9`）修完，实测 `## field / ## property 的类型里出
 
 | 文件 | 处数 | 修法 |
 | --- | --- | --- |
-| `core/exceptions/syntax-exception.xl.md` | 1 | 字段类型改为显式具名/`unknown` |
-| `core/syntax/possible-shape-cache.xl.md` | 2 | 两张缓存表的键/值改 `Function` / `unknown` |
-| `core/syntax/syntax-context.xl.md` | 1 | 同上，显式类型 |
-| `core/syntax/templates/sequence-template.xl.md` | 3 | 同上，显式类型 |
+| `core/exceptions/syntax-exception.xl.md` | 1 | 改成显式类型（`unknown` / `Function`，按字段语义） |
+| `core/syntax/possible-shape-cache.xl.md` | 2 | 两张缓存表的键 / 值同上（`Function` / `unknown`） |
+| `core/syntax/syntax-context.xl.md` | 1 | 同上 |
+| `core/syntax/templates/sequence-template.xl.md` | 3 | 同上 |
 | **合计** | **7** | 纯类型收紧，**不改运行时行为**（当轮 `ast-json` / 299 / 47 语料读数逐项不变可证） |
 
 `unknown` / `Function` 是「合法但宽」的显式类型；要更窄需先在 `core` 立具名类型，属 R8 的可选优化，不在本轮。
