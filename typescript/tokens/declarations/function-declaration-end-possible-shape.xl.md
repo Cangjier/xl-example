@@ -101,6 +101,31 @@ for (let at = 0; at <= lastCode; at++) {
   }
 }
 const built = FunctionDeclarationShape.FromUnits(shell, 0, lastCode, context, !hasBody, false, shell.Pos);
+const parent = shell.Parent;
 BodyGuideUtil.FinishShell(host, shell, built);
+// [XL-B3f] 无体声明的 `;` 归属（B3d 定位的 divergent 根因）：壳在 `;` 那一格挂出时，`;` 的关闭
+// 还可能让父单元留下一个**零宽**的同名 Symbol（src 为 [x,x)，未真正签入源码）。legacy 的
+// `;` 已经作为 FunctionDeclaration 的终止单元被收下，这个残片必须清掉 —— 否则 EOF 树多一个兄弟节点
+// = divergent。只删「同名 + 零宽」的残片，真实空语句 `;`（src 有宽度）不动。
+if (parent !== null) {
+  for (let at = parent.Data.length - 1; at >= 0; at--) {
+    const sibling = parent.Data[at];
+    if (!(sibling instanceof Symbol)) {
+      continue;
+    }
+    if ((sibling as Token) === (built as Token)) {
+      continue;
+    }
+    if (!(sibling as Symbol).Is(";")) {
+      continue;
+    }
+    const start = sibling.SourceRange.Start;
+    const end = sibling.SourceRange.End;
+    if (start >= 0 && end >= 0 && start === end) {
+      parent.Data.splice(at, 1);
+      break;
+    }
+  }
+}
 return built;
 ```

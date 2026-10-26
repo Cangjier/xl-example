@@ -76,6 +76,18 @@ if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
   if (b3cHeadText === "enum" || b3cHeadText === "namespace" || b3cHeadText === "module") {
     return ShapeStates.Reject;
   }
+  // [XL-B3f] 与 declaration-statement 同步：`declare function|namespace|module|global` 让位给族候选。
+  if (b3cHeadText === "declare") {
+    const b3fSecondAt = ItemUtil.NextCode(units, headAt + 1);
+    if (b3fSecondAt >= 0 && b3fSecondAt < units.length && b3fSecondAt <= tokenIndex) {
+      const b3fSecondText = units[b3fSecondAt] instanceof Common
+        ? (units[b3fSecondAt] as Common).TempToString() : "";
+      if (b3fSecondText === "namespace"
+        || b3fSecondText === "module" || b3fSecondText === "global") {
+        return ShapeStates.Reject;
+      }
+    }
+  }
 }
 const declarationShell = route === StatementRoute.ShellFunctionDeclaration
   || route === StatementRoute.ShellClassDeclaration

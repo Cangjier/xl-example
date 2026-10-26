@@ -86,6 +86,20 @@ if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
   if (b3cHeadText === "enum" || b3cHeadText === "namespace" || b3cHeadText === "module") {
     return ShapeStates.Reject;
   }
+  // [XL-B3f] WP-B3f：`declare function` / `declare namespace|module|global` 也由族候选提前挂壳：
+  // 首词 `declare` 时看第二个代码单元，命中族头就 Reject（只在第二格起判，head 格仍 Accept，
+  // 好让族候选先挂壳）。`declare const|let|var` 不在本段（属变量三层，B3f 未接管）。
+  if (b3cHeadText === "declare") {
+    const b3fSecondAt = ItemUtil.NextCode(units, headAt + 1);
+    if (b3fSecondAt >= 0 && b3fSecondAt < units.length && b3fSecondAt <= tokenIndex) {
+      const b3fSecondText = units[b3fSecondAt] instanceof Common
+        ? (units[b3fSecondAt] as Common).TempToString() : "";
+      if (b3fSecondText === "namespace"
+        || b3fSecondText === "module" || b3fSecondText === "global") {
+        return ShapeStates.Reject;
+      }
+    }
+  }
 }
 // 首格与晚建格一视同仁：都 Accept。晚建格（`type T` / `declare const` 的族在第二格才判出来、
 // `interface I { }` ⏎ `const a = 1;` 的 `const`）搬多少单元由 `BuildByIndex` 的起点同步决定。
