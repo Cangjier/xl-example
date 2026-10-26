@@ -300,21 +300,63 @@ if (unit instanceof Common) {
 return false;
 ```
 
+# class MemberHeadKind
+
+成员头的**中性种类**（B2c）：只描述「名字之后跟着什么」，不含任何族的 kind 常量
+（class / interface 两套 kind 在各自的 `*PossibleUtil` 里映射）。
+
+- `Property`：`name` 后面是 `:` / `=` / `;` / `}` / `,`（属性 / 属性签名）；
+- `Method`：`name(` / `name<...>(` / `*name(`（方法 / 方法签名）；
+- `Constructor`：class 的 `constructor(`；
+- `Get` / `Set`：`get name(` / `set name(`；
+- `Index`：`[key: string]:`；
+- `StaticBlock`：`static {`；
+- `Construct`：interface 的 `new (` / `new <T>(`。
+
+## static field Property:int = 0
+
+## static field Method:int = 1
+
+## static field Constructor:int = 2
+
+## static field Get:int = 3
+
+## static field Set:int = 4
+
+## static field Index:int = 5
+
+## static field StaticBlock:int = 6
+
+## static field Construct:int = 7
+
+# class MemberHeadPlan
+
+一次成员头前瞻的结果：种类 + 修饰词个数（`Modifiers` 的计数口径与 B2b 相同：**包含**成员第一格
+自己，`0` = 第一格就是名字）。
+
+## field Kind:int = -1
+
+## field Modifiers:int = 0
+
 # class MemberHeadScan
 
-**成员头前瞻（B2b）**：在成员**第一格**闭合时，只看 document 里后面的字符，判断这条成员是不是
-「属性形态」。判出来就当场建成员外壳（`MemberShellCatalog`），修饰词 / 名字 / 初始字面量于是各自
-在自己的 token 格成形状，而不是等成员边界一次性重建。
+**成员头前瞻（B2b / B2c）**：在成员**第一格**闭合时，只看 document 里后面的字符，判断这条成员
+是什么种类（属性 / 方法 / 构造器 / 访问器 / 索引 / 静态块 / 构造签名）。判出来就当场建成员外壳
+（`MemberShellCatalog`），修饰词 / 名字 / 参数表 / 方法体于是各自在自己的 token 格成形状，
+而不是等成员边界一次性重建。
 
-判据只回答一件事：**跳过修饰词链之后的名字后面，第一个决定性字符是什么**。
+`Plan` 的判据只回答一件事：**跳过修饰词链之后的名字后面，第一个决定性字符是什么**。
 
-- `:` `=` `;` `}` `,` ⇒ 属性（这几格只可能属于属性成员，方法要 `(` / `<`）；
+- `:` `=` `;` `}` `,` ⇒ 属性；
+- `(` ⇒ 方法（`get` / `set` 前缀 ⇒ 访问器；`constructor` ⇒ 构造器；`new` ⇒ 构造签名）；
+- `<...>` 之后跟 `(` ⇒ 泛型方法；
 - `?` / `!` 只是可选 / 确定断言标记，继续看下一格；
-- `(` `<` `[` `{` `.` `@` `*` ⇒ 判不出（方法 / 泛型 / 计算名 / 静态块 / 装饰器）⇒ `-1`，交旧路径；
-- 换行 ⇒ `-1`（ASI / 修饰词链跨行是另一套判据，不在这里放宽）；
-- 文件尾 ⇒ `-1`。
+- `[key: string]:`（第一格是**已闭合的 `[` 括号**、内容是 `name :`）⇒ 索引签名；
+- `static {` ⇒ 静态块；
+- `[`（第一格）后面不是 `:` ⇒ 计算名，`@` / `*` / `#` / `.` ⇒ `null`，交旧路径；
+- 换行 ⇒ `null`（ASI / 修饰词链跨行是另一套判据，不在这里放宽）；文件尾 ⇒ `null`。
 
-`-1` 一律表示「不早建」，调用方保持既有行为。返回 `>= 0` 是**修饰词个数**（0 = 第一格就是名字）。
+`null` 一律表示「不早建」，调用方保持既有行为。
 
 ## static method IsWordStart:(ch:string)=>bool
 
@@ -409,85 +451,255 @@ while (cursor < count) {
 return -1;
 ```
 
-## static method ModifierCount:(unit:Token)=>int
+## static method NextSignificant:(whole:SourceRange, at:int, count:int)=>int
 
-成员第一格闭合时调用：返回该成员的**修饰词个数**（`>= 0`），或 `-1` = 不早建。
+跳过空白与块注释，返回下一个非 trivia 字符的下标；**遇到换行 / 行注释 / 文件尾一律返回 `-1`**
+（本前瞻只在同一行内成立，跨行 ASI 交旧路径）。块注释里出现换行也算换行。
 
 ```ts
-const range = unit.SourceRange;
-const document = range.Document;
-if (document === null || range.EndIndex < 0) {
-  return -1;
-}
-const whole = SourceRange.Whole(document);
-const count = document.GetCount();
-// 本格自己也算进修饰词链：它是成员的第一格，扫的是**它之后**的字符。
-let modifiers = 0;
-let nameRead = true;
-if (unit instanceof Common && MemberHeadScan.IsModifierWord((unit as Common).TempToString())) {
-  modifiers = 1;
-  nameRead = false;
-}
-let at = range.EndIndex;
-let guard = 0;
-while (at < count) {
-  guard++;
-  if (guard > 512) {
-    return -1;
-  }
-  const ch = whole.At(at);
+let cursor = at;
+while (cursor < count) {
+  const ch = whole.At(cursor);
   if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
-    at++;
+    cursor++;
     continue;
   }
   if (ch === "\n" || ch === "\r" || ch === "\u2028" || ch === "\u2029") {
     return -1;
   }
-  if (ch === "/" && at + 1 < count) {
-    const next = whole.At(at + 1);
-    if (next === "/" || next === "*") {
-      const skipped = MemberHeadScan.SkipTrivia(whole, at, count);
-      if (skipped < 0) {
-        return -1;
+  if (ch === "/" && cursor + 1 < count) {
+    const next = whole.At(cursor + 1);
+    if (next === "/") {
+      return -1;
+    }
+    if (next === "*") {
+      cursor += 2;
+      while (cursor + 1 < count && !(whole.At(cursor) === "*" && whole.At(cursor + 1) === "/")) {
+        const inner = whole.At(cursor);
+        if (inner === "\n" || inner === "\r" || inner === "\u2028" || inner === "\u2029") {
+          return -1;
+        }
+        cursor++;
       }
-      at = skipped;
+      cursor += 2;
       continue;
     }
   }
-  if (MemberHeadScan.IsWordStart(ch)) {
-    let word = "";
-    while (at < count && MemberHeadScan.IsWordChar(whole.At(at))) {
-      word += whole.At(at);
-      at++;
-    }
-    if (!nameRead && MemberHeadScan.IsModifierWord(word)) {
-      const after = MemberHeadScan.SkipTrivia(whole, at, count);
-      if (after >= 0 && MemberHeadScan.CanFollowWord(whole.At(after))) {
-        modifiers++;
-        continue;
-      }
-    }
-    if (nameRead) {
-      return -1;
-    }
-    nameRead = true;
-    continue;
+  return cursor;
+}
+return -1;
+```
+
+## static method Plan:(unit:Token, forInterface:bool)=>MemberHeadPlan | null
+
+成员第一格闭合时的**唯一判据**：返回 `{ Kind, Modifiers }`，或 `null` = 判不出（交旧路径）。
+
+`forInterface` 只影响 `new` 的归类（interface 的 `new (` 是构造签名；class 侧调用方会把
+`Construct` 让回旧路径）。`constructor` 一律报 `Constructor`，class 映射成 `ConstructorKind`、
+interface 映射成 `MethodKind`（interface 里 `constructor` 只是普通方法名）。
+
+```ts
+const range = unit.SourceRange;
+const document = range.Document;
+if (document === null || range.EndIndex < 0) {
+  return null;
+}
+const whole = SourceRange.Whole(document);
+const count = document.GetCount();
+if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[") {
+  // 索引签名：第一格是已经闭合的 `[name: T]`，后面紧跟 `:`。
+  if (!(unit as Bracket).Closed) {
+    return null;
   }
-  if (ch === "#" && !nameRead) {
-    at++;
+  const inner:Array<Token> = [];
+  for (const item of (unit as Bracket).Data) {
+    if (!item.IsTriviaToken) {
+      inner.push(item);
+    }
+  }
+  if (inner.length < 3 || !(inner[0] instanceof Common)) {
+    return null;
+  }
+  if (!(inner[1] instanceof Symbol) || !(inner[1] as Symbol).Is(":")) {
+    return null;
+  }
+  const afterBracket = MemberHeadScan.NextSignificant(whole, range.EndIndex, count);
+  if (afterBracket < 0 || whole.At(afterBracket) !== ":") {
+    return null;
+  }
+  const plan = new MemberHeadPlan();
+  plan.Kind = MemberHeadKind.Index;
+  plan.Modifiers = 0;
+  return plan;
+}
+if (!(unit instanceof Common)) {
+  return null;
+}
+let modifiers = 0;
+let accessor = 0;
+let name = "";
+let nameRead = false;
+let cursor = range.EndIndex;
+// 本格自己：修饰词只在「后面确实能接被修饰的东西」时才算修饰词（`static = 1` 的 `static` 是名字）。
+const firstText = (unit as Common).TempToString();
+let firstIsModifier = MemberHeadScan.IsModifierWord(firstText);
+if (firstText === "get" || firstText === "set") {
+  // `get` / `set` 不在修饰词表里（`get()` 是名为 get 的方法），只有后面确实跟着名字时才是访问器关键字。
+  firstIsModifier = true;
+}
+if (firstIsModifier) {
+  const afterFirst = MemberHeadScan.NextSignificant(whole, cursor, count);
+  if (firstText === "static" && afterFirst >= 0 && whole.At(afterFirst) === "{") {
+    const blockPlan = new MemberHeadPlan();
+    blockPlan.Kind = MemberHeadKind.StaticBlock;
+    blockPlan.Modifiers = 1;
+    return blockPlan;
+  }
+  if (afterFirst >= 0 && MemberHeadScan.CanFollowWord(whole.At(afterFirst))) {
+    modifiers = 1;
+    if (firstText === "get") {
+      accessor = MemberHeadKind.Get;
+    } else if (firstText === "set") {
+      accessor = MemberHeadKind.Set;
+    }
+  } else {
+    name = firstText;
+    nameRead = true;
+  }
+} else {
+  name = firstText;
+  nameRead = true;
+}
+let guard = 0;
+while (cursor < count) {
+  guard++;
+  if (guard > 256) {
+    return null;
+  }
+  const next = MemberHeadScan.NextSignificant(whole, cursor, count);
+  if (next < 0) {
+    return null;
+  }
+  cursor = next;
+  const ch = whole.At(cursor);
+  if (MemberHeadScan.IsWordStart(ch)) {
+    if (nameRead) {
+      return null;
+    }
+    let word = "";
+    let wordAt = cursor;
+    while (wordAt < count && MemberHeadScan.IsWordChar(whole.At(wordAt))) {
+      word += whole.At(wordAt);
+      wordAt++;
+    }
+    const afterWord = MemberHeadScan.NextSignificant(whole, wordAt, count);
+    const wordIsModifier = MemberHeadScan.IsModifierWord(word) || word === "get" || word === "set";
+    if (afterWord >= 0 && wordIsModifier
+      && MemberHeadScan.CanFollowWord(whole.At(afterWord))) {
+      modifiers++;
+      if (word === "get") {
+        accessor = MemberHeadKind.Get;
+      } else if (word === "set") {
+        accessor = MemberHeadKind.Set;
+      }
+      cursor = wordAt;
+      continue;
+    }
+    name = word;
+    nameRead = true;
+    cursor = wordAt;
     continue;
   }
   if (!nameRead) {
-    return -1;
+    return null;
   }
   if (ch === ":" || ch === "=" || ch === ";" || ch === "}" || ch === ",") {
-    return modifiers;
+    const plan = new MemberHeadPlan();
+    plan.Kind = MemberHeadKind.Property;
+    plan.Modifiers = modifiers;
+    return plan;
   }
   if (ch === "?" || ch === "!") {
-    at++;
+    cursor++;
     continue;
   }
+  if (ch === "<") {
+    // 泛型方法的类型参数表：只配平尖括号，配不平就判不出；配平之后必须紧跟 `(`。
+    let depth = 0;
+    let angleAt = cursor;
+    while (angleAt < count) {
+      const angleCh = whole.At(angleAt);
+      if (angleCh === "<") {
+        depth++;
+      } else if (angleCh === ">") {
+        depth--;
+        if (depth === 0) {
+          angleAt++;
+          break;
+        }
+      } else if (angleCh === "/" && angleAt + 1 < count) {
+        const commentNext = whole.At(angleAt + 1);
+        if (commentNext === "/") {
+          return null;
+        }
+        if (commentNext === "*") {
+          angleAt += 2;
+          while (angleAt + 1 < count && !(whole.At(angleAt) === "*" && whole.At(angleAt + 1) === "/")) {
+            angleAt++;
+          }
+          angleAt++;
+        }
+      }
+      angleAt++;
+    }
+    if (depth !== 0) {
+      return null;
+    }
+    const afterAngle = MemberHeadScan.NextSignificant(whole, angleAt, count);
+    if (afterAngle < 0 || whole.At(afterAngle) !== "(") {
+      return null;
+    }
+    const genericPlan = new MemberHeadPlan();
+    if (accessor !== 0) {
+      genericPlan.Kind = accessor;
+    } else if (name === "constructor") {
+      genericPlan.Kind = MemberHeadKind.Constructor;
+    } else if (name === "new" && forInterface) {
+      genericPlan.Kind = MemberHeadKind.Construct;
+    } else {
+      genericPlan.Kind = MemberHeadKind.Method;
+    }
+    genericPlan.Modifiers = modifiers;
+    return genericPlan;
+  }
+  if (ch === "(") {
+    const plan = new MemberHeadPlan();
+    if (accessor !== 0) {
+      plan.Kind = accessor;
+    } else if (name === "constructor") {
+      plan.Kind = MemberHeadKind.Constructor;
+    } else if (name === "new" && forInterface) {
+      plan.Kind = MemberHeadKind.Construct;
+    } else {
+      plan.Kind = MemberHeadKind.Method;
+    }
+    plan.Modifiers = modifiers;
+    return plan;
+  }
+  return null;
+}
+return null;
+```
+
+## static method ModifierCount:(unit:Token)=>int
+
+B2b 兼容入口：**属性形态**的修饰词个数（`>= 0`），其余形态（方法 / 访问器 / 索引 / 静态块）
+与判不出的情况一律 `-1`。B2c 的新调用方直接用 `Plan`。
+
+```ts
+const plan = MemberHeadScan.Plan(unit, false);
+if (plan === null || plan.Kind !== MemberHeadKind.Property) {
   return -1;
 }
-return -1;
+return plan.Modifiers;
 ```

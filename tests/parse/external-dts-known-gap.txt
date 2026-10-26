@@ -16,7 +16,6 @@
 
 # ── @types/node 10 件：Node 内置模块与 web-globals 的声明，形状是「方法签名 + 只读元组/联合」
 node_modules/@types/node/perf_hooks.d.ts  // xl:known-gap 外部 vendor：增量形状路径在建 perf_hooks 的方法签名时放弃，legacy 重解析给出正确树
-node_modules/@types/node/test.d.ts  // xl:known-gap 外部 vendor：test 模块的泛型回调签名走不到增量形状格，legacy 重解析正确
 node_modules/@types/node/web-globals/abortcontroller.d.ts  // xl:known-gap 外部 vendor：web-globals 的 `declare var` + 交叉类型，增量路径未铺
 node_modules/@types/node/web-globals/crypto.d.ts  // xl:known-gap 外部 vendor：同上，`Crypto` 接口里的方法重载未走增量路径
 node_modules/@types/node/web-globals/domexception.d.ts  // xl:known-gap 外部 vendor：构造签名 + 可选属性，增量路径未铺
@@ -27,8 +26,6 @@ node_modules/@types/node/web-globals/storage.d.ts  // xl:known-gap 外部 vendor
 node_modules/@types/node/web-globals/streams.d.ts  // xl:known-gap 外部 vendor：`ReadableStream` 泛型方法，增量路径未铺
 
 # ── typescript/lib 2 件：TS 自己的声明（类型系统的全集，也是最深的 .d.ts）
-node_modules/typescript/lib/lib.es2021.intl.d.ts  // xl:known-gap 外部 vendor：`Intl` 命名空间下的方法签名，增量路径未铺
-node_modules/typescript/lib/typescript.d.ts  // xl:known-gap 外部 vendor：TS 编译器自己的公开声明（超大类型字面量），增量路径未铺
 
 # ── undici-types 4 件：fetch 栈的类型声明
 node_modules/undici-types/cache.d.ts  // xl:known-gap 外部 vendor：`Cache` 一族的索引签名，增量路径未铺
