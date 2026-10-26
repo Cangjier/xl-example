@@ -173,6 +173,13 @@ const head = units[first];
 if (head instanceof Bracket) {
   const start = (head as Bracket).StartBracketChar;
   if (start === "[") {
+    // [A4c] `]` 之后接 `as` / `satisfies`（`let x = [1] as const`）不是「纯数组初始化器」：
+    // 交给 A4c 的 `CompositeInitializerTailJudge` 认领（整条 `X as T` 长完那一格建）。
+    // 判据要**跨步稳定**：`as` 到达之前用文档前瞻，到达之后用「`=` 之后有没有 as/satisfies 单元」，
+    // 两种都要命中同一条族判定，否则 `as` 到达那一格 A4b 会重新变回 `array`、与 A4c 同时存活。
+    if (CompositeInitializerFormsJudge.HasAssertSuffix(units, equalAt)) {
+      return "";
+    }
     return "array";
   }
   if (start !== "(") {
@@ -222,6 +229,33 @@ if (headText === "class") {
 return "";
 ```
 
+## static method HasAssertSuffix:(units:Array<Token>, equalAt:int)=>bool
+
+`=` 之后的数组/括号初始化器是否跟着 `as` / `satisfies` 续接（`[1] as const`）：**跨步稳定**的判据——
+`as` 到达之前看文档前瞻，到达之后看「`=` 之后有没有 as/satisfies 单元」。
+
+```ts
+const last = CompositeInitializerFormsJudge.LastSignificant(units);
+if (last >= 0) {
+  const pair = CompositeInitializerFormsJudge.RawAfter(units[last], 2);
+  if (pair === "as" || pair === "sa") {
+    return true;
+  }
+}
+for (let at = equalAt + 1; at < units.length; at++) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Common) {
+    const text = (unit as Common).TempToString();
+    if (text === "as" || text === "satisfies") {
+      return true;
+    }
+  }
+}
+return false;
+```
 ## static method HasParameterTypeAnnotation:(units:Array<Token>)=>bool
 
 这段单元里的任一括号是否带「顶层 `:`」（参数类型注解）。带类型注解的箭头/函数表达式是 **A5** 的形态
