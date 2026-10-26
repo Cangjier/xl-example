@@ -47,6 +47,27 @@ export const TS_KIND_ALIASES = new Map([
 
 export const kindOf = (kind) => TS_KIND_ALIASES.get(kind) || kind;
 
+/**
+ * **记号不是节点**：单一口径里唯一还需要按「是不是 AST」再折一次的地方。
+ *
+ * 产物侧的形状树除了 AST 形状，`Data` 里还摆着那段源码的**记号序列**——`WrapSymbol`（空白）、
+ * `Common`（标识符 / 数字）、`Symbol`（标点）、`Bracket`（开括号）、`String` / `ConstString`
+ * （字面量）、`LineAnnotation` / `AreaAnnotation`（标注）。它们自己声明了 `IsBasicToken = true`，
+ * 是 token 层的形状，`src` 与 `text` 才是它们的取值。
+ *
+ * TS 侧根本不是这样：`forEachChild` **从不**交出空白与标点（它只交出声明的 token 字段，
+ * 例如 `MappedTypeNode.questionToken`）。所以记号形状一旦进对拍，就只能变成两种假读数：
+ *   - 假的「结构差」：产物侧凭空多出 `WrapSymbol+6` / `Common+7` / `Symbol+5`；
+ *   - 假的「未映射」：`WrapSymbol` / `Common` / … 当然不在 `ts.SyntaxKind` 里。
+ *
+ * **为什么不写进 `TS_KIND_ALIASES`**：那张表是「同一个枚举值的两个反查名」，而这些名字对应的是
+ * **另一层**（记号层），没有任何 TS 节点可以折过去；硬塞进去就是改判据，不是补别名。
+ *
+ * **这条过滤对默认路径逐字节无影响**：不走增量形状时 `Data` 里一个记号形状都没有
+ * （实测 2562 件语料 0 处），所以 `ts-all` / `tts` / `real-dts-ast` 的读数不会动。
+ */
+export const isAstShape = (shape) => shape.IsBasicToken !== true;
+
 /** 只保留参与对拍的字段；未出现的键不写（两侧都缺 = 一致）。 */
 export function norm(node) {
   const out = { kind: node.kind, pos: node.pos, end: node.end };
@@ -124,7 +145,8 @@ export function cjAst(shape) {
   // TS 的 ExportSpecifier.name 是字符串文本；本仓 StringLiteralShape 把它放在 Text 字段（IdentifierShape 用 EscapedText）。
   if (shape.Name && typeof shape.Name.Text === "string") out.name = shape.Name.Text;
   if (shape.IsTypeOnly === true) out.isTypeOnly = true;
-  const children = (shape.Data || []).map(cjAst);
+  // 记号形状不是 AST 节点（见 `isAstShape` 的注释）：进了对拍只会变成假结构差。
+  const children = (shape.Data || []).filter(isAstShape).map(cjAst);
   if (children.length > 0) out.children = children;
   return norm(out);
 }
