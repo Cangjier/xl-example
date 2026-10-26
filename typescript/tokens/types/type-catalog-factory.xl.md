@@ -300,12 +300,15 @@ return false;
 
 - 左操作数是**普通标识符**：`raw[0]` 是 Common、`raw[1]` 是 `as`/`satisfies`；
 - 左操作数是**括号化表达式**：`raw[0]` 是 `(` 括号，且括号里递归出现 `as`/`satisfies`（`(y as T)`）；
+- 左操作数是**对象 / 数组字面量**：`raw[0]` 是 `{...}` / `[...]` 括号，且这段单元里出现 `as`/`satisfies`
+  （`{ a: 1 } satisfies T` / `[1, 2] satisfies number[]`）——[D1] 加这一档：这两类字面量在 `as`/`satisfies`
+  之前只是 **basic 括号**，`TryBuildTypedInitializer` 的「`=` 之后全是 basic」前提成立，所以整条可以原子建出；
 - **带类型参数的函数/箭头表达式**（`(a: number) => a` / `async (a: number) => a` /
   `function (a: number) {}` / `<T>(a: T) => a`）：参数括号里出现「名字 `:`」——判据是
   `HasParameterType`。同一族里**没有**类型注解的形态（`() => a` / `(a, b) => a` / `function () {}`）
   不满足本判据，仍留给 A4 的表达式形态（不改变它们的账本分类）。
 
-左操作数是数组字面量 / 调用 / 普通括号表达式等其它形态**不接管**（A2/A3/A4 的写域）。
+左操作数是调用 / 普通算术等其它形态**不接管**（A2/A3/A4 的写域）。
 
 ```ts
 const first = TypeCatalogFactory.FirstSignificant(units, equalAt + 1);
@@ -337,6 +340,15 @@ if (head instanceof Bracket && (head as Bracket).StartBracketChar === "(") {
     return true;
   }
   return TypeCatalogFactory.HasParameterType([head]);
+}
+// [D1] 对象 / 数组字面量 + `as` / `satisfies`（`{ a: 1 } as const` / `[1, 2] satisfies number[]`）：
+// 括号本身是 basic，`as` / `satisfies` 一到达 TypeMode 就能把整条 raw 原子建出。
+// 不要在这里只看 `raw[1]`：字面量之后可能先有运算符 / 更多单元，`HasTypeAssert` 按整段扫。
+if (head instanceof Bracket && (head as Bracket).StartBracketChar === "{") {
+  return TypeCatalogFactory.HasTypeAssert(units);
+}
+if (head instanceof Bracket && (head as Bracket).StartBracketChar === "[") {
+  return TypeCatalogFactory.HasTypeAssert(units);
 }
 if (head instanceof Symbol && (head as Symbol).Is("<")) {
   // 泛型箭头 `<T>(a: T) => a`：类型参数表之后紧跟参数括号，且参数里带类型注解。
