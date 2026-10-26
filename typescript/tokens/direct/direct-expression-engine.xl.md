@@ -1989,10 +1989,20 @@ DirectBuildMetrics.Trace("insert(:) condfalse");
 ```ts
 // A4：`as`。左操作数是「当前最后一个已定稿的子节点」；右操作数是**类型**（TypeBuilder 只读复用），
 // 但类型要等后续单元才能读，所以先插好 AsExpression 并进入缓冲态，收口时再 `FlushAs`。
+//
+// `as` / `satisfies` 与关系运算符**同级**（TS `getBinaryOperatorPrecedence(AsKeyword)` = Relational = 11，
+// 与 `in` / `instanceof` / `<` 同格），而 TS 的 `parseBinaryExpressionRest` 只在 `newPrecedence > precedence`
+// 时才把 `as` 收进更内层的右操作数；关系运算符那一层传下来的 `precedence` 正好是 11，所以 `as` 不属于
+// 关系运算符的右操作数，而是**包住整个关系表达式**：`K in T as X` = `(K in T) as X`（不是 `K in (T as X)`）。
+// 因此这里必须用 `>=`：同级 frame（`in` / `<` / `>` / `<=` / `>=` / `instanceof`）要先收干净，
+// 否则 AsExpression 会被插进那个二元节点最后一个孩子的位置（`as` 子句的 AsExpression 起点比 TS 晚 4、
+// 二元节点 end 吞掉模板字面量类型那 13 个字符的根因，见
+// tests/cases/token/expressions/gap-r949-object-computed-in-name.ts）。
+// 更高优先级的 frame（`+` 及以上）本来就满足 `>`，行为不变。
 this.FlushOperand();
 while (this.Frames.length > 0
   && this.FrameStages[this.FrameStages.length - 1] === DirectExpressionEngine.StageDone
-  && this.FramePrecs[this.FramePrecs.length - 1] > OperatorTable.AsPrecedence) {
+  && this.FramePrecs[this.FramePrecs.length - 1] >= OperatorTable.AsPrecedence) {
   this.CompleteTop();
 }
 const parent = this.Top();
