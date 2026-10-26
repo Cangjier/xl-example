@@ -1,0 +1,1 @@
+type A = keyof Foo

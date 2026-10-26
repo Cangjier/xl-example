@@ -1,0 +1,524 @@
+# INDEX — 增量形状支持范围 cases
+
+> 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
+> 分类口径与目录约定见 [README.md](README.md)。
+
+共 **415** 条 case：throw 125 / atomic 192 / partial 53 / incremental 45
+
+## throw
+
+### declarations
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `throw/declarations/let-array-destructure-rest.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/declarations/let-array-destructure.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/declarations/let-array-init.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/declarations/let-arrow-init.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/declarations/let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/declarations/let-definite-assignment.ts` | 增量变量形状未支持：declaration 符号 ! |  |
+| `throw/declarations/let-exponent-init.ts` | 增量变量形状未支持：expression 运算符 ** |  |
+| `throw/declarations/let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/declarations/let-object-destructure-default.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/declarations/let-object-destructure-nested.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/declarations/let-object-destructure.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/declarations/let-parenthesized-init.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/declarations/let-semicolon-binding.ts` | 增量变量形状未支持：declaration 符号 ; |  |
+| `throw/declarations/let-semicolon-number.ts` | 增量变量形状未支持：declaration 符号 ; |  |
+| `throw/declarations/let-subtract-init.ts` | 增量变量形状未支持：expression 运算符 - |  |
+| `throw/declarations/let-ternary-init.ts` | 增量变量形状未支持：declaration 符号 ? |  |
+| `throw/declarations/let-two-declarations.ts` | 增量变量形状未支持：declaration 符号 , |  |
+| `throw/declarations/let-type-annotation-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
+| `throw/declarations/let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
+| `throw/declarations/var-two-initialized.ts` | 增量变量形状未支持：declaration 符号 , |  |
+
+### expressions
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `throw/expressions/angle-assert.ts` | 增量变量形状未支持：expression 运算符 < |  |
+| `throw/expressions/arr-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/arrow-async.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/arrow-block.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/arrow-default.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/arrow-destructure.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/arrow-multi.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/arrow-rest.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/arrow-single.ts` | 增量变量形状未支持：declaration 符号 => |  |
+| `throw/expressions/as-const.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/await-expr.ts` | 增量变量形状未支持：declaration 符号 } |  |
+| `throw/expressions/bin-add-mul.ts` | 增量变量形状未支持：expression 新运算符结合更紧（优先级 14） |  |
+| `throw/expressions/bin-and.ts` | 增量变量形状未支持：declaration 符号 && |  |
+| `throw/expressions/bin-bitand.ts` | 增量变量形状未支持：declaration 符号 & |  |
+| `throw/expressions/bin-bitor.ts` | 增量变量形状未支持：declaration 符号 \| |  |
+| `throw/expressions/bin-bitxor.ts` | 增量变量形状未支持：declaration 符号 ^ |  |
+| `throw/expressions/bin-eq.ts` | 增量变量形状未支持：declaration 符号 == |  |
+| `throw/expressions/bin-exp.ts` | 增量变量形状未支持：expression 运算符 ** |  |
+| `throw/expressions/bin-ge.ts` | 增量变量形状未支持：declaration 符号 >= |  |
+| `throw/expressions/bin-gt.ts` | 增量变量形状未支持：expression 运算符 > |  |
+| `throw/expressions/bin-le.ts` | 增量变量形状未支持：declaration 符号 <= |  |
+| `throw/expressions/bin-lt.ts` | 增量变量形状未支持：expression 运算符 < |  |
+| `throw/expressions/bin-mod.ts` | 增量变量形状未支持：expression 运算符 % |  |
+| `throw/expressions/bin-ne.ts` | 增量变量形状未支持：declaration 符号 != |  |
+| `throw/expressions/bin-nullish.ts` | 增量变量形状未支持：declaration 符号 ?? |  |
+| `throw/expressions/bin-or.ts` | 增量变量形状未支持：declaration 符号 \|\| |  |
+| `throw/expressions/bin-paren-mul.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/bin-seq-eq.ts` | 增量变量形状未支持：declaration 符号 === |  |
+| `throw/expressions/bin-shl.ts` | 增量变量形状未支持：declaration 符号 << |  |
+| `throw/expressions/bin-shr.ts` | 增量变量形状未支持：declaration 符号 >> |  |
+| `throw/expressions/bin-sne.ts` | 增量变量形状未支持：declaration 符号 !== |  |
+| `throw/expressions/bin-sub.ts` | 增量变量形状未支持：expression 运算符 - |  |
+| `throw/expressions/bin-ushr.ts` | 增量变量形状未支持：declaration 符号 >>> |  |
+| `throw/expressions/class-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/comma-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/computed-key.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/func-expr.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/getter.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/method-shorthand.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/obj-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/paren-nested.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/ref-call.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/ref-import-meta.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/expressions/ref-index.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/ref-member.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/expressions/ref-new-target.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/expressions/ref-new.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/ref-nonnull.ts` | 增量变量形状未支持：declaration 符号 ! |  |
+| `throw/expressions/ref-optional.ts` | 增量变量形状未支持：declaration 符号 ?. |  |
+| `throw/expressions/ref-super.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/expressions/seq-three.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/setter.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/spread-array.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/spread-object.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/expressions/ternary.ts` | 增量变量形状未支持：declaration 符号 ? |  |
+| `throw/expressions/unary-bnot.ts` | 增量变量形状未支持：declaration 符号 ~ |  |
+| `throw/expressions/unary-chain-not.ts` | 增量变量形状未支持：declaration 符号 ! |  |
+| `throw/expressions/unary-delete.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/expressions/unary-minus.ts` | 增量变量形状未支持：expression 运算符 - |  |
+| `throw/expressions/unary-not.ts` | 增量变量形状未支持：declaration 符号 ! |  |
+| `throw/expressions/unary-plus.ts` | 增量变量形状未支持：expression 左操作数不是形状 |  |
+| `throw/expressions/update-post-dec.ts` | 增量变量形状未支持：declaration 符号 -- |  |
+| `throw/expressions/update-post-inc.ts` | 增量变量形状未支持：declaration 符号 ++ |  |
+| `throw/expressions/update-pre-dec.ts` | 增量变量形状未支持：declaration 符号 -- |  |
+| `throw/expressions/update-pre-inc.ts` | 增量变量形状未支持：declaration 符号 ++ |  |
+| `throw/expressions/yield-expr.ts` | 增量变量形状未支持：declaration 符号 } |  |
+
+### lexical
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `throw/lexical/asi-postfix-newline.ts` | 增量变量形状未支持：declaration 符号 ++ |  |
+| `throw/lexical/asi-two-declarations.ts` | 增量变量形状未支持：declaration 初始化器未读完 |  |
+| `throw/lexical/comment-block-after-operator.ts` | 增量变量形状未支持：expression 右操作数 |  |
+| `throw/lexical/let-init-bang.ts` | 增量变量形状未支持：declaration 符号 ! |  |
+| `throw/lexical/let-init-lt.ts` | 增量变量形状未支持：expression 运算符 < |  |
+| `throw/lexical/let-init-member-keyword.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/lexical/let-init-multi-decl.ts` | 增量变量形状未支持：declaration 符号 , |  |
+| `throw/lexical/let-init-object-literal.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/lexical/let-init-semicolon.ts` | 增量变量形状未支持：declaration 符号 ; |  |
+| `throw/lexical/let-init-shift.ts` | 增量变量形状未支持：declaration 符号 >> |  |
+| `throw/lexical/let-init-unary-plus.ts` | 增量变量形状未支持：expression 左操作数不是形状 |  |
+| `throw/lexical/let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
+
+### statements
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `throw/statements/asi-two-declarations.ts` | 增量变量形状未支持：declaration 初始化器未读完 |  |
+| `throw/statements/do-while-let-call-init.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/statements/function-body-let-close-brace.ts` | 增量变量形状未支持：declaration 符号 } |  |
+| `throw/statements/if-block-let-destructuring.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/statements/if-block-let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/statements/if-block-let-semicolon.ts` | 增量变量形状未支持：declaration 符号 ; |  |
+| `throw/statements/label-block-let-unary-init.ts` | 增量变量形状未支持：expression 运算符 - |  |
+| `throw/statements/try-block-let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
+| `throw/statements/while-block-let-close-brace.ts` | 增量变量形状未支持：declaration 符号 } |  |
+
+### types
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `throw/types/angle-assertion.ts` | 增量变量形状未支持：expression 运算符 < |  |
+| `throw/types/arrow-async-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/types/arrow-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/types/as-array-type.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/types/as-intersection-type.ts` | 增量变量形状未支持：declaration 符号 & |  |
+| `throw/types/as-qualified-type.ts` | 增量变量形状未支持：declaration 符号 . |  |
+| `throw/types/as-union-type.ts` | 增量变量形状未支持：declaration 符号 \| |  |
+| `throw/types/const-annotation-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
+| `throw/types/destructure-array-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/types/destructure-object-annotation.ts` | 增量变量形状未支持：declaration 解构绑定 |  |
+| `throw/types/function-expression-typed-param.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/types/generic-arrow-typed-param.ts` | 增量变量形状未支持：expression 运算符 < |  |
+| `throw/types/generic-call-type-args.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/types/let-annotation-no-init.ts` | 增量变量形状未支持：declaration 符号 : |  |
+| `throw/types/nonnull-assertion.ts` | 增量变量形状未支持：declaration 符号 ! |  |
+| `throw/types/paren-as-init.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/types/satisfies-object-type.ts` | 增量变量形状未支持：declaration 括号 |  |
+| `throw/types/var-readonly-array-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
+
+## atomic
+
+### declarations
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `atomic/declarations/class-abstract.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-constructor-param-property.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-empty.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-extends-implements.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-field-modifiers.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-getter.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-method-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-method.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-parameter-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-property-decorator.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-setter.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/class-static-block.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/const-enum.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/declare-function.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/declare-global.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/declare-let.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/declare-module-string.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/declare-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/declare-var.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/enum-computed.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/enum-numeric.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/export-as-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/export-assignment.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/export-declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/export-named-from.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/export-star-as.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-async-generator.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-async.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-default-param.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-generator.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-generic-export-default.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-overload.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-rest-param.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/function-return-type.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-default-named.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-default.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-equals-qualified.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-equals-require.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-inline-type.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-named.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-side-effect.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/import-type-only.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-call-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-construct-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-extends-several.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-generic-method.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-index-signature.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-method.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-optional-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/interface-property.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/module-shorthand.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/namespace-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/namespace-export-function.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/declarations/namespace-nested.ts` | 增量开关对逐字符树没有任何影响 |  |
+
+### lexical
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `atomic/lexical/asi-return-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-angle-chain.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-array-literal.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-async-arrow.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-block-comment-between.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-call-type-args.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-let-identifier.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-new-call.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-object-in-paren.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-optional-ternary.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-paren-arrow.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-paren-assign.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-paren-sequence.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/lexical/expression-shift-generic.ts` | 增量开关对逐字符树没有任何影响 |  |
+
+### statements
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `atomic/statements/asi-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/asi-postfix-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/asi-return-newline.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/asi-same-line.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/block-empty.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/block-statements.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/break-label.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/break.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/continue.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/debugger.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/do-while.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/empty-statement.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-arrow.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-assign.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-await.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-binary-arithmetic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-binary-bitwise.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-binary-comparison.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-binary-logical.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-call.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-class-expr.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-comma.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-function-expr.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-index.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-literal.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-member.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-new.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-nonnull.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-optional-chain.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-regex.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-spread-array.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-template.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-ternary.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-unary.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-update-postfix.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/expr-yield.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/for-classic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/for-empty-clauses.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/for-head-let-atomic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/for-in.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/for-of-const.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/for-of.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/foreach-call.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/if-else-block.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/if-else-if-chain.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/if-no-block.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/label-block.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/label-nested.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/return-no-value.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/return-value.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/stmt-array-literal-start.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/stmt-async-function.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/stmt-let-as-identifier.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/stmt-object-literal-paren.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/stmt-object-vs-block.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/stmt-with.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/switch-case-let-atomic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/switch-fallthrough.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/switch-single-case.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/throw-new.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/try-catch-nobind.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/try-catch.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/try-finally.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/while-block.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/statements/while-no-block.ts` | 增量开关对逐字符树没有任何影响 |  |
+
+### types
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `atomic/types/alias-array.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-asserts.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-conditional-infer.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-conditional.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-ctor-type-abstract.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-fn-type-generic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-fn-type.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-generic-args.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-generic-default.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-import-type.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-indexed-access.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-indexed-generic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-infer-constraint.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-intersection.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-keyof.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-literal-string.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-mapped-modifiers.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-mapped-remap.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-mapped.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-object-call-construct.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-object-index-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-object-method.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-object-optional-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-object.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-parenthesized.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-predicate.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-primitive.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-readonly-array.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-recursive.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-reference.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-template-infer.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-template-literal.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-tuple-named.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-tuple-optional.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-tuple-rest.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-tuple.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-typeof-query.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/alias-union.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/as-expression-statement.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/catch-clause-annotation.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/class-ctor-param-property.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/class-implements-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/class-property-definite.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/class-property-readonly.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/declare-unique-symbol.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/enum-string.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/for-init-annotation.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/function-param-return.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/function-predicate.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/function-this-param.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/import-inline-type.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/interface-basic.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/interface-extends-multi.ts` | 增量开关对逐字符树没有任何影响 |  |
+| `atomic/types/satisfies-expression-statement.ts` | 增量开关对逐字符树没有任何影响 |  |
+
+## partial
+
+### declarations
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `partial/declarations/const-string-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/declarations/let-comparison-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/declarations/let-identifier-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/declarations/let-regex-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/declarations/let-string-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/declarations/let-template-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/declarations/let-template-substitution-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+
+### expressions
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `partial/expressions/as-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/assignment.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/bin-div.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/bin-in.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/bin-instanceof.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-bigint.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-false.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-null.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-regex.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-string-double.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-string-escape.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-string-single.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-tagged.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-template-sub.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-template.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-true.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/lit-undefined.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/ref-ident.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/ref-new-no-parens.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/ref-this.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/satisfies-expr.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/unary-typeof.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/expressions/unary-void.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+
+### lexical
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `partial/lexical/let-init-bigint.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-identifier.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-regex-class.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-regex-escaped-slash.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-regex-flags.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-string-double.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-string-escape.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-string-single.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-template-nested.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-template-plain.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-template-subst.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/lexical/let-init-template-tagged.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+
+### statements
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `partial/statements/const-identifier-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/statements/let-continuation-identifier.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/statements/let-identifier-init.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+
+### types
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `partial/types/as-chain-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/types/as-const-assertion.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/types/as-keyof-typeof.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/types/as-literal-string-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/types/as-primitive-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/types/as-template-literal-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/types/satisfies-then-as.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+| `partial/types/satisfies-type.ts` | 只有 4 个骨架节点提前 | EOF 区间含前导/尾随 trivia |
+
+## incremental
+
+### controls
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `incremental/controls/const-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=9, BinaryExpressionShape@pos=9, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
+| `incremental/controls/let-binding-only.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
+| `incremental/controls/let-mul-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11 |  |
+| `incremental/controls/let-number.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/controls/var-mul-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
+
+### declarations
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `incremental/declarations/const-number.ts` | 提前的 shape 节点：NumericLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/let-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=11 | 残留 basic 行 +1 |
+| `incremental/declarations/let-binding.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
+| `incremental/declarations/var-binding.ts` | 提前的 shape 节点： | EOF 区间含前导/尾随 trivia |
+
+### expressions
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `incremental/expressions/bin-add-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/bin-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=10 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/bin-mul-add.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, PlusTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/bin-mul-mul.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10, AsteriskTokenShape@pos=11, NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/bin-mul.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, AsteriskTokenShape@pos=9, NumericLiteralShape@pos=10 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/num-bin.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/num-dec.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/num-exp.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/num-hex.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/num-oct.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/expressions/num-separator.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+
+### lexical
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `incremental/lexical/bom-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/comment-block-after-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/comment-block-around-operator.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=19 | 残留 basic 行 +1 |
+| `incremental/lexical/comment-block-equals-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/comment-block-let-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=15 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/comment-jsdoc-before-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=18 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/comment-line-after-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/crlf-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/ident-chinese-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/ident-dollar-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/ident-escape-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=12 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/ident-underscore-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/ident-unicode-binding.ts` | 提前的 shape 节点：NumericLiteralShape@pos=10 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/let-init-binary.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/let-init-exponent.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/let-init-hex.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/let-init-leading-dot.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/let-init-octal.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/let-init-separator.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/shebang-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=27 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/tab-indent-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=8 | EOF 区间含前导/尾随 trivia |
+| `incremental/lexical/trailing-space-let.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+
+### statements
+
+| case | 判定依据 | 备注 |
+| --- | --- | --- |
+| `incremental/statements/let-continuation-number.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7, BinaryExpressionShape@pos=7, PlusTokenShape@pos=9, NumericLiteralShape@pos=11 | 残留 basic 行 +1 |
+| `incremental/statements/let-newline-before-init.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
+| `incremental/statements/let-number-statement.ts` | 提前的 shape 节点：NumericLiteralShape@pos=7 | EOF 区间含前导/尾随 trivia |
