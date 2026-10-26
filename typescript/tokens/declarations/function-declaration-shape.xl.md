@@ -19,6 +19,11 @@ import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
+import { BracketCatalogInstaller } from "../statements/bracket-catalog-installer.xl.md"
+import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.xl.md"
+import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
+import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
+import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -59,22 +64,33 @@ super(template);
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
 
-**[WP-S1] 根层 / 块内函数声明的体括号挂块体语句目录。**
+**[WP-S1] 根层 / 块内函数声明的体括号挂块体语句目录；[B1] 参数表 `(` 装逐字目录。**
 
 `Bracket.Transit` 在挂好子括号之后通知宿主 `OnBracketCreatedEvent`。`UnitToken` 上有一个空实现，
-所以这一段对每个单元都会走到；本方法只在「宿主是本声明、子括号是**函数体** `{`」时做事。
+所以这一段对每个单元都会走到。两条分支互不相干：
 
-不挂的后果是结构性的：`FunctionDeclarationPossibleShape` 在关键字格 `MountShell` 建的壳只有终结候选，
+1. **`(`（B1 / A1 矩阵 #1，D-a 型）**：函数名先逐字建（`f` 在 `(` 格出现，不再等收口），
+   再让 B0 的角色机制给参数表挂 `ParameterList` 目录。**只接简单参数表**
+   （`[ '...' ] name [ ':' type ]`）；其余形态一个字节都不动，整段留给 `BuildParameters`。
+2. **`{`（WP-S1）**：函数体挂块体语句目录，判据与收口同源
+   （`TypeBuilder.IsBodyBrace`：返回类型里的对象字面量不是体）。
+
+不挂体目录的后果是结构性的：`FunctionDeclarationPossibleShape` 在关键字格 `MountShell` 建的壳只有终结候选，
 体内没有目录 ⇒ 体内每条语句都停在 raw 单元上，`switch` / `case` / `if` 全部拿不到壳（`control-flow`
 的 `SwitchStatementShape` 0 次、`BlockBodyStatementCount` 0 就是它）。挂上之后体内语句与块体
 **同一条**通道（`BuildBlock` 的 `HasBuiltBodyStatements` / `CollectBodyStatements`），
 `FunctionDeclarationShape.FromUnits` → `StatementBuilder.BuildStatement` 照旧建树，不新增建树路径。
 
-判据只有「是不是函数体」这一条，与收口判据 `FunctionDeclarationEndPossibleShape` 同源
-（`TypeBuilder.IsBodyBrace`：返回类型里的对象字面量不是体）。
-
 ```ts
-if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
+if (!(bracket instanceof Bracket)) {
+  return;
+}
+const shape = bracket as Bracket;
+if (shape.StartBracketChar === "(") {
+  FunctionDeclarationShape.OpenParameterList(this, shape, context);
+  return;
+}
+if (shape.StartBracketChar !== "{") {
   return;
 }
 if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableFunctionBodyCatalog) {
@@ -96,6 +112,99 @@ if (!TypeBuilder.IsBodyBrace(this.Data, this.Data.length - 1)) {
 // 首见从 69 退到 268、`SwitchCaseClauseMountCount` 归 0）。
 BlockPossibleShape.MountBodyCatalog(body);
 StatementRouteUtil.FunctionBodyShellCatalogCount += 1;
+```
+
+## static method PromoteName:(host:Token, bracket:Bracket, context:SyntaxContext)=>void
+
+**[B1] 函数名逐字建**：`(` 创建时，宿主 `Data` 里紧挨在括号前面的那个 `Common` 就是函数名。
+
+legacy 要等整条声明在 `}` 收口时才建 `IdentifierShape`（`FromUnits` 的 `nameUnit` 分支），
+`f` 因此一直以 raw `Common` 待到第 31 格。这里提前建成形状，`Pos` 按 legacy 同一口径
+（前一个非 trivia 单元的 `EndIndex`：`function f` 是 `function` 的终点 8）。
+
+`FromUnits` 收口时见到 `IdentifierShape` 直接消费（见那里的 `[B1]` 分支），不再重建。
+
+```ts
+const at = host.Data.indexOf(bracket);
+if (at <= 0) {
+  return;
+}
+let nameAt = -1;
+for (let back = at - 1; back >= 0; back--) {
+  if (!host.Data[back].IsTriviaToken) {
+    nameAt = back;
+    break;
+  }
+}
+if (nameAt < 0) {
+  return;
+}
+const unit = host.Data[nameAt];
+if (!(unit instanceof Common)) {
+  return;
+}
+let pos = 0;
+for (let back = nameAt - 1; back >= 0; back--) {
+  if (!host.Data[back].IsTriviaToken) {
+    const end = host.Data[back].SourceRange.End;
+    if (end >= 0) {
+      pos = host.Data[back].SourceRange.EndIndex;
+    }
+    break;
+  }
+}
+const name = IdentifierShape.FromBasicToken(unit as Common, context);
+name.Pos = pos;
+host.Data.splice(nameAt, 1, name);
+ParameterListPossibleShape.PromotedNameCount += 1;
+```
+
+## static method OpenParameterList:(host:Token, bracket:Bracket, context:SyntaxContext)=>void
+
+**[B1] 参数表 `(`：装 `ParameterList` 角色目录。**
+
+调用顺序是硬要求：
+
+1. `ParameterListPossibleShape.InstallIfSimple` 先判「简单参数表」——判不进就整段交 legacy，
+   **连名字都不提前建**（半建的名字 + legacy `FromUnits` 的 `Common` 分支会对不上）；
+2. 名字提前建（`f` 在 `(` 格出现）；
+3. 打开 B0 的总闸并装配 `BracketRoleHook`，注册 `ParameterList` 角色目录；
+4. `BracketRoleResolver.Resolve` → `BracketCatalogInstaller.Install`。
+
+第 3 步之后，同一文件里**其余括号**也会走一次角色解析：族已装目录的返回
+`Known` + `AlreadyInstalled`（`SetEndPossible(null)`，一个字节都不改），没有目录的返回
+`Fallback` / `Deferred`（只计数，不改 AST）——这正是任务书允许的「其它 site 继续走现状，
+`BracketRoleFallbackCount` 可涨但不改 AST」。
+
+```ts
+if (!ParameterListPossibleShape.InstallIfSimple(host, bracket, context)) {
+  return;
+}
+FunctionDeclarationShape.PromoteName(host, bracket, context);
+StatementRouteUtil.EnableBracketRoleCatalog = true;
+BracketRoleCatalogHook.EnsureInstalled();
+ParameterListPossibleShape.EnsureRegistered();
+const plan = BracketRoleResolver.Resolve(host, bracket, context);
+if (plan.IsKnown()) {
+  BracketCatalogInstaller.Install(bracket, plan, context);
+}
+```
+
+## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+
+**[B1] 收口钩子**：`(` 括号闭合那一格会走 `Bracket.Close` 的「只问父单元」，
+宿主（本声明）在这里拿到通知——参数表最后一个参数没有后继 token 可等，
+只能靠这一格收口（`f(a: number)` 的类型、`f(a)` 的名字都在 `)` 那一格才 `Closed`）。
+
+**先收参数壳，再问本声明自己的向导**：收口可能建出形状，而 `CatalogGuide` 复位之后
+同一个向导才不会把同一格重算成 `Waiting`。`CatalogGuide === null` 时与基类逐字一致。
+
+```ts
+ParameterListPossibleShape.Finalize(this, context);
+if (this.CatalogGuide !== null) {
+  return this.CatalogGuide.ComputePossibleShapes(this, context);
+}
+return ComputePossibleShapesStates.Nothing;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool, allowAnonymous?:bool, fallbackPos?:int)=>FunctionDeclarationShape
@@ -200,7 +309,9 @@ if (code[cursor + 1] instanceof Symbol && (code[cursor + 1] as Symbol).Is("*")) 
 }
 const nameUnit = code[cursor + nameOffset];
 let paramIndex = cursor + nameOffset;
-if (nameUnit instanceof Common) {
+if (nameUnit instanceof Common || nameUnit instanceof IdentifierShape) {
+  // [B1] `IdentifierShape`：名字已经在 `(` 格逐字建好（`OnBracketCreatedEvent` →
+  // `PromoteName`），这里只认下它，绝不重建。
   paramIndex = cursor + nameOffset + 1;
 } else if (!(allowAnonymous ?? false)) {
   throw new Error("函数声明的名字不是标识符");
@@ -368,8 +479,18 @@ if (nameUnit instanceof Common) {
     builtName.Pos = asteriskUnit.SourceRange.End < 0 ? pos : asteriskUnit.SourceRange.EndIndex;
   }
   name = builtName;
+} else if (nameUnit instanceof IdentifierShape) {
+  // [B1] 已经逐字建好：`Pos` / 区间都是 `PromoteName` 按同一口径给的，原样收下。
+  name = nameUnit;
 }
-const parameters = FunctionDeclarationShape.BuildParameters(host, paramUnit as Bracket, context);
+// [B1] 参数目录已经建出 `ParameterShape` 时**直接消费**，不再让 `TypeBuilder` 把这段参数
+// 重读一遍（那会在收口格一次补出整棵参数树，正是本 WP 要消灭的「成批补建」）。
+// 只有没建 / 判不进简单形态（`CollectBuiltParameters` 返回 `null`）的旧路径才走 `BuildParameters`。
+let parameters = ParameterListPossibleShape.CollectBuiltParameters(paramUnit as Bracket);
+if (parameters === null) {
+  parameters = FunctionDeclarationShape.BuildParameters(host, paramUnit as Bracket, context);
+  ParameterListPossibleShape.LegacyFallbackCount += 1;
+}
 let body:Token | null = null;
 if (bodyUnit !== null) {
   const bodyPos = FunctionDeclarationShape.PreviousEnd(code[tailIndex - 1]);
