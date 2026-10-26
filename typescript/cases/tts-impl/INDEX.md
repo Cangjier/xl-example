@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **366** 条 case：incremental **366** / 非 incremental **0**（非 incremental 即 FAIL）。
+共 **369** 条 case：incremental **369** / 非 incremental **0**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -34,6 +34,9 @@
 | `declarations/class-static-block.ts` | incremental | 提前的 shape 节点：ClassDeclarationShape@pos=0, ClassStaticBlockDeclarationShape@pos=9, BlockShape@pos=16 |  |
 | `declarations/const-number.ts` | incremental | 提前的 shape 节点：NumericLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
 | `declarations/const-string-init.ts` | incremental | 提前的 shape 节点：StringLiteralShape@pos=9 | EOF 区间含前导/尾随 trivia |
+| `declarations/declare-global.ts` | incremental | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
+| `declarations/declare-module-string.ts` | incremental | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
+| `declarations/declare-namespace.ts` | incremental | 提前的 shape 节点：ModuleDeclarationShape@pos=0 |  |
 | `declarations/enum-computed.ts` | incremental | 提前的 shape 节点：EnumDeclarationShape@pos=0, EnumMemberShape@pos=8, IdentifierShape@pos=8, BinaryExpressionShape@pos=12, NumericLiteralShape@pos=12, LessThanLessThanTokenShape@pos=14 |  |
 | `declarations/enum-numeric.ts` | incremental | 提前的 shape 节点：EnumDeclarationShape@pos=0, EnumMemberShape@pos=8, IdentifierShape@pos=8, NumericLiteralShape@pos=12, EnumMemberShape@pos=15, IdentifierShape@pos=15 |  |
 | `declarations/enum-string.ts` | incremental | 提前的 shape 节点：EnumDeclarationShape@pos=0, EnumMemberShape@pos=8, IdentifierShape@pos=8, StringLiteralShape@pos=12 |  |

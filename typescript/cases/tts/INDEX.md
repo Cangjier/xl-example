@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **59** 条 case：throw 40 / atomic 14 / partial 5 / incremental 0
+共 **56** 条 case：throw 40 / atomic 11 / partial 5 / incremental 0
 
 ## throw
 
@@ -81,10 +81,7 @@
 | `atomic/declarations/const-enum.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-function.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/declare-global.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-let.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/declare-module-string.ts` | 增量开关对逐字符树没有任何影响 |  |
-| `atomic/declarations/declare-namespace.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/declare-var.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/export-declare-const.ts` | 增量开关对逐字符树没有任何影响 |  |
 | `atomic/declarations/function-generic-export-default.ts` | 增量开关对逐字符树没有任何影响 |  |
