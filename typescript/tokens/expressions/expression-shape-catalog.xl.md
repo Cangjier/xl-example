@@ -27,6 +27,8 @@ import { CallPossibleShape } from "./forms/postfix/call-possible-shape.xl.md"
 import { NewPossibleShape } from "./forms/postfix/new-possible-shape.xl.md"
 import { PrefixUnaryPossibleShape } from "./forms/prefix/prefix-unary-possible-shape.xl.md"
 import { ReassociationPossibleShape } from "./forms/operator/reassociation-possible-shape.xl.md"
+import { ArrowPossibleShape } from "./forms/primary/arrow-possible-shape.xl.md"
+import { AssignmentPossibleShape } from "./forms/operator/assignment-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -174,4 +176,6 @@ CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
   NewPossibleShape.AppendTo(shapes); // [P2]
   PrefixUnaryPossibleShape.AppendTo(shapes); // [P3a]
   ReassociationPossibleShape.AppendTo(shapes); // [P5]
+  ArrowPossibleShape.AppendTo(shapes); // [P6]
+  AssignmentPossibleShape.AppendTo(shapes); // [P6]
 ```
