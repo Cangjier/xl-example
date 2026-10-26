@@ -289,9 +289,9 @@ for (const item of CASES) {
 
   // 1) legacy 档 XML（壳全关）。
   R.EnableShellExpressions = false;
-  let legacyXml = null;
+  let legacyAstLine = null;
   try {
-    legacyXml = parse(item.src).ToXmlString();
+    legacyAstLine = parse(item.src).ToAstLine(0);
   } catch (error) {
     problems.push(`legacy 档抛错：${describeError(error)}`);
   }
@@ -344,15 +344,15 @@ for (const item of CASES) {
 
   // 3) XML / AST。
   if (shape !== null) {
-    if (legacyXml !== null) {
-      const xml = shape.ToXmlString();
-      if (xml !== legacyXml) {
+    if (legacyAstLine !== null) {
+      const xml = shape.ToAstLine(0);
+      if (xml !== legacyAstLine) {
         let at = 0;
-        while (at < Math.min(xml.length, legacyXml.length) && xml[at] === legacyXml[at]) at += 1;
+        while (at < Math.min(xml.length, legacyAstLine.length) && xml[at] === legacyAstLine[at]) at += 1;
         problems.push(`XML != legacy（第 ${at} 字符起）`);
       }
       for (const tag of ["StatementShape", "PossibleShape", "CatalogGuide"]) {
-        if (xml.includes(`<${tag}>`)) problems.push(`形状树泄漏 <${tag}>`);
+        if (xml.includes(`${tag}  `)) problems.push(`形状树泄漏 <${tag}>`);
       }
     }
     const file = ts.createSourceFile("declaration-shell.ts", item.src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);

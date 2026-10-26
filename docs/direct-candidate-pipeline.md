@@ -897,7 +897,7 @@ A1–A11 与 R2 相同（见 §9.4）；R3 只**追加 A12** 与两个**字段**
 | 断言 | 含义 |
 | --- | --- |
 | A1 | AST 逐字段 == tsc（`cjAst(root.Data)` vs `sf.statements.map(tsAst)`）；`invalid` / `incomplete` 改判 `PARSE-REJECT-PARITY` |
-| A2 | 同源解析两次 `ToXmlString()` 逐字节相同（C4 注入 case：注入那次 vs 不注入那次） |
+| A2 | 同源解析两次 `ToAstLine(0)` 逐字节相同（C4 注入 case：注入那次 vs 不注入那次） |
 | A3 | XML 非空且根下节点数 == TS 顶层语句数 |
 | A4 | 按 `expect` 类别化（见上表） |
 | A5 | `--strict` 时计数器仍全 0（**只作用于正例**；非正例要 `strictAll` / `--strict-all`，见 A12） |

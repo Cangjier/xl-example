@@ -106,7 +106,7 @@ node build/ts/cjcli.js samples/hello.ts
 
 写新 token 或改解析顺序时要守的几条（都是这个项目自己的约定，不是风格偏好）：
 
-- **节点名就是 XML 标签名**：`ToXmlString` 覆写里取的是 `this.constructor.name`，
+- **节点名就是 AST 线里的节点名**：`ToAstLine` 覆写里取的是 `this.constructor.name`，
   所以 `Class` / `Enum` / `IfSegment` 这些类名不能随便改；反过来，重组规则类（`*Reorganization`）不进树、不进 XML，
   名字随便取。
 - **嵌套类必须写在外层类之前**：外层类的静态字段（`JumpIn` / `AppendIn` / `Instance`）在类定义时就

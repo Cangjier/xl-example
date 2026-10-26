@@ -102,7 +102,7 @@ C++ 必须选一个所有权模型。
 
 ts 用 `this.constructor.name` 取运行时类名，用在两处，而且**两处都进 XML**：
 
-- `Token::ToXmlString()` 的标签名（`<Keyword>…</Keyword>`）；
+- `Token::ToAstLine(0)` 的标签名（`<Keyword>…</Keyword>`）；
 - `SequenceTemplate` 的类型派发表（`Get(GetType())`）。
 
 C++ 没有可移植的「取对象运行时类名」手段（`typeid(x).name()` 是实现定义的名字，GCC 出来是

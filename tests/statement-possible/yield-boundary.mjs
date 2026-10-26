@@ -227,7 +227,7 @@ function firstDifference(tsNodes, cjNodes) {
   return null;
 }
 
-function xmlDifference(left, right) {
+function astLineDifference(left, right) {
   const count = Math.min(left.length, right.length);
   for (let index = 0; index < count; index++) {
     if (left[index] !== right[index]) return `第 ${index} 个字符起不同`;
@@ -249,10 +249,10 @@ for (const item of CASES) {
   //    `ParseCore(..., false)`（纯 legacy 目录）——见下面 control 分支，理由写在那里。
   R.EnableShellExpressions = false;
   R.EnableDeclarationShell = false;
-  let legacyXml = null;
+  let legacyAstLine = null;
   withScanCounter(() => {
     try {
-      legacyXml = SourceFileRunner.Parse(item.source, "case.ts").ToXmlString();
+      legacyAstLine = SourceFileRunner.Parse(item.source, "case.ts").ToAstLine(0);
     } catch (error) {
       problems.push(`legacy 抛错：${describeError(error)}`);
     }
@@ -326,13 +326,13 @@ for (const item of CASES) {
   }
 
   if (shape !== null) {
-    const xml = shape.ToXmlString();
-    if (legacyXml !== null) {
-      const diff = xmlDifference(xml, legacyXml);
+    const xml = shape.ToAstLine(0);
+    if (legacyAstLine !== null) {
+      const diff = astLineDifference(xml, legacyAstLine);
       if (diff !== null) problems.push(`XML != legacy：${diff}`);
     }
     for (const tag of ["StatementShape", "PossibleShape", "CatalogGuide"]) {
-      if (xml.includes(`<${tag}>`)) problems.push(`形状树泄漏 <${tag}>`);
+      if (xml.includes(`${tag}  `)) problems.push(`形状树泄漏 <${tag}>`);
     }
     // 只在**合法形态**上做逐节点对拍。两条 `astKnownGap` 是**本轮之前**就存在的形状缺口
     // （XML == legacy 仍然成立，见 HANDOFF-5d6 §3.3），这里只测判界。

@@ -18,7 +18,7 @@
 //     反事实：`f<T>(1)` 的类型实参尾巴仍由形状层交给 legacy `ParsePostfixSuffix`（接管、declined=0）。
 //
 // 每条用例断言四件事（全部机械可判）：
-//   1. 默认解析的 `ToXmlString()` 与 legacy 档（`EnableShellExpressions=false`）**逐字节相同**；
+//   1. 默认解析的 `ToAstLine()` 与 legacy 档（`EnableShellExpressions=false`）**逐字节相同**；
 //   2. `FileFallbackCount === 0`（整条文件没有重解析）；
 //   3. `ShapeAstDeclinedCount === 0`（形状树没有拒绝接管）——这是「修的是根因而不是绕开」的正面证据；
 //   4. 期望的节点计数（`StatementShapeAst.TotalShapeAst >= 1` + 指定节点的出现次数）。
@@ -107,8 +107,8 @@ const GROUPS = [
   },
 ];
 
-function count(xml, tag) {
-  const needle = `<${tag}>`;
+function count(astLine, tag) {
+  const needle = `${tag}  `;
   let at = 0;
   let total = 0;
   for (;;) {
@@ -161,9 +161,9 @@ try {
       StatementShapeAst.TotalDeclined = 0;
       StatementShapeAst.TotalShapeAst = 0;
       StatementLegacyMetrics.Reset();
-      let legacyXml = null;
+      let legacyAstLine = null;
       try {
-        legacyXml = parse(source).ToXmlString();
+        legacyAstLine = parse(source).ToAstLine(0);
       } catch (error) {
         problems.push(`legacy 档解析抛错：${String(error && error.message ? error.message : error)}`);
       }
@@ -174,14 +174,14 @@ try {
       StatementShapeAst.TotalDeclined = 0;
       StatementShapeAst.TotalShapeAst = 0;
       StatementLegacyMetrics.Reset();
-      let shapeXml = null;
+      let shapeAstLine = null;
       let declined = 0;
       let shapeAst = 0;
       let fallback = 0;
       let rawTail = 0;
       let legacyDispatch = 0;
       try {
-        shapeXml = parse(source).ToXmlString();
+        shapeAstLine = parse(source).ToAstLine(0);
         declined = StatementShapeAst.TotalDeclined;
         shapeAst = StatementShapeAst.TotalShapeAst;
         fallback = StatementRouteUtil.FileFallbackCount;
@@ -206,16 +206,16 @@ try {
       if (shapeAst < (expect.minShapeAst === undefined ? 1 : expect.minShapeAst)) {
         problems.push(`TotalShapeAst=${shapeAst}（AST 不是形状树建出的）`);
       }
-      if (legacyXml !== null && shapeXml !== null && legacyXml !== shapeXml) {
+      if (legacyAstLine !== null && shapeAstLine !== null && legacyAstLine !== shapeAstLine) {
         problems.push("XML 与 legacy 不同（形状档改变了树）");
       }
-      if (shapeXml !== null) {
+      if (shapeAstLine !== null) {
         for (const key of Object.keys(expect)) {
           if (key === "minShapeAst") {
             continue;
           }
           const tag = TAG_OF[key];
-          const actual = count(shapeXml, tag);
+          const actual = count(shapeAstLine, tag);
           if (actual !== expect[key]) {
             problems.push(`${tag} 数量 = ${actual}，期望 ${expect[key]}`);
           }

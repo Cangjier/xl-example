@@ -6,7 +6,7 @@
 // 口径：同一段源码 → 同一个真实 basic token 流（FeasRawTokenHost 收集）→
 //   基线：new ExpressionBuilder(template, context).Load(units, 0).ParseExpression()
 //   原型：new FeasOperatorParser(template, context).Load(units, 0).ParseExpression()
-// 两者产出的形状树用 ToXmlString() 逐字节比较（标签名 = 运行时类名，所以类名 / 子节点顺序 / 嵌套关系全在比较范围内）。
+// 两者产出的形状树用 ToAstLine() 逐字节比较（标签名 = 运行时类名，所以类名 / 子节点顺序 / 嵌套关系全在比较范围内）。
 //
 // 原型不接主解析路径：这里只是独立入口，主路径行为不变（validate / AST 门读数与基线一致）。
 import path from "node:path";
@@ -63,18 +63,18 @@ function tokenize(text) {
   return { template, context, units: host.Data };
 }
 
-function baselineXml(text) {
+function baselineAstLine(text) {
   const { template, context, units } = tokenize(text);
   const builder = new ExpressionBuilder(template, context);
   builder.Load(units, 0);
-  return builder.ParseExpression().ToXmlString();
+  return builder.ParseExpression().ToAstLine(0);
 }
 
-function prototypeXml(text) {
+function prototypeAstLine(text) {
   const { template, context, units } = tokenize(text);
   const parser = new FeasOperatorParser(template, context);
   parser.Load(units, 0);
-  return parser.ParseExpression().ToXmlString();
+  return parser.ParseExpression().ToAstLine(0);
 }
 
 function firstDifference(left, right) {
@@ -99,13 +99,13 @@ function main() {
     let baseline = null;
     let prototype = null;
     try {
-      baseline = baselineXml(source);
+      baseline = baselineAstLine(source);
     } catch (error) {
       problem = `基线异常：${error.message}`;
     }
     if (problem === null) {
       try {
-        prototype = prototypeXml(source);
+        prototype = prototypeAstLine(source);
       } catch (error) {
         problem = `原型异常：${error.message}`;
       }

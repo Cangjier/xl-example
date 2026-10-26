@@ -108,7 +108,7 @@
 //
 // 断言（R1 A1–A8 + R2 A9–A11 + R3 A12 + R7 A14）：
 //   A1  cjAst(root.Data) JSON === sf.statements.map(tsAst) JSON（唯一归一表 ast-compare.mjs）  —— 全部 case
-//   A2  同源解析两次 ToXmlString() 逐字节相同（C4 注入 case：注入那次 vs 不注入那次）
+//   A2  同源解析两次 ToAstLine() 逐字节相同（C4 注入 case：注入那次 vs 不注入那次）
 //   A3  XML 非空且根下节点数 == TS 顶层语句数（`{ let x = 1; }` 是 1；built 是 2 —— 两层口径不同）
 //   A4  正例 / guard built>=1 && declined==0 && incomplete==0 && errors==0 && strictViolations==0
 //       负例 declined>=1 && built==0 && errors==0（C4 之后也不许走异常兜底）
@@ -1779,7 +1779,7 @@ function firstDiff(ours, ts, trail = "$") {
   return null;
 }
 
-function firstXmlDiff(left, right) {
+function firstAstLineDiff(left, right) {
   let at = 0;
   while (at < left.length && at < right.length && left[at] === right[at]) at += 1;
   return at;
@@ -2135,14 +2135,14 @@ function loadBaseline(repo) {
   return { root, runnerFile, SourceFileRunner, xml: new Map(), errors: new Map() };
 }
 
-function baselineXmlOf(baseline, c) {
+function baselineAstLineOf(baseline, c) {
   if (baseline.xml.has(c.id)) return baseline.xml.get(c.id);
   let xml = null;
   let error = null;
   try {
     const root = baseline.SourceFileRunner.Parse(c.src, "case.ts");
-    xml = root && typeof root.ToXmlString === "function" ? root.ToXmlString() : null;
-    if (xml === null) error = "基线侧 SourceFileShape 没有 ToXmlString()";
+    xml = root && typeof root.ToAstLine === "function" ? root.ToAstLine(0) : null;
+    if (xml === null) error = "基线侧 SourceFileShape 没有 ToAstLine()";
   } catch (e) {
     error = e && e.message ? e.message : String(e);
   }
@@ -2158,7 +2158,7 @@ function parseOnce(SourceFileRunner, src) {
   const started = process.hrtime.bigint();
   try {
     const root = SourceFileRunner.Parse(src, "case.ts");
-    const xml = root && typeof root.ToXmlString === "function" ? root.ToXmlString() : null;
+    const xml = root && typeof root.ToAstLine === "function" ? root.ToAstLine(0) : null;
     return { root, xml, error: null, ms: Number(process.hrtime.bigint() - started) / 1e6 };
   } catch (error) {
     return { root: null, xml: null, error, ms: Number(process.hrtime.bigint() - started) / 1e6 };
@@ -2225,7 +2225,7 @@ function evaluateCase(ctx, c) {
   const reasons = m1 === null ? null : m1.declineReasons;
   const feature = probeFeature(c, markerTexts);
   // 基线侧读数（A10 用；rejected case 的 A1 也要用它的拒绝文案，先取一次，内部按 id 缓存）
-  const baseXml = baseline === null ? null : baselineXmlOf(baseline, c);
+  const baseXml = baseline === null ? null : baselineAstLineOf(baseline, c);
   const baseError = baseline === null ? null : (baseline.errors.get(c.id) || null);
 
   const ours = first.root && Array.isArray(first.root.Data) ? first.root.Data.map(cjAst) : [];
@@ -2319,13 +2319,13 @@ function evaluateCase(ctx, c) {
   } else if (first.error) {
     add("A2", "FAIL", `PARSE-ERROR: ${first.error.message}`);
   } else if (xml1 === null || xml2 === null) {
-    add("A2", "FAIL", "SourceFileShape 没有 ToXmlString()，无法做 XML 指纹");
+    add("A2", "FAIL", "SourceFileShape 没有 ToAstLine()，无法做 XML 指纹");
   } else if (xml1 === xml2) {
     add("A2", "PASS", isInjection
       ? `XML 一致：注入（回落旧路径）那次 == 不注入（直建）那次（len=${xml1.length}）`
       : `XML 两次逐字节一致（len=${xml1.length}）`);
   } else {
-    const at = firstXmlDiff(xml1, xml2);
+    const at = firstAstLineDiff(xml1, xml2);
     add(
       "A2",
       "FAIL",
@@ -2844,7 +2844,7 @@ function evaluateCase(ctx, c) {
   } else if (xml1 === baseXml) {
     add("A10", "PASS", `XML 与基线逐字节一致（len=${xml1.length}，baseline=${baseline.root}）`, { enforced: true });
   } else {
-    const at = firstXmlDiff(xml1, baseXml);
+    const at = firstAstLineDiff(xml1, baseXml);
     add(
       "A10",
       "FAIL",
@@ -3018,7 +3018,7 @@ function evaluateCase(ctx, c) {
       expectThrew: typeof c.expectThrew === "string" ? c.expectThrew : null,
       pinned: a.A14 && a.A14.observed ? a.A14.observed : null,
       baseline: baseline === null ? null : (() => {
-        const baseXml = baselineXmlOf(baseline, c);
+        const baseXml = baselineAstLineOf(baseline, c);
         return {
           repo: baseline.root,
           xmlLength: baseXml === null ? null : baseXml.length,
@@ -3056,7 +3056,7 @@ function renderCaseHuman(result, flags) {
     lines.push(`TS-AST:  ${JSON.stringify(result.tsAst)}`);
     lines.push(`CJ-AST:  ${JSON.stringify(result.cjAst)}`);
     lines.push(`AST-MATCH(ts): ${a.A1.status === "PASS" ? "YES" : "NO"}`);
-    if (readings.xml === null) lines.push("XML: <none: SourceFileShape 没有 ToXmlString()>");
+    if (readings.xml === null) lines.push("XML: <none: SourceFileShape 没有 ToAstLine()>");
     else lines.push(`XML: ${readings.xml}`);
   }
   for (const id of ["A1", "A2", "A3"]) {

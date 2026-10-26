@@ -77,8 +77,8 @@ function firstDifference(left, right) {
   return null;
 }
 
-function parseXml(source) {
-  return SourceFileRunner.Parse(source, "throw-shape-alive.ts").ToXmlString();
+function parseAstLine(source) {
+  return SourceFileRunner.Parse(source, "throw-shape-alive.ts").ToAstLine(0);
 }
 
 function messageOf(error) {
@@ -119,7 +119,7 @@ try {
       StatementRouteUtil.FileFallbackCount = 0;
       const row = { shell, xml: null, flat: null, kinds: null, fallback: 0 };
       try {
-        row.xml = parseXml(source);
+        row.xml = parseAstLine(source);
         row.fallback = StatementRouteUtil.FileFallbackCount;
         const tree = cjAst(SourceFileRunner.Parse(source, "throw-shape-alive.ts"));
         row.flat = flatten(tree);

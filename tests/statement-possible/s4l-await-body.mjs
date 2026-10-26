@@ -48,7 +48,7 @@ function parseWith(flag, source) {
   const shape = SourceFileRunner.Parse(source, "case.ts");
   const after = snapshot();
   return {
-    xml: shape.ToXmlString(),
+    xml: shape.ToAstLine(0),
     delta: {
       mount: after.mount - before.mount, body: after.body - before.body, shell: after.shell - before.shell,
       awaitShell: after.awaitShell - before.awaitShell, fallback: after.fallback - before.fallback,
@@ -67,7 +67,7 @@ for (const item of cases) {
   if (takeover.delta.fallback !== 0) problems.push("触发了文件级 fallback");
   if (takeover.xml !== legacy.xml) problems.push("XML != legacy");
   if (takeover.xml !== again.xml) problems.push("两次接管档 XML 不同");
-  if (/<StatementShape[ >]/.test(takeover.xml)) problems.push("壳节点泄漏");
+  if (/StatementShape  /.test(takeover.xml)) problems.push("壳节点泄漏");
   if (item.mount !== null && takeover.delta.mount !== item.mount) problems.push(`mount=${takeover.delta.mount} 期望 ${item.mount}`);
   if (item.body !== null && takeover.delta.body !== item.body) problems.push(`body=${takeover.delta.body} 期望 ${item.body}`);
   if (item.awaitShell !== null && takeover.delta.awaitShell !== item.awaitShell) problems.push(`await=${takeover.delta.awaitShell} 期望 ${item.awaitShell}`);

@@ -80,9 +80,9 @@ if (R.EnableBlockClassShell !== true) fail("default EnableBlockClassShell is not
 for (const entry of sources) {
   const source = entry.source;
   flags(false);
-  let offXml = null;
+  let offAstLine = null;
   let offThrew = null;
-  try { offXml = SourceFileRunner.Parse(source, "case.ts").ToXmlString(); } catch (e) { offThrew = e; }
+  try { offAstLine = SourceFileRunner.Parse(source, "case.ts").ToAstLine(0); } catch (e) { offThrew = e; }
   if (offThrew !== null) { fail("off path threw " + source + " :: " + offThrew.message); continue; }
 
   flags(true);
@@ -97,7 +97,7 @@ for (const entry of sources) {
   const ds = R.SwitchCaseClauseShellCount - before.shells;
   const db = R.BlockBodyStatementCount - before.body;
   const fb = R.LastFileFallback === true || R.FileFallbackCount !== before.fallback;
-  const same = shape.ToXmlString() === offXml;
+  const same = shape.ToAstLine(0) === offAstLine;
   // `mount` defaults to 1 (one switch = one case-block clause catalog); a nested switch inside a
   // clause statement adds a second one (gap-SW §2), so cases that nest say so explicitly.
   const expectedMount = entry.mount ?? 1;
@@ -130,8 +130,8 @@ const classCases = [
 for (const entry of classCases) {
   const source = entry.source;
   flags(false);
-  let legacyXml = null;
-  try { legacyXml = SourceFileRunner.Parse(source, "case.ts").ToXmlString(); } catch (e) { fail("CLASS-FLAG legacy threw " + source); continue; }
+  let legacyAstLine = null;
+  try { legacyAstLine = SourceFileRunner.Parse(source, "case.ts").ToAstLine(0); } catch (e) { fail("CLASS-FLAG legacy threw " + source); continue; }
   flags(true);
   R.EnableBlockClassShell = true;
   const before = { body: R.BlockBodyStatementCount, fallback: R.FileFallbackCount };
@@ -139,7 +139,7 @@ for (const entry of classCases) {
   try { shape = SourceFileRunner.Parse(source, "case.ts"); } catch (e) { fail("CLASS-FLAG threw " + source + " :: " + e.message); R.EnableBlockClassShell = false; continue; }
   const db = R.BlockBodyStatementCount - before.body;
   const fb = R.LastFileFallback === true || R.FileFallbackCount !== before.fallback;
-  const same = shape.ToXmlString() === legacyXml;
+  const same = shape.ToAstLine(0) === legacyAstLine;
   const label = "CLASS-FLAG body=" + db + " xml==legacy=" + same + " fallback=" + fb + " :: " + source;
   if (db !== entry.body || !same || fb) {
     fail(label + " [expected body " + entry.body + "]");

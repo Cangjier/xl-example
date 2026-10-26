@@ -7,7 +7,7 @@
 //   node tests/statement-possible/final-matrix.mjs --json      # 额外输出机器可读 JSON
 //
 // 每条用例做三件事（与 harness 同口径）：
-//   1. 形状对拍：默认开关档 ToXmlString() 与 legacy 档（EnableShellExpressions=false）逐字节；
+//   1. 形状对拍：默认开关档 ToAstLine() 与 legacy 档（EnableShellExpressions=false）逐字节；
 //   2. AST 对拍：SourceFileRunner.Parse vs ts.createSourceFile 逐节点（kind/pos/end/text/name/isTypeOnly）；
 //      `shapeAst` = 通过条数，这是「形状树建出来的 AST 与 TS 一致」的读数；
 //   3. 计数增量：解析前后读路由计数器（+ 块体挂载计数器），打印每个族的增量。
@@ -143,7 +143,7 @@ function firstDifference(tsNodes, cjNodes) {
   return null;
 }
 
-function xmlDifference(left, right) {
+function astLineDifference(left, right) {
   const count = Math.min(left.length, right.length);
   for (let index = 0; index < count; index++) {
     if (left[index] !== right[index]) return `第 ${index} 字符`;
@@ -201,9 +201,9 @@ let shapeAstPass = 0;
 for (const item of CASES) {
   const problems = [];
   R.EnableShellExpressions = false;
-  let legacyXml = null;
+  let legacyAstLine = null;
   try {
-    legacyXml = parse(item.src).ToXmlString();
+    legacyAstLine = parse(item.src).ToAstLine(0);
   } catch (error) {
     problems.push(`legacy 抛错：${String(error && (error.message || error.Message) || error).split("\n")[0]}`);
   }
@@ -221,13 +221,13 @@ for (const item of CASES) {
   const fallbackCount = after.fallback - before.fallback;
 
   if (shape !== null) {
-    const xml = shape.ToXmlString();
-    if (legacyXml !== null) {
-      const diff = xmlDifference(xml, legacyXml);
+    const xml = shape.ToAstLine(0);
+    if (legacyAstLine !== null) {
+      const diff = astLineDifference(xml, legacyAstLine);
       if (diff !== null) problems.push(`XML != legacy（${diff}）`);
     }
     for (const tag of ["StatementShape", "PossibleShape", "CatalogGuide"]) {
-      if (xml.includes(`<${tag}>`)) problems.push(`泄漏 <${tag}>`);
+      if (xml.includes(`${tag}  `)) problems.push(`泄漏 <${tag}>`);
     }
     const file = ts.createSourceFile("matrix.ts", item.src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const astDiff = firstDifference(file.statements.map(tsAst), shape.Data.map(cjAst));
@@ -246,7 +246,7 @@ for (const item of CASES) {
     name: item.name,
     counts,
     fallback: fallbackCount,
-    xmlEqLegacy: problems.every((p) => !p.startsWith("XML != legacy")),
+    astLineEqLegacy: problems.every((p) => !p.startsWith("XML != legacy")),
     astEqTS: problems.every((p) => !p.startsWith("AST != TS")),
     knownGap: item.knownGap || null,
     ok: problems.length === 0,
@@ -275,7 +275,7 @@ for (const [name, value] of Object.entries({ ...FACTORY, ...FACTORY_BLOCK })) {
 
 console.log(
   `\n[final-matrix] cases=${rows.length} shapeAst=${shapeAstPass}/${rows.length}`
-  + ` xmlEqLegacy=${rows.filter((r) => r.xmlEqLegacy).length}/${rows.length}`
+  + ` astLineEqLegacy=${rows.filter((r) => r.astLineEqLegacy).length}/${rows.length}`
   + ` astEqTS=${rows.filter((r) => r.astEqTS).length}/${rows.length}`
   + ` knownGap=${rows.filter((r) => r.knownGap).length} failed=${failures.length}`
   + ` decl=${useDecl ? "open" : "default"} class=${useClass ? "open" : "default"}`,
