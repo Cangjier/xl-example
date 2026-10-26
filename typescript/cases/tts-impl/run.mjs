@@ -240,6 +240,10 @@ function collectSteps(source, filePath) {
 }
 
 function setIncremental(enabled) {
+  // 双开关联动：`EnableIncrementalShapes` 是全场景逐字符形状路径的一级开关（bootstrap 阶段还没有
+  // 消费方，翻它零行为变化）；`EnableIncrementalVariableShapes` 是变量声明族的既有开关（判定对象）。
+  // incremental 模式两者同时打开，legacy 模式同时关闭——只用一个开关会漏掉「新路径是否影响时序」。
+  StatementRouteUtil.EnableIncrementalShapes = enabled;
   StatementRouteUtil.EnableIncrementalVariableShapes = enabled;
 }
 
