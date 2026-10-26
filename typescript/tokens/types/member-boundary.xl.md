@@ -5,6 +5,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { LineTerminator } from "../../run/line-terminator.xl.md"
 ```
 
@@ -297,4 +298,196 @@ if (unit instanceof Common) {
   return true;
 }
 return false;
+```
+
+# class MemberHeadScan
+
+**成员头前瞻（B2b）**：在成员**第一格**闭合时，只看 document 里后面的字符，判断这条成员是不是
+「属性形态」。判出来就当场建成员外壳（`MemberShellCatalog`），修饰词 / 名字 / 初始字面量于是各自
+在自己的 token 格成形状，而不是等成员边界一次性重建。
+
+判据只回答一件事：**跳过修饰词链之后的名字后面，第一个决定性字符是什么**。
+
+- `:` `=` `;` `}` `,` ⇒ 属性（这几格只可能属于属性成员，方法要 `(` / `<`）；
+- `?` / `!` 只是可选 / 确定断言标记，继续看下一格；
+- `(` `<` `[` `{` `.` `@` `*` ⇒ 判不出（方法 / 泛型 / 计算名 / 静态块 / 装饰器）⇒ `-1`，交旧路径；
+- 换行 ⇒ `-1`（ASI / 修饰词链跨行是另一套判据，不在这里放宽）；
+- 文件尾 ⇒ `-1`。
+
+`-1` 一律表示「不早建」，调用方保持既有行为。返回 `>= 0` 是**修饰词个数**（0 = 第一格就是名字）。
+
+## static method IsWordStart:(ch:string)=>bool
+
+```ts
+if (ch.length !== 1) {
+  return false;
+}
+const code = ch.charCodeAt(0);
+if (code >= 48 && code <= 57) {
+  return true;
+}
+if (code >= 65 && code <= 90) {
+  return true;
+}
+if (code >= 97 && code <= 122) {
+  return true;
+}
+return ch === "_" || ch === "$" || ch === "\\";
+```
+
+## static method IsWordChar:(ch:string)=>bool
+
+```ts
+if (ch.length !== 1) {
+  return false;
+}
+const code = ch.charCodeAt(0);
+if (code >= 48 && code <= 57) {
+  return true;
+}
+if (code >= 65 && code <= 90) {
+  return true;
+}
+if (code >= 97 && code <= 122) {
+  return true;
+}
+return ch === "_" || ch === "$";
+```
+
+## static method IsModifierWord:(word:string)=>bool
+
+```ts
+return word === "readonly" || word === "static" || word === "private" || word === "public"
+  || word === "protected" || word === "abstract" || word === "declare" || word === "override"
+  || word === "async" || word === "accessor";
+```
+
+## static method CanFollowWord:(ch:string)=>bool
+
+修饰词后面**能接**的那一类字符（对齐 `ClassDeclarationShape.CanFollowModifier`：名字 / `#` / `[` / `*` /
+字符串 / `{`）。接不上就说明当前这个词本身就是名字（`static = 1` 的 `static`）。
+
+```ts
+if (MemberHeadScan.IsWordStart(ch)) {
+  return true;
+}
+return ch === "#" || ch === "[" || ch === "*" || ch === "{" || ch === "\"" || ch === "'" || ch === "`";
+```
+
+## static method SkipTrivia:(whole:SourceRange, at:int, count:int)=>int
+
+跳过空白与注释，返回下一个非 trivia 字符的下标；遇到换行（ASI 的另一套判据）或到达文件尾返回 `-1`。
+
+```ts
+let cursor = at;
+while (cursor < count) {
+  const ch = whole.At(cursor);
+  if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
+    cursor++;
+    continue;
+  }
+  if (ch === "\n" || ch === "\r" || ch === "\u2028" || ch === "\u2029") {
+    return -1;
+  }
+  if (ch === "/" && cursor + 1 < count) {
+    const next = whole.At(cursor + 1);
+    if (next === "/") {
+      // 行注释到换行为止：注释结束之后紧跟的一定是换行，所以这里直接判「不可早建」。
+      return -1;
+    }
+    if (next === "*") {
+      cursor += 2;
+      while (cursor + 1 < count && !(whole.At(cursor) === "*" && whole.At(cursor + 1) === "/")) {
+        cursor++;
+      }
+      cursor += 2;
+      continue;
+    }
+  }
+  return cursor;
+}
+return -1;
+```
+
+## static method ModifierCount:(unit:Token)=>int
+
+成员第一格闭合时调用：返回该成员的**修饰词个数**（`>= 0`），或 `-1` = 不早建。
+
+```ts
+const range = unit.SourceRange;
+const document = range.Document;
+if (document === null || range.EndIndex < 0) {
+  return -1;
+}
+const whole = SourceRange.Whole(document);
+const count = document.GetCount();
+// 本格自己也算进修饰词链：它是成员的第一格，扫的是**它之后**的字符。
+let modifiers = 0;
+let nameRead = true;
+if (unit instanceof Common && MemberHeadScan.IsModifierWord((unit as Common).TempToString())) {
+  modifiers = 1;
+  nameRead = false;
+}
+let at = range.EndIndex;
+let guard = 0;
+while (at < count) {
+  guard++;
+  if (guard > 512) {
+    return -1;
+  }
+  const ch = whole.At(at);
+  if (ch === " " || ch === "\t" || ch === "\v" || ch === "\f") {
+    at++;
+    continue;
+  }
+  if (ch === "\n" || ch === "\r" || ch === "\u2028" || ch === "\u2029") {
+    return -1;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = whole.At(at + 1);
+    if (next === "/" || next === "*") {
+      const skipped = MemberHeadScan.SkipTrivia(whole, at, count);
+      if (skipped < 0) {
+        return -1;
+      }
+      at = skipped;
+      continue;
+    }
+  }
+  if (MemberHeadScan.IsWordStart(ch)) {
+    let word = "";
+    while (at < count && MemberHeadScan.IsWordChar(whole.At(at))) {
+      word += whole.At(at);
+      at++;
+    }
+    if (!nameRead && MemberHeadScan.IsModifierWord(word)) {
+      const after = MemberHeadScan.SkipTrivia(whole, at, count);
+      if (after >= 0 && MemberHeadScan.CanFollowWord(whole.At(after))) {
+        modifiers++;
+        continue;
+      }
+    }
+    if (nameRead) {
+      return -1;
+    }
+    nameRead = true;
+    continue;
+  }
+  if (ch === "#" && !nameRead) {
+    at++;
+    continue;
+  }
+  if (!nameRead) {
+    return -1;
+  }
+  if (ch === ":" || ch === "=" || ch === ";" || ch === "}" || ch === ",") {
+    return modifiers;
+  }
+  if (ch === "?" || ch === "!") {
+    at++;
+    continue;
+  }
+  return -1;
+}
+return -1;
 ```

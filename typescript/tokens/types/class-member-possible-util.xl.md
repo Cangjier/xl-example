@@ -10,7 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { AngleJudge } from "./angle-judge.xl.md"
-import { MemberBoundary, MemberBoundaryScan } from "./member-boundary.xl.md"
+import { MemberBoundary, MemberBoundaryScan, MemberHeadScan } from "./member-boundary.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 ```
 
@@ -613,6 +613,13 @@ while (nameAt < code.length - 1 && ClassMemberPossibleUtil.IsModifierWord(code[n
 }
 if (nameAt !== code.length - 1) {
   return false;
+}
+// [B2b] **成员第一格**（修饰词或名字本身）闭合就建外壳：`member-boundary` 的 document 前瞻
+// （`MemberHeadScan.ModifierCount`）已经能判出「跳过修饰词链之后的名字后面是 `:` / `=` / `;` / `}`」，
+// 于是 `private` / `static` / `readonly` / `x` / `1` 各自在自己的闭合格成形状，而不是等整条成员。
+// 前瞻判不出（方法 `(` / `<`、计算名 `[`、静态块 `{`、装饰器 `@`、修饰词链跨行）一律 `-1` ⇒ 交旧路径。
+if (code.length === 1) {
+  return MemberHeadScan.ModifierCount(code[0]) >= 0;
 }
 const next = ClassMemberPossibleUtil.NextChar(head.SourceRange);
 if (next !== ":" && next !== "=" && next !== "!" && next !== "?" && next !== ";" && next !== "}") {
