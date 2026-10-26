@@ -2274,6 +2274,74 @@ shape.Add(this.BuildCaseBlock(blockUnit as Bracket, blockIndex));
 return this.Finish(shape, first, blockIndex);
 ```
 
+## method BuildCaseClauseHead:()=>Token
+
+[WP-S1] 从 `BuildCaseBlock` **抽出**的子句头建树（`case <表达式> :` / `default :`），供增量壳
+（`StatementFamilyDispatch` 的 `ShellCaseClauseHead` 分支）与 legacy 的 `BuildCaseBlock` 共用。
+抽的是同一条路径：`case` 的冒号判据（三元深度 0）与 `BuildCaseBlock` 逐字同源，`default` 仍只认
+紧邻的 `:`。**收口位置（`At`）停在冒号之后**，与 `BuildCaseBlock` 里 `inner.At = colonAt + 1` 一致。
+
+```ts
+const first = this.At;
+const unit = this.Units[this.At];
+if (!(unit instanceof Common)) {
+  throw new Error("case 子句头缺少关键字");
+}
+const isDefault = (unit as Common).Is("default");
+const clause:ShapeToken = isDefault
+  ? new DefaultClauseShape(this.Template)
+  : new CaseClauseShape(this.Template);
+this.At++;
+if (isDefault) {
+  if (this.At >= this.Units.length || !this.IsSymbol(this.Units[this.At], ":")) {
+    throw new Error("default 缺少冒号");
+  }
+  this.At++;
+  return this.Finish(clause, first, this.At - 1);
+}
+let colonAt = StatementBuilder.ClauseColonAt(this.Units, this.At);
+if (colonAt < 0) {
+  throw new Error("case 缺少冒号");
+}
+if (colonAt <= this.At) {
+  throw new Error("case 缺少表达式");
+}
+const value = this.BuildExpressionRange(this.At, colonAt - 1);
+this.At = colonAt + 1;
+clause.Add(value);
+return this.Finish(clause, first, this.At - 1);
+```
+
+## static method ClauseColonAt:(units:Array<Token>, from:int)=>int
+
+[WP-S1] `case` 标签的收尾冒号 = **三元深度 0** 的第一个 `:`（`case a ? b : c:` —— `?` 抬深度、配对的
+`:` 落回来）。括号 / 逗号 / 运算符在这一层都是原子单元，藏不住 `:`。三个调用点
+（`BuildCaseClauseHead` / `BuildCaseBlock` 的 `case` 段 / `StatementEndPossibleShape.ClauseHeadEndCode`）
+必须是同一条规则，所以判据只写在这里。返回 `-1` 表示还没到。
+
+```ts
+let ternaryDepth = 0;
+for (let at = from; at < units.length; at++) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "?") {
+    ternaryDepth++;
+    continue;
+  }
+  if (text === ":") {
+    if (ternaryDepth > 0) {
+      ternaryDepth--;
+      continue;
+    }
+    return at;
+  }
+}
+return -1;
+```
+
 ## method BuildCaseBlock:(bracket:Bracket, bracketIndex:int)=>Token
 
 ```ts
@@ -2286,32 +2354,42 @@ if (bracket.SourceRange.StartIndex >= 0) {
 inner.Load(bracket.Data, base);
 while (inner.At < inner.Units.length) {
   const unit = inner.Units[inner.At];
+  if (!unit.IsBasicToken) {
+    // **[WP-S1] 增量路径已经把子句头建成 `CaseClauseShape` / `DefaultClauseShape`**：按序收下它，
+    // 再把紧跟其后的子句语句（同样是已建好的形状）挂进去。判据只看「非 basic 且是子句头」——
+    // raw 路径（`case` / `default` 仍是 basic token）一个字节都不变，走下面原来的两段。
+    if (unit.constructor.name !== "CaseClauseShape" && unit.constructor.name !== "DefaultClauseShape") {
+      throw new Error("switch 块里出现了 case / default 之外的单元");
+    }
+    const headClause = unit;
+    inner.At++;
+    let clauseTail:Token | null = null;
+    while (inner.At < inner.Units.length && !inner.Units[inner.At].IsBasicToken) {
+      const clauseUnit = inner.Units[inner.At];
+      if (clauseUnit.constructor.name === "CaseClauseShape"
+        || clauseUnit.constructor.name === "DefaultClauseShape") {
+        break;
+      }
+      headClause.Add(clauseUnit);
+      clauseTail = clauseUnit;
+      inner.At++;
+    }
+    if (clauseTail !== null && clauseTail.SourceRange.End >= 0) {
+      // legacy 的 `inner.Finish(clause, clauseFirst, inner.At - 1)` 把子句 `End` 签在**最后一条语句**的
+      // 末单元上（`case 2: b; break;` 的 `CaseClause` 到 `break;` 的 `;` 为止）。子句头壳收口时只知道
+      // 冒号，所以这里按同一条口径补一次 End（`SignOutToken` 会撞已闭合断言，直接改字段，与
+      // `StatementShellCatalog.Take` 的写法同源）。
+      headClause.SourceRange.End = clauseTail.SourceRange.EndIndex;
+    }
+    caseBlock.Add(headClause);
+    continue;
+  }
   if (inner.IsKeywordUnit(unit, "case")) {
     const clauseFirst = inner.At;
     inner.At++;
-    let colonAt = inner.At;
-    // The ":" that closes a case label is the first one at ternary depth 0:
-    // "case a ? b : c:" -- '?' raises depth, the matching ':' lowers it again.
-    // Brackets/commas/operators are atomic units here, so nothing else can hide a ":".
-    let ternaryDepth = 0;
-    while (colonAt < inner.Units.length) {
-      const candidate = inner.Units[colonAt];
-      if (inner.IsSymbol(candidate, "?")) {
-        ternaryDepth++;
-        colonAt++;
-        continue;
-      }
-      if (inner.IsSymbol(candidate, ":")) {
-        if (ternaryDepth > 0) {
-          ternaryDepth--;
-          colonAt++;
-          continue;
-        }
-        break;
-      }
-      colonAt++;
-    }
-    if (colonAt >= inner.Units.length) {
+    // 冒号判据与 `BuildCaseClauseHead` 共用同一个静态方法（三元深度 0），不写第二份。
+    const colonAt = StatementBuilder.ClauseColonAt(inner.Units, inner.At);
+    if (colonAt < 0) {
       throw new Error("case 缺少冒号");
     }
     if (colonAt <= inner.At) {

@@ -44,6 +44,14 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 ## static field ShellDecoratedDeclaration:int = 10
 
+## static field ShellCaseClauseHead:int = 11
+
+[WP-S1] `switch` 子句头壳（`case <表达式> :` / `default :`）。与 `ShellStatementFamily` 并列的一族：
+候选是 `CaseClauseHeadPossibleShape`，终结候选 `StatementEndPossibleShape` 的 `StatementKind` 也取本值
+（`ClauseHeadEndCode`：三元深度 0 的 `:`），建树走 `StatementFamilyDispatch.BuildByHead` →
+`StatementBuilder.BuildCaseClauseHead`。子句**语句**仍是 `CaseClauseStatementPossibleShape` 那一族，
+两者各管冒号的**前 / 后**，不重叠。
+
 # class StatementClass
 
 ## static field Unknown:int = 0
@@ -180,7 +188,34 @@ return StatementRouteUtil.EnableIncrementalShapes;
 
 ## static field SwitchCaseClauseShellCount:int = 0
 
+## static field EnableSwitchCaseClauseHead:bool = true
+
+[WP-S1] 子句**头**候选（`case-clause-head-possible-shape.xl.md`）的总开关，与 `EnableSwitchCaseClause`
+同一行同源判定：两者必须同开同关，只开一处就是「开关后面只接了一条腿」（挂载侧关了则 mount=0、
+壳计数永远是 0）。默认 `true`，与既有 `EnableSwitchCaseClause` 一致。
+
+## static field SwitchCaseClauseHeadShellCount:int = 0
+
+[WP-S1] 只读计数：子句头壳（`CaseClauseHeadPossibleShape.BuildByIndex`）建出的次数。
+
 ## static field EnableBlockClassShell:bool = true
+
+## static field EnableFunctionBodyCatalog:bool = true
+
+[WP-S1] 根层 `function` 声明体的**块体语句目录**开关（`function-declaration-shape.xl.md` 的
+`OnBracketCreatedEvent`）。关闭时根层函数体逐字节回到「整段 raw 建树」（WP-S1 之前的行为）。
+
+为什么必须挂：根层 `function` 由 `FunctionDeclarationPossibleShape` 在关键字格 `MountShell`，壳的
+`CatalogGuide` 只有终结候选、**没有体目录挂载点**；`Bracket.Transit` 通知宿主时走的是
+`UnitToken.OnBracketCreatedEvent`（空实现），`ChildBracketCreatedHook` 那段对「宿主不是括号」的
+补通知因此永远进不来。于是函数体 `{` 的 `CatalogGuide` 恒为 `null`，体内**一条语句都拿不到格子**——
+`switch` / `case` 在 `control-flow` 里 0 次、`BlockBodyStatementCount` 恒 0，都是这一条的后果。
+挂上之后体内语句与控制流块体走**同一条**「语句壳 + `BuildBlock` 收集通道」
+（`StatementBuilder.CollectBodyStatements`），建树路径不新增。
+
+## static field FunctionBodyShellCatalogCount:int = 0
+
+[WP-S1] 只读计数：根层函数体挂上块体语句目录的次数。
 
 ## static field EnableStuckShellRecovery:bool = true
 
@@ -443,9 +478,68 @@ while (at < count) {
 return false;
 ```
 
+## static method DecideCaseClauseHead:(units:Array<Token>, headAt:int, text:string)=>int
+
+[WP-S1] `case` / `default` 起语句的唯一判据。**必须早于标签判据**（`case 0:` 的 `0:` 满足
+`IsLabelColonAhead` 的形态，判晚了 `case` 就落进表达式壳、数字被建 `LabeledStatementShape`）。
+
+四道闸，缺一不可：
+
+1. 三个开关（`EnableShellExpressions` / `EnableSwitchCaseClause` / `EnableSwitchCaseClauseHead`）全开；
+2. 首词是 `case` 或 `default`（**只在本方法里出现一次**，不写第二份关键字表）；
+3. 宿主是**子句块目录**（`{` 括号且 `CatalogGuide` 里挂着 `CaseClauseHeadPossibleShape`）。这一条把
+   「`case` / `default` 当标识符 / 属性名」的形态挡在外面——那些形态的宿主不是我们挂的目录；
+4. **不等第二个代码单元**。宿主是子句块目录时 `case` / `default` 在这个位置只可能是子句头；等下去会让
+   表达式族在同一格把 `case` 判成 `ShellPlainExpression`，而 `Reject` 被 `CatalogGuide` 永久删除，
+   子句头候选一被拒就再没有候选能建壳。`default` 的「冒号必须紧跟」由终结候选
+   `StatementEndPossibleShape.ClauseHeadEndCode` 与 `StatementBuilder.BuildCaseClauseHead` 各自把住。
+
+```ts
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableSwitchCaseClause
+  || !StatementRouteUtil.EnableSwitchCaseClauseHead) {
+  return StatementRoute.None;
+}
+if (text !== "case" && text !== "default") {
+  return StatementRoute.None;
+}
+const owner = units[headAt].Parent;
+if (!(owner instanceof Bracket) || (owner as Bracket).StartBracketChar !== "{") {
+  return StatementRoute.None;
+}
+const ownerGuide = (owner as Bracket).CatalogGuide;
+if (ownerGuide === null) {
+  return StatementRoute.None;
+}
+let ownsClauseHead = false;
+for (const shape of ownerGuide.PossibleShapes) {
+  if (shape.constructor.name === "CaseClauseHeadPossibleShape") {
+    ownsClauseHead = true;
+    break;
+  }
+}
+if (!ownsClauseHead) {
+  return StatementRoute.None;
+}
+const secondAt = ItemUtil.NextCode(units, headAt + 1);
+if (secondAt >= units.length) {
+  // 第二个代码单元还没到。**这里刻意不等待**：宿主已经是子句块目录（上面第 3 条），`case` / `default`
+  // 在这个宿主里只可能是子句头，等下去只会让表达式族在同一格把 `case` 判成 `ShellPlainExpression`，
+  // 而 `CatalogGuide` 的 `Reject` 是**永久删除**——子句头候选一被拒就再也回不来（实测首格就此丢壳）。
+  // `default` 的「冒号必须紧跟」由终结候选 `ClauseHeadEndCode` 与 `BuildCaseClauseHead` 各自把住。
+  return StatementRoute.ShellCaseClauseHead;
+}
+return StatementRoute.ShellCaseClauseHead;
+```
+
 ## static method DecideCommon:(text:string, units:Array<Token>, headAt:int)=>int
 
 ```ts
+// [WP-S1] `case` / `default` 起语句先问一次子句头（`None` = 本族不管，落回下面既有判据）。
+// 位置必须在变量词 / 表达式 / **标签**三处判据之前：`case 0:` 的 `0:` 满足标签形态。
+const clauseHead = StatementRouteUtil.DecideCaseClauseHead(units, headAt, text);
+if (clauseHead !== StatementRoute.None) {
+  return clauseHead;
+}
 if (text === "let" || text === "const" || text === "var") {
   const bindingAt = ItemUtil.NextCode(units, headAt + 1);
   if (bindingAt >= units.length) {

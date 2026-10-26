@@ -13,6 +13,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "../declarations/body-guide-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
+import { CaseClauseHeadPossibleShape } from "./case-clause-head-possible-shape.xl.md"
 import { CaseClauseStatementPossibleShape } from "./case-clause-statement-possible-shape.xl.md"
 import { DeclarationStatementPossibleShape } from "./declaration-statement-possible-shape.xl.md"
 import { RootExpressionStatementPossibleShape } from "./root-expression-statement-possible-shape.xl.md"
@@ -233,6 +234,20 @@ bracket.CatalogGuide = new CatalogGuide(
   BlockPossibleShape.CreateBodyPossibleShapes(),
   new BlockBodyWaitingPossibleShape());
 ```
+
+## static method MountControlFlowBodyCatalog:(bracket:Bracket)=>void
+
+```ts
+bracket.CatalogGuide = new CatalogGuide(
+  [new ControlFlowStatementPossibleShape()],
+  new BlockBodyWaitingPossibleShape());
+```
+
+**[WP-S1] 记录一次被否掉的方案**（不要再用）：函数体只挂控制流族候选、其余语句留 raw。
+实测不可行——目录里没有变量 / 表达式候选时，raw 单元会一直攒在括号 `Data` 里，
+`ItemUtil.ItemStart` 永远停在体内第一条语句上，`Decide` 每格读到的首词都是那个词（`let`），
+后面的 `switch` 一格都拿不到：`SwitchStatementShape` 首见从 69 退到 268、
+`SwitchCaseClauseMountCount` 归 0。函数体必须挂**完整**块体目录。
 
 ## static method IsSwitchCaseBody:(body:Bracket, bracket:Token, previous:Token | null)=>bool
 
@@ -585,7 +600,18 @@ if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
   // **Stage 4ae：单一开关**。本类原先另有一个同名 `EnableSwitchCaseClause`，与
   // `StatementRouteUtil.EnableSwitchCaseClause` 必须同开同关——只开一处就是假空转（挂载侧不开则
   // mount=0，壳计数永远是 0）。同名门控已删除，挂载只问 `StatementRouteUtil` 那一份。
-  if (StatementRouteUtil.EnableSwitchCaseClause) {
+  if (StatementRouteUtil.EnableSwitchCaseClause && StatementRouteUtil.EnableSwitchCaseClauseHead) {
+    // [WP-S1] 子句块目录 = **子句头候选在前、子句语句候选在后**。顺序不可颠倒：
+    // `case` / `default` 那一格必须由 `CaseClauseHeadPossibleShape` 先接住并建壳，否则它落进
+    // 子句语句候选、被当成表达式语句（`IdentifierShape("case")`）或标签（`LabeledStatementShape`）。
+    // 子句语句候选在 `StatementRouteUtil.Decide` 判成 `ShellCaseClauseHead` 的格子里 `Reject`（让位），
+    // 所以同格不会双 Accept。
+    body.CatalogGuide = new CatalogGuide(
+      [new CaseClauseHeadPossibleShape(), new CaseClauseStatementPossibleShape()],
+      new BlockBodyWaitingPossibleShape());
+    StatementRouteUtil.SwitchCaseClauseMountCount += 1;
+  } else if (StatementRouteUtil.EnableSwitchCaseClause) {
+    // 子句头开关关闭：逐字节退回「只挂子句语句候选」的既有目录（WP-S1 之前的行为）。
     body.CatalogGuide = new CatalogGuide(
       [new CaseClauseStatementPossibleShape()],
       new BlockBodyWaitingPossibleShape());

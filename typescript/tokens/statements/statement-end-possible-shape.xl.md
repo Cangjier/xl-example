@@ -6,6 +6,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
@@ -102,6 +103,16 @@ if (state.Checked !== tokenIndex + 1) {
       const end = StatementEndPossibleShape.ExpressionEndCode(units, state.CodeAt, StatementScanner.AtEOF, false);
       if (end >= 0 && end <= tokenIndex) {
         state.End = end;
+        state.Status = 1;
+      }
+    }
+  } else if (this.StatementKind === StatementRoute.ShellCaseClauseHead) {
+    // **[WP-S1] 子句头壳的收口**：判据只有一份——`ClauseHeadEndCode`（`default:` 的冒号、或 `case`
+    // 表达式里**三元深度 0** 的第一个 `:`）。只在「当前单元本身是代码」时判界，与其它族同一口径。
+    if (!units[tokenIndex].IsTriviaToken) {
+      const clauseEnd = StatementEndPossibleShape.ClauseHeadEndCode(state.Code);
+      if (clauseEnd >= 0 && clauseEnd < state.CodeAt.length) {
+        state.End = state.CodeAt[clauseEnd];
         state.Status = 1;
       }
     }
@@ -218,6 +229,54 @@ if (state.End >= 0) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;
+```
+
+## static method ClauseHeadEndCode:(code:Array<Token>)=>int
+
+[WP-S1] `switch` 子句头的收口位置：`default :` 收在冒号；`case <表达式> :` 收在**三元深度 0** 的第一个
+`:`（`case a ? b : c: d;` 里 `?` 抬深度、配对的 `:` 落回来，第二个才是子句冒号）。括号是原子单元，
+表达式里的 `:` 进不到这一层。与 `StatementBuilder.BuildCaseClauseHead` / `BuildCaseBlock` 的冒号扫描
+**逐字同源**（同一个深度规则），不新写第二套。
+
+```ts
+if (code.length < 2) {
+  return -1;
+}
+const head = code[0];
+if (!(head instanceof Common)) {
+  return -1;
+}
+const headText = (head as Common).TempToString();
+if (headText === "default") {
+  const colon = code[1];
+  if (colon instanceof Symbol && (colon as Symbol).Is(":")) {
+    return 1;
+  }
+  return -1;
+}
+if (headText !== "case") {
+  return -1;
+}
+let ternaryDepth = 0;
+for (let at = 1; at < code.length; at++) {
+  const unit = code[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "?") {
+    ternaryDepth++;
+    continue;
+  }
+  if (text === ":") {
+    if (ternaryDepth > 0) {
+      ternaryDepth--;
+      continue;
+    }
+    return at;
+  }
+}
+return -1;
 ```
 
 ## static method EmptyStatementEndCode:(units:Array<Token>, codeAt:Array<int>)=>int
@@ -370,6 +429,12 @@ if (current instanceof EndOfFileTokenShape) {
       if (end >= 0 && end <= endIndex) {
         endIndex = end;
       }
+    } else if (this.StatementKind === StatementRoute.ShellCaseClauseHead) {
+      // [WP-S1] 子句头壳：与 `ComputeByIndex` 同一份判据（`ClauseHeadEndCode`），基准同样是壳 `Data` 下标。
+      const clauseEnd = StatementEndPossibleShape.ClauseHeadEndCode(code);
+      if (clauseEnd >= 0 && clauseEnd < codeAt.length) {
+        endIndex = codeAt[clauseEnd];
+      }
     } else if (this.StatementKind === StatementRoute.ShellDeclarationFamily) {
       // **Stage 5d-8a**：声明族与 `ComputeByIndex` 同一个顺序——先 `ExpressionEndCode`，给 `-1` 才问
       // 体括号（`DeclarationFamilyBodyEndCode`），不调 `ScanRoot`，基准同样是壳 `Data` 下标。
@@ -447,6 +512,12 @@ if (current instanceof EndOfFileTokenShape) {
     const end = StatementEndPossibleShape.ExpressionEndCode(host.Data, codeAt, StatementScanner.AtEOF, false);
     if (end >= 0 && end <= tokenIndex) {
       endIndex = end;
+    }
+  } else if (this.StatementKind === StatementRoute.ShellCaseClauseHead) {
+    // [WP-S1] 子句头壳：与 `ComputeByIndex` 同一份判据，基准同样是壳 `Data` 下标（不再二次折算）。
+    const clauseEnd = StatementEndPossibleShape.ClauseHeadEndCode(code);
+    if (clauseEnd >= 0 && clauseEnd < codeAt.length) {
+      endIndex = codeAt[clauseEnd];
     }
   } else if (this.StatementKind === StatementRoute.ShellDeclarationFamily) {
     // **Stage 5d-8a**：与 `ComputeByIndex` 同一个顺序——先 `ExpressionEndCode`（调用位 ASI / `;` / ASI /

@@ -17,6 +17,8 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { MemberBoundary } from "../types/member-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
+import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
+import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 ```
 
 # namespace cangjie
@@ -53,6 +55,47 @@ declare async function f(): void;
 
 ```ts
 super(template);
+```
+
+## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
+
+**[WP-S1] 根层 / 块内函数声明的体括号挂块体语句目录。**
+
+`Bracket.Transit` 在挂好子括号之后通知宿主 `OnBracketCreatedEvent`。`UnitToken` 上有一个空实现，
+所以这一段对每个单元都会走到；本方法只在「宿主是本声明、子括号是**函数体** `{`」时做事。
+
+不挂的后果是结构性的：`FunctionDeclarationPossibleShape` 在关键字格 `MountShell` 建的壳只有终结候选，
+体内没有目录 ⇒ 体内每条语句都停在 raw 单元上，`switch` / `case` / `if` 全部拿不到壳（`control-flow`
+的 `SwitchStatementShape` 0 次、`BlockBodyStatementCount` 0 就是它）。挂上之后体内语句与块体
+**同一条**通道（`BuildBlock` 的 `HasBuiltBodyStatements` / `CollectBodyStatements`），
+`FunctionDeclarationShape.FromUnits` → `StatementBuilder.BuildStatement` 照旧建树，不新增建树路径。
+
+判据只有「是不是函数体」这一条，与收口判据 `FunctionDeclarationEndPossibleShape` 同源
+（`TypeBuilder.IsBodyBrace`：返回类型里的对象字面量不是体）。
+
+```ts
+if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
+  return;
+}
+if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableFunctionBodyCatalog) {
+  return;
+}
+const body = bracket as Bracket;
+if (body.CatalogGuide !== null) {
+  return;
+}
+if (!StatementRouteUtil.EnableBlockBodyCatalog) {
+  return;
+}
+if (!TypeBuilder.IsBodyBrace(this.Data, this.Data.length - 1)) {
+  return;
+}
+// 完整块体目录：体内语句与控制流块体走**同一条**通道（语句壳 + `BuildBlock` 的收集路径）。
+// 只挂控制流族候选**不行**：目录里没有变量 / 表达式候选时 `ItemUtil.ItemStart` 永远停在本体第一条
+// raw 语句上，`Decide` 拿到的首词一直是 `let`，后面的 `switch` 拿不到格子（实测 `SwitchStatementShape`
+// 首见从 69 退到 268、`SwitchCaseClauseMountCount` 归 0）。
+BlockPossibleShape.MountBodyCatalog(body);
+StatementRouteUtil.FunctionBodyShellCatalogCount += 1;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool, allowAnonymous?:bool, fallbackPos?:int)=>FunctionDeclarationShape
