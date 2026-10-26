@@ -662,6 +662,24 @@ if (head2 === "function" || head2 === "async") {
     DirectExportAssembly.LastReason = "declare function 形状为空";
     return null;
   }
+  // R7-astdiff 修复：`declare function` 走的是**壳**（`owner.Data` 以 `declare` 开头），
+  // `FunctionDeclarationShape.FromUnits` 的 Pos 口径是「向前找上一个非 trivia 单元的 End」，
+  // 壳里没有那一格 ⇒ Pos 落 0。tsc 的 pos = 前一 token 的 End（含前导 trivia）—— 正是壳的
+  // `basePos`（`PrependDeclare` 对变量声明用的同一格：「修饰词前那一格」）。只在这条路径上补，
+  // 其余调用点（宿主含前序单元）不受影响。
+  const oldPos = (shape as ShapeToken).Pos;
+  const headPos = DirectExportAssembly.PosAt(code, startIndex, basePos);
+  if (headPos > oldPos) {
+    (shape as ShapeToken).Pos = headPos;
+    // 只搬「与形状同 Pos 的那个首修饰词」（= `declare`；`declare async function` 的
+    // `AsyncKeyword` 已由 FromUnits 记成 `declare` 的 End，**不能**一起搬）。
+    const first:Token | null = shape.Data.length > 0 ? shape.Data[0] : null;
+    const firstName = first === null ? "" : (first as any).constructor.name;
+    if ((firstName === "DeclareKeywordShape" || firstName === "AsyncKeywordShape")
+      && (first as ShapeToken).Pos === oldPos) {
+      (first as ShapeToken).Pos = headPos;
+    }
+  }
   return shape;
 }
 if (head2 === "const" || head2 === "let" || head2 === "var") {
