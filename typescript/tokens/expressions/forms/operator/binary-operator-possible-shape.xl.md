@@ -8,6 +8,7 @@ import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-ca
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
+import { PrimaryAtomGuard } from "../primary/primary-atom-guard.xl.md"
 import { Token } from "../../../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../../../item-util.xl.md"
 import { IdentifierShape } from "../../../names/identifier-shape.xl.md"
@@ -71,11 +72,10 @@ EOF                     → FinishIncremental 收下唯一根（E0b 契约）
 3. **数字 `Common` ⇒ `Reject`**：数字格必须留给 `NumericLiteralPossibleShape` 独占（否则两候选同格，
    永远 `Waiting`，整个初始化器退化成 atomic）；其它基本 token（`Symbol("/")` 之外的符号、`String`、
    `Bracket`）⇒ `Reject`；
-4. **标识符 `Common`（非数字）⇒ `Reject`**：WP-A1 的标识符候选已接管标识符格（A1 建
-   `IdentifierShape`、本候选只做运算符）；原「`Uncertain` 只等不建」会在两候选同格时让
-   `CatalogGuide` 的候选集永远 >1 → `Waiting`，故 A1 合并后改为 `Reject`，见 A2 报告 §6。
-   （A1 的 `PrimaryAtomGuard` 尚不认识「原子 + 续接」形态，`a / b`、`a < b`、`a instanceof B`
-   三条暂由 A1b 扩 guard 修复——集成记录，不是本条语义问题。）
+4. **标识符 `Common`（非数字）⇒ `Reject`**（**WP-A1b 执行 A2 报告 §6 的合并动作**）：A1 的
+   `IdentifierPrimaryPossibleShape` 已在同一目录里负责标识符格，本候选绝不能在同一格再 `Accept`
+   （两候选同格 ⇒ 永远 `Waiting`）。A1 候选因续接白名单（`PrimaryAtomGuard`）可能在该格不建时（如
+   `let x = a as T`），本候选仍靠 `IsBuildable` 的「紧跟 `=` 的首个标识符」兜底在**运算符那一格**就地物化左操作数；
 5. `Symbol("=")` ⇒ `Uncertain`（初始化器还没开始）；
 6. `*` / `+` ⇒ `Reject`（让给既有 `BinaryExpressionPossibleShape`）；
 7. 其余二元运算符（含 `in` / `instanceof` 关键字）⇒ **有左操作数才 `Accept`**：
@@ -91,8 +91,13 @@ if (unit.IsTriviaToken) {
 }
 const text = BinaryOperatorPossibleShape.TextOf(unit);
 if (text === "") {
-  // WP-A1 的主候选已接管标识符/字面量格（本候选只做运算符）：一律 Reject。
-  // 返回 Uncertain 只等会与 A1 候选同格并存，让 CatalogGuide 的候选集永远 >1。
+  // 除号是唯一例外（WP-A1b）：A1 已在标识符/数字格拒建（`PrimaryAtomGuard` 不认 `/`），若本候选也在那一格
+  // 死掉，`/` 那一格就没有候选能「就地物化左操作数」了（`bin-div` 会退化成 partial）。所以标识符后紧跟
+  // **除号**时保持 `Uncertain` 活到 `/` 格；注释开头（`//`、`/*`）不算，否则会把数字/标识符格的两个候选
+  // 并活着（`lexical/comment-block-*` 实测会退化）；其余格仍 `Reject`（A1 的原子候选负责建）。
+  if (unit instanceof Common && PrimaryAtomGuard.IsDivisionAfter(unit)) {
+    return ShapeStates.Uncertain;
+  }
   return ShapeStates.Reject;
 }
 if (text === "=") {
