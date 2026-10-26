@@ -55,7 +55,7 @@ declare async function f(): void;
 super(template);
 ```
 
-## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool, allowAnonymous?:bool)=>FunctionDeclarationShape
+## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool, allowAnonymous?:bool, fallbackPos?:int)=>FunctionDeclarationShape
 
 ```ts
 const code:Array<Token> = [];
@@ -64,6 +64,14 @@ for (let at = start; at <= tokenIndex; at++) {
     code.push(host.Data[at]);
   }
 }
+// **R8：`fallbackPos` = 壳的 `basePos`（= 前一个 token 的 End，含前导 trivia）。**
+// 下面两处「向前找上一个非 trivia 单元」在**壳的 `Data[0]` 本身是 trivia** 时找不到任何格
+// （`{ @dec function f() {} }` 的块壳 `Data` 是 `[空白, @, dec, …, ]`，`start = 1`，扫到 −1 为止），
+// 于是 `Pos` 落成 0：`@dec` 的 `Decorator` 左移到块外、`declare function f(): void\n@dec\nfunction g() {}`
+// 的函数声明左移 26 格。口径与已修的 `declare function` 同源（修饰词前那一格 = 壳的 `BasePos`）。
+// 做法只是把 `fallbackPos` 当成扫描的**初值**：扫到非 trivia 单元就照旧被它覆盖，
+// 不传 `fallbackPos` 的调用点初值仍是 0 ⇒ 700+ 条既有形态逐字节不变。
+const fallbackBase = fallbackPos ?? 0;
 // **Stage 5d-8c：`export default function ()` 的恢复形**。匿名声明的代码单元只有
 // `function` + 空参数表 `()` 两格（`()` 是一个括号单元），原来按「至少三格」判死 →
 // 文件级 fallback。TS 对这种写法给的是「只有修饰词的 FunctionDeclaration」（没有名字 / 参数 / 体），
@@ -75,7 +83,7 @@ if (code.length < minimumCode) {
 // 装饰器前缀（根 / 块里的 `@dec function f() {}`；TS 的 Decorator 是 FunctionDeclaration children
 // 的第一项，排在 declare / async 之前——装饰器贴在声明头最外）。与 EnumDeclarationShape.FromUnits
 // 的 decorator 扫描同口径。
-let decoratorBase = 0;
+let decoratorBase = fallbackBase;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
@@ -262,7 +270,7 @@ if (afterParams < tailIndex) {
   // FunctionDeclaration —— 与上一格同一个理由（`allowAnonymous` 放行）。
   throw new Error("function 声明没有函数体时必须带返回类型（或 declare）");
 }
-let pos = 0;
+let pos = fallbackBase;
 for (let at = start - 1; at >= 0; at--) {
   if (!host.Data[at].IsTriviaToken) {
     const end = host.Data[at].SourceRange.End;
