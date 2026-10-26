@@ -150,6 +150,15 @@ return this;
 
 ```ts
 this.Closed = true;
+// [B3:FLUSH] 宿主关闭前补判自己的最后一格：`switch (a)` / `if (a)` 的 `a` 是被**本括号的闭括号**
+// 终结的，它上一次「basic token 关闭时问父单元」那一格没有机会发生，于是向导一次都没被问到，
+// `a` 到收口格仍然是 `Common`。
+// 只有 `CatalogGuide.FlushOnClose` 为真的向导会走这条（默认 false ⇒ 既有向导逐字节不变）。
+// 补判与逐格判定走同一个入口（`ComputePossibleShapesByIndex` + `Data.length - 1`），
+// 因此「候选还在等 ⇒ `Waiting`，什么都不建」的语义完全一致。
+if (this.CatalogGuide !== null && this.CatalogGuide.FlushOnClose && this.Data.length > 0) {
+  this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
+}
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
   const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);

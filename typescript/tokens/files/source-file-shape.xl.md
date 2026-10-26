@@ -28,6 +28,7 @@ import { StatementRoute } from "../statements/statement-route-util.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "../statements/control-flow-statement-possible-shape.xl.md"
+import { ControlHeadPossibleShape } from "../statements/control-head-possible-shape.xl.md"
 import { DeclarationStatementPossibleShape } from "../statements/declaration-statement-possible-shape.xl.md"
 import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
@@ -60,6 +61,21 @@ this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new
 // 开关 `StatementRouteUtil.EnableBracketRoleCatalog` 为假时 `EnsureInstalled` 立即返回、
 // `BracketRoleHook.Current` 保持 `null`，于是 `Bracket.Transit` 里那一行只是 `null` 比较 ⇒
 // 不解析角色、不装目录、不登记延迟括号，既有产物逐字节不变。
+// [B3:HEAD] 控制流头 `(` 的目录在这里装配：先注册 `ControlHead` 角色目录，再打开 B0 的总闸。
+// 顺序是硬要求——目录必须在任何一只括号之前注册，否则 `Resolve` 会先把它记成
+// `Fallback("catalog-not-registered:ControlHead")`。
+// [B3b:LEGACY] **增量模式闸**：`EnableControlHeadCatalog` 只在 `IsIncrementalShapesEnabled()` 为真时生效。
+// 只读功能开关本身不够——装配这一步会顺带把 `EnableBracketRoleCatalog` 打开，那是 B0 的**总闸**，
+// 于是一份 legacy 解析里的每只 `{` / `(` 都会多走一次角色解析、装上头目录、逐字建头原子，
+// legacy 产物因此偏离 B3 之前（实测 `FileFallbackCount` 2 → 11、`wide-ast` 多 1 条 moved）。
+// 闸加在装配套这一处，`CatalogGuide.FlushOnClose` / `ParsePrimary` 的 `IsAtom` /
+// `BracketRoleResult.FlushOnClose` 三条透传因此在 legacy 下全部保持各自的默认 `false` / 空表，
+// 逐字节回到 B3 之前。开关与默认值都保留、不删；关掉的是「legacy 也走增量装配」这一条错配。
+ControlHeadPossibleShape.ResetAtoms();
+if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  ControlHeadPossibleShape.EnsureRegistered();
+  StatementRouteUtil.EnableBracketRoleCatalog = true;
+}
 BracketRoleCatalogHook.EnsureInstalled();
 ```
 
