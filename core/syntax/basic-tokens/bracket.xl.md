@@ -30,6 +30,37 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 A
 throw new Error("abstract: OnChildBracketCreated");
 ```
 
+# class BracketRoleHook
+
+**括号角色装配钩子（B0）：core 侧只留接口，实现放在 typescript 侧。**
+
+`Bracket.Transit` 在「新括号挂好、宿主 `OnBracketCreatedEvent`（族收尾）跑完之后」调用 `Current` 一次。
+职责是 B0 的通用机制：`BracketRoleResolver.Resolve` → `BracketCatalogInstaller.Install`（`Known`）/
+`DeferredBracketCatalog.Register`（`Deferred`）/ 计数（`Fallback`）。
+
+`Current` 默认 `null`：**默认状态下 `Transit` 只是多做一次 `null` 比较**——不建任何形状、不改任何 `Data`、
+不装任何目录，既有解析产物逐字节不变。typescript 侧在
+`StatementRouteUtil.EnableBracketRoleCatalog` 为真时由 `SourceFileShape` 的构造器懒装上
+（`BracketRoleCatalogHook.EnsureInstalled`），与 `Bracket.ChildBracketCreatedHook` 的装配手法一致。
+
+**为什么不在 core 里直接解析角色**：判据要问语句族（`StatementRouteUtil.Decide`）、要按类名认识声明族
+宿主，全在 `typescript`；core 反向依赖 typescript 会成环。这里只留一个「宿主 + 括号 + 上下文」的抽象入口，
+与 `BracketChildCreatedHook` 同一条纪律。
+
+## static field Current:BracketRoleHook | null = null
+
+进程内唯一的括号角色钩子。`null` = 没装（默认）= B0 之前的行为。
+
+## method OnBracketCreated:(host:Token, bracket:Token, context:SyntaxContext)=>void
+
+`host` 是新括号的宿主（形状 / 语句壳 / 根单元 / 另一只括号），`bracket` 是刚建出来的括号。
+
+抽象方法，core 不给实现。
+
+```ts
+throw new Error("abstract: OnBracketCreated");
+```
+
 # class Bracket extends UnitToken
 
 括号。
@@ -62,6 +93,24 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 ## field EndBracketChar:string = ")"
 
 结束括号字符。
+
+## field RoleState:int = 0
+
+**纯标量**（B0）：这只括号的角色解析结果，取值与 typescript 侧 `BracketRoleState` 一一对应
+（`0` = 还没解析 / `1` = `Known` / `2` = `Deferred` / `3` = `Fallback`）。
+
+core 刻意不 import `BracketRoleState`（否则 core 反向依赖 typescript），所以这里存 `int` 而不是那个类的字段。
+它**不参与任何建树、不进 `Data`、不进 XML**：只是给安装器 / 延迟目录 / 探针读的状态位。
+
+## field Role:string = ""
+
+**纯标量**（B0）：角色名（`BracketRole` 的字符串常量，例如 `"ParameterList"` / `"StatementBlock"`）。
+空串 = 还没解析。安装器用它做「同一括号第二个不同角色」的冲突判据。
+
+## field ReplayCount:int = 0
+
+**纯标量**（B0）：这只括号被 `DeferredBracketCatalog.Replay` 成功 replay 过几次。
+`0` 之外的任何值都表示「已经一次性消费过」（R1）：再 `Bind` 只返回 `AlreadyInstalled`，不重放。
 
 ## method Is:(start:string, end:string)=>bool
 
@@ -155,6 +204,17 @@ return BranchStates.Undo;
 早判一格是**嵌套块深度 ≥2** 的修法：内层 `{` 刚建出来时外层块体目录就把它收成块壳（并给它的括号挂上块体
 目录），而不是等它闭合后才收——那时它内部的语句早已按 raw 吃完。
 
+**[B0] 本方法从此只做「族收尾」，不承担角色判定。** 通用机制的职责已经转到
+`BracketRoleHook`（`Transit` 在本方法**之后**调用它）：角色由 `BracketRoleResolver` 按宿主形状 + 括号字符 +
+已确定语句族判定，目录由 `BracketCatalogInstaller` 幂等安装。所以这里的三条纪律是：
+
+1. **不新增任何目录安装**：族特有的事（转调监听、安全重算）保持原样，**一行都不改**；
+2. **`ChildBracketCreatedHook` 只保留「非括号宿主适配」**：`Transit` 末尾那一次补通知是箭头体 / 根层
+   括号的唯一入口；这里的这次转调保持既有行为（块体里的嵌套 `{` 靠它），等各族的角色目录迁完之后
+   再逐个删分支；
+3. **不让安装器第二次装**：`BracketCatalogInstaller.Install` 看到 `CatalogGuide !== null` 就返回
+   `AlreadyInstalled`，所以「族已装」的括号不会被重复挂目录（也不会被清空 `PossibleShapes`）。
+
 ```ts
 if (Bracket.ChildBracketCreatedHook !== null) {
   Bracket.ChildBracketCreatedHook.OnChildBracketCreated(this, bracket, context);
@@ -198,6 +258,14 @@ if ("OnBracketCreatedEvent" in unit) {
 // `const f = () => { … }` 的 `{` 甚至不在任何括号里。监听只挂目录、不改任何 AST 决定。
 if (!(unit instanceof Bracket) && Bracket.ChildBracketCreatedHook !== null) {
   Bracket.ChildBracketCreatedHook.OnChildBracketCreated(unit, mounted, context);
+}
+// [B0:ROLE] 通用括号角色机制的唯一调用点。**必须在 `OnBracketCreatedEvent`（族收尾）之后**：
+// 族 hook 先按既有路径装它自己的目录（函数体 / namespace / 块体 / switch 子句块 / 箭头体的
+// `MountBodyCatalog`），本钩子后到，看到 `CatalogGuide !== null` 就只做「族已装」收尾
+// （`BracketCatalogInstaller` 返回 `AlreadyInstalled`，一个字节都不改）。
+// 钩子是进程内唯一静态引用，默认 `null` ⇒ 默认状态下这里只多一次 `null` 比较。
+if (BracketRoleHook.Current !== null) {
+  BracketRoleHook.Current.OnBracketCreated(unit, mounted, context);
 }
 return BranchStates.Done;
 ```

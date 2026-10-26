@@ -10,6 +10,7 @@ import { Token } from "../../../../../core/syntax/token.xl.md"
 import { ExpressionBuilder } from "../../expression-builder.xl.md"
 import { CompositeInitializerJudge } from "./composite-initializer-judge.xl.md"
 import { InitializerTailJudge } from "../shared/initializer-tail-judge.xl.md"
+import { StatementRouteUtil } from "../../../statements/statement-route-util.xl.md"
 ```
 
 # namespace cangjie
@@ -159,6 +160,9 @@ return -1;
 - `"paren"`：`(` 括号，且括号里**没有**类型注解 `:` / `as` / `satisfies`（那是 A5 的 `(a: number) => a` / `(y as T)`）；
 - `"function"` / `"class"` / `"async"`：这三个关键字起首；
 - `"arrow"`：标识符之后紧跟 `=>`（`y => y`）；
+- `"arrowparen"`：`(` 括号、内部无类型注解 / `as` / `satisfies`、且 `)` 之后紧跟 `=>`（`(a) => a`）。
+  **只在 `StatementRouteUtil.EnableArrowParenCatalog` 为真时才可能返回**（B0 默认 `false`；B3b 才开）。
+  它把「分组 / 箭头参数」的裁定从 `(` 格推到 `=>` 到达那一格（A2 §7 R4 的所有权交接）；
 - `"ternary"`：标识符之后紧跟 `?`（不是 `?.` / `??`）。
 
 ```ts
@@ -201,6 +205,14 @@ if (head instanceof Bracket) {
       }
     }
   }
+  // [B0:PAREN] 箭头参数 `(` 的**前瞻**（A2 §7 R4 的所有权交接，默认关）。
+  // `)` 之后紧跟 `=>` 的这一格不是「分组」而是「箭头形参表」：把裁定推迟到 `=>` 到达那一格，
+  // 交给 B3b 的 `ArrowParamsCatalog`。默认 `EnableArrowParenCatalog === false` ⇒ 本分支不进，
+  // `Family` 的返回值与 B0 之前逐字节相同（`bin-paren-mul` 的 `(1+2)*3` 仍是 `"paren"`）。
+  if (StatementRouteUtil.EnableArrowParenCatalog
+    && CompositeInitializerFormsJudge.IsArrowParen(units, head as Bracket)) {
+    return "arrowparen";
+  }
   return "paren";
 }
 if (!(head instanceof Common)) {
@@ -228,6 +240,46 @@ if (headText === "class") {
 // 或 E-base 提供「候选数收敛」的钩子；交接见 `_coord/REPORT-all-possible-A4b.md`。
 // 这里返回 "" 让它们保持原来的 throw 账本（零漂移）。
 return "";
+```
+
+## static method IsArrowParen:(units:Array<Token>, bracket:Bracket)=>bool
+
+**A4b `(` 格的「箭头形参表」前瞻（B0 只建机制，B3b 才开）。**
+
+判据是「`)` 之后紧跟 `=>`」，两种读法（照 `HasAssertSuffix` 的双读法，保证**跨步稳定**）：
+
+1. **单元读法**：`=` 之后已经出现 `=>` 符号单元。`=>` 到达那一格它还不是括号的子单元，
+   所以这一条在 `=>` 到达后立刻命中；
+2. **文档读法**：括号**已闭合**、且括号之后第一个非空白字符起就是 `=>`。`=>` 还没形成单元时靠它命中。
+
+两条都建立在「括号内部没有类型注解 / `as` / `satisfies`」之上——那个判据在 `Family` 的主循环里，
+命中就早退成 `""`（A5 的形态），根本走不到本方法。
+
+[B0] 唯一的调用点在 `Family`，且被 `StatementRouteUtil.EnableArrowParenCatalog`（默认 `false`）包着：
+默认状态下本方法**一次都不会被调用**，`Family` 的返回值逐字节不变。
+局部性说明：读法 1 只看「`=` 之后有没有 `=>`」，同一段单元里若还有**别的**箭头（`let x = (a), f = () => 1`），
+会误命中——B3b 打开开关之前必须把入参限定到当前 declarator 的切片（`CompositeInitializerJudge.EqualIndex`
+之后的那一段），这也是它必须和 `ArrowParamsCatalog` 一起翻的原因。
+
+```ts
+if (bracket === null) {
+  return false;
+}
+if (bracket.StartBracketChar !== "(") {
+  return false;
+}
+for (const unit of units) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("=>")) {
+    return true;
+  }
+}
+if (!bracket.Closed) {
+  return false;
+}
+return CompositeInitializerFormsJudge.RawAfter(bracket, 2) === "=>";
 ```
 
 ## static method HasAssertSuffix:(units:Array<Token>, equalAt:int)=>bool
