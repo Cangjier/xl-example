@@ -6,6 +6,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
 
@@ -88,4 +89,20 @@ if (endUnit.SourceRange.EndIndex >= 0) {
 shape.Pos = pos;
 shape.TryToClose(context);
 return shape;
+```
+
+## method TryToClose:(context:SyntaxContext)=>CloseStates
+
+[W5:EOF-TRIM] 文件末尾收口时驱动层先把尾随换行也签进 `End`（`export = N` ⏎ 的 `End` 是文件长度，
+比 TS 的 `node.end` 多 1 字节），随后形状把尾随 trivia 留在了 `Data` 末尾。
+这里**只在 `Data` 最后一个子单元是 trivia 时**才把 `End` 收回最后一个代码子单元——
+`;` / 表达式节点收尾的形态区间本来就该到那里，不收（与 `TrimEndToLastCode` 的注意事项同一口径）。
+
+```ts
+const result = super.TryToClose(context);
+const last = this.Data[this.Data.length - 1];
+if (last !== undefined && last.IsTriviaToken) {
+  this.TrimEndToLastCode();
+}
+return result;
 ```

@@ -13,6 +13,7 @@ import { Token } from "../../../../../core/syntax/token.xl.md"
 import { CallExpressionShape } from "../../call-expression-shape.xl.md"
 import { ExpressionBuilder } from "../../expression-builder.xl.md"
 import { IdentifierShape } from "../../../names/identifier-shape.xl.md"
+import { ImportKeywordShape } from "../../../keywords/import-keyword-shape.xl.md"
 import { IncrementalItemPosition } from "../../numeric-literal-possible-shape.xl.md"
 import { ItemUtil } from "../../../item-util.xl.md"
 import { NewPossibleShape } from "./new-possible-shape.xl.md"
@@ -257,6 +258,23 @@ if (unit instanceof ShapeToken) {
 }
 if (!(unit instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 调用被调用者");
+}
+// [W5:IMPORT-CALLEE] `import("m")` 的被调用者是 `ImportKeyword`，不是 `Identifier`
+// （与 `ExpressionBuilder.ParsePrimary` 的 `text === "import"` 分支同一口径）。
+// 少了这一支，`const p = import("m")` 的树会多一个 `Identifier`、少一个 `ImportKeyword`
+// （`mod-import-dynamic-expression.ts` / `am-import-type-call.ts` 两条差异）。
+if ((unit as Common).Is("import")) {
+  const keyword = new ImportKeywordShape(host.Template);
+  if (unit.SourceRange.StartIndex >= 0) {
+    keyword.SignIn(unit.SourceRange.Start);
+  }
+  if (unit.SourceRange.EndIndex >= 0) {
+    keyword.SignOut(unit.SourceRange.End);
+  }
+  keyword.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, index);
+  keyword.TryToClose(context);
+  (unit as Common).Replace(keyword);
+  return keyword;
 }
 const identifier = IdentifierShape.FromBasicToken(unit as Common, context);
 identifier.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, index);

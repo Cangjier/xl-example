@@ -13,6 +13,9 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { BlockShape } from "../statements/block-shape.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { FunctionDeclarationShape } from "./function-declaration-shape.xl.md"
+import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
+import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 ```
 
 # namespace cangjie
@@ -68,10 +71,89 @@ if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{" && (un
 if (unit instanceof Symbol && (unit as Symbol).Is(";") && unit.Closed) {
   return ShapeStates.Accept;
 }
+// [W5:FUNCTION-ASI] 无体声明（`declare function …` / 重载签名）末尾**没有** `;`：只要本格之前
+// 最后一条代码单元之后跨行起了一条**不续接**的新语句，就在这一格收口。
+// 少了这一条，`declare function a(): void` ⏎ `declare function b(): void` 会把整份文件吞进
+// 第一条声明（`undici-types` api / connector / global-dispatcher / global-origin 四个文件的全部差异）。
+// 判据取「不含本格」的上一格；字符前缀与 `DeclarationAsiBoundary.CanCloseAtLineBreak` 同一份。
+if (tokenIndex > 0) {
+  let previous = -1;
+  for (let at = tokenIndex - 1; at >= 0; at--) {
+    if (!units[at].IsTriviaToken) {
+      previous = at;
+      break;
+    }
+  }
+  if (previous >= 0
+    && !FunctionDeclarationEndPossibleShape.IsOpenTail(units[previous])
+    && FunctionDeclarationEndPossibleShape.StartsNewDeclarationLine(units[previous])) {
+    return ShapeStates.Accept;
+  }
+}
 if (unit instanceof EndOfFileTokenShape) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Reject;
+```
+
+## static field StatementHeadWords:Array<string> = ["declare", "export", "import", "function", "class", "interface", "type", "enum", "namespace", "module", "global", "abstract", "async", "const", "let", "var", "using", "if", "for", "while", "do", "switch", "try", "throw", "return", "break", "continue", "debugger"]
+
+```ts
+["declare", "export", "import", "function", "class", "interface", "type", "enum", "namespace",
+  "module", "global", "abstract", "async", "const", "let", "var", "using", "if", "for",
+  "while", "do", "switch", "try", "throw", "return", "break", "continue", "debugger"]
+```
+
+## static method StartsNewDeclarationLine:(unit:Token)=>bool
+
+[W5:FUNCTION-ASI] 下一行是否起一条**新的声明 / 语句**：只认声明或语句的**首词**闭集。
+
+不用 `DeclarationAsiBoundary.StartsNewStatementLine` 的「任意标识符起头」口径：函数声明的头部
+可以跨行继续（`function f<T` ⏎ `extends U>`、`function g(x): asserts x` ⏎ `is string`），
+那里下一行是 `extends` / `is` 这样的**续接词**，收口就是错树（实测会把
+`gap-sweep-newline-generic-03` / `gap-r931-asserts-is-newline` 打成 fallback）。
+闭集之外的词一律继续等：漏收的代价是走到 EOF（`SourceFileEndPossibleShape` 有兜底），不会静默丢语句。
+
+```ts
+// 开关门控：默认路径（增量形状关）逐字节不变——本判据只服务增量挂壳这条路。
+if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return false;
+}
+const word = DeclarationAsiBoundary.NextLineWord(unit);
+if (word === "") {
+  return false;
+}
+return FunctionDeclarationEndPossibleShape.StatementHeadWords.includes(word);
+```
+
+## static method IsOpenTail:(unit:Token)=>bool
+
+[W5:FUNCTION-ASI] 上一格还在「等名字 / 等类型 / 等右操作数」时不是语句边界（排版换行，不是 ASI）：
+
+- `function f(): {` ⏎ `a: A }` —— 上一格是未闭合的 `{` 括号（返回类型里的对象字面量）；
+- `declare function f(a: A)` ⏎ … —— 上一格是未闭合的 `(` / `[` 括号；
+- `declare const s =` ⏎ … 之类 —— 上一格是 `=` / `.` / `,` / `:` / 二元运算符；
+- `function` / `declare` / `async` 之后换行只是排版。
+
+已闭合的 `{`（函数体）、`;`、EO` 各自有自己的终结分支，不走这一格。
+
+```ts
+if (unit instanceof Bracket) {
+  return !(unit as Bracket).Closed;
+}
+if (unit instanceof Symbol) {
+  const symbol = unit as Symbol;
+  return symbol.Is("=") || symbol.Is(".") || symbol.Is(",") || symbol.Is(":")
+    || symbol.Is("<") || symbol.Is("+") || symbol.Is("-") || symbol.Is("*") || symbol.Is("/")
+    || symbol.Is("&") || symbol.Is("|") || symbol.Is("?") || symbol.Is("=");
+}
+if (unit instanceof Common) {
+  const word = (unit as Common).TempToString();
+  return word === "function" || word === "declare" || word === "async"
+    || word === "new" || word === "extends" || word === "implements"
+    || word === "is" || word === "asserts" || word === "keyof" || word === "typeof";
+}
+return false;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -86,7 +168,19 @@ return ShapeStates.Reject;
 
 ```ts
 const shell = host as FunctionDeclarationShape;
-let lastCode = shell.Data.length - 1;
+// [W5:FUNCTION-ASI] 收口格若是**下一条语句的第一个单元**（既不是 `;`、也不是已闭合的函数体、
+// 也不是 EOF），本声明按它之前的最后一个代码单元建树，边界单元连同其后的 trivia 交回父单元重放
+//（与 `IncrementalVariableDeclarationListBuilder.CloseAtAsiBoundary` 同一手法）。
+let boundary = -1;
+const closingUnit = shell.Data[shell.Data.length - 1];
+if (!(closingUnit instanceof EndOfFileTokenShape)
+  && !(closingUnit instanceof Symbol && (closingUnit as Symbol).Is(";"))
+  && !(closingUnit instanceof BlockShape)
+  && !(closingUnit instanceof Bracket && (closingUnit as Bracket).StartBracketChar === "{" && (closingUnit as Bracket).Closed)) {
+  boundary = shell.Data.length - 1;
+}
+const leftover:Array<Token> = boundary >= 0 ? shell.Data.slice(boundary) : [];
+let lastCode = boundary >= 0 ? boundary - 1 : shell.Data.length - 1;
 while (lastCode >= 0) {
   const candidate = shell.Data[lastCode];
   if (candidate.IsTriviaToken || candidate instanceof EndOfFileTokenShape) {
@@ -135,6 +229,18 @@ if (parent !== null) {
       parent.Data.splice(at, 1);
       break;
     }
+  }
+}
+// [W5:FUNCTION-ASI] 边界单元（下一条语句的开头）挂回父单元并重放，让下一条声明在自己的那一格建树。
+if (parent !== null && leftover.length > 0) {
+  const builtAt = parent.Data.indexOf(built);
+  if (builtAt >= 0) {
+    for (let index = 0; index < leftover.length; index++) {
+      leftover[index].Parent = parent;
+      parent.Data.splice(builtAt + 1 + index, 0, leftover[index]);
+    }
+    parent.MountedUnit = null;
+    DeclarationAsiBoundary.ReplayLeftover(parent, leftover, context);
   }
 }
 return built;
