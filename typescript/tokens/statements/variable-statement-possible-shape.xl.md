@@ -10,6 +10,7 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { DirectBuildRouter } from "../direct/direct-build-router.xl.md"
+import { IncrementalVariableStatementBuilder } from "../declarations/variable-declaration-possible-shape.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
 import { StatementScanner } from "./statement-scanner.xl.md"
@@ -138,6 +139,11 @@ return bindingAt <= tokenIndex && bindingAt < units.length
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
+// C4：增量模式（默认 false）下，变量声明族改走「三层逐字符长出」的建造器（WP-B）。
+// 开关关闭时下面一行不执行，旧「壳 + StatementBuilder」路径逐字节不变。
+if (StatementRouteUtil.IsIncrementalVariableShapesEnabled()) {
+  return IncrementalVariableStatementBuilder.Build(host, tokenIndex, context);
+}
 const start = ItemUtil.ItemStart(host.Data);
 if (start > tokenIndex) {
   throw new Error("变量声明语句候选没有可搬的单元");
