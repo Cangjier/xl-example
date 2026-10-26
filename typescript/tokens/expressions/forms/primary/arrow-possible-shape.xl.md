@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { Bracket } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
@@ -14,6 +15,7 @@ import { ItemUtil } from "../../../item-util.xl.md"
 import { IdentifierShape } from "../../../names/identifier-shape.xl.md"
 import { EqualsGreaterThanTokenShape } from "../../../punctuation/equals-greater-than-token-shape.xl.md"
 import { ParameterShape } from "../../../types/parameter-shape.xl.md"
+import { ArrowParamsCatalog } from "./arrow-params-catalog.xl.md"
 import { ArrowFunctionShape } from "../../arrow-function-shape.xl.md"
 import { IncrementalItemPosition, NumericLiteralPossibleShape } from "../../numeric-literal-possible-shape.xl.md"
 ```
@@ -42,6 +44,16 @@ WP-P6 的**单参数箭头函数候选**：`let x = y => y`（单标识符参数
 
 `Symbol("=")` 一律 `Uncertain`：`=>` 在字符流里先以 `=` 出现（`[10,11)`），下一格才并成 `=>`（`[10,12)`），
 在这里 `Reject` 会把候选提前杀掉。
+
+**[B4g] 体不是 `Common` 的箭头（`x => (b) => b` / `x => [1,2]` / `x => ({a:1})`）不在本候选建。**
+`ArrowBodyPossibleShape` 只建单 `Common` 体，体是括号时它在括号关闭那一格 `Reject`，而
+`ArrowFunctionShape` 的向导只有它一个候选、`EndPossible === null` ⇒ `CatalogGuide` 抛「没有候选形状
+可以构成」⇒ 整文件 fallback，replay 永远到不了（B4f §6 R5）。本候选改成在 `=>` 格只**不建**
+（`Uncertain`，`BodyStartsBracket`），整条初始化器留在 raw basic，由声明收口格的 legacy 原子建树
+（`VariableDeclarationShape.FinishIncremental` 的 `builtShape === null` 分支）整条建出——**箭头形参 `(` 的
+Deferred 条目就在那一次 legacy 建造里被 `ParseFunctionParameters` 绑定并 replay 恰好一次**。
+`x => (b) => b + 1` 的 `+ 1` 因此仍在箭头之内（与 legacy 同树），这是「不在半截上建树」的直接结果：
+本候选**从不**在体还没到达时抢建箭头。
 
 # class ArrowPossibleShape extends PossibleShape
 
@@ -115,6 +127,56 @@ const pair = ArrowPossibleShape.RawAfter(unit, 2);
 return pair.length >= 2 && pair[0] === "=" && pair[1] === ">";
 ```
 
+## static method BodyStartsBracket:(arrowUnit:Token)=>bool
+
+[B4g] `arrowUnit`（`=>`）之后第一个非空白字符是不是 `(` / `[` —— 即「箭头体不是 Common 的箭头」。
+
+**为什么要问这一句**：`ArrowBodyPossibleShape` 只建单 `Common` 体（标识符 / 数字）。体是括号时它
+`Reject`，而 `ArrowFunctionShape` 的向导只有它一个候选、`EndPossible === null` ⇒ 括号关闭那一格
+`CatalogGuide` 抛「没有候选形状可以构成」⇒ 整文件 fallback（B4f §6 R5 的最小复现）。体是括号的
+箭头**不在增量路径里建**：本候选在 `=>` 格保持 `Uncertain`（不建），整条初始化器保持 raw basic，
+由 `VariableDeclarationShape.FinishIncremental` 的原子建树分支（legacy `ExpressionBuilder`）在收口格
+整条建出——**箭头形参 `(` 的 Deferred 条目因此在那一次 legacy 建造里被 `ParseFunctionParameters` 绑定**，
+replay 照 B4d 的路径发生一次。
+
+`{` 不在判据内：块体 `{` 由语句壳的块体目录接管（A2 §2 #6 / #8），它的产物是**非 basic** 的
+`BlockShape`，而原子建树分支只在「初始化器纯 raw」时才可达（`IsRawInitializer`）——
+放进来会变成静默丢树，所以留给它原来的 file fallback。
+
+```ts
+const next = ArrowPossibleShape.RawAfter(arrowUnit, 1);
+if (next.length === 0) {
+  return false;
+}
+return next === "(" || next === "[";
+```
+
+## static method IsNestedArrowHead:(units:Array<Token>, tokenIndex:int)=>bool
+
+[B4g] 当前格是 `=>`，且前一个代码单元是**一只可以 replay 的箭头形参 `(`**（`x => (b) => b` 的内层 `=>`）。
+
+`=>` 在声明终结候选里是兜底 `throw ... declaration 符号 =>`（A4b 的 `Family` 只认初始器首单元，认不出
+「第二个 `=>`」）。体是括号的箭头在 `=>` 格不再建树之后，这条 `=>` 仍会被终结候选问到，所以必须由
+**箭头自己**认领（`ContinuationClaim`），否则整条声明在第二个 `=>` 上抛错，replay 一样到不了。
+
+判据复用 B4d 的 `ArrowParamsCatalog.IsPendingArrowParen`（「`(` + 还留着 Deferred 条目 + 形参表可整份建」），
+不写第二份「像不像形参表」。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Symbol) || !(unit as Symbol).Is("=>")) {
+  return false;
+}
+const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (previous < 0) {
+  return false;
+}
+return ArrowParamsCatalog.IsPendingArrowParen(units[previous]);
+```
+
 ## static method IsInitializerHead:(units:Array<Token>, tokenIndex:int)=>bool
 
 本格是不是声明初始化器的第一个代码单元（前一个代码单元是 `Symbol("=")`）。
@@ -166,7 +228,12 @@ if (unit instanceof Symbol) {
     return ShapeStates.Uncertain;
   }
   if (text === "=>") {
-    return ArrowPossibleShape.IsArrowHead(units, tokenIndex) ? ShapeStates.Accept : ShapeStates.Reject;
+    if (!ArrowPossibleShape.IsArrowHead(units, tokenIndex)) {
+      return ShapeStates.Reject;
+    }
+    // [B4g] 体是 `(` / `[` 的箭头不在增量里建（见 `BodyStartsBracket`）：这一格保持 `Uncertain`，
+    // 整条初始化器留在 raw basic，收口格原子建树时再让箭头形参 `(` 的 Deferred 条目 Bind。
+    return ArrowPossibleShape.BodyStartsBracket(unit) ? ShapeStates.Uncertain : ShapeStates.Accept;
   }
   return ShapeStates.Reject;
 }
@@ -189,7 +256,8 @@ D0 的通用委派（`ExpressionContinuationCatalog.Claims`）：`=>` 那一格�
 `VariableDeclarationEndPossibleShape` 的兜底 `throw ... declaration 符号 =>` 会先发生。
 
 ```ts
-return ArrowPossibleShape.IsArrowHead(units, tokenIndex);
+return ArrowPossibleShape.IsArrowHead(units, tokenIndex)
+  || ArrowPossibleShape.IsNestedArrowHead(units, tokenIndex);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
@@ -204,7 +272,11 @@ const unit = units[tokenIndex];
 if (unit.IsTriviaToken) {
   return false;
 }
-return ArrowPossibleShape.IsArrowHead(units, tokenIndex);
+if (!ArrowPossibleShape.IsArrowHead(units, tokenIndex)) {
+  return false;
+}
+// [B4g] 体是括号的箭头不建（见 `BodyStartsBracket`）：判据与 `ComputeByIndex` 同一份，跨步稳定。
+return !ArrowPossibleShape.BodyStartsBracket(unit);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
