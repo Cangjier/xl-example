@@ -11,6 +11,7 @@ import { BlockShape } from "../statements/block-shape.xl.md"
 import { BreakStatementShape } from "../statements/break-statement-shape.xl.md"
 import { CaseBlockShape } from "../declarations/case-block-shape.xl.md"
 import { CaseClauseShape } from "../members/case-clause-shape.xl.md"
+import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { CatchClauseShape } from "../members/catch-clause-shape.xl.md"
 import { ContinueStatementShape } from "../statements/continue-statement-shape.xl.md"
 import { DebuggerStatementShape } from "../statements/debugger-statement-shape.xl.md"
@@ -385,6 +386,16 @@ if (toExclusive > from + 1 && this.IsSymbolText(code[from + 1], ":")
   && code[from] instanceof Common) {
   return this.BuildLabeled(code, codeAt, from, toExclusive);
 }
+// **R8：语句位 `class` 是类声明，不是表达式语句。** R7 的 `class` 操作数分支
+// （`IngestOperand` 的 `Common` 分支）只在**表达式位**生效；块体的 `class C {}` 有自己的语句壳
+// （kind 10 → `ClassDeclarationDirectSession`），但**单语句体**那一路（`if (a) class {}` /
+// `while (a) class {}` / `lbl: class C {}` / `else class C {}`）是 raw 单元，会落到下面的
+// `RawStatement` ⇒ `ExpressionStatement + ClassExpression`，而 tsc 给的是 `ClassDeclaration`。
+// 判据只看首单元文本，与 `BuildIf` / `BuildWhile` 同一张表；形状工厂复用
+// `ClassDeclarationShape.BuildFromCode`（装饰器 / 修饰词 / 成员体都在它里面，本文件不写第二份）。
+if (text === "class") {
+  return this.BuildStatementClass(code, codeAt, from, toExclusive);
+}
 // 非关键字 = 单语句体里的表达式语句（B1-2）。声明族 / 其它控制流族都由 RawStatement 拒收。
 const raw = DirectStatementAssembly.RawStatement(this.Units, codeAt, from, toExclusive,
   this.BasePos, this.Template, this.Context);
@@ -393,6 +404,38 @@ if (raw === null) {
   return null;
 }
 return raw;
+```
+
+## method BuildStatementClass:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int)=>Token | null
+
+```ts
+// 单语句体位置上的 `class`（R8）。`code` 已去 trivia，所以切片直接交给形状工厂；
+// `basePos` 与该片段的第一个代码单元同源（`PositionAt` 的 [0] 格 = basePos）。
+// 覆盖校验与 `direct-class-session` 同款：建出的区间必须等于片段最后一个代码单元的 EndIndex，
+// 不等就 Decline（旧路径重读同一段 ⇒ 最坏回到今天的 ExpressionStatement，不交半棵树）。
+const slice:Array<Token> = code.slice(from, toExclusive);
+const basePos = DirectStatementAssembly.PositionAt(this.Units, codeAt, from, this.BasePos);
+const allowAnonymous = ClassDeclarationShape.HasNoName(slice, 0, slice.length - 1);
+let shape:ClassDeclarationShape | null = null;
+try {
+  shape = ClassDeclarationShape.BuildFromCode(this.Owner as Token, slice, basePos, this.Context, allowAnonymous);
+} catch (error) {
+  // 成员体里出现引擎不接受的东西（`super()` / 部分 `new` / 字符串字面量）：整段放弃。
+  const message = error instanceof Error ? error.message : String(error);
+  this.Decline("语句位类声明形状失败: " + message, "decl.class");
+  return null;
+}
+if (shape === null) {
+  this.Decline("语句位类声明形状为空", "decl.class");
+  return null;
+}
+const expectedEnd = code[toExclusive - 1].SourceRange.EndIndex;
+if (expectedEnd < 0 || shape.SourceRange.EndIndex !== expectedEnd) {
+  this.Decline("语句位类声明覆盖不一致: built=" + String(shape.SourceRange.EndIndex)
+    + " units=" + String(expectedEnd), "decl.class");
+  return null;
+}
+return shape;
 ```
 
 ## method BuildBlock:(bracket:Bracket, codeAt:Array<int>)=>Token | null
@@ -405,6 +448,21 @@ const shape = DirectStatementAssembly.BlockFrom(bracket, this.Template, this.Uni
   this.BasePos, this.Context);
 if (shape === null) {
   this.Decline("块体内还有未收口的语句", "stmt.nested");
+  return null;
+}
+// **R8：块体内还有「谁都没建成形状」的裸代码单元时不许交半棵树。**
+// `BuiltChildren` 只收已建好的形状，**basic 单元（标识符 / 符号 / 括号）被静默跳过** ——
+// 于是「块体目录里没有候选愿意接」的语句会被整条丢掉，块看起来是空的、也不报错。
+// 实测：`{ type; }` / `{ type = 1 }` / `{ type }` / `{ type ⏎ T = 1 }` 全部建出**空 Block**
+//（tsc 侧是 ExpressionStatement），块体直接少语句。
+// 判据只用「`bracket.Data` 里还留着非 trivia 的 basic 单元」这一条：语句建成形状后它的单元已被
+// splice 进形状、不再是括号的直接子单元，所以有残留就是没建的那条 ⇒ Decline，旧路径重读这一段
+//（最坏与今天逐字节相同，不会更差）。
+for (const unit of (bracket as any).Data) {
+  if (unit.IsTriviaToken || !unit.IsBasicToken) {
+    continue;
+  }
+  this.Decline("块体内还有未建树的裸单元", "stmt.body");
   return null;
 }
 return shape;
@@ -450,23 +508,21 @@ if (this.IsOpenBrace(code[at])) {
   thenStatement = thenBlock;
   at = at + 1;
 } else {
-  // 单语句体（B1-2）：扫到本条语句自己的 `;`（含）或 `else`（不含）。
-  let end = at;
-  while (end < toExclusive) {
-    if (end > at && this.IsText(code[end], "else")) {
-      break;
-    }
-    if (this.IsSymbolText(code[end], ";")) {
-      end = end + 1;
-      break;
-    }
-    end = end + 1;
+  // 单语句体（B1-2）：**先算这条语句自己的结束位置**再切片。
+  // **R8：悬垂 `else` 归最近的那个没配对的 `if`**（`StatementExtent` / `IfExtent` 的递归就是这条规则）；
+  // 以前这里「扫到本条自己的 `;` 或 `else` 为止」，于是 `if (a) if (b) c; else d;` 的体只切到 `c;`，
+  // 那个 `else` 被外层 if 吃掉 ⇒ 内层 IfStatement 少了 else、End 停在 16（ts 是 24），
+  // `if (a) if (b) if (c) x(); else y; else z;` 更是整条 `else y` 丢成表达式语句。
+  const thenEnd = this.StatementExtent(code, at, toExclusive);
+  if (thenEnd <= at) {
+    this.Decline("if 的单语句体为空", "stmt.shape");
+    return null;
   }
-  thenStatement = this.BuildRange(code, codeAt, at, end);
+  thenStatement = this.BuildRange(code, codeAt, at, thenEnd);
   if (thenStatement === null) {
     return null;
   }
-  at = end;
+  at = thenEnd;
 }
 const shape = new IfStatementShape(this.Template);
 shape.Add(condition);
@@ -477,11 +533,17 @@ if (at < toExclusive && this.IsText(code[at], "else")) {
     this.Decline("else 后面缺少语句", "stmt.shape");
     return null;
   }
-  const elseStatement = this.BuildRange(code, codeAt, at, toExclusive);
+  const elseEnd = this.StatementExtent(code, at, toExclusive);
+  if (elseEnd <= at) {
+    this.Decline("else 的单语句体为空", "stmt.shape");
+    return null;
+  }
+  const elseStatement = this.BuildRange(code, codeAt, at, elseEnd);
   if (elseStatement === null) {
     return null;
   }
   shape.Add(elseStatement);
+  at = elseEnd;
 } else if (at < toExclusive) {
   this.Decline("if 语句尾部有多余单元 idx=" + String(codeAt[at]), "stmt.shape");
   return null;
@@ -489,6 +551,56 @@ if (at < toExclusive && this.IsText(code[at], "else")) {
 DirectStatementAssembly.Span(shape, code[from], code[toExclusive - 1],
   DirectStatementAssembly.PositionAt(this.Units, codeAt, from, this.BasePos), this.Context);
 return shape;
+```
+
+## method StatementExtent:(code:Array<Token>, from:int, toExclusive:int)=>int
+
+```ts
+// 一条语句在**代码下标**上的结束（不含），悬垂 `else` 的归属由这里的 `if` 递归决定：
+// 体是块 ⇒ 一个括号单元就完；体是 `if` ⇒ 交给 `IfExtent`（它会把属于内层的 `else` 链一起吃掉）；
+// 其余 ⇒ 扫到本条自己的 `;`（含）或下一个 `else`（不含）。
+// 返回 `from` 表示这里没有语句（调用方 Decline）。
+if (from >= toExclusive) {
+  return from;
+}
+if (this.IsOpenBrace(code[from])) {
+  return from + 1;
+}
+if (this.IsText(code[from], "if")) {
+  return this.IfExtent(code, from, toExclusive);
+}
+let end = from;
+while (end < toExclusive) {
+  if (end > from && this.IsText(code[end], "else")) {
+    return end;
+  }
+  if (this.IsSymbolText(code[end], ";")) {
+    return end + 1;
+  }
+  end = end + 1;
+}
+return end;
+```
+
+## method IfExtent:(code:Array<Token>, from:int, toExclusive:int)=>int
+
+```ts
+// 一条 `if` 语句的结束（不含），含它自己该带走的 `else` 链 —— 递归就是 TS 的悬垂 `else` 规则：
+// `else` 归最近的那个还没配对的 `if`，所以 `if (a) if (b) c; else d;` 的 `else` 属于内层。
+if (from + 2 > toExclusive) {
+  return from;
+}
+if (!this.IsOpenParen(code[from + 1])) {
+  return from;
+}
+let at = this.StatementExtent(code, from + 2, toExclusive);
+if (at < toExclusive && this.IsText(code[at], "else")) {
+  if (at + 1 >= toExclusive) {
+    return at;
+  }
+  at = this.StatementExtent(code, at + 1, toExclusive);
+}
+return at;
 ```
 
 ## method BuildWhile:(code:Array<Token>, codeAt:Array<int>, from:int, toExclusive:int)=>Token | null

@@ -25,6 +25,7 @@ import { TypeAliasDeclarationShape } from "../declarations/type-alias-declaratio
 import { VariableDeclarationListShape } from "../declarations/variable-declaration-list-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 import { VariableStatementShape } from "../statements/variable-statement-shape.xl.md"
+import { StatementScanner } from "../statements/statement-scanner.xl.md"
 import { DirectDeclarationAssembly } from "./direct-declaration-assembly.xl.md"
 import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
 ```
@@ -151,6 +152,10 @@ return text === "class" || text === "interface" || text === "type" || text === "
 // **`async` 只有后面真的跟着 `function` 时才是声明头**：`export default async () => {}` /
 // `async x => x` 的 `async` 是箭头函数自己的修饰 ⇒ TS 建 `ExportAssignment`，不是声明。
 // 少了这一条就会把 ExportAssignment 建成 `ExpressionStatement(ExportKeyword, DefaultKeyword, …)`。
+// **R8：修饰词与声明关键字之间换行 = TS 的 ASI 把修饰词收成 default 表达式**
+//（`export default abstract ⏎ class C {}` → `ExportAssignment(abstract)` + 独立的 `ClassDeclaration`；
+// `export default async ⏎ function f() {}` / `export default declare ⏎ class C {}` 同理）。
+// 判据与 `StatementRoute.Decide` 的同款判据同源（`NoLineBreakBetween`）。
 if (code.length < 3) {
   return false;
 }
@@ -163,7 +168,15 @@ if (!(second instanceof Common)) {
 }
 const text = (second as Common).TempToString();
 if (text === "async") {
-  return code.length > 3 && DirectExportAssembly.TextOf(code[3]) === "function";
+  if (code.length > 3 && DirectExportAssembly.TextOf(code[3]) === "function") {
+    return StatementScanner.NoLineBreakBetween(second, code[3]);
+  }
+  return false;
+}
+if (text === "abstract" || text === "declare") {
+  if (code.length > 3 && !StatementScanner.NoLineBreakBetween(second, code[3])) {
+    return false;
+  }
 }
 return text === "class" || text === "abstract" || text === "interface" || text === "enum"
   || text === "function" || text === "declare";
@@ -251,8 +264,7 @@ if (afterText === "default") {
     return DirectExportAssembly.BuildInner(owner, code, codeAt, 2, basePos, template, context);
   }
   return DirectExportAssembly.BuildAssignment(owner, code, codeAt, basePos, template, context);
-}
-if (afterText === "type" && code.length > 2) {
+}if (afterText === "type" && code.length > 2) {
   const second = code[2];
   const clause = DirectExportAssembly.IsSymbolText(second, "*")
     || (second instanceof Bracket && (second as Bracket).StartBracketChar === "{");

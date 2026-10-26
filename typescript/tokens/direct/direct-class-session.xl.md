@@ -270,12 +270,16 @@ return false;
 //（`FunctionDeclarationShape.FromUnits` 带装饰器循环 + declare / async 修饰词 + 无体 ambient 判据），
 // 本文件不写第二份关键字表 ⇒ `@dec class` / `@dec abstract class` 抛错后原样落回 class 支。
 // `Pos` 口径与 class 同源：`start` 必须是装饰器在壳 `Data` 里的下标（`codeAt[0]`），**不能是 0**。
+// **R8**：第 7 格 `fallbackPos` 传 `this.BasePos`（壳的基址 = 前一个 token 的 End，含前导 trivia）。
+// 块壳 / 文件壳的 `Data[0]` 常常是 trivia，`FromUnits` 的「向前找上一个非 trivia 单元」因此扫空
+// ⇒ 装饰器与形状的 `Pos` 都成 0（`{ @dec function f() {} }` 的 `Decorator` 左移到块外、
+// `declare function f(): void\n@dec\nfunction g() {}` 的函数声明左移 26 格）。与已修的 `declare function` 同一口径。
 const data:Array<Token> = (this.Owner as any).Data;
 const hostLike:any = { Data: data, Template: this.Template };
 const lastAt = codeAt[code.length - 1];
 let shape:Token | null = null;
 try {
-  shape = FunctionDeclarationShape.FromUnits(hostLike, codeAt[0], lastAt, context, false, false);
+  shape = FunctionDeclarationShape.FromUnits(hostLike, codeAt[0], lastAt, context, false, false, this.BasePos);
 } catch (error) {
   // 装饰器后面不是函数（`@dec class C {}` / `@dec abstract class C {}` / `@dec interface I {}`）：
   // 不是本方法的格子 —— `ForwardHandled` 保持 false，`Finish` 继续走 class 支（行为逐字节不变）。
