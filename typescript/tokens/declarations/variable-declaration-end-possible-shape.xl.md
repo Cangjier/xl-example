@@ -62,6 +62,14 @@ if (current instanceof Symbol) {
       return ShapeStates.Reject;
     }
   }
+  // [A5c] 类型实参调用 `f<string>()`：`<` 比 `>` 多时正处在类型实参列表内部，`>` / `>>` / `>>>`
+  // 是列表的收口符，不是本模式未支持的符号 —— 让给 A5 的类型面（`VariableDeclarationShape` 的 TypeMode /
+  // `TypeCatalogFactory.HasTypeArgumentCall`）继续等。不放行会在 `>` 那一格显式抛错，
+  // 让 `tts-impl/types/generic-call-type-args` 从 incremental 退化成 throw。
+  if ((text === ">" || text === ">>" || text === ">>>")
+    && VariableDeclarationEndPossibleShape.HasOpenTypeArgument(units, tokenIndex)) {
+    return ShapeStates.Reject;
+  }
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
 }
 if (current instanceof Common) {
@@ -69,6 +77,13 @@ if (current instanceof Common) {
   return ShapeStates.Reject;
 }
 if (current instanceof Bracket) {
+  // [A5c] 类型实参调用的调用括号：`f<string>(…)` 的 `(` 括号由 A5 的类型面整体接管
+  //（`VariableDeclarationShape.ComputePossibleShapes` → TypeMode → `TypeCatalogFactory.ParseInitializer`），
+  // 这里只等（Reject），不再按 C10 抛「declaration 括号」。
+  if ((current as Bracket).StartBracketChar === "("
+    && VariableDeclarationEndPossibleShape.HasTypeArgumentCall(units)) {
+    return ShapeStates.Reject;
+  }
   // [A4:COMPOSITE] 复合字面量初始化器（`= [...]` / `= {...}`）：交给 A4 的
   // `CompositeInitializerPossibleShape` 在「括号关闭」那一格整棵建树，这里只等（Reject），
   // 不再显式拒绝。其它括号形态仍按 C10 显式抛错（A6 的解构 / 多声明等由各自 WP 接管）。
@@ -91,6 +106,117 @@ if (current instanceof Bracket) {
 }
 // WP-C 之后可能已经是表达式形状：等它自己长完更内层的单元，不在这里收口。
 return ShapeStates.Reject;
+```
+
+## static method HasOpenTypeArgument:(units:Array<Token>, tokenIndex:int)=>bool
+
+`=` 之后的初始化器里 `Symbol("<")` 比 `>` 家族多 ⇒ 正处在**类型实参列表内部**（`f<string` 停在 `string`）。
+
+**只数到当前格之前**（`at < tokenIndex`）：当前格正是那个 `>` 时它还没闭合，`<` 仍然比 `>` 多。
+
+字符口径与 `TypeCatalogFactory.HasTypeArgumentCall` 的深度计算一致（`>>` 记 2、`>>>` 记 3）。
+
+```ts
+const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
+if (equalAt < 0) {
+  return false;
+}
+let depth = 0;
+for (let at = equalAt + 1; at < tokenIndex; at++) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === "<") {
+    depth += 1;
+    continue;
+  }
+  if (text === ">") {
+    depth -= 1;
+    continue;
+  }
+  if (text === ">>") {
+    depth -= 2;
+    continue;
+  }
+  if (text === ">>>") {
+    depth -= 3;
+    continue;
+  }
+}
+return depth > 0;
+```
+
+## static method HasTypeArgumentCall:(units:Array<Token>)=>bool
+
+这段单元里是否有「标识符（或已建形状）+ `<` … 配对 `>` + 紧跟 `(` 括号」的**类型实参调用**形态。
+
+与 `TypeCatalogFactory.HasTypeArgumentCall` 同一判据（本文件单独实现一份是为了避免
+`types/type-catalog-factory` ↔ `declarations/*` 的导入环；两处判据必须保持一致）。
+
+```ts
+for (let at = 0; at < units.length; at++) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol) || !(unit as Symbol).Is("<")) {
+    continue;
+  }
+  let depth = 0;
+  for (let scan = at; scan < units.length; scan++) {
+    const inner = units[scan];
+    if (inner.IsTriviaToken) {
+      continue;
+    }
+    if (!(inner instanceof Symbol)) {
+      continue;
+    }
+    const text = (inner as Symbol).TempToString();
+    if (text === "<") {
+      depth += 1;
+      continue;
+    }
+    let closeCount = 0;
+    if (text === ">") {
+      closeCount = 1;
+    } else if (text === ">>") {
+      closeCount = 2;
+    } else if (text === ">>>") {
+      closeCount = 3;
+    }
+    if (closeCount === 0) {
+      continue;
+    }
+    depth -= closeCount;
+    if (depth > 0) {
+      continue;
+    }
+    for (let next = scan + 1; next < units.length; next++) {
+      if (units[next].IsTriviaToken) {
+        continue;
+      }
+      return units[next] instanceof Bracket && (units[next] as Bracket).StartBracketChar === "(";
+    }
+    return false;
+  }
+}
+return false;
+```
+
+## static method EqualIndex:(units:Array<Token>)=>int
+
+宿主 `Data` 里第一个 `Symbol("=")` 的下标（跳过前导 trivia）；没有返回 `-1`。
+
+```ts
+for (let at = 0; at < units.length; at++) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is("=")) {
+    return at;
+  }
+}
+return -1;
 ```
 
 ## static method HasReducibleLeft:(units:Array<Token>, tokenIndex:int)=>bool

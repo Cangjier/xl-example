@@ -103,6 +103,13 @@ if (text === "") {
 if (text === "=") {
   return ShapeStates.Uncertain;
 }
+// [WP-A5c] `f<string>()` 的 `<` 是**类型实参调用**的起点（配对 `>` 之后紧跟 `(`）：让给 A5 的类型面
+// （`TypeCatalogFactory.StartsTypedInitializer` / `HasTypeArgumentCall` 在字符流里接管）。
+// 若在这里建二元，会给它挂上「只认数字」的右操作数目录，`string` 那一格直接
+// 「CatalogGuide: 没有候选形状可以构成」→ `generic-call-type-args` 回归。
+if (text === "<" && PrimaryAtomGuard.IsTypeArgumentCallAfter(unit)) {
+  return ShapeStates.Reject;
+}
 if (text === "*" || text === "+") {
   return ShapeStates.Reject;
 }
@@ -122,6 +129,10 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const text = BinaryOperatorPossibleShape.TextOf(units[tokenIndex]);
 if (text === "" || text === "=" || text === "*" || text === "+") {
+  return false;
+}
+if (text === "<" && PrimaryAtomGuard.IsTypeArgumentCallAfter(units[tokenIndex])) {
+  // [WP-A5c] 类型实参调用：由 A5 的类型面接管（见 `ComputeByIndex` 的同一条让位）。
   return false;
 }
 const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);

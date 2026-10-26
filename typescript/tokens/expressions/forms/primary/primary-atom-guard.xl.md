@@ -111,6 +111,82 @@ while (at < count) {
 return false;
 ```
 
+## static method IsTypeArgumentCallAt:(document:any, at:int)=>bool
+
+`document` 的 `at` 位置是不是**类型实参调用**的 `<`：找到配对的 `>`，跳过其后的空白，**紧跟 `(`**。
+
+WP-A5c：`f<string>()` 的 `<` 与关系表达式 `a < b` 的唯一可靠区分就是「配对 `>` + 调用括号」。
+（`TypeCatalogFactory.HasTypeArgumentCall` 只看已攒下的单元，`<` 那一格还没有 `>`，所以在字符流上必须
+用文档前瞻判一次。）尖括号断言 `<T>y` 的 `>` 后不是 `(`，不命中。
+
+```ts
+const count = document.GetCount();
+let depth = 0;
+let scan = at;
+while (scan < count) {
+  const ch = document.GetRaw(scan, scan + 1);
+  if (ch === "<") {
+    depth += 1;
+    scan += 1;
+    continue;
+  }
+  if (ch === ">") {
+    depth -= 1;
+    scan += 1;
+    if (depth > 0) {
+      continue;
+    }
+    let next = scan;
+    while (next < count) {
+      const gap = document.GetRaw(next, next + 1);
+      if (gap === " " || gap === "\t" || gap === "\r" || gap === "\n"
+        || gap === "\f" || gap === "\v") {
+        next += 1;
+        continue;
+      }
+      break;
+    }
+    if (next >= count) {
+      return false;
+    }
+    return document.GetRaw(next, next + 1) === "(";
+  }
+  // 类型实参里不会出现这些收口符：遇到就说明不是类型实参调用，尽早放弃前瞻。
+  if (ch === ";" || ch === "}" || ch === "]" || ch === ")") {
+    return false;
+  }
+  scan += 1;
+}
+return false;
+```
+
+## static method IsTypeArgumentCallAfter:(unit:Token)=>bool
+
+`unit` 之后（跳过空白）是不是类型实参调用 `…<…>(`：取文档里 `unit` 之后第一个非空白字符，必须是 `<`，
+再交给 `IsTypeArgumentCallAt`。与 `IsDivisionAfter` 同一套「`ComputeByIndex` 拿不到 context，所以读
+`SourceRange.CurrentDocument`」的写法。
+
+```ts
+const document = SourceRange.CurrentDocument;
+if (document === null || unit.SourceRange.EndIndex < 0) {
+  return false;
+}
+const count = document.GetCount();
+let at = unit.SourceRange.EndIndex;
+while (at < count) {
+  const ch = document.GetRaw(at, at + 1);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
+    at += 1;
+    continue;
+  }
+  if (ch !== "<") {
+    return false;
+  }
+  return PrimaryAtomGuard.IsTypeArgumentCallAt(document, at);
+}
+return false;
+```
+
 ## static method IsTerminalAfter:(unit:Token, context:SyntaxContext, allowTemplate:bool)=>bool
 
 该单元之后是「收口」还是「已被消费面接管的续接」：EOF / `;` / 白名单字符 / 白名单词
@@ -140,6 +216,13 @@ while (at < count) {
   }
   if (allowTemplate && ch === "`") {
     return true;
+  }
+  // WP-A5c：`<…>(` 是类型实参调用（A5 的 `TypeCatalogFactory` 在字符流里接管），不是二元 `<`。
+  // 这里若按续接白名单放行，A1 会提前把原子物化成形状 ⇒ A5 的 `TryBuildTypedInitializer` 因为
+  // 「初始化器里已有非 basic 形状」而让位、A2 又把 `<` 当二元 ⇒ 右操作数目录空 ⇒
+  // `CatalogGuide: 没有候选形状可以构成`（`generic-call-type-args` 回归）。所以判不进白名单，交给类型面。
+  if (ch === "<" && PrimaryAtomGuard.IsTypeArgumentCallAt(document, at)) {
+    return false;
   }
   if (PrimaryAtomGuard.ContinuationChars.includes(ch)) {
     return true;
