@@ -1,0 +1,52 @@
+# tshape-judge — 独立 tts 两段式判据工具
+
+**不读 legacy、不比较 legacy。** legacy 不是标准，可能自身有错；比较它只会把错误合法化。
+
+判据只有两段：
+
+1. **逐字 AST line**：TS 没有官方的逐字打印/比较方案。工具导出 incremental 的逐字符 trace，
+   并把 `docs/expected-token-time-shapes.md`（`let x = 2*3+1` 的 14 步范本）直接注入诊断包；
+   由 LLM 只按范本诊断，**不提供 DSH 编写的“要求列表”**；有诊断再由 DSH 决策。
+2. **完整解析**：`SourceFileRunner.Parse` 的结果与 `ts.createSourceFile` 对拍。
+
+## 命令
+
+```powershell
+# 第一段：逐字 trace（trace.json / trace-steps.jsonl / trace.md）
+node typescript/cases/tts/tools/tshape-judge.mjs trace <case.ts>
+
+# 查某几步的完整快照（step == 字符下标）
+node typescript/cases/tts/tools/tshape-judge.mjs steps <case.ts> --from 10 --to 20
+
+# 第二段：完整解析 vs ts.createSourceFile
+node typescript/cases/tts/tools/tshape-judge.mjs ts <case.ts>
+
+# 诊断包：范本 + 源码 + 逐字 trace + TS 结果（交给 LLM）
+node typescript/cases/tts/tools/tshape-judge.mjs bundle <case.ts>
+
+# 全量第二段：tts + tts-impl 所有 case
+node typescript/cases/tts/tools/tshape-judge.mjs ts-all
+```
+
+输出默认在 `tmp/tshape-judge/<case>/`：
+
+| 文件 | 内容 |
+| --- | --- |
+| `trace.json` | 完整逐字符 JSON |
+| `trace-steps.jsonl` | 一行一个 step，便于按步查询 |
+| `trace.md` | 首见形状表 + shape 集合变化摘要（**不是**每字符全量） |
+| `ts.json` | 完整解析 vs TS AST 的结构/位置/字段差异 |
+| `judge-prompt.md` | 含范本、源码、trace、TS 结果的独立诊断包 |
+
+## 退出码
+
+- `ts`：0 = 与 `ts.createSourceFile` 一致；1 = 不一致 / TS 非法 / 解析抛错。
+- `ts-all`：429 条（tts 4 + tts-impl 425）全一致时 exit 0，否则 1。
+- `trace` / `steps` / `bundle`：正常 0；缺参/环境错误 2。
+
+## 注意
+
+- `trace.md` 只列 shape 集合变化；basic token 的逐步挂载用 `steps` 或 `trace-steps.jsonl` 查。
+- 逐字 trace 的抛错信息目前来自 `token-time-shapes --json`，个别异常会序列化成 `[object Object]`；
+  诊断时以最后一步的树为准。
+- 工具不修改 `tts/run.mjs`；后者仍是旧的 legacy 对拍账本，本工具是独立的第二套判据。
