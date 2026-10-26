@@ -14,7 +14,7 @@
  "files": [
   [
    "samples/declarations.ts",
-   "b3decefdd992f28c1cb49db57acce1dc7c172754838927b17fec6f777e8f7cb2"
+   "dc4c10149bb2883771e877e5c196b25fb8ed9fabe125fff1ff9c5c39a5c7d8e7"
   ],
   [
    "samples/generic.ts",
@@ -23,19 +23,19 @@
   ],
   [
    "samples/hello.ts",
-   "59783ed442f83315fcabff0d2aa5db590f30a6082166a9827c2f81a17157f436"
+   "179a6234601cd5cfc1e4d83cd7140a9ed44c6a5e4cb5b5a83d63467a66372fb8"
   ],
   [
    "tests/cases/token/ambiguous/am-arrow-generic.ts",
-   "c1e91cdb8577028b975e8459f0d230240f73d5381fe733cf91d927cd3ef6be01"
+   "c91d7052fffefb7a2284057f166e2bc3b395afdc28b19c513dab8c63d5972698"
   ],
   [
    "tests/cases/token/ambiguous/am-arrow-returning-union.ts",
-   "3675acb085a5ff6ec05fe788bb666542f23c27bf89046fb75af1f2bb572ea6b6"
+   "2ba7fe6996e29c43438b159890b519201b1203f83b4e69674d2cd4097488a6cd"
   ],
   [
    "tests/cases/token/ambiguous/am-block-lambda-array-compound.ts",
-   "d7ee76fbd3a4c33e207b033c880db759bd5fe2be095f54638b227aa2be55e7ec"
+   "8cb729024b745a4ddaae8b533b015f65e609ee2688b49a7acd762a0bc94c3266"
   ],
   [
    "tests/cases/token/ambiguous/am-call-type-args.ts",
@@ -67,11 +67,11 @@
   ],
   [
    "tests/cases/token/ambiguous/am-generic-arrow-call.ts",
-   "e90c87dbc0fcd6fd743201fb5444e08d1468047e1042a3be0cdd81324c1c11dc"
+   "00e02898110f7ae0ebf405af025edf8807b257ae6786acb7e2a54cfff0378278"
   ],
   [
    "tests/cases/token/ambiguous/am-generic-vs-lt.ts",
-   "81cabd4bc6e7bb163bfe697e6cfde57dd815bbb6f88773ec411cf72c7db300fe"
+   "20ff0d3ef1be7f532d1f0cb520d6f7a1f84029d18daca96871a1207e82b1ac1e"
   ],
   [
    "tests/cases/token/ambiguous/am-getter-setter-interface.ts",
@@ -91,15 +91,15 @@
   ],
   [
    "tests/cases/token/ambiguous/am-optional-method-signature.ts",
-   "3c6cffa8c2d8cc258987fd59b7aa071886581309b6a6a3805a850af72387674b"
+   "01f7c13a6c7b8f97a1ca67460dc5fe27d1882342e15357ae6ad9117341cb1d44"
   ],
   [
    "tests/cases/token/ambiguous/am-optional-params-arrow.ts",
-   "e9658d0229f6d925d76dd2c4fe02baad9eaef595917f91c1a5360a5f889c928f"
+   "3e682356c8e5aaeacec3c5536d3c3b9053cdd9dc25c77fde99594a4272be19c2"
   ],
   [
    "tests/cases/token/ambiguous/am-prop-named-keywords.ts",
-   "37ec89bb0e56fb2ef966fec8126d074c023cff288d86a5a6bb2ec93bb6341ff3"
+   "e32eee789d04459d7551d28538e6ddd1baa89f1bc2bbdc40cadabd8096032438"
   ],
   [
    "tests/cases/token/ambiguous/am-type-arg-in-new.ts",
@@ -131,7 +131,7 @@
   ],
   [
    "tests/cases/token/declarations/cls-computed-member.ts",
-   "d187ceb221d0c487847446bd978f2b876a68ed38e6caa992b3a0b1abd859faed"
+   "e80c9ec418890a7ac41efbcdf64f3f9d37128598836e988e5f59392c4f9179fd"
   ],
   [
    "tests/cases/token/declarations/cls-declare-class.ts",
@@ -139,7 +139,7 @@
   ],
   [
    "tests/cases/token/declarations/cls-declare-fields.ts",
-   "6bdb98e40a9c35b526fabcb6a82e8c39e82b90df591a766b1d0aab0f9f48e3c0"
+   "33192d9a565b31370ea5908870732c6cb0f8064a4b4ddd8cd790bbebc29e15bc"
   ],
   [
    "tests/cases/token/declarations/cls-decorator-calls.ts",
@@ -151,11 +151,11 @@
   ],
   [
    "tests/cases/token/declarations/cls-decorator-keyword-name.ts",
-   "f389b5597304d89a1fb34b5ceff1c2011f05f0287d4fd0e518da9ac75b10648e"
+   "0cacb387e23574b3da4f339480bb6eecc68d00aaf9136afbc6989951b1f0f136"
   ],
   [
    "tests/cases/token/declarations/cls-decorator-params.ts",
-   "f2313dec4ba05b1e4e848b8b0379cb229e4d2d82f5b5c78b4451a34206233cec"
+   "3b414032c01395a6924a35a1d564dda0391191192d39e2f01dcdc742df6379de"
   ],
   [
    "tests/cases/token/declarations/cls-decorator-qualified-name.ts",
@@ -179,11 +179,11 @@
   ],
   [
    "tests/cases/token/declarations/cls-field-comment-before-continuation.ts",
-   "26b85bddb990184c5b683f56d35ed6dd5f98d91422514558489c1e972fadab0b"
+   "8f6b2f8b6d7823b83479f94666dbfdc1badd733ecd067abdd1a8e237014eba48"
   ],
   [
    "tests/cases/token/declarations/cls-generic-method-arrow-field.ts",
-   "cc6133b8226044e8420eb680592e4842643a2c8368d77256b6466af2c2ea57b6"
+   "c359371f0cafbcee54b69576bbaefa1ad279db0b5d2e48f895d848862522de85"
   ],
   [
    "tests/cases/token/declarations/cls-hash-in-operator.ts",
@@ -199,7 +199,7 @@
   ],
   [
    "tests/cases/token/declarations/cls-member-shape-matrix.ts",
-   "891a47e1950bcf3c55a9d08e547bc44d606e13ac98b01756eebfa27e2cccad93"
+   "f17bb394a1b45064bae2bbd76e6adb294a99607d31d2972e2c2ed9d088d9c405"
   ],
   [
    "tests/cases/token/declarations/cls-method-not-call.ts",
@@ -223,7 +223,7 @@
   ],
   [
    "tests/cases/token/declarations/cls-param-properties.ts",
-   "284b13b9c5fdac62310c830d120e4d28603307526f2a252bd4d0bf08008bccfd"
+   "e3529f383c44c51f603289e1135a7e8bb195b7533f6d820d4dc876706c9c7e09"
   ],
   [
    "tests/cases/token/declarations/cls-private-fields.ts",
@@ -231,15 +231,15 @@
   ],
   [
    "tests/cases/token/declarations/cls-semicolon-member.ts",
-   "0e7abfb2ce2818f1614b96b9c80494480347fa2e75e16b2ea52bc6b4d82581c3"
+   "48730f159bd1fff812e0fe7e2ded4d9299db8009b126270f248c9057f4cddc54"
   ],
   [
    "tests/cases/token/declarations/cls-static-async-generator.ts",
-   "11191a21a42dc9d86b9088d3eb703cddf4fd5a66461b6ace66f8418c41ca37f8"
+   "419cc59c8dc9bfa7f066be6e7e312d399332f44cd31eef4be936aca2550d6a54"
   ],
   [
    "tests/cases/token/declarations/cls-static-block.ts",
-   "c9a13b41f3b1798eb0be2251008979535d21ceace90b4e4667176ead3d62d394"
+   "8beb5c7b90c2c48fb9a1be635aa2a72b5e2cbd53ac8a446313c55acf7ae9a058"
   ],
   [
    "tests/cases/token/declarations/cls-static-field-new.ts",
@@ -251,11 +251,11 @@
   ],
   [
    "tests/cases/token/declarations/cls-super-newtarget.ts",
-   "97213d8087bd2ca8e704f22c4b8dc2080b140ce31ecb42d1529f5c9a1c24a60a"
+   "c2982d5fc060cb50478bd1e93a3995793109598b40ac697f5250a96e65b28434"
   ],
   [
    "tests/cases/token/declarations/decl-ambient-signature-semicolon.ts",
-   "52d694f515222c2b40d1b0fde592c444d17c8eebe660fe2e7609548ae2882cba"
+   "31f6dc3e79c4e528e33b9176dba57e5b35eeed77ccc910c42f9ce25b66d03597"
   ],
   [
    "tests/cases/token/declarations/decl-arr-destructure-defaults.ts",
@@ -275,7 +275,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-arr-destructure-rest.ts",
-   "d2d65bf3423e489aa4a0e68544aa7b00bd4d4bfd544a15a68cab7b8b94e55ba4"
+   "06eea97045b215b83d575ff826c912b97acf9cb38c3243411d410323b3cd3eda"
   ],
   [
    "tests/cases/token/declarations/decl-as-const-array.ts",
@@ -295,7 +295,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-binding-elements.ts",
-   "ce6a27a1c253dd23c117aded7f5b1df0ed9bf87676eb268c5a9a057517ae2ef5"
+   "9bb9df05f5967bf0e1340247ddf2a09c029978a1a9efb2658eb63f2cad1f7cd3"
   ],
   [
    "tests/cases/token/declarations/decl-class-abstract.ts",
@@ -315,7 +315,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-class-computed-member.ts",
-   "591ee2ff26c692f99e502027f6cd052f897dc8f478ca074802ab5501015879ab"
+   "2a3b08f6e5c6e68b09559c1213d1c3b6dd79af636075f1ae23f956534039dfb6"
   ],
   [
    "tests/cases/token/declarations/decl-class-computed-template-field.ts",
@@ -423,7 +423,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-class-fields.ts",
-   "c93a310d1862e57c1d9ef303f22522dde34add509f9139b4c0fcea9b0696ea73"
+   "039cae19762c0617c3a062d6d0b11eaaaf62b94cbf2f60741ab0bc1116beb23d"
   ],
   [
    "tests/cases/token/declarations/decl-class-generic.ts",
@@ -483,7 +483,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-class-new-target.ts",
-   "7734eaa8dab591e44d87f326d5efd952f57df3d5921d9c9f43a4c6c64ac1e02b"
+   "2d74d85c15c8d1650490eccf7dd1fbb24b9ebcdb2cec8c53c982ef749045ebef"
   ],
   [
    "tests/cases/token/declarations/decl-class-numeric-method-name.ts",
@@ -503,7 +503,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-class-param-properties.ts",
-   "a7d60f900de4f37fdfd4ab3c0b5914929e8acb67b80d9c255e13f0f88966873e"
+   "10125e9728b35a3ce0501c4edc960b867d4179080ce7824771dc8d16ee9f4514"
   ],
   [
    "tests/cases/token/declarations/decl-class-private-field-in-operator.ts",
@@ -531,7 +531,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-comment-before-body.ts",
-   "b8687353cdd30fbbf9e9b476b8e9e23448203605c256c7702e5a9c2467e5f767"
+   "8d8a96bee101c155fb2f9db55e75aa813477f22262c9887fba36d411ef3e6e8c"
   ],
   [
    "tests/cases/token/declarations/decl-computed-field-after-generic.ts",
@@ -543,7 +543,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-declaration-shape-matrix.ts",
-   "2122c9cdeb5647cf9a385d43779ee1572f6e2582badd0e49f17e87c190133e06"
+   "24547bcae530b44072d026e9715953f5e76c6fdb78e1df981d5cefc47310c841"
   ],
   [
    "tests/cases/token/declarations/decl-declare-function-trailing-comment.ts",
@@ -555,7 +555,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-destructure-comment-hosts.ts",
-   "0436d5c67c18f352389ebf3b941284c3da0cca51a21c296398d8ab820d14350e"
+   "6683fea4350cbe003577e094328615660b47dc6518d4ecbcc53ee7dde83a0477"
   ],
   [
    "tests/cases/token/declarations/decl-destructure-nested-names.ts",
@@ -571,7 +571,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-enum-computed-member.ts",
-   "214c3439b9dac62fc34a39f83eb82b70fd5d6f08ed2c51ff7f984c36135929bd"
+   "a4eb504dd9b54f8377bb0ca113e29e594050b71e2252f82268beb87cfdba600c"
   ],
   [
    "tests/cases/token/declarations/decl-enum-const-declare-export.ts",
@@ -591,11 +591,11 @@
   ],
   [
    "tests/cases/token/declarations/decl-fn-rest-parameter.ts",
-   "558f64a29e7b064eca695efd7b5eb68c867b5ebd38f22e477c8b16b2f5c3f746"
+   "9c0226e966bac65faf7a50fffd6fb09915a4ccb2a2f2f7c6c42b966d566f7264"
   ],
   [
    "tests/cases/token/declarations/decl-func-async-generator.ts",
-   "d3a7fb49695e7c62f9897f7418d9bb86e030a04d04816222dabbf123237657bc"
+   "ad6b7b2c137041caebaf00d4baad70f3465a3839485394153a4b11a484bbec34"
   ],
   [
    "tests/cases/token/declarations/decl-func-async.ts",
@@ -603,23 +603,23 @@
   ],
   [
    "tests/cases/token/declarations/decl-func-basic.ts",
-   "2a03f7e840905fa267304a9049d18e84da559df233f705efe41bb8182996f07a"
+   "8a78c44e70d3d136b1736aa84409267a75310362c6a16e74fad6bb551c0421a0"
   ],
   [
    "tests/cases/token/declarations/decl-func-default-params.ts",
-   "7883f301451c670fcaf92b0caae42645cbcd13437d451fdcc6bcec2121538d49"
+   "93b37e47a12cb72b3d45d4b6d119c26dea8c3855b8c93f473ae9ae58b59fdf3c"
   ],
   [
    "tests/cases/token/declarations/decl-func-destructured-params-typed.ts",
-   "3898af9984de54f45eeab1441a78edc3007546b1caa181a1821946d209551d48"
+   "2f77feb77abd95f4708a7495595900527aebf76d4006ab2ad3a45550e45a2826"
   ],
   [
    "tests/cases/token/declarations/decl-func-destructured-params.ts",
-   "2e3586b8ecfa108a8eb3dab30f8f78e9814df94f92d80ec2c7d9f44cd2b5205a"
+   "7948956e0a6ce0de8be080875e8ea158fbef679cda23f66304eefff7ea4134ca"
   ],
   [
    "tests/cases/token/declarations/decl-func-generator.ts",
-   "e490267309992917ec199ee3e10acd44aad9efaf39b8f1f7317d551fda0961d1"
+   "029056e57b2d2c46498e10a99b38cb70adbfe8e45a7570c926cc22a06719aac8"
   ],
   [
    "tests/cases/token/declarations/decl-func-generic-const-modifier.ts",
@@ -643,7 +643,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-func-optional-params.ts",
-   "42833dfce4175542791f6dc23e51e1394439d5351686d89ab217f3984f9e329a"
+   "c909675d6a1621f72e5d944849bd420a2bc6d17ec9b602394b4a255910ff7c1b"
   ],
   [
    "tests/cases/token/declarations/decl-func-overloads.ts",
@@ -651,7 +651,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-func-rest-params.ts",
-   "76f2de1e1033d948f7711102c2962e0757a3d198bcd96775fcda5521bf4dae0e"
+   "4b95a6dfa56624ac0f2c8cd2c6ffe5256e4ed9bdb469e91772d41817f195436c"
   ],
   [
    "tests/cases/token/declarations/decl-func-return-type-newline-brace.ts",
@@ -671,11 +671,11 @@
   ],
   [
    "tests/cases/token/declarations/decl-func-typed-params.ts",
-   "67f5a938e662d1f15a84ebe8c81ed5418fc3d82dfbf76fcd04b35dd140de0915"
+   "f0331a68503c1ada8cfa9664bbff2b5a22a2d73a74a9f99187a8dc6fe674d377"
   ],
   [
    "tests/cases/token/declarations/decl-function-body-next-line.ts",
-   "ac0e885d8a49b60b5ff4181c3e4c71a1fb14b5a9f8fc6b3a4a5b904d4b034c36"
+   "bb88c9c62796b3b57de3caf8660b9cd192d150059819d84f052a18d8787a07f1"
   ],
   [
    "tests/cases/token/declarations/decl-function-comment-after-keyword.ts",
@@ -687,7 +687,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-function-generator-comment.ts",
-   "97347acd10a3bc1c067550231cc6dc1a0005e3803c36bcccd635ec0bb9db9084"
+   "fd41495e631ab47c45576274c4a49da9c7bdb55ac9cfe6e8cefe11952e8df6a0"
   ],
   [
    "tests/cases/token/declarations/decl-heritage-tagged-template.ts",
@@ -699,7 +699,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-instantiation-followers.ts",
-   "4fa62c8a58160682f9df1f0b12dce1620619d3c5e3a851550e30547a9b5463a9"
+   "4fcddf4d5daf2c856c708d0f671ac6d06d3ad42f8c5ec1134096b55f095a06db"
   ],
   [
    "tests/cases/token/declarations/decl-instantiation-line-end.ts",
@@ -707,7 +707,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-instantiation-not-comparison.ts",
-   "9412aac6ee6480ca4a9cd1e6bb4b4f85bb879d416272dd3ecc25a4f4e679ca51"
+   "07aa3d4332d66cf2658f4e6be2342745a82d8dcccf4cbe0c8dd237ae1e64e7e8"
   ],
   [
    "tests/cases/token/declarations/decl-instantiation-paren.ts",
@@ -735,7 +735,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-interface-computed-optional-method.ts",
-   "3da23f868a7ce43410c1ec75692d270ddb280f92de3b9fa061437d753e136185"
+   "603f645ee9d849bd2477246c322a1c94d4c7e9ed0c314f32963d2f0b3791c92d"
   ],
   [
    "tests/cases/token/declarations/decl-interface-construct-signature-generic.ts",
@@ -795,7 +795,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-interface-heritage-next-line-after-declaration.ts",
-   "3995aec454e63333d2e29d2ca371ca48820c1fbac3afc7f3fed193ad17909184"
+   "feea26874692227ab8165bfa575c25d6826b70bf17d26bd07e6dc1f214fa741e"
   ],
   [
    "tests/cases/token/declarations/decl-interface-heritage-trailing-comment.ts",
@@ -819,11 +819,11 @@
   ],
   [
    "tests/cases/token/declarations/decl-interface-optional-method.ts",
-   "d2eef7050cf7a2f0de627321b4cb9b6a514ac2c6907fc54c79187405f4bc19f3"
+   "2d42f82d88edaf84e83cb93193d344e0d7a8815a0632b4e727854d5fa7954de4"
   ],
   [
    "tests/cases/token/declarations/decl-interface-optional-readonly.ts",
-   "549b240c649a962f2a83a2ec77540972ff805a11fc31a4833a44203e198ff07d"
+   "97de05bbc8478e5c72557f76c709a6b430a7c6813bd33ab910a2b861cfb4206e"
   ],
   [
    "tests/cases/token/declarations/decl-label-block-comment-after-colon.ts",
@@ -879,11 +879,11 @@
   ],
   [
    "tests/cases/token/declarations/decl-method-function-return.ts",
-   "356eafe9c34949b016edb7e9b78097ccae3a45c0cc29fbab30a2ac3b15ef8094"
+   "e3ab424352dba1a9a76f75e69005b839e8105b83a6380f625ea6b279b47fba99"
   ],
   [
    "tests/cases/token/declarations/decl-method-generator.ts",
-   "5972c2b4244e7f6fb46f7628625969c84c6eb08bfafcabb0c1d1248aa41bd4cb"
+   "c2ec67634e7d3f10d6fa8f96d0ba3d2631d71f76de94524a109455467dd684db"
   ],
   [
    "tests/cases/token/declarations/decl-method-private-name.ts",
@@ -987,7 +987,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-obj-destructure-defaults.ts",
-   "54739cf50b64ccfc25c46bab1dacee2a5cb6c648b81390ba70f6359b1b3b0d30"
+   "57e40df1ab9f031d6092f94ce8e97097ecd71c24da34dc93c3080faf0845263e"
   ],
   [
    "tests/cases/token/declarations/decl-obj-destructure-nested.ts",
@@ -1003,11 +1003,11 @@
   ],
   [
    "tests/cases/token/declarations/decl-obj-destructure-rest.ts",
-   "a598b1da05d824c3d1e05b6f2783140769d729ba000367d8f530debd12341af6"
+   "d706750b9c5bb3ac189d999a30f5738c48686eca33502095c9b028cf3f4eb4b6"
   ],
   [
    "tests/cases/token/declarations/decl-optional-member-no-type.ts",
-   "eabe6e54a8d38224cbb704bdf0f489e63d829b00d23b9c9d2813fb24c4493162"
+   "0b708541f5ef27732476017713b9040bda8f96d40a87002fa85949cdccb0d7cf"
   ],
   [
    "tests/cases/token/declarations/decl-overload-signatures.ts",
@@ -1071,7 +1071,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-var-comment-destructure-rest.ts",
-   "3294460303ab3d752272f7f1b8e93af97ec4d162599d1bbb4bb9c3b92404c943"
+   "e03d20fe5000a6f26f522616c7ed94dfd860bec5dbaaf98e2aba74ea14d97a3b"
   ],
   [
    "tests/cases/token/declarations/decl-var-comment-in-modifiers-two.ts",
@@ -1087,7 +1087,7 @@
   ],
   [
    "tests/cases/token/declarations/decl-var-definite-assignment.ts",
-   "62516c2dc6a100006ed724d533494ddb3eda30f88c11624dfaa50ce0c0319ab7"
+   "0d7accaacddefa29c6d26050611ae4719cc44f5134efc64a1661e57cfd7273ac"
   ],
   [
    "tests/cases/token/declarations/decl-var-let-basic.ts",
@@ -1103,7 +1103,7 @@
   ],
   [
    "tests/cases/token/declarations/destr-object-newline-after-keyword.ts",
-   "62e478b7baf6da1c26d6ec638e9cab8739ca2153333616730cea6d367a69d3b6"
+   "2ba572b0ecbc512d0be90947833db7e57848613aa6593c2ea2886790e48f4cc7"
   ],
   [
    "tests/cases/token/declarations/enum-const-declare.ts",
@@ -1115,11 +1115,11 @@
   ],
   [
    "tests/cases/token/declarations/enum-heterogeneous.ts",
-   "8b08e08c52a00bba58793b00a9f9285ef9a14ec102ad3569f3b19f97f455d516"
+   "3a419a371657405a6172f8f682bd648f28b30bf919a48cee2420686c196aead1"
   ],
   [
    "tests/cases/token/declarations/enum-initializers.ts",
-   "4618e131e46b4106107331db9d242de92894b9182a4c3dd11658bdb55e7cbf9a"
+   "cf546c6f0c36b63391d04febaed86566a5eafe7634cd2a116f04ae9f4a783b0b"
   ],
   [
    "tests/cases/token/declarations/enum-keyword-member-name.ts",
@@ -1127,7 +1127,7 @@
   ],
   [
    "tests/cases/token/declarations/enum-members.ts",
-   "f7c2eb3034ef5a746a62cfc9c0524caf310ed5c465fccf1d271955305c7221ec"
+   "07fd2028550d810442027dc15c68183d3279e93d8308104c3612d2f3857816f8"
   ],
   [
    "tests/cases/token/declarations/enum-numeric.ts",
@@ -1139,23 +1139,23 @@
   ],
   [
    "tests/cases/token/declarations/fn-arrow-async.ts",
-   "84f3e208e45f54f87b4747b7cdf84726d0a90285f5f24d4c089d082204eedb29"
+   "06c497e64111120aab46846a048de66cf70c9f8d38cfa5be058cf7ef6fe849b9"
   ],
   [
    "tests/cases/token/declarations/fn-arrow-concise.ts",
-   "6c5adb115b79b9f6f28610e70dd7d6cb6f42cecd0d4d4acf97065d183a927ddc"
+   "79a8988460be6c2de1b2dd190be69149e713ea9d883fa4858dca970a95679962"
   ],
   [
    "tests/cases/token/declarations/fn-arrow-generic.ts",
-   "3b41721d02f64dfb353348872797fe818cd29ffc0a3e6c36711bdcc9a6b667e3"
+   "282bf9522c1230218e55412e582234e10873fa6476ff1406bb6dad82c62ba724"
   ],
   [
    "tests/cases/token/declarations/fn-arrow-noparen.ts",
-   "c7608665e792e3312e50bd639a0acc490f46fd04e2b04ed4c3bd195b0926d9e5"
+   "afca1b74981e31c531a9b41784c5758d04e46ed07668f9356f0b3de6eecf4b5d"
   ],
   [
    "tests/cases/token/declarations/fn-arrow-object.ts",
-   "2862e53017d1b37fa45756e3f88188438d6ab38147bba62c6687cffaeaa2c9ba"
+   "16166af1f22806beda4027a86ffcfecae2e10e6dbd87fb2bc2b4236c0c174b52"
   ],
   [
    "tests/cases/token/declarations/fn-asserts.ts",
@@ -1163,7 +1163,7 @@
   ],
   [
    "tests/cases/token/declarations/fn-async-generator.ts",
-   "047acdff2fb78e8662e63635edd45ff41e7aa61ab4ef2c1cf3df4d905e3f4893"
+   "86c6ea1623762a4bfb798b260a68929b4068ee07a469d13d7f53472ae7432521"
   ],
   [
    "tests/cases/token/declarations/fn-async.ts",
@@ -1175,7 +1175,7 @@
   ],
   [
    "tests/cases/token/declarations/fn-decl.ts",
-   "b008e5261feafd125c7f8d02e7d8dc14d6e4149efbf5ac9a6fd5fc8a50d8335a"
+   "a0bb7b758eccbc9a9a58c02de5b7ff12447a8524469dda257032b97df20d7e7c"
   ],
   [
    "tests/cases/token/declarations/fn-declare.ts",
@@ -1191,7 +1191,7 @@
   ],
   [
    "tests/cases/token/declarations/fn-generator.ts",
-   "13d7717dacf4952129d85920ec71befa84eaf8c86458fb001be81516af45ff01"
+   "3a1d28af93e1d08902532e7599028a3bc1c76813e1478e8f630598bfba65ffa7"
   ],
   [
    "tests/cases/token/declarations/fn-generic-constraint.ts",
@@ -1199,7 +1199,7 @@
   ],
   [
    "tests/cases/token/declarations/fn-iife.ts",
-   "b9be76243a758e5ed3417124c434affd64185bbb484735a330e08f8e421ce95c"
+   "cf5be6e598fb5344d07c86c74ee39e3c57aa00b9858d4517cb76a6a8dda2d0b0"
   ],
   [
    "tests/cases/token/declarations/fn-nested.ts",
@@ -1207,7 +1207,7 @@
   ],
   [
    "tests/cases/token/declarations/fn-optional-rest.ts",
-   "90c0e4242a36602763ebec08be4e19891e21d9670f65c2d4f563d07feef3aea9"
+   "710ff4fbf88d557498b9f8183530df2efbae2521e2209a3d7195b425514a1312"
   ],
   [
    "tests/cases/token/declarations/fn-overloads.ts",
@@ -1243,19 +1243,19 @@
   ],
   [
    "tests/cases/token/declarations/gap-r869-enum-computed-comment-11.ts",
-   "b8ce53eabe0e17f6e3e4d33c33a81d3f0de42dcc3c16a4b95bd185d3f6c9a48c"
+   "cbb8dd4484b904d7e451bbe6f23c8351af4c56fdf09c94157a216336ac27c558"
   ],
   [
    "tests/cases/token/declarations/gap-r869-enum-computed-comment-12.ts",
-   "2bd337bb9f8ae79efec5919f5b58b48e4bc7f2ee8d946770c874557d3beddc0a"
+   "07fc9d1fa7641c3dc296c0ce0d8026f1199a11d98484bea2cc052514e7423eb9"
   ],
   [
    "tests/cases/token/declarations/gap-r869-enum-computed-comment-6.ts",
-   "656959679d2b58c26b36efbaa9ccb7d26ba423748c5451bb61b47e38b5b9ec12"
+   "28468f66c58613eb66c2521b64104ebaaa590944a3315e917a4b692f4c404d21"
   ],
   [
    "tests/cases/token/declarations/gap-r869-enum-computed-comment-7.ts",
-   "078bf17749ef1ce6ca2c0d72a47e3c8234e46512392e7d72ea095cdea1cb19c9"
+   "d7622f1a8b98a5fccba3f68311c25fc4b331dd0bd67c3622fa05c186504c936b"
   ],
   [
    "tests/cases/token/declarations/gap-r869-unique-symbol-newline-3.ts",
@@ -1279,7 +1279,7 @@
   ],
   [
    "tests/cases/token/declarations/gap-r985-heritage-optional-chain.ts",
-   "4654663b2922edfa05f63abe700a273216ad6bbfaea1e3e842a62e8c9b94813b"
+   "9ffb7e370e6e436b9044e9a8d6dc45302840699cafa0e376fd7f0a174a35e449"
   ],
   [
    "tests/cases/token/declarations/gap-r985-heritage-template-expression.ts",
@@ -1355,7 +1355,7 @@
   ],
   [
    "tests/cases/token/declarations/itf-basic.ts",
-   "5e277bc07d71e745eebc2d3901fb231a2f13cfaf280d2a7e0b9d61c7d1c8b2e3"
+   "3d119311ee4dd736733586fc60cac3b7d9c7e0c2824d54987723a3012f2d9dff"
   ],
   [
    "tests/cases/token/declarations/itf-call-construct.ts",
@@ -1383,35 +1383,35 @@
   ],
   [
    "tests/cases/token/declarations/method-generic-params-newline.ts",
-   "30929607b3c323aefbe2fe27057af159c9fb600a505b6c8f1f2737f26a0dfb11"
+   "1cc476fa747d7ae6790cd514fc76572f29520317bc7f7ba9ece339728698375f"
   ],
   [
    "tests/cases/token/declarations/mut-cls-generic-method-arrow-field-58.ts",
-   "8d56963a281e7521d83f910810cb8ce5c6bd4e961532ed38cfc9d2a11c3e8f6f"
+   "cbfbe754c2ae91c855c81f26bed8172c039ae0b6642f720c977ad105493346e0"
   ],
   [
    "tests/cases/token/declarations/mut-cls-generic-method-arrow-field-61.ts",
-   "16ab79f2c3bc6babf8cdf46b48ca9b0c40088e79cbdaead8c72f2d83d9085abe"
+   "93f8cae79e1fedf7e3cc69af1ede0912f62c98c941365b79002e042c1a07ee3f"
   ],
   [
    "tests/cases/token/declarations/mut-cls-generic-method-arrow-field-95.ts",
-   "b2eab498199e45758f34d6d6a0bdfc21945d59bccb975a3799fc7f29be2eb780"
+   "cf1f78900c653ed41feef6ed3d60e45e517252ef7659e17e2e6098795f723c3c"
   ],
   [
    "tests/cases/token/declarations/mut-cls-generic-method-arrow-field-96.ts",
-   "b2eab498199e45758f34d6d6a0bdfc21945d59bccb975a3799fc7f29be2eb780"
+   "cf1f78900c653ed41feef6ed3d60e45e517252ef7659e17e2e6098795f723c3c"
   ],
   [
    "tests/cases/token/declarations/mut-fn-decl-71.ts",
-   "601ba8f576b0e48d53fdcf68ca9ef23a42893f37c038c35fb4716a8c4eccca86"
+   "b72de7eb6167c93bf8aacb9aa8ddba6184d863e527f392dd733d141ec2adfac0"
   ],
   [
    "tests/cases/token/declarations/mut-fn-decl-90.ts",
-   "acf445fa96ec293f7f36dbc16751939bb9116e46fd9080f1bbeca0154a5c7303"
+   "3e7aaaa734ac3babc135db5d7b5e1c59e4a6e037be7c5e298ecd74217f6a08ac"
   ],
   [
    "tests/cases/token/declarations/mut-fn-decl-91.ts",
-   "acf445fa96ec293f7f36dbc16751939bb9116e46fd9080f1bbeca0154a5c7303"
+   "3e7aaaa734ac3babc135db5d7b5e1c59e4a6e037be7c5e298ecd74217f6a08ac"
   ],
   [
    "tests/cases/token/declarations/type-alias-comment-after-keyword.ts",
@@ -1443,15 +1443,15 @@
   ],
   [
    "tests/cases/token/declarations/vars-destructure-array.ts",
-   "6b07453939dc3887d1fb8dae75e1611aa9411e1ae29aa828a2d81644f27c15ec"
+   "e482fe1a8e4357c8cd090bcff3aec30b9f69f65df53cca84d50eb7e9f8b6ddd4"
   ],
   [
    "tests/cases/token/declarations/vars-destructure-nested.ts",
-   "38ef99fb3f81de7f85238f9ab5cd3f07526031aea08999079414b96d84d3bcce"
+   "f16a870df4e8e4a6c40b0598627ba53a5f47a9b632420c5d44cf9520e2e31532"
   ],
   [
    "tests/cases/token/declarations/vars-destructure-object.ts",
-   "9a49a6b7d3f737705aa40f109b41c2602e2e2acee1f7bc0f9662ba0cba16a36a"
+   "52fec7ed102a151f150bcf84f31a0793ad3c971c04ffc8eb4622d71b8385ac6a"
   ],
   [
    "tests/cases/token/declarations/vars-multi.ts",
@@ -1475,7 +1475,7 @@
   ],
   [
    "tests/cases/token/expressions/ex-arrow-comment-before.ts",
-   "a5e8a49b60c437e41b9c5f997dfc676d405875a04d94f9f0cab3981f74c787b0"
+   "cd17d1699a9b34976bf5814b7dbaa73475239dabdbe0ff969612c1365988cccb"
   ],
   [
    "tests/cases/token/expressions/ex-as-chain.ts",
@@ -1483,27 +1483,27 @@
   ],
   [
    "tests/cases/token/expressions/ex-await-yield.ts",
-   "15beebede297ba69ef3fbd05326f7e3b7461c0642f00bd1ecdf4d517336204ab"
+   "1a3374c97c65ecf7d8603238d6a41b8f6c3fadbd908d3bc35ca7b6c5218f3d42"
   ],
   [
    "tests/cases/token/expressions/ex-call-comment-before-args.ts",
-   "3e16c917577a19bb2b3f4dcb56f27f5bfedffdcb97650e6c0bbde52e66ec30dc"
+   "5f9dc7ad9b597e40b20bbfa04f1323f9eef6987e473cb53da97e67bf5f40e65e"
   ],
   [
    "tests/cases/token/expressions/ex-call-plus-string-chain.ts",
-   "a7d806000dd43c849b33f1d668af93c0b81d116d638b790a1b3c9b0daa2c12c3"
+   "01fe662b08721f6fc232ec1127bb80e37bfee0774caf8ca467bea282f9270a10"
   ],
   [
    "tests/cases/token/expressions/ex-chained-assign.ts",
-   "7950764ab4b5f471fc88ea8a096bfc189baa9ca7798720ac9a9389d3b6485a88"
+   "ce0fbf9f61acfe7e289c3f9b7a149ecc77b824af5e5a875027046a972b403a28"
   ],
   [
    "tests/cases/token/expressions/ex-comma.ts",
-   "f48cf6be6687902d82480402ca9701e2765d4b7a01eefd21d6f5ffc3f13ed954"
+   "6ca3f019a068e420133632b27b75d119af7727d3d36cc586e5de89f4a887ba48"
   ],
   [
    "tests/cases/token/expressions/ex-comment-before-arrow-body.ts",
-   "afb37532793d559e7d99a6b17433d7b75db2b8420fd31a826a901d360c7a7559"
+   "af49195db68b454cbf888a7de4f6cb9cf7385ac92dfdd2bcf41ac337cea4f1ec"
   ],
   [
    "tests/cases/token/expressions/ex-decorator-expression.ts",
@@ -1511,11 +1511,11 @@
   ],
   [
    "tests/cases/token/expressions/ex-division.ts",
-   "bf383b1ddbda7a3ede4a41a654320d72e6e8963e660e864cda11150f98840b90"
+   "77556721fe0a1d5536ab428b7073743b87dbd948f04667c819e30d3359a12481"
   ],
   [
    "tests/cases/token/expressions/ex-logical-assign.ts",
-   "6b12dbe5409e509af9dfb7e821968c1061ccdf1150f5dbd2bdba15f9fd36c30f"
+   "1d36229b1300b37efef5443a4add9071faa34c15f09f2098824788efda6ee5dd"
   ],
   [
    "tests/cases/token/expressions/ex-meta-props.ts",
@@ -1535,15 +1535,15 @@
   ],
   [
    "tests/cases/token/expressions/ex-object-literal.ts",
-   "67568b57b7fca790e9dcbc7b334e17403ad8b6157c30e8771042e2746408654f"
+   "36a2af20e49572fd33b89d7f89334478c1a838b5b1c80b5f53bdcbdeb580ff72"
   ],
   [
    "tests/cases/token/expressions/ex-optional-call-new.ts",
-   "836ab708df172b57c66ff9b8b5a32ae5b9c9cb415960025e3476330f6eba73bd"
+   "a5f4d1fd971b8fdd896f1243e8803b3b0fcd51ce6338c52905a9cffe867baf25"
   ],
   [
    "tests/cases/token/expressions/ex-optional-chain.ts",
-   "4974bd6ad1ea51e79e3ba6b8ec49c1253fa78bb59c662c9c7e396551c30330a6"
+   "11b0e3e3fd5b2cea0042932e598fe345a086320e6329b1bc6dc62e91d9b4a17c"
   ],
   [
    "tests/cases/token/expressions/ex-regex.ts",
@@ -1551,31 +1551,31 @@
   ],
   [
    "tests/cases/token/expressions/ex-round743-chain-in-binary-deep.ts",
-   "3b4f9420889f03191e72c8bf9a353d5cec0de4b9f8e405c2b630d6609cd34e19"
+   "87ec2d3bd24837e01c6d9465799c97c395fdb47b0adf661bff13237fc9e4fc06"
   ],
   [
    "tests/cases/token/expressions/ex-round743-chain-in-binary-left.ts",
-   "b54dccec886de568315e1ba7ae1256e44e4d427bf8f7345cbe6425f83841cb52"
+   "7dade3f6c2838cd43acde671bb0efa7f6369ac39d7d681492b673470c238328a"
   ],
   [
    "tests/cases/token/expressions/ex-round743-chain-in-binary-right.ts",
-   "238b0e879ca3abb210e19f621904cae5ae2807bc831a4687da105c9c29883b36"
+   "c800a6d709a1d4d8cb3d91693f00fd0cb1d80b64292ee79161e5bbc308f27d67"
   ],
   [
    "tests/cases/token/expressions/ex-round743-chain-in-binary-suffix.ts",
-   "97b7b2b3158214d6b61790a8a8962b42f0aa7737d812f07943c4cdd1ffe75bad"
+   "cfde6334c416fd2401ef6b58f8be1e92075bf26d96a57cfc22b3aa67e0d7a0f9"
   ],
   [
    "tests/cases/token/expressions/ex-round744-not-chain-in-binary.ts",
-   "d872641954d8b9cb7f495c4d06a451a6d89f767fc215135bea253f61c013a973"
+   "cf5b99008d56da08a858e7791df9335d34588af772456bd2c8736eff3b9a04b8"
   ],
   [
    "tests/cases/token/expressions/ex-round744-typeof-chain-in-binary.ts",
-   "e1354ea853a2f186b1533f9a8d5627436da6ca5d4de19d49f25f169fbce7c71c"
+   "45f0f90f245158cc411bc563c449de35f97aa9f48f368a8c04df9bd049632b76"
   ],
   [
    "tests/cases/token/expressions/ex-round744-typeof-chain-in-compare.ts",
-   "0f1a31f0eab7f49cb60e55d3d801c6c1889e139c7888ac7413a4962d720f6e0a"
+   "a79a00e715bd40eab396d52c9410fd70cb5bcf8d101acd5cefb803df360ce406"
   ],
   [
    "tests/cases/token/expressions/ex-spread.ts",
@@ -1599,7 +1599,7 @@
   ],
   [
    "tests/cases/token/expressions/ex-ternary.ts",
-   "bf8329705f3e7b3e95f2975df245f68b723e151b5f3754e24a57c24d93b457ab"
+   "5fd1d18793a26b5bdb354f03907556655f69b1d140f7503f0da107bc0ab85fbd"
   ],
   [
    "tests/cases/token/expressions/ex-unary-ops.ts",
@@ -1611,11 +1611,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-angle-assertion-then-operator.ts",
-   "4011178427f389386ce8b57c0448a6fa71daf5e190294152c0e1fb2d5be00eed"
+   "a207a910aad34ce207f7015593c973abd394abb2d2a406ae6632255cea086360"
   ],
   [
    "tests/cases/token/expressions/expr-angle-assertion-type-literal.ts",
-   "bc43782ea68b00850bee4c060fd00695562d831e692739485d673d88ed66155d"
+   "9c265b349fd226bbf5a07a48fa40cf6ef49a76a1273939b29bd9a8ba1d5387b0"
   ],
   [
    "tests/cases/token/expressions/expr-angle-assertion.ts",
@@ -1623,15 +1623,15 @@
   ],
   [
    "tests/cases/token/expressions/expr-arith-add-sub.ts",
-   "b2cdb26d399189cdc70680a7c39895692674869a02309adf9602eeeb477ba8dc"
+   "d85becf3b3915f2e64161439b1a1fa56271e5651e400893bfcd6aedac2e50461"
   ],
   [
    "tests/cases/token/expressions/expr-arith-mod-exp.ts",
-   "1225d61402ae917aeb04520f8986c103f4315fa62c7c16acdfb616d8f0789da3"
+   "15e01df45b92246bac1d766ccc628e5c4f2ef21520d52569b6a3f22656499645"
   ],
   [
    "tests/cases/token/expressions/expr-arith-mul-div.ts",
-   "916fe8e612e6909fd5e3ee4d1140c56e5c75066a42455c80f74dc80162c7b1a8"
+   "8ec8954f1050ea1e4970819f916c5ddb66ff15aa967fc6bd53bfe89466b81a0b"
   ],
   [
    "tests/cases/token/expressions/expr-array-empty-and-elements.ts",
@@ -1651,7 +1651,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-array-of-arrows.ts",
-   "85a0aac5d8aedc40ade5698d23cfe38f5fc19b34ed0bec7e1e0305f9bed2e5e4"
+   "3d6dafa128fcb1d649d35e7a1d65d5e1a2c4d02853395b1df3a8a00b6d0a41b8"
   ],
   [
    "tests/cases/token/expressions/expr-array-spread.ts",
@@ -1659,75 +1659,75 @@
   ],
   [
    "tests/cases/token/expressions/expr-arrow-async.ts",
-   "3e3688cbd1ab2d3ff2219934cf6cc9bddab3550b180be6d27901c44e26fa5bf0"
+   "83c6e1c822d37c250f1b63f1d9661f82d001e10eccde64c36d82e1197aa5f74b"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-block-body-call.ts",
-   "446388d0eaeac3ddcda12926928329960920a0dd2d2fec70f5947e8b5b2f8058"
+   "a09c458064c874443efd2a8375eb9f9db9f2e14d98ca83e7021c88ac52e256ce"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-block-body-statement.ts",
-   "80add1385798b873468ed451c1bddbb830c358adfdcd505005a187baf10ba9bc"
+   "1aaf61449a7edb77cade84f99c6b83db09a3dd424964522f4dac07188d53bf94"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-block-body.ts",
-   "92dade5056525a31c4fb8c248d10fca203fefb8d66b7dda2300ba77a881e6c1d"
+   "7f9a999e9f5e669c199cb5592709266ff185a4733a640cc0cf083f716d797a2e"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-body-nested-ternary.ts",
-   "bd4625eb62ce18e8da4e35144a9875f83a1b05641648be0d0a505e3a7d583edf"
+   "0f44f07a9de570bfba387241d7fc431195cf61b49f373e59c052e6bef442b77c"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-generic.ts",
-   "d01e454746bdf655a533bd372f1a281ff2702273b8051ba13c5ee7791af7dbf1"
+   "33a8d38e842978a2508b0f908df50ae41bbddad177016f66ffc41d576b55f1c7"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-in-call-arg.ts",
-   "db69c31fd307d50fffbee638cf822ee37c652bf255d9ba6bf5e6ecf70dba62fc"
+   "82e53d56d3e65ad9ad05536a786051170764167eca945986bfc87ea930eedf10"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-in-object-value.ts",
-   "f14e941e7e0e4d8d95d6952f914f7e8b93b0c11f556b51de67ed779372d7ecf2"
+   "3d4d1539079ba6def243a0382bf93916d423cf730fa4501d8465cb7f39b2ad55"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-object-body.ts",
-   "1f8291dcdb8c32db9ff6b2e2b04d9aa854cee81c767438f08a611be9c3fbdcc3"
+   "7618d97b3913c4e43d87e904ee9f11a5376e69f7a595e67da881882fd6e8d7b2"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-param-forms.ts",
-   "af0c353b2809661ed2f01960ae18345228e7d83f86ff2120ea24f19a1926e198"
+   "357963c8519a01c48b66882b1017997a0b6947ba629066a78d84971119f4d360"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-params-default-rest.ts",
-   "9729c884159855dad90577406778bbffbe74915449fd826bef840499dc4a740c"
+   "78e123b17eb3eb85885373304aa7387c381cbf3a5e7e0ad251b5538316429c91"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-params-mixed.ts",
-   "21c84e5288e1923312e85f3322e283a0b4987e2878ff9d49ab356c419ee55583"
+   "30ec69f9f0bb1ee78ccc518cc04439eae73fff0b1864dd74f627eeb9af3be2c6"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-params-multi.ts",
-   "e81c47bd693217273e92fc748c7e4bf7a2bac8c5d0e364e19fddcc58e0e145b3"
+   "6cf964532613cc50ac1cac48af1d30b2ed4f7cfe7480c2aada427ba4a38041e7"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-return-function-type.ts",
-   "b9e5bff4b38664d6132e3c01376f5c7c3636b3bc30b6d37856b846cbaf2082b5"
+   "300475f5746efaa7e3db97e913edc74b22ffa78f7aaa1e05a07d00f7f8a880fa"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-return-object-type.ts",
-   "f87a4285f184bff7a3cb2890fdb3691030c5d6e274ef53418e57af4e09c7d1d4"
+   "0687dcb7719c10957eb998e45366ba5ce01a2264f5344e28e42ca9581bfdc503"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-return-parenthesized-comment.ts",
-   "05b6d3495c19166238b077a5d0c3be650ed16990ae72598d3ea1523b4a12b40a"
+   "7ef6fabfc3783d0913a5cf954c32badc23954d7fe64b4272fd90c08adc450f04"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-return-parenthesized-family.ts",
-   "051f0e371486b924a0117085e66c73e4625affed5acc83ca48f67d29c9bd878d"
+   "12b5a365d836194fd9ccacdfd0ac9fd85becaa988b132447aef419d65c77a119"
   ],
   [
    "tests/cases/token/expressions/expr-arrow-typed.ts",
-   "477459e986348db9e3127a608fc46871ec609d59d1f11a7d5da3d433ad53a8f8"
+   "7afc4310f4a7b75cd29a03e92e670edffa0c9037512b12b2114f9ed3171f7afd"
   ],
   [
    "tests/cases/token/expressions/expr-as-chain.ts",
@@ -1759,15 +1759,15 @@
   ],
   [
    "tests/cases/token/expressions/expr-as-ternary.ts",
-   "df286cea14d364071ba080a9ab29c90050f1e1c9196dc4b539ad14a92224d93e"
+   "a862bf28b757fb9c314fe796cb8e0c4de05cd99f814f32dd91ed3ff51226915b"
   ],
   [
    "tests/cases/token/expressions/expr-as-then-value-operator.ts",
-   "78853ae3d15798ff28cac117858ae96df1144f60e180b1b7337043b0c8e0f157"
+   "4cd54d7705122603b897dfd8f4674ce7109af476cd03c4fb0ac8aaf3e22fe6c0"
   ],
   [
    "tests/cases/token/expressions/expr-as-type-nonnull-tail.ts",
-   "70d4b83665dcb641722d7c8f0113ade5223be7faabbbb23640e8167b10c19ba4"
+   "391301de450f9cd0796a943c21f3db8831a1e97e731dab986a3602a3d076027a"
   ],
   [
    "tests/cases/token/expressions/expr-as-type.ts",
@@ -1779,11 +1779,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-asi-leading-binary-operator.ts",
-   "9ff27b441ba40064fabf0f0e5cc5ac4ef06f1379a5ebe378c22305f6a306e335"
+   "5534568479ec48ad073f691a9d6bef6390e84359dc16448b63dec111eb7e7cac"
   ],
   [
    "tests/cases/token/expressions/expr-asi-optional-chain-then-statement.ts",
-   "76a4d06cbc2410677f27fdc8a1eed731318083c20d5b1eef890d5d9c5b03824c"
+   "a1a3b2c652b5aeb667e128f4afdfadb33715dfc42d15f9b9c3532195f5fd6a22"
   ],
   [
    "tests/cases/token/expressions/expr-assert-kernel-member-chain.ts",
@@ -1791,115 +1791,115 @@
   ],
   [
    "tests/cases/token/expressions/expr-assign-add.ts",
-   "9d60efb1f06a3241a74c80b16774a0ac44120ab1cb3d230aa29d8a81af787b2f"
+   "e7fc5201436b833172e5293a73fbb903906711091f48ec357452aba9c4a7949c"
   ],
   [
    "tests/cases/token/expressions/expr-assign-bitand.ts",
-   "e1d55a55ee424e2053f8aee71d49f77fd86a4a405a54ea5d08e832ada42497c1"
+   "714285cc2dc56d5ac84bfb1aae4eee3be88f07775e3cf4dfb3d3115d36adf406"
   ],
   [
    "tests/cases/token/expressions/expr-assign-bitor.ts",
-   "c4a2c4e06bb9b7e8bf87e03cb05c01eb663c2d25bff9ae1b4203dbecf96fba6c"
+   "945f3b68362bd1780002435e72579ded8114ccc546f776471b7a12f543c69a45"
   ],
   [
    "tests/cases/token/expressions/expr-assign-bitxor.ts",
-   "1d54656f98a5b51b4e1d42fb5c0656124df3a0c085e59ce74fcfb7d4a669ad16"
+   "af2a928fa8867242ffb20669f20e8bdab2c345606d9e5ee7520c1d29d67397a2"
   ],
   [
    "tests/cases/token/expressions/expr-assign-chained-compound.ts",
-   "9ae01856ccb2b16f9f53df94ed2fd1eca91ab173b5c6b77dc25b30cc871b6d72"
+   "fcf96930e1a20e4366a8fcba228751e865c755390f036bf5ecfc8c3c9ef22b23"
   ],
   [
    "tests/cases/token/expressions/expr-assign-chained.ts",
-   "586e26d6fe56b5a1983849992820b6b1835e54d63a6a552af50634c63ab39bc0"
+   "bd6932a01a454552acc4aa32bac1a4e8c86591a055b7a2119d59b74d13232f39"
   ],
   [
    "tests/cases/token/expressions/expr-assign-destructuring.ts",
-   "b82822fc1d2400368a107a74497403a785c661facc8325618e22aa210dfc4866"
+   "23fd32eebef99b3b021fb9f59e5c8935cc8c7297be747ff05b30c221eb328c27"
   ],
   [
    "tests/cases/token/expressions/expr-assign-div.ts",
-   "7a5f0cdd58dcc3815749e0285642937e2f9105b2131ff5f442dbe2a863444b47"
+   "320f6e6eff3b2140c7776342211fe1ddca3fdef33a27c344cba467fe371ebebf"
   ],
   [
    "tests/cases/token/expressions/expr-assign-element.ts",
-   "1a470dceca618116531d896b652eea378a7577b2fbf7e320ead6989f43cff727"
+   "5bd5017d34e5c210d57426b44b658fe1e0f4394e11da8bfc9b6868f3f2788956"
   ],
   [
    "tests/cases/token/expressions/expr-assign-exp.ts",
-   "d40bfb788e17f9f4dd86ce26b8c0253b3ab11617fbca1c304319789c1bc51761"
+   "b22a0ee56d4e76bac5ad9675cb9e537d77026ac7f65411b309f4ee5ab6a46418"
   ],
   [
    "tests/cases/token/expressions/expr-assign-logical-and.ts",
-   "e74df38653deefe90e26cb5435e81e58f9d456f4bf19e0bf3f7c13e089a4de52"
+   "a5a0505fc55b669ef27d45e31e6eb64149664f595fd2e63213d78658b1d71cfb"
   ],
   [
    "tests/cases/token/expressions/expr-assign-logical-or.ts",
-   "3057d6f0d479bc1eed07e67f6a3cadb764a9982ad3b8991b9987e09527dff58d"
+   "2dfcbd5a987cc7aa6936c115d017b9c0d8632329b2dd99655de57d6311add4b7"
   ],
   [
    "tests/cases/token/expressions/expr-assign-member.ts",
-   "f3a077b056769012f549ffc24eef94abdaf0e22c8aac945dc23cb1a75a250536"
+   "7eb8dceebbff2c44d794ff92b4b6da855636701436a03f3b834f77f30e012680"
   ],
   [
    "tests/cases/token/expressions/expr-assign-mod.ts",
-   "69ce9436fd518a654a70ba2f7184159b8f5b946cd3d33217f5b96ee0f99232f4"
+   "92a0b7923623ded5c613509b873a35a0b189fba3deb1c8bb6b4633a0bedc5488"
   ],
   [
    "tests/cases/token/expressions/expr-assign-mul.ts",
-   "860c5cdaa32434b1fe68a21ad6416125253b9fe2f9bd0cbb43cb1922456186e7"
+   "800a6c3cb99d689393b14c76e1b3442a19909116252f8278db83bce8bf0700ff"
   ],
   [
    "tests/cases/token/expressions/expr-assign-nullish.ts",
-   "63b501ff4b96d24c5e8057dcc2bf4a62d141d8e01f223e83a9d115eb1b1a2b27"
+   "9834733c4389e71ce56c729a372ebb8988b1d560d64d6c458b19237860986918"
   ],
   [
    "tests/cases/token/expressions/expr-assign-plain.ts",
-   "358de80321b8e9e2b0b3597ac2a3c7bb9c9a5689e4a02834a6aa40e3cf913171"
+   "43bde946623469522f08d2eb4013e2ebe87056be10cb202aa8c49b8d56f1118e"
   ],
   [
    "tests/cases/token/expressions/expr-assign-shl.ts",
-   "bf28c29acff68ab10a8147c85474bb0f5ff71072edafdce2cff3b7da4ffecfaa"
+   "a2fdd4a12ae830203cbb26a3d2a68958509712be13d857dc2ee9da07b74b45c8"
   ],
   [
    "tests/cases/token/expressions/expr-assign-shr.ts",
-   "28dd218989570a074cc6984631d1514ae6d9ffeb02c09a539eb3ff38efda0e0e"
+   "a229e4bfb74353ccbeb27cadf12952deebca0b082bf7128eef69e0a0a6282fad"
   ],
   [
    "tests/cases/token/expressions/expr-assign-sub.ts",
-   "88e5f0bc4a307a3fbb4355c970a714bce0f83bbcd70a7a7480d12f46f2b13369"
+   "164e3075b3451a21d45357ec646774258b090634106e1227894292daac8c278a"
   ],
   [
    "tests/cases/token/expressions/expr-assign-ushr.ts",
-   "d68e1935bbf7a8cf55da85680908c600f51e4100f5f25af56d93175a50082278"
+   "d76e0c600e01442db19753df8f60a5767f0530ed1aa2ec051fade1044d8bff1e"
   ],
   [
    "tests/cases/token/expressions/expr-async-arrow-adjacent-comment.ts",
-   "098a00d1b200a08074d2cc3e79095871b09dd113e395f30eafebca3b18d75bd1"
+   "b94d8a33270b92235b94e392e85ad53c980cc4665885784899b5ae39c55b1e0f"
   ],
   [
    "tests/cases/token/expressions/expr-async-arrow-return-newline.ts",
-   "201a65b7a694fdd0bb387fac44294b953f14701cfce306fd250642c2e729e8fc"
+   "55316c2a6670903ed6f70ea2c469caad018bee2ec7ceb18244bb7a18d73087ab"
   ],
   [
    "tests/cases/token/expressions/expr-binary-operator.ts",
-   "24a9548dd6568da62be176504643d2351a8a475de4a22164eb60e1144a3ae9f6"
+   "ef7a500a74cbbe40fd3456616376af63a1647d9f17179d72f4405b44e85299be"
   ],
   [
    "tests/cases/token/expressions/expr-bitwise-and-or.ts",
-   "593286ab0ddced74a3d28150c39a641b7756ad9ed2458430869e74e83189c046"
+   "e04fdb2b30030667ee0ddf6ff3f3620999a9f6544fe0c2263995b1113c95a0fc"
   ],
   [
    "tests/cases/token/expressions/expr-bitwise-precedence.ts",
-   "fbfdcef9098000fd99b0e1aa6d0e7669e7e12e91c12844eadfeb968123dee12a"
+   "914e47e228bf6fa2f33265c6f4744e570ef2348a03d5953246bef454f3e6ed38"
   ],
   [
    "tests/cases/token/expressions/expr-bitwise-value-position.ts",
-   "b534cfa3ccfe0364872bae3637f114f1eb314e7f5c5f5e6a1c3417ef695b31ec"
+   "5818e46e76f5b79f6f828f85edac0ff1cb49cf0f66def411f4fb4a086f9f96a5"
   ],
   [
    "tests/cases/token/expressions/expr-bitwise-xor.ts",
-   "927c47e29e641aa2c0dd016bfca38482b61b468f63c63653909e1fb2ba6ce1d6"
+   "2c166faa3ff3b4bdccbfefe12d9821797371f6b2b074f302ec90ba8070653bd9"
   ],
   [
    "tests/cases/token/expressions/expr-call-arg-then-object.ts",
@@ -1955,59 +1955,59 @@
   ],
   [
    "tests/cases/token/expressions/expr-callee-optional-chain.ts",
-   "aaae7619528ec6793401442380ccae6968b100b644b25b7ea911ab5f5e09b45e"
+   "786072b26c8785f6d6a06db5eabab64af35635559037e559b9e0e121b8de2f8d"
   ],
   [
    "tests/cases/token/expressions/expr-class-expr-logical.ts",
-   "2ac3ff9e3c34ee790fd13f35e6a09dd9c943352333c16d734379916dd686f2c6"
+   "703b70c4329d972bdbff68faef57bc7514f395e82e49959d2af4201c1e5d34a6"
   ],
   [
    "tests/cases/token/expressions/expr-comma-operator.ts",
-   "73a249c392518d0211701d538b4ffa37f90f83eb62ba8d2054266c5d6f5f9b52"
+   "e22a668fd0725a74682ff98597d5ad1f3a23ee7a8f1d170d35d451a6480f2fcf"
   ],
   [
    "tests/cases/token/expressions/expr-comma-sequence.ts",
-   "f14a83ccd6f6748b5c35188914251a5ac51597d30838730fac3645fe3c77f05a"
+   "9bcdc0c06ebdc250d6edd508d1d83389c7e3ccf2feb133e13742e9df821e5fba"
   ],
   [
    "tests/cases/token/expressions/expr-compare-gt-ge.ts",
-   "71e761fe224d9f5cb3be7f98ba9db28514916d9515468b339066d15d13e7b58f"
+   "d8bdb4d2bbc7dc95c8e82dab31c946584a48c0549828c5afc3a66f8210eb97f7"
   ],
   [
    "tests/cases/token/expressions/expr-compare-lt-le.ts",
-   "42838f729175741d3191b77e0c86562e53778f3cc62e71bf1c660e03196db3da"
+   "229cf81e1e0f643accf97a59fffcf945e7f2abd368a7b8321dc36a085e8a3cb1"
   ],
   [
    "tests/cases/token/expressions/expr-comparison-chain-mixed-eof-no-newline.ts",
-   "a0b881ebe531b1711ef673495c889208a562d8172e64e4219a64fe289d556b6c"
+   "f7fc2472d6701a39fbfdad09dd02e19b563e7737c953b3e085db88e488bf772b"
   ],
   [
    "tests/cases/token/expressions/expr-comparison-chain-mixed.ts",
-   "6d6756acbf5a7fc2eaf679b029ec9ed189c94a63791c322544f33d99f3007a1c"
+   "e4bbbdaddaf7c2383f8dc4f80f45b4990159640864b4d0c81e296ff4aa408c19"
   ],
   [
    "tests/cases/token/expressions/expr-comparison-newline-before-comma.ts",
-   "d91a98209ae7575de76a555ab60275a462ff23f2d87e58c74bdbe9bd72b7f35a"
+   "a01cc5dd8c651338b8823dc506e68d622b0ce17fa1425878e0b4536b1c5e9664"
   ],
   [
    "tests/cases/token/expressions/expr-compound-assign-all.ts",
-   "0c4cd2568ee37de015ab88fee1e6eb3c6b6852df6b401abba45df2de60541c00"
+   "4fa8d3feef4ebe61750b9b6ab4e8b2f8ad1c4c72bd31851dac66bd8e078af1b0"
   ],
   [
    "tests/cases/token/expressions/expr-compound-assign-clone-operands.ts",
-   "e51873a8cebb175ea0668d569fef269fbb1b9dbb8ffac09f96ef59918d06faa5"
+   "8b79fee418cf9742dda0a9dd76be2fb8a0444e8bca699e8e4c2b48e5cf963b6d"
   ],
   [
    "tests/cases/token/expressions/expr-computed-call.ts",
-   "ba2cdc223b1b2e205f0bbd384f4e604c9ae7c6a1b2a8961d73b29c9ec9be6d44"
+   "a4b8138f6ce86a23076de0b8b945742d32daa980ab133b321d580b6808d68163"
   ],
   [
    "tests/cases/token/expressions/expr-div-not-regex.ts",
-   "444baaa6502447b43dc89965cb8de07f1b3eadad9b61dd934f041fbb1959542a"
+   "4e23cfc4dc198fd826f21a4ca23b4f7074b414aef0e5b0f63a2ea78bb948448b"
   ],
   [
    "tests/cases/token/expressions/expr-division-after-comment.ts",
-   "d237bdae2dcae9712c89e677db6045b0ea0045b2cf504c0a36d4ae078efac8b9"
+   "7c70e28ef73e2bb2f7bb10ac1c4d63a38875402f41e30b6dd89291fdfb8fd68f"
   ],
   [
    "tests/cases/token/expressions/expr-dynamic-import-not-type.ts",
@@ -2019,15 +2019,15 @@
   ],
   [
    "tests/cases/token/expressions/expr-equality.ts",
-   "5fc5c66b1c18c12b4cc3ce137944cbb98f562188c83013b022a30f789e6f321c"
+   "a263d3e8e4a235331bc7d0c372272128e0897a306936f06cae365ac85ad6b4d8"
   ],
   [
    "tests/cases/token/expressions/expr-exponent-assoc.ts",
-   "88e32bc1ab493263cfd1336acf5d3893d7c706ea6b0516ef379982383eab76d9"
+   "4a872a947abf862675e2ad25d7f288a3dcc0b95dfaa20733670acd7a7bbaaba2"
   ],
   [
    "tests/cases/token/expressions/expr-fn-expr-logical.ts",
-   "a8e34fbf2f4272d617f276adb3a55bf01232db7a2458bd9f8329347bce7a15d4"
+   "cfe303ec6b12a2a1477578d9a4da8501267da1c775a783fe41bc3c0038ea52d7"
   ],
   [
    "tests/cases/token/expressions/expr-func-expr-anon.ts",
@@ -2039,7 +2039,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-func-expr-generator.ts",
-   "8c716d478eff5708f891bf2afeee7bcc860eae39ee3437663b903ef8afd3ed7b"
+   "78816567476832b75c0528dbf9b0efdb2ba56b6b6aab93b7a68f223cfee5b154"
   ],
   [
    "tests/cases/token/expressions/expr-func-expr-named.ts",
@@ -2047,7 +2047,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-function-expression-plus.ts",
-   "1252b32bf18fab28d41f75afc58caf05e3b24a06e4e3838ef25a0d9469385e42"
+   "3ca6ce57b5fe23f7a553f9e0792f70b854cf4c6f1580dd47da9619950c19f2d8"
   ],
   [
    "tests/cases/token/expressions/expr-function-generic-anonymous.ts",
@@ -2055,7 +2055,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-generic-arrow-return-newline.ts",
-   "df18404df3bb6d5f055231fa3eb74abfbf19b6251a6e82c4b331b5ec00f88df9"
+   "90b560f0e2ffc995dd201cf41e7d641d302daa6c8ed256f44576fa3d94fa2ae9"
   ],
   [
    "tests/cases/token/expressions/expr-generic-call-newline-before-comma.ts",
@@ -2067,7 +2067,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-iife-arrow.ts",
-   "724e062dc3296df565e87eb2db34c6ac15957d7a62de7052ae604ed3af109432"
+   "a93bfdc04383b7aa7b2c40ae1ea8dd0739ec00beb085e8df1d5d211555b2044b"
   ],
   [
    "tests/cases/token/expressions/expr-iife-function.ts",
@@ -2075,15 +2075,15 @@
   ],
   [
    "tests/cases/token/expressions/expr-in-array-literal.ts",
-   "67178b315c89aee81b50be59711e73d7a895fc3025fc0a7d1239aec70af0b09d"
+   "549d9d3658a9c9ba7f669a1ba44e627ddbc055d510a129a7cfd037740df89826"
   ],
   [
    "tests/cases/token/expressions/expr-index-content-in-object.ts",
-   "97f84269847fdf3e0d0f93d307b74df02c112c3c802a431bf12c438f304f2cf5"
+   "7cb93422e08b73440936ffeed49f67455dbe2f8c4202f3dbc2b90d329389da6a"
   ],
   [
    "tests/cases/token/expressions/expr-inst-tagged.ts",
-   "2352d6205e0aeae0a790b1cd95e8740f3172bf68b4e6c35337ae586543c35906"
+   "f56f87d41cac6bda78c8fc790bccc348b6eca90bff2d803f25c62bda076041da"
   ],
   [
    "tests/cases/token/expressions/expr-instanceof-instantiation.ts",
@@ -2091,31 +2091,31 @@
   ],
   [
    "tests/cases/token/expressions/expr-lambda-bare-then-compound-assign.ts",
-   "44d7df43635e64d8c2fc6df65e3232acc0c4dfec84b685750fb5bdbea1a6ab66"
+   "76a027c2e8b652fa01fcdbf6dc2c89e14043d1e3066e950e66f609b18b113311"
   ],
   [
    "tests/cases/token/expressions/expr-lambda-then-compound-assign.ts",
-   "9122794db837641f6c5b3654a7f291d5474e07eb5624a8cb2b123c3264058467"
+   "4202af772e809861d264183e37a317b792ac48c97ed6bee0a9383f49a6b4ab87"
   ],
   [
    "tests/cases/token/expressions/expr-logical-and-or.ts",
-   "ff680ae1ce23aa052a98070fc2bfa173506b2a0c58b4d91ab99507ba9655469e"
+   "4e4c043cff275d44c088fe24e8736d2542a6cfb478c0163703decc200d25a0b5"
   ],
   [
    "tests/cases/token/expressions/expr-logical-assign-member.ts",
-   "ae610b0814d1cd768fdaf23be7740c9e216a07b556d972b757e0a9e80cf9e56a"
+   "7dadf3553e9a11fe4ac680ad86789e3b33eea8166ab682aeadca259c4c6c0db9"
   ],
   [
    "tests/cases/token/expressions/expr-logical-chain-let.ts",
-   "a74dd67f939a90127dc8e65976a65daf5d67c9577c048811746380d7d8394de5"
+   "d1546c042f4205ca5880c2452b0dfb5d5e70f1cc6cf0b393cc404a0ebe14f3ce"
   ],
   [
    "tests/cases/token/expressions/expr-logical-nullish.ts",
-   "06310649f6709c2e47931a8ba07bd2d77e00b29d96b4cc7e01cd7c9d375c0420"
+   "310a99399e89729b3c681ffe3f29b5a23be232c728e06a518e50618ce313caaf"
   ],
   [
    "tests/cases/token/expressions/expr-lt-logical-not-generic.ts",
-   "7468fc0803b0ebb0850d77ed95dc992948125dbfd4d645949a624b92afd8cf0b"
+   "b7d37ee64bdf4c6a1ecebdbf7dc3a0eb7b3148b89b7777c0e7ffbb3731c531d1"
   ],
   [
    "tests/cases/token/expressions/expr-member-chain-call-tail.ts",
@@ -2123,15 +2123,15 @@
   ],
   [
    "tests/cases/token/expressions/expr-member-chain-index.ts",
-   "b9c23886f586ef59fad7714a3d7616d162fdc3ad8612dd2b8618e02f27da2c74"
+   "14252e862ca7dd4c7cfa1c48cc03b9f064c2901368ab79f30045d9c91156b999"
   ],
   [
    "tests/cases/token/expressions/expr-member-chain-operand.ts",
-   "7bbf6a6c49dd9316dab07b0d760fc38f4be57545909ea34961b710156462ce80"
+   "5c82bc9abaff59e66fc7492c3fe87d19feef0c485d2c7a0942e6c853302619a3"
   ],
   [
    "tests/cases/token/expressions/expr-member-named-import-optional.ts",
-   "2c8ca99f99c32d75bef2f81ee911cfb903ac9d5676df785a6dbcbfe790593388"
+   "7708c92229a67bd8e17a91964b4ec1cd078c21e547e7d062150e88d6797eda98"
   ],
   [
    "tests/cases/token/expressions/expr-member-named-import-qualified.ts",
@@ -2143,7 +2143,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-meta-property-in-constructor.ts",
-   "bdf3fae3f4150ddf136c30de2ae0fe6b1a01e7d599ce9bac1904003410a8b3cb"
+   "19bb4cbd7cbbc1bc1fe02cb35fa69560e8f0fe2600b51c2ae07742283b7b9123"
   ],
   [
    "tests/cases/token/expressions/expr-multi-declarator-comma.ts",
@@ -2151,7 +2151,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-nested-unary.ts",
-   "6ee4d985e755045be2334816d8b6f84749020d24bafc7f0cd141d4bf5d6a21d2"
+   "e2a56a16898a39afbfb70e32510e4c889728b3c0c42a6fa30f29b66f27f26fab"
   ],
   [
    "tests/cases/token/expressions/expr-new-anonymous-class.ts",
@@ -2163,11 +2163,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-new-callee-postfix-assert.ts",
-   "c02cb084e2b1874c7c7ed5efc77e935f4af31a9aa8b5f5352b4c00976729c01b"
+   "d6f6308909a481d252701509ec1cdfccafcb3646a808b33717cf5e5da486c15b"
   ],
   [
    "tests/cases/token/expressions/expr-new-callee-postfix-chain.ts",
-   "9d0069f16f68f6b9cfdbfe91e59eff181064b3ad6cde3c8eb2b7a0c0161a0471"
+   "22a0ef678f41a2c526d75a8d3df6bf25d69df7580164721be8f93ab2aee18663"
   ],
   [
    "tests/cases/token/expressions/expr-new-class-callee.ts",
@@ -2211,7 +2211,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-newline-angle-compare.ts",
-   "3720aaa2d4271dbe0a7881334467690e035e6259484175433f33ecb7136a6cfe"
+   "9a659f9088c72e4fe71c240df3903b3a681a07b0538b0553e733ab96c082df02"
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-as.ts",
@@ -2235,7 +2235,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-chain-links.ts",
-   "e4c450adcee88508a9b3126f08420adab1bbff8c5d653e8d008f809cbd2ef2f8"
+   "7eb119c57cfa7d6da33cbd15fe36ca3f593319dc1a2be67510882718918b407f"
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-comment.ts",
@@ -2251,7 +2251,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-optional.ts",
-   "7618c72b262a14610eaebcb0b9cae63ee0f75b23691fac0af1913b9d01033f95"
+   "a79b10fdb23763432e6528669420f4c191b04c94db96175f764ce907f0831551"
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-paren.ts",
@@ -2259,11 +2259,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-right-operand.ts",
-   "eebf0c2a7d21cfb8911f9573b4fda331072289cba77fc4980773f45bae1329a0"
+   "fd98302e0fac6874d398d04bfa127e39e0ad18ac38faf35458b67eedbf8a1058"
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-then-binary.ts",
-   "11f1a2ae81d71c8a6ae6cfd0f4af4bc102436c35d929eab0ed32d8af36517290"
+   "afb3fe501c58fb922334dbafabfb5de1d6b935672b0d8555621e59bc347d7212"
   ],
   [
    "tests/cases/token/expressions/expr-nonnull-unary-operand.ts",
@@ -2295,7 +2295,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-object-generator-method.ts",
-   "90b772a4f6207b6e0eaab4b56c2c3459b187009cac121ecb90be42b87133933e"
+   "965d96b56ad973c5948b1c78ab5c24f50b93e2314449245538686941fa8cd2f7"
   ],
   [
    "tests/cases/token/expressions/expr-object-keyword-keys.ts",
@@ -2307,7 +2307,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-object-member-named-function-import.ts",
-   "0745f3759c0919df1f19c5225f8b9e20a243005370e42faf51bbddd5d3294bc8"
+   "b738c1a4467032b0d7c327e90560949b8c39bd78dd56b527c77db558da1f8fd2"
   ],
   [
    "tests/cases/token/expressions/expr-object-member-named-if.ts",
@@ -2315,7 +2315,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-object-members.ts",
-   "809376c80f8e7fde2626731319b3ff3d4e7702fdba7be84f1fc620f51e7ac32a"
+   "fd0c5681f765ddf4f19043e1e9ed2827decdc5ae75fd1f0f14b45a73ba0b5ad9"
   ],
   [
    "tests/cases/token/expressions/expr-object-method.ts",
@@ -2347,75 +2347,75 @@
   ],
   [
    "tests/cases/token/expressions/expr-object-value-trailing-comment-range.ts",
-   "41c79b78388c4d363b6bebe8e01278bf3c59133a5ff3990dc6c8c21f7154e16c"
+   "d3536a268ac629ec4ee574c8460419c8dfccee1d5a9596f3e8fe3ec4f04c6caf"
   ],
   [
    "tests/cases/token/expressions/expr-operand-template-generic.ts",
-   "898339dae41f8ae701d05ac4a98e1fbae2f6f29ef18f6d871ea56c18f2c38617"
+   "67ddb9dbede71b1f23575509d10185deb1aa49b60763d03494bae3933cebfe03"
   ],
   [
    "tests/cases/token/expressions/expr-optional-call-nodes.ts",
-   "27c0af51cd12b4852eee2d159a13ec7c6ef74b85ce8228c21d473b2f1b20d3fb"
+   "cf706e4cf34eeebf676455c19b1e85f153ea553aee9914c8c896faff4029df5c"
   ],
   [
    "tests/cases/token/expressions/expr-optional-call-then-member.ts",
-   "f7b7c7e1238ea22f1816d40e107b3b2934c50cd7113ed6d2d30464f41e449a72"
+   "50f30f745e7742a7904419daa0b18852989e9ebfb74e2c5a1efc25811ef0b6a5"
   ],
   [
    "tests/cases/token/expressions/expr-optional-call-then-tail.ts",
-   "81feabde3ef43c1d2a2c79f70ccdfcbe28218aab9232dbfcfc74b56bebd8052a"
+   "c70a99e5915bb8e052a94d46846e550022ae292f9dba90c8ff332b9a7886a8ba"
   ],
   [
    "tests/cases/token/expressions/expr-optional-call.ts",
-   "95f6e4b87dc62179553fea28b33623081da75c1bc5d1c2164135e031f953db83"
+   "4a7f73315a74b1eadc8900a07408791b17d0c0dce4437903c40285923795e2f0"
   ],
   [
    "tests/cases/token/expressions/expr-optional-chain-as.ts",
-   "f15176e1a70452cecac89abc91e5e5e483c2a8b49b17753cf362361d8e3db45b"
+   "c7aeacab04a3881eb25c2c02cbab0112e7d415be1395a03ff8a89a40ff91780a"
   ],
   [
    "tests/cases/token/expressions/expr-optional-delete.ts",
-   "9d03fc61c9be369b108176369a91a6f3b35f6ce14c2bc5cf14d798a0da193d64"
+   "c02db133c15ca1c4ddf6eae9fc050d596b0b2abc8176c3877cbc6619076d81b0"
   ],
   [
    "tests/cases/token/expressions/expr-optional-element-then-member.ts",
-   "31d39df94e8d0ca982a233651bcd853c65164aa9a93e185ca9065580df722bc0"
+   "6e1ec7ce10ca07e1929a48cfa18bf8681a72f5bc0c1aec002f7c6066b8eccbd4"
   ],
   [
    "tests/cases/token/expressions/expr-optional-element.ts",
-   "7ae1c09589ba07d9769f4ea3e314692f8f506497c09b0ce4a83e551fe0edf1eb"
+   "cb4b966088f1c35ee036b3689556931f7abe2987afd63e5dd43b03ee3fc3874f"
   ],
   [
    "tests/cases/token/expressions/expr-optional-in-argument.ts",
-   "98eafee704fc80676a407be4d6460484f9c3eabc9c31c9ca08491ff52572f9d1"
+   "c545ebdce9f72c30f0d980260c19bc2ade7dea75d57bbe137644e30b9a50f4a6"
   ],
   [
    "tests/cases/token/expressions/expr-optional-index-then-call.ts",
-   "863b833596ae694d22a8feb34c3e170e9cf063f509094c2761d38c524cecb653"
+   "40f11031657b6673f8ad8d31147294fe3c7de8b53f0559372d7ef6e4d9580d72"
   ],
   [
    "tests/cases/token/expressions/expr-optional-member-then-call.ts",
-   "334ce037f498b9d34e0aa62442701af709951f4a443f8d68fe00f84266a96a49"
+   "1cf32df8e2a1f520ac86f255fe156955150728576fc2e04c7e083b2e0064f00c"
   ],
   [
    "tests/cases/token/expressions/expr-optional-member-then-member.ts",
-   "540ea15f076723482b385b554b998221144530b9f8a6e2318b5682b5744bece1"
+   "af6dad43a9ee359e6ded290ba362cdd71a1b5512d1de93f744cfc73a642e3feb"
   ],
   [
    "tests/cases/token/expressions/expr-optional-member.ts",
-   "5aca84193e3c99569ee6fa3f597c2e16343d3347265ea5b8c425ef3259eb8efb"
+   "84d24cee422b3b8fb15f654130b61a7ed08ea544b6c864078bbefed08a2709c7"
   ],
   [
    "tests/cases/token/expressions/expr-optional-nullish.ts",
-   "0eff34344361dd2becfd7653b334abf1c514d8689f7311161aa6ab37b5a0981c"
+   "bd843f0cabc9ce1b3dca57071ee0550ec2790e431a11f62d7cb5eec6570a5b41"
   ],
   [
    "tests/cases/token/expressions/expr-optional-two-members.ts",
-   "3e66d2049b4706530f8522fbab52ed639fd99cf5481f307a9bacb251cc41b6a7"
+   "f2ba31213a80dd1cdbda39cc58de26fbf93222f6ad5b1b50cf344ef5edfad0d5"
   ],
   [
    "tests/cases/token/expressions/expr-paren-in-arguments.ts",
-   "0a6040881ab80a325e7d5f8bf61f770609e123c7736ee61d637306c52acf8d19"
+   "c1e497d122f64bde5b99606c7bfcd7065d516e0f5a3e1b352ffdcaba43c91370"
   ],
   [
    "tests/cases/token/expressions/expr-paren-nested.ts",
@@ -2427,47 +2427,47 @@
   ],
   [
    "tests/cases/token/expressions/expr-paren-operand.ts",
-   "44559253f52692382be2c495737fff7bae9e20f853ed81a4b1ed64a3bb05200e"
+   "af6b09e77b83a3630fe77f7736e40f98fb9f13ccc020201181c8f039009558a2"
   ],
   [
    "tests/cases/token/expressions/expr-precedence-arith.ts",
-   "360d1c6e07db6bb264598865bfb5aca5f6dda1b7263ae2c1845c25dd3acd3b64"
+   "5cf14e189551416e3b6ced54d81f050681ba300e8274eb5feb373d23fb362422"
   ],
   [
    "tests/cases/token/expressions/expr-precedence-logical.ts",
-   "502c932652853ba673cbfc6c0fb7658ecf9dc092f69f5cc32e9433e29001faa9"
+   "3575c9a0d7e502d31333bba603275e8d7e0cef491390a1774c64761e65663104"
   ],
   [
    "tests/cases/token/expressions/expr-r1210-opt-call-assert-member.ts",
-   "5a8b09cfbdcf6b3885068e06364377332fada3a5e587b12c2ae132777961c2ed"
+   "edabf1334cafa3e3624970b07811afac3170fd213e3156ef18fd0f56a629d918"
   ],
   [
    "tests/cases/token/expressions/expr-r1210-opt-double-assert.ts",
-   "ae6d8a81d68e8a865a0675e6cc9eb837d678e42a619108d93e8fc4d26b16e78f"
+   "87e0962380c8bad8e692c97390e4d09360dd79dadec6de55d408b7b05a68456d"
   ],
   [
    "tests/cases/token/expressions/expr-r1210-opt-index-assert-member.ts",
-   "7ef90f3e29eaa7983f30f15c932c8bb43d86b510b09cfe5b95b0c4aaaf72612e"
+   "fed02431a3deb76f9f920e990b54bea8d7eb02b74392af45e33abd07b3b8be16"
   ],
   [
    "tests/cases/token/expressions/expr-r1210-opt-index-index-assert.ts",
-   "0b56f79e6895c04ca5d7618534033f0347e4a49713c4ee3e9290092812b2de4c"
+   "5da39175583ed7034ae913078a1cec3d447f7f7ff4f315ba3013ad571f9c147f"
   ],
   [
    "tests/cases/token/expressions/expr-r1210-opt-member-index-assert.ts",
-   "74dc6ed9b2dbf40d57ed7474f6509bfd7f2e43cb4a85627641ca6ec77a4a0836"
+   "81915410dc4d1288c6f10149ac6cdaa74c48a96a3131e003a312799b78ed4ab9"
   ],
   [
    "tests/cases/token/expressions/expr-r1211-opt-call-tagged-tail.ts",
-   "82a3d7332a7219bb79e415bbd8069bcae62adc336b94d6e7589f5872c3fb90bc"
+   "a876eca044644a56449cd6235a334fec2564c920703d3daf82e6968b47c8e2ed"
   ],
   [
    "tests/cases/token/expressions/expr-r1211-opt-index-tagged-tail.ts",
-   "a1bcde873645bcd84a3b13a8782f420af54fc45fbaa6bb06092cb0fc7abe30ba"
+   "3db1b1dc96f758e6e1ec27babd0ccec258c87c9c60775b13f380d642450c84ef"
   ],
   [
    "tests/cases/token/expressions/expr-r1211-opt-member-tagged-tail.ts",
-   "1855b11dd45a2694bb823efa3674e8eeaa3d581d65a34aaf4e775c93a67edb06"
+   "0f588fa87f31405147f4064f2613d199aed1dbb8ce88f33cc32da79f1511a111"
   ],
   [
    "tests/cases/token/expressions/expr-r1212-tagged-index-then-call.ts",
@@ -2479,11 +2479,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-r1213-optional-chain-member-as.ts",
-   "860b748a90a8c98d02f1d4844e0c5167bb55480ecbb739361448b523376bd94a"
+   "bbc949f3dc5d7eda73c5767fe924f8c30235088c6850c025cac5a949cd5cf996"
   ],
   [
    "tests/cases/token/expressions/expr-r1214-optional-call-then-suffix.ts",
-   "211896ee999fe38f8f88308e27796ef1d42f39b528bdd0abe94149b5de476433"
+   "1b860a11ddfa95cf2aeae52503f6cf46cb5f2a81b07648ad437b1c89364e3184"
   ],
   [
    "tests/cases/token/expressions/expr-r1215-tagged-template-nonnull.ts",
@@ -2495,19 +2495,19 @@
   ],
   [
    "tests/cases/token/expressions/expr-r1221-new-tagged-template.ts",
-   "2fc20024c01bf4649b8a955eb9592e7bb9acdd260befa36441619d9f8c379682"
+   "15e20123dd46d21cf36524a61969328ffdfa1e17b3b75da198656725b7750fa0"
   ],
   [
    "tests/cases/token/expressions/expr-r1222-instantiation-optional.ts",
-   "3393c8e4b0bc2b6c4f84af13a097c212ad6b057d7e86b597090a46123d2d7164"
+   "25884d8ce35d593f1af34b9e123498c3208b9589ce6696714cee1ac2c30ae20e"
   ],
   [
    "tests/cases/token/expressions/expr-r1223-instantiation-optional-twice.ts",
-   "c096a2e278570b1c7ab3b1136c72adf9322398e664ce8f6cf345b73c21bbdcad"
+   "e0f9a967a31a4efd361dcc537624b5cb8a38e2df6dea2ca24a2313d7a4885eb6"
   ],
   [
    "tests/cases/token/expressions/expr-r1224-optional-call-chain-head.ts",
-   "07f846f7c9c84197e2fbde81a7c06fffdf12abf24766e8667d17ac6f10d08989"
+   "bdbb547bb25558d59a2214e33990b8a1fb66f4e57799ea455082e3dd1f831fe4"
   ],
   [
    "tests/cases/token/expressions/expr-r1225-template-as.ts",
@@ -2515,11 +2515,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-r1226-inst-dot.ts",
-   "0ce3feb1b75dd8b9e02b3e76773dbc44ce27bcdfbb268949019f46e6e424d7b5"
+   "4b1cff76603727fb197cf9c994265c8a441db6516331be1cd972e2ada35f0708"
   ],
   [
    "tests/cases/token/expressions/expr-r1227-opt-tagged-template.ts",
-   "2d1f1c2b1d63800adad707ec18bfb21add27b3430bd3d7b920650cfa9a6f2206"
+   "3e5814767568e0bf8c51569e25ba5f4af712972b11efe0c820cfd6e3d7c3c928"
   ],
   [
    "tests/cases/token/expressions/expr-r1228-array-tag.ts",
@@ -2539,19 +2539,19 @@
   ],
   [
    "tests/cases/token/expressions/expr-r1232-decl-newline-operator.ts",
-   "3b4a27197a80c55a5f737a5e2c58fad155ec32a6e49f5d7b95c1593b438e7d79"
+   "86fc4d44d7f5621af06a03d171cd9c56259e1b828591d1a839b4011c3aa73702"
   ],
   [
    "tests/cases/token/expressions/expr-r1233-control-head-regex.ts",
-   "50af3f3a1f53d14015fe9666e4e4a0e8f84cc5bb31f180a784b1208782637615"
+   "a7c606c4fe1b7b31f08535bc285295d4456e040b1316d3e22a1e9d558da59239"
   ],
   [
    "tests/cases/token/expressions/expr-r1234-bare-block-regex.ts",
-   "d18e6526dcb238150d46d611dc3b787e8687b982439d8091e5107ea04d4dde0f"
+   "30456bfed429ece07db78353e83c28a7ca52674d7731fd23a497cdfc3880e0a6"
   ],
   [
    "tests/cases/token/expressions/expr-r971-opt-call-triple-member.ts",
-   "2d20947a88519dc42f00d09b36d4e9e72180c987e3c2acfb040055f6da0df6a5"
+   "f6b3d9470b41ccac506327cf1d44dc4d80347f126f14f2dc8b778c74a26836f5"
   ],
   [
    "tests/cases/token/expressions/expr-regex-after-return.ts",
@@ -2583,11 +2583,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-round863-chain-in-binary-tail.ts",
-   "ba1abb90db10515900b00a5709223e91f07d7602535ad55f21e666f958760118"
+   "63edacdd03642c89b8c4d98ae8dff5181f7f6ccceace8e5e7b0be6ed6645da85"
   ],
   [
    "tests/cases/token/expressions/expr-round864-object-value-array-in-paren.ts",
-   "6962db25c590e217c21ed8e069ed915662a54263dbe76f33e376ff52d86a49a4"
+   "c7881993aba9be87a4a5980b7fff29c8e322c302fe7868bb1d16ac65539f85e5"
   ],
   [
    "tests/cases/token/expressions/expr-satisfies-object.ts",
@@ -2603,11 +2603,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-shift-left-right.ts",
-   "d878dac5eccd1181854fe1ff7b363b50291dbf58c4647a092021775fad0e088d"
+   "019f410a29e38aeabf8098bed6f266ab9a71a63625db33bf56687f75a52762dc"
   ],
   [
    "tests/cases/token/expressions/expr-shift-unsigned.ts",
-   "f0aac872255b303a4fe18f3cddad1999c7612010a089cd1597aa762de3c811d1"
+   "97b9753d7f8d535b7c821b1118007217d2fcaba36c1b70ad169f1399bcb3abe5"
   ],
   [
    "tests/cases/token/expressions/expr-spread-as.ts",
@@ -2627,7 +2627,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-subscript-operators.ts",
-   "13f18fb1b95eb743fe5263d974cffaa4b9576c16fa5b2c1c8792d7c0669e5e55"
+   "dff9384deea25fad86813d3af614d860ff6d4cbc19bb64fb294ed02c9dd0492b"
   ],
   [
    "tests/cases/token/expressions/expr-tag-nonnull-base.ts",
@@ -2635,7 +2635,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-tagged-template-bang-suffix.ts",
-   "055ee742d44f0c85c9ca1459f7d9caed923d5361e8f0d3731065b1059ade81da"
+   "a899e7bd28f230c8fb329eb94fe4c5f4a6ebec53b1eb9600e10c2ef630b3de7f"
   ],
   [
    "tests/cases/token/expressions/expr-tagged-template-nested-tag.ts",
@@ -2667,7 +2667,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-template-tagged-in-operator.ts",
-   "74523ff891b691f034b5e7161b6138c7fdcb5dc535e8da6296daccac0622bb87"
+   "156498535f3d5516c0938b918255d53badc031caabae3f2497279ce3df1d0993"
   ],
   [
    "tests/cases/token/expressions/expr-template-tagged-member.ts",
@@ -2679,7 +2679,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-template-tagged-suffix.ts",
-   "d3055bd2fe695114864208874cbc231a8a8e30b71a90b3463c17f585afb96df4"
+   "bf70bc481b7063e2e03effbc4b81bafa6666c33a128fd26f2d113d2ad0a1ab0a"
   ],
   [
    "tests/cases/token/expressions/expr-template-tagged.ts",
@@ -2691,31 +2691,31 @@
   ],
   [
    "tests/cases/token/expressions/expr-ternary-arrow-branches.ts",
-   "5a479332e028cbe2170668ed74b5c678bd158181de9f167ac8a6df4576662743"
+   "34389eec20d0c465d558afdf4dff7404487962c48930bb9882aa564175f404f1"
   ],
   [
    "tests/cases/token/expressions/expr-ternary-in-call.ts",
-   "8d979cc4dc6eb1dae0931d1610a6dbfa8bf98ef037c2ee929491833deab82235"
+   "1daa6bfd1cd638cab4666ef552c2f4277f056589a2e41d85d15ad20335d35382"
   ],
   [
    "tests/cases/token/expressions/expr-ternary-nested-left.ts",
-   "75a93ee7b9610727ae652e3a28990285643d9d6dfa7e584226173539523b0b8d"
+   "bebdd89a48de64c2d903d0a22f6313b76ce1e43a39d79d2d1daa4f910c5840a1"
   ],
   [
    "tests/cases/token/expressions/expr-ternary-nested-right.ts",
-   "065093ae52ad063904337a2c1022bb37ab3407fac893a66a2f3253c6a111c999"
+   "86968dfae7d4e0e9bf2ca5c588b719fa0ebc224946d2cb8d2737d550dad81c82"
   ],
   [
    "tests/cases/token/expressions/expr-ternary-nested.ts",
-   "836972ab92332dbd4d03818b82434f7ab5a9909f39546d46d82ade9358076a58"
+   "ee5697b78577b8b942a941fcbdfa196f36f25e0bc6d34480e001f220569cc18b"
   ],
   [
    "tests/cases/token/expressions/expr-ternary-object-branches.ts",
-   "0078107ae1c665e31c35ab6af98f2133f33929bfcfa0afb0ceb60205eeb6cbff"
+   "d71df9fcd16203699c1cb2d575efc610a9f848da1f1bc2ecd669771784740173"
   ],
   [
    "tests/cases/token/expressions/expr-ternary.ts",
-   "8c729abb9f35552ff30d709ef041ec53bdab07fc78bcdce6b13dea8e5749af5a"
+   "0804e50b60db8dab2c9a8286667e67beb7029967b0dc1f7142e6fbcd2d23075c"
   ],
   [
    "tests/cases/token/expressions/expr-this-member.ts",
@@ -2723,7 +2723,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-this-tagged-template.ts",
-   "e7d3968cfe1dbb5e4cdda1bac0fd2f90d65c4425bcdbc9a718e36b7bace87ee8"
+   "c6f7459cfe506668984d2f22b7e985da75c45368d2b4e562b75b05b159c1517d"
   ],
   [
    "tests/cases/token/expressions/expr-this.ts",
@@ -2751,7 +2751,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-unary-not-paren.ts",
-   "734529e04b06f9727512b260b954d51a53c310a6015c9a4c7431aa09f6173cd3"
+   "1c4ca61a6008ee32db9ef50cd76902fcb91785cc04ca800ee5e8db90901e3262"
   ],
   [
    "tests/cases/token/expressions/expr-unary-operator.ts",
@@ -2783,11 +2783,11 @@
   ],
   [
    "tests/cases/token/expressions/expr-value-array-bitwise-in-object-nested.ts",
-   "7e7f1c7f1cb1b2fc625a9840e0eb0fa5055768c462a8dc3e8e1cbf20c7559069"
+   "43f7a2c90eec345fbb497540f3499a0380db0927a4d235eeb3bee8f374fa6b2d"
   ],
   [
    "tests/cases/token/expressions/expr-value-array-bitwise-in-object.ts",
-   "b89388390b592aada4c55a353fbb0631b94bc6ab59fc2315d8e34572a2c2870d"
+   "a59fc0b05502c1ae239abc566d76c7f5deb006933c5dfdcf02beb95e91ae8bda"
   ],
   [
    "tests/cases/token/expressions/expr-value-not-literal-type.ts",
@@ -2799,7 +2799,7 @@
   ],
   [
    "tests/cases/token/expressions/expr-value-paren-not-type.ts",
-   "47dfa0b6b923d90fcadac0b60b02a807c8d52ff71e602b4c0cb047ca198aaf04"
+   "a107716577e35ddfc56705a6be017792c0bb1f51194e038277d736ead1776bd6"
   ],
   [
    "tests/cases/token/expressions/expr-value-position-not-type.ts",
@@ -2811,23 +2811,23 @@
   ],
   [
    "tests/cases/token/expressions/expr-yield-await-context.ts",
-   "0e30fe5a9e293161084e9583b1eb449e11e503e36e784e42119c1e6b14fa1eb2"
+   "dac2bc214ddca23b2c17c58fbfc074b08ea6f2f108d5d89bb6bec02fefc3f2c6"
   ],
   [
    "tests/cases/token/expressions/expr-yield-delegate.ts",
-   "ce6aef417d6ff5d7f8be938c1222bb0abf2f969f132244e6909f573b3381957a"
+   "3976034b0678e1b0f3e5be8ec0bb3b99ad570ac9398af5a128c807b8506cccc2"
   ],
   [
    "tests/cases/token/expressions/gap-angle-assertion-paren-operand.ts",
-   "3d618fb31da0726213b1f5826d7689c1838a8344531f470a8635e6bc83dd2cab"
+   "fc8250f22fd9a7720c23e56543a2649d415742321f5e7748372643044503843b"
   ],
   [
    "tests/cases/token/expressions/gap-angle-assertion-then-compare.ts",
-   "e4ce4cfe1ec2e9030df9c2b655294ee4bac540be877e17009f1c7c3d4648273c"
+   "415185dd108f4d7aaa02aa9d7d7c840d4252810104c487511d0ea423b21f5f5d"
   ],
   [
    "tests/cases/token/expressions/gap-arrow-return-parenthesized-function-type.ts",
-   "5f470334b8710946a5fb1e203e33a6d746d70253e6beb281ba2489fc08b00fcf"
+   "ab87c3052d01bc8c266b63b370df6f9dbe589e65c635a2505a1b31c2f230b9f8"
   ],
   [
    "tests/cases/token/expressions/gap-as-bang-array-type.ts",
@@ -2835,11 +2835,11 @@
   ],
   [
    "tests/cases/token/expressions/gap-instanceof-then-add.ts",
-   "5f0e6ce0daed746b0e7675e844b970ee43e370cd3ebb2f4cb2a9cd291c1e4bfc"
+   "97ca8d37da905da860bca141a7858c0266f7aa5f50e55d5ce2e86714963a014c"
   ],
   [
    "tests/cases/token/expressions/gap-r1231-decl-newline-operator.ts",
-   "0f9cb95b7cd4a2718c52a41a1a930d74ef4b1a8e5ac4beaeb9a7ce4a83219bd5"
+   "cbdb70d9c980bde55d44888fc8795fb742d7113563fd2dcb9729221ca4c60271"
   ],
   [
    "tests/cases/token/expressions/gap-r1236-new-object-literal.ts",
@@ -2863,7 +2863,7 @@
   ],
   [
    "tests/cases/token/expressions/gap-r900-arrow-return-type-newline.ts",
-   "e945c58a438ba50c72791c51664f4261d7573470db73f4b43c26000062ed5dbb"
+   "c4d3e99c0b52f15bc1533952e218df6bc961972ab0c842809d7fa429fcb62f93"
   ],
   [
    "tests/cases/token/expressions/gap-r902-new-typeargs-newline.ts",
@@ -2871,11 +2871,11 @@
   ],
   [
    "tests/cases/token/expressions/gap-r907-arrow-generic-comment-before-close.ts",
-   "1d722d8c2736f62b734a25a9d993298ce471fc143747c265dde70593b90a515d"
+   "6120a255d703afe00a2a4ddac12d27c6466a550798849b0fc456094bf08494d0"
   ],
   [
    "tests/cases/token/expressions/gap-r907-arrow-generic-newline-before-comma.ts",
-   "d982000c5aafd08d4c2fd736fa0373f49237ae3b3f19373343f01bcfa857c9e8"
+   "ace206ae51987c73a7c52a569235238c840d37f8f97723195848aa298ffc8075"
   ],
   [
    "tests/cases/token/expressions/gap-r907-class-expression-name-newline.ts",
@@ -2923,7 +2923,7 @@
   ],
   [
    "tests/cases/token/expressions/gap-r953-computed-paren-name.ts",
-   "decfda4b40e58378441a9964920873d360deec809eb59782ede8062897b64d1e"
+   "65cf892ba9f0856278b0c16d872e2a6693aede569c403415536df09759520732"
   ],
   [
    "tests/cases/token/expressions/gap-r955-yield-await-outside-context.ts",
@@ -2943,35 +2943,35 @@
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-assert-member-assert-call-twice.ts",
-   "fcf82d0a20c07669514dd8708eaf984981b0ef0a4ea8b75fb5f8373c289fb5f2"
+   "7bd6ed62f9d699c07e5d2f88cabc998144c20157e33ab17f9f96df11393312be"
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-assert-member-member.ts",
-   "1b1f32bf1130b7026444ce853afb07d6ac00addb224ed8c2e94dbc679f057ffa"
+   "c197f09bda6174fd84ffafea7194fe4591a5ec02043db4fb3019dbf3e7cbf4ca"
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-call-triple.ts",
-   "23fa335d87d7cf530a46191324b17bd77b0dc4524ba497b88701dfeca6fe456b"
+   "0daab18db838f55b38645a7247cf3d3005100ce6a30fc13a7e375b2707a93976"
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-index-assert-call.ts",
-   "de708f3bd2f4537dd2cd66b31e5ba8bb0d023904ba740a01c5fedda3d318c4b6"
+   "400421172ab1e63f156a2fbcaaf91b6157d46eb65876e7a1a0e111f18680dd15"
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-index-assert-member.ts",
-   "c4521c6517a4e6b8174aa3f9a4e16986465ec5d77fe487972c27e58d25c6f00a"
+   "f5aa8394ada4aff624be677c14f3d92b1b1598772bee7836e1f0a879770bb22c"
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-index-call-twice.ts",
-   "db2d5ec0b2f00eb7e09c9f132f8b63d38a418a059a87e214da59b0af599275dc"
+   "ba196a589f66f0aad4dbac4a1ee5b6f68758405bf64ffc84c48089529def17be"
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-index-index-call.ts",
-   "914d664f0781e94684ff8200c9b9091812b379d2112e7adc164d4be2930d3e30"
+   "2fd888b3a0e8527bd969de84f2481479db4678c4c0b07be4807827f3fdf0623d"
   ],
   [
    "tests/cases/token/expressions/gap-r964-opt-member-tagged-call.ts",
-   "4e595e0cadaf11f5a39bc6a89c1d2264cf8eb56e67539d336b68391b91a80ec1"
+   "59a8612f4381b88e4702a9727c1fef0d2612dd5bd8b64a602f9426f5069e31ae"
   ],
   [
    "tests/cases/token/expressions/gap-r971-nonnull-call-thrice-member.ts",
@@ -2979,7 +2979,7 @@
   ],
   [
    "tests/cases/token/expressions/gap-r971-opt-assert-index-member.ts",
-   "d1749b3a1415ecf0e02d33875a8fa3eb0a5709bbc652db9bf0b5f0602ebbec6a"
+   "0a51f9f7afc9e45f405d6d4d1f3cd9465cc0707380d88dec6832b8de129bce15"
   ],
   [
    "tests/cases/token/expressions/gap-r973-member-call-thrice-member.ts",
@@ -3007,31 +3007,31 @@
   ],
   [
    "tests/cases/token/expressions/gap-r973-opt-assert-call-thrice-member.ts",
-   "06406bb393ab5c1957e9628e90d0fe1019fa0039ab2add95bc0cbb7a066d6c8d"
+   "da516a3ed1a81191298e925b7ac3e718a2c8f123a94230987066fe2d70195045"
   ],
   [
    "tests/cases/token/expressions/gap-r973-opt-assert-call-thrice.ts",
-   "cb472c8a3675a576801280c3212ac12bd78866582cf2084630aeffa0f0ce6104"
+   "d8eb9cfdbf615cd1fb5818f3ed1ddb91e89354f9af29efff17538298d189cbae"
   ],
   [
    "tests/cases/token/expressions/gap-r973-opt-assert-index-call-member.ts",
-   "0037dacafe652b98fd5ecc52d20ca4a5a896c8a274973e6e250d83160219d9e7"
+   "4d77fb782c85c85947219409a47a75c5e8b54f1ae60af844d5bfcd14169a867e"
   ],
   [
    "tests/cases/token/expressions/gap-r973-opt-assert-index-index-member.ts",
-   "4a76f59be3699b88abb6a34e92f3559ebe47a5f290b753e191f86d967444e4fe"
+   "d0f39617c6abd5922fc075dc6bb8dc6a6a59964564b32d9d1d6ea9dd6e594d5d"
   ],
   [
    "tests/cases/token/expressions/gap-r973-opt-call-assert-index-member.ts",
-   "ef7d9b2172e5ad3e180d65c3bd9a3ed6bb72bc66ddc1b40a801189822b9ce2b5"
+   "4051e86c3b991943ba450d07d5252d3fc5719c58348a286fe9b8449a0b4a1bf2"
   ],
   [
    "tests/cases/token/expressions/gap-r973-opt-call-assert-index.ts",
-   "dac36acc6a3821d870c8a448d9f26ea0bb8cfcabde820c0d3c5563195ee7cad9"
+   "e7299a28a033a4340a144fa59ec1d8f5b5d63f82c5ec3d0d2ba5cb3f71a902d2"
   ],
   [
    "tests/cases/token/expressions/gap-r973-opt-index-call-thrice.ts",
-   "2d42a1cddb0f56fa714bd5676c2e6c9bacc665e1f36f35771fc241b43055e1cd"
+   "f4b7feaf0a013f88a13b4592c836d90c1a2c2ab47cba1470f4bf4306e6e5e94a"
   ],
   [
    "tests/cases/token/expressions/gap-r975-nonnull-call-assert-call-twice.ts",
@@ -3047,7 +3047,7 @@
   ],
   [
    "tests/cases/token/expressions/gap-r975-nonnull-call-thrice-operator.ts",
-   "da602d91e8b502d982d3fe37b32fb9e5f45c598fac3bed55464505bb336d4b9e"
+   "b94e3528e83152fee55d047ee4e0ce7bf0cf1b8e97f34e8fa11602f5697e1b9f"
   ],
   [
    "tests/cases/token/expressions/gap-r975-nonnull-index-assert-call.ts",
@@ -3055,7 +3055,7 @@
   ],
   [
    "tests/cases/token/expressions/gap-r975-opt-call-assert-call-twice.ts",
-   "abc3a6bff05e89fae5b4e5e5096e7642c3b8ea5dcc80c2abca0207d7d0ed7d67"
+   "98e98c4b5e0cd3aa84abb8a2717c31c46497b071c254f6cd7b72702a9ce367d8"
   ],
   [
    "tests/cases/token/expressions/gap-r977-inst-tagged-template-expr.ts",
@@ -3075,15 +3075,15 @@
   ],
   [
    "tests/cases/token/expressions/gap-round743-chain-in-binary-both-sides.ts",
-   "da4a264d5e0641fcd48601c95039df3908ffe7dcd85e62d9cc844a7bec41d295"
+   "1b3bbd2a060ddbb2ed35e14ef6857ef8ca281da736f72a5e4dbe9d175c7f7a9b"
   ],
   [
    "tests/cases/token/expressions/gap-round744-chain-in-binary-three-operands.ts",
-   "65de3491cff12784ecf315034b6e4f4c0c61a0ecd66bab6badd9a95b07aaca5f"
+   "7cf4933c5503fbfe20b085801e13e741d55fb814fc4abf004846952e84b0f37d"
   ],
   [
    "tests/cases/token/expressions/gap-value-array-bitwise-in-object-paren.ts",
-   "c560a2a8b24f88c560784a5779bd84c040d4d180f12a2e369d8d0d534e70a7c6"
+   "1ca2057f7222eb80a8a368ff6cc79a69639e14abfc408f475c34f2623ac1c278"
   ],
   [
    "tests/cases/token/expressions/new-member-callee-newline.ts",
@@ -3159,11 +3159,11 @@
   ],
   [
    "tests/cases/token/lexical/lex-division-after-paren.ts",
-   "7fd28f0a77553b2ca68118206484d14d8bdc7701defa15f571cc1038dece5e0c"
+   "0110af22590f967233728ec2ccc11cc91f3a605fdb154a04b5f3455fc2d84407"
   ],
   [
    "tests/cases/token/lexical/lex-division.ts",
-   "145087f4c4963239221719db7db1b3ed21f60633facc61016f78e4e3860a4eaa"
+   "2bd9fbc768f492d22a84b918640bd462011f4884c1a3b016cf2b8812febad526"
   ],
   [
    "tests/cases/token/lexical/lex-generic-multiline-constraints.ts",
@@ -3321,7 +3321,7 @@
   ],
   [
    "tests/cases/token/lexical/lex-member-number-name.ts",
-   "b4a131a3839308624c7ef66f2fed66aa121f013e813c0457de4de50cb20943d7"
+   "2168df3902d19a488e19fa5030231db16b87767e54b03971e391780722dc0b0d"
   ],
   [
    "tests/cases/token/lexical/lex-member-string-name-class.ts",
@@ -3329,7 +3329,7 @@
   ],
   [
    "tests/cases/token/lexical/lex-member-string-name-interface.ts",
-   "e63ec63497235dd6bcca871d7ac0cd36f321ac3b864095e87221a2d39bb63e65"
+   "59afee912097e4c67aceddf92b4085ea0bddee7685d1fd9d34ef76a0803ea690"
   ],
   [
    "tests/cases/token/lexical/lex-member-string-name-typeliteral.ts",
@@ -3413,7 +3413,7 @@
   ],
   [
    "tests/cases/token/lexical/lex-optional-chain-digit-lookahead.ts",
-   "7ab09666987b0f5d494e2eb048f9027a39d856126d53a935c0d52330dbc76e83"
+   "7e59d3f77a5631c4614b7df60230e1d8201a965ef9a8ed5b64a1464e0eabad2d"
   ],
   [
    "tests/cases/token/lexical/lex-preprocessor-if.ts",
@@ -3434,11 +3434,11 @@
   ],
   [
    "tests/cases/token/lexical/lex-readonly-as-member-name.ts",
-   "160be0875420b423e4ffd752aea515250e34bcc04e10d35a4cad469d037f99c2"
+   "b9b06c7a2b61711d0b99fa0fc251e921fd843b8f63f236b338f19c9ca38f6cf1"
   ],
   [
    "tests/cases/token/lexical/lex-regex-after-assign.ts",
-   "4e848cc6c1f57adfff616fe4e900235de3df2b7930806f686c66b324b31310b5"
+   "8dad812df659c5ec84d28050eeafc5eb7e948ccad8b5bf552dbbd6db77f4d610"
   ],
   [
    "tests/cases/token/lexical/lex-regex-after-comma.ts",
@@ -3575,7 +3575,7 @@
   ],
   [
    "tests/cases/token/lexical/lex-template-tagged.ts",
-   "6444fd5e15e52a752fcce8f54736fccea66d1ce563b8ca1a5d707b81adae278b"
+   "cfe009cf3548b6db4aa94a5395b67ffd14d9b98e4ed53b88a2eef00cbfd88f24"
   ],
   [
    "tests/cases/token/lexical/lex-template-unmatched-brace.ts",
@@ -3607,7 +3607,7 @@
   ],
   [
    "tests/cases/token/lexical/lx-member-keywords.ts",
-   "f2d824b4fe43a6c8dcddef75f45ed3085631b0dd19ccf2c8abc0c32b295b8707"
+   "5327de0f2586e323276d24d70c901b7e6efc9dd597f6bc1d740c9dc44d5ab6e7"
   ],
   [
    "tests/cases/token/lexical/lx-numeric-literals.ts",
@@ -3615,7 +3615,7 @@
   ],
   [
    "tests/cases/token/lexical/lx-optional-chain-digit.ts",
-   "806c0d9ca94ba81c638d9f28b49da0b75d94b9033af7c1c3f8cbce42c7c9ee1c"
+   "788e4b08b4c708c67164fd1d0e560933813d6c0c460226c6ca5d2859d9679500"
   ],
   [
    "tests/cases/token/lexical/lx-shebang-cr.ts",
@@ -3779,7 +3779,7 @@
   ],
   [
    "tests/cases/token/modules/im-dynamic.ts",
-   "22dace9532953a1d071fa889ada2026b81669900de5d93c671853f7bbf92f700"
+   "4fe466a508a9bdd173ba8b31b1e66e32369f9f9a65b46f8309c550568d807ab3"
   ],
   [
    "tests/cases/token/modules/im-import-equals.ts",
@@ -3907,7 +3907,7 @@
   ],
   [
    "tests/cases/token/modules/mod-export-default-arrow.ts",
-   "6b23a54fa205a41ed1ea7eeb310b1cc770d0c1b98bc07222ede36c44347e2ab7"
+   "935133a25f1d22c8173afd66abfe3657c5ac0fbcdcfbbe91decb5690fd2932fd"
   ],
   [
    "tests/cases/token/modules/mod-export-default-class-anon.ts",
@@ -4223,11 +4223,11 @@
   ],
   [
    "tests/cases/token/statements/expr-async-generic-arrow-spaced.ts",
-   "52cb16c483c389b2f9f6938bf93d82b1469d354db59670166894f4ca5b4327d1"
+   "735f8481b7fea74a1c9a42b9069b51614511c62af78809bf0b494c08690e1618"
   ],
   [
    "tests/cases/token/statements/expr-async-generic-arrow.ts",
-   "6e106fc0a178ec6879c8e9c351a98852746531feb15f832e48bc7b7eb8dbe0fd"
+   "e9d7f409f464abe01a7426e13659b8012ad444296e96a8d39759191e4a5ee9f4"
   ],
   [
    "tests/cases/token/statements/expr-async-identifier-value.ts",
@@ -4267,7 +4267,7 @@
   ],
   [
    "tests/cases/token/statements/gap-a-comment-06.ts",
-   "2d1261b897b14944ed9d3727391322168b4c45d5f23088a600452c069f48ee74"
+   "555c7adcb48cceb1ce20411bc8683e6bad03bbc6a950a20b50cff3e10730c423"
   ],
   [
    "tests/cases/token/statements/gap-b-oneline-01.ts",
@@ -4283,11 +4283,11 @@
   ],
   [
    "tests/cases/token/statements/gap-c-optchain-nonnull-01.ts",
-   "36a2e8e691245da893272f89e895da46c50b255772efd90cc8250e2af008130d"
+   "686c8808bf5482fc621bd4aa5907076b6b7055802d48b7edf7bb0782f3fc72dd"
   ],
   [
    "tests/cases/token/statements/gap-c-optchain-nonnull-02.ts",
-   "b0a7f0fd1ec3f99c31287a8c8091726b19caf995ec2787ca5f9a04507ca9441d"
+   "12923880819ba2340a6f311ae05c574d6f101735bdc58acf5e64a899f8bf0495"
   ],
   [
    "tests/cases/token/statements/gap-crash-try-catch-linecomment.ts",
@@ -4311,7 +4311,7 @@
   ],
   [
    "tests/cases/token/statements/gap-d-generics-tuple-mapped-02.ts",
-   "a48cef22f128a99ac6c3465346bb9f7627e13e86646d4bebdf044c50a04f01c8"
+   "1282307fb5cd04209782340e0a9928fb295f36085e4bcb57d50b2b838194ffb9"
   ],
   [
    "tests/cases/token/statements/gap-m-misc-01.ts",
@@ -4383,11 +4383,11 @@
   ],
   [
    "tests/cases/token/statements/gap-r992-forof-ternary-iterable.ts",
-   "56f07d9a45ee3ce46288328414374ea72d439fd46e9ca7c721ef7a2371097264"
+   "f614dc8fc0fa93cb48d016f092e0034034179b102ca7fdc550407a3e231b4dac"
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-arrow-01.ts",
-   "778a799a7f1ce3ab1bd38d34a03528c8add388cd1232d13f31881b41b80fe226"
+   "adfda33782740d7963c63caf56484240824fbbe1c9855d689aa19e6361eee7c5"
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-async-01.ts",
@@ -4411,7 +4411,7 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-gener-01.ts",
-   "d960e9749b37a4d054eaca7a7f76e0e741c237510f45c0858657e09d0e8077fa"
+   "ac870b75c7a48e074bf1ae7a66eb034a0b16ea68fec0b02c06b4cbbb57d8281f"
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-generic-01.ts",
@@ -4427,23 +4427,23 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-optchain-01.ts",
-   "73dc1f1f6bf0fb72e7c7d2cf5fc27aac69183b1063daf5e194f6dc3f7c78247c"
+   "83be75aaa111e8780799d21705dd6644c560a12271eb328c8d4898c639c5b917"
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-optchain-02.ts",
-   "d363b1027412de766c244cfe02ef98156b0a809bb29a8b03e980f755312a32b0"
+   "e33a37ca42f1e300e617ecf0ef281ece6c7a49371d180ad7c7bba3e89c724572"
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-optchain-03.ts",
-   "bcda035b3a6d0fda72f053070a0029dc21cc8d6c6a54a813e53023d2600f2bcc"
+   "936b11619da4bff725c82df113635a5988fa6cb7dcf3004e12392ff03777e202"
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-optchain-04.ts",
-   "a4299577b3171faaecbb4c366588dbdf04a077e9917dd5e7effdea404e4cdf24"
+   "4a9094046561b24afd1a0d7d8129fa326d33b82d87e9c8fa695f4faa7a2e71a7"
   ],
   [
    "tests/cases/token/statements/gap-sweep-comment-optchain-05.ts",
-   "211cb1d1fb1a845b4bedfa1db8fe9bf542cd0b868ad5e81fc23a9bf297d94e85"
+   "ecd89205767ebe32d82e5c1cd895d78a9305b7f1dc13e6cfdbadade4aed0bcb3"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-arr-01.ts",
@@ -4455,15 +4455,15 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-arrow-01.ts",
-   "760bb0250ff23a400ad7b4094af1824b7471fd6b65b6ad5a7c4b49a36c61c59e"
+   "9ecf6ab984ef6c056c5fea22e3117386828bf8218676cc517b9302f237e1ff84"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-arrow-02.ts",
-   "e0bf6ccf950fb28dbc2f696db8b95821331183648659f463644635ac4d4647dc"
+   "e0b43bdb4cfc1fa463b35336205c32609b1b685c72ea2271136a96fbbac38b5a"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-arrow-03.ts",
-   "280b4ce3ee97db1f78e1903b33a7ffdfae48d36d5dbecc5a629b330ec4b99623"
+   "447da8a00239bb69c749ece290fe9eaed6eefccd337b28dd48a2dcbb083be3be"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-async-01.ts",
@@ -4483,15 +4483,15 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-cond-01.ts",
-   "9ceebcc73b2fdb91926188cd0f57c325f153acac7811c781a7e20603732cd464"
+   "b78cc249e4ce8ee853d90d7755b96d5bcdd3275333e41981c2e7ddabffa4e76b"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-cond-02.ts",
-   "1fc615444d3f90ab1bc966c4aac6ef86ae063562ffa30cfd4d919122e34dd117"
+   "b579f2412e9a15a7bfbd66991cfc9c747edba99f556d63074f70c38686d57817"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-cond-03.ts",
-   "d625e724b231139800d88cfe55f9fc0e7f6a7f53c16776fcdc5e6054a1e608ed"
+   "0b1ba0770ff891083ccc5c0662d633d62aa39680ccf48a1b351eab7758b0d5b3"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-destr-01.ts",
@@ -4531,7 +4531,7 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-gener-01.ts",
-   "85be36b05e06a27f711b676c6d8d03a0e5db59ee595457fc7acaf0e53cabca51"
+   "33851b60b68d5ff5590c75b40680fc4557c81370f2238ad6b2de602e6e399114"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-generic-01.ts",
@@ -4591,31 +4591,31 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-optchain-01.ts",
-   "3f2d6a2eef377f78dde058cbbc550ba34e6451d8afa35c6c8b5bd5b3403bd35f"
+   "dc594ab47d09de9987812b708cf62a239fd9fde7c5fd4615b47057fd4e9fd6ba"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-optchain-02.ts",
-   "85e48b1450c010adc7fe6aebd7c564fd8260af7483ccacb9f34399c2abb43880"
+   "074efb7cabb4d44e9883d57d255a663d7ce5386f95dd41fa56e81a1dbf0d849d"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-optchain-03.ts",
-   "fbcf68dc6e9cde984b02f20f2b5e45b18308180c6ec0008f859d0f79a7c23511"
+   "70dda1b40f058f4d5f364114becac2cd4e583afddd2f008d884e08eefb243a1c"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-optchain-04.ts",
-   "ef81a5b8f191217afcd9384143dda2493ffad5955aede571e60f7b7b8d5ddc40"
+   "a8eab9b8a9d471a429e2d2006b47679c26d95413c1f3d96f572d9898b20f4868"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-optchain-05.ts",
-   "714bf23b841b4e93cec7823ce5b4809ce763e536cdd7058e8f67c8bbc8a6f2ac"
+   "c61bcc2eef3c485eeca4326036a7b016fbacb70a29ef677ac82fdc09e56eb03d"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-optchain-06.ts",
-   "f49dcd10de5b804957d2aa954dc6747b9b4f522b4a12f9d0dc7213c5216caa47"
+   "284489555e59d6726336395bab369ec4c31e246e8846794385af90636cd1c9b7"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-optchain-07.ts",
-   "4fbceb598ced9a3eab20bed1ad81063bbebeb9767d262fa2f43d2cbf83f6e6e4"
+   "ac4599b45baad1a3f6d268e6218d678d78b603431477f5078dcd767b77563ae6"
   ],
   [
    "tests/cases/token/statements/gap-sweep-linecomment-switch-01.ts",
@@ -4663,15 +4663,15 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-arrow-01.ts",
-   "87c4c4f2baf00dbf581859a349454905abdbe8128d12aa14fb18f417a31d756a"
+   "991842c5114312ac3fc90af3b0a88aa28961ed05c322a20554f688d3c56df378"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-arrow-02.ts",
-   "ad7ac2ddef144c3b674ced7638306e87ecd128a0061f91d51aa66ccb0ea8f48e"
+   "09834bf449368f92dedb62535cb68285a12ad165f81b19d3b708729ce519d029"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-arrow-03.ts",
-   "47f9a7778a61b8934be49cc8ce2330a37e6881ee228fb5428213a8be4746f14d"
+   "ad6ac12af0b1fecb57c581a8ae6e26b737e1d5868b367c9f76b72d579d2eb608"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-async-01.ts",
@@ -4683,15 +4683,15 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-cond-01.ts",
-   "973544359e243b5dffb3f23bdc45cedc45f8e2b42c10e246a79a75393a99cff4"
+   "2ba2cf31b414223862dae72bad94f4404f464585adf52e78d9bd3d858e2e63bc"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-cond-02.ts",
-   "e1c7d45a4aa26413977a72a0730da8f2c947a4dcfc695229f5e35e4aadf8074d"
+   "0a1fc9d2e585bb7614a34a39df9379139d5f463d828b228a6a49503db9eeaf19"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-cond-03.ts",
-   "36595603b5feff3a337dee6e2a37e5e22a2393e3723915384477323a4a828b63"
+   "317cc3433358fbebe0e835f7dbc5b6d5f16d9b32176d8be27a7f48d5d792a998"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-destr-01.ts",
@@ -4779,23 +4779,23 @@
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-optchain-01.ts",
-   "5e30bea5c5cb8c2753540346b8ad8704c7e086403af403f14ecf8915748147bd"
+   "4500db9373b3a637b2ec2515c942e5e93051213dffcaaeef203c3eab9454598b"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-optchain-02.ts",
-   "4dfa389918b847419f9fd3d9caadec855271221243f77785cf6ec9b593acebe9"
+   "e95ac5343bb21b6a9cf6430b8fecfacb22cc37ba4a0d8f2d4117405f8b024b4f"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-optchain-03.ts",
-   "2c0d7dd64554b38548889eab6bc628042ae09c667edac594ef1069df21977bbb"
+   "3eaa42bb495cc65b677bb07b703e9b136082c1a83bd5cee6d48fdae65f6f74d2"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-optchain-04.ts",
-   "ea752fc1e0adcece62243107b2c91e15ef5466bdb2746c710ed7361c81fc998a"
+   "de72ae792f30105cadf16565fd1c427387152eab4ff79982663a355a3061c8fd"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-optchain-05.ts",
-   "6eae7567f12bdbd468aa8d90653aa62cc270b9176618177b7697e6d926a210cd"
+   "7a96d7676f89811074406eb8f10f40ae269e24fdebac98b4b06ab5496615dbdc"
   ],
   [
    "tests/cases/token/statements/gap-sweep-newline-switch-01.ts",
@@ -4823,11 +4823,11 @@
   ],
   [
    "tests/cases/token/statements/if-else-with-comment.ts",
-   "65671f9a72682ad04e2159dc9d68205bd8b5fbcecaeae93524d1ee9f0e10b609"
+   "c235cdf5010a1dde39049eeab717081ffd0986522fb0ebe2967d2c913e2f8d60"
   ],
   [
    "tests/cases/token/statements/let-const-statement-shell.ts",
-   "843fdeb187dfb130e0ed583a64e1772ca6c98c9da5c4720216d53f7c4e5093fe"
+   "cc881e00e302635e5a248bdf4e8fd6b0e71679c3b1c78ee76f16540b8a70d4b4"
   ],
   [
    "tests/cases/token/statements/mut-stmt-asi-return-newline-expr-115.ts",
@@ -4855,15 +4855,15 @@
   ],
   [
    "tests/cases/token/statements/st-comment-after-head.ts",
-   "8be13a5add65de2f776676a0efa6b0fc2edcbadbdf778912de00dde1fb830a06"
+   "7e6ec5cf079a0eac71fab61912df1aa989ef63b5854ad01cd8fdf44b9d69f8ec"
   ],
   [
    "tests/cases/token/statements/st-comment-before-body.ts",
-   "fe6713a1c0075589ca21ebe8675ab7c5b8f997d48dd10e448a8c6390170d3b74"
+   "37515335c3a7b1b262806613e9728528b2b0f89686ea00738c77c4b4a456da14"
   ],
   [
    "tests/cases/token/statements/st-comment-holds-brace.ts",
-   "8c0581414b2aee10a79ef6731bdf16e290952e5163107503deee27185d7ad416"
+   "0ad892f7f7004d8aee2c470e44463c4e9c51a28918b596986378fecac7a2f01e"
   ],
   [
    "tests/cases/token/statements/st-do-while.ts",
@@ -4887,7 +4887,7 @@
   ],
   [
    "tests/cases/token/statements/st-for-multi.ts",
-   "969b3af8019d7bbd0b98f5ccd02157cee946a60d39061c7f6af331ecd7cf2710"
+   "4e47569718003cc7c13f50a7e3c1614d35a7b5b5f42eb54c2564bcfbbe3cc489"
   ],
   [
    "tests/cases/token/statements/st-for-of-destructure.ts",
@@ -4927,7 +4927,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-adversarial-shapes.ts",
-   "fb29fe81bc2baa9f852ca0acffbab96239587fdb9c0feeb53c7d975ff130ef60"
+   "0745a4d5cd412f153bf5200882ef3481a0bea3b8edf06998fec917ff71d6c9b0"
   ],
   [
    "tests/cases/token/statements/stmt-array-start.ts",
@@ -4943,7 +4943,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-asi-as-then-statement.ts",
-   "36c976fbe17923f45b2ab9806919e62aa7e2a6134eea5c40e46c6423bb5ee1e6"
+   "dadc115a489ebe3956285e633ac155c78c0685f5d70375b4fd13935cf1454f90"
   ],
   [
    "tests/cases/token/statements/stmt-asi-class-expression-then-statement.ts",
@@ -4951,7 +4951,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-asi-division-newline.ts",
-   "c4d97af53c909fb4d8344a4b93deb5e0477cd7300108d75915fc3e02a31a77c9"
+   "d53c8e3b32d4cfdf5116770d0f8b127ac6fd63cf5ff26f6b03ebeab407328529"
   ],
   [
    "tests/cases/token/statements/stmt-asi-if-then-array.ts",
@@ -4967,15 +4967,15 @@
   ],
   [
    "tests/cases/token/statements/stmt-asi-leading-semicolon.ts",
-   "b8fc133d211a119a69746bef10750d2c270a163b9ecb2a6e79108adc36c93cfb"
+   "2bc74df10c275a8043d41b6c6c85d26ce8994d9d3b4b6cf70f7961772b6d3bb3"
   ],
   [
    "tests/cases/token/statements/stmt-asi-long-chain.ts",
-   "cf6f2ff0d31f82e89595be2fd7486bcb5045f3d5c9d8ff4b00bf336446786f2a"
+   "b1fade065b74901f7039e9292ed32b6a7b96f0ea58fdafe95cb2d0b38e4e120a"
   ],
   [
    "tests/cases/token/statements/stmt-asi-paren-call.ts",
-   "2770a01b952d9e517b592251d16145c893377cfc5a63bf46b7724839fe5653c6"
+   "4232e6ee3a4d2de88bc4008595336b29601cd5f37ad481aca8c8991ebc9b7d87"
   ],
   [
    "tests/cases/token/statements/stmt-asi-postfix-then-continue.ts",
@@ -4999,7 +4999,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-asi-two-assignments.ts",
-   "9fbfde30effdb7eeccdb73aaca41c2515ed144bb9bfbd890556822a7ff47048c"
+   "164df8e4208da7144814b9f1a831363e8a2c0333aa1ab24a4adf1ae3224934de"
   ],
   [
    "tests/cases/token/statements/stmt-asi-two-calls.ts",
@@ -5011,7 +5011,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-asi-type-annotation-then-class.ts",
-   "e6bfac2d219b0a0f2595a74d2634e47a0f6172e04f9f51af2aa84313ed7a3579"
+   "0dae7a64a046420b545f3d7434d6b96dae02b839f098ca21da821266e9e1bfc2"
   ],
   [
    "tests/cases/token/statements/stmt-bare-block-bare-expression.ts",
@@ -5043,7 +5043,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-continuation-after-equals.ts",
-   "838d3f3818af4df99a4eed0f4fe4dd7cb6c106f071e8db8a96fd5a221f2a5b85"
+   "5362ebfceae0e9cede2c93b149e6b0edb8a6cf95ba1d534e28dca74c47eef8d7"
   ],
   [
    "tests/cases/token/statements/stmt-continue-label.ts",
@@ -5103,7 +5103,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-do-while-while-body.ts",
-   "0fc7a56dcbfd6d895a95a91390e974b50c4e861496d893060f01480f42d686d3"
+   "44974bed0596d4ff6935d9359588c26267c0a4a6d6977cc0db87f9b143248dce"
   ],
   [
    "tests/cases/token/statements/stmt-else-if-with-comment.ts",
@@ -5139,15 +5139,15 @@
   ],
   [
    "tests/cases/token/statements/stmt-for-arrow-compare.ts",
-   "e8617555de086630dada56c48bbe1915a02a58cb9f121bacdd9bf6905e6026e6"
+   "3fce000263368e26a38059d7898b0ec194443899ac3caca2918151ec80b374b3"
   ],
   [
    "tests/cases/token/statements/stmt-for-arrow-initial.ts",
-   "ef0e5328f9773e85dddccf4dfa90f7c24ae0b8e3ded09526860ae49a0063aa99"
+   "ad53f83179bf6e2898dcf3bd16c8b8359a511196678f62e870944a94533c053c"
   ],
   [
    "tests/cases/token/statements/stmt-for-await-async-iterator.ts",
-   "0420e2071685fc8f951d486e338b280df60f9c393f6d648d36bfc54f8b94918b"
+   "cd2f8a4b19a9a8eb6e1430258720381bdfeec3c39d8e41659c457fe313ffbb68"
   ],
   [
    "tests/cases/token/statements/stmt-for-await.ts",
@@ -5155,11 +5155,11 @@
   ],
   [
    "tests/cases/token/statements/stmt-for-comma-update.ts",
-   "8fea6b7f521f87d95a010ea62cfb4a7f0102754fcb4dba2fbfe6209e56871c46"
+   "e8ffe84ea7d060edc9660ba9b409005879ec52c5d6ccd74db2bfb868c3c4fff2"
   ],
   [
    "tests/cases/token/statements/stmt-for-comment-before-paren.ts",
-   "f2ff81c0ddd15e7355a3be46371482439ec7c56bb45774eb864482c789eff292"
+   "e7790ce6f5246e14b9ce2bc76bb9821fb53564d77f8d5548240e0df9e7fa42a2"
   ],
   [
    "tests/cases/token/statements/stmt-for-decl-kinds.ts",
@@ -5187,7 +5187,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-for-head-optional-of.ts",
-   "1cc8f91def4e5106772d3a871b140978582f7eb0b292bc397afa07a8407f1c7a"
+   "395c1c24789e403df769cee67350cb8eb737eb96c8c00e407b9a9869c79986cc"
   ],
   [
    "tests/cases/token/statements/stmt-for-in-kinds.ts",
@@ -5227,7 +5227,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-for-of-object-literal-enumerable.ts",
-   "c56b720ad5605f0472a7e00cd7219d2182fc0252e860c4213739d548d84ec8f3"
+   "6e24497020987e456ead8973de4631fe47c6023b3e033057cbd1400000bcf7a8"
   ],
   [
    "tests/cases/token/statements/stmt-for-three-clauses.ts",
@@ -5251,11 +5251,11 @@
   ],
   [
    "tests/cases/token/statements/stmt-generator-trailing-semicolon.ts",
-   "68de4d3bff7eefcdce0f50d27aa00481e9ee86b565ae472cf2f88b54f9a66014"
+   "f819eb57e7f40e1ad1849a41a7cc4314a936651b8f3321b8a498f28e8774c802"
   ],
   [
    "tests/cases/token/statements/stmt-generic-arrow-newline-before-comma.ts",
-   "e7622c61579a1d4c52ac798951b7bb6ad6ee609d69403ca10ec18b7933a50d47"
+   "3bd264a4f4e36c4930995d88869b47fb93e078fcb6f05fa0b14ec80a062bea60"
   ],
   [
    "tests/cases/token/statements/stmt-header-body-next-line.ts",
@@ -5275,11 +5275,11 @@
   ],
   [
    "tests/cases/token/statements/stmt-if-condition-logical-mixed.ts",
-   "9484857a9de652b3ab8939e555b882d1b5492561215dd442ebb9a6867a4fa88b"
+   "87924c6ad7e2ee44d94e62a698154e5a117f51e7e444edd066d8e3c0c3ae1737"
   ],
   [
    "tests/cases/token/statements/stmt-if-condition-logical-or.ts",
-   "37e71226759642e45dca1d8af833079db00cbafef9f1158ae7bf58be884c9408"
+   "abd12370f90e4e7c4c17952fdfccced3656a0046d42fa9418246638d4113eb10"
   ],
   [
    "tests/cases/token/statements/stmt-if-else-nested-if.ts",
@@ -5311,7 +5311,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-if-multiline-condition.ts",
-   "1152c102bb72c6be3642b417e528804a8ec42b16539e10b17ee9b0d81074f895"
+   "62dcabaf9dd870a31b759c99a8ce2b4fb0b59a28b14d10a8568a81e4eaa5379a"
   ],
   [
    "tests/cases/token/statements/stmt-if-nested.ts",
@@ -5359,7 +5359,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-let-newline-destructure.ts",
-   "a7a9d8c8c31836f9db8a9259fd7bec02876b40e5e97d19ac1b474c8f25324e86"
+   "f9f7db0629a6f0827eacdd104be498c938d90cba23d1f1b8a16794098aaf150d"
   ],
   [
    "tests/cases/token/statements/stmt-loop-body-next-line.ts",
@@ -5371,7 +5371,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-nested-loops-label.ts",
-   "d7e65d44a6f911d1922170546e4065aaa554332b8199940d9a26a52c8be03248"
+   "f1f4b2bab230d709377a4243e5da65f7bdeca7f745c66536bc0de7800b97f806"
   ],
   [
    "tests/cases/token/statements/stmt-object-vs-block.ts",
@@ -5387,11 +5387,11 @@
   ],
   [
    "tests/cases/token/statements/stmt-parenthesized-sequence.ts",
-   "2cddaf3088b023e5d798b07a51c8feee79095f36a766133ab899310f190fa962"
+   "8185a03a76ebd1e15072790eeb233a54e2d04e9573764833d468a9275bcae016"
   ],
   [
    "tests/cases/token/statements/stmt-r1235-bare-block-tail.ts",
-   "d3d481b5f95cbf58a44efd9ea8f0c9ddbd5cec2b797fd4bd1059cfbe78a723b4"
+   "4ae59c181858cd6b1d5979ce38e8d7b6f5c251c77b0046df714e31103335f621"
   ],
   [
    "tests/cases/token/statements/stmt-r1236-value-word-brace.ts",
@@ -5403,11 +5403,11 @@
   ],
   [
    "tests/cases/token/statements/stmt-r1242-label-body-literal-head.ts",
-   "74ee03d8c06525fdabe499569a9a8eab720831ea12303956ca8d132842fd35f6"
+   "f301e57643f1136dc2d8fd079a287582ddfcc668d86ef77dcf77a56de1273dd6"
   ],
   [
    "tests/cases/token/statements/stmt-r1243-ifbody-bare-block.ts",
-   "6736f29170d52317ac236a263df325d1e03f57762dfc18c7189c09dec7b40933"
+   "ad6e0b90ac7adef469fb8410fc47c12d35bedad506b76ad2ee9bae2004d83040"
   ],
   [
    "tests/cases/token/statements/stmt-rethrow.ts",
@@ -5463,7 +5463,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-switch-complex-case.ts",
-   "5464b64f9f8c8154a1ebd613027a1ff8fdba2024f2dd50a2771d22914f4b7479"
+   "16da41d7238b11267b0c113890e47da60f03277a798fca18e3d54149573d14e3"
   ],
   [
    "tests/cases/token/statements/stmt-switch-default-first.ts",
@@ -5515,7 +5515,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-ternary-statement-boundary.ts",
-   "212ddb4ec6c0d81c74c22153f8392660202c6b136d5842099c9af16e5b2c5145"
+   "3d56b368be56ffba65371aacf325ef5a1b248af2b7ed577a890f70dd4c7f0849"
   ],
   [
    "tests/cases/token/statements/stmt-throw-new-error.ts",
@@ -5587,7 +5587,7 @@
   ],
   [
    "tests/cases/token/statements/stmt-with.ts",
-   "6f89a3a22b688f1aad02423d11dd6ed625435e5dd380c25415f684b88d22362b"
+   "ac980a13b76f53717fe3d820c813a44a0ae379cdad02118bba414791aa3090a0"
   ],
   [
    "tests/cases/token/statements/switch-case-label-newline.ts",
@@ -5680,11 +5680,11 @@
   ],
   [
    "tests/cases/token/types/gap-r869-mapped-minus-comment-1.ts",
-   "a5a313dd5ec3d178234bcb3b51e30dd11ce7211f7716fbd0718d25d0c5f26d59"
+   "3c16f202d64005234f4a282f6d3fb6645e30d768decd49fe9be22c5406aca083"
   ],
   [
    "tests/cases/token/types/gap-r869-mapped-modifiers-comment-1.ts",
-   "6f5bd3e56a3bcff72286326fa39ced6ca4117159e160a689ef1c949f4f0cebcf"
+   "10de7d33ae20d8b94decc2cae02765b720ff2b5da0a67eb1a49166cb7424285f"
   ],
   [
    "tests/cases/token/types/gap-r869-optional-call-signature-comment-8.ts",
@@ -5764,7 +5764,7 @@
   ],
   [
    "tests/cases/token/types/gap-r922-mapped-modifier-space-before-colon.ts",
-   "77cdbd8caeec88c674bf27c58ff13cd1a018a831629295b36bfc3c354b3cb7c0"
+   "0b18fb6e438dde9a09886891404613a086203a01b77578edec47e15d0f33351f"
   ],
   [
    "tests/cases/token/types/gap-r922-tuple-rest-empty-bracket-comment.ts",
@@ -5784,7 +5784,7 @@
   ],
   [
    "tests/cases/token/types/gap-r956-predicate-paren-type.ts",
-   "4218c9f569de21f1c9d4f9bc2e22e8b2bc60c2eb8792250b0346934b06c34306"
+   "2cd751dac52719738ae00c94e36efb20c172db1854e478d1d6edc3705b837826"
   ],
   [
    "tests/cases/token/types/gap-r958-class-method-predicate-paren.ts",
@@ -5856,7 +5856,7 @@
   ],
   [
    "tests/cases/token/types/mapped-member-after-value.ts",
-   "e0c8bb5de123a352c58a45b3565420311ecd0eba90d0a62484ade0a56798b1fb"
+   "6ee9717f251ee621a4a175baf22945c1eadd430e6143b934b9166c32331be85d"
   ],
   [
    "tests/cases/token/types/mut-type-cond-generic-in-true-branch-152.ts",
@@ -5896,23 +5896,23 @@
   ],
   [
    "tests/cases/token/types/mut-type-union-after-readonly-103.ts",
-   "f395bb1c9626d28de0d2f67b670bca9851705733c19532b8a0b203746282f644"
+   "1cf13f9d0eee56a00cd7220435bef518c0ef251de4a1794fa47b252322adc4ae"
   ],
   [
    "tests/cases/token/types/mut-type-union-after-readonly-104.ts",
-   "f395bb1c9626d28de0d2f67b670bca9851705733c19532b8a0b203746282f644"
+   "1cf13f9d0eee56a00cd7220435bef518c0ef251de4a1794fa47b252322adc4ae"
   ],
   [
    "tests/cases/token/types/mut-type-union-after-readonly-111.ts",
-   "877166cada897bba3aa57c80c9c350fbcb8e4a9bba7be68752e24496c8283556"
+   "de0ff760e4d8afd17d903040691c1c99ace5afc8e9c050c07d99c7b7f7fd4893"
   ],
   [
    "tests/cases/token/types/mut-type-union-after-readonly-112.ts",
-   "877166cada897bba3aa57c80c9c350fbcb8e4a9bba7be68752e24496c8283556"
+   "de0ff760e4d8afd17d903040691c1c99ace5afc8e9c050c07d99c7b7f7fd4893"
   ],
   [
    "tests/cases/token/types/mut-type-union-after-readonly-93.ts",
-   "b0fbe050eb143ecbf68fef0b3b65200a3b6b4be1d41eec8d4407b18ad21501cd"
+   "f142486b7b792e48a890f30876e7428d48c6e1bad3be5ce7612a693b94dd3ae7"
   ],
   [
    "tests/cases/token/types/mut-type-union-paren-object-162.ts",
@@ -5960,15 +5960,15 @@
   ],
   [
    "tests/cases/token/types/ty-mapped-as-remap.ts",
-   "fd329ae9817833c2aecf1ef5d14e5871fee392e91e79da2ce09dffe6007e8f65"
+   "a355575049e481409ea49cbd71c196fe05231ae4a197e8d87cc35d33eebafda0"
   ],
   [
    "tests/cases/token/types/ty-mapped.ts",
-   "74d9be045cc35241421bc48f4b2769fb7af9fc5687d15ad8f09d766ad090450e"
+   "f5059f85b0d7b7529447f04bd135d98d254c2ca445832db69e361c392bd4c0af"
   ],
   [
    "tests/cases/token/types/ty-member-last-paren-type.ts",
-   "1410057e801c18317b61d6ac3ca7a8624fb7463ec237ba5ab032c1fdf4d740d0"
+   "8ee28b77a59bead4a1afa95177171afdf627448bb29d9b69367720119b822f99"
   ],
   [
    "tests/cases/token/types/ty-nonnull-type.ts",
@@ -5976,7 +5976,7 @@
   ],
   [
    "tests/cases/token/types/ty-object-literal.ts",
-   "2c411dc61d933d1fe72bf73a3a86a29afd6e4c97fab1eff1fec29b230f123c81"
+   "282f06f6aa6fd90f30e2284f066e3e10600a6a2f3479d2cdea264cf9e0c2179e"
   ],
   [
    "tests/cases/token/types/ty-parenthesized.ts",
@@ -6004,7 +6004,7 @@
   ],
   [
    "tests/cases/token/types/ty-tuple-labeled.ts",
-   "9517f0f7860a98cd97802a68d5cf494ee472c375d1a921d4c2c5e607f0a4f674"
+   "4eacdd54072633afe5c9e926bb70c34112a0aa4be7867318279e677ab7b67632"
   ],
   [
    "tests/cases/token/types/ty-union-intersection.ts",
@@ -6036,7 +6036,7 @@
   ],
   [
    "tests/cases/token/types/type-annotation-arrow-param.ts",
-   "c1e47fdc972b79b231eceb56b7848e0527c2ebc28652d5c548210d25b7cd9cee"
+   "22bd906b43cd59c243c2292d4acf44615a1cf810627eea0471b7d987d3edc252"
   ],
   [
    "tests/cases/token/types/type-arguments-newline-before-comma.ts",
@@ -6064,7 +6064,7 @@
   ],
   [
    "tests/cases/token/types/type-combination-adversarial.ts",
-   "61510cd86ecff4225531446e946ce0e36d9aff1c60a2a129980e0ebd27085164"
+   "6eb00645cab4fb82cf3a6caf4ae573cb82287b00ae9fb4b133b74e450e8b573a"
   ],
   [
    "tests/cases/token/types/type-comma-separated-call-signature.ts",
@@ -6156,7 +6156,7 @@
   ],
   [
    "tests/cases/token/types/type-fn-ctor-in-conditional.ts",
-   "f8d9b51215c02b269624a5d36f737cc862c8d66875489b98039ed4ff2e32a322"
+   "f9012a6cfac51eda512d5d5ca0511f9b51d3a3e2a55883b3a4d1af82c96664f3"
   ],
   [
    "tests/cases/token/types/type-fn-generic-arg.ts",
@@ -6168,7 +6168,7 @@
   ],
   [
    "tests/cases/token/types/type-fn-in-conditional-constraint.ts",
-   "2770646777891b217d8bf66ce90a4159f09989daeab88f198c8450530a8f5df9"
+   "a432e263efb8b2ef9f8b725726921c2e9c15ab70ed90a29ddfea9d27c9a961bc"
   ],
   [
    "tests/cases/token/types/type-fn-multi.ts",
@@ -6180,15 +6180,15 @@
   ],
   [
    "tests/cases/token/types/type-fn-optional-callback.ts",
-   "11d1e12b924c3214b6b127784639e8288ea5c0a34860b3f44a20c8e8df18a293"
+   "5e4d446bdcc9e2f8f0e36eaca200390f019815ac79f0d7c08eb6843bb5216c8b"
   ],
   [
    "tests/cases/token/types/type-fn-optional-param.ts",
-   "0cf5f4758db64a43fcf8b10fc3c9fc5c677353cc4d4bc63168dab88ffeb998be"
+   "47cb66e5e7c3e3c28231fa23a106f2332c1103e386c6b0df45dbb303779ac218"
   ],
   [
    "tests/cases/token/types/type-fn-rest-param.ts",
-   "beaacd8ea232c9b16ade2c827bc99f34c2f1570334b19cb0ae808775ccb4d782"
+   "9373b71eeedbacd81932b92a3edd84afa7126c59519404f3ceb63f368a446119"
   ],
   [
    "tests/cases/token/types/type-fn-return-comment.ts",
@@ -6225,7 +6225,7 @@
   ],
   [
    "tests/cases/token/types/type-generic-call-signature.ts",
-   "ea0fc864127e7b9ce1cd5be2099c472b0d52d773682dbfd4c28f053eeefde517"
+   "8e5775baf7a3fda87f482ecfa596ff4d8da4c717cca665c0bdc117574fcc0552"
   ],
   [
    "tests/cases/token/types/type-generic-constraint-union.ts",
@@ -6237,7 +6237,7 @@
   ],
   [
    "tests/cases/token/types/type-generic-signature.ts",
-   "2d7862a7954b6b89b6dd2ca9b246459084d7b2d814598527248998a2b1d2a123"
+   "46ab1c0cacc09159462a00fb43fd02abd34aa843cebfd1273d871b7e54ade176"
   ],
   [
    "tests/cases/token/types/type-heritage-clause.ts",
@@ -6365,19 +6365,19 @@
   ],
   [
    "tests/cases/token/types/type-mapped-minus-question-in-generic.ts",
-   "4e1eba6f0c28f6e3d2a3d85a9009156cd519c64d8f4d1599942d73dc44a014c2"
+   "e1c6a4b4e8080535e2d937c8577ad0f8991317df3e43f9ba1be3d75524e68e7d"
   ],
   [
    "tests/cases/token/types/type-mapped-minus-readonly.ts",
-   "68c45d09ebe765dec4bfcc53714dd942752b290ff7c64af791cc93d6c0aa5562"
+   "5d4e1e9639890a2a84f57b354d3a130c1af118143b5eb875f12d1128fa93f4dd"
   ],
   [
    "tests/cases/token/types/type-mapped-modifier-in-generic.ts",
-   "9c33a524fd9ab5cc29baf08cc4f7a75c5956cafc9b8d75bef0bfc1c6c9a7d3a5"
+   "65f4dc0e8f68a114f5c5a6875ead300a6d3d9d3a7b9278064f3c06b0e7f0c0e7"
   ],
   [
    "tests/cases/token/types/type-mapped-modifiers.ts",
-   "9aee35f9624bcf954787836a782746085d1a28e5ae5a6ca0b334e0d4f9d3a0f9"
+   "1350aee076f3d92fb6cf2a6e1687d32cae66c80b5bf50c6cf480a4b96f07f9b1"
   ],
   [
    "tests/cases/token/types/type-mapped-template-key.ts",
@@ -6389,7 +6389,7 @@
   ],
   [
    "tests/cases/token/types/type-mapped-value-comment-newline.ts",
-   "282dda236c28aecbc64186d37705a84eb565ad499033a65f324825e58ee0c513"
+   "3d4963826d4a52be2689a760aa5815cb68f3be55a5a6ff87950c563c8dddab89"
   ],
   [
    "tests/cases/token/types/type-member-index-signature.ts",
@@ -6397,7 +6397,7 @@
   ],
   [
    "tests/cases/token/types/type-member-names.ts",
-   "bea1e7950011ad3e9d44d72919457568e2a4e4cd42aa7030a164e353ec5eb1e7"
+   "2fa49ad2e8baf021dc9293a50a2fe86ed8eebaf35b30ca2518d7b7e38d208ac3"
   ],
   [
    "tests/cases/token/types/type-nested-parens.ts",
@@ -6405,7 +6405,7 @@
   ],
   [
    "tests/cases/token/types/type-new-nodes-adversarial.ts",
-   "b5abe18903cbebaca8419a12b9eb0fac9203cbe10770694d1c913e83b145c8d5"
+   "cb3bea3ce2e22fbccf96e3ca95870a4c23467d0bc524e8d27637a3af94caaa8b"
   ],
   [
    "tests/cases/token/types/type-object-call-construct-signature.ts",
@@ -6449,7 +6449,7 @@
   ],
   [
    "tests/cases/token/types/type-object-optional.ts",
-   "5137328a14448891d27105a1d0ff0d3025287c567d9673b93bb8dd7110bd9e2e"
+   "9e2dad091cdc564cc2b735cbee61da359d8ec49b6e80fc73a1d31b9f6c1b5b9d"
   ],
   [
    "tests/cases/token/types/type-object-readonly.ts",
@@ -6533,7 +6533,7 @@
   ],
   [
    "tests/cases/token/types/type-param-const-comma.ts",
-   "f920fc3fca957fc6f7f23776a0f53d33dfe0e8eb472de478d1965d73dae1ff5f"
+   "e3e7d444072f1efeab66a528ff8b7ceaf2d8b0d42a3465f494798e8274dc5edf"
   ],
   [
    "tests/cases/token/types/type-param-const.ts",
@@ -6585,11 +6585,11 @@
   ],
   [
    "tests/cases/token/types/type-parameter-mapped.ts",
-   "df83ada03312a4ed8cfa0b7d7e35fe27ccbc4f34629a1f7c27fd4b17111fee63"
+   "efe9a790be8128603681585af3f0f3ed1d46a722439ef8a960cc03f1b196967d"
   ],
   [
    "tests/cases/token/types/type-parameter-nodes.ts",
-   "5bd49c5b73add259c95807eb2cbb27dc3fff5bbb29a10f0722988eb8e63da177"
+   "d97db161cabed733cd9eefa8138602de02fcf9c8a05e64c9d6d5cdcf14d4f525"
   ],
   [
    "tests/cases/token/types/type-paren-content-nodes.ts",
@@ -6605,7 +6605,7 @@
   ],
   [
    "tests/cases/token/types/type-pred-arrow.ts",
-   "efb565ba492d6cd7d61766f21bb962fa75ead6c0fe25db806e019f3ff7545858"
+   "90e4457483649d02eae6af9c9743b97d88c326db1d026aa0bd87c836c27187ef"
   ],
   [
    "tests/cases/token/types/type-pred-asserts-is.ts",
@@ -6765,7 +6765,7 @@
   ],
   [
    "tests/cases/token/types/type-tail-linecomment.ts",
-   "efcdb896be529eff8a6c8aa75472417775ccc377f1e67b8a915a08298e733b8a"
+   "b04c1661f7e2be80ecc7b991821e231432376c39bc1a20868d669961886ea8d9"
   ],
   [
    "tests/cases/token/types/type-template-basic.ts",
@@ -6797,15 +6797,15 @@
   ],
   [
    "tests/cases/token/types/type-tuple-member-comment.ts",
-   "82a5c40d86b43ba6ef7d7e315e31b51c9eddf159a55c4e0ac772c52a9cd0cf52"
+   "7061ed349d264379ca748b1dd4420eb2116148f94adbb3696521d0f3ed66a705"
   ],
   [
    "tests/cases/token/types/type-tuple-members.ts",
-   "452964c779e0245fdb7709d2641fcaac32e1b90ac5fbcdf29da307a009b74a06"
+   "a616354e117ba7f0ec43a24f80faf6d2b0b693afbf3ce8bb06cd475a79c524ab"
   ],
   [
    "tests/cases/token/types/type-tuple-named-question-comment-2.ts",
-   "e7c36d7d5b0e7e08d40e5825d9665b0a35c3c1d5a729ae5d6e91e918871a9502"
+   "10758b872a88d51d0d332fd6b9d1e363725adc696cc68c53e713b630edb15f43"
   ],
   [
    "tests/cases/token/types/type-tuple-nested.ts",
@@ -6833,7 +6833,7 @@
   ],
   [
    "tests/cases/token/types/type-union-after-readonly.ts",
-   "6f3eebc6326736021a36811e41a9d35333f0f0f6b183656bcb6abf51d56221a2"
+   "f54d1043a092190f043c9b61e66fddd557a4fc3cf502f275a9c1c597c57eb4eb"
   ],
   [
    "tests/cases/token/types/type-union-basic.ts",
@@ -6861,7 +6861,7 @@
   ],
   [
    "tests/cases/token/types/type-union-leading-bar-in-member.ts",
-   "d5e05494e1ab4cf80ac949bc4a87edff2c29aaf1a6d3eaa0f6ba21675f6639fa"
+   "3dc3d33e7e528355759d6d06a270c2296dd5b668378f9b56fd2f2f302e4728d0"
   ],
   [
    "tests/cases/token/types/type-union-leading-bar.ts",
