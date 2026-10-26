@@ -1217,14 +1217,24 @@ R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一�
 ## static field EnableControlHeadCatalog:bool = true
 
 **[B3] 控制流头 `(` 的头目录开关（`control-head-possible-shape.xl.md`）。默认 `true`。**
+**[B3b] 它只在增量模式生效**：装配点同时要求 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为真，
+legacy 下本开关等于关闭，产物逐字节回到 B3 之前（理由见下一段）。
 
-`true` 时 `SourceFileShape` 的构造器在装配 `BracketRoleHook` 之前先做两件事：
+`true` 且增量模式时 `SourceFileShape` 的构造器在装配 `BracketRoleHook` 之前先做两件事：
 `ControlHeadPossibleShape.EnsureRegistered()`（把 `ControlHead` 角色目录注册进
 `BracketRoleResolver`）与 `StatementRouteUtil.EnableBracketRoleCatalog = true`（打开 B0 的总闸）。
 
-`false` 时两件事都不做，`ControlHead` 角色回到 B0 的默认状态：
+`false`（或 legacy 模式）时两件事都不做，`ControlHead` 角色回到 B0 的默认状态：
 `Resolve` 对控制流头的 `(` 返回 `Fallback("catalog-not-registered:ControlHead")`（只计数），
 括号内容逐字节保持 raw，legacy 在收口格照旧一次性建——即 B3 之前的产物。
+
+**为什么必须有增量闸**：打开头目录顺带打开的是 B0 的**总闸**，legacy 里没人需要它。
+B3 最初只读本字段，于是 `--legacy` 档也装配了头目录：`FileFallbackCount` 从 2 涨到 11
+（`tests/cases/token` 10 件 + `samples/declarations.ts` 1 件），
+`stmt-if-multiline-condition.ts` 多 1 条 moved，`gates --legacy` 从 4/0/7 掉到 3/1/7。
+闸加在装配套之后，`CatalogGuide.FlushOnClose`（默认 `false`）、`ParsePrimary` 的 `IsAtom`
+（另有显式模式闸）、`BracketRoleResult.FlushOnClose`（默认 `false`）三条透传在 legacy 下
+都保持默认值，一个字节不改。默认档读数不变（B3b 复测同上）。
 
 **为什么可以与 B1 的总闸分开翻**：B1 的总闸是在**第一只函数形参括号**上打开的
 （`function-declaration-shape.xl.md` 的 `OpenParameterList`），所以「文件里没有函数声明」时 B0 一次都不跑

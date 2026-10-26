@@ -63,9 +63,16 @@ this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new
 // 不解析角色、不装目录、不登记延迟括号，既有产物逐字节不变。
 // [B3:HEAD] 控制流头 `(` 的目录在这里装配：先注册 `ControlHead` 角色目录，再打开 B0 的总闸。
 // 顺序是硬要求——目录必须在任何一只括号之前注册，否则 `Resolve` 会先把它记成
-// `Fallback("catalog-not-registered:ControlHead")`。开关关掉时两行都不生效（逐字节回到 B3 之前）。
+// `Fallback("catalog-not-registered:ControlHead")`。
+// [B3b:LEGACY] **增量模式闸**：`EnableControlHeadCatalog` 只在 `IsIncrementalShapesEnabled()` 为真时生效。
+// 只读功能开关本身不够——装配这一步会顺带把 `EnableBracketRoleCatalog` 打开，那是 B0 的**总闸**，
+// 于是一份 legacy 解析里的每只 `{` / `(` 都会多走一次角色解析、装上头目录、逐字建头原子，
+// legacy 产物因此偏离 B3 之前（实测 `FileFallbackCount` 2 → 11、`wide-ast` 多 1 条 moved）。
+// 闸加在装配套这一处，`CatalogGuide.FlushOnClose` / `ParsePrimary` 的 `IsAtom` /
+// `BracketRoleResult.FlushOnClose` 三条透传因此在 legacy 下全部保持各自的默认 `false` / 空表，
+// 逐字节回到 B3 之前。开关与默认值都保留、不删；关掉的是「legacy 也走增量装配」这一条错配。
 ControlHeadPossibleShape.ResetAtoms();
-if (StatementRouteUtil.EnableControlHeadCatalog) {
+if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncrementalShapesEnabled()) {
   ControlHeadPossibleShape.EnsureRegistered();
   StatementRouteUtil.EnableBracketRoleCatalog = true;
 }

@@ -148,6 +148,13 @@ ControlHeadPossibleShape.States = [];
 if (unit === null) {
   return false;
 }
+// [B3b:LEGACY] 这里**不**再读模式开关：原子只由 `ControlHeadPossibleShape.BuildByIndex`
+// 写入，而目录只在 `SourceFileShape` 的增量装配点注册；干净 legacy 解析里登记表每次
+// 构造器都被 `ResetAtoms()` 清空，`IsAtom` 恒为 `false`，本分支一个字节都不改。
+// 反过来在这里读 `IsIncrementalShapesEnabled()` 是错的：整文件兜底
+// （`ParseCore(shell=false)`）会把开关临时压 false，而兜底这一趟目录仍然挂着、原子照样建，
+// 加了闸就变成「原子建了但没人消费」→ `ParsePrimary` 抛「不支持的表达式起点」
+// （B3b 实测：`tts/run.mjs` PASS 429 → FAIL 20）。模式闸只加在装配套一处。
 return ControlHeadPossibleShape.Atoms.has(unit);
 ```
 
