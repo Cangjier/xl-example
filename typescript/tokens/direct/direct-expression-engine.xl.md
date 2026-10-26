@@ -166,7 +166,10 @@ A3 `new`：已建但还没收口的 `NewExpressionShape`（被构造者后缀链
 
 ## field NewArgsSeen:bool = false
 
-A3 `new`：实参括号已消费（之后紧跟的 `(` 属于「new 之后再调用」，本轮 Decline）。
+A3 `new`：**当前这个** `new` 的实参括号已消费（之后紧跟的 `(` 属于「new 之后再调用」，本轮 Decline）。
+**必须是「每个 `new` 各一份」的状态**：`StartNew` 里清零。同一条表达式里出现第二个 `new`
+（`new C().x + new C().m()`、`c ? new A(t) : new B(t)`）时，若沿用上一个 `new` 的 true，
+下一个 `(` 会被当成 CallExpression 建出来（`new` 再吞掉整条链）⇒ 多一个 CallExpression、区间全错。
 
 ## field PostfixWait:int = 0
 
@@ -781,6 +784,11 @@ if (this.NewPending !== null) {
   this.Fail("new 之后又是 new，不在本轮范围");
   return;
 }
+// B-1（P0-1）：`NewArgsSeen` 是「当前这个 new 的实参表已消费」的标志，不是引擎级的一次性开关。
+// 同一条表达式里的第二个 `new X(...)`（`new C().x + new C().m()`、`c ? new A(t) : new B(t)`）
+// 必须重新从 false 起算，否则它的 `(` 会走 CallExpression 分支（`new` 再把整条链吞成子节点）⇒
+// 多一个 CallExpression + 两个区间漂移。`new X()()` 的 Decline 仍由形状上的 `DirectNewWithArgs` 负责。
+this.NewArgsSeen = false;
 const shape = new NewExpressionShape(this.Template);
 if (unit.SourceRange.StartIndex >= 0) {
   shape.SignIn(unit.SourceRange.StartIndex);
