@@ -5,6 +5,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -127,6 +128,27 @@ A1 #7、#21 之外的声明体族。
 
 **[B4f] 三处入口**：① `=` 之后（初始化器位）、② `async` 之后、③ `=>` 之后（嵌套箭头的内层形参表，
 `x => (b) => b`）。三处都只登记、不建；`)=>` 成立时由 `ParseFunctionParameters` 那一拍定向 Bind 一次。
+
+## static field FunctionTypeParams:string = "FunctionTypeParams"
+
+**[B4h] 函数类型参数表 `(`（`type F = (x: number) => void`）。**
+
+判据只有两条，都在**结构位**上，不读「这是不是一个表达式」的文本形态：
+
+1. 宿主是**类型别名壳**（`constructor.name === "TypeAliasDeclarationShape"`）——这一格已经在 `=` 之后，
+   是**类型槽**，不可能是表达式 `(a)` / 箭头 `(` 的宿主（那两族的宿主是变量声明 / 语句壳 / 表达式形状）；
+2. 这只 `(` 的**配对 `)` 之后紧跟 `=>`**（`HasFunctionArrowAfterParen` 逐字符配对，跳过注释 / 空白）。
+   这一条正是 legacy `TypeBuilder.ParseType` 在 `(` 上的判据（`after !== null && this.IsText(after, "=>")`
+   ⇒ `ParseFunctionType`，否则 `ParseParenthesizedType`），本机制只是把同一个判据提前到**创建格**。
+
+满足两条 ⇒ `Known`：目录由 `ParameterListPossibleShape` 的**同一份**候选装（B1 的 `ParameterPossibleShape`），
+`x` / `b` 在自己的名字格就成 `ParameterShape` + `IdentifierShape`，`?` 在自己的闭合格成 `QuestionTokenShape`。
+不满足 ⇒ 落回既有 `Fallback("no-host-rule:…")`，一个字节都不改（`type A = (B)` / `type A = (B)[]` 仍是
+legacy `ParseParenthesizedType`）。
+
+**为什么不在这里要求「简单参数表」**：那是目录自己的闸（`ParameterListPossibleShape.InstallForFunctionType`），
+不是角色的事。复杂参数（默认值 / 解构 / 非简单类型）的括号拿到的目录是**空转**的（没有状态），
+创建格不建壳、收口格回 legacy —— 角色仍旧是 `FunctionTypeParams`，只是没有可建的步骤。
 
 # class BracketRoleCatalog
 
@@ -698,8 +720,164 @@ return previous instanceof ShapeToken
   && previous.constructor.name === "EqualsGreaterThanTokenShape";
 ```
 
-## static method Classify:(host:Token, bracket:Bracket, context:SyntaxContext)=>BracketRoleResult
+## static method SkipTextTrivia:(range:SourceRange, from:int, untilClose:bool)=>int
 
+**[B4h]** 从 `from` 起跳过空白与注释，返回下一个**代码**字符的下标（`>= count` = 文件尾）。
+只给两条函数类型判据用：不建单元、不读 token，只做「配对 `)` 之后是不是 `=>`」的逐字符前瞻。
+
+`untilClose` 为真时遇到 `;` / `{` / `}` / `)` 就停：一只 `(` 的配对 `)` 在这么近的地方都找不到，
+就不该继续往整个文件里扫（`type A = (B)` 后面紧跟的 `;` 就是这一档）。
+
+```ts
+const document = range.Document;
+if (document === null) {
+  return from;
+}
+const count = document.GetCount();
+const whole = SourceRange.Whole(document);
+let at = from;
+while (at < count) {
+  const ch = whole.At(at);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v"
+    || ch === "\f" || ch === "\u2028" || ch === "\u2029") {
+    at++;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = whole.At(at + 1);
+    if (next === "/") {
+      at += 2;
+      while (at < count && whole.At(at) !== "\n") {
+        at++;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
+        at++;
+      }
+      at += 2;
+      continue;
+    }
+  }
+  if (untilClose && (ch === ";" || ch === "{" || ch === "}" || ch === ")")) {
+    return at;
+  }
+  return at;
+}
+return at;
+```
+
+## static method ParenCloseOf:(bracket:Bracket)=>int
+
+**[B4h]** 这只 `(` 的**配对 `)` 之后**的下标；找不到返回 `-1`。
+
+只数同种括号的深度（`(` / `)`）：类型位置里的 `[` / `{` 是别的括号自己的事，不影响 `)` 的配对。
+字符串 / 注释里出现的 `)` 不在这里特殊处理——**错误方向的后果是安全的**：前瞻判否只会少建一处早建，
+早建一律还有 legacy 收口兜底（见 `FunctionTypeParams` 的说明）。
+
+```ts
+const range = bracket.SourceRange;
+const document = range.Document;
+if (document === null || range.StartIndex < 0) {
+  return -1;
+}
+const count = document.GetCount();
+const whole = SourceRange.Whole(document);
+let depth = 0;
+let at = range.StartIndex;
+while (at < count) {
+  const ch = whole.At(at);
+  if (ch === "(") {
+    depth++;
+    at++;
+    continue;
+  }
+  if (ch === ")") {
+    depth--;
+    at++;
+    if (depth <= 0) {
+      return at;
+    }
+    continue;
+  }
+  if (ch === ";") {
+    return -1;
+  }
+  at++;
+}
+return -1;
+```
+
+## static method HasFunctionArrowAfterParen:(bracket:Bracket)=>bool
+
+**[B4h]** 配对 `)` 之后的下一个代码字符是不是 `=>` 的两个字符。
+
+判据与 legacy `ParseFunctionType` 的入口**同源**（`ParseType` 在 `(` 上看 after 是不是 `=>`），
+只是提前到创建格，且不依赖任何已建形状。`type A = (B)` / `type A = (B)[]` / `type A = (B) | C`
+都返回 `false`（配对 `)` 之后是 `;` / `[` / `|`），因此一个字节都不动。
+
+```ts
+const after = BracketRoleResolver.ParenCloseOf(bracket);
+if (after < 0) {
+  return false;
+}
+const range = bracket.SourceRange;
+const document = range.Document;
+if (document === null) {
+  return false;
+}
+const count = document.GetCount();
+const whole = SourceRange.Whole(document);
+const at = BracketRoleResolver.SkipTextTrivia(range, after, false);
+if (at + 1 >= count) {
+  return false;
+}
+return whole.At(at) === "=" && whole.At(at + 1) === ">";
+```
+
+## static method IsSimpleFunctionTypeParams:(bracket:Bracket)=>bool
+
+**[B4h] 函数类型参数表的「可整份建」闸**：`[ '...' ] name [ '?' ] [ ':' name ('[]')* ]`，逗号分隔。
+
+与 B1 的 `ParameterListPossibleShape.IsSimpleList` 同一语法面，只多一个**可选 `?`**（`b?: number`）：
+B1 的文本闸是 `function` 声明参数表的入口，不能为 `?` 放宽（那会把成员 / 函数声明的读数一起改掉）；
+函数类型这里另开一份，且只被 `TypeAliasDeclarationShape` 使用。
+
+空表 `()` 判真（零参数函数类型，没有可建的参数，壳仍然可以在创建格建）。
+不满足 ⇒ 创建格不建 `FunctionTypeShape` 壳、目录不挂状态，整段照 legacy（`ParseFunctionType` 自己读参数）。
+
+```ts
+const start = bracket.SourceRange.StartIndex;
+const close = BracketRoleResolver.ParenCloseOf(bracket);
+const range = bracket.SourceRange;
+const document = range.Document;
+if (document === null || start < 0 || close < 0) {
+  return false;
+}
+const whole = SourceRange.Whole(document);
+let text = "";
+for (let at = start + 1; at < close - 1; at++) {
+  text += whole.At(at);
+}
+if (text.indexOf("//") >= 0 || text.indexOf("/*") >= 0) {
+  return false;
+}
+const trimmed = text.trim();
+if (trimmed === "") {
+  return true;
+}
+const parts = trimmed.split(",");
+for (const part of parts) {
+  if (!/^(?:\.\.\.)?\s*[A-Za-z_$][A-Za-z0-9_$]*\s*\??\s*(?::\s*[A-Za-z_$][A-Za-z0-9_$]*(?:\[\])*\s*)?$/.test(part)) {
+    return false;
+  }
+}
+return true;
+```
+
+## static method Classify:(host:Token, bracket:Bracket, context:SyntaxContext)=>BracketRoleResult
 **宿主规则表**：括号字符 + 宿主类名 + 语句族，返回 `Known`（角色与宿主都有）/ `Deferred`（差宿主）
 / `Fallback`（这一步不该定）。
 
@@ -713,6 +891,15 @@ const startChar = shape.StartBracketChar;
 const hostKey = host.constructor.name;
 // 1. `(`：形参表 / 控制流头。两者都能在**括号创建格**定（宿主是壳）。
 if (startChar === "(") {
+  // [B4h] **类型位置上的函数类型参数表**：`type F = (x: number) => void`。
+  // 只看两件结构位：① 宿主是类型别名壳（已经在 `=` 之后的类型槽，不可能是表达式 / 箭头括号）；
+  // ② 配对 `)` 之后紧跟 `=>`（legacy `ParseType` 在 `(` 上的同一个判据）。
+  // 命中 ⇒ `Known(FunctionTypeParams)`，由 `ParameterListPossibleShape` 的同一份候选装目录。
+  // 不命中（`type A = (B)` / `(B)[]` / `(B) | C`）⇒ 继续往下走，最终仍是既有的 Fallback。
+  if (hostKey === "TypeAliasDeclarationShape"
+    && BracketRoleResolver.HasFunctionArrowAfterParen(shape)) {
+    return BracketRoleResult.Known(null, null, BracketRole.FunctionTypeParams, host, hostKey);
+  }
   if (hostKey === "FunctionDeclarationShape" || hostKey === "MethodDeclarationShape") {
     return BracketRoleResult.Known(null, null, BracketRole.ParameterList, host, hostKey);
   }
