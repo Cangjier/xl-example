@@ -1214,9 +1214,9 @@ R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一�
 判成箭头候选族、`OperatorContinuation` 随之失效，而 B3b 的 `ArrowParamsCatalog` 还没注册——
 那正是 A2 §7 R4 说的「所有权切换」事故。开关 + 目录注册必须同一个 WP 一起翻（B3b）。
 
-## static field EnableExprBracketCatalog:bool = false
+## static field EnableExprBracketCatalog:bool = true
 
-**[B4] 表达式括号内容目录的开关（`expression-bracket-possible-shape.xl.md`）。默认 `false`。**
+**[B4] 表达式括号内容目录的开关（`expression-bracket-possible-shape.xl.md`）。B4b 起默认 `true`。**
 
 `true` 且增量模式时 `SourceFileShape` 的构造器在装配 `BracketRoleHook` 之前
 `ExpressionBracketPossibleShape.EnsureRegistered()`：把 `ObjectLiteral` / `ArrayLiteral` /
@@ -1225,8 +1225,14 @@ R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一�
 都会登记到 `ExpressionAtomRegistry`，由 legacy 收口路径（`ParsePrimary` / `ParseName` /
 `ParseObjectLiteral`）**消费**，不重建。
 
-`false`（默认）时一格都不建：登记表恒空，`ParsePrimary` / `ParseName` / `ParseObjectLiteral`
+`false` 时一格都不建：登记表恒空，`ParsePrimary` / `ParseName` / `ParseObjectLiteral`
 的三处 `Has` 恒为 `false`，两档逐字节回到 B4 之前（实测见 `_reports/B4.md` §2）。
+
+**[B4b] 为什么现在能默认 `true`**：打开后原先 12 条崩溃全部落在「消费分支只吃 basic token」这一族，
+B4b 在 `ExpressionBracketPossibleShape.IsBuildable` / `SealMember` / `SealPendingShorthand` 与
+`BracketRoleResolver.Classify` 里补齐了类型位 / 返回值位 / 函数名位 / 箭头形参位 / 成员值完整性
+五类判据（逐条对应见 `_reports/B4b.md` §1）。默认档四道门与 base 逐位相同：
+`wide-ast` 0/33/98、`--legacy` 0/0/2、`real-dts` PASS、`tts` 429、`ts-all` 426/3、`gates` 4/0/7。
 
 **为什么默认关（B4 实测，不是保守）**：打开它以后宽尺子从 `0/33/98` 变成
 **`227 崩溃 / 75 差异 / 131 fallback`**、`tts` 从 `429 PASS` 变成 `406 / 23 FAIL`——

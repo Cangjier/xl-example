@@ -284,8 +284,9 @@ return this.State === BracketRoleState.Fallback;
 计数落在 `StatementRouteUtil.BracketRoleKnownCount` / `BracketRoleDeferredCount` /
 `BracketRoleFallbackCount` 上，**只在本方法里自增一次**（每只括号一次，不重不漏）。
 
-[B0] 开关 `StatementRouteUtil.EnableBracketRoleCatalog` 默认 `false`：本类因此**一次都不会被调用**，
-既有解析产物逐字节不变。B1/B2 打开开关并 `RegisterCatalog` 之后才生效。
+[B0] 开关 `StatementRouteUtil.EnableBracketRoleCatalog` 默认 `false`：只有 B4 的
+`EnableExprBracketCatalog`（B4b 起默认 `true`，且要求增量模式）或 B3b 的控制流头开关会打开它；
+开关关着时本类**一次都不会被调用**，既有解析产物逐字节不变。
 
 ## static field Catalogs:Array<BracketRoleCatalog> = []
 
@@ -442,9 +443,81 @@ if (!(previous instanceof Symbol)) {
 const text = (previous as Symbol).TempToString();
 if (hostRole === BracketRole.ObjectLiteral) {
   // 对象字面量里 `:` 之后是值位（`{ a: { b: 1 } }`）。
+  // [B4b] **返回类型位让路**：`{ m(): { a: number } { … } }` 的 `{` 前一个是 `:`、再前一个是
+  // 已闭合的形参括号——它是类型字面量，归 `TypeBuilder.ParseReturnType`（B4 打开后
+  // `expr-object-members` 的「不支持的对象类型成员」）。只能看结构位，不读文本。
+  if (text === ":") {
+    const at = host.Data.indexOf(previous);
+    for (let index = at - 1; index >= 0; index--) {
+      if (host.Data[index].IsTriviaToken) {
+        continue;
+      }
+      if (host.Data[index] instanceof Bracket
+        && (host.Data[index] as Bracket).StartBracketChar === "(") {
+        return false;
+      }
+      break;
+    }
+  }
   return text === "," || text === ":";
 }
 return text === ",";
+```
+
+## static method IsReturnTypeColon:(host:Token, previous:Token | null)=>bool
+
+前一个代码单元是 `:`、且**再前一个**是已闭合的 `(` 括号——这是方法 / 函数的**返回类型位**
+（`{ m(): T { … } }` / `function f(): T`）。只比结构位，不读源码文本。
+
+```ts
+if (previous === null || !(previous instanceof Symbol)) {
+  return false;
+}
+if ((previous as Symbol).TempToString() !== ":") {
+  return false;
+}
+const at = host.Data.indexOf(previous);
+for (let index = at - 1; index >= 0; index--) {
+  if (host.Data[index].IsTriviaToken) {
+    continue;
+  }
+  return host.Data[index] instanceof Bracket
+    && (host.Data[index] as Bracket).StartBracketChar === "(";
+}
+return false;
+```
+
+## static method IsTypeAnnotationColon:(host:Token, previous:Token | null)=>bool
+
+前一个代码单元是 `:`，且向前找不到三目的 `?`——这是**类型注解位**（`let x: (A | B)[]` /
+`function f(): (A) => B`）。`?:` / `a ? b : c` 里有 `?`，返回 `false`。
+
+```ts
+if (previous === null || !(previous instanceof Symbol)) {
+  return false;
+}
+if ((previous as Symbol).TempToString() !== ":") {
+  return false;
+}
+const at = host.Data.indexOf(previous);
+for (let index = at - 1; index >= 0; index--) {
+  const unit = host.Data[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === "?") {
+      return false;
+    }
+    if (text === "," || text === ";" || text === "(" || text === "=>") {
+      return true;
+    }
+    continue;
+  }
+  continue;
+}
+return true;
 ```
 
 ## static method IsExpressionHost:(host:Token)=>bool
@@ -549,8 +622,14 @@ for (let index = at - 1; index >= 0; index--) {
   if (unit.IsTriviaToken) {
     continue;
   }
-  if (unit instanceof Common && (unit as Common).Is("new")) {
-    return false;
+  if (unit instanceof Common) {
+    const before = unit as Common;
+    // [B4b] `function inner(` / `class Foo(`：`inner` / `Foo` 是**函数 / 类的名字**，
+    // 不是被调用者——那个 `(` 是形参表，归 `BuildParameters`。B4 打开后 `fn-expression.ts` /
+    // `expr-func-expr-named.ts` 的「函数参数只支持标识符或绑定模式」就是这一格。
+    if (before.Is("new") || before.Is("function") || before.Is("class")) {
+      return false;
+    }
   }
   break;
 }
@@ -593,11 +672,34 @@ if (startChar === "(") {
     return BracketRoleResult.Deferred(BracketRole.ArrowParams, "arrow-paren-wait-for-arrow",
       null, "ArrowFunctionShape");
   }
+  // [B4b] **复合字面量里的元素 / 值位 `(` 同样是 Deferred**（A2 §3 #4/#5 的第二处）：
+  // `{ a: (x: number) => x }` 的 `(` 与分组括号在创建格长得一模一样，只有 `)=>` 能分开。
+  // 猜成 `ParenExpression` 会把形参名 / 注解建成原子，`BuildParameters` 于是报
+  // 「函数参数只支持标识符或绑定模式」（B4 打开后 `expr-arrow-in-object-value` /
+  // `expr-paren-in-arguments`）。只登记、不建，把这一格留给 legacy / A4b 的 `arrowparen`。
+  if (BracketRoleResolver.IsExpressionHost(host)
+    && BracketRoleResolver.IsElementPosition(host, parenPrevious)) {
+    return BracketRoleResult.Deferred(BracketRole.ArrowParams, "arrow-paren-wait-for-arrow",
+      null, "ArrowFunctionShape");
+  }
   if (BracketRoleResolver.IsExpressionHost(host)
     && BracketRoleResolver.IsCallCallee(host, shape, parenPrevious)) {
     return BracketRoleResult.Known(null, null, BracketRole.CallArgs, host, hostKey);
   }
   if (BracketRoleResolver.IsExpressionHost(host) && BracketRoleResolver.IsOperatorBefore(parenPrevious)) {
+    // [B4b] **返回类型位让路**：`{ m(): (a: A) => B { … } }` 的 `(` 前一个是 `:`、再前一个是
+    // 已闭合的形参括号——它是返回类型的一部分，归 `TypeBuilder`（B4 打开后
+    // `expr-object-member-named-function-import` 的 `不支持的类型起点`）。
+    if (BracketRoleResolver.IsReturnTypeColon(host, parenPrevious)) {
+      return BracketRoleResult.Fallback("return-type-position");
+    }
+    // [B4b] **类型注解位让路**：`let x: (A | B)[] = …` / `declare const c: (A) => B` 的 `(` 前一个是
+    // `:`，再前面是名字（不是三目的 `?`）——它是类型的一部分，归 `TypeBuilder`。猜成 `ParenExpression`
+    // 会把类型名建成原子，`TypeBuilder` 报「不支持的类型起点」（`type-union-in-paren*.ts` /
+    // `lib.dom.d.ts` 的增量解析因此退到 fallback）。三目 `a ? b : (c)` 有 `?`，不走这条。
+    if (BracketRoleResolver.IsTypeAnnotationColon(host, parenPrevious)) {
+      return BracketRoleResult.Fallback("type-annotation-position");
+    }
     return BracketRoleResult.Known(null, null, BracketRole.ParenExpression, host, hostKey);
   }
   return BracketRoleResult.Fallback("no-host-rule:" + hostKey + startChar);

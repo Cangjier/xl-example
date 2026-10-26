@@ -257,6 +257,57 @@ if (unit instanceof Symbol) {
 return "";
 ```
 
+## static method IsArrowParameterBracket:(bracket:Bracket)=>bool
+
+`bracket` 是不是箭头形参表：`)=>`（或 `): T =>`）就是。判据只看建树那一刻**父单元 `Data` 里**
+紧跟本括号的代码单元——与 A4b `arrowparen` 的前瞻同一条（跨步稳定，不读源码文本）。
+
+```ts
+const parent = bracket.Parent;
+if (parent === null) {
+  return false;
+}
+const at = parent.Data.indexOf(bracket);
+if (at < 0) {
+  return false;
+}
+let nextIndex = -1;
+for (let index = at + 1; index < parent.Data.length; index++) {
+  if (!parent.Data[index].IsTriviaToken) {
+    nextIndex = index;
+    break;
+  }
+}
+if (nextIndex < 0) {
+  return false;
+}
+if (ExpressionBracketPossibleShape.SymbolText(parent.Data[nextIndex]) === "=>") {
+  return true;
+}
+if (ExpressionBracketPossibleShape.SymbolText(parent.Data[nextIndex]) !== ":") {
+  return false;
+}
+// 返回类型标注：从 `:` 起扫到 `=>`；遇到 `,` / `;` / 括号就没有箭头（`(a) ? b : c` 不会到这里，
+// 因为这里的前瞻只在 `)` 之后是 `:` 时才继续）。
+for (let index = nextIndex + 1; index < parent.Data.length; index++) {
+  const unit = parent.Data[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  const mark = ExpressionBracketPossibleShape.SymbolText(unit);
+  if (mark === "=>") {
+    return true;
+  }
+  if (mark === "," || mark === ";" || mark === ")" || mark === "}" || mark === "(") {
+    return false;
+  }
+  if (unit instanceof Bracket) {
+    return false;
+  }
+}
+return false;
+```
+
 ## static method PosAt:(bracket:Bracket, units:Array<Token>, tokenIndex:int)=>int
 
 `Pos` 口径**与 `ExpressionBuilder.Load` 逐位相同**：从 `bracket.SourceRange.StartIndex + 1` 起，
@@ -330,9 +381,72 @@ if (previousIndex >= 0) {
     if (beforeText === "get" || beforeText === "set" || beforeText === "async") {
       return false;
     }
+    // [B4b] 函数 / 类表达式的**名字位**不建：`{ named: function inner() { … } }` 的 `inner`
+    // 是函数名，`ParseFunctionExpression` 要读那个 `Common`（提前建成 `IdentifierShape` 会报
+    // 「函数表达式缺少参数括号」）。`class Foo` 同理。
+    if (beforeText === "function" || beforeText === "class") {
+      return false;
+    }
+  }
+  // [B4b] **返回类型位**不建：对象字面量的方法签名 `{ m(): number { … } }` 里，`number` 的
+  // 前一个是 `:`、再前一个是**已闭合的形参括号**。它归 `TypeBuilder.ParseReturnType`，
+  // 提前建成 `IdentifierShape` 会让类型解析器报「不支持的类型起点」（B4 打开后的 5 条崩溃）。
+  if (units[previousIndex] instanceof Bracket
+    && (units[previousIndex] as Bracket).StartBracketChar === "(") {
+    return false;
+  }
+  if (ExpressionBracketPossibleShape.SymbolText(units[previousIndex]) === ":") {
+    const beforeColon = ExpressionBracketPossibleShape.PreviousCode(units, previousIndex);
+    if (beforeColon >= 0 && units[beforeColon] instanceof Bracket
+      && (units[beforeColon] as Bracket).StartBracketChar === "(") {
+      return false;
+    }
   }
 }
-return ExpressionBracketPossibleShape.AtomKind(units[tokenIndex]) !== "";
+// [B4b] **尖括号里不建**：`f<number>(1)` 的类型实参、`Promise<number>` 的类型参数都是类型位，
+// 它们归 `TypeBuilder` / `ParseAngleStart`。判据只看括号自己 `Data` 里的 `<` / `>` 配对
+//（`f<number>` 的 `number` 前一格是 `<`；深浅按计数，未闭合就一律不建——宁可少建，不可建错）。
+let angleDepth = 0;
+for (let at = 0; at < tokenIndex; at++) {
+  if (units[at].IsTriviaToken) {
+    continue;
+  }
+  const angleMark = ExpressionBracketPossibleShape.SymbolText(units[at]);
+  if (angleMark === "<") {
+    angleDepth += 1;
+  } else if (angleMark === ">" && angleDepth > 0) {
+    angleDepth -= 1;
+  }
+}
+if (angleDepth > 0) {
+  return false;
+}
+const atomKind = ExpressionBracketPossibleShape.AtomKind(units[tokenIndex]);
+if (atomKind !== "identifier") {
+  return atomKind !== "";
+}
+// [B4b] **尖括号的左操作数不建**：`f<number>` / `f<T>(1)` 的 `f` 一旦变成 `IdentifierShape`，
+// `AngleJudge.PredecessorAllows`（它只认 `Common` / `Bracket` / `String`）就判不出类型实参，
+// `<` 落进 `ParseBinary` 被吃成比较链（B4 打开后 `decl-instantiation-followers` 的「表达式意外结束」）。
+// 建这一格时 `<` 还没进 `Data`，所以只看**紧接在单元原文之后的下一个非空白字符**：
+// 是 `<` 就让路（比较链与类型实参都交 legacy，宁可少建不可建错）。
+const range = units[tokenIndex].SourceRange;
+if (range.Document !== null && range.End >= 0) {
+  let ahead = range.End;
+  const count = range.Document.GetCount();
+  while (ahead < count) {
+    const ch = range.Document.GetValue(ahead);
+    if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n") {
+      ahead++;
+      continue;
+    }
+    break;
+  }
+  if (ahead < count && range.Document.GetValue(ahead) === "<") {
+    return false;
+  }
+}
+return true;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -355,6 +469,15 @@ const state = ExpressionBracketPossibleShape.Decide(host);
 if (!state.Enabled) {
   return token;
 }
+const bracket = host as Bracket;
+// [B4b] **箭头形参表不建**：`{ a: (x: number) => x }` / `f((v: T) => v)` 的 `(` 在值位被本目录
+// 认成「分组括号」（`:` / `,` 之后），但 `)` 后面紧跟 `=>` 时它是**形参表**：里面的名字与注解
+// 必须保持 raw 交给 `BuildParameters`（B4 打开后 `expr-arrow-in-object-value` /
+// `expr-paren-in-arguments` 的「函数参数只支持标识符或绑定模式」就是这一格）。
+// 判据是**文档前瞻**（A2 §3 / A4b 的 `arrowparen` 同一条）：`)=>` 或 `): … =>`。
+if (ExpressionBracketPossibleShape.IsArrowParameterBracket(bracket)) {
+  return token;
+}
 const common = token as Common;
 let built:ShapeToken;
 if (ExpressionBracketPossibleShape.AtomKind(token) === "number") {
@@ -362,18 +485,22 @@ if (ExpressionBracketPossibleShape.AtomKind(token) === "number") {
 } else {
   built = IdentifierShape.FromBasicToken(common, context);
 }
-const bracket = host as Bracket;
 // 先给**上一个**成员收口（`{ a, b }` 的 `a` 在这一格才有「后面是 `,`」这个事实）。
 if (state.Kind === BracketRole.ObjectLiteral) {
   ExpressionBracketPossibleShape.SealPendingShorthand(bracket, tokenIndex, context);
 }
-built.Pos = ExpressionBracketPossibleShape.PosAt(bracket, host.Data, tokenIndex);
+// [B4b] 封口可能把本格**之前**的单元摘掉（`{ a: 1, b: 2 }` 的 `:` 与 `1`），
+// 因此下标必须按身份重算，不能沿用进入本方法时的 `tokenIndex`（否则 `Pos` 漂移，
+// 严重时 `PreviousCode` 读到 `undefined` 直接抛 TypeError）。
+const slot = bracket.Data.indexOf(token);
+const posIndex = slot >= 0 ? slot : tokenIndex;
+built.Pos = ExpressionBracketPossibleShape.PosAt(bracket, host.Data, posIndex);
 ExpressionAtomRegistry.Register(built);
 state.Atoms += 1;
 StatementRouteUtil.ExprBracketAtomCount += 1;
 common.Replace(built);
 if (state.Kind === BracketRole.ObjectLiteral) {
-  ExpressionBracketPossibleShape.SealMember(bracket, built, tokenIndex, context);
+  ExpressionBracketPossibleShape.SealMember(bracket, built, bracket.Data.indexOf(built), context);
 }
 return built;
 ```
@@ -399,6 +526,9 @@ return built;
 
 ```ts
 const units = bracket.Data;
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return;
+}
 const previousIndex = ExpressionBracketPossibleShape.PreviousCode(units, tokenIndex);
 const previous = previousIndex < 0 ? null : units[previousIndex];
 // 1. `...a`
@@ -411,24 +541,10 @@ if (previous !== null && ExpressionBracketPossibleShape.SymbolText(previous) ===
   StatementRouteUtil.ExprBracketMemberCount += 1;
   return;
 }
-// 2. `a: 1` 的值格：回看 `:` 与已建的名字原子
-if (previous !== null && ExpressionBracketPossibleShape.SymbolText(previous) === ":") {
-  const nameIndex = ExpressionBracketPossibleShape.PreviousCode(units, previousIndex);
-  const nameUnit = nameIndex < 0 ? null : units[nameIndex];
-  if (nameUnit !== null && nameUnit instanceof ShapeToken && ExpressionAtomRegistry.Has(nameUnit)) {
-    const property = PropertyAssignmentShape.FromParts(nameUnit as ShapeToken, atom, context);
-    property.Pos = ExpressionBracketPossibleShape.PosAt(bracket, units, nameIndex);
-    ExpressionAtomRegistry.RegisterMember(property);
-    ExpressionBracketPossibleShape.ReplaceSlot(bracket, nameIndex, property);
-    ExpressionBracketPossibleShape.RemoveUnit(bracket, previous);
-    ExpressionBracketPossibleShape.RemoveUnit(bracket, atom);
-    StatementRouteUtil.ExprBracketMemberCount += 1;
-  }
-  return;
-}
-// 3. 短写 `a` 不在这里判：`a` 关闭那一拍 `:` 还没进 `Data`，此刻判「后面没有值」会把
-//    `{ a: 1 }` 的 `a` 提前封成短写（实测：`:` 于是变成下一个成员的名字，报「缺少标识符」）。
-//    短写改由 `SealPendingShorthand` 在下一个成员的第一个原子到达时回看收口（见下）。
+// 2. `a: 1` 的值格：**不在这里封成员**（[B4b]）。值格到达时，值后面的 `as` / `=>` /
+//    `? …` 还没进 `Data`，无法判断这个值是否已经完整；提前封会把剩下的一半留给下一个成员的
+//    名字位（`{ v: 1 as number | null }` / `{ b: z => z }` / `{ start: range ? … }` 三条崩溃）。
+//    成员改由 `SealPendingShorthand` 在**下一个原子到达**时回看封口——那时 `,` 已经在 `Data` 里。
 return;
 ```
 
@@ -448,6 +564,35 @@ if (commaIndex < 0 || ExpressionBracketPossibleShape.SymbolText(units[commaIndex
 }
 const nameIndex = ExpressionBracketPossibleShape.PreviousCode(units, commaIndex);
 if (nameIndex < 0) {
+  return;
+}
+const beforeName = ExpressionBracketPossibleShape.PreviousCode(units, nameIndex);
+// [B4b] 候选前一格是 `:` ⇒ 这是**上一个成员的完整值**（`{ a: 1, b: 2 }` 的 `1`）：`a` / `1`
+// 都已经是本目录的原子，就地封成 `PropertyAssignmentShape`。封口放在**下一个原子到达**这一拍，
+// 是因为值格到达时 `,` 还没进 `Data`，判不出值是否已经完整（见 `SealMember` 第 2 条）。
+if (beforeName >= 0 && ExpressionBracketPossibleShape.SymbolText(units[beforeName]) === ":") {
+  const ownerIndex = ExpressionBracketPossibleShape.PreviousCode(units, beforeName);
+  const ownerUnit = ownerIndex < 0 ? null : units[ownerIndex];
+  const colonUnit = units[beforeName];
+  const valueUnit = units[nameIndex];
+  if (ownerUnit !== null && ownerUnit instanceof ShapeToken && ExpressionAtomRegistry.Has(ownerUnit)
+    && valueUnit instanceof ShapeToken && ExpressionAtomRegistry.Has(valueUnit)) {
+    const property = PropertyAssignmentShape.FromParts(ownerUnit as ShapeToken,
+      valueUnit as ShapeToken, context);
+    property.Pos = ExpressionBracketPossibleShape.PosAt(bracket, units, ownerIndex);
+    ExpressionAtomRegistry.RegisterMember(property);
+    ExpressionBracketPossibleShape.ReplaceSlot(bracket, ownerIndex, property);
+    ExpressionBracketPossibleShape.RemoveUnit(bracket, colonUnit);
+    ExpressionBracketPossibleShape.RemoveUnit(bracket, valueUnit);
+    StatementRouteUtil.ExprBracketMemberCount += 1;
+  }
+  return;
+}
+// 短写：候选必须是**成员起点**（名字前一个代码单元只能是 `,` 或没有，`{ a, b }` 的 `a`）。
+// 否则会把**值**封成短写：`{ a: () => 1, b: 2 }` 的 `1`（前一格是 `=>`）在 `b` 到达时被
+// 当成短写名字，箭头体于是从数据里消失（B4 打开后 `expr-array-of-arrows` /
+// `expr-index-content-in-object` 的崩溃）。`0` 的 `:`、`1` 的 `=>` 都在这一条被挡下。
+if (beforeName >= 0 && ExpressionBracketPossibleShape.SymbolText(units[beforeName]) !== ",") {
   return;
 }
 const nameUnit = units[nameIndex];
