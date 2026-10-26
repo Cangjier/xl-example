@@ -29,6 +29,7 @@ import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
 import { TypeAliasDeclarationPossibleShape } from "../declarations/type-alias-declaration-possible-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "../statements/control-flow-statement-possible-shape.xl.md"
 import { DeclarationStatementPossibleShape } from "../statements/declaration-statement-possible-shape.xl.md"
+import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
@@ -140,6 +141,10 @@ if (SourceFileShape.CreatePossibleShapesCache === null) {
     // legacy 声明候选在第 1-12 位且同格 Accept，排在它们之后时本族轮不到（S4q 的 DeclarationShellCount=0）；
     // 让位由各候选顶部的 `Decide === ShellDeclarationFamily` 门控完成，这一行只让专用候选先被判。
     new DeclarationStatementPossibleShape(),
+    // [A2-D3] ambient 变量声明（`declare const|let|var`）的提前挂壳候选：绑定格建变量三层壳。
+    // 排在通用声明壳之后不影响判定（每个候选都按同一格求值，`Candidates` 是集合），
+    // 让位由候选自己的 `Owns` 与两处 `[XL-B3f]` 的同源判据完成。
+    new DeclareVariablePossibleShape(),
     new ImportDeclarationPossibleShape(),
     new ExportDeclarationPossibleShape(),
     // **Stage 5d-5：根 legacy 语句候选在这里退场**。原第 4 位是 `new StatementPossibleShape()`。
