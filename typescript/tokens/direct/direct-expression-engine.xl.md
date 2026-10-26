@@ -1791,6 +1791,19 @@ return OperatorTable.IsRightAssociative(text) || OperatorTable.IsAssignmentOpera
 // 1) 收掉栈上所有「优先级更高（或同级左结合）」的**已完成** frame。
 while (this.Frames.length > 0 && this.FrameStages[this.FrameStages.length - 1] === DirectExpressionEngine.StageDone) {
   const topPrecedence = this.FramePrecs[this.FramePrecs.length - 1];
+  // R7-AST-2（条件表达式的假分支 = AssignmentExpression）：
+  // tsc 的 `parseConditionalExpressionRest` 把 `?` 与 `:` 两侧都按 `parseAssignmentExpressionOrHigher` 解析，
+  // 所以 `a ? b : c = d` 是 `a ? b : (c = d)`，**不是** `(a ? b : c) = d`。
+  // 本引擎的假分支挂在条件 frame 里（`:` 之后 StageFalse → 操作数挂上即 StageDone），
+  // 若不拦一下，赋值运算符（prec = AssignmentPrecedence）会先把条件 frame 收掉（2 > 0）再插到外层
+  // ⇒ 条件 end 截断在假分支之前（`#242` 的 cj[0,9] vs ts[0,13]）。这里让赋值级运算符**不弹**条件 frame，
+  // 直接插进它的最后一个子节点（假分支）里，与 `a ? b : c + d` 走同一条路径；条件 frame 的 end 在
+  // `CompleteTop` 时按「最终最后一个子节点」封。
+  // 逗号 `,` 的 prec 更低（CommaPrecedence < AssignmentPrecedence）⇒ 仍按 `(a ? b : c), d` 收口，tsc 同口。
+  if (this.Frames[this.Frames.length - 1] instanceof ConditionalExpressionShape
+    && precedence >= OperatorTable.AssignmentPrecedence) {
+    break;
+  }
   if (topPrecedence > precedence || (topPrecedence === precedence && !rightAssoc)) {
     this.CompleteTop();
     continue;
