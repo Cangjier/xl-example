@@ -1239,7 +1239,12 @@ for (const unit of bracket.Data) {
 return false;
 ```
 
-## method CollectBodyStatements:(bracket:Bracket, shape:BlockShape)=>void
+## method CollectBodyStatements:(bracket:Bracket, shape:Token)=>void
+
+**[S3:NAMESPACE-BODY] 形参从 `BlockShape` 放宽到 `Token`**：收集通道只用到 `shape.Add` 与
+`shape.Data` 两件事，而模块体（`ModuleBlockShape`）现在也走这条通道（模块体括号挂上声明目录后，
+体内剩的是已收口节点，`ModuleBlockShape.FromBracket` 必须按 `BuildBlock` 同一条通道收集）。
+放宽形参类型不改变任何行为——`BlockShape` 是 `Token` 的子类型，原有调用点逐字节不变。
 
 ```ts
 let at = 0;

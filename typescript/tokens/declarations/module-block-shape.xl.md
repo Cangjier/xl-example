@@ -57,6 +57,20 @@ if (bracket.SourceRange.EndIndex >= 0) {
   shape.SignOut(bracket.SourceRange.End);
 }
 shape.Pos = pos;
+// **[S3:NAMESPACE-BODY] 体括号里有已建形状 ⇒ 走收集通道，不再按 raw 单元 `BuildMember`。**
+// 模块体括号一旦挂上 `NamespaceBodyDeclarationMount` 的声明目录，体内每条成员都会被语句壳 /
+// 声明族候选吃掉（`interface` / `enum` / `type` / `const` / `function` 各自成了形状），
+// `bracket.Data` 里剩的是**已收口的节点**而不是 basic token。此时逐条 `BuildMember` 会把形状
+// 当成「不是 Common 的头」直接丢进表达式分支（或抛错）——模块体因此必须和函数体走**同一条**
+// 收集通道（`StatementBuilder.BuildBlock` 的 `HasBuiltBodyStatements` / `CollectBodyStatements`）。
+// 判据不新写第二份：就是 `BuildBlock` 用的那个 `HasBuiltBodyStatements`。
+// 全 raw 的模块体（legacy / 开关关闭）逐字节走下面的 `BuildMember` 循环。
+if (StatementBuilder.HasBuiltBodyStatements(bracket)) {
+  const collector = new StatementBuilder(bracket.Template, context);
+  collector.CollectBodyStatements(bracket, shape);
+  shape.TryToClose(context);
+  return shape;
+}
 const inner = new StatementBuilder(bracket.Template, context);
 let base = 0;
 if (bracket.SourceRange.StartIndex >= 0) {

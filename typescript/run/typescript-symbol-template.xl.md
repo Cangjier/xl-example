@@ -91,7 +91,28 @@ ECMAScript 的 `?.` 前瞻：**可选链的 `?.` 后面不能紧跟十进制数�
 core 的 `SymbolTemplate.IsCombineBlocked` 默认永不阻断，这里按 ECMAScript 口径覆写。
 **不要**用 `BanCombineSymbol(["?."])` 代替：那会把所有可选链一起废掉。
 
+**[S3:NAMESPACE-BODY] `?:` 从不合并**（R3-3）。`?:` 不是 TS 的任何一个 token：可选成员
+`tags?: string[]` 是 `?` + `:` 两个标点，条件表达式 `a ? b : c` 的两个标点之间还有表达式。
+core 的 `SymbolTemplate.IsCombinedSymbol` 里却带着 `case "?:"`，于是 `tags?:` 被合成一个
+`Symbol text="?:"`，违反「一 token 一节点」——`?`(86) 与 `:`(87) 并成一个 `src=[86,88)` 的节点，
+char 87 再也不会有自己的 basic token（`namespace-store` 的 D11）。
+
+**为什么改这里而不是 `operator-shape-map.xl.md`**（WP-S3 §要修改文件表里点名的文件）：
+那份表里**根本没有** `?:` 条目（它只按 `?` / `:` 各自分类，见该文件 `:135` / `:206`），
+合并发生在**词法层**的组合符号表（`core/syntax/templates/symbol-template.xl.md:151`），
+`operator-shape-map` 只在形状层读已经切好的 token。core 的这条 `case "?:"` 是内置表，
+语言模板唯一的覆写点就是本方法（`IsCombineBlocked` 是**逐次判定**的前瞻钩子，
+`BanCombineSymbol` 是静态禁表——这里用前者，因为它是既有 `?.` 那条规则的同一个钩子）。
+
+副作用面已逐个核对：仓里 33 处读 `?:` 的判据**全部**同时接受 `?`（`markText === "?" || markText === "?:"`
+一类写法），唯一的例外是 `type-builder.xl.md:2547` 的 `else if (markText === "?:")`，它是
+`?` 分支的 **else**——`?` 单独到达时走的是上面那一支，语义不变。切开的 `:` 由成员路径
+（`MemberBoundary` / `TypeBuilder` 的冒号处理）当普通冒号吃掉。
+
 ```ts
+if (combined === "?:") {
+  return true;
+}
 if (combined === "?.") {
   return following >= "0" && following <= "9";
 }

@@ -34,8 +34,8 @@ type A = string   ← 语句壳建好那一格，在壳的 Data[0] 挂一个 Typ
 
 - 只在 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为真时动作；false 时 `ShouldMount` 恒 false，
   调用方连占位都不挂 ⇒ legacy 逐字节不变。
-- 只认**根层**（宿主 `Parent === null`）且**首代码单元就是 `type`**（`export type` / `declare type` 等前缀形
-  仍走既有声明壳，交给 B3/B5）。
+- 只认**声明宿主**（`StatementRouteUtil.IsDeclarationHost`：根层或模块块的 `{`…`}`）且
+  **首代码单元就是 `type`**（`export type` / `declare type` 等前缀形仍走既有声明壳，交给 B3/B5）。
 
 ## static field MountCount:int = 0
 
@@ -49,7 +49,9 @@ type A = string   ← 语句壳建好那一格，在壳的 Data[0] 挂一个 Typ
 if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
   return false;
 }
-if (host.Parent !== null) {
+// [S3:NAMESPACE-BODY] 与 `InterfaceDeclarationMount` 同一处改动、同一份判据：
+// 根层与模块块都是声明宿主（`StatementRouteUtil.IsDeclarationHost`）。
+if (!StatementRouteUtil.IsDeclarationHost(host)) {
   return false;
 }
 const start = ItemUtil.ItemStart(host.Data);
