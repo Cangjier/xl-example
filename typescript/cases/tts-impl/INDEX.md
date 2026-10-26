@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts-impl/run.mjs --write-index` 生成，**不要手改**。
 > 验收口径与迁移约定见 [README.md](README.md)。
 
-共 **365** 条 case：incremental **365** / 非 incremental **0**（非 incremental 即 FAIL）。
+共 **366** 条 case：incremental **366** / 非 incremental **0**（非 incremental 即 FAIL）。
 
 ## controls
 
@@ -314,6 +314,7 @@
 | `statements/try-catch-nobind.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0, IdentifierShape@pos=5, IdentifierShape@pos=18 |  |
 | `statements/try-catch.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0, IdentifierShape@pos=5, IdentifierShape@pos=22 |  |
 | `statements/try-finally.ts` | incremental | 提前的 shape 节点：TryStatementShape@pos=0, IdentifierShape@pos=5, IdentifierShape@pos=20 |  |
+| `statements/while-block-let-close-brace.ts` | incremental | 提前的 shape 节点：WhileStatementShape@pos=0, NumericLiteralShape@pos=19 | EOF 区间含前导/尾随 trivia |
 | `statements/while-block.ts` | incremental | 提前的 shape 节点：WhileStatementShape@pos=0, IdentifierShape@pos=11 |  |
 | `statements/while-no-block.ts` | incremental | 提前的 shape 节点：WhileStatementShape@pos=0 |  |
 

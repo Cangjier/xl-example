@@ -3,7 +3,7 @@
 > 由 `node typescript/cases/tts/run.mjs --write-index` 生成，**不要手改**。
 > 分类口径与目录约定见 [README.md](README.md)。
 
-共 **60** 条 case：throw 41 / atomic 14 / partial 5 / incremental 0
+共 **59** 条 case：throw 40 / atomic 14 / partial 5 / incremental 0
 
 ## throw
 
@@ -65,7 +65,6 @@
 | `throw/statements/if-block-let-member-init.ts` | 增量变量形状未支持：declaration 符号 . |  |
 | `throw/statements/label-block-let-unary-init.ts` | 增量变量形状未支持：declaration 符号 - |  |
 | `throw/statements/try-block-let-type-annotation.ts` | 增量变量形状未支持：declaration 符号 : |  |
-| `throw/statements/while-block-let-close-brace.ts` | 增量变量形状未支持：declaration 符号 } |  |
 
 ### types
 
