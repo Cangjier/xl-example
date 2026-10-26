@@ -526,6 +526,11 @@ const unit = data[last];
 if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
   return last;
 }
+// [B4c2] 结束格候选要过两条：这一格自己能收类型（`CanEndAtType`），且不是泛型函数类型头
+// `<T>` 那个还没等到参数表的配对 `>`。`Array<T>` 的 `>` 不受影响。
+if (!TypeAliasDeclarationShape.CanEndAtType(data, last)) {
+  return -1;
+}
 if (atEof) {
   return TypeAliasDeclarationShape.CanEndType(unit) ? last : -1;
 }
@@ -567,7 +572,7 @@ if (!(leading instanceof EndOfFileTokenShape) && !leading.IsTriviaToken) {
     previous = at;
     break;
   }
-  if (previous >= 0 && TypeAliasDeclarationShape.CanEndType(data[previous])
+  if (previous >= 0 && TypeAliasDeclarationShape.CanEndAtType(data, previous)
     && TypeAliasDeclarationShape.HasLineBreakBetween(data[previous], leading)) {
     const text = TypeAliasDeclarationShape.UnitText(leading);
     if (!TypeAliasDeclarationShape.IsNewLineContinuation(text)) {
@@ -743,6 +748,69 @@ for (let index = at - 1; index >= 0; index--) {
 return 0;
 ```
 
+## static method CanEndAtType:(data:Token[], index:int)=>bool
+
+`[B4c2]` **结束格候选**的统一口径：这一格本身能收类型（`CanEndType`），且不是泛型函数类型头
+`<T>` 那个还没等到参数表的配对 `>`（`IsGenericHeadClose`）。收口分支（`last` 与「下一行首词」的
+`previous`）都只问这一句，避免同一个候选在两处各判一套。
+
+```ts
+if (index < 0 || index >= data.length) {
+  return false;
+}
+if (TypeAliasDeclarationShape.IsGenericHeadClose(data, index)) {
+  return false;
+}
+return TypeAliasDeclarationShape.CanEndType(data[index]);
+```
+
+## static method IsGenericHeadClose:(data:Token[], last:int)=>bool
+
+`[B4c2]` `last` 是不是**泛型函数类型头**的配对 `>`：与它配对的那个 `<` 前面没有类型代码
+（前面是 `=` / 槽首）。`Array<T>` / `Map<K, V>` 的 `<` 前面有标识符，不在此列 ⇒ 那些 `>` 照旧
+可以收口（`type A = Array<T>` ⏎ `const x = 1` 的分句不变）。
+
+```ts
+const unit = data[last];
+if (!(unit instanceof Symbol) || !(unit as Symbol).Is(">")) {
+  return false;
+}
+let depth = 0;
+let openAt = -1;
+for (let at = last; at >= 0; at--) {
+  const probe = data[at];
+  if (probe.IsTriviaToken) {
+    continue;
+  }
+  if (!(probe instanceof Symbol)) {
+    continue;
+  }
+  const text = (probe as Symbol).TempToString();
+  if (text === ">") {
+    depth++;
+    continue;
+  }
+  if (text === "<") {
+    depth--;
+    if (depth === 0) {
+      openAt = at;
+      break;
+    }
+  }
+}
+if (openAt < 0) {
+  return false;
+}
+for (let at = openAt - 1; at >= 0; at--) {
+  const probe = data[at];
+  if (probe.IsTriviaToken) {
+    continue;
+  }
+  return probe instanceof Symbol && (probe as Symbol).Is("=");
+}
+return true;
+```
+
 ## static method CanEndType:(unit:Token)=>bool
 
 ```ts
@@ -754,8 +822,11 @@ if (unit instanceof Bracket) {
 }
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
+  // [B4c2] `-` / `+` 是映射类型修饰词与数字字面量的符号前缀，它们自己收不了一条类型
+  // （`type U = -⏎//c⏎2` 曾因此把别名收在 `-` 上、类型槽只剩一个 `-`）。
   return !(text === "=" || text === "|" || text === "&" || text === "<"
-    || text === "," || text === ":" || text === "?" || text === "=>" || text === ".");
+    || text === "," || text === ":" || text === "?" || text === "=>" || text === "."
+    || text === "-" || text === "+");
 }
 if (unit instanceof Common) {
   const text = (unit as Common).TempToString();
