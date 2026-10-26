@@ -1138,3 +1138,68 @@ if (unit instanceof Common) {
 // 字符串 / 正则 / 模板 / 数字等字面量。
 return StatementClass.OperandStart;
 ```
+
+## static field EnableBracketRoleCatalog:bool = false
+
+**[B0:ROLE] 通用括号角色目录（`bracket-role-resolver` / `bracket-catalog-installer` /
+`deferred-bracket-catalog` / `waiting-end-possible`）的一级开关。默认 `false`。**
+
+`false` 时：
+
+- `SourceFileShape` 的构造器不装配 `BracketRoleHook.Current`（保持 `null`），`Bracket.Transit` 里那一行
+  只是 `null` 比较 ⇒ **不解析角色、不装任何目录、不登记任何延迟括号**，既有产物逐字节不变；
+- 下面四个计数恒为 `0`。
+
+`true` 时**也不一定改变产物**：角色解析只对「注册过目录的角色」返回 `Known`，而注册表（
+`BracketRoleResolver.Catalogs`）默认是空的。所以本开关打开、但没有任何 `RegisterCatalog` 时，
+每一个 `{` 走的是「族已装 ⇒ `AlreadyInstalled` ⇒ `SetEndPossible`（已有终结候选则保留）」
+这条零改动路径。B1/B2 的接线是「打开开关 + `RegisterCatalog` 一行」两件事，**可分开验证**。
+
+为什么默认关（与 `EnableIncrementalShapes` 同一条纪律）：B0 只建机制、不迁 site；任何一格提前挂目录
+都会改 step 表与 `moved` 基线，而 B0 的验收要求是**逐项不变**。
+
+## static field BracketRoleKnownCount:int = 0
+
+[B0:ROLE] 只读计数：`BracketRoleResolver.Resolve` 返回 `Known` 的次数（每只括号最多 +1）。
+
+两种来源：① 族已经在该括号上装好目录（`Reason === "family-installed"`，安装器只会返回
+`AlreadyInstalled`）；② 角色目录已注册、由 `BracketCatalogInstaller` 第一次装上去。
+A1 的验收口径 `BracketRoleKnownCount == 既有 MountCount 之和` 对的是第 ① 种。
+
+## static field BracketRoleDeferredCount:int = 0
+
+[B0:ROLE] 只读计数：`Resolve` 返回 `Deferred` 的次数。默认（注册表为空、开关关）为 `0`；
+B2 打开开关后，声明族与「语句族未判」的 `{` 会走到这里（**只登记、不装目录**）。
+
+## static field BracketRoleFallbackCount:int = 0
+
+[B0:ROLE] 只读计数：`Resolve` 返回 `Fallback` 的次数。A1/WP-BF 的审计口径要求最终只允许
+`TypeLiteral`（返回类型里的对象字面量）与 `ObjectLiteralMethodBody`（对象字面量方法体）两个 site，
+其余任何 `Fallback` 都必须由 `Reason` 说明（`no-host-rule:*` / `catalog-not-registered:*` 是机制缺件，
+不是 site 漏网）。
+
+## static field BracketRoleReplayCount:int = 0
+
+[B0:ROLE] 只读计数：`DeferredBracketCatalog.Replay` 成功 replay 的括号数（`DeferredBracketCatalog.ReplayCount`
+同一口径的镜像；B0 默认恒为 `0`，WP-B2 之后应当等于「声明族延迟括号数」）。
+
+## static field BracketRoleReplayFailureCount:int = 0
+
+[B0:ROLE] 只读计数：replay 被拒绝 / 中途失败的次数（R2 非 raw、R4 终结候选会 Accept、R5 丢 context、
+R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一条都不应该被触发。
+
+## static field EnableArrowParenCatalog:bool = false
+
+**[B0:PAREN] A4b `(` 格「箭头参数」前瞻（`"arrowparen"`）的开关。默认 `false`；由 B3b 打开。**
+
+`true` 时 `CompositeInitializerFormsJudge.Family` 在「`=` 之后的 `(` 括号、内部没有类型注解 / `as` /
+`satisfies`、且 `)` 之后紧跟 `=>`」这一格返回 `"arrowparen"` 而不是 `"paren"`——把「分组 / 箭头参数」
+的裁定从 `(` 格推迟到 `=>` 到达那一格（A2 §7 R4：`(` 格所有权从 A4b 交给 B3b）。
+
+`false`（默认）时那个分支**不进**：`Family` 的返回值、`CanBuild` / `ClaimsForEndPossible` /
+`OperatorContinuation` 的每一条判据都与 B0 之前逐字节相同，`bin-paren-mul` 的现状不受影响。
+
+**为什么必须默认关**：`arrowparen` 一旦提前生效，`(a) + b` 这类「分组后接二元运算符」的括号会被
+判成箭头候选族、`OperatorContinuation` 随之失效，而 B3b 的 `ArrowParamsCatalog` 还没注册——
+那正是 A2 §7 R4 说的「所有权切换」事故。开关 + 目录注册必须同一个 WP 一起翻（B3b）。
+

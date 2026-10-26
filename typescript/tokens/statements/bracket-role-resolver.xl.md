@@ -1,0 +1,470 @@
+# dependencies
+```xl
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
+import { Token } from "../../../core/syntax/token.xl.md"
+import { StatementRoute } from "./statement-route-util.xl.md"
+import { StatementRouteUtil } from "./statement-route-util.xl.md"
+import { WaitingEndPossible } from "./waiting-end-possible.xl.md"
+```
+
+# namespace cangjie
+
+# class BracketRoleState
+
+括号角色解析的三态（B0）。与 `StatementRoute` 同款：纯 `int` 常量，**不新增枚举**。
+
+## static field None:int = 0
+
+还没解析（`BracketRoleResolver.Resolve` 的返回值不会是它）。
+
+## static field Known:int = 1
+
+`Known`：角色**与它的宿主**都已经确定，可以当场装目录（或补终结候选）。
+
+## static field Deferred:int = 2
+
+`Deferred`：角色可以定，但**拥有它的壳还不存在**（或语句族还没判出来）。只登记，不装任何东西；
+壳被建出来时由 `DeferredBracketCatalog.Bind(owner)` 唤醒并按升序 replay。
+
+## static field Fallback:int = 3
+
+`Fallback`：角色在语法上就不该在创建时定（返回类型里的对象字面量、对象字面量方法体），
+或者**没有宿主规则 / 没有已注册目录**。显式计数、显式交给 legacy 收口，**不再静默走启发式**。
+
+# class BracketRole
+
+角色名（字符串常量）。用字符串而不是枚举，是为了让它同时当 `CatalogGuide` 目录缓存的键
+（`族 + 角色`），并且**不影响任何既有 `switch` / 位掩码**。
+
+角色清单与 `_reports/BRACKET-A1.md` §2.1 逐项对应；名字进计数器的 `ByRole` 那一维。
+
+## static field Unknown:string = ""
+
+## static field ParameterList:string = "ParameterList"
+
+函数 / 方法的形参表（`function f(...)` / `m(...)`）。A1 矩阵 #1、#22 前半。
+
+## static field FunctionBody:string = "FunctionBody"
+
+函数体 / 方法体 / 构造器体的 `{`。A1 #2、#22 后半。
+
+## static field TypeLiteral:string = "TypeLiteral"
+
+**返回类型位置**的 `{`（`declare function f(): {a:A}`）。A1 #3，**只可能是 Fallback**：
+`{` 创建时判不出来（`TypeBuilder.IsBodyBrace` 依赖 `previous` 还是 raw `Common`/`Symbol`，
+名字一变 `IdentifierShape` 就失效），所以这里不许用文本硬猜。
+
+## static field MemberList:string = "MemberList"
+
+class / interface / enum 的成员块。A1 #4/#5/#6。
+
+## static field DeclarationList:string = "DeclarationList"
+
+namespace / module / class / interface / enum / type 的**声明体**（壳还没建时的延迟角色）。
+A1 #7、#21 之外的声明体族。
+
+## static field StatementBlock:string = "StatementBlock"
+
+语句块体（`if` / `for` / `while` / `do` / `try` / 裸块 / 嵌套块 / 箭头体）。A1 #8、#11、#15、#19、#23。
+
+## static field CaseBlock:string = "CaseBlock"
+
+`switch` 的子句块（`{ case … }`）。A1 #9。
+
+## static field ControlHead:string = "ControlHead"
+
+控制流头 `(`（`if (` / `for (` / `while (` / `switch (` / `with (`）。A1 #14、#16、#17、#18、#20。
+它的内容目录属表达式侧（A2），A1 WP-B3 明确：目录没就绪就只做 Deferred + 计数。
+
+## static field ClauseList:string = "ClauseList"
+
+`import` / `export` 的命名子句 `{`。A1 #25。
+
+## static field Heritage:string = "Heritage"
+
+`extends` / `implements` 子句。A1 #21 是**无括号**事件，本角色只占位、不参与解析。
+
+## static field ImportExportClause:string = "ImportExportClause"
+
+同 `ClauseList`，保留给 `ImportClauseShape` 宿主（A2 #14/#15 的括号在 clause 形状名下）。
+
+## static field ObjectLiteralMethodBody:string = "ObjectLiteralMethodBody"
+
+对象字面量里的方法体 `{`（`{ m() {} }`）。A1 #24，**只可能是 Fallback**。
+
+# class BracketRoleCatalog
+
+一份「角色 → 候选目录」的登记条目。
+
+**这是 B1 / B2 唯一的接线口**：它们各自 `new BracketRoleCatalog("ParameterList", [ new ParameterPossibleShape(), ... ], null)`
+再 `BracketRoleResolver.RegisterCatalog(...)` 一行，之后 `Resolve` 对该角色返回 `Known`。
+候选实例本身无状态（判定状态在 `CatalogGuide.PossibleShapesComputeCache` 里），所以目录只建一份、
+所有括号共用——与 `BodyGuideUtil.CreateShapesCache` 同一条纪律。
+
+`End` 刻意允许 `null`：终结候选由 `BracketCatalogInstaller` 统一补 `WaitingEndPossible`
+（「Known/Deferred 一律配永不 Accept 的终结候选」是 `CatalogGuide` 不抛的前提，不允许各角色自带一个会 Accept 的）。
+
+## field Role:string = ""
+
+## field Shapes:Array<PossibleShape> = []
+
+## field End:PossibleShape | null = null
+
+## constructor:(role:string, shapes:Array<PossibleShape>, end:PossibleShape | null)=>void
+
+```ts
+this.Role = role;
+this.Shapes = shapes;
+this.End = end;
+```
+
+# class BracketRoleResult
+
+`Resolve(host, bracket, context)` 的返回值：三态之一 + 它需要的全部数据。
+
+与 `_reports/BRACKET-A1.md` §2.1 的 `RoleResolution` 一一对应：
+
+```text
+Known     → State = BracketRoleState.Known,    Shapes/End 可装, Owner = 拥有角色的壳
+Deferred  → State = BracketRoleState.Deferred, Owner/OwnerKey = 将来会拥有它的壳, Reason = 为什么还不知道
+Fallback  → State = BracketRoleState.Fallback, Reason = 为什么只能在收口定
+```
+
+**没有第四种返回值**（A2 §4.1 的硬要求）：调用方只按 `State` 分三路，不需要认识任何具体宿主。
+`Reason` 一律是**可机械核对**的英文短句（计数与审计按它分组）。
+
+## field State:int = 0
+
+## field Role:string = ""
+
+## field Owner:Token | null = null
+
+角色归属的壳（不是括号）。`null` 表示「壳还不存在，只知道它的类名」。
+
+## field OwnerKey:string = ""
+
+将来会拥有这个角色的**壳的类名**（`DeferredBracketCatalog.Bind` 的匹配键）。
+空串 = 通配（任何声明壳都可以认领，见 `Resolve` 的声明族分支）。
+
+## field Shapes:Array<PossibleShape> = []
+
+## field End:PossibleShape | null = null
+
+## field Reason:string = ""
+
+## static method Known:(catalog:BracketRoleCatalog | null, end:PossibleShape | null, role:string, owner:Token | null, ownerKey:string)=>BracketRoleResult
+
+`Known`：角色与宿主都已确定。
+
+`catalog` 可以为 `null`——那是「族自己已经装好目录了，本机制只做收尾」的情形
+（`Resolve` 里 `bracket.CatalogGuide !== null` 那条短路）；这时 `Shapes` 为空、`End` 为 `null`，
+`BracketCatalogInstaller.Install` 返回 `AlreadyInstalled`，**一个字节都不改**。
+
+```ts
+const result = new BracketRoleResult();
+result.State = BracketRoleState.Known;
+result.Role = role;
+result.Owner = owner;
+result.OwnerKey = ownerKey;
+result.End = end;
+if (catalog !== null) {
+  result.Shapes = catalog.Shapes;
+  if (result.End === null) {
+    result.End = catalog.End;
+  }
+}
+return result;
+```
+
+## static method Deferred:(role:string, reason:string, owner:Token | null, ownerKey:string)=>BracketRoleResult
+
+```ts
+const result = new BracketRoleResult();
+result.State = BracketRoleState.Deferred;
+result.Role = role;
+result.Owner = owner;
+result.OwnerKey = ownerKey;
+result.Reason = reason;
+return result;
+```
+
+## static method Fallback:(reason:string)=>BracketRoleResult
+
+```ts
+const result = new BracketRoleResult();
+result.State = BracketRoleState.Fallback;
+result.Reason = reason;
+return result;
+```
+
+## method IsKnown:()=>bool
+
+```ts
+return this.State === BracketRoleState.Known;
+```
+
+## method IsDeferred:()=>bool
+
+```ts
+return this.State === BracketRoleState.Deferred;
+```
+
+## method IsFallback:()=>bool
+
+```ts
+return this.State === BracketRoleState.Fallback;
+```
+
+# class BracketRoleResolver
+
+**括号角色的唯一判据点（B0）。**
+
+`Resolve(host, bracket, context)` 只看三样东西——**宿主形状、括号字符、已确定的语句族**——
+返回 `Known` / `Deferred` / `Fallback` 之一。这里**不许**出现任何文本启发式：
+
+- 不用 `TypeBuilder.IsBodyBrace`（A1 §5 R6：`previous` 一旦变成 `IdentifierShape` 就失效）；
+- 不读 `bracket.Data` 里的字符来决定角色（只看**前一个非 trivia 单元的形状**这种结构位）；
+- 不写第二份关键字表（语句族一律问 `StatementRouteUtil.Decide`，与既有路由同源）。
+
+判据顺序（与 A1 §2.1 一致，**只有这一处**）：
+
+1. 括号字符 + 宿主类名 → 命中「宿主规则表」；
+2. 规则里需要结构位的（函数体 vs 返回类型对象字面量），看宿主 `Data` 里括号**前一个非 trivia 单元**；
+3. 角色能定、但拥有它的壳还不存在（声明族 / 语句族未判） ⇒ `Deferred`；
+4. 角色只能在收口定（`TypeLiteral` / `ObjectLiteralMethodBody`） ⇒ `Fallback`；
+5. 没有宿主规则 / 没有已注册目录 ⇒ `Fallback`（**显式**，不许静默）。
+
+计数落在 `StatementRouteUtil.BracketRoleKnownCount` / `BracketRoleDeferredCount` /
+`BracketRoleFallbackCount` 上，**只在本方法里自增一次**（每只括号一次，不重不漏）。
+
+[B0] 开关 `StatementRouteUtil.EnableBracketRoleCatalog` 默认 `false`：本类因此**一次都不会被调用**，
+既有解析产物逐字节不变。B1/B2 打开开关并 `RegisterCatalog` 之后才生效。
+
+## static field Catalogs:Array<BracketRoleCatalog> = []
+
+已注册的角色目录。空 = 没有任何角色可以装（B0 的默认状态，此时 `Resolve` 只可能给 `Deferred` / `Fallback`）。
+
+## static method RegisterCatalog:(catalog:BracketRoleCatalog)=>bool
+
+注册一个角色目录（幂等：同角色重复注册时**后来的覆盖前面的**，并返回 `false`；
+首次注册返回 `true`）。B1/B2 在各自文件的静态初始化（或模块装配点）里调一次。
+
+```ts
+if (catalog === null) {
+  return false;
+}
+for (let at = 0; at < BracketRoleResolver.Catalogs.length; at++) {
+  if (BracketRoleResolver.Catalogs[at].Role === catalog.Role) {
+    BracketRoleResolver.Catalogs[at] = catalog;
+    return false;
+  }
+}
+BracketRoleResolver.Catalogs.push(catalog);
+return true;
+```
+
+## static method FindCatalog:(role:string)=>BracketRoleCatalog | null
+
+```ts
+for (const catalog of BracketRoleResolver.Catalogs) {
+  if (catalog.Role === role) {
+    return catalog;
+  }
+}
+return null;
+```
+
+## static method IsCatalogRegistered:(role:string)=>bool
+
+```ts
+return BracketRoleResolver.FindCatalog(role) !== null;
+```
+
+## static method ClearCatalogs:()=>void
+
+清空注册表。只给「同一进程里两种模式交替」的 harness / 单元测试用；正常解析不调它。
+
+```ts
+BracketRoleResolver.Catalogs = [];
+```
+
+## static method PreviousCode:(host:Token, bracket:Bracket)=>Token | null
+
+宿主 `Data` 里**这只括号之前**的第一个非 trivia 单元；没有就返回 `null`。
+
+这是「结构位」的唯一读法：只看单元的形状，不看字符。`declare function f(): {a:A}` 的 `{` 前面是
+`Symbol(":")`，而 `function f() { … }` 的 `{` 前面是**已闭合的 `(` 括号**——两者在形状上分得开。
+
+```ts
+const at = host.Data.indexOf(bracket);
+const from = at < 0 ? host.Data.length - 1 : at - 1;
+for (let index = from; index >= 0; index--) {
+  if (!host.Data[index].IsTriviaToken) {
+    return host.Data[index];
+  }
+}
+return null;
+```
+
+## static method Classify:(host:Token, bracket:Bracket, context:SyntaxContext)=>BracketRoleResult
+
+**宿主规则表**：括号字符 + 宿主类名 + 语句族，返回 `Known`（角色与宿主都有）/ `Deferred`（差宿主）
+/ `Fallback`（这一步不该定）。
+
+规则一律**按宿主类名**比对，不 import 具体形状类：这样 `bracket-role-resolver` 不会反向依赖
+声明族 / 语句族的实现文件（与 `StatementRouteUtil.IsDeclarationHost` 用 `constructor.name`
+是同一手法，避开循环依赖）。B1/B2 只加目录、不改本表。
+
+```ts
+const shape = bracket as Bracket;
+const startChar = shape.StartBracketChar;
+const hostKey = host.constructor.name;
+// 1. `(`：形参表 / 控制流头。两者都能在**括号创建格**定（宿主是壳）。
+if (startChar === "(") {
+  if (hostKey === "FunctionDeclarationShape" || hostKey === "MethodDeclarationShape") {
+    return BracketRoleResult.Known(null, null, BracketRole.ParameterList, host, hostKey);
+  }
+  if (hostKey === "StatementShape" || hostKey === "SourceFileShape") {
+    const route = StatementRouteUtil.Decide(host.Data, host.Data.length - 1);
+    if (route === StatementRoute.ShellStatementFamily) {
+      // 控制流头（`if (` / `for (` / `while (` / `switch (` / `with (`）：A1 #14/#16/#17/#18/#20。
+      // 括号**内容**是表达式，目录属表达式侧（A2）：没注册就只能是 Deferred —— 绝不在这里自建第二套。
+      return BracketRoleResult.Known(null, null, BracketRole.ControlHead, host, hostKey);
+    }
+    return BracketRoleResult.Fallback("paren-not-a-control-head");
+  }
+  return BracketRoleResult.Fallback("no-host-rule:" + hostKey + startChar);
+}
+// 2. `[`：数组字面量 / 下标 / 计算名 / 元组，全部是表达式与类型侧（A2 #10/#11/#12/#18），B0 不认领。
+if (startChar === "[") {
+  return BracketRoleResult.Fallback("square-bracket-owned-by-expression-side");
+}
+if (startChar !== "{") {
+  return BracketRoleResult.Fallback("unknown-bracket-char:" + startChar);
+}
+// 3. `{` + 函数声明宿主：**函数体 vs 返回类型里的对象字面量**，只看前一个非 trivia 单元的形状。
+if (hostKey === "FunctionDeclarationShape") {
+  const previous = BracketRoleResolver.PreviousCode(host, shape);
+  if (previous !== null && previous instanceof Bracket
+    && (previous as Bracket).StartBracketChar === "(") {
+    return BracketRoleResult.Known(null, null, BracketRole.FunctionBody, host, hostKey);
+  }
+  if (previous !== null && previous instanceof Symbol) {
+    const previousText = (previous as Symbol).TempToString();
+    if (previousText === ":" || previousText === "=>" || previousText === "|"
+      || previousText === "&" || previousText === "<" || previousText === ",") {
+      // A1 #3：`declare function f(): {a:A}` 的 `{` 是**类型字面量**，不是函数体。
+      // 这一格判不出来（`IsBodyBrace` 的文本判据在名字已变形状后失效），所以显式 Fallback。
+      return BracketRoleResult.Fallback("return-type-position:" + BracketRole.TypeLiteral);
+    }
+  }
+  // 形参表还没出现（或已被收成形状）：位置不明 ⇒ 交 legacy，**不猜**（A1 §5 R6）。
+  return BracketRoleResult.Fallback("function-body-position-undecided");
+}
+// 4. 声明族宿主：体与成员块都能定（宿主已在，属 A1 的 Known 面；成员块是否「壳未建」由 B2 的 Bind 决定）。
+if (hostKey === "ModuleDeclarationShape") {
+  return BracketRoleResult.Known(null, null, BracketRole.DeclarationList, host, hostKey);
+}
+if (hostKey === "ClassDeclarationShape" || hostKey === "InterfaceDeclarationShape"
+  || hostKey === "EnumDeclarationShape") {
+  return BracketRoleResult.Known(null, null, BracketRole.MemberList, host, hostKey);
+}
+if (hostKey === "MethodDeclarationShape") {
+  return BracketRoleResult.Known(null, null, BracketRole.FunctionBody, host, hostKey);
+}
+if (hostKey === "ImportClauseShape" || hostKey === "ImportDeclarationShape"
+  || hostKey === "ExportDeclarationShape") {
+  return BracketRoleResult.Known(null, null, BracketRole.ImportExportClause, host, hostKey);
+}
+// 5. 对象字面量里的方法体（A1 #24）：只能在收口定 ⇒ 显式 Fallback，不再静默走启发式。
+if (hostKey === "ObjectLiteralExpressionShape") {
+  return BracketRoleResult.Fallback("object-literal-method-body");
+}
+// 6. 括号宿主：嵌套块 `{ { … } }`。外层块体目录已经把这个 `{` 收成块语句（A1 #8 的早判一格）。
+if (host instanceof Bracket) {
+  if ((host as Bracket).StartBracketChar === "{") {
+    return BracketRoleResult.Known(null, null, BracketRole.StatementBlock, host, host.constructor.name);
+  }
+  return BracketRoleResult.Fallback("bracket-host-not-a-block");
+}
+// 7. 语句族宿主：**已确定的语句族**决定 `{` 的角色；族还没判出来就是 Deferred（等下一格）。
+if (hostKey === "StatementShape" || hostKey === "SourceFileShape") {
+  const route = StatementRouteUtil.Decide(host.Data, host.Data.length - 1);
+  if (route === StatementRoute.ShellBlock) {
+    return BracketRoleResult.Known(null, null, BracketRole.StatementBlock, host, hostKey);
+  }
+  if (route === StatementRoute.ShellStatementFamily) {
+    // `if / for / while / do / try / with` 的体：宿主是控制流壳，体归它。
+    return BracketRoleResult.Known(null, null, BracketRole.StatementBlock, host, hostKey);
+  }
+  if (route === StatementRoute.ShellCaseClauseHead) {
+    return BracketRoleResult.Known(null, null, BracketRole.CaseBlock, host, hostKey);
+  }
+  if (route === StatementRoute.ShellDeclarationFamily) {
+    // 声明体，但**拥有它的壳还没建**（A1 #4/#5/#6 的 D-b 型：壳在 `}` 或成员收口才建）。
+    // 这正是 Deferred 的存在理由：现在装目录没有宿主可挂，等壳建出来时 Bind 再 replay。
+    return BracketRoleResult.Deferred(BracketRole.DeclarationList,
+      "declaration-shell-pending", null, "");
+  }
+  if (route === StatementRoute.None) {
+    return BracketRoleResult.Deferred(BracketRole.StatementBlock,
+      "statement-family-pending", null, hostKey);
+  }
+  // `ShellVariable` / `ShellPlainExpression`：`= {` 是对象字面量，属表达式侧（A4/A4b）。
+  return BracketRoleResult.Fallback("expression-initializer-position");
+}
+return BracketRoleResult.Fallback("no-host-rule:" + hostKey + startChar);
+```
+
+## static method Resolve:(host:Token, bracket:Token, context:SyntaxContext)=>BracketRoleResult
+
+**唯一入口**：解析 → 计数 → 给三态之一。`Known` 的目录在这里才被取出来（`catalog` 非空才带 `Shapes`/`End`）。
+
+两条 `Known` 形态：
+
+1. **族已装**（`bracket.CatalogGuide !== null`）：宿主族的 hook 已经在本括号上装了目录。
+   这时返回 `Known` 且 `Shapes` 为空、`End` 为 `null`——调用方只会拿到 `AlreadyInstalled`，
+   **一个字节都不改**。A1 的验收口径 `BracketRoleKnown == 既有 MountCount 之和` 就靠这一条对齐。
+2. **目录已注册**：从注册表取 `BracketRoleCatalog`，`Shapes` 与 `End` 一起交给安装器。
+
+角色决定了但**目录还没注册**（B0 的默认状态）⇒ `Fallback("catalog-not-registered:<Role>")`，显式计数。
+B1/B2 注册之后同一格自动变成 `Known`，调用方不需要改。
+
+```ts
+if (host === null || bracket === null) {
+  StatementRouteUtil.BracketRoleFallbackCount += 1;
+  return BracketRoleResult.Fallback("bad-arguments");
+}
+if (!(bracket instanceof Bracket)) {
+  StatementRouteUtil.BracketRoleFallbackCount += 1;
+  return BracketRoleResult.Fallback("not-a-bracket");
+}
+const shape = bracket as Bracket;
+const draft = BracketRoleResolver.Classify(host, shape, context);
+if (draft.IsFallback()) {
+  StatementRouteUtil.BracketRoleFallbackCount += 1;
+  return draft;
+}
+if (draft.IsDeferred()) {
+  StatementRouteUtil.BracketRoleDeferredCount += 1;
+  return draft;
+}
+// Known：族已经装过目录（`Bracket.OnBracketCreatedEvent` 的族收尾已经跑完）⇒ 只做收尾，不换目录。
+if (shape.CatalogGuide !== null) {
+  StatementRouteUtil.BracketRoleKnownCount += 1;
+  const installed = BracketRoleResult.Known(null, null, draft.Role, draft.Owner, draft.OwnerKey);
+  installed.Reason = "family-installed";
+  return installed;
+}
+const catalog = BracketRoleResolver.FindCatalog(draft.Role);
+if (catalog === null) {
+  StatementRouteUtil.BracketRoleFallbackCount += 1;
+  return BracketRoleResult.Fallback("catalog-not-registered:" + draft.Role);
+}
+StatementRouteUtil.BracketRoleKnownCount += 1;
+return BracketRoleResult.Known(catalog, null, draft.Role, draft.Owner, draft.OwnerKey);
+```

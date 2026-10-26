@@ -32,6 +32,7 @@ import { DeclarationStatementPossibleShape } from "../statements/declaration-sta
 import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
+import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.xl.md"
 ```
 
 # namespace cangjie
@@ -55,6 +56,11 @@ if (queue !== null) {
   this.ProcessQueue = queue;
 }
 this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileEndPossibleShape());
+// [B0:ROLE] 通用括号角色钩子的**幂等装配点**（每次解析都经过这里，早于任何一只括号）。
+// 开关 `StatementRouteUtil.EnableBracketRoleCatalog` 为假时 `EnsureInstalled` 立即返回、
+// `BracketRoleHook.Current` 保持 `null`，于是 `Bracket.Transit` 里那一行只是 `null` 比较 ⇒
+// 不解析角色、不装目录、不登记延迟括号，既有产物逐字节不变。
+BracketRoleCatalogHook.EnsureInstalled();
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
