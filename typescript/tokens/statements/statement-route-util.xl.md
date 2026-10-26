@@ -194,6 +194,13 @@ return StatementRouteUtil.EnableIncrementalShapes;
 同一行同源判定：两者必须同开同关，只开一处就是「开关后面只接了一条腿」（挂载侧关了则 mount=0、
 壳计数永远是 0）。默认 `true`，与既有 `EnableSwitchCaseClause` 一致。
 
+[S6] **它之外还有一道模式闸**：`BlockPossibleShape.OnShellBracketCreated` 把子句头候选挂进子句块目录时
+还要求 `IsIncrementalShapesEnabled()` 为真（见该文件的 `[S6]` 注释）。本开关默认 `true` 只表示
+「增量路径的这条腿开着」，**不表示 legacy 解析也走子句头**——legacy 解析（wide-ast / `tts` 的 legacy
+半程）在子句块上逐字节回到「只挂 `CaseClauseStatementPossibleShape`」的 S1 之前形态。两道闸分开的理由：
+`EnableSwitchCaseClauseHead` 是功能开关，关掉它 S1 的增量能力（control-flow / switch-fallthrough）就没了；
+模式闸关掉的只是「增量壳出现在 legacy 口子下」这一条错配。
+
 ## static field SwitchCaseClauseHeadShellCount:int = 0
 
 [WP-S1] 只读计数：子句头壳（`CaseClauseHeadPossibleShape.BuildByIndex`）建出的次数。
@@ -559,6 +566,8 @@ return false;
 2. 首词是 `case` 或 `default`（**只在本方法里出现一次**，不写第二份关键字表）；
 3. 宿主是**子句块目录**（`{` 括号且 `CatalogGuide` 里挂着 `CaseClauseHeadPossibleShape`）。这一条把
    「`case` / `default` 当标识符 / 属性名」的形态挡在外面——那些形态的宿主不是我们挂的目录；
+   该目录**只在增量模式挂载**（[S6]，`block-possible-shape.xl.md` 的 `IsIncrementalShapesEnabled()` 闸），
+   所以 legacy 解析里本方法恒返回 `None`，路由与 S1 之前逐字节一致。
 4. **不等第二个代码单元**。宿主是子句块目录时 `case` / `default` 在这个位置只可能是子句头；等下去会让
    表达式族在同一格把 `case` 判成 `ShellPlainExpression`，而 `Reject` 被 `CatalogGuide` 永久删除，
    子句头候选一被拒就再没有候选能建壳。`default` 的「冒号必须紧跟」由终结候选
