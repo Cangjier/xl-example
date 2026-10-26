@@ -13,8 +13,8 @@ EOF     → 只补最后一个数字的收口
 直到最后一个标识符关闭、语句收口，才**一次性**建出整棵表达式树（见 [README 根目录](../../../README.md) 的 cjcli 一节）。
 
 本目录回答一个问题：**当前增量形状的覆盖边界在哪里——哪些形态还不支持？**
-每一条 case 都锚定一个「不支持」的具体形态。（原本 `incremental` 目录的正向对照 case 已全部迁往
-[`../tts-impl`](../tts-impl/)，见文末「支持后迁往 tts-impl」。）
+每一条 case 都锚定一个「不支持」的具体形态。（账本已关闭：原本 `incremental` 目录的正向对照 case 与剩余缺口 case 已全部迁往
+[`../tts-impl`](../tts-impl/)，见文末「迁移已完成」。）
 
 判据与目录标注由 [`run.mjs`](run.mjs) 实现；全部 case 的清单见 [INDEX.md](INDEX.md)。
 
@@ -97,42 +97,49 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 本目录是**覆盖边界账本**，不是「必须永远红」的缺口清单：
 
 - 某个形态的增量支持做上去了 ⇒ 实测分类从 `atomic` / `partial` / `throw` 升到 `partial` / `incremental`，
-  `run.mjs` 会打 **NOW-SUPPORTED**：先按文末「支持后迁往 tts-impl」把 case 迁出，再重跑两处 `--write-index`。
+  `run.mjs` 会打 **NOW-SUPPORTED**：按文末「迁移已完成（原迁出契约）」把 case 迁出，再重跑两处 `--write-index`。
 - 反过来（原来支持，现在退化）会打 **REGRESSION**。
 - 两种模式 EOF 形状结构不同（`divergent`）或 legacy 自己就抛错（`invalid`）属于 case/实现异常，同样是 FAIL。
 
-## 现状
+## 现状（账本已关闭）
 
-**370 条 case，全部与目录标注一致**（`node typescript/cases/tts/run.mjs` → PASS 370 / FAIL 0；
-两次独立进程的 `--json` 输出逐字节相同）。分类 × 分区：
+**0 条 case**。`node typescript/cases/tts/run.mjs --quiet` → PASS 0 / FAIL 0（空账本 exit 0）；
+[`../tts-impl`](../tts-impl/) → PASS 425 / FAIL 0。两次独立进程的 `--json` 输出逐字节相同。
+
+**结论：`tts` 账本记录的 56 条剩余缺口已全部实现增量支持并迁往 `tts-impl`，本账本已清空。**
+`tts` 现在只保留判据、目录约定与迁移契约作为历史档案；正向边界由 `tts-impl` 的 425 条回归表达。
+
+清空前的分类矩阵（现全 0，分类不再适用）：
 
 | 分类 | statements | declarations | expressions | types | lexical | controls | 合计 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `throw`（显式拒绝） | 9 | 20 | 66 | 18 | 12 | — | **125** |
-| `atomic`（开关无影响） | 65 | 59 | 0 | 54 | 14 | — | **192** |
-| `partial`（仅外层增量） | 3 | 7 | 23 | 8 | 12 | — | **53** |
+| `throw`（显式拒绝） | 0 | 0 | 0 | 0 | 0 | — | **0** |
+| `atomic`（开关无影响） | 0 | 0 | 0 | 0 | 0 | — | **0** |
+| `partial`（仅外层增量） | 0 | 0 | 0 | 0 | 0 | — | **0** |
 | `incremental`（真正增量，已迁出） | — | — | — | — | — | — | **0** |
-| 合计 | 77 | 86 | 89 | 80 | 38 | — | **370** |
+| 合计 | 0 | 0 | 0 | 0 | 0 | — | **0** |
 
-> 原本 45 条 `incremental` 正向对照 case 已全部迁往 [`typescript/cases/tts-impl`](../tts-impl/)；
-> 本目录不再保留正向 case，正向边界由 `tts-impl` 的 PASS 数表达。
+> 历史基线：清空前为 `throw` 125 / `atomic` 192 / `partial` 53（合计 370）；`tts-impl` 历史累计
+> 369 条，加上收尾迁出的 56 条剩余缺口，合计为 **425 条**。更早的 45 条 `incremental` 正向对照
+> case 已包含在历史 369 条中。迁移已完成（见 [`tts-impl` 现状 425](../tts-impl/README.md)）；
+> 本目录不再保留任何 case。
 
-分区覆盖与逐条清单：`_notes/<area>.md`（构造 → 分类、throw 文案、divergent/invalid 观察、未收录变体），
-以及自动生成的 [INDEX.md](INDEX.md)。
+分区覆盖与逐条清单：`_notes/<area>.md`（构造 → 分类、throw 文案、divergent/invalid 观察、未收录变体）
+是清空前的历史记录，保留供追溯；自动生成的 [INDEX.md](INDEX.md) 现在为 0 条。
 
-覆盖边界（`docs/token-time-shapes-incremental.md` §3 的实测版）：
+覆盖边界（清空前的实测记录，保留供追溯；当前边界由 `tts-impl` 的 425 条表达）：
 
 - **支持**：`let` / `const` / `var` + **单个 `Common` 标识符绑定** + 初始化器为**数字字面量**或
   `*` / `+` 组成的二元表达式；**语句末尾不能有 `;`**（`let x = 1;` 也会在 `;` 处 `throw`，
   现有目标用例没有分号，所以文档没暴露这一点）；同一文件里**不能再跟第二条语句**（见缺陷 1）。
-  这些已支持形态的 case 已整体迁往 [`../tts-impl`](../tts-impl/)，本目录只留 `throw` / `atomic` / `partial` 账本。
-- **throw 125 条**：变量声明族遇到类型注解 `:`、多声明 `,`、`!`、解构、`;`、括号、非白名单符号/运算符
-  —— 在 `statement` / `declaration` / `expression` 各阶段显式拒绝（**38 种**文案，见各 notes 与 INDEX）。
-- **atomic 192 条**：开关只挂在「变量语句」这一条产生式上，所以其它全部语句、声明、import/export、
+  这些已支持形态的 case 已整体迁往 [`../tts-impl`](../tts-impl/)，本目录只保留历史契约。
+- **throw（清空前 125 条）**：变量声明族遇到类型注解 `:`、多声明 `,`、`!`、解构、`;`、括号、
+  非白名单符号/运算符——在 `statement` / `declaration` / `expression` 各阶段显式拒绝
+  （**38 种**文案，见各 notes 与历史 INDEX）。
+- **atomic（清空前 192 条）**：开关只挂在「变量语句」这一条产生式上，所以其它全部语句、声明、import/export、
   type alias/interface/enum、for 头里的 `let`、switch case 里的声明……一律原子建树。
-- **partial 53 条**：变量声明骨架已经增量，但初始化器仍是原子建树——字符串 / 模板 / regex / 标识符 /
-  `a < b` / `typeof` / `void` / `in` / `instanceof` / `as` / `satisfies` 等**不被拒绝**的表达式形态。
-  这些是下一步扩表达式形态时最先会变成 `incremental` 的 case，支持后按文末契约迁往 `tts-impl`。
+- **partial（清空前 53 条）**：变量声明骨架已经增量，但初始化器仍是原子建树——字符串 / 模板 / regex /
+  标识符 / `a < b` / `typeof` / `void` / `in` / `instanceof` / `as` / `satisfies` 等**不被拒绝**的表达式形态。
 - **`/` 与多语句文件不在 cases 里**：它们不是「不支持」而是 incremental 产出错误树（`divergent`），
   见下面的实现缺陷 1、2；判据会明确 FAIL，不会把错误树收成 case。
 
@@ -141,6 +148,9 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 判据只关心「形状有没有提前长出来」，下面几项是实现缺陷，记录在案、不改变分类。
 它们都比覆盖边界严重：`divergent` 意味着 incremental **静默产出与 legacy 不同的树**，违反契约 C10
 「不允许静默产出错误的树」，因此对应形态无法作为 case 收进来（收进来就是 FAIL），只记录复现方式：
+
+**2026-10 收尾状态**：以下缺陷已在 2026-10 收尾中修复或由后续 WP（D0/P5 等）覆盖；
+本节作为历史观察保留，不再阻塞任何账本。
 
 1. **增量声明之后跟第二条语句 ⇒ 后续语句整段丢失（divergent，最严重）**：
    `let x = 2*3+1\nlet y = 4\n` 的 incremental EOF 树只有第一条 `VariableStatementShape`
@@ -164,7 +174,10 @@ node build/ts/cjcli.js typescript/cases/tts/cases/atomic/statements/if-no-block.
 这类只影响 `src` 区间的词法形态仍会被正确判成 `incremental`（INDEX 备注标 `EOF 区间含前导/尾随 trivia`），
 只有 `residualBasicLines` 会提示第 3 条。
 
-## 支持后迁往 tts-impl（迁出契约）
+## 迁移已完成（原迁出契约，保留供历史追溯）
+
+迁移已完成：`tts` 0 条、[`tts-impl`](../tts-impl/) 425 条。以下规则不再需要执行，
+保留为历史契约，供追溯当时的判据与流程。
 
 本目录是**覆盖边界账本**。一个形态支持上去之后，它的 case 不再属于账本，而属于
 [`../tts-impl`](../tts-impl/) 的**已支持回归基线**——**迁出，不是复制**。

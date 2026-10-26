@@ -8,7 +8,7 @@
 
 | 目录 | 回答的问题 | 允许的分类 |
 | --- | --- | --- |
-| [`typescript/cases/tts`](../tts/) | 覆盖边界在哪里？哪些形态**还不支持**？ | `throw` / `atomic` / `partial` / `incremental`（账本，按目录标注回归） |
+| [`typescript/cases/tts`](../tts/) | 覆盖边界在哪里？哪些形态**还不支持**？ | `throw` / `atomic` / `partial` / `incremental`（账本已于 2026-10 清空，保留分类定义） |
 | `typescript/cases/tts-impl`（本目录） | **已经支持**的形态有没有退化？ | 只有 `incremental`（其余一律 FAIL） |
 
 支持工作做完后，把 case 从 `tts` **单向**迁进来（见下文「迁移流程」）；本目录的 case
@@ -56,8 +56,8 @@ typescript/cases/tts-impl/
   INDEX.md                    # 全部 case + 分类 + 判定依据（--write-index 生成，不要手改）
 ```
 
-`area` 与 `tts` 的 `cases/incremental/<area>/` 一一对应，迁移时**只去掉 `incremental` 这一层**：
-`declarations` / `expressions` / `lexical` / `statements` / `controls`。
+`area` 与 `tts` 历史的 `cases/incremental/<area>/` 一一对应，迁移时**只去掉 `incremental` 这一层**：
+`declarations` / `expressions` / `lexical` / `statements` / `types` / `controls`。
 
 ### case 写法约定
 
@@ -92,7 +92,9 @@ npm run tts:impl                                             # 等价于 node ./
 输出是确定性的：无时间戳、无随机序，两次独立进程的 `--json` 输出**逐字节相同**，
 可以直接进 CI 做字节比对。
 
-## 迁移流程（后续智能体照做）
+## 迁移流程（历史契约，迁移已完成）
+
+迁移已完成，以下流程不再需要执行；保留供追溯。
 
 前提：该形态在 `tts` 里已经从 `throw` / `atomic` / `partial` 升到 `incremental`。
 
@@ -123,19 +125,28 @@ npm run tts:impl --silent
 
 ## 现状
 
-基线 `feature/all-possible` @ `980edc1d` 起，从 `tts` 迁入 **45 条**，全部 `incremental`：
+累计 **425 条**，全部 `incremental`。构成：原 `tts` 账本的 **56 条剩余缺口** + 历史 **369 条** = **425**。
 
 | area | 条数 |
 | --- | ---: |
-| declarations | 4 |
-| expressions | 11 |
-| lexical | 22 |
-| statements | 3 |
 | controls | 5 |
-| 合计 | **45** |
+| declarations | 90 |
+| expressions | 110 |
+| lexical | 60 |
+| statements | 80 |
+| types | 80 |
+| 合计 | **425** |
 
-验收读数：`node typescript/cases/tts-impl/run.mjs --quiet` → PASS 45 / FAIL 0；
-同时 `node typescript/cases/tts/run.mjs --quiet` → PASS 370 / FAIL 0（415 − 45）。
+验收读数：
+
+```powershell
+node typescript/cases/tts-impl/run.mjs --quiet   # PASS 425 / FAIL 0
+node typescript/cases/tts/run.mjs --quiet        # PASS 0 / FAIL 0（空账本，exit 0）
+```
+
+迁移叙事：基线 `feature/all-possible` @ `980edc1d` 起首批迁入 45 条；其后各 WP 持续迁入，
+至 `tts` 清空时历史累计 369 条。最后 56 条剩余缺口（原 `throw` / `atomic` / `partial` 账本）
+在 2026-10 收尾中全部实现增量支持并迁入，`tts` 账本归零，本目录成为唯一回归基线。
 
 ## FAIL 的含义与处理
 
