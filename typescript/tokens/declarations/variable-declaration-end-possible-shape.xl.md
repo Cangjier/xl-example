@@ -83,6 +83,10 @@ if (current instanceof Symbol) {
       return ShapeStates.Reject;
     }
   }
+  // [S5:TERNARY] 三目进行中的 `?` / `:`（`const key = typeof id === "number" ? id : Number(id)`）。
+  // `A4b` 的 `Family` 只认「标识符 / 数字起首、后面紧跟 `?`」那一种条件位（`:162` 的注释写明
+  // 「复合条件的三元本 WP 不认领」），所以复合条件位的三目在 `?` / `:` 那一格会落到本文件的兜底 `throw`。
+  // 处理放在兜底 `throw` 之前那一条 `[S5:TERNARY]` 守卫里（同一份判据，只此一处）——这里不再单独分支。
   // [A4c:TAIL] 尖括号断言 / 泛型箭头的前缀符号（`<T>y` / `<T>(a: T) => a`）：族命中时继续等，
   // 由 `CompositeInitializerTailPossibleShape` 在整条长完那一格建出。
   if ((text === "<" || text === ">") && CompositeInitializerTailJudge.Family(units) !== "") {
@@ -102,6 +106,21 @@ if (current instanceof Symbol) {
   // legacy 建树一直支持这条形态，根层函数体挂上控制流目录之后它第一次被走到（`ref-new-target`）。
   if (text === ".") {
     return ShapeStates.Reject;
+  }
+  // [S5:TERNARY] **条件位是复合表达式的三目**（`const key = typeof id === "number" ? id : Number(id)`）：
+  // 初始化器还是纯 raw 基本单元、且这条初始化器里「顶层先有二元运算符、后有 `?`」⇒ 本格**等**，不抛。
+  //
+  // 为什么这里会有未知符号：`[S5:TERNARY]` 的守卫（`DeclarationCellGuard`）在三目族上一开始就拒掉
+  // 表达式目录的全部候选，于是本条声明从第一格起就没有任何候选能建形状——`typeof` / `1` / `===` / `?` /
+  // `:` / 分支操作数全部按 basic 单元流进来，逐个都要在这里过一遍。它们不该各自撞一条 `throw`：
+  // 收口格（`;` / EOF）的原子建树（`VariableDeclarationShape.FinishIncremental` 的
+  // `builtShape === null` 分支 → legacy `ExpressionBuilder`）会把整条初始化器建成与 legacy 逐节点同源的树。
+  //
+  // 反向边界（C10 不变）：`IsRawInitializer` 为假（初始化器里已有表达式形状，原子重建不可能）或
+  // `HasCompoundTernary` 为假（不是复合条件位三目）时，逐字落回下面的 `throw`。
+  if (VariableDeclarationEndPossibleShape.IsRawInitializer(units)
+    && VariableDeclarationEndPossibleShape.HasCompoundTernary(units)) {
+    return ShapeStates.Uncertain;
   }
   throw new Error("增量变量形状未支持：declaration 符号 " + text);
 }
@@ -272,6 +291,50 @@ for (let at = 0; at < units.length; at++) {
   }
 }
 return -1;
+```
+
+## static method HasCompoundTernary:(units:Array<Token>)=>bool
+
+这条声明的初始化器里是不是「**条件位为复合表达式的三目**」：从 `=` 之后往前看（`ItemUtil.IsCompoundTernaryAhead`），
+顶层先有二元运算符、之后有 `?`。
+
+只用作 `[S5:TERNARY]` 守卫的一半（另一半是 `IsRawInitializer`），没有 `=` 时返回 false。
+
+```ts
+const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
+if (equalAt < 0) {
+  return false;
+}
+return ItemUtil.IsCompoundTernaryAhead(units[equalAt]);
+```
+
+## static method IsRawInitializer:(units:Array<Token>)=>bool
+
+`=` 之后的初始化器是否**还是纯 raw 基本单元**——没有任何候选把它建成形状。
+
+这是 `[S5:TERNARY]` 分支唯一的判据：只有纯 raw 的初始化器才能在收口格被 legacy `ExpressionBuilder`
+整段原子重建（`VariableDeclarationShape.FinishIncremental` 的 `builtShape === null` 分支）；
+一旦有形状落地，那条分支不可达（`FinishIncremental` 会「只收唯一根、丢弃其余 basic」），
+本判据为 false，调用点保持原样的 C10 显式抛错。
+
+`=` 之前的部分（标识符 / 类型注解形状 / `!`）不参与判定；`=` 本身也不算。
+没有 `=`（还在声明头）⇒ false（不看 `=` 之前的 `:`，那是类型注解的格，与三目无关）。
+
+```ts
+const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
+if (equalAt < 0) {
+  return false;
+}
+for (let at = equalAt + 1; at < units.length; at++) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (!unit.IsBasicToken) {
+    return false;
+  }
+}
+return true;
 ```
 
 ## static method HasReducibleLeft:(units:Array<Token>, tokenIndex:int)=>bool
