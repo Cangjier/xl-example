@@ -470,6 +470,43 @@ if (StatementRouteUtil.EnableShellExpressions) {
     }
     return StatementRoute.Legacy;
   }
+  // [A2-D5B:AWAIT] `await` 作**表达式语句头**（`await f();`）⇒ 普通表达式语句壳，而不是 `Legacy`。
+  // 根因与 D5 的 `let = 1` 是同一处（见上面的 `[A2-D5:ROUTE]`）：`await` 只出现在 `IsLegacyKeyword`
+  //（本方法末尾）⇒ 根表达式候选在头格 `Reject`，整条只剩 legacy 原子建树。这里只改「归哪一族」：
+  // `IsLegacyKeyword` 本体一字不动（声明族 / 标签语句还在用它），表达式体由 `StatementOperatorBody`
+  // 的 `StartAwaitYield` 当一元前缀、`f()` 由 P2 的调用候选建——两处能力都已存在。
+  // 判据刻意保守，四道闸：
+  // ① 宿主是块体 `{` 括号时**不接管**：那里 `AwaitStatementPossibleShape`（`EnableAwaitStatement`）
+  //    本来就有专用语句壳，本分支只在根层补表达式语句这一族，块内逐字节保持原路径；
+  // ② 下一格是 `using` ⇒ `await using <绑定>` 是声明，维持原路由；
+  // ③ 下一格是 `;` / `}` / `:` / EOF ⇒ 维持原路由（`await;` 没有操作数、`await: 1` 是标签位）；
+  // ④ 下一格还没到时 `None`（继续等）：`Reject` 被 `CatalogGuide` 永久删除，首格判死之后整条语句
+  //    再没有候选能建壳（与下面 `import` / `async` 两支同一手法）。
+  if (text === "await" && StatementRouteUtil.EnableAwaitStatement) {
+    const awaitOwner = units[headAt].Parent;
+    const awaitInBlock = awaitOwner instanceof Bracket
+      && (awaitOwner as Bracket).StartBracketChar === "{";
+    if (!awaitInBlock) {
+      const awaitNextAt = ItemUtil.NextCode(units, headAt + 1);
+      if (awaitNextAt >= units.length) {
+        return StatementRoute.None;
+      }
+      const awaitNext = units[awaitNextAt];
+      if (awaitNext instanceof EndOfFileTokenShape) {
+        return StatementRoute.Legacy;
+      }
+      if (awaitNext instanceof Common && (awaitNext as Common).Is("using")) {
+        return StatementRoute.Legacy;
+      }
+      if (awaitNext instanceof Symbol) {
+        const awaitNextText = (awaitNext as Symbol).TempToString();
+        if (awaitNextText === ";" || awaitNextText === "}" || awaitNextText === ":") {
+          return StatementRoute.Legacy;
+        }
+      }
+      return StatementRoute.ShellPlainExpression;
+    }
+  }
   // S3m: statement-start async arrows only. `async function ...` is a declaration and stays legacy.
   // Return None while the deciding unit has not arrived: Reject is permanent in CatalogGuide.
   if (text === "async") {
