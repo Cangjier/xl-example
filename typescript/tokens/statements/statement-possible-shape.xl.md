@@ -139,18 +139,23 @@ if (state.Checked !== tokenIndex + 1) {
   }
   state.Checked = tokenIndex + 1;
 }
+// **EOF 哨兵：本候选一律让位**（不看「已经建出过几条」，也不看 `Status`）。
+// 这一格没有第二种结局：`SourceFileEndPossibleShape` 在 `EndOfFileTokenShape` 上**无条件**
+// `Accept`（文件已经不能再长），所以只要本候选还活着，`CatalogGuide` 必然抛
+// 「终结候选与其它候选同时成立」——EOF 处「其它候选还活着」不是偶发矛盾，而是**一定**。
+// 而未收口的尾段本来就有归属：根终结候选那一支带 EOF 尾段兜底
+// （`BuildTrailingDeclaration` 按换行处的声明词切段 / `BuildStatementSegments` 逐条建），
+// 边界 token 也是它在这一格建出来的（C04–C06 的既有路径）。
+// B2 值后 tag 模板 / B3 行首 `/` / B4 `as T!` / B5 嵌套裸块四个子族共 15 条崩溃都是这个形状：
+// 用例以 `declare const …;` 开头，第一跳失败后走 legacy，`ItemStart` 一直是 0（一行都没建出来），
+// 于是只认 `state.Start > 0` 的那条旧守卫根本轮不到，`Status === 1` 直接 Accept ⇒ EOF 折在这里。
+if (units[tokenIndex] instanceof EndOfFileTokenShape) {
+  return ShapeStates.Reject;
+}
 if (state.Status === 2) {
   return ShapeStates.Reject;
 }
 if (state.Status === 1) {
-  // 已经建出过上一条语句（`ItemStart > 0`）、剩下的这一段又只在 **EOF 哨兵**这一格才判完：
-  // 这一段是「上一条语句在 ASI 边界收口时留下的边界 token」（`type T = A` ⏎ `return` /
-  // `debugger` / `{ a: 1 }`、`a` ⏎ `return`）。边界 token 不会再有自己的判定格，根终结候选
-  // 会在 EOF 这一格用 `BuildTrailingDeclaration` 把它建出来；本候选若在这里 Accept，
-  // CatalogGuide 就抛「终结候选与其它候选同时成立」（C04–C06）。
-  if (state.Start > 0 && units[tokenIndex] instanceof EndOfFileTokenShape) {
-    return ShapeStates.Reject;
-  }
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;
