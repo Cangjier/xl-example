@@ -33,7 +33,8 @@
     "coverage": "node ./tests/coverage/run.mjs",
     "coverage:sweep": "node ./tests/coverage/sweep.mjs",
     "cpp:check": "node tests/cpp/check.mjs",
-    "gates:verbose": "node ./tests/gates/run.mjs --verbose"
+    "gates:verbose": "node ./tests/gates/run.mjs --verbose",
+    "tts": "node ./tests/parse/token-time-shapes.mjs ./tests/parse/token-time-shapes/let-x.ts --diff"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
