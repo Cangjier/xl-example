@@ -26,6 +26,9 @@ node typescript/cases/tts/tools/tshape-judge.mjs bundle <case.ts>
 
 # 全量第二段：tts + tts-impl 所有 case
 node typescript/cases/tts/tools/tshape-judge.mjs ts-all
+
+# 全量 triage：逐字 trace 的成批补建/残留/抛错扫描（不代替 LLM 诊断）
+node typescript/cases/tts/tools/tshape-judge.mjs scan-all
 ```
 
 输出默认在 `tmp/tshape-judge/<case>/`：
@@ -46,7 +49,10 @@ node typescript/cases/tts/tools/tshape-judge.mjs ts-all
 
 ## 注意
 
+- **驱动与开关必须和 `tts/run.mjs` 一致**：`EnableIncrementalShapes` + `EnableIncrementalVariableShapes`
+  两个都打开。`tests/parse/token-time-shapes.mjs` 只开变量开关，不能用于本工具的全场景 trace。
 - `trace.md` 只列 shape 集合变化；basic token 的逐步挂载用 `steps` 或 `trace-steps.jsonl` 查。
-- 逐字 trace 的抛错信息目前来自 `token-time-shapes --json`，个别异常会序列化成 `[object Object]`；
-  诊断时以最后一步的树为准。
+- `scan-all` 的 `maxConcreteBatch` 排除了变量语句骨架（范本 char 5 本来同刻出现三层 + 绑定名），
+  只统计 concrete shape；它只是 triage，**是否合规仍由 LLM 按范本诊断**。
+- 逐字 trace 的抛错信息来自真实驱动；个别异常会序列化成 `[object Object]`，诊断时以最后一步的树为准。
 - 工具不修改 `tts/run.mjs`；后者仍是旧的 legacy 对拍账本，本工具是独立的第二套判据。

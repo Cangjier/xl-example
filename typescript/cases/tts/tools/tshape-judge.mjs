@@ -16,7 +16,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import {
@@ -32,7 +31,6 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..", "..", "..");
 const require = createRequire(import.meta.url);
 const BUILD = path.join(root, "build", "ts");
-const TTS_TOOL = path.join(root, "tests", "parse", "token-time-shapes.mjs");
 const EXEMPLAR = path.join(root, "docs", "expected-token-time-shapes.md");
 
 function fail(message, code = 2) {
@@ -43,6 +41,21 @@ function fail(message, code = 2) {
 const ts = require(path.join(root, "node_modules", "typescript"));
 const { SourceFileRunner } = require(path.join(BUILD, "typescript", "run", "source-file-runner.js"));
 const { tsAst } = createAstCore(ts);
+
+function loadBuild(relativePath, className) {
+  const module = require(path.join(BUILD, relativePath));
+  return module[className] ?? module.default?.[className];
+}
+
+const SyntaxContext = loadBuild("core/syntax/syntax-context.js", "SyntaxContext");
+const SourceRange = loadBuild("core/syntax/source-range.js", "SourceRange");
+const TextDocument = loadBuild("typescript/run/text-document.js", "TextDocument");
+const TypescriptTemplate = loadBuild("typescript/run/typescript-template.js", "TypescriptTemplate");
+const SourceFileShape = loadBuild("typescript/tokens/files/source-file-shape.js", "SourceFileShape");
+const StatementRouteUtil = loadBuild(
+  "typescript/tokens/statements/statement-route-util.js",
+  "StatementRouteUtil",
+);
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -129,19 +142,59 @@ function compareWithTs(file) {
 }
 
 // ---------------------------------------------------------------- part 1: trace
+// 与 typescript/cases/tts/run.mjs 同一驱动、同一双开关：
+//   EnableIncrementalShapes + EnableIncrementalVariableShapes
+// 不要用 tests/parse/token-time-shapes.mjs 的单开关模式，那会漏掉全场景增量路径。
+function setIncremental(enabled) {
+  StatementRouteUtil.EnableIncrementalShapes = enabled;
+  StatementRouteUtil.EnableIncrementalVariableShapes = enabled;
+}
+
 function rawTrace(file) {
-  let raw = "";
-  try {
-    raw = execFileSync(process.execPath, [TTS_TOOL, path.resolve(file), "--json", "--incremental"], {
-      cwd: root,
-      maxBuffer: 512 * 1024 * 1024,
-      encoding: "utf8",
-    });
-  } catch (error) {
-    raw = error.stdout ? String(error.stdout) : "";
-    if (!raw) fail(String(error.stderr || error));
+  const source = fs.readFileSync(file, "utf8");
+  setIncremental(true);
+  const template = TypescriptTemplate.Create();
+  const shape = new SourceFileShape(template);
+  const context = new SyntaxContext(shape, 32);
+  const document = new TextDocument(source, path.basename(file));
+  SourceRange.CurrentDocument = document;
+  context.CurrentDocument = document;
+  const count = document.GetCount();
+  const steps = [];
+  for (let index = 0; index < count; index++) {
+    let error = null;
+    try {
+      context.ProcessRange(context.Root, new SourceRange(document, index, index + 1), index);
+    } catch (exception) {
+      error = errorText(exception);
+    }
+    const tree = shape.ToAstLine(0);
+    steps.push({ kind: "char", index, char: source[index], tree, lines: tree.split("\n"), error });
+    if (error !== null) {
+      return { source: file, mode: "incremental-full", modeApplied: true, count, steps, stopped: true, stage: "char", index };
+    }
   }
-  return JSON.parse(raw);
+  let error = null;
+  try {
+    context.Index = count;
+    context.Root.SignOut(count);
+    context.Root.Process(context, new SourceRange(document, count, count), count);
+    if (typeof context.DrainMessages === "function") context.DrainMessages();
+  } catch (exception) {
+    error = errorText(exception);
+  }
+  const tree = shape.ToAstLine(0);
+  steps.push({ kind: "eof", index: count, char: null, tree, lines: tree.split("\n"), error });
+  return {
+    source: file,
+    mode: "incremental-full",
+    modeApplied: true,
+    count,
+    steps,
+    stopped: error !== null,
+    stage: error === null ? null : "eof",
+    index: count,
+  };
 }
 
 const cleanLine = (line) =>
@@ -363,6 +416,109 @@ function cmdTsAll() {
   if (failures.length > 0) process.exit(1);
 }
 
+function scanOne(file) {
+  const data = rawTrace(file);
+  const steps = data.steps || [];
+  // 变量语句骨架在范本 char 5 本来就是“三层 + 绑定名”同刻出现，不算成批补建。
+  const SKELETON = new Set([
+    "SourceFileShape",
+    "StatementShape",
+    "VariableStatementShape",
+    "VariableDeclarationListShape",
+    "VariableDeclarationShape",
+  ]);
+  const seen = new Set();
+  const batches = [];
+  let maxBatch = 0;
+  let maxBatchStep = -1;
+  let maxBatchChar = null;
+  let maxConcreteBatch = 0;
+  let maxConcreteStep = -1;
+  let maxConcreteChar = null;
+  let batchAtClose = 0;
+  let batchAtCloseConcrete = 0;
+  let earliestClose = null;
+  for (const step of steps) {
+    const names = new Set();
+    for (const line of step.lines || []) {
+      const m = line.match(/^(?:[│ ]*[├└]─ )?([A-Za-z_$][\w$]*Shape)\b/);
+      if (m) names.add(m[1]);
+    }
+    const added = [...names].filter((name) => !seen.has(name));
+    const concrete = added.filter((name) => !SKELETON.has(name));
+    if (added.length > 0) {
+      const char = step.char ?? "EOF";
+      batches.push({ step: step.index, char, added, count: added.length });
+      if (added.length > maxBatch) {
+        maxBatch = added.length;
+        maxBatchStep = step.index;
+        maxBatchChar = char;
+      }
+      if (concrete.length > 0) {
+        if (concrete.length > maxConcreteBatch) {
+          maxConcreteBatch = concrete.length;
+          maxConcreteStep = step.index;
+          maxConcreteChar = char;
+        }
+        if (["\n", "}", ";", "]", "EOF"].includes(char)) {
+          batchAtCloseConcrete++;
+          if (!earliestClose) earliestClose = { step: step.index, char, added: concrete };
+        }
+      }
+      if (["\n", "}", ";", "]", "EOF"].includes(char)) batchAtClose++;
+    }
+    for (const name of names) seen.add(name);
+  }
+  const last = steps[steps.length - 1];
+  const finalBasic = (last?.lines || []).filter((line) => !isShapeLine(line)).length;
+  const error = errorText(last?.error) || null;
+  const flagged = maxConcreteBatch > 1 || batchAtCloseConcrete > 0 || finalBasic > 0 || error !== null;
+  return {
+    file: rel(file),
+    steps: steps.length,
+    maxBatch,
+    maxBatchStep,
+    maxBatchChar,
+    maxConcreteBatch,
+    maxConcreteStep,
+    maxConcreteChar,
+    batchAtClose,
+    batchAtCloseConcrete,
+    earliestClose,
+    finalBasic,
+    error,
+    flagged,
+  };
+}
+
+function cmdScanAll() {
+  const files = listCases().filter((file) => !filter || rel(file).includes(filter));
+  const results = [];
+  for (let index = 0; index < files.length; index++) {
+    if (index > 0 && index % 50 === 0) console.error(`scanned ${index}/${files.length}`);
+    results.push(scanOne(files[index]));
+  }
+  results.sort((a, b) => b.maxConcreteBatch - a.maxConcreteBatch || b.batchAtCloseConcrete - a.batchAtCloseConcrete);
+  const flagged = results.filter((item) => item.flagged);
+  const byArea = {};
+  for (const item of flagged) {
+    const area = item.file.split("/").slice(1, -1).join("/");
+    byArea[area] = (byArea[area] || 0) + 1;
+  }
+  const summary = {
+    total: results.length,
+    flagged: flagged.length,
+    clean: results.length - flagged.length,
+    byArea,
+    details: results,
+  };
+  fs.mkdirSync(path.join(root, "tmp", "tshape-judge"), { recursive: true });
+  const outPath = path.join(root, "tmp", "tshape-judge", "scan.json");
+  fs.writeFileSync(outPath, JSON.stringify(summary, null, 2), "utf8");
+  console.log(JSON.stringify({ total: summary.total, flagged: summary.flagged, clean: summary.clean, byArea }, null, 2));
+  console.log(outPath);
+}
+
 switch (command) {
   case "trace":
     cmdTrace();
@@ -378,6 +534,9 @@ switch (command) {
     break;
   case "ts-all":
     cmdTsAll();
+    break;
+  case "scan-all":
+    cmdScanAll();
     break;
   default:
     fail("用法：trace <case.ts> | ts <case.ts> | bundle <case.ts> | ts-all [--filter <substr>]", 2);
