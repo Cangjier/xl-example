@@ -187,6 +187,22 @@ const text = (unit as Common).TempToString();
 return text === "return" || text === "debugger" || text === "break" || text === "continue";
 ```
 
+## static method LastCodeIndex:(host:Token)=>int
+
+尾段**最后一个代码单元**的下标（跳过 trivia 与 EOF 哨兵）；当前数组里没有代码单元时返回 `-1`。
+
+[W6:TAIL-RESYNC] 与 `ItemUtil.ItemStart` 配对使用：两者都在**调用当下的** `host.Data` 上取，
+而不是用进入 `BuildByIndex` 时抓下来的 `start` / `at`——尾段的两条建树尝试都会就地 `splice`
+（`BuildTrailingDeclaration` 失败前还可能插过一个零宽合成 `;`），失败之后旧下标已经过期。
+
+```ts
+let at = host.Data.length - 1;
+while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOfFileTokenShape)) {
+  at--;
+}
+return at;
+```
+
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
@@ -270,33 +286,65 @@ if (at >= start && host.Data[at].IsBasicToken) {
     // 「表达式语句没有读完」/「表达式意外结束」。整条建不出来时退回**按 ASI 边界切段**
     // （BuildStatementSegments：逐条 StatementBuilder 建、按已建形状的 End 定位下一段）——
     // 这正是 EOF 兜底该做的事：尾段有几句就建几句。切段也建不出（非语句垃圾）才走旧的
-    // 单条 ExpressionStatement 兜底，行为与改前一致。
-    let trailHandled = false;
-    try {
-      trailHandled = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, start, at, context);
-    } catch (trailError) {
-      trailHandled = false;
-    }
-    if (!trailHandled) {
-      let segmented = false;
-      try {
-        SourceFileEndPossibleShape.BuildStatementSegments(host, start, at, context);
-        segmented = true;
-      } catch (segmentError) {
-        segmented = false;
+    // 单条 ExpressionStatement 兜底。
+    //
+    // [W6:TAIL-RESYNC] **每轮都按当前 `host.Data` 重新定位**，不再复用进入本方法时的
+    // `start` / `at`：上面两条尝试都会就地 `splice`，失败时数组已经被改短 / 改长（
+    // `BuildTrailingDeclaration` 在抛错前还可能插过一个零宽合成 `;`）。旧实现拿过期下标
+    // 继续调 `FromUnits`，读到 `host.Data[at]` 为 `undefined` ⇒
+    // `TypeError: Cannot read properties of undefined (reading 'IsTriviaToken')`
+    // ——W3 §5 剩下 8 条的同一个落点。两条尝试的**先后与判据一个字不改**，只是把「读到哪」
+    // 从「进来时」换成「现在」。
+    //
+    // 退出条件只看**数组长度有没有变化**（= 这一轮至少建出一条语句），最多 8 轮：
+    // 病态输入下每轮都不缩短就直接走最后一条兜底，不会打转。
+    let advanced = false;
+    let previousLength = -1;
+    for (let round = 0; round < 8 && host.Data.length !== previousLength; round++) {
+      previousLength = host.Data.length;
+      const roundStart = ItemUtil.ItemStart(host.Data);
+      const roundAt = SourceFileEndPossibleShape.LastCodeIndex(host);
+      if (roundStart < 0 || roundAt < roundStart || roundAt >= host.Data.length) {
+        break;
       }
-      if (!segmented) {
-    // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
-    // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
-    const tailIsSemicolon = host.Data[at] instanceof Symbol && (host.Data[at] as Symbol).Is(";");
-    // r5：`;` 一起交给 `FromUnits` 的 requireSemicolon 分支——它把 `;` 从表达式里摘掉、却用 `;` 的 End 收口，
-    // 正是 TS 的 ExpressionStatement 区间（含 `;`）。旧写法「先按无分号建、再 SignOut 第二次」对同一个 shape
-    // 二次签出 `SourceRange.End`，抛 `SourceRange.End has already been set`（missing-end 24 的直接成因）。
-    const built = tailIsSemicolon && at > start
-      ? ExpressionStatementShape.FromUnits(host, start, at, context, true)
-      : ExpressionStatementShape.FromUnits(host, start, at, context, false);
-    host.Data.splice(start, at - start + 1, built);
-    built.Parent = host;
+      let built = false;
+      try {
+        built = SourceFileEndPossibleShape.BuildTrailingDeclaration(host, roundStart, roundAt, context);
+      } catch (trailError) {
+        built = false;
+      }
+      if (!built) {
+        try {
+          SourceFileEndPossibleShape.BuildStatementSegments(host, roundStart, roundAt, context);
+        } catch (segmentError) {
+          built = false;
+        }
+      }
+      if (host.Data.length !== previousLength) {
+        advanced = true;
+      }
+    }
+    // 以上都建不动：只剩「最后一条表达式语句」这一种可能，同样按**当前** Data 取范围。
+    // 建不出来就交给 EOF 收尾——与 `IncrementalStuckShellRecovery.CountEofLeftover` 同一条
+    // 既有口径（未认领的尾单元在 EOF 丢弃、不抛错）。走到这里已经证明它不是任何已知语句形态，
+    // 抛错只会把整份文件打成崩溃；而尾段兜底存在的意义就是「能建几条建几条」。
+    const lastStart = ItemUtil.ItemStart(host.Data);
+    const lastAt = SourceFileEndPossibleShape.LastCodeIndex(host);
+    if (!advanced && lastStart >= 0 && lastAt >= lastStart && lastAt < host.Data.length) {
+      // 孤立的 `declare;` / `abstract;`：尾部 `;` 不进表达式（ExpressionBuilder 不认 `;`），
+      // 但**进语句区间**（TS 的 ExpressionStatement End 含 `;`）：先按无分号建表达式，再把 End 签出到 `;`。
+      const tailIsSemicolon = host.Data[lastAt] instanceof Symbol && (host.Data[lastAt] as Symbol).Is(";");
+      // r5：`;` 一起交给 `FromUnits` 的 requireSemicolon 分支——它把 `;` 从表达式里摘掉、却用 `;` 的 End 收口，
+      // 正是 TS 的 ExpressionStatement 区间（含 `;`）。旧写法「先按无分号建、再 SignOut 第二次」对同一个 shape
+      // 二次签出 `SourceRange.End`，抛 `SourceRange.End has already been set`（missing-end 24 的直接成因）。
+      try {
+        const built = tailIsSemicolon && lastAt > lastStart
+          ? ExpressionStatementShape.FromUnits(host, lastStart, lastAt, context, true)
+          : ExpressionStatementShape.FromUnits(host, lastStart, lastAt, context, false);
+        host.Data.splice(lastStart, lastAt - lastStart + 1, built);
+        built.Parent = host;
+      } catch (fallbackError) {
+        // 非语句垃圾：不抛，留给 EOF 收尾。
       }
     }
   }
