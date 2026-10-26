@@ -8,6 +8,7 @@ import { BracketCatalogInstaller } from "./bracket-catalog-installer.xl.md"
 import { BracketRoleResolver } from "./bracket-role-resolver.xl.md"
 import { BracketRoleState } from "./bracket-role-resolver.xl.md"
 import { DeferredBracketCatalog } from "./deferred-bracket-catalog.xl.md"
+import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 ```
 
@@ -75,6 +76,12 @@ if (!StatementRouteUtil.EnableBracketRoleCatalog) {
 }
 if (bracket === null || !(bracket instanceof Bracket)) {
   return;
+}
+// [B1b] 参数表里的 `[`（`A[]` 的数组括号）在**创建格**推进一步参数表 Probe：
+// core 的「安全重算」只对 `{` 生效，`[` 本来要等 `]` 那一格才包出 `ArrayTypeShape`。
+// 只认已经登记过参数表状态的括号（`FindState`），其余 `[` 一个字节都不碰。
+if (host instanceof Bracket) {
+  ParameterListPossibleShape.StepAtBracketCreated(host as Bracket, bracket as Bracket, context);
 }
 const shape = bracket as Bracket;
 const plan = BracketRoleResolver.Resolve(host, bracket, context);

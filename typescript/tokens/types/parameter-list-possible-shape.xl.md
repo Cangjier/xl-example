@@ -57,6 +57,11 @@ import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 最近被「吃掉」的 `:` 的 `EndIndex`（= 类型节点的 `Pos`，含冒号前的 trivia）：
 `f(...args: number[])` 的 `number` 是 `Pos = 19`，就是这一步存下来的。
 
+## field PendingArray:ArrayTypeShape | null = null
+
+**[B1b] 还没收口的数组类型壳**：`[` 创建格先包出 `ArrayTypeShape`（目标 26 格），
+`]` 闭合格只补终点（`Probe` 动作 8）。非空期间参数表只等这一只括号闭合，不做别的事。
+
 ## field Finalized:bool = false
 
 `Finalize` 是否已经收过口（幂等）。
@@ -387,6 +392,28 @@ if (at >= data.length) {
   return 0;
 }
 const unit = data[at];
+// [B1b] 数组类型的第二格：`[` 已经包出 `ArrayTypeShape`（动作 6），这一格只等 `]` 闭合补终点。
+// 未闭合期间只认这一只括号，别的词一个都不建（否则会重复包裹 / 把 `]` 前的内容再啃一遍）。
+if (state.PendingArray !== null) {
+  if (!(unit instanceof Bracket) || (unit as Bracket).StartBracketChar !== "["
+    || !(unit as Bracket).Closed) {
+    return 0;
+  }
+  if (context === null) {
+    return 8;
+  }
+  const pending = state.PendingArray as ArrayTypeShape;
+  const closing = unit as Bracket;
+  if (pending.SourceRange.End < 0 && closing.SourceRange.End >= 0) {
+    pending.SourceRange.End = closing.SourceRange.End;
+  }
+  pending.TryToClose(context);
+  shell.Type = pending;
+  state.PendingArray = null;
+  data.splice(at, 1);
+  ParameterListPossibleShape.BuildActionCount += 1;
+  return 8;
+}
 if (unit instanceof Symbol && (unit as Symbol).Is(",")) {
   if (context === null) {
     return 7;
@@ -457,13 +484,30 @@ if (unit instanceof Common && shell.ParameterName !== null && shell.Type === nul
 }
 if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "[" && shell.Type !== null) {
   const arrayBracket = unit as Bracket;
+  const element = shell.Type as ShapeToken;
+  // [B1b] `[` **创建格**就包壳：元素已经建好（`number` 在上一格成了 `NumberKeywordShape`），
+  // `]` 那一格只补终点（动作 8）。目标：`ArrayTypeShape` / `NumberKeywordShape` 都在 26 格出现。
   if (!arrayBracket.Closed) {
-    return 0;
+    if (context === null) {
+      return 6;
+    }
+    const openShape = new ArrayTypeShape(unit.Template);
+    openShape.ElementType = element;
+    openShape.Add(element);
+    if (element.SourceRange.Start >= 0) {
+      openShape.SignIn(element.SourceRange.StartIndex);
+    }
+    openShape.Pos = element.Pos;
+    shell.Data.splice(shell.Data.indexOf(element), 1, openShape);
+    openShape.Parent = shell;
+    shell.Type = openShape;
+    state.PendingArray = openShape;
+    ParameterListPossibleShape.BuildActionCount += 1;
+    return 6;
   }
   if (context === null) {
     return 6;
   }
-  const element = shell.Type as ShapeToken;
   const arrayShape = new ArrayTypeShape(unit.Template);
   arrayShape.ElementType = element;
   arrayShape.Add(element);
@@ -493,6 +537,30 @@ return 0;
 state.Bracket = bracket;
 const action = ParameterListPossibleShape.Probe(state, bracket.Data, context);
 return action !== 0;
+```
+
+## static method StepAtBracketCreated:(parent:Bracket, bracket:Bracket, context:SyntaxContext)=>void
+
+**[B1b] `[` 创建格的重算入口**：core 的「安全重算」只对 `{` 生效，`[` 创建格没有 compute 入口，
+于是参数表里 `A[]` 的数组壳要等 `]` 那一格才包出来（27，而不是 26）。B0 的角色钩子（`BracketRoleCatalogHook`）
+在**每只括号创建之后**都会被调一次，这里就借那一格把参数表的 `Probe` 推进一步。
+
+只在**本括号的 `Data` 里登记过参数表状态**（`FindState`）时动手——其余括号一个字节都不碰，
+`object-literal` / 数组字面量 / 下标的 `[` 仍是原来的解析路径（本方法看不到它们的状态）。
+
+```ts
+if (!(bracket as Bracket).Is("[", "]")) {
+  return;
+}
+const state = ParameterListPossibleShape.FindState(parent.Data);
+if (state === null) {
+  return;
+}
+state.Bracket = parent;
+let guard = 0;
+while (guard < 8 && ParameterListPossibleShape.Step(state, parent, context)) {
+  guard++;
+}
 ```
 
 ## static method NextActionFor:(state:ParameterScan, bracket:Bracket)=>int

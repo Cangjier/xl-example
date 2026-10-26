@@ -22,6 +22,7 @@ import { Template } from "../../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../../types/type-builder.xl.md"
 import { BodyGuideUtil } from "../body-guide-util.xl.md"
+import { BlockShape } from "../../statements/block-shape.xl.md"
 import { DeclareKeywordShape } from "../../keywords/declare-keyword-shape.xl.md"
 import { DefaultKeywordShape } from "../../keywords/default-keyword-shape.xl.md"
 import { ExportDeclarationPossibleShape } from "../export-declaration-possible-shape.xl.md"
@@ -196,6 +197,11 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
+// [B1b] 体 `{` 在创建格已被 `OpenFunctionBody` 包成 `BlockShape`（与 `FunctionDeclarationEndPossibleShape`
+// 同一条）：块壳闭合即内层 function 结束。
+if (unit instanceof BlockShape) {
+  return (unit as BlockShape).Closed ? ShapeStates.Accept : ShapeStates.Reject;
+}
 if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "{" && (unit as Bracket).Closed) {
   // 返回类型里的对象字面量（`function f(): { a: A }`）不是函数体：与 legacy 建树同一条判据。
   if (TypeBuilder.IsBodyBrace(units, tokenIndex)) {
