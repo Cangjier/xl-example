@@ -21,14 +21,17 @@ import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
 
 # class BinaryExpressionPossibleShape extends PossibleShape
 
-增量模式下的**二元运算符**候选：已经关闭的 `Symbol("*")` / `Symbol("+")` 到达时，
+增量模式下的**二元运算符**候选：非 `*` / `+` 的运算符（`<` / `in` / `instanceof` …）在
+「左操作数还不是形状」的格上保持旧的显式拒绝路径。
 
-1. 把它原位换成运算符形状（`AsteriskTokenShape` / `PlusTokenShape`，`Pos` 按 C1 = 左操作数的 `EndIndex`）；
-2. 用「左操作数 + 运算符」建 `BinaryExpressionShape`（`src` 从 8 起、右边界未封）；
-3. **原位替换左操作数那一格**，并成为宿主的挂载单元——于是下一个字符（右操作数）进 `Binary` 的 `Data`。
+**`*` / `+` 已经让给 WP-P5 的 `ReassociationPossibleShape`**（`ComputeByIndex` 对这两个文本 `Reject`，
+见下方第 6 条）：带再结合的二元表达式（`1+2*3`）需要按优先级拆层归约，旧的「单层原位替换」写法
+在「新运算符结合更紧」时只能显式抛错（`_reports/A1-expressions.md` 根因 R10）。同一格上两个候选都
+`Accept` 会让 `CatalogGuide` 永远 `Waiting`，所以这里的让路是**互斥**的，不是「谁先到谁建」。
 
 优先级 / 断句判据**只读** `operator-table`（`IsBinaryOperator` / `Precedence`），不复制优先级表；
-后续要加运算符只需要在 `BuildOperator` 里补一个 `Symbol → 具体形状` 的分支。
+`BuildOperator` 仍保留 `*` / `+` 两个 `Symbol → 具体形状` 分支（C10 的显式报错文案与历史一致），
+但正常流程不会走到它们——`*` / `+` 那一格已由 `ReassociationPossibleShape` 独占。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -61,7 +64,9 @@ if (!OperatorTable.IsBinaryOperator(text)) {
   return ShapeStates.Reject;
 }
 if (text === "*" || text === "+") {
-  return ShapeStates.Accept;
+  // [P5] 让给 `ReassociationPossibleShape`：再结合（`a+b*c`）要在归约栈上拆层，
+  // 本候选的单层原位替换做不到（旧实现在这里 Accept，然后在 BuildByIndex 里显式抛错）。
+  return ShapeStates.Reject;
 }
 // WP-A2：其余二元运算符让给 `BinaryOperatorPossibleShape`（逐字符建形状，用 OperatorShapeMap）。
 // 但「左操作数还不是形状」的格上**保持旧行为**（`<` 可能是尖括号断言 / 类型实参，`in` / `instanceof`
@@ -80,8 +85,8 @@ return ShapeStates.Accept;
 1. 运算符形状：`Symbol.Replace(运算符形状)`，位置不变（`*` 在 `[9,10)`、`+` 在 `[11,12)`）；
 2. 左操作数 = 运算符前**一个非 trivia 单元**；它必须已关闭、且是形状（`NumericLiteralShape` /
    已封口的 `BinaryExpressionShape`）；
-3. 优先级只读 `OperatorTable.Precedence`：左操作数若是二元表达式且**优先级更低**（新运算符结合更紧），
-   本包未支持，显式抛错（本用例只有 `*` → `+` 这一条「同/降优先级左结合」路径）；
+3. 优先级只读 `OperatorTable.Precedence`（本候选只用于「新运算符优先级不高于左操作数」的格，
+   `*` / `+` 已整体让给 `ReassociationPossibleShape`，那里才有「结合更紧」的拆层归约）；
 4. `BinaryExpressionShape.FromLeftAndOperator` 建形状（左操作数 + 运算符进 `Data`）；
 5. 从宿主 `Data` 里把左操作数、运算符两格摘掉，把 `Binary` 插回左操作数那一格，父指针设回宿主，
    `host.MountedUnit = binary`；
@@ -102,12 +107,6 @@ if (!left.Closed) {
   throw new Error("增量变量形状未支持：expression 二元运算左操作数未封口");
 }
 const precedence = OperatorTable.Precedence((token as Symbol).TempToString());
-if (left instanceof BinaryExpressionShape) {
-  const leftPrecedence = (left as BinaryExpressionShape).OperatorPrecedence;
-  if (leftPrecedence >= 0 && leftPrecedence < precedence) {
-    throw new Error("增量变量形状未支持：expression 新运算符结合更紧（优先级 " + String(precedence) + "）");
-  }
-}
 const binary = BinaryExpressionShape.FromLeftAndOperator(left, operatorShape, precedence, host.Template);
 host.Data.splice(tokenIndex, 1);
 host.Data.splice(leftIndex, 1);

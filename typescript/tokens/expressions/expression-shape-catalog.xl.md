@@ -17,6 +17,7 @@ import { TemplatePrimaryPossibleShape } from "./forms/primary/template-primary-p
 import { ThisPrimaryPossibleShape } from "./forms/primary/this-primary-possible-shape.xl.md"
 import { ParenthesizedPossibleShape } from "./forms/primary/parenthesized-possible-shape.xl.md"
 import { ConditionalPossibleShape } from "./forms/operator/conditional-possible-shape.xl.md"
+import { ReassociationPossibleShape } from "./forms/operator/reassociation-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -152,4 +153,5 @@ CompositeInitializerFormsPossibleShape.AppendTo(shapes); // [A4b]
 CompositeInitializerTailPossibleShape.AppendTo(shapes); // [A4c]
   ParenthesizedPossibleShape.AppendTo(shapes); // [P4]
   ConditionalPossibleShape.AppendTo(shapes); // [P4]
+  ReassociationPossibleShape.AppendTo(shapes); // [P5]
 ```

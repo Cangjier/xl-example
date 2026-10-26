@@ -22,7 +22,7 @@ import { OperatorTable } from "./operator-table.xl.md"
 
 1. **每个 `BinaryExpressionShape` 的左右操作数都已挂进 `Data` 且 `Parent` 正确**：`BinaryExpressionShape.FromLeftAndOperator` 挂左操作数 + 运算符，`AttachRight` 挂右操作数；`Parent` 全由 `Token.Add` 设，栈自己不写 `Parent`，只在原位替换时把换出来的节点按宿主规则重指。
 2. **新运算符优先级更紧：先 `Reduce` 到更低优先级，再在「右操作数位置」建新 `Binary`**（`a+b*c`）：`PushOperator` 先 `Reduce`，再把栈顶已完成的 `Binary` 的右操作数**摘下来**当新 `Binary` 的左操作数，新 `Binary` 挂回那个右操作数格子。
-3. **同优先级左结合先归约（`a-b-c` 左结合）；右结合（`**`、赋值）不先归约**：判据只读 `OperatorTable.Precedence` 与 `AssociationOf`（`"**"` 与全部赋值 → `"right"`）；右结合时走与不变量 2 相同的「摘右操作数」路径，于是 `a**b**c` / `a=b=c` 自然成右嵌套。
+3. **同优先级左结合先归约（`a-b-c` 左结合）；右结合（`**`、赋值）不先归约**：判据只读 `OperatorTable.Precedence` 与 `IsRightAssociative` / `IsAssignmentOperator`（`"**"` 与全部赋值 → 右结合）；右结合时走与不变量 2 相同的「摘右操作数」路径，于是 `a**b**c` / `a=b=c` 自然成右嵌套。
 4. **归约产出的 `Binary` 原位替换「左操作数 + 运算符」两格**（既有惯用法 `binary-expression-possible-shape.xl.md:100-107`）：`Mount` 先摘运算符格、再摘左操作数格、把 `Binary` 插回左操作数那一格；两格不在同一宿主时只摘运算符格（右操作数位置由不变量 2 负责）。
 5. **`Pos` / `src`（C1）**：`Binary.Pos` = 左操作数 `Pos`（由 `FromLeftAndOperator` 设）；`src` = `[左操作数.srcStart, 右操作数.EndIndex)`（`Seal` 在归约 / 收口那一次补右边界，**不吸尾随 trivia**）；运算符形状 `Pos` = 左操作数 `EndIndex`（`CheckOperatorPos` 强制校验）。条件表达式同口径：`Conditional.Pos` = 条件 `Pos`，`?` 的 `Pos` = 条件 `EndIndex`，`:` 的 `Pos` = 真分支 `EndIndex`。
 6. **`Drain` 后栈内不得残留未归约的运算符 / 操作数；残留 = 显式 throw**（C10）：`ReduceTop` 遇到 `FramePending` 为真当场抛；`Drain` 末尾要求 `Nodes` 恰好剩 1 个根，否则抛「残留 N 个操作数」。
@@ -77,6 +77,15 @@ import { OperatorTable } from "./operator-table.xl.md"
 最近入栈、尚未被归约消费的操作数形状（= 当前树里最右边的值）。它是给接线层看的**中间态探针**：
 未闭合操作数会一直留在这里（「操作数入栈；未闭合操作数保持 open」），`PushOperator` / `Reduce` / `Drain`
 把它清空。本栈不因它而改变归约结果。
+
+## field LastReduced:Token | null = null
+
+**最近一次被 `ReduceTop` 收掉的节点**（不变量 6 的返回值落点）。
+
+`ReduceTop` 只在节点 `Parent === null`（顶层）时才压回值栈 `Nodes`——已经挂在父帧右操作数 / 假分支格里的
+节点**不能再进值栈**（否则一个节点出现在两处 = divergent）。所以「整棵树都已挂进宿主」的那条路径上
+`Nodes` 是空的，`Drain` 不能只靠 `Nodes` 回答「唯一根是谁」；这个字段补上那个答案。
+`Drain` 每轮开头清空它。
 
 ## constructor:(template:Template)=>void
 
@@ -187,7 +196,8 @@ this.Open = shape;
 1. `?` → `StartConditional`；`:` → `CloseConditional`（条件表达式是节点、不是运算符，见各自方法）；
 2. 优先级：`OperatorTable.IsAssignmentOperator(text)` → `AssignmentPrecedence`（0），否则 `OperatorTable.Precedence(text)`；
    小于 0 ⇒ 显式抛错；
-3. 结合性：`OperatorTable.AssociationOf(text) === "right"`（`**` 与全部赋值）；
+3. 结合性：`OperatorTable.IsRightAssociative(text)`（`**`）或 `OperatorTable.IsAssignmentOperator(text)`
+   （全部赋值右结合）——与 `OperatorTable.AssociationOf` 的 `"right"` 集合等价，但走 §7.3 点名的两个读口；
 4. `Reduce(precedence, rightAssoc)`：不变量 2 / 3 的「先归约」；
 5. 取左操作数（`NextLeft`）：栈顶还有帧时，**摘它最后一个子节点**（不变量 2 / 3 的「右操作数位置」）；
    没有帧时弹 `Nodes`；
@@ -211,7 +221,7 @@ if (OperatorTable.IsAssignmentOperator(text)) {
 if (precedence < 0) {
   throw new Error("增量变量形状未支持：expression 运算符 " + text);
 }
-const rightAssoc = OperatorTable.AssociationOf(text) === "right";
+const rightAssoc = OperatorTable.IsRightAssociative(text) || OperatorTable.IsAssignmentOperator(text);
 this.Open = null;
 this.Reduce(precedence, rightAssoc);
 const parent = this.Top();
@@ -270,21 +280,26 @@ return reduced;
 - 栈空 → `null`（合法的空表达式）；
 - 有帧但某帧还在等右操作数 → `ReduceTop` 抛「栈顶运算符缺少右操作数」（残留 = 显式 throw）；
 - 归约完 `Nodes` 多于 1 个 → 抛「残留 N 个操作数」（`a b` 这种不是表达式，不能被静默拼成一棵树）。
+- 归约完 `Nodes` 恰好 1 个 → 它就是唯一根；`Nodes` 为空而 `LastReduced` 非空 → **那一个就是唯一根**
+  （整棵树已经挂进宿主的那条路径：`ReduceTop` 不把已挂在父帧里的节点压回值栈）。两条都不成立才是
+  空表达式 → `null`。这条是「`Drain` 归约到唯一根并返回」的补全：旧实现在 `Nodes` 为空时直接返回
+  `null`，把已经挂在宿主上的根丢掉了。
 
 `Drain` 是**唯一**允许条件帧离开 `Frames` 的批量出口（另一个是 `CloseConditional` 之后的后续 `Drain`）。
 
 ```ts
 this.Open = null;
+this.LastReduced = null;
 while (this.Frames.length > 0) {
   this.ReduceTop();
 }
-if (this.Nodes.length === 0) {
-  return null;
-}
-if (this.Nodes.length !== 1) {
+if (this.Nodes.length > 1) {
   throw new Error("增量变量形状未支持：expression 归约后残留 " + String(this.Nodes.length) + " 个操作数");
 }
-return this.Nodes[0];
+if (this.Nodes.length === 1) {
+  return this.Nodes[0];
+}
+return this.LastReduced;
 ```
 
 ## private method StartConditional:(questionShape:Token)=>void
@@ -407,7 +422,9 @@ return this.Nodes.pop()!;
 1. 帧还在等右操作数 ⇒ 显式抛错（不在 `Reduce` 的 while 里，防止被绕过）；
 2. `Seal`：右边界还没封就用最后一个子单元的 `EndIndex` 封（C1 / 不变量 5，不吸尾随 trivia）；
 3. 帧出栈；节点 `Parent === null`（顶层）才压回 `Nodes`——`Parent !== null` 说明它已经挂在父帧的
-   右操作数 / 假分支格里，**不能再进值栈**（否则一个节点出现在两处 = divergent）。
+   右操作数 / 假分支格里，**不能再进值栈**（否则一个节点出现在两处 = divergent）；
+4. 无论压不压值栈，都记进 `LastReduced`：`Drain` 要能回答「唯一根是谁」，而整棵树都已挂进宿主时
+   `Nodes` 恰好是空的（不变量 6 的返回值缺陷修复）。
 
 ```ts
 if (this.Frames.length === 0) {
@@ -422,6 +439,7 @@ this.Seal(node);
 this.Frames.pop();
 this.FramePrecs.pop();
 this.FramePending.pop();
+this.LastReduced = node;
 if (node.Parent === null) {
   this.Nodes.push(node);
 }
