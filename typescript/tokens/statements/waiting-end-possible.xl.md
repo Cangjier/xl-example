@@ -3,6 +3,7 @@
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -37,7 +38,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 而挂它的唯一入口是 `BracketCatalogInstaller.Install`（`EnableBracketRoleCatalog=false` 时不装任何目录）。
 所以它默认不参与任何一次解析。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 永远 `Uncertain`：不 `Accept`（不触发建树）、不 `Reject`（不参与候选淘汰，也不受 `Reject` 永久删除的影响）。
 
