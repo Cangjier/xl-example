@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
@@ -37,7 +38,7 @@ if (MemberShellCatalog.IsOpen(this)) {
 return BranchStates.Undo;
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 [B2b] **成员外壳的子 token 目录**：外壳里的 basic token 关闭时只问父单元（`this`），这一格就是那个入口——
 先把刚闭合的那一格按位置包成修饰词 / 名字 / 初始字面量形状，再判成员边界。
@@ -48,5 +49,5 @@ return BranchStates.Undo;
 if (MemberShellCatalog.IsOpen(this)) {
   return MemberShellCatalog.HeadCompute(this, context);
 }
-return super.ComputePossibleShapes(context);
+return super.ComputePossibleShapes(context, source);
 ```

@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
@@ -37,7 +38,7 @@ if (MemberShellCatalog.IsOpen(this)) {
 return BranchStates.Undo;
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 [B2c] 成员外壳的子 token 目录：头格子 / 参数表收口 / 方法体收口都走这里。
 
@@ -45,7 +46,7 @@ return BranchStates.Undo;
 if (MemberShellCatalog.IsOpen(this)) {
   return MemberShellCatalog.HeadCompute(this, context);
 }
-return super.ComputePossibleShapes(context);
+return super.ComputePossibleShapes(context, source);
 ```
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void

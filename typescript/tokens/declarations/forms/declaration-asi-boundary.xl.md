@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { ShapeToken } from "../../../../core/syntax/shape-token.xl.md"
@@ -703,7 +704,7 @@ try {
       continue;
     }
     try {
-      guide.ComputePossibleShapesByIndex(host, at, context);
+      guide.ComputePossibleShapesByIndex(host, at, context, PossibleSource.Close);
     } catch {
       break;
     }

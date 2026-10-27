@@ -3,6 +3,7 @@
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { PossibleShapeCache } from "./possible-shape-cache.xl.md"
+import { PossibleSource } from "./possible-source.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
 ```
@@ -55,21 +56,27 @@ return PossibleShape.SlotOf(this.constructor);
 
 取的是**运行时类**（`this.constructor`），所以基类给一次实现、所有形状共用；子类不必各自再写一份槽位常量，也不会因为漏写而撞槽。
 
-## method Compute:(units:Array<Token>, cache:PossibleShapeCache)=>ShapeStates
+## method Compute:(units:Array<Token>, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 看已经攒下的单元能不能构成这个形状。
 
 **基类转调 `ComputeByIndex`**：判全段就是判到最后一格为止，形状只实现那条。缓存是 `PossibleShapeCache`：形状在自己名下读写，调用方只负责把同一份传给同一个向导的每一次判定。
 
+`source` 是本次判定的触发来源，**必填**：基类原样转给 `ComputeByIndex`，不解释、不从缓存或静态量取。
+需要区分来源的候选在自己的 `ComputeByIndex` 里显式收下这个形参；不需要的候选可以保留少参（TS 允许实现少参），
+但调用边界永远显式传。
+
 ```ts
-return this.ComputeByIndex(units, units.length - 1, cache);
+return this.ComputeByIndex(units, units.length - 1, cache, source);
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 **猜这个下标之前的形状**：判定 `units[0..tokenIndex]`——**到这个下标为止已经攒下的那一段**（含该下标本身）能不能构成这个形状。
 
 与 `Compute` 的差别是「判到哪儿为止」：`Compute` 判的是全段，本方法判的是**前缀**。
+
+`source` 同上：必填形参，由 `CatalogGuide` 沿调用链传入；默认语义（不区分来源的候选）等于只用 `Close` 那一套判据。
 
 抽象方法，**基类不给实现**：前缀取到哪儿、看出什么算「是我」，每个形状都不一样，没有普适写法。
 

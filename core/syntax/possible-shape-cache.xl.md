@@ -1,8 +1,3 @@
-# dependencies
-```xl
-import { PossibleSource } from "./possible-source.xl.md"
-```
-
 # namespace cangjie
 
 Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
@@ -17,15 +12,10 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 **共享槽**：一组形状（例如七个成员候选）故意共用一份结论时，它们共用**同一个**槽——那个槽号由这一组共同的标识类发出来（`MemberPossibleUtil.CacheKey` / `ClassMemberPossibleUtil.CacheKey` 这类常量就是这样一个槽号），而不是各自的 `this.Slot()`。判据没变：同一个类同号，不同的类不同号。
 
+**来源（`PossibleSource`）不在缓存里**：它是每次判定的形参，由 `CatalogGuide` 沿调用链显式传给候选；
+本缓存不保存来源，`Clear()` 也不管来源。见 `possible-source.xl.md`。
+
 # class PossibleShapeCache
-
-## field Source:PossibleSource = PossibleSource.Close
-
-本次判定是被谁触发的（`PossibleSource`）。**缺省 `Close`**，也就是既有路径。
-
-由 `CatalogGuide.ComputePossibleShapesByIndex` 在进入候选判定**之前**写入（`source ?? PossibleSource.Close`）；候选在自己的 `ComputeByIndex` 里读它——这就是 117 个候选**不必改签名**也能知道来源的原因。
-
-**不按 source 分槽**：它不是槽位内容，是这份缓存当前这一次判定的一个标量。`Clear()` 把它复位成 `Close`，所以下一次判定除非重新写入，读到的都是缺省值。
 
 ## field Values:Array<unknown> = []
 
@@ -124,7 +114,7 @@ this.ItemStartLength = unitsLength;
 
 ## method Clear:()=>void
 
-清空**逐条目判定状态**（`Values`），并把 `Source` 复位成 `PossibleSource.Close`。形状建完之后由 `CatalogGuide` 调一次——下一条目的判定必须从零开始，留着上一条的状态会判错。
+清空**逐条目判定状态**（`Values`）。形状建完之后由 `CatalogGuide` 调一次——下一条目的判定必须从零开始，留着上一条的状态会判错。
 
 **`Share` 不清**：它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置；要清只能显式调 `ClearShare`。
 
@@ -134,5 +124,4 @@ this.ItemStartLength = unitsLength;
 this.Values = [];
 this.ItemStartValue = -1;
 this.ItemStartLength = -1;
-this.Source = PossibleSource.Close;
 ```

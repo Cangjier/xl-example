@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../core/syntax/possible-source.xl.md"
 import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { ShapeToken } from "../../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
@@ -67,6 +68,6 @@ shell.Incremental = true;
 BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
 TypeAliasDeclarationMount.MountCount += 1;
 // 本格已经吃掉、不会再被单独问一次：补一次逐格驱动，让名字关闭格从下一格起接上。
-shell.ComputePossibleShapes(context);
+shell.ComputePossibleShapes(context, PossibleSource.Close);
 return shell;
 ```

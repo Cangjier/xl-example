@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../core/syntax/possible-source.xl.md"
 import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { SyntaxContext } from "../../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../../core/syntax/token.xl.md"
@@ -114,6 +115,6 @@ shape.Parent = host;
 host.MountedUnit = shape;
 InterfaceDeclarationMount.MountCount += 1;
 // 本格已经吃掉、不会再被单独问一次：补一次目录计算，让接口体 / heritage 从这一格起建。
-shape.ComputePossibleShapes(context);
+shape.ComputePossibleShapes(context, PossibleSource.Close);
 return shape;
 ```

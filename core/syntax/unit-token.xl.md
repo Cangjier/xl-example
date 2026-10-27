@@ -5,6 +5,7 @@ import { SyntaxException } from "../exceptions/syntax-exception.xl.md"
 import { BranchStates } from "./branch-states.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { IComputePossibleShapes } from "./i-compute-possible-shapes.xl.md"
+import { PossibleSource } from "./possible-source.xl.md"
 import { ReloadMessage } from "./messages/reload-message.xl.md"
 import { SourceRange } from "./source-range.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
@@ -34,28 +35,32 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 普通单元默认没有，所以父单元不是宿主时，basic token 关闭不触发任何判定。
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
 
 没向导时返回 `Nothing`——被问到就答「什么都没做」。
 
+`source` 是触发来源，**必填**：原样转给 `CatalogGuide`，不解释、不从字段取。
+
 ```ts
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapes(this, context);
+  return this.CatalogGuide.ComputePossibleShapes(this, context, source);
 }
 return ComputePossibleShapesStates.Nothing;
 ```
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 按下标重算候选，把**自己（宿主）与下标**一起转交给向导的同名方法。
 
 向导的方法要两个参数（宿主 + 下标），而接口这里是单参——两者的差由本方法补上。
 
+`source` 同上：必填、原样透传。
+
 ```ts
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex, context);
+  return this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex, context, source);
 }
 return ComputePossibleShapesStates.Nothing;
 ```

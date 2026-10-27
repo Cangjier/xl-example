@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -195,7 +196,7 @@ if (shell.DirectSession !== null) {
 // 晚建壳（头格被上一条语句吞掉）：已经搬进壳的 raw 单元不会再触发本条目求值，补一次
 // （与 `ImportDeclarationPossibleShape` 的「壳晚建」同一手法）。
 if (tokenIndex > start) {
-  shell.ComputePossibleShapes(context);
+  shell.ComputePossibleShapes(context, PossibleSource.Close);
 } else if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
   // [E-STMT:CATALOG] 首格建壳：`shell.ComputePossibleShapes` 由「上一个单元关闭」触发，首格之后通常
   // 要等下一格才跑；`f()` / `[...a]` / `(class { })` 这种「首格就是完整括号单元」的形态到下一格时

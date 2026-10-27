@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../core/syntax/possible-source.xl.md"
 import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -174,7 +175,7 @@ shape.Parent = host;
 host.MountedUnit = shape;
 ImportExportDeclarationMount.MountCount += 1;
 // 已经搬进形状的单元不会再被单独问一次：补一次目录计算，让 clause / named imports 等子形状从这一格起建。
-shape.ComputePossibleShapes(context);
+shape.ComputePossibleShapes(context, PossibleSource.Close);
 if (replayStart >= 0 && replayEnd > replayStart) {
   context.Messages.push(ReloadMessage.FromRange(host, replayStart, replayEnd));
 }

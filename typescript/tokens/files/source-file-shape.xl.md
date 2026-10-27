@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -37,6 +38,7 @@ import { DeclareVariablePossibleShape } from "../declarations/forms/declare-vari
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.xl.md"
+import { BracketCreatePossibleTrigger } from "../statements/bracket-create-possible-hook.xl.md"
 ```
 
 # namespace cangjie
@@ -96,6 +98,11 @@ if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncremen
 // `BracketCloseHook.Current` 保持 `null` ⇒ `Bracket.Close` 里只多一次 `null` 比较，产物逐字节不变。
 ContainerShapeCatalog.EnsureInstalled();
 BracketRoleCatalogHook.EnsureInstalled();
+// [T2:CREATE] 括号创建触发的 possible 重算（`PossibleSource.BracketCreate`）。
+// 开关 `StatementRouteUtil.EnableBracketCreatePossible` 默认 false ⇒ `EnsureInstalled` 立即返回、
+// `BracketCreatePossibleHook.Current` 保持 `null`，`Bracket.Transit` 里那一行只是 `null` 比较 ⇒
+// 一个字节都不改。开关打开时它在 `BracketRoleHook` 之后对新括号自己 / 父宿主各问一次。
+BracketCreatePossibleTrigger.EnsureInstalled();
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
@@ -136,7 +143,7 @@ if (StatementRouteUtil.EnableShellExpressions
   && bracket instanceof Bracket
   && (bracket as Bracket).StartBracketChar === "{"
   && StatementRouteUtil.Decide(this.Data, this.Data.length - 1) === StatementRoute.ShellBlock) {
-  this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
+  this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
 }
 ```
 

@@ -4,6 +4,7 @@ import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
+import { PossibleSource } from "../possible-source.xl.md"
 import { SourceRange } from "../source-range.xl.md"
 import { SyntaxContext } from "../syntax-context.xl.md"
 import { Token } from "../token.xl.md"
@@ -116,6 +117,38 @@ throw new Error("abstract: OnBracketClosing");
 throw new Error("abstract: OnBracketClosed");
 ```
 
+# class BracketCreatePossibleHook
+
+**括号创建触发的 possible 重算钩子（T2）：core 侧只留接口，实现放在 typescript 侧。**
+
+`Bracket.Transit` 在「新括号挂好、宿主 `OnBracketCreatedEvent`（族收尾）跑完、`BracketRoleHook`（角色目录）也跑完」之后调用 `Current` 一次。职责是把「括号刚建出来」这件事作为一个**新的触发来源**（`PossibleSource.BracketCreate`）交给可能感知它的宿主：
+
+1. 新括号自己（若 `CatalogGuide !== null`）——此刻它的 `Data` 还是空的，通常直接 `Nothing`；已有目录时不提前装、不替它装；
+2. 父宿主（若实现了 `IComputePossibleShapes` 且挂了带终结候选的向导）——这就是既有 `OnBracketCreatedEvent` 里那条窄触发（`{` + `EndPossible !== null`）的通用位置，但来源显式传 `BracketCreate`。
+
+`Current` 默认 `null`：默认状态下 `Transit` 只是多做一次 `null` 比较——不建任何形状、不改任何 `Data`，
+既有解析产物逐字节不变。typescript 侧在 `StatementRouteUtil.EnableBracketCreatePossible` 为真时由
+`SourceFileShape` 的构造器懒装上（`BracketCreatePossibleTrigger.EnsureInstalled`）。
+
+**为什么放在 `BracketRoleHook` 之后**：`Bracket.OnBracketCreatedEvent` 触发时新括号自己的 `CatalogGuide` 还是
+`null`（角色目录要等 `BracketRoleHook` → `BracketCatalogInstaller.Install` 才挂上），只有排到它后面才能问
+「新括号自己」。放在这里也顺带把既有的一条窄触发接管过来：钩子装了（开关开）时 `OnBracketCreatedEvent`
+里那条旧触发**不执行**（见该方法），避免同一格被问两次。
+
+## static field Current:BracketCreatePossibleHook | null = null
+
+进程内唯一的括号创建重算钩子。`null` = 没装（默认）= T2 之前的行为。
+
+## method OnBracketCreatedPossible:(host:Token, bracket:Token, context:SyntaxContext)=>void
+
+`host` 是新括号的宿主，`bracket` 是刚建出来的括号（此刻 `Data` 为空、目录可能已由角色机制装上）。
+
+抽象方法，core 不给实现。
+
+```ts
+throw new Error("abstract: OnBracketCreatedPossible");
+```
+
 # class Bracket extends UnitToken
 
 括号。
@@ -221,7 +254,7 @@ if (BracketCloseHook.Current !== null) {
 // 补判与逐格判定走同一个入口（`ComputePossibleShapesByIndex` + `Data.length - 1`），
 // 因此「候选还在等 ⇒ `Waiting`，什么都不建」的语义完全一致。
 if (this.CatalogGuide !== null && this.CatalogGuide.FlushOnClose && this.Data.length > 0) {
-  this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
+  this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
 }
 // [B4e:K1] 关闭后的通知（**父单元问完之后**）：容器形状只能在这里落槽——父单元的候选
 // （A4 对象 / A4b 数组·括号 / P1 调用 / P4 分组）会先按自己的所有权消费括号；只有它们都不要
@@ -231,7 +264,7 @@ if (this.CatalogGuide !== null && this.CatalogGuide.FlushOnClose && this.Data.le
 const parent = this.Parent;
 let closedState = CloseStates.Nothing;
 if (parent !== null && "ComputePossibleShapes" in parent) {
-  const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);
+  const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context, PossibleSource.Close);
   if (state === ComputePossibleShapesStates.Built) {
     closedState = CloseStates.Built;
   }
@@ -301,9 +334,13 @@ return BranchStates.Undo;
 if (Bracket.ChildBracketCreatedHook !== null) {
   Bracket.ChildBracketCreatedHook.OnChildBracketCreated(this, bracket, context);
 }
-if (this.CatalogGuide !== null && this.CatalogGuide.EndPossible !== null
+// [T2:CREATE] 开关打开时（`BracketCreatePossibleHook.Current !== null`）旧窄触发**不执行**：
+// 同一格由 `Transit` 末尾的新触发用 `PossibleSource.BracketCreate` 重新问一次，避免双触发。
+// 开关关闭时（默认，`Current === null`）这里逐字节仍是 T2 之前的行为：只对 `{`、只对带终结候选的向导补判。
+if (BracketCreatePossibleHook.Current === null
+  && this.CatalogGuide !== null && this.CatalogGuide.EndPossible !== null
   && bracket instanceof Bracket && (bracket as Bracket).StartBracketChar === "{") {
-  this.ComputePossibleShapesByIndex(this.Data.length - 1, context);
+  this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
 }
 ```
 
@@ -348,6 +385,13 @@ if (!(unit instanceof Bracket) && Bracket.ChildBracketCreatedHook !== null) {
 // 钩子是进程内唯一静态引用，默认 `null` ⇒ 默认状态下这里只多一次 `null` 比较。
 if (BracketRoleHook.Current !== null) {
   BracketRoleHook.Current.OnBracketCreated(unit, mounted, context);
+}
+// [T2:CREATE] BracketCreate 触发点：**必须**在 `BracketRoleHook` 之后——新括号自己的
+// `CatalogGuide` 要等角色目录装完才非空，`:306` 那个旧位置只能问到父层。
+// 钩子 `Current` 默认 `null`（开关 `StatementRouteUtil.EnableBracketCreatePossible` 默认 false），
+// 于是默认路径只多一次 `null` 比较，既有产物逐字节不变。
+if (BracketCreatePossibleHook.Current !== null) {
+  BracketCreatePossibleHook.Current.OnBracketCreatedPossible(unit, mounted, context);
 }
 return BranchStates.Done;
 ```

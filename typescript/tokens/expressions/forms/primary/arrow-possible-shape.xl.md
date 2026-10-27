@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
@@ -818,7 +819,7 @@ if (parent !== null) {
     parent.Data.splice(arrowAt + 1, 0, delimiter);
   }
   if ("ComputePossibleShapes" in parent) {
-    (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);
+    (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context, PossibleSource.Close);
   }
 }
 return delimiter;

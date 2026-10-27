@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
@@ -177,7 +178,7 @@ host.MountedUnit = built;
 // 壳晚建的情况（`import` 之后还有代码单元才轮到本候选）：这些单元是**已关闭**的 basic token，
 // 不会再触发壳自己的候选重算，所以这里补一次，让 ImportClause / StringLiteral / 属性子句照常建出来。
 if (tokenIndex > start) {
-  built.ComputePossibleShapes(context);
+  built.ComputePossibleShapes(context, PossibleSource.Close);
 }
 return built;
 ```
