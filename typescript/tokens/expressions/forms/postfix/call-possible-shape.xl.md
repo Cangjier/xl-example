@@ -19,6 +19,7 @@ import { IncrementalItemPosition } from "../../numeric-literal-possible-shape.xl
 import { ItemUtil } from "../../../item-util.xl.md"
 import { NewPossibleShape } from "./new-possible-shape.xl.md"
 import { CompositeInitializerFormsJudge } from "../primary/composite-initializer-forms-judge.xl.md"
+import { ExpressionAtomRegistry } from "../shared/expression-atom-registry.xl.md"
 ```
 
 # namespace cangjie
@@ -211,6 +212,20 @@ return CallPossibleShape.CanBeCallee(units, tokenIndex);
 - `src` 从被调用者起点签入、到括号终点签出（legacy `SpanNode(shape, start, this.At - 1)`）；
 - 实参用 legacy `ExpressionBuilder.ParseBracketArguments` 逐参建出（空实参 ⇒ 零个子节点）。
 
+**[T12:CALL-POSTFIX] 建完登记身份**（`ExpressionAtomRegistry.Nodes`）：调用形状是**上一个可以带
+后置续接的操作数**——`f("y").then(r => r)` / `f().x` / `f("y")[0]` / `f(1).b`2`` 的 `f(...)` 在 `)`
+关闭这一格就已经建好，后面的 `.` / `?.` / `!` / `(` / `[` / 模板不是它的「未支持续接」，而是它的
+postfix 后缀。登记之后收口格（`VariableDeclarationShape.FinishIncremental`）走既有的
+「根 + 根之后还有代码」分支：`ExpressionBuilder.ParsePrimary` 用 `HasNode` 把这个**已建形状**
+当操作数收下（不重建、不重算 `Pos`），再由 `ExpressionBuilder.ParsePostfixSuffix` 接上后缀——
+与 A1 标识符 / A4 容器 / R15 标签模板 / [T9] 数字原子走的是**同一条** postfix 路。
+
+不登记的后果（实测）：`const n = import("y").then(r => r.default)` 的根是 `CallExpressionShape`，
+`HasContainer` / `HasNode` 都为假 ⇒ 收口格按 C10 抛 `declaration 初始化器有未并入的括号`；
+`const n = f("y").x` 抛 `declaration 初始化器根之外还有代码`。整条文件退回 legacy（fallback）。
+
+为什么登记在 `BuildByIndex` 而**不是** `ParseBracketArguments` 一侧：那一条只建实参、不建调用形状。
+
 ```ts
 const data = host.Data;
 const bracket = data[tokenIndex];
@@ -241,6 +256,9 @@ if (end < 0) {
 }
 shape.SignOut(end);
 shape.TryToClose(context);
+// [T12:CALL-POSTFIX] 只登记「增量候选自己建出的调用形状」：收口格据此把它当操作数消费（`HasNode`），
+// 后缀由 legacy `ExpressionBuilder.ParsePostfixSuffix` 接上。
+ExpressionAtomRegistry.RegisterNode(shape);
 data.splice(leftIndex, tokenIndex - leftIndex + 1, shape);
 shape.Parent = host;
 host.MountedUnit = null;

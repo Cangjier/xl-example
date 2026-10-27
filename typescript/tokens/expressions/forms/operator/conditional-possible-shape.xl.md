@@ -228,24 +228,28 @@ return ConditionalPossibleShape.IsQuestionSymbol(unit);
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 [T11] **分支是箭头时不建**：`flag ? (a: number) => a + 1 : (a: number) => a - 1`。
+[T12] **分支头建不住时也不建**：`flag ? 1 : () => 0` / `x ? "t" : "f"` / `a ? (a) : (a)`。
 
 三目的两个分支位在本目录里只有「`Common` 操作数」与「值位 `{ … }`」两种形态——箭头
-（`(a: T) => …` / `() => …` / 体是字符串的箭头）一个都不在目录里，那一格会
-`Reject` ⇒ 候选全灭 ⇒ `CatalogGuide` 抛「没有候选形状可以构成」。
+（`(a: T) => …` / `() => …` / 体是字符串的箭头）、字面量（`"t"` / `` `t` `` / `/re/`）、括号
+（`(a)`）、前缀一元一个都不在目录里，那一格会 `Reject` ⇒ 候选全灭 ⇒
+`CatalogGuide` 抛「没有候选形状可以构成」。
 
-这里不补第二套箭头建造器：箭头分支的形态与 legacy `ExpressionBuilder.ParseExpression` 完全重合，
+这里不补第二套分支建造器：这些分支的形态与 legacy `ExpressionBuilder.ParseExpression` 完全重合，
 而声明收口格本来就有一条「初始化器没有唯一根 ⇒ 整条 raw 交 legacy 建」的通路
 （`VariableDeclarationShape.FinishIncremental` 的 `builtShape === null` 分支）。所以本候选在
 `?` 那一格**保持在场但不建树**，整条三目留在 raw，收口格由 legacy 一次建出（与 legacy 同树）。
 
-判据 `HasArrowBranch` 两条腿、都跨步稳定：`?` 之后出现 `=>` 符号单元（单调）；
-`?` 之后（文档前瞻）是 `(` 且配对 `)` 之后紧跟 `=>`（`?` 那一格还没有 `=>` 单元，靠这一条）。
+判据 `HasLegacyBranch` 两条腿、都跨步稳定：`?` 之后出现 `=>` 符号单元、或中段 / 右段的分支头是
+**本目录必须让路的两种分支头**（字面量 / 箭头）：`HasArrowBranch` + `UnbuildableBranchHead`。
+**两个分支位都要看**：T11 的判据只看中段（`?` 之后的前瞻就是 `(`），`flag ? 1 : () => 0` 的
+箭头落在右段，`?` 那一格照样建树，右段的 `(` 随后在形状里 `Reject`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return true;
 }
-return !ConditionalPossibleShape.HasArrowBranch(units);
+return !ConditionalPossibleShape.HasLegacyBranch(units);
 ```
 
 ## static method QuestionIndex:(units:Array<Token>)=>int
@@ -286,10 +290,67 @@ for (let index = questionAt + 1; index < units.length; index++) {
 return ConditionalPossibleShape.ArrowFollowsQuestion(units[questionAt]);
 ```
 
-## static method ArrowFollowsQuestion:(question:Token)=>bool
+## static method HasLegacyBranch:(units:Array<Token>)=>bool
 
-文档前瞻：`question` 之后跳过空白是 `( … )`、再跳过空白是 `=>`。跳过字符串字面量里的括号
-（形参默认值里可能有 `"("`）；其余字符只做括号计数。
+三目的某一支必须由 legacy 建：**箭头分支**（`HasArrowBranch`）或**分支头建不住**
+（`UnbuildableBranchHead`）。两条判据都只读结构位 / 字符前瞻，结果随字符流单调。
+
+```ts
+if (ConditionalPossibleShape.HasArrowBranch(units)) {
+  return true;
+}
+const questionAt = ConditionalPossibleShape.QuestionIndex(units);
+if (questionAt < 0) {
+  return false;
+}
+return ConditionalPossibleShape.UnbuildableBranchHead(units[questionAt]);
+```
+
+## static method IsBuildableHeadChar:(ch:string)=>bool
+
+分支位第一个代码字符能不能落成 `ConditionalMemberPossibleShape` 认的两种形态
+（`Common` 操作数 / 值位 `{ … }`）：标识符起首、数字起首、`{`。其余（引号、反引号、`(`、`[`、
+`/`、`-`、`!`、`.`、`@` …）一律不是。
+
+与 `DeclarationAsiBoundary` 的「是不是标识符起首」同一套字符判据（不新造词法表）。
+
+```ts
+if (ch === "{") {
+  return true;
+}
+if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z")) {
+  return true;
+}
+if (ch >= "0" && ch <= "9") {
+  return true;
+}
+return ch === "_" || ch === "$";
+```
+
+## static method UnbuildableBranchHead:(question:Token)=>bool
+
+文档前瞻：`?` 之后**中段**与 `:` 之后**右段**的第一个代码字符，只要有一个是**本候选必须让路**的
+两种分支头，返回 `true`：
+
+| 分支头 | 让路？ | 为什么 |
+| --- | --- | --- |
+| 引号 / 反引号（`"t"` / `` `t` ``） | 是 | 字面量不是 `Common`，`ConditionalMemberPossibleShape` 那一格 `Reject` |
+| `(` 且配对 `)` 之后紧跟 `=>` | 是 | 括号箭头（`() => 0` / `(a) => a`）——`ParenArrowAt` |
+| 标识符词且词之后紧跟 `=>` | 是 | 单参箭头（`x => x`）——`WordArrowAt` |
+| 其余（数字 / `{` / `_` / `$` / `[` / 前缀一元 …） | 否 | 保持 T11 之前的老行为，本轮不扩大范围 |
+
+**范围为什么只到这里**：`flag ? 1 : (a)` / `flag ? a.b : 1` / `flag ? g(1) : 2` 这些「分支是括号 /
+成员链 / 调用」的形态另有收口面的账，本轮不动它们——实测把它们也判成「让路」会让
+`expr-r1233-control-head-regex.ts` 从「整条 legacy（树正确）+ fallback」变成「增量（树与 TS 有差）+
+不 fallback」，那是拿错树换 fallback 数，C10 明确禁止。
+
+扫描规则（只看字符，不建树）：跳过空白；字符串 / 模板正文跳过（与 `ArrowFollowsQuestion` 同口径，
+引号起止、不解析插值）；`(` / `[` / `{` 计深度，`)` / `]` / `}` 减深度；**深度 0 上的** `;` / `,`
+或收尾括号 ⇒ 表达式结束（返回 `false`）；中段里的 `?`（不是 `?.` / `??`）与 `:` 成对抵消（内层三目），
+剩下的第一个深度 0 的 `:` 是中段 / 右段的分隔符。
+
+**为什么要看右段**：`flag ? 1 : () => 0` 的 `?` 那一格只看得见 `1`，T11 的判据（只看中段）放行后
+形状建出来，右段的 `(` 在 `ConditionalMemberPossibleShape` 里 `Reject` ⇒ 候选全灭。
 
 ```ts
 const range = question.SourceRange;
@@ -302,6 +363,185 @@ if (document === null || range.EndIndex < 0) {
 }
 const count = document.GetCount();
 let at = range.EndIndex;
+let depth = 0;
+let nested = 0;
+let headSeen = false;
+let guard = 0;
+const skipSpace = ():void => {
+  while (at < count) {
+    const ch = document.GetValue(at);
+    if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
+      at += 1;
+      continue;
+    }
+    return;
+  }
+};
+while (at < count) {
+  guard += 1;
+  if (guard > 8192) {
+    return false;
+  }
+  const ch = document.GetValue(at);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
+    at += 1;
+    continue;
+  }
+  if (!headSeen) {
+    headSeen = true;
+    if (ch === "\"" || ch === "'" || ch === "`") {
+      return true;
+    }
+    if (ch === "(") {
+      return ConditionalPossibleShape.ParenArrowAt(question, at);
+    }
+    if (ConditionalPossibleShape.IsBuildableHeadChar(ch)
+      && ConditionalPossibleShape.WordArrowAt(question, at)) {
+      return true;
+    }
+  } else if (ch === "\"" || ch === "'" || ch === "`") {
+    const quote = ch;
+    at += 1;
+    while (at < count && document.GetValue(at) !== quote) {
+      if (document.GetValue(at) === "\\") {
+        at += 1;
+      }
+      at += 1;
+    }
+    at += 1;
+    continue;
+  }
+  if (ch === "(" || ch === "[" || ch === "{") {
+    depth += 1;
+    at += 1;
+    continue;
+  }
+  if (ch === ")" || ch === "]" || ch === "}") {
+    if (depth === 0) {
+      return false;
+    }
+    depth -= 1;
+    at += 1;
+    continue;
+  }
+  if (depth === 0 && (ch === ";" || ch === ",")) {
+    return false;
+  }
+  if (depth === 0 && ch === "?") {
+    if (at + 1 < count) {
+      const next = document.GetValue(at + 1);
+      if (next !== "." && next !== "?") {
+        nested += 1;
+      }
+    }
+    at += 1;
+    continue;
+  }
+  if (depth === 0 && ch === ":") {
+    if (nested > 0) {
+      nested -= 1;
+      at += 1;
+      continue;
+    }
+    at += 1;
+    skipSpace();
+    if (at >= count) {
+      return false;
+    }
+    const head = document.GetValue(at);
+    if (head === "\"" || head === "'" || head === "`") {
+      return true;
+    }
+    if (head === "(") {
+      return ConditionalPossibleShape.ParenArrowAt(question, at);
+    }
+    if (ConditionalPossibleShape.IsBuildableHeadChar(head)
+      && ConditionalPossibleShape.WordArrowAt(question, at)) {
+      return true;
+    }
+    return false;
+  }
+  at += 1;
+}
+return false;
+```
+
+## static method WordArrowAt:(question:Token, from:int)=>bool
+
+`from` 起的一个**词**之后（跳过空白）是不是 `=>`。只走一个词、不越过任何括号：
+`g(x => x)` 的词是 `g`、后面是 `(` ⇒ 假；`x => x` ⇒ 真。
+
+```ts
+const range = question.SourceRange;
+let document = range.Document;
+if (document === null) {
+  document = SourceRange.CurrentDocument;
+}
+if (document === null || from < 0) {
+  return false;
+}
+const count = document.GetCount();
+let scan = from;
+if (scan >= count) {
+  return false;
+}
+const first = document.GetValue(scan);
+const firstIsLetter = (first >= "a" && first <= "z") || (first >= "A" && first <= "Z");
+if (!firstIsLetter && first !== "_" && first !== "$") {
+  return false;
+}
+while (scan < count) {
+  const ch = document.GetValue(scan);
+  const isWord = (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z")
+    || (ch >= "0" && ch <= "9") || ch === "_" || ch === "$";
+  if (!isWord) {
+    break;
+  }
+  scan += 1;
+}
+while (scan < count) {
+  const ch = document.GetValue(scan);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
+    scan += 1;
+    continue;
+  }
+  break;
+}
+if (scan + 1 >= count) {
+  return false;
+}
+return document.GetValue(scan) === "=" && document.GetValue(scan + 1) === ">";
+```
+
+## static method ArrowFollowsQuestion:(question:Token)=>bool
+
+文档前瞻：`question` 之后跳过空白是 `( … )`、再跳过空白是 `=>`（括号箭头）。本体在
+`ParenArrowAt`（分支头也可能从 `:` 之后的某个下标起算，两处共用一份实现）。
+
+```ts
+const range = question.SourceRange;
+if (range.EndIndex < 0) {
+  return false;
+}
+return ConditionalPossibleShape.ParenArrowAt(question, range.EndIndex);
+```
+
+## static method ParenArrowAt:(question:Token, from:int)=>bool
+
+`from` 之后跳过空白是 `( … )`、再跳过空白是 `=>`。跳过字符串字面量里的括号
+（形参默认值里可能有 `"("`）；其余字符只做括号计数。
+
+```ts
+const range = question.SourceRange;
+let document = range.Document;
+if (document === null) {
+  document = SourceRange.CurrentDocument;
+}
+if (document === null || from < 0) {
+  return false;
+}
+const count = document.GetCount();
+let at = from;
 const skipSpace = ():void => {
   while (at < count) {
     const ch = document.GetValue(at);
