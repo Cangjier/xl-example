@@ -39,9 +39,10 @@ throw new Error("abstract: OnChildBracketCreated");
 职责是 B0 的通用机制：`BracketRoleResolver.Resolve` → `BracketCatalogInstaller.Install`（`Known`）/
 `DeferredBracketCatalog.Register`（`Deferred`）/ 计数（`Fallback`）。
 
-[T2b] 同一个实例入口也承担 `PossibleSource.BracketCreate` 触发（原先的静态辅助工具已删除）：
-实现方在角色目录安装完成之后，按 `StatementRouteUtil.EnableBracketCreatePossible`
-对新括号自己 / 父宿主各问一次。开关关闭时只做角色目录，不做任何 BracketCreate 判定。
+[T7b] **本接口不再承担 `PossibleSource.BracketCreate` 触发。** `Transit` 在调用本钩子之后直接对
+`IComputePossibleShapes` 问新括号自己 / 父宿主（见 `Transit` 里的 `[T7b:CREATE]`），触发不经过钩子；
+钩子的职责只剩角色目录装配（`Resolve → Install / Register`），`TriggerBracketCreatePossible` 与
+「旧窄触发让位」用的 `HandlesBracketCreatePossible` 都已删除，同一格不会双触发。
 
 `Current` 默认 `null`：**默认状态下 `Transit` 只是多做一次 `null` 比较**——不建任何形状、不改任何 `Data`、
 不装任何目录，既有解析产物逐字节不变。typescript 侧在
@@ -64,18 +65,6 @@ throw new Error("abstract: OnChildBracketCreated");
 
 ```ts
 throw new Error("abstract: OnBracketCreated");
-```
-
-## method HandlesBracketCreatePossible:()=>bool
-
-**[T2b] 本实例是否接管旧窄触发。** 返回 `true` 表示 `Bracket.OnBracketCreatedEvent` 里那条
-「`{` + 带终结候选的向导」的补判由本钩子用 `PossibleSource.BracketCreate` 重问一次，
-core 的旧触发必须让位（否则同一格被问两次）；返回 `false`（core 默认）时旧触发逐字节保持原行为。
-
-实现方按 `StatementRouteUtil.EnableBracketCreatePossible` 回答，**每次括号创建时现读**，不缓存。
-
-```ts
-return false;
 ```
 
 # class BracketCloseHook
@@ -314,19 +303,15 @@ return BranchStates.Undo;
 3. **不让安装器第二次装**：`BracketCatalogInstaller.Install` 看到 `CatalogGuide !== null` 就返回
    `AlreadyInstalled`，所以「族已装」的括号不会被重复挂目录（也不会被清空 `PossibleShapes`）。
 
+[T7b] **创建拍的那条旧窄触发已从这里删除。** 它问的是「新括号 `{` + 本宿主带终结候选」这一格，
+却把来源写成 `PossibleSource.Close`——创建拍传 `Close` 是来源错配（`_reports/T7a.md` §1.1 A1b）。
+现在这一格由 `Bracket.Transit` 在本方法**之后**直接对 `IComputePossibleShapes` 用
+`PossibleSource.BracketCreate` 问一次（新括号自己 + 父宿主窄域），所以本方法**不再对任何新括号重算候选**：
+创建拍没有 `Close` 来源，关闭拍的两条 `Close` 来源仍只留在 `Close` 里。
+
 ```ts
 if (Bracket.ChildBracketCreatedHook !== null) {
   Bracket.ChildBracketCreatedHook.OnChildBracketCreated(this, bracket, context);
-}
-// [T2b:CREATE] 新触发已经在 `BracketRoleHook` 实例里接管了这一格时，旧窄触发**不执行**：
-// 同一格由角色钩子用 `PossibleSource.BracketCreate` 重新问一次，避免双触发。
-// `HandlesBracketCreatePossible()` 为假（开关关 / 角色钩子没装）时，这里逐字节仍是 T2 之前的行为：
-// 只对 `{`、只对带终结候选的向导补判，来源 `Close`。
-const roleHook = BracketRoleHook.Current;
-if ((roleHook === null || !roleHook.HandlesBracketCreatePossible())
-  && this.CatalogGuide !== null && this.CatalogGuide.EndPossible !== null
-  && bracket instanceof Bracket && (bracket as Bracket).StartBracketChar === "{") {
-  this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
 }
 ```
 
@@ -364,16 +349,31 @@ if ("OnBracketCreatedEvent" in unit) {
 if (!(unit instanceof Bracket) && Bracket.ChildBracketCreatedHook !== null) {
   Bracket.ChildBracketCreatedHook.OnChildBracketCreated(unit, mounted, context);
 }
-// [B0:ROLE] 通用括号角色机制的唯一调用点，也是 T2b 之后 `BracketCreate` 触发的唯一入口。
-// **必须在 `OnBracketCreatedEvent`（族收尾）之后**：族 hook 先按既有路径装它自己的目录
-// （函数体 / namespace / 块体 / switch 子句块 / 箭头体的 `MountBodyCatalog`），本钩子后到，
-// 看到 `CatalogGuide !== null` 就只做「族已装」收尾（`BracketCatalogInstaller` 返回
-// `AlreadyInstalled`，一个字节都不改）；角色目录装完之后，同一个实例再按
-// `StatementRouteUtil.EnableBracketCreatePossible` 用 `PossibleSource.BracketCreate` 问
-// 新括号自己 / 父宿主各一次（新括号的 `CatalogGuide` 这时才非空）。
+// [B0:ROLE] 通用括号角色机制的唯一调用点。**必须在 `OnBracketCreatedEvent`（族收尾）之后**：
+// 族 hook 先按既有路径装它自己的目录（函数体 / namespace / 块体 / switch 子句块 / 箭头体的
+// `MountBodyCatalog`），本钩子后到，看到 `CatalogGuide !== null` 就只做「族已装」收尾
+// （`BracketCatalogInstaller` 返回 `AlreadyInstalled`，一个字节都不改）。
 // 钩子是进程内唯一静态引用，默认 `null` ⇒ 默认状态下这里只多一次 `null` 比较。
 if (BracketRoleHook.Current !== null) {
   BracketRoleHook.Current.OnBracketCreated(unit, mounted, context);
+}
+// [T7b:CREATE] 创建拍的两个 `PossibleSource.BracketCreate` 来源在这里**直接**问
+// `IComputePossibleShapes`：不再绕到角色钩子的 `TriggerBracketCreatePossible`（该方法的触发职责已删除），
+// 也不再像旧窄触发那样传 `Close`。必须排在整条链的**末尾**——`OnBracketCreatedEvent`（族收尾）与角色
+// `Install` 都跑完，新括号自己的 `CatalogGuide` 这时才可能非空（自举：它的候选才有机会被问）。
+// 1) 新括号自己：有向导才问，**绝不替它装目录**（装目录是 T7c 的候选 `BuildByIndex` 的事）。此刻 `Data`
+//    还是空的，`ComputePossibleShapes` 取不到格 ⇒ 直接 `Nothing`，不建形状、不改 `Data`。
+// 2) 父宿主：窄域沿用旧窄触发（只对 `{` + 括号宿主 + 带终结候选的向导 `EndPossible !== null`），只把来源
+//    从 `Close` 换成 `BracketCreate`。`EndPossible` 这条前置是安全判据：候选全灭时向导返回 `Waiting`，
+//    而不是抛「没有候选形状可以构成」。
+if (mounted.CatalogGuide !== null) {
+  mounted.ComputePossibleShapes(context, PossibleSource.BracketCreate);
+}
+if (value === "{" && unit instanceof Bracket) {
+  const bracketHost = unit as unknown as IComputePossibleShapes;
+  if (bracketHost.CatalogGuide !== null && bracketHost.CatalogGuide.EndPossible !== null) {
+    bracketHost.ComputePossibleShapes(context, PossibleSource.BracketCreate);
+  }
 }
 return BranchStates.Done;
 ```
