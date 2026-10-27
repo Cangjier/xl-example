@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -52,6 +53,7 @@ import { StatementRouteUtil } from "./statement-route-util.xl.md"
 | 头里的单元 | 建出的形状 | 判据 |
 |---|---|---|
 | 普通标识符 `i` / `args` | `IdentifierShape` | 标识符字面形态 + 不在保留字表里 |
+| 成员名位 `a.b` 的 `b` | **不建**（保持 raw `Common`） | 前一个代码单元是 `.` / `?.`（`IsMemberName`；仅 T3 开关打开时，见 `AtomKind`） |
 | 数字字面量 `0` / `3` | `NumericLiteralShape` | `Common.IsNumber()` 且不是 BigInt |
 | `=` / `<` / `++` / `;` / `,` / `.` 等符号 | **不建**（保持 raw `Symbol`） | 符号位一律留给 legacy 的表达式解析 |
 | `let` / `const` / `new` / `typeof` / `this` / `null` … | **不建**（保持 raw `Common`） | 见 `Reserved` / `StatementRouteUtil.IsLegacyKeyword` |
@@ -266,10 +268,46 @@ if (state.Enabled) {
 return state;
 ```
 
+## static method IsMemberName:(unit:Token)=>bool
+
+`unit` 是不是成员访问的**名字位**：同一个 `Data` 里它前面最近的非 trivia 单元是 `.` / `?.`。
+
+**[T3:026] 为什么成员名不能提前建成头原子**：控制流头的 `(` 里，本目录会把普通标识符换成
+`IdentifierShape`，legacy 的 `ParsePrimary` 认这张表；但**成员链的名字位**走的是另一条路——
+`ExpressionBuilder.ParsePostfixSuffix` 在 `.` 之后调 `ParseName`，而 `ParseName` 只认
+`Common` 与 `ExpressionAtomRegistry`（本目录的原子不进那张表）。于是 `if (/x/.test(s)) {}` 的
+`test` 被建成头原子之后，`.` 后面的名字位无标识符可读 ⇒「缺少标识符」⇒ 整条文件 fallback。
+这与 `ExpressionBracketPossibleShape.IsBuildable` 对 `.` / `?.` 的让位是同一条判据、同一个理由。
+
+```ts
+const parent = unit.Parent;
+if (parent === null) {
+  return false;
+}
+const at = parent.Data.indexOf(unit);
+for (let index = at - 1; index >= 0; index--) {
+  const previous = parent.Data[index];
+  if (previous.IsTriviaToken) {
+    continue;
+  }
+  if (!(previous instanceof Symbol)) {
+    return false;
+  }
+  const text = (previous as Symbol).TempToString();
+  return text === "." || text === "?.";
+}
+return false;
+```
+
 ## static method AtomKind:(unit:Token)=>string
 
 这一格能建出什么：`"identifier"` / `"number"` / `""`（不建）。
 符号位、trivia、字符串 / 正则 / 模板一律 `""`——它们归 legacy 或 A2。
+
+**[T3:026] 成员名位也不建**（`if (/x/.test(s))` 的 `test`）：这是 `IsMemberName` 的让位，只在
+`StatementRouteUtil.EnableBracketCreatePossible` 打开时生效，关闭时逐字节保持 T2 之前的判据
+（T2 的验收要求关档读数不变；G1 翻开关后这条规则就是默认行为，与 `ExpressionBracketPossibleShape`
+的无条件让位汇合）。理由见 `IsMemberName`。
 
 ```ts
 if (unit === null || unit.IsTriviaToken) {
@@ -279,6 +317,9 @@ if (!(unit instanceof Common)) {
   return "";
 }
 const common = unit as Common;
+if (StatementRouteUtil.EnableBracketCreatePossible && ControlHeadPossibleShape.IsMemberName(common)) {
+  return "";
+}
 if (common.IsNumber()) {
   if (common.IsBigInt()) {
     return "";
