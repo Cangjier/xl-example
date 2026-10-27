@@ -43,6 +43,37 @@ B3b 给控制流头 `(` 建出的原子开了一条「legacy 收口时直接消�
 `ParenthesizedExpressionShape`）。它只登记「这一个形状是本机制建的」这一件事实，
 收口路径据此**消费**而不是重建——这是 K1 的所有权切换表。
 
+## static field Nodes:Set<any> = new Set()
+
+[R15] 本进程内由**增量主候选**（不是括号目录）建出、而收口格可能还要在其后接续的表达式根形状。
+目前只有一处写入：`TaggedTemplatePrimaryPossibleShape.BuildByIndex`（标签模板链）。
+
+为什么要单独一张表、而不是并进 `Containers`：`Containers` 的读者里有两处是**类型面**
+（`VariableDeclarationShape.TryBuildTypedInitializer` / `TypeCatalogFactory.StartsTypedInitializer`），
+它们用「初始化器里已有本机制的容器根」判断要不要让位给类型面。标签模板不是括号容器，
+登记进去会改变那两处的让位判据。`Nodes` 只被 `ExpressionBuilder.ParsePrimary`（值位消费）与
+`VariableDeclarationShape.FinishIncremental`（收口格原子重建）读，写域与读域都只有这一族。
+
+## static method RegisterNode:(unit:Token)=>void
+
+```ts
+if (unit === null) {
+  return;
+}
+ExpressionAtomRegistry.Nodes.add(unit);
+```
+
+## static method HasNode:(unit:Token)=>bool
+
+`unit` 是不是增量主候选建出、收口格可**直接消费**（不重建）的表达式根。
+
+```ts
+if (unit === null) {
+  return false;
+}
+return ExpressionAtomRegistry.Nodes.has(unit);
+```
+
 ## static method Register:(unit:Token)=>void
 
 ```ts
@@ -107,4 +138,5 @@ return ExpressionAtomRegistry.Containers.has(unit);
 ExpressionAtomRegistry.Atoms = new Set();
 ExpressionAtomRegistry.Members = new Set();
 ExpressionAtomRegistry.Containers = new Set();
+ExpressionAtomRegistry.Nodes = new Set();
 ```

@@ -12,6 +12,7 @@ import { Token } from "../../../../../core/syntax/token.xl.md"
 import { IncrementalItemPosition } from "../../numeric-literal-possible-shape.xl.md"
 import { TaggedTemplateExpressionShape } from "../../tagged-template-expression-shape.xl.md"
 import { ItemUtil } from "../../../item-util.xl.md"
+import { ExpressionAtomRegistry } from "../shared/expression-atom-registry.xl.md"
 import { TemplatePrimaryPossibleShape } from "./template-primary-possible-shape.xl.md"
 import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 ```
@@ -104,7 +105,48 @@ if (tagIndex < 0 || units[tagIndex].IsBasicToken) {
 if (!PrimaryAtomGuard.IsInitializerStart(units, tagIndex)) {
   return false;
 }
-return PrimaryAtomGuard.IsTerminalAfter(unit, context, false);
+// [R15:NESTED-TAG] `allowTemplate`：模板后面紧跟**另一个反引号**时，本模板是下一条模板的**标签**，
+// 不是这条初始化器的收口格（`` a`x``x` `` 在 TS 里是 `TaggedTemplate(TaggedTemplate(a, x), x)`）。
+// 判据不新写：`IsTerminalAfter` 本来就有一个 `allowTemplate` 档（标识符候选开它就是为了 `` a`x` `` 里的
+// `a`），这里把同一档开到模板候选上——`IsBuildable` 的另两道闸门（初始化器首格 + 标签非 basic）不变。
+//
+// `MemberFollows` 是同一条判据的第二个入口：模板之后**紧跟 `.`** 时它不是收口格，但整条标签模板
+// 已经是一个完整的操作数（TS：`a`x`.b` 是 `PropertyAccess(TaggedTemplate, b)`）。收口格会把它当
+// 「已建根」原子重建（`FinishIncremental` → `ExpressionBuilder.ParsePrimary` 的 `HasNode` 分支），
+// `.b` 由 legacy 的成员访问面接在它后面。不建的话根会停在 `IdentifierShape(a)`，
+// 模板 `String` + `.` + `b` 就整段被静默清掉（R8 #18 的 12 个节点）。
+return PrimaryAtomGuard.IsTerminalAfter(unit, context, true)
+  || TaggedTemplatePrimaryPossibleShape.MemberFollows(unit, context);
+```
+
+## static method MemberFollows:(unit:Token, context:SyntaxContext)=>bool
+
+`unit`（一条已关闭的模板）之后第一个显著字符是不是成员访问的 `.`。
+
+只做**字符级**前瞻，口径与 `PrimaryAtomGuard.IsTerminalAfter` 的空白跳过完全一致（不跳注释：
+`IsTerminalAfter` 同样不跳，保持一致），所以两条判据不会对同一段源码给出互相矛盾的答案。
+文档不可用（探针）时答 `false`：保守，交下一次收口。
+
+```ts
+const document = context.CurrentDocument;
+if (document === null) {
+  return false;
+}
+const end = unit.SourceRange.EndIndex;
+if (end < 0) {
+  return false;
+}
+const count = document.GetCount();
+let at = end;
+while (at < count) {
+  const ch = document.GetRaw(at, at + 1);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\u2028" || ch === "\u2029") {
+    at += 1;
+    continue;
+  }
+  return ch === ".";
+}
+return false;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -146,5 +188,9 @@ tagged.Parent = host;
 if (host.MountedUnit === tag) {
   host.MountedUnit = tagged;
 }
+// [R15:NESTED-TAG] 登记身份：收口格（`FinishIncremental`）在「根之后还有 `.b`」这一族上会把整条
+// 初始化器交给 `ExpressionBuilder` 原子重建，`ParsePrimary` 只有认得出这个已建好的根才会当操作数
+// 收下再继续接 `.b`；不登记就会退化成「初始化器多根」/静默截断。
+ExpressionAtomRegistry.RegisterNode(tagged);
 return tagged;
 ```

@@ -510,7 +510,8 @@ if (equalAt >= 0) {
       }
       tailCode += 1;
     }
-    if (tailCode > 0 && ExpressionAtomRegistry.HasContainer(builtShape)) {
+    if (tailCode > 0 && (ExpressionAtomRegistry.HasContainer(builtShape)
+      || ExpressionAtomRegistry.HasNode(builtShape))) {
       const builder = new ExpressionBuilder(this.Template, context);
       builder.Load(raw, basePos < 0 ? 0 : basePos);
       let firstStart = -1;
@@ -540,21 +541,23 @@ if (equalAt >= 0) {
       expression.TryToClose(context);
       kept.push(expression);
     } else {
-    // [D3a:ORPHAN-OPERATOR] 同一面 C10 墙的另一半：括号有显式错误，**运算符没有**。
-    // 「唯一根 + 根之外的运算符」= 收下根之后那条运算符（以及它后面的一切）会被静默清掉，产出一棵
-    // 看着成功、实际缺节点的树。判据只用**源区间**（不新写形态表）：根之外的 `Symbol` 一律显式报错。
+    // [R15:NO-SILENT-DROP] 判据从「根之外的**二元运算符**」推广到「根之外**任何代码单元**」。
     //
-    // 实测来源（D3a）：终结候选在 `[D3a:RAW-INITIALIZER]` 放行之后，`plan === undefined ? null : plan`
-    // 这一族会以 `IdentifierShape(plan)` 作唯一根收口，`=== …` 整段消失（structural=7、声明区间缩到
-    // `plan` 为止）；旧行为是 `declaration 符号 ===` 抛错 → 文件级 fallback → 树正确。C10 要求
-    // 「宁可显式失败，不可静默错树」。
+    // 原来只认 `OperatorTable.IsBinaryOperator`：`const a = a`x``x``.b;` 这一族（标签模板链后面接成员访问）
+    // 收口时根是 `IdentifierShape(a)` / 一级 `TaggedTemplateExpressionShape`，尾巴是模板 `String` + `.` + `b` ——
+    // `.` 不是二元运算符，于是四个代码单元被静默清掉，产出一棵看着成功、实际少 12 个节点的树
+    //（`_reports/R8-basic-token-audit.md` #18 的实测形态：6 条 `TaggedTemplateExpression` + 6 条
+    // `NoSubstitutionTemplateLiteral`）。
+    //
+    // 为什么「按源区间判」就够：落在根区间**之内**的尾巴单元已经属于那棵树（根吸收了它们），丢掉不丢节点；
+    // 只要有一个代码单元的区间**越出根的区间**，收下根就等于把这段源码从 AST 里抹掉 ⇒ 必须显式失败，
+    // 让文件级 fallback 用 legacy 把整条初始化器建对（C10：「宁可显式失败，不可静默错树」）。
+    // 这一格**不建树**：`.b` 的续接面是 A3 的 postfix 候选（尚未合并进本目录），在这里手写第二套
+    // 成员访问只会复制 legacy 的语义；显式失败仍然产出与 legacy 同源的树。
     const rootStart = builtShape.SourceRange.StartIndex;
     const rootEnd = builtShape.SourceRange.EndIndex;
     for (const unit of raw) {
       if (unit === builtShape || unit.IsTriviaToken) {
-        continue;
-      }
-      if (!(unit instanceof Symbol) || !OperatorTable.IsBinaryOperator((unit as Symbol).TempToString())) {
         continue;
       }
       const start = unit.SourceRange.StartIndex;
@@ -563,7 +566,7 @@ if (equalAt >= 0) {
         continue;
       }
       if (start < rootStart || end > rootEnd) {
-        throw new Error("增量变量形状未支持：declaration 初始化器根之外的运算符");
+        throw new Error("增量变量形状未支持：declaration 初始化器根之外还有代码");
       }
     }
     // 跨包最小补丁（WP-C，Lead 授权）：表达式形状可能还挂着未关闭的尾单元——EOF 没有下一个字符来关它。
