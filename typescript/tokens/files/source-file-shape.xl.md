@@ -93,10 +93,10 @@ if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncremen
   ControlHeadPossibleShape.EnsureRegistered();
   StatementRouteUtil.EnableBracketRoleCatalog = true;
 }
-// [B4e:K1] 容器 shape 的创建格：把 `BracketCloseHook` 装上（`ContainerShapeCloseHook`）。
-// 顺序在 `BracketRoleCatalogHook.EnsureInstalled` 之前：关闭格的钩子必须在任何一只括号关闭之前就位。
-// 开关 `EnableContainerShape` 为假或非增量模式时 `EnsureInstalled` 立即返回、
-// `BracketCloseHook.Current` 保持 `null` ⇒ `Bracket.Close` 里只多一次 `null` 比较，产物逐字节不变。
+// [T7d] 容器建树已经从 `BracketClosedHook` 搬到 `VariableDeclarationShape` 的关闭拍候选
+// （`ContainerClosePossibleShape.BuildByIndex`），这里不再需要任何钩子装配：
+// `EnsureInstalled` 现在是空壳（只为 T7e 删 `BracketClosedHook` 之前保留调用点）。
+// `BracketClosedHook.Current` 全仓恒为 `null` ⇒ `Bracket.Close` 里只多一次 `null` 比较，产物逐字节不变。
 ContainerShapeCatalog.EnsureInstalled();
 // [B0:ROLE] 角色目录 + [T2b] `BracketCreate` 触发共用这一个装配点：`EnableBracketRoleCatalog`
 // 或 `EnableBracketCreatePossible` 为真时装一次；两个都为假的默认路径只保留这一行调用。

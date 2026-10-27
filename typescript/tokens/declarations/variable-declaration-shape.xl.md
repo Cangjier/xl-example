@@ -5,6 +5,7 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
+import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -13,6 +14,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
+import { ContainerClosePossibleShape } from "../expressions/forms/shared/container-shape-catalog.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
@@ -80,7 +82,39 @@ let x = 1;
 null
 ```
 
+## field ContainerCloseGuide:CatalogGuide | null = null
+
+[T7d] 容器关闭格的**窄目录**：唯一候选 `ContainerClosePossibleShape`，只在
+`ComputePossibleShapes(Close)` 跑完既有目录之后被问一次。惰性创建（第一条声明第一次被问到时）。
+
+**为什么单独一份目录、不并进 `CatalogGuide`**：主目录里每个候选都套着 `DeclarationCellGuard`，
+在 `]` / `}` 关闭格上 A4b / P1 的守卫会 `Accept` 但 `IsBuildable === false`；同一个目录里再放一条
+`Accept` 的候选，`Candidates.size` 恒 > 1，容器在这一拍就永远建不出来（B4e 的钩子之所以能建，
+正是因为它不在候选集里）。窄目录只有一条候选，`Candidates.size === 1` 恒成立。
+
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
+
+[T7d:CONTAINER-CLOSE] 两段式：先走既有目录（父候选先手），再在同一拍问容器窄目录。
+先后顺序与 B4e 钩子的执行位置**逐位相同**（钩子也是在父单元 `ComputePossibleShapes` 返回之后才跑）；
+唯一的差别是它现在经过 `CatalogGuide` → `ComputeByIndex` → `BuildByIndex`，不再是钩子回调。
+
+```ts
+const state = this.ComputeByDirectoryShapes(context, source);
+// [T7d] 关闭拍：父候选已经按自己的所有权跑完。容器候选自己会判「括号还在不在宿主 Data 里」
+// （不在 ⇒ 父候选已经消费，只记 AlreadyConsumed），所以这里无条件问一次。
+if (source === PossibleSource.Close) {
+  if (this.ContainerCloseGuide === null) {
+    this.ContainerCloseGuide = new CatalogGuide([new ContainerClosePossibleShape()]);
+  }
+  this.ContainerCloseGuide.ComputePossibleShapes(this, context, source);
+}
+return state;
+```
+
+## private method ComputeByDirectoryShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
+
+[T7d] 原 `ComputePossibleShapes` 的方法体原样搬到这里（一个字未改），外面套一层「父候选 → 容器窄目录」
+的时序壳。
 
 ```ts
 // [WP-A5] 类型面接管：`:` 注解 / `as`·`satisfies` 断言不经过表达式候选目录。

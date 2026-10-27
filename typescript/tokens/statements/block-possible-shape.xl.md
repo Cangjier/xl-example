@@ -236,15 +236,8 @@ bracket.CatalogGuide = new CatalogGuide(
   new BlockBodyWaitingPossibleShape());
 ```
 
-## static method MountControlFlowBodyCatalog:(bracket:Bracket)=>void
-
-```ts
-bracket.CatalogGuide = new CatalogGuide(
-  [new ControlFlowStatementPossibleShape()],
-  new BlockBodyWaitingPossibleShape());
-```
-
-**[WP-S1] 记录一次被否掉的方案**（不要再用）：函数体只挂控制流族候选、其余语句留 raw。
+**[WP-S1] 记录一次被否掉的方案**（不要再用；[T7d] 已删掉从未接线的
+`MountControlFlowBodyCatalog`，只留结论）：函数体只挂控制流族候选、其余语句留 raw。
 实测不可行——目录里没有变量 / 表达式候选时，raw 单元会一直攒在括号 `Data` 里，
 `ItemUtil.ItemStart` 永远停在体内第一条语句上，`Decide` 每格读到的首词都是那个词（`let`），
 后面的 `switch` 一格都拿不到：`SwitchStatementShape` 首见从 69 退到 268、

@@ -1,9 +1,13 @@
 # dependencies
 ```xl
 import { Bracket } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
-import { BracketClosedHook } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
+import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
+import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
+import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
+import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../../../core/syntax/token.xl.md"
@@ -19,9 +23,14 @@ import { ExpressionAtomRegistry } from "./expression-atom-registry.xl.md"
 **B4e / K1：容器 shape 的「创建格」= 括号关闭格（父单元问完之后）。**
 
 `{` / `[` / `(` 关闭的那一拍，`Bracket.Close` 先问父单元（A4 对象 / A4b 数组·括号 / P1 调用 /
-P4 分组这些既有收口方按自己的所有权消费括号），然后调用 `BracketClosedHook`（B4e）。
-本文件就是那个钩子的**唯一实现**（`ContainerShapeCloseHook`）：**只有父单元没有消费这只括号**时，
-才用 legacy `ExpressionBuilder` 把它建成容器形状、登记、顶替。
+P4 分组这些既有收口方按自己的所有权消费括号）。
+
+**[T7d] 建树已经不在 `BracketClosedHook` 里了。** B4e 的 `ContainerShapeCloseHook` 把这段建树放在
+「父单元问完之后」的钩子里；T7d 把它原样搬进宿主 `VariableDeclarationShape` 的窄目录候选
+`ContainerClosePossibleShape.BuildByIndex`：宿主的 `ComputePossibleShapes` 跑完既有目录（父候选先手）之后，
+在同一拍问一次这个窄目录，候选只做原来钩子做的事——**只有父单元没有消费这只括号**时，才用 legacy
+`ExpressionBuilder` 把它建成容器形状、登记、顶替。钩子类与 `BracketClosedHook` 的装配已删除/停用，
+类本身留到 T7e 随 `BracketClosedHook` 一起删。
 
 | 角色（`Bracket.Role`） | 关闭格上建出的容器 | 谁在收口格消费 |
 |---|---|---|
@@ -52,8 +61,8 @@ P4 分组这些既有收口方按自己的所有权消费括号），然后调�
 （`f(1,2)` 的 `f` 与 `(` 一起被 `CallExpressionShape` 顶替，`f` 不再是父单元的子单元）。
 
 **闸**：`StatementRouteUtil.EnableContainerShape`（B4i 起默认 `true`；开关关闭时与 base 逐位相同，
-读数见 `_reports/B4i.md`）且增量模式；`OnBracketClosed` 里再检查一次（同一进程里两种模式可以交替）。
-legacy 档 `Current` 即使被上一次增量解析装上，本钩子也立即返回、一个字节不改。
+读数见 `_reports/B4i.md`）且增量模式；`BuildByIndex` 里再检查一次（同一进程里两种模式可以交替）。
+legacy 档宿主没有本窄目录，一个字节不改。
 
 **位置闸（B4i）**：`RoleMatchesBracket` / `ArrowAhead` / `SequelAllowsBuild`（`<` / 反引号）/
 `InsideArrowTail` / `InsideNewExpression` / 后缀 `[` —— 这些格子的所有权归 legacy
@@ -64,7 +73,7 @@ legacy 档 `Current` 即使被上一次增量解析装上，本钩子也立即�
 
 ## static field Installed:bool = false
 
-本钩子是否已经挂到 `BracketClosedHook.Current` 上（只用于探针断言）。
+[T7d] 恒为 `false`：本目录不再装配 `BracketClosedHook`（只用于探针断言，T7e 随钩子一起删）。
 
 ## static field BuildCount:int = 0
 
@@ -85,18 +94,13 @@ legacy 档 `Current` 即使被上一次增量解析装上，本钩子也立即�
 幂等装配点（`SourceFileShape` 构造器每文件一次）。开关为假或非增量模式时**什么都不做**；
 `BracketClosedHook.Current` 已被别的实现占用时**不覆盖**。
 
+**[T7d] 本方法已经停用**：容器建树不再靠任何钩子装配，本方法只保留一个空壳给 `SourceFileShape` 的既有
+调用点（T7e 连同 `BracketClosedHook` 一起删）。`Installed` 因此恒为 `false`。
+
 ```ts
-if (!StatementRouteUtil.EnableContainerShape) {
-  return;
-}
-if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
-  return;
-}
-if (BracketClosedHook.Current !== null) {
-  return;
-}
-BracketClosedHook.Current = new ContainerShapeCloseHook();
-ContainerShapeCatalog.Installed = true;
+// [T7d] 不装配任何钩子：容器建树已经搬进 `ContainerClosePossibleShape.BuildByIndex`。
+// 开关 `EnableContainerShape` / 增量模式由那个候选在 `BuildByIndex` 里自己判（同一份语义）。
+return;
 ```
 
 ## static method IsExpressionRole:(role:string)=>bool
@@ -399,124 +403,216 @@ if (host instanceof Bracket) {
 return host.constructor.name === "VariableDeclarationShape";
 ```
 
-# class ContainerShapeCloseHook extends BracketClosedHook
+# class ContainerClosePossibleShape extends PossibleShape
 
-`BracketClosedHook` 的唯一实现：把关闭格上**父单元没有消费**的声明初始化器括号换成容器形状。
+**[T7d] 容器关闭格的唯一实现。** 建树体从 `ContainerShapeCloseHook.OnBracketClosed` **原样搬来**，
+执行时机仍然是「父候选跑完之后」——只是入口从 `BracketClosedHook` 换成了宿主目录里的候选 `BuildByIndex`：
 
-## method OnBracketClosed:(bracket:Token, context:SyntaxContext)=>void
+```
+Bracket.Close
+  → 自己的 FlushOnClose（Close 来源）
+  → parent.ComputePossibleShapes(Close)        ← 父候选先手（A4 / A4b / P1 / P4 …）
+      → VariableDeclarationShape.ComputePossibleShapes 内部：
+          super.ComputePossibleShapes(...)      ← 既有目录，父候选该建什么建什么
+          this.ContainerCloseGuide.ComputePossibleShapes(this, Close)
+              → ContainerClosePossibleShape.ComputeByIndex   ← 只认「关闭拍 + 可建的位置」
+              → ContainerClosePossibleShape.IsBuildable
+              → ContainerClosePossibleShape.BuildByIndex    ← ExpressionBuilder 建容器并原位顶替
+```
 
-顺序固定：
+**为什么挂在 `VariableDeclarationShape` 的窄目录上，而不是塞进宿主的主目录**：
+主目录里每个候选都套着 `DeclarationCellGuard`；在 `]` / `}` 关闭格上 A4b / P1 的守卫会 `Accept` 但
+`IsBuildable === false`（它们还要等后续单元）。同一个目录里再放一条会 `Accept` 的候选，`Candidates.size`
+就恒 > 1，`CatalogGuide` 永远不建；把建树放进主目录等于让容器在这一拍消失。窄目录只有本候选一条，
+`Candidates.size === 1` 恒成立，于是「父候选跑完 → 本候选建」与 B4e 钩子的时序逐位相同。
 
-1. **闸**：开关 / 增量模式 / `Bracket` 身份 / 角色（`Known` 四族，或 Deferred `ArrowParams` 且
-   `ArrowAhead` 为假）；
-2. **位置闸（B4i）**：角色与括号字符自洽 / `(` 后是 `=>` / 闭括号后是 `<` 或反引号 —— 任一不成立
-   就**不建**（`RefusedCount + 1`）；
-3. **宿主白名单**：只有 `VariableDeclarationShape` 接手；
-4. **父单元先手**：括号已经不在父单元 `Data` 里 ⇒ 父单元已经消费了它（`AlreadyConsumedCount + 1`），
-   本机制不参与那一格；
-5. **在飞位置**：`InsideArrowTail` / `InsideNewExpression` / 后缀 `[` —— 不建（`RefusedCount + 1`）；
-6. **建**：`ExpressionBuilder.Load(父单元.Data, basePos)`，`ParsePrimary`（`CallArgs` 是
-   `ParsePostfix`），并要求 `At === 括号格 + 1`——必须恰好消费到本括号为止；
-7. **换**：把「起点…括号」这一段 `Data` 换成建出来的形状，登记 `Containers`，同步 `MountedUnit`。
+**父单元先手所有权不变**：本候选在 `BuildByIndex` 里只做钩子原来做的那些事；括号已经不在宿主
+`Data` 里（`at < 0` ⇒ A4/A4b/P1/P4 已经消费）就不建、一个字节都不改。
 
-任何一步不成立都**原样返回**：括号留给 legacy 收口（`RefusedCount + 1`），不产生半棵树。
+**为什么 `ComputeByIndex` 不 `Reject`**：`CatalogGuide` 的 `Candidates` 只在成功建树后 `Reset()`；
+`Reject` 会让本候选在这一条声明里**永久退场**。所以非目标格一律 `Uncertain`（保持在场）；
+「这一格能不能建」由 `CanBuild` 回答（与钩子的闸逐条相同），`BuildByIndex` 开头再判一次。
+
+**为什么闸放在 `ComputeByIndex` 而不是等 `BuildByIndex` 自己返回**：`CatalogGuide` 只要调用了
+`BuildByIndex` 就 `BuildCount += 1`——钩子的「拒绝」在候选形态里会变成一次**空建**，把 T2 的
+「同一格只建一次」读数 +1（实测 `018-arrow-empty-body` 就是 3 → 4）。所以拒绝必须在进 `BuildByIndex`
+之前完成，`CanBuild` 因此是「钩子全部前置判据」的唯一一份，`ComputeByIndex` 与 `BuildByIndex` 共用。
+
+## static method NormalizeRole:(shape:Bracket)=>string
+
+钩子的角色归一：`Deferred` 的 `ArrowParams` 在闭括号之后没有 `=>` / `:` 时就是分组括号（按
+`ParenExpression` 建），否则让给 B4d；`Known` 的四族原样返回；其余返回 `""`（不建）。
 
 ```ts
-if (!StatementRouteUtil.EnableContainerShape) {
-  return;
-}
-if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
-  return;
-}
-if (bracket === null || !(bracket instanceof Bracket)) {
-  return;
-}
-const shape = bracket as Bracket;
 let role = shape.Role;
-// [B4e:K1] **Deferred `ArrowParams` 的分组那一半**：初始化器 / 元素位 / 实参位的 `(` 在创建格
-// 分不出「分组」与「箭头形参表」，B4b 因此登记 Deferred（`_reports/B4b.md` §5.2：没有 owner 调
-// `DeferredBracketCatalog.Bind`，所以它永远停在 Deferred）。关闭格是**最后一次**能分开的时机：
-// 闭括号之后不是 `=>` / `:`（`ArrowAhead` 为假）⇒ 它就是分组括号，按 `ParenExpression` 建。
-// 是箭头形参表 ⇒ 原样让给 B4d 的 replay（本钩子一个字都不改）。
 if (shape.RoleState === BracketRoleState.Deferred && role === BracketRole.ArrowParams) {
+  // [B4e:K1] **Deferred `ArrowParams` 的分组那一半**：初始化器 / 元素位 / 实参位的 `(` 在创建格
+  // 分不出「分组」与「箭头形参表」，B4b 因此登记 Deferred（`_reports/B4b.md` §5.2）。关闭格是
+  // **最后一次**能分开的时机：`ArrowAhead` 为假 ⇒ 分组括号；为真 ⇒ 原样让给 B4d 的 replay。
   if (ContainerShapeCatalog.ArrowAhead(shape)) {
-    return;
+    return "";
   }
   role = BracketRole.ParenExpression;
 } else if (shape.RoleState !== BracketRoleState.Known) {
-  return;
+  return "";
 }
 if (!ContainerShapeCatalog.IsExpressionRole(role)) {
-  return;
+  return "";
 }
-// [B4i] 三条**位置**闸（都在「建」之前，全部是 `Refused` 方向：括号原样留给 legacy 收口）：
-//   · 角色与括号字符必须自洽（`new ns[a]` 的 `[` 被标成 `CallArgs` 时不能从 `ns` 起建调用）；
-//   · `(` 后面紧跟 `=>` / `:` ⇒ 箭头形参表，归 B4d 的 replay；
-//   · 闭括号之后是 `<` / `` ` `` ⇒ 实例化表达式 / 标签模板，归 legacy 的后缀判据。
-if (!ContainerShapeCatalog.RoleMatchesBracket(shape, role)) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+return role;
+```
+
+## static method CanBuild:(shape:Bracket, units:Array<Token>)=>bool
+
+钩子 `OnBracketClosed` 的**全部前置判据**（闸 + B4i 位置闸 + 宿主白名单 + 父单元先手 + 在飞位置 +
+`BasePos` / `CalleeStart`），逐条同序、同语义。`true` 表示「这一格可以进 `ExpressionBuilder`」；
+`BuildByIndex` 里的解析失败仍可能让它退化成 `Refused`，但那种情况在 T2 的读数里本来就不算建树。
+
+```ts
+if (!StatementRouteUtil.EnableContainerShape) {
+  return false;
 }
-if (shape.StartBracketChar === "(" && ContainerShapeCatalog.ArrowAhead(shape)) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return false;
 }
-if (!ContainerShapeCatalog.SequelAllowsBuild(shape)) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+if (!shape.Closed) {
+  return false;
+}
+const role = ContainerClosePossibleShape.NormalizeRole(shape);
+if (role === "") {
+  return false;
 }
 const parent = shape.Parent;
-if (parent === null || parent.Data === undefined) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+if (parent === null) {
+  return false;
 }
+// 宿主白名单：只有 `VariableDeclarationShape`（本候选只挂在它身上，这里再判一次是防御）。
 if (!ContainerShapeCatalog.IsSafeHost(parent)) {
-  return;
+  return false;
 }
-const units = parent.Data;
 const at = units.indexOf(shape);
 // 父单元先手：A4 / A4b / P1 / P4 已经在关闭那一拍把括号换成自己的形状。
 if (at < 0) {
-  ContainerShapeCatalog.AlreadyConsumedCount += 1;
-  return;
+  return false;
 }
-if (!shape.Closed) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+// [B4i] 三条位置闸：角色与括号字符自洽 / `(` 后是 `=>` / 闭括号后是 `<` 或反引号。
+if (!ContainerShapeCatalog.RoleMatchesBracket(shape, role)) {
+  return false;
 }
-// [B4i:POSTFIX-INDEX] `[` 在前一个操作数之后是下标访问，不是数组字面量：让给 legacy 收口。
+if (shape.StartBracketChar === "(" && ContainerShapeCatalog.ArrowAhead(shape)) {
+  return false;
+}
+if (!ContainerShapeCatalog.SequelAllowsBuild(shape)) {
+  return false;
+}
+// [B4i:POSTFIX-INDEX] `[` 在前一个操作数之后是下标访问，不是数组字面量。
 if (role === BracketRole.ArrayLiteral && ContainerShapeCatalog.IsPostfixBracketPosition(shape, units, at)) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return false;
 }
 // [B4i:ARROW-TAIL] 已经在箭头体 / 箭头表达式内部：整条 arrow 归 legacy 的原子建树。
 if (ContainerShapeCatalog.InsideArrowTail(units, at)) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return false;
 }
-// [B4i:NEW-CALLEE] `new` 构造的 callee / 参数链归 `NewExpression`，不建 `CallExpressionShape`。
+// [B4i:NEW-CALLEE] `new` 构造的 callee / 参数链归 `NewExpression`。
 if (role === BracketRole.CallArgs && ContainerShapeCatalog.InsideNewExpression(units, at)) {
-  ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return false;
 }
+if (ContainerShapeCatalog.BasePos(shape, units, at) < 0) {
+  return false;
+}
+if (role === BracketRole.CallArgs && ContainerShapeCatalog.CalleeStart(units, at) < 0) {
+  return false;
+}
+return true;
+```
+
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+
+只有「关闭拍 + 末单元是已闭合的 `Bracket` + `CanBuild`」这一格 `Accept`；其它格 `Uncertain`（见上）。
+
+```ts
+// 先清标记：同一份缓存在本目录里只服务本候选，`Reset()` 之后自然也是 false。
+cache.SetState(this.Slot(), false);
+if (source !== PossibleSource.Close) {
+  return ShapeStates.Uncertain;
+}
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return ShapeStates.Uncertain;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Bracket)) {
+  return ShapeStates.Uncertain;
+}
+const shape = unit as Bracket;
+if (!shape.Closed) {
+  return ShapeStates.Uncertain;
+}
+if (!ContainerClosePossibleShape.CanBuild(shape, units)) {
+  return ShapeStates.Uncertain;
+}
+cache.SetState(this.Slot(), true);
+return ShapeStates.Accept;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+只读 `ComputeByIndex` 写下的标记（`Uncertain` 在「只剩一个候选」时也会被建，所以这个标记是必需的）。
+
+```ts
+return cache.GetState<boolean>(this.Slot()) === true;
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+把 `host.Data[tokenIndex]` 那只括号按角色建成容器并**原位顶替**；任何一步不成立都**原样返回**
+（括号留给 legacy 收口，`RefusedCount + 1`），不产生半棵树：
+
+1. **位置/角色/宿主/先手**：`CanBuild`（唯一一份）；
+2. **建**：`ExpressionBuilder` + `ParsePrimary`（`CallArgs` 是 `ParsePostfix`），必须恰好消费到本括号；
+3. **换**：原位顶替 + 登记 `Containers` + 同步 `MountedUnit`。
+
+```ts
+if (!(host instanceof ShapeToken)) {
+  return host;
+}
+const parent = host;
+const units = parent.Data;
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return host;
+}
+const current = units[tokenIndex];
+if (!(current instanceof Bracket)) {
+  ContainerShapeCatalog.RefusedCount += 1;
+  return host;
+}
+const shape = current as Bracket;
+if (!ContainerClosePossibleShape.CanBuild(shape, units)) {
+  return host;
+}
+const role = ContainerClosePossibleShape.NormalizeRole(shape);
+if (role === "") {
+  return host;
+}
+const at = units.indexOf(shape);
 const basePos = ContainerShapeCatalog.BasePos(shape, units, at);
 if (basePos < 0) {
   ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return host;
 }
 const builder = new ExpressionBuilder(shape.Template, context);
 builder.Load(units, basePos);
 const index = builder.Units.indexOf(shape);
 if (index < 0) {
   ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return host;
 }
 let start = index;
 if (role === BracketRole.CallArgs) {
   start = ContainerShapeCatalog.CalleeStart(builder.Units, index);
   if (start < 0) {
     ContainerShapeCatalog.RefusedCount += 1;
-    return;
+    return host;
   }
 }
 builder.At = start;
@@ -529,20 +625,20 @@ try {
   }
 } catch (error) {
   ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return host;
 }
 if (built === null || builder.At !== index + 1) {
   ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return host;
 }
 if (built === shape || built.IsBasicToken) {
   ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return host;
 }
 const slot = units.indexOf(builder.Units[start]);
 if (slot < 0 || slot > at) {
   ContainerShapeCatalog.RefusedCount += 1;
-  return;
+  return host;
 }
 ExpressionAtomRegistry.RegisterContainer(built);
 built.Parent = parent;
@@ -552,4 +648,5 @@ if (parent.MountedUnit === shape) {
 units.splice(slot, at - slot + 1, built);
 ContainerShapeCatalog.BuildCount += 1;
 StatementRouteUtil.ContainerShapeBuildCount += 1;
+return built;
 ```
