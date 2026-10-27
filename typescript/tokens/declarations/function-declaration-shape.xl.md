@@ -25,6 +25,8 @@ import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.
 import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
+import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -256,6 +258,81 @@ if (this.CatalogGuide !== null) {
   return this.CatalogGuide.ComputePossibleShapes(this, context);
 }
 return ComputePossibleShapesStates.Nothing;
+```
+
+## method TryToClose:(context:SyntaxContext)=>CloseStates
+
+**[R9:EOF-CLOSE] 无体函数声明在文件末尾的收口。**
+
+**症状（R9 的 3 变量矩阵）。** `declare function f(): void` ⏎ 这种「无函数体、也没有 `;`」的声明，
+终结候选在字符流里再没有下一格可问：末代码单元 `void` 之后的换行只是 trivia，
+`FunctionDeclarationEndPossibleShape.ComputeByIndex` 的 ASI 分支要求「下一行起一条新的声明」，
+而下一行就是 EOF（`NextLineWord` 答 `""`）。于是壳一路张着口走到文件末尾，而驱动层
+（`SourceFileShape.Process`）在 EOF 只对挂载单元调一次 `TryToClose`——基类那一份只标记 `Closed`、
+**不建树**，壳里的 `declare` / 名字 / 参数表 / 返回类型于是原样留在终态树里
+（`DeclareKeyword` / `Identifier` / `Parameter` / `ReturnType` 全缺），尾随换行还被签进 `End`
+（`FunctionDeclaration 0-26 vs 0-27` 是同一处的第二半）。
+矩阵证否了「`declare` 关键字」与「空参 / 有参」「简单返回 / 复合返回」三个变量：
+`function f(): void`（无 `declare`）、`declare function f(): void`、`declare function f(): Promise<…>`
+同样缺节点，而带 `;` 的同一批写法全部 `ok`，`declare const x: number`（无 `;`、文件末尾）也 `ok`
+——**唯一变量是「无体 + 无 `;` + 文件末尾」这一格**，与 `declare` / 参数表 / 返回类型都无关。
+
+**修法（不新写判据）。** 收口仍走终结候选自己的 `PossibleShape.BuildByIndex`
+（= `FunctionDeclarationEndPossibleShape` 那一条 `FromUnits` + `BodyGuideUtil.FinishShell`，
+与 `;` / ASI 那两格是**同一批**建树函数）。本方法只补「文件末尾」这一次判定：
+终结候选本该在 EOF 哨兵那一格 `Accept`（`ComputeByIndex` 的最后一条分支），但哨兵是
+`SourceFileShape` 的子单元、**不在壳的 `Data` 里**，壳永远等不到那一格。
+
+**边界。** 只在「本壳之后已经没有字符」（`SourceRange.End` 已签到文档末尾）时动手；
+`;` / 体闭合 / 中途换行三格都不满足这个前提，逐字节走基类。建不出来（扫描器 / `FromUnits` /
+`Finish` 任一处抛错）时退回基类行为——比现状不多做任何事，也不静默吞错。
+
+```ts
+const wasOpen = !this.Closed;
+const result = super.TryToClose(context);
+if (!wasOpen) {
+  return result;
+}
+const guide = this.CatalogGuide;
+if (!StatementRouteUtil.IsIncrementalShapesEnabled() || guide === null || guide.EndPossible === null) {
+  return result;
+}
+const range = this.SourceRange;
+const document = range.Document;
+if (document === null) {
+  return result;
+}
+if (range.EndIndex < 0 || range.EndIndex < document.GetCount()) {
+  return result;
+}
+if (this.Data.length === 0) {
+  return result;
+}
+// 文件末尾**没有尾随换行**时（`function f(): void` 直接 EOF），壳的末子单元就是末**代码**单元本身。
+// 终结候选的 `BuildByIndex` 会把「既不是 EOF 哨兵、也不是 `;` / 体括号」的末单元当作**下一条语句的开头**
+// 边界，于是把返回类型切到 `)` 之前、建出一棵缺返回类型的树。这里补一个 EOF 哨兵把这一刻说清楚：
+// 到这里就结束，没有边界单元、也没有可重放的尾巴。哨兵随壳一起被 `BodyGuideUtil.FinishShell` 换掉
+// （壳已不在父单元的 `Data` 里），壳外无人认领；建不出来时撤掉它，`Data` 与进来时逐位相同。
+const end = document.GetCount();
+let sentinel:EndOfFileTokenShape | null = null;
+if (!this.Data[this.Data.length - 1].IsTriviaToken) {
+  sentinel = new EndOfFileTokenShape(this.Template);
+  sentinel.SignIn(end);
+  sentinel.SignOut(end);
+  this.Add(sentinel);
+}
+try {
+  guide.EndPossible.BuildByIndex(this, this.Data.length - 1, guide, context);
+} catch {
+  if (sentinel !== null) {
+    const at = this.Data.indexOf(sentinel);
+    if (at >= 0) {
+      this.Data.splice(at, 1);
+    }
+  }
+  return result;
+}
+return result;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext, ambient?:bool, allowAnonymous?:bool, fallbackPos?:int)=>FunctionDeclarationShape
