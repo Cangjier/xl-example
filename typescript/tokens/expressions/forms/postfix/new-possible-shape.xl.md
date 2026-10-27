@@ -16,6 +16,7 @@ import { IdentifierShape } from "../../../names/identifier-shape.xl.md"
 import { IncrementalItemPosition } from "../../numeric-literal-possible-shape.xl.md"
 import { ItemUtil } from "../../../item-util.xl.md"
 import { NewExpressionShape } from "../../new-expression-shape.xl.md"
+import { ParenthesizedExpressionShape } from "../../parenthesized-expression-shape.xl.md"
 import { CompositeInitializerFormsJudge } from "../primary/composite-initializer-forms-judge.xl.md"
 import { ExpressionAtomRegistry } from "../shared/expression-atom-registry.xl.md"
 ```
@@ -29,6 +30,7 @@ WP-P2 的**构造候选**（`new C` / `new C()`）。两种形态的判定域**�
 | --- | --- | --- |
 | `new C`（无括号） | 被构造者 `C` **关闭那一格** | 初始化器首代码单元是 `new`、`C` 紧跟 `new`、文档前瞻只剩输入结束（`""` / `;`） |
 | `new C()` | `)` 关闭那一格 | 初始化器首代码单元是 `new`、括号已关闭 |
+| `new (E)` / `new (E)(…)` | 括号组 `)` 关闭格（无实参）或**实参括号** `)` 关闭格 | 初始化器首代码单元是 `new`、括号组紧跟 `new`；见下 `[T14:NEW-CALLEE-GROUP]` |
 
 `new C()` 在 `C` 格上**不建**（前瞻是 `(` ⇒ `IsBuildable === false`），等到括号关闭格一次建成
 `NewExpressionShape[C]`（有实参时子节点是 `[C, …args]`，与 legacy `ExpressionBuilder.ParseNew` 同一顺序）。
@@ -139,6 +141,41 @@ if ((left as Common).TempToString() !== "new") {
 return NewPossibleShape.IsNewItem(units, tokenIndex);
 ```
 
+## static method IsCalleeGroup:(units:Array<Token>, tokenIndex:int)=>bool
+
+**[T14:NEW-CALLEE-GROUP]** `tokenIndex` 是不是「`new` 之后紧跟着的**括号组**被构造者」——
+即这一格是 `(` 括号、且前一个代码单元**正好是 `new` 关键字**。
+
+`new (E)` / `new (E)(…)` 里这只括号是**被构造者**（legacy `ParseNew` 的 `ParsePrimary` 括号分支），
+不是 `NewExpressionShape` 的实参括号。两者长得一样（都是已闭合的 `(`），唯一的区别就是**前一个代码单元**：
+实参括号前面是被构造者（标识符 / 后缀链尾），括号组前面是 `new` 关键字本身。
+`new /* c */ (A)(2)` 的注释是 trivia，`PreviousCode` 跳过后仍然是 `new`。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Bracket)) {
+  return false;
+}
+if ((unit as Bracket).StartBracketChar !== "(") {
+  return false;
+}
+const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (previous < 0) {
+  return false;
+}
+const left = units[previous];
+if (!(left instanceof Common)) {
+  return false;
+}
+if ((left as Common).TempToString() !== "new") {
+  return false;
+}
+return NewPossibleShape.IsNewItem(units, tokenIndex);
+```
+
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 - 越界 / trivia ⇒ `Uncertain`；
@@ -198,6 +235,9 @@ return NewPossibleShape.IsNewItem(units, tokenIndex);
 两种形态互斥的**唯一判据点**（同一格只有一种形态能返回 `true`）：
 
 - `)` 关闭格（`Bracket`）：括号已关闭 + 条目以 `new` 开头 ⇒ 有括号形态可建；
+  **[T14:NEW-CALLEE-GROUP]** 但紧跟 `new` 的那只括号是**括号组被构造者**（`new (E)`），形态在这里
+  **还没长完**（后面可能还有 `(…)` 实参括号），所以不建；只有后面不再接续（前瞻 `""` / `;`）时才建
+  `new (E)`（无实参形态，与无括号 `new C` 同一条前瞻判据）；
 - 被构造者格（`Common`）：条目以 `new` 开头 + 文档前瞻只剩输入结束（`""` / `;`）⇒ 无括号形态可建。
   前瞻还是 `(` 时**不建**（有括号形态归第一支）；其它续接（`.` / `[` / `<` 等）也不建，
   让 legacy 在 EOF 收口（保持原来的 `partial`，不静默产出与 legacy 不同的树）。
@@ -218,7 +258,16 @@ if (unit instanceof Bracket) {
   if (!bracket.Closed && bracket.SourceRange.EndIndex < 0) {
     return false;
   }
-  return NewPossibleShape.IsNewItem(units, tokenIndex);
+  if (!NewPossibleShape.IsNewItem(units, tokenIndex)) {
+    return false;
+  }
+  // [T14:NEW-CALLEE-GROUP] `new (…)` 的括号组不是实参括号：不在这一格建树，
+  // 让候选活到后面那只实参括号（`new (E)(…)`）；后面什么都不接时才是完整的 `new (E)`。
+  if (NewPossibleShape.IsCalleeGroup(units, tokenIndex)) {
+    const lookahead = CompositeInitializerFormsJudge.NextSignificantChar(unit);
+    return lookahead === "" || lookahead === ";";
+  }
+  return true;
 }
 if (!NewPossibleShape.IsCalleeCell(units, tokenIndex)) {
   return false;
@@ -252,9 +301,16 @@ if (unit instanceof Bracket) {
   if ((unit as Bracket).StartBracketChar !== "(") {
     throw new Error("增量变量形状未支持：expression new 括号");
   }
-  bracket = unit as Bracket;
-  calleeIndex = ItemUtil.PreviousCode(data, tokenIndex - 1);
-  endIndex = bracket.SourceRange.EndIndex;
+  endIndex = (unit as Bracket).SourceRange.EndIndex;
+  // [T14:NEW-CALLEE-GROUP] 紧跟 `new` 的括号是**括号组被构造者**（`new (E)`，没有实参括号）：
+  // 它自己既是被构造者、也是整棵形态的终点；否则这一格是 `NewExpressionShape` 的实参括号，
+  // 被构造者是它前面那个代码单元（可能是标识符，也可能是括号组）。
+  if (NewPossibleShape.IsCalleeGroup(data, tokenIndex)) {
+    calleeIndex = tokenIndex;
+  } else {
+    bracket = unit as Bracket;
+    calleeIndex = ItemUtil.PreviousCode(data, tokenIndex - 1);
+  }
 } else if (unit instanceof Common) {
   calleeIndex = tokenIndex;
   endIndex = unit.SourceRange.EndIndex;
@@ -306,12 +362,19 @@ return shape;
 ## static method Operand:(host:Token, index:int, context:SyntaxContext)=>Token
 
 取 / 就地物化被构造者：已是形状直接用；`Common` 标识符就地换成 `IdentifierShape`
-（`Pos` 按 C1：`let x = new C` 的 `C` ⇒ 11）；其余显式抛错（C10）。
+（`Pos` 按 C1：`let x = new C` 的 `C` ⇒ 11）；**已闭合的 `(` 括号组**就地换成
+`ParenthesizedExpressionShape`（`new (getCtor())()` / `new (a!.b)()` / `new /*c*/ (A)(2)`）；
+其余显式抛错（C10）。
 
 ```ts
 const unit = host.Data[index];
 if (unit instanceof ShapeToken) {
   return unit;
+}
+if (unit instanceof Bracket) {
+  // [T14:NEW-CALLEE-GROUP] 括号组被构造者：括号里的整棵表达式交给 legacy `ExpressionBuilder`，
+  // 与 legacy「`new (E)`」的树（`ParseNew` → `ParsePrimary` 括号分支）同源。
+  return NewPossibleShape.CalleeGroup(host, index, context);
 }
 if (!(unit instanceof Common)) {
   throw new Error("增量变量形状未支持：expression new 被构造者");
@@ -320,4 +383,58 @@ const identifier = IdentifierShape.FromBasicToken(unit as Common, context);
 identifier.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, index);
 (unit as Common).Replace(identifier);
 return identifier;
+```
+
+## static method CalleeGroup:(host:Token, index:int, context:SyntaxContext)=>Token
+
+**[T14:NEW-CALLEE-GROUP]** 把 `index` 那只已闭合的 `(` 括号原位换成 `ParenthesizedExpressionShape`：
+
+1. 括号里的 raw 单元整棵建成表达式（legacy `ExpressionBuilder.ParseExpression`，与
+   `ParenthesizedPossibleShape.BuildByIndex` 同一手法，因此内层节点与 legacy 同源）；
+2. `Pos` 按 C1 = 前一个代码单元（`new` 关键字）的 `EndIndex`，`src` 从 `(` 的起点签入、
+   到括号终点签出（与 legacy `ParsePrimary` 的 `SpanNode(shape, start, start)` 逐字段一致）；
+3. 原位 `Replace` 那一格：`BuildByIndex` 之后的 `data.splice` 会把这一段整段换成 `NewExpressionShape`，
+   它已经作为子节点挂在 `NewExpressionShape` 之下（`Add` 会重设 `Parent`）。
+
+```ts
+const unit = host.Data[index];
+if (!(unit instanceof Bracket)) {
+  throw new Error("增量变量形状未支持：expression new 括号被构造者");
+}
+const bracket = unit as Bracket;
+const raw:Array<Token> = [];
+for (const child of bracket.Data) {
+  if (child.IsTriviaToken) {
+    continue;
+  }
+  raw.push(child);
+}
+if (raw.length === 0) {
+  throw new Error("增量变量形状未支持：expression new 空括号被构造者");
+}
+let basePos = bracket.SourceRange.Start + 1;
+if (basePos < 0) {
+  basePos = 0;
+}
+const builder = new ExpressionBuilder(host.Template, context);
+builder.Load(raw, basePos);
+const inner = builder.ParseExpression();
+if (builder.At !== builder.Units.length) {
+  throw new Error("增量变量形状未支持：expression new 括号被构造者未读完");
+}
+const shape = new ParenthesizedExpressionShape(host.Template);
+if (bracket.SourceRange.Start >= 0) {
+  shape.SignIn(bracket.SourceRange.Start);
+}
+shape.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, index);
+shape.Add(inner);
+if (bracket.SourceRange.End >= 0) {
+  shape.SignOut(bracket.SourceRange.End);
+}
+if (shape.SourceRange.End < 0) {
+  shape.TryToClose(context);
+}
+shape.Closed = true;
+bracket.Replace(shape);
+return shape;
 ```
