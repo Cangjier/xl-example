@@ -7,6 +7,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -30,7 +31,7 @@ import { DirectStatementHook } from "../direct/direct-statement-hook.xl.md"
 
 # class BlockBodyWaitingPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 return ShapeStates.Uncertain;
@@ -83,7 +84,7 @@ BlockPossibleShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCac
 return BlockPossibleShape.CreateBodyPossibleShapesCache;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -936,7 +937,7 @@ if (!(host instanceof Bracket)) {
 return (host as Bracket).StartBracketChar === "{";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -1075,7 +1076,7 @@ if (!(host instanceof Bracket)) {
 return (host as Bracket).StartBracketChar === "{";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {

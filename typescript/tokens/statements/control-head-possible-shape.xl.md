@@ -5,6 +5,7 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -355,7 +356,7 @@ return "identifier";
 return ShapePosition.PosAt(host, units, tokenIndex);
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 永远 `Uncertain`：本候选既不 `Accept`（不触发建树）也不 `Reject`（不参与候选淘汰）。
 它是不是「这一格该建」由 `IsBuildable` 回答，`CatalogGuide` 因此**永远剩下这一个候选**，
