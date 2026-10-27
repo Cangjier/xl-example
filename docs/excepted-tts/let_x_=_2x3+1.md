@@ -1,22 +1,6 @@
-# 预期示例
-以下预期示例是一个样本，不一定完全正确，但符合大致预期。
-
-> **2026-10 收尾状态**：本文只定义 `let x = 2*3+1` 这一条样本的 14 步逐字符期望，**不登记能力边界**——
-> 它是验收口径，不随实现进度变化。增量 shape 的覆盖边界、缺口历史与 case 台账见
-> [token-time-shapes-incremental.md](token-time-shapes-incremental.md) §3（终态：`tts` 429 条 =
-> `throw` 3 + `incremental` 426，`tts-impl` 0 条）。
-> 下面的逐字符期望**逐字节不变**，`--from-doc` 与 `--sync-expected` 继续以本文内容为准。
-
 # 预期 token 树（逐字）：`let x = 2*3+1`
 
-只有一个 `Data`，没有 `Raw`。basic token 直接挂到**当前正在等它的 shape** 的 `Data` 下
-（char 5–9 是 `VariableDeclarationShape`；char 10 的 `Common("3")` 进 `BinaryExpressionShape(*)`；
-char 12 的 `Common("1")` 进 `BinaryExpressionShape(+)`）；被 shape 消费时**原位替换/移入**；
-收口时把剩余的 basic token（空格、`=`）清掉。
-
-- `pos`：AST 起点（含前导 trivia）；`src=[start,end)`：代码区间（半开）；`end` 位置印 `...` 表示该刻终点还没封口。
-- `text`：`EscapedText` / `Text`；`op`：运算符 token 文本（由 `src` 切片）。
-- `let` 单独关闭时仍可能是 `let = 1`，所以 char 3/4 只有 raw 单元；`x` 关闭（char 5）才确定语句族。
+以下预期示例是一个样本，不一定完全正确，但符合大致预期。
 
 ```text
 0 1 2 3 4 5 6 7 8 9 10 11 12
