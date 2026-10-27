@@ -38,7 +38,6 @@ import { DeclareVariablePossibleShape } from "../declarations/forms/declare-vari
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.xl.md"
-import { BracketCreatePossibleTrigger } from "../statements/bracket-create-possible-hook.xl.md"
 ```
 
 # namespace cangjie
@@ -63,9 +62,11 @@ if (queue !== null) {
 }
 this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileEndPossibleShape());
 // [B0:ROLE] 通用括号角色钩子的**幂等装配点**（每次解析都经过这里，早于任何一只括号）。
-// 开关 `StatementRouteUtil.EnableBracketRoleCatalog` 为假时 `EnsureInstalled` 立即返回、
-// `BracketRoleHook.Current` 保持 `null`，于是 `Bracket.Transit` 里那一行只是 `null` 比较 ⇒
-// 不解析角色、不装目录、不登记延迟括号，既有产物逐字节不变。
+// 两个开关 `EnableBracketRoleCatalog` / `EnableBracketCreatePossible` 都为假时 `EnsureInstalled`
+// 立即返回、`BracketRoleHook.Current` 保持 `null`，于是 `Bracket.Transit` 里那一行只是 `null` 比较 ⇒
+// 不解析角色、不装目录、不登记延迟括号、不触发 `BracketCreate`，既有产物逐字节不变。
+// [T2b] `BracketCreate` 触发也挂在同一个实例上（T2 那个独立的静态装配点已删除）：
+// 任一开关为真就装，开关关时 `OnBracketCreated` 里对应的那一段立即返回。
 // [B3:HEAD] 控制流头 `(` 的目录在这里装配：先注册 `ControlHead` 角色目录，再打开 B0 的总闸。
 // 顺序是硬要求——目录必须在任何一只括号之前注册，否则 `Resolve` 会先把它记成
 // `Fallback("catalog-not-registered:ControlHead")`。
@@ -97,12 +98,9 @@ if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncremen
 // 开关 `EnableContainerShape` 为假或非增量模式时 `EnsureInstalled` 立即返回、
 // `BracketCloseHook.Current` 保持 `null` ⇒ `Bracket.Close` 里只多一次 `null` 比较，产物逐字节不变。
 ContainerShapeCatalog.EnsureInstalled();
+// [B0:ROLE] 角色目录 + [T2b] `BracketCreate` 触发共用这一个装配点：`EnableBracketRoleCatalog`
+// 或 `EnableBracketCreatePossible` 为真时装一次；两个都为假的默认路径只保留这一行调用。
 BracketRoleCatalogHook.EnsureInstalled();
-// [T2:CREATE] 括号创建触发的 possible 重算（`PossibleSource.BracketCreate`）。
-// 开关 `StatementRouteUtil.EnableBracketCreatePossible` 默认 false ⇒ `EnsureInstalled` 立即返回、
-// `BracketCreatePossibleHook.Current` 保持 `null`，`Bracket.Transit` 里那一行只是 `null` 比较 ⇒
-// 一个字节都不改。开关打开时它在 `BracketRoleHook` 之后对新括号自己 / 父宿主各问一次。
-BracketCreatePossibleTrigger.EnsureInstalled();
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
