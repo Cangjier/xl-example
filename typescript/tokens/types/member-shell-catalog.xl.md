@@ -997,6 +997,13 @@ return built;
 宿主括号的 `MountedUnit` 必须在**新外壳**上，否则 `(` 会被宿主直接收成兄弟（外壳漏进 AST，
 `End = 0`）。所以这里用同一个 `Create` 先建壳、并把条目起点推过去。
 
+**边界之后已经扫过的那段尾巴整体交给新外壳**（`Create(host, at, host.Data.length - 1)`）：
+`FinalizeShell` 是在**触发收口的那一格已经进壳之后**才跑的，所以边界尾巴可能不止一格。
+`static` ⏎ `readonly` ⏎ `a = 1`（TS：字段 `static readonly` + 字段 `a = 1`）里，`a` 那一格是
+早建壳的终点、`=` 在收口时已经进壳，只抢边界那一格会把 `=` 留在宿主上 → 正品少了初始化器
+（实测 legacy 侧抛「类成员之间缺少分隔符」）。边界尾巴全是下一成员已经扫过的头部单元，
+一起搬进来才与「新外壳从边界开始吃字符」一致。
+
 判不出（`Plan === null`）或 class 侧的构造签名 ⇒ 什么都不做，交旧路径。
 
 ```ts
@@ -1025,7 +1032,7 @@ if (plan === null) {
 if (family === MemberShellFamily.Class && plan.Kind === MemberHeadKind.Construct) {
   return;
 }
-const shell = MemberShellCatalog.Create(host, at, at, family, cache, context);
+const shell = MemberShellCatalog.Create(host, at, host.Data.length - 1, family, cache, context);
 if (shell === host) {
   return;
 }

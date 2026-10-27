@@ -79,6 +79,13 @@ for (let at = from + 1; at < code.length; at++) {
   if (!MemberBoundary.CanEndTypeUnit(code[at - 1])) {
     continue;
   }
+  if (MemberBoundary.IsLineBreakInsensitiveModifier(code[at - 1])
+    && MemberBoundary.CanFollowModifierToken(code[at])) {
+    // `static` ⏎ `readonly a = 1`：TS 对 `static` 走 `nextTokenCanFollowModifier()`，**不看换行**，
+    // 所以换行之后仍是同一条成员的修饰词链，这里不是成员边界。
+    // （`public` 这类要求同行的修饰词不走这条：`public` ⏎ `static x = 1` 是「字段 public + 静态字段 x」。）
+    continue;
+  }
   if (MemberBoundary.IsInitializerIndexContinuation(code, at)) {
     // `= 1` 换行 `["s" + "t"] = 2`：`[` 能续接上一行的初始化器（TS 不插 ASI），不切成员。
     continue;
@@ -254,6 +261,42 @@ if (unit instanceof Symbol) {
   return (unit as Symbol).TempToString() === ">";
 }
 return false;
+```
+
+## static method IsLineBreakInsensitiveModifier:(unit:Token)=>bool
+
+**换行不打断修饰词链的那一格**：TS 的 `parseModifiers` 对 `static` 走 `nextTokenCanFollowModifier()`
+（只看下一格能不能接被修饰的成员，**不看换行**），其余修饰词走
+`nextTokenIsOnSameLineAndCanFollowModifier()`（换行就按 ASI 收成「只有名字的字段」）。
+
+所以 `static` ⏎ `readonly a = 1` 是一条成员（三个修饰词），而 `public` ⏎ `static x = 1` 是两条成员。
+这里只认 `static`：它是保留字，不可能自己当类型名 / 名字（「下一格接不上修饰」由
+`CanFollowModifierToken` 否掉，那才是名字），因此这条判据在类型切片（`ParseTypeBounded`）里也不会误判。
+`get` / `set` 在 TS 里同样不看换行，但它们是合法类型名（`a: get` ⏎ `b: number` 是两条成员），
+光凭相邻两格分不出「访问器关键字」与「类型名」，保持原判据。
+
+```ts
+if (!(unit instanceof Common)) {
+  return false;
+}
+return (unit as Common).TempToString() === "static";
+```
+
+## static method CanFollowModifierToken:(unit:Token)=>bool
+
+与 `ClassDeclarationShape.CanFollowModifier` **同一判据**（名字 / `#` / `[` / `*` / `...` / 字符串 / `{`）。
+放在这里而不是直接调它：`class-declaration-shape` 依赖本文件，反向引用会成环。
+
+```ts
+if (unit instanceof Bracket) {
+  const bracketChar = (unit as Bracket).StartBracketChar;
+  return bracketChar === "[" || bracketChar === "{";
+}
+if (unit instanceof Symbol) {
+  const symbolText = (unit as Symbol).TempToString();
+  return symbolText === "*" || symbolText === "..." || symbolText === "#";
+}
+return unit instanceof Common || unit instanceof String;
 ```
 
 ## static method LooksLikeMemberStart:(code:Array<Token>, at:int)=>bool
