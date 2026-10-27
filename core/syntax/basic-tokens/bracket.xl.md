@@ -39,6 +39,10 @@ throw new Error("abstract: OnChildBracketCreated");
 职责是 B0 的通用机制：`BracketRoleResolver.Resolve` → `BracketCatalogInstaller.Install`（`Known`）/
 `DeferredBracketCatalog.Register`（`Deferred`）/ 计数（`Fallback`）。
 
+[T2b] 同一个实例入口也承担 `PossibleSource.BracketCreate` 触发（原先的静态辅助工具已删除）：
+实现方在角色目录安装完成之后，按 `StatementRouteUtil.EnableBracketCreatePossible`
+对新括号自己 / 父宿主各问一次。开关关闭时只做角色目录，不做任何 BracketCreate 判定。
+
 `Current` 默认 `null`：**默认状态下 `Transit` 只是多做一次 `null` 比较**——不建任何形状、不改任何 `Data`、
 不装任何目录，既有解析产物逐字节不变。typescript 侧在
 `StatementRouteUtil.EnableBracketRoleCatalog` 为真时由 `SourceFileShape` 的构造器懒装上
@@ -60,6 +64,18 @@ throw new Error("abstract: OnChildBracketCreated");
 
 ```ts
 throw new Error("abstract: OnBracketCreated");
+```
+
+## method HandlesBracketCreatePossible:()=>bool
+
+**[T2b] 本实例是否接管旧窄触发。** 返回 `true` 表示 `Bracket.OnBracketCreatedEvent` 里那条
+「`{` + 带终结候选的向导」的补判由本钩子用 `PossibleSource.BracketCreate` 重问一次，
+core 的旧触发必须让位（否则同一格被问两次）；返回 `false`（core 默认）时旧触发逐字节保持原行为。
+
+实现方按 `StatementRouteUtil.EnableBracketCreatePossible` 回答，**每次括号创建时现读**，不缓存。
+
+```ts
+return false;
 ```
 
 # class BracketCloseHook
@@ -115,38 +131,6 @@ throw new Error("abstract: OnBracketClosing");
 
 ```ts
 throw new Error("abstract: OnBracketClosed");
-```
-
-# class BracketCreatePossibleHook
-
-**括号创建触发的 possible 重算钩子（T2）：core 侧只留接口，实现放在 typescript 侧。**
-
-`Bracket.Transit` 在「新括号挂好、宿主 `OnBracketCreatedEvent`（族收尾）跑完、`BracketRoleHook`（角色目录）也跑完」之后调用 `Current` 一次。职责是把「括号刚建出来」这件事作为一个**新的触发来源**（`PossibleSource.BracketCreate`）交给可能感知它的宿主：
-
-1. 新括号自己（若 `CatalogGuide !== null`）——此刻它的 `Data` 还是空的，通常直接 `Nothing`；已有目录时不提前装、不替它装；
-2. 父宿主（若实现了 `IComputePossibleShapes` 且挂了带终结候选的向导）——这就是既有 `OnBracketCreatedEvent` 里那条窄触发（`{` + `EndPossible !== null`）的通用位置，但来源显式传 `BracketCreate`。
-
-`Current` 默认 `null`：默认状态下 `Transit` 只是多做一次 `null` 比较——不建任何形状、不改任何 `Data`，
-既有解析产物逐字节不变。typescript 侧在 `StatementRouteUtil.EnableBracketCreatePossible` 为真时由
-`SourceFileShape` 的构造器懒装上（`BracketCreatePossibleTrigger.EnsureInstalled`）。
-
-**为什么放在 `BracketRoleHook` 之后**：`Bracket.OnBracketCreatedEvent` 触发时新括号自己的 `CatalogGuide` 还是
-`null`（角色目录要等 `BracketRoleHook` → `BracketCatalogInstaller.Install` 才挂上），只有排到它后面才能问
-「新括号自己」。放在这里也顺带把既有的一条窄触发接管过来：钩子装了（开关开）时 `OnBracketCreatedEvent`
-里那条旧触发**不执行**（见该方法），避免同一格被问两次。
-
-## static field Current:BracketCreatePossibleHook | null = null
-
-进程内唯一的括号创建重算钩子。`null` = 没装（默认）= T2 之前的行为。
-
-## method OnBracketCreatedPossible:(host:Token, bracket:Token, context:SyntaxContext)=>void
-
-`host` 是新括号的宿主，`bracket` 是刚建出来的括号（此刻 `Data` 为空、目录可能已由角色机制装上）。
-
-抽象方法，core 不给实现。
-
-```ts
-throw new Error("abstract: OnBracketCreatedPossible");
 ```
 
 # class Bracket extends UnitToken
@@ -334,10 +318,12 @@ return BranchStates.Undo;
 if (Bracket.ChildBracketCreatedHook !== null) {
   Bracket.ChildBracketCreatedHook.OnChildBracketCreated(this, bracket, context);
 }
-// [T2:CREATE] 开关打开时（`BracketCreatePossibleHook.Current !== null`）旧窄触发**不执行**：
-// 同一格由 `Transit` 末尾的新触发用 `PossibleSource.BracketCreate` 重新问一次，避免双触发。
-// 开关关闭时（默认，`Current === null`）这里逐字节仍是 T2 之前的行为：只对 `{`、只对带终结候选的向导补判。
-if (BracketCreatePossibleHook.Current === null
+// [T2b:CREATE] 新触发已经在 `BracketRoleHook` 实例里接管了这一格时，旧窄触发**不执行**：
+// 同一格由角色钩子用 `PossibleSource.BracketCreate` 重新问一次，避免双触发。
+// `HandlesBracketCreatePossible()` 为假（开关关 / 角色钩子没装）时，这里逐字节仍是 T2 之前的行为：
+// 只对 `{`、只对带终结候选的向导补判，来源 `Close`。
+const roleHook = BracketRoleHook.Current;
+if ((roleHook === null || !roleHook.HandlesBracketCreatePossible())
   && this.CatalogGuide !== null && this.CatalogGuide.EndPossible !== null
   && bracket instanceof Bracket && (bracket as Bracket).StartBracketChar === "{") {
   this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
@@ -378,20 +364,16 @@ if ("OnBracketCreatedEvent" in unit) {
 if (!(unit instanceof Bracket) && Bracket.ChildBracketCreatedHook !== null) {
   Bracket.ChildBracketCreatedHook.OnChildBracketCreated(unit, mounted, context);
 }
-// [B0:ROLE] 通用括号角色机制的唯一调用点。**必须在 `OnBracketCreatedEvent`（族收尾）之后**：
-// 族 hook 先按既有路径装它自己的目录（函数体 / namespace / 块体 / switch 子句块 / 箭头体的
-// `MountBodyCatalog`），本钩子后到，看到 `CatalogGuide !== null` 就只做「族已装」收尾
-// （`BracketCatalogInstaller` 返回 `AlreadyInstalled`，一个字节都不改）。
+// [B0:ROLE] 通用括号角色机制的唯一调用点，也是 T2b 之后 `BracketCreate` 触发的唯一入口。
+// **必须在 `OnBracketCreatedEvent`（族收尾）之后**：族 hook 先按既有路径装它自己的目录
+// （函数体 / namespace / 块体 / switch 子句块 / 箭头体的 `MountBodyCatalog`），本钩子后到，
+// 看到 `CatalogGuide !== null` 就只做「族已装」收尾（`BracketCatalogInstaller` 返回
+// `AlreadyInstalled`，一个字节都不改）；角色目录装完之后，同一个实例再按
+// `StatementRouteUtil.EnableBracketCreatePossible` 用 `PossibleSource.BracketCreate` 问
+// 新括号自己 / 父宿主各一次（新括号的 `CatalogGuide` 这时才非空）。
 // 钩子是进程内唯一静态引用，默认 `null` ⇒ 默认状态下这里只多一次 `null` 比较。
 if (BracketRoleHook.Current !== null) {
   BracketRoleHook.Current.OnBracketCreated(unit, mounted, context);
-}
-// [T2:CREATE] BracketCreate 触发点：**必须**在 `BracketRoleHook` 之后——新括号自己的
-// `CatalogGuide` 要等角色目录装完才非空，`:306` 那个旧位置只能问到父层。
-// 钩子 `Current` 默认 `null`（开关 `StatementRouteUtil.EnableBracketCreatePossible` 默认 false），
-// 于是默认路径只多一次 `null` 比较，既有产物逐字节不变。
-if (BracketCreatePossibleHook.Current !== null) {
-  BracketCreatePossibleHook.Current.OnBracketCreatedPossible(unit, mounted, context);
 }
 return BranchStates.Done;
 ```
