@@ -36,8 +36,9 @@ WP-A1 的**共享判据**：A1 的原子候选只负责「初始化器 = 一个�
 | --- | --- | --- |
 | `+` `*` | 既有 `BinaryExpressionPossibleShape` | 启用 |
 | `-` `/` `%` `<` `>` `&` `\|` `^` | A2 `BinaryOperatorPossibleShape`（+ 右操作数标识符分支） | 启用 |
-| `=` | 赋值走旧二元候选，会与 A1 的原子抢同一格（`let x = y = 1` 实测被打成 throw/divergent） | **不启用** |
-| `!` `?` `:` | 前缀 / 条件 / 非空（条件与 update 归 A2b/A2c，尚无消费面） | **不启用** |
+| `=` `!` `?`（**仅两字符运算符** `==` `===` `!=` `!==` `??`） | A2 `BinaryOperatorPossibleShape` 的 `TextOf` 认这些符号；`ReassociationPossibleShape` 负责结合更紧时的拆层 | 启用（见 `IsTerminalAfter` 的前缀判据） |
+| `=`（单个） | 赋值走旧二元候选，会与 A1 的原子抢同一格（`let x = y = 1` 实测被打成 throw/divergent） | **不启用** |
+| `!` `?` `:`（单个，前缀 / 条件 / 非空） | `!` 是前缀非、`a!` 是非空、`a ? b : c` 是条件（条件归 A2b/A2c）；这些续接面尚不能消费已建原子 | **不启用** |
 | `.` `(` `[` | 成员 / 调用 / 下标（A3 的 postfix 候选尚未合并） | **不启用** |
 | `/` | 除号由 A2 在 `/` 那一格**就地物化**左操作数（A2 的 `IsBuildable` 兜底）；若 A1 提前建了标识符，`RegexToken` 的起点判据把「非 basic 的最后一个代码单元」当成语句边界 ⇒ `a/b` 会被重新切成正则（`bin-div` 实测 divergent），故 A1 在 `/` 前**不建**，由 A2 兜底 | **不启用** |
 | `in` / `instanceof`（关键字续接） | A2 `BinaryOperatorPossibleShape` 的 `TextOf` 认这两个 `Common` 关键字；A1 建完标识符后由它在运算符那一格消费 | 启用（词级，见 `ContinuationWords`） |
@@ -50,6 +51,8 @@ WP-A1 的**共享判据**：A1 的原子候选只负责「初始化器 = 一个�
 
 续接白名单（**字符级**）。只放「已有候选能消费已建原子」的运算符首字符；加字符前必须用 `--show` 实测
 「该形态变 incremental 且不产生 divergent」。§A1b 报告里逐条记录了本次取舍（`/` `=` `!` `?` `.` `(` `[` 为什么排除）。
+[R4] 两字符运算符（`==` `===` `!=` `!==` `??`）不走这个字段，而由 `IsTerminalAfter` 的
+「首字符 + 紧邻下一字符」前缀判据放行：单个 `=` / `!` / `?` 仍然排除。
 
 ## static field ContinuationWords:Array<string> = ["in", "instanceof"]
 
@@ -223,6 +226,20 @@ while (at < count) {
   // `CatalogGuide: 没有候选形状可以构成`（`generic-call-type-args` 回归）。所以判不进白名单，交给类型面。
   if (ch === "<" && PrimaryAtomGuard.IsTypeArgumentCallAt(document, at)) {
     return false;
+  }
+  // [R4] 两字符运算符的**首字符**也是续接：`a == b` / `a === b` / `a != b` / `a !== b` / `a ?? b`
+  // 的 `=` `!` `?` 单个并不在 `ContinuationChars` 里（单个 `=` 是赋值、单个 `!` 是前缀 / 非空、
+  // 单个 `?` 是条件），但**成对时**是 `BinaryOperatorPossibleShape` 能消费的二元运算符。
+  // 不认这两格，A1 就不会物化左操作数，`==` 那一格只剩已死的候选 ⇒ `CatalogGuide` 抛
+  // 「没有候选形状可以构成」（`const z = a == b < c` 实测）。只看紧邻的下一个字符，不前瞻整词。
+  if (ch === "=" || ch === "!" || ch === "?") {
+    const nextChar = at + 1 < count ? document.GetRaw(at + 1, at + 2) : "";
+    if (ch === "?" && nextChar === "?") {
+      return true;
+    }
+    if (ch !== "?" && nextChar === "=") {
+      return true;
+    }
   }
   if (PrimaryAtomGuard.ContinuationChars.includes(ch)) {
     return true;

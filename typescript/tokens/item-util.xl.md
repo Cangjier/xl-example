@@ -54,6 +54,37 @@ for (let at = units.length - 1; at >= start; at--) {
 return -1;
 ```
 
+## static method TriviaBetween:(units:Array<Token>, leftIndex:int, tokenIndex:int)=>Array<Token>
+
+`leftIndex` 与 `tokenIndex` 之间（不含两端）的 trivia 单元，按源码顺序。
+
+二元表达式的左操作数与运算符之间那段空白 / 注释在组装 `BinaryExpressionShape` 时要**搬进**
+`binary.Data`（left 之后、operator 之前）：留在宿主里会落到 `binary` 后面，树里顺序与源码不一致
+（R4 的 `b | c & d` 实测：`WrapSymbol [11,12)` 跑到了 `BinaryExpressionShape` 外面）。
+
+```ts
+const result:Array<Token> = [];
+for (let at = leftIndex + 1; at < tokenIndex; at++) {
+  if (units[at].IsTriviaToken) {
+    result.push(units[at]);
+  }
+}
+return result;
+```
+
+## static method InsertTrivia:(node:Token, at:int, trivia:Array<Token>)=>void
+
+把 `trivia` 按顺序插进 `node.Data` 的 `at` 位置，并把父指针设成 `node`。
+
+调用方负责先把这些单元从原宿主里摘掉（`TriviaBetween` 只读不摘）；本方法只管挂载。
+
+```ts
+for (let index = 0; index < trivia.length; index++) {
+  node.Data.splice(at + index, 0, trivia[index]);
+  trivia[index].Parent = node;
+}
+```
+
 ## static method ItemStartCached:(units:Array<Token>, cache:PossibleShapeCache)=>int
 
 ```ts
