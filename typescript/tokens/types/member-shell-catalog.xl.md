@@ -809,6 +809,21 @@ if (!TypeBuilder.IsBodyBrace(shell.Data, shell.Data.length - 1)) {
 MemberShellCatalog.OpenMemberBody(shell, unit, context);
 ```
 
+## static method InstallAtBracketCreated:(host:Token, bracket:Bracket, context:SyntaxContext)=>bool
+
+**[T7c] 成员外壳线的创建拍入口**：外壳自己认得这只子括号时，安装动作留在本类
+（`(` ⇒ `InstallParameterList`，`{` ⇒ `OpenMemberBody`），由角色分派外壳转进来；
+不是外壳的括号返回 `false`，交后面的三条线。安装本身幂等（`InstallIfSimple` 的状态表按
+`Data` 数组对象登记，`BracketCatalogInstaller.Install` 见目录即 `AlreadyInstalled`）。
+
+```ts
+if (MemberShellCatalog.Find(host) === null) {
+  return false;
+}
+MemberShellCatalog.OnBracketCreated(host, bracket, context);
+return true;
+```
+
 ## static method HeadCompute:(shell:Token, context:SyntaxContext)=>ComputePossibleShapesStates
 
 **成员外壳的 basic token 关闭回调**（三个成员形状的 `ComputePossibleShapes` 都转到这里）。

@@ -13,6 +13,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { ShapePosition } from "../positions/shape-position.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { BracketCatalogInstaller } from "./bracket-catalog-installer.xl.md"
 import { BracketRole } from "./bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "./bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "./bracket-role-resolver.xl.md"
@@ -354,6 +356,32 @@ return "identifier";
 
 ```ts
 return ShapePosition.PosAt(host, units, tokenIndex);
+```
+
+## static method InstallAtBracketCreated:(host:Token, bracket:Bracket, context:SyntaxContext)=>bool
+
+**[T7c] 控制头线的创建拍入口**：只认 `if / for / while / switch / with` 的 `(`，且角色解析必须落到
+`ControlHead`。目录形状与 `FlushOnClose` 都来自 `EnsureRegistered` 注册的那份角色目录，
+安装仍由 `BracketCatalogInstaller.Install` 完成（幂等，族已装则只补终结候选）。
+
+`Decide` **不在这里调用**：它依赖括号 `Data` 的站点信息，创建格 `Data` 还是空的；
+站点判据继续由 `BuildByIndex` 里的 `Decide(host)` 把关，两边不重复。
+
+```ts
+if (!(bracket instanceof Bracket)) {
+  return false;
+}
+const shape = bracket as Bracket;
+if (shape.StartBracketChar !== "(") {
+  return false;
+}
+ControlHeadPossibleShape.EnsureRegistered();
+const plan = BracketRoleResolver.Resolve(host, shape, context);
+if (!plan.IsKnown() || plan.Role !== BracketRole.ControlHead) {
+  return false;
+}
+BracketCatalogInstaller.Install(shape, plan, context);
+return true;
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
