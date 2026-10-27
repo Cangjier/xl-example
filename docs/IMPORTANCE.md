@@ -38,7 +38,7 @@ bracket create和close虽然都触发possible compute/build，但不同的是bra
 当possible build时，可能不会全部basic token都进行消费，成为shape的信息。这些未消费的baisc token存在以下情况：
 - 应该被消费没有消费，这个是build的错误
 - 按照形状预期，应该收到build的shape下面，由后续basic tokens关闭时/EOF触发消费
-- 按照形状预期，应该继续挂载在原parent下面，并在build之后调用Reclose，基于build后的状态触发新的compute
+- 按照形状预期，应该继续挂载在原parent下面，并在build之后调用Reclose（将closed设为false，并重新close），基于build后的状态触发新的compute
 - 其他情况，则走`Reload Message`
 
 ### cache重要性
