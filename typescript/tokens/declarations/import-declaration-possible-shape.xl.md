@@ -41,7 +41,7 @@ import a, { b } from "m";
 import a from "m" with { type: "json" };
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (StatementRouteUtil.ShouldYieldToDeclarationShell(units, tokenIndex)) {

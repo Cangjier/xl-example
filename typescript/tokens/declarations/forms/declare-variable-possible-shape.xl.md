@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../core/syntax/possible-source.xl.md"
 import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
 import { CatalogGuide } from "../../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../../core/syntax/possible-shape.xl.md"
@@ -81,7 +82,7 @@ if (secondText === "const"
 return true;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 // 让位判据与 legacy 声明壳同一份（`ShouldYieldToDeclarationShell`），只对自己的声明头（`declare` +
