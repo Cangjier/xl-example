@@ -3,6 +3,7 @@
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
@@ -26,7 +27,7 @@ import { ArrayBindingPatternShape } from "./array-binding-pattern-shape.xl.md"
 const [a, b] = xs;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 // `[` 只是「解构 pattern 的开头」的候选：整个 pattern 由 basic token `Bracket` 一次收口，
