@@ -162,6 +162,8 @@ return false;
 
 - 用 `shell` 当 `host` 调 `FromUnits`（壳的 `Data` 就是 `[function, …, 体/分号]`）；
 - `ambient = 没有函数体`：无体声明（declare / 重载）按 ambient 口径放行「没有体也没有分号」的成员形；
+  「有没有体」只看**末代码单元**（`BlockShape` / `IsBodyBrace` 认作体的闭合 `{`），见下方
+  `[R13:MAPPED-IN-GENERIC]`；回扫整段 `Data` 会把返回类型 / 泛型实参里的 `{ … }` 误当成体；
 - `fallbackPos = shell.Pos`：`FromUnits` 的 `Pos` 回扫在 `start === 0` 时扫不到前一格，用壳 `Pos` 兜底，
   与 legacy 的「前一个非 trivia 单元 `EndIndex`」逐位一致；
 - EOF 哨兵不算代码单元（从 `code` 尾巴剥掉）。
@@ -192,18 +194,19 @@ while (lastCode >= 0) {
 if (lastCode < 0) {
   return shell;
 }
-let hasBody = false;
-for (let at = 0; at <= lastCode; at++) {
-  const candidate = shell.Data[at];
-  if (candidate instanceof BlockShape) {
-    hasBody = true;
-    break;
-  }
-  if (candidate instanceof Bracket && (candidate as Bracket).StartBracketChar === "{" && (candidate as Bracket).Closed) {
-    hasBody = true;
-    break;
-  }
-}
+// [R13:MAPPED-IN-GENERIC] 「有没有体」= **本声明是否以函数体收尾**，不是「沿途出现过 `{`」。
+// 原扫描把壳里**任意**已闭合的 `{` 都算成体：`declare function f(): Promise<{ -readonly [P in keyof T]: T[P] }>`
+// 停在文件末尾时，泛型实参槽里的映射类型括号（`{ … }`）被误判成函数体 ⇒ `ambient=false`
+// ⇒ `FromUnits` 在末单元是 `>`（既不是体、也不是 `;`）时抛「函数声明缺少函数体或分号」
+// ⇒ R9 的 EOF 收口退回基类、整条声明留在 raw 记号上。泛型实参槽本身能建（带 `;` 的同一个写法 ok，
+// `type X = Promise<{ … }>` 也 ok），首跳就在这一次 `ambient` 判定。
+// 判据与 `FromUnits` 建树时**同一份**：`{` 只有 `TypeBuilder.IsBodyBrace` 认它是体才算体
+//（`function f() {}` 的 `{` 前是 `)` → 是体；返回类型 / 泛型实参里的 `{` 前是 `:` / `<` / `,` → 不是体）。
+// 只有末代码单元可能是体，所以只问 `lastCode` 这一格，不再回扫整个 `Data`。
+const tailUnit = shell.Data[lastCode];
+const hasBody = tailUnit instanceof BlockShape
+  || (tailUnit instanceof Bracket && (tailUnit as Bracket).StartBracketChar === "{" && (tailUnit as Bracket).Closed
+    && TypeBuilder.IsBodyBrace(shell.Data, lastCode));
 const built = FunctionDeclarationShape.FromUnits(shell, 0, lastCode, context, !hasBody, false, shell.Pos);
 const parent = shell.Parent;
 BodyGuideUtil.FinishShell(host, shell, built);
