@@ -92,6 +92,10 @@ return ShapeStates.Accept;
    `host.MountedUnit = binary`；
 6. 给 `Binary` 挂右操作数目录（`RightOperandPossibleShape.Catalog()`），结束。
 
+**trivia（R4）**：`leftIndex..tokenIndex` 之间（不含两端）的 trivia 在 `FromLeftAndOperator` 时按源码顺序
+搬进 `binary.Data`（left 之后、operator 之前），并从那两格之间从宿主里摘掉。只靠
+`host.MountedUnit = binary` 只能接住**之后**到达的单元，接不住已经落在宿主里的 `WrapSymbol [11,12)`。
+
 ```ts
 const token = host.Data[tokenIndex];
 if (!(token instanceof Symbol)) {
@@ -107,10 +111,11 @@ if (!left.Closed) {
   throw new Error("增量变量形状未支持：expression 二元运算左操作数未封口");
 }
 const precedence = OperatorTable.Precedence((token as Symbol).TempToString());
-const binary = BinaryExpressionShape.FromLeftAndOperator(left, operatorShape, precedence, host.Template);
+const trivia = ItemUtil.TriviaBetween(host.Data, leftIndex, tokenIndex);
+const binary = BinaryExpressionShape.FromLeftAndOperator(left, operatorShape, precedence, host.Template, trivia);
 host.Data.splice(tokenIndex, 1);
-host.Data.splice(leftIndex, 1);
-host.Data.splice(leftIndex, 0, binary);
+host.Data.splice(leftIndex, 1, binary);
+host.Data.splice(leftIndex + 1, trivia.length);
 binary.Parent = host;
 host.MountedUnit = binary;
 binary.CatalogGuide = new CatalogGuide(RightOperandPossibleShape.Catalog(), null);

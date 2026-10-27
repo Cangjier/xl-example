@@ -88,6 +88,9 @@ EOF                     → FinishIncremental 收下唯一根（E0b 契约）
 6. `*` / `+` ⇒ `Reject`（让给既有 `BinaryExpressionPossibleShape`）；
 7. 其余二元运算符（含 `in` / `instanceof` 关键字）⇒ **有左操作数才 `Accept`**：
    没有左操作数的格（如 `let x = <T>y` 的 `<`）⇒ `Reject`，保持既有拒绝行为。
+8. **[R4] 结合更紧 ⇒ 让给 `ReassociationPossibleShape`**：左操作数是 `BinaryExpressionShape` 且
+   `BinaryExpressionShape.NeedsReassociation` 成立（新运算符优先级更高，或同优先级右结合）⇒ `Reject`。
+   同一格只能有一个候选 `Accept`；拆层归约由 `ReassociationPossibleShape` 负责。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -122,6 +125,12 @@ if (text === "*" || text === "+") {
   return ShapeStates.Reject;
 }
 if (!BinaryOperatorPossibleShape.HasLeftOperand(units, tokenIndex)) {
+  return ShapeStates.Reject;
+}
+const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (leftIndex >= 0
+  && BinaryExpressionShape.NeedsReassociation(units[leftIndex], OperatorTable.Precedence(text), text)) {
+  // [R4] 归约让给 `ReassociationPossibleShape`（它负责拆层重建）；同一格不能双 Accept。
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -169,6 +178,9 @@ return false;
 4. 原位替换「左操作数 + 运算符」两格，`Parent` / `MountedUnit` 设回宿主；
 5. 给 `Binary` 挂**唯一一份**右操作数目录 `RightOperandPossibleShape.Catalog()`。
 
+**trivia（R4）**：`leftIndex..tokenIndex` 之间的 trivia 经 `FromLeftAndOperator` 搬进 `binary.Data`
+（left 之后、operator 之前），并从那两格之间从宿主里摘掉。
+
 ```ts
 const token = host.Data[tokenIndex];
 const text = BinaryOperatorPossibleShape.TextOf(token);
@@ -187,10 +199,11 @@ if (operatorShape instanceof ShapeToken) {
   (operatorShape as ShapeToken).Pos = operatorPos;
 }
 token.Replace(operatorShape);
-const binary = BinaryExpressionShape.FromLeftAndOperator(left, operatorShape, precedence, host.Template);
+const trivia = ItemUtil.TriviaBetween(host.Data, leftIndex, tokenIndex);
+const binary = BinaryExpressionShape.FromLeftAndOperator(left, operatorShape, precedence, host.Template, trivia);
 host.Data.splice(tokenIndex, 1);
-host.Data.splice(leftIndex, 1);
-host.Data.splice(leftIndex, 0, binary);
+host.Data.splice(leftIndex, 1, binary);
+host.Data.splice(leftIndex + 1, trivia.length);
 binary.Parent = host;
 host.MountedUnit = binary;
 binary.CatalogGuide = new CatalogGuide(RightOperandPossibleShape.Catalog(), null);

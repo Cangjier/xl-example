@@ -168,6 +168,12 @@ return word;
 不要拖到 `+` 格才退——早退场的好处是链头格上不会多活一个候选，把格位让给真正要建树的那个候选。
 文档不可用时放行（与 `PrimaryAtomGuard.IsTerminalAfter` 同一口径：真实驱动链一定设 `CurrentDocument`）。
 
+**[R4] 两字符二元运算符不算后缀**：`a != b` / `a !== b` 的 `!` 后面紧跟 `=`，是 `BinaryOperatorPossibleShape`
+的运算符而不是非空断言；`a ?? b` 的 `?` 后面紧跟另一个 `?`，是 `??` 而不是 `?.`。这两种格若仍按
+「后缀首字符」留在场，三个成员链候选会在链头格上把 `IdentifierPrimaryPossibleShape` 挤成非唯一候选，
+A1 不物化左操作数，`!=` / `??` 就只能退回 EOF 原子建树——再遇到结合更紧的运算符（`a != b < c`）时
+`<` 那一格没有任何候选认领，直接抛「declaration 符号 <」。只看紧邻的下一个字符，不前瞻整词。
+
 ```ts
 const range = head.SourceRange;
 let document = range.Document;
@@ -185,6 +191,12 @@ while (at < count) {
     || ch === "\u2028" || ch === "\u2029") {
     at += 1;
     continue;
+  }
+  if (ch === "!" && at + 1 < count && document.GetValue(at + 1) === "=") {
+    return false;
+  }
+  if (ch === "?" && at + 1 < count && document.GetValue(at + 1) === "?") {
+    return false;
   }
   return ch === "." || ch === "?" || ch === "!" || ch === "[";
 }
