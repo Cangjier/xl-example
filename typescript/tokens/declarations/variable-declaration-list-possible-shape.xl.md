@@ -534,24 +534,23 @@ if (statement !== null) {
   if (statement.Parent !== null) {
     const host = statement.Parent;
     host.MountedUnit = null;
-    // [D2b:UNMOUNT] **root 宿主**上要连链条内部的挂载指针一起关掉；块体宿主保持原样（理由见下）。
+    // [D2b:UNMOUNT] 挂载链要**一次关干净**：宿主指针 + 链条内部的 `statement.MountedUnit`。
     //
-    // 这一格（最后一个代码单元）是**在逐字符循环里**被处理到的：`SourceFileShape` → statement → list →
-    // declaration 这几层 `UnitToken.Process` 的 while 循环此刻都还挂着。每层循环的退出守卫只问
-    // 「我还是不是我父单元的 `MountedUnit`」，所以只清宿主指针时，list 的循环仍看到
+    // 这一格（最后一个代码单元）是**在逐字符循环里**被处理到的：`SourceFileShape` / 块体 `Bracket` →
+    // statement → list → declaration 这几层 `UnitToken.Process` 的 while 循环此刻都还挂着。每层循环的
+    // 退出守卫只问「我还是不是我父单元的 `MountedUnit`」，所以只清宿主指针时，**list 的循环**仍看到
     // `statement.MountedUnit === list` 而继续吃下一行的字符 → 它们被 `Add` 进**已经关闭**的列表
     // （实测：`declare const obj: { a: number }` ⏎ `type X = keyof typeof obj` 的 `type X = …`
     // 整条落进 list 的 `Data`，根层少一个 `TypeAliasDeclaration`，structural=4）。
-    // 清掉 `statement.MountedUnit` 后，在飞的循环在下一帧都按同一条守卫退出，剩余字符回到根。
+    // 清掉 `statement.MountedUnit` 后，在飞的循环在下一帧都按同一条守卫退出，剩余字符回到父单元。
     //
-    // **为什么只对 root 宿主生效**：块体里同一手法今天走的是另一条账——被吞的字符与块体收口相撞，
-    // 由文件级 fallback 兜住（`samples/declarations.ts` 实测：base 就是靠 fallback 通过的）。
-    // 在块体宿主上放开这条修正会把这批文件从「fallback → 树正确」变成「增量静默少语句」，
-    // 暴露的是另一处**不属于本 WP** 的缺口（`declare function …` 无分号时不收口，把下一条
-    // `class` 吞进壳里，见 `_reports/D2b.md` §4）。C10 要求宁可显式失败，所以块体宿主保持原样。
-    if (!(host instanceof Bracket)) {
-      statement.MountedUnit = null;
-    }
+    // [R18:UNMOUNT] **块体宿主与 root 宿主同一条判据**（D2b 当时只对 root 放开，理由是块体里那批文件
+    // 由文件级 fallback 兜住）。那条依赖只在「同一窗口里不再继续吃」时成立：窗口 ≥4 时 list 会把下一条
+    // 声明整条吃进已关闭的 `Data`，`async function f() {` ⏎ `  const d = await g()` ⏎ `  const e = 2` ⏎ `}`
+    // 就是这一格——没有异常 ⇒ 不走 fallback ⇒ 静默错树（C10 不允许）。单字符驱动看不出它，
+    // `SourceFileRunner.Parse`（窗口 128）与 wide-ast 看得出来。关闭时不区分宿主类型之后：
+    // wide-ast 默认档 3 → 2（`ex-await-yield` 整条转绿），legacy 档 / gates / tts / ts-all / real-dts 读数不变。
+    statement.MountedUnit = null;
   }
   list.MountedUnit = null;
 }

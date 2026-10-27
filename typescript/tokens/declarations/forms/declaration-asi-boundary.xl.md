@@ -10,6 +10,7 @@ import { Token } from "../../../../core/syntax/token.xl.md"
 import { ExpressionStatementPossibleShape } from "../../statements/expression-statement-possible-shape.xl.md"
 import { StatementBoundaryUtil } from "../../statements/statement-boundary-util.xl.md"
 import { StatementRouteUtil } from "../../statements/statement-route-util.xl.md"
+import { StatementScanner } from "../../statements/statement-scanner.xl.md"
 ```
 
 # namespace cangjie
@@ -101,6 +102,12 @@ token 关闭是**同一拍**（`let x = a` ⏎ `b` ⏎：`b` 在最后一个 `\n
 
 1. 尾部能收住表达式：`StatementBoundaryUtil.CanEndDeclarationTail`（唯一实现点，与
    `IsDeclarationFollowBoundary` / `StatementEndCode` 读同一份）；
+   - [R18:YIELD-TAIL] **唯一的例外**：尾部是裸 `yield`（`IsBareYieldTail`）。`yield` 是唯一
+     「操作数可省略」的上下文关键字，裸 `yield` 本身**就是**一条完整的 `YieldExpression`（TS 实测），
+     而 `CanEndDeclarationTail` → `CanEndExpression` 把 `yield` 当**语句词**排除
+     （`IsStatementWord` 里有 `yield`），于是「`const c = yield` ⏎ `const d = …`」在行尾那一格永远收不了口，
+     把下一条声明整条吞进 `Data`，到块体 `}` 收口时 `FinishIncremental` 的原子建树抛「初始化器未读完」。
+     这一条只补**表达式尾**，不改 `CanEndDeclarationTail` 本身（那是语句层与 legacy 共用的判据）；
 2. 声明已经长到可以收口：`HasClosableShape`（本类，下面那一条）；
 3. 下一行是否续接：**只做字符级否决**——下一行第一个显著字符必须是标识符起头（字母 / `_` / `$`），
    且不是续接词（`in` / `instanceof` / `as` / `satisfies`，即 `StatementTokenSets.IsExpressionContinuation`
@@ -154,7 +161,13 @@ if (!StatementBoundaryUtil.CanEndDeclarationTail(units, tokenIndex)) {
     && DeclarationAsiBoundary.HasAnnotationShape(units)
     && !DeclarationAsiBoundary.BlocksTypedTailClose(current)
     && DeclarationAsiBoundary.StartsNewStatementLine(current);
-  if (!shapeTail && (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex) || current.IsBasicToken)) {
+  // [R18:YIELD-TAIL] 裸 `yield` 收尾：`yield` 是唯一「操作数可省略」的上下文关键字，尾判据
+  // `CanEndDeclarationTail → CanEndExpression` 把 `yield` 当语句词排除 ⇒ 这一格永远答「收不住表达式」，
+  // `const c = yield` ⏎ `const d = …` 于是收不了口。判据本身（`IsBareYieldTail`）与
+  // `YieldFamilyEndCode` 的受限产生式同源，不新写 ASI 词法。
+  const yieldTail = DeclarationAsiBoundary.IsBareYieldTail(units, tokenIndex);
+  if (!shapeTail && !yieldTail
+    && (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex) || current.IsBasicToken)) {
     return false;
   }
 }
@@ -165,6 +178,56 @@ if (!DeclarationAsiBoundary.HasClosableShape(units, units.length)) {
 // （声明最后一个代码单元那一格、边界单元之前），所以并进同一条早收口判据里。
 return DeclarationAsiBoundary.StartsNewStatementLine(current)
   || DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex);
+```
+
+## static method IsBareYieldTail:(units:Array<Token>, tokenIndex:int)=>bool
+
+[R18:YIELD-TAIL] 本格是不是「声明尾部那个**裸** `yield`」——即一条已经长完的 `YieldExpression` 的尾。
+
+为什么需要它（实测）：`function* gen() {` ⏎ `  const c = yield` ⏎ `  const d = yield 1` ⏎ `  const e = yield* other()` ⏎ `}`
+里第一条声明在 `yield` 之后**跨行**、后面没有 `;`。`CanEndDeclarationTail` 走
+`ExpressionStatementPossibleShape.CanEndExpressionAt`，而 `CanEndExpression` 先把 `yield` 当语句词排除
+（`IsStatementWord` 含 `yield`），所以行尾那一格答 `false`；`CanClose`（下一条语句首代码单元 `const`）
+走 `CanEndStatement`，读的是同一份判据，也答 `false`。两格都不收口 ⇒ `const d = yield 1` / `const e = …`
+全被并进**第一条**声明的 `Data`，到块体 `}` 收口时 `FinishIncremental` 的 `builtShape === null` 分支
+用 legacy `ExpressionBuilder` 从 `yield` 之后读不完 ⇒ 显式抛「declaration 初始化器未读完」。
+
+为什么裸 `yield` 一定是完整表达式（TS 实测，两种读法都成立）：
+
+- 生成器里：`function* g(){ const c = yield` ⏎ `foo }` 的 `YieldExpression` 区间**止于 `yield`**，
+  `foo` 是一条新的 `ExpressionStatement`——`yield` 的操作数**不跨行**（`YieldFamilyEndCode` 的第 1 条
+  受限产生式就是这一句，`StatementScanner.NoLineBreakBetween` 是它的唯一实现）；
+- 非生成器里：`yield` 是普通标识符（`const c = yield` 的初始化器是 `Identifier`），同样是完整表达式。
+
+所以这一格不需要「当前函数是不是生成器」的上下文，也不新写第二套上下文判据。
+
+判据（两件事，都是既有事实）：
+
+1. 本单元是 `Common("yield")`；
+2. 它之后**跨行**——`units` 里还有代码单元时问 `StatementScanner.HasLineBreakBefore`（与
+   `YieldFamilyEndCode` 读同一份 `NoLineBreakBetween`）；还没有下一个代码单元时由调用方的字符前瞻
+   （`StartsNewStatementLine` / 块体 `}` 边界）回答，这里答 `true`，不抢那一拍。
+
+不在这里判 `yield*`：`yield*` 的 `*` 是独立单元，那时尾是 `*` 而不是 `yield`，本判据自然不命中。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Common)) {
+  return false;
+}
+if ((unit as Common).TempToString() !== "yield") {
+  return false;
+}
+for (let at = tokenIndex + 1; at < units.length; at++) {
+  if (units[at].IsTriviaToken) {
+    continue;
+  }
+  return StatementScanner.HasLineBreakBefore(units, at);
+}
+return true;
 ```
 
 ## static method ShapeTailStartsStatement:(units:Array<Token>, tokenIndex:int)=>bool
