@@ -101,11 +101,25 @@ return true;
 
 判据见 `CanStart`：当前字符在 `unit.Template.BomChars` 里即可（**任意位置**，用户裁定②）。
 
-认下就挂一个新的 `Bom`，立刻按同一个字符签入、签出并关闭；它是 trivia，之后所有字符回到根单元。
+认下就先按 trivia 的边界口径**收尾上一个未关闭的单元**（与 `WrapSymbol` / `Symbol` 的 `Transit` 同一套）：
+
+- 收尾建出了形状（`CloseStates.Built`）⇒ 当前这一格属于**新宿主**，不能把 `Bom` 挂进正在关闭的旧宿主。
+  返回 `BranchStates.Reload`，让驱动层重放这一格；重放时 `Bom` 会落到新宿主（通常是根）下。
+- 否则才挂一个新的 `Bom`，立刻按同一个字符签入、签出并关闭；它是 trivia，之后所有字符回到根单元。
+
+**为什么必须先收尾**：BOM 夹在两个 token 中间时，它前面的那个单元（往往是收尾符号 `;`）
+正等着「下一个字符」来触发关闭。若不先问它，`Bom` 就会被塞进那个还开着的形状的 `Data` 末尾，
+把它推到「最后一个子单元」的位置上——候选判定看到的最后一个单元成了 BOM，
+那个 `;` 的收尾就再也不会发生：语句边界停在 BOM 之前，后面的代码整段并进上一条语句的壳。
+BOM 本身是 trivia，不该改变任何 token 的边界；它只该在边界**已经定下来之后**被跳过。
 
 ```ts
 if (!Bom.CanStart(unit, value)) {
   return BranchStates.Undo;
+}
+const last = unit.Last();
+if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
+  return BranchStates.Reload;
 }
 const mounted = new Bom(unit.Template);
 unit.Add(mounted);
