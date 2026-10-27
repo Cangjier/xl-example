@@ -213,7 +213,149 @@ if (unit.IsTriviaToken) {
 if (!ConditionalPossibleShape.Family(units)) {
   return false;
 }
+// [T11] 箭头分支的三目走「不建树 → 收口格 legacy 整条建」：分支里的 `=>` 与三目自己的 `:`
+// 因此落在声明层，必须由本候选认领（否则声明终结候选按 C10 抛 `declaration 符号 =>` / `符号 :`）。
+// 只认 `=>` / `:` 两个符号；三目真的被建出来时这两格根本到不了声明层（形状已挂载）。
+if (unit instanceof Symbol) {
+  const text = (unit as Symbol).TempToString();
+  if (text === "=>" || text === ":") {
+    return true;
+  }
+}
 return ConditionalPossibleShape.IsQuestionSymbol(unit);
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+[T11] **分支是箭头时不建**：`flag ? (a: number) => a + 1 : (a: number) => a - 1`。
+
+三目的两个分支位在本目录里只有「`Common` 操作数」与「值位 `{ … }`」两种形态——箭头
+（`(a: T) => …` / `() => …` / 体是字符串的箭头）一个都不在目录里，那一格会
+`Reject` ⇒ 候选全灭 ⇒ `CatalogGuide` 抛「没有候选形状可以构成」。
+
+这里不补第二套箭头建造器：箭头分支的形态与 legacy `ExpressionBuilder.ParseExpression` 完全重合，
+而声明收口格本来就有一条「初始化器没有唯一根 ⇒ 整条 raw 交 legacy 建」的通路
+（`VariableDeclarationShape.FinishIncremental` 的 `builtShape === null` 分支）。所以本候选在
+`?` 那一格**保持在场但不建树**，整条三目留在 raw，收口格由 legacy 一次建出（与 legacy 同树）。
+
+判据 `HasArrowBranch` 两条腿、都跨步稳定：`?` 之后出现 `=>` 符号单元（单调）；
+`?` 之后（文档前瞻）是 `(` 且配对 `)` 之后紧跟 `=>`（`?` 那一格还没有 `=>` 单元，靠这一条）。
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return true;
+}
+return !ConditionalPossibleShape.HasArrowBranch(units);
+```
+
+## static method QuestionIndex:(units:Array<Token>)=>int
+
+`units` 里三目 `?` 的位置（已建成的 `QuestionTokenShape` 或还没建的 `Symbol("?")`），没有返回 `-1`。
+
+```ts
+let at = -1;
+for (let index = 0; index < units.length; index++) {
+  const unit = units[index];
+  if (unit instanceof QuestionTokenShape) {
+    at = index;
+    continue;
+  }
+  if (ConditionalPossibleShape.IsQuestionSymbol(unit)) {
+    at = index;
+  }
+}
+return at;
+```
+
+## static method HasArrowBranch:(units:Array<Token>)=>bool
+
+三目的**某一支是箭头**：`?` 之后已经出现 `=>` 符号单元，或者 `?` 之后（跳过空白）是 `(`
+且配对 `)` 之后紧跟 `=>`。
+
+```ts
+const questionAt = ConditionalPossibleShape.QuestionIndex(units);
+if (questionAt < 0) {
+  return false;
+}
+for (let index = questionAt + 1; index < units.length; index++) {
+  const unit = units[index];
+  if (unit instanceof Symbol && (unit as Symbol).Is("=>")) {
+    return true;
+  }
+}
+return ConditionalPossibleShape.ArrowFollowsQuestion(units[questionAt]);
+```
+
+## static method ArrowFollowsQuestion:(question:Token)=>bool
+
+文档前瞻：`question` 之后跳过空白是 `( … )`、再跳过空白是 `=>`。跳过字符串字面量里的括号
+（形参默认值里可能有 `"("`）；其余字符只做括号计数。
+
+```ts
+const range = question.SourceRange;
+let document = range.Document;
+if (document === null) {
+  document = SourceRange.CurrentDocument;
+}
+if (document === null || range.EndIndex < 0) {
+  return false;
+}
+const count = document.GetCount();
+let at = range.EndIndex;
+const skipSpace = ():void => {
+  while (at < count) {
+    const ch = document.GetValue(at);
+    if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
+      at += 1;
+      continue;
+    }
+    return;
+  }
+};
+skipSpace();
+if (at >= count || document.GetValue(at) !== "(") {
+  return false;
+}
+let depth = 0;
+let closed = false;
+while (at < count) {
+  const ch = document.GetValue(at);
+  if (ch === "(") {
+    depth += 1;
+    at += 1;
+    continue;
+  }
+  if (ch === ")") {
+    depth -= 1;
+    at += 1;
+    if (depth === 0) {
+      closed = true;
+      break;
+    }
+    continue;
+  }
+  if (ch === "\"" || ch === "'" || ch === "`") {
+    const quote = ch;
+    at += 1;
+    while (at < count && document.GetValue(at) !== quote) {
+      if (document.GetValue(at) === "\\") {
+        at += 1;
+      }
+      at += 1;
+    }
+    at += 1;
+    continue;
+  }
+  at += 1;
+}
+if (!closed) {
+  return false;
+}
+skipSpace();
+if (at + 1 >= count) {
+  return false;
+}
+return document.GetValue(at) === "=" && document.GetValue(at + 1) === ">";
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token

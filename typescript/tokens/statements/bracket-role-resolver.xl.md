@@ -588,6 +588,115 @@ return role === BracketRole.ObjectLiteral || role === BracketRole.ArrayLiteral
   || role === BracketRole.CallArgs || role === BracketRole.ParenExpression;
 ```
 
+## static method IsHeadParameterBracket:(host:Token, bracket:Bracket)=>bool
+
+`bracket` 是不是声明宿主**自己的参数表** `(`。函数 / 方法声明里会出现的第二、第三只 `(` 一定在
+返回类型里（`(): (string)` / `(): abstract new (a) => A`），而参数表总是**第一只** `(`——所以判据是
+「`host.Data` 里在它之前没有别的 `(`」。只比结构位，不读文本。
+
+```ts
+if (bracket === null || !(bracket instanceof Bracket)) {
+  return false;
+}
+const shape = bracket as Bracket;
+if (shape.StartBracketChar !== "(") {
+  return false;
+}
+const at = host.Data.indexOf(shape);
+if (at < 0) {
+  return false;
+}
+for (let index = 0; index < at; index++) {
+  const unit = host.Data[index];
+  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
+    return false;
+  }
+}
+return true;
+```
+
+## static method IsTypePredicateIs:(host:Token, previous:Token | null)=>bool
+
+`previous` 是不是**类型谓词**的 `is`：`(x: unknown): x is (T)` / `asserts x is (T)`。
+三条结构位，缺一不可：
+
+1. `previous` 的字面文本是 `is`；
+2. `is` 前面是一个**名字单元**（`Common` / 已建的名字形状；`this` 也算），不是符号 / 括号——
+   `x is (` 在表达式里不成立（两个操作数相邻），所以这一格不可能是调用；
+3. 再往前（跳过 trivia）第一个符号是 `:`（返回类型 / 类型注解位）；先撞上 `=` / `;` / `=>` /
+   `,` / `?` / `(` / `)` 就不是谓词（`return is(a)` 的 `is` 前面是关键字，走第 2 条就出局）。
+
+```ts
+if (previous === null || !(previous instanceof Common)) {
+  return false;
+}
+if ((previous as Common).TempToString() !== "is") {
+  return false;
+}
+const at = host.Data.indexOf(previous);
+if (at <= 0) {
+  return false;
+}
+let nameAt = -1;
+for (let index = at - 1; index >= 0; index--) {
+  if (host.Data[index].IsTriviaToken) {
+    continue;
+  }
+  nameAt = index;
+  break;
+}
+if (nameAt < 0) {
+  return false;
+}
+const nameUnit = host.Data[nameAt];
+if (nameUnit instanceof Symbol || nameUnit instanceof Bracket) {
+  return false;
+}
+if (nameUnit instanceof Common) {
+  const text = (nameUnit as Common).TempToString();
+  if (text === "return" || text === "typeof" || text === "new" || text === "void"
+    || text === "delete" || text === "in" || text === "instanceof" || text === "case"
+    || text === "await" || text === "yield") {
+    return false;
+  }
+}
+for (let index = nameAt - 1; index >= 0; index--) {
+  const unit = host.Data[index];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol) {
+    const text = (unit as Symbol).TempToString();
+    if (text === ":") {
+      return true;
+    }
+    if (text === "=" || text === ";" || text === "=>" || text === "," || text === "?"
+      || text === "(" || text === ")") {
+      return false;
+    }
+    continue;
+  }
+  continue;
+}
+return false;
+```
+
+## static method IsTernaryBranchMark:(previous:Token | null)=>bool
+
+前一个代码单元是不是**还没建形状**的三目 `?` / `:`（`Symbol("?")` / `Symbol(":")`）。
+
+判据只比符号文本：`ConditionalPossibleShape` 在 `?` 那一格会把整条三目建成
+`ConditionalExpressionShape`，此后这两格分别是 `QuestionTokenShape` / `ColonTokenShape`，
+不是 `Symbol`（`?:` 组合符号也不是这两种，按 `Text` 精确比对）。
+
+```ts
+if (previous === null || !(previous instanceof Symbol)) {
+  return false;
+}
+const text = (previous as Symbol).TempToString();
+return text === "?" || text === ":";
+```
+
 ## static method IsCallCallee:(host:Token, bracket:Bracket, previous:Token | null)=>bool
 
 前一个代码单元能不能当被调用者（A2 #1 的 `CallPossibleShape.CanBeCallee` 同一判据）：
@@ -901,7 +1010,15 @@ if (startChar === "(") {
     return BracketRoleResult.Known(null, null, BracketRole.FunctionTypeParams, host, hostKey);
   }
   if (hostKey === "FunctionDeclarationShape" || hostKey === "MethodDeclarationShape") {
-    return BracketRoleResult.Known(null, null, BracketRole.ParameterList, host, hostKey);
+    // 只有**自己的参数表**才是 `ParameterList`：返回类型里的 `(`（`function f(): (string)` /
+    // `function f(): abstract new (a: number) => A`）也走到这一格。给它装参数表目录，
+    // 类型里的 `is` / `string` / `new` 会被 `ParameterPossibleShape` 当形参名吃掉
+    //（实测首跳 `函数声明的返回类型没有读完` / `不支持的类型起点` / `构造类型缺少 new`）。
+    // 返回类型归 `TypeBuilder`，这里按「`host.Data` 里没有更早的 `(`」让路。
+    if (BracketRoleResolver.IsHeadParameterBracket(host, shape)) {
+      return BracketRoleResult.Known(null, null, BracketRole.ParameterList, host, hostKey);
+    }
+    return BracketRoleResult.Fallback("return-type-position:" + BracketRole.TypeLiteral);
   }
   if (hostKey === "StatementShape" || hostKey === "SourceFileShape") {
     const route = StatementRouteUtil.Decide(host.Data, host.Data.length - 1);
@@ -950,6 +1067,24 @@ if (startChar === "(") {
   if (BracketRoleResolver.IsExpressionHost(host)
     && BracketRoleResolver.IsElementPosition(host, parenPrevious)) {
     return BracketRoleResult.Deferred(BracketRole.ArrowParams, "arrow-paren-wait-for-arrow",
+      null, "ArrowFunctionShape");
+  }
+  // [T11] **类型谓词的括号类型让路**：`x is (string)` / `(x: unknown): x is (A | B) => …` 的 `(`。
+  // 前一个代码单元是 `is`、`is` 前面是名字单元、再往前是返回类型 / 类型注解的 `:` ⇒ 这只 `(`
+  // 是谓词类型里的括号类型，归 `TypeBuilder`。猜成 `CallArgs` 会让括号里先垫出表达式原子，
+  // `TypeBuilder.ParseParenthesizedType` 报「不支持的类型起点」（实测 `箭头函数缺少 =>`）。
+  if (BracketRoleResolver.IsExpressionHost(host)
+    && BracketRoleResolver.IsTypePredicateIs(host, parenPrevious)) {
+    return BracketRoleResult.Fallback("type-predicate-position");
+  }
+  // [T11] **三目分支位的 `(`**（`flag ? (a: T) => … : …` 的中段 / 右段）：箭头分支的三目整条走
+  // 「不建树 → 收口格 legacy 整条建」，这只括号必须保持 raw 才轮得到 `ExpressionBuilder.ParsePrimary`
+  // 按 `)=>` 建箭头。给它装 `ParenExpression` 目录会把 `(a: T)` 建成括号表达式（`a: T` 不是表达式），
+  // 再被收口格判成「初始化器有未并入的括号」。只认还没建形状的三目 `?` / `:` 符号：三目已经建出来时
+  // 那一格是 `QuestionTokenShape` / `ColonTokenShape`，走不到这里（与本判据互不重叠）。
+  if (BracketRoleResolver.IsExpressionHost(host)
+    && BracketRoleResolver.IsTernaryBranchMark(parenPrevious)) {
+    return BracketRoleResult.Deferred(BracketRole.ArrowParams, "ternary-branch-arrow-paren",
       null, "ArrowFunctionShape");
   }
   if (BracketRoleResolver.IsExpressionHost(host)

@@ -862,6 +862,49 @@ if (!classBody) {
 BlockPossibleShape.TryMountFunctionBody(parent, bracket, context);
 ```
 
+## static method EnclosedByTypeBody:(unit:Token)=>bool
+
+`unit` 所在的**最近一个带目录的括号**是不是类型体。
+
+只服务 `=>` 之后那个 `{`：`interface I { m(cb: () => { a: number }): void }` 里它前一个是 `=>`，
+看起来像箭头块体，其实是**函数类型返回的类型字面量**。它的父括号链是
+「方法形参表 `(`（Fallback，没目录）→ 接口成员列表 `{`（`MemberList`，有目录）」——
+类型体里不可能出现语句，所以这一格不能挂块体目录（挂上之后 `{ a: number }` 会被收成
+`LabeledStatementShape`，`TypeBuilder` 再报「不支持的对象类型成员」）。
+
+反向的三族都**不让路**（它们的最近目录括号不是类型体）：
+
+- `x => { … }`（语句壳宿主）：父单元不是括号，本方法在 `TryMountFunctionBody` 里只对
+  `=>` 单独调用，查到的最近目录括号是**外层函数体**（`FunctionBody`，角色为空）；
+- `{ m() { … } }` / `class C { m() { … } }`：`{` 前一个是 `)` 不是 `=>`，走不到本判据；
+- `{ cb: (a) => {} }`：最近目录括号是对象字面量的 `{`（`ObjectLiteral`）。
+
+角色串与 `BracketRole.MemberList` / `BracketRole.TypeLiteral` 同值（本文件不 import
+`bracket-role-resolver`，避开语句族 → 括号角色表那条回边）。
+
+```ts
+if (unit === null) {
+  return false;
+}
+let at:Token | null = unit;
+let guard = 0;
+while (at !== null && guard < 64) {
+  guard++;
+  const parent:Token | null = at.Parent;
+  if (parent === null) {
+    return false;
+  }
+  if (parent instanceof Bracket) {
+    const bracket = parent as Bracket;
+    if (bracket.CatalogGuide !== null) {
+      return bracket.Role === "MemberList" || bracket.Role === "TypeLiteral";
+    }
+  }
+  at = parent;
+}
+return false;
+```
+
 ## static method TryMountFunctionBody:(unit:Token, bracket:Token, context:SyntaxContext, arrowOnly?:bool)=>bool
 
 ```ts
@@ -889,6 +932,11 @@ if (previous === null) {
 }
 const arrow = BlockPossibleShape.IsArrowUnit(previous);
 if (arrowOnly === true && !arrow) {
+  return false;
+}
+if (arrow && BlockPossibleShape.EnclosedByTypeBody(unit)) {
+  // 类型体里的 `=> {` 不是箭头块体，是函数类型返回的类型字面量（见 `EnclosedByTypeBody`）。
+  // 不挂目录：`{` 保持 raw，收口格由 `TypeBuilder.ParseTypeLiteral` 整块读。
   return false;
 }
 if (!arrow) {
