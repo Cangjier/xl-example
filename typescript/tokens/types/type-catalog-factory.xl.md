@@ -248,16 +248,23 @@ return word.join("");
   ⇒ 收口格 `declaration 初始化器根之外还有代码` ⇒ 整文件回退 legacy；
 - `const eq = (a as number) === 1;`：同一处，`(a as number)` 在 `)` 格落地。
 
-改成「`=` 后面还是 `=` 就不算终点」之后，两条都等到 `;` / 输入结束那一格整条 `ParseInitializer`
-（legacy 同一个建造器）——树与 legacy 同源，不是第二种表达式机。`=>`（第二字符是 `>`）不受影响，
-`(x: T) => …` 的既有落地时机一个字不变；单个 `=` 的旧行为也一个字不变。
+`=>` 同理：`=` 后面是 `>` 时那是**箭头**的箭杆，不是初始化器终点。带类型注解的声明在
+`const g: F = (a) => a;` 的 `)` 格看到 `=>`，提前把 `(a)` 落成 `ParenthesizedExpression`，
+箭杆与体整段落在根之外 ⇒ `declaration 初始化器根之外还有代码` ⇒ 整文件回退 legacy
+（T10 的目标族：`expr-arrow-body-nested-ternary.ts` 的 `const g: F = (a, b) => (a < b ? a : b);`、
+`stmt-adversarial-shapes.ts` 的 `const g2: <T>(x: T) => T = (x) => x;`）。
+
+改成「`=` 后面还是 `=`（比较）或 `>`（箭杆）就不算终点」之后，`as` 断言与带注解的箭头初始化器
+都等到 `;` / 输入结束那一格整条 `ParseInitializer`（legacy 同一个建造器）——树与 legacy 同源，
+不是第二种表达式机。不带注解的箭头（`const f = (x: T) => …`）在 `)` 格本来就过不了
+`ParseInitializer`（参数里的 `:` 不是表达式），落不落地一个字都没变；单个 `=` 的旧行为也一个字不变。
 
 ```ts
 const pair = TypeCatalogFactory.NextSignificantText(unit, 2);
 if (pair === "") {
   return true;
 }
-if (pair.length >= 2 && pair[0] === "=" && pair[1] === "=") {
+if (pair.length >= 2 && pair[0] === "=" && (pair[1] === "=" || pair[1] === ">")) {
   return false;
 }
 return TypeCatalogFactory.InitializerEnd.indexOf(pair[0]) >= 0;
