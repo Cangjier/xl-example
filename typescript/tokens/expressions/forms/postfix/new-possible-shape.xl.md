@@ -17,6 +17,7 @@ import { IncrementalItemPosition } from "../../numeric-literal-possible-shape.xl
 import { ItemUtil } from "../../../item-util.xl.md"
 import { NewExpressionShape } from "../../new-expression-shape.xl.md"
 import { CompositeInitializerFormsJudge } from "../primary/composite-initializer-forms-judge.xl.md"
+import { ExpressionAtomRegistry } from "../shared/expression-atom-registry.xl.md"
 ```
 
 # namespace cangjie
@@ -235,6 +236,12 @@ return lookahead === "" || lookahead === ";";
 - `src` 从 `new` 的起点签入、到被构造者终点（无括号）或括号终点（有括号）签出；
 - 实参用 legacy `ExpressionBuilder.ParseBracketArguments` 逐参建出，挂在被构造者之后（与 legacy 同序）。
 
+**[T13:NEW-POSTFIX] 建完登记身份**（`ExpressionAtomRegistry.Nodes`）：与 [T12:CALL-POSTFIX] 同一条
+postfix 通路——`new A(1).b(2)` 的 `new A(1)` 在 `)` 关闭格已建成 `NewExpressionShape`，后面的
+`.` / `?.` / `!` / `(` / `[` / 模板是它的**后缀**，不是「未支持续接」。不登记时收口格
+（`VariableDeclarationShape.FinishIncremental`）的 `HasContainer` / `HasNode` 都为假，按 C10 抛
+`declaration 初始化器有未并入的括号`，整条文件退回 legacy。
+
 ```ts
 const data = host.Data;
 const unit = data[tokenIndex];
@@ -287,6 +294,9 @@ if (start < 0) {
 shape.SignIn(start);
 shape.SignOut(endIndex);
 shape.TryToClose(context);
+// [T13:NEW-POSTFIX] 只登记「增量候选自己建出的 new 形状」：收口格据此把它当操作数消费（`HasNode`），
+// 后缀由 legacy `ExpressionBuilder.ParsePostfixSuffix` 接上。
+ExpressionAtomRegistry.RegisterNode(shape);
 data.splice(newIndex, tokenIndex - newIndex + 1, shape);
 shape.Parent = host;
 host.MountedUnit = null;
