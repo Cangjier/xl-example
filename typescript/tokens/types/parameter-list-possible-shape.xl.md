@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ArrayTypeShape } from "./array-type-shape.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
@@ -989,7 +990,7 @@ return true;
 它自己**不判角色**（角色在 `BracketRoleResolver`），也**不装目录**（安装器装）：
 只负责「这一步该建什么就建什么」。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 永远 `Uncertain`：本候选**从不主动退出**目录（参数表里每一格都可能还有下一步），
 建不建只看 `IsBuildable`。`Reject` 会让 `Candidates` 变空，参数表就再也建不出东西。
