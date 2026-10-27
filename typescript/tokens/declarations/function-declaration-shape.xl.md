@@ -188,6 +188,15 @@ ParameterListPossibleShape.PromotedNameCount += 1;
 `BracketRoleFallbackCount` 可涨但不改 AST」。
 
 ```ts
+if (!BracketRoleResolver.IsHeadParameterBracket(host, bracket)) {
+  // [T11] 返回类型里的 `(`（`function f(): (string)` / `function f(): abstract new (a: number) => A`）
+  // 也走到 `OnBracketCreatedEvent` 这一格，它的内容**长得像**一份简单参数表（`string` / `abstract`
+  // 都是标识符），`InstallIfSimple` 于是会登记一份 `ParameterScan`、`PromoteName` 也会动名字格，
+  // 收口格 `ComputePossibleShapes` 的 `Finalize` 再把里面的标识符收成 `ParameterShape`
+  //（实测首跳 `函数声明的返回类型没有读完` / `不支持的类型起点` / `构造类型缺少 new`）。
+  // 参数表永远是这个壳里的**第一只** `(`，返回类型归 `TypeBuilder`。
+  return;
+}
 if (!ParameterListPossibleShape.InstallIfSimple(host, bracket, context)) {
   return;
 }
