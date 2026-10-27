@@ -25,12 +25,11 @@ import { ExpressionAtomRegistry } from "./expression-atom-registry.xl.md"
 `{` / `[` / `(` 关闭的那一拍，`Bracket.Close` 先问父单元（A4 对象 / A4b 数组·括号 / P1 调用 /
 P4 分组这些既有收口方按自己的所有权消费括号）。
 
-**[T7d] 建树已经不在 `BracketClosedHook` 里了。** B4e 的 `ContainerShapeCloseHook` 把这段建树放在
-「父单元问完之后」的钩子里；T7d 把它原样搬进宿主 `VariableDeclarationShape` 的窄目录候选
-`ContainerClosePossibleShape.BuildByIndex`：宿主的 `ComputePossibleShapes` 跑完既有目录（父候选先手）之后，
-在同一拍问一次这个窄目录，候选只做原来钩子做的事——**只有父单元没有消费这只括号**时，才用 legacy
-`ExpressionBuilder` 把它建成容器形状、登记、顶替。钩子类与 `BracketClosedHook` 的装配已删除/停用，
-类本身留到 T7e 随 `BracketClosedHook` 一起删。
+**[T7d] 建树在宿主 `VariableDeclarationShape` 的窄目录候选里。** B4e 原本把这段建树放在
+「父单元问完之后」的关闭钩子里；T7d 把它原样搬进 `ContainerClosePossibleShape.BuildByIndex`：
+宿主的 `ComputePossibleShapes` 跑完既有目录（父候选先手）之后，在同一拍问一次这个窄目录，
+候选只做原来钩子做的事——**只有父单元没有消费这只括号**时，才用 legacy `ExpressionBuilder`
+把它建成容器形状、登记、顶替。[T7e] 那个关闭钩子与它的 core 通知口已经整个删除。
 
 | 角色（`Bracket.Role`） | 关闭格上建出的容器 | 谁在收口格消费 |
 |---|---|---|
@@ -71,10 +70,6 @@ legacy 档宿主没有本窄目录，一个字节不改。
 
 # class ContainerShapeCatalog
 
-## static field Installed:bool = false
-
-[T7d] 恒为 `false`：本目录不再装配 `BracketClosedHook`（只用于探针断言，T7e 随钩子一起删）。
-
 ## static field BuildCount:int = 0
 
 真正被容器 shape 顶替掉的括号数（四族合计；`StatementRouteUtil.ContainerShapeBuildCount` 同步 +1）。
@@ -88,20 +83,6 @@ legacy 档宿主没有本窄目录，一个字节不改。
 
 父单元在关闭那一拍**已经**把括号换成形状（A4 / A4b / P1 / P4 的正常所有权）的次数。
 本机制不参与那一格，只记账。
-
-## static method EnsureInstalled:()=>void
-
-幂等装配点（`SourceFileShape` 构造器每文件一次）。开关为假或非增量模式时**什么都不做**；
-`BracketClosedHook.Current` 已被别的实现占用时**不覆盖**。
-
-**[T7d] 本方法已经停用**：容器建树不再靠任何钩子装配，本方法只保留一个空壳给 `SourceFileShape` 的既有
-调用点（T7e 连同 `BracketClosedHook` 一起删）。`Installed` 因此恒为 `false`。
-
-```ts
-// [T7d] 不装配任何钩子：容器建树已经搬进 `ContainerClosePossibleShape.BuildByIndex`。
-// 开关 `EnableContainerShape` / 增量模式由那个候选在 `BuildByIndex` 里自己判（同一份语义）。
-return;
-```
 
 ## static method IsExpressionRole:(role:string)=>bool
 
@@ -405,8 +386,8 @@ return host.constructor.name === "VariableDeclarationShape";
 
 # class ContainerClosePossibleShape extends PossibleShape
 
-**[T7d] 容器关闭格的唯一实现。** 建树体从 `ContainerShapeCloseHook.OnBracketClosed` **原样搬来**，
-执行时机仍然是「父候选跑完之后」——只是入口从 `BracketClosedHook` 换成了宿主目录里的候选 `BuildByIndex`：
+**[T7d] 容器关闭格的唯一实现。** 建树体从 B4e 关闭钩子的 `OnBracketClosed` **原样搬来**，
+执行时机仍然是「父候选跑完之后」——入口是宿主目录里的候选 `BuildByIndex`：
 
 ```
 Bracket.Close

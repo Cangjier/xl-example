@@ -1333,8 +1333,8 @@ B3 最初只读本字段，于是 `--legacy` 档也装配了头目录：`FileFal
 
 **B4i / K1：容器 shape 在括号关闭格出现（`container-shape-catalog.xl.md`）。默认 `true`。**
 
-`true` 且增量模式时 `SourceFileShape` 的构造器装上 `ContainerShapeCloseHook`：
-`{` / `[` / `(` 关闭的那一拍（`Bracket.Close` 里 `BracketClosedHook` 的位置），角色为
+`true` 且增量模式时，`{` / `[` / `(` 关闭的那一拍（`Bracket.Close` 问完父单元之后，由宿主
+`VariableDeclarationShape` 的窄目录候选 `ContainerClosePossibleShape.BuildByIndex` 执行），角色为
 `ObjectLiteral` / `ArrayLiteral` / `CallArgs` / `ParenExpression` 的四类括号**就地**被 legacy
 `ExpressionBuilder` 建成 `ObjectLiteralExpressionShape` / `ArrayLiteralExpressionShape` /
 `CallExpressionShape` / `ParenthesizedExpressionShape`，并**顶替父单元 `Data` 里的那只括号**
@@ -1353,7 +1353,7 @@ B3 最初只读本字段，于是 `--legacy` 档也装配了头目录：`FileFal
 （ASI / 行尾收口不再以为「最后一个单元是形状 ⇒ 收不住」）；
 ⑤ 正则起点（`TypeScriptRegexTemplate.CanStartAt`）把容器之后的 `/` 认成**除号**。
 
-`false` 时不装钩子（`BracketClosedHook.Current` 保持 `null`），`{` / `[` / `(` 仍只在
+`false` 时候选不建任何容器，`{` / `[` / `(` 仍只在
 legacy 收口格由 A4 / A4b / P1 / P4 建出，读数与 B4d 逐位相同（`ExprBracketCatalog` 那套不变）。
 
 **为什么现在能默认打开（B4i 实测）**：B4e 打开时宽尺子是 `0/43/99+13`（10 条新 structural、
