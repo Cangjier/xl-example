@@ -3,6 +3,7 @@
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -33,7 +34,7 @@ import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
 `BuildOperator` 仍保留 `*` / `+` 两个 `Symbol → 具体形状` 分支（C10 的显式报错文案与历史一致），
 但正常流程不会走到它们——`*` / `+` 那一格已由 `ReassociationPossibleShape` 独占。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：当前格是非 trivia 的 `Symbol`，且其文本在 `OperatorTable.IsBinaryOperator` 里成立。
 

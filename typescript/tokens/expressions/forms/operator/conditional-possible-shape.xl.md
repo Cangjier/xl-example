@@ -4,6 +4,7 @@ import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../../../core/syntax/source-range.xl.md"
@@ -161,7 +162,7 @@ if (pair.length >= 2 && (pair[1] === "." || pair[1] === "?")) {
 return true;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 - 越界 / trivia → `Uncertain`（E0b 实测约束 1：被 `Reject` 的候选本条目内不回来）；
 - `Symbol("=")` → `Uncertain`（初始化器还没开始，此时 `Family` 也还判不出来）；
@@ -311,7 +312,7 @@ return identifier;
 `Quit` 清 `Parent.MountedUnit`，后续 `;` / EOF 回到声明层（与 `BinaryExpressionShape.SealRightOperand`
 同一条机制，不给 core 加钩子）。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {

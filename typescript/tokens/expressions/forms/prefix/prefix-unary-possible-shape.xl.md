@@ -5,6 +5,7 @@ import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
@@ -207,7 +208,7 @@ if (PrefixUnaryPossibleShape.IsPrefixText(PrefixUnaryPossibleShape.TextOf(unit))
 return PrefixUnaryPossibleShape.OperatorRunStart(units, tokenIndex - 1) >= 0;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 - 越界 / trivia ⇒ `Uncertain`（`Reject` 是永久的：`=` 与它后面的空白处拒掉就到不了前缀位）；
 - 扫描下界走 `ItemUtil.ItemStartCached`（C8）；

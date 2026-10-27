@@ -4,6 +4,7 @@ import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
@@ -33,7 +34,7 @@ WP-P1：声明初始化器位置的**成员访问**（`.` 族）候选——`let
 shapes.push(new MemberAccessPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 - 越界 / trivia → `Uncertain`（`Reject` 在本条目内是永久的，trivia 格不能判死）；
 - 族已落定 → 本族 `Accept`，别族 `Reject`；

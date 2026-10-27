@@ -3,6 +3,7 @@
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
@@ -60,7 +61,7 @@ EOF           → 右操作数 `3` 由内层 Binary(*) 的目录封口；外层 
 
 所有二元运算符的再结合候选：常规格原位长外层，结合更紧的格走归约栈拆层重建。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：
 
