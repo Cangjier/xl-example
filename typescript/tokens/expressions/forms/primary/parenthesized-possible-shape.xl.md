@@ -5,6 +5,7 @@ import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -70,7 +71,7 @@ if (unit instanceof Symbol) {
 return false;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 - 越界 / trivia → `Uncertain`（E0b 实测约束 1）；
 - 当前格不是**已闭合的 `(` 括号** → `Reject`（`[` / `{` 归 A4 / A6，不是本候选）；

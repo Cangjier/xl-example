@@ -4,6 +4,7 @@ import { Bracket } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../../../core/syntax/token.xl.md"
@@ -61,7 +62,7 @@ if (!(unit as Bracket).Closed) {
 return (unit as Bracket).StartBracketChar === "{";
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 trivia → `Uncertain`（被 `Reject` 的候选在本条目内不回来）；扫描下界走
 `ItemUtil.ItemStartCached`（与同一目录里的其它候选同一口径）；命中 `Claims` → `Accept`，

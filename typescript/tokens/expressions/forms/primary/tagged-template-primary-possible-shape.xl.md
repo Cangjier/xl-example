@@ -3,6 +3,7 @@
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
 import { String } from "../../../../../core/syntax/basic-tokens/string/string.xl.md"
@@ -43,7 +44,7 @@ TaggedTemplateExpressionShape  pos=7  src=[8,14)
 shapes.push(new TaggedTemplatePrimaryPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：当前格是已关闭的模板 `String`，且前一个代码单元是**非 basic 形状**（标签表达式）。
 

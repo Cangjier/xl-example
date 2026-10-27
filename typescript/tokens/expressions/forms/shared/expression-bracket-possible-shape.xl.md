@@ -2,6 +2,7 @@
 ```xl
 import { Bracket } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
@@ -324,7 +325,7 @@ return false;
 return ShapePosition.PosAt(bracket, units, tokenIndex);
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 永远 `Uncertain`：本候选既不 `Accept`（不触发建树）也不 `Reject`（不参与候选淘汰）。
 于是 `Candidates.size === 1` 恒成立，`CatalogGuide` 的两条抛错出口都不可达。

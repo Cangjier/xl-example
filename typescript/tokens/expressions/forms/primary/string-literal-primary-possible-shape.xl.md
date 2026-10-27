@@ -3,6 +3,7 @@
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { String } from "../../../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -34,7 +35,7 @@ legacy EOF 口径（`expr-probe` 实测）：`StringLiteralShape  pos=7  src=[8,
 shapes.push(new StringLiteralPrimaryPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：当前格是已关闭的 `String`，且**不是**内插引号串（TS 里只有反引号模板会置 `IsSupportInterpolation`）。
 

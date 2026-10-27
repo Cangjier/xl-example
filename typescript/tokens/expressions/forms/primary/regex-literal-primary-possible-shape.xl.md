@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { RegexToken } from "../../../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
@@ -29,7 +30,7 @@ WP-A1：声明初始化器位置的**正则字面量**（`let x = /r/`、`/[a-z\
 shapes.push(new RegexLiteralPrimaryPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：当前格是已关闭的 `RegexToken`。`=` 与 trivia → `Uncertain`（约束①）。
 

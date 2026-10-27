@@ -6,6 +6,7 @@ import { ConstString } from "../../../../../core/syntax/basic-tokens/string/cons
 import { InterpolationString } from "../../../../../core/syntax/basic-tokens/string/interpolation-string.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { RegexToken } from "../../../../../core/syntax/basic-tokens/regex-token.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../../../core/syntax/shape-token.xl.md"
@@ -64,7 +65,7 @@ legacy EOF 口径逐节点一致（`expr-probe` 实测，含嵌套模板）；`P
 shapes.push(new TemplatePrimaryPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：当前格是已关闭的 `String`，且是**内插引号串**（TS 里 = 反引号模板）；前一个代码单元不是形状
 （否则是带标签模板）。

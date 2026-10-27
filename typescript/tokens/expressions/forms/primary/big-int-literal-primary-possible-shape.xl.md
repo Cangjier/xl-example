@@ -4,6 +4,7 @@ import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
@@ -30,7 +31,7 @@ legacy EOF 口径（`expr-probe` 实测）：`BigIntLiteralShape  pos=7  src=[8,
 shapes.push(new BigIntLiteralPrimaryPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：当前格是已关闭的 `Common` 且 `IsBigInt()`。`=` 与 trivia → `Uncertain`（约束①）。
 

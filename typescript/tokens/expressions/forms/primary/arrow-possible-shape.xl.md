@@ -316,7 +316,7 @@ if (next === ";" || next === "," || next === ")" || next === "]" || next === "}"
 return !DeclarationAsiBoundary.StartsNewStatementLine(unit);
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -512,7 +512,7 @@ shapes.push(new ArrowPossibleShape());
 return shapes;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -592,7 +592,7 @@ return body;
 **与三目 / 赋值 / 嵌套箭头的互斥**：`?` / `:` / `=` / `=>` 都不是二元运算符（`OperatorTable` 说了算），
 所以同一格永远只有一个候选 `Accept`。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -647,7 +647,7 @@ return new ReassociationPossibleShape().BuildByIndex(host, tokenIndex, catalog, 
 箭头体里没有声明的 `=`，所以这里只重写**判定**：当前格是三目的 `?`、且左操作数已经是形状 / 可物化。
 建树整条转调 `ConditionalPossibleShape.BuildByIndex`（它只读 `?` / 左操作数的位置，不看 `Family`）。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -702,7 +702,7 @@ return conditional.BuildByIndex(host, tokenIndex, catalog, context);
 永久 `Reject`），两个候选同时在场 ⇒ `CatalogGuide` 不建、只等；右值到达时 `ArrowPossibleShape` 判死，
 只剩本候选。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -763,7 +763,7 @@ return new AssignmentPossibleShape().BuildByIndex(host, tokenIndex, catalog, con
 3. 驱动父单元目录处理这一格（与 `Symbol.Close` 问父单元、`DeclarationAsiBoundary.ReplayLeftover`
    同一手法）：`;` / `,` / `}` 因此照常落到 `VariableDeclarationListEndPossibleShape` 的收口格。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
