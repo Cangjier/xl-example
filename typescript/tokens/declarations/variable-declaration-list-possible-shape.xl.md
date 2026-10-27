@@ -49,7 +49,7 @@ WP-A6 / WP-A6b：声明列表 / `;` 收口 / 多声明 `,` 重开列表 / 解构
 增量声明的终结候选：`;` / `,` 自己收，其余格**逐字**委托 A2/A4 扩过的父类
 （`=` / 二元运算符 / Bracket 复合初始化器 / EOF / 未知符号的语义与父类完全一致）。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -57,7 +57,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const current = units[tokenIndex];
 if (current.IsTriviaToken) {
-  return super.ComputeByIndex(units, tokenIndex, cache);
+  return super.ComputeByIndex(units, tokenIndex, cache, source);
 }
 if (current instanceof Symbol) {
   const text = (current as Symbol).TempToString();
@@ -95,7 +95,7 @@ if (!angleOpen && DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex))
 if (!angleOpen && DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
   return ShapeStates.Accept;
 }
-return super.ComputeByIndex(units, tokenIndex, cache);
+return super.ComputeByIndex(units, tokenIndex, cache, source);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
