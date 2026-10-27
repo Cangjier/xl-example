@@ -4,6 +4,7 @@ import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -43,7 +44,7 @@ return 0;
 二元表达式右操作数的同名判定由 `RightOperandPossibleShape` 承担——两者是**不同候选类**，
 因为「建完之后要不要替宿主封口」不一样（C3）。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 判据：当前格是**非 trivia 的 `Common`**，且 `IsNumber()`。
 

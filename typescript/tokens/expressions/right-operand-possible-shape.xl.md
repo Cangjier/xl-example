@@ -6,6 +6,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -92,7 +93,7 @@ return shapes;
 `没有候选形状可以构成（宿主 BinaryExpressionShape）`，整条文件退到 `FileFallback`。
 判据与建树全部转调 `ObjectLiteralOperandPossibleShape`（`Claims` / `BuildInto`），本类不写第二份。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 与声明层数字字面量同判据：非 trivia 的 `Common` 且 `IsNumber()` / `IsBigInt()`。扫描下界同样走
 `ItemUtil.ItemStartCached`（C8）。
@@ -337,7 +338,7 @@ if (kind === "template") {
 return true;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 越界 / trivia → `Uncertain`（被 `Reject` 的候选在本条目内不回来）；
 扫描下界走 `ItemUtil.ItemStartCached`（C8）；

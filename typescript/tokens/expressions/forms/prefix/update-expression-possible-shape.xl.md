@@ -6,6 +6,7 @@ import { SourceRange } from "../../../../../core/syntax/source-range.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../../../core/syntax/templates/template.xl.md"
@@ -258,7 +259,7 @@ try {
 return builder.At === builder.Units.length;
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 - 越界 / trivia ⇒ `Uncertain`（`Reject` 是永久的：trivia 格不能判死）；
 - 扫描下界走 `ItemUtil.ItemStartCached`（C8）；

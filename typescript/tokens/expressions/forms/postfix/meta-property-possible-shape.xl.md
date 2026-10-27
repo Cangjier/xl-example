@@ -4,6 +4,7 @@ import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../../../core/syntax/possible-shape-cache.xl.md"
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../../../core/syntax/syntax-context.xl.md"
@@ -30,7 +31,7 @@ legacy EOF 树是 `MetaPropertyShape pos=7 src=[8,19)`，**唯一**子节点是 
 shapes.push(new MetaPropertyPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
