@@ -319,7 +319,7 @@ if (operandUnit instanceof Common) {
 } else if (operandUnit instanceof Bracket && ObjectLiteralOperandPossibleShape.Claims(operandUnit)) {
   // [R19:OBJECT] 值位对象字面量：`typeof { a: 1 }` / `void { a: 1 }` / `!{ a: 1 }`。
   // 操作数是**已闭合的 `{ … }` 括号**时，交 `ObjectLiteralOperandPossibleShape.BuildInto`
-  // 用 legacy `ExpressionBuilder` 整块吃掉（与 `ContainerShapeCloseHook` 建对象字面量同一条路）。
+  // 用 legacy `ExpressionBuilder` 整块吃掉（与容器关闭格候选建对象字面量同一条路）。
   // 原位顶替、长度不变，所以下面 `removed` / `kept` 用的下标集合继续有效。
   inner = ObjectLiteralOperandPossibleShape.BuildInto(host, operandIndex, context);
   if (inner.SourceRange.End < 0) {

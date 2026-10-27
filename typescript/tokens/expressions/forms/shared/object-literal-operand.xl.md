@@ -36,8 +36,8 @@ const v = a ? { b: 1 } : c;     // 三目中段：ConditionalMemberPossibleShape
 **为什么不复用 `ParenthesizedPossibleShape`**：它那条形态在 `ComputeByIndex` 里认的是
 「前驱是运算符形状」，建树则转调 `ExpressionBuilder` 吃掉括号里的表达式。对象字面量要做的是
 **同一件事的另一个形态**（`{` 而不是 `(`），但它的 `BuildByIndex` 没有可转调的既有候选：
-`ContainerShapeCloseHook` 里那段 `builder.ParsePrimary()` 是**内联**在闭括号钩子里的，
-且它的 `IsSafeHost` 只认 `VariableDeclarationShape`（`BinaryExpressionShape` / `ConditionalExpressionShape`
+容器关闭格候选里那段 `builder.ParsePrimary()` 是**内联**在 `BuildByIndex` 里的，
+且它的宿主闸只认 `VariableDeclarationShape`（`BinaryExpressionShape` / `ConditionalExpressionShape`
 一律 `return`）。所以这里把那段「解析 + 顶替 + 登记」抽成**唯一一份** `BuildInto`，
 供右操作数形态候选、三目成员候选、前缀一元候选三处转调。
 

@@ -388,7 +388,7 @@ if (unit.IsTriviaToken) {
 if (this.Kind === "object") {
   // [R19:OBJECT] 值位对象字面量：形态已在 `ComputeByIndex` 判过，这里只再确认一次；
   // 括号里的内容由 `ObjectLiteralOperandPossibleShape.BuildInto` 用 legacy `ExpressionBuilder`
-  // 整块吃掉（与 `ContainerShapeCloseHook` 建对象字面量同一条路）。
+  // 整块吃掉（与容器关闭格候选建对象字面量同一条路）。
   return ObjectLiteralOperandPossibleShape.Claims(unit);
 }
 if (this.Kind !== "paren") {

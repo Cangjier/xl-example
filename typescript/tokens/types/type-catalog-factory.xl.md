@@ -357,7 +357,7 @@ if (first < 0) {
 }
 const head = units[first];
 // [B4e:K1] **容器形状作头**：`{ a: 1 } as T` / `[1, 2] satisfies X` / `(a + b) as T` 的容器已经在
-// 括号关闭格由 `ContainerShapeCloseHook` 建出，`raw[0]` 因此不再是括号。整条仍然交给
+// 括号关闭格由 `ContainerClosePossibleShape.BuildByIndex` 建出，`raw[0]` 因此不再是括号。整条仍然交给
 // `ParseInitializer`（同一个 `ExpressionBuilder`：`ParsePrimary` 消费容器，`ParseBinaryFrom` 建 `as`），
 // 所以这里与「括号作头」走同一个答案：有断言就接管。
 if (ExpressionAtomRegistry.HasContainer(head)) {
