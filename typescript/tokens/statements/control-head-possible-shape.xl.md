@@ -10,6 +10,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
+import { ShapePosition } from "../positions/shape-position.xl.md"
 import { BracketRole } from "./bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "./bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "./bracket-role-resolver.xl.md"
@@ -297,28 +298,20 @@ if (!ControlHeadPossibleShape.IsPlainIdentifier(text)) {
 return "identifier";
 ```
 
-## static method PosAt:(units:Array<Token>, tokenIndex:int)=>int
+## static method PosAt:(host:Token, units:Array<Token>, tokenIndex:int)=>int
 
-`Pos` 口径：`units` 里 `tokenIndex` 之前**最近的**非 trivia 单元的 `End`；没有就用该单元自己的 `Start`。
-与 `ExpressionBuilder.Load` 的 `Positions` 走法一致（trivia 不推进 `pos`）。
+`Pos` 口径**只有一份**，在 `ShapePosition.PosAt`（R3）：`units` 里 `tokenIndex` 之前最近的
+非 trivia 单元的 `End`；**一格 code 都没有时落回容器自己的起点**。
+
+[R3:POS] 这里原来在「找不到前一个 code 单元」时退到 `units[tokenIndex].SourceRange.Start`，
+**漏了 `host`**：`if (\n  a …)` 的第一格前面只有括号的 `\n  `（`WrapSymbol [4,7)`），于是一个
+`Common a [7,8)` 被填成 `pos=7`，而 TS 的 `pos` 是上一 token（`(`）的终点 `4`——`src` 一样、
+`pos` 差 3，AST 对照就成了 `Identifier[0] 4-8 vs 7-8`。括号里第一格之前必然没有兄弟单元，
+所以这一格只能问 `host`：`host` 是 `Bracket` 就取**开启符 End**（`SourceRange.Start + 1`），
+其它宿主取 `SourceRange.Start`。
 
 ```ts
-for (let index = tokenIndex - 1; index >= 0; index--) {
-  const unit = units[index];
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  const end = unit.SourceRange.End;
-  if (end >= 0) {
-    return end;
-  }
-  break;
-}
-const own = units[tokenIndex];
-if (own === undefined) {
-  return -1;
-}
-return own.SourceRange.Start;
+return ShapePosition.PosAt(host, units, tokenIndex);
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
@@ -350,8 +343,8 @@ return ControlHeadPossibleShape.AtomKind(units[tokenIndex]) !== "";
 把 `host.Data[tokenIndex]` 那一个 basic 单元**原地**换成头原子（`Replace`，位置不变）：
 
 - `SourceRange` 由 `IdentifierShape.FromBasicToken` / `NumericLiteralShape.FromBasicToken` 从 basic 单元取；
-- `Pos` 按 `PosAt`（前一个非 trivia 单元的 `End`），与 legacy `ExpressionBuilder.ParsePrimary` 的
-  `shape.Pos = this.Positions[start]` 逐字节相同；
+- `Pos` 按 `ShapePosition.PosAt(host, host.Data, tokenIndex)`（R3）：前一个非 trivia 单元的
+  `End`，括号里第一格则是括号开启符的 `End`；
 - 建完把原子记进 `Atoms`，legacy 的 `ParsePrimary` 靠这张表认它。
 
 不建的情况（`Decide.Enabled === false` 或 `AtomKind === ""`）**什么都不改**：
@@ -377,7 +370,7 @@ if (kind === "number") {
 } else {
   built = IdentifierShape.FromBasicToken(common, context);
 }
-built.Pos = ControlHeadPossibleShape.PosAt(host.Data, tokenIndex);
+built.Pos = ControlHeadPossibleShape.PosAt(host, host.Data, tokenIndex);
 ControlHeadPossibleShape.Atoms.add(built);
 state.Atoms += 1;
 StatementRouteUtil.ControlHeadAtomCount += 1;

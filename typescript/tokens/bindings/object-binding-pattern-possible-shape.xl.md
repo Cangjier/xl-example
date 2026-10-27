@@ -7,6 +7,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { ShapePosition } from "../positions/shape-position.xl.md"
 import { ObjectBindingPatternShape } from "./object-binding-pattern-shape.xl.md"
 ```
 
@@ -73,6 +74,7 @@ return ShapeStates.Uncertain;
 
 ```ts
 // 把那个 `{...}` 括号换成一个 ObjectBindingPatternShape；Pos 口径与 ArrayBindingPatternPossibleShape 相同。
+// [R3:POS] 口径交给 `ShapePosition.PosAt`（`{` 前面那一格的 End；没有就宿主起点）。
 let index = tokenIndex;
 while (index >= 0 && host.Data[index].IsTriviaToken) {
   index--;
@@ -82,21 +84,7 @@ if (index < 0 || !(host.Data[index] instanceof Bracket)) {
 }
 const bracket = host.Data[index] as Bracket;
 const shape = ObjectBindingPatternShape.FromBracket(bracket, context);
-let previous = -1;
-for (let at = index - 1; at >= 0; at--) {
-  if (!host.Data[at].IsTriviaToken) {
-    previous = at;
-    break;
-  }
-}
-if (previous >= 0) {
-  const previousEnd = host.Data[previous].SourceRange.EndIndex;
-  if (previousEnd >= 0) {
-    shape.Pos = previousEnd;
-  }
-} else if (bracket.SourceRange.StartIndex >= 0) {
-  shape.Pos = bracket.SourceRange.StartIndex;
-}
+shape.Pos = ShapePosition.PosAt(host, host.Data, index);
 host.Data.splice(index, 1, shape);
 shape.Parent = host;
 return shape;

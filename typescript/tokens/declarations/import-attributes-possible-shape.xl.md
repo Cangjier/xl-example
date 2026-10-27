@@ -8,6 +8,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { ShapePosition } from "../positions/shape-position.xl.md"
 import { ImportAttributesShape } from "../members/import-attributes-shape.xl.md"
 ```
 
@@ -111,18 +112,9 @@ if (at < 0 || !(host.Data[at] instanceof Common)) {
 const keyword = host.Data[at] as Common;
 const shape = ImportAttributesShape.FromBracket(bracket, keyword.TempToString(), context);
 // ImportAttributes 的 Pos 在 `with` / `assert` 关键字之前那一格（模块字符串的右边界之后）。
-let before = at - 1;
-while (before >= 0 && host.Data[before].IsTriviaToken) {
-  before--;
-}
-if (before >= 0) {
-  const beforeEnd = host.Data[before].SourceRange.EndIndex;
-  if (beforeEnd >= 0) {
-    shape.Pos = beforeEnd;
-  }
-} else if (bracket.SourceRange.StartIndex >= 0) {
-  shape.Pos = bracket.SourceRange.StartIndex;
-}
+// [R3:POS] 口径交给 `ShapePosition.PosAt`：注意本形状是从 `at`（关键字）开始替换的，
+// 所以下标传 `at` 而不是 `index`（`index` 是括号那一格）。
+shape.Pos = ShapePosition.PosAt(host, host.Data, at);
 host.Data.splice(at, index - at + 1, shape);
 shape.Parent = host;
 return shape;

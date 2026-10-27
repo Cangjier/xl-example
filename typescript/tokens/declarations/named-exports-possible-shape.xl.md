@@ -8,6 +8,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { ShapePosition } from "../positions/shape-position.xl.md"
 import { NamedExportsShape } from "./named-exports-shape.xl.md"
 ```
 
@@ -94,21 +95,8 @@ if (index < 0 || !(host.Data[index] instanceof Bracket)) {
 const bracket = host.Data[index] as Bracket;
 const shape = NamedExportsShape.FromBracket(bracket, context);
 // Pos 是 `{` 前面那一格（`export` / `type`）的 End+1——括号外的那一格只有宿主看得见。
-let previous = -1;
-for (let at = index - 1; at >= 0; at--) {
-  if (!host.Data[at].IsTriviaToken) {
-    previous = at;
-    break;
-  }
-}
-if (previous >= 0) {
-  const previousEnd = host.Data[previous].SourceRange.EndIndex;
-  if (previousEnd >= 0) {
-    shape.Pos = previousEnd;
-  }
-} else if (bracket.SourceRange.StartIndex >= 0) {
-  shape.Pos = bracket.SourceRange.StartIndex;
-}
+// [R3:POS] 口径交给 `ShapePosition.PosAt`，见 named-imports 同款注释。
+shape.Pos = ShapePosition.PosAt(host, host.Data, index);
 host.Data.splice(index, 1, shape);
 shape.Parent = host;
 return shape;

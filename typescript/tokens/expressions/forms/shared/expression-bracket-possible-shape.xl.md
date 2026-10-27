@@ -15,6 +15,7 @@ import { NumericLiteralShape } from "../../../literals/numeric-literal-shape.xl.
 import { PropertyAssignmentShape } from "../../../members/property-assignment-shape.xl.md"
 import { ShorthandPropertyAssignmentShape } from "../../../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../../../members/spread-assignment-shape.xl.md"
+import { ShapePosition } from "../../../positions/shape-position.xl.md"
 import { BracketRole } from "../../../statements/bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "../../../statements/bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "../../../statements/bracket-role-resolver.xl.md"
@@ -310,32 +311,17 @@ return false;
 
 ## static method PosAt:(bracket:Bracket, units:Array<Token>, tokenIndex:int)=>int
 
-`Pos` 口径**与 `ExpressionBuilder.Load` 逐位相同**：从 `bracket.SourceRange.StartIndex + 1` 起，
-跳过 trivia，每遇到一个非 trivia 单元就把当前 `pos` 记给它，然后 `pos = 该单元的 End`。
-收口格会把括号里已建的原子交给 legacy 的 `Positions`，两边只有这一份算法才对得上
-（控制流头那种「自己的 `Start`」口径在这里是错的：`{ a: 1 }` 的名字格 `Pos` 是 `{`+1 = 10，不是 11）。
+`Pos` 口径**与 `ExpressionBuilder.Load` 逐位相同**，而这份口径就是 `ShapePosition.PosAt`（R3）：
+「`tokenIndex` 之前最近的 code 单元的 `End`；一格都没有就是**开启符 End**（`bracket.Start + 1`）」。
+两者对同一个 `index` 必然同答案——旧实现从 `StartIndex + 1` 往后逐格走、遇到非 trivia 就记一次
+`End`，走到 `tokenIndex` 停下，命中的就是同一个「上一个 code 单元」。
+
+[R3:POS] 收敛后本方法**只剩兼容壳**：括号里第一格的名字 `Pos` 是 `{`+1（`{ a: 1 }` 的 `a` 是 10，
+不是 11），这条正是 `ShapePosition.HostStart` 对 `Bracket` 的规则；留着这个签名是因为四个调用点
+（对象成员封口 / 短写 / 展开）都拿着 `bracket`，读起来比 `ShapePosition.PosAt(bracket, …)` 更窄。
 
 ```ts
-let pos = 0;
-if (bracket.SourceRange.StartIndex >= 0) {
-  pos = bracket.SourceRange.StartIndex + 1;
-}
-for (let index = 0; index < units.length; index++) {
-  const unit = units[index];
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  if (index === tokenIndex) {
-    return pos;
-  }
-  if (unit.SourceRange.EndIndex >= 0) {
-    pos = unit.SourceRange.EndIndex;
-  }
-}
-if (tokenIndex >= 0 && tokenIndex < units.length && units[tokenIndex].SourceRange.StartIndex >= 0) {
-  return units[tokenIndex].SourceRange.StartIndex;
-}
-return -1;
+return ShapePosition.PosAt(bracket, units, tokenIndex);
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
