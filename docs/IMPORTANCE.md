@@ -32,7 +32,7 @@ state和share的区别是：state是面向每一个possible的独立空间(compu
 
 ### bracket 晋升
 bracket和其他basic token不同的是bracket存在子集，如code block、class body、if body等等，如果等到bracket close时再possible，bracket.data将会存在大量basic token，因此bracket create时就需要触发possible。由此，possible有两个来源：close和bracket create。
-bracket create和close虽然都触发possible compute/build，但不同的是bracket create时形状可能确定，但bracket.data不是完整，形状无法完成。因此bracket create时将会install catalog possible，bracket.data将进行增量创建形状；并且当bracket create时，将根据场景配置bracket.HandleCloseDispatch，用于关闭时晋升或不处理。当bracket close时，如果bracket.HandleCloseDispatch不为空，将直接调用bracket.HandleCloseDispatch完成bracket 晋升（也可以不晋升，根据需要来）和相应的shape close，并不触发原close逻辑。
+bracket create和close虽然都触发possible compute/build，但不同的是bracket create时形状可能确定，但bracket.data不是完整，形状无法完成。因此bracket create时将会install catalog possible，bracket.data将进行增量创建形状；并且当bracket create时，将根据场景配置bracket.HandleCloseDispatch，用于关闭时晋升或不处理。当bracket close时，如果bracket.HandleCloseDispatch不为空，将直接调用bracket.HandleCloseDispatch完成bracket 晋升（也可以不晋升，根据需要来）和相应的shape close，并不触发原close逻辑（包括possible和end都不会触发）。
 
 ### 未消费的basic token
 当possible build时，可能不会全部basic token都进行消费，成为shape的信息。这些未消费的baisc token存在以下情况：
