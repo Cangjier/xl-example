@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../../core/syntax/possible-source.xl.md"
 import { Symbol } from "../../../../../core/syntax/basic-tokens/symbol.xl.md"
 import { CatalogGuide } from "../../../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShape } from "../../../../../core/syntax/possible-shape.xl.md"
@@ -32,7 +33,7 @@ import { CompositeInitializerJudge } from "./composite-initializer-judge.xl.md"
 shapes.push(new CompositeInitializerPossibleShape());
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 - 越界 / trivia → `Uncertain`（E0b 实测约束 1：`=` 与 trivia 必须保持存活，`Reject` 在本条目内永不回来）；
 - `Symbol("=")` → `Uncertain`（初始化器还没开始，目录整体等待）；
