@@ -2275,6 +2275,15 @@ if (ExpressionAtomRegistry.HasContainer(unit)) {
   this.At++;
   return unit;
 }
+// [R15:NESTED-TAG] 增量主候选建出的表达式根（`TaggedTemplatePrimaryPossibleShape` 的标签模板链）。
+// 与上面 `HasContainer` 同一条纪律：只认登记过的身份，不认任意 `ShapeToken`；表每文件清空，
+// 没有写入时这里只多一次 `Set.has` ⇒ legacy 产物一个字节不改。收口格在「根 + 根之后的成员访问」
+// 这一族上必须整条重建（`.b` 的续接面属于 A3 的 postfix 候选，没并进本目录），只有让 `ParsePrimary`
+// 把这个已建好的根当操作数收下，`.b` 才能接在它后面建成 `PropertyAccessExpression`。
+if (ExpressionAtomRegistry.HasNode(unit)) {
+  this.At++;
+  return unit;
+}
 if (unit instanceof Symbol && (unit as Symbol).Is("#")) {
   // PrivateIdentifier: the token layer splits `#x` into Symbol "#" + Common "x".
   // No Text field is set: TS PrivateIdentifier carries no `text` in the AST projection.

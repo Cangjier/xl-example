@@ -124,6 +124,19 @@ if (text === "<" && PrimaryAtomGuard.IsTypeArgumentCallAfter(unit)) {
 if (text === "*" || text === "+") {
   return ShapeStates.Reject;
 }
+// [R15:MEMBER-GRID] **成员访问的 `.` 不在本候选的写域**：`TextOf` 对任何 `Symbol` 都返回原文，所以
+// `.` / `?.` 也会走到这里。以前这一格靠 `HasLeftOperand` 挡住——左操作数还不是形状时确实挡得住；
+// 可一旦左操作数**已经是形状**（标签模板链 `a`x``x`` 收口成 `TaggedTemplateExpressionShape` 之后、
+// `.b` 那一格），本候选就会 `Accept` 一个不是运算符的 `.`，`BuildByIndex` 里
+// `OperatorShapeMap.CreateBinary(".")` 直接抛「expression 运算符 .」→ 文件级 fallback。
+// 只把**成员访问**这两个文本判死：`.` 的续接面是 A3 的 postfix 候选（尚未并进本目录），
+// 本候选认领它只能是抛错。其余非二元标点（`?` / `:` / `=>` / `!`）**故意保持原样**——
+// 它们在同一个目录里有真正的属主（条件 / 箭头 / 非空），本候选在那里只是「多一票 Waiting」，
+// 撤掉这一票会让属主提前建树（实测 `ex-ternary` / `expr-ternary-nested-right` 的三元结合性被打成
+// 左结合，`ConditionalExpression` 区间差 8/8+8）。
+if (text === "." || text === "?.") {
+  return ShapeStates.Reject;
+}
 if (!BinaryOperatorPossibleShape.HasLeftOperand(units, tokenIndex)) {
   return ShapeStates.Reject;
 }

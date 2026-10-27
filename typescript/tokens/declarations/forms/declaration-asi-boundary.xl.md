@@ -78,7 +78,8 @@ if (!(current instanceof Common)) {
 // `units` 里的单元（它由深层的 `VariableDeclarationShape` 当符号吃掉），所以 `CanEndStatement`
 // 看不到它。这一支只把「字符流里下一个显著字符就是宿主的 `}`」并进来，不新写第二套边界词法。
 if (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex)) {
-  if (!StatementBoundaryUtil.CanEndStatement(units, tokenIndex, false)) {
+  if (!StatementBoundaryUtil.CanEndStatement(units, tokenIndex, false)
+    && !DeclarationAsiBoundary.ShapeTailStartsStatement(units, tokenIndex)) {
     return false;
   }
 }
@@ -164,6 +165,51 @@ if (!DeclarationAsiBoundary.HasClosableShape(units, units.length)) {
 // （声明最后一个代码单元那一格、边界单元之前），所以并进同一条早收口判据里。
 return DeclarationAsiBoundary.StartsNewStatementLine(current)
   || DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex);
+```
+
+## static method ShapeTailStartsStatement:(units:Array<Token>, tokenIndex:int)=>bool
+
+**无类型注解的声明、初始化器根已经是一条建好的表达式形状**时，`Common` 格上的 `CanEndStatement` 答不了边界。
+
+`CanEndStatement → IsAsiBoundary → EndsAtLineBreak → EndsExpression(previous)` 只认**单元**（`Common` / `Symbol` /
+`Bracket` / `String`）：`previous` 是 `BinaryExpression` / `ConditionalExpression` 这类**已建形状**时一律 `false`。
+于是 `const a = x + y` ⏎ `const b = 2`（`in` / `instanceof` / `+` / `===` / `&&` / 三元同一个坑）里，
+声明在下一格收不了口，把**下一条语句整条吞进 `Data`**——终态 `VariableStatement` / `VariableDeclarationList` /
+`VariableDeclaration` / `Identifier` / `NumericLiteral` 各少一个，`in` 那一行连 `BinaryExpression` /
+`StringLiteral` / `InKeyword` 一起消失（`_reports/R8-basic-token-audit.md` #16 的实测形态；根因不是 for-in）。
+
+判据不新写，只用同一条既有事实：**「根是已建形状」=「表达式已长完」**——与 `CanCloseAtLineBreak` 的
+`shapeTail` 分支、`CanEndExpression` 的 `[B4i:K1-TAIL]`（关闭格上建出的容器是已结束的操作数）、
+`FinishIncremental` 的 `builtShape !== null` 是同一份口径；边界是否成立读同一份
+`StartsNewStatementLine`（跨行 + 下一行起一个不续接的单词）。
+
+三条反向边界：
+
+- **带类型注解的声明不在这里**（`HasAnnotationShape`）：`[D2:TYPED-TAIL]` 已经管这一档，且它的
+  `BlocksTypedTailClose`（`undici-types/index.d.ts` 的 `export` 那一格）不能被绕开——实测绕开会掉 14 个节点；
+- 上一格仍是 **basic 单元**（`Common` / `Symbol` / `String` / `Bracket` …）⇒ 交回 `CanEndStatement`，
+  本判据一个字都不改（`o.k + 1` ⏎ `const b = 2` 目前由原子建树在收口格整段建出，仍走原路）；
+- 括号尾（`Bracket`）不在这里：`(` / `[` / `{` 的收尾由 `CanEndExpression` 与容器登记表回答。
+
+**只在 `Common` 格（下一条语句首代码单元）生效**，不在行尾那一拍（`CanCloseAtLineBreak`）生效：
+提前一拍会把「形状落地」与「收口」并成同一拍（D2 实测的 14 个节点就是那么掉的）。
+
+```ts
+if (DeclarationAsiBoundary.HasAnnotationShape(units)) {
+  return false;
+}
+const previous = DeclarationAsiBoundary.LastCodeIndex(units, tokenIndex);
+if (previous < 0) {
+  return false;
+}
+const tail = units[previous];
+if (tail.IsBasicToken) {
+  return false;
+}
+if (tail instanceof Bracket) {
+  return false;
+}
+return DeclarationAsiBoundary.StartsNewStatementLine(tail);
 ```
 
 ## static method IsBlockHostBoundary:(units:Array<Token>, tokenIndex:int)=>bool
