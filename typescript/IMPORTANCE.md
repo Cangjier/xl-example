@@ -47,9 +47,11 @@
    需要注意的是：
    - shape **禁止用 `ExitOrPre` 结束自己**，禁止覆盖`ExitOrPre`。
    - shape 禁止覆盖 ComputePossibleShapes
-   - 被真实消费的baisc tokens一律丢弃，对未真实消费的basic tokens分为两种情况：
-      - 如果baisc tokens明确后续消费路线，则直接move并消费丢弃。
-      - 如果basic tokens不明确后续消费路线，则走`Reload Message`。
+   - 被真实消费的baisc tokens一律丢弃，对未真实消费的basic tokens分为以下情况【重要】：
+      - baisc tokens 应该被消费没有消费，这个是build方法的错误
+      - 按照形状预期，应该收到build的shape下面，由后续basic tokens关闭时/EOF触发消费
+      - 按照形状预期，应该继续挂载在原parent下面，并在build之后调用Reclose，基于build后的状态触发新的compute
+      - 其他情况，则走`Reload Message`。
 
    3.4 cache 的重要性：possible 与 build 两个阶段都要读同一份。
 
@@ -71,7 +73,7 @@
    - basic token 的数据必须在 **build 那一刻**就全部提取到 shape 字段上；basic token 用完即**丢弃**（由 `BuildByIndex` 从 `Data` 移除，或在 `Close` 里过滤掉）。
    - 形状 `Close` 之后 `Data` 就等价于 AST 的 children——只剩子节点形状。
    - AST 节点约定由 `ParseFromShape(shape)` 从关闭后的 shape 产出。
-   - 区间口径见第 4 条。
+   - 
 
 
 4. `typescript/cases/astjson/*.ts` 的用例规范：每个语句形态必须**先有一条 base**（不含任何干扰信息），
@@ -96,6 +98,7 @@
    - build时应该提取哪些信息
    - 什么时候close
    - 以及close时应该提取哪些信息
+   - build时未消费的basic tokens是不是处理不正确
 
 6. possible 质量标准
    质量等级为：差/一般/好
