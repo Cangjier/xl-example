@@ -128,6 +128,15 @@ if (this.SourceRange.Start < 0 || this.SourceRange.End < 0) {
 return this.Close(context);
 ```
 
+## method Reclose:(context:SyntaxContext)=>CloseStates
+
+把 `Closed` 重新置为 `false`，再调用 `Close` 一次。
+
+```ts
+this.Closed = false;
+return this.Close(context);
+```
+
 ## method MoveDataTo:(target:Token)=>void
 
 把所有子单元搬给 `target`，然后清空自己的。
