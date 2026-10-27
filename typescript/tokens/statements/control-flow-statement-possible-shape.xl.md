@@ -27,7 +27,7 @@ import { DirectStatementHook } from "../direct/direct-statement-hook.xl.md"
 
 # class ControlFlowStatementPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
