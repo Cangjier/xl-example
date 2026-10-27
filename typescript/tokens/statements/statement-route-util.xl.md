@@ -395,8 +395,22 @@ if (text === "import") {
   }
   if (next instanceof Common) {
     // `import x = require("m")` 是 import-equals 声明，留给 legacy；`import x from` 才是本族。
+    // **`import type x = require("m")` 的 `type` 是类型修饰词、不占名字位**，名字在它之后，
+    // 所以探 `=` 的落点要跳过 `type`。`import` 与 `type` 之间换行 / 夹注释照样是一条
+    // import-equals（`mod-import-equals-type-head-newline.ts` 实测两条都是），故此处**不比行终止符**。
+    // `type` 之后是 `{` / `*` / 名字+`from` 的三种类型导入，跳过之后探不到 `=`，仍走本族，行为不变。
+    let nameAt = nextAt;
+    if ((next as Common).Is("type")) {
+      const afterTypeAt = ItemUtil.NextCode(units, nextAt + 1);
+      // `import type = require("m")`：`type` 是别名本身、不是修饰词 ⇒ 仍按老行为交回 legacy。
+      if (afterTypeAt >= units.length
+        || (units[afterTypeAt] instanceof Symbol && (units[afterTypeAt] as Symbol).Is("="))) {
+        return StatementRoute.None;
+      }
+      nameAt = afterTypeAt;
+    }
     // 第二个代码单元之后的那格还没到时返回 None（= 等待，由 `IsDeclarationPending` 放行）。
-    const afterAt = ItemUtil.NextCode(units, nextAt + 1);
+    const afterAt = ItemUtil.NextCode(units, nameAt + 1);
     if (afterAt >= units.length) {
       return StatementRoute.None;
     }
