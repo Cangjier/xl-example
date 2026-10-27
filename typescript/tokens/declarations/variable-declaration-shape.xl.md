@@ -410,13 +410,35 @@ if (equalAt >= 0) {
   // [R5:SEMICOLON] 语句分号不参与初始化器：`let x: number = 1;` 的 `;` 属于语句层（legacy 的
   // `VariableDeclarationShape.Data` 里没有它），提前落地分支同样按这个口径过滤——但过滤不等于丢弃：
   // 记进 `TrailingSemicolon` 交还语句层（末尾那一个已由第 0 步摘走，这里兜住其余路径）。
+  //
+  // [R12:BLOCK-CLOSE] 块体收口的 `}` 也不属于初始化器。语句停在块末尾且没有 `;` 时
+  // （`function* gen() {` ⏎ `  const c = yield` ⏎ `}`），那个 `}` 是**外层块体括号的收口符**，
+  // 逐字符驱动会先把它当普通单元推进最内层挂载的形状（`BlockShape` → 语句 → 列表 → 声明），
+  // 于是它落在本形状的 `Data` 末尾。`Bracket` 已经是对象 / 数组字面量的形状，初始化器里
+  // **不可能**出现裸的 `Symbol("}")`，所以：
+  //   - 它是 `=` 之后的**最后一个代码单元** ⇒ 从 `raw` 里去掉（与「已建表达式根」那条路一致——
+  //     `const a = 1` ⏎ `}` 那一族本来就把它丢在 `kept` 之外）；
+  //   - 它后面还有代码单元 ⇒ 本判据不成立，一个字不改（宁可让下面的 C10 显式报错，不可静默截断）。
   const raw:Array<Token> = [];
-  for (const unit of rawSlice) {
+  for (let rawAt = 0; rawAt < rawSlice.length; rawAt++) {
+    const unit = rawSlice[rawAt];
     if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
       if (this.TrailingSemicolon === null) {
         this.TrailingSemicolon = unit;
       }
       continue;
+    }
+    if (unit instanceof Symbol && (unit as Symbol).Is("}")) {
+      let trailingCode = false;
+      for (let rest = rawAt + 1; rest < rawSlice.length; rest++) {
+        if (!rawSlice[rest].IsTriviaToken) {
+          trailingCode = true;
+          break;
+        }
+      }
+      if (!trailingCode) {
+        break;
+      }
     }
     raw.push(unit);
   }
