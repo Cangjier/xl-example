@@ -3,6 +3,7 @@
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { CatalogGuide } from "./catalog-guide.xl.md"
 import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl.md"
+import { PossibleSource } from "./possible-source.xl.md"
 import { Token } from "./token.xl.md"
 ```
 
@@ -26,17 +27,21 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 本单元挂着的目录向导；`null` 表示没挂。
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
 
 重算本单元目录里的候选。
 
-无参：触发者是谁由实现自己决定（`UnitToken` 的实现把自己转交给向导）。
+`source` 是本次判定的触发来源；**不传 = `PossibleSource.Close`**。实现应当把它原样透传给目录向导，不自己解释。
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
 
 按子单元下标重算本单元目录里的候选。
 
 无参版看全部子单元，本版只看 `tokenIndex` 那一个，留给「逐个喂子单元」的调用方。
+
+`source` 同上：可选尾参，**不传 = `PossibleSource.Close`**。
+
+候选自己的 `PossibleShape.Compute` / `ComputeByIndex` **签名不变**——来源经 `PossibleShapeCache.Source` 透传，所以 117 个候选不需要改签名就能读到它（需要读的候选在 T3 及之后自己取）。
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
 
