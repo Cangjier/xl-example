@@ -4,10 +4,9 @@ import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { BracketRoleHook } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { BracketCatalogInstaller } from "./bracket-catalog-installer.xl.md"
-import { BracketRoleResolver } from "./bracket-role-resolver.xl.md"
-import { BracketRoleState } from "./bracket-role-resolver.xl.md"
-import { DeferredBracketCatalog } from "./deferred-bracket-catalog.xl.md"
+import { ControlHeadPossibleShape } from "./control-head-possible-shape.xl.md"
+import { ExpressionBracketPossibleShape } from "../expressions/forms/shared/expression-bracket-possible-shape.xl.md"
+import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 ```
@@ -79,39 +78,42 @@ BracketRoleCatalogHook.Installed = true;
 
 `Bracket.Transit` 在 `OnBracketCreatedEvent`（族收尾）**之后**调用一次。
 
-先做 B0 的角色装配（只在 `EnableBracketRoleCatalog` 为真时）——三路分派，只按 `Resolve` 的 `State`：
+先做 B0 的角色装配（只在 `EnableBracketRoleCatalog` 为真时）——但 [T7c] 起，**装什么、装不装由候选决定**：
+本方法只按固定顺序把 `(host, bracket, context)` 交给四线的 `InstallAtBracketCreated`，
+第一个返回 `true` 的候选负责这一格，后续不再问。
 
-1. `Known` ⇒ `BracketCatalogInstaller.Install`（幂等；族已装时只 `SetEndPossible`）；
-2. `Deferred` ⇒ 打 `RoleState` 标记 + `DeferredBracketCatalog.Register`（**不装任何目录**）；
-3. `Fallback` ⇒ 只打 `RoleState` 标记（计数已经在 `Resolve` 里做过），交 legacy 收口。
+1. `MemberShellCatalog`（成员外壳的 `(` / `{`，安装点本来就在候选类里）；
+2. `ControlHeadPossibleShape`（控制头的 `(`，角色 `ControlHead`）；
+3. `ExpressionBracketPossibleShape`（表达式括号，四个表达式角色）；
+4. `ParameterListPossibleShape`（参数表 `(`，角色 `ParameterList`；`[` 只推进 Probe）。
 
-角色目录装配到此结束：[T7b] 本方法**不再**在末尾追加 `BracketCreate` 判定。创建拍的两个来源由
-`Bracket.Transit` 在本方法返回之后直接问（新括号自己 + 父宿主窄域），本方法因此只写
-`RoleState` / `Role` / `CatalogGuide`，不重算任何候选格。
+`Resolve` / `Install` / `Register` 与 `RoleState` / `Role` 的写入都已从这里删除：它们分别落在
+四条线的 `InstallAtBracketCreated` 里，`BracketCatalogInstaller.Install` 仍是唯一的安装动作（幂等）。
+
+**[T7c] 本方法已是纯分派外壳**：不再自己 `Resolve` / `Install` / `Register`，也不再写
+`RoleState` / `Role`。四线的判据与安装动作全部在候选自己的 `InstallAtBracketCreated` 里，
+顺序 = MemberShell（成员方法 `(` / 成员体）→ ControlHead → ExprBracket → ParameterList；
+每个候选返回 `true` 表示「这只括号归我，已处理」，分派即停。
 
 ```ts
 if (bracket === null || !(bracket instanceof Bracket)) {
   return;
 }
 const shape = bracket as Bracket;
-if (StatementRouteUtil.EnableBracketRoleCatalog) {
-  // [B1b] 参数表里的 `[`（`A[]` 的数组括号）在**创建格**推进一步参数表 Probe：
-  // core 的「安全重算」只对 `{` 生效，`[` 本来要等 `]` 那一格才包出 `ArrayTypeShape`。
-  // 只认已经登记过参数表状态的括号（`FindState`），其余 `[` 一个字节都不碰。
-  if (host instanceof Bracket) {
-    ParameterListPossibleShape.StepAtBracketCreated(host as Bracket, bracket as Bracket, context);
-  }
-  const plan = BracketRoleResolver.Resolve(host, bracket, context);
-  if (plan.IsKnown()) {
-    BracketCatalogInstaller.Install(shape, plan, context);
-  } else if (plan.IsDeferred()) {
-    shape.RoleState = BracketRoleState.Deferred;
-    shape.Role = plan.Role;
-    DeferredBracketCatalog.RegisterWithKey(bracket, plan.Owner, plan.OwnerKey, context, plan);
-  } else {
-    shape.RoleState = BracketRoleState.Fallback;
-    shape.Role = plan.Role;
-  }
+if (!StatementRouteUtil.EnableBracketRoleCatalog) {
+  return;
 }
+// 四线按「最窄 → 最宽」分派：成员方法 / 控制头 / 表达式括号 / 参数表。
+// 每条线只在自己认得这只括号与它的角色时返回 true 并完成（幂等的）安装。
+if (MemberShellCatalog.InstallAtBracketCreated(host, shape, context)) {
+  return;
+}
+if (ControlHeadPossibleShape.InstallAtBracketCreated(host, shape, context)) {
+  return;
+}
+if (ExpressionBracketPossibleShape.InstallAtBracketCreated(host, shape, context)) {
+  return;
+}
+ParameterListPossibleShape.InstallAtBracketCreated(host, shape, context);
 ```
 

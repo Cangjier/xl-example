@@ -22,6 +22,7 @@ import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { BracketRole } from "../statements/bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "../statements/bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
+import { BracketCatalogInstaller } from "../statements/bracket-catalog-installer.xl.md"
 ```
 
 # namespace cangjie
@@ -979,6 +980,39 @@ if (!ParameterListPossibleShape.IsSimpleList(bracket)) {
 const state = ParameterListPossibleShape.EnsureState(bracket.Data);
 state.Bracket = bracket;
 ParameterListPossibleShape.MountCount += 1;
+return true;
+```
+
+## static method InstallAtBracketCreated:(host:Token, bracket:Bracket, context:SyntaxContext)=>bool
+
+**[T7c] 参数表线的创建拍入口**（由 `BracketRoleCatalogHook.OnBracketCreated` 分派，安装动作在候选里）：
+
+- `(`：角色解析到 `ParameterList` 才装。安装走同一个 `BracketCatalogInstaller.Install`（幂等），
+  所以族 hook 已经装过的括号只会得到 `AlreadyInstalled`，一个字节都不改。
+- `[`：参数表里的数组括号在创建格推进一步 `Probe`（`StepAtBracketCreated`），
+  与旧 hook 的 `[B1b]` 行为逐字相同；它不装目录，返回 `true` 只是让分派停在这里。
+
+```ts
+if (!(bracket instanceof Bracket)) {
+  return false;
+}
+const shape = bracket as Bracket;
+if (shape.StartBracketChar === "[") {
+  if (!(host instanceof Bracket)) {
+    return false;
+  }
+  ParameterListPossibleShape.StepAtBracketCreated(host as Bracket, shape, context);
+  return true;
+}
+if (shape.StartBracketChar !== "(") {
+  return false;
+}
+ParameterListPossibleShape.EnsureRegistered();
+const plan = BracketRoleResolver.Resolve(host, shape, context);
+if (!plan.IsKnown() || plan.Role !== BracketRole.ParameterList) {
+  return false;
+}
+BracketCatalogInstaller.Install(shape, plan, context);
 return true;
 ```
 

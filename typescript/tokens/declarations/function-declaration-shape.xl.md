@@ -194,11 +194,9 @@ if (!ParameterListPossibleShape.InstallIfSimple(host, bracket, context)) {
 FunctionDeclarationShape.PromoteName(host, bracket, context);
 StatementRouteUtil.EnableBracketRoleCatalog = true;
 BracketRoleCatalogHook.EnsureInstalled();
-ParameterListPossibleShape.EnsureRegistered();
-const plan = BracketRoleResolver.Resolve(host, bracket, context);
-if (plan.IsKnown()) {
-  BracketCatalogInstaller.Install(bracket, plan, context);
-}
+// [T7c] 角色解析与安装搬进候选（`ParameterListPossibleShape.InstallAtBracketCreated`）：
+// 这里只保留 B1 的「简单参数表」前置、名字提前建与总闸装配，不再自己 Resolve / Install。
+ParameterListPossibleShape.InstallAtBracketCreated(host, bracket, context);
 ```
 
 ## static method OpenFunctionBody:(host:FunctionDeclarationShape, body:Bracket, context:SyntaxContext)=>BlockShape
