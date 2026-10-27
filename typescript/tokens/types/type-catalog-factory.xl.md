@@ -90,6 +90,19 @@ return "";
 只是这里要跨行看（`as T` ⏎ `;` 的换行不算「还能继续」）。
 
 ```ts
+return TypeCatalogFactory.NextSignificantText(unit, 1);
+```
+
+## static method NextSignificantText:(unit:Token, take:int)=>string
+
+`NextSignificantChar` 的推广：返回 `unit` 之后**前 `take` 个**非空白 / 非注释字符
+（不足 `take` 个时返回实际拿到的那几个；一个也没有返回 `""`）。口径与 `NextSignificantChar`
+逐字相同（同一套空白字符 / 两种注释跳过 / 跨行），`take === 1` 时与旧实现逐字节一致。
+
+为什么要多看一个字符：`CanEndInitializer` 要区分**单个 `=`**（初始化器终点，旧行为）
+和 `==` / `===`（二元比较符，初始化器还没长完，见该方法）。只读一个字符看不清。
+
+```ts
 const range = unit.SourceRange;
 let document = range.Document;
 if (document === null) {
@@ -100,7 +113,8 @@ if (document === null || range.EndIndex < 0) {
 }
 const count = document.GetCount();
 let at = range.EndIndex;
-while (at < count) {
+let text = "";
+while (at < count && text.length < take) {
   const ch = document.GetValue(at);
   if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
     at += 1;
@@ -126,11 +140,14 @@ while (at < count) {
       }
       continue;
     }
-    return "/";
+    text += "/";
+    at += 1;
+    continue;
   }
-  return ch;
+  text += ch;
+  at += 1;
 }
-return "";
+return text;
 ```
 
 ## static method CanEndType:(unit:Token)=>bool
@@ -149,12 +166,26 @@ return TypeCatalogFactory.TypeContinuation.indexOf(next) < 0;
 
 初始化器是否已经可以落地：后面要么输入结束、要么是语句/声明分隔符。
 
+`InitializerEnd` 里的 `=` 只认**单个等号**：`==` / `===` 是二元比较符，初始化器在 `=` 处落地
+就把比较符右半截留在了外面。实测（`tests/cases/token/expressions/expr-as-then-value-operator.ts`）：
+
+- `const eq = a as number === 1;`：类型面在 `number` 格落地 ⇒ 根是 `AsExpression`
+  ⇒ 收口格 `declaration 初始化器根之外还有代码` ⇒ 整文件回退 legacy；
+- `const eq = (a as number) === 1;`：同一处，`(a as number)` 在 `)` 格落地。
+
+改成「`=` 后面还是 `=` 就不算终点」之后，两条都等到 `;` / 输入结束那一格整条 `ParseInitializer`
+（legacy 同一个建造器）——树与 legacy 同源，不是第二种表达式机。`=>`（第二字符是 `>`）不受影响，
+`(x: T) => …` 的既有落地时机一个字不变；单个 `=` 的旧行为也一个字不变。
+
 ```ts
-const next = TypeCatalogFactory.NextSignificantChar(unit);
-if (next === "") {
+const pair = TypeCatalogFactory.NextSignificantText(unit, 2);
+if (pair === "") {
   return true;
 }
-return TypeCatalogFactory.InitializerEnd.indexOf(next) >= 0;
+if (pair.length >= 2 && pair[0] === "=" && pair[1] === "=") {
+  return false;
+}
+return TypeCatalogFactory.InitializerEnd.indexOf(pair[0]) >= 0;
 ```
 
 ## static method ParseType:(units:Array<Token>, basePos:int, template:Template, context:SyntaxContext)=>Token | null
