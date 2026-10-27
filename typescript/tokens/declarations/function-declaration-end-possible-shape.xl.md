@@ -104,18 +104,51 @@ return ShapeStates.Reject;
   "while", "do", "switch", "try", "throw", "return", "break", "continue", "debugger"]
 ```
 
-## static method StartsNewDeclarationLine:(unit:Token)=>bool
+## static field HeadContinuationWords:Array<string> = ["extends", "implements", "infer", "is", "asserts", "readonly", "unique", "keyof", "typeof", "new"]
 
-[W5:FUNCTION-ASI] 下一行是否起一条**新的声明 / 语句**：只认声明或语句的**首词**闭集。
+[R16:DECL-ASI] 能**把函数声明的头部接着写下去**的下一行首词闭集（跨行换行不是 ASI 的那几个）：
 
-不用 `DeclarationAsiBoundary.StartsNewStatementLine` 的「任意标识符起头」口径：函数声明的头部
-可以跨行继续（`function f<T` ⏎ `extends U>`、`function g(x): asserts x` ⏎ `is string`），
-那里下一行是 `extends` / `is` 这样的**续接词**，收口就是错树（实测会把
-`gap-sweep-newline-generic-03` / `gap-r931-asserts-is-newline` 打成 fallback）。
-闭集之外的词一律继续等：漏收的代价是走到 EOF（`SourceFileEndPossibleShape` 有兜底），不会静默丢语句。
+- `extends` / `infer`：`function f<T` ⏎ `extends U>`、条件类型的 `A extends infer B`；
+- `is` / `asserts`：`function g(x): asserts x` ⏎ `is string`（`gap-r931-asserts-is-newline` 那一族）；
+- `implements`：类声明头（同一份判据服务 `class` 壳的邻居形态，保守起见一并列）；
+- `readonly` / `unique` / `keyof` / `typeof` / `new`：类型位上的前缀运算符 / 修饰词。
+
+**不复用 `StatementTokenSets.IsExpressionContinuation`**：那个闭集只回答「表达式能不能续接」
+（`in` / `instanceof` / `as` / `satisfies`），这些词由 `DeclarationAsiBoundary.StartsNewStatementLine`
+自己否决；上列这些是**声明头**的续接词，与该闭集不是同一个问题（闭集没有 `extends` / `is`）。
 
 ```ts
-// 开关门控：默认路径（增量形状关）逐字节不变——本判据只服务增量挂壳这条路。
+["extends", "implements", "infer", "is", "asserts", "readonly", "unique",
+  "keyof", "typeof", "new"]
+```
+
+## static method StartsNewDeclarationLine:(unit:Token)=>bool
+
+[W5:FUNCTION-ASI] 下一行是否起一条**新的声明 / 语句**。
+
+[R16:DECL-ASI] 原判据只认 `StatementHeadWords` 的**首词闭集**（声明 / 语句关键字），于是
+「声明头已经完整、下一行是一条**标识符起头**的表达式语句」这一格永远判不出边界：
+`declare function f<T>(): T` ⏎ `f<string>;` 里壳把 `f < string > ;` 整条吞进 `FunctionDeclaration`，
+终态少 `ExpressionStatement` / `ExpressionWithTypeArguments` / `Identifier` / `StringKeyword`
+（`_reports/R8-basic-token-audit.md` #19；`function f(): T` ⏎ `f()` 同形）。`f` 不是关键字，
+闭集里没有它，壳一路吃到 EOF，`BuildByIndex` 在无体（`ambient`）分支里把下一条语句丢掉。
+
+判据分两层，两层都不是新写的边界词法：
+
+1. 首词命中 `StatementHeadWords` ⇒ 是（原判据逐字保留，`declare` / `function` / `const` … 那一档不变）；
+2. 否则读 `DeclarationAsiBoundary.StartsNewStatementLine`——**全仓唯一一份**「跨过一个行终止符 +
+   下一行起一个不续接的单词」的字符级前瞻（`CanClose` / `CanCloseAtLineBreak` /
+   `ShapeTailStartsStatement` 用的都是它），先否决 `HeadContinuationWords`（声明头的续接词）。
+
+**开关门控保持原样**（`if (!StatementRouteUtil.IsIncrementalShapesEnabled()) return false`）：
+这条判据服务的是「壳提前挂出、后续 raw 单元进壳」那条路（`FunctionDeclarationPossibleShape`
+的 `MountShell` 分支，只在 `IsIncrementalShapesEnabled()` 里）；`--legacy` 档的原子建树
+（`FromUnits` 一次建两条 / `SplitAt`）不走本候选，`wide-ast --legacy` 0/0/2 逐字不变。
+**实测口径**：`EnableIncrementalShapes` 的默认值就是 `true`（`statement-route-util.xl.md`），
+所以「默认 true 档」= 本判据生效的那一档 = `tshape-judge` / `wide-ast` / `tts` 的读数；
+开关压回 `false` 的那一档（`--legacy`）在**修前就已经是 ok**（矩阵 §3 左列）。
+
+```ts
 if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
   return false;
 }
@@ -123,7 +156,13 @@ const word = DeclarationAsiBoundary.NextLineWord(unit);
 if (word === "") {
   return false;
 }
-return FunctionDeclarationEndPossibleShape.StatementHeadWords.includes(word);
+if (FunctionDeclarationEndPossibleShape.StatementHeadWords.includes(word)) {
+  return true;
+}
+if (FunctionDeclarationEndPossibleShape.HeadContinuationWords.includes(word)) {
+  return false;
+}
+return DeclarationAsiBoundary.StartsNewStatementLine(unit);
 ```
 
 ## static method IsOpenTail:(unit:Token)=>bool
