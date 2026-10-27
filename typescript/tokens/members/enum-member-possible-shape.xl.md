@@ -9,6 +9,7 @@ import { EnumMemberShape } from "./enum-member-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { MemberShellFamily } from "../types/member-shell-catalog.xl.md"
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
@@ -233,7 +234,7 @@ enum E { "a" = 1 }
 enum E { 1 = 1 }
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
