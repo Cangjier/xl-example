@@ -406,6 +406,54 @@ return LineTerminator.HasBefore(units, at);
 return StatementScanner.IsDecoratedDeclarationStart(units, at);
 ```
 
+## static method BuildAsiSplitModifier:(host:Token, start:int, context:SyntaxContext)=>ExpressionStatementShape
+
+[R12] `async` / `declare` 与 `function` 之间出现行终止符时，TS 是**两条语句**：
+
+    async      ⏎ function f() {}    ⇒  ExpressionStatement(Identifier "async") + FunctionDeclaration(f)
+    declare    ⏎ function f(): void ⇒  ExpressionStatement(Identifier "declare") + FunctionDeclaration(f)
+
+修饰词那一半在这里建（`ExpressionStatement > IdentifierShape`，`Pos` 取前一个代码单元的 `EndIndex`，
+文件首语句为 0）。**同一份实现**服务两个调用点：`BuildByIndex` 的 legacy 分支（一次建两条）与增量分支
+（修饰词 + 声明壳）——判据只有「`SplitDeclare` 且 `FunctionAt > start`」这一条，不在两处各写一遍。
+
+```ts
+let modifierAt = start;
+while (modifierAt < host.Data.length && host.Data[modifierAt].IsTriviaToken) {
+  modifierAt++;
+}
+const modifierUnit = host.Data[modifierAt];
+if (!(modifierUnit instanceof Common)) {
+  throw new Error("declare function: missing declare keyword");
+}
+// 文件首语句的 Pos 要含前导 trivia（TS 口径：第一条语句 pos=0）；没有前一代码单元时就是 0，
+// 不能退回到修饰词自己的起点（`// c` ⏎ `async` ⏎ `function` 的 pos 必须是 0 而不是 5）。
+let expressionPos = 0;
+for (let at = start - 1; at >= 0; at--) {
+  if (!host.Data[at].IsTriviaToken) {
+    const end = host.Data[at].SourceRange.EndIndex;
+    if (end !== null) {
+      expressionPos = end;
+    }
+    break;
+  }
+}
+const expression = new ExpressionStatementShape(host.Template);
+const identifier = IdentifierShape.FromBasicToken(modifierUnit as Common, context);
+identifier.Pos = expressionPos;
+expression.Expression = identifier;
+expression.Add(identifier);
+if (modifierUnit.SourceRange.StartIndex >= 0) {
+  expression.SignIn(modifierUnit.SourceRange.Start);
+}
+if (modifierUnit.SourceRange.EndIndex >= 0) {
+  expression.SignOut(modifierUnit.SourceRange.End);
+}
+expression.Pos = expressionPos;
+expression.TryToClose(context);
+return expression;
+```
+
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
@@ -432,44 +480,31 @@ if (start > tokenIndex) {
 if (StatementRouteUtil.IsIncrementalShapesEnabled()) {
   const shell = new FunctionDeclarationShape(host.Template);
   shell.CatalogGuide = new CatalogGuide([], new FunctionDeclarationEndPossibleShape());
+  // [R12:ASI-SPLIT] 与 legacy 的 `SplitDeclare` 分支**同一条判据**（`async` / `declare` ⏎ `function`）：
+  // 增量分支原来把修饰词和 `function` 一起挂进同一个壳，壳的 builder 便把 `async` 收成 `AsyncKeyword`
+  // ——TS 那边它是**独立的 ExpressionStatement + Identifier**（`structural` 差 `ExpressionStatement-1`
+  // `Identifier-1` `AsyncKeyword+1`）。这里先建修饰词那一半，再把壳从 `function` 起挂出：
+  // 壳的 `Data` 因此以 `function` 开头，builder 建出的是非 async 的声明，`Pos` 仍由 `MountShell` 按
+  // 「前一代码单元的 EndIndex」取（`async` 的末尾 = TS 的 `node.pos`）。
+  if (state !== null && state.SplitDeclare && state.FunctionAt > start
+    && state.FunctionAt < host.Data.length
+    && host.Data[state.FunctionAt] instanceof Common
+    && (host.Data[state.FunctionAt] as Common).Is("function")) {
+    const modifier = FunctionDeclarationPossibleShape.BuildAsiSplitModifier(host, start, context);
+    const mounted = BodyGuideUtil.MountShell(host, state.FunctionAt, tokenIndex, shell, context);
+    // `MountShell` 只吃掉 `[FunctionAt..tokenIndex]`；修饰词那几个 raw 单元还在壳前面，换成建好的语句。
+    host.Data.splice(start, state.FunctionAt - start);
+    host.Data.splice(start, 0, modifier);
+    modifier.Parent = host;
+    return mounted;
+  }
   return BodyGuideUtil.MountShell(host, start, tokenIndex, shell, context);
 }
 if (state !== null && state.SplitDeclare && state.FunctionAt > start) {
-  let declareAt = start;
-  while (declareAt < host.Data.length && host.Data[declareAt].IsTriviaToken) {
-    declareAt++;
-  }
-  const declareUnit = host.Data[declareAt];
-  if (!(declareUnit instanceof Common)) {
-    throw new Error("declare function: missing declare keyword");
-  }
-  // 文件首语句的 Pos 要含前导 trivia（TS 口径：第一条语句 pos=0）；没有前一代码单元时就是 0，
-  // 不能退回到修饰词自己的起点（`// c` ⏎ `async` ⏎ `function` 的 pos 必须是 0 而不是 5）。
-  let expressionPos = 0;
-  for (let at = start - 1; at >= 0; at--) {
-    if (!host.Data[at].IsTriviaToken) {
-      const end = host.Data[at].SourceRange.EndIndex;
-      if (end !== null) {
-        expressionPos = end;
-      }
-      break;
-    }
-  }
-  const expression = new ExpressionStatementShape(host.Template);
-  const identifier = IdentifierShape.FromBasicToken(declareUnit as Common, context);
-  identifier.Pos = expressionPos;
-  expression.Expression = identifier;
-  expression.Add(identifier);
-  if (declareUnit.SourceRange.StartIndex >= 0) {
-    expression.SignIn(declareUnit.SourceRange.Start);
-  }
-  if (declareUnit.SourceRange.EndIndex >= 0) {
-    expression.SignOut(declareUnit.SourceRange.End);
-  }
-  expression.Pos = expressionPos;
-  expression.TryToClose(context);
+  const expression = FunctionDeclarationPossibleShape.BuildAsiSplitModifier(host, start, context);
   const declaration = FunctionDeclarationShape.FromUnits(host, state.FunctionAt, tokenIndex, context);
-  declaration.Pos = declareUnit.SourceRange.EndIndex < 0 ? 0 : declareUnit.SourceRange.EndIndex;
+  const modifierEnd = expression.SourceRange.EndIndex;
+  declaration.Pos = modifierEnd < 0 ? 0 : modifierEnd;
   host.Data.splice(start, tokenIndex - start + 1, expression, declaration);
   expression.Parent = host;
   declaration.Parent = host;

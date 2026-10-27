@@ -66,6 +66,14 @@ if (current.IsTriviaToken) {
 }
 if (current instanceof Symbol) {
   const text = (current as Symbol).TempToString();
+  // [R12:BLOCK-CLOSE] 裸的 `}` 是**外层块体括号的收口符**，不是本声明的续接：初始化器里的对象字面量
+  // 是 `Bracket`（`StartBracketChar === "{"`），`}` 符号不可能出现在这条表达式里。语句停在块末尾且
+  // 没有 `;` 时（`function* gen() {` ⏎ `  const c = yield` ⏎ `}`），逐字符驱动会先把 `}` 当普通单元
+  // 送进最内层挂载的形状；这里必须**先收口**，`}` 才能回到块体括号上（否则块体的终点会多吞掉 `}` 之后
+  // 那个换行——实测 `Block` / `FunctionDeclaration` 各多 1 字节）。判据只看这一个符号：其余格子一个字不改。
+  if (text === "}") {
+    return ShapeStates.Accept;
+  }
   // [D0:CONTINUATION] 任何已注册形态认领这一格 ⇒ 继续等，不再逐形态手写白名单。
   // 这是「初始化器位置上的未知 token 交给表达式目录」的唯一通用入口（`ExpressionContinuationCatalog`）；
   // 认领 = `PossibleShape.ContinuationClaim` 为真，语义是「继续等」，不是「支持」。
