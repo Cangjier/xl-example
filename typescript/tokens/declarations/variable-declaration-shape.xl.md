@@ -67,6 +67,18 @@ let x = 1;
 
 [WP-A5] `as` / `satisfies` 初始化器是否已经提前落地（落地后 `Data` 里是唯一的表达式形状根）。
 
+## field TrailingSemicolon:Token | null = null
+
+[R5:SEMICOLON] **语句分号不是本形状的子节点**（TS 的 `VariableDeclaration` 里也没有 `;`，它的区间止于初始化器
+最后一个字符），但它同样**不是可以静默丢掉的 trivia**：`FinishIncremental` 提取字段时把末尾那个 `;` 摘出来
+记在这里，由 `VariableStatementShape.TryToClose` 在收口时**收下**（`;` 进语句自己的 `Data`，语句终点因此是
+分号的 `End`，`const a = 1;` 无结尾换行 → `[0,12)`，与 TS 的 `VariableStatement [0,12)` 对齐）。
+`null` = 本条声明没有待交还的分号；交还之后由语句层清空，不会重复收下。
+
+```ts
+null
+```
+
 ## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
 
 ```ts
@@ -314,6 +326,9 @@ return super.TryToClose(context);
 ## method FinishIncremental:(context:SyntaxContext)=>void
 
 ```ts
+// 0) [R5:SEMICOLON] 末尾的语句分号**先摘出来交还给语句层**（`TrailingSemicolon`）：本形状不拥有它，但也不能
+//    静默丢掉它——`VariableStatementShape` 收下之后，语句终点才会是分号的 `End`（`const a = 1;` → 12）。
+this.TakeTrailingSemicolon();
 // 1) 先提取：第一个非 trivia 单元是标识符，之后可选「类型注解的类型节点」，然后是「`=` + 初始化器」。
 //    [WP-A5] `:` 注解与 `as` / `satisfies` 由 `TypeCatalogFactory` 在字符流里提前建好：
 //    类型节点已经作为唯一的非 basic 子节点放在标识符之后（`AnnotationDone`），这里只把它收下。
@@ -339,8 +354,12 @@ for (let at = 0; at < this.Data.length; at++) {
       break;
     }
     if (text === ";") {
-      // [WP-A5] 语句分号：本条声明的 `;` 属于语句层（`VariableStatementShape` 的收口），
-      // 本形状不保留它——legacy 的 `VariableDeclarationShape.Data` 里也没有 `;`。
+      // [R5:SEMICOLON] 语句分号：本形状不保留它（legacy 的 `VariableDeclarationShape.Data` 里也没有 `;`），
+      // 但也**不丢**——记进 `TrailingSemicolon` 交给语句层收口。末尾那一个已由第 0 步摘走，走到这里的是
+      // 「声明中间出现分号」这种不该发生的形态：仍然只记录、不吞掉，保证语句终点能拿到分号的 `End`。
+      if (this.TrailingSemicolon === null) {
+        this.TrailingSemicolon = unit;
+      }
       continue;
     }
     throw new Error("增量变量形状未支持：declaration " + text);
@@ -371,11 +390,15 @@ if (equalAt >= 0) {
     basePos = equalUnit.SourceRange.StartIndex;
   }
   const rawSlice:Array<Token> = this.Data.slice(equalAt + 1);
-  // [WP-A5] 语句分号不参与初始化器：`let x: number = 1;` 的 `;` 属于语句层（legacy 的
-  // `VariableDeclarationShape.Data` 里没有它），提前落地分支同样按这个口径过滤。
+  // [R5:SEMICOLON] 语句分号不参与初始化器：`let x: number = 1;` 的 `;` 属于语句层（legacy 的
+  // `VariableDeclarationShape.Data` 里没有它），提前落地分支同样按这个口径过滤——但过滤不等于丢弃：
+  // 记进 `TrailingSemicolon` 交还语句层（末尾那一个已由第 0 步摘走，这里兜住其余路径）。
   const raw:Array<Token> = [];
   for (const unit of rawSlice) {
     if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+      if (this.TrailingSemicolon === null) {
+        this.TrailingSemicolon = unit;
+      }
       continue;
     }
     raw.push(unit);
@@ -541,5 +564,31 @@ for (const item of kept) {
 // 3) EOF 收口时驱动层先按文件长度 `SignOut`，尾随 trivia（换行 / 空格 / 注释）已经被第 2 步丢掉；
 //    声明的终点必须回到最后一个**保留**的子节点（identifier / 类型 / 初始化器），否则
 //    `let x = 1\n` 的声明会多吞一个换行（TS 是 [3,9)，不是 [3,10)）。
+//    分号已经在第 0 步摘走，所以这里裁掉的只可能是 trivia，**不会**裁掉语句的 `;`（R5）。
 this.TrimEndToLastCode();
+```
+
+## private method TakeTrailingSemicolon:()=>void
+
+[R5:SEMICOLON] 从 `Data` 里摘下**末尾的语句分号**，记进 `TrailingSemicolon` 交给语句层收口。
+
+判据只有一条：从末尾往前跳过 trivia，第一个代码单元是 `Symbol(";")` 就摘走。
+为什么必须摘：TS 的 `VariableDeclaration` 不含 `;`（`const a = 1;` 的声明是 `[6,11)`），所以它不能留在本形状的
+`Data` 里；为什么必须**记**：它也不能像 trivia 那样被丢掉——`const a = 1;` 的语句终点是 12（分号的 `End`），
+丢掉之后语句只能退到初始化器终点 11（R5 的 `moved VariableStatement 0-12 vs 0-11`）。
+
+只摘**一个**：一条声明最多一个语句分号；中间的分号由 `FinishIncremental` 的两个过滤分支兜住（同样只记录）。
+
+```ts
+for (let at = this.Data.length - 1; at >= 0; at--) {
+  const unit = this.Data[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (unit instanceof Symbol && (unit as Symbol).Is(";")) {
+    this.TrailingSemicolon = unit;
+    this.Data.splice(at, 1);
+  }
+  return;
+}
 ```
