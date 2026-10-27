@@ -51,6 +51,7 @@ bracket create和close虽然都触发possible compute/build，但不同的是bra
 n=4000 时相差约 **340 倍**，曲线从二次变平。
 
 ### shape转ast node
+- 最终 shape 树应当与 TS AST 同构
 - basic token 的数据必须在 **build 那一刻**就全部提取到 shape 字段上；basic token 用完即**丢弃**（由 `BuildByIndex` 从 `Data` 移除，或在 `Close` 里过滤掉）。
 - 形状 `Close` 之后 `Data` 就等价于 AST 的 children——只剩子节点形状。
 - AST 节点约定由 `ParseFromShape(shape)` 从关闭后的 shape 产出。
