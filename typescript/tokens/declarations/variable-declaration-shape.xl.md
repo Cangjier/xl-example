@@ -272,11 +272,25 @@ if (last <= equal) {
 // 的反例：那正是所有权切换后的正常形态（`let x = { a: 1 } as T` 的 `{ a: 1 }`）。
 // 这一段整条交给 `ParseInitializer`（legacy 同一建造器，`ParsePrimary` 认 `HasContainer` 直接消费），
 // 所以这里放行容器，只保留「其它非 basic 单元 ⇒ 让路」的旧判据。
+//
+// [R11:SHAPE-HEAD] 同一面的另一半：左操作数是**形状目录建出的表达式形状**而不是容器
+// （`const q = f() as T!` 的 `f()`、`a.b as T` 的成员链、`f()! as T` 的非空断言）。
+// 旧判据把它当成「表达式候选已经接管」⇒ 让路，于是整条 `as` 没人建：`AsExpression` 缺、
+// 声明的终点缩到 `f()` 为止（`as T` 被静默丢掉），而 `!` / `[` 那一格还会落到终结候选的
+// `throw`（`增量变量形状未支持：declaration 符号 !` / `declaration 括号`）。
+// `ParsePrimary` 不认任意形状，所以这一支走 `ParseInitializerFrom`（从该形状继续的同一条
+// `ExpressionBuilder`：`ParseBinaryFrom` 的 `IsTypeOperator` → legacy `ParseFollowingType`）。
+// 只放行**唯一一个**这样的形状：出现第二个非 basic 单元仍是「多根」，逐字让路（C10）。
+let builtHead:Token | null = null;
 for (let at = equal + 1; at <= last; at++) {
   if (this.Data[at].IsBasicToken) {
     continue;
   }
   if (ExpressionAtomRegistry.HasContainer(this.Data[at])) {
+    continue;
+  }
+  if (builtHead === null && this.Data[at] instanceof ShapeToken) {
+    builtHead = this.Data[at];
     continue;
   }
   return;
@@ -287,7 +301,10 @@ let basePos = equalUnit.SourceRange.EndIndex;
 if (basePos < 0) {
   basePos = equalUnit.SourceRange.StartIndex;
 }
-const expression = TypeCatalogFactory.ParseInitializer(raw, basePos, this.Template, context);
+let expression = TypeCatalogFactory.ParseInitializer(raw, basePos, this.Template, context);
+if (expression === null && builtHead !== null) {
+  expression = TypeCatalogFactory.ParseInitializerFrom(raw, builtHead, basePos, this.Template, context);
+}
 if (expression === null) {
   return;
 }

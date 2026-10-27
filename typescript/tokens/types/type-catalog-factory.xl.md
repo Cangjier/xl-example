@@ -3,6 +3,7 @@
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -215,6 +216,43 @@ try {
 }
 ```
 
+## static method ParseInitializerFrom:(units:Array<Token>, head:Token, basePos:int, template:Template, context:SyntaxContext)=>Token | null
+
+[R11:SHAPE-HEAD] 把「**左操作数已经建好**」的初始化器整条建出来：`units` 的第一个非 trivia 单元就是
+`head`（形状目录建出的表达式形状），从它之后继续（`ExpressionBuilder.ParseExpressionFrom`）。
+
+与 `ParseInitializer` 同一套建造器、同一套 `Positions` 口径，唯一差别是起点：
+`ParsePrimary` 只认登记过的容器 / 原子，任意形状进不去，于是这里直接把 `At` 推到 `head` 之后，
+由 `ParseBinaryFrom` 的 `IsTypeOperator` 分支接 `as` / `satisfies`、`ParseFollowingType` 接类型。
+
+**自证**（与 `ParseInitializer` 同一条）：`head` 不是第一个单元、或 `At` 没走到末尾 ⇒ 返回 `null`，
+调用方继续等下一格。绝不返回「只吃了一半源码」的节点（C10）。
+
+```ts
+const code:Array<Token> = [];
+for (const unit of units) {
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  code.push(unit);
+}
+if (code.length === 0 || code[0] !== head) {
+  return null;
+}
+try {
+  const builder = new ExpressionBuilder(template, context);
+  builder.Load(code, basePos);
+  builder.At = 1;
+  const expression = builder.ParseExpressionFrom(head, 0);
+  if (builder.At !== builder.Units.length) {
+    return null;
+  }
+  return expression;
+} catch (error) {
+  return null;
+}
+```
+
 ## static method AnnotationColon:(units:Array<Token>)=>int
 
 在 `VariableDeclarationShape.Data` 里找**类型注解的 `:`**（`=` 之前的第一个顶层 `:`）；没有返回 `-1`。
@@ -309,7 +347,8 @@ return false;
   `HasParameterType`。同一族里**没有**类型注解的形态（`() => a` / `(a, b) => a` / `function () {}`）
   不满足本判据，仍留给 A4 的表达式形态（不改变它们的账本分类）。
 
-左操作数是调用 / 普通算术等其它形态**不接管**（A2/A3/A4 的写域）。
+左操作数是调用 / 普通算术等其它形态**不接管**（A2/A3/A4 的写域）——**例外是 `[R11:SHAPE-HEAD]`**：
+左操作数已经被形状目录建成了**形状对象**（`f() as T!` 的 `f()`）时按「容器作头」同一答案接管。
 
 ```ts
 const first = TypeCatalogFactory.FirstSignificant(units, equalAt + 1);
@@ -322,6 +361,18 @@ const head = units[first];
 // `ParseInitializer`（同一个 `ExpressionBuilder`：`ParsePrimary` 消费容器，`ParseBinaryFrom` 建 `as`），
 // 所以这里与「括号作头」走同一个答案：有断言就接管。
 if (ExpressionAtomRegistry.HasContainer(head)) {
+  return TypeCatalogFactory.HasTypeAssert(units);
+}
+// [R11:SHAPE-HEAD] 左操作数是**已经建好的表达式形状**（`f() as T!` 的 `f()`、`a.b as T` 的成员链、
+// `f()! as T` 的非空断言）：形状目录在括号关闭格 / 后缀格已经把它建出来，`Data` 里 `=` 之后
+// 就是「它一个非 basic 单元 + 后面的 `as` / 类型单元」。旧判据在这里落到最后的 `return false`
+// （「左操作数是调用 ⇒ 不接管」），于是整条 `as` 既没人建（`AsExpression` 缺）又会把 `!` / `[`
+// 那一格交给终结候选去 `throw`（`增量变量形状未支持：declaration 符号 !` / `declaration 括号`）。
+// 与「容器作头」同一个答案：有 `as` / `satisfies` 就接管，由 `ParseInitializerFrom` 从那个形状继续
+//（`ParseExpressionFrom` → `ParseBinaryFrom` 的 `IsTypeOperator` 分支接 `as` / `satisfies` 并调
+// legacy `ParseFollowingType`；`!` 由 `TypeBuilder.ParsePostfixType` 折成 `JSDocNonNullableType`、
+// 空 `[]` 折成 `ArrayType`）。读不完 / 收不住一律返回 `null`，调用方继续等（C10：不产半棵树）。
+if (head instanceof ShapeToken) {
   return TypeCatalogFactory.HasTypeAssert(units);
 }
 if (head instanceof Common) {
