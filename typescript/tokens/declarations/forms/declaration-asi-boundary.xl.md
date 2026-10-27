@@ -167,7 +167,13 @@ if (!StatementBoundaryUtil.CanEndDeclarationTail(units, tokenIndex)) {
   // `const c = yield` ⏎ `const d = …` 于是收不了口。判据本身（`IsBareYieldTail`）与
   // `YieldFamilyEndCode` 的受限产生式同源，不新写 ASI 词法。
   const yieldTail = DeclarationAsiBoundary.IsBareYieldTail(units, tokenIndex);
-  if (!shapeTail && !yieldTail
+  // [T10:ARROW-BLOCK-TAIL] 箭头函数**块体**的 `}` 收尾：下一行第一个显著字符是 `/` 时，那一行起的是
+  // **一条新的正则语句**（TS 实测：`const v = () => { }` ⏎ `/re/g;` 是 `[0,19)` + `[19,26)` 两条语句），
+  // 不是初始化器的除法续接。`CanEndDeclarationTail` 对裸 `{` 括号一律答 `false`（`CanEndExpression` 分不清
+  // 块体与对象字面量），所以这里必须单独放行，否则声明会把下一行的正则吞进 `Data`，到 `;` 收口时
+  // `FinishIncremental` 的原子建树抛「初始化器未读完」⇒ 整文件 fallback（T10 的目标族）。
+  const arrowBlockTail = DeclarationAsiBoundary.ArrowBodyCloseStartsStatement(units, tokenIndex);
+  if (!shapeTail && !yieldTail && !arrowBlockTail
     && (!DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex) || current.IsBasicToken)) {
     return false;
   }
@@ -177,8 +183,11 @@ if (!DeclarationAsiBoundary.HasClosableShape(units, units.length)) {
 }
 // [A2-D2:BLOCK-HOST] 块体宿主的边界格是宿主块体的 `}`：与「行尾 + 下一行起新语句」同一落点口径
 // （声明最后一个代码单元那一格、边界单元之前），所以并进同一条早收口判据里。
+// [T10:ARROW-BLOCK-TAIL] 箭头块体 `}` + 下一行 `/` 与「下一行起一个不续接的单词」同类：
+// 都是「这一格之后必然是另一条语句」，只是起点从单词换成正则。
 return DeclarationAsiBoundary.StartsNewStatementLine(current)
-  || DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex);
+  || DeclarationAsiBoundary.IsBlockHostBoundary(units, tokenIndex)
+  || DeclarationAsiBoundary.ArrowBodyCloseStartsStatement(units, tokenIndex);
 ```
 
 ## static method IsBareYieldTail:(units:Array<Token>, tokenIndex:int)=>bool
@@ -310,6 +319,112 @@ if (host === null) {
   return false;
 }
 return DeclarationAsiBoundary.NextCodeChar(current) === (host as Bracket).EndBracketChar;
+```
+
+## static method ArrowBodyCloseStartsStatement:(units:Array<Token>, tokenIndex:int)=>bool
+
+[T10:ARROW-BLOCK-TAIL] **箭头块体 `}` 之后换行接 `/`**：本格是箭头函数**块体**的结束括号，且它之后跨过
+行终止符（可跳过注释）的第一个显著字符是 `/` ⇒ 这一格就是语句边界，下一行是一条**新的正则语句**。
+
+为什么必须是「箭头 + 块体」而不是任意 `}`：TS 的实测口径（`tests/cases/token/expressions/gap-r1231-decl-newline-operator.ts`
+的注释里记着那一页的更正）是——
+
+- `const v = () => { }` ⏎ `/re/g;` ⇒ `[0,19)` 箭头声明 + `[19,26)` **正则语句**（两条）；
+- `const v = function () { }` ⏎ `/re/g;` ⇒ **除法**（函数表达式的体之后 `/` 仍是续接）；
+- `const v = {}` ⏎ `/re/g;` ⇒ 除法（对象字面量）。
+
+差别只在「这个 `}` 是不是**箭头的箭杆所接的块体**」——判据因此只看**紧邻的前一个代码单元是 `=>`**。
+`async () => { }` 与嵌套箭头 `(a) => (b) => { }` 的 `}` 前驱同样是 `=>`，自动命中。
+
+三条反向边界：
+
+- 同一行的 `/`（`const v = () => { } /re/g;`）不在这里：**必须跨过行终止符**，否则 `/` 是除法续接；
+- 下一行以 `//` / `/*` 开头是注释，不是语句起点（跳过注释后继续找，与 `NextLineWord` 同一套字符口径）；
+- 文档不可用（探针没设 `CurrentDocument`）⇒ `false`（保守：判不出边界就交下一格）。
+
+**不是第二套 ASI 词法**：它只回答「下一行的第一个显著字符是不是 `/`」，与 `StartsNewStatementLine`
+（下一行起一个不续接的**单词**）是同一处的两个字符分支；收口动作仍由 `CanCloseAtLineBreak` 那条既有路径完成。
+
+```ts
+if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {
+  return false;
+}
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Bracket) || !(unit as Bracket).Closed) {
+  return false;
+}
+if ((unit as Bracket).StartBracketChar !== "{") {
+  return false;
+}
+const previous = DeclarationAsiBoundary.LastCodeIndex(units, tokenIndex);
+if (previous < 0) {
+  return false;
+}
+const head = units[previous];
+if (!(head instanceof Symbol) || (head as Symbol).TempToString() !== "=>") {
+  return false;
+}
+const document = SourceRange.CurrentDocument;
+if (document === null) {
+  return false;
+}
+const end = unit.SourceRange.EndIndex;
+if (end < 0) {
+  return false;
+}
+const count = document.GetCount();
+let at = end;
+let crossedLineBreak = false;
+while (at < count) {
+  const ch = document.GetRaw(at, at + 1);
+  if (ch === "\n" || ch === "\r" || ch === "\u2028" || ch === "\u2029") {
+    crossedLineBreak = true;
+    at += 1;
+    continue;
+  }
+  if (ch === " " || ch === "\t" || ch === "\f" || ch === "\v") {
+    at += 1;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const next = document.GetRaw(at + 1, at + 2);
+    if (next === "/") {
+      at += 2;
+      while (at < count && document.GetRaw(at, at + 1) !== "\n") {
+        at += 1;
+      }
+      continue;
+    }
+    if (next === "*") {
+      at += 2;
+      while (at + 1 < count) {
+        if (document.GetRaw(at, at + 1) === "*" && document.GetRaw(at + 1, at + 2) === "/") {
+          at += 2;
+          break;
+        }
+        at += 1;
+      }
+      continue;
+    }
+  }
+  break;
+}
+if (!crossedLineBreak || at >= count) {
+  return false;
+}
+if (document.GetRaw(at, at + 1) !== "/") {
+  return false;
+}
+if (at + 1 < count) {
+  const next = document.GetRaw(at + 1, at + 2);
+  if (next === "/" || next === "*") {
+    return false;
+  }
+}
+return true;
 ```
 
 ## static method BlockHost:(unit:Token)=>Token | null
