@@ -12,6 +12,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
+import { BigIntLiteralShape } from "../literals/big-int-literal-shape.xl.md"
 import { NumericLiteralPossibleShape } from "./numeric-literal-possible-shape.xl.md"
 import { IncrementalItemPosition } from "./numeric-literal-possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
@@ -26,6 +27,9 @@ import { KeywordLiteralPrimaryPossibleShape } from "./forms/primary/keyword-lite
 # class RightOperandPossibleShape extends PossibleShape
 
 **二元表达式右操作数**的数字字面量候选：`BinaryExpressionShape` 增量模式下的目录里只有它。
+
+数字一族两种写法都在这一格：`NumericLiteralShape`（`1` / `0x1f` / `1_000`）与
+`BigIntLiteralShape`（`10n` / `0b101n`）——判据都是 `Common.IsNumber()` / `Common.IsBigInt()`。
 
 它与声明层的 `NumericLiteralPossibleShape` 判据相同、建形状相同，区别只有一条——
 **建完之后右操作数就关闭了，所以当场替宿主（`BinaryExpressionShape`）封口并卸载自己**（C3）：
@@ -80,7 +84,7 @@ return shapes;
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
-与声明层数字字面量同判据：非 trivia 的 `Common` 且 `IsNumber()`。扫描下界同样走
+与声明层数字字面量同判据：非 trivia 的 `Common` 且 `IsNumber()` / `IsBigInt()`。扫描下界同样走
 `ItemUtil.ItemStartCached`（C8）。
 
 ```ts
@@ -98,7 +102,7 @@ if (tokenIndex < start) {
 if (!(unit instanceof Common)) {
   return ShapeStates.Reject;
 }
-if ((unit as Common).IsNumber()) {
+if ((unit as Common).IsNumber() || (unit as Common).IsBigInt()) {
   return ShapeStates.Accept;
 }
 // WP-A2：右操作数是**标识符**时也在这里建（`a / b` 的 `b`、`a instanceof B` 的 `B`）。
@@ -151,7 +155,14 @@ if (!(token instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 右操作数");
 }
 let shape: Token;
-if ((token as Common).IsNumber()) {
+if ((token as Common).IsBigInt()) {
+  // BigInt 也是数字字面量（`a + 10n` / `0b1010 / 1_000 / 10n`）。少了这一格外形，
+  // `10n` 会落到下面的标识符分支，产出 `IdentifierShape text="10n"`（TS 是 `BigIntLiteral`）。
+  const bigint = BigIntLiteralShape.FromBasicToken(token as Common, context);
+  bigint.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, codeIndex);
+  (token as Common).Replace(bigint);
+  shape = bigint;
+} else if ((token as Common).IsNumber()) {
   shape = NumericLiteralPossibleShape.BuildLiteral(token as Common, host, codeIndex, context);
 } else {
   // WP-A2：右操作数是标识符（`a / b` 的 `b`、`a instanceof B` 的 `B`）。

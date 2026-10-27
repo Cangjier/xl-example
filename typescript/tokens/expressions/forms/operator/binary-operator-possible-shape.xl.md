@@ -12,6 +12,12 @@ import { PrimaryAtomGuard } from "../primary/primary-atom-guard.xl.md"
 import { Token } from "../../../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../../../item-util.xl.md"
 import { IdentifierShape } from "../../../names/identifier-shape.xl.md"
+import { BigIntLiteralShape } from "../../../literals/big-int-literal-shape.xl.md"
+import { FalseKeywordShape } from "../../../keywords/false-keyword-shape.xl.md"
+import { NullKeywordShape } from "../../../keywords/null-keyword-shape.xl.md"
+import { SuperKeywordShape } from "../../../keywords/super-keyword-shape.xl.md"
+import { ThisKeywordShape } from "../../../keywords/this-keyword-shape.xl.md"
+import { TrueKeywordShape } from "../../../keywords/true-keyword-shape.xl.md"
 import { NumericLiteralPossibleShape } from "../../numeric-literal-possible-shape.xl.md"
 import { IncrementalItemPosition } from "../../numeric-literal-possible-shape.xl.md"
 import { BinaryExpressionShape } from "../../binary-expression-shape.xl.md"
@@ -251,7 +257,10 @@ return (unit as Symbol).Is("=");
 
 - 已是形状 ⇒ 直接用；
 - 数字 `Common` ⇒ `NumericLiteralPossibleShape.BuildLiteral`（Pos 按 C1）；
-- 标识符 `Common` ⇒ `IdentifierShape.FromBasicToken` + `Pos` + 原位 `Replace`；
+- BigInt `Common` ⇒ `BigIntLiteralShape`（`10n / 2`；少这一格会退化成 `IdentifierShape text="10n"`）；
+- 关键字字面量 `Common` ⇒ 对应的关键字形状（`this` / `super` / `true` / `false` / `null`；
+  `this / 2` 的 `this` 是 `ThisKeyword`，不是 `Identifier`）；
+- 其余 `Common` ⇒ `IdentifierShape.FromBasicToken` + `Pos` + 原位 `Replace`；
 - 其余 ⇒ C10 显式抛错。
 
 ```ts
@@ -262,8 +271,39 @@ if (unit instanceof ShapeToken) {
 if (!(unit instanceof Common)) {
   throw new Error("增量变量形状未支持：expression 二元运算左操作数");
 }
+const text = (unit as Common).TempToString();
+if ((unit as Common).IsBigInt()) {
+  const bigint = BigIntLiteralShape.FromBasicToken(unit as Common, context);
+  bigint.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, index);
+  (unit as Common).Replace(bigint);
+  return bigint;
+}
 if ((unit as Common).IsNumber()) {
   return NumericLiteralPossibleShape.BuildLiteral(unit as Common, host, index, context);
+}
+let keyword: ShapeToken | null = null;
+if (text === "this") {
+  keyword = new ThisKeywordShape((unit as Common).Template);
+} else if (text === "super") {
+  keyword = new SuperKeywordShape((unit as Common).Template);
+} else if (text === "true") {
+  keyword = new TrueKeywordShape((unit as Common).Template);
+} else if (text === "false") {
+  keyword = new FalseKeywordShape((unit as Common).Template);
+} else if (text === "null") {
+  keyword = new NullKeywordShape((unit as Common).Template);
+}
+if (keyword !== null) {
+  if (unit.SourceRange.StartIndex >= 0) {
+    keyword.SignIn(unit.SourceRange.StartIndex);
+  }
+  if (unit.SourceRange.EndIndex >= 0) {
+    keyword.SignOut(unit.SourceRange.EndIndex);
+  }
+  keyword.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, index);
+  keyword.TryToClose(context);
+  (unit as Common).Replace(keyword);
+  return keyword;
 }
 const identifier = IdentifierShape.FromBasicToken(unit as Common, context);
 identifier.Pos = IncrementalItemPosition.AfterPreviousCode(host.Data, index);
