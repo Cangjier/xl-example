@@ -20,6 +20,7 @@ import { ParenthesizedPossibleShape } from "./forms/primary/parenthesized-possib
 import { StringLiteralPrimaryPossibleShape } from "./forms/primary/string-literal-primary-possible-shape.xl.md"
 import { TemplatePrimaryPossibleShape } from "./forms/primary/template-primary-possible-shape.xl.md"
 import { KeywordLiteralPrimaryPossibleShape } from "./forms/primary/keyword-literal-primary-possible-shape.xl.md"
+import { ObjectLiteralOperandPossibleShape } from "./forms/shared/object-literal-operand.xl.md"
 ```
 
 # namespace cangjie
@@ -79,8 +80,17 @@ shapes.push(RightOperandFormPossibleShape.Create("paren", new ParenthesizedPossi
 shapes.push(RightOperandFormPossibleShape.Create("string", new StringLiteralPrimaryPossibleShape()));
 shapes.push(RightOperandFormPossibleShape.Create("template", new TemplatePrimaryPossibleShape()));
 shapes.push(RightOperandFormPossibleShape.Create("keyword", new KeywordLiteralPrimaryPossibleShape()));
+shapes.push(RightOperandFormPossibleShape.Create("object", new ObjectLiteralOperandPossibleShape()));
 return shapes;
 ```
+
+**[R19:OBJECT] 第五条形态 `object`**：右操作数是一只**已闭合的 `{ … }` 括号**时，
+值位对象字面量（`a in { b: 1 }` / `a + { b: 1 }` / `a && { b: 1 }`）。R1236 只补了
+`IsStatementStart` 的「`{` 是值、不是块」那一半，这一半（值位形状收不收 `{`）就是这里缺的那条候选：
+`}` 那一格上目录里五条候选全部 `Reject`（`RightOperandPossibleShape` 只认 `Common`，四条形态只认
+`(` / 字符串 / 模板 / 三个关键字），`CatalogGuide` 于是抛
+`没有候选形状可以构成（宿主 BinaryExpressionShape）`，整条文件退到 `FileFallback`。
+判据与建树全部转调 `ObjectLiteralOperandPossibleShape`（`Claims` / `BuildInto`），本类不写第二份。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
 
@@ -210,7 +220,7 @@ return shape;
 
 ## field Kind:string = ""
 
-形态标记：`"paren"` / `"string"` / `"template"` / `"keyword"`。
+形态标记：`"paren"` / `"string"` / `"template"` / `"keyword"` / `"object"`。
 
 ```ts
 ""
@@ -240,7 +250,7 @@ return shape;
 **唯一的「这是右操作数位」判据**：前一个代码单元是一个**运算符形状**。
 
 `*TokenShape` 覆盖全部标点运算符（`+` / `-` / `*` / `/` / `%` / `<` / `>` / `&&` / `||` / `??` / `===` /
-`**` / `:` / `?` …）；关键字运算符 `in` / `instanceof` 是 `KeywordShape` 结尾，单独两格。
+`**` / `:` / `?` …）；关键字运算符 `in` / `instanceof` 各一格（`InKeywordShape` / `InstanceOfKeywordShape`）。
 不认 `Common`：右操作数位的前驱在这一刻**一定**已经建成形状（`BinaryExpressionShape` 是
 「左操作数 + 运算符」两格建出来的），认 `Common` 只会把别的格误判成右操作数位。
 
@@ -252,7 +262,14 @@ const name = unit.constructor.name;
 if (name.endsWith("TokenShape")) {
   return true;
 }
-return name === "InKeywordShape" || name === "InstanceofKeywordShape";
+// [R19] `instanceof` 的类名是 `InstanceOfKeywordShape`（大写 `O`）——这里原来只写了
+// `InstanceofKeywordShape`，于是 `a instanceof (b)` / `a instanceof "x"` / `a instanceof { … }`
+// 这一族**形态**右操作数从来认不出前驱是运算符，全部在右操作数格上落到
+// `CatalogGuide: 没有候选形状可以构成`。`in` 的名字是对的（`InKeywordShape`），两格都保留。
+if (name === "InKeywordShape") {
+  return true;
+}
+return name === "InstanceOfKeywordShape" || name === "InstanceofKeywordShape";
 ```
 
 ## static method Claims:(unit:Token, kind:string)=>bool
@@ -284,6 +301,11 @@ if (kind === "keyword") {
     return false;
   }
   return (unit as Common).IsAny(["true", "false", "null"]);
+}
+if (kind === "object") {
+  // [R19:OBJECT] 值位对象字面量：已闭合的 `{ … }` 括号（位置判据由 `ComputeByIndex` 的
+  // 「前驱是运算符形状」回答，这里只看形态）。
+  return ObjectLiteralOperandPossibleShape.Claims(unit);
 }
 return false;
 ```
@@ -361,6 +383,12 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 const unit = units[tokenIndex];
 if (unit.IsTriviaToken) {
   return false;
+}
+if (this.Kind === "object") {
+  // [R19:OBJECT] 值位对象字面量：形态已在 `ComputeByIndex` 判过，这里只再确认一次；
+  // 括号里的内容由 `ObjectLiteralOperandPossibleShape.BuildInto` 用 legacy `ExpressionBuilder`
+  // 整块吃掉（与 `ContainerShapeCloseHook` 建对象字面量同一条路）。
+  return ObjectLiteralOperandPossibleShape.Claims(unit);
 }
 if (this.Kind !== "paren") {
   return true;

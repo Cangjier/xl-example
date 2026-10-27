@@ -15,6 +15,8 @@ import { NumericLiteralShape } from "../../../literals/numeric-literal-shape.xl.
 import { IncrementalItemPosition } from "../../numeric-literal-possible-shape.xl.md"
 import { OperatorShapeMap } from "../../operator-shape-map.xl.md"
 import { OperatorTable } from "../../operator-table.xl.md"
+import { Bracket } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
+import { ObjectLiteralOperandPossibleShape } from "../shared/object-literal-operand.xl.md"
 ```
 
 # namespace cangjie
@@ -313,6 +315,16 @@ if (operandUnit instanceof Common) {
   if (inner.SourceRange.End >= 0) {
     operandEnd = inner.SourceRange.End;
   }
+} else if (operandUnit instanceof Bracket && ObjectLiteralOperandPossibleShape.Claims(operandUnit)) {
+  // [R19:OBJECT] 值位对象字面量：`typeof { a: 1 }` / `void { a: 1 }` / `!{ a: 1 }`。
+  // 操作数是**已闭合的 `{ … }` 括号**时，交 `ObjectLiteralOperandPossibleShape.BuildInto`
+  // 用 legacy `ExpressionBuilder` 整块吃掉（与 `ContainerShapeCloseHook` 建对象字面量同一条路）。
+  // 原位顶替、长度不变，所以下面 `removed` / `kept` 用的下标集合继续有效。
+  inner = ObjectLiteralOperandPossibleShape.BuildInto(host, operandIndex, context);
+  if (inner.SourceRange.End < 0) {
+    throw new Error("增量变量形状未支持：expression 前缀一元操作数未签出");
+  }
+  operandEnd = inner.SourceRange.End;
 } else {
   throw new Error("增量变量形状未支持：expression 前缀一元操作数");
 }
