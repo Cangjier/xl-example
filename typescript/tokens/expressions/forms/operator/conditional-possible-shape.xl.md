@@ -17,6 +17,8 @@ import { QuestionTokenShape } from "../../../punctuation/question-token-shape.xl
 import { ConditionalExpressionShape } from "../../conditional-expression-shape.xl.md"
 import { IncrementalItemPosition, NumericLiteralPossibleShape } from "../../numeric-literal-possible-shape.xl.md"
 import { CompositeInitializerJudge } from "../primary/composite-initializer-judge.xl.md"
+import { Bracket } from "../../../../../core/syntax/basic-tokens/bracket.xl.md"
+import { ObjectLiteralOperandPossibleShape } from "../shared/object-literal-operand.xl.md"
 ```
 
 # namespace cangjie
@@ -297,9 +299,13 @@ return identifier;
 
 | 前一个代码单元 | 当前格 | 建什么 |
 | --- | --- | --- |
-| `QuestionTokenShape` | `Common` | 中段操作数（`IdentifierShape` / `NumericLiteralShape`） |
+| `QuestionTokenShape` | `Common` / 值位 `{ … }` | 中段操作数（`IdentifierShape` / `NumericLiteralShape` / `ObjectLiteralExpressionShape`） |
 | 形状（中段操作数） | `Symbol(":")` | `ColonTokenShape` |
-| `ColonTokenShape` | `Common` | 右段操作数，然后**替宿主封口 + 卸载**（C3） |
+| `ColonTokenShape` | `Common` / 值位 `{ … }` | 右段操作数，然后**替宿主封口 + 卸载**（C3） |
+
+**[R19:OBJECT] 值位对象字面量**：`a ? { b: 1 } : c` 的中段 / 右段都可能是 `{ … }`。判据与建树全部转调
+`ObjectLiteralOperandPossibleShape`（`Claims` / `BuildInto`），本类不写第二份——与右操作数目录里那条
+`object` 形态是**同一份实现**。
 
 右段一建完 `ConditionalExpressionShape` 就完整了：`TryToClose` 用最后一个子单元的终点补右边界，
 `Quit` 清 `Parent.MountedUnit`，后续 `;` / EOF 回到声明层（与 `BinaryExpressionShape.SealRightOperand`
@@ -321,8 +327,11 @@ if (previous < 0) {
 }
 const before = units[previous];
 if (before instanceof QuestionTokenShape) {
-  // 中段操作数
-  return unit instanceof Common ? ShapeStates.Accept : ShapeStates.Reject;
+  // 中段操作数（[R19:OBJECT] 值位 `{ … }` 也是操作数：`a ? { b: 1 } : c`）
+  if (unit instanceof Common || ObjectLiteralOperandPossibleShape.Claims(unit)) {
+    return ShapeStates.Accept;
+  }
+  return ShapeStates.Reject;
 }
 if (ConditionalMemberPossibleShape.IsColonSymbol(unit)) {
   // 中段操作数之后是 `:`
@@ -332,8 +341,11 @@ if (ConditionalMemberPossibleShape.IsColonSymbol(unit)) {
   return ShapeStates.Reject;
 }
 if (before instanceof ColonTokenShape) {
-  // 右段操作数
-  return unit instanceof Common ? ShapeStates.Accept : ShapeStates.Reject;
+  // 右段操作数（[R19:OBJECT] 同上）
+  if (unit instanceof Common || ObjectLiteralOperandPossibleShape.Claims(unit)) {
+    return ShapeStates.Accept;
+  }
+  return ShapeStates.Reject;
 }
 return ShapeStates.Reject;
 ```
@@ -381,13 +393,21 @@ if (previous < 0) {
 }
 const before = data[previous];
 if (before instanceof QuestionTokenShape) {
+  if (unit instanceof Bracket && ObjectLiteralOperandPossibleShape.Claims(unit)) {
+    return ObjectLiteralOperandPossibleShape.BuildInto(conditional, at, context);
+  }
   return ConditionalPossibleShape.BuildOperand(unit as Common, conditional, at, context);
 }
 if (ConditionalMemberPossibleShape.IsColonSymbol(unit)) {
   return ConditionalMemberPossibleShape.BuildColon(unit as Symbol, conditional, at, context);
 }
 if (before instanceof ColonTokenShape) {
-  const shape = ConditionalPossibleShape.BuildOperand(unit as Common, conditional, at, context);
+  let shape: Token;
+  if (unit instanceof Bracket && ObjectLiteralOperandPossibleShape.Claims(unit)) {
+    shape = ObjectLiteralOperandPossibleShape.BuildInto(conditional, at, context);
+  } else {
+    shape = ConditionalPossibleShape.BuildOperand(unit as Common, conditional, at, context);
+  }
   conditional.TryToClose(context);
   if (conditional.Parent !== null && conditional.Parent.MountedUnit === conditional) {
     conditional.Quit();
