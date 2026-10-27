@@ -15,6 +15,7 @@ import { IdentifierShape } from "../../../names/identifier-shape.xl.md"
 import { IncrementalItemPosition, NumericLiteralPossibleShape } from "../../numeric-literal-possible-shape.xl.md"
 import { BinaryExpressionShape } from "../../binary-expression-shape.xl.md"
 import { OperatorShapeMap } from "../../operator-shape-map.xl.md"
+import { EqualsGreaterThanTokenShape } from "../../../punctuation/equals-greater-than-token-shape.xl.md"
 import { InitializerTailJudge } from "../shared/initializer-tail-judge.xl.md"
 ```
 
@@ -205,6 +206,35 @@ if (!AssignmentPossibleShape.IsLValue(units[leftAt])) {
 return ItemUtil.NextCode(units, leftAt + 1) === equalAt;
 ```
 
+## static method IsBodyAssignmentEqualAt:(units:Array<Token>, equalAt:int)=>bool
+
+[R7] `units[equalAt]` 是不是**箭头体里的赋值** `=`（`a => b = c`）。
+
+箭头体里没有声明初始化器那个 `=`，所以 `IsAssignmentEqualAt` 的「它前面必须已经有一个 `=`」不成立。
+体赋值的判据只看**位置**：`=` 的左边是体首位操作数（已建形状），再左边是外层箭头的
+`EqualsGreaterThanTokenShape`。与声明路径同一套结构事实，不新写词法。
+
+```ts
+if (equalAt < 0 || equalAt >= units.length) {
+  return false;
+}
+if (!AssignmentPossibleShape.IsSymbolText(units[equalAt], "=")) {
+  return false;
+}
+const leftAt = ItemUtil.PreviousCode(units, equalAt - 1);
+if (leftAt < 0) {
+  return false;
+}
+if (!(units[leftAt] instanceof ShapeToken)) {
+  return false;
+}
+const beforeAt = ItemUtil.PreviousCode(units, leftAt - 1);
+if (beforeAt < 0) {
+  return false;
+}
+return units[beforeAt] instanceof EqualsGreaterThanTokenShape;
+```
+
 ## static method LastEqualBefore:(units:Array<Token>, tokenIndex:int)=>int
 
 `tokenIndex` 之前最后一个 `Symbol("=")` 代码单元的下标；没有返回 `-1`。
@@ -300,7 +330,7 @@ if (equalAt < 0 || !AssignmentPossibleShape.IsSymbolText(units[equalAt], "=")) {
 return AssignmentPossibleShape.IsAssignmentEqualAt(units, equalAt);
 ```
 
-## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext, bodyMode?:bool)=>Token
 
 把「左值 + `=` + 右值」三格装配成 legacy 口径的 `BinaryExpressionShape`：
 
@@ -333,7 +363,8 @@ const equalAt = ItemUtil.PreviousCode(data, rightAt - 1);
 if (equalAt < 0 || !AssignmentPossibleShape.IsSymbolText(data[equalAt], "=")) {
   throw new Error("增量变量形状未支持：expression 赋值缺等号");
 }
-if (!AssignmentPossibleShape.IsAssignmentEqualAt(data, equalAt)) {
+if (!AssignmentPossibleShape.IsAssignmentEqualAt(data, equalAt)
+  && !(bodyMode === true && AssignmentPossibleShape.IsBodyAssignmentEqualAt(data, equalAt))) {
   throw new Error("增量变量形状未支持：expression 赋值等号不是赋值");
 }
 const leftAt = ItemUtil.PreviousCode(data, equalAt - 1);
