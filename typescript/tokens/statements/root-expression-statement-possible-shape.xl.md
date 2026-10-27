@@ -25,7 +25,7 @@ import { StatementShape } from "./statement-shape.xl.md"
 
 # class RootExpressionStatementPossibleShape extends PossibleShape
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
