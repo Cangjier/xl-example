@@ -1143,25 +1143,26 @@ if (unit instanceof Common) {
 return StatementClass.OperandStart;
 ```
 
-## static field EnableBracketCreatePossible:bool = false
+## static field EnableBracketCreatePossible:bool = true
 
-**[T2:CREATE] 括号创建触发的 possible 重算（`PossibleSource.BracketCreate`）的开关。默认 `false`。**
+**[T2:CREATE] 括号创建触发的 possible 重算（`PossibleSource.BracketCreate`）的开关。[T8a] 默认 `true`。**
 
-`false`（默认）时 `BracketRoleCatalogHook` 里的 `BracketCreate` 触发段立即返回（角色目录开关仍可独立打开），
-`Bracket.Transit` 只多一次 `null` 比较：**不触发任何 BracketCreate 判定**，`Bracket.OnBracketCreatedEvent`
-里的旧窄触发逐字节仍是 T2 之前的行为。
+**默认值的历史**：T2 建线时默认 `false`；T7b 把 `Bracket.Transit` 里的 `BracketCreate` 两次判定改成
+**无条件直调**之后，本开关不再控制触发（触发不读它，见 `BracketRoleCatalogHook`）。T8a 把它翻成
+`true`，让 T3 的 026 修法在**默认路径**生效。
 
-`true` 时 `SourceFileShape` 的构造器把 `BracketRoleCatalogHook` 装到 `BracketRoleHook.Current`（幂等）；
-角色目录 `Install` / `Register` 之后，同一个实例对新括号自己（若已挂目录）与父宿主（若挂了带终结候选的向导）
-各问一次，来源显式传 `PossibleSource.BracketCreate`。
-同一格由双 build 守卫（`CatalogGuide.LastBuildTokenIndex` / `LastBuildDataLength`）保证只建一次。
+翻转后本开关只剩两处含义：
 
-**为什么默认关**：T2 只接线，不改 117 个候选的判据。T3 起本开关同时是**控制头候选成员名让位**
-（`ControlHeadPossibleShape.AtomKind` 对 `.` / `?.` 之后的标识符不建头原子）的启用条件——
-026 `if (/x/.test(s)) {}` 的 `test` 提前变成 `IdentifierShape` 后，legacy 的 `ParseName` 读不到
-`Common`，整条文件 fallback。关档逐字节保持 T2 之前（026 仍是唯一 fallback，29/1）；
-开档 30/0/0/0。G1 决定是否把开关翻 `true`（翻了之后这条让位与 `ExpressionBracketPossibleShape`
-的无条件让位汇合）。
+1. `BracketRoleCatalogHook.EnsureInstalled` 的装配条件之一（另一条是 `EnableBracketRoleCatalog`）：
+   为真时把 `BracketRoleCatalogHook` 装到 `BracketRoleHook.Current`（幂等）。装上也只是一次分派，
+   角色目录本身仍受 `EnableBracketRoleCatalog` 门控，因此本开关**不改变**角色解析与目录装配；
+2. **控制头候选成员名让位**（`ControlHeadPossibleShape.AtomKind` 对 `.` / `?.` 之后的标识符不建头原子，
+   T3 的 026 修法）。026 `if (/x/.test(s)) {}` 的 `test` 若被提前建成 `IdentifierShape`，legacy 的
+   `ParseName` 在 `.` 之后读不到 `Common` ⇒「缺少标识符」⇒ 整条文件 fallback。
+
+`false` 时让位不生效，026 回到「唯一 fallback」（29/1/0/0）；`true`（默认）时 30 条 target 全
+ok、fallback=0（T8a 实测 30/30/0/0）。这条让位与 `ExpressionBracketPossibleShape` 对 `.` / `?.`
+的无条件让位是同一条判据、同一个理由（见 `ControlHeadPossibleShape.IsMemberName`）。
 
 ## static field BracketCreatePossibleCount:int = 0
 

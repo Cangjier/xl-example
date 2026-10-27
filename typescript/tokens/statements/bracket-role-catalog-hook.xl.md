@@ -43,8 +43,8 @@ StatementRouteUtil.EnableBracketRoleCatalog = true;   // 由 B1 的探针 / harn
 角色目录装配一条职责，两个开关的语义也随之收窄：
 
 - `EnableBracketRoleCatalog` 为假 ⇒ 不解析角色、不装目录、不登记延迟括号（与 B0 之前一致）；
-- `EnableBracketCreatePossible` **不再控制触发**（触发在 core 的 `Transit` 里无条件执行；默认关时角色目录
-  没装、`CatalogGuide` 为 `null`，两次判定都自然落空）。它现在只剩两处含义：
+- `EnableBracketCreatePossible` **不再控制触发**（触发在 core 的 `Transit` 里无条件执行；关掉时角色目录
+  没装、`CatalogGuide` 为 `null`，两次判定都自然落空）。[T8a] 起它**默认 `true`**，只剩两处含义：
   `EnsureInstalled` 的装配条件之一，以及候选侧的判据开关（`ControlHeadPossibleShape.IsMemberName`，T3 的 026 修法）。
 
 [!] 计数残留：`StatementRouteUtil.BracketCreatePossibleCount / BracketCreateSelfCount / BracketCreateParentCount`

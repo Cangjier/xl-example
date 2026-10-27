@@ -307,10 +307,10 @@ return false;
 这一格能建出什么：`"identifier"` / `"number"` / `""`（不建）。
 符号位、trivia、字符串 / 正则 / 模板一律 `""`——它们归 legacy 或 A2。
 
-**[T3:026] 成员名位也不建**（`if (/x/.test(s))` 的 `test`）：这是 `IsMemberName` 的让位，只在
-`StatementRouteUtil.EnableBracketCreatePossible` 打开时生效，关闭时逐字节保持 T2 之前的判据
-（T2 的验收要求关档读数不变；G1 翻开关后这条规则就是默认行为，与 `ExpressionBracketPossibleShape`
-的无条件让位汇合）。理由见 `IsMemberName`。
+**[T3:026] 成员名位也不建**（`if (/x/.test(s))` 的 `test`）：这是 `IsMemberName` 的让位。[T8a] 起
+`StatementRouteUtil.EnableBracketCreatePossible` 默认已翻为 `true`，所以这正是**默认路径**的判据；
+关掉该开关时逐字节保持 T2 之前的判据（T2 的验收要求关档读数不变）。它与
+`ExpressionBracketPossibleShape` 的无条件让位是同一条判据、汇合在一起。理由见 `IsMemberName`。
 
 ```ts
 if (unit === null || unit.IsTriviaToken) {
