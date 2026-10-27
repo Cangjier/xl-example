@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
+import { ExpressionAtomRegistry } from "./forms/shared/expression-atom-registry.xl.md"
 ```
 
 # namespace cangjie
@@ -92,6 +93,18 @@ return ShapeStates.Accept;
 - `Pos` 按 C1 补（`2`→7、`3`→10、`1`→12）；
 - `Replace` 保持它原来那一格的位置（父单元由 `Replace` 设回宿主）。
 
+**[T9:ATOM-POSTFIX] 建完登记身份**（`ExpressionAtomRegistry.Nodes`）：数字原子是**上一个可以带
+后置续接的操作数**——`const a = 1 .toString()` / `1..toString()` / `1 .toString[0]` 的 `1` 在这一格
+就已经建好，后面的 `.` / `?.` / `(` / `[` 不是它的「未支持续接」，而是它的 postfix 后缀。
+登记之后收口格（`VariableDeclarationShape.FinishIncremental`）走既有的
+「根 + 根之后还有代码」分支：`ExpressionBuilder.ParsePrimary` 用 `HasNode` 把这个**已建原子**
+当操作数收下（不重建、不重算 `Pos`），再由 `ExpressionBuilder.ParsePostfixSuffix` 接上后缀——
+与 A1 标识符 / A4 容器 / R15 标签模板走的是**同一条** postfix 路。
+
+为什么登记在 `BuildByIndex` 而**不是**共用的 `BuildLiteral`：`RightOperandPossibleShape` 也调
+`BuildLiteral`，那类原子是二元表达式的右操作数、不是初始化器的根，登记进来会让
+`HasNode` 在「根之外还有代码」的判据上误判。
+
 ```ts
 const token = host.Data[tokenIndex];
 if (!(token instanceof Common)) {
@@ -100,7 +113,11 @@ if (!(token instanceof Common)) {
 if (!(token as Common).IsNumber()) {
   throw new Error("增量变量形状未支持：expression 数字字面量正文 " + token.TempToString());
 }
-return NumericLiteralPossibleShape.BuildLiteral(token as Common, host, tokenIndex, context);
+const shape = NumericLiteralPossibleShape.BuildLiteral(token as Common, host, tokenIndex, context);
+// [T9:ATOM-POSTFIX] 只登记「声明初始化器的根原子」：收口格据此把它当操作数消费（`HasNode`），
+// 后缀由 legacy `ExpressionBuilder.ParsePostfixSuffix` 接上。
+ExpressionAtomRegistry.RegisterNode(shape);
+return shape;
 ```
 
 ## static method BuildLiteral:(token:Common, host:Token, tokenIndex:int, context:SyntaxContext)=>NumericLiteralShape

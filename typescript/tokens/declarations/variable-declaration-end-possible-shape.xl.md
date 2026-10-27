@@ -149,6 +149,16 @@ if (current instanceof Symbol) {
   if (text === ".") {
     return ShapeStates.Reject;
   }
+  // [T9:ATOM-POSTFIX] `const a = 1 ?.toString()`：`?.` 紧跟在**已建原子**（登记过身份的
+  // `NumericLiteralShape`）之后是可选链后缀，属于同一个 postfix 面，本格继续等。
+  //
+  // 只认「初始化器里已经有登记过的原子根」这一种（`HasAtomInitializer`）：raw 初始化器的
+  // `?.` / `??` 一个字节不改——`CanDeferToAtomicInitializer` 的显式账本（`throw/composite/class-ball` /
+  // `throw/composite/expression-zoo` 依赖它们保持抛错）也因此不受影响：`const a = b?.c` 的 `b`
+  // 被 `PrimaryAtomGuard` 挡住、根本没有形状落地，`HasAtomInitializer` 为假。
+  if (text === "?." && VariableDeclarationEndPossibleShape.HasAtomInitializer(units)) {
+    return ShapeStates.Reject;
+  }
   // [S5:TERNARY] **条件位是复合表达式的三目**（`const key = typeof id === "number" ? id : Number(id)`）：
   // 初始化器还是纯 raw 基本单元、且这条初始化器里「顶层先有二元运算符、后有 `?`」⇒ 本格**等**，不抛。
   //
@@ -176,8 +186,10 @@ if (current instanceof Symbol) {
   // `-` `*` `/` `===` `|` `!` `?` 与「后缀 `!` 落在 raw 标签模板 / 下标链之后」全走这一个出口。
   //
   // 反向边界（C10 不变，四条）：
-  //   ① 初始化器里已经落地形状（`const y = f()!` / `const z = a as T`）⇒ `IsRawInitializer` 为假，
-  //      逐字落回下面的 `throw`——那一类要形状面自己认领（P1 的后缀格），不在本判据的写域；
+  //   ① 初始化器里已经落地**既不是容器、也不是登记过的原子根**的形状（`const z = a as T`）⇒
+  //      三条判据都为假，逐字落回下面的 `throw`——那一类要形状面自己认领（P1 的后缀格），不在本判据的写域；
+  //      [T9:ATOM-POSTFIX] 容器 / 原子根（容器 + R15 标签模板 + T9 数字字面量）例外：它们在收口格能被
+  //      `ParsePrimary` 当操作数消费，与 raw 初始化器是同一个等待出口（`HasAtomInitializer`）。
   //   ② 收口 / 列表符号（`;` `,`）不是本候选的格子，逐字落回 `throw`；
   //   ③ 类型侧符号（`<` `>` 家族）与既有显式拒绝账本里的 `?.` `??` 不在本判据内，行为一个字都不改；
   //   ④ **带类型注解的声明不在本判据内**（`HasAnnotationColon`）：它的初始化器由 `TypeMode` 接管，
@@ -189,7 +201,14 @@ if (current instanceof Symbol) {
   //      静默错树」。C10 不允许，所以这一族原样留给 S5 / A5。
   if (!VariableDeclarationEndPossibleShape.HasAnnotationColon(units)
     && (VariableDeclarationEndPossibleShape.IsRawInitializer(units)
-      || VariableDeclarationEndPossibleShape.HasContainerInitializer(units))
+      || VariableDeclarationEndPossibleShape.HasContainerInitializer(units)
+      // [T9:ATOM-POSTFIX] 已建原子根 + **后缀**符号（在这条分支上只剩 `!`：`.` / `?.` 各有自己的
+      // 原子分支，`(` / `[` 走下面的 `Bracket` 分支）——收口格能把它当操作数消费，继续等。
+      //
+      // **只认后缀，不认二元运算符**：`tag`x` + y` 这一族在收口格重建会把标签模板链重排
+      // （实测 `expr-template-tagged-in-operator`：`TaggedTemplateExpression` 区间 178-206 vs 178-190，
+      // 判据 status=diff）——那是静默错树。宁可让它继续显式失败、由文件级 legacy 给出正确树（C10）。
+      || (VariableDeclarationEndPossibleShape.HasAtomInitializer(units) && text === "!"))
     && VariableDeclarationEndPossibleShape.CanDeferToAtomicInitializer(text)) {
     return ShapeStates.Uncertain;
   }
@@ -271,6 +290,20 @@ if (current instanceof Bracket) {
   // 这是元素访问 / 调用 / 非空后缀候选的专属格，继续等，由它们在括号关闭这一格建出。
   // 旧行为在这一格按 C10 抛错，等于把「后缀括号」整类形态挡死（D1 残项里的 7 条成员链 / 下标族）。
   if (VariableDeclarationEndPossibleShape.PreviousIsShape(units, tokenIndex)) {
+    StatementLegacyMetrics.DeclarationBracketWaitCount += 1;
+    return ShapeStates.Reject;
+  }
+  // [T9:ATOM-POSTFIX] 下标括号挂在**已建原子**的成员链之后：`const a = 1 .toString[0]`。
+  // `1` 已在数字格建成 `NumericLiteralShape`，`.toString` 还是 raw 基本单元，所以紧邻判据
+  // （`PreviousIsShape`，只看前一格是不是形状）看不见链头。这里补的是**链头**条件：
+  // 初始化器里有登记过的原子根（`HasAtomInitializer`）+ 本括号是那条成员链的下一节
+  // （`FollowsMemberSegment`：前一格是属性名、它前面是 `.` / `?.`）。两条都成立才继续等。
+  //
+  // 收口格的两个出口都会自证，不存在静默错树：`FinishIncremental` 在这里等到 EOF 后走
+  // 「根 + 根之后还有代码」分支，`ParsePrimary` 消费已建原子、`ParsePostfixSuffix` 接 `[0]`，
+  // 读不完就显式抛「初始化器未读完」。
+  if (VariableDeclarationEndPossibleShape.HasAtomInitializer(units)
+    && VariableDeclarationEndPossibleShape.FollowsMemberSegment(units, tokenIndex)) {
     StatementLegacyMetrics.DeclarationBracketWaitCount += 1;
     return ShapeStates.Reject;
   }
@@ -553,8 +586,57 @@ if (unit instanceof Bracket) {
 return unit instanceof String;
 ```
 
-## static method HasReducibleLeft:(units:Array<Token>, tokenIndex:int)=>bool
+## static method HasAtomInitializer:(units:Array<Token>)=>bool
 
+[T9:ATOM-POSTFIX] `=` 之后的初始化器里是否已经有一个**登记过身份的原子根**
+（`ExpressionAtomRegistry.Nodes` / `Containers` 的身份，不认任意形状）。
+
+与 `HasContainerInitializer` 同一条纪律、多认一张表：`Nodes` 那一张是「增量主候选建出、收口格还能在
+其后接续」的表达式根（R15 标签模板，T9 起加数字字面量）。它只用来判「这一格该不该等」，不参与建树。
+
+```ts
+const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
+if (equalAt < 0) {
+  return false;
+}
+for (let at = equalAt + 1; at < units.length; at++) {
+  const unit = units[at];
+  if (ExpressionAtomRegistry.HasNode(unit) || ExpressionAtomRegistry.HasContainer(unit)) {
+    return true;
+  }
+}
+return false;
+```
+
+## static method FollowsMemberSegment:(units:Array<Token>, tokenIndex:int)=>bool
+
+[T9:ATOM-POSTFIX] 本格是不是**成员链的下一节**：前一格是属性名（`Common`），它前面（跳过 trivia）是
+`.` / `?.` / `!` 之一。
+
+`const a = 1 .toString[0]` 的 `[` 命中（`toString` 前面是 `.`）；`const a = f()[0]` 不命中
+（前一格是已闭合的括号，走 `PreviousIsShape`）；`const a = 1 + 2[0]` 也不命中（`2` 前面是 `+`）。
+
+```ts
+const nameAt = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (nameAt < 0) {
+  return false;
+}
+if (!(units[nameAt] instanceof Common)) {
+  return false;
+}
+const dotAt = ItemUtil.PreviousCode(units, nameAt - 1);
+if (dotAt < 0) {
+  return false;
+}
+const unit = units[dotAt];
+if (!(unit instanceof Symbol)) {
+  return false;
+}
+const text = (unit as Symbol).TempToString();
+return text === "." || text === "?." || text === "!";
+```
+
+## static method HasReducibleLeft:(units:Array<Token>, tokenIndex:int)=>bool
 这个二元运算符格上有没有「`BinaryOperatorPossibleShape` 能用的左操作数」：
 
 - 前一个非 trivia 单元已经是**形状**（`1 && 2` 的 `1`、`a/b` 建完 `a` 之后）⇒ 有；
