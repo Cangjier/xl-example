@@ -1156,8 +1156,12 @@ return StatementClass.OperandStart;
 与父宿主（若挂了带终结候选的向导）各问一次，来源显式传 `PossibleSource.BracketCreate`。
 同一格由双 build 守卫（`CatalogGuide.LastBuildTokenIndex` / `LastBuildDataLength`）保证只建一次。
 
-**为什么默认关**：T2 只接线，不改 117 个候选的判据。候选还不会按来源改变行为，所以打开时读数应与关闭时相同；
-T3 的目标用例再打开它，并让 statement / block / control-flow 的候选读第 4 参。
+**为什么默认关**：T2 只接线，不改 117 个候选的判据。T3 起本开关同时是**控制头候选成员名让位**
+（`ControlHeadPossibleShape.AtomKind` 对 `.` / `?.` 之后的标识符不建头原子）的启用条件——
+026 `if (/x/.test(s)) {}` 的 `test` 提前变成 `IdentifierShape` 后，legacy 的 `ParseName` 读不到
+`Common`，整条文件 fallback。关档逐字节保持 T2 之前（026 仍是唯一 fallback，29/1）；
+开档 30/0/0/0。G1 决定是否把开关翻 `true`（翻了之后这条让位与 `ExpressionBracketPossibleShape`
+的无条件让位汇合）。
 
 ## static field BracketCreatePossibleCount:int = 0
 
