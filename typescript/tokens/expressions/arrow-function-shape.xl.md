@@ -1,6 +1,7 @@
 # dependencies
 ```xl
 import { Template } from "../../../core/syntax/templates/template.xl.md"
+import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
@@ -20,6 +21,34 @@ let f = () => 1;
 
 ```ts
 super(template);
+```
+
+## method TryToClose:(context:SyntaxContext)=>CloseStates
+
+[R7] 增量路径的箭头在 EOF 收口时可能还挂着**没关过的子形状**（嵌套箭头的内层、体表达式根由父层
+`builtShape.TryToClose` 一次性关掉，父层只关自己、不递归）。这里先按**由内向外**关闭还没关闭的子形状
+（只关形状，basic 单元保持原样——它们的 `Close` 会去问父目录，不该在收口时被触发），再摘掉尾随 trivia
+（`ShapeToken.TryToClose` 用最后一个子单元的终点补右边界，尾随空白的终点不是箭头的终点）。
+
+legacy 路径在这里逐字不变：`FromUnits` 建出的箭头子单元都已关闭，循环是空转，`Closed == true` 时整段跳过。
+
+```ts
+if (!this.Closed) {
+  for (let at = this.Data.length - 1; at >= 0; at--) {
+    const unit = this.Data[at];
+    if (!unit.Closed && !unit.IsBasicToken) {
+      unit.TryToClose(context);
+    }
+  }
+  while (this.Data.length > 0 && this.Data[this.Data.length - 1].IsTriviaToken) {
+    this.Data.splice(this.Data.length - 1, 1);
+  }
+}
+const state = super.TryToClose(context);
+// EOF 收口时驱动层先按文件长度 `SignOut` 整棵树，箭头因此可能被签出到尾随空白之后
+// （`const f = a => a + 1\n` 的 21 而不是 20）。`Data` 现在只有代码子单元，收回最后一个代码子单元的终点。
+this.TrimEndToLastCode();
+return state;
 ```
 
 ## static method BindParameterBracket:(bracket:Token, context:SyntaxContext)=>bool
