@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -183,7 +184,7 @@ this.MemberCatalogInstalled = false;
 TypeAliasLiteralStartPossibleShape.Install(bracket as Bracket);
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 `[B4c]` 别名壳的逐格驱动（外壳是挂载单元，basic token 关闭时只问父单元）。
 
@@ -223,7 +224,7 @@ if (end >= 0) {
   this.FinishAt(end, context);
   return ComputePossibleShapesStates.Built;
 }
-return super.ComputePossibleShapes(context);
+return super.ComputePossibleShapes(context, source);
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
@@ -1225,7 +1226,7 @@ if (parent !== null) {
     }
   }
   if (movedCode && "ComputePossibleShapesByIndex" in parent) {
-    (parent as any).ComputePossibleShapesByIndex(parent.Data.length - 1, context);
+    (parent as any).ComputePossibleShapesByIndex(parent.Data.length - 1, context, PossibleSource.Close);
   }
 }
 this.MountedUnit = null;

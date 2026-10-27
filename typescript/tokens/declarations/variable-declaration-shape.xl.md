@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
@@ -79,7 +80,7 @@ let x = 1;
 null
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 ```ts
 // [WP-A5] 类型面接管：`:` 注解 / `as`·`satisfies` 断言不经过表达式候选目录。
@@ -111,7 +112,7 @@ if (this.Incremental && !this.Closed) {
       // 这一格上表达式目录的候选全被 `DeclarationCellGuard` 按「块体边界」Reject，只剩终结候选，
       // 因此不会出现「终结候选与其它候选同时成立」。
       if (atBlockHost && DeclarationAsiBoundary.IsBlockHostBoundary(this.Data, this.Data.length - 1)) {
-        return super.ComputePossibleShapes(context);
+        return super.ComputePossibleShapes(context, source);
       }
       // [S2:CLOSE-TYPED] **类型面的收口格**：类型注解与初始化器都已经长完、而当前末单元就是
       // 「这条声明到此为止」的那一格（`;` / 声明跟随边界 / 换行 ASI）时，交回基类**问一次终结候选**。
@@ -125,13 +126,13 @@ if (this.Incremental && !this.Closed) {
       // `CatalogGuide` 的「终结候选与其它候选同时成立」断言。
       // 判据只有一份（`CanFinishTypedDeclaration`），本文件不新写 ASI / 边界词法。
       if (VariableDeclarationShape.CanFinishTypedDeclaration(this.Data, this.AnnotationDone || this.InitializerDone)) {
-        return super.ComputePossibleShapes(context);
+        return super.ComputePossibleShapes(context, source);
       }
       return ComputePossibleShapesStates.Waiting;
     }
   }
 }
-return super.ComputePossibleShapes(context);
+return super.ComputePossibleShapes(context, source);
 ```
 
 ## static method CanFinishTypedDeclaration:(data:Array<Token>, bodyDone:bool)=>bool

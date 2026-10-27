@@ -4,6 +4,7 @@ import { BranchStates } from "../../branch-states.xl.md"
 import { CloseStates } from "../../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../../compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../../i-compute-possible-shapes.xl.md"
+import { PossibleSource } from "../../possible-source.xl.md"
 import { ReloadMessage } from "../../messages/reload-message.xl.md"
 import { SourceRange } from "../../source-range.xl.md"
 import { SyntaxContext } from "../../syntax-context.xl.md"
@@ -206,7 +207,7 @@ if (this.PendingInterpolation !== -1) {
 this.Closed = true;
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
-  const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);
+  const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context, PossibleSource.Close);
   if (state === ComputePossibleShapesStates.Built) {
     return CloseStates.Built;
   }

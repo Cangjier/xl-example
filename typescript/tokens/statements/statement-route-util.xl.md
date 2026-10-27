@@ -1143,6 +1143,34 @@ if (unit instanceof Common) {
 return StatementClass.OperandStart;
 ```
 
+## static field EnableBracketCreatePossible:bool = false
+
+**[T2:CREATE] 括号创建触发的 possible 重算（`PossibleSource.BracketCreate`）的开关。默认 `false`。**
+
+`false`（默认）时 `BracketCreatePossibleTrigger.EnsureInstalled` 立即返回，
+`BracketCreatePossibleHook.Current` 保持 `null`，`Bracket.Transit` 里那一行只是 `null` 比较：
+**不触发任何 BracketCreate 判定**，`Bracket.OnBracketCreatedEvent` 里的旧窄触发逐字节仍是 T2 之前的行为。
+
+`true` 时 `SourceFileShape` 的构造器把 `BracketCreatePossibleTrigger` 装到
+`BracketCreatePossibleHook.Current`；`Bracket.Transit` 在 `BracketRoleHook` 之后对新括号自己（若已挂目录）
+与父宿主（若挂了带终结候选的向导）各问一次，来源显式传 `PossibleSource.BracketCreate`。
+同一格由双 build 守卫（`CatalogGuide.LastBuildTokenIndex` / `LastBuildDataLength`）保证只建一次。
+
+**为什么默认关**：T2 只接线，不改 117 个候选的判据。候选还不会按来源改变行为，所以打开时读数应与关闭时相同；
+T3 的目标用例再打开它，并让 statement / block / control-flow 的候选读第 4 参。
+
+## static field BracketCreatePossibleCount:int = 0
+
+[T2:CREATE] 只读计数：`BracketCreatePossibleTrigger` 被调用（= 建出一只新括号且开关打开）的次数。
+
+## static field BracketCreateSelfCount:int = 0
+
+[T2:CREATE] 只读计数：新括号自己**已挂目录**、因此真的问了一次自身候选的次数（`Data` 为空时通常直接 `Nothing`）。
+
+## static field BracketCreateParentCount:int = 0
+
+[T2:CREATE] 只读计数：父宿主挂了「带终结候选」的向导、因此真的问了一次父层候选的次数。
+
 ## static field EnableBracketRoleCatalog:bool = false
 
 **[B0:ROLE] 通用括号角色目录（`bracket-role-resolver` / `bracket-catalog-installer` /

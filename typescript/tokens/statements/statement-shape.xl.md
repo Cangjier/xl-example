@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
@@ -75,7 +76,7 @@ let b = 2
 super(template);
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 ```ts
 // [E-SHAPE:MOUNT] WP-B2：`EnableIncrementalShapes=true` 时，表达式体（`OperatorBody`）归约出的形状要
@@ -93,7 +94,7 @@ if (StatementRouteUtil.IsIncrementalShapesEnabled() && this.OperatorBody !== nul
 // **R3-S（R3-CONTRACT §4.4）**：`--strict` 时 `Decline` / `Incomplete` **在 Ingest 期**就会抛
 // （`Decline`：`Declined+=1` → `NoteDecline` → `StrictViolations+=1` → `throw`）。不在这里接住，
 // 异常会穿出 `Parse`（R2 审计 §7 R2 条：`let {a} = b` 在 Strict 下抛穿）。计数语义与 H2 完全一致：
-// 已计数的 Decline 不再计 `Errors`；接住之后**继续走** `super.ComputePossibleShapes(context)`，
+// 已计数的 Decline 不再计 `Errors`；接住之后**继续走** `super.ComputePossibleShapes(context, source)`，
 // 由 H2 的 `!direct.Declined` 拦下 Finish ⇒ 旧路径建树（AST 不变）。
 if (this.DirectSession !== null) {
   const ingestSession = this.DirectSession;
@@ -118,7 +119,7 @@ if (this.DirectSession !== null) {
 if (this.OperatorBody !== null) {
   this.OperatorBody.IngestAll(this.Data, this.Template);
 }
-const state = super.ComputePossibleShapes(context);
+const state = super.ComputePossibleShapes(context, source);
 // [S2:STUCK-SHELL] **卡死壳检测**（`incremental-stuck-shell-recovery.xl.md`）：壳连续
 // `RecoveryCells`（= 2）格答 `Waiting`、而当前末单元已经是声明跟随边界 ⇒ 下一条语句的起始词到了、
 // 壳却不收口。这一格**先只计数**（`StatementRouteUtil.StuckShellRecoveryCount`），强制执行收口要
@@ -559,7 +560,7 @@ if (context !== null && leftover.length > 0 && StatementShape.LeftoverReplayDept
           continue;
         }
         try {
-          guide.ComputePossibleShapesByIndex(parent, at, context);
+          guide.ComputePossibleShapesByIndex(parent, at, context, PossibleSource.Close);
           StatementRouteUtil.LeftoverReplayCount += 1;
         } catch {
           // 尽力而为：父目录拒收 / 抛错就停在这里，后续格子交回 EOF / fallback 路径。

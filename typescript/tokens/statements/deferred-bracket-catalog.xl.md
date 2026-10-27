@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
@@ -373,7 +374,7 @@ let replayed = 0;
 try {
   const total = shape.Data.length;
   for (let at = 0; at < total; at++) {
-    shape.ComputePossibleShapesByIndex(at, context);
+    shape.ComputePossibleShapesByIndex(at, context, PossibleSource.Close);
     replayed += 1;
   }
   shape.ReplayCount += 1;

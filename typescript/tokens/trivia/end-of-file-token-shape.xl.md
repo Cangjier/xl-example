@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../../../core/syntax/i-compute-possible-shapes.xl.md"
@@ -31,7 +32,7 @@ super(template);
 this.Closed = true;
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
-  const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);
+  const state = (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context, PossibleSource.Close);
   if (state === ComputePossibleShapesStates.Built) {
     return CloseStates.Built;
   }

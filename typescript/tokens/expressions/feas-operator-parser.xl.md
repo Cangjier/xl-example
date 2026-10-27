@@ -1,7 +1,9 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
+import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
@@ -203,19 +205,19 @@ return !pending[frames.length - 1];
 ## method IsOperandStart:(index:int)=>bool
 
 ```ts
-return this.OperandPossible.ComputeByIndex(this.Units, index, this.Cache) === ShapeStates.Accept;
+return (this.OperandPossible as PossibleShape).ComputeByIndex(this.Units, index, this.Cache, PossibleSource.Close) === ShapeStates.Accept;
 ```
 
 ## method IsBinaryOperator:(index:int)=>bool
 
 ```ts
-return this.BinaryPossible.ComputeByIndex(this.Units, index, this.Cache) === ShapeStates.Accept;
+return (this.BinaryPossible as PossibleShape).ComputeByIndex(this.Units, index, this.Cache, PossibleSource.Close) === ShapeStates.Accept;
 ```
 
 ## method IsPrefixOperator:(index:int)=>bool
 
 ```ts
-return this.PrefixPossible.ComputeByIndex(this.Units, index, this.Cache) === ShapeStates.Accept;
+return (this.PrefixPossible as PossibleShape).ComputeByIndex(this.Units, index, this.Cache, PossibleSource.Close) === ShapeStates.Accept;
 ```
 
 ## method TextOf:(unit:Token)=>string

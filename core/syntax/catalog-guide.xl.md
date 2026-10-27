@@ -17,9 +17,21 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 触发只有一条路径：basic token 关闭时**只问父单元**，父单元（实现了 `IComputePossibleShapes`、且 `CatalogGuide` 非空）把 `this` 转交进来；本向导问一遍还活着的候选（`PossibleShape.ComputeByIndex`），被拒的**从下标集里去掉**（候选数组一个字都不动），**当且仅当只剩一个候选**时把它交给 `PossibleShape.BuildByIndex`，建完**复位**；一个候选都不剩就抛错，还有多个就继续等后面的单元。
 
+**双触发守卫**：同一个 `tokenIndex` + 同一个 `host.Data.length` 在成功建过一条形状之后再被问到，直接返回 `Nothing`（不重开候选、不重跑终结候选）。`Reset()` 紧跟每一次 `BuildByIndex`，它把 `Candidates` 重新填满——如果没有这道守卫，同一格第二次触发就是「重开一局」，带终结候选的向导会当场再建一条形状（双 build）。守卫的失效条件是**换格**（`tokenIndex` 变）或**换长度**（`host.Data.length` 变）；`Reset()` 本身不清它，因为「这一格已消费」是 `Reset()` 之后仍成立的事实。
+
 # class CatalogGuide
 
 形状目录向导。
+
+## static field RepeatedCellSkipCount:int = 0
+
+只读计数：双触发守卫命中的次数（同一 `tokenIndex` + 同一 `host.Data.length` 再次被问到而直接返回 `Nothing`）。
+默认 0；开关关闭且没有重复触发时恒为 0。
+
+## static field BuildCount:int = 0
+
+只读计数：本进程内成功 `BuildByIndex` 的次数（普通候选与终结候选各算一次）。T2 用它核对
+「同一格只建一次」：开关打开前后，同一份源码的读数应当相等。
 
 ## field PossibleShapes:Array<PossibleShape>
 
@@ -52,6 +64,21 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 候选还在等就是 `Waiting`，一个候选都不剩才可能抛错——而 B0 的向导一律带永不 `Accept` 的终结候选，
 所以这条路径对它们是安全的。
 
+## field LastBuildTokenIndex:int = -1
+
+**双触发守卫（T2）**：最近一次成功 `BuildByIndex` 的 `tokenIndex`；`-1` 表示还没建过。
+
+它与 `LastBuildDataLength` 一起判定「这一格是不是已经建过」：两个都相同 ⇒ 同一格再次被问到，
+直接返回 `Nothing`，不重开候选。`Reset()` **不清**它——复位候选集是建完之后的正常收尾，
+而「这一格已消费」在复位之后依然成立。
+
+## field LastBuildDataLength:int = -1
+
+**双触发守卫（T2）**：最近一次成功 `BuildByIndex` 时的 `host.Data.length`（建完之后的长度）。
+
+换格（`tokenIndex` 不同）或换长度（`host.Data.length` 不同）都会让守卫自然失效；
+`-1` 与任何真实长度都不相等，所以初始状态永远不会误命中。
+
 ## constructor:(shapes:Array<PossibleShape>, endPossible?:PossibleShape | null)=>void
 
 以候选目录创建，把所有下标放进 `Candidates`；终结候选单独收下。
@@ -64,17 +91,17 @@ for (let index = 0; index < shapes.length; index++) {
 }
 ```
 
-## method ComputePossibleShapes:(host:Token, context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(host:Token, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 判全段就是判到最后一格为止：直接转调 `ComputePossibleShapesByIndex`。
 
-`source` 是触发来源，**不传 = `PossibleSource.Close`**；原样往 `ByIndex` 透传，判定本身不看它。
+`source` 是触发来源，**必填**（无默认值）；原样往 `ByIndex` 透传，判定本身不看它。
 
 ```ts
 return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context, source);
 ```
 
-## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 拿**宿主**攒下的子单元问一遍还活着的候选——`Candidates` 里那些下标，被拒的从 `Candidates` 里去掉——然后按**个数**行动：只剩一个就建它并复位，一个都不剩就抛错，还有多个就继续等后面的单元。
 
@@ -90,33 +117,44 @@ return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context, so
 传成 `undefined` 时消息会被静默丢掉（`context?.Messages.push` 那个写法就是这么漏的），
 所以这里**先验一刀**，漏了当场炸，而不是等到某条终结规则不生效才发现。
 
-`source` 是本次判定的触发来源：**不传即 `PossibleSource.Close`**。它在进入候选判定**之前**被写进 `PossibleShapesComputeCache.Source`，候选因此不需要改签名——需要区分来源的候选在自己的 `ComputeByIndex` 里读 `cache.Source` 即可。
+`source` 是本次判定的触发来源，**必填**（无默认值、不从字段或静态量取）。它只走形参：
+候选循环与 `EndPossible` 都显式收到同一个 `source`；缓存 `PossibleShapeCache` **不保存来源**。
 
-写入只影响这一次判定：`Reset()` 紧跟每一次 `BuildByIndex`，而 `Clear()` 会把 `Source` 复位成 `Close`，所以下一次判定不会读到上一次的来源。缓存**不按 source 分槽**：`Values` 每次 `Reset` 就清，`Share` 的失效判据另议。
+**双触发守卫**：进入候选判定之前先看 `LastBuildTokenIndex` / `LastBuildDataLength`——
+两者与本次的 `tokenIndex` / `host.Data.length` 都相同，说明这一格已经建过，直接返回 `Nothing`，
+不重开候选、不重跑终结候选。`Reset()` 不清这两个字段（见字段说明）。
 
 ```ts
 if (typeof context === "undefined") {
   throw new Error(`CatalogGuide: context 必须通过形参传入（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
 }
+// [T2:GUARD] 同一格（tokenIndex + Data.length）已经成功建过 ⇒ 不重开候选。
+// 换格 / 换长度都让两个字段不再相等，正常的新格因此不会被拦住。
 const token = host.Data[tokenIndex];
 if (token === undefined) {
   return ComputePossibleShapesStates.Nothing;
 }
-this.PossibleShapesComputeCache.Source = source ?? PossibleSource.Close;
+if (this.LastBuildTokenIndex === tokenIndex && this.LastBuildDataLength === host.Data.length) {
+  CatalogGuide.RepeatedCellSkipCount += 1;
+  return ComputePossibleShapesStates.Nothing;
+}
 for (const index of this.Candidates) {
-  if (this.PossibleShapes[index].ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Reject) {
+  if (this.PossibleShapes[index].ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Reject) {
     this.Candidates.delete(index);
   }
 }
 let ended = false;
 if (this.EndPossible !== null) {
-  ended = this.EndPossible.ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Accept;
+  ended = this.EndPossible.ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Accept;
   if (ended && this.Candidates.size > 0) {
     throw new Error(`CatalogGuide: 终结候选与其它候选同时成立（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
   }
 }
 if (ended && this.EndPossible !== null) {
   this.EndPossible.BuildByIndex(host, tokenIndex, this, context);
+  this.LastBuildTokenIndex = tokenIndex;
+  this.LastBuildDataLength = host.Data.length;
+  CatalogGuide.BuildCount += 1;
   this.Reset();
   return ComputePossibleShapesStates.Built;
 }
@@ -137,15 +175,21 @@ if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.Possible
   return ComputePossibleShapesStates.Waiting;
 }
 this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this, context);
+this.LastBuildTokenIndex = tokenIndex;
+this.LastBuildDataLength = host.Data.length;
+CatalogGuide.BuildCount += 1;
 this.Reset();
 return ComputePossibleShapesStates.Built;
 ```
 
 ## private method Reset:()=>void
 
-目录复位：`Candidates` 重新填满，判定缓存清空。`Clear` 清 `Values`（逐条目判定状态）并把 `Source` 复位成 `Close`；`Share` 保留——它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置。
+目录复位：`Candidates` 重新填满，判定缓存清空。`Clear` 清 `Values`（逐条目判定状态）；`Share` 保留——它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置。
 
 **建完一条形状必须复位**：下一个条目的判定要从零开始——下标集不复位，就再也建不出第二个形状；缓存不清，就会拿上一条「读到第几格、什么档位」的状态去判下一条。
+
+**双触发守卫的两个字段不清**：它们在 `BuildByIndex` 之后由调用方写入，记录的是「这一格已经建过」；
+`Reset()` 是建完之后的正常收尾，清掉它们等于把守卫本身取消。失效只由「换格」或「换长度」自然完成。
 
 ```ts
 this.Candidates.clear();

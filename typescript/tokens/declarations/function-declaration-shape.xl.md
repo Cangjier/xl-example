@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
@@ -243,7 +244,7 @@ FunctionDeclarationShape.BodyShellOpenCount += 1;
 return block;
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 **[B1] 收口钩子**：`(` 括号闭合那一格会走 `Bracket.Close` 的「只问父单元」，
 宿主（本声明）在这里拿到通知——参数表最后一个参数没有后继 token 可等，
@@ -255,7 +256,7 @@ return block;
 ```ts
 ParameterListPossibleShape.Finalize(this, context);
 if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapes(this, context);
+  return this.CatalogGuide.ComputePossibleShapes(this, context, source);
 }
 return ComputePossibleShapesStates.Nothing;
 ```

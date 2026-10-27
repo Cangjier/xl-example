@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../../core/syntax/basic-tokens/common.xl.md"
@@ -467,7 +468,7 @@ host.Data.splice(start, 0, shape);
 shape.Parent = host;
 host.MountedUnit = shape;
 ExportInnerDelegate.MountCount += 1;
-shape.ComputePossibleShapes(context);
+shape.ComputePossibleShapes(context, PossibleSource.Close);
 if (replayStart >= 0 && replayEnd > replayStart) {
   context.Messages.push(ReloadMessage.FromRange(host, replayStart, replayEnd));
 }
@@ -552,7 +553,7 @@ if (begin >= 0) {
 }
 shell.Pos = placeholder.Pos;
 placeholder.Replace(shell);
-shell.ComputePossibleShapes(context);
+shell.ComputePossibleShapes(context, PossibleSource.Close);
 ExportInnerDelegate.MountCount += 1;
 return shell;
 ```

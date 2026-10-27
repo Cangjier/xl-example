@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
@@ -277,7 +278,7 @@ if (route === StatementRoute.ShellLabel) {
 // Stage 5d-3：`async function` / `abstract class` 的晚建（两格窗口）同理。
 if (tokenIndex > start && (route === StatementRoute.ShellDeclarationFamily
   || route === StatementRoute.ShellFunctionDeclaration || route === StatementRoute.ShellClassDeclaration)) {
-  shell.ComputePossibleShapes(context);
+  shell.ComputePossibleShapes(context, PossibleSource.Close);
 }
 // H3-b（R3-CONTRACT §4.1）：建壳候选的通用挂载点，只有这一句。kind 从壳自己取（`shell.Kind`），
 // 未注册的 kind 由 `Create` 返回 null ⇒ 行为逐字节不变。

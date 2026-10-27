@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
@@ -36,7 +37,7 @@ if (MemberShellCatalog.IsOpen(this)) {
 return BranchStates.Undo;
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 [B2b] 成员外壳的子 token 目录：成员名在自己的闭合格成 `IdentifierShape`、`=` 之后的字面量在自己的
 闭合格成 `NumericLiteralShape` / `StringLiteralShape`（见 `MemberShellCatalog.HeadCompute`）。
@@ -45,5 +46,5 @@ return BranchStates.Undo;
 if (MemberShellCatalog.IsOpen(this)) {
   return MemberShellCatalog.HeadCompute(this, context);
 }
-return super.ComputePossibleShapes(context);
+return super.ComputePossibleShapes(context, source);
 ```

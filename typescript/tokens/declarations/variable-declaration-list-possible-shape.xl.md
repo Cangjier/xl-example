@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
@@ -152,7 +153,7 @@ return IncrementalVariableDeclarationListBuilder.CloseAtSemicolon(host as Variab
 null
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 const inner = this.Inner;
@@ -202,7 +203,7 @@ if (DeclarationAsiBoundary.CanCloseAtLineBreak(units, tokenIndex)) {
 if (DeclarationAsiBoundary.CanClose(units, tokenIndex, false)) {
   return ShapeStates.Reject;
 }
-return inner.ComputeByIndex(units, tokenIndex, cache);
+return inner.ComputeByIndex(units, tokenIndex, cache, source);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
@@ -239,7 +240,7 @@ return inner.BuildByIndex(host, tokenIndex, catalog, context);
 false
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (this.Done) {

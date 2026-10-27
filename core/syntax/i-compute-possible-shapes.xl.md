@@ -27,21 +27,22 @@ Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 X
 
 本单元挂着的目录向导；`null` 表示没挂。
 
-## method ComputePossibleShapes:(context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 重算本单元目录里的候选。
 
-`source` 是本次判定的触发来源；**不传 = `PossibleSource.Close`**。实现应当把它原样透传给目录向导，不自己解释。
+`source` 是本次判定的触发来源，**必填**（无默认值）；实现应当把它原样透传给目录向导，不自己解释。
 
-## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 按子单元下标重算本单元目录里的候选。
 
 无参版看全部子单元，本版只看 `tokenIndex` 那一个，留给「逐个喂子单元」的调用方。
 
-`source` 同上：可选尾参，**不传 = `PossibleSource.Close`**。
+`source` 同上：必填形参，原样透传。
 
-候选自己的 `PossibleShape.Compute` / `ComputeByIndex` **签名不变**——来源经 `PossibleShapeCache.Source` 透传，所以 117 个候选不需要改签名就能读到它（需要读的候选在 T3 及之后自己取）。
+候选自己的 `PossibleShape.Compute` / `ComputeByIndex` 也带同一个必填 `source`：它经**形参**一路传到候选，
+不再经缓存 / 静态量承载。需要读来源的候选在自己的 `ComputeByIndex` 第 4 参显式收下；不需要的候选可以保留少参。
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
 

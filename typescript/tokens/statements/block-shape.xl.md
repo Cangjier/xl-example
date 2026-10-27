@@ -1,5 +1,6 @@
 # dependencies
 ```xl
+import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { IComputePossibleShapes } from "../../../core/syntax/i-compute-possible-shapes.xl.md"
@@ -23,7 +24,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 super(template);
 ```
 
-## method ComputePossibleShapes:(context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
 **[B1b] 体括号「关闭转发」**：`FunctionDeclarationShape.OpenFunctionBody` 在 `{` 创建格就把本壳挂进声明，
 函数体括号是本壳的 `MountedUnit`。`}` 关闭时 `Bracket.Close` 只问父单元（= 本壳），本壳先按括号终点把
@@ -41,7 +42,7 @@ if (!this.Closed && mounted !== null && mounted instanceof Bracket && (mounted a
 }
 const parent = this.Parent;
 if (parent !== null && "ComputePossibleShapes" in parent) {
-  return (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context);
+  return (parent as unknown as IComputePossibleShapes).ComputePossibleShapes(context, source);
 }
 return ComputePossibleShapesStates.Nothing;
 ```
