@@ -154,12 +154,87 @@ return text;
 
 类型是否已经可以落地：后面不能再接类型延拓字符。
 
+`TypeContinuation` 只覆盖**符号**续接器。条件类型的 `extends` 是唯一的**单词**续接器：
+`let x: T extends U ? A : B` 里 `T` 的下一格是 `e`（不在 `TypeContinuation` 里），旧判据于是在 `T`
+这一拍就把注解落地，`extends … B` 全部留在 `Data` 里，收口格只能抛
+`增量变量形状未支持：declaration 声明体`（C10），整文件回退 legacy（实测
+`tests/cases/token/types/type-cond-in-annotation.ts`）。所以这里补一条：**下一个词是独立的 `extends`**
+时类型还没长完。
+
+为什么只有这一个词：类型之后还能接的续接器里其余全是符号（见 `TypeContinuation`）；`infer` / `keyof` /
+`readonly` 这些词都在 `extends` 右边或类型**之前**，不在「已完成类型之后」这个位置上。
+
 ```ts
 const next = TypeCatalogFactory.NextSignificantChar(unit);
 if (next === "") {
   return true;
 }
-return TypeCatalogFactory.TypeContinuation.indexOf(next) < 0;
+if (TypeCatalogFactory.TypeContinuation.indexOf(next) >= 0) {
+  return false;
+}
+return TypeCatalogFactory.NextWord(unit) !== "extends";
+```
+
+## static method NextWord:(unit:Token)=>string
+
+`unit` 之后的下一个**单词**：跳过空白与两种注释之后连续的标识符字符（`[A-Za-z_$]`）。
+
+与 `StatementScanner.NextWord` 同一口径，但不反向 import 语句层（类型层不依赖语句层）。
+为什么不能用 `NextSignificantText(unit, 7)`：它把空白也跳掉了，`extends U` 与 `extendsFoo` 的返回值都是
+`extends?`，而这里要的正是「`extends` 之后是否还接着标识符字符」这个区别——
+`let x: T` ⏎ `extendsFoo()` 是下一条语句，不能被当成条件类型，否则注解永远落不了地。
+
+```ts
+const range = unit.SourceRange;
+let document = range.Document;
+if (document === null) {
+  document = SourceRange.CurrentDocument;
+}
+if (document === null || range.EndIndex < 0) {
+  return "";
+}
+const count = document.GetCount();
+let at = range.EndIndex;
+while (at < count) {
+  const ch = document.GetValue(at);
+  if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\f" || ch === "\v") {
+    at += 1;
+    continue;
+  }
+  if (ch === "/" && at + 1 < count) {
+    const following = document.GetValue(at + 1);
+    if (following === "/") {
+      at += 2;
+      while (at < count && document.GetValue(at) !== "\n") {
+        at += 1;
+      }
+      continue;
+    }
+    if (following === "*") {
+      at += 2;
+      while (at + 1 < count) {
+        if (document.GetValue(at) === "*" && document.GetValue(at + 1) === "/") {
+          at += 2;
+          break;
+        }
+        at += 1;
+      }
+      continue;
+    }
+  }
+  break;
+}
+const word:Array<string> = [];
+while (at < count) {
+  const ch = document.GetValue(at);
+  if ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || ch === "_" || ch === "$") {
+    word.push(ch);
+    at += 1;
+    continue;
+  }
+  break;
+}
+return word.join("");
 ```
 
 ## static method CanEndInitializer:(unit:Token)=>bool
