@@ -116,7 +116,7 @@ super(template);
 
 内层是 `default function` 声明（同上）。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -191,7 +191,7 @@ return ExportInnerDelegate.BuildInner(host, tokenIndex, context);
 `FunctionDeclarationShape.FromUnits`；差别只有两处：壳的 `Data` 前面还留着 `export` / `default`
 两个 raw 单元（建树要从 `function` 起），以及建完要把两个修饰词补到 children 最前。
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache)=>ShapeStates
+## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
