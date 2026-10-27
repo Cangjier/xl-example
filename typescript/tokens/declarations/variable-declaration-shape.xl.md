@@ -502,6 +502,18 @@ if (equalAt >= 0) {
     // 后缀括号格「继续等」，所以这里必须把「等完之后没人消费」变成显式错误，而不是静默截断（C10）。
     for (const unit of raw) {
       if (unit instanceof Bracket) {
+        // [D1:SUFFIX-BRACKET] 括号整只落在根区间**之后**，且根是**登记过身份**的形状（容器 / 标签模板链）：
+        // 它是根的后缀（元素访问 / 调用），不是被静默丢掉的括号。D1 的终结候选在「后缀括号格」继续等，
+        // 等到收口格时根已经落地、括号自然没人收。根登记过身份 ⇒ 下面「整条 raw 原子重建」那一支的
+        // `ExpressionBuilder.ParsePrimary` 能把根当操作数收下、由 legacy 的 postfix 面接上括号；
+        // 根没登记过（例如二元形状）时重建无从接手，仍按 C10 抛错。
+        const suffixStart = unit.SourceRange.StartIndex;
+        const suffixRootEnd = builtShape.SourceRange.EndIndex;
+        if (suffixStart >= 0 && suffixRootEnd >= 0 && suffixStart >= suffixRootEnd
+          && (ExpressionAtomRegistry.HasContainer(builtShape)
+            || ExpressionAtomRegistry.HasNode(builtShape))) {
+          continue;
+        }
         // [B4i:K1-TYPE-SLOT] 容器之后还有 basic 括号，并且这段初始化器里有 `as` / `satisfies`
         // （`const [a] = [] as number[]` 的类型 `[` / `const {a} = {} as {...}` 的类型 `{`）：
         // 那不是「未并入的括号」，是 `TypeCatalogFactory` 的**类型槽**。整条交给
