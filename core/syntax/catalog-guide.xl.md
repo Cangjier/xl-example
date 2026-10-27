@@ -4,6 +4,7 @@ import { ComputePossibleShapesStates } from "./compute-possible-shapes-states.xl
 import { PossibleShape } from "./possible-shape.xl.md"
 import { SyntaxContext } from "./syntax-context.xl.md"
 import { PossibleShapeCache } from "./possible-shape-cache.xl.md"
+import { PossibleSource } from "./possible-source.xl.md"
 import { ShapeStates } from "./shape-states.xl.md"
 import { Token } from "./token.xl.md"
 ```
@@ -63,15 +64,17 @@ for (let index = 0; index < shapes.length; index++) {
 }
 ```
 
-## method ComputePossibleShapes:(host:Token, context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapes:(host:Token, context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
 
 判全段就是判到最后一格为止：直接转调 `ComputePossibleShapesByIndex`。
 
+`source` 是触发来源，**不传 = `PossibleSource.Close`**；原样往 `ByIndex` 透传，判定本身不看它。
+
 ```ts
-return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context);
+return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context, source);
 ```
 
-## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context:SyntaxContext)=>ComputePossibleShapesStates
+## method ComputePossibleShapesByIndex:(host:Token, tokenIndex:int, context:SyntaxContext, source?:PossibleSource)=>ComputePossibleShapesStates
 
 拿**宿主**攒下的子单元问一遍还活着的候选——`Candidates` 里那些下标，被拒的从 `Candidates` 里去掉——然后按**个数**行动：只剩一个就建它并复位，一个都不剩就抛错，还有多个就继续等后面的单元。
 
@@ -87,6 +90,10 @@ return this.ComputePossibleShapesByIndex(host, host.Data.length - 1, context);
 传成 `undefined` 时消息会被静默丢掉（`context?.Messages.push` 那个写法就是这么漏的），
 所以这里**先验一刀**，漏了当场炸，而不是等到某条终结规则不生效才发现。
 
+`source` 是本次判定的触发来源：**不传即 `PossibleSource.Close`**。它在进入候选判定**之前**被写进 `PossibleShapesComputeCache.Source`，候选因此不需要改签名——需要区分来源的候选在自己的 `ComputeByIndex` 里读 `cache.Source` 即可。
+
+写入只影响这一次判定：`Reset()` 紧跟每一次 `BuildByIndex`，而 `Clear()` 会把 `Source` 复位成 `Close`，所以下一次判定不会读到上一次的来源。缓存**不按 source 分槽**：`Values` 每次 `Reset` 就清，`Share` 的失效判据另议。
+
 ```ts
 if (typeof context === "undefined") {
   throw new Error(`CatalogGuide: context 必须通过形参传入（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
@@ -95,6 +102,7 @@ const token = host.Data[tokenIndex];
 if (token === undefined) {
   return ComputePossibleShapesStates.Nothing;
 }
+this.PossibleShapesComputeCache.Source = source ?? PossibleSource.Close;
 for (const index of this.Candidates) {
   if (this.PossibleShapes[index].ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache) === ShapeStates.Reject) {
     this.Candidates.delete(index);
@@ -135,7 +143,7 @@ return ComputePossibleShapesStates.Built;
 
 ## private method Reset:()=>void
 
-目录复位：`Candidates` 重新填满，判定缓存清空。`Clear` 只清 `Values`（逐条目判定状态），`Share` 保留——它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置。
+目录复位：`Candidates` 重新填满，判定缓存清空。`Clear` 清 `Values`（逐条目判定状态）并把 `Source` 复位成 `Close`；`Share` 保留——它是 Shape 生命周期内长期复用的数据，不受 `Reset` 重置。
 
 **建完一条形状必须复位**：下一个条目的判定要从零开始——下标集不复位，就再也建不出第二个形状；缓存不清，就会拿上一条「读到第几格、什么档位」的状态去判下一条。
 
