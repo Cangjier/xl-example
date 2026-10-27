@@ -13,7 +13,7 @@ import { SourceRange } from "../syntax/source-range.xl.md"
 
 xl 规定一个类至多一个构造器（`E1206`），因此保留参数最全的那个做构造器，其余三个转成静态工厂。BCL 的 `Exception` 不进 `extends`，ts 侧用 `Message` / `InnerException` 两个字段承载基类信息。
 
-`callerLineNumber` 表示调用点行号，写成可选的普通参数；调用点不传，因此产物里的行号恒为 `0`。
+`callerLineNumber` 是历史调用点参数，保留签名兼容；调用点不传，产物里的行号恒为 `0`，因此不再写进 `Message`（属于无效信息）。
 
 ## field Message:string = ""
 
@@ -29,10 +29,11 @@ BCL 类型不进规范，这里记为 `unknown`：写的这一侧接受任何抛
 
 带自定义信息的构造。
 
-信息拼成 `$"throw by line {callerLineNumber}, {message} ---> \r\n{sourceRange.GetRangLines()}"`。
+信息拼成 `$"{message} ---> \r\n{sourceRange.GetRangLines()}"`；`message` 为空时只保留位置行，不再拼接 `throw by line 0`。
 
 ```ts
-this.Message = `throw by line ${callerLineNumber ?? 0}, ${message} ---> \r\n${sourceRange.GetRangLines()}`;
+const head = message.length > 0 ? `${message} ---> \r\n` : "";
+this.Message = head + sourceRange.GetRangLines();
 this.InnerException = innerException;
 ```
 
@@ -42,7 +43,7 @@ this.InnerException = innerException;
 
 ```ts
 const result = new SyntaxException(sourceRange, "", null, callerLineNumber ?? 0);
-result.Message = `throw by line ${callerLineNumber ?? 0} ---> \r\n${sourceRange.GetRangLines()}`;
+result.Message = sourceRange.GetRangLines();
 return result;
 ```
 
@@ -61,6 +62,6 @@ return result;
 
 ```ts
 const result = new SyntaxException(sourceRange, "", innerException, callerLineNumber ?? 0);
-result.Message = `throw by line ${callerLineNumber ?? 0} ---> \r\n${sourceRange.GetRangLines()}`;
+result.Message = sourceRange.GetRangLines();
 return result;
 ```
