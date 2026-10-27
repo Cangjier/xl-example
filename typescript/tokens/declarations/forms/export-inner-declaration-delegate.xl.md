@@ -256,7 +256,13 @@ while (lastCode > functionAt && (shell.Data[lastCode].IsTriviaToken || shell.Dat
   lastCode--;
 }
 // 与 legacy 同一个建树函数：`function` 关键字起、到体 `}`（或 `;`）收。
-const built = FunctionDeclarationShape.FromUnits(shell, functionAt, lastCode, context, false, false, shell.Pos);
+// **`allowAnonymous` 必须是 true**：本委托只服务 `export default function …`（`ProbeKind` 的
+// `KindFunction` 只在 `default` + 同行 `function` 时给出），而 TS 的 `export default function () {}`
+// 是**没有名字**的 FunctionDeclaration（修饰词之后直接是参数表，无名字 child）。
+// 传 false 会让 `FromUnits` 抛「函数声明的名字不是标识符」⇒ 整文件 fallback
+// （`mod-export-default-function-anon.ts` 实测）。具名形 `export default function f() {}` 不受影响：
+// 名字是 `Common` 时 `paramIndex` 照常前进一格，与放宽前逐字同源。
+const built = FunctionDeclarationShape.FromUnits(shell, functionAt, lastCode, context, false, true, shell.Pos);
 const exportUnit = shell.Data[exportAt];
 const exportModifier = ExportKeywordShape.FromBasicToken(exportUnit as Common, context);
 exportModifier.Pos = shell.Pos;
