@@ -6,7 +6,6 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ControlHeadPossibleShape } from "./control-head-possible-shape.xl.md"
 import { ExpressionBracketPossibleShape } from "../expressions/forms/shared/expression-bracket-possible-shape.xl.md"
-import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 ```
@@ -82,18 +81,25 @@ BracketRoleCatalogHook.Installed = true;
 本方法只按固定顺序把 `(host, bracket, context)` 交给四线的 `InstallAtBracketCreated`，
 第一个返回 `true` 的候选负责这一格，后续不再问。
 
-1. `MemberShellCatalog`（成员外壳的 `(` / `{`，安装点本来就在候选类里）；
-2. `ControlHeadPossibleShape`（控制头的 `(`，角色 `ControlHead`）；
-3. `ExpressionBracketPossibleShape`（表达式括号，四个表达式角色）；
-4. `ParameterListPossibleShape`（参数表 `(`，角色 `ParameterList`；`[` 只推进 Probe）。
+1. `ControlHeadPossibleShape`（控制头的 `(`，角色 `ControlHead`）；
+2. `ExpressionBracketPossibleShape`（表达式括号，四个表达式角色）；
+3. `ParameterListPossibleShape`（参数表 `(`，角色 `ParameterList`；`[` 只推进 Probe）。
+
+[T7f] **成员外壳线已从这里删除**：`MemberShellCatalog` 的 `(` / `{` 由各成员形状自己的
+`OnBracketCreatedEvent` → `MemberShellCatalog.OnBracketCreated` 安装，而 `Bracket.Transit` 在调用本钩子
+**之前**已经走过那一跳（`OnBracketCreatedEvent` 在 `[B0:ROLE]` 之前）。两处传的 `host` 是同一个单元、
+`InstallIfSimple` 与 `OpenMemberBody` 又各自幂等，所以本类这一支是**纯重复**：删掉它，
+`MemberShell` 的目录安装数、时机与参数逐字节不变（30 target 与 BuildCount 实测见 `_reports/T7f.md`）。
+剩下的两条线没有等价的实例入口（它们的宿主是 `StatementShape` / 各类表达式壳，
+不是「认得这只括号」的那个对象），因此仍留在这里，原因同样记在 `_reports/T7f.md`。
 
 `Resolve` / `Install` / `Register` 与 `RoleState` / `Role` 的写入都已从这里删除：它们分别落在
 四条线的 `InstallAtBracketCreated` 里，`BracketCatalogInstaller.Install` 仍是唯一的安装动作（幂等）。
 
 **[T7c] 本方法已是纯分派外壳**：不再自己 `Resolve` / `Install` / `Register`，也不再写
-`RoleState` / `Role`。四线的判据与安装动作全部在候选自己的 `InstallAtBracketCreated` 里，
-顺序 = MemberShell（成员方法 `(` / 成员体）→ ControlHead → ExprBracket → ParameterList；
-每个候选返回 `true` 表示「这只括号归我，已处理」，分派即停。
+`RoleState` / `Role`。剩余三条线的判据与安装动作全部在候选自己的 `InstallAtBracketCreated` 里，
+顺序 = ControlHead → ExprBracket → ParameterList；每个候选返回 `true` 表示「这只括号归我，已处理」，
+分派即停。
 
 ```ts
 if (bracket === null || !(bracket instanceof Bracket)) {
@@ -103,11 +109,8 @@ const shape = bracket as Bracket;
 if (!StatementRouteUtil.EnableBracketRoleCatalog) {
   return;
 }
-// 四线按「最窄 → 最宽」分派：成员方法 / 控制头 / 表达式括号 / 参数表。
+// 三条线按「最窄 → 最宽」分派：控制头 / 表达式括号 / 参数表。
 // 每条线只在自己认得这只括号与它的角色时返回 true 并完成（幂等的）安装。
-if (MemberShellCatalog.InstallAtBracketCreated(host, shape, context)) {
-  return;
-}
 if (ControlHeadPossibleShape.InstallAtBracketCreated(host, shape, context)) {
   return;
 }
