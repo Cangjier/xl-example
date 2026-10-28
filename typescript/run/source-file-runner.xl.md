@@ -2,9 +2,9 @@
 ```xl
 import { SyntaxContext } from "../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
-import { SourceFileShape } from "../tokens/files/source-file-shape.xl.md"
+import { SourceFileShape } from "../shapes/files/source-file-shape.xl.md"
 import { TextDocument } from "./text-document.xl.md"
-import { StatementRouteUtil } from "../tokens/statements/statement-route-util.xl.md"
+import { StatementRouteUtil } from "../shapes/statements/statement-route-util.xl.md"
 import { TypescriptTemplate } from "./typescript-template.xl.md"
 ```
 

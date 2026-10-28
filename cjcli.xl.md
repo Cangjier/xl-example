@@ -4,8 +4,8 @@ import { SyntaxContext } from "./core/syntax/syntax-context.xl.md"
 import { SourceRange } from "./core/syntax/source-range.xl.md"
 import { TextDocument } from "./typescript/run/text-document.xl.md"
 import { TypescriptTemplate } from "./typescript/run/typescript-template.xl.md"
-import { SourceFileShape } from "./typescript/tokens/files/source-file-shape.xl.md"
-import { StatementRouteUtil } from "./typescript/tokens/statements/statement-route-util.xl.md"
+import { SourceFileShape } from "./typescript/shapes/files/source-file-shape.xl.md"
+import { StatementRouteUtil } from "./typescript/shapes/statements/statement-route-util.xl.md"
 ```
 
 # namespace cangjie

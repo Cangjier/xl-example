@@ -10,7 +10,6 @@ import { String } from "../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../core/syntax/basic-tokens/symbol.xl.md"
 import { Token } from "../../core/syntax/token.xl.md"
 import { LineTerminator } from "./line-terminator.xl.md"
-import { ExpressionAtomRegistry } from "../tokens/expressions/forms/shared/expression-atom-registry.xl.md"
 ```
 
 # namespace cangjie
@@ -115,9 +114,6 @@ return false;
 ## static method IsOperandShape:(unit:Token)=>bool
 
 ```ts
-if (ExpressionAtomRegistry.HasContainer(unit)) {
-  return true;
-}
 const name = unit.constructor.name;
 if (name.endsWith("ExpressionShape")) {
   return true;
