@@ -10,8 +10,6 @@ import { DirectBuildPlugins } from "./direct-build-plugins.xl.md"
 
 # namespace cangjie
 
-按 `StatementRoute` kind 选 session 的注册表：`Create` 是唯一入口，未注册的 kind 恒返回 null（= 该语句族本轮不做直建）。
-
 # class DirectBuildRouter
 
 ## static field Factories:Map<int, any> = new Map()

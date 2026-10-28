@@ -29,12 +29,6 @@ import { OperatorTable } from "../../operator-table.xl.md"
 
 # namespace cangjie
 
-`BinaryOperatorPossibleShape` 是 WP-A2 的**通用二元运算符**候选（`_coord/PLAN-all-possible.md` §4.1 A2）。
-
-它把「`1 && 2` / `a / b` / `1 << 2` / `a instanceof B` 这类声明初始化器」从
-`_coord/REPORT-all-possible-E0b.md` 的 `declaration 符号 <op>` / `expression 运算符 <op>` 显式拒绝，
-升级成逐字符建形状：
-
 ```
 char 8  `1`            → NumericLiteralPossibleShape（既有）建 NumericLiteralShape
 char 9  `&&`           → 本候选建运算符形状 + BinaryExpressionShape，原位替换「左操作数 + 运算符」两格
@@ -42,56 +36,9 @@ char 10 `2`            → Binary 的右操作数目录（RightOperandPossibleSh
 EOF                     → FinishIncremental 收下唯一根（E0b 契约）
 ```
 
-**职责边界（与既有两个候选的让路关系，E0b 实测约束 3）**
-
-- `*` / `+`：**让给** `BinaryExpressionPossibleShape`（既有 45 条增量 baseline 的路径，本候选对这两个
-  运算符返回 `Reject`）。两个候选同格 Accept 会让 `CatalogGuide` 永远 `Waiting`。
-- `?` / `:` / 赋值 / `as` / `satisfies` / 前缀 / 后缀：**不在本候选范围**（条件表达式由归约栈的
-  `StartConditional` 承担、前缀/后缀由 WP-A2 的另一组候选承担，`as`/`satisfies` 属 WP-A5）。
-- `<` 的**尖括号断言 / 类型实参歧义**：本候选只在「左操作数已经是形状，或左操作数是紧跟 `=` 的首个
-  标识符」时建二元；`let x = <T>y` 这种「`<` 前面没有表达式」的格上本候选 `IsBuildable` 为假，
-  由既有 `BinaryExpressionPossibleShape` 保持原来的显式拒绝（避免把尖括号断言写成二元 = divergent）。
-
-**Pos / src（C1）**
-
-- 运算符形状：`Pos` = 左操作数的 `SourceRange.EndIndex`（`IncrementalItemPosition.AfterPreviousCode`）；
-- `BinaryExpressionShape.Pos` = 左操作数 `Pos`（`FromLeftAndOperator` 设）、`src` 起点 = 左操作数起点；
-- 右边界**不在这里封**：交给右操作数目录的 `SealRightOperand`（C3，与既有二元路径同一口径）。
-
-**为什么不用 `ShapeOperatorStack`（E0a 的归约栈）**
-
-本候选只处理「单运算符 / 同优先级左结合链」——`Reduce` 永远不会发生（`PushOperator` 只在
-「新运算符更紧、需要把已建 Binary 的右操作数摘下来再包一层」时才需要栈；`1+2*3` 属于
-`BinaryExpressionPossibleShape` 的 `*` 路径，本 WP 不动它）。因此本候选直接用既有
-`BinaryExpressionShape.FromLeftAndOperator` + 右操作数目录，**行为与既有二元路径同构**，
-不引入第二套归约状态；`bin-add-mul` 的再结合留作 WP-A2b 交接（见 `_coord/REPORT-all-possible-A2.md` §5）。
-
 # class BinaryOperatorPossibleShape extends PossibleShape
 
-通用二元运算符候选（`*` / `+` 之外的二元运算符 + `in` / `instanceof` 两个关键字运算符）。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据（顺序即优先级，逐条都有实测依据）：
-
-1. 越界 / trivia ⇒ `Uncertain`（**不能** `Reject`：E0b 实测约束 1，`=`/空白处拒掉就再也回不来）；
-2. 取当前单元的运算符文本：不是运算符 ⇒ 见 3/4；
-3. **数字 `Common` ⇒ `Reject`**：数字格必须留给 `NumericLiteralPossibleShape` 独占（否则两候选同格，
-   永远 `Waiting`，整个初始化器退化成 atomic）；其它基本 token（`Symbol("/")` 之外的符号、`String`、
-   `Bracket`）⇒ `Reject`；
-4. **标识符 `Common`（非数字）⇒ `Reject`**（**WP-A1b / WP-A6b 执行 A2 报告 §6 的合并动作**）：A1 的
-   `IdentifierPrimaryPossibleShape` 已在同一目录里负责标识符格，本候选绝不能在同一格再 `Accept`
-   （两候选同格 ⇒ 永远 `Waiting`，A1 的原子退化成 `partial`：集成后 15 条 FAIL 的根因）。
-   A1 候选因续接白名单（`PrimaryAtomGuard`）可能在该格不建时（如 `let x = a as T`），本候选仍靠
-   `IsBuildable` 的「紧跟 `=` 的首个标识符」兜底在**运算符那一格**就地物化左操作数；
-   **除号是唯一例外**（A1b）：标识符后紧跟 `/` 时本候选保持 `Uncertain` 活到 `/` 格，见下方代码；
-5. `Symbol("=")` ⇒ `Uncertain`（初始化器还没开始）；
-6. `*` / `+` ⇒ `Reject`（让给既有 `BinaryExpressionPossibleShape`）；
-7. 其余二元运算符（含 `in` / `instanceof` 关键字）⇒ **有左操作数才 `Accept`**：
-   没有左操作数的格（如 `let x = <T>y` 的 `<`）⇒ `Reject`，保持既有拒绝行为。
-8. **[R4] 结合更紧 ⇒ 让给 `ReassociationPossibleShape`**：左操作数是 `BinaryExpressionShape` 且
-   `BinaryExpressionShape.NeedsReassociation` 成立（新运算符优先级更高，或同优先级右结合）⇒ `Reject`。
-   同一格只能有一个候选 `Accept`；拆层归约由 `ReassociationPossibleShape` 负责。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -152,8 +99,6 @@ return ShapeStates.Accept;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-能建 = 运算符文本成立 + 左操作数可解析（已是形状，或「紧跟 `=` 的首个数字/标识符」）。
-
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
@@ -181,19 +126,6 @@ return false;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-装配顺序（与 `BinaryExpressionPossibleShape.BuildByIndex` 同构，逐条先校验后动手）：
-
-1. 运算符形状：`OperatorShapeMap.Create(text, PositionBinary, template, 起点, 终点, context)`
-   （`<` → `FirstBinaryOperatorShape`、`in` / `instanceof` → 关键字形状，类名即账本 identity）；
-2. 左操作数：前一个非 trivia 单元；不是形状就**就地物化**（数字 → `NumericLiteralPossibleShape.BuildLiteral`，
-   标识符 → `IdentifierShape.FromBasicToken` + `Pos`）；
-3. 优先级只读 `OperatorShapeMap.PrecedenceOf`；`BinaryExpressionShape.FromLeftAndOperator` 建形状；
-4. 原位替换「左操作数 + 运算符」两格，`Parent` / `MountedUnit` 设回宿主；
-5. 给 `Binary` 挂**唯一一份**右操作数目录 `RightOperandPossibleShape.Catalog()`。
-
-**trivia（R4）**：`leftIndex..tokenIndex` 之间的 trivia 经 `FromLeftAndOperator` 搬进 `binary.Data`
-（left 之后、operator 之前），并从那两格之间从宿主里摘掉。
 
 ```ts
 const token = host.Data[tokenIndex];
@@ -226,8 +158,6 @@ return binary;
 
 ## static method TextOf:(unit:Token)=>string
 
-`Symbol` 取文本；`in` / `instanceof` 是 `Common` 关键字，也算运算符文本；其余给空串。
-
 ```ts
 if (unit instanceof Symbol) {
   return (unit as Symbol).TempToString();
@@ -243,9 +173,6 @@ return "";
 
 ## static method HasLeftOperand:(units:Array<Token>, tokenIndex:int)=>bool
 
-运算符格上有没有「可当左操作数的单元」：前一个非 trivia 单元存在，且是形状或标识符/数字。
-`let x = <T>y` 的 `<` 前面是 `=`（`Symbol`）⇒ 没有左操作数。
-
 ```ts
 const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 if (leftIndex < 0) {
@@ -260,12 +187,6 @@ return left instanceof Common;
 
 ## static method IsInitializerHead:(units:Array<Token>, leftIndex:int)=>bool
 
-`leftIndex` 是不是「紧跟 `=` 的首个代码单元」——只有这一格的标识符/数字才允许被本候选**就地物化**
-（`let x = a / b` 的 `a`）。
-
-为什么限制：`let x = (a as T & U)` 里 `&` 前的 `T` 是**类型引用**，把它物化成 `IdentifierShape` 再当二元
-左操作数会建出错树（legacy 是 IntersectionType）= divergent。非首格 ⇒ 不建，交给既有路径保持原拒绝。
-
 ```ts
 const previous = ItemUtil.PreviousCode(units, leftIndex - 1);
 if (previous < 0) {
@@ -279,16 +200,6 @@ return (unit as Symbol).Is("=");
 ```
 
 ## static method Operand:(host:Token, index:int, context:SyntaxContext)=>Token
-
-取/物化左操作数：
-
-- 已是形状 ⇒ 直接用；
-- 数字 `Common` ⇒ `NumericLiteralPossibleShape.BuildLiteral`（Pos 按 C1）；
-- BigInt `Common` ⇒ `BigIntLiteralShape`（`10n / 2`；少这一格会退化成 `IdentifierShape text="10n"`）；
-- 关键字字面量 `Common` ⇒ 对应的关键字形状（`this` / `super` / `true` / `false` / `null`；
-  `this / 2` 的 `this` 是 `ThisKeyword`，不是 `Identifier`）；
-- 其余 `Common` ⇒ `IdentifierShape.FromBasicToken` + `Pos` + 原位 `Replace`；
-- 其余 ⇒ C10 显式抛错。
 
 ```ts
 const unit = host.Data[index];
@@ -339,9 +250,6 @@ return identifier;
 ```
 
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
-
-注册区入口（`_coord/PLAN-all-possible.md` §5.1；`expression-shape-catalog.xl.md` 的
-`// [E-CAT:FRAGMENTS]` 之后追加一行）。只追加自己这一个**新实例**。
 
 ```ts
 shapes.push(new BinaryOperatorPossibleShape());

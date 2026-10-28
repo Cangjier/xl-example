@@ -15,33 +15,11 @@ import { Template } from "./templates/template.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
-
-单元：能够「挂载」子单元的 token。它是 `Root` / `Statement` / `BlockToken` 这一族的共同父类，负责把「一次处理一整个 buffer 窗口」这套调度固定下来：窗口里逐字符前进，每消费一个字符就推进 `context.Index`。
-
-它同时实现 `IComputePossibleShapes`：`CatalogGuide` 指向**宿主在自己名下的**目录向导（默认 `null`）。basic token 关闭时**只问自己的父单元**，所以要被命中，本单元必须是那批 basic token 的直接父单元。
-
-向导本身不继承任何东西、不在树里，所以它是一个**普通引用**，不是挂载的子单元：本单元的 `Data` 里装的仍是那批 basic token。
-
 # class UnitToken extends Token implements IComputePossibleShapes
-
-单元。
 
 ## field CatalogGuide:CatalogGuide | null = null
 
-宿主在本单元名下的目录向导；`null` 表示没有。
-
-它是普通引用而不是子单元——向导不进 `Data`、不进 XML。
-
-普通单元默认没有，所以父单元不是宿主时，basic token 关闭不触发任何判定。
-
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-重算宿主在本单元名下的目录向导的候选，把自己作为宿主转交给它。
-
-没向导时返回 `Nothing`——被问到就答「什么都没做」。
-
-`source` 是触发来源，**必填**：原样转给 `CatalogGuide`，不解释、不从字段取。
 
 ```ts
 if (this.CatalogGuide !== null) {
@@ -52,12 +30,6 @@ return ComputePossibleShapesStates.Nothing;
 
 ## method ComputePossibleShapesByIndex:(tokenIndex:int, context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
-按下标重算候选，把**自己（宿主）与下标**一起转交给向导的同名方法。
-
-向导的方法要两个参数（宿主 + 下标），而接口这里是单参——两者的差由本方法补上。
-
-`source` 同上：必填、原样透传。
-
 ```ts
 if (this.CatalogGuide !== null) {
   return this.CatalogGuide.ComputePossibleShapesByIndex(this, tokenIndex, context, source);
@@ -67,13 +39,7 @@ return ComputePossibleShapesStates.Nothing;
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
 
-括号创建事件的默认实现：什么都不做。
-
-普通单元不关心括号创建；只有把自己当前正在吃的内容当作「括号里的东西」的壳形状（如 `InterfaceDeclarationShape`）才覆写它，在括号刚建出来时决定要不要给那个括号初始化目录向导。
-
 ## constructor:(template:Template)=>void
-
-以模板创建。挂载与退出这套调度不需要额外状态，构造器里只有转调。
 
 ```ts
 super(template);
@@ -81,50 +47,11 @@ super(template);
 
 ## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
-判断当前字符是让本单元「退出」还是「前移」。
-
-`value` 是 `Process` 已经读好的当前字符（`buffer.ValueAt(index)`，界内自证）：实现直接用它，不要再为同一个字符读一次 `buffer.At(index)`。
-
-抽象方法，由各单元实现（如 `Root` 恒返回 `Undo`）。
-
 ```ts
 throw new Error("abstract member: ExitOrPre");
 ```
 
 ## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
-
-处理一个 buffer 窗口：从 `index` 起逐字符推进，**一次调用吃一个窗口**。
-
-`index` 是本地游标（初值 = `context.Index` = `buffer.Start`）；`context.Index` 是全局下一个待处理位置。每消费一个字符都必须让它前进，返回时它不得小于进入时的 `index`。
-
-处理顺序（每个位置）：
-
-1. 有挂载单元就整个交给它；它没推进 `context.Index` 就没有进展，本单元**原样返回**（不许死循环）。
-2. 否则先读出当前字符（`buffer.ValueAt(index)`）——`index` 在本次窗口内由循环条件自证界内，所以走无校验的 `ValueAt`，而且**只读这一次**：同一份 `value` 交给 `ExitOrPre`，再顺链传给每条跳转和 `Default`。`ExitOrPre` 返 `Reload` 就把当前下标压进消息队列并返回（当前字符没被消费）；返 `Done` 就记 `LastIndex` 并前进。
-3. 再依次跑 `ProcessQueue` 里的跳转，哪个 `Done` 就前进并进入下一个位置，哪个 `Reload` 就压消息并返回。跳转函数用第 5 个参数 `value`，不再各自读当前字符。
-4. 都不接手才走 `Default` 兜底；兜底默认消费一个字符。
-
-**`Done` 的统一 `+1`**：处理者可能只做了签入签出、没有自己碰 `context.Index`（basic token 的跳转就是这样）。所以只要 `context.Index === index`，就补 `context.Index = index + 1`。这条是「默认单字符消费」的唯一出口。
-
-**`LastIndex` 记 `context.Index - 1`**：跳转函数可以把 `context.Index` 一次推进多格（basic token 的整段收——注释正文、空白段、Common 正文），
-此时最后被消费的字符是 `context.Index - 1`，不是进入本帧时的 `index`。单字符消费时两者相等，所以这是同一口径的推广。
-
-**`Reload` 是这套调度的转折点**：一次关闭可能触发形状建造，分支只能把结果报上来。拿到 `Reload` 就**停止整个窗口**、把当前位置压进消息队列，`context.Index` 留在原地（阻塞返回），由驱动层重放。`ProcessOwner` 用 `null`（= 根）：新形状已经 mount，重放时自然落到正确那一层。
-
-**窗口里的两个提前返回（关闭/重放的安全阀）**：
-- 本单元在本次窗口里已经 `Quit`（`Parent.MountedUnit` 已经不是自己）→ **立刻返回**，把本窗口剩余字符交回父单元。关闭发生在窗口中间时，已卸载的单元不许再吃后面的字符。
-- `context.Messages` 非空 → **立刻返回**，把尚未消费的消息交回驱动层先 `DrainMessages()` 重放。否则父单元会先把重放位置之后的字符处理掉，重放就变成乱序。**驱动层自己重放一个位置时（`context.Replaying`）不适用**：重放窗口固定一格，队列里可能还排着更后面的消息。
-
-整个窗口包在**一次** `try/catch` 里：任何异常都被包成 `SyntaxException`，范围取「前一个字符到当前字符」`[max(0, index-1), index+1)`。已经是 `SyntaxException` 的异常原样上抛，不再套一层窗口范围。
-
-**每字符帧的瘦身**（本方法是 profile 里的第一热点：self ≈ 19.5%，约 520 ns/帧、68 ns/字符）：`this` 在单元族里是多态的（`Root` / `Statement` / `BlockToken` …），逐字符重复的 `this.X` 属性读是本方法最贵的一笔，而其中大多数在**整段窗口内都不变**。所以：
-
-- 窗口终点 `buffer.End`、消息队列 `context.Messages`（引用）、`context.Replaying`、跳转队列 `this.ProcessQueue` 各自只在进入循环前读**一次**——这四样在本次窗口内都不会被改写（`Messages` 只 push/splice、不换引用；`Replaying` 由驱动层在调用前后翻，窗口内恒定；`ProcessQueue` 构造时定下）。
-- 两段提前返回的守卫里，`this.Parent` 每帧只读**一次**再复用（原来读两次）。它是字段而不是 getter，同一次求值里两次读必然同值，因此这一改**不改变**守卫语义。
-- 挂载单元 `this.MountedUnit` 每帧读**一次**（原来 null 判定 + 调用各读一次）。
-- 跳转队列由 `for…of` 换成下标循环：`for…of` 每帧都要建一次数组迭代器，而这里只想要「按下标取一项再调用」。
-
-`Quit` 守卫仍然**逐帧**判定 `parent.MountedUnit !== this`（而不是在循环外判一次）：关闭可能发生在窗口中间，已卸载的单元不许再吃后面的字符。
 
 ```ts
 try {

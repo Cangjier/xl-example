@@ -19,11 +19,6 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class RegexLiteralPrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的**正则字面量**（`let x = /r/`、`/[a-z\/]+/i`、`/ab/gimsuy` 等）。
-
-词法层已经把 `/…/flags` 收成一个 `RegexToken` basic 单元（`ToText()` 就是 legacy 的 `text`）；本候选只在它关闭时
-把它原位换成 `RegularExpressionLiteralShape`。legacy EOF 口径：`RegularExpressionLiteralShape  pos=7  src=[8,11)  text="/r/"`。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts
@@ -31,8 +26,6 @@ shapes.push(new RegexLiteralPrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是已关闭的 `RegexToken`。`=` 与 trivia → `Uncertain`（约束①）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -59,8 +52,6 @@ return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-只对「初始化器 = 单个正则字面量」放行（第二道闸门见 `PrimaryAtomGuard`）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {

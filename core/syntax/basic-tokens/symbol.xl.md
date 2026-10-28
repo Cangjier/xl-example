@@ -15,48 +15,17 @@ import { Common } from "./common.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
-
-符号块：`=`、`;`、`"`、`,`、`=>`、`+=` 这些标点。它与 `Common` 的分工是**按字符分类**，不是按语义——`Common` 吃标识符与数字、并明确拒绝符号与空白，剩下的标点全归这里。
-
-它比 `Common` 多一层判断：`Temp` 里的内容加上当前字符如果构成 `+=` / `??` / `=>` 这类组合符号，就继续吞；否则断开重开。
-
-`{` `(` `[` 不归它：那三个开括号由 `Bracket` 认领，且 `Bracket` 排在它前面。
-
-`SymbolBranch` 写在 `Symbol` **之前**：`Symbol.AppendIn` 这个静态字段会在类定义时立即 `new SymbolBranch()`，写反了会命中 ts 的暂时性死区。
-
 # class Symbol extends BlockToken
-
-符号块。
-
-单元值类型是单字符的 `string`。
 
 ## field IsBasicToken:bool = true
 
-basic 单元：由 `Template.BasicBranchQueue()` 收出来。
-
 ## constructor:(Template:Template)=>void
-
-转调基类构造器。
 
 ```ts
 super(Template);
 ```
 
 ## method IsAppend:(buffer:SourceRange, index:int, value:string)=>bool
-
-能不能把窗口里 `index` 处的字符并进本块。
-
-`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：三段判定都直接用它，不再复读。
-
-三段判定：`Temp` 还是空的、且当前字符是符号，就能（开头的符号直接收）；否则要求当前字符是符号，
-**并且** `Temp` 现有内容加上当前字符能构成一个组合符号，**并且**语言模板的前瞻钩子没有否决它。
-
-「首字符也要求是符号」不是冗余：`SymbolBranch` 已经筛过一次，但 `IsAppend` 也可能被别处问到，判据写全了才不会在非符号字符上吞穿。
-
-组合符号表只回答「这两个字符合起来是不是某个标点」，看不到后一个字符；语言的前瞻规则
-（例如 ECMAScript 的 `?.` 后随十进制数字不算可选链）由 `SymbolTemplate.IsCombineBlocked` 回答，
-core 只负责把「组合符号后面紧跟的那个字符」递过去，默认不阻断。
 
 ```ts
 if (this.Temp.length === 0 && this.Template.SymbolTemplate.IsSymbol(value)) {
@@ -74,11 +43,6 @@ return !this.Template.SymbolTemplate.IsCombineBlocked(combined, Symbol.NextCharA
 
 ## static method NextCharAfter:(buffer:SourceRange, index:int)=>string
 
-`index` 后面紧跟的那一个字符（不跳空白 / 注释，就是词法上的下一格）；越界返回空串。
-
-它是 `IsAppend` 递给 `IsCombineBlocked` 的 `following`：前瞻只看紧邻字符，`a?. 5` / `a?\n.5`
-都不属于「后随十进制数字」。窗口之外的那个字符要经 `SourceRange.Whole(buffer.Document!)` 取。
-
 ```ts
 const whole = SourceRange.Whole(buffer.Document!);
 const count = whole.EndIndex;
@@ -90,10 +54,6 @@ return whole.At(next);
 ```
 
 ## method Is:(value:string)=>bool
-
-`Temp` 里的内容是否逐字符等于 `value`。
-
-用来问「这一格是不是某个标点」，与 `Common.Is` 同款。
 
 ```ts
 if (this.Temp.length !== value.length) {
@@ -109,21 +69,11 @@ return true;
 
 ## method IsAny:(items:Array<string>)=>bool
 
-`Temp` 里的内容是否命中 `items` 里的任意一项。
-
-这是 `Is` 的多项版本，参数个数与单参版不同，所以叫 `IsAny`。
-
 ```ts
 return items.includes(this.TempToString());
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
-
-关闭：只把自己标记为已关闭，然后**和 `Common.Close` 一样只问父单元**要不要重算候选——父单元没实现 `IComputePossibleShapes` 就不问，也不再往上找。
-
-符号（`;`、`,`、`+`、`=` …）常常是 item 的收尾，这一次「问父单元」就是「item 关闭 → 宿主目录重算 → 建出 item」的触发点：类体 / 接口体 / 枚举体里的成员，正是在收尾符号关闭的这一下被建出来的。`}` 不是符号，它是 `Bracket` 的结束括号，同一职责由 `Bracket.Close` 承担。
-
-重算的返回值原样带上去：建出形状时返回 `Built`，让正在收尾的 token 把当前字符重放给新形状。
 
 ```ts
 this.Closed = true;
@@ -138,15 +88,6 @@ return CloseStates.Nothing;
 ```
 
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
-
-判定、收尾、新开都在这一个方法里：
-
-- 当前符号是 `+`/`-`，且上一个未关闭的 `Common` 是十进制指数前缀 → `Undo`，把符号让给 `Common` 续进数字块；
-- 当前字符不是符号 → 先 `Undo`；**若上一个单元是未关闭的孤立 `.` 且当前字符是数字，不关闭它**——留给 `Common` 顶替成数字块，提前关闭会先触发候选计算、把语句首的 `.5` 判成「没有候选形状」；
-- 上一个 `Symbol` 未关闭且能续接（组合符号）→ 追加，`Done`；
-- 上一个 `Symbol` 未关闭但接不上 → 关掉它，然后开新块；
-- `.` 跟在纯数字 `Common` 后面 → `Undo`，小数点归 `Common` 吃；
-- 其余开新块：先 `last.TryToClose(context)`，建出形状就返回 `Reload`。
 
 ```ts
 const template = unit.Template;

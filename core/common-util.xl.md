@@ -1,22 +1,8 @@
 # namespace cangjie
 
-全局工具。`CommonUtil` 放在项目的根命名空间 `Cangjie` 下。
-
-本文件只包含解析路径需要的那一个方法：过去块级 token 与各 token 的 XML 输出都要用 `XmlDecode`；AST 行输出统一改走 `Token.ToAstLine` 之后，解析路径已不再调用它，方法保留不删（可能仍有引用）。
-
 # class CommonUtil
 
-全局工具类。
-
-xl 没有 `static class`，方法用 `## static method` 表达。
-
 ## static method XmlDecode:(value:string)=>string
-
-把文本转义成可以安全塞进 XML 文本节点的形式。
-
-`XmlDecode` 对 13 个字符做替换：`\r` `\n` `\t` `\a` `\b` `\f` `\\` `'` `"` `\v` 换成反斜杠转义，`>` `<` `&` 换成 XML 实体。注意它的名字叫 Decode，干的却是 **encode**——ts 侧沿用这个名字，以免调用点对不上。
-
-ts 侧没有 `'\a'` 这个转义（`"\a"` 就是字母 `a`），所以控制字符写成 `"\x07"`。
 
 ```ts
 let result = "";

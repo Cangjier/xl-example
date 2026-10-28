@@ -22,21 +22,11 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class TaggedTemplatePrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的**带标签模板**（`let x = tag`a``）。
-
-legacy EOF 口径（`expr-probe` 实测）：
-
 ```text
 TaggedTemplateExpressionShape  pos=7  src=[8,14)
 ├─ IdentifierShape  pos=7  src=[8,11)  text="tag"
 └─ NoSubstitutionTemplateLiteralShape  pos=11  src=[11,14)  text="a"
 ```
-
-建法：模板 `String` 单元关闭时，把**前一个代码单元**（此时已是 `IdentifierShape`）摘出来，与模板节点一起装进
-`TaggedTemplateExpressionShape`，原位替换「标签 + 模板」两格（与二元候选的原位替换同一惯用法）。
-模板节点由 `TemplatePrimaryPossibleShape.BuildTemplateNode` 建（与无标签模板同一份实现）。
-
-**与无标签模板互斥**：`TemplatePrimaryPossibleShape` 在前一个代码单元是形状时 `Reject`，本候选接管。
 
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
@@ -45,8 +35,6 @@ shapes.push(new TaggedTemplatePrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是已关闭的模板 `String`，且前一个代码单元是**非 basic 形状**（标签表达式）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -84,10 +72,6 @@ return ShapeStates.Accept;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-只对「初始化器 = 单个带标签模板」放行：**标签**必须是初始化器第一个代码单元（`PrimaryAtomGuard.IsInitializerStart`），
-模板之后只剩收口（`IsTerminalAfter`）。这里不能直接用 `IsLoneAtom`——本格（模板）前面是标签形状，
-按「前面必须是 `=`」会永远判否。
-
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
@@ -122,12 +106,6 @@ return PrimaryAtomGuard.IsTerminalAfter(unit, context, true)
 ```
 
 ## static method MemberFollows:(unit:Token, context:SyntaxContext)=>bool
-
-`unit`（一条已关闭的模板）之后第一个显著字符是不是**后缀**（成员访问 `.` / 下标 `[` / 调用 `(`）。
-
-只做**字符级**前瞻，口径与 `PrimaryAtomGuard.IsTerminalAfter` 的空白跳过完全一致（不跳注释：
-`IsTerminalAfter` 同样不跳，保持一致），所以两条判据不会对同一段源码给出互相矛盾的答案。
-文档不可用（探针）时答 `false`：保守，交下一次收口。
 
 ```ts
 const document = context.CurrentDocument;

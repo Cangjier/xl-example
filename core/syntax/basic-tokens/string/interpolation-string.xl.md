@@ -15,19 +15,9 @@ import { String } from "./string.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 AST 行。
-
-插值字符串：`{ … }` 这一段本身。它是**单元**（不是向导），括号里的内容由挂载的子单元自己啃；只有那个 `}` 归它管——它把 `}` 转交给 `InterpolationExitGuide` 去数。
-
-没有覆写输出方法：行文本由基类 `Token.ToAstLine` 产出，`InterpolationString` 自己只是一行 label，`{ … }` 里的内容由子单元表达；标签名取类名。
-
 # class InterpolationString extends UnitToken
 
-插值字符串。
-
 ## constructor:(template:Template)=>void
-
-创建时按自己的运行时类型取跳转队列。
 
 ```ts
 super(template);
@@ -35,8 +25,6 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 ```
 
 ## property ParentString:String
-
-插值所属的那层字符串——`Parent` 直接就是 `String`。
 
 ### get
 
@@ -46,18 +34,12 @@ return (this.Parent as String)!;
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
-关闭：只把自己标记为已关闭，返回 `Nothing`。
-
 ```ts
 this.Closed = true;
 return CloseStates.Nothing;
 ```
 
 ## protected method Default:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>void
-
-兜底：碰上空白字符（`\r` / `\n` / 空格 / `\t`）直接忽略，非空白时同样什么都不做。
-
-`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接判定，不再复读。
 
 ```ts
 if (value === "\r" || value === "\n" || value === " " || value === "\t") {
@@ -67,8 +49,6 @@ if (value === "\r" || value === "\n" || value === " " || value === "\t") {
 
 ## method ForceExit:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
 
-强制退出：签出到 `index + 1`（半开终点 = 被消费的 `}` 下标 + 1），尝试关闭（关自己并跑重组），再从父单元卸载自己。
-
 ```ts
 this.SignOut(index + 1);
 this.TryToClose(context);
@@ -76,12 +56,6 @@ this.Quit();
 ```
 
 ## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
-
-处理窗口里的字符，直到窗口走完**或本单元已经关闭**。
-
-退出向导数够 `}` 时会 `ForceExit` 本单元（`Closed = true`、从外层字符串卸载）。基类 `UnitToken.Process` 的窗口循环没有「本单元已关闭」这个退出条件，关闭之后它还会继续把同一窗口剩下的字符吃进本单元；这里用与基类相同的循环，只补一条 `!this.Closed` 守卫：退出之后立刻把窗口交还出去，`}` 之后的字符回到外层字符串。窗口内抛出的异常按基类规则包成 `SyntaxException`；已经是 `SyntaxException` 的原样上抛，不再套窗口范围。
-
-当前字符在每个位置只读一次（`buffer.ValueAt(index)`）：同一份 `value` 交给 `ExitOrPre`，也顺链传给每条跳转与 `Default`。
 
 ```ts
 try {
@@ -155,10 +129,6 @@ try {
 ```
 
 ## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
-
-遇到 `}` 就把退出向导挂到自己身上；当前这个 `}` 还没被消费，所以返回 `Reload`——`UnitToken.Process` 会压一条 `ReloadMessage` 并原地阻塞，由驱动层重放，重放时 `MountedUnit`（向导）接住这个 `}`。
-
-`value` 是驱动层已经读好的当前字符（`buffer.ValueAt(index)`）：直接判定，不再复读。
 
 ```ts
 if (value === "}") {

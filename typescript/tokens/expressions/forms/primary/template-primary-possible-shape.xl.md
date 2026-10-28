@@ -37,12 +37,6 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class TemplatePrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的**模板字面量**（`` `t` `` / `` `${y}` `` / `` `a${b}c` `` / 嵌套模板）。
-
-词法层把整段反引号串收成**一个** `String` basic 单元：`ConstString` 子块是字面段，`InterpolationString` 子块是
-`${…}` 内插（它的 `Data` 里是内插表达式自己的 token）。所以本候选在串关闭的那一格，按 legacy
-`ExpressionBuilder.ParseTemplateToken` 的同一套口径整棵建出来：
-
 ```text
 `t`          → NoSubstitutionTemplateLiteralShape  text="t"
 `${y}`       → TemplateExpressionShape
@@ -52,13 +46,6 @@ WP-A1：声明初始化器位置的**模板字面量**（`` `t` `` / `` `${y}` `
                     └─ TemplateTailShape [12,14)    （pos=12 = 表达式终点）
 ```
 
-legacy EOF 口径逐节点一致（`expr-probe` 实测，含嵌套模板）；`Pos` 全部按 legacy 的 `Positions` 口径：
-模板根 `Pos` = 前一个非 trivia 单元 `EndIndex`（C1），内插内第一个原子 `Pos` = `interp.StartIndex + 1`，
-后续原子 `Pos` = 前一个原子 `EndIndex`，尾段 / 中段 `Pos` = 内插表达式的 `EndIndex`。
-
-**与带标签模板互斥**：前一个代码单元是形状（`tag`）时本候选 `Reject`，由
-`TaggedTemplatePrimaryPossibleShape` 接管（否则同一格两个 `Accept` ⇒ 永远建不出来）。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts
@@ -66,9 +53,6 @@ shapes.push(new TemplatePrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是已关闭的 `String`，且是**内插引号串**（TS 里 = 反引号模板）；前一个代码单元不是形状
-（否则是带标签模板）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -103,8 +87,6 @@ return ShapeStates.Accept;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-只对「初始化器 = 单个模板字面量」放行（第二道闸门见 `PrimaryAtomGuard`）。
-
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
@@ -136,9 +118,6 @@ return shape;
 ```
 
 ## static method BuildTemplateNode:(token:String, pos:int, context:SyntaxContext)=>Token
-
-整段模板 → `NoSubstitutionTemplateLiteralShape` 或 `TemplateExpressionShape`（口径逐项照抄
-`ExpressionBuilder.ParseTemplateToken`）。`TaggedTemplatePrimaryPossibleShape` 也调它。
 
 ```ts
 const texts:Array<string> = [];
@@ -235,10 +214,6 @@ return expression;
 
 ## static method BuildInterpolation:(interp:InterpolationString, context:SyntaxContext)=>Token
 
-`${…}` 里只支持**原子**（A1 的范围）：标识符 / 数字 / bigint / 布尔 / null / this / 正则 / 嵌套模板。
-内插内的 `Pos` 口径：`base = interp.StartIndex + 1`，其后每个原子 = 前一个原子的 `EndIndex`。
-遇到非原子形态按 C10 显式抛错（后续 A2/A3 会补运算符 / 成员等）。
-
 ```ts
 let pos = 0;
 if (interp.SourceRange.StartIndex >= 0) {
@@ -264,9 +239,6 @@ return value;
 ```
 
 ## static method BuildAtom:(unit:Token, pos:int, context:SyntaxContext)=>Token
-
-内插里可出现的原子：`String`（嵌套模板）/ `RegexToken` / `Common`（数字、bigint、布尔、null、this、标识符）。
-不是这些就显式抛错（不在 A1 范围）。
 
 ```ts
 if (unit instanceof String) {

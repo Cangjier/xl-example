@@ -16,17 +16,6 @@ import { MemberChainJudge } from "./member-chain-judge.xl.md"
 
 # class SuperPrimaryPossibleShape extends PossibleShape
 
-WP-P1：声明初始化器位置的 **`super` 主表达式**候选——`class A extends B { m() { let x = super.m } }`。
-
-legacy 形状类是 `SuperKeywordShape`（`typescript/tokens/keywords/super-keyword-shape.xl.md`，**已存在**，
-本 WP 不新建形状类）。legacy EOF 树：`PropertyAccessExpressionShape pos=33 src=[34,41)` 的两个子节点是
-`SuperKeywordShape pos=33 src=[34,39)` 与 `IdentifierShape pos=40 text="m"`；`ExpressionBuilder` 的
-`super` 分支（`:2307`）给出 `SuperKeywordShape`、postfix 的 `.` 分支给出外层 `PropertyAccess`，本候选不自己拼。
-
-本候选只认 `Kind === "super"` 的链（链头是关键字 `super`，第一个后缀是 `.`）。`super` 不在
-`MemberChainJudge.PrefixKeywords` 里，所以它不会被当成前缀运算符退场，也不会被普通 `member` 候选抢走
-（`Kind` 在它身上走 `super` 分支，`member` 候选在那里 `Reject`）。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts

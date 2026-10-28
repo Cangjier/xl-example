@@ -91,9 +91,6 @@ return shape;
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
-[W5:EOF-TRIM] 同 `ExportAssignmentShape.TryToClose`：文件末尾收口时驱动层把尾随换行也签进 `End`。
-**只在 `Data` 最后一个子单元是 trivia 时**收——`;` / 名字节点收尾的形态区间本来就该到那里。
-
 ```ts
 const result = super.TryToClose(context);
 const last = this.Data[this.Data.length - 1];

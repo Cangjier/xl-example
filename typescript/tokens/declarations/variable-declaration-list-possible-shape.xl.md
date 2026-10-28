@@ -23,31 +23,7 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 # namespace cangjie
 
-WP-A6 / WP-A6b：声明列表 / `;` 收口 / 多声明 `,` 重开列表 / 解构绑定。
-
-**WP-A6b 集成要点（本文件最重要的约束）**：A6 最初基于「E0b 的终结候选只认识目标路径符号」的基线，
-它**整类替换**了终结候选；但集成后的 `variable-declaration-end-possible-shape.xl.md` 已被 WP-A2 / WP-A4 扩过：
-`Symbol` 上的二元运算符在有可归约左操作数时 `Reject`（让给 `BinaryOperatorPossibleShape`），
-`Bracket` 上的复合字面量初始化器 `Reject`（让给 `CompositeInitializerPossibleShape`）。
-所以本 WP 的终结候选**继承**它、只拦自己的 `;` / `,`，其余格逐字委托父类 —— 否则 A2/A4/A1 已迁移的 case
-会被打回 `throw`（A6 直接替换后的集成回归：实测 30 条 throw FAIL）。
-
-本包包含四块：
-
-1. `VariableDeclarationListEndPossibleShape`（继承 A2/A4 扩过的终结候选，只多认 `;` / `,`）；
-2. `DeclarationCellGuard`：包住表达式目录里的每个候选，在 `;` / `,` 格上替它们 `Reject`
-   （否则 A4 的复合字面量候选在 `;` 格 `Uncertain` 会让 `CatalogGuide` 在终结候选 Accept 时抛
-   「终结候选与其它候选同时成立」—— A6 的 7 条目标实测就死在这里）；
-3. `BindingIdentifierPossibleShape`：多声明后一条声明的绑定标识符候选（建完退场，不与 A1 抢格）；
-4. `IncrementalVariableDeclarationListBuilder`：`,` 上重开下一条声明、`;` 上收口整条 statement。
-
-**开关门控**：本包只由 `IncrementalVariableStatementBuilder.Build`（增量模式专用）构造；
-`EnableIncrementalVariableShapes=false` 时该 builder 一次都不会执行，legacy 路径一个字都不碰（C4 机械保证）。
-
 # class VariableDeclarationListEndPossibleShape extends VariableDeclarationEndPossibleShape
-
-增量声明的终结候选：`;` / `,` 自己收，其余格**逐字**委托 A2/A4 扩过的父类
-（`=` / 二元运算符 / Bracket 复合初始化器 / EOF / 未知符号的语义与父类完全一致）。
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -100,8 +76,6 @@ return super.ComputeByIndex(units, tokenIndex, cache, source);
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
-`Accept` 只可能落在 `;` / `,` 上（EOF 走 `SourceFileShape.Process`，不经过本候选）。
-
 ```ts
 if (!(host instanceof VariableDeclarationShape)) {
   throw new Error("增量变量形状未支持：list 终结候选宿主不是变量声明");
@@ -138,14 +112,6 @@ return IncrementalVariableDeclarationListBuilder.CloseAtSemicolon(host as Variab
 ```
 
 # class DeclarationCellGuard extends PossibleShape
-
-表达式目录候选的**格子守卫**：`;` / `,` 格上一律 `Reject`（把这两格留给终结候选），`!` 只在定值断言位
-（还没有 `=`）拒，其余格逐字委托内部候选。
-
-为什么需要它：`CatalogGuide` 在问终结候选时**不看** `Candidates` 里还有谁活着，只要终结候选 `Accept` 而
-`Candidates.size > 0` 就抛「终结候选与其它候选同时成立」。A4 的 `CompositeInitializerPossibleShape` 在 `;` 格
-返回 `Uncertain`，A1/A2 的部分候选在边界格也保持 `Uncertain`；A6 的 `;` 目标因此全部死在这一条上。
-守卫只改这两格、不改任何候选的语义（声明顶层的 `;` / `,` 本来就该由终结候选收口）。
 
 ## field Inner:PossibleShape | null = null
 
@@ -228,12 +194,6 @@ return inner.BuildByIndex(host, tokenIndex, catalog, context);
 
 # class BindingIdentifierPossibleShape extends PossibleShape
 
-**多声明后一条声明的绑定标识符**候选（只挂在 WP-A6 新建的 `VariableDeclarationShape` 上，
-不进 `ExpressionCatalogFactory` 的表达式目录，因此不会和 A1 的 primary 候选抢同一格）。
-
-只做一件事：`Common` 标识符 → `IdentifierShape`（`Pos` = 声明 `Pos`，`src` 取 basic token），建完即 `Done` 退场，
-后续 `=` / 初始化器 basic 由声明自己的 EOF 收口降级建树。
-
 ## field Done:bool = false
 
 ```ts
@@ -260,8 +220,6 @@ return ShapeStates.Reject;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-`Uncertain` 在「只剩一个候选」时也会被建（B5 §5.1 坑 4），所以必须挡住 trivia / 非 `Common` 格。
 
 ```ts
 if (this.Done) {
@@ -298,12 +256,7 @@ return shape;
 
 # class IncrementalVariableDeclarationListBuilder
 
-WP-A6 的**多声明 / 分号收口建造器**（只被 `VariableDeclarationListEndPossibleShape.BuildByIndex` 调用）。
-
 ## static method GuardedCatalog:()=>Array<PossibleShape>
-
-声明初始化器的表达式候选目录：`ExpressionCatalogFactory.Create()` 的每个候选都套上 `DeclarationCellGuard`，
-保证 `;` / `,` 格上只剩终结候选一个活口（见 `DeclarationCellGuard` 的说明）。
 
 ```ts
 const shapes:Array<PossibleShape> = [];
@@ -316,13 +269,6 @@ return shapes;
 ```
 
 ## static method OpenNext:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
-
-在 `,` 上收口当前声明并挂出下一条声明：
-
-1. 记下逗号终点（下一条声明的 `Pos`，与 legacy `VariableDeclarationShape.Pos` 同口径）；
-2. 把逗号从当前声明 `Data` 摘掉，`TryToClose` 当前声明（唯一的标识符 + 可选初始化器）；
-3. 新建 `VariableDeclarationShape` 挂到 `VariableDeclarationListShape` 上（`Pos` = 逗号终点），
-   目录只含 `BindingIdentifierPossibleShape` + 同一份终结候选；挂载链最深一层切到新声明。
 
 ```ts
 const comma = declaration.Data[tokenIndex];
@@ -352,15 +298,6 @@ return next;
 ```
 
 ## static method CloseAtSemicolon:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
-
-收口步骤（兼容「`;` 之前还有未重开的 `,` 段」这一兜底路径，正常多声明在 `,` 上已经重开过）：
-
-1. 记下分号终点（statement 的 `src` 收在这里，与 legacy `VariableStatementShape` 同口径）；
-2. 把分号从 `declaration.Data` 摘掉；
-3. 按 `Symbol(",")` 把剩余单元切成若干段（逗号不入任何 `Data`）；
-4. 第一段留在原声明里（`TryToClose`）；后续段各建一个新的 `VariableDeclarationShape`
-   （`BuildNext`：绑定标识符就地物化，其余单元原样进 `Data`，随后 `TryToClose`）；
-5. `list.TryToClose`，再给 statement 补终点（分号终点）并 `TryToClose`，最后卸载挂载（后续字符回到块 / 根层）。
 
 ```ts
 const data = declaration.Data;
@@ -415,9 +352,6 @@ return last;
 
 ## static method BuildNext:(list:VariableDeclarationListShape, pos:int, units:Array<Token>, context:SyntaxContext)=>VariableDeclarationShape
 
-用一段已闭合单元建出**后续**的 `VariableDeclarationShape`：绑定标识符就地物化，其余单元原样进 `Data`，
-挂到列表上并挂好候选目录（同一套终结候选 + 守卫过的表达式目录）。
-
 ```ts
 let bindingAt = -1;
 for (let at = 0; at < units.length; at++) {
@@ -457,8 +391,6 @@ return next;
 
 ## static method HasEqualBefore:(units:Array<Token>, tokenIndex:int)=>bool
 
-[WP-A6c] definite-assignment `!` only when no `=` has been seen before it in this declaration.
-
 ```ts
 for (let at = 0; at < tokenIndex && at < units.length; at++) {
   const unit = units[at];
@@ -470,8 +402,6 @@ return false;
 ```
 
 ## static method IsPatternBinding:(units:Array<Token>)=>bool
-
-[WP-A6c] first significant unit is an Array/ObjectBindingPatternShape (destructuring declaration).
 
 ```ts
 for (const unit of units) {
@@ -485,9 +415,6 @@ return false;
 ```
 
 ## static method BuildDefinite:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
-
-[WP-A6c] definite assignment `let x!: T`: turn the `!` Symbol into `ExclamationTokenShape` in place.
-`Pos` = previous non-trivia `EndIndex` (C1); `src` = the symbol's own range (legacy `pos=5 src=[5,6)`).
 
 ```ts
 const data = declaration.Data;
@@ -514,13 +441,6 @@ token.Replace(shape);
 return shape;
 ```
 ## static method CloseAtLineBreak:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
-
-[A2-D1] **行尾格**上的收口：`tokenIndex` 是**本条声明的最后一个代码单元**在 `declaration.Data` 里的下标。
-
-与 `CloseAtAsiBoundary` 同一收口顺序，但**没有边界单元要交回**：下一行的字符还没到达（行尾格**先于**
-下一条语句的首 token 关闭），`Data` 里全是本声明的单元（可能还带车尾 trivia，`FinishIncremental` 本来也不收它，
-legacy 的 `VariableDeclarationShape.Data` 里同样没有 trivia），所以直接 declaration → list → statement
-逐层收口、卸载挂载链即可。下一行的字符随后正常回到父单元，由父目录在自己的那一格建下一条语句的壳。
 
 ```ts
 declaration.TryToClose(context);
@@ -560,20 +480,6 @@ return declaration;
 
 ## static method CloseAtAsiBoundary:(declaration:VariableDeclarationShape, context:SyntaxContext, tokenIndex:int)=>Token
 
-[A2-D1] 换行 ASI 收口：`tokenIndex` 是**下一条语句的首代码单元**在 `declaration.Data` 里的下标。
-
-步骤（与 `CloseAtSemicolon` 同一顺序，区别只在于**不消费**边界单元）：
-
-1. 把 `[tokenIndex, end)` 整段从 `declaration.Data` 摘下来（`tail`），声明 `Data` 只留自己这条；
-2. `declaration.TryToClose` → `VariableDeclarationShape.FinishIncremental` 提取字段 / 收下唯一的表达式根；
-3. `list.TryToClose`，再 `statement.TryToClose`；卸载挂载链（后续字符回到父单元）；
-4. 把 `tail` 按序插回父单元 `Data` 里**紧跟收口后的语句**的位置，再交给
-   `DeclarationAsiBoundary.ReplayLeftover` 在自己的那一格重放（`StatementShape.FinishShell` 的同一手法）——
-   下一条语句的壳因此在**边界那一格**建出来，而不是拖到 EOF。
-
-`Pos` / `src` 口径不新写：语句终点由 `ShapeToken.TryToClose` 从最后一个子单元补，与 legacy
-`VariableStatementShape` 无 `;` 时的区间同源。
-
 ```ts
 const data = declaration.Data;
 const tail:Array<Token> = data.slice(tokenIndex);
@@ -609,10 +515,6 @@ return declaration;
 
 ## static method CloseAtBoundary:(declaration:VariableDeclarationShape, context:SyntaxContext)=>Token
 
-[WP-B6b] Block body closed by `}`: close declaration -> list -> statement, with statement end derived from the
-last child (no semicolon to take as the statement end). The host (block bracket) MountedUnit is cleared so the
-closing bracket does not close the statement a second time.
-
 ```ts
 declaration.TryToClose(context);
 const list = declaration.Parent;
@@ -630,5 +532,3 @@ if (statement !== null) {
 }
 return declaration;
 ```
-
-

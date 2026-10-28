@@ -19,29 +19,12 @@ import { ExportInnerDelegate } from "./export-inner-declaration-delegate.xl.md"
 
 # class ImportExportDeclarationMount
 
-import / export 声明族的**尽早挂壳**入口（WP-B5，Phase B 试点）。
-
-判据与门控：
-
-- 只在 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为真时动作；false 时 `TryBuild` 一步不走、返回 `null`，
-  调用方（`DeclarationStatementPossibleShape.BuildByIndex`）逐字落到原 `super.BuildByIndex` ⇒ legacy 逐字节不变。
-- 只认**根层**（宿主 `Parent === null`）的 `import` / `export` 声明族；块体里的同名形态仍走原声明壳路径。
-- 只接管本 WP 声明的形态（`import` 声明全族、`export { … }` / `export * …` 导出声明族）；其余形态
-  （`export class` / `export default function` / `export declare const` 等声明前缀形）返回 `null`，
-  留给既有声明壳（那是 B3/B4 的目标，不在本 WP 写域）。
-
-做法：把首代码单元到当前格搬进族形状（`ImportDeclarationShape` / `ExportDeclarationShape`），形状自己的
-`CatalogGuide`（`ImportClausePossibleShape` / `NamedImportsPossibleShape` / … / `ImportDeclarationEndPossibleShape`）
-从这一格起逐单元建子形状，收口仍由既有 end-possible 负责。EOF 树与 legacy 逐节点一致（节点类名 / 层级 / Pos）。
-
 ```txt
 import a from "m";     ← 第 2 个代码单元处挂 ImportDeclarationShape
 export { a } from "m"  ← 第 2 个代码单元处挂 ExportDeclarationShape
 ```
 
 ## static field MountCount:int = 0
-
-增量路径实际接管过的声明数（证据用；不进 AST、不影响任何判定）。
 
 ## static method TryBuild:(host:Token, tokenIndex:int, context:SyntaxContext)=>Token | null
 

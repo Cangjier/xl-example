@@ -62,8 +62,6 @@ declare async function f(): void;
 
 ## static field BodyShellOpenCount:int = 0
 
-`OpenFunctionBody` 真正在 `{` 格提前建出 `BlockShape` 壳的次数（B1b 只读计数）。
-
 ## constructor:(template:Template)=>void
 
 ```ts
@@ -71,23 +69,6 @@ super(template);
 ```
 
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-**[WP-S1] 根层 / 块内函数声明的体括号挂块体语句目录；[B1] 参数表 `(` 装逐字目录。**
-
-`Bracket.Transit` 在挂好子括号之后通知宿主 `OnBracketCreatedEvent`。`UnitToken` 上有一个空实现，
-所以这一段对每个单元都会走到。两条分支互不相干：
-
-1. **`(`（B1 / A1 矩阵 #1，D-a 型）**：函数名先逐字建（`f` 在 `(` 格出现，不再等收口），
-   再让 B0 的角色机制给参数表挂 `ParameterList` 目录。**只接简单参数表**
-   （`[ '...' ] name [ ':' type ]`）；其余形态一个字节都不动，整段留给 `BuildParameters`。
-2. **`{`（WP-S1）**：函数体挂块体语句目录，判据与收口同源
-   （`TypeBuilder.IsBodyBrace`：返回类型里的对象字面量不是体）。
-
-不挂体目录的后果是结构性的：`FunctionDeclarationPossibleShape` 在关键字格 `MountShell` 建的壳只有终结候选，
-体内没有目录 ⇒ 体内每条语句都停在 raw 单元上，`switch` / `case` / `if` 全部拿不到壳（`control-flow`
-的 `SwitchStatementShape` 0 次、`BlockBodyStatementCount` 0 就是它）。挂上之后体内语句与块体
-**同一条**通道（`BuildBlock` 的 `HasBuiltBodyStatements` / `CollectBodyStatements`），
-`FunctionDeclarationShape.FromUnits` → `StatementBuilder.BuildStatement` 照旧建树，不新增建树路径。
 
 ```ts
 if (!(bracket instanceof Bracket)) {
@@ -127,14 +108,6 @@ FunctionDeclarationShape.OpenFunctionBody(this, body, context);
 
 ## static method PromoteName:(host:Token, bracket:Bracket, context:SyntaxContext)=>void
 
-**[B1] 函数名逐字建**：`(` 创建时，宿主 `Data` 里紧挨在括号前面的那个 `Common` 就是函数名。
-
-legacy 要等整条声明在 `}` 收口时才建 `IdentifierShape`（`FromUnits` 的 `nameUnit` 分支），
-`f` 因此一直以 raw `Common` 待到第 31 格。这里提前建成形状，`Pos` 按 legacy 同一口径
-（前一个非 trivia 单元的 `EndIndex`：`function f` 是 `function` 的终点 8）。
-
-`FromUnits` 收口时见到 `IdentifierShape` 直接消费（见那里的 `[B1]` 分支），不再重建。
-
 ```ts
 const at = host.Data.indexOf(bracket);
 if (at <= 0) {
@@ -172,21 +145,6 @@ ParameterListPossibleShape.PromotedNameCount += 1;
 
 ## static method OpenParameterList:(host:Token, bracket:Bracket, context:SyntaxContext)=>void
 
-**[B1] 参数表 `(`：装 `ParameterList` 角色目录。**
-
-调用顺序是硬要求：
-
-1. `ParameterListPossibleShape.InstallIfSimple` 先判「简单参数表」——判不进就整段交 legacy，
-   **连名字都不提前建**（半建的名字 + legacy `FromUnits` 的 `Common` 分支会对不上）；
-2. 名字提前建（`f` 在 `(` 格出现）；
-3. 打开 B0 的总闸并装配 `BracketRoleHook`，注册 `ParameterList` 角色目录；
-4. `BracketRoleResolver.Resolve` → `BracketCatalogInstaller.Install`。
-
-第 3 步之后，同一文件里**其余括号**也会走一次角色解析：族已装目录的返回
-`Known` + `AlreadyInstalled`（`SetEndPossible(null)`，一个字节都不改），没有目录的返回
-`Fallback` / `Deferred`（只计数，不改 AST）——这正是任务书允许的「其它 site 继续走现状，
-`BracketRoleFallbackCount` 可涨但不改 AST」。
-
 ```ts
 if (!BracketRoleResolver.IsHeadParameterBracket(host, bracket)) {
   // [T11] 返回类型里的 `(`（`function f(): (string)` / `function f(): abstract new (a: number) => A`）
@@ -209,17 +167,6 @@ ParameterListPossibleShape.InstallAtBracketCreated(host, bracket, context);
 ```
 
 ## static method OpenFunctionBody:(host:FunctionDeclarationShape, body:Bracket, context:SyntaxContext)=>BlockShape
-
-**[B1b] 函数体壳在 `{` 那一格就建**：把体括号从「声明壳里的 raw 括号」换成一只 `BlockShape` 壳。
-
-- `Pos` 按 legacy `BuildBlock` 同一口径（前一个非 trivia 单元的 `EndIndex`：`function f() {}` 是 `)` 的 29）；
-- 括号挂进块壳（`block.Add(body)`），`MountedUnit` 按块语句既有的那条通道挪过去
-  （`host.MountedUnit = block` / `block.MountedUnit = body`，与 `BlockPossibleShape.BuildByIndex` 同款）；
-- 括号上已经挂好的块体语句目录**留在括号自己身上**，体内语句照旧走语句壳 + `CollectBodyStatements`。
-
-于是 `BlockShape` 在 30 格（`{`）出现，`}` 那一格只收口：`Bracket.Close` 问父单元（块壳）→ 块壳
-`ComputePossibleShapes` 自检并 `TryToClose`，再把通知转给声明壳的 `CatalogGuide`，终结候选接受已闭合的
-`BlockShape`；`FromUnits` 仍然用**同一个 legacy `BuildBlock`** 把括号建成体（最终树逐节点不变）。
 
 ```ts
 const block = new BlockShape(host.Template);
@@ -253,13 +200,6 @@ return block;
 
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
-**[B1] 收口钩子**：`(` 括号闭合那一格会走 `Bracket.Close` 的「只问父单元」，
-宿主（本声明）在这里拿到通知——参数表最后一个参数没有后继 token 可等，
-只能靠这一格收口（`f(a: number)` 的类型、`f(a)` 的名字都在 `)` 那一格才 `Closed`）。
-
-**先收参数壳，再问本声明自己的向导**：收口可能建出形状，而 `CatalogGuide` 复位之后
-同一个向导才不会把同一格重算成 `Waiting`。`CatalogGuide === null` 时与基类逐字一致。
-
 ```ts
 ParameterListPossibleShape.Finalize(this, context);
 if (this.CatalogGuide !== null) {
@@ -269,31 +209,6 @@ return ComputePossibleShapesStates.Nothing;
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
-
-**[R9:EOF-CLOSE] 无体函数声明在文件末尾的收口。**
-
-**症状（R9 的 3 变量矩阵）。** `declare function f(): void` ⏎ 这种「无函数体、也没有 `;`」的声明，
-终结候选在字符流里再没有下一格可问：末代码单元 `void` 之后的换行只是 trivia，
-`FunctionDeclarationEndPossibleShape.ComputeByIndex` 的 ASI 分支要求「下一行起一条新的声明」，
-而下一行就是 EOF（`NextLineWord` 答 `""`）。于是壳一路张着口走到文件末尾，而驱动层
-（`SourceFileShape.Process`）在 EOF 只对挂载单元调一次 `TryToClose`——基类那一份只标记 `Closed`、
-**不建树**，壳里的 `declare` / 名字 / 参数表 / 返回类型于是原样留在终态树里
-（`DeclareKeyword` / `Identifier` / `Parameter` / `ReturnType` 全缺），尾随换行还被签进 `End`
-（`FunctionDeclaration 0-26 vs 0-27` 是同一处的第二半）。
-矩阵证否了「`declare` 关键字」与「空参 / 有参」「简单返回 / 复合返回」三个变量：
-`function f(): void`（无 `declare`）、`declare function f(): void`、`declare function f(): Promise<…>`
-同样缺节点，而带 `;` 的同一批写法全部 `ok`，`declare const x: number`（无 `;`、文件末尾）也 `ok`
-——**唯一变量是「无体 + 无 `;` + 文件末尾」这一格**，与 `declare` / 参数表 / 返回类型都无关。
-
-**修法（不新写判据）。** 收口仍走终结候选自己的 `PossibleShape.BuildByIndex`
-（= `FunctionDeclarationEndPossibleShape` 那一条 `FromUnits` + `BodyGuideUtil.FinishShell`，
-与 `;` / ASI 那两格是**同一批**建树函数）。本方法只补「文件末尾」这一次判定：
-终结候选本该在 EOF 哨兵那一格 `Accept`（`ComputeByIndex` 的最后一条分支），但哨兵是
-`SourceFileShape` 的子单元、**不在壳的 `Data` 里**，壳永远等不到那一格。
-
-**边界。** 只在「本壳之后已经没有字符」（`SourceRange.End` 已签到文档末尾）时动手；
-`;` / 体闭合 / 中途换行三格都不满足这个前提，逐字节走基类。建不出来（扫描器 / `FromUnits` /
-`Finish` 任一处抛错）时退回基类行为——比现状不多做任何事，也不静默吞错。
 
 ```ts
 const wasOpen = !this.Closed;

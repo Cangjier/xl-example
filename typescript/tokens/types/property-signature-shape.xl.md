@@ -37,8 +37,6 @@ super(template);
 
 ## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
 
-[B2] 本形状也可能是「成员外壳」：成员块 `}` 的交接见 `MemberShellCatalog.HandOffOnBodyClose`。
-
 ```ts
 if (MemberShellCatalog.IsOpen(this)) {
   if (MemberShellCatalog.HandOffOnBodyClose(this, value, context)) {
@@ -49,9 +47,6 @@ return BranchStates.Undo;
 ```
 
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-[B2b] 成员外壳的子 token 目录：外壳里 basic token 关闭时把刚闭合的那一格按位置包成名字形状，
-再判成员边界（见 `MemberShellCatalog.HeadCompute`）。
 
 ```ts
 if (MemberShellCatalog.IsOpen(this)) {

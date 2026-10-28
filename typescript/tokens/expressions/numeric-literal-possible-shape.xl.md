@@ -18,11 +18,6 @@ import { ExpressionAtomRegistry } from "./forms/shared/expression-atom-registry.
 
 # class IncrementalItemPosition
 
-增量装配的 `Pos` 口径（C1）：**一律取「前一个非 trivia 单元的 `SourceRange.EndIndex`」**，
-不按形状首字符算，也不看 `SourceRange` 自己。
-
-`units` 是宿主当前的子单元数组，`tokenIndex` 是**要建的那一格**的下标；trivia（空白 / 注释）跳过。
-
 ## static method AfterPreviousCode:(units:Array<Token>, tokenIndex:int)=>int
 
 ```ts
@@ -39,23 +34,7 @@ return 0;
 
 # class NumericLiteralPossibleShape extends PossibleShape
 
-增量模式下**声明层初始值**的数字字面量候选：`Common("2")` → `NumericLiteralShape`（`Replace` 原位换）。
-
-它只出现在 `ExpressionCatalogFactory.Create()` 的目录里（宿主是 `VariableDeclarationShape`）；
-二元表达式右操作数的同名判定由 `RightOperandPossibleShape` 承担——两者是**不同候选类**，
-因为「建完之后要不要替宿主封口」不一样（C3）。
-
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是**非 trivia 的 `Common`**，且 `IsNumber()`。
-
-**`=` 必须给 `Uncertain` 而不是 `Reject`**（实测坑）：`CatalogGuide` 只在**建出形状之后**才
-`Reset`（重新填满 `Candidates`），中途被 `Reject` 掉的候选**不会再回来**。声明还没走到初始值时
-（char 6 的 `=`、char 7 的空白），表达式目录整体都「还轮不到」，所以这里必须保持存活；
-一旦在这里 `Reject`，到 char 8/9 的 `2` 时 `Candidates` 已经空了，`CatalogGuide` 只会 `Waiting`。
-
-扫描下界走 `ItemUtil.ItemStartCached`（C8：经 `PossibleShapeCache` 逐条目记忆，`Reset` 自动作废），
-本候选只判「当前条目最后流入的那一格」，更早的格里不可能是它。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -87,24 +66,6 @@ return ShapeStates.Accept;
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
-把 `host.Data[tokenIndex]` 那个 `Common` 原位换成 `NumericLiteralShape`：
-
-- `SourceRange` 由 `NumericLiteralShape.FromBasicToken` 从 basic 单元取（`[8,9)`）；
-- `Pos` 按 C1 补（`2`→7、`3`→10、`1`→12）；
-- `Replace` 保持它原来那一格的位置（父单元由 `Replace` 设回宿主）。
-
-**[T9:ATOM-POSTFIX] 建完登记身份**（`ExpressionAtomRegistry.Nodes`）：数字原子是**上一个可以带
-后置续接的操作数**——`const a = 1 .toString()` / `1..toString()` / `1 .toString[0]` 的 `1` 在这一格
-就已经建好，后面的 `.` / `?.` / `(` / `[` 不是它的「未支持续接」，而是它的 postfix 后缀。
-登记之后收口格（`VariableDeclarationShape.FinishIncremental`）走既有的
-「根 + 根之后还有代码」分支：`ExpressionBuilder.ParsePrimary` 用 `HasNode` 把这个**已建原子**
-当操作数收下（不重建、不重算 `Pos`），再由 `ExpressionBuilder.ParsePostfixSuffix` 接上后缀——
-与 A1 标识符 / A4 容器 / R15 标签模板走的是**同一条** postfix 路。
-
-为什么登记在 `BuildByIndex` 而**不是**共用的 `BuildLiteral`：`RightOperandPossibleShape` 也调
-`BuildLiteral`，那类原子是二元表达式的右操作数、不是初始化器的根，登记进来会让
-`HasNode` 在「根之外还有代码」的判据上误判。
-
 ```ts
 const token = host.Data[tokenIndex];
 if (!(token instanceof Common)) {
@@ -121,8 +82,6 @@ return shape;
 ```
 
 ## static method BuildLiteral:(token:Common, host:Token, tokenIndex:int, context:SyntaxContext)=>NumericLiteralShape
-
-共用的建形状步骤（`RightOperandPossibleShape` 也用这一条）：建字面量 → 补 `Pos` → 原位 `Replace`。
 
 ```ts
 const shape = NumericLiteralShape.FromBasicToken(token, context);

@@ -16,15 +16,6 @@ import { MemberChainJudge } from "./member-chain-judge.xl.md"
 
 # class MetaPropertyPossibleShape extends PossibleShape
 
-WP-P1：声明初始化器位置的**元属性**候选——`let x = import.meta`。
-
-本候选只认 `Kind === "meta"` 的链：链头是关键字 `import`，第一个后缀是 `.`，且 `.` 之后的前瞻词是 `meta`。
-legacy EOF 树是 `MetaPropertyShape pos=7 src=[8,19)`，**唯一**子节点是 `IdentifierShape pos=15 text="meta"`
-（`import` 是 keyword，不投影），由 `ExpressionBuilder` 的 `import` 分支（`:2401`）给出，本候选不自己拼。
-
-族在 `.` 到达那一格就要落定（`meta` 还没流进 `Data`），所以 `Kind` 用文档前瞻读词
-（`MemberChainJudge.NextWord`，与 A1b / A5c 读 `SourceRange.CurrentDocument` 同一套）。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts

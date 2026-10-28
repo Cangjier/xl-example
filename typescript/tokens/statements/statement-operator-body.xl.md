@@ -299,8 +299,6 @@ if (text !== "") {
 ```
 ## method LastCodeIndex:()=>int
 
-[实例级增量判据·S4b] `Units` 里最后一个**代码单元**的下标（跳过尾随 trivia）。全是 trivia / 空表返回 `-1`。
-
 ```ts
 let index = this.Units.length - 1;
 while (index >= 0 && this.Units[index].IsTriviaToken) {
@@ -310,12 +308,6 @@ return index;
 ```
 
 ## method IsOperandGrowing:()=>bool
-
-[实例级增量判据·S4b] 本格末位的操作数是不是「还在长的标识符」——`this.半` / `球.数` 这种**名字没闭合**的
-标识符。判据只有一份：`IdentifierIncompleteGuard.IsComplete`（WP-S4 的 R4-1，接线点在这里）。
-
-只对 `BuildOperand` 会建成 `KindIdentifier` 的单元下结论：关键字叶子（`this` / `super` / `import` / `true` …）、
-数字字面量、以及其它形态一律返回 `false`——`1` → `12` 的数字增长不属本判据（R4-4 另有 owner）。
 
 ```ts
 const last = this.LastCodeIndex();

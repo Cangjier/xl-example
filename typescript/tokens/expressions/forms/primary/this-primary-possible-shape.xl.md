@@ -19,12 +19,6 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class ThisPrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的 **`this`**（`let x = this`）。
-
-legacy EOF 口径（`expr-probe` 实测）：`ThisKeywordShape  pos=7  src=[8,12)`——关键字形状，无 `text` 字段。
-
-与 `IdentifierPrimaryPossibleShape` 互斥：后者对 `this` 文本 `Reject`（`this` 不是标识符节点）。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts
@@ -32,8 +26,6 @@ shapes.push(new ThisPrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是已关闭的 `Common("this")`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -63,8 +55,6 @@ return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-只对「初始化器 = 单个 `this`」放行（第二道闸门见 `PrimaryAtomGuard`）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {

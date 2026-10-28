@@ -22,17 +22,6 @@ import { StatementShellCatalog } from "./statement-shell-catalog.xl.md"
 
 # class CaseClauseHeadPossibleShape extends PossibleShape
 
-**`switch` 子句头（`case <表达式> :` / `default :`）的候选：WP-S1。**
-
-`case-clause-statement-possible-shape.xl.md` 只负责「冒号**之后**的子句语句」（
-`IsClauseStatementStart` 显式把 `case` / `default` 排除）。子句头因此在增量路径上**没有任何候选**，
-`case` 落到 `StatementRouteUtil.Decide` 的表达式分支，被 `RootExpressionStatementPossibleShape`
-建壳 → `StatementOperatorBody` 建 `IdentifierShape("case")`；数字 `0:` 又满足
-`StatementFamilyDispatch.KindAllows` 的 `ShellLabel` 判据 → `LabeledStatementShape`。本类补的正是
-这个缺失的半边。
-
-判据**只有一处**：`StatementRouteUtil.DecideCaseClauseHead`（经 `Decide` 到达）。本类不写第二份关键字表。
-
 ```txt
 switch (a) { case 1: b; }
 switch (a) { case a ? b : c: d; }

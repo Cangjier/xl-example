@@ -8,12 +8,6 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 
 # namespace cangjie
 
-类型子树装配的**唯一入口**（R5-D1）：`TypeBuilder` 已经能读全部 R5 类型节点，本类只负责
-`TypeBuilder` 不负责的三件事 —— Pos 起点（`Load(units, basePos)`）、覆盖校验（`OriginalConsumed`）、
-失败即 `null`（调用方 `Decline`，不建半棵树）。
-**A6**：只 `new TypeBuilder`，**不** `new ExpressionBuilder` / `StatementBuilder`；`TypeBuilder.Load`
-不计入 A6（R2 `as` 分支起就成立的既定口径，见 R5-CONTRACT §2.1.1 / §3.4）。
-
 # class DirectTypeAssembly
 
 ```txt
@@ -24,11 +18,7 @@ function f(): number {}        -> ReturnTypeOf([number], 12)         -> NumberKe
 
 ## static field LastReason:string = ""
 
-最近一次失败原因（调用方拼进 `Decline` 文案 / Trace）。
-
 ## static field LastCategory:string = ""
-
-保留字段：category 由调用方决定（`var.type` / `stmt.type` / `stmt.func`），本类不写。
 
 ## static method TypeOf:(units:Array<Token>, basePos:int, template:Template, context:SyntaxContext)=>Token | null
 

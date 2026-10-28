@@ -15,10 +15,6 @@ import { DirectExpressionEngine } from "./direct-expression-engine.xl.md"
 
 # namespace cangjie
 
-控制流直建的共用装配助手（R3-CONTRACT §4.2）：Pos 表复刻、块组装、体语句收集、表达式片段。
-**只此一份**：`direct-control-session`（B1）与 `direct-function-session`（B2-1）/ 箭头体（B2-2）都调用它，
-不各自发明 Pos / 块口径。
-
 # class DirectStatementAssembly
 
 ```txt
@@ -28,8 +24,6 @@ RawStatement<- 单语句体（`if (a) b;`）：只认 `;` / 表达式 / `{…}`�
 ```
 
 ## static field LastReason:string = ""
-
-最近一次表达式片段失败的原因（`ExpressionOf` / `ConditionOf` 写，调用方拼进 Decline 原因用）。
 
 ## static method CodeAt:(units:Array<Token>)=>Array<int>
 

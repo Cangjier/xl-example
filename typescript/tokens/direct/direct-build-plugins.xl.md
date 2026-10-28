@@ -12,8 +12,6 @@ import { ClassDeclarationDirectSession } from "./direct-class-session.xl.md"
 
 # namespace cangjie
 
-全仓唯一的直建注册点：session 实现成员永不改本文件，只有 M3（integration owner）在这里加 `Register` 行。
-
 # class DirectBuildPlugins
 
 ```txt

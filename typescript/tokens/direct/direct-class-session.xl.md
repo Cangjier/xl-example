@@ -13,43 +13,6 @@ import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 
 # namespace cangjie
 
-R6-D1 `class` 声明的直建 session（`ShellClassDeclaration` kind 9 / `ShellDecoratedDeclaration` kind 10）。
-
-**只有一条建树路径**：收口时把壳的 `Data` 折成代码单元，交给既有形状工厂
-`ClassDeclarationShape.BuildFromCode(owner, code, BasePos, context, allowAnonymous)`。本 session
-**不新写第二套配方**：`export` / `default` / `declare` / `abstract` 修饰词、装饰器循环、`extends` /
-`implements` 子句、类型参数、成员体（字段 / 方法 / 访问器 / 构造器 / static 块 / 索引签名 / 计算名 /
-可选成员 / 成员修饰词）全部由该工厂按既有规则处理（`R6-CONTRACT §2.1`）。
-
-**A6 边界（R6-CONTRACT §5.4 的精确值档）**：本 session **只 new `ClassDeclarationShape` 一次**；
-成员体与属性初始值的 `StatementBuilder` / `ExpressionBuilder` 由**形状工厂自己**调（`BuildMembers` /
-`BuildBlock` / 初始值 / 装饰器表达式 / 计算名），本文件**一处都不新增**。因此读数是**确定值**：
-
-- `stmtLoads` = 每个「有体成员」1 次（method / accessor / constructor / static block），空体 `{}` 再 +1；
-- `exprOther` = 每个属性初始值 / 装饰器表达式 / 计算名 1 次（`DirectTokenUtil.OperatorToken` 那 1 次不计，R2 起口径）。
-
-期望值逐条见 `_coord/R6-TARGET-CASES.md` 的 `CLS` 表（`a6ExpectStmtLoads` / `a6ExpectExprLoads`）。
-
-**实测（`feat-r6-class`，24/24）**：注册 kind 9/10 后逐条跑 `CLS` 24 条，`built` / A6 精确值 /
-A1=YES / XML==基线 全部命中（8 条补测见 `_tmp-r6class/probe-cls.mjs`；`/tmp` 不入库）。
-47 个真实 `.ts` 语料 `FILES=47 XML-DIFF=1 CRASH-DIFF=0` 与**未注册时逐字节相同**（唯一差异仍是
-`angle.ts` 的 `f<T>` tagged template，属引擎，归 R6-A3 / `feat-r6-harden`）⇒ class 直建本身不引入
-任何语料差异。**未合入窗口**：只注册本 session 时 189 条里有 3 条按设计变红（`R2-SAFE-02` /
-`R5-DC-neg-02` / `R5-DC-neg-03` = §5.3 的改判项），与 `feat-r6-verify` 的改判同批收口。
-
-**不做（R7）**：类表达式（`const C = class {}`，`class` 作操作数，走引擎 ⇒ 旧路径建树正确，保持
-`var.init` 显式 Decline，`R6-Q5`）；成员体内引擎不接受的表达式（`super()` / 部分 `new` / 字符串字面量）
-让**整个 class 回落旧路径**——`BuildFromCode` 抛错即 `return null`，绝不建半棵树（`R6-CLS-neg-01/02`）。
-
-**R7-A2 装饰器转发（`R7-CONTRACT §1.4`）**：kind 10（`ShellDecoratedDeclaration`）也承载
-`@dec function f() {}` / `@dec declare function f(): void;`。本文件在 `BuildFromCode` 之前加**一条**
-转发：`code[0]` 是 `@` 且**顶格**出现 `function` ⇒ `FunctionDeclarationShape.FromUnits`（它自带
-装饰器循环 + declare / async 修饰词 + 无体 ambient 判据），**不新增注册行、不改 9/10 的指向**。
-顶格预检（`HasDecoratedFunctionHead`）是必须的：没有它，`@dec class C {}` 会先被试探一次
-`FromUnits` 的装饰器 `ExpressionBuilder`，A6 从 0/1 漂到 0/2（`R7-DEC2-guard-01` 硬读数）。
-实测 4 条函数形态全 `built>=1 / A1=YES / XML=IDENTICAL`，`@dec class` / 成员装饰器读数逐项不变
-（`_coord/REPORT-r7-module2.md` §3）。
-
 # class ClassDeclarationDirectSession implements DirectSession
 
 ```txt

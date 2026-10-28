@@ -4,8 +4,6 @@
 
 # namespace cangjie
 
-直建的唯一计数 / strict / trace 出口：验收看这里的计数器，不看「有没有抛异常」。
-
 # class DirectBuildMetrics
 
 ## static field Sessions:int = 0

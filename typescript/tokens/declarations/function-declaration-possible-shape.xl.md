@@ -374,11 +374,6 @@ return !LineTerminator.HasBefore(units, at);
 
 ## static method Owns:(units:Array<Token>, headAt:int, secondAt:int)=>bool
 
-[A2-D4] 三处同源判据的**唯一实现**：本候选自己的让位绕过、`declaration-statement-possible-shape` 的
-`[XL-B3f]` 段、`control-flow-statement-possible-shape` 的同段。条件 = item 首词 `declare` && 下一词
-`function` && **同一行**。`declare` ⏎ `function f(): void;` 是 TS 的两条语句（修饰词必须同行，
-`DecideDeclaration` 判 `declare` 用的是同一个 `NoLineBreakBetween` 口径），换行时不认。
-
 ```ts
 if (headAt < 0 || headAt >= units.length || !(units[headAt] instanceof Common)) {
   return false;
@@ -408,15 +403,6 @@ return StatementScanner.IsDecoratedDeclarationStart(units, at);
 ```
 
 ## static method BuildAsiSplitModifier:(host:Token, start:int, context:SyntaxContext)=>ExpressionStatementShape
-
-[R12] `async` / `declare` 与 `function` 之间出现行终止符时，TS 是**两条语句**：
-
-    async      ⏎ function f() {}    ⇒  ExpressionStatement(Identifier "async") + FunctionDeclaration(f)
-    declare    ⏎ function f(): void ⇒  ExpressionStatement(Identifier "declare") + FunctionDeclaration(f)
-
-修饰词那一半在这里建（`ExpressionStatement > IdentifierShape`，`Pos` 取前一个代码单元的 `EndIndex`，
-文件首语句为 0）。**同一份实现**服务两个调用点：`BuildByIndex` 的 legacy 分支（一次建两条）与增量分支
-（修饰词 + 声明壳）——判据只有「`SplitDeclare` 且 `FunctionAt > start`」这一条，不在两处各写一遍。
 
 ```ts
 let modifierAt = start;

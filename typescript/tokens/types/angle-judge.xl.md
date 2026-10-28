@@ -14,9 +14,6 @@ import { StatementScanner } from "../statements/statement-scanner.xl.md"
 
 ## static field FindCloseAheadLimit:int = 4096
 
-[D3c:ANGLE] `FindCloseAhead` 一次最多往后看多少个字符。类型实参 / 类型参数表不会有几 KB，
-这个上限只是防止畸形输入把一次判定拖成全文扫描；超了按「配不上对」处理（判否，退回旧的显式错误）。
-
 ## static method IsSplitClose:(text:string)=>bool
 
 ```ts
@@ -348,29 +345,6 @@ return AngleJudge.FollowerAllows(units, close);
 
 ## static method FindCloseAhead:(unit:Token)=>int
 
-[D3c:ANGLE] 以**源码原文**为准，从 `<` 这一格的末端往后找配对的 `>`，返回它在文档里的下标；找不到返回 `-1`。
-
-**为什么不能用 `units`**：候选目录是**逐格**问的——`const a = new A<T>` 的 `<` 那一格到达时，
-`Data` 到 `<` 为止，`T` 与 `>` 还在后面；`const f = <T,>(a: T) => a` 在 `,` 那一格到达时，`>` 也还没来。
-按 `Data` 找配对的 `>` 永远找不到，于是「这格在不在尖括号里」这个问题在增量路径上**不可能**用 `FindClose` 回答
-（实测：`new A<T>` 的 `<` 格 `IsGroupMember` 恒假，9 条 `declaration 符号 <` 一条也没动）。
-原文从 `unit.SourceRange.Document` 拿（`GetRawRange` 只读，不改任何形状、不建任何 token）。
-
-扫描规则（保守：宁可判否，退回旧的显式错误，也不猜）：
-
-- `>` 减一层、`<` 加一层，归零即配对，返回该 `>` 的下标；
-- `>` 后面紧跟 `=`（`>=`）不算闭合——比较运算符不是括号；
-- 空白 / `//` 行注释 / `/* */` 块注释跳过；
-- `"` `'` 字符串整段跳过（里面的尖括号不是括号）；
-- 反引号模板：不含 `${` 时整段跳过；含插值时判否（模板里再嵌 `<>` 不猜）；
-- **深度 > 0 时遇到这些字符判否**（它们不可能出现在类型实参 / 类型参数表里）：
-  `;` `)` `=` `&&` `||`。没有这一条，比较链会被读成尖括号组——
-  实测反例 `tokenIndex < 0 || tokenIndex >= units.length`：`< 0 || tokenIndex >` 的 `>` 在 `>=` 里，
-  而 `||` 与 `=` 在旁边，于是一个纯比较被当成组，声明在逗号 / 换行格上不肯收口，树就漂了
-  （`construct-signature-possible-shape.ts` 一条 `moved` 就是这么来的）；
-- 扫描上限 `FindCloseAheadLimit` 个字符（防止畸形输入把一次判定拖成全文扫描）；
-- 没有 `Document`（单元测试里直接构造的形状）判否。
-
 ```ts
 if (!(unit instanceof Symbol)) {
   return -1;
@@ -471,11 +445,6 @@ return -1;
 
 ## static method IsOpenAt:(units:Array<Token>, index:int)=>bool
 
-[D3c:ANGLE] 这一格之前有一个 `<`，它**在原文里配对到的 `>`** 落在本格或更后（`FindCloseAhead`）。
-
-只数配得上对的 `<`：比较链 `x == y < z` 里的裸 `<`（`FindCloseAhead` 为 `-1`，或配对 `>` 在 `;` 之后被截断）
-不算，声明因此仍能正常收口。
-
 ```ts
 if (index < 0 || index >= units.length) {
   return false;
@@ -501,19 +470,6 @@ return false;
 
 ## static method IsGroupMember:(units:Array<Token>, index:int)=>bool
 
-[D3c:ANGLE] 这一格是不是**一个尖括号组的成员**——开括号那一格本身，或组内任何一格（含配对的 `>`）。
-
-与 `CanStart` 的分工：`CanStart` 还要求前驱 / 后继能接成「类型实参」那种形状（`FindClose` + `FollowerAllows`），
-是**读法判据**；本判据只回答「这两个尖括号之间有东西」——给「这一格不要按运算符 / 列表分隔符 / 收口符处理」用。
-
-两条：
-
-1. **本格是开括号**：`<` 且 `FindCloseAhead` 找得到配对的 `>`；
-2. **本格在组内**：在它之前有一个 `<`，其原文配对 `>` 落在本格或更后（`IsOpenAt`）。
-
-为什么不能用「数角深度 > 0」：比较链 `x == y < z` 里的 `<` 没有配对，按深度数会一直算作「还没闭合」，
-整条声明再也收不了口。`FindCloseAhead` 遇到 `;` / 字符串 / 模板插值就判否，正好把这种判出去。
-
 ```ts
 if (index < 0 || index >= units.length) {
   return false;
@@ -527,12 +483,6 @@ return AngleJudge.IsOpenAt(units, index);
 ```
 
 ## static method IsOpenGroup:(units:Array<Token>, index:int)=>bool
-
-[D3c:ANGLE] 与 `IsGroupMember` 同义，留给「这一格不能收口」那两处调用点读顺：
-`IsGroupMember` 说「这一格属于某组」，`IsOpenGroup` 说「有一组还开着、包着这一格」。
-
-两者是同一判据（`IsOpenAt` 已经排除「配对 `>` 在本格之前」的情况），所以声明在组的最后一格（配对的 `>`）
-也不能收口——那一格正是 `<T,>` 的 `>`。
 
 ```ts
 return AngleJudge.IsGroupMember(units, index);

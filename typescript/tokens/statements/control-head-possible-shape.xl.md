@@ -25,74 +25,19 @@ import { StatementRouteUtil } from "./statement-route-util.xl.md"
 
 # class ControlHeadScan
 
-一只控制流头括号的扫描状态（`Host` 是那只 `(` 的 `Data` 数组对象，与
-`ParameterListPossibleShape.States` 同一手法：按数组对象登记，括号被丢弃时随之一并失效）。
-
 ## field Host:Array<Token> | null = null
 
 ## field Keyword:string = ""
 
-括号前面的控制流关键字（`if` / `for` / `while` / `switch` / `with`）；空串 = 认不出来。
-
 ## field Enabled:bool = false
-
-这只括号是否归本目录（见 `ControlHeadPossibleShape.Decide`）。`false` 时一格都不建，
-括号内容**逐字节保持 raw**，交 legacy 收口。
 
 ## field Atoms:int = 0
 
-本括号已经逐字建出的头原子个数。
-
 # class ControlHeadPossibleShape extends PossibleShape
-
-**控制流头 `(` 的头候选（B3）。**
-
-`if (` / `for (` / `while (` / `switch (` / `with (` 的 `(` 在创建格由
-`BracketRoleResolver` 判成 `BracketRole.ControlHead`（`bracket-role-resolver.xl.md` 的 `Classify`
-里既有的那一条），`BracketCatalogInstaller.Install` 给它装
-`CatalogGuide([ControlHeadPossibleShape], WaitingEndPossible)`。之后括号里**每个 basic token 关闭时**
-`CatalogGuide` 问本候选一格（建完 `Reset`，下一格从头判），命中的就**就地建出那一格的头原子**：
-
-| 头里的单元 | 建出的形状 | 判据 |
-|---|---|---|
-| 普通标识符 `i` / `args` | `IdentifierShape` | 标识符字面形态 + 不在保留字表里 |
-| 成员名位 `a.b` 的 `b` | **不建**（保持 raw `Common`） | 前一个代码单元是 `.` / `?.`（`IsMemberName`；仅 T3 开关打开时，见 `AtomKind`） |
-| 数字字面量 `0` / `3` | `NumericLiteralShape` | `Common.IsNumber()` 且不是 BigInt |
-| `=` / `<` / `++` / `;` / `,` / `.` 等符号 | **不建**（保持 raw `Symbol`） | 符号位一律留给 legacy 的表达式解析 |
-| `let` / `const` / `new` / `typeof` / `this` / `null` … | **不建**（保持 raw `Common`） | 见 `Reserved` / `StatementRouteUtil.IsLegacyKeyword` |
-
-**为什么只建「非符号」的原子**：控制流头的内容是表达式（A2 的领地）。符号位一旦提前变成
-`EqualsTokenShape` / `LessThanTokenShape`，legacy 的 `ParseAssign` / `ParseBinary` 就再也认不出运算符
-（`IsText` 只认 `Common` / `Symbol`），等价于「A2 的表达式目录还没就绪就先自建半套」——
-`_reports/BRACKET-A1.md` §WP-B3 明令禁止。标识符 / 数字字面量在 legacy 侧走的是
-`ExpressionBuilder.ParsePrimary` 的**同一个建树点**，所以本候选建出的原子与 legacy 在收口格会建的
-**是同一类、同一 `Pos` 口径**的节点：legacy 认出原子就直接消费（`ParsePrimary` 的
-`ControlHeadPossibleShape.IsAtom` 分支），不二次重建。
-
-**为什么不会把候选判死**：`ComputeByIndex` 永远 `Uncertain`（既不 `Accept` 也不 `Reject`），
-`IsBuildable` 只在「这一格确实是可建的头原子」时为真。于是 `Candidates.size === 1` 恒成立，
-`CatalogGuide` 的两条抛错出口（「终结候选与其它候选同时成立」/「没有候选形状可以构成」）都不可达
-——`EndPossible` 是永不 `Accept` 的 `WaitingEndPossible`。
-
-**`for` 头的两条闸**（`Decide`）：
-
-1. 声明式头（`for (let …)` / `for (const …)` / `for (var …)` / `for (using …)` / `for await …`）
-   **整只括号都不建**：初始化段由 legacy `BuildVariableDeclarationList` 逐字读，半建的标识符会让它
-   读不到 `Common`；
-2. 三段式头与 `for (x of y)` 的绑定段归本目录；`of` / `in` 关键字本身**不是**标识符（在 `Reserved`
-   里），保持 raw，`BuildFor` 的 for-in/of 判据因此不变。
-
-**`catch (e)` / `try` / `else` 不归本目录**：`catch (` 的参数位是绑定模式，由 legacy 建形态；
-`Decide` 对 `Keywords` 之外的关键字一律 `Enabled = false`，一格都不建。
 
 ## static field States:Array<ControlHeadScan> = []
 
-按括号 `Data` 数组对象登记的状态。
-
 ## static field Atoms:Set<any> = new Set()
-
-本进程内由本候选建出的头原子（`ParsePrimary` 用它认「这是已建的头原子」）。
-`SourceFileShape` 的构造器每解析一个文件清一次空，不跨文件增长。
 
 ## static field CatalogRegistered:bool = false
 
@@ -100,17 +45,9 @@ import { StatementRouteUtil } from "./statement-route-util.xl.md"
 
 ## static field Keywords:Array<string> = ["if", "for", "while", "switch", "with"]
 
-本候选认的控制流头关键字。
-
 ## static field Reserved:Array<string> = ["new", "delete", "typeof", "void", "this", "super", "null", "true", "false", "function", "class", "async", "await", "yield", "in", "of", "instanceof", "import", "export", "let", "const", "var", "using", "static", "get", "set", "type", "declare", "abstract", "extends", "implements", "as", "satisfies", "keyof", "is", "infer", "asserts", "unique", "readonly", "namespace", "module", "enum", "interface"]
 
-`Common` 里**不能被当成普通标识符**的词：这些位置 legacy 会建 `NewExpressionShape` /
-`TypeOfExpressionShape` / `ThisKeywordShape` / `TrueKeywordShape` / 声明壳……一旦提前建成
-`IdentifierShape`，收口格就再也回不去了。
-
 ## static method Shapes:()=>Array<PossibleShape>
-
-目录里**唯一**的候选（进程内只建一份，与 `ParameterListPossibleShape.Shapes()` 同一纪律）。
 
 ```ts
 if (ControlHeadPossibleShape.CreatePossibleShapesCache === null) {
@@ -120,10 +57,6 @@ return ControlHeadPossibleShape.CreatePossibleShapesCache;
 ```
 
 ## static method EnsureRegistered:()=>void
-
-把 `ControlHead` 角色目录注册进 `BracketRoleResolver`，幂等（只注册一次）。
-注册之后 `Resolve` 对控制流头的 `(` 不再返回 `Fallback("catalog-not-registered:ControlHead")`，
-而是 `Known` + 本候选。
 
 ```ts
 if (ControlHeadPossibleShape.CatalogRegistered) {
@@ -137,18 +70,12 @@ BracketRoleResolver.RegisterCatalog(catalog);
 
 ## static method ResetAtoms:()=>void
 
-清空「已建头原子」的登记表与扫描状态。只清身份表，不动任何树的节点
-（`SourceFileShape` 构造器每文件调一次）。
-
 ```ts
 ControlHeadPossibleShape.Atoms = new Set();
 ControlHeadPossibleShape.States = [];
 ```
 
 ## static method IsAtom:(unit:Token)=>bool
-
-`unit` 是不是本候选建出来的头原子。legacy 的 `ParsePrimary` 只认这一条——
-**不是**「所有 `ShapeToken`」：那样会把将来的语句壳 / 括号壳也当表达式起点吃进来。
 
 ```ts
 if (unit === null) {
@@ -177,8 +104,6 @@ return null;
 
 ## static method IsPlainIdentifier:(text:string)=>bool
 
-标识符字面形态：首字符字母 / `_` / `$`，其余为字母数字 / `_` / `$`。
-
 ```ts
 if (text.length === 0) {
   return false;
@@ -201,8 +126,6 @@ return true;
 
 ## static method FirstCode:(units:Array<Token>)=>Token | null
 
-`units` 里第一个非 trivia 单元；没有就 `null`。
-
 ```ts
 for (const unit of units) {
   if (!unit.IsTriviaToken) {
@@ -213,9 +136,6 @@ return null;
 ```
 
 ## static method HeadKeyword:(bracket:Token)=>string
-
-括号**前面**的控制流关键字：宿主 `Data` 里这只括号之前最近的 `Common` 文本。
-只看结构位（`Data` 里的下标 + `Common`），不扫源码文本、不看括号里的内容。
 
 ```ts
 const parent = bracket.Parent;
@@ -238,9 +158,6 @@ return "";
 ```
 
 ## static method Decide:(bracket:Token)=>ControlHeadScan
-
-这只括号归不归本目录（**唯一**的 site 判据）：`BuildByIndex` 先问它，
-`Enabled === false` 就一格都不建。
 
 ```ts
 const units = bracket.Data;
@@ -273,15 +190,6 @@ return state;
 
 ## static method IsMemberName:(unit:Token)=>bool
 
-`unit` 是不是成员访问的**名字位**：同一个 `Data` 里它前面最近的非 trivia 单元是 `.` / `?.`。
-
-**[T3:026] 为什么成员名不能提前建成头原子**：控制流头的 `(` 里，本目录会把普通标识符换成
-`IdentifierShape`，legacy 的 `ParsePrimary` 认这张表；但**成员链的名字位**走的是另一条路——
-`ExpressionBuilder.ParsePostfixSuffix` 在 `.` 之后调 `ParseName`，而 `ParseName` 只认
-`Common` 与 `ExpressionAtomRegistry`（本目录的原子不进那张表）。于是 `if (/x/.test(s)) {}` 的
-`test` 被建成头原子之后，`.` 后面的名字位无标识符可读 ⇒「缺少标识符」⇒ 整条文件 fallback。
-这与 `ExpressionBracketPossibleShape.IsBuildable` 对 `.` / `?.` 的让位是同一条判据、同一个理由。
-
 ```ts
 const parent = unit.Parent;
 if (parent === null) {
@@ -303,14 +211,6 @@ return false;
 ```
 
 ## static method AtomKind:(unit:Token)=>string
-
-这一格能建出什么：`"identifier"` / `"number"` / `""`（不建）。
-符号位、trivia、字符串 / 正则 / 模板一律 `""`——它们归 legacy 或 A2。
-
-**[T3:026] 成员名位也不建**（`if (/x/.test(s))` 的 `test`）：这是 `IsMemberName` 的让位。[T8a] 起
-`StatementRouteUtil.EnableBracketCreatePossible` 默认已翻为 `true`，所以这正是**默认路径**的判据；
-关掉该开关时逐字节保持 T2 之前的判据（T2 的验收要求关档读数不变）。它与
-`ExpressionBracketPossibleShape` 的无条件让位是同一条判据、汇合在一起。理由见 `IsMemberName`。
 
 ```ts
 if (unit === null || unit.IsTriviaToken) {
@@ -344,28 +244,11 @@ return "identifier";
 
 ## static method PosAt:(host:Token, units:Array<Token>, tokenIndex:int)=>int
 
-`Pos` 口径**只有一份**，在 `ShapePosition.PosAt`（R3）：`units` 里 `tokenIndex` 之前最近的
-非 trivia 单元的 `End`；**一格 code 都没有时落回容器自己的起点**。
-
-[R3:POS] 这里原来在「找不到前一个 code 单元」时退到 `units[tokenIndex].SourceRange.Start`，
-**漏了 `host`**：`if (\n  a …)` 的第一格前面只有括号的 `\n  `（`WrapSymbol [4,7)`），于是一个
-`Common a [7,8)` 被填成 `pos=7`，而 TS 的 `pos` 是上一 token（`(`）的终点 `4`——`src` 一样、
-`pos` 差 3，AST 对照就成了 `Identifier[0] 4-8 vs 7-8`。括号里第一格之前必然没有兄弟单元，
-所以这一格只能问 `host`：`host` 是 `Bracket` 就取**开启符 End**（`SourceRange.Start + 1`），
-其它宿主取 `SourceRange.Start`。
-
 ```ts
 return ShapePosition.PosAt(host, units, tokenIndex);
 ```
 
 ## static method InstallAtBracketCreated:(host:Token, bracket:Bracket, context:SyntaxContext)=>bool
-
-**[T7c] 控制头线的创建拍入口**：只认 `if / for / while / switch / with` 的 `(`，且角色解析必须落到
-`ControlHead`。目录形状与 `FlushOnClose` 都来自 `EnsureRegistered` 注册的那份角色目录，
-安装仍由 `BracketCatalogInstaller.Install` 完成（幂等，族已装则只补终结候选）。
-
-`Decide` **不在这里调用**：它依赖括号 `Data` 的站点信息，创建格 `Data` 还是空的；
-站点判据继续由 `BuildByIndex` 里的 `Decide(host)` 把关，两边不重复。
 
 ```ts
 if (!(bracket instanceof Bracket)) {
@@ -386,20 +269,11 @@ return true;
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
-永远 `Uncertain`：本候选既不 `Accept`（不触发建树）也不 `Reject`（不参与候选淘汰）。
-它是不是「这一格该建」由 `IsBuildable` 回答，`CatalogGuide` 因此**永远剩下这一个候选**，
-两条抛错出口都不可达（见类注释）。
-
 ```ts
 return ShapeStates.Uncertain;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-这一格能不能现在建：是 trivia / 符号 / 保留字就 `false`（让目录继续等下一格）。
-
-`host` 不在形参里，所以这里**只**问 `AtomKind`，不信任何 site 状态——site 判据
-（`Decide` 的 `Enabled`）在 `BuildByIndex` 里把关，两边不重复。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -409,16 +283,6 @@ return ControlHeadPossibleShape.AtomKind(units[tokenIndex]) !== "";
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-把 `host.Data[tokenIndex]` 那一个 basic 单元**原地**换成头原子（`Replace`，位置不变）：
-
-- `SourceRange` 由 `IdentifierShape.FromBasicToken` / `NumericLiteralShape.FromBasicToken` 从 basic 单元取；
-- `Pos` 按 `ShapePosition.PosAt(host, host.Data, tokenIndex)`（R3）：前一个非 trivia 单元的
-  `End`，括号里第一格则是括号开启符的 `End`；
-- 建完把原子记进 `Atoms`，legacy 的 `ParsePrimary` 靠这张表认它。
-
-不建的情况（`Decide.Enabled === false` 或 `AtomKind === ""`）**什么都不改**：
-`host.Data[tokenIndex]` 保持原样，返回原单元。
 
 ```ts
 const token = host.Data[tokenIndex];

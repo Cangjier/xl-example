@@ -21,31 +21,6 @@ import { VariableDeclarationShape } from "./variable-declaration-shape.xl.md"
 
 # namespace cangjie
 
-**增量模式（`StatementRouteUtil.EnableIncrementalVariableShapes`）下变量声明三层的唯一建造点。**
-
-开关默认 `false` 时本类一次都不会被调用；`VariableStatementPossibleShape.BuildByIndex` 在开关打开时
-把整条建造交给 `Build`，默认路径（旧壳 + `StatementBuilder` 原子建树）逐字节不变（C4）。
-
-**签入口径（C1）**：三层都在**同一个** `BuildByIndex` 调用里建出来，一次把已经是 basic 单元的前缀
-按归属搬好：
-
-- `VariableStatementShape`：`Pos` = 语句首（根层 `0`），`src` 从同一位置起；吃掉声明关键字 `let`/`const`/`var`
-  与前导 trivia（它们不进任何 `Data`）。
-- `VariableDeclarationListShape`：`Pos` / `src` 与语句相同，直接吃掉语句的关键字前缀。
-- `VariableDeclarationShape`：`Pos` = 前一个非 trivia 单元（关键字）的 `EndIndex`；`src` 从首个绑定
-  （标识符 / 解构括号）的起点起，跳过前导 trivia。
-- `IdentifierShape`：`Pos` 与 declaration 相同（C1），`SourceRange` 由 `IdentifierShape.FromBasicToken` 从
-  basic token 取（工厂不设 `Pos`，必须由调用方补）。
-- **WP-A6b 解构绑定**：绑定位是 `Bracket`（`[` / `{`）时，直接复用 legacy 的
-  `ArrayBindingPatternShape.FromBracket` / `ObjectBindingPatternShape.FromBracket` 把**整棵绑定模式**
-  从已闭合的括号单元建出来（与 legacy `BindingElementShape.ParseName` 同一条工厂、同一套 Pos/src），
-  `Pos` = declaration 的 `Pos`，作为 declaration 的第一个子节点挂上。初始化器仍由 E-base 表达式目录
-  （A1 primary 已合入）逐字符建、`FinishIncremental` 在 EOF / `;` 收口——与 legacy 同树。
-
-**挂载链**：`host.MountedUnit = statement`、`statement.MountedUnit = list`、`list.MountedUnit = declaration`。
-之后到达的字符由最内层 declaration 直接吃（char 6/7/8 的 `=` / 空格 / `2` 因此自然落进它的 `Data`），
-不需要任何 `Process` / `ExitOrPre` 覆写。
-
 # class IncrementalVariableStatementBuilder
 
 ## static method Build:(host:Token, tokenIndex:int, context:SyntaxContext, declared?:bool)=>Token

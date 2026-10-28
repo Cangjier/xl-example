@@ -12,16 +12,6 @@ import { VariableDeclarationShape } from "../declarations/variable-declaration-s
 
 # namespace cangjie
 
-增量模式下三层的最外层。`TryToClose` 负责在 EOF 收口时把挂载链**由内向外**关掉：
-`VariableDeclarationShape`（提取字段 / 原子建初始值）→ `VariableDeclarationListShape` → 自己，
-再交回基类补自己的终点。默认（`Incremental == false`）时逐字节走基类路径，旧行为不变。
-
-[R5] **语句分号的归属**：`;` 不是声明的子节点（TS 的 `VariableDeclaration` 止于初始化器），也不是 trivia
-（语句的终点含它）。声明在 `FinishIncremental` 里把它交还（`TrailingSemicolon`），本形状在 `TryToClose` 里
-**收成自己的最后一个子单元**，语句区间因此以分号的 `End` 封口——`const a = 1;`（无结尾换行）是 `[0,12)`，
-不是 `[0,11)`。收口守卫见 `TrimEndToLastCodeUnlessSemicolon`：末单元是 `;` 时只裁掉它之后的 trivia，
-绝不把 `;` 一起裁掉。
-
 # class VariableStatementShape extends ShapeToken
 
 ```txt
@@ -38,8 +28,6 @@ declare let d: number;
 ```
 
 ## field Incremental:bool = false
-
-是不是增量模式建出来的形状。默认 `false`：legacy `StatementBuilder` 建的 AST 节点不受本类新增逻辑影响。
 
 ## constructor:(template:Template)=>void
 
@@ -90,15 +78,6 @@ return super.TryToClose(context);
 
 ## method AdoptTrailingSemicolon:(declaration:VariableDeclarationShape, context:SyntaxContext)=>void
 
-[R5:SEMICOLON] 把声明交还的语句分号**收成语句自己的子单元**，并给它补一次关闭。
-
-为什么由语句收：TS 的 `VariableStatement` 区间含 `;`（`const a = 1;` → `[0,12)`），但它的 AST children 里没有
-`SemicolonToken`。所以 `;` 既不能留在 `VariableDeclarationShape.Data`（声明区间会多一格，`[6,12)` 而不是 `[6,11)`），
-也不能被丢掉（语句区间会少一格，`[0,11)` 就是 R5 的 `moved`）。唯一与两边都对得上的归属，就是语句自己。
-
-`Data` 里的顺序因此是 `[声明列表, ;]`（源码顺序）；`;` 是 basic token，`cjAst` 的对拍按 `IsAstShape` 过滤掉它，
-所以它不会变成多出来的 AST 节点，只贡献语句的终点。
-
 ```ts
 const semicolon = declaration.TrailingSemicolon;
 if (semicolon === null) {
@@ -119,19 +98,6 @@ if (!semicolon.Closed) {
 ```
 
 ## method TrimEndToLastCodeUnlessSemicolon:(listEndBefore:int)=>void
-
-[R5:TRIM] 收口守卫：**末尾代码子单元是 `;` 时裁到分号的 `End`**（并且只在它比当前终点短时收），
-其余形态才看 `listEndBefore` 那条「只是 trivia」的判据。
-
-`TrimEndToLastCode` 的语义是「把尾随 trivia 从区间里去掉」——分号不是 trivia，它是语句自己的终点。
-EOF 收口时驱动层可能已经把区间签到文件长度（`SourceRange.End` 先被写成文件长度），此时若不把 `;` 排除在外，
-分号的 `End` 会被「收到最后一个 code 子单元」按同一个数再裁一次，语句就少一格。
-
-两条判据的分工（参数 `listEndBefore` 是**收口前**的列表终点快照，`-1` = 当时还没签出）：
-
-1. 末代码子单元是 `;` ⇒ 只允许裁到分号的 `End`（把 `;` 之后的 trivia 去掉，`;` 本身保留）；
-2. 否则，只有「语句终点仍等于列表终点」才裁（旧行为：多出来的只能是 trivia）；不等就什么都别动
-   （分号已被 `CloseAtSemicolon` 消费、或终点另有来源）。
 
 ```ts
 let last:Token | null = null;

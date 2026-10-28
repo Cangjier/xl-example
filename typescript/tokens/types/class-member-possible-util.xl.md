@@ -40,13 +40,7 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 
 ## field Early:bool = false
 
-[B2] 本格是「成员头已定」的**早建**判定（见 `EarlyHeadKind`）：`Complete` 早于成员边界成立，
-`*PossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
-
 ## field EarlyKind:int = -1
-
-[B2c] 早建时的**中性种类**（`MemberHeadKind`）：属性 / 方法 / 构造器 / 访问器 / 索引 / 静态块。
-`-1` = 不是早建格。各候选的 `BuildByIndex` 只在自己那一格建壳。
 
 # class ClassMemberItemStartShared
 
@@ -594,8 +588,6 @@ if (shared !== null) {
 
 ## static method HeadKindOf:(neutral:int)=>int
 
-把 `MemberHeadKind` 的中性种类映射到本扫描自己的 kind 常量；`-1` = 这一类**不早建**（交旧路径）。
-
 ```ts
 if (neutral === MemberHeadKind.Property) {
   return ClassMemberPossibleUtil.PropertyKind;
@@ -622,12 +614,6 @@ return -1;
 ```
 
 ## static method EarlyHeadKind:(code:Array<Token>, head:Token)=>int
-
-**成员头已定**的判据（B2b 扩展 / B2c 方法族）：返回 `MemberHeadKind` 的中性种类，`-1` = 不早建。
-
-- **成员第一格**（`code.length === 1`）：`MemberHeadScan.Plan` 的 document 前瞻直接判种类。
-  class 侧没有构造签名 ⇒ `Construct` 让回旧路径。
-- **名字闭合格**（B2b 原判据）：只接受属性（`;` / `:` / `=` / `?` / `!` / `}` 只可能属于属性）。
 
 ```ts
 if (code.length === 0 || code[code.length - 1] !== head) {

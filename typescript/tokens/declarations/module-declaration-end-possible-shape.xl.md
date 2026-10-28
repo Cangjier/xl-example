@@ -16,18 +16,6 @@ import { ModuleDeclarationShape } from "./module-declaration-shape.xl.md"
 
 # namespace cangjie
 
-`ModuleDeclarationShape` 的**终结候选**（WP-B3c；照 `FunctionDeclarationEndPossibleShape` 的同一模式）。
-
-`ModuleDeclarationPossibleShape` 在声明头 + 名字到齐那一格提前 `MountShell` 挂出
-`ModuleDeclarationShape` 壳（legacy 类名 / `Pos`），本候选在壳的 `CatalogGuide` 里回答「声明到哪里算结束」：
-
-- 已闭合的 `{}` 体括号（`namespace N {}` / `module N {}` / `declare global {}`）；
-- 已闭合的 `;`（无体 ambient module：`declare module "m";`）；
-- EOF 哨兵（防御性；目标样本都有体）。
-
-收口时把壳里的 raw 单元交给**同一批 legacy 建树函数** `ModuleDeclarationShape.FromUnits`，再由
-`BodyGuideUtil.FinishShell` 换回父单元 —— 建树与 legacy 同源，所以两种模式的 EOF 树逐节点一致。
-
 # class ModuleDeclarationEndPossibleShape extends PossibleShape
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates

@@ -22,9 +22,6 @@ import { InitializerTailJudge } from "../shared/initializer-tail-judge.xl.md"
 
 # namespace cangjie
 
-WP-P6 的**赋值表达式候选**：`let x = y = 1`（左值标识符 + `=` + 右值，legacy 口径是
-`BinaryExpressionShape` + `EqualsTokenShape`，**不是**另一个赋值形状类——`expr-probe` 实测：
-
 ```txt
 BinaryExpressionShape  pos=7  src=[8,13)
 ├─ IdentifierShape  pos=7   src=[8,9)   text="y"
@@ -32,38 +29,15 @@ BinaryExpressionShape  pos=7  src=[8,13)
 └─ NumericLiteralShape  pos=11  src=[12,13)  text="1"
 ```
 
-**为什么在右值那一格整条建出（而不是在 `=` 那一格）**：`Symbol("=")` 是所有原子候选的
-`Uncertain` 格（E0b 实测约束 1：声明还没走到初始值时不能 `Reject`）。所以 `=` 那一格活着的候选始终
-不止一个，`CatalogGuide` 只在 `Candidates.size === 1` 时建树 ⇒ 在 `=` 格上 `Accept` 永远等不到建。
-而右值那一格（`1`）恰好只剩本候选在场：参数 `y` 那一格已经把它们逐个杀掉了
-
 ```text
 char 8  "y"   NumericLiteral / BinaryExpression / BinaryOperator / Conditional … 全部 Reject
 char 10 "="   IdentifierPrimary / Arrow / Assignment 还在（Uncertain）
 char 12 "1"   IdentifierPrimary Reject（数字）、Arrow Reject（不是标识符）⇒ 只剩 Assignment
 ```
 
-⇒ 本候选在**右值格**做三件事：物化左值、把 `=` 建成 `EqualsTokenShape`、把右值建成字面量 / 标识符，
-然后一次 `BinaryExpressionShape.FromLeftAndOperator` 装配（`Pos` / `src` / 子节点与 legacy 逐位相同）。
-
-**右结合**：`OperatorTable.IsRightAssociative(text)` 只回答 `**`（它服务旧二元候选），赋值右结合写在同表的
-`AssociationOf`（`"**"` 与全部赋值 → `"right"`）；`OperatorShapeMap.IsRightAssociative` 就是它的完整查询
-（P5 的归约栈也是这么取的）。本候选只支持「单条赋值」这一种形态，建之前显式断言右结合；嵌套赋值
-（`a = b = 1`）不在目标内，`Reject` 后维持原 `partial` 账本，不冒充支持。
-
-**左值限制**：只支持标识符左值（`IdentifierShape` / `Common` 标识符）；成员 / 下标左值要等 P1 的成员链候选，
-这里 `Reject`（不建错树）。
-
-**为什么需要 D0 的 `ContinuationClaim`**：`=` 那一格若不认领，`VariableDeclarationEndPossibleShape` 会先按
-C10 显式抛错。认领的语义只是「继续等这一格」，真正的建树仍由目录在右值格完成。
-
 # class AssignmentPossibleShape extends PossibleShape
 
-声明层初始化器位置的赋值候选（宿主是 `VariableDeclarationShape`）。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
-
-注册区入口（`ExpressionShapeCatalog.AppendFragments`，锚点 `// [E-CAT:FRAGMENTS]`）。
 
 ```ts
 shapes.push(new AssignmentPossibleShape());
@@ -76,9 +50,6 @@ return unit instanceof Symbol && (unit as Symbol).Is(text);
 ```
 
 ## static method IsIdentifierWord:(unit:Token)=>bool
-
-左值 / 右值允许的标识符：`Common` 且不是数字 / bigint / 关键字字面量 / `this` / `in` / `instanceof`
-（与 `IdentifierPrimaryPossibleShape` 同一份判据）。
 
 ```ts
 if (!(unit instanceof Common)) {
@@ -96,8 +67,6 @@ return common.TempToString().length > 0;
 
 ## static method IsLValue:(unit:Token)=>bool
 
-左值：已建好的标识符形状，或一个标识符基本单元。数字 / 关键字 / 其它形状都不是。
-
 ```ts
 if (unit instanceof IdentifierShape) {
   return true;
@@ -106,8 +75,6 @@ return AssignmentPossibleShape.IsIdentifierWord(unit);
 ```
 
 ## static method IsRValue:(unit:Token)=>bool
-
-右值：数字字面量，或标识符基本单元（`undefined` 也算标识符，与 A1 的口径一致）。
 
 ```ts
 if (!(unit instanceof Common)) {
@@ -120,9 +87,6 @@ return AssignmentPossibleShape.IsIdentifierWord(unit);
 ```
 
 ## static method RawAfter:(unit:Token, length:int)=>string
-
-`unit` 之后（跳过空白）最多 `length` 个原始字符；用来做「后面是不是还有一个赋值 `=`」的前瞻
-（`==` / `===` / `=>` 都不算赋值）。
 
 ```ts
 const range = unit.SourceRange;
@@ -150,8 +114,6 @@ return text;
 
 ## static method LooksLikeAssignmentAfter:(unit:Token)=>bool
 
-`unit` 之后是不是一个**赋值** `=`：`=` 后面既不是 `=`（`==` / `===`）也不是 `>`（`=>`）。
-
 ```ts
 const pair = AssignmentPossibleShape.RawAfter(unit, 2);
 if (pair.length === 0 || pair[0] !== "=") {
@@ -164,8 +126,6 @@ return true;
 ```
 
 ## static method EqualIndexes:(units:Array<Token>, tokenIndex:int)=>Array<int>
-
-`tokenIndex` 之前（不含）所有 `Symbol("=")` 代码单元的下标，按出现顺序。
 
 ```ts
 const result:Array<number> = [];
@@ -181,9 +141,6 @@ return result;
 ```
 
 ## static method IsAssignmentEqualAt:(units:Array<Token>, equalAt:int)=>bool
-
-`units[equalAt]` 是不是**赋值**的 `=`（不是声明的初始化 `=`）：它前面必须已经有一个 `=`（声明的），
-并且它左边那个代码单元是合法左值、且紧跟在声明 `=` 之后的初始化器首位。
 
 ```ts
 if (equalAt < 0 || equalAt >= units.length) {
@@ -209,12 +166,6 @@ return ItemUtil.NextCode(units, leftAt + 1) === equalAt;
 
 ## static method IsBodyAssignmentEqualAt:(units:Array<Token>, equalAt:int)=>bool
 
-[R7] `units[equalAt]` 是不是**箭头体里的赋值** `=`（`a => b = c`）。
-
-箭头体里没有声明初始化器那个 `=`，所以 `IsAssignmentEqualAt` 的「它前面必须已经有一个 `=`」不成立。
-体赋值的判据只看**位置**：`=` 的左边是体首位操作数（已建形状），再左边是外层箭头的
-`EqualsGreaterThanTokenShape`。与声明路径同一套结构事实，不新写词法。
-
 ```ts
 if (equalAt < 0 || equalAt >= units.length) {
   return false;
@@ -237,8 +188,6 @@ return units[beforeAt] instanceof EqualsGreaterThanTokenShape;
 ```
 
 ## static method LastEqualBefore:(units:Array<Token>, tokenIndex:int)=>int
-
-`tokenIndex` 之前最后一个 `Symbol("=")` 代码单元的下标；没有返回 `-1`。
 
 ```ts
 const indexes = AssignmentPossibleShape.EqualIndexes(units, tokenIndex);
@@ -296,9 +245,6 @@ return ShapeStates.Accept;
 
 ## method ContinuationClaim:(units:Array<Token>, tokenIndex:int)=>bool
 
-D0 的通用委派（`ExpressionContinuationCatalog.Claims`）：赋值 `=` 那一格必须认领，否则声明终结候选的
-兜底 `throw` 会先发生。**只认领赋值的 `=`**：声明自己的初始化 `=` 不认领（那一格本来就有既有分支）。
-
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
@@ -310,8 +256,6 @@ return AssignmentPossibleShape.IsAssignmentEqualAt(units, tokenIndex);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-只在右值那一格建；trivia 格不建（与 `RightOperandPossibleShape` 同一个坑）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -332,17 +276,6 @@ return AssignmentPossibleShape.IsAssignmentEqualAt(units, equalAt);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext, bodyMode?:bool)=>Token
-
-把「左值 + `=` + 右值」三格装配成 legacy 口径的 `BinaryExpressionShape`：
-
-1. 右值格 = 当前格；`=` 格 = 它前一个代码单元；左值格 = `=` 前一个代码单元（逐条校验，异常按 C10 显式抛）；
-2. 左值 `Common` → `IdentifierShape`（`Pos` 按 C1 = `=` 的 `EndIndex`）；
-3. `=` → `OperatorShapeMap.Create("=", PositionBinary, …)`（`EqualsTokenShape`，`Pos` 按 C1）；
-4. 右值 `Common` → 数字走 `NumericLiteralPossibleShape.BuildLiteral`，标识符走 `IdentifierShape`；
-5. `BinaryExpressionShape.FromLeftAndOperator(left, equals, PrecedenceOf("="), …)`：`Pos` = 左值 `Pos`、
-   `src` 从左值起点签入；
-6. 三格从宿主 `Data` 里摘掉、把 `Binary` 插回左值那一格，`Parent` / `MountedUnit` 设回宿主；
-7. `SealRightOperand`：右值就是最后一个子单元，当场封右边界 + 卸载（C3）。
 
 ```ts
 if (!OperatorShapeMap.IsRightAssociative("=")) {

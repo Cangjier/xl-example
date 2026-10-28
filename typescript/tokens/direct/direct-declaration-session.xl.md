@@ -18,27 +18,6 @@ import { ModuleFamilyDirectSession } from "./direct-module-session.xl.md"
 
 # namespace cangjie
 
-R5-D2 声明族的直建 session（`ShellDeclarationFamily` kind 7 / `ShellClassDeclaration` 9 /
-`ShellDecoratedDeclaration` 10 三个 kind 共用这一个类）：`interface` / `type` 别名 / 无初始值的 `enum`。
-建树**只复用既有 `FromUnits` 形状工厂**（`InterfaceDeclarationShape` / `TypeAliasDeclarationShape` /
-`EnumDeclarationShape`），不新写第二套配方，也不 new `ExpressionBuilder` / `StatementBuilder`：
-三个工厂在「无装饰器 / 无成员初始值」时的唯一建树路径都是 `TypeBuilder`（A6 不计 TypeBuilder，
-与 R2 `as` 分支同一口径，`R5-CONTRACT §2.1`）。
-
-**class 不直建（归 D1）**：`class` 声明（kind 9）与装饰器声明（kind 10）在 `feat-r6-class` 里由
-`ClassDeclarationDirectSession` 接管；**本文件不碰那两个 kind**（脚本层的注册行由 `feat-r6-harden` 改）。
-`const enum` 根层 `Decide` 根本不建壳（实测 sessions=0）⇒ 走不到这里。
-
-**R6-D2 的头分派（`R6-CONTRACT §4.2`）**：kind 7 同时承载 `interface`/`type`/`enum`（R5）与
-`import` / `export` / `namespace` / `module` / `declare`（R6）⇒ `RecognizeHead` 多识别两格：
-`HeadModule`（五个头，收口时整段转交 `ModuleFamilyDirectSession.Build`）与 `HeadUsing`
-（R6 起单独识别；**R7-D3 起不再 Decline**，转交同一个 `ModuleFamilyDirectSession` 的 `using`
-绑定通道，失败仍落 `decl.head`）。**不新增注册行、不改 `direct-build-plugins`**：
-module 族与 interface/type/enum 共用一个 kind，分派在类内。
-
-**不要为了「没 case」把类型族拒掉**：`interface` 的成员、`type` 别名的 RHS、`enum` 成员名都由
-`TypeBuilder` 读（`CollectBodyMembers` 在成员已闭合时直接取、未闭合时 `BuildMembers`），R5 只换通道。
-
 # class DeclarationFamilyDirectSession implements DirectSession
 
 ```txt

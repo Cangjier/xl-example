@@ -265,16 +265,6 @@ return false;
 
 ## static method IsLineBreakInsensitiveModifier:(unit:Token)=>bool
 
-**换行不打断修饰词链的那一格**：TS 的 `parseModifiers` 对 `static` 走 `nextTokenCanFollowModifier()`
-（只看下一格能不能接被修饰的成员，**不看换行**），其余修饰词走
-`nextTokenIsOnSameLineAndCanFollowModifier()`（换行就按 ASI 收成「只有名字的字段」）。
-
-所以 `static` ⏎ `readonly a = 1` 是一条成员（三个修饰词），而 `public` ⏎ `static x = 1` 是两条成员。
-这里只认 `static`：它是保留字，不可能自己当类型名 / 名字（「下一格接不上修饰」由
-`CanFollowModifierToken` 否掉，那才是名字），因此这条判据在类型切片（`ParseTypeBounded`）里也不会误判。
-`get` / `set` 在 TS 里同样不看换行，但它们是合法类型名（`a: get` ⏎ `b: number` 是两条成员），
-光凭相邻两格分不出「访问器关键字」与「类型名」，保持原判据。
-
 ```ts
 if (!(unit instanceof Common)) {
   return false;
@@ -283,9 +273,6 @@ return (unit as Common).TempToString() === "static";
 ```
 
 ## static method CanFollowModifierToken:(unit:Token)=>bool
-
-与 `ClassDeclarationShape.CanFollowModifier` **同一判据**（名字 / `#` / `[` / `*` / `...` / 字符串 / `{`）。
-放在这里而不是直接调它：`class-declaration-shape` 依赖本文件，反向引用会成环。
 
 ```ts
 if (unit instanceof Bracket) {
@@ -345,17 +332,6 @@ return false;
 
 # class MemberHeadKind
 
-成员头的**中性种类**（B2c）：只描述「名字之后跟着什么」，不含任何族的 kind 常量
-（class / interface 两套 kind 在各自的 `*PossibleUtil` 里映射）。
-
-- `Property`：`name` 后面是 `:` / `=` / `;` / `}` / `,`（属性 / 属性签名）；
-- `Method`：`name(` / `name<...>(` / `*name(`（方法 / 方法签名）；
-- `Constructor`：class 的 `constructor(`；
-- `Get` / `Set`：`get name(` / `set name(`；
-- `Index`：`[key: string]:`；
-- `StaticBlock`：`static {`；
-- `Construct`：interface 的 `new (` / `new <T>(`。
-
 ## static field Property:int = 0
 
 ## static field Method:int = 1
@@ -374,32 +350,11 @@ return false;
 
 # class MemberHeadPlan
 
-一次成员头前瞻的结果：种类 + 修饰词个数（`Modifiers` 的计数口径与 B2b 相同：**包含**成员第一格
-自己，`0` = 第一格就是名字）。
-
 ## field Kind:int = -1
 
 ## field Modifiers:int = 0
 
 # class MemberHeadScan
-
-**成员头前瞻（B2b / B2c）**：在成员**第一格**闭合时，只看 document 里后面的字符，判断这条成员
-是什么种类（属性 / 方法 / 构造器 / 访问器 / 索引 / 静态块 / 构造签名）。判出来就当场建成员外壳
-（`MemberShellCatalog`），修饰词 / 名字 / 参数表 / 方法体于是各自在自己的 token 格成形状，
-而不是等成员边界一次性重建。
-
-`Plan` 的判据只回答一件事：**跳过修饰词链之后的名字后面，第一个决定性字符是什么**。
-
-- `:` `=` `;` `}` `,` ⇒ 属性；
-- `(` ⇒ 方法（`get` / `set` 前缀 ⇒ 访问器；`constructor` ⇒ 构造器；`new` ⇒ 构造签名）；
-- `<...>` 之后跟 `(` ⇒ 泛型方法；
-- `?` / `!` 只是可选 / 确定断言标记，继续看下一格；
-- `[key: string]:`（第一格是**已闭合的 `[` 括号**、内容是 `name :`）⇒ 索引签名；
-- `static {` ⇒ 静态块；
-- `[`（第一格）后面不是 `:` ⇒ 计算名，`@` / `*` / `#` / `.` ⇒ `null`，交旧路径；
-- 换行 ⇒ `null`（ASI / 修饰词链跨行是另一套判据，不在这里放宽）；文件尾 ⇒ `null`。
-
-`null` 一律表示「不早建」，调用方保持既有行为。
 
 ## static method IsWordStart:(ch:string)=>bool
 
@@ -449,9 +404,6 @@ return word === "readonly" || word === "static" || word === "private" || word ==
 
 ## static method CanFollowWord:(ch:string)=>bool
 
-修饰词后面**能接**的那一类字符（对齐 `ClassDeclarationShape.CanFollowModifier`：名字 / `#` / `[` / `*` /
-字符串 / `{`）。接不上就说明当前这个词本身就是名字（`static = 1` 的 `static`）。
-
 ```ts
 if (MemberHeadScan.IsWordStart(ch)) {
   return true;
@@ -460,8 +412,6 @@ return ch === "#" || ch === "[" || ch === "*" || ch === "{" || ch === "\"" || ch
 ```
 
 ## static method SkipTrivia:(whole:SourceRange, at:int, count:int)=>int
-
-跳过空白与注释，返回下一个非 trivia 字符的下标；遇到换行（ASI 的另一套判据）或到达文件尾返回 `-1`。
 
 ```ts
 let cursor = at;
@@ -495,9 +445,6 @@ return -1;
 ```
 
 ## static method NextSignificant:(whole:SourceRange, at:int, count:int)=>int
-
-跳过空白与块注释，返回下一个非 trivia 字符的下标；**遇到换行 / 行注释 / 文件尾一律返回 `-1`**
-（本前瞻只在同一行内成立，跨行 ASI 交旧路径）。块注释里出现换行也算换行。
 
 ```ts
 let cursor = at;
@@ -534,12 +481,6 @@ return -1;
 ```
 
 ## static method Plan:(unit:Token, forInterface:bool)=>MemberHeadPlan | null
-
-成员第一格闭合时的**唯一判据**：返回 `{ Kind, Modifiers }`，或 `null` = 判不出（交旧路径）。
-
-`forInterface` 只影响 `new` 的归类（interface 的 `new (` 是构造签名；class 侧调用方会把
-`Construct` 让回旧路径）。`constructor` 一律报 `Constructor`，class 映射成 `ConstructorKind`、
-interface 映射成 `MethodKind`（interface 里 `constructor` 只是普通方法名）。
 
 ```ts
 const range = unit.SourceRange;
@@ -735,9 +676,6 @@ return null;
 ```
 
 ## static method ModifierCount:(unit:Token)=>int
-
-B2b 兼容入口：**属性形态**的修饰词个数（`>= 0`），其余形态（方法 / 访问器 / 索引 / 静态块）
-与判不出的情况一律 `-1`。B2c 的新调用方直接用 `Plan`。
 
 ```ts
 const plan = MemberHeadScan.Plan(unit, false);

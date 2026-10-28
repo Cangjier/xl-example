@@ -18,149 +18,55 @@ import { WaitingEndPossible } from "./waiting-end-possible.xl.md"
 
 # class BracketRoleState
 
-括号角色解析的三态（B0）。与 `StatementRoute` 同款：纯 `int` 常量，**不新增枚举**。
-
 ## static field None:int = 0
-
-还没解析（`BracketRoleResolver.Resolve` 的返回值不会是它）。
 
 ## static field Known:int = 1
 
-`Known`：角色**与它的宿主**都已经确定，可以当场装目录（或补终结候选）。
-
 ## static field Deferred:int = 2
-
-`Deferred`：角色可以定，但**拥有它的壳还不存在**（或语句族还没判出来）。只登记，不装任何东西；
-壳被建出来时由 `DeferredBracketCatalog.Bind(owner)` 唤醒并按升序 replay。
 
 ## static field Fallback:int = 3
 
-`Fallback`：角色在语法上就不该在创建时定（返回类型里的对象字面量、对象字面量方法体），
-或者**没有宿主规则 / 没有已注册目录**。显式计数、显式交给 legacy 收口，**不再静默走启发式**。
-
 # class BracketRole
-
-角色名（字符串常量）。用字符串而不是枚举，是为了让它同时当 `CatalogGuide` 目录缓存的键
-（`族 + 角色`），并且**不影响任何既有 `switch` / 位掩码**。
-
-角色清单与 `_reports/BRACKET-A1.md` §2.1 逐项对应；名字进计数器的 `ByRole` 那一维。
 
 ## static field Unknown:string = ""
 
 ## static field ParameterList:string = "ParameterList"
 
-函数 / 方法的形参表（`function f(...)` / `m(...)`）。A1 矩阵 #1、#22 前半。
-
 ## static field FunctionBody:string = "FunctionBody"
-
-函数体 / 方法体 / 构造器体的 `{`。A1 #2、#22 后半。
 
 ## static field TypeLiteral:string = "TypeLiteral"
 
-**返回类型位置**的 `{`（`declare function f(): {a:A}`）。A1 #3，**只可能是 Fallback**：
-`{` 创建时判不出来（`TypeBuilder.IsBodyBrace` 依赖 `previous` 还是 raw `Common`/`Symbol`，
-名字一变 `IdentifierShape` 就失效），所以这里不许用文本硬猜。
-
 ## static field MemberList:string = "MemberList"
-
-class / interface / enum 的成员块。A1 #4/#5/#6。
 
 ## static field DeclarationList:string = "DeclarationList"
 
-namespace / module / class / interface / enum / type 的**声明体**（壳还没建时的延迟角色）。
-A1 #7、#21 之外的声明体族。
-
 ## static field StatementBlock:string = "StatementBlock"
-
-语句块体（`if` / `for` / `while` / `do` / `try` / 裸块 / 嵌套块 / 箭头体）。A1 #8、#11、#15、#19、#23。
 
 ## static field CaseBlock:string = "CaseBlock"
 
-`switch` 的子句块（`{ case … }`）。A1 #9。
-
 ## static field ControlHead:string = "ControlHead"
-
-控制流头 `(`（`if (` / `for (` / `while (` / `switch (` / `with (`）。A1 #14、#16、#17、#18、#20。
-它的内容目录属表达式侧（A2），A1 WP-B3 明确：目录没就绪就只做 Deferred + 计数。
 
 ## static field ClauseList:string = "ClauseList"
 
-`import` / `export` 的命名子句 `{`。A1 #25。
-
 ## static field Heritage:string = "Heritage"
-
-`extends` / `implements` 子句。A1 #21 是**无括号**事件，本角色只占位、不参与解析。
 
 ## static field ImportExportClause:string = "ImportExportClause"
 
-同 `ClauseList`，保留给 `ImportClauseShape` 宿主（A2 #14/#15 的括号在 clause 形状名下）。
-
 ## static field ObjectLiteralMethodBody:string = "ObjectLiteralMethodBody"
-
-对象字面量里的方法体 `{`（`{ m() {} }`）。A1 #24，**只可能是 Fallback**。
 
 ## static field ObjectLiteral:string = "ObjectLiteral"
 
-**对象字面量 `{`（B4 / A2 #7）。** 只在**表达式上下文**成立：初始化器的 `=` 之后、
-复合字面量里的元素位（`[` / `(` / `{` 的 `Data` 里 `,` 之后）。块体、`case x:` 之后的块、
-`=> {` 的块体、`class {` 的成员体都**不是**本角色（它们在被更早的宿主规则里判走；
-判不出来的场合本类返回 `Fallback`，不硬猜）。
-
 ## static field ArrayLiteral:string = "ArrayLiteral"
-
-**数组字面量 `[`（B4 / A2 #10）。** 判据同上（`= [` 或复合字面量里的元素位）。
-下标 `a[0]` / 计算属性名 / 解构 `[a, b]` 仍返回 `Fallback("square-bracket-owned-by-expression-side")`。
 
 ## static field CallArgs:string = "CallArgs"
 
-**调用实参 `(`（B4 / A2 #1）。** 前一个代码单元是可调用者（已建形状，或标识符 `Common`），
-且不在 `new` 链上——`new` 的实参括号归 `NewPossibleShape`，这里必须让路（A2 #2）。
-
 ## static field ParenExpression:string = "ParenExpression"
-
-**分组括号 `(`（B4 / A2 #3）。** 前一个代码单元是运算符形状（或 `?` / `:`）时的 `(...)`。
 
 ## static field ArrowParams:string = "ArrowParams"
 
-**箭头形参 `(`（B4 / A2 #4 #5，Deferred）。** 初始化器起始格的 `(` 既可能是分组、也可能是箭头形参表，
-只能等 `=>` 到达才确定 ⇒ 登记 `Deferred`、**不在 `(` 格硬猜**（A4b 的 `arrowparen` 前瞻 + B3b 的
-`DeferredBracketCatalog` 是它的两条既有通道）。
-
-**[B4f] 三处入口**：① `=` 之后（初始化器位）、② `async` 之后、③ `=>` 之后（嵌套箭头的内层形参表，
-`x => (b) => b`）。三处都只登记、不建；`)=>` 成立时由 `ParseFunctionParameters` 那一拍定向 Bind 一次。
-
 ## static field FunctionTypeParams:string = "FunctionTypeParams"
 
-**[B4h] 函数类型参数表 `(`（`type F = (x: number) => void`）。**
-
-判据只有两条，都在**结构位**上，不读「这是不是一个表达式」的文本形态：
-
-1. 宿主是**类型别名壳**（`constructor.name === "TypeAliasDeclarationShape"`）——这一格已经在 `=` 之后，
-   是**类型槽**，不可能是表达式 `(a)` / 箭头 `(` 的宿主（那两族的宿主是变量声明 / 语句壳 / 表达式形状）；
-2. 这只 `(` 的**配对 `)` 之后紧跟 `=>`**（`HasFunctionArrowAfterParen` 逐字符配对，跳过注释 / 空白）。
-   这一条正是 legacy `TypeBuilder.ParseType` 在 `(` 上的判据（`after !== null && this.IsText(after, "=>")`
-   ⇒ `ParseFunctionType`，否则 `ParseParenthesizedType`），本机制只是把同一个判据提前到**创建格**。
-
-满足两条 ⇒ `Known`：目录由 `ParameterListPossibleShape` 的**同一份**候选装（B1 的 `ParameterPossibleShape`），
-`x` / `b` 在自己的名字格就成 `ParameterShape` + `IdentifierShape`，`?` 在自己的闭合格成 `QuestionTokenShape`。
-不满足 ⇒ 落回既有 `Fallback("no-host-rule:…")`，一个字节都不改（`type A = (B)` / `type A = (B)[]` 仍是
-legacy `ParseParenthesizedType`）。
-
-**为什么不在这里要求「简单参数表」**：那是目录自己的闸（`ParameterListPossibleShape.InstallForFunctionType`），
-不是角色的事。复杂参数（默认值 / 解构 / 非简单类型）的括号拿到的目录是**空转**的（没有状态），
-创建格不建壳、收口格回 legacy —— 角色仍旧是 `FunctionTypeParams`，只是没有可建的步骤。
-
 # class BracketRoleCatalog
-
-一份「角色 → 候选目录」的登记条目。
-
-**这是 B1 / B2 唯一的接线口**：它们各自 `new BracketRoleCatalog("ParameterList", [ new ParameterPossibleShape(), ... ], null)`
-再 `BracketRoleResolver.RegisterCatalog(...)` 一行，之后 `Resolve` 对该角色返回 `Known`。
-候选实例本身无状态（判定状态在 `CatalogGuide.PossibleShapesComputeCache` 里），所以目录只建一份、
-所有括号共用——与 `BodyGuideUtil.CreateShapesCache` 同一条纪律。
-
-`End` 刻意允许 `null`：终结候选由 `BracketCatalogInstaller` 统一补 `WaitingEndPossible`
-（「Known/Deferred 一律配永不 Accept 的终结候选」是 `CatalogGuide` 不抛的前提，不允许各角色自带一个会 Accept 的）。
 
 ## field Role:string = ""
 
@@ -169,12 +75,6 @@ legacy `ParseParenthesizedType`）。
 ## field End:PossibleShape | null = null
 
 ## field FlushOnClose:bool = false
-
-**宿主关闭时要不要补判最后一格**（B3 新增，默认 `false`）。`Known` 时装进
-`CatalogGuide.FlushOnClose`（见 `bracket.xl.md` 的 `Close`）。
-
-只有「宿主的闭括号会终结最后一个内容单元」的角色需要它——控制流头 `(` 就是这种：
-`switch (a)` 的 `a` 是被 `)` 终结的。默认 `false` 保证既有目录（块体 / 函数体 / 参数表）逐字节不变。
 
 ## constructor:(role:string, shapes:Array<PossibleShape>, end:PossibleShape | null)=>void
 
@@ -186,18 +86,11 @@ this.End = end;
 
 # class BracketRoleResult
 
-`Resolve(host, bracket, context)` 的返回值：三态之一 + 它需要的全部数据。
-
-与 `_reports/BRACKET-A1.md` §2.1 的 `RoleResolution` 一一对应：
-
 ```text
 Known     → State = BracketRoleState.Known,    Shapes/End 可装, Owner = 拥有角色的壳
 Deferred  → State = BracketRoleState.Deferred, Owner/OwnerKey = 将来会拥有它的壳, Reason = 为什么还不知道
 Fallback  → State = BracketRoleState.Fallback, Reason = 为什么只能在收口定
 ```
-
-**没有第四种返回值**（A2 §4.1 的硬要求）：调用方只按 `State` 分三路，不需要认识任何具体宿主。
-`Reason` 一律是**可机械核对**的英文短句（计数与审计按它分组）。
 
 ## field State:int = 0
 
@@ -205,12 +98,7 @@ Fallback  → State = BracketRoleState.Fallback, Reason = 为什么只能在收�
 
 ## field Owner:Token | null = null
 
-角色归属的壳（不是括号）。`null` 表示「壳还不存在，只知道它的类名」。
-
 ## field OwnerKey:string = ""
-
-将来会拥有这个角色的**壳的类名**（`DeferredBracketCatalog.Bind` 的匹配键）。
-空串 = 通配（任何声明壳都可以认领，见 `Resolve` 的声明族分支）。
 
 ## field Shapes:Array<PossibleShape> = []
 
@@ -220,16 +108,7 @@ Fallback  → State = BracketRoleState.Fallback, Reason = 为什么只能在收�
 
 ## field FlushOnClose:bool = false
 
-角色目录声明「宿主关闭时补判最后一格」时从 `BracketRoleCatalog.FlushOnClose` 带过来；
-`BracketCatalogInstaller.BuildGuide` 把它写到向导上（`CatalogGuide.FlushOnClose`）。
-
 ## static method Known:(catalog:BracketRoleCatalog | null, end:PossibleShape | null, role:string, owner:Token | null, ownerKey:string)=>BracketRoleResult
-
-`Known`：角色与宿主都已确定。
-
-`catalog` 可以为 `null`——那是「族自己已经装好目录了，本机制只做收尾」的情形
-（`Resolve` 里 `bracket.CatalogGuide !== null` 那条短路）；这时 `Shapes` 为空、`End` 为 `null`，
-`BracketCatalogInstaller.Install` 返回 `AlreadyInstalled`，**一个字节都不改**。
 
 ```ts
 const result = new BracketRoleResult();
@@ -289,38 +168,9 @@ return this.State === BracketRoleState.Fallback;
 
 # class BracketRoleResolver
 
-**括号角色的唯一判据点（B0）。**
-
-`Resolve(host, bracket, context)` 只看三样东西——**宿主形状、括号字符、已确定的语句族**——
-返回 `Known` / `Deferred` / `Fallback` 之一。这里**不许**出现任何文本启发式：
-
-- 不用 `TypeBuilder.IsBodyBrace`（A1 §5 R6：`previous` 一旦变成 `IdentifierShape` 就失效）；
-- 不读 `bracket.Data` 里的字符来决定角色（只看**前一个非 trivia 单元的形状**这种结构位）；
-- 不写第二份关键字表（语句族一律问 `StatementRouteUtil.Decide`，与既有路由同源）。
-
-判据顺序（与 A1 §2.1 一致，**只有这一处**）：
-
-1. 括号字符 + 宿主类名 → 命中「宿主规则表」；
-2. 规则里需要结构位的（函数体 vs 返回类型对象字面量），看宿主 `Data` 里括号**前一个非 trivia 单元**；
-3. 角色能定、但拥有它的壳还不存在（声明族 / 语句族未判） ⇒ `Deferred`；
-4. 角色只能在收口定（`TypeLiteral` / `ObjectLiteralMethodBody`） ⇒ `Fallback`；
-5. 没有宿主规则 / 没有已注册目录 ⇒ `Fallback`（**显式**，不许静默）。
-
-计数落在 `StatementRouteUtil.BracketRoleKnownCount` / `BracketRoleDeferredCount` /
-`BracketRoleFallbackCount` 上，**只在本方法里自增一次**（每只括号一次，不重不漏）。
-
-[B0] 开关 `StatementRouteUtil.EnableBracketRoleCatalog` 默认 `false`：只有 B4 的
-`EnableExprBracketCatalog`（B4b 起默认 `true`，且要求增量模式）或 B3b 的控制流头开关会打开它；
-开关关着时本类**一次都不会被调用**，既有解析产物逐字节不变。
-
 ## static field Catalogs:Array<BracketRoleCatalog> = []
 
-已注册的角色目录。空 = 没有任何角色可以装（B0 的默认状态，此时 `Resolve` 只可能给 `Deferred` / `Fallback`）。
-
 ## static method RegisterCatalog:(catalog:BracketRoleCatalog)=>bool
-
-注册一个角色目录（幂等：同角色重复注册时**后来的覆盖前面的**，并返回 `false`；
-首次注册返回 `true`）。B1/B2 在各自文件的静态初始化（或模块装配点）里调一次。
 
 ```ts
 if (catalog === null) {
@@ -355,18 +205,11 @@ return BracketRoleResolver.FindCatalog(role) !== null;
 
 ## static method ClearCatalogs:()=>void
 
-清空注册表。只给「同一进程里两种模式交替」的 harness / 单元测试用；正常解析不调它。
-
 ```ts
 BracketRoleResolver.Catalogs = [];
 ```
 
 ## static method PreviousCode:(host:Token, bracket:Bracket)=>Token | null
-
-宿主 `Data` 里**这只括号之前**的第一个非 trivia 单元；没有就返回 `null`。
-
-这是「结构位」的唯一读法：只看单元的形状，不看字符。`declare function f(): {a:A}` 的 `{` 前面是
-`Symbol(":")`，而 `function f() { … }` 的 `{` 前面是**已闭合的 `(` 括号**——两者在形状上分得开。
 
 ```ts
 const at = host.Data.indexOf(bracket);
@@ -380,11 +223,6 @@ return null;
 ```
 
 ## static method IsPlainIdentifierText:(text:string)=>bool
-
-标识符字面形态（首字符字母 / `_` / `$`，其余字母数字 / `_` / `$`）。与
-`ControlHeadPossibleShape.IsPlainIdentifier` 同一口径，但本文件不 import 表达式族（避开
-`expression-builder` 那条回边：`expression-builder` 已经 import 了 `control-head-possible-shape`，
-而后者 import 本文件——再反向 import 表达式族就成环）。
 
 ```ts
 if (text.length === 0) {
@@ -408,12 +246,6 @@ return true;
 
 ## static method IsOperatorBefore:(unit:Token | null)=>bool
 
-前一个代码单元是不是「运算符位」：**运算符形状**（类名以 `TokenShape` 结尾，A2 的
-`OperatorShapeMap` 产物同形）或 `Symbol("?")` / `Symbol(":")`。
-
-判据与 `parenthesized-possible-shape.xl.md` 的 `IsOperatorBefore` **同一口径**，但按本文件的纪律
-只比类名、不 import 表达式族（见 `IsPlainIdentifierText` 的成环说明）。语义变更必须两边同时改。
-
 ```ts
 if (unit === null) {
   return false;
@@ -430,10 +262,6 @@ return false;
 
 ## static method IsInitializerPosition:(previous:Token | null)=>bool
 
-前一个代码单元是初始化器的 `=`（`let x = { … }` / `let x = [ … ]` / `let x = ( … )`）。
-**这一格是 A4b / B3b 与 B4 的共同入口**：`{` / `[` 归 B4 的对象 / 数组目录，
-`(` 归 `ArrowParams`（Deferred，等 `=>`），三者互不重叠。
-
 ```ts
 if (previous === null || !(previous instanceof Symbol)) {
   return false;
@@ -442,12 +270,6 @@ return (previous as Symbol).Is("=");
 ```
 
 ## static method IsElementPosition:(host:Token, previous:Token | null)=>bool
-
-复合字面量里的「下一个元素位」：宿主是**本机制已经判成表达式括号**的 `Bracket`，
-且它的 `Data` 里这只括号之前没有代码单元（第一个元素）或是 `,` / `:`（下一个元素 / 对象值）。
-
-只认本机制自己的括号（`ObjectLiteral` / `ArrayLiteral` / `CallArgs` / `ParenExpression`）——
-语句壳、声明壳、块体括号一个都不认，因此 `case x: { }` 的块、`=> { }` 的块体不会被误判成对象字面量。
 
 ```ts
 if (!(host instanceof Bracket)) {
@@ -491,9 +313,6 @@ return text === ",";
 
 ## static method IsReturnTypeColon:(host:Token, previous:Token | null)=>bool
 
-前一个代码单元是 `:`、且**再前一个**是已闭合的 `(` 括号——这是方法 / 函数的**返回类型位**
-（`{ m(): T { … } }` / `function f(): T`）。只比结构位，不读源码文本。
-
 ```ts
 if (previous === null || !(previous instanceof Symbol)) {
   return false;
@@ -513,9 +332,6 @@ return false;
 ```
 
 ## static method IsTypeAnnotationColon:(host:Token, previous:Token | null)=>bool
-
-前一个代码单元是 `:`，且向前找不到三目的 `?`——这是**类型注解位**（`let x: (A | B)[]` /
-`function f(): (A) => B`）。`?:` / `a ? b : c` 里有 `?`，返回 `false`。
 
 ```ts
 if (previous === null || !(previous instanceof Symbol)) {
@@ -547,22 +363,6 @@ return true;
 
 ## static method IsExpressionHost:(host:Token)=>bool
 
-**表达式括号只在这几类宿主上成立**（B4 实测的护栏，见 `_reports/B4.md` §3）：
-
-- `VariableDeclarationShape`（`let x = …` 的初始化器位）；
-- `StatementShape` / `SourceFileShape`（语句壳还没拆分的早期格）；
-- **本机制自己的表达式括号**（`CallArgs` / `ArrayLiteral` / `ObjectLiteral` / `ParenExpression`
-  里的下一层元素 / 实参 / 值）。
-
-**其余宿主一律返回 `false`**，因为那些位置的括号内容归**别人**的收口入口读：
-
-| 宿主 | 谁在读 | 打开会怎样（实测） |
-|---|---|---|
-| `ClassDeclarationShape` / `InterfaceDeclarationShape` / `MethodDeclarationShape` | 成员族 `BuildParameters` / `MemberShellCatalog` | `set x(v)` / `constructor(private a: number)` → `类成员参数不是标识符` |
-| `TypeAliasDeclarationShape` | `TypeBuilder.ParseType` | `type A = { … }` / `type T = [a, b]` → `不支持的类型起点` |
-| `FunctionDeclarationShape` | 参数表族（B1 已注册 `ParameterList`） | 不需要本目录 |
-| 其余形状 | 各自的 legacy 入口 | 同上 |
-
 ```ts
 const hostKey = host.constructor.name;
 if (hostKey === "VariableDeclarationShape") {
@@ -590,10 +390,6 @@ return role === BracketRole.ObjectLiteral || role === BracketRole.ArrayLiteral
 
 ## static method IsHeadParameterBracket:(host:Token, bracket:Bracket)=>bool
 
-`bracket` 是不是声明宿主**自己的参数表** `(`。函数 / 方法声明里会出现的第二、第三只 `(` 一定在
-返回类型里（`(): (string)` / `(): abstract new (a) => A`），而参数表总是**第一只** `(`——所以判据是
-「`host.Data` 里在它之前没有别的 `(`」。只比结构位，不读文本。
-
 ```ts
 if (bracket === null || !(bracket instanceof Bracket)) {
   return false;
@@ -616,15 +412,6 @@ return true;
 ```
 
 ## static method IsTypePredicateIs:(host:Token, previous:Token | null)=>bool
-
-`previous` 是不是**类型谓词**的 `is`：`(x: unknown): x is (T)` / `asserts x is (T)`。
-三条结构位，缺一不可：
-
-1. `previous` 的字面文本是 `is`；
-2. `is` 前面是一个**名字单元**（`Common` / 已建的名字形状；`this` 也算），不是符号 / 括号——
-   `x is (` 在表达式里不成立（两个操作数相邻），所以这一格不可能是调用；
-3. 再往前（跳过 trivia）第一个符号是 `:`（返回类型 / 类型注解位）；先撞上 `=` / `;` / `=>` /
-   `,` / `?` / `(` / `)` 就不是谓词（`return is(a)` 的 `is` 前面是关键字，走第 2 条就出局）。
 
 ```ts
 if (previous === null || !(previous instanceof Common)) {
@@ -683,12 +470,6 @@ return false;
 
 ## static method IsTernaryBranchMark:(previous:Token | null)=>bool
 
-前一个代码单元是不是**还没建形状**的三目 `?` / `:`（`Symbol("?")` / `Symbol(":")`）。
-
-判据只比符号文本：`ConditionalPossibleShape` 在 `?` 那一格会把整条三目建成
-`ConditionalExpressionShape`，此后这两格分别是 `QuestionTokenShape` / `ColonTokenShape`，
-不是 `Symbol`（`?:` 组合符号也不是这两种，按 `Text` 精确比对）。
-
 ```ts
 if (previous === null || !(previous instanceof Symbol)) {
   return false;
@@ -698,15 +479,6 @@ return text === "?" || text === ":";
 ```
 
 ## static method IsCallCallee:(host:Token, bracket:Bracket, previous:Token | null)=>bool
-
-前一个代码单元能不能当被调用者（A2 #1 的 `CallPossibleShape.CanBeCallee` 同一判据）：
-
-- **已建形状**且不是运算符形状（`IdentifierShape` / `MemberAccessExpressionShape` / `CallExpressionShape` / `ParenthesizedExpressionShape` …）；
-- **标识符 `Common`**（`f(` 的 `f` 还没建形状）。
-
-**两条让路**：`new` 链上的实参括号归 `NewPossibleShape`（A2 #2，判据只看结构位：
-`new` 前一个代码单元）；对象字面量里**成员起始位**的 `m(` 是方法形参表（A2 #24 的
-`ObjectLiteralMethodBody`），不是调用 ⇒ 一律不认。
 
 ```ts
 if (previous === null || previous.IsTriviaToken) {
@@ -772,11 +544,6 @@ return true;
 
 ## static method IsAsyncArrowPrefix:(host:Token, previous:Token | null)=>bool
 
-**[B4d]** 前一个代码单元是字面 `async`、且再前一个是初始化器的 `=`：`let f = async (…) => …` 的 `(`。
-
-与 `IsInitializerPosition` 同一格语义，只是中间多了一个 `async` 关键字——`async` 本身不是可调用者
-（`IsCallCallee` 对 `async` 已经让路），所以那条分支不会认领这只 `(`。
-
 ```ts
 if (previous === null || !(previous instanceof Common)) {
   return false;
@@ -797,24 +564,6 @@ return false;
 
 ## static method IsArrowBodyPrefix:(host:Token, previous:Token | null)=>bool
 
-**[B4f]** 前一个代码单元是 `=>`：箭头体起始格的 `(`——嵌套箭头的**内层形参表**
-（`x => (b) => b` / `(a) => (b) => a + b` 的 `(b)`）。
-
-判据只有一条结构位：`host.Data` 里紧邻本括号之前的非 trivia 单元是 `=>`。`=>` 有两种形态，
-两种都认（都只比类名 / 符号文本，不 import 表达式族）：
-
-- `Symbol("=>")`：声明还没收口（`let o = (a) => (b) => …` 的宿主是 `VariableDeclarationShape`）；
-- `EqualsGreaterThanTokenShape`：单标识符箭头已经被增量建成了 `ArrowFunctionShape`，
-  那一格的 `=>` 早就是形状（`x => (b) => b` 的内层 `(` 宿主是 `ArrowFunctionShape`）。
-
-`=>` 之后紧跟的 `(` **只可能**是内层箭头的形参表或一个分组括号：
-
-- 内层形参表：`)` 之后还有 `=>` ⇒ `Deferred` 条目在 `ParseFunctionParameters` 那一拍被 Bind（replay 一次）；
-- 分组括号（`x => (a) + 1`）：`)=>` 不成立 ⇒ 条目永远留在 `Pending`、**一次都不 replay**，
-  分组括号原路交 legacy 读 raw。
-
-所以这条规则与初始化器位那条同形：**只登记、不建**，`=>` 到达才确定（A2 §3 #4/#5 的同一条纪律）。
-
 ```ts
 if (previous === null) {
   return false;
@@ -830,12 +579,6 @@ return previous instanceof ShapeToken
 ```
 
 ## static method SkipTextTrivia:(range:SourceRange, from:int, untilClose:bool)=>int
-
-**[B4h]** 从 `from` 起跳过空白与注释，返回下一个**代码**字符的下标（`>= count` = 文件尾）。
-只给两条函数类型判据用：不建单元、不读 token，只做「配对 `)` 之后是不是 `=>`」的逐字符前瞻。
-
-`untilClose` 为真时遇到 `;` / `{` / `}` / `)` 就停：一只 `(` 的配对 `)` 在这么近的地方都找不到，
-就不该继续往整个文件里扫（`type A = (B)` 后面紧跟的 `;` 就是这一档）。
 
 ```ts
 const document = range.Document;
@@ -880,12 +623,6 @@ return at;
 
 ## static method ParenCloseOf:(bracket:Bracket)=>int
 
-**[B4h]** 这只 `(` 的**配对 `)` 之后**的下标；找不到返回 `-1`。
-
-只数同种括号的深度（`(` / `)`）：类型位置里的 `[` / `{` 是别的括号自己的事，不影响 `)` 的配对。
-字符串 / 注释里出现的 `)` 不在这里特殊处理——**错误方向的后果是安全的**：前瞻判否只会少建一处早建，
-早建一律还有 legacy 收口兜底（见 `FunctionTypeParams` 的说明）。
-
 ```ts
 const range = bracket.SourceRange;
 const document = range.Document;
@@ -921,12 +658,6 @@ return -1;
 
 ## static method HasFunctionArrowAfterParen:(bracket:Bracket)=>bool
 
-**[B4h]** 配对 `)` 之后的下一个代码字符是不是 `=>` 的两个字符。
-
-判据与 legacy `ParseFunctionType` 的入口**同源**（`ParseType` 在 `(` 上看 after 是不是 `=>`），
-只是提前到创建格，且不依赖任何已建形状。`type A = (B)` / `type A = (B)[]` / `type A = (B) | C`
-都返回 `false`（配对 `)` 之后是 `;` / `[` / `|`），因此一个字节都不动。
-
 ```ts
 const after = BracketRoleResolver.ParenCloseOf(bracket);
 if (after < 0) {
@@ -947,15 +678,6 @@ return whole.At(at) === "=" && whole.At(at + 1) === ">";
 ```
 
 ## static method IsSimpleFunctionTypeParams:(bracket:Bracket)=>bool
-
-**[B4h] 函数类型参数表的「可整份建」闸**：`[ '...' ] name [ '?' ] [ ':' name ('[]')* ]`，逗号分隔。
-
-与 B1 的 `ParameterListPossibleShape.IsSimpleList` 同一语法面，只多一个**可选 `?`**（`b?: number`）：
-B1 的文本闸是 `function` 声明参数表的入口，不能为 `?` 放宽（那会把成员 / 函数声明的读数一起改掉）；
-函数类型这里另开一份，且只被 `TypeAliasDeclarationShape` 使用。
-
-空表 `()` 判真（零参数函数类型，没有可建的参数，壳仍然可以在创建格建）。
-不满足 ⇒ 创建格不建 `FunctionTypeShape` 壳、目录不挂状态，整段照 legacy（`ParseFunctionType` 自己读参数）。
 
 ```ts
 const start = bracket.SourceRange.StartIndex;
@@ -987,12 +709,6 @@ return true;
 ```
 
 ## static method Classify:(host:Token, bracket:Bracket, context:SyntaxContext)=>BracketRoleResult
-**宿主规则表**：括号字符 + 宿主类名 + 语句族，返回 `Known`（角色与宿主都有）/ `Deferred`（差宿主）
-/ `Fallback`（这一步不该定）。
-
-规则一律**按宿主类名**比对，不 import 具体形状类：这样 `bracket-role-resolver` 不会反向依赖
-声明族 / 语句族的实现文件（与 `StatementRouteUtil.IsDeclarationHost` 用 `constructor.name`
-是同一手法，避开循环依赖）。B1/B2 只加目录、不改本表。
 
 ```ts
 const shape = bracket as Bracket;
@@ -1209,18 +925,6 @@ return BracketRoleResult.Fallback("no-host-rule:" + hostKey + startChar);
 ```
 
 ## static method Resolve:(host:Token, bracket:Token, context:SyntaxContext)=>BracketRoleResult
-
-**唯一入口**：解析 → 计数 → 给三态之一。`Known` 的目录在这里才被取出来（`catalog` 非空才带 `Shapes`/`End`）。
-
-两条 `Known` 形态：
-
-1. **族已装**（`bracket.CatalogGuide !== null`）：宿主族的 hook 已经在本括号上装了目录。
-   这时返回 `Known` 且 `Shapes` 为空、`End` 为 `null`——调用方只会拿到 `AlreadyInstalled`，
-   **一个字节都不改**。A1 的验收口径 `BracketRoleKnown == 既有 MountCount 之和` 就靠这一条对齐。
-2. **目录已注册**：从注册表取 `BracketRoleCatalog`，`Shapes` 与 `End` 一起交给安装器。
-
-角色决定了但**目录还没注册**（B0 的默认状态）⇒ `Fallback("catalog-not-registered:<Role>")`，显式计数。
-B1/B2 注册之后同一格自动变成 `Known`，调用方不需要改。
 
 ```ts
 if (host === null || bracket === null) {

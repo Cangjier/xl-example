@@ -52,23 +52,13 @@ import { WaitingEndPossible } from "../statements/waiting-end-possible.xl.md"
 
 # class MemberShellFamily
 
-成员外壳族（B2）。与 `StatementRoute` 同款：纯 `int` 常量，**不新增枚举**。
-
 ## static field Class:int = 0
-
-class 成员：属性 / 方法 / 构造器 / 访问器 / 索引签名 / 静态块（B2c 起，按 `MemberHeadKind` 选外壳类）。
 
 ## static field Interface:int = 1
 
-interface 成员：属性签名 / 方法签名 / 构造签名 / 访问器 / 索引签名（B2c 起）。
-
 ## static field Enum:int = 2
 
-enum 成员（`EnumMemberShape`）。成员名之后只可能是 `=` 初始化器或分隔符。
-
 # class MemberShellEntry
-
-一条「成员外壳」登记：外壳 + 族 + 起始 `Pos` + 宿主括号向导的缓存（收口时推进 `ItemStart` 用）。
 
 ## field Shell:Token | null = null
 
@@ -80,34 +70,15 @@ enum 成员（`EnumMemberShape`）。成员名之后只可能是 `=` 初始化�
 
 ## field Modifiers:int = 0
 
-**成员头的修饰词个数**（`MemberHeadScan.Plan` 的结果）：`>= 0` 时头部的每一格都知道自己是谁
-（前 `Modifiers` 格是修饰词、第 `Modifiers` 格是名字、`=` 之后是初始字面量）；`-1` = 前瞻判不出，
-本外壳**不做子 token 成形**（原样攒单元，交旧路径）。
-
 ## field Kind:int = -1
-
-成员头的种类（`MemberHeadKind`）：决定外壳类、名字那一格成什么形状、`{` 是方法体还是静态块体。
 
 ## field BodyBracket:Token | null = null
 
-方法体 / 静态块体括号的**原样**单元（B2c）：`OpenMemberBody` 把它换成 `BlockShape`，
-这一格记下原物，`Restore` 时换回去，legacy builder 看到的仍是裸括号。
-
 ## field BodyBlock:BlockShape | null = null
-
-方法体的中间壳（`BlockShape`）。体括号关闭时 `BlockShape` 把通知转给外壳，外壳据这一格认出
-「体刚闭合 ⇒ 整条成员收口」。
 
 ## field Parts:Array<MemberShellHeadPart> = []
 
-已经成形过的头部子 token（按出现顺序）：收口 / 拆壳前用 `RawData` 换回原样单元。
-
 # class MemberShellHeadPart
-
-**一个已成形的头部子 token**：形状 + 它替换掉的那批原样单元。
-
-`Raw` 是**权威**：外壳的 `Data` 里放的是形状，收口前 `Restore` 把形状换回 `Raw`，
-legacy builder 因此看到的单元与「从未成形过」逐字节相同。
 
 ## field Shape:Token | null = null
 
@@ -115,45 +86,17 @@ legacy builder 因此看到的单元与「从未成形过」逐字节相同。
 
 # class MemberShellCatalog
 
-**成员外壳目录（B2）：早建外壳 → 逐字攒成员 → 边界收口。**
-
-为什么要有它：class / interface / enum 的成员候选**只在成员边界 Accept**（`ClassMemberPossibleUtil.Analyze`
-的 `Complete` 要等 `;` / `,` / 下一行），所以 `class A { x: number }` 的属性要等到 `number` 之后才出现，
-`class-field-modifiers` 里 `private static readonly x = 1` 更是一直到 `;` 之后才建。
-B2 把「成员头已定」的那一格提前 Accept：先建一个**同类型的空外壳**（`PropertyDeclarationShape` /
-`PropertySignatureShape` / `EnumMemberShape`），把已经到达的头部单元搬进外壳，外壳从此作为挂载单元
-吃掉余下的字符；到边界时用**族自己的 legacy builder**（`BuildMembers`）从外壳攒下的原样单元重建正品，
-再把外壳原地换掉。**最终 AST 仍由 legacy builder 产出**，本机制只改「什么时候出现形状」，不改判据。
-
-边界与收口口径：
-
-- 外壳自己带 `CatalogGuide([], MemberShellEndPossible)`：`;` / `,` / 成员边界那一格收口；
-- 没有分隔符的最后一个成员（`class A { x: number }`）由 `FinalizeAll` 在声明体收口时收口；
-- 收口失败（legacy builder 不认这段）⇒ **`Unwrap` 把原样单元放回去**，交旧路径逐字节兜底，绝不半建。
-
-计数器（只读）：`CreatedCount` / `FinalizedCount` / `UnwrappedCount` / `PrunedCount`。
-
 ## static field Open:Array<MemberShellEntry> = []
 
-按创建顺序。条目在收口 / 拆壳 / 剪枝时摘除。
-
 ## static field Enable:bool = true
-
-总开关。关掉后 `Create` 直接返回宿主，三个族的候选退回「边界才建」的旧行为。
 
 ## static field CreatedCount:int = 0
 
 ## static field FinalizedCount:int = 0
 
-外壳被换成正品的次数。
-
 ## static field UnwrappedCount:int = 0
 
-收口失败、把原样单元放回去的次数。
-
 ## static field PrunedCount:int = 0
-
-外壳已脱离父单元（`Quit` / `Undo` / 收口格已过）而登记的条目被摘掉的次数。
 
 ## static method IsEnabled:()=>bool
 
@@ -162,8 +105,6 @@ return MemberShellCatalog.Enable;
 ```
 
 ## static method Reset:()=>void
-
-只给同一进程里两种模式交替的 harness / 单元测试用。
 
 ```ts
 MemberShellCatalog.Open = [];
@@ -216,9 +157,6 @@ for (let at = 0; at < MemberShellCatalog.Open.length; at++) {
 
 ## static method Prune:()=>void
 
-**`Quit` / `Undo` 的等价物**：外壳已经不在父单元的 `Data` 里（被回退 / 卸载 / 收口格越过），
-登记条目必须摘掉，否则会指向一个孤儿 token。只动登记表，不动任何 `Data`。
-
 ```ts
 for (let at = MemberShellCatalog.Open.length - 1; at >= 0; at--) {
   const entry = MemberShellCatalog.Open[at];
@@ -237,13 +175,6 @@ for (let at = MemberShellCatalog.Open.length - 1; at >= 0; at--) {
 
 ## static method InstallBodyCatalog:(body:Bracket, shapes:Array<PossibleShape>, role:string, owner:Token, context:SyntaxContext)=>bool
 
-**成员块目录的安装点（B0 安装器）**：`Known` 计划 + 永不 `Accept` 的终结候选
-（`BracketCatalogInstaller.BuildGuide` 统一补 `WaitingEndPossible`）。
-
-为什么必须走安装器：外壳建出来之后，块里不再有新单元，旧目录的候选会**全部 `Reject`**
-（`CatalogGuide` 的「没有候选形状可以构成」抛错出口）；`WaitingEndPossible` 把这个出口变成
-`Waiting`，raw 单元原样留着，收口侧照旧走 legacy。
-
 ```ts
 const catalog = new BracketRoleCatalog(role, shapes, null);
 const plan = BracketRoleResult.Known(catalog, null, role, owner, role);
@@ -252,9 +183,6 @@ return installed === 0;
 ```
 
 ## static method NewShell:(family:int, kind:int, template:Template)=>ShapeToken
-
-按族 + 中性种类选外壳类（B2c）：外壳与被 legacy builder 建出来的正品**同类型**，
-所以「方法 / 构造器 / 访问器 / 索引 / 构造签名」各自在自己的格出现。
 
 ```ts
 if (family === MemberShellFamily.Enum) {
@@ -300,14 +228,6 @@ return new PropertyDeclarationShape(template);
 ```
 
 ## static method Create:(host:Token, start:int, end:int, family:int, cache:PossibleShapeCache, context:SyntaxContext)=>Token
-
-**早建外壳**：把 `host.Data[start..end]` 搬进一个同族 / 同种类的空外壳，外壳成为宿主括号的挂载单元。
-
-`start` / `end` 是**宿主 `Data` 的下标**（含 trivia 的原始位置）：搬进去的是原样单元
-（`BuildMembers` 需要 trivia 来判断换行 / ASI，所以一个都不许丢）。
-
-种类由外壳第一格上的 `MemberHeadScan.Plan` 给出（B2c）：方法 / 构造器 / 访问器 / 索引 / 静态块
-各自建对应类的空壳；判不出（`null`）⇒ 仍建属性壳，行为与 B2b 逐字节一致。
 
 ```ts
 if (!MemberShellCatalog.Enable) {
@@ -380,8 +300,6 @@ return null;
 
 ## static method RawData:(entry:MemberShellEntry)=>Array<Token>
 
-**换回原样单元**：把外壳 `Data` 里已经成形的头部子 token 逐个替换成它替换掉的那批单元。
-
 ```ts
 const out:Array<Token> = [];
 const shell = entry.Shell;
@@ -403,11 +321,6 @@ return out;
 
 ## static method Restore:(entry:MemberShellEntry)=>void
 
-**收口 / 拆壳之前的一次还原**：外壳的 `Data` 换回原样单元，此后所有下标算术（边界、切点、还给父括号的
-尾巴）都与 B2 的旧口径逐字节一致。
-
-幂等：`Parts` 为空时什么都不做。
-
 ```ts
 if (entry.Parts.length === 0) {
   return;
@@ -426,9 +339,6 @@ entry.BodyBlock = null;
 ```
 
 ## static method PreviousEnd:(entry:MemberShellEntry, at:int)=>int
-
-头部第 `at` 格之前的「上一个非 trivia 单元的终点」，没有就退到 `BasePos`——与 legacy builder 的
-`previousEnd` 同一口径（修饰词 / 名字的 `Pos` 靠它）。
 
 ```ts
 const shell = entry.Shell;
@@ -449,14 +359,6 @@ return entry.BasePos;
 ```
 
 ## static method HeadKindAt:(entry:MemberShellEntry, at:int)=>int
-
-头部第 `at` 格该是什么：`0` = 原样（类型注解 / `:` / `=` / `;` / `,` / 索引签名的 `[` …），
-`1` = 修饰词（含 `get` / `set` / `static`），`2` = 成员名，`3` = `=` 之后的初始字面量，
-`4` = 构造签名的 `new`，`5` = 构造器的 `constructor`。
-
-`Modifiers` / `Kind` 是**前瞻**给的（`MemberHeadScan.Plan`）：前 `Modifiers` 格是修饰词，第 `Modifiers` 格
-按种类是名字（标识符 / `constructor` / `new`）。索引签名的第一格是已闭合的 `[` 括号，不成形；
-静态块没有名字。
 
 ```ts
 if (entry.Modifiers < 0) {
@@ -511,9 +413,6 @@ return 0;
 
 ## static method BuildKeyword:(template:Template, shape:ShapeToken, unit:Token, pos:int, context:SyntaxContext)=>Token
 
-把一格的 `Common` 包成 **关键字形状**（`get` / `set` / `new` / `constructor`）：与 `BuildModifier`
-同口径（签入签出 + `Pos` + `TryToClose`），收口时同样换回 `Raw`。
-
 ```ts
 shape.SignInToken(unit);
 shape.SignOutToken(unit);
@@ -523,9 +422,6 @@ return shape;
 ```
 
 ## static method BuildHeadShape:(entry:MemberShellEntry, kind:int, at:int, context:SyntaxContext)=>Token | null
-
-按 `kind` 建头部子 token 的形状。这些形状都是**区间节点**（不挂子单元），与 legacy builder 里
-`BuildModifier` / `IdentifierShape.FromBasicToken` 的口径一致；因此收口时把它们换回 `Raw` 就完全还原。
 
 ```ts
 const shell = entry.Shell;
@@ -584,9 +480,6 @@ return null;
 
 ## static method WrapAt:(entry:MemberShellEntry, at:int, context:SyntaxContext)=>void
 
-把外壳 `Data` 的第 `at` 格（刚闭合的那一格）按位置换成形状，并登记原样单元。已经是形状 / trivia 的格子
-原样不动（幂等）。
-
 ```ts
 const shell = entry.Shell;
 if (shell === null) {
@@ -620,8 +513,6 @@ shell.Data.splice(at, 1, shape);
 
 ## static method WrapAll:(entry:MemberShellEntry, context:SyntaxContext)=>void
 
-把外壳当前 `Data` 里所有该成形的头部格子逐个成形（`splice` 是一换一，下标稳定）。
-
 ```ts
 const shell = entry.Shell;
 if (shell === null) {
@@ -634,8 +525,6 @@ for (let at = 0; at < shell.Data.length; at++) {
 
 ## static method IsCallableKind:(kind:int)=>bool
 
-这种成员后面要接参数表 `(`（方法 / 构造器 / 访问器 / 构造签名）。
-
 ```ts
 return kind === MemberHeadKind.Method || kind === MemberHeadKind.Constructor
   || kind === MemberHeadKind.Get || kind === MemberHeadKind.Set
@@ -644,8 +533,6 @@ return kind === MemberHeadKind.Method || kind === MemberHeadKind.Constructor
 
 ## static method HasBodyKind:(kind:int)=>bool
 
-这种成员有 `{` 体（方法 / 构造器 / 访问器 / 静态块）。
-
 ```ts
 return kind === MemberHeadKind.Method || kind === MemberHeadKind.Constructor
   || kind === MemberHeadKind.Get || kind === MemberHeadKind.Set
@@ -653,14 +540,6 @@ return kind === MemberHeadKind.Method || kind === MemberHeadKind.Constructor
 ```
 
 ## static method InstallParameterList:(shell:Token, bracket:Bracket, family:int, context:SyntaxContext)=>void
-
-**[B2c] 成员参数表复用 B1 的 `ParameterListPossibleShape`**：只接 B1 认的「简单参数表」
-（`[ '...' ] name [ ':' type ]`）；其余形态一个字节都不动，整段留给 legacy `BuildParameters`。
-目录直接以 `ParameterList` 角色装到括号上（与函数声明的安装路径同一个 `BracketCatalogInstaller`）。
-
-interface 侧再收窄一格：**多参数 / rest 参数**仍交给 legacy（B1 的 `PreviousParamPos` 对这些格
-把 `SourceRange.Start` 签在 token 起点，与 legacy / TS 的 trivia 口径差一格；单参数没有这个差）。
-class 侧不受此限（与 B1 的函数参数路径同一口径）。
 
 ```ts
 if (family !== MemberShellFamily.Enum) {
@@ -681,10 +560,6 @@ BracketCatalogInstaller.Install(bracket, plan, context);
 ```
 
 ## static method OpenMemberBody:(shell:Token, body:Bracket, context:SyntaxContext)=>void
-
-**[B2c] 方法体 `{` 复用 B1b 的 `BlockShape`**：与 `FunctionDeclarationShape.OpenFunctionBody` 同一手法——
-先给体括号挂块体语句目录，再把括号换进 `BlockShape` 壳；括号原物登记成 `Parts` 里的一项，
-收口前 `Restore` 换回裸括号，legacy builder 看到的与从未成形过逐字节相同。
 
 ```ts
 const entry = MemberShellCatalog.Find(shell);
@@ -733,13 +608,6 @@ entry.BodyBlock = block;
 
 ## static method IsHeadParameterBracket:(shell:Token, bracket:Bracket)=>bool
 
-**只有成员自己的参数表**才装 B1 目录：外壳吃掉整条成员，返回类型里的 `(`（`x is (string)`）、
-参数默认值里的 `(`（`m(a = f(b))`）也会走到 `OnBracketCreated`，给它们装参数目录会把类型 / 表达式
-当成 `ParameterShape` 收掉。
-
-判据：这是外壳里的**第一个** `(`，而且它前面那个非 trivia 单元是名字（`Common`）/ 泛型关闭符 /
-`?`（可选方法）。
-
 ```ts
 let at = shell.Data.indexOf(bracket);
 if (at < 0) {
@@ -778,9 +646,6 @@ return true;
 
 ## static method OnBracketCreated:(shell:Token, bracket:Token, context:SyntaxContext)=>void
 
-**[B2c] 成员外壳的子括号挂载点**（由各成员形状的 `OnBracketCreatedEvent` 转进来）：
-`(` ⇒ B1 参数表目录；`{` ⇒ 方法体块壳。不是本外壳的括号（或不是方法体）一律不动。
-
 ```ts
 const entry = MemberShellCatalog.Find(shell);
 if (entry === null) {
@@ -810,15 +675,6 @@ MemberShellCatalog.OpenMemberBody(shell, unit, context);
 ```
 
 ## static method HeadCompute:(shell:Token, context:SyntaxContext)=>ComputePossibleShapesStates
-
-**成员外壳的 basic token 关闭回调**（三个成员形状的 `ComputePossibleShapes` 都转到这里）。
-
-两件事，顺序固定：
-
-1. 刚闭合的那一格按位置成形（`WrapAt`）——`private` / `static` / `readonly` / `x` / `1` 于是各自在
-   自己的闭合格出现；
-2. 判成员边界（`FinalizeShell`）：**到了**就收口并返回 `Built`（当前字符重放，与 B2 的旧行为逐字一致），
-   **没到**就返回 `Waiting`——通道让 basic token 的关闭继续走原来的路（不做 `Reload`，当前字符不被重放）。
 
 ```ts
 const entry = MemberShellCatalog.Find(shell);
@@ -860,9 +716,6 @@ return ComputePossibleShapesStates.Built;
 ```
 
 ## static method BuildMember:(family:int, host:Token, data:Array<Token>, basePos:int, context:SyntaxContext)=>Token | null
-
-**用族自己的 legacy builder 建正品**：临时括号视图 + 同样的 `pos` / `end` 断言（`BuildMemberFromCode`
-的口径：产出的 `Pos` 必须等于 `basePos`，终点必须等于最后一个非 trivia 单元的 `End`）。
 
 ```ts
 if (data.length === 0) {
@@ -910,8 +763,6 @@ return built;
 
 ## static method Unwrap:(host:Token, entry:MemberShellEntry)=>void
 
-**收口失败 / 拆壳**：把外壳攒下的原样单元按顺序放回宿主，恢复「这些字符还没被消费」的旧状态。
-
 ```ts
 const shell = entry.Shell;
 MemberShellCatalog.Drop(shell);
@@ -940,8 +791,6 @@ MemberShellCatalog.UnwrappedCount += 1;
 ```
 
 ## static method Finalize:(host:Token, entry:MemberShellEntry, cutData:int, tailStart:int, context:SyntaxContext)=>Token
-
-**收口一格**：用 `shell.Data[0..cutData]` 建正品，`shell.Data[tailStart..]` 原样还给宿主。
 
 ```ts
 const shell = entry.Shell;
@@ -990,22 +839,6 @@ return built;
 
 ## static method OpenNextHead:(host:Token, unit:Token, family:int, cache:PossibleShapeCache | null, context:SyntaxContext)=>void
 
-**[B2c] 边界收口后立刻把下一成员的壳建出来。**
-
-没有分隔符的相邻成员（`f(x: number): void` ⏎ `f/* c */(x: string): void`）里，下一成员的
-第一格是被**上一条外壳吞进来**的：它的闭合格已经过去，之后不会再触发目录。等到重放 `(` 时，
-宿主括号的 `MountedUnit` 必须在**新外壳**上，否则 `(` 会被宿主直接收成兄弟（外壳漏进 AST，
-`End = 0`）。所以这里用同一个 `Create` 先建壳、并把条目起点推过去。
-
-**边界之后已经扫过的那段尾巴整体交给新外壳**（`Create(host, at, host.Data.length - 1)`）：
-`FinalizeShell` 是在**触发收口的那一格已经进壳之后**才跑的，所以边界尾巴可能不止一格。
-`static` ⏎ `readonly` ⏎ `a = 1`（TS：字段 `static readonly` + 字段 `a = 1`）里，`a` 那一格是
-早建壳的终点、`=` 在收口时已经进壳，只抢边界那一格会把 `=` 留在宿主上 → 正品少了初始化器
-（实测 legacy 侧抛「类成员之间缺少分隔符」）。边界尾巴全是下一成员已经扫过的头部单元，
-一起搬进来才与「新外壳从边界开始吃字符」一致。
-
-判不出（`Plan === null`）或 class 侧的构造签名 ⇒ 什么都不做，交旧路径。
-
 ```ts
 if (!MemberShellCatalog.Enable) {
   return;
@@ -1048,14 +881,6 @@ if (family === MemberShellFamily.Class) {
 ```
 
 ## static method FinalizeShell:(shell:Token, context:SyntaxContext)=>Token
-
-外壳自己的终结候选调到这里：`host` 是外壳（`CatalogGuide` 的宿主），父单元才是成员块的括号。
-
-三种收口位置：
-
-1. 最后一个非 trivia 单元是 `;`（`Mode=0`）⇒ 连分号一起建（TS 的 `node.end` 含 `;`）；
-2. 最后一个非 trivia 单元是 `,`（`Mode=1`）⇒ 逗号不进区间，留给父括号；
-3. 找到成员边界 `boundary` ⇒ 建 `[0, boundary-1]`，边界之后的单元还给父括号。
 
 ```ts
 const host = shell.Parent;
@@ -1127,13 +952,6 @@ return shell;
 
 ## static method HandOffOnBodyClose:(shell:Token, value:string, context:SyntaxContext)=>bool
 
-**成员块 `}` 的交接点**：外壳是成员块括号的挂载单元（`MountedUnit`），所以 `}` **不会**落到括号自己的
-`ExitOrPre` 上（`UnitToken.Process` 有挂载单元就把整个字符交给它）。外壳必须在自己的 `ExitOrPre` 里
-先收口、把 `MountedUnit` 还给括号，再返回 `Reload` —— 同一个 `}` 会由驱动层从根重放一次，这次落到括号
-自己的 `ExitOrPre`，正常闭合。
-
-`true` = 已交接（调用方必须返回 `BranchStates.Reload`，当前字符没被消费）。
-
 ```ts
 const parent = shell.Parent;
 if (parent === null || !(parent instanceof Bracket)) {
@@ -1174,10 +992,6 @@ return true;
 ```
 
 ## static method FinalizeAll:(host:Token, body:Bracket, context:SyntaxContext)=>void
-
-**声明体收口前的一次总收口**：没有分隔符的最后一个成员（`class A { x: number }`）只能在这里收。
-
-只处理 `body.Data` 的**直接子单元**里登记过的外壳，顺序按 `Data` 顺序（= 源码顺序）。
 
 ```ts
 MemberShellCatalog.Prune();

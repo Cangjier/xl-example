@@ -37,9 +37,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 ## field Early:bool = false
 
-[B2] 本格是「成员名已闭合」的**早建**判定（`= 初始化器` / `,` / `}` / EOF 的下一字符只可能属于本成员）：
-`Complete` 早于逗号成立，`EnumMemberPossibleShape.BuildByIndex` 据此建**成员外壳**而不是直接建正品。
-
 # class EnumMemberPossibleUtil
 
 ## static field CacheKey:any = PossibleShape.SlotOf(EnumMemberPossibleScan)

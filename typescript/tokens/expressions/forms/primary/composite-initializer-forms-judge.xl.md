@@ -17,12 +17,6 @@ import { StatementRouteUtil } from "../../../statements/statement-route-util.xl.
 
 # class CompositeInitializerFormsJudge
 
-WP-A4b 的**复合初始化器判据（续任：数组 / 括号 / 箭头 / 函数 / 类 / 三元）**。
-
-A4 的 `CompositeInitializerJudge` 只接管「初始化器 = 单只 `{...}`」。本判据沿用同一机制
-（`}`/`]`/`)` 关闭后、或表达式末尾单元关闭后，用 **legacy `ExpressionBuilder` 整棵建出 + 原位替换**），
-把范围扩到：
-
 ```text
 let x = [1, 2]              → ArrayLiteralExpressionShape
 let x = [...a]              → ArrayLiteralExpressionShape + SpreadElementShape
@@ -36,27 +30,7 @@ let x = class {}            → ClassExpressionShape
 let x = a ? b : c           → ConditionalExpressionShape
 ```
 
-**关键设计：只在「初始化器已经长完」的那一格建树。**
-
-`[`/`(` 关闭后仍可能有续接（`let x = [1] as const` 的 `as`、`let x = (a as T)` 的 `as`、`(a: number) => a`
-的类型注解），提前建树会把续接单元留在声明层被静默丢弃（divergent，A4 报告 §3 的碰撞点）。
-本判据的办法是**把「能不能建」的判断整体前移成两道闸门**：
-
-1. **形态闸门** `Family(units)`：只看 `=` 之后**第一个代码单元**决定候选族（`[` / `(` / `function` /
-   `class` / `async` / 标识符后紧跟 `=>` 或 `?`）。`(` 族里有类型注解或 `as`/`satisfies` 的**不认领**
-   （那是 A5 的 `(a: number) => a` / `(y as T)`，保持它们原来的 throw 账本）。
-2. **完成闸门** `CanBuild(units)`：把 `=` 之后的 raw 单元整段交给 `ExpressionBuilder.ParseExpression`，
-   必须**整段吃完**，并且最后一个代码单元之后**只剩输入结束**（`NextSignificantChar === ""`）才算长完。
-   `;` / `as` / `+` / `,` 等后缀一律判「还没长完」⇒ 候选 `Uncertain`（继续等）或 `Reject`（不是本族），
-   **绝不**在半截上建树。
-
-两个闸门都在 `Claims`/`ClaimsForEndPossible` 里共用同一份实现（候选与声明终结候选不各写一份判据）。
-
 ## static method NextSignificantChar:(unit:Token)=>string
-
-`unit` 之后第一个非空白 / 非注释字符（跳空白 + 两种注释；跨行）；输入结束返回 `""`。
-
-与 A5 `TypeCatalogFactory.NextSignificantChar` 同一口径（该文件尚未并入本分支，因此在 A4b 自带一份）。
 
 ```ts
 const range = unit.SourceRange;
@@ -103,8 +77,6 @@ return "";
 ```
 
 ## static method RawAfter:(unit:Token, length:int)=>string
-
-`unit` 之后（跳过空白）最多 `length` 个原始字符。用于区分 `=>` 与 `=`、`?` 与 `?.` / `??`。
 
 ```ts
 const range = unit.SourceRange;
@@ -153,17 +125,6 @@ return -1;
 ```
 
 ## static method Family:(units:Array<Token>)=>string
-
-`=` 之后第一个代码单元决定的候选族；不是本 WP 的形态返回 `""`。
-
-- `"array"`：`[` 括号；
-- `"paren"`：`(` 括号，且括号里**没有**类型注解 `:` / `as` / `satisfies`（那是 A5 的 `(a: number) => a` / `(y as T)`）；
-- `"function"` / `"class"` / `"async"`：这三个关键字起首；
-- `"arrow"`：标识符之后紧跟 `=>`（`y => y`）；
-- `"arrowparen"`：`(` 括号、内部无类型注解 / `as` / `satisfies`、且 `)` 之后紧跟 `=>`（`(a) => a`）。
-  **只在 `StatementRouteUtil.EnableArrowParenCatalog` 为真时才可能返回**（B0 默认 `false`；B3b 才开）。
-  它把「分组 / 箭头参数」的裁定从 `(` 格推到 `=>` 到达那一格（A2 §7 R4 的所有权交接）；
-- `"ternary"`：标识符之后紧跟 `?`（不是 `?.` / `??`）。
 
 ```ts
 const equalAt = CompositeInitializerJudge.EqualIndex(units);
@@ -244,23 +205,6 @@ return "";
 
 ## static method IsArrowParen:(units:Array<Token>, bracket:Bracket)=>bool
 
-**A4b `(` 格的「箭头形参表」前瞻（B0 只建机制，B3b 才开）。**
-
-判据是「`)` 之后紧跟 `=>`」，两种读法（照 `HasAssertSuffix` 的双读法，保证**跨步稳定**）：
-
-1. **单元读法**：`=` 之后已经出现 `=>` 符号单元。`=>` 到达那一格它还不是括号的子单元，
-   所以这一条在 `=>` 到达后立刻命中；
-2. **文档读法**：括号**已闭合**、且括号之后第一个非空白字符起就是 `=>`。`=>` 还没形成单元时靠它命中。
-
-两条都建立在「括号内部没有类型注解 / `as` / `satisfies`」之上——那个判据在 `Family` 的主循环里，
-命中就早退成 `""`（A5 的形态），根本走不到本方法。
-
-[B0] 唯一的调用点在 `Family`，且被 `StatementRouteUtil.EnableArrowParenCatalog`（默认 `false`）包着：
-默认状态下本方法**一次都不会被调用**，`Family` 的返回值逐字节不变。
-局部性说明：读法 1 只看「`=` 之后有没有 `=>`」，同一段单元里若还有**别的**箭头（`let x = (a), f = () => 1`），
-会误命中——B3b 打开开关之前必须把入参限定到当前 declarator 的切片（`CompositeInitializerJudge.EqualIndex`
-之后的那一段），这也是它必须和 `ArrowParamsCatalog` 一起翻的原因。
-
 ```ts
 if (bracket === null) {
   return false;
@@ -283,9 +227,6 @@ return CompositeInitializerFormsJudge.RawAfter(bracket, 2) === "=>";
 ```
 
 ## static method HasAssertSuffix:(units:Array<Token>, equalAt:int)=>bool
-
-`=` 之后的数组/括号初始化器是否跟着 `as` / `satisfies` 续接（`[1] as const`）：**跨步稳定**的判据——
-`as` 到达之前看文档前瞻，到达之后看「`=` 之后有没有 as/satisfies 单元」。
 
 ```ts
 const last = CompositeInitializerFormsJudge.LastSignificant(units);
@@ -311,9 +252,6 @@ return false;
 ```
 ## static method HasParameterTypeAnnotation:(units:Array<Token>)=>bool
 
-这段单元里的任一括号是否带「顶层 `:`」（参数类型注解）。带类型注解的箭头/函数表达式是 **A5** 的形态
-（`(a: number) => a` / `function (a: number) {}`），本 WP 不认领，保持它们原来的 throw 账本。
-
 ```ts
 for (const unit of units) {
   if (unit.IsTriviaToken) {
@@ -335,9 +273,6 @@ return false;
 ```
 
 ## static method CanBuild:(units:Array<Token>, template:Template, context:SyntaxContext)=>bool
-
-「初始化器已经长完、可以整棵建出」：形态命中 + legacy `ExpressionBuilder` 能整段吃完 + 最后一个代码单元
-之后只剩输入结束。任一不满足返回 `false`（候选继续等 / 不接管）。
 
 ```ts
 const family = CompositeInitializerFormsJudge.Family(units);
@@ -390,12 +325,6 @@ return builder.At === builder.Units.length;
 
 ## static method ContinuationAllowed:(units:Array<Token>)=>bool
 
-括号关闭后仍是**本族合法续接**（还没长完、要等）：`(...)` 之后是 `=>` 的 `=`、`function (...)` 之后是
-函数体的 `{`。终结候选在这两格必须 `Reject`（等），而不是按 C10 抛「declaration 括号」。
-
-判据只看文档前瞻字符，**不看** `as`/`satisfies` 等续接：`let x = [1] as const` 在 `]` 关闭格上前瞻是
-`a`，不满足 ⇒ 终结候选保持原来的显式 throw（账本不变）。
-
 ```ts
 if (CompositeInitializerFormsJudge.Family(units) === "") {
   return false;
@@ -409,36 +338,12 @@ return lookahead === "=" || lookahead === "{";
 ```
 ## static method IsBinaryOperatorStart:(ch:string)=>bool
 
-**P4b**：`= (...)` 之后紧跟的字符是不是一个**二元运算符的首字符**。
-
-白名单只收「不可能与别的续接混淆」的首字符（`*` `/` `%` `+` `-` `<` `>` `&` `|` `^`）：
-
-- `=` **不在**白名单：`(a) => a` 的 `=>`、`(a) == b` 的 `==` 与箭头 / 赋值在同一格上无法用首字符区分；
-- `?` **不在**：`(a) ? b : c` 是条件表达式的条件位（P4 的形态），不是二元运算符右接；
-- `.` / `(` / `[` **不在**：成员链 / 调用 / 下标（P1 / P2）各有自己的格，不归本判据。
-
 ```ts
 return ch === "*" || ch === "/" || ch === "%" || ch === "+" || ch === "-"
   || ch === "<" || ch === ">" || ch === "&" || ch === "|" || ch === "^";
 ```
 
 ## static method OperatorContinuation:(units:Array<Token>)=>bool
-
-**P4b**：`= (...)` 的括号关闭那一格，`)` 之后紧跟一个二元运算符 ⇒ 这**还不是**「初始化器长完」
-（`let x = (1+2)*3` 的 `*` 还没到达），但也不是「本族不认领」。
-
-它只服务一件事：让声明终结候选（`VariableDeclarationEndPossibleShape` 的 `Bracket` 分支）在这一格
-**继续等**，而不是按 C10 抛「declaration 括号」——那个 throw 会把整条增量路径在 `)` 格上当场打死，
-后面的 `*` / `3` 一格都走不到（`bin-paren-mul` 的根因，见 `_reports/p4-paren-conditional.md` §4.1）。
-
-**范围被刻意钉死在三处**，不是放宽全局语义：
-
-1. 只在 **paren 族**（`Family(units) === "paren"`）上成立——`[` / `{` / 箭头 / 函数 / 类 / 三元一律不命中；
-2. 最后一个代码单元必须正是那只**已闭合的** `(` 括号（`let x = (a) + b` 的括号），括号后面还没有别的单元；
-3. `)` 之后必须是二元运算符首字符（`IsBinaryOperatorStart`）——`as` / `:` / `?` / `=>` / `.` / `(` / `;` 都不命中。
-
-`InitializerTailJudge.IsInitializerEnd` 的全局语义**一个字没动**：`CanBuild` 仍旧要求「之后只剩输入结束 /
-一个或多个 `;`」，所以本判据只换来「多等几格」，建树时机与建树条件仍由原来的完成闸门决定。
 
 ```ts
 if (CompositeInitializerFormsJudge.Family(units) !== "paren") {
@@ -464,16 +369,6 @@ return CompositeInitializerFormsJudge.IsBinaryOperatorStart(lookahead);
 
 ## static method ClaimsForEndPossible:(units:Array<Token>)=>bool
 
-声明终结候选（`variable-declaration-end-possible-shape.xl.md`）的放行判据。**这个签名没有 context / template**
-（`PossibleShape.ComputeByIndex` 拿不到它们），所以这里只做**结构判定**：形态命中 + 最后一个代码单元之后
-只剩输入结束。真正能不能建由候选的 `IsBuildable`（有 context）用 `CanBuild` 再判一次——两道判据共用
-`Family` / `NextSignificantChar`，不会两处漂移。
-
-只在真正要建的那一格返回 `true`（让终结候选 `Reject`、等候选建树）。之前/之后的格子一律 `false`：
-`let x = [1] as const` 在 `]` 关闭格上判据为假 ⇒ 终结候选仍按原样显式 throw（账本不变）。
-
-尾巴判据走 `InitializerTailJudge.IsInitializerEnd`（WP-D0）：跳过 trivia、允许一个或多个 `;`、之后必须输入结束。
-
 ```ts
 if (CompositeInitializerFormsJudge.Family(units) === "") {
   return false;
@@ -486,10 +381,6 @@ return InitializerTailJudge.IsInitializerEnd(units, last);
 ```
 
 ## static method Build:(host:Token, context:SyntaxContext)=>Token
-
-把 `=` 之后的**全部** raw 单元整棵建成表达式，替换掉这些单元；`Pos`/层级/子节点由 legacy 建造器给出
-（与 legacy EOF 树逐节点同源）。建完 `host.MountedUnit = null`：后续单元（`;` 等）仍归声明层
-（A4 报告 §2.3 的坑）。
 
 ```ts
 const equalAt = CompositeInitializerJudge.EqualIndex(host.Data);

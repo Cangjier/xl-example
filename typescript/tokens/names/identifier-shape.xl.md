@@ -77,8 +77,6 @@ return result;
 
 ## method AstText:()=>string
 
-标识符的文本是**解码后**的 `EscapedText`（`\u{…}` 已经还原），覆盖 `ShapeToken` 对 `Text` 字段的探测。
-
 ```ts
 return this.EscapedText;
 ```

@@ -55,76 +55,37 @@ super(template);
 
 ## field BodyBracket:Bracket | null = null
 
-`[B4c]` 类型字面量的 `{` 括号（早建时记这里）。
-
 ## field Literal:TypeLiteralShape | null = null
-
-`[B4c]` 在 `{` 创建格建出的 `TypeLiteralShape` 外壳。
 
 ## field UnionShape:UnionTypeShape | null = null
 
-`[B4c]` 在第一个 `|` 闭合格建出的 `UnionTypeShape`（后续成员逐个追加）。
-
 ## field FunctionType:FunctionTypeShape | null = null
-
-`[B4h]` 在类型位置的 `(` **创建格**建出的 `FunctionTypeShape` 外壳（只有 `= (` 这一格会建）。
 
 ## field ParamsBracket:Bracket | null = null
 
-`[B4h]` 这只函数类型的参数表括号。参数由 B1 的 `ParameterPossibleShape` 在括号自己的 `Data` 里逐字建，
-`=>` 闭合格由本类把它们搬进 `FunctionType` 并摘掉括号。
-
 ## field ArrowConsumed:bool = false
-
-`[B4h]` `=>` 已经从 `Data` 里吃掉（参数已搬进 `FunctionType`，返回类型还没建）。
 
 ## field ArrowEnd:int = 0
 
-`[B4h]` `=>` 的 `EndIndex`：返回类型那个 builder 的 `Pos` 基底，与 legacy
-`ParseFunctionType` 里 `Positions[返回类型首单元]` 同源。
-
 ## field NameBuilt:bool = false
-
-`[B4c]` 名字已在名字关闭格建成 `IdentifierShape`。
 
 ## field HasParams:bool = false
 
-[B4c] 名字后面是类型参数表（`type T<U> = …`）：类型字面量的早建让位给 legacy。
-
 ## field SeenEqual:bool = false
-
-`[B4c]` `=` 已经出现（类型位开始）。
 
 ## field TypeBasePos:int = 0
 
-`[B4c]` 类型位的 `Pos` 基底（`=` 的 `EndIndex`），与 legacy `typePos` 同源。
-
 ## field PendingBasePos:int = 0
-
-`[B4c]` 联合里下一个成员的 `Pos` 基底（上一个 `|` 的 `EndIndex`）。
 
 ## field MemberCatalogInstalled:bool = false
 
-`[B4c]` 类型字面量的成员目录已经挂上（没挂 = 映射类型 / 空体 / 早建放弃）。
-
 ## field Finished:bool = false
-
-`[B4c]` 已经换成 legacy 建出的正品（死壳，不再吃字符）。
 
 ## field Incremental:bool = false
 
-`[B4c]` 本实例是**早建挂载壳**（`TypeAliasDeclarationMount.TryBuild` 置真）。
-legacy `FromUnits` 建出来的正品保持 `false`，逐格驱动 / 收口逻辑一律不碰它。
-
 ## static field IncrementalBuiltCount:int = 0
 
-`[B4c]` 增量路径实际早建过的别名数（证据用）。
-
 ## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-`[B4c]` 类型字面量 `{`：**在创建格**建 `TypeLiteralShape` 外壳（`Pos` = 类型位基底），
-插在括号前面；成员目录延迟到第一个成员出现时再挂（见 `PrepareLiteralMembers`），
-这样映射类型 `{ [K in keyof T]: … }` 不会被成员目录误判。
 
 ```ts
 if (!this.Incremental || this.Finished || !this.SeenEqual) {
@@ -186,12 +147,6 @@ TypeAliasLiteralStartPossibleShape.Install(bracket as Bracket);
 
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
-`[B4c]` 别名壳的逐格驱动（外壳是挂载单元，basic token 关闭时只问父单元）。
-
-顺序固定：名字 → 联合 → 类型字面量收口 → 终结。名字关格建 `IdentifierShape`；
-`|` 格建 `UnionTypeShape`；类型字面量 `}` 格只收成员、不建新形状；`;` / ASI / EOF 交给
-`TypeAliasDeclarationShape.FromUnits`（legacy 同一份建树函数）换成正品。
-
 ```ts
 if (!this.Incremental || this.Finished) {
   return ComputePossibleShapesStates.Nothing;
@@ -229,8 +184,6 @@ return super.ComputePossibleShapes(context, source);
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
-`[B4c]` EOF / 父单元收口：还有完整类型就地换成正品，不让半截壳留在树里。
-
 ```ts
 if (this.Incremental && !this.Finished) {
   // [B4h] EOF / 父单元收口：函数类型还没建返回类型就先把 `=>` 之后的整段建成返回类型，
@@ -246,9 +199,6 @@ return super.TryToClose(context);
 ```
 
 ## protected method ExitOrPre:(context:SyntaxContext, buffer:SourceRange, index:int, value:string)=>BranchStates
-
-`[B4c]` 父括号的闭括号：先把别名收口、卸下自己，再把同一个字符还回去（返回 `Reload`），
-这样 `{ type T = A }` 的 `}` 不会被吃进别名（`StatementShape` 的成员体收口是同一手法）。
 
 ```ts
 const parent = this.Parent;
@@ -266,13 +216,6 @@ return BranchStates.Undo;
 ```
 
 ## method NoteEqualStep:()=>bool
-
-`[B4c]` 记住 `=` 的位置（类型位基底）。名字先出现在 `<` 格时，`=` 这一格仍要记。
-
-`[B4h]` **只有顶层的 `=` 才是别名的等号**：类型参数默认值里的 `=`（`type F<T = A> = (x: T) => B`）
-在 `<` 与 `>` 之间，记成基底会把 `FunctionTypeShape.Pos` 拉到 57 个字符之前
-（实测 `typescript.d.ts` 的 `type Visitor<TIn …, TOut … = …> = (node) => …`）。
-判据用 `Data` 里已经出现的 `<` / `>` 符号的**配对深度**，不读文本。
 
 ```ts
 const data = this.Data;
@@ -322,9 +265,6 @@ return true;
 ```
 
 ## method BuildAliasName:(context:SyntaxContext)=>bool
-
-`[B4c]` 名字关闭格建 `IdentifierShape`：`type` 关格后名字的原始 `Common` 已经在壳里，
-`=` / `<` 闭合的那一格就是名字的关闭格。
 
 ```ts
 const data = this.Data;
@@ -409,16 +349,11 @@ return true;
 
 ## method BuildUnionStep:(context:SyntaxContext)=>bool
 
-`[B4c]` 联合类型：**本棒不早建**。实测（wide-ast）在行注释尾 / 条件类型 / 函数类型边界上会出现
-区间差；AST 一致优先，整段交 legacy 的 `ParseUnionType`。壳 / 名字 / 类型字面量三处早建保留。
-
 ```ts
 return false;
 ```
 
 ## method FlushUnion:(context:SyntaxContext, endIndex:int)=>int
-
-`[B4c]` 收口前把联合里最后一段 raw 成员建成形状（`B` 的关闭格就是终结格）。
 
 ```ts
 if (this.UnionShape === null) {
@@ -473,10 +408,6 @@ return unionIndex;
 ```
 
 ## method CloseTypeLiteral:(context:SyntaxContext)=>bool
-
-`[B4c]` 类型字面量 `}` 格：只把已建成员收进外壳（**不建新形状**）；`}` 后面若还有续接
-（`[]` / `|` / `&` / 条件类型）、或者成员目录根本没挂（映射类型），就放弃早建，
-把闭合括号留给 legacy 一次解析。
 
 ```ts
 const body = this.BodyBracket;
@@ -535,8 +466,6 @@ return true;
 
 ## static method BuildTypeMembers:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
-类型字面量成员的后备解析（raw 尾巴）：与 interface 的 `BuildMembers` 同一口径。
-
 ```ts
 const members:Array<Token> = [];
 const builder = new TypeBuilder(host.Template, context);
@@ -562,8 +491,6 @@ return members;
 
 ## static method AbandonLiteral:(shell:TypeAliasDeclarationShape)=>void
 
-放弃早建：把 `TypeLiteralShape` 外壳从 `Data` 摘掉，闭合的 `{` 括号留在原位交给 legacy。
-
 ```ts
 if (shell.Literal === null) {
   return;
@@ -577,18 +504,6 @@ shell.AliasType = null;
 ```
 
 ## method MountFunctionType:(bracket:Bracket, context:SyntaxContext)=>void
-
-`[B4h]` 类型位置的 `(` 创建格。四步，全部只读结构位：
-
-1. 配对 `)` 之后必须是 `=>`（`BracketRoleResolver.HasFunctionArrowAfterParen`，与 legacy
-   `ParseType` 在 `(` 上的判据同源）。不是 ⇒ 什么都不做（`type A = (B)` / `(B)[]` / `(B) | C`）。
-2. 把 `FunctionTypeParams` 目录注册进 `BracketRoleResolver`（本方法先于 `BracketRoleHook`，
-   注册后同一格 `Resolve` 才会是 `Known`）。
-3. `ParameterListPossibleShape.InstallForFunctionType`：只有**简单参数表**才挂状态（`?` 的开关在状态上）。
-4. `before` 恰是 `=`（本别名的类型槽起点）且状态挂上时，才建 `FunctionTypeShape` 外壳并插在括号前。
-   `>`（泛型函数类型头 `<T>(x: T) => T`）与返回类型里的 `(` 只挂状态、不建壳：它们的
-   `FunctionTypeShape` 仍由 legacy `ParseType` 建，参数表里的 `ParameterShape` 由
-   `ParseParameterList` 的「已建参数」分支直接消费。
 
 ```ts
 if (this.FunctionType !== null || this.Literal !== null || this.UnionShape !== null
@@ -638,12 +553,6 @@ this.ArrowConsumed = false;
 
 ## method TryFinalizeFunctionParams:(context:SyntaxContext)=>bool
 
-`[B4h]` `)` 闭合格：`Data` 末尾就是那只已闭合的 `(`，且括号里登记过参数状态 ⇒
-把还没收口的参数壳补完（最后一个参数的 `)` 是 Terminator，不补就永远差一步）。
-
-**不要求它是本别名建的壳**：泛型函数类型头 `<T>(x: T) => T` 与返回类型里的函数类型都不建壳，
-但它们的参数表状态一样要在这里收口，否则 legacy `ParseParameterList` 会看到「半截参数 + 残留 raw」。
-
 ```ts
 const data = this.Data;
 let last = data.length - 1;
@@ -671,8 +580,6 @@ return ParameterListPossibleShape.FinalizeCount !== before;
 
 ## method TryBuildFunctionStep:(context:SyntaxContext)=>bool
 
-`[B4h]` 函数类型的两格：`=>` 闭合格（搬参数、吃 `=>`）与返回类型的完成格（建 `ReturnType`）。
-
 ```ts
 const shape = this.FunctionType;
 if (shape === null) {
@@ -688,13 +595,6 @@ return false;
 ```
 
 ## method ConsumeFunctionArrow:(context:SyntaxContext)=>bool
-
-`[B4h]` `=>` 闭合格：把括号里已经建好的 `ParameterShape` 搬进 `FunctionTypeShape`，把括号与 `=>`
-从 `Data` 里摘掉，记下 `=>` 的 `EndIndex`（返回类型的 `Pos` 基底）。
-
-参数**不再重新解析**：`CollectBuiltParameters` 收下的就是 B1 在括号 `Data` 里逐字建出的那些形状
-（`ParameterShape` 的 `Pos` / 区间 / 子节点与 legacy `ParseParameter` 同口径）。
-空参数表 `()` 没有可收的参数（`CollectBuiltParameters` 对零参数返回 `null`），只要括号里没有残留代码单元就算完整。
 
 ```ts
 const bracket = this.ParamsBracket;
@@ -755,12 +655,6 @@ return true;
 
 ## method TryBuildFunctionReturn:(context:SyntaxContext)=>bool
 
-`[B4h]` 返回类型的完成格：`=>` 之后到当前最后一个代码单元整段用 **legacy** `TypeBuilder.ParseReturnType`
-建出（所以 `a is string` 是 `TypePredicateShape`，`void` 是 `VoidKeywordShape`）。
-
-只在「下一个代码词能收一条类型」时动手（`IsFunctionReturnTerminator`）：`;` / `)` / `}` / `]` / `,`、
-EOF、或换行后的非续接词。`|` / `&` / `[` / `?` / `.` / `extends` 等续接符一律等下一格。
-
 ```ts
 const shape = this.FunctionType;
 if (shape === null || shape.ReturnType !== null) {
@@ -819,9 +713,6 @@ return this.BuildFunctionReturn(shapeAt, end, context);
 
 ## method BuildFunctionReturn:(shapeAt:int, end:int, context:SyntaxContext)=>bool
 
-`[B4h]` 把 `Data[shapeAt+1 .. end]` 建成 `FunctionTypeShape.ReturnType`。`Pos` 基底 = `=>` 的 `EndIndex`
-（legacy `ParseFunctionType` 里 `Positions[返回类型首单元]` 同源）。
-
 ```ts
 const shape = this.FunctionType;
 if (shape === null || shape.ReturnType !== null || end <= shapeAt) {
@@ -857,9 +748,6 @@ return true;
 
 ## method FlushFunctionReturn:(context:SyntaxContext)=>void
 
-`[B4h]` EOF / 父括号收口前的兜底：返回类型还没建就把 `=>` 之后的整段建成它。
-`TryToClose` / `ExitOrPre` 在 `ComputeEndIndex` **之前**调用（`ComputeEndIndex` 会拒绝「返回类型未建」的格）。
-
 ```ts
 const shape = this.FunctionType;
 if (shape === null || shape.ReturnType !== null) {
@@ -877,9 +765,6 @@ this.BuildFunctionReturn(shapeAt, end, context);
 ```
 
 ## method FlushFunctionReturnAt:(context:SyntaxContext, endIndex:int)=>int
-
-`[B4h]` `FinishAt` 内的兜底（与 `FlushUnion` 同一位置、同一职责）：返回类型没建就建到 `endIndex`
-（跳过末尾的 `;` / `,` / trivia），并把 `endIndex` 换算成**摘掉已建单元之后**的位置。
 
 ```ts
 const shape = this.FunctionType;
@@ -911,12 +796,6 @@ return endIndex;
 ```
 
 ## static method IsFunctionReturnTerminator:(unit:Token)=>bool
-
-`[B4h]` 返回类型在 `unit` 之后是否已经**完整**：下一个代码字符是 `;` `)` `}` `]` `,`、文件尾，
-或隔了行终止符之后是**非续接词**。
-
-**为什么需要行终止符这一档**：`(a) => a is string` 里 `a` 之后的 `is` 是同一行的续接词（谓词），
-不能因为「后面是标识符」就提前收；反过来 `void` ⏎ `type G…` 的 `type` 隔了换行，就是下一条语句。
 
 ```ts
 const range = unit.SourceRange;
@@ -991,9 +870,6 @@ return !TypeAliasDeclarationShape.IsNewLineContinuation(word);
 ```
 
 ## method ComputeEndIndex:(atEof:bool)=>int
-
-`[B4c]` 别名的结束格：`;` / 换行 ASI / EOF（父括号闭括号由 `ExitOrPre` 走同一条 `atEof` 口径）。
-判定只比结构位与文档下一个代码词，不另写一份类型文法。
 
 ```ts
 // [B4h] 函数类型还没建返回类型 ⇒ 这一格**不是**结束格：`=>` 之后的内容还没读完。
@@ -1170,9 +1046,6 @@ return "";
 
 ## method FinishAt:(endIndex:int, context:SyntaxContext)=>Token
 
-`[B4c]` 收口：先把联合尾巴建成形状，再交给**同一份** legacy `FromUnits` 换成正品；
-尾随 trivia 丢掉，非 trivia 尾巴（异常摆放）还回父单元。
-
 ```ts
 endIndex = this.FlushUnion(context, endIndex);
 // [B4h] 函数类型的返回类型兜底：逐词判据没赶上的极端摆放（EOF / 父括号 / 注释尾）在这里一次补齐，
@@ -1252,10 +1125,6 @@ return 0;
 
 ## static method CanEndAtType:(data:Token[], index:int)=>bool
 
-`[B4c2]` **结束格候选**的统一口径：这一格本身能收类型（`CanEndType`），且不是泛型函数类型头
-`<T>` 那个还没等到参数表的配对 `>`（`IsGenericHeadClose`）。收口分支（`last` 与「下一行首词」的
-`previous`）都只问这一句，避免同一个候选在两处各判一套。
-
 ```ts
 if (index < 0 || index >= data.length) {
   return false;
@@ -1267,10 +1136,6 @@ return TypeAliasDeclarationShape.CanEndType(data[index]);
 ```
 
 ## static method IsGenericHeadClose:(data:Token[], last:int)=>bool
-
-`[B4c2]` `last` 是不是**泛型函数类型头**的配对 `>`：与它配对的那个 `<` 前面没有类型代码
-（前面是 `=` / 槽首）。`Array<T>` / `Map<K, V>` 的 `<` 前面有标识符，不在此列 ⇒ 那些 `>` 照旧
-可以收口（`type A = Array<T>` ⏎ `const x = 1` 的分句不变）。
 
 ```ts
 const unit = data[last];
@@ -1342,8 +1207,6 @@ return true;
 
 ## static method IsSameLineContinuation:(text:string)=>bool
 
-`}` / 成员类型之后**同一行**还能续接类型的词：联合、交叉、数组/索引、条件、类型实参等。
-
 ```ts
 if (text === "") {
   return false;
@@ -1356,9 +1219,6 @@ return "|&>.?:=,<-+!~*[({".indexOf(ch) >= 0;
 ```
 
 ## static method IsNewLineContinuation:(text:string)=>bool
-
-换行处仍属于同一类型的词：类型运算符与续接符；`;` 也留着（分号属于这条别名）。
-`[` / `(` / `{` 换行后是新语句（TS 的索引访问只在同一行吃 `[`）。
 
 ```ts
 if (text === "") {
@@ -1375,9 +1235,6 @@ return "|&>.?:=,<-+!~*".indexOf(ch) >= 0;
 ```
 
 ## static method NextCodeText:(range:SourceRange)=>string
-
-从 `range` 之后取下一个代码词的文本（跳过空白与注释；标点只取一个字符，标识符取整词）。
-只用于 ASI / 续接判据，不建任何单元。
 
 ```ts
 const document = range.Document;

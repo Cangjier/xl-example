@@ -18,35 +18,11 @@ import { TypeBuilder } from "./type-builder.xl.md"
 
 # class TypeCatalogFactory
 
-类型上下文的**唯一装配点**（WP-A5，Phase A 的类型面）。
-
-本文件承担三件事：
-
-1. **类型解析的唯一入口**：`ParseType` / `ParseInitializer` 复用 legacy 的 `TypeBuilder` / `ExpressionBuilder`
-   （与 `StatementBuilder` / `ExpressionBuilder` 在 atomic 路径里用的是同一批建造器、同一套 `Positions`
-   口径）。所以增量路径建出来的类型节点 / 表达式节点与 legacy EOF 树**逐节点同源**（类名、层级、`Pos` 都一致），
-   不需要为每种形态重写一遍 Pos 算术。
-2. **增量时机判定**：`CanEndType` / `CanEndInitializer` 回答「这一格之后，类型 / 初始化器还能不能继续长」——
-   只有回答「不能」时调用方才落地形状，从而把「建树时刻」从 EOF 提前到**最后一个类型/表达式单元关闭的那一拍**。
-3. **注册区（给 B4b / A5 续任）**：`AppendFragments` 末尾的 `// [T-CAT:REGISTER]` 是将来「候选式类型目录」
-   （`types/forms/<形态>-shape-possible.xl.md`）的追加点。本 WP 的落地形态**走 `ParseType` 路线**（按形态
-   复用 `TypeBuilder`），所以注册区当前为空；候选式目录与它**可以并存**：候选在 `TypeBuilder` 能吃下之前
-   先建出子形状，吃不下时本工厂的 `ParseType` 仍能在 EOF 兜住（C6 的 fallback）。
-
 ## static field TypeContinuation:string = ".[<|&?>"
-
-类型之后仍可能继续长的首字符：成员（`.`）、数组（`[`）、泛型实参（`<`）、联合（`|`）、交叉（`&`）、
-可选（`?`）、闭合分层（`>`）。这些字符出现时类型**还没长完**，不能提前落地。
 
 ## static field InitializerEnd:string = ";,)]}="
 
-初始化器之后仍可能继续长的判定用「结束字符集」：遇到这些字符（或输入结束）时表达式已经完整。
-空串表示输入结束（`NextSignificantChar` 返回 `""`）。
-
 ## static field Annotations:Array<PossibleShape> = []
-
-`// [T-CAT:REGISTER]`：候选式类型片段的注册区（每个 form 文件一行 `XxxPossibleShape.AppendTo(TypeCatalogFactory.Annotations); // [B4b-*]`，
-按 WP id 排序、只追加、不重排）。本 WP 不注册任何候选（见文件头第 3 点），注册区保留为 B4b-i/ii 的接线点。
 
 ## static method FirstSignificant:(units:Array<Token>, from:int)=>int
 
@@ -84,23 +60,11 @@ return "";
 
 ## static method NextSignificantChar:(unit:Token)=>string
 
-返回 `unit` 之后第一个非空白 / 非注释字符；输入结束返回 `""`。
-
-与既有 `StatementScanner.NextChar` / `ImportEqualsDeclarationPossibleShape.NextChar` 同一口径（跳空白 + 两种注释），
-只是这里要跨行看（`as T` ⏎ `;` 的换行不算「还能继续」）。
-
 ```ts
 return TypeCatalogFactory.NextSignificantText(unit, 1);
 ```
 
 ## static method NextSignificantText:(unit:Token, take:int)=>string
-
-`NextSignificantChar` 的推广：返回 `unit` 之后**前 `take` 个**非空白 / 非注释字符
-（不足 `take` 个时返回实际拿到的那几个；一个也没有返回 `""`）。口径与 `NextSignificantChar`
-逐字相同（同一套空白字符 / 两种注释跳过 / 跨行），`take === 1` 时与旧实现逐字节一致。
-
-为什么要多看一个字符：`CanEndInitializer` 要区分**单个 `=`**（初始化器终点，旧行为）
-和 `==` / `===`（二元比较符，初始化器还没长完，见该方法）。只读一个字符看不清。
 
 ```ts
 const range = unit.SourceRange;
@@ -152,18 +116,6 @@ return text;
 
 ## static method CanEndType:(unit:Token)=>bool
 
-类型是否已经可以落地：后面不能再接类型延拓字符。
-
-`TypeContinuation` 只覆盖**符号**续接器。条件类型的 `extends` 是唯一的**单词**续接器：
-`let x: T extends U ? A : B` 里 `T` 的下一格是 `e`（不在 `TypeContinuation` 里），旧判据于是在 `T`
-这一拍就把注解落地，`extends … B` 全部留在 `Data` 里，收口格只能抛
-`增量变量形状未支持：declaration 声明体`（C10），整文件回退 legacy（实测
-`tests/cases/token/types/type-cond-in-annotation.ts`）。所以这里补一条：**下一个词是独立的 `extends`**
-时类型还没长完。
-
-为什么只有这一个词：类型之后还能接的续接器里其余全是符号（见 `TypeContinuation`）；`infer` / `keyof` /
-`readonly` 这些词都在 `extends` 右边或类型**之前**，不在「已完成类型之后」这个位置上。
-
 ```ts
 const next = TypeCatalogFactory.NextSignificantChar(unit);
 if (next === "") {
@@ -176,13 +128,6 @@ return TypeCatalogFactory.NextWord(unit) !== "extends";
 ```
 
 ## static method NextWord:(unit:Token)=>string
-
-`unit` 之后的下一个**单词**：跳过空白与两种注释之后连续的标识符字符（`[A-Za-z_$]`）。
-
-与 `StatementScanner.NextWord` 同一口径，但不反向 import 语句层（类型层不依赖语句层）。
-为什么不能用 `NextSignificantText(unit, 7)`：它把空白也跳掉了，`extends U` 与 `extendsFoo` 的返回值都是
-`extends?`，而这里要的正是「`extends` 之后是否还接着标识符字符」这个区别——
-`let x: T` ⏎ `extendsFoo()` 是下一条语句，不能被当成条件类型，否则注解永远落不了地。
 
 ```ts
 const range = unit.SourceRange;
@@ -239,26 +184,6 @@ return word.join("");
 
 ## static method CanEndInitializer:(unit:Token)=>bool
 
-初始化器是否已经可以落地：后面要么输入结束、要么是语句/声明分隔符。
-
-`InitializerEnd` 里的 `=` 只认**单个等号**：`==` / `===` 是二元比较符，初始化器在 `=` 处落地
-就把比较符右半截留在了外面。实测（`tests/cases/token/expressions/expr-as-then-value-operator.ts`）：
-
-- `const eq = a as number === 1;`：类型面在 `number` 格落地 ⇒ 根是 `AsExpression`
-  ⇒ 收口格 `declaration 初始化器根之外还有代码` ⇒ 整文件回退 legacy；
-- `const eq = (a as number) === 1;`：同一处，`(a as number)` 在 `)` 格落地。
-
-`=>` 同理：`=` 后面是 `>` 时那是**箭头**的箭杆，不是初始化器终点。带类型注解的声明在
-`const g: F = (a) => a;` 的 `)` 格看到 `=>`，提前把 `(a)` 落成 `ParenthesizedExpression`，
-箭杆与体整段落在根之外 ⇒ `declaration 初始化器根之外还有代码` ⇒ 整文件回退 legacy
-（T10 的目标族：`expr-arrow-body-nested-ternary.ts` 的 `const g: F = (a, b) => (a < b ? a : b);`、
-`stmt-adversarial-shapes.ts` 的 `const g2: <T>(x: T) => T = (x) => x;`）。
-
-改成「`=` 后面还是 `=`（比较）或 `>`（箭杆）就不算终点」之后，`as` 断言与带注解的箭头初始化器
-都等到 `;` / 输入结束那一格整条 `ParseInitializer`（legacy 同一个建造器）——树与 legacy 同源，
-不是第二种表达式机。不带注解的箭头（`const f = (x: T) => …`）在 `)` 格本来就过不了
-`ParseInitializer`（参数里的 `:` 不是表达式），落不落地一个字都没变；单个 `=` 的旧行为也一个字不变。
-
 ```ts
 const pair = TypeCatalogFactory.NextSignificantText(unit, 2);
 if (pair === "") {
@@ -271,11 +196,6 @@ return TypeCatalogFactory.InitializerEnd.indexOf(pair[0]) >= 0;
 ```
 
 ## static method ParseType:(units:Array<Token>, basePos:int, template:Template, context:SyntaxContext)=>Token | null
-
-把一段 type 单元解析成 legacy 同源的类型节点；**不完整 / 形态不支持**时返回 `null`（调用方继续等下一格）。
-
-`units` 里允许带 trivia（`Load` 会跳过）；`basePos` 是第一个类型单元之前的位置（C1：`:` / `as` 的 `EndIndex`），
-与 legacy `StatementBuilder` 的 `this.Positions[typeFirst]` 同口径。
 
 ```ts
 const code:Array<Token> = [];
@@ -302,9 +222,6 @@ try {
 
 ## static method ParseInitializer:(units:Array<Token>, basePos:int, template:Template, context:SyntaxContext)=>Token | null
 
-把一段初始化器 raw 单元解析成 legacy 同源的表达式节点（与 `VariableDeclarationShape.FinishIncremental` 的
-降级分支同一个建造器、同一个 `basePos`）；不完整 / 不支持时返回 `null`。
-
 ```ts
 const code:Array<Token> = [];
 for (const unit of units) {
@@ -330,16 +247,6 @@ try {
 ```
 
 ## static method ParseInitializerFrom:(units:Array<Token>, head:Token, basePos:int, template:Template, context:SyntaxContext)=>Token | null
-
-[R11:SHAPE-HEAD] 把「**左操作数已经建好**」的初始化器整条建出来：`units` 的第一个非 trivia 单元就是
-`head`（形状目录建出的表达式形状），从它之后继续（`ExpressionBuilder.ParseExpressionFrom`）。
-
-与 `ParseInitializer` 同一套建造器、同一套 `Positions` 口径，唯一差别是起点：
-`ParsePrimary` 只认登记过的容器 / 原子，任意形状进不去，于是这里直接把 `At` 推到 `head` 之后，
-由 `ParseBinaryFrom` 的 `IsTypeOperator` 分支接 `as` / `satisfies`、`ParseFollowingType` 接类型。
-
-**自证**（与 `ParseInitializer` 同一条）：`head` 不是第一个单元、或 `At` 没走到末尾 ⇒ 返回 `null`，
-调用方继续等下一格。绝不返回「只吃了一半源码」的节点（C10）。
 
 ```ts
 const code:Array<Token> = [];
@@ -368,11 +275,6 @@ try {
 
 ## static method AnnotationColon:(units:Array<Token>)=>int
 
-在 `VariableDeclarationShape.Data` 里找**类型注解的 `:`**（`=` 之前的第一个顶层 `:`）；没有返回 `-1`。
-
-只在「`:` 出现在 `=` 之前」时成立：初始化器里的三元 `? :`、对象字面量里的 `:` 都在 `=` 之后，
-因此不会把表达式里的冒号当成注解。
-
 ```ts
 let identifierSeen = false;
 for (let at = 0; at < units.length; at++) {
@@ -399,8 +301,6 @@ return -1;
 
 ## static method FirstEqual:(units:Array<Token>)=>int
 
-第一个顶层 `=` 的下标（`-1` = 还没有）。
-
 ```ts
 for (let at = 0; at < units.length; at++) {
   const unit = units[at];
@@ -415,8 +315,6 @@ return -1;
 ```
 
 ## static method HasTypeAssert:(units:Array<Token>)=>bool
-
-这段单元里（含括号内的递归两层）有没有 `as` / `satisfies` 关键字。
 
 ```ts
 for (const unit of units) {
@@ -447,21 +345,6 @@ return false;
 ```
 
 ## static method StartsTypedInitializer:(units:Array<Token>, equalAt:int)=>bool
-
-初始化器是否属于本 WP 接管的「带类型」形态。返回值同时是「能否提前落地」的判据：
-
-- 左操作数是**普通标识符**：`raw[0]` 是 Common、`raw[1]` 是 `as`/`satisfies`；
-- 左操作数是**括号化表达式**：`raw[0]` 是 `(` 括号，且括号里递归出现 `as`/`satisfies`（`(y as T)`）；
-- 左操作数是**对象 / 数组字面量**：`raw[0]` 是 `{...}` / `[...]` 括号，且这段单元里出现 `as`/`satisfies`
-  （`{ a: 1 } satisfies T` / `[1, 2] satisfies number[]`）——[D1] 加这一档：这两类字面量在 `as`/`satisfies`
-  之前只是 **basic 括号**，`TryBuildTypedInitializer` 的「`=` 之后全是 basic」前提成立，所以整条可以原子建出；
-- **带类型参数的函数/箭头表达式**（`(a: number) => a` / `async (a: number) => a` /
-  `function (a: number) {}` / `<T>(a: T) => a`）：参数括号里出现「名字 `:`」——判据是
-  `HasParameterType`。同一族里**没有**类型注解的形态（`() => a` / `(a, b) => a` / `function () {}`）
-  不满足本判据，仍留给 A4 的表达式形态（不改变它们的账本分类）。
-
-左操作数是调用 / 普通算术等其它形态**不接管**（A2/A3/A4 的写域）——**例外是 `[R11:SHAPE-HEAD]`**：
-左操作数已经被形状目录建成了**形状对象**（`f() as T!` 的 `f()`）时按「容器作头」同一答案接管。
 
 ```ts
 const first = TypeCatalogFactory.FirstSignificant(units, equalAt + 1);
@@ -533,10 +416,6 @@ return false;
 
 ## static method HasTypeArgumentCall:(units:Array<Token>)=>bool
 
-这段单元里是否有「类型实参调用」形态：`<` … 配对的 `>` 之后**紧跟**调用括号 `(`。
-
-用于把 `f<string>()` 与关系表达式 `a < b` 区分开：后者没有配对的 `>` + `(`，判据不成立。
-
 ```ts
 for (let at = 0; at < units.length; at++) {
   const unit = units[at];
@@ -584,10 +463,6 @@ return false;
 ```
 
 ## static method HasParameterType:(units:Array<Token>)=>bool
-
-这段单元里的「参数括号」是否带 `:` 类型注解（只看括号的**顶层**单元，嵌套括号由它自己的层负责）。
-
-用于区分「参数带类型的函数/箭头表达式」（本 WP 接管）与「参数不带类型的同族形态」（A4 接管）。
 
 ```ts
 for (const unit of units) {

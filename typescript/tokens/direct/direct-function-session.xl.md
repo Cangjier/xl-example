@@ -19,20 +19,6 @@ import { DirectTypeAssembly } from "./direct-type-assembly.xl.md"
 
 # namespace cangjie
 
-B2-1 函数声明的直建 session（`ShellFunctionDeclaration`，kind = 8）：`function f() {}` /
-`function f(a) {}` / `function f(a) { return a; }` / `function f() { let x = 1; }`。
-
-**本 session 不建函数体**：体是 `{…}` 括号，体目录（`BlockPossibleShape.IsFunctionDeclarationBody` /
-`TryMountFunctionBody`）在**建壳期**就挂好了，体内语句各自有自己的壳、收口时由各自的 H2 换成建好的形状。
-本 session 只做「校验 + 收集」（`DirectStatementAssembly.BlockFrom` → `BuiltChildren`），
-与 B1 的块完全同一条通道。参数表复用 `FunctionDeclarationShape.BuildParameters`（静态工厂，A6 安全：
-它只碰 `TypeBuilder`，不碰 `ExpressionBuilder` / `StatementBuilder`）。
-
-**为什么不用 `FunctionDeclarationShape.FromUnits`**：`FromUnits` 在**有体**时内部 `new StatementBuilder(...)`
-+ `Load` + `BuildStatement()` 建体（`function-declaration-shape.xl.md` 的 `bodyUnit !== null` 分支），
-那是 A6 的 `stmtLoads`（R3-CONTRACT A6 要求 == 0）。所以这里只借它的**参数表**静态工厂与 `Pos` 口径，
-体走 `DirectStatementAssembly`。这条是 R3-CONTRACT §4.3.2 第 5 步的**实现口径修正**（见 REPORT-r3-func §6）。
-
 # class FunctionDeclarationDirectSession implements DirectSession
 
 ```txt
@@ -84,11 +70,7 @@ function f<T>() {}              -> Decline(stmt.func)（泛型头）
 
 ## field AsyncHead:bool = false
 
-R4-B4-b：首代码单元是 `async` 时置真，等**下一格**必须是 `function`（壳从 `async` 起，见 §4.5）。
-
 ## field HeadChecked:bool = false
-
-`async` 头的第二格已经校验过（只校验一次）。
 
 ## field StoppedAt:int = -1
 

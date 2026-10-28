@@ -24,8 +24,6 @@ import { ExpressionAtomRegistry } from "../shared/expression-atom-registry.xl.md
 
 # namespace cangjie
 
-WP-P2 的**调用候选**（`let x = f()` / `let x = f(a, b)`）：
-
 ```
 char 8  `f`   → 本候选（与 A1 的标识符候选同时存活，但都不建——`(` 不在 A1 的续接白名单）
 char 9  `(`   → 括号建立，括号里的 basic token 归括号自己；父层没有新格子
@@ -33,51 +31,15 @@ char 10 `)`   → 括号关闭格：A1 的候选在 Bracket 格 Reject，本候�
 EOF           → FinishIncremental 收下唯一根（E0b 契约）
 ```
 
-`CallExpressionShape` 因此在 `)` 关闭那一刻就出现，早于 legacy（legacy 要等整条语句收口）⇒ 增量。
-
-**为什么只能在 `)` 关闭格建**：括号里的实参 basic token 在 `(` 刚建出来时一个都还没有（`Bracket.Data`
-由挂在括号上的子单元逐个填），而括号建立**不触发**父层的候选判定（`Bracket.Transit` 只调
-`OnBracketCreatedEvent`，不调 `ComputePossibleShapes`）。父层第一次看见这只括号，就是它关闭的那一格（`)`）。
-
-**为什么候选必须活过 `f` 那一格**：`CatalogGuide` 的 `Reject` 是永久的（`Candidates` 里删掉就回不来），
-而 `f` 与 `)` 之间只有 trivia。所以 `f` 格上本候选必须 `Accept`（而不是 `Reject`）：
-判据是「它是初始化器第一个代码单元 + 文档前瞻的下一个非空白字符是 `(`」
-（`CompositeInitializerFormsJudge.NextSignificantChar`，与 A4b 同一口径）。
-只有真的会被 `(` 跟着的标识符才认领，其余 Common 格一律 `Reject`——否则本候选会与
-`NumericLiteralPossibleShape` / A1 同格并列，把 45+ 条既有 case 全打成「永远 Waiting」。
-
-**互斥（同格双 Accept = 永远 Waiting）**
-
-- **与 `new C()` 互斥**：`new` 链上的那只 `(` 括号归 `NewPossibleShape`（`IsNewItem` 为真时本候选
-  `Reject`，`ComputeByIndex` / `IsBuildable` / `ContinuationClaim` 三处一致）；
-- **与非调用括号互斥**：`(` 之前必须是可调用的左操作数（已建形状，或标识符 `Common`）。
-  `let x = (1)` 的 `(` 前面是 `=`，本候选 `Reject`（圆括号归 A4b 的 `paren` 族）；
-- **与语句 / 块括号互斥**：只认 `StartBracketChar === "("`，`{` / `[` 一概 `Reject`。
-
-**实参目录**：实参在 `)` 关闭格由 legacy `ExpressionBuilder.ParseBracketArguments` 逐参建出
-（与 legacy 同一份实现，因此树逐节点同源）。**没有**把 D0 的
-`ExpressionShapeCatalog.CreateRightOperand()` 挂到这只括号上当目录向导，理由：
-`CatalogGuide` 在「候选全灭 + `EndPossible === null`」时**抛错**（`catalog-guide.xl.md:102-107`），
-而实参位的候选（A1 的 `IdentifierPrimaryPossibleShape` 等）都要求「初始化器起点 = 紧跟 `=`」，
-在实参位一律 `IsBuildable === false`；`f(a, b)` 的 `,` 格还会让全部候选 `Reject` ⇒ 立刻退化成
-`CatalogGuide: 没有候选形状可以构成`。给它补一份「永远不 Accept 的终结候选」虽能避免抛错，但会让括号里
-先垫出半截形状，legacy 的实参建造器就读不了（它只吃 basic token）。⇒ 实参目录留给「实参位候选」
-（`RightOperandPossibleShape` 的右操作数位语义）那条后续 WP，本 WP 只保证调用族 5 条 case 的树与 legacy 逐字节同源。
-D0 交付的 `CreateRightOperand()` 在 `ExpressionShapeCatalog` 里原样保留、本 WP 不改它。
-
 # class CallPossibleShape extends PossibleShape
 
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
-
-注册区入口（`expression-shape-catalog.xl.md` 的 `// [E-CAT:FRAGMENTS]` 之后追加一行，`// [P2]`）。
 
 ```ts
 shapes.push(new CallPossibleShape());
 ```
 
 ## static method IsInitializerHead:(units:Array<Token>, tokenIndex:int)=>bool
-
-`tokenIndex` 是不是 `=` 之后的第一个代码单元。
 
 ```ts
 const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
@@ -93,9 +55,6 @@ return (unit as Symbol).Is("=");
 
 ## static method IsCallHead:(units:Array<Token>, tokenIndex:int)=>bool
 
-`tokenIndex` 是初始化器第一个代码单元（标识符），且文档前瞻的下一个非空白 / 非注释字符是 `(`。
-只有这一格需要本候选「提前存活」到括号关闭格；其它 Common 格一律交给 A1。
-
 ```ts
 const unit = units[tokenIndex];
 if (!(unit instanceof Common)) {
@@ -108,9 +67,6 @@ return CompositeInitializerFormsJudge.NextSignificantChar(unit) === "(";
 ```
 
 ## static method CanBeCallee:(units:Array<Token>, tokenIndex:int)=>bool
-
-`tokenIndex` 是 `(` 括号格：前一个非 trivia 单元可当被调用者（已建形状 / 标识符 `Common`），
-且这条初始化器不是 `new` 链（`new` 的实参括号归 `NewPossibleShape`）。
 
 ```ts
 if (NewPossibleShape.IsNewItem(units, tokenIndex)) {
@@ -128,12 +84,6 @@ return left instanceof Common;
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-- 越界 / trivia ⇒ `Uncertain`（`Reject` 永久，trivia 上绝不能拒）；
-- `Symbol("=")` ⇒ `Uncertain`（初始化器还没开始）；
-- `(` 括号且左操作数可调用 ⇒ `Accept`；不可调用 ⇒ `Reject`；
-- 标识符首格且前瞻 `(` ⇒ `Accept`（活到括号关闭格）；
-- 其余 ⇒ `Reject`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -163,10 +113,6 @@ return ShapeStates.Reject;
 
 ## method ContinuationClaim:(units:Array<Token>, tokenIndex:int)=>bool
 
-声明终结候选在 `(` 格上的通用委派（`ExpressionContinuationCatalog.Claims`）：调用括号认领这一格，
-`VariableDeclarationEndPossibleShape` 因此 `Reject`（继续等），不抛 `declaration 括号`。
-`false` 时调用方保留原 C10 抛错。
-
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
@@ -182,8 +128,6 @@ return CallPossibleShape.CanBeCallee(units, tokenIndex);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-括号自己**已经关闭**（`Closed` 或区间已签出）才是完整的调用。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -204,27 +148,6 @@ return CallPossibleShape.CanBeCallee(units, tokenIndex);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-在 `)` 关闭格把「被调用者 + 实参」整棵建成 `CallExpressionShape`，原位替换掉
-「被调用者 … `(` …」这一段（含中间的 trivia），`Pos` / 层级 / 子节点与 legacy `ParsePostfixSuffix` 同源：
-
-- `Pos` = 被调用者的 `Pos`（C1：`let x = f()` 的 `f` ⇒ 7）；
-- `src` 从被调用者起点签入、到括号终点签出（legacy `SpanNode(shape, start, this.At - 1)`）；
-- 实参用 legacy `ExpressionBuilder.ParseBracketArguments` 逐参建出（空实参 ⇒ 零个子节点）。
-
-**[T12:CALL-POSTFIX] 建完登记身份**（`ExpressionAtomRegistry.Nodes`）：调用形状是**上一个可以带
-后置续接的操作数**——`f("y").then(r => r)` / `f().x` / `f("y")[0]` / `f(1).b`2`` 的 `f(...)` 在 `)`
-关闭这一格就已经建好，后面的 `.` / `?.` / `!` / `(` / `[` / 模板不是它的「未支持续接」，而是它的
-postfix 后缀。登记之后收口格（`VariableDeclarationShape.FinishIncremental`）走既有的
-「根 + 根之后还有代码」分支：`ExpressionBuilder.ParsePrimary` 用 `HasNode` 把这个**已建形状**
-当操作数收下（不重建、不重算 `Pos`），再由 `ExpressionBuilder.ParsePostfixSuffix` 接上后缀——
-与 A1 标识符 / A4 容器 / R15 标签模板 / [T9] 数字原子走的是**同一条** postfix 路。
-
-不登记的后果（实测）：`const n = import("y").then(r => r.default)` 的根是 `CallExpressionShape`，
-`HasContainer` / `HasNode` 都为假 ⇒ 收口格按 C10 抛 `declaration 初始化器有未并入的括号`；
-`const n = f("y").x` 抛 `declaration 初始化器根之外还有代码`。整条文件退回 legacy（fallback）。
-
-为什么登记在 `BuildByIndex` 而**不是** `ParseBracketArguments` 一侧：那一条只建实参、不建调用形状。
 
 ```ts
 const data = host.Data;
@@ -266,9 +189,6 @@ return shape;
 ```
 
 ## static method Operand:(host:Token, index:int, context:SyntaxContext)=>Token
-
-取 / 就地物化被调用者：已是形状直接用；`Common` 标识符就地换成 `IdentifierShape`（`Pos` 按 C1，
-与 A1 / A2 同一份口径）；其余显式抛错（C10）。
 
 ```ts
 const unit = host.Data[index];

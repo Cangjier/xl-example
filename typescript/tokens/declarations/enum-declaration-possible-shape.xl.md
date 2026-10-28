@@ -67,11 +67,6 @@ return false;
 
 ## static method Owns:(units:Array<Token>, headAt:int, secondAt:int)=>bool
 
-[A2-D4] 三处同源判据的**唯一实现**：本候选自己的 `b3cOwns`、`declaration-statement-possible-shape` 的
-`[A2-D4:CONST-ENUM]` 段、`control-flow-statement-possible-shape` 的同段。条件 = item 首词 `const` &&
-下一词 `enum` && **同一行**（与 `DecideCommon` 里新加的那条 `const` + 同行 `enum` 分支同一判据，
-也与块体 5d-8a 的 `ShellVariable` 分支逐字同源）。
-
 ```ts
 if (headAt < 0 || headAt >= units.length || !(units[headAt] instanceof Common)) {
   return false;

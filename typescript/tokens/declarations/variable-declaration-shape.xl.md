@@ -23,29 +23,6 @@ import { StatementLegacyMetrics } from "../statements/statement-legacy-metrics.x
 
 # namespace cangjie
 
-按契约 C2：增量模式下 `Data` 里的 basic 单元（`=` / 空格 / 未消费的 `2*3+1`）是**正确中间态**；
-本形状在 `TryToClose` 里**先提取字段**（标识符、初始化器），**再丢弃** trivia + `=` + 未消费 basic token，
-使关闭之后 `Data` 等价于 AST children。
-
-`WP-C` 接管表达式增量之前，初始化器还是 raw basic 单元，这里**降级**成现有 `ExpressionBuilder` 原子建树
-（与 legacy `StatementBuilder` 读同一批单元、同一个 `Positions` 口径），所以 EOF 树与 legacy 逐字节一致；
-WP-C 建出表达式形状之后，同一段逻辑自动改走「已建好的形状直接收下」那一支，fallback 保留（C6）。
-
-**WP-E0b：初始化器目录已切到 E-base 目录，本文件只负责 EOF 收口。**
-
-- 候选从哪来：`IncrementalVariableStatementBuilder.Build`（`variable-declaration-possible-shape.xl.md`）给本形状挂
-  `new CatalogGuide(ExpressionCatalogFactory.Create(), new VariableDeclarationEndPossibleShape())`，而
-  `ExpressionCatalogFactory.Create()` 自 WP-E0b 起是
-  `ExpressionShapeCatalog.CreateDeclarationInitializer()` 的纯转调（唯一注册入口，锚点 `// [E-CAT:FRAGMENTS]`）。
-  所以 A1–A4 注册进来的形态片段会直接出现在本形状的 `Data` 里，本文件**不新增候选、不复制目录**。
-- 门控点在上游，**不在本文件**：`VariableStatementPossibleShape.BuildByIndex` 只在
-  `StatementRouteUtil.IsIncrementalVariableShapesEnabled()` 为真时调 `IncrementalVariableStatementBuilder.Build`；
-  开关为 `false` 时本形状的 `Incremental` 永不为真，`FinishIncremental` 一次都不执行，
-  legacy 建树（`StatementBuilder` 原子建树）逐字节不变（C4）——这就是「新路径一步不走」的机械保证。
-- EOF 收口契约（本文件唯一职责）：初始化器里必须只剩**唯一**一个非 basic 的表达式根；它在 EOF 被
-  `TryToClose` 封口，并作为本形状唯一的表达式子节点收下。多根 = 某个候选把运算符 / 操作数形状漏在了父层，
-  属于会静默产出与 legacy 不同树的形态（divergent），按 C10 显式拒绝，**不**降级、**不**吞掉。
-
 # class VariableDeclarationShape extends ShapeToken
 
 ```txt
@@ -54,29 +31,13 @@ let x = 1;
 
 ## field Incremental:bool = false
 
-是不是增量模式建出来的形状。`false` = legacy `StatementBuilder` 建的 AST 节点，本类新旧逻辑一个字都不碰它。
-
 ## field TypeMode:bool = false
-
-[WP-A5] 是否进入「类型面」接管：类型注解 `:` 或初始化器里的 `as` / `satisfies`。一旦进入，本形状在
-`ComputePossibleShapes` 里不再转给表达式目录（避免目录在 `:` / `as` 上打转），改由 `AdvanceTypeMode`
-用 legacy 同源的 `TypeBuilder` / `ExpressionBuilder` 逐单元判定「类型 / 表达式是否已经长完」。
 
 ## field AnnotationDone:bool = false
 
-[WP-A5] 类型注解的类型节点是否已经建出来（建出后 `Data` 变成 `[IdentifierShape, TypeNode, (=) …]`）。
-
 ## field InitializerDone:bool = false
 
-[WP-A5] `as` / `satisfies` 初始化器是否已经提前落地（落地后 `Data` 里是唯一的表达式形状根）。
-
 ## field TrailingSemicolon:Token | null = null
-
-[R5:SEMICOLON] **语句分号不是本形状的子节点**（TS 的 `VariableDeclaration` 里也没有 `;`，它的区间止于初始化器
-最后一个字符），但它同样**不是可以静默丢掉的 trivia**：`FinishIncremental` 提取字段时把末尾那个 `;` 摘出来
-记在这里，由 `VariableStatementShape.TryToClose` 在收口时**收下**（`;` 进语句自己的 `Data`，语句终点因此是
-分号的 `End`，`const a = 1;` 无结尾换行 → `[0,12)`，与 TS 的 `VariableStatement [0,12)` 对齐）。
-`null` = 本条声明没有待交还的分号；交还之后由语句层清空，不会重复收下。
 
 ```ts
 null
@@ -84,19 +45,7 @@ null
 
 ## field ContainerCloseGuide:CatalogGuide | null = null
 
-[T7d] 容器关闭格的**窄目录**：唯一候选 `ContainerClosePossibleShape`，只在
-`ComputePossibleShapes(Close)` 跑完既有目录之后被问一次。惰性创建（第一条声明第一次被问到时）。
-
-**为什么单独一份目录、不并进 `CatalogGuide`**：主目录里每个候选都套着 `DeclarationCellGuard`，
-在 `]` / `}` 关闭格上 A4b / P1 的守卫会 `Accept` 但 `IsBuildable === false`；同一个目录里再放一条
-`Accept` 的候选，`Candidates.size` 恒 > 1，容器在这一拍就永远建不出来（B4e 的钩子之所以能建，
-正是因为它不在候选集里）。窄目录只有一条候选，`Candidates.size === 1` 恒成立。
-
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-[T7d:CONTAINER-CLOSE] 两段式：先走既有目录（父候选先手），再在同一拍问容器窄目录。
-先后顺序与 B4e 钩子的执行位置**逐位相同**（钩子也是在父单元 `ComputePossibleShapes` 返回之后才跑）；
-唯一的差别是它现在经过 `CatalogGuide` → `ComputeByIndex` → `BuildByIndex`，不再是钩子回调。
 
 ```ts
 const state = this.ComputeByDirectoryShapes(context, source);
@@ -112,9 +61,6 @@ return state;
 ```
 
 ## private method ComputeByDirectoryShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-[T7d] 原 `ComputePossibleShapes` 的方法体原样搬到这里（一个字未改），外面套一层「父候选 → 容器窄目录」
-的时序壳。
 
 ```ts
 // [WP-A5] 类型面接管：`:` 注解 / `as`·`satisfies` 断言不经过表达式候选目录。
@@ -170,21 +116,6 @@ return super.ComputePossibleShapes(context, source);
 ```
 
 ## static method CanFinishTypedDeclaration:(data:Array<Token>, bodyDone:bool)=>bool
-
-[S2:CLOSE-TYPED] 类型面（`TypeMode`）的声明**是否正处在一个收口格**上——也就是「本形状的末单元
-已经可以被 `VariableDeclarationListEndPossibleShape` 判成声明结束」：
-
-- 末单元是 `Symbol(";")`：语句分号，`VariableDeclarationListEndPossibleShape` 的 `;` 分支本来就认它；
-- 末单元是 `Symbol(",")` **且本条声明的体已经长完**（`bodyDone` = 注解 / 带类型初始化器已落地）：
-  多声明的列表分隔符（[D2:MULTI-DECL]）。`bodyDone` 是必需的：`Record<string, number>` 里的逗号
-  在注解落地前也停在 `Data` 里，无条件放行会让列表层在类型实参表内部 `OpenNext`（实测
-  `expr-satisfies-object` / `type-op-satisfies` 三条直接崩在 `泛型实参缺少 >`）；
-- 末单元是下一条语句的首代码单元（`DeclarationAsiBoundary.CanClose`）：换行 ASI，声明在此收口，
-  该单元**不消费**（由 `CloseAtAsiBoundary` 交回父单元重放）；
-- 末单元是最后一格代码单元、且下一行起一个不续接的单词（`DeclarationAsiBoundary.CanCloseAtLineBreak`）。
-
-判据全部转发 `DeclarationAsiBoundary` / `Symbol` 的既有事实，**不新写 ASI 词法、不新写边界表**。
-末单元是 trivia 时返回 `false`：那时 `Data` 还没有本格的新单元，收口由下一格决定。
 
 ```ts
 if (data.length === 0) {
@@ -658,15 +589,6 @@ this.TrimEndToLastCode();
 ```
 
 ## private method TakeTrailingSemicolon:()=>void
-
-[R5:SEMICOLON] 从 `Data` 里摘下**末尾的语句分号**，记进 `TrailingSemicolon` 交给语句层收口。
-
-判据只有一条：从末尾往前跳过 trivia，第一个代码单元是 `Symbol(";")` 就摘走。
-为什么必须摘：TS 的 `VariableDeclaration` 不含 `;`（`const a = 1;` 的声明是 `[6,11)`），所以它不能留在本形状的
-`Data` 里；为什么必须**记**：它也不能像 trivia 那样被丢掉——`const a = 1;` 的语句终点是 12（分号的 `End`），
-丢掉之后语句只能退到初始化器终点 11（R5 的 `moved VariableStatement 0-12 vs 0-11`）。
-
-只摘**一个**：一条声明最多一个语句分号；中间的分号由 `FinishIncremental` 的两个过滤分支兜住（同样只记录）。
 
 ```ts
 for (let at = this.Data.length - 1; at >= 0; at--) {

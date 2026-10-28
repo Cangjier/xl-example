@@ -32,22 +32,6 @@ import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
 
 # namespace cangjie
 
-R6-D2 的 `export` 装配层（`R6-CONTRACT §4.3`）：`export <声明>` / `export default <声明|表达式>` /
-`export { … }` / `export * … from` 的**直建**入口。
-
-**为什么需要这一层**：旧路径的 `export const x = 1` 走
-`StatementBuilder.BuildExportStatement → BuildExportedStatement`
-（`statement-builder.xl.md:660-673`）= 「摘掉 `export` → 递归 `BuildStatement` → 把 `ExportKeywordShape`
-插回 `Data` 最前」。直建侧不能调 `StatementBuilder`（A6 红），所以把那一层按**逐条等价的判定顺序**
-抄在这里，内层声明改由**既有形状工厂**建（`ClassDeclarationShape.BuildFromCode` /
-`FunctionDeclarationShape.FromUnits` / `InterfaceDeclarationShape.FromUnits` /
-`TypeAliasDeclarationShape.FromUnits` / `EnumDeclarationShape.FromUnits` /
-`ModuleDeclarationShape.FromUnits` / `DirectDeclarationAssembly.ListFrom` + `VariableStatementShape`），
-表达式改由 `DirectStatementAssembly.ExpressionOf`（= `DirectExpressionEngine`）建。
-
-**判定顺序**（`R6-R4` 的防线）逐条抄自 `BuildExportStatement:820-914`，顺序错会把
-`export default async () => {}`（= `ExportAssignment`）建成声明：
-
 ```txt
 code[0] = export
   ├ code[1] 不存在            -> 范围外（表达式语句）
@@ -66,21 +50,6 @@ code[0] = export
   └ 其余                      -> 范围外（表达式语句）
 ```
 
-> **R7-D3 的 `as` / `=` 两条今天跑不到**（`sessions=0`）：`StatementRouteUtil.DecideDeclaration`
-> 对这两族显式 `return None`（只读件，`R7-CONTRACT §3.3`）。路由已按契约写好，实测见
-> `_coord/REPORT-r7-module2.md`（模拟路由例外时四条全部 `built=1 / A1=YES / XML=IDENTICAL`）。
-
-**A6 边界**（`R6-CONTRACT §2.3` 的精确值档）：本类**不调** `StatementBuilder`、**不 new**
-`ExpressionBuilder`（`ExportAssignmentShape.FromUnits` 内部 new 一个 ⇒ 本轮不用它，自己装配）；
-表达式一律 `DirectStatementAssembly.ExpressionOf`（引擎，不计 A6）；类型注解走
-`DirectDeclarationAssembly` → `DirectTypeAssembly`（`TypeBuilder` 不计 A6，R2 起同口径）。
-
-**synthetic semicolon（`R6-R5`）**：`ImportDeclarationShape.FromUnits` / `ExportDeclarationShape.FromUnits`
-**硬要求**末单元是 `;`（`import-declaration-shape.xl.md:114-117`、`export-declaration-shape.xl.md:107-110`），
-旧路径在缺 `;` 时用 `SynthesizeSemicolon` 造一个**零宽虚拟分号**（`statement-builder.xl.md:764-778`）。
-本类用 `ClauseHost` 复刻：末单元不是 `;` 时在**副本**上 push 一个 `[tailEnd, tailEnd)` 的 `Symbol(";")`
-（绝不改壳自己的 `Data`），于是父层的覆盖校验仍然看到 §2 的 `EndIndex` 相等。
-
 # class DirectExportAssembly
 
 ```txt
@@ -96,8 +65,6 @@ export default 1;          -> ExportAssignmentShape[1]（关键词由 AST 发射
 ```
 
 ## static field LastReason:string = ""
-
-最近一次 `Build` / `BuildInner` 失败的原因（调用方拼进 `Decline` 文案，category 由调用方定 `decl.module`）。
 
 ## static method TextOf:(unit:Token)=>string
 

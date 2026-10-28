@@ -45,16 +45,6 @@ import { DirectStatementAssembly } from "./direct-statement-assembly.xl.md"
 
 # namespace cangjie
 
-B1 控制流语句的直建 session（`ShellStatementFamily` / `ShellBlock` / `ShellLabel` 三个 kind 共用这一个类）：
-块 / 空语句 / if / while / do / for / for-in / for-of / return / throw / break / continue（R3），
-R4-B3 追加 try / catch / finally / switch / with / debugger / 标签语句 / 带标签的 break·continue /
-`for` 头的声明列表（经 `DirectDeclarationAssembly`，**不调** `StatementBuilder`）。
-收口时按 §2.3 的建树配方一次建出形状树，**不调用 `StatementBuilder`**；体内语句**不代建**——
-它们各自有自己的壳，本 session 只做「收集 + 校验」（`DirectStatementAssembly.BuiltChildren`）。
-
-判定全部在 `Finish`（与变量 / 表达式 session 不同）：B1 的每一条都依赖「整段已就位」，
-`Ingest` 只累积单元并认首代码单元（范围外的起点在 Ingest 期就 Decline，heading `stmt.head`）。
-
 # class ControlFlowStatementDirectSession implements DirectSession
 
 ```txt

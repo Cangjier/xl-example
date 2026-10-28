@@ -1241,11 +1241,6 @@ return false;
 
 ## method CollectBodyStatements:(bracket:Bracket, shape:Token)=>void
 
-**[S3:NAMESPACE-BODY] 形参从 `BlockShape` 放宽到 `Token`**：收集通道只用到 `shape.Add` 与
-`shape.Data` 两件事，而模块体（`ModuleBlockShape`）现在也走这条通道（模块体括号挂上声明目录后，
-体内剩的是已收口节点，`ModuleBlockShape.FromBracket` 必须按 `BuildBlock` 同一条通道收集）。
-放宽形参类型不改变任何行为——`BlockShape` 是 `Token` 的子类型，原有调用点逐字节不变。
-
 ```ts
 let at = 0;
 let rawFrom = 0;
@@ -2281,11 +2276,6 @@ return this.Finish(shape, first, blockIndex);
 
 ## method BuildCaseClauseHead:()=>Token
 
-[WP-S1] 从 `BuildCaseBlock` **抽出**的子句头建树（`case <表达式> :` / `default :`），供增量壳
-（`StatementFamilyDispatch` 的 `ShellCaseClauseHead` 分支）与 legacy 的 `BuildCaseBlock` 共用。
-抽的是同一条路径：`case` 的冒号判据（三元深度 0）与 `BuildCaseBlock` 逐字同源，`default` 仍只认
-紧邻的 `:`。**收口位置（`At`）停在冒号之后**，与 `BuildCaseBlock` 里 `inner.At = colonAt + 1` 一致。
-
 ```ts
 const first = this.At;
 const unit = this.Units[this.At];
@@ -2318,11 +2308,6 @@ return this.Finish(clause, first, this.At - 1);
 ```
 
 ## static method ClauseColonAt:(units:Array<Token>, from:int)=>int
-
-[WP-S1] `case` 标签的收尾冒号 = **三元深度 0** 的第一个 `:`（`case a ? b : c:` —— `?` 抬深度、配对的
-`:` 落回来）。括号 / 逗号 / 运算符在这一层都是原子单元，藏不住 `:`。三个调用点
-（`BuildCaseClauseHead` / `BuildCaseBlock` 的 `case` 段 / `StatementEndPossibleShape.ClauseHeadEndCode`）
-必须是同一条规则，所以判据只写在这里。返回 `-1` 表示还没到。
 
 ```ts
 let ternaryDepth = 0;

@@ -82,10 +82,6 @@ return true;
 
 ## static method IsLabelName:(unit:Token)=>bool
 
-[WP-S1] R1-2：一个单元能不能当**标签名**。与 `StatementRouteUtil.IsLegacyKeyword` 同源（保留字不是名字），
-再加上字面量三种：数字 / 字符串 / 正则（`Common.CanStartNumber` + `String` 由 `Common` 之外的类承载，
-所以这里只看 `Common` 侧的数字形态）。`0:` 因此不再被判成标签。
-
 ```ts
 if (!(unit instanceof Common)) {
   return false;

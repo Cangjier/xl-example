@@ -19,12 +19,6 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class BigIntLiteralPrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的 **BigInt 字面量**（`let x = 1n` / `let x = 10n`）。
-
-legacy EOF 口径（`expr-probe` 实测）：`BigIntLiteralShape  pos=7  src=[8,10)  text="1n"`。
-判据与 `NumericLiteralPossibleShape` 同型，只是换成 `Common.IsBigInt()`；两者互斥（`IsBigInt()` 与 `IsNumber()`
-在 `1n` 上不同时成立）。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts
@@ -32,8 +26,6 @@ shapes.push(new BigIntLiteralPrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是已关闭的 `Common` 且 `IsBigInt()`。`=` 与 trivia → `Uncertain`（约束①）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -63,8 +55,6 @@ return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-只对「初始化器 = 单个 BigInt 字面量」放行（第二道闸门见 `PrimaryAtomGuard`）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {

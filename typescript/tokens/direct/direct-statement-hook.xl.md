@@ -8,12 +8,6 @@ import { DirectBuildMetrics } from "./direct-build-metrics.xl.md"
 
 # namespace cangjie
 
-H3-b（R3-CONTRACT §4.1）：控制流 / 块 / 函数声明三类「建壳候选」共用的**唯一挂载点**。
-R1 的两处 H3 各自写死了 kind（`Create(StatementRoute.ShellVariable, …)`），R3 有 4 个 kind 要挂、
-分布在 2 个建壳候选里；若每个分支各加一句就会「两个分支改同一个文件」（R3-CONTRACT §3.3 冲突）。
-这里把「从壳自己取 kind → Create → 幂等挂上 → 首次喂入」收成一句，候选文件里只留一行调用，
-**registry 仍然只在 `direct-build-plugins`**。
-
 # class DirectStatementHook
 
 ```txt

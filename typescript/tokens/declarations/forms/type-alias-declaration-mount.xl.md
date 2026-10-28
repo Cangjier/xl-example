@@ -15,27 +15,12 @@ import { StatementRouteUtil } from "../../statements/statement-route-util.xl.md"
 
 # class TypeAliasDeclarationMount
 
-`type` 别名声明族的**早建真壳**入口（WP-B4c，替换 B4a 的 trivia 占位）。
-
 ```txt
 type T = { a: number; b?: string }   ← `type` 关键字关闭格就挂真壳（legacy 类名 / 同 Pos），
                                         名字 / 类型字面量成员 / 联合成员随后各自在闭合格成形
 ```
 
-与 B4a 占位的区别（这是本棒的目标 1）：
-
-1. 占位节点 `IsTriviaToken = true`，账本只看得到「类名提前」；真壳是挂载单元，后续单元落进它自己的
-   `Data`，`TypeAliasDeclarationShape.ComputePossibleShapes` 才能逐格建名字与类型节点。
-2. 收口不再由语句壳 `StatementBuilder` 整段建树，而是 `;` / 换行 ASI / EOF 格调**同一份**
-   `TypeAliasDeclarationShape.FromUnits`（legacy 建树函数）把已经建好的子节点消费掉——没有第二套建树路径。
-3. 未接管的形态（`export type` / `declare type` / 非声明宿主）返回 `null`，逐字落回既有语句壳与 legacy。
-
-门控与范围与 B4a 相同：只在 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为真、且宿主是声明宿主
-（`StatementRouteUtil.IsDeclarationHost`：根层或模块块）时动作；`export` / `declare` 前缀形仍走既有声明壳。
-
 ## static field MountCount:int = 0
-
-增量路径实际早建过的 type alias 声明数（证据用；不进 AST、不影响判定）。
 
 ## static method TryBuild:(host:Token, tokenIndex:int, context:SyntaxContext)=>Token | null
 

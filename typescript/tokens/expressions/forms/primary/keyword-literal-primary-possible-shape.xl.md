@@ -22,13 +22,6 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class KeywordLiteralPrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的**布尔 / null 关键字字面量**（`true` / `false` / `null`）。
-
-legacy EOF 口径（`expr-probe` 实测）：`TrueKeywordShape  pos=7  src=[8,12)`（`FalseKeywordShape` / `NullKeywordShape`
-同型）——是**关键字形状**、不是 `IdentifierShape`，`src` 覆盖整个关键字、不带 `text` 字段。
-
-与 `IdentifierPrimaryPossibleShape` 互斥：后者对这三个文本 `Reject`。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts
@@ -36,8 +29,6 @@ shapes.push(new KeywordLiteralPrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是已关闭的 `Common`，且文本是 `true` / `false` / `null`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -68,8 +59,6 @@ return ShapeStates.Accept;
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
-只对「初始化器 = 单个关键字字面量」放行（第二道闸门见 `PrimaryAtomGuard`）。
-
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
@@ -85,9 +74,6 @@ return PrimaryAtomGuard.IsLoneAtom(units, tokenIndex, context, false);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-按文本造三种关键字形状之一：签入 / 签出取关键字自己的区间，`Pos` = 前一个非 trivia 单元的 `EndIndex`（C1），
-`TryToClose` 后原位 `Replace`。
 
 ```ts
 const token = host.Data[tokenIndex];

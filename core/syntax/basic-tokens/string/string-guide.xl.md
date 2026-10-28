@@ -13,33 +13,9 @@ import { String } from "./string.xl.md"
 
 # namespace cangjie
 
-Cangjie 的语法层：把源码字符流组织成 token 树，再由树产出 XML。
-
-字符串词法——引号向导、字符串单元与常量文本块，把 `"…"` / `'…'` / `@"…"` / `$"{…}"` / `"""…"""` 啃成 `<String …><ConstString>…</ConstString></String>`。
-
-引号向导：只看**开引号**那一个字符。它先按模板的 `StringTemplate` 回看有没有 `$`（内插）或 `@`（逐字）前缀，把它们退回去并记在自己身上；再按模板有没有原始串 / 逐字串，决定是「立刻换成 `String` 并把当前字符重放给它」还是「继续数连续引号」，最后把自己**替换**成一个真正的 `String` 单元。
-
-`StringGuide` 自己不进 `Data`、不进 XML，是把「开引号」这一格接住的那个跳转函数。
-
 # class StringGuide extends GuideToken
 
-复杂字符串的引号向导。
-
-它要盖住五种字符串：常规 `""`、无转义 `@"D:\1"`、前缀式内嵌表达式 `$"{a}"`、原始文本 `""" a """`、引号内内插（ts 的 `` `${…}` ``）。它自己**不持有字符**，只判断这是哪种串，然后把自己换成一个配置好的 `String`。**ts 形态不需要向导**：没有逐字 / 原始串要数引号，`Transit` 开引号时就直接造 `String`；向导只留给逐字串 / 原始串那种「要看下一个字符」的形态。
-
-**哪些引号算起点、有没有那几种形态，都从模板取**：`Template.StringTemplate` 的 `Quotes` / `HasVerbatim` / `HasInterpolationPrefix` / `HasInterpolationQuoteChars` / `InterpolationQuoteChars` / `HasRaw`。它自己不带 `StringChars` 这类字段——配置归模板，形状归 `String`。
-
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
-
-当前字符是模板声明的字符串起点就认下：新建一个 `StringGuide`，按模板回看前缀，再把它挂到 `unit` 上；挂的时候若关闭上一个 token 建出了形状，返回 `Reload`。
-
-回看循环：从当前字符往前一个位置起，前缀字符只有在模板打开了对应形态时才算——`HasInterpolationPrefix` 打开才认 `$`，`HasVerbatim` 打开才认 `@`；遇到别的字符就停。前缀可能已经落在当前窗口之前，所以字符一律从 `SourceRange.Whole(buffer.Document!)` 上取。随后处理记下来的每个前缀：逐字前缀置 `IsSupportVerbatim`，内插前缀置 `IsSupportInterpolation` 并把 `InterpolationCount` 加一；无论哪种都调 `unit.Undo(i)` 把那个字符从 `unit` 上退掉。
-
-**引号内内插另外判**：模板打开 `HasInterpolationQuoteChars`、且当前引号在 `InterpolationQuoteChars` 里时，新建的向导直接置 `IsSupportInterpolation = true`、`InterpolationCount = 1`——这一类串的 `${` 是引号**里面**的两个字符，由 `String` 在串内自己啃（见 `string.xl.md` 的 `PendingInterpolation`），向导不参与回看。
-
-**没有逐字 / 原始串的语言（ts）不建向导**：只有逐字串 / 原始串才需要「看下一个字符」数引号，所以 `Transit` 在这两种开关都关时直接造 `String`（`CreateString` 把刚回看到的开关抄过去）并签入开引号，把后续字符全部留给 `String` 的 `ExitOrPre` / `Default`。这样一来 `"` / `` ` `` 停在 EOF 时树里只有一个未关闭的 `String`，不会留下未决向导，也不需要判断「这是不是最后一个字符」。
-
-ts 的模板把这两个前缀开关都关掉，所以 `@"…"` / `$"…"` 不会在这里被当成字符串起点，`@` 与 `$` 留给别的 token。这是默认值：`HasVerbatim` / `HasInterpolationPrefix` 都是 `false`；引号内内插由 `HasInterpolationQuoteChars` 打开，默认 `true`、只认反引号。
 
 ```ts
 const config = unit.Template.StringTemplate;
@@ -96,31 +72,15 @@ return BranchStates.Done;
 
 ## field IsSupportInterpolation:bool = false
 
-本次识别出的串是不是**前缀式**内插（`$"…"`）——由回看到的内插前缀决定。
-
 ## field IsSupportVerbatim:bool = false
-
-本次识别出的串是不是逐字串（`@"…"`）——由回看到的逐字前缀决定。
 
 ## field InterpolationCount:int = 0
 
-本次识别出的串前面有几个内插前缀 `$`。它与内插串里 `{` 的数量一致，最终会抄进 `String` 并写进 XML 标签。
-
 ## private field QuoteCount:int = 1
-
-已经吃到了几个连续引号。`1` 是刚吃到开引号；`2` 说明可能是空串、也可能在往原始字符串走；`3` 以上基本确定是原始字符串。
-
-这些分支只在模板打开 `HasRaw` / `HasVerbatim` 时才走；两个都关时 `Transit` 已经直接换成 `String`，向导根本不会建立。
 
 ## field StringChar:string = ""
 
-本次识别的字符串用的引号字符（双引号、单引号或反引号），只在构造器里赋值一次。
-
 ## constructor:(template:Template, stringChar:string)=>void
-
-以模板与引号字符创建。
-
-构造器只是转调基类并记下 `stringChar`。
 
 ```ts
 super(template);
@@ -128,8 +88,6 @@ this.StringChar = stringChar;
 ```
 
 ## private method CreateString:(isRaw:bool, rawQuoteCount:int)=>String
-
-按本向导记下的形状造一个 `String`：把两个开关与内插计数抄过去，`RawQuoteCount` 由调用方给。
 
 ```ts
 const item = new String(this.Template, this.StringChar);
@@ -142,16 +100,6 @@ return item;
 ```
 
 ## protected method Navigate:(context:SyntaxContext, buffer:SourceRange, index:int)=>void
-
-引到目标：按模板与已经吃到的引号个数决定这是哪种字符串，然后把自己替换成对应的 `String`。
-
-**模板既没有原始串、也没有逐字串时不会走到这里**：那种形态在 `Transit` 里就直接换成了 `String`，向导根本不建立。所以这里只剩 C# 语义，按引号个数分三条：
-
-1. `QuoteCount == 1`——当前字符又是引号就只把计数加到 `2`；否则就是单引号串（`"x"`），换成 `String` 并用**前一个位置**签入，再把当前字符重放。
-2. `QuoteCount == 2`——当前字符又是引号时计数加到 `3`：若逐字串打开，这就是逐字串里表达一个双引号的三引号，换成 `String` 后用「前前一个位置」签入，并重放前一个与当前两个位置；不逐字则继续往原始字符串走。当前字符不是引号时就是空串 `""`：换成 `String` 后从前前一个位置签入、以当前下标为开区间终点签出，清空父单元的挂载，再重放当前字符。
-3. 其余（`QuoteCount >= 3`）——当前字符又是引号就继续加计数；否则确定为原始字符串，换成 `String`（`IsSupportRaw = true`，`RawQuoteCount = QuoteCount`），以自己的起点签入，再重放当前字符。
-
-`Navigate` 压 `ReloadMessage` 时不碰 `context.Index`：由 `GuideToken.Process` 收口（压过消息就保持阻塞，由驱动层重放）。
 
 ```ts
 const value = buffer.At(index);
@@ -190,10 +138,6 @@ if (this.QuoteCount === 1) {
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
-
-关闭向导：只有在恰好吃到两个引号（`QuoteCount == 2`）时才收尾——那是源码末尾就断掉的 `""`，替换成一个空 `String` 并从自己的起止位置签入签出；其余情况交回基类（把自己标记为已关闭）。
-
-返回值也交回基类：向导不参与形状建造，恒为 `Nothing`。
 
 ```ts
 if (this.QuoteCount === 2) {

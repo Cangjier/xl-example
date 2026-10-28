@@ -9,20 +9,6 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 
 # namespace cangjie
 
-R5-C3（R5-CONTRACT §1.4 C-3 / §4.8）：两套「按 token 文本判续接」的闭集在这里**唯一实现**，
-消费者只做一行委托，不许再写第二份字面量表：
-
-- **受限后缀闭集**（`IsRestrictedPostfixText` / `IsRestrictedPostfixUnit`）：换行之后这些都**不能**
-  继续上一条表达式（TS `parsePostfixExpressionOrHigher` 的 `hasPrecedingLineBreak()` 守卫）。
-  消费者：`StatementBoundaryUtil.IsRestrictedPostfixUnit`（边界层，D7）与
-  `DirectExpressionEngine.IsRestrictedPostfix`（引擎层，C1）——两者吃不同的入参类型
-  （`Token` / `string`），所以闭集同时给两个入口，但**表只有一份**。
-- **表达式续接闭集**（`IsExpressionContinuation`）：换行之后还能接上一条表达式的单元。
-  消费者：`ExpressionStatementPossibleShape.IsContinuation`（R4 起是 `IsAsiBoundary` 的 fallback）。
-
-> 不在本文件（语义面不同，改它就是改整个语句层，R5-CONTRACT §1.4 C-3 明确排除）：
-> `StatementScanner.ContinuesAcrossLine` / `StatementBuilder.ContinuesAcrossLine`。
-
 # class StatementTokenSets
 
 ## static method IsRestrictedPostfixText:(text:string)=>bool

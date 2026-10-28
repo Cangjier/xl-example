@@ -9,26 +9,6 @@ import { Token } from "../../../../../core/syntax/token.xl.md"
 
 # class IdentifierIncompleteGuard
 
-[S4:IDENT-COMPLETE] 标识符「什么时候算完成」的**唯一判据**（WP-S4 / R4-1）。
-
-范本硬口径（`docs/expected-token-time-shapes.md` char 3/4/5）：`x` 还在长的那两格是 `Common`，
-**名字闭合的那一格**（分隔符到达）才出现 `IdentifierShape`。`class-ball` 的 `text="半"` / `"颜"` /
-`"数"` 就是「把『当前单元是标识符前缀』当成了『标识符已完成』」——形状在首字符那一格就建了出来，
-src 区间随后逐格被拉长（`[152,153)` → `[152,154)`），账本因此出现「短于完整 token」的截断名。
-
-**判据只有一条**：一个 `Common` 标识符在 `at` 那一格**完成**，当且仅当它**不可能再吸收下一个字符**：
-
-1. 它后面已经有下一个**代码单元**（`;` / `=` / `)` / 另一个词……任何代码单元都意味着「下一字符没被
-   它吸收」）⇒ 完成；
-2. 它后面只有 trivia 或什么都没有 ⇒ 只剩「文档的下一个字符」能回答：下一个**代码点**不是标识符
-   后继字符就是完成，是后继字符就**未完成**。
-
-第 2 条是中文标识符的关键：`半` 后面是 `径`，两者都是 CJK 代码点，必须按**代码点**判后继，
-不能按 UTF-16 code unit 或按字节判。代理对（astral plane 标识符）按 `charCodeAt` 组合成一个
-代码点再判，绝不对半个代理对下结论。
-
-所有标识符候选只许调 `IsComplete`，**不写第二份**「前缀是否完整」的判断。
-
 ## static method IsComplete:(units:Array<Token>, at:int)=>bool
 
 ```ts
@@ -81,8 +61,6 @@ return !IdentifierIncompleteGuard.IsIdentifierPartText(following);
 
 ## static method IsIdentifierPartText:(text:string)=>bool
 
-按**代码点**判一个字符串的首字符是不是标识符后继字符（字符串可能是代理对，也可能是空串）。
-
 ```ts
 if (text === null || text === undefined || text.length === 0) {
   return false;
@@ -96,8 +74,6 @@ return IdentifierIncompleteGuard.IsIdentifierPartCodePoint(codePoint);
 
 ## static method FirstCodePoint:(text:string)=>int
 
-把首字符读成一个 Unicode 代码点：高代理后紧跟低代理时合并，否则就是那一个 code unit。
-
 ```ts
 const first = text.charCodeAt(0);
 if (first >= 0xD800 && first <= 0xDBFF && text.length > 1) {
@@ -110,10 +86,6 @@ return first;
 ```
 
 ## static method IsIdentifierPartCodePoint:(codePoint:int)=>bool
-
-标识符**后继**字符集（TS 的 `ID_Continue` 近似）：ASCII 的字母 / 数字 / `_` / `$` / `\`（`\uXXXX`
-转义可以出现在标识符中间），非 ASCII 的代码点按「不是宽空白、不是宽标点」放行——CJK 汉字、
-全角字母、组合记号都是合法的标识符字符。
 
 ```ts
 if (codePoint < 0) {
@@ -138,9 +110,6 @@ return !IdentifierIncompleteGuard.IsWideNonIdentifier(codePoint);
 ```
 
 ## static method IsWideNonIdentifier:(codePoint:int)=>bool
-
-非 ASCII 里**不属于**标识符的代码点：宽空白与常见宽标点。这是显式闭集，不猜区间——
-落不进本集合的非 ASCII 代码点一律算标识符后继（CJK 汉字因此天然正确）。
 
 ```ts
 // 宽空白 / 不可见

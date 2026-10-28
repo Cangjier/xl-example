@@ -31,20 +31,6 @@ import { ExpressionBuilder } from "../../expressions/expression-builder.xl.md"
 
 # class ImportExportLegacyDeclarationMount
 
-`import x = …`（import-equals）、`export = …`（export assignment）、`export as namespace …`
-三族的**尽早挂壳**入口（WP-B5）。
-
-这三族走的是 `StatementRoute.Legacy`（`DecideDeclaration` 把它们让给各自的根候选），
-所以接在各自 `*-possible-shape` 上：`Ready` 判出「本格正好是族判定的那一格」时
-`ComputeByIndex` 返回 `Accept`、`BuildByIndex` 调 `TryBuild` 直接把族形状挂到根上，
-此后每个单元由形状自己的目录（本文件里的子候选 + 终结候选）建出来。
-
-- 门控：`TryBuild` / `Ready` 第一步都看 `StatementRouteUtil.IsIncrementalShapesEnabled()`；
-  开关 false 时 `Ready` 恒 false、`TryBuild` 恒 null ⇒ 三个 possible-shape 逐字走原原子路径（legacy 不变）。
-- 形状类名 / 层级 / Pos 与 legacy 的 `FromUnits` 逐项同源（同一批 `IdentifierShape` /
-  `QualifiedNameShape` / `ExternalModuleReferenceShape` / `StringLiteralShape`）。
-- 未支持形态显式抛 `增量变量形状未支持：…`（C10），不静默退回。
-
 ```txt
 import x = require("m");     ← `=` 那一格挂 ImportEqualsDeclarationShape
 import x = A.B;              ← 同上
@@ -257,14 +243,6 @@ return [new NamespaceExportNamePossibleShape()];
 ```
 
 ## static method IsOpenTail:(unit:Token)=>bool
-
-[W5:LEGACY-ASI] 上一格还在「等右操作数 / 等名字」时**不是**语句边界——那是排版换行，不是 ASI。两类实测：
-
-- `import m =` ⏎ `require("m");` —— 上一格是 `=`（`gap-r869-import-equals-newline-3.ts`）
-- `export as namespace` ⏎ `Foo;` —— 上一格是 `namespace`（`mod-namespace-export-newline-before-name.ts`）
-
-这两个文件在 base 上就是靠「不收口」通过的；不加这条挡板，它们会被提前收口成
-`CatalogGuide: 终结候选与其它候选同时成立`（→ 文件级 fallback，实测 +2）。
 
 ```ts
 if (unit instanceof Symbol) {

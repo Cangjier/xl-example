@@ -16,13 +16,6 @@ import { MemberChainJudge } from "./member-chain-judge.xl.md"
 
 # class ElementAccessPossibleShape extends PossibleShape
 
-WP-P1：声明初始化器位置的**下标访问**候选——`let x = a[0]`。
-
-本候选只认 `Kind === "element"` 的链（链头 + **第一个**后缀是 `[` 括号）。`[` 关闭那个格上，终结候选的
-`Bracket` 分支会抛 `declaration 括号`；本候选的 `ContinuationClaim` 在那里认领，`IsBuildable`
-在括号关闭、其后只剩输入结束（或 `;`）时才放行整棵建树（`MemberChainJudge.Build`，legacy `ExpressionBuilder`
-逐节点同源）。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts

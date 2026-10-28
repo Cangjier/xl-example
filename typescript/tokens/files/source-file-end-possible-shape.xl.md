@@ -190,12 +190,6 @@ return text === "return" || text === "debugger" || text === "break" || text === 
 
 ## static method LastCodeIndex:(host:Token)=>int
 
-尾段**最后一个代码单元**的下标（跳过 trivia 与 EOF 哨兵）；当前数组里没有代码单元时返回 `-1`。
-
-[W6:TAIL-RESYNC] 与 `ItemUtil.ItemStart` 配对使用：两者都在**调用当下的** `host.Data` 上取，
-而不是用进入 `BuildByIndex` 时抓下来的 `start` / `at`——尾段的两条建树尝试都会就地 `splice`
-（`BuildTrailingDeclaration` 失败前还可能插过一个零宽合成 `;`），失败之后旧下标已经过期。
-
 ```ts
 let at = host.Data.length - 1;
 while (at >= 0 && (host.Data[at].IsTriviaToken || host.Data[at] instanceof EndOfFileTokenShape)) {

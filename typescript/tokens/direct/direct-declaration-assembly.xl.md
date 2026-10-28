@@ -17,17 +17,6 @@ import { DirectTypeAssembly } from "./direct-type-assembly.xl.md"
 
 # namespace cangjie
 
-`VariableDeclarationList` 的**直建**版（R4-CONTRACT §4.3）：只做「Identifier 名字 + 可选类型注解 +
-可选初始化器」子集，给 `for` 头部的声明列表（`for (let i = 0; …)` / `for (const k in o)` /
-`for (const v of xs)`）用。
-
-**A6（必须遵守）**：本类**不调** `StatementBuilder`、不调 `ExpressionBuilder`；类型注解经
-`DirectTypeAssembly` 只读复用 `TypeBuilder`（**不计 A6**，R2 `as` 起同口径）。Pos / 区间 / 子节点顺序
-仍逐条照抄 `StatementBuilder.BuildVariableDeclarationList`（`statement-builder.xl.md:1610-1767`）；
-初始化器走 `DirectStatementAssembly.ExpressionOf`（= `DirectExpressionEngine`）。
-
-范围外一律返回 `null` 并把原因写进 `LastReason` / `LastCategory`（调用方 `Decline`，不抛）：
-
 ```txt
 for (let i: number = 0; ;)   -> 直建（R5-D1-c 尽力项：类型注解与变量声明同口）
 for (let x!: T = 0; ;)       -> stmt.type     （确定赋值断言 `!` 仍不做）
@@ -40,12 +29,7 @@ for (using …)                -> stmt.head     （`using` 声明本轮不接）
 
 ## static field LastReason:string = ""
 
-最近一次 `ListFrom` 失败的原因（调用方拼进 `Decline` 文案）。
-
 ## static field LastCategory:string = ""
-
-最近一次 `ListFrom` 失败的 category（`stmt.head` / `stmt.binding` / `stmt.type` / `stmt.expr` / `stmt.shape`）。
-调用方直接用它当 `Decline` 的 category —— 分类判据只写在这一处，session 里不再重写第二份。
 
 ## static method IsDeclarationKeyword:(unit:Token)=>bool
 

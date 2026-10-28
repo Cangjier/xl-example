@@ -65,14 +65,6 @@ import { DirectTokenUtil } from "./direct-token-util.xl.md"
 
 # namespace cangjie
 
-表达式直建引擎：token 一关闭就建节点。两层状态（等操作数 / 等运算符）+ 二元 frame 栈的优先级旋转 +
-括号嵌套引擎 + 前缀/后缀一元 + **R2 的表达式补全**（字面量与关键字、数组/对象、调用/成员/下标/new/可选链、
-赋值/条件/逗号/as/非空、typeof/void/delete）与 **C1 的行终止符守卫**。
-**R7-D2 再加一条操作数分支：类表达式**（`class` / `class X` / `class extends B` / 含成员的类体）——
-收口期只调公开静态工厂（`HeritageClauseShape.BuildClauses` + `BodyGuideUtil.CollectBodyMembers` /
-`ClassDeclarationShape.BuildMembers`），本文件一个新 Builder 都不建 ⇒ A6 残差与 class 声明逐条相同。
-**不做 fallback**：范围外构造 `Fail`（= Decline），接不上的单元只 `Held`。
-
 # class DirectExpressionEngine
 
 ```txt
@@ -109,8 +101,6 @@ a⏎++b   -> 第一层在 `a` 收口（C1：换行后的 ++ 属于下一条语�
 
 ## static field CondPrecedence:int = 2
 
-条件表达式在栈上的优先级位：低于 `??`(4) 高于赋值(0)。只活在本引擎里，**不改** `OperatorTable`。
-
 ## field Template:Template
 
 ## field Context:SyntaxContext
@@ -129,12 +119,7 @@ a⏎++b   -> 第一层在 `a` 收口（C1：换行后的 ++ 属于下一条语�
 
 ## field FrameStages:Array<int> = []
 
-与 `Frames` 平行的阶段位（R2 唯一的契约字段语义扩展，见 R2-CONTRACT §4.2）：
-`StageOperand` 等右操作数、`StageColon` 条件真分支已挂、等 `:`、`StageFalse` 等假分支、`StageDone` 可出栈。
-
 ## field FramePending:Array<bool> = []
-
-R1 契约字段**保留**，语义 = `FrameStages[i] == StageOperand`（由 `FrameStages` 单向派生，两者一起维护）。
 
 ## field Prefixes:Array<Token> = []
 
@@ -158,22 +143,11 @@ R1 契约字段**保留**，语义 = `FrameStages[i] == StageOperand`（由 `Fra
 
 ## field PreviousUnit:Token | null = null
 
-C1 守卫用的「上一个代码单元」（两条摄入路径都维护，见 `IngestUnit`）。
-
 ## field NewPending:Token | null = null
-
-A3 `new`：已建但还没收口的 `NewExpressionShape`（被构造者后缀链还在长）。
 
 ## field NewArgsSeen:bool = false
 
-A3 `new`：**当前这个** `new` 的实参括号已消费（之后紧跟的 `(` 属于「new 之后再调用」，本轮 Decline）。
-**必须是「每个 `new` 各一份」的状态**：`StartNew` 里清零。同一条表达式里出现第二个 `new`
-（`new C().x + new C().m()`、`c ? new A(t) : new B(t)`）时，若沿用上一个 `new` 的 true，
-下一个 `(` 会被当成 CallExpression 建出来（`new` 再吞掉整条链）⇒ 多一个 CallExpression、区间全错。
-
 ## field PostfixWait:int = 0
-
-成员访问等待位：`PostfixDot` / `PostfixQuestionDot` 表示上一格是 `.` / `?.`，这一格是名字或实参表。
 
 ## field PostfixUnit:Token | null = null
 
@@ -191,115 +165,45 @@ A3 `new`：**当前这个** `new` 的实参括号已消费（之后紧跟的 `(`
 
 ## field AngleDepth:int = 0
 
-泛型实参判定的流式替代（引擎没有前瞻）：本层 `<` 打开的角括号深度。
-
 ## field PrevAngleClose:Token | null = null
-
-刚刚把某个 `<` 合上的那个 `>` 单元。它只在 `PreviousUnit` 正好等于它时才有意义——
-即「`>` 后面紧跟着一个 `(`」，TS 会把它读成泛型实参调用（`f<T>(1)`），本轮不做，必须显式 Decline。
-R6-A3 起同一格再加一种后继单元：**模板串**（`f<T>` + `` `t` `` = tagged template），同样显式 Decline。
 
 ## field ParamWait:bool = false
 
-**R3-B2-2 箭头（§4.3.3）**：上一格是「**可能**是箭头参数表」的 `(` 括号，等这一格判是不是 `=>`。
-引擎没有前瞻，所以 `(` 不能当场决定：参数表形态的括号**先挂起一格**，是 `=>` 就建箭头，
-否则退回原来的 `IngestParen`（括号表达式 / 调用实参都不是这里的事）。
-
 ## field ParamBracket:Bracket | null = null
-
-挂起中的参数表括号（`ParamWait` 为真时有效）。
 
 ## field ParamPos:int = -1
 
-挂起中的参数表括号的 Pos（= 传进来那一格的 pos，含前导 trivia）。
-
 ## field ArrowPending:Token | null = null
-
-**R3-B2-2**：已经建好（参数 + `=>` 都挂上）但**体还没收口**的 `ArrowFunctionShape`。
-体是表达式时由一个**子引擎**吃剩下所有单元（嵌套箭头 `a => b => c` 因此是递归的），
-体是 `{…}` 时当场建块。收口后 `TakeOperand(arrow)`，与普通操作数同一条通道。
 
 ## field ArrowBody:DirectExpressionEngine | null = null
 
-箭头的**表达式体**子引擎（懒建：第一个体单元到达时才 new，`BasePos` = 那一格的 pos）。
-
 ## field AsyncPending:Token | null = null
-
-**R5-D3-b（R5-CONTRACT §4.6-B）**：语句首的 `async` 单元。引擎没有前瞻，`async` 到底是
-「async 箭头的 AsyncKeyword」还是「名叫 async 的标识符（调用 `async(a)` / 成员 `async.b`）」，
-要看**下一格**：`async` + `(` ⇒ 挂起参数表等 `=>`；否则退回标识符 + 正常后缀链。
-这一格只在等待下一格时非空，`IngestCode` 的第一个分支就把它消费掉。
 
 ## field AsyncPendingPos:int = -1
 
-挂起中的 `async` 的 Pos（= 传进来那一格的 pos，含前导 trivia）。
-
 ## field AsyncParams:bool = false
-
-挂起中的参数表括号是「`async` 之后的那个 `(`」（`ParamWait` 为真时有效）：命中 `=>` 就把
-`AsyncKeywordShape` 作为 `ArrowFunction` 的**第一个**子节点（tsc 实测顺序 `[AsyncKeyword, Parameter…, =>, body]`）。
 
 ## field AsyncRawUnit:Token | null = null
 
-**R7-AST-1（async 无括号单参数箭头）**：`async` 之后紧跟一个**裸 Identifier 参数**、且两者同一行时，
-`async` 已被认成 `AsyncKeyword`、那个 Identifier 已按 `PendingOperand` 挂在等运算符位；本字段留住
-`async` 单元本身，等 `=>` 到了由 `StartArrow` 把它补成 `ArrowFunction` 的第一个子节点。
-与 `AsyncPending` 分工：`AsyncPending`（+ `AsyncParams`）是「参数表括号形态」的挂起位，本字段是
-「裸参数形态」的挂起位；两者互斥，且都只在 `=>` 那一格之前非空。
-
 ## field AsyncRawPos:int = -1
-
-挂起中的裸参数 `async` 的 Pos（= `async` 那一格传入的 pos，含前导 trivia）。
 
 ## field AngleWaitUnit:Token | null = null
 
-**R7-AST-4（`a<b> as T` 的实例化表达式）**：一个把 `AngleDepth` 关掉一层的 `>` 单元。
-引擎没有前瞻，`a < b >` 既可能是比较链（`x<y>z`，直建正例），也可能是**类型实参表的收尾**
-（tsc 自 4.7 起把 `a<b>` 读成 `ExpressionWithTypeArguments`，只要 `>` 后面那一格允许
-`canFollowTypeArgumentsInExpression`——`as` / `satisfies` 就在白名单里）。
-所以 `>` 这一格**先挂起**，下一格到了才决断：`as`（且左操作数形态合法）⇒ 实例化表达式；
-其余一律按比较链**原样重放**（`ResolveAngleCloseAsComparison` 与改动前逐字节等价）。
-本字段只在 `>` 与下一格之间非空。
-
 ## field AngleWaitPos:int = -1
-
-挂起中的 `>` 的 Pos（= 那一格传入的 pos，含前导 trivia）。
 
 ## field ClassPending:ClassExpressionShape | null = null
 
-**R7-D2（R7-CONTRACT §4.2）**：已经建好（`class` 关键字已 `SignIn`）但**类体还没到**的类表达式。
-引擎没有前瞻，`class` 之后的名字 / 继承子句要一格一格吃，类体 `{…}` 一到才收口 ⇒ 这一格非空期间
-`IngestCode` 把每一格都交给 `IngestClassExpressionPart`，不走「等操作数 / 等运算符」的常规两层。
-
 ## field ClassUnits:Array<Token> = []
-
-挂起中的类表达式的**继承子句原始单元**（从 `extends` / `implements` 起到类体之前，含关键字本身），
-收口时整段交给 `HeritageClauseShape.BuildClauses`（与 `ClassDeclarationShape.BuildFromCode` 的
-`code.slice(index, code.length - 1)` 同口径）。
 
 ## field ClassNameSeen:bool = false
 
-挂起中的类表达式是否已经吃过名字（类表达式允许匿名，所以「没名字」不是错误）。
-
 ## field ClassHeritage:bool = false
-
-挂起中的类表达式是否已经进入继承子句（`extends` / `implements` 之后，名字位永久关闭）。
 
 ## field ClassBase:int = -1
 
-挂起中的类表达式的 `Pos` 基准：名字的 `Pos` 与继承子句的 `basePos` 都取它（= `class` 关键字的
-`EndIndex`；吃到名字后改成名字的 `EndIndex`，与 `BuildFromCode` 的 `heritageBasePos` 同源）。
-
 ## field ClassPos:int = -1
 
-挂起中的类表达式的整体 `Pos`（`class` 关键字那一格传入的 pos，含前导 trivia）。
-
 ## field AllowClass:bool = true
-
-**R7-A3 的范围闸**：只有「操作数位」的类表达式归本轮。括号表达式（`(class {})`）由**嵌套引擎**代管，
-`IngestParen` 建子引擎时把这一格置 `false` ⇒ 括号里的 `class` 仍然显式 Decline、回落旧路径，
-`R7-CX-safe-02` 的「`Parenthesized[ClassExpression]` 留 R8」因此保持成立。
-调用实参 / 数组元素 / 对象值走的是 `BuildSlice`（新引擎，不置位）⇒ `f(class {})` 仍然直建（`R7-CX-pos-06`）。
 
 ## constructor:(template:Template, context:SyntaxContext, basePos:int)=>void
 
@@ -2808,4 +2712,3 @@ shape.Pos = pos;
 shape.TryToClose(this.Context);
 return shape;
 ```
-

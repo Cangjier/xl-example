@@ -234,11 +234,6 @@ return ShapeStates.Uncertain;
 
 ## static method ClauseHeadEndCode:(code:Array<Token>)=>int
 
-[WP-S1] `switch` 子句头的收口位置：`default :` 收在冒号；`case <表达式> :` 收在**三元深度 0** 的第一个
-`:`（`case a ? b : c: d;` 里 `?` 抬深度、配对的 `:` 落回来，第二个才是子句冒号）。括号是原子单元，
-表达式里的 `:` 进不到这一层。与 `StatementBuilder.BuildCaseClauseHead` / `BuildCaseBlock` 的冒号扫描
-**逐字同源**（同一个深度规则），不新写第二套。
-
 ```ts
 if (code.length < 2) {
   return -1;

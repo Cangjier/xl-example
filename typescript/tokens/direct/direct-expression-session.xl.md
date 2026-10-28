@@ -16,19 +16,6 @@ import { DirectTokenUtil } from "./direct-token-util.xl.md"
 
 # namespace cangjie
 
-表达式语句的直建 session：整个壳的代码单元逐格喂给 `DirectExpressionEngine`，`;` 由引擎按「本层结束」吞掉；
-收口时建 `ExpressionStatementShape`（`Data=[expr]`、字段 `Expression=expr`），不调用
-`StatementBuilder` / `StatementBuilder.BuildExpressionStatementFromShapes`。引擎 `Held`（接不上的单元，
-多半是下一条语句）只记 `StoppedAt`；`Finish(endIndex)` 判断它是否落在语句区间内才 Decline。
-
-**R7-A1（missing-semicolon 恢复，R7-CONTRACT §1.1.3）**：`Held` 除了「本轮不支持」还有第二种解释 ——
-**它就是下一条语句的第一个单元**（`a b` 的 `b`、`as b` 的 `b`、`f() g()` 的 `g`）。`AllowRecovery` 打开时，
-`CanRecoverAt` 的**四条准入**（代码单元 / 前缀非空 / **同一行** / 引擎 Hold 且前缀完整）与**三条否决**
-（切点是 `;` / EOF / 模板串、会话非语句级、壳非 `ShellPlainExpression`）全过，就把这次 Hold 记成
-**恢复切点 `StopAt`**：`Units[0..StopAt-1]` 是本条语句，剩下的由壳的 `BuildFromShell` 按切点取 `consumed`
-（落点 B）后逐条续建。
-**关掉 `AllowRecovery` ⇒ `StopAt` 恒 -1 ⇒ 本文件逐字节是 R1–R6 的行为**（R7 的一级回退点）。
-
 # class ExpressionStatementDirectSession implements DirectSession
 
 ```txt

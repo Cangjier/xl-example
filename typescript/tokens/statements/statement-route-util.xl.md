@@ -46,12 +46,6 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 ## static field ShellCaseClauseHead:int = 11
 
-[WP-S1] `switch` 子句头壳（`case <表达式> :` / `default :`）。与 `ShellStatementFamily` 并列的一族：
-候选是 `CaseClauseHeadPossibleShape`，终结候选 `StatementEndPossibleShape` 的 `StatementKind` 也取本值
-（`ClauseHeadEndCode`：三元深度 0 的 `:`），建树走 `StatementFamilyDispatch.BuildByHead` →
-`StatementBuilder.BuildCaseClauseHead`。子句**语句**仍是 `CaseClauseStatementPossibleShape` 那一族，
-两者各管冒号的**前 / 后**，不重叠。
-
 # class StatementClass
 
 ## static field Unknown:int = 0
@@ -80,27 +74,7 @@ import { StatementScanner } from "./statement-scanner.xl.md"
 
 ## static field EnableIncrementalVariableShapes:bool = true
 
-**「basic tokens → shape」增量重构的唯一静态开关。默认 `true`（D7 波翻转；此前是 `false`）。**
-
-打开后只影响 `let` / `const` / `var` 声明族的建形状过程（`VariableStatementShape` /
-`VariableDeclarationListShape` / `VariableDeclarationShape` 及其子形状的逐单元签发与收口）；
-关掉（`false`）时这几种形状仍走「壳 + `StatementBuilder` 原子建树」的 legacy 路径。
-
-**为什么现在默认开**（D7 决策，接 W4 / W5 / W6 的三道读数）：
-
-- 增量路径的已知缺口已经收窄到可验收的量：宽语料下崩溃 **0** 条（预期清单已清空；原先 5 条全是外部 vendor
-  `lib.*.d.ts`（`INCREMENTAL_CRASH_EXPECTED` 逐字登记）、差异 33（天花板 33）、fallback 85 + 外部白名单 13 = 98，
-  且 `policyProblems` 0 条 —— 再让它躺在默认开关后面，等于「修好的路径没人走」。
-- 未支持的后续形态仍按 C10 全有或全无：**显式抛错**，由 `SourceFileRunner.Parse` 的
-  整文件 legacy 重解析兜底（`ParseCore(shell=false)` 在 `finally` 里把本字段与
-  `EnableIncrementalShapes` 一起压 `false`，见 `source-file-runner.xl.md`）。
-- 要复核 legacy 读数不需要改产物：`tests/parse/wide-ast.mjs --legacy`（0/0/≤2）与
-  `tests/gates/run.mjs --legacy` 会在进程内把两个开关压回 `false`。
-- 它只做「选哪条建形状通道」这一件事，不携带任何跨次状态，所以同一进程里两种模式可以交替出现。
-
 ## static method IsIncrementalVariableShapesEnabled:()=>bool
-
-读本开关的**唯一入口**：调用方不再直接读字段，翻开关只写字段（默认 `false`）。
 
 ```ts
 return StatementRouteUtil.EnableIncrementalVariableShapes;
@@ -108,19 +82,7 @@ return StatementRouteUtil.EnableIncrementalVariableShapes;
 
 ## static field EnableIncrementalShapes:bool = true
 
-**「全场景逐字符形状路径」的一级开关。默认 `true`（D7 波与
-`EnableIncrementalVariableShapes` 一起翻转；此前是 `false`）。**
-
-打开后新路径才允许为语句 / 表达式 / 声明等**所有**语句族逐字符签发 shape；`false` 时新路径一步不走，
-所有形状仍走默认的「壳 + Builder 原子建树」路径，既有产物逐字节不变。
-
-它和 `EnableIncrementalVariableShapes` **相互独立**：后者只控制变量声明族的增量建形状（基础实现），
-本字段是把同一套机制推广到全场景的总闸（全场景重构的 bootstrap）。harness 在增量模式下两者同时打开、
-legacy 下同时关闭（`--legacy`）；`SourceFileRunner.ParseCore(shell=false)` 的整文件兜底也把两者一起压 `false`。
-
 ## static method IsIncrementalShapesEnabled:()=>bool
-
-读本开关的**唯一入口**：调用方不再直接读字段，翻开关只写字段（默认 `false`）。
 
 ```ts
 return StatementRouteUtil.EnableIncrementalShapes;
@@ -194,45 +156,15 @@ return StatementRouteUtil.EnableIncrementalShapes;
 
 ## static field EnableSwitchCaseClauseHead:bool = true
 
-[WP-S1] 子句**头**候选（`case-clause-head-possible-shape.xl.md`）的总开关，与 `EnableSwitchCaseClause`
-同一行同源判定：两者必须同开同关，只开一处就是「开关后面只接了一条腿」（挂载侧关了则 mount=0、
-壳计数永远是 0）。默认 `true`，与既有 `EnableSwitchCaseClause` 一致。
-
-[S6] **它之外还有一道模式闸**：`BlockPossibleShape.OnShellBracketCreated` 把子句头候选挂进子句块目录时
-还要求 `IsIncrementalShapesEnabled()` 为真（见该文件的 `[S6]` 注释）。本开关默认 `true` 只表示
-「增量路径的这条腿开着」，**不表示 legacy 解析也走子句头**——legacy 解析（wide-ast / `tts` 的 legacy
-半程）在子句块上逐字节回到「只挂 `CaseClauseStatementPossibleShape`」的 S1 之前形态。两道闸分开的理由：
-`EnableSwitchCaseClauseHead` 是功能开关，关掉它 S1 的增量能力（control-flow / switch-fallthrough）就没了；
-模式闸关掉的只是「增量壳出现在 legacy 口子下」这一条错配。
-
 ## static field SwitchCaseClauseHeadShellCount:int = 0
-
-[WP-S1] 只读计数：子句头壳（`CaseClauseHeadPossibleShape.BuildByIndex`）建出的次数。
 
 ## static field EnableBlockClassShell:bool = true
 
 ## static field EnableFunctionBodyCatalog:bool = true
 
-[WP-S1] 根层 `function` 声明体的**块体语句目录**开关（`function-declaration-shape.xl.md` 的
-`OnBracketCreatedEvent`）。关闭时根层函数体逐字节回到「整段 raw 建树」（WP-S1 之前的行为）。
-
-为什么必须挂：根层 `function` 由 `FunctionDeclarationPossibleShape` 在关键字格 `MountShell`，壳的
-`CatalogGuide` 只有终结候选、**没有体目录挂载点**；`Bracket.Transit` 通知宿主时走的是
-`UnitToken.OnBracketCreatedEvent`（空实现），`ChildBracketCreatedHook` 那段对「宿主不是括号」的
-补通知因此永远进不来。于是函数体 `{` 的 `CatalogGuide` 恒为 `null`，体内**一条语句都拿不到格子**——
-`switch` / `case` 在 `control-flow` 里 0 次、`BlockBodyStatementCount` 恒 0，都是这一条的后果。
-挂上之后体内语句与控制流块体走**同一条**「语句壳 + `BuildBlock` 收集通道」
-（`StatementBuilder.CollectBodyStatements`），建树路径不新增。
-
 ## static field FunctionBodyShellCatalogCount:int = 0
 
-[WP-S1] 只读计数：根层函数体挂上块体语句目录的次数。
-
 ## static field EnableStuckShellRecovery:bool = true
-
-[S2:STUCK-SHELL] 卡死壳检测（`incremental-stuck-shell-recovery.xl.md`）的总开关。开着只代表
-「可以检测、可以计数」（`StuckShellRecoveryCount`），**不代表可以强制收口**——强制收口另有
-`IncrementalStuckShellRecovery.ForceClose`，默认 `false`。与 EOF 那条「先计数、后翻行为」同一条纪律。
 
 ```ts
 true
@@ -240,18 +172,11 @@ true
 
 ## static field StuckShellRecoveryCount:int = 0
 
-只读计数：检测到「壳连续 ≥ `RecoveryCells` 格 `Uncertain`、而下一条语句的起始词已经到达」的次数。
-当前语料上应为 **0**（根因已在 `variable-declaration-shape.xl.md` 的 `[S2:CLOSE-TYPED]` 修掉）。
-
 ```ts
 0
 ```
 
 ## static field EofDiscardedStatementCount:int = 0
-
-只读计数：EOF 收口时残留的 basic 代码单元里**以语句起始词开头**（`for` / `if` / `switch` / `while` /
-`try` / `function` / `class` / `const` …）的文件数。`class-inheritance` 在修复前为 1、修复后应为 0。
-**只计数、不抛错**：翻成显式抛错是后续独立提交（保护 195 条「仅 `src` +1」基线）。
 
 ```ts
 0
@@ -259,37 +184,9 @@ true
 
 ## static field EnableNamespaceBodyDeclarations:bool = true
 
-**[S3:NAMESPACE-BODY]** 模块体（`namespace` / `module` / `declare global` 的 `{`…`}`）内的**声明族**开关。
-
-打开后 `namespace-body-declaration-mount.xl.md` 才会给模块体括号挂声明目录，`IsDeclarationHost` 才把
-「模块块」与「根层」并列为声明宿主。`false` 时模块体括号不挂目录，体内一切逐字节回到本 WP 之前的
-「整段 raw 建树」形态（`ts-all` 的 429 条基线因此不可能被本开关误伤）。
-
 ## static field NamespaceBodyDeclarationMountCount:int = 0
 
-**[S3:NAMESPACE-BODY]** 只读计数：模块体括号挂上声明目录的次数（每个 `{`…`}` 体 +1）。
-
 ## static method IsDeclarationHost:(host:Token | null)=>bool
-
-**[S3:NAMESPACE-BODY] 声明宿主的唯一判据（本方法与 WP-S3 的 `IsDeclarationHost` 一一对应）。**
-
-「声明族能在这里挂壳」的宿主只有两种：
-
-1. **根层**：宿主是文件单元（`SourceFileShape`），`Parent === null`；
-2. **模块块**：宿主是 `{` 括号，且这个括号的父单元是 `ModuleDeclarationShape`
-   （`namespace N { … }` / `module M { … }` / `declare global { … }` 的体）。
-
-**为什么模块体必须看「括号的父单元」而不是看括号自己**：增量路径里模块体在整条 trace 期间都是
-`Bracket`（`ModuleBlockShape` 只在 legacy 收口时由 `ModuleDeclarationShape.FromUnits` 建出来），
-所以「宿主是不是模块体」只能由 `ModuleDeclarationPossibleShape` 提前挂出的
-`ModuleDeclarationShape` 壳回答。这也是本判据不需要 import `ModuleDeclarationShape` 的原因——
-按类名比对（与 `DecideCaseClauseHead` 里 `shape.constructor.name === "CaseClauseHeadPossibleShape"`
-同一手法），避免 `statement-route-util ↔ module-declaration-shape` 的循环依赖。
-
-**刻意不认「所有块体」**：`{` 语句块 / 函数体 / 箭头体里的 `interface` / `type` 是**块级声明**，
-它们的建树通道由块体目录（`ControlFlowStatementPossibleShape` 的 `ShellDeclarationFamily`）负责；
-把它们也算成声明宿主会让声明族候选与块体语句壳同格双 Accept（`CatalogGuide` 抛「终结候选与其它
-候选同时成立」），这正是 WP-S3 §风险第一条要求避免的事故。
 
 ```ts
 if (host === null) {
@@ -309,16 +206,6 @@ return owner.constructor.name === "ModuleDeclarationShape";
 ```
 
 ## static method IsRootDeclarationHost:(host:Token | null)=>bool
-
-**[S3:NAMESPACE-BODY] 根层限定判据（`IsDeclarationHost` 的另一半，两者刻意**分成两个**）。**
-
-`import` / `export` 这一族在模块体里的**合法面比根层窄**：`import x from "m"` / `export =` /
-`export as namespace N` 在 `namespace` 体内非法（TS 报 1148 / 1063），`import()` / `import.meta`
-则根本是表达式位。所以「导入导出族的专用候选」（`ImportExportDeclarationMount` /
-`ImportExportLegacyDeclarationMount` / `ImportDeclarationPossibleShape` /
-`ExportDeclarationPossibleShape` / `ImportEqualsDeclarationPossibleShape` /
-`ExportAssignmentPossibleShape`）**只能留在根层**——把它们放进模块体目录会与声明族的通用语句壳
-抢同一格。判据本体就是原来的 `host.Parent === null`，一个字都不新写。
 
 ```ts
 if (host === null) {
@@ -574,22 +461,6 @@ return false;
 ```
 
 ## static method DecideCaseClauseHead:(units:Array<Token>, headAt:int, text:string)=>int
-
-[WP-S1] `case` / `default` 起语句的唯一判据。**必须早于标签判据**（`case 0:` 的 `0:` 满足
-`IsLabelColonAhead` 的形态，判晚了 `case` 就落进表达式壳、数字被建 `LabeledStatementShape`）。
-
-四道闸，缺一不可：
-
-1. 三个开关（`EnableShellExpressions` / `EnableSwitchCaseClause` / `EnableSwitchCaseClauseHead`）全开；
-2. 首词是 `case` 或 `default`（**只在本方法里出现一次**，不写第二份关键字表）；
-3. 宿主是**子句块目录**（`{` 括号且 `CatalogGuide` 里挂着 `CaseClauseHeadPossibleShape`）。这一条把
-   「`case` / `default` 当标识符 / 属性名」的形态挡在外面——那些形态的宿主不是我们挂的目录；
-   该目录**只在增量模式挂载**（[S6]，`block-possible-shape.xl.md` 的 `IsIncrementalShapesEnabled()` 闸），
-   所以 legacy 解析里本方法恒返回 `None`，路由与 S1 之前逐字节一致。
-4. **不等第二个代码单元**。宿主是子句块目录时 `case` / `default` 在这个位置只可能是子句头；等下去会让
-   表达式族在同一格把 `case` 判成 `ShellPlainExpression`，而 `Reject` 被 `CatalogGuide` 永久删除，
-   子句头候选一被拒就再没有候选能建壳。`default` 的「冒号必须紧跟」由终结候选
-   `StatementEndPossibleShape.ClauseHeadEndCode` 与 `StatementBuilder.BuildCaseClauseHead` 各自把住。
 
 ```ts
 if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableSwitchCaseClause
@@ -1159,231 +1030,42 @@ return StatementClass.OperandStart;
 
 ## static field EnableBracketCreatePossible:bool = true
 
-**[T2:CREATE] 括号创建触发的 possible 重算（`PossibleSource.BracketCreate`）的开关。[T8a] 默认 `true`。**
-
-**默认值的历史**：T2 建线时默认 `false`；T7b 把 `Bracket.Transit` 里的 `BracketCreate` 两次判定改成
-**无条件直调**之后，本开关不再控制触发（触发不读它，见 `BracketRoleCatalogHook`）。T8a 把它翻成
-`true`，让 T3 的 026 修法在**默认路径**生效。
-
-翻转后本开关只剩两处含义：
-
-1. `BracketRoleCatalogHook.EnsureInstalled` 的装配条件之一（另一条是 `EnableBracketRoleCatalog`）：
-   为真时把 `BracketRoleCatalogHook` 装到 `BracketRoleHook.Current`（幂等）。装上也只是一次分派，
-   角色目录本身仍受 `EnableBracketRoleCatalog` 门控，因此本开关**不改变**角色解析与目录装配；
-2. **控制头候选成员名让位**（`ControlHeadPossibleShape.AtomKind` 对 `.` / `?.` 之后的标识符不建头原子，
-   T3 的 026 修法）。026 `if (/x/.test(s)) {}` 的 `test` 若被提前建成 `IdentifierShape`，legacy 的
-   `ParseName` 在 `.` 之后读不到 `Common` ⇒「缺少标识符」⇒ 整条文件 fallback。
-
-`false` 时让位不生效，026 回到「唯一 fallback」（29/1/0/0）；`true`（默认）时 30 条 target 全
-ok、fallback=0（T8a 实测 30/30/0/0）。这条让位与 `ExpressionBracketPossibleShape` 对 `.` / `?.`
-的无条件让位是同一条判据、同一个理由（见 `ControlHeadPossibleShape.IsMemberName`）。
-
 ## static field BracketCreatePossibleCount:int = 0
-
-[T2:CREATE] 只读计数：`BracketCreate` 触发段被调用（= 建出一只新括号且开关打开）的次数。
 
 ## static field BracketCreateSelfCount:int = 0
 
-[T2:CREATE] 只读计数：新括号自己**已挂目录**、因此真的问了一次自身候选的次数（`Data` 为空时通常直接 `Nothing`）。
-
 ## static field BracketCreateParentCount:int = 0
-
-[T2:CREATE] 只读计数：父宿主挂了「带终结候选」的向导、因此真的问了一次父层候选的次数。
 
 ## static field EnableBracketRoleCatalog:bool = false
 
-**[B0:ROLE] 通用括号角色目录（`bracket-role-resolver` / `bracket-catalog-installer` /
-`deferred-bracket-catalog` / `waiting-end-possible`）的一级开关。默认 `false`。**
-
-`false` 时：
-
-- `SourceFileShape` 的构造器不装配 `BracketRoleHook.Current`（保持 `null`），`Bracket.Transit` 里那一行
-  只是 `null` 比较 ⇒ **不解析角色、不装任何目录、不登记任何延迟括号**，既有产物逐字节不变；
-- 下面四个计数恒为 `0`。
-
-`true` 时**也不一定改变产物**：角色解析只对「注册过目录的角色」返回 `Known`，而注册表（
-`BracketRoleResolver.Catalogs`）默认是空的。所以本开关打开、但没有任何 `RegisterCatalog` 时，
-每一个 `{` 走的是「族已装 ⇒ `AlreadyInstalled` ⇒ `SetEndPossible`（已有终结候选则保留）」
-这条零改动路径。B1/B2 的接线是「打开开关 + `RegisterCatalog` 一行」两件事，**可分开验证**。
-
-为什么默认关（与 `EnableIncrementalShapes` 同一条纪律）：B0 只建机制、不迁 site；任何一格提前挂目录
-都会改 step 表与 `moved` 基线，而 B0 的验收要求是**逐项不变**。
-
 ## static field BracketRoleKnownCount:int = 0
-
-[B0:ROLE] 只读计数：`BracketRoleResolver.Resolve` 返回 `Known` 的次数（每只括号最多 +1）。
-
-两种来源：① 族已经在该括号上装好目录（`Reason === "family-installed"`，安装器只会返回
-`AlreadyInstalled`）；② 角色目录已注册、由 `BracketCatalogInstaller` 第一次装上去。
-A1 的验收口径 `BracketRoleKnownCount == 既有 MountCount 之和` 对的是第 ① 种。
 
 ## static field BracketRoleDeferredCount:int = 0
 
-[B0:ROLE] 只读计数：`Resolve` 返回 `Deferred` 的次数。默认（注册表为空、开关关）为 `0`；
-B2 打开开关后，声明族与「语句族未判」的 `{` 会走到这里（**只登记、不装目录**）。
-
 ## static field BracketRoleFallbackCount:int = 0
-
-[B0:ROLE] 只读计数：`Resolve` 返回 `Fallback` 的次数。A1/WP-BF 的审计口径要求最终只允许
-`TypeLiteral`（返回类型里的对象字面量）与 `ObjectLiteralMethodBody`（对象字面量方法体）两个 site，
-其余任何 `Fallback` 都必须由 `Reason` 说明（`no-host-rule:*` / `catalog-not-registered:*` 是机制缺件，
-不是 site 漏网）。
 
 ## static field BracketRoleReplayCount:int = 0
 
-[B0:ROLE] 只读计数：`DeferredBracketCatalog.Replay` 成功 replay 的括号数（`DeferredBracketCatalog.ReplayCount`
-同一口径的镜像；B0 默认恒为 `0`，WP-B2 之后应当等于「声明族延迟括号数」）。
-
 ## static field BracketRoleReplayFailureCount:int = 0
-
-[B0:ROLE] 只读计数：replay 被拒绝 / 中途失败的次数（R2 非 raw、R4 终结候选会 Accept、R5 丢 context、
-R6 循环内抛错）。**非 0 就是缺陷**：A1 的七条硬规则里每一条都不应该被触发。
 
 ## static field BracketRoleReplayDropCount:int = 0
 
-[B0c:ROLE] 只读计数：`DeferredBracketCatalog.Drop` 真正摘掉条目的次数（成功 replay 的一次性消费 +
-失败 / `Abandon` 的显式丢弃；`DeferredBracketCatalog.ReplayDropCount` 同一口径的镜像）。
-它与 `BracketRoleReplayCount` 的差就是失败出口：**`ReplayCount == 0 && ReplayDropCount > 0` 说明条目
-全在失败出口被消费**，不允许当绿。
-
 ## static field EnableArrowParenCatalog:bool = false
-
-**[B0:PAREN] A4b `(` 格「箭头参数」前瞻（`"arrowparen"`）的开关。默认 `false`；由 B3b 打开。**
-
-`true` 时 `CompositeInitializerFormsJudge.Family` 在「`=` 之后的 `(` 括号、内部没有类型注解 / `as` /
-`satisfies`、且 `)` 之后紧跟 `=>`」这一格返回 `"arrowparen"` 而不是 `"paren"`——把「分组 / 箭头参数」
-的裁定从 `(` 格推迟到 `=>` 到达那一格（A2 §7 R4：`(` 格所有权从 A4b 交给 B3b）。
-
-`false`（默认）时那个分支**不进**：`Family` 的返回值、`CanBuild` / `ClaimsForEndPossible` /
-`OperatorContinuation` 的每一条判据都与 B0 之前逐字节相同，`bin-paren-mul` 的现状不受影响。
-
-**为什么必须默认关**：`arrowparen` 一旦提前生效，`(a) + b` 这类「分组后接二元运算符」的括号会被
-判成箭头候选族、`OperatorContinuation` 随之失效，而 B3b 的 `ArrowParamsCatalog` 还没注册——
-那正是 A2 §7 R4 说的「所有权切换」事故。开关 + 目录注册必须同一个 WP 一起翻（B3b）。
 
 ## static field EnableExprBracketCatalog:bool = true
 
-**[B4] 表达式括号内容目录的开关（`expression-bracket-possible-shape.xl.md`）。B4b 起默认 `true`。**
-
-`true` 且增量模式时 `SourceFileShape` 的构造器在装配 `BracketRoleHook` 之前
-`ExpressionBracketPossibleShape.EnsureRegistered()`：把 `ObjectLiteral` / `ArrayLiteral` /
-`CallArgs` / `ParenExpression` 四个角色目录注册进 `BracketRoleResolver`，并打开 B0 的总闸。
-之后 `= { … }` / `= [ … ]` / `f( … )` / `( … )` 的括号里每建出一个标识符 / 数字 / 对象成员，
-都会登记到 `ExpressionAtomRegistry`，由 legacy 收口路径（`ParsePrimary` / `ParseName` /
-`ParseObjectLiteral`）**消费**，不重建。
-
-`false` 时一格都不建：登记表恒空，`ParsePrimary` / `ParseName` / `ParseObjectLiteral`
-的三处 `Has` 恒为 `false`，两档逐字节回到 B4 之前（实测见 `_reports/B4.md` §2）。
-
-**[B4b] 为什么现在能默认 `true`**：打开后原先 12 条崩溃全部落在「消费分支只吃 basic token」这一族，
-B4b 在 `ExpressionBracketPossibleShape.IsBuildable` / `SealMember` / `SealPendingShorthand` 与
-`BracketRoleResolver.Classify` 里补齐了类型位 / 返回值位 / 函数名位 / 箭头形参位 / 成员值完整性
-五类判据（逐条对应见 `_reports/B4b.md` §1）。默认档四道门与 base 逐位相同：
-`wide-ast` 0/33/98、`--legacy` 0/0/2、`real-dts` PASS、`tts` 429、`ts-all` 426/3、`gates` 4/0/7。
-
-**为什么默认关（B4 实测，不是保守）**：打开它以后宽尺子从 `0/33/98` 变成
-**`227 崩溃 / 75 差异 / 131 fallback`**、`tts` 从 `429 PASS` 变成 `406 / 23 FAIL`——
-每一处崩溃都是 A2 §7 R8 预言的同一件事：legacy 的参数表 / 数组元素 / 计算名入口
-（`ClassDeclarationShape.BuildParameters`、`ParseArrayLiteral` 的元素段、`ParseComputedPropertyName`）
-**只吃 basic token**，括号里先垫出的原子它们读不到（首跳 `缺少标识符` / `不支持的类型起点`）。
-这些入口的「消费已建子节点」分支不在 B4 的写域（`parameter-*` / `class-declaration-*` /
-`type-builder` / `variable-declaration-*`），所以开关默认关、机制与探针照常交付。
-逐族读数与最小复现写在 `_reports/B4.md` §3 / §4。
-
 ## static field ExprBracketGuideCount:int = 0
-
-**只读计数**：表达式括号目录真正装上（`ExpressionBracketScan.Enabled === true`）的括号数。
 
 ## static field ExprBracketAtomCount:int = 0
 
-**只读计数**：表达式括号里逐字建出的原子数（`IdentifierShape` / `NumericLiteralShape`）。
-
 ## static field ExprBracketMemberCount:int = 0
-
-**只读计数**：表达式括号里逐字收口的成员数（`PropertyAssignmentShape` / 短写 / 展开）。
 
 ## static field EnableControlHeadCatalog:bool = true
 
-**[B3] 控制流头 `(` 的头目录开关（`control-head-possible-shape.xl.md`）。默认 `true`。**
-**[B3b] 它只在增量模式生效**：装配点同时要求 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为真，
-legacy 下本开关等于关闭，产物逐字节回到 B3 之前（理由见下一段）。
-
-`true` 且增量模式时 `SourceFileShape` 的构造器在装配 `BracketRoleHook` 之前先做两件事：
-`ControlHeadPossibleShape.EnsureRegistered()`（把 `ControlHead` 角色目录注册进
-`BracketRoleResolver`）与 `StatementRouteUtil.EnableBracketRoleCatalog = true`（打开 B0 的总闸）。
-
-`false`（或 legacy 模式）时两件事都不做，`ControlHead` 角色回到 B0 的默认状态：
-`Resolve` 对控制流头的 `(` 返回 `Fallback("catalog-not-registered:ControlHead")`（只计数），
-括号内容逐字节保持 raw，legacy 在收口格照旧一次性建——即 B3 之前的产物。
-
-**为什么必须有增量闸**：打开头目录顺带打开的是 B0 的**总闸**，legacy 里没人需要它。
-B3 最初只读本字段，于是 `--legacy` 档也装配了头目录：`FileFallbackCount` 从 2 涨到 11
-（`tests/cases/token` 10 件 + `samples/declarations.ts` 1 件），
-`stmt-if-multiline-condition.ts` 多 1 条 moved，`gates --legacy` 从 4/0/7 掉到 3/1/7。
-闸加在装配套之后，`CatalogGuide.FlushOnClose`（默认 `false`）、`ParsePrimary` 的 `IsAtom`
-（另有显式模式闸）、`BracketRoleResult.FlushOnClose`（默认 `false`）三条透传在 legacy 下
-都保持默认值，一个字节不改。默认档读数不变（B3b 复测同上）。
-
-**为什么可以与 B1 的总闸分开翻**：B1 的总闸是在**第一只函数形参括号**上打开的
-（`function-declaration-shape.xl.md` 的 `OpenParameterList`），所以「文件里没有函数声明」时 B0 一次都不跑
-（`for (…)` 开头的文件就是这种）。B3 的控制流头出现在**任何**文件里，所以它自己把总闸打开；
-打开之后每个 `{` / `(` 都多走一次角色解析，族已装目录的一律 `AlreadyInstalled` +
-`SetEndPossible(null)`（一个字节都不改），没有目录的只计数。
-
 ## static field ControlHeadGuideCount:int = 0
-
-[B3] 只读计数：**装上了头目录并且真的建出了头原子**的控制流头括号数
-（`ControlHeadPossibleShape.States` 里 `Enabled === true` 的条目数，每只括号最多 +1）。
-
-口径说明：没有可建原子的头（`if ()`、`while (/**/)`）不会产生状态条目，因此不计数——
-本计数是「这只头的逐字建真的发生了」的读数，不是「装了几只向导」的读数。
 
 ## static field ControlHeadAtomCount:int = 0
 
-[B3] 只读计数：控制流头里**逐字建出**的头原子总数（每建一个 `IdentifierShape` /
-`NumericLiteralShape` +1）。它是 `for-classic.ts` 那条验收
-（`i` / `0` / `3` 各自在 token 关闭格成 shape）的机械读数。
-
 ## static field EnableContainerShape:bool = true
 
-**B4i / K1：容器 shape 在括号关闭格出现（`container-shape-catalog.xl.md`）。默认 `true`。**
-
-`true` 且增量模式时，`{` / `[` / `(` 关闭的那一拍（`Bracket.Close` 问完父单元之后，由宿主
-`VariableDeclarationShape` 的窄目录候选 `ContainerClosePossibleShape.BuildByIndex` 执行），角色为
-`ObjectLiteral` / `ArrayLiteral` / `CallArgs` / `ParenExpression` 的四类括号**就地**被 legacy
-`ExpressionBuilder` 建成 `ObjectLiteralExpressionShape` / `ArrayLiteralExpressionShape` /
-`CallExpressionShape` / `ParenthesizedExpressionShape`，并**顶替父单元 `Data` 里的那只括号**
-（位置是括号原来的槽位；`CallArgs` 连同它的 callee 一起被吞进 `CallExpressionShape`，
-槽位前移到 callee 的第一格）。`src` / `pos` 由同一份 legacy `Positions` 口径给出，因此
-`pos` 与 TS 的 `node.pos`（前一个 token 的终点）逐位相同。
-
-**所有权切换（B4i 补齐）**：容器建出来以后，收口侧只**消费**、不重建——
-① `ExpressionBuilder.ParsePrimary` 认 `ExpressionAtomRegistry.HasContainer` 并直接消费；
-② `VariableDeclarationShape.FinishIncremental`：容器是唯一根时直接收下；容器之外还有前缀 / 后缀
-（`.b` / `(1)` / `[0]` / `!` / `/ 2` …）时从**整段 raw 的第一格** `ParseExpression`，并用源区间
-验覆盖（截断即显式抛错）；`as` / `satisfies` 的类型槽（`[] as number[]` 的 `[`）走
-`TypeCatalogFactory.ParseInitializer` 并验覆盖；
-③ 带 `as` / `satisfies` 的初始化器由 `TypeCatalogFactory.StartsTypedInitializer` 认容器头；
-④ 语句尾判据（`ExpressionStatementPossibleShape.CanEndExpression`）把容器认成**已结束的操作数**
-（ASI / 行尾收口不再以为「最后一个单元是形状 ⇒ 收不住」）；
-⑤ 正则起点（`TypeScriptRegexTemplate.CanStartAt`）把容器之后的 `/` 认成**除号**。
-
-`false` 时候选不建任何容器，`{` / `[` / `(` 仍只在
-legacy 收口格由 A4 / A4b / P1 / P4 建出，读数与 B4d 逐位相同（`ExprBracketCatalog` 那套不变）。
-
-**为什么现在能默认打开（B4i 实测）**：B4e 打开时宽尺子是 `0/43/99+13`（10 条新 structural、
-14 件新 fallback）。B4i 把收口侧的消费补齐之后，打开与关闭**逐位相同**：`0/29/82+13=95`、
-`legacy 0/0/2`、`gates 4/0/7`、`ts-all 429/426/3`（`_reports/B4i.md`）。残留的是**位置闸**
-（`ArrowAhead` / `SequelAllowsBuild` / `InsideArrowTail` / `InsideNewExpression` /
-`RoleMatchesBracket` / 后缀 `[`）：这些位置的所有权归 legacy，本机制**不建**（`RefusedCount`
-计数），不是静默降级。
-
-**增量闸**：钩子只在该开关与 `IsIncrementalShapesEnabled()` 同时为真时装配；实现里再检查一次
-（同一进程里两种模式可以交替）。legacy 档 `--legacy` 因此逐字节回到 B4d 之前；开关置 `false`
-则四道门与 base 逐位相同。
-
 ## static field ContainerShapeBuildCount:int = 0
-
-[B4e] 只读计数：关闭格上真正被容器 shape 顶替掉的括号数（一次成功的「创建格建树」+1）。
-按角色分类的读数见 `ContainerShapeCatalog` 的静态计数；本计数是四族合计。
-

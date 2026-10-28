@@ -25,16 +25,6 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 # namespace cangjie
 
-`VariableDeclarationShape` 的**终结候选**（契约 C8：`CatalogGuide` 的 `EndPossible`）。
-
-它只回答「这条声明到这里算不算结束」，**不建任何形状**：真正的收口（字段提取 + 初始值原子建树）由
-`VariableDeclarationShape.FinishIncremental` 在 `TryToClose` 里完成——EOF 那条路根本不经过本候选
-（`SourceFileShape.Process` 直接对挂载单元 `TryToClose`），所以这里不做 `Accept` 之外的副作用。
-
-**C10（全有或全无）**：只认识目标路径上的符号。`=` / 二元运算符 / 数字与标识符基本单元都是
-「WP-C 接管前的中间态」，返回 `Reject` 让 `CatalogGuide` 继续等；其它符号（`:` 类型注解、`,` 多声明、
-`;` 分号收口、`!` 确定赋值…）是本模式**未支持**的后续形态，显式抛错，绝不静默产出错树。
-
 # class VariableDeclarationEndPossibleShape extends PossibleShape
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
@@ -315,12 +305,6 @@ return ShapeStates.Reject;
 
 ## static method HasOpenTypeArgument:(units:Array<Token>, tokenIndex:int)=>bool
 
-`=` 之后的初始化器里 `Symbol("<")` 比 `>` 家族多 ⇒ 正处在**类型实参列表内部**（`f<string` 停在 `string`）。
-
-**只数到当前格之前**（`at < tokenIndex`）：当前格正是那个 `>` 时它还没闭合，`<` 仍然比 `>` 多。
-
-字符口径与 `TypeCatalogFactory.HasTypeArgumentCall` 的深度计算一致（`>>` 记 2、`>>>` 记 3）。
-
 ```ts
 const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
 if (equalAt < 0) {
@@ -354,11 +338,6 @@ return depth > 0;
 ```
 
 ## static method HasTypeArgumentCall:(units:Array<Token>)=>bool
-
-这段单元里是否有「标识符（或已建形状）+ `<` … 配对 `>` + 紧跟 `(` 括号」的**类型实参调用**形态。
-
-与 `TypeCatalogFactory.HasTypeArgumentCall` 同一判据（本文件单独实现一份是为了避免
-`types/type-catalog-factory` ↔ `declarations/*` 的导入环；两处判据必须保持一致）。
 
 ```ts
 for (let at = 0; at < units.length; at++) {
@@ -409,8 +388,6 @@ return false;
 
 ## static method EqualIndex:(units:Array<Token>)=>int
 
-宿主 `Data` 里第一个 `Symbol("=")` 的下标（跳过前导 trivia）；没有返回 `-1`。
-
 ```ts
 for (let at = 0; at < units.length; at++) {
   const unit = units[at];
@@ -426,11 +403,6 @@ return -1;
 
 ## static method HasCompoundTernary:(units:Array<Token>)=>bool
 
-这条声明的初始化器里是不是「**条件位为复合表达式的三目**」：从 `=` 之后往前看（`ItemUtil.IsCompoundTernaryAhead`），
-顶层先有二元运算符、之后有 `?`。
-
-只用作 `[S5:TERNARY]` 守卫的一半（另一半是 `IsRawInitializer`），没有 `=` 时返回 false。
-
 ```ts
 const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
 if (equalAt < 0) {
@@ -440,16 +412,6 @@ return ItemUtil.IsCompoundTernaryAhead(units[equalAt]);
 ```
 
 ## static method IsRawInitializer:(units:Array<Token>)=>bool
-
-`=` 之后的初始化器是否**还是纯 raw 基本单元**——没有任何候选把它建成形状。
-
-这是 `[S5:TERNARY]` 分支唯一的判据：只有纯 raw 的初始化器才能在收口格被 legacy `ExpressionBuilder`
-整段原子重建（`VariableDeclarationShape.FinishIncremental` 的 `builtShape === null` 分支）；
-一旦有形状落地，那条分支不可达（`FinishIncremental` 会「只收唯一根、丢弃其余 basic」），
-本判据为 false，调用点保持原样的 C10 显式抛错。
-
-`=` 之前的部分（标识符 / 类型注解形状 / `!`）不参与判定；`=` 本身也不算。
-没有 `=`（还在声明头）⇒ false（不看 `=` 之前的 `:`，那是类型注解的格，与三目无关）。
 
 ```ts
 const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
@@ -470,14 +432,6 @@ return true;
 
 ## static method HasContainerInitializer:(units:Array<Token>)=>bool
 
-[B4i:K1-ROOT] `=` 之后的初始化器里是否已经有**本机制在括号关闭格建出的容器根**
-（`ExpressionAtomRegistry.Containers` 的身份，不认任意形状）。
-
-与 `IsRawInitializer` 互补：容器落地之后 raw 原子重建那条分支不可达，但**收口格仍然能建出整条**——
-`FinishIncremental` 现在从那个已建容器继续 `ParseExpression`（`.b` / `(1)` / `/ 2` / `as` 都在里面），
-读不完就显式抛错。所以「容器根 + 运算符」与「raw 初始化器 + 运算符」是同一个等待出口，
-不再落进 C10 的 `throw`（否则 `const v = { p: 1 }` ⏎ `/re/g` 会整条 fallback）。
-
 ```ts
 const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
 if (equalAt < 0) {
@@ -492,17 +446,6 @@ return false;
 ```
 
 ## static method HasAnnotationColon:(units:Array<Token>)=>bool
-
-[D3a:RAW-INITIALIZER] 本条声明**带类型注解**。两条**互补**的判据，缺一不可：
-
-- `=` 之前有 `Symbol(":")`——注解**还没落地**时成立；
-- `=` 之前已有第二个非 basic 单元——注解**已经落地**之后成立（那时 `:` 已被 `TryBuildAnnotation`
-  消费掉，`Data` 变成 `[IdentifierShape, TypeNode, (=) …]`）。
-
-为什么要两条：只看「第二个非 basic 单元」时，注解还停在一串 basic 单元（`any` / `BracketRoleResult` /
-`|` / `null` 都是 basic）就看不见它；只看 `:` 时，注解落地之后的声明全被漏掉。实测两条各漏一半。
-
-只用于 `[D3a:RAW-INITIALIZER]` 的反向边界 ④，不参与建树。
 
 ```ts
 let code = 0;
@@ -528,23 +471,6 @@ return colonSeen;
 
 ## static method CanDeferToAtomicInitializer:(text:string)=>bool
 
-[D3a:RAW-INITIALIZER] 这一格的符号是不是「可以整体交给收口格原子建树」的**运算符 / 后缀符号**。
-
-只有两类：
-
-1. 二元运算符（`OperatorTable.IsBinaryOperator`）——`+ - * / % ** && || & | ^ == === != !== << >>`；
-2. 后缀 / 条件位的非收口符号：`!`（非空断言）、`?`（三目条件位）、`:`（三目分支位）。
-
-**闭集之外的三种一律 `false`**（各自的账本不能被本判据改写）：
-
-| 符号 | 为什么不在这里 |
-| --- | --- |
-| `;` `,` | 列表层 / 语句层的收口格（`VariableDeclarationListEndPossibleShape`），不是初始化器内部的续接 |
-| `<` `>` `>>` `>>>` | 类型面（尖括号配对 / 类型实参），归 D3c；本判据放行会让 `尖括号断言…缺少配对的 >` 从 throw 变 partial |
-| `?.` `??` | 有既有显式拒绝账本（tts `throw/composite/class-ball`、`throw/composite/expression-zoo` 依赖它们保持抛错），行为一个字都不改 |
-
-判据只读符号文本（C2 口径），不读源码字符、不看候选状态。
-
 ```ts
 if (text === "!" || text === "?" || text === ":") {
   return true;
@@ -559,17 +485,6 @@ return OperatorTable.IsBinaryOperator(text);
 ```
 
 ## static method PreviousIsShape:(units:Array<Token>, tokenIndex:int)=>bool
-
-[D1:POSTFIX-BRACKET] 本括号格的前一个非 trivia 单元是不是**已经建出来的表达式形状**（或一只已闭合的括号 /
-模板字面量）——即本括号是不是「后缀括号」。
-
-是 ⇒ 这一格是元素访问 `o["f"]` / 调用 `f(x)` / `(a)(b)` / 标签模板后的后缀，归 P1 的后缀候选，
-终结候选只继续等，不抛 C10。只认「紧邻」：中间隔着运算符时仍走原有分支。
-
-为什么 `Bracket` / `String` 也算：`o["f"]()` 的**调用括号**紧跟在 `["f"]` 括号之后，这时下标格由
-元素访问候选接手（它建完，`(` 的左边就是这个候选），而终结候选在 `(` 这一格只该等；
-模板字面量同样是合法的后缀接收者（`` obj.tag`x`[0] ``）。误判的代价被 `FinishIncremental` 的
-「未并入的括号」显式错误兜住（不会静默丢括号）。
 
 ```ts
 const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
@@ -588,12 +503,6 @@ return unit instanceof String;
 
 ## static method HasAtomInitializer:(units:Array<Token>)=>bool
 
-[T9:ATOM-POSTFIX] `=` 之后的初始化器里是否已经有一个**登记过身份的原子根**
-（`ExpressionAtomRegistry.Nodes` / `Containers` 的身份，不认任意形状）。
-
-与 `HasContainerInitializer` 同一条纪律、多认一张表：`Nodes` 那一张是「增量主候选建出、收口格还能在
-其后接续」的表达式根（R15 标签模板，T9 起加数字字面量）。它只用来判「这一格该不该等」，不参与建树。
-
 ```ts
 const equalAt = VariableDeclarationEndPossibleShape.EqualIndex(units);
 if (equalAt < 0) {
@@ -609,12 +518,6 @@ return false;
 ```
 
 ## static method FollowsMemberSegment:(units:Array<Token>, tokenIndex:int)=>bool
-
-[T9:ATOM-POSTFIX] 本格是不是**成员链的下一节**：前一格是属性名（`Common`），它前面（跳过 trivia）是
-`.` / `?.` / `!` 之一。
-
-`const a = 1 .toString[0]` 的 `[` 命中（`toString` 前面是 `.`）；`const a = f()[0]` 不命中
-（前一格是已闭合的括号，走 `PreviousIsShape`）；`const a = 1 + 2[0]` 也不命中（`2` 前面是 `+`）。
 
 ```ts
 const nameAt = ItemUtil.PreviousCode(units, tokenIndex - 1);
@@ -637,11 +540,6 @@ return text === "." || text === "?." || text === "!";
 ```
 
 ## static method HasReducibleLeft:(units:Array<Token>, tokenIndex:int)=>bool
-这个二元运算符格上有没有「`BinaryOperatorPossibleShape` 能用的左操作数」：
-
-- 前一个非 trivia 单元已经是**形状**（`1 && 2` 的 `1`、`a/b` 建完 `a` 之后）⇒ 有；
-- 前一个单元是**标识符 / 数字基本单元**，且它的前一个是 `=`（`let x = a < b` 的 `a`）⇒ 有；
-- 其余（`as T & U` 的 `T`、`(` 之后的 `?` 等）⇒ 没有，保持既有显式拒绝。
 
 ```ts
 const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);

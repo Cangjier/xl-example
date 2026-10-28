@@ -17,8 +17,6 @@ import { IncrementalVariableStatementBuilder } from "../variable-declaration-pos
 
 # namespace cangjie
 
-**ambient 变量声明（`declare const|let|var …`）的提前挂壳候选（WP-A2-D3）。**
-
 ```
 declare const x: number;
 declare let x: number;
@@ -26,33 +24,9 @@ declare var x: number;
 declare const sym: unique symbol
 ```
 
-legacy 链路是 `StatementBuilder.BuildDeclareVariableStatement`：收掉 `declare`、按普通变量语句建
-`VariableStatementShape → VariableDeclarationListShape → VariableDeclarationShape`、把语句 `Pos` 改成
-`declare` 的位置、最后把 `DeclareKeywordShape` 插到语句 `Data` 最前。本候选做的是同一件事，只是把
-「等整条语句收口」换成「在绑定格提前挂三层壳」——三层本身就是增量建造的（
-`IncrementalVariableStatementBuilder.Build` 的 `declared` 变体），所以 `DeclareKeywordShape` 在挂壳时
-就按 legacy 的类名 / `Pos` / `src` 建好。
-
-**为什么建在绑定格而不是 `declare` 格**：`declare` 这一格第二个代码单元还没到，语句首属于哪一族
-（`declare function` / `declare namespace` / `declare const`）还判不出来；而通用声明壳
-（`DeclarationStatementPossibleShape` / `ControlFlowStatementPossibleShape`）在 `declare` 格仍然
-`Accept`（它们要等到第二个代码单元才 Reject），两个候选同时活着时 `CatalogGuide` 不建壳。到
-`const` 格，两处 `[XL-B3f]` 让位段与本候选的 `Owns` 用同一份判据把它们 `Reject` 掉，本候选成为唯一
-活口；绑定 `x` 那一格 `IsBuildable` 成立，三层壳连同 `declare` 词一次搬完。
-
-**三处同源（本 WP 的硬约束）**：① 本文件的 `Owns`；② `declaration-statement-possible-shape` 的
-`[XL-B3f]` 段；③ `control-flow-statement-possible-shape` 的 `[XL-B3f]` 段。②③ 都调用 `Owns`，
-不再各写一份关键字表——否则「同格双 Accept」或「无人建壳」。`declare` 与变量关键字之间换行是
-**两条语句**（TS 的修饰词解析要求同一行），由 `StatementScanner.NoLineBreakBetween` 排除；这条判据与
-`StatementScanner.ScanRoot` 的 ambient 变量分支、`StatementRouteUtil.DecideDeclaration` 的
-`declare` ⏎ 后继判据**是同一个函数**，不新写行终止符判定。`declare const enum` 归 enum 声明族
-（与 `StatementScanner.ScanRoot` 同一处 `NextWord === "enum"` 排除）。
-
 # class DeclareVariablePossibleShape extends PossibleShape
 
 ## static method Owns:(units:Array<Token>, headAt:int, secondAt:int)=>bool
-
-`declare` + 同一行的 `const|let|var` = 本族接管。三处同源判据的**唯一实现**。
 
 ```ts
 if (headAt < 0 || headAt >= units.length || secondAt < 0 || secondAt >= units.length) {
@@ -132,9 +106,6 @@ return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-绑定位到齐才搬单元：`Build` 需要 `const|let|var` 与其后的绑定一起进 `moved`，否则三层壳的
-`list.Pos` / `declaration.Pos` / `IdentifierShape` 都没有可算的单元。
 
 ```ts
 const start = ItemUtil.ItemStartCached(units, cache);

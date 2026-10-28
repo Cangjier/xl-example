@@ -19,36 +19,13 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class IdentifierPrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的**标识符**原子（`let x = y` / `const x = a` / `let x = undefined`）。
-
-legacy EOF 口径（`expr-probe` 实测）：`IdentifierShape  pos=7  src=[8,9)  text="y"`——类名、`Pos`（= 前一个非 trivia
-单元 `=` 的 `EndIndex`）、`src`（标识符自己的代码区间）都照抄；`undefined` 也是 `IdentifierShape`（不是关键字形状）。
-
-**与相邻候选的互斥（否则同一格两个 `Accept` ⇒ `Candidates` 永远 >1 ⇒ 建不出来）**：数字（含 bigint）归
-`NumericLiteralPossibleShape` / `BigIntLiteralPrimaryPossibleShape`，`true`/`false`/`null` 归
-`KeywordLiteralPrimaryPossibleShape`，`this` 归 `ThisPrimaryPossibleShape`，关键字运算符 `in` / `instanceof` 归
-A2 的 `BinaryOperatorPossibleShape`（A1b：本候选若在它们那一格也 `Accept`，会与 A2 候选同格并列 ⇒ 永远 `Waiting`）；
-前缀一元关键字 `typeof` / `void` 归 P3a 的 `PrefixUnaryPossibleShape`（[P3c] 加回排除表：这两个词是**前缀运算符**
-而不是标识符，本候选在它们那一格 `Accept` 会让共享目录永远 `Candidates.size > 1`，P3a 的
-`unary-typeof` / `unary-void` 就永远停在 `partial`）；`new` 同理归 P2。
-本候选对它们一律 `Reject`。
-
-**约束①（E0b 实测）**：`=` 与 trivia 必须 `Uncertain`——`CatalogGuide` 只在建出形状后 `Reset`，中途 `Reject`
-的候选本条目内不会回来。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
-
-注册入口（A1 在 `ExpressionShapeCatalog.AppendFragments` 加一行调用）。
 
 ```ts
 shapes.push(new IdentifierPrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是**已关闭**的 `Common`，不是 bigint / 数字 / 关键字字面量 / `this` / `new` / `typeof` / `void`。
-
-扫描下界走 `ItemUtil.ItemStartCached`（C8）；`Symbol` 只对 `=` 放行（`Uncertain`），其余符号判死（不是原子）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -83,31 +60,11 @@ return ShapeStates.Accept;
 
 ## static field ContextualExpressionWords:Array<string> = ["yield"]
 
-[R12] **上下文关键字不在这里物化成标识符。**
-
-`yield` 是不是 `YieldExpression` 取决于**它所在的函数体**（生成器里恒是；非生成器里只有「同一行后面跟着
-标识符 / 关键字 / 字面量」才是，否则是普通 `Identifier`）。这条判据已经有唯一一份实现——`ExpressionBuilder`
-的 `ParseYield` / `EnclosingFunctionFlags`（第 955 轮那条线，逐条量过 TS 的六格表）。
-
-本候选是**原子**候选：它只看「这一格是不是一个词 + 后面是不是收口」（`PrimaryAtomGuard.IsLoneAtom`），
-既拿不到祖先链也拿不到「当前函数是不是生成器」，于是「裸 `yield`」在这里被一律物化成 `IdentifierShape`
-——生成器里的 `const c = yield` 因此少一个 `YieldExpression`、多一个 `Identifier`（R8 类 1b 的实测）。
-`ComputeByIndex` 仍然 `Accept`（这一格确实是一个词，撤回成 `Reject` 会让该格零候选），只是**不建**：
-`CatalogGuide` 继续 `Waiting`，收口格由 `VariableDeclarationShape.FinishIncremental` 的原子建树分支
-（`ExpressionBuilder`）按上下文判一次——与 `yield 1` 现在走的是同一个出口。
-
 ```ts
 ["yield"]
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-只对「初始化器 = 单个标识符」放行；带标签模板的标签例外（后面紧跟反引号时也放行，由
-`TaggedTemplatePrimaryPossibleShape` 消费）。其余「原子 + 续接语法」的形态交给 EOF 的
-`ExpressionBuilder` 降级分支（保持既有 `partial` 行为，零漂移）。
-
-[R12] 上下文关键字（`ContextualExpressionWords`）同样落到那个降级分支：它们的标识符 / 表达式两态由
-`ExpressionBuilder` 按上下文判，本候选没有那个上下文。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -131,9 +88,6 @@ return PrimaryAtomGuard.IsLoneAtom(units, tokenIndex, context, true);
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-`IdentifierShape.FromBasicToken` 建形状（字段 / `EscapedText` / 关闭与 legacy 同一份实现），`Pos` 按 C1 补
-（`IncrementalItemPosition.AfterPreviousCode`），原位 `Replace` 那一格。
 
 ```ts
 const token = host.Data[tokenIndex];

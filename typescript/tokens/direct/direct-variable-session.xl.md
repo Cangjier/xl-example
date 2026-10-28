@@ -20,12 +20,6 @@ import { DirectTypeAssembly } from "./direct-type-assembly.xl.md"
 
 # namespace cangjie
 
-变量语句（`let` / `const` / `var`）的直建 session：壳（`StatementShape`）每关一个子单元就喂一次，增量推进
-`Head→Binding→EqualOrSep→Initializer→Sep/Done`；收口时一次建出
-`VariableStatementShape → VariableDeclarationListShape → VariableDeclarationShape(+IdentifierShape/初始化器)`，
-不调用 `StatementBuilder`。范围外构造（解构、类型注解、`declare`、`const enum` 等）显式 Decline（计数），
-接不上的单元（可能是下一条语句）只 Held（`StoppedAt`），由 `Finish(endIndex)` 决定是正常收口还是 Decline。
-
 # class VariableStatementDirectSession implements DirectSession
 
 ```txt
@@ -48,9 +42,6 @@ const enum E { … }   -> Decline（enum 属范围外语句族），走旧路径
 ## static field Done:int = 5
 
 ## static field ExpectType:int = 6
-
-R5-D1-a：`:` 之后缓冲类型单元；`=` / `,` / `;` 到达时先 `FlushType`（`DirectTypeAssembly`），
-再把这个分隔符交回 `IngestEqualOrSep`。既有 0–5 的含义**一个都没变**。
 
 ## field Owner:Token | null
 

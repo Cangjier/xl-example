@@ -32,46 +32,9 @@ import { WithStatementShape } from "./with-statement-shape.xl.md"
 
 # class StatementShellCatalog
 
-**B1 的「尽早挂壳」目录：只在 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为 true 时被调用。**
-
-控制流 / 块 / 标签语句在 legacy 里是「整条语句收口时一次建出整棵子树」（`StatementFamilyDispatch`
-的 family builder），账本因此判 `atomic`。本目录在**壳刚建出来**的那一格，就往壳的 `Data` 里塞一个
-**占位节点**：类名 = 该语句族最终节点的 legacy 类名，`Pos` = 壳的 `Pos`（两者逐位相同），`src` 起点 =
-首代码字符。占位节点 `IsTriviaToken = true`，所以：
-
-- `ToAstLine` 会把它当普通子单元打印（账本因此能记下「这个类名 @ 这个 pos 在第 N 格就出现了」）；
-- `StatementBuilder.Load` / `ItemUtil` / 各扫描器都按 trivia 跳过它，语句收口时 `consumed` 切片会把它
-  一并挪出壳、`builder.Load` 不会把它当成代码单元 —— 解析行为零扰动。
-
-收口时 `StatementFamilyDispatch.Build` 用 `Take` 把 legacy 建出的节点 `Data` 原样搬进占位节点、
-把占位节点从 trivia 恢复成普通节点并返回它：于是 EOF 树的 `(类名, pos, 子节点)` 与 legacy **逐节点一致**，
-而该节点首次出现的步号严格早于 legacy。`src` 按 C1 口径覆盖（终点 = legacy 子树终点，不吸尾随 trivia）。
-
-开关关闭时本目录**一个方法都不会被调用**（两个调用点都用 `IsIncrementalShapesEnabled()` 门控），
-所以 legacy 逐字节不变。未支持的形态（`return` / `break` / `continue` / 声明族 / `;`）**不进本目录**，
-它们在 B1 里保持 legacy 时序（不静默假装支持，见报告「已完成 / 未完成」）。
-
 ## static field Shells:Array<Token> = []
 
 ## static field Lists:Array<Array<Token>> = []
-
-[B0b:SHELLID] **身份化**：`Shells` / `Lists` 之外多一条**同下标**的 `ShellIds`，每个 push 的壳在
-`Attach` 里领一个单调 `ShellId`（唯一分配点，计数器 `NextShellId`）。`Take` 不再默认取「栈顶 + 类名」，
-而是先按身份 `(壳的 Pos, 占位节点类名)` 找壳；身份不命中才退回旧的栈顶匹配，并且**每次都计数**。
-
-为什么需要它：`Take` 的旧判据是「`Lists` 最后一个 + `constructor.name`」。内层语句壳只要**提前 push**
-（`if (a) { … }` 的块壳在 `if` 壳收口前就进了栈），栈顶就不再是外层语句的壳；旧代码要么匹配不中（
-`return null`，占位节点悄悄留在壳里当 trivia），要么在类名相同的两层之间弹错壳。身份判据把这类
-「提前 push 的内层壳」从外层 `Take` 的搜索里排除。
-
-只读计数（全部可外部读取，只增不减）：
-
-| 计数 | 含义 |
-|---|---|
-| `ShellTakeByIdentityCount` | 按身份命中（正常路径） |
-| `ShellTakeFallbackCount` | 身份不命中、退回「栈顶 + 类名」并命中（旧行为；**不为 0 就是还没身份化的残留**） |
-| `ShellTakeMissCount` | 两条路径都不命中 ⇒ `return null`（不动栈，等本壳自己收口） |
-| `ShellTakeOutOfOrderCount` | 身份命中的壳**不是栈顶**（= 确实存在提前 push 的内层壳被排除） |
 
 ## static field ShellIds:Array<int> = []
 
@@ -211,14 +174,6 @@ StatementShellCatalog.Lists.push(created);
 
 ## static method FindShellByIdentity:(built:Token)=>int
 
-[B0b:SHELLID] identity = `(壳的 Pos, 占位节点的 legacy 类名)`，返回 `Shells` / `Lists` / `ShellIds`
-里的下标，找不到返回 `-1`。
-
-`Pos` 是语句起始位，壳与 legacy 节点**同一口径**：`Attach` 里 `made.Pos = 壳的 Pos`，而 legacy
-`StatementBuilder.Finish` 用 `this.Positions[first]`（= 前一个非 trivia 单元的 `EndIndex`，见
-`Load` 的 `Positions` 推法）。所以「同一条语句的壳」与「别的壳」在这里可分——**提前 push 的内层语句壳**
-`Pos` 不同，不会命中。从栈顶往下扫：正常情况下最多一个壳命中。
-
 ```ts
 const builtPos = (built as any).Pos as number;
 if (typeof builtPos !== "number") {
@@ -241,15 +196,6 @@ return -1;
 ```
 
 ## static method Take:(built:Token)=>Token | null
-
-[B0b:SHELLID] 取壳判据从「`Lists` 栈顶 + 类名」改成「**身份优先**、栈顶只作兜底」：
-
-1. `FindShellByIdentity(built)` 命中 ⇒ 用那个下标的壳（`ShellTakeByIdentityCount += 1`；下标不是栈顶时
-   再 `ShellTakeOutOfOrderCount += 1`，这是「提前 push 的内层壳被排除」的**唯一**证据）；
-2. 身份不命中 ⇒ 退回旧行为（只看栈顶 + 类名），命中则 `ShellTakeFallbackCount += 1`——**不静默降级**；
-3. 两条都不命中 ⇒ `ShellTakeMissCount += 1` 并 `return null`（不动栈，等本壳自己收口）。
-
-出栈用 `splice(at, 1)` 而不是 `pop()`：身份命中的壳不一定在栈顶。三个数组必须同下标地删。
 
 ```ts
 if (!StatementRouteUtil.IsIncrementalShapesEnabled()) {

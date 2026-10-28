@@ -504,9 +504,6 @@ return unit instanceof String;
 
 ## static method BuildParameters:(host:Token, bracket:Bracket, context:SyntaxContext)=>Array<Token>
 
-[B2c] 括号里已经有 B1 建好的 `ParameterShape`（成员参数表复用了 `ParameterListPossibleShape`）时
-直接收下，不再从 raw 单元重解析；有任何残留代码单元就回退 legacy 逐字解析。
-
 ```ts
 const prebuilt:Array<Token> = [];
 let residue = false;

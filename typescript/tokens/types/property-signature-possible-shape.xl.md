@@ -49,12 +49,7 @@ import { TypeBuilder } from "./type-builder.xl.md"
 
 ## field Early:bool = false
 
-[B2] 本格是「成员头已定」的**早建**判定（见 `EarlyHeadKind`）：`Complete` 早于成员边界成立，
-各候选 `BuildByIndex` 据此建**成员外壳**而不是直接建正品。
-
 ## field EarlyKind:int = -1
-
-[B2c] 早建时的**中性种类**（`MemberHeadKind`）。各候选的 `BuildByIndex` 只在自己那一格建壳。
 
 # class MemberItemStartShared
 
@@ -274,9 +269,6 @@ return ch === "" || ch === "}" || ch === "]" || ch === ")" || ch === ">";
 
 ## static method HeadKindOf:(neutral:int)=>int
 
-把 `MemberHeadKind` 的中性种类映射到 interface 成员的 kind 位；`-1` = 不早建。
-interface 里 `constructor` 只是普通方法名，`new (` 才是构造签名。
-
 ```ts
 if (neutral === MemberHeadKind.Property) {
   return MemberPossibleUtil.PropertyKind;
@@ -303,11 +295,6 @@ return -1;
 ```
 
 ## static method EarlyHeadKind:(code:Array<Token>, head:Token)=>int
-
-**成员头已定**的判据（B2b 扩展 / B2c 方法族）：返回 `MemberHeadKind` 的中性种类，`-1` = 不早建。
-
-成员第一格直接用 document 前瞻判种类（方法 / 构造签名 / 访问器 / 索引 / 属性）；
-更晚的格子只接受 B2b 的属性判据（`name :` 与 名字闭合格 + 下一字符是属性符号）。
 
 ```ts
 if (code.length === 0 || code[code.length - 1] !== head) {

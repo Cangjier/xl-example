@@ -182,19 +182,6 @@ return CaseClauseStatementPossibleShape.IsInsideClause(units, previousAt);
 
 ## static method IsInsideClause:(units:Array<Token>, at:int)=>bool
 
-**[WP-S1] 判据重写：往前的「上一个单元」既可能是 raw `:` / `;`，也可能是 WP-S1 建出的子句头形状
-（`CaseClauseShape` / `DefaultClauseShape`）。** 原判据只在 raw `Data` 里往回找 `case` / `default`
-关键字，子句头一旦被建成形状，关键字就进了形状里、再也找不到——`case 1: case 2: b; break;`
-的 `b;` / `break;` 因此全部退回 raw（实测 `SwitchCaseClauseShellCount` 从 1 卡住）。
-
-判据只有两条，按「离当前格最近的证据」取：
-
-- 最近的非 trivia 单元是**已建好的子句头形状** ⇒ 当前格是那条子句的第一条语句；
-- 或者是 raw `case` / `default` 关键字 ⇒ 用 `StatementBuilder.ClauseColonAt` 的**同一个**三元深度规则
-  找它的子句冒号，冒号在 `at` 之前 ⇒ 当前格在那条子句里。
-
-两处都不成立 ⇒ 不在任何子句里，本候选让位。
-
 ```ts
 for (let cursor = at; cursor >= 0; cursor--) {
   const item = units[cursor];
@@ -217,9 +204,6 @@ return false;
 ```
 
 ## static method ClauseColonAt:(units:Array<Token>, from:int)=>int
-
-[WP-S1] 与 `StatementBuilder.ClauseColonAt` **逐字同源**的三元深度 0 冒号扫描（`case a ? b : c: d;` 里
-第二个 `:` 才是子句冒号）。这里不建树、只判位，所以不能直接调建造器的实例方法。
 
 ```ts
 let ternaryDepth = 0;

@@ -13,36 +13,11 @@ import { StatementRouteUtil } from "../../statements/statement-route-util.xl.md"
 
 # class InterfaceDeclarationMount
 
-`interface` 声明族的**尽早挂壳**入口（WP-B4a，沿用 B5 `ImportExportDeclarationMount` 的最小机制）。
-
 ```txt
 interface I { a: number }   ← 在名字那一格挂 InterfaceDeclarationShape（legacy 最终类名 / 同 Pos）
 ```
 
-做法与效果：
-
-1. `DeclarationStatementPossibleShape.BuildByIndex` 在**语句壳路径**上调用本入口；命中时把「声明头（`interface`
-   关键字）」这一格起的代码单元搬进 `InterfaceDeclarationShape`，形状挂成宿主的挂载单元，后续单元
-   （名字 / 类型参数 / heritage / 接口体）继续落进它的 `Data`。
-2. 接口体 `{` 作为子单元创建时，既有 `InterfaceDeclarationShape.OnBracketCreatedEvent` 会给形状挂上
-   `CatalogGuide([], new InterfaceDeclarationEndPossibleShape())`；`}` 关闭时既有终结候选按
-   `InterfaceDeclarationShape.BuildFromCode(shell, code, shell.Pos, context)` 建出 legacy 子树并把壳替换掉。
-   **所以本文件只管「早挂」，收口完全交给既有实现**，不复制任何建树代码。
-3. 账本判据：`InterfaceDeclarationShape`（`(类名,pos)`）的首次出现从「语句收口」提前到「声明头」，
-   EOF 树仍是 legacy 子树（同一个 `BuildFromCode`、同一个 `Pos`），因此判 `incremental`。
-
-门控与范围：
-
-- 只在 `StatementRouteUtil.IsIncrementalShapesEnabled()` 为真时动作；false 时 `TryBuild` 一步不走、返回 `null`，
-  调用方逐字落回 `super.BuildByIndex` ⇒ legacy 逐字节不变。
-- 只认**声明宿主**（`StatementRouteUtil.IsDeclarationHost`：根层 `Parent === null`，或模块块的 `{`…`}`），
-  且**首代码单元就是 `interface`**（`export` / `declare` / 装饰器前缀形仍走既有声明壳，交给 B3/B5）；
-  普通块体 / 函数体里的同名形态不接管（那里由块体目录的通用声明壳负责）。
-- 未支持形态不静默吞掉：返回 `null` 即交回既有声明壳（它自己会按 C10 显式 throw 或建树）。
-
 ## static field MountCount:int = 0
-
-增量路径实际接管过的 interface 声明数（证据用；不进 AST、不影响判定）。
 
 ## static method TryBuild:(host:Token, tokenIndex:int, context:SyntaxContext)=>Token | null
 
@@ -81,12 +56,6 @@ return InterfaceDeclarationMount.Mount(host, shape, start, tokenIndex, context);
 ```
 
 ## private static method Mount:(host:Token, shape:InterfaceDeclarationShape, start:int, tokenIndex:int, context:SyntaxContext)=>InterfaceDeclarationShape
-
-搬前缀（`start..tokenIndex`，即声明头到当前格）进形状、原位替换、把形状设成宿主的挂载单元，并补一次目录计算。
-
-**为什么这里不需要 B5 的「卸下后半段再重放」**：B5 在**第二个**代码单元才判出形态，那一格之后已经吃过的
-字符要还回去；本入口的 `tokenIndex` 就是当前刚关闭的单元，`start..tokenIndex` 全是「已经到齐、且都属于
-本声明头」的单元，没有残留。
 
 ```ts
 let pos = 0;

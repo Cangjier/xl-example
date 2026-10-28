@@ -19,17 +19,7 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 
 # class TypeAliasLiteralStartPossibleShape extends PossibleShape
 
-`[B4c]` 类型字面量成员目录的**门**（挂在 `{` 括号上）：只看括号里第一个代码单元。
-
-- 还没东西 / 第一个是未闭合的 `[` ⇒ `Uncertain`（等）；
-- 第一个是已闭合的 `[` 且里面有 `in` ⇒ `Reject`（映射类型，整段交 legacy `ParseMappedType`）；
-- 其余 ⇒ `Accept`：换成 B2c 的 interface 成员目录（`PropertySignature` / 方法 / 索引 / 调用 / 构造）。
-
-成员外壳仍在各自的名字关闭格建出，`}` 格由别名壳的 `CloseTypeLiteral` 只收成员。
-
 ## static method Install:(body:Bracket)=>void
-
-`[B4c]` 在 `{` 创建格挂门（候选目录 + 永不 Accept 的终结候选，块里没东西时返回 `Waiting`）。
 
 ```ts
 body.CatalogGuide = new CatalogGuide([new TypeAliasLiteralStartPossibleShape()], new WaitingEndPossible());

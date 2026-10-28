@@ -24,18 +24,6 @@ import { DirectTokenUtil } from "./direct-token-util.xl.md"
 
 # namespace cangjie
 
-对象字面量成员（方法 / get / set / R5 的 async / 生成器方法）的直建装配（R4-CONTRACT §4.6 / R5-CONTRACT §4.7）。
-**只此一份**：`direct-expression-engine` 的成员循环把「名字之后是 `(`」的片段交给这里，本类负责
-名字 / 参数表 / 区间 / Pos / 子节点顺序；方法体**复用** `DirectStatementAssembly.BlockFrom`
-（体内语句各自有自己的壳，本类绝不代建），参数表复用 `ClassDeclarationShape.BuildParameters`
-（与 `ExpressionBuilder.ParseObjectLiteral` 的成员分支同一个静态助手，A6 安全：纯 Identifier / 带类型 /
-rest 参数都只碰 `TypeBuilder`，不碰 `ExpressionBuilder` / `StatementBuilder`）。
-
-**R5-D3-d/e**：方法前缀扩到 `async` / `*`（`async *m(){}` 仍返回 `null` ⇒ `expr.member`），
-参数门从「纯 Identifier」扩到「标识符 + 可选 `?` / 类型注解 / rest」；**默认值 `=` 仍然拒**
-（`BuildParameters` 的 `TakeParameterInitializer` 会 `new ExpressionBuilder` = A6 红），
-计算属性名、返回类型、类型参数、无体签名照旧返回 `null`（`expr.member`）。
-
 # class DirectObjectMemberAssembly
 
 ```txt
@@ -52,8 +40,6 @@ rest 参数都只碰 `TypeBuilder`，不碰 `ExpressionBuilder` / `StatementBuil
 ```
 
 ## static field LastReason:string = ""
-
-最近一次成员装配失败的原因（调用方拼进 Decline 原因 / NoteDecline 用）。
 
 ## static method MemberFrom:(data:Array<Token>, from:int, to:int, nameIndex:int, accessorKind:string, memberPos:int, basePos:int, template:Template, context:SyntaxContext, prefixes:Array<int>)=>Token | null
 

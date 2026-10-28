@@ -23,46 +23,15 @@ import { ExpressionAtomRegistry } from "../shared/expression-atom-registry.xl.md
 
 # namespace cangjie
 
-WP-P2 的**构造候选**（`new C` / `new C()`）。两种形态的判定域**必须互斥**——同一格两个 `Accept` 会让
-`CatalogGuide` 永远 `Waiting`（`catalog-guide.xl.md:108-118`），所以两者由**同一个类**按格判定：
-
-| 形态 | 建树格 | 判据 |
-| --- | --- | --- |
-| `new C`（无括号） | 被构造者 `C` **关闭那一格** | 初始化器首代码单元是 `new`、`C` 紧跟 `new`、文档前瞻只剩输入结束（`""` / `;`） |
-| `new C()` | `)` 关闭那一格 | 初始化器首代码单元是 `new`、括号已关闭 |
-| `new (E)` / `new (E)(…)` | 括号组 `)` 关闭格（无实参）或**实参括号** `)` 关闭格 | 初始化器首代码单元是 `new`、括号组紧跟 `new`；见下 `[T14:NEW-CALLEE-GROUP]` |
-
-`new C()` 在 `C` 格上**不建**（前瞻是 `(` ⇒ `IsBuildable === false`），等到括号关闭格一次建成
-`NewExpressionShape[C]`（有实参时子节点是 `[C, …args]`，与 legacy `ExpressionBuilder.ParseNew` 同一顺序）。
-两种形态的 `NewExpressionShape` 都**不**在 `new` 关键字那一格建：`new` 与 `C` 之间还可能有 `.` / `[` /
-类型实参等被构造者后缀（P1 / A5 领地），只有 `C` 已经关闭、且后面不再续接时才是完整形态。
-
-**互斥的另外两处**
-
-- 本候选只在「初始化器首代码单元 = `new`」的条目里认领（`IsNewItem`）。`let x = f()` 这类以标识符开头的
-  条目里本候选在 `f` / `(` 格上 `Reject`，调用括号归 `CallPossibleShape`；
-- `new` 不是 `let` / `const` 之外的上下文里的候选：`IsNewItem` 要求 `=` 之后的第一个代码单元就是 `new`。
-
-**实测交接（`ref-new-no-parens`，见 `_reports/p2-call-new.md` §5）**：无括号形态的建树格是 `C` 关闭格，
-而 A1 的 `IdentifierPrimaryPossibleShape` 在 `new` 与 `C` 两格上都 `Accept`（`new` / `C` 都不在它的
-关键字排除表里）⇒ 该格永远是 2 个活口，`IsBuildable` 不会被问到，形状建不出来（仍 `partial`）。
-本候选的判据已按「唯一活口」写好：只要 A1 把 `new` 加进它的关键字排除表（与它已有的
-`in` / `instanceof` 同一条：`IsAny([...])` 返回 `Reject`），本形态立刻在 `C` 格建树。改动 A1 的文件
-不在本 WP 所有权内，因此**本 WP 不擅自改**，上报 Lead 裁决。
-
 # class NewPossibleShape extends PossibleShape
 
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
-
-注册区入口（`expression-shape-catalog.xl.md` 的 `// [E-CAT:FRAGMENTS]` 之后追加一行，`// [P2]`）。
 
 ```ts
 shapes.push(new NewPossibleShape());
 ```
 
 ## static method EqualIndex:(units:Array<Token>)=>int
-
-宿主 `Data` 里第一个 `Symbol("=")` 的下标（跳过 trivia）；没有返回 `-1`。
 
 ```ts
 for (let at = 0; at < units.length; at++) {
@@ -78,11 +47,6 @@ return -1;
 ```
 
 ## static method IsNewItem:(units:Array<Token>, tokenIndex:int)=>bool
-
-`tokenIndex` 所在条目的**初始化器首代码单元**是不是 `new` 关键字。
-
-只在「本条目真的是 `new` 形态」时才为真：`let x = f()` / `let x = (1)` 的条目一律 `false`，
-本候选因此在那些格上让路给 `CallPossibleShape` / A4b。
 
 ```ts
 const equalAt = NewPossibleShape.EqualIndex(units);
@@ -102,9 +66,6 @@ return (unit as Common).TempToString() === "new";
 
 ## static method IsNewKeywordHead:(units:Array<Token>, tokenIndex:int)=>bool
 
-`tokenIndex` 是 `new` 关键字本身（`=` 之后的第一个代码单元）。本格 `Accept` 但**不建**：
-被构造者还没到。
-
 ```ts
 const unit = units[tokenIndex];
 if (!(unit instanceof Common) || (unit as Common).TempToString() !== "new") {
@@ -119,8 +80,6 @@ return left instanceof Symbol && (left as Symbol).Is("=");
 ```
 
 ## static method IsCalleeCell:(units:Array<Token>, tokenIndex:int)=>bool
-
-`tokenIndex` 是 `new` 之后那个被构造者标识符格（前一个非 trivia 单元正好是 `new`）。
 
 ```ts
 const unit = units[tokenIndex];
@@ -142,14 +101,6 @@ return NewPossibleShape.IsNewItem(units, tokenIndex);
 ```
 
 ## static method IsCalleeGroup:(units:Array<Token>, tokenIndex:int)=>bool
-
-**[T14:NEW-CALLEE-GROUP]** `tokenIndex` 是不是「`new` 之后紧跟着的**括号组**被构造者」——
-即这一格是 `(` 括号、且前一个代码单元**正好是 `new` 关键字**。
-
-`new (E)` / `new (E)(…)` 里这只括号是**被构造者**（legacy `ParseNew` 的 `ParsePrimary` 括号分支），
-不是 `NewExpressionShape` 的实参括号。两者长得一样（都是已闭合的 `(`），唯一的区别就是**前一个代码单元**：
-实参括号前面是被构造者（标识符 / 后缀链尾），括号组前面是 `new` 关键字本身。
-`new /* c */ (A)(2)` 的注释是 trivia，`PreviousCode` 跳过后仍然是 `new`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -177,13 +128,6 @@ return NewPossibleShape.IsNewItem(units, tokenIndex);
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-- 越界 / trivia ⇒ `Uncertain`；
-- `Symbol("=")` ⇒ `Uncertain`（初始化器还没开始）；
-- `(` 括号且条目以 `new` 开头 ⇒ `Accept`（等括号关闭格建树）；
-- `new` 关键字格 ⇒ `Accept`（活到被构造者格）；
-- 被构造者格 ⇒ `Accept`（无括号形态在这一格建树）；
-- 其余 ⇒ `Reject`。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -213,9 +157,6 @@ return ShapeStates.Reject;
 
 ## method ContinuationClaim:(units:Array<Token>, tokenIndex:int)=>bool
 
-声明终结候选在 `(` 格上的通用委派：`new C(...)` 的实参括号由本候选认领（继续等），不抛
-`declaration 括号`。无括号形态不经过这里（它没有括号）。
-
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
@@ -231,16 +172,6 @@ return NewPossibleShape.IsNewItem(units, tokenIndex);
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-两种形态互斥的**唯一判据点**（同一格只有一种形态能返回 `true`）：
-
-- `)` 关闭格（`Bracket`）：括号已关闭 + 条目以 `new` 开头 ⇒ 有括号形态可建；
-  **[T14:NEW-CALLEE-GROUP]** 但紧跟 `new` 的那只括号是**括号组被构造者**（`new (E)`），形态在这里
-  **还没长完**（后面可能还有 `(…)` 实参括号），所以不建；只有后面不再接续（前瞻 `""` / `;`）时才建
-  `new (E)`（无实参形态，与无括号 `new C` 同一条前瞻判据）；
-- 被构造者格（`Common`）：条目以 `new` 开头 + 文档前瞻只剩输入结束（`""` / `;`）⇒ 无括号形态可建。
-  前瞻还是 `(` 时**不建**（有括号形态归第一支）；其它续接（`.` / `[` / `<` 等）也不建，
-  让 legacy 在 EOF 收口（保持原来的 `partial`，不静默产出与 legacy 不同的树）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -277,19 +208,6 @@ return lookahead === "" || lookahead === ";";
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
-
-把 `new` + 被构造者（+ 可选实参）整棵建成 `NewExpressionShape`，原位替换掉这一段；`Pos` / `src` /
-子节点与 legacy `ExpressionBuilder.ParseNew` 同源：
-
-- `Pos` = `new` 前一个代码单元的终点（C1：`let x = new C` ⇒ 7）；
-- `src` 从 `new` 的起点签入、到被构造者终点（无括号）或括号终点（有括号）签出；
-- 实参用 legacy `ExpressionBuilder.ParseBracketArguments` 逐参建出，挂在被构造者之后（与 legacy 同序）。
-
-**[T13:NEW-POSTFIX] 建完登记身份**（`ExpressionAtomRegistry.Nodes`）：与 [T12:CALL-POSTFIX] 同一条
-postfix 通路——`new A(1).b(2)` 的 `new A(1)` 在 `)` 关闭格已建成 `NewExpressionShape`，后面的
-`.` / `?.` / `!` / `(` / `[` / 模板是它的**后缀**，不是「未支持续接」。不登记时收口格
-（`VariableDeclarationShape.FinishIncremental`）的 `HasContainer` / `HasNode` 都为假，按 C10 抛
-`declaration 初始化器有未并入的括号`，整条文件退回 legacy。
 
 ```ts
 const data = host.Data;
@@ -361,11 +279,6 @@ return shape;
 
 ## static method Operand:(host:Token, index:int, context:SyntaxContext)=>Token
 
-取 / 就地物化被构造者：已是形状直接用；`Common` 标识符就地换成 `IdentifierShape`
-（`Pos` 按 C1：`let x = new C` 的 `C` ⇒ 11）；**已闭合的 `(` 括号组**就地换成
-`ParenthesizedExpressionShape`（`new (getCtor())()` / `new (a!.b)()` / `new /*c*/ (A)(2)`）；
-其余显式抛错（C10）。
-
 ```ts
 const unit = host.Data[index];
 if (unit instanceof ShapeToken) {
@@ -386,15 +299,6 @@ return identifier;
 ```
 
 ## static method CalleeGroup:(host:Token, index:int, context:SyntaxContext)=>Token
-
-**[T14:NEW-CALLEE-GROUP]** 把 `index` 那只已闭合的 `(` 括号原位换成 `ParenthesizedExpressionShape`：
-
-1. 括号里的 raw 单元整棵建成表达式（legacy `ExpressionBuilder.ParseExpression`，与
-   `ParenthesizedPossibleShape.BuildByIndex` 同一手法，因此内层节点与 legacy 同源）；
-2. `Pos` 按 C1 = 前一个代码单元（`new` 关键字）的 `EndIndex`，`src` 从 `(` 的起点签入、
-   到括号终点签出（与 legacy `ParsePrimary` 的 `SpanNode(shape, start, start)` 逐字段一致）；
-3. 原位 `Replace` 那一格：`BuildByIndex` 之后的 `data.splice` 会把这一段整段换成 `NewExpressionShape`，
-   它已经作为子节点挂在 `NewExpressionShape` 之下（`Add` 会重设 `Parent`）。
 
 ```ts
 const unit = host.Data[index];

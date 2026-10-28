@@ -901,9 +901,6 @@ return shape;
 
 ## static field ConsumeBuiltMembers:bool = false
 
-[B4c] 只在**类型别名早建收口**这一拍为真：ParseTypeLiteral 消费早建成员形状。
-普通 legacy / 其它族一律 false，行为逐字节不变。
-
 ## method ParseTypeLiteral:(bracket:Bracket, start:int)=>Token
 
 ```ts
@@ -1568,9 +1565,6 @@ return this.SpanNode(shape, start, this.At - 1);
 ```
 
 ## method ParseParameterList:(bracket:Bracket)=>Array<Token>
-
-[B2c] 括号里已经有 B1 建好的 `ParameterShape`（成员参数表复用了 `ParameterListPossibleShape`）时
-直接收下；有任何残留代码单元就回退逐字解析。
 
 ```ts
 const prebuilt:Array<Token> = [];

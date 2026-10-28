@@ -44,18 +44,6 @@ DeclarationIncrementalRoute.Armed = true;
 
 ## static method IsDeclarationHost:(host:Token | null)=>bool
 
-**[S3:NAMESPACE-BODY] 宿主判据的转发点（`declaration-incremental-route` 这一层的唯一入口）。**
-
-本类原来的「根层判据」是隐式的：`Arm()` 把 `EnableRootDeclarationShell` 关掉，于是 `Decide` 里
-`function` / `class` / 装饰器声明的语句壳只对**根层**失效，各声明族的 legacy 候选在根目录里提前挂壳。
-这一层没有 `host` 形参，所以判据无从参数化。WP-S3 要求「根层判据参数化为 `IsDeclarationHost(host)`」，
-落地方式是：**判据本体只有一份，放在 `StatementRouteUtil.IsDeclarationHost`**，本类只做转发，
-让声明族的调用点（`interface` / `type` 挂载入口、通用声明壳的导入导出让位）不必各自 import
-`statement-route-util` 就能问同一个问题。
-
-宿主为 `null`（没有宿主：`ItemStart` 还没到 / 括号还没建）时返回 `false`——与
-`IsDeclarationHost` 逐字同源，不在这里另起一套 null 语义。
-
 ```ts
 return StatementRouteUtil.IsDeclarationHost(host);
 ```

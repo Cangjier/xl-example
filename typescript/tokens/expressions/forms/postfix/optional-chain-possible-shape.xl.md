@@ -16,15 +16,6 @@ import { MemberChainJudge } from "./member-chain-judge.xl.md"
 
 # class OptionalChainPossibleShape extends PossibleShape
 
-WP-P1：声明初始化器位置的**可选链**候选——`let x = a?.b`。
-
-本候选只认 `Kind === "optional"` 的链（链头 + **第一个**后缀是 `?.`）。legacy EOF 树里 `?.` 是
-`PropertyAccessExpressionShape` 的**三个**子节点之一（`IdentifierShape a` / `QuestionDotTokenShape op="?."` /
-`IdentifierShape b`），那三个子节点与 `Pos` 全部由 `ExpressionBuilder` 的 `?.` 分支给出，本候选不自己拼。
-
-`?.` 是多字符 `Symbol`（`?` 与 `.` 合成一个单元），只在 `?.` 关闭那一格才落定族：`?` 单独的格上族仍为空
-（`MemberChainJudge.Kind === ""`），本候选保持 `Uncertain` 等 `?.` 长完。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts

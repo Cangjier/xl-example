@@ -19,16 +19,6 @@ import { PrimaryAtomGuard } from "./primary-atom-guard.xl.md"
 
 # class StringLiteralPrimaryPossibleShape extends PossibleShape
 
-WP-A1：声明初始化器位置的**普通字符串字面量**（`"s"` / `'a'` / `"a\tb"` / `'a\nb'`）。
-
-词法层把整段引号串收成一个 `String` basic 单元（`ConstString` 子块里是解码后的文本），
-`StringLiteralShape.FromBasicToken` 就是 legacy 的同一份构造；本候选只在它关闭时原位换。
-
-legacy EOF 口径（`expr-probe` 实测）：`StringLiteralShape  pos=7  src=[8,11)  text="a"`（单双引号一致，`src` 含引号）。
-
-**与模板互斥**：反引号模板的 `String` 有 `IsSupportInterpolation = true`（TS 的 `StringTemplate` 配置），
-归 `TemplatePrimaryPossibleShape` / `TaggedTemplatePrimaryPossibleShape`；本候选对它们 `Reject`。
-
 ## static method AppendTo:(shapes:Array<PossibleShape>)=>void
 
 ```ts
@@ -36,8 +26,6 @@ shapes.push(new StringLiteralPrimaryPossibleShape());
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
-
-判据：当前格是已关闭的 `String`，且**不是**内插引号串（TS 里只有反引号模板会置 `IsSupportInterpolation`）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
@@ -67,8 +55,6 @@ return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
-
-只对「初始化器 = 单个字符串字面量」放行（第二道闸门见 `PrimaryAtomGuard`）。
 
 ```ts
 if (tokenIndex < 0 || tokenIndex >= units.length) {
