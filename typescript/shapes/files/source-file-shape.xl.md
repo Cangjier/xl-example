@@ -11,6 +11,7 @@ import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { DebuggerStatementPossibleShape } from "../statements/debugger-statement-possible-shape.xl.md"
 import { EmptyStatementPossibleShape } from "../statements/empty-statement-possible-shape.xl.md"
 import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
+import { IfStatementPossibleShape } from "../statements/if-statement-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 ```
 
@@ -30,6 +31,7 @@ this.CatalogGuide = new CatalogGuide([
   new EmptyStatementPossibleShape(),
   new DebuggerStatementPossibleShape(),
   new BlockPossibleShape(),
+  new IfStatementPossibleShape(),
 ], null);
 ```
 
