@@ -21,9 +21,15 @@ for (const item of this.Data) {
 }
 // 有 `;` 时范围已由终止候选定在分号末尾；没有 `;` 时到最后一个代码子单元为止。
 if (!this.EndsWithSemicolon) {
-  const last = this.Last();
-  if (last !== null && last.SourceRange.End >= 0) {
-    this.SourceRange.End = last.SourceRange.End;
+  for (let at = this.Data.length - 1; at >= 0; at--) {
+    const unit = this.Data[at];
+    if (unit.IsTriviaToken || unit.IsBasicToken) {
+      continue;
+    }
+    if (unit.SourceRange.End >= 0) {
+      this.SourceRange.End = unit.SourceRange.End;
+    }
+    break;
   }
 }
 this.Data = this.Data.filter((item) => !item.IsTriviaToken);

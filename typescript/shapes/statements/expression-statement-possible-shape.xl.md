@@ -11,6 +11,7 @@ import { StatementUtil } from "./statement-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
+import { AsiPossibleShape } from "./asi-possible-shape.xl.md"
 import { ExpressionStatementEndPossibleShape } from "./expression-statement-end-possible-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 ```
@@ -67,7 +68,7 @@ statement.Pos = pos;
 statement.SignIn(common.SourceRange.Start);
 statement.Add(operand);
 statement.CatalogGuide = new CatalogGuide(
-  [new BinaryExpressionPossibleShape()],
+  [new BinaryExpressionPossibleShape(), new AsiPossibleShape()],
   new ExpressionStatementEndPossibleShape(),
 );
 units.splice(tokenIndex, 1, statement);

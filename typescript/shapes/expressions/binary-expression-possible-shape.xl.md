@@ -44,7 +44,8 @@ if (!(unit instanceof Symbol)) {
     if (before >= 0 && units[before] instanceof Symbol && (units[before] as Symbol).Is("=")) {
       return ShapeStates.Reject;
     }
-    return ShapeStates.Uncertain;
+    // 声明/语句宿主上的 Common 不归二元式；归 Initializer 或 Asi。
+    return ShapeStates.Reject;
   }
   if (unit instanceof NumericLiteralShape) {
     return ShapeStates.Reject;

@@ -40,7 +40,8 @@ if (!(unit instanceof Common) || !unit.Closed) {
 if (InitializerPossibleShape.ShouldBuild(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
-return ShapeStates.Uncertain;
+// 不是 `=` 之后的首操作数：让位给 Asi / 其它候选，别和它们同时存活。
+return ShapeStates.Reject;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
