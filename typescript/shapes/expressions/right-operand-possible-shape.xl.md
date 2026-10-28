@@ -5,6 +5,7 @@ import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -24,7 +25,9 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-if (unit instanceof NumericLiteralShape) {
+// 运算符归 BinaryExpression 候选；已建字面量不再重复建。其余单元保持 Uncertain，
+// 让注释之类还没被消费的 basic token 不会把整棵候选集清零。
+if (unit instanceof NumericLiteralShape || unit instanceof Symbol) {
   return ShapeStates.Reject;
 }
 if (unit instanceof Common && unit.Closed && tokenIndex === units.length - 1) {
