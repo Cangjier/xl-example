@@ -1,384 +1,0 @@
-// §6「basic token 存在问题」：字符 → token 的归类由 basic token 层决定，只能由用户裁定
-// （IMPORTANCE §3.1）。本文件是该大类的**覆盖标准**：每个历史失败场景都有一条活跃用例钉住，
-// 当前口径下全部 PASS（cj-fail=0、AST 全一致）；仍是口径项、或 corpus 表达不了的形态只写注释。
-//
-// 场景与现状（详细证据见 docs/token-ast-analysis.md §3.1/§4.4/§5/§6.5 与 docs/basic-token-scenarios.md）：
-// 1. 控制头 `)` 之后 / 语句起点后的 `/` 判 RegexToken（原 2 份 crash：
-//    `expressions/expr-r1233-control-head-regex.ts`、`statements/stmt-if-body-regex-not-comment.ts`）；
-//    已实施 Plan A（`RegexTemplate.CanStartAt` + ts 模板覆写）。守卫：普通 `)`/成员调用之后的 `/` 仍是除号。
-// 2. `$` 作标识符字符（原 3 份 crash：`lexical/lex-ident-dollar-*.ts`）；已实施——从 core 符号表删除
-//    `case "$":`，`$` 归 Common。`$"…"` 内插前缀在 TS 里本就不支持（ts 模板 HasInterpolationPrefix=false），
-//    只作反例注释；字符串/正则/模板里的 `$` 按原义保留。
-// 3. `\uXXXX` 转义标识符（原 2 份 crash：`lexical/lex-unicode-escape-identifier.ts`、`lexical/lx-unicode-ident.ts`）；
-//    已实施——token 层把合法转义并进 Common，IdentifierShape 解码进 EscapedText（原文区间不变）；
-//    另含 `\u{…}` 花括号形（1–6 hex、码点 ≤ 0x10FFFF，round 21–26 收口）。
-// 4. U+FEFF（BOM）作 trivia（原 1 份 crash：`lexical/lex-bom.ts`）；
-//    用户裁定②（方案②「放宽 Bom 起始判据」）：`Bom.CanStart` 只要求字符在 `Template.BomChars` 里，
-//    **任意位置**都认（对齐 TS，U+FEFF 属 ECMAScript Whitespace），mid-code BOM 也已修复。
-//    corpus reader 逐行 `trim()`、行首 U+FEFF 会被吞掉，所以只能写「行内 / 注释之后行首」形。
-// 5. shebang `#!` 作首行 trivia（原 2 份 crash：`lexical/lex-shebang.ts`、`lexical/lx-shebang.ts`）；
-//    已实施 basic token `Shebang`：起点 index 0 或 `Bom.SourceRange.End.Index + 1`，吞到行尾 `\n` 前、不进 AST。
-// 6. `>>` / `>>>` 的 token 层口径：**保持合符号不拆**（`AllowCombineSymbol`），types 侧 `IsSplitClose`、
-//    expression 侧 `MatchAngleClose` 已在类型位/表达式位绕过；原 types G2（`expressions/ex-angle-cast.ts`）已转 PASS。
-// 7. 上下文关键字（`async` 等）升级留在 parser 侧：`async` 换行/带注释时按 Identifier（与 TS 一致）。
-//
-// 写法约定：一个物理行=一个用例；行内两字符 `\n` 表示真换行（字符串/模板/正则/注释里按原义保留）；
-// 行首会被 reader `trim()`，不能依赖空白/BOM/U+FEFF。顺序：各场景 base 用例在前，
-// trivia（BOM / shebang）与重复/形变体在后。
-
-// ---- 场景 1：控制头 `)` 之后 / 语句起点后的 `/` 判正则（已实施 Plan A）----
-// base：`(` 之后本来就是正则；普通表达式里的 `/` 本来就是除号（改前的对照）
-if (/x/) {}
-const a = b / c;
-const r = /x/;
-// 控制头 `)` 之后：if / while / for(;;) / for-of / for-in / do-while 尾 / catch 体 / finally 体 / else
-if (a) /re/g;
-while (a) /re/g;
-for (;;) /re/g;
-for (const x of y) /re/g;
-for (const k in o) /re/g;
-do { } while (a) /re/g;
-do /re/g; while (a);
-try { } catch (e) { } /re/g;
-try { } finally { } /re/g;
-if (a) b(); else /re/g;
-if (a) { } else /re/g;
-switch (a) { case 1: /re/g; }
-// 嵌套：function 体 / class 体里的 if 体
-function f() { if (a) /re/.test(x); }
-class C { m() { if (a) /re/.test(x); } }
-// 控制头 `)` 与 `/` 之间有 trivia / 换行；语句起点（标签后）
-if (a) /* c */ /re/g;
-while (a)\n/re/g;
-l: /re/g;
-// 守卫：这些 `/` 仍是除号（判据不能扩到普通 `)` 之后 / 成员调用 / 后缀运算之后）
-const g1 = (a)\n/re/g;
-const g2 = obj.while(a)\n/re/g;
-const g3 = a / b;
-const g4 = a /* c */ / b;
-const g5 = f(a) / 2;
-const g6 = (a + b) / 2;
-const g7 = a++ / 2;
-const g8 = obj.m() / 2;
-const g9 = new C() / 2;
-const g10 = a\n/ 2;
-while (a / b) {}
-if (a / b) {}
-
-// ---- 场景 2：`$` 作标识符字符（已实施：core 符号表移除 `$`，归 Common）----
-const de1 = $x;
-const de2 = a$b;
-const $$ = 1;
-interface I$X { a: number }
-$();
-class D$ { $m() { return $; } }
-const de3 = { $x: 1 };
-const $ = 1;\nconst q = { $ };
-$l: for (;;) break $l;
-// 反例守卫：`$` 在字符串 / 正则 / 模板里按原义保留，内插前缀不回归
-// （`$"…"` 是 TS 非法形态、本仓也不支持，只作注释，不写活跃行）
-const ds1 = "$x";
-const ds2 = /$/;
-const dt1 = `$x`;
-
-// ---- 场景 3：`\uXXXX` 转义标识符（已实施：token 并成 Common，AST text 用解码值、原文区间不变）----
-const ue1 = \u0061bc;
-const ue2 = a\u0062c;
-function f\u0066() {}
-class C\u0031 {}
-interface I\u0041 { a: number }
-const ue3 = { \u0061: 1 };
-class E { \u0061() {} }
-const ue4 = obj.\u0061;
-let ue5: \u0049;
-function h(\u0061rg: number) { return \u0061rg; }
-// 场景 3b：`\u{…}` 花括号形（1–6 hex、码点 ≤ 0x10FFFF），标识符位 / 属性名位 / 方法名位 / 类型位
-const ub1 = \u{61}bc;
-const ub2 = a\u{62}c;
-function f\u{66}() {}
-class C\u{31} {}
-interface I\u{41} { a: number }
-const ub3 = { \u{61}: 1 };
-const ub4 = \u{61}\u{62};
-const ub5 = { a: \u{62} };
-class F { \u{62}() {} }
-const ub6 = obj.\u{62};
-let ub7: \u{49};
-
-// ---- 场景 6：`>>` / `>>>` 在类型位与表达式位的收尾（token 层保持合符号）----
-// 类型位：angle-cast（历史 types G2 文件）、嵌套泛型（`>>` / `>>>` 收尾）
-const d = <Array<number>>y;
-const t2: Array<Array<number>> = [];
-const t3: Map<string, Array<Set<number>>> = new Map();
-f<Array<number>>(x);
-new Map<string, Array<number>>();
-// 表达式位：移位 / 复合赋值
-const v3 = a >> b;
-const v4 = a >>> b;
-a >>= b;
-a >>>= b;
-// 守卫：单个 `>` 比较不受影响
-const c1 = a > b;
-
-// ---- 场景 7：上下文关键字升级口径（`async` 等留在 parser 侧，与 TS 一致）----
-async function f1() {}
-const f2 = async () => 1;
-async\nfunction f3() {}
-const async = 1;
-
-// ---- 场景 4：U+FEFF（BOM）作 trivia（用户裁定②：任意位置都认；Bom 起始判据已放宽）----
-// reader 逐行 trim，行首 U+FEFF 会被吞；line0 形在 corpus 里也无法表达，故写「行内 / 注释之后行首」形。
-/* c */﻿const b1 = 1;
-/* c */\n﻿const b2 = 1;
-/* c */﻿﻿const b4 = 1;
-// 用户裁定②（已修复）：mid-code BOM（首个代码 token 之后）按 trivia 跳过，AST 与 TS 一致
-const b5 = 1;﻿const b6 = 2;
-function﻿bf() {}
-const b7 = [1,﻿2];
-const﻿b8 = 3;
-// 仍只记录的边界：BOM+shebang 的「﻿#!…」本仓有意接受为超集，但 TS 6.0.3 报 2 条诊断、
-// 且 reader trim 行首 BOM，故不写活跃行。
-// ---- 场景 5：shebang `#!` 作首行 trivia（已实施 Shebang basic token；index 0 或 BOM.End+1）----
-#!/usr/bin/env node\nconst sb1 = 1;
-#!/usr/bin/env node\nlet sb2 = 1;
-#!/usr/bin/env -S node --enable-source-maps\nconst sb4 = 1;
-#!/usr/bin/env node
-#!/usr/bin/env node\n// c\nconst sb5 = 1;
-
-// ---- 场景 8–13：2026-10 探针新发现，**必须改 core、待用户裁定**（未修，故不写活跃用例）----
-// 探针：clone/tmp/probe-basic-token.mjs，14 族 303 条候选（kind 归一口径同 ast-compare）；
-// TS 侧只认 parseDiagnostics=0 的 236 条：207 一致 / 9 crash / 20 diff；67 条 TS 自身非法已剔除。
-// 下面每条都给最小复现与 core 根因；修好后应各自转为活跃行（base/变体成对）。
-// 8. lone CR 不是行注释/shebang 的行尾：`// c\rconst a = 1;`、`#!x\rconst a = 1;` → cj 整行吞到 EOF（cj 树为空）。
-//    根因：core/syntax/basic-tokens/line-annotation.xl.md:124 只判 `source.Value !== "\n"`；
-//    core/syntax/basic-tokens/shebang.xl.md:68 同判据。CRLF 正常（CR 先被回退），只有 lone CR 漏。
-// 9. U+2028/U+2029 不是行终止符，也不是空白：`const a = 1;<LS>const b = 2;`（cj crash「表达式语句没有读完」）、
-//    `function f(){ return<LS>1; }`（cj 把 `return`+LS+`1` 并成一个 Identifier）、`type T =<LS>number;`（同）。
-//    根因：空白表 core/syntax/templates/symbol-template.xl.md 的 IsWhiteSpace（被 core/syntax/basic-tokens/common.xl.md:63/598
-//    用于「能不能并块」）不含 LS/PS；行注释/shebang 的 `\n` 判据见 8。
-// 10. U+200B（ZERO WIDTH SPACE）不是空白：`const a = 1;<U+200B>const b = 2;`、`x = 1<U+200B>+2;`
-//     （TS 对这两条 0 诊断——TS 的 isWhiteSpaceSingleLine 把 0x2000–0x200B 都算空白；cj 均 crash）。
-//     根因同 9 的 IsWhiteSpace 字符表（core）。
-// 11. `\u{…}` 花括号转义没有位数上限：`const \u{0000061} = 1;`（TS 合法，码点 0x61；cj crash「变量声明缺少标识符」）。
-//     根因：core/syntax/basic-tokens/common.xl.md:69/92/104 写死 1–6 位十六进制；TS 不限位数、只要求码点 ≤ 0x10FFFF。
-//     typescript/tokens/names/identifier-shape.xl.md:47 是同一 6 位口径的解码侧，放宽时需一起改（否则 escape 进不了 token）。
-// 12. 模板里非法转义的 cooked 值：`tag`+反引号+`\8`（TS 的 text 是原文 "\\8"，即 cooked=undefined 时回退 raw；
-//     cj 给出 "8"）。根因：core/syntax/basic-tokens/string/translate.xl.md:37/125 把 `\8`/`\9` 按
-//     NonOctalDecimalEscapeSequence「解成字符本身」，而 TS 只在无标签模板里报错、在有标签模板里保留 raw。
-// 13. 已探明**无缺口**、不必再探的族（证据同上）：HTML 注释 `<!--`/`-->`（TS 与 cj 一致；TS 自身多数非法）、
-//     CRLF、BOM 任意位置（除 shebang 行尾见 8/9）、`\u{…}` 常规 1–6 hex、U+200C/U+200D 标识符、
-//     regex 起点上下文（控制头 `)`/else/do/`}`/=>/yield/await/case 后）、数字分隔符 30 条合法形、`$` 与 `\u0024`。
-
-// ══ cover5 round5（basic token）：ECMAScript 全空白集（已修，只动 typescript 层）══
-// 探针：tmp/probe-r6.mjs（106 输入，TS 6.0.3 口径）；修前本段 13 条 ws 形 crash / diff，修后全绿。
-// 根因：core 的 `SymbolTemplate.IsWhiteSpace` 只认空格 / \t / \r / \n（core/syntax/templates/symbol-template.xl.md:222-238）；
-// 修法：`typescript/run/typescript-symbol-template.xl.md` 的 `TypeScriptSymbolTemplate.IsWhiteSpace` 覆写
-//       增补 ECMAScript WhiteSpace + LineTerminator 全集；U+FEFF 仍归 `Bom` basic token，不在空白表里。
-// 写法：这些字符会被 JS 的 `trim()` 从行首/行尾吃掉，所以一律放在行中间。
-// base：普通空格分隔的两条语句（受影响字符只是替换这个空格）
-const wsb0 = 1; const wsb1 = 2;
-// NBSP（U+00A0）：语句之间 / 关键字与名字之间 / `=` 与值之间
-const wa = 1; const wb = 2;
-const wc = 1;
-const wd = 1;
-// 其余 Unicode 空格逐字符一句（U+1680 / U+2000 / U+2003 / U+200A / U+202F / U+205F / U+3000）
-const we = 1; const wf = 2;
-const wg = 1; const wh = 2;
-const wi = 1; const wj = 2;
-const wk = 1; const wl = 2;
-const wm = 1; const wn = 2;
-const wo = 1; const wp = 2;
-const　wq = 1;
-const wr = 1;　const wsV = 2;
-// U+2028 / U+2029（LineTerminator）与 U+200B（ZERO WIDTH SPACE）：同为 trivia，不参与标识符 / 关键字拼接
-const wt = 1; const wu = 2;
-const wv = 1; const ww = 2;
-const wx = 1;​const wy = 2;
-type TW = number;
-// 叠加：块注释 trivia + NBSP 后接第二条语句
-const wz = 1; /* c */ const wz2 = 2;
-
-// ══ cover6 core（A/B/C 行终止符）：行注释与 shebang 在 \r / U+2028 / U+2029 处收尾 ══
-// 探针 tmp/probe-lineterm.mjs（26 输入，TS 6.0.3 口径）：修前 12 红 / 14 绿，修后 26/26 全绿。
-// 实现：core 新增 `Template.LineTerminatorChars`（默认 "\n"）+ `IsLineTerminator`，
-//       `LineAnnotation` / `Shebang` 改问它；ts 模板配成 "\n\r\u2028\u2029"。
-// 行注释不能作为用例行首（readCases 丢 `//` 开头行），所以统一用「一条语句 + 行尾注释」的形。
-// base：LF 行尾（既有行为，未变）
-const lt0 = 0; // c\nconst lt1 = 1;
-// lone CR（U+000D 字面字节，后面不跟 LF）
-const lt2 = 0; // cconst lt3 = 1;
-// U+2028 / U+2029（LineTerminator，也是 trivia）
-const lt4 = 0; // c const lt5 = 1;
-const lt6 = 0; // c const lt7 = 1;
-// CRLF：CR 字面字节 + `\n` 转义（readCases 只按 LF 切行）
-const lt8 = 0; // c\nconst lt9 = 1;
-// 块注释 trivia 与空注释的 CR 收尾
-/* c */const ltA = 0; // cconst ltB = 1;
-// shebang 行尾：shebang 必须在文件第 0 行，故各自独立成行
-#!x\nconst ltC = 1;
-#!xconst ltD = 1;
-#!x const ltE = 1;
-#!x const ltF = 1;
-#!x\nconst ltG = 1;
-// ══ cover6 core（F `\u{…}` 位数 / code point 边界）══
-// 探针：tmp/probe-unicode.mjs（41 + 17 条输入，TS 6.0.3 口径）：修前 12 条合法形 crash
-//   （「变量声明缺少标识符」等），修后 0 红；TS 自身非法的 19 条只记录、不入尺子。
-// 根因：core/syntax/basic-tokens/common.xl.md 的 IsAppend / IsUnicodeEscapeStart /
-//   UnicodeBraceEscapeDigits 写死 1–6 位十六进制；typescript/tokens/names/identifier-shape.xl.md
-//   的解码正则同样是 {1,6}。
-// 修法：去位数上限，累计码点 > Common.MaxUnicodeCodePoint()（0x10FFFF）才非法；前导零可任意多。
-// base：1–6 位（旧口径，修后必须仍绿）
-const \u{61} = 1;
-const \u{0061} = 1;
-const \u{000061} = 1;
-const a\u{62}c = 1;
-const \u{61}\u{62} = 1;
-// 位数超过 6：合法标识符字符前补任意多个前导零
-const \u{0000061} = 1;
-const \u{000000061} = 1;
-const \u{000000000000000000061} = 1;
-const \u{0000000000000000000000000000000061} = 1;
-const \u{000005F} = 1;
-const \u{0000024} = 1;
-const a\u{0000062}c = 1;
-const \u{0000061}\u{0000062} = 1;
-const \u{0000061}bc = 1;
-// 与 \uXXXX 混排
-const \u0061\u{0000062} = 1;
-const \u{0000061}\u0062\u{63} = 1;
-// 位置：属性名 / 方法名 / 成员访问 / 类型位 / 函数名
-const ub8 = { \u{0000061}: 1 };
-class G { \u{0000062}() {} }
-const ub9 = obj.\u{0000062};
-let ub10: \u{0000049};
-function f\u{0000066}() {}
-// 星面 code point（U+1D400 MATHEMATICAL BOLD CAPITAL A，ID_Start）：位数超 6 仍合法，解码成代理对
-const \u{1D400} = 1;
-const \u{0001D400} = 1;
-const \u{0000001D400} = 1;
-const \u{0000000000000000000001D400} = 1;
-const a\u{0001D400}c = 1;
-// ══ cover6 core（E `?.` 前瞻）：`?.` 后随十进制数字不合并（ECMAScript lookahead）
-// 探针：tmp/probe.mjs（30 条边界，TS 6.0.3 diag=0 口径）。修前 `a?.5:b` 一律 crash「表达式没有读完」；
-// 修后与 TS 三栏一致：`?` + `.5` → ConditionalExpression(QuestionToken, NumericLiteral)。
-// 根因：core 的 `Symbol.IsAppend` 只看组合符号表（`?.` 无条件成立），看不到后随字符。
-// 修法：core 新增 `SymbolTemplate.IsCombineBlocked(combined, following)` 前瞻钩子（默认永不阻断），
-//       `Symbol.NextCharAfter` 把「组合符号后面紧跟的那个字符」递过去；
-//       `typescript-symbol-template` 覆写为「`?.` 且 following 是 0-9 → 不合并」。
-// 可选链全部保持绿：`?.` 后随不是数字时仍合成 QuestionDotToken。
-// base：`?.` 后随十进制数字 → 条件表达式（`?` 与 `.5` 分属两 token）
-const x = a?.5:b;
-a?.5:b;
-const d0 = a?.0:b;
-const d1 = a?.1:b;
-const d9 = a?.9:b;
-const e1 = a?.5e3:b;
-const c1 = f(a?.5:b);
-// 对照：显式空格 / 问号后空格 —— 不涉及 `?.` 合并，行为不变
-const t1 = a ? .5 : b;
-const t2 = a? .5 : b;
-// 回归对照：可选链形态（`?.` 后随非数字，必须保持 QuestionDotToken）
-const o1 = a?.b;
-const o2 = a?.[k];
-const o3 = a?.(y);
-const o4 = a?.<T>(y);
-const o5 = a?.b?.c;
-const o6 = a?.[k]?.(y);
-// ══ cover6 core（D/G 字符串）：行续接认 LS/PS；带标签模板的非法转义 cooked 取原文 ══
-// 判据：TS 6.0.3 `ts.createSourceFile` 的 parseDiagnostics.length === 0，修复前 AST 的 text 字段差。
-// D：`\` + LineTerminator 是行续接（ECMAScript 的 LineTerminatorSequence 含 U+2028/U+2029），cooked 里不产出字符。
-// 修点：core/syntax/basic-tokens/string/translate.xl.md 的 DecodeClear 认 StringTemplate.LineTerminatorChars；
-//       ts 模板把 LS/PS 加进该表（typescript/run/typescript-template.xl.md）。
-const s1 = "a\ b";
-const s2 = "a\ b";
-const s3 = 'a\ b';
-const s4 = "a\ b\ c";
-const s5 = "\ ";
-const s6 = `a\ b`;
-const s7 = `a\ b`;
-const s8 = `\ `;
-const s9 = `a\ ${x}b`;
-// G：模板串里的 legacy octal（`\1`–`\7`、`\00`）与 NonOctalDecimalEscape（`\8`/`\9`）非法；
-// 带标签模板里 TS 的 text = 原文（cooked 为 undefined 的那一侧），不带标签模板是语法错误、不入尺子。
-// 修点：StringTemplate.StrictTemplateEscapes（ts 模板打开）+ Translate.IsInvalidTemplateEscape；
-//       tokenizer 不知道 tagged，所以统一产出原文（超集口径，见 docs/cover6-core-string.md）。
-tag`\8`;
-tag`\9`;
-tag`\08`;
-tag`\09`;
-tag`\1`;
-tag`\7`;
-tag`\377`;
-tag`\008`;
-tag`\08x`;
-tag`\8a`;
-tag`a\n\8b`;
-tag`a\8\nb`;
-tag`a\8b${x}c\9d`;
-tag`\8${x}\8`;
-
-// ══ cover7（字符串 \u{…} 位数）：花括号形 Unicode 转义位数不限，逐个累计校验 ≤ U+10FFFF ══
-// 判据：TS 6.0.3 `ts.createSourceFile` 的 parseDiagnostics.length === 0；修复前 AST 的 text 字段是原文而不是 cooked。
-// 修点：core/syntax/basic-tokens/string/translate.xl.md（Accept / Append / DecodeClear 的 u{…} 三处 + UnicodeBraceValueOf），
-//       core/syntax/templates/string-template.xl.md 的 AllowLongUnicodeBraceEscape（默认 false = 历史 6 位上限），
-//       ts 模板页打开：typescript/run/typescript-template.xl.md。
-// 与 F（标识符路径）同口径：位数不限、逐位累计 ≤ Common.MaxUnicodeCodePoint()，越界即按原文结算。
-const b1 = "\u{0000061}";
-const b2 = "\u{000000061}";
-const b3 = "\u{000000000000041}";
-const b4 = "\u{00000000000000000061}";
-const b5 = "\u{000000000010FFFF}";
-const b6 = "\u{000000000000000}";
-const b7 = "a\u{0000061}b";
-const b8 = "\u{00000061}\u{00000042}";
-const b9 = `\u{0000061}`;
-const b10 = `\u{000000000010FFFF}`;
-const b11 = `a\u{0000061}b${x}`;
-tag`\u{0000061}`;
-tag`a\u{0000061}b`;
-
-// ══ cover9（U+0085 NEL）：TS 词法把 NEL 当**单行空白**（ECMAScript 不认；用户已裁定按 TS 口径） ══
-// 类别（IMPORTANCE §6）：basic token 存在问题。判据：TS 6.0.3 parseDiagnostics=0 且三栏（结构/位置/字段）一致。
-// 根因：typescript/run/typescript-symbol-template.xl.md 的 IsWhiteSpace 覆写漏了 U+0085（TS 的
-//   `isWhiteSpaceSingleLine` 把 `CharacterCodes.nextLine`（0x85）当单行空白）→ NEL 落到 Common，被并进
-//   标识符 / 关键字 / 数字（`const<NEL>a` 的 Identifier 从 0 起、`const a=<NEL>1` 的 1 变成 Identifier），
-//   语句读不完或 AST 结构/位置差。修法：该 switch 补 `case "\u0085"`（ts 层一处，core 零改动）。
-// NEL **不是行终止符**（TS 的 `isLineBreak` 不含 0x85）：`return<NEL>1` 仍是带表达式的 return，
-//   语句之间靠 `;` 分句（所以下面没有「NEL 处 ASI 断句」的用例——那不是 TS 口径）。
-// 写法：NEL 是**行内字面 U+0085 字符**，不写 `\u0085` 转义（ast-json.mjs 的 decode 不认 \uXXXX；
-//   本文件已在 .gitattributes 用 -text 钉住）。
-// 候选：X01–X15（survey X 组的 15 形 / 1 根因，修前 15/15 red，修后 15/15 green）。
-// 一行一个用例，行内 `\n` 由 ast-json.mjs 还原。
-
-// ── ① base：NEL 作语句分隔（X01）＋ 前导 / 尾随 / 连续 / 多语句 / export / 注释后（X04 X05 X09 X11 X13 X15）──
-const a=1;const b=2;
-const a = 1;const b = 2;
-const a = 1;
-const a = 1;
-const a = 1;const b = 2;
-const x = 1;const y = 2;const z = 3;
-export const a = 1;export const b = 2;
-const a = 1;// c\nconst b = 2;
-
-// ── ② 关键字 / 名字 / 字面量之间的 NEL（X02 X12 X10 X03 X14）──
-consta = 1;
-consta = 1;
-letx = 1;
-const a =1;
-functionf() {}
-
-// ── ③ NEL 只是空白、不是行终止符：return 后 / type 的 `=` 后 / 类成员行尾（X06 X07 X08）──
-function f() { return1; }
-type T =number;
-class C { m() {}}
-
-// ── ④ trivia 与重复形：NEL 与空格叠加 / 多位置 / 空语句后 / 块注释后 / 与 LF 并存 / 函数体首尾 ──
-const a=1;const b=2;const c=3;const d=4;
-const a = 1;
-const a = 1;
-consta=1;
-const a = 1; const b = 2;
-;const a = 1;
-const a = 1;/* c */const b = 2;
-const a = 1;\nconst b = 2;
-function f() {return 1;}
