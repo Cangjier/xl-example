@@ -121,11 +121,9 @@ const mounted = new Bracket(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
 mounted.Use(value).SignIn(index);
-if (unit instanceof Bracket) {
-  const bracketHost = unit as unknown as IComputePossibleShapes;
-  if (bracketHost.CatalogGuide !== null && bracketHost.CatalogGuide.EndPossible !== null) {
-    bracketHost.ComputePossibleShapes(context, PossibleSource.BracketCreate);
-  }
+const bracketHost = unit as unknown as IComputePossibleShapes;
+if (bracketHost.CatalogGuide !== null) {
+  bracketHost.ComputePossibleShapes(context, PossibleSource.BracketCreate);
 }
 return BranchStates.Done;
 ```
