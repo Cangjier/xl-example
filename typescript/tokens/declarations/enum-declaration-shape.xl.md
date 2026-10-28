@@ -2,7 +2,6 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ConstKeywordShape } from "../keywords/const-keyword-shape.xl.md"
@@ -13,7 +12,6 @@ import { ComputedPropertyNameShape } from "../types/computed-property-name-shape
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { String } from "../../../core/syntax/basic-tokens/string/string.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -21,8 +19,6 @@ import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
-import { EnumDeclarationEndPossibleShape } from "./enum-declaration-end-possible-shape.xl.md"
-import { EnumMemberPossibleShape } from "../members/enum-member-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -53,36 +49,6 @@ declare const enum E { A = 1 }
 
 ```ts
 super(template);
-```
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (this.BodyBracket !== null) {
-  return;
-}
-if (!(bracket instanceof Bracket)) {
-  return;
-}
-if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, [])) {
-  return;
-}
-const body = bracket as Bracket;
-this.BodyBracket = body;
-// [B2] 成员块目录走 B0 安装器（`Known` + `WaitingEndPossible`）：早建成员外壳之后块里不再有新单元。
-MemberShellCatalog.InstallBodyCatalog(body, EnumDeclarationShape.CreateBodyPossibleShapes(), "MemberList", this, context);
-this.CatalogGuide = new CatalogGuide([], new EnumDeclarationEndPossibleShape());
-```
-
-## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
-
-## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
-
-```ts
-EnumDeclarationShape.CreateBodyPossibleShapesCache = BodyGuideUtil.CreateShapesCache(
-  EnumDeclarationShape.CreateBodyPossibleShapesCache,
-  () => [new EnumMemberPossibleShape()]);
-return EnumDeclarationShape.CreateBodyPossibleShapesCache;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>EnumDeclarationShape

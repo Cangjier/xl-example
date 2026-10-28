@@ -15,24 +15,6 @@ import { Common } from "./common.xl.md"
 
 # namespace cangjie
 
-# class BracketChildCreatedHook
-
-## method OnChildBracketCreated:(parent:Token, bracket:Token, context:SyntaxContext)=>void
-
-```ts
-throw new Error("abstract: OnChildBracketCreated");
-```
-
-# class BracketRoleHook
-
-## static field Current:BracketRoleHook | null = null
-
-## method OnBracketCreated:(host:Token, bracket:Token, context:SyntaxContext)=>void
-
-```ts
-throw new Error("abstract: OnBracketCreated");
-```
-
 # class Bracket extends UnitToken
 
 ## field IsBasicToken:bool = true
@@ -119,16 +101,6 @@ if (value === this.EndBracketChar) {
 return BranchStates.Undo;
 ```
 
-## static field ChildBracketCreatedHook:BracketChildCreatedHook | null = null
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (Bracket.ChildBracketCreatedHook !== null) {
-  Bracket.ChildBracketCreatedHook.OnChildBracketCreated(this, bracket, context);
-}
-```
-
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 ```ts
@@ -146,27 +118,8 @@ const mounted = new Bracket(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
 mounted.Use(value).SignIn(index);
-if ("OnBracketCreatedEvent" in unit) {
-  (unit as unknown as IComputePossibleShapes).OnBracketCreatedEvent(mounted, context);
-}
-// 宿主**不是括号**时（根 / 语句壳 / 其它形状单元），`Bracket.OnBracketCreatedEvent` 不会被调用，
-// 子括号监听因此要在这里补一次：箭头块体的 `{`（`x => { … }`）就落在语句壳上，根层
-// `const f = () => { … }` 的 `{` 甚至不在任何括号里。监听只挂目录、不改任何 AST 决定。
-if (!(unit instanceof Bracket) && Bracket.ChildBracketCreatedHook !== null) {
-  Bracket.ChildBracketCreatedHook.OnChildBracketCreated(unit, mounted, context);
-}
-// [B0:ROLE] 通用括号角色机制的唯一调用点。**必须在 `OnBracketCreatedEvent`（族收尾）之后**：
-// 族 hook 先按既有路径装它自己的目录（函数体 / namespace / 块体 / switch 子句块 / 箭头体的
-// `MountBodyCatalog`），本钩子后到，看到 `CatalogGuide !== null` 就只做「族已装」收尾
-// （`BracketCatalogInstaller` 返回 `AlreadyInstalled`，一个字节都不改）。
-// 钩子是进程内唯一静态引用，默认 `null` ⇒ 默认状态下这里只多一次 `null` 比较。
-if (BracketRoleHook.Current !== null) {
-  BracketRoleHook.Current.OnBracketCreated(unit, mounted, context);
-}
 // [T7b:CREATE] 创建拍的两个 `PossibleSource.BracketCreate` 来源在这里**直接**问
-// `IComputePossibleShapes`：不再绕到角色钩子的 `TriggerBracketCreatePossible`（该方法的触发职责已删除），
-// 也不再像旧窄触发那样传 `Close`。必须排在整条链的**末尾**——`OnBracketCreatedEvent`（族收尾）与角色
-// `Install` 都跑完，新括号自己的 `CatalogGuide` 这时才可能非空（自举：它的候选才有机会被问）。
+// `IComputePossibleShapes`，不经过任何创建钩子。
 // 1) 新括号自己：有向导才问，**绝不替它装目录**（装目录是 T7c 的候选 `BuildByIndex` 的事）。此刻 `Data`
 //    还是空的，`ComputePossibleShapes` 取不到格 ⇒ 直接 `Nothing`，不建形状、不改 `Data`。
 // 2) 父宿主：窄域沿用旧窄触发（只对 `{` + 括号宿主 + 带终结候选的向导 `EndPossible !== null`），只把来源

@@ -1036,8 +1036,6 @@ return StatementClass.OperandStart;
 
 ## static field BracketCreateParentCount:int = 0
 
-## static field EnableBracketRoleCatalog:bool = false
-
 ## static field BracketRoleKnownCount:int = 0
 
 ## static field BracketRoleDeferredCount:int = 0

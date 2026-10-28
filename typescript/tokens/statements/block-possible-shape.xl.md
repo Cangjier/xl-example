@@ -1,7 +1,7 @@
 # dependencies
 ```xl
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
-import { Bracket, BracketChildCreatedHook } from "../../../core/syntax/basic-tokens/bracket.xl.md"
+import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
@@ -14,8 +14,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { BodyGuideUtil } from "../declarations/body-guide-util.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { ControlFlowStatementPossibleShape } from "./control-flow-statement-possible-shape.xl.md"
-import { CaseClauseHeadPossibleShape } from "./case-clause-head-possible-shape.xl.md"
-import { CaseClauseStatementPossibleShape } from "./case-clause-statement-possible-shape.xl.md"
 import { DeclarationStatementPossibleShape } from "./declaration-statement-possible-shape.xl.md"
 import { RootExpressionStatementPossibleShape } from "./root-expression-statement-possible-shape.xl.md"
 import { StatementEndPossibleShape } from "./statement-end-possible-shape.xl.md"
@@ -47,14 +45,6 @@ return false;
 
 ```ts
 return host;
-```
-
-# class BlockBodyChildBracketHook extends BracketChildCreatedHook
-
-## method OnChildBracketCreated:(parent:Token, bracket:Token, context:SyntaxContext)=>void
-
-```ts
-BlockPossibleShape.OnChildBracketCreated(parent, bracket, context);
 ```
 
 # class BlockPossibleShape extends PossibleShape
@@ -92,11 +82,6 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 if (!StatementRouteUtil.EnableShellExpressions) {
   return ShapeStates.Reject;
-}
-// 括号宿主监听必须**早于**任何一个箭头体 / 对象方法体括号：根层 `const f = () => { … }` 的 `(`
-// 父单元是变量壳而不是根，`SourceFileShape.OnBracketCreatedEvent` 的懒安装会错过它。
-if (StatementRouteUtil.EnableBlockBodyCatalog) {
-  BlockPossibleShape.EnsureChildBracketHook();
 }
 if (units[tokenIndex] instanceof EndOfFileTokenShape) {
   return ShapeStates.Reject;
@@ -234,28 +219,6 @@ return shell;
 bracket.CatalogGuide = new CatalogGuide(
   BlockPossibleShape.CreateBodyPossibleShapes(),
   new BlockBodyWaitingPossibleShape());
-```
-
-## static method IsSwitchCaseBody:(body:Bracket, bracket:Token, previous:Token | null)=>bool
-
-```ts
-if (previous === null || !(previous instanceof Symbol) || !(previous as Symbol).Is(":")) {
-  return false;
-}
-const owner = body.Parent;
-if (!(owner instanceof StatementShape)) {
-  return false;
-}
-if ((owner as StatementShape).Kind !== StatementRoute.ShellStatementFamily) {
-  return false;
-}
-for (const unit of (owner as StatementShape).Data) {
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  return unit instanceof Common && (unit as Common).TempToString() === "switch";
-}
-return false;
 ```
 
 ## static method IsClosedParameterList:(unit:Token)=>bool
@@ -438,27 +401,6 @@ if (!(unit instanceof Symbol)) {
 return (unit as Symbol).Is("=>");
 ```
 
-## static method PreviousCodeUnit:(unit:Token, bracket:Token)=>Token | null
-
-```ts
-for (let at = unit.Data.length - 1; at >= 0; at--) {
-  const item = unit.Data[at];
-  if (item === bracket || item.IsTriviaToken) {
-    continue;
-  }
-  return item;
-}
-return null;
-```
-
-## static method EnsureChildBracketHook:()=>void
-
-```ts
-if (Bracket.ChildBracketCreatedHook === null) {
-  Bracket.ChildBracketCreatedHook = new BlockBodyChildBracketHook();
-}
-```
-
 ## private static method CanEndTypeUnit:(unit:Token)=>bool
 
 ```ts
@@ -544,315 +486,6 @@ for (let scan = previous; scan >= 0; scan--) {
   }
 }
 return false;
-```
-
-## static method IsSwitchKeywordShell:(shell:Token)=>bool
-
-```ts
-if (!(shell instanceof StatementShape)) {
-  return false;
-}
-if ((shell as StatementShape).Kind !== StatementRoute.ShellStatementFamily) {
-  return false;
-}
-for (const unit of shell.Data) {
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  return unit instanceof Common && (unit as Common).TempToString() === "switch";
-}
-return false;
-```
-
-## static method OnShellBracketCreated:(shell:Token, bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableBlockBodyCatalog) {
-  return;
-}
-if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
-  return;
-}
-if (!(shell instanceof StatementShape)) {
-  return;
-}
-const body = bracket as Bracket;
-if (body.CatalogGuide !== null) {
-  return;
-}
-if (BlockPossibleShape.IsSwitchKeywordShell(shell)) {
-  // **switch 的 case 块括号**（Stage 4y）：挂**只含子句语句候选**的目录。绝不能挂块体目录：
-  // 目录里的表达式 / 变量候选会把整段 `case <表达式>:` 当一条语句建壳（Stage 4p 的
-  // `SourceRange is not set` 就是这么抛的）。
-  // **Stage 4ae：单一开关**。本类原先另有一个同名 `EnableSwitchCaseClause`，与
-  // `StatementRouteUtil.EnableSwitchCaseClause` 必须同开同关——只开一处就是假空转（挂载侧不开则
-  // mount=0，壳计数永远是 0）。同名门控已删除，挂载只问 `StatementRouteUtil` 那一份。
-  // [S6] **子句头候选只在增量模式下参与**：`IsIncrementalShapesEnabled()` 是这道挂载的第三道闸。
-  // 它不是 legacy 能力——`CaseClauseHeadPossibleShape.BuildByIndex` 建的是
-  // `StatementShape(Kind = ShellCaseClauseHead)` 的**增量壳**，只有增量模式才会由
-  // `StatementShellCatalog.Attach` 把它换成 `CaseClauseShape` / `DefaultClauseShape` 占位节点
-  //（门控在本类同族文件 `case-clause-head-possible-shape.xl.md` 的 `BuildByIndex` 末尾）。
-  // legacy 模式下若也由它建壳，`StatementBuilder.BuildCaseBlock` 收到的就是
-  // 「既不是 `CaseClauseShape` 也不是 `DefaultClauseShape` 的非 basic 单元」⇒ 抛
-  // 「switch 块里出现了 case / default 之外的单元」⇒ switch 语句收不了口 ⇒ 根层
-  // `StatementPossibleShape` 活到 EOF、与 `SourceFileEndPossibleShape` 同格成立 ⇒
-  // `CatalogGuide: 终结候选与其它候选同时成立（宿主 SourceFileShape）`。
-  // 实测（wide-ast 全量 2566 份语料）：S1 之前 0 崩溃；不加上这道门控时
-  // `tests/cases/token/statements/stmt-switch-comment-before-case.ts`（下标 19）与
-  // `stmt-switch-inline-terminator-comment.ts`（下标 25）崩溃。关掉 `EnableSwitchCaseClauseHead`
-  // 也能消红，但那是把 S1 的增量能力一起关掉（control-flow / switch-fallthrough 的 S1 验收会退回
-  // legacy），所以门控必须挂在**模式**上，不能挂在功能开关上。
-  if (StatementRouteUtil.EnableSwitchCaseClause && StatementRouteUtil.EnableSwitchCaseClauseHead
-    && StatementRouteUtil.IsIncrementalShapesEnabled()) {
-    // [WP-S1] 子句块目录 = **子句头候选在前、子句语句候选在后**。顺序不可颠倒：
-    // `case` / `default` 那一格必须由 `CaseClauseHeadPossibleShape` 先接住并建壳，否则它落进
-    // 子句语句候选、被当成表达式语句（`IdentifierShape("case")`）或标签（`LabeledStatementShape`）。
-    // 子句语句候选在 `StatementRouteUtil.Decide` 判成 `ShellCaseClauseHead` 的格子里 `Reject`（让位），
-    // 所以同格不会双 Accept。
-    body.CatalogGuide = new CatalogGuide(
-      [new CaseClauseHeadPossibleShape(), new CaseClauseStatementPossibleShape()],
-      new BlockBodyWaitingPossibleShape());
-    StatementRouteUtil.SwitchCaseClauseMountCount += 1;
-  } else if (StatementRouteUtil.EnableSwitchCaseClause) {
-    // [S6] 非增量模式，或子句头开关关闭：逐字节退回「只挂子句语句候选」的既有目录
-    //（WP-S1 之前的行为；wide-ast / legacy 解析走的正是这一支）。
-    body.CatalogGuide = new CatalogGuide(
-      [new CaseClauseStatementPossibleShape()],
-      new BlockBodyWaitingPossibleShape());
-    StatementRouteUtil.SwitchCaseClauseMountCount += 1;
-  }
-  return;
-}
-if (BlockPossibleShape.TryMountControlFlowBody(shell, body, context,
-  StatementRouteUtil.EnableLabelBodyCatalog)) {
-  return;
-}
-if (BlockPossibleShape.IsFunctionDeclarationBody(shell, bracket)) {
-  // **子句级 / 壳内函数声明体**（gap-SW §4）：`case 1: function f() { g(); }` 的函数体 `{` 的宿主是
-  // 子句壳（不是括号），上面那条 `OnChildBracketCreated` 的声明体分支看不到它。挂上之后体内语句
-  // 走 `BuildBlock()` 的收集通道，与块内函数声明体逐位相同；声明本身仍由壳收口时的
-  // `BuildStatement` 建，不新增任何建树路径。
-  if (BlockPossibleShape.EnableBlockFunctionBody && body.CatalogGuide === null) {
-    BlockPossibleShape.MountBodyCatalog(body);
-    BlockPossibleShape.BlockFunctionBodyMountCount += 1;
-  }
-}
-```
-
-## static method TryMountControlFlowBody:(shell:Token, bracket:Bracket, context:SyntaxContext, allowLabel?:bool)=>bool
-
-```ts
-if (!(shell instanceof StatementShape)) {
-  return false;
-}
-const shellKind = (shell as StatementShape).Kind;
-if (shellKind !== StatementRoute.ShellStatementFamily && shellKind !== StatementRoute.ShellLabel) {
-  return false;
-}
-const data:Array<Token> = shell.Data;
-let head = -1;
-for (let at = 0; at < data.length; at++) {
-  if (data[at].IsTriviaToken) {
-    continue;
-  }
-  head = at;
-  break;
-}
-if (head < 0 || !(data[head] instanceof Common)) {
-  return false;
-}
-const headText = (data[head] as Common).TempToString();
-const controlHead = headText === "if" || headText === "while" || headText === "do"
-  || headText === "for" || headText === "with" || headText === "try";
-// **Stage 5d-6（B）**：`allowLabel === true` 时也认「`标识符 :`」的标签壳——体位置的判据一个字不改。
-let labelHead = false;
-if (!controlHead && (allowLabel ?? false) && shellKind === StatementRoute.ShellLabel) {
-  let colonAt = head + 1;
-  while (colonAt < data.length && data[colonAt].IsTriviaToken) {
-    colonAt++;
-  }
-  labelHead = colonAt < data.length && data[colonAt] instanceof Symbol
-    && (data[colonAt] as Symbol).Is(":");
-}
-if (!controlHead && !labelHead) {
-  return false;
-}
-let braceAt = -1;
-for (let at = data.length - 1; at >= 0; at--) {
-  if (data[at] === bracket) {
-    braceAt = at;
-    break;
-  }
-}
-if (braceAt <= 0) {
-  return false;
-}
-let previous = braceAt - 1;
-while (previous >= 0 && data[previous].IsTriviaToken) {
-  previous--;
-}
-if (previous < 0) {
-  return false;
-}
-let mount = false;
-const before = data[previous];
-if (labelHead && before instanceof Symbol && (before as Symbol).Is(":")) {
-  // `lbl: { … }`：标签体就是紧跟 `:` 的那个块。
-  mount = true;
-}
-if (before instanceof Common) {
-  const text = (before as Common).TempToString();
-  if (text === "do" || text === "else" || text === "try" || text === "finally" || text === "catch") {
-    mount = true;
-  }
-}
-if (!mount && before instanceof Bracket
-  && (before as Bracket).StartBracketChar === "(" && (before as Bracket).Closed) {
-  let keyword = previous - 1;
-  while (keyword >= 0 && data[keyword].IsTriviaToken) {
-    keyword--;
-  }
-  if (keyword >= 0 && data[keyword] instanceof Common) {
-    const text = (data[keyword] as Common).TempToString();
-    if (text === "if" || text === "while" || text === "for" || text === "with" || text === "catch") {
-      mount = true;
-    } else if (text === "await") {
-      // **Stage 5d-8a：`for await (…) { … }`**。`for await` 的体位置回看一格是 `await`、再往前一格才是
-      // `for`，只回看一格永远不成立（5d-6 §5 明确记下的已知小缺口，归属 `await` 那 3 条里的 2 条）。
-      // 这里只在**紧邻 `await` 的前一格**是 `for` 时认——`x = await (…) { … }` 这种形态不可能出现在
-      // 语句首的体位置（`await (…)` 后面跟 `{` 只会是块语句，由 `Decide` 判成 `ShellBlock`）。
-      let beforeAwait = keyword - 1;
-      while (beforeAwait >= 0 && data[beforeAwait].IsTriviaToken) {
-        beforeAwait--;
-      }
-      if (beforeAwait >= 0 && data[beforeAwait] instanceof Common
-        && (data[beforeAwait] as Common).TempToString() === "for") {
-        mount = true;
-      }
-    }
-  }
-}
-if (!mount) {
-  return false;
-}
-bracket.CatalogGuide = new CatalogGuide(
-  BlockPossibleShape.CreateBodyPossibleShapes(),
-  new BlockBodyWaitingPossibleShape());
-StatementRouteUtil.ControlFlowBodyBraceCount += 1;
-if (labelHead) {
-  StatementRouteUtil.LabelBodyMountCount += 1;
-}
-return true;
-```
-
-## static method OnChildBracketCreated:(parent:Token, bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableBlockBodyCatalog) {
-  return;
-}
-if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
-  return;
-}
-if (parent instanceof StatementShape) {
-  // 语句壳上的子括号：**箭头块体**（`x => { … }`，`{` 前面是 `=>`）与 **5d-8a 起的函数表达式体**
-  // （`const f = function (a) { … }`，`{` 前面是 `)`）。根层 `const f = () => { … }` / 块内
-  // `{ const f = () => { … }; }` 的父单元都是语句壳。
-  if (StatementRouteUtil.EnableArrowBodyCatalog
-    && BlockPossibleShape.TryMountFunctionBody(parent, bracket, context, true)) {
-    return;
-  }
-  // **函数表达式体**（Stage 5d-8a）：判据与块内函数声明体同一份（`IsFunctionDeclarationBody`，
-  // 名字可省略）。只挂在这个 `{` 自己身上，建树仍走 `ExpressionBuilder` → `BuildBlock()` 的收集通道。
-  if (BlockPossibleShape.EnableFunctionExpressionBody
-    && BlockPossibleShape.IsFunctionDeclarationBody(parent, bracket, true)) {
-    const expressionBody = bracket as Bracket;
-    if (expressionBody.CatalogGuide === null) {
-      BlockPossibleShape.MountBodyCatalog(expressionBody);
-      BlockPossibleShape.FunctionExpressionBodyMountCount += 1;
-    }
-  }
-  return;
-}
-if (!(parent instanceof Bracket)) {
-  return;
-}
-const body = parent as Bracket;
-const previous = BlockPossibleShape.PreviousCodeUnit(parent, bracket);
-// **类静态块体**（Stage 5d-8a）：`class C { static { … } }` 的体 `{` 前一个非 trivia 单元是 `static`。
-// 类体括号是 legacy 建树的（没有目录），`TryMountFunctionBody` 的 `)` / 返回类型判据又不覆盖它，
-// 于是静态块体整段走 `BuildBlock` 的 raw 循环。判据只看这一个词。
-if (previous !== null && previous instanceof Common
-  && (previous as Common).TempToString() === "static") {
-  if (BlockPossibleShape.EnableStaticBlockBody) {
-    const staticBody = bracket as Bracket;
-    if (staticBody.CatalogGuide === null) {
-      BlockPossibleShape.MountBodyCatalog(staticBody);
-      BlockPossibleShape.StaticBlockBodyMountCount += 1;
-    }
-  }
-  return;
-}
-if (previous !== null && BlockPossibleShape.IsArrowUnit(previous)) {
-  // 箭头块体，宿主是括号（调用参数 / 数组 / 括号内的箭头）：`f(x => { … })`。
-  if (!StatementRouteUtil.EnableArrowBodyCatalog) {
-    return;
-  }
-  BlockPossibleShape.TryMountFunctionBody(parent, bracket, context, true);
-  return;
-}
-if (previous !== null && BlockPossibleShape.IsSwitchCaseBody(body, bracket, previous)) {
-  // **case 体的 `{`**（Stage 4p）：`switch (x) { case 1: { … } }`。挂上块体目录后，体内语句由
-  // `BuildCaseBlock` → 内层 `BuildStatement()` → `BuildBlock()` → `HasBuiltBodyStatements` /
-  // `CollectBodyStatements` 收集——与块体 / 函数体同一条通道，`CaseBlockShape` / `CaseClauseShape`
-  // 的建树路径一个字不改。`case 1: f();` 这种**不在 `{}` 里的子句语句**仍留 raw（未接管，树仍正确）。
-  if (BlockPossibleShape.EnableSwitchCaseBody) {
-    // 挂的是**case 体的 `{` 本身**（`bracket`），不是宿主（switch 的 case 块括号 `body`）。
-    // 挂错宿主会把整段 `case …` 当语句喂给块体目录 → `case 1:` 抛 `SourceRange is not set`。
-    const caseBody = bracket as Bracket;
-    if (caseBody.CatalogGuide === null) {
-      BlockPossibleShape.MountBodyCatalog(caseBody);
-      BlockPossibleShape.SwitchCaseBodyMountCount += 1;
-    }
-  }
-  return;
-}
-if (BlockPossibleShape.IsFunctionDeclarationBody(parent, bracket)) {
-  // **块内 / 体内的函数声明体**（Stage 4p）：`{ function f(){ let x = 1; } f(); }`。声明本身没有壳
-  // （块体目录里不补声明族候选），体括号却在 raw 递归的 `BuildFunctionDeclaration` → `BuildBlock()`
-  // 上，所以只挂目录就能让体内语句走收集通道：mount > 0、XML / AST 与 legacy 逐字节一致。
-  if (BlockPossibleShape.EnableBlockFunctionBody) {
-    // 挂的是**函数体 `{` 本身**（`bracket`）。挂到宿主（外层块括号）会覆盖外层块体目录，
-    // 体内语句永远走不到 `BuildBlock()` 的收集通道（mount +1 / body +0 的根因）。
-    const fnBody = bracket as Bracket;
-    if (fnBody.CatalogGuide === null) {
-      BlockPossibleShape.MountBodyCatalog(fnBody);
-      BlockPossibleShape.BlockFunctionBodyMountCount += 1;
-    }
-  }
-  return;
-}
-if (body.CatalogGuide === null) {
-  // **对象字面量方法体**（Stage 4o）：宿主括号没有目录，说明它是对象字面量 / 数组 / 调用参数，
-  // 不是块体（块体括号建壳时就挂了目录）。成员体的建树是 `ExpressionBuilder.ParseObjectLiteral`
-  // 里的 `new StatementBuilder(...).BuildStatement()`，落到 `BuildBlock()` → `HasBuiltBodyStatements`
-  // / `CollectBodyStatements`，与函数体**同一条收集通道**，所以挂目录不会泄漏形状。
-  if (StatementRouteUtil.EnableObjectMethodBodyCatalog) {
-    BlockPossibleShape.TryMountFunctionBody(parent, bracket, context);
-  }
-  return;
-}
-let classBody = false;
-for (const shape of body.CatalogGuide.PossibleShapes) {
-  if (shape.constructor.name === "MethodDeclarationPossibleShape") {
-    classBody = true;
-    break;
-  }
-}
-if (!classBody) {
-  return;
-}
-BlockPossibleShape.TryMountFunctionBody(parent, bracket, context);
 ```
 
 ## static method EnclosedByTypeBody:(unit:Token)=>bool

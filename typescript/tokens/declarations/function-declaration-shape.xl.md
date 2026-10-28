@@ -21,9 +21,6 @@ import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { BlockShape } from "../statements/block-shape.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
-import { BracketCatalogInstaller } from "../statements/bracket-catalog-installer.xl.md"
-import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.xl.md"
-import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
@@ -66,136 +63,6 @@ declare async function f(): void;
 
 ```ts
 super(template);
-```
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (!(bracket instanceof Bracket)) {
-  return;
-}
-const shape = bracket as Bracket;
-if (shape.StartBracketChar === "(") {
-  FunctionDeclarationShape.OpenParameterList(this, shape, context);
-  return;
-}
-if (shape.StartBracketChar !== "{") {
-  return;
-}
-if (!StatementRouteUtil.EnableShellExpressions || !StatementRouteUtil.EnableFunctionBodyCatalog) {
-  return;
-}
-const body = bracket as Bracket;
-if (body.CatalogGuide !== null) {
-  return;
-}
-if (!StatementRouteUtil.EnableBlockBodyCatalog) {
-  return;
-}
-if (!TypeBuilder.IsBodyBrace(this.Data, this.Data.length - 1)) {
-  return;
-}
-// 完整块体目录：体内语句与控制流块体走**同一条**通道（语句壳 + `BuildBlock` 的收集路径）。
-// 只挂控制流族候选**不行**：目录里没有变量 / 表达式候选时 `ItemUtil.ItemStart` 永远停在本体第一条
-// raw 语句上，`Decide` 拿到的首词一直是 `let`，后面的 `switch` 拿不到格子（实测 `SwitchStatementShape`
-// 首见从 69 退到 268、`SwitchCaseClauseMountCount` 归 0）。
-BlockPossibleShape.MountBodyCatalog(body);
-StatementRouteUtil.FunctionBodyShellCatalogCount += 1;
-// [B1b] 目录挂好之后立刻把体括号换成 `BlockShape` 壳：`BlockShape` 在 `{` 那一格出现，
-// `}` 那一格只收口（见 OpenFunctionBody 与 block-shape.xl.md 的 ComputePossibleShapes）。
-FunctionDeclarationShape.OpenFunctionBody(this, body, context);
-```
-
-## static method PromoteName:(host:Token, bracket:Bracket, context:SyntaxContext)=>void
-
-```ts
-const at = host.Data.indexOf(bracket);
-if (at <= 0) {
-  return;
-}
-let nameAt = -1;
-for (let back = at - 1; back >= 0; back--) {
-  if (!host.Data[back].IsTriviaToken) {
-    nameAt = back;
-    break;
-  }
-}
-if (nameAt < 0) {
-  return;
-}
-const unit = host.Data[nameAt];
-if (!(unit instanceof Common)) {
-  return;
-}
-let pos = 0;
-for (let back = nameAt - 1; back >= 0; back--) {
-  if (!host.Data[back].IsTriviaToken) {
-    const end = host.Data[back].SourceRange.End;
-    if (end >= 0) {
-      pos = host.Data[back].SourceRange.EndIndex;
-    }
-    break;
-  }
-}
-const name = IdentifierShape.FromBasicToken(unit as Common, context);
-name.Pos = pos;
-host.Data.splice(nameAt, 1, name);
-ParameterListPossibleShape.PromotedNameCount += 1;
-```
-
-## static method OpenParameterList:(host:Token, bracket:Bracket, context:SyntaxContext)=>void
-
-```ts
-if (!BracketRoleResolver.IsHeadParameterBracket(host, bracket)) {
-  // [T11] 返回类型里的 `(`（`function f(): (string)` / `function f(): abstract new (a: number) => A`）
-  // 也走到 `OnBracketCreatedEvent` 这一格，它的内容**长得像**一份简单参数表（`string` / `abstract`
-  // 都是标识符），`InstallIfSimple` 于是会登记一份 `ParameterScan`、`PromoteName` 也会动名字格，
-  // 收口格 `ComputePossibleShapes` 的 `Finalize` 再把里面的标识符收成 `ParameterShape`
-  //（实测首跳 `函数声明的返回类型没有读完` / `不支持的类型起点` / `构造类型缺少 new`）。
-  // 参数表永远是这个壳里的**第一只** `(`，返回类型归 `TypeBuilder`。
-  return;
-}
-if (!ParameterListPossibleShape.InstallIfSimple(host, bracket, context)) {
-  return;
-}
-FunctionDeclarationShape.PromoteName(host, bracket, context);
-StatementRouteUtil.EnableBracketRoleCatalog = true;
-BracketRoleCatalogHook.EnsureInstalled();
-// [T7c] 角色解析与安装搬进候选（`ParameterListPossibleShape.InstallAtBracketCreated`）：
-// 这里只保留 B1 的「简单参数表」前置、名字提前建与总闸装配，不再自己 Resolve / Install。
-ParameterListPossibleShape.InstallAtBracketCreated(host, bracket, context);
-```
-
-## static method OpenFunctionBody:(host:FunctionDeclarationShape, body:Bracket, context:SyntaxContext)=>BlockShape
-
-```ts
-const block = new BlockShape(host.Template);
-const at = host.Data.indexOf(body);
-let pos = 0;
-if (at >= 0) {
-  for (let back = at - 1; back >= 0; back--) {
-    if (!host.Data[back].IsTriviaToken) {
-      const end = host.Data[back].SourceRange.EndIndex;
-      if (end >= 0) {
-        pos = end;
-      }
-      break;
-    }
-  }
-}
-block.Add(body);
-if (body.SourceRange.Start >= 0) {
-  block.SignIn(body.SourceRange.StartIndex);
-}
-block.Pos = pos;
-if (at >= 0) {
-  host.Data.splice(at, 1, block);
-  block.Parent = host;
-}
-host.MountedUnit = block;
-block.MountedUnit = body;
-FunctionDeclarationShape.BodyShellOpenCount += 1;
-return block;
 ```
 
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
@@ -361,8 +228,7 @@ if (code[cursor + 1] instanceof Symbol && (code[cursor + 1] as Symbol).Is("*")) 
 const nameUnit = code[cursor + nameOffset];
 let paramIndex = cursor + nameOffset;
 if (nameUnit instanceof Common || nameUnit instanceof IdentifierShape) {
-  // [B1] `IdentifierShape`：名字已经在 `(` 格逐字建好（`OnBracketCreatedEvent` →
-  // `PromoteName`），这里只认下它，绝不重建。
+  // [B1] `IdentifierShape`：名字可能已经在更早的格建好，这里只认下它，绝不重建。
   paramIndex = cursor + nameOffset + 1;
 } else if (!(allowAnonymous ?? false)) {
   throw new Error("函数声明的名字不是标识符");

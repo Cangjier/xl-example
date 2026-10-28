@@ -92,8 +92,7 @@ host.Data.splice(start, moved.length);
 // 那一套 `;` / EOF / ASI：壳若继续用 `ShellPlainExpression` 的终结候选，`if (x) { y; }` 永远不会在
 // `}` 处收口，壳会吞掉下一条语句 `b;`（HANDOFF-s4ac §2.1 的 gap ①）。这一族改用控制流族标记
 // （Kind 与终结候选都取 `ShellStatementFamily`），判界走 legacy 的 `StatementScanner.ScanRoot`，
-// 建树仍是同一个 `StatementBuilder.BuildStatement`；体括号由 `StatementShape.OnBracketCreatedEvent`
-// → `BlockPossibleShape.TryMountControlFlowBody` 挂块体目录（与 `if (a) { … }` 在块内完全同一条通道）。
+// 建树仍是同一个 `StatementBuilder.BuildStatement`。
 const statementFamily = moved.length > 0
   && CaseClauseStatementPossibleShape.IsStatementFamilyHead(moved[0]);
 const shell = new StatementShape(host.Template);

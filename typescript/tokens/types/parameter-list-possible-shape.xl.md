@@ -22,7 +22,6 @@ import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { BracketRole } from "../statements/bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "../statements/bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
-import { BracketCatalogInstaller } from "../statements/bracket-catalog-installer.xl.md"
 ```
 
 # namespace cangjie
@@ -774,32 +773,6 @@ if (!ParameterListPossibleShape.IsSimpleList(bracket)) {
 const state = ParameterListPossibleShape.EnsureState(bracket.Data);
 state.Bracket = bracket;
 ParameterListPossibleShape.MountCount += 1;
-return true;
-```
-
-## static method InstallAtBracketCreated:(host:Token, bracket:Bracket, context:SyntaxContext)=>bool
-
-```ts
-if (!(bracket instanceof Bracket)) {
-  return false;
-}
-const shape = bracket as Bracket;
-if (shape.StartBracketChar === "[") {
-  if (!(host instanceof Bracket)) {
-    return false;
-  }
-  ParameterListPossibleShape.StepAtBracketCreated(host as Bracket, shape, context);
-  return true;
-}
-if (shape.StartBracketChar !== "(") {
-  return false;
-}
-ParameterListPossibleShape.EnsureRegistered();
-const plan = BracketRoleResolver.Resolve(host, shape, context);
-if (!plan.IsKnown() || plan.Role !== BracketRole.ParameterList) {
-  return false;
-}
-BracketCatalogInstaller.Install(shape, plan, context);
 return true;
 ```
 

@@ -945,7 +945,7 @@ if (draft.IsDeferred()) {
   StatementRouteUtil.BracketRoleDeferredCount += 1;
   return draft;
 }
-// Known：族已经装过目录（`Bracket.OnBracketCreatedEvent` 的族收尾已经跑完）⇒ 只做收尾，不换目录。
+// Known：族已经装过目录 ⇒ 只做收尾，不换目录。
 if (shape.CatalogGuide !== null) {
   StatementRouteUtil.BracketRoleKnownCount += 1;
   const installed = BracketRoleResult.Known(null, null, draft.Role, draft.Owner, draft.OwnerKey);

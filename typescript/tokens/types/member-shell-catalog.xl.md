@@ -12,12 +12,6 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { BracketCatalogInstaller } from "../statements/bracket-catalog-installer.xl.md"
-import { BracketRoleCatalog } from "../statements/bracket-role-resolver.xl.md"
-import { BracketRoleResult } from "../statements/bracket-role-resolver.xl.md"
-import { BracketRoleState } from "../statements/bracket-role-resolver.xl.md"
-import { BracketRole } from "../statements/bracket-role-resolver.xl.md"
-import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { BlockShape } from "../statements/block-shape.xl.md"
 import { ClassDeclarationShape } from "../declarations/class-declaration-shape.xl.md"
 import { ClassMemberPossibleUtil } from "./class-member-possible-util.xl.md"
@@ -45,7 +39,6 @@ import { SetAccessorShape } from "./set-accessor-shape.xl.md"
 import { SetKeywordShape } from "../keywords/set-keyword-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { TypeBuilder } from "./type-builder.xl.md"
-import { WaitingEndPossible } from "../statements/waiting-end-possible.xl.md"
 ```
 
 # namespace cangjie
@@ -171,15 +164,6 @@ for (let at = MemberShellCatalog.Open.length - 1; at >= 0; at--) {
     MemberShellCatalog.PrunedCount += 1;
   }
 }
-```
-
-## static method InstallBodyCatalog:(body:Bracket, shapes:Array<PossibleShape>, role:string, owner:Token, context:SyntaxContext)=>bool
-
-```ts
-const catalog = new BracketRoleCatalog(role, shapes, null);
-const plan = BracketRoleResult.Known(catalog, null, role, owner, role);
-const installed = BracketCatalogInstaller.Install(body, plan, context);
-return installed === 0;
 ```
 
 ## static method NewShell:(family:int, kind:int, template:Template)=>ShapeToken
@@ -537,141 +521,6 @@ return kind === MemberHeadKind.Method || kind === MemberHeadKind.Constructor
 return kind === MemberHeadKind.Method || kind === MemberHeadKind.Constructor
   || kind === MemberHeadKind.Get || kind === MemberHeadKind.Set
   || kind === MemberHeadKind.StaticBlock;
-```
-
-## static method InstallParameterList:(shell:Token, bracket:Bracket, family:int, context:SyntaxContext)=>void
-
-```ts
-if (family !== MemberShellFamily.Enum) {
-  const text = ParameterListPossibleShape.TextBetween(bracket);
-  // 多参数 / rest / 换行 / 两端空白：legacy / TS 的 `pos` 含前导 trivia，B1 的 `Start` 不含，
-  // 这些格交给 legacy；`m(a: number)` 这种紧凑的单参数表没有这个差。
-  if (text.indexOf(",") >= 0 || text.indexOf("...") >= 0
-    || text.indexOf("\n") >= 0 || text.indexOf("\r") >= 0 || text !== text.trim()) {
-    return;
-  }
-}
-if (!ParameterListPossibleShape.InstallIfSimple(shell, bracket, context)) {
-  return;
-}
-const catalog = new BracketRoleCatalog(BracketRole.ParameterList, ParameterListPossibleShape.Shapes(), null);
-const plan = BracketRoleResult.Known(catalog, null, BracketRole.ParameterList, shell, BracketRole.ParameterList);
-BracketCatalogInstaller.Install(bracket, plan, context);
-```
-
-## static method OpenMemberBody:(shell:Token, body:Bracket, context:SyntaxContext)=>void
-
-```ts
-const entry = MemberShellCatalog.Find(shell);
-if (entry === null) {
-  return;
-}
-if (entry.BodyBlock !== null) {
-  return;
-}
-if (body.CatalogGuide === null) {
-  BlockPossibleShape.MountBodyCatalog(body);
-}
-const block = new BlockShape(shell.Template);
-const at = shell.Data.indexOf(body);
-let pos = 0;
-if (at >= 0) {
-  for (let back = at - 1; back >= 0; back--) {
-    if (!shell.Data[back].IsTriviaToken) {
-      const end = shell.Data[back].SourceRange.EndIndex;
-      if (end >= 0) {
-        pos = end;
-      }
-      break;
-    }
-  }
-}
-block.Add(body);
-body.Parent = block;
-if (body.SourceRange.Start >= 0) {
-  block.SignIn(body.SourceRange.StartIndex);
-}
-block.Pos = pos;
-if (at >= 0) {
-  shell.Data.splice(at, 1, block);
-  block.Parent = shell;
-}
-shell.MountedUnit = block;
-block.MountedUnit = body;
-const part = new MemberShellHeadPart();
-part.Shape = block;
-part.Raw.push(body);
-entry.Parts.push(part);
-entry.BodyBracket = body;
-entry.BodyBlock = block;
-```
-
-## static method IsHeadParameterBracket:(shell:Token, bracket:Bracket)=>bool
-
-```ts
-let at = shell.Data.indexOf(bracket);
-if (at < 0) {
-  return false;
-}
-// 只认外壳里的**第一个** `(`：返回类型 / 参数默认值里的括号前面已经有参数表了。
-for (let earlier = 0; earlier < at; earlier++) {
-  const unit = shell.Data[earlier];
-  if (unit instanceof Bracket && (unit as Bracket).StartBracketChar === "(") {
-    return false;
-  }
-}
-let previous:Token | null = null;
-for (let back = at - 1; back >= 0; back--) {
-  const unit = shell.Data[back];
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  previous = unit;
-  break;
-}
-if (previous === null) {
-  return false;
-}
-if (previous instanceof Bracket) {
-  return false;
-}
-if (previous instanceof Symbol) {
-  const text = (previous as Symbol).TempToString();
-  return text === ">" || text === ">>" || text === ">>>" || text === "?";
-}
-// 名字那一格在自己的闭合格已经换成 `IdentifierShape` / `ConstructorKeywordShape` 等形状，
-// 所以这里接受「不是括号、不是符号」的任何头部单元（修饰词形状只可能出现在更前面）。
-return true;
-```
-
-## static method OnBracketCreated:(shell:Token, bracket:Token, context:SyntaxContext)=>void
-
-```ts
-const entry = MemberShellCatalog.Find(shell);
-if (entry === null) {
-  return;
-}
-if (!(bracket instanceof Bracket)) {
-  return;
-}
-const unit = bracket as Bracket;
-if (unit.StartBracketChar === "(") {
-  if (MemberShellCatalog.IsCallableKind(entry.Kind)
-    && MemberShellCatalog.IsHeadParameterBracket(shell, unit)) {
-    MemberShellCatalog.InstallParameterList(shell, unit, entry.Family, context);
-  }
-  return;
-}
-if (unit.StartBracketChar !== "{") {
-  return;
-}
-if (!MemberShellCatalog.HasBodyKind(entry.Kind)) {
-  return;
-}
-if (!TypeBuilder.IsBodyBrace(shell.Data, shell.Data.length - 1)) {
-  return;
-}
-MemberShellCatalog.OpenMemberBody(shell, unit, context);
 ```
 
 ## static method HeadCompute:(shell:Token, context:SyntaxContext)=>ComputePossibleShapesStates

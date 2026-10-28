@@ -54,10 +54,3 @@ if (MemberShellCatalog.IsOpen(this)) {
 return super.ComputePossibleShapes(context, source);
 ```
 
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (MemberShellCatalog.IsOpen(this)) {
-  MemberShellCatalog.OnBracketCreated(this, bracket, context);
-}
-```

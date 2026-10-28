@@ -13,7 +13,6 @@ import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { StringLiteralShape } from "../literals/string-literal-shape.xl.md"
 import { ModuleBlockShape } from "./module-block-shape.xl.md"
-import { NamespaceBodyDeclarationMount } from "./forms/namespace-body-declaration-mount.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 ```
@@ -37,15 +36,6 @@ export namespace N {}
 
 ```ts
 super(template);
-```
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (!(bracket instanceof Bracket) || (bracket as Bracket).StartBracketChar !== "{") {
-  return;
-}
-NamespaceBodyDeclarationMount.Install(bracket);
 ```
 
 ## static method FromUnits:(code:Array<Token>, positions:Array<int>, context:SyntaxContext)=>ModuleDeclarationShape

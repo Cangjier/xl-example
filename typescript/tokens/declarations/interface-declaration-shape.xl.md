@@ -2,7 +2,6 @@
 ```xl
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { DeclareKeywordShape } from "../keywords/declare-keyword-shape.xl.md"
 import { ExportKeywordShape } from "../keywords/export-keyword-shape.xl.md"
@@ -16,7 +15,6 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
-import { AngleJudge } from "../types/angle-judge.xl.md"
 import { CallSignaturePossibleShape } from "../types/call-signature-possible-shape.xl.md"
 import { ConstructSignaturePossibleShape } from "../types/construct-signature-possible-shape.xl.md"
 import { GetAccessorPossibleShape } from "../types/get-accessor-possible-shape.xl.md"
@@ -25,7 +23,6 @@ import { MethodSignaturePossibleShape } from "../types/method-signature-possible
 import { PropertySignaturePossibleShape } from "../types/property-signature-possible-shape.xl.md"
 import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { SetAccessorPossibleShape } from "../types/set-accessor-possible-shape.xl.md"
-import { InterfaceDeclarationEndPossibleShape } from "./interface-declaration-end-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -53,56 +50,6 @@ interface I { [k: string]: A; }
 
 ```ts
 super(template);
-```
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (this.BodyBracket !== null) {
-  return;
-}
-if (!(bracket instanceof Bracket)) {
-  return;
-}
-if ((bracket as Bracket).StartBracketChar !== "{") {
-  return;
-}
-if (!this.IsDefinitelyBodyBracket(bracket as Bracket)) {
-  return;
-}
-const body = bracket as Bracket;
-this.BodyBracket = body;
-// [B2] 成员块目录走 B0 安装器（`Known` + `WaitingEndPossible`）：早建成员外壳之后块里不再有新单元，
-// 旧目录的候选会全部 Reject，没有终结候选时 `CatalogGuide` 会抛「没有候选形状可以构成」。
-MemberShellCatalog.InstallBodyCatalog(body, InterfaceDeclarationShape.CreateBodyPossibleShapes(), "MemberList", this, context);
-this.CatalogGuide = new CatalogGuide([], new InterfaceDeclarationEndPossibleShape());
-```
-
-## method IsDefinitelyBodyBracket:(bracket:Bracket)=>bool
-
-```ts
-let depth = 0;
-let previous:Token | null = null;
-for (const unit of this.Data) {
-  if (unit === bracket) {
-    continue;
-  }
-  if (unit.IsTriviaToken) {
-    continue;
-  }
-  depth = AngleJudge.ScanDepth(unit, depth);
-  previous = unit;
-}
-if (depth !== 0 || previous === null) {
-  return false;
-}
-let text = "";
-if (previous instanceof Common) {
-  text = (previous as Common).TempToString();
-} else if (previous instanceof Symbol) {
-  text = (previous as Symbol).TempToString();
-}
-return text !== "extends" && text !== "implements" && text !== ",";
 ```
 
 ## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null

@@ -1,8 +1,6 @@
 # dependencies
 ```xl
-import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
-import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
@@ -10,7 +8,7 @@ import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
-import { BlockBodyChildBracketHook, BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
+import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { ClassDeclarationPossibleShape } from "../declarations/class-declaration-possible-shape.xl.md"
 import { EnumDeclarationPossibleShape } from "../declarations/enum-declaration-possible-shape.xl.md"
 import { ExportAssignmentPossibleShape } from "../declarations/export-assignment-possible-shape.xl.md"
@@ -36,7 +34,6 @@ import { DeclarationStatementPossibleShape } from "../statements/declaration-sta
 import { DeclareVariablePossibleShape } from "../declarations/forms/declare-variable-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
-import { BracketRoleCatalogHook } from "../statements/bracket-role-catalog-hook.xl.md"
 ```
 
 # namespace cangjie
@@ -60,43 +57,25 @@ if (queue !== null) {
   this.ProcessQueue = queue;
 }
 this.CatalogGuide = new CatalogGuide(SourceFileShape.CreatePossibleShapes(), new SourceFileEndPossibleShape());
-// [B0:ROLE] 通用括号角色钩子的**幂等装配点**（每次解析都经过这里，早于任何一只括号）。
-// 两个开关 `EnableBracketRoleCatalog` / `EnableBracketCreatePossible` 都为假时 `EnsureInstalled`
-// 立即返回、`BracketRoleHook.Current` 保持 `null`，于是 `Bracket.Transit` 里那一行只是 `null` 比较 ⇒
-// 不解析角色、不装目录、不登记延迟括号、不触发 `BracketCreate`，既有产物逐字节不变。
-// [T2b] `BracketCreate` 触发也挂在同一个实例上（T2 那个独立的静态装配点已删除）：
-// 任一开关为真就装，开关关时 `OnBracketCreated` 里对应的那一段立即返回。
-// [B3:HEAD] 控制流头 `(` 的目录在这里装配：先注册 `ControlHead` 角色目录，再打开 B0 的总闸。
+// [B3:HEAD] 控制流头 `(` 的目录在这里装配：先注册 `ControlHead` 角色目录。
 // 顺序是硬要求——目录必须在任何一只括号之前注册，否则 `Resolve` 会先把它记成
 // `Fallback("catalog-not-registered:ControlHead")`。
 // [B3b:LEGACY] **增量模式闸**：`EnableControlHeadCatalog` 只在 `IsIncrementalShapesEnabled()` 为真时生效。
-// 只读功能开关本身不够——装配这一步会顺带把 `EnableBracketRoleCatalog` 打开，那是 B0 的**总闸**，
-// 于是一份 legacy 解析里的每只 `{` / `(` 都会多走一次角色解析、装上头目录、逐字建头原子，
-// legacy 产物因此偏离 B3 之前（实测 `FileFallbackCount` 2 → 11、`wide-ast` 多 1 条 moved）。
-// 闸加在装配套这一处，`CatalogGuide.FlushOnClose` / `ParsePrimary` 的 `IsAtom` /
-// `BracketRoleResult.FlushOnClose` 三条透传因此在 legacy 下全部保持各自的默认 `false` / 空表，
-// 逐字节回到 B3 之前。开关与默认值都保留、不删；关掉的是「legacy 也走增量装配」这一条错配。
 ControlHeadPossibleShape.ResetAtoms();
-// [B4:EXPR] 表达式括号内容目录（对象 / 数组 / 调用实参 / 分组）。与 B3b 同一条纪律：
+// [B4:EXPR] 表达式括号内容目录（对象 / 数组 / 调用实参 / 分组）。
 // ① 每文件先清登记表（`ExpressionAtomRegistry` 与 `ExpressionBracketPossibleShape.States`
 //    都是**身份表**，不清就会跨文件命中上一棵树的节点）；
-// ② 装配只在增量模式、且 `EnableExprBracketCatalog` 为真时做——装配会顺带打开 B0 的总闸，
-//    legacy 里没人需要它（B3b §3 实测过：legacy 也装配会让 `FileFallbackCount` 2 → 11）。
+// ② 装配只在增量模式、且 `EnableExprBracketCatalog` 为真时做。
 ExpressionAtomRegistry.Reset();
 ExpressionBracketPossibleShape.Reset();
 if (StatementRouteUtil.EnableExprBracketCatalog && StatementRouteUtil.IsIncrementalShapesEnabled()) {
   ExpressionBracketPossibleShape.EnsureRegistered();
-  StatementRouteUtil.EnableBracketRoleCatalog = true;
 }
 if (StatementRouteUtil.EnableControlHeadCatalog && StatementRouteUtil.IsIncrementalShapesEnabled()) {
   ControlHeadPossibleShape.EnsureRegistered();
-  StatementRouteUtil.EnableBracketRoleCatalog = true;
 }
 // [T7e] 容器建树由 `VariableDeclarationShape` 的关闭拍候选
 // （`ContainerClosePossibleShape.BuildByIndex`）完成，这里没有任何装配。
-// [B0:ROLE] 角色目录 + [T2b] `BracketCreate` 触发共用这一个装配点：`EnableBracketRoleCatalog`
-// 或 `EnableBracketCreatePossible` 为真时装一次；两个都为假的默认路径只保留这一行调用。
-BracketRoleCatalogHook.EnsureInstalled();
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates
@@ -121,24 +100,6 @@ for (const item of this.Data) {
 // AST 的 children 只有子形状：文件末尾没人认领的 trivia（空格 / 行尾注释 / 换行）与 EOF 哨兵在收尾时丢掉。
 this.Data = this.Data.filter((item) => !item.IsTriviaToken && !(item instanceof EndOfFileTokenShape));
 return CloseStates.Nothing;
-```
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (StatementRouteUtil.EnableShellExpressions && StatementRouteUtil.EnableBlockBodyCatalog) {
-  // 装一次括号宿主监听：类体里的方法 / 构造器体括号由 `Bracket.OnBracketCreatedEvent` 转调回来。
-  if (Bracket.ChildBracketCreatedHook === null) {
-    Bracket.ChildBracketCreatedHook = new BlockBodyChildBracketHook();
-  }
-  BlockPossibleShape.TryMountFunctionBody(this, bracket, context);
-}
-if (StatementRouteUtil.EnableShellExpressions
-  && bracket instanceof Bracket
-  && (bracket as Bracket).StartBracketChar === "{"
-  && StatementRouteUtil.Decide(this.Data, this.Data.length - 1) === StatementRoute.ShellBlock) {
-  this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
-}
 ```
 
 ## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void

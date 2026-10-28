@@ -37,8 +37,6 @@ if (this.CatalogGuide !== null) {
 return ComputePossibleShapesStates.Nothing;
 ```
 
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
 ## constructor:(template:Template)=>void
 
 ```ts

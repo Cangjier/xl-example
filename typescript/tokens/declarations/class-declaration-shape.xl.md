@@ -46,18 +46,6 @@ import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeBuilder } from "../types/type-builder.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
-import { ClassDeclarationEndPossibleShape } from "./class-declaration-end-possible-shape.xl.md"
-import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { PropertyDeclarationPossibleShape } from "../types/property-declaration-possible-shape.xl.md"
-import { MethodDeclarationPossibleShape } from "../types/method-declaration-possible-shape.xl.md"
-import { ClassMemberCatchAllPossibleShape } from "../types/class-member-catch-all-possible-shape.xl.md"
-import { SemicolonClassElementPossibleShape } from "../expressions/semicolon-class-element-possible-shape.xl.md"
-import { ConstructorPossibleShape } from "../types/constructor-possible-shape.xl.md"
-import { GetAccessorPossibleShape } from "../types/class-get-accessor-possible-shape.xl.md"
-import { SetAccessorPossibleShape } from "../types/class-set-accessor-possible-shape.xl.md"
-import { ClassStaticBlockDeclarationPossibleShape } from "../types/class-static-block-declaration-possible-shape.xl.md"
-import { IndexSignaturePossibleShape } from "../types/class-index-signature-possible-shape.xl.md"
 import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 ```
 
@@ -90,49 +78,6 @@ class C { [k] = 1; }
 
 ```ts
 super(template);
-```
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (this.BodyBracket !== null) {
-  return;
-}
-if (!(bracket instanceof Bracket)) {
-  return;
-}
-if (!BodyGuideUtil.IsBodyBracket(this, bracket as Bracket, ["extends", "implements", ","])) {
-  return;
-}
-const body = bracket as Bracket;
-this.BodyBracket = body;
-// [B2] 成员块目录走 B0 安装器：`Known` 计划 + 永不 Accept 的终结候选（`WaitingEndPossible`）。
-// 外壳（B2 的早建成员壳）建出来之后块里不再有新单元，旧目录的候选会全部 Reject；没有终结候选时
-// `CatalogGuide` 会走「没有候选形状可以构成」的抛错出口，`WaitingEndPossible` 把它变成 `Waiting`。
-MemberShellCatalog.InstallBodyCatalog(body, ClassDeclarationShape.CreateBodyPossibleShapes(), "MemberList", this, context);
-this.CatalogGuide = new CatalogGuide([], new ClassDeclarationEndPossibleShape());
-```
-
-## private static field CreateBodyPossibleShapesCache:Array<PossibleShape> | null = null
-
-## static method CreateBodyPossibleShapes:()=>Array<PossibleShape>
-
-```ts
-const cached = BodyGuideUtil.CreateShapesCache(
-  ClassDeclarationShape.CreateBodyPossibleShapesCache,
-  () => [
-    new PropertyDeclarationPossibleShape(),
-    new MethodDeclarationPossibleShape(),
-    new ConstructorPossibleShape(),
-    new GetAccessorPossibleShape(),
-    new SetAccessorPossibleShape(),
-    new ClassStaticBlockDeclarationPossibleShape(),
-    new SemicolonClassElementPossibleShape(),
-    new IndexSignaturePossibleShape(),
-    new ClassMemberCatchAllPossibleShape(),
-  ]);
-ClassDeclarationShape.CreateBodyPossibleShapesCache = cached;
-return cached;
 ```
 
 ## static method FromUnits:(host:Token, start:int, tokenIndex:int, context:SyntaxContext)=>ClassDeclarationShape

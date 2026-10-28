@@ -17,7 +17,6 @@ import { PropertyAssignmentShape } from "../../../members/property-assignment-sh
 import { ShorthandPropertyAssignmentShape } from "../../../members/shorthand-property-assignment-shape.xl.md"
 import { SpreadAssignmentShape } from "../../../members/spread-assignment-shape.xl.md"
 import { ShapePosition } from "../../../positions/shape-position.xl.md"
-import { BracketCatalogInstaller } from "../../../statements/bracket-catalog-installer.xl.md"
 import { BracketRole } from "../../../statements/bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "../../../statements/bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "../../../statements/bracket-role-resolver.xl.md"
@@ -244,22 +243,6 @@ return false;
 
 ```ts
 return ShapePosition.PosAt(bracket, units, tokenIndex);
-```
-
-## static method InstallAtBracketCreated:(host:Token, bracket:Bracket, context:SyntaxContext)=>bool
-
-```ts
-if (!(bracket instanceof Bracket)) {
-  return false;
-}
-const shape = bracket as Bracket;
-ExpressionBracketPossibleShape.EnsureRegistered();
-const plan = BracketRoleResolver.Resolve(host, shape, context);
-if (!plan.IsKnown() || ExpressionBracketPossibleShape.RoleKinds.indexOf(plan.Role) < 0) {
-  return false;
-}
-BracketCatalogInstaller.Install(shape, plan, context);
-return true;
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates

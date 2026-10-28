@@ -21,8 +21,7 @@ import { AngleJudge } from "../types/angle-judge.xl.md"
 
 ```txt
 // 一个族的完整接线（以 interface 为例，行号见设计文档 §9）：
-// 1) 壳 OnBracketCreatedEvent：BodyGuideUtil.IsBodyBracket(壳, 新括号, ["extends", "implements", ","])
-//    为真 ⇒ BodyGuideUtil.MountBodyGuide(接口体括号, CreateBodyPossibleShapes())
+// 1) 体括号的创建格：BodyGuideUtil.MountBodyGuide(接口体括号, CreateBodyPossibleShapes())
 //    同时壳自己装终结候选 new CatalogGuide([], new XxxEndPossibleShape())
 // 2) 声明关键字格提前 Accept，BuildByIndex 里：
 //    const shell = new XxxShape(host.Template);

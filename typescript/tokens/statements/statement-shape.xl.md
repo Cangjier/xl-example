@@ -630,12 +630,6 @@ if (StatementShape.DetachShell(this)) {
 return BranchStates.Undo;
 ```
 
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-BlockPossibleShape.OnShellBracketCreated(this, bracket, context);
-```
-
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
 ```ts

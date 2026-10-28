@@ -24,11 +24,9 @@ import { TypeLiteralShape } from "../types/type-literal-shape.xl.md"
 import { UnionTypeShape } from "../types/union-type-shape.xl.md"
 import { FunctionTypeShape } from "../types/function-type-shape.xl.md"
 import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
-import { BracketRoleResolver } from "../statements/bracket-role-resolver.xl.md"
 import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
 import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
-import { TypeAliasLiteralStartPossibleShape } from "./type-alias-literal-start-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -84,66 +82,6 @@ super(template);
 ## field Incremental:bool = false
 
 ## static field IncrementalBuiltCount:int = 0
-
-## method OnBracketCreatedEvent:(bracket:Token, context:SyntaxContext)=>void
-
-```ts
-if (!this.Incremental || this.Finished || !this.SeenEqual) {
-  return;
-}
-if (!(bracket instanceof Bracket)) {
-  return;
-}
-if ((bracket as Bracket).StartBracketChar === "(") {
-  // [B4h] 类型位置的 `(`：函数类型参数表。角色 / 目录由 B0 的机制装（见 `MountFunctionType`
-  // 与 `BracketRoleResolver.Classify` 的 `FunctionTypeParams` 分支），这里只负责「建壳」与
-  // 「把参数表状态挂上」两件族内的事。
-  this.MountFunctionType(bracket as Bracket, context);
-  return;
-}
-if ((bracket as Bracket).StartBracketChar !== "{") {
-  return;
-}
-if (this.Literal !== null || this.UnionShape !== null || this.BodyBracket !== null) {
-  return;
-}
-if (this.HasParams || TypeAliasDeclarationShape.PeekMappedHead(bracket as Bracket)) {
-  // 映射类型（含修饰词）与「`[` 开头的索引签名」都整段留在 raw：早建的 TypeLiteral
-  // 不适合它们的成员目录。别名壳仍然早建，类型节点在该类型的收口格由 legacy 一次建出。
-  return;
-}
-const at = this.Data.indexOf(bracket);
-if (at < 0) {
-  return;
-}
-let previous = -1;
-for (let index = at - 1; index >= 0; index--) {
-  if (!this.Data[index].IsTriviaToken) {
-    previous = index;
-    break;
-  }
-}
-if (previous < 0) {
-  return;
-}
-const before = this.Data[previous];
-if (!(before instanceof Symbol) || !(before as Symbol).Is("=")) {
-  return;
-}
-const literal = new TypeLiteralShape(this.Template);
-literal.Pos = this.TypeBasePos;
-if (bracket.SourceRange.Start >= 0) {
-  literal.SignIn(bracket.SourceRange.StartIndex);
-}
-this.Data.splice(at, 0, literal);
-literal.Parent = this;
-this.Literal = literal;
-this.BodyBracket = bracket as Bracket;
-this.MemberCatalogInstalled = false;
-// 成员目录的**门**：先挂一个只判「映射 or 字面量」的候选；字面量在第一个成员出现时换成
-// interface 成员目录（B2c），映射类型则让门 Reject、整段留给 legacy 的 `ParseMappedType`。
-TypeAliasLiteralStartPossibleShape.Install(bracket as Bracket);
-```
 
 ## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 
@@ -501,54 +439,6 @@ if (at >= 0) {
 }
 shell.Literal = null;
 shell.AliasType = null;
-```
-
-## method MountFunctionType:(bracket:Bracket, context:SyntaxContext)=>void
-
-```ts
-if (this.FunctionType !== null || this.Literal !== null || this.UnionShape !== null
-  || this.BodyBracket !== null) {
-  return;
-}
-if (!BracketRoleResolver.HasFunctionArrowAfterParen(bracket)) {
-  return;
-}
-ParameterListPossibleShape.EnsureRegisteredForFunctionType();
-const installed = ParameterListPossibleShape.InstallForFunctionType(bracket);
-const at = this.Data.indexOf(bracket);
-if (at < 0) {
-  return;
-}
-let previous = -1;
-for (let index = at - 1; index >= 0; index--) {
-  if (!this.Data[index].IsTriviaToken) {
-    previous = index;
-    break;
-  }
-}
-if (previous < 0) {
-  return;
-}
-const before = this.Data[previous];
-if (!(before instanceof Symbol) || !(before as Symbol).Is("=")) {
-  return;
-}
-if (!installed) {
-  // 复杂参数表：不建壳、不建参数，收口格整段交 legacy `ParseFunctionType`。
-  return;
-}
-const shape = new FunctionTypeShape(this.Template);
-// `Pos` 取**紧邻这只括号的那个 `=`** 的 `EndIndex`（legacy `ParseFunctionType` 的 `Positions[start]`），
-// 而不是缓存的 `TypeBasePos`：类型参数默认值里的 `=` 不算（`NoteEqualStep` 的深度判据同一条口径）。
-shape.Pos = before.SourceRange.End >= 0 ? before.SourceRange.EndIndex : this.TypeBasePos;
-if (bracket.SourceRange.Start >= 0) {
-  shape.SignIn(bracket.SourceRange.StartIndex);
-}
-this.Data.splice(at, 0, shape);
-shape.Parent = this;
-this.FunctionType = shape;
-this.ParamsBracket = bracket;
-this.ArrowConsumed = false;
 ```
 
 ## method TryFinalizeFunctionParams:(context:SyntaxContext)=>bool
@@ -952,75 +842,6 @@ if (!(leading instanceof EndOfFileTokenShape) && !leading.IsTriviaToken) {
 return -1;
 ```
 
-## static method PeekMappedHead:(bracket:Bracket)=>bool
-
-```ts
-const range = bracket.SourceRange;
-const document = range.Document;
-if (document === null || range.StartIndex < 0) {
-  return false;
-}
-const count = document.GetCount();
-const whole = SourceRange.Whole(document);
-function skipSpace(from:number):number {
-  let at = from;
-  while (at < count) {
-    const ch = whole.At(at);
-    if (ch === " " || ch === "\t" || ch === "\r" || ch === "\n" || ch === "\v"
-      || ch === "\f" || ch === "\u2028" || ch === "\u2029") {
-      at++;
-      continue;
-    }
-    if (ch === "/" && at + 1 < count) {
-      const next = whole.At(at + 1);
-      if (next === "/") {
-        at += 2;
-        while (at < count && whole.At(at) !== "\n") {
-          at++;
-        }
-        continue;
-      }
-      if (next === "*") {
-        at += 2;
-        while (at + 1 < count && !(whole.At(at) === "*" && whole.At(at + 1) === "/")) {
-          at++;
-        }
-        at += 2;
-        continue;
-      }
-    }
-    break;
-  }
-  return at;
-}
-let at = skipSpace(range.StartIndex + 1);
-while (at < count) {
-  const ch = whole.At(at);
-  if (ch === "+" || ch === "-") {
-    at = skipSpace(at + 1);
-    continue;
-  }
-  let word = "";
-  let cursor = at;
-  while (cursor < count) {
-    const code = whole.At(cursor);
-    const value = code.charCodeAt(0);
-    if ((value >= 97 && value <= 122) || (value >= 65 && value <= 90)
-      || (value >= 48 && value <= 57) || code === "_" || code === "$") {
-      word += code;
-      cursor++;
-      continue;
-    }
-    break;
-  }
-  if (word === "readonly") {
-    at = skipSpace(cursor);
-    continue;
-  }
-  break;
-}
-return at < count && whole.At(at) === "[";
-```
 ## static method HasLineBreakBetween:(left:Token, right:Token)=>bool
 
 ```ts

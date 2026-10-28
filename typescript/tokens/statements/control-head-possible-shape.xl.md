@@ -14,7 +14,6 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { ShapePosition } from "../positions/shape-position.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { BracketCatalogInstaller } from "./bracket-catalog-installer.xl.md"
 import { BracketRole } from "./bracket-role-resolver.xl.md"
 import { BracketRoleCatalog } from "./bracket-role-resolver.xl.md"
 import { BracketRoleResolver } from "./bracket-role-resolver.xl.md"
@@ -246,25 +245,6 @@ return "identifier";
 
 ```ts
 return ShapePosition.PosAt(host, units, tokenIndex);
-```
-
-## static method InstallAtBracketCreated:(host:Token, bracket:Bracket, context:SyntaxContext)=>bool
-
-```ts
-if (!(bracket instanceof Bracket)) {
-  return false;
-}
-const shape = bracket as Bracket;
-if (shape.StartBracketChar !== "(") {
-  return false;
-}
-ControlHeadPossibleShape.EnsureRegistered();
-const plan = BracketRoleResolver.Resolve(host, shape, context);
-if (!plan.IsKnown() || plan.Role !== BracketRole.ControlHead) {
-  return false;
-}
-BracketCatalogInstaller.Install(shape, plan, context);
-return true;
 ```
 
 ## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
