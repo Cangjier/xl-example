@@ -12,26 +12,6 @@ import { Token } from "./token.xl.md"
 
 # class PossibleShape
 
-## static field Slots:Map<any, int> = new Map()
-
-## static method SlotOf:(shapeClass:any)=>int
-
-```ts
-const known = PossibleShape.Slots.get(shapeClass);
-if (known !== undefined) {
-  return known;
-}
-const slot = PossibleShape.Slots.size;
-PossibleShape.Slots.set(shapeClass, slot);
-return slot;
-```
-
-## method Slot:()=>int
-
-```ts
-return PossibleShape.SlotOf(this.constructor);
-```
-
 ## method Compute:(units:Array<Token>, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts

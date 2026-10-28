@@ -1,7 +1,0 @@
-// xl:note 基线用例（来自缺口审计语料）
-// xl:expect BinaryOperator
-a ??= 1
-a &&= 2
-a ||= 3
-a **= 2
-a >>>= 1

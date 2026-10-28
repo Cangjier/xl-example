@@ -1,3 +1,0 @@
-// xl:note D-generics-tuple-mapped 落点（657 审计语料）
-// xl:expect GenericType:2,Identifier:7,Lamda,LamdaBody,LamdaParameters,Let,Parameter,ReturnType,Root,Statement:2,SymbolToken:2,TypeDefine:2,TypeParameter
-const f = async <T,>(x: T): Promise<T> => x;

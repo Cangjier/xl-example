@@ -2,46 +2,46 @@
 
 # class PossibleShapeCache
 
-## field Values:Array<unknown> = []
+## field Values:Map<string, unknown> = new Map()
 
-## field Share:Array<unknown> = []
+## field Share:Map<string, unknown> = new Map()
 
-## method GetState:<Item>(possibleShapeSlot:int)=>Item | null
+## method GetState:<Item>(possibleShapeName:string)=>Item | null
 
 ```ts
-const value = this.Values[possibleShapeSlot];
+const value = this.Values.get(possibleShapeName);
 if (value === undefined) {
   return null;
 }
 return value as Item;
 ```
 
-## method SetState:<Item>(possibleShapeSlot:int, state:Item)=>void
+## method SetState:<Item>(possibleShapeName:string, state:Item)=>void
 
 ```ts
-this.Values[possibleShapeSlot] = state;
+this.Values.set(possibleShapeName, state);
 ```
 
-## method GetShare:<Item>(possibleShapeSlot:int)=>Item | null
+## method GetShare:<Item>(possibleShapeName:string)=>Item | null
 
 ```ts
-const value = this.Share[possibleShapeSlot];
+const value = this.Share.get(possibleShapeName);
 if (value === undefined) {
   return null;
 }
 return value as Item;
 ```
 
-## method SetShare:<Item>(possibleShapeSlot:int, value:Item)=>void
+## method SetShare:<Item>(possibleShapeName:string, value:Item)=>void
 
 ```ts
-this.Share[possibleShapeSlot] = value;
+this.Share.set(possibleShapeName, value);
 ```
 
 ## method ClearShare:()=>void
 
 ```ts
-this.Share = [];
+this.Share.clear();
 ```
 
 ## field ItemStartValue:int = -1
@@ -67,7 +67,7 @@ this.ItemStartLength = unitsLength;
 ## method Clear:()=>void
 
 ```ts
-this.Values = [];
+this.Values.clear();
 this.ItemStartValue = -1;
 this.ItemStartLength = -1;
 ```
