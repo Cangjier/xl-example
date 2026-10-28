@@ -195,8 +195,11 @@ if (host instanceof BinaryExpressionShape) {
     }
     const promoted = BinaryExpressionShape.FromLeftAndOperator(target, operatorShape, precedence, target.Template);
     promoted.Pos = target.Pos;
+    let insertAt = 1;
     for (const item of tail) {
-      promoted.Add(item);
+      item.Parent = promoted;
+      promoted.Data.splice(insertAt, 0, item);
+      insertAt++;
     }
     promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
     const at = container.Data.indexOf(target);
@@ -239,9 +242,13 @@ units.splice(tokenIndex, 1);
 units.splice(leftIndex, 1, binary);
 // 运算符前的 trivia 不能留在宿主尾部：宿主可能在 SignOut 之前就被关闭，
 // 那时它的 End 会取最后一个子单元——留下来的空白会把右边界截在运算符之前。
+// 放进二元式时排在运算符之前，保持源码顺序（Close 时统一过滤）。
 const tail = units.splice(leftIndex + 1);
+let insertAt = 1;
 for (const item of tail) {
-  binary.Add(item);
+  item.Parent = binary;
+  binary.Data.splice(insertAt, 0, item);
+  insertAt++;
 }
 binary.Parent = host;
 host.MountedUnit = binary;
