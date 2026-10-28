@@ -15,6 +15,8 @@ import { Common } from "./common.xl.md"
 
 # namespace cangjie
 
+# type BracketCloseDispatch = (bracket:Bracket, context:SyntaxContext)=>CloseStates
+
 # class Bracket extends UnitToken
 
 ## field IsBasicToken:bool = true
@@ -35,6 +37,8 @@ this.ProcessQueue = template.BranchTemplate.Get(this.constructor);
 ## field Role:string = ""
 
 ## field ReplayCount:int = 0
+
+## field HandleCloseDispatch:BracketCloseDispatch | null = null
 
 ## method Is:(start:string, end:string)=>bool
 
@@ -64,12 +68,9 @@ return this;
 
 ```ts
 this.Closed = true;
-// [B3:FLUSH] 宿主关闭前补判自己的最后一格：`switch (a)` / `if (a)` 的 `a` 是被**本括号的闭括号**
-// 终结的，它上一次「basic token 关闭时问父单元」那一格没有机会发生，于是向导一次都没被问到，
-// `a` 到收口格仍然是 `Common`。
-// 只有 `CatalogGuide.FlushOnClose` 为真的向导会走这条（默认 false ⇒ 既有向导逐字节不变）。
-// 补判与逐格判定走同一个入口（`ComputePossibleShapesByIndex` + `Data.length - 1`），
-// 因此「候选还在等 ⇒ `Waiting`，什么都不建」的语义完全一致。
+if (this.HandleCloseDispatch !== null) {
+  return this.HandleCloseDispatch(this, context);
+}
 if (this.CatalogGuide !== null && this.CatalogGuide.FlushOnClose && this.Data.length > 0) {
   this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
 }
@@ -95,7 +96,9 @@ if (value === this.EndBracketChar) {
   }
   this.SignOut(index + 1);
   this.TryToClose(context);
-  this.Quit();
+  if (this.HandleCloseDispatch === null || (this.Parent !== null && this.Parent.MountedUnit === this)) {
+    this.Quit();
+  }
   return BranchStates.Done;
 }
 return BranchStates.Undo;
@@ -118,13 +121,6 @@ const mounted = new Bracket(unit.Template);
 unit.Add(mounted);
 unit.MountedUnit = mounted;
 mounted.Use(value).SignIn(index);
-// [T7b:CREATE] 创建拍的两个 `PossibleSource.BracketCreate` 来源在这里**直接**问
-// `IComputePossibleShapes`，不经过任何创建钩子。
-// 1) 新括号自己：有向导才问，**绝不替它装目录**（装目录是 T7c 的候选 `BuildByIndex` 的事）。此刻 `Data`
-//    还是空的，`ComputePossibleShapes` 取不到格 ⇒ 直接 `Nothing`，不建形状、不改 `Data`。
-// 2) 父宿主：窄域沿用旧窄触发（只对 `{` + 括号宿主 + 带终结候选的向导 `EndPossible !== null`），只把来源
-//    从 `Close` 换成 `BracketCreate`。`EndPossible` 这条前置是安全判据：候选全灭时向导返回 `Waiting`，
-//    而不是抛「没有候选形状可以构成」。
 if (mounted.CatalogGuide !== null) {
   mounted.ComputePossibleShapes(context, PossibleSource.BracketCreate);
 }
