@@ -12,9 +12,9 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
-import { AsteriskTokenShape } from "../punctuation/asterisk-token-shape.xl.md"
-import { PlusTokenShape } from "../punctuation/plus-token-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
+import { BinaryOperatorInfo } from "./binary-operator-table.xl.md"
+import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
 import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
 ```
 
@@ -56,7 +56,6 @@ if (!unit.Closed) {
 if (BinaryExpressionPossibleShape.ShouldBuild(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
-// 还不认识的运算符保持 Uncertain（等待后续实现），不在这里把整棵候选集清零。
 return ShapeStates.Uncertain;
 ```
 
@@ -69,12 +68,12 @@ return BinaryExpressionPossibleShape.ShouldBuild(units, tokenIndex);
 ## static method ShouldBuild:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// 运算符已关闭，左边是一个已封口的操作数形状。当前只做乘号与加号。
+// 运算符已关闭，左边是一个已封口的操作数形状；具体支持哪些运算符由 BinaryOperatorTable 决定。
 const unit = units[tokenIndex];
 if (!(unit instanceof Symbol) || !unit.Closed) {
   return false;
 }
-if (!unit.IsAny(["*", "+"])) {
+if (!BinaryOperatorTable.Contains(unit.TempToString())) {
   return false;
 }
 const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
@@ -94,15 +93,6 @@ if (unit instanceof NumericLiteralShape) {
   return unit.Closed;
 }
 return false;
-```
-
-## static method Precedence:(text:string)=>int
-
-```ts
-if (text === "*" || text === "/" || text === "%") {
-  return 2;
-}
-return 1;
 ```
 
 ## static method PosOf:(unit:Token)=>int
@@ -135,18 +125,6 @@ while (moved) {
 return pos;
 ```
 
-## static method TokenShape:(operator:Symbol, pos:int)=>Token
-
-```ts
-if (operator.Is("*")) {
-  return AsteriskTokenShape.FromSymbol(operator, pos);
-}
-if (operator.Is("+")) {
-  return PlusTokenShape.FromSymbol(operator, pos);
-}
-throw new Error("BinaryExpressionPossibleShape: 不支持的运算符 " + operator.TempToString());
-```
-
 ## static method LastOperandIndex:(data:Array<Token>)=>int
 
 ```ts
@@ -165,61 +143,84 @@ return -1;
 ```ts
 const units = host.Data;
 const operator = units[tokenIndex] as Symbol;
-const precedence = BinaryExpressionPossibleShape.Precedence(operator.TempToString());
-const operatorShape = BinaryExpressionPossibleShape.TokenShape(operator, BinaryExpressionPossibleShape.OperatorPosition(units, tokenIndex));
+const info = BinaryOperatorTable.Find(operator.TempToString());
+if (info === null) {
+  throw new Error("BinaryExpressionPossibleShape: 不支持的运算符 " + operator.TempToString());
+}
+const precedence = info.Precedence;
+const rightAssociative = info.RightAssociative;
+const operatorShape = BinaryOperatorTable.Create(operator, BinaryExpressionPossibleShape.OperatorPosition(units, tokenIndex));
 const leftIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
 if (leftIndex < 0) {
   throw new Error("BinaryExpressionPossibleShape: 缺左操作数");
 }
 const left = units[leftIndex];
 
-// 情形一：宿主自己就是一个二元式，且新运算符不高于宿主的优先级（`1+2+3` 的第二个 `+`）。
-// 此时整个宿主是左操作数：新二元式建在宿主的父单元上，宿主原位换成新式。
-if (host instanceof BinaryExpressionShape && precedence <= host.Precedence) {
-  const container = host.Parent;
-  if (container === null) {
-    throw new Error("BinaryExpressionPossibleShape: 二元式没有父单元，无法提升");
+// 情形一：宿主自己就是一个二元式，且新运算符比宿主松；同级时只有左结合才提升。
+// 提升可能不止一层：`2 > 3 - 4 * 5 == 6` 的 `==` 要比 `-` 和 `>` 都松，
+// 左操作数是「不高于新运算符」的最外层那个二元式，而不是最内层宿主。
+if (host instanceof BinaryExpressionShape) {
+  const promotesHost = precedence < host.Precedence
+    || (precedence === host.Precedence && !rightAssociative);
+  if (promotesHost) {
+    let target:BinaryExpressionShape = host;
+    while (target.Parent instanceof BinaryExpressionShape) {
+      const parent = target.Parent as BinaryExpressionShape;
+      const promotesParent = precedence < parent.Precedence
+        || (precedence === parent.Precedence && !rightAssociative);
+      if (!promotesParent) {
+        break;
+      }
+      target = parent;
+    }
+    const container = target.Parent;
+    if (container === null) {
+      throw new Error("BinaryExpressionPossibleShape: 二元式没有父单元，无法提升");
+    }
+    units.splice(tokenIndex, 1);
+    const tail:Array<Token> = [];
+    while (units.length > 0 && units[units.length - 1].IsTriviaToken) {
+      tail.unshift(units.pop()!);
+    }
+    if (!target.Closed) {
+      target.TryToClose(context);
+    }
+    const promoted = BinaryExpressionShape.FromLeftAndOperator(target, operatorShape, precedence, target.Template);
+    promoted.Pos = target.Pos;
+    for (const item of tail) {
+      promoted.Add(item);
+    }
+    promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
+    const at = container.Data.indexOf(target);
+    if (at >= 0) {
+      promoted.Parent = container;
+      container.Data.splice(at, 1, promoted);
+      container.MountedUnit = promoted;
+    }
+    return promoted;
   }
-  units.splice(tokenIndex, 1);
-  const tail:Array<Token> = [];
-  while (units.length > 0 && units[units.length - 1].IsTriviaToken) {
-    tail.unshift(units.pop()!);
-  }
-  if (!host.Closed) {
-    host.TryToClose(context);
-  }
-  const promoted = BinaryExpressionShape.FromLeftAndOperator(host, operatorShape, precedence, host.Template);
-  promoted.Pos = host.Pos;
-  for (const item of tail) {
-    promoted.Add(item);
-  }
-  promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
-  const at = container.Data.indexOf(host);
-  if (at >= 0) {
-    promoted.Parent = container;
-    container.Data.splice(at, 1, promoted);
-    container.MountedUnit = promoted;
-  }
-  return promoted;
 }
 
-// 情形二：左操作数是已封口的二元式，而新运算符绑得更紧（`1+2*3` 的 `*`）。
+// 情形二：左操作数是已封口的二元式，且新运算符比它紧；右结合时同级也要往右嵌套（`2**3**4`）。
 // 把左式最右的操作数拆出来，作为新二元式的左操作数，新式挂回左式右侧；左式重新打开。
-if (left instanceof BinaryExpressionShape && left.Closed && precedence > left.Precedence) {
-  const rightIndex = BinaryExpressionPossibleShape.LastOperandIndex(left.Data);
-  if (rightIndex >= 0) {
-    const right = left.Data[rightIndex];
-    left.Data.splice(rightIndex, 1);
-    const nested = BinaryExpressionShape.FromLeftAndOperator(right, operatorShape, precedence, left.Template);
-    nested.Pos = BinaryExpressionPossibleShape.PosOf(right);
-    left.Add(nested);
-    left.Closed = false;
-    left.SourceRange.End = -1;
-    left.MountedUnit = nested;
-    nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
-    units.splice(tokenIndex, 1);
-    host.MountedUnit = left;
-    return nested;
+if (left instanceof BinaryExpressionShape && left.Closed) {
+  const bindsTighter = rightAssociative ? precedence >= left.Precedence : precedence > left.Precedence;
+  if (bindsTighter) {
+    const rightIndex = BinaryExpressionPossibleShape.LastOperandIndex(left.Data);
+    if (rightIndex >= 0) {
+      const right = left.Data[rightIndex];
+      left.Data.splice(rightIndex, 1);
+      const nested = BinaryExpressionShape.FromLeftAndOperator(right, operatorShape, precedence, left.Template);
+      nested.Pos = BinaryExpressionPossibleShape.PosOf(right);
+      left.Add(nested);
+      left.Closed = false;
+      left.SourceRange.End = -1;
+      left.MountedUnit = nested;
+      nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
+      units.splice(tokenIndex, 1);
+      host.MountedUnit = left;
+      return nested;
+    }
   }
 }
 
