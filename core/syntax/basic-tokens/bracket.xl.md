@@ -71,9 +71,6 @@ this.Closed = true;
 if (this.HandleCloseDispatch !== null) {
   return this.HandleCloseDispatch(this, context);
 }
-if (this.CatalogGuide !== null && this.CatalogGuide.FlushOnClose && this.Data.length > 0) {
-  this.ComputePossibleShapesByIndex(this.Data.length - 1, context, PossibleSource.Close);
-}
 const parent = this.Parent;
 let closedState = CloseStates.Nothing;
 if (parent !== null && "ComputePossibleShapes" in parent) {
