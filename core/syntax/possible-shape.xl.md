@@ -36,13 +36,6 @@ return this.BuildByIndex(host, host.Data.length - 1, catalog, context);
 return true;
 ```
 
-## method ContinuationClaim:(units:Array<Token>, tokenIndex:int)=>bool
-
-```ts
-// [D0:CONTINUATION] 默认不认领：既有候选一概不参与初始化器位置的通用委派。
-return false;
-```
-
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
