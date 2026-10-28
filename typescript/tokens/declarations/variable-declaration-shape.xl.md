@@ -2,7 +2,6 @@
 ```xl
 import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
-import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
@@ -14,7 +13,6 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { DeclarationAsiBoundary } from "./forms/declaration-asi-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { ExpressionAtomRegistry } from "../expressions/forms/shared/expression-atom-registry.xl.md"
-import { ContainerClosePossibleShape } from "../expressions/forms/shared/container-shape-catalog.xl.md"
 import { OperatorTable } from "../expressions/operator-table.xl.md"
 import { ExclamationTokenShape } from "../punctuation/exclamation-token-shape.xl.md"
 import { TypeCatalogFactory } from "../types/type-catalog-factory.xl.md"
@@ -44,21 +42,6 @@ null
 ```
 
 ## field ContainerCloseGuide:CatalogGuide | null = null
-
-## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-```ts
-const state = this.ComputeByDirectoryShapes(context, source);
-// [T7d] 关闭拍：父候选已经按自己的所有权跑完。容器候选自己会判「括号还在不在宿主 Data 里」
-// （不在 ⇒ 父候选已经消费，只记 AlreadyConsumed），所以这里无条件问一次。
-if (source === PossibleSource.Close) {
-  if (this.ContainerCloseGuide === null) {
-    this.ContainerCloseGuide = new CatalogGuide([new ContainerClosePossibleShape()]);
-  }
-  this.ContainerCloseGuide.ComputePossibleShapes(this, context, source);
-}
-return state;
-```
 
 ## private method ComputeByDirectoryShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
 

@@ -1,11 +1,9 @@
 # dependencies
 ```xl
-import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
-import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { MemberShellCatalog } from "./member-shell-catalog.xl.md"
@@ -44,13 +42,3 @@ if (MemberShellCatalog.IsOpen(this)) {
 }
 return BranchStates.Undo;
 ```
-
-## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-```ts
-if (MemberShellCatalog.IsOpen(this)) {
-  return MemberShellCatalog.HeadCompute(this, context);
-}
-return super.ComputePossibleShapes(context, source);
-```
-

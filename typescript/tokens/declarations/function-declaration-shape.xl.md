@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
@@ -18,10 +17,8 @@ import { TypeBuilder } from "../types/type-builder.xl.md"
 import { MemberBoundary } from "../types/member-boundary.xl.md"
 import { ExpressionBuilder } from "../expressions/expression-builder.xl.md"
 import { DecoratorShape } from "../types/decorator-shape.xl.md"
-import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
 import { BlockShape } from "../statements/block-shape.xl.md"
 import { StatementRouteUtil } from "../statements/statement-route-util.xl.md"
-import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
@@ -63,16 +60,6 @@ declare async function f(): void;
 
 ```ts
 super(template);
-```
-
-## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-```ts
-ParameterListPossibleShape.Finalize(this, context);
-if (this.CatalogGuide !== null) {
-  return this.CatalogGuide.ComputePossibleShapes(this, context, source);
-}
-return ComputePossibleShapesStates.Nothing;
 ```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates

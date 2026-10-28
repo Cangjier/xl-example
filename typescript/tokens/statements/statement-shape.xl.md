@@ -2,7 +2,6 @@
 ```xl
 import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
-import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
@@ -25,8 +24,6 @@ import { StatementShapeAst } from "./statement-shape-ast.xl.md"
 import { StatementRoute } from "./statement-route-util.xl.md"
 import { StatementRouteUtil } from "./statement-route-util.xl.md"
 import { VariableStatementThreeLayer } from "./variable-statement-three-layer.xl.md"
-import { BlockPossibleShape } from "./block-possible-shape.xl.md"
-import { IncrementalStuckShellRecovery } from "./incremental-stuck-shell-recovery.xl.md"
 ```
 
 # namespace cangjie
@@ -66,86 +63,6 @@ let b = 2
 
 ```ts
 super(template);
-```
-
-## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-```ts
-// [E-SHAPE:MOUNT] WP-B2：`EnableIncrementalShapes=true` 时，表达式体（`OperatorBody`）归约出的形状要
-// **物化并挂进壳的可见 `Data`**——否则形状只活在体的 `Frames` 里，`ToAstLine` 看不到，账本永远判 `atomic`。
-// 做法（与 PLAN §1.3 等价的实现）：每一步先把上一格挂上去的形状**卸回原始单元**（让壳的 `CatalogGuide`
-// / 终结候选 / 收口路径看到的始终是 raw `Data`，行为与 legacy 逐字节一致），喂完表达式体、跑完既有候选
-// 计算之后，若体已经归约到「完整表达式」，就用 S3c 的同一个形状→AST 桥（`StatementShapeAst.Build`）
-// 把当前前缀物化成 AST 形状并原地挂进 `Data`。于是账本在**归约发生的那一格**就看到最终树里的节点。
-// 开关 false 时本段不执行（逐字节 legacy）。
-if (StatementRouteUtil.IsIncrementalShapesEnabled() && this.OperatorBody !== null) {
-  this.UnpackIncremental();
-}
-// H1（CONTRACT §4.1）：直建的唯一喂入点——子单元关闭事件先喂 session，再走既有候选计算。
-// 不改返回值、不建形状、不碰 CatalogGuide；`DirectSession === null` 时本句是空操作。
-// **R3-S（R3-CONTRACT §4.4）**：`--strict` 时 `Decline` / `Incomplete` **在 Ingest 期**就会抛
-// （`Decline`：`Declined+=1` → `NoteDecline` → `StrictViolations+=1` → `throw`）。不在这里接住，
-// 异常会穿出 `Parse`（R2 审计 §7 R2 条：`let {a} = b` 在 Strict 下抛穿）。计数语义与 H2 完全一致：
-// 已计数的 Decline 不再计 `Errors`；接住之后**继续走** `super.ComputePossibleShapes(context, source)`，
-// 由 H2 的 `!direct.Declined` 拦下 Finish ⇒ 旧路径建树（AST 不变）。
-if (this.DirectSession !== null) {
-  const ingestSession = this.DirectSession;
-  try {
-    ingestSession.Ingest(this.Data, context);
-  } catch (error) {
-    // R4（R4-CONTRACT §1.5 / R4-Q2）：`--strict` 的两处抛错点在抛出**之前**都已经计数
-    // （Decline ⇒ `Declined`+`StrictViolations`；Incomplete ⇒ `IncompleteFallback`+`StrictViolations`），
-    // 所以这一类异常不是「异常兜底」，**不得**再记 `Errors`（R4-S-01/02 要 `errors==0 &&
-    // strictViolations>=1`）。判据 = 抛错前缀，与 session 的两个抛错点一一对应；非 strict 的真异常照旧
-    // 计 `Errors` + `LastError`。这不是放宽：`StrictViolations` 仍然是 `>=1` 的硬断言。
-    const message = error instanceof Error ? error.message : String(error);
-    if (!ingestSession.Declined && message.indexOf("DirectBuild strict") !== 0) {
-      DirectBuildMetrics.Errors += 1;
-      DirectBuildMetrics.LastError = message;
-      DirectBuildMetrics.Trace("direct ingest error: " + message);
-    } else {
-      DirectBuildMetrics.Trace("direct ingest strict (already counted): " + message);
-    }
-  }
-}
-if (this.OperatorBody !== null) {
-  this.OperatorBody.IngestAll(this.Data, this.Template);
-}
-const state = super.ComputePossibleShapes(context, source);
-// [S2:STUCK-SHELL] **卡死壳检测**（`incremental-stuck-shell-recovery.xl.md`）：壳连续
-// `RecoveryCells`（= 2）格答 `Waiting`、而当前末单元已经是声明跟随边界 ⇒ 下一条语句的起始词到了、
-// 壳却不收口。这一格**先只计数**（`StatementRouteUtil.StuckShellRecoveryCount`），强制执行收口要
-// `IncrementalStuckShellRecovery.ForceClose` 显式打开（默认 `false`，与 EOF 那条「先计数、后翻行为」
-// 同一条纪律）。默认路径 = 计数 + 同一份返回值，逐字节与基线一致。
-// 收口走的是壳自己的收口路径（`BuildFromShell` + `FinishShell`），不新写建树；失败一律不抛错。
-if (StatementRouteUtil.EnableStuckShellRecovery) {
-  if (state === ComputePossibleShapesStates.Waiting) {
-    this.WaitingCells += 1;
-    if (IncrementalStuckShellRecovery.ShouldRecover(this.Data, this.WaitingCells)) {
-      IncrementalStuckShellRecovery.NoteRecovery();
-      if (IncrementalStuckShellRecovery.CanForceClose()) {
-        const stuckLast = ItemUtil.LastCodeInItem(this.Data);
-        if (stuckLast >= 0) {
-          let forced:Token | null = null;
-          try {
-            forced = StatementShape.BuildFromShell(this, stuckLast, context);
-          } catch {
-            forced = null;
-          }
-          if (forced !== null) {
-            StatementShape.FinishShell(this, forced, context);
-          }
-        }
-      }
-    }
-  } else {
-    this.WaitingCells = 0;
-  }
-}
-// 候选计算（含终结候选收口）之后才挂：壳若已在本格收口，`FinishShell` 已把壳换出、`Data` 已清空，
-// 下面的存活判据会把它挡掉——收口路径永远只看 raw `Data`。
-this.TryMountIncremental(context);
-return state;
 ```
 
 ## method UnpackIncremental:()=>void

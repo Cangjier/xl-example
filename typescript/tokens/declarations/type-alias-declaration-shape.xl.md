@@ -17,7 +17,6 @@ import { LineTerminator } from "../../run/line-terminator.xl.md"
 import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { BranchStates } from "../../../core/syntax/branch-states.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
-import { ComputePossibleShapesStates } from "../../../core/syntax/compute-possible-shapes-states.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { EndOfFileTokenShape } from "../trivia/end-of-file-token-shape.xl.md"
 import { TypeLiteralShape } from "../types/type-literal-shape.xl.md"
@@ -26,7 +25,6 @@ import { FunctionTypeShape } from "../types/function-type-shape.xl.md"
 import { ParameterListPossibleShape } from "../types/parameter-list-possible-shape.xl.md"
 import { MemberShellCatalog } from "../types/member-shell-catalog.xl.md"
 import { BodyGuideUtil } from "./body-guide-util.xl.md"
-import { InterfaceDeclarationShape } from "./interface-declaration-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -82,43 +80,6 @@ super(template);
 ## field Incremental:bool = false
 
 ## static field IncrementalBuiltCount:int = 0
-
-## method ComputePossibleShapes:(context:SyntaxContext, source:PossibleSource)=>ComputePossibleShapesStates
-
-```ts
-if (!this.Incremental || this.Finished) {
-  return ComputePossibleShapesStates.Nothing;
-}
-this.NoteEqualStep();
-if (!this.NameBuilt) {
-  if (this.BuildAliasName(context)) {
-    return ComputePossibleShapesStates.Built;
-  }
-} else {
-  if (this.BuildUnionStep(context)) {
-    return ComputePossibleShapesStates.Built;
-  }
-  if (this.BodyBracket !== null && this.Literal !== null) {
-    if (this.CloseTypeLiteral(context)) {
-      return ComputePossibleShapesStates.Built;
-    }
-  }
-  // [B4h] 函数类型：`)` 格收口最后一个参数壳；`=>` 格把参数搬进外壳、吃掉 `=>`；
-  // 返回类型在自己的词完成格建出（`TryBuildFunctionStep` 内部按结构位分支）。
-  if (this.TryFinalizeFunctionParams(context)) {
-    return ComputePossibleShapesStates.Built;
-  }
-  if (this.TryBuildFunctionStep(context)) {
-    return ComputePossibleShapesStates.Built;
-  }
-}
-const end = this.ComputeEndIndex(false);
-if (end >= 0) {
-  this.FinishAt(end, context);
-  return ComputePossibleShapesStates.Built;
-}
-return super.ComputePossibleShapes(context, source);
-```
 
 ## method TryToClose:(context:SyntaxContext)=>CloseStates
 
