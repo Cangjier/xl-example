@@ -61,6 +61,11 @@ n=4000 时相差约 **340 倍**，曲线从二次变平。
 - compute/build 如果每轮都进行寻找/遍历，则质量等级为差。解决思路：复用cache，将寻找的结果记录到cache，便于下次直接复用。
 - 如果可以增量创建形状，但使用全量创建形状，则质量等级为差。
 
+### possible compute/build 行为规范
+- 只允许查看tokenIndex之前，禁止查看tokenIndex之后，因为此时tokenIndex之后的数据不一定准备好。
+- compute/build过程中发生的异常禁止catch吃掉，这些异常是possible诊断，是用户期望看到的信息。
+- possible/build禁止跳跃式处理（除了trivia），如 shape1, basic token1, shape2, ...; 此时basic token1尚未被消费，必须前置basic token确定形状后，才能处理后续。
+
 ### 其他注意点
 - **越界**：`host.Data[tokenIndex]` 不存在 → 返回 `Nothing`（调用方可能按旧长度遍历）。
 - **淘汰**：逐个还活着的候选调 `ComputeByIndex`；`Reject` 从 `Candidates` 里去掉（`PossibleShapes` 数组禁止修改），`Accept` 与 `Uncertain` 在这一次判定里同义——都只表示「还活着」。这一步只淘汰，不定案。
