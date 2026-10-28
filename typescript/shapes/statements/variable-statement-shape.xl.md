@@ -9,12 +9,21 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 
 # class VariableStatementShape extends ShapeToken
 
+## field EndsWithSemicolon:bool = false
+
 ## protected method Close:(context:SyntaxContext)=>CloseStates
 
 ```ts
 for (const item of this.Data) {
   if (!item.Closed) {
     item.TryToClose(context);
+  }
+}
+// 有 `;` 时范围已由终止候选定在分号末尾；没有 `;` 时到最后一个代码子单元为止。
+if (!this.EndsWithSemicolon) {
+  const last = this.Last();
+  if (last !== null && last.SourceRange.End >= 0) {
+    this.SourceRange.End = last.SourceRange.End;
   }
 }
 this.Data = this.Data.filter((item) => !item.IsTriviaToken);

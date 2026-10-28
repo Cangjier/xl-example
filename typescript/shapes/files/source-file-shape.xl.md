@@ -7,6 +7,10 @@ import { SourceRange } from "../../../core/syntax/source-range.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
+import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
+import { DebuggerStatementPossibleShape } from "../statements/debugger-statement-possible-shape.xl.md"
+import { EmptyStatementPossibleShape } from "../statements/empty-statement-possible-shape.xl.md"
+import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
 import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
 ```
 
@@ -20,7 +24,13 @@ import { VariableStatementPossibleShape } from "../statements/variable-statement
 super(template);
 this.ProcessQueue = Template.BasicBranchQueue();
 this.SignIn(0);
-this.CatalogGuide = new CatalogGuide([new VariableStatementPossibleShape()], null);
+this.CatalogGuide = new CatalogGuide([
+  new VariableStatementPossibleShape(),
+  new ExpressionStatementPossibleShape(),
+  new EmptyStatementPossibleShape(),
+  new DebuggerStatementPossibleShape(),
+  new BlockPossibleShape(),
+], null);
 ```
 
 ## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void

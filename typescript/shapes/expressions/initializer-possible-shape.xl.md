@@ -9,13 +9,13 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 ```
 
 # namespace cangjie
 
-# class NumericLiteralPossibleShape extends PossibleShape
+# class InitializerPossibleShape extends PossibleShape
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -26,7 +26,6 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const unit = units[tokenIndex];
 if (!unit.IsBasicToken) {
-  // 初始值已经是一个操作数形状：本候选不参与后面的二元运算格。
   return ShapeStates.Reject;
 }
 if (unit instanceof Symbol) {
@@ -38,7 +37,7 @@ if (unit instanceof Symbol) {
 if (!(unit instanceof Common) || !unit.Closed) {
   return ShapeStates.Uncertain;
 }
-if (NumericLiteralPossibleShape.ShouldBuild(units, tokenIndex)) {
+if (InitializerPossibleShape.ShouldBuild(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
 return ShapeStates.Uncertain;
@@ -47,13 +46,13 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-return NumericLiteralPossibleShape.ShouldBuild(units, tokenIndex);
+return InitializerPossibleShape.ShouldBuild(units, tokenIndex);
 ```
 
 ## static method ShouldBuild:(units:Array<Token>, tokenIndex:int)=>bool
 
 ```ts
-// 初始值的第一项：`=` 之后刚关闭的那个 Common，就是字面量。
+// 初始化式的第一项：`=` 之后刚关闭的那个 Common，按文本落成 Identifier 或 NumericLiteral。
 const unit = units[tokenIndex];
 if (!(unit instanceof Common) || !unit.Closed) {
   return false;
@@ -70,7 +69,7 @@ return previous instanceof Symbol && previous.Is("=");
 
 ```ts
 const common = host.Data[tokenIndex] as Common;
-const literal = NumericLiteralShape.FromCommon(common, ItemUtil.PositionOf(host.Data, tokenIndex));
-common.Replace(literal);
-return literal;
+const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(host.Data, tokenIndex));
+common.Replace(operand);
+return operand;
 ```

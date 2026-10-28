@@ -19,6 +19,11 @@ for (const item of this.Data) {
 }
 // Close 之后 Data 就是 AST 的 children：trivia 与 `=` 这类 basic token 全部退场。
 this.Data = this.Data.filter((item) => !item.IsTriviaToken && !item.IsBasicToken);
+// 声明范围到最后一个代码子单元为止（不含 `;` 与尾随 trivia）。
+const last = this.Last();
+if (last !== null && last.SourceRange.End >= 0) {
+  this.SourceRange.End = last.SourceRange.End;
+}
 this.Closed = true;
 return CloseStates.Nothing;
 ```

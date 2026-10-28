@@ -8,13 +8,16 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { OperandUtil } from "../expressions/operand-util.xl.md"
+import { StatementUtil } from "./statement-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
+import { InitializerPossibleShape } from "../expressions/initializer-possible-shape.xl.md"
+import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
 import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 import { VariableDeclarationListShape } from "../declarations/variable-declaration-list-shape.xl.md"
+import { VariableStatementEndPossibleShape } from "./variable-statement-end-possible-shape.xl.md"
 import { VariableStatementShape } from "./variable-statement-shape.xl.md"
-import { NumericLiteralPossibleShape } from "../expressions/numeric-literal-possible-shape.xl.md"
-import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -25,10 +28,11 @@ import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-
 
 ```ts
 const units = host.Data;
-if (units.length === 0) {
+const start = StatementUtil.StartIndex(units);
+if (start >= units.length) {
   return ShapeStates.Uncertain;
 }
-const head = units[0];
+const head = units[start];
 if (!(head instanceof Common) || head.TempToString() !== "let") {
   return ShapeStates.Reject;
 }
@@ -38,39 +42,57 @@ return ShapeStates.Uncertain;
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
-// `let` 之后、标识符收口之前一律「还缺后续单元」。
-if (units.length !== 3 || tokenIndex !== 2) {
+// 当前语句的头是 `let`，标识符收口，并且标识符是这一格唯一的代码单元。
+const start = StatementUtil.StartIndex(units);
+const keywordIndex = start;
+if (keywordIndex >= units.length) {
   return false;
 }
-const identifier = units[2];
-return identifier instanceof Common && identifier.Closed && !identifier.IsTriviaToken;
+const keyword = units[keywordIndex];
+if (!(keyword instanceof Common) || keyword.TempToString() !== "let") {
+  return false;
+}
+const identifierIndex = StatementUtil.NextCode(units, keywordIndex + 1);
+if (identifierIndex < 0 || identifierIndex !== tokenIndex || identifierIndex !== units.length - 1) {
+  return false;
+}
+const identifier = units[identifierIndex];
+return identifier instanceof Common && identifier.Closed;
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 const units = host.Data;
-const keyword = units[0] as Common;
-const common = units[2] as Common;
-const identifierPos = ItemUtil.PositionOf(units, 2);
+const start = StatementUtil.StartIndex(units);
+const keywordIndex = start;
+const identifierIndex = StatementUtil.NextCode(units, keywordIndex + 1);
+if (keywordIndex < 0 || identifierIndex < 0) {
+  throw new Error("VariableStatementPossibleShape: 缺 let 或标识符");
+}
+const keyword = units[keywordIndex] as Common;
+const common = units[identifierIndex] as Common;
+const identifierPos = OperandUtil.PositionOf(units, identifierIndex);
 const identifier = IdentifierShape.FromCommon(common, identifierPos);
-common.Replace(identifier);
 const declaration = new VariableDeclarationShape(host.Template);
 declaration.Pos = identifierPos;
 declaration.SignIn(identifier.SourceRange.Start);
 declaration.Add(identifier);
-declaration.CatalogGuide = new CatalogGuide([new NumericLiteralPossibleShape(), new BinaryExpressionPossibleShape()], null);
+declaration.CatalogGuide = new CatalogGuide(
+  [new InitializerPossibleShape(), new BinaryExpressionPossibleShape()],
+  new VariableStatementEndPossibleShape(),
+);
 const list = new VariableDeclarationListShape(host.Template);
-list.Pos = ItemUtil.PositionOf(units, 0);
+list.Pos = ItemUtil.PositionOf(units, keywordIndex);
 list.SignIn(keyword.SourceRange.Start);
 list.Add(declaration);
 list.MountedUnit = declaration;
 const statement = new VariableStatementShape(host.Template);
-statement.Pos = ItemUtil.PositionOf(units, 0);
+statement.Pos = ItemUtil.PositionOf(units, keywordIndex);
 statement.SignIn(keyword.SourceRange.Start);
 statement.Add(list);
 statement.MountedUnit = list;
-host.Data.splice(0, 3, statement);
+units.splice(start, identifierIndex - start + 1, statement);
 statement.Parent = host;
 host.MountedUnit = statement;
 return statement;

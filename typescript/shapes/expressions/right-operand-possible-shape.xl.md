@@ -8,8 +8,9 @@ import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
 import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
-import { ItemUtil } from "../item-util.xl.md"
+import { OperandUtil } from "./operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 ```
 
@@ -27,7 +28,7 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 const unit = units[tokenIndex];
 // 运算符归 BinaryExpression 候选；已建字面量不再重复建。其余单元保持 Uncertain，
 // 让注释之类还没被消费的 basic token 不会把整棵候选集清零。
-if (unit instanceof NumericLiteralShape || unit instanceof Symbol) {
+if (unit instanceof NumericLiteralShape || unit instanceof IdentifierShape || unit instanceof Symbol) {
   return ShapeStates.Reject;
 }
 if (unit instanceof Common && unit.Closed && tokenIndex === units.length - 1) {
@@ -51,10 +52,10 @@ return unit instanceof Common && unit.Closed;
 ```ts
 const units = host.Data;
 const common = units[tokenIndex] as Common;
-const literal = NumericLiteralShape.FromCommon(common, ItemUtil.PositionOf(units, tokenIndex));
-common.Replace(literal);
-// 右操作数一到，二元式当场封口，并把宿主交还给上一层（doc: char 11 的 `+` 落在声明下）。
+const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(units, tokenIndex));
+common.Replace(operand);
+// 右操作数一到，二元式当场封口，并把宿主交还给上一层。
 host.TryToClose(context);
 host.Quit();
-return literal;
+return operand;
 ```

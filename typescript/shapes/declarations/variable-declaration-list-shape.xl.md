@@ -18,6 +18,11 @@ for (const item of this.Data) {
   }
 }
 this.Data = this.Data.filter((item) => !item.IsTriviaToken);
+// 列表范围跟着最后一个声明收口，不把尾随空白算进来。
+const last = this.Last();
+if (last !== null && last.SourceRange.End >= 0) {
+  this.SourceRange.End = last.SourceRange.End;
+}
 this.Closed = true;
 return CloseStates.Nothing;
 ```

@@ -11,6 +11,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
 import { BinaryOperatorInfo } from "./binary-operator-table.xl.md"
@@ -53,6 +54,10 @@ if (!(unit instanceof Symbol)) {
 if (!unit.Closed) {
   return ShapeStates.Uncertain;
 }
+// `;` 是语句终止符，不是二元运算符；这里必须让位给语句的 EndPossible。
+if (unit.Is(";")) {
+  return ShapeStates.Reject;
+}
 if (BinaryExpressionPossibleShape.ShouldBuild(units, tokenIndex)) {
   return ShapeStates.Accept;
 }
@@ -90,6 +95,9 @@ if (unit instanceof BinaryExpressionShape) {
   return unit.Closed;
 }
 if (unit instanceof NumericLiteralShape) {
+  return unit.Closed;
+}
+if (unit instanceof IdentifierShape) {
   return unit.Closed;
 }
 return false;
