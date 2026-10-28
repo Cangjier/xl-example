@@ -12,13 +12,13 @@ import { Token } from "./token.xl.md"
 
 # class PossibleShape
 
-## method Compute:(units:Array<Token>, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method Compute:(host:Token, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
-return this.ComputeByIndex(units, units.length - 1, cache, source);
+return this.ComputeByIndex(host, host.Data.length - 1, cache, source);
 ```
 
-## method ComputeByIndex:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
 throw new Error("abstract member: ComputeByIndex");

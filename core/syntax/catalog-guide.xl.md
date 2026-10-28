@@ -64,13 +64,13 @@ if (this.LastBuildTokenIndex === tokenIndex && this.LastBuildDataLength === host
   return ComputePossibleShapesStates.Nothing;
 }
 for (const index of this.Candidates) {
-  if (this.PossibleShapes[index].ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Reject) {
+  if (this.PossibleShapes[index].ComputeByIndex(host, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Reject) {
     this.Candidates.delete(index);
   }
 }
 let ended = false;
 if (this.EndPossible !== null) {
-  ended = this.EndPossible.ComputeByIndex(host.Data, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Accept;
+  ended = this.EndPossible.ComputeByIndex(host, tokenIndex, this.PossibleShapesComputeCache, source) === ShapeStates.Accept;
   if (ended && this.Candidates.size > 0) {
     throw new Error(`CatalogGuide: 终结候选与其它候选同时成立（宿主 ${host.constructor.name}，下标 ${tokenIndex}）`);
   }
