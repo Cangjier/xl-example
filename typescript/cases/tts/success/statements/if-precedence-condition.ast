@@ -53,7 +53,7 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       └─ WrapSymbol  src=[5,6)  text=" "
 ```
 
@@ -64,7 +64,7 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
       └─ Symbol  src=[6,7)  text="+"
 ```
@@ -76,9 +76,9 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ Symbol  src=[6,7)  text="+"
+      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       └─ WrapSymbol  src=[7,8)  text=" "
 ```
 
@@ -89,9 +89,9 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ Symbol  src=[6,7)  text="+"
+      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       ├─ WrapSymbol  src=[7,8)  text=" "
       └─ Common  src=[8,9)  text="b"
 ```
@@ -103,11 +103,11 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ Symbol  src=[6,7)  text="+"
+      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       ├─ WrapSymbol  src=[7,8)  text=" "
-      ├─ Common  src=[8,9)  text="b"
+      ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
       └─ WrapSymbol  src=[9,10)  text=" "
 ```
 
@@ -118,11 +118,11 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ Symbol  src=[6,7)  text="+"
+      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       ├─ WrapSymbol  src=[7,8)  text=" "
-      ├─ Common  src=[8,9)  text="b"
+      ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
       ├─ WrapSymbol  src=[9,10)  text=" "
       └─ Symbol  src=[10,11)  text="*"
 ```
@@ -134,13 +134,13 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ Symbol  src=[6,7)  text="+"
+      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       ├─ WrapSymbol  src=[7,8)  text=" "
-      ├─ Common  src=[8,9)  text="b"
+      ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
       ├─ WrapSymbol  src=[9,10)  text=" "
-      ├─ Symbol  src=[10,11)  text="*"
+      ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
       └─ WrapSymbol  src=[11,12)  text=" "
 ```
 
@@ -151,13 +151,13 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ Common  src=[4,5)  text="a"
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ Symbol  src=[6,7)  text="+"
+      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       ├─ WrapSymbol  src=[7,8)  text=" "
-      ├─ Common  src=[8,9)  text="b"
+      ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
       ├─ WrapSymbol  src=[9,10)  text=" "
-      ├─ Symbol  src=[10,11)  text="*"
+      ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
       ├─ WrapSymbol  src=[11,12)  text=" "
       └─ Common  src=[12,13)  text="c"
 ```
