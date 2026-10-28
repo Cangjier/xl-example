@@ -18,6 +18,7 @@
     "cases:check": "node ./tests/parse/validate.mjs",
     "ast:cases": "node ./typescript/cases/ast-json.mjs && node ./typescript/cases/ast-json-diff.mjs",
     "ast:token": "node ./typescript/cases/token-ast.mjs",
+    "ast:line": "node ./typescript/tools/ts-ast-line.mjs",
     "ast:dts": "node ./typescript/cases/real-dts-ast.mjs",
     "ast:wide": "node ./tests/parse/wide-ast.mjs",
     "ast:verify": "npm run ast:cases && npm run ast:dts && npm run ast:wide",

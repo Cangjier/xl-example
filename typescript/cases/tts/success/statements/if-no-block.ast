@@ -1,0 +1,5 @@
+SourceFile  pos=0  src=[0,10)
+└─ IfStatement  pos=0  src=[0,9)
+   ├─ Identifier  pos=4  src=[4,5)  text="a"
+   └─ ExpressionStatement  pos=6  src=[7,9)
+      └─ Identifier  pos=6  src=[7,8)  text="b"

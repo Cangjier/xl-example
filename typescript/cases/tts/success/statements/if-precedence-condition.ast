@@ -1,0 +1,263 @@
+# 预期 token 树（逐字）：`if (a + b * c) d;`
+
+```text
+0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
+i f   ( a   +   b   *   c )   d ; ⏎
+```
+
+## [char 0] `"i"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ Common  src=[0,1)  text="i"
+```
+
+## [char 1] `"f"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ Common  src=[0,2)  text="if"
+```
+
+## [char 2] `" "`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   └─ WrapSymbol  src=[2,3)  text=" "
+```
+
+## [char 3] `"("`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+```
+
+## [char 4] `"a"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      └─ Common  src=[4,5)  text="a"
+```
+
+## [char 5] `" "`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      └─ WrapSymbol  src=[5,6)  text=" "
+```
+
+## [char 6] `"+"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      ├─ WrapSymbol  src=[5,6)  text=" "
+      └─ Symbol  src=[6,7)  text="+"
+```
+
+## [char 7] `" "`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      ├─ WrapSymbol  src=[5,6)  text=" "
+      ├─ Symbol  src=[6,7)  text="+"
+      └─ WrapSymbol  src=[7,8)  text=" "
+```
+
+## [char 8] `"b"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      ├─ WrapSymbol  src=[5,6)  text=" "
+      ├─ Symbol  src=[6,7)  text="+"
+      ├─ WrapSymbol  src=[7,8)  text=" "
+      └─ Common  src=[8,9)  text="b"
+```
+
+## [char 9] `" "`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      ├─ WrapSymbol  src=[5,6)  text=" "
+      ├─ Symbol  src=[6,7)  text="+"
+      ├─ WrapSymbol  src=[7,8)  text=" "
+      ├─ Common  src=[8,9)  text="b"
+      └─ WrapSymbol  src=[9,10)  text=" "
+```
+
+## [char 10] `"*"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      ├─ WrapSymbol  src=[5,6)  text=" "
+      ├─ Symbol  src=[6,7)  text="+"
+      ├─ WrapSymbol  src=[7,8)  text=" "
+      ├─ Common  src=[8,9)  text="b"
+      ├─ WrapSymbol  src=[9,10)  text=" "
+      └─ Symbol  src=[10,11)  text="*"
+```
+
+## [char 11] `" "`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      ├─ WrapSymbol  src=[5,6)  text=" "
+      ├─ Symbol  src=[6,7)  text="+"
+      ├─ WrapSymbol  src=[7,8)  text=" "
+      ├─ Common  src=[8,9)  text="b"
+      ├─ WrapSymbol  src=[9,10)  text=" "
+      ├─ Symbol  src=[10,11)  text="*"
+      └─ WrapSymbol  src=[11,12)  text=" "
+```
+
+## [char 12] `"c"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ Bracket  src=[3,...)
+      ├─ Common  src=[4,5)  text="a"
+      ├─ WrapSymbol  src=[5,6)  text=" "
+      ├─ Symbol  src=[6,7)  text="+"
+      ├─ WrapSymbol  src=[7,8)  text=" "
+      ├─ Common  src=[8,9)  text="b"
+      ├─ WrapSymbol  src=[9,10)  text=" "
+      ├─ Symbol  src=[10,11)  text="*"
+      ├─ WrapSymbol  src=[11,12)  text=" "
+      └─ Common  src=[12,13)  text="c"
+```
+
+## [char 13] `")"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   └─ BinaryExpressionShape  pos=4  src=[4,13)
+      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+      └─ BinaryExpressionShape  pos=7  src=[8,13)
+         ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+         ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+         └─ IdentifierShape  pos=11  src=[12,13)  text="c"
+```
+
+## [char 14] `" "`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   ├─ BinaryExpressionShape  pos=4  src=[4,13)
+   │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+   │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+   │  └─ BinaryExpressionShape  pos=7  src=[8,13)
+   │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+   │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
+   └─ WrapSymbol  src=[14,15)  text=" "
+```
+
+## [char 15] `"d"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   ├─ BinaryExpressionShape  pos=4  src=[4,13)
+   │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+   │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+   │  └─ BinaryExpressionShape  pos=7  src=[8,13)
+   │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+   │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
+   ├─ WrapSymbol  src=[14,15)  text=" "
+   └─ Common  src=[15,16)  text="d"
+```
+
+## [char 16] `";"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+└─ IfStatementShape  pos=0  src=[0,...)
+   ├─ WrapSymbol  src=[2,3)  text=" "
+   ├─ BinaryExpressionShape  pos=4  src=[4,13)
+   │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+   │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+   │  └─ BinaryExpressionShape  pos=7  src=[8,13)
+   │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+   │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
+   ├─ WrapSymbol  src=[14,15)  text=" "
+   └─ ExpressionStatementShape  pos=14  src=[15,...)
+      ├─ IdentifierShape  pos=14  src=[15,16)  text="d"
+      └─ Symbol  src=[16,17)  text=";"
+```
+
+## [char 17] `"\n"`
+
+```text
+SourceFileShape  pos=-  src=[0,...)
+├─ IfStatementShape  pos=0  src=[0,17)
+│  ├─ BinaryExpressionShape  pos=4  src=[4,13)
+│  │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+│  │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+│  │  └─ BinaryExpressionShape  pos=7  src=[8,13)
+│  │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+│  │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+│  │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
+│  └─ ExpressionStatementShape  pos=14  src=[15,17)
+│     └─ IdentifierShape  pos=14  src=[15,16)  text="d"
+└─ WrapSymbol  src=[17,18)  text="\n"
+```
+
+## [EOF]
+
+```text
+SourceFileShape  pos=-  src=[0,18)
+└─ IfStatementShape  pos=0  src=[0,17)
+   ├─ BinaryExpressionShape  pos=4  src=[4,13)
+   │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+   │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+   │  └─ BinaryExpressionShape  pos=7  src=[8,13)
+   │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+   │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
+   └─ ExpressionStatementShape  pos=14  src=[15,17)
+      └─ IdentifierShape  pos=14  src=[15,16)  text="d"
+```
