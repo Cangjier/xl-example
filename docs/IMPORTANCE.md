@@ -28,7 +28,7 @@ state和share的区别是：state是面向每一个possible的独立空间(compu
 
 ### 逐字ast树
 当我们需要测试验证增量创建形状时，可以每一个字符打印ast树。如果第n个字符形状已经确定，但是ast树却没有创建形状，则说明增量创建形状没有处理到该场景。
-在`docs/excepted-tts`中存在逐字ast树的示例。如`let_x_=_2x3+1.md`描述`let x = 2*3+1`的逐字打印ast。这些示例是大致符合预期的，llm可以通过将这些示例作为范本，去诊断增量创建形状是否符合预期。
+在`docs/excepted-tts`中存在逐字ast树的示例。如`0000.md`描述`let x = 2*3+1`的逐字打印ast。这些示例是大致符合预期的，llm可以通过将这些示例作为范本，去诊断增量创建形状是否符合预期。
 
 ### bracket 晋升
 bracket和其他basic token不同的是bracket存在子集，如code block、class body、if body等等，如果等到bracket close时再possible，bracket.data将会存在大量basic token，因此bracket create时就需要触发possible。由此，possible有两个来源：close和bracket create。
