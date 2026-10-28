@@ -5,7 +5,6 @@ import { SourceRange } from "./core/syntax/source-range.xl.md"
 import { TextDocument } from "./typescript/run/text-document.xl.md"
 import { TypescriptTemplate } from "./typescript/run/typescript-template.xl.md"
 import { SourceFileShape } from "./typescript/shapes/files/source-file-shape.xl.md"
-import { StatementRouteUtil } from "./typescript/shapes/statements/statement-route-util.xl.md"
 ```
 
 # namespace cangjie
@@ -44,7 +43,6 @@ try {
 # method CjcliPrintTimeShapes:(content:string, filePath:string)=>void
 
 ```ts
-StatementRouteUtil.EnableIncrementalVariableShapes = true;
 const template = TypescriptTemplate.Create();
 const root = new SourceFileShape(template);
 const context = new SyntaxContext(root, 32);

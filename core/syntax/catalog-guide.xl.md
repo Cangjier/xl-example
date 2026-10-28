@@ -13,10 +13,6 @@ import { Token } from "./token.xl.md"
 
 # class CatalogGuide
 
-## static field RepeatedCellSkipCount:int = 0
-
-## static field BuildCount:int = 0
-
 ## field PossibleShapes:Array<PossibleShape>
 
 ## field Candidates:Set<int> = new Set()
@@ -60,7 +56,6 @@ if (token === undefined) {
   return ComputePossibleShapesStates.Nothing;
 }
 if (this.LastBuildTokenIndex === tokenIndex && this.LastBuildDataLength === host.Data.length) {
-  CatalogGuide.RepeatedCellSkipCount += 1;
   return ComputePossibleShapesStates.Nothing;
 }
 for (const index of this.Candidates) {
@@ -79,7 +74,6 @@ if (ended && this.EndPossible !== null) {
   this.EndPossible.BuildByIndex(host, tokenIndex, this, context);
   this.LastBuildTokenIndex = tokenIndex;
   this.LastBuildDataLength = host.Data.length;
-  CatalogGuide.BuildCount += 1;
   this.Reset();
   return ComputePossibleShapesStates.Built;
 }
@@ -102,7 +96,6 @@ if (!this.PossibleShapes[index].IsBuildable(host.Data, tokenIndex, this.Possible
 this.PossibleShapes[index].BuildByIndex(host, tokenIndex, this, context);
 this.LastBuildTokenIndex = tokenIndex;
 this.LastBuildDataLength = host.Data.length;
-CatalogGuide.BuildCount += 1;
 this.Reset();
 return ComputePossibleShapesStates.Built;
 ```
