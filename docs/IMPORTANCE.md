@@ -9,7 +9,6 @@
 - 行注释 `LineAnnotation`
 - 正则 `RegexToken`
 - 字符串 `String`
-- 括号 `Bracket`
 - 空白 `WrapSymbol`
 - 符号 `Symbol`
 - 通用字符块 `Common`
@@ -23,16 +22,12 @@ shape和possible/end的关联通过catalog guide表达，当baisc token发生关
 possible/end时形状创建和关闭的机制，但落地过程中主要有两种形式，分别是增量创建形状和全量创建形状。增量创建形状是指逐字增量状态机，每当一个basic token确定时，形状候选将会逐步收敛，直至收敛成唯一形状，该形式是主要方案。全量创建形状是指一次性基于所有basic tokens进行创建形状，该形式是备选方案。
 
 ### 增量创建形状
-当basic token关闭或者bracket创建时，将会触发possible compute/build，compute/build时将会从possible cache中get state，compute/build完成将会set state到possible cache。如果多个possible存在共同状态，则可以get share/set share到possible cache。
+当basic token关闭时，将会触发possible compute/build，compute/build时将会从possible cache中get state，compute/build完成将会set state到possible cache。如果多个possible存在共同状态，则可以get share/set share到possible cache。
 state和share的区别是：state是面向每一个possible的独立空间(compute/build用同一套数据)，share是多个possible的共享空间。并且state将在会build后reset，而share不会。
 
 ### 逐字ast树
 当我们需要测试验证增量创建形状时，可以每一个字符打印ast树。如果第n个字符形状已经确定，但是ast树却没有创建形状，则说明增量创建形状没有处理到该场景。
 在`docs/excepted-tts`中存在逐字ast树的示例。如`0000.md`描述`let x = 2*3+1`的逐字打印ast。这些示例是大致符合预期的，llm可以通过将这些示例作为范本，去诊断增量创建形状是否符合预期。
-
-### bracket 晋升
-bracket和其他basic token不同的是bracket存在子集，如code block、class body、if body等等，如果等到bracket close时再possible，bracket.data将会存在大量basic token，因此bracket create时就需要触发possible。由此，possible有两个来源：close和bracket create。
-bracket create和close虽然都触发possible compute/build，但不同的是bracket create时形状可能确定，但bracket.data不是完整，形状无法完成。因此bracket create时将会install catalog possible，bracket.data将进行增量创建形状；并且当bracket create时，将根据场景配置bracket.HandleCloseDispatch，用于关闭时晋升或不处理。当bracket close时，如果bracket.HandleCloseDispatch不为空，将直接调用bracket.HandleCloseDispatch完成bracket 晋升（也可以不晋升，根据需要来）和相应的shape close，并不触发原close逻辑（包括possible和end都不会触发）。
 
 ### 未消费的basic token
 当possible build时，可能不会全部basic token都进行消费，成为shape的信息。这些未消费的baisc token存在以下情况：
