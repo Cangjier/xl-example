@@ -28,6 +28,16 @@ node typescript/cases/tts/run.mjs typescript/cases/tts/todo/incremental/statemen
 `run.mjs` 除了对拍解析器与 TypeScript，还会检查 `success/**/*.ast` 是否与 `ts-ast-line` 的当前输出一致——
 `.md` 里的逐字符树是同一套形状树的快照，夹具过期同样算失败。
 
+## 在浏览器里看
+
+```bash
+npm run tts:view         # → http://127.0.0.1:7799/
+```
+
+逐个用例看 `case.ts` / `case.ast`，并按 `case.md` 的逐字符树自动回放；没有 `.md` 的用例用
+`build/ts` 实时推进（不写盘），需要落成快照时页面上可以直接生成并写入 `.md` / `.ast`。
+工具源码在 `typescript/tools/cases-viewer/`。
+
 ## 生成 `.md` / `.ast`
 
 `typescript/tools/gen-case-docs.mjs` 用与 `cjcli` 相同的驱动逐字符推进并调用 `ToAstLine`：

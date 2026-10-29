@@ -149,6 +149,9 @@ cjcli <文件>       逐字符推进文件，每步打一次 AST 行
 cjcli             从标准输入读源码，同样逐字符推进
 ```
 
+想在浏览器里逐字看：`npm run tts:view` 打开 `typescript/cases/tts` 的用例查看器
+（源码 / AST / 按 `case.md` 自动回放，见 [typescript/tools/cases-viewer/README.md](typescript/tools/cases-viewer/README.md)）。
+
 输出形状（与 `tests/parse/token-time-shapes.mjs` 的 dump 相同，步与步之间空一行）：
 
 ```text

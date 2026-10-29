@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseToAstLine } from "./ts-ast-line.mjs";
 
 const require = createRequire(import.meta.url);
@@ -68,17 +68,23 @@ export function renderMarkdown(source, name) {
   return lines.join("\n") + "\n";
 }
 
-const files = process.argv.slice(2);
-if (files.length === 0) {
-  process.stderr.write("用法: node typescript/tools/gen-case-docs.mjs <case.ts> [...]\n");
-  process.exitCode = 2;
-} else {
-  for (const file of files) {
-    const full = path.resolve(ROOT, file);
-    const source = fs.readFileSync(full, "utf8");
-    const md = renderMarkdown(source, path.basename(file));
-    fs.writeFileSync(full.replace(/\.ts$/, ".md"), md, "utf8");
-    fs.writeFileSync(full.replace(/\.ts$/, ".ast"), parseToAstLine(source, path.basename(file)) + "\n", "utf8");
-    console.log("wrote " + path.relative(ROOT, full).replace(/\.ts$/, ".{md,ast}"));
+// 作为模块被引用时（例如 tts 用例查看器）只导出 traceSteps / renderMarkdown，不执行命令行。
+const invokedDirectly = process.argv[1] !== undefined
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedDirectly) {
+  const files = process.argv.slice(2);
+  if (files.length === 0) {
+    process.stderr.write("用法: node typescript/tools/gen-case-docs.mjs <case.ts> [...]\n");
+    process.exitCode = 2;
+  } else {
+    for (const file of files) {
+      const full = path.resolve(ROOT, file);
+      const source = fs.readFileSync(full, "utf8");
+      const md = renderMarkdown(source, path.basename(file));
+      fs.writeFileSync(full.replace(/\.ts$/, ".md"), md, "utf8");
+      fs.writeFileSync(full.replace(/\.ts$/, ".ast"), parseToAstLine(source, path.basename(file)) + "\n", "utf8");
+      console.log("wrote " + path.relative(ROOT, full).replace(/\.ts$/, ".{md,ast}"));
+    }
   }
 }

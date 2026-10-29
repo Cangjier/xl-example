@@ -39,6 +39,7 @@
     "tts:incremental": "node ./tests/parse/token-time-shapes.mjs ./tests/parse/token-time-shapes/let-x.ts --diff --incremental",
     "tts:corpus": "node ./tests/parse/token-time-shapes.mjs --legacy-corpus tests/cases/token",
     "tts:cases": "node ./typescript/cases/tts/run.mjs",
+    "tts:view": "node ./typescript/tools/cases-viewer/server.mjs",
     "tts:cases:index": "node ./typescript/cases/tts/run.mjs --write-index",
     "tts:docs": "node ./typescript/tools/gen-case-docs.mjs",
     "tts:impl": "node ./typescript/cases/tts-impl/run.mjs"
