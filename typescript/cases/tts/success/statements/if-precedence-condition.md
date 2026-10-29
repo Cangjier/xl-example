@@ -76,10 +76,11 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ ConditionShape  pos=2  src=[3,4)
-      ├─ BinaryExpressionShape  pos=4  src=[4,7)
-      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      │  └─ PlusTokenShape  pos=5  src=[6,7)  op="+"
-      └─ WrapSymbol  src=[7,8)  text=" "
+      └─ BinaryExpressionShape  pos=4  src=[4,7)
+         ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+         ├─ WrapSymbol  src=[5,6)  text=" "
+         ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+         └─ WrapSymbol  src=[7,8)  text=" "
 ```
 
 ## [char 8] `"b"`
@@ -89,11 +90,12 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ ConditionShape  pos=2  src=[3,4)
-      ├─ BinaryExpressionShape  pos=4  src=[4,7)
-      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      │  └─ PlusTokenShape  pos=5  src=[6,7)  op="+"
-      ├─ WrapSymbol  src=[7,8)  text=" "
-      └─ Common  src=[8,9)  text="b"
+      └─ BinaryExpressionShape  pos=4  src=[4,7)
+         ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+         ├─ WrapSymbol  src=[5,6)  text=" "
+         ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+         ├─ WrapSymbol  src=[7,8)  text=" "
+         └─ Common  src=[8,9)  text="b"
 ```
 
 ## [char 9] `" "`
@@ -107,7 +109,6 @@ SourceFileShape  pos=-  src=[0,...)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       │  └─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      ├─ WrapSymbol  src=[7,8)  text=" "
       └─ WrapSymbol  src=[9,10)  text=" "
 ```
 
@@ -122,7 +123,6 @@ SourceFileShape  pos=-  src=[0,...)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       │  └─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      ├─ WrapSymbol  src=[7,8)  text=" "
       ├─ WrapSymbol  src=[9,10)  text=" "
       └─ Symbol  src=[10,11)  text="*"
 ```
@@ -139,7 +139,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       │  └─ BinaryExpressionShape  pos=7  src=[8,11)
       │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      │     └─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+      │     └─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
       └─ WrapSymbol  src=[11,12)  text=" "
 ```
 
@@ -155,7 +155,7 @@ SourceFileShape  pos=-  src=[0,...)
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       │  └─ BinaryExpressionShape  pos=7  src=[8,11)
       │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      │     └─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+      │     └─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
       ├─ WrapSymbol  src=[11,12)  text=" "
       └─ Common  src=[12,13)  text="c"
 ```
@@ -171,7 +171,7 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       └─ BinaryExpressionShape  pos=7  src=[8,13)
          ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-         ├─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+         ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
          └─ IdentifierShape  pos=11  src=[12,13)  text="c"
 ```
 
@@ -186,7 +186,7 @@ SourceFileShape  pos=-  src=[0,...)
    │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
    │  └─ BinaryExpressionShape  pos=7  src=[8,13)
    │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-   │     ├─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
    │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
    └─ WrapSymbol  src=[14,15)  text=" "
 ```
@@ -202,7 +202,7 @@ SourceFileShape  pos=-  src=[0,...)
    │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
    │  └─ BinaryExpressionShape  pos=7  src=[8,13)
    │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-   │     ├─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
    │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
    ├─ WrapSymbol  src=[14,15)  text=" "
    └─ Common  src=[15,16)  text="d"
@@ -218,7 +218,7 @@ SourceFileShape  pos=-  src=[0,...)
    │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
    │  └─ BinaryExpressionShape  pos=7  src=[8,13)
    │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-   │     ├─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
    │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
    └─ ExpressionStatementShape  pos=14  src=[15,17)
       └─ IdentifierShape  pos=14  src=[15,16)  text="d"
@@ -234,7 +234,7 @@ SourceFileShape  pos=-  src=[0,...)
 │  │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
 │  │  └─ BinaryExpressionShape  pos=7  src=[8,13)
 │  │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-│  │     ├─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+│  │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
 │  │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
 │  └─ ExpressionStatementShape  pos=14  src=[15,17)
 │     └─ IdentifierShape  pos=14  src=[15,16)  text="d"
@@ -251,7 +251,7 @@ SourceFileShape  pos=-  src=[0,18)
    │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
    │  └─ BinaryExpressionShape  pos=7  src=[8,13)
    │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-   │     ├─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
+   │     ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
    │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
    └─ ExpressionStatementShape  pos=14  src=[15,17)
       └─ IdentifierShape  pos=14  src=[15,16)  text="d"
