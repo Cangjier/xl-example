@@ -76,9 +76,9 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+      ├─ BinaryExpressionShape  pos=4  src=[4,7)
+      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+      │  └─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       └─ WrapSymbol  src=[7,8)  text=" "
 ```
 
@@ -89,9 +89,9 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ Bracket  src=[3,...)
-      ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      ├─ WrapSymbol  src=[5,6)  text=" "
-      ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+      ├─ BinaryExpressionShape  pos=4  src=[4,7)
+      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+      │  └─ PlusTokenShape  pos=5  src=[6,7)  op="+"
       ├─ WrapSymbol  src=[7,8)  text=" "
       └─ Common  src=[8,9)  text="b"
 ```

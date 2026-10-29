@@ -10,6 +10,8 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
+import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
+import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
 import { BinaryOperatorTable } from "../expressions/binary-operator-table.xl.md"
 ```
 
@@ -47,8 +49,58 @@ return unit instanceof Symbol && unit.Closed && BinaryOperatorTable.Contains(uni
 const bracket = host as Bracket;
 const units = bracket.Data;
 const symbol = units[tokenIndex] as Symbol;
+const info = BinaryOperatorTable.Find(symbol.TempToString());
+if (info === null) {
+  throw new Error("BracketOperatorPossibleShape: 不支持的运算符 " + symbol.TempToString());
+}
+let root:Token | null = null;
+for (const item of units) {
+  if (!item.IsTriviaToken && !item.IsBasicToken) {
+    root = item;
+    break;
+  }
+}
+if (root === null) {
+  throw new Error("BracketOperatorPossibleShape: 运算符前没有左操作数");
+}
 const operator = BinaryOperatorTable.Create(symbol, ItemUtil.PositionOf(units, tokenIndex));
-units.splice(tokenIndex, 1, operator);
-operator.Parent = bracket;
-return operator;
+if (root instanceof BinaryExpressionShape) {
+  if (!root.Closed) {
+    throw new Error("BracketOperatorPossibleShape: 左表达式还在等右操作数");
+  }
+  const bindsTighter = info.RightAssociative
+    ? info.Precedence >= root.Precedence
+    : info.Precedence > root.Precedence;
+  if (bindsTighter) {
+    let rightIndex = -1;
+    for (let at = root.Data.length - 1; at >= 0; at--) {
+      if (!root.Data[at].IsTriviaToken && !root.Data[at].IsBasicToken) {
+        rightIndex = at;
+        break;
+      }
+    }
+    if (rightIndex < 0) {
+      throw new Error("BracketOperatorPossibleShape: 左表达式没有右操作数");
+    }
+    const right = root.Data[rightIndex];
+    root.Data.splice(rightIndex, 1);
+    const nested = BinaryExpressionShape.FromLeftAndOperator(right, operator, info.Precedence, bracket.Template);
+    nested.Pos = BinaryExpressionPossibleShape.PosOf(right);
+    nested.SourceRange.End = operator.SourceRange.End;
+    nested.Closed = false;
+    root.Add(nested);
+    root.Closed = false;
+    root.SourceRange.End = -1;
+    units.length = 0;
+    bracket.Add(root);
+    return nested;
+  }
+}
+const binary = BinaryExpressionShape.FromLeftAndOperator(root, operator, info.Precedence, bracket.Template);
+binary.Pos = BinaryExpressionPossibleShape.PosOf(root);
+binary.SourceRange.End = operator.SourceRange.End;
+binary.Closed = false;
+units.length = 0;
+bracket.Add(binary);
+return binary;
 ```
