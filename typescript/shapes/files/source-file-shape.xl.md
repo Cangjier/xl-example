@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
 import { SourceRange } from "../../../core/syntax/source-range.xl.md"
@@ -8,11 +7,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { BlockPossibleShape } from "../statements/block-possible-shape.xl.md"
-import { DebuggerStatementPossibleShape } from "../statements/debugger-statement-possible-shape.xl.md"
-import { EmptyStatementPossibleShape } from "../statements/empty-statement-possible-shape.xl.md"
-import { ExpressionStatementPossibleShape } from "../statements/expression-statement-possible-shape.xl.md"
-import { IfStatementPossibleShape } from "../statements/if-statement-possible-shape.xl.md"
-import { VariableStatementPossibleShape } from "../statements/variable-statement-possible-shape.xl.md"
+import { StatementGuide } from "../statements/statement-guide.xl.md"
 ```
 
 # namespace cangjie
@@ -25,14 +20,7 @@ import { VariableStatementPossibleShape } from "../statements/variable-statement
 super(template);
 this.ProcessQueue = Template.BasicBranchQueue();
 this.SignIn(0);
-this.CatalogGuide = new CatalogGuide([
-  new VariableStatementPossibleShape(),
-  new ExpressionStatementPossibleShape(),
-  new EmptyStatementPossibleShape(),
-  new DebuggerStatementPossibleShape(),
-  new BlockPossibleShape(),
-  new IfStatementPossibleShape(),
-], null);
+this.CatalogGuide = StatementGuide.Create(null, [new BlockPossibleShape()]);
 ```
 
 ## method Process:(context:SyntaxContext, buffer:SourceRange, index:int)=>void

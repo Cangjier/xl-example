@@ -20,6 +20,8 @@
 
 ## field AllowedCombinedSymbol:Array<string> = []
 
+## field CombinedSymbols:Array<string> = ["+=", "-=", "*=", "/=", "==", "!=", "===", "!==", ">=", "<=", "&&", "||", "++", "--", "=>", "..", "...", "??", "?.", "?:", "::", "->"]
+
 ## field SupportUnicodeEscapeIdentifier:bool = false
 
 ## method Ban:(items:Array<string>)=>SymbolTemplate
@@ -88,33 +90,26 @@ if (this.BanedCombinedSymbol.includes(item)) {
 if (this.AllowedCombinedSymbol.includes(item)) {
   return true;
 }
-switch (item) {
-  case "+=":
-  case "-=":
-  case "*=":
-  case "/=":
-  case "==":
-  case "!=":
-  case "===":
-  case "!==":
-  case ">=":
-  case "<=":
-  case "&&":
-  case "||":
-  case "++":
-  case "--":
-  case "=>":
-  case "..":
-  case "...":
-  case "??":
-  case "?.":
-  case "?:":
-  case "::":
-  case "->":
-    return true;
-  default:
-    return false;
+return this.CombinedSymbols.includes(item);
+```
+
+## method CanContinue:(prefix:string)=>bool
+
+```ts
+if (prefix.length === 0) {
+  return true;
 }
+for (const item of this.CombinedSymbols) {
+  if (item.length > prefix.length && item.startsWith(prefix) && !this.BanedCombinedSymbol.includes(item)) {
+    return true;
+  }
+}
+for (const item of this.AllowedCombinedSymbol) {
+  if (item.length > prefix.length && item.startsWith(prefix) && !this.BanedCombinedSymbol.includes(item)) {
+    return true;
+  }
+}
+return false;
 ```
 
 ## method IsCombineBlocked:(combined:string, following:string)=>bool

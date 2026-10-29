@@ -3,7 +3,6 @@
 import { RegexTemplate } from "../../core/syntax/templates/regex-template.xl.md"
 import { Template } from "../../core/syntax/templates/template.xl.md"
 import { TypeScriptSymbolTemplate } from "./typescript-symbol-template.xl.md"
-import { Bracket } from "../../core/syntax/basic-tokens/bracket.xl.md"
 import { Common } from "../../core/syntax/basic-tokens/common.xl.md"
 import { RegexToken } from "../../core/syntax/basic-tokens/regex-token.xl.md"
 import { String } from "../../core/syntax/basic-tokens/string/string.xl.md"
@@ -43,8 +42,7 @@ if (lastIndex < 0) {
   return false;
 }
 const last = units[lastIndex];
-if (last instanceof Bracket && (last as Bracket).StartBracketChar === "("
-  && TypeScriptRegexTemplate.IsControlHeadTail(units, lastIndex)) {
+if (last instanceof Symbol && last.Is(")") && TypeScriptRegexTemplate.IsControlHeadTail(units, lastIndex)) {
   return true;
 }
 if (last instanceof Common) {
@@ -53,14 +51,15 @@ if (last instanceof Common) {
     return true;
   }
 }
-if (last instanceof Bracket && (last as Bracket).StartBracketChar === "{") {
+if (last instanceof Symbol && last.Is("}")) {
   // 箭头函数体 `() => { }` 之后换行再 `/`：TS 一定断句（箭头体的 `}` 后不能接二元运算），
   // 该 `/` 是新语句的正则起点（r1231）。对象字面量 / `function` 表达式体仍走原判据
   //（它们后面跟 `/` 可能是除号：`const o = {} / 2` / `const f = function () {} / 2` 都是除法）。
-  if (TypeScriptRegexTemplate.IsArrowBodyTail(units, lastIndex, slashIndex)) {
+  const openIndex = TypeScriptRegexTemplate.MatchingOpenIndex(units, lastIndex, "{", "}");
+  if (openIndex >= 0 && TypeScriptRegexTemplate.IsArrowBodyTail(units, openIndex, slashIndex)) {
     return true;
   }
-  return TypeScriptRegexTemplate.IsStatementBraceTail(units, lastIndex);
+  return openIndex >= 0 && TypeScriptRegexTemplate.IsStatementBraceTail(units, openIndex);
 }
 return false;
 ```
@@ -75,35 +74,34 @@ if (unit === null) {
 if (unit instanceof String || unit instanceof RegexToken) {
   return true;
 }
-if (unit instanceof Bracket) {
-  const start = (unit as Bracket).StartBracketChar;
-  if (start === ")") {
-    return !TypeScriptRegexTemplate.IsControlHeadTail(units, unitIndex);
-  }
-  if (start === "]") {
-    return true;
-  }
-  if (start === "}") {
-    if (TypeScriptRegexTemplate.IsStatementBraceTail(units, unitIndex)) {
-      return false;
-    }
-    if (TypeScriptRegexTemplate.IsArrowBodyTail(units, unitIndex, slashIndex)) {
-      return false;
-    }
-    return true;
-  }
-  return false;
-}
-if (unit instanceof Common) {
-  return !this.ExpressionKeywords.includes((unit as Common).TempToString());
-}
 if (unit instanceof Symbol) {
   const text = (unit as Symbol).TempToString();
+  if (text === ")") {
+    return !TypeScriptRegexTemplate.IsControlHeadTail(units, unitIndex);
+  }
+  if (text === "]") {
+    return true;
+  }
+  if (text === "}") {
+    const openIndex = TypeScriptRegexTemplate.MatchingOpenIndex(units, unitIndex, "{", "}");
+    if (openIndex >= 0) {
+      if (TypeScriptRegexTemplate.IsStatementBraceTail(units, openIndex)) {
+        return false;
+      }
+      if (TypeScriptRegexTemplate.IsArrowBodyTail(units, openIndex, slashIndex)) {
+        return false;
+      }
+    }
+    return true;
+  }
   if (text !== "++" && text !== "--") {
     return false;
   }
   const beforeIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, unitIndex - 1);
   return beforeIndex >= 0 && this.CanEndOperand(units, beforeIndex, -1);
+}
+if (unit instanceof Common) {
+  return !this.ExpressionKeywords.includes((unit as Common).TempToString());
 }
 if (!unit.IsBasicToken) {
   return TypeScriptRegexTemplate.IsOperandShape(unit);
@@ -201,6 +199,28 @@ if (unit instanceof Symbol && (unit as Symbol).Is("/")) {
 return -1;
 ```
 
+## static method MatchingOpenIndex:(units:Array<Token>, closeIndex:int, open:string, close:string)=>int
+
+```ts
+let depth = 0;
+for (let at = closeIndex; at >= 0; at--) {
+  const unit = units[at];
+  if (!(unit instanceof Symbol)) {
+    continue;
+  }
+  const text = (unit as Symbol).TempToString();
+  if (text === close) {
+    depth++;
+  } else if (text === open) {
+    depth--;
+    if (depth === 0) {
+      return at;
+    }
+  }
+}
+return -1;
+```
+
 ## static method IsStatementBraceTail:(units:Array<Token>, braceIndex:int)=>bool
 
 ```ts
@@ -216,7 +236,7 @@ if (before instanceof Symbol) {
   }
 }
 let headIndex = beforeIndex;
-if (before instanceof Bracket && (before as Bracket).StartBracketChar === "(") {
+if (before instanceof Symbol && (before as Symbol).Is(")")) {
   headIndex = TypeScriptRegexTemplate.PreviousCodeIndex(units, beforeIndex - 1);
 }
 if (headIndex < 0) {

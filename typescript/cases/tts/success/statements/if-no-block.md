@@ -33,7 +33,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
 ```
 
 ## [char 4] `"a"`
@@ -42,7 +42,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       └─ Common  src=[4,5)  text="a"
 ```
 
@@ -80,13 +80,10 @@ SourceFileShape  pos=-  src=[0,...)
 
 ```text
 SourceFileShape  pos=-  src=[0,...)
-└─ IfStatementShape  pos=0  src=[0,...)
-   ├─ WrapSymbol  src=[2,3)  text=" "
+└─ IfStatementShape  pos=0  src=[0,9)
    ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-   ├─ WrapSymbol  src=[6,7)  text=" "
-   └─ ExpressionStatementShape  pos=6  src=[7,...)
-      ├─ IdentifierShape  pos=6  src=[7,8)  text="b"
-      └─ Symbol  src=[8,9)  text=";"
+   └─ ExpressionStatementShape  pos=6  src=[7,9)
+      └─ IdentifierShape  pos=6  src=[7,8)  text="b"
 ```
 
 ## [char 9] `"\n"`

@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Bracket } from "../basic-tokens/bracket.xl.md"
 import { Common } from "../basic-tokens/common.xl.md"
 import { RegexToken } from "../basic-tokens/regex-token.xl.md"
 import { String } from "../basic-tokens/string/string.xl.md"
@@ -28,7 +27,7 @@ return this.Flags.includes(value);
 if (unit === null) {
   return false;
 }
-if (unit instanceof String || unit instanceof RegexToken || unit instanceof Bracket) {
+if (unit instanceof String || unit instanceof RegexToken || (unit instanceof Symbol && unit.IsCloseBracket())) {
   return true;
 }
 if (unit instanceof Common) {
@@ -46,7 +45,10 @@ if (lastCode === null) {
 if (!lastCode.IsBasicToken) {
   return true;
 }
-if (lastCode instanceof String || lastCode instanceof RegexToken || lastCode instanceof Bracket) {
+if (lastCode instanceof String || lastCode instanceof RegexToken) {
+  return false;
+}
+if (lastCode instanceof Symbol && lastCode.IsCloseBracket()) {
   return false;
 }
 if (lastCode instanceof Common) {

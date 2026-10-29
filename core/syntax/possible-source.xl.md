@@ -3,4 +3,3 @@
 # enum PossibleSource
 
 - case Close
-- case BracketCreate

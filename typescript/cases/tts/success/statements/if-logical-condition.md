@@ -33,7 +33,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
 ```
 
 ## [char 4] `"a"`
@@ -42,7 +42,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       └─ Common  src=[4,5)  text="a"
 ```
 
@@ -52,7 +52,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       └─ WrapSymbol  src=[5,6)  text=" "
 ```
@@ -63,7 +63,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
       └─ Symbol  src=[6,7)  text="&"
@@ -75,7 +75,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
       └─ Symbol  src=[6,8)  text="&&"
@@ -87,7 +87,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,8)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  └─ AmpersandAmpersandTokenShape  pos=5  src=[6,8)  op="&&"
@@ -100,7 +100,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,8)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  └─ AmpersandAmpersandTokenShape  pos=5  src=[6,8)  op="&&"
@@ -114,7 +114,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,10)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ AmpersandAmpersandTokenShape  pos=5  src=[6,8)  op="&&"
@@ -129,7 +129,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,10)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ AmpersandAmpersandTokenShape  pos=5  src=[6,8)  op="&&"
@@ -145,7 +145,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,10)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ AmpersandAmpersandTokenShape  pos=5  src=[6,8)  op="&&"
@@ -161,7 +161,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,13)
       │  ├─ BinaryExpressionShape  pos=4  src=[4,10)
       │  │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
@@ -177,7 +177,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,13)
       │  ├─ BinaryExpressionShape  pos=4  src=[4,10)
       │  │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
@@ -240,8 +240,7 @@ SourceFileShape  pos=-  src=[0,...)
 
 ```text
 SourceFileShape  pos=-  src=[0,...)
-└─ IfStatementShape  pos=0  src=[0,...)
-   ├─ WrapSymbol  src=[2,3)  text=" "
+└─ IfStatementShape  pos=0  src=[0,19)
    ├─ BinaryExpressionShape  pos=4  src=[4,15)
    │  ├─ BinaryExpressionShape  pos=4  src=[4,10)
    │  │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
@@ -249,10 +248,8 @@ SourceFileShape  pos=-  src=[0,...)
    │  │  └─ IdentifierShape  pos=8  src=[9,10)  text="b"
    │  ├─ BarBarTokenShape  pos=8  src=[11,13)  op="||"
    │  └─ IdentifierShape  pos=13  src=[14,15)  text="c"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   └─ ExpressionStatementShape  pos=16  src=[17,...)
-      ├─ IdentifierShape  pos=16  src=[17,18)  text="d"
-      └─ Symbol  src=[18,19)  text=";"
+   └─ ExpressionStatementShape  pos=16  src=[17,19)
+      └─ IdentifierShape  pos=16  src=[17,18)  text="d"
 ```
 
 ## [char 19] `"\n"`

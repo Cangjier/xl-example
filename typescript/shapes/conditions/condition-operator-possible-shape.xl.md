@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
@@ -17,7 +16,7 @@ import { BinaryOperatorTable } from "../expressions/binary-operator-table.xl.md"
 
 # namespace cangjie
 
-# class BracketOperatorPossibleShape extends PossibleShape
+# class ConditionOperatorPossibleShape extends PossibleShape
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -46,12 +45,11 @@ return unit instanceof Symbol && unit.Closed && BinaryOperatorTable.Contains(uni
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const bracket = host as Bracket;
-const units = bracket.Data;
+const units = host.Data;
 const symbol = units[tokenIndex] as Symbol;
 const info = BinaryOperatorTable.Find(symbol.TempToString());
 if (info === null) {
-  throw new Error("BracketOperatorPossibleShape: 不支持的运算符 " + symbol.TempToString());
+  throw new Error("ConditionOperatorPossibleShape: 不支持的运算符 " + symbol.TempToString());
 }
 let root:Token | null = null;
 for (const item of units) {
@@ -61,12 +59,12 @@ for (const item of units) {
   }
 }
 if (root === null) {
-  throw new Error("BracketOperatorPossibleShape: 运算符前没有左操作数");
+  throw new Error("ConditionOperatorPossibleShape: 运算符前没有左操作数");
 }
 const operator = BinaryOperatorTable.Create(symbol, ItemUtil.PositionOf(units, tokenIndex));
 if (root instanceof BinaryExpressionShape) {
   if (!root.Closed) {
-    throw new Error("BracketOperatorPossibleShape: 左表达式还在等右操作数");
+    throw new Error("ConditionOperatorPossibleShape: 左表达式还在等右操作数");
   }
   const bindsTighter = info.RightAssociative
     ? info.Precedence >= root.Precedence
@@ -80,11 +78,11 @@ if (root instanceof BinaryExpressionShape) {
       }
     }
     if (rightIndex < 0) {
-      throw new Error("BracketOperatorPossibleShape: 左表达式没有右操作数");
+      throw new Error("ConditionOperatorPossibleShape: 左表达式没有右操作数");
     }
     const right = root.Data[rightIndex];
     root.Data.splice(rightIndex, 1);
-    const nested = BinaryExpressionShape.FromLeftAndOperator(right, operator, info.Precedence, bracket.Template);
+    const nested = BinaryExpressionShape.FromLeftAndOperator(right, operator, info.Precedence, host.Template);
     nested.Pos = BinaryExpressionPossibleShape.PosOf(right);
     nested.SourceRange.End = operator.SourceRange.End;
     nested.Closed = false;
@@ -92,15 +90,15 @@ if (root instanceof BinaryExpressionShape) {
     root.Closed = false;
     root.SourceRange.End = -1;
     units.length = 0;
-    bracket.Add(root);
+    host.Add(root);
     return nested;
   }
 }
-const binary = BinaryExpressionShape.FromLeftAndOperator(root, operator, info.Precedence, bracket.Template);
+const binary = BinaryExpressionShape.FromLeftAndOperator(root, operator, info.Precedence, host.Template);
 binary.Pos = BinaryExpressionPossibleShape.PosOf(root);
 binary.SourceRange.End = operator.SourceRange.End;
 binary.Closed = false;
 units.length = 0;
-bracket.Add(binary);
+host.Add(binary);
 return binary;
 ```

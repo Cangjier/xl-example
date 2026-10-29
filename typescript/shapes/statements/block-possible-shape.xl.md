@@ -1,16 +1,18 @@
 # dependencies
 ```xl
-import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
 import { PossibleSource } from "../../../core/syntax/possible-source.xl.md"
 import { ShapeStates } from "../../../core/syntax/shape-states.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
+import { BlockEndPossibleShape } from "./block-end-possible-shape.xl.md"
+import { StatementGuide } from "./statement-guide.xl.md"
 ```
 
 # namespace cangjie
@@ -26,20 +28,14 @@ if (start >= units.length || tokenIndex < start || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
-// 当前语句的第一个代码单元就是那个 `{ }`。
+// 当前语句的第一个代码单元就是那个 `{`。
 if (tokenIndex !== start) {
   return ShapeStates.Reject;
 }
-if (!(unit instanceof Bracket)) {
+if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is("{")) {
   return ShapeStates.Reject;
 }
-if (!unit.Closed) {
-  return ShapeStates.Uncertain;
-}
-if (BlockPossibleShape.IsEmptyBlock(unit as Bracket)) {
-  return ShapeStates.Accept;
-}
-return ShapeStates.Reject;
+return ShapeStates.Accept;
 ```
 
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
@@ -53,30 +49,18 @@ if (tokenIndex !== start) {
   return false;
 }
 const unit = units[tokenIndex];
-return unit instanceof Bracket && unit.Closed && BlockPossibleShape.IsEmptyBlock(unit as Bracket);
-```
-
-## static method IsEmptyBlock:(bracket:Bracket)=>bool
-
-```ts
-if (!bracket.Is("{", "}")) {
-  return false;
-}
-for (const item of bracket.Data) {
-  if (!item.IsTriviaToken) {
-    return false;
-  }
-}
-return true;
+return unit instanceof Symbol && unit.Closed && unit.Is("{");
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
 const units = host.Data;
-const bracket = units[tokenIndex] as Bracket;
-const shape = BlockShape.FromBracket(bracket, ItemUtil.PositionOf(units, tokenIndex));
-bracket.Replace(shape);
-host.MountedUnit = null;
+const open = units[tokenIndex] as Symbol;
+const shape = BlockShape.FromOpen(open, ItemUtil.PositionOf(units, tokenIndex));
+shape.CatalogGuide = StatementGuide.Create(new BlockEndPossibleShape(), [new BlockPossibleShape()]);
+units.splice(tokenIndex, 1, shape);
+shape.Parent = host;
+host.MountedUnit = shape;
 return shape;
 ```

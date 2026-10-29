@@ -53,6 +53,18 @@ if (next >= count) {
 return whole.At(next);
 ```
 
+## method CanContinue:()=>bool
+
+```ts
+return this.Template.SymbolTemplate.CanContinue(this.Temp);
+```
+
+## method IsCloseBracket:()=>bool
+
+```ts
+return this.Temp === ")" || this.Temp === "}" || this.Temp === "]";
+```
+
 ## method Is:(value:string)=>bool
 
 ```ts
@@ -117,6 +129,9 @@ if (!template.SymbolTemplate.IsSymbol(value)) {
 if (last instanceof Symbol && !last.Closed) {
   if (last.IsAppend(buffer, index, value)) {
     last.AppendAndSignOut(value, index);
+    if (!last.CanContinue()) {
+      last.TryToClose(context);
+    }
     return BranchStates.Done;
   }
   if (last.TryToClose(context) === CloseStates.Built) {
@@ -128,7 +143,11 @@ if (last instanceof Symbol && !last.Closed) {
 if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Built) {
   return BranchStates.Reload;
 }
-unit.Add(new Symbol(unit.Template));
-(unit.Last() as Symbol)!.AppendAndSignOut(value, index).SignIn(index);
+const symbol = new Symbol(unit.Template);
+unit.Add(symbol);
+symbol.AppendAndSignOut(value, index).SignIn(index);
+if (!symbol.CanContinue()) {
+  symbol.TryToClose(context);
+}
 return BranchStates.Done;
 ```

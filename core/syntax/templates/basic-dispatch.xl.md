@@ -8,7 +8,6 @@ import { Token } from "../token.xl.md"
 import { Template } from "./template.xl.md"
 import { AreaAnnotation } from "../basic-tokens/area-annotation.xl.md"
 import { Bom } from "../basic-tokens/bom.xl.md"
-import { Bracket } from "../basic-tokens/bracket.xl.md"
 import { Common } from "../basic-tokens/common.xl.md"
 import { LineAnnotation } from "../basic-tokens/line-annotation.xl.md"
 import { RegexToken } from "../basic-tokens/regex-token.xl.md"
@@ -28,15 +27,13 @@ import { WrapSymbol } from "../basic-tokens/wrap-symbol.xl.md"
 
 ## private static field BitQuote:int = 4
 
-## private static field BitOpen:int = 8
-
 ## private static field BitWs:int = 16
 
 ## private static field BitSym:int = 32
 
 ## private static field BitPlain:int = 64
 
-## private static field BitClasses:int = 60
+## private static field BitClasses:int = 52
 
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
@@ -86,7 +83,7 @@ if (preIndex >= 0) {
     }
   }
 }
-// ④⑤⑥⑦ 的位全为 0：这些段对当前字符都只会 Undo，但 ⑥/⑦ 的 Undo 路径前面还有「收掉上一个未闭合块」的副作用
+// ④⑤⑥ 的位全为 0：这些段对当前字符都只会 Undo，但 ⑤/⑥ 的 Undo 路径前面还有「收掉上一个未闭合块」的副作用
 //    （TryToClose 在 CloseStates.Nothing 时也置 Closed，可能建出形状返回 Reload），必须原样补上。
 if ((bits & BasicDispatch.BitClasses) === 0) {
   let last = unit.Last();
@@ -117,14 +114,7 @@ if ((bits & BasicDispatch.BitClasses) === 0) {
 if ((bits & BasicDispatch.BitQuote) !== 0) {
   return StringGuide.Transit(context, unit, buffer, index, value);
 }
-// ⑤ Bracket：OPEN 位；'{' 在 `\u{…}` 转义进行中时要让位（Undo 给 Common），所以认下也不能直接 return——它可能 Undo，继续往下。
-if ((bits & BasicDispatch.BitOpen) !== 0) {
-  const bracket = Bracket.Transit(context, unit, buffer, index, value);
-  if (bracket !== BranchStates.Undo) {
-    return bracket;
-  }
-}
-// ⑥ WrapSymbol：WS 位 → 空白一定归它（Blank 块只在空白上接手）。
+// ⑤ WrapSymbol：WS 位 → 空白一定归它（Blank 块只在空白上接手）。
 if ((bits & BasicDispatch.BitWs) !== 0) {
   return WrapSymbol.Transit(context, unit, buffer, index, value);
 }
@@ -137,7 +127,7 @@ if (last instanceof WrapSymbol && !last.Closed) {
   // 它可能已经把那个空白块关掉了（TryToClose 在 CloseStates.Nothing 时也置 Closed），下面的 Symbol 判定要重新取 last。
   last = unit.Last();
 }
-// ⑦ Symbol：SYM 位为真归它；非符号字符时它仍要做一件事——把上一个未关闭的符号块收尾
+// ⑥ Symbol：SYM 位为真归它；非符号字符时它仍要做一件事——把上一个未关闭的符号块收尾
 //    （那条 TryToClose 在 «非符号且 last 是未关闭 Symbol» 时也会发生，且可能建出形状返回 Reload）。
 //    两个条件都不成立时，它整条路径只读多个纯判据后 Undo（无副作用），可以跳过。
 if ((bits & BasicDispatch.BitSym) !== 0 || (last instanceof Symbol && !last.Closed)) {
@@ -146,7 +136,7 @@ if ((bits & BasicDispatch.BitSym) !== 0 || (last instanceof Symbol && !last.Clos
     return symbol;
   }
 }
-// ⑧ 兜底 Common：凡是上面没人认下的字符都归它（标识符 / 数字 / 布尔）。
+// ⑦ 兜底 Common：凡是上面没人认下的字符都归它（标识符 / 数字 / 布尔）。
 //    plain 字符先走整段收（BatchPlain）；它没接手时（转义态等）仍回 Common.Transit 原路径。
 if ((bits & BasicDispatch.BitPlain) !== 0) {
   const batched = BasicDispatch.BatchPlain(context, unit, buffer, index, last);
@@ -203,15 +193,7 @@ if (preIndex >= 0) {
 if (template.StringTemplate.Quotes.includes(value)) {
   return StringGuide.Transit(context, unit, buffer, index, value);
 }
-// ⑤ Bracket：只认 '(' / '{' / '[' 三个字符，其余字符它只读一个 value 就 Undo。
-//    '{' 在 `\u{…}` 转义进行中时要让位（Undo 给 Common），所以认下也不能直接 return——它可能 Undo，继续往下。
-if (value === "(" || value === "{" || value === "[") {
-  const bracket = Bracket.Transit(context, unit, buffer, index, value);
-  if (bracket !== BranchStates.Undo) {
-    return bracket;
-  }
-}
-// ⑥ WrapSymbol：空白一定归它（Blank 块只在空白上接手；非空白它只做一件事——把上一个未关闭的空白块收尾）。
+// ⑤ WrapSymbol：空白一定归它（Blank 块只在空白上接手；非空白它只做一件事——把上一个未关闭的空白块收尾）。
 //    非空白时那条收尾只可能发生在「上一个单元正是未关闭的 WrapSymbol」，其余情况它的整条路径只读、Undo 无副作用。
 const symbolTemplate = template.SymbolTemplate;
 if (symbolTemplate.IsWhiteSpace(value)) {
@@ -226,7 +208,7 @@ if (last instanceof WrapSymbol && !last.Closed) {
   // 它可能已经把那个空白块关掉了（TryToClose 在 CloseStates.Nothing 时也置 Closed），下面的 Symbol 判定要重新取 last。
   last = unit.Last();
 }
-// ⑦ Symbol：符号字符归它；非符号字符时它仍要做一件事——把上一个未关闭的符号块收尾
+// ⑥ Symbol：符号字符归它；非符号字符时它仍要做一件事——把上一个未关闭的符号块收尾
 //    （那条 TryToClose 在 «!IsSymbol(value) 且 last 是未关闭 Symbol» 时也会发生，且可能建出形状返回 Reload）。
 //    两个条件都不成立时，它整条路径只读多个纯判据后 Undo（无副作用），可以跳过。
 //    IsSymbol 为真的字符（含 '+' / '-' / '\\' / '.' / '}'）一律交给它：指数符号、转义让位、小数点归数字这些
@@ -237,7 +219,7 @@ if (symbolTemplate.IsSymbol(value) || (last instanceof Symbol && !last.Closed)) 
     return symbol;
   }
 }
-// ⑧ 兜底 Common：凡是上面没人认下的字符都归它（标识符 / 数字 / 布尔）。
+// ⑦ 兜底 Common：凡是上面没人认下的字符都归它（标识符 / 数字 / 布尔）。
 //    它自己还会判一次「符号或空白 + 是否是转义标识符起点」，那一步不能在这里复制，原样调用。
 return Common.Transit(context, unit, buffer, index, value);
 ```
@@ -297,9 +279,6 @@ for (let code = 0; code < 128; code++) {
   }
   if (quotes.includes(ch)) {
     bits |= BasicDispatch.BitQuote;
-  }
-  if (ch === "(" || ch === "{" || ch === "[") {
-    bits |= BasicDispatch.BitOpen;
   }
   if (symbolTemplate.IsWhiteSpace(ch)) {
     bits |= BasicDispatch.BitWs;

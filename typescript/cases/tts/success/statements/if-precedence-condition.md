@@ -33,7 +33,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
 ```
 
 ## [char 4] `"a"`
@@ -42,7 +42,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       └─ Common  src=[4,5)  text="a"
 ```
 
@@ -52,7 +52,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       └─ WrapSymbol  src=[5,6)  text=" "
 ```
@@ -63,7 +63,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       ├─ WrapSymbol  src=[5,6)  text=" "
       └─ Symbol  src=[6,7)  text="+"
@@ -75,7 +75,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,7)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  └─ PlusTokenShape  pos=5  src=[6,7)  op="+"
@@ -88,7 +88,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,7)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  └─ PlusTokenShape  pos=5  src=[6,7)  op="+"
@@ -102,7 +102,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,9)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
@@ -117,7 +117,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,9)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
@@ -133,7 +133,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,11)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
@@ -149,7 +149,7 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
-   └─ Bracket  src=[3,...)
+   └─ ConditionShape  pos=2  src=[3,4)
       ├─ BinaryExpressionShape  pos=4  src=[4,11)
       │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
       │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
@@ -212,8 +212,7 @@ SourceFileShape  pos=-  src=[0,...)
 
 ```text
 SourceFileShape  pos=-  src=[0,...)
-└─ IfStatementShape  pos=0  src=[0,...)
-   ├─ WrapSymbol  src=[2,3)  text=" "
+└─ IfStatementShape  pos=0  src=[0,17)
    ├─ BinaryExpressionShape  pos=4  src=[4,13)
    │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
    │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
@@ -221,10 +220,8 @@ SourceFileShape  pos=-  src=[0,...)
    │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
    │     ├─ AsteriskTokenShape  pos=7  src=[10,11)  op="*"
    │     └─ IdentifierShape  pos=11  src=[12,13)  text="c"
-   ├─ WrapSymbol  src=[14,15)  text=" "
-   └─ ExpressionStatementShape  pos=14  src=[15,...)
-      ├─ IdentifierShape  pos=14  src=[15,16)  text="d"
-      └─ Symbol  src=[16,17)  text=";"
+   └─ ExpressionStatementShape  pos=14  src=[15,17)
+      └─ IdentifierShape  pos=14  src=[15,16)  text="d"
 ```
 
 ## [char 17] `"\n"`

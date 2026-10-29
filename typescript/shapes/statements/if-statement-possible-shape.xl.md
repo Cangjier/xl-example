@@ -10,7 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { StatementUtil } from "./statement-util.xl.md"
-import { ConditionBracketCreatePossibleShape } from "../brackets/condition-bracket-create-possible-shape.xl.md"
+import { ConditionCreatePossibleShape } from "../conditions/condition-create-possible-shape.xl.md"
 import { IfStatementShape } from "./if-statement-shape.xl.md"
 ```
 
@@ -59,7 +59,7 @@ const pos = ItemUtil.PositionOf(units, tokenIndex);
 const statement = new IfStatementShape(host.Template);
 statement.Pos = pos;
 statement.SignIn(keyword.SourceRange.Start);
-statement.CatalogGuide = new CatalogGuide([new ConditionBracketCreatePossibleShape()], null);
+statement.CatalogGuide = new CatalogGuide([new ConditionCreatePossibleShape()], null);
 units.splice(tokenIndex, 1, statement);
 statement.Parent = host;
 host.MountedUnit = statement;

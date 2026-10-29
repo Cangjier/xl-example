@@ -1,6 +1,5 @@
 # dependencies
 ```xl
-import { Bracket } from "../../../core/syntax/basic-tokens/bracket.xl.md"
 import { CatalogGuide } from "../../../core/syntax/catalog-guide.xl.md"
 import { Common } from "../../../core/syntax/basic-tokens/common.xl.md"
 import { PossibleShapeCache } from "../../../core/syntax/possible-shape-cache.xl.md"
@@ -17,7 +16,7 @@ import { BinaryOperatorTokenShape } from "../punctuation/binary-operator-token-s
 
 # namespace cangjie
 
-# class BracketOperandPossibleShape extends PossibleShape
+# class ConditionOperandPossibleShape extends PossibleShape
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -46,8 +45,7 @@ return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(u
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
 
 ```ts
-const bracket = host as Bracket;
-const units = bracket.Data;
+const units = host.Data;
 const common = units[tokenIndex] as Common;
 const operand = OperandUtil.FromCommon(common, ItemUtil.PositionOf(units, tokenIndex));
 let root:Token | null = null;
@@ -88,7 +86,6 @@ if (root instanceof BinaryExpressionShape) {
   }
 }
 units.splice(tokenIndex, 1, operand);
-operand.Parent = bracket;
+operand.Parent = host;
 return operand;
 ```
-
