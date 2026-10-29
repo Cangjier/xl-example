@@ -14,6 +14,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { NumericLiteralShape } from "../literals/numeric-literal-shape.xl.md"
 import { BinaryExpressionShape } from "./binary-expression-shape.xl.md"
+import { BinaryExpressionEndPossibleShape } from "./binary-expression-end-possible-shape.xl.md"
 import { BinaryOperatorInfo } from "./binary-operator-table.xl.md"
 import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
 import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
@@ -55,8 +56,8 @@ if (!(unit instanceof Symbol)) {
 if (!unit.Closed) {
   return ShapeStates.Uncertain;
 }
-// `;` 是语句终止符，不是二元运算符；这里必须让位给语句的 EndPossible。
-if (unit.Is(";")) {
+// 闭口但不在运算符表里的 Symbol 接不下去：让位给终结候选（收口并交回父级）。
+if (!BinaryOperatorTable.Contains(unit.TempToString())) {
   return ShapeStates.Reject;
 }
 if (BinaryExpressionPossibleShape.ShouldBuild(units, tokenIndex)) {
@@ -202,7 +203,7 @@ if (host instanceof BinaryExpressionShape) {
       promoted.Data.splice(insertAt, 0, item);
       insertAt++;
     }
-    promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
+    promoted.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
     const at = container.Data.indexOf(target);
     if (at >= 0) {
       promoted.Parent = container;
@@ -228,7 +229,7 @@ if (left instanceof BinaryExpressionShape && left.Closed) {
       left.Closed = false;
       left.SourceRange.End = -1;
       left.MountedUnit = nested;
-      nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
+      nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
       units.splice(tokenIndex, 1);
       host.MountedUnit = left;
       return nested;
@@ -253,6 +254,6 @@ for (const item of tail) {
 }
 binary.Parent = host;
 host.MountedUnit = binary;
-binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
+binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
 return binary;
 ```

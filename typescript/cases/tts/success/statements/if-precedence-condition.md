@@ -105,11 +105,13 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ ConditionShape  pos=2  src=[3,4)
-      ├─ BinaryExpressionShape  pos=4  src=[4,9)
-      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
-      │  └─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      └─ WrapSymbol  src=[9,10)  text=" "
+      └─ BinaryExpressionShape  pos=4  src=[4,7)
+         ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+         ├─ WrapSymbol  src=[5,6)  text=" "
+         ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+         ├─ WrapSymbol  src=[7,8)  text=" "
+         ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+         └─ WrapSymbol  src=[9,10)  text=" "
 ```
 
 ## [char 10] `"*"`
@@ -119,12 +121,14 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ ConditionShape  pos=2  src=[3,4)
-      ├─ BinaryExpressionShape  pos=4  src=[4,9)
-      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
-      │  └─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      ├─ WrapSymbol  src=[9,10)  text=" "
-      └─ Symbol  src=[10,11)  text="*"
+      └─ BinaryExpressionShape  pos=4  src=[4,7)
+         ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+         ├─ WrapSymbol  src=[5,6)  text=" "
+         ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+         ├─ WrapSymbol  src=[7,8)  text=" "
+         ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+         ├─ WrapSymbol  src=[9,10)  text=" "
+         └─ Symbol  src=[10,11)  text="*"
 ```
 
 ## [char 11] `" "`
@@ -134,13 +138,16 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ ConditionShape  pos=2  src=[3,4)
-      ├─ BinaryExpressionShape  pos=4  src=[4,11)
-      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
-      │  └─ BinaryExpressionShape  pos=7  src=[8,11)
-      │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      │     └─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
-      └─ WrapSymbol  src=[11,12)  text=" "
+      └─ BinaryExpressionShape  pos=4  src=[4,7)
+         ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+         ├─ WrapSymbol  src=[5,6)  text=" "
+         ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+         ├─ WrapSymbol  src=[7,8)  text=" "
+         └─ BinaryExpressionShape  pos=7  src=[8,...)
+            ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+            ├─ WrapSymbol  src=[9,10)  text=" "
+            ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+            └─ WrapSymbol  src=[11,12)  text=" "
 ```
 
 ## [char 12] `"c"`
@@ -150,14 +157,17 @@ SourceFileShape  pos=-  src=[0,...)
 └─ IfStatementShape  pos=0  src=[0,...)
    ├─ WrapSymbol  src=[2,3)  text=" "
    └─ ConditionShape  pos=2  src=[3,4)
-      ├─ BinaryExpressionShape  pos=4  src=[4,11)
-      │  ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
-      │  ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
-      │  └─ BinaryExpressionShape  pos=7  src=[8,11)
-      │     ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
-      │     └─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
-      ├─ WrapSymbol  src=[11,12)  text=" "
-      └─ Common  src=[12,13)  text="c"
+      └─ BinaryExpressionShape  pos=4  src=[4,7)
+         ├─ IdentifierShape  pos=4  src=[4,5)  text="a"
+         ├─ WrapSymbol  src=[5,6)  text=" "
+         ├─ PlusTokenShape  pos=5  src=[6,7)  op="+"
+         ├─ WrapSymbol  src=[7,8)  text=" "
+         └─ BinaryExpressionShape  pos=7  src=[8,...)
+            ├─ IdentifierShape  pos=7  src=[8,9)  text="b"
+            ├─ WrapSymbol  src=[9,10)  text=" "
+            ├─ AsteriskTokenShape  pos=9  src=[10,11)  op="*"
+            ├─ WrapSymbol  src=[11,12)  text=" "
+            └─ Common  src=[12,13)  text="c"
 ```
 
 ## [char 13] `")"`

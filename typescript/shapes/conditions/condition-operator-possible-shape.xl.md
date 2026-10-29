@@ -11,6 +11,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionShape } from "../expressions/binary-expression-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
+import { BinaryExpressionEndPossibleShape } from "../expressions/binary-expression-end-possible-shape.xl.md"
 import { BinaryOperatorTable } from "../expressions/binary-operator-table.xl.md"
 import { RightOperandPossibleShape } from "../expressions/right-operand-possible-shape.xl.md"
 ```
@@ -115,8 +116,9 @@ for (const item of between) {
   binary.Data.splice(insertAt, 0, item);
   insertAt++;
 }
-// 二元式接管后续输入：运算符之后的空白与右操作数都归它，右操作数收口时由它自己封口并交还宿主。
-binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], null);
+// 二元式接管后续输入：运算符之后的空白与右操作数都归它。右操作数到位后它仍开着，
+// 由运算符候选按优先级提/降，或在边界处由终结候选收口并交还宿主。
+binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
 host.MountedUnit = binary;
 return binary;
 ```
