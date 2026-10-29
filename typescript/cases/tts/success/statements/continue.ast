@@ -1,0 +1,5 @@
+SourceFile  pos=0  src=[0,24)
+└─ WhileStatement  pos=0  src=[0,23)
+   ├─ Identifier  pos=7  src=[7,8)  text="a"
+   └─ Block  pos=9  src=[10,23)
+      └─ ContinueStatement  pos=11  src=[12,21)

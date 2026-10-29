@@ -9,7 +9,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { IfStatementShape } from "../statements/if-statement-shape.xl.md"
+import { ControlStatementShape } from "../statements/control-statement-shape.xl.md"
 import { ConditionShape } from "./condition-shape.xl.md"
 import { ConditionOperandPossibleShape } from "./condition-operand-possible-shape.xl.md"
 import { ConditionOperatorPossibleShape } from "./condition-operator-possible-shape.xl.md"
@@ -23,7 +23,7 @@ import { ConditionEndPossibleShape } from "./condition-end-possible-shape.xl.md"
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
-if (!(host instanceof IfStatementShape) || host.Condition !== null) {
+if (!(host instanceof ControlStatementShape) || host.Condition !== null) {
   return ShapeStates.Reject;
 }
 const units = host.Data;
@@ -62,7 +62,7 @@ condition.CatalogGuide = new CatalogGuide(
 );
 units.splice(tokenIndex, 1, condition);
 condition.Parent = host;
-(host as IfStatementShape).CatalogGuide = null;
+(host as ControlStatementShape).CatalogGuide = null;
 host.MountedUnit = condition;
 return condition;
 ```

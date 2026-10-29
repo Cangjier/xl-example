@@ -1,0 +1,7 @@
+SourceFile  pos=0  src=[0,30)
+└─ SwitchStatement  pos=0  src=[0,29)
+   ├─ Identifier  pos=8  src=[8,9)  text="a"
+   └─ CaseBlock  pos=10  src=[11,29)
+      └─ CaseClause  pos=12  src=[13,27)
+         ├─ FirstLiteralToken  pos=17  src=[18,19)  text="1"
+         └─ BreakStatement  pos=20  src=[21,27)

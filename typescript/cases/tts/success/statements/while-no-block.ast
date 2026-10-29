@@ -1,0 +1,5 @@
+SourceFile  pos=0  src=[0,13)
+└─ WhileStatement  pos=0  src=[0,12)
+   ├─ Identifier  pos=7  src=[7,8)  text="a"
+   └─ ExpressionStatement  pos=9  src=[10,12)
+      └─ Identifier  pos=9  src=[10,11)  text="b"

@@ -18,6 +18,7 @@ import { BinaryExpressionEndPossibleShape } from "./binary-expression-end-possib
 import { BinaryOperatorInfo } from "./binary-operator-table.xl.md"
 import { BinaryOperatorTable } from "./binary-operator-table.xl.md"
 import { RightOperandPossibleShape } from "./right-operand-possible-shape.xl.md"
+import { VariableDeclarationShape } from "../declarations/variable-declaration-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -58,6 +59,10 @@ if (!unit.Closed) {
 }
 // 闭口但不在运算符表里的 Symbol 接不下去：让位给终结候选（收口并交回父级）。
 if (!BinaryOperatorTable.Contains(unit.TempToString())) {
+  return ShapeStates.Reject;
+}
+// 声明里的 `=` 是初始化记号，不是赋值运算符：`let x = 1` 的右值归 InitializerPossibleShape。
+if (host instanceof VariableDeclarationShape && unit.TempToString() === "=") {
   return ShapeStates.Reject;
 }
 if (BinaryExpressionPossibleShape.ShouldBuild(units, tokenIndex)) {

@@ -1,0 +1,13 @@
+SourceFile  pos=0  src=[0,28)
+└─ ForStatement  pos=0  src=[0,27)
+   ├─ BinaryExpression  pos=5  src=[5,10)
+   │  ├─ Identifier  pos=5  src=[5,6)  text="i"
+   │  ├─ FirstAssignment  pos=6  src=[7,8)  text="="
+   │  └─ FirstLiteralToken  pos=8  src=[9,10)  text="0"
+   ├─ BinaryExpression  pos=11  src=[12,17)
+   │  ├─ Identifier  pos=11  src=[12,13)  text="i"
+   │  ├─ FirstBinaryOperator  pos=13  src=[14,15)  text="<"
+   │  └─ FirstLiteralToken  pos=15  src=[16,17)  text="3"
+   ├─ PostfixUnaryExpression  pos=18  src=[19,22)
+   │  └─ Identifier  pos=18  src=[19,20)  text="i"
+   └─ Block  pos=23  src=[24,27)

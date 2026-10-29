@@ -1,0 +1,14 @@
+SourceFile  pos=0  src=[0,53)
+└─ SwitchStatement  pos=0  src=[0,52)
+   ├─ Identifier  pos=8  src=[8,9)  text="a"
+   └─ CaseBlock  pos=10  src=[11,52)
+      ├─ CaseClause  pos=12  src=[13,20)
+      │  └─ FirstLiteralToken  pos=17  src=[18,19)  text="1"
+      ├─ CaseClause  pos=20  src=[21,38)
+      │  ├─ FirstLiteralToken  pos=25  src=[26,27)  text="2"
+      │  ├─ ExpressionStatement  pos=28  src=[29,31)
+      │  │  └─ Identifier  pos=28  src=[29,30)  text="b"
+      │  └─ BreakStatement  pos=31  src=[32,38)
+      └─ DefaultClause  pos=38  src=[39,50)
+         └─ ExpressionStatement  pos=47  src=[48,50)
+            └─ Identifier  pos=47  src=[48,49)  text="c"

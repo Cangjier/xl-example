@@ -1,0 +1,6 @@
+SourceFile  pos=0  src=[0,21)
+└─ DoStatement  pos=0  src=[0,20)
+   ├─ Block  pos=2  src=[3,9)
+   │  └─ ExpressionStatement  pos=4  src=[5,7)
+   │     └─ Identifier  pos=4  src=[5,6)  text="a"
+   └─ Identifier  pos=17  src=[17,18)  text="b"

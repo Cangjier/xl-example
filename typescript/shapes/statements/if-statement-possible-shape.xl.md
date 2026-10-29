@@ -57,6 +57,7 @@ const units = host.Data;
 const keyword = units[tokenIndex] as Common;
 const pos = ItemUtil.PositionOf(units, tokenIndex);
 const statement = new IfStatementShape(host.Template);
+statement.Kind = "if";
 statement.Pos = pos;
 statement.SignIn(keyword.SourceRange.Start);
 statement.CatalogGuide = new CatalogGuide([new ConditionCreatePossibleShape()], null);

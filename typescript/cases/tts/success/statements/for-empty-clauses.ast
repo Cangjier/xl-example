@@ -1,0 +1,3 @@
+SourceFile  pos=0  src=[0,13)
+└─ ForStatement  pos=0  src=[0,12)
+   └─ Block  pos=8  src=[9,12)

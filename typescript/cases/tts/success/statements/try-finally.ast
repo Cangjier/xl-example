@@ -1,0 +1,8 @@
+SourceFile  pos=0  src=[0,26)
+└─ TryStatement  pos=0  src=[0,25)
+   ├─ Block  pos=3  src=[4,10)
+   │  └─ ExpressionStatement  pos=5  src=[6,8)
+   │     └─ Identifier  pos=5  src=[6,7)  text="a"
+   └─ Block  pos=18  src=[19,25)
+      └─ ExpressionStatement  pos=20  src=[21,23)
+         └─ Identifier  pos=20  src=[21,22)  text="b"

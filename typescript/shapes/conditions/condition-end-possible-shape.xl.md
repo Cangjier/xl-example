@@ -8,8 +8,10 @@ import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
-import { IfStatementShape } from "../statements/if-statement-shape.xl.md"
+import { ControlStatementShape } from "../statements/control-statement-shape.xl.md"
 import { ControlBodyPossibleShape } from "../statements/control-body-possible-shape.xl.md"
+import { DoEndPossibleShape } from "../statements/do-end-possible-shape.xl.md"
+import { SwitchBodyPossibleShape } from "../statements/switch-body-possible-shape.xl.md"
 import { ConditionShape } from "./condition-shape.xl.md"
 import { ConditionCloseDispatch } from "./condition-close-dispatch.xl.md"
 ```
@@ -56,17 +58,27 @@ const expression = ConditionCloseDispatch.Build(code, condition.Template, contex
 condition.SourceRange.End = close.SourceRange.End;
 condition.Closed = true;
 const parent = condition.Parent;
-if (!(parent instanceof IfStatementShape)) {
-  throw new Error("ConditionEndPossibleShape: 条件括号的父级不是 if");
+if (!(parent instanceof ControlStatementShape)) {
+  throw new Error("ConditionEndPossibleShape: 条件括号的父级不是控制语句");
 }
 const at = parent.Data.indexOf(condition);
 if (at < 0) {
-  throw new Error("ConditionEndPossibleShape: 条件不在 if 的 Data 里");
+  throw new Error("ConditionEndPossibleShape: 条件不在控制语句的 Data 里");
 }
 parent.Data.splice(at, 1, expression);
 expression.Parent = parent;
 parent.Condition = expression;
-parent.CatalogGuide = new CatalogGuide([new ControlBodyPossibleShape()], null);
+// 条件之后的接法按语句种类分派：
+// - `switch`：CaseBlock；
+// - `do`：`while (…)` 之后等 `;`；
+// - 其余（if / while）：body。
+if (parent.Kind === "switch") {
+  parent.CatalogGuide = new CatalogGuide([new SwitchBodyPossibleShape()], null);
+} else if (parent.Kind === "do") {
+  parent.CatalogGuide = new CatalogGuide([new DoEndPossibleShape()], null);
+} else {
+  parent.CatalogGuide = new CatalogGuide([new ControlBodyPossibleShape()], null);
+}
 parent.MountedUnit = null;
 return expression;
 ```

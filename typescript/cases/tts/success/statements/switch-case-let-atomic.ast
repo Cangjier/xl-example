@@ -1,0 +1,11 @@
+SourceFile  pos=0  src=[0,34)
+└─ SwitchStatement  pos=0  src=[0,33)
+   ├─ Identifier  pos=8  src=[8,9)  text="a"
+   └─ CaseBlock  pos=10  src=[11,33)
+      └─ CaseClause  pos=12  src=[13,31)
+         ├─ FirstLiteralToken  pos=17  src=[18,19)  text="1"
+         └─ FirstStatement  pos=20  src=[21,31)
+            └─ VariableDeclarationList  pos=20  src=[21,30)
+               └─ VariableDeclaration  pos=24  src=[25,30)
+                  ├─ Identifier  pos=24  src=[25,26)  text="y"
+                  └─ FirstLiteralToken  pos=28  src=[29,30)  text="1"

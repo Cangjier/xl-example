@@ -1,0 +1,5 @@
+SourceFile  pos=0  src=[0,18)
+└─ ForOfStatement  pos=0  src=[0,17)
+   ├─ Identifier  pos=5  src=[5,6)  text="v"
+   ├─ Identifier  pos=9  src=[10,12)  text="xs"
+   └─ Block  pos=13  src=[14,17)

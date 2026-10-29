@@ -18,16 +18,29 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 ## field ElseBody:Token | null = null
 
+## field Kind:string = ""
+
+## field BodyFirst:bool = false
+
+## field EndFixed:bool = false
+
 ## static method IsElseAhead:(context:SyntaxContext, from:int)=>bool
 
 ```ts
-// body 收口的那一刻只知道 body 结束，还不知道后面有没有 `else`，所以按文档前瞻
-// （和 Common.IsUnicodeEscapeStart 同一条路子）。空白与注释都跳过；要求 `else`
-// 后面不再接标识符字符（`elsex` 不是关键字）。
+return ControlStatementShape.IsWordAhead(context, from, "else");
+```
+
+## static method IsWordAhead:(context:SyntaxContext, from:int, word:string)=>bool
+
+```ts
+// body 收口的那一刻只知道 body 结束，还不知道后面有没有 `else` / `catch` / `finally`，
+// 所以按文档前瞻（和 Common.IsUnicodeEscapeStart 同一条路子）。空白与注释都跳过；
+// 要求关键字后面不再接标识符字符（`elsex` 不是关键字）。
 const document = context.CurrentDocument;
 if (document === null) {
   return false;
 }
+const length = word.length;
 const count = document.GetCount();
 let at = from;
 while (at < count) {
@@ -56,16 +69,46 @@ while (at < count) {
   }
   break;
 }
-if (at + 4 > count) {
+if (at + length > count) {
   return false;
 }
-if (document.GetRaw(at, at + 4) !== "else") {
+if (document.GetRaw(at, at + length) !== word) {
   return false;
 }
-if (at + 4 >= count) {
+if (at + length >= count) {
   return true;
 }
-return !/[$_\p{ID_Continue}]/u.test(document.GetValue(at + 4));
+return !/[$_\p{ID_Continue}]/u.test(document.GetValue(at + length));
+```
+
+## method WaitsAfterBody:(context:SyntaxContext, end:int)=>bool
+
+```ts
+// body 收口之后这条语句还要不要继续等尾巴：
+// - `if`：看后面有没有 `else`；
+// - `do`：一定要等 `while`；
+// - `while` / `for`：body 结束就是整条语句结束。
+// 这里只回答「等不等」，把该挂哪个候选留给调用方（它已经 import 了那些候选，
+// 放在本类里会和 if / do 形状互成环）。
+if (this.Kind === "if") {
+  return ControlStatementShape.IsElseAhead(context, end);
+}
+if (this.Kind === "do") {
+  return true;
+}
+return false;
+```
+
+## static method BodyClosed:(control:ControlStatementShape, body:Token, end:int, context:SyntaxContext)=>Token | null
+
+```ts
+// 一个 body（block 或表达式语句）刚收口。返回「还需要继续等尾巴」的那条控制语句：
+// 调用方按它的 Kind 挂 `else` 或 `while` 候选；返回 null 表示收口链已经走完。
+// else 分支收口不可能再等尾巴：`else` 之后不会再有 `else`，`do` 也没有 else。
+if (control.ElseBody !== body && control.WaitsAfterBody(context, end)) {
+  return control;
+}
+return ControlStatementShape.CloseChain(control, context);
 ```
 
 ## static method TrimToLastCode:(shape:Token)=>void
@@ -95,9 +138,10 @@ for (let at = shape.Data.length - 1; at >= 0; at--) {
 // - `else` 分支（`else if` 链）：内层 if 收口后，外层 if 的右边界就是它的 End，外层一起收口；
 // - then 分支（`if (a) if (b) c; else d;`）：`else` 先归最近的 if（内层），内层收口后外层
 //   自己的 `else` 还没出现——后面没有 `else` 才跟着收口，有就把外层交回给调用方去等 `else`。
-// 返回值就是那个「还在等 `else`」的控制语句，没有则为 null（收口链走到底了）。
-// 这里不直接挂 ControlElsePossibleShape 的候选：两者互相 import 会成环（if 形状本身
-// 继承自本类），所以由调用方把候选挂上去。
+// - `do`：body 收口后还要等 `while (…)`，由 WaitsAfterBody 拦住，不在这里收口。
+// 返回值就是那个「还在等尾巴」的控制语句，没有则为 null（收口链走到底了）。
+// 这里不直接挂 ControlElsePossibleShape / DoWhileKeywordPossibleShape 的候选：两者互相 import
+// 会成环，所以由调用方把候选挂上去。
 let current: Token | null = control;
 while (current instanceof ControlStatementShape) {
   ControlStatementShape.TrimToLastCode(current);
@@ -116,7 +160,7 @@ while (current instanceof ControlStatementShape) {
   if (parent.Body !== current) {
     return null;
   }
-  if (ControlStatementShape.IsElseAhead(context, end)) {
+  if (parent.WaitsAfterBody(context, end)) {
     return parent;
   }
   current = parent;
@@ -134,7 +178,9 @@ for (const item of this.Data) {
 }
 this.Data = this.Data.filter((item) => !item.IsTriviaToken && !item.IsBasicToken);
 const last = this.Last();
-if (last !== null && last.SourceRange.End >= 0) {
+// 一般取最后一个代码子单元的 End。`do … while (b);` 的 `;` 不在 children 里，
+// 右边界已由 DoEnd 定在分号末尾并置了 EndFixed，此时不要被子节点截短。
+if (!this.EndFixed && last !== null && last.SourceRange.End >= 0) {
   this.SourceRange.End = last.SourceRange.End;
 }
 this.Closed = true;

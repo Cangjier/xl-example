@@ -1,0 +1,7 @@
+SourceFile  pos=0  src=[0,24)
+└─ ForOfStatement  pos=0  src=[0,23)
+   ├─ VariableDeclarationList  pos=5  src=[5,12)
+   │  └─ VariableDeclaration  pos=10  src=[11,12)
+   │     └─ Identifier  pos=10  src=[11,12)  text="v"
+   ├─ Identifier  pos=15  src=[16,18)  text="xs"
+   └─ Block  pos=19  src=[20,23)

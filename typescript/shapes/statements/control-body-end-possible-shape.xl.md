@@ -10,6 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { ControlElsePossibleShape } from "./control-else-possible-shape.xl.md"
+import { DoWhileKeywordPossibleShape } from "./do-while-keyword-possible-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
 ```
 
@@ -53,17 +54,16 @@ host.Quit();
 if (!(control instanceof ControlStatementShape)) {
   return semicolon;
 }
-// then 分支结束：后面还有 `else` 就先把控制语句留着，等 `else` 自己建；
-// else 分支结束就是整条 if 结束（`else` 之后不可能再有 `else`）。
-if (control.ElseBody !== host && ControlStatementShape.IsElseAhead(context, semicolon.SourceRange.End)) {
-  ControlElsePossibleShape.Arm(control);
-  return semicolon;
-}
-// 没有 `else`：连控制语句一起收口。收口链可能把更外层的 if 交回来说「它还在等 `else`」
+// body 收口：`if` 等 `else`、`do` 等 `while`、`while`/`for` 直接收口。
+// 收口链可能把更外层的 if 交回来说「它还在等 `else`」
 // （`if (a) if (b) c; else d; else e;` 里内层吃掉了第一个 `else`，外层还在等下一个）。
-const waiting = ControlStatementShape.CloseChain(control, context);
+const waiting = ControlStatementShape.BodyClosed(control, host, semicolon.SourceRange.End, context);
 if (waiting !== null) {
-  ControlElsePossibleShape.Arm(waiting);
+  if ((waiting as ControlStatementShape).Kind === "do") {
+    DoWhileKeywordPossibleShape.Arm(waiting as ControlStatementShape);
+  } else {
+    ControlElsePossibleShape.Arm(waiting as ControlStatementShape);
+  }
 }
 return semicolon;
 ```

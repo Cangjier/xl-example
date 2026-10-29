@@ -1,0 +1,11 @@
+SourceFile  pos=0  src=[0,28)
+└─ TryStatement  pos=0  src=[0,27)
+   ├─ Block  pos=3  src=[4,10)
+   │  └─ ExpressionStatement  pos=5  src=[6,8)
+   │     └─ Identifier  pos=5  src=[6,7)  text="a"
+   └─ CatchClause  pos=10  src=[11,27)
+      ├─ VariableDeclaration  pos=18  src=[18,19)
+      │  └─ Identifier  pos=18  src=[18,19)  text="e"
+      └─ Block  pos=20  src=[21,27)
+         └─ ExpressionStatement  pos=22  src=[23,25)
+            └─ Identifier  pos=22  src=[23,24)  text="b"

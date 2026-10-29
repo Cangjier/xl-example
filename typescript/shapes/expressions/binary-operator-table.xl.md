@@ -25,6 +25,7 @@ import { BarTokenShape } from "../punctuation/binary-operator-token-shapes.xl.md
 import { AmpersandAmpersandTokenShape } from "../punctuation/binary-operator-token-shapes.xl.md"
 import { BarBarTokenShape } from "../punctuation/binary-operator-token-shapes.xl.md"
 import { QuestionQuestionTokenShape } from "../punctuation/binary-operator-token-shapes.xl.md"
+import { EqualsTokenShape } from "../punctuation/equals-token-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -59,6 +60,7 @@ this.RightAssociative = rightAssociative;
 let infos = BinaryOperatorTable.Cached;
 if (infos === null) {
   infos = [
+    new BinaryOperatorInfo("=", 2, true),
     new BinaryOperatorInfo("**", 15, true),
     new BinaryOperatorInfo("*", 14, false),
     new BinaryOperatorInfo("/", 14, false),
@@ -118,6 +120,8 @@ return null;
 ```ts
 const text = operator.TempToString();
 switch (text) {
+  case "=":
+    return EqualsTokenShape.FromSymbol(operator, pos);
   case "**":
     return AsteriskAsteriskTokenShape.FromSymbol(operator, pos);
   case "*":

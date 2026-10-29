@@ -11,6 +11,7 @@ import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { ControlElsePossibleShape } from "./control-else-possible-shape.xl.md"
+import { DoWhileKeywordPossibleShape } from "./do-while-keyword-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -54,15 +55,14 @@ block.Quit();
 if (!(parent instanceof ControlStatementShape)) {
   return close;
 }
-// then 分支的块收口：`}` 后面还有 `else` 就先把控制语句留着，等 `else` 自己建；
-// else 分支的块收口就是整条 if 结束。
-if (parent.ElseBody !== block && ControlStatementShape.IsElseAhead(context, close.SourceRange.End)) {
-  ControlElsePossibleShape.Arm(parent);
-  return close;
-}
-const waiting = ControlStatementShape.CloseChain(parent, context);
+// body 收口：`if` 等 `else`、`do` 等 `while`、`while`/`for` 直接收口。
+const waiting = ControlStatementShape.BodyClosed(parent, block, close.SourceRange.End, context);
 if (waiting !== null) {
-  ControlElsePossibleShape.Arm(waiting);
+  if ((waiting as ControlStatementShape).Kind === "do") {
+    DoWhileKeywordPossibleShape.Arm(waiting as ControlStatementShape);
+  } else {
+    ControlElsePossibleShape.Arm(waiting as ControlStatementShape);
+  }
 }
 return close;
 ```

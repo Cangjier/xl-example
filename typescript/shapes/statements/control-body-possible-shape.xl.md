@@ -30,7 +30,11 @@ import { StatementGuide } from "./statement-guide.xl.md"
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
 ```ts
-if (!(host instanceof ControlStatementShape) || host.Condition === null) {
+if (!(host instanceof ControlStatementShape)) {
+  return ShapeStates.Reject;
+}
+// 普通控制语句（if / while / for）的 body 跟在条件之后；`do` 是 body 先来（BodyFirst）。
+if (!host.BodyFirst && host.Condition === null) {
   return ShapeStates.Reject;
 }
 const units = host.Data;
@@ -80,8 +84,9 @@ return ShapeStates.Accept;
 // body 的左边只能是本语句的头部：条件表达式（then body）或 `else` 关键字（else body）。
 // `else` 建在这一步之前，所以两者都是已归档的子单元。
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
+// `do` 的 body 是这条语句的第一个代码单元：左侧没有头部可言。
 if (prevIndex < 0) {
-  return false;
+  return host.BodyFirst;
 }
 const prev = units[prevIndex];
 if (prev === host.Condition) {
@@ -100,12 +105,10 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const unit = units[tokenIndex];
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
-if (prevIndex < 0) {
-  return false;
-}
-const prev = units[prevIndex];
-const isElseHead = prev instanceof Common && prev.Closed && prev.Is("else");
-if (!ControlBodyPossibleShape.IsOperand(prev) && !isElseHead) {
+const prev = prevIndex >= 0 ? units[prevIndex] : null;
+const isElseHead = prev !== null && prev instanceof Common && prev.Closed && prev.Is("else");
+// 没有前驱只可能是 `do` 的 body（host 绑定已在 Compute 里核对过）。
+if (prev !== null && !ControlBodyPossibleShape.IsOperand(prev) && !isElseHead) {
   return false;
 }
 if (unit instanceof Symbol) {
@@ -121,7 +124,7 @@ return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(u
 
 ```ts
 const name = unit.constructor.name;
-return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape");
+return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralShape" || name === "BinaryExpressionShape" || name === "PostfixUnaryExpressionShape");
 ```
 
 ## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
@@ -149,6 +152,7 @@ if (unit instanceof Symbol && unit.Is("{")) {
 if (unit instanceof Common && unit.Is("if")) {
   const pos = ItemUtil.PositionOf(units, tokenIndex);
   const statement = new IfStatementShape(host.Template);
+  statement.Kind = "if";
   statement.Pos = pos;
   statement.SignIn(unit.SourceRange.Start);
   statement.CatalogGuide = new CatalogGuide([new ConditionCreatePossibleShape()], null);
