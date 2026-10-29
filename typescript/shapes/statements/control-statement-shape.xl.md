@@ -88,23 +88,40 @@ for (let at = shape.Data.length - 1; at >= 0; at--) {
 }
 ```
 
-## static method CloseChain:(control:ControlStatementShape, context:SyntaxContext)=>void
+## static method CloseChain:(control:ControlStatementShape, context:SyntaxContext)=>ControlStatementShape | null
 
 ```ts
-// 收口一条控制语句；若它本身是父级 if 的 `else` 分支，父级也一起收口
-// （`else if` 链：内层 if 收口后，外层 if 的右边界就是它的 End）。
+// 收口一条控制语句；若它本身是父级 if 的分支，父级也要跟着处理：
+// - `else` 分支（`else if` 链）：内层 if 收口后，外层 if 的右边界就是它的 End，外层一起收口；
+// - then 分支（`if (a) if (b) c; else d;`）：`else` 先归最近的 if（内层），内层收口后外层
+//   自己的 `else` 还没出现——后面没有 `else` 才跟着收口，有就把外层交回给调用方去等 `else`。
+// 返回值就是那个「还在等 `else`」的控制语句，没有则为 null（收口链走到底了）。
+// 这里不直接挂 ControlElsePossibleShape 的候选：两者互相 import 会成环（if 形状本身
+// 继承自本类），所以由调用方把候选挂上去。
 let current: Token | null = control;
 while (current instanceof ControlStatementShape) {
   ControlStatementShape.TrimToLastCode(current);
   current.TryToClose(context);
+  const end = current.SourceRange.End;
   // 显式标注：`current = parent` 与 `parent = current.Parent` 互推会触发 TS7022。
   const parent: Token | null = current.Parent;
   current.Quit();
-  if (!(parent instanceof ControlStatementShape) || parent.ElseBody !== current) {
-    return;
+  if (!(parent instanceof ControlStatementShape)) {
+    return null;
+  }
+  if (parent.ElseBody === current) {
+    current = parent;
+    continue;
+  }
+  if (parent.Body !== current) {
+    return null;
+  }
+  if (ControlStatementShape.IsElseAhead(context, end)) {
+    return parent;
   }
   current = parent;
 }
+return null;
 ```
 
 ## protected method Close:(context:SyntaxContext)=>CloseStates

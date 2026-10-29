@@ -12,9 +12,11 @@ import { ItemUtil } from "../item-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BinaryExpressionPossibleShape } from "../expressions/binary-expression-possible-shape.xl.md"
+import { ConditionCreatePossibleShape } from "../conditions/condition-create-possible-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { ControlBodyEndPossibleShape } from "./control-body-end-possible-shape.xl.md"
 import { ExpressionStatementShape } from "./expression-statement-shape.xl.md"
+import { IfStatementShape } from "./if-statement-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
 import { BlockPossibleShape } from "./block-possible-shape.xl.md"
 import { BlockEndPossibleShape } from "./block-end-possible-shape.xl.md"
@@ -58,10 +60,15 @@ if (!(unit instanceof Common)) {
 if (!unit.Closed) {
   return ShapeStates.Uncertain;
 }
-if (!OperandUtil.CanStartExpression(unit)) {
+if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
   return ShapeStates.Reject;
 }
-if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
+// body 本身可以是另一条 `if`（`if (a) if (b) c` 的 then 分支、`else if` 的 else 分支）。
+// 关键字在这里先建形状，它自己的条件候选接着吃 `(`：所以这里只看「头之后紧跟 if」。
+if (unit.Is("if")) {
+  return ShapeStates.Accept;
+}
+if (!OperandUtil.CanStartExpression(unit)) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
@@ -104,6 +111,9 @@ if (!ControlBodyPossibleShape.IsOperand(prev) && !isElseHead) {
 if (unit instanceof Symbol) {
   return unit.Closed && unit.Is("{");
 }
+if (unit instanceof Common && unit.Closed && unit.Is("if")) {
+  return true;
+}
 return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(unit);
 ```
 
@@ -134,6 +144,23 @@ if (unit instanceof Symbol && unit.Is("{")) {
   }
   host.MountedUnit = block;
   return block;
+}
+// 嵌套 `if` 当 body：建内层 if，挂成本语句的 then / else 分支，后续字符流进它的条件候选。
+if (unit instanceof Common && unit.Is("if")) {
+  const pos = ItemUtil.PositionOf(units, tokenIndex);
+  const statement = new IfStatementShape(host.Template);
+  statement.Pos = pos;
+  statement.SignIn(unit.SourceRange.Start);
+  statement.CatalogGuide = new CatalogGuide([new ConditionCreatePossibleShape()], null);
+  units.splice(tokenIndex, 1, statement);
+  statement.Parent = host;
+  if (isElseBody) {
+    control.ElseBody = statement;
+  } else {
+    control.Body = statement;
+  }
+  host.MountedUnit = statement;
+  return statement;
 }
 const common = unit as Common;
 const pos = OperandUtil.PositionOf(units, tokenIndex);

@@ -54,16 +54,15 @@ block.Quit();
 if (!(parent instanceof ControlStatementShape)) {
   return close;
 }
-if (parent.ElseBody === block) {
-  // else 分支的块收口就是整条 if 结束。
-  ControlStatementShape.CloseChain(parent, context);
+// then 分支的块收口：`}` 后面还有 `else` 就先把控制语句留着，等 `else` 自己建；
+// else 分支的块收口就是整条 if 结束。
+if (parent.ElseBody !== block && ControlStatementShape.IsElseAhead(context, close.SourceRange.End)) {
+  ControlElsePossibleShape.Arm(parent);
   return close;
 }
-// then 分支的块收口：`}` 后面还有 `else` 就先把控制语句留着。
-if (ControlStatementShape.IsElseAhead(context, close.SourceRange.End)) {
-  parent.CatalogGuide = new CatalogGuide([new ControlElsePossibleShape()], null);
-  return close;
+const waiting = ControlStatementShape.CloseChain(parent, context);
+if (waiting !== null) {
+  ControlElsePossibleShape.Arm(waiting);
 }
-ControlStatementShape.CloseChain(parent, context);
 return close;
 ```

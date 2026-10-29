@@ -11,12 +11,19 @@ import { ItemUtil } from "../item-util.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
 import { ControlBodyPossibleShape } from "./control-body-possible-shape.xl.md"
-import { ControlElseIfPossibleShape } from "./control-else-if-possible-shape.xl.md"
 ```
 
 # namespace cangjie
 
 # class ControlElsePossibleShape extends PossibleShape
+
+## static method Arm:(control:ControlStatementShape)=>void
+
+```ts
+// 一条 if 的 then 分支已经收口：只剩等 `else` 这一种可能。
+// 建候选的地方（`else` 建完、then 分支收完）都走这里，避免各处各建一份。
+control.CatalogGuide = new CatalogGuide([new ControlElsePossibleShape()], null);
+```
 
 ## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
 
@@ -63,11 +70,9 @@ return unit instanceof Common && unit.Closed && unit.Is("else");
 const control = host as ControlStatementShape;
 const keyword = host.Data[tokenIndex] as Common;
 control.ElseKeyword = keyword;
-// `else` 之后的 body 有两种：块/表达式语句，或 else-if 的内层 if（关键字 `if` 起头）。
-control.CatalogGuide = new CatalogGuide([
-  new ControlBodyPossibleShape(),
-  new ControlElseIfPossibleShape(),
-], null);
+// `else` 之后的 body 有三种：块、表达式语句、另一条 `if`（`else if` 链）。
+// 三者都由 ControlBodyPossibleShape 认领，它按 `else` 关键字认出这是 else 分支。
+control.CatalogGuide = new CatalogGuide([new ControlBodyPossibleShape()], null);
 host.MountedUnit = null;
 return keyword;
 ```

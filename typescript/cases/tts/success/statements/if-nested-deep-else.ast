@@ -1,0 +1,13 @@
+SourceFile  pos=0  src=[0,40)
+└─ IfStatement  pos=0  src=[0,39)
+   ├─ Identifier  pos=4  src=[4,5)  text="a"
+   └─ IfStatement  pos=6  src=[7,39)
+      ├─ Identifier  pos=11  src=[11,12)  text="b"
+      ├─ IfStatement  pos=13  src=[14,31)
+      │  ├─ Identifier  pos=18  src=[18,19)  text="c"
+      │  ├─ ExpressionStatement  pos=20  src=[21,23)
+      │  │  └─ Identifier  pos=20  src=[21,22)  text="d"
+      │  └─ ExpressionStatement  pos=28  src=[29,31)
+      │     └─ Identifier  pos=28  src=[29,30)  text="e"
+      └─ ExpressionStatement  pos=36  src=[37,39)
+         └─ Identifier  pos=36  src=[37,38)  text="f"
