@@ -864,17 +864,21 @@ async function openCase(id, startStep) {
   renderCaseView(payload);
 
   const steps = payload.steps.steps ?? [];
-  const initial = startStep !== null && startStep !== undefined && steps.length > 0
+  const explicitStep = startStep !== null && startStep !== undefined;
+  const initial = explicitStep && steps.length > 0
     ? Math.min(startStep, steps.length - 1)
     : 0;
   mountPlayer(payload, initial);
 
-  if (state.prefs.autoplay && steps.length > 1) {
+  // URL 里写了 @N 就是「我要停在第 N 步」：不自动播放，否则打开后立刻跑掉，
+  // 跟 case.md 同一小节对照时会看到不一样的一步。
+  if (state.prefs.autoplay && steps.length > 1 && !explicitStep) {
     play();
   }
 
   document.title = `${payload.name}.ts · tts 用例查看器`;
-  if (startStep === null) {
+  // 没写步号就补一个 @0；写了但超出范围（例如 @99）就落到实际停下的那一步。
+  if (!explicitStep || initial !== startStep) {
     history.replaceState(null, "", caseHash(id, initial));
   }
 }
@@ -1290,11 +1294,11 @@ function mountPlayer(payload, initialStep) {
     <div class="panes${hasSteps ? "" : " single"}">
       <section class="pane">
         <header class="pane-head">${esc(payload.name)}.ts<span class="spacer"></span><span class="pane-note" id="p-src-note"></span></header>
-        <div class="pane-body" id="p-source"></div>
+        <div class="pane-body code" id="p-source"></div>
       </section>
       ${hasSteps ? `<section class="pane">
         <header class="pane-head">${esc(treeTitle)}<span class="spacer"></span><span class="pane-note" id="p-tree-note"></span></header>
-        <div class="pane-body" id="p-tree"></div>
+        <div class="pane-body tree" id="p-tree"></div>
       </section>` : ""}
     </div>
     ${hasSteps ? `
@@ -1319,7 +1323,7 @@ function mountPlayer(payload, initialStep) {
       <div class="ctrl-group">
         <label class="toggle" title="回到开头继续"><input type="checkbox" id="p-loop"><span class="box"></span>循环</label>
         <label class="toggle" title="自动滚动到当前字符"><input type="checkbox" id="p-follow"><span class="box"></span>跟随</label>
-        <label class="toggle" title="打开用例后自动开始播放"><input type="checkbox" id="p-autoplay"><span class="box"></span>自动播放</label>
+        <label class="toggle" title="从列表点开用例时自动播放；URL 里指定了步号（@N）就停在第 N 步"><input type="checkbox" id="p-autoplay"><span class="box"></span>自动播放</label>
       </div>
     </div>
     <div class="kbd-hint">

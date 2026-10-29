@@ -24,7 +24,8 @@ node typescript/tools/cases-viewer/server.mjs --help
 | 对拍 | 单个用例跑 `run.mjs`；顶部「全部对拍」跑一次 `--all --list`，结果标回左侧列表 |
 
 快捷键：`空格` 播放/暂停，`←` `→` 单步，`Home` `End` 首尾，`/` 搜索。
-回放状态写进 URL（`#/case/success%2Fstatements%2Fbreak@7`），可以直接分享/刷新恢复。
+回放状态写进 URL（`#/case/success%2Fstatements%2Fbreak@7`），可以直接分享/刷新恢复；
+带 `@N` 的链接打开后**停在第 N 步**、不自动播放——「自动播放」只作用于从列表点开的用例。
 
 ## 逐字从哪来
 
