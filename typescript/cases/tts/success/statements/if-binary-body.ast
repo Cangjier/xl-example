@@ -1,0 +1,8 @@
+SourceFile  pos=0  src=[0,14)
+└─ IfStatement  pos=0  src=[0,13)
+   ├─ Identifier  pos=4  src=[4,5)  text="a"
+   └─ ExpressionStatement  pos=6  src=[7,13)
+      └─ BinaryExpression  pos=6  src=[7,12)
+         ├─ Identifier  pos=6  src=[7,8)  text="b"
+         ├─ PlusToken  pos=8  src=[9,10)  text="+"
+         └─ Identifier  pos=10  src=[11,12)  text="c"

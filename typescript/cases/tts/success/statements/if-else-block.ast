@@ -1,0 +1,9 @@
+SourceFile  pos=0  src=[0,26)
+└─ IfStatement  pos=0  src=[0,25)
+   ├─ Identifier  pos=4  src=[4,5)  text="a"
+   ├─ Block  pos=6  src=[7,13)
+   │  └─ ExpressionStatement  pos=8  src=[9,11)
+   │     └─ Identifier  pos=8  src=[9,10)  text="b"
+   └─ Block  pos=18  src=[19,25)
+      └─ ExpressionStatement  pos=20  src=[21,23)
+         └─ Identifier  pos=20  src=[21,22)  text="c"

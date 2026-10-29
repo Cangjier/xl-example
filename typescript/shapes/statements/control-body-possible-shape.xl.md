@@ -36,6 +36,10 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
 }
 const unit = units[tokenIndex];
+// 注释（AreaAnnotation / LineAnnotation）也是 trivia：body 还没到，候选必须留着等。
+if (unit.IsTriviaToken) {
+  return ShapeStates.Uncertain;
+}
 if (unit instanceof Symbol) {
   if (!unit.Closed) {
     return ShapeStates.Uncertain;
@@ -43,8 +47,7 @@ if (unit instanceof Symbol) {
   if (!unit.Is("{")) {
     return ShapeStates.Reject;
   }
-  const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
-  if (prevIndex < 0 || units[prevIndex] !== host.Condition) {
+  if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
     return ShapeStates.Reject;
   }
   return ShapeStates.Accept;
@@ -58,43 +61,50 @@ if (!unit.Closed) {
 if (!OperandUtil.CanStartExpression(unit)) {
   return ShapeStates.Reject;
 }
-const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
-if (prevIndex < 0 || units[prevIndex] !== host.Condition) {
+if (!ControlBodyPossibleShape.FollowsHead(host, units, tokenIndex)) {
   return ShapeStates.Reject;
 }
 return ShapeStates.Accept;
 ```
 
+## static method FollowsHead:(host:ControlStatementShape, units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+// body 的左边只能是本语句的头部：条件表达式（then body）或 `else` 关键字（else body）。
+// `else` 建在这一步之前，所以两者都是已归档的子单元。
+const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (prevIndex < 0) {
+  return false;
+}
+const prev = units[prevIndex];
+if (prev === host.Condition) {
+  return true;
+}
+return host.ElseKeyword !== null && prev === host.ElseKeyword;
+```
+
 ## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
 
 ```ts
+// 这里拿不到 host：两类前驱都放行（操作数 = 条件，已收口的 `else` 关键字 = else body），
+// 与 host 的绑定在 ComputeByIndex 里已经按对象身份核对过。
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return false;
 }
 const unit = units[tokenIndex];
-if (unit instanceof Symbol) {
-  if (!unit.Closed || !unit.Is("{")) {
-    return false;
-  }
-  const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
-  return prevIndex >= 0 && ControlBodyPossibleShape.IsOperand(units[prevIndex]);
-}
-if (!(unit instanceof Common) || !unit.Closed || !OperandUtil.CanStartExpression(unit)) {
-  return false;
-}
 const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
-if (prevIndex < 0 || !ControlBodyPossibleShape.IsOperand(units[prevIndex])) {
+if (prevIndex < 0) {
   return false;
 }
-// 条件必须是本条语句的第一个代码单元，body 才排在它后面。
-let first = -1;
-for (let at = 0; at <= tokenIndex; at++) {
-  if (!units[at].IsTriviaToken) {
-    first = at;
-    break;
-  }
+const prev = units[prevIndex];
+const isElseHead = prev instanceof Common && prev.Closed && prev.Is("else");
+if (!ControlBodyPossibleShape.IsOperand(prev) && !isElseHead) {
+  return false;
 }
-return first === prevIndex;
+if (unit instanceof Symbol) {
+  return unit.Closed && unit.Is("{");
+}
+return unit instanceof Common && unit.Closed && OperandUtil.CanStartExpression(unit);
 ```
 
 ## static method IsOperand:(unit:Token)=>bool
@@ -109,6 +119,7 @@ return unit.Closed && (name === "IdentifierShape" || name === "NumericLiteralSha
 ```ts
 const units = host.Data;
 const control = host as ControlStatementShape;
+const isElseBody = ControlBodyPossibleShape.IsElseHead(control, units, tokenIndex);
 const unit = units[tokenIndex];
 if (unit instanceof Symbol && unit.Is("{")) {
   const pos = ItemUtil.PositionOf(units, tokenIndex);
@@ -116,7 +127,11 @@ if (unit instanceof Symbol && unit.Is("{")) {
   block.CatalogGuide = StatementGuide.Create(new BlockEndPossibleShape(), [new BlockPossibleShape()]);
   units.splice(tokenIndex, 1, block);
   block.Parent = host;
-  control.Body = block;
+  if (isElseBody) {
+    control.ElseBody = block;
+  } else {
+    control.Body = block;
+  }
   host.MountedUnit = block;
   return block;
 }
@@ -133,7 +148,21 @@ body.CatalogGuide = new CatalogGuide(
 );
 units.splice(tokenIndex, 1, body);
 body.Parent = host;
-control.Body = body;
+if (isElseBody) {
+  control.ElseBody = body;
+} else {
+  control.Body = body;
+}
 host.MountedUnit = body;
 return body;
+```
+
+## static method IsElseHead:(host:ControlStatementShape, units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+const prevIndex = ItemUtil.PreviousCode(units, tokenIndex - 1);
+if (prevIndex < 0) {
+  return false;
+}
+return host.ElseKeyword !== null && units[prevIndex] === host.ElseKeyword;
 ```

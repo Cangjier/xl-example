@@ -1,0 +1,9 @@
+SourceFile  pos=0  src=[0,22)
+└─ IfStatement  pos=0  src=[0,21)
+   ├─ Identifier  pos=4  src=[4,5)  text="a"
+   └─ Block  pos=6  src=[7,21)
+      └─ FirstStatement  pos=8  src=[9,19)
+         └─ VariableDeclarationList  pos=8  src=[9,18)
+            └─ VariableDeclaration  pos=12  src=[13,18)
+               ├─ Identifier  pos=12  src=[13,14)  text="y"
+               └─ FirstLiteralToken  pos=16  src=[17,18)  text="1"

@@ -10,6 +10,7 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { PossibleShape } from "../../../core/syntax/possible-shape.xl.md"
 import { BlockShape } from "./block-shape.xl.md"
 import { ControlStatementShape } from "./control-statement-shape.xl.md"
+import { ControlElsePossibleShape } from "./control-else-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -50,10 +51,19 @@ block.SourceRange.End = close.SourceRange.End;
 block.EndedByBrace = true;
 block.TryToClose(context);
 block.Quit();
-if (parent instanceof ControlStatementShape) {
-  parent.SourceRange.End = close.SourceRange.End;
-  parent.TryToClose(context);
-  parent.Quit();
+if (!(parent instanceof ControlStatementShape)) {
+  return close;
 }
+if (parent.ElseBody === block) {
+  // else 分支的块收口就是整条 if 结束。
+  ControlStatementShape.CloseChain(parent, context);
+  return close;
+}
+// then 分支的块收口：`}` 后面还有 `else` 就先把控制语句留着。
+if (ControlStatementShape.IsElseAhead(context, close.SourceRange.End)) {
+  parent.CatalogGuide = new CatalogGuide([new ControlElsePossibleShape()], null);
+  return close;
+}
+ControlStatementShape.CloseChain(parent, context);
 return close;
 ```
