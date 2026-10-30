@@ -1,0 +1,18 @@
+SourceFile  pos=0  src=[0,57)
+└─ TypeAliasDeclaration  pos=0  src=[0,56)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   ├─ TypeParameter  pos=7  src=[7,8)
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"
+   └─ ConditionalType  pos=11  src=[12,56)
+      ├─ TypeReference  pos=11  src=[12,13)
+      │  └─ Identifier  pos=11  src=[12,13)  text="T"
+      ├─ StringKeyword  pos=21  src=[22,28)  text="string"
+      ├─ TypeReference  pos=30  src=[31,39)
+      │  ├─ Identifier  pos=30  src=[31,36)  text="Array"
+      │  └─ TypeReference  pos=37  src=[37,38)
+      │     └─ Identifier  pos=37  src=[37,38)  text="T"
+      └─ TypeReference  pos=41  src=[42,56)
+         ├─ Identifier  pos=41  src=[42,45)  text="Map"
+         ├─ StringKeyword  pos=46  src=[46,52)  text="string"
+         └─ TypeReference  pos=53  src=[54,55)
+            └─ Identifier  pos=53  src=[54,55)  text="T"

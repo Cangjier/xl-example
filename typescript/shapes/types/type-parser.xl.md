@@ -83,6 +83,12 @@ import { UnionTypeShape } from "./type-node-shapes.xl.md"
 
 ## field Type:Token | null = null
 
+# class TypeArgumentTail
+
+## field Arguments:Array<Token> = []
+
+## field End:int = -1
+
 # class TypeParser
 
 ## field Units:Array<Token>
@@ -159,6 +165,35 @@ if (parser.Index < parser.Limit) {
   throw parser.MakeError("类型参数之后仍有多余单元");
 }
 return items;
+```
+
+## static method ParseTypeArgumentTail:(units:Array<Token>, limit:int, template:Template)=>TypeArgumentTail
+
+```ts
+// 增量路径已经把名字建好了：这里只解析名字后面的 `< … >`，单元序列以 `<` 开头。
+// 返回值里的 End 是配平的 `>` 之后那个位置——TypeReference 的右边界就取它。
+const parser = new TypeParser(units, limit, template);
+const tail = parser.ParseArguments();
+parser.SkipTrivia();
+if (parser.Index < parser.Limit) {
+  throw parser.MakeError("类型实参之后仍有多余单元");
+}
+return tail;
+```
+
+## static method ParseEntityNamePrefix:(units:Array<Token>, from:int, to:int, template:Template)=>Token
+
+```ts
+// 增量路径只把「名字」这一段交给文法（`Array` / `NS.Array`），`<` 之后仍然走 ParseTypeArgumentTail。
+// 调用方先用名字段的形状判定过，这里再确认一次确实吃完了整段。
+const parser = new TypeParser(units, to, template);
+parser.Index = from;
+const name = parser.ParseEntityName();
+parser.SkipTrivia();
+if (parser.Index !== parser.Limit) {
+  throw parser.MakeError("名字之后仍有多余单元");
+}
+return name;
 ```
 
 ## static method KeywordTypeOf:(common:Common, pos:int)=>KeywordTypeShape | null
@@ -721,6 +756,26 @@ for (let at = 0; at < interpolations.length; at++) {
 return this.Node(new TemplateLiteralTypeShape(this.Template), pos, string.SourceRange.Start, string.SourceRange.End, children);
 ```
 
+## private method ParseArguments:()=>TypeArgumentTail
+
+```ts
+const tail = new TypeArgumentTail();
+this.ExpectSymbol("<");
+this.SkipTrivia();
+if (this.PeekSymbol() === ">") {
+  tail.End = this.ExpectTypeAngleClose();
+  return tail;
+}
+while (true) {
+  tail.Arguments.push(this.ParseType());
+  if (this.ConsumeSymbolIf(",") === null) {
+    break;
+  }
+}
+tail.End = this.ExpectTypeAngleClose();
+return tail;
+```
+
 ## private method ParseTypeReference:()=>Token
 
 ```ts
@@ -729,20 +784,11 @@ const children:Array<Token> = [name];
 let end = name.SourceRange.End;
 this.SkipTrivia();
 if (this.PeekSymbol() === "<") {
-  this.Index++;
-  this.SkipTrivia();
-  if (this.PeekSymbol() === ">") {
-    this.Index++;
-    end = this.Units[this.Index - 1].SourceRange.End;
-  } else {
-    while (true) {
-      children.push(this.ParseType());
-      if (this.ConsumeSymbolIf(",") === null) {
-        break;
-      }
-    }
-    end = this.ExpectTypeAngleClose();
+  const tail = this.ParseArguments();
+  for (const item of tail.Arguments) {
+    children.push(item);
   }
+  end = tail.End;
 }
 return this.Node(new TypeReferenceShape(this.Template), TypeShape.PosOfNode(name), name.SourceRange.Start, end, children);
 ```

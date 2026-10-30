@@ -12,6 +12,7 @@ import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Template } from "../../../core/syntax/templates/template.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
+import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
 import { ConditionalTypeShape } from "./type-node-shapes.xl.md"
@@ -19,6 +20,7 @@ import { UnionTypeShape } from "./type-node-shapes.xl.md"
 import { IntersectionTypeShape } from "./type-node-shapes.xl.md"
 import { ArrayTypeShape } from "./type-node-shapes.xl.md"
 import { IndexedAccessTypeShape } from "./type-node-shapes.xl.md"
+import { TypeReferenceShape } from "./type-node-shapes.xl.md"
 ```
 
 # namespace cangjie
@@ -187,6 +189,132 @@ if (!(unit instanceof Symbol) || !unit.Closed) {
 }
 const text = unit.TempToString();
 return text === "]" || text === "}" || text === ">" || text === ">>" || text === ">>>";
+```
+
+## static method IsNameRun:(units:Array<Token>, from:int, to:int)=>bool
+
+```ts
+// 名字段：只由「标识符（. 标识符）*」组成，名字本身还是 basic token，没被收成形状。
+// 类型里的名字可以带限定（`NS.Array`），所以逐个代码单元检查，trivia 直接跳过。
+let expectName = true;
+for (let at = from; at < to; at++) {
+  const unit = units[at];
+  if (unit.IsTriviaToken) {
+    continue;
+  }
+  if (expectName) {
+    if (!(unit instanceof Common) || !unit.Closed) {
+      return false;
+    }
+    const text = unit.TempToString();
+    if (!OperandUtil.IsIdentifier(text) || OperandUtil.IsKeyword(text)) {
+      return false;
+    }
+    if (TypeConditionalUtil.IsPrefixText(text) || TypeConditionalUtil.IsKeywordText(text)) {
+      return false;
+    }
+  } else if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(".")) {
+    return false;
+  }
+  expectName = !expectName;
+}
+return !expectName;
+```
+
+## static method CanOpenTypeReference:(units:Array<Token>, tokenIndex:int)=>bool
+
+```ts
+// 判定点：当前单元是一个已收口的 `<`，它前面是这个类型段里唯一的一段名字。
+// 类型里没有比较运算符，`名字 <` 只有「类型引用 + 实参表」这一种产生式，
+// 所以这一格形状已经定死，不必等 `>` 来证明。
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is("<")) {
+  return false;
+}
+const start = TypeConditionalUtil.RunStart(units);
+if (TypeConditionalUtil.CodeCount(units, start, tokenIndex) === 0) {
+  return false;
+}
+return TypeConditionalUtil.IsNameRun(units, start, tokenIndex);
+```
+
+## static method OpenTypeReference:(conditional:Token, tokenIndex:int)=>Token
+
+```ts
+// 名字与 `<` 从段里摘出来，挂到一条还没关闭的 TypeReference 上：`<` 之后的单元继续流进它，
+// 由 TypeReferenceEndPossibleShape 在配平的 `>` 那格把 `< … >` 一次解析成实参。
+// 名字与 `<` 之间的 trivia 不保留——它本来就会被 Close 丢掉。
+const units = conditional.Data;
+const start = TypeConditionalUtil.RunStart(units);
+const first = TypeConditionalUtil.FirstCodeIndex(units, start, tokenIndex);
+const open = units[tokenIndex] as Symbol;
+const name = TypeParser.ParseEntityNamePrefix(units, first, tokenIndex, conditional.Template);
+const reference = new TypeReferenceShape(conditional.Template);
+reference.Pos = TypeShape.PosOfNode(name);
+reference.SignIn(name.SourceRange.Start);
+reference.Add(name);
+reference.Add(open);
+units.splice(first, tokenIndex + 1 - first);
+// 段里前面已经有联合/交叉时，引用是那个运算符的下一个成员，不能直接挂在段宿主下。
+TypeConditionalUtil.Target(conditional).Add(reference);
+// 挂载链沿 Parent 走：字符要穿过中间的运算符才到得了这条引用。
+let child:Token = reference;
+let owner:Token | null = reference.Parent;
+while (owner !== null) {
+  owner.MountedUnit = child;
+  if (owner === conditional) {
+    break;
+  }
+  child = owner;
+  owner = owner.Parent;
+}
+reference.CatalogGuide = new CatalogGuide([], new TypeReferenceEndPossibleShape());
+return reference;
+```
+
+## static method ReferenceHost:(reference:Token)=>Token | null
+
+```ts
+// 引用与段宿主之间只可能隔着联合/交叉：Target 只会把它挂到运算符下面。
+// 第一个不是运算符的祖先就是段宿主。
+let host:Token | null = reference.Parent;
+while (host !== null && TypeConditionalUtil.IsOperatorShape(host)) {
+  host = host.Parent;
+}
+return host;
+```
+
+## static method UnmountReference:(reference:Token)=>void
+
+```ts
+// 断开「段宿主 →（运算符…）→ 引用」这条挂载链，后续字符重新交回段宿主。
+const host = TypeConditionalUtil.ReferenceHost(reference);
+if (host === null) {
+  return;
+}
+let at:Token | null = host;
+while (at !== null && at.MountedUnit !== null) {
+  const next:Token = at.MountedUnit;
+  at.MountedUnit = null;
+  if (next === reference) {
+    break;
+  }
+  at = next;
+}
+```
+
+## static method GrowOperatorEnd:(reference:Token)=>void
+
+```ts
+// 联合/交叉的右边界跟着最后一个成员走。中间几格它先停在旧成员上，引用收口时一次补齐。
+let owner:Token | null = reference.Parent;
+while (owner !== null && TypeConditionalUtil.IsOperatorShape(owner)) {
+  owner.SourceRange.End = reference.SourceRange.End;
+  owner = owner.Parent;
+}
 ```
 
 ## static method IsOperatorUnit:(unit:Token)=>bool
@@ -661,6 +789,9 @@ if (tokenIndex < 0 || tokenIndex >= units.length) {
 }
 const unit = units[tokenIndex];
 const start = TypeConditionalUtil.RunStart(units);
+if (TypeConditionalUtil.CanOpenTypeReference(units, tokenIndex)) {
+  return true;
+}
 if (TypeConditionalUtil.IsAtomUnit(unit)) {
   return TypeConditionalUtil.CodeCount(units, start, tokenIndex + 1) === 1;
 }
@@ -682,6 +813,10 @@ return false;
 const conditional = host as ConditionalTypeShape;
 const units = conditional.Data;
 const unit = units[tokenIndex];
+if (TypeConditionalUtil.CanOpenTypeReference(units, tokenIndex)) {
+  TypeConditionalUtil.OpenTypeReference(conditional, tokenIndex);
+  return conditional;
+}
 if (TypeConditionalUtil.IsOperatorUnit(unit)) {
   TypeConditionalChainPossibleShape.BuildOperator(conditional, tokenIndex, context);
   return conditional;
@@ -855,3 +990,77 @@ conditional.TryToClose(context);
 TypeConditionalUtil.FinishAlias(conditional, previousUnit.SourceRange.End, tail);
 return unit;
 ```
+
+# class TypeReferenceEndPossibleShape extends PossibleShape
+
+## method ComputeByIndex:(host:Token, tokenIndex:int, cache:PossibleShapeCache, source:PossibleSource)=>ShapeStates
+
+```ts
+const units = host.Data;
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return ShapeStates.Reject;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(">")) {
+  return ShapeStates.Reject;
+}
+// 嵌套的 `Array<Array<T>>` 要在自己的 `>` 上等着：只有最外层配平的那个 `>` 才收口实参表。
+return TypeParser.IsBalanced(units, units.length) ? ShapeStates.Accept : ShapeStates.Reject;
+```
+
+## method IsBuildable:(units:Array<Token>, tokenIndex:int, cache:PossibleShapeCache, context:SyntaxContext)=>bool
+
+```ts
+if (tokenIndex < 0 || tokenIndex >= units.length) {
+  return false;
+}
+const unit = units[tokenIndex];
+if (!(unit instanceof Symbol) || !unit.Closed || !unit.Is(">")) {
+  return false;
+}
+return TypeParser.IsBalanced(units, units.length);
+```
+
+## method BuildByIndex:(host:Token, tokenIndex:int, catalog:CatalogGuide, context:SyntaxContext)=>Token
+
+```ts
+// `< … >` 整段交给类型文法：名字已经是形状，实参一次解析成节点挂在它后面。
+// 不走 TypeShape.Close——那条路会把右边界收回最后一个实参（`Array<U>` 的 35），
+// 而 TypeReference 的右边界必须到 `>` 之后（36）。
+const reference = host as TypeReferenceShape;
+const data = reference.Data;
+const close = data[data.length - 1];
+let open = -1;
+for (let at = 0; at < data.length; at++) {
+  const item = data[at];
+  if (item instanceof Symbol && item.Is("<")) {
+    open = at;
+    break;
+  }
+}
+if (open < 0) {
+  throw new Error("TypeReferenceEndPossibleShape: 实参表没有 `<`");
+}
+const tailUnits:Array<Token> = data.slice(open);
+const tail = TypeParser.ParseTypeArgumentTail(tailUnits, tailUnits.length, reference.Template);
+const kept:Array<Token> = [];
+for (let at = 0; at < open; at++) {
+  const item = data[at];
+  if (!item.IsTriviaToken && !item.IsBasicToken) {
+    kept.push(item);
+  }
+}
+for (const item of tail.Arguments) {
+  kept.push(item);
+}
+reference.Data = [];
+for (const item of kept) {
+  reference.Add(item);
+}
+reference.SourceRange.End = tail.End;
+reference.Closed = true;
+TypeConditionalUtil.GrowOperatorEnd(reference);
+TypeConditionalUtil.UnmountReference(reference);
+return close;
+```
+

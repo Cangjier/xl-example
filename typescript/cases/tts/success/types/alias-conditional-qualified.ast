@@ -1,0 +1,18 @@
+SourceFile  pos=0  src=[0,52)
+└─ TypeAliasDeclaration  pos=0  src=[0,51)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   ├─ TypeParameter  pos=7  src=[7,8)
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"
+   └─ ConditionalType  pos=11  src=[12,51)
+      ├─ TypeReference  pos=11  src=[12,13)
+      │  └─ Identifier  pos=11  src=[12,13)  text="T"
+      ├─ TypeReference  pos=21  src=[22,39)
+      │  ├─ FirstNode  pos=21  src=[22,30)
+      │  │  ├─ Identifier  pos=21  src=[22,24)  text="NS"
+      │  │  └─ Identifier  pos=25  src=[25,30)  text="Array"
+      │  └─ InferType  pos=31  src=[31,38)
+      │     └─ TypeParameter  pos=36  src=[37,38)
+      │        └─ Identifier  pos=36  src=[37,38)  text="U"
+      ├─ TypeReference  pos=41  src=[42,43)
+      │  └─ Identifier  pos=41  src=[42,43)  text="U"
+      └─ NeverKeyword  pos=45  src=[46,51)  text="never"
