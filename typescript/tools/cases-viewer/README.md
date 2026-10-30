@@ -19,7 +19,7 @@ node typescript/tools/cases-viewer/server.mjs --help
 | 总览 | 覆盖率统计、按类别分布、有 `case.md` 的用例清单、快捷键说明 |
 | 逐字回放 | 源码逐字符高亮 + 磁带式字符条 + 当前这一步的树（相对上一步新增的行标绿） |
 | case.ts | 全文，带行号，可复制 |
-| case.ast | `ts-ast-line` 快照；与当前输出一致/过期会直接标出来，过期时可以一键看「重算结果」 |
+| case.ast | `ts-ast-line` 快照；与当前输出一致/过期会直接标出来，过期时可以一键看「重算结果」；有 `case.infer` 时每行末尾接上它的期望创建位置（`// char N "…"`） |
 | case.md | `case.md` 原文；标题和目录都能跳到回放对应步，还能用解析器逐步复核夹具是否过期 |
 | 对拍 | 单个用例跑 `run.mjs`；顶部「全部对拍」跑一次 `--all --list`，结果标回左侧列表 |
 
@@ -38,12 +38,22 @@ node typescript/tools/cases-viewer/server.mjs --help
 `.ast` 缺失时按 `ts-ast-line` 现场计算；存在但与当前输出不一致时，徽章会标「过期」，
 `case.ast` 页给出差异入口——这和 `run.mjs` 的 `stale-ast` 检查是同一件事。
 
+## case.infer
+
+`<名字>.infer` 与 `.ts` 并列，内容是 LLM 按语法逻辑判定的「每个形状最早在哪一格确定」：
+开头是逐字编号，后面是和 `.ast` 同形的树，每行末尾带 `// char N "…"`
+（`…` 是标记字符前后各至少 5 个字符的上下文，`【】` 标出该字符）。
+
+存在时：左侧列表多一个蓝点、标题多一个 `case.infer` 徽章、`case.ast` 页按节点身份
+（`kind + pos + src 起点`）把注记接到对应行末，并给出「infer 注记 N 个」的计数；一行都对不上时单独提示。
+没有这个文件时界面与以前完全一样。它是**期望值**，不是解析器的实际结果——两者的差异正是要排查的 gap。
+
 ## 接口
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/index` | 用例清单（含源码，供前端搜索）、统计、类别树、`tts.md` / `index.md` 全文 |
-| GET | `/api/case?id=` | 单个用例：源码、AST（夹具 + 重算）、`case.md` 与逐字步骤 |
+| GET | `/api/case?id=` | 单个用例：源码、AST（夹具 + 重算）、`case.infer` 全文、`case.md` 与逐字步骤 |
 | GET | `/api/steps?id=` | 只从 `build/ts` 实时推进（用来复核 `case.md`） |
 | POST | `/api/check` | `{ id }`，跑单个用例的 `run.mjs` |
 | POST | `/api/check-all` | 跑 `run.mjs --all --list`，返回通过/失败清单 |

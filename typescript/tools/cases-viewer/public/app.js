@@ -368,6 +368,33 @@ function colorizeTreeLine(line) {
   return html;
 }
 
+/** 一行树上节点的身份：kind + pos + src 起点。`xxx.infer` 用它和 `xxx.ast` 对行。 */
+const TREE_ID = /^[\s│├└─]*([A-Za-z_$][\w$]*)\s+pos=(-?\d+)\s+src=\[(-?\d+),(-?\d+)\)/;
+
+function treeLineId(line) {
+  const match = TREE_ID.exec(line);
+  if (match === null) {
+    return null;
+  }
+  return `${match[1]}|${match[2]}|${match[3]}|${match[4]}`;
+}
+
+/** 把 xxx.infer 里的 `// char 6 "…"` 注记拆出来，按节点身份建索引。 */
+function parseInferNotes(text) {
+  const notes = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    const at = line.indexOf("// ");
+    if (at < 0) {
+      continue;
+    }
+    const id = treeLineId(line.slice(0, at));
+    if (id !== null) {
+      notes.set(id, line.slice(at + 3).trim());
+    }
+  }
+  return notes;
+}
+
 /** 逐行 LCS：返回 next 里哪些行是相对 prev 新增的。
  *  比较前先把树枝字符（│├└─）抹成空格：每多一个兄弟节点，整棵子树的分支线都会变，
  *  逐字比对原始文本会把「换了树枝」误报成「新增一行」。 */
@@ -688,6 +715,9 @@ function renderList() {
     if (item.hasAst) {
       tags.push('<i class="dot ast" title="有 case.ast"></i>');
     }
+    if (item.hasInfer) {
+      tags.push('<i class="dot infer" title="有 case.infer"></i>');
+    }
     if (check !== undefined) {
       tags.push(`<span class="ci-check ${check}" title="${check === "ok" ? "对拍通过" : "对拍失败"}">${check === "ok" ? "✓" : "✗"}</span>`);
     }
@@ -771,6 +801,7 @@ function renderOverview() {
         <div class="stat-card amber"><div class="k">todo</div><div class="v">${stats.todo}</div></div>
         <div class="stat-card purple"><div class="k">有 case.md</div><div class="v">${stats.withMd}<small>${Math.round((stats.withMd / Math.max(1, stats.total)) * 100)}%</small></div></div>
         <div class="stat-card purple"><div class="k">有 case.ast</div><div class="v">${stats.withAst}</div></div>
+        <div class="stat-card purple"><div class="k">有 case.infer</div><div class="v">${stats.withInfer ?? 0}</div></div>
         <div class="stat-card ${state.checkedAt > 0 ? (passed === stats.total ? "green" : "red") : ""}">
           <div class="k">对拍通过</div><div class="v">${state.checkedAt > 0 ? passed : "—"}<small>${state.checkedAt > 0 ? `/ ${stats.total}` : "未跑"}</small></div>
         </div>
@@ -891,6 +922,9 @@ function badgesFor(payload, item) {
   }
   if (item.hasAst) {
     badges.push(`<span class="badge ast">case.ast${payload.ast.stale === true ? " · 过期" : ""}</span>`);
+  }
+  if (item.hasInfer) {
+    badges.push('<span class="badge infer" title="有 case.infer：每个形状的期望创建位置">case.infer</span>');
   }
   const check = state.checks.get(payload.id);
   if (check !== undefined) {
@@ -1044,19 +1078,39 @@ function renderAstPanel(payload, showGenerated = false) {
     notice = `<div class="notice info">仓库里没有 <code>.ast</code>：下面是按 <code>ts-ast-line</code> 现场算出来的期望 AST。</div>`;
   }
 
+  // case.infer 存在时，把每行对应的「预期创建位置」接在行末。
+  const inferNotes = payload.infer && typeof payload.infer.text === "string"
+    ? parseInferNotes(payload.infer.text)
+    : new Map();
+  let matched = 0;
+
   panel.innerHTML = `
     <div class="tab-head">
       <span class="name">${esc(payload.name)}.ast</span>
-      <span class="meta">${originText} · ${countLines(text)} 行</span>
+      <span class="meta">${originText} · ${countLines(text)} 行${inferNotes.size > 0 ? ` · infer 注记 ${inferNotes.size} 个` : ""}</span>
       <span class="grow"></span>
       <button class="btn" id="ast-copy">复制</button>
     </div>
     ${notice}
+    ${inferNotes.size > 0 ? '<div class="notice infer"><b>行末的 <code>// char N "…"</code> 来自 <code>case.infer</code>：</b>它是该节点「最早在哪一格确定」的期望值（由 LLM 按语法逻辑判定，不是解析器的实际结果）。</div>' : ""}
     <div class="tree-card" style="margin-top:10px"><div class="tree" id="ast-tree"></div></div>`;
 
   const container = $("#ast-tree", panel);
   const lines = text === "" ? [""] : text.split("\n");
-  container.innerHTML = lines.map((line) => `<span class="tree-line">${colorizeTreeLine(line)}</span>`).join("");
+  container.innerHTML = lines
+    .map((line) => {
+      const id = treeLineId(line);
+      const note = id === null ? undefined : inferNotes.get(id);
+      if (note !== undefined) {
+        matched++;
+      }
+      const tail = note === undefined ? "" : `<span class="infer-note">// ${esc(note)}</span>`;
+      return `<span class="tree-line">${colorizeTreeLine(line)}${tail}</span>`;
+    })
+    .join("");
+  if (inferNotes.size > 0 && matched === 0) {
+    container.innerHTML += '<span class="tree-line infer-miss">case.infer 里没有一行能和这份 .ast 对上（节点身份是 kind+pos+src 起点）。</span>';
+  }
 
   if (ast.stale === true) {
     $("#ast-toggle", panel).addEventListener("click", () => renderAstPanel(payload, !showGenerated));

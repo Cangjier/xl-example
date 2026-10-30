@@ -98,12 +98,13 @@ function buildTree(cases) {
     for (const part of parts) {
       trail = trail === "" ? part : `${trail}/${part}`;
       if (!node.children.has(part)) {
-        node.children.set(part, { path: trail, name: part, children: new Map(), total: 0, direct: 0, withMd: 0, withAst: 0 });
+        node.children.set(part, { path: trail, name: part, children: new Map(), total: 0, direct: 0, withMd: 0, withAst: 0, withInfer: 0 });
       }
       node = node.children.get(part);
       node.total++;
       node.withMd += item.hasMd ? 1 : 0;
       node.withAst += item.hasAst ? 1 : 0;
+      node.withInfer += item.hasInfer ? 1 : 0;
     }
     if (node !== root) {
       node.direct++;
@@ -118,6 +119,7 @@ function buildTree(cases) {
       direct: child.direct,
       withMd: child.withMd,
       withAst: child.withAst,
+      withInfer: child.withInfer,
       children: toArray(child),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -154,6 +156,7 @@ function scanCases() {
       category: parts[parts.length - 2] ?? "",
       hasMd: fs.existsSync(`${base}.md`),
       hasAst: fs.existsSync(`${base}.ast`),
+      hasInfer: fs.existsSync(`${base}.infer`),
       bytes: stat.size,
       mtime: stat.mtimeMs,
       source,
@@ -244,6 +247,7 @@ function casePayload(item, build) {
     category: item.category,
     ts: fs.readFileSync(absolute, "utf8"),
     ast: null,
+    infer: null,
     md: null,
     steps: null,
     build,
@@ -274,6 +278,18 @@ function casePayload(item, build) {
     fixtureError,
     stale: fixtureAst !== null && generatedAst !== null ? fixtureAst !== generatedAst : null,
   };
+
+  // case.infer：LLM 判定的「每个形状最早在哪一格确定」，只读，缺失就是没有。
+  let inferText = null;
+  let inferError = null;
+  if (item.hasInfer) {
+    try {
+      inferText = fs.readFileSync(`${base}.infer`, "utf8");
+    } catch (error) {
+      inferError = errorMessage(error);
+    }
+  }
+  payload.infer = inferText === null ? null : { text: inferText, origin: "fixture", error: inferError };
 
   // case.md：文件在就用它的逐字快照；不在就从 build/ts 实时推进（不写盘）。
   let mdText = null;
@@ -488,6 +504,7 @@ async function handle(req, res) {
       todo: cases.filter((item) => item.status === "todo").length,
       withMd: cases.filter((item) => item.hasMd).length,
       withAst: cases.filter((item) => item.hasAst).length,
+      withInfer: cases.filter((item) => item.hasInfer).length,
       bytes: cases.reduce((sum, item) => sum + item.bytes, 0),
     };
     sendJson(res, 200, {
@@ -505,6 +522,7 @@ async function handle(req, res) {
         category: item.category,
         hasMd: item.hasMd,
         hasAst: item.hasAst,
+        hasInfer: item.hasInfer,
         bytes: item.bytes,
         source: item.source,
       })),

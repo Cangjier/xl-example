@@ -271,6 +271,7 @@ code, kbd, pre {
 
 .dot.md { background: var(--purple); box-shadow: 0 0 6px rgba(180, 140, 255, 0.55); }
 .dot.ast { background: var(--amber); box-shadow: 0 0 6px rgba(245, 181, 85, 0.5); }
+.dot.infer { background: #6fd3ff; box-shadow: 0 0 6px rgba(111, 211, 255, 0.55); }
 
 .group-bar {
   display: flex;
@@ -620,6 +621,7 @@ code, kbd, pre {
 .badge.todo { color: #ffc98a; border-color: rgba(245, 181, 85, 0.3); background: rgba(245, 181, 85, 0.1); }
 .badge.md { color: #d6c2ff; border-color: rgba(180, 140, 255, 0.32); background: rgba(180, 140, 255, 0.1); }
 .badge.ast { color: #ffd9a0; border-color: rgba(245, 181, 85, 0.3); background: rgba(245, 181, 85, 0.08); }
+.badge.infer { color: #a9e4ff; border-color: rgba(111, 211, 255, 0.32); background: rgba(111, 211, 255, 0.09); }
 .badge.muted { color: var(--dim-2); }
 .badge.ok { color: #8ef0c2; border-color: rgba(62, 207, 142, 0.35); background: var(--green-soft); }
 .badge.fail { color: #ffb1b1; border-color: rgba(255, 107, 107, 0.35); background: var(--red-soft); }
@@ -871,6 +873,27 @@ code, kbd, pre {
   border-left-color: var(--green);
   animation: addflash 0.45s ease-out;
 }
+/* case.infer 的期望创建位置：接在 ast 行末 */
+.infer-note {
+  margin-left: 14px;
+  padding: 0 5px;
+  border-radius: 4px;
+  color: #a9e4ff;
+  background: rgba(111, 211, 255, 0.09);
+  border: 1px solid rgba(111, 211, 255, 0.22);
+  font-size: 0.94em;
+  white-space: pre;
+}
+.tree-line.infer-miss {
+  color: #e0a24a;
+}
+.notice.infer {
+  border-left-color: #6fd3ff;
+  background: rgba(111, 211, 255, 0.07);
+  color: #b9d8ea;
+}
+.notice.infer b { color: #a9e4ff; }
+.notice.infer code { color: #cdeeff; background: rgba(111, 211, 255, 0.1); padding: 1px 4px; border-radius: 3px; }
 @keyframes addflash { from { background: rgba(62, 207, 142, 0.28); } to { background: rgba(62, 207, 142, 0.09); } }
 .tree-line .tk-tree { color: #3f4c63; }
 
