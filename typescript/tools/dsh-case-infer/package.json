@@ -1,0 +1,31 @@
+{
+  "name": "dsh-case-infer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DSH 插件 case_infer：给 tts 用例生成 case.infer（每个形状最早在哪一格确定），用宿主当前默认模型判定，写完立刻做期望 vs 实际对拍。零依赖，只用 Node 内置模块。",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.mjs",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "index.mjs",
+    "src",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "check": "node --check index.mjs && node --check src/config.mjs && node --check src/llm.mjs && node --check src/prompt.mjs && node --check src/parse.mjs && node --check src/tools/infer.mjs"
+  }
+}

@@ -64,6 +64,8 @@ node typescript/tools/case-infer.mjs --check <xxx.ts>     # 期望 vs 实际（b
 ```
 
 - 骨架默认不覆盖已有 `.infer`，要重来加 `--force`。
+- 也可以让宿主模型来判定：DSH 插件 `typescript/tools/dsh-case-infer` 注册了 `case_infer`，
+  用当前默认模型生成并立刻对拍（`npm run infer:test` 是它的离线测试）。
 - `--check` 的状态：`ok` / `late +N` / `early -N` / `unfilled`（还是 `?`）/ `no-shape`（树里始终没这个节点）/ `stale`（`.infer` 里的节点 `.ast` 没有）。
   它不修任何东西，只把差异列出来——`late +N` 就是「这个形状本可以早 N 格建、但实现拖到了后面」。
 - 节点身份是 `kind + pos + src 起点`：形状会长大（`src` 的右边界会变），所以 `end` 不参与对齐。

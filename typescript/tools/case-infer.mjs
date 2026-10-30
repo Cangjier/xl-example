@@ -16,7 +16,7 @@
 //   node typescript/tools/case-infer.mjs --actual <case.ts>   只打印实际的创建位置（调试用）
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseToAstLine } from "./ts-ast-line.mjs";
 import { canonicalKind, parserAvailable, traceActual } from "./shape-actual.mjs";
 
@@ -46,7 +46,7 @@ function displayChar(ch) {
 
 /** `[0-19] |type A<T> = T extend| [20-39] |...|`：每块 20 个字符，一行两块。
  *  空格按原样保留（有 `|` 兜着），只有换行写成 ⏎。 */
-function charBlocks(source) {
+export function charBlocks(source) {
   const chars = charsOf(source);
   const labels = [];
   const texts = [];
@@ -66,7 +66,7 @@ function charBlocks(source) {
 const isWord = (ch) => /[A-Za-z0-9_$]/.test(ch);
 
 /** 标记字符的上下文：前后各至少 5 个字符，边缘落在单词中间时向外扩到词边界，两端空白压成一个空格。 */
-function snippetAt(source, at) {
+export function snippetAt(source, at) {
   const chars = charsOf(source);
   let start = Math.max(0, at - CONTEXT);
   while (start > 0 && isWord(chars[start - 1]) && isWord(chars[start])) {
@@ -88,7 +88,7 @@ function snippetAt(source, at) {
 const TREE_ID = /^[\s│├└─]*([A-Za-z_$][\w$]*)\s+pos=(-?\d+)\s+src=\[(-?\d+),(-?\d+)\)/;
 
 /** 节点身份：kind + pos + src 起点（End 会随形状生长变化，不能进身份）。 */
-function nodeId(line) {
+export function nodeId(line) {
   const match = TREE_ID.exec(line);
   if (match === null) {
     return null;
@@ -97,7 +97,7 @@ function nodeId(line) {
 }
 
 /** 从 `SourceFile  pos=0  src=[0,49)` 这种行里取出 kind / pos / src，用于报告。 */
-function nodeInfo(line) {
+export function nodeInfo(line) {
   const match = TREE_ID.exec(line);
   return match === null ? null : { kind: match[1], pos: Number(match[2]), start: Number(match[3]), end: Number(match[4]) };
 }
@@ -106,15 +106,15 @@ function nodeInfo(line) {
 // 骨架
 // ---------------------------------------------------------------------------
 
-function escapeTitle(source) {
+export function escapeTitle(source) {
   return source.replace(/\r?\n$/, "").replace(/\n/g, RET);
 }
 
-function astLines(source, name) {
+export function astLines(source, name) {
   return parseToAstLine(source, name).split("\n").filter((line) => line !== "");
 }
 
-function scaffold(source, name) {
+export function scaffold(source, name) {
   const blocks = charBlocks(source);
   const lines = [];
   lines.push(`# 预期形状创建位置（逐字）：\`${escapeTitle(source)}\``);
@@ -135,7 +135,7 @@ function scaffold(source, name) {
 // .infer 解析 / 规范化
 // ---------------------------------------------------------------------------
 
-function parseInfer(text) {
+export function parseInfer(text) {
   const notes = new Map();
   for (const line of text.split(/\r?\n/)) {
     const at = line.indexOf("// ");
@@ -159,7 +159,7 @@ function parseInfer(text) {
 }
 
 /** `--format`：把 `// char N` 重写成 `// char N "上下文"`，`?` 原样保留，注记后面的补充说明保留。 */
-function formatInfer(source, text) {
+export function formatInfer(source, text) {
   const chars = charsOf(source);
   let changed = 0;
   const out = text.split(/\r?\n/).map((line) => {
@@ -206,7 +206,7 @@ function pad(value, width) {
   return text.length >= width ? text : text + " ".repeat(width - text.length);
 }
 
-function printActual(source, actual) {
+export function printActual(source, actual) {
   for (const rec of actual.final) {
     const at = actual.map.get(rec.key);
     const where = at === undefined ? "never" : `char ${at} "${snippetAt(source, at)}"`;
@@ -218,7 +218,8 @@ function printActual(source, actual) {
   }
 }
 
-function check(source, name, inferText) {
+/** 结构化的对拍结果：插件和 CLI 共用，CLI 只负责把它打印出来。 */
+export function evaluate(source, name, inferText) {
   const notes = parseInfer(inferText);
   const actual = traceActual(source, name);
   const lines = astLines(source, name);
@@ -248,9 +249,43 @@ function check(source, name, inferText) {
       delta = got - expected;
       status = delta === 0 ? "ok" : delta > 0 ? `late +${delta}` : `early ${delta}`;
     }
-    rows.push({ info, expected, got, delta, status });
+    rows.push({ id, info, expected, actual: got, delta, status });
   }
   const stale = [...notes.keys()].filter((id) => !used.has(id));
+  return { rows, stale };
+}
+
+/**
+ * 把「节点 → char」的数字填进骨架，再补上下文。
+ * @param {string} source 用例源码
+ * @param {string} scaffoldText 骨架（每行 `// char ?`）
+ * @param {Map<string, number>} numbers 节点身份 → 字符号
+ * @returns {{text: string, filled: number, missing: string[]}}
+ */
+export function applyNumbers(source, scaffoldText, numbers) {
+  let filled = 0;
+  const missing = [];
+  const lines = scaffoldText.split(/\r?\n/).map((line) => {
+    const at = line.indexOf("// ");
+    if (at < 0) {
+      return line;
+    }
+    const id = nodeId(line.slice(0, at));
+    if (id === null) {
+      return line;
+    }
+    if (!numbers.has(id)) {
+      missing.push(id);
+      return line;
+    }
+    filled++;
+    return `${line.slice(0, at)}// char ${numbers.get(id)}`;
+  });
+  return { text: formatInfer(source, lines.join("\n")).text, filled, missing };
+}
+
+export function check(source, name, inferText) {
+  const { rows, stale } = evaluate(source, name, inferText);
 
   const okCount = rows.filter((row) => row.status === "ok").length;
   const badCount = rows.length - okCount;
@@ -258,7 +293,7 @@ function check(source, name, inferText) {
     const where = `${row.info.kind}  pos=${row.info.pos}  src=[${row.info.start},${row.info.end})`;
     console.log(
       `${pad(row.status, 14)}${pad(where, KIND_WIDTH + 24)}expected=${row.expected === null ? "-" : row.expected}` +
-      `  actual=${row.got === null ? "-" : row.got}  ${row.status === "ok" ? "" : "<--"}`,
+      `  actual=${row.actual === null ? "-" : row.actual}  ${row.status === "ok" ? "" : "<--"}`,
     );
   }
   for (const id of stale) {
@@ -344,4 +379,9 @@ function main(argv) {
   }
 }
 
-process.exitCode = main(process.argv.slice(2));
+const invokedDirectly = process.argv[1] !== undefined
+  && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (invokedDirectly) {
+  process.exitCode = main(process.argv.slice(2));
+}

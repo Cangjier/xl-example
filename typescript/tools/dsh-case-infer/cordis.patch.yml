@@ -1,0 +1,29 @@
+# dsh-case-infer bundle patch.
+#
+# 只贡献一行：case-infer  Host 插件，注册 `case_infer` 工具。
+# 需要 `tools` 服务；生成 .infer 时另外需要宿主加载了 `llm` 与 `agentDefaultModel`
+# （任何正式 profile 都有）；不写 provider/model 就跟随界面上的默认模型。
+#
+# 它调用仓库里的 typescript/tools/case-infer.mjs：骨架、格式、对拍都在那边，
+# 插件只负责「把节点清单交给模型、把模型给的数字填回去」。所以 `root` 必须指向
+# xl-example 仓库根目录（默认从插件自身位置推出来：<repo>/typescript/tools/dsh-case-infer/src 上四级）。
+
+- insert:
+    - id: case-infer
+      name: 'dsh-case-infer'
+      config:
+        # 仓库根目录；留空 = 从插件位置推（typescript/tools/dsh-case-infer/src → 上四级）。
+        # root: 'C:/Users/Admin/Documents/GitHub/xl-example'
+
+        # 留空 = 用宿主当前默认模型（agentDefaultModel.currentSelection()）。
+        # 写死则固定用它，界面上换模型不会影响这个工具。
+        # provider: deepseek-official
+        # model: deepseek-flash
+
+        # 一次调用的输出上限与超时；节点多的大用例可以把 maxTokens 调高。
+        # 推理档位不用配：插件会先问模型支持哪些 reasoningEffort，优先取 off。
+        maxTokens: 8192
+        timeoutMs: 120000
+
+        # 模型输出不合格时重试几次（0 = 不重试）。
+        retries: 1
