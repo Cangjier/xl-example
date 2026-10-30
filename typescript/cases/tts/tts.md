@@ -13,6 +13,7 @@
 - `success/`：已经逐节点一致的用例，是门禁的一部分。
 - `todo/`：尚未支持的用例。目录名就是缺口类别（`statements` / `expressions` / `declarations` / `types` / `lexical` / `composite`），
   新支持一个构造就把用例移进 `success/`，并用下面的生成器补 `.md` / `.ast`。
+- `todo/adaptation-plan.md`：按难度排的适配计划（三个最难的层 + 13 个里程碑 + 每阶段的转绿判据）。
 - `index.md`：覆盖统计，由 `npm run tts:cases:index` 重写（数字来自对拍，不手写）。
 
 ## 跑法
@@ -22,6 +23,7 @@ npm run compile          # *.xl.md → dist/ts → build/ts
 npm run tts:cases        # 只跑 success/：必须全绿（当前 139/139），exit 0
 npm run tts:cases -- --all --list     # success/ + todo/，并打印通过清单
 npm run tts:cases:index  # todo/ 未支持清单也计入，重写 index.md
+npm run tts:report       # todo/ 的失败形态分类：缺树/仅 end/抛错 + 首缺节点 + 首个阻断构造
 node typescript/cases/tts/run.mjs typescript/cases/tts/todo/incremental/statements/while-block.ts
 ```
 
