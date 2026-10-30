@@ -9,6 +9,7 @@
 | `xxx.ts` | 用例源码 |
 | `xxx.ast` | `typescript/tools/ts-ast-line.mjs` 的输出，即 TypeScript AST 的期望 |
 | `xxx.md` | 逐字符 token 树（`Token.ToAstLine`）：每个字符一步，最后一步是 EOF |
+| `xxx.infer` | 可选：LLM 按语法逻辑判定的「每个形状最早在哪一格确定」，见下节 |
 
 - `success/`：已经逐节点一致的用例，是门禁的一部分。
 - `todo/`：尚未支持的用例。目录名就是缺口类别（`statements` / `expressions` / `declarations` / `types` / `lexical` / `composite`），
@@ -47,3 +48,22 @@ npm run tts:view         # → http://127.0.0.1:7799/
 ```bash
 node typescript/tools/gen-case-docs.mjs typescript/cases/tts/success/statements/while-block.ts
 ```
+
+## `xxx.infer`：期望的形状创建位置
+
+`xxx.ast` 只说最终树长什么样，不说「每个形状应该在哪个字符被建出来」。`xxx.infer` 补的就是这一列：
+与 `.ast` 同形的树，每行末尾 `// char N "…"`，表示这个形状**最早在第 N 格就能确定**——
+`…` 是标记字符前后各至少 5 个字符的上下文，`【】` 标出该字符（空格 `␣`、换行 `⏎`）。
+
+判定是模型的活（从语法逻辑推，不看解析器），脚本只做三件机械的事：
+
+```bash
+node typescript/tools/case-infer.mjs <xxx.ts>             # 生成骨架：表头 + .ast 树 + 每行 // char ?
+node typescript/tools/case-infer.mjs --format <xxx.ts>    # 规范化：// char N → // char N "上下文"
+node typescript/tools/case-infer.mjs --check <xxx.ts>     # 期望 vs 实际（build/ts 逐字推进），有差异 exit 1
+```
+
+- 骨架默认不覆盖已有 `.infer`，要重来加 `--force`。
+- `--check` 的状态：`ok` / `late +N` / `early -N` / `unfilled`（还是 `?`）/ `no-shape`（树里始终没这个节点）/ `stale`（`.infer` 里的节点 `.ast` 没有）。
+  它不修任何东西，只把差异列出来——`late +N` 就是「这个形状本可以早 N 格建、但实现拖到了后面」。
+- 节点身份是 `kind + pos + src 起点`：形状会长大（`src` 的右边界会变），所以 `end` 不参与对齐。

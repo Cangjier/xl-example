@@ -43,6 +43,7 @@
     "tts:view": "node ./typescript/tools/cases-viewer/server.mjs",
     "tts:cases:index": "node ./typescript/cases/tts/run.mjs --write-index",
     "tts:docs": "node ./typescript/tools/gen-case-docs.mjs",
+    "infer": "node ./typescript/tools/case-infer.mjs",
     "tts:impl": "node ./typescript/cases/tts-impl/run.mjs"
   },
   "devDependencies": {
