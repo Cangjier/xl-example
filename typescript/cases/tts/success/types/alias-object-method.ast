@@ -1,0 +1,10 @@
+SourceFile  pos=0  src=[0,32)
+└─ TypeAliasDeclaration  pos=0  src=[0,31)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TypeLiteral  pos=8  src=[9,31)
+      └─ MethodSignature  pos=10  src=[11,29)
+         ├─ Identifier  pos=10  src=[11,12)  text="m"
+         ├─ Parameter  pos=13  src=[13,22)
+         │  ├─ Identifier  pos=13  src=[13,14)  text="a"
+         │  └─ StringKeyword  pos=15  src=[16,22)  text="string"
+         └─ VoidKeyword  pos=24  src=[25,29)  text="void"

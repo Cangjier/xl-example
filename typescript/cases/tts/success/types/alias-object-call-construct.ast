@@ -1,0 +1,15 @@
+SourceFile  pos=0  src=[0,55)
+└─ TypeAliasDeclaration  pos=0  src=[0,54)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TypeLiteral  pos=8  src=[9,54)
+      ├─ CallSignature  pos=10  src=[11,31)
+      │  ├─ Parameter  pos=12  src=[12,21)
+      │  │  ├─ Identifier  pos=12  src=[12,13)  text="a"
+      │  │  └─ StringKeyword  pos=14  src=[15,21)  text="string"
+      │  └─ NumberKeyword  pos=23  src=[24,30)  text="number"
+      └─ ConstructSignature  pos=31  src=[32,52)
+         ├─ Parameter  pos=37  src=[37,46)
+         │  ├─ Identifier  pos=37  src=[37,38)  text="a"
+         │  └─ StringKeyword  pos=39  src=[40,46)  text="string"
+         └─ TypeReference  pos=48  src=[49,52)
+            └─ Identifier  pos=48  src=[49,52)  text="Foo"

@@ -1,0 +1,12 @@
+SourceFile  pos=0  src=[0,24)
+└─ TypeAliasDeclaration  pos=0  src=[0,23)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ FunctionType  pos=8  src=[9,23)
+      ├─ TypeParameter  pos=10  src=[10,11)
+      │  └─ Identifier  pos=10  src=[10,11)  text="T"
+      ├─ Parameter  pos=13  src=[13,17)
+      │  ├─ Identifier  pos=13  src=[13,14)  text="a"
+      │  └─ TypeReference  pos=15  src=[16,17)
+      │     └─ Identifier  pos=15  src=[16,17)  text="T"
+      └─ TypeReference  pos=21  src=[22,23)
+         └─ Identifier  pos=21  src=[22,23)  text="T"

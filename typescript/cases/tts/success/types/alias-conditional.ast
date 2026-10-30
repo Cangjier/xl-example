@@ -1,0 +1,11 @@
+SourceFile  pos=0  src=[0,34)
+└─ TypeAliasDeclaration  pos=0  src=[0,33)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ ConditionalType  pos=8  src=[9,33)
+      ├─ TypeReference  pos=8  src=[9,10)
+      │  └─ Identifier  pos=8  src=[9,10)  text="X"
+      ├─ StringKeyword  pos=18  src=[19,25)  text="string"
+      ├─ LiteralType  pos=27  src=[28,29)
+      │  └─ FirstLiteralToken  pos=27  src=[28,29)  text="1"
+      └─ LiteralType  pos=31  src=[32,33)
+         └─ FirstLiteralToken  pos=31  src=[32,33)  text="2"

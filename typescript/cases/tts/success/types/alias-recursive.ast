@@ -1,0 +1,11 @@
+SourceFile  pos=0  src=[0,28)
+└─ TypeAliasDeclaration  pos=0  src=[0,27)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TypeLiteral  pos=8  src=[9,27)
+      └─ PropertySignature  pos=10  src=[11,25)
+         ├─ Identifier  pos=10  src=[11,15)  text="next"
+         └─ UnionType  pos=16  src=[17,25)
+            ├─ TypeReference  pos=16  src=[17,18)
+            │  └─ Identifier  pos=16  src=[17,18)  text="A"
+            └─ LiteralType  pos=20  src=[21,25)
+               └─ NullKeyword  pos=20  src=[21,25)  text="null"

@@ -1,0 +1,10 @@
+SourceFile  pos=0  src=[0,37)
+└─ TypeAliasDeclaration  pos=0  src=[0,36)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ FunctionType  pos=8  src=[9,36)
+      ├─ Parameter  pos=10  src=[10,20)
+      │  ├─ Identifier  pos=10  src=[10,11)  text="x"
+      │  └─ UnknownKeyword  pos=12  src=[13,20)  text="unknown"
+      └─ FirstTypeNode  pos=24  src=[25,36)
+         ├─ Identifier  pos=24  src=[25,26)  text="x"
+         └─ StringKeyword  pos=29  src=[30,36)  text="string"

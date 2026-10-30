@@ -14,6 +14,7 @@ import { VariableStatementPossibleShape } from "./variable-statement-possible-sh
 import { WhileStatementPossibleShape } from "./while-statement-possible-shape.xl.md"
 import { SwitchStatementPossibleShape } from "./switch-statement-possible-shape.xl.md"
 import { TryStatementPossibleShape } from "./try-statement-possible-shape.xl.md"
+import { TypeAliasPossibleShape } from "../types/type-alias-possible-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -25,6 +26,7 @@ import { TryStatementPossibleShape } from "./try-statement-possible-shape.xl.md"
 ```ts
 const shapes:Array<PossibleShape> = [
   new VariableStatementPossibleShape(),
+  new TypeAliasPossibleShape(),
   new ExpressionStatementPossibleShape(),
   new EmptyStatementPossibleShape(),
   new DebuggerStatementPossibleShape(),

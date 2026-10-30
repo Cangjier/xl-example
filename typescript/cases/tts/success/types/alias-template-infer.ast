@@ -1,0 +1,18 @@
+SourceFile  pos=0  src=[0,48)
+└─ TypeAliasDeclaration  pos=0  src=[0,47)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   ├─ TypeParameter  pos=7  src=[7,8)
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"
+   └─ ConditionalType  pos=11  src=[12,47)
+      ├─ TypeReference  pos=11  src=[12,13)
+      │  └─ Identifier  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralType  pos=21  src=[22,35)
+      │  ├─ TemplateHead  pos=21  src=[22,26)  text="`a${"
+      │  └─ TemplateLiteralTypeSpan  pos=26  src=[26,35)
+      │     ├─ InferType  pos=26  src=[26,33)
+      │     │  └─ TypeParameter  pos=31  src=[32,33)
+      │     │     └─ Identifier  pos=31  src=[32,33)  text="R"
+      │     └─ LastTemplateToken  pos=33  src=[33,35)  text="}`"
+      ├─ TypeReference  pos=37  src=[38,39)
+      │  └─ Identifier  pos=37  src=[38,39)  text="R"
+      └─ NeverKeyword  pos=41  src=[42,47)  text="never"

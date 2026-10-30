@@ -1,0 +1,7 @@
+SourceFile  pos=0  src=[0,23)
+└─ TypeAliasDeclaration  pos=0  src=[0,22)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ LastTypeNode  pos=8  src=[9,22)
+      ├─ LiteralType  pos=16  src=[16,19)
+      │  └─ StringLiteral  pos=16  src=[16,19)  text="\"m\""
+      └─ Identifier  pos=21  src=[21,22)  text="T"

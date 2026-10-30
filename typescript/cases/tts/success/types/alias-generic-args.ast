@@ -1,0 +1,6 @@
+SourceFile  pos=0  src=[0,23)
+└─ TypeAliasDeclaration  pos=0  src=[0,22)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TypeReference  pos=8  src=[9,22)
+      ├─ Identifier  pos=8  src=[9,14)  text="Array"
+      └─ StringKeyword  pos=15  src=[15,21)  text="string"

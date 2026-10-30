@@ -1,0 +1,10 @@
+SourceFile  pos=0  src=[0,32)
+└─ TypeAliasDeclaration  pos=0  src=[0,31)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TupleType  pos=8  src=[9,31)
+      ├─ NamedTupleMember  pos=10  src=[10,19)
+      │  ├─ Identifier  pos=10  src=[10,11)  text="a"
+      │  └─ StringKeyword  pos=12  src=[13,19)  text="string"
+      └─ NamedTupleMember  pos=20  src=[21,30)
+         ├─ Identifier  pos=20  src=[21,22)  text="b"
+         └─ NumberKeyword  pos=23  src=[24,30)  text="number"

@@ -1,0 +1,8 @@
+SourceFile  pos=0  src=[0,23)
+└─ TypeAliasDeclaration  pos=0  src=[0,22)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TemplateLiteralType  pos=8  src=[9,22)
+      ├─ TemplateHead  pos=8  src=[9,13)  text="`a${"
+      └─ TemplateLiteralTypeSpan  pos=13  src=[13,22)
+         ├─ StringKeyword  pos=13  src=[13,19)  text="string"
+         └─ LastTemplateToken  pos=19  src=[19,22)  text="}b`"

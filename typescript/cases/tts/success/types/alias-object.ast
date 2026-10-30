@@ -1,0 +1,7 @@
+SourceFile  pos=0  src=[0,23)
+└─ TypeAliasDeclaration  pos=0  src=[0,22)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ TypeLiteral  pos=8  src=[9,22)
+      └─ PropertySignature  pos=10  src=[11,20)
+         ├─ Identifier  pos=10  src=[11,12)  text="a"
+         └─ StringKeyword  pos=13  src=[14,20)  text="string"

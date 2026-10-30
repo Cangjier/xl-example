@@ -72,7 +72,7 @@ return AsiPossibleShape.HasLineTerminator(units, prevIndex, tokenIndex);
 ```ts
 // 这些关键字能起一条新语句，但还不能当场建成形状：先交回 SourceFile，等它的后续单元。
 const text = unit.TempToString();
-return text === "let" || text === "debugger";
+return text === "let" || text === "debugger" || text === "type";
 ```
 
 ## static method IsClosedOperand:(unit:Token)=>bool

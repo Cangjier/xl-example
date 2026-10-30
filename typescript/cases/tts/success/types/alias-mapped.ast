@@ -1,0 +1,16 @@
+SourceFile  pos=0  src=[0,37)
+└─ TypeAliasDeclaration  pos=0  src=[0,36)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   ├─ TypeParameter  pos=7  src=[7,8)
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"
+   └─ MappedType  pos=11  src=[12,36)
+      ├─ TypeParameter  pos=15  src=[15,27)
+      │  ├─ Identifier  pos=15  src=[15,16)  text="K"
+      │  └─ TypeOperator  pos=19  src=[20,27)
+      │     └─ TypeReference  pos=25  src=[26,27)
+      │        └─ Identifier  pos=25  src=[26,27)  text="T"
+      └─ IndexedAccessType  pos=29  src=[30,34)
+         ├─ TypeReference  pos=29  src=[30,31)
+         │  └─ Identifier  pos=29  src=[30,31)  text="T"
+         └─ TypeReference  pos=32  src=[32,33)
+            └─ Identifier  pos=32  src=[32,33)  text="K"

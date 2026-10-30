@@ -1,0 +1,8 @@
+SourceFile  pos=0  src=[0,20)
+└─ TypeAliasDeclaration  pos=0  src=[0,19)
+   ├─ Identifier  pos=4  src=[5,6)  text="A"
+   └─ IndexedAccessType  pos=8  src=[9,19)
+      ├─ TypeReference  pos=8  src=[9,12)
+      │  └─ Identifier  pos=8  src=[9,12)  text="Foo"
+      └─ LiteralType  pos=13  src=[13,18)
+         └─ StringLiteral  pos=13  src=[13,18)  text="\"bar\""
