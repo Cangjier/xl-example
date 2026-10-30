@@ -1,0 +1,13 @@
+SourceFile  pos=0  src=[0,37)
+└─ TypeAliasDeclaration  pos=0  src=[0,36)
+   ├─ Identifier  pos=4  src=[5,6)  text="B"
+   ├─ TypeParameter  pos=7  src=[7,32)
+   │  ├─ Identifier  pos=7  src=[7,8)  text="T"
+   │  └─ TypeReference  pos=16  src=[17,32)
+   │     ├─ Identifier  pos=16  src=[17,22)  text="Array"
+   │     └─ TypeReference  pos=23  src=[23,31)
+   │        ├─ Identifier  pos=23  src=[23,28)  text="Array"
+   │        └─ TypeReference  pos=29  src=[29,30)
+   │           └─ Identifier  pos=29  src=[29,30)  text="T"
+   └─ TypeReference  pos=34  src=[35,36)
+      └─ Identifier  pos=34  src=[35,36)  text="T"

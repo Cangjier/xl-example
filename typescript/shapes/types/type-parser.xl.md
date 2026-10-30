@@ -376,7 +376,10 @@ return node;
 ## private method ExpectTypeAngleClose:()=>int
 
 ```ts
-// 词法层把 `>>` / `>>>` 合成一个 Symbol；类型实参的右尖括号必须拆开逐个收。
+// 类型宿主（TypeShape）现在会阻止词法层把 `>` 和后面一个字符合并（ICombineGuard），
+// 所以类型实参的右尖括号基本已经是单个 `>`。仍会合上的只剩非类型宿主：
+// 模板字面量插值里的类型单元挂在 String 下面（`\`${Array<Array<T>>}\``），那里没有守卫可用。
+// 这条拆分分支就是给那种单元序列留的。
 this.SkipTrivia();
 if (this.Index >= this.Limit) {
   throw this.MakeError("期望 >，但类型已结束");

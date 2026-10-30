@@ -4,6 +4,7 @@ import { BlockToken } from "../block-token.xl.md"
 import { BranchStates } from "../branch-states.xl.md"
 import { CloseStates } from "../close-states.xl.md"
 import { ComputePossibleShapesStates } from "../compute-possible-shapes-states.xl.md"
+import { ICombineGuard } from "../i-combine-guard.xl.md"
 import { IComputePossibleShapes } from "../i-compute-possible-shapes.xl.md"
 import { PossibleSource } from "../possible-source.xl.md"
 import { SourceRange } from "../source-range.xl.md"
@@ -99,6 +100,18 @@ if (parent !== null && "ComputePossibleShapes" in parent) {
 return CloseStates.Nothing;
 ```
 
+## static method CanCombine:(context:SyntaxContext, unit:Token, value:string)=>bool
+
+```ts
+// 最大匹配是词法层自己的默认，但它不知道自己在谁肚子里：`type A<T>= X` 的 `>=`、
+// `Array<Array<T>>` 的 `>>` 在这里合成之后，类型文法只能去改一个已经定型的 token。
+// 所以合并前先问宿主一句；宿主不实现就按原样合并。
+if (!("CanCombine" in unit)) {
+  return true;
+}
+return (unit as unknown as ICombineGuard).CanCombine(context, value);
+```
+
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 ```ts
@@ -127,7 +140,7 @@ if (!template.SymbolTemplate.IsSymbol(value)) {
   return BranchStates.Undo;
 }
 if (last instanceof Symbol && !last.Closed) {
-  if (last.IsAppend(buffer, index, value)) {
+  if (Symbol.CanCombine(context, unit, value) && last.IsAppend(buffer, index, value)) {
     last.AppendAndSignOut(value, index);
     if (!last.CanContinue()) {
       last.TryToClose(context);

@@ -2,6 +2,7 @@
 ```xl
 import { CloseStates } from "../../../core/syntax/close-states.xl.md"
 import { ShapeToken } from "../../../core/syntax/shape-token.xl.md"
+import { Symbol } from "../../../core/syntax/basic-tokens/symbol.xl.md"
 import { SyntaxContext } from "../../../core/syntax/syntax-context.xl.md"
 import { Token } from "../../../core/syntax/token.xl.md"
 ```
@@ -25,6 +26,21 @@ if (last !== null && last.SourceRange.End >= 0) {
 }
 this.Closed = true;
 return CloseStates.Nothing;
+```
+
+## method CanCombine:(context:SyntaxContext, value:string)=>bool
+
+```ts
+// 类型里的 `<` / `>` 永远是分界符，一个字符都不多：
+// `type A<T>= X` 的 `>=`、`Array<Array<T>>` 的 `>>` 都必须在词法层分开，
+// 否则类型文法拿到的是一个已经定型的 token，只能回头去改它的文本。
+// 前提由调用方保证：最后一个子单元就是那个还没关闭的符号。
+const last = this.Last();
+if (!(last instanceof Symbol)) {
+  return true;
+}
+const text = last.TempToString();
+return text !== "<" && text !== ">";
 ```
 
 ## static method Finish:(node:ShapeToken, pos:int, start:int, end:int, children:Array<Token>)=>void
