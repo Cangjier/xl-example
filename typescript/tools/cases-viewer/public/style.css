@@ -887,6 +887,38 @@ code, kbd, pre {
 .tree-line.infer-miss {
   color: #e0a24a;
 }
+/* infer 对拍结论：✓ / late +N / early -N / never / ? */
+.infer-status {
+  margin-left: 8px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.infer-status.ok { color: #8ef0c2; background: rgba(62, 207, 142, 0.12); border-color: rgba(62, 207, 142, 0.25); }
+.infer-status.late { color: #ffc98a; background: rgba(245, 181, 85, 0.14); border-color: rgba(245, 181, 85, 0.3); }
+.infer-status.early { color: #a9c8ff; background: rgba(76, 141, 255, 0.14); border-color: rgba(76, 141, 255, 0.3); }
+.infer-status.never { color: #ffb1b1; background: rgba(255, 107, 107, 0.14); border-color: rgba(255, 107, 107, 0.3); }
+.infer-status.unfilled { color: var(--dim); background: var(--bg-2); border-color: var(--line-2); }
+.chipstat {
+  display: inline-block;
+  margin: 0 4px 0 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+}
+.chipstat.late { color: #ffc98a; background: rgba(245, 181, 85, 0.14); }
+.chipstat.early { color: #a9c8ff; background: rgba(76, 141, 255, 0.14); }
+.chipstat.never { color: #ffb1b1; background: rgba(255, 107, 107, 0.14); }
+.chipstat.unfilled { color: var(--dim); background: var(--bg-2); }
+.notice.warn {
+  border-left-color: var(--amber);
+  background: rgba(245, 181, 85, 0.07);
+  color: #e8d3ae;
+}
+.notice.warn b { color: #ffd9a0; }
+.notice.warn code { color: #f0d8b2; background: rgba(245, 181, 85, 0.1); padding: 1px 4px; border-radius: 3px; }
 .notice.infer {
   border-left-color: #6fd3ff;
   background: rgba(111, 211, 255, 0.07);

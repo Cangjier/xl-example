@@ -368,15 +368,37 @@ function colorizeTreeLine(line) {
   return html;
 }
 
-/** 一行树上节点的身份：kind + pos + src 起点。`xxx.infer` 用它和 `xxx.ast` 对行。 */
+/** 一行树上节点的身份：kind + pos + src 起点。`xxx.infer` / 实际创建位置都用它和 `xxx.ast` 对行。
+ *  TS 的 SyntaxKind 有区间别名（FirstLiteralToken…），按 run.mjs 的对拍表归一。 */
 const TREE_ID = /^[\s│├└─]*([A-Za-z_$][\w$]*)\s+pos=(-?\d+)\s+src=\[(-?\d+),(-?\d+)\)/;
+const KIND_ALIASES = new Map([
+  ["FirstStatement", "VariableStatement"],
+  ["FirstLiteralToken", "NumericLiteral"],
+  ["FirstNode", "QualifiedName"],
+  ["FirstTypeNode", "TypePredicate"],
+  ["LastTypeNode", "ImportType"],
+  ["FirstContextualKeyword", "AbstractKeyword"],
+  ["LastStatement", "DebuggerStatement"],
+  ["FirstTemplateToken", "NoSubstitutionTemplateLiteral"],
+  ["LastTemplateToken", "TemplateTail"],
+  ["FirstPunctuation", "OpenBraceToken"],
+  ["FirstAssignment", "EqualsToken"],
+  ["FirstCompoundAssignment", "PlusEqualsToken"],
+  ["LastAssignment", "CaretEqualsToken"],
+  ["LastCompoundAssignment", "CaretEqualsToken"],
+  ["LastPunctuation", "CaretEqualsToken"],
+  ["FirstBinaryOperator", "LessThanToken"],
+  ["AssertClause", "ImportAttributes"],
+  ["AssertEntry", "ImportAttribute"],
+]);
 
 function treeLineId(line) {
   const match = TREE_ID.exec(line);
   if (match === null) {
     return null;
   }
-  return `${match[1]}|${match[2]}|${match[3]}|${match[4]}`;
+  const kind = KIND_ALIASES.get(match[1]) ?? match[1];
+  return `${kind}|${match[2]}|${match[3]}`;
 }
 
 /** 把 xxx.infer 里的 `// char 6 "…"` 注记拆出来，按节点身份建索引。 */
@@ -388,11 +410,33 @@ function parseInferNotes(text) {
       continue;
     }
     const id = treeLineId(line.slice(0, at));
-    if (id !== null) {
-      notes.set(id, line.slice(at + 3).trim());
+    if (id === null) {
+      continue;
     }
+    const note = line.slice(at + 3).trim();
+    const match = /^char (\d+|\?)/.exec(note);
+    notes.set(id, { char: match === null || match[1] === "?" ? null : Number(match[1]), text: note });
   }
   return notes;
+}
+
+/** 期望（.infer）与实际（build/ts 逐字推进）的对比结论。 */
+function inferStatus(expected, actual) {
+  if (expected === null) {
+    return { kind: "unfilled", label: "?", title: "还没有填期望位置" };
+  }
+  if (actual === undefined) {
+    return { kind: "never", label: "never", title: `期望 char ${expected}，但树里始终没有这个节点` };
+  }
+  const delta = actual - expected;
+  if (delta === 0) {
+    return { kind: "ok", label: "✓", title: `expected ${expected} = actual ${actual}` };
+  }
+  return {
+    kind: delta > 0 ? "late" : "early",
+    label: delta > 0 ? `late +${delta}` : `early ${delta}`,
+    title: `expected ${expected}，actual ${actual}`,
+  };
 }
 
 /** 逐行 LCS：返回 next 里哪些行是相对 prev 新增的。
@@ -1078,39 +1122,71 @@ function renderAstPanel(payload, showGenerated = false) {
     notice = `<div class="notice info">仓库里没有 <code>.ast</code>：下面是按 <code>ts-ast-line</code> 现场算出来的期望 AST。</div>`;
   }
 
-  // case.infer 存在时，把每行对应的「预期创建位置」接在行末。
+  // case.infer 存在时，把每行对应的「预期创建位置」接在行末，并和实际创建位置对拍。
   const inferNotes = payload.infer && typeof payload.infer.text === "string"
     ? parseInferNotes(payload.infer.text)
     : new Map();
-  let matched = 0;
+  const creation = payload.infer && payload.infer.creation ? payload.infer.creation : null;
+  const lines = text === "" ? [""] : text.split("\n");
+  const rows = lines.map((line) => {
+    const id = treeLineId(line);
+    const note = id === null ? undefined : inferNotes.get(id);
+    if (note === undefined) {
+      return { line, note: undefined, status: null, actual: undefined };
+    }
+    const actual = creation === null ? undefined : creation[id];
+    return { line, note, status: creation === null ? null : inferStatus(note.char, actual), actual };
+  });
+  const annotated = rows.filter((row) => row.note !== undefined);
+  const judged = annotated.filter((row) => row.status !== null);
+  const counts = { ok: 0, late: 0, early: 0, unfilled: 0, never: 0 };
+  for (const row of judged) {
+    counts[row.status.kind]++;
+  }
+  const bad = judged.length - counts.ok;
+
+  let inferNotice = "";
+  if (annotated.length > 0 && creation === null) {
+    inferNotice = `<div class="notice infer"><b><code>case.infer</code> 的期望值：</b>
+      行末 <code>// char N "…"</code> 是该节点「最早在哪一格确定」的判定（LLM 按语法逻辑给的，不是解析器结果）。
+      这里没有 <code>build/ts</code> 的实际结果，所以只显示期望值，不能对拍。${payload.infer.creationError ? `（${esc(payload.infer.creationError)}）` : ""}</div>`;
+  } else if (annotated.length > 0 && judged.length === 0) {
+    inferNotice = '<div class="notice infer">case.infer 里没有一行能和这份 .ast 对上（节点身份是 kind + pos + src 起点）。</div>';
+  } else if (judged.length > 0 && bad === 0) {
+    inferNotice = `<div class="notice ok"><b>infer 对拍：${judged.length} 个节点全部一致。</b>
+      期望值来自 <code>case.infer</code>，实际值来自解析器的逐字推进。</div>`;
+  } else if (judged.length > 0) {
+    inferNotice = `<div class="notice ${counts.late + counts.early > 0 ? "warn" : "infer"}"><b>infer 对拍：一致 ${counts.ok} / ${judged.length}，不一致 ${bad}。</b>
+      ${counts.late > 0 ? `<span class="chipstat late">late ${counts.late}</span>` : ""}
+      ${counts.early > 0 ? `<span class="chipstat early">early ${counts.early}</span>` : ""}
+      ${counts.unfilled > 0 ? `<span class="chipstat unfilled">unfilled ${counts.unfilled}</span>` : ""}
+      ${counts.never > 0 ? `<span class="chipstat never">never ${counts.never}</span>` : ""}
+      行末的标记是「期望 vs 实际」：<code>✓</code> 一致，<code>late +N</code> 实际比期望晚 N 格，<code>early -N</code> 早 N 格。</div>`;
+  }
 
   panel.innerHTML = `
     <div class="tab-head">
       <span class="name">${esc(payload.name)}.ast</span>
-      <span class="meta">${originText} · ${countLines(text)} 行${inferNotes.size > 0 ? ` · infer 注记 ${inferNotes.size} 个` : ""}</span>
+      <span class="meta">${originText} · ${countLines(text)} 行${annotated.length > 0 ? ` · infer 注记 ${annotated.length} 个${judged.length > 0 ? `，一致 ${counts.ok}` : ""}` : ""}</span>
       <span class="grow"></span>
       <button class="btn" id="ast-copy">复制</button>
     </div>
     ${notice}
-    ${inferNotes.size > 0 ? '<div class="notice infer"><b>行末的 <code>// char N "…"</code> 来自 <code>case.infer</code>：</b>它是该节点「最早在哪一格确定」的期望值（由 LLM 按语法逻辑判定，不是解析器的实际结果）。</div>' : ""}
+    ${inferNotice}
     <div class="tree-card" style="margin-top:10px"><div class="tree" id="ast-tree"></div></div>`;
 
   const container = $("#ast-tree", panel);
-  const lines = text === "" ? [""] : text.split("\n");
-  container.innerHTML = lines
-    .map((line) => {
-      const id = treeLineId(line);
-      const note = id === null ? undefined : inferNotes.get(id);
-      if (note !== undefined) {
-        matched++;
+  container.innerHTML = rows
+    .map((row) => {
+      if (row.note === undefined) {
+        return `<span class="tree-line">${colorizeTreeLine(row.line)}</span>`;
       }
-      const tail = note === undefined ? "" : `<span class="infer-note">// ${esc(note)}</span>`;
-      return `<span class="tree-line">${colorizeTreeLine(line)}${tail}</span>`;
+      const chip = row.status === null
+        ? ""
+        : `<span class="infer-status ${row.status.kind}" title="${esc(row.status.title)}">${esc(row.status.label)}</span>`;
+      return `<span class="tree-line">${colorizeTreeLine(row.line)}<span class="infer-note">// ${esc(row.note.text)}</span>${chip}</span>`;
     })
     .join("");
-  if (inferNotes.size > 0 && matched === 0) {
-    container.innerHTML += '<span class="tree-line infer-miss">case.infer 里没有一行能和这份 .ast 对上（节点身份是 kind+pos+src 起点）。</span>';
-  }
 
   if (ast.stale === true) {
     $("#ast-toggle", panel).addEventListener("click", () => renderAstPanel(payload, !showGenerated));

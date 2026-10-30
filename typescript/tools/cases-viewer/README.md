@@ -45,8 +45,19 @@ node typescript/tools/cases-viewer/server.mjs --help
 （`…` 是标记字符前后各至少 5 个字符的上下文，`【】` 标出该字符）。
 
 存在时：左侧列表多一个蓝点、标题多一个 `case.infer` 徽章、`case.ast` 页按节点身份
-（`kind + pos + src 起点`）把注记接到对应行末，并给出「infer 注记 N 个」的计数；一行都对不上时单独提示。
-没有这个文件时界面与以前完全一样。它是**期望值**，不是解析器的实际结果——两者的差异正是要排查的 gap。
+（`kind + pos + src 起点`）把注记接到对应行末，并在每行右侧给出**期望 vs 实际**的结论——
+
+| 标记 | 含义 |
+| --- | --- |
+| `✓` | 期望字符 = 实际创建字符 |
+| `late +N` | 实际比期望晚 N 格（形状确定得比可以建的时机晚） |
+| `early -N` | 实际比期望早 N 格 |
+| `?` | `.infer` 里还是 `// char ?`，没填 |
+| `never` | 树里始终没有这个节点 |
+
+实际值由 `build/ts` 逐字推进现算（`typescript/tools/shape-actual.mjs`，和 `case-infer --check` 共用同一份身份规则与
+TS 区间别名表）。页头写「infer 注记 N 个，一致 M」，上方通知条给出 `late/early/unfilled/never` 的计数；
+没有 `build/ts` 时只显示期望值、不显示结论。没有 `.infer` 时界面与以前完全一样。
 
 ## 接口
 

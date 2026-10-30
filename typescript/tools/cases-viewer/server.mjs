@@ -18,6 +18,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseToAstLine } from "../ts-ast-line.mjs";
 import { traceSteps, renderMarkdown } from "../gen-case-docs.mjs";
+import { parserAvailable, traceActual } from "../shape-actual.mjs";
 import { parseStepsFromMarkdown } from "./md-steps.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -289,7 +290,23 @@ function casePayload(item, build) {
       inferError = errorMessage(error);
     }
   }
-  payload.infer = inferText === null ? null : { text: inferText, origin: "fixture", error: inferError };
+  // 有 .infer 时顺便算一遍实际创建位置（build/ts 逐字推进），供 case.ast 页逐行对拍。
+  let creation = null;
+  let creationError = null;
+  if (inferText !== null && parserAvailable()) {
+    try {
+      const actual = traceActual(payload.ts, item.name);
+      creation = {};
+      for (const [key, char] of actual.map) {
+        creation[key] = char;
+      }
+    } catch (error) {
+      creationError = errorMessage(error);
+    }
+  }
+  payload.infer = inferText === null
+    ? null
+    : { text: inferText, origin: "fixture", error: inferError, creation, creationError };
 
   // case.md：文件在就用它的逐字快照；不在就从 build/ts 实时推进（不写盘）。
   let mdText = null;
