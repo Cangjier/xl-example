@@ -535,7 +535,8 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[30,31)  text=" "
       └─ TypeReferenceShape  pos=30  src=[31,...)
          ├─ IdentifierShape  pos=30  src=[31,36)  text="Array"
-         └─ Symbol  src=[36,37)  text="<"
+         └─ TypeArgumentListShape  pos=36  src=[36,...)
+            └─ Symbol  src=[36,37)  text="<"
 ```
 
 ## [char 37] `"T"`
@@ -555,8 +556,9 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[30,31)  text=" "
       └─ TypeReferenceShape  pos=30  src=[31,...)
          ├─ IdentifierShape  pos=30  src=[31,36)  text="Array"
-         ├─ Symbol  src=[36,37)  text="<"
-         └─ Common  src=[37,38)  text="T"
+         └─ TypeArgumentListShape  pos=36  src=[36,...)
+            ├─ Symbol  src=[36,37)  text="<"
+            └─ Common  src=[37,38)  text="T"
 ```
 
 ## [char 38] `">"`
@@ -738,7 +740,8 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         └─ Symbol  src=[45,46)  text="<"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            └─ Symbol  src=[45,46)  text="<"
 ```
 
 ## [char 46] `"s"`
@@ -763,8 +766,9 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         └─ Common  src=[46,47)  text="s"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            └─ Common  src=[46,47)  text="s"
 ```
 
 ## [char 47] `"t"`
@@ -789,8 +793,9 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         └─ Common  src=[46,48)  text="st"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            └─ Common  src=[46,48)  text="st"
 ```
 
 ## [char 48] `"r"`
@@ -815,8 +820,9 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         └─ Common  src=[46,49)  text="str"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            └─ Common  src=[46,49)  text="str"
 ```
 
 ## [char 49] `"i"`
@@ -841,8 +847,9 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         └─ Common  src=[46,50)  text="stri"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            └─ Common  src=[46,50)  text="stri"
 ```
 
 ## [char 50] `"n"`
@@ -867,8 +874,9 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         └─ Common  src=[46,51)  text="strin"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            └─ Common  src=[46,51)  text="strin"
 ```
 
 ## [char 51] `"g"`
@@ -893,8 +901,9 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         └─ Common  src=[46,52)  text="string"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            └─ Common  src=[46,52)  text="string"
 ```
 
 ## [char 52] `","`
@@ -919,9 +928,10 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         ├─ Common  src=[46,52)  text="string"
-         └─ Symbol  src=[52,53)  text=","
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            ├─ Common  src=[46,52)  text="string"
+            └─ Symbol  src=[52,53)  text=","
 ```
 
 ## [char 53] `" "`
@@ -946,10 +956,11 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         ├─ Common  src=[46,52)  text="string"
-         ├─ Symbol  src=[52,53)  text=","
-         └─ WrapSymbol  src=[53,54)  text=" "
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            ├─ Common  src=[46,52)  text="string"
+            ├─ Symbol  src=[52,53)  text=","
+            └─ WrapSymbol  src=[53,54)  text=" "
 ```
 
 ## [char 54] `"T"`
@@ -974,11 +985,12 @@ SourceFileShape  pos=-  src=[0,...)
       ├─ WrapSymbol  src=[41,42)  text=" "
       └─ TypeReferenceShape  pos=41  src=[42,...)
          ├─ IdentifierShape  pos=41  src=[42,45)  text="Map"
-         ├─ Symbol  src=[45,46)  text="<"
-         ├─ Common  src=[46,52)  text="string"
-         ├─ Symbol  src=[52,53)  text=","
-         ├─ WrapSymbol  src=[53,54)  text=" "
-         └─ Common  src=[54,55)  text="T"
+         └─ TypeArgumentListShape  pos=45  src=[45,...)
+            ├─ Symbol  src=[45,46)  text="<"
+            ├─ Common  src=[46,52)  text="string"
+            ├─ Symbol  src=[52,53)  text=","
+            ├─ WrapSymbol  src=[53,54)  text=" "
+            └─ Common  src=[54,55)  text="T"
 ```
 
 ## [char 55] `">"`

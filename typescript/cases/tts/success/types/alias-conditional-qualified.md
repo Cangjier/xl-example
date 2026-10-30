@@ -439,7 +439,8 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         └─ Symbol  src=[30,31)  text="<"
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            └─ Symbol  src=[30,31)  text="<"
 ```
 
 ## [char 31] `"i"`
@@ -460,8 +461,9 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         ├─ Symbol  src=[30,31)  text="<"
-         └─ Common  src=[31,32)  text="i"
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            ├─ Symbol  src=[30,31)  text="<"
+            └─ Common  src=[31,32)  text="i"
 ```
 
 ## [char 32] `"n"`
@@ -482,8 +484,9 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         ├─ Symbol  src=[30,31)  text="<"
-         └─ Common  src=[31,33)  text="in"
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            ├─ Symbol  src=[30,31)  text="<"
+            └─ Common  src=[31,33)  text="in"
 ```
 
 ## [char 33] `"f"`
@@ -504,8 +507,9 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         ├─ Symbol  src=[30,31)  text="<"
-         └─ Common  src=[31,34)  text="inf"
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            ├─ Symbol  src=[30,31)  text="<"
+            └─ Common  src=[31,34)  text="inf"
 ```
 
 ## [char 34] `"e"`
@@ -526,8 +530,9 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         ├─ Symbol  src=[30,31)  text="<"
-         └─ Common  src=[31,35)  text="infe"
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            ├─ Symbol  src=[30,31)  text="<"
+            └─ Common  src=[31,35)  text="infe"
 ```
 
 ## [char 35] `"r"`
@@ -548,8 +553,9 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         ├─ Symbol  src=[30,31)  text="<"
-         └─ Common  src=[31,36)  text="infer"
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            ├─ Symbol  src=[30,31)  text="<"
+            └─ Common  src=[31,36)  text="infer"
 ```
 
 ## [char 36] `" "`
@@ -570,9 +576,10 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         ├─ Symbol  src=[30,31)  text="<"
-         ├─ Common  src=[31,36)  text="infer"
-         └─ WrapSymbol  src=[36,37)  text=" "
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            ├─ Symbol  src=[30,31)  text="<"
+            ├─ Common  src=[31,36)  text="infer"
+            └─ WrapSymbol  src=[36,37)  text=" "
 ```
 
 ## [char 37] `"U"`
@@ -593,10 +600,11 @@ SourceFileShape  pos=-  src=[0,...)
          ├─ QualifiedNameShape  pos=21  src=[22,30)
          │  ├─ IdentifierShape  pos=21  src=[22,24)  text="NS"
          │  └─ IdentifierShape  pos=25  src=[25,30)  text="Array"
-         ├─ Symbol  src=[30,31)  text="<"
-         ├─ Common  src=[31,36)  text="infer"
-         ├─ WrapSymbol  src=[36,37)  text=" "
-         └─ Common  src=[37,38)  text="U"
+         └─ TypeArgumentListShape  pos=30  src=[30,...)
+            ├─ Symbol  src=[30,31)  text="<"
+            ├─ Common  src=[31,36)  text="infer"
+            ├─ WrapSymbol  src=[36,37)  text=" "
+            └─ Common  src=[37,38)  text="U"
 ```
 
 ## [char 38] `">"`
