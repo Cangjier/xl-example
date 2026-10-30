@@ -275,16 +275,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   └─ WrapSymbol  src=[21,22)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      └─ WrapSymbol  src=[21,22)  text=" "
 ```
 
 ## [char 22] `"A"`
@@ -293,17 +291,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ Common  src=[22,23)  text="A"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ Common  src=[22,23)  text="A"
 ```
 
 ## [char 23] `"r"`
@@ -312,17 +308,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ Common  src=[22,24)  text="Ar"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ Common  src=[22,24)  text="Ar"
 ```
 
 ## [char 24] `"r"`
@@ -331,17 +325,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ Common  src=[22,25)  text="Arr"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ Common  src=[22,25)  text="Arr"
 ```
 
 ## [char 25] `"a"`
@@ -350,17 +342,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ Common  src=[22,26)  text="Arra"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ Common  src=[22,26)  text="Arra"
 ```
 
 ## [char 26] `"y"`
@@ -369,17 +359,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ Common  src=[22,27)  text="Array"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ Common  src=[22,27)  text="Array"
 ```
 
 ## [char 27] `"<"`
@@ -388,18 +376,16 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   └─ Symbol  src=[27,28)  text="<"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      └─ Symbol  src=[27,28)  text="<"
 ```
 
 ## [char 28] `"i"`
@@ -408,19 +394,17 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   └─ Common  src=[28,29)  text="i"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      └─ Common  src=[28,29)  text="i"
 ```
 
 ## [char 29] `"n"`
@@ -429,19 +413,17 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   └─ Common  src=[28,30)  text="in"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      └─ Common  src=[28,30)  text="in"
 ```
 
 ## [char 30] `"f"`
@@ -450,19 +432,17 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   └─ Common  src=[28,31)  text="inf"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      └─ Common  src=[28,31)  text="inf"
 ```
 
 ## [char 31] `"e"`
@@ -471,19 +451,17 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   └─ Common  src=[28,32)  text="infe"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      └─ Common  src=[28,32)  text="infe"
 ```
 
 ## [char 32] `"r"`
@@ -492,19 +470,17 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   └─ Common  src=[28,33)  text="infer"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      └─ Common  src=[28,33)  text="infer"
 ```
 
 ## [char 33] `" "`
@@ -513,20 +489,18 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   └─ WrapSymbol  src=[33,34)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      ├─ Common  src=[28,33)  text="infer"
+      └─ WrapSymbol  src=[33,34)  text=" "
 ```
 
 ## [char 34] `"U"`
@@ -535,21 +509,19 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   └─ Common  src=[34,35)  text="U"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      ├─ Common  src=[28,33)  text="infer"
+      ├─ WrapSymbol  src=[33,34)  text=" "
+      └─ Common  src=[34,35)  text="U"
 ```
 
 ## [char 35] `">"`
@@ -558,22 +530,20 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   └─ Symbol  src=[35,36)  text=">"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      ├─ Common  src=[22,27)  text="Array"
+      ├─ Symbol  src=[27,28)  text="<"
+      ├─ Common  src=[28,33)  text="infer"
+      ├─ WrapSymbol  src=[33,34)  text=" "
+      ├─ Common  src=[34,35)  text="U"
+      └─ Symbol  src=[35,36)  text=">"
 ```
 
 ## [char 36] `" "`
@@ -582,23 +552,19 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   └─ WrapSymbol  src=[36,37)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      └─ WrapSymbol  src=[36,37)  text=" "
 ```
 
 ## [char 37] `"?"`
@@ -607,24 +573,20 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   └─ Symbol  src=[37,38)  text="?"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ WrapSymbol  src=[36,37)  text=" "
+      └─ Symbol  src=[37,38)  text="?"
 ```
 
 ## [char 38] `" "`
@@ -633,25 +595,19 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   └─ WrapSymbol  src=[38,39)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      └─ WrapSymbol  src=[38,39)  text=" "
 ```
 
 ## [char 39] `"U"`
@@ -660,26 +616,20 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   └─ Common  src=[39,40)  text="U"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ WrapSymbol  src=[38,39)  text=" "
+      └─ Common  src=[39,40)  text="U"
 ```
 
 ## [char 40] `" "`
@@ -688,27 +638,21 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   └─ WrapSymbol  src=[40,41)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ WrapSymbol  src=[38,39)  text=" "
+      ├─ Common  src=[39,40)  text="U"
+      └─ WrapSymbol  src=[40,41)  text=" "
 ```
 
 ## [char 41] `":"`
@@ -717,28 +661,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   └─ Symbol  src=[41,42)  text=":"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ WrapSymbol  src=[38,39)  text=" "
+      ├─ Common  src=[39,40)  text="U"
+      ├─ WrapSymbol  src=[40,41)  text=" "
+      └─ Symbol  src=[41,42)  text=":"
 ```
 
 ## [char 42] `" "`
@@ -747,29 +685,21 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   ├─ Symbol  src=[41,42)  text=":"
-   └─ WrapSymbol  src=[42,43)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ TypeReferenceShape  pos=38  src=[39,40)
+      │  └─ IdentifierShape  pos=38  src=[39,40)  text="U"
+      └─ WrapSymbol  src=[42,43)  text=" "
 ```
 
 ## [char 43] `"n"`
@@ -778,30 +708,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   ├─ Symbol  src=[41,42)  text=":"
-   ├─ WrapSymbol  src=[42,43)  text=" "
-   └─ Common  src=[43,44)  text="n"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ TypeReferenceShape  pos=38  src=[39,40)
+      │  └─ IdentifierShape  pos=38  src=[39,40)  text="U"
+      ├─ WrapSymbol  src=[42,43)  text=" "
+      └─ Common  src=[43,44)  text="n"
 ```
 
 ## [char 44] `"e"`
@@ -810,30 +732,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   ├─ Symbol  src=[41,42)  text=":"
-   ├─ WrapSymbol  src=[42,43)  text=" "
-   └─ Common  src=[43,45)  text="ne"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ TypeReferenceShape  pos=38  src=[39,40)
+      │  └─ IdentifierShape  pos=38  src=[39,40)  text="U"
+      ├─ WrapSymbol  src=[42,43)  text=" "
+      └─ Common  src=[43,45)  text="ne"
 ```
 
 ## [char 45] `"v"`
@@ -842,30 +756,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   ├─ Symbol  src=[41,42)  text=":"
-   ├─ WrapSymbol  src=[42,43)  text=" "
-   └─ Common  src=[43,46)  text="nev"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ TypeReferenceShape  pos=38  src=[39,40)
+      │  └─ IdentifierShape  pos=38  src=[39,40)  text="U"
+      ├─ WrapSymbol  src=[42,43)  text=" "
+      └─ Common  src=[43,46)  text="nev"
 ```
 
 ## [char 46] `"e"`
@@ -874,30 +780,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   ├─ Symbol  src=[41,42)  text=":"
-   ├─ WrapSymbol  src=[42,43)  text=" "
-   └─ Common  src=[43,47)  text="neve"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ TypeReferenceShape  pos=38  src=[39,40)
+      │  └─ IdentifierShape  pos=38  src=[39,40)  text="U"
+      ├─ WrapSymbol  src=[42,43)  text=" "
+      └─ Common  src=[43,47)  text="neve"
 ```
 
 ## [char 47] `"r"`
@@ -906,30 +804,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   ├─ Symbol  src=[41,42)  text=":"
-   ├─ WrapSymbol  src=[42,43)  text=" "
-   └─ Common  src=[43,48)  text="never"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ TypeReferenceShape  pos=38  src=[39,40)
+      │  └─ IdentifierShape  pos=38  src=[39,40)  text="U"
+      ├─ WrapSymbol  src=[42,43)  text=" "
+      └─ Common  src=[43,48)  text="never"
 ```
 
 ## [char 48] `"\n"`
@@ -938,31 +828,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ Common  src=[22,27)  text="Array"
-   ├─ Symbol  src=[27,28)  text="<"
-   ├─ Common  src=[28,33)  text="infer"
-   ├─ WrapSymbol  src=[33,34)  text=" "
-   ├─ Common  src=[34,35)  text="U"
-   ├─ Symbol  src=[35,36)  text=">"
-   ├─ WrapSymbol  src=[36,37)  text=" "
-   ├─ Symbol  src=[37,38)  text="?"
-   ├─ WrapSymbol  src=[38,39)  text=" "
-   ├─ Common  src=[39,40)  text="U"
-   ├─ WrapSymbol  src=[40,41)  text=" "
-   ├─ Symbol  src=[41,42)  text=":"
-   ├─ WrapSymbol  src=[42,43)  text=" "
-   ├─ Common  src=[43,48)  text="never"
-   └─ WrapSymbol  src=[48,49)  text="\n"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TypeReferenceShape  pos=21  src=[22,36)
+      │  ├─ IdentifierShape  pos=21  src=[22,27)  text="Array"
+      │  └─ InferTypeShape  pos=28  src=[28,35)
+      │     └─ TypeParameterShape  pos=33  src=[34,35)
+      │        └─ IdentifierShape  pos=33  src=[34,35)  text="U"
+      ├─ TypeReferenceShape  pos=38  src=[39,40)
+      │  └─ IdentifierShape  pos=38  src=[39,40)  text="U"
+      ├─ NeverKeywordShape  pos=42  src=[43,48)  text="never"
+      └─ WrapSymbol  src=[48,49)  text="\n"
 ```
 
 ## [EOF]

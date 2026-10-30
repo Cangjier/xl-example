@@ -16,6 +16,10 @@ import { Token } from "../../../core/syntax/token.xl.md"
 
 # class ConditionalTypeShape extends TypeShape
 
+## field Stage:int = 0
+
+## field SegmentStart:int = 1
+
 # class InferTypeShape extends TypeShape
 
 # class TypeOperatorShape extends TypeShape

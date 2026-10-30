@@ -6,6 +6,8 @@ import { Token } from "../../../core/syntax/token.xl.md"
 import { TypeAliasParsed } from "./type-parser.xl.md"
 import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
+import { ConditionalTypeShape } from "./type-node-shapes.xl.md"
+import { TypeConditionalUtil } from "./type-conditional-chain.xl.md"
 ```
 
 # namespace cangjie
@@ -19,6 +21,12 @@ import { TypeShape } from "./type-shape.xl.md"
 // - 函数类型（`( … ) => …`）在 `=>` 处就已经增量长出 FunctionType 与参数，这里只做收口；
 // - 其余类型体仍是“先攒原始单元、再一次性把类型文法长出来”的兜底实现。
 if (this.HasBuiltType()) {
+  // 已经增量长出来的条件类型：先把最后一段的原始单元补成类型，再统一收口。
+  for (const item of this.Data) {
+    if (item instanceof ConditionalTypeShape) {
+      TypeConditionalUtil.Finalize(item, context);
+    }
+  }
   for (const item of this.Data) {
     if (!item.Closed) {
       item.TryToClose(context);

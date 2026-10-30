@@ -15,6 +15,7 @@ import { StatementUtil } from "../statements/statement-util.xl.md"
 import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
 import { TypeFunctionArrowPossibleShape } from "./type-function-incremental.xl.md"
+import { TypeAliasChainPossibleShape } from "./type-conditional-chain.xl.md"
 ```
 
 # namespace cangjie
@@ -77,7 +78,10 @@ const alias = new TypeAliasDeclarationShape(host.Template);
 alias.Pos = ItemUtil.PositionOf(units, keywordIndex);
 alias.SignIn(keyword.SourceRange.Start);
 alias.Add(identifier);
-alias.CatalogGuide = new CatalogGuide([new TypeFunctionArrowPossibleShape()], new TypeAliasEndPossibleShape());
+alias.CatalogGuide = new CatalogGuide(
+  [new TypeFunctionArrowPossibleShape(), new TypeAliasChainPossibleShape()],
+  new TypeAliasEndPossibleShape(),
+);
 units.splice(start, nameIndex - start + 1, alias);
 alias.Parent = host;
 host.MountedUnit = alias;

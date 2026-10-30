@@ -148,6 +148,19 @@ if (parser.Index < parser.Limit) {
 return items;
 ```
 
+## static method ParseTypeParameterList:(units:Array<Token>, limit:int, template:Template)=>Array<Token>
+
+```ts
+// 增量路径在条件类型成形（`extends` 关闭）时把头部 `< … >` 一次解析成 TypeParameter 列表：单元序列以 `<` 开头。
+const parser = new TypeParser(units, limit, template);
+const items = parser.ParseTypeParametersIfPresent();
+parser.SkipTrivia();
+if (parser.Index < parser.Limit) {
+  throw parser.MakeError("类型参数之后仍有多余单元");
+}
+return items;
+```
+
 ## static method KeywordTypeOf:(common:Common, pos:int)=>KeywordTypeShape | null
 
 ```ts

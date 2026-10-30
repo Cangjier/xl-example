@@ -96,6 +96,10 @@ if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
 if (unit instanceof Common && unit.Closed && TypeAliasEndPossibleShape.IsStatementStart(unit)) {
   return TypeParser.IsBalanced(units, tokenIndex) ? ShapeStates.Reject : ShapeStates.Uncertain;
 }
+// `extends` 之后只可能是条件类型：让位给条件类型候选（它只在这一格 Accept）。
+if (unit instanceof Common && unit.Closed && unit.Is("extends")) {
+  return ShapeStates.Reject;
+}
 return ShapeStates.Uncertain;
 ```
 

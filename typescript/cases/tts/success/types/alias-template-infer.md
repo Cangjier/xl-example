@@ -275,16 +275,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   └─ WrapSymbol  src=[21,22)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      └─ WrapSymbol  src=[21,22)  text=" "
 ```
 
 ## [char 22] `"`"`
@@ -293,17 +291,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
 ```
 
 ## [char 23] `"a"`
@@ -312,18 +308,16 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      └─ ConstString  src=[23,24)  text="a"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         └─ ConstString  src=[23,24)  text="a"
 ```
 
 ## [char 24] `"$"`
@@ -332,18 +326,16 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      └─ ConstString  src=[23,24)  text="a"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         └─ ConstString  src=[23,24)  text="a"
 ```
 
 ## [char 25] `"{"`
@@ -352,19 +344,17 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
 ```
 
 ## [char 26] `"i"`
@@ -373,20 +363,18 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
-         └─ Common  src=[26,27)  text="i"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
+            └─ Common  src=[26,27)  text="i"
 ```
 
 ## [char 27] `"n"`
@@ -395,20 +383,18 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
-         └─ Common  src=[26,28)  text="in"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
+            └─ Common  src=[26,28)  text="in"
 ```
 
 ## [char 28] `"f"`
@@ -417,20 +403,18 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
-         └─ Common  src=[26,29)  text="inf"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
+            └─ Common  src=[26,29)  text="inf"
 ```
 
 ## [char 29] `"e"`
@@ -439,20 +423,18 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
-         └─ Common  src=[26,30)  text="infe"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
+            └─ Common  src=[26,30)  text="infe"
 ```
 
 ## [char 30] `"r"`
@@ -461,20 +443,18 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
-         └─ Common  src=[26,31)  text="infer"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
+            └─ Common  src=[26,31)  text="infer"
 ```
 
 ## [char 31] `" "`
@@ -483,21 +463,19 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
-         ├─ Common  src=[26,31)  text="infer"
-         └─ WrapSymbol  src=[31,32)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
+            ├─ Common  src=[26,31)  text="infer"
+            └─ WrapSymbol  src=[31,32)  text=" "
 ```
 
 ## [char 32] `"R"`
@@ -506,22 +484,20 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,...)
-         ├─ Common  src=[26,31)  text="infer"
-         ├─ WrapSymbol  src=[31,32)  text=" "
-         └─ Common  src=[32,33)  text="R"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,...)
+            ├─ Common  src=[26,31)  text="infer"
+            ├─ WrapSymbol  src=[31,32)  text=" "
+            └─ Common  src=[32,33)  text="R"
 ```
 
 ## [char 33] `"}"`
@@ -530,22 +506,20 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,...)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,34)
-         ├─ Common  src=[26,31)  text="infer"
-         ├─ WrapSymbol  src=[31,32)  text=" "
-         └─ Common  src=[32,33)  text="R"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ WrapSymbol  src=[21,22)  text=" "
+      └─ String  src=[22,...)
+         ├─ ConstString  src=[23,24)  text="a"
+         └─ InterpolationString  src=[25,34)
+            ├─ Common  src=[26,31)  text="infer"
+            ├─ WrapSymbol  src=[31,32)  text=" "
+            └─ Common  src=[32,33)  text="R"
 ```
 
 ## [char 34] `"`"`
@@ -554,22 +528,20 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   └─ String  src=[22,35)
-      ├─ ConstString  src=[23,24)  text="a"
-      └─ InterpolationString  src=[25,34)
-         ├─ Common  src=[26,31)  text="infer"
-         ├─ WrapSymbol  src=[31,32)  text=" "
-         └─ Common  src=[32,33)  text="R"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      └─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+         ├─ TemplateHeadShape  pos=21  src=[22,26)
+         └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+            ├─ InferTypeShape  pos=26  src=[26,33)
+            │  └─ TypeParameterShape  pos=31  src=[32,33)
+            │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+            └─ TemplateTailShape  pos=33  src=[33,35)
 ```
 
 ## [char 35] `" "`
@@ -578,23 +550,21 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   └─ WrapSymbol  src=[35,36)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      └─ WrapSymbol  src=[35,36)  text=" "
 ```
 
 ## [char 36] `"?"`
@@ -603,24 +573,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   └─ Symbol  src=[36,37)  text="?"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[35,36)  text=" "
+      └─ Symbol  src=[36,37)  text="?"
 ```
 
 ## [char 37] `" "`
@@ -629,25 +597,21 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   └─ WrapSymbol  src=[37,38)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      └─ WrapSymbol  src=[37,38)  text=" "
 ```
 
 ## [char 38] `"R"`
@@ -656,26 +620,22 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   └─ Common  src=[38,39)  text="R"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
+      └─ Common  src=[38,39)  text="R"
 ```
 
 ## [char 39] `" "`
@@ -684,27 +644,23 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   └─ WrapSymbol  src=[39,40)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
+      ├─ Common  src=[38,39)  text="R"
+      └─ WrapSymbol  src=[39,40)  text=" "
 ```
 
 ## [char 40] `":"`
@@ -713,28 +669,24 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   └─ Symbol  src=[40,41)  text=":"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ WrapSymbol  src=[37,38)  text=" "
+      ├─ Common  src=[38,39)  text="R"
+      ├─ WrapSymbol  src=[39,40)  text=" "
+      └─ Symbol  src=[40,41)  text=":"
 ```
 
 ## [char 41] `" "`
@@ -743,29 +695,23 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text=":"
-   └─ WrapSymbol  src=[41,42)  text=" "
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
+      └─ WrapSymbol  src=[41,42)  text=" "
 ```
 
 ## [char 42] `"n"`
@@ -774,30 +720,24 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text=":"
-   ├─ WrapSymbol  src=[41,42)  text=" "
-   └─ Common  src=[42,43)  text="n"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
+      ├─ WrapSymbol  src=[41,42)  text=" "
+      └─ Common  src=[42,43)  text="n"
 ```
 
 ## [char 43] `"e"`
@@ -806,30 +746,24 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text=":"
-   ├─ WrapSymbol  src=[41,42)  text=" "
-   └─ Common  src=[42,44)  text="ne"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
+      ├─ WrapSymbol  src=[41,42)  text=" "
+      └─ Common  src=[42,44)  text="ne"
 ```
 
 ## [char 44] `"v"`
@@ -838,30 +772,24 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text=":"
-   ├─ WrapSymbol  src=[41,42)  text=" "
-   └─ Common  src=[42,45)  text="nev"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
+      ├─ WrapSymbol  src=[41,42)  text=" "
+      └─ Common  src=[42,45)  text="nev"
 ```
 
 ## [char 45] `"e"`
@@ -870,30 +798,24 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text=":"
-   ├─ WrapSymbol  src=[41,42)  text=" "
-   └─ Common  src=[42,46)  text="neve"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
+      ├─ WrapSymbol  src=[41,42)  text=" "
+      └─ Common  src=[42,46)  text="neve"
 ```
 
 ## [char 46] `"r"`
@@ -902,30 +824,24 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text=":"
-   ├─ WrapSymbol  src=[41,42)  text=" "
-   └─ Common  src=[42,47)  text="never"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
+      ├─ WrapSymbol  src=[41,42)  text=" "
+      └─ Common  src=[42,47)  text="never"
 ```
 
 ## [char 47] `"\n"`
@@ -934,31 +850,24 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
-   ├─ WrapSymbol  src=[11,12)  text=" "
-   ├─ Common  src=[12,13)  text="T"
-   ├─ WrapSymbol  src=[13,14)  text=" "
-   ├─ Common  src=[14,21)  text="extends"
-   ├─ WrapSymbol  src=[21,22)  text=" "
-   ├─ String  src=[22,35)
-   │  ├─ ConstString  src=[23,24)  text="a"
-   │  └─ InterpolationString  src=[25,34)
-   │     ├─ Common  src=[26,31)  text="infer"
-   │     ├─ WrapSymbol  src=[31,32)  text=" "
-   │     └─ Common  src=[32,33)  text="R"
-   ├─ WrapSymbol  src=[35,36)  text=" "
-   ├─ Symbol  src=[36,37)  text="?"
-   ├─ WrapSymbol  src=[37,38)  text=" "
-   ├─ Common  src=[38,39)  text="R"
-   ├─ WrapSymbol  src=[39,40)  text=" "
-   ├─ Symbol  src=[40,41)  text=":"
-   ├─ WrapSymbol  src=[41,42)  text=" "
-   ├─ Common  src=[42,47)  text="never"
-   └─ WrapSymbol  src=[47,48)  text="\n"
+   └─ ConditionalTypeShape  pos=11  src=[12,...)
+      ├─ TypeReferenceShape  pos=11  src=[12,13)
+      │  └─ IdentifierShape  pos=11  src=[12,13)  text="T"
+      ├─ TemplateLiteralTypeShape  pos=21  src=[22,35)
+      │  ├─ TemplateHeadShape  pos=21  src=[22,26)
+      │  └─ TemplateLiteralTypeSpanShape  pos=26  src=[26,35)
+      │     ├─ InferTypeShape  pos=26  src=[26,33)
+      │     │  └─ TypeParameterShape  pos=31  src=[32,33)
+      │     │     └─ IdentifierShape  pos=31  src=[32,33)  text="R"
+      │     └─ TemplateTailShape  pos=33  src=[33,35)
+      ├─ TypeReferenceShape  pos=37  src=[38,39)
+      │  └─ IdentifierShape  pos=37  src=[38,39)  text="R"
+      ├─ NeverKeywordShape  pos=41  src=[42,47)  text="never"
+      └─ WrapSymbol  src=[47,48)  text="\n"
 ```
 
 ## [EOF]
