@@ -56,7 +56,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   └─ Symbol  src=[6,7)  text="<"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      └─ Symbol  src=[6,7)  text="<"
 ```
 
 ## [char 7] `"T"`
@@ -65,8 +66,9 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   └─ Common  src=[7,8)  text="T"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      └─ Common  src=[7,8)  text="T"
 ```
 
 ## [char 8] `">"`
@@ -75,9 +77,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   └─ Symbol  src=[8,9)  text=">"
+   └─ TypeParameterShape  pos=7  src=[7,8)
+      └─ IdentifierShape  pos=7  src=[7,8)  text="T"
 ```
 
 ## [char 9] `" "`
@@ -86,9 +87,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    └─ WrapSymbol  src=[9,10)  text=" "
 ```
 
@@ -98,9 +98,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    └─ Symbol  src=[10,11)  text="="
 ```
@@ -111,9 +110,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    └─ WrapSymbol  src=[11,12)  text=" "
@@ -125,9 +123,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -140,9 +137,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -156,9 +152,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -173,9 +168,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -190,9 +184,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -207,9 +200,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -224,9 +216,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -241,9 +232,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "
@@ -258,9 +248,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ Symbol  src=[8,9)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,8)
+   │  └─ IdentifierShape  pos=7  src=[7,8)  text="T"
    ├─ WrapSymbol  src=[9,10)  text=" "
    ├─ Symbol  src=[10,11)  text="="
    ├─ WrapSymbol  src=[11,12)  text=" "

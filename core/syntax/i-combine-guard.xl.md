@@ -8,3 +8,5 @@ import { SyntaxContext } from "./syntax-context.xl.md"
 # interface ICombineGuard
 
 ## method CanCombine:(context:SyntaxContext, value:string)=>bool
+
+## method CanContinueSymbol:(context:SyntaxContext, prefix:string)=>bool

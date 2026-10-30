@@ -56,7 +56,8 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   └─ Symbol  src=[6,7)  text="<"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      └─ Symbol  src=[6,7)  text="<"
 ```
 
 ## [char 7] `"T"`
@@ -65,8 +66,9 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   └─ Common  src=[7,8)  text="T"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      └─ Common  src=[7,8)  text="T"
 ```
 
 ## [char 8] `" "`
@@ -75,9 +77,10 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   └─ WrapSymbol  src=[8,9)  text=" "
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      └─ WrapSymbol  src=[8,9)  text=" "
 ```
 
 ## [char 9] `"e"`
@@ -86,10 +89,11 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ Common  src=[9,10)  text="e"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      └─ Common  src=[9,10)  text="e"
 ```
 
 ## [char 10] `"x"`
@@ -98,10 +102,11 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ Common  src=[9,11)  text="ex"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      └─ Common  src=[9,11)  text="ex"
 ```
 
 ## [char 11] `"t"`
@@ -110,10 +115,11 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ Common  src=[9,12)  text="ext"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      └─ Common  src=[9,12)  text="ext"
 ```
 
 ## [char 12] `"e"`
@@ -122,10 +128,11 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ Common  src=[9,13)  text="exte"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      └─ Common  src=[9,13)  text="exte"
 ```
 
 ## [char 13] `"n"`
@@ -134,10 +141,11 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ Common  src=[9,14)  text="exten"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      └─ Common  src=[9,14)  text="exten"
 ```
 
 ## [char 14] `"d"`
@@ -146,10 +154,11 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ Common  src=[9,15)  text="extend"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      └─ Common  src=[9,15)  text="extend"
 ```
 
 ## [char 15] `"s"`
@@ -158,10 +167,11 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   └─ Common  src=[9,16)  text="extends"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      └─ Common  src=[9,16)  text="extends"
 ```
 
 ## [char 16] `" "`
@@ -170,11 +180,12 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   └─ WrapSymbol  src=[16,17)  text=" "
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      └─ WrapSymbol  src=[16,17)  text=" "
 ```
 
 ## [char 17] `"A"`
@@ -183,12 +194,13 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   └─ Common  src=[17,18)  text="A"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      └─ Common  src=[17,18)  text="A"
 ```
 
 ## [char 18] `"r"`
@@ -197,12 +209,13 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   └─ Common  src=[17,19)  text="Ar"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      └─ Common  src=[17,19)  text="Ar"
 ```
 
 ## [char 19] `"r"`
@@ -211,12 +224,13 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   └─ Common  src=[17,20)  text="Arr"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      └─ Common  src=[17,20)  text="Arr"
 ```
 
 ## [char 20] `"a"`
@@ -225,12 +239,13 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   └─ Common  src=[17,21)  text="Arra"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      └─ Common  src=[17,21)  text="Arra"
 ```
 
 ## [char 21] `"y"`
@@ -239,12 +254,13 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   └─ Common  src=[17,22)  text="Array"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      └─ Common  src=[17,22)  text="Array"
 ```
 
 ## [char 22] `"<"`
@@ -253,13 +269,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   └─ Symbol  src=[22,23)  text="<"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      └─ Symbol  src=[22,23)  text="<"
 ```
 
 ## [char 23] `"A"`
@@ -268,14 +285,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   └─ Common  src=[23,24)  text="A"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      └─ Common  src=[23,24)  text="A"
 ```
 
 ## [char 24] `"r"`
@@ -284,14 +302,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   └─ Common  src=[23,25)  text="Ar"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      └─ Common  src=[23,25)  text="Ar"
 ```
 
 ## [char 25] `"r"`
@@ -300,14 +319,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   └─ Common  src=[23,26)  text="Arr"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      └─ Common  src=[23,26)  text="Arr"
 ```
 
 ## [char 26] `"a"`
@@ -316,14 +336,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   └─ Common  src=[23,27)  text="Arra"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      └─ Common  src=[23,27)  text="Arra"
 ```
 
 ## [char 27] `"y"`
@@ -332,14 +353,15 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   └─ Common  src=[23,28)  text="Array"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      └─ Common  src=[23,28)  text="Array"
 ```
 
 ## [char 28] `"<"`
@@ -348,15 +370,16 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   └─ Symbol  src=[28,29)  text="<"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      ├─ Common  src=[23,28)  text="Array"
+      └─ Symbol  src=[28,29)  text="<"
 ```
 
 ## [char 29] `"T"`
@@ -365,16 +388,17 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   └─ Common  src=[29,30)  text="T"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      ├─ Common  src=[23,28)  text="Array"
+      ├─ Symbol  src=[28,29)  text="<"
+      └─ Common  src=[29,30)  text="T"
 ```
 
 ## [char 30] `">"`
@@ -383,17 +407,18 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   ├─ Common  src=[29,30)  text="T"
-   └─ Symbol  src=[30,31)  text=">"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      ├─ Common  src=[23,28)  text="Array"
+      ├─ Symbol  src=[28,29)  text="<"
+      ├─ Common  src=[29,30)  text="T"
+      └─ Symbol  src=[30,31)  text=">"
 ```
 
 ## [char 31] `">"`
@@ -402,18 +427,19 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   ├─ Common  src=[29,30)  text="T"
-   ├─ Symbol  src=[30,31)  text=">"
-   └─ Symbol  src=[31,32)  text=">"
+   └─ TypeParameterListShape  pos=6  src=[6,...)
+      ├─ Symbol  src=[6,7)  text="<"
+      ├─ Common  src=[7,8)  text="T"
+      ├─ WrapSymbol  src=[8,9)  text=" "
+      ├─ Common  src=[9,16)  text="extends"
+      ├─ WrapSymbol  src=[16,17)  text=" "
+      ├─ Common  src=[17,22)  text="Array"
+      ├─ Symbol  src=[22,23)  text="<"
+      ├─ Common  src=[23,28)  text="Array"
+      ├─ Symbol  src=[28,29)  text="<"
+      ├─ Common  src=[29,30)  text="T"
+      ├─ Symbol  src=[30,31)  text=">"
+      └─ Symbol  src=[31,32)  text=">"
 ```
 
 ## [char 32] `">"`
@@ -422,19 +448,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   ├─ Common  src=[29,30)  text="T"
-   ├─ Symbol  src=[30,31)  text=">"
-   ├─ Symbol  src=[31,32)  text=">"
-   └─ Symbol  src=[32,33)  text=">"
+   └─ TypeParameterShape  pos=7  src=[7,32)
+      ├─ IdentifierShape  pos=7  src=[7,8)  text="T"
+      └─ TypeReferenceShape  pos=16  src=[17,32)
+         ├─ IdentifierShape  pos=16  src=[17,22)  text="Array"
+         └─ TypeReferenceShape  pos=23  src=[23,31)
+            ├─ IdentifierShape  pos=23  src=[23,28)  text="Array"
+            └─ TypeReferenceShape  pos=29  src=[29,30)
+               └─ IdentifierShape  pos=29  src=[29,30)  text="T"
 ```
 
 ## [char 33] `"="`
@@ -443,19 +464,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   ├─ Common  src=[29,30)  text="T"
-   ├─ Symbol  src=[30,31)  text=">"
-   ├─ Symbol  src=[31,32)  text=">"
-   ├─ Symbol  src=[32,33)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,32)
+   │  ├─ IdentifierShape  pos=7  src=[7,8)  text="T"
+   │  └─ TypeReferenceShape  pos=16  src=[17,32)
+   │     ├─ IdentifierShape  pos=16  src=[17,22)  text="Array"
+   │     └─ TypeReferenceShape  pos=23  src=[23,31)
+   │        ├─ IdentifierShape  pos=23  src=[23,28)  text="Array"
+   │        └─ TypeReferenceShape  pos=29  src=[29,30)
+   │           └─ IdentifierShape  pos=29  src=[29,30)  text="T"
    └─ Symbol  src=[33,34)  text="="
 ```
 
@@ -465,19 +481,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   ├─ Common  src=[29,30)  text="T"
-   ├─ Symbol  src=[30,31)  text=">"
-   ├─ Symbol  src=[31,32)  text=">"
-   ├─ Symbol  src=[32,33)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,32)
+   │  ├─ IdentifierShape  pos=7  src=[7,8)  text="T"
+   │  └─ TypeReferenceShape  pos=16  src=[17,32)
+   │     ├─ IdentifierShape  pos=16  src=[17,22)  text="Array"
+   │     └─ TypeReferenceShape  pos=23  src=[23,31)
+   │        ├─ IdentifierShape  pos=23  src=[23,28)  text="Array"
+   │        └─ TypeReferenceShape  pos=29  src=[29,30)
+   │           └─ IdentifierShape  pos=29  src=[29,30)  text="T"
    ├─ Symbol  src=[33,34)  text="="
    └─ WrapSymbol  src=[34,35)  text=" "
 ```
@@ -488,19 +499,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   ├─ Common  src=[29,30)  text="T"
-   ├─ Symbol  src=[30,31)  text=">"
-   ├─ Symbol  src=[31,32)  text=">"
-   ├─ Symbol  src=[32,33)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,32)
+   │  ├─ IdentifierShape  pos=7  src=[7,8)  text="T"
+   │  └─ TypeReferenceShape  pos=16  src=[17,32)
+   │     ├─ IdentifierShape  pos=16  src=[17,22)  text="Array"
+   │     └─ TypeReferenceShape  pos=23  src=[23,31)
+   │        ├─ IdentifierShape  pos=23  src=[23,28)  text="Array"
+   │        └─ TypeReferenceShape  pos=29  src=[29,30)
+   │           └─ IdentifierShape  pos=29  src=[29,30)  text="T"
    ├─ Symbol  src=[33,34)  text="="
    ├─ WrapSymbol  src=[34,35)  text=" "
    └─ Common  src=[35,36)  text="T"
@@ -512,19 +518,14 @@ SourceFileShape  pos=-  src=[0,...)
 SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="B"
-   ├─ Symbol  src=[6,7)  text="<"
-   ├─ Common  src=[7,8)  text="T"
-   ├─ WrapSymbol  src=[8,9)  text=" "
-   ├─ Common  src=[9,16)  text="extends"
-   ├─ WrapSymbol  src=[16,17)  text=" "
-   ├─ Common  src=[17,22)  text="Array"
-   ├─ Symbol  src=[22,23)  text="<"
-   ├─ Common  src=[23,28)  text="Array"
-   ├─ Symbol  src=[28,29)  text="<"
-   ├─ Common  src=[29,30)  text="T"
-   ├─ Symbol  src=[30,31)  text=">"
-   ├─ Symbol  src=[31,32)  text=">"
-   ├─ Symbol  src=[32,33)  text=">"
+   ├─ TypeParameterShape  pos=7  src=[7,32)
+   │  ├─ IdentifierShape  pos=7  src=[7,8)  text="T"
+   │  └─ TypeReferenceShape  pos=16  src=[17,32)
+   │     ├─ IdentifierShape  pos=16  src=[17,22)  text="Array"
+   │     └─ TypeReferenceShape  pos=23  src=[23,31)
+   │        ├─ IdentifierShape  pos=23  src=[23,28)  text="Array"
+   │        └─ TypeReferenceShape  pos=29  src=[29,30)
+   │           └─ IdentifierShape  pos=29  src=[29,30)  text="T"
    ├─ Symbol  src=[33,34)  text="="
    ├─ WrapSymbol  src=[34,35)  text=" "
    ├─ Common  src=[35,36)  text="T"

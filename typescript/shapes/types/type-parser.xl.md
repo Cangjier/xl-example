@@ -953,7 +953,21 @@ return this.Node(new ParenthesizedTypeShape(this.Template), this.PosOf(openIndex
 ```ts
 this.SkipTrivia();
 if (this.PeekSymbol() !== "<") {
-  return [];
+  // 增量路径已经在 `<` 处把头部收成 TypeParameter：直接沿用，不再从原始单元重解析。
+  const built:Array<Token> = [];
+  while (true) {
+    this.SkipTrivia();
+    if (this.Index >= this.Limit) {
+      break;
+    }
+    const unit = this.Units[this.Index];
+    if (!(unit instanceof TypeParameterShape)) {
+      break;
+    }
+    built.push(unit);
+    this.Index++;
+  }
+  return built;
 }
 this.Index++;
 const items:Array<Token> = [];

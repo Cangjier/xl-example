@@ -43,6 +43,15 @@ const text = last.TempToString();
 return text !== "<" && text !== ">";
 ```
 
+## method CanContinueSymbol:(context:SyntaxContext, prefix:string)=>bool
+
+```ts
+// 与 CanCombine 同一条规则，只是提前到符号创建时回答：`<` / `>` 在类型里没有多字符形态，
+// 所以它们在创建的那一格就收口，形状层（例如「名字后的 `<` 只能是类型参数表」）
+// 因此可以在同一格判定，而不是等下一个字符来证明。
+return prefix !== "<" && prefix !== ">";
+```
+
 ## static method Finish:(node:ShapeToken, pos:int, start:int, end:int, children:Array<Token>)=>void
 
 ```ts

@@ -112,6 +112,17 @@ if (!("CanCombine" in unit)) {
 return (unit as unknown as ICombineGuard).CanCombine(context, value);
 ```
 
+## static method CanContinueIn:(context:SyntaxContext, unit:Token, prefix:string)=>bool
+
+```ts
+// 宿主可以否掉「这个符号还能往后长」：类型里的 `<` / `>` 是单字符分界符，
+// 没有多字符符号以它们开头，所以一创建就能收口，不必等下一个字符。
+if (!("CanContinueSymbol" in unit)) {
+  return true;
+}
+return (unit as unknown as ICombineGuard).CanContinueSymbol(context, prefix);
+```
+
 ## static method Transit:(context:SyntaxContext, unit:Token, buffer:SourceRange, index:int, value:string)=>BranchStates
 
 ```ts
@@ -159,7 +170,9 @@ if (last !== null && !last.Closed && last.TryToClose(context) === CloseStates.Bu
 const symbol = new Symbol(unit.Template);
 unit.Add(symbol);
 symbol.AppendAndSignOut(value, index).SignIn(index);
-if (!symbol.CanContinue()) {
+// 两条收口理由：模板层面这个前缀已经长不动了，或者宿主当场否掉了它还能继续。
+// 后者让「类型里的 `<` 只能是分界符」这件事在符号创建的同一格成立。
+if (!symbol.CanContinue() || !Symbol.CanContinueIn(context, unit, symbol.Temp)) {
   symbol.TryToClose(context);
 }
 return BranchStates.Done;
