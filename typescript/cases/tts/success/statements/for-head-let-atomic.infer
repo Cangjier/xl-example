@@ -6,7 +6,7 @@ for (let i = 0; i < 3; i++) { }
 [0-19]  |for (let i = 0; i < | [20-31] |3; i++) { }⏎|
 ```
 
-SourceFile  pos=0  src=[0,32)   // created at char ?, llm determined at char 0 "【f】or (let"
+SourceFile  pos=0  src=[0,32)   // created at char 0 "【f】or (let", llm determined at char 0 "【f】or (let"
 └─ ForStatement  pos=0  src=[0,31)   // created at char 26 "; i++【)】{ }", llm determined at char 28 "i++)【{】}"
    ├─ VariableDeclarationList  pos=5  src=[5,14)   // created at char 10 "let i【␣】= 0;", llm determined at char 14 "i = 0【;】i <"
    │  └─ VariableDeclaration  pos=8  src=[9,14)   // created at char 10 "let i【␣】= 0;", llm determined at char 14 "i = 0【;】i <"

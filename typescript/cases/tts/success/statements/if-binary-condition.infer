@@ -6,7 +6,7 @@ if (a + b) c;
 [0-13] |if (a + b) c;⏎|
 ```
 
-SourceFile  pos=0  src=[0,14)   // created at char ?, llm determined at char 0 "【i】f (a"
+SourceFile  pos=0  src=[0,14)   // created at char 0 "【i】f (a", llm determined at char 0 "【i】f (a"
 └─ IfStatement  pos=0  src=[0,13)   // created at char 2 "if【␣】(a +", llm determined at char 10 "+ b)【␣】c;"
    ├─ BinaryExpression  pos=4  src=[4,9)   // created at char 7 "(a +【␣】b) c;", llm determined at char 8 "(a +【b】) c;"
    │  ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【␣】+ b)", llm determined at char 5 "if (a【␣】+ b)"

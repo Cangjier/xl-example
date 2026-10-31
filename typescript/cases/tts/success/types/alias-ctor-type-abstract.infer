@@ -6,7 +6,7 @@ type A = abstract new () => Foo
 [0-19]  |type A = abstract ne| [20-31] |w () => Foo⏎|
 ```
 
-SourceFile  pos=0  src=[0,32)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,32)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,31)   // created at char 6 "type A【␣】= abstract", llm determined at char 17 "abstract【␣】new ("
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= abstract", llm determined at char 6 "type A【␣】= abstract"
    └─ ConstructorType  pos=8  src=[9,31)   // created at char ?, llm determined at char 17 "abstract【␣】new ("

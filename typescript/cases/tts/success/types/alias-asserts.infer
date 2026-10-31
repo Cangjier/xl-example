@@ -7,7 +7,7 @@ type A = (x: unknown) => asserts x is string
 [40-44] |ring⏎|
 ```
 
-SourceFile  pos=0  src=[0,45)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,45)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,44)   // created at char 6 "type A【␣】= (x:", llm determined at char 8 "type A =【␣】(x: unknown"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= (x:", llm determined at char 6 "type A【␣】= (x:"
    └─ FunctionType  pos=8  src=[9,44)   // created at char 23 "unknown) =【>】asserts", llm determined at char 10 "A = (【x】: unknown"

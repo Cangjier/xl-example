@@ -6,7 +6,7 @@ while (a) b;
 [0-12] |while (a) b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char ?, llm determined at char 0 "【w】hile"
+SourceFile  pos=0  src=[0,13)   // created at char 0 "【w】hile", llm determined at char 0 "【w】hile"
 └─ WhileStatement  pos=0  src=[0,12)   // created at char 5 "while【␣】(a) b", llm determined at char 6 "while【(】a) b;"
    ├─ Identifier  pos=7  src=[7,8)  text="a"   // created at char 8 "while (a【)】b;", llm determined at char 8 "while (a【)】b;"
    └─ ExpressionStatement  pos=9  src=[10,12)   // created at char 11 "(a) b【;】", llm determined at char 12 "a) b;【⏎】"

@@ -19,6 +19,9 @@ import { StatementGuide } from "../statements/statement-guide.xl.md"
 ```ts
 super(template);
 this.ProcessQueue = Template.BasicBranchQueue();
+// 根不是任何 possible 建出来的：它在读入第一个字符之前就存在，创建位置就是第 0 格。
+// 这是 CreatedAt 唯一的构造期赋值，其余形状一律由 possible / end 的 build 盖章。
+this.CreatedAt = 0;
 this.SignIn(0);
 this.CatalogGuide = StatementGuide.Create(null, [new BlockPossibleShape()]);
 ```

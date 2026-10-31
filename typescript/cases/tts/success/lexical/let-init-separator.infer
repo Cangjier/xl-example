@@ -6,7 +6,7 @@ let x = 1_000
 [0-13] |let x = 1_000⏎|
 ```
 
-SourceFile  pos=0  src=[0,14)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,14)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 └─ FirstStatement  pos=0  src=[0,13)   // created at char 5 "let x【␣】= 1_000", llm determined at char 12 "1_00【0】"
    └─ VariableDeclarationList  pos=0  src=[0,13)   // created at char 5 "let x【␣】= 1_000", llm determined at char 12 "1_00【0】"
       └─ VariableDeclaration  pos=3  src=[4,13)   // created at char 5 "let x【␣】= 1_000", llm determined at char 12 "1_00【0】"

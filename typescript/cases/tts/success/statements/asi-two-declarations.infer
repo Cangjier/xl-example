@@ -7,7 +7,7 @@ b
 [0-11] |let x = a⏎b⏎|
 ```
 
-SourceFile  pos=0  src=[0,12)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,12)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 ├─ FirstStatement  pos=0  src=[0,9)   // created at char 5 "let x【␣】= a b", llm determined at char 9 "x = a【⏎】b"
 │  └─ VariableDeclarationList  pos=0  src=[0,9)   // created at char 5 "let x【␣】= a b", llm determined at char 9 "x = a【⏎】b"
 │     └─ VariableDeclaration  pos=3  src=[4,9)   // created at char 5 "let x【␣】= a b", llm determined at char 9 "x = a【⏎】b"

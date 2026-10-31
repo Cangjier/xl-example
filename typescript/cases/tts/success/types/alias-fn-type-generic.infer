@@ -6,7 +6,7 @@ type A = <T>(a: T) => T
 [0-19]  |type A = <T>(a: T) =| [20-23] |> T⏎|
 ```
 
-SourceFile  pos=0  src=[0,24)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,24)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,23)   // created at char 6 "type A【␣】= <T>", llm determined at char 21 "T) =>【␣】T"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= <T>", llm determined at char 6 "type A【␣】= <T>"
    └─ FunctionType  pos=8  src=[9,23)   // created at char ?, llm determined at char 23 "=> T【⏎】"

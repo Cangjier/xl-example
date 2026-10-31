@@ -6,7 +6,7 @@ let x = 1/*left*/+/*right*/2
 [0-19]  |let x = 1/*left*/+/*| [20-28] |right*/2⏎|
 ```
 
-SourceFile  pos=0  src=[0,29)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,29)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 └─ FirstStatement  pos=0  src=[0,28)   // created at char 5 "let x【␣】= 1/*", llm determined at char 7 "let x =【␣】1/*left"
    └─ VariableDeclarationList  pos=0  src=[0,28)   // created at char 5 "let x【␣】= 1/*", llm determined at char 7 "let x =【␣】1/*left"
       └─ VariableDeclaration  pos=3  src=[4,28)   // created at char 5 "let x【␣】= 1/*", llm determined at char 7 "let x =【␣】1/*left"

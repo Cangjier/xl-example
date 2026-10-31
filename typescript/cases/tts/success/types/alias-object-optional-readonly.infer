@@ -6,7 +6,7 @@ type A = { readonly a?: string }
 [0-19]  |type A = { readonly | [20-32] |a?: string }⏎|
 ```
 
-SourceFile  pos=0  src=[0,33)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,33)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,32)   // created at char 6 "type A【␣】= { readonly", llm determined at char 10 "A = {【␣】readonly"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= { readonly", llm determined at char 7 "type A【=】{ readonly"
    └─ TypeLiteral  pos=8  src=[9,32)   // created at char ?, llm determined at char 32 "string }【⏎】"

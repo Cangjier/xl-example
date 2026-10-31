@@ -6,7 +6,7 @@ let x = a
 [0-9] |let x = a⏎|
 ```
 
-SourceFile  pos=0  src=[0,10)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,10)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 └─ FirstStatement  pos=0  src=[0,9)   // created at char 5 "let x【␣】= a", llm determined at char 9 "x = a【⏎】"
    └─ VariableDeclarationList  pos=0  src=[0,9)   // created at char 5 "let x【␣】= a", llm determined at char 9 "x = a【⏎】"
       └─ VariableDeclaration  pos=3  src=[4,9)   // created at char 5 "let x【␣】= a", llm determined at char 9 "x = a【⏎】"

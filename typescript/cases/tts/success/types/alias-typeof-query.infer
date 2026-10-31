@@ -6,7 +6,7 @@ type A = typeof x
 [0-17] |type A = typeof x⏎|
 ```
 
-SourceFile  pos=0  src=[0,18)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,18)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,17)   // created at char 6 "type A【␣】= typeof", llm determined at char 16 "typeof【x】"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= typeof", llm determined at char 6 "type A【␣】= typeof"
    └─ TypeQuery  pos=8  src=[9,17)   // created at char ?, llm determined at char 16 "typeof【x】"

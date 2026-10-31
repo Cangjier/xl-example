@@ -6,7 +6,7 @@ let x = .5
 [0-10] |let x = .5⏎|
 ```
 
-SourceFile  pos=0  src=[0,11)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,11)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 └─ FirstStatement  pos=0  src=[0,10)   // created at char 5 "let x【␣】= .5", llm determined at char 9 "x = .【5】"
    └─ VariableDeclarationList  pos=0  src=[0,10)   // created at char 5 "let x【␣】= .5", llm determined at char 9 "x = .【5】"
       └─ VariableDeclaration  pos=3  src=[4,10)   // created at char 5 "let x【␣】= .5", llm determined at char 9 "x = .【5】"

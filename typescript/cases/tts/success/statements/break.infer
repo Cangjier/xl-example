@@ -6,7 +6,7 @@ while (a) { break; }
 [0-19]  |while (a) { break; }| [20-20] |⏎|
 ```
 
-SourceFile  pos=0  src=[0,21)   // created at char ?, llm determined at char 0 "【w】hile"
+SourceFile  pos=0  src=[0,21)   // created at char 0 "【w】hile", llm determined at char 0 "【w】hile"
 └─ WhileStatement  pos=0  src=[0,20)   // created at char 5 "while【␣】(a) {", llm determined at char 12 "a) {【b】reak;"
    ├─ Identifier  pos=7  src=[7,8)  text="a"   // created at char 8 "while (a【)】{ break", llm determined at char 8 "while (a【)】{ break"
    └─ Block  pos=9  src=[10,20)   // created at char 10 "(a)【{】break", llm determined at char 11 "(a) {【␣】break"

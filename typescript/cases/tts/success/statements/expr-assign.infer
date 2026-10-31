@@ -6,7 +6,7 @@ a = b;
 [0-6] |a = b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,7)   // created at char ?, llm determined at char 0 "【a】= b;"
+SourceFile  pos=0  src=[0,7)   // created at char 0 "【a】= b;", llm determined at char 0 "【a】= b;"
 └─ ExpressionStatement  pos=0  src=[0,6)   // created at char 1 "a【␣】= b;", llm determined at char 5 "a = b【;】"
    └─ BinaryExpression  pos=0  src=[0,5)   // created at char 3 "a =【␣】b;", llm determined at char 5 "a = b【;】"
       ├─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【␣】= b;", llm determined at char 1 "a【␣】= b;"

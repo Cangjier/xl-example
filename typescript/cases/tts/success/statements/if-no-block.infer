@@ -6,7 +6,7 @@ if (a) b;
 [0-9] |if (a) b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,10)   // created at char ?, llm determined at char 0 "【i】f (a)"
+SourceFile  pos=0  src=[0,10)   // created at char 0 "【i】f (a)", llm determined at char 0 "【i】f (a)"
 └─ IfStatement  pos=0  src=[0,9)   // created at char 2 "if【␣】(a) b", llm determined at char 7 "(a)【b】;"
    ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】b;", llm determined at char 4 "if (【a】) b;"
    └─ ExpressionStatement  pos=6  src=[7,9)   // created at char 8 "(a) b【;】", llm determined at char 8 "(a) b【;】"

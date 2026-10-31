@@ -7,7 +7,7 @@ let x = 1 // plus
 [0-19]  |let x = 1 // plus⏎+ | [20-21] |2⏎|
 ```
 
-SourceFile  pos=0  src=[0,22)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,22)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 └─ FirstStatement  pos=0  src=[0,21)   // created at char 5 "let x【␣】= 1 /", llm determined at char 20 "plus +【2】"
    └─ VariableDeclarationList  pos=0  src=[0,21)   // created at char 5 "let x【␣】= 1 /", llm determined at char 20 "plus +【2】"
       └─ VariableDeclaration  pos=3  src=[4,21)   // created at char 5 "let x【␣】= 1 /", llm determined at char 20 "plus +【2】"

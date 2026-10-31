@@ -47,6 +47,7 @@ throw new Error("abstract member: BuildByIndex");
 
 ```ts
 // 形状的创建位置只由 possible / end 的 build 写：这次 build 建出来的那颗形状，连同它下面的子树。
+// 唯一的例外是根 SourceFile：它在构造时直接记 0（读入第一个字符之前就存在），不走这里。
 // 根已经被写过（这颗形状是复用旧树、不是这次建的）就整棵跳过，免得把旧形状标成这一格。
 if (built instanceof ShapeToken && built.CreatedAt < 0) {
   PossibleShape.StampAll(built, context.Index);

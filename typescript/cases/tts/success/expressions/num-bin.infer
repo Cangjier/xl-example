@@ -6,7 +6,7 @@ let x = 0b1010
 [0-14] |let x = 0b1010⏎|
 ```
 
-SourceFile  pos=0  src=[0,15)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,15)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 └─ FirstStatement  pos=0  src=[0,14)   // created at char 5 "let x【␣】= 0b1010", llm determined at char 13 "0b101【0】"
    └─ VariableDeclarationList  pos=0  src=[0,14)   // created at char 5 "let x【␣】= 0b1010", llm determined at char 13 "0b101【0】"
       └─ VariableDeclaration  pos=3  src=[4,14)   // created at char 5 "let x【␣】= 0b1010", llm determined at char 13 "0b101【0】"

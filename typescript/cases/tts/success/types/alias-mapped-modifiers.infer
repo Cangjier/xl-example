@@ -7,11 +7,11 @@ type A<T> = { +readonly [K in keyof T]+?: T[K] }
 [40-48] |: T[K] }⏎|
 ```
 
-SourceFile  pos=0  src=[0,49)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,49)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,48)   // created at char 6 "type A【<】T> =", llm determined at char 48 "[K] }【⏎】"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="
-   ├─ TypeParameter  pos=7  src=[7,8)   // created at char ?, llm determined at char 7 "type A<【T】> = {"
-   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // created at char ?, llm determined at char 8 "type A<T【>】= {"
+   ├─ TypeParameter  pos=7  src=[7,8)   // created at char 8 "type A<T【>】= {", llm determined at char 7 "type A<【T】> = {"
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // created at char 8 "type A<T【>】= {", llm determined at char 8 "type A<T【>】= {"
    └─ MappedType  pos=11  src=[12,48)   // created at char ?, llm determined at char 48 "[K] }【⏎】"
       ├─ PlusToken  pos=13  src=[14,15)  text="+"   // created at char ?, llm determined at char 15 "= { +【r】eadonly"
       ├─ TypeParameter  pos=25  src=[25,37)   // created at char ?, llm determined at char 37 "keyof T【]】+?: T"

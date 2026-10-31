@@ -6,7 +6,7 @@ try { a; } finally { b; }
 [0-19]  |try { a; } finally {| [20-25] | b; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,26)   // created at char ?, llm determined at char 0 "【t】ry {"
+SourceFile  pos=0  src=[0,26)   // created at char 0 "【t】ry {", llm determined at char 0 "【t】ry {"
 └─ TryStatement  pos=0  src=[0,25)   // created at char 3 "try【␣】{ a;", llm determined at char 19 "finally【{】b; }"
    ├─ Block  pos=3  src=[4,10)   // created at char 4 "try【{】a; }", llm determined at char 4 "try【{】a; }"
    │  └─ ExpressionStatement  pos=5  src=[6,8)   // created at char 7 "try { a【;】} finally", llm determined at char 7 "try { a【;】} finally"

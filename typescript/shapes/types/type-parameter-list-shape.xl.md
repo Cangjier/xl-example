@@ -71,6 +71,11 @@ if (this.Closed) {
   return;
 }
 const parsed:Array<Token> = TypeParser.ParseTypeParameterList(this.Data, this.Data.length, this.Template);
+// 这些 TypeParameter 是这一格（配平的 `>` / close）由文法建出来的，不是之前某个 build 的产物：
+// 连同名字与约束子树一起盖章，否则它们会一直是 CreatedAt = -1。
+for (const item of parsed) {
+  PossibleShape.StampAll(item, context.Index);
+}
 const parent = this.Parent;
 if (parent !== null) {
   const index = parent.Data.indexOf(this);

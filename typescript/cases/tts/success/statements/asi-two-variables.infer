@@ -7,7 +7,7 @@ let y = 2
 [0-19] |let x = 1⏎let y = 2⏎|
 ```
 
-SourceFile  pos=0  src=[0,20)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,20)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 ├─ FirstStatement  pos=0  src=[0,9)   // created at char 5 "let x【␣】= 1 let", llm determined at char 9 "x = 1【⏎】let y"
 │  └─ VariableDeclarationList  pos=0  src=[0,9)   // created at char 5 "let x【␣】= 1 let", llm determined at char 9 "x = 1【⏎】let y"
 │     └─ VariableDeclaration  pos=3  src=[4,9)   // created at char 5 "let x【␣】= 1 let", llm determined at char 9 "x = 1【⏎】let y"

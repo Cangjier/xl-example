@@ -6,7 +6,7 @@ for (const v of xs) { }
 [0-19]  |for (const v of xs) | [20-23] |{ }⏎|
 ```
 
-SourceFile  pos=0  src=[0,24)   // created at char ?, llm determined at char 0 "【f】or (const"
+SourceFile  pos=0  src=[0,24)   // created at char 0 "【f】or (const", llm determined at char 0 "【f】or (const"
 └─ ForOfStatement  pos=0  src=[0,23)   // created at char 18 "of xs【)】{ }", llm determined at char 19 "of xs)【␣】{ }"
    ├─ VariableDeclarationList  pos=5  src=[5,12)   // created at char 12 "const v【␣】of xs", llm determined at char 18 "of xs【)】{ }"
    │  └─ VariableDeclaration  pos=10  src=[11,12)   // created at char 12 "const v【␣】of xs", llm determined at char 18 "of xs【)】{ }"

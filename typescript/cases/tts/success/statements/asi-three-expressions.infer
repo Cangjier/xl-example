@@ -8,7 +8,7 @@ c
 [0-5] |a⏎b⏎c⏎|
 ```
 
-SourceFile  pos=0  src=[0,6)   // created at char ?, llm determined at char 0 "【a】b c"
+SourceFile  pos=0  src=[0,6)   // created at char 0 "【a】b c", llm determined at char 0 "【a】b c"
 ├─ ExpressionStatement  pos=0  src=[0,1)   // created at char 1 "a【⏎】b c", llm determined at char 1 "a【⏎】b c"
 │  └─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【⏎】b c", llm determined at char 1 "a【⏎】b c"
 ├─ ExpressionStatement  pos=1  src=[2,3)   // created at char 3 "a b【⏎】c", llm determined at char 3 "a b【⏎】c"

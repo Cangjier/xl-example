@@ -6,7 +6,7 @@ if (a) { if (b) c; else d; } else e;
 [0-19]  |if (a) { if (b) c; e| [20-36] |lse d; } else e;⏎|
 ```
 
-SourceFile  pos=0  src=[0,37)   // created at char ?, llm determined at char 0 "【i】f (a)"
+SourceFile  pos=0  src=[0,37)   // created at char 0 "【i】f (a)", llm determined at char 0 "【i】f (a)"
 └─ IfStatement  pos=0  src=[0,36)   // created at char 2 "if【␣】(a) {", llm determined at char 36 "else e;【⏎】"
    ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】{ if", llm determined at char 5 "if (a【)】{ if"
    ├─ Block  pos=6  src=[7,28)   // created at char 7 "(a)【{】if (", llm determined at char 28 "d; }【␣】else"

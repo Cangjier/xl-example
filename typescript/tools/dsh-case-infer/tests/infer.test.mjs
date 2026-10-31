@@ -97,15 +97,18 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
     /\/\/ created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="/,
   )
   assert.equal(text.includes('llm determined at char ?'), false)
+  // 根在第一个字符之前就存在：created 记 0。
+  assert.match(text, /\/\/ created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"/)
   // 这颗形状还没写 create 入口：created 记 ?，不是拿别的格冒充。
-  assert.match(text, /\/\/ created at char \?, llm determined at char 0/)
+  assert.match(text, /\/\/ created at char \?, llm determined at char 27 "Array【<】infer"/)
 
-  // created at 来自 shape token：3 一致 / 2 early / 11 没有 CreatedAt
+  // created at 来自 shape token：7 一致 / 4 early / 5 没有 CreatedAt
+  // （根 SourceFile 记 0；头部与 infer 的 TypeParameter 在收口那一格盖章）
   assert.equal(result.check.available, true)
   assert.equal(result.check.total, 16)
-  assert.equal(result.check.ok, 3)
-  assert.equal(result.check.early, 2)
-  assert.equal(result.check.unknown, 11)
+  assert.equal(result.check.ok, 7)
+  assert.equal(result.check.early, 4)
+  assert.equal(result.check.unknown, 5)
 })
 
 test('已有 .infer 时拒绝覆盖，除非 overwrite: true', async () => {

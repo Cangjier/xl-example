@@ -6,7 +6,7 @@ try { a; } catch (e) { b; }
 [0-19]  |try { a; } catch (e)| [20-27] | { b; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,28)   // created at char ?, llm determined at char 0 "【t】ry {"
+SourceFile  pos=0  src=[0,28)   // created at char 0 "【t】ry {", llm determined at char 0 "【t】ry {"
 └─ TryStatement  pos=0  src=[0,27)   // created at char 3 "try【␣】{ a;", llm determined at char 10 "a; }【␣】catch"
    ├─ Block  pos=3  src=[4,10)   // created at char 4 "try【{】a; }", llm determined at char 10 "a; }【␣】catch"
    │  └─ ExpressionStatement  pos=5  src=[6,8)   // created at char 7 "try { a【;】} catch", llm determined at char 8 "{ a;【␣】} catch"

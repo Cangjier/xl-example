@@ -6,7 +6,7 @@ let /* c */ x = 1
 [0-17] |let /* c */ x = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,18)   // created at char ?, llm determined at char 0 "【l】et /*"
+SourceFile  pos=0  src=[0,18)   // created at char 0 "【l】et /*", llm determined at char 0 "【l】et /*"
 └─ FirstStatement  pos=0  src=[0,17)   // created at char 13 "*/ x【␣】= 1", llm determined at char 16 "x =【1】"
    └─ VariableDeclarationList  pos=0  src=[0,17)   // created at char 13 "*/ x【␣】= 1", llm determined at char 16 "x =【1】"
       └─ VariableDeclaration  pos=3  src=[12,17)   // created at char 13 "*/ x【␣】= 1", llm determined at char 14 "*/ x【=】1"

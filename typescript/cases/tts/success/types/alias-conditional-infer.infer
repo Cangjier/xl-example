@@ -7,19 +7,19 @@ type A<T> = T extends Array<infer U> ? U : never
 [40-48] | : never⏎|
 ```
 
-SourceFile  pos=0  src=[0,49)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,49)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,48)   // created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="
-   ├─ TypeParameter  pos=7  src=[7,8)   // created at char ?, llm determined at char 6 "type A【<】T> ="（由 TypeParameterList 转换）
-   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // created at char ?, llm determined at char 8 "type A<T【>】= T"
+   ├─ TypeParameter  pos=7  src=[7,8)   // created at char 8 "type A<T【>】= T", llm determined at char 6 "type A【<】T> ="（由 TypeParameterList 转换）
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // created at char 8 "type A<T【>】= T", llm determined at char 8 "type A<T【>】= T"
    └─ ConditionalType  pos=11  src=[12,48)   // created at char 21 "extends【␣】Array", llm determined at char 21 "extends【␣】Array"
       ├─ TypeReference  pos=11  src=[12,13)   // created at char 21 "extends【␣】Array", llm determined at char 14 "= T【e】xtends"
       │  └─ Identifier  pos=11  src=[12,13)  text="T"   // created at char 21 "extends【␣】Array", llm determined at char 13 "> = T【␣】extends"
       ├─ TypeReference  pos=21  src=[22,36)   // created at char ?, llm determined at char 27 "Array【<】infer"
       │  ├─ Identifier  pos=21  src=[22,27)  text="Array"   // created at char ?, llm determined at char 27 "Array【<】infer"
-      │  └─ InferType  pos=28  src=[28,35)   // created at char ?, llm determined at char 33 "infer【␣】U> ?"
-      │     └─ TypeParameter  pos=33  src=[34,35)   // created at char ?, llm determined at char 35 "infer U【>】? U"
-      │        └─ Identifier  pos=33  src=[34,35)  text="U"   // created at char ?, llm determined at char 35 "infer U【>】? U"
+      │  └─ InferType  pos=28  src=[28,35)   // created at char 35 "infer U【>】? U", llm determined at char 33 "infer【␣】U> ?"
+      │     └─ TypeParameter  pos=33  src=[34,35)   // created at char 35 "infer U【>】? U", llm determined at char 35 "infer U【>】? U"
+      │        └─ Identifier  pos=33  src=[34,35)  text="U"   // created at char 35 "infer U【>】? U", llm determined at char 35 "infer U【>】? U"
       ├─ TypeReference  pos=38  src=[39,40)   // created at char ?, llm determined at char 41 "? U【:】never"
       │  └─ Identifier  pos=38  src=[39,40)  text="U"   // created at char ?, llm determined at char 40 "> ? U【␣】: never"
       └─ NeverKeyword  pos=42  src=[43,48)  text="never"   // created at char ?, llm determined at char 48 "never【⏎】"

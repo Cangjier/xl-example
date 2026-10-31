@@ -6,7 +6,7 @@
 [0-5] |1+2*3⏎|
 ```
 
-SourceFile  pos=0  src=[0,6)   // created at char ?, llm determined at char 0 "【1】+2*3"
+SourceFile  pos=0  src=[0,6)   // created at char 0 "【1】+2*3", llm determined at char 0 "【1】+2*3"
 └─ ExpressionStatement  pos=0  src=[0,5)   // created at char 1 "1【+】2*3", llm determined at char 5 "1+2*3【⏎】"
    └─ BinaryExpression  pos=0  src=[0,5)   // created at char 2 "1+【2】*3", llm determined at char 5 "1+2*3【⏎】"
       ├─ FirstLiteralToken  pos=0  src=[0,1)  text="1"   // created at char 1 "1【+】2*3", llm determined at char 1 "1【+】2*3"

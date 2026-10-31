@@ -6,7 +6,7 @@ let café = 1
 [0-12] |let café = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char ?, llm determined at char 0 "【l】et caf"
+SourceFile  pos=0  src=[0,13)   // created at char 0 "【l】et caf", llm determined at char 0 "【l】et caf"
 └─ FirstStatement  pos=0  src=[0,12)   // created at char 8 "café【␣】= 1", llm determined at char 11 "café =【1】"
    └─ VariableDeclarationList  pos=0  src=[0,12)   // created at char 8 "café【␣】= 1", llm determined at char 11 "café =【1】"
       └─ VariableDeclaration  pos=3  src=[4,12)   // created at char 8 "café【␣】= 1", llm determined at char 11 "café =【1】"

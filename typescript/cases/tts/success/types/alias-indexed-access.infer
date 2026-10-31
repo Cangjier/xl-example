@@ -6,7 +6,7 @@ type A = Foo["bar"]
 [0-19] |type A = Foo["bar"]⏎|
 ```
 
-SourceFile  pos=0  src=[0,20)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,20)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,19)   // created at char 6 "type A【␣】= Foo", llm determined at char 18 "\"bar\"【]】"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= Foo", llm determined at char 6 "type A【␣】= Foo"
    └─ IndexedAccessType  pos=8  src=[9,19)   // created at char ?, llm determined at char 18 "\"bar\"【]】"

@@ -58,8 +58,9 @@ node typescript/tools/gen-case-docs.mjs typescript/cases/tts/success/statements/
 // created at char 5 "let x【␣】= 1", llm determined at char 3 "let【␣】x = 1"
 ```
 
-- `created at`：`ShapeToken.CreatedAt`，possible / end 的 build 建出这颗形状的那一格
-  （落在 EOF 那一格时写 `char <字符总数>`；还没写 create 入口的形状记 `char ?`）。
+- `created at`：`ShapeToken.CreatedAt`，possible / end 的 build（含类型参数表 / 实参表的收口）
+  建出这颗形状的那一格。根 `SourceFile` 在第一个字符之前就存在，记 `char 0`；落在 EOF 那一格时记
+  `char <字符总数>`；还没写 create 入口的形状记 `char ?`。
 - `llm determined`：模型按语法逻辑判定的「最早能确定」位置，不看解析器；还没判定时记 `char ?`。
 - 每个位置各带自己的上下文：标记字符前后各至少 5 个字符，`【】` 标出该字符（空格 `␣`、换行 `⏎`）。
 

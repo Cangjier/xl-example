@@ -6,7 +6,7 @@ let x = 1+2
 [0-11] |let x = 1+2⏎|
 ```
 
-SourceFile  pos=0  src=[0,12)   // created at char ?, llm determined at char 0 "【l】et x"
+SourceFile  pos=0  src=[0,12)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
 └─ FirstStatement  pos=0  src=[0,11)   // created at char 5 "let x【␣】= 1+2", llm determined at char 11 "= 1+2【⏎】"
    └─ VariableDeclarationList  pos=0  src=[0,11)   // created at char 5 "let x【␣】= 1+2", llm determined at char 11 "= 1+2【⏎】"
       └─ VariableDeclaration  pos=3  src=[4,11)   // created at char 5 "let x【␣】= 1+2", llm determined at char 5 "let x【␣】= 1+2"

@@ -6,7 +6,7 @@ type A = [string?]
 [0-18] |type A = [string?]⏎|
 ```
 
-SourceFile  pos=0  src=[0,19)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,19)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,18)   // created at char 6 "type A【␣】= [string", llm determined at char 8 "type A =【␣】[string"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= [string", llm determined at char 6 "type A【␣】= [string"
    └─ TupleType  pos=8  src=[9,18)   // created at char ?, llm determined at char 18 "string?]【⏎】"

@@ -6,7 +6,7 @@ if (a ** b ** c) d;
 [0-19] |if (a ** b ** c) d;⏎|
 ```
 
-SourceFile  pos=0  src=[0,20)   // created at char ?, llm determined at char 0 "【i】f (a"
+SourceFile  pos=0  src=[0,20)   // created at char 0 "【i】f (a", llm determined at char 0 "【i】f (a"
 └─ IfStatement  pos=0  src=[0,19)   // created at char 2 "if【␣】(a **", llm determined at char 15 "** c【)】d;"
    ├─ BinaryExpression  pos=4  src=[4,15)   // created at char 8 "(a **【␣】b **", llm determined at char 14 "b **【c】) d;"
    │  ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【␣】** b", llm determined at char 5 "if (a【␣】** b"

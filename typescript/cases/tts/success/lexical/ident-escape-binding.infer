@@ -6,7 +6,7 @@ let \u0061 = 1
 [0-14] |let \u0061 = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,15)   // created at char ?, llm determined at char 0 "【l】et \\u0061"
+SourceFile  pos=0  src=[0,15)   // created at char 0 "【l】et \\u0061", llm determined at char 0 "【l】et \\u0061"
 └─ FirstStatement  pos=0  src=[0,14)   // created at char 10 "u0061【␣】= 1", llm determined at char 13 "u0061 =【1】"
    └─ VariableDeclarationList  pos=0  src=[0,14)   // created at char 10 "u0061【␣】= 1", llm determined at char 13 "u0061 =【1】"
       └─ VariableDeclaration  pos=3  src=[4,14)   // created at char 10 "u0061【␣】= 1", llm determined at char 13 "u0061 =【1】"

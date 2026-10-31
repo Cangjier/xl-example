@@ -6,7 +6,7 @@ type A = X extends string ? 1 : 2
 [0-19]  |type A = X extends s| [20-33] |tring ? 1 : 2⏎|
 ```
 
-SourceFile  pos=0  src=[0,34)   // created at char ?, llm determined at char 0 "【t】ype A"
+SourceFile  pos=0  src=[0,34)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,33)   // created at char 6 "type A【␣】= X extends", llm determined at char 33 "1 : 2【⏎】"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= X extends", llm determined at char 6 "type A【␣】= X extends"
    └─ ConditionalType  pos=8  src=[9,33)   // created at char 18 "extends【␣】string", llm determined at char 27 "string ?【␣】1 : 2"

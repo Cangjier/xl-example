@@ -6,7 +6,7 @@ switch (a) { case 1: let y = 1; }
 [0-19]  |switch (a) { case 1:| [20-33] | let y = 1; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,34)   // created at char ?, llm determined at char 0 "【s】witch"
+SourceFile  pos=0  src=[0,34)   // created at char 0 "【s】witch", llm determined at char 0 "【s】witch"
 └─ SwitchStatement  pos=0  src=[0,33)   // created at char 6 "switch【␣】(a) {", llm determined at char 20 "case 1:【␣】let y"
    ├─ Identifier  pos=8  src=[8,9)  text="a"   // created at char 9 "switch (a【)】{ case", llm determined at char 9 "switch (a【)】{ case"
    └─ CaseBlock  pos=10  src=[11,33)   // created at char 11 "(a)【{】case", llm determined at char 20 "case 1:【␣】let y"

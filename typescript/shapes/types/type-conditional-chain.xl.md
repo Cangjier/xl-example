@@ -324,12 +324,17 @@ while (owner !== null && TypeConditionalUtil.IsOperatorShape(owner)) {
 }
 ```
 
-## static method FinishArgumentList:(list:Token)=>void
+## static method FinishArgumentList:(list:Token, context:SyntaxContext)=>void
 
 ```ts
 // 表溶解：`< … >` 解析成实参，直接变成宿主引用的子节点（TS 的 AST 里没有 list 节点）。
 // 引用的右边界取 `>` 之后；运算符祖先跟着补齐；挂载链断开到段宿主。
 const tail = TypeParser.ParseTypeArgumentTail(list.Data, list.Data.length, list.Template);
+// 这些实参（`infer U` 之类）是这一格由文法建出来的，连同子树一起盖章；
+// 宿主引用本身更早就存在，不在这里盖。
+for (const item of tail.Arguments) {
+  PossibleShape.StampAll(item, context.Index);
+}
 const parent = list.Parent;
 if (!(parent instanceof TypeReferenceShape)) {
   throw new Error("TypeConditionalUtil: 实参表没有宿主引用");
@@ -1030,7 +1035,7 @@ return this.StampCreated(unit, context);
 
 ```ts
 // EOF 之类的收口：按正常溶解走。没闭合的 `< …` 会在这里抛语法错误，而不是留下一张半成品的表。
-TypeConditionalUtil.FinishArgumentList(this);
+TypeConditionalUtil.FinishArgumentList(this, context);
 return CloseStates.Nothing;
 ```
 
@@ -1069,7 +1074,7 @@ return TypeParser.IsBalanced(units, units.length);
 ```ts
 const list = host as TypeArgumentListShape;
 const close = list.Data[list.Data.length - 1];
-TypeConditionalUtil.FinishArgumentList(list);
+TypeConditionalUtil.FinishArgumentList(list, context);
 return this.StampCreated(close, context);
 ```
 
