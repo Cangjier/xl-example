@@ -60,7 +60,7 @@ export function createInferTool(ctx, config, logger) {
   return {
     name: 'case_infer',
     description: [
-      'Generate <case>.infer for a tts case: for every node of the TypeScript AST, both the character at which the shape token was created (ShapeToken.CreatedAt) and the first character at which the model judges that shape to be determined.',
+      'Generate <case>.infer for a tts case: for every node of the TypeScript AST, both the character recorded as its created position (ShapeToken.CreatedRevisionAt when present, otherwise ShapeToken.CreatedAt) and the first character at which the model judges that shape to be determined.',
       'Only the judgement is made by the host\'s current default model (agentDefaultModel); the tool builds the skeleton with created at already filled, asks for the "llm determined" numbers only, fills them back, formats the notes and runs the llm-vs-created check.',
       'Writes the .infer file next to the .ts (refuses to overwrite unless overwrite:true), then reports ok / late +N / early -N / no-created / never per node.',
       `Model: ${config.provider ?? 'host default'} / ${config.model ?? 'host default'}. One model call per generation (plus at most ${config.retries} retry on a malformed answer).`,
@@ -105,7 +105,7 @@ export function createInferTool(ctx, config, logger) {
         throw new Error(`${inferPath} 已存在；要重新判定请传 overwrite: true`)
       }
 
-      // created at 来自 ShapeToken.CreatedAt：骨架里先填好，模型只补 llm determined。
+      // created at 来自 shape token 的 created 位置（修订位置优先）：骨架里先填好，模型只补 llm determined。
       const actual = traceActual(source, name)
       const text = scaffold(source, name, actual.created)
       const nodes = astLines(source, name)

@@ -72,6 +72,8 @@ function collect(node, depth, isLast, out) {
     text: node.Text !== undefined ? node.Text : (node.Temp !== undefined ? node.Temp : ""),
     // ShapeToken.CreatedAt：possible / end 的 build 建出这颗形状的那一格；-1 = 还没写 create 入口。
     createdAt: typeof node.CreatedAt === "number" ? node.CreatedAt : -1,
+    // ShapeToken.CreatedRevisionAt：创建时拿不到、end 时才知道的「本该建在这一格」的修订位置；-1 = 没有修订。
+    createdRevisionAt: typeof node.CreatedRevisionAt === "number" ? node.CreatedRevisionAt : -1,
     isLast,
     depth,
   });
@@ -83,8 +85,8 @@ function collect(node, depth, isLast, out) {
 }
 
 /** 返回 { map, created, final }；key = kind|pos|src 起点，与 .ast / .infer 行用同一套。
- *  map 是「首次出现在树里」的那一格；created 是 ShapeToken.CreatedAt（建出形状的那一格，
- *  没有就记 null）；final 是最终树。 */
+ *  map 是「首次出现在树里」的那一格；created 优先取 CreatedRevisionAt（修订后的创建位置），
+ *  没有修订才取 ShapeToken.CreatedAt（实际建出形状的那一格），都没有记 null；final 是最终树。 */
 export function traceActual(source, name) {
   const parser = loadParser();
   const template = parser.TypescriptTemplate.Create();
@@ -109,7 +111,11 @@ export function traceActual(source, name) {
   const final = collect(root, 0, true, []);
   const created = new Map();
   for (const rec of final) {
-    created.set(rec.key, rec.createdAt >= 0 ? rec.createdAt : null);
+    // `.infer` 的 created 列优先用修订位置：有修订时它才是「本该建在这一格」的位置。
+    const at = rec.createdRevisionAt >= 0
+      ? rec.createdRevisionAt
+      : rec.createdAt >= 0 ? rec.createdAt : null;
+    created.set(rec.key, at);
   }
   return { map, created, final };
 }

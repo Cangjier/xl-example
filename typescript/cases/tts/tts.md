@@ -63,7 +63,9 @@ node typescript/tools/gen-case-docs.mjs typescript/cases/tts/success/statements/
 ```
 
 - `created at`：`ShapeToken.CreatedAt`，possible / end 的 build（含类型参数表 / 实参表的收口）
-  建出这颗形状的那一格。根 `SourceFile` 在第一个字符之前就存在，记 `【x:0】`；落在 EOF 那一格时
+  建出这颗形状的那一格。创建那一格拿不到、end 时才拿得到的位置（头部 `TypeParameter` 的名字第一格）
+  记在 `ShapeToken.CreatedRevisionAt`：`.infer` 的 created 列**优先用修订位置**，没有修订才用 `CreatedAt`。
+  根 `SourceFile` 在第一个字符之前就存在，记 `【x:0】`；落在 EOF 那一格时
   记 `【x:<字符总数>】`；还没写 create 入口的形状整行位置记 `?`。
 - `llm determined`：模型按语法逻辑判定的「最早能确定」位置，不看解析器；还没判定时箭头后面记 `?`。
 - 上下文是标记位置前后各至少 5 个字符，`【x:N】` 标出该位置；片段里的 `"` / `\` 会转义。

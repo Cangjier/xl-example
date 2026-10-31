@@ -31,7 +31,7 @@ case_infer
 
 流程：
 
-1. 生成骨架，`created at` 直接从 `ShapeToken.CreatedAt` 填好（没有就记 `?`）；抽出节点清单（kind / pos / src 起点 / src 终点）；
+1. 生成骨架，`created at` 直接从 shape token 的 created 位置填好（`CreatedRevisionAt` 优先，其次 `CreatedAt`；都没有就记 `?`）；抽出节点清单（kind / pos / src 起点 / src 终点）；
 2. 把「源码 + 逐字表 + 节点清单 + 规则」发给默认模型，**只要 llm determined 的数字**；
 3. 校验：每个节点恰好一次、kind/pos/start 原样、`char` 在 `0..N-1`；不合格就带着问题重试（`retries`），仍不合格**不写盘**；
 4. 填回骨架 → 补两个位置的上下文 → 写 `.infer`；

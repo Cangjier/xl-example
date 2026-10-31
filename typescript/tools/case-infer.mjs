@@ -2,7 +2,8 @@
 // case.infer 工具。
 //
 // 用途：给 tts 用例产出一份 `<名字>.infer`：与 `.ast` 同形的树，每行末尾的上下文用 `【x:N】`
-// 标出位置——N 是 ShapeToken.CreatedAt（解析器建出这颗形状的那一格）。两个位置不同时，
+// 标出位置——N 是这颗形状的 created 位置：有 CreatedRevisionAt 时用它（修订位置），
+// 否则用 ShapeToken.CreatedAt（解析器建出这颗形状的那一格）。两个位置不同时，
 // 后面再跟 `-> llm "…【x:M】…"`，M 是模型按语法逻辑判定的「最早在哪一格确定」。
 // 并拿这两个位置对拍，把差异列出来。
 //
@@ -389,9 +390,9 @@ export function evaluate(source, name, inferText, actual = null) {
 /**
  * 把「节点 → llm determined」的数字填进骨架，再补两个位置的上下文。
  * @param {string} source 用例源码
- * @param {string} scaffoldText 骨架（每行 `"…【x:N】…" -> llm ?`，N 是 CreatedAt）
+ * @param {string} scaffoldText 骨架（每行 `"…【x:N】…" -> llm ?`，N 是 created 位置）
  * @param {Map<string, number>} numbers 节点身份 → 模型判定的字符号
- * @param {Map<string, number|null>|null} created 节点身份 → shape token 的 CreatedAt
+ * @param {Map<string, number|null>|null} created 节点身份 → created 位置（修订位置优先）
  * @returns {{text: string, filled: number, missing: string[]}}
  */
 export function applyNumbers(source, scaffoldText, numbers, created = null) {

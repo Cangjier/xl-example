@@ -13,6 +13,7 @@ import { IdentifierShape } from "../names/identifier-shape.xl.md"
 import { ItemUtil } from "../item-util.xl.md"
 import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
+import { TypeParameterShape } from "./type-node-shapes.xl.md"
 ```
 
 # namespace cangjie
@@ -75,6 +76,13 @@ const parsed:Array<Token> = TypeParser.ParseTypeParameterList(this.Data, this.Da
 // 连同名字与约束子树一起盖章，否则它们会一直是 CreatedAt = -1。
 for (const item of parsed) {
   PossibleShape.StampAll(item, context.Index);
+}
+// 参数的 CreatedAt 只能是这一格（表收口才拿得到名字），但它从名字第一格起就已经可标识；
+// 把那个位置记到 CreatedRevisionAt，`.infer` 优先用它（core 的 CreatedAt 仍是实际创建格）。
+for (const item of parsed) {
+  if (item instanceof TypeParameterShape) {
+    item.CreatedRevisionAt = item.SourceRange.Start;
+  }
 }
 const parent = this.Parent;
 if (parent !== null) {

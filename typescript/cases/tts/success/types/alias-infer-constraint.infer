@@ -10,7 +10,7 @@ type A<T> = T extends Array<infer U extends string> ? U : never
 SourceFile  pos=0  src=[0,64)   // "【x:0】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,63)   // "type A【x:6】T> =" -> llm "<T> =【x:11】T extends"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】T> ="
-   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<T【x:8】= T" -> llm "type A<【x:7】> = T"
+   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<【x:7】> = T"
    │  └─ Identifier  pos=7  src=[7,8)  text="T"   // "type A<T【x:8】= T"
    └─ ConditionalType  pos=11  src=[12,63)   // "extends【x:21】Array" -> llm "string> ?【x:53】U : never"
       ├─ TypeReference  pos=11  src=[12,13)   // "extends【x:21】Array" -> llm "> = T【x:13】extends"

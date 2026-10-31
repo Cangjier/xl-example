@@ -9,7 +9,7 @@ type A<T> = { [K in keyof T]: T[K] }
 SourceFile  pos=0  src=[0,37)   // "【x:0】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,36)   // "type A【x:6】T> ="
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】T> ="
-   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<T【x:8】= {"
+   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<【x:7】> = {" -> llm "type A<T【x:8】= {"
    │  └─ Identifier  pos=7  src=[7,8)  text="T"   // "type A<T【x:8】= {"
    └─ MappedType  pos=11  src=[12,36)   // ? -> llm "T[K]【x:35】"
       ├─ TypeParameter  pos=15  src=[15,27)   // ? -> llm "keyof T【x:27】: T[K"

@@ -94,10 +94,11 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   assert.match(text, /^type A<T> = T extends Array<infer U> \? U : never$/m)
   // 两个位置相同：只写一个上下文，位置在 【x:N】 里。
   assert.match(text, /\/\/ "type A【x:6】T> ="/)
-  // 位置不同：再跟 `-> llm "…"`。
+  // 位置不同：再跟 `-> llm "…"`。头部 TypeParameter 实际建在 8（表收口），
+  // 但 CreatedRevisionAt 记的是名字第一格 7，.infer 的 created 列优先用它。
   assert.match(
     text,
-    /\/\/ "type A<T【x:8】= T" -> llm "type A【x:6】T> ="/,
+    /\/\/ "type A<【x:7】> = T" -> llm "type A【x:6】T> ="/,
   )
   assert.equal(text.includes('-> llm ?'), false)
   // 根在第一个字符之前就存在：位置 0。
@@ -106,7 +107,7 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   assert.match(text, /\/\/ \? -> llm "Array【x:27】infer"/)
 
   // created at 来自 shape token：7 一致 / 4 early / 5 没有 CreatedAt
-  // （根 SourceFile 记 0；头部与 infer 的 TypeParameter 在收口那一格盖章）
+  // （根 SourceFile 记 0；头部 TypeParameter 的 created 取修订位置 7）
   assert.equal(result.check.available, true)
   assert.equal(result.check.total, 16)
   assert.equal(result.check.ok, 7)

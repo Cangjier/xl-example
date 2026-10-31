@@ -16,6 +16,8 @@ import { UnitToken } from "./unit-token.xl.md"
 
 ## field CreatedAt:int = -1
 
+## field CreatedRevisionAt:int = -1
+
 ## constructor:(template:Template)=>void
 
 ```ts

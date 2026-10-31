@@ -10,7 +10,7 @@ type A<T> = T extends string ? Array<T> : Map<string, T>
 SourceFile  pos=0  src=[0,57)   // "【x:0】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,56)   // "type A【x:6】T> =" -> llm "type【x:4】A<T>"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】T> =" -> llm "type【x:4】A<T>"
-   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<T【x:8】= T" -> llm "type A<【x:7】> = T"
+   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<【x:7】> = T"
    │  └─ Identifier  pos=7  src=[7,8)  text="T"   // "type A<T【x:8】= T"
    └─ ConditionalType  pos=11  src=[12,56)   // "extends【x:21】string" -> llm "extend【x:20】string"
       ├─ TypeReference  pos=11  src=[12,13)   // "extends【x:21】string" -> llm "T> =【x:12】extends"
