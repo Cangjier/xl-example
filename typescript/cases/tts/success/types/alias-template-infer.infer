@@ -1,0 +1,25 @@
+# 预期形状创建位置（逐字）：`type A<T> = T extends `a${infer R}` ? R : never`
+
+```text
+[0-19]  |type A<T> = T extend| [20-39] |s `a${infer R}` ? R |
+[40-47] |: never⏎|
+```
+
+SourceFile  pos=0  src=[0,48)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,47)   // char 13 "> = T【␣】extends"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【<】T> ="
+   ├─ TypeParameter  pos=7  src=[7,8)   // char 8 "type A<T【>】= T"
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // char 8 "type A<T【>】= T"
+   └─ ConditionalType  pos=11  src=[12,47)   // char 47 "never【⏎】"
+      ├─ TypeReference  pos=11  src=[12,13)   // char 13 "> = T【␣】extends"
+      │  └─ Identifier  pos=11  src=[12,13)  text="T"   // char 13 "> = T【␣】extends"
+      ├─ TemplateLiteralType  pos=21  src=[22,35)   // char 35 "infer R}`【␣】? R :"
+      │  ├─ TemplateHead  pos=21  src=[22,26)  text="`a${"   // char 26 "`a${【i】nfer"
+      │  └─ TemplateLiteralTypeSpan  pos=26  src=[26,35)   // char 35 "infer R}`【␣】? R :"
+      │     ├─ InferType  pos=26  src=[26,33)   // char 33 "infer R【}】` ? R"
+      │     │  └─ TypeParameter  pos=31  src=[32,33)   // char 33 "infer R【}】` ? R"
+      │     │     └─ Identifier  pos=31  src=[32,33)  text="R"   // char 33 "infer R【}】` ? R"
+      │     └─ LastTemplateToken  pos=33  src=[33,35)  text="}`"   // char 35 "infer R}`【␣】? R :"
+      ├─ TypeReference  pos=37  src=[38,39)   // char 39 "` ? R【␣】: never"
+      │  └─ Identifier  pos=37  src=[38,39)  text="R"   // char 39 "` ? R【␣】: never"
+      └─ NeverKeyword  pos=41  src=[42,47)  text="never"   // char 47 "never【⏎】"

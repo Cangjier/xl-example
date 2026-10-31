@@ -1,0 +1,14 @@
+# 预期形状创建位置（逐字）：`if (a) b + c;`
+
+```text
+[0-13] |if (a) b + c;⏎|
+```
+
+SourceFile  pos=0  src=[0,14)   // char 0 "【i】f (a)"
+└─ IfStatement  pos=0  src=[0,13)   // char 12 "b + c【;】"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // char 6 "if (a)【␣】b + c"
+   └─ ExpressionStatement  pos=6  src=[7,13)   // char 12 "b + c【;】"
+      └─ BinaryExpression  pos=6  src=[7,12)   // char 12 "b + c【;】"
+         ├─ Identifier  pos=6  src=[7,8)  text="b"   // char 8 "(a) b【␣】+ c;"
+         ├─ PlusToken  pos=8  src=[9,10)  text="+"   // char 10 ") b +【␣】c;"
+         └─ Identifier  pos=10  src=[11,12)  text="c"   // char 12 "b + c【;】"

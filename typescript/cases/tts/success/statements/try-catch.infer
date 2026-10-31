@@ -1,0 +1,17 @@
+# 预期形状创建位置（逐字）：`try { a; } catch (e) { b; }`
+
+```text
+[0-19]  |try { a; } catch (e)| [20-27] | { b; }⏎|
+```
+
+SourceFile  pos=0  src=[0,28)   // char 0 "【t】ry {"
+└─ TryStatement  pos=0  src=[0,27)   // char 10 "a; }【␣】catch"
+   ├─ Block  pos=3  src=[4,10)   // char 10 "a; }【␣】catch"
+   │  └─ ExpressionStatement  pos=5  src=[6,8)   // char 8 "{ a;【␣】} catch"
+   │     └─ Identifier  pos=5  src=[6,7)  text="a"   // char 7 "try { a【;】} catch"
+   └─ CatchClause  pos=10  src=[11,27)   // char 20 "catch (e)【␣】{ b;"
+      ├─ VariableDeclaration  pos=18  src=[18,19)   // char 19 "catch (e【)】{ b;"
+      │  └─ Identifier  pos=18  src=[18,19)  text="e"   // char 19 "catch (e【)】{ b;"
+      └─ Block  pos=20  src=[21,27)   // char 27 "b; }【⏎】"
+         └─ ExpressionStatement  pos=22  src=[23,25)   // char 25 "{ b;【␣】}"
+            └─ Identifier  pos=22  src=[23,24)  text="b"   // char 24 ") { b【;】}"

@@ -1,0 +1,24 @@
+# 预期形状创建位置（逐字）：`type A<T> = T extends Array<infer U extends string> ? U : never`
+
+```text
+[0-19]  |type A<T> = T extend| [20-39] |s Array<infer U exte|
+[40-59] |nds string> ? U : ne| [60-63] |ver⏎|
+```
+
+SourceFile  pos=0  src=[0,64)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,63)   // char 11 "<T> =【␣】T extends"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【<】T> ="
+   ├─ TypeParameter  pos=7  src=[7,8)   // char 7 "type A<【T】> = T"
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // char 8 "type A<T【>】= T"
+   └─ ConditionalType  pos=11  src=[12,63)   // char 53 "string> ?【␣】U : never"
+      ├─ TypeReference  pos=11  src=[12,13)   // char 13 "> = T【␣】extends"
+      │  └─ Identifier  pos=11  src=[12,13)  text="T"   // char 13 "> = T【␣】extends"
+      ├─ TypeReference  pos=21  src=[22,51)   // char 43 "extends【␣】string"
+      │  ├─ Identifier  pos=21  src=[22,27)  text="Array"   // char 27 "Array【<】infer"
+      │  └─ InferType  pos=28  src=[28,50)   // char 43 "extends【␣】string"
+      │     └─ TypeParameter  pos=33  src=[34,50)   // char 43 "extends【␣】string"
+      │        ├─ Identifier  pos=33  src=[34,35)  text="U"   // char 35 "infer U【␣】extends"
+      │        └─ StringKeyword  pos=43  src=[44,50)  text="string"   // char 50 "string【>】? U"
+      ├─ TypeReference  pos=53  src=[54,55)   // char 55 "> ? U【␣】: never"
+      │  └─ Identifier  pos=53  src=[54,55)  text="U"   // char 55 "> ? U【␣】: never"
+      └─ NeverKeyword  pos=57  src=[58,63)  text="never"   // char 63 "never【⏎】"

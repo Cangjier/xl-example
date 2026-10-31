@@ -1,0 +1,13 @@
+# 预期形状创建位置（逐字）：`for (const v of xs) { }`
+
+```text
+[0-19]  |for (const v of xs) | [20-23] |{ }⏎|
+```
+
+SourceFile  pos=0  src=[0,24)   // char 0 "【f】or (const"
+└─ ForOfStatement  pos=0  src=[0,23)   // char 19 "of xs)【␣】{ }"
+   ├─ VariableDeclarationList  pos=5  src=[5,12)   // char 18 "of xs【)】{ }"
+   │  └─ VariableDeclaration  pos=10  src=[11,12)   // char 18 "of xs【)】{ }"
+   │     └─ Identifier  pos=10  src=[11,12)  text="v"   // char 12 "const v【␣】of xs"
+   ├─ Identifier  pos=15  src=[16,18)  text="xs"   // char 18 "of xs【)】{ }"
+   └─ Block  pos=19  src=[20,23)   // char 22 "xs) {【}】"

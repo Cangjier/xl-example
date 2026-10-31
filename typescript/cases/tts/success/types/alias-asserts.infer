@@ -1,0 +1,18 @@
+# 预期形状创建位置（逐字）：`type A = (x: unknown) => asserts x is string`
+
+```text
+[0-19]  |type A = (x: unknown| [20-39] |) => asserts x is st|
+[40-44] |ring⏎|
+```
+
+SourceFile  pos=0  src=[0,45)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,44)   // char 8 "type A =【␣】(x: unknown"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= (x:"
+   └─ FunctionType  pos=8  src=[9,44)   // char 10 "A = (【x】: unknown"
+      ├─ Parameter  pos=10  src=[10,20)   // char 20 "unknown【)】=> asserts"
+      │  ├─ Identifier  pos=10  src=[10,11)  text="x"   // char 11 "= (x【:】unknown"
+      │  └─ UnknownKeyword  pos=12  src=[13,20)  text="unknown"   // char 20 "unknown【)】=> asserts"
+      └─ FirstTypeNode  pos=24  src=[25,44)   // char 44 "string【⏎】"
+         ├─ AssertsKeyword  pos=24  src=[25,32)  text="asserts"   // char 32 "asserts【␣】x is"
+         ├─ Identifier  pos=32  src=[33,34)  text="x"   // char 34 "asserts x【␣】is string"
+         └─ StringKeyword  pos=37  src=[38,44)  text="string"   // char 44 "string【⏎】"

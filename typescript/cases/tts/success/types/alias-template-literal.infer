@@ -1,0 +1,14 @@
+# 预期形状创建位置（逐字）：`type A = `a${string}b``
+
+```text
+[0-19]  |type A = `a${string}| [20-22] |b`⏎|
+```
+
+SourceFile  pos=0  src=[0,23)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,22)   // char 21 "string}b【`】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= `a$"
+   └─ TemplateLiteralType  pos=8  src=[9,22)   // char 21 "string}b【`】"
+      ├─ TemplateHead  pos=8  src=[9,13)  text="`a${"   // char 11 "= `a【$】{string"
+      └─ TemplateLiteralTypeSpan  pos=13  src=[13,22)   // char 20 "string}【b】`"
+         ├─ StringKeyword  pos=13  src=[13,19)  text="string"   // char 19 "string【}】b`"
+         └─ LastTemplateToken  pos=19  src=[19,22)  text="}b`"   // char 21 "string}b【`】"

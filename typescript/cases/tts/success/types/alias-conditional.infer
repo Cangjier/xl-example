@@ -1,0 +1,17 @@
+# 预期形状创建位置（逐字）：`type A = X extends string ? 1 : 2`
+
+```text
+[0-19]  |type A = X extends s| [20-33] |tring ? 1 : 2⏎|
+```
+
+SourceFile  pos=0  src=[0,34)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,33)   // char 33 "1 : 2【⏎】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= X extends"
+   └─ ConditionalType  pos=8  src=[9,33)   // char 27 "string ?【␣】1 : 2"
+      ├─ TypeReference  pos=8  src=[9,10)   // char 17 "extend【s】string"
+      │  └─ Identifier  pos=8  src=[9,10)  text="X"   // char 10 "A = X【␣】extends"
+      ├─ StringKeyword  pos=18  src=[19,25)  text="string"   // char 25 "string【␣】? 1 :"
+      ├─ LiteralType  pos=27  src=[28,29)   // char 29 "string ? 1【␣】: 2"
+      │  └─ FirstLiteralToken  pos=27  src=[28,29)  text="1"   // char 29 "string ? 1【␣】: 2"
+      └─ LiteralType  pos=31  src=[32,33)   // char 33 "1 : 2【⏎】"
+         └─ FirstLiteralToken  pos=31  src=[32,33)  text="2"   // char 33 "1 : 2【⏎】"

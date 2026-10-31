@@ -1,0 +1,17 @@
+# 预期形状创建位置（逐字）：`type A = { readonly [k: string]: number }`
+
+```text
+[0-19]  |type A = { readonly | [20-39] |[k: string]: number |
+[40-41] |}⏎|
+```
+
+SourceFile  pos=0  src=[0,42)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,41)   // char 8 "type A =【␣】{ readonly"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= { readonly"
+   └─ TypeLiteral  pos=8  src=[9,41)   // char 10 "A = {【␣】readonly"
+      └─ IndexSignature  pos=10  src=[11,39)   // char 21 "readonly [【k】: string"
+         ├─ ReadonlyKeyword  pos=10  src=[11,19)  text="readonly"   // char 19 "readonly【␣】[k: string"
+         ├─ Parameter  pos=21  src=[21,30)   // char 30 "string【]】: number"
+         │  ├─ Identifier  pos=21  src=[21,22)  text="k"   // char 22 "readonly [k【:】string"
+         │  └─ StringKeyword  pos=23  src=[24,30)  text="string"   // char 30 "string【]】: number"
+         └─ NumberKeyword  pos=32  src=[33,39)  text="number"   // char 39 "number【␣】}"

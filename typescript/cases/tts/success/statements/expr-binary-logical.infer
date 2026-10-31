@@ -1,0 +1,12 @@
+# 预期形状创建位置（逐字）：`a && b;`
+
+```text
+[0-7] |a && b;⏎|
+```
+
+SourceFile  pos=0  src=[0,8)   // char 0 "【a】&& b"
+└─ ExpressionStatement  pos=0  src=[0,7)   // char 6 "&& b【;】"
+   └─ BinaryExpression  pos=0  src=[0,6)   // char 6 "&& b【;】"
+      ├─ Identifier  pos=0  src=[0,1)  text="a"   // char 1 "a【␣】&& b;"
+      ├─ AmpersandAmpersandToken  pos=1  src=[2,4)  text="&&"   // char 4 "a &&【␣】b;"
+      └─ Identifier  pos=4  src=[5,6)  text="b"   // char 6 "&& b【;】"

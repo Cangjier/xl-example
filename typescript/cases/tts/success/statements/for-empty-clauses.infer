@@ -1,0 +1,9 @@
+# 预期形状创建位置（逐字）：`for (;;) { }`
+
+```text
+[0-12] |for (;;) { }⏎|
+```
+
+SourceFile  pos=0  src=[0,13)   // char 0 "【f】or (;"
+└─ ForStatement  pos=0  src=[0,12)   // char 9 "(;;)【{】}"
+   └─ Block  pos=8  src=[9,12)   // char 12 ") { }【⏎】"

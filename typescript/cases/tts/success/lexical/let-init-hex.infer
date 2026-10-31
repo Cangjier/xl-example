@@ -1,0 +1,12 @@
+# 预期形状创建位置（逐字）：`let x = 0x1F`
+
+```text
+[0-12] |let x = 0x1F⏎|
+```
+
+SourceFile  pos=0  src=[0,13)   // char 0 "【l】et x"
+└─ FirstStatement  pos=0  src=[0,12)   // char 5 "let x【␣】= 0x1F"
+   └─ VariableDeclarationList  pos=0  src=[0,12)   // char 5 "let x【␣】= 0x1F"
+      └─ VariableDeclaration  pos=3  src=[4,12)   // char 5 "let x【␣】= 0x1F"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // char 5 "let x【␣】= 0x1F"
+         └─ FirstLiteralToken  pos=7  src=[8,12)  text="0x1F"   // char 12 "0x1F【⏎】"

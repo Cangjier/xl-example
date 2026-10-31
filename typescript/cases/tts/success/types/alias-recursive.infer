@@ -1,0 +1,17 @@
+# 预期形状创建位置（逐字）：`type A = { next: A | null }`
+
+```text
+[0-19]  |type A = { next: A || [20-27] | null }⏎|
+```
+
+SourceFile  pos=0  src=[0,28)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,27)   // char 9 "A =【{】next"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= { next"
+   └─ TypeLiteral  pos=8  src=[9,27)   // char 10 "A = {【␣】next:"
+      └─ PropertySignature  pos=10  src=[11,25)   // char 18 "next: A【␣】| null"
+         ├─ Identifier  pos=10  src=[11,15)  text="next"   // char 15 "next【:】A |"
+         └─ UnionType  pos=16  src=[17,25)   // char 26 "null【}】"
+            ├─ TypeReference  pos=16  src=[17,18)   // char 18 "next: A【␣】| null"
+            │  └─ Identifier  pos=16  src=[17,18)  text="A"   // char 18 "next: A【␣】| null"
+            └─ LiteralType  pos=20  src=[21,25)   // char 25 "null【␣】}"
+               └─ NullKeyword  pos=20  src=[21,25)  text="null"   // char 25 "null【␣】}"

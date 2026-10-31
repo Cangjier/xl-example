@@ -1,0 +1,13 @@
+# 预期形状创建位置（逐字）：`if (a) b; c;`
+
+```text
+[0-12] |if (a) b; c;⏎|
+```
+
+SourceFile  pos=0  src=[0,13)   // char 0 "【i】f (a)"
+├─ IfStatement  pos=0  src=[0,9)   // char 8 "(a) b【;】c;"
+│  ├─ Identifier  pos=4  src=[4,5)  text="a"   // char 5 "if (a【)】b; c"
+│  └─ ExpressionStatement  pos=6  src=[7,9)   // char 8 "(a) b【;】c;"
+│     └─ Identifier  pos=6  src=[7,8)  text="b"   // char 8 "(a) b【;】c;"
+└─ ExpressionStatement  pos=9  src=[10,12)   // char 11 "b; c【;】"
+   └─ Identifier  pos=9  src=[10,11)  text="c"   // char 11 "b; c【;】"

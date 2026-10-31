@@ -69,3 +69,5 @@ node typescript/tools/case-infer.mjs --check <xxx.ts>     # 期望 vs 实际（b
 - `--check` 的状态：`ok` / `late +N` / `early -N` / `unfilled`（还是 `?`）/ `no-shape`（树里始终没这个节点）/ `stale`（`.infer` 里的节点 `.ast` 没有）。
   它不修任何东西，只把差异列出来——`late +N` 就是「这个形状本可以早 N 格建、但实现拖到了后面」。
 - 节点身份是 `kind + pos + src 起点`：形状会长大（`src` 的右边界会变），所以 `end` 不参与对齐。
+- 2026-10-31 的全量生成与缺口 review（success/ 167 份 `.infer`、42 个实现侧信号、14 个身份冲突用例）见
+  [infer-review.md](infer-review.md)。

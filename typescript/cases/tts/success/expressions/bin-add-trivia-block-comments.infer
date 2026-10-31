@@ -1,0 +1,15 @@
+# 预期形状创建位置（逐字）：`let x = 1/*left*/+/*right*/2`
+
+```text
+[0-19]  |let x = 1/*left*/+/*| [20-28] |right*/2⏎|
+```
+
+SourceFile  pos=0  src=[0,29)   // char 0 "【l】et x"
+└─ FirstStatement  pos=0  src=[0,28)   // char 7 "let x =【␣】1/*left"
+   └─ VariableDeclarationList  pos=0  src=[0,28)   // char 7 "let x =【␣】1/*left"
+      └─ VariableDeclaration  pos=3  src=[4,28)   // char 7 "let x =【␣】1/*left"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // char 5 "let x【␣】= 1/*"
+         └─ BinaryExpression  pos=7  src=[8,28)   // char 26 "right*【/】2"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // char 9 "x = 1【/】*left"
+            ├─ PlusToken  pos=9  src=[17,18)  text="+"   // char 18 "left*/+【/】*right"
+            └─ FirstLiteralToken  pos=18  src=[27,28)  text="2"   // char 28 "right*/2【⏎】"

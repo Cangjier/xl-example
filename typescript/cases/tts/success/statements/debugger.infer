@@ -1,0 +1,8 @@
+# 预期形状创建位置（逐字）：`debugger;`
+
+```text
+[0-9] |debugger;⏎|
+```
+
+SourceFile  pos=0  src=[0,10)   // char 9 "debugger;【⏎】"
+└─ LastStatement  pos=0  src=[0,9)   // char 8 "debugger【;】"

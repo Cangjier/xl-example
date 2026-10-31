@@ -1,0 +1,15 @@
+# 预期形状创建位置（逐字）：`type A = { readonly a?: string }`
+
+```text
+[0-19]  |type A = { readonly | [20-32] |a?: string }⏎|
+```
+
+SourceFile  pos=0  src=[0,33)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,32)   // char 10 "A = {【␣】readonly"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 7 "type A【=】{ readonly"
+   └─ TypeLiteral  pos=8  src=[9,32)   // char 32 "string }【⏎】"
+      └─ PropertySignature  pos=10  src=[11,30)   // char 22 "readonly a?【:】string"
+         ├─ ReadonlyKeyword  pos=10  src=[11,19)  text="readonly"   // char 19 "readonly【␣】a?: string"
+         ├─ Identifier  pos=19  src=[20,21)  text="a"   // char 21 "readonly a【?】: string"
+         ├─ QuestionToken  pos=21  src=[21,22)  text="?"   // char 22 "readonly a?【:】string"
+         └─ StringKeyword  pos=23  src=[24,30)  text="string"   // char 30 "string【␣】}"

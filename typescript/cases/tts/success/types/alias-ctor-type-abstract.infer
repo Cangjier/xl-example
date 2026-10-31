@@ -1,0 +1,13 @@
+# 预期形状创建位置（逐字）：`type A = abstract new () => Foo`
+
+```text
+[0-19]  |type A = abstract ne| [20-31] |w () => Foo⏎|
+```
+
+SourceFile  pos=0  src=[0,32)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,31)   // char 17 "abstract【␣】new ("
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= abstract"
+   └─ ConstructorType  pos=8  src=[9,31)   // char 17 "abstract【␣】new ("
+      ├─ FirstContextualKeyword  pos=8  src=[9,17)  text="abstract"   // char 17 "abstract【␣】new ("
+      └─ TypeReference  pos=27  src=[28,31)   // char 31 "> Foo【⏎】"
+         └─ Identifier  pos=27  src=[28,31)  text="Foo"   // char 31 "> Foo【⏎】"

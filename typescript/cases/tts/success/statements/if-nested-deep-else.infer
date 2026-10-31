@@ -1,0 +1,19 @@
+# 预期形状创建位置（逐字）：`if (a) if (b) if (c) d; else e; else f;`
+
+```text
+[0-19]  |if (a) if (b) if (c)| [20-39] | d; else e; else f;⏎|
+```
+
+SourceFile  pos=0  src=[0,40)   // char 0 "【i】f (a)"
+└─ IfStatement  pos=0  src=[0,39)   // char 39 "else f;【⏎】"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // char 5 "if (a【)】if ("
+   └─ IfStatement  pos=6  src=[7,39)   // char 36 "else【␣】f;"
+      ├─ Identifier  pos=11  src=[11,12)  text="b"   // char 12 "if (b【)】if ("
+      ├─ IfStatement  pos=13  src=[14,31)   // char 28 "else【␣】e; else"
+      │  ├─ Identifier  pos=18  src=[18,19)  text="c"   // char 19 "if (c【)】d; else"
+      │  ├─ ExpressionStatement  pos=20  src=[21,23)   // char 30 "else e【;】else"
+      │  │  └─ Identifier  pos=20  src=[21,22)  text="d"   // char 22 "(c) d【;】else"
+      │  └─ ExpressionStatement  pos=28  src=[29,31)   // char 38 "else f【;】"
+      │     └─ Identifier  pos=28  src=[29,30)  text="e"   // char 30 "else e【;】else"
+      └─ ExpressionStatement  pos=36  src=[37,39)   // char 39 "else f;【⏎】"
+         └─ Identifier  pos=36  src=[37,38)  text="f"   // char 38 "else f【;】"

@@ -1,0 +1,15 @@
+# 预期形状创建位置（逐字）：`if (a) { let y = 1; }`
+
+```text
+[0-19]  |if (a) { let y = 1; | [20-21] |}⏎|
+```
+
+SourceFile  pos=0  src=[0,22)   // char 0 "【i】f (a)"
+└─ IfStatement  pos=0  src=[0,21)   // char 6 "if (a)【␣】{ let"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // char 5 "if (a【)】{ let"
+   └─ Block  pos=6  src=[7,21)   // char 21 "1; }【⏎】"
+      └─ FirstStatement  pos=8  src=[9,19)   // char 18 "y = 1【;】}"
+         └─ VariableDeclarationList  pos=8  src=[9,18)   // char 14 "let y【␣】= 1;"
+            └─ VariableDeclaration  pos=12  src=[13,18)   // char 18 "y = 1【;】}"
+               ├─ Identifier  pos=12  src=[13,14)  text="y"   // char 14 "let y【␣】= 1;"
+               └─ FirstLiteralToken  pos=16  src=[17,18)  text="1"   // char 18 "y = 1【;】}"

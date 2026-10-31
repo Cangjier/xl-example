@@ -1,0 +1,19 @@
+# 预期形状创建位置（逐字）：`let x = 1 /*a*/ + /*b*/ 2 /*c*/ * /*d*/ 3`
+
+```text
+[0-19]  |let x = 1 /*a*/ + /*| [20-39] |b*/ 2 /*c*/ * /*d*/ |
+[40-41] |3⏎|
+```
+
+SourceFile  pos=0  src=[0,42)   // char 0 "【l】et x"
+└─ FirstStatement  pos=0  src=[0,41)   // char 41 "d*/ 3【⏎】"
+   └─ VariableDeclarationList  pos=0  src=[0,41)   // char 41 "d*/ 3【⏎】"
+      └─ VariableDeclaration  pos=3  src=[4,41)   // char 41 "d*/ 3【⏎】"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // char 5 "let x【␣】= 1 /"
+         └─ BinaryExpression  pos=7  src=[8,41)   // char 41 "d*/ 3【⏎】"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // char 9 "x = 1【␣】/*a*/"
+            ├─ PlusToken  pos=9  src=[16,17)  text="+"   // char 17 "a*/ +【␣】/*b*/"
+            └─ BinaryExpression  pos=17  src=[24,41)   // char 41 "d*/ 3【⏎】"
+               ├─ FirstLiteralToken  pos=17  src=[24,25)  text="2"   // char 25 "b*/ 2【␣】/*c*/"
+               ├─ AsteriskToken  pos=25  src=[32,33)  text="*"   // char 33 "c*/ *【␣】/*d*/"
+               └─ FirstLiteralToken  pos=33  src=[40,41)  text="3"   // char 41 "d*/ 3【⏎】"

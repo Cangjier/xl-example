@@ -1,0 +1,22 @@
+# 预期形状创建位置（逐字）：`type A = { (a: string): number; new (a: string): Foo }`
+
+```text
+[0-19]  |type A = { (a: strin| [20-39] |g): number; new (a: |
+[40-54] |string): Foo }⏎|
+```
+
+SourceFile  pos=0  src=[0,55)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,54)   // char 54 "Foo }【⏎】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= { ("
+   └─ TypeLiteral  pos=8  src=[9,54)   // char 54 "Foo }【⏎】"
+      ├─ CallSignature  pos=10  src=[11,31)   // char 31 "number;【␣】new ("
+      │  ├─ Parameter  pos=12  src=[12,21)   // char 21 "string【)】: number"
+      │  │  ├─ Identifier  pos=12  src=[12,13)  text="a"   // char 13 "{ (a【:】string"
+      │  │  └─ StringKeyword  pos=14  src=[15,21)  text="string"   // char 21 "string【)】: number"
+      │  └─ NumberKeyword  pos=23  src=[24,30)  text="number"   // char 30 "number【;】new"
+      └─ ConstructSignature  pos=31  src=[32,52)   // char 52 ": Foo【␣】}"
+         ├─ Parameter  pos=37  src=[37,46)   // char 46 "string【)】: Foo"
+         │  ├─ Identifier  pos=37  src=[37,38)  text="a"   // char 38 "new (a【:】string"
+         │  └─ StringKeyword  pos=39  src=[40,46)  text="string"   // char 46 "string【)】: Foo"
+         └─ TypeReference  pos=48  src=[49,52)   // char 52 ": Foo【␣】}"
+            └─ Identifier  pos=48  src=[49,52)  text="Foo"   // char 52 ": Foo【␣】}"

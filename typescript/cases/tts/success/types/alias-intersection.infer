@@ -1,0 +1,14 @@
+# 预期形状创建位置（逐字）：`type A = A1 & A2`
+
+```text
+[0-16] |type A = A1 & A2⏎|
+```
+
+SourceFile  pos=0  src=[0,17)   // char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,16)   // char 16 "& A2【⏎】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= A1"
+   └─ IntersectionType  pos=8  src=[9,16)   // char 16 "& A2【⏎】"
+      ├─ TypeReference  pos=8  src=[9,11)   // char 11 "= A1【␣】& A2"
+      │  └─ Identifier  pos=8  src=[9,11)  text="A1"   // char 11 "= A1【␣】& A2"
+      └─ TypeReference  pos=13  src=[14,16)   // char 16 "& A2【⏎】"
+         └─ Identifier  pos=13  src=[14,16)  text="A2"   // char 16 "& A2【⏎】"

@@ -1,0 +1,11 @@
+# 预期形状创建位置（逐字）：`a⏎b`
+
+```text
+[0-3] |a⏎b⏎|
+```
+
+SourceFile  pos=0  src=[0,4)   // char 0 "【a】b"
+├─ ExpressionStatement  pos=0  src=[0,1)   // char 0 "【a】b"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // char 0 "【a】b"
+└─ ExpressionStatement  pos=1  src=[2,3)   // char 2 "a【b】"
+   └─ Identifier  pos=1  src=[2,3)  text="b"   // char 2 "a【b】"

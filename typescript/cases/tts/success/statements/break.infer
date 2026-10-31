@@ -1,0 +1,11 @@
+# 预期形状创建位置（逐字）：`while (a) { break; }`
+
+```text
+[0-19]  |while (a) { break; }| [20-20] |⏎|
+```
+
+SourceFile  pos=0  src=[0,21)   // char 0 "【w】hile"
+└─ WhileStatement  pos=0  src=[0,20)   // char 12 "a) {【b】reak;"
+   ├─ Identifier  pos=7  src=[7,8)  text="a"   // char 8 "while (a【)】{ break"
+   └─ Block  pos=9  src=[10,20)   // char 11 "(a) {【␣】break"
+      └─ BreakStatement  pos=11  src=[12,18)   // char 17 "break【;】}"
