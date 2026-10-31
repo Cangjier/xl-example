@@ -1,11 +1,13 @@
-# 预期形状创建位置（逐字）：`while (a) { continue; }`
+```ts
+while (a) { continue; }
+```
 
 ```text
 [0-19]  |while (a) { continue| [20-23] |; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,24)   // char 0 "【w】hile"
-└─ WhileStatement  pos=0  src=[0,23)   // char 19 "continu【e】; }"
-   ├─ Identifier  pos=7  src=[7,8)  text="a"   // char 8 "while (a【)】{ continue"
-   └─ Block  pos=9  src=[10,23)   // char 23 "continue; }【⏎】"
-      └─ ContinueStatement  pos=11  src=[12,21)   // char 21 "continue;【␣】}"
+SourceFile  pos=0  src=[0,24)   // created at char ?, llm determined at char 0 "【w】hile"
+└─ WhileStatement  pos=0  src=[0,23)   // created at char 5 "while【␣】(a) {", llm determined at char 19 "continu【e】; }"
+   ├─ Identifier  pos=7  src=[7,8)  text="a"   // created at char 8 "while (a【)】{ continue", llm determined at char 8 "while (a【)】{ continue"
+   └─ Block  pos=9  src=[10,23)   // created at char 10 "(a)【{】continue", llm determined at char 23 "continue; }【⏎】"
+      └─ ContinueStatement  pos=11  src=[12,21)   // created at char 20 "continue【;】}", llm determined at char 21 "continue;【␣】}"

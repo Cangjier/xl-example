@@ -90,15 +90,22 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   assert.equal(fs.existsSync(file.replace(/\.ts$/, '.infer')), true)
 
   const text = fs.readFileSync(file.replace(/\.ts$/, '.infer'), 'utf8')
-  assert.match(text, /^# 预期形状创建位置（逐字）：/m)
-  assert.match(text, /\/\/ char 6 "type A【<】T> ="/)
-  assert.equal(text.includes('// char ?'), false)
+  assert.match(text, /^```ts$/m)
+  assert.match(text, /^type A<T> = T extends Array<infer U> \? U : never$/m)
+  assert.match(
+    text,
+    /\/\/ created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="/,
+  )
+  assert.equal(text.includes('llm determined at char ?'), false)
+  // 这颗形状还没写 create 入口：created 记 ?，不是拿别的格冒充。
+  assert.match(text, /\/\/ created at char \?, llm determined at char 0/)
 
-  // 与仓库里的判定一致：10 一致 / 6 late
+  // created at 来自 shape token：3 一致 / 2 early / 11 没有 CreatedAt
   assert.equal(result.check.available, true)
   assert.equal(result.check.total, 16)
-  assert.equal(result.check.ok, 10)
-  assert.equal(result.check.late, 6)
+  assert.equal(result.check.ok, 3)
+  assert.equal(result.check.early, 2)
+  assert.equal(result.check.unknown, 11)
 })
 
 test('已有 .infer 时拒绝覆盖，除非 overwrite: true', async () => {

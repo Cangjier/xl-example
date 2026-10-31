@@ -1,13 +1,15 @@
-# 预期形状创建位置（逐字）：`switch (a) { case 1: break; }`
+```ts
+switch (a) { case 1: break; }
+```
 
 ```text
 [0-19]  |switch (a) { case 1:| [20-29] | break; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,30)   // char 0 "【s】witch"
-└─ SwitchStatement  pos=0  src=[0,29)   // char 10 "switch (a)【␣】{ case"
-   ├─ Identifier  pos=8  src=[8,9)  text="a"   // char 9 "switch (a【)】{ case"
-   └─ CaseBlock  pos=10  src=[11,29)   // char 11 "(a)【{】case"
-      └─ CaseClause  pos=12  src=[13,27)   // char 19 "case 1【:】break"
-         ├─ FirstLiteralToken  pos=17  src=[18,19)  text="1"   // char 19 "case 1【:】break"
-         └─ BreakStatement  pos=20  src=[21,27)   // char 26 "break【;】}"
+SourceFile  pos=0  src=[0,30)   // created at char ?, llm determined at char 0 "【s】witch"
+└─ SwitchStatement  pos=0  src=[0,29)   // created at char 6 "switch【␣】(a) {", llm determined at char 10 "switch (a)【␣】{ case"
+   ├─ Identifier  pos=8  src=[8,9)  text="a"   // created at char 9 "switch (a【)】{ case", llm determined at char 9 "switch (a【)】{ case"
+   └─ CaseBlock  pos=10  src=[11,29)   // created at char 11 "(a)【{】case", llm determined at char 11 "(a)【{】case"
+      └─ CaseClause  pos=12  src=[13,27)   // created at char 17 "case【␣】1: break", llm determined at char 19 "case 1【:】break"
+         ├─ FirstLiteralToken  pos=17  src=[18,19)  text="1"   // created at char 19 "case 1【:】break", llm determined at char 19 "case 1【:】break"
+         └─ BreakStatement  pos=20  src=[21,27)   // created at char 26 "break【;】}", llm determined at char 26 "break【;】}"

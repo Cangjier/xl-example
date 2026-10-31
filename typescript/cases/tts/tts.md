@@ -9,7 +9,7 @@
 | `xxx.ts` | 用例源码 |
 | `xxx.ast` | `typescript/tools/ts-ast-line.mjs` 的输出，即 TypeScript AST 的期望 |
 | `xxx.md` | 逐字符 token 树（`Token.ToAstLine`）：每个字符一步，最后一步是 EOF |
-| `xxx.infer` | 可选：LLM 按语法逻辑判定的「每个形状最早在哪一格确定」，见下节 |
+| `xxx.infer` | 可选：每个形状的 `created at`（shape token 创建格）与 `llm determined`（模型判定的确定格），见下节 |
 
 - `success/`：已经逐节点一致的用例，是门禁的一部分。
 - `todo/`：尚未支持的用例。目录名就是缺口类别（`statements` / `expressions` / `declarations` / `types` / `lexical` / `composite`），
@@ -49,25 +49,35 @@ npm run tts:view         # → http://127.0.0.1:7799/
 node typescript/tools/gen-case-docs.mjs typescript/cases/tts/success/statements/while-block.ts
 ```
 
-## `xxx.infer`：期望的形状创建位置
+## `xxx.infer`：形状的 created at 与 llm determined
 
-`xxx.ast` 只说最终树长什么样，不说「每个形状应该在哪个字符被建出来」。`xxx.infer` 补的就是这一列：
-与 `.ast` 同形的树，每行末尾 `// char N "…"`，表示这个形状**最早在第 N 格就能确定**——
-`…` 是标记字符前后各至少 5 个字符的上下文，`【】` 标出该字符（空格 `␣`、换行 `⏎`）。
+`xxx.ast` 只说最终树长什么样，不说「每个形状在哪一格被建出来、又在哪一格就该确定」。`xxx.infer` 补的就是这两列：
+开头是用 `ts` 围栏包住的用例源码和逐字编号表，后面是与 `.ast` 同形的树，每行末尾注记两个位置：
 
-判定是模型的活（从语法逻辑推，不看解析器），脚本只做三件机械的事：
+```text
+// created at char 5 "let x【␣】= 1", llm determined at char 3 "let【␣】x = 1"
+```
+
+- `created at`：`ShapeToken.CreatedAt`，possible / end 的 build 建出这颗形状的那一格
+  （落在 EOF 那一格时写 `char <字符总数>`；还没写 create 入口的形状记 `char ?`）。
+- `llm determined`：模型按语法逻辑判定的「最早能确定」位置，不看解析器；还没判定时记 `char ?`。
+- 每个位置各带自己的上下文：标记字符前后各至少 5 个字符，`【】` 标出该字符（空格 `␣`、换行 `⏎`）。
+
+判定是模型的活，脚本只做机械的事：
 
 ```bash
-node typescript/tools/case-infer.mjs <xxx.ts>             # 生成骨架：表头 + .ast 树 + 每行 // char ?
-node typescript/tools/case-infer.mjs --format <xxx.ts>    # 规范化：// char N → // char N "上下文"
-node typescript/tools/case-infer.mjs --check <xxx.ts>     # 期望 vs 实际（build/ts 逐字推进），有差异 exit 1
+node typescript/tools/case-infer.mjs <xxx.ts>             # 骨架：ts 源码块 + 逐字表 + 树（created at 已填，llm 为 ?）
+node typescript/tools/case-infer.mjs --format <xxx.ts>    # 规范化：补两个位置的上下文、旧表头换成 ts 源码块
+node typescript/tools/case-infer.mjs --check <xxx.ts>     # llm determined vs created at，有差异 exit 1
 ```
 
 - 骨架默认不覆盖已有 `.infer`，要重来加 `--force`。
+- 骨架和 `--check` / `--format` 都要读 `build/ts`（先 `npm run build`），因为 `created at` 只能从 shape token 取。
 - 也可以让宿主模型来判定：DSH 插件 `typescript/tools/dsh-case-infer` 注册了 `case_infer`，
   用当前默认模型生成并立刻对拍（`npm run infer:test` 是它的离线测试）。
-- `--check` 的状态：`ok` / `late +N` / `early -N` / `unfilled`（还是 `?`）/ `no-shape`（树里始终没这个节点）/ `stale`（`.infer` 里的节点 `.ast` 没有）。
-  它不修任何东西，只把差异列出来——`late +N` 就是「这个形状本可以早 N 格建、但实现拖到了后面」。
+- `--check` 的状态：`ok` / `late +N`（模型判得比实际创建晚 N 格）/ `early -N` / `unfilled`（llm 还是 `?`）/
+  `no-created`（shape token 还没记 CreatedAt）/ `no-shape`（树里没有这个节点）/ `stale`（`.infer` 里的节点 `.ast` 没有）。
+  它不修任何东西，只把差异列出来。
 - 节点身份是 `kind + pos + src 起点`：形状会长大（`src` 的右边界会变），所以 `end` 不参与对齐。
 - 2026-10-31 的全量生成与缺口 review（success/ 167 份 `.infer`、42 个实现侧信号、14 个身份冲突用例）见
   [infer-review.md](infer-review.md)。

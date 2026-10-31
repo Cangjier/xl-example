@@ -1,25 +1,27 @@
-# 预期形状创建位置（逐字）：`type A<T> = T extends string ? Array<T> : Map<string, T>`
+```ts
+type A<T> = T extends string ? Array<T> : Map<string, T>
+```
 
 ```text
 [0-19]  |type A<T> = T extend| [20-39] |s string ? Array<T> |
 [40-56] |: Map<string, T>⏎|
 ```
 
-SourceFile  pos=0  src=[0,57)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,56)   // char 4 "type【␣】A<T>"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 4 "type【␣】A<T>"
-   ├─ TypeParameter  pos=7  src=[7,8)   // char 7 "type A<【T】> = T"
-   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // char 8 "type A<T【>】= T"
-   └─ ConditionalType  pos=11  src=[12,56)   // char 20 "extend【s】string"
-      ├─ TypeReference  pos=11  src=[12,13)   // char 12 "T> =【T】extends"
-      │  └─ Identifier  pos=11  src=[12,13)  text="T"   // char 12 "T> =【T】extends"
-      ├─ StringKeyword  pos=21  src=[22,28)  text="string"   // char 22 "extends【s】tring"
-      ├─ TypeReference  pos=30  src=[31,39)   // char 31 "string ?【A】rray<"
-      │  ├─ Identifier  pos=30  src=[31,36)  text="Array"   // char 31 "string ?【A】rray<"
-      │  └─ TypeReference  pos=37  src=[37,38)   // char 37 "Array<【T】> : Map"
-      │     └─ Identifier  pos=37  src=[37,38)  text="T"   // char 37 "Array<【T】> : Map"
-      └─ TypeReference  pos=41  src=[42,56)   // char 42 "T> :【M】ap<string"
-         ├─ Identifier  pos=41  src=[42,45)  text="Map"   // char 42 "T> :【M】ap<string"
-         ├─ StringKeyword  pos=46  src=[46,52)  text="string"   // char 46 "Map<【s】tring"
-         └─ TypeReference  pos=53  src=[54,55)   // char 54 "string,【T】>"
-            └─ Identifier  pos=53  src=[54,55)  text="T"   // char 54 "string,【T】>"
+SourceFile  pos=0  src=[0,57)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,56)   // created at char 6 "type A【<】T> =", llm determined at char 4 "type【␣】A<T>"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【<】T> =", llm determined at char 4 "type【␣】A<T>"
+   ├─ TypeParameter  pos=7  src=[7,8)   // created at char ?, llm determined at char 7 "type A<【T】> = T"
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // created at char ?, llm determined at char 8 "type A<T【>】= T"
+   └─ ConditionalType  pos=11  src=[12,56)   // created at char 21 "extends【␣】string", llm determined at char 20 "extend【s】string"
+      ├─ TypeReference  pos=11  src=[12,13)   // created at char 21 "extends【␣】string", llm determined at char 12 "T> =【T】extends"
+      │  └─ Identifier  pos=11  src=[12,13)  text="T"   // created at char 21 "extends【␣】string", llm determined at char 12 "T> =【T】extends"
+      ├─ StringKeyword  pos=21  src=[22,28)  text="string"   // created at char ?, llm determined at char 22 "extends【s】tring"
+      ├─ TypeReference  pos=30  src=[31,39)   // created at char ?, llm determined at char 31 "string ?【A】rray<"
+      │  ├─ Identifier  pos=30  src=[31,36)  text="Array"   // created at char ?, llm determined at char 31 "string ?【A】rray<"
+      │  └─ TypeReference  pos=37  src=[37,38)   // created at char ?, llm determined at char 37 "Array<【T】> : Map"
+      │     └─ Identifier  pos=37  src=[37,38)  text="T"   // created at char ?, llm determined at char 37 "Array<【T】> : Map"
+      └─ TypeReference  pos=41  src=[42,56)   // created at char ?, llm determined at char 42 "T> :【M】ap<string"
+         ├─ Identifier  pos=41  src=[42,45)  text="Map"   // created at char ?, llm determined at char 42 "T> :【M】ap<string"
+         ├─ StringKeyword  pos=46  src=[46,52)  text="string"   // created at char ?, llm determined at char 46 "Map<【s】tring"
+         └─ TypeReference  pos=53  src=[54,55)   // created at char ?, llm determined at char 54 "string,【T】>"
+            └─ Identifier  pos=53  src=[54,55)  text="T"   // created at char ?, llm determined at char 54 "string,【T】>"

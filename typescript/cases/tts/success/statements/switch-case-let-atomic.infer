@@ -1,17 +1,19 @@
-# 预期形状创建位置（逐字）：`switch (a) { case 1: let y = 1; }`
+```ts
+switch (a) { case 1: let y = 1; }
+```
 
 ```text
 [0-19]  |switch (a) { case 1:| [20-33] | let y = 1; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,34)   // char 0 "【s】witch"
-└─ SwitchStatement  pos=0  src=[0,33)   // char 20 "case 1:【␣】let y"
-   ├─ Identifier  pos=8  src=[8,9)  text="a"   // char 9 "switch (a【)】{ case"
-   └─ CaseBlock  pos=10  src=[11,33)   // char 20 "case 1:【␣】let y"
-      └─ CaseClause  pos=12  src=[13,31)   // char 19 "case 1【:】let"
-         ├─ FirstLiteralToken  pos=17  src=[18,19)  text="1"   // char 19 "case 1【:】let"
-         └─ FirstStatement  pos=20  src=[21,31)   // char 28 "let y =【␣】1; }"
-            └─ VariableDeclarationList  pos=20  src=[21,30)   // char 28 "let y =【␣】1; }"
-               └─ VariableDeclaration  pos=24  src=[25,30)   // char 28 "let y =【␣】1; }"
-                  ├─ Identifier  pos=24  src=[25,26)  text="y"   // char 26 "let y【␣】= 1;"
-                  └─ FirstLiteralToken  pos=28  src=[29,30)  text="1"   // char 30 "y = 1【;】}"
+SourceFile  pos=0  src=[0,34)   // created at char ?, llm determined at char 0 "【s】witch"
+└─ SwitchStatement  pos=0  src=[0,33)   // created at char 6 "switch【␣】(a) {", llm determined at char 20 "case 1:【␣】let y"
+   ├─ Identifier  pos=8  src=[8,9)  text="a"   // created at char 9 "switch (a【)】{ case", llm determined at char 9 "switch (a【)】{ case"
+   └─ CaseBlock  pos=10  src=[11,33)   // created at char 11 "(a)【{】case", llm determined at char 20 "case 1:【␣】let y"
+      └─ CaseClause  pos=12  src=[13,31)   // created at char 17 "case【␣】1: let", llm determined at char 19 "case 1【:】let"
+         ├─ FirstLiteralToken  pos=17  src=[18,19)  text="1"   // created at char 19 "case 1【:】let", llm determined at char 19 "case 1【:】let"
+         └─ FirstStatement  pos=20  src=[21,31)   // created at char 26 "let y【␣】= 1;", llm determined at char 28 "let y =【␣】1; }"
+            └─ VariableDeclarationList  pos=20  src=[21,30)   // created at char 26 "let y【␣】= 1;", llm determined at char 28 "let y =【␣】1; }"
+               └─ VariableDeclaration  pos=24  src=[25,30)   // created at char 26 "let y【␣】= 1;", llm determined at char 28 "let y =【␣】1; }"
+                  ├─ Identifier  pos=24  src=[25,26)  text="y"   // created at char 26 "let y【␣】= 1;", llm determined at char 26 "let y【␣】= 1;"
+                  └─ FirstLiteralToken  pos=28  src=[29,30)  text="1"   // created at char 30 "y = 1【;】}", llm determined at char 30 "y = 1【;】}"

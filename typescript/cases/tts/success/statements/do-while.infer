@@ -1,12 +1,14 @@
-# 预期形状创建位置（逐字）：`do { a; } while (b);`
+```ts
+do { a; } while (b);
+```
 
 ```text
 [0-19]  |do { a; } while (b);| [20-20] |⏎|
 ```
 
-SourceFile  pos=0  src=[0,21)   // char 0 "【d】o { a"
-└─ DoStatement  pos=0  src=[0,20)   // char 19 "while (b)【;】"
-   ├─ Block  pos=2  src=[3,9)   // char 9 "a; }【␣】while"
-   │  └─ ExpressionStatement  pos=4  src=[5,7)   // char 7 "{ a;【␣】} while"
-   │     └─ Identifier  pos=4  src=[5,6)  text="a"   // char 6 "do { a【;】} while"
-   └─ Identifier  pos=17  src=[17,18)  text="b"   // char 18 "while (b【)】;"
+SourceFile  pos=0  src=[0,21)   // created at char ?, llm determined at char 0 "【d】o { a"
+└─ DoStatement  pos=0  src=[0,20)   // created at char 2 "do【␣】{ a;", llm determined at char 19 "while (b)【;】"
+   ├─ Block  pos=2  src=[3,9)   // created at char 3 "do【{】a; }", llm determined at char 9 "a; }【␣】while"
+   │  └─ ExpressionStatement  pos=4  src=[5,7)   // created at char 6 "do { a【;】} while", llm determined at char 7 "{ a;【␣】} while"
+   │     └─ Identifier  pos=4  src=[5,6)  text="a"   // created at char 6 "do { a【;】} while", llm determined at char 6 "do { a【;】} while"
+   └─ Identifier  pos=17  src=[17,18)  text="b"   // created at char 18 "while (b【)】;", llm determined at char 18 "while (b【)】;"

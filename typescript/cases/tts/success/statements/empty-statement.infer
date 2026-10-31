@@ -1,8 +1,10 @@
-# 预期形状创建位置（逐字）：`;`
+```ts
+;
+```
 
 ```text
 [0-1] |;⏎|
 ```
 
-SourceFile  pos=0  src=[0,2)   // char 1 ";【⏎】"
-└─ EmptyStatement  pos=0  src=[0,1)   // char 0 "【;】"
+SourceFile  pos=0  src=[0,2)   // created at char ?, llm determined at char 1 ";【⏎】"
+└─ EmptyStatement  pos=0  src=[0,1)   // created at char 0 "【;】", llm determined at char 0 "【;】"

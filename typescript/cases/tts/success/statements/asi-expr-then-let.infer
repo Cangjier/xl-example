@@ -1,14 +1,17 @@
-# 预期形状创建位置（逐字）：`a⏎let x = 1`
+```ts
+a
+let x = 1
+```
 
 ```text
 [0-11] |a⏎let x = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,12)   // char 0 "【a】let"
-├─ ExpressionStatement  pos=0  src=[0,1)   // char 1 "a【⏎】let x"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // char 1 "a【⏎】let x"
-└─ FirstStatement  pos=1  src=[2,11)   // char 4 "a le【t】x ="
-   └─ VariableDeclarationList  pos=1  src=[2,11)   // char 4 "a le【t】x ="
-      └─ VariableDeclaration  pos=5  src=[6,11)   // char 7 "let x【␣】= 1"
-         ├─ Identifier  pos=5  src=[6,7)  text="x"   // char 7 "let x【␣】= 1"
-         └─ FirstLiteralToken  pos=9  src=[10,11)  text="1"   // char 11 "x = 1【⏎】"
+SourceFile  pos=0  src=[0,12)   // created at char ?, llm determined at char 0 "【a】let"
+├─ ExpressionStatement  pos=0  src=[0,1)   // created at char 1 "a【⏎】let x", llm determined at char 1 "a【⏎】let x"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【⏎】let x", llm determined at char 1 "a【⏎】let x"
+└─ FirstStatement  pos=1  src=[2,11)   // created at char 7 "let x【␣】= 1", llm determined at char 4 "a le【t】x ="
+   └─ VariableDeclarationList  pos=1  src=[2,11)   // created at char 7 "let x【␣】= 1", llm determined at char 4 "a le【t】x ="
+      └─ VariableDeclaration  pos=5  src=[6,11)   // created at char 7 "let x【␣】= 1", llm determined at char 7 "let x【␣】= 1"
+         ├─ Identifier  pos=5  src=[6,7)  text="x"   // created at char 7 "let x【␣】= 1", llm determined at char 7 "let x【␣】= 1"
+         └─ FirstLiteralToken  pos=9  src=[10,11)  text="1"   // created at char 11 "x = 1【⏎】", llm determined at char 11 "x = 1【⏎】"

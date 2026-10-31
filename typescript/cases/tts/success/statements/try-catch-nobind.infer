@@ -1,15 +1,17 @@
-# 预期形状创建位置（逐字）：`try { a; } catch { b; }`
+```ts
+try { a; } catch { b; }
+```
 
 ```text
 [0-19]  |try { a; } catch { b| [20-23] |; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,24)   // char 0 "【t】ry {"
-└─ TryStatement  pos=0  src=[0,23)   // char 16 "catch【␣】{ b;"
-   ├─ Block  pos=3  src=[4,10)   // char 10 "a; }【␣】catch"
-   │  └─ ExpressionStatement  pos=5  src=[6,8)   // char 8 "{ a;【␣】} catch"
-   │     └─ Identifier  pos=5  src=[6,7)  text="a"   // char 7 "try { a【;】} catch"
-   └─ CatchClause  pos=10  src=[11,23)   // char 16 "catch【␣】{ b;"
-      └─ Block  pos=16  src=[17,23)   // char 23 "b; }【⏎】"
-         └─ ExpressionStatement  pos=18  src=[19,21)   // char 21 "{ b;【␣】}"
-            └─ Identifier  pos=18  src=[19,20)  text="b"   // char 20 "catch { b【;】}"
+SourceFile  pos=0  src=[0,24)   // created at char ?, llm determined at char 0 "【t】ry {"
+└─ TryStatement  pos=0  src=[0,23)   // created at char 3 "try【␣】{ a;", llm determined at char 16 "catch【␣】{ b;"
+   ├─ Block  pos=3  src=[4,10)   // created at char 4 "try【{】a; }", llm determined at char 10 "a; }【␣】catch"
+   │  └─ ExpressionStatement  pos=5  src=[6,8)   // created at char 7 "try { a【;】} catch", llm determined at char 8 "{ a;【␣】} catch"
+   │     └─ Identifier  pos=5  src=[6,7)  text="a"   // created at char 7 "try { a【;】} catch", llm determined at char 7 "try { a【;】} catch"
+   └─ CatchClause  pos=10  src=[11,23)   // created at char 16 "catch【␣】{ b;", llm determined at char 16 "catch【␣】{ b;"
+      └─ Block  pos=16  src=[17,23)   // created at char 17 "catch【{】b; }", llm determined at char 23 "b; }【⏎】"
+         └─ ExpressionStatement  pos=18  src=[19,21)   // created at char 20 "catch { b【;】}", llm determined at char 21 "{ b;【␣】}"
+            └─ Identifier  pos=18  src=[19,20)  text="b"   // created at char 20 "catch { b【;】}", llm determined at char 20 "catch { b【;】}"

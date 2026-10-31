@@ -1,14 +1,16 @@
-# 预期形状创建位置（逐字）：`type A = Foo["bar"]`
+```ts
+type A = Foo["bar"]
+```
 
 ```text
 [0-19] |type A = Foo["bar"]⏎|
 ```
 
-SourceFile  pos=0  src=[0,20)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,19)   // char 18 ""bar"【]】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= Foo"
-   └─ IndexedAccessType  pos=8  src=[9,19)   // char 18 ""bar"【]】"
-      ├─ TypeReference  pos=8  src=[9,12)   // char 12 "= Foo【[】"bar""
-      │  └─ Identifier  pos=8  src=[9,12)  text="Foo"   // char 12 "= Foo【[】"bar""
-      └─ LiteralType  pos=13  src=[13,18)   // char 18 ""bar"【]】"
-         └─ StringLiteral  pos=13  src=[13,18)  text="\"bar\""   // char 18 ""bar"【]】"
+SourceFile  pos=0  src=[0,20)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,19)   // created at char 6 "type A【␣】= Foo", llm determined at char 18 "\"bar\"【]】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= Foo", llm determined at char 6 "type A【␣】= Foo"
+   └─ IndexedAccessType  pos=8  src=[9,19)   // created at char ?, llm determined at char 18 "\"bar\"【]】"
+      ├─ TypeReference  pos=8  src=[9,12)   // created at char ?, llm determined at char 12 "= Foo【[】\"bar\""
+      │  └─ Identifier  pos=8  src=[9,12)  text="Foo"   // created at char ?, llm determined at char 12 "= Foo【[】\"bar\""
+      └─ LiteralType  pos=13  src=[13,18)   // created at char ?, llm determined at char 18 "\"bar\"【]】"
+         └─ StringLiteral  pos=13  src=[13,18)  text="\"bar\""   // created at char ?, llm determined at char 18 "\"bar\"【]】"

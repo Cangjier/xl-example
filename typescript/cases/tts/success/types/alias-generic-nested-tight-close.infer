@@ -1,19 +1,21 @@
-# 预期形状创建位置（逐字）：`type B<T extends Array<Array<T>>>= T`
+```ts
+type B<T extends Array<Array<T>>>= T
+```
 
 ```text
 [0-19]  |type B<T extends Arr| [20-36] |ay<Array<T>>>= T⏎|
 ```
 
-SourceFile  pos=0  src=[0,37)   // char 0 "【t】ype B"
-└─ TypeAliasDeclaration  pos=0  src=[0,36)   // char 35 ">>>=【T】"
-   ├─ Identifier  pos=4  src=[5,6)  text="B"   // char 6 "type B【<】T extends"
-   ├─ TypeParameter  pos=7  src=[7,32)   // char 7 "type B<【T】extends"
-   │  ├─ Identifier  pos=7  src=[7,8)  text="T"   // char 8 "type B<T【␣】extends"
-   │  └─ TypeReference  pos=16  src=[17,32)   // char 32 "Array<T>>【>】= T"
-   │     ├─ Identifier  pos=16  src=[17,22)  text="Array"   // char 22 "Array【<】Array"
-   │     └─ TypeReference  pos=23  src=[23,31)   // char 31 "Array<T>【>】>= T"
-   │        ├─ Identifier  pos=23  src=[23,28)  text="Array"   // char 28 "Array【<】T>>>="
-   │        └─ TypeReference  pos=29  src=[29,30)   // char 30 "Array<T【>】>>= T"
-   │           └─ Identifier  pos=29  src=[29,30)  text="T"   // char 30 "Array<T【>】>>= T"
-   └─ TypeReference  pos=34  src=[35,36)   // char 36 ">>= T【⏎】"
-      └─ Identifier  pos=34  src=[35,36)  text="T"   // char 36 ">>= T【⏎】"
+SourceFile  pos=0  src=[0,37)   // created at char ?, llm determined at char 0 "【t】ype B"
+└─ TypeAliasDeclaration  pos=0  src=[0,36)   // created at char 6 "type B【<】T extends", llm determined at char 35 ">>>=【T】"
+   ├─ Identifier  pos=4  src=[5,6)  text="B"   // created at char 6 "type B【<】T extends", llm determined at char 6 "type B【<】T extends"
+   ├─ TypeParameter  pos=7  src=[7,32)   // created at char ?, llm determined at char 7 "type B<【T】extends"
+   │  ├─ Identifier  pos=7  src=[7,8)  text="T"   // created at char ?, llm determined at char 8 "type B<T【␣】extends"
+   │  └─ TypeReference  pos=16  src=[17,32)   // created at char ?, llm determined at char 32 "Array<T>>【>】= T"
+   │     ├─ Identifier  pos=16  src=[17,22)  text="Array"   // created at char ?, llm determined at char 22 "Array【<】Array"
+   │     └─ TypeReference  pos=23  src=[23,31)   // created at char ?, llm determined at char 31 "Array<T>【>】>= T"
+   │        ├─ Identifier  pos=23  src=[23,28)  text="Array"   // created at char ?, llm determined at char 28 "Array【<】T>>>="
+   │        └─ TypeReference  pos=29  src=[29,30)   // created at char ?, llm determined at char 30 "Array<T【>】>>= T"
+   │           └─ Identifier  pos=29  src=[29,30)  text="T"   // created at char ?, llm determined at char 30 "Array<T【>】>>= T"
+   └─ TypeReference  pos=34  src=[35,36)   // created at char ?, llm determined at char 36 ">>= T【⏎】"
+      └─ Identifier  pos=34  src=[35,36)  text="T"   // created at char ?, llm determined at char 36 ">>= T【⏎】"

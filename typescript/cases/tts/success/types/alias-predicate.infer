@@ -1,16 +1,18 @@
-# 预期形状创建位置（逐字）：`type A = (x: unknown) => x is string`
+```ts
+type A = (x: unknown) => x is string
+```
 
 ```text
 [0-19]  |type A = (x: unknown| [20-36] |) => x is string⏎|
 ```
 
-SourceFile  pos=0  src=[0,37)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,36)   // char 5 "type【A】= (x"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= (x:"
-   └─ FunctionType  pos=8  src=[9,36)   // char 36 "string【⏎】"
-      ├─ Parameter  pos=10  src=[10,20)   // char 20 "unknown【)】=> x"
-      │  ├─ Identifier  pos=10  src=[10,11)  text="x"   // char 11 "= (x【:】unknown"
-      │  └─ UnknownKeyword  pos=12  src=[13,20)  text="unknown"   // char 20 "unknown【)】=> x"
-      └─ FirstTypeNode  pos=24  src=[25,36)   // char 36 "string【⏎】"
-         ├─ Identifier  pos=24  src=[25,26)  text="x"   // char 26 "=> x【␣】is string"
-         └─ StringKeyword  pos=29  src=[30,36)  text="string"   // char 36 "string【⏎】"
+SourceFile  pos=0  src=[0,37)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,36)   // created at char 6 "type A【␣】= (x:", llm determined at char 5 "type【A】= (x"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= (x:", llm determined at char 6 "type A【␣】= (x:"
+   └─ FunctionType  pos=8  src=[9,36)   // created at char 23 "unknown) =【>】x is", llm determined at char 36 "string【⏎】"
+      ├─ Parameter  pos=10  src=[10,20)   // created at char 23 "unknown) =【>】x is", llm determined at char 20 "unknown【)】=> x"
+      │  ├─ Identifier  pos=10  src=[10,11)  text="x"   // created at char 23 "unknown) =【>】x is", llm determined at char 11 "= (x【:】unknown"
+      │  └─ UnknownKeyword  pos=12  src=[13,20)  text="unknown"   // created at char 23 "unknown) =【>】x is", llm determined at char 20 "unknown【)】=> x"
+      └─ FirstTypeNode  pos=24  src=[25,36)   // created at char 29 "x is【␣】string", llm determined at char 36 "string【⏎】"
+         ├─ Identifier  pos=24  src=[25,26)  text="x"   // created at char 29 "x is【␣】string", llm determined at char 26 "=> x【␣】is string"
+         └─ StringKeyword  pos=29  src=[30,36)  text="string"   // created at char 36 "string【⏎】", llm determined at char 36 "string【⏎】"

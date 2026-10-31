@@ -1,12 +1,14 @@
-# 预期形状创建位置（逐字）：`while (a) { b; }`
+```ts
+while (a) { b; }
+```
 
 ```text
 [0-16] |while (a) { b; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,17)   // char 0 "【w】hile"
-└─ WhileStatement  pos=0  src=[0,16)   // char 8 "while (a【)】{ b;"
-   ├─ Identifier  pos=7  src=[7,8)  text="a"   // char 8 "while (a【)】{ b;"
-   └─ Block  pos=9  src=[10,16)   // char 16 "b; }【⏎】"
-      └─ ExpressionStatement  pos=11  src=[12,14)   // char 13 ") { b【;】}"
-         └─ Identifier  pos=11  src=[12,13)  text="b"   // char 13 ") { b【;】}"
+SourceFile  pos=0  src=[0,17)   // created at char ?, llm determined at char 0 "【w】hile"
+└─ WhileStatement  pos=0  src=[0,16)   // created at char 5 "while【␣】(a) {", llm determined at char 8 "while (a【)】{ b;"
+   ├─ Identifier  pos=7  src=[7,8)  text="a"   // created at char 8 "while (a【)】{ b;", llm determined at char 8 "while (a【)】{ b;"
+   └─ Block  pos=9  src=[10,16)   // created at char 10 "(a)【{】b; }", llm determined at char 16 "b; }【⏎】"
+      └─ ExpressionStatement  pos=11  src=[12,14)   // created at char 13 ") { b【;】}", llm determined at char 13 ") { b【;】}"
+         └─ Identifier  pos=11  src=[12,13)  text="b"   // created at char 13 ") { b【;】}", llm determined at char 13 ") { b【;】}"

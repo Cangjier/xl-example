@@ -290,14 +290,14 @@ function casePayload(item, build) {
       inferError = errorMessage(error);
     }
   }
-  // 有 .infer 时顺便算一遍实际创建位置（build/ts 逐字推进），供 case.ast 页逐行对拍。
+  // 有 .infer 时顺便算一遍 shape token 的 created at（build/ts），供 case.ast 页逐行对拍。
   let creation = null;
   let creationError = null;
   if (inferText !== null && parserAvailable()) {
     try {
       const actual = traceActual(payload.ts, item.name);
       creation = {};
-      for (const [key, char] of actual.map) {
+      for (const [key, char] of actual.created) {
         creation[key] = char;
       }
     } catch (error) {

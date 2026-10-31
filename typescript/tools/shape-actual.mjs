@@ -70,6 +70,8 @@ function collect(node, depth, isLast, out) {
     start,
     end: range.End ?? -1,
     text: node.Text !== undefined ? node.Text : (node.Temp !== undefined ? node.Temp : ""),
+    // ShapeToken.CreatedAt：possible / end 的 build 建出这颗形状的那一格；-1 = 还没写 create 入口。
+    createdAt: typeof node.CreatedAt === "number" ? node.CreatedAt : -1,
     isLast,
     depth,
   });
@@ -80,7 +82,9 @@ function collect(node, depth, isLast, out) {
   return out;
 }
 
-/** 返回 { map: Map<key, char>, final }；key = kind|pos|src 起点，与 .ast / .infer 行用同一套。 */
+/** 返回 { map, created, final }；key = kind|pos|src 起点，与 .ast / .infer 行用同一套。
+ *  map 是「首次出现在树里」的那一格；created 是 ShapeToken.CreatedAt（建出形状的那一格，
+ *  没有就记 null）；final 是最终树。 */
 export function traceActual(source, name) {
   const parser = loadParser();
   const template = parser.TypescriptTemplate.Create();
@@ -102,5 +106,10 @@ export function traceActual(source, name) {
   context.Index = total;
   root.SignOut(total);
   context.ProcessRange(root, new parser.SourceRange(document, total, total), total);
-  return { map, final: collect(root, 0, true, []) };
+  const final = collect(root, 0, true, []);
+  const created = new Map();
+  for (const rec of final) {
+    created.set(rec.key, rec.createdAt >= 0 ? rec.createdAt : null);
+  }
+  return { map, created, final };
 }

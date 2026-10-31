@@ -1,16 +1,18 @@
-# 预期形状创建位置（逐字）：`type A = { m(a: string): void }`
+```ts
+type A = { m(a: string): void }
+```
 
 ```text
 [0-19]  |type A = { m(a: stri| [20-31] |ng): void }⏎|
 ```
 
-SourceFile  pos=0  src=[0,32)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,31)   // char 31 "void }【⏎】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= { m"
-   └─ TypeLiteral  pos=8  src=[9,31)   // char 31 "void }【⏎】"
-      └─ MethodSignature  pos=10  src=[11,29)   // char 31 "void }【⏎】"
-         ├─ Identifier  pos=10  src=[11,12)  text="m"   // char 12 "= { m【(】a: string"
-         ├─ Parameter  pos=13  src=[13,22)   // char 22 "string【)】: void"
-         │  ├─ Identifier  pos=13  src=[13,14)  text="a"   // char 14 "{ m(a【:】string"
-         │  └─ StringKeyword  pos=15  src=[16,22)  text="string"   // char 22 "string【)】: void"
-         └─ VoidKeyword  pos=24  src=[25,29)  text="void"   // char 29 "void【␣】}"
+SourceFile  pos=0  src=[0,32)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,31)   // created at char 6 "type A【␣】= { m", llm determined at char 31 "void }【⏎】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= { m", llm determined at char 6 "type A【␣】= { m"
+   └─ TypeLiteral  pos=8  src=[9,31)   // created at char ?, llm determined at char 31 "void }【⏎】"
+      └─ MethodSignature  pos=10  src=[11,29)   // created at char ?, llm determined at char 31 "void }【⏎】"
+         ├─ Identifier  pos=10  src=[11,12)  text="m"   // created at char ?, llm determined at char 12 "= { m【(】a: string"
+         ├─ Parameter  pos=13  src=[13,22)   // created at char ?, llm determined at char 22 "string【)】: void"
+         │  ├─ Identifier  pos=13  src=[13,14)  text="a"   // created at char ?, llm determined at char 14 "{ m(a【:】string"
+         │  └─ StringKeyword  pos=15  src=[16,22)  text="string"   // created at char ?, llm determined at char 22 "string【)】: void"
+         └─ VoidKeyword  pos=24  src=[25,29)  text="void"   // created at char ?, llm determined at char 29 "void【␣】}"

@@ -1,22 +1,24 @@
-# 预期形状创建位置（逐字）：`type A<T> = { [K in keyof T]: T[K] }`
+```ts
+type A<T> = { [K in keyof T]: T[K] }
+```
 
 ```text
 [0-19]  |type A<T> = { [K in | [20-36] |keyof T]: T[K] }⏎|
 ```
 
-SourceFile  pos=0  src=[0,37)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,36)   // char 6 "type A【<】T> ="
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【<】T> ="
-   ├─ TypeParameter  pos=7  src=[7,8)   // char 8 "type A<T【>】= {"
-   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // char 8 "type A<T【>】= {"
-   └─ MappedType  pos=11  src=[12,36)   // char 35 "T[K]【}】"
-      ├─ TypeParameter  pos=15  src=[15,27)   // char 27 "keyof T【]】: T[K"
-      │  ├─ Identifier  pos=15  src=[15,16)  text="K"   // char 16 "{ [K【␣】in keyof"
-      │  └─ TypeOperator  pos=19  src=[20,27)   // char 27 "keyof T【]】: T[K"
-      │     └─ TypeReference  pos=25  src=[26,27)   // char 27 "keyof T【]】: T[K"
-      │        └─ Identifier  pos=25  src=[26,27)  text="T"   // char 27 "keyof T【]】: T[K"
-      └─ IndexedAccessType  pos=29  src=[30,34)   // char 34 "T[K]【␣】}"
-         ├─ TypeReference  pos=29  src=[30,31)   // char 31 "T]: T【[】K] }"
-         │  └─ Identifier  pos=29  src=[30,31)  text="T"   // char 31 "T]: T【[】K] }"
-         └─ TypeReference  pos=32  src=[32,33)   // char 33 ": T[K【]】}"
-            └─ Identifier  pos=32  src=[32,33)  text="K"   // char 33 ": T[K【]】}"
+SourceFile  pos=0  src=[0,37)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,36)   // created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="
+   ├─ TypeParameter  pos=7  src=[7,8)   // created at char ?, llm determined at char 8 "type A<T【>】= {"
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // created at char ?, llm determined at char 8 "type A<T【>】= {"
+   └─ MappedType  pos=11  src=[12,36)   // created at char ?, llm determined at char 35 "T[K]【}】"
+      ├─ TypeParameter  pos=15  src=[15,27)   // created at char ?, llm determined at char 27 "keyof T【]】: T[K"
+      │  ├─ Identifier  pos=15  src=[15,16)  text="K"   // created at char ?, llm determined at char 16 "{ [K【␣】in keyof"
+      │  └─ TypeOperator  pos=19  src=[20,27)   // created at char ?, llm determined at char 27 "keyof T【]】: T[K"
+      │     └─ TypeReference  pos=25  src=[26,27)   // created at char ?, llm determined at char 27 "keyof T【]】: T[K"
+      │        └─ Identifier  pos=25  src=[26,27)  text="T"   // created at char ?, llm determined at char 27 "keyof T【]】: T[K"
+      └─ IndexedAccessType  pos=29  src=[30,34)   // created at char ?, llm determined at char 34 "T[K]【␣】}"
+         ├─ TypeReference  pos=29  src=[30,31)   // created at char ?, llm determined at char 31 "T]: T【[】K] }"
+         │  └─ Identifier  pos=29  src=[30,31)  text="T"   // created at char ?, llm determined at char 31 "T]: T【[】K] }"
+         └─ TypeReference  pos=32  src=[32,33)   // created at char ?, llm determined at char 33 ": T[K【]】}"
+            └─ Identifier  pos=32  src=[32,33)  text="K"   // created at char ?, llm determined at char 33 ": T[K【]】}"

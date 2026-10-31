@@ -1,13 +1,15 @@
-# 预期形状创建位置（逐字）：`type A = { a: string }`
+```ts
+type A = { a: string }
+```
 
 ```text
 [0-19]  |type A = { a: string| [20-22] | }⏎|
 ```
 
-SourceFile  pos=0  src=[0,23)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,22)   // char 20 "string【␣】}"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= { a"
-   └─ TypeLiteral  pos=8  src=[9,22)   // char 22 "string }【⏎】"
-      └─ PropertySignature  pos=10  src=[11,20)   // char 20 "string【␣】}"
-         ├─ Identifier  pos=10  src=[11,12)  text="a"   // char 12 "= { a【:】string"
-         └─ StringKeyword  pos=13  src=[14,20)  text="string"   // char 20 "string【␣】}"
+SourceFile  pos=0  src=[0,23)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,22)   // created at char 6 "type A【␣】= { a", llm determined at char 20 "string【␣】}"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= { a", llm determined at char 6 "type A【␣】= { a"
+   └─ TypeLiteral  pos=8  src=[9,22)   // created at char ?, llm determined at char 22 "string }【⏎】"
+      └─ PropertySignature  pos=10  src=[11,20)   // created at char ?, llm determined at char 20 "string【␣】}"
+         ├─ Identifier  pos=10  src=[11,12)  text="a"   // created at char ?, llm determined at char 12 "= { a【:】string"
+         └─ StringKeyword  pos=13  src=[14,20)  text="string"   // created at char ?, llm determined at char 20 "string【␣】}"

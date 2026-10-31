@@ -1,15 +1,17 @@
-# 预期形状创建位置（逐字）：`1+2*3`
+```ts
+1+2*3
+```
 
 ```text
 [0-5] |1+2*3⏎|
 ```
 
-SourceFile  pos=0  src=[0,6)   // char 0 "【1】+2*3"
-└─ ExpressionStatement  pos=0  src=[0,5)   // char 5 "1+2*3【⏎】"
-   └─ BinaryExpression  pos=0  src=[0,5)   // char 5 "1+2*3【⏎】"
-      ├─ FirstLiteralToken  pos=0  src=[0,1)  text="1"   // char 1 "1【+】2*3"
-      ├─ PlusToken  pos=1  src=[1,2)  text="+"   // char 2 "1+【2】*3"
-      └─ BinaryExpression  pos=2  src=[2,5)   // char 5 "1+2*3【⏎】"
-         ├─ FirstLiteralToken  pos=2  src=[2,3)  text="2"   // char 3 "1+2【*】3"
-         ├─ AsteriskToken  pos=3  src=[3,4)  text="*"   // char 4 "1+2*【3】"
-         └─ FirstLiteralToken  pos=4  src=[4,5)  text="3"   // char 5 "1+2*3【⏎】"
+SourceFile  pos=0  src=[0,6)   // created at char ?, llm determined at char 0 "【1】+2*3"
+└─ ExpressionStatement  pos=0  src=[0,5)   // created at char 1 "1【+】2*3", llm determined at char 5 "1+2*3【⏎】"
+   └─ BinaryExpression  pos=0  src=[0,5)   // created at char 2 "1+【2】*3", llm determined at char 5 "1+2*3【⏎】"
+      ├─ FirstLiteralToken  pos=0  src=[0,1)  text="1"   // created at char 1 "1【+】2*3", llm determined at char 1 "1【+】2*3"
+      ├─ PlusToken  pos=1  src=[1,2)  text="+"   // created at char 2 "1+【2】*3", llm determined at char 2 "1+【2】*3"
+      └─ BinaryExpression  pos=2  src=[2,5)   // created at char 4 "1+2*【3】", llm determined at char 5 "1+2*3【⏎】"
+         ├─ FirstLiteralToken  pos=2  src=[2,3)  text="2"   // created at char 3 "1+2【*】3", llm determined at char 3 "1+2【*】3"
+         ├─ AsteriskToken  pos=3  src=[3,4)  text="*"   // created at char 4 "1+2*【3】", llm determined at char 4 "1+2*【3】"
+         └─ FirstLiteralToken  pos=4  src=[4,5)  text="3"   // created at char 5 "1+2*3【⏎】", llm determined at char 5 "1+2*3【⏎】"

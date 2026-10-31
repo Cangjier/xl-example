@@ -1,15 +1,17 @@
-# 预期形状创建位置（逐字）：`type A<T = string> = T[]`
+```ts
+type A<T = string> = T[]
+```
 
 ```text
 [0-19]  |type A<T = string> =| [20-24] | T[]⏎|
 ```
 
-SourceFile  pos=0  src=[0,25)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,24)   // char 20 "string> =【␣】T[]"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【<】T = string"
-   ├─ TypeParameter  pos=7  src=[7,17)   // char 8 "type A<T【␣】= string"
-   │  ├─ Identifier  pos=7  src=[7,8)  text="T"   // char 8 "type A<T【␣】= string"
-   │  └─ StringKeyword  pos=10  src=[11,17)  text="string"   // char 17 "string【>】= T["
-   └─ ArrayType  pos=20  src=[21,24)   // char 24 "= T[]【⏎】"
-      └─ TypeReference  pos=20  src=[21,22)   // char 22 "> = T【[】]"
-         └─ Identifier  pos=20  src=[21,22)  text="T"   // char 22 "> = T【[】]"
+SourceFile  pos=0  src=[0,25)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,24)   // created at char 6 "type A【<】T = string", llm determined at char 20 "string> =【␣】T[]"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【<】T = string", llm determined at char 6 "type A【<】T = string"
+   ├─ TypeParameter  pos=7  src=[7,17)   // created at char ?, llm determined at char 8 "type A<T【␣】= string"
+   │  ├─ Identifier  pos=7  src=[7,8)  text="T"   // created at char ?, llm determined at char 8 "type A<T【␣】= string"
+   │  └─ StringKeyword  pos=10  src=[11,17)  text="string"   // created at char ?, llm determined at char 17 "string【>】= T["
+   └─ ArrayType  pos=20  src=[21,24)   // created at char ?, llm determined at char 24 "= T[]【⏎】"
+      └─ TypeReference  pos=20  src=[21,22)   // created at char ?, llm determined at char 22 "> = T【[】]"
+         └─ Identifier  pos=20  src=[21,22)  text="T"   // created at char ?, llm determined at char 22 "> = T【[】]"

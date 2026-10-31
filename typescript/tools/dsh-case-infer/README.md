@@ -1,7 +1,8 @@
 # dsh-case-infer
 
-DSH 插件：注册一个工具 `case_infer`，给 tts 用例生成 `case.infer` —— 「每个形状最早在哪一个字符确定」。
-判定交给**宿主当前的默认模型**（`agentDefaultModel`），写完立刻做期望 vs 实际的对拍。
+DSH 插件：注册一个工具 `case_infer`，给 tts 用例生成 `case.infer` —— 每个形状的
+`created at`（shape token 创建格）与 `llm determined`（模型判定的确定格）。
+判定交给**宿主当前的默认模型**（`agentDefaultModel`），写完立刻做 llm vs created 的对拍。
 
 零依赖、纯 ESM：不 import 任何 harness 包，`llm` 从 Cordis 上下文取，所以整条链路可以用假模型离线测。
 
@@ -12,8 +13,8 @@ DSH 插件：注册一个工具 `case_infer`，给 tts 用例生成 `case.infer`
 
 | 谁 | 做什么 |
 | --- | --- |
-| 本地（`case-infer.mjs`） | 骨架（表头 + `.ast` 树 + `// char ?`）、补上下文、期望 vs 实际对拍 |
-| 模型 | 只回「节点 → 字符号」的数字表 |
+| 本地（`case-infer.mjs`） | 骨架（`ts` 源码块 + 逐字表 + `.ast` 树 + `created at` 已填）、补上下文、llm determined vs created at 对拍 |
+| 模型 | 只回「节点 → llm determined 字符号」的数字表 |
 | 插件 | 拼 prompt、调模型、校验数字、填回骨架、写盘、跑对拍 |
 
 ## 工具
@@ -26,15 +27,15 @@ case_infer
 ```
 
 返回：`{ ok, file, model, calls, nodes, gaps, check, text }`。`text` 是对拍表；`check.rows` 里每行带
-`status`（`ok` / `late +N` / `early -N` / `no-shape` / `unfilled`）、`expected`、`actual`。
+`status`（`ok` / `late +N` / `early -N` / `no-created` / `no-shape` / `unfilled`）、`llm`、`created`。
 
 流程：
 
-1. 生成骨架，抽出节点清单（kind / pos / src 起点 / src 终点）；
-2. 把「源码 + 逐字表 + 节点清单 + 规则」发给默认模型，**只要数字**；
+1. 生成骨架，`created at` 直接从 `ShapeToken.CreatedAt` 填好（没有就记 `?`）；抽出节点清单（kind / pos / src 起点 / src 终点）；
+2. 把「源码 + 逐字表 + 节点清单 + 规则」发给默认模型，**只要 llm determined 的数字**；
 3. 校验：每个节点恰好一次、kind/pos/start 原样、`char` 在 `0..N-1`；不合格就带着问题重试（`retries`），仍不合格**不写盘**；
-4. 填回骨架 → 补上下文 → 写 `.infer`；
-5. 用 `build/ts` 逐字推进算实际创建位置，逐节点对拍（和 `case-infer --check` 同一套）。
+4. 填回骨架 → 补两个位置的上下文 → 写 `.infer`；
+5. 用 `build/ts` 取 shape token 的 `created at`，逐节点和 `llm determined` 对拍（和 `case-infer --check` 同一套）。
 
 ## 配置
 
@@ -94,4 +95,6 @@ case_infer { case: "tmp/infer-live/demo.ts" }
 
 模型的判定和手写的 `.infer` 有 6 处不同（`TypeParameter` 取了元素自己的格而不是列表的格、
 `ConditionalType` 取到 `?`、检查类型取到名字收口、`Array<…>` 取到 `>` 而不是 `<`）——
-这正是这个工具要暴露的东西：数字是模型的判断，`--check` 才把它和实现的时机对齐。
+这正是这个工具要暴露的东西：数字是模型的判断，`--check` 才把它和 shape token 的 `created at` 对齐。
+（上面那组 10/16 是旧的「期望 vs 逐字首次出现」口径；现在的对拍是 `llm determined` vs `created at`，
+两边都可能带 `?`：模型没判、或 shape token 还没记 `CreatedAt`。）

@@ -1,12 +1,14 @@
-# 预期形状创建位置（逐字）：`type A = [string, number]`
+```ts
+type A = [string, number]
+```
 
 ```text
 [0-19]  |type A = [string, nu| [20-25] |mber]⏎|
 ```
 
-SourceFile  pos=0  src=[0,26)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,25)   // char 24 "number【]】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= [string"
-   └─ TupleType  pos=8  src=[9,25)   // char 24 "number【]】"
-      ├─ StringKeyword  pos=10  src=[10,16)  text="string"   // char 16 "string【,】number"
-      └─ NumberKeyword  pos=17  src=[18,24)  text="number"   // char 24 "number【]】"
+SourceFile  pos=0  src=[0,26)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,25)   // created at char 6 "type A【␣】= [string", llm determined at char 24 "number【]】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= [string", llm determined at char 6 "type A【␣】= [string"
+   └─ TupleType  pos=8  src=[9,25)   // created at char ?, llm determined at char 24 "number【]】"
+      ├─ StringKeyword  pos=10  src=[10,16)  text="string"   // created at char ?, llm determined at char 16 "string【,】number"
+      └─ NumberKeyword  pos=17  src=[18,24)  text="number"   // created at char ?, llm determined at char 24 "number【]】"

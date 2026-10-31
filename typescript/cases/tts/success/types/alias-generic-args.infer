@@ -1,12 +1,14 @@
-# 预期形状创建位置（逐字）：`type A = Array<string>`
+```ts
+type A = Array<string>
+```
 
 ```text
 [0-19]  |type A = Array<strin| [20-22] |g>⏎|
 ```
 
-SourceFile  pos=0  src=[0,23)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,22)   // char 20 "strin【g】>"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= Array"
-   └─ TypeReference  pos=8  src=[9,22)   // char 20 "strin【g】>"
-      ├─ Identifier  pos=8  src=[9,14)  text="Array"   // char 14 "Array【<】string"
-      └─ StringKeyword  pos=15  src=[15,21)  text="string"   // char 20 "strin【g】>"
+SourceFile  pos=0  src=[0,23)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,22)   // created at char 6 "type A【␣】= Array", llm determined at char 20 "strin【g】>"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= Array", llm determined at char 6 "type A【␣】= Array"
+   └─ TypeReference  pos=8  src=[9,22)   // created at char ?, llm determined at char 20 "strin【g】>"
+      ├─ Identifier  pos=8  src=[9,14)  text="Array"   // created at char ?, llm determined at char 14 "Array【<】string"
+      └─ StringKeyword  pos=15  src=[15,21)  text="string"   // created at char ?, llm determined at char 20 "strin【g】>"

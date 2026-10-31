@@ -1,19 +1,21 @@
-# 预期形状创建位置（逐字）：`for (i = 0; i < 3; i++) { }`
+```ts
+for (i = 0; i < 3; i++) { }
+```
 
 ```text
 [0-19]  |for (i = 0; i < 3; i| [20-27] |++) { }⏎|
 ```
 
-SourceFile  pos=0  src=[0,28)   // char 27 ") { }【⏎】"
-└─ ForStatement  pos=0  src=[0,27)   // char 23 "i++)【␣】{ }"
-   ├─ BinaryExpression  pos=5  src=[5,10)   // char 10 "i = 0【;】i <"
-   │  ├─ Identifier  pos=5  src=[5,6)  text="i"   // char 6 "for (i【␣】= 0;"
-   │  ├─ FirstAssignment  pos=6  src=[7,8)  text="="   // char 8 "(i =【␣】0; i"
-   │  └─ FirstLiteralToken  pos=8  src=[9,10)  text="0"   // char 10 "i = 0【;】i <"
-   ├─ BinaryExpression  pos=11  src=[12,17)   // char 17 "i < 3【;】i++)"
-   │  ├─ Identifier  pos=11  src=[12,13)  text="i"   // char 13 "0; i【␣】< 3;"
-   │  ├─ FirstBinaryOperator  pos=13  src=[14,15)  text="<"   // char 15 "; i <【␣】3; i+"
-   │  └─ FirstLiteralToken  pos=15  src=[16,17)  text="3"   // char 17 "i < 3【;】i++)"
-   ├─ PostfixUnaryExpression  pos=18  src=[19,22)   // char 22 "; i++【)】{ }"
-   │  └─ Identifier  pos=18  src=[19,20)  text="i"   // char 20 "3; i【+】+) {"
-   └─ Block  pos=23  src=[24,27)   // char 27 ") { }【⏎】"
+SourceFile  pos=0  src=[0,28)   // created at char ?, llm determined at char 27 ") { }【⏎】"
+└─ ForStatement  pos=0  src=[0,27)   // created at char 22 "; i++【)】{ }", llm determined at char 23 "i++)【␣】{ }"
+   ├─ BinaryExpression  pos=5  src=[5,10)   // created at char 8 "(i =【␣】0; i", llm determined at char 10 "i = 0【;】i <"
+   │  ├─ Identifier  pos=5  src=[5,6)  text="i"   // created at char 6 "for (i【␣】= 0;", llm determined at char 6 "for (i【␣】= 0;"
+   │  ├─ FirstAssignment  pos=6  src=[7,8)  text="="   // created at char 8 "(i =【␣】0; i", llm determined at char 8 "(i =【␣】0; i"
+   │  └─ FirstLiteralToken  pos=8  src=[9,10)  text="0"   // created at char 10 "i = 0【;】i <", llm determined at char 10 "i = 0【;】i <"
+   ├─ BinaryExpression  pos=11  src=[12,17)   // created at char 15 "; i <【␣】3; i+", llm determined at char 17 "i < 3【;】i++)"
+   │  ├─ Identifier  pos=11  src=[12,13)  text="i"   // created at char 13 "0; i【␣】< 3;", llm determined at char 13 "0; i【␣】< 3;"
+   │  ├─ FirstBinaryOperator  pos=13  src=[14,15)  text="<"   // created at char 15 "; i <【␣】3; i+", llm determined at char 15 "; i <【␣】3; i+"
+   │  └─ FirstLiteralToken  pos=15  src=[16,17)  text="3"   // created at char 17 "i < 3【;】i++)", llm determined at char 17 "i < 3【;】i++)"
+   ├─ PostfixUnaryExpression  pos=18  src=[19,22)   // created at char 21 "3; i+【+】) { }", llm determined at char 22 "; i++【)】{ }"
+   │  └─ Identifier  pos=18  src=[19,20)  text="i"   // created at char 20 "3; i【+】+) {", llm determined at char 20 "3; i【+】+) {"
+   └─ Block  pos=23  src=[24,27)   // created at char 24 "i++)【{】}", llm determined at char 27 ") { }【⏎】"

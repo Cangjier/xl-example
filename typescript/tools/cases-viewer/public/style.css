@@ -901,6 +901,7 @@ code, kbd, pre {
 .infer-status.early { color: #a9c8ff; background: rgba(76, 141, 255, 0.14); border-color: rgba(76, 141, 255, 0.3); }
 .infer-status.never { color: #ffb1b1; background: rgba(255, 107, 107, 0.14); border-color: rgba(255, 107, 107, 0.3); }
 .infer-status.unfilled { color: var(--dim); background: var(--bg-2); border-color: var(--line-2); }
+.infer-status.unknown { color: #c9b6ff; background: rgba(150, 120, 255, 0.12); border-color: rgba(150, 120, 255, 0.28); }
 .chipstat {
   display: inline-block;
   margin: 0 4px 0 6px;
@@ -912,6 +913,7 @@ code, kbd, pre {
 .chipstat.early { color: #a9c8ff; background: rgba(76, 141, 255, 0.14); }
 .chipstat.never { color: #ffb1b1; background: rgba(255, 107, 107, 0.14); }
 .chipstat.unfilled { color: var(--dim); background: var(--bg-2); }
+.chipstat.unknown { color: #c9b6ff; background: rgba(150, 120, 255, 0.12); }
 .notice.warn {
   border-left-color: var(--amber);
   background: rgba(245, 181, 85, 0.07);

@@ -19,7 +19,7 @@ node typescript/tools/cases-viewer/server.mjs --help
 | 总览 | 覆盖率统计、按类别分布、有 `case.md` 的用例清单、快捷键说明 |
 | 逐字回放 | 源码逐字符高亮 + 磁带式字符条 + 当前这一步的树（相对上一步新增的行标绿） |
 | case.ts | 全文，带行号，可复制 |
-| case.ast | `ts-ast-line` 快照；与当前输出一致/过期会直接标出来，过期时可以一键看「重算结果」；有 `case.infer` 时每行末尾接上它的期望创建位置（`// char N "…"`） |
+| case.ast | `ts-ast-line` 快照；与当前输出一致/过期会直接标出来，过期时可以一键看「重算结果」；有 `case.infer` 时每行末尾接上它的 `created at` / `llm determined` 注记 |
 | case.md | `case.md` 原文；标题和目录都能跳到回放对应步，还能用解析器逐步复核夹具是否过期 |
 | 对拍 | 单个用例跑 `run.mjs`；顶部「全部对拍」跑一次 `--all --list`，结果标回左侧列表 |
 
@@ -40,24 +40,26 @@ node typescript/tools/cases-viewer/server.mjs --help
 
 ## case.infer
 
-`<名字>.infer` 与 `.ts` 并列，内容是 LLM 按语法逻辑判定的「每个形状最早在哪一格确定」：
-开头是逐字编号，后面是和 `.ast` 同形的树，每行末尾带 `// char N "…"`
-（`…` 是标记字符前后各至少 5 个字符的上下文，`【】` 标出该字符）。
+`<名字>.infer` 与 `.ts` 并列，每行末尾同时记两个位置：
+`// created at char N "…", llm determined at char N "…"`。前者是 shape token 建出这颗形状的那一格
+（`ShapeToken.CreatedAt`，没有就写 `?`），后者是 LLM 按语法逻辑判定的「最早能确定」位置；
+`…` 是标记字符前后各至少 5 个字符的上下文，`【】` 标出该字符。开头是用 `ts` 围栏包住的用例源码与逐字编号。
 
 存在时：左侧列表多一个蓝点、标题多一个 `case.infer` 徽章、`case.ast` 页按节点身份
-（`kind + pos + src 起点`）把注记接到对应行末，并在每行右侧给出**期望 vs 实际**的结论——
+（`kind + pos + src 起点`）把注记接到对应行末，并在每行右侧给出 **llm determined vs created at** 的结论——
 
 | 标记 | 含义 |
 | --- | --- |
-| `✓` | 期望字符 = 实际创建字符 |
-| `late +N` | 实际比期望晚 N 格（形状确定得比可以建的时机晚） |
-| `early -N` | 实际比期望早 N 格 |
-| `?` | `.infer` 里还是 `// char ?`，没填 |
+| `✓` | 模型判定格 = shape token 创建格 |
+| `late +N` | 模型判得比实际创建晚 N 格 |
+| `early -N` | 模型判得比实际创建早 N 格 |
+| `?` | `llm determined` 还是 `?`，没判定 |
+| `created ?` | shape token 还没记 `CreatedAt`，无法对拍 |
 | `never` | 树里始终没有这个节点 |
 
-实际值由 `build/ts` 逐字推进现算（`typescript/tools/shape-actual.mjs`，和 `case-infer --check` 共用同一份身份规则与
-TS 区间别名表）。页头写「infer 注记 N 个，一致 M」，上方通知条给出 `late/early/unfilled/never` 的计数；
-没有 `build/ts` 时只显示期望值、不显示结论。没有 `.infer` 时界面与以前完全一样。
+实际值由 `build/ts` 现算（`typescript/tools/shape-actual.mjs`，和 `case-infer --check` 共用同一份身份规则与
+TS 区间别名表）。页头写「infer 注记 N 个，一致 M」，上方通知条给出 `late/early/unfilled/created ?/never` 的计数；
+没有 `build/ts` 时只显示注记、不显示结论。没有 `.infer` 时界面与以前完全一样。
 
 ## 接口
 

@@ -1,21 +1,23 @@
-# 预期形状创建位置（逐字）：`switch (a) { case 1: case 2: b; break; default: c; }`
+```ts
+switch (a) { case 1: case 2: b; break; default: c; }
+```
 
 ```text
 [0-19]  |switch (a) { case 1:| [20-39] | case 2: b; break; d|
 [40-52] |efault: c; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,53)   // char 0 "【s】witch"
-└─ SwitchStatement  pos=0  src=[0,52)   // char 20 "case 1:【␣】case"
-   ├─ Identifier  pos=8  src=[8,9)  text="a"   // char 9 "switch (a【)】{ case"
-   └─ CaseBlock  pos=10  src=[11,52)   // char 52 "c; }【⏎】"
-      ├─ CaseClause  pos=12  src=[13,20)   // char 20 "case 1:【␣】case"
-      │  └─ FirstLiteralToken  pos=17  src=[18,19)  text="1"   // char 19 "case 1【:】case"
-      ├─ CaseClause  pos=20  src=[21,38)   // char 38 "break;【␣】default"
-      │  ├─ FirstLiteralToken  pos=25  src=[26,27)  text="2"   // char 27 "case 2【:】b; break"
-      │  ├─ ExpressionStatement  pos=28  src=[29,31)   // char 31 "2: b;【␣】break"
-      │  │  └─ Identifier  pos=28  src=[29,30)  text="b"   // char 30 "2: b【;】break"
-      │  └─ BreakStatement  pos=31  src=[32,38)   // char 38 "break;【␣】default"
-      └─ DefaultClause  pos=38  src=[39,50)   // char 50 "default: c;【␣】}"
-         └─ ExpressionStatement  pos=47  src=[48,50)   // char 50 "default: c;【␣】}"
-            └─ Identifier  pos=47  src=[48,49)  text="c"   // char 49 "default: c【;】}"
+SourceFile  pos=0  src=[0,53)   // created at char ?, llm determined at char 0 "【s】witch"
+└─ SwitchStatement  pos=0  src=[0,52)   // created at char 6 "switch【␣】(a) {", llm determined at char 20 "case 1:【␣】case"
+   ├─ Identifier  pos=8  src=[8,9)  text="a"   // created at char 9 "switch (a【)】{ case", llm determined at char 9 "switch (a【)】{ case"
+   └─ CaseBlock  pos=10  src=[11,52)   // created at char 11 "(a)【{】case", llm determined at char 52 "c; }【⏎】"
+      ├─ CaseClause  pos=12  src=[13,20)   // created at char 17 "case【␣】1: case", llm determined at char 20 "case 1:【␣】case"
+      │  └─ FirstLiteralToken  pos=17  src=[18,19)  text="1"   // created at char 19 "case 1【:】case", llm determined at char 19 "case 1【:】case"
+      ├─ CaseClause  pos=20  src=[21,38)   // created at char 25 "case【␣】2: b;", llm determined at char 38 "break;【␣】default"
+      │  ├─ FirstLiteralToken  pos=25  src=[26,27)  text="2"   // created at char 27 "case 2【:】b; break", llm determined at char 27 "case 2【:】b; break"
+      │  ├─ ExpressionStatement  pos=28  src=[29,31)   // created at char 30 "2: b【;】break", llm determined at char 31 "2: b;【␣】break"
+      │  │  └─ Identifier  pos=28  src=[29,30)  text="b"   // created at char 30 "2: b【;】break", llm determined at char 30 "2: b【;】break"
+      │  └─ BreakStatement  pos=31  src=[32,38)   // created at char 37 "break【;】default", llm determined at char 38 "break;【␣】default"
+      └─ DefaultClause  pos=38  src=[39,50)   // created at char 46 "default【:】c; }", llm determined at char 50 "default: c;【␣】}"
+         └─ ExpressionStatement  pos=47  src=[48,50)   // created at char 49 "default: c【;】}", llm determined at char 50 "default: c;【␣】}"
+            └─ Identifier  pos=47  src=[48,49)  text="c"   // created at char 49 "default: c【;】}", llm determined at char 49 "default: c【;】}"

@@ -1,15 +1,17 @@
-# 预期形状创建位置（逐字）：`if (a) if (b) c; else d;`
+```ts
+if (a) if (b) c; else d;
+```
 
 ```text
 [0-19]  |if (a) if (b) c; els| [20-24] |e d;⏎|
 ```
 
-SourceFile  pos=0  src=[0,25)   // char 0 "【i】f (a)"
-└─ IfStatement  pos=0  src=[0,24)   // char 24 "else d;【⏎】"
-   ├─ Identifier  pos=4  src=[4,5)  text="a"   // char 5 "if (a【)】if ("
-   └─ IfStatement  pos=6  src=[7,24)   // char 24 "else d;【⏎】"
-      ├─ Identifier  pos=11  src=[11,12)  text="b"   // char 12 "if (b【)】c; else"
-      ├─ ExpressionStatement  pos=13  src=[14,16)   // char 16 "b) c;【␣】else"
-      │  └─ Identifier  pos=13  src=[14,15)  text="c"   // char 15 "(b) c【;】else"
-      └─ ExpressionStatement  pos=21  src=[22,24)   // char 24 "else d;【⏎】"
-         └─ Identifier  pos=21  src=[22,23)  text="d"   // char 23 "else d【;】"
+SourceFile  pos=0  src=[0,25)   // created at char ?, llm determined at char 0 "【i】f (a)"
+└─ IfStatement  pos=0  src=[0,24)   // created at char 2 "if【␣】(a) if", llm determined at char 24 "else d;【⏎】"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】if (", llm determined at char 5 "if (a【)】if ("
+   └─ IfStatement  pos=6  src=[7,24)   // created at char 9 "a) if【␣】(b) c", llm determined at char 24 "else d;【⏎】"
+      ├─ Identifier  pos=11  src=[11,12)  text="b"   // created at char 12 "if (b【)】c; else", llm determined at char 12 "if (b【)】c; else"
+      ├─ ExpressionStatement  pos=13  src=[14,16)   // created at char 15 "(b) c【;】else", llm determined at char 16 "b) c;【␣】else"
+      │  └─ Identifier  pos=13  src=[14,15)  text="c"   // created at char 15 "(b) c【;】else", llm determined at char 15 "(b) c【;】else"
+      └─ ExpressionStatement  pos=21  src=[22,24)   // created at char 23 "else d【;】", llm determined at char 24 "else d;【⏎】"
+         └─ Identifier  pos=21  src=[22,23)  text="d"   // created at char 23 "else d【;】", llm determined at char 23 "else d【;】"

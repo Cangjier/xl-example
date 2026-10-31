@@ -1,17 +1,20 @@
-# 预期形状创建位置（逐字）：`let x = 1⏎let y = 2`
+```ts
+let x = 1
+let y = 2
+```
 
 ```text
 [0-19] |let x = 1⏎let y = 2⏎|
 ```
 
-SourceFile  pos=0  src=[0,20)   // char 0 "【l】et x"
-├─ FirstStatement  pos=0  src=[0,9)   // char 9 "x = 1【⏎】let y"
-│  └─ VariableDeclarationList  pos=0  src=[0,9)   // char 9 "x = 1【⏎】let y"
-│     └─ VariableDeclaration  pos=3  src=[4,9)   // char 9 "x = 1【⏎】let y"
-│        ├─ Identifier  pos=3  src=[4,5)  text="x"   // char 5 "let x【␣】= 1 let"
-│        └─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // char 9 "x = 1【⏎】let y"
-└─ FirstStatement  pos=9  src=[10,19)   // char 19 "y = 2【⏎】"
-   └─ VariableDeclarationList  pos=9  src=[10,19)   // char 19 "y = 2【⏎】"
-      └─ VariableDeclaration  pos=13  src=[14,19)   // char 19 "y = 2【⏎】"
-         ├─ Identifier  pos=13  src=[14,15)  text="y"   // char 15 "let y【␣】= 2"
-         └─ FirstLiteralToken  pos=17  src=[18,19)  text="2"   // char 19 "y = 2【⏎】"
+SourceFile  pos=0  src=[0,20)   // created at char ?, llm determined at char 0 "【l】et x"
+├─ FirstStatement  pos=0  src=[0,9)   // created at char 5 "let x【␣】= 1 let", llm determined at char 9 "x = 1【⏎】let y"
+│  └─ VariableDeclarationList  pos=0  src=[0,9)   // created at char 5 "let x【␣】= 1 let", llm determined at char 9 "x = 1【⏎】let y"
+│     └─ VariableDeclaration  pos=3  src=[4,9)   // created at char 5 "let x【␣】= 1 let", llm determined at char 9 "x = 1【⏎】let y"
+│        ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 1 let", llm determined at char 5 "let x【␣】= 1 let"
+│        └─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // created at char 9 "x = 1【⏎】let y", llm determined at char 9 "x = 1【⏎】let y"
+└─ FirstStatement  pos=9  src=[10,19)   // created at char 15 "let y【␣】= 2", llm determined at char 19 "y = 2【⏎】"
+   └─ VariableDeclarationList  pos=9  src=[10,19)   // created at char 15 "let y【␣】= 2", llm determined at char 19 "y = 2【⏎】"
+      └─ VariableDeclaration  pos=13  src=[14,19)   // created at char 15 "let y【␣】= 2", llm determined at char 19 "y = 2【⏎】"
+         ├─ Identifier  pos=13  src=[14,15)  text="y"   // created at char 15 "let y【␣】= 2", llm determined at char 15 "let y【␣】= 2"
+         └─ FirstLiteralToken  pos=17  src=[18,19)  text="2"   // created at char 19 "y = 2【⏎】", llm determined at char 19 "y = 2【⏎】"

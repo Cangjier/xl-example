@@ -1,8 +1,8 @@
 /**
  * dsh-case-infer：`case_infer` 工具。
  *
- * 一件什么事：给 tts 用例产出 `<名字>.infer` ——「每个形状最早在哪一格确定」，
- * 判定交给宿主当前默认模型（`agentDefaultModel`），写完立刻做期望 vs 实际对拍。
+ * 一件什么事：给 tts 用例产出 `<名字>.infer` —— 每个形状的 `created at`（shape token）
+ * 与 `llm determined`（模型判定的确定格），写完立刻做 llm vs created 对拍。
  *
  * 为什么是插件而不是仓库里的脚本：模型通道（`llm` 服务）只在 DSH 进程里。
  * 骨架、格式、对拍仍然复用 `typescript/tools/case-infer.mjs`，插件不重写这些。

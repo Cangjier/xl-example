@@ -1,11 +1,13 @@
-# 预期形状创建位置（逐字）：`a; b;`
+```ts
+a; b;
+```
 
 ```text
 [0-5] |a; b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,6)   // char 0 "【a】; b;"
-├─ ExpressionStatement  pos=0  src=[0,2)   // char 1 "a【;】b;"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // char 1 "a【;】b;"
-└─ ExpressionStatement  pos=2  src=[3,5)   // char 4 "a; b【;】"
-   └─ Identifier  pos=2  src=[3,4)  text="b"   // char 4 "a; b【;】"
+SourceFile  pos=0  src=[0,6)   // created at char ?, llm determined at char 0 "【a】; b;"
+├─ ExpressionStatement  pos=0  src=[0,2)   // created at char 1 "a【;】b;", llm determined at char 1 "a【;】b;"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【;】b;", llm determined at char 1 "a【;】b;"
+└─ ExpressionStatement  pos=2  src=[3,5)   // created at char 4 "a; b【;】", llm determined at char 4 "a; b【;】"
+   └─ Identifier  pos=2  src=[3,4)  text="b"   // created at char 4 "a; b【;】", llm determined at char 4 "a; b【;】"

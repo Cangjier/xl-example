@@ -1,12 +1,14 @@
-# 预期形状创建位置（逐字）：`let x = 42`
+```ts
+let x = 42
+```
 
 ```text
 [0-10] |let x = 42⏎|
 ```
 
-SourceFile  pos=0  src=[0,11)   // char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,10)   // char 5 "let x【␣】= 42"
-   └─ VariableDeclarationList  pos=0  src=[0,10)   // char 5 "let x【␣】= 42"
-      └─ VariableDeclaration  pos=3  src=[4,10)   // char 5 "let x【␣】= 42"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // char 5 "let x【␣】= 42"
-         └─ FirstLiteralToken  pos=7  src=[8,10)  text="42"   // char 10 "= 42【⏎】"
+SourceFile  pos=0  src=[0,11)   // created at char ?, llm determined at char 0 "【l】et x"
+└─ FirstStatement  pos=0  src=[0,10)   // created at char 5 "let x【␣】= 42", llm determined at char 5 "let x【␣】= 42"
+   └─ VariableDeclarationList  pos=0  src=[0,10)   // created at char 5 "let x【␣】= 42", llm determined at char 5 "let x【␣】= 42"
+      └─ VariableDeclaration  pos=3  src=[4,10)   // created at char 5 "let x【␣】= 42", llm determined at char 5 "let x【␣】= 42"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 42", llm determined at char 5 "let x【␣】= 42"
+         └─ FirstLiteralToken  pos=7  src=[8,10)  text="42"   // created at char 10 "= 42【⏎】", llm determined at char 10 "= 42【⏎】"

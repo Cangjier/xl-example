@@ -1,15 +1,17 @@
-# 预期形状创建位置（逐字）：`let x = 1 ?? 2`
+```ts
+let x = 1 ?? 2
+```
 
 ```text
 [0-14] |let x = 1 ?? 2⏎|
 ```
 
-SourceFile  pos=0  src=[0,15)   // char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,14)   // char 8 "x =【1】?? 2"
-   └─ VariableDeclarationList  pos=0  src=[0,14)   // char 8 "x =【1】?? 2"
-      └─ VariableDeclaration  pos=3  src=[4,14)   // char 8 "x =【1】?? 2"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // char 5 "let x【␣】= 1 ?"
-         └─ BinaryExpression  pos=7  src=[8,14)   // char 14 "?? 2【⏎】"
-            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // char 8 "x =【1】?? 2"
-            ├─ QuestionQuestionToken  pos=9  src=[10,12)  text="??"   // char 12 "1 ??【␣】2"
-            └─ FirstLiteralToken  pos=12  src=[13,14)  text="2"   // char 14 "?? 2【⏎】"
+SourceFile  pos=0  src=[0,15)   // created at char ?, llm determined at char 0 "【l】et x"
+└─ FirstStatement  pos=0  src=[0,14)   // created at char 5 "let x【␣】= 1 ?", llm determined at char 8 "x =【1】?? 2"
+   └─ VariableDeclarationList  pos=0  src=[0,14)   // created at char 5 "let x【␣】= 1 ?", llm determined at char 8 "x =【1】?? 2"
+      └─ VariableDeclaration  pos=3  src=[4,14)   // created at char 5 "let x【␣】= 1 ?", llm determined at char 8 "x =【1】?? 2"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 1 ?", llm determined at char 5 "let x【␣】= 1 ?"
+         └─ BinaryExpression  pos=7  src=[8,14)   // created at char 12 "1 ??【␣】2", llm determined at char 14 "?? 2【⏎】"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // created at char 9 "x = 1【␣】?? 2", llm determined at char 8 "x =【1】?? 2"
+            ├─ QuestionQuestionToken  pos=9  src=[10,12)  text="??"   // created at char 12 "1 ??【␣】2", llm determined at char 12 "1 ??【␣】2"
+            └─ FirstLiteralToken  pos=12  src=[13,14)  text="2"   // created at char 14 "?? 2【⏎】", llm determined at char 14 "?? 2【⏎】"

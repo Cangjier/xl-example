@@ -1,14 +1,16 @@
-# 预期形状创建位置（逐字）：`type A = Foo[K]`
+```ts
+type A = Foo[K]
+```
 
 ```text
 [0-15] |type A = Foo[K]⏎|
 ```
 
-SourceFile  pos=0  src=[0,16)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,15)   // char 12 "= Foo【[】K]"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= Foo"
-   └─ IndexedAccessType  pos=8  src=[9,15)   // char 14 "Foo[K【]】"
-      ├─ TypeReference  pos=8  src=[9,12)   // char 12 "= Foo【[】K]"
-      │  └─ Identifier  pos=8  src=[9,12)  text="Foo"   // char 12 "= Foo【[】K]"
-      └─ TypeReference  pos=13  src=[13,14)   // char 14 "Foo[K【]】"
-         └─ Identifier  pos=13  src=[13,14)  text="K"   // char 14 "Foo[K【]】"
+SourceFile  pos=0  src=[0,16)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,15)   // created at char 6 "type A【␣】= Foo", llm determined at char 12 "= Foo【[】K]"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= Foo", llm determined at char 6 "type A【␣】= Foo"
+   └─ IndexedAccessType  pos=8  src=[9,15)   // created at char ?, llm determined at char 14 "Foo[K【]】"
+      ├─ TypeReference  pos=8  src=[9,12)   // created at char ?, llm determined at char 12 "= Foo【[】K]"
+      │  └─ Identifier  pos=8  src=[9,12)  text="Foo"   // created at char ?, llm determined at char 12 "= Foo【[】K]"
+      └─ TypeReference  pos=13  src=[13,14)   // created at char ?, llm determined at char 14 "Foo[K【]】"
+         └─ Identifier  pos=13  src=[13,14)  text="K"   // created at char ?, llm determined at char 14 "Foo[K【]】"

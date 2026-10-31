@@ -1,11 +1,13 @@
-# 预期形状创建位置（逐字）：`type A = typeof x`
+```ts
+type A = typeof x
+```
 
 ```text
 [0-17] |type A = typeof x⏎|
 ```
 
-SourceFile  pos=0  src=[0,18)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,17)   // char 16 "typeof【x】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= typeof"
-   └─ TypeQuery  pos=8  src=[9,17)   // char 16 "typeof【x】"
-      └─ Identifier  pos=15  src=[16,17)  text="x"   // char 17 "typeof x【⏎】"
+SourceFile  pos=0  src=[0,18)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,17)   // created at char 6 "type A【␣】= typeof", llm determined at char 16 "typeof【x】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= typeof", llm determined at char 6 "type A【␣】= typeof"
+   └─ TypeQuery  pos=8  src=[9,17)   // created at char ?, llm determined at char 16 "typeof【x】"
+      └─ Identifier  pos=15  src=[16,17)  text="x"   // created at char ?, llm determined at char 17 "typeof x【⏎】"

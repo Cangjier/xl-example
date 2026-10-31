@@ -1,10 +1,12 @@
-# 预期形状创建位置（逐字）：`type A = string`
+```ts
+type A = string
+```
 
 ```text
 [0-15] |type A = string⏎|
 ```
 
-SourceFile  pos=0  src=[0,16)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,15)   // char 8 "type A =【␣】string"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= string"
-   └─ StringKeyword  pos=8  src=[9,15)  text="string"   // char 15 "string【⏎】"
+SourceFile  pos=0  src=[0,16)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,15)   // created at char 6 "type A【␣】= string", llm determined at char 8 "type A =【␣】string"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= string", llm determined at char 6 "type A【␣】= string"
+   └─ StringKeyword  pos=8  src=[9,15)  text="string"   // created at char ?, llm determined at char 15 "string【⏎】"

@@ -2,7 +2,7 @@
   "name": "dsh-case-infer",
   "version": "0.1.0",
   "private": true,
-  "description": "DSH 插件 case_infer：给 tts 用例生成 case.infer（每个形状最早在哪一格确定），用宿主当前默认模型判定，写完立刻做期望 vs 实际对拍。零依赖，只用 Node 内置模块。",
+  "description": "DSH 插件 case_infer：给 tts 用例生成 case.infer（每个形状的 created at 与 llm determined），用宿主当前默认模型判定，写完立刻做 llm vs created 对拍。零依赖，只用 Node 内置模块。",
   "type": "module",
   "license": "MIT",
   "exports": {

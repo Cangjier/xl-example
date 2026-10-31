@@ -1,12 +1,14 @@
-# 预期形状创建位置（逐字）：`a < b;`
+```ts
+a < b;
+```
 
 ```text
 [0-6] |a < b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,7)   // char 0 "【a】< b;"
-└─ ExpressionStatement  pos=0  src=[0,6)   // char 5 "a < b【;】"
-   └─ BinaryExpression  pos=0  src=[0,5)   // char 5 "a < b【;】"
-      ├─ Identifier  pos=0  src=[0,1)  text="a"   // char 1 "a【␣】< b;"
-      ├─ FirstBinaryOperator  pos=1  src=[2,3)  text="<"   // char 2 "a【<】b;"
-      └─ Identifier  pos=3  src=[4,5)  text="b"   // char 5 "a < b【;】"
+SourceFile  pos=0  src=[0,7)   // created at char ?, llm determined at char 0 "【a】< b;"
+└─ ExpressionStatement  pos=0  src=[0,6)   // created at char 1 "a【␣】< b;", llm determined at char 5 "a < b【;】"
+   └─ BinaryExpression  pos=0  src=[0,5)   // created at char 3 "a <【␣】b;", llm determined at char 5 "a < b【;】"
+      ├─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【␣】< b;", llm determined at char 1 "a【␣】< b;"
+      ├─ FirstBinaryOperator  pos=1  src=[2,3)  text="<"   // created at char 3 "a <【␣】b;", llm determined at char 2 "a【<】b;"
+      └─ Identifier  pos=3  src=[4,5)  text="b"   // created at char 5 "a < b【;】", llm determined at char 5 "a < b【;】"

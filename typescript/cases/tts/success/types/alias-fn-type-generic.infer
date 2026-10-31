@@ -1,18 +1,20 @@
-# 预期形状创建位置（逐字）：`type A = <T>(a: T) => T`
+```ts
+type A = <T>(a: T) => T
+```
 
 ```text
 [0-19]  |type A = <T>(a: T) =| [20-23] |> T⏎|
 ```
 
-SourceFile  pos=0  src=[0,24)   // char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,23)   // char 21 "T) =>【␣】T"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // char 6 "type A【␣】= <T>"
-   └─ FunctionType  pos=8  src=[9,23)   // char 23 "=> T【⏎】"
-      ├─ TypeParameter  pos=10  src=[10,11)   // char 10 "A = <【T】>(a:"
-      │  └─ Identifier  pos=10  src=[10,11)  text="T"   // char 10 "A = <【T】>(a:"
-      ├─ Parameter  pos=13  src=[13,17)   // char 17 "(a: T【)】=> T"
-      │  ├─ Identifier  pos=13  src=[13,14)  text="a"   // char 14 "<T>(a【:】T) ="
-      │  └─ TypeReference  pos=15  src=[16,17)   // char 17 "(a: T【)】=> T"
-      │     └─ Identifier  pos=15  src=[16,17)  text="T"   // char 17 "(a: T【)】=> T"
-      └─ TypeReference  pos=21  src=[22,23)   // char 23 "=> T【⏎】"
-         └─ Identifier  pos=21  src=[22,23)  text="T"   // char 23 "=> T【⏎】"
+SourceFile  pos=0  src=[0,24)   // created at char ?, llm determined at char 0 "【t】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,23)   // created at char 6 "type A【␣】= <T>", llm determined at char 21 "T) =>【␣】T"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= <T>", llm determined at char 6 "type A【␣】= <T>"
+   └─ FunctionType  pos=8  src=[9,23)   // created at char ?, llm determined at char 23 "=> T【⏎】"
+      ├─ TypeParameter  pos=10  src=[10,11)   // created at char ?, llm determined at char 10 "A = <【T】>(a:"
+      │  └─ Identifier  pos=10  src=[10,11)  text="T"   // created at char ?, llm determined at char 10 "A = <【T】>(a:"
+      ├─ Parameter  pos=13  src=[13,17)   // created at char ?, llm determined at char 17 "(a: T【)】=> T"
+      │  ├─ Identifier  pos=13  src=[13,14)  text="a"   // created at char ?, llm determined at char 14 "<T>(a【:】T) ="
+      │  └─ TypeReference  pos=15  src=[16,17)   // created at char ?, llm determined at char 17 "(a: T【)】=> T"
+      │     └─ Identifier  pos=15  src=[16,17)  text="T"   // created at char ?, llm determined at char 17 "(a: T【)】=> T"
+      └─ TypeReference  pos=21  src=[22,23)   // created at char ?, llm determined at char 23 "=> T【⏎】"
+         └─ Identifier  pos=21  src=[22,23)  text="T"   // created at char ?, llm determined at char 23 "=> T【⏎】"

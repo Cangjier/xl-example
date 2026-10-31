@@ -1,11 +1,13 @@
-# 预期形状创建位置（逐字）：`for (v of xs) { }`
+```ts
+for (v of xs) { }
+```
 
 ```text
 [0-17] |for (v of xs) { }⏎|
 ```
 
-SourceFile  pos=0  src=[0,18)   // char 0 "【f】or (v"
-└─ ForOfStatement  pos=0  src=[0,17)   // char 13 "of xs)【␣】{ }"
-   ├─ Identifier  pos=5  src=[5,6)  text="v"   // char 6 "for (v【␣】of xs"
-   ├─ Identifier  pos=9  src=[10,12)  text="xs"   // char 12 "of xs【)】{ }"
-   └─ Block  pos=13  src=[14,17)   // char 17 ") { }【⏎】"
+SourceFile  pos=0  src=[0,18)   // created at char ?, llm determined at char 0 "【f】or (v"
+└─ ForOfStatement  pos=0  src=[0,17)   // created at char 12 "of xs【)】{ }", llm determined at char 13 "of xs)【␣】{ }"
+   ├─ Identifier  pos=5  src=[5,6)  text="v"   // created at char 6 "for (v【␣】of xs", llm determined at char 6 "for (v【␣】of xs"
+   ├─ Identifier  pos=9  src=[10,12)  text="xs"   // created at char 12 "of xs【)】{ }", llm determined at char 12 "of xs【)】{ }"
+   └─ Block  pos=13  src=[14,17)   // created at char 14 "xs)【{】}", llm determined at char 17 ") { }【⏎】"

@@ -1,11 +1,13 @@
-# 预期形状创建位置（逐字）：`if (a) b;`
+```ts
+if (a) b;
+```
 
 ```text
 [0-9] |if (a) b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,10)   // char 0 "【i】f (a)"
-└─ IfStatement  pos=0  src=[0,9)   // char 7 "(a)【b】;"
-   ├─ Identifier  pos=4  src=[4,5)  text="a"   // char 4 "if (【a】) b;"
-   └─ ExpressionStatement  pos=6  src=[7,9)   // char 8 "(a) b【;】"
-      └─ Identifier  pos=6  src=[7,8)  text="b"   // char 8 "(a) b【;】"
+SourceFile  pos=0  src=[0,10)   // created at char ?, llm determined at char 0 "【i】f (a)"
+└─ IfStatement  pos=0  src=[0,9)   // created at char 2 "if【␣】(a) b", llm determined at char 7 "(a)【b】;"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】b;", llm determined at char 4 "if (【a】) b;"
+   └─ ExpressionStatement  pos=6  src=[7,9)   // created at char 8 "(a) b【;】", llm determined at char 8 "(a) b【;】"
+      └─ Identifier  pos=6  src=[7,8)  text="b"   // created at char 8 "(a) b【;】", llm determined at char 8 "(a) b【;】"
