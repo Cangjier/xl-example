@@ -7,8 +7,8 @@ b
 [0-3] |a⏎b⏎|
 ```
 
-SourceFile  pos=0  src=[0,4)   // created at char 0 "【a】b", llm determined at char 0 "【a】b"
-├─ ExpressionStatement  pos=0  src=[0,1)   // created at char 1 "a【⏎】b", llm determined at char 0 "【a】b"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【⏎】b", llm determined at char 0 "【a】b"
-└─ ExpressionStatement  pos=1  src=[2,3)   // created at char 3 "a b【⏎】", llm determined at char 2 "a【b】"
-   └─ Identifier  pos=1  src=[2,3)  text="b"   // created at char 3 "a b【⏎】", llm determined at char 2 "a【b】"
+SourceFile  pos=0  src=[0,4)   // "【x:0】b"
+├─ ExpressionStatement  pos=0  src=[0,1)   // "a【x:1】b" -> llm "【x:0】b"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【x:1】b" -> llm "【x:0】b"
+└─ ExpressionStatement  pos=1  src=[2,3)   // "a b【x:3】" -> llm "a【x:2】"
+   └─ Identifier  pos=1  src=[2,3)  text="b"   // "a b【x:3】" -> llm "a【x:2】"

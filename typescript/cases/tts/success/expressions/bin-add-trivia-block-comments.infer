@@ -6,12 +6,12 @@ let x = 1/*left*/+/*right*/2
 [0-19]  |let x = 1/*left*/+/*| [20-28] |right*/2⏎|
 ```
 
-SourceFile  pos=0  src=[0,29)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,28)   // created at char 5 "let x【␣】= 1/*", llm determined at char 7 "let x =【␣】1/*left"
-   └─ VariableDeclarationList  pos=0  src=[0,28)   // created at char 5 "let x【␣】= 1/*", llm determined at char 7 "let x =【␣】1/*left"
-      └─ VariableDeclaration  pos=3  src=[4,28)   // created at char 5 "let x【␣】= 1/*", llm determined at char 7 "let x =【␣】1/*left"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 1/*", llm determined at char 5 "let x【␣】= 1/*"
-         └─ BinaryExpression  pos=7  src=[8,28)   // created at char 18 "left*/+【/】*right", llm determined at char 26 "right*【/】2"
-            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // created at char 9 "x = 1【/】*left", llm determined at char 9 "x = 1【/】*left"
-            ├─ PlusToken  pos=9  src=[17,18)  text="+"   // created at char 18 "left*/+【/】*right", llm determined at char 18 "left*/+【/】*right"
-            └─ FirstLiteralToken  pos=18  src=[27,28)  text="2"   // created at char 28 "right*/2【⏎】", llm determined at char 28 "right*/2【⏎】"
+SourceFile  pos=0  src=[0,29)   // "【x:0】et x"
+└─ FirstStatement  pos=0  src=[0,28)   // "let x【x:5】= 1/*" -> llm "let x =【x:7】1/*left"
+   └─ VariableDeclarationList  pos=0  src=[0,28)   // "let x【x:5】= 1/*" -> llm "let x =【x:7】1/*left"
+      └─ VariableDeclaration  pos=3  src=[4,28)   // "let x【x:5】= 1/*" -> llm "let x =【x:7】1/*left"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 1/*"
+         └─ BinaryExpression  pos=7  src=[8,28)   // "left*/+【x:18】*right" -> llm "right*【x:26】2"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // "x = 1【x:9】*left"
+            ├─ PlusToken  pos=9  src=[17,18)  text="+"   // "left*/+【x:18】*right"
+            └─ FirstLiteralToken  pos=18  src=[27,28)  text="2"   // "right*/2【x:28】"

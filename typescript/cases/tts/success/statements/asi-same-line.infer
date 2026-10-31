@@ -6,8 +6,8 @@ a; b;
 [0-5] |a; b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,6)   // created at char 0 "【a】; b;", llm determined at char 0 "【a】; b;"
-├─ ExpressionStatement  pos=0  src=[0,2)   // created at char 1 "a【;】b;", llm determined at char 1 "a【;】b;"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【;】b;", llm determined at char 1 "a【;】b;"
-└─ ExpressionStatement  pos=2  src=[3,5)   // created at char 4 "a; b【;】", llm determined at char 4 "a; b【;】"
-   └─ Identifier  pos=2  src=[3,4)  text="b"   // created at char 4 "a; b【;】", llm determined at char 4 "a; b【;】"
+SourceFile  pos=0  src=[0,6)   // "【x:0】; b;"
+├─ ExpressionStatement  pos=0  src=[0,2)   // "a【x:1】b;"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【x:1】b;"
+└─ ExpressionStatement  pos=2  src=[3,5)   // "a; b【x:4】"
+   └─ Identifier  pos=2  src=[3,4)  text="b"   // "a; b【x:4】"

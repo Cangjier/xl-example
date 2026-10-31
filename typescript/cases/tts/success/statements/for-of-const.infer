@@ -6,10 +6,10 @@ for (const v of xs) { }
 [0-19]  |for (const v of xs) | [20-23] |{ }⏎|
 ```
 
-SourceFile  pos=0  src=[0,24)   // created at char 0 "【f】or (const", llm determined at char 0 "【f】or (const"
-└─ ForOfStatement  pos=0  src=[0,23)   // created at char 18 "of xs【)】{ }", llm determined at char 19 "of xs)【␣】{ }"
-   ├─ VariableDeclarationList  pos=5  src=[5,12)   // created at char 12 "const v【␣】of xs", llm determined at char 18 "of xs【)】{ }"
-   │  └─ VariableDeclaration  pos=10  src=[11,12)   // created at char 12 "const v【␣】of xs", llm determined at char 18 "of xs【)】{ }"
-   │     └─ Identifier  pos=10  src=[11,12)  text="v"   // created at char 12 "const v【␣】of xs", llm determined at char 12 "const v【␣】of xs"
-   ├─ Identifier  pos=15  src=[16,18)  text="xs"   // created at char 18 "of xs【)】{ }", llm determined at char 18 "of xs【)】{ }"
-   └─ Block  pos=19  src=[20,23)   // created at char 20 "xs)【{】}", llm determined at char 22 "xs) {【}】"
+SourceFile  pos=0  src=[0,24)   // "【x:0】or (const"
+└─ ForOfStatement  pos=0  src=[0,23)   // "of xs【x:18】{ }" -> llm "of xs)【x:19】{ }"
+   ├─ VariableDeclarationList  pos=5  src=[5,12)   // "const v【x:12】of xs" -> llm "of xs【x:18】{ }"
+   │  └─ VariableDeclaration  pos=10  src=[11,12)   // "const v【x:12】of xs" -> llm "of xs【x:18】{ }"
+   │     └─ Identifier  pos=10  src=[11,12)  text="v"   // "const v【x:12】of xs"
+   ├─ Identifier  pos=15  src=[16,18)  text="xs"   // "of xs【x:18】{ }"
+   └─ Block  pos=19  src=[20,23)   // "xs)【x:20】}" -> llm "xs) {【x:22】"

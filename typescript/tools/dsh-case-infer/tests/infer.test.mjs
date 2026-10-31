@@ -92,15 +92,18 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   const text = fs.readFileSync(file.replace(/\.ts$/, '.infer'), 'utf8')
   assert.match(text, /^```ts$/m)
   assert.match(text, /^type A<T> = T extends Array<infer U> \? U : never$/m)
+  // 两个位置相同：只写一个上下文，位置在 【x:N】 里。
+  assert.match(text, /\/\/ "type A【x:6】T> ="/)
+  // 位置不同：再跟 `-> llm "…"`。
   assert.match(
     text,
-    /\/\/ created at char 6 "type A【<】T> =", llm determined at char 6 "type A【<】T> ="/,
+    /\/\/ "type A<T【x:8】= T" -> llm "type A【x:6】T> ="/,
   )
-  assert.equal(text.includes('llm determined at char ?'), false)
-  // 根在第一个字符之前就存在：created 记 0。
-  assert.match(text, /\/\/ created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"/)
-  // 这颗形状还没写 create 入口：created 记 ?，不是拿别的格冒充。
-  assert.match(text, /\/\/ created at char \?, llm determined at char 27 "Array【<】infer"/)
+  assert.equal(text.includes('-> llm ?'), false)
+  // 根在第一个字符之前就存在：位置 0。
+  assert.match(text, /\/\/ "【x:0】ype A"/)
+  // 这颗形状还没写 create 入口：created 侧记 ?，不是拿别的格冒充。
+  assert.match(text, /\/\/ \? -> llm "Array【x:27】infer"/)
 
   // created at 来自 shape token：7 一致 / 4 early / 5 没有 CreatedAt
   // （根 SourceFile 记 0；头部与 infer 的 TypeParameter 在收口那一格盖章）

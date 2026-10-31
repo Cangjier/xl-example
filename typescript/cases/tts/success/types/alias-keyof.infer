@@ -6,9 +6,9 @@ type A = keyof Foo
 [0-18] |type A = keyof Foo⏎|
 ```
 
-SourceFile  pos=0  src=[0,19)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,18)   // created at char 6 "type A【␣】= keyof", llm determined at char 18 "keyof Foo【⏎】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= keyof", llm determined at char 6 "type A【␣】= keyof"
-   └─ TypeOperator  pos=8  src=[9,18)   // created at char ?, llm determined at char 14 "keyof【␣】Foo"
-      └─ TypeReference  pos=14  src=[15,18)   // created at char ?, llm determined at char 18 "keyof Foo【⏎】"
-         └─ Identifier  pos=14  src=[15,18)  text="Foo"   // created at char ?, llm determined at char 18 "keyof Foo【⏎】"
+SourceFile  pos=0  src=[0,19)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,18)   // "type A【x:6】= keyof" -> llm "keyof Foo【x:18】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= keyof"
+   └─ TypeOperator  pos=8  src=[9,18)   // ? -> llm "keyof【x:14】Foo"
+      └─ TypeReference  pos=14  src=[15,18)   // ? -> llm "keyof Foo【x:18】"
+         └─ Identifier  pos=14  src=[15,18)  text="Foo"   // ? -> llm "keyof Foo【x:18】"

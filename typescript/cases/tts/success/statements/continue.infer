@@ -6,8 +6,8 @@ while (a) { continue; }
 [0-19]  |while (a) { continue| [20-23] |; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,24)   // created at char 0 "【w】hile", llm determined at char 0 "【w】hile"
-└─ WhileStatement  pos=0  src=[0,23)   // created at char 5 "while【␣】(a) {", llm determined at char 19 "continu【e】; }"
-   ├─ Identifier  pos=7  src=[7,8)  text="a"   // created at char 8 "while (a【)】{ continue", llm determined at char 8 "while (a【)】{ continue"
-   └─ Block  pos=9  src=[10,23)   // created at char 10 "(a)【{】continue", llm determined at char 23 "continue; }【⏎】"
-      └─ ContinueStatement  pos=11  src=[12,21)   // created at char 20 "continue【;】}", llm determined at char 21 "continue;【␣】}"
+SourceFile  pos=0  src=[0,24)   // "【x:0】hile"
+└─ WhileStatement  pos=0  src=[0,23)   // "while【x:5】(a) {" -> llm "continu【x:19】; }"
+   ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【x:8】{ continue"
+   └─ Block  pos=9  src=[10,23)   // "(a)【x:10】continue" -> llm "continue; }【x:23】"
+      └─ ContinueStatement  pos=11  src=[12,21)   // "continue【x:20】}" -> llm "continue;【x:21】}"

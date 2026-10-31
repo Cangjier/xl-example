@@ -6,11 +6,11 @@ type A = Foo[K]
 [0-15] |type A = Foo[K]⏎|
 ```
 
-SourceFile  pos=0  src=[0,16)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,15)   // created at char 6 "type A【␣】= Foo", llm determined at char 12 "= Foo【[】K]"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= Foo", llm determined at char 6 "type A【␣】= Foo"
-   └─ IndexedAccessType  pos=8  src=[9,15)   // created at char ?, llm determined at char 14 "Foo[K【]】"
-      ├─ TypeReference  pos=8  src=[9,12)   // created at char ?, llm determined at char 12 "= Foo【[】K]"
-      │  └─ Identifier  pos=8  src=[9,12)  text="Foo"   // created at char ?, llm determined at char 12 "= Foo【[】K]"
-      └─ TypeReference  pos=13  src=[13,14)   // created at char ?, llm determined at char 14 "Foo[K【]】"
-         └─ Identifier  pos=13  src=[13,14)  text="K"   // created at char ?, llm determined at char 14 "Foo[K【]】"
+SourceFile  pos=0  src=[0,16)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,15)   // "type A【x:6】= Foo" -> llm "= Foo【x:12】K]"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= Foo"
+   └─ IndexedAccessType  pos=8  src=[9,15)   // ? -> llm "Foo[K【x:14】"
+      ├─ TypeReference  pos=8  src=[9,12)   // ? -> llm "= Foo【x:12】K]"
+      │  └─ Identifier  pos=8  src=[9,12)  text="Foo"   // ? -> llm "= Foo【x:12】K]"
+      └─ TypeReference  pos=13  src=[13,14)   // ? -> llm "Foo[K【x:14】"
+         └─ Identifier  pos=13  src=[13,14)  text="K"   // ? -> llm "Foo[K【x:14】"

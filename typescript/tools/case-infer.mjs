@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // case.infer 工具。
 //
-// 用途：给 tts 用例产出一份 `<名字>.infer`：与 `.ast` 同形的树，每行末尾同时记下
-//   - created at char N：来自 ShapeToken.CreatedAt，解析器建出这颗形状的那一格；
-//   - llm determined at char N：模型按语法逻辑判定的「最早在哪一格确定」。
+// 用途：给 tts 用例产出一份 `<名字>.infer`：与 `.ast` 同形的树，每行末尾的上下文用 `【x:N】`
+// 标出位置——N 是 ShapeToken.CreatedAt（解析器建出这颗形状的那一格）。两个位置不同时，
+// 后面再跟 `-> llm "…【x:M】…"`，M 是模型按语法逻辑判定的「最早在哪一格确定」。
 // 并拿这两个位置对拍，把差异列出来。
 //
 // 分工：
@@ -68,8 +68,9 @@ export function charBlocks(source) {
 
 const isWord = (ch) => /[A-Za-z0-9_$]/.test(ch);
 
-/** 标记字符的上下文：前后各至少 5 个字符，边缘落在单词中间时向外扩到词边界，两端空白压成一个空格。 */
-export function snippetAt(source, at) {
+/** 标记字符的上下文：前后各至少 5 个字符，边缘落在单词中间时向外扩到词边界，两端空白压成一个空格。
+ *  marker 缺省时标出字符本身（`【<】`），给了就写进括号（注记用 `【x:N】`）。 */
+export function snippetAt(source, at, marker = null) {
   const chars = charsOf(source);
   let start = Math.max(0, at - CONTEXT);
   while (start > 0 && isWord(chars[start - 1]) && isWord(chars[start])) {
@@ -81,7 +82,8 @@ export function snippetAt(source, at) {
   }
   const left = chars.slice(start, at).join("").replace(/\s+/g, " ").trim();
   const right = chars.slice(at + 1, end).join("").replace(/\s+/g, " ").trim();
-  return `${left}【${displayChar(chars[at])}】${right}`;
+  const mark = marker === null ? displayChar(chars[at]) : marker;
+  return `${left}【${mark}】${right}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,25 +125,37 @@ function escapeContext(text) {
   return text.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
-/** 标记字符的上下文；at 越界（created 落在 EOF 那一格 = 字符总数）时给 EOF 记号。 */
+/** 标记字符的上下文；at 落在 EOF 那一格（= 字符总数）时贴在末尾。 */
 function contextAt(source, at) {
   if (at === null || at === undefined) {
     return "";
   }
   const chars = charsOf(source);
-  return at >= chars.length ? ` "【EOF】"` : ` "${escapeContext(snippetAt(source, at))}"`;
+  if (at >= chars.length) {
+    const tail = chars.slice(Math.max(0, chars.length - CONTEXT * 2)).join("").replace(/\s+/g, " ").trim();
+    return `"${escapeContext(tail)}【x:${at}】"`;
+  }
+  return `"${escapeContext(snippetAt(source, at, `x:${at}`))}"`;
 }
 
-/** 行末注记：两个位置各带自己的上下文，未知写 `?`。
- *  例：`created at char 5 "let x【␣】= 1", llm determined at char 3 "let【␣】x = 1"` */
+/** 行末注记：位置写在上下文的 `【x:N】` 里。
+ *  两个位置相同 → `"let x【x:5】= 1"`；
+ *  不同 → `"let x【x:8】= 1" -> llm "let x【x:5】= 1"`；
+ *  缺哪一侧就在哪一侧写 `?`。 */
 export function noteFor(source, created, llm) {
-  const c = created === null || created === undefined
-    ? "created at char ?"
-    : `created at char ${created}${contextAt(source, created)}`;
-  const l = llm === null || llm === undefined
-    ? "llm determined at char ?"
-    : `llm determined at char ${llm}${contextAt(source, llm)}`;
-  return `${c}, ${l}`;
+  const hasCreated = created !== null && created !== undefined;
+  const hasLlm = llm !== null && llm !== undefined;
+  if (!hasCreated && !hasLlm) {
+    return "?";
+  }
+  if (!hasCreated) {
+    return `? -> llm ${contextAt(source, llm)}`;
+  }
+  const first = contextAt(source, created);
+  if (!hasLlm) {
+    return `${first} -> llm ?`;
+  }
+  return created === llm ? first : `${first} -> llm ${contextAt(source, llm)}`;
 }
 
 export function scaffold(source, name, created = null) {
@@ -167,35 +181,62 @@ export function scaffold(source, name, created = null) {
 // .infer 解析 / 规范化
 // ---------------------------------------------------------------------------
 
-const NOTE_NEW = /^created at char (\d+|\?)(?:\s*"(?:[^"\\]|\\.)*")?,\s*llm determined at char (\d+|\?)(?:\s*"(?:[^"\\]|\\.)*")?(.*)$/;
-const NOTE_OLD = /^char (\d+|\?)(?:\s*"(?:[^"\\]|\\.)*")?(.*)$/;
+const QUOTED = '"(?:[^"\\\\]|\\\\.)*"';
+const NOTE_DIFF = new RegExp(`^(${QUOTED})\\s*->\\s*llm\\s+(${QUOTED})(.*)$`);
+const NOTE_LLM_ONLY = new RegExp(`^\\?\\s*->\\s*llm\\s+(${QUOTED})(.*)$`);
+const NOTE_CREATED_ONLY = new RegExp(`^(${QUOTED})\\s*->\\s*llm\\s+\\?(.*)$`);
+const NOTE_SAME = new RegExp(`^(${QUOTED})(.*)$`);
+const X_MARK = /【x:(\d+)】/;
 
 /** 注记里唯一有意义的补充说明：`（由 TypeParameterList 转换）` 这类括号尾注。 */
 const NOTE_SUFFIX = /（由[^）]*）\s*$/;
 
-/** 解析一行注记（新格式两个位置；旧的 `// char N "…"` 当作只有 llm determined）。
- *  旧文件的上下文没有转义（片段里带 `"` 时已经解析不回去了），所以两者的上下文都不采信：
- *  数字照收，上下文由 formatInfer 用源码重算。 */
+/** 从上下文里取位置：`"…【x:6】…"` → 6；没有标记就是 null。 */
+function positionIn(context) {
+  const match = X_MARK.exec(context);
+  return match === null ? null : Number(match[1]);
+}
+
+/** 解析一行注记（位置在 `【x:N】` 里）。
+ *  同一格式：`"…【x:5】…"`；不同：`"…【x:8】…" -> llm "…【x:5】…"`；
+ *  缺一侧写 `?`。过渡期仍认上一版 `created at char N …, llm determined at char N …`
+ *  和最早的 `// char N "…"`：数字照收，上下文由 formatInfer 用源码重算。 */
 export function parseNote(text) {
   const trimmed = text.trim();
-  const next = NOTE_NEW.exec(trimmed);
-  if (next !== null) {
-    return {
-      created: next[1] === "?" ? null : Number(next[1]),
-      llm: next[2] === "?" ? null : Number(next[2]),
-      suffix: next[3] ?? "",
-    };
+
+  const diff = NOTE_DIFF.exec(trimmed);
+  if (diff !== null) {
+    return { created: positionIn(diff[1]), llm: positionIn(diff[2]), suffix: diff[3] ?? "" };
   }
-  // 宽容版：上下文里的引号没转义时，严格的 NOTE_NEW 会停在中间；位置数字仍然可信。
-  const loose = /^created at char (\d+|\?).*?llm determined at char (\d+|\?)/.exec(trimmed);
-  if (loose !== null) {
+  const llmOnly = NOTE_LLM_ONLY.exec(trimmed);
+  if (llmOnly !== null) {
+    return { created: null, llm: positionIn(llmOnly[1]), suffix: llmOnly[2] ?? "" };
+  }
+  const createdOnly = NOTE_CREATED_ONLY.exec(trimmed);
+  if (createdOnly !== null) {
+    return { created: positionIn(createdOnly[1]), llm: null, suffix: createdOnly[2] ?? "" };
+  }
+  const same = NOTE_SAME.exec(trimmed);
+  if (same !== null) {
+    const at = positionIn(same[1]);
+    return { created: at, llm: at, suffix: same[2] ?? "" };
+  }
+  const blank = /^\?(.*)$/.exec(trimmed);
+  if (blank !== null) {
+    return { created: null, llm: null, suffix: blank[1] ?? "" };
+  }
+
+  // 过渡期：上一版 `created at char N "…", llm determined at char N "…"`。
+  const prev = /^created at char (\d+|\?).*?llm determined at char (\d+|\?)/.exec(trimmed);
+  if (prev !== null) {
     return {
-      created: loose[1] === "?" ? null : Number(loose[1]),
-      llm: loose[2] === "?" ? null : Number(loose[2]),
+      created: prev[1] === "?" ? null : Number(prev[1]),
+      llm: prev[2] === "?" ? null : Number(prev[2]),
       suffix: NOTE_SUFFIX.exec(trimmed)?.[0] ?? "",
     };
   }
-  const old = NOTE_OLD.exec(trimmed);
+  // 更早：`// char N "…"`，只有 llm determined。
+  const old = /^char (\d+|\?)/.exec(trimmed);
   if (old === null) {
     return null;
   }
@@ -237,7 +278,7 @@ export function normalizeHeader(source, text) {
 }
 
 /** `--format`：旧表头换成 ```ts 源码块，注记重写成
- *  `// created at char N "…", llm determined at char N "…"`；`?` 原样保留，补充说明保留。
+ *  `// "…【x:N】…"` 或 `// "…【x:N】…" -> llm "…【x:M】…"`；`?` 与补充说明保留。
  *  created 由调用方从 shape token 算好（`traceActual(...).created`），给了就以它为准。 */
 export function formatInfer(source, text, created = null) {
   const chars = charsOf(source);
@@ -288,9 +329,7 @@ function pad(value, width) {
 export function printActual(source, actual) {
   for (const rec of actual.final) {
     const at = actual.created.get(rec.key);
-    const where = at === undefined
-      ? "not in tree"
-      : `created at char ${at === null ? "?" : at}${contextAt(source, at)}`;
+    const where = at === undefined ? "not in tree" : `created ${noteFor(source, at, null)}`;
     const gutter = "   ".repeat(rec.depth);
     const branch = rec.depth === 0 ? "" : rec.isLast ? "└─ " : "├─ ";
     const text = rec.text === "" ? "" : `  text="${rec.text}"`;
@@ -350,7 +389,7 @@ export function evaluate(source, name, inferText, actual = null) {
 /**
  * 把「节点 → llm determined」的数字填进骨架，再补两个位置的上下文。
  * @param {string} source 用例源码
- * @param {string} scaffoldText 骨架（每行 `created at …` + `llm determined at char ?`）
+ * @param {string} scaffoldText 骨架（每行 `"…【x:N】…" -> llm ?`，N 是 CreatedAt）
  * @param {Map<string, number>} numbers 节点身份 → 模型判定的字符号
  * @param {Map<string, number|null>|null} created 节点身份 → shape token 的 CreatedAt
  * @returns {{text: string, filled: number, missing: string[]}}

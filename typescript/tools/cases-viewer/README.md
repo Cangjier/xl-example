@@ -40,10 +40,11 @@ node typescript/tools/cases-viewer/server.mjs --help
 
 ## case.infer
 
-`<名字>.infer` 与 `.ts` 并列，每行末尾同时记两个位置：
-`// created at char N "…", llm determined at char N "…"`。前者是 shape token 建出这颗形状的那一格
-（`ShapeToken.CreatedAt`，没有就写 `?`），后者是 LLM 按语法逻辑判定的「最早能确定」位置；
-`…` 是标记字符前后各至少 5 个字符的上下文，`【】` 标出该字符。开头是用 `ts` 围栏包住的用例源码与逐字编号。
+`<名字>.infer` 与 `.ts` 并列，位置写在行末上下文的 `【x:N】` 里：
+`// "…【x:5】…"` 表示两个位置相同；`// "…【x:8】…" -> llm "…【x:5】…"` 表示 LLM 判定的位置不同。
+`【x:8】` 是 shape token 建出这颗形状的那一格（`ShapeToken.CreatedAt`，没有就整行写 `?`），
+箭头后的 `【x:5】` 是 LLM 按语法逻辑判定的「最早能确定」位置；上下文是标记位置前后各至少 5 个字符。
+开头是用 `ts` 围栏包住的用例源码与逐字编号。
 
 存在时：左侧列表多一个蓝点、标题多一个 `case.infer` 徽章、`case.ast` 页按节点身份
 （`kind + pos + src 起点`）把注记接到对应行末，并在每行右侧给出 **llm determined vs created at** 的结论——

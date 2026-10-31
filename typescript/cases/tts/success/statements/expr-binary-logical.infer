@@ -6,9 +6,9 @@ a && b;
 [0-7] |a && b;⏎|
 ```
 
-SourceFile  pos=0  src=[0,8)   // created at char 0 "【a】&& b", llm determined at char 0 "【a】&& b"
-└─ ExpressionStatement  pos=0  src=[0,7)   // created at char 1 "a【␣】&& b;", llm determined at char 6 "&& b【;】"
-   └─ BinaryExpression  pos=0  src=[0,6)   // created at char 4 "a &&【␣】b;", llm determined at char 6 "&& b【;】"
-      ├─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【␣】&& b;", llm determined at char 1 "a【␣】&& b;"
-      ├─ AmpersandAmpersandToken  pos=1  src=[2,4)  text="&&"   // created at char 4 "a &&【␣】b;", llm determined at char 4 "a &&【␣】b;"
-      └─ Identifier  pos=4  src=[5,6)  text="b"   // created at char 6 "&& b【;】", llm determined at char 6 "&& b【;】"
+SourceFile  pos=0  src=[0,8)   // "【x:0】&& b"
+└─ ExpressionStatement  pos=0  src=[0,7)   // "a【x:1】&& b;" -> llm "&& b【x:6】"
+   └─ BinaryExpression  pos=0  src=[0,6)   // "a &&【x:4】b;" -> llm "&& b【x:6】"
+      ├─ Identifier  pos=0  src=[0,1)  text="a"   // "a【x:1】&& b;"
+      ├─ AmpersandAmpersandToken  pos=1  src=[2,4)  text="&&"   // "a &&【x:4】b;"
+      └─ Identifier  pos=4  src=[5,6)  text="b"   // "&& b【x:6】"

@@ -52,17 +52,21 @@ node typescript/tools/gen-case-docs.mjs typescript/cases/tts/success/statements/
 ## `xxx.infer`：形状的 created at 与 llm determined
 
 `xxx.ast` 只说最终树长什么样，不说「每个形状在哪一格被建出来、又在哪一格就该确定」。`xxx.infer` 补的就是这两列：
-开头是用 `ts` 围栏包住的用例源码和逐字编号表，后面是与 `.ast` 同形的树，每行末尾注记两个位置：
+开头是用 `ts` 围栏包住的用例源码和逐字编号表，后面是与 `.ast` 同形的树；每行末尾的上下文用
+`【x:N】` 标出位置——N 是 `created at`。两个位置不同时，再跟一段 `-> llm "…【x:M】…"`：
 
 ```text
-// created at char 5 "let x【␣】= 1", llm determined at char 3 "let【␣】x = 1"
+// "let x【x:5】= 1"                            相同：只写一个上下文
+// "let x【x:8】= 1" -> llm "let【x:5】x = 1"    不同：再写模型的判定
+// "let x【x:5】= 1" -> llm ?                   模型还没判
+// ? -> llm "let【x:5】x = 1"                   还没有 CreatedAt
 ```
 
 - `created at`：`ShapeToken.CreatedAt`，possible / end 的 build（含类型参数表 / 实参表的收口）
-  建出这颗形状的那一格。根 `SourceFile` 在第一个字符之前就存在，记 `char 0`；落在 EOF 那一格时记
-  `char <字符总数>`；还没写 create 入口的形状记 `char ?`。
-- `llm determined`：模型按语法逻辑判定的「最早能确定」位置，不看解析器；还没判定时记 `char ?`。
-- 每个位置各带自己的上下文：标记字符前后各至少 5 个字符，`【】` 标出该字符（空格 `␣`、换行 `⏎`）。
+  建出这颗形状的那一格。根 `SourceFile` 在第一个字符之前就存在，记 `【x:0】`；落在 EOF 那一格时
+  记 `【x:<字符总数>】`；还没写 create 入口的形状整行位置记 `?`。
+- `llm determined`：模型按语法逻辑判定的「最早能确定」位置，不看解析器；还没判定时箭头后面记 `?`。
+- 上下文是标记位置前后各至少 5 个字符，`【x:N】` 标出该位置；片段里的 `"` / `\` 会转义。
 
 判定是模型的活，脚本只做机械的事：
 

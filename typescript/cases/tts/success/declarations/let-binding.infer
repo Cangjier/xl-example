@@ -6,8 +6,8 @@ let x
 [0-5] |let x⏎|
 ```
 
-SourceFile  pos=0  src=[0,6)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,5)   // created at char 5 "let x【⏎】", llm determined at char 5 "let x【⏎】"
-   └─ VariableDeclarationList  pos=0  src=[0,5)   // created at char 5 "let x【⏎】", llm determined at char 4 "let【x】"
-      └─ VariableDeclaration  pos=3  src=[4,5)   // created at char 5 "let x【⏎】", llm determined at char 5 "let x【⏎】"
-         └─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【⏎】", llm determined at char 5 "let x【⏎】"
+SourceFile  pos=0  src=[0,6)   // "【x:0】et x"
+└─ FirstStatement  pos=0  src=[0,5)   // "let x【x:5】"
+   └─ VariableDeclarationList  pos=0  src=[0,5)   // "let x【x:5】" -> llm "let【x:4】"
+      └─ VariableDeclaration  pos=3  src=[4,5)   // "let x【x:5】"
+         └─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】"

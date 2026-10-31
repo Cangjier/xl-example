@@ -6,9 +6,9 @@ type A<T>= string
 [0-17] |type A<T>= string⏎|
 ```
 
-SourceFile  pos=0  src=[0,18)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,17)   // created at char 6 "type A【<】T>= string", llm determined at char 10 "A<T>=【␣】string"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【<】T>= string", llm determined at char 6 "type A【<】T>= string"
-   ├─ TypeParameter  pos=7  src=[7,8)   // created at char 8 "type A<T【>】= string", llm determined at char 7 "type A<【T】>= string"
-   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // created at char 8 "type A<T【>】= string", llm determined at char 7 "type A<【T】>= string"
-   └─ StringKeyword  pos=10  src=[11,17)  text="string"   // created at char ?, llm determined at char 17 "string【⏎】"
+SourceFile  pos=0  src=[0,18)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,17)   // "type A【x:6】T>= string" -> llm "A<T>=【x:10】string"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】T>= string"
+   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<T【x:8】= string" -> llm "type A<【x:7】>= string"
+   │  └─ Identifier  pos=7  src=[7,8)  text="T"   // "type A<T【x:8】= string" -> llm "type A<【x:7】>= string"
+   └─ StringKeyword  pos=10  src=[11,17)  text="string"   // ? -> llm "string【x:17】"

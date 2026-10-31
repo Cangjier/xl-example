@@ -6,9 +6,9 @@ let café = 1
 [0-12] |let café = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char 0 "【l】et caf", llm determined at char 0 "【l】et caf"
-└─ FirstStatement  pos=0  src=[0,12)   // created at char 8 "café【␣】= 1", llm determined at char 11 "café =【1】"
-   └─ VariableDeclarationList  pos=0  src=[0,12)   // created at char 8 "café【␣】= 1", llm determined at char 11 "café =【1】"
-      └─ VariableDeclaration  pos=3  src=[4,12)   // created at char 8 "café【␣】= 1", llm determined at char 11 "café =【1】"
-         ├─ Identifier  pos=3  src=[4,8)  text="café"   // created at char 8 "café【␣】= 1", llm determined at char 8 "café【␣】= 1"
-         └─ FirstLiteralToken  pos=10  src=[11,12)  text="1"   // created at char 12 "é = 1【⏎】", llm determined at char 12 "é = 1【⏎】"
+SourceFile  pos=0  src=[0,13)   // "【x:0】et caf"
+└─ FirstStatement  pos=0  src=[0,12)   // "café【x:8】= 1" -> llm "café =【x:11】"
+   └─ VariableDeclarationList  pos=0  src=[0,12)   // "café【x:8】= 1" -> llm "café =【x:11】"
+      └─ VariableDeclaration  pos=3  src=[4,12)   // "café【x:8】= 1" -> llm "café =【x:11】"
+         ├─ Identifier  pos=3  src=[4,8)  text="café"   // "café【x:8】= 1"
+         └─ FirstLiteralToken  pos=10  src=[11,12)  text="1"   // "é = 1【x:12】"

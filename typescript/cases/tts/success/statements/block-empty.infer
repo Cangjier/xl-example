@@ -6,5 +6,5 @@
 [0-3] |{ }⏎|
 ```
 
-SourceFile  pos=0  src=[0,4)   // created at char 0 "【{】}", llm determined at char 0 "【{】}"
-└─ Block  pos=0  src=[0,3)   // created at char 0 "【{】}", llm determined at char 2 "{【}】"
+SourceFile  pos=0  src=[0,4)   // "【x:0】}"
+└─ Block  pos=0  src=[0,3)   // "【x:0】}" -> llm "{【x:2】"

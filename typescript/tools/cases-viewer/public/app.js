@@ -401,10 +401,20 @@ function treeLineId(line) {
   return `${kind}|${match[2]}|${match[3]}`;
 }
 
-/** 把 xxx.infer 里的 `// created at … , llm determined at …` 注记拆出来，按节点身份建索引。 */
+/** 把 xxx.infer 里的位置注记拆出来，按节点身份建索引。
+ *  位置在 `【x:N】` 里：相同只有一个上下文，不同写成 `"…" -> llm "…"`，缺一侧写 `?`。 */
+const X_MARK = /【x:(\d+)】/;
+const positionIn = (context) => {
+  const match = X_MARK.exec(context);
+  return match === null ? null : Number(match[1]);
+};
+
 function parseInferNotes(text) {
-  const NEXT = /^created at char (\d+|\?)(?:\s*"(?:[^"\\]|\\.)*")?,\s*llm determined at char (\d+|\?)(?:\s*"(?:[^"\\]|\\.)*")?(.*)$/;
-  const OLD = /^char (\d+|\?)(?:\s*"(?:[^"\\]|\\.)*")?(.*)$/;
+  const QUOTED = '"(?:[^"\\\\]|\\\\.)*"';
+  const DIFF = new RegExp(`^(${QUOTED})\\s*->\\s*llm\\s+(${QUOTED})(.*)$`);
+  const LLM_ONLY = new RegExp(`^\\?\\s*->\\s*llm\\s+(${QUOTED})(.*)$`);
+  const CREATED_ONLY = new RegExp(`^(${QUOTED})\\s*->\\s*llm\\s+\\?(.*)$`);
+  const SAME = new RegExp(`^(${QUOTED})(.*)$`);
   const notes = new Map();
   for (const line of text.split(/\r?\n/)) {
     const at = line.indexOf("// ");
@@ -416,16 +426,36 @@ function parseInferNotes(text) {
       continue;
     }
     const body = line.slice(at + 3).trim();
-    const next = NEXT.exec(body);
-    const old = next === null ? OLD.exec(body) : null;
-    if (next === null && old === null) {
+    const diff = DIFF.exec(body);
+    if (diff !== null) {
+      notes.set(id, { created: positionIn(diff[1]), llm: positionIn(diff[2]), text: body });
       continue;
     }
-    const llm = next !== null
-      ? (next[2] === "?" ? null : Number(next[2]))
-      : (old[1] === "?" ? null : Number(old[1]));
-    const created = next === null ? null : next[1] === "?" ? null : Number(next[1]);
-    notes.set(id, { created, llm, text: body });
+    const llmOnly = LLM_ONLY.exec(body);
+    if (llmOnly !== null) {
+      notes.set(id, { created: null, llm: positionIn(llmOnly[1]), text: body });
+      continue;
+    }
+    const createdOnly = CREATED_ONLY.exec(body);
+    if (createdOnly !== null) {
+      notes.set(id, { created: positionIn(createdOnly[1]), llm: null, text: body });
+      continue;
+    }
+    const same = SAME.exec(body);
+    if (same !== null) {
+      const value = positionIn(same[1]);
+      notes.set(id, { created: value, llm: value, text: body });
+      continue;
+    }
+    // 过渡期：上一版 `created at char N "…", llm determined at char N "…"` / 最早的 `char N "…"`。
+    const prev = /^(?:created at char (\d+|\?).*?llm determined at char (\d+|\?)|char (\d+|\?))/.exec(body);
+    if (prev !== null) {
+      notes.set(id, {
+        created: prev[1] === undefined || prev[1] === "?" ? null : Number(prev[1]),
+        llm: (prev[2] ?? prev[3]) === "?" ? null : Number(prev[2] ?? prev[3]),
+        text: body,
+      });
+    }
   }
   return notes;
 }
@@ -1161,8 +1191,9 @@ function renderAstPanel(payload, showGenerated = false) {
   let inferNotice = "";
   if (annotated.length > 0 && creation === null) {
     inferNotice = `<div class="notice infer"><b><code>case.infer</code> 的两个位置：</b>
-      行末 <code>// created at char N "…", llm determined at char N "…"</code> ——前者是 shape token 建出来的那一格，
-      后者是 LLM 按语法逻辑判的（不是解析器结果）。这里没有 <code>build/ts</code> 的 created at，所以只显示注记，不能对拍。
+      行末的 <code>【x:N】</code> 是 shape token 建出来的那一格；位置不同时再跟
+      <code>-> llm "…【x:M】…"</code>，M 是 LLM 按语法逻辑判的（不是解析器结果）。
+      这里没有 <code>build/ts</code> 的 created at，所以只显示注记，不能对拍。
       ${payload.infer.creationError ? `（${esc(payload.infer.creationError)}）` : ""}</div>`;
   } else if (annotated.length > 0 && judged.length === 0) {
     inferNotice = '<div class="notice infer">case.infer 里没有一行能和这份 .ast 对上（节点身份是 kind + pos + src 起点）。</div>';

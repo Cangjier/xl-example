@@ -6,8 +6,8 @@ for (k in o) { }
 [0-16] |for (k in o) { }⏎|
 ```
 
-SourceFile  pos=0  src=[0,17)   // created at char 0 "【f】or (k", llm determined at char 0 "【f】or (k"
-└─ ForInStatement  pos=0  src=[0,16)   // created at char 11 "in o【)】{ }", llm determined at char 16 ") { }【⏎】"
-   ├─ Identifier  pos=5  src=[5,6)  text="k"   // created at char 6 "for (k【␣】in o)", llm determined at char 6 "for (k【␣】in o)"
-   ├─ Identifier  pos=9  src=[10,11)  text="o"   // created at char 11 "in o【)】{ }", llm determined at char 11 "in o【)】{ }"
-   └─ Block  pos=12  src=[13,16)   // created at char 13 "in o)【{】}", llm determined at char 16 ") { }【⏎】"
+SourceFile  pos=0  src=[0,17)   // "【x:0】or (k"
+└─ ForInStatement  pos=0  src=[0,16)   // "in o【x:11】{ }" -> llm ") { }【x:16】"
+   ├─ Identifier  pos=5  src=[5,6)  text="k"   // "for (k【x:6】in o)"
+   ├─ Identifier  pos=9  src=[10,11)  text="o"   // "in o【x:11】{ }"
+   └─ Block  pos=12  src=[13,16)   // "in o)【x:13】}" -> llm ") { }【x:16】"

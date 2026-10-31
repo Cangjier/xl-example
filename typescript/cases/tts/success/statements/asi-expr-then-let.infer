@@ -7,11 +7,11 @@ let x = 1
 [0-11] |a⏎let x = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,12)   // created at char 0 "【a】let", llm determined at char 0 "【a】let"
-├─ ExpressionStatement  pos=0  src=[0,1)   // created at char 1 "a【⏎】let x", llm determined at char 1 "a【⏎】let x"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【⏎】let x", llm determined at char 1 "a【⏎】let x"
-└─ FirstStatement  pos=1  src=[2,11)   // created at char 7 "let x【␣】= 1", llm determined at char 4 "a le【t】x ="
-   └─ VariableDeclarationList  pos=1  src=[2,11)   // created at char 7 "let x【␣】= 1", llm determined at char 4 "a le【t】x ="
-      └─ VariableDeclaration  pos=5  src=[6,11)   // created at char 7 "let x【␣】= 1", llm determined at char 7 "let x【␣】= 1"
-         ├─ Identifier  pos=5  src=[6,7)  text="x"   // created at char 7 "let x【␣】= 1", llm determined at char 7 "let x【␣】= 1"
-         └─ FirstLiteralToken  pos=9  src=[10,11)  text="1"   // created at char 11 "x = 1【⏎】", llm determined at char 11 "x = 1【⏎】"
+SourceFile  pos=0  src=[0,12)   // "【x:0】let"
+├─ ExpressionStatement  pos=0  src=[0,1)   // "a【x:1】let x"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【x:1】let x"
+└─ FirstStatement  pos=1  src=[2,11)   // "let x【x:7】= 1" -> llm "a le【x:4】x ="
+   └─ VariableDeclarationList  pos=1  src=[2,11)   // "let x【x:7】= 1" -> llm "a le【x:4】x ="
+      └─ VariableDeclaration  pos=5  src=[6,11)   // "let x【x:7】= 1"
+         ├─ Identifier  pos=5  src=[6,7)  text="x"   // "let x【x:7】= 1"
+         └─ FirstLiteralToken  pos=9  src=[10,11)  text="1"   // "x = 1【x:11】"

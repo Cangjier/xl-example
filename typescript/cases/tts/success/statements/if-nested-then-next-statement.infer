@@ -6,12 +6,12 @@ if (a) if (b) c; d;
 [0-19] |if (a) if (b) c; d;⏎|
 ```
 
-SourceFile  pos=0  src=[0,20)   // created at char 0 "【i】f (a)", llm determined at char 0 "【i】f (a)"
-├─ IfStatement  pos=0  src=[0,16)   // created at char 2 "if【␣】(a) if", llm determined at char 6 "if (a)【␣】if (b"
-│  ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】if (", llm determined at char 5 "if (a【)】if ("
-│  └─ IfStatement  pos=6  src=[7,16)   // created at char 9 "a) if【␣】(b) c", llm determined at char 13 "if (b)【␣】c; d;"
-│     ├─ Identifier  pos=11  src=[11,12)  text="b"   // created at char 12 "if (b【)】c; d", llm determined at char 12 "if (b【)】c; d"
-│     └─ ExpressionStatement  pos=13  src=[14,16)   // created at char 15 "(b) c【;】d;", llm determined at char 15 "(b) c【;】d;"
-│        └─ Identifier  pos=13  src=[14,15)  text="c"   // created at char 15 "(b) c【;】d;", llm determined at char 15 "(b) c【;】d;"
-└─ ExpressionStatement  pos=16  src=[17,19)   // created at char 18 "c; d【;】", llm determined at char 18 "c; d【;】"
-   └─ Identifier  pos=16  src=[17,18)  text="d"   // created at char 18 "c; d【;】", llm determined at char 18 "c; d【;】"
+SourceFile  pos=0  src=[0,20)   // "【x:0】f (a)"
+├─ IfStatement  pos=0  src=[0,16)   // "if【x:2】(a) if" -> llm "if (a)【x:6】if (b"
+│  ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【x:5】if ("
+│  └─ IfStatement  pos=6  src=[7,16)   // "a) if【x:9】(b) c" -> llm "if (b)【x:13】c; d;"
+│     ├─ Identifier  pos=11  src=[11,12)  text="b"   // "if (b【x:12】c; d"
+│     └─ ExpressionStatement  pos=13  src=[14,16)   // "(b) c【x:15】d;"
+│        └─ Identifier  pos=13  src=[14,15)  text="c"   // "(b) c【x:15】d;"
+└─ ExpressionStatement  pos=16  src=[17,19)   // "c; d【x:18】"
+   └─ Identifier  pos=16  src=[17,18)  text="d"   // "c; d【x:18】"

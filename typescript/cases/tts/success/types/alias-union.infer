@@ -6,9 +6,9 @@ type A = string | number
 [0-19]  |type A = string | nu| [20-24] |mber⏎|
 ```
 
-SourceFile  pos=0  src=[0,25)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,24)   // created at char 6 "type A【␣】= string", llm determined at char 20 "| nu【m】ber"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= string", llm determined at char 6 "type A【␣】= string"
-   └─ UnionType  pos=8  src=[9,24)   // created at char ?, llm determined at char 20 "| nu【m】ber"
-      ├─ StringKeyword  pos=8  src=[9,15)  text="string"   // created at char ?, llm determined at char 15 "string【␣】| number"
-      └─ NumberKeyword  pos=17  src=[18,24)  text="number"   // created at char ?, llm determined at char 24 "number【⏎】"
+SourceFile  pos=0  src=[0,25)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,24)   // "type A【x:6】= string" -> llm "| nu【x:20】ber"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= string"
+   └─ UnionType  pos=8  src=[9,24)   // ? -> llm "| nu【x:20】ber"
+      ├─ StringKeyword  pos=8  src=[9,15)  text="string"   // ? -> llm "string【x:15】| number"
+      └─ NumberKeyword  pos=17  src=[18,24)  text="number"   // ? -> llm "number【x:24】"

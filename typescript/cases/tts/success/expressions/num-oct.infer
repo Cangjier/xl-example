@@ -6,9 +6,9 @@ let x = 0o17
 [0-12] |let x = 0o17⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,12)   // created at char 5 "let x【␣】= 0o17", llm determined at char 12 "0o17【⏎】"
-   └─ VariableDeclarationList  pos=0  src=[0,12)   // created at char 5 "let x【␣】= 0o17", llm determined at char 12 "0o17【⏎】"
-      └─ VariableDeclaration  pos=3  src=[4,12)   // created at char 5 "let x【␣】= 0o17", llm determined at char 12 "0o17【⏎】"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 0o17", llm determined at char 5 "let x【␣】= 0o17"
-         └─ FirstLiteralToken  pos=7  src=[8,12)  text="0o17"   // created at char 12 "0o17【⏎】", llm determined at char 12 "0o17【⏎】"
+SourceFile  pos=0  src=[0,13)   // "【x:0】et x"
+└─ FirstStatement  pos=0  src=[0,12)   // "let x【x:5】= 0o17" -> llm "0o17【x:12】"
+   └─ VariableDeclarationList  pos=0  src=[0,12)   // "let x【x:5】= 0o17" -> llm "0o17【x:12】"
+      └─ VariableDeclaration  pos=3  src=[4,12)   // "let x【x:5】= 0o17" -> llm "0o17【x:12】"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 0o17"
+         └─ FirstLiteralToken  pos=7  src=[8,12)  text="0o17"   // "0o17【x:12】"

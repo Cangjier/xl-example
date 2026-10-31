@@ -6,9 +6,9 @@ type A = readonly string[]
 [0-19]  |type A = readonly st| [20-26] |ring[]⏎|
 ```
 
-SourceFile  pos=0  src=[0,27)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,26)   // created at char 6 "type A【␣】= readonly", llm determined at char 20 "readonly st【r】ing[]"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= readonly", llm determined at char 6 "type A【␣】= readonly"
-   └─ TypeOperator  pos=8  src=[9,26)   // created at char ?, llm determined at char 16 "readonl【y】string"
-      └─ ArrayType  pos=17  src=[18,26)   // created at char ?, llm determined at char 25 "string[【]】"
-         └─ StringKeyword  pos=17  src=[18,24)  text="string"   // created at char ?, llm determined at char 23 "strin【g】[]"
+SourceFile  pos=0  src=[0,27)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,26)   // "type A【x:6】= readonly" -> llm "readonly st【x:20】ing[]"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= readonly"
+   └─ TypeOperator  pos=8  src=[9,26)   // ? -> llm "readonl【x:16】string"
+      └─ ArrayType  pos=17  src=[18,26)   // ? -> llm "string[【x:25】"
+         └─ StringKeyword  pos=17  src=[18,24)  text="string"   // ? -> llm "strin【x:23】[]"

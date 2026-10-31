@@ -6,9 +6,9 @@ let x = 0xff
 [0-12] |let x = 0xff⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,12)   // created at char 5 "let x【␣】= 0xff", llm determined at char 7 "let x =【␣】0xff"
-   └─ VariableDeclarationList  pos=0  src=[0,12)   // created at char 5 "let x【␣】= 0xff", llm determined at char 7 "let x =【␣】0xff"
-      └─ VariableDeclaration  pos=3  src=[4,12)   // created at char 5 "let x【␣】= 0xff", llm determined at char 7 "let x =【␣】0xff"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 0xff", llm determined at char 5 "let x【␣】= 0xff"
-         └─ FirstLiteralToken  pos=7  src=[8,12)  text="0xff"   // created at char 12 "0xff【⏎】", llm determined at char 12 "0xff【⏎】"
+SourceFile  pos=0  src=[0,13)   // "【x:0】et x"
+└─ FirstStatement  pos=0  src=[0,12)   // "let x【x:5】= 0xff" -> llm "let x =【x:7】0xff"
+   └─ VariableDeclarationList  pos=0  src=[0,12)   // "let x【x:5】= 0xff" -> llm "let x =【x:7】0xff"
+      └─ VariableDeclaration  pos=3  src=[4,12)   // "let x【x:5】= 0xff" -> llm "let x =【x:7】0xff"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 0xff"
+         └─ FirstLiteralToken  pos=7  src=[8,12)  text="0xff"   // "0xff【x:12】"

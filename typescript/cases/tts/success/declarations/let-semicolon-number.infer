@@ -6,9 +6,9 @@ let x = 1;
 [0-10] |let x = 1;⏎|
 ```
 
-SourceFile  pos=0  src=[0,11)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,10)   // created at char 5 "let x【␣】= 1;", llm determined at char 9 "x = 1【;】"
-   └─ VariableDeclarationList  pos=0  src=[0,9)   // created at char 5 "let x【␣】= 1;", llm determined at char 8 "x =【1】;"
-      └─ VariableDeclaration  pos=3  src=[4,9)   // created at char 5 "let x【␣】= 1;", llm determined at char 8 "x =【1】;"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 1;", llm determined at char 5 "let x【␣】= 1;"
-         └─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // created at char 9 "x = 1【;】", llm determined at char 9 "x = 1【;】"
+SourceFile  pos=0  src=[0,11)   // "【x:0】et x"
+└─ FirstStatement  pos=0  src=[0,10)   // "let x【x:5】= 1;" -> llm "x = 1【x:9】"
+   └─ VariableDeclarationList  pos=0  src=[0,9)   // "let x【x:5】= 1;" -> llm "x =【x:8】;"
+      └─ VariableDeclaration  pos=3  src=[4,9)   // "let x【x:5】= 1;" -> llm "x =【x:8】;"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 1;"
+         └─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // "x = 1【x:9】"

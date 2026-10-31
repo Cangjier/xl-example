@@ -6,12 +6,12 @@ let x = 2 ** 3;
 [0-15] |let x = 2 ** 3;⏎|
 ```
 
-SourceFile  pos=0  src=[0,16)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,15)   // created at char 5 "let x【␣】= 2 *", llm determined at char 14 "** 3【;】"
-   └─ VariableDeclarationList  pos=0  src=[0,14)   // created at char 5 "let x【␣】= 2 *", llm determined at char 14 "** 3【;】"
-      └─ VariableDeclaration  pos=3  src=[4,14)   // created at char 5 "let x【␣】= 2 *", llm determined at char 14 "** 3【;】"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 2 *", llm determined at char 5 "let x【␣】= 2 *"
-         └─ BinaryExpression  pos=7  src=[8,14)   // created at char 12 "2 **【␣】3;", llm determined at char 14 "** 3【;】"
-            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="2"   // created at char 9 "x = 2【␣】** 3;", llm determined at char 9 "x = 2【␣】** 3;"
-            ├─ AsteriskAsteriskToken  pos=9  src=[10,12)  text="**"   // created at char 12 "2 **【␣】3;", llm determined at char 12 "2 **【␣】3;"
-            └─ FirstLiteralToken  pos=12  src=[13,14)  text="3"   // created at char 14 "** 3【;】", llm determined at char 14 "** 3【;】"
+SourceFile  pos=0  src=[0,16)   // "【x:0】et x"
+└─ FirstStatement  pos=0  src=[0,15)   // "let x【x:5】= 2 *" -> llm "** 3【x:14】"
+   └─ VariableDeclarationList  pos=0  src=[0,14)   // "let x【x:5】= 2 *" -> llm "** 3【x:14】"
+      └─ VariableDeclaration  pos=3  src=[4,14)   // "let x【x:5】= 2 *" -> llm "** 3【x:14】"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 2 *"
+         └─ BinaryExpression  pos=7  src=[8,14)   // "2 **【x:12】3;" -> llm "** 3【x:14】"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="2"   // "x = 2【x:9】** 3;"
+            ├─ AsteriskAsteriskToken  pos=9  src=[10,12)  text="**"   // "2 **【x:12】3;"
+            └─ FirstLiteralToken  pos=12  src=[13,14)  text="3"   // "** 3【x:14】"

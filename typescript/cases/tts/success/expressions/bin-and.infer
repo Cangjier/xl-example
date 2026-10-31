@@ -6,12 +6,12 @@ let x = 1&&2
 [0-12] |let x = 1&&2⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char 0 "【l】et x", llm determined at char 0 "【l】et x"
-└─ FirstStatement  pos=0  src=[0,12)   // created at char 5 "let x【␣】= 1&&", llm determined at char 12 "1&&2【⏎】"
-   └─ VariableDeclarationList  pos=0  src=[0,12)   // created at char 5 "let x【␣】= 1&&", llm determined at char 12 "1&&2【⏎】"
-      └─ VariableDeclaration  pos=3  src=[4,12)   // created at char 5 "let x【␣】= 1&&", llm determined at char 12 "1&&2【⏎】"
-         ├─ Identifier  pos=3  src=[4,5)  text="x"   // created at char 5 "let x【␣】= 1&&", llm determined at char 5 "let x【␣】= 1&&"
-         └─ BinaryExpression  pos=7  src=[8,12)   // created at char 11 "= 1&&【2】", llm determined at char 12 "1&&2【⏎】"
-            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // created at char 9 "x = 1【&】&2", llm determined at char 8 "x =【1】&&2"
-            ├─ AmpersandAmpersandToken  pos=9  src=[9,11)  text="&&"   // created at char 11 "= 1&&【2】", llm determined at char 11 "= 1&&【2】"
-            └─ FirstLiteralToken  pos=11  src=[11,12)  text="2"   // created at char 12 "1&&2【⏎】", llm determined at char 12 "1&&2【⏎】"
+SourceFile  pos=0  src=[0,13)   // "【x:0】et x"
+└─ FirstStatement  pos=0  src=[0,12)   // "let x【x:5】= 1&&" -> llm "1&&2【x:12】"
+   └─ VariableDeclarationList  pos=0  src=[0,12)   // "let x【x:5】= 1&&" -> llm "1&&2【x:12】"
+      └─ VariableDeclaration  pos=3  src=[4,12)   // "let x【x:5】= 1&&" -> llm "1&&2【x:12】"
+         ├─ Identifier  pos=3  src=[4,5)  text="x"   // "let x【x:5】= 1&&"
+         └─ BinaryExpression  pos=7  src=[8,12)   // "= 1&&【x:11】" -> llm "1&&2【x:12】"
+            ├─ FirstLiteralToken  pos=7  src=[8,9)  text="1"   // "x = 1【x:9】&2" -> llm "x =【x:8】&&2"
+            ├─ AmpersandAmpersandToken  pos=9  src=[9,11)  text="&&"   // "= 1&&【x:11】"
+            └─ FirstLiteralToken  pos=11  src=[11,12)  text="2"   // "1&&2【x:12】"

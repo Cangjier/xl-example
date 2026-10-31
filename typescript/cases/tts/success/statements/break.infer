@@ -6,8 +6,8 @@ while (a) { break; }
 [0-19]  |while (a) { break; }| [20-20] |⏎|
 ```
 
-SourceFile  pos=0  src=[0,21)   // created at char 0 "【w】hile", llm determined at char 0 "【w】hile"
-└─ WhileStatement  pos=0  src=[0,20)   // created at char 5 "while【␣】(a) {", llm determined at char 12 "a) {【b】reak;"
-   ├─ Identifier  pos=7  src=[7,8)  text="a"   // created at char 8 "while (a【)】{ break", llm determined at char 8 "while (a【)】{ break"
-   └─ Block  pos=9  src=[10,20)   // created at char 10 "(a)【{】break", llm determined at char 11 "(a) {【␣】break"
-      └─ BreakStatement  pos=11  src=[12,18)   // created at char 17 "break【;】}", llm determined at char 17 "break【;】}"
+SourceFile  pos=0  src=[0,21)   // "【x:0】hile"
+└─ WhileStatement  pos=0  src=[0,20)   // "while【x:5】(a) {" -> llm "a) {【x:12】reak;"
+   ├─ Identifier  pos=7  src=[7,8)  text="a"   // "while (a【x:8】{ break"
+   └─ Block  pos=9  src=[10,20)   // "(a)【x:10】break" -> llm "(a) {【x:11】break"
+      └─ BreakStatement  pos=11  src=[12,18)   // "break【x:17】}"

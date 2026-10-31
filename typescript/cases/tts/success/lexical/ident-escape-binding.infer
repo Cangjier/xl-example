@@ -6,9 +6,9 @@ let \u0061 = 1
 [0-14] |let \u0061 = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,15)   // created at char 0 "【l】et \\u0061", llm determined at char 0 "【l】et \\u0061"
-└─ FirstStatement  pos=0  src=[0,14)   // created at char 10 "u0061【␣】= 1", llm determined at char 13 "u0061 =【1】"
-   └─ VariableDeclarationList  pos=0  src=[0,14)   // created at char 10 "u0061【␣】= 1", llm determined at char 13 "u0061 =【1】"
-      └─ VariableDeclaration  pos=3  src=[4,14)   // created at char 10 "u0061【␣】= 1", llm determined at char 13 "u0061 =【1】"
-         ├─ Identifier  pos=3  src=[4,10)  text="\\u0061"   // created at char 10 "u0061【␣】= 1", llm determined at char 10 "u0061【␣】= 1"
-         └─ FirstLiteralToken  pos=12  src=[13,14)  text="1"   // created at char 14 "u0061 = 1【⏎】", llm determined at char 14 "u0061 = 1【⏎】"
+SourceFile  pos=0  src=[0,15)   // "【x:0】et \\u0061"
+└─ FirstStatement  pos=0  src=[0,14)   // "u0061【x:10】= 1" -> llm "u0061 =【x:13】"
+   └─ VariableDeclarationList  pos=0  src=[0,14)   // "u0061【x:10】= 1" -> llm "u0061 =【x:13】"
+      └─ VariableDeclaration  pos=3  src=[4,14)   // "u0061【x:10】= 1" -> llm "u0061 =【x:13】"
+         ├─ Identifier  pos=3  src=[4,10)  text="\\u0061"   // "u0061【x:10】= 1"
+         └─ FirstLiteralToken  pos=12  src=[13,14)  text="1"   // "u0061 = 1【x:14】"

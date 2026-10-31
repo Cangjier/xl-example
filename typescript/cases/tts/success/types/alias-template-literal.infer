@@ -6,11 +6,11 @@ type A = `a${string}b`
 [0-19]  |type A = `a${string}| [20-22] |b`⏎|
 ```
 
-SourceFile  pos=0  src=[0,23)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,22)   // created at char 6 "type A【␣】= `a$", llm determined at char 21 "string}b【`】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= `a$", llm determined at char 6 "type A【␣】= `a$"
-   └─ TemplateLiteralType  pos=8  src=[9,22)   // created at char ?, llm determined at char 21 "string}b【`】"
-      ├─ TemplateHead  pos=8  src=[9,13)  text="`a${"   // created at char ?, llm determined at char 11 "= `a【$】{string"
-      └─ TemplateLiteralTypeSpan  pos=13  src=[13,22)   // created at char ?, llm determined at char 20 "string}【b】`"
-         ├─ StringKeyword  pos=13  src=[13,19)  text="string"   // created at char ?, llm determined at char 19 "string【}】b`"
-         └─ LastTemplateToken  pos=19  src=[19,22)  text="}b`"   // created at char ?, llm determined at char 21 "string}b【`】"
+SourceFile  pos=0  src=[0,23)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,22)   // "type A【x:6】= `a$" -> llm "string}b【x:21】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= `a$"
+   └─ TemplateLiteralType  pos=8  src=[9,22)   // ? -> llm "string}b【x:21】"
+      ├─ TemplateHead  pos=8  src=[9,13)  text="`a${"   // ? -> llm "= `a【x:11】{string"
+      └─ TemplateLiteralTypeSpan  pos=13  src=[13,22)   // ? -> llm "string}【x:20】`"
+         ├─ StringKeyword  pos=13  src=[13,19)  text="string"   // ? -> llm "string【x:19】b`"
+         └─ LastTemplateToken  pos=19  src=[19,22)  text="}b`"   // ? -> llm "string}b【x:21】"

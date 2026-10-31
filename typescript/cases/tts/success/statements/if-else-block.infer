@@ -6,12 +6,12 @@ if (a) { b; } else { c; }
 [0-19]  |if (a) { b; } else {| [20-25] | c; }⏎|
 ```
 
-SourceFile  pos=0  src=[0,26)   // created at char 0 "【i】f (a)", llm determined at char 0 "【i】f (a)"
-└─ IfStatement  pos=0  src=[0,25)   // created at char 2 "if【␣】(a) {", llm determined at char 19 "else【{】c; }"
-   ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】{ b;", llm determined at char 5 "if (a【)】{ b;"
-   ├─ Block  pos=6  src=[7,13)   // created at char 7 "(a)【{】b; }", llm determined at char 13 "b; }【␣】else"
-   │  └─ ExpressionStatement  pos=8  src=[9,11)   // created at char 10 ") { b【;】} else", llm determined at char 11 "{ b;【␣】} else"
-   │     └─ Identifier  pos=8  src=[9,10)  text="b"   // created at char 10 ") { b【;】} else", llm determined at char 10 ") { b【;】} else"
-   └─ Block  pos=18  src=[19,25)   // created at char 19 "else【{】c; }", llm determined at char 25 "c; }【⏎】"
-      └─ ExpressionStatement  pos=20  src=[21,23)   // created at char 22 "else { c【;】}", llm determined at char 23 "{ c;【␣】}"
-         └─ Identifier  pos=20  src=[21,22)  text="c"   // created at char 22 "else { c【;】}", llm determined at char 22 "else { c【;】}"
+SourceFile  pos=0  src=[0,26)   // "【x:0】f (a)"
+└─ IfStatement  pos=0  src=[0,25)   // "if【x:2】(a) {" -> llm "else【x:19】c; }"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【x:5】{ b;"
+   ├─ Block  pos=6  src=[7,13)   // "(a)【x:7】b; }" -> llm "b; }【x:13】else"
+   │  └─ ExpressionStatement  pos=8  src=[9,11)   // ") { b【x:10】} else" -> llm "{ b;【x:11】} else"
+   │     └─ Identifier  pos=8  src=[9,10)  text="b"   // ") { b【x:10】} else"
+   └─ Block  pos=18  src=[19,25)   // "else【x:19】c; }" -> llm "c; }【x:25】"
+      └─ ExpressionStatement  pos=20  src=[21,23)   // "else { c【x:22】}" -> llm "{ c;【x:23】}"
+         └─ Identifier  pos=20  src=[21,22)  text="c"   // "else { c【x:22】}"

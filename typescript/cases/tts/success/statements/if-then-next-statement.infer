@@ -6,10 +6,10 @@ if (a) b; c;
 [0-12] |if (a) b; c;⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char 0 "【i】f (a)", llm determined at char 0 "【i】f (a)"
-├─ IfStatement  pos=0  src=[0,9)   // created at char 2 "if【␣】(a) b", llm determined at char 8 "(a) b【;】c;"
-│  ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】b; c", llm determined at char 5 "if (a【)】b; c"
-│  └─ ExpressionStatement  pos=6  src=[7,9)   // created at char 8 "(a) b【;】c;", llm determined at char 8 "(a) b【;】c;"
-│     └─ Identifier  pos=6  src=[7,8)  text="b"   // created at char 8 "(a) b【;】c;", llm determined at char 8 "(a) b【;】c;"
-└─ ExpressionStatement  pos=9  src=[10,12)   // created at char 11 "b; c【;】", llm determined at char 11 "b; c【;】"
-   └─ Identifier  pos=9  src=[10,11)  text="c"   // created at char 11 "b; c【;】", llm determined at char 11 "b; c【;】"
+SourceFile  pos=0  src=[0,13)   // "【x:0】f (a)"
+├─ IfStatement  pos=0  src=[0,9)   // "if【x:2】(a) b" -> llm "(a) b【x:8】c;"
+│  ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【x:5】b; c"
+│  └─ ExpressionStatement  pos=6  src=[7,9)   // "(a) b【x:8】c;"
+│     └─ Identifier  pos=6  src=[7,8)  text="b"   // "(a) b【x:8】c;"
+└─ ExpressionStatement  pos=9  src=[10,12)   // "b; c【x:11】"
+   └─ Identifier  pos=9  src=[10,11)  text="c"   // "b; c【x:11】"

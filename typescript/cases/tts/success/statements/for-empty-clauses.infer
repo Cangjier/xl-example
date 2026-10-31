@@ -6,6 +6,6 @@ for (;;) { }
 [0-12] |for (;;) { }⏎|
 ```
 
-SourceFile  pos=0  src=[0,13)   // created at char 0 "【f】or (;", llm determined at char 0 "【f】or (;"
-└─ ForStatement  pos=0  src=[0,12)   // created at char 7 "for (;;【)】{ }", llm determined at char 9 "(;;)【{】}"
-   └─ Block  pos=8  src=[9,12)   // created at char 9 "(;;)【{】}", llm determined at char 12 ") { }【⏎】"
+SourceFile  pos=0  src=[0,13)   // "【x:0】or (;"
+└─ ForStatement  pos=0  src=[0,12)   // "for (;;【x:7】{ }" -> llm "(;;)【x:9】}"
+   └─ Block  pos=8  src=[9,12)   // "(;;)【x:9】}" -> llm ") { }【x:12】"

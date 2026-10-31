@@ -6,13 +6,13 @@ type A = [a: string, b: number]
 [0-19]  |type A = [a: string,| [20-31] | b: number]⏎|
 ```
 
-SourceFile  pos=0  src=[0,32)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,31)   // created at char 6 "type A【␣】= [a:", llm determined at char 30 "number【]】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= [a:", llm determined at char 6 "type A【␣】= [a:"
-   └─ TupleType  pos=8  src=[9,31)   // created at char ?, llm determined at char 30 "number【]】"
-      ├─ NamedTupleMember  pos=10  src=[10,19)   // created at char ?, llm determined at char 19 "string【,】b: number"
-      │  ├─ Identifier  pos=10  src=[10,11)  text="a"   // created at char ?, llm determined at char 11 "= [a【:】string"
-      │  └─ StringKeyword  pos=12  src=[13,19)  text="string"   // created at char ?, llm determined at char 19 "string【,】b: number"
-      └─ NamedTupleMember  pos=20  src=[21,30)   // created at char ?, llm determined at char 30 "number【]】"
-         ├─ Identifier  pos=20  src=[21,22)  text="b"   // created at char ?, llm determined at char 22 "string, b【:】number"
-         └─ NumberKeyword  pos=23  src=[24,30)  text="number"   // created at char ?, llm determined at char 30 "number【]】"
+SourceFile  pos=0  src=[0,32)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,31)   // "type A【x:6】= [a:" -> llm "number【x:30】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= [a:"
+   └─ TupleType  pos=8  src=[9,31)   // ? -> llm "number【x:30】"
+      ├─ NamedTupleMember  pos=10  src=[10,19)   // ? -> llm "string【x:19】b: number"
+      │  ├─ Identifier  pos=10  src=[10,11)  text="a"   // ? -> llm "= [a【x:11】string"
+      │  └─ StringKeyword  pos=12  src=[13,19)  text="string"   // ? -> llm "string【x:19】b: number"
+      └─ NamedTupleMember  pos=20  src=[21,30)   // ? -> llm "number【x:30】"
+         ├─ Identifier  pos=20  src=[21,22)  text="b"   // ? -> llm "string, b【x:22】number"
+         └─ NumberKeyword  pos=23  src=[24,30)  text="number"   // ? -> llm "number【x:30】"

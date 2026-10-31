@@ -6,11 +6,11 @@ if (a) b + c;
 [0-13] |if (a) b + c;⏎|
 ```
 
-SourceFile  pos=0  src=[0,14)   // created at char 0 "【i】f (a)", llm determined at char 0 "【i】f (a)"
-└─ IfStatement  pos=0  src=[0,13)   // created at char 2 "if【␣】(a) b", llm determined at char 12 "b + c【;】"
-   ├─ Identifier  pos=4  src=[4,5)  text="a"   // created at char 5 "if (a【)】b +", llm determined at char 6 "if (a)【␣】b + c"
-   └─ ExpressionStatement  pos=6  src=[7,13)   // created at char 8 "(a) b【␣】+ c;", llm determined at char 12 "b + c【;】"
-      └─ BinaryExpression  pos=6  src=[7,12)   // created at char 10 ") b +【␣】c;", llm determined at char 12 "b + c【;】"
-         ├─ Identifier  pos=6  src=[7,8)  text="b"   // created at char 8 "(a) b【␣】+ c;", llm determined at char 8 "(a) b【␣】+ c;"
-         ├─ PlusToken  pos=8  src=[9,10)  text="+"   // created at char 10 ") b +【␣】c;", llm determined at char 10 ") b +【␣】c;"
-         └─ Identifier  pos=10  src=[11,12)  text="c"   // created at char 12 "b + c【;】", llm determined at char 12 "b + c【;】"
+SourceFile  pos=0  src=[0,14)   // "【x:0】f (a)"
+└─ IfStatement  pos=0  src=[0,13)   // "if【x:2】(a) b" -> llm "b + c【x:12】"
+   ├─ Identifier  pos=4  src=[4,5)  text="a"   // "if (a【x:5】b +" -> llm "if (a)【x:6】b + c"
+   └─ ExpressionStatement  pos=6  src=[7,13)   // "(a) b【x:8】+ c;" -> llm "b + c【x:12】"
+      └─ BinaryExpression  pos=6  src=[7,12)   // ") b +【x:10】c;" -> llm "b + c【x:12】"
+         ├─ Identifier  pos=6  src=[7,8)  text="b"   // "(a) b【x:8】+ c;"
+         ├─ PlusToken  pos=8  src=[9,10)  text="+"   // ") b +【x:10】c;"
+         └─ Identifier  pos=10  src=[11,12)  text="c"   // "b + c【x:12】"

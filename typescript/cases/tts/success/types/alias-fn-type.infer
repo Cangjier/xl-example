@@ -6,11 +6,11 @@ type A = (a: string) => number
 [0-19]  |type A = (a: string)| [20-30] | => number⏎|
 ```
 
-SourceFile  pos=0  src=[0,31)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,30)   // created at char 6 "type A【␣】= (a:", llm determined at char 30 "number【⏎】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= (a:", llm determined at char 6 "type A【␣】= (a:"
-   └─ FunctionType  pos=8  src=[9,30)   // created at char 22 "string) =【>】number", llm determined at char 30 "number【⏎】"
-      ├─ Parameter  pos=10  src=[10,19)   // created at char 22 "string) =【>】number", llm determined at char 19 "string【)】=> number"
-      │  ├─ Identifier  pos=10  src=[10,11)  text="a"   // created at char 22 "string) =【>】number", llm determined at char 11 "= (a【:】string"
-      │  └─ StringKeyword  pos=12  src=[13,19)  text="string"   // created at char 22 "string) =【>】number", llm determined at char 19 "string【)】=> number"
-      └─ NumberKeyword  pos=23  src=[24,30)  text="number"   // created at char ?, llm determined at char 30 "number【⏎】"
+SourceFile  pos=0  src=[0,31)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,30)   // "type A【x:6】= (a:" -> llm "number【x:30】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= (a:"
+   └─ FunctionType  pos=8  src=[9,30)   // "string) =【x:22】number" -> llm "number【x:30】"
+      ├─ Parameter  pos=10  src=[10,19)   // "string) =【x:22】number" -> llm "string【x:19】=> number"
+      │  ├─ Identifier  pos=10  src=[10,11)  text="a"   // "string) =【x:22】number" -> llm "= (a【x:11】string"
+      │  └─ StringKeyword  pos=12  src=[13,19)  text="string"   // "string) =【x:22】number" -> llm "string【x:19】=> number"
+      └─ NumberKeyword  pos=23  src=[24,30)  text="number"   // ? -> llm "number【x:30】"

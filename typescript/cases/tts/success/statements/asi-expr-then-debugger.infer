@@ -7,7 +7,7 @@ debugger;
 [0-11] |a⏎debugger;⏎|
 ```
 
-SourceFile  pos=0  src=[0,12)   // created at char 0 "【a】debugger", llm determined at char 0 "【a】debugger"
-├─ ExpressionStatement  pos=0  src=[0,1)   // created at char 1 "a【⏎】debugger", llm determined at char 0 "【a】debugger"
-│  └─ Identifier  pos=0  src=[0,1)  text="a"   // created at char 1 "a【⏎】debugger", llm determined at char 0 "【a】debugger"
-└─ LastStatement  pos=1  src=[2,11)   // created at char 10 "debugger【;】", llm determined at char 11 "debugger;【⏎】"
+SourceFile  pos=0  src=[0,12)   // "【x:0】debugger"
+├─ ExpressionStatement  pos=0  src=[0,1)   // "a【x:1】debugger" -> llm "【x:0】debugger"
+│  └─ Identifier  pos=0  src=[0,1)  text="a"   // "a【x:1】debugger" -> llm "【x:0】debugger"
+└─ LastStatement  pos=1  src=[2,11)   // "debugger【x:10】" -> llm "debugger;【x:11】"

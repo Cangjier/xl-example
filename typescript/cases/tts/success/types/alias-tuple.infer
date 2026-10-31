@@ -6,9 +6,9 @@ type A = [string, number]
 [0-19]  |type A = [string, nu| [20-25] |mber]⏎|
 ```
 
-SourceFile  pos=0  src=[0,26)   // created at char 0 "【t】ype A", llm determined at char 0 "【t】ype A"
-└─ TypeAliasDeclaration  pos=0  src=[0,25)   // created at char 6 "type A【␣】= [string", llm determined at char 24 "number【]】"
-   ├─ Identifier  pos=4  src=[5,6)  text="A"   // created at char 6 "type A【␣】= [string", llm determined at char 6 "type A【␣】= [string"
-   └─ TupleType  pos=8  src=[9,25)   // created at char ?, llm determined at char 24 "number【]】"
-      ├─ StringKeyword  pos=10  src=[10,16)  text="string"   // created at char ?, llm determined at char 16 "string【,】number"
-      └─ NumberKeyword  pos=17  src=[18,24)  text="number"   // created at char ?, llm determined at char 24 "number【]】"
+SourceFile  pos=0  src=[0,26)   // "【x:0】ype A"
+└─ TypeAliasDeclaration  pos=0  src=[0,25)   // "type A【x:6】= [string" -> llm "number【x:24】"
+   ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【x:6】= [string"
+   └─ TupleType  pos=8  src=[9,25)   // ? -> llm "number【x:24】"
+      ├─ StringKeyword  pos=10  src=[10,16)  text="string"   // ? -> llm "string【x:16】number"
+      └─ NumberKeyword  pos=17  src=[18,24)  text="number"   // ? -> llm "number【x:24】"

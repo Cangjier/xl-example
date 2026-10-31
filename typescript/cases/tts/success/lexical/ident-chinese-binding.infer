@@ -6,9 +6,9 @@ let 变量 = 1
 [0-10] |let 变量 = 1⏎|
 ```
 
-SourceFile  pos=0  src=[0,11)   // created at char 0 "【l】et 变量", llm determined at char 0 "【l】et 变量"
-└─ FirstStatement  pos=0  src=[0,10)   // created at char 6 "let 变量【␣】= 1", llm determined at char 10 "量 = 1【⏎】"
-   └─ VariableDeclarationList  pos=0  src=[0,10)   // created at char 6 "let 变量【␣】= 1", llm determined at char 10 "量 = 1【⏎】"
-      └─ VariableDeclaration  pos=3  src=[4,10)   // created at char 6 "let 变量【␣】= 1", llm determined at char 10 "量 = 1【⏎】"
-         ├─ Identifier  pos=3  src=[4,6)  text="变量"   // created at char 6 "let 变量【␣】= 1", llm determined at char 6 "let 变量【␣】= 1"
-         └─ FirstLiteralToken  pos=8  src=[9,10)  text="1"   // created at char 10 "量 = 1【⏎】", llm determined at char 10 "量 = 1【⏎】"
+SourceFile  pos=0  src=[0,11)   // "【x:0】et 变量"
+└─ FirstStatement  pos=0  src=[0,10)   // "let 变量【x:6】= 1" -> llm "量 = 1【x:10】"
+   └─ VariableDeclarationList  pos=0  src=[0,10)   // "let 变量【x:6】= 1" -> llm "量 = 1【x:10】"
+      └─ VariableDeclaration  pos=3  src=[4,10)   // "let 变量【x:6】= 1" -> llm "量 = 1【x:10】"
+         ├─ Identifier  pos=3  src=[4,6)  text="变量"   // "let 变量【x:6】= 1"
+         └─ FirstLiteralToken  pos=8  src=[9,10)  text="1"   // "量 = 1【x:10】"
