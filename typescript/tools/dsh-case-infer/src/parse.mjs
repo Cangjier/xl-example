@@ -7,6 +7,8 @@
  * @module dsh-case-infer/parse
  */
 
+import { canonicalKind } from '../../shape-actual.mjs'
+
 /**
  * @param {string} text - 模型输出（可能带代码围栏或多余说明）。
  * @param {{kind: string, pos: number, start: number, end: number}[]} nodes - 期望覆盖的节点。
@@ -44,7 +46,7 @@ export function parseNumbers(text, nodes, charCount) {
       issues.push(`第 ${index + 1} 项缺少 kind/pos/start（收到 ${JSON.stringify(item)}）`)
       continue
     }
-    const id = `${kind}|${pos}|${srcStart}`
+    const id = keyOf({ kind, pos, start: srcStart })
     if (!expected.has(id)) {
       issues.push(`第 ${index + 1} 项的节点不在清单里：${kind} pos=${pos} start=${srcStart}`)
       continue
@@ -74,5 +76,7 @@ export function parseNumbers(text, nodes, charCount) {
  * @returns {string}
  */
 function keyOf(node) {
-  return `${node.kind}|${node.pos}|${node.start}`
+  // 节点身份与 nodeId / actual 的 key 一致：TS 的区间别名（FirstStatement 等）
+  // 在这里就折算成形状侧的名字，否则 applyNumbers 按 canonical 名字查不到。
+  return `${canonicalKind(node.kind)}|${node.pos}|${node.start}`
 }
