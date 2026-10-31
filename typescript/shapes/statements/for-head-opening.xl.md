@@ -70,7 +70,7 @@ head.CatalogGuide = new CatalogGuide(
   null,
 );
 head.MountedUnit = null;
-return open;
+return this.StampCreated(open, context);
 ```
 
 # class ForBindingPossibleShape extends PossibleShape
@@ -138,7 +138,7 @@ if (common.IsAny(["let", "const", "var"])) {
   // 声明要等名字到齐再建（列表的 Start/End 一次定好，避免留下右边界未定的单元）。
   head.CatalogGuide = new CatalogGuide([new ForDeclarationNamePossibleShape()], null);
   head.MountedUnit = null;
-  return common;
+  return this.StampCreated(common, context);
 }
 const operand = OperandUtil.FromCommon(common, ItemUtil.PositionOf(units, tokenIndex));
 units.splice(tokenIndex, 1, operand);
@@ -146,7 +146,7 @@ operand.Parent = head;
 head.Init = operand;
 head.CatalogGuide = new CatalogGuide([new ForOfInKeywordPossibleShape()], null);
 head.MountedUnit = null;
-return operand;
+return this.StampCreated(operand, context);
 ```
 
 # class ForDeclarationNamePossibleShape extends PossibleShape
@@ -230,7 +230,7 @@ head.CatalogGuide = new CatalogGuide(
   null,
 );
 head.MountedUnit = null;
-return list;
+return this.StampCreated(list, context);
 ```
 
 # class ForSemicolonPossibleShape extends PossibleShape
@@ -295,5 +295,5 @@ if (head.Segment === 0) {
   head.CatalogGuide = new CatalogGuide([new ForClosePossibleShape()], null);
 }
 head.MountedUnit = null;
-return semicolon;
+return this.StampCreated(semicolon, context);
 ```

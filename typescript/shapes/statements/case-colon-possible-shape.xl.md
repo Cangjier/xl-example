@@ -66,5 +66,5 @@ section.CatalogGuide = StatementGuide.Create(
   [new BlockPossibleShape()],
 );
 section.MountedUnit = null;
-return colon;
+return this.StampCreated(colon, context);
 ```

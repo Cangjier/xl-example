@@ -80,12 +80,12 @@ if (root instanceof BinaryExpressionShape) {
         ancestor.SourceRange.End = operand.SourceRange.End;
         ancestor = ancestor.Parent;
       }
-      return operand;
+      return this.StampCreated(operand, context);
     }
     break;
   }
 }
 units.splice(tokenIndex, 1, operand);
 operand.Parent = host;
-return operand;
+return this.StampCreated(operand, context);
 ```

@@ -181,7 +181,7 @@ for (const item of tail) {
 // 关键字（let / debugger）：当前 Common 也挂回 SourceFile，等它的后续单元再建形状。
 if (current === null) {
   source.MountedUnit = null;
-  return statement;
+  return this.StampCreated(statement, context);
 }
 // 操作数：当前 Common 直接落成下一条 ExpressionStatement，挂到 SourceFile。
 const operand = OperandUtil.FromCommon(current, pos);
@@ -196,5 +196,5 @@ next.CatalogGuide = new CatalogGuide(
 source.Data.splice(insertAt, 0, next);
 next.Parent = source;
 source.MountedUnit = next;
-return next;
+return this.StampCreated(next, context);
 ```

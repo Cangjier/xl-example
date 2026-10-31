@@ -56,19 +56,19 @@ block.EndedByBrace = true;
 block.TryToClose(context);
 block.Quit();
 if (!(clause instanceof CatchClauseShape)) {
-  return close;
+  return this.StampCreated(close, context);
 }
 clause.SourceRange.End = close.SourceRange.End;
 clause.TryToClose(context);
 clause.Quit();
 const statement = clause.Parent;
 if (!(statement instanceof TryStatementShape)) {
-  return close;
+  return this.StampCreated(close, context);
 }
 if (ControlStatementShape.IsWordAhead(context, close.SourceRange.End, "finally")) {
   FinallyKeywordPossibleShape.Arm(statement);
 } else {
   TryStatementShape.Finish(statement, context);
 }
-return close;
+return this.StampCreated(close, context);
 ```

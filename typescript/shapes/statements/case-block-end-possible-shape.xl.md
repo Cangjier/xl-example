@@ -57,5 +57,5 @@ if (parent instanceof ControlStatementShape) {
   parent.TryToClose(context);
   parent.Quit();
 }
-return close;
+return this.StampCreated(close, context);
 ```

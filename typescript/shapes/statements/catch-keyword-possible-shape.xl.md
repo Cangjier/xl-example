@@ -79,5 +79,5 @@ units.splice(tokenIndex, 1, clause);
 clause.Parent = host;
 statement.CatchClause = clause;
 host.MountedUnit = clause;
-return clause;
+return this.StampCreated(clause, context);
 ```

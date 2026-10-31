@@ -60,7 +60,7 @@ return unit instanceof Symbol && unit.Closed && unit.Is(")");
 const head = host as ForHeadShape;
 const close = head.Data[tokenIndex] as Symbol;
 head.Data.splice(tokenIndex, 1);
-return ForClosePossibleShape.Finish(head, close, context);
+return this.StampCreated(ForClosePossibleShape.Finish(head, close, context), context);
 ```
 
 ## static method Finish:(head:ForHeadShape, close:Symbol, context:SyntaxContext)=>Token

@@ -63,5 +63,5 @@ head.Mode = keyword.TempToString();
 head.Data.splice(index, 1);
 head.CatalogGuide = new CatalogGuide([new ForSourcePossibleShape()], null);
 head.MountedUnit = null;
-return keyword;
+return this.StampCreated(keyword, context);
 ```

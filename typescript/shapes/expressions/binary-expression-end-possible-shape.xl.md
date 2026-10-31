@@ -113,5 +113,5 @@ units.splice(startIndex, units.length - startIndex);
 host.TryToClose(context);
 host.Quit();
 context.Messages.push(ReloadMessage.FromRange(unit, start, end));
-return unit;
+return this.StampCreated(unit, context);
 ```

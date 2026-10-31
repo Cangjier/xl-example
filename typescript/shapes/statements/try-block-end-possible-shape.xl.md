@@ -56,7 +56,7 @@ block.EndedByBrace = true;
 block.TryToClose(context);
 block.Quit();
 if (!(parent instanceof TryStatementShape)) {
-  return close;
+  return this.StampCreated(close, context);
 }
 if (ControlStatementShape.IsWordAhead(context, close.SourceRange.End, "catch")) {
   CatchKeywordPossibleShape.Arm(parent);
@@ -65,5 +65,5 @@ if (ControlStatementShape.IsWordAhead(context, close.SourceRange.End, "catch")) 
 } else {
   TryStatementShape.Finish(parent, context);
 }
-return close;
+return this.StampCreated(close, context);
 ```

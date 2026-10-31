@@ -95,5 +95,5 @@ clause.CatalogGuide = new CatalogGuide(
   new ForClauseEndPossibleShape(),
 );
 head.MountedUnit = clause;
-return clause;
+return this.StampCreated(clause, context);
 ```

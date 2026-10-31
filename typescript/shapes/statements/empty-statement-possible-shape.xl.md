@@ -58,5 +58,5 @@ const semicolon = units[tokenIndex] as Symbol;
 const shape = EmptyStatementShape.FromSemicolon(semicolon, ItemUtil.PositionOf(units, tokenIndex));
 semicolon.Replace(shape);
 host.MountedUnit = null;
-return shape;
+return this.StampCreated(shape, context);
 ```

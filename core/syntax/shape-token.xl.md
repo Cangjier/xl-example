@@ -14,6 +14,8 @@ import { UnitToken } from "./unit-token.xl.md"
 
 ## field Pos:int = -1
 
+## field CreatedAt:int = -1
+
 ## constructor:(template:Template)=>void
 
 ```ts

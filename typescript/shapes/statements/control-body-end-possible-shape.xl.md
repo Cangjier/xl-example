@@ -52,7 +52,7 @@ host.TryToClose(context);
 const control = host.Parent;
 host.Quit();
 if (!(control instanceof ControlStatementShape)) {
-  return semicolon;
+  return this.StampCreated(semicolon, context);
 }
 // body 收口：`if` 等 `else`、`do` 等 `while`、`while`/`for` 直接收口。
 // 收口链可能把更外层的 if 交回来说「它还在等 `else`」
@@ -65,5 +65,5 @@ if (waiting !== null) {
     ControlElsePossibleShape.Arm(waiting as ControlStatementShape);
   }
 }
-return semicolon;
+return this.StampCreated(semicolon, context);
 ```

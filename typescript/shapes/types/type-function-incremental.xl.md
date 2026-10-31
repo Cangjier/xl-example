@@ -176,7 +176,7 @@ units.splice(equals, tokenIndex - equals + 1, functionType);
 functionType.Parent = alias;
 alias.MountedUnit = functionType;
 functionType.MountedUnit = returnType;
-return functionType;
+return this.StampCreated(functionType, context);
 ```
 
 ## private static method FindEquals:(units:Array<Token>, limit:int)=>int
@@ -254,7 +254,7 @@ for (const item of alias.Data) {
 alias.SourceRange.End = semicolon.SourceRange.End;
 alias.Closed = true;
 alias.Quit();
-return semicolon;
+return this.StampCreated(semicolon, context);
 ```
 
 # class TypePredicateStartPossibleShape extends PossibleShape
@@ -304,7 +304,7 @@ returnType.Predicate = predicate;
 // 谓词自己成为 mounted unit：后面的空白、名字、`is`、类型都先流进它。
 predicate.CatalogGuide = new CatalogGuide([new TypePredicateNamePossibleShape()], null);
 returnType.MountedUnit = predicate;
-return predicate;
+return this.StampCreated(predicate, context);
 ```
 
 # class TypePredicateBarePossibleShape extends PossibleShape
@@ -417,7 +417,7 @@ predicate.Parent = returnType;
 returnType.Predicate = predicate;
 predicate.CatalogGuide = new CatalogGuide([new TypePredicateTypePossibleShape()], null);
 returnType.MountedUnit = predicate;
-return predicate;
+return this.StampCreated(predicate, context);
 ```
 
 # class TypePredicateNamePossibleShape extends PossibleShape
@@ -462,7 +462,7 @@ predicate.Data.splice(tokenIndex, 1, identifier);
 identifier.Parent = predicate;
 predicate.SourceRange.End = identifier.SourceRange.End;
 predicate.CatalogGuide = new CatalogGuide([new TypePredicateIsKeywordPossibleShape()], null);
-return identifier;
+return this.StampCreated(identifier, context);
 ```
 
 # class TypePredicateIsKeywordPossibleShape extends PossibleShape
@@ -495,7 +495,7 @@ const unit = predicate.Data[tokenIndex];
 // `is` 不从 Data 里摘掉：它是后面类型的「前一个代码单元」，留着才能让 PositionOf 停在这里，
 // 否则前后两段 trivia 会拼在一起，把下一个类型的 pos 推回名字之后。
 predicate.CatalogGuide = new CatalogGuide([new TypePredicateTypePossibleShape()], null);
-return unit;
+return this.StampCreated(unit, context);
 ```
 
 # class TypePredicateTypePossibleShape extends PossibleShape
@@ -578,5 +578,5 @@ predicate.Add(atom);
 predicate.SourceRange.End = atom.SourceRange.End;
 predicate.CatalogGuide = null;
 predicate.Quit();
-return atom;
+return this.StampCreated(atom, context);
 ```

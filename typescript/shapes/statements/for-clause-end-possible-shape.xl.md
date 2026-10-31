@@ -78,7 +78,7 @@ if (clause.Role === 0) {
 }
 clause.Quit();
 if (terminator.Is(")")) {
-  return ForClosePossibleShape.Finish(head, terminator, context);
+  return this.StampCreated(ForClosePossibleShape.Finish(head, terminator, context), context);
 }
 head.Mode = "classic";
 head.Segment = clause.Role + 1;
@@ -87,5 +87,5 @@ head.CatalogGuide = new CatalogGuide(
   null,
 );
 head.MountedUnit = null;
-return terminator;
+return this.StampCreated(terminator, context);
 ```

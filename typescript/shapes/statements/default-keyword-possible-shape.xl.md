@@ -66,5 +66,5 @@ clause.CatalogGuide = new CatalogGuide([new CaseColonPossibleShape()], null);
 units.splice(tokenIndex, 1, clause);
 clause.Parent = host;
 host.MountedUnit = clause;
-return clause;
+return this.StampCreated(clause, context);
 ```

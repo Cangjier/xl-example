@@ -96,7 +96,7 @@ if (parent !== null && tail.length > 0) {
   }
   parent.MountedUnit = null;
 }
-return unit;
+return this.StampCreated(unit, context);
 ```
 
 ## static method IsStatementStart:(unit:Common)=>bool

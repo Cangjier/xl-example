@@ -55,5 +55,5 @@ block.Quit();
 if (statement instanceof TryStatementShape) {
   TryStatementShape.Finish(statement, context);
 }
-return close;
+return this.StampCreated(close, context);
 ```

@@ -62,5 +62,5 @@ shape.CatalogGuide = new CatalogGuide([new StatementEndPossibleShape()], null);
 units.splice(tokenIndex, 1, shape);
 shape.Parent = host;
 host.MountedUnit = shape;
-return shape;
+return this.StampCreated(shape, context);
 ```

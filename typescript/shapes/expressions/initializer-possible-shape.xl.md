@@ -72,5 +72,5 @@ return previous instanceof Symbol && previous.Is("=");
 const common = host.Data[tokenIndex] as Common;
 const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(host.Data, tokenIndex));
 common.Replace(operand);
-return operand;
+return this.StampCreated(operand, context);
 ```

@@ -87,5 +87,5 @@ const shape = DebuggerStatementShape.FromKeywordAndSemicolon(keyword, semicolon,
 units.splice(start, tokenIndex - start + 1, shape);
 shape.Parent = host;
 host.MountedUnit = null;
-return shape;
+return this.StampCreated(shape, context);
 ```

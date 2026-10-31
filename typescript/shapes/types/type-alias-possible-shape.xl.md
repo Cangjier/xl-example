@@ -85,5 +85,5 @@ alias.CatalogGuide = new CatalogGuide(
 units.splice(start, nameIndex - start + 1, alias);
 alias.Parent = host;
 host.MountedUnit = alias;
-return alias;
+return this.StampCreated(alias, context);
 ```

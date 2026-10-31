@@ -95,7 +95,7 @@ if (root instanceof BinaryExpressionShape) {
     root.SourceRange.End = -1;
     units.length = 0;
     host.Add(root);
-    return nested;
+    return this.StampCreated(nested, context);
   }
 }
 const binary = BinaryExpressionShape.FromLeftAndOperator(root, operator, info.Precedence, host.Template);
@@ -120,5 +120,5 @@ for (const item of between) {
 // 由运算符候选按优先级提/降，或在边界处由终结候选收口并交还宿主。
 binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
 host.MountedUnit = binary;
-return binary;
+return this.StampCreated(binary, context);
 ```

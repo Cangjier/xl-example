@@ -80,5 +80,5 @@ if (parent.Kind === "switch") {
   parent.CatalogGuide = new CatalogGuide([new ControlBodyPossibleShape()], null);
 }
 parent.MountedUnit = null;
-return expression;
+return this.StampCreated(expression, context);
 ```

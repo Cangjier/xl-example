@@ -74,5 +74,5 @@ control.ElseKeyword = keyword;
 // 三者都由 ControlBodyPossibleShape 认领，它按 `else` 关键字认出这是 else 分支。
 control.CatalogGuide = new CatalogGuide([new ControlBodyPossibleShape()], null);
 host.MountedUnit = null;
-return keyword;
+return this.StampCreated(keyword, context);
 ```

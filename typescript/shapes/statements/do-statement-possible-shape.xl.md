@@ -66,5 +66,5 @@ statement.CatalogGuide = new CatalogGuide([new ControlBodyPossibleShape()], null
 units.splice(tokenIndex, 1, statement);
 statement.Parent = host;
 host.MountedUnit = statement;
-return statement;
+return this.StampCreated(statement, context);
 ```

@@ -64,5 +64,5 @@ units.splice(tokenIndex, 1, block);
 block.Parent = host;
 (host as TryStatementShape).TryBlock = block;
 host.MountedUnit = block;
-return block;
+return this.StampCreated(block, context);
 ```

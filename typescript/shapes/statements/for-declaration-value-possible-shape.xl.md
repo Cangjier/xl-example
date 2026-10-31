@@ -62,5 +62,5 @@ declaration.CatalogGuide = new CatalogGuide(
   new ForDeclarationEndPossibleShape(),
 );
 declaration.MountedUnit = null;
-return operand;
+return this.StampCreated(operand, context);
 ```

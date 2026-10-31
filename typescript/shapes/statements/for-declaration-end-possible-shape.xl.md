@@ -71,5 +71,5 @@ head.CatalogGuide = new CatalogGuide(
   null,
 );
 head.MountedUnit = null;
-return semicolon;
+return this.StampCreated(semicolon, context);
 ```

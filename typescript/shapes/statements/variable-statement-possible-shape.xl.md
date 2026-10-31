@@ -96,5 +96,5 @@ statement.MountedUnit = list;
 units.splice(start, identifierIndex - start + 1, statement);
 statement.Parent = host;
 host.MountedUnit = statement;
-return statement;
+return this.StampCreated(statement, context);
 ```

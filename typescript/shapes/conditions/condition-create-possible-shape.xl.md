@@ -64,5 +64,5 @@ units.splice(tokenIndex, 1, condition);
 condition.Parent = host;
 (host as ControlStatementShape).CatalogGuide = null;
 host.MountedUnit = condition;
-return condition;
+return this.StampCreated(condition, context);
 ```

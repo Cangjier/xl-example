@@ -65,5 +65,5 @@ operand.Parent = host;
 // 测试值之后：`:` 收口，或者接着算二元式。
 (host as CaseClauseShape).CatalogGuide = new CatalogGuide([new CaseColonPossibleShape()], null);
 host.MountedUnit = null;
-return operand;
+return this.StampCreated(operand, context);
 ```

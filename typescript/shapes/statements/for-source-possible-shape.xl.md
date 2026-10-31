@@ -64,5 +64,5 @@ operand.Parent = head;
 head.Right = operand;
 head.CatalogGuide = new CatalogGuide([new ForClosePossibleShape()], null);
 head.MountedUnit = null;
-return operand;
+return this.StampCreated(operand, context);
 ```

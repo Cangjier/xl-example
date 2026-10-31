@@ -146,7 +146,7 @@ if (unit instanceof Symbol && unit.Is("{")) {
     control.Body = block;
   }
   host.MountedUnit = block;
-  return block;
+  return this.StampCreated(block, context);
 }
 // 嵌套 `if` 当 body：建内层 if，挂成本语句的 then / else 分支，后续字符流进它的条件候选。
 if (unit instanceof Common && unit.Is("if")) {
@@ -164,7 +164,7 @@ if (unit instanceof Common && unit.Is("if")) {
     control.Body = statement;
   }
   host.MountedUnit = statement;
-  return statement;
+  return this.StampCreated(statement, context);
 }
 const common = unit as Common;
 const pos = OperandUtil.PositionOf(units, tokenIndex);
@@ -185,7 +185,7 @@ if (isElseBody) {
   control.Body = body;
 }
 host.MountedUnit = body;
-return body;
+return this.StampCreated(body, context);
 ```
 
 ## static method IsElseHead:(host:ControlStatementShape, units:Array<Token>, tokenIndex:int)=>bool

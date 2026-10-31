@@ -73,5 +73,5 @@ const keyword = statement.Data[index] as Common;
 statement.Data.splice(index, 1);
 statement.CatalogGuide = new CatalogGuide([new FinallyBlockPossibleShape()], null);
 statement.MountedUnit = null;
-return keyword;
+return this.StampCreated(keyword, context);
 ```

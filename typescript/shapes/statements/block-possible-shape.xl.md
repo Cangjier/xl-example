@@ -62,5 +62,5 @@ shape.CatalogGuide = StatementGuide.Create(new BlockEndPossibleShape(), [new Blo
 units.splice(tokenIndex, 1, shape);
 shape.Parent = host;
 host.MountedUnit = shape;
-return shape;
+return this.StampCreated(shape, context);
 ```

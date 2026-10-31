@@ -70,5 +70,5 @@ declaration.CatalogGuide = new CatalogGuide(
 // 会让 declaration.Process 的「父单元仍挂着我」判定失败。
 list.MountedUnit = declaration;
 head.MountedUnit = list;
-return equals;
+return this.StampCreated(equals, context);
 ```

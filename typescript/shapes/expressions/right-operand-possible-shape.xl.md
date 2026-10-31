@@ -74,5 +74,5 @@ const operand = OperandUtil.FromCommon(common, OperandUtil.PositionOf(units, tok
 common.Replace(operand);
 // 右操作数到位不等于二元式收口：后面可能还有优先级更松的运算符，或者尾随空白/注释。
 // 这里只把操作数挂上，二元式保持开着，由运算符候选或终结候选决定什么时候封口。
-return operand;
+return this.StampCreated(operand, context);
 ```

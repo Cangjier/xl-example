@@ -131,5 +131,5 @@ return TypeParser.IsBalanced(units, units.length);
 ```ts
 const unit = host.Data[tokenIndex];
 (host as TypeParameterListShape).Finalize(context);
-return unit;
+return this.StampCreated(unit, context);
 ```

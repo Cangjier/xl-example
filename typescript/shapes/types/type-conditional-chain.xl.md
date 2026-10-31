@@ -784,7 +784,7 @@ conditional.CatalogGuide = new CatalogGuide(
   [new TypeConditionalChainPossibleShape()],
   new TypeConditionalEndPossibleShape(),
 );
-return conditional;
+return this.StampCreated(conditional, context);
 ```
 
 # class TypeConditionalChainPossibleShape extends PossibleShape
@@ -848,11 +848,11 @@ const units = conditional.Data;
 const unit = units[tokenIndex];
 if (TypeConditionalUtil.CanOpenTypeReference(units, tokenIndex)) {
   TypeConditionalUtil.OpenTypeReference(conditional, tokenIndex);
-  return conditional;
+  return this.StampCreated(conditional, context);
 }
 if (TypeConditionalUtil.IsOperatorUnit(unit)) {
   TypeConditionalChainPossibleShape.BuildOperator(conditional, tokenIndex, context);
-  return conditional;
+  return this.StampCreated(conditional, context);
 }
 if (unit instanceof Symbol && unit.Closed && unit.Is("]")) {
   const start = TypeConditionalUtil.RunStart(units);
@@ -863,11 +863,11 @@ if (unit instanceof Symbol && unit.Closed && unit.Is("]")) {
       && (units[first] as Symbol).Is("[")
       && target.Last() !== null) {
     TypeConditionalChainPossibleShape.BuildPostfix(conditional, start, first, tokenIndex);
-    return conditional;
+    return this.StampCreated(conditional, context);
   }
 }
 TypeConditionalUtil.ParseRun(conditional, tokenIndex + 1);
-return conditional;
+return this.StampCreated(conditional, context);
 ```
 
 ## private static method BuildPostfix:(conditional:ConditionalTypeShape, start:int, openIndex:int, closeIndex:int)=>void
@@ -1000,7 +1000,7 @@ if (stage < 2) {
   TypeConditionalUtil.TrimTail(units);
   conditional.Stage = stage + 1;
   conditional.SegmentStart = units.length;
-  return unit;
+  return this.StampCreated(unit, context);
 }
 if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   TypeConditionalUtil.ParseRun(conditional, tokenIndex);
@@ -1009,7 +1009,7 @@ if (unit instanceof Symbol && unit.Closed && unit.Is(";")) {
   TypeConditionalUtil.TrimTail(units);
   conditional.TryToClose(context);
   TypeConditionalUtil.FinishAlias(conditional, unit.SourceRange.End, []);
-  return unit;
+  return this.StampCreated(unit, context);
 }
 const previous = ItemUtil.PreviousCode(units, tokenIndex - 1);
 if (previous < 0) {
@@ -1021,7 +1021,7 @@ TypeConditionalUtil.CloseOperators(conditional, context);
 const tail = units.splice(start);
 conditional.TryToClose(context);
 TypeConditionalUtil.FinishAlias(conditional, previousUnit.SourceRange.End, tail);
-return unit;
+return this.StampCreated(unit, context);
 ```
 
 # class TypeArgumentListShape extends TypeShape
@@ -1070,7 +1070,7 @@ return TypeParser.IsBalanced(units, units.length);
 const list = host as TypeArgumentListShape;
 const close = list.Data[list.Data.length - 1];
 TypeConditionalUtil.FinishArgumentList(list);
-return close;
+return this.StampCreated(close, context);
 ```
 
 

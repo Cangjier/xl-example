@@ -66,5 +66,5 @@ declaration.Parent = clause;
 clause.Parameter = declaration;
 clause.CatalogGuide = new CatalogGuide([new CatchCloseParenPossibleShape()], null);
 clause.MountedUnit = null;
-return declaration;
+return this.StampCreated(declaration, context);
 ```

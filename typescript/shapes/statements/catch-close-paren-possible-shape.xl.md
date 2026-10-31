@@ -51,5 +51,5 @@ const close = clause.Data[tokenIndex] as Symbol;
 clause.Data.splice(tokenIndex, 1);
 clause.CatalogGuide = new CatalogGuide([new CatchBlockPossibleShape()], null);
 clause.MountedUnit = null;
-return close;
+return this.StampCreated(close, context);
 ```

@@ -80,5 +80,5 @@ shape.SourceRange.End = operator.SourceRange.End;
 shape.Closed = true;
 units.splice(leftIndex, tokenIndex - leftIndex + 1, shape);
 shape.Parent = host;
-return shape;
+return this.StampCreated(shape, context);
 ```

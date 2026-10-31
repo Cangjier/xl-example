@@ -54,5 +54,5 @@ return unit instanceof Common && unit.Closed && (unit.Is("case") || unit.Is("def
 ```ts
 const token = host.Data[tokenIndex];
 CaseSectionShape.HandBack(host, tokenIndex, context);
-return token;
+return this.StampCreated(token, context);
 ```

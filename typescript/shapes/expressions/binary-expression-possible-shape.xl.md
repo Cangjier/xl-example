@@ -215,7 +215,7 @@ if (host instanceof BinaryExpressionShape) {
       container.Data.splice(at, 1, promoted);
       container.MountedUnit = promoted;
     }
-    return promoted;
+    return this.StampCreated(promoted, context);
   }
 }
 
@@ -237,7 +237,7 @@ if (left instanceof BinaryExpressionShape && left.Closed) {
       nested.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
       units.splice(tokenIndex, 1);
       host.MountedUnit = left;
-      return nested;
+      return this.StampCreated(nested, context);
     }
   }
 }
@@ -260,5 +260,5 @@ for (const item of tail) {
 binary.Parent = host;
 host.MountedUnit = binary;
 binary.CatalogGuide = new CatalogGuide([new RightOperandPossibleShape(), new BinaryExpressionPossibleShape()], new BinaryExpressionEndPossibleShape());
-return binary;
+return this.StampCreated(binary, context);
 ```

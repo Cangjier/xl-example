@@ -65,5 +65,5 @@ head.CatalogGuide = new CatalogGuide([new ForOpenPossibleShape()], null);
 units.splice(tokenIndex, 1, head);
 head.Parent = host;
 host.MountedUnit = head;
-return head;
+return this.StampCreated(head, context);
 ```

@@ -50,5 +50,5 @@ host.SourceRange.End = semicolon.SourceRange.End;
 (host as ControlStatementShape).EndFixed = true;
 host.TryToClose(context);
 host.Quit();
-return semicolon;
+return this.StampCreated(semicolon, context);
 ```

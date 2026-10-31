@@ -71,5 +71,5 @@ return unit instanceof Common && unit.Closed && unit.Is("while");
 // `while` 之后就是条件括号，交给与 if 相同的条件通路。
 (host as ControlStatementShape).CatalogGuide = new CatalogGuide([new ConditionCreatePossibleShape()], null);
 host.MountedUnit = null;
-return host.Data[tokenIndex];
+return this.StampCreated(host.Data[tokenIndex], context);
 ```

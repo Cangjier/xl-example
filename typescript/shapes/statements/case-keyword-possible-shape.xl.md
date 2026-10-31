@@ -70,5 +70,5 @@ clause.CatalogGuide = new CatalogGuide(
 units.splice(tokenIndex, 1, clause);
 clause.Parent = host;
 host.MountedUnit = clause;
-return clause;
+return this.StampCreated(clause, context);
 ```

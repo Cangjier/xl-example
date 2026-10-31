@@ -64,5 +64,5 @@ if (list !== null) {
     statement.Quit();
   }
 }
-return semicolon;
+return this.StampCreated(semicolon, context);
 ```
