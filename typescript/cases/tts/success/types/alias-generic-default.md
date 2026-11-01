@@ -57,7 +57,8 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
-      └─ Symbol  src=[6,7)  text="<"
+      ├─ Symbol  src=[6,7)  text="<"
+      └─ TypeParameterShape  pos=-  src=[-,...)
 ```
 
 ## [char 7] `"T"`
@@ -68,7 +69,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      └─ Common  src=[7,8)  text="T"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         └─ Common  src=[7,8)  text="T"
 ```
 
 ## [char 8] `" "`
@@ -79,8 +81,9 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      └─ WrapSymbol  src=[8,9)  text=" "
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         └─ WrapSymbol  src=[8,9)  text=" "
 ```
 
 ## [char 9] `"="`
@@ -91,9 +94,10 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      └─ Symbol  src=[9,10)  text="="
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         └─ Symbol  src=[9,10)  text="="
 ```
 
 ## [char 10] `" "`
@@ -104,10 +108,11 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      ├─ Symbol  src=[9,10)  text="="
-      └─ WrapSymbol  src=[10,11)  text=" "
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         ├─ Symbol  src=[9,10)  text="="
+         └─ WrapSymbol  src=[10,11)  text=" "
 ```
 
 ## [char 11] `"s"`
@@ -118,11 +123,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      ├─ Symbol  src=[9,10)  text="="
-      ├─ WrapSymbol  src=[10,11)  text=" "
-      └─ Common  src=[11,12)  text="s"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         ├─ Symbol  src=[9,10)  text="="
+         ├─ WrapSymbol  src=[10,11)  text=" "
+         └─ Common  src=[11,12)  text="s"
 ```
 
 ## [char 12] `"t"`
@@ -133,11 +139,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      ├─ Symbol  src=[9,10)  text="="
-      ├─ WrapSymbol  src=[10,11)  text=" "
-      └─ Common  src=[11,13)  text="st"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         ├─ Symbol  src=[9,10)  text="="
+         ├─ WrapSymbol  src=[10,11)  text=" "
+         └─ Common  src=[11,13)  text="st"
 ```
 
 ## [char 13] `"r"`
@@ -148,11 +155,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      ├─ Symbol  src=[9,10)  text="="
-      ├─ WrapSymbol  src=[10,11)  text=" "
-      └─ Common  src=[11,14)  text="str"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         ├─ Symbol  src=[9,10)  text="="
+         ├─ WrapSymbol  src=[10,11)  text=" "
+         └─ Common  src=[11,14)  text="str"
 ```
 
 ## [char 14] `"i"`
@@ -163,11 +171,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      ├─ Symbol  src=[9,10)  text="="
-      ├─ WrapSymbol  src=[10,11)  text=" "
-      └─ Common  src=[11,15)  text="stri"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         ├─ Symbol  src=[9,10)  text="="
+         ├─ WrapSymbol  src=[10,11)  text=" "
+         └─ Common  src=[11,15)  text="stri"
 ```
 
 ## [char 15] `"n"`
@@ -178,11 +187,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      ├─ Symbol  src=[9,10)  text="="
-      ├─ WrapSymbol  src=[10,11)  text=" "
-      └─ Common  src=[11,16)  text="strin"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         ├─ Symbol  src=[9,10)  text="="
+         ├─ WrapSymbol  src=[10,11)  text=" "
+         └─ Common  src=[11,16)  text="strin"
 ```
 
 ## [char 16] `"g"`
@@ -193,11 +203,12 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      ├─ Common  src=[7,8)  text="T"
-      ├─ WrapSymbol  src=[8,9)  text=" "
-      ├─ Symbol  src=[9,10)  text="="
-      ├─ WrapSymbol  src=[10,11)  text=" "
-      └─ Common  src=[11,17)  text="string"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         ├─ Common  src=[7,8)  text="T"
+         ├─ WrapSymbol  src=[8,9)  text=" "
+         ├─ Symbol  src=[9,10)  text="="
+         ├─ WrapSymbol  src=[10,11)  text=" "
+         └─ Common  src=[11,17)  text="string"
 ```
 
 ## [char 17] `">"`

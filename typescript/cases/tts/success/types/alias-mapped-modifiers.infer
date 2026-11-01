@@ -10,7 +10,7 @@ type A<T> = { +readonly [K in keyof T]+?: T[K] }
 SourceFile  pos=0  src=[0,49)   // "【t:0】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,48)   // "type A【<:6】T> =" -> llm "[K] }【⏎:48】"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【<:6】T> ="
-   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<【T:7】> = {"
+   ├─ TypeParameter  pos=7  src=[7,8)   // "type A【<:6】T> =" -> llm "type A<【T:7】> = {"
    │  └─ Identifier  pos=7  src=[7,8)  text="T"   // "type A<T【>:8】= {"
    └─ MappedType  pos=11  src=[12,48)   // ? -> llm "[K] }【⏎:48】"
       ├─ PlusToken  pos=13  src=[14,15)  text="+"   // ? -> llm "= { +【r:15】eadonly"

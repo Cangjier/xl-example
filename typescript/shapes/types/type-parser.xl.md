@@ -167,6 +167,20 @@ if (parser.Index < parser.Limit) {
 return items;
 ```
 
+## static method ParseTypeParameterOnly:(units:Array<Token>, limit:int, template:Template)=>Token
+
+```ts
+// 增量参数表在顶层 `,` / `>` 那一格只切一段：`T`、`T extends X`、`T = Y`。
+// 这一段不带 `<` / `>` / `,`，所以直接走单个参数的文法，不再把整张表重解析一遍。
+const parser = new TypeParser(units, limit, template);
+const parameter = parser.ParseTypeParameter();
+parser.SkipTrivia();
+if (parser.Index < parser.Limit) {
+  throw parser.MakeError("类型参数之后仍有多余单元");
+}
+return parameter;
+```
+
 ## static method ParseTypeArgumentTail:(units:Array<Token>, limit:int, template:Template)=>TypeArgumentTail
 
 ```ts

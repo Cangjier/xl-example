@@ -10,7 +10,7 @@ type A<T> = T extends NS.Array<infer U> ? U : never
 SourceFile  pos=0  src=[0,52)   // "【t:0】ype A"
 └─ TypeAliasDeclaration  pos=0  src=[0,51)   // "type A【<:6】T> =" -> llm "> = T【␣:13】extends"
    ├─ Identifier  pos=4  src=[5,6)  text="A"   // "type A【<:6】T> ="
-   ├─ TypeParameter  pos=7  src=[7,8)   // "type A<【T:7】> = T"
+   ├─ TypeParameter  pos=7  src=[7,8)   // "type A【<:6】T> =" -> llm "type A<【T:7】> = T"
    │  └─ Identifier  pos=7  src=[7,8)  text="T"   // "type A<T【>:8】= T"
    └─ ConditionalType  pos=11  src=[12,51)   // "extends【␣:21】NS.Array" -> llm "U> ?【␣:41】U : never"
       ├─ TypeReference  pos=11  src=[12,13)   // "extends【␣:21】NS.Array" -> llm "> = T【␣:13】extends"

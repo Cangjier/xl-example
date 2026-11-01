@@ -16,6 +16,7 @@ import { TypeAliasDeclarationShape } from "./type-alias-declaration-shape.xl.md"
 import { TypeAliasEndPossibleShape } from "./type-alias-end-possible-shape.xl.md"
 import { TypeFunctionArrowPossibleShape } from "./type-function-incremental.xl.md"
 import { TypeAliasChainPossibleShape } from "./type-conditional-chain.xl.md"
+import { TypeParameterListOpenPossibleShape } from "./type-parameter-list-shape.xl.md"
 ```
 
 # namespace cangjie
@@ -79,7 +80,11 @@ alias.Pos = ItemUtil.PositionOf(units, keywordIndex);
 alias.SignIn(keyword.SourceRange.Start);
 alias.Add(identifier);
 alias.CatalogGuide = new CatalogGuide(
-  [new TypeFunctionArrowPossibleShape(), new TypeAliasChainPossibleShape()],
+  [
+    new TypeParameterListOpenPossibleShape(),
+    new TypeFunctionArrowPossibleShape(),
+    new TypeAliasChainPossibleShape(),
+  ],
   new TypeAliasEndPossibleShape(),
 );
 units.splice(start, nameIndex - start + 1, alias);

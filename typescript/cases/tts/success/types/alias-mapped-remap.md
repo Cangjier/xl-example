@@ -57,7 +57,8 @@ SourceFileShape  pos=-  src=[0,...)
 └─ TypeAliasDeclarationShape  pos=0  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
-      └─ Symbol  src=[6,7)  text="<"
+      ├─ Symbol  src=[6,7)  text="<"
+      └─ TypeParameterShape  pos=-  src=[-,...)
 ```
 
 ## [char 7] `"T"`
@@ -68,7 +69,8 @@ SourceFileShape  pos=-  src=[0,...)
    ├─ IdentifierShape  pos=4  src=[5,6)  text="A"
    └─ TypeParameterListShape  pos=6  src=[6,...)
       ├─ Symbol  src=[6,7)  text="<"
-      └─ Common  src=[7,8)  text="T"
+      └─ TypeParameterShape  pos=-  src=[-,...)
+         └─ Common  src=[7,8)  text="T"
 ```
 
 ## [char 8] `">"`

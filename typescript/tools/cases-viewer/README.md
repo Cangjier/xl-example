@@ -61,8 +61,9 @@ node typescript/tools/cases-viewer/server.mjs --help
 | `未增量` | `CreatedAt` 比 `CreatedRevisionAt` 晚：这颗形状没有在「能确定」的那一格增量建出来 |
 
 `未增量` 是解析器侧的警告，与 LLM 判定无关：`CreatedRevisionAt` 记的是 end 时才拿得到的「本该建在这一格」
-的位置（例如头部 `TypeParameter` 的名字第一格 7），`CreatedAt` 是实际建出形状的格（表收口那一格 8）。
-`created at > revision` 就说明增量创建没有做到这一格；页头会给出 `未增量 N` 的计数，行末也有单独的标记。
+的位置，`CreatedAt` 是实际建出形状的格。`created at > revision` 就说明增量创建没有做到这一格；页头会
+给出 `未增量 N` 的计数，行末也有单独的标记。头部 `TypeParameter` 现在在 `<` 那一格就建出来，所以不再产生
+这条修订。
 
 实际值由 `build/ts` 现算（`typescript/tools/shape-actual.mjs`，和 `case-infer --check` 共用同一份身份规则与
 TS 区间别名表）。页头写「infer 注记 N 个，一致 M」，上方通知条给出 `late/early/unfilled/created ?/never` 的计数；

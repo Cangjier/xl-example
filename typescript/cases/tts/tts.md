@@ -63,9 +63,10 @@ node typescript/tools/gen-case-docs.mjs typescript/cases/tts/success/statements/
 // ? -> llm "let x【␣:5】= 1"                   还没有 CreatedAt
 ```
 
-- `created at`：`ShapeToken.CreatedAt`，possible / end 的 build（含类型参数表 / 实参表的收口）
-  建出这颗形状的那一格。创建那一格拿不到、end 时才拿得到的位置（头部 `TypeParameter` 的名字第一格）
-  记在 `ShapeToken.CreatedRevisionAt`：`.infer` 的 created 列**优先用修订位置**，没有修订才用 `CreatedAt`。
+- `created at`：`ShapeToken.CreatedAt`，possible / end 的 build 建出这颗形状的那一格。
+  `ShapeToken.CreatedRevisionAt` 是「创建时拿不到、end 时才拿得到」的修订位置：`.infer` 的 created 列
+  **优先用修订位置**，没有修订才用 `CreatedAt`。头部 `TypeParameter` 现在在 `<` 那一格就增量建出来
+  （`CreatedAt = <` 的字符），不再回填名字第一格。
   根 `SourceFile` 在第一个字符之前就存在，记 `【字符:0】`；落在 EOF 那一格时记 `【␃:<字符总数>】`；
   还没写 create 入口的形状整行位置记 `?`。
 - `llm determined`：模型按语法逻辑判定的「最早能确定」位置，不看解析器；还没判定时箭头后面记 `?`。

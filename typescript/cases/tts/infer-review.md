@@ -13,6 +13,32 @@
 - 其余 **125 个用例的缺口来自模型口径**：容器等到构造写完、叶子按记号首字符判。它们不是实现的错，但说明 `.infer` 现在还不能当门禁。
 - 生成前修掉了 `case_infer` 的一个解析 bug，否则含 `let` 或数字字面量的用例会整批写不出来（§1）。
 
+## 2026-11-01 修正：TypeParameter 增量创建与 P0
+
+`alias-conditional-infer` 的 TypeParameter 原来读作 created=7 / llm=6（early -1），viewer 还把它标成
+「未增量」。这一行背后有三层问题，已一起修掉：
+
+1. **`TypeAliasDeclarationShape` 覆盖了 `ComputePossibleShapes`（P0）。** IMPORTANCE `R2.10-6` 禁止
+   shape 覆盖它；原来只为了调用 `TypeParameterListShape.TryOpen`。**override 已删除**：`<` 的判定与建表
+   改成 `TypeParameterListOpenPossibleShape`，放进 alias 自己的 `CatalogGuide`；箭头 / 条件类型两个候选
+   在头部 `<` 让位。
+2. **TypeParameter 是整表解析出来的。** 原 `Finalize` 在配平的 `>` 上调用
+   `TypeParser.ParseTypeParameterList` 一次解析整张表。现在表在 `<` 那一格建出，并且**同一格就建出第一颗
+   `TypeParameterShape`**（`CreatedAt = <` 的字符 6），名字/约束/默认值随后流进它自己的 `Data`，到顶层
+   `,` / `>` 再由 `TypeParameterEndPossibleShape` 收成 Identifier/Type；后续参数在各自的 `,` 那一格建出。
+   新增 `TypeParser.ParseTypeParameterOnly` 只解析参数自己那一段。
+3. **`CreatedRevisionAt` 与框架都没有动。** 字段、`ShapeToken`、`PossibleShape`、`shape-actual` 保持原样；
+   头部参数在 6 就建出，不再有「等收口再回填名字第一格」的修订，所以 created 列自然取 `CreatedAt = 6`。
+   如果将来某个形状确实建得比源码起点晚，原修订机制仍然照旧工作。
+
+结果：`alias-conditional-infer` 的 TypeParameter 现在是 created=6 / llm=6（`<` 那一格），`.infer` 的这
+一行只剩一个上下文，viewer 不再有「未增量」标记。prompt 规则 4（「由列表转换出来的节点取列表那一格」）
+保持不变——这次是让实现去满足它。
+
+`success/types/*.infer` 的 created 列已用 `case-infer --format` 全量刷新（11 份文件变化：头部
+TypeParameter 7→6）；这 11 个用例的 `.md` 也重新生成，char 6/7 现在能看到那颗增量建出的空参数。
+下面的统计与附录仍是 **2026-10-31 的基线**。
+
 ## 1. 生成过程与工具修复
 
 ### 1.1 修掉的 bug：TS 区间别名与 canonical 名字不一致
@@ -133,15 +159,15 @@ only-at-signout: StringKeyword|13|14
 | 函数类型参数等到 `=>` | `alias-asserts`：参数 `x` 11 → 23；`alias-fn-type`：参数 `a` 11 → 22 |
 | `infer` 等到 `>` | `alias-conditional-infer`：InferType 33 → 35 |
 | `infer` 的模板头等到反引号 | `alias-template-infer`：TemplateHead 26 → 34 |
-| `TypeParameter` 取 `<`（prompt 规则 4） | 11 行：`alias-conditional-infer` 6 → 8、`alias-generic-tight-close` 7 → 8 |
+| `TypeParameter` 取 `<`（prompt 规则 4） | 已修正：参数在 `<` / 顶层 `,` 那一格增量建出；`alias-conditional-infer` 现在 6 vs 6 |
 
 这些节点自身的 kind 在记号收口时其实已经确定，所以从"最早确定"的角度看可以更早建；
 代价是后面可能需要把它们重新挂到 `ConditionalType` / `FunctionType` 下。
 尖括号那一类还受 `<` 与小于号的歧义限制，属于已知的设计取舍（配平后才收口）。
 
-`TypeParameter` 这一条是**规格与实现互相矛盾**：`dsh-case-infer` 的 prompt 规则 4 说"由列表转换
-出来的节点取列表那一格（`<`）"，而 `type-alias-declaration-shape.xl.md` 的注释说"表自己按 `>`
-收口成 TypeParameter"。两边必须先定一个，否则这 11 行永远是缺口。
+`TypeParameter` 这一条曾是**规格与实现互相矛盾**：`dsh-case-infer` 的 prompt 规则 4 说"由列表转换
+出来的节点取列表那一格（`<`）"，而实现把 TypeParameter 等到 `>` 才整表解析。现已按规则 4 改实现
+（见开头 2026-11-01 修正）：参数在 `<` / 顶层 `,` 那一格就建出来，不再有第二套口径。
 
 #### C. 实现偏早 —— 5 个节点
 
@@ -211,8 +237,8 @@ BinaryExpression  pos=7  src=[8,19)   ← 外层
 1. **先定口径，再重生成。** 当前 125 个用例是模型口径偏差。把规则写死成两条：
    叶子取记号收口格（`src` 的 `end`）、容器取"kind 已确定"的提交格，并用 `let x = 1`
    的示例固化；然后只重生成模型口径的用例（`overwrite: true`）。
-2. **处理 `TypeParameter` 的规则 4。** 要么把规则改成"列表收口（`>`）那一格"，
-   要么把实现改成在 `<` 就建 TypeParameter；现在两边各说一套。
+2. **处理 `TypeParameter` 的规则 4。** 已处理：实现改成在 `<` / 顶层 `,` 那一格增量建参数，
+   与规则 4 的「列表那一格」一致（见开头 2026-11-01 修正）。
 3. **节点身份加 `depth`。** 解决 14 个无法生成的用例，也让 viewer / `--check` 能区分
    嵌套的同类节点。
 4. **类型层增量建树。** 优先 type literal / mapped / tuple / array：在 `}` / `]` / `)` / `>`

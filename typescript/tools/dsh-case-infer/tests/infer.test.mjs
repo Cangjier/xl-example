@@ -94,25 +94,20 @@ test('正确的模型输出：写盘 + 对拍', async (t) => {
   assert.match(text, /^```ts$/m)
   assert.match(text, /^type A<T> = T extends Array<infer U> \? U : never$/m)
   // 两个位置相同：只写一个上下文，位置在 【字符:N】 里。
-  assert.match(text, /\/\/ "type A【<:6】T> ="/)
-  // 位置不同：再跟 `-> llm "…"`。头部 TypeParameter 实际建在 8（表收口），
-  // 但 CreatedRevisionAt 记的是名字第一格 7，.infer 的 created 列优先用它。
-  assert.match(
-    text,
-    /\/\/ "type A<【T:7】> = T" -> llm "type A【<:6】T> ="/,
-  )
+  // 头部 TypeParameter 也在 `<` 那一格就增量建出来，created 与 llm 的列表格一致。
+  assert.ok((text.match(/"type A【<:6】T> ="/g) ?? []).length >= 2)
   assert.equal(text.includes('-> llm ?'), false)
   // 根在第一个字符之前就存在：位置 0。
   assert.match(text, /\/\/ "【t:0】ype A"/)
   // 这颗形状还没写 create 入口：created 侧记 ?，不是拿别的格冒充。
   assert.match(text, /\/\/ \? -> llm "Array【<:27】infer"/)
 
-  // created at 来自 shape token：7 一致 / 4 early / 5 没有 CreatedAt
-  // （根 SourceFile 记 0；头部 TypeParameter 的 created 取修订位置 7）
+  // created at 来自 shape token：8 一致 / 3 early / 5 没有 CreatedAt
+  // （根 SourceFile 记 0；头部 TypeParameter 建在 `<` 的 6）
   assert.equal(result.check.available, true)
   assert.equal(result.check.total, 16)
-  assert.equal(result.check.ok, 7)
-  assert.equal(result.check.early, 4)
+  assert.equal(result.check.ok, 8)
+  assert.equal(result.check.early, 3)
   assert.equal(result.check.unknown, 5)
 })
 

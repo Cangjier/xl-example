@@ -16,6 +16,7 @@ import { ItemUtil } from "../item-util.xl.md"
 import { OperandUtil } from "../expressions/operand-util.xl.md"
 import { TypeParser } from "./type-parser.xl.md"
 import { TypeShape } from "./type-shape.xl.md"
+import { TypeParameterListShape } from "./type-parameter-list-shape.xl.md"
 import { ConditionalTypeShape } from "./type-node-shapes.xl.md"
 import { UnionTypeShape } from "./type-node-shapes.xl.md"
 import { IntersectionTypeShape } from "./type-node-shapes.xl.md"
@@ -684,6 +685,10 @@ TypeConditionalUtil.CloseOperators(conditional, context);
 const units = host.Data;
 if (tokenIndex < 0 || tokenIndex >= units.length) {
   return ShapeStates.Uncertain;
+}
+// 头部 `<` 只能是类型参数表：让位给 TypeParameterListOpenPossibleShape（它只在这一格 Accept）。
+if (TypeParameterListShape.IsHeaderOpen(units, tokenIndex)) {
+  return ShapeStates.Reject;
 }
 if (TypeConditionalUtil.IsAliasEnd(units, tokenIndex)) {
   return ShapeStates.Reject;
